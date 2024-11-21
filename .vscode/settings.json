@@ -1,0 +1,17 @@
+{
+  "editor.inlayHints.enabled": "off",
+  "deno.enable": true,
+  "deno.lint": true,
+  "deno.unstable": true,
+  "deno.suggest.imports.autoDiscover": true,
+  "workbench.startupEditor": "readme",
+  "editor.defaultFormatter": "denoland.vscode-deno",
+  "editor.formatOnSave": true,
+
+  "lpubsppop01.autoTimeStamp.luxonFormat": "yyyy-LL-dd",
+  "lpubsppop01.autoTimeStamp.modifiedTimeStart": "updated: \"",
+  "lpubsppop01.autoTimeStamp.modifiedTimeEnd": "\"$",
+  "lpubsppop01.autoTimeStamp.birthTimeStart": "zxcvasdfqwewr",
+  "lpubsppop01.autoTimeStamp.lineLimit": 8,
+  "lpubsppop01.autoTimeStamp.filenamePattern": ".md$"
+}
