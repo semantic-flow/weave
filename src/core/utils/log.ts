@@ -26,6 +26,18 @@ export function setLogLevel(newLevel: LevelName) {
   log.info(`Log level set to ${newLevel}`);
 }
 
+export function setLogLevelFromCLI(debug: string) {
+  const level = debug.toUpperCase() as LevelName;
+  const validLevels: LevelName[] = ["DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"];
+  if (validLevels.includes(level)) {
+    setLogLevel(level);
+  } else {
+    log.warn(`Invalid log level: ${debug}. Defaulting to INFO.`);
+    setLogLevel("INFO");
+  }
+}
+
+
 const COLOR_TAG_REG = /<(\w+)>([^<]+)<\/\1>/g;
 
 /**

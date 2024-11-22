@@ -1,8 +1,7 @@
 // src/cli.ts
 
 import { Command } from "./deps/cliffy.ts";
-import { log, setLogLevel } from "../src/core/utils/log.ts";
-import type { LevelName } from "./deps/log.ts";
+import { log, setLogLevelFromCLI } from "../src/core/utils/log.ts";
 import type { CommandOptions } from "./types.ts";
 
 // Define the top-level 'weave' command with subcommands
@@ -15,15 +14,8 @@ const weave = new Command()
   .globalOption("-d, --dest <directory:string>", "Output directory", { default: "_woven" })
   .globalOption("-r, --repoDir <directory:string>", "Repository directory", { default: "_source_repos" })
   .action((async ({ debug }: CommandOptions) => {
-    // Set the log level based on CLI option
-    const level = debug.toUpperCase() as LevelName;
-    const validLevels: LevelName[] = ["DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"];
-    if (validLevels.includes(level)) {
-      setLogLevel(level);
-    } else {
-      log.warn(`Invalid log level: ${debug}. Defaulting to INFO.`);
-      setLogLevel("INFO");
-    }
+    const debugLevel = debug ?? "INFO"; // Default to "INFO" if undefined
+    setLogLevelFromCLI(debugLevel);
   }))
 // Attach subcommands
 /*.command("build", buildCommand)
@@ -32,6 +24,6 @@ const weave = new Command()
 try {
   await weave.parse(Deno.args);
 } catch (error) {
-  console.error(Deno.inspect(error, { colors: true }));
+  log.error(Deno.inspect(error, { colors: true }));
   Deno.exit(1);
 }

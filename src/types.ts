@@ -1,4 +1,4 @@
-interface CommandOptions {
+export interface CommandOptions {
   debug?: string;
   config?: string;
   dest?: string;
