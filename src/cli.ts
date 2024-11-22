@@ -1,32 +1,37 @@
 // src/cli.ts
 
-import { Command } from "jsr:@cliffy/command@^1.0.0-rc.7";
-import { setLogLevel, LogLevel } from "./utils/logger.ts";
+import { Command } from "./deps/cliffy.ts";
+import { log, setLogLevel } from "../src/core/utils/log.ts";
+import type { LevelName } from "./deps/log.ts";
+import type { CommandOptions } from "./types.ts";
 
 // Define the top-level 'weave' command with subcommands
-const { options } = await new Command()
+const weave = new Command()
   .name("weave")
   .version("0.1.0")
   .description("A dynamic CLI tool for remixing static sites")
+  .globalOption("--debug [level:string]", "Set log level (DEBUG, INFO, WARN, ERROR, CRITICAL)", { default: "INFO" })
   .globalOption("-c, --config <file:string>", "Path to config file", { default: "weave.config.ts" })
   .globalOption("-d, --dest <directory:string>", "Output directory", { default: "_woven" })
   .globalOption("-r, --repoDir <directory:string>", "Repository directory", { default: "_source_repos" })
-  .option("--debug [level:string]", "Set log level (INFO, WARN, ERROR)", { default: "INFO" })
-  //deno-lint-ignore no-explicit-any
-  .action((options: any) => {
+  .action((async ({ debug }: CommandOptions) => {
     // Set the log level based on CLI option
-    const level = options.debug.toUpperCase() as LogLevel;
-    if (Object.values(LogLevel).includes(level)) {
+    const level = debug.toUpperCase() as LevelName;
+    const validLevels: LevelName[] = ["DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"];
+    if (validLevels.includes(level)) {
       setLogLevel(level);
     } else {
-      console.warn(`Invalid log level: ${options.logLevel}. Defaulting to INFO.`);
-      setLogLevel(LogLevel.INFO);
+      log.warn(`Invalid log level: ${debug}. Defaulting to INFO.`);
+      setLogLevel("INFO");
     }
-  })
-  // Attach subcommands
-  /*  .command("list", listSubcommand)
-    .command("build", buildSubcommand)
-    .command("monitor", monitorSubcommand)*/
-  .parse(Deno.args);
-
-if (options.debug) console.log(options)
+  }))
+// Attach subcommands
+/*.command("build", buildCommand)
+  .command("list", listSubcommand)
+  .command("monitor", monitorSubcommand)*/
+try {
+  await weave.parse(Deno.args);
+} catch (error) {
+  console.error(Deno.inspect(error, { colors: true }));
+  Deno.exit(1);
+}

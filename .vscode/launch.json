@@ -24,30 +24,19 @@
             "killBehavior": "forceful",
             "autoAttachChildProcesses": true,
             "args": [
-                "-d"
+                "--debug INFO"
             ]
-        }
-        /*{
-            "request": "launch",
-            "name": "lume serve ",
+        },
+        {
+            "name": "Attach to Deno",
             "type": "node",
-            "cwd": "${workspaceFolder}",
-            "env": {},
-            "runtimeExecutable": "/home/drichardson/.deno/bin/deno",
-            "runtimeArgs": [
-                "run",
-                "--inspect-brk",
-                "-A",
-                "./deps/lume/cli.ts",
-                "--config",
-                "./lume/_config.js",
-                "-s",
-            ],
-            "attachSimplePort": 9229,
-            "outputCapture": "std",
-            "console": "integratedTerminal",
-            "killBehavior": "forceful",
-            "autoAttachChildProcesses": true,
-        } */
+            "request": "attach",
+            "port": 9229,
+            "address": "localhost",
+            "restart": false,
+            "sourceMaps": true,
+            "outFiles": ["${workspaceFolder}/**/*.ts"],
+            "internalConsoleOptions": "neverOpen"
+        }
     ]
 }
