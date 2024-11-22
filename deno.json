@@ -1,27 +1,24 @@
 {
-    "tasks": {
-      "start": "deno run --allow-read --allow-write --allow-env --allow-run src/cli/weave.ts",
-      "dev": "deno run --watch --allow-read --allow-write --allow-env --allow-run src/cli/weave.ts",
-      "test": "deno test --allow-read --allow-env --allow-run tests/"
-    },
-    "compilerOptions": {
-      "strict": true,
-      "target": "ES2022",
-      "lib": ["deno.ns", "deno.unstable", "dom"],
-      "types": []
-    },
-    /*"importMap": "./import_map.json",*/
-    "fmt": {
-      "useTabs": false,
-      "lineWidth": 80,
-      "indentWidth": 2,
-      "singleQuote": false,
-      "proseWrap": "always"
-    },
-    "lint": {
-      "rules": {
-        "tags": ["recommended"]
-      }
+  "tasks": {
+    "start": "deno run --allow-read --allow-write --allow-env --allow-run src/cli/weave.ts",
+    "dev": "deno run --watch --allow-read --allow-write --allow-env --allow-run src/cli/weave.ts",
+    "test": "deno test --allow-read --allow-env --allow-run tests/"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "lib": ["deno.ns", "deno.unstable", "dom"],
+    "types": []
+  },
+  "fmt": {
+    "useTabs": false,
+    "lineWidth": 80,
+    "indentWidth": 2,
+    "singleQuote": false,
+    "proseWrap": "always"
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
     }
   }
-  
+}
