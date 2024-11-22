@@ -1,44 +1,21 @@
 // src/cli.ts
 
 import { Command } from "jsr:@cliffy/command@^1.0.0-rc.7";
-import { listCommand } from "./cli/listCommand.ts";
-import { buildCommand } from "./cli/buildCommand.ts";
-import { monitorCommand } from "./cli/monitorCommand.ts";
-import { repoInitCommand } from "./cli/repo/init.ts";
-import { setLogLevel, LogLevel } from "./core/utils/logger.ts";
-
-// Define 'list' subcommand
-const listSubcommand = new Command()
-  .name("list")
-  .description("List all inclusion sources")
-  .action((options: { config: string }) => listCommand(options));
-
-// Define 'build' subcommand
-const buildSubcommand = new Command()
-  .name("build")
-  .description("Build the static site from the woven directory")
-  .action((options: { out: string }) => buildCommand(options));
-
-// Define 'monitor' subcommand
-const monitorSubcommand = new Command()
-  .name("monitor")
-  .description("Monitor and sync files to the output directory")
-  .action((options: { config: string; out: string; repoDir: string }) => monitorCommand(options));
-
-
+import { setLogLevel, LogLevel } from "./utils/logger.ts";
 
 // Define the top-level 'weave' command with subcommands
-await new Command()
+const { options } = await new Command()
   .name("weave")
-  .version("1.0.0")
+  .version("0.1.0")
   .description("A dynamic CLI tool for remixing static sites")
   .globalOption("-c, --config <file:string>", "Path to config file", { default: "weave.config.ts" })
-  .option("-o, --out <directory:string>", "Output directory", { default: "_woven" })
-  .option("-r, --repoDir <directory:string>", "Repository directory", { default: "repos" })
-  .option("--log-level <level:string>", "Set log level (INFO, WARN, ERROR)", { default: "INFO" })
-  .action((options) => {
+  .globalOption("-d, --dest <directory:string>", "Output directory", { default: "_woven" })
+  .globalOption("-r, --repoDir <directory:string>", "Repository directory", { default: "_source_repos" })
+  .option("--debug [level:string]", "Set log level (INFO, WARN, ERROR)", { default: "INFO" })
+  //deno-lint-ignore no-explicit-any
+  .action((options: any) => {
     // Set the log level based on CLI option
-    const level = options.logLevel.toUpperCase() as LogLevel;
+    const level = options.debug.toUpperCase() as LogLevel;
     if (Object.values(LogLevel).includes(level)) {
       setLogLevel(level);
     } else {
@@ -47,7 +24,9 @@ await new Command()
     }
   })
   // Attach subcommands
-  .command("list", listSubcommand)
-  .command("build", buildSubcommand)
-  .command("monitor", monitorSubcommand)
+  /*  .command("list", listSubcommand)
+    .command("build", buildSubcommand)
+    .command("monitor", monitorSubcommand)*/
   .parse(Deno.args);
+
+if (options.debug) console.log(options)

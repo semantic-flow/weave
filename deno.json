@@ -1,7 +1,7 @@
 {
   "tasks": {
-    "start": "deno run --allow-read --allow-write --allow-env --allow-run src/cli/weave.ts",
-    "dev": "deno run --watch --allow-read --allow-write --allow-env --allow-run src/cli/weave.ts",
+    "cli": "deno run --allow-read --allow-write --allow-env --allow-run src/cli.ts",
+    "dev": "deno run --watch --allow-read --allow-write --allow-env --allow-run src/weave.ts",
     "test": "deno test --allow-read --allow-env --allow-run tests/"
   },
   "compilerOptions": {

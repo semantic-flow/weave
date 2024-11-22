@@ -24,7 +24,7 @@
             "killBehavior": "forceful",
             "autoAttachChildProcesses": true,
             "args": [
-                "--help"
+                "-d"
             ]
         }
         /*{
