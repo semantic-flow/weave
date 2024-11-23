@@ -21,9 +21,15 @@ const weave = new Command()
 /*.command("build", buildCommand)
   .command("list", listSubcommand)
   .command("monitor", monitorSubcommand)*/
+
 try {
   await weave.parse(Deno.args);
 } catch (error) {
-  log.error(Deno.inspect(error, { colors: true }));
+  if (error instanceof Error) {
+    log.error(`Error occurred while parsing the command: ${error.message}`);
+    log.debug(Deno.inspect(error, { colors: true }));
+  } else {
+    log.error("An unknown error occurred.");
+  }
   Deno.exit(1);
 }
