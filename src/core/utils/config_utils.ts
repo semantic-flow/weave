@@ -1,6 +1,44 @@
 // config_utils.ts
 
-import { WeaveConfig } from '../../types.ts';
+
+import { log } from "./log.ts";
+import { WeaveConfig, GlobalOptions, Inclusion, GitOptions, HttpOptions, LocalOptions } from "../../types.ts";
+
+const DEFAULT_GLOBAL: GlobalOptions = {
+  repoDir: "_source_repos",
+  dest: "_woven",
+};
+
+export function processConfig(config: WeaveConfig) {
+  const globalConfig = {
+    ...DEFAULT_GLOBAL,
+    ...config.global, // User-provided overrides
+  };
+
+  console.log(`Using repoDir: ${globalConfig.repoDir}`);
+  console.log(`Using dest: ${globalConfig.dest}`);
+
+  config.inclusions.forEach((inclusion) => {
+    const options = inclusion.options || {};
+
+    if (options.excludeByDefault === undefined) {
+      options.excludeByDefault = true;
+    }
+
+    switch (inclusion.type) {
+      case "git+ssh":
+      case "git+https":
+        processGitInclusion(inclusion, options as GitOptions);
+        break;
+      case "http":
+        processHttpInclusion(inclusion, options as HttpOptions);
+        break;
+      case "local":
+        processLocalInclusion(inclusion, options as LocalOptions);
+        break;
+    }
+  });
+}
 
 /** Returns the path of the configuration file */
 export async function getConfigFilePath(
@@ -14,7 +52,7 @@ export async function getConfigFilePath(
       throw new Error(`Config file not found at specified path: ${path}`);
     }
   }
-  
+
   for (const defaultPath of defaultPaths) {
     try {
       return await Deno.realPath(defaultPath);
@@ -32,6 +70,12 @@ export async function loadWeaveConfigFromJson(filePath: string): Promise<WeaveCo
     const data = await Deno.readTextFile(filePath);
     return JSON.parse(data) as WeaveConfig;
   } catch (error) {
-    throw new Error(`Failed to load or parse JSON config file: ${filePath}. Error: ${error.message}`);
+    if (error instanceof Error) {
+      log.error(`Error occurred while parsing the command: ${error.message}`);
+      log.debug(Deno.inspect(error, { colors: true }));
+    } else {
+      log.error("An unknown error occurred.");
+    }
+    throw error; // Re-throwing the error ensures that the promise is rejected
   }
 }

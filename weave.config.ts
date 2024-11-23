@@ -1,10 +1,19 @@
-export const weaveConfig = {
+// weave.config.ts
+
+import { WeaveConfig } from "./src/types.ts";
+
+export const weaveConfig: WeaveConfig = {
+  global: {
+    repoDir: "_source-repos", // Directory for cloned repositories
+    dest: "_woven", // Directory for woven output, relative to cwd
+  },
   inclusions: [
     {
       name: "lumenous-template with demo content",
       type: "git+ssh",
       url: "git@github.com:djradon/lumenous-template.git",
       options: {
+        branch: "template", // Optional branch specified
         include: ["demo", "lumenous-template"],
         exclude: [],
         excludeByDefault: false,
@@ -16,6 +25,7 @@ export const weaveConfig = {
       type: "git+https",
       url: "https://github.com/another-repo/example.git",
       options: {
+        active: false,
         include: ["src", "docs"],
         exclude: ["tests"],
         excludeByDefault: false,
@@ -36,6 +46,6 @@ export const weaveConfig = {
         exclude: ["tests"],
         excludeByDefault: false,
       },
-    }
+    },
   ],
 };

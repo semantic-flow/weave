@@ -15,7 +15,7 @@
             "runtimeArgs": [
                 "run",
                 "--unstable",
-                "--inspect-wait",
+                "--inspect",
                 "--allow-all"
             ],
             "attachSimplePort": 9229,
@@ -24,7 +24,8 @@
             "killBehavior": "forceful",
             "autoAttachChildProcesses": true,
             "args": [
-                "--debug INFO"
+                "--debug",
+                "INFO"
             ]
         },
         {
