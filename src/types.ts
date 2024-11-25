@@ -18,6 +18,9 @@ export type InclusionType = "git+ssh" | "git+https" | "http" | "local";
 // Define copy strategy using string literals
 export type CopyStrategy = "no-overwrite" | "overwrite" | "skip" | "prompt";
 
+export const validCopyStrategies: CopyStrategy[] = ["no-overwrite", "overwrite", "skip", "prompt"];
+
+
 // Define common properties across different inclusion options
 export interface CommonOptions {
   active?: boolean;

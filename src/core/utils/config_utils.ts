@@ -30,7 +30,7 @@ export async function getConfigFilePath(
       if (url.protocol === "http:" || url.protocol === "https:") {
         // If it's a URL, and you allow dynamic config, return as is if it's JSON
         const ext = path.split(".").pop()?.toLowerCase();
-        if (ext === "json") {
+        if (ext === "json" || ext === "jsonld") {
           return path;
         } else {
           throw new Error("Remote config must be a JSON file.");
@@ -90,7 +90,7 @@ export async function loadWeaveConfig(filePath: string): Promise<WeaveConfig> {
       if (ext === "json") {
         const data = await Deno.readTextFile(filePath);
         const parsed = JSON.parse(data) as WeaveConfig;
-        
+
         // Validate that 'inclusions' is present and is an array
         if (!parsed.inclusions || !Array.isArray(parsed.inclusions)) {
           throw new Error("'inclusions' must be an array in the configuration file.");

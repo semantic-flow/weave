@@ -2,7 +2,7 @@
 
 import { Command } from "https://deno.land/x/cliffy@v0.25.7/mod.ts";
 import { log, setLogLevelFromCLI } from "./core/utils/logging.ts";
-import { CommandOptions, WeaveConfig, CopyStrategy } from "./types.ts";
+import { CommandOptions, WeaveConfig, CopyStrategy, validCopyStrategies } from "./types.ts";
 import { Frame } from "./core/Frame.ts";
 import { composeWeaveConfig } from "./cli/configHelper.ts";
 
@@ -22,8 +22,7 @@ const weave = new Command()
 
   .option(
     "-c, --config <file:string>",
-    "Path to config file",
-    { default: "weave.config.json" }
+    "Path to config file"
   )
 
   .option(
@@ -60,7 +59,6 @@ const weave = new Command()
     };
 
     // Validate 'copyStrategy' if it's provided
-    const validCopyStrategies: CopyStrategy[] = ["no-overwrite", "overwrite", "skip", "prompt"];
     if (commandOptions.copyStrategy && !validCopyStrategies.includes(commandOptions.copyStrategy)) {
       log.error(`Invalid copy strategy: ${commandOptions.copyStrategy}. Must be one of: ${validCopyStrategies.join(", ")}`);
       Deno.exit(1);
@@ -78,6 +76,7 @@ const weave = new Command()
 
       // Proceed with the rest of your CLI's main functionality using frame.config
       log.info("Configuration successfully loaded and Frame initialized.");
+      log.info(`Detailed config: ${Deno.inspect(frame.config)}`);
       // Example: log.debug("Detailed config:", frame.getConfig());
 
       // Placeholder for further actions like building the site
