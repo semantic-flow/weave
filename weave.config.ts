@@ -6,6 +6,8 @@ export const weaveConfig: WeaveConfig = {
   global: {
     repoDir: "_source-repos", // Directory for cloned repositories
     dest: "_woven", // Directory for woven output, relative to cwd
+    copyStrategy: "no-overwrite",
+    clean: true,
   },
   inclusions: [
     {
@@ -36,7 +38,7 @@ export const weaveConfig: WeaveConfig = {
       type: "http",
       url: "https://raw.githubusercontent.com/djradon/public-notes/refs/heads/main/ar.the-rdf-net-challenge.md",
       options: {
-        excludeByDefault: true,
+        copyStrategy: "no-overwrite",
       },
     },
     {

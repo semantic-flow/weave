@@ -43,7 +43,7 @@ updated: "2024-11-22"
   - silent options,
 - weave build: prepare and then copy all specified directories and files for
   active inclusions into dest dir, by inclusion order.
-  - clean-option: clean | no-clean
+  - clean: true | false
   - global-copy-strategy: overwrite | no-overwrite | prompt
   - per-inclusion copy-strategy: overwrite | no-overwrite | prompt
 - weave monitor: detects changes in active inclusions and copies them to dest
@@ -51,6 +51,8 @@ updated: "2024-11-22"
   up-to-date, no collisions, build with prompt)
 
 ## Copying strategies
+
+- `no-overwrite`: is the safe option where the copy will fail if a collision is detected; it only really makes sense if clean is true
 
 With a copying strategy of "overwrite", the order matters, so we should probably
 include a inclusions: order: key that takes an integer, and on build inclusion

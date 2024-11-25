@@ -1,6 +1,6 @@
 // src/core/utils/runGitCommand.ts
 
-import { log } from "./log.ts";
+import { log } from "./logging.ts";
 
 /**
  * Executes a Git command within a specified repository path using Deno.Command.
