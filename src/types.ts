@@ -53,19 +53,19 @@ export type Inclusion =
     type: "git+ssh" | "git+https";
     name?: string;
     url: string;
-    options?: GitOptions; // Made optional
+    options?: GitOptions; 
   }
   | {
     type: "http";
     name?: string;
     url: string;
-    options?: HttpOptions; // Made optional
+    options?: HttpOptions; 
   }
   | {
     type: "local";
     name?: string;
     url: string;
-    options?: LocalOptions; // Made optional
+    options?: LocalOptions; 
   };
 
 // Define the Global options interface
@@ -74,6 +74,7 @@ export interface GlobalOptions {
   dest?: string;
   copyStrategy?: CopyStrategy;
   clean?: boolean;
+  configFilePath?: string; 
 }
 
 // Define the main configuration interface

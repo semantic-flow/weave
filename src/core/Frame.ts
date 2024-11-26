@@ -2,31 +2,26 @@
 
 import { WeaveConfig } from "../types.ts";
 
-/**
- * The Frame class holds the application's configuration.
- * It can be implemented as a singleton to maintain a single configuration state.
- */
 export class Frame {
-  private static instance: Frame;
+  private static instance: Frame | null = null;
   public config: WeaveConfig;
 
-  /**
-   * Private constructor to prevent direct instantiation.
-   * @param config The composed WeaveConfig object.
-   */
+  // Private constructor to prevent direct instantiation
   private constructor(config: WeaveConfig) {
     this.config = config;
+    // Initialize other properties or perform setup tasks here
   }
 
   /**
    * Retrieves the singleton instance of Frame.
-   * @param config The composed WeaveConfig object (only used on first call).
-   * @returns The Frame instance.
+   * If it doesn't exist, it initializes it with the provided config.
+   * @param config Optional WeaveConfig to initialize Frame if it hasn't been initialized yet.
+   * @returns The singleton Frame instance.
    */
   public static getInstance(config?: WeaveConfig): Frame {
     if (!Frame.instance) {
       if (!config) {
-        throw new Error("Frame has not been initialized with a WeaveConfig.");
+        throw new Error("Frame has not been initialized yet. Provide a WeaveConfig.");
       }
       Frame.instance = new Frame(config);
     }
@@ -34,19 +29,20 @@ export class Frame {
   }
 
   /**
-   * Allows updating the configuration if needed.
-   * This method ensures that Frame maintains a consistent state.
-   * @param newConfig The new WeaveConfig to merge with the existing config.
+   * Resets the Frame singleton instance.
+   * Useful for reinitializing with a new configuration.
    */
-  public updateConfig(newConfig: WeaveConfig): void {
-    this.config = { ...this.config, ...newConfig };
+  public static resetInstance(): void {
+    Frame.instance = null;
   }
 
   /**
-   * Retrieves the current configuration.
-   * @returns The current WeaveConfig object.
+   * Checks if the Frame singleton has been initialized.
+   * @returns `true` if initialized, `false` otherwise.
    */
-  public getConfig(): WeaveConfig {
-    return this.config;
+  public static isInitialized(): boolean {
+    return Frame.instance !== null;
   }
+
+  // Add other methods as needed
 }

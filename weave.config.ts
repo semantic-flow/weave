@@ -38,6 +38,7 @@ export const weaveConfig: WeaveConfig = {
       type: "http",
       url: "https://raw.githubusercontent.com/djradon/public-notes/refs/heads/main/ar.the-rdf-net-challenge.md",
       options: {
+        active: true,
         copyStrategy: "no-overwrite",
       },
     },
