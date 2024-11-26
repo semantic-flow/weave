@@ -200,7 +200,7 @@ export async function watchConfigFile(configFilePath: string): Promise<void> {
  * @param commandOptions Command-line options to override configurations.
  * @returns The fully composed WeaveConfig object.
  */
-export async function composeWeaveConfig(commandOptions: CommandOptions): Promise<WeaveConfig> {
+export async function composeWeaveConfig(commandOptions?: CommandOptions): Promise<WeaveConfig> {
   // Step 1: Start with default global options
   const defaultConfig: WeaveConfig = {
     global: { ...DEFAULT_GLOBAL },
@@ -212,7 +212,7 @@ export async function composeWeaveConfig(commandOptions: CommandOptions): Promis
 
   // Step 3: Load and merge configuration file if provided
   let configFilePath: string | undefined;
-  if (commandOptions.config) {
+  if (commandOptions?.config) {
     try {
       const resolvedPath = await getConfigFilePath(commandOptions.config);
       if (resolvedPath) {
@@ -243,10 +243,11 @@ export async function composeWeaveConfig(commandOptions: CommandOptions): Promis
   // Step 4: Merge command-line options
   const commandConfig: Partial<WeaveConfig> = {
     global: {
-      repoDir: commandOptions.repoDir,
-      dest: commandOptions.dest,
-      globalCopyStrategy: commandOptions.globalCopyStrategy,
-      globalClean: commandOptions.globalClean,
+      repoDir: commandOptions?.repoDir,
+      dest: commandOptions?.dest,
+      globalCopyStrategy: commandOptions?.globalCopyStrategy,
+      globalClean: commandOptions?.globalClean,
+      watchConfig: commandOptions?.watchConfig,
     },
     // Future: Add more mappings for additional command-line options
   };

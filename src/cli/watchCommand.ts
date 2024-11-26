@@ -8,7 +8,8 @@ export const watchCommand = new Command()
   .description("Watch the inclusions (and optionally the configuration file) for changes")
   .action(async () => {
     const frame = Frame.getInstance();
-    // Start watching the configuration file if the path is available
+
+    // Start watching the configuration file if the path is available and option set
     if (frame.config.global?.configFilePath && frame.config.global.watchConfig) {
       // Start watching in a separate, non-blocking async task
       try {
@@ -24,6 +25,9 @@ export const watchCommand = new Command()
       };
       log.info("Watching the configuration file for changes...");
     }
+
+    // Start watching the inclusions
+    
   });
 
 
