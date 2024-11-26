@@ -6,8 +6,9 @@ export interface CommandOptions {
   config?: string;
   dest?: string;
   repoDir?: string;
-  clean?: boolean;
-  copyStrategy?: CopyStrategy;
+  globalClean?: boolean;
+  globalCopyStrategy?: CopyStrategy;
+  watchConfig?: boolean;
 }
 
 // Config-related types
@@ -53,28 +54,29 @@ export type Inclusion =
     type: "git+ssh" | "git+https";
     name?: string;
     url: string;
-    options?: GitOptions; 
+    options?: GitOptions;
   }
   | {
     type: "http";
     name?: string;
     url: string;
-    options?: HttpOptions; 
+    options?: HttpOptions;
   }
   | {
     type: "local";
     name?: string;
     url: string;
-    options?: LocalOptions; 
+    options?: LocalOptions;
   };
 
 // Define the Global options interface
 export interface GlobalOptions {
   repoDir?: string;
   dest?: string;
-  copyStrategy?: CopyStrategy;
-  clean?: boolean;
-  configFilePath?: string; 
+  globalCopyStrategy?: CopyStrategy;
+  globalClean?: boolean;
+  configFilePath?: string;
+  watchConfig?: boolean;
 }
 
 // Define the main configuration interface

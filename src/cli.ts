@@ -1,53 +1,55 @@
 // src/cli.ts
 
-import { Command } from "https://deno.land/x/cliffy@v0.25.7/mod.ts";
+import { Command } from "./deps/cliffy.ts";
 import { log } from "./core/utils/logging.ts";
 import { CommandOptions, CopyStrategy } from "./types.ts";
-import { handleConfigAction } from "./cli/configHelper.ts"; // Import the updated handler
+import { handleConfigAction } from "./cli/configHelper.ts";
+import { reposCommand } from "./cli/reposCommand.ts";
+import { watchCommand } from "./cli/watchCommand.ts";
 
 const weave = new Command()
   .name("weave")
   .version("0.1.0")
   .description("A dynamic CLI tool for remixing static sites")
 
-  .option(
+  .globalOption(
     "--debug <level:string>",
     "Set log level (DEBUG, INFO, WARN, ERROR, CRITICAL)",
     { default: "INFO" }
   )
 
-  .option("-c, --config <file:string>", "Path or URL for config file")
+  .globalOption("-c, --config <file:string>", "Path or URL for config file")
 
-  .option("-d, --dest <directory:string>", "Output directory")
+  .globalOption("-d, --dest <directory:string>", "Output directory")
 
-  .option("-r, --repoDir <directory:string>", "Repository directory")
+  .globalOption("-r, --repoDir <directory:string>", "Repository directory")
 
-  .option(
-    "--copyStrategy <strategy:string>",
+  .globalOption(
+    "--globalCopyStrategy <strategy:string>",
     "Copy strategy (no-overwrite, overwrite, skip, prompt)"
   )
 
-  .option("--clean", "Clean the destination directory")
+  .globalOption("--globalClean", "Clean the destination directory before build")
 
-  .action(async (options) => {
+  .globalAction(async (options: CommandOptions) => {
     // Safely cast the options to CommandOptions
     const commandOptions: CommandOptions = {
       debug: typeof options.debug === "string" ? options.debug : "INFO", // Ensure debug is a string
       config: options.config,
       dest: options.dest,
       repoDir: options.repoDir,
-      clean: options.clean ?? false, // Default to false if undefined
-      copyStrategy: options.copyStrategy as CopyStrategy | undefined, // Will validate in handleConfigAction
+      globalClean: options.globalClean as boolean | undefined, // TODO: validate in handleConfigAction
+      globalCopyStrategy: options.globalCopyStrategy as CopyStrategy | undefined, // Will validate in handleConfigAction
     };
 
     // Delegate the handling to the external function
     await handleConfigAction(commandOptions);
-  });
+  })
 
-// Attach subcommands if any
-/*.command("build", buildCommand)
-  .command("list", listSubcommand)
-  .command("monitor", monitorSubcommand)*/
+  // Attach subcommands if any
+  .command("repos", reposCommand)
+  .command("watch", watchCommand)
+//  .command("monitor", monitorSubcommand)
 
 
 

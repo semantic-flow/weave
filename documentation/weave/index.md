@@ -2,7 +2,7 @@
 title: Documentation
 description: How to make this site your own
 created: "2024-11-21"
-updated: "2024-11-22"
+updated: "2024-11-25"
 ---
 
 - **Weave** is a dynamic CLI tool for remixing static sites, focused on syncing,
@@ -20,39 +20,48 @@ updated: "2024-11-22"
     file syncing, and configuration handling.
   - A `deps` folder for centralized dependency management, similar to Lume's
     approach.
-- options:
-  - --config for config file
+- global options:
+  - --config for specifying config file
   - --dest folder ("_woven" by default) to which files are copied
   - --repoDir lets you specify the path where any git repos of content are
     stored
-  - --debug
+  - --debug <level>
+  - --copyStrategy (options: no-overwrite, overwrite, skip, prompt)
+  - --clean (at the global level, this empties the dest before build)
+  - --watchConfig to specify whether changes to config file take effect immediately (without restarting Weave)
 
 ### Usage
 
+- weave (default): interactive prompt to create config file if none present, and
+  add inclusions
 - weave repos list: lists configured repos including their "active" status and
-  whether they're behind their origin
+  whether they're behind their origin (and eventually, whether a pull would
+  produce any conflicts)
 - weave repos pull: pull latest for all configured repos
 - weave repos push: pull and then, if no conflicts, push all repos
-- weave collisions: list any potential collisions
-- weave prepare: for repos-branches present, pull then push (if
-  autoPullBeforeBuild and autoPushBeforeBuild are true, pull should happen
-  before push; ); for missing repos, clone (when no inclusions or exclusions
-  specified and excludeByDefault is false) or sparse checkout otherwise, depth 1
-  by default; list to console; optionally/eventually perform custom logic to
-  avoid collisions; displays list of likely collisions;
+- weave repos checkout: for missing repos, checkout (when no inclusions or
+  exclusions specified and excludeByDefault is false) or sparse checkout
+  otherwise, depth 1 by default;
+- weave repos prepare: checkout + list for repos/branches present, pull if no
+  conflicts and autoPullBeforeBuild, then push (if autoPushBeforeBuild);
+- weave remap: transform directory names or filenames (to avoid collisions)
+- weave collisions: list any potential collisions to console or optionally to a
+  file; optionally/eventually perform custom logic to avoid collisions;
   - silent options,
 - weave build: prepare and then copy all specified directories and files for
   active inclusions into dest dir, by inclusion order.
   - clean: true | false
-  - global-copy-strategy: overwrite | no-overwrite | prompt
-  - per-inclusion copy-strategy: overwrite | no-overwrite | prompt
-- weave monitor: detects changes in active inclusions and copies them to dest
-- weave (default): build and monitor, but only safely (i.e., repos all
-  up-to-date, no collisions, build with prompt)
+  - global-copy-strategy: overwrite | no-overwrite | skip | prompt
+  - per-inclusion copy-strategy: overwrite | no-overwrite | skip | prompt
+- weave watch: detects changes in active inclusions and copies them to dest
+- weave activate: build and watch,
+  - ?but only safely (i.e., repos all up-to-date, no collisions, build with
+    prompt)
 
 ## Copying strategies
 
-- `no-overwrite`: is the safe option where the copy will fail if a collision is detected; it only really makes sense if clean is true
+- `no-overwrite`: is the safe option where the copy will fail if a collision is
+  detected; it only really makes sense if clean is true
 
 With a copying strategy of "overwrite", the order matters, so we should probably
 include a inclusions: order: key that takes an integer, and on build inclusion

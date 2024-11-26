@@ -1,7 +1,9 @@
 // src/core/utils/config_utils.ts
 
 import { log } from "./logging.ts";
-import { WeaveConfig } from "../../types.ts";
+import { Frame } from "../Frame.ts";
+import { WeaveConfig, CommandOptions, CopyStrategy } from "../../types.ts";
+import { merge } from "./object.ts";
 
 /**
  * Define default global options.
@@ -9,8 +11,9 @@ import { WeaveConfig } from "../../types.ts";
 export const DEFAULT_GLOBAL: WeaveConfig["global"] = {
   repoDir: "_source_repos",
   dest: "_woven",
-  copyStrategy: "no-overwrite",
-  clean: false,
+  globalCopyStrategy: "no-overwrite",
+  globalClean: false,
+  watchConfig: true,
 };
 
 /** 
@@ -131,3 +134,158 @@ export async function loadWeaveConfig(filePath: string): Promise<WeaveConfig> {
 export async function loadWeaveConfigFromJson(filePath: string): Promise<WeaveConfig> {
   return loadWeaveConfig(filePath);
 }
+
+let isReloading = false;
+
+
+/**
+ * Watches the configuration file for changes and reloads the configuration when changes are detected.
+ * Implements a debounce mechanism and prevents concurrent reloads.
+ * @param configFilePath The path to the configuration file to watch.
+ */
+export async function watchConfigFile(configFilePath: string): Promise<void> {
+  const watcher = Deno.watchFs(configFilePath);
+  console.log(`Watching configuration file for changes: ${configFilePath}`);
+
+  const debounceDelay = 300; // milliseconds
+  let reloadTimeout: number | null = null;
+
+  for await (const event of watcher) {
+    if (event.kind === "modify") {
+      log.info(`Configuration file modified: ${event.paths.join(", ")}`);
+
+      if (reloadTimeout !== null) {
+        clearTimeout(reloadTimeout);
+      }
+
+      reloadTimeout = setTimeout(async () => {
+        if (isReloading) {
+          log.warn("Configuration reload already in progress. Skipping this modification.");
+          return;
+        }
+
+        isReloading = true;
+
+        try {
+          // Recompose the configuration using the stored CommandOptions
+          if (!configContext.commandOptions) {
+            throw new Error("Original CommandOptions are unavailable for reloading.");
+          }
+
+          const weaveConfig: WeaveConfig = await composeWeaveConfig(configContext.commandOptions);
+
+          // Reset and reinitialize Frame with the new configuration
+          Frame.resetInstance();
+          Frame.getInstance(weaveConfig);
+
+          log.info("Configuration reloaded and Frame reinitialized.");
+          log.info(`Updated config: ${Deno.inspect(Frame.getInstance().config)}`);
+        } catch (error) {
+          if (error instanceof Error) {
+            log.error(`Failed to reload config: ${error.message}`);
+            log.debug(Deno.inspect(error, { colors: true }));
+          } else {
+            log.error("An unknown error occurred while reloading config.");
+          }
+        } finally {
+          isReloading = false;
+        }
+      }, debounceDelay);
+    }
+  }
+}
+
+/**
+ * Merges default config, environment variables, config file, and CLI options into a single WeaveConfig.
+ * @param commandOptions Command-line options to override configurations.
+ * @returns The fully composed WeaveConfig object.
+ */
+export async function composeWeaveConfig(commandOptions: CommandOptions): Promise<WeaveConfig> {
+  // Step 1: Start with default global options
+  const defaultConfig: WeaveConfig = {
+    global: { ...DEFAULT_GLOBAL },
+    inclusions: [],
+  };
+
+  // Step 2: Merge environment variables
+  let mergedConfig = merge(defaultConfig, ENV_CONFIG);
+
+  // Step 3: Load and merge configuration file if provided
+  let configFilePath: string | undefined;
+  if (commandOptions.config) {
+    try {
+      const resolvedPath = await getConfigFilePath(commandOptions.config);
+      if (resolvedPath) {
+        configFilePath = resolvedPath;
+        const fileConfig = await loadWeaveConfigFromJson(resolvedPath);
+        mergedConfig = merge(mergedConfig, fileConfig);
+      }
+    } catch (error) {
+      log.error(`Failed to load config file: ${(error as Error).message}`);
+      throw error;
+    }
+  } else {
+    // Attempt to load from default paths if --config is not provided
+    try {
+      const defaultConfigFilePath = await getConfigFilePath();
+      if (defaultConfigFilePath) {
+        configFilePath = defaultConfigFilePath;
+        const fileConfig = await loadWeaveConfigFromJson(defaultConfigFilePath);
+        mergedConfig = merge(mergedConfig, fileConfig);
+      } else {
+        log.info("No configuration file found. Proceeding with defaults and environment variables.");
+      }
+    } catch (error) {
+      log.warn(`Could not load default config files: ${(error as Error).message}`);
+    }
+  }
+
+  // Step 4: Merge command-line options
+  const commandConfig: Partial<WeaveConfig> = {
+    global: {
+      repoDir: commandOptions.repoDir,
+      dest: commandOptions.dest,
+      globalCopyStrategy: commandOptions.globalCopyStrategy,
+      globalClean: commandOptions.globalClean,
+    },
+    // Future: Add more mappings for additional command-line options
+  };
+
+  mergedConfig = merge(mergedConfig, commandConfig);
+
+  // Ensure inclusions are present
+  if (!mergedConfig.inclusions) {
+    mergedConfig.inclusions = [];
+  }
+
+  // Assign configFilePath to global options if available
+  if (configFilePath) {
+    mergedConfig.global = { ...mergedConfig.global, configFilePath };
+    configContext.configFilePath = configFilePath;
+  }
+
+  // Store the initial CommandOptions for reloads
+  configContext.commandOptions = commandOptions;
+
+  return mergedConfig;
+}
+
+/**
+ * Context object to hold mutable state
+ */
+const configContext = {
+  commandOptions: null as CommandOptions | null,
+  configFilePath: null as string | null,
+};
+
+/**
+ * Defines the mapping between environment variables and WeaveConfig.
+ */
+const ENV_CONFIG: Partial<WeaveConfig> = {
+  global: {
+    repoDir: Deno.env.get("WEAVE_REPO_DIR") || undefined,
+    dest: Deno.env.get("WEAVE_DEST") || undefined,
+    globalCopyStrategy: Deno.env.get("WEAVE_COPY_STRATEGY") as CopyStrategy | undefined,
+    globalClean: Deno.env.get("WEAVE_CLEAN") === "true",
+  },
+};
