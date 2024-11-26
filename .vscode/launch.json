@@ -25,7 +25,7 @@
             "autoAttachChildProcesses": true,
             "args": [
                 "--debug",
-                "INFO"
+                "DEBUG"
             ]
         },
         {

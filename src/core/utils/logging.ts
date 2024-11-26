@@ -43,15 +43,14 @@ if (envLogLevel && envLogLevel in LOG_LEVELS && envLogLevel !== "NOTSET") {
 export function setLogLevel(newLevel: LevelName) {
   if (LOG_LEVELS[newLevel] !== undefined) {
     currentLogLevel = newLevel;
+    console.log(`Setting logger to level: ${newLevel}`);
+    setupLogger(newLevel);
+    log = logger.getLogger("testLogger");
     log.info(`Log level set to ${newLevel}`);
-    // Depending on the logging library's capabilities, you might need to reconfigure handlers or loggers here
-    // For example:
-    // logger.loggers.get("weave")?.setLevel(newLevel);
   } else {
     log.warn(`Attempted to set invalid log level: ${newLevel}`);
   }
 }
-
 const COLOR_TAG_REG = /<(\w+)>([^<]+)<\/\1>/g;
 
 /**
@@ -60,6 +59,10 @@ const COLOR_TAG_REG = /<(\w+)>([^<]+)<\/\1>/g;
  */
 class ConsoleHandler extends logger.BaseHandler {
   override format(logRecord: LogRecord): string {
+    // Enforce log level by checking if the record's level meets the current log level
+    if (logRecord.level < LOG_LEVELS[currentLogLevel]) {
+      return ""; // Skip formatting for messages below the current log level
+    }
     let { msg } = logRecord;
 
     switch (logRecord.level) {
@@ -91,6 +94,21 @@ class ConsoleHandler extends logger.BaseHandler {
   }
 }
 
+function setupLogger(level: LevelName) {
+  logger.setup({
+    handlers: {
+      console: new ConsoleHandler(level),
+    },
+    loggers: {
+      testLogger: {
+        level: level,
+        handlers: ["console"],
+      },
+    },
+  });
+  console.log(`Logger setup with level: ${level}`);
+}
+
 const logFormats: Record<string, (str: string) => string> = {
   cyan,
   Cyan: (str: string) => bold(cyan(str)),
@@ -105,26 +123,11 @@ const logFormats: Record<string, (str: string) => string> = {
   del: (str: string) => strikethrough(gray(str)),
 };
 
-/**
- * Initial logger setup.
- * Removed the argument "DEBUG" to ConsoleHandler as it's not required or mismatched.
- */
-logger.setup({
-  handlers: {
-    console: new ConsoleHandler("DEBUG"), // Corrected instantiation without arguments
-  },
-  loggers: {
-    weave: {
-      level: currentLogLevel,
-      handlers: ["console"],
-    },
-  },
-});
 
 /**
  * Retrieves the 'weave' logger instance.
  */
-export const log = logger.getLogger("weave");
+export let log = logger.getLogger("weave");
 
 /**
  * Sets the log level based on CLI input.

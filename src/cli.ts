@@ -49,6 +49,8 @@ const weave = new Command()
   .command("list", listSubcommand)
   .command("monitor", monitorSubcommand)*/
 
+
+
 try {
   await weave.parse(Deno.args);
 } catch (error) {
