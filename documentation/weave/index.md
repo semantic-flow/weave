@@ -42,9 +42,9 @@ updated: "2024-11-25"
 - weave repos checkout: for missing repos, checkout (when no inclusions or
   exclusions specified and excludeByDefault is false) or sparse checkout
   otherwise, depth 1 by default;
-- weave repos prepare: checkout + list for repos/branches present, pull if no
-  conflicts and autoPullBeforeBuild, then push (if autoPushBeforeBuild);
-- weave remap: transform directory names or filenames (to avoid collisions)
+- weave repos prepare: checkout; ensure sparse checkout settings are correct; pull if no
+  conflicts and autoPullBeforeBuild, then push (if autoPushBeforeBuild); list 
+- weave remap: transform directory names or filenames (to avoid collisions or for renaming in general)
 - weave collisions: list any potential collisions to console or optionally to a
   file; optionally/eventually perform custom logic to avoid collisions;
   - silent options,

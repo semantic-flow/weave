@@ -54,7 +54,7 @@ export async function handleConfigAction(options: CommandOptions): Promise<void>
 
     // Log success messages
     log.info("Configuration successfully loaded and Frame initialized.");
-    log.info(`Detailed config: ${Deno.inspect(Frame.getInstance().config)}`);
+    log.debug(`Detailed config: ${Deno.inspect(Frame.getInstance().config)}`);
 
     // Placeholder for further actions like building the site
     // await buildSite(Frame.getInstance().config);
