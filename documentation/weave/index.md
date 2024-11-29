@@ -2,7 +2,7 @@
 title: Documentation
 description: How to make this site your own
 created: "2024-11-21"
-updated: "2024-11-25"
+updated: "2024-11-29"
 ---
 
 - **Weave** is a dynamic CLI tool for remixing static sites, focused on syncing,
@@ -28,7 +28,8 @@ updated: "2024-11-25"
   - --debug <level>
   - --copyStrategy (options: no-overwrite, overwrite, skip, prompt)
   - --clean (at the global level, this empties the dest before build)
-  - --watchConfig to specify whether changes to config file take effect immediately (without restarting Weave)
+  - --watchConfig to specify whether changes to config file take effect
+    immediately (without restarting Weave)
 
 ### Usage
 
@@ -39,12 +40,14 @@ updated: "2024-11-25"
   produce any conflicts)
 - weave repos pull: pull latest for all configured repos
 - weave repos push: pull and then, if no conflicts, push all repos
-- weave repos checkout: for missing repos, checkout (when no inclusions or
-  exclusions specified and excludeByDefault is false) or sparse checkout
-  otherwise, depth 1 by default;
-- weave repos prepare: checkout; ensure sparse checkout settings are correct; pull if no
-  conflicts and autoPullBeforeBuild, then push (if autoPushBeforeBuild); list 
-- weave remap: transform directory names or filenames (to avoid collisions or for renaming in general)
+- weave repos checkout: for missing repos, initialize if necessary and perform
+  sparse checkout, depth 1 by default;
+  - when no inclusions specified and excludeByDefault is false, nothing to do
+- weave repos prepare: checkout; ensure sparse checkout settings are correct;
+  pull if no conflicts and autoPullBeforeBuild, then push (if
+  autoPushBeforeBuild); list
+- weave remap: transform directory names or filenames (to avoid collisions or
+  for renaming in general)
 - weave collisions: list any potential collisions to console or optionally to a
   file; optionally/eventually perform custom logic to avoid collisions;
   - silent options,

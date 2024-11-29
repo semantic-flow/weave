@@ -1,5 +1,6 @@
 import { join } from "../../deps/path.ts";
 import { ensureDir } from "../../deps/fs.ts";
+import { log } from "./logging.ts";
 
 /**
  * Parses the URL and constructs the local repository path, ensuring the directory exists.
@@ -21,7 +22,15 @@ export async function ensureLocalRepoPath(repoDir: string, url: string, branch: 
   const localRepoPath = join(repoDir, `${hostname}/${parent}/${repoName}.${branch}`);
 
   // Ensure the directory exists
-  await ensureDir(localRepoPath);
-
+  try {
+    await ensureDir(localRepoPath);
+  } catch (error) {
+    if (error instanceof Error) {
+      log.error(`Error occurred while ensuring ${localRepoPath}: ${error.message}`);
+      log.debug(Deno.inspect(error, { colors: true }));
+    } else {
+      log.error("An unknown error occurred.");
+    }
+  }
   return localRepoPath;
 }

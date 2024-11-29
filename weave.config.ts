@@ -11,7 +11,7 @@ export const weaveConfig: WeaveConfig = {
     watchConfig: false,
   },
   inclusions: [
-    {
+    { 
       name: "lumenous-template with demo content",
       type: "git",
       url: "git@github.com:djradon/lumenous-template.git",
@@ -19,7 +19,7 @@ export const weaveConfig: WeaveConfig = {
         branch: "template", // Optional branch specified
         include: ["demo", "lumenous-template"],
         exclude: [],
-        excludeByDefault: false,
+        excludeByDefault: true,
         autoPullBeforeBuild: false,
         autoPushBeforeBuild: false,
       },
