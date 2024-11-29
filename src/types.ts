@@ -13,9 +13,6 @@ export interface CommandOptions {
 
 // Config-related types
 
-// Define inclusion types using string literals
-export type InclusionType = "git+ssh" | "git+https" | "http" | "local";
-
 // Define copy strategy using string literals
 export type CopyStrategy = "no-overwrite" | "overwrite" | "skip" | "prompt";
 
@@ -51,13 +48,13 @@ export interface LocalOptions extends CommonOptions {
 // Define the Inclusion type using discriminated unions to enforce constraints
 export type Inclusion =
   | {
-    type: "git+ssh" | "git+https";
+    type: "git";
     name?: string;
     url: string;
     options?: GitOptions;
   }
   | {
-    type: "http";
+    type: "web";
     name?: string;
     url: string;
     options?: HttpOptions;
@@ -81,6 +78,6 @@ export interface GlobalOptions {
 
 // Define the main configuration interface
 export interface WeaveConfig {
-  global?: GlobalOptions;
+  global: GlobalOptions;
   inclusions: Inclusion[];
 }

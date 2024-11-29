@@ -129,18 +129,3 @@ const logFormats: Record<string, (str: string) => string> = {
  */
 export let log = logger.getLogger("weave");
 
-/**
- * Sets the log level based on CLI input.
- * This function should be called before logging starts to ensure correct log levels.
- * @param debug The log level string.
- */
-export function setLogLevelFromCLI(debug: string) {
-  const level = debug.toUpperCase() as LevelName;
-  const validLevels: LevelName[] = ["DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"];
-  if (validLevels.includes(level)) {
-    setLogLevel(level);
-  } else {
-    log.warn(`Invalid log level: ${debug}. Defaulting to INFO.`);
-    setLogLevel("INFO");
-  }
-}

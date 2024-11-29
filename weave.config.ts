@@ -13,7 +13,7 @@ export const weaveConfig: WeaveConfig = {
   inclusions: [
     {
       name: "lumenous-template with demo content",
-      type: "git+ssh",
+      type: "git",
       url: "git@github.com:djradon/lumenous-template.git",
       options: {
         branch: "template", // Optional branch specified
@@ -25,7 +25,7 @@ export const weaveConfig: WeaveConfig = {
       },
     },
     {
-      type: "git+https",
+      type: "git",
       url: "https://github.com/another-repo/example.git",
       options: {
         active: false,
@@ -36,7 +36,7 @@ export const weaveConfig: WeaveConfig = {
       },
     },
     {
-      type: "http",
+      type: "web",
       url: "https://raw.githubusercontent.com/djradon/public-notes/refs/heads/main/ar.the-rdf-net-challenge.md",
       options: {
         active: true,
@@ -47,6 +47,7 @@ export const weaveConfig: WeaveConfig = {
       type: "local",
       url: "/path/to/local/folder",
       options: {
+        active: false,
         exclude: ["tests"],
         excludeByDefault: false,
       },

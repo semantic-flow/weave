@@ -1,19 +1,32 @@
-import { Frame } from "./Frame.ts";
-import { WeaveConfig } from "../types.ts";
+import { Inclusion } from "../types.ts";
+import { ensureLocalRepoPath } from "./utils/ensureLocalRepoPath.ts";
+import { determineDefaultBranch } from "./utils/determineDefaultBranch.ts";
+import { exists } from "../deps/fs.ts";
+import { join } from "../deps/path.ts";
 
-export function checkoutRepos(config: WeaveConfig) {
-  const { repoDir, dest } = config.global;
-  const { inclusions } = config;
+export interface RepoCheckoutResult {
+  url: string;
+  localPath: string;
+  status: 'success' | 'failed';
+  message?: string;
+  error?: Error;
+}
 
-  for (const inclusion of inclusions) {
+export async function checkoutRepos(repoDir: string, inclusions: Inclusion[]): Promise<RepoCheckoutResult[]> {
+  const results: RepoCheckoutResult[] = [];
+
+  // Filter for only git inclusions
+  const gitInclusions = inclusions.filter(inclusion => inclusion.type === 'git');
+
+  for (const inclusion of gitInclusions) {
     const { url, options } = inclusion;
-    const { include = [], autoPullBeforeBuild = false, exclude = [], excludeByDefault = false, autoPushBeforeBuild = false } = options;
+    const { include = [], exclude = [], branch: providedBranch } = inclusion.options || {};
 
-    // Determine the branch
-    const branch = await determineBranch(url, "main");
+    // Determine the actual branch to use
+    const branch = providedBranch ?? await determineDefaultBranch(url);
 
     // Parse the URL and construct the local repository path
-    const localRepoPath = await getLocalRepoPath(repoDir, url, branch);
+    const localRepoPath = await ensureLocalRepoPath(repoDir, url, branch);
     console.log(`Preparing repository at ${localRepoPath}...`);
 
     try {
@@ -34,4 +47,5 @@ export function checkoutRepos(config: WeaveConfig) {
       }
     }
   }
+  return results;
 }

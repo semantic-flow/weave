@@ -5,31 +5,34 @@ import { log } from "./logging.ts";
 /**
  * Executes a Git command within a specified repository path using Deno.Command.
  *
- * @param {string} repoPath - The working directory for the Git command.
+ * @param {string} async function runGitCommand(workingDir: string, args: string[]): Promise<string> {
+ - The working directory for the Git command.
  * @param {string[]} args - The Git command arguments.
- * @returns {Promise<void>} - Resolves if the command succeeds, rejects with an error otherwise.
+ * @returns {Promise<string>} - Returns the output if the command succeeds, rejects with an error otherwise.
  * @throws Will throw an error if the Git command fails.
  */
-export async function runGitCommand(repoPath: string, args: string[]): Promise<void> {
+
+async function runGitCommand(workingDir: string, args: string[]): Promise<string> {
   const gitCommand = `git ${args.join(' ')}`;
-  log.info(`Executing Git command: ${gitCommand} in ${repoPath}`);
+  log.info(`Executing Git command: ${gitCommand} in ${workingDir}`);
 
   const command = new Deno.Command("git", {
     args: args,
-    cwd: repoPath,
-    stdout: "inherit",
+    cwd: workingDir, // Change to reflect the working directory context
+    stdout: "piped", // Use "piped" to capture the output
     stderr: "inherit",
   });
 
   try {
-    const { code } = await command.output();
+    const { code, stdout } = await command.output();
 
     if (code !== 0) {
-      log.error(`Git command failed with exit code ${code}: ${gitCommand}`);
-      throw new Error(`Git command failed: git ${args.join(' ')}`);
+      throw new Error(`Git command failed with exit code ${code}: ${gitCommand}`);
     }
 
+    const output = new TextDecoder().decode(stdout);
     log.info(`Git command succeeded: ${gitCommand}`);
+    return output;
   } catch (error) {
     if (error instanceof Error) {
       log.error(`Error in runGitCommand: ${error.message}`);
@@ -37,5 +40,8 @@ export async function runGitCommand(repoPath: string, args: string[]): Promise<v
     } else {
       log.error("An unknown error occurred.");
     }
+    throw error; // Re-throw the error to allow handling by caller
   }
 }
+
+export { runGitCommand };
