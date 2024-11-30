@@ -2,7 +2,7 @@
 title: Documentation
 description: How to make this site your own
 created: "2024-11-21"
-updated: "2024-11-29"
+updated: "2024-11-30"
 ---
 
 - **Weave** is a dynamic CLI tool for remixing static sites, focused on syncing,
@@ -35,6 +35,8 @@ updated: "2024-11-29"
 
 - weave (default): interactive prompt to create config file if none present, and
   add inclusions
+- weave verify: lists all inclusions and their statuses (active, present,
+  current) and copy strategies, in order ; ensure sparse checkout settings are correct;
 - weave repos list: lists configured repos including their "active" status and
   whether they're behind their origin (and eventually, whether a pull would
   produce any conflicts)
@@ -43,15 +45,14 @@ updated: "2024-11-29"
 - weave repos checkout: for missing repos, initialize if necessary and perform
   sparse checkout, depth 1 by default;
   - when no inclusions specified and excludeByDefault is false, nothing to do
-- weave repos prepare: checkout; ensure sparse checkout settings are correct;
-  pull if no conflicts and autoPullBeforeBuild, then push (if
-  autoPushBeforeBuild); list
+- weave repos prepare: checkout; pull if no conflicts and autoPullBeforeBuild,
+  then push (if autoPushBeforeBuild); list
 - weave remap: transform directory names or filenames (to avoid collisions or
   for renaming in general)
 - weave collisions: list any potential collisions to console or optionally to a
   file; optionally/eventually perform custom logic to avoid collisions;
   - silent options,
-- weave build: prepare and then copy all specified directories and files for
+- weave build: `repos prepare` and then copy all specified directories and files for
   active inclusions into dest dir, by inclusion order.
   - clean: true | false
   - global-copy-strategy: overwrite | no-overwrite | skip | prompt

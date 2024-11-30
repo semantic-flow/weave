@@ -23,6 +23,7 @@ export const validCopyStrategies: CopyStrategy[] = ["no-overwrite", "overwrite",
 export interface CommonOptions {
   active?: boolean;
   copyStrategy?: CopyStrategy,
+  order?: number;
 }
 
 // Define specific options for Git inclusions
@@ -52,18 +53,21 @@ export type Inclusion =
     name?: string;
     url: string;
     options?: GitOptions;
+    order?: number;
   }
   | {
     type: "web";
     name?: string;
     url: string;
     options?: HttpOptions;
+    order?: number;
   }
   | {
     type: "local";
     name?: string;
     url: string;
     options?: LocalOptions;
+    order?: number;
   };
 
 // Define the Global options interface

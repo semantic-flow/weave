@@ -6,12 +6,12 @@ import { Frame } from "../core/Frame.ts";
 export const reposCheckoutCommand = new Command()
   .name("checkout")
   .description("for missing repos, checkout (when no inclusions or exclusions specified and excludeByDefault is false) or sparse checkout otherwise.")
-  .action(async () => { 
+  .action(async () => {
     try {
-      log.info("repos checkout action invoked"); 
+      log.info("repos checkout action invoked");
 
       const frame = Frame.getInstance();
-      const repoDir = frame.config.global.repoDir; 
+      const repoDir = frame.config.global.repoDir;
       const inclusions = frame.config.inclusions; // Assuming `inclusions` is part of the config
 
       if (frame.config.global.repoDir === undefined) {
@@ -35,10 +35,10 @@ export const reposCheckoutCommand = new Command()
       });
 
       if (failureCount > 0) {
-        Deno.exit(1); // Optionally exit with error code
+        Deno.exit(1); // exit with error code
       }
     } catch (error) {
-      log.error("An unexpected error occurred during checkout:", error);
+      log.error(`An unexpected error occurred during checkout: ${error}`);
       Deno.exit(1);
     }
   });

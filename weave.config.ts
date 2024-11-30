@@ -11,10 +11,11 @@ export const weaveConfig: WeaveConfig = {
     watchConfig: false,
   },
   inclusions: [
-    { 
+    {
       name: "lumenous-template with demo content",
       type: "git",
       url: "git@github.com:djradon/lumenous-template.git",
+      order: 10,
       options: {
         branch: "template", // Optional branch specified
         include: ["demo", "lumenous-template"],
@@ -38,6 +39,7 @@ export const weaveConfig: WeaveConfig = {
     {
       type: "web",
       url: "https://raw.githubusercontent.com/djradon/public-notes/refs/heads/main/ar.the-rdf-net-challenge.md",
+      order: 10,
       options: {
         active: true,
         copyStrategy: "no-overwrite",

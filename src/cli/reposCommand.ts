@@ -6,6 +6,6 @@ import { reposCheckoutCommand } from "./reposCheckoutCommand.ts";
 export const reposCommand = new Command()
   .name("repos")
   .description("Repo-related subcommands")
-  .action(() => { log.info("No subcommand provided."); })
+  .action(() => { console.log("No subcommand provided."); })
   .command("list", reposListCommand)
   .command("checkout", reposCheckoutCommand)

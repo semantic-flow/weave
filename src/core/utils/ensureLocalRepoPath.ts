@@ -1,4 +1,4 @@
-import { join } from "../../deps/path.ts";
+import { calculateLocalRepoPath } from "./calculateLocalRepoPath.ts";
 import { ensureDir } from "../../deps/fs.ts";
 import { log } from "./logging.ts";
 
@@ -11,15 +11,7 @@ import { log } from "./logging.ts";
  * @returns {Promise<string>} - The local repository path.
  */
 export async function ensureLocalRepoPath(repoDir: string, url: string, branch: string): Promise<string> {
-  const urlForParsing = url.startsWith("git@")
-    ? new URL(`https://${url.replace("git@", "").replace(":", "/")}`)
-    : new URL(url);
-
-  const hostname = urlForParsing.hostname;
-  const parent = urlForParsing.pathname.split("/")[1];
-  const repoName = urlForParsing.pathname.split("/")[2].replace(".git", "");
-
-  const localRepoPath = join(repoDir, `${hostname}/${parent}/${repoName}.${branch}`);
+  const localRepoPath = await calculateLocalRepoPath(repoDir, url, branch);
 
   // Ensure the directory exists
   try {
@@ -28,6 +20,7 @@ export async function ensureLocalRepoPath(repoDir: string, url: string, branch: 
     if (error instanceof Error) {
       log.error(`Error occurred while ensuring ${localRepoPath}: ${error.message}`);
       log.debug(Deno.inspect(error, { colors: true }));
+      throw new Error(`Failed to ensure directory exists: ${localRepoPath}. ${error.message}`);
     } else {
       log.error("An unknown error occurred.");
     }
