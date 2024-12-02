@@ -1,6 +1,6 @@
 import { join } from "../../deps/path.ts";
 
-export async function calculateLocalRepoPath(repoDir: string, url: string, branch: string): Promise<string> {
+export function determinDefaultWorkingDirectory(workspaceDir: string, url: string, branch: string): string {
   const urlForParsing = url.startsWith("git@")
     ? new URL(`https://${url.replace("git@", "").replace(":", "/")}`)
     : new URL(url);
@@ -9,5 +9,5 @@ export async function calculateLocalRepoPath(repoDir: string, url: string, branc
   const parent = urlForParsing.pathname.split("/")[1];
   const repoName = urlForParsing.pathname.split("/")[2].replace(".git", "");
 
-  return join(repoDir, `${hostname}/${parent}/${repoName}.${branch}`);
+  return join(workspaceDir, `${hostname}/${parent}/${repoName}.${branch}`);
 }

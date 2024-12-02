@@ -2,7 +2,7 @@
 title: Documentation
 description: How to make this site your own
 created: "2024-11-21"
-updated: "2024-11-30"
+updated: "2024-12-02"
 ---
 
 - **Weave** is a dynamic CLI tool for remixing static sites, focused on syncing,
@@ -23,7 +23,7 @@ updated: "2024-11-30"
 - global options:
   - --config for specifying config file
   - --dest folder ("_woven" by default) to which files are copied
-  - --repoDir lets you specify the path where any git repos of content are
+  - --workspaceDir lets you specify the path where any git repos of content are
     stored
   - --debug <level>
   - --copyStrategy (options: no-overwrite, overwrite, skip, prompt)
@@ -36,7 +36,8 @@ updated: "2024-11-30"
 - weave (default): interactive prompt to create config file if none present, and
   add inclusions
 - weave verify: lists all inclusions and their statuses (active, present,
-  current) and copy strategies, in order ; ensure sparse checkout settings are correct;
+  current) and copy strategies, in order ; ensure sparse checkout settings are
+  correct;
 - weave repos list: lists configured repos including their "active" status and
   whether they're behind their origin (and eventually, whether a pull would
   produce any conflicts)
@@ -52,8 +53,8 @@ updated: "2024-11-30"
 - weave collisions: list any potential collisions to console or optionally to a
   file; optionally/eventually perform custom logic to avoid collisions;
   - silent options,
-- weave build: `repos prepare` and then copy all specified directories and files for
-  active inclusions into dest dir, by inclusion order.
+- weave build: `repos prepare` and then copy all specified directories and files
+  for active inclusions into dest dir, by inclusion order.
   - clean: true | false
   - global-copy-strategy: overwrite | no-overwrite | skip | prompt
   - per-inclusion copy-strategy: overwrite | no-overwrite | skip | prompt

@@ -7,20 +7,20 @@ import { runGitCommand } from "./runGitCommand.ts";
  * Ensures the sparse-checkout configuration matches the desired include paths.
  * If there are differences, the configuration is updated.
  *
- * @param {string} localRepoPath - The local repository path.
+ * @param {string} workingDir - The local repository path.
  * @param {string[]} sparseCheckoutRules - The desired sparse-checkout include paths.
  * @throws Will throw an error if Git commands fail.
  */
-export async function ensureSparseCheckout(localRepoPath: string, sparseCheckoutRules: string[]): Promise<void> {
+export async function ensureSparseCheckout(workingDir: string, sparseCheckoutRules: string[]): Promise<void> {
   log.info("Checking sparse-checkout configuration...");
 
   try {
     // Get the current sparse-checkout configuration
     const listCommand = ["sparse-checkout", "list"];
-    log.info(`Running command: git ${listCommand.join(' ')} in ${localRepoPath}`);
+    log.info(`Running command: git ${listCommand.join(' ')} in ${workingDir}`);
     const command = new Deno.Command("git", {
       args: listCommand,
-      cwd: localRepoPath,
+      cwd: workingDir,
       stdout: "piped",
       stderr: "inherit",
     });
@@ -50,14 +50,14 @@ export async function ensureSparseCheckout(localRepoPath: string, sparseCheckout
       }
 
       log.info("Updating sparse-checkout paths...");
-      await runGitCommand(localRepoPath, ["sparse-checkout", "set", ...sparseCheckoutRules]);
+      await runGitCommand(workingDir, ["sparse-checkout", "set", ...sparseCheckoutRules]);
       log.info("Sparse-checkout configuration updated.");
     } else {
       log.info("Sparse-checkout configuration is already up to date.");
     }
   } catch (error) {
     if (error instanceof Error) {
-      log.error(`Error occurred while ensuring ${localRepoPath}: ${error.message}`);
+      log.error(`Error occurred while ensuring ${workingDir}: ${error.message}`);
       log.debug(Deno.inspect(error, { colors: true }));
     } else {
       log.error("An unknown error occurred.");

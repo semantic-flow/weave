@@ -2,7 +2,7 @@ import { log } from "./utils/logging.ts";
 import { Inclusion } from "../types.ts";
 import { exists } from "../deps/fs.ts";
 import { join } from "../deps/path.ts";
-import { ensureLocalRepoPath } from "./utils/ensureLocalRepoPath.ts";
+import { ensureWorkingDirectory } from "./utils/ensureWorkingDirectory.ts";
 import { determineDefaultBranch } from "./utils/determineDefaultBranch.ts";
 import { ensureSparseCheckout } from "./utils/ensureSparseConfig.ts";
 import { runGitCommand } from "./utils/runGitCommand.ts";
@@ -16,7 +16,7 @@ export interface RepoCheckoutResult {
   error?: Error;
 }
 
-export async function checkoutRepos(repoDir: string, inclusions: Inclusion[]): Promise<RepoCheckoutResult[]> {
+export async function checkoutRepos(workspaceDir: string, inclusions: Inclusion[]): Promise<RepoCheckoutResult[]> {
   const results: RepoCheckoutResult[] = [];
 
   // Filter for only git inclusions
@@ -32,8 +32,8 @@ export async function checkoutRepos(repoDir: string, inclusions: Inclusion[]): P
     const branch = providedBranch ?? await determineDefaultBranch(url);
 
     // Parse the URL and construct the local repository path
-    const localRepoPath = await ensureLocalRepoPath(repoDir, url, branch);
-    log.info(`Ensuring repository at ${localRepoPath}...`);
+    const workingDir = await ensureWorkingDirectory(workspaceDir, url, branch);
+    log.info(`Ensuring repository at ${workingDir}...`);
 
     if (excludeByDefault && include.length === 0) {
       log.warn(`Excluding all files by default, and no inclusions specified, so nothing to do ${url}...`);
@@ -41,31 +41,31 @@ export async function checkoutRepos(repoDir: string, inclusions: Inclusion[]): P
     }
 
     try {
-      if (!await exists(join(localRepoPath, ".git"))) {
-        log.info(`Initializing working directory at ${localRepoPath}...`);
-        await runGitCommand(localRepoPath, ["init"]);
+      if (!await exists(join(workingDir, ".git"))) {
+        log.info(`Initializing working directory at ${workingDir}...`);
+        await runGitCommand(workingDir, ["init"]);
         log.info("Git working directory initialized.");
 
         console.log(`Adding remote origin: ${url}`);
-        await runGitCommand(localRepoPath, ["remote", "add", "origin", url]);
+        await runGitCommand(workingDir, ["remote", "add", "origin", url]);
       }
 
       console.log("Configuring sparse-checkout...");
-      await runGitCommand(localRepoPath, ["config", "core.sparseCheckout", "true"]);
+      await runGitCommand(workingDir, ["config", "core.sparseCheckout", "true"]);
 
       const sparseCheckoutRules: string[] = composeSparseCheckoutRules(include, exclude, excludeByDefault);
-      await ensureSparseCheckout(localRepoPath, sparseCheckoutRules);
+      await ensureSparseCheckout(workingDir, sparseCheckoutRules);
 
       console.log(`Fetching branch '${branch}'...`);
-      await runGitCommand(localRepoPath, ["fetch", "--depth", "1", "origin", branch]);
+      await runGitCommand(workingDir, ["fetch", "--depth", "1", "origin", branch]);
 
       console.log(`Checking out branch '${branch}'...`);
-      await runGitCommand(localRepoPath, ["checkout", branch]);
+      await runGitCommand(workingDir, ["checkout", branch]);
 
       // If all operations are successful, push a success result
       results.push({
         url,
-        localPath: localRepoPath,
+        localPath: workingDir,
         status: 'success',
         message: 'Repository checkout successfully completed.',
       });
@@ -75,7 +75,7 @@ export async function checkoutRepos(repoDir: string, inclusions: Inclusion[]): P
         log.error(`Error processing ${url}: ${error.message}`);
         results.push({
           url,
-          localPath: localRepoPath,
+          localPath: workingDir,
           status: 'failed',
           message: error.message,
           error,

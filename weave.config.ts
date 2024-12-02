@@ -4,7 +4,7 @@ import { WeaveConfig } from "./src/types.ts";
 
 export const weaveConfig: WeaveConfig = {
   global: {
-    repoDir: "_source-repos", // Directory for cloned repositories
+    workspaceDir: "_source-repos", // Directory for cloned repositories
     dest: "_woven", // Directory for woven output, relative to cwd
     globalCopyStrategy: "no-overwrite",
     globalClean: true,

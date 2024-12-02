@@ -22,7 +22,7 @@ const weave = new Command()
 
   .globalOption("-d, --dest <directory:string>", "Output directory")
 
-  .globalOption("-r, --repoDir <directory:string>", "Repository directory")
+  .globalOption("-r, --workspaceDir <directory:string>", "Repository directory")
 
   .globalOption(
     "--globalCopyStrategy <strategy:string>",
@@ -37,7 +37,7 @@ const weave = new Command()
       debug: typeof options.debug === "string" ? options.debug : "INFO", // Ensure debug is a string
       config: options.config,
       dest: options.dest,
-      repoDir: options.repoDir,
+      workspaceDir: options.workspaceDir,
       globalClean: options.globalClean as boolean | undefined, // TODO: validate in handleConfigAction
       globalCopyStrategy: options.globalCopyStrategy as CopyStrategy | undefined, // Will validate in handleConfigAction
     };

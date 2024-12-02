@@ -4,12 +4,14 @@ import { log } from "./logging.ts";
 import { Frame } from "../Frame.ts";
 import { WeaveConfig, CommandOptions, CopyStrategy } from "../../types.ts";
 import { merge } from "./object.ts";
+import { determineDefaultBranch } from "./determineDefaultBranch.ts";
+import { determinDefaultWorkingDirectory } from "./determinDefaultWorkingDirectory.ts";
 
 /**
  * Define default global options.
  */
 export const DEFAULT_GLOBAL: WeaveConfig["global"] = {
-  repoDir: "_source_repos",
+  workspaceDir: "_source_repos",
   dest: "_woven",
   globalCopyStrategy: "no-overwrite",
   globalClean: false,
@@ -243,7 +245,7 @@ export async function composeWeaveConfig(commandOptions?: CommandOptions): Promi
   // Step 4: Merge command-line options
   const commandConfig: Partial<WeaveConfig> = {
     global: {
-      repoDir: commandOptions?.repoDir,
+      workspaceDir: commandOptions?.workspaceDir,
       dest: commandOptions?.dest,
       globalCopyStrategy: commandOptions?.globalCopyStrategy,
       globalClean: commandOptions?.globalClean,
@@ -268,23 +270,44 @@ export async function composeWeaveConfig(commandOptions?: CommandOptions): Promi
   // Store the initial CommandOptions for reloads
   configContext.commandOptions = commandOptions;
 
+  // For git-type inclusions, store the branch if git is initialized, if not return "NOT_INITIALIZED"; then use the default localPath if not provided
+  // need to read branch from .git info
+  // 
+  mergedConfig.inclusions = await Promise.all(mergedConfig.inclusions.map(async (inclusion) => {
+    if (inclusion.type === "git" && inclusion.url) {
+      const { url, localPath: providedWorkingDir, options } = inclusion;
+      const branch = options?.branch || await determineDefaultBranch(url);
+      if (!mergedConfig.global.workspaceDir) {
+        mergedConfig.global.workspaceDir = DEFAULT_GLOBAL.workspaceDir;
+      }
+      const localPath = providedWorkingDir || determinDefaultWorkingDirectory(mergedConfig.global.workspaceDir as string, url, branch);
+      return { ...inclusion, localPath };
+    } else {
+      return inclusion;
+    }
+  }));
+
   return mergedConfig;
 }
 
 /**
  * Context object to hold mutable state
  */
-const configContext = {
-  commandOptions: null as CommandOptions | null,
-  configFilePath: null as string | null,
+const configContext: {
+  commandOptions: CommandOptions | undefined;
+  configFilePath: string | null;
+} = {
+  commandOptions: undefined,
+  configFilePath: null,
 };
+
 
 /**
  * Defines the mapping between environment variables and WeaveConfig.
  */
 const ENV_CONFIG: Partial<WeaveConfig> = {
   global: {
-    repoDir: Deno.env.get("WEAVE_REPO_DIR") || undefined,
+    workspaceDir: Deno.env.get("WEAVE_REPO_DIR") || undefined,
     dest: Deno.env.get("WEAVE_DEST") || undefined,
     globalCopyStrategy: Deno.env.get("WEAVE_COPY_STRATEGY") as CopyStrategy | undefined,
     globalClean: Deno.env.get("WEAVE_CLEAN") === "true",

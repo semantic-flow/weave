@@ -5,7 +5,7 @@ export interface CommandOptions {
   debug?: string;
   config?: string;
   dest?: string;
-  repoDir?: string;
+  workspaceDir?: string;
   globalClean?: boolean;
   globalCopyStrategy?: CopyStrategy;
   watchConfig?: boolean;
@@ -54,6 +54,7 @@ export type Inclusion =
     url: string;
     options?: GitOptions;
     order?: number;
+    localPath?: string;
   }
   | {
     type: "web";
@@ -68,11 +69,12 @@ export type Inclusion =
     url: string;
     options?: LocalOptions;
     order?: number;
+    localPath?: string;
   };
 
 // Define the Global options interface
 export interface GlobalOptions {
-  repoDir?: string;
+  workspaceDir?: string;
   dest?: string;
   globalCopyStrategy?: CopyStrategy;
   globalClean?: boolean;

@@ -5,11 +5,14 @@ import { WeaveConfig } from "../types.ts";
 export class Frame {
   private static instance: Frame | null = null;
   public config: WeaveConfig;
+  public activeInclusions: string[] = [];
 
   // Private constructor to prevent direct instantiation
   private constructor(config: WeaveConfig) {
     this.config = config;
-    // Initialize other properties or perform setup tasks here
+
+    // Load active inclusions
+    
   }
 
   /**

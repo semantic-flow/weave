@@ -11,14 +11,14 @@ export const reposCheckoutCommand = new Command()
       log.info("repos checkout action invoked");
 
       const frame = Frame.getInstance();
-      const repoDir = frame.config.global.repoDir;
+      const workspaceDir = frame.config.global.workspaceDir;
       const inclusions = frame.config.inclusions; // Assuming `inclusions` is part of the config
 
-      if (frame.config.global.repoDir === undefined) {
-        log.error("repoDir is not defined in the configuration.");
+      if (frame.config.global.workspaceDir === undefined) {
+        log.error("workspaceDir is not defined in the configuration.");
         Deno.exit(1);
       }
-      const results: RepoCheckoutResult[] = await checkoutRepos(repoDir as string, inclusions);
+      const results: RepoCheckoutResult[] = await checkoutRepos(workspaceDir as string, inclusions);
 
       // Process results
       const successCount = results.filter(r => r.status === 'success').length;

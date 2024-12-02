@@ -50,14 +50,12 @@ export async function handleConfigAction(options: CommandOptions): Promise<void>
       Frame.resetInstance();
       log.info("Resetting Frame due to configuration changes.");
     }
-    Frame.getInstance(weaveConfig); // Initialize with WeaveConfig
+    const frame = Frame.getInstance(weaveConfig); // Initialize with WeaveConfig
 
     // Log success messages
     log.info("Configuration successfully loaded and Frame initialized.");
-    log.debug(`Detailed config: ${Deno.inspect(Frame.getInstance().config)}`);
-
-    // Placeholder for further actions like building the site
-    // await buildSite(Frame.getInstance().config);
+    log.debug(`Detailed config: ${Deno.inspect(frame.config)}`);
+    
   } catch (error) {
     if (error instanceof Error) {
       log.error(`Error occurred during initialization: ${error.message}`);
