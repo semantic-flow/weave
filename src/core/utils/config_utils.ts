@@ -5,7 +5,10 @@ import { Frame } from "../Frame.ts";
 import { WeaveConfig, CommandOptions, CopyStrategy } from "../../types.ts";
 import { merge } from "./object.ts";
 import { determineDefaultBranch } from "./determineDefaultBranch.ts";
-import { determinDefaultWorkingDirectory } from "./determinDefaultWorkingDirectory.ts";
+import { determineDefaultWorkingDirectory } from "./determineDefaultWorkingDirectory.ts";
+import { determineWorkingBranch } from "./determineWorkingBranch.ts";
+import { join } from "../../deps/path.ts";
+import { exists } from "../../deps/fs.ts";
 
 /**
  * Define default global options.
@@ -270,22 +273,43 @@ export async function composeWeaveConfig(commandOptions?: CommandOptions): Promi
   // Store the initial CommandOptions for reloads
   configContext.commandOptions = commandOptions;
 
-  // For git-type inclusions, store the branch if git is initialized, if not return "NOT_INITIALIZED"; then use the default localPath if not provided
-  // need to read branch from .git info
-  // 
-  mergedConfig.inclusions = await Promise.all(mergedConfig.inclusions.map(async (inclusion) => {
-    if (inclusion.type === "git" && inclusion.url) {
-      const { url, localPath: providedWorkingDir, options } = inclusion;
-      const branch = options?.branch || await determineDefaultBranch(url);
-      if (!mergedConfig.global.workspaceDir) {
-        mergedConfig.global.workspaceDir = DEFAULT_GLOBAL.workspaceDir;
+  // Step 5: Process inclusions
+  // For git-type inclusions, store the branch if git is initialized, if not return "NOT_INITIALIZED"; 
+  // use the default localPath if not provided
+
+  mergedConfig.inclusions = await Promise.all(
+    mergedConfig.inclusions.map(async (inclusion) => {
+      if (inclusion.type === "git" && inclusion.options?.active !== false && inclusion.url) {
+        const { url, localPath: providedWorkingDir, options } = inclusion;
+
+        // Ensure workspaceDir is always a string
+        const workspaceDir = mergedConfig.global.workspaceDir || DEFAULT_GLOBAL.workspaceDir;
+
+        let branch: string;
+
+        // Priority 1: Use the branch specified in options
+        if (options?.branch) {
+          branch = options.branch;
+        }
+        // Priority 2: Determine the current branch from the existing working directory
+        else if (providedWorkingDir && (await exists(join(providedWorkingDir, ".git")))) {
+          branch = await determineWorkingBranch(providedWorkingDir);
+        }
+        // Priority 3: Use the default branch from the remote repository
+        else {
+          branch = await determineDefaultBranch(url);
+        }
+
+        // Determine the working directory, possibly embedding the branch name
+        const localPath = providedWorkingDir || determineDefaultWorkingDirectory(workspaceDir as string, url, branch);
+
+        // Return the updated inclusion with the resolved localPath and branch
+        return { ...inclusion, localPath, options: { ...options, branch } };
+      } else {
+        return inclusion;
       }
-      const localPath = providedWorkingDir || determinDefaultWorkingDirectory(mergedConfig.global.workspaceDir as string, url, branch);
-      return { ...inclusion, localPath };
-    } else {
-      return inclusion;
-    }
-  }));
+    })
+  );
 
   return mergedConfig;
 }

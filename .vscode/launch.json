@@ -1,44 +1,43 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "request": "launch",
-            "name": "weave start ",
-            "type": "node",
-            "program": "${workspaceFolder}/src/cli.ts",
-            "cwd": "${workspaceFolder}",
-            "env": {},
-            "runtimeExecutable": "/home/drichardson/.deno/bin/deno",
-            "runtimeArgs": [
-                "run",
-                "--unstable",
-                "--inspect-brk",
-                "--allow-all"
-            ],
-            "attachSimplePort": 9229,
-            "outputCapture": "std",
-            "console": "integratedTerminal",
-            "killBehavior": "forceful",
-            "autoAttachChildProcesses": true,
-            "args": [
-                "--debug",
-                "DEBUG",
-                "watch"
-            ]
-        },
-        {
-            "name": "Attach to Deno",
-            "type": "node",
-            "request": "attach",
-            "port": 9229,
-            "address": "localhost",
-            "restart": false,
-            "sourceMaps": true,
-            "outFiles": ["${workspaceFolder}/**/*.ts"],
-            "internalConsoleOptions": "neverOpen"
-        }
-    ]
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "request": "launch",
+      "name": "weave start ",
+      "type": "node",
+      "program": "${workspaceFolder}/src/cli.ts",
+      "cwd": "${workspaceFolder}",
+      "env": {},
+      "runtimeExecutable": "/home/drichardson/.deno/bin/deno",
+      "runtimeArgs": [
+        "run",
+        "--inspect-brk",
+        "--allow-all"
+      ],
+      "attachSimplePort": 9229,
+      "outputCapture": "std",
+      "console": "integratedTerminal",
+      "killBehavior": "forceful",
+      "autoAttachChildProcesses": true,
+      "args": [
+        "--debug",
+        "DEBUG",
+        "watch"
+      ]
+    },
+    {
+      "name": "Attach to Deno",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "address": "localhost",
+      "restart": false,
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/**/*.ts"],
+      "internalConsoleOptions": "neverOpen"
+    }
+  ]
 }

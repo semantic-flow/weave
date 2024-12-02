@@ -1,4 +1,4 @@
-import { determinDefaultWorkingDirectory } from "./determinDefaultWorkingDirectory.ts";
+import { determineDefaultWorkingDirectory } from "./determineDefaultWorkingDirectory.ts";
 import { ensureDir } from "../../deps/fs.ts";
 import { log } from "./logging.ts";
 
@@ -11,7 +11,7 @@ import { log } from "./logging.ts";
  * @returns {Promise<string>} - The local repository path.
  */
 export async function ensureWorkingDirectory(workspaceDir: string, url: string, branch: string): Promise<string> {
-  const workingDir = determinDefaultWorkingDirectory(workspaceDir, url, branch);
+  const workingDir = determineDefaultWorkingDirectory(workspaceDir, url, branch);
 
   // Ensure the directory exists
   try {
