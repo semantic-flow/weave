@@ -4,7 +4,7 @@ import { log, setLogLevel } from "../core/utils/logging.ts";
 import { WeaveConfig, CommandOptions, validCopyStrategies } from "../types.ts";
 import { Frame } from "../core/Frame.ts";
 import type { LevelName } from "../deps/log.ts";
-import { composeWeaveConfig } from "../core/utils/config_utils.ts";
+import { composeWeaveConfig } from "../core/utils/configUtils.ts";
 
 
 

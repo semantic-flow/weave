@@ -1,7 +1,7 @@
 import { Command } from "../deps/cliffy.ts";
 import { log } from "../core/utils/logging.ts";
 import { Frame } from "../core/Frame.ts";
-import { watchConfigFile } from "../core/utils/config_utils.ts";
+import { watchConfigFile } from "../core/utils/configUtils.ts";
 
 export const watchCommand = new Command()
   .name("watch")
