@@ -11,7 +11,7 @@
       "program": "${workspaceFolder}/src/cli.ts",
       "cwd": "${workspaceFolder}",
       "env": {},
-      "runtimeExecutable": "/home/drichardson/.deno/bin/deno",
+      "runtimeExecutable": "deno",
       "runtimeArgs": [
         "run",
         "--inspect-brk",
