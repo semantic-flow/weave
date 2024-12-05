@@ -1,7 +1,7 @@
 // src/cli/configHelper.ts
 
 import { log, setLogLevel } from "../core/utils/logging.ts";
-import { WeaveConfig, CommandOptions, validCopyStrategies } from "../types.ts";
+import { WeaveConfig, InputGlobalOptions, validCopyStrategies } from "../types.ts";
 import { Frame } from "../core/Frame.ts";
 import type { LevelName } from "../deps/log.ts";
 import { composeWeaveConfig } from "../core/utils/configUtils.ts";
@@ -26,9 +26,9 @@ export function setLogLevelFromCLI(debug: string) {
 
 /**
  * Handles the configuration action by processing command options, setting up configurations, and initializing the Frame.
- * @param options CommandOptions parsed from CLI.
+ * @param options InputGlobalOptions parsed from CLI.
  */
-export async function handleConfigAction(options: CommandOptions): Promise<void> {
+export async function handleConfigAction(options: InputGlobalOptions): Promise<void> {
   // Validate 'copyStrategy' if it's provided
   if (options.globalCopyStrategy && !validCopyStrategies.includes(options.globalCopyStrategy)) {
     log.error(

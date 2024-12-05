@@ -2,7 +2,7 @@
 
 import { Command } from "./deps/cliffy.ts";
 import { log } from "./core/utils/logging.ts";
-import { CommandOptions, CopyStrategy } from "./types.ts";
+import { InputGlobalOptions, CopyStrategy } from "./types.ts";
 import { handleConfigAction } from "./cli/configHelper.ts";
 import { reposCommand } from "./cli/reposCommand.ts";
 import { watchCommand } from "./cli/watchCommand.ts";
@@ -31,11 +31,11 @@ const weave = new Command()
 
   .globalOption("--globalClean", "Clean the destination directory before build")
 
-  .globalAction(async (options: CommandOptions) => {
-    // Safely cast the options to CommandOptions
-    const commandOptions: CommandOptions = {
+  .globalAction(async (options: InputGlobalOptions) => {
+    // Safely cast the options to InputGlobalOptions
+    const InputGlobalOptions: InputGlobalOptions = {
       debug: typeof options.debug === "string" ? options.debug : "INFO", // Ensure debug is a string
-      config: options.config,
+      configFilePath: options.configFilePath,
       dest: options.dest,
       workspaceDir: options.workspaceDir,
       globalClean: options.globalClean as boolean | undefined, // TODO: validate in handleConfigAction
@@ -43,7 +43,7 @@ const weave = new Command()
     };
 
     // Delegate the handling to the external function
-    await handleConfigAction(commandOptions);
+    await handleConfigAction(InputGlobalOptions);
   })
 
   // Attach subcommands if any

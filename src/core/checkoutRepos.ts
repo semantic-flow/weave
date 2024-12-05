@@ -1,5 +1,5 @@
 import { log } from "./utils/logging.ts";
-import { Inclusion } from "../types.ts";
+import { ResolvedInclusion } from "../types.ts";
 import { exists } from "../deps/fs.ts";
 import { join } from "../deps/path.ts";
 import { ensureWorkingDirectory } from "./utils/ensureWorkingDirectory.ts";
@@ -16,7 +16,7 @@ export interface RepoCheckoutResult {
   error?: Error;
 }
 
-export async function checkoutRepos(workspaceDir: string, inclusions: Inclusion[]): Promise<RepoCheckoutResult[]> {
+export async function checkoutRepos(workspaceDir: string, inclusions: ResolvedInclusion[]): Promise<RepoCheckoutResult[]> {
   const results: RepoCheckoutResult[] = [];
 
   // Filter for only git inclusions

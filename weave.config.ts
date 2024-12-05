@@ -1,8 +1,8 @@
 // weave.config.ts
 
-import { WeaveConfig } from "./src/types.ts";
+import { WeaveConfigInput } from "./src/types.ts";
 
-export const weaveConfig: WeaveConfig = {
+export const weaveConfig: WeaveConfigInput = {
   global: {
     workspaceDir: "_source-repos", // Directory for cloned repositories
     dest: "_woven", // Directory for woven output, relative to cwd
@@ -39,7 +39,7 @@ export const weaveConfig: WeaveConfig = {
     {
       type: "web",
       url: "https://raw.githubusercontent.com/djradon/public-notes/refs/heads/main/ar.the-rdf-net-challenge.md",
-      order: 10,
+      order: 20,
       options: {
         active: true,
         copyStrategy: "no-overwrite",
@@ -47,9 +47,9 @@ export const weaveConfig: WeaveConfig = {
     },
     {
       type: "local",
-      url: "/path/to/local/folder",
+      localPath: "documentation",
       options: {
-        active: false,
+        active: true,
         exclude: ["tests"],
         excludeByDefault: false,
       },

@@ -1,1 +1,1 @@
-export * from "jsr:@std/assert";
+export * from "jsr:@std/assert@1.0.8";
