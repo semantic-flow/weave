@@ -42,6 +42,7 @@ updated: "2024-12-08"
   - maybe suggest "--ignore-missing" and "repos prepare" if needed
   - check remote inclusions for availability
   - check local dirs for existence
+  - if collisions, suggest global "--ignore-collisions"
 - weave inclusions prepare:
   - do repos prepare, plus...
   - create local inclusion dirs if not present
@@ -52,11 +53,10 @@ updated: "2024-12-08"
 - weave repos verify: checks whether repos are ready for build (and eventually,
   whether a pull would produce any conflicts)
   - ensure sparse checkout settings are good
-  - if collisions, suggest global "--ignore-collisions"
   - each git inclusion can have "--ignore-behind", "--ignore-ahead",
     "--ignore-divergent"
   - "--ignore-checkout-consistency"
-- weave repos pull: pull latest for all configured repos
+- weave repos pull: pull latest for all active configured repos
 - weave repos push: pull and then, if no conflicts, push all repos
 - weave repos checkout: for missing repos, initialize if necessary and perform
   sparse checkout, depth 1 by default;
@@ -74,6 +74,7 @@ updated: "2024-12-08"
   - global-copy-strategy: overwrite | no-overwrite | skip | prompt
   - per-inclusion copy-strategy: overwrite | no-overwrite | skip | prompt
 - weave watch: detects changes in active inclusions and copies them to dest
+  - ?does it 
 - weave start: build and watch,
   - ?but only safely (i.e., repos all up-to-date, no collisions, build with
     prompt)

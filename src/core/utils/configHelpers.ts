@@ -3,32 +3,19 @@
 import { log } from "./logging.ts";
 import { WeaveConfigInput } from "../../types.ts";
 
-/**
- * Merges two configuration objects deeply, ensuring that required fields are preserved.
- * @param target The target configuration object.
- * @param source The source configuration object to merge into target.
- * @returns The merged configuration object.
- */
-export function mergeConfigs<T extends object>(target: T, source: Partial<T>): T {
-  for (const key in source) {
-    if (source.hasOwnProperty(key)) {
-      const sourceValue = source[key as keyof T];
-      if (sourceValue !== undefined) {
-        if (
-          typeof sourceValue === "object" &&
-          !Array.isArray(sourceValue) &&
-          sourceValue !== null
-        ) {
-          // @ts-ignore: TypeScript doesn't recognize recursive generic merging
-          target[key as keyof T] = mergeConfigs(target[key as keyof T] || {}, sourceValue as any);
-        } else {
-          target[key as keyof T] = sourceValue as T[keyof T];
-        }
-      }
-    }
-  }
-  return target;
+// Utility function to merge two configurations
+export function mergeConfigs(base: WeaveConfigInput, override: Partial<WeaveConfigInput>): WeaveConfigInput {
+  return {
+    ...base,
+    ...override,
+    global: {
+      ...base.global,
+      ...override.global,
+    },
+    inclusions: override.inclusions ?? base.inclusions,
+  };
 }
+
 
 /**
  * Returns the path of the configuration file.

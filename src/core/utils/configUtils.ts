@@ -57,22 +57,33 @@ export async function composeWeaveConfig(
       dest: Deno.env.get("WEAVE_DEST") || undefined,
       globalCopyStrategy: Deno.env.get("WEAVE_COPY_STRATEGY") as CopyStrategy | undefined,
       globalClean: Deno.env.get("WEAVE_CLEAN") === "true",
+      configFilePath: Deno.env.get("WEAVE_CONFIG_FILE") || undefined,
     },
   };
 
   let mergedConfig: WeaveConfig = mergeConfigs(defaultConfig, ENV_CONFIG) as WeaveConfig;
 
-  // Step 3: Load and merge configuration file (required)
-  const configFilePath = await getConfigFilePath();
+  // Step 3: Determine configFilePath with precedence: CLI > ENV > default
+  const preferredConfigPath = commandOptions?.configFilePath;
+  const configFilePath = await getConfigFilePath(preferredConfigPath);
+
   if (!configFilePath) {
-    log.error("No configuration file found. Exiting.");
+    log.error("No configuration file path provided. Exiting.");
     Deno.exit(1);
   }
 
-  const fileConfig: WeaveConfigInput = await loadWeaveConfigFromJson(configFilePath);
-  mergedConfig = mergeConfigs(mergedConfig as WeaveConfigInput, fileConfig) as WeaveConfig;
+  // Step 4: Load and merge configuration file (required)
+  let fileConfig: Partial<WeaveConfigInput>;
+  try {
+    fileConfig = await loadWeaveConfigFromJson(configFilePath);
+  } catch (error) {
+    log.error("Failed to load configuration file. Exiting.");
+    Deno.exit(1);
+  }
 
-  // Step 4: Merge command-line options
+  mergedConfig = mergeConfigs(mergedConfig, fileConfig) as WeaveConfig;
+
+  // Step 5: Merge command-line options
   const commandConfig: Partial<WeaveConfigInput> = {
     global: {
       workspaceDir: commandOptions?.workspaceDir,
@@ -80,42 +91,57 @@ export async function composeWeaveConfig(
       globalCopyStrategy: commandOptions?.globalCopyStrategy,
       globalClean: commandOptions?.globalClean,
       watchConfig: commandOptions?.watchConfig,
+      configFilePath: commandOptions?.configFilePath,
+      debug: commandOptions?.debug,
     },
   };
 
   mergedConfig = mergeConfigs(mergedConfig as WeaveConfigInput, commandConfig) as WeaveConfig;
 
-  // Ensure inclusions are present
-  if (!mergedConfig.inclusions) {
-    mergedConfig.inclusions = [];
-  }
-
-  // Assign configFilePath to global options
+  // Step 6: Assign configFilePath to global options (from the determined path)
   mergedConfig.global.configFilePath = configFilePath;
 
-  // Step 5: Ensure that workspaceDir is always defined
+  // Step 7: Ensure that all required global options are set
   mergedConfig.global.workspaceDir = mergedConfig.global.workspaceDir ?? DEFAULT_GLOBAL.workspaceDir;
+  mergedConfig.global.dest = mergedConfig.global.dest ?? DEFAULT_GLOBAL.dest;
+  mergedConfig.global.globalCopyStrategy = mergedConfig.global.globalCopyStrategy ?? DEFAULT_GLOBAL.globalCopyStrategy;
+  mergedConfig.global.globalClean = mergedConfig.global.globalClean ?? DEFAULT_GLOBAL.globalClean;
+  mergedConfig.global.watchConfig = mergedConfig.global.watchConfig ?? DEFAULT_GLOBAL.watchConfig;
+
+  // Step 8: Validate that all required global options are set
+  if (
+    !mergedConfig.global.workspaceDir ||
+    !mergedConfig.global.dest ||
+    !mergedConfig.global.globalCopyStrategy ||
+    mergedConfig.global.globalClean === undefined ||
+    mergedConfig.global.watchConfig === undefined ||
+    !mergedConfig.global.configFilePath
+  ) {
+    log.error("Missing required global configuration options. Exiting.");
+    Deno.exit(1);
+  }
 
   const workspaceDir = mergedConfig.global.workspaceDir;
 
-  // Step 6: Process inclusions
+  // Step 9: Process inclusions
 
   // Pre-filter only active inclusions
   const activeInclusions = mergedConfig.inclusions.filter(
     (inclusion) => inclusion.options?.active !== false
   );
 
-  // Map active inclusions to their resolved promises
+  // Map active inclusions to their resolved inclusions
   const resolvedInclusions = await Promise.all(
     activeInclusions.map(async (inclusion: InputInclusion): Promise<ResolvedInclusion> => {
       return await resolveInclusion(inclusion, workspaceDir);
     })
   );
 
+  // Assign resolved inclusions back to the configuration
   mergedConfig.inclusions = resolvedInclusions;
 
-  return mergedConfig;
-
+  // At this point, mergedConfig satisfies WeaveConfig
+  return mergedConfig as WeaveConfig;
 }
 
 
@@ -249,7 +275,7 @@ export async function watchConfigFile(configFilePath: string, commandOptions?: I
 
           // Reset and reinitialize Frame with the new configuration
           Frame.resetInstance();
-          Frame.getInstance(newConfig);
+          Frame.getInstance(newConfig, commandOptions);
 
           log.info("Configuration reloaded and Frame reinitialized.");
           log.info(`Updated config: ${Deno.inspect(Frame.getInstance().config)}`);

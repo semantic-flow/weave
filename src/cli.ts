@@ -34,12 +34,13 @@ const weave = new Command()
   .globalAction(async (options: InputGlobalOptions) => {
     // Safely cast the options to InputGlobalOptions
     const InputGlobalOptions: InputGlobalOptions = {
-      debug: typeof options.debug === "string" ? options.debug : "INFO", // Ensure debug is a string
-      configFilePath: options.configFilePath,
-      dest: options.dest,
       workspaceDir: options.workspaceDir,
-      globalClean: options.globalClean as boolean | undefined, // TODO: validate in handleConfigAction
+      dest: options.dest,
       globalCopyStrategy: options.globalCopyStrategy as CopyStrategy | undefined, // Will validate in handleConfigAction
+      globalClean: options.globalClean as boolean | undefined, // TODO: validate in handleConfigAction
+      watchConfig: options.watchConfig as boolean | undefined, // TODO: validate in handleConfigAction
+      configFilePath: options.configFilePath,
+      debug: typeof options.debug === "string" ? options.debug : "INFO", // Ensure debug is a string
     };
 
     // Delegate the handling to the external function
