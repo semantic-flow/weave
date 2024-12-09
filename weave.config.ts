@@ -8,7 +8,7 @@ export const weaveConfig: WeaveConfigInput = {
     dest: "_woven", // Directory for woven output, relative to cwd
     globalCopyStrategy: "no-overwrite",
     globalClean: true,
-    watchConfig: false,
+    watchConfig: true,
   },
   inclusions: [
     {

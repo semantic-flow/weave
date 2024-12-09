@@ -219,9 +219,6 @@ async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string)
  * @param commandOptions The original command-line options to retain during reloads.
  */
 export async function watchConfigFile(configFilePath: string, commandOptions?: InputGlobalOptions): Promise<void> {
-  if (!commandOptions) {
-    throw new Error("Command options are required to watch config file.");
-  }
 
   const watcher = Deno.watchFs(configFilePath);
   log.info(`Watching configuration file for changes: ${configFilePath}`);

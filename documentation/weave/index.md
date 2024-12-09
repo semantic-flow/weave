@@ -2,7 +2,7 @@
 title: Documentation
 description: How to make this site your own
 created: "2024-11-21"
-updated: "2024-12-02"
+updated: "2024-12-08"
 ---
 
 - **Weave** is a dynamic CLI tool for remixing static sites, focused on syncing,
@@ -33,14 +33,29 @@ updated: "2024-12-02"
 
 ### Usage
 
-- weave (default): interactive prompt to create config file if none present, and
-  add inclusions
-- weave verify: lists all inclusions and their statuses (active, present,
-  current) and copy strategies, in order ; ensure sparse checkout settings are
-  correct;
+- weave setup: interactive prompt to create config file if none present, and add
+  inclusions
+- weave inclusions list: lists all inclusions and their statuses
+  (active/inactive, present/missing, current/ahead/behind/divergent) and copy
+  strategies, in order but grouped by active/inactive;
+- weave inclusions verify: output status "ready to weave", "not ready"
+  - maybe suggest "--ignore-missing" and "repos prepare" if needed
+  - check remote inclusions for availability
+  - check local dirs for existence
+- weave inclusions prepare:
+  - do repos prepare, plus...
+  - create local inclusion dirs if not present
+  - create dest dir if not present, ensure writability
+  - maybe not needed?
 - weave repos list: lists configured repos including their "active" status and
-  whether they're behind their origin (and eventually, whether a pull would
-  produce any conflicts)
+  whether they're behind their origin
+- weave repos verify: checks whether repos are ready for build (and eventually,
+  whether a pull would produce any conflicts)
+  - ensure sparse checkout settings are good
+  - if collisions, suggest global "--ignore-collisions"
+  - each git inclusion can have "--ignore-behind", "--ignore-ahead",
+    "--ignore-divergent"
+  - "--ignore-checkout-consistency"
 - weave repos pull: pull latest for all configured repos
 - weave repos push: pull and then, if no conflicts, push all repos
 - weave repos checkout: for missing repos, initialize if necessary and perform
@@ -59,7 +74,7 @@ updated: "2024-12-02"
   - global-copy-strategy: overwrite | no-overwrite | skip | prompt
   - per-inclusion copy-strategy: overwrite | no-overwrite | skip | prompt
 - weave watch: detects changes in active inclusions and copies them to dest
-- weave activate: build and watch,
+- weave start: build and watch,
   - ?but only safely (i.e., repos all up-to-date, no collisions, build with
     prompt)
 
