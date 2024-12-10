@@ -139,20 +139,6 @@ export async function loadWeaveConfigFromJson(filePath: string): Promise<WeaveCo
   return await loadWeaveConfig(filePath);
 }
 
-/**
- * Sets the log level.
- * @param debug The debug level string.
- */
-export function setLogLevelFromOptions(debug: string) {
-  const level = debug.toUpperCase() as LevelName;
-  const validLevels: LevelName[] = ["DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"];
-  if (validLevels.includes(level)) {
-    setLogLevel(level);
-  } else {
-    log.warn(`Invalid log level: ${debug}. Defaulting to INFO.`);
-    setLogLevel("INFO");
-  }
-}
 
 
 /**
@@ -170,7 +156,7 @@ export async function handleConfigAction(options: InputGlobalOptions): Promise<v
 
   try {
     // Set log level based on the debug option
-    setLogLevelFromOptions(options.debug || "ERROR");
+    setLogLevel(options.debug || "ERROR");
 
     // Compose the WeaveConfig by merging defaults, env, config file, and CLI options
     const weaveConfig: WeaveConfig = await composeWeaveConfig(options);

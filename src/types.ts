@@ -1,5 +1,7 @@
 // src/types.ts
 
+import { LevelName } from "./deps/log.ts";
+
 // =============================
 // Copy Strategy Types
 // =============================
@@ -31,7 +33,7 @@ export interface InputGlobalOptions {
   globalClean?: boolean;
   watchConfig?: boolean;
   configFilePath?: string;
-  debug?: string;
+  debug?: LevelName;
 }
 
 /**
@@ -45,7 +47,7 @@ export interface ResolvedGlobalOptions {
   globalClean: boolean;
   watchConfig: boolean;
   configFilePath: string; // mandatory since config file is required
-  debug: string;
+  debug: LevelName;
 }
 
 // =============================

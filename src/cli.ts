@@ -3,9 +3,12 @@
 import { Command } from "./deps/cliffy.ts";
 import { log } from "./core/utils/logging.ts";
 import { InputGlobalOptions, CopyStrategy } from "./types.ts";
-import { handleConfigAction } from "./core/utils//configHelpers.ts";
+import { handleConfigAction } from "./core/utils/configHelpers.ts";
 import { reposCommand } from "./cli/reposCommand.ts";
 import { watchCommand } from "./cli/watchCommand.ts";
+import { LogLevels } from "./deps/log.ts";
+import type { LevelName } from "./deps/log.ts";
+
 
 const weave = new Command()
   .name("weave")
@@ -15,7 +18,7 @@ const weave = new Command()
   .globalOption(
     "--debug <level:string>",
     "Set log level (DEBUG, INFO, WARN, ERROR, CRITICAL)",
-    { default: "ERROR" }
+    { default: "WARN" }
   )
 
   .globalOption("-c, --config <file:string>", "Path or URL for config file")
@@ -33,18 +36,20 @@ const weave = new Command()
 
   .globalAction(async (options: InputGlobalOptions) => {
     // Safely cast the options to InputGlobalOptions
-    const InputGlobalOptions: InputGlobalOptions = {
+    const inputOptions: InputGlobalOptions = {
       workspaceDir: options.workspaceDir,
       dest: options.dest,
       globalCopyStrategy: options.globalCopyStrategy as CopyStrategy | undefined, // Will validate in handleConfigAction
       globalClean: options.globalClean as boolean | undefined, // TODO: validate in handleConfigAction
       watchConfig: options.watchConfig as boolean | undefined, // TODO: validate in handleConfigAction
       configFilePath: options.configFilePath,
-      debug: typeof options.debug === "string" ? options.debug : "ERROR", // Ensure debug is a string
+      debug: typeof options.debug === "string" && options.debug.toUpperCase() in LogLevels
+        ? options.debug.toUpperCase() as LevelName
+        : "DEBUG" as LevelName, // Ensure debug is a valid LogLevel
     };
 
     // Delegate the handling to the external function
-    await handleConfigAction(InputGlobalOptions);
+    await handleConfigAction(inputOptions);
   })
 
   // Attach subcommands if any

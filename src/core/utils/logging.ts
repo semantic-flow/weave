@@ -1,5 +1,6 @@
 // src/core/utils/log.ts
 
+import * as logger from "../../deps/log.ts";
 import { env } from "./env.ts";
 import {
   bold,
@@ -10,7 +11,6 @@ import {
   strikethrough,
   yellow,
 } from "../../deps/colors.ts";
-import * as logger from "../../deps/log.ts"
 
 import type { LevelName, LogRecord } from "../../deps/log.ts";
 
@@ -48,7 +48,7 @@ export function setLogLevel(newLevel: LevelName) {
     log = logger.getLogger("testLogger");
     log.info(`Log level set to ${newLevel}`);
   } else {
-    log.warn(`Attempted to set invalid log level: ${newLevel}`);
+    console.log(`Attempted to set invalid log level: ${newLevel}`);
   }
 }
 const COLOR_TAG_REG = /<(\w+)>([^<]+)<\/\1>/g;
