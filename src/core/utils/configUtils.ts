@@ -21,18 +21,19 @@ import { determineDefaultBranch } from "./determineDefaultBranch.ts";
 import { determineDefaultWorkingDirectory } from "./determineDefaultWorkingDirectory.ts";
 import { determineWorkingBranch } from "./determineWorkingBranch.ts";
 import { ensureWorkingDirectory } from "./ensureWorkingDirectory.ts";
-import { merge } from "./object.ts";
+
 
 /**
  * Define default global options.
  */
 const DEFAULT_GLOBAL: ResolvedGlobalOptions = {
-  workspaceDir: "_source_repos",
+  workspaceDir: "_source-repos",
   dest: "_woven",
   globalCopyStrategy: "no-overwrite",
   globalClean: false,
   watchConfig: true,
   configFilePath: "./weave.config.json", // Assuming a default config file path
+  debug: "ERROR",
 };
 
 /**
@@ -58,6 +59,7 @@ export async function composeWeaveConfig(
       globalCopyStrategy: Deno.env.get("WEAVE_COPY_STRATEGY") as CopyStrategy | undefined,
       globalClean: Deno.env.get("WEAVE_CLEAN") === "true",
       configFilePath: Deno.env.get("WEAVE_CONFIG_FILE") || undefined,
+      debug: Deno.env.get("WEAVE_DEBUG") || undefined,
     },
   };
 
@@ -124,7 +126,6 @@ export async function composeWeaveConfig(
   const workspaceDir = mergedConfig.global.workspaceDir;
 
   // Step 9: Process inclusions
-
   // Pre-filter only active inclusions
   const activeInclusions = mergedConfig.inclusions.filter(
     (inclusion) => inclusion.options?.active !== false
@@ -243,9 +244,13 @@ async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string)
  * Watches the configuration file for changes and reloads the configuration when changes are detected.
  * @param configFilePath The path to the configuration file to watch.
  * @param commandOptions The original command-line options to retain during reloads.
+ * @param composeWeaveConfigFn Supports dependency injection of the composeWeaveConfig function.
  */
-export async function watchConfigFile(configFilePath: string, commandOptions?: InputGlobalOptions): Promise<void> {
-
+export async function watchConfigFile(
+  configFilePath: string,
+  commandOptions?: InputGlobalOptions,
+  composeWeaveConfigFn?: (opts?: InputGlobalOptions) => Promise<WeaveConfig>
+): Promise<void> {
   const watcher = Deno.watchFs(configFilePath);
   log.info(`Watching configuration file for changes: ${configFilePath}`);
 
@@ -270,8 +275,8 @@ export async function watchConfigFile(configFilePath: string, commandOptions?: I
         isReloading = true;
 
         try {
-          // Recompose the configuration using the original CommandOptions
-          const newConfig: WeaveConfig = await composeWeaveConfig(commandOptions);
+          // Use the injected composeWeaveConfigFn or default to the actual function
+          const newConfig: WeaveConfig = await (composeWeaveConfigFn ?? composeWeaveConfig)(commandOptions);
 
           // Reset and reinitialize Frame with the new configuration
           Frame.resetInstance();
@@ -281,7 +286,7 @@ export async function watchConfigFile(configFilePath: string, commandOptions?: I
           log.info(`Updated config: ${Deno.inspect(Frame.getInstance().config)}`);
         } catch (error) {
           if (error instanceof Error) {
-            log.error(`Failed to reload config: ${error.message}`);
+            log.error(`Failed to reload config: ${(error as Error).message}`);
             log.debug(Deno.inspect(error, { colors: true }));
           } else {
             log.error("An unknown error occurred while reloading config.");

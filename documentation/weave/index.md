@@ -31,6 +31,17 @@ updated: "2024-12-08"
   - --watchConfig to specify whether changes to config file take effect
     immediately (without restarting Weave)
 
+## Global Options
+
+- `--config <file:string>`: Specify the path or URL to the configuration file.
+- `--dest <directory:string>`: Output directory (defaults to "_woven").
+- `--workspaceDir <directory:string>`: Path where any git repositories of content are stored.
+- `--debug <level:string>`: Set log level (`DEBUG`, `INFO`, `WARN`, `ERROR`, `CRITICAL`). Overrides default log settings.
+- `--copyStrategy <strategy:string>`: Copy strategy (`no-overwrite`, `overwrite`, `skip`, `prompt`).
+- `--clean`: Clean the destination directory before build.
+- `--watchConfig`: Enable immediate effect of configuration file changes without restarting Weave.
+
+
 ### Usage
 
 - weave setup: interactive prompt to create config file if none present, and add

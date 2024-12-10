@@ -6,6 +6,7 @@
     "jsr:@cliffy/internal@1.0.0-rc.7": "1.0.0-rc.7",
     "jsr:@cliffy/table@1.0.0-rc.7": "1.0.0-rc.7",
     "jsr:@std/assert@*": "1.0.8",
+    "jsr:@std/assert@1.0.8": "1.0.8",
     "jsr:@std/async@^1.0.8": "1.0.9",
     "jsr:@std/data-structures@^1.0.4": "1.0.4",
     "jsr:@std/fmt@1.0.3": "1.0.3",

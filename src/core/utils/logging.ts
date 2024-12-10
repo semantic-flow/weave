@@ -1,6 +1,6 @@
 // src/core/utils/log.ts
 
-import * as logger from "../../deps/log.ts";
+
 import { env } from "./env.ts";
 import {
   bold,
@@ -11,6 +11,7 @@ import {
   strikethrough,
   yellow,
 } from "../../deps/colors.ts";
+import * as logger from "../../deps/log.ts"
 
 import type { LevelName, LogRecord } from "../../deps/log.ts";
 

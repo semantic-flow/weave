@@ -3,7 +3,7 @@
 import { Command } from "./deps/cliffy.ts";
 import { log } from "./core/utils/logging.ts";
 import { InputGlobalOptions, CopyStrategy } from "./types.ts";
-import { handleConfigAction } from "./cli/configHelper.ts";
+import { handleConfigAction } from "./core/utils//configHelpers.ts";
 import { reposCommand } from "./cli/reposCommand.ts";
 import { watchCommand } from "./cli/watchCommand.ts";
 
@@ -15,7 +15,7 @@ const weave = new Command()
   .globalOption(
     "--debug <level:string>",
     "Set log level (DEBUG, INFO, WARN, ERROR, CRITICAL)",
-    { default: "INFO" }
+    { default: "ERROR" }
   )
 
   .globalOption("-c, --config <file:string>", "Path or URL for config file")
@@ -40,7 +40,7 @@ const weave = new Command()
       globalClean: options.globalClean as boolean | undefined, // TODO: validate in handleConfigAction
       watchConfig: options.watchConfig as boolean | undefined, // TODO: validate in handleConfigAction
       configFilePath: options.configFilePath,
-      debug: typeof options.debug === "string" ? options.debug : "INFO", // Ensure debug is a string
+      debug: typeof options.debug === "string" ? options.debug : "ERROR", // Ensure debug is a string
     };
 
     // Delegate the handling to the external function
