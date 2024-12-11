@@ -7,6 +7,7 @@ import { handleConfigAction } from "./core/utils/configHelpers.ts";
 import { reposCommand } from "./cli/reposCommand.ts";
 import { watchCommand } from "./cli/watchCommand.ts";
 import { LogLevels } from "./deps/log.ts";
+import { handleCaughtError } from "./core/utils/handleCaughtError.ts";
 import type { LevelName } from "./deps/log.ts";
 
 
@@ -59,16 +60,9 @@ const weave = new Command()
   .command("watch", watchCommand)
 //  .command("monitor", monitorSubcommand)
 
-
-
 try {
   await weave.parse(Deno.args);
 } catch (error) {
-  if (error instanceof Error) {
-    log.error(`Error occurred while parsing the command: ${error.message}`);
-    log.debug(Deno.inspect(error, { colors: true }));
-  } else {
-    log.error("An unknown error occurred.");
-  }
+  handleCaughtError(error, "Error occurred while parsing the command:");
   Deno.exit(1);
 }

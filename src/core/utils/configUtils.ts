@@ -22,6 +22,7 @@ import { determineDefaultBranch } from "./determineDefaultBranch.ts";
 import { determineDefaultWorkingDirectory } from "./determineDefaultWorkingDirectory.ts";
 import { determineWorkingBranch } from "./determineWorkingBranch.ts";
 import { ensureWorkingDirectory } from "./ensureWorkingDirectory.ts";
+import { handleCaughtError } from "./handleCaughtError.ts";
 
 
 /**
@@ -72,7 +73,7 @@ export async function composeWeaveConfig(
 
   // Step 3: Determine configFilePath with precedence: CLI > ENV > default
   const preferredConfigPath = commandOptions?.configFilePath;
-  const configFilePath = await getConfigFiloePath(preferredConfigPath);
+  const configFilePath = await getConfigFilePath(preferredConfigPath);
 
   if (!configFilePath) {
     log.error("No configuration file path provided. Exiting.");
@@ -84,7 +85,7 @@ export async function composeWeaveConfig(
   try {
     fileConfig = await loadWeaveConfig(configFilePath);
   } catch (error) {
-    log.error("Failed to load configuration file. Exiting.");
+    handleCaughtError(error, `Failed to load configuration file:`);
     Deno.exit(1);
   }
 
