@@ -28,13 +28,13 @@ import { ensureWorkingDirectory } from "./ensureWorkingDirectory.ts";
  * Define default global options.
  */
 const DEFAULT_GLOBAL: ResolvedGlobalOptions = {
-  workspaceDir: "_source-repos",
-  dest: "_woven",
-  globalCopyStrategy: "no-overwrite",
-  globalClean: false,
-  watchConfig: true,
   configFilePath: "./weave.config.json", // Assuming a default config file path
   debug: "ERROR",
+  dest: "_woven",
+  globalClean: false,
+  globalCopyStrategy: "no-overwrite",
+  watchConfig: false,
+  workspaceDir: "_source-repos",
 };
 
 /**
@@ -51,24 +51,28 @@ export async function composeWeaveConfig(
     global: { ...DEFAULT_GLOBAL },
     inclusions: [],
   };
+  log.info(`Default config: ${Deno.inspect(defaultConfig)}`);
 
   // Step 2: Merge environment variables
   const ENV_CONFIG: Partial<WeaveConfigInput> = {
     global: {
-      workspaceDir: Deno.env.get("WEAVE_WORKSPACE_DIR") || undefined,
-      dest: Deno.env.get("WEAVE_DEST") || undefined,
-      globalCopyStrategy: Deno.env.get("WEAVE_COPY_STRATEGY") as CopyStrategy | undefined,
-      globalClean: Deno.env.get("WEAVE_CLEAN") === "true",
       configFilePath: Deno.env.get("WEAVE_CONFIG_FILE") || undefined,
       debug: Deno.env.get("WEAVE_DEBUG") as LevelName | undefined,
+      dest: Deno.env.get("WEAVE_DEST") || undefined,
+      globalClean: Deno.env.get("WEAVE_CLEAN") !== undefined ? Deno.env.get("WEAVE_CLEAN") === "true" : undefined,
+      globalCopyStrategy: Deno.env.get("WEAVE_COPY_STRATEGY") as CopyStrategy | undefined,
+      watchConfig: Deno.env.get("WEAVE_WATCH_CONFIG") !== undefined ? Deno.env.get("WEAVE_WATCH_CONFIG") === "true" : undefined,
+      workspaceDir: Deno.env.get("WEAVE_WORKSPACE_DIR") || undefined,
+      // Continue for other global options
     },
   };
 
   let mergedConfig: WeaveConfig = mergeConfigs(defaultConfig, ENV_CONFIG) as WeaveConfig;
+  log.debug(`Default merged with ENV: ${Deno.inspect(mergedConfig)}`);
 
   // Step 3: Determine configFilePath with precedence: CLI > ENV > default
   const preferredConfigPath = commandOptions?.configFilePath;
-  const configFilePath = await getConfigFilePath(preferredConfigPath);
+  const configFilePath = await getConfigFiloePath(preferredConfigPath);
 
   if (!configFilePath) {
     log.error("No configuration file path provided. Exiting.");
@@ -86,16 +90,19 @@ export async function composeWeaveConfig(
 
   mergedConfig = mergeConfigs(mergedConfig, fileConfig) as WeaveConfig;
 
+  log.debug(`Default+ENV merged with config file: ${Deno.inspect(mergedConfig)}`);
+
+
   // Step 5: Merge command-line options
   const commandConfig: Partial<WeaveConfigInput> = {
     global: {
-      workspaceDir: commandOptions?.workspaceDir,
-      dest: commandOptions?.dest,
-      globalCopyStrategy: commandOptions?.globalCopyStrategy,
-      globalClean: commandOptions?.globalClean,
-      watchConfig: commandOptions?.watchConfig,
       configFilePath: commandOptions?.configFilePath,
       debug: commandOptions?.debug,
+      dest: commandOptions?.dest,
+      globalClean: commandOptions?.globalClean,
+      globalCopyStrategy: commandOptions?.globalCopyStrategy,
+      watchConfig: commandOptions?.watchConfig,
+      workspaceDir: commandOptions?.workspaceDir,
     },
   };
 
@@ -104,21 +111,14 @@ export async function composeWeaveConfig(
   // Step 6: Assign configFilePath to global options (from the determined path)
   mergedConfig.global.configFilePath = configFilePath;
 
-  // Step 7: Ensure that all required global options are set
-  mergedConfig.global.workspaceDir = mergedConfig.global.workspaceDir ?? DEFAULT_GLOBAL.workspaceDir;
-  mergedConfig.global.dest = mergedConfig.global.dest ?? DEFAULT_GLOBAL.dest;
-  mergedConfig.global.globalCopyStrategy = mergedConfig.global.globalCopyStrategy ?? DEFAULT_GLOBAL.globalCopyStrategy;
-  mergedConfig.global.globalClean = mergedConfig.global.globalClean ?? DEFAULT_GLOBAL.globalClean;
-  mergedConfig.global.watchConfig = mergedConfig.global.watchConfig ?? DEFAULT_GLOBAL.watchConfig;
-
-  // Step 8: Validate that all required global options are set
+  // Step 7: Validate that all required global options are set
   if (
-    !mergedConfig.global.workspaceDir ||
+    !mergedConfig.global.configFilePath ||
     !mergedConfig.global.dest ||
-    !mergedConfig.global.globalCopyStrategy ||
     mergedConfig.global.globalClean === undefined ||
+    !mergedConfig.global.globalCopyStrategy ||
     mergedConfig.global.watchConfig === undefined ||
-    !mergedConfig.global.configFilePath
+    !mergedConfig.global.workspaceDir
   ) {
     log.error("Missing required global configuration options. Exiting.");
     Deno.exit(1);
@@ -126,7 +126,7 @@ export async function composeWeaveConfig(
 
   const workspaceDir = mergedConfig.global.workspaceDir;
 
-  // Step 9: Process inclusions
+  // Step 8: Process inclusions
   // Pre-filter only active inclusions
   const activeInclusions = mergedConfig.inclusions.filter(
     (inclusion) => inclusion.options?.active !== false

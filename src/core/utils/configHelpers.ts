@@ -10,12 +10,16 @@ import { composeWeaveConfig } from "../../core/utils/configUtils.ts";
 export function mergeConfigs(base: WeaveConfigInput, override: Partial<WeaveConfigInput>): WeaveConfigInput {
   return {
     ...base,
-    ...override,
+    ...Object.fromEntries(
+      Object.entries(override).filter(([_, value]) => value !== undefined)
+    ),
     global: {
       ...base.global,
-      ...override.global,
+      ...Object.fromEntries(
+        Object.entries(override.global || {}).filter(([_, value]) => value !== undefined)
+      ),
     },
-    inclusions: override.inclusions ?? base.inclusions,
+    inclusions: override.inclusions !== undefined ? override.inclusions : base.inclusions,
   };
 }
 
