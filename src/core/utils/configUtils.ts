@@ -287,12 +287,7 @@ export async function watchConfigFile(
           log.info("Configuration reloaded and Frame reinitialized.");
           log.info(`Updated config: ${Deno.inspect(Frame.getInstance().config)}`);
         } catch (error) {
-          if (error instanceof Error) {
-            log.error(`Failed to reload config: ${(error as Error).message}`);
-            log.debug(Deno.inspect(error, { colors: true }));
-          } else {
-            log.error("An unknown error occurred while reloading config.");
-          }
+          handleCaughtError(error, "Failed to reload config:");
         } finally {
           isReloading = false;
         }

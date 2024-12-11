@@ -1,5 +1,6 @@
 import { log } from "./logging.ts";
 import { runGitCommand } from "./runGitCommand.ts";
+import { handleCaughtError } from "./handleCaughtError.ts";
 
 /**
  * Determines the branch to use for a repository.
@@ -25,13 +26,8 @@ export async function determineDefaultBranch(repoUrl: string): Promise<string> {
     }
 
     log.error(`Failed to match the branch for ${repoUrl}. Exiting.`);
-  } catch (err) {
-    if (err instanceof Error) {
-      log.error(`Error determining branch for ${repoUrl}: ${err.message}`);
-      log.debug(Deno.inspect(err, { colors: true }));
-    } else {
-      log.error("An unknown error occurred.");
-    }
+  } catch (error) {
+    handleCaughtError(error, `Error determining branch for ${repoUrl}:`);
   }
   throw new Error(`Unable to determine the default branch for ${repoUrl}.`);
 }

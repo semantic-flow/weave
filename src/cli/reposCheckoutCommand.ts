@@ -2,6 +2,7 @@ import { Command } from "../deps/cliffy.ts";
 import { log } from "../core/utils/logging.ts";
 import { checkoutRepos, RepoCheckoutResult } from "../core/checkoutRepos.ts";
 import { Frame } from "../core/Frame.ts";
+import { handleCaughtError } from "../core/utils/handleCaughtError.ts";
 
 export const reposCheckoutCommand = new Command()
   .name("checkout")
@@ -38,7 +39,7 @@ export const reposCheckoutCommand = new Command()
         Deno.exit(1); // exit with error code
       }
     } catch (error) {
-      log.error(`An unexpected error occurred during checkout: ${error}`);
+      handleCaughtError(error, "An unexpected error occurred during checkout:");
       Deno.exit(1);
     }
   });

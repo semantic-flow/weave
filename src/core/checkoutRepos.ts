@@ -7,6 +7,7 @@ import { determineDefaultBranch } from "./utils/determineDefaultBranch.ts";
 import { ensureSparseCheckout } from "./utils/ensureSparseConfig.ts";
 import { runGitCommand } from "./utils/runGitCommand.ts";
 import { composeSparseCheckoutRules } from "./utils/composeSparseCheckoutRules.ts";
+import { handleCaughtError } from "./utils/handleCaughtError.ts";
 
 export interface RepoCheckoutResult {
   url: string;
@@ -70,20 +71,16 @@ export async function checkoutRepos(workspaceDir: string, inclusions: ResolvedIn
         message: 'Repository checkout successfully completed.',
       });
     } catch (error) {
+      handleCaughtError(error, `Error processing ${url}:`);
       if (error instanceof Error) {
         // On any error, log it and push a failure result
-        log.error(`Error processing ${url}: ${error.message}`);
         results.push({
           url,
           localPath: workingDir,
           status: 'failed',
           message: error.message,
           error,
-        });;
-        log.debug(Deno.inspect(error, { colors: true }));
-      } else {
-        log.error("An unknown error occurred.");
-        throw error;
+        });
       }
     }
   }

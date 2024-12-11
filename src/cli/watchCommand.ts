@@ -3,7 +3,7 @@ import { log } from "../core/utils/logging.ts";
 import { Frame } from "../core/Frame.ts";
 import { watchConfigFile } from "../core/utils/configUtils.ts";
 import { InputGlobalOptions } from "../types.ts";
-
+import { handleCaughtError } from "../core/utils/handleCaughtError.ts";
 
 /**
  * The watch command.
@@ -30,12 +30,7 @@ export const watchCommand = new Command()
       try {
         watchConfigFile(frame.config.global.configFilePath, commandOptions);
       } catch (error) {
-        if (error instanceof Error) {
-          log.error(`Failed to watch config file: ${(error as Error).message}`);
-          log.debug(Deno.inspect(error, { colors: true }));
-        } else {
-          log.error("An unknown error occurred.");
-        }
+        handleCaughtError(error, "Failed to watch config file:");
         Deno.exit(1);
       };
       log.info("Watching the configuration file for changes...");

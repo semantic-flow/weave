@@ -1,6 +1,7 @@
 // src/core/utils/runGitCommand.ts
 
 import { log } from "./logging.ts";
+import { handleCaughtError } from "./handleCaughtError.ts";
 
 /**
  * Executes a Git command within a specified repository path using Deno.Command.
@@ -34,12 +35,7 @@ async function runGitCommand(workingDir: string, args: string[]): Promise<string
     log.info(`Git command succeeded: ${gitCommand}`);
     return output;
   } catch (error) {
-    if (error instanceof Error) {
-      log.error(`Error in runGitCommand: ${error.message}`);
-      log.debug(Deno.inspect(error, { colors: true }));
-    } else {
-      log.error("An unknown error occurred.");
-    }
+    handleCaughtError(error, `Error in runGitCommand: ${gitCommand}`);
     throw error; // Re-throw the error to allow handling by caller
   }
 }

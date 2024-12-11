@@ -2,6 +2,7 @@
 
 import { log } from "./logging.ts";
 import { runGitCommand } from "./runGitCommand.ts";
+import { handleCaughtError } from "./handleCaughtError.ts";
 
 /**
  * Ensures the sparse-checkout configuration matches the desired include paths.
@@ -56,12 +57,7 @@ export async function ensureSparseCheckout(workingDir: string, sparseCheckoutRul
       log.info("Sparse-checkout configuration is already up to date.");
     }
   } catch (error) {
-    if (error instanceof Error) {
-      log.error(`Error occurred while ensuring ${workingDir}: ${error.message}`);
-      log.debug(Deno.inspect(error, { colors: true }));
-    } else {
-      log.error("An unknown error occurred.");
-      throw error;
-    }
+    handleCaughtError(error, `Error occurred while ensuring sparse checkout config for ${workingDir}:`);
+    throw error;
   }
 }

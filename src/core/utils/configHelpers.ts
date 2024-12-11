@@ -5,6 +5,7 @@ import { WeaveConfigInput, WeaveConfig, InputGlobalOptions, validCopyStrategies 
 import { Frame } from "../Frame.ts";
 import type { LevelName } from "../../deps/log.ts";
 import { composeWeaveConfig } from "../../core/utils/configUtils.ts";
+import { handleCaughtError } from "./handleCaughtError.ts";
 
 // Utility function to merge two configurations
 export function mergeConfigs(base: WeaveConfigInput, override: Partial<WeaveConfigInput>): WeaveConfigInput {
@@ -125,12 +126,7 @@ export async function loadWeaveConfig(filePath: string): Promise<WeaveConfigInpu
       }
     }
   } catch (error) {
-    if (error instanceof Error) {
-      log.error(`Error occurred while loading the config file: ${error.message}`);
-      log.debug(Deno.inspect(error, { colors: true }));
-    } else {
-      log.error("An unknown error occurred while loading the config file.");
-    }
+    handleCaughtError(error, `Error processing ${url}:`);
     throw error; // Re-throwing the error ensures that the promise is rejected
   }
 }

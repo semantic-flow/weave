@@ -62,6 +62,7 @@ const weave = new Command()
 
 try {
   await weave.parse(Deno.args);
+  throw new Error("Invalid subcommand"); // We should never reach this point
 } catch (error) {
   handleCaughtError(error, "Error occurred while parsing the command:");
   Deno.exit(1);

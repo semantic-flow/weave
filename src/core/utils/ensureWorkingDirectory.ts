@@ -1,6 +1,6 @@
 import { determineDefaultWorkingDirectory } from "./determineDefaultWorkingDirectory.ts";
 import { ensureDir } from "../../deps/fs.ts";
-import { log } from "./logging.ts";
+import { handleCaughtError } from "./handleCaughtError.ts";
 
 /**
  * Parses the URL and constructs the local repository path, ensuring the directory exists.
@@ -17,13 +17,8 @@ export async function ensureWorkingDirectory(workspaceDir: string, url: string, 
   try {
     await ensureDir(workingDir);
   } catch (error) {
-    if (error instanceof Error) {
-      log.error(`Error occurred while ensuring ${workingDir}: ${error.message}`);
-      log.debug(Deno.inspect(error, { colors: true }));
-      throw new Error(`Failed to ensure directory exists: ${workingDir}. ${error.message}`);
-    } else {
-      log.error("An unknown error occurred.");
-    }
+    handleCaughtError(error, `Error occurred while ensuring ${workingDir}:`);
+    throw new Error(`Failed to ensure directory exists: ${workingDir}. ${error.message}`);
   }
   return workingDir;
 }
