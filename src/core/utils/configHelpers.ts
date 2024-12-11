@@ -96,6 +96,7 @@ export async function loadWeaveConfig(filePath: string): Promise<WeaveConfigInpu
     } else {
       const ext = filePath.split(".").pop()?.toLowerCase();
       if (ext === "json") {
+        log.info(`loadWeaveConfig: Reading file ${filePath}`);
         const data = await Deno.readTextFile(filePath);
         const parsed = JSON.parse(data) as WeaveConfigInput;
 
@@ -128,15 +129,6 @@ export async function loadWeaveConfig(filePath: string): Promise<WeaveConfigInpu
     }
     throw error; // Re-throwing the error ensures that the promise is rejected
   }
-}
-
-/**
- * Loads the weave configuration from a JSON file.
- * @param filePath The path to the JSON config file.
- * @returns The parsed WeaveConfigInput object.
- */
-export async function loadWeaveConfigFromJson(filePath: string): Promise<WeaveConfigInput> {
-  return await loadWeaveConfig(filePath);
 }
 
 

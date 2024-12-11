@@ -13,10 +13,11 @@ import {
   WebOptions,
   LocalOptions,
   CopyStrategy,
+  LevelName,
 } from "../../types.ts";
 import { join } from "../../deps/path.ts";
 import { exists, ensureDir } from "../../deps/fs.ts";
-import { loadWeaveConfigFromJson, getConfigFilePath, mergeConfigs } from "./configHelpers.ts";
+import { loadWeaveConfig, getConfigFilePath, mergeConfigs } from "./configHelpers.ts";
 import { determineDefaultBranch } from "./determineDefaultBranch.ts";
 import { determineDefaultWorkingDirectory } from "./determineDefaultWorkingDirectory.ts";
 import { determineWorkingBranch } from "./determineWorkingBranch.ts";
@@ -59,7 +60,7 @@ export async function composeWeaveConfig(
       globalCopyStrategy: Deno.env.get("WEAVE_COPY_STRATEGY") as CopyStrategy | undefined,
       globalClean: Deno.env.get("WEAVE_CLEAN") === "true",
       configFilePath: Deno.env.get("WEAVE_CONFIG_FILE") || undefined,
-      debug: Deno.env.get("WEAVE_DEBUG") || undefined,
+      debug: Deno.env.get("WEAVE_DEBUG") as LevelName | undefined,
     },
   };
 
@@ -77,7 +78,7 @@ export async function composeWeaveConfig(
   // Step 4: Load and merge configuration file (required)
   let fileConfig: Partial<WeaveConfigInput>;
   try {
-    fileConfig = await loadWeaveConfigFromJson(configFilePath);
+    fileConfig = await loadWeaveConfig(configFilePath);
   } catch (error) {
     log.error("Failed to load configuration file. Exiting.");
     Deno.exit(1);

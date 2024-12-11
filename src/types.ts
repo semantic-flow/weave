@@ -2,6 +2,7 @@
 
 import { LevelName } from "./deps/log.ts";
 
+export type { LevelName };
 // =============================
 // Copy Strategy Types
 // =============================

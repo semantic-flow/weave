@@ -2,12 +2,13 @@
 
 import {
   assertEquals,
-  assertThrows,
+  assertRejects,
 } from "../../deps/assert.ts";
 import { composeWeaveConfig, watchConfigFile } from "./configUtils.ts";
+import * as configHelpers from "./configHelpers.ts";
 import { Frame } from "../Frame.ts";
 import { WeaveConfigInput, InputGlobalOptions, WeaveConfig } from "../../types.ts";
-import { log } from "../utils/logging.ts";
+import { log, setLogLevel } from "./logging.ts";
 
 Deno.test("composeWeaveConfig uses default workspaceDir when not provided", async () => {
   const config = await composeWeaveConfig();
@@ -128,21 +129,46 @@ Deno.test({
   },
 });
 
+Deno.test("loadWeaveConfig handles missing inclusions", async () => {
+  // Step 1: Define a mock implementation for Deno.readTextFile
+  const mockReadTextFile = async (filePath: string): Promise<string> => {
+    log.debug(`Mock readTextFile called with: ${filePath}`);
+    if (filePath === "faulty.json") {
+      return JSON.stringify({
+        global: {
+          workspaceDir: "_faulty_workspace",
+          dest: "_faulty_dest",
+          globalCopyStrategy: "overwrite",
+          globalClean: false,
+        },
+        // Missing 'inclusions'
+      });
+    }
+    throw new Error("Unexpected file path");
+  };
 
-/*
-Deno.test("composeWeaveConfig throws error when config file is missing inclusions", async () => {
-  // Mock a config file without inclusions
-  // This requires mocking the loadWeaveConfig functions or setting up test fixtures
-  await assertThrows(
-    async () => {
-      // Setup code to load a faulty config
-      // ...
-      await composeWeaveConfig();
-    },
-    Error,
-    "'inclusions' must be an array in the configuration file.",
-  );
-  
+  // Step 2: Backup the original Deno.readTextFile
+  const originalReadTextFile = Deno.readTextFile;
+
+  // Step 3: Replace Deno.readTextFile with the mock implementation
+  (Deno as any).readTextFile = mockReadTextFile;
+
+  try {
+    // Step 4: Dynamically import loadWeaveConfig after mocking
+    const { loadWeaveConfig } = await import("./configHelpers.ts");
+
+    // Step 5: Use assertThrows to catch the expected error
+    await assertRejects(
+      async () => {
+        await loadWeaveConfig("faulty.json");
+      },
+      Error,
+      "'inclusions' must be an array in the configuration file."
+    );
+
+    console.log("Test passed: Error was correctly thrown and caught.");
+  } finally {
+    // Step 6: Restore the original Deno.readTextFile
+    (Deno as any).readTextFile = originalReadTextFile;
+  }
 });
-*/
-
