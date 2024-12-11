@@ -34,18 +34,20 @@ const weave = new Command()
 
   .globalOption("--globalClean", "Clean the destination directory before build")
 
+  .globalOption("--watchConfig", "Watch for changes in config files")
+
   .globalAction(async (options: InputGlobalOptions) => {
     // Safely cast the options to InputGlobalOptions
     const inputOptions: InputGlobalOptions = {
-      workspaceDir: options.workspaceDir,
-      dest: options.dest,
-      globalCopyStrategy: options.globalCopyStrategy as CopyStrategy | undefined, // Will validate in handleConfigAction
-      globalClean: options.globalClean as boolean | undefined, // TODO: validate in handleConfigAction
-      watchConfig: options.watchConfig as boolean | undefined, // TODO: validate in handleConfigAction
-      configFilePath: options.configFilePath,
       debug: typeof options.debug === "string" && options.debug.toUpperCase() in LogLevels
         ? options.debug.toUpperCase() as LevelName
         : "DEBUG" as LevelName, // Ensure debug is a valid LogLevel
+      configFilePath: options.configFilePath,
+      dest: options.dest,
+      workspaceDir: options.workspaceDir,
+      globalCopyStrategy: options.globalCopyStrategy as CopyStrategy | undefined, // Will validate in handleConfigAction
+      globalClean: options.globalClean as boolean | undefined, // TODO: validate in handleConfigAction
+      watchConfig: options.watchConfig as boolean | undefined, // TODO: validate in handleConfigAction
     };
 
     // Delegate the handling to the external function

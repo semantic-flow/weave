@@ -20,16 +20,7 @@ updated: "2024-12-08"
     file syncing, and configuration handling.
   - A `deps` folder for centralized dependency management, similar to Lume's
     approach.
-- global options:
-  - --config for specifying config file
-  - --dest folder ("_woven" by default) to which files are copied
-  - --workspaceDir lets you specify the path where any git repos of content are
-    stored
-  - --debug <level>
-  - --copyStrategy (options: no-overwrite, overwrite, skip, prompt)
-  - --clean (at the global level, this empties the dest before build)
-  - --watchConfig to specify whether changes to config file take effect
-    immediately (without restarting Weave)
+
 
 ## Global Options
 
@@ -37,9 +28,9 @@ updated: "2024-12-08"
 - `--dest <directory:string>`: Output directory (defaults to "_woven").
 - `--workspaceDir <directory:string>`: Path where any git repositories of content are stored.
 - `--debug <level:string>`: Set log level (`DEBUG`, `INFO`, `WARN`, `ERROR`, `CRITICAL`). Overrides default log settings.
-- `--copyStrategy <strategy:string>`: Copy strategy (`no-overwrite`, `overwrite`, `skip`, `prompt`).
-- `--clean`: Clean the destination directory before build.
-- `--watchConfig`: Enable immediate effect of configuration file changes without restarting Weave.
+- `--globalCopyStrategy <strategy:string>`: Copy strategy (`no-overwrite`, `overwrite`, `skip`, `prompt`).
+- `--globalClean`: Clean the destination directory before build.
+- `--watchConfig`: configuration file changes take effect immediately without restarting Weave.
 
 
 ### Usage
