@@ -76,16 +76,19 @@ export async function composeWeaveConfig(
   const configFilePath = await getConfigFilePath(preferredConfigPath);
 
   if (!configFilePath) {
-    log.error("No configuration file path provided. Exiting.");
+    log.error("No configuration file detected. Exiting.");
     Deno.exit(1);
   }
+
+  mergedConfig.global.configFilePath = configFilePath;
+  log.debug(`Config file path: ${configFilePath}`);
 
   // Step 4: Load and merge configuration file (required)
   let fileConfig: Partial<WeaveConfigInput>;
   try {
     fileConfig = await loadWeaveConfig(configFilePath);
   } catch (error) {
-    handleCaughtError(error, `Failed to load configuration file:`);
+    handleCaughtError(error, "Failed to load configuration file:");
     Deno.exit(1);
   }
 
