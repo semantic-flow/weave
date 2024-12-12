@@ -18,7 +18,7 @@ export async function ensureWorkingDirectory(workspaceDir: string, url: string, 
     await ensureDir(workingDir);
   } catch (error) {
     handleCaughtError(error, `Error occurred while ensuring ${workingDir}:`);
-    throw new Error(`Failed to ensure directory exists: ${workingDir}.`);
+    throw new Error(`Failed to ensure directory exists: ${workingDir}. Cause: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
   return workingDir;
 }
