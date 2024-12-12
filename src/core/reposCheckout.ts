@@ -8,9 +8,14 @@ import { ensureSparseCheckout } from "./utils/ensureSparseConfig.ts";
 import { runGitCommand } from "./utils/runGitCommand.ts";
 import { composeSparseCheckoutRules } from "./utils/composeSparseCheckoutRules.ts";
 import { handleCaughtError } from "./utils/handleCaughtError.ts";
+import { Frame } from "../core/Frame.ts";
 
-export async function reposCheckout(workspaceDir: string, inclusions: ResolvedInclusion[]): Promise<RepoGitResult[]> {
+export async function reposCheckout(): Promise<RepoGitResult[]> {
   const results: RepoGitResult[] = [];
+  const frame = Frame.getInstance();
+  const workspaceDir = frame.config.global.workspaceDir;
+  const inclusions = frame.config.inclusions;
+
 
   // Filter for only git inclusions
   const gitInclusions = inclusions

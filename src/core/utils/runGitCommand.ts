@@ -27,7 +27,6 @@ async function runGitCommand(workingDir: string, args: string[]): Promise<string
   try {
     const { code, stdout } = await command.output();
     const output = new TextDecoder().decode(stdout);
-    log.info(`Code ${code}: Git command output: ${output}`);
     if (code !== 0) {
       if (code === 1 && output.includes("nothing to commit")) {
         log.info(`Git command returned code 1 but output indicates nothing to commit: ${gitCommand}`);
