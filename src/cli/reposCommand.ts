@@ -1,5 +1,4 @@
 import { Command } from "../deps/cliffy.ts";
-import { log } from "../core/utils/logging.ts";
 import { reposListCommand } from "./reposListCommand.ts";
 import { reposCheckoutCommand } from "./reposCheckoutCommand.ts";
 import { reposCommitCommand } from "./reposCommitCommand.ts";

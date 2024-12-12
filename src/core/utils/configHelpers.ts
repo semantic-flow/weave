@@ -3,7 +3,6 @@
 import { log, setLogLevel } from "./logging.ts";
 import { WeaveConfigInput, WeaveConfig, InputGlobalOptions, validCopyStrategies } from "../../types.ts";
 import { Frame } from "../Frame.ts";
-import type { LevelName } from "../../deps/log.ts";
 import { composeWeaveConfig } from "../../core/utils/configUtils.ts";
 import { handleCaughtError } from "./handleCaughtError.ts";
 
@@ -126,7 +125,7 @@ export async function loadWeaveConfig(filePath: string): Promise<WeaveConfigInpu
       }
     }
   } catch (error) {
-    handleCaughtError(error, `Error processing ${url}:`);
+    handleCaughtError(error, `Error processing ${filePath}:`);
     throw error; // Re-throwing the error ensures that the promise is rejected
   }
 }
