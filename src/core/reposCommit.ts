@@ -2,7 +2,7 @@ import { log } from "../core/utils/logging.ts";
 import { runGitCommand } from "../core/utils/runGitCommand.ts"; // Ensure you have this utility
 import { Frame } from "../core/Frame.ts";
 import { handleCaughtError } from "../core/utils/handleCaughtError.ts";
-import { ResolvedInclusion, RepoGitResult } from "../types.ts";
+import { RepoGitResult } from "../types.ts";
 
 
 

@@ -23,7 +23,7 @@ export async function reposCheckout(): Promise<RepoGitResult[]> {
 
   for (const inclusion of gitInclusions) {
     const { url } = inclusion;
-    const { include, exclude, excludeByDefault, branch } = inclusion.options || {};
+    const { include, exclude, excludeByDefault, branch } = inclusion.options;
 
     // Parse the URL and construct the local repository path
     const workingDir = await ensureWorkingDirectory(workspaceDir, url, branch);

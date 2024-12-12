@@ -28,7 +28,7 @@ export const watchCommand = new Command()
     if (frame.config.global?.configFilePath && frame.config.global.watchConfig) {
       // Start watching in a separate, non-blocking async task
       try {
-        watchConfigFile(frame.config.global.configFilePath, commandOptions);
+        await watchConfigFile(frame.config.global.configFilePath, commandOptions);
       } catch (error) {
         handleCaughtError(error, "Failed to watch config file:");
         Deno.exit(1);

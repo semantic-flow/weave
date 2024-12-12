@@ -5,10 +5,9 @@ import {
   assertRejects,
 } from "../../deps/assert.ts";
 import { composeWeaveConfig, watchConfigFile } from "./configUtils.ts";
-import * as configHelpers from "./configHelpers.ts";
 import { Frame } from "../Frame.ts";
 import { WeaveConfigInput, InputGlobalOptions, WeaveConfig } from "../../types.ts";
-import { log, setLogLevel } from "./logging.ts";
+import { log } from "./logging.ts";
 
 Deno.test("composeWeaveConfig uses default workspaceDir when not provided", async () => {
   const config = await composeWeaveConfig();
