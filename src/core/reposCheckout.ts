@@ -1,5 +1,5 @@
 import { log } from "./utils/logging.ts";
-import { ResolvedInclusion } from "../types.ts";
+import { ResolvedInclusion, RepoGitResult } from "../types.ts";
 import { exists } from "../deps/fs.ts";
 import { join } from "../deps/path.ts";
 import { ensureWorkingDirectory } from "./utils/ensureWorkingDirectory.ts";
@@ -9,16 +9,8 @@ import { runGitCommand } from "./utils/runGitCommand.ts";
 import { composeSparseCheckoutRules } from "./utils/composeSparseCheckoutRules.ts";
 import { handleCaughtError } from "./utils/handleCaughtError.ts";
 
-export interface RepoCheckoutResult {
-  url: string;
-  localPath: string;
-  status: 'success' | 'failed';
-  message?: string;
-  error?: Error;
-}
-
-export async function checkoutRepos(workspaceDir: string, inclusions: ResolvedInclusion[]): Promise<RepoCheckoutResult[]> {
-  const results: RepoCheckoutResult[] = [];
+export async function reposCheckout(workspaceDir: string, inclusions: ResolvedInclusion[]): Promise<RepoGitResult[]> {
+  const results: RepoGitResult[] = [];
 
   // Filter for only git inclusions
   const gitInclusions = inclusions
@@ -27,17 +19,14 @@ export async function checkoutRepos(workspaceDir: string, inclusions: ResolvedIn
 
   for (const inclusion of gitInclusions) {
     const { url } = inclusion;
-    const { include = [], exclude = [], excludeByDefault = false, branch: providedBranch } = inclusion.options || {};
-
-    // Determine the actual branch to use
-    const branch = providedBranch ?? await determineDefaultBranch(url);
+    const { include = [], exclude = [], excludeByDefault = false, branch } = inclusion.options || {};
 
     // Parse the URL and construct the local repository path
     const workingDir = await ensureWorkingDirectory(workspaceDir, url, branch);
     log.info(`Ensuring repository at ${workingDir}...`);
 
     if (excludeByDefault && include.length === 0) {
-      log.warn(`Excluding all files by default, and no inclusions specified, so nothing to do ${url}...`);
+      log.warn(`Excluding all files by default, and no inclusions specified, so nothing to do for ${url}...`);
       continue;
     }
 

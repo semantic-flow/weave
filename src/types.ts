@@ -159,7 +159,7 @@ export type ResolvedInclusion =
     url: string;
     options: GitOptions;
     order: number;
-    localPath: string;
+    localPath: string; // aka workingDir
   }
   | {
     type: "web";
@@ -201,4 +201,25 @@ export interface WeaveConfigInput {
 export interface WeaveConfig {
   global: ResolvedGlobalOptions;
   inclusions: ResolvedInclusions;
+}
+
+// ============================
+// Git Command Result
+// ============================
+
+export interface RepoGitResult {
+  url: string;
+  localPath: string;
+  status: 'success' | 'failed';
+  message?: string;
+  error?: Error;
+}
+
+
+// ============================
+// Subcommand Options
+// ============================
+
+export interface CommitOptions {
+  message: string,
 }

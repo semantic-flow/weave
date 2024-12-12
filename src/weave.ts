@@ -1,4 +1,4 @@
-// src/cli.ts
+// src/weave.ts
 
 import { Command } from "./deps/cliffy.ts";
 import { log } from "./core/utils/logging.ts";
