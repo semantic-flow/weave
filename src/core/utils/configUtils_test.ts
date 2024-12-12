@@ -65,6 +65,7 @@ Deno.test({
     };
 
     const composeWeaveConfigMock = async (opts?: InputGlobalOptions): Promise<WeaveConfig> => {
+      await Promise.resolve(); // placeholder to satisfy async function
       // Ensure that commandOptions are included in the merged configuration
       return {
         ...modifiedConfig,
@@ -83,6 +84,7 @@ Deno.test({
         let called = false; // Flag to ensure only one event is emitted
         return {
           async next() {
+            await Promise.resolve()
             if (!called) {
               called = true;
               return {
@@ -131,6 +133,7 @@ Deno.test({
 Deno.test("loadWeaveConfig handles missing inclusions", async () => {
   // Step 1: Define a mock implementation for Deno.readTextFile
   const mockReadTextFile = async (filePath: string): Promise<string> => {
+    await Promise.resolve(); // placeholder to satisfy async function
     log.debug(`Mock readTextFile called with: ${filePath}`);
     if (filePath === "faulty.json") {
       return JSON.stringify({
@@ -150,6 +153,7 @@ Deno.test("loadWeaveConfig handles missing inclusions", async () => {
   const originalReadTextFile = Deno.readTextFile;
 
   // Step 3: Replace Deno.readTextFile with the mock implementation
+  // deno-lint-ignore no-explicit-any
   (Deno as any).readTextFile = mockReadTextFile;
 
   try {
@@ -168,6 +172,7 @@ Deno.test("loadWeaveConfig handles missing inclusions", async () => {
     console.log("Test passed: Error was correctly thrown and caught.");
   } finally {
     // Step 6: Restore the original Deno.readTextFile
+    // deno-lint-ignore no-explicit-any
     (Deno as any).readTextFile = originalReadTextFile;
   }
 });
