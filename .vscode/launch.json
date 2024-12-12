@@ -8,7 +8,7 @@
       "request": "launch",
       "name": "weave start ",
       "type": "node",
-      "program": "${workspaceFolder}/src/cli.ts",
+      "program": "${workspaceFolder}/src/weave.ts",
       "cwd": "${workspaceFolder}",
       "env": {},
       "runtimeExecutable": "${env:HOME}/.deno/bin/deno",

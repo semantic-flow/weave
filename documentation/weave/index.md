@@ -2,7 +2,7 @@
 title: Documentation
 description: How to make this site your own
 created: "2024-11-21"
-updated: "2024-12-08"
+updated: "2024-12-12"
 ---
 
 - **Weave** is a dynamic CLI tool for remixing static sites, focused on syncing,
@@ -21,17 +21,19 @@ updated: "2024-12-08"
   - A `deps` folder for centralized dependency management, similar to Lume's
     approach.
 
-
 ## Global Options
 
 - `--config <file:string>`: Specify the path or URL to the configuration file.
+- `--debug <level:string>`: Set log level (`DEBUG`, `INFO`, `WARN`, `ERROR`,
+  `CRITICAL`). Overrides default log settings.
 - `--dest <directory:string>`: Output directory (defaults to "_woven").
-- `--workspaceDir <directory:string>`: Path where any git repositories of content are stored.
-- `--debug <level:string>`: Set log level (`DEBUG`, `INFO`, `WARN`, `ERROR`, `CRITICAL`). Overrides default log settings.
-- `--globalCopyStrategy <strategy:string>`: Copy strategy (`no-overwrite`, `overwrite`, `skip`, `prompt`).
 - `--globalClean`: Clean the destination directory before build.
-- `--watchConfig`: configuration file changes take effect immediately without restarting Weave.
-
+- `--globalCopyStrategy <strategy:string>`: Copy strategy (`no-overwrite`,
+  `overwrite`, `skip`, `prompt`).
+- `--watchConfig`: configuration file changes take effect immediately without
+  restarting Weave.
+- `--workspaceDir <directory:string>`: Path where any git repositories of
+  content are stored.
 
 ### Usage
 
@@ -51,20 +53,20 @@ updated: "2024-12-08"
   - create dest dir if not present, ensure writability
   - maybe not needed?
 - weave repos list: lists configured repos including their "active" status and
-  whether they're behind their origin
+  whether they're behind/ahead/diverged from their origin
+- weave repos checkout: for missing repos, initialize if necessary and perform
+  sparse checkout, depth 1 by default;
+- weave repos commit: commit all active configured repos using message provided
+- weave repos prepare: checkout; pull if no conflicts and autoPullBeforeBuild,
+  then push (if autoPushBeforeBuild); list
+- weave repos pull: pull latest for all active configured repos
+- weave repos push: push all active configured repos
+  - when no inclusions specified and excludeByDefault is false, nothing to do
+- weave repos sync: commit using specified message, pull, then push
 - weave repos verify: checks whether repos are ready for build (and eventually,
   whether a pull would produce any conflicts)
   - ensure sparse checkout settings are good
-  - each git inclusion can have "--ignore-behind", "--ignore-ahead",
-    "--ignore-divergent"
-  - "--ignore-checkout-consistency"
-- weave repos pull: pull latest for all active configured repos
-- weave repos push: pull and then, if no conflicts, push all repos
-- weave repos checkout: for missing repos, initialize if necessary and perform
-  sparse checkout, depth 1 by default;
-  - when no inclusions specified and excludeByDefault is false, nothing to do
-- weave repos prepare: checkout; pull if no conflicts and autoPullBeforeBuild,
-  then push (if autoPushBeforeBuild); list
+  - each git inclusion can have "ignore-behind", "ignore-ahead", "ignore-divergent", and "ignore-checkout-consistency"
 - weave remap: transform directory names or filenames (to avoid collisions or
   for renaming in general)
 - weave collisions: list any potential collisions to console or optionally to a
@@ -76,7 +78,7 @@ updated: "2024-12-08"
   - global-copy-strategy: overwrite | no-overwrite | skip | prompt
   - per-inclusion copy-strategy: overwrite | no-overwrite | skip | prompt
 - weave watch: detects changes in active inclusions and copies them to dest
-  - ?does it 
+  - ?does it
 - weave start: build and watch,
   - ?but only safely (i.e., repos all up-to-date, no collisions, build with
     prompt)
