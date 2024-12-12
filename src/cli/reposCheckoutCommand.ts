@@ -26,6 +26,10 @@ export const reposCheckoutCommand = new Command()
           log.error(`❌ ${result.localPath} not ready: ${result.message}`);
         }
       });
+
+      if (failureCount > 0) {
+        Deno.exit(1);
+      }
     } catch (error) {
       handleCaughtError(error, "An unexpected error occurred during checkout:");
       Deno.exit(1);
