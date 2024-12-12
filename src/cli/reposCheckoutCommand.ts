@@ -1,8 +1,9 @@
 import { Command } from "../deps/cliffy.ts";
 import { log } from "../core/utils/logging.ts";
-import { checkoutRepos, RepoCheckoutResult } from "../core/checkoutRepos.ts";
+import { reposCheckout } from "../core/reposCheckout.ts";
 import { Frame } from "../core/Frame.ts";
 import { handleCaughtError } from "../core/utils/handleCaughtError.ts";
+import { RepoGitResult } from "../types.ts";
 
 export const reposCheckoutCommand = new Command()
   .name("checkout")
@@ -19,7 +20,7 @@ export const reposCheckoutCommand = new Command()
         log.error("workspaceDir is not defined in the configuration.");
         Deno.exit(1);
       }
-      const results: RepoCheckoutResult[] = await checkoutRepos(workspaceDir as string, inclusions);
+      const results: RepoGitResult[] = await reposCheckout(workspaceDir as string, inclusions);
 
       // Process results
       const successCount = results.filter(r => r.status === 'success').length;
@@ -29,7 +30,7 @@ export const reposCheckoutCommand = new Command()
 
       results.forEach(result => {
         if (result.status === 'success') {
-          log.info(`✅ ${result.url} checked out to ${result.localPath}`);
+          log.info(`✅ ${result.url} ready at ${result.localPath}`);
         } else {
           log.error(`❌ ${result.url} failed: ${result.message}`);
         }

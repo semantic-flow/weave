@@ -25,7 +25,8 @@
       "args": [
         "--debug",
         "DEBUG",
-        "watch"
+        "repos",
+        "commit"
       ]
     },
     {
