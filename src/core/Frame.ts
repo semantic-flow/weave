@@ -14,9 +14,6 @@ export class Frame {
   private constructor(config: WeaveConfig, commandOptions?: InputGlobalOptions) {
     this.config = config;
     this.commandOptions = commandOptions;
-
-    // Load active inclusions
-
   }
 
   /**
