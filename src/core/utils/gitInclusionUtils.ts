@@ -56,11 +56,16 @@ export async function checkGitInclusion(inclusion: GitInclusion): Promise<Inclus
   }
   const listItem: InclusionListItem = {
     order: inclusion.order,
-    name: inclusion.name || inclusion.url || undefined,
+    name: inclusion.name || inclusion.url,
     active: inclusion.options.active !== false,
     present: present,
     syncStatus: syncStatus,
     copyStrategy: inclusion.options.copyStrategy,
+    include: inclusion.options.include,
+    exclude: inclusion.options.exclude,
+    excludeByDefault: inclusion.options.excludeByDefault,
+    autoPullBeforeBuild: inclusion.options.autoPullBeforeBuild,
+    autoPushBeforeBuild: inclusion.options.autoPushBeforeBuild,
   };
 
   return listItem;

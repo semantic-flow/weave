@@ -15,7 +15,7 @@ export type { LevelName };
 export type CopyStrategy = "no-overwrite" | "overwrite" | "skip" | "prompt";
 
 
-export const validCopyStrategies: CopyStrategy[] = [
+export const validCopyStrategies: string[] = [
   "no-overwrite",
   "overwrite",
   "skip",
@@ -241,11 +241,16 @@ export interface CommitOptions {
 
 export interface InclusionListItem {
   order: number;
-  name?: string;
+  name: string;
   active: boolean;
   present: boolean;
   syncStatus: SyncStatus;
   copyStrategy: CopyStrategy;
+  include: string[],
+  exclude: string[],
+  excludeByDefault: boolean,
+  autoPullBeforeBuild: boolean,
+  autoPushBeforeBuild: boolean,
 }
 
 export type SyncStatus = 'current' | 'ahead' | 'behind' | 'conflicted' | 'dirty' | 'missing' | 'unknown';

@@ -17,7 +17,7 @@ import type { LevelName, LogRecord } from "../../deps/log.ts";
 /**
  * Defines log levels and their numeric representations.
  */
-const LOG_LEVELS: Record<LevelName, number> = {
+export const LOG_LEVELS: Record<LevelName, number> = {
   CRITICAL: 50,
   ERROR: 40,
   WARN: 30,

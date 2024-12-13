@@ -23,6 +23,7 @@ export const weaveConfig: WeaveConfigInput = {
         excludeByDefault: true,
         autoPullBeforeBuild: false,
         autoPushBeforeBuild: false,
+        copyStrategy: "overwrite",
       },
     },
     {
@@ -37,6 +38,7 @@ export const weaveConfig: WeaveConfigInput = {
         excludeByDefault: true,
         autoPullBeforeBuild: true,
         autoPushBeforeBuild: false,
+        copyStrategy: "overwrite",
       },
     },
     {

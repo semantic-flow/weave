@@ -1,6 +1,7 @@
 // src/core/utils/configHelpers.ts
 
-import { log, setLogLevel } from "./logging.ts";
+import { log, setLogLevel, LOG_LEVELS } from "./logging.ts";
+import { LevelName } from "../../deps/log.ts";
 import { WeaveConfigInput, WeaveConfig, InputGlobalOptions, validCopyStrategies } from "../../types.ts";
 import { Frame } from "../Frame.ts";
 import { composeWeaveConfig } from "../../core/utils/configUtils.ts";
@@ -146,8 +147,13 @@ export async function handleConfigAction(options: InputGlobalOptions): Promise<v
   }
 
   try {
+    // Ensure options.debug is a valid LevelName, or default to a safe value
+    const logLevel: LevelName = options.debug && LOG_LEVELS[options.debug as LevelName] !== undefined
+      ? options.debug as LevelName
+      : "ERROR";
+
     // Set log level based on the debug option
-    setLogLevel(options.debug || "ERROR");
+    setLogLevel(logLevel);
 
     // Compose the WeaveConfig by merging defaults, env, config file, and CLI options
     const weaveConfig: WeaveConfig = await composeWeaveConfig(options);

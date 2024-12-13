@@ -50,6 +50,8 @@ updated: "2024-12-12"
     -   create dest dir if not present, ensure writability
     -   maybe not needed?
 -   **weave repos list**: lists configured repos including their "active" status and whether they're behind/ahead/diverged from their origin
+    -   takes `--format json ` option to return results in json format
+    -   otherwise, returns them as a table sorted by *order*
 -   **weave repos checkout**: for missing repos, initialize if necessary and perform sparse checkout, depth 1 by default
 -   **weave repos commit**: commit all active configured repos using message provided
 -   **weave repos prepare**: checkout; pull if no conflicts and `autoPullBeforeBuild`, then push (if `autoPushBeforeBuild`); list

@@ -52,7 +52,7 @@ export async function composeWeaveConfig(
     global: { ...DEFAULT_GLOBAL },
     inclusions: [],
   };
-  log.info(`Default config: ${Deno.inspect(defaultConfig)}`);
+  log.debug(`Default config: ${Deno.inspect(defaultConfig)}`);
 
   // Step 2: Merge environment variables
   const ENV_CONFIG: Partial<WeaveConfigInput> = {
