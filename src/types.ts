@@ -248,4 +248,4 @@ export interface InclusionListItem {
   copyStrategy: CopyStrategy;
 }
 
-export type SyncStatus = 'current' | 'ahead' | 'behind' | 'conflicted' | 'dirty' | 'unknown';
+export type SyncStatus = 'current' | 'ahead' | 'behind' | 'conflicted' | 'dirty' | 'missing' | 'unknown';

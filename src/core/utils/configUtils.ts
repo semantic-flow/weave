@@ -23,7 +23,7 @@ import { determineDefaultWorkingDirectory } from "./determineDefaultWorkingDirec
 import { determineWorkingBranch } from "./determineWorkingBranch.ts";
 import { ensureWorkingDirectory } from "./ensureWorkingDirectory.ts";
 import { handleCaughtError } from "./handleCaughtError.ts";
-
+import { directoryExists } from "./directoryExists.ts";
 
 /**
  * Define default global options.
@@ -154,7 +154,7 @@ export async function composeWeaveConfig(
 async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string): Promise<ResolvedInclusion> {
   switch (inclusion.type) {
     case "git": {
-      const { url, localPath: providedWorkingDir, options, order } = inclusion;
+      const { name, url, localPath: providedWorkingDir, options, order } = inclusion;
 
       if (!url) {
         throw new Error(`Git inclusion requires a 'url': ${JSON.stringify(inclusion)}`);
@@ -162,15 +162,15 @@ async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string)
 
       const branch: string = options?.branch
         ? options.branch
-        : providedWorkingDir && (await exists(join(providedWorkingDir, ".git")))
+        : providedWorkingDir && (await directoryExists(join(providedWorkingDir, ".git")))
           ? await determineWorkingBranch(providedWorkingDir)
           : await determineDefaultBranch(url);
 
-      const workingDir = providedWorkingDir
-        ? providedWorkingDir
-        : determineDefaultWorkingDirectory(workspaceDir, url, branch);
+      const workingDir = providedWorkingDir || determineDefaultWorkingDirectory(workspaceDir, url, branch);
 
-      await ensureWorkingDirectory(workspaceDir, url, branch);
+      if (!(await directoryExists(workspaceDir))) {
+        log.error(`using non-existant directory ${workspaceDir} for ${name || url}; please specify an existing git working directory in your config file!`);
+      }
 
       const resolvedGitOptions: GitOptions = {
         active: options?.active ?? true,

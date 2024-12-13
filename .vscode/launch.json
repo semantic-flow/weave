@@ -24,9 +24,9 @@
       "autoAttachChildProcesses": true,
       "args": [
         "--debug",
-        "DEBUG",
+        "INFO",
         "repos",
-        "commit"
+        "list"
       ]
     },
     {

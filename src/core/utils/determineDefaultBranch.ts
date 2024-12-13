@@ -9,7 +9,7 @@ import { handleCaughtError } from "./handleCaughtError.ts";
  */
 
 export async function determineDefaultBranch(repoUrl: string): Promise<string> {
-  log.info(`Determining branch for ${repoUrl}...`);
+  log.debug(`Determining branch for ${repoUrl}...`);
 
   try {
     const args = ["ls-remote", "--symref", repoUrl, "HEAD"];

@@ -48,7 +48,12 @@ export async function getSyncStatus(localPath: string): Promise<SyncStatus> {
 export async function checkGitInclusion(inclusion: GitInclusion): Promise<InclusionListItem> {
   // Construct the directory path
   const present = await directoryExists(inclusion.localPath);
-  const syncStatus = await getSyncStatus(inclusion.localPath);
+  let syncStatus: SyncStatus;
+  if (!present) {
+    syncStatus = "missing";
+  } else {
+    syncStatus = await getSyncStatus(inclusion.localPath);
+  }
   const listItem: InclusionListItem = {
     order: inclusion.order,
     name: inclusion.name || inclusion.url || undefined,

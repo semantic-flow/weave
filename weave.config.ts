@@ -26,6 +26,20 @@ export const weaveConfig: WeaveConfigInput = {
       },
     },
     {
+      name: "weave documentation",
+      type: "git",
+      url: "git@github.com:semantic-flow/weave.git",
+      order: 20,
+      options: {
+        //branch: "template",
+        include: ["documentation/weave"],
+        exclude: [],
+        excludeByDefault: true,
+        autoPullBeforeBuild: true,
+        autoPushBeforeBuild: false,
+      },
+    },
+    {
       type: "git",
       url: "https://github.com/another-repo/example.git",
       options: {
