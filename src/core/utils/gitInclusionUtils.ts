@@ -2,6 +2,7 @@ import { ResolvedInclusion, InclusionListItem, GitInclusion, SyncStatus } from "
 import { directoryExists } from "./directoryExists.ts";
 import { runGitCommand } from "./runGitCommand.ts";
 import { handleCaughtError } from "./handleCaughtError.ts";
+import { log } from "./logging.ts";
 
 export function isGitInclusion(inclusion: ResolvedInclusion): inclusion is GitInclusion {
   return inclusion.type === 'git';
@@ -13,10 +14,10 @@ export async function getSyncStatus(localPath: string): Promise<SyncStatus> {
     const statusOutput = await runGitCommand(localPath, ["status", "--branch", "--porcelain"]);
 
     const lines = statusOutput.trim().split('\n');
-    const branchStatus = lines.shift();
+    const branchStatus = lines.shift() || '';
 
     // Check for the "up-to-date" status in the branch line
-    if (branchStatus?.includes('up-to-date')) {
+    if (branchStatus.includes('up-to-date')) {
       return 'current';
     }
 
@@ -26,21 +27,23 @@ export async function getSyncStatus(localPath: string): Promise<SyncStatus> {
     }
 
     // Analyze branch status for remote tracking
-    if (branchStatus?.includes('ahead')) {
+    if (branchStatus.includes('ahead')) {
       return 'ahead';
     }
 
-    if (branchStatus?.includes('behind')) {
+    if (branchStatus.includes('behind')) {
       return 'behind';
     }
 
-    if (branchStatus?.includes('diverged')) {
+    if (branchStatus.includes('diverged')) {
       return 'conflicted';
     }
-
-    return 'current'; // If no other indicators, assume current
+    log.warn(`Unexpected branch status output: "${branchStatus}"`);
+    return 'unknown';
   } catch (error) {
-    handleCaughtError(error, `Failed to get Sync Status for ${localPath}`)
+    if (error instanceof Error) {
+      handleCaughtError(error, `Failed to get Sync Status for ${localPath}: ${error.message}`);
+    }
     return 'unknown'; // Default to 'unknown' in case of error
   }
 }

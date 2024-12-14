@@ -153,7 +153,13 @@ export async function handleConfigAction(options: InputGlobalOptions): Promise<v
       : "ERROR";
 
     // Set log level based on the debug option
-    setLogLevel(logLevel);
+    try {
+      setLogLevel(logLevel);
+    } catch (error) {
+      log.error(`Failed to set log level: ${error.message}`);
+      // Fall back to default log level
+      setLogLevel("ERROR");
+    }
 
     // Compose the WeaveConfig by merging defaults, env, config file, and CLI options
     const weaveConfig: WeaveConfig = await composeWeaveConfig(options);
