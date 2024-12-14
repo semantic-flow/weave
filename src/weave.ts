@@ -1,6 +1,7 @@
-// src/weave.ts
+// src/cli.ts
 
 import { Command } from "./deps/cliffy.ts";
+import { log } from "./core/utils/logging.ts";
 import { InputGlobalOptions, CopyStrategy } from "./types.ts";
 import { handleConfigAction } from "./core/utils/configHelpers.ts";
 import { reposCommand } from "./cli/reposCommand.ts";
@@ -42,10 +43,10 @@ const weave = new Command()
       debug: typeof options.debug === "string" && options.debug.toUpperCase() in LogLevels
         ? options.debug.toUpperCase() as LevelName
         : "DEBUG" as LevelName, // Ensure debug is a valid LogLevel
-      configFilePath: options.configFilePath,
-      dest: options.dest,
-      workspaceDir: options.workspaceDir,
-      globalCopyStrategy: options.globalCopyStrategy as CopyStrategy | undefined, // Will validate in handleConfigAction
+      configFilePath: options.configFilePath as string | undefined,
+      dest: options.dest as string | undefined,
+      workspaceDir: options.workspaceDir as string | undefined,
+      globalCopyStrategy: options.globalCopyStrategy as CopyStrategy | undefined,
       globalClean: options.globalClean as boolean | undefined, // TODO: validate in handleConfigAction
       watchConfig: options.watchConfig as boolean | undefined, // TODO: validate in handleConfigAction
     };

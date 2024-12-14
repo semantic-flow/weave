@@ -37,52 +37,76 @@ updated: "2024-12-12"
 
 ### Usage
 
-- weave setup: interactive prompt to create config file if none present, and add
-  inclusions
-- weave inclusions list: lists all inclusions and their statuses
-  (active/inactive, present/missing, current/ahead/behind/divergent) and copy
-  strategies, in order but grouped by active/inactive;
-- weave inclusions verify: output status "ready to weave", "not ready"
-  - maybe suggest "--ignore-missing" and "repos prepare" if needed
-  - check remote inclusions for availability
-  - check local dirs for existence
-  - if collisions, suggest global "--ignore-collisions"
-- weave inclusions prepare:
-  - do repos prepare, plus...
-  - create local inclusion dirs if not present
-  - create dest dir if not present, ensure writability
-  - maybe not needed?
-- weave repos list: lists configured repos including their "active" status and
-  whether they're behind/ahead/diverged from their origin
-- weave repos checkout: for missing repos, initialize if necessary and perform
-  sparse checkout, depth 1 by default;
-- weave repos commit: commit all active configured repos using message provided
-- weave repos prepare: checkout; pull if no conflicts and autoPullBeforeBuild,
-  then push (if autoPushBeforeBuild); list
-- weave repos pull: pull latest for all active configured repos
-- weave repos push: push all active configured repos
-  - when no inclusions specified and excludeByDefault is false, nothing to do
-- weave repos sync: commit using specified message, pull, then push
-- weave repos verify: checks whether repos are ready for build (and eventually,
-  whether a pull would produce any conflicts)
-  - ensure sparse checkout settings are good
-  - each git inclusion can have "ignore-behind", "ignore-ahead", "ignore-divergent", and "ignore-checkout-consistency"
-- weave remap: transform directory names or filenames (to avoid collisions or
-  for renaming in general)
-- weave collisions: list any potential collisions to console or optionally to a
-  file; optionally/eventually perform custom logic to avoid collisions;
-  - silent options,
-- weave build: `repos prepare` and then copy all specified directories and files
-  for active inclusions into dest dir, by inclusion order.
-  - clean: true | false
-  - global-copy-strategy: overwrite | no-overwrite | skip | prompt
-  - per-inclusion copy-strategy: overwrite | no-overwrite | skip | prompt
-- weave watch: detects changes in active inclusions and copies them to dest
-  - ?does it
-- weave start: build and watch,
-  - ?but only safely (i.e., repos all up-to-date, no collisions, build with
-    prompt)
-
+-   **weave setup**: interactive prompt to create config file if none present, and add inclusions
+-   **weave inclusions list**: lists all inclusions and their statuses (active/inactive, present/missing, current/ahead/behind/divergent) and copy strategies, in order but grouped by active/inactive
+-   **weave inclusions verify**: output status "ready to weave", "not ready"
+    -   maybe suggest `--ignore-missing` and `repos prepare` if needed
+    -   check remote inclusions for availability
+    -   check local dirs for existence
+    -   if collisions, suggest global `--ignore-collisions`
+-   **weave inclusions prepare**:
+    -   do `repos prepare`, plus...
+    -   create local inclusion dirs if not present
+    -   create dest dir if not present, ensure writability
+    -   maybe not needed?
+-   **weave repos list**: lists configured repos including their "active" status and whether they're behind/ahead/diverged from their origin
+    -   takes `--format json ` option to return results in json format
+    -   otherwise, returns them as a table sorted by *order*
+-   **weave repos checkout**: for missing repos, initialize if necessary and perform sparse checkout, depth 1 by default
+-   **weave repos commit**: commit all active configured repos using message provided
+-   **weave repos prepare**: checkout; pull if no conflicts and `autoPullBeforeBuild`, then push (if `autoPushBeforeBuild`); list
+-   **weave repos pull**: pull latest for all active configured repos
+-   **weave repos push**: push all active configured repos
+    -   when no inclusions specified and `excludeByDefault` is false, nothing to do
+-   **weave repos sync**: commit using specified message, pull, then push
+-   **weave repos verify**: checks whether repos are ready for build (and eventually, whether a pull would produce any conflicts)
+    -   ensure sparse checkout settings are good
+    -   each git inclusion can have `ignore-behind`, `ignore-ahead`, `ignore-divergent`, and `ignore-checkout-consistency`
+-   **weave remap**: transform directory names or filenames (to avoid collisions or for renaming in general)
+-   **weave collisions**: list any potential collisions to console or optionally to a file; optionally/eventually perform custom logic to avoid collisions
+    -   silent options
+-   **weave build**: `repos prepare` and then copy all specified directories and files for active inclusions into dest dir, by inclusion order
+    -   clean: `true` | `false`
+    -   global-copy-strategy: `overwrite` | `no-overwrite` | `skip` | `prompt`
+    -   per-inclusion copy-strategy: `overwrite` | `no-overwrite` | `skip` | `prompt`
+-   **weave watch**: detects changes in active inclusions and copies them to dest
+    -   ?does it
+-   **weave start**: build and watch,
+    -   ?but only safely (i.e., repos all up-to-date, no collisions, build with prompt)
+-   -   **weave setup**: interactive prompt to create config file if none present, and add inclusions
+-   **weave inclusions list**: lists all inclusions and their statuses (active/inactive, present/missing, current/ahead/behind/divergent) and copy strategies, in order but grouped by active/inactive
+-   **weave inclusions verify**: output status "ready to weave", "not ready"
+    -   maybe suggest `--ignore-missing` and `repos prepare` if needed
+    -   check remote inclusions for availability
+    -   check local dirs for existence
+    -   if collisions, suggest global `--ignore-collisions`
+-   **weave inclusions prepare**:
+    -   do `repos prepare`, plus...
+    -   create local inclusion dirs if not present
+    -   create dest dir if not present, ensure writability
+    -   maybe not needed?
+-   **weave repos list**: lists configured repos including their "active" status and whether they're behind/ahead/diverged from their origin
+-   **weave repos checkout**: for missing repos, initialize if necessary and perform sparse checkout, depth 1 by default
+-   **weave repos commit**: commit all active configured repos using message provided
+-   **weave repos prepare**: checkout; pull if no conflicts and `autoPullBeforeBuild`, then push (if `autoPushBeforeBuild`); list
+-   **weave repos pull**: pull latest for all active configured repos
+-   **weave repos push**: push all active configured repos
+    -   when no inclusions specified and `excludeByDefault` is false, nothing to do
+-   **weave repos sync**: commit using specified message, pull, then push
+-   **weave repos verify**: checks whether repos are ready for build (and eventually, whether a pull would produce any conflicts)
+    -   ensure sparse checkout settings are good
+    -   each git inclusion can have `ignore-behind`, `ignore-ahead`, `ignore-divergent`, and `ignore-checkout-consistency`
+-   **weave remap**: transform directory names or filenames (to avoid collisions or for renaming in general)
+-   **weave collisions**: list any potential collisions to console or optionally to a file; optionally/eventually perform custom logic to avoid collisions
+    -   silent options
+-   **weave build**: `repos prepare` and then copy all specified directories and files for active inclusions into dest dir, by inclusion order
+    -   clean: `true` | `false`
+    -   global-copy-strategy: `overwrite` | `no-overwrite` | `skip` | `prompt`
+    -   per-inclusion copy-strategy: `overwrite` | `no-overwrite` | `skip` | `prompt`
+-   **weave watch**: detects changes in active inclusions and copies them to dest
+    -   ?does it
+-   **weave start**: build and watch,
+    -   ?but only safely (i.e., repos all up-to-date, no collisions, build with prompt)
 ## Copying strategies
 
 - `no-overwrite`: is the safe option where the copy will fail if a collision is

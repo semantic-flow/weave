@@ -17,7 +17,7 @@ import type { LevelName, LogRecord } from "../../deps/log.ts";
 /**
  * Defines log levels and their numeric representations.
  */
-const LOG_LEVELS: Record<LevelName, number> = {
+export const LOG_LEVELS: Record<LevelName, number> = {
   CRITICAL: 50,
   ERROR: 40,
   WARN: 30,
@@ -43,7 +43,7 @@ if (envLogLevel && envLogLevel in LOG_LEVELS && envLogLevel !== "NOTSET") {
 export function setLogLevel(newLevel: LevelName) {
   if (LOG_LEVELS[newLevel] !== undefined) {
     currentLogLevel = newLevel;
-    console.log(`Setting logger to level: ${newLevel}`);
+    //console.log(`Setting logger to level: ${newLevel}`);
     setupLogger(newLevel);
     log = logger.getLogger("testLogger");
     log.info(`Log level set to ${newLevel}`);

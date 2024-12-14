@@ -23,19 +23,36 @@ export const weaveConfig: WeaveConfigInput = {
         excludeByDefault: true,
         autoPullBeforeBuild: false,
         autoPushBeforeBuild: false,
+        copyStrategy: "overwrite",
       },
     },
     {
+      name: "weave documentation",
+      type: "git",
+      url: "git@github.com:semantic-flow/weave.git",
+      order: 20,
+      options: {
+        //branch: "template",
+        include: ["documentation/weave"],
+        exclude: [],
+        excludeByDefault: true,
+        autoPullBeforeBuild: true,
+        autoPushBeforeBuild: false,
+        copyStrategy: "overwrite",
+      },
+    },
+    /* {
       type: "git",
       url: "https://github.com/another-repo/example.git",
+      order: 5,
       options: {
-        active: false,
+        active: true,
         include: ["src", "docs"],
         exclude: ["tests"],
         excludeByDefault: false,
         autoPullBeforeBuild: true,
       },
-    },
+    },*/
     {
       type: "web",
       url: "https://raw.githubusercontent.com/djradon/public-notes/refs/heads/main/ar.the-rdf-net-challenge.md",

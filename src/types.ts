@@ -3,6 +3,8 @@
 import { LevelName } from "./deps/log.ts";
 
 export type { LevelName };
+
+
 // =============================
 // Copy Strategy Types
 // =============================
@@ -12,7 +14,8 @@ export type { LevelName };
  */
 export type CopyStrategy = "no-overwrite" | "overwrite" | "skip" | "prompt";
 
-export const validCopyStrategies: CopyStrategy[] = [
+
+export const validCopyStrategies: string[] = [
   "no-overwrite",
   "overwrite",
   "skip",
@@ -30,11 +33,11 @@ export const validCopyStrategies: CopyStrategy[] = [
 export interface InputGlobalOptions {
   workspaceDir?: string;
   dest?: string;
-  globalCopyStrategy?: CopyStrategy;
+  globalCopyStrategy?: string;
   globalClean?: boolean;
   watchConfig?: boolean;
   configFilePath?: string;
-  debug?: LevelName;
+  debug?: string;
 }
 
 /**
@@ -131,7 +134,7 @@ export interface GitOptions extends Required<CommonOptions> {
   excludeByDefault: boolean;
   autoPullBeforeBuild: boolean;
   autoPushBeforeBuild: boolean;
-  branch: string;
+  branch: string | null;
 }
 
 /**
@@ -149,32 +152,44 @@ export interface LocalOptions extends Required<CommonOptions> {
 }
 
 /**
+ * Represents an inclusion within resolved configurations for Git.
+ */
+export interface GitInclusion {
+  type: "git";
+  name?: string;
+  url: string;
+  options: GitOptions;
+  order: number;
+  localPath: string; // aka workingDir
+}
+
+/**
+ * Represents an inclusion within resolved configurations for Web.
+ */
+export interface WebInclusion {
+  type: "web";
+  name?: string;
+  url: string;
+  options: WebOptions;
+  order: number;
+}
+
+/**
+ * Represents an inclusion within resolved configurations for Local.
+ */
+export interface LocalInclusion {
+  type: "local";
+  name?: string;
+  options: LocalOptions;
+  order: number;
+  localPath: string;
+}
+
+/**
  * Represents an inclusion within the resolved configuration.
  * Ensures all necessary properties are defined, applying defaults where needed.
  */
-export type ResolvedInclusion =
-  | {
-    type: "git";
-    name?: string;
-    url: string;
-    options: GitOptions;
-    order: number;
-    localPath: string; // aka workingDir
-  }
-  | {
-    type: "web";
-    name?: string;
-    url: string;
-    options: WebOptions;
-    order: number;
-  }
-  | {
-    type: "local";
-    name?: string;
-    options: LocalOptions;
-    order: number;
-    localPath: string;
-  };
+export type ResolvedInclusion = GitInclusion | WebInclusion | LocalInclusion;
 
 /**
  * Type alias for an array of resolved inclusions.
@@ -221,5 +236,21 @@ export interface RepoGitResult {
 // ============================
 
 export interface CommitOptions {
-  message: string,
+  message?: string,
 }
+
+export interface InclusionListItem {
+  order: number;
+  name: string;
+  active: boolean;
+  present: boolean;
+  syncStatus: SyncStatus;
+  copyStrategy: CopyStrategy;
+  include: string[],
+  exclude: string[],
+  excludeByDefault: boolean,
+  autoPullBeforeBuild: boolean,
+  autoPushBeforeBuild: boolean,
+}
+
+export type SyncStatus = 'current' | 'ahead' | 'behind' | 'conflicted' | 'dirty' | 'missing' | 'unknown';

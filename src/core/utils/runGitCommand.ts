@@ -15,7 +15,7 @@ import { handleCaughtError } from "./handleCaughtError.ts";
 
 async function runGitCommand(workingDir: string, args: string[]): Promise<string> {
   const gitCommand = `git ${args.join(' ')}`;
-  log.info(`Executing Git command: ${gitCommand} in ${workingDir}`);
+  log.debug(`Executing Git command: ${gitCommand} in ${workingDir}`);
 
   const command = new Deno.Command("git", {
     args: args,
@@ -35,7 +35,7 @@ async function runGitCommand(workingDir: string, args: string[]): Promise<string
       throw new Error(`Git command failed with exit code ${code}: ${gitCommand}`);
     }
 
-    log.info(`Git command succeeded: ${gitCommand}`);
+    log.debug(`Git command succeeded: ${gitCommand}`);
     return output;
   } catch (error) {
     handleCaughtError(error, `Error in runGitCommand: ${gitCommand}`);

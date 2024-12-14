@@ -130,7 +130,7 @@ Deno.test({
   },
 });
 
-Deno.test("loadWeaveConfig handles missing inclusions", async () => {
+Deno.test("loadWeaveConfig throws error on missing inclusions", async () => {
   // Step 1: Define a mock implementation for Deno.readTextFile
   const mockReadTextFile = async (filePath: string): Promise<string> => {
     await Promise.resolve(); // placeholder to satisfy async function
