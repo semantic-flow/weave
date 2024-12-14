@@ -16,12 +16,10 @@ import {
   LevelName,
 } from "../../types.ts";
 import { join } from "../../deps/path.ts";
-import { exists, ensureDir } from "../../deps/fs.ts";
 import { loadWeaveConfig, getConfigFilePath, mergeConfigs } from "./configHelpers.ts";
 import { determineDefaultBranch } from "./determineDefaultBranch.ts";
 import { determineDefaultWorkingDirectory } from "./determineDefaultWorkingDirectory.ts";
 import { determineWorkingBranch } from "./determineWorkingBranch.ts";
-import { ensureWorkingDirectory } from "./ensureWorkingDirectory.ts";
 import { handleCaughtError } from "./handleCaughtError.ts";
 import { directoryExists } from "./directoryExists.ts";
 
@@ -160,16 +158,55 @@ async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string)
         throw new Error(`Git inclusion requires a 'url': ${JSON.stringify(inclusion)}`);
       }
 
-      const branch: string = options?.branch
-        ? options.branch
-        : providedWorkingDir && (await directoryExists(join(providedWorkingDir, ".git")))
-          ? await determineWorkingBranch(providedWorkingDir)
-          : await determineDefaultBranch(url);
+      // determine branch, although it doesn't really matter if providedWorkingDir
+      let branch = null;
 
-      const workingDir = providedWorkingDir || determineDefaultWorkingDirectory(workspaceDir, url, branch);
+      if (options?.branch) {
+        branch = options.branch;
+      } else if (providedWorkingDir) {
+        try {
+          const gitExists = await directoryExists(join(providedWorkingDir, ".git"));
+          if (gitExists) {
+            try {
+              branch = await determineWorkingBranch(providedWorkingDir);
+            } catch (error) {
+              handleCaughtError(error,`Error determining working branch for provided localPath '${providedWorkingDir}'`);
+            }
+          } else {
+            try {
+              branch = await determineDefaultBranch(url);
+            } catch (error) {
+              handleCaughtError(error,`Error determining default branch from provided URL ${url}`);
+            }
+          }
+        } catch (error) {
+          handleCaughtError(error,`Error checking existence of '.git' directory within provided localPath '${providedWorkingDir}'`);
+        }
+      } else {
+        try {
+          branch = await determineDefaultBranch(url);
+        } catch (error) {
+          handleCaughtError(error,`Error determining default branch from URL ${url}`);
+        }
+      }
 
-      if (!(await directoryExists(workspaceDir))) {
-        log.error(`using non-existant directory ${workspaceDir} for ${name || url}; please specify an existing git working directory in your config file!`);
+      let workingDir: string;
+
+      if (providedWorkingDir) {
+        if (!(await directoryExists(providedWorkingDir))) {
+          log.warn(`Could not find provided localPath '${providedWorkingDir}' for git inclusion '${name && `${name}: ` || ""}${url}'`);
+        } else if (!(await directoryExists(join(providedWorkingDir, ".git")))) {
+          log.warn(`The provided localPath '${providedWorkingDir}' for git inclusion '${name && `${name}: ` || ""}${url}' is not a git repository.`);
+          workingDir = providedWorkingDir;
+        }
+        workingDir = providedWorkingDir;
+      } else if (branch) {
+        workingDir = determineDefaultWorkingDirectory(workspaceDir, url, branch);
+        if (!(await directoryExists(workingDir))) {
+          log.warn(`Could not find localPath '${workingDir}' for git inclusion '${name && `${name}: ` || ""}${url}'`);
+        }
+      } else {
+        throw new Error(`No localPath provided and could not determine branch, so couldn't determining default workingDir '${name && `${name}: ` || ""}${url}'`);
       }
 
       const resolvedGitOptions: GitOptions = {
@@ -201,7 +238,7 @@ async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string)
       }
 
       const resolvedWebOptions: WebOptions = {
-        active: options?.active ?? true,
+        active: options?.active ?? true, // default to true if not provided
         copyStrategy: options?.copyStrategy ?? "no-overwrite",
       };
 
@@ -222,8 +259,6 @@ async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string)
       }
 
       const workingDir = providedWorkingDir;
-
-      await ensureDir(workingDir);
 
       const resolvedLocalOptions: LocalOptions = {
         active: options?.active ?? true,

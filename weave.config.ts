@@ -41,17 +41,18 @@ export const weaveConfig: WeaveConfigInput = {
         copyStrategy: "overwrite",
       },
     },
-    {
+    /* {
       type: "git",
       url: "https://github.com/another-repo/example.git",
+      order: 5,
       options: {
-        active: false,
+        active: true,
         include: ["src", "docs"],
         exclude: ["tests"],
         excludeByDefault: false,
         autoPullBeforeBuild: true,
       },
-    },
+    },*/
     {
       type: "web",
       url: "https://raw.githubusercontent.com/djradon/public-notes/refs/heads/main/ar.the-rdf-net-challenge.md",

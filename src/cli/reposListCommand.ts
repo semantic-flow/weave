@@ -21,10 +21,12 @@ export const reposListCommand = new Command()
     } else {
       // Output as a table
       // Convert array of objects to array of arrays
+      const NAME_MAX_LENGTH = 20;
+
       const tableData = results.map(item => [
         item.order.toString(),
-        item.name.substring(0, 20) + (item.name.length > 20 ? "…" : "") || "N/A",
-        /* item.active ? "Yes" : "No", */ // for now, we're only listing active inclusions anyhow
+        item.name.substring(0, NAME_MAX_LENGTH) +
+        (item.name.length > NAME_MAX_LENGTH && "…") || "N/A",
         item.present ? "Yes" : red("No"),
         item.syncStatus != "current" ? yellow(item.syncStatus) : green(item.syncStatus),
         item.copyStrategy,
@@ -37,7 +39,7 @@ export const reposListCommand = new Command()
       const table = new Table()
         .header(["Order", "Name", /* "Active", */ "Present", "Sync Status", "Copy Strategy", "Default", "Push", "Pull"])
         .body(tableData);
-      table.sort;
+      table.sort();
       table.border(true);
       table.render();
     }

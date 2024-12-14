@@ -14,16 +14,31 @@ export async function determineDefaultBranch(repoUrl: string): Promise<string> {
   try {
     const args = ["ls-remote", "--symref", repoUrl, "HEAD"];
 
+    let remoteOutput;
+
     // Retrieve output using runGitCommand, executed from the current directory
-    const remoteOutput = await runGitCommand('.', args);
-
-    const branchMatch = remoteOutput.match(/ref: refs\/heads\/([^\t\n]+)/);
-
-    if (branchMatch) {
-      const branch = branchMatch[1].trim();
-      log.info(`Branch determined: ${branch}`);
-      return branch;
+    try {
+      remoteOutput = await runGitCommand('.', args);
+    } catch (error) {
+      handleCaughtError(
+        error,
+        `Error running git ls-remote for ${repoUrl}:`
+      );
+      throw error;
     }
+    
+    if (remoteOutput) {
+      const branchMatch = remoteOutput.match(/ref: refs\/heads\/([^\t\n]+)/);
+
+      if (branchMatch) {
+        const branch = branchMatch[1].trim();
+        log.info(`Default branch determined for ${repoUrl}: ${branch}`);
+        return branch;
+      }
+    } else {
+      throw new Error(`No output returned for ${repoUrl}.`);
+    }
+
 
     log.error(`Failed to match the branch for ${repoUrl}. Exiting.`);
   } catch (error) {
