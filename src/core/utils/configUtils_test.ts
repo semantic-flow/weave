@@ -4,25 +4,25 @@ import {
   assertEquals,
   assertRejects,
 } from "../../deps/assert.ts";
-import { composeWeaveConfig, watchConfigFile } from "./configUtils.ts";
+import { processWeaveConfig, watchConfigFile } from "./configUtils.ts";
 import { Frame } from "../Frame.ts";
 import { WeaveConfigInput, InputGlobalOptions, WeaveConfig } from "../../types.ts";
 import { log } from "./logging.ts";
 
-Deno.test("composeWeaveConfig uses default workspaceDir when not provided", async () => {
-  const config = await composeWeaveConfig();
+Deno.test("processWeaveConfig uses default workspaceDir when not provided", async () => {
+  const config = await processWeaveConfig();
   console.log(`workspaceDir: ${config.global.workspaceDir}`);
   assertEquals(config.global.workspaceDir, "_source-repos");
 });
 
-Deno.test("composeWeaveConfig overrides workspaceDir", async () => {
-  const config = await composeWeaveConfig({ workspaceDir: "custom_workspace" });
+Deno.test("processWeaveConfig overrides workspaceDir", async () => {
+  const config = await processWeaveConfig({ workspaceDir: "custom_workspace" });
   assertEquals(config.global.workspaceDir, "custom_workspace");
 });
 
 // New Test: Preserving Command-Line Options after Config Reload
 Deno.test({
-  name: "composeWeaveConfig preserves command-line options after config reload",
+  name: "processWeaveConfig preserves command-line options after config reload",
   fn: async () => {
     // Step 1: Define initial configuration and commandOptions
     const initialConfig: WeaveConfigInput = {
@@ -53,7 +53,7 @@ Deno.test({
     Frame.resetInstance(); // Ensure Frame is reset before the test
     const frame = Frame.getInstance(initialConfig as unknown as WeaveConfig, commandOptions);
 
-    // Step 3: Mock the `composeWeaveConfig` to return a modified config on reload
+    // Step 3: Mock the `processWeaveConfig` to return a modified config on reload
     const modifiedConfig: WeaveConfigInput = {
       global: {
         ...initialConfig.global,
@@ -64,7 +64,7 @@ Deno.test({
       ],
     };
 
-    const composeWeaveConfigMock = async (opts?: InputGlobalOptions): Promise<WeaveConfig> => {
+    const processWeaveConfigMock = async (opts?: InputGlobalOptions): Promise<WeaveConfig> => {
       await Promise.resolve(); // placeholder to satisfy async function
       // Ensure that commandOptions are included in the merged configuration
       return {
@@ -107,8 +107,8 @@ Deno.test({
     // @ts-ignore: Overriding Deno.watchFs for testing purposes
     Deno.watchFs = () => fakeWatcher;
 
-    // Step 5: Start watching the config file with the mocked composeWeaveConfig
-    await watchConfigFile(frame.config.global.configFilePath, commandOptions, composeWeaveConfigMock);
+    // Step 5: Start watching the config file with the mocked processWeaveConfig
+    await watchConfigFile(frame.config.global.configFilePath, commandOptions, processWeaveConfigMock);
 
     // Step 6: Allow some time for the watcher to process the mock event
     await new Promise((resolve) => setTimeout(resolve, 500));

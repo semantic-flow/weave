@@ -134,7 +134,7 @@ export interface GitOptions extends Required<CommonOptions> {
   excludeByDefault: boolean;
   autoPullBeforeBuild: boolean;
   autoPushBeforeBuild: boolean;
-  branch: string | null;
+  branch: string;
 }
 
 /**

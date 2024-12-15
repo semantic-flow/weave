@@ -4,7 +4,7 @@ import { log, setLogLevel, LOG_LEVELS } from "./logging.ts";
 import { LevelName } from "../../deps/log.ts";
 import { WeaveConfigInput, WeaveConfig, InputGlobalOptions, validCopyStrategies } from "../../types.ts";
 import { Frame } from "../Frame.ts";
-import { composeWeaveConfig } from "../../core/utils/configUtils.ts";
+import { processWeaveConfig } from "../../core/utils/configUtils.ts";
 import { handleCaughtError } from "./handleCaughtError.ts";
 
 // Utility function to merge two configurations
@@ -20,6 +20,7 @@ export function mergeConfigs(base: WeaveConfigInput, override: Partial<WeaveConf
         Object.entries(override.global || {}).filter(([_, value]) => value !== undefined)
       ),
     },
+    // TODO: probably should merge inclusions individually
     inclusions: override.inclusions !== undefined ? override.inclusions : base.inclusions,
   };
 }
@@ -138,13 +139,6 @@ export async function loadWeaveConfig(filePath: string): Promise<WeaveConfigInpu
  * @param options InputGlobalOptions parsed from CLI.
  */
 export async function handleConfigAction(options: InputGlobalOptions): Promise<void> {
-  // Validate 'copyStrategy' if it's provided
-  if (options.globalCopyStrategy && !validCopyStrategies.includes(options.globalCopyStrategy)) {
-    log.error(
-      `Invalid copy strategy: ${options.globalCopyStrategy}. Must be one of: ${validCopyStrategies.join(", ")}`
-    );
-    Deno.exit(1);
-  }
 
   try {
     // Ensure options.debug is a valid LevelName, or default to a safe value
@@ -156,26 +150,15 @@ export async function handleConfigAction(options: InputGlobalOptions): Promise<v
     try {
       setLogLevel(logLevel);
     } catch (error) {
-      log.error(`Failed to set log level: ${error.message}`);
+      handleCaughtError(error, `Failed to set log level: ${logLevel}`);
       // Fall back to default log level
       setLogLevel("ERROR");
     }
 
     // Compose the WeaveConfig by merging defaults, env, config file, and CLI options
-    const weaveConfig: WeaveConfig = await composeWeaveConfig(options);
-
-    // Initialize or reset the Frame singleton with the composed configuration
-    if (Frame.isInitialized()) { // <-- Safe Initialization Check
-      // If Frame is already initialized, reset it
-      Frame.resetInstance();
-      log.info("Resetting Frame due to configuration changes.");
-    }
-    const frame = Frame.getInstance(weaveConfig); // Initialize with WeaveConfig
-
-    // Log success messages
-    log.info("Configuration successfully loaded and Frame initialized.");
-    log.debug(`Detailed config: ${Deno.inspect(frame.config)}`);
-
+    await processWeaveConfig(options);
+    log.info("Configuration successfully loaded.");
+    
   } catch (error) {
     if (error instanceof Error) {
       log.error(`Error occurred during initialization: ${error.message}`);

@@ -2,18 +2,18 @@ import { log } from "./utils/logging.ts";
 import { RepoGitResult } from "../types.ts";
 import { exists } from "../deps/fs.ts";
 import { join } from "../deps/path.ts";
-import { ensureWorkingDirectory } from "./utils/ensureWorkingDirectory.ts";
 import { ensureSparseCheckout } from "./utils/ensureSparseConfig.ts";
 import { runGitCommand } from "./utils/runGitCommand.ts";
 import { composeSparseCheckoutRules } from "./utils/composeSparseCheckoutRules.ts";
 import { handleCaughtError } from "./utils/handleCaughtError.ts";
 import { Frame } from "../core/Frame.ts";
+import { ensureDir } from "../deps/fs.ts";
 
 export async function reposCheckout(): Promise<RepoGitResult[]> {
   const results: RepoGitResult[] = [];
   const frame = Frame.getInstance();
   const workspaceDir = frame.config.global.workspaceDir;
-  const inclusions = frame.config.inclusions;
+  const inclusions = frame.resolvedInclusions;
 
 
   // Filter for only git inclusions
@@ -22,12 +22,9 @@ export async function reposCheckout(): Promise<RepoGitResult[]> {
     .filter(inclusion => inclusion.options?.active !== false);
 
   for (const inclusion of gitInclusions) {
-    const { url } = inclusion;
+    const { url, localPath: workingDir } = inclusion;
     const { include, exclude, excludeByDefault, branch } = inclusion.options;
 
-    // Parse the URL and construct the local repository path
-    const workingDir = await ensureWorkingDirectory(workspaceDir, url, branch);
-    log.info(`Ensuring repository at ${workingDir}...`);
 
     if (excludeByDefault && include.length === 0) {
       log.warn(`Excluding all files by default, and no inclusions specified, so nothing to do for ${url}...`);
@@ -35,6 +32,9 @@ export async function reposCheckout(): Promise<RepoGitResult[]> {
     }
 
     try {
+      // create the directory if it doesn't exist
+      ensureDir(workingDir);
+
       if (!await exists(join(workingDir, ".git"))) {
         log.info(`Initializing working directory at ${workingDir}...`);
         await runGitCommand(workingDir, ["init"]);

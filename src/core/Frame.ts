@@ -1,19 +1,21 @@
 // src/core/Frame.ts
 
-import { WeaveConfig } from "../types.ts";
+import { resolve } from "../deps/path.ts";
+import { ResolvedInclusion, WeaveConfig, WeaveConfigInput } from "../types.ts";
 import { InputGlobalOptions } from "../types.ts";
 
 
 export class Frame {
   private static instance: Frame | null = null;
   public config: WeaveConfig;
-  public activeInclusions: string[] = [];
+  public resolvedInclusions: ResolvedInclusion[] = [];
   public commandOptions?: InputGlobalOptions;
 
   // Private constructor to prevent direct instantiation
-  private constructor(config: WeaveConfig, commandOptions?: InputGlobalOptions) {
-    this.config = config;
+  private constructor(config: WeaveConfigInput, resolvedInclusions: ResolvedInclusion[], commandOptions?: InputGlobalOptions) {
+    this.config = config as WeaveConfig;
     this.commandOptions = commandOptions;
+    this.resolvedInclusions = resolvedInclusions;
   }
 
   /**
@@ -23,12 +25,12 @@ export class Frame {
    * @param commandOptions Optional InputGlobalOptions to pass command-line arguments.
    * @returns The singleton Frame instance.
    */
-  public static getInstance(config?: WeaveConfig, commandOptions?: InputGlobalOptions): Frame {
+  public static getInstance(config?: WeaveConfigInput, resolvedInclusions?: ResolvedInclusion[], commandOptions?: InputGlobalOptions): Frame {
     if (!Frame.instance) {
-      if (!config) {
-        throw new Error("Frame has not been initialized yet. Provide a WeaveConfig.");
+      if (!config || !resolvedInclusions) {
+        throw new Error("Frame has not been initialized yet. Provide a WeaveConfig with inclusions.");
       }
-      Frame.instance = new Frame(config, commandOptions);
+      Frame.instance = new Frame(config, resolvedInclusions, commandOptions);
     }
     return Frame.instance;
   }
