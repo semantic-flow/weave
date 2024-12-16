@@ -117,34 +117,36 @@ export async function processWeaveConfig(
   };
 
   mergedConfig = mergeConfigs(mergedConfig as WeaveConfigInput, commandConfig);
+  log.debug(`Default+ENV+config file merged with CLI options: ${Deno.inspect(mergedConfig)}`);
 
   // Step 6: perform typesafety theater
-  if (!mergedConfig.global) {
-    mergedConfig.global = { ...DEFAULT_GLOBAL };
-  }
+
   if (!mergedConfig.inclusions) {
     mergedConfig.inclusions = [];
   }
 
 
   // Step 7: Validate that all required global options are set
+  const requiredGlobalOptions: (keyof ResolvedGlobalOptions)[] = [
+    "configFilePath",
+    "dest",
+    "globalClean",
+    "globalCopyStrategy",
+    "watchConfig",
+    "workspaceDir",
+  ];
 
-  if (
-    !mergedConfig.global.configFilePath ||
-    !mergedConfig.global.dest ||
-    !mergedConfig.global.globalClean ||
-    !mergedConfig.global.globalCopyStrategy ||
-    !mergedConfig.global.watchConfig ||
-    !mergedConfig.global.workspaceDir
-  ) {
-    log.error("Missing required global configuration options. Exiting.");
-    Deno.exit(1);
+  for (const option of requiredGlobalOptions) {
+    if (mergedConfig.global![option] === undefined) {
+      log.error(`Missing required global configuration option: ${option}. Exiting.`);
+      Deno.exit(1);
+    }
   }
 
   // Validate 'copyStrategy' if it's provided
-  if (!validCopyStrategies.includes(mergedConfig.global.globalCopyStrategy)) {
+  if (mergedConfig.global!.globalCopyStrategy !== undefined && !validCopyStrategies.includes(mergedConfig.global!.globalCopyStrategy)) {
     log.error(
-      `Invalid copy strategy: ${mergedConfig.global.globalCopyStrategy}. Must be one of: ${validCopyStrategies.join(", ")}`
+      `Invalid copy strategy: ${mergedConfig.global!.globalCopyStrategy}. Must be one of: ${validCopyStrategies.join(", ")}`
     );
     Deno.exit(1);
   }
@@ -158,17 +160,16 @@ export async function processWeaveConfig(
   // Map active inclusions to their resolved inclusions
   const resolvedInclusions = await Promise.all(
     activeInclusions.map(async (inclusion: InputInclusion): Promise<ResolvedInclusion> => {
-      return await resolveInclusion(inclusion);
+      return await resolveInclusion(inclusion, mergedConfig.global!.workspaceDir!);
     })
   );
 
-  const frame = Frame.getInstance(mergedConfig, resolvedInclusions, commandOptions,);
+  const frame = Frame.getInstance(mergedConfig, resolvedInclusions, commandOptions);
   log.debug(`Frame instance created with config: ${Deno.inspect(frame)}`);
 }
 
 
-async function resolveInclusion(inclusion: InputInclusion): Promise<ResolvedInclusion> {
-  const workspaceDir = Frame.getInstance().config.global.workspaceDir;
+async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string): Promise<ResolvedInclusion> {
   switch (inclusion.type) {
     case "git": {
       const { name, url, localPath: providedWorkingDir, options, order } = inclusion;
@@ -337,14 +338,13 @@ export async function watchConfigFile(
 
         try {
           // Use the injected processWeaveConfigFn or default to the actual function
-          const newConfig: WeaveConfig = await (processWeaveConfigFn ?? processWeaveConfig)(commandOptions);
+          await (processWeaveConfigFn ?? processWeaveConfig)(commandOptions);
 
-          // Reset and reinitialize Frame with the new configuration
-          Frame.resetInstance();
-          Frame.getInstance(newConfig, commandOptions);
+          // Assuming that processWeaveConfig would have updated the Frame already
+          const updatedConfig = Frame.getInstance().config;
 
           log.info("Configuration reloaded and Frame reinitialized.");
-          log.info(`Updated config: ${Deno.inspect(Frame.getInstance().config)}`);
+          log.info(`Updated config: ${Deno.inspect(updatedConfig)}`);
         } catch (error) {
           handleCaughtError(error, "Failed to reload config:");
         } finally {

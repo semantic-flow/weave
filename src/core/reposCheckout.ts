@@ -12,7 +12,6 @@ import { ensureDir } from "../deps/fs.ts";
 export async function reposCheckout(): Promise<RepoGitResult[]> {
   const results: RepoGitResult[] = [];
   const frame = Frame.getInstance();
-  const workspaceDir = frame.config.global.workspaceDir;
   const inclusions = frame.resolvedInclusions;
 
 

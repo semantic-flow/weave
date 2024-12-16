@@ -7,11 +7,11 @@ import { isGitInclusion, checkGitInclusion } from "../core/utils/gitInclusionUti
 export async function reposList(): Promise<InclusionListItem[]> {
   const results: InclusionListItem[] = [];
   const frame = Frame.getInstance();
-  const { inclusions } = frame.config;
+  const { resolvedInclusions } = frame; // <-- Correctly access resolvedInclusions
 
   // Filter for only git inclusions
-  const gitInclusions = inclusions
-    .filter(isGitInclusion)
+  const gitInclusions = resolvedInclusions
+    .filter(isGitInclusion);
 
   for (const inclusion of gitInclusions) {
     try {

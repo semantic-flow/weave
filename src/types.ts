@@ -205,7 +205,7 @@ export type ResolvedInclusions = ResolvedInclusion[];
  * Some fields are optional to allow the user to override defaults.
  */
 export interface WeaveConfigInput {
-  global?: InputGlobalOptions;
+  global: InputGlobalOptions;
   inclusions?: InputInclusions;
 }
 

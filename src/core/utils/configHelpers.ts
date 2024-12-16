@@ -135,7 +135,7 @@ export async function loadWeaveConfig(filePath: string): Promise<WeaveConfigInpu
 
 
 /**
- * Handles the configuration action by processing command options, setting up configurations, and initializing the Frame.
+ * Handles the configuration action by setting up logging.
  * @param options InputGlobalOptions parsed from CLI.
  */
 export async function handleConfigAction(options: InputGlobalOptions): Promise<void> {

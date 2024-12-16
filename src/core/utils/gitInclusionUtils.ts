@@ -17,16 +17,10 @@ export async function getSyncStatus(localPath: string): Promise<SyncStatus> {
     const branchStatus = lines.shift() || '';
 
     // Check for the "up-to-date" status in the branch line
-    if (branchStatus.includes('up-to-date')) {
-      return 'current';
+    if (branchStatus.includes('ahead') && branchStatus.includes('behind')) {
+      return 'conflicted';
     }
 
-    // If there are modifications
-    if (lines.length > 0) {
-      return 'dirty'; // Local uncommitted changes
-    }
-
-    // Analyze branch status for remote tracking
     if (branchStatus.includes('ahead')) {
       return 'ahead';
     }
@@ -35,11 +29,12 @@ export async function getSyncStatus(localPath: string): Promise<SyncStatus> {
       return 'behind';
     }
 
-    if (branchStatus.includes('diverged')) {
-      return 'conflicted';
+    // If there are modifications
+    if (lines.length > 0) {
+      return 'dirty'; // Local uncommitted changes
     }
-    log.warn(`Unexpected branch status output: "${branchStatus}"`);
-    return 'unknown';
+
+    return 'current'; // No changes and not ahead/behind
   } catch (error) {
     if (error instanceof Error) {
       handleCaughtError(error, `Failed to get Sync Status for ${localPath}: ${error.message}`);
