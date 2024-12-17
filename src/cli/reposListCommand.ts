@@ -25,8 +25,9 @@ export const reposListCommand = new Command()
 
       const tableData = results.map(item => [
         item.order.toString(),
-        item.name.substring(0, NAME_MAX_LENGTH) +
-        (item.name.length > NAME_MAX_LENGTH && "…") || "N/A",
+        item.name.length > NAME_MAX_LENGTH
+          ? item.name.substring(0, NAME_MAX_LENGTH) + "…"
+          : item.name || "N/A",  // Fallback to "N/A" only if item.name is not defined or empty
         item.present ? "Yes" : red("No"),
         item.syncStatus != "current" ? yellow(item.syncStatus) : green(item.syncStatus),
         item.copyStrategy,
