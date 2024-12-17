@@ -163,7 +163,8 @@ export async function processWeaveConfig(
     })
   );
 
-  const frame = Frame.initialize(mergedConfig, resolvedInclusions, commandOptions);
+  Frame.initialize(mergedConfig, resolvedInclusions, commandOptions);
+  const frame = Frame.getInstance();
   log.debug(`Frame instance created with config: ${Deno.inspect(frame)}`);
 }
 

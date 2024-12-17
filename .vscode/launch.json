@@ -26,7 +26,9 @@
         "--debug",
         "DEBUG",
         "repos",
-        "list"
+        "commit",
+        "-m",
+        "cli test"
       ]
     },
     {
