@@ -50,7 +50,7 @@ export interface ResolvedGlobalOptions {
   globalCopyStrategy: CopyStrategy;
   globalClean: boolean;
   watchConfig: boolean;
-  configFilePath: string; // mandatory since config file is required
+  configFilePath: string; // mandatory since config file is where inclusions are defined
   debug: LevelName;
 }
 
