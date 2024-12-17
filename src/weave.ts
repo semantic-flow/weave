@@ -1,7 +1,6 @@
 // src/cli.ts
 
 import { Command } from "./deps/cliffy.ts";
-import { log } from "./core/utils/logging.ts";
 import { InputGlobalOptions, CopyStrategy } from "./types.ts";
 import { handleConfigAction } from "./core/utils/configHelpers.ts";
 import { reposCommand } from "./cli/reposCommand.ts";

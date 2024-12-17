@@ -3,7 +3,6 @@
 import { log } from "./logging.ts";
 import { Frame } from "../Frame.ts";
 import {
-  WeaveConfig,
   WeaveConfigInput,
   InputGlobalOptions,
   ResolvedGlobalOptions,

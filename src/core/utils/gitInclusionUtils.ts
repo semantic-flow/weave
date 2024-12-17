@@ -2,7 +2,6 @@ import { ResolvedInclusion, InclusionListItem, GitInclusion, SyncStatus } from "
 import { directoryExists } from "./directoryExists.ts";
 import { runGitCommand } from "./runGitCommand.ts";
 import { handleCaughtError } from "./handleCaughtError.ts";
-import { log } from "./logging.ts";
 
 export function isGitInclusion(inclusion: ResolvedInclusion): inclusion is GitInclusion {
   return inclusion.type === 'git';

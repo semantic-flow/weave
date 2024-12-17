@@ -12,7 +12,7 @@ export class Frame {
 
   // Private constructor to prevent direct instantiation
   private constructor(config: WeaveConfigInput, resolvedInclusions: ResolvedInclusion[], commandOptions?: InputGlobalOptions) {
-    this.config = config as WeaveConfig;
+    this.config = config as WeaveConfig; // assumes all necessary validation is completed externally beforehand, specifically in processWeaveConfig
     this.commandOptions = commandOptions;
     this.resolvedInclusions = resolvedInclusions;
   }
@@ -37,7 +37,7 @@ export class Frame {
       throw new Error("Frame has not been initialized yet.");
     }
     return Frame.instance;
-  }
+  } 
 
   /**
    * Resets the Frame singleton instance.

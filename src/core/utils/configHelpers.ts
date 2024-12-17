@@ -2,8 +2,7 @@
 
 import { log, setLogLevel, LOG_LEVELS } from "./logging.ts";
 import { LevelName } from "../../deps/log.ts";
-import { WeaveConfigInput, WeaveConfig, InputGlobalOptions, validCopyStrategies } from "../../types.ts";
-import { Frame } from "../Frame.ts";
+import { WeaveConfigInput, InputGlobalOptions } from "../../types.ts";
 import { processWeaveConfig } from "../../core/utils/configUtils.ts";
 import { handleCaughtError } from "./handleCaughtError.ts";
 
@@ -158,7 +157,7 @@ export async function handleConfigAction(options: InputGlobalOptions): Promise<v
     // Compose the WeaveConfig by merging defaults, env, config file, and CLI options
     await processWeaveConfig(options);
     log.info("Configuration successfully loaded.");
-    
+
   } catch (error) {
     if (error instanceof Error) {
       log.error(`Error occurred during initialization: ${error.message}`);

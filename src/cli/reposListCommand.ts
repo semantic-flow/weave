@@ -3,7 +3,7 @@ import { log } from "../core/utils/logging.ts";
 import { reposList } from "../core/reposList.ts";
 import { Table } from "../deps/cliffy.ts"; import {
   red,
-  strikethrough,
+  /* strikethrough,*/
   yellow,
   green
 } from "../deps/colors.ts";

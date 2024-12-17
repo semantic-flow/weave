@@ -6,8 +6,7 @@ import {
 } from "../../deps/assert.ts";
 import { processWeaveConfig, watchConfigFile } from "./configUtils.ts";
 import { Frame } from "../Frame.ts";
-import { WeaveConfigInput, InputGlobalOptions, WeaveConfig } from "../../types.ts";
-import { log } from "./logging.ts";
+import { WeaveConfigInput, InputGlobalOptions } from "../../types.ts";
 
 Deno.test("processWeaveConfig initializes Frame with default workspaceDir", async () => {
   // Ensure Frame is reset before the test
@@ -65,6 +64,8 @@ Deno.test({
     };
 
     const processWeaveConfigMock = async (commandOpts?: InputGlobalOptions): Promise<void> => {
+      await Promise.resolve(); // for consistency with the real function
+
       // Combine the current configuration with any command-line options provided
       const mergedConfig: WeaveConfigInput = {
         global: {
@@ -86,6 +87,8 @@ Deno.test({
         let called = false;
         return {
           async next() {
+            await Promise.resolve(); // for consistency with the real function
+
             if (!called) {
               called = true;
               return {
@@ -123,6 +126,8 @@ Deno.test({
 
 Deno.test("loadWeaveConfig throws error on missing inclusions", async () => {
   const mockReadTextFile = async (filePath: string): Promise<string> => {
+    await Promise.resolve(); // for consistency with the real function
+
     if (filePath === "faulty.json") {
       return JSON.stringify({
         global: {
@@ -137,6 +142,8 @@ Deno.test("loadWeaveConfig throws error on missing inclusions", async () => {
   };
 
   const originalReadTextFile = Deno.readTextFile;
+
+  // deno-lint-ignore no-explicit-any
   (Deno as any).readTextFile = mockReadTextFile;
 
   try {
@@ -150,6 +157,7 @@ Deno.test("loadWeaveConfig throws error on missing inclusions", async () => {
       "'inclusions' must be an array in the configuration file."
     );
   } finally {
+    // deno-lint-ignore no-explicit-any
     (Deno as any).readTextFile = originalReadTextFile;
   }
 });
