@@ -164,7 +164,7 @@ export async function processWeaveConfig(
     })
   );
 
-  const frame = Frame.getInstance(mergedConfig, resolvedInclusions, commandOptions);
+  const frame = Frame.initialize(mergedConfig, resolvedInclusions, commandOptions);
   log.debug(`Frame instance created with config: ${Deno.inspect(frame)}`);
 }
 
@@ -311,7 +311,7 @@ async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string)
 export async function watchConfigFile(
   configFilePath: string,
   commandOptions?: InputGlobalOptions,
-  processWeaveConfigFn?: (opts?: InputGlobalOptions) => Promise<WeaveConfig>
+  processWeaveConfigFn?: (opts?: InputGlobalOptions) => Promise<void>
 ): Promise<void> {
   const watcher = Deno.watchFs(configFilePath);
   log.info(`Watching configuration file for changes: ${configFilePath}`);

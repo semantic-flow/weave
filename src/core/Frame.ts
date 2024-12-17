@@ -1,6 +1,5 @@
 // src/core/Frame.ts
 
-import { resolve } from "../deps/path.ts";
 import { ResolvedInclusion, WeaveConfig, WeaveConfigInput } from "../types.ts";
 import { InputGlobalOptions } from "../types.ts";
 
@@ -18,6 +17,14 @@ export class Frame {
     this.resolvedInclusions = resolvedInclusions;
   }
 
+
+  public static initialize(config: WeaveConfigInput, resolvedInclusions: ResolvedInclusion[], commandOptions?: InputGlobalOptions): void {
+    if (Frame.instance) {
+      throw new Error("Frame has already been initialized.");
+    }
+    Frame.instance = new Frame(config, resolvedInclusions, commandOptions);
+  }
+
   /**
    * Retrieves the singleton instance of Frame.
    * If it doesn't exist, it initializes it with the provided config and commandOptions.
@@ -25,12 +32,9 @@ export class Frame {
    * @param commandOptions Optional InputGlobalOptions to pass command-line arguments.
    * @returns The singleton Frame instance.
    */
-  public static getInstance(config?: WeaveConfigInput, resolvedInclusions?: ResolvedInclusion[], commandOptions?: InputGlobalOptions): Frame {
+  public static getInstance(): Frame {
     if (!Frame.instance) {
-      if (!config || !resolvedInclusions) {
-        throw new Error("Frame has not been initialized yet. Provide a WeaveConfig with inclusions.");
-      }
-      Frame.instance = new Frame(config, resolvedInclusions, commandOptions);
+      throw new Error("Frame has not been initialized yet.");
     }
     return Frame.instance;
   }

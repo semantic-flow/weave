@@ -54,7 +54,7 @@ Deno.test({
     };
 
     Frame.resetInstance();
-    Frame.getInstance(initialConfig, [], commandOptions);
+    Frame.initialize(initialConfig, [], commandOptions);
 
     const modifiedConfig: WeaveConfigInput = {
       global: {
@@ -64,7 +64,7 @@ Deno.test({
       inclusions: [],
     };
 
-    const processWeaveConfigMock = async (commandOpts?: InputGlobalOptions): Promise<WeaveConfig> => {
+    const processWeaveConfigMock = async (commandOpts?: InputGlobalOptions): Promise<void> => {
       // Combine the current configuration with any command-line options provided
       const mergedConfig: WeaveConfigInput = {
         global: {
@@ -77,10 +77,8 @@ Deno.test({
       // Create an updated Frame with the merged configuration
 
       Frame.resetInstance();
-      const frame = Frame.getInstance(mergedConfig, [], commandOpts);
+      Frame.initialize(mergedConfig, [], commandOpts);
 
-      // Return the configuration for further use if needed
-      return frame.config;
     };
 
     const fakeWatcher = {
