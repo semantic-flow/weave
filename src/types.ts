@@ -31,13 +31,14 @@ export const validCopyStrategies: string[] = [
  * All properties are optional to allow flexibility in user input.
  */
 export interface InputGlobalOptions {
-  workspaceDir?: string;
-  dest?: string;
-  globalCopyStrategy?: string;
-  globalClean?: boolean;
-  watchConfig?: boolean;
   configFilePath?: string;
   debug?: string;
+  dryRun?: boolean;
+  dest?: string;
+  globalClean?: boolean;
+  globalCopyStrategy?: string;
+  watchConfig?: boolean;
+  workspaceDir?: string;
 }
 
 /**
@@ -45,13 +46,14 @@ export interface InputGlobalOptions {
  * Ensures all necessary properties are defined by applying defaults.
  */
 export interface ResolvedGlobalOptions {
-  workspaceDir: string;
-  dest: string;
-  globalCopyStrategy: CopyStrategy;
-  globalClean: boolean;
-  watchConfig: boolean;
   configFilePath: string; // mandatory since config file is where inclusions are defined
   debug: LevelName;
+  dest: string;
+  dryRun: boolean;
+  globalClean: boolean;
+  globalCopyStrategy: CopyStrategy;
+  watchConfig: boolean;
+  workspaceDir: string;
 }
 
 // =============================

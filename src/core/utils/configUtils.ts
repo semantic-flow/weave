@@ -28,6 +28,7 @@ const DEFAULT_GLOBAL: ResolvedGlobalOptions = {
   configFilePath: "./weave.config.json", // Assuming a default config file path
   debug: "ERROR",
   dest: "_woven",
+  dryRun: false,
   globalClean: false,
   globalCopyStrategy: "no-overwrite",
   watchConfig: false,
