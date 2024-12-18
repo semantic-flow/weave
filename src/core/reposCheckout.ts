@@ -26,7 +26,7 @@ export async function reposCheckout(): Promise<RepoGitResult[]> {
 
 
     if (excludeByDefault && include.length === 0) {
-      log.warn(`Excluding all files by default, and no inclusions specified, so nothing to do for ${url}...`);
+      log.warn(`Excluding all files by default, and no inclusions specified, so nothing to do for ${workingDir}...`);
       continue;
     }
 
@@ -59,7 +59,7 @@ export async function reposCheckout(): Promise<RepoGitResult[]> {
       results.push({
         url,
         localPath: workingDir,
-        status: 'success',
+        success: true,
         message: 'Repository checkout successfully completed.',
       });
     } catch (error) {
@@ -69,7 +69,7 @@ export async function reposCheckout(): Promise<RepoGitResult[]> {
         results.push({
           url,
           localPath: workingDir,
-          status: 'failed',
+          success: false,
           message: error.message,
           error,
         });

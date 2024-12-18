@@ -225,11 +225,11 @@ export interface WeaveConfig {
 // ============================
 
 export interface RepoGitResult {
-  url: string;
-  localPath: string;
-  status: 'success' | 'failed';
-  message?: string;
   error?: Error;
+  url?: string;
+  localPath: string;
+  message?: string;
+  success: boolean;
 }
 
 

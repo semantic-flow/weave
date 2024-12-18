@@ -14,13 +14,13 @@ export const reposCheckoutCommand = new Command()
       const results: RepoGitResult[] = await reposCheckout();
 
       // Process results
-      const successCount = results.filter(r => r.status === 'success').length;
-      const failureCount = results.filter(r => r.status === 'failed').length;
+      const successCount = results.filter(r => r.success).length;
+      const failureCount = results.filter(r => !r.success).length;
 
       log.info(`weave repos checkout completed: ${successCount} succeeded, ${failureCount} failed.`);
 
       results.forEach(result => {
-        if (result.status === 'success') {
+        if (result.success) {
           log.info(`✅ ${result.localPath} ready`);
         } else {
           log.error(`❌ ${result.localPath} not ready: ${result.message}`);

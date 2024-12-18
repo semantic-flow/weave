@@ -5,7 +5,7 @@ import { WeaveConfigInput } from "./src/types.ts";
 export const weaveConfig: WeaveConfigInput = {
   global: {
     dest: "_woven", // Directory for woven output, relative to cwd or absolute
-    dryRun: true,
+    dryRun: false,
     globalClean: true,
     globalCopyStrategy: "no-overwrite",
     watchConfig: false,

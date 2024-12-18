@@ -2,6 +2,7 @@
 
 import { log } from "./logging.ts";
 import { handleCaughtError } from "./handleCaughtError.ts";
+import { RepoGitResult } from "../../types.ts";
 
 /**
  * Executes a Git command within a specified repository path using Deno.Command.
@@ -13,7 +14,7 @@ import { handleCaughtError } from "./handleCaughtError.ts";
  * @throws Will throw an error if the Git command fails.
  */
 
-async function runGitCommand(workingDir: string, args: string[]): Promise<string> {
+export async function runGitCommand(workingDir: string, args: string[]): Promise<string> {
   const gitCommand = `git ${args.join(' ')}`;
   log.debug(`Executing Git command: ${gitCommand} in ${workingDir}`);
 
@@ -43,4 +44,55 @@ async function runGitCommand(workingDir: string, args: string[]): Promise<string
   }
 }
 
-export { runGitCommand };
+
+
+/**
+ * Executes a Git command and returns a RepoGitResult.
+ *
+ * @param {string} localPath - The local path of the repository.
+ * @param {string[]} args - The arguments for the Git command.
+ * @param {string} [url] - The optional URL of the repository.
+ * @returns {Promise<RepoGitResult>} - The result of the Git command.
+ */
+export async function runGitCommandForResults(localPath: string, args: string[], url?: string): Promise<RepoGitResult> {
+  const gitCommand = `git ${args.join(' ')}`;
+  log.info(`Executing Git command: ${gitCommand} in ${localPath}`);
+
+  const command = new Deno.Command("git", {
+    args: args,
+    cwd: localPath,
+    stdout: "piped",
+    stderr: "piped",
+  });
+
+  try {
+    const { code, stdout, stderr } = await command.output();
+    const output = new TextDecoder().decode(stdout);
+    const errorOutput = new TextDecoder().decode(stderr);
+
+    if (code !== 0) {
+      return {
+        url,
+        localPath,
+        success: false,
+        message: errorOutput,
+        error: new Error(`Git command failed with exit code ${code}: ${gitCommand}`),
+      };
+    }
+
+    return {
+      url,
+      localPath,
+      success: true,
+      message: output,
+    };
+  } catch (error) {
+    return {
+      url,
+      localPath,
+      success: false,
+      message: (error as Error).message,
+      error: error as Error,
+    };
+  }
+}
