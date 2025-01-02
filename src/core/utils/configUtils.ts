@@ -2,6 +2,7 @@
 
 import { log } from "./logging.ts";
 import { Frame } from "../Frame.ts";
+import { ConfigError } from "../errors.ts";
 import {
   WeaveConfigInput,
   InputGlobalOptions,
@@ -82,8 +83,7 @@ export async function processWeaveConfig(
   const configFilePath = await getConfigFilePath(preferredConfigPath);
 
   if (!configFilePath) {
-    log.error("No configuration file detected. Exiting.");
-    Deno.exit(1);
+    throw new ConfigError("No configuration file detected");
   }
 
   mergedConfig.global!.configFilePath = configFilePath;
@@ -138,17 +138,15 @@ export async function processWeaveConfig(
 
   for (const option of requiredGlobalOptions) {
     if (mergedConfig.global![option] === undefined) {
-      log.error(`Missing required global configuration option: ${option}. Exiting.`);
-      Deno.exit(1);
+      throw new ConfigError(`Missing required global configuration option: ${option}`);
     }
   }
 
   // Validate 'copyStrategy' if it's provided
   if (mergedConfig.global!.globalCopyStrategy !== undefined && !validCopyStrategies.includes(mergedConfig.global!.globalCopyStrategy)) {
-    log.error(
+    throw new ConfigError(
       `Invalid copy strategy: ${mergedConfig.global!.globalCopyStrategy}. Must be one of: ${validCopyStrategies.join(", ")}`
     );
-    Deno.exit(1);
   }
 
   // Step 8: Process inclusions
@@ -176,7 +174,7 @@ async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string)
       const { name, url, localPath: providedWorkingDir, options, order } = inclusion;
 
       if (!url) {
-        throw new Error(`Git inclusion requires a 'url': ${JSON.stringify(inclusion)}`);
+        throw new ConfigError(`Git inclusion requires a 'url': ${JSON.stringify(inclusion)}`);
       }
 
       // determine branch, although it doesn't really matter if providedWorkingDir
@@ -229,7 +227,7 @@ async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string)
           log.warn(`Could not find localPath '${workingDir}' for git inclusion '${name && `${name}: ` || ""}${url}'`);
         }
       } else {
-        throw new Error(`No localPath provided and could not determine branch, so couldn't determining default workingDir '${name && `${name}: ` || ""}${url}'`);
+        throw new ConfigError(`No localPath provided and could not determine branch, so couldn't determining default workingDir '${name && `${name}: ` || ""}${url}'`);
       }
 
       const resolvedGitOptions: GitOptions = {
@@ -257,7 +255,7 @@ async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string)
       const { url, name, options, order } = inclusion;
 
       if (!url) {
-        throw new Error(`Web inclusion requires a 'url': ${JSON.stringify(inclusion)}`);
+        throw new ConfigError(`Web inclusion requires a 'url': ${JSON.stringify(inclusion)}`);
       }
 
       const resolvedWebOptions: WebOptions = {
@@ -278,7 +276,7 @@ async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string)
       const { localPath: providedWorkingDir, name, options, order } = inclusion;
 
       if (!providedWorkingDir) {
-        throw new Error(`Local inclusion requires a 'localPath': ${JSON.stringify(inclusion)}`);
+        throw new ConfigError(`Local inclusion requires a 'localPath': ${JSON.stringify(inclusion)}`);
       }
 
       const workingDir = providedWorkingDir;

@@ -1,6 +1,7 @@
 import { log } from "./logging.ts";
 import { runGitCommand } from "./runGitCommand.ts";
 import { handleCaughtError } from "./handleCaughtError.ts";
+import { GitError } from "../errors.ts";
 
 /**
  * Determines the branch to use for a repository.
@@ -36,13 +37,18 @@ export async function determineDefaultBranch(repoUrl: string): Promise<string> {
         return branch;
       }
     } else {
-      throw new Error(`No output returned for ${repoUrl}.`);
+      throw new GitError(`No output returned from ls-remote`, `ls-remote --symref ${repoUrl} HEAD`);
     }
 
 
-    log.error(`Failed to match the branch for ${repoUrl}. Exiting.`);
+    throw new GitError(`Failed to match the branch in ls-remote output`, `ls-remote --symref ${repoUrl} HEAD`);
   } catch (error) {
-    handleCaughtError(error, `Error determining branch for ${repoUrl}:`);
+    if (error instanceof GitError) {
+      throw error;
+    }
+    throw new GitError(
+      `Unable to determine the default branch: ${error instanceof Error ? error.message : "Unknown error"}`,
+      `ls-remote --symref ${repoUrl} HEAD`
+    );
   }
-  throw new Error(`Unable to determine the default branch for ${repoUrl}.`);
 }

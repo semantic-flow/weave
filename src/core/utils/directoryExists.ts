@@ -1,4 +1,5 @@
 import { handleCaughtError } from "./handleCaughtError.ts";
+import { FileSystemError } from "../errors.ts";
 
 /**
  * Checks if the directory exists.
@@ -15,7 +16,7 @@ export async function directoryExists(path: string): Promise<boolean> {
       return false;
     } else {
       handleCaughtError(error, `Error occurred while checking ${path}:`);
-      throw new Error(`Failed to check directory existence: ${path}. Cause: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new FileSystemError(`Failed to check directory existence: ${error instanceof Error ? error.message : 'Unknown error'}`, path);
     }
   }
 }
