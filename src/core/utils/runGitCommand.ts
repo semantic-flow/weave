@@ -1,8 +1,7 @@
-// src/core/utils/runGitCommand.ts
-
 import { log } from "./logging.ts";
 import { handleCaughtError } from "./handleCaughtError.ts";
 import { RepoGitResult } from "../../types.ts";
+import { GitError } from "../errors.ts";
 
 /**
  * Executes a Git command within a specified repository path using Deno.Command.
@@ -33,14 +32,20 @@ export async function runGitCommand(workingDir: string, args: string[]): Promise
         log.info(`Git command returned code 1 but output indicates nothing to commit: ${gitCommand}`);
         return output;
       }
-      throw new Error(`Git command failed with exit code ${code}: ${gitCommand}`);
+      throw new GitError(`Command failed with exit code ${code}`, gitCommand);
     }
 
     log.debug(`Git command succeeded: ${gitCommand}`);
     return output;
   } catch (error) {
-    handleCaughtError(error, `Error in runGitCommand: ${gitCommand}`);
-    throw error; // Re-throw the error to allow handling by caller
+    if (error instanceof GitError) {
+      handleCaughtError(error, "Error in runGitCommand");
+      throw error;
+    }
+    // If it's not already a GitError, wrap it
+    const gitError = new GitError(error instanceof Error ? error.message : "Unknown error", gitCommand);
+    handleCaughtError(gitError, "Error in runGitCommand");
+    throw gitError;
   }
 }
 
@@ -76,7 +81,7 @@ export async function runGitCommandForResults(localPath: string, args: string[],
         localPath,
         success: false,
         message: errorOutput,
-        error: new Error(`Git command failed with exit code ${code}: ${gitCommand}`),
+        error: new GitError(`Command failed with exit code ${code}`, gitCommand),
       };
     }
 
@@ -92,7 +97,7 @@ export async function runGitCommandForResults(localPath: string, args: string[],
       localPath,
       success: false,
       message: (error as Error).message,
-      error: error as Error,
+      error: error instanceof GitError ? error : new GitError(error instanceof Error ? error.message : "Unknown error", gitCommand),
     };
   }
 }

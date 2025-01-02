@@ -8,6 +8,7 @@ import { composeSparseCheckoutRules } from "./utils/composeSparseCheckoutRules.t
 import { handleCaughtError } from "./utils/handleCaughtError.ts";
 import { Frame } from "../core/Frame.ts";
 import { ensureDir } from "../deps/fs.ts";
+import { GitError } from "./errors.ts";
 
 export async function reposCheckout(): Promise<RepoGitResult[]> {
   const results: RepoGitResult[] = [];
@@ -63,15 +64,29 @@ export async function reposCheckout(): Promise<RepoGitResult[]> {
         message: 'Repository checkout successfully completed.',
       });
     } catch (error) {
-      handleCaughtError(error, `Error processing ${url}:`);
-      if (error instanceof Error) {
-        // On any error, log it and push a failure result
+      // If it's already a GitError, use it directly
+      if (error instanceof GitError) {
+        handleCaughtError(error, `Error processing ${url}`);
         results.push({
           url,
           localPath: workingDir,
           success: false,
           message: error.message,
           error,
+        });
+      } else {
+        // Wrap other errors in GitError with more context
+        const gitError = new GitError(
+          `Repository checkout failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+          "git checkout operations"
+        );
+        handleCaughtError(gitError, `Error processing ${url}`);
+        results.push({
+          url,
+          localPath: workingDir,
+          success: false,
+          message: gitError.message,
+          error: gitError,
         });
       }
     }

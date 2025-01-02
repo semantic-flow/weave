@@ -2,6 +2,7 @@ import { ResolvedInclusion, InclusionListItem, GitInclusion, SyncStatus } from "
 import { directoryExists } from "./directoryExists.ts";
 import { runGitCommand } from "./runGitCommand.ts";
 import { handleCaughtError } from "./handleCaughtError.ts";
+import { GitError } from "../errors.ts";
 
 export function isGitInclusion(inclusion: ResolvedInclusion): inclusion is GitInclusion {
   return inclusion.type === 'git';
@@ -35,10 +36,18 @@ export async function getSyncStatus(localPath: string): Promise<SyncStatus> {
 
     return 'current'; // No changes and not ahead/behind
   } catch (error) {
-    if (error instanceof Error) {
-      handleCaughtError(error, `Failed to get Sync Status for ${localPath}: ${error.message}`);
+    if (error instanceof GitError) {
+      handleCaughtError(error, `Failed to get Sync Status for ${localPath}`);
+    } else {
+      handleCaughtError(
+        new GitError(
+          `Failed to get Sync Status: ${error instanceof Error ? error.message : "Unknown error"}`,
+          "git status --branch --porcelain"
+        ),
+        `Failed to get Sync Status for ${localPath}`
+      );
     }
-    return 'unknown'; // Default to 'unknown' in case of error
+    return "unknown"; // Default to 'unknown' in case of error
   }
 }
 

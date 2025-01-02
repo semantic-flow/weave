@@ -1,9 +1,10 @@
 import { log } from "../core/utils/logging.ts";
-import { runGitCommand } from "../core/utils/runGitCommand.ts"; // Ensure you have this utility
+import { runGitCommand } from "../core/utils/runGitCommand.ts";
 import { Frame } from "../core/Frame.ts";
 import { handleCaughtError } from "../core/utils/handleCaughtError.ts";
 import { RepoGitResult } from "../types.ts";
 import { getSyncStatus } from "../core/utils/gitInclusionUtils.ts";
+import { GitError } from "./errors.ts";
 
 
 
@@ -36,7 +37,7 @@ export async function reposCommit(commitMessage?: string): Promise<RepoGitResult
           await runGitCommand(localPath, ["add", "."]);
         } catch (error) {
           handleCaughtError(error, `Error adding changes in ${localPath}:`);
-          throw new Error(`Error adding changes to commit.`);
+          throw new GitError("Failed to stage changes", "git add .");
         }
         try {
           const output = await runGitCommand(localPath, commitArgs);
@@ -49,20 +50,34 @@ export async function reposCommit(commitMessage?: string): Promise<RepoGitResult
           });
         } catch (error) {
           handleCaughtError(error, `Error committing changes in ${localPath}:`);
-          throw new Error(`Error committing changes.`);
+          throw new GitError("Failed to commit changes", `git commit -m "${commitMessage || "Weave commit"}"`);
         }
 
       }
     } catch (error) {
-      handleCaughtError(error, `Error processing ${url}:`);
-      if (error instanceof Error) {
-        // On any error, log it and push a failure result
+      // If it's already a GitError, use it directly
+      if (error instanceof GitError) {
+        handleCaughtError(error, `Error processing ${url}`);
         results.push({
           url,
           localPath: localPath,
           success: false,
           message: error.message,
           error,
+        });
+      } else {
+        // Wrap other errors in GitError
+        const gitError = new GitError(
+          `Error processing repository: ${error instanceof Error ? error.message : "Unknown error"}`,
+          "git operations"
+        );
+        handleCaughtError(gitError, `Error processing ${url}`);
+        results.push({
+          url,
+          localPath: localPath,
+          success: false,
+          message: gitError.message,
+          error: gitError,
         });
       }
     }

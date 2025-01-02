@@ -3,6 +3,7 @@
 import { log } from "./logging.ts";
 import { runGitCommand } from "./runGitCommand.ts";
 import { handleCaughtError } from "./handleCaughtError.ts";
+import { GitError } from "../errors.ts";
 
 /**
  * Ensures the sparse-checkout configuration matches the desired include paths.
@@ -30,7 +31,7 @@ export async function ensureSparseCheckout(workingDir: string, sparseCheckoutRul
 
     if (code !== 0) {
       log.error(`Git sparse-checkout list failed with exit code ${code}`);
-      throw new Error(`Git sparse-checkout list failed: git ${listCommand.join(' ')}`);
+      throw new GitError("Failed to list sparse-checkout configuration", `git ${listCommand.join(' ')}`);
     }
 
     const currentSparseConfig = new TextDecoder().decode(stdout).trim().split("\n").filter(line => line !== "");
@@ -57,7 +58,15 @@ export async function ensureSparseCheckout(workingDir: string, sparseCheckoutRul
       log.info("Sparse-checkout configuration is already up to date.");
     }
   } catch (error) {
-    handleCaughtError(error, `Error occurred while ensuring sparse checkout config for ${workingDir}:`);
-    throw error;
+    if (error instanceof GitError) {
+      handleCaughtError(error, `Error occurred while ensuring sparse checkout config for ${workingDir}`);
+      throw error;
+    }
+    const gitError = new GitError(
+      `Failed to configure sparse-checkout: ${error instanceof Error ? error.message : "Unknown error"}`,
+      "git sparse-checkout operations"
+    );
+    handleCaughtError(gitError, `Error occurred while ensuring sparse checkout config for ${workingDir}`);
+    throw gitError;
   }
 }
