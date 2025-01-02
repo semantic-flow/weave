@@ -1,4 +1,4 @@
-/**
+  /**
  * Base error class for all Weave errors. Provides a foundation for more specific error types.
  * Should not be thrown directly - use a more specific error type instead.
  */
