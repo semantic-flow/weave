@@ -17,34 +17,52 @@ export function handleCaughtError(e: unknown, customMessage?: string): void {
     return `${errorType}: ${msg}`;
   };
 
+  // Log detailed error information
+  const logDetailedError = (error: Error, type = "Error") => {
+    log.error(formatErrorMsg(type, error.message));
+    
+    // Log stack trace if available
+    if (error.stack) {
+      log.debug("Stack trace:", error.stack);
+    }
+    
+    // Log cause if available
+    if (error.cause) {
+      log.debug("Caused by:", Deno.inspect(error.cause, { colors: true }));
+    }
+    
+    // Log additional error details
+    log.debug("Error details:", Deno.inspect(error, { colors: true }));
+  };
+
   if (e instanceof WeaveError) {
     // Handle specific error types with appropriate logging/recovery
     if (e instanceof GitError) {
-      log.error(formatErrorMsg("Git operation failed", e.message));
+      logDetailedError(e, "Git operation failed");
       if (e.command) {
-        log.debug(`Failed command: ${e.command}`);
+        log.debug("Failed command:", e.command);
       }
     } else if (e instanceof ConfigError) {
-      log.error(formatErrorMsg("Configuration error", e.message));
+      logDetailedError(e, "Configuration error");
     } else if (e instanceof FileSystemError) {
-      log.error(formatErrorMsg("File system error", e.message));
+      logDetailedError(e, "File system error");
       if (e.path) {
-        log.debug(`Path: ${e.path}`);
+        log.debug("Path:", e.path);
       }
     } else if (e instanceof NetworkError) {
-      log.error(formatErrorMsg("Network error", e.message));
+      logDetailedError(e, "Network error");
       if (e.url) {
-        log.debug(`URL: ${e.url}`);
+        log.debug("URL:", e.url);
       }
     } else if (e instanceof ValidationError) {
-      log.error(formatErrorMsg("Validation error", e.message));
+      logDetailedError(e, "Validation error");
+    } else {
+      logDetailedError(e, "Weave error");
     }
-    log.debug(Deno.inspect(e, { colors: true }));
   } else if (e instanceof Error) {
-    log.error(customMessage ? `${customMessage} Error: ${e.message}` : e.message);
-    log.debug(Deno.inspect(e, { colors: true }));
+    logDetailedError(e);
   } else {
     log.error(customMessage ? `${customMessage} Unknown error occurred` : "An unknown error occurred");
-    log.debug(Deno.inspect(e, { colors: true }));
+    log.debug("Unknown error details:", Deno.inspect(e, { colors: true }));
   }
 }
