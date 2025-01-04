@@ -43,14 +43,12 @@ if (envLogLevel && envLogLevel in LOG_LEVELS && envLogLevel !== "NOTSET") {
 export function setLogLevel(newLevel: LevelName) {
   if (LOG_LEVELS[newLevel] !== undefined) {
     currentLogLevel = newLevel;
-    //console.log(`Setting logger to level: ${newLevel}`);
-    setupLogger(newLevel);
-    log = logger.getLogger("testLogger");
-    log.info(`Log level set to ${newLevel}`);
+    log.info(`Logger setup with level: ${newLevel}`);
   } else {
-    console.log(`Attempted to set invalid log level: ${newLevel}`);
+    console.error(`Attempted to set invalid log level: ${newLevel}`);
   }
 }
+
 const COLOR_TAG_REG = /<(\w+)>([^<]+)<\/\1>/g;
 
 /**
@@ -94,21 +92,6 @@ class ConsoleHandler extends logger.BaseHandler {
   }
 }
 
-function setupLogger(level: LevelName) {
-  logger.setup({
-    handlers: {
-      console: new ConsoleHandler(level),
-    },
-    loggers: {
-      testLogger: {
-        level: level,
-        handlers: ["console"],
-      },
-    },
-  });
-  console.log(`Logger setup with level: ${level}`);
-}
-
 const logFormats: Record<string, (str: string) => string> = {
   cyan,
   Cyan: (str: string) => bold(cyan(str)),
@@ -123,9 +106,20 @@ const logFormats: Record<string, (str: string) => string> = {
   del: (str: string) => strikethrough(gray(str)),
 };
 
+// Initialize logger with default configuration
+logger.setup({
+  handlers: {
+    console: new ConsoleHandler(currentLogLevel),
+  },
+  loggers: {
+    weave: {
+      level: currentLogLevel,
+      handlers: ["console"],
+    },
+  },
+});
 
 /**
  * Retrieves the 'weave' logger instance.
  */
 export let log = logger.getLogger("weave");
-
