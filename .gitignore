@@ -1,2 +1,4 @@
 _source-repos
 deno.lock
+coverage-data
+documentation/coverage
