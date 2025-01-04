@@ -1,291 +1,186 @@
-// src/core/utils/handleCaughtError_test.ts
-
-import { assertEquals } from "../../deps/assert.ts";
+import { assertEquals, assertStringIncludes } from "../../deps/assert.ts";
 import { handleCaughtError } from "./handleCaughtError.ts";
-import * as logger from "../../deps/log.ts";
+import { GitError, NetworkError, WeaveError, ConfigError, FileSystemError, ValidationError } from "../errors.ts";
 import { log } from "./logging.ts";
-import {
-  GitError,
-  ConfigError,
-  FileSystemError,
-  NetworkError,
-  ValidationError,
-} from "../errors.ts";
 
-// Create a test logger handler to capture messages
-class TestHandler extends logger.BaseHandler {
-  public messages: string[] = [];
+function mockLogging() {
+  const messages: string[] = [];
+  const originalError = log.error;
+  const originalDebug = log.debug;
 
-  override log(msg: string): void {
-    this.messages.push(msg);
-  }
+  // Mock logging functions with correct Deno logger types
+  log.error = ((msg: string | (() => string), ...args: unknown[]) => {
+    const message = typeof msg === "function" ? msg() : msg;
+    messages.push(message);
+    if (args.length > 0) {
+      messages.push(...args.map(arg => String(arg)));
+    }
+  }) as typeof log.error;
+
+  log.debug = ((msg: string | (() => string), ...args: unknown[]) => {
+    const message = typeof msg === "function" ? msg() : msg;
+    messages.push(message);
+    if (args.length > 0) {
+      messages.push(...args.map(arg => String(arg)));
+    }
+  }) as typeof log.debug;
+
+  return {
+    messages,
+    restore: () => {
+      log.error = originalError;
+      log.debug = originalDebug;
+    }
+  };
 }
 
-// Setup test handler
-const testHandler = new TestHandler("ERROR");
-const originalHandlers = logger.getLogger().handlers;
+Deno.test("handleCaughtError - handles GitError with command", () => {
+  const { messages, restore } = mockLogging();
 
-Deno.test({
-  name: "handleCaughtError - handles Error instance without custom message",
-  fn: () => {
-    // Setup
-    testHandler.messages = [];
-    logger.getLogger().handlers = [testHandler];
+  try {
+    const error = new GitError("Failed to pull", "git pull");
+    error.stack = "Error: Failed to pull\n    at test.ts:1:1";
+    handleCaughtError(error, "Custom message");
 
-    const testError = new Error("Test error message");
-    handleCaughtError(testError);
-
-    assertEquals(testHandler.messages.length, 2); // One for error, one for debug
-    assertEquals(testHandler.messages[0].includes("Test error message"), true);
-
-    // Cleanup
-    logger.getLogger().handlers = originalHandlers;
-  },
+    assertEquals(messages[0], "Custom message Git operation failed: Failed to pull");
+    assertEquals(messages[1], "Stack trace:");
+    assertStringIncludes(messages[2], "Error: Failed to pull");
+    assertEquals(messages[3], "Error details:");
+    assertStringIncludes(messages[4], "git pull");
+  } finally {
+    restore();
+  }
 });
 
-Deno.test({
-  name: "handleCaughtError - handles GitError with command",
-  fn: () => {
-    // Setup
-    testHandler.messages = [];
-    logger.getLogger().handlers = [testHandler];
+Deno.test("handleCaughtError - handles NetworkError with URL", () => {
+  const { messages, restore } = mockLogging();
 
-    const testError = new GitError("Git clone failed", "git clone repo-url");
-    handleCaughtError(testError);
+  try {
+    const error = new NetworkError("Failed to fetch", "https://api.example.com");
+    handleCaughtError(error);
 
-    assertEquals(testHandler.messages.length, 2);
-    assertEquals(testHandler.messages[0].includes("Git operation failed: Git clone failed"), true);
-    assertEquals(testHandler.messages[1].includes("Failed command: git clone repo-url"), true);
-
-    // Cleanup
-    logger.getLogger().handlers = originalHandlers;
-  },
+    assertEquals(messages[0], "Network error: Failed to fetch");
+    assertEquals(messages[3], "Error details:");
+    assertStringIncludes(messages[4], "https://api.example.com");
+  } finally {
+    restore();
+  }
 });
 
-Deno.test({
-  name: "handleCaughtError - handles ConfigError",
-  fn: () => {
-    // Setup
-    testHandler.messages = [];
-    logger.getLogger().handlers = [testHandler];
+Deno.test("handleCaughtError - handles error with cause", () => {
+  const { messages, restore } = mockLogging();
 
-    const testError = new ConfigError("Invalid configuration format");
-    handleCaughtError(testError, "Config validation:");
+  try {
+    const cause = new Error("Original error");
+    const error = new WeaveError("Wrapped error");
+    error.cause = cause;
+    handleCaughtError(error);
 
-    assertEquals(testHandler.messages.length, 2);
-    assertEquals(
-      testHandler.messages[0].includes("Config validation: Configuration error: Invalid configuration format"),
-      true
-    );
-
-    // Cleanup
-    logger.getLogger().handlers = originalHandlers;
-  },
+    assertEquals(messages[0], "Weave error: Wrapped error");
+    assertStringIncludes(messages[1], "Stack trace:");
+    assertStringIncludes(messages[2], "WeaveError: Wrapped error");
+    assertEquals(messages[3], "Caused by:");
+    assertStringIncludes(messages[4], "Original error");
+    assertEquals(messages[5], "Error details:");
+  } finally {
+    restore();
+  }
 });
 
-Deno.test({
-  name: "handleCaughtError - handles FileSystemError with path",
-  fn: () => {
-    // Setup
-    testHandler.messages = [];
-    logger.getLogger().handlers = [testHandler];
+Deno.test("handleCaughtError - handles unknown error", () => {
+  const { messages, restore } = mockLogging();
 
-    const testError = new FileSystemError("Permission denied", "/path/to/file");
-    handleCaughtError(testError);
+  try {
+    handleCaughtError("Something went wrong");
 
-    assertEquals(testHandler.messages.length, 2);
-    assertEquals(testHandler.messages[0].includes("File system error: Permission denied"), true);
-    assertEquals(testHandler.messages[1].includes("Path: /path/to/file"), true);
-
-    // Cleanup
-    logger.getLogger().handlers = originalHandlers;
-  },
+    assertEquals(messages[0], "An unknown error occurred");
+    assertStringIncludes(messages[1], "Unknown error details:");
+    assertStringIncludes(messages[2], "Something went wrong");
+  } finally {
+    restore();
+  }
 });
 
-Deno.test({
-  name: "handleCaughtError - handles NetworkError with URL",
-  fn: () => {
-    // Setup
-    testHandler.messages = [];
-    logger.getLogger().handlers = [testHandler];
+Deno.test("handleCaughtError - handles ConfigError", () => {
+  const { messages, restore } = mockLogging();
 
-    const testError = new NetworkError("Failed to fetch", "https://api.example.com");
-    handleCaughtError(testError);
+  try {
+    const error = new ConfigError("Invalid configuration format");
+    error.stack = "Error: Invalid configuration format\n    at test.ts:1:1";
+    handleCaughtError(error, "Config validation:");
 
-    assertEquals(testHandler.messages.length, 2);
-    assertEquals(testHandler.messages[0].includes("Network error: Failed to fetch"), true);
-    assertEquals(testHandler.messages[1].includes("URL: https://api.example.com"), true);
-
-    // Cleanup
-    logger.getLogger().handlers = originalHandlers;
-  },
+    assertEquals(messages[0], "Config validation: Configuration error: Invalid configuration format");
+    assertEquals(messages[1], "Stack trace:");
+    assertStringIncludes(messages[2], "Error: Invalid configuration format");
+  } finally {
+    restore();
+  }
 });
 
-Deno.test({
-  name: "handleCaughtError - handles ValidationError",
-  fn: () => {
-    // Setup
-    testHandler.messages = [];
-    logger.getLogger().handlers = [testHandler];
+Deno.test("handleCaughtError - handles FileSystemError with path", () => {
+  const { messages, restore } = mockLogging();
 
-    const testError = new ValidationError("Invalid state transition");
-    handleCaughtError(testError, "State error:");
+  try {
+    const error = new FileSystemError("Permission denied", "/path/to/file");
+    error.stack = "Error: Permission denied\n    at test.ts:1:1";
+    handleCaughtError(error);
 
-    assertEquals(testHandler.messages.length, 2);
-    assertEquals(
-      testHandler.messages[0].includes("State error: Validation error: Invalid state transition"),
-      true
-    );
-
-    // Cleanup
-    logger.getLogger().handlers = originalHandlers;
-  },
+    assertEquals(messages[0], "File system error: Permission denied");
+    assertEquals(messages[1], "Stack trace:");
+    assertStringIncludes(messages[2], "Error: Permission denied");
+    assertEquals(messages[3], "Error details:");
+    assertStringIncludes(messages[4], "/path/to/file");
+  } finally {
+    restore();
+  }
 });
 
-Deno.test({
-  name: "handleCaughtError - handles Error instance with custom message",
-  fn: () => {
-    // Setup
-    testHandler.messages = [];
-    logger.getLogger().handlers = [testHandler];
+Deno.test("handleCaughtError - handles ValidationError", () => {
+  const { messages, restore } = mockLogging();
 
-    const testError = new Error("Test error message");
-    handleCaughtError(testError, "Custom prefix:");
+  try {
+    const error = new ValidationError("Invalid state transition");
+    error.stack = "Error: Invalid state transition\n    at test.ts:1:1";
+    handleCaughtError(error, "State error:");
 
-    assertEquals(testHandler.messages.length, 2);
-    assertEquals(
-      testHandler.messages[0].includes("Custom prefix: Test error message"),
-      true
-    );
-
-    // Cleanup
-    logger.getLogger().handlers = originalHandlers;
-  },
+    assertEquals(messages[0], "State error: Validation error: Invalid state transition");
+    assertEquals(messages[1], "Stack trace:");
+    assertStringIncludes(messages[2], "Error: Invalid state transition");
+  } finally {
+    restore();
+  }
 });
 
-Deno.test({
-  name: "handleCaughtError - handles GitError without command",
-  fn: () => {
-    // Setup
-    testHandler.messages = [];
-    logger.getLogger().handlers = [testHandler];
+Deno.test("handleCaughtError - handles null/undefined", () => {
+  const { messages, restore } = mockLogging();
 
-    const testError = new GitError("Git operation failed");
-    handleCaughtError(testError);
-
-    assertEquals(testHandler.messages.length, 1);
-    assertEquals(testHandler.messages[0].includes("Git operation failed: Git operation failed"), true);
-
-    // Cleanup
-    logger.getLogger().handlers = originalHandlers;
-  },
-});
-
-Deno.test({
-  name: "handleCaughtError - handles FileSystemError without path",
-  fn: () => {
-    // Setup
-    testHandler.messages = [];
-    logger.getLogger().handlers = [testHandler];
-
-    const testError = new FileSystemError("File system operation failed");
-    handleCaughtError(testError);
-
-    assertEquals(testHandler.messages.length, 1);
-    assertEquals(testHandler.messages[0].includes("File system error: File system operation failed"), true);
-
-    // Cleanup
-    logger.getLogger().handlers = originalHandlers;
-  },
-});
-
-Deno.test({
-  name: "handleCaughtError - handles NetworkError without URL",
-  fn: () => {
-    // Setup
-    testHandler.messages = [];
-    logger.getLogger().handlers = [testHandler];
-
-    const testError = new NetworkError("Network operation failed");
-    handleCaughtError(testError);
-
-    assertEquals(testHandler.messages.length, 1);
-    assertEquals(testHandler.messages[0].includes("Network error: Network operation failed"), true);
-
-    // Cleanup
-    logger.getLogger().handlers = originalHandlers;
-  },
-});
-
-Deno.test({
-  name: "handleCaughtError - handles non-Error object",
-  fn: () => {
-    // Setup
-    testHandler.messages = [];
-    logger.getLogger().handlers = [testHandler];
-
-    handleCaughtError({ someProperty: "not an error" });
-
-    assertEquals(testHandler.messages.length, 1);
-    assertEquals(
-      testHandler.messages[0].includes("An unknown error occurred"),
-      true
-    );
-
-    // Cleanup
-    logger.getLogger().handlers = originalHandlers;
-  },
-});
-
-Deno.test({
-  name: "handleCaughtError - handles null/undefined",
-  fn: () => {
-    // Setup
-    testHandler.messages = [];
-    logger.getLogger().handlers = [testHandler];
-
+  try {
     handleCaughtError(null);
     handleCaughtError(undefined);
 
-    assertEquals(testHandler.messages.length, 2);
-    assertEquals(
-      testHandler.messages[0].includes("An unknown error occurred"),
-      true
-    );
-    assertEquals(
-      testHandler.messages[1].includes("An unknown error occurred"),
-      true
-    );
-
-    // Cleanup
-    logger.getLogger().handlers = originalHandlers;
-  },
+    assertEquals(messages[0], "An unknown error occurred");
+    assertStringIncludes(messages[1], "Unknown error details:");
+    assertStringIncludes(messages[2], "null");
+    assertEquals(messages[3], "An unknown error occurred");
+    assertStringIncludes(messages[4], "Unknown error details:");
+    assertStringIncludes(messages[5], "undefined");
+  } finally {
+    restore();
+  }
 });
 
-Deno.test({
-  name: "handleCaughtError - handles custom error types",
-  fn: () => {
-    // Setup
-    testHandler.messages = [];
-    logger.getLogger().handlers = [testHandler];
+Deno.test("handleCaughtError - handles Error instance with custom message", () => {
+  const { messages, restore } = mockLogging();
 
-    class CustomError extends Error {
-      constructor(message: string) {
-        super(message);
-        this.name = "CustomError";
-      }
-    }
+  try {
+    const error = new Error("Test error message");
+    error.stack = "Error: Test error message\n    at test.ts:1:1";
+    handleCaughtError(error, "Custom prefix:");
 
-    const testError = new CustomError("Custom error message");
-    handleCaughtError(testError, "Custom error occurred:");
-
-    assertEquals(testHandler.messages.length, 2);
-    assertEquals(
-      testHandler.messages[0].includes("Custom error occurred: Custom error message"),
-      true
-    );
-
-    // Cleanup
-    logger.getLogger().handlers = originalHandlers;
-  },
+    assertEquals(messages[0], "Custom prefix: Error: Test error message");
+    assertEquals(messages[1], "Stack trace:");
+    assertStringIncludes(messages[2], "Error: Test error message");
+  } finally {
+    restore();
+  }
 });

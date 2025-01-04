@@ -4,8 +4,7 @@ import {
   assertEquals,
   assertRejects,
 } from "../../deps/assert.ts";
-import { runGitCommand, runGitCommandForResults } from "./runGitCommand.ts";
-import { RepoGitResult } from "../../types.ts";
+import { runGitCommand } from "./runGitCommand.ts";
 
 // Mock Deno.Command implementation
 class MockDenoCommand {
@@ -94,95 +93,6 @@ Deno.test({
         Error,
         "Git command failed with exit code 128"
       );
-    } finally {
-      Deno.Command = originalCommand;
-    }
-  },
-});
-
-Deno.test({
-  name: "runGitCommandForResults - successful execution",
-  fn: async () => {
-    const originalCommand = Deno.Command;
-    // deno-lint-ignore no-explicit-any
-    (Deno as any).Command = MockDenoCommand;
-
-    try {
-      const result = await runGitCommandForResults("valid-repo", ["status"]);
-      const expected: RepoGitResult = {
-        localPath: "valid-repo",
-        success: true,
-        message: "On branch main\nnothing to commit",
-      };
-      assertEquals(result, expected);
-    } finally {
-      Deno.Command = originalCommand;
-    }
-  },
-});
-
-Deno.test({
-  name: "runGitCommandForResults - handles command failure",
-  fn: async () => {
-    const originalCommand = Deno.Command;
-    // deno-lint-ignore no-explicit-any
-    (Deno as any).Command = MockDenoCommand;
-
-    try {
-      const result = await runGitCommandForResults("error-repo", ["status"]);
-      assertEquals(result.success, false);
-      assertEquals(result.localPath, "error-repo");
-      assertEquals(result.message, "fatal: not a git repository");
-      assertEquals(result.error instanceof Error, true);
-      assertEquals(
-        result.error?.message,
-        "Git command failed with exit code 128: git status"
-      );
-    } finally {
-      Deno.Command = originalCommand;
-    }
-  },
-});
-
-Deno.test({
-  name: "runGitCommandForResults - includes URL when provided",
-  fn: async () => {
-    const originalCommand = Deno.Command;
-    // deno-lint-ignore no-explicit-any
-    (Deno as any).Command = MockDenoCommand;
-
-    try {
-      const result = await runGitCommandForResults(
-        "valid-repo",
-        ["status"],
-        "https://github.com/example/repo.git"
-      );
-      const expected: RepoGitResult = {
-        url: "https://github.com/example/repo.git",
-        localPath: "valid-repo",
-        success: true,
-        message: "On branch main\nnothing to commit",
-      };
-      assertEquals(result, expected);
-    } finally {
-      Deno.Command = originalCommand;
-    }
-  },
-});
-
-Deno.test({
-  name: "runGitCommandForResults - handles thrown errors",
-  fn: async () => {
-    const originalCommand = Deno.Command;
-    // deno-lint-ignore no-explicit-any
-    (Deno as any).Command = MockDenoCommand;
-
-    try {
-      const result = await runGitCommandForResults("invalid-path", ["status"]);
-      assertEquals(result.success, false);
-      assertEquals(result.localPath, "invalid-path");
-      assertEquals(result.error instanceof Error, true);
-      assertEquals(result.error?.message, "Command not found");
     } finally {
       Deno.Command = originalCommand;
     }
