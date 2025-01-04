@@ -12,11 +12,17 @@ import { GitError } from "../errors.ts";
  * @throws Will throw an error if the Git command fails.
  */
 
-export async function runGitCommand(workingDir: string, args: string[]): Promise<string> {
+type CommandRunner = (command: string, options: Deno.CommandOptions) => Deno.Command;
+
+export async function runGitCommand(
+  workingDir: string,
+  args: string[],
+  createCommand: CommandRunner = (cmd, opts) => new Deno.Command(cmd, opts)
+): Promise<string> {
   const gitCommand = `git ${args.join(' ')}`;
   log.debug(`Executing Git command: ${gitCommand} in ${workingDir}`);
 
-  const command = new Deno.Command("git", {
+  const command = createCommand("git", {
     args: args,
     cwd: workingDir, // Change to reflect the working directory context
     stdout: "piped", // Use "piped" to capture the output

@@ -8,10 +8,17 @@ export function isGitInclusion(inclusion: ResolvedInclusion): inclusion is GitIn
   return inclusion.type === 'git';
 }
 
-export async function getSyncStatus(localPath: string): Promise<SyncStatus> {
+type GitRunner = typeof runGitCommand;
+type DirectoryChecker = typeof directoryExists;
+type SyncStatusChecker = typeof getSyncStatus;
+
+export async function getSyncStatus(
+  localPath: string,
+  gitRunner: GitRunner = runGitCommand
+): Promise<SyncStatus> {
   try {
     // Use git status to check the current status of the working directory
-    const statusOutput = await runGitCommand(localPath, ["status", "--branch", "--porcelain"]);
+    const statusOutput = await gitRunner(localPath, ["status", "--branch", "--porcelain"]);
 
     const lines = statusOutput.trim().split('\n');
     const branchStatus = lines.shift() || '';
@@ -51,14 +58,18 @@ export async function getSyncStatus(localPath: string): Promise<SyncStatus> {
   }
 }
 
-export async function checkGitInclusion(inclusion: GitInclusion): Promise<InclusionListItem> {
+export async function checkGitInclusion(
+  inclusion: GitInclusion,
+  directoryChecker: DirectoryChecker = directoryExists,
+  syncChecker: SyncStatusChecker = getSyncStatus
+): Promise<InclusionListItem> {
   // Construct the directory path
-  const present = await directoryExists(inclusion.localPath);
+  const present = await directoryChecker(inclusion.localPath);
   let syncStatus: SyncStatus;
   if (!present) {
     syncStatus = "missing";
   } else {
-    syncStatus = await getSyncStatus(inclusion.localPath);
+    syncStatus = await syncChecker(inclusion.localPath);
   }
   const listItem: InclusionListItem = {
     order: inclusion.order,

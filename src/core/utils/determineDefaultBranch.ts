@@ -9,7 +9,10 @@ import { GitError } from "../errors.ts";
  * @returns {Promise<string>} - The determined branch.
  */
 
-export async function determineDefaultBranch(repoUrl: string): Promise<string> {
+export async function determineDefaultBranch(
+  repoUrl: string,
+  gitRunner: typeof runGitCommand = runGitCommand
+): Promise<string> {
   log.debug(`Determining branch for ${repoUrl}...`);
 
   try {
@@ -19,7 +22,7 @@ export async function determineDefaultBranch(repoUrl: string): Promise<string> {
 
     // Retrieve output using runGitCommand, executed from the current directory
     try {
-      remoteOutput = await runGitCommand('.', args);
+      remoteOutput = await gitRunner('.', args);
     } catch (error) {
       handleCaughtError(
         error,
