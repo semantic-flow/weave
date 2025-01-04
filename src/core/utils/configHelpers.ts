@@ -5,6 +5,7 @@ import { LevelName } from "../../deps/log.ts";
 import { WeaveConfigInput, InputGlobalOptions } from "../../types.ts";
 import { processWeaveConfig } from "../../core/utils/configUtils.ts";
 import { handleCaughtError } from "./handleCaughtError.ts";
+import { ConfigError } from "../errors.ts";
 
 // Utility function to merge two configurations
 export function mergeConfigs(base: WeaveConfigInput, override: Partial<WeaveConfigInput>): WeaveConfigInput {
@@ -46,7 +47,7 @@ export async function getConfigFilePath(
         if (ext === "json" || ext === "jsonld") {
           return path;
         } else {
-          throw new Error("Remote config must be a JSON file.");
+          throw new ConfigError("Remote config must be a JSON file");
         }
       }
       // Otherwise, resolve as a local path
@@ -57,7 +58,7 @@ export async function getConfigFilePath(
         try {
           return await Deno.realPath(path);
         } catch {
-          throw new Error(`Config file not found at specified path: ${path}`);
+          throw new ConfigError(`Config file not found at specified path: ${path}`);
         }
       } else {
         throw error;
@@ -75,7 +76,7 @@ export async function getConfigFilePath(
     }
   }
 
-  throw new Error("No configuration file found.");
+  throw new ConfigError("No configuration file found");
 }
 
 /**
@@ -90,13 +91,13 @@ export async function loadWeaveConfig(filePath: string): Promise<WeaveConfigInpu
     if (isURL) {
       const response = await fetch(filePath);
       if (!response.ok) {
-        throw new Error(`Failed to fetch config from URL: ${filePath}`);
+        throw new ConfigError(`Failed to fetch config from URL: ${filePath}`);
       }
       const contentType = response.headers.get("Content-Type") || "";
       if (contentType.includes("application/json")) {
         return (await response.json()) as WeaveConfigInput;
       } else {
-        throw new Error("Remote config must be in JSON format.");
+        throw new ConfigError("Remote config must be in JSON format");
       }
     } else {
       const ext = filePath.split(".").pop()?.toLowerCase();
@@ -107,7 +108,7 @@ export async function loadWeaveConfig(filePath: string): Promise<WeaveConfigInpu
 
         // Validate that 'inclusions' is present and is an array
         if (!parsed.inclusions || !Array.isArray(parsed.inclusions)) {
-          throw new Error("'inclusions' must be an array in the configuration file.");
+          throw new ConfigError("'inclusions' must be an array in the configuration file");
         }
 
         return parsed;
@@ -117,11 +118,11 @@ export async function loadWeaveConfig(filePath: string): Promise<WeaveConfigInpu
         if ("weaveConfig" in configModule) {
           return configModule.weaveConfig as WeaveConfigInput;
         } else {
-          throw new Error(`Config file does not export 'weaveConfig': ${filePath}`);
+          throw new ConfigError(`Config file does not export 'weaveConfig': ${filePath}`);
         }
       } else {
-        throw new Error(
-          `Unsupported config file extension: .${ext}. Supported extensions are .json, .js, .ts`,
+        throw new ConfigError(
+          `Unsupported config file extension: .${ext}. Supported extensions are .json, .js, .ts`
         );
       }
     }

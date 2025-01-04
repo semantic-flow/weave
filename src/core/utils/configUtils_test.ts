@@ -7,6 +7,7 @@ import {
 import { processWeaveConfig, watchConfigFile } from "./configUtils.ts";
 import { Frame } from "../Frame.ts";
 import { WeaveConfigInput, InputGlobalOptions } from "../../types.ts";
+import { ConfigError } from "../errors.ts";
 
 Deno.test("processWeaveConfig initializes Frame with default workspaceDir", async () => {
   // Ensure Frame is reset before the test
@@ -138,7 +139,7 @@ Deno.test("loadWeaveConfig throws error on missing inclusions", async () => {
         },
       });
     }
-    throw new Error("Unexpected file path");
+    throw new ConfigError("Unexpected file path");
   };
 
   const originalReadTextFile = Deno.readTextFile;
@@ -153,8 +154,8 @@ Deno.test("loadWeaveConfig throws error on missing inclusions", async () => {
       async () => {
         await loadWeaveConfig("faulty.json");
       },
-      Error,
-      "'inclusions' must be an array in the configuration file."
+      ConfigError,
+      "'inclusions' must be an array in the configuration file"
     );
   } finally {
     // deno-lint-ignore no-explicit-any

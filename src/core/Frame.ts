@@ -2,6 +2,7 @@
 
 import { ResolvedInclusion, WeaveConfig, WeaveConfigInput } from "../types.ts";
 import { InputGlobalOptions } from "../types.ts";
+import { ValidationError } from "./errors.ts";
 
 
 export class Frame {
@@ -20,7 +21,7 @@ export class Frame {
 
   public static initialize(config: WeaveConfigInput, resolvedInclusions: ResolvedInclusion[], commandOptions?: InputGlobalOptions): void {
     if (Frame.instance) {
-      throw new Error("Frame has already been initialized.");
+      throw new ValidationError("Frame has already been initialized");
     }
     Frame.instance = new Frame(config, resolvedInclusions, commandOptions);
   }
@@ -34,7 +35,7 @@ export class Frame {
    */
   public static getInstance(): Frame {
     if (!Frame.instance) {
-      throw new Error("Frame has not been initialized yet.");
+      throw new ValidationError("Frame has not been initialized yet");
     }
     return Frame.instance;
   } 
