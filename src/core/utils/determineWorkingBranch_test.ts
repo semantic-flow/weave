@@ -4,124 +4,138 @@ import {
   assertEquals,
   assertRejects,
 } from "../../deps/assert.ts";
+import { stub } from "../../deps/testing.ts";
 import { determineWorkingBranch } from "./determineWorkingBranch.ts";
-import * as runGitCommandModule from "./runGitCommand.ts";
 import { GitError } from "../errors.ts";
 
 // Mock data
 const MOCK_WORKING_DIR = "/test/repo";
 
-// Helper to restore original runGitCommand
-const withMockedGitCommand = async (
-  mockImplementation: () => Promise<string>,
-  testFn: () => Promise<void>
-) => {
-  const originalRunGitCommand = runGitCommandModule.runGitCommand;
-  try {
-    // deno-lint-ignore no-explicit-any
-    (runGitCommandModule as any).runGitCommand = mockImplementation;
-    await testFn();
-  } finally {
-    // deno-lint-ignore no-explicit-any
-    (runGitCommandModule as any).runGitCommand = originalRunGitCommand;
-  }
-};
+function createMockOutput(output: string, success = true): Promise<Deno.CommandOutput> {
+  return Promise.resolve({
+    code: success ? 0 : 1,
+    success,
+    stdout: new TextEncoder().encode(output),
+    stderr: new Uint8Array(),
+    signal: null,
+  });
+}
 
 Deno.test("determineWorkingBranch correctly identifies 'main' branch", async () => {
-  await withMockedGitCommand(
-    async () => "main",
-    async () => {
-      const branch = await determineWorkingBranch(MOCK_WORKING_DIR);
-      assertEquals(branch, "main");
-    }
-  );
+  const commandStub = stub(Deno, "Command", () => ({
+    output: () => createMockOutput("main"),
+  }) as unknown as Deno.Command);
+
+  try {
+    const branch = await determineWorkingBranch(MOCK_WORKING_DIR);
+    assertEquals(branch, "main");
+  } finally {
+    commandStub.restore();
+  }
 });
 
 Deno.test("determineWorkingBranch correctly identifies 'master' branch", async () => {
-  await withMockedGitCommand(
-    async () => "master",
-    async () => {
-      const branch = await determineWorkingBranch(MOCK_WORKING_DIR);
-      assertEquals(branch, "master");
-    }
-  );
+  const commandStub = stub(Deno, "Command", () => ({
+    output: () => createMockOutput("master"),
+  }) as unknown as Deno.Command);
+
+  try {
+    const branch = await determineWorkingBranch(MOCK_WORKING_DIR);
+    assertEquals(branch, "master");
+  } finally {
+    commandStub.restore();
+  }
 });
 
 Deno.test("determineWorkingBranch correctly identifies feature branches", async () => {
-  await withMockedGitCommand(
-    async () => "feature/new-feature",
-    async () => {
-      const branch = await determineWorkingBranch(MOCK_WORKING_DIR);
-      assertEquals(branch, "feature/new-feature");
-    }
-  );
+  const commandStub = stub(Deno, "Command", () => ({
+    output: () => createMockOutput("feature/new-feature"),
+  }) as unknown as Deno.Command);
+
+  try {
+    const branch = await determineWorkingBranch(MOCK_WORKING_DIR);
+    assertEquals(branch, "feature/new-feature");
+  } finally {
+    commandStub.restore();
+  }
 });
 
 Deno.test("determineWorkingBranch trims whitespace from branch names", async () => {
-  await withMockedGitCommand(
-    async () => "main  \n",
-    async () => {
-      const branch = await determineWorkingBranch(MOCK_WORKING_DIR);
-      assertEquals(branch, "main");
-    }
-  );
+  const commandStub = stub(Deno, "Command", () => ({
+    output: () => createMockOutput("main  \n"),
+  }) as unknown as Deno.Command);
+
+  try {
+    const branch = await determineWorkingBranch(MOCK_WORKING_DIR);
+    assertEquals(branch, "main");
+  } finally {
+    commandStub.restore();
+  }
 });
 
 Deno.test("determineWorkingBranch handles empty git command output", async () => {
-  await withMockedGitCommand(
-    async () => "",
-    async () => {
-      await assertRejects(
-        async () => {
-          await determineWorkingBranch(MOCK_WORKING_DIR);
-        },
-        GitError,
-        "No branch name returned"
-      );
-    }
-  );
+  const commandStub = stub(Deno, "Command", () => ({
+    output: () => createMockOutput(""),
+  }) as unknown as Deno.Command);
+
+  try {
+    await assertRejects(
+      async () => {
+        await determineWorkingBranch(MOCK_WORKING_DIR);
+      },
+      GitError,
+      "No branch name returned"
+    );
+  } finally {
+    commandStub.restore();
+  }
 });
 
 Deno.test("determineWorkingBranch handles git command failures", async () => {
-  await withMockedGitCommand(
-    async () => {
-      throw new GitError("Command failed", "git rev-parse --abbrev-ref HEAD");
-    },
-    async () => {
-      await assertRejects(
-        async () => {
-          await determineWorkingBranch(MOCK_WORKING_DIR);
-        },
-        GitError,
-        "Command failed"
-      );
-    }
-  );
+  const commandStub = stub(Deno, "Command", () => ({
+    output: () => createMockOutput("", false),
+  }) as unknown as Deno.Command);
+
+  try {
+    await assertRejects(
+      async () => {
+        await determineWorkingBranch(MOCK_WORKING_DIR);
+      },
+      GitError,
+      "Git command failed with exit code 1"
+    );
+  } finally {
+    commandStub.restore();
+  }
 });
 
 Deno.test("determineWorkingBranch handles general errors", async () => {
-  await withMockedGitCommand(
-    async () => {
-      throw new Error("Unexpected error");
-    },
-    async () => {
-      await assertRejects(
-        async () => {
-          await determineWorkingBranch(MOCK_WORKING_DIR);
-        },
-        GitError,
-        "Unable to determine working branch: Unexpected error"
-      );
-    }
-  );
+  const commandStub = stub(Deno, "Command", () => {
+    throw new Error("Unexpected error");
+  });
+
+  try {
+    await assertRejects(
+      async () => {
+        await determineWorkingBranch(MOCK_WORKING_DIR);
+      },
+      GitError,
+      "Unable to determine working branch: Unexpected error"
+    );
+  } finally {
+    commandStub.restore();
+  }
 });
 
 Deno.test("determineWorkingBranch handles detached HEAD state", async () => {
-  await withMockedGitCommand(
-    async () => "HEAD",
-    async () => {
-      const branch = await determineWorkingBranch(MOCK_WORKING_DIR);
-      assertEquals(branch, "HEAD");
-    }
-  );
+  const commandStub = stub(Deno, "Command", () => ({
+    output: () => createMockOutput("HEAD"),
+  }) as unknown as Deno.Command);
+
+  try {
+    const branch = await determineWorkingBranch(MOCK_WORKING_DIR);
+    assertEquals(branch, "HEAD");
+  } finally {
+    commandStub.restore();
+  }
 });
