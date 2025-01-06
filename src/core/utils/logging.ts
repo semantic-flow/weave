@@ -14,25 +14,13 @@ import {
 
 import type { LevelName, LogRecord } from "../../deps/log.ts";
 
-/**
- * Defines log levels and their numeric representations.
- */
-export const LOG_LEVELS: Record<LevelName, number> = {
-  CRITICAL: 50,
-  ERROR: 40,
-  WARN: 30,
-  INFO: 20,
-  DEBUG: 10,
-  NOTSET: 0,
-};
-
 // Initialize the log level from the environment variable 'WEAVE_LOGS'
 let currentLogLevel: LevelName = "INFO";
 
 const envLogLevel = env<LevelName>("WEAVE_LOGS")?.toUpperCase();
 
 // Use type narrowing to ensure envLogLevel is a valid LevelName
-if (envLogLevel && envLogLevel in LOG_LEVELS && envLogLevel !== "NOTSET") {
+if (envLogLevel && envLogLevel in logger.LogLevels && envLogLevel !== "NOTSET") {
   currentLogLevel = envLogLevel as LevelName;
 }
 
@@ -41,9 +29,23 @@ if (envLogLevel && envLogLevel in LOG_LEVELS && envLogLevel !== "NOTSET") {
  * @param newLevel The desired log level.
  */
 export function setLogLevel(newLevel: LevelName) {
-  if (LOG_LEVELS[newLevel] !== undefined) {
+  if (logger.LogLevels[newLevel] !== undefined) {
+    const oldLevel = currentLogLevel;
     currentLogLevel = newLevel;
-    log.info(`Logger setup with level: ${newLevel}`);
+    logger.setup({
+      handlers: {
+        console: new ConsoleHandler("DEBUG"),
+      },
+      loggers: {
+        weave: {
+          level: newLevel,
+          handlers: ["console"],
+        },
+      },
+    });
+    // Update the exported logger instance after reconfiguring
+    log = logger.getLogger("weave");
+    log.info(`Logger level changed from ${oldLevel} to ${newLevel}`);
   } else {
     console.error(`Attempted to set invalid log level: ${newLevel}`);
   }
@@ -56,28 +58,28 @@ const COLOR_TAG_REG = /<(\w+)>([^<]+)<\/\1>/g;
  * console via `console.log()`.
  */
 class ConsoleHandler extends logger.BaseHandler {
+  constructor(level: LevelName) {
+    super(level);
+  }
+
   override format(logRecord: LogRecord): string {
-    // Enforce log level by checking if the record's level meets the current log level
-    if (logRecord.level < LOG_LEVELS[currentLogLevel]) {
-      return ""; // Skip formatting for messages below the current log level
-    }
     let { msg } = logRecord;
 
     switch (logRecord.level) {
-      case logger.LogLevels.WARN:
-        msg = `<yellow>WARN</yellow> ${msg}`;
+      case logger.LogLevels.CRITICAL:
+        msg = `<red>CRITICAL</red> ${msg}`;
         break;
       case logger.LogLevels.ERROR:
         msg = `<red>ERROR</red> ${msg}`;
         break;
-      case logger.LogLevels.CRITICAL:
-        msg = `<red>CRITICAL</red> ${msg}`;
-        break;
-      case logger.LogLevels.DEBUG:
-        msg = `<cyan>DEBUG</cyan> ${msg}`;
+      case logger.LogLevels.WARN:
+        msg = `<yellow>WARN</yellow> ${msg}`;
         break;
       case logger.LogLevels.INFO:
         msg = `<green>INFO</green> ${msg}`;
+        break;
+      case logger.LogLevels.DEBUG:
+        msg = `<cyan>DEBUG</cyan> ${msg}`;
         break;
     }
 
@@ -109,7 +111,7 @@ const logFormats: Record<string, (str: string) => string> = {
 // Initialize logger with default configuration
 logger.setup({
   handlers: {
-    console: new ConsoleHandler(currentLogLevel),
+    console: new ConsoleHandler("DEBUG"),
   },
   loggers: {
     weave: {
@@ -123,3 +125,4 @@ logger.setup({
  * Retrieves the 'weave' logger instance.
  */
 export let log = logger.getLogger("weave");
+log.debug("Logger setup with level: " + currentLogLevel);

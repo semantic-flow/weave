@@ -12,7 +12,7 @@ export function handleCaughtError(e: unknown, customMessage?: string): void {
   // Format error message with context if provided
   const formatErrorMsg = (errorType: string, msg: string) => {
     if (customMessage) {
-      return `${customMessage} ${errorType}: ${msg}`;
+      return `${customMessage}${errorType}: ${msg}`;
     }
     return `${errorType}: ${msg}`;
   };
@@ -62,7 +62,7 @@ export function handleCaughtError(e: unknown, customMessage?: string): void {
   } else if (e instanceof Error) {
     logDetailedError(e);
   } else {
-    log.error(customMessage ? `${customMessage} Unknown error occurred` : "An unknown error occurred");
+    log.error(customMessage ? `${customMessage}Unknown error occurred` : "An unknown error occurred");
     log.debug("Unknown error details:", Deno.inspect(e, { colors: true }));
   }
 }

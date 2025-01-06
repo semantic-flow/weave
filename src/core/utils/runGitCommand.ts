@@ -22,33 +22,33 @@ export async function runGitCommand(
   const gitCommand = `git ${args.join(' ')}`;
   log.debug(`Executing Git command: ${gitCommand} in ${workingDir}`);
 
-  const command = createCommand("git", {
-    args: args,
-    cwd: workingDir, // Change to reflect the working directory context
-    stdout: "piped", // Use "piped" to capture the output
-    stderr: "inherit",
-  });
-
   try {
+    const command = createCommand("git", {
+      args: args,
+      cwd: workingDir,
+      stdout: "piped",
+      stderr: "inherit",
+    });
+
     const { code, stdout } = await command.output();
     const output = new TextDecoder().decode(stdout);
+    
     if (code !== 0) {
       if (code === 1 && output.includes("nothing to commit")) {
         log.info(`Git command returned code 1 but output indicates nothing to commit: ${gitCommand}`);
         return output;
       }
-      throw new GitError(`Git command failed with exit code ${code}`, gitCommand);
+      const error = new GitError(`Git command failed with exit code ${code}`, gitCommand);
+      handleCaughtError(error, "Error in runGitCommand");
+      throw error;
     }
 
     log.debug(`Git command succeeded: ${gitCommand}`);
     return output;
   } catch (error) {
-    if (error instanceof GitError) {
-      handleCaughtError(error, "Error in runGitCommand");
-      throw error;
-    }
-    // If it's not already a GitError, wrap it
-    const gitError = new GitError(error instanceof Error ? error.message : "Unknown error", gitCommand);
+    const gitError = error instanceof GitError 
+      ? error 
+      : new GitError(error instanceof Error ? error.message : "Unknown error", gitCommand);
     handleCaughtError(gitError, "Error in runGitCommand");
     throw gitError;
   }

@@ -1,10 +1,17 @@
+// src/core/utils/determineWorkingBranch.ts
+
 import { log } from "./logging.ts";
 import { runGitCommand } from "./runGitCommand.ts";
 import { GitError } from "../errors.ts";
 
-export async function determineWorkingBranch(workingDir: string): Promise<string> {
+type GitRunner = typeof runGitCommand;
+
+export async function determineWorkingBranch(
+  workingDir: string,
+  gitRunner: GitRunner = runGitCommand
+): Promise<string> {
   try {
-    const branch = await runGitCommand(workingDir, ["rev-parse", "--abbrev-ref", "HEAD"]);
+    const branch = await gitRunner(workingDir, ["rev-parse", "--abbrev-ref", "HEAD"]);
     if (!branch) {
       throw new GitError("No branch name returned", "git rev-parse --abbrev-ref HEAD");
     }

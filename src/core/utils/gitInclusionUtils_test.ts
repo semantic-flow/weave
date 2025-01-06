@@ -3,6 +3,8 @@
 import { assertEquals } from "../../deps/assert.ts";
 import { isGitInclusion, getSyncStatus, checkGitInclusion } from "./gitInclusionUtils.ts";
 import { GitInclusion, WebInclusion } from "../../types.ts";
+import { GitError } from "../errors.ts";
+import { setupLogCapture, restoreLogStubs } from "../../testUtils.ts";
 
 // Mock data
 const mockGitInclusion: GitInclusion = {
@@ -46,38 +48,53 @@ Deno.test("isGitInclusion correctly identifies non-git inclusions", () => {
 // Tests for getSyncStatus
 Deno.test("getSyncStatus returns 'current' for up-to-date repo", async () => {
   const mockGitRunner = async () => "## main...origin/main";
+  
   const status = await getSyncStatus("/test/path", mockGitRunner);
   assertEquals(status, "current");
 });
 
 Deno.test("getSyncStatus returns 'ahead' when local commits exist", async () => {
   const mockGitRunner = async () => "## main...origin/main [ahead 2]";
+  
   const status = await getSyncStatus("/test/path", mockGitRunner);
   assertEquals(status, "ahead");
 });
 
 Deno.test("getSyncStatus returns 'behind' when remote commits exist", async () => {
   const mockGitRunner = async () => "## main...origin/main [behind 3]";
+  
   const status = await getSyncStatus("/test/path", mockGitRunner);
   assertEquals(status, "behind");
 });
 
 Deno.test("getSyncStatus returns 'conflicted' when both ahead and behind", async () => {
   const mockGitRunner = async () => "## main...origin/main [ahead 2, behind 3]";
+  
   const status = await getSyncStatus("/test/path", mockGitRunner);
   assertEquals(status, "conflicted");
 });
 
 Deno.test("getSyncStatus returns 'dirty' when there are uncommitted changes", async () => {
   const mockGitRunner = async () => "## main...origin/main\n M src/file.ts";
+  
   const status = await getSyncStatus("/test/path", mockGitRunner);
   assertEquals(status, "dirty");
 });
 
-Deno.test("getSyncStatus returns 'unknown' on error", async () => {
+Deno.test("getSyncStatus returns 'unknown' on git failure", async () => {
   const mockGitRunner = async () => {
-    throw new Error("Git command failed");
+    throw new GitError("Git command failed", "git status");
   };
+  
+  const status = await getSyncStatus("/test/path", mockGitRunner);
+  assertEquals(status, "unknown");
+});
+
+Deno.test("getSyncStatus returns 'unknown' on general failure", async () => {
+  const mockGitRunner = async () => {
+    throw new Error("Unexpected error");
+  };
+  
   const status = await getSyncStatus("/test/path", mockGitRunner);
   assertEquals(status, "unknown");
 });
@@ -86,6 +103,7 @@ Deno.test("getSyncStatus returns 'unknown' on error", async () => {
 Deno.test("checkGitInclusion handles missing repository", async () => {
   const mockDirectoryExists = async () => false;
   const mockSyncStatus = async () => "missing" as const;
+  
   const result = await checkGitInclusion(mockGitInclusion, mockDirectoryExists, mockSyncStatus);
   assertEquals(result.present, false);
   assertEquals(result.syncStatus, "missing");
@@ -103,6 +121,7 @@ Deno.test("checkGitInclusion handles missing repository", async () => {
 Deno.test("checkGitInclusion handles existing repository", async () => {
   const mockDirectoryExists = async () => true;
   const mockSyncStatus = async () => "current" as const;
+  
   const result = await checkGitInclusion(mockGitInclusion, mockDirectoryExists, mockSyncStatus);
   assertEquals(result.present, true);
   assertEquals(result.syncStatus, "current");
@@ -116,6 +135,7 @@ Deno.test("checkGitInclusion uses URL as name when name is not provided", async 
   };
   const mockDirectoryExists = async () => true;
   const mockSyncStatus = async () => "current" as const;
+  
   const result = await checkGitInclusion(inclusionWithoutName, mockDirectoryExists, mockSyncStatus);
   assertEquals(result.name, inclusionWithoutName.url);
 });

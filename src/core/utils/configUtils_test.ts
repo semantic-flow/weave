@@ -8,10 +8,8 @@ import {
   WeaveConfigInput,
   InputGlobalOptions,
   CopyStrategy,
-  InputInclusion
 } from "../../types.ts";
 import { ConfigError } from "../errors.ts";
-import { log } from "./logging.ts";
 
 const mockConfig: WeaveConfigInput = {
   global: {
@@ -25,38 +23,6 @@ const mockConfig: WeaveConfigInput = {
   inclusions: []
 };
 
-interface LogStubs {
-  debug: ReturnType<typeof stub>;
-  info: ReturnType<typeof stub>;
-  warn: ReturnType<typeof stub>;
-  error: ReturnType<typeof stub>;
-}
-
-let logStubs: LogStubs | undefined;
-
-function setupLogStubs(): LogStubs {
-  // Restore any existing stubs first
-  if (logStubs) {
-    restoreLogStubs(logStubs);
-  }
-
-  // Create new stubs
-  // deno-lint-ignore no-explicit-any
-  const stubs: any = {
-    debug: stub(log, "debug", () => { }),
-    info: stub(log, "info", () => { }),
-    warn: stub(log, "warn", () => { }),
-    error: stub(log, "error", () => { })
-  };
-  logStubs = stubs;
-  return stubs;
-}
-
-function restoreLogStubs(stubs: LogStubs): void {
-  Object.values(stubs).forEach(s => s.restore());
-  logStubs = undefined;
-}
-
 // Create a test context with mocked dependencies
 interface TestContext {
   getConfigFilePath: () => Promise<string>;
@@ -68,6 +34,15 @@ function createTestContext(config: WeaveConfigInput = mockConfig): TestContext {
     getConfigFilePath: async () => "mock-config.json",
     loadWeaveConfig: async () => config,
   };
+}
+
+// Helper to create env stub with custom values
+function createEnvStub(customVars: Record<string, string | undefined> = {}) {
+  return stub(
+    Deno.env,
+    "get",
+    (key: string) => customVars[key]
+  );
 }
 
 // Modify processWeaveConfig to accept test context
@@ -247,14 +222,8 @@ async function processWeaveConfigTest(
 
 Deno.test("processWeaveConfig initializes Frame with default workspaceDir", async () => {
   Frame.resetInstance();
-  const logStubs = setupLogStubs();
   const context = createTestContext();
-
-  const envStub = stub(
-    Deno.env,
-    "get",
-    () => undefined
-  );
+  const envStub = createEnvStub();
 
   try {
     await processWeaveConfigTest(context);
@@ -262,28 +231,18 @@ Deno.test("processWeaveConfig initializes Frame with default workspaceDir", asyn
     assertEquals(frame.config.global.workspaceDir, "_source-repos");
   } finally {
     envStub.restore();
-    restoreLogStubs(logStubs);
     Frame.resetInstance();
   }
 });
 
 Deno.test("processWeaveConfig handles boolean environment variables set to true", async () => {
   Frame.resetInstance();
-  const logStubs = setupLogStubs();
   const context = createTestContext();
-
-  const envStub = stub(
-    Deno.env,
-    "get",
-    (key: string) => {
-      const envVars: Record<string, string> = {
-        WEAVE_DRY_RUN: "true",
-        WEAVE_CLEAN: "true",
-        WEAVE_WATCH_CONFIG: "true",
-      };
-      return envVars[key];
-    }
-  );
+  const envStub = createEnvStub({
+    WEAVE_DRY_RUN: "true",
+    WEAVE_CLEAN: "true",
+    WEAVE_WATCH_CONFIG: "true",
+  });
 
   try {
     await processWeaveConfigTest(context);
@@ -293,14 +252,12 @@ Deno.test("processWeaveConfig handles boolean environment variables set to true"
     assertEquals(frame.config.global.watchConfig, true);
   } finally {
     envStub.restore();
-    restoreLogStubs(logStubs);
     Frame.resetInstance();
   }
 });
 
 Deno.test("processWeaveConfig handles boolean environment variables set to false", async () => {
   Frame.resetInstance();
-  const logStubs = setupLogStubs();
   const context = createTestContext({
     ...mockConfig,
     global: {
@@ -310,19 +267,11 @@ Deno.test("processWeaveConfig handles boolean environment variables set to false
       watchConfig: true,
     }
   });
-
-  const envStub = stub(
-    Deno.env,
-    "get",
-    (key: string) => {
-      const envVars: Record<string, string> = {
-        WEAVE_DRY_RUN: "false",
-        WEAVE_CLEAN: "false",
-        WEAVE_WATCH_CONFIG: "false",
-      };
-      return envVars[key];
-    }
-  );
+  const envStub = createEnvStub({
+    WEAVE_DRY_RUN: "false",
+    WEAVE_CLEAN: "false",
+    WEAVE_WATCH_CONFIG: "false",
+  });
 
   try {
     await processWeaveConfigTest(context);
@@ -332,28 +281,18 @@ Deno.test("processWeaveConfig handles boolean environment variables set to false
     assertEquals(frame.config.global.watchConfig, false);
   } finally {
     envStub.restore();
-    restoreLogStubs(logStubs);
     Frame.resetInstance();
   }
 });
 
 Deno.test("processWeaveConfig respects environment variables", async () => {
   Frame.resetInstance();
-  const logStubs = setupLogStubs();
   const context = createTestContext();
-
-  const envStub = stub(
-    Deno.env,
-    "get",
-    (key: string) => {
-      const envVars: Record<string, string> = {
-        WEAVE_WORKSPACE_DIR: "env-workspace",
-        WEAVE_DEST: "env-dest",
-        WEAVE_COPY_STRATEGY: "overwrite",
-      };
-      return envVars[key];
-    }
-  );
+  const envStub = createEnvStub({
+    WEAVE_WORKSPACE_DIR: "env-workspace",
+    WEAVE_DEST: "env-dest",
+    WEAVE_COPY_STRATEGY: "overwrite",
+  });
 
   try {
     await processWeaveConfigTest(context);
@@ -363,27 +302,17 @@ Deno.test("processWeaveConfig respects environment variables", async () => {
     assertEquals(frame.config.global.globalCopyStrategy, "overwrite");
   } finally {
     envStub.restore();
-    restoreLogStubs(logStubs);
     Frame.resetInstance();
   }
 });
 
 Deno.test("processWeaveConfig command options override environment variables", async () => {
   Frame.resetInstance();
-  const logStubs = setupLogStubs();
   const context = createTestContext();
-
-  const envStub = stub(
-    Deno.env,
-    "get",
-    (key: string) => {
-      const envVars: Record<string, string> = {
-        WEAVE_WORKSPACE_DIR: "env-workspace",
-        WEAVE_DEST: "env-dest",
-      };
-      return envVars[key];
-    }
-  );
+  const envStub = createEnvStub({
+    WEAVE_WORKSPACE_DIR: "env-workspace",
+    WEAVE_DEST: "env-dest",
+  });
 
   const commandOptions: InputGlobalOptions = {
     workspaceDir: "cli-workspace",
@@ -397,14 +326,13 @@ Deno.test("processWeaveConfig command options override environment variables", a
     assertEquals(frame.config.global.dest, "cli-dest");
   } finally {
     envStub.restore();
-    restoreLogStubs(logStubs);
     Frame.resetInstance();
   }
 });
 
 Deno.test("processWeaveConfig validates copy strategy", async () => {
   Frame.resetInstance();
-  const logStubs = setupLogStubs();
+  const envStub = createEnvStub();
   const invalidConfig: WeaveConfigInput = {
     ...mockConfig,
     global: {
@@ -414,21 +342,23 @@ Deno.test("processWeaveConfig validates copy strategy", async () => {
   };
   const context = createTestContext(invalidConfig);
 
-  await assertRejects(
-    async () => {
-      await processWeaveConfigTest(context);
-    },
-    ConfigError,
-    "Invalid copy strategy"
-  );
-
-  restoreLogStubs(logStubs);
-  Frame.resetInstance();
+  try {
+    await assertRejects(
+      async () => {
+        await processWeaveConfigTest(context);
+      },
+      ConfigError,
+      "Invalid copy strategy"
+    );
+  } finally {
+    envStub.restore();
+    Frame.resetInstance();
+  }
 });
 
 Deno.test("processWeaveConfig processes git inclusion correctly", async () => {
   Frame.resetInstance();
-  const logStubs = setupLogStubs();
+  const envStub = createEnvStub();
   const gitConfig: WeaveConfigInput = {
     ...mockConfig,
     inclusions: [{
@@ -457,14 +387,14 @@ Deno.test("processWeaveConfig processes git inclusion correctly", async () => {
       assertEquals(inclusion.options.exclude, ["tests/**"]);
     }
   } finally {
-    restoreLogStubs(logStubs);
+    envStub.restore();
     Frame.resetInstance();
   }
 });
 
 Deno.test("processWeaveConfig processes web inclusion correctly", async () => {
   Frame.resetInstance();
-  const logStubs = setupLogStubs();
+  const envStub = createEnvStub();
   const webConfig: WeaveConfigInput = {
     ...mockConfig,
     inclusions: [{
@@ -489,14 +419,14 @@ Deno.test("processWeaveConfig processes web inclusion correctly", async () => {
       assertEquals(inclusion.options.copyStrategy, "overwrite");
     }
   } finally {
-    restoreLogStubs(logStubs);
+    envStub.restore();
     Frame.resetInstance();
   }
 });
 
 Deno.test("processWeaveConfig processes local inclusion correctly", async () => {
   Frame.resetInstance();
-  const logStubs = setupLogStubs();
+  const envStub = createEnvStub();
   const localConfig: WeaveConfigInput = {
     ...mockConfig,
     inclusions: [{
@@ -525,14 +455,14 @@ Deno.test("processWeaveConfig processes local inclusion correctly", async () => 
       assertEquals(inclusion.options.excludeByDefault, true);
     }
   } finally {
-    restoreLogStubs(logStubs);
+    envStub.restore();
     Frame.resetInstance();
   }
 });
 
 Deno.test("processWeaveConfig filters inactive inclusions", async () => {
   Frame.resetInstance();
-  const logStubs = setupLogStubs();
+  const envStub = createEnvStub();
   const mixedConfig: WeaveConfigInput = {
     ...mockConfig,
     inclusions: [
@@ -558,14 +488,14 @@ Deno.test("processWeaveConfig filters inactive inclusions", async () => {
     assertEquals(frame.resolvedInclusions.length, 1);
     assertEquals(frame.resolvedInclusions[0].name, "active-local");
   } finally {
-    restoreLogStubs(logStubs);
+    envStub.restore();
     Frame.resetInstance();
   }
 });
 
 Deno.test("processWeaveConfig validates required fields", async () => {
   Frame.resetInstance();
-  const logStubs = setupLogStubs();
+  const envStub = createEnvStub();
   const invalidConfig = {
     global: {
       dest: "_woven",
@@ -579,20 +509,21 @@ Deno.test("processWeaveConfig validates required fields", async () => {
   };
   const context = createTestContext(invalidConfig);
 
-  await assertRejects(
-    async () => {
-      await processWeaveConfigTest(context);
-    },
-    ConfigError,
-    "Missing required global configuration option: workspaceDir"
-  );
-
-  restoreLogStubs(logStubs);
-  Frame.resetInstance();
+  try {
+    await assertRejects(
+      async () => {
+        await processWeaveConfigTest(context);
+      },
+      ConfigError,
+      "Missing required global configuration option: workspaceDir"
+    );
+  } finally {
+    envStub.restore();
+    Frame.resetInstance();
+  }
 });
 
 Deno.test("watchConfigFile debounces multiple changes", async () => {
-  const logStubs = setupLogStubs();
   let reloadCount = 0;
   const mockProcessConfig = async () => {
     reloadCount++;
@@ -621,6 +552,5 @@ Deno.test("watchConfigFile debounces multiple changes", async () => {
     assertEquals(reloadCount, 1, "Config should only reload once due to debouncing");
   } finally {
     watchStub.restore();
-    restoreLogStubs(logStubs);
   }
 });

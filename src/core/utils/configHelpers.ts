@@ -1,9 +1,10 @@
 // src/core/utils/configHelpers.ts
 
-import { log, setLogLevel, LOG_LEVELS } from "./logging.ts";
-import { LevelName } from "../../deps/log.ts";
+import { log, setLogLevel } from "./logging.ts";
+import * as logger from "../../deps/log.ts";
+import type { LevelName } from "../../deps/log.ts";
 import { WeaveConfigInput, InputGlobalOptions } from "../../types.ts";
-import { processWeaveConfig } from "../../core/utils/configUtils.ts";
+import { processWeaveConfig as defaultProcessWeaveConfig } from "./configUtils.ts";
 import { handleCaughtError } from "./handleCaughtError.ts";
 import { ConfigError } from "../errors.ts";
 
@@ -24,7 +25,6 @@ export function mergeConfigs(base: WeaveConfigInput, override: Partial<WeaveConf
     inclusions: override.inclusions !== undefined ? override.inclusions : base.inclusions,
   };
 }
-
 
 /**
  * Returns the path of the configuration file.
@@ -132,17 +132,18 @@ export async function loadWeaveConfig(filePath: string): Promise<WeaveConfigInpu
   }
 }
 
-
-
 /**
  * Handles the configuration action by setting up logging.
  * @param options InputGlobalOptions parsed from CLI.
+ * @param processConfig Function to process the config, defaults to processWeaveConfig from configUtils.
  */
-export async function handleConfigAction(options: InputGlobalOptions): Promise<void> {
-
+export async function handleConfigAction(
+  options: InputGlobalOptions,
+  processConfig: (options: InputGlobalOptions) => Promise<void> = defaultProcessWeaveConfig
+): Promise<void> {
   try {
     // Ensure options.debug is a valid LevelName, or default to a safe value
-    const logLevel: LevelName = options.debug && LOG_LEVELS[options.debug as LevelName] !== undefined
+    const logLevel: LevelName = options.debug && logger.LogLevels[options.debug as LevelName] !== undefined
       ? options.debug as LevelName
       : "ERROR";
 
@@ -156,7 +157,7 @@ export async function handleConfigAction(options: InputGlobalOptions): Promise<v
     }
 
     // Compose the WeaveConfig by merging defaults, env, config file, and CLI options
-    await processWeaveConfig(options);
+    await processConfig(options);
     log.info("Configuration successfully loaded.");
 
   } catch (error) {
@@ -166,6 +167,6 @@ export async function handleConfigAction(options: InputGlobalOptions): Promise<v
     } else {
       log.error("An unknown error occurred during initialization.");
     }
-    Deno.exit(1);
+    throw error;
   }
 }

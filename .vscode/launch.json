@@ -41,6 +41,19 @@
       "sourceMaps": true,
       "outFiles": ["${workspaceFolder}/**/*.ts"],
       "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "Deno Test Current File",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "deno",
+      "runtimeArgs": [
+        "test",
+        "--inspect-brk",
+        "${file}"
+      ],
+      "outputCapture": "std"
     }
   ]
 }
