@@ -16,17 +16,24 @@ import {
 } from "../../types.ts";
 import { join } from "../../deps/path.ts";
 import { loadWeaveConfig, getConfigFilePath, mergeConfigs } from "./configHelpers.ts";
-import { determineDefaultBranch } from "./determineDefaultBranch.ts";
-import { determineDefaultWorkingDirectory } from "./determineDefaultWorkingDirectory.ts";
-import { determineWorkingBranch } from "./determineWorkingBranch.ts";
 import { handleCaughtError } from "./handleCaughtError.ts";
-import { directoryExists } from "./directoryExists.ts";
+
+// Dependencies interface for better testability
+export interface ConfigDependencies {
+  determineDefaultBranch: (url: string) => Promise<string>;
+  determineWorkingBranch: (dir: string) => Promise<string>;
+  determineDefaultWorkingDirectory: (workspaceDir: string, url: string, branch: string) => string;
+  directoryExists: (path: string) => Promise<boolean>;
+  env: {
+    get: (key: string) => string | undefined;
+  };
+}
 
 /**
  * Define default global options.
  */
-const DEFAULT_GLOBAL: ResolvedGlobalOptions = {
-  configFilePath: "./weave.config.json", // Assuming a default config file path
+export const DEFAULT_GLOBAL: ResolvedGlobalOptions = {
+  configFilePath: "./weave.config.json",
   debug: "ERROR",
   dest: "_woven",
   dryRun: false,
@@ -37,96 +44,26 @@ const DEFAULT_GLOBAL: ResolvedGlobalOptions = {
 };
 
 /**
- * Composes the final weave configuration by merging defaults, environment variables,
- * configuration files, and command-line options.
- * @param commandOptions Command-line options to override configurations.
- * @returns The fully composed WeaveConfig object.
+ * Get environment configuration
  */
-export async function processWeaveConfig(
-  commandOptions?: InputGlobalOptions
-): Promise<void> {
-
-  // Step 0: Initialize or reset the Frame singleton with the composed configuration
-  if (Frame.isInitialized()) { // <-- Safe Initialization Check
-    // If Frame is already initialized, reset it
-    Frame.resetInstance();
-    log.info("Resetting Frame due to configuration changes.");
-  }
-
-  // Step 1: Start with default global options
-  const defaultConfig: WeaveConfigInput = {
-    global: { ...DEFAULT_GLOBAL },
-    inclusions: [],
-  };
-
-  log.debug(`Default config: ${Deno.inspect(defaultConfig)}`);
-
-  // Step 2: Merge environment variables
-  const ENV_CONFIG: Partial<WeaveConfigInput> = {
+export function getEnvConfig(env: { get: (key: string) => string | undefined }): Partial<WeaveConfigInput> {
+  return {
     global: {
-      configFilePath: Deno.env.get("WEAVE_CONFIG_FILE") || undefined,
-      debug: Deno.env.get("WEAVE_DEBUG") || undefined,
-      dest: Deno.env.get("WEAVE_DEST") || undefined,
-      globalClean: Deno.env.get("WEAVE_CLEAN") !== undefined ? Deno.env.get("WEAVE_CLEAN") === "true" : undefined,
-      globalCopyStrategy: Deno.env.get("WEAVE_COPY_STRATEGY") || undefined,
-      watchConfig: Deno.env.get("WEAVE_WATCH_CONFIG") !== undefined ? Deno.env.get("WEAVE_WATCH_CONFIG") === "true" : undefined,
-      workspaceDir: Deno.env.get("WEAVE_WORKSPACE_DIR") || undefined,
+      configFilePath: env.get("WEAVE_CONFIG_FILE") || undefined,
+      debug: env.get("WEAVE_DEBUG") || undefined,
+      dest: env.get("WEAVE_DEST") || undefined,
+      globalClean: env.get("WEAVE_CLEAN") !== undefined ? env.get("WEAVE_CLEAN") === "true" : undefined,
+      globalCopyStrategy: env.get("WEAVE_COPY_STRATEGY") || undefined,
+      watchConfig: env.get("WEAVE_WATCH_CONFIG") !== undefined ? env.get("WEAVE_WATCH_CONFIG") === "true" : undefined,
+      workspaceDir: env.get("WEAVE_WORKSPACE_DIR") || undefined,
     },
   };
+}
 
-  let mergedConfig: WeaveConfigInput = mergeConfigs(defaultConfig, ENV_CONFIG);
-
-  log.debug(`Default merged with ENV: ${Deno.inspect(mergedConfig)}`);
-
-  // Step 3: Determine configFilePath with precedence: CLI > ENV > default
-  const preferredConfigPath = commandOptions?.configFilePath;
-  const configFilePath = await getConfigFilePath(preferredConfigPath);
-
-  if (!configFilePath) {
-    throw new ConfigError("No configuration file detected");
-  }
-
-  mergedConfig.global!.configFilePath = configFilePath;
-  log.debug(`Config file path: ${configFilePath}`);
-
-  // Step 4: Load and merge configuration file (required)
-  let fileConfig: Partial<WeaveConfigInput>;
-  try {
-    fileConfig = await loadWeaveConfig(configFilePath);
-  } catch (error) {
-    handleCaughtError(error, "Failed to load configuration file:");
-    Deno.exit(1);
-  }
-
-  mergedConfig = mergeConfigs(mergedConfig, fileConfig);
-
-  log.debug(`Default+ENV merged with config file: ${Deno.inspect(mergedConfig)}`);
-
-
-  // Step 5: Merge command-line options
-  const commandConfig: Partial<WeaveConfigInput> = {
-    global: {
-      // already addressed configFilePath in Step 3
-      debug: commandOptions?.debug,
-      dest: commandOptions?.dest,
-      globalClean: commandOptions?.globalClean,
-      globalCopyStrategy: commandOptions?.globalCopyStrategy,
-      watchConfig: commandOptions?.watchConfig,
-      workspaceDir: commandOptions?.workspaceDir,
-    },
-  };
-
-  mergedConfig = mergeConfigs(mergedConfig as WeaveConfigInput, commandConfig);
-  log.debug(`Default+ENV+config file merged with CLI options: ${Deno.inspect(mergedConfig)}`);
-
-  // Step 6: perform typesafety theater
-
-  if (!mergedConfig.inclusions) {
-    mergedConfig.inclusions = [];
-  }
-
-
-  // Step 7: Validate that all required global options are set
+/**
+ * Validate global options
+ */
+export async function validateGlobalOptions(config: WeaveConfigInput): Promise<void> {
   const requiredGlobalOptions: (keyof ResolvedGlobalOptions)[] = [
     "configFilePath",
     "dest",
@@ -137,185 +74,274 @@ export async function processWeaveConfig(
   ];
 
   for (const option of requiredGlobalOptions) {
-    if (mergedConfig.global![option] === undefined) {
+    if (config.global![option] === undefined) {
       throw new ConfigError(`Missing required global configuration option: ${option}`);
     }
   }
 
-  // Validate 'copyStrategy' if it's provided
-  if (mergedConfig.global!.globalCopyStrategy !== undefined && !validCopyStrategies.includes(mergedConfig.global!.globalCopyStrategy)) {
+  if (config.global!.globalCopyStrategy !== undefined && !validCopyStrategies.includes(config.global!.globalCopyStrategy)) {
     throw new ConfigError(
-      `Invalid copy strategy: ${mergedConfig.global!.globalCopyStrategy}. Must be one of: ${validCopyStrategies.join(", ")}`
+      `Invalid copy strategy: ${config.global!.globalCopyStrategy}. Must be one of: ${validCopyStrategies.join(", ")}`
     );
-  }
-
-  // Step 8: Process inclusions
-  // Pre-filter only active inclusions
-  const activeInclusions = mergedConfig.inclusions.filter(
-    (inclusion) => inclusion.options?.active !== false
-  );
-
-  // Map active inclusions to their resolved inclusions
-  const resolvedInclusions = await Promise.all(
-    activeInclusions.map(async (inclusion: InputInclusion): Promise<ResolvedInclusion> => {
-      return await resolveInclusion(inclusion, mergedConfig.global!.workspaceDir!);
-    })
-  );
-
-  Frame.initialize(mergedConfig, resolvedInclusions, commandOptions);
-  const frame = Frame.getInstance();
-  log.debug(`Frame instance created with config: ${Deno.inspect(frame)}`);
-}
-
-
-async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string): Promise<ResolvedInclusion> {
-  switch (inclusion.type) {
-    case "git": {
-      const { name, url, localPath: providedWorkingDir, options, order } = inclusion;
-
-      if (!url) {
-        throw new ConfigError(`Git inclusion requires a 'url': ${JSON.stringify(inclusion)}`);
-      }
-
-      // determine branch, although it doesn't really matter if providedWorkingDir
-      let branch = null;
-
-      if (options?.branch) {
-        branch = options.branch;
-      } else if (providedWorkingDir) {
-        try {
-          const gitExists = await directoryExists(join(providedWorkingDir, ".git"));
-          if (gitExists) {
-            try {
-              branch = await determineWorkingBranch(providedWorkingDir);
-            } catch (error) {
-              handleCaughtError(error, `Error determining working branch for provided localPath '${providedWorkingDir}'`);
-            }
-          } else {
-            try {
-              branch = await determineDefaultBranch(url);
-            } catch (error) {
-              handleCaughtError(error, `Error determining default branch from provided URL ${url}`);
-            }
-          }
-        } catch (error) {
-          handleCaughtError(error, `Error checking existence of '.git' directory within provided localPath '${providedWorkingDir}'`);
-        }
-      } else {
-        try {
-          branch = await determineDefaultBranch(url);
-        } catch (error) {
-          handleCaughtError(error, `Error determining default branch from URL ${url}`);
-        }
-      }
-
-      let workingDir: string;
-
-      if (providedWorkingDir) {
-        // used localPath (as providedWorkingDir) if provided...
-        if (!(await directoryExists(providedWorkingDir))) {
-          log.warn(`Could not find provided localPath '${providedWorkingDir}' for git inclusion '${name && `${name}: ` || ""}${url}'`);
-        } else if (!(await directoryExists(join(providedWorkingDir, ".git")))) {
-          log.warn(`The provided localPath '${providedWorkingDir}' for git inclusion '${name && `${name}: ` || ""}${url}' is not a git repository.`);
-          workingDir = providedWorkingDir;
-        }
-        workingDir = providedWorkingDir;
-      } else if (branch) {
-        // otherwise calculate localPath from URL and branch...
-        workingDir = determineDefaultWorkingDirectory(workspaceDir, url, branch);
-        if (!(await directoryExists(workingDir))) {
-          log.warn(`Could not find localPath '${workingDir}' for git inclusion '${name && `${name}: ` || ""}${url}'`);
-        }
-      } else {
-        throw new ConfigError(`No localPath provided and could not determine branch, so couldn't determining default workingDir '${name && `${name}: ` || ""}${url}'`);
-      }
-
-      const resolvedGitOptions: GitOptions = {
-        active: options?.active ?? true,
-        copyStrategy: options?.copyStrategy ?? "no-overwrite",
-        include: options?.include ?? [],
-        exclude: options?.exclude ?? [],
-        excludeByDefault: options?.excludeByDefault ?? false,
-        autoPullBeforeBuild: options?.autoPullBeforeBuild ?? false,
-        autoPushBeforeBuild: options?.autoPushBeforeBuild ?? false,
-        branch: branch || "main",
-      };
-
-      return {
-        type: "git",
-        name: inclusion.name,
-        url,
-        options: resolvedGitOptions,
-        order: order ?? 0,
-        localPath: workingDir,
-      };
-    }
-
-    case "web": {
-      const { url, name, options, order } = inclusion;
-
-      if (!url) {
-        throw new ConfigError(`Web inclusion requires a 'url': ${JSON.stringify(inclusion)}`);
-      }
-
-      const resolvedWebOptions: WebOptions = {
-        active: options?.active ?? true, // default to true if not provided
-        copyStrategy: options?.copyStrategy ?? "no-overwrite",
-      };
-
-      return {
-        type: "web",
-        name,
-        url,
-        options: resolvedWebOptions,
-        order: order ?? 0,
-      };
-    }
-
-    case "local": {
-      const { localPath: providedWorkingDir, name, options, order } = inclusion;
-
-      if (!providedWorkingDir) {
-        throw new ConfigError(`Local inclusion requires a 'localPath': ${JSON.stringify(inclusion)}`);
-      }
-
-      const workingDir = providedWorkingDir;
-
-      const resolvedLocalOptions: LocalOptions = {
-        active: options?.active ?? true,
-        copyStrategy: options?.copyStrategy ?? "no-overwrite",
-        include: options?.include ?? [],
-        exclude: options?.exclude ?? [],
-        excludeByDefault: options?.excludeByDefault ?? false,
-      };
-
-      return {
-        type: "local",
-        name,
-        options: resolvedLocalOptions,
-        order: order ?? 0,
-        localPath: workingDir,
-      };
-    }
-
   }
 }
 
 /**
- * Watches the configuration file for changes and reloads the configuration when changes are detected.
- * @param configFilePath The path to the configuration file to watch.
- * @param commandOptions The original command-line options to retain during reloads.
- * @param processWeaveConfigFn Supports dependency injection of the processWeaveConfig function.
+ * Resolve a git inclusion
  */
-export async function watchConfigFile(
+export async function resolveGitInclusion(
+  inclusion: InputInclusion & { type: "git" },
+  workspaceDir: string,
+  deps: ConfigDependencies
+): Promise<ResolvedInclusion> {
+  const { name, url, localPath: providedWorkingDir, options, order } = inclusion;
+
+  if (!url) {
+    throw new ConfigError(`Git inclusion requires a 'url': ${JSON.stringify(inclusion)}`);
+  }
+
+  let branch = options?.branch;
+  let workingDir: string;
+
+  if (!branch && providedWorkingDir) {
+    const gitExists = await deps.directoryExists(join(providedWorkingDir, ".git"));
+    if (gitExists) {
+      try {
+        branch = await deps.determineWorkingBranch(providedWorkingDir);
+      } catch (error) {
+        handleCaughtError(error, `Error determining working branch for provided localPath '${providedWorkingDir}'`);
+      }
+    }
+  }
+
+  if (!branch) {
+    try {
+      branch = await deps.determineDefaultBranch(url);
+    } catch (error) {
+      handleCaughtError(error, `Error determining default branch from URL ${url}`);
+    }
+  }
+
+  if (providedWorkingDir) {
+    workingDir = providedWorkingDir;
+    if (!(await deps.directoryExists(providedWorkingDir))) {
+      log.warn(`Could not find provided localPath '${providedWorkingDir}' for git inclusion '${name && `${name}: ` || ""}${url}'`);
+    }
+  } else if (branch) {
+    workingDir = deps.determineDefaultWorkingDirectory(workspaceDir, url, branch);
+    if (!(await deps.directoryExists(workingDir))) {
+      log.warn(`Could not find localPath '${workingDir}' for git inclusion '${name && `${name}: ` || ""}${url}'`);
+    }
+  } else {
+    throw new ConfigError(`No localPath provided and could not determine branch for git inclusion '${name && `${name}: ` || ""}${url}'`);
+  }
+
+  const resolvedGitOptions: GitOptions = {
+    active: options?.active ?? true,
+    copyStrategy: options?.copyStrategy ?? "no-overwrite",
+    include: options?.include ?? [],
+    exclude: options?.exclude ?? [],
+    excludeByDefault: options?.excludeByDefault ?? false,
+    autoPullBeforeBuild: options?.autoPullBeforeBuild ?? false,
+    autoPushBeforeBuild: options?.autoPushBeforeBuild ?? false,
+    branch: branch || "main",
+  };
+
+  return {
+    type: "git",
+    name: inclusion.name,
+    url,
+    options: resolvedGitOptions,
+    order: order ?? 0,
+    localPath: workingDir,
+  };
+}
+
+/**
+ * Resolve a web inclusion
+ */
+export async function resolveWebInclusion(inclusion: InputInclusion & { type: "web" }): Promise<ResolvedInclusion> {
+  const { url, name, options, order } = inclusion;
+
+  if (!url) {
+    throw new ConfigError(`Web inclusion requires a 'url': ${JSON.stringify(inclusion)}`);
+  }
+
+  const resolvedWebOptions: WebOptions = {
+    active: options?.active ?? true,
+    copyStrategy: options?.copyStrategy ?? "no-overwrite",
+  };
+
+  return {
+    type: "web",
+    name,
+    url,
+    options: resolvedWebOptions,
+    order: order ?? 0,
+  };
+}
+
+/**
+ * Resolve a local inclusion
+ */
+export async function resolveLocalInclusion(inclusion: InputInclusion & { type: "local" }): Promise<ResolvedInclusion> {
+  const { localPath: providedWorkingDir, name, options, order } = inclusion;
+
+  if (!providedWorkingDir) {
+    throw new ConfigError(`Local inclusion requires a 'localPath': ${JSON.stringify(inclusion)}`);
+  }
+
+  const resolvedLocalOptions: LocalOptions = {
+    active: options?.active ?? true,
+    copyStrategy: options?.copyStrategy ?? "no-overwrite",
+    include: options?.include ?? [],
+    exclude: options?.exclude ?? [],
+    excludeByDefault: options?.excludeByDefault ?? false,
+  };
+
+  return {
+    type: "local",
+    name,
+    options: resolvedLocalOptions,
+    order: order ?? 0,
+    localPath: providedWorkingDir,
+  };
+}
+
+/**
+ * Resolve an inclusion based on its type
+ */
+export async function resolveInclusion(
+  inclusion: InputInclusion,
+  workspaceDir: string,
+  deps: ConfigDependencies
+): Promise<ResolvedInclusion> {
+  switch (inclusion.type) {
+    case "git":
+      return resolveGitInclusion(inclusion, workspaceDir, deps);
+    case "web":
+      return resolveWebInclusion(inclusion);
+    case "local":
+      return resolveLocalInclusion(inclusion);
+  }
+}
+
+/**
+ * Process weave configuration with dependency injection
+ */
+export interface ProcessedWeaveConfig extends WeaveConfigInput {
+  resolvedInclusions?: ResolvedInclusion[];
+}
+
+export async function processWeaveConfigWithDeps(
+  deps: ConfigDependencies,
+  commandOptions?: InputGlobalOptions
+): Promise<ProcessedWeaveConfig> {
+  // Step 1: Start with default global options
+  const defaultConfig: WeaveConfigInput = {
+    global: { ...DEFAULT_GLOBAL },
+    inclusions: [],
+  };
+
+  // Step 2: Merge environment variables
+  const envConfig = getEnvConfig(deps.env);
+  let mergedConfig = mergeConfigs(defaultConfig, envConfig);
+
+  // Step 3: Determine configFilePath
+  const preferredConfigPath = commandOptions?.configFilePath;
+  const configFilePath = await getConfigFilePath(preferredConfigPath);
+
+  if (!configFilePath) {
+    throw new ConfigError("No configuration file detected");
+  }
+
+  mergedConfig.global!.configFilePath = configFilePath;
+
+  // Step 4: Load and merge configuration file
+  const fileConfig = await loadWeaveConfig(configFilePath);
+  mergedConfig = mergeConfigs(mergedConfig, fileConfig);
+
+  // Step 5: Merge command-line options
+  const commandConfig: Partial<WeaveConfigInput> = {
+    global: {
+      debug: commandOptions?.debug,
+      dest: commandOptions?.dest,
+      globalClean: commandOptions?.globalClean,
+      globalCopyStrategy: commandOptions?.globalCopyStrategy,
+      watchConfig: commandOptions?.watchConfig,
+      workspaceDir: commandOptions?.workspaceDir,
+    },
+  };
+
+  mergedConfig = mergeConfigs(mergedConfig, commandConfig);
+
+  // Step 6: Ensure inclusions array exists
+  if (!mergedConfig.inclusions) {
+    mergedConfig.inclusions = [];
+  }
+
+  // Step 7: Validate global options
+  validateGlobalOptions(mergedConfig);
+
+  // Step 8: Process inclusions
+  const activeInclusions = mergedConfig.inclusions.filter(
+    (inclusion) => inclusion.options?.active !== false
+  );
+
+  const resolvedInclusions = await Promise.all(
+    activeInclusions.map((inclusion) => resolveInclusion(inclusion, mergedConfig.global!.workspaceDir!, deps))
+  );
+
+  return { ...mergedConfig, resolvedInclusions };
+}
+
+/**
+ * Main entry point that uses real dependencies
+ */
+export async function processWeaveConfig(commandOptions?: InputGlobalOptions): Promise<void> {
+  // Import real dependencies
+  const { determineDefaultBranch } = await import("./determineDefaultBranch.ts");
+  const { determineWorkingBranch } = await import("./determineWorkingBranch.ts");
+  const { determineDefaultWorkingDirectory } = await import("./determineDefaultWorkingDirectory.ts");
+  const { directoryExists } = await import("./directoryExists.ts");
+
+  const deps: ConfigDependencies = {
+    determineDefaultBranch,
+    determineWorkingBranch,
+    determineDefaultWorkingDirectory,
+    directoryExists,
+    env: Deno.env,
+  };
+
+  try {
+    if (Frame.isInitialized()) {
+      Frame.resetInstance();
+      log.info("Resetting Frame due to configuration changes.");
+    }
+
+    const config = await processWeaveConfigWithDeps(deps, commandOptions);
+    Frame.initialize(config, config.resolvedInclusions || [], commandOptions);
+    
+    log.debug(`Frame instance created with config: ${Deno.inspect(Frame.getInstance())}`);
+  } catch (error) {
+    handleCaughtError(error, "Failed to process configuration:");
+    throw error;
+  }
+}
+
+/**
+ * Watch config file with dependency injection
+ */
+export async function watchConfigFileWithDeps(
   configFilePath: string,
   commandOptions?: InputGlobalOptions,
+  deps?: ConfigDependencies,
   processWeaveConfigFn?: (opts?: InputGlobalOptions) => Promise<void>
 ): Promise<void> {
   const watcher = Deno.watchFs(configFilePath);
   log.info(`Watching configuration file for changes: ${configFilePath}`);
 
-  const debounceDelay = 300; // milliseconds
+  const debounceDelay = 300;
   let reloadTimeout: number | null = null;
   let isReloading = false;
 
@@ -336,12 +362,8 @@ export async function watchConfigFile(
         isReloading = true;
 
         try {
-          // Use the injected processWeaveConfigFn or default to the actual function
           await (processWeaveConfigFn ?? processWeaveConfig)(commandOptions);
-
-          // Assuming that processWeaveConfig would have updated the Frame already
           const updatedConfig = Frame.getInstance().config;
-
           log.info("Configuration reloaded and Frame reinitialized.");
           log.info(`Updated config: ${Deno.inspect(updatedConfig)}`);
         } catch (error) {
@@ -352,4 +374,28 @@ export async function watchConfigFile(
       }, debounceDelay);
     }
   }
+}
+
+/**
+ * Main watch config file entry point
+ */
+export async function watchConfigFile(
+  configFilePath: string,
+  commandOptions?: InputGlobalOptions,
+  processWeaveConfigFn?: (opts?: InputGlobalOptions) => Promise<void>
+): Promise<void> {
+  const { determineDefaultBranch } = await import("./determineDefaultBranch.ts");
+  const { determineWorkingBranch } = await import("./determineWorkingBranch.ts");
+  const { determineDefaultWorkingDirectory } = await import("./determineDefaultWorkingDirectory.ts");
+  const { directoryExists } = await import("./directoryExists.ts");
+
+  const deps: ConfigDependencies = {
+    determineDefaultBranch,
+    determineWorkingBranch,
+    determineDefaultWorkingDirectory,
+    directoryExists,
+    env: Deno.env,
+  };
+
+  return watchConfigFileWithDeps(configFilePath, commandOptions, deps, processWeaveConfigFn);
 }

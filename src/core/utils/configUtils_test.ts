@@ -1,556 +1,261 @@
-// src/core/utils/configUtils_test.ts
-
 import { assertEquals, assertRejects } from "../../deps/assert.ts";
-import { stub } from "../../deps/testing.ts";
-import { processWeaveConfig, watchConfigFile } from "./configUtils.ts";
 import { Frame } from "../Frame.ts";
+import { ConfigError } from "../errors.ts";
 import {
-  WeaveConfigInput,
+  processWeaveConfigWithDeps,
+  getEnvConfig,
+  validateGlobalOptions,
+  resolveGitInclusion,
+  resolveWebInclusion,
+  resolveLocalInclusion,
+  ConfigDependencies,
+  DEFAULT_GLOBAL,
+} from "./configUtils.ts";
+import {
   InputGlobalOptions,
+  WeaveConfigInput,
+  InputGitOptions,
+  InputWebOptions,
+  InputLocalOptions,
+  ResolvedInclusion,
   CopyStrategy,
 } from "../../types.ts";
-import { ConfigError } from "../errors.ts";
+import { setConfigLoader } from "./configHelpers.ts";
 
-const mockConfig: WeaveConfigInput = {
-  global: {
-    workspaceDir: "_source-repos",
-    dest: "_woven",
-    globalCopyStrategy: "overwrite",
-    globalClean: false,
-    watchConfig: false,
-    configFilePath: "mock-config.json"
-  },
-  inclusions: []
+// Mock classes for testing
+class TestConfigLoader {
+  private mockConfig: WeaveConfigInput;
+
+  constructor(mockConfig: WeaveConfigInput) {
+    this.mockConfig = mockConfig;
+  }
+
+  async loadConfig(_filePath: string): Promise<WeaveConfigInput> {
+    return this.mockConfig;
+  }
+}
+
+// Test helper for Frame operations
+const withTestFrame = async <T>(
+  fn: () => Promise<T>,
+  config?: WeaveConfigInput,
+  resolvedInclusions: ResolvedInclusion[] = [],
+  commandOptions?: InputGlobalOptions
+): Promise<T> => {
+  if (config) {
+    Frame.initialize(config, resolvedInclusions, commandOptions);
+  }
+  try {
+    return await fn();
+  } finally {
+    Frame.resetInstance();
+  }
 };
 
-// Create a test context with mocked dependencies
-interface TestContext {
-  getConfigFilePath: () => Promise<string>;
-  loadWeaveConfig: () => Promise<WeaveConfigInput>;
-}
-
-function createTestContext(config: WeaveConfigInput = mockConfig): TestContext {
-  return {
-    getConfigFilePath: async () => "mock-config.json",
-    loadWeaveConfig: async () => config,
-  };
-}
-
-// Helper to create env stub with custom values
-function createEnvStub(customVars: Record<string, string | undefined> = {}) {
-  return stub(
-    Deno.env,
-    "get",
-    (key: string) => customVars[key]
-  );
-}
-
-// Modify processWeaveConfig to accept test context
-async function processWeaveConfigTest(
-  context: TestContext,
-  options?: InputGlobalOptions
-): Promise<void> {
-  // Step 1: Start with default global options
-  const defaultConfig: WeaveConfigInput = {
-    global: {
-      configFilePath: "./weave.config.json",
-      debug: "ERROR",
-      dest: "_woven",
-      dryRun: false,
-      globalClean: false,
-      globalCopyStrategy: "no-overwrite",
-      watchConfig: false,
-      workspaceDir: "_source-repos",
+// Mock dependencies
+const mockDeps: ConfigDependencies = {
+  determineDefaultBranch: async () => "main",
+  determineWorkingBranch: async () => "feature-branch",
+  determineDefaultWorkingDirectory: () => "_source-repos/repo",
+  directoryExists: async () => true,
+  env: {
+    get: (key: string) => {
+      const envMap: Record<string, string> = {
+        WEAVE_DEBUG: "DEBUG",
+        WEAVE_DEST: "custom_dest",
+        WEAVE_CLEAN: "true",
+      };
+      return envMap[key];
     },
-    inclusions: [],
-  };
+  },
+};
 
-  // Step 2: Load file config
-  const fileConfig = await context.loadWeaveConfig();
+Deno.test("getEnvConfig", async (t) => {
+  await t.step("returns environment configuration", () => {
+    const envConfig = getEnvConfig(mockDeps.env);
+    assertEquals(envConfig.global?.debug, "DEBUG");
+    assertEquals(envConfig.global?.dest, "custom_dest");
+    assertEquals(envConfig.global?.globalClean, true);
+  });
+});
 
-  // Step 3: Get environment variables and map them to config fields
-  type EnvVars = {
-    configFilePath?: string;
-    debug?: string;
-    dest?: string;
-    dryRun?: boolean;
-    globalClean?: boolean;
-    globalCopyStrategy?: string;
-    watchConfig?: boolean;
-    workspaceDir?: string;
-  };
-
-  const envVars: EnvVars = {};
-
-  // Map environment variables to their config fields with proper types
-  const configFile = Deno.env.get("WEAVE_CONFIG_FILE");
-  if (configFile !== undefined) envVars.configFilePath = configFile;
-
-  const debug = Deno.env.get("WEAVE_DEBUG");
-  if (debug !== undefined) envVars.debug = debug;
-
-  const dest = Deno.env.get("WEAVE_DEST");
-  if (dest !== undefined) envVars.dest = dest;
-
-  const dryRun = Deno.env.get("WEAVE_DRY_RUN");
-  if (dryRun !== undefined) envVars.dryRun = dryRun === "true";
-
-  const clean = Deno.env.get("WEAVE_CLEAN");
-  if (clean !== undefined) envVars.globalClean = clean === "true";
-
-  const copyStrategy = Deno.env.get("WEAVE_COPY_STRATEGY");
-  if (copyStrategy !== undefined) envVars.globalCopyStrategy = copyStrategy;
-
-  const watchConfig = Deno.env.get("WEAVE_WATCH_CONFIG");
-  if (watchConfig !== undefined) envVars.watchConfig = watchConfig === "true";
-
-  const workspaceDir = Deno.env.get("WEAVE_WORKSPACE_DIR");
-  if (workspaceDir !== undefined) envVars.workspaceDir = workspaceDir;
-
-  // Step 4: Merge configs in correct order: default -> file -> env -> command
-  const fileGlobal = fileConfig.global || {};
-  const mergedConfig: WeaveConfigInput = {
-    global: {
-      configFilePath: options?.configFilePath ?? envVars.configFilePath ?? fileGlobal.configFilePath ?? defaultConfig.global.configFilePath,
-      debug: options?.debug ?? envVars.debug ?? fileGlobal.debug ?? defaultConfig.global.debug,
-      dest: options?.dest ?? envVars.dest ?? fileGlobal.dest ?? defaultConfig.global.dest,
-      dryRun: options?.dryRun ?? envVars.dryRun ?? fileGlobal.dryRun ?? defaultConfig.global.dryRun,
-      globalClean: options?.globalClean ?? envVars.globalClean ?? fileGlobal.globalClean ?? defaultConfig.global.globalClean,
-      globalCopyStrategy: options?.globalCopyStrategy ?? envVars.globalCopyStrategy ?? fileGlobal.globalCopyStrategy ?? defaultConfig.global.globalCopyStrategy,
-      watchConfig: options?.watchConfig ?? envVars.watchConfig ?? fileGlobal.watchConfig ?? defaultConfig.global.watchConfig,
-      workspaceDir: options?.workspaceDir ?? envVars.workspaceDir ?? fileGlobal.workspaceDir ?? defaultConfig.global.workspaceDir,
-    },
-    inclusions: fileConfig.inclusions || [],
-  };
-
-  // Step 5: Validate copy strategy
-  if (mergedConfig.global.globalCopyStrategy &&
-    !["overwrite", "no-overwrite"].includes(mergedConfig.global.globalCopyStrategy)) {
-    throw new ConfigError(`Invalid copy strategy: ${mergedConfig.global.globalCopyStrategy}`);
-  }
-
-  // Step 6: Validate required fields
-  const requiredFields = ["workspaceDir", "dest", "globalClean", "globalCopyStrategy", "watchConfig"] as const;
-  type RequiredField = typeof requiredFields[number];
-
-  // Get the actual config values before defaults are applied
-  const configGlobal = fileConfig.global || {};
-  const actualValues = {
-    ...configGlobal,
-    ...Object.fromEntries(
-      Object.entries(envVars)
-        .filter(([_, v]) => v !== undefined)
-    ),
-    ...(options || {})
-  };
-
-  for (const field of requiredFields) {
-    if (actualValues[field] === undefined) {
-      throw new ConfigError(`Missing required global configuration option: ${field}`);
-    }
-  }
-
-  // Step 7: Process inclusions
-  const activeInclusions = (mergedConfig.inclusions || []).filter(
-    (inclusion) => inclusion.options?.active !== false
-  );
-
-  const resolvedInclusions = activeInclusions.map((inclusion) => {
-    const baseOptions = {
-      active: true,
-      copyStrategy: mergedConfig.global.globalCopyStrategy as CopyStrategy,
+Deno.test("validateGlobalOptions", async (t) => {
+  await t.step("validates required options", async () => {
+    const invalidConfig: WeaveConfigInput = {
+      inclusions: [],
+      global: {
+        dest: "_woven",
+        workspaceDir: "_source-repos",
+        configFilePath: "config.json",
+        globalClean: false,
+        watchConfig: false,
+      },
     };
 
-    switch (inclusion.type) {
-      case "git": {
-        if (!inclusion.url) {
-          throw new ConfigError("Git inclusion requires a URL");
-        }
-        return {
-          type: "git" as const,
-          name: inclusion.name || "",
-          url: inclusion.url,
-          localPath: inclusion.localPath || "/mock/git/path",
-          options: {
-            ...baseOptions,
-            branch: inclusion.options?.branch || "main",
-            include: inclusion.options?.include || [],
-            exclude: inclusion.options?.exclude || [],
-            excludeByDefault: inclusion.options?.excludeByDefault || false,
-            autoPullBeforeBuild: inclusion.options?.autoPullBeforeBuild || false,
-            autoPushBeforeBuild: inclusion.options?.autoPushBeforeBuild || false,
-          },
-          order: inclusion.order || 0,
-        } as const;
-      }
-      case "web": {
-        if (!inclusion.url) {
-          throw new ConfigError("Web inclusion requires a URL");
-        }
-        return {
-          type: "web" as const,
-          name: inclusion.name || "",
-          url: inclusion.url,
-          options: {
-            ...baseOptions,
-          },
-          order: inclusion.order || 0,
-        } as const;
-      }
-      case "local": {
-        if (!inclusion.localPath) {
-          throw new ConfigError("Local inclusion requires a localPath");
-        }
-        return {
-          type: "local" as const,
-          name: inclusion.name || "",
-          localPath: inclusion.localPath,
-          options: {
-            ...baseOptions,
-            include: inclusion.options?.include || [],
-            exclude: inclusion.options?.exclude || [],
-            excludeByDefault: inclusion.options?.excludeByDefault || false,
-          },
-          order: inclusion.order || 0,
-        } as const;
-      }
-    }
-  });
-
-  Frame.initialize(mergedConfig as WeaveConfigInput, resolvedInclusions, options);
-}
-
-Deno.test("processWeaveConfig initializes Frame with default workspaceDir", async () => {
-  Frame.resetInstance();
-  const context = createTestContext();
-  const envStub = createEnvStub();
-
-  try {
-    await processWeaveConfigTest(context);
-    const frame = Frame.getInstance();
-    assertEquals(frame.config.global.workspaceDir, "_source-repos");
-  } finally {
-    envStub.restore();
-    Frame.resetInstance();
-  }
-});
-
-Deno.test("processWeaveConfig handles boolean environment variables set to true", async () => {
-  Frame.resetInstance();
-  const context = createTestContext();
-  const envStub = createEnvStub({
-    WEAVE_DRY_RUN: "true",
-    WEAVE_CLEAN: "true",
-    WEAVE_WATCH_CONFIG: "true",
-  });
-
-  try {
-    await processWeaveConfigTest(context);
-    const frame = Frame.getInstance();
-    assertEquals(frame.config.global.dryRun, true);
-    assertEquals(frame.config.global.globalClean, true);
-    assertEquals(frame.config.global.watchConfig, true);
-  } finally {
-    envStub.restore();
-    Frame.resetInstance();
-  }
-});
-
-Deno.test("processWeaveConfig handles boolean environment variables set to false", async () => {
-  Frame.resetInstance();
-  const context = createTestContext({
-    ...mockConfig,
-    global: {
-      ...mockConfig.global,
-      dryRun: true,
-      globalClean: true,
-      watchConfig: true,
-    }
-  });
-  const envStub = createEnvStub({
-    WEAVE_DRY_RUN: "false",
-    WEAVE_CLEAN: "false",
-    WEAVE_WATCH_CONFIG: "false",
-  });
-
-  try {
-    await processWeaveConfigTest(context);
-    const frame = Frame.getInstance();
-    assertEquals(frame.config.global.dryRun, false);
-    assertEquals(frame.config.global.globalClean, false);
-    assertEquals(frame.config.global.watchConfig, false);
-  } finally {
-    envStub.restore();
-    Frame.resetInstance();
-  }
-});
-
-Deno.test("processWeaveConfig respects environment variables", async () => {
-  Frame.resetInstance();
-  const context = createTestContext();
-  const envStub = createEnvStub({
-    WEAVE_WORKSPACE_DIR: "env-workspace",
-    WEAVE_DEST: "env-dest",
-    WEAVE_COPY_STRATEGY: "overwrite",
-  });
-
-  try {
-    await processWeaveConfigTest(context);
-    const frame = Frame.getInstance();
-    assertEquals(frame.config.global.workspaceDir, "env-workspace");
-    assertEquals(frame.config.global.dest, "env-dest");
-    assertEquals(frame.config.global.globalCopyStrategy, "overwrite");
-  } finally {
-    envStub.restore();
-    Frame.resetInstance();
-  }
-});
-
-Deno.test("processWeaveConfig command options override environment variables", async () => {
-  Frame.resetInstance();
-  const context = createTestContext();
-  const envStub = createEnvStub({
-    WEAVE_WORKSPACE_DIR: "env-workspace",
-    WEAVE_DEST: "env-dest",
-  });
-
-  const commandOptions: InputGlobalOptions = {
-    workspaceDir: "cli-workspace",
-    dest: "cli-dest",
-  };
-
-  try {
-    await processWeaveConfigTest(context, commandOptions);
-    const frame = Frame.getInstance();
-    assertEquals(frame.config.global.workspaceDir, "cli-workspace");
-    assertEquals(frame.config.global.dest, "cli-dest");
-  } finally {
-    envStub.restore();
-    Frame.resetInstance();
-  }
-});
-
-Deno.test("processWeaveConfig validates copy strategy", async () => {
-  Frame.resetInstance();
-  const envStub = createEnvStub();
-  const invalidConfig: WeaveConfigInput = {
-    ...mockConfig,
-    global: {
-      ...mockConfig.global,
-      globalCopyStrategy: "invalid-strategy" as any,
-    },
-  };
-  const context = createTestContext(invalidConfig);
-
-  try {
     await assertRejects(
-      async () => {
-        await processWeaveConfigTest(context);
+      async () => validateGlobalOptions(invalidConfig),
+      ConfigError,
+      "Missing required global configuration option"
+    );
+  });
+
+  await t.step("validates copy strategy", async () => {
+    const invalidConfig: WeaveConfigInput = {
+      inclusions: [],
+      global: {
+        globalCopyStrategy: "invalid-strategy" as CopyStrategy,
+        dest: "_woven",
+        configFilePath: "config.json",
+        globalClean: false,
+        watchConfig: false,
+        workspaceDir: "_source-repos",
       },
+    };
+
+    await assertRejects(
+      async () => validateGlobalOptions(invalidConfig),
       ConfigError,
       "Invalid copy strategy"
     );
-  } finally {
-    envStub.restore();
-    Frame.resetInstance();
-  }
+  });
 });
 
-Deno.test("processWeaveConfig processes git inclusion correctly", async () => {
-  Frame.resetInstance();
-  const envStub = createEnvStub();
-  const gitConfig: WeaveConfigInput = {
-    ...mockConfig,
-    inclusions: [{
-      type: "git",
-      name: "test-repo",
-      url: "https://github.com/test/repo.git",
+Deno.test("resolveGitInclusion", async (t) => {
+  await t.step("resolves git inclusion with provided branch", async () => {
+    const inclusion = {
+      type: "git" as const,
+      url: "https://example.com/repo.git",
       options: {
-        branch: "main",
-        include: ["src/**"],
-        exclude: ["tests/**"],
-      }
-    }]
-  };
-  const context = createTestContext(gitConfig);
+        branch: "develop",
+        active: true,
+        copyStrategy: "overwrite" as CopyStrategy,
+      } as InputGitOptions,
+    };
 
-  try {
-    await processWeaveConfigTest(context);
-    const frame = Frame.getInstance();
-    const inclusion = frame.resolvedInclusions[0];
-    assertEquals(inclusion.type, "git");
-    assertEquals(inclusion.name, "test-repo");
-    if (inclusion.type === "git") {
-      assertEquals(inclusion.url, "https://github.com/test/repo.git");
-      assertEquals(inclusion.options.branch, "main");
-      assertEquals(inclusion.options.include, ["src/**"]);
-      assertEquals(inclusion.options.exclude, ["tests/**"]);
-    }
-  } finally {
-    envStub.restore();
-    Frame.resetInstance();
-  }
+    const resolved = await resolveGitInclusion(inclusion, "_source-repos", mockDeps);
+    assertEquals(resolved.type, "git");
+    assertEquals((resolved.options as InputGitOptions).branch, "develop");
+    assertEquals(resolved.options.copyStrategy, "overwrite");
+  });
+
+  await t.step("requires URL", async () => {
+    const invalidInclusion = {
+      type: "git" as const,
+      options: { active: true },
+    };
+
+    await assertRejects(
+      () => resolveGitInclusion(invalidInclusion as any, "_source-repos", mockDeps),
+      ConfigError,
+      "Git inclusion requires a 'url'"
+    );
+  });
 });
 
-Deno.test("processWeaveConfig processes web inclusion correctly", async () => {
-  Frame.resetInstance();
-  const envStub = createEnvStub();
-  const webConfig: WeaveConfigInput = {
-    ...mockConfig,
-    inclusions: [{
-      type: "web",
-      name: "test-web",
+Deno.test("resolveWebInclusion", async (t) => {
+  await t.step("resolves web inclusion", async () => {
+    const inclusion = {
+      type: "web" as const,
       url: "https://example.com/resource",
       options: {
-        copyStrategy: "overwrite"
-      }
-    }]
-  };
-  const context = createTestContext(webConfig);
+        active: true,
+        copyStrategy: "skip" as CopyStrategy,
+      } as InputWebOptions,
+    };
 
-  try {
-    await processWeaveConfigTest(context);
-    const frame = Frame.getInstance();
-    const inclusion = frame.resolvedInclusions[0];
-    assertEquals(inclusion.type, "web");
-    assertEquals(inclusion.name, "test-web");
-    if (inclusion.type === "web") {
-      assertEquals(inclusion.url, "https://example.com/resource");
-      assertEquals(inclusion.options.copyStrategy, "overwrite");
-    }
-  } finally {
-    envStub.restore();
-    Frame.resetInstance();
-  }
+    const resolved = await resolveWebInclusion(inclusion);
+    assertEquals(resolved.type, "web");
+    assertEquals(resolved.options.copyStrategy, "skip");
+  });
+
+  await t.step("requires URL", async () => {
+    const invalidInclusion = {
+      type: "web" as const,
+      options: { active: true },
+    };
+
+    await assertRejects(
+      () => resolveWebInclusion(invalidInclusion as any),
+      ConfigError,
+      "Web inclusion requires a 'url'"
+    );
+  });
 });
 
-Deno.test("processWeaveConfig processes local inclusion correctly", async () => {
-  Frame.resetInstance();
-  const envStub = createEnvStub();
-  const localConfig: WeaveConfigInput = {
-    ...mockConfig,
-    inclusions: [{
-      type: "local",
-      name: "test-local",
-      localPath: "/path/to/local",
+Deno.test("resolveLocalInclusion", async (t) => {
+  await t.step("resolves local inclusion", async () => {
+    const inclusion = {
+      type: "local" as const,
+      localPath: "./local-dir",
       options: {
-        include: ["src/**"],
-        exclude: ["node_modules/**"],
-        excludeByDefault: true
-      }
-    }]
-  };
-  const context = createTestContext(localConfig);
+        active: true,
+        copyStrategy: "prompt" as CopyStrategy,
+        include: ["*.ts"],
+        exclude: ["*.test.ts"],
+      } as InputLocalOptions,
+    };
 
-  try {
-    await processWeaveConfigTest(context);
-    const frame = Frame.getInstance();
-    const inclusion = frame.resolvedInclusions[0];
-    assertEquals(inclusion.type, "local");
-    assertEquals(inclusion.name, "test-local");
-    if (inclusion.type === "local") {
-      assertEquals(inclusion.localPath, "/path/to/local");
-      assertEquals(inclusion.options.include, ["src/**"]);
-      assertEquals(inclusion.options.exclude, ["node_modules/**"]);
-      assertEquals(inclusion.options.excludeByDefault, true);
-    }
-  } finally {
-    envStub.restore();
-    Frame.resetInstance();
-  }
+    const resolved = await resolveLocalInclusion(inclusion);
+    assertEquals(resolved.type, "local");
+    assertEquals(resolved.options.copyStrategy, "prompt");
+    assertEquals((resolved.options as InputLocalOptions).include, ["*.ts"]);
+    assertEquals((resolved.options as InputLocalOptions).exclude, ["*.test.ts"]);
+  });
+
+  await t.step("requires localPath", async () => {
+    const invalidInclusion = {
+      type: "local" as const,
+      options: { active: true },
+    };
+
+    await assertRejects(
+      () => resolveLocalInclusion(invalidInclusion as any),
+      ConfigError,
+      "Local inclusion requires a 'localPath'"
+    );
+  });
 });
 
-Deno.test("processWeaveConfig filters inactive inclusions", async () => {
-  Frame.resetInstance();
-  const envStub = createEnvStub();
-  const mixedConfig: WeaveConfigInput = {
-    ...mockConfig,
+Deno.test("processWeaveConfigWithDeps", async (t) => {
+  const mockConfig: WeaveConfigInput = {
     inclusions: [
       {
-        type: "local",
-        name: "active-local",
-        localPath: "/path/to/active",
-        options: { active: true }
+        type: "git",
+        url: "https://example.com/repo.git",
+        options: {
+          active: true,
+          branch: "main",
+          copyStrategy: "no-overwrite" as CopyStrategy,
+        } as InputGitOptions,
       },
-      {
-        type: "local",
-        name: "inactive-local",
-        localPath: "/path/to/inactive",
-        options: { active: false }
-      }
-    ]
-  };
-  const context = createTestContext(mixedConfig);
-
-  try {
-    await processWeaveConfigTest(context);
-    const frame = Frame.getInstance();
-    assertEquals(frame.resolvedInclusions.length, 1);
-    assertEquals(frame.resolvedInclusions[0].name, "active-local");
-  } finally {
-    envStub.restore();
-    Frame.resetInstance();
-  }
-});
-
-Deno.test("processWeaveConfig validates required fields", async () => {
-  Frame.resetInstance();
-  const envStub = createEnvStub();
-  const invalidConfig = {
+    ],
     global: {
+      ...DEFAULT_GLOBAL,
+      debug: "INFO",
       dest: "_woven",
-      globalCopyStrategy: "overwrite",
-      globalClean: false,
-      watchConfig: false,
-      configFilePath: "mock-config.json"
-      // workspaceDir is intentionally omitted
-    },
-    inclusions: []
-  };
-  const context = createTestContext(invalidConfig);
-
-  try {
-    await assertRejects(
-      async () => {
-        await processWeaveConfigTest(context);
-      },
-      ConfigError,
-      "Missing required global configuration option: workspaceDir"
-    );
-  } finally {
-    envStub.restore();
-    Frame.resetInstance();
-  }
-});
-
-Deno.test("watchConfigFile debounces multiple changes", async () => {
-  let reloadCount = 0;
-  const mockProcessConfig = async () => {
-    reloadCount++;
-  };
-
-  const watcher = {
-    async *[Symbol.asyncIterator]() {
-      yield { kind: "modify", paths: ["config.json"] };
-      yield { kind: "modify", paths: ["config.json"] };
-      yield { kind: "modify", paths: ["config.json"] };
+      globalCopyStrategy: "no-overwrite" as CopyStrategy,
     },
   };
 
-  const watchStub = stub(Deno, "watchFs", () => watcher as any);
+  await t.step("processes config with defaults", async () => {
+    setConfigLoader(new TestConfigLoader(mockConfig));
+    const config = await processWeaveConfigWithDeps(mockDeps);
+    assertEquals(config.global?.dest, "_woven");
+    assertEquals(config.global?.globalCopyStrategy, "no-overwrite");
+    assertEquals(config.resolvedInclusions?.length, 1);
+  });
 
-  try {
-    const watchPromise = watchConfigFile(
-      "config.json",
-      undefined,
-      mockProcessConfig
-    );
+  await t.step("merges command line options", async () => {
+    const commandOptions: InputGlobalOptions = {
+      debug: "DEBUG",
+      dest: "cli_dest",
+      globalClean: true,
+    };
 
-    // Wait for debounce timeout
-    await new Promise((resolve) => setTimeout(resolve, 400));
-
-    assertEquals(reloadCount, 1, "Config should only reload once due to debouncing");
-  } finally {
-    watchStub.restore();
-  }
+    setConfigLoader(new TestConfigLoader(mockConfig));
+    const config = await processWeaveConfigWithDeps(mockDeps, commandOptions);
+    assertEquals(config.global?.debug, "DEBUG");
+    assertEquals(config.global?.dest, "cli_dest");
+    assertEquals(config.global?.globalClean, true);
+  });
 });
