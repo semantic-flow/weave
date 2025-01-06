@@ -79,6 +79,81 @@ export async function getConfigFilePath(
   throw new ConfigError("No configuration file found");
 }
 
+// Interface for loading config files
+export interface ConfigLoader {
+  loadConfig(filePath: string): Promise<WeaveConfigInput>;
+}
+
+// Default implementation that uses Deno's file system and dynamic imports
+export class DefaultConfigLoader implements ConfigLoader {
+  async loadConfig(filePath: string): Promise<WeaveConfigInput> {
+    const isURL = /^https?:\/\//.test(filePath);
+    if (isURL) {
+      return await this.loadRemoteConfig(filePath);
+    } else {
+      return await this.loadLocalConfig(filePath);
+    }
+  }
+
+  private async loadRemoteConfig(url: string): Promise<WeaveConfigInput> {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new ConfigError(`Failed to fetch config from URL: ${url}`);
+    }
+    const contentType = response.headers.get("Content-Type") || "";
+    if (!contentType.includes("application/json")) {
+      throw new ConfigError("Remote config must be in JSON format");
+    }
+    return await response.json() as WeaveConfigInput;
+  }
+
+  protected async importModule(filePath: string): Promise<unknown> {
+    // Handle memory:// protocol for testing
+    if (filePath.startsWith("memory://")) {
+      throw new Error("memory:// protocol is only for testing");
+    }
+    const absolutePath = await Deno.realPath(filePath);
+    return await import(`file://${absolutePath}`);
+  }
+
+  private async loadLocalConfig(filePath: string): Promise<WeaveConfigInput> {
+    const ext = filePath.split(".").pop()?.toLowerCase();
+    if (ext === "json") {
+      log.info(`loadWeaveConfig: Reading file ${filePath}`);
+      const data = await Deno.readTextFile(filePath);
+      const parsed = JSON.parse(data) as WeaveConfigInput;
+      this.validateConfig(parsed, filePath);
+      return parsed;
+    } else if (ext === "js" || ext === "ts") {
+      const configModule = await this.importModule(filePath);
+      if (!("weaveConfig" in (configModule as object))) {
+        throw new ConfigError(`Config file does not export 'weaveConfig': ${filePath}`);
+      }
+      const config = (configModule as { weaveConfig: WeaveConfigInput }).weaveConfig;
+      this.validateConfig(config, filePath);
+      return config;
+    } else {
+      throw new ConfigError(
+        `Unsupported config file extension: .${ext}. Supported extensions are .json, .js, .ts`
+      );
+    }
+  }
+
+  private validateConfig(config: WeaveConfigInput, filePath: string) {
+    if (!config.inclusions || !Array.isArray(config.inclusions)) {
+      throw new ConfigError("'inclusions' must be an array in the configuration file");
+    }
+  }
+}
+
+// Global instance for the default loader
+let configLoader: ConfigLoader = new DefaultConfigLoader();
+
+// Allow injection of a custom loader for testing
+export function setConfigLoader(loader: ConfigLoader) {
+  configLoader = loader;
+}
+
 /**
  * Loads the weave configuration from a JSON file or local JS/TS modules.
  * Remote URLs are restricted to JSON.
@@ -87,48 +162,10 @@ export async function getConfigFilePath(
  */
 export async function loadWeaveConfig(filePath: string): Promise<WeaveConfigInput> {
   try {
-    const isURL = /^https?:\/\//.test(filePath);
-    if (isURL) {
-      const response = await fetch(filePath);
-      if (!response.ok) {
-        throw new ConfigError(`Failed to fetch config from URL: ${filePath}`);
-      }
-      const contentType = response.headers.get("Content-Type") || "";
-      if (contentType.includes("application/json")) {
-        return (await response.json()) as WeaveConfigInput;
-      } else {
-        throw new ConfigError("Remote config must be in JSON format");
-      }
-    } else {
-      const ext = filePath.split(".").pop()?.toLowerCase();
-      if (ext === "json") {
-        log.info(`loadWeaveConfig: Reading file ${filePath}`);
-        const data = await Deno.readTextFile(filePath);
-        const parsed = JSON.parse(data) as WeaveConfigInput;
-
-        // Validate that 'inclusions' is present and is an array
-        if (!parsed.inclusions || !Array.isArray(parsed.inclusions)) {
-          throw new ConfigError("'inclusions' must be an array in the configuration file");
-        }
-
-        return parsed;
-      } else if (ext === "js" || ext === "ts") {
-        const absolutePath = await Deno.realPath(filePath);
-        const configModule = await import(`file://${absolutePath}`);
-        if ("weaveConfig" in configModule) {
-          return configModule.weaveConfig as WeaveConfigInput;
-        } else {
-          throw new ConfigError(`Config file does not export 'weaveConfig': ${filePath}`);
-        }
-      } else {
-        throw new ConfigError(
-          `Unsupported config file extension: .${ext}. Supported extensions are .json, .js, .ts`
-        );
-      }
-    }
+    return await configLoader.loadConfig(filePath);
   } catch (error) {
     handleCaughtError(error, `Error processing ${filePath}:`);
-    throw error; // Re-throwing the error ensures that the promise is rejected
+    throw error;
   }
 }
 
@@ -164,9 +201,11 @@ export async function handleConfigAction(
     if (error instanceof Error) {
       log.error(`Error occurred during initialization: ${error.message}`);
       log.debug(Deno.inspect(error, { colors: true }));
+      throw error;
     } else {
-      log.error("An unknown error occurred during initialization.");
+      const wrappedError = new Error("An unknown error occurred during initialization.");
+      log.error(wrappedError.message);
+      throw wrappedError;
     }
-    throw error;
   }
 }

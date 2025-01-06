@@ -2,8 +2,8 @@
   "tasks": {
     "cli": "deno run --allow-read --allow-write --allow-env --allow-run src/weave.ts",
     "dev": "deno run --watch --allow-read --allow-write --allow-env --allow-run src/weave.ts",
-    "test": "deno test --allow-read --allow-env --allow-run 'src/**/*_test.ts' 'tests/**/*_test.ts'",
-    "coverage": "deno test --coverage=coverage-data --allow-read --allow-env --allow-run 'src/**/*_test.ts' 'tests/**/*_test.ts' && deno coverage coverage-data",
+    "test": "deno test --allow-read --allow-write --allow-env --allow-run 'src/**/*_test.ts' 'tests/**/*_test.ts'",
+    "coverage": "deno test --coverage=coverage-data --allow-all 'src/**/*_test.ts' 'tests/**/*_test.ts' && deno coverage coverage-data",
     "coverage:report": "deno coverage coverage-data --lcov --output=coverage-data/lcov.info && genhtml -o documentation/coverage/ coverage-data/lcov.info"
   },
   "compilerOptions": {
