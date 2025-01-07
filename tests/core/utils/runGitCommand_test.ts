@@ -1,10 +1,10 @@
 // src/core/utils/runGitCommand_test.ts
 
-import { assertEquals, assertRejects } from "../../deps/assert.ts";
-import { assertSpyCalls, spy } from "../../deps/testing.ts";
-import { runGitCommand } from "./runGitCommand.ts";
-import { GitError } from "../errors.ts";
-import { setupLogCapture, restoreLogStubs } from "../../testUtils.ts";
+import { assertEquals, assertRejects } from "../../../src/deps/assert.ts";
+import { assertSpyCalls, spy } from "../../../src/deps/testing.ts";
+import { runGitCommand } from "../../../src/core/utils/runGitCommand.ts";
+import { GitError } from "../../../src/core/errors.ts";
+import { setupLogCapture, restoreLogStubs } from "../../../src/testUtils.ts";
 
 interface MockCommandOptions {
   code: number;

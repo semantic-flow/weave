@@ -3,10 +3,10 @@
 import {
   assertEquals,
   assertThrows,
-} from "../deps/assert.ts";
-import { Frame } from "./Frame.ts";
-import { ValidationError } from "./errors.ts";
-import { WeaveConfigInput, InputGlobalOptions } from "../types.ts";
+} from "../../src/deps/assert.ts";
+import { Frame } from "../../src/core/Frame.ts";
+import { ValidationError } from "../../src/core/errors.ts";
+import { WeaveConfigInput, InputGlobalOptions } from "../../src/types.ts";
 
 const createMockConfig = (): WeaveConfigInput => ({
   global: {

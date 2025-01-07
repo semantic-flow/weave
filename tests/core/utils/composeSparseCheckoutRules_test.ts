@@ -1,7 +1,7 @@
 // src/core/utils/composeSparseCheckoutRules_test.ts
 
-import { assertEquals } from "../../deps/assert.ts";
-import { composeSparseCheckoutRules } from "./composeSparseCheckoutRules.ts";
+import { assertEquals } from "../../../src/deps/assert.ts";
+import { composeSparseCheckoutRules } from "../../../src/core/utils/composeSparseCheckoutRules.ts";
 
 Deno.test("composeSparseCheckoutRules with excludeByDefault=false includes everything by default", () => {
   const rules = composeSparseCheckoutRules([], [], false);

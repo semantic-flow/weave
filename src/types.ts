@@ -36,7 +36,7 @@ export interface InputGlobalOptions {
   dryRun?: boolean;
   dest?: string;
   globalClean?: boolean;
-  globalCopyStrategy?: string;
+  globalCopyStrategy?: CopyStrategy;
   watchConfig?: boolean;
   workspaceDir?: string;
 }

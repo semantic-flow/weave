@@ -1,7 +1,7 @@
 // src/core/utils/handleCaughtError_test.ts
 
-import { assertSpyCalls, spy } from "../../deps/testing.ts";
-import { handleCaughtError } from "./handleCaughtError.ts";
+import { assertSpyCalls, spy } from "../../../src/deps/testing.ts";
+import { handleCaughtError } from "../../../src/core/utils/handleCaughtError.ts";
 import {
   WeaveError,
   GitError,
@@ -9,8 +9,8 @@ import {
   FileSystemError,
   NetworkError,
   ValidationError,
-} from "../errors.ts";
-import { log } from "./logging.ts";
+} from "../../../src/core/errors.ts";
+import { log } from "../../../src/core/utils/logging.ts";
 
 Deno.test({
   name: "handleCaughtError",

@@ -1,6 +1,6 @@
 // src/core/utils/configHelpers_test.ts
 
-import { assertEquals, assertRejects, assertThrows } from "../../deps/assert.ts";
+import { assertEquals, assertRejects, assertThrows } from "../../../src/deps/assert.ts";
 import {
   mergeConfigs,
   getConfigFilePath,
@@ -9,11 +9,11 @@ import {
   ConfigLoader,
   DefaultConfigLoader,
   setConfigLoader
-} from "./configHelpers.ts";
-import { InputGlobalOptions, WeaveConfigInput, InputInclusion } from "../../types.ts";
-import { ConfigError } from "../errors.ts";
-import { assertSpyCalls, spy } from "../../deps/testing.ts";
-import * as logger from "../../deps/log.ts";
+} from "../../../src/core/utils/configHelpers.ts";
+import { InputGlobalOptions, WeaveConfigInput, InputInclusion } from "../../../src/types.ts";
+import { ConfigError } from "../../../src/core/errors.ts";
+import { assertSpyCalls, spy } from "../../../src/deps/testing.ts";
+import * as logger from "../../../src/deps/log.ts";
 
 Deno.test("mergeConfigs", async (t) => {
   await t.step("merges basic configurations", () => {

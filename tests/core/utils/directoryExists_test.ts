@@ -1,9 +1,9 @@
 // src/core/utils/directoryExists_test.ts
 
-import { assertEquals, assertRejects } from "../../deps/assert.ts";
-import { stub } from "../../deps/testing.ts";
-import { directoryExists } from "./directoryExists.ts";
-import { FileSystemError } from "../errors.ts";
+import { assertEquals, assertRejects } from "../../../src/deps/assert.ts";
+import { stub } from "../../../src/deps/testing.ts";
+import { directoryExists } from "../../../src/core/utils/directoryExists.ts";
+import { FileSystemError } from "../../../src/core/errors.ts";
 
 // Helper to create a mock FileInfo object
 function createMockFileInfo(isDir: boolean): Deno.FileInfo {

@@ -1,6 +1,6 @@
 // src/core/utils/logging_test.ts
 
-import { setLogLevel } from "./logging.ts";
+import { setLogLevel } from "../../../src/core/utils/logging.ts";
 
 Deno.test("setLogLevel handles invalid log levels", () => {
   // deno-lint-ignore no-explicit-any

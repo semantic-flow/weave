@@ -1,9 +1,9 @@
 // src/core/utils/determineWorkingBranch_test.ts
 
-import { assertEquals, assertRejects } from "../../deps/assert.ts";
-import { determineWorkingBranch } from "./determineWorkingBranch.ts";
-import { GitError } from "../errors.ts";
-import { runGitCommand } from "./runGitCommand.ts";
+import { assertEquals, assertRejects } from "../../../src/deps/assert.ts";
+import { determineWorkingBranch } from "../../../src/core/utils/determineWorkingBranch.ts";
+import { GitError } from "../../../src/core/errors.ts";
+import { runGitCommand } from "../../../src/core/utils/runGitCommand.ts";
 
 // Mock data
 const MOCK_WORKING_DIR = "/test/repo";

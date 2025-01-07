@@ -1,8 +1,8 @@
 // src/core/utils/determineDefaultWorkingDirectory_test.ts
 
-import { assertEquals } from "../../deps/assert.ts";
-import { determineDefaultWorkingDirectory } from "./determineDefaultWorkingDirectory.ts";
-import { join } from "../../deps/path.ts";
+import { assertEquals } from "../../../src/deps/assert.ts";
+import { determineDefaultWorkingDirectory } from "../../../src/core/utils/determineDefaultWorkingDirectory.ts";
+import { join } from "../../../src/deps/path.ts";
 
 const WORKSPACE_DIR = "_source-repos";
 

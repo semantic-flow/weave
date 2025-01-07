@@ -12,7 +12,7 @@ import {
   GitOptions,
   WebOptions,
   LocalOptions,
-  validCopyStrategies,
+  validCopyStrategies, CopyStrategy,
 } from "../../types.ts";
 import { join } from "../../deps/path.ts";
 import { loadWeaveConfig, getConfigFilePath, mergeConfigs } from "./configHelpers.ts";
@@ -24,6 +24,7 @@ export interface ConfigDependencies {
   determineWorkingBranch: (dir: string) => Promise<string>;
   determineDefaultWorkingDirectory: (workspaceDir: string, url: string, branch: string) => string;
   directoryExists: (path: string) => Promise<boolean>;
+  getConfigFilePath: (preferredPath?: string) => Promise<string | null>;
   env: {
     get: (key: string) => string | undefined;
   };
@@ -53,7 +54,7 @@ export function getEnvConfig(env: { get: (key: string) => string | undefined }):
       debug: env.get("WEAVE_DEBUG") || undefined,
       dest: env.get("WEAVE_DEST") || undefined,
       globalClean: env.get("WEAVE_CLEAN") !== undefined ? env.get("WEAVE_CLEAN") === "true" : undefined,
-      globalCopyStrategy: env.get("WEAVE_COPY_STRATEGY") || undefined,
+      globalCopyStrategy: env.get("WEAVE_COPY_STRATEGY") as CopyStrategy || undefined,
       watchConfig: env.get("WEAVE_WATCH_CONFIG") !== undefined ? env.get("WEAVE_WATCH_CONFIG") === "true" : undefined,
       workspaceDir: env.get("WEAVE_WORKSPACE_DIR") || undefined,
     },
@@ -73,17 +74,12 @@ export async function validateGlobalOptions(config: WeaveConfigInput): Promise<v
     "workspaceDir",
   ];
 
-  for (const option of requiredGlobalOptions) {
-    if (config.global![option] === undefined) {
-      throw new ConfigError(`Missing required global configuration option: ${option}`);
-    }
+  // Check each option and throw on the first missing one
+  const missingOption = requiredGlobalOptions.find(option => config.global![option] === undefined);
+  if (missingOption) {
+    throw new ConfigError(`Missing required global configuration option: ${missingOption}`);
   }
 
-  if (config.global!.globalCopyStrategy !== undefined && !validCopyStrategies.includes(config.global!.globalCopyStrategy)) {
-    throw new ConfigError(
-      `Invalid copy strategy: ${config.global!.globalCopyStrategy}. Must be one of: ${validCopyStrategies.join(", ")}`
-    );
-  }
 }
 
 /**
@@ -235,10 +231,14 @@ export interface ProcessedWeaveConfig extends WeaveConfigInput {
 
 export async function processWeaveConfigWithDeps(
   deps: ConfigDependencies,
-  commandOptions?: InputGlobalOptions
+  commandOptions?: InputGlobalOptions,
+  skipDefaults = false
 ): Promise<ProcessedWeaveConfig> {
-  // Step 1: Start with default global options
-  const defaultConfig: WeaveConfigInput = {
+  // Step 1: Start with default global options (unless skipped, e.g. for testing purposes)
+  const defaultConfig: WeaveConfigInput = skipDefaults ? {
+    global: {},
+    inclusions: [],
+  } : {
     global: { ...DEFAULT_GLOBAL },
     inclusions: [],
   };
@@ -249,16 +249,26 @@ export async function processWeaveConfigWithDeps(
 
   // Step 3: Determine configFilePath
   const preferredConfigPath = commandOptions?.configFilePath;
-  const configFilePath = await getConfigFilePath(preferredConfigPath);
+  const configFilePath = await deps.getConfigFilePath(preferredConfigPath);
 
   if (!configFilePath) {
     throw new ConfigError("No configuration file detected");
   }
 
-  mergedConfig.global!.configFilePath = configFilePath;
+  if (!skipDefaults) {
+    mergedConfig.global!.configFilePath = configFilePath;
+  }
 
   // Step 4: Load and merge configuration file
-  const fileConfig = await loadWeaveConfig(configFilePath);
+  let fileConfig: Partial<WeaveConfigInput>;
+  try {
+    fileConfig = await loadWeaveConfig(configFilePath);
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new ConfigError(`Failed to load config: ${error.message}`);
+    }
+    throw new ConfigError("Failed to load config: Unknown error");
+  }
   mergedConfig = mergeConfigs(mergedConfig, fileConfig);
 
   // Step 5: Merge command-line options
@@ -310,6 +320,7 @@ export async function processWeaveConfig(commandOptions?: InputGlobalOptions): P
     determineWorkingBranch,
     determineDefaultWorkingDirectory,
     directoryExists,
+    getConfigFilePath,
     env: Deno.env,
   };
 
@@ -394,6 +405,7 @@ export async function watchConfigFile(
     determineWorkingBranch,
     determineDefaultWorkingDirectory,
     directoryExists,
+    getConfigFilePath,
     env: Deno.env,
   };
 

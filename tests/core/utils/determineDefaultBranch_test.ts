@@ -1,8 +1,8 @@
 // src/core/utils/determineDefaultBranch_test.ts
 
-import { assertEquals, assertRejects } from "../../deps/assert.ts";
-import { determineDefaultBranch } from "./determineDefaultBranch.ts";
-import { GitError } from "../errors.ts";
+import { assertEquals, assertRejects } from "../../../src/deps/assert.ts";
+import { determineDefaultBranch } from "../../../src/core/utils/determineDefaultBranch.ts";
+import { GitError } from "../../../src/core/errors.ts";
 
 // Mock data
 const MOCK_REPO_URL = "https://github.com/test/repo.git";

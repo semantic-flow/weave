@@ -1,8 +1,8 @@
 // src/core/utils/env_test.ts
 
-import { assertEquals } from "../../deps/assert.ts";
-import { stub } from "../../deps/testing.ts";
-import { env, setEnv } from "./env.ts";
+import { assertEquals } from "../../../src/deps/assert.ts";
+import { stub } from "../../../src/deps/testing.ts";
+import { env, setEnv } from "../../../src/core/utils/env.ts";
 
 Deno.test("env - handles string values", () => {
   const getStub = stub(Deno.env, "get", () => "test-value");

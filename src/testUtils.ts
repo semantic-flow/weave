@@ -3,6 +3,9 @@
 import { stub } from "./deps/testing.ts";
 import { log } from "./core/utils/logging.ts";
 import type { Logger } from "./deps/log.ts";
+import { WeaveConfigInput, InputGlobalOptions, ResolvedInclusion } from "./types.ts";
+import { Frame } from "./core/Frame.ts";
+import { ConfigDependencies } from "./core/utils/configUtils.ts";
 
 // Helper to capture log messages
 export interface LogCapture {
@@ -78,3 +81,60 @@ export const setupLogStubs = setupLogCapture;
 export const restoreLogStubs = (stubs: LogStubs) => {
   // No-op since actual restoration is handled by restore()
 };
+
+// Test helper for Frame operations
+export const withTestFrame = async <T>(
+  fn: () => Promise<T>,
+  config?: WeaveConfigInput,
+  resolvedInclusions: ResolvedInclusion[] = [],
+  commandOptions?: InputGlobalOptions
+): Promise<T> => {
+  if (config) {
+    Frame.initialize(config, resolvedInclusions, commandOptions);
+  }
+  try {
+    return await fn();
+  } finally {
+    Frame.resetInstance();
+  }
+};
+
+// Mock config loader for testing
+export class TestConfigLoader {
+  private mockConfig: WeaveConfigInput;
+
+  constructor(mockConfig: WeaveConfigInput) {
+    this.mockConfig = mockConfig;
+  }
+
+  async loadConfig(_filePath: string): Promise<WeaveConfigInput> {
+    return this.mockConfig;
+  }
+}
+
+// Base mock dependencies for config tests
+export const mockConfigDeps: ConfigDependencies = {
+  determineDefaultBranch: async () => "main",
+  determineWorkingBranch: async () => "feature-branch",
+  determineDefaultWorkingDirectory: () => "_source-repos/repo",
+  directoryExists: async () => true,
+  getConfigFilePath: async () => "weave.config.json",
+  env: {
+    get: (key: string) => {
+      const envMap: Record<string, string> = {
+        WEAVE_DEBUG: "DEBUG",
+        WEAVE_DEST: "custom_dest",
+        WEAVE_CLEAN: "true",
+      };
+      return envMap[key];
+    },
+  },
+};
+
+// Extend globalThis type for config tests
+declare global {
+  var determineDefaultBranch: () => Promise<string>;
+  var determineWorkingBranch: () => Promise<string>;
+  var determineDefaultWorkingDirectory: () => string;
+  var getConfigFilePath: (preferredPath?: string) => Promise<string | null>;
+}

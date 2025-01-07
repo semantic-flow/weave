@@ -94,6 +94,27 @@ Deno.test({
    - Use spies for logging and external calls
    - Mock file operations with Deno.Command
    - Simulate network calls and I/O
+   - Note: Deno does not allow direct modification of imported modules. Instead of trying to mock imports directly (which will fail), use dependency injection:
+     ```typescript
+     // ❌ This won't work:
+     import * as helpers from "./helpers.ts";
+     helpers.someFunction = mockFunction; // Error: Assignment to import is not allowed
+
+     // ✅ Instead, use dependency injection:
+     interface Dependencies {
+       someFunction: () => void;
+     }
+     
+     export function mainFunction(deps: Dependencies) {
+       deps.someFunction();
+     }
+
+     // In tests:
+     const mockDeps = {
+       someFunction: () => "mock result"
+     };
+     mainFunction(mockDeps);
+     ```
    - Mock dynamic imports for JS/TS config files:
      ```typescript
      // Store original function
