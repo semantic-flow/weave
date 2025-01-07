@@ -121,15 +121,14 @@ export async function resolveGitInclusion(
   if (providedWorkingDir) {
     workingDir = providedWorkingDir;
     if (!(await deps.directoryExists(providedWorkingDir))) {
-      log.warn(`Could not find provided localPath '${providedWorkingDir}' for git inclusion '${name && `${name}: ` || ""}${url}'`);
-    }
-  } else if (branch) {
-    workingDir = deps.determineDefaultWorkingDirectory(workspaceDir, url, branch);
-    if (!(await deps.directoryExists(workingDir))) {
-      log.warn(`Could not find localPath '${workingDir}' for git inclusion '${name && `${name}: ` || ""}${url}'`);
+      log.warn(`Could not find provided localPath '${workingDir}' for git inclusion '${name && `${name}: ` || ""}${url}'`);
     }
   } else {
-    throw new ConfigError(`No localPath provided and could not determine branch for git inclusion '${name && `${name}: ` || ""}${url}'`);
+    if (!branch) branch = "main";
+    workingDir = deps.determineDefaultWorkingDirectory(workspaceDir, url, branch);
+    if (!(await deps.directoryExists(workingDir))) {
+      log.warn(`No localPath provided for working directory and inferred '${workingDir}' not present for '${name && `${name}: ` || ""}${url}'`);
+    }
   }
 
   const resolvedGitOptions: GitOptions = {
@@ -265,7 +264,7 @@ export async function processWeaveConfigWithDeps(
     fileConfig = await loadWeaveConfig(configFilePath);
   } catch (error: unknown) {
     if (error instanceof Error) {
-      throw new ConfigError(`Failed to load config: ${error.message}`);
+      throw new ConfigError(error.message);
     }
     throw new ConfigError("Failed to load config: Unknown error");
   }
@@ -302,7 +301,18 @@ export async function processWeaveConfigWithDeps(
     activeInclusions.map((inclusion) => resolveInclusion(inclusion, mergedConfig.global!.workspaceDir!, deps))
   );
 
-  return { ...mergedConfig, resolvedInclusions };
+  const config = { ...mergedConfig, resolvedInclusions };
+
+  // Step 9: Initialize Frame
+  if (Frame.isInitialized()) {
+    Frame.resetInstance();
+    log.info("Resetting Frame due to configuration changes.");
+  }
+
+  Frame.initialize(config, resolvedInclusions, commandOptions);
+  log.debug(`Frame instance created with config: ${Deno.inspect(Frame.getInstance())}`);
+
+  return config;
 }
 
 /**
@@ -325,15 +335,7 @@ export async function processWeaveConfig(commandOptions?: InputGlobalOptions): P
   };
 
   try {
-    if (Frame.isInitialized()) {
-      Frame.resetInstance();
-      log.info("Resetting Frame due to configuration changes.");
-    }
-
-    const config = await processWeaveConfigWithDeps(deps, commandOptions);
-    Frame.initialize(config, config.resolvedInclusions || [], commandOptions);
-    
-    log.debug(`Frame instance created with config: ${Deno.inspect(Frame.getInstance())}`);
+    await processWeaveConfigWithDeps(deps, commandOptions);
   } catch (error) {
     handleCaughtError(error, "Failed to process configuration:");
     throw error;
