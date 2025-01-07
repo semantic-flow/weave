@@ -1,4 +1,5 @@
 import { assertEquals, assertRejects } from "../../../../src/deps/assert.ts";
+import { spy, assertSpyCalls } from "../../../../src/deps/testing.ts";
 import { ConfigError } from "../../../../src/core/errors.ts";
 import {
   resolveGitInclusion,
@@ -12,6 +13,7 @@ import {
   InputLocalOptions,
   CopyStrategy,
 } from "../../../../src/types.ts";
+import * as log from "../../../../src/deps/log.ts";
 
 // Base mock dependencies
 const mockDeps: ConfigDependencies = {
@@ -184,17 +186,20 @@ Deno.test("resolveGitInclusion", async (t) => {
       directoryExists: async () => false,
     };
 
+    const warnSpy = spy(log.getLogger("weave"), "warn");
+
     const inclusion = {
       type: "git" as const,
       url: "https://example.com/repo.git",
       options: {} as InputGitOptions,
     };
 
-    await assertRejects(
-      () => resolveGitInclusion(inclusion, "_source-repos", failingDeps),
-      ConfigError,
-      "No localPath provided and could not determine branch"
-    );
+    const resolved = await resolveGitInclusion(inclusion, "_source-repos", failingDeps);
+    assertEquals(resolved.type, "git");
+    assertEquals((resolved.options as InputGitOptions).branch, "main"); // Falls back to main
+    assertSpyCalls(warnSpy, 1); // Verify warning was logged
+
+    warnSpy.restore();
   });
 
   await t.step("handles non-existent directories", async () => {

@@ -73,7 +73,7 @@ Deno.test("processWeaveConfigWithDeps", async (t) => {
     await assertRejects(
       () => processWeaveConfigWithDeps(mockDeps),
       ConfigError,
-      "Failed to load config: Failed to load config"
+      "Failed to load config"
     );
   });
 
