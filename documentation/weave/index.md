@@ -97,6 +97,7 @@ updated: "2024-12-12"
     -   ?does it
 -   **weave start**: build and watch,
     -   ?but only safely (i.e., repos all up-to-date, no collisions, build with prompt)
+    
 ## Copying strategies
 
 - `no-overwrite`: is the safe option where the copy will fail if a collision is
@@ -111,7 +112,7 @@ Copying strategy of prompt will ask user whwat to do
 
 - **Planned Features**:
   - Dynamic configuration reloading during runtime.
-  - Modular utilities for syncing, monitoring, and collission resolution.
+  - Modular utilities for syncing, monitoring, and collision resolution.
   - A future interactive mode for real-time adjustments and task prioritization.
   - Keeping a list of assets in the frame might be a good idea for detecting
     potential filename collisions before the copying actually starts, for more

@@ -45,7 +45,7 @@ export function setLogLevel(newLevel: LevelName) {
     currentLogLevel = newLevel;
     //console.log(`Setting logger to level: ${newLevel}`);
     setupLogger(newLevel);
-    log = logger.getLogger("testLogger");
+    log = logger.getLogger("weave");
     log.info(`Log level set to ${newLevel}`);
   } else {
     console.log(`Attempted to set invalid log level: ${newLevel}`);
@@ -100,7 +100,7 @@ function setupLogger(level: LevelName) {
       console: new ConsoleHandler(level),
     },
     loggers: {
-      testLogger: {
+      weave: {
         level: level,
         handlers: ["console"],
       },
@@ -128,4 +128,3 @@ const logFormats: Record<string, (str: string) => string> = {
  * Retrieves the 'weave' logger instance.
  */
 export let log = logger.getLogger("weave");
-
