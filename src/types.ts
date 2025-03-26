@@ -253,6 +253,7 @@ export interface InclusionListItem {
   excludeByDefault: boolean,
   autoPullBeforeBuild: boolean,
   autoPushBeforeBuild: boolean,
+  type: "git" | "web" | "local";
 }
 
 export type SyncStatus = 'current' | 'ahead' | 'behind' | 'conflicted' | 'dirty' | 'missing' | 'unknown';

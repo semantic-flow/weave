@@ -38,7 +38,9 @@ updated: "2024-12-12"
 ### Usage
 
 -   **weave init**: interactive prompt to create config file if none present, and add inclusions
--   **weave inclusions list**: lists all active inclusions and their statuses (present/missing, copy strategy, exclude), in order 
+-   **weave inclusions list**: lists all active inclusions and their statuses (present/missing, copy strategy, exclude), in order
+    -   takes `--format json` option to return results in json format
+    -   otherwise, returns them as a table sorted by *order*
 -   **weave inclusions verify**: output status "ready to weave", "not ready"
     -   maybe suggest `--ignore-missing` and `repos prepare` if needed
     -   check remote inclusions for availability
