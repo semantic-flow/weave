@@ -1,22 +1,25 @@
 // src/core/reposPull_test.ts
 
 import { assertEquals, assertStringIncludes } from "../deps/assert.ts";
-import { GitInclusion, ResolvedInclusion, SyncStatus } from "../types.ts";
-import { GitError } from "./errors.ts";
+import { GitInclusion, ResolvedInclusion, SyncStatus, RepoGitResult } from "../types.ts";
+// GitError is imported but not used directly in this file
+import { GitError as _GitError } from "./errors.ts";
 
 // Mock dependencies
 const mockRunGitCommand = {
   lastCommand: { workingDir: "", args: [] as string[] },
-  async fn(workingDir: string, args: string[]): Promise<string> {
+  // Using Promise.resolve to satisfy the require-await rule
+  fn(workingDir: string, args: string[]): Promise<string> {
     mockRunGitCommand.lastCommand = { workingDir, args };
-    return "Mock git command output";
+    return Promise.resolve("Mock git command output");
   }
 };
 
 const mockGetSyncStatus = {
   returnValue: "current" as SyncStatus,
-  async fn(_localPath: string): Promise<SyncStatus> {
-    return mockGetSyncStatus.returnValue;
+  // Using Promise.resolve to satisfy the require-await rule
+  fn(_localPath: string): Promise<SyncStatus> {
+    return Promise.resolve(mockGetSyncStatus.returnValue);
   }
 };
 
@@ -30,7 +33,7 @@ const mockFrame = {
 };
 
 // Create a testable wrapper function that uses our mocks
-async function testReposPull(pullStrategy?: string): Promise<any[]> {
+async function testReposPull(pullStrategy?: string): Promise<RepoGitResult[]> {
   // Import the real function but with mocked dependencies
   const { reposPull } = await import("./reposPull.ts");
   
@@ -46,22 +49,22 @@ async function testReposPull(pullStrategy?: string): Promise<any[]> {
   
   try {
     // Replace with mocks
-    // @ts-ignore - TypeScript doesn't like modifying imports
+    // @ts-ignore: Need to modify imported module for testing
     utils.getSyncStatus = mockGetSyncStatus.fn;
-    // @ts-ignore
+    // @ts-ignore: Need to modify imported module for testing
     runGitCommandModule.runGitCommand = mockRunGitCommand.fn;
-    // @ts-ignore
+    // @ts-ignore: Need to modify imported module for testing
     frameModule.Frame.getInstance = () => mockFrame;
     
     // Call the function with our mocks in place
     return await reposPull(pullStrategy);
   } finally {
     // Restore original functions
-    // @ts-ignore
+    // @ts-ignore: Need to modify imported module for testing
     utils.getSyncStatus = originalGetSyncStatus;
-    // @ts-ignore
+    // @ts-ignore: Need to modify imported module for testing
     runGitCommandModule.runGitCommand = originalRunGitCommand;
-    // @ts-ignore
+    // @ts-ignore: Need to modify imported module for testing
     frameModule.Frame.getInstance = originalGetInstance;
   }
 }

@@ -39,7 +39,11 @@ export const reposSyncCommand = new Command()
     const successCount = results.filter(r => r.success).length;
     const failureCount = results.filter(r => !r.success).length;
 
-    log.info(`Sync operations completed: ${successCount} succeeded, ${failureCount} failed.`);
+    if (failureCount === 0) {
+      log.info(`✅ Sync operations completed successfully: ${successCount} operations performed.`);
+    } else {
+      log.info(`Sync operations completed: ${successCount} succeeded, ${failureCount} failed.`);
+    }
 
     // Group results by repository
     const resultsByRepo = new Map<string, { 

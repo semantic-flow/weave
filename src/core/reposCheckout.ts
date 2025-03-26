@@ -9,6 +9,7 @@ import { handleCaughtError } from "./utils/handleCaughtError.ts";
 import { Frame } from "../core/Frame.ts";
 import { ensureDir } from "../deps/fs.ts";
 import { GitError } from "./errors.ts";
+import { determineWorkingBranch } from "./utils/determineWorkingBranch.ts";
 
 export async function reposCheckout(): Promise<RepoGitResult[]> {
   const results: RepoGitResult[] = [];
@@ -53,8 +54,21 @@ export async function reposCheckout(): Promise<RepoGitResult[]> {
       console.log(`Fetching branch '${branch}'...`);
       await runGitCommand(workingDir, ["fetch", "--depth", "1", "origin", branch]);
 
-      console.log(`Checking out branch '${branch}'...`);
-      await runGitCommand(workingDir, ["checkout", branch]);
+      // Check if the repository is already on the correct branch
+      let currentBranch = "";
+      try {
+        currentBranch = await determineWorkingBranch(workingDir);
+      } catch (error) {
+        // If we can't determine the current branch, proceed with checkout
+        log.debug(`Could not determine current branch for ${workingDir}: ${error instanceof Error ? error.message : "Unknown error"}`);
+      }
+
+      if (currentBranch === branch) {
+        console.log(`Already on branch '${branch}'`);
+      } else {
+        console.log(`Checking out branch '${branch}'...`);
+        await runGitCommand(workingDir, ["checkout", branch]);
+      }
 
       // If all operations are successful, push a success result
       results.push({

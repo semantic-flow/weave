@@ -14,7 +14,8 @@ import { reposPush } from "./reposPush.ts";
  */
 export async function reposSync(commitMessage?: string, pullStrategy?: string, pushStrategy?: string): Promise<RepoGitResult[]> {
   const results: RepoGitResult[] = [];
-  const frame = Frame.getInstance();
+  // Frame is used for configuration but not directly in this function
+  const _frame = Frame.getInstance();
 
   log.info("Starting repository synchronization...");
   
