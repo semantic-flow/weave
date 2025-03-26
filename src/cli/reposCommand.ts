@@ -6,6 +6,7 @@ import { reposPullCommand } from "./reposPullCommand.ts";
 import { reposPushCommand } from "./reposPushCommand.ts";
 import { reposSyncCommand } from "./reposSyncCommand.ts";
 import { reposPrepareCommand } from "./reposPrepareCommand.ts";
+import { reposVerifyCommand } from "./reposVerifyCommand.ts";
 
 export const reposCommand = new Command()
   .name("repos")
@@ -18,3 +19,4 @@ export const reposCommand = new Command()
   .command("push", reposPushCommand)
   .command("sync", reposSyncCommand)
   .command("prepare", reposPrepareCommand)
+  .command("verify", reposVerifyCommand)

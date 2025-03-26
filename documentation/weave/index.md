@@ -44,13 +44,8 @@ updated: "2024-12-12"
 -   **weave inclusions verify**: output status "ready to weave", "not ready"
     -   maybe suggest `--ignore-missing` and `repos prepare` if needed
     -   check remote inclusions for availability
-    -   check local dirs for existence
-    -   if collisions, suggest global `--ignore-collisions`
--   **weave inclusions prepare**:
-    -   do `repos prepare`, plus...
-    -   create local inclusion dirs if not present
-    -   create dest dir if not present, ensure writability
-    -   maybe not needed?
+    -   check local dirs for existence and non-emptiness
+    -   if collisions, suggest globalCopyStrategy
 -   **weave repos list**: lists configured repos including their "active" status and whether they're behind/ahead/diverged from their origin
     -   takes `--format json ` option to return results in json format
     -   otherwise, returns them as a table sorted by *order*
@@ -63,6 +58,7 @@ updated: "2024-12-12"
 -   **weave repos sync**: commit using specified message, pull, then push
 -   **weave repos verify**: checks whether repos are ready for build (and eventually, whether a pull would produce any conflicts)
     -   ensure sparse checkout settings are good
+    
     -   each git inclusion can have `ignore-behind`, `ignore-ahead`, `ignore-divergent`, and `ignore-checkout-consistency`
 -   **weave remap**: transform directory names or filenames (to avoid collisions or for renaming in general)
 -   **weave collisions**: list any potential collisions to console or optionally to a file; optionally/eventually perform custom logic to avoid collisions
