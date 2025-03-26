@@ -72,6 +72,7 @@ export async function checkGitInclusion(inclusion: GitInclusion): Promise<Inclus
     excludeByDefault: inclusion.options.excludeByDefault,
     autoPullBeforeBuild: inclusion.options.autoPullBeforeBuild,
     autoPushBeforeBuild: inclusion.options.autoPushBeforeBuild,
+    type: 'git',
   };
 
   return listItem;

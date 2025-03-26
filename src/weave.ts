@@ -4,6 +4,7 @@ import { Command } from "./deps/cliffy.ts";
 import { InputGlobalOptions, CopyStrategy } from "./types.ts";
 import { handleConfigAction } from "./core/utils/configHelpers.ts";
 import { reposCommand } from "./cli/reposCommand.ts";
+import { inclusionsCommand } from "./cli/inclusionsCommand.ts";
 import { watchCommand } from "./cli/watchCommand.ts";
 import { LogLevels } from "./deps/log.ts";
 import { handleCaughtError } from "./core/utils/handleCaughtError.ts";
@@ -59,6 +60,7 @@ const weave = new Command()
 
   // Attach subcommands if any
   .command("repos", reposCommand)
+  .command("inclusions", inclusionsCommand)
   .command("watch", watchCommand)
 //  .command("monitor", monitorSubcommand)
 
