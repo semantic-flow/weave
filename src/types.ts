@@ -69,6 +69,28 @@ export interface CommonOptions {
 }
 
 /**
+ * Defines the pull strategy using string literals.
+ */
+export type PullStrategy = "ff-only" | "rebase" | "merge";
+
+export const validPullStrategies: string[] = [
+  "ff-only",
+  "rebase",
+  "merge",
+];
+
+/**
+ * Defines the push strategy using string literals.
+ */
+export type PushStrategy = "no-force" | "force-with-lease" | "force";
+
+export const validPushStrategies: string[] = [
+  "no-force",
+  "force-with-lease",
+  "force",
+];
+
+/**
  * Defines specific options for Git inclusions.
  */
 export interface InputGitOptions extends CommonOptions {
@@ -78,6 +100,8 @@ export interface InputGitOptions extends CommonOptions {
   autoPullBeforeBuild?: boolean;
   autoPushBeforeBuild?: boolean;
   branch?: string; // Optional branch property
+  pullStrategy?: string; // Optional pull strategy
+  pushStrategy?: string; // Optional push strategy
 }
 
 /**
@@ -137,6 +161,8 @@ export interface GitOptions extends Required<CommonOptions> {
   autoPullBeforeBuild: boolean;
   autoPushBeforeBuild: boolean;
   branch: string;
+  pullStrategy: PullStrategy;
+  pushStrategy: PushStrategy;
 }
 
 /**

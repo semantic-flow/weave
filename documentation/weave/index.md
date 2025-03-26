@@ -80,7 +80,7 @@ updated: "2024-12-12"
 -   **weave repos list**: lists configured repos including their "active" status and whether they're behind/ahead/diverged from their origin
 -   **weave repos checkout**: for missing repos, initialize if necessary and perform sparse checkout, depth 1 by default
 -   **weave repos commit**: commit all active configured repos using message provided
--   **weave repos prepare**: checkout; pull if no conflicts and `autoPullBeforeBuild`, then push (if `autoPushBeforeBuild`); list
+-   **weave repos prepare**: checkout if not already present; pull if no conflicts and `autoPullBeforeBuild`, then push (if `autoPushBeforeBuild`); list
 -   **weave repos pull**: pull latest for all active configured repos
 -   **weave repos push**: push all active configured repos
     -   when no inclusions specified and `excludeByDefault` is false, nothing to do

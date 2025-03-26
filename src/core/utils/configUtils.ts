@@ -13,6 +13,8 @@ import {
   WebOptions,
   LocalOptions,
   validCopyStrategies,
+  validPullStrategies,
+  validPushStrategies,
 } from "../../types.ts";
 import { join } from "../../deps/path.ts";
 import { loadWeaveConfig, getConfigFilePath, mergeConfigs } from "./configHelpers.ts";
@@ -230,6 +232,20 @@ async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string)
         throw new ConfigError(`No localPath provided and could not determine branch, so couldn't determining default workingDir '${name && `${name}: ` || ""}${url}'`);
       }
 
+      // Validate pullStrategy if provided
+      if (options?.pullStrategy !== undefined && !validPullStrategies.includes(options.pullStrategy)) {
+        throw new ConfigError(
+          `Invalid pull strategy: ${options.pullStrategy}. Must be one of: ${validPullStrategies.join(", ")}`
+        );
+      }
+
+      // Validate pushStrategy if provided
+      if (options?.pushStrategy !== undefined && !validPushStrategies.includes(options.pushStrategy)) {
+        throw new ConfigError(
+          `Invalid push strategy: ${options.pushStrategy}. Must be one of: ${validPushStrategies.join(", ")}`
+        );
+      }
+
       const resolvedGitOptions: GitOptions = {
         active: options?.active ?? true,
         copyStrategy: options?.copyStrategy ?? "no-overwrite",
@@ -239,6 +255,8 @@ async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string)
         autoPullBeforeBuild: options?.autoPullBeforeBuild ?? false,
         autoPushBeforeBuild: options?.autoPushBeforeBuild ?? false,
         branch: branch || "main",
+        pullStrategy: (options?.pullStrategy as "ff-only" | "rebase" | "merge") ?? "ff-only",
+        pushStrategy: (options?.pushStrategy as "no-force" | "force-with-lease" | "force") ?? "no-force",
       };
 
       return {
