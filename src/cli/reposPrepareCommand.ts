@@ -39,12 +39,20 @@ export const reposPrepareCommand = new Command()
     log.info(`Prepare operations completed: ${successCount} succeeded, ${failureCount} failed.`);
 
     // Group results by repository
-    const resultsByRepo = new Map<string, { success: boolean; messages: string[] }>();
+    const resultsByRepo = new Map<string, { 
+      success: boolean; 
+      errorMessages: string[]; 
+      infoMessages: string[];
+    }>();
     
     results.forEach(result => {
       const repoKey = `${result.localPath}`;
       if (!resultsByRepo.has(repoKey)) {
-        resultsByRepo.set(repoKey, { success: true, messages: [] });
+        resultsByRepo.set(repoKey, { 
+          success: true, 
+          errorMessages: [], 
+          infoMessages: [] 
+        });
       }
       
       const repoResult = resultsByRepo.get(repoKey)!;
@@ -54,7 +62,12 @@ export const reposPrepareCommand = new Command()
       }
       
       if (result.message) {
-        repoResult.messages.push(result.message);
+        // Identify informational messages vs error messages
+        if (!result.success && !isInformationalMessage(result.message)) {
+          repoResult.errorMessages.push(result.message);
+        } else {
+          repoResult.infoMessages.push(result.message);
+        }
       }
     });
     
@@ -62,13 +75,36 @@ export const reposPrepareCommand = new Command()
     resultsByRepo.forEach((repoResult, repoKey) => {
       if (repoResult.success) {
         log.info(`✅ ${repoKey} prepared successfully`);
+        // Show informational messages for successful repos
+        repoResult.infoMessages.forEach(message => {
+          log.info(`   - ${message}`);
+        });
       } else {
         log.error(`❌ ${repoKey} preparation failed:`);
-        repoResult.messages.forEach(message => {
+        // Show error messages
+        repoResult.errorMessages.forEach(message => {
           log.error(`   - ${message}`);
         });
+        // Show informational messages separately
+        if (repoResult.infoMessages.length > 0) {
+          log.info(`   Additional information for ${repoKey}:`);
+          repoResult.infoMessages.forEach(message => {
+            log.info(`   - ${message}`);
+          });
+        }
       }
     });
+
+    // Helper function to identify informational messages
+    function isInformationalMessage(message: string): boolean {
+      const infoMessages = [
+        "No changes to push",
+        "Already up to date",
+        "Everything up-to-date"
+      ];
+      
+      return infoMessages.some(infoMsg => message.includes(infoMsg));
+    }
 
     if (failureCount > 0) {
       Deno.exit(1);
