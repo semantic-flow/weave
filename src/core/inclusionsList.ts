@@ -3,7 +3,6 @@ import { handleCaughtError } from "./utils/handleCaughtError.ts";
 import { InclusionListItem, ResolvedInclusion, WebInclusion, LocalInclusion } from "../types.ts";
 import { isGitInclusion, checkGitInclusion } from "./utils/gitInclusionUtils.ts";
 import { directoryExists } from "./utils/directoryExists.ts";
-import { exists } from "../deps/fs.ts";
 import { log } from "./utils/logging.ts";
 
 /**
@@ -99,10 +98,11 @@ export async function inclusionsList(): Promise<InclusionListItem[]> {
       } else if (isLocalInclusion(inclusion)) {
         results.push(await checkLocalInclusion(inclusion));
       } else {
-        log.warn(`Unknown inclusion type: ${(inclusion as any).type}`);
+        // deno-lint-ignore no-explicit-any
+        log.warn(`Unknown inclusion type: ${(inclusion as any).type || "unknown"}`);
       }
     } catch (error) {
-      handleCaughtError(error, `Failed to process inclusion ${inclusion.name || (inclusion as any).url || (inclusion as any).localPath}`);
+      handleCaughtError(error, `Failed to process inclusion ${inclusion.name || "unknown"}`);
     }
   }
 

@@ -1,11 +1,8 @@
 // src/core/inclusionsList_test.ts
 
-import { assertEquals, assertArrayIncludes } from "../deps/assert.ts";
-import { inclusionsList, checkWebInclusion, checkLocalInclusion, isWebInclusion, isLocalInclusion } from "./inclusionsList.ts";
-import { Frame } from "./Frame.ts";
-import { GitInclusion, WebInclusion, LocalInclusion, InclusionListItem, ResolvedInclusion } from "../types.ts";
-import * as gitInclusionUtils from "./utils/gitInclusionUtils.ts";
-import { directoryExists } from "./utils/directoryExists.ts";
+import { assertEquals } from "../deps/assert.ts";
+import { checkWebInclusion, isWebInclusion, isLocalInclusion } from "./inclusionsList.ts";
+import { WebInclusion, LocalInclusion, GitInclusion } from "../types.ts";
 
 // Mock data
 const mockGitInclusion: GitInclusion = {
@@ -51,21 +48,6 @@ const mockLocalInclusion: LocalInclusion = {
   }
 };
 
-const mockGitInclusionResult: InclusionListItem = {
-  order: 10,
-  name: "Test Git Repo",
-  active: true,
-  present: true,
-  syncStatus: "current",
-  copyStrategy: "overwrite",
-  include: ["src"],
-  exclude: ["tests"],
-  excludeByDefault: false,
-  autoPullBeforeBuild: true,
-  autoPushBeforeBuild: false,
-  type: "git"
-};
-
 // Type checking tests
 Deno.test("isWebInclusion correctly identifies web inclusions", () => {
   assertEquals(isWebInclusion(mockWebInclusion), true);
@@ -85,10 +67,10 @@ Deno.test("checkWebInclusion handles accessible URLs", async () => {
   
   try {
     // Mock fetch to return success
-    globalThis.fetch = async () => {
-      return {
+    globalThis.fetch = () => {
+      return Promise.resolve({
         ok: true,
-      } as Response;
+      } as Response);
     };
     
     const result = await checkWebInclusion(mockWebInclusion);
@@ -110,10 +92,10 @@ Deno.test("checkWebInclusion handles inaccessible URLs", async () => {
   
   try {
     // Mock fetch to return failure
-    globalThis.fetch = async () => {
-      return {
+    globalThis.fetch = () => {
+      return Promise.resolve({
         ok: false,
-      } as Response;
+      } as Response);
     };
     
     const result = await checkWebInclusion(mockWebInclusion);
@@ -134,8 +116,8 @@ Deno.test("checkWebInclusion handles fetch errors", async () => {
     console.error = () => {};
     
     // Mock fetch to throw an error
-    globalThis.fetch = async () => {
-      throw new Error("Network error");
+    globalThis.fetch = () => {
+      return Promise.reject(new Error("Network error"));
     };
     
     const result = await checkWebInclusion(mockWebInclusion);
