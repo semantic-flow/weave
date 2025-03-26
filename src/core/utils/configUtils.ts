@@ -255,7 +255,7 @@ async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string)
         autoPullBeforeBuild: options?.autoPullBeforeBuild ?? false,
         autoPushBeforeBuild: options?.autoPushBeforeBuild ?? false,
         branch: branch || "main",
-        pullStrategy: (options?.pullStrategy as "ff-only" | "rebase" | "merge") ?? "ff-only",
+        pullStrategy: (options?.pullStrategy as "ff-only" | "rebase" | "merge") ?? "rebase",
         pushStrategy: (options?.pushStrategy as "no-force" | "force-with-lease" | "force") ?? "no-force",
       };
 
