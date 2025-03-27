@@ -139,8 +139,8 @@ async function verifyWebInclusion(inclusion: WebInclusion, options: VerifyOption
     suggestions: [],
   };
   
-  // Skip URL availability check if ignoreRemoteAvailability is true
-  if (options.ignoreRemoteAvailability) {
+  // Skip URL availability check if ignoreRemoteAvailability is true in options or inclusion
+  if (options.ignoreRemoteAvailability || inclusion.options.ignoreRemoteAvailability) {
     return result;
   }
   
@@ -197,14 +197,20 @@ async function verifyLocalInclusion(inclusion: LocalInclusion, options: VerifyOp
     result.inclusion.present = directoryExists;
     
     if (!directoryExists) {
+      // Skip missing directory check if ignoreMissing is true in options or inclusion
+      if (options.ignoreMissing || inclusion.options.ignoreMissing) {
+        log.debug(`Ignoring missing directory for ${inclusion.name || inclusion.localPath}`);
+        return result;
+      }
+      
       result.isReady = false;
       result.issues.push("Directory does not exist");
       result.suggestions.push("Create the directory or update the inclusion path");
       return result;
     }
     
-    // Check if directory is empty
-    if (!options.ignoreLocalEmpty) {
+    // Check if directory is empty, respecting both global and per-inclusion options
+    if (!options.ignoreLocalEmpty && !inclusion.options.ignoreLocalEmpty) {
       try {
         const dirEntries = [];
         for await (const entry of Deno.readDir(inclusion.localPath)) {

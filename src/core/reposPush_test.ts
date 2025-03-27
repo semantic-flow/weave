@@ -48,8 +48,15 @@ function createTestGitInclusion(pushStrategy: string = "no-force"): GitInclusion
       branch: "main",
       pullStrategy: "ff-only",
       pushStrategy: pushStrategy as "no-force" | "force-with-lease" | "force",
+      // Verification options
+      ignoreBehind: false,
+      ignoreAhead: false,
+      ignoreDivergent: false,
+      ignoreCheckoutConsistency: false,
+      ignoreMissing: false,
+      ignoreDirty: false
     },
-  } as GitInclusion;
+  };
 }
 
 // Mock implementation of reposPush that doesn't rely on the real implementation

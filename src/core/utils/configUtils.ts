@@ -257,6 +257,13 @@ async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string)
         branch: branch || "main",
         pullStrategy: (options?.pullStrategy as "ff-only" | "rebase" | "merge") ?? "rebase",
         pushStrategy: (options?.pushStrategy as "no-force" | "force-with-lease" | "force") ?? "no-force",
+        // Verification options
+        ignoreBehind: options?.ignoreBehind ?? false,
+        ignoreAhead: options?.ignoreAhead ?? false,
+        ignoreDivergent: options?.ignoreDivergent ?? false,
+        ignoreCheckoutConsistency: options?.ignoreCheckoutConsistency ?? false,
+        ignoreMissing: options?.ignoreMissing ?? false,
+        ignoreDirty: options?.ignoreDirty ?? false,
       };
 
       return {
@@ -279,6 +286,8 @@ async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string)
       const resolvedWebOptions: WebOptions = {
         active: options?.active ?? true, // default to true if not provided
         copyStrategy: options?.copyStrategy ?? "no-overwrite",
+        // Verification options
+        ignoreRemoteAvailability: options?.ignoreRemoteAvailability ?? false,
       };
 
       return {
@@ -305,6 +314,9 @@ async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string)
         include: options?.include ?? [],
         exclude: options?.exclude ?? [],
         excludeByDefault: options?.excludeByDefault ?? false,
+        // Verification options
+        ignoreLocalEmpty: options?.ignoreLocalEmpty ?? false,
+        ignoreMissing: options?.ignoreMissing ?? false,
       };
 
       return {

@@ -6,6 +6,7 @@ import { handleConfigAction } from "./core/utils/configHelpers.ts";
 import { reposCommand } from "./cli/reposCommand.ts";
 import { inclusionsCommand } from "./cli/inclusionsCommand.ts";
 import { watchCommand } from "./cli/watchCommand.ts";
+import { buildCommand } from "./cli/buildCommand.ts";
 import { LogLevels } from "./deps/log.ts";
 import { handleCaughtError } from "./core/utils/handleCaughtError.ts";
 import type { LevelName } from "./deps/log.ts";
@@ -62,6 +63,7 @@ const weave = new Command()
   .command("repos", reposCommand)
   .command("inclusions", inclusionsCommand)
   .command("watch", watchCommand)
+  .command("build", buildCommand)
 //  .command("monitor", monitorSubcommand)
 
 try {

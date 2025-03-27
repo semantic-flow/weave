@@ -47,6 +47,12 @@ function createTestGitInclusion(): GitInclusion {
       branch: "main",
       pullStrategy: "ff-only",
       pushStrategy: "no-force",
+      ignoreBehind: false,
+      ignoreAhead: false,
+      ignoreDivergent: false,
+      ignoreCheckoutConsistency: false,
+      ignoreMissing: false,
+      ignoreDirty: false,
     },
   } as GitInclusion;
 }

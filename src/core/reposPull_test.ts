@@ -48,8 +48,15 @@ function createTestGitInclusion(pullStrategy: string = "ff-only"): GitInclusion 
       branch: "main",
       pullStrategy: pullStrategy as "ff-only" | "rebase" | "merge",
       pushStrategy: "no-force",
+      // Verification options
+      ignoreBehind: false,
+      ignoreAhead: false,
+      ignoreDivergent: false,
+      ignoreCheckoutConsistency: false,
+      ignoreMissing: false,
+      ignoreDirty: false
     },
-  } as GitInclusion;
+  };
 }
 
 // Mock implementation of reposPull that doesn't rely on the real implementation

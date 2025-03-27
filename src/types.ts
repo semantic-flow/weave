@@ -102,12 +102,22 @@ export interface InputGitOptions extends CommonOptions {
   branch?: string; // Optional branch property
   pullStrategy?: string; // Optional pull strategy
   pushStrategy?: string; // Optional push strategy
+  // Verification options
+  ignoreBehind?: boolean;
+  ignoreAhead?: boolean;
+  ignoreDivergent?: boolean;
+  ignoreCheckoutConsistency?: boolean;
+  ignoreMissing?: boolean;
+  ignoreDirty?: boolean;
 }
 
 /**
  * Defines specific options for Web inclusions.
  */
-export interface InputWebOptions extends CommonOptions { }
+export interface InputWebOptions extends CommonOptions {
+  // Verification options
+  ignoreRemoteAvailability?: boolean;
+}
 
 /**
  * Defines specific options for Local inclusions.
@@ -116,6 +126,9 @@ export interface InputLocalOptions extends CommonOptions {
   include?: string[];
   exclude?: string[];
   excludeByDefault?: boolean;
+  // Verification options
+  ignoreLocalEmpty?: boolean;
+  ignoreMissing?: boolean;
 }
 
 /**
@@ -163,12 +176,22 @@ export interface GitOptions extends Required<CommonOptions> {
   branch: string;
   pullStrategy: PullStrategy;
   pushStrategy: PushStrategy;
+  // Verification options
+  ignoreBehind: boolean;
+  ignoreAhead: boolean;
+  ignoreDivergent: boolean;
+  ignoreCheckoutConsistency: boolean;
+  ignoreMissing: boolean;
+  ignoreDirty: boolean;
 }
 
 /**
  * Defines specific options for Web inclusions within resolved configurations.
  */
-export interface WebOptions extends Required<CommonOptions> { }
+export interface WebOptions extends Required<CommonOptions> {
+  // Verification options
+  ignoreRemoteAvailability: boolean;
+}
 
 /**
  * Defines specific options for Local inclusions within resolved configurations.
@@ -177,6 +200,9 @@ export interface LocalOptions extends Required<CommonOptions> {
   include: string[];
   exclude: string[];
   excludeByDefault: boolean;
+  // Verification options
+  ignoreLocalEmpty: boolean;
+  ignoreMissing: boolean;
 }
 
 /**
