@@ -206,7 +206,10 @@ async function verifyLocalInclusion(inclusion: LocalInclusion, options: VerifyOp
     // Check if directory is empty
     if (!options.ignoreLocalEmpty) {
       try {
-        const dirEntries = [...Deno.readDirSync(inclusion.localPath)];
+        const dirEntries = [];
+        for await (const entry of Deno.readDir(inclusion.localPath)) {
+          dirEntries.push(entry);
+        }
         if (dirEntries.length === 0) {
           result.isReady = false;
           result.issues.push("Directory is empty");
