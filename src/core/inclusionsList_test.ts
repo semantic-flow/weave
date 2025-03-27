@@ -19,7 +19,9 @@ const mockGitInclusion: GitInclusion = {
     excludeByDefault: false,
     autoPullBeforeBuild: true,
     autoPushBeforeBuild: false,
-    branch: "main"
+    branch: "main",
+    pullStrategy: "ff-only",
+    pushStrategy: "no-force"
   }
 };
 
