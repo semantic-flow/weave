@@ -47,35 +47,6 @@ export const buildCommand = new Command()
     // Execute build
     const result = await build(buildOptions);
     
-    // Display results
-    if (result.success) {
-      console.log(green(bold(`✓ Build completed successfully.`)));
-      console.log(`Files copied: ${result.filesCopied}`);
-      console.log(`Files skipped: ${result.filesSkipped}`);
-      console.log(`Files overwritten: ${result.filesOverwritten}`);
-    } else {
-      console.log(red(bold(`✗ Build failed.`)));
-      console.log(`Files copied: ${result.filesCopied}`);
-      console.log(`Files skipped: ${result.filesSkipped}`);
-      console.log(`Files overwritten: ${result.filesOverwritten}`);
-      
-      // Display errors
-      if (result.errors.length > 0) {
-        console.log(bold("\nErrors:"));
-        for (const error of result.errors) {
-          console.log(`  ${red("•")} ${error}`);
-        }
-      }
-    }
-    
-    // Display warnings
-    if (result.warnings.length > 0) {
-      console.log(bold("\nWarnings:"));
-      for (const warning of result.warnings) {
-        console.log(`  ${yellow("•")} ${warning}`);
-      }
-    }
-    
     // Display verification results if available
     if (result.verifyResult) {
       // Count inclusions by type
@@ -101,6 +72,35 @@ export const buildCommand = new Command()
       
       console.log(bold("\nRepository Preparation:"));
       console.log(`  ${successCount}/${totalCount} repositories prepared successfully`);
+    }
+    
+    // Display results
+    if (result.success) {
+      console.log(green(bold(`\n✓ Build completed successfully.`)));
+      console.log(`Files copied: ${result.filesCopied}`);
+      console.log(`Files skipped: ${result.filesSkipped}`);
+      console.log(`Files overwritten: ${result.filesOverwritten}`);
+    } else {
+      console.log(red(bold(`\n✗ Build failed.`)));
+      console.log(`Files copied: ${result.filesCopied}`);
+      console.log(`Files skipped: ${result.filesSkipped}`);
+      console.log(`Files overwritten: ${result.filesOverwritten}`);
+      
+      // Display errors
+      if (result.errors.length > 0) {
+        console.log(bold("\nErrors:"));
+        for (const error of result.errors) {
+          console.log(`  ${red("•")} ${error}`);
+        }
+      }
+    }
+    
+    // Display warnings
+    if (result.warnings.length > 0) {
+      console.log(bold("\nWarnings:"));
+      for (const warning of result.warnings) {
+        console.log(`  ${yellow("•")} ${warning}`);
+      }
     }
     
     // Exit with error code if build failed
