@@ -81,9 +81,12 @@ updated: "2024-12-12"
       cleaned prior to build
     - globalCopyStrategy: `overwrite` | `no-overwrite` | `skip` | `prompt`
   - --no-verify: Skip verification of inclusions before building
-  - --no-prepare: Skip preparation of repositories before building
-  - --pull-strategy: Pull strategy to use for git repositories (ff-only, rebase, merge)
-  - --push-strategy: Push strategy to use for git repositories (no-force, force-with-lease, force)
+  - --no-prepare: Skip preparation of repositories before building; this will
+    save some time doing networked git operations
+  - --pull-strategy: Pull strategy to use for git repositories (ff-only, rebase,
+    merge)
+  - --push-strategy: Push strategy to use for git repositories (no-force,
+    force-with-lease, force)
   - --dry-run: simulate copying of files without actually copying them
 - **weave watch**: detects changes in active inclusions and copies them to dest
   - doesn't itself build, only copies changed files that meet the inclusion

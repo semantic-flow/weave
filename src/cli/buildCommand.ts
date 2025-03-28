@@ -65,33 +65,23 @@ export const buildCommand = new Command()
       console.log(`  Local inclusions: ${localReadyCount}/${localCount} ready`);
     }
     
-    // Display repository preparation results if available
-    if (result.prepareResults && result.prepareResults.length > 0) {
-      const successCount = result.prepareResults.filter(r => r.success).length;
-      const totalCount = result.prepareResults.length;
-      
-      console.log(bold("\nRepository Preparation:"));
-      console.log(`  ${successCount}/${totalCount} repositories prepared successfully`);
-    }
-    
     // Display results
     if (result.success) {
       console.log(green(bold(`\n✓ Build completed successfully.`)));
-      console.log(`Files copied: ${result.filesCopied}`);
-      console.log(`Files skipped: ${result.filesSkipped}`);
-      console.log(`Files overwritten: ${result.filesOverwritten}`);
     } else {
       console.log(red(bold(`\n✗ Build failed.`)));
-      console.log(`Files copied: ${result.filesCopied}`);
-      console.log(`Files skipped: ${result.filesSkipped}`);
-      console.log(`Files overwritten: ${result.filesOverwritten}`);
-      
-      // Display errors
-      if (result.errors.length > 0) {
-        console.log(bold("\nErrors:"));
-        for (const error of result.errors) {
-          console.log(`  ${red("•")} ${error}`);
-        }
+    }
+
+    // Display file statistics (common to both success and failure)
+    console.log(`Files copied: ${result.filesCopied}`);
+    console.log(`Files skipped: ${result.filesSkipped}`);
+    console.log(`Files overwritten: ${result.filesOverwritten}`);
+
+    // Display errors only if build failed
+    if (!result.success && result.errors.length > 0) {
+      console.log(bold("\nErrors:"));
+      for (const error of result.errors) {
+        console.log(`  ${red("•")} ${error}`);
       }
     }
     
