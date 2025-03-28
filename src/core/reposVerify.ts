@@ -56,8 +56,8 @@ export async function reposVerify(options: VerifyOptions = {}): Promise<VerifyRe
         verifyResult.issues.push("Repository is missing");
         verifyResult.suggestions.push("Run 'weave repos checkout' to initialize the repository");
         
-        // If repository is missing and we're not ignoring missing repos, mark as not ready
-        if (!options.ignoreMissing) {
+        // If repository is missing and we're not ignoring missing repos (both global and per-inclusion), mark as not ready
+        if (!options.ignoreMissing && !inclusion.options.ignoreMissing) {
           results.push(verifyResult);
           continue;
         }
@@ -67,7 +67,7 @@ export async function reposVerify(options: VerifyOptions = {}): Promise<VerifyRe
       await verifySyncStatus(inclusion, verifyResult, options);
       
       // Check sparse checkout settings
-      await verifySparseCheckout(inclusion, verifyResult);
+      await verifySparseCheckout(inclusion, verifyResult, options);
 
       // Update overall ready status based on issues
       verifyResult.isReady = verifyResult.issues.length === 0;
@@ -107,7 +107,7 @@ export async function reposVerify(options: VerifyOptions = {}): Promise<VerifyRe
 /**
  * Verifies the sync status of a repository
  */
-function verifySyncStatus(_inclusion: GitInclusion, result: VerifyResult, options: VerifyOptions): void {
+function verifySyncStatus(inclusion: GitInclusion, result: VerifyResult, options: VerifyOptions): void {
   // Skip if repository is missing
   if (!result.inclusion.present) {
     return;
@@ -116,7 +116,8 @@ function verifySyncStatus(_inclusion: GitInclusion, result: VerifyResult, option
   // Check sync status
   switch (result.inclusion.syncStatus) {
     case "behind":
-      if (!options.ignoreBehind) {
+      // Check both global and per-inclusion options
+      if (!options.ignoreBehind && !inclusion.options.ignoreBehind) {
         result.isReady = false;
         result.issues.push("Repository is behind remote");
         result.suggestions.push("Run 'weave repos pull' to update the repository");
@@ -124,7 +125,8 @@ function verifySyncStatus(_inclusion: GitInclusion, result: VerifyResult, option
       break;
     
     case "ahead":
-      if (!options.ignoreAhead) {
+      // Check both global and per-inclusion options
+      if (!options.ignoreAhead && !inclusion.options.ignoreAhead) {
         result.isReady = false;
         result.issues.push("Repository is ahead of remote");
         result.suggestions.push("Run 'weave repos push' to update the remote");
@@ -132,7 +134,8 @@ function verifySyncStatus(_inclusion: GitInclusion, result: VerifyResult, option
       break;
     
     case "conflicted":
-      if (!options.ignoreDivergent) {
+      // Check both global and per-inclusion options
+      if (!options.ignoreDivergent && !inclusion.options.ignoreDivergent) {
         result.isReady = false;
         result.issues.push("Repository has diverged from remote");
         result.suggestions.push("Run 'weave repos sync --pull-strategy=rebase' to synchronize");
@@ -140,7 +143,8 @@ function verifySyncStatus(_inclusion: GitInclusion, result: VerifyResult, option
       break;
     
     case "dirty":
-      if (!options.ignoreDirty) {
+      // Check both global and per-inclusion options
+      if (!options.ignoreDirty && !inclusion.options.ignoreDirty) {
         result.isReady = false;
         result.issues.push("Repository has uncommitted changes");
         result.suggestions.push("Run 'weave repos commit' to commit changes");
@@ -158,13 +162,17 @@ function verifySyncStatus(_inclusion: GitInclusion, result: VerifyResult, option
 /**
  * Verifies sparse checkout settings
  */
-async function verifySparseCheckout(inclusion: GitInclusion, result: VerifyResult): Promise<void> {
+async function verifySparseCheckout(inclusion: GitInclusion, result: VerifyResult, verifyOptions: VerifyOptions = {}): Promise<void> {
+  // Skip if ignoreCheckoutConsistency is true in the global options or inclusion options
+  if (verifyOptions.ignoreCheckoutConsistency || inclusion.options.ignoreCheckoutConsistency) {
+    return;
+  }
   // Skip if repository is missing
   if (!result.inclusion.present) {
     return;
   }
 
-  const { localPath, options } = inclusion;
+  const { localPath, options: inclusionOptions } = inclusion;
   const gitDir = join(localPath, ".git");
   
   try {
@@ -195,7 +203,7 @@ async function verifySparseCheckout(inclusion: GitInclusion, result: VerifyResul
       const currentRulesArray = currentRules.trim().split("\n").filter(rule => rule.trim() !== "");
       
       // Check if rules match configuration
-      const { include, excludeByDefault } = options;
+      const { include, excludeByDefault } = inclusionOptions;
       
       // Simple check: if excludeByDefault is true, there should be rules
       if (excludeByDefault && include.length === 0 && currentRulesArray.length === 0) {

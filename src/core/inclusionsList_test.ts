@@ -21,7 +21,14 @@ const mockGitInclusion: GitInclusion = {
     autoPushBeforeBuild: false,
     branch: "main",
     pullStrategy: "ff-only",
-    pushStrategy: "no-force"
+    pushStrategy: "no-force",
+    // Verification options
+    ignoreBehind: false,
+    ignoreAhead: false,
+    ignoreDivergent: false,
+    ignoreCheckoutConsistency: false,
+    ignoreMissing: false,
+    ignoreDirty: false
   }
 };
 
@@ -32,7 +39,9 @@ const mockWebInclusion: WebInclusion = {
   order: 20,
   options: {
     active: true,
-    copyStrategy: "no-overwrite"
+    copyStrategy: "no-overwrite",
+    // Verification options
+    ignoreRemoteAvailability: false
   }
 };
 
@@ -46,7 +55,10 @@ const mockLocalInclusion: LocalInclusion = {
     copyStrategy: "skip",
     include: ["docs"],
     exclude: ["private"],
-    excludeByDefault: true
+    excludeByDefault: true,
+    // Verification options
+    ignoreLocalEmpty: false,
+    ignoreMissing: false
   }
 };
 

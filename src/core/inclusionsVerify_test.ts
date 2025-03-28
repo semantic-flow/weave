@@ -47,6 +47,12 @@ function createTestGitInclusion(): GitInclusion {
       branch: "main",
       pullStrategy: "ff-only",
       pushStrategy: "no-force",
+      ignoreBehind: false,
+      ignoreAhead: false,
+      ignoreDivergent: false,
+      ignoreCheckoutConsistency: false,
+      ignoreMissing: false,
+      ignoreDirty: false,
     },
   } as GitInclusion;
 }
@@ -76,6 +82,8 @@ function createTestLocalInclusion(): LocalInclusion {
       include: [],
       exclude: [],
       excludeByDefault: false,
+      ignoreLocalEmpty: false,
+      ignoreMissing: false,
     },
   } as LocalInclusion;
 }
