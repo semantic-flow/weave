@@ -55,7 +55,7 @@ export interface FileCopyResult {
 export async function build(options: BuildOptions = {}): Promise<BuildResult> {
   const frame = Frame.getInstance();
   const { resolvedInclusions, config } = frame;
-  const { dest } = config.global;
+  const { dest, workspaceDir } = config.global;
 
   // Clear any previous file mappings
   frame.clearFileMappings();
@@ -72,22 +72,16 @@ export async function build(options: BuildOptions = {}): Promise<BuildResult> {
   };
 
   try {
-    // Verify inclusions if not disabled
-    if (options.verify !== false) {
-      log.info("Verifying inclusions before building...");
-      result.verifyResult = await inclusionsVerify(options);
-
-      if (!result.verifyResult.isReady) {
-        log.error("Inclusions verification failed. Use --no-verify to skip verification.");
-        result.success = false;
-        result.errors.push("Inclusions verification failed");
-        result.verifyResult.issues.forEach(issue => result.errors.push(issue));
-        return result;
-      }
-
-      log.info("Inclusions verification passed.");
-    } else {
-      log.info("Skipping inclusions verification.");
+    // Create workspace directory if it doesn't exist
+    try {
+      await ensureDir(workspaceDir);
+      log.debug(`Ensured workspace directory exists: ${workspaceDir}`);
+    } catch (error) {
+      const errorMessage = `Failed to create workspace directory: ${error instanceof Error ? error.message : "Unknown error"}`;
+      log.error(errorMessage);
+      result.errors.push(errorMessage);
+      result.success = false;
+      return result;
     }
 
     // Prepare repositories if not disabled
@@ -110,6 +104,24 @@ export async function build(options: BuildOptions = {}): Promise<BuildResult> {
       log.info("Repositories prepared successfully.");
     } else {
       log.info("Skipping repository preparation.");
+    }
+
+    // Verify inclusions if not disabled
+    if (options.verify !== false) {
+      log.info("Verifying inclusions after repository preparation...");
+      result.verifyResult = await inclusionsVerify(options);
+
+      if (!result.verifyResult.isReady) {
+        log.error("Inclusions verification failed. Use --no-verify to skip verification.");
+        result.success = false;
+        result.errors.push("Inclusions verification failed");
+        result.verifyResult.issues.forEach(issue => result.errors.push(issue));
+        return result;
+      }
+
+      log.info("Inclusions verification passed.");
+    } else {
+      log.info("Skipping inclusions verification.");
     }
 
     // Always show the destination directory message
