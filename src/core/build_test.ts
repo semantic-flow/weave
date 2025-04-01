@@ -2,7 +2,7 @@
 
 import { assertEquals, assertStringIncludes } from "../deps/assert.ts";
 import { GitInclusion, WeaveConfigInput, WebInclusion, LocalInclusion, RepoGitResult } from "../types.ts";
-import { BuildOptions, BuildResult } from "./build.ts";
+import { BuildOptions, BuildResult } from "./interfaces/build.ts";
 import { Frame } from "./Frame.ts";
 import { VerifyResult } from "./inclusionsVerify.ts";
 

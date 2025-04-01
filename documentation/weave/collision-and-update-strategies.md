@@ -8,37 +8,33 @@ Collision strategies determine how Weave handles situations where multiple inclu
 
 ### Available Collision Strategies
 
-- **fail**: Fail the build if any collisions are detected. This is the default strategy.
-- **first**: Use the file from the inclusion with the lowest order (first inclusion).
-- **last**: Use the file from the inclusion with the highest order (last inclusion).
-- **prompt**: Prompt the user to choose which file to use (not implemented in non-interactive mode).
+- **fail**: Fails the build if any collisions are detected. This is the default strategy.
+- **first**: Uses the file from the inclusion with the lowest order (first in the list).
+- **last**: Uses the file from the inclusion with the highest order (last in the list).
+- **prompt**: (Not yet implemented) Prompts the user to choose which file to use.
 
 ### Configuration
 
-You can set the collision strategy globally in your `weave.config.ts` file:
+Collision strategies can be configured at both the global and inclusion level:
 
 ```typescript
-export const weaveConfig: WeaveConfigInput = {
+// Global configuration
+const config: WeaveConfigInput = {
   global: {
-    globalCollisionStrategy: "fail", // Default strategy
-    // Other global settings...
+    globalCollisionStrategy: "fail", // Default
+    // ...
   },
-  // Inclusions...
+  // ...
 };
-```
 
-You can also override the global strategy for specific inclusions:
-
-```typescript
-{
-  name: "my-inclusion",
-  type: "git",
-  // Other inclusion properties...
+// Inclusion-level configuration
+const inclusion: GitInclusion = {
+  // ...
   options: {
-    collisionStrategy: "last", // Override for this inclusion
-    // Other options...
+    collisionStrategy: "first", // Overrides global strategy for this inclusion
+    // ...
   },
-}
+};
 ```
 
 ## Update Strategies
@@ -47,242 +43,70 @@ Update strategies determine how Weave handles situations where a file already ex
 
 ### Available Update Strategies
 
-- **never**: Never update existing files. This is the default strategy.
-- **always**: Always update existing files.
-- **if-newer**: Update only if the source file is newer than the destination file.
-- **if-different**: Update only if the source file content is different from the destination file.
-- **prompt**: Prompt the user to choose whether to update (not implemented in non-interactive mode).
+- **never**: Never updates existing files. This is the default strategy.
+- **always**: Always updates existing files, regardless of content or timestamp.
+- **if-different**: Updates the file only if the content is different.
+- **if-newer**: Updates the file only if the source file is newer than the destination file.
+- **prompt**: (Not yet implemented) Prompts the user to choose whether to update the file.
 
 ### Configuration
 
-You can set the update strategy globally in your `weave.config.ts` file:
+Update strategies can be configured at both the global and inclusion level:
 
 ```typescript
-export const weaveConfig: WeaveConfigInput = {
+// Global configuration
+const config: WeaveConfigInput = {
   global: {
-    globalUpdateStrategy: "never", // Default strategy
-    ignoreMissingTimestamps: false, // Whether to ignore missing timestamps when using if-newer
-    // Other global settings...
+    globalUpdateStrategy: "never", // Default
+    // ...
   },
-  // Inclusions...
+  // ...
 };
-```
 
-You can also override the global strategy for specific inclusions:
-
-```typescript
-{
-  name: "my-inclusion",
-  type: "git",
-  // Other inclusion properties...
+// Inclusion-level configuration
+const inclusion: GitInclusion = {
+  // ...
   options: {
-    updateStrategy: "if-different", // Override for this inclusion
-    ignoreMissingTimestamps: true, // Override for this inclusion
-    // Other options...
+    updateStrategy: "if-newer", // Overrides global strategy for this inclusion
+    // ...
   },
-}
+};
 ```
 
 ## Timestamp Handling
 
-When using the `if-newer` update strategy, Weave compares the timestamps of the source and destination files to determine if an update is needed. The timestamp source depends on the inclusion type:
+When using the `if-newer` update strategy, Weave compares timestamps between source and destination files. The timestamp source depends on the inclusion type:
 
 - **Git inclusions**: Uses the git commit timestamp if available, falls back to file modification time.
-- **Web inclusions**: Uses the HTTP Last-Modified header if available.
+- **Web inclusions**: Uses the HTTP Last-Modified header if available (not yet implemented).
 - **Local inclusions**: Uses the file modification time.
 
-If a timestamp is not available (e.g., for web inclusions), Weave will not update the file unless `ignoreMissingTimestamps` is set to `true`.
-
-## Relationship with Copy Strategy and Global Clean
-
-The collision and update strategies work alongside the existing copy strategy and global clean option:
-
-- **Global Clean**: When set to `true`, the destination directory is completely cleaned (removed and recreated) before building. This ensures a fresh start for each build.
-- **Copy strategy**: Determines whether to copy a file if it already exists in the destination.
-- **Collision strategy**: Determines which file to use when multiple inclusions would copy to the same destination.
-- **Update strategy**: Determines whether to update an existing file in the destination.
-
-The global clean is performed first (if enabled), then the copy strategy is checked, followed by the collision strategy, and finally the update strategy.
-
-### Global Clean Option
-
-The `globalClean` option in the configuration file determines whether the destination directory should be cleaned before building:
+If a timestamp cannot be determined (e.g., for web inclusions), Weave will by default fail the build. You can configure Weave to ignore missing timestamps:
 
 ```typescript
-export const weaveConfig: WeaveConfigInput = {
+// Global configuration
+const config: WeaveConfigInput = {
   global: {
-    globalClean: true, // Clean destination directory before building
-    // Other global settings...
+    ignoreMissingTimestamps: false, // Default
+    // ...
   },
-  // Inclusions...
+  // ...
 };
-```
 
-When `globalClean` is set to `true`, Weave will:
-1. Log a message indicating that the destination directory is being cleaned
-2. Remove the destination directory and all its contents
-3. Recreate the destination directory
-4. Proceed with the build process
-
-This is useful when you want to ensure that the destination directory only contains files from the current build, without any leftover files from previous builds.
-
-## Path Remapping
-
-When copying files from inclusions to the destination directory, you can use remappings to change the destination path of files. This is particularly useful when you want to:
-
-- Copy files from a subdirectory to the top level of the destination
-- Organize files from different inclusions into a specific directory structure
-- Rename files or directories during the copy process
-
-### Remapping Configuration
-
-Remappings are specified in the `remappings` array of an inclusion's options:
-
-```typescript
-{
-  name: "my-inclusion",
-  type: "git",
-  // Other inclusion properties...
+// Inclusion-level configuration
+const inclusion: GitInclusion = {
+  // ...
   options: {
-    // Other options...
-    remappings: [
-      {
-        source: "source-path/", // Source path or pattern
-        target: "target-path/" // Target path
-      }
-    ]
-  }
-}
-```
-
-### Common Remapping Scenarios
-
-#### Copying Files from a Subdirectory to the Top Level
-
-To copy files from a subdirectory to the top level of the destination, use an empty string as the target:
-
-```typescript
-remappings: [
-  {
-    source: "subdirectory/", // Source directory within the repository
-    target: "" // Target is empty string to copy to top level of destination
-  }
-]
-```
-
-#### Organizing Files into a Different Directory Structure
-
-To organize files into a different directory structure:
-
-```typescript
-remappings: [
-  {
-    source: "docs/", // Source directory
-    target: "documentation/" // Target directory
-  }
-]
-```
-
-#### Renaming Files or Directories
-
-To rename files or directories:
-
-```typescript
-remappings: [
-  {
-    source: "README.md", // Source file
-    target: "docs/index.md" // Target file with new name and location
-  }
-]
-```
-
-## Examples
-
-### Example 1: Conservative Approach
-
-```typescript
-export const weaveConfig: WeaveConfigInput = {
-  global: {
-    globalCopyStrategy: "no-overwrite",
-    globalCollisionStrategy: "fail",
-    globalUpdateStrategy: "never",
-    // Other global settings...
+    ignoreMissingTimestamps: true, // Overrides global setting for this inclusion
+    // ...
   },
-  // Inclusions...
 };
 ```
 
-This configuration will:
-- Never overwrite existing files
-- Fail the build if any collisions are detected
-- Never update existing files
+## Best Practices
 
-### Example 2: Aggressive Approach
-
-```typescript
-export const weaveConfig: WeaveConfigInput = {
-  global: {
-    globalCopyStrategy: "overwrite",
-    globalCollisionStrategy: "last",
-    globalUpdateStrategy: "always",
-    // Other global settings...
-  },
-  // Inclusions...
-};
-```
-
-This configuration will:
-- Always overwrite existing files
-- Use the file from the last inclusion in case of collisions
-- Always update existing files
-
-### Example 3: Smart Updates
-
-```typescript
-export const weaveConfig: WeaveConfigInput = {
-  global: {
-    globalCopyStrategy: "overwrite",
-    globalCollisionStrategy: "first",
-    globalUpdateStrategy: "if-different",
-    // Other global settings...
-  },
-  // Inclusions...
-};
-```
-
-This configuration will:
-- Overwrite existing files
-- Use the file from the first inclusion in case of collisions
-- Update files only if the content is different
-
-### Example 4: Using Remappings with Git Inclusion
-
-```typescript
-{
-  name: "template-repository",
-  type: "git",
-  url: "git@github.com:user/template-repo.git",
-  options: {
-    include: ["template", "assets"],
-    excludeByDefault: true,
-    collisionStrategy: "last",
-    updateStrategy: "if-newer",
-    remappings: [
-      {
-        source: "template/", // Source directory within the repository
-        target: "" // Copy to top level of destination
-      },
-      {
-        source: "assets/images/", // Source directory for images
-        target: "img/" // Copy to img directory in destination
-      }
-    ]
-  }
-}
-```
-
-This configuration will:
-- Copy files from the "template" directory to the top level of the destination
-- Copy files from the "assets/images" directory to the "img" directory in the destination
-- Use the "last" collision strategy if there are collisions
-- Update files only if the source is newer than the destination
+- Use `fail` collision strategy during development to catch unexpected collisions.
+- Use `first` or `last` collision strategy in production to ensure deterministic builds.
+- Use `if-different` update strategy to avoid unnecessary file updates.
+- Use `if-newer` update strategy when working with files that are frequently updated.
+- Set `ignoreMissingTimestamps` to `true` when using web inclusions with the `if-newer` update strategy.
