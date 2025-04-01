@@ -15,6 +15,16 @@ export async function reposCheckout(): Promise<RepoGitResult[]> {
   const results: RepoGitResult[] = [];
   const frame = Frame.getInstance();
   const inclusions = frame.resolvedInclusions;
+  const workspaceDir = frame.config.global.workspaceDir;
+
+  // Create workspace directory if it doesn't exist
+  try {
+    await ensureDir(workspaceDir);
+    log.debug(`Ensured workspace directory exists: ${workspaceDir}`);
+  } catch (error) {
+    handleCaughtError(error, `Failed to create workspace directory: ${workspaceDir}`);
+    throw new GitError(`Failed to create workspace directory: ${workspaceDir}`, "workspace directory creation");
+  }
 
 
   // Filter for only git inclusions
