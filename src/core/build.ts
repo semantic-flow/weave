@@ -112,6 +112,28 @@ export async function build(options: BuildOptions = {}): Promise<BuildResult> {
       log.info("Skipping repository preparation.");
     }
 
+    // Always show the destination directory message
+    log.info(`Destination directory: ${dest}`);
+    
+    // Clean destination directory if globalClean is true
+    if (config.global.globalClean) {
+      log.info(`Cleaning destination directory: ${dest}`);
+      try {
+        // Check if the directory exists before attempting to remove it
+        if (await exists(dest)) {
+          // Remove the directory and all its contents
+          await Deno.remove(dest, { recursive: true });
+          log.info(`Destination directory cleaned`);
+        }
+      } catch (error) {
+        const errorMessage = `Failed to clean destination directory: ${error instanceof Error ? error.message : "Unknown error"}`;
+        log.error(errorMessage);
+        result.errors.push(errorMessage);
+        result.success = false;
+        return result;
+      }
+    }
+
     // Ensure destination directory exists
     await ensureDir(dest);
 

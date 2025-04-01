@@ -93,15 +93,108 @@ When using the `if-newer` update strategy, Weave compares the timestamps of the 
 
 If a timestamp is not available (e.g., for web inclusions), Weave will not update the file unless `ignoreMissingTimestamps` is set to `true`.
 
-## Relationship with Copy Strategy
+## Relationship with Copy Strategy and Global Clean
 
-The collision and update strategies work alongside the existing copy strategy:
+The collision and update strategies work alongside the existing copy strategy and global clean option:
 
+- **Global Clean**: When set to `true`, the destination directory is completely cleaned (removed and recreated) before building. This ensures a fresh start for each build.
 - **Copy strategy**: Determines whether to copy a file if it already exists in the destination.
 - **Collision strategy**: Determines which file to use when multiple inclusions would copy to the same destination.
 - **Update strategy**: Determines whether to update an existing file in the destination.
 
-The copy strategy is checked first, then the collision strategy, and finally the update strategy.
+The global clean is performed first (if enabled), then the copy strategy is checked, followed by the collision strategy, and finally the update strategy.
+
+### Global Clean Option
+
+The `globalClean` option in the configuration file determines whether the destination directory should be cleaned before building:
+
+```typescript
+export const weaveConfig: WeaveConfigInput = {
+  global: {
+    globalClean: true, // Clean destination directory before building
+    // Other global settings...
+  },
+  // Inclusions...
+};
+```
+
+When `globalClean` is set to `true`, Weave will:
+1. Log a message indicating that the destination directory is being cleaned
+2. Remove the destination directory and all its contents
+3. Recreate the destination directory
+4. Proceed with the build process
+
+This is useful when you want to ensure that the destination directory only contains files from the current build, without any leftover files from previous builds.
+
+## Path Remapping
+
+When copying files from inclusions to the destination directory, you can use remappings to change the destination path of files. This is particularly useful when you want to:
+
+- Copy files from a subdirectory to the top level of the destination
+- Organize files from different inclusions into a specific directory structure
+- Rename files or directories during the copy process
+
+### Remapping Configuration
+
+Remappings are specified in the `remappings` array of an inclusion's options:
+
+```typescript
+{
+  name: "my-inclusion",
+  type: "git",
+  // Other inclusion properties...
+  options: {
+    // Other options...
+    remappings: [
+      {
+        source: "source-path/", // Source path or pattern
+        target: "target-path/" // Target path
+      }
+    ]
+  }
+}
+```
+
+### Common Remapping Scenarios
+
+#### Copying Files from a Subdirectory to the Top Level
+
+To copy files from a subdirectory to the top level of the destination, use an empty string as the target:
+
+```typescript
+remappings: [
+  {
+    source: "subdirectory/", // Source directory within the repository
+    target: "" // Target is empty string to copy to top level of destination
+  }
+]
+```
+
+#### Organizing Files into a Different Directory Structure
+
+To organize files into a different directory structure:
+
+```typescript
+remappings: [
+  {
+    source: "docs/", // Source directory
+    target: "documentation/" // Target directory
+  }
+]
+```
+
+#### Renaming Files or Directories
+
+To rename files or directories:
+
+```typescript
+remappings: [
+  {
+    source: "README.md", // Source file
+    target: "docs/index.md" // Target file with new name and location
+  }
+]
+```
 
 ## Examples
 
@@ -161,3 +254,35 @@ This configuration will:
 - Overwrite existing files
 - Use the file from the first inclusion in case of collisions
 - Update files only if the content is different
+
+### Example 4: Using Remappings with Git Inclusion
+
+```typescript
+{
+  name: "template-repository",
+  type: "git",
+  url: "git@github.com:user/template-repo.git",
+  options: {
+    include: ["template", "assets"],
+    excludeByDefault: true,
+    collisionStrategy: "last",
+    updateStrategy: "if-newer",
+    remappings: [
+      {
+        source: "template/", // Source directory within the repository
+        target: "" // Copy to top level of destination
+      },
+      {
+        source: "assets/images/", // Source directory for images
+        target: "img/" // Copy to img directory in destination
+      }
+    ]
+  }
+}
+```
+
+This configuration will:
+- Copy files from the "template" directory to the top level of the destination
+- Copy files from the "assets/images" directory to the "img" directory in the destination
+- Use the "last" collision strategy if there are collisions
+- Update files only if the source is newer than the destination

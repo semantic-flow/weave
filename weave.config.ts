@@ -16,13 +16,13 @@ export const weaveConfig: WeaveConfigInput = {
   },
   inclusions: [
     {
-      name: "lumenous-template with demo content",
+      name: "lumenous-template",
       type: "git",
       url: "git@github.com:djradon/lumenous-template.git",
       order: 10,
       options: {
         branch: "template", // Optional branch specified
-        include: ["demo", "lumenous-template"],
+        include: ["lumenous-template"],
         exclude: [],
         excludeByDefault: true,
         autoPullBeforeBuild: false,
@@ -31,6 +31,12 @@ export const weaveConfig: WeaveConfigInput = {
         collisionStrategy: "last", // Strategy for handling file collisions
         updateStrategy: "if-newer", // Strategy for handling file updates
         ignoreMissingTimestamps: true, // Whether to ignore missing timestamps
+        remappings: [
+          {
+            source: "lumenous-template/", // Source directory within the repository
+            target: "" // Target is empty string to copy to top level of destination
+          }
+        ]
       },
     },
     {
@@ -49,6 +55,12 @@ export const weaveConfig: WeaveConfigInput = {
         collisionStrategy: "first", // Strategy for handling file collisions
         updateStrategy: "always", // Strategy for handling file updates
         ignoreMissingTimestamps: true, // Whether to ignore missing timestamps
+        remappings: [
+          {
+            source: "documentation/weave/", // Source directory within the repository
+            target: "" // Target is empty string to copy to top level of destination
+          }
+        ]
       },
     },
     /* {
