@@ -44,7 +44,7 @@ export async function reposCheckout(): Promise<RepoGitResult[]> {
 
     try {
       // create the directory if it doesn't exist
-      ensureDir(workingDir);
+      await ensureDir(workingDir);
 
       if (!await exists(join(workingDir, ".git"))) {
         log.info(`Initializing working directory at ${workingDir}...`);
@@ -62,7 +62,23 @@ export async function reposCheckout(): Promise<RepoGitResult[]> {
       await ensureSparseCheckout(workingDir, sparseCheckoutRules);
 
       console.log(`Fetching branch '${branch}'...`);
-      await runGitCommand(workingDir, ["fetch", "--depth", "1", "origin", branch]);
+      // Fetch only the specific branch and update only that ref
+      await runGitCommand(workingDir, ["fetch", "--depth", "1", "origin", `${branch}:refs/remotes/origin/${branch}`]);
+
+      // Create a local branch that tracks the remote branch
+      console.log(`Creating local branch '${branch}' that tracks 'origin/${branch}'...`);
+      try {
+        // Check if the branch already exists
+        const branchExists = await runGitCommand(workingDir, ["branch", "--list", branch]);
+        
+        if (!branchExists.trim()) {
+          // Branch doesn't exist, create it
+          await runGitCommand(workingDir, ["branch", "--track", branch, `origin/${branch}`]);
+        }
+      } catch (error) {
+        log.warn(`Could not create tracking branch: ${error instanceof Error ? error.message : "Unknown error"}`);
+        // Continue anyway, as checkout might still work
+      }
 
       // Check if the repository is already on the correct branch
       let currentBranch = "";
