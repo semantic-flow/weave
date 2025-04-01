@@ -53,6 +53,7 @@ function createTestGitInclusion(): GitInclusion {
       ignoreCheckoutConsistency: false,
       ignoreMissing: false,
       ignoreDirty: false,
+      remappings: [],
     },
   } as GitInclusion;
 }

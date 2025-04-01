@@ -1,11 +1,12 @@
 import { Frame } from "../core/Frame.ts";
 import { handleCaughtError } from "../core/utils/handleCaughtError.ts";
-import { GitInclusion, WebInclusion, LocalInclusion, CopyStrategy, RepoGitResult } from "../types.ts";
+import { GitInclusion, WebInclusion, LocalInclusion, CopyStrategy, RepoGitResult, ResolvedInclusion } from "../types.ts";
 import { log } from "../core/utils/logging.ts";
 import { join, relative, dirname } from "../deps/path.ts";
 import { exists, ensureDir } from "../deps/fs.ts";
 import { inclusionsVerify, VerifyOptions as InclusionsVerifyOptions, VerifyResult as InclusionsVerifyResult } from "./inclusionsVerify.ts";
 import { reposPrepare } from "./reposPrepare.ts";
+import { applyRemappings } from "./utils/applyRemappings.ts";
 
 export interface BuildOptions extends InclusionsVerifyOptions {
   verify?: boolean;
@@ -23,6 +24,7 @@ export interface BuildResult {
   filesOverwritten: number;
   errors: string[];
   warnings: string[];
+  collisions?: Map<string, { sourcePath: string; inclusion: ResolvedInclusion }[]>;
 }
 
 export interface FileCopyResult {
@@ -43,6 +45,9 @@ export async function build(options: BuildOptions = {}): Promise<BuildResult> {
   const frame = Frame.getInstance();
   const { resolvedInclusions, config } = frame;
   const { dest } = config.global;
+  
+  // Clear any previous file mappings
+  frame.clearFileMappings();
   
   // Initialize result
   const result: BuildResult = {
@@ -112,24 +117,45 @@ export async function build(options: BuildOptions = {}): Promise<BuildResult> {
       log.info(`Processing inclusion: ${inclusion.name || "unnamed"} (${inclusion.type})`);
       
       try {
-        // Process inclusion based on type
-        switch (inclusion.type) {
-          case "git":
-            await processGitInclusion(inclusion as GitInclusion, dest, result, config.global.globalCopyStrategy);
-            break;
-          
-          case "web":
-            await processWebInclusion(inclusion as WebInclusion, dest, result, config.global.globalCopyStrategy);
-            break;
-          
-          case "local":
-            await processLocalInclusion(inclusion as LocalInclusion, dest, result, config.global.globalCopyStrategy);
-            break;
-        }
+      // Process inclusion based on type
+      switch (inclusion.type) {
+        case "git":
+          await processGitInclusion(inclusion as GitInclusion, dest, result, config.global.globalCopyStrategy);
+          break;
+        
+        case "web":
+          await processWebInclusion(inclusion as WebInclusion, dest, result, config.global.globalCopyStrategy);
+          break;
+        
+        case "local":
+          await processLocalInclusion(inclusion as LocalInclusion, dest, result, config.global.globalCopyStrategy);
+          break;
+      }
       } catch (error) {
         handleCaughtError(error, `Failed to process inclusion: ${inclusion.name || "unnamed"}`);
         result.success = false;
         result.errors.push(`Failed to process inclusion ${inclusion.name || "unnamed"}: ${error instanceof Error ? error.message : "Unknown error"}`);
+      }
+    }
+    
+    // Check for collisions if using no-overwrite strategy
+    if (config.global.globalCopyStrategy === "no-overwrite") {
+      const collisions = frame.getCollisions();
+      
+      if (collisions.size > 0) {
+        log.error(`Detected ${collisions.size} file collisions with "no-overwrite" strategy.`);
+        result.success = false;
+        result.collisions = collisions;
+        
+        for (const [destPath, mappings] of collisions.entries()) {
+          const sourcesList = mappings.map(m => 
+            `${m.sourcePath} (from ${m.inclusion.name || m.inclusion.type})`
+          ).join(", ");
+          
+          const errorMessage = `Collision detected: Multiple sources would be copied to ${destPath}: ${sourcesList}`;
+          result.errors.push(errorMessage);
+          log.error(errorMessage);
+        }
       }
     }
     
@@ -189,7 +215,7 @@ async function processGitInclusion(inclusion: GitInclusion, destDir: string, res
   const copyStrategy = options.copyStrategy || globalCopyStrategy;
   
   // Copy files from repository to destination
-  await copyFiles(localPath, destDir, options.include, options.exclude, options.excludeByDefault, copyStrategy, result);
+  await copyFiles(localPath, destDir, options.include, options.exclude, options.excludeByDefault, copyStrategy, inclusion, result);
 }
 
 /**
@@ -217,7 +243,7 @@ async function processLocalInclusion(inclusion: LocalInclusion, destDir: string,
   const copyStrategy = options.copyStrategy || globalCopyStrategy;
   
   // Copy files from local directory to destination
-  await copyFiles(localPath, destDir, options.include, options.exclude, options.excludeByDefault, copyStrategy, result);
+  await copyFiles(localPath, destDir, options.include, options.exclude, options.excludeByDefault, copyStrategy, inclusion, result);
 }
 
 /**
@@ -230,6 +256,7 @@ async function copyFiles(
   excludePatterns: string[],
   excludeByDefault: boolean,
   copyStrategy: CopyStrategy,
+  inclusion: ResolvedInclusion,
   result: BuildResult
 ): Promise<void> {
   // Get all files in the source directory
@@ -269,10 +296,23 @@ async function copyFiles(
   
   await walkDir(sourceDir);
   
+  const frame = Frame.getInstance();
+  
   // Copy each file
   for (const file of files) {
     const sourcePath = join(sourceDir, file);
-    const destPath = join(destDir, file);
+    
+    // Apply remappings to the relative path
+    let remappedRelativePath = file;
+    if (inclusion.options.remappings && inclusion.options.remappings.length > 0) {
+      remappedRelativePath = applyRemappings(file, inclusion.options.remappings);
+      log.debug(`Applied remapping: ${file} -> ${remappedRelativePath}`);
+    }
+    
+    const destPath = join(destDir, remappedRelativePath);
+    
+    // Register this file mapping in the Frame
+    frame.registerFileMapping(sourcePath, destPath, inclusion);
     
     try {
       // Create destination directory if it doesn't exist

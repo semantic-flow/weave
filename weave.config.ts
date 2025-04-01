@@ -24,7 +24,7 @@ export const weaveConfig: WeaveConfigInput = {
         excludeByDefault: true,
         autoPullBeforeBuild: false,
         autoPushBeforeBuild: false,
-        copyStrategy: "overwrite",
+        copyStrategy: "no-overwrite",
       },
     },
     {
@@ -62,7 +62,7 @@ export const weaveConfig: WeaveConfigInput = {
         active: true,
         copyStrategy: "no-overwrite",
       },
-    },
+    },/*
     {
       type: "local",
       localPath: "documentation",
@@ -71,6 +71,6 @@ export const weaveConfig: WeaveConfigInput = {
         exclude: ["tests"],
         excludeByDefault: false,
       },
-    },
+    },*/
   ],
 };

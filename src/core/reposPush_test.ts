@@ -54,7 +54,8 @@ function createTestGitInclusion(pushStrategy: string = "no-force"): GitInclusion
       ignoreDivergent: false,
       ignoreCheckoutConsistency: false,
       ignoreMissing: false,
-      ignoreDirty: false
+      ignoreDirty: false,
+      remappings: []
     },
   };
 }

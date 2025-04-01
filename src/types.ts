@@ -61,11 +61,20 @@ export interface ResolvedGlobalOptions {
 // =============================
 
 /**
+ * Defines a remapping entry for file path transformations.
+ */
+export interface Remapping {
+  source: string;  // Source path or pattern
+  target: string;  // Target path or pattern
+}
+
+/**
  * Defines common properties across different inclusion options.
  */
 export interface CommonOptions {
   active?: boolean;
   copyStrategy?: CopyStrategy;
+  remappings?: Remapping[];
 }
 
 /**
@@ -183,6 +192,7 @@ export interface GitOptions extends Required<CommonOptions> {
   ignoreCheckoutConsistency: boolean;
   ignoreMissing: boolean;
   ignoreDirty: boolean;
+  remappings: Remapping[];
 }
 
 /**
@@ -191,6 +201,7 @@ export interface GitOptions extends Required<CommonOptions> {
 export interface WebOptions extends Required<CommonOptions> {
   // Verification options
   ignoreRemoteAvailability: boolean;
+  remappings: Remapping[];
 }
 
 /**
@@ -203,6 +214,7 @@ export interface LocalOptions extends Required<CommonOptions> {
   // Verification options
   ignoreLocalEmpty: boolean;
   ignoreMissing: boolean;
+  remappings: Remapping[];
 }
 
 /**

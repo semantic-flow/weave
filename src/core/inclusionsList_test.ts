@@ -28,7 +28,8 @@ const mockGitInclusion: GitInclusion = {
     ignoreDivergent: false,
     ignoreCheckoutConsistency: false,
     ignoreMissing: false,
-    ignoreDirty: false
+    ignoreDirty: false,
+    remappings: []
   }
 };
 
@@ -41,7 +42,8 @@ const mockWebInclusion: WebInclusion = {
     active: true,
     copyStrategy: "no-overwrite",
     // Verification options
-    ignoreRemoteAvailability: false
+    ignoreRemoteAvailability: false,
+    remappings: []
   }
 };
 
@@ -58,7 +60,8 @@ const mockLocalInclusion: LocalInclusion = {
     excludeByDefault: true,
     // Verification options
     ignoreLocalEmpty: false,
-    ignoreMissing: false
+    ignoreMissing: false,
+    remappings: []
   }
 };
 

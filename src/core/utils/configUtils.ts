@@ -264,6 +264,8 @@ async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string)
         ignoreCheckoutConsistency: options?.ignoreCheckoutConsistency ?? false,
         ignoreMissing: options?.ignoreMissing ?? false,
         ignoreDirty: options?.ignoreDirty ?? false,
+        // Remappings
+        remappings: options?.remappings ?? [],
       };
 
       return {
@@ -288,6 +290,8 @@ async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string)
         copyStrategy: options?.copyStrategy ?? "no-overwrite",
         // Verification options
         ignoreRemoteAvailability: options?.ignoreRemoteAvailability ?? false,
+        // Remappings
+        remappings: options?.remappings ?? [],
       };
 
       return {
@@ -317,6 +321,8 @@ async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string)
         // Verification options
         ignoreLocalEmpty: options?.ignoreLocalEmpty ?? false,
         ignoreMissing: options?.ignoreMissing ?? false,
+        // Remappings
+        remappings: options?.remappings ?? [],
       };
 
       return {

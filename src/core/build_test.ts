@@ -54,6 +54,7 @@ function createTestGitInclusion(): GitInclusion {
       ignoreCheckoutConsistency: false,
       ignoreMissing: false,
       ignoreDirty: false,
+      remappings: [],
     },
   } as GitInclusion;
 }
@@ -68,6 +69,7 @@ function createTestWebInclusion(): WebInclusion {
       active: true,
       copyStrategy: "no-overwrite",
       ignoreRemoteAvailability: false,
+      remappings: [],
     },
   } as WebInclusion;
 }
@@ -86,6 +88,7 @@ function createTestLocalInclusion(): LocalInclusion {
       excludeByDefault: false,
       ignoreLocalEmpty: false,
       ignoreMissing: false,
+      remappings: [],
     },
   } as LocalInclusion;
 }

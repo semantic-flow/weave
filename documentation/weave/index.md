@@ -65,11 +65,8 @@ updated: "2024-12-12"
 - **weave repos verify**: checks whether repos are ready for build (and
   eventually, whether a pull would produce any conflicts)
   - ensure sparse checkout settings are good
-
   - each git inclusion can have `ignore-behind`, `ignore-ahead`,
     `ignore-divergent`, and `ignore-checkout-consistency`
-- **weave remap**: transform directory names or filenames (to avoid collisions
-  or for renaming in general)
 - **weave collisions**: list any potential collisions to console or optionally
   to a file; optionally/eventually perform custom logic to avoid collisions
   - silent options
@@ -94,8 +91,7 @@ updated: "2024-12-12"
 - **weave start**: build and watch,
   - ?but only safely (i.e., repos all up-to-date, no collisions, build with
     prompt)
--
-  - **weave setup**: interactive prompt to create config file if none present,
+- **weave setup**: interactive prompt to create config file if none present,
     and add inclusions
 - **weave repos list**: lists configured repos including their "active" status
   and whether they're behind/ahead/diverged from their origin
@@ -114,8 +110,6 @@ updated: "2024-12-12"
   - ensure sparse checkout settings are good
   - each git inclusion can have `ignore-behind`, `ignore-ahead`,
     `ignore-divergent`, and `ignore-checkout-consistency`
-- **weave remap**: transform directory names or filenames (to avoid collisions
-  or for renaming in general)
 - **weave collisions**: list any potential collisions to console or optionally
   to a file; optionally/eventually perform custom logic to avoid collisions
   - silent options
@@ -133,17 +127,161 @@ updated: "2024-12-12"
 
 ## Copying strategies
 
-- `no-overwrite`: is the safe option where the copy will fail if a collision is
+- `no-overwrite`: is the safe option where the build  will fail if a collision is
   detected; it only really makes sense if clean is true
+- `prompt`: ask user what to do for each collision
 
-With a copying strategy of "overwrite", the order matters, so we should probably
-include a inclusions: order: key that takes an integer, and on build inclusion
-will be copied by ascending order. This prevents having to re-order inclusions
-just to change processing order.
+## Configuration File
 
-Copying strategy of prompt will ask user whwat to do
+The Weave configuration file (typically `weave.config.ts`) defines how your project is structured and how files are included, processed, and built. It uses TypeScript for type safety and better developer experience.
 
-- **Planned Features**:
+### Basic Structure
+
+```typescript
+// weave.config.ts
+import { WeaveConfigInput } from "./src/types.ts";
+
+export const weaveConfig: WeaveConfigInput = {
+  global: {
+    dest: "_woven",                  // Output directory
+    dryRun: false,                   // Simulate operations without making changes
+    globalClean: true,               // Clean destination before build
+    globalCopyStrategy: "no-overwrite", // Default copy strategy
+    watchConfig: false,              // Auto-reload on config changes
+    workspaceDir: "_source-repos",   // Directory for cloned repositories
+  },
+  inclusions: [
+    // Git repository inclusion
+    {
+      name: "Example Repository",
+      type: "git",
+      url: "git@github.com:user/repo.git",
+      order: 10,                     // Processing order (lower numbers first)
+      options: {
+        branch: "main",              // Branch to checkout
+        include: ["docs", "src"],    // Directories/files to include
+        exclude: ["src/tests"],      // Directories/files to exclude
+        excludeByDefault: true,      // Exclude everything not explicitly included
+        autoPullBeforeBuild: true,   // Pull before building
+        autoPushBeforeBuild: false,  // Push before building
+        copyStrategy: "overwrite",   // Override global copy strategy
+        remappings: [                // Path remappings
+          {
+            source: "docs/",         // Source path or pattern
+            target: "documentation/" // Target path
+          }
+        ]
+      }
+    },
+    
+    // Web resource inclusion
+    {
+      type: "web",
+      url: "https://raw.githubusercontent.com/user/repo/main/README.md",
+      order: 20,
+      options: {
+        active: true,
+        copyStrategy: "no-overwrite"
+      }
+    },
+    
+    // Local directory inclusion
+    {
+      type: "local",
+      localPath: "local-content",
+      order: 30,
+      options: {
+        active: true,
+        include: ["**/*.md"],
+        exclude: ["drafts/"],
+        excludeByDefault: false,
+        remappings: [
+          {
+            source: "blog/*.md",
+            target: "posts/$1"       // $1 refers to the wildcard match
+          }
+        ]
+      }
+    }
+  ]
+};
+```
+
+### Global Options
+
+The `global` section defines project-wide settings:
+
+- `dest`: Output directory for the woven content
+- `dryRun`: When true, simulates operations without making changes
+- `globalClean`: When true, cleans the destination directory before building
+- `globalCopyStrategy`: Default strategy for handling file conflicts
+- `watchConfig`: When true, automatically reloads when config changes
+- `workspaceDir`: Directory where git repositories are stored
+
+### Inclusions
+
+The `inclusions` array defines content sources. Each inclusion has:
+
+- `type`: Source type (`git`, `web`, or `local`)
+- `name`: Optional human-readable name
+- `order`: Processing priority (lower numbers processed first)
+- Type-specific properties:
+  - Git: `url` and `localPath` (optional)
+  - Web: `url`
+  - Local: `localPath`
+- `options`: Inclusion-specific settings
+
+### Inclusion Options
+
+Common options for all inclusion types:
+
+- `active`: When true, the inclusion is processed (default: true)
+- `copyStrategy`: How to handle file conflicts, overrides global setting
+- `remappings`: Array of path transformations to apply during copying
+
+#### Remappings
+
+Remappings allow you to change the destination path of files during the build process. Each remapping has:
+
+- `source`: Source path or pattern (supports wildcards)
+- `target`: Target path (can reference captured wildcards with $1, $2, etc.)
+
+Examples:
+
+```typescript
+// Simple directory rename
+{ source: "docs/", target: "documentation/" }
+
+// File extension change
+{ source: "*.txt", target: "*.md" }
+
+// Complex pattern with wildcards
+{ source: "content/*/index.md", target: "pages/$1.md" }
+```
+
+#### Git-specific Options
+
+- `branch`: Branch to checkout
+- `include`/`exclude`: Arrays of paths to include/exclude
+- `excludeByDefault`: When true, only explicitly included paths are processed
+- `autoPullBeforeBuild`: When true, pulls changes before building
+- `autoPushBeforeBuild`: When true, pushes changes before building
+- `pullStrategy`/`pushStrategy`: Strategies for git operations
+- Various `ignore*` options to control verification behavior
+
+#### Web-specific Options
+
+- `ignoreRemoteAvailability`: When true, ignores availability check failures
+
+#### Local-specific Options
+
+- `include`/`exclude`: Arrays of paths to include/exclude
+- `excludeByDefault`: When true, only explicitly included paths are processed
+- `ignoreLocalEmpty`/`ignoreMissing`: Control verification behavior
+
+
+## Planned Features
+
   - Dynamic configuration reloading during runtime.
   - Modular utilities for syncing, monitoring, and collision resolution.
   - A future interactive mode for real-time adjustments and task prioritization.
