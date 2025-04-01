@@ -14,6 +14,9 @@ const mockGitInclusion: GitInclusion = {
   options: {
     active: true,
     copyStrategy: "overwrite",
+    collisionStrategy: "fail",
+    updateStrategy: "never",
+    ignoreMissingTimestamps: false,
     include: ["src"],
     exclude: ["tests"],
     excludeByDefault: false,
@@ -41,6 +44,9 @@ const mockWebInclusion: WebInclusion = {
   options: {
     active: true,
     copyStrategy: "no-overwrite",
+    collisionStrategy: "fail",
+    updateStrategy: "never",
+    ignoreMissingTimestamps: false,
     // Verification options
     ignoreRemoteAvailability: false,
     remappings: []
@@ -55,6 +61,9 @@ const mockLocalInclusion: LocalInclusion = {
   options: {
     active: true,
     copyStrategy: "skip",
+    collisionStrategy: "fail",
+    updateStrategy: "never",
+    ignoreMissingTimestamps: false,
     include: ["docs"],
     exclude: ["private"],
     excludeByDefault: true,

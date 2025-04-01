@@ -11,6 +11,7 @@ const _mockBuildResult: BuildResult = {
   filesCopied: 10,
   filesSkipped: 2,
   filesOverwritten: 1,
+  filesUpdated: 3,
   errors: [],
   warnings: [],
   prepareResults: [

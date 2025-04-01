@@ -18,6 +18,9 @@ function setupTest() {
       workspaceDir: "/test/workspace",
       globalClean: false,
       globalCopyStrategy: "no-overwrite",
+      globalCollisionStrategy: "fail",
+      globalUpdateStrategy: "never",
+      ignoreMissingTimestamps: false,
       dryRun: false,
       watchConfig: false,
       debug: "INFO",
@@ -40,6 +43,9 @@ function createTestGitInclusion(): GitInclusion {
     options: {
       active: true,
       copyStrategy: "no-overwrite",
+      collisionStrategy: "fail",
+      updateStrategy: "never",
+      ignoreMissingTimestamps: false,
       include: [],
       exclude: [],
       excludeByDefault: false,
@@ -68,6 +74,9 @@ function createTestWebInclusion(): WebInclusion {
     options: {
       active: true,
       copyStrategy: "no-overwrite",
+      collisionStrategy: "fail",
+      updateStrategy: "never",
+      ignoreMissingTimestamps: false,
       ignoreRemoteAvailability: false,
       remappings: [],
     },
@@ -83,6 +92,9 @@ function createTestLocalInclusion(): LocalInclusion {
     options: {
       active: true,
       copyStrategy: "no-overwrite",
+      collisionStrategy: "fail",
+      updateStrategy: "never",
+      ignoreMissingTimestamps: false,
       include: [],
       exclude: [],
       excludeByDefault: false,
@@ -123,6 +135,7 @@ function mockBuild(options: {
   filesCopied?: number;
   filesSkipped?: number;
   filesOverwritten?: number;
+  filesUpdated?: number;
   errors?: string[];
   warnings?: string[];
   gitExists?: boolean;
@@ -135,6 +148,7 @@ function mockBuild(options: {
     filesCopied = 10,
     filesSkipped = 2,
     filesOverwritten = 1,
+    filesUpdated = 3,
     errors = [],
     warnings = [],
     gitExists = true,
@@ -155,6 +169,7 @@ function mockBuild(options: {
         filesCopied,
         filesSkipped,
         filesOverwritten,
+        filesUpdated,
         errors: [...errors],
         warnings: [...warnings],
       };
@@ -563,6 +578,7 @@ Deno.test("build respects pull and push strategy options", async () => {
       filesCopied: 0,
       filesSkipped: 0,
       filesOverwritten: 0,
+      filesUpdated: 0,
       errors: [],
       warnings: [],
     });
@@ -601,6 +617,7 @@ Deno.test("build respects verification ignore options", async () => {
       filesCopied: 0,
       filesSkipped: 0,
       filesOverwritten: 0,
+      filesUpdated: 0,
       errors: [],
       warnings: [],
     });

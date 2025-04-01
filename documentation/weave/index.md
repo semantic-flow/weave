@@ -125,10 +125,18 @@ updated: "2024-12-12"
   - ?but only safely (i.e., repos all up-to-date, no collisions, build with
     prompt)
 
-## Copying strategies
+## File Handling Strategies
 
-- `no-overwrite`: is the safe option where the build  will fail if a collision is
+Weave provides several strategies for handling files during the build process:
+
+- [Collision and Update Strategies](./collision-and-update-strategies.md): Detailed documentation on how to handle file collisions and updates.
+
+### Copy Strategies
+
+- `no-overwrite`: is the safe option where the build will fail if a collision is
   detected; it only really makes sense if clean is true
+- `overwrite`: always overwrite existing files
+- `skip`: skip copying if the file already exists
 - `prompt`: ask user what to do for each collision
 
 ## Configuration File
@@ -147,6 +155,9 @@ export const weaveConfig: WeaveConfigInput = {
     dryRun: false,                   // Simulate operations without making changes
     globalClean: true,               // Clean destination before build
     globalCopyStrategy: "no-overwrite", // Default copy strategy
+    globalCollisionStrategy: "fail",    // Default collision strategy
+    globalUpdateStrategy: "never",      // Default update strategy
+    ignoreMissingTimestamps: false,     // Whether to ignore missing timestamps
     watchConfig: false,              // Auto-reload on config changes
     workspaceDir: "_source-repos",   // Directory for cloned repositories
   },
@@ -215,6 +226,9 @@ The `global` section defines project-wide settings:
 - `dryRun`: When true, simulates operations without making changes
 - `globalClean`: When true, cleans the destination directory before building
 - `globalCopyStrategy`: Default strategy for handling file conflicts
+- `globalCollisionStrategy`: Default strategy for handling file collisions
+- `globalUpdateStrategy`: Default strategy for handling file updates
+- `ignoreMissingTimestamps`: When true, ignores missing timestamps when using if-newer update strategy
 - `watchConfig`: When true, automatically reloads when config changes
 - `workspaceDir`: Directory where git repositories are stored
 
@@ -237,6 +251,9 @@ Common options for all inclusion types:
 
 - `active`: When true, the inclusion is processed (default: true)
 - `copyStrategy`: How to handle file conflicts, overrides global setting
+- `collisionStrategy`: How to handle file collisions, overrides global setting
+- `updateStrategy`: How to handle file updates, overrides global setting
+- `ignoreMissingTimestamps`: Whether to ignore missing timestamps, overrides global setting
 - `remappings`: Array of path transformations to apply during copying
 
 #### Remappings

@@ -8,6 +8,9 @@ export const weaveConfig: WeaveConfigInput = {
     dryRun: false,
     globalClean: true,
     globalCopyStrategy: "no-overwrite",
+    globalCollisionStrategy: "first", // Strategy for handling file collisions: fail, first, last, prompt
+    globalUpdateStrategy: "if-different", // Strategy for handling file updates: never, always, if-newer, if-different, prompt
+    ignoreMissingTimestamps: true, // Whether to ignore missing timestamps when using if-newer update strategy
     watchConfig: false,
     workspaceDir: "_source-repos", // Directory for cloned repositories
   },
@@ -25,6 +28,9 @@ export const weaveConfig: WeaveConfigInput = {
         autoPullBeforeBuild: false,
         autoPushBeforeBuild: false,
         copyStrategy: "no-overwrite",
+        collisionStrategy: "last", // Strategy for handling file collisions
+        updateStrategy: "if-newer", // Strategy for handling file updates
+        ignoreMissingTimestamps: true, // Whether to ignore missing timestamps
       },
     },
     {
@@ -40,6 +46,9 @@ export const weaveConfig: WeaveConfigInput = {
         autoPullBeforeBuild: true,
         autoPushBeforeBuild: false,
         copyStrategy: "overwrite",
+        collisionStrategy: "first", // Strategy for handling file collisions
+        updateStrategy: "always", // Strategy for handling file updates
+        ignoreMissingTimestamps: true, // Whether to ignore missing timestamps
       },
     },
     /* {
@@ -61,6 +70,9 @@ export const weaveConfig: WeaveConfigInput = {
       options: {
         active: true,
         copyStrategy: "no-overwrite",
+        collisionStrategy: "first", // Strategy for handling file collisions
+        updateStrategy: "if-different", // Strategy for handling file updates
+        ignoreMissingTimestamps: true, // Whether to ignore missing timestamps
       },
     },/*
     {
