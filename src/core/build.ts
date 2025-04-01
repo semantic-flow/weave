@@ -277,10 +277,18 @@ async function processGitInclusion(inclusion: GitInclusion, destDir: string, res
     log.error(`Error listing files in ${localPath}: ${error instanceof Error ? error.message : "Unknown error"}`);
   }
 
-  // Skip if repository doesn't exist
+  // Create repository directory if it doesn't exist
   if (!await exists(localPath)) {
-    result.errors.push(`Repository directory does not exist: ${localPath}`);
-    return;
+    log.info(`Repository directory does not exist: ${localPath}. Creating it...`);
+    try {
+      await ensureDir(localPath);
+      log.info(`Created repository directory: ${localPath}`);
+    } catch (error) {
+      const errorMessage = `Failed to create repository directory ${localPath}: ${error instanceof Error ? error.message : "Unknown error"}`;
+      result.errors.push(errorMessage);
+      log.error(errorMessage);
+      return;
+    }
   }
 
   // Use inclusion's strategies or fall back to global

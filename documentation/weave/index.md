@@ -302,10 +302,7 @@ Examples:
   - Dynamic configuration reloading during runtime.
   - Modular utilities for syncing, monitoring, and collision resolution.
   - A future interactive mode for real-time adjustments and task prioritization.
-  - Keeping a list of assets in the frame might be a good idea for detecting
-    potential filename collisions before the copying actually starts, for more
-    "atomic" weaving.
   - keep track of prompt copying strategy choices to automate ongoing conflicts
   - "ack" option for collisions, to suppress future warnings
-  - `weave combine` will take two "conflicting" files and merge them,
+  - combine two "conflicting" files and merge them,
     - useful for, say, composite navigation
