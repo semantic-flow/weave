@@ -13,7 +13,8 @@ const mockGitInclusion: GitInclusion = {
   localPath: "/test/path",
   options: {
     active: true,
-    copyStrategy: "overwrite",
+    collisionStrategy: "overwrite",
+      updateStrategy: "never",
     collisionStrategy: "fail",
     updateStrategy: "never",
     ignoreMissingTimestamps: false,
@@ -43,7 +44,8 @@ const mockWebInclusion: WebInclusion = {
   order: 20,
   options: {
     active: true,
-    copyStrategy: "no-overwrite",
+    collisionStrategy: "no-overwrite",
+      updateStrategy: "never",
     collisionStrategy: "fail",
     updateStrategy: "never",
     ignoreMissingTimestamps: false,
@@ -60,7 +62,8 @@ const mockLocalInclusion: LocalInclusion = {
   order: 5,
   options: {
     active: true,
-    copyStrategy: "skip",
+    collisionStrategy: "skip",
+      updateStrategy: "never",
     collisionStrategy: "fail",
     updateStrategy: "never",
     ignoreMissingTimestamps: false,
@@ -106,7 +109,7 @@ Deno.test("checkWebInclusion handles accessible URLs", async () => {
     assertEquals(result.active, mockWebInclusion.options.active);
     assertEquals(result.present, true);
     assertEquals(result.syncStatus, "current");
-    assertEquals(result.copyStrategy, mockWebInclusion.options.copyStrategy);
+    assertEquals(result.collisionStrategy, mockWebInclusion.options.collisionStrategy);
     assertEquals(result.type, "web");
   } finally {
     globalThis.fetch = originalFetch;

@@ -16,8 +16,7 @@ function setupTest() {
       dest: "_woven",
       workspaceDir: "/test/workspace",
       globalClean: false,
-      globalCopyStrategy: "no-overwrite",
-      globalCollisionStrategy: "fail",
+      globalCollisionStrategy: "no-overwrite",
       globalUpdateStrategy: "never",
       ignoreMissingTimestamps: false,
       dryRun: false,
@@ -41,7 +40,8 @@ function createTestGitInclusion(): GitInclusion {
     order: 1,
     options: {
       active: true,
-      copyStrategy: "no-overwrite",
+      collisionStrategy: "no-overwrite",
+      updateStrategy: "never",
       collisionStrategy: "fail",
       updateStrategy: "never",
       ignoreMissingTimestamps: false,
@@ -72,7 +72,8 @@ function createTestWebInclusion(): WebInclusion {
     order: 2,
     options: {
       active: true,
-      copyStrategy: "no-overwrite",
+      collisionStrategy: "no-overwrite",
+      updateStrategy: "never",
       collisionStrategy: "fail",
       updateStrategy: "never",
       ignoreMissingTimestamps: false,
@@ -90,7 +91,8 @@ function createTestLocalInclusion(): LocalInclusion {
     order: 3,
     options: {
       active: true,
-      copyStrategy: "no-overwrite",
+      collisionStrategy: "no-overwrite",
+      updateStrategy: "never",
       collisionStrategy: "fail",
       updateStrategy: "never",
       ignoreMissingTimestamps: false,
@@ -149,7 +151,7 @@ function mockInclusionsVerify(options: {
         active: inclusion.options.active,
         present: gitExists,
         syncStatus: gitStatus,
-        copyStrategy: inclusion.options.copyStrategy,
+        collisionStrategy: inclusion.options.collisionStrategy,
         include: inclusion.options.include,
         exclude: inclusion.options.exclude,
         excludeByDefault: inclusion.options.excludeByDefault,
@@ -217,7 +219,7 @@ function mockInclusionsVerify(options: {
           active: inclusion.options.active,
           present: true, // Web inclusions are always "present"
           syncStatus: "current" as SyncStatus, // Web inclusions don't have a sync status
-          copyStrategy: inclusion.options.copyStrategy,
+          collisionStrategy: inclusion.options.collisionStrategy,
           include: [], // Web inclusions don't have include/exclude
           exclude: [],
           excludeByDefault: false,
@@ -255,7 +257,7 @@ function mockInclusionsVerify(options: {
           active: inclusion.options.active,
           present: localExists,
           syncStatus: "current" as SyncStatus, // Local inclusions don't have a sync status
-          copyStrategy: inclusion.options.copyStrategy,
+          collisionStrategy: inclusion.options.collisionStrategy,
           include: inclusion.options.include,
           exclude: inclusion.options.exclude,
           excludeByDefault: inclusion.options.excludeByDefault,

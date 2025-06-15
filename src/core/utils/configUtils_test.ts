@@ -5,7 +5,7 @@ import {
   assertRejects,
 } from "@/deps/assert.ts";
 import { watchConfigFile } from "@/core/utils/configUtils.ts";
-import { Frame } from "@/Frame.ts";
+import { Frame } from "@/core/Frame.ts";
 import { WeaveConfigInput, InputGlobalOptions } from "@/types.ts";
 import { ConfigError } from "@/core/errors.ts";
 
@@ -36,7 +36,7 @@ Deno.test({
       global: {
         workspaceDir: "_initial_workspace",
         dest: "_woven",
-        globalCopyStrategy: "overwrite",
+        globalCollisionStrategy: "overwrite",
         globalClean: false,
         watchConfig: true,
         configFilePath: "./weave.config.json",
@@ -47,7 +47,7 @@ Deno.test({
     const commandOptions: InputGlobalOptions = {
       workspaceDir: "cli_workspace",
       dest: "_cli_dest",
-      globalCopyStrategy: "no-overwrite",
+      globalCollisionStrategy: "no-overwrite",
       globalClean: true,
       watchConfig: true,
       configFilePath: "./cli_weave.config.json",
@@ -113,7 +113,7 @@ Deno.test({
 
       assertEquals(updatedFrame.config.global.workspaceDir, "cli_workspace");
       assertEquals(updatedFrame.config.global.dest, "_cli_dest");
-      assertEquals(updatedFrame.config.global.globalCopyStrategy, "no-overwrite");
+      assertEquals(updatedFrame.config.global.globalCollisionStrategy, "no-overwrite");
       assertEquals(updatedFrame.config.global.globalClean, true);
       assertEquals(updatedFrame.config.global.watchConfig, true);
     } finally {
@@ -132,7 +132,7 @@ Deno.test("loadWeaveConfig throws error on missing inclusions", async () => {
         global: {
           workspaceDir: "_faulty_workspace",
           dest: "_faulty_dest",
-          globalCopyStrategy: "overwrite",
+          globalCollisionStrategy: "overwrite",
           globalClean: false,
         },
       });

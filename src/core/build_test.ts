@@ -17,7 +17,6 @@ function setupTest() {
       dest: "_woven",
       workspaceDir: "/test/workspace",
       globalClean: false,
-      globalCopyStrategy: "no-overwrite",
       globalCollisionStrategy: "fail",
       globalUpdateStrategy: "never",
       ignoreMissingTimestamps: false,
@@ -42,7 +41,6 @@ function createTestGitInclusion(): GitInclusion {
     order: 1,
     options: {
       active: true,
-      copyStrategy: "no-overwrite",
       collisionStrategy: "fail",
       updateStrategy: "never",
       ignoreMissingTimestamps: false,
@@ -73,7 +71,6 @@ function createTestWebInclusion(): WebInclusion {
     order: 2,
     options: {
       active: true,
-      copyStrategy: "no-overwrite",
       collisionStrategy: "fail",
       updateStrategy: "never",
       ignoreMissingTimestamps: false,
@@ -91,7 +88,6 @@ function createTestLocalInclusion(): LocalInclusion {
     order: 3,
     options: {
       active: true,
-      copyStrategy: "no-overwrite",
       collisionStrategy: "fail",
       updateStrategy: "never",
       ignoreMissingTimestamps: false,
