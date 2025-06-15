@@ -1,6 +1,6 @@
 ---
-title: Documentation
-description: How to make this site your own
+title: Introduction to Weave
+description: 
 created: "2024-11-21"
 updated: "2024-12-12"
 ---
@@ -9,6 +9,10 @@ updated: "2024-12-12"
   monitoring, and managing files from multiple inclusion sources.
 - It integrates file watching, repository handling, and dynamic workflows to
   empower static site generation.
+- for an example of how Weave can work, look at [Building Weave Docs](building-weave-docs)
+
+## Folder Structure
+
 - It's output is a folder (named "_woven" by default) that blends different
   sources (git repos, local folders, remote files) based on inclusion rules
 - "monitor" will watch local folders (including repo folders) detect changes in
