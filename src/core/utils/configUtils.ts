@@ -12,15 +12,12 @@ import {
   GitOptions,
   WebOptions,
   LocalOptions,
-  CopyStrategy,
   CollisionStrategy as _CollisionStrategy,
   UpdateStrategy as _UpdateStrategy,
-  validCopyStrategies,
   validCollisionStrategies,
   validUpdateStrategies,
   validPullStrategies,
   validPushStrategies,
-  copyStrategyMapping,
 } from "../../types.ts";
 import { join } from "../../deps/path.ts";
 import { loadWeaveConfig, getConfigFilePath, mergeConfigs } from "./configHelpers.ts";
@@ -39,7 +36,6 @@ const DEFAULT_GLOBAL: ResolvedGlobalOptions = {
   dest: "_woven",
   dryRun: false,
   globalClean: false,
-  globalCopyStrategy: "no-overwrite",
   globalCollisionStrategy: "fail",
   globalUpdateStrategy: "never",
   ignoreMissingTimestamps: false,
@@ -79,7 +75,6 @@ export async function processWeaveConfig(
       debug: Deno.env.get("WEAVE_DEBUG") || undefined,
       dest: Deno.env.get("WEAVE_DEST") || undefined,
       globalClean: Deno.env.get("WEAVE_CLEAN") !== undefined ? Deno.env.get("WEAVE_CLEAN") === "true" : undefined,
-      globalCopyStrategy: Deno.env.get("WEAVE_COPY_STRATEGY") || undefined,
       globalCollisionStrategy: Deno.env.get("WEAVE_COLLISION_STRATEGY") || undefined,
       globalUpdateStrategy: Deno.env.get("WEAVE_UPDATE_STRATEGY") || undefined,
       ignoreMissingTimestamps: Deno.env.get("WEAVE_IGNORE_MISSING_TIMESTAMPS") !== undefined ? Deno.env.get("WEAVE_IGNORE_MISSING_TIMESTAMPS") === "true" : undefined,
@@ -116,7 +111,6 @@ export async function processWeaveConfig(
 
   log.debug(`Default+ENV merged with config file: ${Deno.inspect(mergedConfig)}`);
 
-
   // Step 5: Merge command-line options
   const commandConfig: Partial<WeaveConfigInput> = {
     global: {
@@ -124,7 +118,6 @@ export async function processWeaveConfig(
       debug: commandOptions?.debug,
       dest: commandOptions?.dest,
       globalClean: commandOptions?.globalClean,
-      globalCopyStrategy: commandOptions?.globalCopyStrategy,
       globalCollisionStrategy: commandOptions?.globalCollisionStrategy,
       globalUpdateStrategy: commandOptions?.globalUpdateStrategy,
       ignoreMissingTimestamps: commandOptions?.ignoreMissingTimestamps,
@@ -137,18 +130,15 @@ export async function processWeaveConfig(
   log.debug(`Default+ENV+config file merged with CLI options: ${Deno.inspect(mergedConfig)}`);
 
   // Step 6: perform typesafety theater
-
   if (!mergedConfig.inclusions) {
     mergedConfig.inclusions = [];
   }
-
 
   // Step 7: Validate that all required global options are set
   const requiredGlobalOptions: (keyof ResolvedGlobalOptions)[] = [
     "configFilePath",
     "dest",
     "globalClean",
-    "globalCopyStrategy",
     "globalCollisionStrategy",
     "globalUpdateStrategy",
     "ignoreMissingTimestamps",
@@ -160,13 +150,6 @@ export async function processWeaveConfig(
     if (mergedConfig.global![option] === undefined) {
       throw new ConfigError(`Missing required global configuration option: ${option}`);
     }
-  }
-
-  // Validate 'copyStrategy' if it's provided
-  if (mergedConfig.global!.globalCopyStrategy !== undefined && !validCopyStrategies.includes(mergedConfig.global!.globalCopyStrategy)) {
-    throw new ConfigError(
-      `Invalid copy strategy: ${mergedConfig.global!.globalCopyStrategy}. Must be one of: ${validCopyStrategies.join(", ")}`
-    );
   }
 
   // Validate 'collisionStrategy' if it's provided
@@ -181,21 +164,6 @@ export async function processWeaveConfig(
     throw new ConfigError(
       `Invalid update strategy: ${mergedConfig.global!.globalUpdateStrategy}. Must be one of: ${validUpdateStrategies.join(", ")}`
     );
-  }
-
-  // If globalCopyStrategy is provided but globalCollisionStrategy or globalUpdateStrategy are not,
-  // derive them from the copyStrategy mapping
-  if (mergedConfig.global!.globalCopyStrategy && 
-      (!mergedConfig.global!.globalCollisionStrategy || !mergedConfig.global!.globalUpdateStrategy)) {
-    // Cast the string to CopyStrategy to ensure type safety
-    const copyStrategy = mergedConfig.global!.globalCopyStrategy as CopyStrategy;
-    const mapping = copyStrategyMapping[copyStrategy];
-    if (!mergedConfig.global!.globalCollisionStrategy) {
-      mergedConfig.global!.globalCollisionStrategy = mapping.collision;
-    }
-    if (!mergedConfig.global!.globalUpdateStrategy) {
-      mergedConfig.global!.globalUpdateStrategy = mapping.update;
-    }
   }
 
   // Step 8: Process inclusions
@@ -215,7 +183,6 @@ export async function processWeaveConfig(
   const frame = Frame.getInstance();
   log.debug(`Frame instance created with config: ${Deno.inspect(frame)}`);
 }
-
 
 async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string): Promise<ResolvedInclusion> {
   switch (inclusion.type) {
@@ -293,28 +260,10 @@ async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string)
         );
       }
 
-      // Determine collision and update strategies based on copy strategy if not explicitly provided
-      let collisionStrategy = options?.collisionStrategy;
-      let updateStrategy = options?.updateStrategy;
-      
-      if (!collisionStrategy || !updateStrategy) {
-        const copyStrategy = options?.copyStrategy ?? "no-overwrite";
-        const mapping = copyStrategyMapping[copyStrategy as CopyStrategy];
-        
-        if (!collisionStrategy) {
-          collisionStrategy = mapping.collision;
-        }
-        
-        if (!updateStrategy) {
-          updateStrategy = mapping.update;
-        }
-      }
-      
       const resolvedGitOptions: GitOptions = {
         active: options?.active ?? true,
-        copyStrategy: options?.copyStrategy ?? "no-overwrite",
-        collisionStrategy: collisionStrategy ?? "fail",
-        updateStrategy: updateStrategy ?? "never",
+        collisionStrategy: options?.collisionStrategy ?? "fail",
+        updateStrategy: options?.updateStrategy ?? "never",
         ignoreMissingTimestamps: options?.ignoreMissingTimestamps ?? false,
         include: options?.include ?? [],
         exclude: options?.exclude ?? [],
@@ -352,28 +301,10 @@ async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string)
         throw new ConfigError(`Web inclusion requires a 'url': ${JSON.stringify(inclusion)}`);
       }
 
-      // Determine collision and update strategies based on copy strategy if not explicitly provided
-      let collisionStrategy = options?.collisionStrategy;
-      let updateStrategy = options?.updateStrategy;
-      
-      if (!collisionStrategy || !updateStrategy) {
-        const copyStrategy = options?.copyStrategy ?? "no-overwrite";
-        const mapping = copyStrategyMapping[copyStrategy as CopyStrategy];
-        
-        if (!collisionStrategy) {
-          collisionStrategy = mapping.collision;
-        }
-        
-        if (!updateStrategy) {
-          updateStrategy = mapping.update;
-        }
-      }
-      
       const resolvedWebOptions: WebOptions = {
         active: options?.active ?? true, // default to true if not provided
-        copyStrategy: options?.copyStrategy ?? "no-overwrite",
-        collisionStrategy: collisionStrategy ?? "fail",
-        updateStrategy: updateStrategy ?? "never",
+        collisionStrategy: options?.collisionStrategy ?? "fail",
+        updateStrategy: options?.updateStrategy ?? "never",
         ignoreMissingTimestamps: options?.ignoreMissingTimestamps ?? false,
         // Verification options
         ignoreRemoteAvailability: options?.ignoreRemoteAvailability ?? false,
@@ -399,28 +330,10 @@ async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string)
 
       const workingDir = providedWorkingDir;
 
-      // Determine collision and update strategies based on copy strategy if not explicitly provided
-      let collisionStrategy = options?.collisionStrategy;
-      let updateStrategy = options?.updateStrategy;
-      
-      if (!collisionStrategy || !updateStrategy) {
-        const copyStrategy = options?.copyStrategy ?? "no-overwrite";
-        const mapping = copyStrategyMapping[copyStrategy as CopyStrategy];
-        
-        if (!collisionStrategy) {
-          collisionStrategy = mapping.collision;
-        }
-        
-        if (!updateStrategy) {
-          updateStrategy = mapping.update;
-        }
-      }
-      
       const resolvedLocalOptions: LocalOptions = {
         active: options?.active ?? true,
-        copyStrategy: options?.copyStrategy ?? "no-overwrite",
-        collisionStrategy: collisionStrategy ?? "fail",
-        updateStrategy: updateStrategy ?? "never",
+        collisionStrategy: options?.collisionStrategy ?? "fail",
+        updateStrategy: options?.updateStrategy ?? "never",
         ignoreMissingTimestamps: options?.ignoreMissingTimestamps ?? false,
         include: options?.include ?? [],
         exclude: options?.exclude ?? [],
@@ -440,7 +353,6 @@ async function resolveInclusion(inclusion: InputInclusion, workspaceDir: string)
         localPath: workingDir,
       };
     }
-
   }
 }
 

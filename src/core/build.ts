@@ -131,15 +131,15 @@ export async function build(options: BuildOptions = {}): Promise<BuildResult> {
         // Process inclusion based on type
         switch (inclusion.type) {
           case "git":
-            await processGitInclusion(inclusion as GitInclusion, dest, result, config.global.globalCopyStrategy);
+            await processGitInclusion(inclusion as GitInclusion, dest, result);
             break;
 
           case "web":
-            await processWebInclusion(inclusion as WebInclusion, dest, result, config.global.globalCopyStrategy);
+            await processWebInclusion(inclusion as WebInclusion, dest, result);
             break;
 
           case "local":
-            await processLocalInclusion(inclusion as LocalInclusion, dest, result, config.global.globalCopyStrategy);
+            await processLocalInclusion(inclusion as LocalInclusion, dest, result);
             break;
         }
       } catch (error) {
@@ -176,15 +176,15 @@ export async function build(options: BuildOptions = {}): Promise<BuildResult> {
             break;
           }
             
-          case "first": {
-            // Use the first inclusion (lowest order)
+          case "no-overwrite": {
+            // Use the first inclusion (lowest order) - don't overwrite
             log.info(`Using first inclusion for ${destPath}: ${mappings[0].sourcePath} (from ${mappings[0].inclusion.name || mappings[0].inclusion.type})`);
             // Other mappings will be ignored during copy
             break;
           }
             
-          case "last": {
-            // Use the last inclusion (highest order)
+          case "overwrite": {
+            // Use the last inclusion (highest order) - overwrite with latest
             log.info(`Using last inclusion for ${destPath}: ${mappings[mappings.length - 1].sourcePath} (from ${mappings[mappings.length - 1].inclusion.name || mappings[mappings.length - 1].inclusion.type})`);
             // Other mappings will be ignored during copy
             break;

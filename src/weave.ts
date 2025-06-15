@@ -1,7 +1,7 @@
 // src/cli.ts
 
 import { Command } from "./deps/cliffy.ts";
-import { InputGlobalOptions, CopyStrategy } from "./types.ts";
+import { InputGlobalOptions } from "./types.ts";
 import { handleConfigAction } from "./core/utils/configHelpers.ts";
 import { reposCommand } from "./cli/reposCommand.ts";
 import { inclusionsCommand } from "./cli/inclusionsCommand.ts";
@@ -31,10 +31,6 @@ const weave = new Command()
 
   .globalOption("--globalClean", "Clean the destination directory before build")
 
-  .globalOption(
-    "--globalCopyStrategy <strategy:string>",
-    "Copy strategy (no-overwrite, overwrite, skip, prompt)"
-  )
 
   .globalOption("--watchConfig", "Watch for changes in config files")
 
@@ -50,7 +46,6 @@ const weave = new Command()
       dest: options.dest as string | undefined,
       dryRun: options.dryRun as boolean | undefined,
       globalClean: options.globalClean as boolean | undefined, // TODO: validate in handleConfigAction
-      globalCopyStrategy: options.globalCopyStrategy as CopyStrategy | undefined,
       watchConfig: options.watchConfig as boolean | undefined, // TODO: validate in handleConfigAction
       workspaceDir: options.workspaceDir as string | undefined,
     };

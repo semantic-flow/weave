@@ -1,6 +1,6 @@
 import { log } from "../utils/logging.ts";
 import { Frame } from "../Frame.ts";
-import { GitInclusion, CopyStrategy } from "../../types.ts";
+import { GitInclusion } from "../../types.ts";
 import { exists, ensureDir } from "../../deps/fs.ts";
 import { BuildResult } from "../interfaces/build.ts";
 import { copyFiles } from "../utils/file/fileUtils.ts";
@@ -8,7 +8,7 @@ import { copyFiles } from "../utils/file/fileUtils.ts";
 /**
  * Processes a git inclusion by copying files from the repository to the destination directory.
  */
-export async function processGitInclusion(inclusion: GitInclusion, destDir: string, result: BuildResult, _globalCopyStrategy: CopyStrategy): Promise<void> {
+export async function processGitInclusion(inclusion: GitInclusion, destDir: string, result: BuildResult): Promise<void> {
   const { localPath, options, url, name } = inclusion;
   const frame = Frame.getInstance();
   const config = frame.config;

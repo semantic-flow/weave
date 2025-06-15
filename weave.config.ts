@@ -7,8 +7,7 @@ export const weaveConfig: WeaveConfigInput = {
     dest: "_woven", // Directory for woven output, relative to cwd or absolute
     dryRun: false,
     globalClean: true,
-    globalCopyStrategy: "no-overwrite",
-    globalCollisionStrategy: "first", // Strategy for handling file collisions: fail, first, last, prompt
+    globalCollisionStrategy: "no-overwrite", // Strategy for handling file collisions: fail, no-overwrite, overwrite, prompt
     globalUpdateStrategy: "if-different", // Strategy for handling file updates: never, always, if-newer, if-different, prompt
     ignoreMissingTimestamps: true, // Whether to ignore missing timestamps when using if-newer update strategy
     watchConfig: false,
@@ -27,8 +26,7 @@ export const weaveConfig: WeaveConfigInput = {
         excludeByDefault: true,
         autoPullBeforeBuild: false,
         autoPushBeforeBuild: false,
-        copyStrategy: "no-overwrite",
-        collisionStrategy: "last", // Strategy for handling file collisions
+        collisionStrategy: "overwrite", // Strategy for handling file collisions
         updateStrategy: "if-newer", // Strategy for handling file updates
         ignoreMissingTimestamps: true, // Whether to ignore missing timestamps
         remappings: [
@@ -51,8 +49,7 @@ export const weaveConfig: WeaveConfigInput = {
         excludeByDefault: true,
         autoPullBeforeBuild: true,
         autoPushBeforeBuild: false,
-        copyStrategy: "overwrite",
-        collisionStrategy: "first", // Strategy for handling file collisions
+        collisionStrategy: "no-overwrite", // Strategy for handling file collisions
         updateStrategy: "always", // Strategy for handling file updates
         ignoreMissingTimestamps: true, // Whether to ignore missing timestamps
         remappings: [
@@ -81,8 +78,7 @@ export const weaveConfig: WeaveConfigInput = {
       order: 20,
       options: {
         active: true,
-        copyStrategy: "no-overwrite",
-        collisionStrategy: "first", // Strategy for handling file collisions
+        collisionStrategy: "no-overwrite", // Strategy for handling file collisions
         updateStrategy: "if-different", // Strategy for handling file updates
         ignoreMissingTimestamps: true, // Whether to ignore missing timestamps
       },

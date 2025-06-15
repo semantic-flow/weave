@@ -9,29 +9,16 @@ export type { LevelName };
 // Copy Strategy Types
 // =============================
 
-/**
- * Defines the copy strategy using string literals.
- * @deprecated Use CollisionStrategy and UpdateStrategy instead for more granular control
- */
-export type CopyStrategy = "no-overwrite" | "overwrite" | "skip" | "prompt";
-
-
-export const validCopyStrategies: string[] = [
-  "no-overwrite",
-  "overwrite",
-  "skip",
-  "prompt",
-];
 
 /**
  * Defines the strategy for handling collisions (when multiple sources would be copied to the same destination).
  */
-export type CollisionStrategy = "fail" | "first" | "last" | "prompt";
+export type CollisionStrategy = "fail" | "no-overwrite" | "overwrite" | "prompt";
 
 export const validCollisionStrategies: string[] = [
   "fail",
-  "first",
-  "last",
+  "no-overwrite", 
+  "overwrite",
   "prompt",
 ];
 
@@ -48,16 +35,6 @@ export const validUpdateStrategies: string[] = [
   "prompt",
 ];
 
-/**
- * Maps legacy CopyStrategy values to the new CollisionStrategy and UpdateStrategy.
- * This helps maintain backward compatibility.
- */
-export const copyStrategyMapping: Record<CopyStrategy, { collision: CollisionStrategy; update: UpdateStrategy }> = {
-  "no-overwrite": { collision: "fail", update: "never" },
-  "overwrite": { collision: "last", update: "always" },
-  "skip": { collision: "first", update: "never" },
-  "prompt": { collision: "prompt", update: "prompt" },
-};
 
 // =============================
 // Global Configuration Types
@@ -73,7 +50,6 @@ export interface InputGlobalOptions {
   dryRun?: boolean;
   dest?: string;
   globalClean?: boolean;
-  globalCopyStrategy?: string; // Kept for backward compatibility
   globalCollisionStrategy?: string;
   globalUpdateStrategy?: string;
   ignoreMissingTimestamps?: boolean;
@@ -91,7 +67,6 @@ export interface ResolvedGlobalOptions {
   dest: string;
   dryRun: boolean;
   globalClean: boolean;
-  globalCopyStrategy: CopyStrategy; // Kept for backward compatibility
   globalCollisionStrategy: CollisionStrategy;
   globalUpdateStrategy: UpdateStrategy;
   ignoreMissingTimestamps: boolean; // Whether to ignore missing timestamps for if-newer strategy
@@ -116,7 +91,6 @@ export interface Remapping {
  */
 export interface CommonOptions {
   active?: boolean;
-  copyStrategy?: CopyStrategy; // Kept for backward compatibility
   collisionStrategy?: CollisionStrategy;
   updateStrategy?: UpdateStrategy;
   ignoreMissingTimestamps?: boolean;
@@ -357,7 +331,6 @@ export interface InclusionListItem {
   active: boolean;
   present: boolean;
   syncStatus: SyncStatus;
-  copyStrategy: CopyStrategy;
   include: string[],
   exclude: string[],
   excludeByDefault: boolean,

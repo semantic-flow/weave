@@ -9,9 +9,37 @@ Collision strategies determine how Weave handles situations where multiple inclu
 ### Available Collision Strategies
 
 - **fail**: Fails the build if any collisions are detected. This is the default strategy.
-- **first**: Uses the file from the inclusion with the lowest order (first in the list).
-- **last**: Uses the file from the inclusion with the highest order (last in the list).
+- **no-overwrite**: Uses the file from the inclusion that processes it first (lowest order number). Don't overwrite existing files.
+- **overwrite**: Uses the file from the inclusion that processes it last (highest order number). Always overwrite with the latest file.
 - **prompt**: (Not yet implemented) Prompts the user to choose which file to use.
+
+#### How Order and Collision Strategy Interact
+
+Inclusions are processed in order from lowest to highest order number. When a collision occurs:
+
+- **no-overwrite**: The file from the inclusion with the lower order number wins (first to claim the destination path)
+- **overwrite**: The file from the inclusion with the higher order number wins (overwrites any previous file)
+
+**Example:**
+```typescript
+inclusions: [
+  {
+    name: "template",
+    order: 10,
+    options: { collisionStrategy: "overwrite" }
+  },
+  {
+    name: "content", 
+    order: 20,
+    options: { collisionStrategy: "no-overwrite" }
+  }
+]
+```
+
+If both inclusions have an `index.md` file:
+- Template processes first (order 10) with "overwrite" strategy → places its file
+- Content processes second (order 20) with "no-overwrite" strategy → keeps template's file (doesn't overwrite)
+- Result: Template's `index.md` is used
 
 ### Configuration
 
@@ -31,7 +59,7 @@ const config: WeaveConfigInput = {
 const inclusion: GitInclusion = {
   // ...
   options: {
-    collisionStrategy: "first", // Overrides global strategy for this inclusion
+    collisionStrategy: "overwrite", // Overrides global strategy for this inclusion
     // ...
   },
 };
@@ -39,7 +67,7 @@ const inclusion: GitInclusion = {
 
 ## Update Strategies
 
-Update strategies determine how Weave handles situations where a file already exists in the destination directory.
+Update strategies determine how Weave handles situations where a file from the same inclusion source already exists in the destination directory. Update strategies only apply when the same inclusion tries to update its own previously placed file.
 
 ### Available Update Strategies
 
@@ -48,6 +76,13 @@ Update strategies determine how Weave handles situations where a file already ex
 - **if-different**: Updates the file only if the content is different.
 - **if-newer**: Updates the file only if the source file is newer than the destination file.
 - **prompt**: (Not yet implemented) Prompts the user to choose whether to update the file.
+
+### Important: Update vs Collision Strategies
+
+- **Update strategies** apply when the same inclusion wants to update its own file
+- **Collision strategies** apply when different inclusions want to place files at the same destination
+- If inclusion A places a file, then inclusion B wants to place a file at the same location, collision strategy determines the winner
+- If inclusion A runs again and wants to update its own previously placed file, update strategy applies
 
 ### Configuration
 
@@ -106,7 +141,7 @@ const inclusion: GitInclusion = {
 ## Best Practices
 
 - Use `fail` collision strategy during development to catch unexpected collisions.
-- Use `first` or `last` collision strategy in production to ensure deterministic builds.
+- Use `no-overwrite` or `overwrite` collision strategy in production to ensure deterministic builds.
 - Use `if-different` update strategy to avoid unnecessary file updates.
 - Use `if-newer` update strategy when working with files that are frequently updated.
 - Set `ignoreMissingTimestamps` to `true` when using web inclusions with the `if-newer` update strategy.
