@@ -1,9 +1,9 @@
-import { log } from "@/utils/logging.ts";
-import { Frame } from "@/Frame.ts";
+import { log } from "@/core/utils/logging.ts";
+import { Frame } from "@/core/Frame.ts";
 import { GitInclusion } from "@/types.ts";
 import { exists, ensureDir } from "@/deps/fs.ts";
-import { BuildResult } from "@/interfaces/build.ts";
-import { copyFiles } from "@/utils/file/fileUtils.ts";
+import { BuildResult } from "@/core/interfaces/build.ts";
+import { copyFiles } from "@/core/utils/file/fileUtils.ts";
 
 /**
  * Processes a git inclusion by copying files from the repository to the destination directory.

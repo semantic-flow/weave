@@ -1,5 +1,5 @@
 import { WebInclusion } from "@/types.ts";
-import { BuildResult } from "@/interfaces/build.ts";
+import { BuildResult } from "@/core/interfaces/build.ts";
 
 /**
  * Processes a web inclusion.

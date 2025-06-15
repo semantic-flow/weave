@@ -1,3 +1,3 @@
-export { processGitInclusion } from "@/core/gitInclusion.ts";
-export { processWebInclusion } from "@/core/webInclusion.ts";
-export { processLocalInclusion } from "@/core/localInclusion.ts";
+export { processGitInclusion } from "@/core/inclusions/gitInclusion.ts";
+export { processWebInclusion } from "@/core/inclusions/webInclusion.ts";
+export { processLocalInclusion } from "@/core/inclusions/localInclusion.ts";

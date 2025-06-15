@@ -1,13 +1,13 @@
-import { log } from "@/logging.ts";
-import { Frame } from "@/Frame.ts";
-import { ResolvedInclusion } from "@/../types.ts";
-import { join, relative, dirname } from "@/../deps/path.ts";
-import { exists, ensureDir } from "@/../deps/fs.ts";
-import { BuildResult } from "@/interfaces/build.ts";
-import { shouldIncludeFile } from "@/core/utils/patternUtils.ts";
-import { equalUint8Arrays, isSourceNewer } from "@/core/utils/compareUtils.ts";
-import { applyRemappings } from "@/applyRemappings.ts";
-import { CollisionStrategy, UpdateStrategy } from "@/../types.ts";
+import { log } from "@/core/utils/logging.ts";
+import { Frame } from "@/core/Frame.ts";
+import { ResolvedInclusion } from "@/types.ts";
+import { join, relative, dirname } from "@/deps/path.ts";
+import { exists, ensureDir } from "@/deps/fs.ts";
+import { BuildResult } from "@/core/interfaces/build.ts";
+import { shouldIncludeFile } from "@/core/utils/file/patternUtils.ts";
+import { equalUint8Arrays, isSourceNewer } from "@/core/utils/file/compareUtils.ts";
+import { applyRemappings } from "@/core/utils/applyRemappings.ts";
+import { CollisionStrategy, UpdateStrategy } from "@/types.ts";
 
 /**
  * Copies files from source to destination directory, respecting include/exclude patterns.
