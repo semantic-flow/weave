@@ -1,6 +1,6 @@
 // weave.config.ts
 
-import { WeaveConfigInput } from "./src/types.ts";
+import { WeaveConfigInput } from "@/types";
 
 export const weaveConfig: WeaveConfigInput = {
   global: {

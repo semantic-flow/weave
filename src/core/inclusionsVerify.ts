@@ -126,7 +126,8 @@ async function verifyWebInclusion(inclusion: WebInclusion, options: VerifyOption
       active: inclusion.options.active,
       present: true, // Web inclusions are always "present"
       syncStatus: "current", // Web inclusions don't have a sync status
-      copyStrategy: inclusion.options.copyStrategy,
+      collisionStrategy: inclusion.options.collisionStrategy,
+      updateStrategy: inclusion.options.updateStrategy,
       include: [], // Web inclusions don't have include/exclude
       exclude: [],
       excludeByDefault: false,
@@ -178,7 +179,8 @@ async function verifyLocalInclusion(inclusion: LocalInclusion, options: VerifyOp
       active: inclusion.options.active,
       present: false,
       syncStatus: "current", // Local inclusions don't have a sync status
-      copyStrategy: inclusion.options.copyStrategy,
+      collisionStrategy: inclusion.options.collisionStrategy,
+      updateStrategy: inclusion.options.updateStrategy,
       include: inclusion.options.include,
       exclude: inclusion.options.exclude,
       excludeByDefault: inclusion.options.excludeByDefault,

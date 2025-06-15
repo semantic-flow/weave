@@ -30,7 +30,8 @@ export const reposListCommand = new Command()
           : item.name || "N/A",  // Fallback to "N/A" only if item.name is not defined or empty
         item.present ? "Yes" : red("No"),
         item.syncStatus != "current" ? yellow(item.syncStatus) : green(item.syncStatus),
-        item.copyStrategy,
+        item.collisionStrategy,
+        item.updateStrategy,
         item.excludeByDefault ? "Exclude" : "Include",
         item.autoPushBeforeBuild ? "Auto" : "No",
         item.autoPullBeforeBuild ? "Auto" : "No",
@@ -38,7 +39,7 @@ export const reposListCommand = new Command()
 
       // Create a Table instance using the transformed data
       const table = new Table()
-        .header(["Order", "Name", /* "Active", */ "Present", "Sync Status", "Copy Strategy", "Default", "Push", "Pull"])
+        .header(["Order", "Name", /* "Active", */ "Present", "Sync Status", "Collision", "Update", "Default", "Push", "Pull"])
         .body(tableData);
       table.sort();
       table.border(true);

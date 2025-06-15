@@ -1,12 +1,12 @@
-import { Command } from "../deps/cliffy.ts";
-import { log } from "../core/utils/logging.ts";
-import { inclusionsList } from "../core/inclusionsList.ts";
-import { Table } from "../deps/cliffy.ts";
+import { Command } from "@/deps/cliffy";
+import { log } from "@/core/utils/logging";
+import { inclusionsList } from "@/core/inclusionsList";
+import { Table } from "@/deps/cliffy";
 import {
   red,
   yellow,
   green
-} from "../deps/colors.ts";
+} from "@/deps/colors";
 
 export const inclusionsListCommand = new Command()
   .name("list")
@@ -30,7 +30,8 @@ export const inclusionsListCommand = new Command()
         item.type || "N/A", // Add type column to distinguish between git, web, local
         item.present ? "Yes" : red("No"),
         item.syncStatus != "current" ? yellow(item.syncStatus) : green(item.syncStatus),
-        item.copyStrategy,
+        item.collisionStrategy,
+        item.updateStrategy,
         item.excludeByDefault ? "Exclude" : "Include",
         item.include.length > 0 ? item.include.join(", ") : "-",
         item.exclude.length > 0 ? item.exclude.join(", ") : "-",
@@ -38,7 +39,7 @@ export const inclusionsListCommand = new Command()
 
       // Create a Table instance using the transformed data
       const table = new Table()
-        .header(["Order", "Name", "Type", "Present", "Status", "Copy Strategy", "Default", "Include", "Exclude"])
+        .header(["Order", "Name", "Type", "Present", "Status", "Collision", "Update", "Default", "Include", "Exclude"])
         .body(tableData);
       table.sort();
       table.border(true);

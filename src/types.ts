@@ -1,6 +1,6 @@
 // src/types.ts
 
-import { LevelName } from "./deps/log.ts";
+import { LevelName } from "@/deps/log";
 
 export type { LevelName };
 
@@ -336,6 +336,8 @@ export interface InclusionListItem {
   excludeByDefault: boolean,
   autoPullBeforeBuild: boolean,
   autoPushBeforeBuild: boolean,
+  collisionStrategy: CollisionStrategy;
+  updateStrategy: UpdateStrategy;
   type: "git" | "web" | "local";
 }
 
