@@ -1,7 +1,7 @@
-import { log } from "./logging.ts";
-import { runGitCommand } from "./runGitCommand.ts";
-import { handleCaughtError } from "./handleCaughtError.ts";
-import { GitError } from "../errors.ts";
+import { log } from "@/core/utils/logging.ts";
+import { runGitCommand } from "@/core/utils/runGitCommand.ts";
+import { handleCaughtError } from "@/core/utils/handleCaughtError.ts";
+import { GitError } from "@/core/errors.ts";
 
 /**
  * Determines the branch to use for a repository.

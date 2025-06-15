@@ -1,9 +1,9 @@
 // src/core/inclusionsVerify_test.ts
 
-import { assertEquals, assertStringIncludes } from "../deps/assert.ts";
-import { GitInclusion, SyncStatus, WeaveConfigInput, WebInclusion, LocalInclusion } from "../types.ts";
-import { VerifyResult, VerifyOptions } from "./inclusionsVerify.ts";
-import { Frame } from "./Frame.ts";
+import { assertEquals, assertStringIncludes } from "@/deps/assert.ts";
+import { GitInclusion, SyncStatus, WeaveConfigInput, WebInclusion, LocalInclusion } from "@/types.ts";
+import { VerifyResult, VerifyOptions } from "@/core/inclusionsVerify.ts";
+import { Frame } from "@/core/Frame.ts";
 
 // Setup and teardown for tests
 function setupTest() {

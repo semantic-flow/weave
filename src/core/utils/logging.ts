@@ -1,7 +1,7 @@
 // src/core/utils/log.ts
 
-import * as logger from "../../deps/log.ts";
-import { env } from "./env.ts";
+import * as logger from "@/deps/log.ts";
+import { env } from "@/core/utils/env.ts";
 import {
   bold,
   brightGreen,
@@ -10,9 +10,9 @@ import {
   red,
   strikethrough,
   yellow,
-} from "../../deps/colors.ts";
+} from "@/deps/colors.ts";
 
-import type { LevelName, LogRecord } from "../../deps/log.ts";
+import type { LevelName, LogRecord } from "@/deps/log.ts";
 
 /**
  * Defines log levels and their numeric representations.

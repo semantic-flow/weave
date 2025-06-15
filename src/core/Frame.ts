@@ -1,8 +1,8 @@
 // src/core/Frame.ts
 
-import { ResolvedInclusion, WeaveConfig, WeaveConfigInput } from "../types.ts";
-import { InputGlobalOptions } from "../types.ts";
-import { ValidationError } from "./errors.ts";
+import { ResolvedInclusion, WeaveConfig, WeaveConfigInput } from "@/types.ts";
+import { InputGlobalOptions } from "@/types.ts";
+import { ValidationError } from "@/core/errors.ts";
 
 /**
  * Represents a file mapping from source to destination.

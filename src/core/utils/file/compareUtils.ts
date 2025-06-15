@@ -1,7 +1,7 @@
-import { log } from "../logging.ts";
-import { ResolvedInclusion } from "../../../types.ts";
-import { runGitCommand } from "../runGitCommand.ts";
-import { relative } from "../../../deps/path.ts";
+import { log } from "@/logging.ts";
+import { ResolvedInclusion } from "@/../types.ts";
+import { runGitCommand } from "@/runGitCommand.ts";
+import { relative } from "@/../deps/path.ts";
 
 /**
  * Compares two Uint8Array objects for equality.

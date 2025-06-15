@@ -1,9 +1,9 @@
 // src/core/reposVerify_test.ts
 
-import { assertEquals, assertStringIncludes } from "../deps/assert.ts";
-import { GitInclusion, SyncStatus, WeaveConfigInput } from "../types.ts";
-import { VerifyResult, VerifyOptions } from "./reposVerify.ts";
-import { Frame } from "./Frame.ts";
+import { assertEquals, assertStringIncludes } from "@/deps/assert.ts";
+import { GitInclusion, SyncStatus, WeaveConfigInput } from "@/types.ts";
+import { VerifyResult, VerifyOptions } from "@/core/reposVerify.ts";
+import { Frame } from "@/core/Frame.ts";
 
 // Setup and teardown for tests
 function setupTest() {

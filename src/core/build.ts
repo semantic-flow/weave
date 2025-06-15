@@ -1,16 +1,16 @@
-import { Frame } from "@/core/Frame";
-import { handleCaughtError } from "@/core/utils/handleCaughtError";
+import { Frame } from "@/core/Frame.ts";
+import { handleCaughtError } from "@/core/utils/handleCaughtError.ts";
 import { 
   GitInclusion, 
   WebInclusion, 
   LocalInclusion 
-} from "@/types";
-import { log } from "@/core/utils/logging";
-import { exists, ensureDir } from "@/deps/fs";
-import { inclusionsVerify } from "@/core/inclusionsVerify";
-import { reposPrepare } from "@/core/reposPrepare";
-import { processGitInclusion, processWebInclusion, processLocalInclusion } from "@/core/inclusions/index";
-import { BuildOptions, BuildResult } from "@/core/interfaces/build";
+} from "@/types.ts";
+import { log } from "@/core/utils/logging.ts";
+import { exists, ensureDir } from "@/deps/fs.ts";
+import { inclusionsVerify } from "@/core/inclusionsVerify.ts";
+import { reposPrepare } from "@/core/reposPrepare.ts";
+import { processGitInclusion, processWebInclusion, processLocalInclusion } from "@/core/inclusions/index.ts";
+import { BuildOptions, BuildResult } from "@/core/interfaces/build.ts";
 
 // Re-export BuildOptions for external use
 export type { BuildOptions };

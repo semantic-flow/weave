@@ -1,6 +1,6 @@
-import { Command } from "../deps/cliffy.ts";
-import { inclusionsListCommand } from "./inclusionsListCommand.ts";
-import { inclusionsVerifyCommand } from "./inclusionsVerifyCommand.ts";
+import { Command } from "@/deps/cliffy.ts";
+import { inclusionsListCommand } from "@/cli/inclusionsListCommand.ts";
+import { inclusionsVerifyCommand } from "@/cli/inclusionsVerifyCommand.ts";
 
 export const inclusionsCommand = new Command()
   .name("inclusions")

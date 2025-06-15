@@ -1,5 +1,5 @@
-import { ResolvedInclusion, RepoGitResult } from "../../types.ts";
-import { VerifyOptions as InclusionsVerifyOptions, VerifyResult as InclusionsVerifyResult } from "../inclusionsVerify.ts";
+import { ResolvedInclusion, RepoGitResult } from "@/types.ts";
+import { VerifyOptions as InclusionsVerifyOptions, VerifyResult as InclusionsVerifyResult } from "@/inclusionsVerify.ts";
 
 // Re-export for use in other modules
 export type { InclusionsVerifyOptions, InclusionsVerifyResult };

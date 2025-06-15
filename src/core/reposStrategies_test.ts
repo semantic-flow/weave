@@ -1,7 +1,7 @@
 // src/core/reposStrategies_test.ts
 
-import { assertEquals } from "../deps/assert.ts";
-import { PullStrategy, PushStrategy } from "../types.ts";
+import { assertEquals } from "@/deps/assert.ts";
+import { PullStrategy, PushStrategy } from "@/types.ts";
 
 /**
  * This test file verifies that the pull and push strategies are correctly defined
@@ -35,7 +35,7 @@ Deno.test("Push strategies are correctly defined", () => {
 
 Deno.test("Pull strategy constants match the type", async () => {
   // Import the constants from the types module
-  const { validPullStrategies } = await import("../types.ts");
+  const { validPullStrategies } = await import("@/types.ts");
   
   // Verify that the constants match the expected values
   assertEquals(validPullStrategies, ["ff-only", "rebase", "merge"]);
@@ -43,7 +43,7 @@ Deno.test("Pull strategy constants match the type", async () => {
 
 Deno.test("Push strategy constants match the type", async () => {
   // Import the constants from the types module
-  const { validPushStrategies } = await import("../types.ts");
+  const { validPushStrategies } = await import("@/types.ts");
   
   // Verify that the constants match the expected values
   assertEquals(validPushStrategies, ["no-force", "force-with-lease", "force"]);

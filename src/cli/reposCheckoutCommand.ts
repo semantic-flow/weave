@@ -1,8 +1,8 @@
-import { Command } from "../deps/cliffy.ts";
-import { log } from "../core/utils/logging.ts";
-import { reposCheckout } from "../core/reposCheckout.ts";
-import { handleCaughtError } from "../core/utils/handleCaughtError.ts";
-import { RepoGitResult } from "../types.ts";
+import { Command } from "@/deps/cliffy.ts";
+import { log } from "@/core/utils/logging.ts";
+import { reposCheckout } from "@/core/reposCheckout.ts";
+import { handleCaughtError } from "@/core/utils/handleCaughtError.ts";
+import { RepoGitResult } from "@/types.ts";
 
 export const reposCheckoutCommand = new Command()
   .name("checkout")

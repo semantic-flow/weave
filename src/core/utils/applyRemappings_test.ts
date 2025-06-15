@@ -1,8 +1,8 @@
 // src/core/utils/applyRemappings_test.ts
 
-import { assertEquals } from "../../deps/assert.ts";
-import { applyRemappings } from "./applyRemappings.ts";
-import { Remapping } from "../../types.ts";
+import { assertEquals } from "@/deps/assert.ts";
+import { applyRemappings } from "@/core/utils/applyRemappings.ts";
+import { Remapping } from "@/types.ts";
 
 Deno.test("applyRemappings - empty remappings array returns original path", () => {
   const filePath = "path/to/file.txt";

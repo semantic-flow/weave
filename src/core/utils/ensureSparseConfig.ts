@@ -1,11 +1,11 @@
 // src/core/utils/ensureSparseCongif.ts
 
-import { log } from "./logging.ts";
-import { runGitCommand } from "./runGitCommand.ts";
-import { handleCaughtError } from "./handleCaughtError.ts";
-import { GitError } from "../errors.ts";
-import { join } from "../../deps/path.ts";
-import { ensureDir } from "../../deps/fs.ts";
+import { log } from "@/core/utils/logging.ts";
+import { runGitCommand } from "@/core/utils/runGitCommand.ts";
+import { handleCaughtError } from "@/core/utils/handleCaughtError.ts";
+import { GitError } from "@/core/errors.ts";
+import { join } from "@/deps/path.ts";
+import { ensureDir } from "@/deps/fs.ts";
 
 /**
  * Ensures the sparse-checkout configuration matches the desired include paths.

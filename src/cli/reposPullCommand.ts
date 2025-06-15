@@ -1,7 +1,7 @@
-import { Command } from "../deps/cliffy.ts";
-import { log } from "../core/utils/logging.ts";
-import { reposPull } from "../core/reposPull.ts";
-import { validPullStrategies } from "../types.ts";
+import { Command } from "@/deps/cliffy.ts";
+import { log } from "@/core/utils/logging.ts";
+import { reposPull } from "@/core/reposPull.ts";
+import { validPullStrategies } from "@/types.ts";
 
 interface PullOptions {
   pullStrategy?: string;

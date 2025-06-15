@@ -1,12 +1,12 @@
-import { Command } from "../deps/cliffy.ts";
-import { log } from "../core/utils/logging.ts";
-import { build, BuildOptions } from "../core/build.ts";
+import { Command } from "@/deps/cliffy.ts";
+import { log } from "@/core/utils/logging.ts";
+import { build, BuildOptions } from "@/core/build.ts";
 import {
   red,
   yellow,
   green,
   bold,
-} from "../deps/colors.ts";
+} from "@/deps/colors.ts";
 
 export const buildCommand = new Command()
   .name("build")

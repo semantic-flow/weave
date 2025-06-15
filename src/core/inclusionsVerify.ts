@@ -1,11 +1,11 @@
-import { Frame } from "../core/Frame.ts";
-import { handleCaughtError } from "../core/utils/handleCaughtError.ts";
-import { InclusionListItem, ResolvedInclusion, WebInclusion, LocalInclusion } from "../types.ts";
+import { Frame } from "@/core/Frame.ts";
+import { handleCaughtError } from "@/core/utils/handleCaughtError.ts";
+import { InclusionListItem, ResolvedInclusion, WebInclusion, LocalInclusion } from "@/types.ts";
 // isGitInclusion is imported but not used directly in this file
-import { isGitInclusion as _isGitInclusion } from "../core/utils/gitInclusionUtils.ts";
-import { log } from "../core/utils/logging.ts";
-import { reposVerify, VerifyOptions as ReposVerifyOptions, VerifyResult as ReposVerifyResult } from "./reposVerify.ts";
-import { exists } from "../deps/fs.ts";
+import { isGitInclusion as _isGitInclusion } from "@/core/utils/gitInclusionUtils.ts";
+import { log } from "@/core/utils/logging.ts";
+import { reposVerify, VerifyOptions as ReposVerifyOptions, VerifyResult as ReposVerifyResult } from "@/core/reposVerify.ts";
+import { exists } from "@/deps/fs.ts";
 
 export interface VerifyOptions extends ReposVerifyOptions {
   ignoreRemoteAvailability?: boolean;

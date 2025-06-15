@@ -1,13 +1,13 @@
-import { Command } from "../deps/cliffy.ts";
-import { log } from "../core/utils/logging.ts";
-import { reposVerify, VerifyOptions } from "../core/reposVerify.ts";
-import { Table } from "../deps/cliffy.ts";
+import { Command } from "@/deps/cliffy.ts";
+import { log } from "@/core/utils/logging.ts";
+import { reposVerify, VerifyOptions } from "@/core/reposVerify.ts";
+import { Table } from "@/deps/cliffy.ts";
 import {
   red,
   yellow,
   green,
   bold,
-} from "../deps/colors.ts";
+} from "@/deps/colors.ts";
 
 export const reposVerifyCommand = new Command()
   .name("verify")

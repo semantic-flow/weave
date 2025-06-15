@@ -1,8 +1,8 @@
 // src/core/Frame_test.ts
 
-import { assertEquals, assertThrows } from "../deps/assert.ts";
-import { Frame } from "./Frame.ts";
-import { GitInclusion, LocalInclusion, WebInclusion } from "../types.ts";
+import { assertEquals, assertThrows } from "@/deps/assert.ts";
+import { Frame } from "@/core/Frame.ts";
+import { GitInclusion, LocalInclusion, WebInclusion } from "@/types.ts";
 
 // Setup and teardown for tests
 function setupTest() {

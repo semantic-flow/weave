@@ -3,11 +3,11 @@
 import {
   assertEquals,
   assertRejects,
-} from "../../deps/assert.ts";
-import { watchConfigFile } from "./configUtils.ts";
-import { Frame } from "../Frame.ts";
-import { WeaveConfigInput, InputGlobalOptions } from "../../types.ts";
-import { ConfigError } from "../errors.ts";
+} from "@/deps/assert.ts";
+import { watchConfigFile } from "@/core/utils/configUtils.ts";
+import { Frame } from "@/Frame.ts";
+import { WeaveConfigInput, InputGlobalOptions } from "@/types.ts";
+import { ConfigError } from "@/core/errors.ts";
 
 // Skip the tests that require mocking the module functions
 Deno.test({
@@ -146,7 +146,7 @@ Deno.test("loadWeaveConfig throws error on missing inclusions", async () => {
   (Deno as any).readTextFile = mockReadTextFile;
 
   try {
-    const { loadWeaveConfig } = await import("./configHelpers.ts");
+    const { loadWeaveConfig } = await import("@/core/utils/configHelpers.ts");
 
     await assertRejects(
       async () => {

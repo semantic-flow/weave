@@ -1,6 +1,6 @@
-import { log } from "./logging.ts";
-import { runGitCommand } from "./runGitCommand.ts";
-import { GitError } from "../errors.ts";
+import { log } from "@/core/utils/logging.ts";
+import { runGitCommand } from "@/core/utils/runGitCommand.ts";
+import { GitError } from "@/core/errors.ts";
 
 export async function determineWorkingBranch(workingDir: string): Promise<string> {
   try {

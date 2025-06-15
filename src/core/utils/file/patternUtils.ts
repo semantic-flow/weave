@@ -1,4 +1,4 @@
-import { log } from "../logging.ts";
+import { log } from "@/logging.ts";
 
 /**
  * Determines if a file should be included based on include/exclude patterns.

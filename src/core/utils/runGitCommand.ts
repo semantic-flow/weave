@@ -1,7 +1,7 @@
-import { log } from "./logging.ts";
-import { handleCaughtError } from "./handleCaughtError.ts";
-import { RepoGitResult } from "../../types.ts";
-import { GitError } from "../errors.ts";
+import { log } from "@/core/utils/logging.ts";
+import { handleCaughtError } from "@/core/utils/handleCaughtError.ts";
+import { RepoGitResult } from "@/types.ts";
+import { GitError } from "@/core/errors.ts";
 
 /**
  * Executes a Git command within a specified repository path using Deno.Command.

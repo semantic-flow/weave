@@ -1,15 +1,15 @@
 // src/cli.ts
 
-import { Command } from "@/deps/cliffy";
-import { InputGlobalOptions } from "@/types";
-import { handleConfigAction } from "@/core/utils/configHelpers";
-import { reposCommand } from "@/cli/reposCommand";
-import { inclusionsCommand } from "@/cli/inclusionsCommand";
-import { watchCommand } from "@/cli/watchCommand";
-import { buildCommand } from "@/cli/buildCommand";
-import { LogLevels } from "@/deps/log";
-import { handleCaughtError } from "@/core/utils/handleCaughtError";
-import type { LevelName } from "@/deps/log";
+import { Command } from "@/deps/cliffy.ts";
+import { InputGlobalOptions } from "@/types.ts";
+import { handleConfigAction } from "@/core/utils/configHelpers.ts";
+import { reposCommand } from "@/cli/reposCommand.ts";
+import { inclusionsCommand } from "@/cli/inclusionsCommand.ts";
+import { watchCommand } from "@/cli/watchCommand.ts";
+import { buildCommand } from "@/cli/buildCommand.ts";
+import { LogLevels } from "@/deps/log.ts";
+import { handleCaughtError } from "@/core/utils/handleCaughtError.ts";
+import type { LevelName } from "@/deps/log.ts";
 
 
 const weave = new Command()

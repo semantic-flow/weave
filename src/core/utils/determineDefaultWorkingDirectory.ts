@@ -1,4 +1,4 @@
-import { join } from "../../deps/path.ts";
+import { join } from "@/deps/path.ts";
 
 export function determineDefaultWorkingDirectory(workspaceDir: string, url: string, branch: string): string {
   const urlForParsing = url.startsWith("git@")

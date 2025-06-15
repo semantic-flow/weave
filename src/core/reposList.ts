@@ -1,7 +1,7 @@
-import { Frame } from "../core/Frame.ts";
-import { handleCaughtError } from "../core/utils/handleCaughtError.ts";
-import { InclusionListItem } from "../types.ts";
-import { isGitInclusion, checkGitInclusion } from "../core/utils/gitInclusionUtils.ts";
+import { Frame } from "@/core/Frame.ts";
+import { handleCaughtError } from "@/core/utils/handleCaughtError.ts";
+import { InclusionListItem } from "@/types.ts";
+import { isGitInclusion, checkGitInclusion } from "@/core/utils/gitInclusionUtils.ts";
 
 
 export async function reposList(): Promise<InclusionListItem[]> {

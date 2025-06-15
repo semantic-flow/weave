@@ -1,11 +1,11 @@
 // src/core/utils/configHelpers.ts
 
-import { log, setLogLevel, LOG_LEVELS } from "./logging.ts";
-import { LevelName } from "../../deps/log.ts";
-import { WeaveConfigInput, InputGlobalOptions } from "../../types.ts";
-import { processWeaveConfig } from "../../core/utils/configUtils.ts";
-import { handleCaughtError } from "./handleCaughtError.ts";
-import { ConfigError } from "../errors.ts";
+import { log, setLogLevel, LOG_LEVELS } from "@/core/utils/logging.ts";
+import { LevelName } from "@/deps/log.ts";
+import { WeaveConfigInput, InputGlobalOptions } from "@/types.ts";
+import { processWeaveConfig } from "@/core/utils/configUtils.ts";
+import { handleCaughtError } from "@/core/utils/handleCaughtError.ts";
+import { ConfigError } from "@/core/errors.ts";
 
 // Utility function to merge two configurations
 export function mergeConfigs(base: WeaveConfigInput, override: Partial<WeaveConfigInput>): WeaveConfigInput {

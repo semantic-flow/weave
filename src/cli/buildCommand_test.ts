@@ -3,7 +3,7 @@
 // This file contains placeholder comments for tests that would verify the CLI command functionality.
 // Due to issues with mocking the build function, these tests are currently skipped.
 
-import { BuildOptions as _BuildOptions, BuildResult } from "../core/interfaces/build.ts";
+import { BuildOptions as _BuildOptions, BuildResult } from "@/core/interfaces/build.ts";
 
 // Mock data that would be used for testing
 const _mockBuildResult: BuildResult = {

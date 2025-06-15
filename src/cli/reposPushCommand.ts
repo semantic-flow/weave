@@ -1,7 +1,7 @@
-import { Command } from "../deps/cliffy.ts";
-import { log } from "../core/utils/logging.ts";
-import { reposPush } from "../core/reposPush.ts";
-import { validPushStrategies } from "../types.ts";
+import { Command } from "@/deps/cliffy.ts";
+import { log } from "@/core/utils/logging.ts";
+import { reposPush } from "@/core/reposPush.ts";
+import { validPushStrategies } from "@/types.ts";
 
 interface PushOptions {
   pushStrategy?: string;

@@ -1,9 +1,9 @@
-import { log } from "../core/utils/logging.ts";
-import { Frame } from "../core/Frame.ts";
-import { RepoGitResult } from "../types.ts";
-import { reposCommit } from "./reposCommit.ts";
-import { reposPull } from "./reposPull.ts";
-import { reposPush } from "./reposPush.ts";
+import { log } from "@/core/utils/logging.ts";
+import { Frame } from "@/core/Frame.ts";
+import { RepoGitResult } from "@/types.ts";
+import { reposCommit } from "@/core/reposCommit.ts";
+import { reposPull } from "@/core/reposPull.ts";
+import { reposPush } from "@/core/reposPush.ts";
 
 /**
  * Synchronizes repositories by committing, pulling, and pushing changes.

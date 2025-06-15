@@ -1,10 +1,10 @@
 // src/core/reposPull_test.ts
 
-import { assertEquals, assertStringIncludes } from "../deps/assert.ts";
-import { GitInclusion, ResolvedInclusion as _ResolvedInclusion, SyncStatus, RepoGitResult, WeaveConfigInput } from "../types.ts";
+import { assertEquals, assertStringIncludes } from "@/deps/assert.ts";
+import { GitInclusion, ResolvedInclusion as _ResolvedInclusion, SyncStatus, RepoGitResult, WeaveConfigInput } from "@/types.ts";
 // GitError is imported but not used directly in this file
-import { GitError as _GitError } from "./errors.ts";
-import { Frame } from "./Frame.ts";
+import { GitError as _GitError } from "@/core/errors.ts";
+import { Frame } from "@/core/Frame.ts";
 
 // Setup and teardown for tests
 function setupTest() {

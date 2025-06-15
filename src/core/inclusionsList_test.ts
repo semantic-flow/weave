@@ -1,8 +1,8 @@
 // src/core/inclusionsList_test.ts
 
-import { assertEquals } from "../deps/assert.ts";
-import { checkWebInclusion, isWebInclusion, isLocalInclusion } from "./inclusionsList.ts";
-import { WebInclusion, LocalInclusion, GitInclusion } from "../types.ts";
+import { assertEquals } from "@/deps/assert.ts";
+import { checkWebInclusion, isWebInclusion, isLocalInclusion } from "@/core/inclusionsList.ts";
+import { WebInclusion, LocalInclusion, GitInclusion } from "@/types.ts";
 
 // Mock data
 const mockGitInclusion: GitInclusion = {

@@ -1,7 +1,7 @@
-import { Command } from "../deps/cliffy.ts";
-import { log } from "../core/utils/logging.ts";
-import { CommitOptions } from "../types.ts";
-import { reposCommit } from "../core/reposCommit.ts";
+import { Command } from "@/deps/cliffy.ts";
+import { log } from "@/core/utils/logging.ts";
+import { CommitOptions } from "@/types.ts";
+import { reposCommit } from "@/core/reposCommit.ts";
 
 
 export const reposCommitCommand = new Command()

@@ -1,8 +1,8 @@
-import { LocalInclusion } from "../../types.ts";
-import { Frame } from "../Frame.ts";
-import { exists } from "../../deps/fs.ts";
-import { BuildResult } from "../interfaces/build.ts";
-import { copyFiles } from "../utils/file/fileUtils.ts";
+import { LocalInclusion } from "@/types.ts";
+import { Frame } from "@/Frame.ts";
+import { exists } from "@/deps/fs.ts";
+import { BuildResult } from "@/interfaces/build.ts";
+import { copyFiles } from "@/utils/file/fileUtils.ts";
 
 /**
  * Processes a local inclusion by copying files from the local directory to the destination directory.

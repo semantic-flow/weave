@@ -1,7 +1,7 @@
-import { assertEquals, assertStringIncludes } from "../../deps/assert.ts";
-import { handleCaughtError } from "./handleCaughtError.ts";
-import { GitError, NetworkError, WeaveError, ConfigError, FileSystemError, ValidationError } from "../errors.ts";
-import { log } from "./logging.ts";
+import { assertEquals, assertStringIncludes } from "@/deps/assert.ts";
+import { handleCaughtError } from "@/core/utils/handleCaughtError.ts";
+import { GitError, NetworkError, WeaveError, ConfigError, FileSystemError, ValidationError } from "@/core/errors.ts";
+import { log } from "@/core/utils/logging.ts";
 
 function mockLogging() {
   const messages: string[] = [];

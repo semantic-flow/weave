@@ -1,28 +1,6 @@
 {
   "imports": {
-    "@/": "./src/",
-    "@/types": "./src/types.ts",
-    "@/deps/cliffy": "./src/deps/cliffy.ts",
-    "@/deps/log": "./src/deps/log.ts",
-    "@/deps/fs": "./src/deps/fs.ts",
-    "@/deps/path": "./src/deps/path.ts",
-    "@/deps/colors": "./src/deps/colors.ts",
-    "@/core/Frame": "./src/core/Frame.ts",
-    "@/core/build": "./src/core/build.ts",
-    "@/core/inclusionsVerify": "./src/core/inclusionsVerify.ts",
-    "@/core/reposPrepare": "./src/core/reposPrepare.ts",
-    "@/core/inclusionsList": "./src/core/inclusionsList.ts",
-    "@/core/utils/configHelpers": "./src/core/utils/configHelpers.ts",
-    "@/core/utils/handleCaughtError": "./src/core/utils/handleCaughtError.ts",
-    "@/core/utils/logging": "./src/core/utils/logging.ts",
-    "@/core/utils/gitInclusionUtils": "./src/core/utils/gitInclusionUtils.ts",
-    "@/core/utils/directoryExists": "./src/core/utils/directoryExists.ts",
-    "@/core/interfaces/build": "./src/core/interfaces/build.ts",
-    "@/core/inclusions/index": "./src/core/inclusions/index.ts",
-    "@/cli/reposCommand": "./src/cli/reposCommand.ts",
-    "@/cli/inclusionsCommand": "./src/cli/inclusionsCommand.ts",
-    "@/cli/watchCommand": "./src/cli/watchCommand.ts",
-    "@/cli/buildCommand": "./src/cli/buildCommand.ts"
+    "@/": "./src/"
   },
   "tasks": {
     "cli": "deno run --allow-read --allow-write --allow-env --allow-run src/weave.ts",

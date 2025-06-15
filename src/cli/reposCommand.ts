@@ -1,12 +1,12 @@
-import { Command } from "../deps/cliffy.ts";
-import { reposListCommand } from "./reposListCommand.ts";
-import { reposCheckoutCommand } from "./reposCheckoutCommand.ts";
-import { reposCommitCommand } from "./reposCommitCommand.ts";
-import { reposPullCommand } from "./reposPullCommand.ts";
-import { reposPushCommand } from "./reposPushCommand.ts";
-import { reposSyncCommand } from "./reposSyncCommand.ts";
-import { reposPrepareCommand } from "./reposPrepareCommand.ts";
-import { reposVerifyCommand } from "./reposVerifyCommand.ts";
+import { Command } from "@/deps/cliffy.ts";
+import { reposListCommand } from "@/cli/reposListCommand.ts";
+import { reposCheckoutCommand } from "@/cli/reposCheckoutCommand.ts";
+import { reposCommitCommand } from "@/cli/reposCommitCommand.ts";
+import { reposPullCommand } from "@/cli/reposPullCommand.ts";
+import { reposPushCommand } from "@/cli/reposPushCommand.ts";
+import { reposSyncCommand } from "@/cli/reposSyncCommand.ts";
+import { reposPrepareCommand } from "@/cli/reposPrepareCommand.ts";
+import { reposVerifyCommand } from "@/cli/reposVerifyCommand.ts";
 
 export const reposCommand = new Command()
   .name("repos")

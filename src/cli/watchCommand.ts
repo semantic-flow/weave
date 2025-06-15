@@ -1,9 +1,9 @@
-import { Command } from "../deps/cliffy.ts";
-import { log } from "../core/utils/logging.ts";
-import { Frame } from "../core/Frame.ts";
-import { watchConfigFile } from "../core/utils/configUtils.ts";
-import { InputGlobalOptions } from "../types.ts";
-import { handleCaughtError } from "../core/utils/handleCaughtError.ts";
+import { Command } from "@/deps/cliffy.ts";
+import { log } from "@/core/utils/logging.ts";
+import { Frame } from "@/core/Frame.ts";
+import { watchConfigFile } from "@/core/utils/configUtils.ts";
+import { InputGlobalOptions } from "@/types.ts";
+import { handleCaughtError } from "@/core/utils/handleCaughtError.ts";
 
 /**
  * The watch command.
@@ -39,8 +39,3 @@ export const watchCommand = new Command()
     // Start watching the inclusions
 
   });
-
-
-
-
-

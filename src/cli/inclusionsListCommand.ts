@@ -1,12 +1,12 @@
-import { Command } from "@/deps/cliffy";
-import { log } from "@/core/utils/logging";
-import { inclusionsList } from "@/core/inclusionsList";
-import { Table } from "@/deps/cliffy";
+import { Command } from "@/deps/cliffy.ts";
+import { log } from "@/core/utils/logging.ts";
+import { inclusionsList } from "@/core/inclusionsList.ts";
+import { Table } from "@/deps/cliffy.ts";
 import {
   red,
   yellow,
   green
-} from "@/deps/colors";
+} from "@/deps/colors.ts";
 
 export const inclusionsListCommand = new Command()
   .name("list")

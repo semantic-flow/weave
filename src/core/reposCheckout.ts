@@ -1,15 +1,15 @@
-import { log } from "./utils/logging.ts";
-import { RepoGitResult } from "../types.ts";
-import { exists } from "../deps/fs.ts";
-import { join } from "../deps/path.ts";
-import { ensureSparseCheckout } from "./utils/ensureSparseConfig.ts";
-import { runGitCommand } from "./utils/runGitCommand.ts";
-import { composeSparseCheckoutRules } from "./utils/composeSparseCheckoutRules.ts";
-import { handleCaughtError } from "./utils/handleCaughtError.ts";
-import { Frame } from "../core/Frame.ts";
-import { ensureDir } from "../deps/fs.ts";
-import { GitError } from "./errors.ts";
-import { determineWorkingBranch } from "./utils/determineWorkingBranch.ts";
+import { log } from "@/core/utils/logging.ts";
+import { RepoGitResult } from "@/types.ts";
+import { exists } from "@/deps/fs.ts";
+import { join } from "@/deps/path.ts";
+import { ensureSparseCheckout } from "@/core/utils/ensureSparseConfig.ts";
+import { runGitCommand } from "@/core/utils/runGitCommand.ts";
+import { composeSparseCheckoutRules } from "@/core/utils/composeSparseCheckoutRules.ts";
+import { handleCaughtError } from "@/core/utils/handleCaughtError.ts";
+import { Frame } from "@/core/Frame.ts";
+import { ensureDir } from "@/deps/fs.ts";
+import { GitError } from "@/core/errors.ts";
+import { determineWorkingBranch } from "@/core/utils/determineWorkingBranch.ts";
 
 export async function reposCheckout(): Promise<RepoGitResult[]> {
   const results: RepoGitResult[] = [];

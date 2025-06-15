@@ -1,7 +1,7 @@
 // src/core/utils/applyRemappings.ts
 
-import { Remapping } from "../../types.ts";
-import { log } from "./logging.ts";
+import { Remapping } from "@/types.ts";
+import { log } from "@/core/utils/logging.ts";
 
 /**
  * Applies remappings to a file path.

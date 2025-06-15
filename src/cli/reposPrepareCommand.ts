@@ -1,7 +1,7 @@
-import { Command } from "../deps/cliffy.ts";
-import { log } from "../core/utils/logging.ts";
-import { reposPrepare } from "../core/reposPrepare.ts";
-import { validPullStrategies, validPushStrategies } from "../types.ts";
+import { Command } from "@/deps/cliffy.ts";
+import { log } from "@/core/utils/logging.ts";
+import { reposPrepare } from "@/core/reposPrepare.ts";
+import { validPullStrategies, validPushStrategies } from "@/types.ts";
 
 interface PrepareOptions {
   pullStrategy?: string;

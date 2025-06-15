@@ -1,8 +1,8 @@
-import { Command } from "../deps/cliffy.ts";
-import { log } from "../core/utils/logging.ts";
-import { CommitOptions } from "../types.ts";
-import { reposSync } from "../core/reposSync.ts";
-import { validPullStrategies, validPushStrategies } from "../types.ts";
+import { Command } from "@/deps/cliffy.ts";
+import { log } from "@/core/utils/logging.ts";
+import { CommitOptions } from "@/types.ts";
+import { reposSync } from "@/core/reposSync.ts";
+import { validPullStrategies, validPushStrategies } from "@/types.ts";
 
 interface SyncOptions extends CommitOptions {
   pullStrategy?: string;

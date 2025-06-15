@@ -1,5 +1,5 @@
-import { handleCaughtError } from "./handleCaughtError.ts";
-import { FileSystemError } from "../errors.ts";
+import { handleCaughtError } from "@/core/utils/handleCaughtError.ts";
+import { FileSystemError } from "@/core/errors.ts";
 
 /**
  * Checks if the directory exists.

@@ -1,9 +1,9 @@
-import { Frame } from "./Frame.ts";
-import { handleCaughtError } from "./utils/handleCaughtError.ts";
-import { InclusionListItem, ResolvedInclusion, WebInclusion, LocalInclusion } from "../types.ts";
-import { isGitInclusion, checkGitInclusion } from "./utils/gitInclusionUtils.ts";
-import { directoryExists } from "./utils/directoryExists.ts";
-import { log } from "./utils/logging.ts";
+import { Frame } from "@/core/Frame.ts";
+import { handleCaughtError } from "@/core/utils/handleCaughtError.ts";
+import { InclusionListItem, ResolvedInclusion, WebInclusion, LocalInclusion } from "@/types.ts";
+import { isGitInclusion, checkGitInclusion } from "@/core/utils/gitInclusionUtils.ts";
+import { directoryExists } from "@/core/utils/directoryExists.ts";
+import { log } from "@/core/utils/logging.ts";
 
 /**
  * Checks if an inclusion is a web inclusion

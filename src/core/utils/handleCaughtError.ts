@@ -1,4 +1,4 @@
-import { log } from "./logging.ts";
+import { log } from "@/core/utils/logging.ts";
 import {
   WeaveError,
   GitError,
@@ -6,7 +6,7 @@ import {
   FileSystemError,
   NetworkError,
   ValidationError,
-} from "../errors.ts";
+} from "@/core/errors.ts";
 
 export function handleCaughtError(e: unknown, customMessage?: string): void {
   // Format error message with context if provided

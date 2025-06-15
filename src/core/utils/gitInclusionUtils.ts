@@ -1,8 +1,8 @@
-import { ResolvedInclusion, InclusionListItem, GitInclusion, SyncStatus } from "../../types.ts";
-import { directoryExists } from "./directoryExists.ts";
-import { runGitCommand } from "./runGitCommand.ts";
-import { handleCaughtError } from "./handleCaughtError.ts";
-import { GitError } from "../errors.ts";
+import { ResolvedInclusion, InclusionListItem, GitInclusion, SyncStatus } from "@/types.ts";
+import { directoryExists } from "@/core/utils/directoryExists.ts";
+import { runGitCommand } from "@/core/utils/runGitCommand.ts";
+import { handleCaughtError } from "@/core/utils/handleCaughtError.ts";
+import { GitError } from "@/core/errors.ts";
 
 export function isGitInclusion(inclusion: ResolvedInclusion): inclusion is GitInclusion {
   return inclusion.type === 'git';

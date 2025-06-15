@@ -1,8 +1,8 @@
 // src/core/utils/configUtils.ts
 
-import { log } from "./logging.ts";
-import { Frame } from "../Frame.ts";
-import { ConfigError } from "../errors.ts";
+import { log } from "@/core/utils/logging.ts";
+import { Frame } from "@/core/Frame.ts";
+import { ConfigError } from "@/core/errors.ts";
 import {
   WeaveConfigInput,
   InputGlobalOptions,
@@ -18,14 +18,14 @@ import {
   validUpdateStrategies,
   validPullStrategies,
   validPushStrategies,
-} from "../../types.ts";
-import { join } from "../../deps/path.ts";
-import { loadWeaveConfig, getConfigFilePath, mergeConfigs } from "./configHelpers.ts";
-import { determineDefaultBranch } from "./determineDefaultBranch.ts";
-import { determineDefaultWorkingDirectory } from "./determineDefaultWorkingDirectory.ts";
-import { determineWorkingBranch } from "./determineWorkingBranch.ts";
-import { handleCaughtError } from "./handleCaughtError.ts";
-import { directoryExists } from "./directoryExists.ts";
+} from "@/types.ts";
+import { join } from "@/deps/path.ts";
+import { loadWeaveConfig, getConfigFilePath, mergeConfigs } from "@/core/utils/configHelpers.ts";
+import { determineDefaultBranch } from "@/core/utils/determineDefaultBranch.ts";
+import { determineDefaultWorkingDirectory } from "@/core/utils/determineDefaultWorkingDirectory.ts";
+import { determineWorkingBranch } from "@/core/utils/determineWorkingBranch.ts";
+import { handleCaughtError } from "@/core/utils/handleCaughtError.ts";
+import { directoryExists } from "@/core/utils/directoryExists.ts";
 
 /**
  * Define default global options.

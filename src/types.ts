@@ -1,6 +1,6 @@
 // src/types.ts
 
-import { LevelName } from "@/deps/log";
+import { LevelName } from "@/deps/log.ts";
 
 export type { LevelName };
 

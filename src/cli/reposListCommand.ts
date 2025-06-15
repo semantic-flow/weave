@@ -1,12 +1,13 @@
-import { Command } from "../deps/cliffy.ts";
-import { log } from "../core/utils/logging.ts";
-import { reposList } from "../core/reposList.ts";
-import { Table } from "../deps/cliffy.ts"; import {
+import { Command } from "@/deps/cliffy.ts";
+import { log } from "@/core/utils/logging.ts";
+import { reposList } from "@/core/reposList.ts";
+import { Table } from "@/deps/cliffy.ts"; 
+import {
   red,
   /* strikethrough,*/
   yellow,
   green
-} from "../deps/colors.ts";
+} from "@/deps/colors.ts";
 
 export const reposListCommand = new Command()
   .name("list")
