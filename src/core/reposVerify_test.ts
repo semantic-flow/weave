@@ -84,6 +84,7 @@ function mockReposVerify(options: {
         present: exists,
         syncStatus,
         collisionStrategy: inclusion.options.collisionStrategy,
+        updateStrategy: inclusion.options.updateStrategy,
         include: inclusion.options.include,
         exclude: inclusion.options.exclude,
         excludeByDefault: inclusion.options.excludeByDefault,

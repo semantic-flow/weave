@@ -146,6 +146,7 @@ function mockInclusionsVerify(options: {
         present: gitExists,
         syncStatus: gitStatus,
         collisionStrategy: inclusion.options.collisionStrategy,
+        updateStrategy: inclusion.options.updateStrategy,
         include: inclusion.options.include,
         exclude: inclusion.options.exclude,
         excludeByDefault: inclusion.options.excludeByDefault,
@@ -214,6 +215,7 @@ function mockInclusionsVerify(options: {
           present: true, // Web inclusions are always "present"
           syncStatus: "current" as SyncStatus, // Web inclusions don't have a sync status
           collisionStrategy: inclusion.options.collisionStrategy,
+          updateStrategy: inclusion.options.updateStrategy,
           include: [], // Web inclusions don't have include/exclude
           exclude: [],
           excludeByDefault: false,
@@ -252,6 +254,7 @@ function mockInclusionsVerify(options: {
           present: localExists,
           syncStatus: "current" as SyncStatus, // Local inclusions don't have a sync status
           collisionStrategy: inclusion.options.collisionStrategy,
+          updateStrategy: inclusion.options.updateStrategy,
           include: inclusion.options.include,
           exclude: inclusion.options.exclude,
           excludeByDefault: inclusion.options.excludeByDefault,
