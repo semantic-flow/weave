@@ -7,7 +7,9 @@ updated: "2025-06-17"
 
 # Building Weave Docs
 
-This document explains how the Weave documentation is built, demonstrating Weave's own capabilities by using it to manage the documentation workflow.
+This document explains how the Weave documentation is built
+
+Eventually, we should be demonstrating Weave's own capabilities by using it to do some pre-processing.
 
 ## Overview
 

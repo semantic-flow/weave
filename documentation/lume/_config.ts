@@ -5,7 +5,7 @@ const site = lume(
   {
     dest: "../../docs",
     src: "../weave",
-    //location: new URL("https://semantic-flow.github.io/weave/"),
+    location: new URL("https://semantic-flow.github.io/weave/"),
   },
 );
 
