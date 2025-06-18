@@ -41,8 +41,6 @@ function createTestGitInclusion(pushStrategy: string = "no-force"): GitInclusion
     order: 1,
     options: {
       active: true,
-      collisionStrategy: "no-overwrite",
-      updateStrategy: "never",
       collisionStrategy: "fail",
       updateStrategy: "never",
       ignoreMissingTimestamps: false,

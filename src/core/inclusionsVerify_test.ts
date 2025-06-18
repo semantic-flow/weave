@@ -40,8 +40,6 @@ function createTestGitInclusion(): GitInclusion {
     order: 1,
     options: {
       active: true,
-      collisionStrategy: "no-overwrite",
-      updateStrategy: "never",
       collisionStrategy: "fail",
       updateStrategy: "never",
       ignoreMissingTimestamps: false,
@@ -72,8 +70,6 @@ function createTestWebInclusion(): WebInclusion {
     order: 2,
     options: {
       active: true,
-      collisionStrategy: "no-overwrite",
-      updateStrategy: "never",
       collisionStrategy: "fail",
       updateStrategy: "never",
       ignoreMissingTimestamps: false,
@@ -91,8 +87,6 @@ function createTestLocalInclusion(): LocalInclusion {
     order: 3,
     options: {
       active: true,
-      collisionStrategy: "no-overwrite",
-      updateStrategy: "never",
       collisionStrategy: "fail",
       updateStrategy: "never",
       ignoreMissingTimestamps: false,
