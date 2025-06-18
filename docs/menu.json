@@ -1,0 +1,18 @@
+[
+  {
+    "slug": "building-weave-docs",
+    "data": {
+      "title": "Building Weave Docs",
+      "url": "/building-weave-docs/",
+      "basename": "building-weave-docs"
+    }
+  },
+  {
+    "slug": "collision-and-update-strategies",
+    "data": {
+      "title": "Collision and Update Strategies in Weave",
+      "url": "/collision-and-update-strategies/",
+      "basename": "collision-and-update-strategies"
+    }
+  }
+]

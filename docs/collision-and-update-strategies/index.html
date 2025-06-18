@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collision and Update Strategies in Weave</title>
+
+    <meta name="supported-color-schemes" content="light dark">
+    <meta name="theme-color" content="hsl(220, 20%, 100%)" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="hsl(220, 20%, 10%)" media="(prefers-color-scheme: dark)">
+
+    <link rel="stylesheet" href="/pagefind/pagefind-ui.css"><link rel="stylesheet" href="/styles.css">
+    <script type="module" src="/menu.js"></script>
+    <link rel="canonical" href="http://localhost/collision-and-update-strategies/">
+    
+  <script type="text/javascript" src="/pagefind/pagefind-ui.js"></script><script type="text/javascript">window.addEventListener('DOMContentLoaded',()=>{new PagefindUI({"element":"#search","showImages":false,"excerptLength":0,"showEmptyFilters":true,"showSubResults":false,"resetStyles":true,"bundlePath":"/pagefind/","baseUrl":"/"});});</script><link rel="icon" sizes="48x48" href="/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" sizes="any" href="/favicon.svg" type="image/svg+xml">
+</head>
+
+  <body>
+    <div class="container">
+      <div class="toolbar">
+        <div id="search" class="search"></div>
+        <script>
+          let theme = localStorage.getItem("theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light");
+          document.documentElement.dataset.theme = theme;
+          function changeTheme() {
+            theme = theme === "dark" ? "light" : "dark";
+            localStorage.setItem("theme", theme);
+            document.documentElement.dataset.theme = theme;
+          }
+        </script>
+        <button aria-label="Toogle to dark/light theme" class="button theme" onclick="changeTheme()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><path fill-rule="evenodd" d="M10 0c5.523 0 10 4.477 10 10s-4.477 10-10 10S0 15.523 0 10 4.477 0 10 0Zm9 10a9 9 0 0 1-9 9V1a9 9 0 0 1 9 9Z"></path></svg>
+        </button>
+      </div>
+
+      <nav class="menu-container">
+
+      <a class="menu-highlight" href="/">Introduction to Weave</a>
+
+
+  <tree-menu class="menu" data-base="/" data-url="/menu.json">
+  </tree-menu>
+</nav>
+
+
+      <nav class="toc">
+        <h2>On this page</h2>
+        <ol>
+          <li>
+            <a href="#collision-strategies">Collision Strategies</a>
+
+            <ul>
+              <li>
+                <a href="#available-collision-strategies">Available Collision Strategies</a>
+              </li>
+              <li>
+                <a href="#configuration">Configuration</a>
+              </li>
+            </ul>
+          </li>
+          <li>
+            <a href="#update-strategies">Update Strategies</a>
+
+            <ul>
+              <li>
+                <a href="#available-update-strategies">Available Update Strategies</a>
+              </li>
+              <li>
+                <a href="#important%3A-update-vs-collision-strategies">Important: Update vs Collision Strategies</a>
+              </li>
+              <li>
+                <a href="#configuration-1">Configuration</a>
+              </li>
+            </ul>
+          </li>
+          <li>
+            <a href="#timestamp-handling">Timestamp Handling</a>
+
+          </li>
+          <li>
+            <a href="#best-practices">Best Practices</a>
+
+          </li>
+        </ol>
+      </nav>
+
+      <main class="main">
+        <nav>
+  <ul class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">Introduction to Weave</a></li>
+  </ul>
+</nav>
+
+
+        <div class="body">
+
+            <h1>Collision and Update Strategies in Weave</h1>
+<p>Weave provides flexible strategies for handling file collisions and updates during the build process. This document explains the available strategies and how to configure them.</p>
+<h2 id="collision-strategies" tabindex="-1"><a href="#collision-strategies" class="header-anchor">Collision Strategies</a></h2>
+<p>Collision strategies determine how Weave handles situations where multiple inclusions would copy files to the same destination path.</p>
+<h3 id="available-collision-strategies" tabindex="-1"><a href="#available-collision-strategies" class="header-anchor">Available Collision Strategies</a></h3>
+<ul>
+<li><strong>fail</strong>: Fails the build if any collisions are detected. This is the default strategy.</li>
+<li><strong>no-overwrite</strong>: Uses the file from the inclusion that processes it first (lowest order number). Don't overwrite existing files.</li>
+<li><strong>overwrite</strong>: Uses the file from the inclusion that processes it last (highest order number). Always overwrite with the latest file.</li>
+<li><strong>prompt</strong>: (Not yet implemented) Prompts the user to choose which file to use.</li>
+</ul>
+<h4 id="how-order-and-collision-strategy-interact" tabindex="-1"><a href="#how-order-and-collision-strategy-interact" class="header-anchor">How Order and Collision Strategy Interact</a></h4>
+<p>Inclusions are processed in order from lowest to highest order number. When a collision occurs:</p>
+<ul>
+<li><strong>no-overwrite</strong>: The file from the inclusion with the lower order number wins (first to claim the destination path)</li>
+<li><strong>overwrite</strong>: The file from the inclusion with the higher order number wins (overwrites any previous file)</li>
+</ul>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript hljs"><span class="hljs-attr">inclusions</span>: [
+  {
+    <span class="hljs-attr">name</span>: <span class="hljs-string">"template"</span>,
+    <span class="hljs-attr">order</span>: <span class="hljs-number">10</span>,
+    <span class="hljs-attr">options</span>: { <span class="hljs-attr">collisionStrategy</span>: <span class="hljs-string">"overwrite"</span> }
+  },
+  {
+    <span class="hljs-attr">name</span>: <span class="hljs-string">"content"</span>, 
+    <span class="hljs-attr">order</span>: <span class="hljs-number">20</span>,
+    <span class="hljs-attr">options</span>: { <span class="hljs-attr">collisionStrategy</span>: <span class="hljs-string">"no-overwrite"</span> }
+  }
+]
+</code></pre>
+<p>If both inclusions have an <code>index.md</code> file:</p>
+<ul>
+<li>Template processes first (order 10) with "overwrite" strategy → places its file</li>
+<li>Content processes second (order 20) with "no-overwrite" strategy → keeps template's file (doesn't overwrite)</li>
+<li>Result: Template's <code>index.md</code> is used</li>
+</ul>
+<h3 id="configuration" tabindex="-1"><a href="#configuration" class="header-anchor">Configuration</a></h3>
+<p>Collision strategies can be configured at both the global and inclusion level:</p>
+<pre><code class="language-typescript hljs"><span class="hljs-comment">// Global configuration</span>
+<span class="hljs-keyword">const</span> <span class="hljs-attr">config</span>: <span class="hljs-title class_">WeaveConfigInput</span> = {
+  <span class="hljs-attr">global</span>: {
+    <span class="hljs-attr">globalCollisionStrategy</span>: <span class="hljs-string">"fail"</span>, <span class="hljs-comment">// Default</span>
+    <span class="hljs-comment">// ...</span>
+  },
+  <span class="hljs-comment">// ...</span>
+};
+
+<span class="hljs-comment">// Inclusion-level configuration</span>
+<span class="hljs-keyword">const</span> <span class="hljs-attr">inclusion</span>: <span class="hljs-title class_">GitInclusion</span> = {
+  <span class="hljs-comment">// ...</span>
+  <span class="hljs-attr">options</span>: {
+    <span class="hljs-attr">collisionStrategy</span>: <span class="hljs-string">"overwrite"</span>, <span class="hljs-comment">// Overrides global strategy for this inclusion</span>
+    <span class="hljs-comment">// ...</span>
+  },
+};
+</code></pre>
+<h2 id="update-strategies" tabindex="-1"><a href="#update-strategies" class="header-anchor">Update Strategies</a></h2>
+<p>Update strategies determine how Weave handles situations where a file from the same inclusion source already exists in the destination directory. Update strategies only apply when the same inclusion tries to update its own previously placed file.</p>
+<h3 id="available-update-strategies" tabindex="-1"><a href="#available-update-strategies" class="header-anchor">Available Update Strategies</a></h3>
+<ul>
+<li><strong>never</strong>: Never updates existing files. This is the default strategy.</li>
+<li><strong>always</strong>: Always updates existing files, regardless of content or timestamp.</li>
+<li><strong>if-different</strong>: Updates the file only if the content is different.</li>
+<li><strong>if-newer</strong>: Updates the file only if the source file is newer than the destination file.</li>
+<li><strong>prompt</strong>: (Not yet implemented) Prompts the user to choose whether to update the file.</li>
+</ul>
+<h3 id="important%3A-update-vs-collision-strategies" tabindex="-1"><a href="#important%3A-update-vs-collision-strategies" class="header-anchor">Important: Update vs Collision Strategies</a></h3>
+<ul>
+<li><strong>Update strategies</strong> apply when the same inclusion wants to update its own file</li>
+<li><strong>Collision strategies</strong> apply when different inclusions want to place files at the same destination</li>
+<li>If inclusion A places a file, then inclusion B wants to place a file at the same location, collision strategy determines the winner</li>
+<li>If inclusion A runs again and wants to update its own previously placed file, update strategy applies</li>
+</ul>
+<h3 id="configuration-1" tabindex="-1"><a href="#configuration-1" class="header-anchor">Configuration</a></h3>
+<p>Update strategies can be configured at both the global and inclusion level:</p>
+<pre><code class="language-typescript hljs"><span class="hljs-comment">// Global configuration</span>
+<span class="hljs-keyword">const</span> <span class="hljs-attr">config</span>: <span class="hljs-title class_">WeaveConfigInput</span> = {
+  <span class="hljs-attr">global</span>: {
+    <span class="hljs-attr">globalUpdateStrategy</span>: <span class="hljs-string">"never"</span>, <span class="hljs-comment">// Default</span>
+    <span class="hljs-comment">// ...</span>
+  },
+  <span class="hljs-comment">// ...</span>
+};
+
+<span class="hljs-comment">// Inclusion-level configuration</span>
+<span class="hljs-keyword">const</span> <span class="hljs-attr">inclusion</span>: <span class="hljs-title class_">GitInclusion</span> = {
+  <span class="hljs-comment">// ...</span>
+  <span class="hljs-attr">options</span>: {
+    <span class="hljs-attr">updateStrategy</span>: <span class="hljs-string">"if-newer"</span>, <span class="hljs-comment">// Overrides global strategy for this inclusion</span>
+    <span class="hljs-comment">// ...</span>
+  },
+};
+</code></pre>
+<h2 id="timestamp-handling" tabindex="-1"><a href="#timestamp-handling" class="header-anchor">Timestamp Handling</a></h2>
+<p>When using the <code>if-newer</code> update strategy, Weave compares timestamps between source and destination files. The timestamp source depends on the inclusion type:</p>
+<ul>
+<li><strong>Git inclusions</strong>: Uses the git commit timestamp if available, falls back to file modification time.</li>
+<li><strong>Web inclusions</strong>: Uses the HTTP Last-Modified header if available (not yet implemented).</li>
+<li><strong>Local inclusions</strong>: Uses the file modification time.</li>
+</ul>
+<p>If a timestamp cannot be determined (e.g., for web inclusions), Weave will by default fail the build. You can configure Weave to ignore missing timestamps:</p>
+<pre><code class="language-typescript hljs"><span class="hljs-comment">// Global configuration</span>
+<span class="hljs-keyword">const</span> <span class="hljs-attr">config</span>: <span class="hljs-title class_">WeaveConfigInput</span> = {
+  <span class="hljs-attr">global</span>: {
+    <span class="hljs-attr">ignoreMissingTimestamps</span>: <span class="hljs-literal">false</span>, <span class="hljs-comment">// Default</span>
+    <span class="hljs-comment">// ...</span>
+  },
+  <span class="hljs-comment">// ...</span>
+};
+
+<span class="hljs-comment">// Inclusion-level configuration</span>
+<span class="hljs-keyword">const</span> <span class="hljs-attr">inclusion</span>: <span class="hljs-title class_">GitInclusion</span> = {
+  <span class="hljs-comment">// ...</span>
+  <span class="hljs-attr">options</span>: {
+    <span class="hljs-attr">ignoreMissingTimestamps</span>: <span class="hljs-literal">true</span>, <span class="hljs-comment">// Overrides global setting for this inclusion</span>
+    <span class="hljs-comment">// ...</span>
+  },
+};
+</code></pre>
+<h2 id="best-practices" tabindex="-1"><a href="#best-practices" class="header-anchor">Best Practices</a></h2>
+<ul>
+<li>Use <code>fail</code> collision strategy during development to catch unexpected collisions.</li>
+<li>Use <code>no-overwrite</code> or <code>overwrite</code> collision strategy in production to ensure deterministic builds.</li>
+<li>Use <code>if-different</code> update strategy to avoid unnecessary file updates.</li>
+<li>Use <code>if-newer</code> update strategy when working with files that are frequently updated.</li>
+<li>Set <code>ignoreMissingTimestamps</code> to <code>true</code> when using web inclusions with the <code>if-newer</code> update strategy.</li>
+</ul>
+
+        </div>
+
+      </main>
+
+    </div>
+  
+
+</body></html>

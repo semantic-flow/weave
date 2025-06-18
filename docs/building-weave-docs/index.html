@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Building Weave Docs</title>
+
+    <meta name="supported-color-schemes" content="light dark">
+    <meta name="theme-color" content="hsl(220, 20%, 100%)" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="hsl(220, 20%, 10%)" media="(prefers-color-scheme: dark)">
+
+    <link rel="stylesheet" href="/pagefind/pagefind-ui.css"><link rel="stylesheet" href="/styles.css">
+    <script type="module" src="/menu.js"></script>
+    <link rel="canonical" href="http://localhost/building-weave-docs/">
+    
+  <script type="text/javascript" src="/pagefind/pagefind-ui.js"></script><script type="text/javascript">window.addEventListener('DOMContentLoaded',()=>{new PagefindUI({"element":"#search","showImages":false,"excerptLength":0,"showEmptyFilters":true,"showSubResults":false,"resetStyles":true,"bundlePath":"/pagefind/","baseUrl":"/"});});</script><link rel="icon" sizes="48x48" href="/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" sizes="any" href="/favicon.svg" type="image/svg+xml">
+</head>
+
+  <body>
+    <div class="container">
+      <div class="toolbar">
+        <div id="search" class="search"></div>
+        <script>
+          let theme = localStorage.getItem("theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light");
+          document.documentElement.dataset.theme = theme;
+          function changeTheme() {
+            theme = theme === "dark" ? "light" : "dark";
+            localStorage.setItem("theme", theme);
+            document.documentElement.dataset.theme = theme;
+          }
+        </script>
+        <button aria-label="Toogle to dark/light theme" class="button theme" onclick="changeTheme()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><path fill-rule="evenodd" d="M10 0c5.523 0 10 4.477 10 10s-4.477 10-10 10S0 15.523 0 10 4.477 0 10 0Zm9 10a9 9 0 0 1-9 9V1a9 9 0 0 1 9 9Z"></path></svg>
+        </button>
+      </div>
+
+      <nav class="menu-container">
+
+      <a class="menu-highlight" href="/">Introduction to Weave</a>
+
+
+  <tree-menu class="menu" data-base="/" data-url="/menu.json">
+  </tree-menu>
+</nav>
+
+
+      <nav class="toc">
+        <h2>On this page</h2>
+        <ol>
+          <li>
+            <a href="#overview">Overview</a>
+
+          </li>
+          <li>
+            <a href="#architecture">Architecture</a>
+
+            <ul>
+              <li>
+                <a href="#directory-structure">Directory Structure</a>
+              </li>
+              <li>
+                <a href="#how-it-works">How It Works</a>
+              </li>
+            </ul>
+          </li>
+          <li>
+            <a href="#development-workflow">Development Workflow</a>
+
+            <ul>
+              <li>
+                <a href="#building-the-documentation">Building the Documentation</a>
+              </li>
+              <li>
+                <a href="#available-commands">Available Commands</a>
+              </li>
+              <li>
+                <a href="#adding-new-documentation">Adding New Documentation</a>
+              </li>
+            </ul>
+          </li>
+          <li>
+            <a href="#theme-configuration">Theme Configuration</a>
+
+            <ul>
+              <li>
+                <a href="#theme-customization">Theme Customization</a>
+              </li>
+              <li>
+                <a href="#changing-themes">Changing Themes</a>
+              </li>
+              <li>
+                <a href="#popular-lume-themes">Popular Lume Themes</a>
+              </li>
+            </ul>
+          </li>
+          <li>
+            <a href="#weave-integration">Weave Integration</a>
+
+            <ul>
+              <li>
+                <a href="#content-sources">Content Sources</a>
+              </li>
+              <li>
+                <a href="#example-weave-configuration">Example Weave Configuration</a>
+              </li>
+            </ul>
+          </li>
+          <li>
+            <a href="#features">Features</a>
+
+            <ul>
+              <li>
+                <a href="#search">Search</a>
+              </li>
+              <li>
+                <a href="#navigation">Navigation</a>
+              </li>
+              <li>
+                <a href="#code-highlighting">Code Highlighting</a>
+              </li>
+            </ul>
+          </li>
+          <li>
+            <a href="#deployment">Deployment</a>
+
+            <ul>
+              <li>
+                <a href="#github-pages">GitHub Pages</a>
+              </li>
+              <li>
+                <a href="#other-platforms">Other Platforms</a>
+              </li>
+            </ul>
+          </li>
+          <li>
+            <a href="#troubleshooting">Troubleshooting</a>
+
+            <ul>
+              <li>
+                <a href="#common-issues">Common Issues</a>
+              </li>
+              <li>
+                <a href="#getting-help">Getting Help</a>
+              </li>
+            </ul>
+          </li>
+          <li>
+            <a href="#contributing">Contributing</a>
+
+          </li>
+        </ol>
+      </nav>
+
+      <main class="main">
+        <nav>
+  <ul class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">Introduction to Weave</a></li>
+  </ul>
+</nav>
+
+
+        <div class="body">
+
+            <h1>Building Weave Docs</h1>
+<p>This document explains how the Weave documentation is built, demonstrating Weave's own capabilities by using it to manage the documentation workflow.</p>
+<h2 id="overview" tabindex="-1"><a href="#overview" class="header-anchor">Overview</a></h2>
+<p>The Weave documentation system uses:</p>
+<ul>
+<li><strong><a href="https://lume.land/">Lume</a></strong> - A static site generator for Deno</li>
+<li><strong><a href="https://github.com/lumeland/theme-footlight">Footlight Theme</a></strong> - A clean, modern documentation theme</li>
+<li><strong>Weave itself</strong> - To manage and sync documentation sources</li>
+</ul>
+<h2 id="architecture" tabindex="-1"><a href="#architecture" class="header-anchor">Architecture</a></h2>
+<h3 id="directory-structure" tabindex="-1"><a href="#directory-structure" class="header-anchor">Directory Structure</a></h3>
+<pre><code>weave/
+├── documentation/
+│   ├── lume/              # Lume configuration and build setup
+│   │   ├── _config.ts     # Main Lume configuration
+│   │   └── deno.json      # Deno tasks and dependencies
+│   └── weave/             # Documentation content (markdown files)
+│       ├── _data.yml      # Layout configuration
+│       ├── index.md       # Main documentation page
+│       ├── building-weave-docs.md  # This file
+│       └── collision-and-update-strategies.md
+└── docs/                  # Generated static site (GitHub Pages ready)
+</code></pre>
+<h3 id="how-it-works" tabindex="-1"><a href="#how-it-works" class="header-anchor">How It Works</a></h3>
+<ol>
+<li><strong>Content Creation</strong>: Documentation is written in Markdown files in <code>weave/documentation/weave/</code></li>
+<li><strong>Theme Application</strong>: The footlight theme provides layout, styling, and navigation</li>
+<li><strong>Build Process</strong>: Lume processes the content and generates a static site in <code>weave/docs/</code></li>
+<li><strong>Deployment</strong>: The <code>docs/</code> folder can be served directly by GitHub Pages</li>
+</ol>
+<h2 id="development-workflow" tabindex="-1"><a href="#development-workflow" class="header-anchor">Development Workflow</a></h2>
+<h3 id="building-the-documentation" tabindex="-1"><a href="#building-the-documentation" class="header-anchor">Building the Documentation</a></h3>
+<pre><code class="language-bash hljs"><span class="hljs-comment"># Navigate to the Lume configuration directory</span>
+<span class="hljs-built_in">cd</span> weave/documentation/lume
+
+<span class="hljs-comment"># Build the static site</span>
+deno task build
+
+<span class="hljs-comment"># Start development server with live reload</span>
+deno task serve
+</code></pre>
+<h3 id="available-commands" tabindex="-1"><a href="#available-commands" class="header-anchor">Available Commands</a></h3>
+<ul>
+<li><strong><code>deno task build</code></strong> - Generates the static site in <code>weave/docs/</code></li>
+<li><strong><code>deno task serve</code></strong> - Starts development server at http://localhost:3000/</li>
+<li><strong><code>deno task cms</code></strong> - Launches the content management system (if configured)</li>
+</ul>
+<h3 id="adding-new-documentation" tabindex="-1"><a href="#adding-new-documentation" class="header-anchor">Adding New Documentation</a></h3>
+<ol>
+<li>Create new <code>.md</code> files in <code>weave/documentation/weave/</code></li>
+<li>Add frontmatter with title, description, and dates:<pre><code class="language-yaml hljs"><span class="hljs-meta">---</span>
+<span class="hljs-attr">title:</span> <span class="hljs-string">Your</span> <span class="hljs-string">Page</span> <span class="hljs-string">Title</span>
+<span class="hljs-attr">description:</span> <span class="hljs-string">Brief</span> <span class="hljs-string">description</span>
+<span class="hljs-attr">created:</span> <span class="hljs-string">"2025-06-17"</span>
+<span class="hljs-attr">updated:</span> <span class="hljs-string">"2025-06-17"</span>
+<span class="hljs-meta">---
+</span></code></pre>
+</li>
+<li>Write content in Markdown</li>
+<li>Run <code>deno task build</code> to regenerate the site</li>
+</ol>
+<h2 id="theme-configuration" tabindex="-1"><a href="#theme-configuration" class="header-anchor">Theme Configuration</a></h2>
+<p>The documentation uses the <strong>Footlight theme</strong>, which provides:</p>
+<ul>
+<li>Clean, responsive design</li>
+<li>Built-in search functionality (via Pagefind)</li>
+<li>Navigation sidebar</li>
+<li>Dark/light theme toggle</li>
+<li>Code syntax highlighting</li>
+<li>Table of contents generation</li>
+</ul>
+<h3 id="theme-customization" tabindex="-1"><a href="#theme-customization" class="header-anchor">Theme Customization</a></h3>
+<p>The theme is configured in <code>weave/documentation/lume/_config.ts</code>:</p>
+<pre><code class="language-typescript hljs"><span class="hljs-keyword">import</span> lume <span class="hljs-keyword">from</span> <span class="hljs-string">"lume/mod.ts"</span>;
+<span class="hljs-keyword">import</span> theme <span class="hljs-keyword">from</span> <span class="hljs-string">"theme/mod.ts"</span>;
+
+<span class="hljs-keyword">const</span> site = <span class="hljs-title function_">lume</span>();
+
+site.<span class="hljs-title function_">use</span>(<span class="hljs-title function_">theme</span>({
+  <span class="hljs-comment">// Theme options can be configured here</span>
+  <span class="hljs-comment">// languages: ["en", "es"],  // Multi-language support</span>
+  <span class="hljs-comment">// favicon: { input: "path/to/favicon.svg" }</span>
+}));
+
+<span class="hljs-keyword">export</span> <span class="hljs-keyword">default</span> site;
+</code></pre>
+<h3 id="changing-themes" tabindex="-1"><a href="#changing-themes" class="header-anchor">Changing Themes</a></h3>
+<p>To switch to a different Lume theme:</p>
+<ol>
+<li>
+<p><strong>Update the import</strong> in <code>_config.ts</code>:</p>
+<pre><code class="language-typescript hljs"><span class="hljs-comment">// Replace this:</span>
+<span class="hljs-keyword">import</span> theme <span class="hljs-keyword">from</span> <span class="hljs-string">"theme/mod.ts"</span>;
+
+<span class="hljs-comment">// With your new theme:</span>
+<span class="hljs-keyword">import</span> newTheme <span class="hljs-keyword">from</span> <span class="hljs-string">"https://deno.land/x/lume_theme_name@version/mod.ts"</span>;
+</code></pre>
+</li>
+<li>
+<p><strong>Update the theme usage</strong>:</p>
+<pre><code class="language-typescript hljs">site.<span class="hljs-title function_">use</span>(<span class="hljs-title function_">newTheme</span>({
+  <span class="hljs-comment">// New theme options</span>
+}));
+</code></pre>
+</li>
+<li>
+<p><strong>Update deno.json imports</strong> if needed:</p>
+<pre><code class="language-json hljs"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"imports"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"theme/"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"https://deno.land/x/new_theme@version/"</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</code></pre>
+</li>
+<li>
+<p><strong>Rebuild the site</strong>:</p>
+<pre><code class="language-bash hljs">deno task build
+</code></pre>
+</li>
+</ol>
+<h3 id="popular-lume-themes" tabindex="-1"><a href="#popular-lume-themes" class="header-anchor">Popular Lume Themes</a></h3>
+<ul>
+<li><strong><a href="https://github.com/lumeland/theme-simple-blog">Simple Blog</a></strong> - Minimal blog theme</li>
+<li><strong><a href="https://github.com/lumeland/theme-docs">Docs</a></strong> - Documentation-focused theme</li>
+<li><strong><a href="https://github.com/lumeland/theme-base-blog">Base Blog</a></strong> - Feature-rich blog theme</li>
+<li><strong><a href="https://github.com/lumeland/theme-footlight">Footlight</a></strong> - Current theme (clean docs)</li>
+</ul>
+<h2 id="weave-integration" tabindex="-1"><a href="#weave-integration" class="header-anchor">Weave Integration</a></h2>
+<p>This documentation system demonstrates Weave's capabilities:</p>
+<h3 id="content-sources" tabindex="-1"><a href="#content-sources" class="header-anchor">Content Sources</a></h3>
+<p>The documentation could be configured to pull from multiple sources:</p>
+<ul>
+<li>Local markdown files (current setup)</li>
+<li>External repositories (via git inclusions)</li>
+<li>Remote documentation (via web inclusions)</li>
+<li>Generated content (via local inclusions)</li>
+</ul>
+<h3 id="example-weave-configuration" tabindex="-1"><a href="#example-weave-configuration" class="header-anchor">Example Weave Configuration</a></h3>
+<pre><code class="language-typescript hljs"><span class="hljs-comment">// weave.config.ts (hypothetical)</span>
+<span class="hljs-keyword">export</span> <span class="hljs-keyword">const</span> weaveConfig = {
+  <span class="hljs-attr">global</span>: {
+    <span class="hljs-attr">dest</span>: <span class="hljs-string">"docs"</span>,
+    <span class="hljs-attr">globalClean</span>: <span class="hljs-literal">true</span>,
+  },
+  <span class="hljs-attr">inclusions</span>: [
+    {
+      <span class="hljs-attr">type</span>: <span class="hljs-string">"local"</span>,
+      <span class="hljs-attr">localPath</span>: <span class="hljs-string">"documentation/weave"</span>,
+      <span class="hljs-attr">order</span>: <span class="hljs-number">10</span>,
+      <span class="hljs-attr">options</span>: {
+        <span class="hljs-attr">include</span>: [<span class="hljs-string">"**/*.md"</span>],
+        <span class="hljs-attr">active</span>: <span class="hljs-literal">true</span>,
+      }
+    },
+    {
+      <span class="hljs-attr">type</span>: <span class="hljs-string">"git"</span>,
+      <span class="hljs-attr">url</span>: <span class="hljs-string">"https://github.com/external/docs.git"</span>,
+      <span class="hljs-attr">order</span>: <span class="hljs-number">20</span>,
+      <span class="hljs-attr">options</span>: {
+        <span class="hljs-attr">include</span>: [<span class="hljs-string">"api-docs/"</span>],
+        <span class="hljs-attr">remappings</span>: [
+          { <span class="hljs-attr">source</span>: <span class="hljs-string">"api-docs/"</span>, <span class="hljs-attr">target</span>: <span class="hljs-string">"api/"</span> }
+        ]
+      }
+    }
+  ]
+};
+</code></pre>
+<h2 id="features" tabindex="-1"><a href="#features" class="header-anchor">Features</a></h2>
+<h3 id="search" tabindex="-1"><a href="#search" class="header-anchor">Search</a></h3>
+<p>The footlight theme includes built-in search powered by <a href="https://pagefind.app/">Pagefind</a>:</p>
+<ul>
+<li>Automatically indexes all content</li>
+<li>Client-side search (no server required)</li>
+<li>Fast, fuzzy search results</li>
+<li>Works in static deployments</li>
+</ul>
+<h3 id="navigation" tabindex="-1"><a href="#navigation" class="header-anchor">Navigation</a></h3>
+<ul>
+<li>Automatic sidebar generation from file structure</li>
+<li>Breadcrumb navigation</li>
+<li>Mobile-responsive menu</li>
+<li>Theme toggle (dark/light mode)</li>
+</ul>
+<h3 id="code-highlighting" tabindex="-1"><a href="#code-highlighting" class="header-anchor">Code Highlighting</a></h3>
+<p>Syntax highlighting is provided by the <code>codeHighlight</code> plugin:</p>
+<ul>
+<li>Supports many programming languages</li>
+<li>Automatic language detection</li>
+<li>Copy-to-clipboard functionality</li>
+<li>Line number support</li>
+</ul>
+<h2 id="deployment" tabindex="-1"><a href="#deployment" class="header-anchor">Deployment</a></h2>
+<h3 id="github-pages" tabindex="-1"><a href="#github-pages" class="header-anchor">GitHub Pages</a></h3>
+<p>The generated <code>docs/</code> folder is ready for GitHub Pages:</p>
+<ol>
+<li>Push changes to your repository</li>
+<li>Go to Settings → Pages in your GitHub repository</li>
+<li>Select "Deploy from a branch"</li>
+<li>Choose "main" branch and "/docs" folder</li>
+<li>Your site will be available at <code>https://username.github.io/repository-name/</code></li>
+</ol>
+<h3 id="other-platforms" tabindex="-1"><a href="#other-platforms" class="header-anchor">Other Platforms</a></h3>
+<p>The static files in <code>docs/</code> can be deployed to:</p>
+<ul>
+<li>Netlify</li>
+<li>Vercel</li>
+<li>Cloudflare Pages</li>
+<li>Any static hosting service</li>
+</ul>
+<h2 id="troubleshooting" tabindex="-1"><a href="#troubleshooting" class="header-anchor">Troubleshooting</a></h2>
+<h3 id="common-issues" tabindex="-1"><a href="#common-issues" class="header-anchor">Common Issues</a></h3>
+<p><strong>Build fails with "self is not defined"</strong></p>
+<ul>
+<li>This was a PrismJS compatibility issue, fixed by switching to <code>codeHighlight</code> plugin</li>
+</ul>
+<p><strong>Serve command doesn't work</strong></p>
+<ul>
+<li>Ensure you're in the <code>weave/documentation/lume/</code> directory</li>
+<li>Check that all dependencies are installed: <code>deno cache _config.ts</code></li>
+</ul>
+<p><strong>Theme not loading</strong></p>
+<ul>
+<li>Verify the theme import path in <code>_config.ts</code></li>
+<li>Check that <code>deno.json</code> has correct import mappings</li>
+</ul>
+<p><strong>Content not updating</strong></p>
+<ul>
+<li>Run <code>deno task build</code> to regenerate the site</li>
+<li>Clear browser cache if using development server</li>
+</ul>
+<h3 id="getting-help" tabindex="-1"><a href="#getting-help" class="header-anchor">Getting Help</a></h3>
+<ul>
+<li><a href="https://lume.land/">Lume Documentation</a></li>
+<li><a href="https://github.com/lumeland/theme-footlight">Footlight Theme Repository</a></li>
+<li><a href="https://deno.land/manual">Deno Documentation</a></li>
+</ul>
+<h2 id="contributing" tabindex="-1"><a href="#contributing" class="header-anchor">Contributing</a></h2>
+<p>To contribute to the Weave documentation:</p>
+<ol>
+<li>Edit markdown files in <code>weave/documentation/weave/</code></li>
+<li>Test changes with <code>deno task serve</code></li>
+<li>Build the final site with <code>deno task build</code></li>
+<li>Commit both source files and generated <code>docs/</code> folder</li>
+<li>Submit a pull request</li>
+</ol>
+<p>The documentation system is designed to be simple, fast, and maintainable while demonstrating Weave's capabilities for managing complex content workflows.</p>
+
+        </div>
+
+      </main>
+
+    </div>
+  
+
+</body></html>

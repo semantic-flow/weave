@@ -1,6 +1,6 @@
 ---
-title: Introduction to Weave
-description: 
+title: Weave
+description:
 created: "2024-11-21"
 updated: "2024-12-12"
 ---
@@ -9,7 +9,6 @@ updated: "2024-12-12"
   monitoring, and managing files from multiple inclusion sources.
 - It integrates file watching, repository handling, and dynamic workflows to
   empower static site generation.
-- for an example of how Weave can work, look at [Building Weave Docs](building-weave-docs)
 
 ## Folder Structure
 
@@ -95,8 +94,8 @@ updated: "2024-12-12"
 - **weave start**: build and watch,
   - ?but only safely (i.e., repos all up-to-date, no collisions, build with
     prompt)
-- **weave setup**: interactive prompt to create config file if none present,
-    and add inclusions
+- **weave setup**: interactive prompt to create config file if none present, and
+  add inclusions
 - **weave repos list**: lists configured repos including their "active" status
   and whether they're behind/ahead/diverged from their origin
 - **weave repos checkout**: for missing repos, initialize if necessary and
@@ -133,7 +132,8 @@ updated: "2024-12-12"
 
 Weave provides several strategies for handling files during the build process:
 
-- [Collision and Update Strategies](./collision-and-update-strategies.md): Detailed documentation on how to handle file collisions and updates.
+- [Collision and Update Strategies](./collision-and-update-strategies.md):
+  Detailed documentation on how to handle file collisions and updates.
 
 ### Copy Strategies
 
@@ -145,7 +145,9 @@ Weave provides several strategies for handling files during the build process:
 
 ## Configuration File
 
-The Weave configuration file (typically `weave.config.ts`) defines how your project is structured and how files are included, processed, and built. It uses TypeScript for type safety and better developer experience.
+The Weave configuration file (typically `weave.config.ts`) defines how your
+project is structured and how files are included, processed, and built. It uses
+TypeScript for type safety and better developer experience.
 
 ### Basic Structure
 
@@ -155,15 +157,15 @@ import { WeaveConfigInput } from "./src/types.ts";
 
 export const weaveConfig: WeaveConfigInput = {
   global: {
-    dest: "_woven",                  // Output directory
-    dryRun: false,                   // Simulate operations without making changes
-    globalClean: true,               // Clean destination before build
+    dest: "_woven", // Output directory
+    dryRun: false, // Simulate operations without making changes
+    globalClean: true, // Clean destination before build
     globalCopyStrategy: "no-overwrite", // Default copy strategy
-    globalCollisionStrategy: "fail",    // Default collision strategy
-    globalUpdateStrategy: "never",      // Default update strategy
-    ignoreMissingTimestamps: false,     // Whether to ignore missing timestamps
-    watchConfig: false,              // Auto-reload on config changes
-    workspaceDir: "_source-repos",   // Directory for cloned repositories
+    globalCollisionStrategy: "fail", // Default collision strategy
+    globalUpdateStrategy: "never", // Default update strategy
+    ignoreMissingTimestamps: false, // Whether to ignore missing timestamps
+    watchConfig: false, // Auto-reload on config changes
+    workspaceDir: "_source-repos", // Directory for cloned repositories
   },
   inclusions: [
     // Git repository inclusion
@@ -171,24 +173,24 @@ export const weaveConfig: WeaveConfigInput = {
       name: "Example Repository",
       type: "git",
       url: "git@github.com:user/repo.git",
-      order: 10,                     // Processing order (lower numbers first)
+      order: 10, // Processing order (lower numbers first)
       options: {
-        branch: "main",              // Branch to checkout
-        include: ["docs", "src"],    // Directories/files to include
-        exclude: ["src/tests"],      // Directories/files to exclude
-        excludeByDefault: true,      // Exclude everything not explicitly included
-        autoPullBeforeBuild: true,   // Pull before building
-        autoPushBeforeBuild: false,  // Push before building
-        copyStrategy: "overwrite",   // Override global copy strategy
-        remappings: [                // Path remappings
+        branch: "main", // Branch to checkout
+        include: ["docs", "src"], // Directories/files to include
+        exclude: ["src/tests"], // Directories/files to exclude
+        excludeByDefault: true, // Exclude everything not explicitly included
+        autoPullBeforeBuild: true, // Pull before building
+        autoPushBeforeBuild: false, // Push before building
+        copyStrategy: "overwrite", // Override global copy strategy
+        remappings: [ // Path remappings
           {
-            source: "docs/",         // Source path or pattern
-            target: "documentation/" // Target path
-          }
-        ]
-      }
+            source: "docs/", // Source path or pattern
+            target: "documentation/", // Target path
+          },
+        ],
+      },
     },
-    
+
     // Web resource inclusion
     {
       type: "web",
@@ -196,10 +198,10 @@ export const weaveConfig: WeaveConfigInput = {
       order: 20,
       options: {
         active: true,
-        copyStrategy: "no-overwrite"
-      }
+        copyStrategy: "no-overwrite",
+      },
     },
-    
+
     // Local directory inclusion
     {
       type: "local",
@@ -213,12 +215,12 @@ export const weaveConfig: WeaveConfigInput = {
         remappings: [
           {
             source: "blog/*.md",
-            target: "posts/$1"       // $1 refers to the wildcard match
-          }
-        ]
-      }
-    }
-  ]
+            target: "posts/$1", // $1 refers to the wildcard match
+          },
+        ],
+      },
+    },
+  ],
 };
 ```
 
@@ -232,7 +234,8 @@ The `global` section defines project-wide settings:
 - `globalCopyStrategy`: Default strategy for handling file conflicts
 - `globalCollisionStrategy`: Default strategy for handling file collisions
 - `globalUpdateStrategy`: Default strategy for handling file updates
-- `ignoreMissingTimestamps`: When true, ignores missing timestamps when using if-newer update strategy
+- `ignoreMissingTimestamps`: When true, ignores missing timestamps when using
+  if-newer update strategy
 - `watchConfig`: When true, automatically reloads when config changes
 - `workspaceDir`: Directory where git repositories are stored
 
@@ -257,12 +260,14 @@ Common options for all inclusion types:
 - `copyStrategy`: How to handle file conflicts, overrides global setting
 - `collisionStrategy`: How to handle file collisions, overrides global setting
 - `updateStrategy`: How to handle file updates, overrides global setting
-- `ignoreMissingTimestamps`: Whether to ignore missing timestamps, overrides global setting
+- `ignoreMissingTimestamps`: Whether to ignore missing timestamps, overrides
+  global setting
 - `remappings`: Array of path transformations to apply during copying
 
 #### Remappings
 
-Remappings allow you to change the destination path of files during the build process. Each remapping has:
+Remappings allow you to change the destination path of files during the build
+process. Each remapping has:
 
 - `source`: Source path or pattern (supports wildcards)
 - `target`: Target path (can reference captured wildcards with $1, $2, etc.)
@@ -300,13 +305,12 @@ Examples:
 - `excludeByDefault`: When true, only explicitly included paths are processed
 - `ignoreLocalEmpty`/`ignoreMissing`: Control verification behavior
 
-
 ## Planned Features
 
-  - Dynamic configuration reloading during runtime.
-  - Modular utilities for syncing, monitoring, and collision resolution.
-  - A future interactive mode for real-time adjustments and task prioritization.
-  - keep track of prompt copying strategy choices to automate ongoing conflicts
-  - "ack" option for collisions, to suppress future warnings
-  - combine two "conflicting" files and merge them,
-    - useful for, say, composite navigation
+- Dynamic configuration reloading during runtime.
+- Modular utilities for syncing, monitoring, and collision resolution.
+- A future interactive mode for real-time adjustments and task prioritization.
+- keep track of prompt copying strategy choices to automate ongoing conflicts
+- "ack" option for collisions, to suppress future warnings
+- combine two "conflicting" files and merge them,
+  - useful for, say, composite navigation

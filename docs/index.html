@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Introduction to Weave</title>
+
+    <meta name="supported-color-schemes" content="light dark">
+    <meta name="theme-color" content="hsl(220, 20%, 100%)" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="hsl(220, 20%, 10%)" media="(prefers-color-scheme: dark)">
+
+    <link rel="stylesheet" href="/pagefind/pagefind-ui.css"><link rel="stylesheet" href="/styles.css">
+    <script type="module" src="/menu.js"></script>
+    <link rel="canonical" href="http://localhost/">
+    
+  <script type="text/javascript" src="/pagefind/pagefind-ui.js"></script><script type="text/javascript">window.addEventListener('DOMContentLoaded',()=>{new PagefindUI({"element":"#search","showImages":false,"excerptLength":0,"showEmptyFilters":true,"showSubResults":false,"resetStyles":true,"bundlePath":"/pagefind/","baseUrl":"/"});});</script><link rel="icon" sizes="48x48" href="/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" sizes="any" href="/favicon.svg" type="image/svg+xml">
+</head>
+
+  <body>
+    <div class="container">
+      <div class="toolbar">
+        <div id="search" class="search"></div>
+        <script>
+          let theme = localStorage.getItem("theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light");
+          document.documentElement.dataset.theme = theme;
+          function changeTheme() {
+            theme = theme === "dark" ? "light" : "dark";
+            localStorage.setItem("theme", theme);
+            document.documentElement.dataset.theme = theme;
+          }
+        </script>
+        <button aria-label="Toogle to dark/light theme" class="button theme" onclick="changeTheme()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><path fill-rule="evenodd" d="M10 0c5.523 0 10 4.477 10 10s-4.477 10-10 10S0 15.523 0 10 4.477 0 10 0Zm9 10a9 9 0 0 1-9 9V1a9 9 0 0 1 9 9Z"></path></svg>
+        </button>
+      </div>
+
+      <nav class="menu-container">
+
+      <a class="menu-highlight" href="/">Introduction to Weave</a>
+
+
+  <tree-menu class="menu" data-base="/" data-url="/menu.json">
+  </tree-menu>
+</nav>
+
+
+      <nav class="toc">
+        <h2>On this page</h2>
+        <ol>
+          <li>
+            <a href="#folder-structure">Folder Structure</a>
+
+          </li>
+          <li>
+            <a href="#global-options">Global Options</a>
+
+            <ul>
+              <li>
+                <a href="#usage">Usage</a>
+              </li>
+            </ul>
+          </li>
+          <li>
+            <a href="#file-handling-strategies">File Handling Strategies</a>
+
+            <ul>
+              <li>
+                <a href="#copy-strategies">Copy Strategies</a>
+              </li>
+            </ul>
+          </li>
+          <li>
+            <a href="#configuration-file">Configuration File</a>
+
+            <ul>
+              <li>
+                <a href="#basic-structure">Basic Structure</a>
+              </li>
+              <li>
+                <a href="#global-options-1">Global Options</a>
+              </li>
+              <li>
+                <a href="#inclusions">Inclusions</a>
+              </li>
+              <li>
+                <a href="#inclusion-options">Inclusion Options</a>
+              </li>
+            </ul>
+          </li>
+          <li>
+            <a href="#planned-features">Planned Features</a>
+
+          </li>
+        </ol>
+      </nav>
+
+      <main class="main">
+        <nav>
+  <ul class="breadcrumb">
+  </ul>
+</nav>
+
+
+        <div class="body">
+
+            <ul>
+<li><strong>Weave</strong> is a dynamic CLI tool for remixing static sites, focused on syncing,
+monitoring, and managing files from multiple inclusion sources.</li>
+<li>It integrates file watching, repository handling, and dynamic workflows to
+empower static site generation.</li>
+<li>for an example of how Weave can work, look at <a href="building-weave-docs">Building Weave Docs</a></li>
+</ul>
+<h2 id="folder-structure" tabindex="-1"><a href="#folder-structure" class="header-anchor">Folder Structure</a></h2>
+<ul>
+<li>It's output is a folder (named "_woven" by default) that blends different
+sources (git repos, local folders, remote files) based on inclusion rules</li>
+<li>"monitor" will watch local folders (including repo folders) detect changes in
+any local sources, and copy them to the output folder where they can be picked
+up by a static site generator</li>
+<li>The project follows a modular structure inspired by Lume, with:
+<ul>
+<li>A <code>src/cli</code> directory for CLI-specific logic.</li>
+<li>A <code>src/core/util</code> directory for core utilities like repository management,
+file syncing, and configuration handling.</li>
+<li>A <code>deps</code> folder for centralized dependency management, similar to Lume's
+approach.</li>
+</ul>
+</li>
+</ul>
+<h2 id="global-options" tabindex="-1"><a href="#global-options" class="header-anchor">Global Options</a></h2>
+<ul>
+<li><code>--config &lt;file:string&gt;</code>: Specify the path or URL to the configuration file.</li>
+<li><code>--debug &lt;level:string&gt;</code>: Set log level (<code>DEBUG</code>, <code>INFO</code>, <code>WARN</code>, <code>ERROR</code>,
+<code>CRITICAL</code>). Overrides default log settings.</li>
+<li><code>--dest &lt;directory:string&gt;</code>: Output directory (defaults to "_woven").</li>
+<li><code>--globalClean</code>: Clean the destination directory before build.</li>
+<li><code>--globalCopyStrategy &lt;strategy:string&gt;</code>: Copy strategy (<code>no-overwrite</code>,
+<code>overwrite</code>, <code>skip</code>, <code>prompt</code>).</li>
+<li><code>--watchConfig</code>: configuration file changes take effect immediately without
+restarting Weave.</li>
+<li><code>--workspaceDir &lt;directory:string&gt;</code>: Path where any git repositories of
+content are stored.</li>
+</ul>
+<h3 id="usage" tabindex="-1"><a href="#usage" class="header-anchor">Usage</a></h3>
+<ul>
+<li><strong>weave init</strong>: interactive prompt to create config file if none present, and
+add inclusions</li>
+<li><strong>weave inclusions list</strong>: lists all active inclusions and their statuses
+(present/missing, copy strategy, exclude), in order
+<ul>
+<li>takes <code>--format json</code> option to return results in json format</li>
+<li>otherwise, returns them as a table sorted by <em>order</em></li>
+</ul>
+</li>
+<li><strong>weave inclusions verify</strong>: output status "ready to weave", "not ready"
+<ul>
+<li>maybe suggest <code>--ignore-missing</code> and <code>repos prepare</code> if needed</li>
+<li>check remote inclusions for availability</li>
+<li>check local dirs for existence and non-emptiness</li>
+<li>if collisions, suggest globalCopyStrategy</li>
+</ul>
+</li>
+<li><strong>weave repos list</strong>: lists configured repos including their "active" status
+and whether they're behind/ahead/diverged from their origin
+<ul>
+<li>takes <code>--format json</code> option to return results in json format</li>
+<li>otherwise, returns them as a table sorted by <em>order</em></li>
+</ul>
+</li>
+<li><strong>weave repos checkout</strong>: for missing repos, initialize if necessary and
+perform sparse checkout, depth 1 by default</li>
+<li><strong>weave repos commit</strong>: commit all active configured repos using message
+provided</li>
+<li><strong>weave repos prepare</strong>: checkout if necessary; pull if no conflicts and
+<code>autoPullBeforeBuild</code>, then push (if <code>autoPushBeforeBuild</code>); list</li>
+<li><strong>weave repos pull</strong>: pull latest for all active configured repos</li>
+<li><strong>weave repos push</strong>: push all active configured repos
+<ul>
+<li>when no inclusions specified and <code>excludeByDefault</code> is false, nothing to do</li>
+</ul>
+</li>
+<li><strong>weave repos sync</strong>: commit using specified message, pull, then push</li>
+<li><strong>weave repos verify</strong>: checks whether repos are ready for build (and
+eventually, whether a pull would produce any conflicts)
+<ul>
+<li>ensure sparse checkout settings are good</li>
+<li>each git inclusion can have <code>ignore-behind</code>, <code>ignore-ahead</code>,
+<code>ignore-divergent</code>, and <code>ignore-checkout-consistency</code></li>
+</ul>
+</li>
+<li><strong>weave collisions</strong>: list any potential collisions to console or optionally
+to a file; optionally/eventually perform custom logic to avoid collisions
+<ul>
+<li>silent options</li>
+</ul>
+</li>
+<li><strong>weave build</strong>: <code>repos prepare</code> and then copy all included files (respecting
+directory structure when present) for active inclusions into dest dir, by
+inclusion order
+<ul>
+<li>options:
+<ul>
+<li>globalClean: <code>true</code> | <code>false</code> determines whether destination should be
+cleaned prior to build</li>
+<li>globalCopyStrategy: <code>overwrite</code> | <code>no-overwrite</code> | <code>skip</code> | <code>prompt</code></li>
+</ul>
+</li>
+<li>--no-verify: Skip verification of inclusions before building</li>
+<li>--no-prepare: Skip preparation of repositories before building; this will
+save some time doing networked git operations</li>
+<li>--pull-strategy: Pull strategy to use for git repositories (ff-only, rebase,
+merge)</li>
+<li>--push-strategy: Push strategy to use for git repositories (no-force,
+force-with-lease, force)</li>
+<li>--dry-run: simulate copying of files without actually copying them</li>
+</ul>
+</li>
+<li><strong>weave watch</strong>: detects changes in active inclusions and copies them to dest
+<ul>
+<li>doesn't itself build, only copies changed files that meet the inclusion
+conditions</li>
+</ul>
+</li>
+<li><strong>weave start</strong>: build and watch,
+<ul>
+<li>?but only safely (i.e., repos all up-to-date, no collisions, build with
+prompt)</li>
+</ul>
+</li>
+<li><strong>weave setup</strong>: interactive prompt to create config file if none present,
+and add inclusions</li>
+<li><strong>weave repos list</strong>: lists configured repos including their "active" status
+and whether they're behind/ahead/diverged from their origin</li>
+<li><strong>weave repos checkout</strong>: for missing repos, initialize if necessary and
+perform sparse checkout, depth 1 by default</li>
+<li><strong>weave repos commit</strong>: commit all active configured repos using message
+provided</li>
+<li><strong>weave repos prepare</strong>: checkout if not already present; pull if no conflicts
+and <code>autoPullBeforeBuild</code>, then push (if <code>autoPushBeforeBuild</code>); list</li>
+<li><strong>weave repos pull</strong>: pull latest for all active configured repos</li>
+<li><strong>weave repos push</strong>: push all active configured repos
+<ul>
+<li>when no inclusions specified and <code>excludeByDefault</code> is false, nothing to do</li>
+</ul>
+</li>
+<li><strong>weave repos sync</strong>: commit using specified message, pull, then push</li>
+<li><strong>weave repos verify</strong>: checks whether repos are ready for build (and
+eventually, whether a pull would produce any conflicts)
+<ul>
+<li>ensure sparse checkout settings are good</li>
+<li>each git inclusion can have <code>ignore-behind</code>, <code>ignore-ahead</code>,
+<code>ignore-divergent</code>, and <code>ignore-checkout-consistency</code></li>
+</ul>
+</li>
+<li><strong>weave collisions</strong>: list any potential collisions to console or optionally
+to a file; optionally/eventually perform custom logic to avoid collisions
+<ul>
+<li>silent options</li>
+</ul>
+</li>
+<li><strong>weave build</strong>: <code>repos prepare</code> and then copy all specified directories and
+files for active inclusions into dest dir, by inclusion order
+<ul>
+<li>clean: <code>true</code> | <code>false</code></li>
+<li>global-copy-strategy: <code>overwrite</code> | <code>no-overwrite</code> | <code>skip</code> | <code>prompt</code></li>
+<li>per-inclusion copy-strategy: <code>overwrite</code> | <code>no-overwrite</code> | <code>skip</code> |
+<code>prompt</code></li>
+</ul>
+</li>
+<li><strong>weave watch</strong>: detects changes in active inclusions and copies them to dest
+<ul>
+<li>?does it</li>
+</ul>
+</li>
+<li><strong>weave start</strong>: build and watch,
+<ul>
+<li>?but only safely (i.e., repos all up-to-date, no collisions, build with
+prompt)</li>
+</ul>
+</li>
+</ul>
+<h2 id="file-handling-strategies" tabindex="-1"><a href="#file-handling-strategies" class="header-anchor">File Handling Strategies</a></h2>
+<p>Weave provides several strategies for handling files during the build process:</p>
+<ul>
+<li><a href="/collision-and-update-strategies/">Collision and Update Strategies</a>: Detailed documentation on how to handle file collisions and updates.</li>
+</ul>
+<h3 id="copy-strategies" tabindex="-1"><a href="#copy-strategies" class="header-anchor">Copy Strategies</a></h3>
+<ul>
+<li><code>no-overwrite</code>: is the safe option where the build will fail if a collision is
+detected; it only really makes sense if clean is true</li>
+<li><code>overwrite</code>: always overwrite existing files</li>
+<li><code>skip</code>: skip copying if the file already exists</li>
+<li><code>prompt</code>: ask user what to do for each collision</li>
+</ul>
+<h2 id="configuration-file" tabindex="-1"><a href="#configuration-file" class="header-anchor">Configuration File</a></h2>
+<p>The Weave configuration file (typically <code>weave.config.ts</code>) defines how your project is structured and how files are included, processed, and built. It uses TypeScript for type safety and better developer experience.</p>
+<h3 id="basic-structure" tabindex="-1"><a href="#basic-structure" class="header-anchor">Basic Structure</a></h3>
+<pre><code class="language-typescript hljs"><span class="hljs-comment">// weave.config.ts</span>
+<span class="hljs-keyword">import</span> { <span class="hljs-title class_">WeaveConfigInput</span> } <span class="hljs-keyword">from</span> <span class="hljs-string">"./src/types.ts"</span>;
+
+<span class="hljs-keyword">export</span> <span class="hljs-keyword">const</span> <span class="hljs-attr">weaveConfig</span>: <span class="hljs-title class_">WeaveConfigInput</span> = {
+  <span class="hljs-attr">global</span>: {
+    <span class="hljs-attr">dest</span>: <span class="hljs-string">"_woven"</span>,                  <span class="hljs-comment">// Output directory</span>
+    <span class="hljs-attr">dryRun</span>: <span class="hljs-literal">false</span>,                   <span class="hljs-comment">// Simulate operations without making changes</span>
+    <span class="hljs-attr">globalClean</span>: <span class="hljs-literal">true</span>,               <span class="hljs-comment">// Clean destination before build</span>
+    <span class="hljs-attr">globalCopyStrategy</span>: <span class="hljs-string">"no-overwrite"</span>, <span class="hljs-comment">// Default copy strategy</span>
+    <span class="hljs-attr">globalCollisionStrategy</span>: <span class="hljs-string">"fail"</span>,    <span class="hljs-comment">// Default collision strategy</span>
+    <span class="hljs-attr">globalUpdateStrategy</span>: <span class="hljs-string">"never"</span>,      <span class="hljs-comment">// Default update strategy</span>
+    <span class="hljs-attr">ignoreMissingTimestamps</span>: <span class="hljs-literal">false</span>,     <span class="hljs-comment">// Whether to ignore missing timestamps</span>
+    <span class="hljs-attr">watchConfig</span>: <span class="hljs-literal">false</span>,              <span class="hljs-comment">// Auto-reload on config changes</span>
+    <span class="hljs-attr">workspaceDir</span>: <span class="hljs-string">"_source-repos"</span>,   <span class="hljs-comment">// Directory for cloned repositories</span>
+  },
+  <span class="hljs-attr">inclusions</span>: [
+    <span class="hljs-comment">// Git repository inclusion</span>
+    {
+      <span class="hljs-attr">name</span>: <span class="hljs-string">"Example Repository"</span>,
+      <span class="hljs-attr">type</span>: <span class="hljs-string">"git"</span>,
+      <span class="hljs-attr">url</span>: <span class="hljs-string">"git@github.com:user/repo.git"</span>,
+      <span class="hljs-attr">order</span>: <span class="hljs-number">10</span>,                     <span class="hljs-comment">// Processing order (lower numbers first)</span>
+      <span class="hljs-attr">options</span>: {
+        <span class="hljs-attr">branch</span>: <span class="hljs-string">"main"</span>,              <span class="hljs-comment">// Branch to checkout</span>
+        <span class="hljs-attr">include</span>: [<span class="hljs-string">"docs"</span>, <span class="hljs-string">"src"</span>],    <span class="hljs-comment">// Directories/files to include</span>
+        <span class="hljs-attr">exclude</span>: [<span class="hljs-string">"src/tests"</span>],      <span class="hljs-comment">// Directories/files to exclude</span>
+        <span class="hljs-attr">excludeByDefault</span>: <span class="hljs-literal">true</span>,      <span class="hljs-comment">// Exclude everything not explicitly included</span>
+        <span class="hljs-attr">autoPullBeforeBuild</span>: <span class="hljs-literal">true</span>,   <span class="hljs-comment">// Pull before building</span>
+        <span class="hljs-attr">autoPushBeforeBuild</span>: <span class="hljs-literal">false</span>,  <span class="hljs-comment">// Push before building</span>
+        <span class="hljs-attr">copyStrategy</span>: <span class="hljs-string">"overwrite"</span>,   <span class="hljs-comment">// Override global copy strategy</span>
+        <span class="hljs-attr">remappings</span>: [                <span class="hljs-comment">// Path remappings</span>
+          {
+            <span class="hljs-attr">source</span>: <span class="hljs-string">"docs/"</span>,         <span class="hljs-comment">// Source path or pattern</span>
+            <span class="hljs-attr">target</span>: <span class="hljs-string">"documentation/"</span> <span class="hljs-comment">// Target path</span>
+          }
+        ]
+      }
+    },
+    
+    <span class="hljs-comment">// Web resource inclusion</span>
+    {
+      <span class="hljs-attr">type</span>: <span class="hljs-string">"web"</span>,
+      <span class="hljs-attr">url</span>: <span class="hljs-string">"https://raw.githubusercontent.com/user/repo/main/README.md"</span>,
+      <span class="hljs-attr">order</span>: <span class="hljs-number">20</span>,
+      <span class="hljs-attr">options</span>: {
+        <span class="hljs-attr">active</span>: <span class="hljs-literal">true</span>,
+        <span class="hljs-attr">copyStrategy</span>: <span class="hljs-string">"no-overwrite"</span>
+      }
+    },
+    
+    <span class="hljs-comment">// Local directory inclusion</span>
+    {
+      <span class="hljs-attr">type</span>: <span class="hljs-string">"local"</span>,
+      <span class="hljs-attr">localPath</span>: <span class="hljs-string">"local-content"</span>,
+      <span class="hljs-attr">order</span>: <span class="hljs-number">30</span>,
+      <span class="hljs-attr">options</span>: {
+        <span class="hljs-attr">active</span>: <span class="hljs-literal">true</span>,
+        <span class="hljs-attr">include</span>: [<span class="hljs-string">"**/*.md"</span>],
+        <span class="hljs-attr">exclude</span>: [<span class="hljs-string">"drafts/"</span>],
+        <span class="hljs-attr">excludeByDefault</span>: <span class="hljs-literal">false</span>,
+        <span class="hljs-attr">remappings</span>: [
+          {
+            <span class="hljs-attr">source</span>: <span class="hljs-string">"blog/*.md"</span>,
+            <span class="hljs-attr">target</span>: <span class="hljs-string">"posts/$1"</span>       <span class="hljs-comment">// $1 refers to the wildcard match</span>
+          }
+        ]
+      }
+    }
+  ]
+};
+</code></pre>
+<h3 id="global-options-1" tabindex="-1"><a href="#global-options-1" class="header-anchor">Global Options</a></h3>
+<p>The <code>global</code> section defines project-wide settings:</p>
+<ul>
+<li><code>dest</code>: Output directory for the woven content</li>
+<li><code>dryRun</code>: When true, simulates operations without making changes</li>
+<li><code>globalClean</code>: When true, cleans the destination directory before building</li>
+<li><code>globalCopyStrategy</code>: Default strategy for handling file conflicts</li>
+<li><code>globalCollisionStrategy</code>: Default strategy for handling file collisions</li>
+<li><code>globalUpdateStrategy</code>: Default strategy for handling file updates</li>
+<li><code>ignoreMissingTimestamps</code>: When true, ignores missing timestamps when using if-newer update strategy</li>
+<li><code>watchConfig</code>: When true, automatically reloads when config changes</li>
+<li><code>workspaceDir</code>: Directory where git repositories are stored</li>
+</ul>
+<h3 id="inclusions" tabindex="-1"><a href="#inclusions" class="header-anchor">Inclusions</a></h3>
+<p>The <code>inclusions</code> array defines content sources. Each inclusion has:</p>
+<ul>
+<li><code>type</code>: Source type (<code>git</code>, <code>web</code>, or <code>local</code>)</li>
+<li><code>name</code>: Optional human-readable name</li>
+<li><code>order</code>: Processing priority (lower numbers processed first)</li>
+<li>Type-specific properties:
+<ul>
+<li>Git: <code>url</code> and <code>localPath</code> (optional)</li>
+<li>Web: <code>url</code></li>
+<li>Local: <code>localPath</code></li>
+</ul>
+</li>
+<li><code>options</code>: Inclusion-specific settings</li>
+</ul>
+<h3 id="inclusion-options" tabindex="-1"><a href="#inclusion-options" class="header-anchor">Inclusion Options</a></h3>
+<p>Common options for all inclusion types:</p>
+<ul>
+<li><code>active</code>: When true, the inclusion is processed (default: true)</li>
+<li><code>copyStrategy</code>: How to handle file conflicts, overrides global setting</li>
+<li><code>collisionStrategy</code>: How to handle file collisions, overrides global setting</li>
+<li><code>updateStrategy</code>: How to handle file updates, overrides global setting</li>
+<li><code>ignoreMissingTimestamps</code>: Whether to ignore missing timestamps, overrides global setting</li>
+<li><code>remappings</code>: Array of path transformations to apply during copying</li>
+</ul>
+<h4 id="remappings" tabindex="-1"><a href="#remappings" class="header-anchor">Remappings</a></h4>
+<p>Remappings allow you to change the destination path of files during the build process. Each remapping has:</p>
+<ul>
+<li><code>source</code>: Source path or pattern (supports wildcards)</li>
+<li><code>target</code>: Target path (can reference captured wildcards with $1, $2, etc.)</li>
+</ul>
+<p>Examples:</p>
+<pre><code class="language-typescript hljs"><span class="hljs-comment">// Simple directory rename</span>
+{ <span class="hljs-attr">source</span>: <span class="hljs-string">"docs/"</span>, <span class="hljs-attr">target</span>: <span class="hljs-string">"documentation/"</span> }
+
+<span class="hljs-comment">// File extension change</span>
+{ <span class="hljs-attr">source</span>: <span class="hljs-string">"*.txt"</span>, <span class="hljs-attr">target</span>: <span class="hljs-string">"*.md"</span> }
+
+<span class="hljs-comment">// Complex pattern with wildcards</span>
+{ <span class="hljs-attr">source</span>: <span class="hljs-string">"content/*/index.md"</span>, <span class="hljs-attr">target</span>: <span class="hljs-string">"pages/$1.md"</span> }
+</code></pre>
+<h4 id="git-specific-options" tabindex="-1"><a href="#git-specific-options" class="header-anchor">Git-specific Options</a></h4>
+<ul>
+<li><code>branch</code>: Branch to checkout</li>
+<li><code>include</code>/<code>exclude</code>: Arrays of paths to include/exclude</li>
+<li><code>excludeByDefault</code>: When true, only explicitly included paths are processed</li>
+<li><code>autoPullBeforeBuild</code>: When true, pulls changes before building</li>
+<li><code>autoPushBeforeBuild</code>: When true, pushes changes before building</li>
+<li><code>pullStrategy</code>/<code>pushStrategy</code>: Strategies for git operations</li>
+<li>Various <code>ignore*</code> options to control verification behavior</li>
+</ul>
+<h4 id="web-specific-options" tabindex="-1"><a href="#web-specific-options" class="header-anchor">Web-specific Options</a></h4>
+<ul>
+<li><code>ignoreRemoteAvailability</code>: When true, ignores availability check failures</li>
+</ul>
+<h4 id="local-specific-options" tabindex="-1"><a href="#local-specific-options" class="header-anchor">Local-specific Options</a></h4>
+<ul>
+<li><code>include</code>/<code>exclude</code>: Arrays of paths to include/exclude</li>
+<li><code>excludeByDefault</code>: When true, only explicitly included paths are processed</li>
+<li><code>ignoreLocalEmpty</code>/<code>ignoreMissing</code>: Control verification behavior</li>
+</ul>
+<h2 id="planned-features" tabindex="-1"><a href="#planned-features" class="header-anchor">Planned Features</a></h2>
+<ul>
+<li>Dynamic configuration reloading during runtime.</li>
+<li>Modular utilities for syncing, monitoring, and collision resolution.</li>
+<li>A future interactive mode for real-time adjustments and task prioritization.</li>
+<li>keep track of prompt copying strategy choices to automate ongoing conflicts</li>
+<li>"ack" option for collisions, to suppress future warnings</li>
+<li>combine two "conflicting" files and merge them,
+<ul>
+<li>useful for, say, composite navigation</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+
+      </main>
+
+    </div>
+  
+
+</body></html>
