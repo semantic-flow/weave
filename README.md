@@ -1,2 +1,4 @@
-# weave
-Weave is a platform that supports the minting of dereferenceable Semantic Web IRIs and the management and publication of DigitalArtifacts. It consists of the Weave daemon, which implements the Semantic Flow API, and supporting clients and tooling.
+# Weave
+
+Weave is a platform for minting dereferenceable Semantic Web IRIs and for managing and publishing DigitalArtifacts. At its core is the Weave daemon, which implements the Semantic Flow API, supported by official clients and shared tooling.
+

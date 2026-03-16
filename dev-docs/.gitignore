@@ -1,0 +1,8 @@
+node_modules
+
+## Dendron
+.dendron.*
+build
+seeds
+.next
+pods/service-connections

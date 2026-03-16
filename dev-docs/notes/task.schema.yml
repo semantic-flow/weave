@@ -1,0 +1,11 @@
+version: 1
+schemas:
+  - id: task
+    parent: root
+    # Match year buckets like `task.2026`, then apply the task template to
+    # notes created beneath them, e.g. `task.2026.some-task`.
+    children:
+      - pattern: "[0-2][0-9][0-9][0-9]"
+        children:
+          - pattern: "*"
+            template: template.task
