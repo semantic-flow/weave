@@ -43,9 +43,9 @@ workspace:
             name: weave-dev-archive
             selfContained: true
         -
-            fsPath: dev-docs
+            fsPath: documentation
             selfContained: true
-            name: dev-docs
+            name: documentation
     journal:
         dailyDomain: daily
         name: journal
@@ -129,6 +129,6 @@ publishing:
         action: useVault
         payload:
             - weave-dev-archive
-            - dev-docs
+            - documentation
             - ontology
             - sflo-dendron-notes
