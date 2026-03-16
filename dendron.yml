@@ -5,9 +5,9 @@ dev:
 commands:
     lookup:
         note:
-            selectionMode: extract
+            selectionMode: none
             confirmVaultOnCreate: true
-            vaultSelectionModeOnCreate: smart
+            vaultSelectionModeOnCreate: alwaysPrompt
             leaveTrace: false
             bubbleUpCreateNew: true
             fuzzThreshold: 0.2
@@ -23,7 +23,27 @@ commands:
 workspace:
     vaults:
         -
-            fsPath: .
+            fsPath: dependencies/github.com/semantic-flow/sflo-dendron-notes
+            remote:
+                type: git
+                url: git@github.com:semantic-flow/sflo-dendron-notes.git
+            name: sflo-dendron-notes
+        -
+            fsPath: dependencies/github.com/semantic-flow/ontology
+            remote:
+                type: git
+                url: git@github.com:semantic-flow/ontology.git
+            name: ontology
+            selfContained: true
+        -
+            fsPath: dependencies/github.com/semantic-flow/weave-dev-archive
+            remote:
+                type: git
+                url: git@github.com:semantic-flow/weave-dev-archive.git
+            name: weave-dev-archive
+            selfContained: true
+        -
+            fsPath: dev-docs
             selfContained: true
             name: dev-docs
     journal:
@@ -72,7 +92,6 @@ workspace:
     maxPreviewsCached: 10
     maxNoteLength: 204800
     enableFullHierarchyNoteTitle: false
-    enablePersistentHistory: false
 preview:
     enableFMTitle: true
     enableNoteTitleForLink: true
@@ -106,3 +125,10 @@ publishing:
     enableTaskNotes: true
     enablePrettyLinks: true
     searchMode: search
+    duplicateNoteBehavior:
+        action: useVault
+        payload:
+            - weave-dev-archive
+            - dev-docs
+            - ontology
+            - sflo-dendron-notes

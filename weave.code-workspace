@@ -2,7 +2,37 @@
 	"folders": [
 		{
 			"path": "."
+		},
+		{
+			"path": "dependencies/github.com/semantic-flow/ontology"
+		},
+		{
+			"path": "dependencies/github.com/semantic-flow/weave-dev-archive"
+		},
+		{
+			"path": "dependencies/github.com/semantic-flow/sflo-dendron-notes"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"pasteImage.path": "${currentFileDir}/assets/images",
+		"pasteImage.prefix": "/",
+		"markdown-preview-enhanced.enableWikiLinkSyntax": true,
+		"markdown-preview-enhanced.wikiLinkFileExtension": ".md"
+	},
+	"extensions": {
+		"recommendations": [
+			"dendron.dendron",
+			"dendron.dendron-paste-image",
+			"dendron.dendron-markdown-shortcuts",
+			"redhat.vscode-yaml"
+		],
+		"unwantedRecommendations": [
+			"dendron.dendron-markdown-links",
+			"dendron.dendron-markdown-notes",
+			"dendron.dendron-markdown-preview-enhanced",
+			"shd101wyy.markdown-preview-enhanced",
+			"kortina.vscode-markdown-notes",
+			"mushan.vscode-paste-image"
+		]
+	}
 }
