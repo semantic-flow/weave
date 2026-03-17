@@ -2,7 +2,7 @@
 id: 51kutfeo8udd9dxgfzypi4o
 title: 2026 03 15 Fresh Monorepo
 desc: ''
-updated: 1773619826601
+updated: 1773694406014
 created: 1773619811066
 ---
 
@@ -10,11 +10,11 @@ created: 1773619811066
 
 Define the initial repository topology for a fresh Weave start, including:
 
-* the main code monorepo layout
-* other repos to create or defer
-* how to organize checked-out reference repos locally
-* an architecture-planning subtask that reviews what to carry over from kato/sflo and what to reset
-* the major technical and product decisions that must be made before implementation hardens
+- the main code monorepo layout
+- other repos to create or defer
+- how to organize checked-out reference repos locally
+- an architecture-planning subtask that reviews what to carry over from kato/sflo and what to reset
+- the major technical and product decisions that must be made before implementation hardens
 
 ## Summary
 
@@ -22,12 +22,12 @@ We are starting over with a fresh Weave codebase.
 
 The current direction is:
 
-* one main monorepo for code and code-adjacent development documentation
-* a long-running **daemon** as the main service process, which exposes the **Weave API**
-* official clients such as CLI, web app, and possibly a TUI talking primarily to the daemon
-* support for long-running jobs such as `weave integrate <tree>` and `weave version`
-* more repo modularization than kato used, because repos can be checked out side by side for local reference, search, and LLM context
-* checked-out sibling repos grouped under one local folder such as `dependencies/` or `references/`
+- one main monorepo for code and code-adjacent development documentation
+- a long-running **daemon*- as the main service process, which exposes the **Weave API**
+- official clients such as CLI, web app, and possibly a TUI talking primarily to the daemon
+- support for long-running jobs such as `weave integrate <tree>` and `weave version`
+- more repo modularization than kato used, because repos can be checked out side by side for local reference, search, and LLM context
+- checked-out sibling repos grouped under one local folder such as `dependencies/` or `references/`
 
 This task is not yet about implementing the new monorepo. It is about freezing the repo shape and the architecture-review surface first.
 
@@ -53,9 +53,9 @@ weave/
     render/                 # resource-page rendering and archetype logic
     api-client/             # typed client for the daemon API
     utils/                  # general shared utilities
-  documentation/
-    dev/                    # code-adjacent development docs
-    user/                   # tentative; keep extractable if audience/cadence diverges
+  documentation/            # code-adjacent development docs
+    notes/                  # Dendron vault where most (if not all) documentation lives in markdown
+      assets/               # images, etc references in the Dendron notes
   tests/
     e2e/
     integration/
@@ -68,55 +68,39 @@ weave/
 
 ### Keep in the main monorepo
 
-* daemon
-* CLI
-* web app
-* shared packages
-* dev docs
-* test fixtures and examples
-
-### Tentatively keep in the monorepo, but with extraction discipline
-
-* user docs
-
-That means:
-
-* no deep coupling from user docs into app internals
-* a clear content/build boundary so user docs can become their own repo later
-* site integration should happen through Weave/content integration, not because docs are forced to live in the same repo forever
+- daemon
+- CLI
+- web app
+- shared packages
+- documentation
+- test fixtures and examples
 
 ### Existing separate repos to continue using
 
-* ontology repos
+- ontology repo
+- weave dev archive
 
 ## Other Repos To Create Or Consider
 
 ### Likely to create soon
 
-* `weave-api-spec`
-  * public API contract repo, if the Weave API is to be treated as a separately versioned/public artifact
-* `weave-project`
-  * feature ideas, tasks, roadmap, active planning notes
-
-### Create later if needed
-
-* `weave-user-docs`
-  * only if user docs truly need a separate release cadence, site, permissions model, or editorial workflow
-* `weave-project-archive`
-  * completed/cancelled tasks and old conversations, if the main planning repo becomes too noisy
+- `weave-api-spec`
+  - public API contract repo, if the Weave API is to be treated as a separately versioned/public artifact
+- `weave-project`
+  - feature ideas, tasks, roadmap, active planning notes
 
 ## Local Reference Repo Strategy
 
 Current preference:
 
-* keep checked-out sibling repos under a single top-level folder such as `dependencies/`
-* use that folder for ontologies, old sflo/kato material, API spec repo, docs repo, and planning repo when useful
-* keep this separate from the first-party workspace packages so humans, tools, and LLMs can clearly tell what is “the product” versus “reference context”
+- keep checked-out sibling repos under a single top-level folder such as `dependencies/`
+- use that folder for ontologies, old sflo/kato material, API spec repo, docs repo, and planning repo when useful
+- keep this separate from the first-party workspace packages so humans, tools, and LLMs can clearly tell what is “the product” versus “reference context”
 
 Open naming choice:
 
-* `dependencies/`
-* `references/`
+- `dependencies/`
+- `references/`
 
 ## Architecture Planning Subtask
 
@@ -126,29 +110,29 @@ Add a dedicated architecture-planning subtask that reviews kato/sflo and decides
 
 Produce a concise carryover map for:
 
-* concepts worth preserving
-* implementation ideas worth preserving
-* terminology that must be translated
-* assumptions that should be dropped entirely
+- concepts worth preserving
+- implementation ideas worth preserving
+- terminology that must be translated
+- assumptions that should be dropped entirely
 
 ### Explicit review themes
 
-* daemon/service-first architecture
-* CLI/web/TUI as clients of the daemon
-* long-running job model for weave operations
-* filesystem scanning and scoped config discovery
-* locking, watch/reload, and conflict avoidance
-* static ResourcePage generation and site/API symmetry
-* whether “RDF everywhere” remains the right implementation posture, or whether RDF should be concentrated at the boundaries and persisted forms
-* Deno runtime viability for RDF tooling
-* logging and observability package boundaries
+- daemon/service-first architecture
+- CLI/web/TUI as clients of the daemon
+- long-running job model for weave operations
+- filesystem scanning and scoped config discovery
+- locking, watch/reload, and conflict avoidance
+- static ResourcePage generation and site/API symmetry
+- whether “RDF everywhere” remains the right implementation posture, or whether RDF should be concentrated at the boundaries and persisted forms
+- Deno runtime viability for RDF tooling
+- logging and observability package boundaries
 
 ### Expected outputs
 
-* a carry-forward list
-* a reset/remove list
-* a terminology-translation list
-* a shortlist of proof-of-concept tasks needed before committing to the new stack
+- a carry-forward list
+- a reset/remove list
+- a terminology-translation list
+- a shortlist of proof-of-concept tasks needed before committing to the new stack
 
 ### Suggested Prompt
 
@@ -224,84 +208,84 @@ If you discover documentation that seems unclear, stale, or contradictory, call 
 
 ### Review in depth
 
-* `documentation/product.sflo-host.md`
-  * central control, locking, watchers, and coordination remain highly relevant
-* `documentation/product.plugins.sflo-api.md`
-  * noun URLs, `_working` semantics, job-oriented API design, and API/site symmetry are still highly relevant
-* `dependencies/github.com/semantic-flow/sflo-dendron-notes/sflo.architecture.md`
-  * review the service-first split, config inheritance, job/process shape, and stack assumptions
+- `documentation/product.sflo-host.md`
+  - central control, locking, watchers, and coordination remain highly relevant
+- `documentation/product.plugins.sflo-api.md`
+  - noun URLs, `_working` semantics, job-oriented API design, and API/site symmetry are still highly relevant
+- `dependencies/github.com/semantic-flow/sflo-dendron-notes/sflo.architecture.md`
+  - review the service-first split, config inheritance, job/process shape, and stack assumptions
 
 ### Review lightly / translate terminology only
 
-* `documentation/product.cli.md`
-  * likely still useful, but reframe the CLI as a daemon client first
-* `documentation/product.plugins.sflo-web.md`
-  * mostly a UI-approach note; useful only at a high level for now
-* `documentation/product.core.md`
-  * too thin to drive design by itself
-* `documentation/product.plugins.md`
-* `documentation/product.plugins.mesh-server.md`
-* `documentation/product.plugins.api-docs.md`
+- `documentation/product.cli.md`
+  - likely still useful, but reframe the CLI as a daemon client first
+- `documentation/product.plugins.sflo-web.md`
+  - mostly a UI-approach note; useful only at a high level for now
+- `documentation/product.core.md`
+  - too thin to drive design by itself
+- `documentation/product.plugins.md`
+- `documentation/product.plugins.mesh-server.md`
+- `documentation/product.plugins.api-docs.md`
 
 ### Treat as likely outdated unless reconfirmed
 
-* old `Node` terminology
-* `_next` / “current flips” language
-* assumptions that the API is a thin layer rather than a daemon-backed job system
-* fragment-generation and HTMX-specific ideas that depend on old UI assumptions
-* stack picks that were made before the current restart, especially where the new model is now more Knop-first and more explicit about long-running operations
+- old `Node` terminology
+- `_next` / “current flips” language
+- assumptions that the API is a thin layer rather than a daemon-backed job system
+- fragment-generation and HTMX-specific ideas that depend on old UI assumptions
+- stack picks that were made before the current restart, especially where the new model is now more Knop-first and more explicit about long-running operations
 
 ## Open Decisions
 
 ### Runtime and RDF viability
 
-* Before committing to Deno, should we run a proof of concept to confirm that N3 and Comunica are workable in Deno for backend use?
-* If Deno is only partly workable, what fallback posture is acceptable?
-  * full Node runtime
-  * Deno plus isolated Node subprocesses for specific RDF libraries
-  * Deno only for some apps, Node for others
+- Before committing to Deno, should we run a proof of concept to confirm that N3 and Comunica are workable in Deno for backend use?
+- If Deno is only partly workable, what fallback posture is acceptable?
+  - full Node runtime
+  - Deno plus isolated Node subprocesses for specific RDF libraries
+  - Deno only for some apps, Node for others
 
 ### Daemon and API shape
 
-* Is the “API” really an app, or is the more accurate concept a **daemon** that implements the Weave API?
-* Do we standardize on “daemon” as the runtime/service name and “API” as the contract it exposes?
-* Should the CLI, web app, and future TUI be described as clients of the daemon rather than clients of the API in the abstract?
+- Is the “API” really an app, or is the more accurate concept a **daemon*- that implements the Weave API?
+- Do we standardize on “daemon” as the runtime/service name and “API” as the contract it exposes?
+- Should the CLI, web app, and future TUI be described as clients of the daemon rather than clients of the API in the abstract?
 
 ### Public API specification
 
-* Should the Weave API spec live in a separate repo from day one?
-* How much of the public contract should be stabilized early versus discovered during daemon and CLI implementation?
+- Should the Weave API spec live in a separate repo from day one?
+- How much of the public contract should be stabilized early versus discovered during daemon and CLI implementation?
 
 ### Long-running operations and protocol choice
 
-* Should the public contract use:
-  * OpenAPI only
-  * AsyncAPI only
-  * a hybrid model
-* If OpenAPI remains primary, how are long-running weave operations modeled?
-  * job dispatch
-  * polling
-  * server-sent events
-  * websocket or message-stream side channel
-* Which operations must be first-class jobs?
-  * `weave integrate <tree>`
-  * `weave version`
-  * large-scale validation
-  * large-scale regeneration
+- Should the public contract use:
+  - OpenAPI only
+  - AsyncAPI only
+  - a hybrid model
+- If OpenAPI remains primary, how are long-running weave operations modeled?
+  - job dispatch
+  - polling
+  - server-sent events
+  - websocket or message-stream side channel
+- Which operations must be first-class jobs?
+  - `weave integrate <tree>`
+  - `weave version`
+  - large-scale validation
+  - large-scale regeneration
 
 ### User docs repo boundary
 
-* Do user docs stay inside the monorepo for the initial implementation?
-* If yes, what constraints ensure they can move out later without major surgery?
+- Do user docs stay inside the monorepo for the initial implementation?
+- If yes, what constraints ensure they can move out later without major surgery?
 
 ### Reference repo folder naming
 
-* `dependencies/` or `references/`?
+- `dependencies/` or `references/`?
 
 ### Package boundaries
 
-* Do we create both `logging` and `observability` packages now?
-* Which cross-cutting concerns belong in `core` versus dedicated packages?
+- Do we create both `logging` and `observability` packages now?
+- Which cross-cutting concerns belong in `core` versus dedicated packages?
 
 ## TODO
 
@@ -317,7 +301,7 @@ If you discover documentation that seems unclear, stale, or contradictory, call 
 
 ## Non-Goals
 
-* implementing the monorepo in this task
-* rewriting all old product docs now
-* preserving old sflo terminology without translation
-* deciding the entire web UI architecture up front
+- implementing the monorepo in this task
+- rewriting all old product docs now
+- preserving old sflo terminology without translation
+- deciding the entire web UI architecture up front

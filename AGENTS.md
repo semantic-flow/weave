@@ -8,7 +8,7 @@
 - `documentation/` is a Dendron vault that uses wikilinks-style links (i.e., no '.md' extension) and a standardized YAML frontmatter
   - you do not need to update the "updated" field in Dendron notes; Dendron does that automatically
   - Keep any developer-targeting notes in `documentation/notes/wd.*`
-  - `documentation/notes/wu.*` is for user-facing documentation, including release notes (`documentation/notes/wu.release-notes.*`)
+  - `documentation/notes/wu.*` is for user-facing documentation, including release notes (`documentation/notes/release-notes.*`)
 
 - The Product Vision is `documentation/notes/product-vision.md`: reference that in any product-specific chat
 

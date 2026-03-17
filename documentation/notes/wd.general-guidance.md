@@ -2,7 +2,7 @@
 id: jfmdc6ovahwph9hv7jrlir1
 title: General Guidance
 desc: ''
-updated: 1773661788225
+updated: 1773673295148
 created: 1773626592609
 ---
 
@@ -17,18 +17,18 @@ libraries and conventions, so watch out for that.
 
 ## Testing
 
-see [[w.testing]]
+see [[wd.testing]]
 
 ## Dependencies
 
-- This project depends heavily on the Semantic Flow Core Ontology, which should be embedded for convenience at 
+- This project depends heavily on the Semantic Flow ontologies, which can be embedded for convenience at `dependencies/github.com/semantic-flow/ontology`
 
 ## Working Rules
 
+- review the core ontology at `dependencies/github.com/semantic-flow/ontology/semantic-flow-core-ontology.ttl`
 - Documentation must be continuously verified and updated, especially:
   - this file [[wd.general-guidance]]
-  - [[w.codebase-overview]]
-  - [[w.testing]]
+  - [[wd.codebase-overview]]
 - files in these directories are historical only, be careful when accessing them:
   - /dependencies/github.com/semantic-flow/sflo-dendron-notes (ancient)
   - /dependencies/github.com/semantic-flow/sflo (previous effort)
@@ -69,7 +69,7 @@ During active development, run only what matches your change:
 
 
 ### Before merge
-- update  [[w.codebase-overview]]
+- update  [[wd.codebase-overview]]
 - run:
 ```bash
 deno task fmt
