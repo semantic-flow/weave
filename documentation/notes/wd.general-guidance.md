@@ -2,7 +2,7 @@
 id: jfmdc6ovahwph9hv7jrlir1
 title: General Guidance
 desc: ''
-updated: 1773673295148
+updated: 1773757129962
 created: 1773626592609
 ---
 
@@ -25,7 +25,9 @@ see [[wd.testing]]
 
 ## Working Rules
 
-- review the core ontology at `dependencies/github.com/semantic-flow/ontology/semantic-flow-core-ontology.ttl`
+- the ontology is key!
+  - review at least the [[summary.core]] 
+  - the entire core ontology is at `dependencies/github.com/semantic-flow/ontology/semantic-flow-core-ontology.ttl`
 - Documentation must be continuously verified and updated, especially:
   - this file [[wd.general-guidance]]
   - [[wd.codebase-overview]]
