@@ -28,6 +28,7 @@ workspace:
                 type: git
                 url: git@github.com:semantic-flow/semantic-flow-framework.git
             name: semantic-flow-framework
+            selfContained: true
         -
             fsPath: dependencies/github.com/semantic-flow/sflo-dendron-notes
             remote:
