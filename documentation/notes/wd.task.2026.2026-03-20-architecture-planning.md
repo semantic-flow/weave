@@ -2,7 +2,7 @@
 id: bw3amcysclo64aty396b378
 title: 2026 03 20 Architecture Planning
 desc: ''
-updated: 1774047470973
+updated: 1774284812485
 created: 1774046567965
 ---
 
@@ -47,16 +47,16 @@ Review the [[ont.summary.core]] and reference the ontology as necessary:
 
 Reading these local files for context on my previous architecture:
 
-- /home/djradon/hub/semantic-flow/sflo/documentation/dev.general-guidance.md
-- /home/djradon/hub/semantic-flow/sflo/documentation/product.sflo-host.md
-- /home/djradon/hub/semantic-flow/sflo/documentation/product.plugins.sflo-api.md
+- /home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/sflo/documentation/dev.general-guidance.md
+- /home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/sflo/documentation/product.sflo-host.md
+- /home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/sflo/documentation/product.plugins.sflo-api.md
 - /home/djradon/hub/semantic-flow/sflo/dependencies/github.com/semantic-flow/sflo-dendron-notes/sflo.architecture.md
 
 Also review these more lightly, mainly for terminology drift and any ideas still worth carrying over:
 
-- /home/djradon/hub/semantic-flow/sflo/documentation/product.cli.md
-- /home/djradon/hub/semantic-flow/sflo/documentation/product.plugins.sflo-web.md
-- /home/djradon/hub/semantic-flow/sflo/documentation/product.core.md
+- /home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/sflo/documentation/product.cli.md
+- /home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/sflo/documentation/product.plugins.sflo-web.md
+- /home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/sflo/documentation/product.core.md
 
 Read this for general Kato guidance:
 
