@@ -1,6 +1,6 @@
 node_modules
 
-## Dendron
+# Dendron
 .dendron.*
 build
 seeds
@@ -9,3 +9,6 @@ pods/service-connections
 dependencies/**
 dependencies/github.com/semantic-flow/ontology
 .backup
+
+# Next
+_next/**
