@@ -17,6 +17,9 @@
 		},
 		{
 			"path": "dependencies/github.com/semantic-flow/sflo"
+		},
+		{
+			"path": "dependencies/github.com/semantic-flow/mesh-alice-bio"
 		}
 	],
 	"settings": {
