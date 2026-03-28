@@ -20,6 +20,9 @@
 		},
 		{
 			"path": "dependencies/github.com/semantic-flow/mesh-alice-bio"
+		},
+		{
+			"path": "dependencies/github.com/spectacular-voyage/accord"
 		}
 	],
 	"settings": {

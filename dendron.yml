@@ -22,37 +22,38 @@ commands:
     templateHierarchy: template
 workspace:
     vaults:
-        -
-            fsPath: dependencies/github.com/semantic-flow/semantic-flow-framework
-            remote:
-                type: git
-                url: git@github.com:semantic-flow/semantic-flow-framework.git
-            name: semantic-flow-framework
-            selfContained: true
-        -
-            fsPath: dependencies/github.com/semantic-flow/sflo-dendron-notes
-            remote:
-                type: git
-                url: git@github.com:semantic-flow/sflo-dendron-notes.git
-            name: sflo-dendron-notes
-        -
-            fsPath: dependencies/github.com/semantic-flow/ontology
-            remote:
-                type: git
-                url: git@github.com:semantic-flow/ontology.git
-            name: ontology
-            selfContained: true
-        -
-            fsPath: dependencies/github.com/semantic-flow/weave-dev-archive
-            remote:
-                type: git
-                url: git@github.com:semantic-flow/weave-dev-archive.git
-            name: weave-dev-archive
-            selfContained: true
-        -
-            fsPath: documentation
-            selfContained: true
-            name: documentation
+        - fsPath: dependencies/github.com/spectacular-voyage/accord/documentation
+          remote:
+              type: git
+              url: git@github.com:spectacular-voyage/accord.git
+          name: accord
+          selfContained: true
+        - fsPath: dependencies/github.com/semantic-flow/semantic-flow-framework
+          remote:
+              type: git
+              url: git@github.com:semantic-flow/semantic-flow-framework.git
+          name: semantic-flow-framework
+          selfContained: true
+        - fsPath: dependencies/github.com/semantic-flow/sflo-dendron-notes
+          remote:
+              type: git
+              url: git@github.com:semantic-flow/sflo-dendron-notes.git
+          name: sflo-dendron-notes
+        - fsPath: dependencies/github.com/semantic-flow/ontology
+          remote:
+              type: git
+              url: git@github.com:semantic-flow/ontology.git
+          name: ontology
+          selfContained: true
+        - fsPath: dependencies/github.com/semantic-flow/weave-dev-archive
+          remote:
+              type: git
+              url: git@github.com:semantic-flow/weave-dev-archive.git
+          name: weave-dev-archive
+          selfContained: true
+        - fsPath: documentation
+          selfContained: true
+          name: weave
     journal:
         dailyDomain: daily
         name: journal
@@ -67,7 +68,7 @@ workspace:
         dateFormat: y.MM.dd
         addBehavior: asOwnDomain
         statusSymbols:
-            '': ' '
+            "": " "
             wip: w
             done: x
             assigned: a
@@ -75,7 +76,7 @@ workspace:
             blocked: b
             delegated: l
             dropped: d
-            pending: 'y'
+            pending: "y"
         taskCompleteStatus:
             - done
             - x
@@ -140,3 +141,4 @@ publishing:
             - ontology
             - sflo-dendron-notes
             - semantic-flow-framework
+            - accord
