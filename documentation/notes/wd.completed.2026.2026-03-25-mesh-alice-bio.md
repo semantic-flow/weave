@@ -2,7 +2,7 @@
 id: ar5um7avia6hg8524xjrgpo
 title: 2026 03 25 Mesh Alice Bio
 desc: ''
-updated: 1774495176908
+updated: 1775225038617
 created: 1774446399214
 ---
 
@@ -94,7 +94,7 @@ The trailing slash is important in the current model, because the Semantic Flow 
 - `12-bob-extracted`
   - create the `bob` Knop-managed resources from the local Bob reference in `alice-bio.ttl`, add a Supplemental ReferenceLink about `bob` that targets `alice/bio`, but do not split the payload bytes or generate new pages yet
 - `13-bob-extracted-woven`
-  - contains the result of weaving `12-bob-extracted`
+  - contains the result of weaving `12-bob-extracted`, including Bob support-artifact histories, generated Bob ResourcePages, and an advanced `_mesh/_inventory` state
 
 Using `alice-bio-integrated` is preferable to `alice-bio-knop-created`, because the main action for the payload artifact case is integration rather than merely minting a non-payload Knop.
 
@@ -211,7 +211,7 @@ That behavior should be treated as a later scenario, controlled by config or com
 - [x] Create `11-alice-bio-v2-woven.jsonld` in `semantic-flow-framework/examples/alice-bio/conformance/` for `10-alice-bio-updated` -> `11-alice-bio-v2-woven`.
 - [x] Create the `12-bob-extracted` branch with the manual equivalent of extracting the referenced Bob IRI into Knop-managed resources.
 - [x] Create `12-bob-extracted.jsonld` in `semantic-flow-framework/examples/alice-bio/conformance/` for `11-alice-bio-v2-woven` -> `12-bob-extracted`.
-- [ ] Create the `13-bob-extracted-woven` branch with the manual equivalent of weaving `12-bob-extracted`.
-- [ ] Create `13-bob-extracted-woven.jsonld` in `semantic-flow-framework/examples/alice-bio/conformance/` for `12-bob-extracted` -> `13-bob-extracted-woven`.
-- [ ] Record the intended meaning of each branch in the repo README so later comparisons stay understandable.
-- [ ] Decide the exact RDF comparison workflow, including canonicalization tooling and exclusions for volatile values.
+- [x] Create the `13-bob-extracted-woven` branch with the manual equivalent of weaving `12-bob-extracted`.
+- [x] Create `13-bob-extracted-woven.jsonld` in `semantic-flow-framework/examples/alice-bio/conformance/` for `12-bob-extracted` -> `13-bob-extracted-woven`.
+- [x] Record the intended meaning of each branch in the repo README so later comparisons stay understandable.
+- [x] Decide the exact RDF comparison workflow, including canonicalization tooling and exclusions for volatile values.
