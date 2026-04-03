@@ -36,6 +36,7 @@
 			"dendron.dendron",
 			"dendron.dendron-paste-image",
 			"dendron.dendron-markdown-shortcuts",
+			"denoland.vscode-deno",
 			"redhat.vscode-yaml"
 		],
 		"unwantedRecommendations": [
