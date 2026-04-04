@@ -66,7 +66,7 @@ That is enough to prove:
 
 ### Existing spec posture
 
-This task should add a dedicated `wd.spec.*` note before implementation.
+This task should use a dedicated [[wd.spec.2026-04-04-knop-add-reference-behavior]] note before implementation.
 
 Unlike the carried `weave` slices, there is no existing broad behavior note that already covers the first non-woven reference-catalog operation. The task should use [[ont.reference-links]] as the detailed ontology companion, but it should still define a narrow Weave-facing behavior spec for the first local or in-process path.
 
@@ -82,32 +82,38 @@ The settled `07` -> `08` fixture diff includes a whitespace-only change in `alic
 
 That should be treated as incidental fixture noise rather than intended semantic behavior for this task. The meaningful behavior in this slice is the Knop inventory update plus the new references catalog file.
 
-## Open Issues
+## Resolved Questions
 
-- What should the exact first local CLI surface be for this operation?
-- Should the first slice expose `referenceRole` as an input, or hard-code the carried fixture role to `Canonical`?
-- Should shared `core` identify the subject referent implicitly from the target Knop, or explicitly in the request shape even though the carried fixture only needs the Knop-owned case?
+- This slice should get a dedicated [[wd.spec.2026-04-04-knop-add-reference-behavior]] note before implementation. The behavior is externally visible, crosses `core`, `runtime`, CLI, and acceptance layers, and already has a manifest-backed fixture target.
+- The first local CLI surface should be `weave knop add-reference <designatorPath> --reference-target-designator-path <referenceTargetDesignatorPath> --reference-role <referenceRole>`. Keep `knop.addReference` as the machine-facing job kind and manifest `operationId`, but keep the human-facing CLI aligned with the existing `mesh create` and `knop create` subcommand pattern.
+- The first local request/result boundary should stay narrow. Shared `core` and `runtime` should accept the target `designatorPath`, one `referenceTargetDesignatorPath`, and one `referenceRole`, resolve IRIs from the existing `meshBase`, and report the created `referenceCatalogIri`, `referenceLinkIri`, and created or updated paths.
+- The first slice should derive `referenceLinkFor` from the targeted Knop's `designatorPath`, not take an explicit subject override.
+- `ReferenceRole` should be an input rather than being hard-coded in the first slice, but this carried local path should require it explicitly rather than silently defaulting to `Supplemental`. The settled `08` target is specifically `Canonical`, and the later Bob extraction path is the first natural carried `Supplemental` case.
 
 ## Decisions
 
 - Treat `07-alice-bio-integrated-woven` -> `08-alice-bio-referenced` as the next carried implementation slice.
-- Add a dedicated reference-behavior `wd.spec.*` note before implementation.
+- Add a dedicated [[wd.spec.2026-04-04-knop-add-reference-behavior]] note before implementation.
 - Keep the first implementation local or in-process over shared `core` and `runtime`.
 - Use the settled Alice Bio `08-alice-bio-referenced` manifest and fixture as the first acceptance target.
 - Scope the first slice to the existing `alice` Knop-owned case with one canonical `ReferenceLink` targeting `alice/bio`.
+- Make the first local CLI surface `weave knop add-reference <designatorPath> --reference-target-designator-path <referenceTargetDesignatorPath> --reference-role <referenceRole>`, while keeping `knop.addReference` as the machine-facing job kind and manifest `operationId`.
+- Keep the first local request shape narrow: target `designatorPath`, one `referenceTargetDesignatorPath`, and one `referenceRole`, with `meshBase` resolved from the existing workspace.
+- Keep `referenceLinkFor` implicit from the targeted Knop's referent rather than accepting a separate subject IRI input.
+- Require `referenceRole` explicitly in this first carried local slice rather than silently defaulting it.
 - Keep the semantic subject of the link as `<alice>` rather than drifting into Knop-about-Knop semantics.
 - Leave `09` weave behavior, catalog history, dereferenceable current catalog pages, and retired-link handling for the following woven slice.
 - Keep the broader RDF-parsing cleanup task separate unless this slice reveals a direct blocker.
 
 ## Contract Changes
 
-- This task may introduce the first thin public request/result examples for `knop.addReference` or equivalent reference-catalog creation behavior in `semantic-flow-framework`.
-- This task should not attempt to finalize the full contract for multi-link updates, role selection, `referenceTargetState`, or mesh-owned catalogs.
+- This task may introduce the first thin public request/result examples for `knop.addReference` in `semantic-flow-framework`, including one explicit `referenceRole`.
+- This task should not attempt to finalize the full contract for multi-link updates, role selection, explicit subject override, `referenceTargetState`, or mesh-owned catalogs.
 
 ## Testing
 
 - Follow [[wd.testing]].
-- Add failing unit tests for the next narrow planning logic where practical, especially stable link identity and inventory updates.
+- Add failing unit tests for the next narrow planning logic where practical, especially stable link identity, role handling, and inventory updates.
 - Add integration tests for local filesystem results against the settled `08-alice-bio-referenced` fixture target.
 - Add a black-box CLI acceptance test scoped by the settled `08-alice-bio-referenced` Accord manifest.
 - Keep the comparison black-box and fixture-oriented rather than coupling tests to helper internals.
@@ -124,11 +130,11 @@ That should be treated as incidental fixture noise rather than intended semantic
 
 ## Implementation Plan
 
-- [ ] Decide whether the first reference-catalog slice needs a dedicated `wd.spec.*` note before implementation.
-- [ ] Define the first local request/result shapes in shared `core` and `runtime` for adding a single Knop-owned reference.
-- [ ] Define the exact first local CLI surface for the carried reference-catalog operation.
-- [ ] Add failing unit and integration tests for the `08` reference-catalog behavior.
-- [ ] Implement the next local or in-process reference-catalog path over shared `core` and `runtime`.
-- [ ] Add a black-box CLI acceptance test scoped by the settled `08-alice-bio-referenced` Accord manifest.
-- [ ] Draft or refine the thin public API example or contract fragment in `semantic-flow-framework` if this slice sharpens the public contract.
-- [ ] Update relevant overview/spec/framework notes as the slice settles.
+- [x] Decide whether the first reference-catalog slice needs a dedicated `wd.spec.*` note before implementation.
+- [x] Define the first local request/result shapes in shared `core` and `runtime` for adding a single Knop-owned reference.
+- [x] Define the exact first local CLI surface for the carried reference-catalog operation.
+- [x] Add failing unit and integration tests for the `08` reference-catalog behavior.
+- [x] Implement the next local or in-process reference-catalog path over shared `core` and `runtime`.
+- [x] Add a black-box CLI acceptance test scoped by the settled `08-alice-bio-referenced` Accord manifest.
+- [c] Draft or refine the thin public API example or contract fragment in `semantic-flow-framework` if this slice sharpens the public contract.
+- [x] Update relevant overview/spec/framework notes as the slice settles.

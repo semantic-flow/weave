@@ -2,6 +2,7 @@ import { Command } from "@cliffy/command";
 import { Input } from "@cliffy/prompt";
 import { join, resolve } from "@std/path";
 import { IntegrateInputError } from "../core/integrate/integrate.ts";
+import { KnopAddReferenceInputError } from "../core/knop/add_reference.ts";
 import { KnopCreateInputError } from "../core/knop/create.ts";
 import { MeshCreateInputError } from "../core/mesh/create.ts";
 import { WeaveInputError } from "../core/weave/weave.ts";
@@ -11,6 +12,11 @@ import {
   executeIntegrate,
   IntegrateRuntimeError,
 } from "../runtime/integrate/integrate.ts";
+import {
+  describeKnopAddReferenceResult,
+  executeKnopAddReference,
+  KnopAddReferenceRuntimeError,
+} from "../runtime/knop/add_reference.ts";
 import {
   describeKnopCreateResult,
   executeKnopCreate,
@@ -170,6 +176,68 @@ export async function runWeaveCli(args: string[]): Promise<number> {
       new Command()
         .description("Knop operations.")
         .command(
+          "add-reference",
+          new Command()
+            .description(
+              "Create the first reference-catalog surface for a designator path.",
+            )
+            .arguments("<designatorPath:string>")
+            .option(
+              "--reference-target-designator-path <referenceTargetDesignatorPath:string>",
+              "Designator path of the existing mesh resource used as the reference target.",
+            )
+            .option(
+              "--reference-role <referenceRole:string>",
+              "ReferenceRole token to assign to the created ReferenceLink.",
+            )
+            .option(
+              "--workspace <workspace:string>",
+              "Workspace root to update.",
+              { default: "." },
+            )
+            .action(async (options, designatorPath) => {
+              const workspaceRoot = resolve(options.workspace);
+              const referenceTargetDesignatorPath = resolveRequiredOptionValue(
+                options.referenceTargetDesignatorPath,
+                "knop add-reference requires --reference-target-designator-path",
+              );
+              const referenceRole = resolveRequiredOptionValue(
+                options.referenceRole,
+                "knop add-reference requires --reference-role",
+              );
+              const logDir = join(workspaceRoot, ".weave", "logs");
+              const { operationalLogger, auditLogger } = createRuntimeLoggers({
+                logDir,
+              });
+
+              await auditLogger.command("knop.addReference", {
+                workspaceRoot,
+                designatorPath,
+                referenceTargetDesignatorPath,
+                referenceRole,
+                localMode: true,
+              });
+
+              const result = await executeKnopAddReference({
+                workspaceRoot,
+                request: {
+                  designatorPath,
+                  referenceTargetDesignatorPath,
+                  referenceRole,
+                },
+                operationalLogger,
+                auditLogger,
+              });
+              console.log(describeKnopAddReferenceResult(result));
+              for (const path of result.createdPaths) {
+                console.log(path);
+              }
+              for (const path of result.updatedPaths) {
+                console.log(path);
+              }
+            }),
+        )
+        .command(
           "create",
           new Command()
             .description(
@@ -281,6 +349,8 @@ function getCliErrorMessage(error: unknown): string {
   if (
     error instanceof IntegrateInputError ||
     error instanceof IntegrateRuntimeError ||
+    error instanceof KnopAddReferenceInputError ||
+    error instanceof KnopAddReferenceRuntimeError ||
     error instanceof WeaveInputError ||
     error instanceof WeaveRuntimeError ||
     error instanceof KnopCreateInputError ||
@@ -294,4 +364,15 @@ function getCliErrorMessage(error: unknown): string {
     return error.message.trim();
   }
   return String(error);
+}
+
+function resolveRequiredOptionValue(
+  value: string | undefined,
+  errorMessage: string,
+): string {
+  const trimmed = value?.trim() ?? "";
+  if (trimmed.length === 0) {
+    throw new KnopAddReferenceInputError(errorMessage);
+  }
+  return trimmed;
 }
