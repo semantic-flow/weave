@@ -51,6 +51,8 @@ The same hidden dependency pattern also exists for conformance manifests and fix
 
 So the real problem is not "TypeScript missed an import." The real problem is that Weave tests currently rely on ignored local repositories and one helper uses hardcoded absolute paths.
 
+The first CI dependency fix also exposed a second git-shape assumption: a GitHub Actions checkout of `mesh-alice-bio` does not necessarily create local branches like `05-alice-knop-created-woven`, even when the corresponding remote-tracking ref exists. Tests therefore need to resolve fixture refs against either local branch names or `origin/<ref>`.
+
 ### Why relative `dependencies/` paths are the right immediate fix
 
 For this repository, using repository-relative `dependencies/...` paths is simpler and more honest than adding environment-variable configuration first.
@@ -104,6 +106,7 @@ But that is follow-up work. This task exists to make the current test harness po
 - Check out `accord`, `semantic-flow-framework`, and `mesh-alice-bio` into `dependencies/...` in GitHub Actions for now.
 - Use the external repositories' default branches for now rather than pinning specific SHAs in this first CI dependency fix.
 - Fetch full git history for `mesh-alice-bio` in CI because Weave tests address fixture branches by name.
+- Resolve `mesh-alice-bio` fixture refs against both local and remote-tracking branch names so CI does not depend on local branch creation.
 - Do not block this fix on publishing Accord.
 - Keep the current carried-slice testing model rather than redesigning fixture sourcing in this task.
 
@@ -118,6 +121,7 @@ But that is follow-up work. This task exists to make the current test harness po
 - `deno task test` should pass under the same conditions.
 - The updated CI workflow should validate the same repository-relative layout used locally.
 - The CI checkout for `mesh-alice-bio` should expose the named fixture refs that Weave tests read through `git show` and `git ls-tree`.
+- Helper logic should continue to work when those fixture refs exist only as `origin/<ref>` rather than local branches.
 - Tests that depend on conformance manifests or fixture branch material should no longer require `/home/djradon/...`-style absolute paths.
 
 ## Non-Goals

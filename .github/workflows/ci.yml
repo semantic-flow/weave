@@ -37,6 +37,9 @@ jobs:
           path: dependencies/github.com/semantic-flow/mesh-alice-bio
           fetch-depth: 0
 
+      - name: Fetch mesh fixture refs
+        run: git -C dependencies/github.com/semantic-flow/mesh-alice-bio fetch origin "+refs/heads/*:refs/remotes/origin/*"
+
       - name: Set up Deno
         uses: denoland/setup-deno@v2
         with:

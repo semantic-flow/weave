@@ -15,6 +15,7 @@ const frameworkRepoPath = join(
   "semantic-flow",
   "semantic-flow-framework",
 );
+const resolvedRefCache = new Map<string, Promise<string>>();
 
 export function resolveMeshAliceBioFixtureRepoPath(): string {
   return fixtureRepoPath;
@@ -26,12 +27,59 @@ export function resolveMeshAliceBioConformanceManifestPath(
   return `${frameworkRepoPath}/examples/alice-bio/conformance/${manifestName}`;
 }
 
+async function resolveMeshAliceBioGitRef(ref: string): Promise<string> {
+  const cached = resolvedRefCache.get(ref);
+  if (cached) {
+    return await cached;
+  }
+
+  const pending = resolveMeshAliceBioGitRefUncached(ref);
+  resolvedRefCache.set(ref, pending);
+
+  try {
+    return await pending;
+  } catch (error) {
+    resolvedRefCache.delete(ref);
+    throw error;
+  }
+}
+
+async function resolveMeshAliceBioGitRefUncached(
+  ref: string,
+): Promise<string> {
+  const candidates = [ref, `origin/${ref}`];
+
+  for (const candidate of candidates) {
+    const command = new Deno.Command("git", {
+      args: [
+        "-C",
+        fixtureRepoPath,
+        "rev-parse",
+        "--verify",
+        "--quiet",
+        `${candidate}^{commit}`,
+      ],
+      stdout: "null",
+      stderr: "null",
+    });
+    const output = await command.output();
+    if (output.success) {
+      return candidate;
+    }
+  }
+
+  throw new Error(
+    `Failed to resolve fixture ref ${ref} in ${fixtureRepoPath}; checked ${candidates.join(", ")}.`,
+  );
+}
+
 export async function readMeshAliceBioBranchFile(
   ref: string,
   path: string,
 ): Promise<string> {
+  const resolvedRef = await resolveMeshAliceBioGitRef(ref);
   const command = new Deno.Command("git", {
-    args: ["-C", fixtureRepoPath, "show", `${ref}:${path}`],
+    args: ["-C", fixtureRepoPath, "show", `${resolvedRef}:${path}`],
     stdout: "piped",
     stderr: "piped",
   });
@@ -46,8 +94,9 @@ export async function readMeshAliceBioBranchFile(
 export async function listMeshAliceBioBranchFiles(
   ref: string,
 ): Promise<string[]> {
+  const resolvedRef = await resolveMeshAliceBioGitRef(ref);
   const command = new Deno.Command("git", {
-    args: ["-C", fixtureRepoPath, "ls-tree", "-r", "--name-only", ref],
+    args: ["-C", fixtureRepoPath, "ls-tree", "-r", "--name-only", resolvedRef],
     stdout: "piped",
     stderr: "piped",
   });
