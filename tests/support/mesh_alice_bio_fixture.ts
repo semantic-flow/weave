@@ -24,7 +24,13 @@ export function resolveMeshAliceBioFixtureRepoPath(): string {
 export function resolveMeshAliceBioConformanceManifestPath(
   manifestName: string,
 ): string {
-  return `${frameworkRepoPath}/examples/alice-bio/conformance/${manifestName}`;
+  return join(
+    frameworkRepoPath,
+    "examples",
+    "alice-bio",
+    "conformance",
+    manifestName,
+  );
 }
 
 async function resolveMeshAliceBioGitRef(ref: string): Promise<string> {
