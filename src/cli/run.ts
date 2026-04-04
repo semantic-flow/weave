@@ -1,8 +1,14 @@
 import { Command } from "@cliffy/command";
 import { Input } from "@cliffy/prompt";
 import { join, resolve } from "@std/path";
+import { KnopCreateInputError } from "../core/knop/create.ts";
 import { MeshCreateInputError } from "../core/mesh/create.ts";
 import { createRuntimeLoggers } from "../runtime/logging/factory.ts";
+import {
+  describeKnopCreateResult,
+  executeKnopCreate,
+  KnopCreateRuntimeError,
+} from "../runtime/knop/create.ts";
 import {
   describeMeshCreateResult,
   executeMeshCreate,
@@ -64,6 +70,51 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               }
             }),
         ),
+    )
+    .command(
+      "knop",
+      new Command()
+        .description("Knop operations.")
+        .command(
+          "create",
+          new Command()
+            .description(
+              "Create the first knop support artifacts for a designator path.",
+            )
+            .arguments("<designatorPath:string>")
+            .option(
+              "--workspace <workspace:string>",
+              "Workspace root to update.",
+              { default: "." },
+            )
+            .action(async (options, designatorPath) => {
+              const workspaceRoot = resolve(options.workspace);
+              const logDir = join(workspaceRoot, ".weave", "logs");
+              const { operationalLogger, auditLogger } = createRuntimeLoggers({
+                logDir,
+              });
+
+              await auditLogger.command("knop.create", {
+                workspaceRoot,
+                designatorPath,
+                localMode: true,
+              });
+
+              const result = await executeKnopCreate({
+                workspaceRoot,
+                request: { designatorPath },
+                operationalLogger,
+                auditLogger,
+              });
+              console.log(describeKnopCreateResult(result));
+              for (const path of result.createdPaths) {
+                console.log(path);
+              }
+              for (const path of result.updatedPaths) {
+                console.log(path);
+              }
+            }),
+        ),
     );
 
   try {
@@ -104,6 +155,8 @@ async function resolveMeshBaseOption(
 
 function getCliErrorMessage(error: unknown): string {
   if (
+    error instanceof KnopCreateInputError ||
+    error instanceof KnopCreateRuntimeError ||
     error instanceof MeshCreateInputError ||
     error instanceof MeshCreateRuntimeError
   ) {

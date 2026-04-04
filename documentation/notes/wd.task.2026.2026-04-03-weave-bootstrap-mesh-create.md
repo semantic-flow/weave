@@ -155,4 +155,4 @@ Bootstrap posture:
 - [x] Add the first thin CLI command surface for `mesh create`, including `--interactive` support where it is already useful.
 - [x] Draft the first thin public API example or contract fragment for `mesh create` in `semantic-flow-framework`.
 - [x] Add a first black-box CLI acceptance test that treats the `02-mesh-created` Accord manifest as the expectation scope for local `mesh create`.
-- [ ] Update [[wd.codebase-overview]], relevant `wd.spec.*` notes, and the framework notes as the slice solidifies.
+- [x] Update [[wd.codebase-overview]], relevant `wd.spec.*` notes, and the framework notes as the slice solidifies.

@@ -57,6 +57,7 @@ In this first slice, `mesh create` does not:
 - the first carried Alice Bio path should leave `alice-bio.ttl` byte-identical to the `01-source-only` state
 - the created mesh support files should match the current intended `02-mesh-created` fixture state for Alice Bio
 - if target support-artifact files already exist, the operation should fail closed rather than silently overwrite them
+- runtime-local `.weave/logs` output is not part of the semantic mesh surface
 
 ## Acceptance Reference
 
@@ -66,3 +67,4 @@ The first behavior-level comparison target is:
 - from ref: `01-source-only`
 - to ref: `02-mesh-created`
 - manifest: `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/02-mesh-created.jsonld`
+- local CLI execution should match that manifest-scoped result

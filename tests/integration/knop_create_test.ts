@@ -1,0 +1,85 @@
+import { assertEquals, assertRejects } from "@std/assert";
+import { join } from "@std/path";
+import {
+  executeKnopCreate,
+  KnopCreateRuntimeError,
+} from "../../src/runtime/knop/create.ts";
+import {
+  materializeMeshAliceBioBranch,
+  readMeshAliceBioBranchFile,
+} from "../support/mesh_alice_bio_fixture.ts";
+import { createTestTmpDir } from "../support/test_tmp.ts";
+
+Deno.test("executeKnopCreate matches the settled alice-bio knop-created fixture", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-knop-create-");
+  await materializeMeshAliceBioBranch("03-mesh-created-woven", workspaceRoot);
+
+  const result = await executeKnopCreate({
+    workspaceRoot,
+    request: {
+      designatorPath: "alice",
+    },
+  });
+
+  assertEquals(
+    result.knopIri,
+    "https://semantic-flow.github.io/mesh-alice-bio/alice/_knop",
+  );
+  assertEquals(
+    [...result.createdPaths].sort(),
+    [
+      "alice/_knop/_inventory/inventory.ttl",
+      "alice/_knop/_meta/meta.ttl",
+    ],
+  );
+  assertEquals(result.updatedPaths, ["_mesh/_inventory/inventory.ttl"]);
+  assertEquals(
+    await Deno.readTextFile(join(workspaceRoot, "alice/_knop/_meta/meta.ttl")),
+    await readMeshAliceBioBranchFile(
+      "04-alice-knop-created",
+      "alice/_knop/_meta/meta.ttl",
+    ),
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/_knop/_inventory/inventory.ttl"),
+    ),
+    await readMeshAliceBioBranchFile(
+      "04-alice-knop-created",
+      "alice/_knop/_inventory/inventory.ttl",
+    ),
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+    ),
+    await readMeshAliceBioBranchFile(
+      "04-alice-knop-created",
+      "_mesh/_inventory/inventory.ttl",
+    ),
+  );
+});
+
+Deno.test("executeKnopCreate fails closed when knop support artifacts already exist", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-knop-create-existing-");
+  await materializeMeshAliceBioBranch("03-mesh-created-woven", workspaceRoot);
+  await Deno.mkdir(join(workspaceRoot, "alice/_knop/_meta"), {
+    recursive: true,
+  });
+  await Deno.writeTextFile(
+    join(workspaceRoot, "alice/_knop/_meta/meta.ttl"),
+    "# existing\n",
+  );
+
+  await assertRejects(
+    () =>
+      executeKnopCreate({
+        workspaceRoot,
+        request: {
+          designatorPath: "alice",
+        },
+      }),
+    KnopCreateRuntimeError,
+    "already exists",
+  );
+});

@@ -1,10 +1,7 @@
+import type { PlannedFile } from "../planned_file.ts";
+
 export interface MeshCreateRequest {
   meshBase: string;
-}
-
-export interface PlannedFile {
-  path: string;
-  contents: string;
 }
 
 export interface MeshCreatePlan {
