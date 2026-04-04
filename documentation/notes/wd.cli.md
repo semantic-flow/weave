@@ -10,3 +10,5 @@ created: 1774333919848
 
 - especially for minting, the --interactive mode is always recommended
   - even if integration template matches and suggests a created IRI, you wanna be sure before you mint something.
+- first-pass command routing and interactive prompts should use Cliffy
+- a TUI framework is explicitly deferred until there is a clear need for a persistent terminal app rather than command-scoped prompting

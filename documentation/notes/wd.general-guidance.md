@@ -46,9 +46,30 @@ see [[wd.testing]]
 
 ## Task notes
 
-Before starting substantial code changes, a task note should be written and refined. Task notes live in `documentation/notes/wd.tasks.*` and the template lives in [[template.task]]. Actionable "To-Do" items should be pre-pended with markdown checkboxes (`[ ]`) to track completion (`[x]`) or cancellation (`[c]`)
+Before starting substantial code changes, a task note should be written and refined. Task notes live in `documentation/notes/wd.task.*` and the template lives in [[template.task]]. Actionable "To-Do" items should be pre-pended with markdown checkboxes (`[ ]`) to track completion (`[x]`) or cancellation (`[c]`)
+
+When a task is materially complete and you want its status reflected in the note name, rename the note from `wd.task.*` to `wd.completed.*` rather than creating a separate duplicate summary note by default. If the rename changes wikilinks, update the affected references.
 
 Before a task is closed, [[wd.decision-log]] should be updated with important decisions made.
+
+## Behavior specs
+
+Use `documentation/notes/wd.spec.*` for current behavior specs that are meant to guide implementation and drive higher-level tests.
+
+Use a `wd.spec.*` note when:
+
+- the behavior is externally visible
+- the behavior spans multiple subsystems or files
+- the expected result is best described in terms of observable outcomes and invariants
+- the resulting tests are likely to be black-box or integration-style
+
+These notes are especially useful as sources for:
+
+- integration tests
+- black-box functional tests
+- Accord manifests or similar acceptance checks
+
+A `wd.spec.*` note is not a replacement for executable tests and is not automatically the public API contract. It is a current implementation-facing behavior spec. See [[wd.testing]] for the testing posture that goes with this.
 
 
 ## Development Loop
@@ -68,6 +89,7 @@ During active development, run only what matches your change:
 - `deno task test` when changing logic/tests.
 - `deno task check` when changing types/contracts/public APIs.
 - `deno task lint` when touching broader structural code.
+- if behavior changed materially, update the relevant `wd.spec.*` note and tests together rather than letting them drift
 
 
 ### Before merge
