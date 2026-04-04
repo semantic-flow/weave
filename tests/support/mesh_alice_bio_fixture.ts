@@ -1,5 +1,17 @@
 const fixtureRepoPath =
   "/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/mesh-alice-bio";
+const frameworkRepoPath =
+  "/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework";
+
+export function resolveMeshAliceBioFixtureRepoPath(): string {
+  return fixtureRepoPath;
+}
+
+export function resolveMeshAliceBioConformanceManifestPath(
+  manifestName: string,
+): string {
+  return `${frameworkRepoPath}/examples/alice-bio/conformance/${manifestName}`;
+}
 
 export async function readMeshAliceBioBranchFile(
   ref: string,

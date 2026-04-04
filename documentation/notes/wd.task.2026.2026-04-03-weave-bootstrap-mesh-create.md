@@ -2,7 +2,7 @@
 id: 8n0e0cny1m6f3x8c4q2v7ra
 title: 2026 04 03 Weave Bootstrap Mesh Create
 desc: ''
-updated: 1775269706811
+updated: 1775271353602
 created: 1775269706811
 ---
 
@@ -153,5 +153,6 @@ Bootstrap posture:
 - [x] Add failing unit and integration tests for the first `mesh create` behavior.
 - [x] Implement local or in-process `mesh create` over shared `core` and `runtime`.
 - [x] Add the first thin CLI command surface for `mesh create`, including `--interactive` support where it is already useful.
-- [ ] Draft the first thin public API example or contract fragment for `mesh create` in `semantic-flow-framework`.
+- [x] Draft the first thin public API example or contract fragment for `mesh create` in `semantic-flow-framework`.
+- [x] Add a first black-box CLI acceptance test that treats the `02-mesh-created` Accord manifest as the expectation scope for local `mesh create`.
 - [ ] Update [[wd.codebase-overview]], relevant `wd.spec.*` notes, and the framework notes as the slice solidifies.
