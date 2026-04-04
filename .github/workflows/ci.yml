@@ -18,6 +18,28 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
 
+      - name: Check out Accord
+        uses: actions/checkout@v6
+        with:
+          repository: spectacular-voyage/accord
+          path: dependencies/github.com/spectacular-voyage/accord
+
+      - name: Check out Semantic Flow Framework
+        uses: actions/checkout@v6
+        with:
+          repository: semantic-flow/semantic-flow-framework
+          path: dependencies/github.com/semantic-flow/semantic-flow-framework
+
+      - name: Check out Mesh Alice Bio
+        uses: actions/checkout@v6
+        with:
+          repository: semantic-flow/mesh-alice-bio
+          path: dependencies/github.com/semantic-flow/mesh-alice-bio
+          fetch-depth: 0
+
+      - name: Fetch mesh fixture refs
+        run: git -C dependencies/github.com/semantic-flow/mesh-alice-bio fetch origin "+refs/heads/*:refs/remotes/origin/*"
+
       - name: Set up Deno
         uses: denoland/setup-deno@v2
         with:

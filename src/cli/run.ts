@@ -1,10 +1,16 @@
 import { Command } from "@cliffy/command";
 import { Input } from "@cliffy/prompt";
 import { join, resolve } from "@std/path";
+import { IntegrateInputError } from "../core/integrate/integrate.ts";
 import { KnopCreateInputError } from "../core/knop/create.ts";
 import { MeshCreateInputError } from "../core/mesh/create.ts";
 import { WeaveInputError } from "../core/weave/weave.ts";
 import { createRuntimeLoggers } from "../runtime/logging/factory.ts";
+import {
+  describeIntegrateResult,
+  executeIntegrate,
+  IntegrateRuntimeError,
+} from "../runtime/integrate/integrate.ts";
 import {
   describeKnopCreateResult,
   executeKnopCreate,
@@ -58,6 +64,58 @@ export async function runWeaveCli(args: string[]): Promise<number> {
       }
     })
     .throwErrors()
+    .command(
+      "integrate",
+      new Command()
+        .description(
+          "Integrate a payload artifact source into a designator path.",
+        )
+        .arguments("<source:string> [designatorPath:string]")
+        .option(
+          "--designator-path <designatorPath:string>",
+          "Designator path to assign to the integrated payload artifact.",
+        )
+        .option(
+          "--workspace <workspace:string>",
+          "Workspace root to update.",
+          { default: "." },
+        )
+        .action(async (options, source, designatorPathArg) => {
+          const workspaceRoot = resolve(options.workspace);
+          const designatorPath = resolveIntegrateDesignatorPath(
+            options,
+            designatorPathArg,
+          );
+          const logDir = join(workspaceRoot, ".weave", "logs");
+          const { operationalLogger, auditLogger } = createRuntimeLoggers({
+            logDir,
+          });
+
+          await auditLogger.command("integrate", {
+            workspaceRoot,
+            designatorPath,
+            source,
+            localMode: true,
+          });
+
+          const result = await executeIntegrate({
+            workspaceRoot,
+            request: {
+              designatorPath,
+              source,
+            },
+            operationalLogger,
+            auditLogger,
+          });
+          console.log(describeIntegrateResult(result));
+          for (const path of result.createdPaths) {
+            console.log(path);
+          }
+          for (const path of result.updatedPaths) {
+            console.log(path);
+          }
+        }),
+    )
     .command(
       "mesh",
       new Command()
@@ -189,8 +247,40 @@ async function resolveMeshBaseOption(
   });
 }
 
+function resolveIntegrateDesignatorPath(
+  options: { designatorPath?: string },
+  designatorPathArg?: string,
+): string {
+  const optionValue = options.designatorPath?.trim() ?? "";
+  const argumentValue = designatorPathArg?.trim() ?? "";
+
+  if (optionValue.length > 0 && argumentValue.length > 0) {
+    if (optionValue !== argumentValue) {
+      throw new IntegrateInputError(
+        "integrate received conflicting designator paths",
+      );
+    }
+
+    return optionValue;
+  }
+
+  if (optionValue.length > 0) {
+    return optionValue;
+  }
+
+  if (argumentValue.length > 0) {
+    return argumentValue;
+  }
+
+  throw new IntegrateInputError(
+    "integrate requires a designator path as [designatorPath] or --designator-path",
+  );
+}
+
 function getCliErrorMessage(error: unknown): string {
   if (
+    error instanceof IntegrateInputError ||
+    error instanceof IntegrateRuntimeError ||
     error instanceof WeaveInputError ||
     error instanceof WeaveRuntimeError ||
     error instanceof KnopCreateInputError ||

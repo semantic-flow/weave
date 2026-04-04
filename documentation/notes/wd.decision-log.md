@@ -128,3 +128,19 @@ created: 1773630801215
 - Why:
   - The machine-facing operation kind can remain `weave` without forcing an awkward duplicated CLI spelling.
   - The top-level action leaves room for lower-level subcommands such as `mesh create` and `knop create` alongside the high-level default operation.
+
+### 2026-04-04: First Local integrate Slice Targets Alice 05 -> 06
+
+- Decision: Treat the settled Alice Bio `05-alice-knop-created-woven` -> `06-alice-bio-integrated` transition as the first carried local `integrate` implementation slice, limited to creating the payload-Knop support artifacts and updating `MeshInventory` while leaving histories and generated pages for the later woven step.
+- References: [[wd.task.2026.2026-04-04-integrate-alice-bio]], [[wd.spec.2026-04-04-integrate-behavior]]
+- Why:
+  - It is the next settled semantic operation boundary after the first completed local `weave` slice.
+  - The fixture already proves that payload integration is distinct from later `weave` behavior.
+
+### 2026-04-04: integrate CLI Uses Explicit Source While core Stays Mesh-Relative
+
+- Decision: Make the first local `integrate` CLI take the source as the primary positional input and accept `designatorPath` either as a second positional argument or via `--designator-path`, while keeping host paths out of shared `core` by planning the operation from a mesh-relative working file path.
+- References: [[wd.task.2026.2026-04-04-integrate-alice-bio]], [[wd.spec.2026-04-04-integrate-behavior]]
+- Why:
+  - The local CLI should read as acting on a source artifact rather than on a designator path.
+  - A mesh-relative working file path in `core` leaves room for later runtime staging from `file:` or remote source URIs without collapsing the semantic contract into host-path semantics.

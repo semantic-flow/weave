@@ -2,7 +2,7 @@
 id: v4m8n2q1c7x5k9b3j6t0rpa
 title: 2026 04 04 Integrate Alice Bio
 desc: ''
-updated: 1775365200000
+updated: 1775321023819
 created: 1775365200000
 ---
 
@@ -66,23 +66,27 @@ The settled fixture and conformance notes already pin down two important expecta
 
 That means the first local `integrate` implementation should be driven primarily by the settled `06-alice-bio-integrated` fixture and manifest, with additional prose only where the behavior still needs clarification.
 
-## Open Issues
+## Resolved Questions
 
-- Do we want a dedicated `wd.spec.*` note for `integrate` before implementation, or should the first slice stay fixture-and-manifest-driven unless a missing behavior boundary shows up?
-- What should the first local CLI surface for `integrate` be: explicit source path plus `designatorPath`, or a thinner command shape?
-- How thin should the first public `integrate` request/result examples be in `semantic-flow-framework`?
+- `integrate` should get a dedicated `wd.spec.*` note before implementation. Unlike the first `weave` slice, there is no existing behavior note to reuse, and the `05` -> `06` transition is already an externally visible cross-subsystem boundary with a manifest-backed acceptance target.
+- The first local CLI surface should take the source as the primary positional input and require `designatorPath` either as a second positional argument or via `--designator-path`. The current slice should resolve `meshBase` from the existing workspace mesh support surface rather than asking users to repeat it.
+- The filesystem-separation tension should be resolved by keeping host paths out of `core`. The local CLI/runtime may accept a local path or `file:` URL as the source input, but shared `core` planning should operate on the resulting mesh-relative working file path that becomes the payload artifact's `hasWorkingLocatedFile`.
+- The first public `integrate` request/result examples in `semantic-flow-framework` should stay thin: identify the existing mesh, one `designatorPath`, and one source URI, then report only created and updated semantic resources. Host filesystem paths, copy or staging policy, and later remote-fetch behavior should stay out of the thin core contract.
 
 ## Decisions
 
 - Treat `05-alice-knop-created-woven` -> `06-alice-bio-integrated` as the next carried implementation slice.
 - Use the settled Alice Bio `06-alice-bio-integrated` manifest and fixture as the first acceptance target.
+- Add a dedicated [[wd.spec.2026-04-04-integrate-behavior]] note for this slice rather than leaving the operation semantics implicit in the fixture diff alone.
 - Keep the first `integrate` implementation local or in-process over shared `core` and `runtime`.
+- Make the first local CLI surface `weave integrate <path-or-file-url> [designatorPath]` with `--designator-path` as the explicit option form, and resolve `meshBase` from the existing workspace.
+- Keep host filesystem paths out of shared `core` by planning `integrate` from `designatorPath` plus a mesh-relative working file path, while leaving room for later runtime staging from remote sources.
 - Keep the working payload bytes at `alice-bio.ttl` for this first slice rather than relocating the file before the woven step.
 - Do not absorb payload weaving, page generation, explicit histories, referenced-resource extraction, or daemon work into this task.
 
 ## Contract Changes
 
-- This task may introduce the first thin public request/result examples for `integrate` in `semantic-flow-framework`.
+- This task may introduce the first thin public request/result examples for `integrate` in `semantic-flow-framework`, including a semantic source-URI input without standardizing host filesystem paths.
 - This task should not broaden the public API beyond what the first local payload-integration slice actually proves.
 
 ## Testing
@@ -105,11 +109,26 @@ That means the first local `integrate` implementation should be driven primarily
 
 ## Implementation Plan
 
-- [ ] Decide whether `integrate` needs a dedicated `wd.spec.*` note before implementation.
-- [ ] Define the first local request/result shapes for `integrate` in shared `core` and `runtime`.
-- [ ] Define the exact first local CLI surface for the carried `integrate` operation.
-- [ ] Add failing unit and integration tests for the first `integrate` behavior.
-- [ ] Implement the first local or in-process `integrate` path over shared `core` and `runtime`.
-- [ ] Add a black-box CLI acceptance test scoped by the settled `06-alice-bio-integrated` Accord manifest.
-- [ ] Draft the first thin public API example or contract fragment for `integrate` in `semantic-flow-framework` if this slice sharpens the public contract.
-- [ ] Update relevant overview/spec/framework notes as the slice settles.
+- [x] Decide whether `integrate` needs a dedicated `wd.spec.*` note before implementation.
+- [x] Define the first local request/result shapes for `integrate` in shared `core` and `runtime`.
+- [x] Define the exact first local CLI surface for the carried `integrate` operation.
+- [x] Add failing unit and integration tests for the first `integrate` behavior.
+- [x] Implement the first local or in-process `integrate` path over shared `core` and `runtime`.
+- [x] Add a black-box CLI acceptance test scoped by the settled `06-alice-bio-integrated` Accord manifest.
+- [x] Draft the first thin public API example or contract fragment for `integrate` in `semantic-flow-framework` if this slice sharpens the public contract.
+- [x] Update relevant overview/spec/framework notes as the slice settles.
+
+## coderabbit review
+
+Verify each finding against the current code and only fix it if needed.
+
+In `@src/runtime/integrate/integrate.ts`:
+- [x] Preserve a single explicitly provided logger in `resolveLoggers` instead of discarding it when the other logger is absent. Reason: `ExecuteIntegrateOptions` makes `operationalLogger` and `auditLogger` independently optional, so the current implementation is a real correctness bug rather than just a style issue.
+- [c] Rewrite `describeIntegrateResult` for singular/plural polish. Reason: the current wording is slightly awkward, but it is low-signal CLI text and not worth reopening this otherwise-settled slice by itself.
+
+---
+
+Nitpick comments:
+In `@src/runtime/integrate/integrate.ts`:
+- [c] Make `assertUpdatedTargetsExist` async instead of using `Deno.statSync`. Reason: this is a very small preflight check over a tiny file set, so the sync call is not a meaningful problem in the current local slice.
+- [c] Replace regex `meshBase` extraction in this task with an RDF parse. Reason: the robustness concern is real, but the same pattern exists in sibling runtime loaders, so this should be addressed as a shared follow-up rather than as an integrate-only tweak.
