@@ -21,7 +21,7 @@ The first acceptance target is the settled `mesh-alice-bio` transition from `05-
 ## Inputs
 
 - `designatorPath` is required.
-- the first local CLI surface requires an explicit `designatorPath` together with an explicit `--source`
+- the first local CLI surface takes the source artifact as the primary positional input and requires `designatorPath` either as a second positional argument or via `--designator-path`
 - the target workspace must already contain `_mesh/_meta/meta.ttl` and `_mesh/_inventory/inventory.ttl`
 - `meshBase` is resolved from the existing mesh metadata rather than being repeated on the CLI
 - the current local runtime slice accepts only an existing local source file in the workspace, addressed either by path or equivalent `file:` URL

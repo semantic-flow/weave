@@ -214,7 +214,9 @@ async function resolveLocalSource(
 ): Promise<{ absoluteSourcePath: string; workingFilePath: string }> {
   const trimmed = source.trim();
   if (trimmed.length === 0) {
-    throw new IntegrateRuntimeError("integrate requires --source");
+    throw new IntegrateRuntimeError(
+      "integrate requires a source path or file URL",
+    );
   }
 
   const absoluteSourcePath = resolveSourcePath(workspaceRoot, trimmed);

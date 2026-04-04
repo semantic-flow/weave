@@ -139,8 +139,8 @@ created: 1773630801215
 
 ### 2026-04-04: integrate CLI Uses Explicit Source While core Stays Mesh-Relative
 
-- Decision: Make the first local `integrate` CLI require an explicit `designatorPath` plus an explicit `--source`, while keeping host paths out of shared `core` by planning the operation from a mesh-relative working file path.
+- Decision: Make the first local `integrate` CLI take the source as the primary positional input and accept `designatorPath` either as a second positional argument or via `--designator-path`, while keeping host paths out of shared `core` by planning the operation from a mesh-relative working file path.
 - References: [[wd.task.2026.2026-04-04-integrate-alice-bio]], [[wd.spec.2026-04-04-integrate-behavior]]
 - Why:
-  - The local CLI needs a concrete way to identify the working payload bytes.
+  - The local CLI should read as acting on a source artifact rather than on a designator path.
   - A mesh-relative working file path in `core` leaves room for later runtime staging from `file:` or remote source URIs without collapsing the semantic contract into host-path semantics.

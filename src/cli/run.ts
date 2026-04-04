@@ -67,20 +67,25 @@ export async function runWeaveCli(args: string[]): Promise<number> {
     .command(
       "integrate",
       new Command()
-        .description("Integrate a payload artifact for a designator path.")
-        .arguments("<designatorPath:string>")
+        .description(
+          "Integrate a payload artifact source into a designator path.",
+        )
+        .arguments("<source:string> [designatorPath:string]")
         .option(
-          "--source <source:string>",
-          "Local path or file URL of the existing payload file to integrate.",
+          "--designator-path <designatorPath:string>",
+          "Designator path to assign to the integrated payload artifact.",
         )
         .option(
           "--workspace <workspace:string>",
           "Workspace root to update.",
           { default: "." },
         )
-        .action(async (options, designatorPath) => {
+        .action(async (options, source, designatorPathArg) => {
           const workspaceRoot = resolve(options.workspace);
-          const source = resolveIntegrateSourceOption(options);
+          const designatorPath = resolveIntegrateDesignatorPath(
+            options,
+            designatorPathArg,
+          );
           const logDir = join(workspaceRoot, ".weave", "logs");
           const { operationalLogger, auditLogger } = createRuntimeLoggers({
             logDir,
@@ -242,14 +247,34 @@ async function resolveMeshBaseOption(
   });
 }
 
-function resolveIntegrateSourceOption(
-  options: { source?: string },
+function resolveIntegrateDesignatorPath(
+  options: { designatorPath?: string },
+  designatorPathArg?: string,
 ): string {
-  if (typeof options.source === "string" && options.source.trim().length > 0) {
-    return options.source;
+  const optionValue = options.designatorPath?.trim() ?? "";
+  const argumentValue = designatorPathArg?.trim() ?? "";
+
+  if (optionValue.length > 0 && argumentValue.length > 0) {
+    if (optionValue !== argumentValue) {
+      throw new IntegrateInputError(
+        "integrate received conflicting designator paths",
+      );
+    }
+
+    return optionValue;
   }
 
-  throw new IntegrateInputError("integrate requires --source");
+  if (optionValue.length > 0) {
+    return optionValue;
+  }
+
+  if (argumentValue.length > 0) {
+    return argumentValue;
+  }
+
+  throw new IntegrateInputError(
+    "integrate requires a designator path as [designatorPath] or --designator-path",
+  );
 }
 
 function getCliErrorMessage(error: unknown): string {

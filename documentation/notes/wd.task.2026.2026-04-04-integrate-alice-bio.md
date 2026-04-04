@@ -69,8 +69,8 @@ That means the first local `integrate` implementation should be driven primarily
 ## Resolved Questions
 
 - `integrate` should get a dedicated `wd.spec.*` note before implementation. Unlike the first `weave` slice, there is no existing behavior note to reuse, and the `05` -> `06` transition is already an externally visible cross-subsystem boundary with a manifest-backed acceptance target.
-- The first local CLI surface should require both an explicit `designatorPath` and an explicit local `--source`. The current slice should resolve `meshBase` from the existing workspace mesh support surface rather than asking users to repeat it.
-- The filesystem-separation tension should be resolved by keeping host paths out of `core`. The local CLI/runtime may accept a local path or `file:` URL for `--source`, but shared `core` planning should operate on the resulting mesh-relative working file path that becomes the payload artifact's `hasWorkingLocatedFile`.
+- The first local CLI surface should take the source as the primary positional input and require `designatorPath` either as a second positional argument or via `--designator-path`. The current slice should resolve `meshBase` from the existing workspace mesh support surface rather than asking users to repeat it.
+- The filesystem-separation tension should be resolved by keeping host paths out of `core`. The local CLI/runtime may accept a local path or `file:` URL as the source input, but shared `core` planning should operate on the resulting mesh-relative working file path that becomes the payload artifact's `hasWorkingLocatedFile`.
 - The first public `integrate` request/result examples in `semantic-flow-framework` should stay thin: identify the existing mesh, one `designatorPath`, and one source URI, then report only created and updated semantic resources. Host filesystem paths, copy or staging policy, and later remote-fetch behavior should stay out of the thin core contract.
 
 ## Decisions
@@ -79,7 +79,7 @@ That means the first local `integrate` implementation should be driven primarily
 - Use the settled Alice Bio `06-alice-bio-integrated` manifest and fixture as the first acceptance target.
 - Add a dedicated [[wd.spec.2026-04-04-integrate-behavior]] note for this slice rather than leaving the operation semantics implicit in the fixture diff alone.
 - Keep the first `integrate` implementation local or in-process over shared `core` and `runtime`.
-- Make the first local CLI surface `weave integrate <designatorPath> --source <path-or-file-url>`, with `meshBase` resolved from the existing workspace.
+- Make the first local CLI surface `weave integrate <path-or-file-url> [designatorPath]` with `--designator-path` as the explicit option form, and resolve `meshBase` from the existing workspace.
 - Keep host filesystem paths out of shared `core` by planning `integrate` from `designatorPath` plus a mesh-relative working file path, while leaving room for later runtime staging from remote sources.
 - Keep the working payload bytes at `alice-bio.ttl` for this first slice rather than relocating the file before the woven step.
 - Do not absorb payload weaving, page generation, explicit histories, referenced-resource extraction, or daemon work into this task.
