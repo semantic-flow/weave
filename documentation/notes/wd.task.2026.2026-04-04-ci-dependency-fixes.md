@@ -2,7 +2,7 @@
 id: yco42nwsnax60rms6xdssv4
 title: 2026 04 04 CI Dependency Fixes
 desc: ''
-updated: 1775318903701
+updated: 1775334213843
 created: 1775318903701
 ---
 
@@ -27,7 +27,7 @@ GitHub Actions does not receive those ignored repositories in a clean checkout, 
 
 This task should make the dependency model explicit and portable:
 
-- Weave tests should resolve those repositories via repository-relative `dependencies/...` paths rather than `/home/djradon/...` absolute paths.
+- Weave tests should resolve those repositories via repository-relative `dependencies/...` paths rather than `...` absolute paths.
 - GitHub Actions should check out the external repositories Weave tests currently require into those same `dependencies/...` locations.
 - The fix should be honest about current architecture: for now Weave is allowed to depend on external fixture and helper repos in CI, but that dependency must be explicit.
 
@@ -66,7 +66,7 @@ Using that same layout for CI checkouts means:
 - local development and CI agree on where supporting repositories live
 - tests stay deterministic
 - path handling becomes portable across machines and runners
-- no workstation-specific `/home/djradon/...` assumptions remain
+- no workstation-specific `...` assumptions remain
 
 Environment-variable overrides could be added later if there is a concrete need for alternate layouts, but they are not required for the first clean fix.
 
@@ -122,7 +122,7 @@ But that is follow-up work. This task exists to make the current test harness po
 - The updated CI workflow should validate the same repository-relative layout used locally.
 - The CI checkout for `mesh-alice-bio` should expose the named fixture refs that Weave tests read through `git show` and `git ls-tree`.
 - Helper logic should continue to work when those fixture refs exist only as `origin/<ref>` rather than local branches.
-- Tests that depend on conformance manifests or fixture branch material should no longer require `/home/djradon/...`-style absolute paths.
+- Tests that depend on conformance manifests or fixture branch material should no longer require `...`-style absolute paths.
 
 ## Non-Goals
 

@@ -3,7 +3,7 @@ id: apparently-accord-can-va-1ca069d2
 title: 'Apparently accord can validate mesh-alice-bio. Anything lef…'
 desc: ''
 created: 1775270647293
-updated: 1775270647293
+updated: 1775334213841
 participants: [djradon, codex.gpt-5.4]
 kato-sessionIds: [019d55ef-37f1-7202-94ea-3678a4f9327b]
 kato-workspaceIds: [f6e2f488-e64d-4140-aacb-87d10f58555f]
@@ -12,11 +12,11 @@ kato-recordingIds: [1ca069d2-5828-43dc-9792-a0e1cd9d8049]
 
 # User_2026-04-03_1749_01
 
-Apparently accord can validate mesh-alice-bio. Anything left on accord development? Or can we start using it to build the Semantic Flow APIweave? See [wd.spec.2026-04-03-weave-behavior.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.spec.2026-04-03-weave-behavior.md) for a summary of learnings from the mesh-alice-bio process. 
+Apparently accord can validate mesh-alice-bio. Anything left on accord development? Or can we start using it to build the Semantic Flow APIweave? See [[wd.spec.2026-04-03-weave-behavior]] for a summary of learnings from the mesh-alice-bio process. 
 
 Accord was a successful test of Semantic Web libraries with Deno. Seems like we can just use Deno for weave. Not that we have to. 
 
-But it seems like the next step is to pick up the SF API, see [sf.api.md](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.md), and perhaps the to sf.conv.* conversations for context.
+But it seems like the next step is to pick up the SF API, see [[sf.api]], and perhaps the to sf.conv.* conversations for context.
 
 # gpt-5.4_2026-04-03_1749_10
 
@@ -66,7 +66,7 @@ The full-corpus run is in progress. If this stays green through `13-bob-extracte
 
 As of April 3, 2026: yes, start using Accord to build Weave’s implementation of the Semantic Flow API.
 
-I verified the current Accord repo directly. `deno task test` passed `69` tests, `deno task test:mesh-alice-bio` passed, and a full run of all `13` Alice Bio conformance manifests against `mesh-alice-bio` passed. That lines up with the completed notes in [ac.completed.2026.2026-04-03-accord-cli.md](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/spectacular-voyage/accord/documentation/notes/ac.completed.2026.2026-04-03-accord-cli.md) and [sf.completed.2026.2026-03-29-conformance-for-mesh-alice-bio.md](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.completed.2026.2026-03-29-conformance-for-mesh-alice-bio.md).
+I verified the current Accord repo directly. `deno task test` passed `69` tests, `deno task test:mesh-alice-bio` passed, and a full run of all `13` Alice Bio conformance manifests against `mesh-alice-bio` passed. That lines up with the completed notes in [[ac.completed.2026.2026-04-03-accord-cli]] and [[sf.completed.2026.2026-03-29-conformance-for-mesh-alice-bio]].
 
 What’s left on Accord is mostly non-blocking polish:
 - keep the full-corpus rerun automated
@@ -74,9 +74,9 @@ What’s left on Accord is mostly non-blocking polish:
 - maybe publish a shared JSON-LD context
 - maybe tighten non-RDF compare modes later
 
-The pushback is this: Accord being ready does not mean Weave validation is “done.” Accord is your acceptance harness. Weave still needs its own runtime behavior for `mesh create`, `knop create`, `integrate`, `knop.addReference`, `extract`, and `weave` as the `version + validate + generate` boundary described in [wd.spec.2026-04-03-weave-behavior.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.spec.2026-04-03-weave-behavior.md).
+The pushback is this: Accord being ready does not mean Weave validation is “done.” Accord is your acceptance harness. Weave still needs its own runtime behavior for `mesh create`, `knop create`, `integrate`, `knop.addReference`, `extract`, and `weave` as the `version + validate + generate` boundary described in [[wd.spec.2026-04-03-weave-behavior]].
 
-On runtime choice, I would stop reopening the question and use Deno for Weave unless a concrete blocker appears. That matches [wd.general-guidance.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.general-guidance.md), and Accord already proved the relevant Deno RDF stack is viable.
+On runtime choice, I would stop reopening the question and use Deno for Weave unless a concrete blocker appears. That matches [[wd.general-guidance]], and Accord already proved the relevant Deno RDF stack is viable.
 
 The next step I’d recommend is not “build the whole HTTP API first.” It’s this:
 
@@ -84,7 +84,7 @@ The next step I’d recommend is not “build the whole HTTP API first.” It’
 2. Scaffold a Deno-first local/in-process Weave core.
 3. Implement the first ladder slice against Accord: `mesh create` then `weave`, then `knop create` then `weave`.
 4. Use Accord in CI as the acceptance oracle from day one.
-5. Add the daemon/OpenAPI/Hydra job layer after the local core is replaying fixture transitions cleanly, following [sf.api.md](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.md) and [sf.api.architecture.md](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.architecture.md).
+5. Add the daemon/OpenAPI/Hydra job layer after the local core is replaying fixture transitions cleanly, following [[sf.api]] and [[sf.api.architecture]].
 
 If you want, I can turn that into the first concrete Weave bootstrap task note and scaffold the Deno project in this repo.
 
@@ -100,11 +100,11 @@ No, not in that blunt form.
 
 With your clarification, I’d change the recommendation to: bootstrap the **semantic core and Weave implementation first**, while continuing a **thin public API spec in parallel**. I would not defer the API spec until after implementation, and I also would not try to finish a detailed OpenAPI before the implementation exists.
 
-The boundary in [sf.api.architecture.md](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.architecture.md) is still the right one: the Semantic Flow API is the public contract, and Weave is one implementation. So the practical sequence I’d use is:
+The boundary in [[sf.api.architecture]] is still the right one: the Semantic Flow API is the public contract, and Weave is one implementation. So the practical sequence I’d use is:
 
 1. Keep the framework repo as the home of the public contract.
 2. Specify only the stable thin layer now:
-   `Job`, core resources, operation submission shape, status/result model, Hydra affordances, and the first operation set from [sf.api.md](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.md).
+   `Job`, core resources, operation submission shape, status/result model, Hydra affordances, and the first operation set from [[sf.api]].
 3. Bootstrap Weave’s local/in-process core against the fixture ladder and Accord.
 4. Put the daemon HTTP layer on top of that same core.
 5. Treat the CLI and web app as clients of the implementation, not as the place where semantics live.
@@ -140,7 +140,7 @@ But the cleaner framing is:
   - remote mode against the daemon
   - local/in-process mode against shared logic
 
-That is already the direction recorded in [sf.api.architecture.md#L48](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.architecture.md#L48) and [sf.api.architecture.md#L53](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.architecture.md#L53).
+That is already the direction recorded in [[sf.api.architecture|sf.api.architecture.md#L48]] and [[sf.api.architecture|sf.api.architecture.md#L53]].
 
 So the answer to “isn’t the daemon just the implementation of the HTTP API?” is: mostly yes, but that undersells it. The daemon is not just an HTTP wrapper. It is the service runtime that owns things like job execution, locking, watches, queueing, and progress/event emission. HTTP is one interface it exposes. The actual semantic operations should live below that, in shared core code.
 
@@ -155,7 +155,7 @@ What you do not want is:
 - CLI forced to go through HTTP for local work
 - or CLI reimplementing semantics separately from the daemon
 
-So: independent execution mode, yes. Independent implementation of semantics, no. That also fits [wd.task.2026.2026-03-20-architecture-planning.md#L78](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-03-20-architecture-planning.md#L78) and the job-oriented operation model in [sf.api.md#L24](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.md#L24).
+So: independent execution mode, yes. Independent implementation of semantics, no. That also fits [[wd.task.2026.2026-03-20-architecture-planning|wd.task.2026.2026-03-20-architecture-planning.md#L78]] and the job-oriented operation model in [[sf.api|sf.api.md#L24]].
 
 If you want, I can sketch the package boundary next: `core` vs `daemon` vs `cli` vs web app.
 
@@ -207,7 +207,7 @@ web app
   no semantic logic here either
 ```
 
-The key rule is: one semantic implementation, multiple adapters. That matches [sf.api.architecture.md#L9](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.architecture.md#L9), [sf.api.architecture.md#L48](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.architecture.md#L48), and [sf.api.md#L10](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.md#L10).
+The key rule is: one semantic implementation, multiple adapters. That matches [[sf.api.architecture|sf.api.architecture.md#L9]], [[sf.api.architecture|sf.api.architecture.md#L48]], and [[sf.api|sf.api.md#L10]].
 
 A few pushy opinions:
 
@@ -232,13 +232,13 @@ If you want, I can turn this into a concrete proposed repo layout and first boot
 
 # User_2026-04-03_1810_21
 
-Accord is at /home/djradon/hub/semantic-flow/weave/dependencies/github.com/spectacular-voyage/accord
+Accord is at weave/dependencies/github.com/spectacular-voyage/accord
 
 # gpt-5.4_2026-04-03_1810_27
 
 That is the Accord repo I ended up using.
 
-I missed it on the first pass because I searched too shallowly under `/home/djradon/hub`, but the live repo is indeed at [accord](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/spectacular-voyage/accord). That’s the checkout where I verified the current state: `deno task test` passed, `deno task test:mesh-alice-bio` passed, and the full Alice Bio manifest ladder checked cleanly there.
+I missed it on the first pass because I searched too shallowly under `hub`, but the live repo is indeed at [accord](../../dependencies/github.com/spectacular-voyage/accord). That’s the checkout where I verified the current state: `deno task test` passed, `deno task test:mesh-alice-bio` passed, and the full Alice Bio manifest ladder checked cleanly there.
 
 So the recommendation stands, but now with the exact local path pinned.
 
@@ -279,13 +279,13 @@ That split buys you a few real things:
 
 That said, I would not over-formalize it yet. Some code will blur the line at first, especially around RDF handling and page generation. Fine. I’d treat it as a design boundary first, not a rigid package ceremony.
 
-One pushback: [README.md](/home/djradon/hub/semantic-flow/weave/README.md) is now carrying package-layout detail, which conflicts with your repo guidance that the root README stay user-facing and light on development specifics. I’d move the package boundary material into [wd.codebase-overview.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.codebase-overview.md) and keep the root README simpler.
+One pushback: [README.md](../../README.md) is now carrying package-layout detail, which conflicts with your repo guidance that the root README stay user-facing and light on development specifics. I’d move the package boundary material into [[wd.codebase-overview]] and keep the root README simpler.
 
 # User_2026-04-03_1829_29
 
 Good pushback, done.
 
- So we have the two wd tasks [wd.task.2026.2026-03-15-fresh-monorepo.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-03-15-fresh-monorepo.md) and [wd.task.2026.2026-03-20-architecture-planning.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-03-20-architecture-planning.md) 
+ So we have the two wd tasks [[wd.task.2026.2026-03-15-fresh-monorepo]] and [[wd.task.2026.2026-03-20-architecture-planning]] 
 
 Should we update those and make some decisions? I'd like to consider reusing the logging at least.
 
@@ -304,24 +304,24 @@ Yes, I would update both task notes now and turn several “open decisions” in
 Those notes are stale in a few important ways:
 
 - Deno RDF viability is no longer hypothetical; Accord proved it.
-- daemon/API/CLI boundary is no longer fuzzy; [sf.api.architecture.md](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.architecture.md) already says CLI supports both remote and local/in-process modes.
-- the repo-shape note still assumes an `apps/` + `packages/` split as the default first move, while your newer boundary sketch in [wd.codebase-overview.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.codebase-overview.md) is flatter and better.
+- daemon/API/CLI boundary is no longer fuzzy; [[sf.api.architecture]] already says CLI supports both remote and local/in-process modes.
+- the repo-shape note still assumes an `apps/` + `packages/` split as the default first move, while your newer boundary sketch in [[wd.codebase-overview]] is flatter and better.
 
 What I would do:
 
-1. Update [wd.task.2026.2026-03-15-fresh-monorepo.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-03-15-fresh-monorepo.md)
+1. Update [[wd.task.2026.2026-03-15-fresh-monorepo]]
    - keep `dependencies/`
    - replace “likely `apps/` + `packages/` immediately” with “start flatter under `src/core`, `src/runtime`, `src/daemon`, `src/cli`, later split if needed”
    - note that the public contract currently lives in `semantic-flow-framework`, not a day-one separate spec repo
 
-2. Update [wd.task.2026.2026-03-20-architecture-planning.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-03-20-architecture-planning.md)
+2. Update [[wd.task.2026.2026-03-20-architecture-planning]]
    - close Deno viability as decided
    - close daemon/API naming as decided
    - close CLI offline/local mode as decided
    - close OpenAPI-primary plus optional AsyncAPI companion as decided
    - narrow “package boundaries” to one real next decision: logging reuse shape
 
-3. Add 3-5 short entries to [wd.decision-log.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.decision-log.md)
+3. Add 3-5 short entries to [[wd.decision-log]]
    - `dependencies/` stays
    - Deno-first runtime is accepted
    - daemon implements the HTTP API, but shared core/runtime stay below it
@@ -417,7 +417,7 @@ If you want, I can turn that into a proposed decision list and a patch plan for 
 
 # User_2026-04-03_1848_32
 
-Sorry, I was talking about the kato logging. see /home/djradon/hub/spectacular-voyage/kato
+Sorry, I was talking about the kato logging. see spectacular-voyage/kato
 
 Great, Cliffy it is. 
 
@@ -439,11 +439,11 @@ The inconsistencies are cleaned up. I’m doing one last quick status check, the
 
 Updated the Weave notes to lock the decisions we just made.
 
-The main changes are in [wd.task.2026.2026-03-15-fresh-monorepo.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-03-15-fresh-monorepo.md) and [wd.task.2026.2026-03-20-architecture-planning.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-03-20-architecture-planning.md): they now treat Deno-first as settled, keep the public contract in `semantic-flow-framework` for now, flatten the initial Weave layout under `src/`, lock `dependencies/`, record the daemon/core/runtime/CLI boundary, and carry forward Kato logging concepts rather than old sflo logging. I also recorded the resulting decisions in [wd.decision-log.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.decision-log.md).
+The main changes are in [[wd.task.2026.2026-03-15-fresh-monorepo]] and [[wd.task.2026.2026-03-20-architecture-planning]]: they now treat Deno-first as settled, keep the public contract in `semantic-flow-framework` for now, flatten the initial Weave layout under `src/`, lock `dependencies/`, record the daemon/core/runtime/CLI boundary, and carry forward Kato logging concepts rather than old sflo logging. I also recorded the resulting decisions in [[wd.decision-log]].
 
-I updated [wd.codebase-overview.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.codebase-overview.md) and [wd.cli.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.cli.md) too, so they now explicitly say the first-pass CLI uses Cliffy and that runtime owns the first Deno-native operational/audit logging layer.
+I updated [[wd.codebase-overview]] and [[wd.cli]] too, so they now explicitly say the first-pass CLI uses Cliffy and that runtime owns the first Deno-native operational/audit logging layer.
 
-No tests ran, since this was docs-only. I did not touch the existing untracked [`.kato-workspace-config.yaml`](/home/djradon/hub/semantic-flow/weave/documentation/notes/.kato-workspace-config.yaml).
+No tests ran, since this was docs-only. I did not touch the existing untracked [`.kato-workspace-config.yaml`](.kato-workspace-config.yaml).
 
 # User_2026-04-03_1851_52
 
@@ -531,9 +531,9 @@ If you want one extra middle bucket, `component/` is the only one I’d consider
 
 # User_2026-04-03_1856_02
 
-Can you fill out [wd.testing.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.testing.md) . I want to try to do TDD where possible. 
+Can you fill out [[wd.testing]] . I want to try to do TDD where possible. 
 
-Accord has one "spec" that we defined to help generate the bb tests for TDD. Specs can go in documentation/notes to, e.g. wd.spec.*. Maybe we add something about that to [wd.general-guidance.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.general-guidance.md)
+Accord has one "spec" that we defined to help generate the bb tests for TDD. Specs can go in documentation/notes to, e.g. wd.spec.*. Maybe we add something about that to [[wd.general-guidance]]
 
 # gpt-5.4_2026-04-03_1856_13
 
@@ -543,7 +543,7 @@ I’ve got the shape. I’m patching `wd.testing` with a concrete TDD/testing st
 
 The patches are in. I’m reading them back now to make sure the testing scope, TDD guidance, and `wd.spec.*` role all landed cleanly and without turning the notes into mush.
 
-Filled out [wd.testing.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.testing.md) with a concrete testing posture:
+Filled out [[wd.testing]] with a concrete testing posture:
 
 - prefer TDD where practical
 - separate `unit`, `integration`, and `e2e` by scope
@@ -551,14 +551,14 @@ Filled out [wd.testing.md](/home/djradon/hub/semantic-flow/weave/documentation/n
 - use `wd.spec.*` notes to drive higher-level black-box or integration tests when behavior is cross-cutting or externally visible
 - treat Accord-style acceptance checks as complementary to, not a replacement for, unit and integration tests
 
-I also updated [wd.general-guidance.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.general-guidance.md) to:
+I also updated [[wd.general-guidance]] to:
 
 - fix `wd.tasks.*` to `wd.task.*`
 - add explicit guidance for `wd.spec.*` behavior notes
 - state that spec notes can feed integration tests, black-box functional tests, and Accord manifests
 - remind contributors to update relevant specs and tests together when behavior changes
 
-No tests ran, since this was docs-only. I did not touch the existing untracked [`.kato-workspace-config.yaml`](/home/djradon/hub/semantic-flow/weave/documentation/notes/.kato-workspace-config.yaml).
+No tests ran, since this was docs-only. I did not touch the existing untracked [`.kato-workspace-config.yaml`](.kato-workspace-config.yaml).
 
 # User_2026-04-03_1917_28
 
@@ -567,7 +567,7 @@ OK, for remaining open questions.
 - public API, I'm fine with your suggestion of starting thin and co-developing. 
 - mesh create seems a good first slice
 - I'd imagined "integrate" as "give a DigitalArtifact an IRI (and a meta and inventory and possibly a config and a reference catalog)" - so yes, large-scale integrate and large-scale version are probably jobs. We'd talked about making everything a job, but maybe that's not right.
-- weave user docs stay under documentation/notes, under wu.* I think. stuff that's common to users and developers can live a the top level for now: e.g. [product-vision.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/product-vision.md), [roadmap.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/roadmap.md) 
+- weave user docs stay under documentation/notes, under wu.* I think. stuff that's common to users and developers can live a the top level for now: e.g. [[product-vision]], [[roadmap]] 
 - Why not just use all of the Kato (which is Deno-native) logging?
 - your "runtime" stuff seems fine, although renderers is likely going to be huge, basically a static site generator with template support. I do want to note that all config should be via RDF, probably in jsonld. I want to be able to query config via SPARQL.
 - can you suggest a great name for the web client?
@@ -581,7 +581,7 @@ I’d lock these.
 - `First slice`: `mesh create` is the right first slice. It is foundational, concrete, and gives you a clean first non-woven vs woven story.
 - `Jobs`: I would still keep the public mutation contract job-centric. Not every HTTP interaction is a job, but every submitted semantic operation probably should be. Cheap operations can just return an already-terminal `Job` quickly. That keeps the contract uniform without forcing everything to be slow or queued.
 - `Integrate`: your phrasing is good. If `integrate` means assigning a `DigitalArtifact` an IRI and creating its support surfaces, then large-scale `integrate` and large-scale `version` are definitely job candidates.
-- `Docs`: agreed. User docs under `wu.*`, developer docs under `wd.*`, and shared cross-audience notes like [product-vision.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/product-vision.md) and [roadmap.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/roadmap.md) can stay top-level.
+- `Docs`: agreed. User docs under `wu.*`, developer docs under `wd.*`, and shared cross-audience notes like [[product-vision]] and [[roadmap]] can stay top-level.
 - `Kato logging`: I would not reject full reuse. My pushback is only against dragging in all of Kato observability by default. If the Kato logging code is already isolated enough, I’d reuse most of it:
   - `StructuredLogger`
   - `AuditLogger`
@@ -605,7 +605,7 @@ If you want, I can patch the notes again to lock these remaining decisions too.
 
 # User_2026-04-03_1924_37
 
-shuttle is fine for the web client. OK, patch the notes to lock these decisions, then propose next steps. Should we craft an "implementation checklist" for [wd.task.2026.2026-03-15-fresh-monorepo.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-03-15-fresh-monorepo.md)? Or is it basically no-op ?
+shuttle is fine for the web client. OK, patch the notes to lock these decisions, then propose next steps. Should we craft an "implementation checklist" for [[wd.task.2026.2026-03-15-fresh-monorepo]]? Or is it basically no-op ?
 
 # gpt-5.4_2026-04-03_1924_41
 
@@ -616,7 +616,7 @@ The remaining decisions are patched. I’m doing a quick readback to make sure t
 Patched the notes to lock the remaining decisions.
 
 What changed:
-- [wd.task.2026.2026-03-20-architecture-planning.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-03-20-architecture-planning.md) now records:
+- [[wd.task.2026.2026-03-20-architecture-planning]] now records:
   - thin co-developed public API
   - `mesh create` as the first carried slice
   - job-centric submitted semantic operations
@@ -624,11 +624,11 @@ What changed:
   - substantial reuse of Kato’s Deno-native logging if the extraction stays narrow
   - `Shuttle` as the web client name
   - TUI deferred
-- [wd.task.2026.2026-03-15-fresh-monorepo.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-03-15-fresh-monorepo.md) now makes clearer that it is basically a settled decision note, not the place for a growing implementation backlog.
-- [wd.codebase-overview.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.codebase-overview.md) now reflects `Shuttle` and the RDF config direction.
-- [wd.decision-log.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.decision-log.md) now records the new locked decisions explicitly.
+- [[wd.task.2026.2026-03-15-fresh-monorepo]] now makes clearer that it is basically a settled decision note, not the place for a growing implementation backlog.
+- [[wd.codebase-overview]] now reflects `Shuttle` and the RDF config direction.
+- [[wd.decision-log]] now records the new locked decisions explicitly.
 
-On your question: no, I would not turn [wd.task.2026.2026-03-15-fresh-monorepo.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-03-15-fresh-monorepo.md) into an implementation checklist. It is basically a no-op now in the good sense: its job was to freeze repo-shape and boundary decisions, and it has done that. If you add an implementation checklist there, it will start mixing topology decisions with actual build work and become muddy.
+On your question: no, I would not turn [[wd.task.2026.2026-03-15-fresh-monorepo]] into an implementation checklist. It is basically a no-op now in the good sense: its job was to freeze repo-shape and boundary decisions, and it has done that. If you add an implementation checklist there, it will start mixing topology decisions with actual build work and become muddy.
 
 The next step should be a new task note, something like:
 - `wd.task.2026.2026-04-03-weave-bootstrap-mesh-create.md`
@@ -653,7 +653,7 @@ If you want, I can draft that bootstrap task note next and make it concrete inst
 
 Do we have to move any decision out of the task or can it be moved to wd.completed? 
 
-Go ahead and write the bootstrap task. Maybe move some of the unchecked todo items from [wd.task.2026.2026-03-20-architecture-planning.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-03-20-architecture-planning.md) so we can complete that too.
+Go ahead and write the bootstrap task. Maybe move some of the unchecked todo items from [[wd.task.2026.2026-03-20-architecture-planning]] so we can complete that too.
 
 # gpt-5.4_2026-04-03_1928_05
 
@@ -679,25 +679,25 @@ You do not have to move decisions out of the task note just to close it.
 
 The clean split here is:
 - keep task-local reasoning and decision context in the task note
-- record durable project decisions in [wd.decision-log.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.decision-log.md#L21)
+- record durable project decisions in [[wd.decision-log|wd.decision-log.md]]
 - use `wd.completed.*` only if you want a completion summary or retrospective
 
 So I would not move the architecture decisions into `wd.completed` as their canonical home. If you write a `wd.completed` note for this task, it should summarize outcomes and point back to the task and decision log, not duplicate all the decision text.
 
-The bootstrap task is now written at [wd.task.2026.2026-04-03-weave-bootstrap-mesh-create.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-04-03-weave-bootstrap-mesh-create.md#L9). It carries the actual implementation checklist starting at [wd.task.2026.2026-04-03-weave-bootstrap-mesh-create.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-04-03-weave-bootstrap-mesh-create.md#L108). I also moved the remaining implementation-bearing items out of the architecture note, and its TODO section is now fully resolved with those two items explicitly canceled-and-moved to the bootstrap task at [wd.task.2026.2026-03-20-architecture-planning.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-03-20-architecture-planning.md#L297). The architecture note now says directly that implementation work moved to the bootstrap task at [wd.task.2026.2026-03-20-architecture-planning.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-03-20-architecture-planning.md#L38).
+The bootstrap task is now written at [[wd.task.2026.2026-04-03-weave-bootstrap-mesh-create|wd.task.2026.2026-04-03-weave-bootstrap-mesh-create.md]]. It carries the actual implementation checklist starting at [[wd.task.2026.2026-04-03-weave-bootstrap-mesh-create|wd.task.2026.2026-04-03-weave-bootstrap-mesh-create.md]]. I also moved the remaining implementation-bearing items out of the architecture note, and its TODO section is now fully resolved with those two items explicitly canceled-and-moved to the bootstrap task at [[wd.task.2026.2026-03-20-architecture-planning|wd.task.2026.2026-03-20-architecture-planning.md]]. The architecture note now says directly that implementation work moved to the bootstrap task at [[wd.task.2026.2026-03-20-architecture-planning|wd.task.2026.2026-03-20-architecture-planning.md]].
 
 My recommendation for next steps is:
-1. Treat [wd.task.2026.2026-03-20-architecture-planning.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-03-20-architecture-planning.md) as closeable now.
+1. Treat [[wd.task.2026.2026-03-20-architecture-planning]] as closeable now.
 2. Skip a `wd.completed` note unless you want a short retrospective artifact.
 3. Start executing the bootstrap task in order: scaffold Deno project, narrow Kato logging extraction, write/refine the `mesh create` spec, then add failing tests.
 
-No tests ran here because this was docs-only. I left the untracked [`.kato-workspace-config.yaml`](/home/djradon/hub/semantic-flow/weave/documentation/notes/.kato-workspace-config.yaml) untouched.
+No tests ran here because this was docs-only. I left the untracked [`.kato-workspace-config.yaml`](.kato-workspace-config.yaml) untouched.
 
 # User_2026-04-03_1938_21
 
 In general, I want to rename wd.task.* to wd.completed.* to track whether they are done. 
 
-I'm not sure the use of Accord is emphasized enough in [wd.testing.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.testing.md) 
+I'm not sure the use of Accord is emphasized enough in [[wd.testing]] 
 
 Should we start a new chat for the bootstrap task?
 
@@ -711,11 +711,11 @@ I’m adding the naming convention to the main guidance too, because otherwise t
 
 The guidance patches are in. I’m grabbing exact line references so the close-out can point you to the new convention and the new Accord emphasis directly.
 
-Yes, with one constraint: keep `wd.task.*` for active work, and rename to `wd.completed.*` only when the task is materially done. I updated the repo guidance to say that explicitly in [wd.general-guidance.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.general-guidance.md#L47). I would not bulk-rename old notes unless the status signal is worth the link churn. The architecture-planning note is a good candidate to rename now; the bootstrap note is not.
+Yes, with one constraint: keep `wd.task.*` for active work, and rename to `wd.completed.*` only when the task is materially done. I updated the repo guidance to say that explicitly in [[wd.general-guidance|wd.general-guidance.md]]. I would not bulk-rename old notes unless the status signal is worth the link churn. The architecture-planning note is a good candidate to rename now; the bootstrap note is not.
 
-I agreed on Accord being under-emphasized. I tightened [wd.testing.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.testing.md#L15) and added a dedicated “Acceptance and Accord” section in [wd.testing.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.testing.md#L75). The testing note now says more plainly that Accord is the preferred acceptance harness for externally visible Semantic Flow behavior, especially manifest-backed fixture transitions.
+I agreed on Accord being under-emphasized. I tightened [[wd.testing|wd.testing.md]] and added a dedicated “Acceptance and Accord” section in [[wd.testing|wd.testing.md]]. The testing note now says more plainly that Accord is the preferred acceptance harness for externally visible Semantic Flow behavior, especially manifest-backed fixture transitions.
 
-On the bootstrap task: a new chat is not required, but I would start one. The current thread has mostly settled architecture and note-structure decisions; the next phase is execution. A fresh chat will keep the Kato archive cleaner and the implementation context tighter, with [wd.task.2026.2026-04-03-weave-bootstrap-mesh-create.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-04-03-weave-bootstrap-mesh-create.md#L9) as the starting brief.
+On the bootstrap task: a new chat is not required, but I would start one. The current thread has mostly settled architecture and note-structure decisions; the next phase is execution. A fresh chat will keep the Kato archive cleaner and the implementation context tighter, with [[wd.task.2026.2026-04-03-weave-bootstrap-mesh-create|wd.task.2026.2026-04-03-weave-bootstrap-mesh-create.md]] as the starting brief.
 
 Docs only here; no tests ran.
 
@@ -732,21 +732,21 @@ We’re starting the first real Weave implementation task.
 
 Read these first:
 
-- /home/djradon/hub/semantic-flow/weave/documentation/notes/product-vision.md
-- /home/djradon/hub/semantic-flow/weave/documentation/notes/wd.general-guidance.md
-- /home/djradon/hub/semantic-flow/weave/documentation/notes/wd.codebase-overview.md
-- /home/djradon/hub/semantic-flow/weave/documentation/notes/wd.testing.md
-- /home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-04-03-weave-bootstrap-mesh-create.md
-- /home/djradon/hub/semantic-flow/weave/documentation/notes/wd.completed.2026.2026-03-20-architecture-planning.md
-- /home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.md
-- /home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.architecture.md
-- /home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.completed.2026.2026-03-29-conformance-for-mesh-alice-bio.md
-- /home/djradon/hub/semantic-flow/weave/documentation/notes/wd.completed.2026.2026-03-25-mesh-alice-bio.md
+- weave/documentation/notes/product-vision.md
+- weave/documentation/notes/wd.general-guidance.md
+- weave/documentation/notes/wd.codebase-overview.md
+- weave/documentation/notes/wd.testing.md
+- weave/documentation/notes/wd.task.2026.2026-04-03-weave-bootstrap-mesh-create.md
+- weave/documentation/notes/wd.completed.2026.2026-03-20-architecture-planning.md
+- weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.md
+- weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.architecture.md
+- weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.completed.2026.2026-03-29-conformance-for-mesh-alice-bio.md
+- weave/documentation/notes/wd.completed.2026.2026-03-25-mesh-alice-bio.md
 
 For implementation context, also inspect:
 
-- /home/djradon/hub/semantic-flow/weave/dependencies/github.com/spectacular-voyage/accord
-- /home/djradon/hub/spectacular-voyage/kato
+- weave/dependencies/github.com/spectacular-voyage/accord
+- spectacular-voyage/kato
 
 Current decisions to follow:
 

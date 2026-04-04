@@ -3,7 +3,7 @@ id: weave-bootstrap-ebde3fb2
 title: 'weave bootstrap'
 desc: ''
 created: 1775270654930
-updated: 1775270654930
+updated: 1775334188695
 participants: [djradon, codex.gpt-5.4]
 kato-sessionIds: [019d565f-181e-7b21-9eac-9ba595129f31]
 kato-workspaceIds: [f6e2f488-e64d-4140-aacb-87d10f58555f]
@@ -18,21 +18,21 @@ We’re starting the first real Weave implementation task.
 
 Read these first:
 
-- /home/djradon/hub/semantic-flow/weave/documentation/notes/product-vision.md
-- /home/djradon/hub/semantic-flow/weave/documentation/notes/wd.general-guidance.md
-- /home/djradon/hub/semantic-flow/weave/documentation/notes/wd.codebase-overview.md
-- /home/djradon/hub/semantic-flow/weave/documentation/notes/wd.testing.md
-- /home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-04-03-weave-bootstrap-mesh-create.md
-- /home/djradon/hub/semantic-flow/weave/documentation/notes/wd.completed.2026.2026-03-20-architecture-planning.md
-- /home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.md
-- /home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.architecture.md
-- /home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.completed.2026.2026-03-29-conformance-for-mesh-alice-bio.md
-- /home/djradon/hub/semantic-flow/weave/documentation/notes/wd.completed.2026.2026-03-25-mesh-alice-bio.md
+- weave/documentation/notes/product-vision.md
+- weave/documentation/notes/wd.general-guidance.md
+- weave/documentation/notes/wd.codebase-overview.md
+- weave/documentation/notes/wd.testing.md
+- weave/documentation/notes/wd.task.2026.2026-04-03-weave-bootstrap-mesh-create.md
+- weave/documentation/notes/wd.completed.2026.2026-03-20-architecture-planning.md
+- weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.md
+- weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.architecture.md
+- weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.completed.2026.2026-03-29-conformance-for-mesh-alice-bio.md
+- weave/documentation/notes/wd.completed.2026.2026-03-25-mesh-alice-bio.md
 
 For implementation context, also inspect:
 
-- /home/djradon/hub/semantic-flow/weave/dependencies/github.com/spectacular-voyage/accord
-- /home/djradon/hub/spectacular-voyage/kato
+- weave/dependencies/github.com/spectacular-voyage/accord
+- spectacular-voyage/kato
 
 Current decisions to follow:
 

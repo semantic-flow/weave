@@ -14,7 +14,7 @@ kato-recordingIds: [62dc4cb4-05ae-428f-b6bc-dbda5a2a8b92]
 
 knop create
 
-following up from [wd.task.2026.2026-04-03-weave-bootstrap-mesh-create.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-04-03-weave-bootstrap-mesh-create.md) 
+following up from [[wd.task.2026.2026-04-03-weave-bootstrap-mesh-create]] 
 See this context:
 
 wd.task.2026.2026-04-03-knop-create.md
@@ -57,11 +57,11 @@ The code and tests are done. I’m giving the docs/examples a quick sanity pass 
 
 The Weave repo changes are complete. I’m checking the nested framework repo status now so I can tell you cleanly which edits landed in the main repo and which landed in the sibling dependency workspace.
 
-Implemented the first local `knop create` slice. `weave knop create <designatorPath>` now resolves `meshBase` from the existing mesh metadata, creates the two Knop support artifacts, and updates `_mesh/_inventory/inventory.ttl` to register the new Knop. The main code is in [src/core/knop/create.ts](/home/djradon/hub/semantic-flow/weave/src/core/knop/create.ts), [src/runtime/knop/create.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/knop/create.ts), and [src/cli/run.ts](/home/djradon/hub/semantic-flow/weave/src/cli/run.ts).
+Implemented the first local `knop create` slice. `weave knop create <designatorPath>` now resolves `meshBase` from the existing mesh metadata, creates the two Knop support artifacts, and updates `_mesh/_inventory/inventory.ttl` to register the new Knop. The main code is in [src/core/knop/create.ts](../../src/core/knop/create.ts), [src/runtime/knop/create.ts](../../src/runtime/knop/create.ts), and [src/cli/run.ts](../../src/cli/run.ts).
 
-I added unit, integration, and black-box CLI coverage in [src/core/knop/create_test.ts](/home/djradon/hub/semantic-flow/weave/src/core/knop/create_test.ts), [tests/integration/knop_create_test.ts](/home/djradon/hub/semantic-flow/weave/tests/integration/knop_create_test.ts), and [tests/e2e/knop_create_cli_test.ts](/home/djradon/hub/semantic-flow/weave/tests/e2e/knop_create_cli_test.ts), plus a full-branch fixture materializer in [tests/support/mesh_alice_bio_fixture.ts](/home/djradon/hub/semantic-flow/weave/tests/support/mesh_alice_bio_fixture.ts). I also added the slice note [wd.spec.2026-04-03-knop-create.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.spec.2026-04-03-knop-create.md), updated the task/overview/decision notes, and added thin framework examples in [knop-create-job-request.jsonld](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/api/knop-create-job-request.jsonld) and [knop-create-job-succeeded.jsonld](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/api/knop-create-job-succeeded.jsonld).
+I added unit, integration, and black-box CLI coverage in [src/core/knop/create_test.ts](../../src/core/knop/create_test.ts), [tests/integration/knop_create_test.ts](../../tests/integration/knop_create_test.ts), and [tests/e2e/knop_create_cli_test.ts](../../tests/e2e/knop_create_cli_test.ts), plus a full-branch fixture materializer in [tests/support/mesh_alice_bio_fixture.ts](../../tests/support/mesh_alice_bio_fixture.ts). I also added the slice note [[wd.spec.2026-04-03-knop-create]], updated the task/overview/decision notes, and added thin framework examples in [knop-create-job-request.jsonld](../../dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/api/knop-create-job-request.jsonld) and [knop-create-job-succeeded.jsonld](../../dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/api/knop-create-job-succeeded.jsonld).
 
-Verified with `deno task check`, `deno task lint`, and `deno task test`. Pre-existing dirty files [wd.spec.2026-04-03-mesh-create.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.spec.2026-04-03-mesh-create.md) and [wd.task.2026.2026-04-03-weave-bootstrap-mesh-create.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-04-03-weave-bootstrap-mesh-create.md) were left as-is.
+Verified with `deno task check`, `deno task lint`, and `deno task test`. Pre-existing dirty files [[wd.spec.2026-04-03-mesh-create]] and [[wd.task.2026.2026-04-03-weave-bootstrap-mesh-create]] were left as-is.
 
 # User_2026-04-03_2234_10
 
@@ -118,7 +118,7 @@ The note graph is now consistent: both completed task notes are using `wd.comple
 
 Finished the note cleanup.
 
-I renamed the completed task note to [wd.completed.2026.2026-04-03-knop-create.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.completed.2026.2026-04-03-knop-create.md), updated the completed-task references in [wd.decision-log.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.decision-log.md), and corrected the stale “next slice” line in [wd.completed.2026.2026-03-20-architecture-planning.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.completed.2026.2026-03-20-architecture-planning.md).
+I renamed the completed task note to [[wd.completed.2026.2026-04-03-knop-create]], updated the completed-task references in [[wd.decision-log]], and corrected the stale “next slice” line in [[wd.completed.2026.2026-03-20-architecture-planning]].
 
 `git status` now only reflects the two task-note renames plus those note edits. Since the renames are still unstaged, Git shows them as `D` + `??`; `git add -A` will record them as renames. I didn’t rerun tests because this pass only touched notes.
 
@@ -137,7 +137,7 @@ There isn’t a deep semantic reason for the dot. The practical reason is that t
 - human-facing command/prose names: `mesh create`, `knop create`
 - machine-facing job kind / manifest operation keys: `mesh.create`, `knop.create`
 
-You can see that split in [sf.api.md](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.md), the `JobKind` enum in [semantic-flow-api-spec.yaml](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/semantic-flow-api-spec.yaml), the conformance manifest [04-alice-knop-created.jsonld](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/04-alice-knop-created.jsonld), and the CLI code in [run.ts](/home/djradon/hub/semantic-flow/weave/src/cli/run.ts).
+You can see that split in [[sf.api]], the `JobKind` enum in [semantic-flow-api-spec.yaml](../../dependencies/github.com/semantic-flow/semantic-flow-framework/semantic-flow-api-spec.yaml), the conformance manifest [04-alice-knop-created.jsonld](../../dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/04-alice-knop-created.jsonld), and the CLI code in [run.ts](../../src/cli/run.ts).
 
 So `knop.create` itself is not obviously a mistake. It is the machine-token version of `knop create`, the same way `mesh.create` is the machine-token version of `mesh create`.
 
@@ -155,7 +155,7 @@ My read:
 - the docs should explicitly distinguish command names from machine keys
 - if we want stricter consistency, we should normalize the whole `kind`/`operationId` scheme in one pass, not just change `knop.create`
 
-If you want, I can patch [sf.api.md](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.md) to make that split explicit, or draft a concrete normalization proposal for all operation names.
+If you want, I can patch [[sf.api]] to make that split explicit, or draft a concrete normalization proposal for all operation names.
 
 # User_2026-04-04_0724_25
 
@@ -169,7 +169,7 @@ I’m making the note self-consistent by treating it as API-machine vocabulary, 
 
 The note is patched. I’m doing a quick readback to make sure the section now reads cleanly and doesn’t mix CLI phrasing back in.
 
-Updated [sf.api.md](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.md) to be internally consistent.
+Updated [[sf.api]] to be internally consistent.
 
 I renamed `Tentative Operations` to `Draft Job Kinds`, added one short note that this file uses machine-facing `kind` / `operationId` tokens, normalized the list to `mesh.create` / `knop.create`, and fixed the later `mesh create` mention to `mesh.create`.
 
@@ -185,7 +185,7 @@ I’m checking the current notes against the settled Alice ladder before answeri
 
 Next should be `weave`, not `integrate`.
 
-Specifically, I’d carry the `04-alice-knop-created` -> `05-alice-knop-created-woven` slice next. That’s the first real test of the Knop-side `version + validate + generate` path, and the settled fixture already defines its expected result in [wd.spec.2026-04-03-weave-behavior.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.spec.2026-04-03-weave-behavior.md) and [wd.completed.2026.2026-03-25-mesh-alice-bio.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.completed.2026.2026-03-25-mesh-alice-bio.md).
+Specifically, I’d carry the `04-alice-knop-created` -> `05-alice-knop-created-woven` slice next. That’s the first real test of the Knop-side `version + validate + generate` path, and the settled fixture already defines its expected result in [[wd.spec.2026-04-03-weave-behavior]] and [[wd.completed.2026.2026-03-25-mesh-alice-bio]].
 
 I would not jump to `integrate` yet. That would skip the first Knop weave case and leave a hole between non-woven Knop creation and payload integration.
 
@@ -245,9 +245,9 @@ The main repo worktree is coherent. The framework example/doc changes live in th
 
 I’m at the finish line. I’m pulling a compact diff summary from both repos so the close-out can be precise about what landed and what still needs a commit in the separate framework checkout.
 
-Implemented the first carried local `weave` slice for `04-alice-knop-created -> 05-alice-knop-created-woven`. The core planning is in [weave.ts](/home/djradon/hub/semantic-flow/weave/src/core/weave/weave.ts), runtime execution in [weave.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/weave/weave.ts), and the CLI now exposes bare top-level `weave` in [run.ts](/home/djradon/hub/semantic-flow/weave/src/cli/run.ts). I added unit, integration, and black-box CLI coverage in [weave_test.ts](/home/djradon/hub/semantic-flow/weave/src/core/weave/weave_test.ts), [weave_test.ts](/home/djradon/hub/semantic-flow/weave/tests/integration/weave_test.ts), and [weave_cli_test.ts](/home/djradon/hub/semantic-flow/weave/tests/e2e/weave_cli_test.ts).
+Implemented the first carried local `weave` slice for `04-alice-knop-created -> 05-alice-knop-created-woven`. The core planning is in [weave.ts](../../src/core/weave/weave.ts), runtime execution in [weave.ts](../../src/runtime/weave/weave.ts), and the CLI now exposes bare top-level `weave` in [run.ts](../../src/cli/run.ts). I added unit, integration, and black-box CLI coverage in [weave_test.ts](../../src/core/weave/weave_test.ts), [weave_test.ts](../../tests/integration/weave_test.ts), and [weave_cli_test.ts](../../tests/e2e/weave_cli_test.ts).
 
-I also closed out the note/doc pass: the task note is now [wd.completed.2026.2026-04-04-weave-alice-knop-created-woven.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.completed.2026.2026-04-04-weave-alice-knop-created-woven.md), and I updated [wd.decision-log.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.decision-log.md), [wd.codebase-overview.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.codebase-overview.md), and [wd.spec.2026-04-03-weave-behavior.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.spec.2026-04-03-weave-behavior.md). In the separate framework repo I added thin `weave` API examples at [weave-job-request.jsonld](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/api/weave-job-request.jsonld) and [weave-job-succeeded.jsonld](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/api/weave-job-succeeded.jsonld), plus note updates in [sf.api.md](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.md) and [sf.api.examples.md](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.examples.md).
+I also closed out the note/doc pass: the task note is now [[wd.completed.2026.2026-04-04-weave-alice-knop-created-woven]], and I updated [[wd.decision-log]], [[wd.codebase-overview]], and [[wd.spec.2026-04-03-weave-behavior]]. In the separate framework repo I added thin `weave` API examples at [weave-job-request.jsonld](../../dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/api/weave-job-request.jsonld) and [weave-job-succeeded.jsonld](../../dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/api/weave-job-succeeded.jsonld), plus note updates in [[sf.api]] and [[sf.api.examples]].
 
 Verification: `deno task check` and `deno task test` passed in `weave`. After that I only changed notes/framework examples, and I JSON-validated the two new framework example files. The framework changes are in a separate git repo and will need a separate commit from the `weave` repo changes.
 
@@ -265,13 +265,13 @@ I have the answer. I’m grabbing exact line numbers from the three strongest so
 
 Yes, in the current settled fixture corpus it does.
 
-The strongest evidence is the conformance manifest itself: [03-mesh-created-woven.jsonld](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/03-mesh-created-woven.jsonld#L21) defines the `02-mesh-created` -> `03-mesh-created-woven` transition with `"operationId": "weave"` at [line 31](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/03-mesh-created-woven.jsonld#L31).
+The strongest evidence is the conformance manifest itself: [03-mesh-created-woven.jsonld](../../dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/03-mesh-created-woven.jsonld#L21) defines the `02-mesh-created` -> `03-mesh-created-woven` transition with `"operationId": "weave"` at [line 31](../../dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/03-mesh-created-woven.jsonld#L31).
 
 The ladder docs say the same thing:
-- [mesh-alice-bio/README.md:11-12](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/mesh-alice-bio/README.md#L11) says `02-mesh-created` is the manual equivalent of `mesh create`, and `03-mesh-created-woven` is “the result of weaving `02`”.
-- [mesh-alice-bio/README.md:30](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/mesh-alice-bio/README.md#L30) says `*-woven` branches are the result of running `weave` over the immediately preceding branch.
-- [conformance/README.md:11](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/README.md#L11) explicitly maps `03-mesh-created-woven.jsonld` to `02-mesh-created -> 03-mesh-created-woven`.
-- [wd.completed.2026.2026-03-25-mesh-alice-bio.md:103-107](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.completed.2026.2026-03-25-mesh-alice-bio.md#L103) also states that woven branches are `weave` and spells out what `03` should contain.
+- [mesh-alice-bio/README.md:11-12](../../dependencies/github.com/semantic-flow/mesh-alice-bio/README.md#L11) says `02-mesh-created` is the manual equivalent of `mesh create`, and `03-mesh-created-woven` is “the result of weaving `02`”.
+- [mesh-alice-bio/README.md:30](../../dependencies/github.com/semantic-flow/mesh-alice-bio/README.md#L30) says `*-woven` branches are the result of running `weave` over the immediately preceding branch.
+- [conformance/README.md:11](../../dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/README.md#L11) explicitly maps `03-mesh-created-woven.jsonld` to `02-mesh-created -> 03-mesh-created-woven`.
+- [[wd.completed.2026.2026-03-25-mesh-alice-bio|wd.completed.2026.2026-03-25-mesh-alice-bio.md:103-107]] also states that woven branches are `weave` and spells out what `03` should contain.
 
 The only nuance is that this is a fixture-design decision, not something forced by an external standard. So if your concern is “did we invent that later?”, the answer is no for the current settled corpus: it is explicitly encoded in the manifest and README, not just inferred by the implementation. If you want, I can tighten the task-note wording to say “the current settled fixture ladder models…” instead of the slightly stronger “already made the intended execution order clear.”
 
@@ -333,7 +333,7 @@ Is the next step a new task for the next slice?
 
 Yes.
 
-The current `04 -> 05` weave slice is a completed slice, so the next implementation-bearing step should be a new `wd.task.*` note for the next carried transition, not an extension of [wd.completed.2026.2026-04-04-weave-alice-knop-created-woven.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.completed.2026.2026-04-04-weave-alice-knop-created-woven.md). Per the repo guidance, that’s the right point to start a fresh task note.
+The current `04 -> 05` weave slice is a completed slice, so the next implementation-bearing step should be a new `wd.task.*` note for the next carried transition, not an extension of [[wd.completed.2026.2026-04-04-weave-alice-knop-created-woven]]. Per the repo guidance, that’s the right point to start a fresh task note.
 
 The next slice should probably be `05-alice-knop-created-woven -> 06-alice-bio-integrated`, meaning the first local `integrate` slice, not another `weave` slice yet. If you want, I can draft that new task note and stop there for your review before any implementation.
 
@@ -351,7 +351,7 @@ I have the fixture boundaries. I’m writing a new `wd.task.*` note for the firs
 
 The draft note is in place. I’m doing one quick readback and status check, then I’ll stop so you can review it before any implementation starts.
 
-Drafted the next task note at [wd.task.2026.2026-04-04-integrate-alice-bio.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-04-04-integrate-alice-bio.md).
+Drafted the next task note at [[wd.task.2026.2026-04-04-integrate-alice-bio]].
 
 It scopes the next carried slice to `05-alice-knop-created-woven -> 06-alice-bio-integrated`, keeps `alice-bio.ttl` at the repo root, adds the `alice/bio` payload artifact plus payload-Knop support artifacts, and explicitly leaves `07` weave behavior, page generation, histories, and Bob auto-extraction out of scope.
 
@@ -359,7 +359,7 @@ I stopped there. The only worktree change is the new task note.
 
 # User_2026-04-04_0813_27
 
-I'd like to start doing branches with PRs so we can get coderabbit reviews and codecov.io reports into the PR. Quality gates too. Please create a task for CI, modelled on what I had for kato and accord, e.g. [ac.completed.2026.2026-04-03-accord-cli.md](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/spectacular-voyage/accord/documentation/notes/ac.completed.2026.2026-04-03-accord-cli.md)
+I'd like to start doing branches with PRs so we can get coderabbit reviews and codecov.io reports into the PR. Quality gates too. Please create a task for CI, modelled on what I had for kato and accord, e.g. [[ac.completed.2026.2026-04-03-accord-cli]]
 
 # gpt-5.4_2026-04-04_0813_52
 
@@ -373,7 +373,7 @@ I’m writing the note now. It will stay at planning level: repo files, GitHub-s
 
 The note is drafted. I’m reading it back once and checking the worktree so I can hand you just the task note cleanly, without touching the already-open integrate note.
 
-Drafted the CI task note at [wd.task.2026.2026-04-04-weave-ci.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-04-04-weave-ci.md).
+Drafted the CI task note at [[wd.task.2026.2026-04-04-weave-ci]].
 
 It is scoped around:
 - PR-based development and branch protection
@@ -384,8 +384,8 @@ It is scoped around:
 - conservative first quality gates, with Codecov informational at first
 
 I did not start any implementation. The worktree now just has the two untracked task notes:
-- [wd.task.2026.2026-04-04-integrate-alice-bio.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-04-04-integrate-alice-bio.md)
-- [wd.task.2026.2026-04-04-weave-ci.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-04-04-weave-ci.md)
+- [[wd.task.2026.2026-04-04-integrate-alice-bio]]
+- [[wd.task.2026.2026-04-04-weave-ci]]
 
 # User_2026-04-04_0818_19
 
@@ -401,11 +401,11 @@ Reasons:
 - less chance of accidental bleed-over from the `weave` and `integrate` slice work
 - better fit for the “review task note first, then implement” workflow you asked for
 
-Start the new chat from [wd.task.2026.2026-04-04-weave-ci.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-04-04-weave-ci.md), and I’ll treat that as the sole task context until you approve implementation.
+Start the new chat from [[wd.task.2026.2026-04-04-weave-ci]], and I’ll treat that as the sole task context until you approve implementation.
 
 # User_2026-04-04_0833_56
 
-OK, CI should be in place. I've switched to a new branch. Should we tackle [wd.task.2026.2026-04-04-integrate-alice-bio.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-04-04-integrate-alice-bio.md) in this chat or start a new one?
+OK, CI should be in place. I've switched to a new branch. Should we tackle [[wd.task.2026.2026-04-04-integrate-alice-bio]] in this chat or start a new one?
 
 # gpt-5.4_2026-04-04_0834_06
 
@@ -416,4 +416,4 @@ This chat already mixes:
 - the CI task drafting
 - the integrate task drafting
 
-For `05 -> 06 integrate`, a fresh chat will keep the context tight around [wd.task.2026.2026-04-04-integrate-alice-bio.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-04-04-integrate-alice-bio.md), your new branch, and the “review task note first, then implement” workflow. If you open the new chat from that note, I’ll treat it as the sole active task.
+For `05 -> 06 integrate`, a fresh chat will keep the context tight around [[wd.task.2026.2026-04-04-integrate-alice-bio]], your new branch, and the “review task note first, then implement” workflow. If you open the new chat from that note, I’ll treat it as the sole active task.

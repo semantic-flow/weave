@@ -2,7 +2,7 @@
 id: ar5um7avia6hg8524xjrgpo
 title: 2026 03 25 Mesh Alice Bio
 desc: ''
-updated: 1775225038617
+updated: 1775334129643
 created: 1774446399214
 ---
 
@@ -18,11 +18,11 @@ This task is about creating a concrete Alice Bio example repository that starts 
 
 The repo is currently checked out at:
 
-- `/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/mesh-alice-bio`
+- `weave/dependencies/github.com/semantic-flow/mesh-alice-bio`
 
 Each settled transition should also get a matching Accord manifest in:
 
-- `/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/`
+- `weave/dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/`
 
 The comparison standard for “API/CLI matches the manual branch” is:
 

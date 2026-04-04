@@ -2,7 +2,7 @@
 id: bw3amcysclo64aty396b378
 title: 2026 03 20 Architecture Planning
 desc: ''
-updated: 1774284812485
+updated: 1775334188690
 created: 1774046567965
 ---
 
@@ -151,25 +151,25 @@ We’re defining an architecture-planning subtask for a fresh Weave reset.
 
 Review the [[ont.summary.core]] and reference the ontology as necessary:
 
-- /home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/ontology/notes/ont.summary.core.md
-- /home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/ontology/semantic-flow-core-ontology.ttl
+- weave/dependencies/github.com/semantic-flow/ontology/notes/ont.summary.core.md
+- weave/dependencies/github.com/semantic-flow/ontology/semantic-flow-core-ontology.ttl
 
 Reading these local files for context on my previous architecture:
 
-- /home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/sflo/documentation/dev.general-guidance.md
-- /home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/sflo/documentation/product.sflo-host.md
-- /home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/sflo/documentation/product.plugins.sflo-api.md
-- /home/djradon/hub/semantic-flow/sflo/dependencies/github.com/semantic-flow/sflo-dendron-notes/sflo.architecture.md
+- weave/dependencies/github.com/semantic-flow/sflo/documentation/dev.general-guidance.md
+- weave/dependencies/github.com/semantic-flow/sflo/documentation/product.sflo-host.md
+- weave/dependencies/github.com/semantic-flow/sflo/documentation/product.plugins.sflo-api.md
+- sflo/dependencies/github.com/semantic-flow/sflo-dendron-notes/sflo.architecture.md
 
 Also review these more lightly, mainly for terminology drift and any ideas still worth carrying over:
 
-- /home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/sflo/documentation/product.cli.md
-- /home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/sflo/documentation/product.plugins.sflo-web.md
-- /home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/sflo/documentation/product.core.md
+- weave/dependencies/github.com/semantic-flow/sflo/documentation/product.cli.md
+- weave/dependencies/github.com/semantic-flow/sflo/documentation/product.plugins.sflo-web.md
+- weave/dependencies/github.com/semantic-flow/sflo/documentation/product.core.md
 
 Read this for general Kato guidance:
 
-- /home/djradon/hub/spectacular-voyage/kato/dev-docs/notes/dev.general-guidance.md
+- spectacular-voyage/kato/dev-docs/notes/dev.general-guidance.md
 
 Kato is Deno-based, old sflo stuff was going to be Node.
 

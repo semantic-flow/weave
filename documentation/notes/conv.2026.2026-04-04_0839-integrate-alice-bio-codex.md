@@ -14,7 +14,7 @@ kato-recordingIds: [a68b486a-189b-494f-af6e-6d4479b045f5]
 
 integrate alice bio
 
-Let's answer the open issues in [wd.task.2026.2026-04-04-integrate-alice-bio.md](/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-04-04-integrate-alice-bio.md) and then start implementation.
+Let's answer the open issues in [[wd.task.2026.2026-04-04-integrate-alice-bio]] and then start implementation.
 
 Regarding wd.spec, we've been creating other spec notes, do you think we should should change course? I think the CLI surface needs at least an explicit source path and deignator path. I'm interested how we'll resolve the "filesystem is separate" tension for core... which reminds me, integrate should eventually be able to take a remote File URL too.
 
