@@ -169,3 +169,39 @@ feat(knop): implement first local add-reference slice
 - add `[[wd.spec.2026-04-04-knop-add-reference-behavior]]` for the first carried reference-catalog behavior
 - rename the task note to completed and update `wd.todo`, `wd.decision-log`, `wd.codebase-overview`, and related conversation links
 ```
+
+# User_2026-04-04_1553_05
+
+In the future let me move the task files to completed. 
+
+Maybe add that to Agents.md
+
+Can you compose the next slice task item. Includ the time in the filename, like _1553
+
+# gpt-5.4_2026-04-04_1553_14
+
+I’m updating the repo guidance first so it doesn’t keep telling agents to rename task notes, then I’ll draft the next carried-slice note with the requested `_1553` timestamped filename.
+
+# gpt-5.4_2026-04-04_1553_36
+
+I’ve got the current queue. I’m reading the settled `09` fixture guidance and the last weave task pattern now so the new `_1553` task note is concrete instead of just “next is 09”.
+
+# gpt-5.4_2026-04-04_1553_48
+
+I’ve got the transition shape. I’m checking the actual `09` inventory and page outputs now so the note captures the real weave consequences, especially the “advance Knop inventory but not mesh inventory” boundary.
+
+# gpt-5.4_2026-04-04_1553_58
+
+I’m writing three doc changes now: the “don’t rename task notes unless asked” guidance, the new `_1553` weave task note for `08 -> 09`, and the todo update so the next slice is actually queued.
+
+# gpt-5.4_2026-04-04_1554_34
+
+The new task note and guidance updates are in place. I’m reading them back once to make sure the filename, wikilinks, and the “user handles renames” rule all landed cleanly.
+
+# gpt-5.4_2026-04-04_1554_41
+
+Added the “leave task-note renames to the user unless explicitly asked” rule to [[AGENTS]] and also to [[wd.general-guidance]] so the repo guidance doesn’t contradict itself.
+
+Drafted the next carried-slice task note at [[wd.task.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]] and queued it in [[wd.todo]]. It scopes the next slice to `08-alice-bio-referenced -> 09-alice-bio-referenced-woven`: weave `alice/_knop/_references`, advance `alice/_knop/_inventory`, generate the catalog pages, and leave `_mesh/_inventory` unchanged.
+
+No tests run; this was a docs-only update.

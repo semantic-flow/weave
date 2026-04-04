@@ -48,7 +48,9 @@ see [[wd.testing]]
 
 Before starting substantial code changes, a task note should be written and refined. Task notes live in `documentation/notes/wd.task.*` and the template lives in [[template.task]]. Actionable "To-Do" items should be pre-pended with markdown checkboxes (`[ ]`) to track completion (`[x]`) or cancellation (`[c]`)
 
-When a task is materially complete and you want its status reflected in the note name, rename the note from `wd.task.*` to `wd.completed.*` rather than creating a separate duplicate summary note by default. If the rename changes wikilinks, update the affected references.
+When a task is materially complete and you want its status reflected in the note name, prefer renaming the note from `wd.task.*` to `wd.completed.*` rather than creating a separate duplicate summary note by default. If the rename changes wikilinks, update the affected references.
+
+If the user has indicated they prefer to perform that rename manually, do not rename the note unless they explicitly ask you to.
 
 Before a task is closed, [[wd.decision-log]] should be updated with important decisions made.
 
