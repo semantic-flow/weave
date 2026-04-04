@@ -6,6 +6,8 @@
     "lint": "deno lint src tests",
     "check": "deno check src/**/*.ts tests/**/*.ts",
     "test": "deno test --allow-read --allow-write --allow-run=git,deno --allow-env src tests",
+    "test:coverage": "deno test --allow-read --allow-write --allow-run=git,deno --allow-env --coverage=coverage src tests",
+    "coverage:lcov": "deno coverage --lcov --output=coverage/lcov.info --exclude='^file:.*/dependencies/' --exclude='^file:.*/tests/' coverage",
     "ci": "deno task fmt:check && deno task lint && deno task check && deno task test"
   },
   "imports": {

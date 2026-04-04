@@ -1,0 +1,6 @@
+reviews:
+  path_filters:
+    - "!documentation/notes/wd.conv.*"
+    - "!documentation/notes/wd.completed.*"
+  auto_review:
+    enabled: true
