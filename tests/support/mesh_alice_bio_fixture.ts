@@ -1,9 +1,20 @@
-import { dirname, join } from "@std/path";
+import { dirname, fromFileUrl, join } from "@std/path";
 
-const fixtureRepoPath =
-  "/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/mesh-alice-bio";
-const frameworkRepoPath =
-  "/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework";
+const repoRootPath = fromFileUrl(new URL("../../", import.meta.url));
+const fixtureRepoPath = join(
+  repoRootPath,
+  "dependencies",
+  "github.com",
+  "semantic-flow",
+  "mesh-alice-bio",
+);
+const frameworkRepoPath = join(
+  repoRootPath,
+  "dependencies",
+  "github.com",
+  "semantic-flow",
+  "semantic-flow-framework",
+);
 
 export function resolveMeshAliceBioFixtureRepoPath(): string {
   return fixtureRepoPath;

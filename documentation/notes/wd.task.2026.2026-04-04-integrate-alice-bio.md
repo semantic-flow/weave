@@ -2,7 +2,7 @@
 id: v4m8n2q1c7x5k9b3j6t0rpa
 title: 2026 04 04 Integrate Alice Bio
 desc: ''
-updated: 1775365200000
+updated: 1775320590523
 created: 1775365200000
 ---
 
@@ -117,3 +117,66 @@ That means the first local `integrate` implementation should be driven primarily
 - [x] Add a black-box CLI acceptance test scoped by the settled `06-alice-bio-integrated` Accord manifest.
 - [x] Draft the first thin public API example or contract fragment for `integrate` in `semantic-flow-framework` if this slice sharpens the public contract.
 - [x] Update relevant overview/spec/framework notes as the slice settles.
+
+## coderabbit review
+
+Verify each finding against the current code and only fix it if needed.
+
+Inline comments:
+In `@documentation/notes/conv.2026.2026-04-04_0839-integrate-alice-bio-codex.md`:
+- Line 17: Replace the machine-specific absolute link in the sentence that
+references "[wd.task.2026.2026-04-04-integrate-alice-bio.md]" with a
+repo-relative path; update the link target from
+"/home/.../weave/documentation/notes/wd.task.2026.2026-04-04-integrate-alice-bio.md"
+to a relative path such as
+"documentation/notes/wd.task.2026.2026-04-04-integrate-alice-bio.md" or
+"./wd.task.2026.2026-04-04-integrate-alice-bio.md" so the Markdown link is
+portable and does not leak local environment details.
+
+In `@documentation/notes/conv.2026.2026-04-04_0839-knop-create-codex.md`:
+- Line 17: This file contains absolute host filesystem links like
+/home/djradon/hub/semantic-flow/weave/documentation/notes/wd.task.2026.2026-04-03-weave-bootstrap-mesh-create.md
+which expose local paths and will break elsewhere; replace each absolute path
+with a repo-relative link (e.g.,
+documentation/notes/wd.task.2026.2026-04-03-weave-bootstrap-mesh-create.md) or a
+wiki-style note link everywhere it appears (including the other occurrences you
+flagged), preserving the same anchor text and markdown link syntax.
+
+In `@src/runtime/integrate/integrate.ts`:
+- Around line 175-189: resolveLoggers currently throws away a single provided
+logger; preserve any provided logger and only create the missing one(s).
+Implement by calling createRuntimeLoggers() once to get
+defaultOperational/defaultAudit, then return { operationalLogger:
+options.operationalLogger ?? defaultOperational, auditLogger:
+options.auditLogger ?? defaultAudit } so an explicitly passed operationalLogger
+or auditLogger is kept. Update resolveLoggers to use those symbols
+(resolveLoggers, createRuntimeLoggers, operationalLogger, auditLogger) and
+ensure no provided logger is overwritten.
+- Around line 171-173: The user-facing string in describeIntegrateResult
+currently uses fixed plural words and an awkward verb phrase; change
+describeIntegrateResult (which takes an IntegrateResult with workingFilePath,
+payloadArtifactIri, createdPaths.length and updatedPaths.length) to compute
+counts and choose singular vs plural labels (e.g., "support artifact" vs
+"support artifacts", "mesh artifact" vs "mesh artifacts") and format the
+sentence with proper verb tense (e.g., "and updated M mesh artifact(s)") so the
+message reads correctly for 0, 1, or many items.
+
+---
+
+Nitpick comments:
+In `@src/runtime/integrate/integrate.ts`:
+- Around line 322-339: The function assertUpdatedTargetsExist currently uses
+blocking Deno.statSync; make it async by changing its signature to async
+function assertUpdatedTargetsExist(...) and replace Deno.statSync(absolutePath)
+with await Deno.stat(absolutePath) and keep the same error handling for
+Deno.errors.NotFound; then update its call site (the place that invokes
+assertUpdatedTargetsExist) to await the function so the async flow is preserved
+(mirror how assertCreateTargetsDoNotExist is used).
+- Around line 307-314: Replace the fragile regex extraction of meshBase from
+meshMetadataTurtle (the meshBaseMatch block) with a proper Turtle parse using
+n3's Parser and Store: parse meshMetadataTurtle into quads, query the store for
+the predicate namedNode("sflo:meshBase"), and return quads[0].object.value; if
+no quads found throw the same IntegrateRuntimeError("Could not resolve meshBase
+from _mesh/_meta/meta.ttl"). Update references around meshBaseMatch and ensure
+imports include Parser/Store/DataFactory (or use existing n3 imports) so
+extraction is robust to whitespace, quotes and type annotations.
