@@ -73,10 +73,20 @@ This task should reuse [[wd.spec.2026-04-03-weave-behavior]] rather than creatin
 
 If this payload-oriented `weave` slice exposes a missing or ambiguous behavior boundary not already captured there, update the existing weave behavior note rather than spawning overlapping prose.
 
+### Shared page-generation seam
+
+This task should introduce the first shared runtime page-generation seam for `weave`, but keep it narrow.
+
+The immediate goal is not a full rendering system. The immediate goal is to stop letting each carried weave slice accrete more inline HTML and page-shape logic in operation-specific planning code.
+
+That means `07` should not only use shared runtime page-generation helpers for the new payload-facing pages, but should also move the existing render-bearing `05` weave slice onto the same seam while touching this area.
+
+That is still a bounded change because the existing page generation is concentrated in the current shared `weave` implementation, not spread across every prior semantic slice. A broader retrofit across unrelated non-rendering slices should stay out of scope unless this work exposes a concrete need for a separate cleanup task.
+
 ## Open Issues
 
 - Does the current shared `weave` request shape stay narrow with `designatorPaths`, or does payload weaving reveal the need for a more explicit artifact-target model later?
-- How much of the later richer payload-history and identifier-page rendering surface should stay out of this slice until there is a real rendering system?
+- How small can the first shared runtime page-generation seam stay while still absorbing both the existing `05` weave pages and the new `07` payload-facing pages?
 
 ## Decisions
 
@@ -86,6 +96,8 @@ If this payload-oriented `weave` slice exposes a missing or ambiguous behavior b
 - Keep bare top-level `weave` as the local CLI surface for this slice rather than introducing a new `weave weave` spelling.
 - Use the settled Alice Bio `07-alice-bio-integrated-woven` manifest and fixture as the first acceptance target.
 - Keep `alice-bio.ttl` at the repo root as the current working payload file while materializing payload history under `alice/bio/_history001/...`.
+- Put ResourcePage generation for this slice behind shared runtime helpers that separate page-model derivation from HTML rendering.
+- As part of that seam, move the existing carried render-bearing weave behavior onto the same helpers rather than leaving two page-generation paths in place.
 - Do not absorb reference-catalog weaving, referenced-resource extraction, daemon work, or broader rendering ambitions into this task.
 
 ## Contract Changes
@@ -109,6 +121,7 @@ If this payload-oriented `weave` slice exposes a missing or ambiguous behavior b
 - changing the current root working payload file placement
 - implementing daemon endpoints
 - implementing a broad or final HTML renderer system
+- broad retrofit of unrelated pre-existing slices that do not participate in current page generation
 - solving every future `weave` target-selection mode in this slice
 
 ## Implementation Plan
@@ -116,6 +129,8 @@ If this payload-oriented `weave` slice exposes a missing or ambiguous behavior b
 - [ ] Confirm whether the existing weave behavior spec is sufficient as-is for the `07` slice.
 - [ ] Define the next local request/result shapes for `weave` in shared `core` and `runtime` if payload weaving requires a refinement.
 - [ ] Add failing unit and integration tests for the `07` payload-weave behavior.
+- [ ] Define the minimal shared runtime page-model and HTML-rendering seam needed for both the existing `05` weave pages and the new `07` payload-facing pages.
+- [ ] Move the existing carried render-bearing weave behavior onto that shared page-generation seam so this task does not leave two page-generation implementations behind.
 - [ ] Implement the next local or in-process `weave` path over shared `core` and `runtime`.
 - [ ] Add a black-box CLI acceptance test scoped by the settled `07-alice-bio-integrated-woven` Accord manifest.
 - [ ] Draft or refine the thin public API example or contract fragment for `weave` in `semantic-flow-framework` if this slice sharpens the public contract.
