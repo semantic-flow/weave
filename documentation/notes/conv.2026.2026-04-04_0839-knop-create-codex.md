@@ -2,17 +2,12 @@
 id: knop-create-62dc4cb4
 title: knop create
 desc: ''
-updated: 1775338651219
 created: 1775317147586
-participants:
-  - djradon
-  - codex.gpt-5.4
-kato-sessionIds:
-  - 019d56ee-2b2b-7723-bfd6-b74bd07657d3
-kato-workspaceIds:
-  - f6e2f488-e64d-4140-aacb-87d10f58555f
-kato-recordingIds:
-  - 62dc4cb4-05ae-428f-b6bc-dbda5a2a8b92
+updated: 1775341099564
+participants: [djradon, codex.gpt-5.4]
+kato-sessionIds: [019d56ee-2b2b-7723-bfd6-b74bd07657d3]
+kato-workspaceIds: [f6e2f488-e64d-4140-aacb-87d10f58555f]
+kato-recordingIds: [62dc4cb4-05ae-428f-b6bc-dbda5a2a8b92]
 ---
 
 # User_2026-04-03_2221_03
@@ -385,7 +380,6 @@ It is scoped around:
 - `.github/workflows/ci.yml` as the first baseline workflow
 - CodeRabbit on PRs
 - Codecov reporting with a Kato-style OIDC preference
-- Giwd.completed.2026.2026-04-04-weave-ci
 - conservative first quality gates, with Codecov informational at first
 
 I did not start any implementation. The worktree now just has the two untracked task notes:
@@ -401,7 +395,7 @@ Should we start the CI task in a new chat?
 Yes. A new chat is better for the CI task.
 
 Reasons:
-- cleaner scope and historwd.completed.2026.2026-04-04-weave-ci
+- cleaner scope and history
 - easier to review the task note against only CI-related decisions
 - less chance of accidental bleed-over from the `weave` and `integrate` slice work
 - better fit for the “review task note first, then implement” workflow you asked for

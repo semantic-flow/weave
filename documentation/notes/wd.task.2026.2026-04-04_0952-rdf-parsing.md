@@ -2,7 +2,7 @@
 id: ztyyymaiv1nt04w7yreutfx
 title: 2026 04 04_0952 Rdf Parsing
 desc: ''
-updated: 1775321562805
+updated: 1775340809111
 created: 1775321555314
 ---
 
@@ -138,6 +138,37 @@ These are the biggest structural cleanup items. They should eventually parse the
 - turning this task into a generic SHACL-validation effort
 - redesigning the carried-slice fixture ladder
 - broadening current operation behavior beyond the settled fixture targets
+
+## Related Coderabbit comments
+
+- Around line 24-28: The code in workingFileSentence calls
+toRelativeHref(page.path, page.workingFilePath) twice, causing duplicate
+computation; extract the result into a local variable (e.g., const workingHref =
+toRelativeHref(page.path, page.workingFilePath)) and use workingHref in the
+template string so workingFileSentence (and any other uses) reuses the single
+computed value; update references in the surrounding function where
+workingFileSentence is built.
+- Around line 30-65: The templates interpolate unescaped values
+(page.designatorPath, canonical, page.description, meshLabel, resourcePath,
+workingFileSentence) into HTML; add a small HTML-escaping helper (e.g.,
+escapeHtml) that replaces & < > " ' / and use it for all interpolated text and
+for attribute values (href/title) in the template-generating function that
+returns these HTML strings so every insertion uses escapeHtml(value) instead of
+raw variables; ensure you only escape text nodes and attribute values (not
+already-intended HTML) and write unit tests for escapeHtml to cover common edge
+cases.
+
+In `@src/runtime/weave/weave.ts`:
+- Around line 250-302: The loadPayloadWorkingArtifact function uses brittle
+string-based Turtle parsing (see split("\n\n"), the block search for
+`<${designatorPath}> a sflo:PayloadArtifact...`, and the regex
+/sflo:hasWorkingLocatedFile <([^>]+)>/) which is fragile but intentional for a
+narrow fixture slice—add a clear comment above the loadPayloadWorkingArtifact
+declaration stating that this is deliberate narrow-slice parsing, describing the
+assumptions (specific Turtle serialization, blank-line-separated blocks, exact
+predicate shapes), and include a TODO noting that a proper RDF parser should be
+used if this function needs to handle more general/variable RDF serializations
+in the future.
 
 ## Implementation Plan
 
