@@ -41,7 +41,7 @@ This note is now partly historical.
 
 Several questions that were open when the note was created have since been settled by later framework work, the `mesh-alice-bio` fixture ladder, and the working Accord checker.
 
-The remaining implementation-bearing work has been moved into [[wd.task.2026.2026-04-03-weave-bootstrap-mesh-create]] so this note can remain a planning and carry-forward artifact rather than acting like an implementation backlog.
+The remaining implementation-bearing work has been moved into [[wd.completed.2026.2026-04-03-weave-bootstrap-mesh-create]] so this note can remain a planning and carry-forward artifact rather than acting like an implementation backlog.
 
 ## Carry Forward
 
@@ -264,7 +264,7 @@ If you discover documentation that seems unclear, stale, or contradictory, call 
 ### Public API specification detail
 
 - The first implementation slice to carry through local execution, Accord comparison, and HTTP-facing examples should be `mesh create`.
-- After `mesh create`, decide whether the next carried slice should be `weave` itself or the first Knop/payload operation.
+- The next carried slice after `mesh create` is now `knop create`.
 
 ### Long-running operations and protocol choice
 
@@ -312,9 +312,9 @@ If you discover documentation that seems unclear, stale, or contradictory, call 
 - [x] Defer TUI
 - [x] Write the first Weave bootstrap task note
 - [c] Define the first-pass Deno-native runtime logging facade, carrying forward Kato operational/audit patterns
-  - moved to [[wd.task.2026.2026-04-03-weave-bootstrap-mesh-create]]
+  - moved to [[wd.completed.2026.2026-04-03-weave-bootstrap-mesh-create]]
 - [c] Define the concrete `mesh create` implementation checklist and acceptance checks
-  - moved to [[wd.task.2026.2026-04-03-weave-bootstrap-mesh-create]]
+  - moved to [[wd.completed.2026.2026-04-03-weave-bootstrap-mesh-create]]
 
 ## Non-Goals
 

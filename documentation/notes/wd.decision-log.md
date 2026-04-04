@@ -100,7 +100,7 @@ created: 1773630801215
 ### 2026-04-03: Bootstrap Logging Extraction Boundary
 
 - Decision: For the first Weave slice, keep the Kato logging carry-forward limited to `LogRecord`, log sinks, `StructuredLogger`, `AuditLogger`, and JSONL file output.
-- References: [[wd.task.2026.2026-04-03-weave-bootstrap-mesh-create]], [[wd.spec.2026-04-03-mesh-create]]
+- References: [[wd.completed.2026.2026-04-03-weave-bootstrap-mesh-create]], [[wd.spec.2026-04-03-mesh-create]]
 - Why:
   - This preserves the useful operational-vs-audit split and local JSONL behavior without pulling in Kato's broader logging adapter stack, daemon wiring, or unrelated runtime concerns.
 - Follow-Up Tasks:
@@ -109,6 +109,6 @@ created: 1773630801215
 ### 2026-04-03: knop create Resolves Mesh Identity from Workspace
 
 - Decision: The first local `knop create` CLI requires an explicit `designatorPath` and resolves `meshBase` from the existing workspace mesh support surface rather than asking users to restate mesh identity.
-- References: [[wd.task.2026.2026-04-03-knop-create]], [[wd.spec.2026-04-03-knop-create]]
+- References: [[wd.completed.2026.2026-04-03-knop-create]], [[wd.spec.2026-04-03-knop-create]]
 - Why:
   - `knop create` acts on an existing mesh, so repeating `meshBase` on the CLI is redundant and easier to misuse.
