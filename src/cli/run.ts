@@ -1,10 +1,16 @@
 import { Command } from "@cliffy/command";
 import { Input } from "@cliffy/prompt";
 import { join, resolve } from "@std/path";
+import { IntegrateInputError } from "../core/integrate/integrate.ts";
 import { KnopCreateInputError } from "../core/knop/create.ts";
 import { MeshCreateInputError } from "../core/mesh/create.ts";
 import { WeaveInputError } from "../core/weave/weave.ts";
 import { createRuntimeLoggers } from "../runtime/logging/factory.ts";
+import {
+  describeIntegrateResult,
+  executeIntegrate,
+  IntegrateRuntimeError,
+} from "../runtime/integrate/integrate.ts";
 import {
   describeKnopCreateResult,
   executeKnopCreate,
@@ -58,6 +64,53 @@ export async function runWeaveCli(args: string[]): Promise<number> {
       }
     })
     .throwErrors()
+    .command(
+      "integrate",
+      new Command()
+        .description("Integrate a payload artifact for a designator path.")
+        .arguments("<designatorPath:string>")
+        .option(
+          "--source <source:string>",
+          "Local path or file URL of the existing payload file to integrate.",
+        )
+        .option(
+          "--workspace <workspace:string>",
+          "Workspace root to update.",
+          { default: "." },
+        )
+        .action(async (options, designatorPath) => {
+          const workspaceRoot = resolve(options.workspace);
+          const source = resolveIntegrateSourceOption(options);
+          const logDir = join(workspaceRoot, ".weave", "logs");
+          const { operationalLogger, auditLogger } = createRuntimeLoggers({
+            logDir,
+          });
+
+          await auditLogger.command("integrate", {
+            workspaceRoot,
+            designatorPath,
+            source,
+            localMode: true,
+          });
+
+          const result = await executeIntegrate({
+            workspaceRoot,
+            request: {
+              designatorPath,
+              source,
+            },
+            operationalLogger,
+            auditLogger,
+          });
+          console.log(describeIntegrateResult(result));
+          for (const path of result.createdPaths) {
+            console.log(path);
+          }
+          for (const path of result.updatedPaths) {
+            console.log(path);
+          }
+        }),
+    )
     .command(
       "mesh",
       new Command()
@@ -189,8 +242,20 @@ async function resolveMeshBaseOption(
   });
 }
 
+function resolveIntegrateSourceOption(
+  options: { source?: string },
+): string {
+  if (typeof options.source === "string" && options.source.trim().length > 0) {
+    return options.source;
+  }
+
+  throw new IntegrateInputError("integrate requires --source");
+}
+
 function getCliErrorMessage(error: unknown): string {
   if (
+    error instanceof IntegrateInputError ||
+    error instanceof IntegrateRuntimeError ||
     error instanceof WeaveInputError ||
     error instanceof WeaveRuntimeError ||
     error instanceof KnopCreateInputError ||

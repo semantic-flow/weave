@@ -66,23 +66,27 @@ The settled fixture and conformance notes already pin down two important expecta
 
 That means the first local `integrate` implementation should be driven primarily by the settled `06-alice-bio-integrated` fixture and manifest, with additional prose only where the behavior still needs clarification.
 
-## Open Issues
+## Resolved Questions
 
-- Do we want a dedicated `wd.spec.*` note for `integrate` before implementation, or should the first slice stay fixture-and-manifest-driven unless a missing behavior boundary shows up?
-- What should the first local CLI surface for `integrate` be: explicit source path plus `designatorPath`, or a thinner command shape?
-- How thin should the first public `integrate` request/result examples be in `semantic-flow-framework`?
+- `integrate` should get a dedicated `wd.spec.*` note before implementation. Unlike the first `weave` slice, there is no existing behavior note to reuse, and the `05` -> `06` transition is already an externally visible cross-subsystem boundary with a manifest-backed acceptance target.
+- The first local CLI surface should require both an explicit `designatorPath` and an explicit local `--source`. The current slice should resolve `meshBase` from the existing workspace mesh support surface rather than asking users to repeat it.
+- The filesystem-separation tension should be resolved by keeping host paths out of `core`. The local CLI/runtime may accept a local path or `file:` URL for `--source`, but shared `core` planning should operate on the resulting mesh-relative working file path that becomes the payload artifact's `hasWorkingLocatedFile`.
+- The first public `integrate` request/result examples in `semantic-flow-framework` should stay thin: identify the existing mesh, one `designatorPath`, and one source URI, then report only created and updated semantic resources. Host filesystem paths, copy or staging policy, and later remote-fetch behavior should stay out of the thin core contract.
 
 ## Decisions
 
 - Treat `05-alice-knop-created-woven` -> `06-alice-bio-integrated` as the next carried implementation slice.
 - Use the settled Alice Bio `06-alice-bio-integrated` manifest and fixture as the first acceptance target.
+- Add a dedicated [[wd.spec.2026-04-04-integrate-behavior]] note for this slice rather than leaving the operation semantics implicit in the fixture diff alone.
 - Keep the first `integrate` implementation local or in-process over shared `core` and `runtime`.
+- Make the first local CLI surface `weave integrate <designatorPath> --source <path-or-file-url>`, with `meshBase` resolved from the existing workspace.
+- Keep host filesystem paths out of shared `core` by planning `integrate` from `designatorPath` plus a mesh-relative working file path, while leaving room for later runtime staging from remote sources.
 - Keep the working payload bytes at `alice-bio.ttl` for this first slice rather than relocating the file before the woven step.
 - Do not absorb payload weaving, page generation, explicit histories, referenced-resource extraction, or daemon work into this task.
 
 ## Contract Changes
 
-- This task may introduce the first thin public request/result examples for `integrate` in `semantic-flow-framework`.
+- This task may introduce the first thin public request/result examples for `integrate` in `semantic-flow-framework`, including a semantic source-URI input without standardizing host filesystem paths.
 - This task should not broaden the public API beyond what the first local payload-integration slice actually proves.
 
 ## Testing
@@ -105,11 +109,11 @@ That means the first local `integrate` implementation should be driven primarily
 
 ## Implementation Plan
 
-- [ ] Decide whether `integrate` needs a dedicated `wd.spec.*` note before implementation.
-- [ ] Define the first local request/result shapes for `integrate` in shared `core` and `runtime`.
-- [ ] Define the exact first local CLI surface for the carried `integrate` operation.
-- [ ] Add failing unit and integration tests for the first `integrate` behavior.
-- [ ] Implement the first local or in-process `integrate` path over shared `core` and `runtime`.
-- [ ] Add a black-box CLI acceptance test scoped by the settled `06-alice-bio-integrated` Accord manifest.
-- [ ] Draft the first thin public API example or contract fragment for `integrate` in `semantic-flow-framework` if this slice sharpens the public contract.
-- [ ] Update relevant overview/spec/framework notes as the slice settles.
+- [x] Decide whether `integrate` needs a dedicated `wd.spec.*` note before implementation.
+- [x] Define the first local request/result shapes for `integrate` in shared `core` and `runtime`.
+- [x] Define the exact first local CLI surface for the carried `integrate` operation.
+- [x] Add failing unit and integration tests for the first `integrate` behavior.
+- [x] Implement the first local or in-process `integrate` path over shared `core` and `runtime`.
+- [x] Add a black-box CLI acceptance test scoped by the settled `06-alice-bio-integrated` Accord manifest.
+- [x] Draft the first thin public API example or contract fragment for `integrate` in `semantic-flow-framework` if this slice sharpens the public contract.
+- [x] Update relevant overview/spec/framework notes as the slice settles.
