@@ -2,12 +2,17 @@
 id: knop-create-62dc4cb4
 title: knop create
 desc: ''
-created: 1775317147586
 updated: 1775341099564
-participants: [djradon, codex.gpt-5.4]
-kato-sessionIds: [019d56ee-2b2b-7723-bfd6-b74bd07657d3]
-kato-workspaceIds: [f6e2f488-e64d-4140-aacb-87d10f58555f]
-kato-recordingIds: [62dc4cb4-05ae-428f-b6bc-dbda5a2a8b92]
+created: 1775317147586
+participants:
+  - djradon
+  - codex.gpt-5.4
+kato-sessionIds:
+  - 019d56ee-2b2b-7723-bfd6-b74bd07657d3
+kato-workspaceIds:
+  - f6e2f488-e64d-4140-aacb-87d10f58555f
+kato-recordingIds:
+  - 62dc4cb4-05ae-428f-b6bc-dbda5a2a8b92
 ---
 
 # User_2026-04-03_2221_03

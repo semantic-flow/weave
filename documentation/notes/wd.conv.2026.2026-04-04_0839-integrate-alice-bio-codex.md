@@ -1,13 +1,18 @@
 ---
 id: integrate-alice-bio-a68b486a
-title: 'integrate alice bio'
+title: integrate alice bio
 desc: ''
-created: 1775317159924
 updated: 1775338581960
-participants: [djradon, codex.gpt-5.4]
-kato-sessionIds: [019d5921-8b02-7d33-872e-9ad8655e82e8]
-kato-workspaceIds: [f6e2f488-e64d-4140-aacb-87d10f58555f]
-kato-recordingIds: [a68b486a-189b-494f-af6e-6d4479b045f5]
+created: 1775317159924
+participants:
+  - djradon
+  - codex.gpt-5.4
+kato-sessionIds:
+  - 019d5921-8b02-7d33-872e-9ad8655e82e8
+kato-workspaceIds:
+  - f6e2f488-e64d-4140-aacb-87d10f58555f
+kato-recordingIds:
+  - a68b486a-189b-494f-af6e-6d4479b045f5
 ---
 
 # User_2026-04-04_0838_45

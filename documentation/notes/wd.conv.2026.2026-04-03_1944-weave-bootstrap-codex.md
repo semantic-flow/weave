@@ -1,13 +1,18 @@
 ---
 id: weave-bootstrap-ebde3fb2
-title: 'weave bootstrap'
+title: weave bootstrap
 desc: ''
-created: 1775270654930
 updated: 1775334188695
-participants: [djradon, codex.gpt-5.4]
-kato-sessionIds: [019d565f-181e-7b21-9eac-9ba595129f31]
-kato-workspaceIds: [f6e2f488-e64d-4140-aacb-87d10f58555f]
-kato-recordingIds: [ebde3fb2-ffbc-414d-89df-9e907ba590f8]
+created: 1775270654930
+participants:
+  - djradon
+  - codex.gpt-5.4
+kato-sessionIds:
+  - 019d565f-181e-7b21-9eac-9ba595129f31
+kato-workspaceIds:
+  - f6e2f488-e64d-4140-aacb-87d10f58555f
+kato-recordingIds:
+  - ebde3fb2-ffbc-414d-89df-9e907ba590f8
 ---
 
 # User_2026-04-03_1943_33
