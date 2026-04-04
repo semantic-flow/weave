@@ -3,6 +3,7 @@ import { Input } from "@cliffy/prompt";
 import { join, resolve } from "@std/path";
 import { KnopCreateInputError } from "../core/knop/create.ts";
 import { MeshCreateInputError } from "../core/mesh/create.ts";
+import { WeaveInputError } from "../core/weave/weave.ts";
 import { createRuntimeLoggers } from "../runtime/logging/factory.ts";
 import {
   describeKnopCreateResult,
@@ -14,6 +15,11 @@ import {
   executeMeshCreate,
   MeshCreateRuntimeError,
 } from "../runtime/mesh/create.ts";
+import {
+  describeWeaveResult,
+  executeWeave,
+  WeaveRuntimeError,
+} from "../runtime/weave/weave.ts";
 
 export async function runWeaveCli(args: string[]): Promise<number> {
   let exitCode = 0;
@@ -21,6 +27,36 @@ export async function runWeaveCli(args: string[]): Promise<number> {
   const command = new Command()
     .name("weave")
     .description("Filesystem-oriented Semantic Flow tooling.")
+    .option(
+      "--workspace <workspace:string>",
+      "Workspace root to update for the default weave action.",
+      { default: "." },
+    )
+    .action(async (options) => {
+      const workspaceRoot = resolve(options.workspace);
+      const logDir = join(workspaceRoot, ".weave", "logs");
+      const { operationalLogger, auditLogger } = createRuntimeLoggers({
+        logDir,
+      });
+
+      await auditLogger.command("weave", {
+        workspaceRoot,
+        localMode: true,
+      });
+
+      const result = await executeWeave({
+        workspaceRoot,
+        operationalLogger,
+        auditLogger,
+      });
+      console.log(describeWeaveResult(result));
+      for (const path of result.createdPaths) {
+        console.log(path);
+      }
+      for (const path of result.updatedPaths) {
+        console.log(path);
+      }
+    })
     .throwErrors()
     .command(
       "mesh",
@@ -155,6 +191,8 @@ async function resolveMeshBaseOption(
 
 function getCliErrorMessage(error: unknown): string {
   if (
+    error instanceof WeaveInputError ||
+    error instanceof WeaveRuntimeError ||
     error instanceof KnopCreateInputError ||
     error instanceof KnopCreateRuntimeError ||
     error instanceof MeshCreateInputError ||

@@ -112,3 +112,19 @@ created: 1773630801215
 - References: [[wd.completed.2026.2026-04-03-knop-create]], [[wd.spec.2026-04-03-knop-create]]
 - Why:
   - `knop create` acts on an existing mesh, so repeating `meshBase` on the CLI is redundant and easier to misuse.
+
+### 2026-04-04: First Local weave Slice Targets Alice 04 -> 05
+
+- Decision: Treat the settled Alice Bio `04-alice-knop-created` -> `05-alice-knop-created-woven` transition as the first carried local `weave` implementation slice, limited to one first-weave Knop candidate together with the corresponding MeshInventory advancement and first generated Knop-facing pages.
+- References: [[wd.completed.2026.2026-04-04-weave-alice-knop-created-woven]], [[wd.spec.2026-04-03-weave-behavior]]
+- Why:
+  - It is the first settled `version + validate + generate` case after `knop create`.
+  - It proves first-history creation for Knop support artifacts and a later-state advancement for MeshInventory without absorbing payload integration.
+
+### 2026-04-04: Bare weave Is the First Local CLI Surface
+
+- Decision: Expose the first local high-level `weave` operation as the top-level `weave` CLI action rather than requiring a `weave weave` subcommand.
+- References: [[wd.completed.2026.2026-04-04-weave-alice-knop-created-woven]], [[wd.cli]]
+- Why:
+  - The machine-facing operation kind can remain `weave` without forcing an awkward duplicated CLI spelling.
+  - The top-level action leaves room for lower-level subcommands such as `mesh create` and `knop create` alongside the high-level default operation.

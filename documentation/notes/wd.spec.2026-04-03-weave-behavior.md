@@ -22,6 +22,8 @@ The rules below are the best current synthesis of:
 - the corresponding Accord conformance manifests
 - the current Semantic Flow ontology direction
 
+The first carried local implementation of this behavior is the settled Alice Bio `04-alice-knop-created` -> `05-alice-knop-created-woven` slice.
+
 If future fixture work contradicts this note, the contradiction should be treated as a real design issue and resolved explicitly rather than silently drifting.
 
 ## Core View
