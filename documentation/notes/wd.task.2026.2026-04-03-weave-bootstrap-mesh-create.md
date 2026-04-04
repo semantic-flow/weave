@@ -80,6 +80,30 @@ This task should not turn into:
 - Prefer TDD where practical, with `wd.spec.*` notes driving higher-level tests when the behavior is externally visible or cross-cutting.
 - Reuse Kato logging where it fits cleanly, but do not let logging extraction sprawl into a full observability project.
 
+## Bootstrap Logging Extraction Plan
+
+Carry forward only the narrow logging boundary that is already proving useful in Kato:
+
+- `LogRecord`
+- log sink interface
+- `StructuredLogger`
+- `AuditLogger`
+- JSONL file sink
+- explicit operational vs audit channel split
+
+Do not pull forward in this slice:
+
+- the broader `loglayer` adapter stack
+- daemon- or web-specific logging helpers
+- unrelated Kato runtime services
+- a full observability or telemetry program
+
+Bootstrap posture:
+
+- runtime code may accept injected loggers or a narrow local log sink configuration
+- the first CLI slice may write runtime-local JSONL logs without making those files part of the semantic mesh surface
+- choosing the long-term default log/config location is deferred until the RDF-backed config slice is real
+
 ## Contract Changes
 
 - This task may introduce the first thin public request or result shapes and examples for `mesh create` in `semantic-flow-framework`.
@@ -107,7 +131,7 @@ This task should not turn into:
 
 ## Implementation Plan
 
-- [ ] Create the initial Deno project scaffold for Weave:
+- [x] Create the initial Deno project scaffold for Weave:
   - `deno.json`
   - `src/core`
   - `src/runtime`
@@ -118,16 +142,16 @@ This task should not turn into:
   - `tests/e2e`
   - `tests/support`
   - `tests/fixtures`
-- [ ] Define the first-pass logging extraction plan from Kato:
+- [x] Define the first-pass logging extraction plan from Kato:
   - identify the smallest reusable subset
   - preserve operational vs audit separation
   - preserve local-first JSONL behavior if that still fits
   - avoid pulling in broader observability scope
-- [ ] Implement the first Deno-native runtime logging layer for Weave.
-- [ ] Write a current `wd.spec.*` note for `mesh create` if the behavior is not already specified clearly enough elsewhere.
-- [ ] Define the local request/result shapes for `mesh create` in shared `core` and `runtime`.
-- [ ] Add failing unit and integration tests for the first `mesh create` behavior.
-- [ ] Implement local or in-process `mesh create` over shared `core` and `runtime`.
-- [ ] Add the first thin CLI command surface for `mesh create`, including `--interactive` support where it is already useful.
+- [x] Implement the first Deno-native runtime logging layer for Weave.
+- [x] Write a current `wd.spec.*` note for `mesh create` if the behavior is not already specified clearly enough elsewhere.
+- [x] Define the local request/result shapes for `mesh create` in shared `core` and `runtime`.
+- [x] Add failing unit and integration tests for the first `mesh create` behavior.
+- [x] Implement local or in-process `mesh create` over shared `core` and `runtime`.
+- [x] Add the first thin CLI command surface for `mesh create`, including `--interactive` support where it is already useful.
 - [ ] Draft the first thin public API example or contract fragment for `mesh create` in `semantic-flow-framework`.
 - [ ] Update [[wd.codebase-overview]], relevant `wd.spec.*` notes, and the framework notes as the slice solidifies.

@@ -1,0 +1,116 @@
+import { Command } from "@cliffy/command";
+import { Input } from "@cliffy/prompt";
+import { join, resolve } from "@std/path";
+import { MeshCreateInputError } from "../core/mesh/create.ts";
+import { createRuntimeLoggers } from "../runtime/logging/factory.ts";
+import {
+  describeMeshCreateResult,
+  executeMeshCreate,
+  MeshCreateRuntimeError,
+} from "../runtime/mesh/create.ts";
+
+export async function runWeaveCli(args: string[]): Promise<number> {
+  let exitCode = 0;
+
+  const command = new Command()
+    .name("weave")
+    .description("Filesystem-oriented Semantic Flow tooling.")
+    .throwErrors()
+    .command(
+      "mesh",
+      new Command()
+        .description("Mesh operations.")
+        .command(
+          "create",
+          new Command()
+            .description(
+              "Create the first mesh support artifacts in a workspace.",
+            )
+            .option(
+              "--mesh-base <meshBase:string>",
+              "Canonical base IRI for Semantic Flow identifiers in the mesh.",
+            )
+            .option(
+              "--workspace <workspace:string>",
+              "Workspace root to update.",
+              { default: "." },
+            )
+            .option(
+              "--interactive",
+              "Prompt for meshBase when it was not provided on the command line.",
+            )
+            .action(async (options) => {
+              const workspaceRoot = resolve(options.workspace);
+              const meshBase = await resolveMeshBaseOption(options);
+              const logDir = join(workspaceRoot, ".weave", "logs");
+              const { operationalLogger, auditLogger } = createRuntimeLoggers({
+                logDir,
+              });
+
+              await auditLogger.command("mesh.create", {
+                workspaceRoot,
+                localMode: true,
+              });
+
+              const result = await executeMeshCreate({
+                workspaceRoot,
+                request: { meshBase },
+                operationalLogger,
+                auditLogger,
+              });
+              console.log(describeMeshCreateResult(result));
+              for (const path of result.createdPaths) {
+                console.log(path);
+              }
+            }),
+        ),
+    );
+
+  try {
+    await command.parse(args);
+  } catch (error) {
+    exitCode = 1;
+    const message = getCliErrorMessage(error);
+    if (message.length > 0) {
+      console.error(message);
+    }
+  }
+
+  return exitCode;
+}
+
+async function resolveMeshBaseOption(
+  options: { meshBase?: string; interactive?: boolean },
+): Promise<string> {
+  if (
+    typeof options.meshBase === "string" && options.meshBase.trim().length > 0
+  ) {
+    return options.meshBase;
+  }
+
+  if (!options.interactive) {
+    throw new MeshCreateInputError(
+      "mesh create requires --mesh-base or --interactive",
+    );
+  }
+
+  return await Input.prompt({
+    message: "Mesh base IRI",
+    validate(value) {
+      return value.trim().length > 0 || "meshBase is required";
+    },
+  });
+}
+
+function getCliErrorMessage(error: unknown): string {
+  if (
+    error instanceof MeshCreateInputError ||
+    error instanceof MeshCreateRuntimeError
+  ) {
+    return error.message;
+  }
+  if (error instanceof Error) {
+    return error.message.trim();
+  }
+  return String(error);
+}

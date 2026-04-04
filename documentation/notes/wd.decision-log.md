@@ -96,3 +96,12 @@ created: 1773630801215
 
 - Decision: Defer TUI work until there is a real near-term use case that needs a persistent terminal app.
 - References: [[wd.task.2026.2026-03-20-architecture-planning]], [[wd.cli]]
+
+### 2026-04-03: Bootstrap Logging Extraction Boundary
+
+- Decision: For the first Weave slice, keep the Kato logging carry-forward limited to `LogRecord`, log sinks, `StructuredLogger`, `AuditLogger`, and JSONL file output.
+- References: [[wd.task.2026.2026-04-03-weave-bootstrap-mesh-create]], [[wd.spec.2026-04-03-mesh-create]]
+- Why:
+  - This preserves the useful operational-vs-audit split and local JSONL behavior without pulling in Kato's broader logging adapter stack, daemon wiring, or unrelated runtime concerns.
+- Follow-Up Tasks:
+  - [ ] Decide the durable default runtime log/config location once the RDF-backed config slice exists.
