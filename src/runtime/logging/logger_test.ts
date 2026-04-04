@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
-import { createRuntimeLoggers } from "./factory.ts";
+import { createRuntimeLoggers, resolveRuntimeLoggers } from "./factory.ts";
 import { createTestTmpDir } from "../../../tests/support/test_tmp.ts";
 
 Deno.test("createRuntimeLoggers writes operational and audit JSONL records", async () => {
@@ -31,4 +31,29 @@ Deno.test("createRuntimeLoggers writes operational and audit JSONL records", asy
   assertEquals(auditRecord.timestamp, "2026-04-03T12:00:00.000Z");
   assertEquals(auditRecord.channel, "security-audit");
   assertEquals(auditRecord.event, "cli.command");
+});
+
+Deno.test("resolveRuntimeLoggers preserves individually provided loggers", () => {
+  const providedOperational = createRuntimeLoggers().operationalLogger;
+  const providedAudit = createRuntimeLoggers().auditLogger;
+
+  const withOperationalOnly = resolveRuntimeLoggers({
+    operationalLogger: providedOperational,
+  });
+  assertEquals(
+    withOperationalOnly.operationalLogger,
+    providedOperational,
+  );
+
+  const withAuditOnly = resolveRuntimeLoggers({
+    auditLogger: providedAudit,
+  });
+  assertEquals(withAuditOnly.auditLogger, providedAudit);
+
+  const withBoth = resolveRuntimeLoggers({
+    operationalLogger: providedOperational,
+    auditLogger: providedAudit,
+  });
+  assertEquals(withBoth.operationalLogger, providedOperational);
+  assertEquals(withBoth.auditLogger, providedAudit);
 });

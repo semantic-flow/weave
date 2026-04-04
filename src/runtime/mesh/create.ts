@@ -4,7 +4,7 @@ import {
   type MeshCreateRequest,
   planMeshCreate,
 } from "../../core/mesh/create.ts";
-import { createRuntimeLoggers } from "../logging/factory.ts";
+import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
 
@@ -123,14 +123,7 @@ function resolveLoggers(
   operationalLogger: StructuredLogger;
   auditLogger: AuditLogger;
 } {
-  if (options.operationalLogger && options.auditLogger) {
-    return {
-      operationalLogger: options.operationalLogger,
-      auditLogger: options.auditLogger,
-    };
-  }
-
-  return createRuntimeLoggers();
+  return resolveRuntimeLoggers(options);
 }
 
 async function ensureWorkspaceRootExists(workspaceRoot: string): Promise<void> {
