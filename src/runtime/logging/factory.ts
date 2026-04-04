@@ -52,6 +52,13 @@ export function resolveRuntimeLoggers(options: {
   operationalLogger: StructuredLogger;
   auditLogger: AuditLogger;
 } {
+  if (options.operationalLogger && options.auditLogger) {
+    return {
+      operationalLogger: options.operationalLogger,
+      auditLogger: options.auditLogger,
+    };
+  }
+
   const defaults = createRuntimeLoggers();
 
   return {

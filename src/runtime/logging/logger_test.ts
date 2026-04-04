@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertStrictEquals } from "@std/assert";
 import { join } from "@std/path";
 import { createRuntimeLoggers, resolveRuntimeLoggers } from "./factory.ts";
 import { createTestTmpDir } from "../../../tests/support/test_tmp.ts";
@@ -40,7 +40,7 @@ Deno.test("resolveRuntimeLoggers preserves individually provided loggers", () =>
   const withOperationalOnly = resolveRuntimeLoggers({
     operationalLogger: providedOperational,
   });
-  assertEquals(
+  assertStrictEquals(
     withOperationalOnly.operationalLogger,
     providedOperational,
   );
@@ -48,12 +48,12 @@ Deno.test("resolveRuntimeLoggers preserves individually provided loggers", () =>
   const withAuditOnly = resolveRuntimeLoggers({
     auditLogger: providedAudit,
   });
-  assertEquals(withAuditOnly.auditLogger, providedAudit);
+  assertStrictEquals(withAuditOnly.auditLogger, providedAudit);
 
   const withBoth = resolveRuntimeLoggers({
     operationalLogger: providedOperational,
     auditLogger: providedAudit,
   });
-  assertEquals(withBoth.operationalLogger, providedOperational);
-  assertEquals(withBoth.auditLogger, providedAudit);
+  assertStrictEquals(withBoth.operationalLogger, providedOperational);
+  assertStrictEquals(withBoth.auditLogger, providedAudit);
 });

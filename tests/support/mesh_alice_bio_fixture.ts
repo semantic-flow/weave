@@ -69,7 +69,9 @@ async function resolveMeshAliceBioGitRefUncached(
   }
 
   throw new Error(
-    `Failed to resolve fixture ref ${ref} in ${fixtureRepoPath}; checked ${candidates.join(", ")}.`,
+    `Failed to resolve fixture ref ${ref} in ${fixtureRepoPath}; checked ${
+      candidates.join(", ")
+    }.`,
   );
 }
 
