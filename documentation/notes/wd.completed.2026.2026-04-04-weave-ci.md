@@ -2,7 +2,7 @@
 id: p6n4x8b2q1v7m3c9t5k0jra
 title: 2026 04 04 Weave CI
 desc: ''
-updated: 1775366400000
+updated: 1775338619505
 created: 1775366400000
 ---
 
@@ -200,12 +200,12 @@ That should not be part of the first CI task unless the baseline PR workflow is 
 - [x] Add `.github/workflows/ci.yml` for pull requests and default-branch validation.
 - [x] Add dedicated coverage tasks, likely `test:coverage` and `coverage:lcov`, so coverage generation is repository-defined rather than workflow-local.
 - [x] Add a minimal `.coderabbit.yaml` with Weave-appropriate review exclusions.
-- [ ] Verify or install the CodeRabbit GitHub app for the relevant repository or organization.
+- [x] Verify or install the CodeRabbit GitHub app for the relevant repository or organization.
 - [c] Enable branch protection on the default branch and require the `ci` status for this first pass.
 - [x] Generate `coverage/lcov.info` in CI via the dedicated coverage tasks.
-- [ ] Onboard `weave` in Codecov.
+- [x] Onboard `weave` in Codecov.
 - [x] Add the first Codecov upload step.
 - [x] Prefer an OIDC-based Codecov upload path unless a concrete blocker appears.
-- [ ] Enable GitHub CodeQL default setup and review the first baseline findings.
+- [x] Enable GitHub CodeQL default setup and review the first baseline findings.
 - [x] Add Dependabot for GitHub Actions updates if the initial workflow surface is stable enough to justify it.
-- [ ] Revisit later whether Codecov should remain informational or become a required signal.
+- [c] Revisit later whether Codecov should remain informational or become a required signal.

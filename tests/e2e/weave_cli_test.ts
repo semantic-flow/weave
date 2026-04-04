@@ -15,16 +15,35 @@ import { createTestTmpDir } from "../support/test_tmp.ts";
 
 const repoRoot = new URL("../../", import.meta.url);
 
-Deno.test("weave matches the manifest-scoped alice-bio knob-created-woven fixture as a black-box CLI run", async () => {
+Deno.test("weave matches the manifest-scoped alice knop-created-woven fixture as a black-box CLI run", async () => {
+  await assertWeaveTransitionMatchesManifest({
+    manifestName: "05-alice-knop-created-woven.jsonld",
+    expectedStdoutFragment: "Wove 1 designator path",
+  });
+});
+
+Deno.test("weave matches the manifest-scoped alice bio integrated-woven fixture as a black-box CLI run", async () => {
+  await assertWeaveTransitionMatchesManifest({
+    manifestName: "07-alice-bio-integrated-woven.jsonld",
+    expectedStdoutFragment: "Wove 1 designator path",
+  });
+});
+
+async function assertWeaveTransitionMatchesManifest(
+  options: {
+    manifestName: string;
+    expectedStdoutFragment: string;
+  },
+): Promise<void> {
   const manifestPath = resolveMeshAliceBioConformanceManifestPath(
-    "05-alice-knop-created-woven.jsonld",
+    options.manifestName,
   );
   const transitionCase = await readSingleTransitionCase(manifestPath);
   assertEquals(transitionCase.operationId, "weave");
-  assertEquals(transitionCase.fromRef, "04-alice-knop-created");
-  assertEquals(transitionCase.toRef, "05-alice-knop-created-woven");
 
-  const workspaceRoot = await createTestTmpDir("weave-e2e-weave-");
+  const workspaceRoot = await createTestTmpDir(
+    `weave-e2e-${options.manifestName}-`,
+  );
   await materializeMeshAliceBioBranch(transitionCase.fromRef!, workspaceRoot);
 
   const command = new Deno.Command("deno", {
@@ -46,7 +65,7 @@ Deno.test("weave matches the manifest-scoped alice-bio knob-created-woven fixtur
   const stderr = new TextDecoder().decode(output.stderr);
 
   assert(output.success, stderr);
-  assert(stdout.includes("Wove 1 designator path"), stdout);
+  assert(stdout.includes(options.expectedStdoutFragment), stdout);
 
   assertEquals(
     await listRelativeFiles(workspaceRoot, ".weave/"),
@@ -91,7 +110,7 @@ Deno.test("weave matches the manifest-scoped alice-bio knob-created-woven fixtur
 
   await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
   await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
-});
+}
 
 async function listRelativeFiles(
   root: string,

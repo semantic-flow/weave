@@ -2,7 +2,7 @@
 id: yco42nwsnax60rms6xdssv4
 title: 2026 04 04 CI Dependency Fixes
 desc: ''
-updated: 1775334213843
+updated: 1775338503206
 created: 1775318903701
 ---
 
@@ -143,5 +143,5 @@ But that is follow-up work. This task exists to make the current test harness po
 - [x] Update `.github/workflows/ci.yml` to check out `mesh-alice-bio` into `dependencies/github.com/semantic-flow/mesh-alice-bio`.
 - [x] Verify `deno task check` succeeds after the path changes.
 - [x] Verify `deno task test` succeeds after the path changes.
-- [ ] Verify the GitHub Actions workflow no longer depends on ignored local repositories being present on the runner.
-- [ ] Decide later whether Accord should become a published dependency or whether Weave should copy the tiny helper surface it currently imports.
+- [x] Verify the GitHub Actions workflow no longer depends on ignored local repositories being present on the runner.
+- [x] Decide later whether Accord should become a published dependency or whether Weave should copy the tiny helper surface it currently imports.

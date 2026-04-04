@@ -83,10 +83,10 @@ That means `07` should not only use shared runtime page-generation helpers for t
 
 That is still a bounded change because the existing page generation is concentrated in the current shared `weave` implementation, not spread across every prior semantic slice. A broader retrofit across unrelated non-rendering slices should stay out of scope unless this work exposes a concrete need for a separate cleanup task.
 
-## Open Issues
+## Resolved Issues
 
-- Does the current shared `weave` request shape stay narrow with `designatorPaths`, or does payload weaving reveal the need for a more explicit artifact-target model later?
-- How small can the first shared runtime page-generation seam stay while still absorbing both the existing `05` weave pages and the new `07` payload-facing pages?
+- The current shared `weave` request shape stayed narrow with `designatorPaths` for this slice; payload weaving did not require a broader artifact-target contract.
+- The first shared runtime page-generation seam stayed small: `core` now derives page models while runtime owns HTML rendering for both the carried `05` and `07` weave pages.
 
 ## Decisions
 
@@ -98,11 +98,13 @@ That is still a bounded change because the existing page generation is concentra
 - Keep `alice-bio.ttl` at the repo root as the current working payload file while materializing payload history under `alice/bio/_history001/...`.
 - Put ResourcePage generation for this slice behind shared runtime helpers that separate page-model derivation from HTML rendering.
 - As part of that seam, move the existing carried render-bearing weave behavior onto the same helpers rather than leaving two page-generation paths in place.
+- Keep the current `07` page output fixture-first and minimal; defer richer page-generation rules to later weave slices.
+- Keep current local `weave` runtime validation at generated-RDF parse validation for this slice.
 - Do not absorb reference-catalog weaving, referenced-resource extraction, daemon work, or broader rendering ambitions into this task.
 
 ## Contract Changes
 
-- This task may refine the thin public request/result examples for the generic `weave` operation in `semantic-flow-framework` if the payload case sharpens the current contract.
+- No public `weave` contract change was required for this slice; the existing thin `designatorPaths` request/result shape still fit the payload weave case.
 - This task should not attempt to finalize the full `weave` contract across every future artifact type and scope mode.
 
 ## Testing
@@ -126,12 +128,12 @@ That is still a bounded change because the existing page generation is concentra
 
 ## Implementation Plan
 
-- [ ] Confirm whether the existing weave behavior spec is sufficient as-is for the `07` slice.
-- [ ] Define the next local request/result shapes for `weave` in shared `core` and `runtime` if payload weaving requires a refinement.
-- [ ] Add failing unit and integration tests for the `07` payload-weave behavior.
-- [ ] Define the minimal shared runtime page-model and HTML-rendering seam needed for both the existing `05` weave pages and the new `07` payload-facing pages.
-- [ ] Move the existing carried render-bearing weave behavior onto that shared page-generation seam so this task does not leave two page-generation implementations behind.
-- [ ] Implement the next local or in-process `weave` path over shared `core` and `runtime`.
-- [ ] Add a black-box CLI acceptance test scoped by the settled `07-alice-bio-integrated-woven` Accord manifest.
-- [ ] Draft or refine the thin public API example or contract fragment for `weave` in `semantic-flow-framework` if this slice sharpens the public contract.
-- [ ] Update relevant overview/spec/framework notes as the slice settles.
+- [x] Confirm whether the existing weave behavior spec is sufficient as-is for the `07` slice.
+- [x] Define the next local request/result shapes for `weave` in shared `core` and `runtime` if payload weaving requires a refinement.
+- [x] Add failing unit and integration tests for the `07` payload-weave behavior.
+- [x] Define the minimal shared runtime page-model and HTML-rendering seam needed for both the existing `05` weave pages and the new `07` payload-facing pages.
+- [x] Move the existing carried render-bearing weave behavior onto that shared page-generation seam so this task does not leave two page-generation implementations behind.
+- [x] Implement the next local or in-process `weave` path over shared `core` and `runtime`.
+- [x] Add a black-box CLI acceptance test scoped by the settled `07-alice-bio-integrated-woven` Accord manifest.
+- [c] Draft or refine the thin public API example or contract fragment for `weave` in `semantic-flow-framework` if this slice sharpens the public contract. Reason: the existing thin `designatorPaths`-based contract was still sufficient, so no framework example change was needed in this task.
+- [x] Update relevant overview/spec/framework notes as the slice settles.

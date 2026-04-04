@@ -12,7 +12,7 @@ created: 1773673181726
   semantic operations and domain rules
   mesh create, knop create, integrate, version, validate, generate, extract, weave
   request/result types shared by all callers
-  current carried slices: `mesh create` request validation/support-artifact rendering, `knop create` planning over an existing mesh inventory, the first narrow `integrate` planning slice for `05-alice-knop-created-woven` -> `06-alice-bio-integrated`, and the first narrow `weave` planning/rendering slice for `04-alice-knop-created` -> `05-alice-knop-created-woven`
+  current carried slices: `mesh create` request validation/support-artifact rendering, `knop create` planning over an existing mesh inventory, the first narrow `integrate` planning slice for `05-alice-knop-created-woven` -> `06-alice-bio-integrated`, and the first two narrow `weave` planning slices for `04-alice-knop-created` -> `05-alice-knop-created-woven` and `06-alice-bio-integrated` -> `07-alice-bio-integrated-woven`
 
 ### runtime
   local workspace execution
@@ -20,7 +20,7 @@ created: 1773673181726
   job execution primitives, but not HTTP
   includes first-pass Deno-native structured operational and audit logging
   persistent config direction is RDF, probably JSON-LD, and should remain queryable via SPARQL
-  current carried slices: local filesystem materialization for `mesh create`, `knop create`, the first local `integrate` pass over an existing workspace payload file, and the first local `weave` pass over an existing workspace
+  current carried slices: local filesystem materialization for `mesh create`, `knop create`, the first local `integrate` pass over an existing workspace payload file, and the first two local `weave` passes over an existing workspace with a shared runtime ResourcePage renderer seam
   current logging slice: narrow Kato-inspired `LogRecord` / sink / `StructuredLogger` / `AuditLogger` JSONL layer
 
 ### daemon
@@ -36,7 +36,7 @@ created: 1773673181726
   local mode: calls core/runtime directly
   no separate semantic logic
   current carried slices: top-level local `weave`, plus local `weave mesh create`, `weave knop create`, and `weave integrate`, all over shared core/runtime
-  current acceptance paths: black-box CLI execution checked against the `02-mesh-created`, `04-alice-knop-created`, `05-alice-knop-created-woven`, and `06-alice-bio-integrated` Accord manifest scopes
+  current acceptance paths: black-box CLI execution checked against the `02-mesh-created`, `04-alice-knop-created`, `05-alice-knop-created-woven`, `06-alice-bio-integrated`, and `07-alice-bio-integrated-woven` Accord manifest scopes
 
 ### web app
   browser client of daemon
@@ -52,8 +52,9 @@ created: 1773673181726
 - The first carried implementation slice is the local `mesh create` path matching the settled Alice Bio `01-source-only` -> `02-mesh-created` fixture state.
 - The second carried implementation slice is the local `knop create` path matching the settled Alice Bio `03-mesh-created-woven` -> `04-alice-knop-created` fixture state.
 - The third carried implementation slice is the local `integrate` path matching the settled Alice Bio `05-alice-knop-created-woven` -> `06-alice-bio-integrated` fixture state.
-- The current carried `weave` slice is the local `04-alice-knop-created` -> `05-alice-knop-created-woven` path, including first-history creation for Knop support artifacts and minimal generated HTML pages.
+- The fourth carried implementation slice is the local `weave` path matching the settled Alice Bio `06-alice-bio-integrated` -> `07-alice-bio-integrated-woven` fixture state.
+- The current carried `weave` slices are the local `04-alice-knop-created` -> `05-alice-knop-created-woven` and `06-alice-bio-integrated` -> `07-alice-bio-integrated-woven` paths, including first-history creation for Knop support artifacts, first payload-artifact history creation, and minimal generated HTML pages rendered through a shared runtime page seam.
 - `mesh create` now has a manifest-scoped black-box CLI acceptance test and thin framework example payloads.
 - `knop create` now resolves `meshBase` from existing mesh metadata, creates the first Knop support artifacts, and has a manifest-scoped black-box CLI acceptance test.
 - `integrate` now resolves a local source path or `file:` URL into a mesh-relative working file path, creates the first payload-Knop support artifacts, updates MeshInventory, and has manifest-scoped black-box CLI acceptance coverage together with thin framework examples.
-- `weave` now runs as the top-level local CLI action, versions the first Alice Knop support artifacts, advances MeshInventory, and has manifest-scoped black-box CLI acceptance coverage.
+- `weave` now runs as the top-level local CLI action, versions the first Alice Knop support artifacts and the first Alice Bio payload history surface, advances MeshInventory where the public current surface changed, and has manifest-scoped black-box CLI acceptance coverage through `07`.

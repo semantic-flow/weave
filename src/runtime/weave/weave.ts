@@ -1,8 +1,10 @@
 import { dirname, join } from "@std/path";
 import { Parser } from "n3";
+import type { PlannedFile } from "../../core/planned_file.ts";
 import {
-  type FirstWeaveKnopCandidate,
+  type PayloadWorkingArtifact,
   planWeave,
+  type WeaveableKnopCandidate,
   WeaveInputError,
   type WeavePlan,
   type WeaveRequest,
@@ -10,6 +12,7 @@ import {
 import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
+import { renderResourcePages } from "./pages.ts";
 
 export interface ExecuteWeaveOptions {
   workspaceRoot: string;
@@ -38,6 +41,7 @@ export async function executeWeave(
   const { operationalLogger, auditLogger } = resolveLoggers(options);
   const workspaceRoot = options.workspaceRoot;
   let plan: WeavePlan | undefined;
+  let createdOutputFiles: readonly PlannedFile[] = [];
 
   await operationalLogger.info("weave.started", "Starting local weave", {
     workspaceRoot,
@@ -51,7 +55,7 @@ export async function executeWeave(
   try {
     await ensureWorkspaceRootExists(workspaceRoot);
     const meshState = await loadMeshState(workspaceRoot);
-    const weaveableKnops = await loadFirstWeaveKnopCandidates(
+    const weaveableKnops = await loadWeaveableKnopCandidates(
       workspaceRoot,
       meshState.currentMeshInventoryTurtle,
     );
@@ -61,11 +65,15 @@ export async function executeWeave(
       currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
       weaveableKnops,
     });
-    assertUpdatedTargetsExist(workspaceRoot, plan);
-    await assertCreateTargetsDoNotExist(workspaceRoot, plan);
-    validateRdfPlan(plan);
-    await writeCreatedFiles(workspaceRoot, plan);
-    await writeUpdatedFiles(workspaceRoot, plan);
+    createdOutputFiles = [
+      ...plan.createdFiles,
+      ...renderResourcePages(plan.meshBase, plan.createdPages),
+    ];
+    assertUpdatedTargetsExist(workspaceRoot, plan.updatedFiles);
+    await assertCreateTargetsDoNotExist(workspaceRoot, createdOutputFiles);
+    validateRdfFiles([...plan.createdFiles, ...plan.updatedFiles]);
+    await writeFiles(workspaceRoot, createdOutputFiles, true);
+    await writeFiles(workspaceRoot, plan.updatedFiles, false);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await operationalLogger.error("weave.failed", "Local weave failed", {
@@ -90,7 +98,7 @@ export async function executeWeave(
   const result: WeaveResult = {
     meshBase: plan.meshBase,
     wovenDesignatorPaths: plan.wovenDesignatorPaths,
-    createdPaths: plan.createdFiles.map((file) => file.path),
+    createdPaths: createdOutputFiles.map((file) => file.path),
     updatedPaths: plan.updatedFiles.map((file) => file.path),
   };
 
@@ -183,10 +191,10 @@ async function loadMeshState(
   };
 }
 
-async function loadFirstWeaveKnopCandidates(
+async function loadWeaveableKnopCandidates(
   workspaceRoot: string,
   currentMeshInventoryTurtle: string,
-): Promise<readonly FirstWeaveKnopCandidate[]> {
+): Promise<readonly WeaveableKnopCandidate[]> {
   const knopMatches = [
     ...currentMeshInventoryTurtle.matchAll(/<([^>]+\/_knop)> a sflo:Knop ;/g),
   ];
@@ -194,7 +202,7 @@ async function loadFirstWeaveKnopCandidates(
     match[1]!.slice(0, -"/_knop".length)
   );
 
-  const candidates: FirstWeaveKnopCandidate[] = [];
+  const candidates: WeaveableKnopCandidate[] = [];
   for (const designatorPath of designatorPaths) {
     const knopPath = `${designatorPath}/_knop`;
     const metadataPath = join(workspaceRoot, `${knopPath}/_meta/meta.ttl`);
@@ -226,6 +234,11 @@ async function loadFirstWeaveKnopCandidates(
       designatorPath,
       currentKnopMetadataTurtle,
       currentKnopInventoryTurtle,
+      payloadArtifact: await loadPayloadWorkingArtifact(
+        workspaceRoot,
+        designatorPath,
+        currentKnopInventoryTurtle,
+      ),
     });
   }
 
@@ -234,11 +247,65 @@ async function loadFirstWeaveKnopCandidates(
   );
 }
 
+async function loadPayloadWorkingArtifact(
+  workspaceRoot: string,
+  designatorPath: string,
+  currentKnopInventoryTurtle: string,
+): Promise<PayloadWorkingArtifact | undefined> {
+  if (
+    !currentKnopInventoryTurtle.includes(
+      `sflo:hasPayloadArtifact <${designatorPath}>`,
+    )
+  ) {
+    return undefined;
+  }
+
+  const payloadBlock = currentKnopInventoryTurtle
+    .split("\n\n")
+    .find((block) =>
+      block.startsWith(
+        `<${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;`,
+      )
+    );
+
+  if (!payloadBlock) {
+    throw new WeaveRuntimeError(
+      `Could not resolve the payload artifact block for ${designatorPath}.`,
+    );
+  }
+
+  const workingFilePathMatch = payloadBlock.match(
+    /sflo:hasWorkingLocatedFile <([^>]+)>/,
+  );
+  if (!workingFilePathMatch) {
+    throw new WeaveRuntimeError(
+      `Could not resolve the working payload file for ${designatorPath}.`,
+    );
+  }
+
+  const workingFilePath = workingFilePathMatch[1]!;
+  try {
+    return {
+      workingFilePath,
+      currentPayloadTurtle: await Deno.readTextFile(
+        join(workspaceRoot, workingFilePath),
+      ),
+    };
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      throw new WeaveRuntimeError(
+        `Workspace is missing the working payload file for ${designatorPath}: ${workingFilePath}`,
+      );
+    }
+    throw error;
+  }
+}
+
 function assertUpdatedTargetsExist(
   workspaceRoot: string,
-  plan: WeavePlan,
+  files: readonly PlannedFile[],
 ): void {
-  for (const file of plan.updatedFiles) {
+  for (const file of files) {
     const absolutePath = join(workspaceRoot, file.path);
     try {
       Deno.statSync(absolutePath);
@@ -255,9 +322,9 @@ function assertUpdatedTargetsExist(
 
 async function assertCreateTargetsDoNotExist(
   workspaceRoot: string,
-  plan: WeavePlan,
+  files: readonly PlannedFile[],
 ): Promise<void> {
-  for (const file of plan.createdFiles) {
+  for (const file of files) {
     try {
       await Deno.stat(join(workspaceRoot, file.path));
       throw new WeaveRuntimeError(`weave target already exists: ${file.path}`);
@@ -270,10 +337,10 @@ async function assertCreateTargetsDoNotExist(
   }
 }
 
-function validateRdfPlan(plan: WeavePlan): void {
+function validateRdfFiles(files: readonly PlannedFile[]): void {
   const parser = new Parser();
 
-  for (const file of [...plan.createdFiles, ...plan.updatedFiles]) {
+  for (const file of files) {
     if (!file.path.endsWith(".ttl")) {
       continue;
     }
@@ -288,24 +355,18 @@ function validateRdfPlan(plan: WeavePlan): void {
   }
 }
 
-async function writeCreatedFiles(
+async function writeFiles(
   workspaceRoot: string,
-  plan: WeavePlan,
+  files: readonly PlannedFile[],
+  createNew: boolean,
 ): Promise<void> {
-  for (const file of plan.createdFiles) {
+  for (const file of files) {
     const absolutePath = join(workspaceRoot, file.path);
     await Deno.mkdir(dirname(absolutePath), { recursive: true });
-    await Deno.writeTextFile(absolutePath, file.contents, { createNew: true });
-  }
-}
-
-async function writeUpdatedFiles(
-  workspaceRoot: string,
-  plan: WeavePlan,
-): Promise<void> {
-  for (const file of plan.updatedFiles) {
-    const absolutePath = join(workspaceRoot, file.path);
-    await Deno.mkdir(dirname(absolutePath), { recursive: true });
-    await Deno.writeTextFile(absolutePath, file.contents);
+    await Deno.writeTextFile(
+      absolutePath,
+      file.contents,
+      createNew ? { createNew: true } : undefined,
+    );
   }
 }
