@@ -2,7 +2,7 @@
 id: xniuk4dvzoi717h9g8epjbk
 title: Decision Log
 desc: ''
-updated: 1773897667180
+updated: 1775338353369
 created: 1773630801215
 ---
 
@@ -30,21 +30,21 @@ created: 1773630801215
 ### 2026-04-03: Shared Core Below the Daemon
 
 - Decision: Keep semantic operations in shared `core` and `runtime` code, with the daemon as the long-running HTTP implementation of the public Semantic Flow API.
-- References: [[wd.task.2026.2026-03-15-fresh-monorepo]], [[wd.task.2026.2026-03-20-architecture-planning]], [[wd.codebase-overview]]
+- References: [[wd.completed.2026.2026-03-15-fresh-monorepo]], [[wd.task.2026.2026-03-20-architecture-planning]], [[wd.codebase-overview]]
 - Why:
   - The CLI must support both remote and local or in-process execution without forking semantic behavior.
 
 ### 2026-04-03: Public Contract Stays in semantic-flow-framework for Now
 
 - Decision: Keep the public Semantic Flow API contract in `semantic-flow-framework` for now rather than creating a day-one separate spec repo.
-- References: [[wd.task.2026.2026-03-15-fresh-monorepo]], [[wd.task.2026.2026-03-20-architecture-planning]]
+- References: [[wd.completed.2026.2026-03-15-fresh-monorepo]], [[wd.task.2026.2026-03-20-architecture-planning]]
 - Why:
   - The contract is still being discovered alongside the first implementation slices and example corpus.
 
 ### 2026-04-03: dependencies/ Is the Reference Repo Folder
 
 - Decision: Use `dependencies/` as the top-level folder for checked-out sibling repos.
-- References: [[wd.task.2026.2026-03-15-fresh-monorepo]]
+- References: [[wd.completed.2026.2026-03-15-fresh-monorepo]]
 
 ### 2026-04-03: Reuse Kato Logging Concepts, Not the Full Stack
 
@@ -85,12 +85,12 @@ created: 1773630801215
 ### 2026-04-03: User Docs Stay in the Monorepo for Now
 
 - Decision: Keep initial user-facing documentation under `documentation/notes/wu.*`, while shared cross-audience notes may remain top-level for now.
-- References: [[wd.task.2026.2026-03-15-fresh-monorepo]], [[wd.task.2026.2026-03-20-architecture-planning]]
+- References: [[wd.completed.2026.2026-03-15-fresh-monorepo]], [[wd.task.2026.2026-03-20-architecture-planning]]
 
 ### 2026-04-03: Browser Client Name
 
 - Decision: Use `Shuttle` as the current user-facing name for the browser client.
-- References: [[wd.task.2026.2026-03-15-fresh-monorepo]], [[wd.task.2026.2026-03-20-architecture-planning]], [[wd.codebase-overview]]
+- References: [[wd.completed.2026.2026-03-15-fresh-monorepo]], [[wd.task.2026.2026-03-20-architecture-planning]], [[wd.codebase-overview]]
 
 ### 2026-04-03: TUI Deferred
 
@@ -132,7 +132,7 @@ created: 1773630801215
 ### 2026-04-04: First Local integrate Slice Targets Alice 05 -> 06
 
 - Decision: Treat the settled Alice Bio `05-alice-knop-created-woven` -> `06-alice-bio-integrated` transition as the first carried local `integrate` implementation slice, limited to creating the payload-Knop support artifacts and updating `MeshInventory` while leaving histories and generated pages for the later woven step.
-- References: [[wd.task.2026.2026-04-04-integrate-alice-bio]], [[wd.spec.2026-04-04-integrate-behavior]]
+- References: [[wd.completed.2026.2026-04-04-integrate-alice-bio]], [[wd.spec.2026-04-04-integrate-behavior]]
 - Why:
   - It is the next settled semantic operation boundary after the first completed local `weave` slice.
   - The fixture already proves that payload integration is distinct from later `weave` behavior.
@@ -140,7 +140,22 @@ created: 1773630801215
 ### 2026-04-04: integrate CLI Uses Explicit Source While core Stays Mesh-Relative
 
 - Decision: Make the first local `integrate` CLI take the source as the primary positional input and accept `designatorPath` either as a second positional argument or via `--designator-path`, while keeping host paths out of shared `core` by planning the operation from a mesh-relative working file path.
-- References: [[wd.task.2026.2026-04-04-integrate-alice-bio]], [[wd.spec.2026-04-04-integrate-behavior]]
+- References: [[wd.completed.2026.2026-04-04-integrate-alice-bio]], [[wd.spec.2026-04-04-integrate-behavior]]
 - Why:
   - The local CLI should read as acting on a source artifact rather than on a designator path.
   - A mesh-relative working file path in `core` leaves room for later runtime staging from `file:` or remote source URIs without collapsing the semantic contract into host-path semantics.
+
+### 2026-04-04: Second Local weave Slice Targets Alice 06 -> 07
+
+- Decision: Treat the settled Alice Bio `06-alice-bio-integrated` -> `07-alice-bio-integrated-woven` transition as the next carried local `weave` implementation slice, keep `designatorPaths` as the thin target surface, and route both the earlier `05` pages and the new `07` pages through a shared runtime page-rendering seam.
+- References: [[wd.completed.2026.2026-04-04-weave-alice-bio-integrated-woven]], [[wd.spec.2026-04-03-weave-behavior]]
+- Why:
+  - It proves first payload-artifact history creation plus first payload-Knop support-artifact histories without absorbing later reference-catalog or Bob behavior.
+  - The payload slice did not justify a broader artifact-target request contract; the existing narrow `designatorPaths` request still fit.
+
+### 2026-04-04: Current Local weave Validation Floor Is Parse-Only
+
+- Decision: Keep the current carried local `weave` runtime at parse-only RDF validation for generated outputs, while leaving merged-graph, ontology, and SHACL validation as a later follow-up.
+- References: [[wd.completed.2026.2026-04-04-weave-alice-bio-integrated-woven]], [[wd.spec.2026-04-03-weave-behavior]]
+- Why:
+  - Parse validation is enough to carry the settled `07` payload weave slice without pretending the broader validator stack is already implemented.

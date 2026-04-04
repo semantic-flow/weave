@@ -1,13 +1,18 @@
 ---
 id: knop-create-62dc4cb4
-title: 'knop create'
+title: knop create
 desc: ''
+updated: 1775338651219
 created: 1775317147586
-updated: 1775317147586
-participants: [djradon, codex.gpt-5.4]
-kato-sessionIds: [019d56ee-2b2b-7723-bfd6-b74bd07657d3]
-kato-workspaceIds: [f6e2f488-e64d-4140-aacb-87d10f58555f]
-kato-recordingIds: [62dc4cb4-05ae-428f-b6bc-dbda5a2a8b92]
+participants:
+  - djradon
+  - codex.gpt-5.4
+kato-sessionIds:
+  - 019d56ee-2b2b-7723-bfd6-b74bd07657d3
+kato-workspaceIds:
+  - f6e2f488-e64d-4140-aacb-87d10f58555f
+kato-recordingIds:
+  - 62dc4cb4-05ae-428f-b6bc-dbda5a2a8b92
 ---
 
 # User_2026-04-03_2221_03
@@ -351,7 +356,7 @@ I have the fixture boundaries. I’m writing a new `wd.task.*` note for the firs
 
 The draft note is in place. I’m doing one quick readback and status check, then I’ll stop so you can review it before any implementation starts.
 
-Drafted the next task note at [[wd.task.2026.2026-04-04-integrate-alice-bio]].
+Drafted the next task note at [[wd.completed.2026.2026-04-04-integrate-alice-bio]].
 
 It scopes the next carried slice to `05-alice-knop-created-woven -> 06-alice-bio-integrated`, keeps `alice-bio.ttl` at the repo root, adds the `alice/bio` payload artifact plus payload-Knop support artifacts, and explicitly leaves `07` weave behavior, page generation, histories, and Bob auto-extraction out of scope.
 
@@ -368,24 +373,24 @@ I’m drafting a CI task note only and stopping there for review. First I’m re
 I found the Kato CI note too. I’m pulling that and the current Weave repo context so the new task reflects your actual CI goals here: PR-based flow, CodeRabbit, Codecov, and quality gates, without copying Accord blindly.
 
 Weave doesn’t have any repo-local GitHub automation yet, so the note needs to be the intake for both in-repo workflow files and the GitHub-side setup. I’m checking for any existing Weave notes on CI/branch protection so I don’t create overlapping task prose.
-
+wd.completed.2026.2026-04-04-weave-ci
 I’m writing the note now. It will stay at planning level: repo files, GitHub-side settings, rollout phases, and explicit non-goals, with no implementation work yet.
 
 The note is drafted. I’m reading it back once and checking the worktree so I can hand you just the task note cleanly, without touching the already-open integrate note.
 
-Drafted the CI task note at [[wd.task.2026.2026-04-04-weave-ci]].
+Drafted the CI task note at [[wd.completed.2026.2026-04-04-weave-ci]].
 
 It is scoped around:
 - PR-based development and branch protection
 - `.github/workflows/ci.yml` as the first baseline workflow
 - CodeRabbit on PRs
 - Codecov reporting with a Kato-style OIDC preference
-- GitHub CodeQL default setup
+- Giwd.completed.2026.2026-04-04-weave-ci
 - conservative first quality gates, with Codecov informational at first
 
 I did not start any implementation. The worktree now just has the two untracked task notes:
-- [[wd.task.2026.2026-04-04-integrate-alice-bio]]
-- [[wd.task.2026.2026-04-04-weave-ci]]
+- [[wd.completed.2026.2026-04-04-integrate-alice-bio]]
+- [[wd.completed.2026.2026-04-04-weave-ci]]
 
 # User_2026-04-04_0818_19
 
@@ -396,16 +401,16 @@ Should we start the CI task in a new chat?
 Yes. A new chat is better for the CI task.
 
 Reasons:
-- cleaner scope and history
+- cleaner scope and historwd.completed.2026.2026-04-04-weave-ci
 - easier to review the task note against only CI-related decisions
 - less chance of accidental bleed-over from the `weave` and `integrate` slice work
 - better fit for the “review task note first, then implement” workflow you asked for
 
-Start the new chat from [[wd.task.2026.2026-04-04-weave-ci]], and I’ll treat that as the sole task context until you approve implementation.
+Start the new chat from [[wd.completed.2026.2026-04-04-weave-ci]], and I’ll treat that as the sole task context until you approve implementation.
 
 # User_2026-04-04_0833_56
 
-OK, CI should be in place. I've switched to a new branch. Should we tackle [[wd.task.2026.2026-04-04-integrate-alice-bio]] in this chat or start a new one?
+OK, CI should be in place. I've switched to a new branch. Should we tackle [[wd.completed.2026.2026-04-04-integrate-alice-bio]] in this chat or start a new one?
 
 # gpt-5.4_2026-04-04_0834_06
 
@@ -416,4 +421,4 @@ This chat already mixes:
 - the CI task drafting
 - the integrate task drafting
 
-For `05 -> 06 integrate`, a fresh chat will keep the context tight around [[wd.task.2026.2026-04-04-integrate-alice-bio]], your new branch, and the “review task note first, then implement” workflow. If you open the new chat from that note, I’ll treat it as the sole active task.
+For `05 -> 06 integrate`, a fresh chat will keep the context tight around [[wd.completed.2026.2026-04-04-integrate-alice-bio]], your new branch, and the “review task note first, then implement” workflow. If you open the new chat from that note, I’ll treat it as the sole active task.

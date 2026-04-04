@@ -22,7 +22,7 @@ The rules below are the best current synthesis of:
 - the corresponding Accord conformance manifests
 - the current Semantic Flow ontology direction
 
-The first carried local implementation of this behavior is the settled Alice Bio `04-alice-knop-created` -> `05-alice-knop-created-woven` slice.
+The carried local implementation of this behavior currently includes the settled Alice Bio `04-alice-knop-created` -> `05-alice-knop-created-woven` and `06-alice-bio-integrated` -> `07-alice-bio-integrated-woven` slices.
 
 If future fixture work contradicts this note, the contradiction should be treated as a real design issue and resolved explicitly rather than silently drifting.
 
@@ -101,7 +101,7 @@ This applies to woven support artifacts such as:
 
 and to woven payload artifacts such as:
 
-- `alice-bio.ttl` matching `alice/bio/_history001/_s0002/alice-bio-ttl/alice-bio.ttl`
+- `alice-bio.ttl` matching the latest `alice/bio/_history001/_sNNNN/alice-bio-ttl/alice-bio.ttl` snapshot
 
 This equality is one of the most important operational expectations to preserve.
 
@@ -117,6 +117,8 @@ At minimum, the current expectation is:
 
 The exact validator stack may evolve, but validation is part of the operation, not an optional afterthought.
 
+For the current carried local runtime, the implemented validation floor is parse validation of generated RDF together with internal consistency of the planned current surface. Broader merged-graph, ontology, and SHACL validation remains an intended direction rather than completed carried behavior.
+
 ### 4. Generate current and historical ResourcePages
 
 `weave` is the step that materializes the human-facing HTML surface.
@@ -128,6 +130,8 @@ That includes:
 - history landing pages such as `D/_knop/_inventory/_history001/index.html`
 - state pages such as `.../_s0001/index.html`
 - manifestation pages such as `.../inventory-ttl/index.html`
+
+For the current carried local `05` and `07` slices, keep the generated HTML aligned with the settled fixture pages even when those pages remain intentionally minimal. Richer identifier wording, state listings, and navigable current pages are proven more fully in later fixture states and should not be retroactively imposed on the earlier acceptance targets.
 
 ## What Weave Does Not Do
 

@@ -3,7 +3,7 @@ id: integrate-alice-bio-a68b486a
 title: 'integrate alice bio'
 desc: ''
 created: 1775317159924
-updated: 1775317159924
+updated: 1775338581960
 participants: [djradon, codex.gpt-5.4]
 kato-sessionIds: [019d5921-8b02-7d33-872e-9ad8655e82e8]
 kato-workspaceIds: [f6e2f488-e64d-4140-aacb-87d10f58555f]
@@ -14,7 +14,7 @@ kato-recordingIds: [a68b486a-189b-494f-af6e-6d4479b045f5]
 
 integrate alice bio
 
-Let's answer the open issues in [[wd.task.2026.2026-04-04-integrate-alice-bio]] and then start implementation.
+Let's answer the open issues in [[wd.completed.2026.2026-04-04-integrate-alice-bio]] and then start implementation.
 
 Regarding wd.spec, we've been creating other spec notes, do you think we should should change course? I think the CLI surface needs at least an explicit source path and deignator path. I'm interested how we'll resolve the "filesystem is separate" tension for core... which reminds me, integrate should eventually be able to take a remote File URL too.
 
@@ -73,7 +73,7 @@ The integrate tests are green. I’m doing one last full repo `ci` pass so the c
 
 The Weave repo is clean from a validation standpoint. I also changed the nested `semantic-flow-framework` checkout for the thin `integrate` examples/spec, so I’m checking that repo’s status separately before I wrap up.
 
-A dedicated `integrate` spec was the right call, so I did not change course on `wd.spec.*`. I added [[wd.spec.2026-04-04-integrate-behavior]] and resolved the open questions in [[wd.task.2026.2026-04-04-integrate-alice-bio]]. The first local CLI is `weave integrate <designatorPath> --source <path-or-file-url>` in [run.ts](/home/djradon/hub/semantic-flow/weave/src/cli/run.ts). Runtime resolves that local source into a mesh-relative working file path in [integrate.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/integrate/integrate.ts), and `core` plans only from `designatorPath + workingFilePath` in [integrate.ts](/home/djradon/hub/semantic-flow/weave/src/core/integrate/integrate.ts), which is the clean answer to the filesystem-separation tension. For now, the local runtime only accepts sources already inside the workspace or equivalent `file:` URLs; later remote staging can slot into runtime without changing the core contract.
+A dedicated `integrate` spec was the right call, so I did not change course on `wd.spec.*`. I added [[wd.spec.2026-04-04-integrate-behavior]] and resolved the open questions in [[wd.completed.2026.2026-04-04-integrate-alice-bio]]. The first local CLI is `weave integrate <designatorPath> --source <path-or-file-url>` in [run.ts](/home/djradon/hub/semantic-flow/weave/src/cli/run.ts). Runtime resolves that local source into a mesh-relative working file path in [integrate.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/integrate/integrate.ts), and `core` plans only from `designatorPath + workingFilePath` in [integrate.ts](/home/djradon/hub/semantic-flow/weave/src/core/integrate/integrate.ts), which is the clean answer to the filesystem-separation tension. For now, the local runtime only accepts sources already inside the workspace or equivalent `file:` URLs; later remote staging can slot into runtime without changing the core contract.
 
 The implementation and coverage are in [integrate.ts](/home/djradon/hub/semantic-flow/weave/src/core/integrate/integrate.ts), [integrate.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/integrate/integrate.ts), [integrate_test.ts](/home/djradon/hub/semantic-flow/weave/src/core/integrate/integrate_test.ts), [integrate_test.ts](/home/djradon/hub/semantic-flow/weave/tests/integration/integrate_test.ts), and [integrate_cli_test.ts](/home/djradon/hub/semantic-flow/weave/tests/e2e/integrate_cli_test.ts). On the thin public example question, I kept it narrow: mesh target, one `designatorPath`, one `sourceUri`, and generic `created`/`updated` results. Those changes are in the nested framework checkout at [[sf.api]], [semantic-flow-api-spec.yaml](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/semantic-flow-api-spec.yaml), [integrate-job-request.jsonld](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/api/integrate-job-request.jsonld), and [integrate-job-succeeded.jsonld](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/api/integrate-job-succeeded.jsonld).
 
@@ -160,7 +160,7 @@ weave integrate alice-bio.ttl alice/bio
 weave integrate alice-bio.ttl --designator-path alice/bio
 ```
 
-I updated the black-box CLI test in [integrate_cli_test.ts](/home/djradon/hub/semantic-flow/weave/tests/e2e/integrate_cli_test.ts) and the integrate notes in [[wd.spec.2026-04-04-integrate-behavior]], [[wd.task.2026.2026-04-04-integrate-alice-bio]], and [[wd.decision-log]]. I did not add silent inference or interactive prompting yet; the command still requires an explicit designator path to avoid minting the wrong identifier.
+I updated the black-box CLI test in [integrate_cli_test.ts](/home/djradon/hub/semantic-flow/weave/tests/e2e/integrate_cli_test.ts) and the integrate notes in [[wd.spec.2026-04-04-integrate-behavior]], [[wd.completed.2026.2026-04-04-integrate-alice-bio]], and [[wd.decision-log]]. I did not add silent inference or interactive prompting yet; the command still requires an explicit designator path to avoid minting the wrong identifier.
 
 Verification: `deno task ci` passed.
 
@@ -225,7 +225,7 @@ I’ve got the review items. I’m checking the actual `integrate` runtime code 
 
 I’ve sorted them. Only the logger-preservation item rises to “should do” for this task; the others are either low-value polish or broader cleanup that should not be smuggled into this slice as integrate-only churn.
 
-I updated the `## coderabbit review` section in [[wd.task.2026.2026-04-04-integrate-alice-bio]].
+I updated the `## coderabbit review` section in [[wd.completed.2026.2026-04-04-integrate-alice-bio]].
 
 I marked only one item as actionable:
 
@@ -263,7 +263,7 @@ The logger fix is patched. I’m filling the RDF parsing task note now with the 
 
 The code fix is in. I’m marking the logger review item complete in the integrate task note, then I’ll run formatter and CI because the change touched shared runtime entrypoints.
 
-I fixed the logger bug by centralizing partial-logger preservation in [factory.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/logging/factory.ts) via `resolveRuntimeLoggers(...)`, then switched the local runtime entrypoints to use it in [create.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/mesh/create.ts), [create.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/knop/create.ts), [integrate.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/integrate/integrate.ts), and [weave.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/weave/weave.ts). I did it across all four because the bug was copy-pasted, not integrate-specific. There’s also a regression test now in [logger_test.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/logging/logger_test.ts), and I marked the CodeRabbit logger item complete in [[wd.task.2026.2026-04-04-integrate-alice-bio]].
+I fixed the logger bug by centralizing partial-logger preservation in [factory.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/logging/factory.ts) via `resolveRuntimeLoggers(...)`, then switched the local runtime entrypoints to use it in [create.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/mesh/create.ts), [create.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/knop/create.ts), [integrate.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/integrate/integrate.ts), and [weave.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/weave/weave.ts). I did it across all four because the bug was copy-pasted, not integrate-specific. There’s also a regression test now in [logger_test.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/logging/logger_test.ts), and I marked the CodeRabbit logger item complete in [[wd.completed.2026.2026-04-04-integrate-alice-bio]].
 
 I also filled out [[wd.task.2026.2026-04-04_0952-rdf-parsing]] with the current production RDF-parsing debt, grouped by priority. It now covers:
 - runtime `meshBase` regex extraction in `knop create`, `integrate`, and `weave`
@@ -365,7 +365,7 @@ The integrate task is materially complete, so the next useful note is the next c
 
 I’ve got enough context. I’m writing the next carried-slice note for `06-alice-bio-integrated` -> `07-alice-bio-integrated-woven`, reusing the existing weave behavior spec and the settled 07 manifest as the acceptance target.
 
-Yes. I wrote the next carried-slice note at [[wd.task.2026.2026-04-04-weave-alice-bio-integrated-woven]].
+Yes. I wrote the next carried-slice note at [[wd.completed.2026.2026-04-04-weave-alice-bio-integrated-woven]].
 
 It frames the next implementation as `06-alice-bio-integrated` -> `07-alice-bio-integrated-woven`, reuses [[wd.spec.2026-04-03-weave-behavior]], and uses the settled `07` manifest as the acceptance target. I kept it narrow around payload history, payload-Knop histories, `_mesh/_inventory` advancement to `_s0003`, and the first `alice/bio` page surface.
 
@@ -387,20 +387,20 @@ This thread has now mixed:
 - the RDF parsing follow-up task
 - the next `07` weave task note
 
-A fresh chat is the cleaner move for implementation of [[wd.task.2026.2026-04-04-weave-alice-bio-integrated-woven]].
+A fresh chat is the cleaner move for implementation of [[wd.completed.2026.2026-04-04-weave-alice-bio-integrated-woven]].
 
 For the new chat, I’d start with:
 - [[product-vision]]
 - [[wd.general-guidance]]
 - [[wd.testing]]
 - [[wd.spec.2026-04-03-weave-behavior]]
-- [[wd.task.2026.2026-04-04-weave-alice-bio-integrated-woven]]
+- [[wd.completed.2026.2026-04-04-weave-alice-bio-integrated-woven]]
 
 And I would keep the RDF parsing note as adjacent follow-up context, not the main brief, unless you want to switch focus to that cleanup instead.
 
 # User_2026-04-04_1249_48
 
-What's next, [[wd.task.2026.2026-04-04_0952-rdf-parsing]] or [[wd.task.2026.2026-04-04-weave-alice-bio-integrated-woven]] ?
+What's next, [[wd.task.2026.2026-04-04_0952-rdf-parsing]] or [[wd.completed.2026.2026-04-04-weave-alice-bio-integrated-woven]] ?
 
 Open Issues:
 
@@ -408,7 +408,7 @@ Open Issues:
 
 # gpt-5.4_2026-04-04_1250_26
 
-Next should be [[wd.task.2026.2026-04-04-weave-alice-bio-integrated-woven]], not [[wd.task.2026.2026-04-04_0952-rdf-parsing]].
+Next should be [[wd.completed.2026.2026-04-04-weave-alice-bio-integrated-woven]], not [[wd.task.2026.2026-04-04_0952-rdf-parsing]].
 
 Reason:
 - `06 -> 07` is the next carried semantic slice in the settled fixture ladder.
@@ -455,7 +455,7 @@ Everything can stay out of ResourcePage rendering for now, but likely we should 
 
 I think that’s the right direction, with one constraint: don’t build the SSG yet.
 
-For [[wd.task.2026.2026-04-04-weave-alice-bio-integrated-woven]], I’d frame it like this:
+For [[wd.completed.2026.2026-04-04-weave-alice-bio-integrated-woven]], I’d frame it like this:
 
 - keep `07` out of “real rendering system” work
 - but make page generation land in shared runtime code, not as one-off inline HTML scattered through each operation
@@ -510,13 +510,13 @@ I’ve updated the task to make the boundary explicit. I’m grabbing the line r
 
 Not as a broad separate task, no.
 
-What I updated in [[wd.task.2026.2026-04-04-weave-alice-bio-integrated-woven#L76]] is the narrower version:
+What I updated in [[wd.completed.2026.2026-04-04-weave-alice-bio-integrated-woven#L76]] is the narrower version:
 
 - `07` should introduce the first shared runtime page-generation seam.
 - That seam should absorb the existing render-bearing `05` weave slice too, so we do not leave two page-generation paths behind.
 - It should not turn into a general retrofit across unrelated older slices.
 
-That boundary is now explicit in the decisions and plan at [[wd.task.2026.2026-04-04-weave-alice-bio-integrated-woven#L91]] and [[wd.task.2026.2026-04-04-weave-alice-bio-integrated-woven#L127]].
+That boundary is now explicit in the decisions and plan at [[wd.completed.2026.2026-04-04-weave-alice-bio-integrated-woven#L91]] and [[wd.completed.2026.2026-04-04-weave-alice-bio-integrated-woven#L127]].
 
 The practical reason is that the duplication is concentrated in the existing `weave` renderer code in [weave.ts](/home/djradon/hub/semantic-flow/weave/src/core/weave/weave.ts), not spread across every prior semantic slice. So folding `05` into the new seam during `07` is good hygiene; spinning up a separate task for that alone would mostly create churn. If later we want a broader retrofit beyond current page generation, that would be a separate task.
 
@@ -528,7 +528,7 @@ OK, I will start in new task if you think we're ready.
 
 # gpt-5.4_2026-04-04_1419_14
 
-Yes. We’re ready for a new chat on [[wd.task.2026.2026-04-04-weave-alice-bio-integrated-woven]].
+Yes. We’re ready for a new chat on [[wd.completed.2026.2026-04-04-weave-alice-bio-integrated-woven]].
 
 The task note now has the right boundary:
 - `07` is the next carried slice
@@ -540,6 +540,6 @@ In the new chat, I’d start implementation from:
 - [[wd.general-guidance]]
 - [[wd.testing]]
 - [[wd.spec.2026-04-03-weave-behavior]]
-- [[wd.task.2026.2026-04-04-weave-alice-bio-integrated-woven]]
+- [[wd.completed.2026.2026-04-04-weave-alice-bio-integrated-woven]]
 
 Only note: the worktree still has the existing Kato note/config edits, which I left alone.

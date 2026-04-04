@@ -10,8 +10,8 @@ import {
 } from "../support/mesh_alice_bio_fixture.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
-Deno.test("executeWeave matches the settled alice-bio knop-created-woven fixture", async () => {
-  const workspaceRoot = await createTestTmpDir("weave-weave-");
+Deno.test("executeWeave matches the settled alice knop-created-woven fixture", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-weave-first-");
   await materializeMeshAliceBioBranch("04-alice-knop-created", workspaceRoot);
 
   const result = await executeWeave({
@@ -57,6 +57,61 @@ Deno.test("executeWeave matches the settled alice-bio knop-created-woven fixture
       "05-alice-knop-created-woven",
       "alice-bio.ttl",
     ),
+  );
+});
+
+Deno.test("executeWeave matches the settled alice bio integrated-woven fixture", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-weave-payload-");
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const result = await executeWeave({
+    workspaceRoot,
+    request: {
+      designatorPaths: ["alice/bio"],
+    },
+  });
+
+  assertEquals(result.wovenDesignatorPaths, ["alice/bio"]);
+  assertEquals(
+    [...result.updatedPaths].sort(),
+    [
+      "_mesh/_inventory/inventory.ttl",
+      "alice/bio/_knop/_inventory/inventory.ttl",
+    ],
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+    ),
+    await readMeshAliceBioBranchFile(
+      "07-alice-bio-integrated-woven",
+      "_mesh/_inventory/inventory.ttl",
+    ),
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+    ),
+    await readMeshAliceBioBranchFile(
+      "07-alice-bio-integrated-woven",
+      "alice/bio/_knop/_inventory/inventory.ttl",
+    ),
+  );
+  assertEquals(
+    await Deno.readTextFile(join(workspaceRoot, "alice/bio/index.html")),
+    await readMeshAliceBioBranchFile(
+      "07-alice-bio-integrated-woven",
+      "alice/bio/index.html",
+    ),
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(
+        workspaceRoot,
+        "alice/bio/_history001/_s0001/alice-bio-ttl/alice-bio.ttl",
+      ),
+    ),
+    await Deno.readTextFile(join(workspaceRoot, "alice-bio.ttl")),
   );
 });
 

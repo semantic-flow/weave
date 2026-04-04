@@ -1,13 +1,18 @@
 ---
 id: apparently-accord-can-va-1ca069d2
-title: 'Apparently accord can validate mesh-alice-bio. Anything lef…'
+title: Apparently accord can validate mesh-alice-bio. Anything lef…
 desc: ''
-created: 1775270647293
 updated: 1775334213841
-participants: [djradon, codex.gpt-5.4]
-kato-sessionIds: [019d55ef-37f1-7202-94ea-3678a4f9327b]
-kato-workspaceIds: [f6e2f488-e64d-4140-aacb-87d10f58555f]
-kato-recordingIds: [1ca069d2-5828-43dc-9792-a0e1cd9d8049]
+created: 1775270647293
+participants:
+  - djradon
+  - codex.gpt-5.4
+kato-sessionIds:
+  - 019d55ef-37f1-7202-94ea-3678a4f9327b
+kato-workspaceIds:
+  - f6e2f488-e64d-4140-aacb-87d10f58555f
+kato-recordingIds:
+  - 1ca069d2-5828-43dc-9792-a0e1cd9d8049
 ---
 
 # User_2026-04-03_1749_01
@@ -285,7 +290,7 @@ One pushback: [README.md](../../README.md) is now carrying package-layout detail
 
 Good pushback, done.
 
- So we have the two wd tasks [[wd.task.2026.2026-03-15-fresh-monorepo]] and [[wd.task.2026.2026-03-20-architecture-planning]] 
+ So we have the two wd tasks [[wd.completed.2026.2026-03-15-fresh-monorepo]] and [[wd.task.2026.2026-03-20-architecture-planning]] 
 
 Should we update those and make some decisions? I'd like to consider reusing the logging at least.
 
@@ -309,7 +314,7 @@ Those notes are stale in a few important ways:
 
 What I would do:
 
-1. Update [[wd.task.2026.2026-03-15-fresh-monorepo]]
+1. Update [[wd.completed.2026.2026-03-15-fresh-monorepo]]
    - keep `dependencies/`
    - replace “likely `apps/` + `packages/` immediately” with “start flatter under `src/core`, `src/runtime`, `src/daemon`, `src/cli`, later split if needed”
    - note that the public contract currently lives in `semantic-flow-framework`, not a day-one separate spec repo
@@ -439,7 +444,7 @@ The inconsistencies are cleaned up. I’m doing one last quick status check, the
 
 Updated the Weave notes to lock the decisions we just made.
 
-The main changes are in [[wd.task.2026.2026-03-15-fresh-monorepo]] and [[wd.task.2026.2026-03-20-architecture-planning]]: they now treat Deno-first as settled, keep the public contract in `semantic-flow-framework` for now, flatten the initial Weave layout under `src/`, lock `dependencies/`, record the daemon/core/runtime/CLI boundary, and carry forward Kato logging concepts rather than old sflo logging. I also recorded the resulting decisions in [[wd.decision-log]].
+The main changes are in [[wd.completed.2026.2026-03-15-fresh-monorepo]] and [[wd.task.2026.2026-03-20-architecture-planning]]: they now treat Deno-first as settled, keep the public contract in `semantic-flow-framework` for now, flatten the initial Weave layout under `src/`, lock `dependencies/`, record the daemon/core/runtime/CLI boundary, and carry forward Kato logging concepts rather than old sflo logging. I also recorded the resulting decisions in [[wd.decision-log]].
 
 I updated [[wd.codebase-overview]] and [[wd.cli]] too, so they now explicitly say the first-pass CLI uses Cliffy and that runtime owns the first Deno-native operational/audit logging layer.
 
@@ -605,7 +610,7 @@ If you want, I can patch the notes again to lock these remaining decisions too.
 
 # User_2026-04-03_1924_37
 
-shuttle is fine for the web client. OK, patch the notes to lock these decisions, then propose next steps. Should we craft an "implementation checklist" for [[wd.task.2026.2026-03-15-fresh-monorepo]]? Or is it basically no-op ?
+shuttle is fine for the web client. OK, patch the notes to lock these decisions, then propose next steps. Should we craft an "implementation checklist" for [[wd.completed.2026.2026-03-15-fresh-monorepo]]? Or is it basically no-op ?
 
 # gpt-5.4_2026-04-03_1924_41
 
@@ -624,11 +629,11 @@ What changed:
   - substantial reuse of Kato’s Deno-native logging if the extraction stays narrow
   - `Shuttle` as the web client name
   - TUI deferred
-- [[wd.task.2026.2026-03-15-fresh-monorepo]] now makes clearer that it is basically a settled decision note, not the place for a growing implementation backlog.
+- [[wd.completed.2026.2026-03-15-fresh-monorepo]] now makes clearer that it is basically a settled decision note, not the place for a growing implementation backlog.
 - [[wd.codebase-overview]] now reflects `Shuttle` and the RDF config direction.
 - [[wd.decision-log]] now records the new locked decisions explicitly.
 
-On your question: no, I would not turn [[wd.task.2026.2026-03-15-fresh-monorepo]] into an implementation checklist. It is basically a no-op now in the good sense: its job was to freeze repo-shape and boundary decisions, and it has done that. If you add an implementation checklist there, it will start mixing topology decisions with actual build work and become muddy.
+On your question: no, I would not turn [[wd.completed.2026.2026-03-15-fresh-monorepo]] into an implementation checklist. It is basically a no-op now in the good sense: its job was to freeze repo-shape and boundary decisions, and it has done that. If you add an implementation checklist there, it will start mixing topology decisions with actual build work and become muddy.
 
 The next step should be a new task note, something like:
 - `wd.task.2026.2026-04-03-weave-bootstrap-mesh-create.md`
