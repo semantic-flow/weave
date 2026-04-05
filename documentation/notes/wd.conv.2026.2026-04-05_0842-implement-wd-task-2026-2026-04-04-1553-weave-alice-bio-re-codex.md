@@ -966,3 +966,81 @@ feat(weave): carry alice bio 10 -> 11 second payload weave slice
 - add unit, integration, and black-box CLI coverage for 11-alice-bio-v2-woven
 - document the carried 11 slice and update the weave behavior and codebase overview notes
 ```
+
+# User_2026-04-05_1002_45
+
+deno task fmt found two files that needed change, but deno task lint didn't find anything.
+
+❯ deno task fmt                                                        9:03:07
+Task fmt deno fmt deno.json src tests
+/home/djradon/hub/semantic-flow/weave/tests/integration/weave_test.ts
+/home/djradon/hub/semantic-flow/weave/src/runtime/weave/weave.ts
+
+# gpt-5.4_2026-04-05_1002_59
+
+`deno lint` and `deno fmt` enforce different things. I’m formatting the reported files and then rechecking the weave-focused tests so we don’t leave a dirty style-only diff.
+
+# gpt-5.4_2026-04-05_1003_04
+
+Formatting is clean. I’m just waiting on the test run to finish so I can confirm nothing shifted semantically.
+
+# gpt-5.4_2026-04-05_1003_09
+
+That’s expected: `lint` does not check formatting.
+
+I formatted the two files:
+- [weave.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/weave/weave.ts)
+- [weave_test.ts](/home/djradon/hub/semantic-flow/weave/tests/integration/weave_test.ts)
+
+Then I reran the weave-focused suites:
+- `deno test --allow-env --allow-read --allow-write --allow-run src/core/weave/weave_test.ts tests/integration/weave_test.ts tests/e2e/weave_cli_test.ts`
+
+Result: `18 passed`, and scoped `git diff --check` is clean.
+
+# User_2026-04-05_1003_44
+
+OK, can you create the next task note if we're done with this one?
+
+# gpt-5.4_2026-04-05_1003_53
+
+I’m drafting the next carried task note for the `11 -> 12` slice and anchoring it to the settled Alice Bio ladder so it stays narrow instead of leaking into the later Bob weave.
+
+# gpt-5.4_2026-04-05_1004_02
+
+I have the manifest, but I want the exact `11 -> 12` file boundary before I write the note so it stays as crisp as the earlier slices.
+
+# gpt-5.4_2026-04-05_1004_09
+
+There’s no sign of an extract task/spec yet, which matters because `12` is the first carried non-woven extraction slice. I’m confirming that before I add the note.
+
+# gpt-5.4_2026-04-05_1004_21
+
+I’ve got enough to draft the task note. One last check on the mesh-inventory delta will make the Decisions and Testing sections much sharper.
+
+# gpt-5.4_2026-04-05_1004_53
+
+I’m writing the note as the first narrow `extract` slice, not as “Bob creation in general,” and I’m explicitly calling out that manifest-scoped acceptance should ignore the unrelated fixture `README.md` churn.
+
+# gpt-5.4_2026-04-05_1005_31
+
+The note is in place. I’m doing a quick sanity read so I can call out any scope choices that might deserve your pushback now rather than during implementation.
+
+# gpt-5.4_2026-04-05_1005_39
+
+Created [[wd.task.2026.2026-04-05_1004-extract-bob]].
+
+It scopes the next carried slice as `11-alice-bio-v2-woven -> 12-bob-extracted`: update `_mesh/_inventory`, create Bob’s minimal Knop support artifacts, add one `Supplemental` reference back to `alice/bio` pinned to `_s0002`, and keep Bob pages absent until the later weave. I also made the acceptance boundary explicit: the CLI test for this slice should stay manifest-scoped and ignore the unrelated fixture `README.md` churn.
+
+I did not run tests because this turn only added documentation.
+
+# User_2026-04-05_1006_12
+
+ok, this chat or a new one?
+
+# gpt-5.4_2026-04-05_1006_16
+
+New chat is better now.
+
+This thread already spans `09`, `10`, `11`, several review-fix passes, coverage work, and two new task notes. For `extract`, a fresh thread gives a cleaner boundary and reduces the chance of accidental carryover from the `weave` and `payload.update` assumptions.
+
+You can continue here technically, but I would start a new chat for [[wd.task.2026.2026-04-05_1004-extract-bob]].

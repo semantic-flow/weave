@@ -200,7 +200,9 @@ Deno.test("executeWeave materializes the second alice bio payload weave slice", 
   });
 
   assertEquals(result.wovenDesignatorPaths, ["alice/bio"]);
-  assertEquals(result.updatedPaths, ["alice/bio/_knop/_inventory/inventory.ttl"]);
+  assertEquals(result.updatedPaths, [
+    "alice/bio/_knop/_inventory/inventory.ttl",
+  ]);
   assertEquals(
     [...result.createdPaths].sort(),
     [
@@ -241,12 +243,20 @@ Deno.test("executeWeave materializes the second alice bio payload weave slice", 
       join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
     ),
   );
-  await Deno.stat(join(workspaceRoot, "alice/bio/_history001/_s0002/index.html"));
   await Deno.stat(
-    join(workspaceRoot, "alice/bio/_history001/_s0002/alice-bio-ttl/index.html"),
+    join(workspaceRoot, "alice/bio/_history001/_s0002/index.html"),
   );
   await Deno.stat(
-    join(workspaceRoot, "alice/bio/_knop/_inventory/_history001/_s0002/index.html"),
+    join(
+      workspaceRoot,
+      "alice/bio/_history001/_s0002/alice-bio-ttl/index.html",
+    ),
+  );
+  await Deno.stat(
+    join(
+      workspaceRoot,
+      "alice/bio/_knop/_inventory/_history001/_s0002/index.html",
+    ),
   );
   await Deno.stat(
     join(

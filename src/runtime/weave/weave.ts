@@ -321,7 +321,11 @@ async function loadPayloadWorkingArtifact(
     )
     ? join(
       workspaceRoot,
-      toPayloadHistoricalSnapshotPath(designatorPath, workingFilePath, "_s0001"),
+      toPayloadHistoricalSnapshotPath(
+        designatorPath,
+        workingFilePath,
+        "_s0001",
+      ),
     )
     : undefined;
 
