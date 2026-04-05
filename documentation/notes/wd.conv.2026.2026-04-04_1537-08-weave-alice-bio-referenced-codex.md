@@ -547,3 +547,30 @@ fix(knop): preserve add-reference failures and tighten staged replace
 ```
 
 Next should still be [[wd.task.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]], not [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]]. `09` is the next carried fixture slice and it unblocks `10`. I’d start that task by adding the failing `09-alice-bio-referenced-woven` integration and black-box CLI acceptance tests, then extend the shared weave/page seam for `ReferenceCatalog` pages.
+
+# User_2026-04-04_2212_01
+
+new chat?
+
+# gpt-5.4_2026-04-04_2212_11
+
+Yes.
+
+A fresh chat is the cleaner move for [[wd.task.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]]. The current thread has mixed docs work, `08` implementation, CodeRabbit follow-up, and queue management. Starting clean will make the `09` weave slice easier to track.
+
+Use a handoff like:
+
+```text
+Implement [[wd.task.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]].
+
+Context:
+- `08-alice-bio-referenced` is implemented and passing.
+- next carried slice is `08 -> 09`
+- reuse [[wd.spec.2026-04-03-weave-behavior]]
+- start with failing integration and black-box CLI tests against `09-alice-bio-referenced-woven`
+- extend the shared weave/page seam for current and historical ReferenceCatalog pages
+- keep `_mesh/_inventory/inventory.ttl` unchanged
+- do not rename the task note to completed unless explicitly asked
+```
+
+If you want, I can also draft a tighter kickoff prompt for that new chat.
