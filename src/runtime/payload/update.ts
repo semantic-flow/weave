@@ -1,5 +1,6 @@
 import { dirname, fromFileUrl, isAbsolute, join, resolve } from "@std/path";
 import { Parser } from "n3";
+import { RESERVED_DESIGNATOR_SEGMENTS } from "../../core/designator_segments.ts";
 import {
   PayloadUpdateInputError,
   type PayloadUpdatePlan,
@@ -9,7 +10,6 @@ import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
 
-const reservedDesignatorSegments = new Set(["_knop", "_mesh"]);
 const safeDesignatorSegmentPattern = /^[A-Za-z0-9._-]+$/;
 
 export interface LocalPayloadUpdateRequest {
@@ -94,7 +94,7 @@ export async function executePayloadUpdate(
       workingFilePath: payloadState.workingFilePath,
       replacementPayloadTurtle: resolvedSource.replacementPayloadTurtle,
     });
-    assertUpdatedTargetsExist(workspaceRoot, plan);
+    await assertUpdatedTargetsExist(workspaceRoot, plan);
     validateRdfPlan(plan);
     await applyPayloadUpdateAtomically(workspaceRoot, plan);
   } catch (error) {
@@ -170,7 +170,10 @@ export async function executePayloadUpdate(
 export function describePayloadUpdateResult(
   result: PayloadUpdateResult,
 ): string {
-  return `Updated payload ${result.payloadArtifactIri} by replacing ${result.workingFilePath} and updating ${result.updatedPaths.length} working file.`;
+  const updatedFileCount = result.updatedPaths.length;
+  const updatedFileLabel = updatedFileCount === 1 ? "file" : "files";
+
+  return `Updated payload ${result.payloadArtifactIri} by replacing working file ${result.workingFilePath} (updated ${updatedFileCount} ${updatedFileLabel}).`;
 }
 
 function resolveLoggers(
@@ -234,7 +237,7 @@ function normalizeLocalDesignatorPath(
       `${fieldName} must not contain '.' or '..' path segments`,
     );
   }
-  if (segments.some((segment) => reservedDesignatorSegments.has(segment))) {
+  if (segments.some((segment) => RESERVED_DESIGNATOR_SEGMENTS.has(segment))) {
     throw new PayloadUpdateRuntimeError(
       `${fieldName} must not contain reserved path segments`,
     );
@@ -393,14 +396,14 @@ async function loadCurrentPayloadState(
   };
 }
 
-function assertUpdatedTargetsExist(
+async function assertUpdatedTargetsExist(
   workspaceRoot: string,
   plan: PayloadUpdatePlan,
-): void {
+): Promise<void> {
   for (const file of plan.updatedFiles) {
     const absolutePath = join(workspaceRoot, file.path);
     try {
-      Deno.statSync(absolutePath);
+      await Deno.stat(absolutePath);
     } catch (error) {
       if (error instanceof Deno.errors.NotFound) {
         throw new PayloadUpdateRuntimeError(
@@ -434,6 +437,12 @@ async function applyPayloadUpdateAtomically(
   workspaceRoot: string,
   plan: PayloadUpdatePlan,
 ): Promise<void> {
+  if (plan.updatedFiles.length !== 1) {
+    throw new PayloadUpdateRuntimeError(
+      `The current local payload update slice expected exactly one updated working file, found ${plan.updatedFiles.length}.`,
+    );
+  }
+
   const file = plan.updatedFiles[0]!;
   const absolutePath = join(workspaceRoot, file.path);
   const directoryPath = dirname(absolutePath);

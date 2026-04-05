@@ -383,44 +383,41 @@ function resolveIntegrateDesignatorPath(
   options: { designatorPath?: string },
   designatorPathArg?: string,
 ): string {
-  const optionValue = options.designatorPath?.trim() ?? "";
-  const argumentValue = designatorPathArg?.trim() ?? "";
-
-  if (optionValue.length > 0 && argumentValue.length > 0) {
-    if (optionValue !== argumentValue) {
-      throw new IntegrateInputError(
-        "integrate received conflicting designator paths",
-      );
-    }
-
-    return optionValue;
-  }
-
-  if (optionValue.length > 0) {
-    return optionValue;
-  }
-
-  if (argumentValue.length > 0) {
-    return argumentValue;
-  }
-
-  throw new IntegrateInputError(
-    "integrate requires a designator path as [designatorPath] or --designator-path",
-  );
+  return resolveDesignatorPath(options, designatorPathArg, {
+    conflictMessage: "integrate received conflicting designator paths",
+    missingMessage:
+      "integrate requires a designator path as [designatorPath] or --designator-path",
+    createError: (message) => new IntegrateInputError(message),
+  });
 }
 
 function resolvePayloadUpdateDesignatorPath(
   options: { designatorPath?: string },
   designatorPathArg?: string,
 ): string {
+  return resolveDesignatorPath(options, designatorPathArg, {
+    conflictMessage: "payload update received conflicting designator paths",
+    missingMessage:
+      "payload update requires a designator path as [designatorPath] or --designator-path",
+    createError: (message) => new PayloadUpdateInputError(message),
+  });
+}
+
+function resolveDesignatorPath(
+  options: { designatorPath?: string },
+  designatorPathArg: string | undefined,
+  errorMessages: {
+    conflictMessage: string;
+    missingMessage: string;
+    createError: (message: string) => Error;
+  },
+): string {
   const optionValue = options.designatorPath?.trim() ?? "";
   const argumentValue = designatorPathArg?.trim() ?? "";
 
   if (optionValue.length > 0 && argumentValue.length > 0) {
     if (optionValue !== argumentValue) {
-      throw new PayloadUpdateInputError(
-        "payload update received conflicting designator paths",
-      );
+      throw errorMessages.createError(errorMessages.conflictMessage);
     }
 
     return optionValue;
@@ -434,9 +431,7 @@ function resolvePayloadUpdateDesignatorPath(
     return argumentValue;
   }
 
-  throw new PayloadUpdateInputError(
-    "payload update requires a designator path as [designatorPath] or --designator-path",
-  );
+  throw errorMessages.createError(errorMessages.missingMessage);
 }
 
 function getCliErrorMessage(error: unknown): string {

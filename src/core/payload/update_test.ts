@@ -49,3 +49,26 @@ Deno.test("planPayloadUpdate rejects an inventory that does not resolve the wove
     "settled woven payload shape",
   );
 });
+
+Deno.test("planPayloadUpdate accepts semantically equivalent woven payload inventory turtle", () => {
+  const plan = planPayloadUpdate({
+    designatorPath: "alice/bio",
+    workingFilePath: "alice-bio.ttl",
+    replacementPayloadTurtle: "@base <https://example.org/> .\n",
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentKnopInventoryTurtle:
+      `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+
+<alice/bio> sflo:currentArtifactHistory <alice/bio/_history001> ;
+  sflo:hasWorkingLocatedFile <alice-bio.ttl> ;
+  rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:PayloadArtifact .
+
+<alice/bio/_knop> sflo:hasPayloadArtifact <alice/bio> ;
+  rdf:type sflo:Knop .
+`,
+  });
+
+  assertEquals(plan.updatedFiles.map((file) => file.path), ["alice-bio.ttl"]);
+});

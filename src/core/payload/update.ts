@@ -1,6 +1,10 @@
+import { Parser, type Quad } from "n3";
+import { RESERVED_DESIGNATOR_SEGMENTS } from "../designator_segments.ts";
 import type { PlannedFile } from "../planned_file.ts";
 
-const reservedDesignatorSegments = new Set(["_knop", "_mesh"]);
+const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+const SFLO_NAMESPACE =
+  "https://semantic-flow.github.io/semantic-flow-ontology/";
 
 export interface PayloadUpdateRequest {
   designatorPath: string;
@@ -110,7 +114,7 @@ function normalizeDesignatorPath(designatorPath: string): string {
       "designatorPath must not contain '.' or '..' path segments",
     );
   }
-  if (segments.some((segment) => reservedDesignatorSegments.has(segment))) {
+  if (segments.some((segment) => RESERVED_DESIGNATOR_SEGMENTS.has(segment))) {
     throw new PayloadUpdateInputError(
       "designatorPath must not contain reserved path segments",
     );
@@ -170,18 +174,108 @@ function assertCurrentPayloadArtifactShape(
 ): void {
   const knopPath = `${designatorPath}/_knop`;
   const requiredFragments = [
-    `<${knopPath}> a sflo:Knop ;`,
-    `sflo:hasPayloadArtifact <${designatorPath}> ;`,
-    `<${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;`,
-    `sflo:hasWorkingLocatedFile <${workingFilePath}> ;`,
-    `sflo:currentArtifactHistory <${designatorPath}/_history001> ;`,
+    {
+      subject: toIriCandidates(currentKnopInventoryTurtle, knopPath),
+      predicate: [RDF_TYPE_IRI],
+      object: [`${SFLO_NAMESPACE}Knop`],
+    },
+    {
+      subject: toIriCandidates(currentKnopInventoryTurtle, knopPath),
+      predicate: [`${SFLO_NAMESPACE}hasPayloadArtifact`],
+      object: toIriCandidates(currentKnopInventoryTurtle, designatorPath),
+    },
+    {
+      subject: toIriCandidates(currentKnopInventoryTurtle, designatorPath),
+      predicate: [RDF_TYPE_IRI],
+      object: [`${SFLO_NAMESPACE}PayloadArtifact`],
+    },
+    {
+      subject: toIriCandidates(currentKnopInventoryTurtle, designatorPath),
+      predicate: [RDF_TYPE_IRI],
+      object: [`${SFLO_NAMESPACE}DigitalArtifact`],
+    },
+    {
+      subject: toIriCandidates(currentKnopInventoryTurtle, designatorPath),
+      predicate: [RDF_TYPE_IRI],
+      object: [`${SFLO_NAMESPACE}RdfDocument`],
+    },
+    {
+      subject: toIriCandidates(currentKnopInventoryTurtle, designatorPath),
+      predicate: [`${SFLO_NAMESPACE}hasWorkingLocatedFile`],
+      object: toIriCandidates(currentKnopInventoryTurtle, workingFilePath),
+    },
+    {
+      subject: toIriCandidates(currentKnopInventoryTurtle, designatorPath),
+      predicate: [`${SFLO_NAMESPACE}currentArtifactHistory`],
+      object: toIriCandidates(
+        currentKnopInventoryTurtle,
+        `${designatorPath}/_history001`,
+      ),
+    },
   ];
+  const quadKeys = parseQuadKeys(currentKnopInventoryTurtle, designatorPath);
 
   for (const fragment of requiredFragments) {
-    if (!currentKnopInventoryTurtle.includes(fragment)) {
+    if (!quadSetHasAnyMatch(quadKeys, fragment)) {
       throw new PayloadUpdateInputError(
         `The current local payload.update slice only supports the settled woven payload shape for ${designatorPath}.`,
       );
     }
   }
+}
+
+function parseQuadKeys(
+  currentKnopInventoryTurtle: string,
+  designatorPath: string,
+): ReadonlySet<string> {
+  try {
+    return new Set(
+      new Parser().parse(currentKnopInventoryTurtle).map((quad: Quad) =>
+        toQuadKey(quad.subject.value, quad.predicate.value, quad.object.value)
+      ),
+    );
+  } catch {
+    throw new PayloadUpdateInputError(
+      `The current local payload.update slice only supports the settled woven payload shape for ${designatorPath}.`,
+    );
+  }
+}
+
+function quadSetHasAnyMatch(
+  quadKeys: ReadonlySet<string>,
+  fragment: {
+    subject: readonly string[];
+    predicate: readonly string[];
+    object: readonly string[];
+  },
+): boolean {
+  for (const subject of fragment.subject) {
+    for (const predicate of fragment.predicate) {
+      for (const object of fragment.object) {
+        if (quadKeys.has(toQuadKey(subject, predicate, object))) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
+function toIriCandidates(
+  currentKnopInventoryTurtle: string,
+  value: string,
+): readonly string[] {
+  const candidates = new Set<string>([value]);
+  const baseIri = currentKnopInventoryTurtle.match(/^@base <([^>]+)> \./m)?.[1];
+
+  if (baseIri) {
+    candidates.add(new URL(value, baseIri).href);
+  }
+
+  return [...candidates];
+}
+
+function toQuadKey(subject: string, predicate: string, object: string): string {
+  return `${subject} ${predicate} ${object}`;
 }
