@@ -20,4 +20,7 @@
 - Primary developer guidance for this repository is in: `documentation/notes/wd.general-guidance.md`
   - Read that note before proposing or applying changes or formulating new tasks
 
+- Do not rename `wd.task.*` notes to `wd.completed.*` unless the user explicitly asks you to.
+  - The human may prefer to do the task-note rename manually after review.
+
 - DON'T BE A PUSHOVER. Humans are usually at-least-partially wrong about things. Effective humans want reasoned push-back.

@@ -159,3 +159,11 @@ created: 1773630801215
 - References: [[wd.completed.2026.2026-04-04-weave-alice-bio-integrated-woven]], [[wd.spec.2026-04-03-weave-behavior]]
 - Why:
   - Parse validation is enough to carry the settled `07` payload weave slice without pretending the broader validator stack is already implemented.
+
+### 2026-04-04: First Local knop.addReference Slice Targets Alice 07 -> 08
+
+- Decision: Treat the settled Alice Bio `07-alice-bio-integrated-woven` -> `08-alice-bio-referenced` transition as the first carried local `knop.addReference` slice, expose the human-facing CLI as `weave knop add-reference <designatorPath> --reference-target-designator-path <referenceTargetDesignatorPath> --reference-role <referenceRole>`, keep `knop.addReference` as the machine-facing job kind, derive `referenceLinkFor` from the targeted Knop's referent, and require `referenceRole` explicitly rather than silently defaulting it.
+- References: [[wd.completed.2026.2026-04-04-alice-bio-referenced]], [[wd.spec.2026-04-04-knop-add-reference-behavior]]
+- Why:
+  - The settled `08` fixture explicitly proves a canonical Alice -> Alice Bio link rather than an omission-default role policy.
+  - The later Bob extraction path is the first natural carried `Supplemental` case, so a silent local default would have blurred two different fixture-backed behaviors.

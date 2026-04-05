@@ -141,6 +141,6 @@ The next task note is in place and `wd.todo` now points at it plus the separate 
 
 Yes.
 
-I created the next carried-slice note at [[wd.task.2026.2026-04-04-alice-bio-referenced]] and added it to [[wd.todo]]. I scoped it to the settled `07-alice-bio-integrated-woven -> 08-alice-bio-referenced` transition: first `alice` `ReferenceCatalog`, one canonical `ReferenceLink` about `<alice>` targeting `<alice/bio>`, with no weave/history/page-generation behavior yet.
+I created the next carried-slice note at [[wd.completed.2026.2026-04-04-alice-bio-referenced]] and added it to [[wd.todo]]. I scoped it to the settled `07-alice-bio-integrated-woven -> 08-alice-bio-referenced` transition: first `alice` `ReferenceCatalog`, one canonical `ReferenceLink` about `<alice>` targeting `<alice/bio>`, with no weave/history/page-generation behavior yet.
 
 I also pushed back on one point in the note: `RDF parsing` is still a valid task, but it should stay a separate cleanup track, not replace the next carried semantic slice. The next concrete move after this note is to write the dedicated reference-behavior spec that the task calls for.
