@@ -102,6 +102,93 @@ Deno.test("weave integrate matches the manifest-scoped alice-bio integrated fixt
   await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
 });
 
+Deno.test("weave integrate rejects conflicting designator paths before logging or execution", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-integrate-conflict-");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      "integrate",
+      "alice-bio.ttl",
+      "alice/bio",
+      "--designator-path",
+      "bob/bio",
+      "--workspace",
+      workspaceRoot,
+    ],
+    cwd: new URL(".", repoRoot),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assertEquals(output.success, false);
+  assert(
+    stderr.includes("integrate received conflicting designator paths"),
+    stderr,
+  );
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl")),
+    Deno.errors.NotFound,
+  );
+  await assertPathAbsent(
+    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+  );
+});
+
+Deno.test("weave integrate requires a designator path before logging or execution", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-integrate-missing-designator-",
+  );
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      "integrate",
+      "alice-bio.ttl",
+      "--workspace",
+      workspaceRoot,
+    ],
+    cwd: new URL(".", repoRoot),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assertEquals(output.success, false);
+  assert(
+    stderr.includes(
+      "integrate requires a designator path as [designatorPath] or --designator-path",
+    ),
+    stderr,
+  );
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl")),
+    Deno.errors.NotFound,
+  );
+  await assertPathAbsent(
+    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+  );
+});
+
 async function listRelativeFiles(
   root: string,
   excludedPrefix: string,

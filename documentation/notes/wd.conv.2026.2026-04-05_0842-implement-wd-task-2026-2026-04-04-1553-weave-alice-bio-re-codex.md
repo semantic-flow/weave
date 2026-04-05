@@ -636,3 +636,44 @@ fix(weave): generalize reference-catalog checks and tighten source loading
 - keep colon-containing payload source filenames on the filesystem-path path
 - add focused weave and payload coverage for non-alice reference-catalog weaving and payload source resolution edge cases
 ```
+
+# User_2026-04-05_0852_19
+
+codecov is still  77.34% of diff hit (target 79.10%). Maybe add the "integrate cli validation case"?
+
+# gpt-5.4_2026-04-05_0852_31
+
+Yes. That’s the next highest-value coverage add: small, public-behavior tests on `integrate` that exercise the shared designator-path helper through the integrate-specific error path, not through `payload update`.
+
+I’m adding focused `integrate` CLI rejection tests for conflicting and missing designator paths, then I’ll rerun that e2e file plus lint.
+
+# gpt-5.4_2026-04-05_0852_48
+
+I have the exact uncovered integrate-specific branches. I’m adding two e2e tests now: one for conflicting positional vs option designator paths, and one for the missing-designator-path case. Both will assert that logging and execution never start.
+
+# gpt-5.4_2026-04-05_0853_04
+
+The integrate CLI tests are in. I’m formatting that file and running just the integrate e2e suite plus lint so we get a quick signal on whether this is enough to move diff coverage.
+
+# gpt-5.4_2026-04-05_0853_08
+
+Lint is clean. The integrate CLI file is still running, and that will tell us whether the no-logging/no-execution assumptions hold on the actual CLI path.
+
+# gpt-5.4_2026-04-05_0853_12
+
+The integrate validation cases passed cleanly. I’m doing a scoped whitespace check and grabbing the exact file reference for the close-out.
+
+# gpt-5.4_2026-04-05_0853_17
+
+Yes. I added the integrate CLI validation cases in [integrate_cli_test.ts](/home/djradon/hub/semantic-flow/weave/tests/e2e/integrate_cli_test.ts#L105):
+
+- conflicting positional vs `--designator-path`
+- missing designator path entirely
+
+Both assert the integrate-specific error text, plus that `.weave/logs` is not created and the integrate target surface is still absent. That’s the right branch to hit for the shared resolver in [run.ts](/home/djradon/hub/semantic-flow/weave/src/cli/run.ts), because payload already covered the shared helper but not the `IntegrateInputError` path.
+
+Verified with:
+- `deno test --allow-env --allow-read --allow-write --allow-run tests/e2e/integrate_cli_test.ts`
+- `deno task lint`
+
+I can’t tell you the new Codecov percentage from local tooling here, but this is the most plausible remaining high-value diff-coverage add for the current branch.
