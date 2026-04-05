@@ -365,6 +365,41 @@ Deno.test("planWeave preserves the current ReferenceCatalog working file path", 
   );
 });
 
+Deno.test("planWeave supports the first reference-catalog weave slice for non-alice designators", () => {
+  const plan = planWeave({
+    request: {},
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: firstReferenceCatalogWeaveMeshInventoryTurtle
+      .replaceAll("alice/bio", "carol/bio")
+      .replaceAll("alice", "carol"),
+    weaveableKnops: [{
+      designatorPath: "carol",
+      currentKnopMetadataTurtle: firstWeaveKnopMetadataTurtle.replaceAll(
+        "alice",
+        "carol",
+      ),
+      currentKnopInventoryTurtle: firstReferenceCatalogWeaveKnopInventoryTurtle
+        .replaceAll("alice", "carol"),
+      referenceCatalogArtifact: {
+        workingFilePath: "carol/_knop/_references/references.ttl",
+        currentReferenceCatalogTurtle:
+          firstReferenceCatalogWeaveReferenceCatalogTurtle
+            .replaceAll("alice/bio", "carol/bio")
+            .replaceAll("alice", "carol"),
+      },
+    }],
+  });
+
+  assertEquals(plan.wovenDesignatorPaths, ["carol"]);
+  assertEquals(plan.updatedFiles.map((file) => file.path), [
+    "carol/_knop/_inventory/inventory.ttl",
+  ]);
+  assertEquals(
+    plan.createdFiles[1]?.path,
+    "carol/_knop/_references/_history001/_s0001/references-ttl/references.ttl",
+  );
+});
+
 Deno.test("planWeave rejects when no weaveable candidates were provided", () => {
   assertThrows(
     () =>

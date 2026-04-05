@@ -133,11 +133,11 @@ export function planWeave(input: PlanWeaveInput): WeavePlan {
         input.currentMeshInventoryTurtle,
         candidate,
       );
+    default:
+      throw new WeaveInputError(
+        `No supported local weave slice was found for ${designatorPath}.`,
+      );
   }
-
-  throw new WeaveInputError(
-    `No supported local weave slice was found for ${designatorPath}.`,
-  );
 }
 
 function normalizeMeshBase(meshBase: string): string {
@@ -410,8 +410,10 @@ function planFirstReferenceCatalogWeave(
   candidate: WeaveableKnopCandidate,
 ): WeavePlan {
   const referenceCatalogArtifact = candidate.referenceCatalogArtifact!;
+  const designatorPath = candidate.designatorPath;
   assertCurrentMeshInventoryShapeForFirstReferenceCatalogWeave(
     currentMeshInventoryTurtle,
+    designatorPath,
   );
   assertCurrentKnopInventoryShapeForFirstReferenceCatalogWeave(
     candidate.currentKnopInventoryTurtle,
@@ -419,7 +421,6 @@ function planFirstReferenceCatalogWeave(
     referenceCatalogArtifact.workingFilePath,
   );
 
-  const designatorPath = candidate.designatorPath;
   const knopPath = toKnopPath(designatorPath);
   const referenceCatalogPath = `${knopPath}/_references`;
   const referenceCatalogWorkingFilePath = referenceCatalogArtifact
@@ -516,14 +517,15 @@ function assertCurrentMeshInventoryShapeForFirstPayloadWeave(
 
 function assertCurrentMeshInventoryShapeForFirstReferenceCatalogWeave(
   currentMeshInventoryTurtle: string,
+  designatorPath: string,
 ): void {
+  const knopPath = toKnopPath(designatorPath);
   const requiredFragments = [
     "<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;",
     "sflo:currentArtifactHistory <_mesh/_inventory/_history001> ;",
     "sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0003> ;",
     'sflo:nextStateOrdinal "4"^^xsd:nonNegativeInteger ;',
-    "<alice/_knop> a sflo:Knop ;",
-    "<alice/bio/_knop> a sflo:Knop ;",
+    `<${knopPath}> a sflo:Knop ;`,
   ];
 
   for (const fragment of requiredFragments) {

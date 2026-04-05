@@ -290,25 +290,26 @@ async function resolveReplacementSource(
 }
 
 function resolveSourcePath(workspaceRoot: string, source: string): string {
-  const parsedUrl = tryParseUrl(source);
-  if (parsedUrl) {
-    if (parsedUrl.protocol !== "file:") {
+  if (source.startsWith("file:")) {
+    let fileUrl: URL;
+    try {
+      fileUrl = new URL(source);
+    } catch {
       throw new PayloadUpdateRuntimeError(
-        "The current local payload update slice only supports local filesystem sources.",
+        `payload update source is not a valid file URL: ${source}`,
       );
     }
-    return resolve(fromFileUrl(parsedUrl));
+
+    return resolve(fromFileUrl(fileUrl));
+  }
+
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(source)) {
+    throw new PayloadUpdateRuntimeError(
+      "The current local payload update slice only supports local filesystem sources.",
+    );
   }
 
   return isAbsolute(source) ? resolve(source) : resolve(workspaceRoot, source);
-}
-
-function tryParseUrl(value: string): URL | undefined {
-  try {
-    return new URL(value);
-  } catch {
-    return undefined;
-  }
 }
 
 async function loadCurrentPayloadState(

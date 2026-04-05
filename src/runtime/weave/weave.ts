@@ -10,6 +10,7 @@ import {
   WeaveInputError,
   type WeavePlan,
   type WeaveRequest,
+  type WeaveSlice,
 } from "../../core/weave/weave.ts";
 import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
@@ -266,7 +267,7 @@ async function loadWeaveableKnopCandidates(
         );
     }
 
-    if (!isWeaveableKnopCandidate(candidate)) {
+    if (!isWeaveableKnopCandidate(candidate, slice)) {
       continue;
     }
 
@@ -388,12 +389,10 @@ async function loadReferenceCatalogWorkingArtifact(
   }
 }
 
-function isWeaveableKnopCandidate(candidate: WeaveableKnopCandidate): boolean {
-  const slice = detectPendingWeaveSlice(
-    candidate.designatorPath,
-    candidate.currentKnopInventoryTurtle,
-  );
-
+function isWeaveableKnopCandidate(
+  candidate: WeaveableKnopCandidate,
+  slice: WeaveSlice,
+): boolean {
   if (slice === "firstReferenceCatalogWeave") {
     return candidate.referenceCatalogArtifact !== undefined;
   }
