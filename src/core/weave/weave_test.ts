@@ -316,6 +316,55 @@ Deno.test("planWeave renders the first alice reference-catalog weave slice", () 
   );
 });
 
+Deno.test("planWeave preserves the current ReferenceCatalog working file path", () => {
+  const workingFilePath = "alice/_knop/_references/reference-links-v1.ttl";
+  const plan = planWeave({
+    request: {},
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: firstReferenceCatalogWeaveMeshInventoryTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice",
+      currentKnopMetadataTurtle: firstWeaveKnopMetadataTurtle,
+      currentKnopInventoryTurtle: firstReferenceCatalogWeaveKnopInventoryTurtle
+        .replaceAll(
+          "alice/_knop/_references/references.ttl",
+          workingFilePath,
+        ),
+      referenceCatalogArtifact: {
+        workingFilePath,
+        currentReferenceCatalogTurtle:
+          firstReferenceCatalogWeaveReferenceCatalogTurtle,
+      },
+    }],
+  });
+
+  assertEquals(
+    plan.createdFiles.map((file) => file.path),
+    [
+      "alice/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+      "alice/_knop/_references/_history001/_s0001/reference-links-v1-ttl/reference-links-v1.ttl",
+    ],
+  );
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    `sflo:hasWorkingLocatedFile <${workingFilePath}> ;`,
+  );
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    "sflo:locatedFileForState <alice/_knop/_references/_history001/_s0001/reference-links-v1-ttl/reference-links-v1.ttl> ;",
+  );
+  assertEquals(
+    plan.createdPages[5],
+    {
+      kind: "simple",
+      path:
+        "alice/_knop/_references/_history001/_s0001/reference-links-v1-ttl/index.html",
+      description:
+        "Resource page for the Turtle manifestation of the first alice ReferenceCatalog historical state.",
+    },
+  );
+});
+
 Deno.test("planWeave rejects when no weaveable candidates were provided", () => {
   assertThrows(
     () =>

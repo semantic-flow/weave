@@ -72,3 +72,43 @@ Deno.test("renderResourcePage renders current ReferenceCatalog pages with fragme
 `,
   );
 });
+
+Deno.test("renderResourcePage escapes dynamic ReferenceCatalog HTML fragments", () => {
+  assertEquals(
+    renderResourcePage(
+      "https://semantic-flow.github.io/mesh-alice-bio/",
+      {
+        kind: "referenceCatalog",
+        path: "alice/_knop/_references/index.html",
+        catalogPath: 'alice/_knop/_references<&">',
+        ownerDesignatorPath: 'alice & "bob"',
+        currentLinks: [{
+          fragment: "reference&<>\"'001",
+          referenceRoleLabel: 'canonical & <primary> "role"',
+          referenceTargetPath: 'alice/bio?x=<y>&z="1"',
+        }],
+      },
+    ),
+    `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>mesh-alice-bio alice/_knop/_references</title>
+  <link rel="canonical" href="https://semantic-flow.github.io/mesh-alice-bio/alice/_knop/_references">
+</head>
+<body>
+  <main>
+    <h1>alice/_knop/_references&lt;&amp;&quot;&gt;</h1>
+    <p>Resource page for the alice &amp; &quot;bob&quot; ReferenceCatalog artifact.</p>
+    <section>
+      <h2>Current Links</h2>
+      <ul>
+        <li id="reference&amp;&lt;&gt;&quot;&#39;001"><code>#reference&amp;&lt;&gt;&quot;&#39;001</code>: canonical &amp; &lt;primary&gt; &quot;role&quot; reference target <code>alice/bio?x=&lt;y&gt;&amp;z=&quot;1&quot;</code>.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>
+`,
+  );
+});

@@ -29,7 +29,7 @@ Deno.test("planPayloadUpdate renders the first payload-update slice", async () =
   );
 });
 
-Deno.test("planPayloadUpdate rejects an inventory that does not resolve the woven payload artifact", async () => {
+Deno.test("planPayloadUpdate rejects an inventory that does not resolve the woven payload artifact", () => {
   assertThrows(
     () =>
       planPayloadUpdate({

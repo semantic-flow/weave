@@ -2,6 +2,7 @@ import { dirname, join } from "@std/path";
 import { Parser } from "n3";
 import type { PlannedFile } from "../../core/planned_file.ts";
 import {
+  detectPendingWeaveSlice,
   type PayloadWorkingArtifact,
   planWeave,
   type ReferenceCatalogWorkingArtifact,
@@ -59,6 +60,7 @@ export async function executeWeave(
     const weaveableKnops = await loadWeaveableKnopCandidates(
       workspaceRoot,
       meshState.currentMeshInventoryTurtle,
+      options.request?.designatorPaths ?? [],
     );
     plan = planWeave({
       request: options.request ?? {},
@@ -195,6 +197,7 @@ async function loadMeshState(
 async function loadWeaveableKnopCandidates(
   workspaceRoot: string,
   currentMeshInventoryTurtle: string,
+  requestedDesignatorPaths: readonly string[],
 ): Promise<readonly WeaveableKnopCandidate[]> {
   const knopMatches = [
     ...currentMeshInventoryTurtle.matchAll(/<([^>]+\/_knop)> a sflo:Knop ;/g),
@@ -202,9 +205,14 @@ async function loadWeaveableKnopCandidates(
   const designatorPaths = knopMatches.map((match) =>
     match[1]!.slice(0, -"/_knop".length)
   );
+  const requested = normalizeRequestedDesignatorPaths(requestedDesignatorPaths);
 
   const candidates: WeaveableKnopCandidate[] = [];
   for (const designatorPath of designatorPaths) {
+    if (requested && !requested.has(designatorPath)) {
+      continue;
+    }
+
     const knopPath = `${designatorPath}/_knop`;
     const metadataPath = join(workspaceRoot, `${knopPath}/_meta/meta.ttl`);
     const inventoryPath = join(
@@ -231,17 +239,32 @@ async function loadWeaveableKnopCandidates(
       designatorPath,
       currentKnopMetadataTurtle,
       currentKnopInventoryTurtle,
-      payloadArtifact: await loadPayloadWorkingArtifact(
-        workspaceRoot,
-        designatorPath,
-        currentKnopInventoryTurtle,
-      ),
-      referenceCatalogArtifact: await loadReferenceCatalogWorkingArtifact(
-        workspaceRoot,
-        designatorPath,
-        currentKnopInventoryTurtle,
-      ),
     };
+    const slice = detectPendingWeaveSlice(
+      designatorPath,
+      currentKnopInventoryTurtle,
+    );
+
+    if (!slice) {
+      continue;
+    }
+
+    if (slice === "firstPayloadWeave") {
+      candidate.payloadArtifact = await loadPayloadWorkingArtifact(
+        workspaceRoot,
+        designatorPath,
+        currentKnopInventoryTurtle,
+      );
+    }
+
+    if (slice === "firstReferenceCatalogWeave") {
+      candidate.referenceCatalogArtifact =
+        await loadReferenceCatalogWorkingArtifact(
+          workspaceRoot,
+          designatorPath,
+          currentKnopInventoryTurtle,
+        );
+    }
 
     if (!isWeaveableKnopCandidate(candidate)) {
       continue;
@@ -366,38 +389,30 @@ async function loadReferenceCatalogWorkingArtifact(
 }
 
 function isWeaveableKnopCandidate(candidate: WeaveableKnopCandidate): boolean {
-  const designatorPath = candidate.designatorPath;
-  const knopPath = `${designatorPath}/_knop`;
-  const payloadRelationship = `sflo:hasPayloadArtifact <${designatorPath}>`;
-  const payloadHasHistory = candidate.currentKnopInventoryTurtle.includes(
-    `sflo:hasArtifactHistory <${designatorPath}/_history001>`,
-  );
-  const referenceCatalogPath = `${knopPath}/_references`;
-  const referenceCatalogRelationship =
-    `sflo:hasReferenceCatalog <${referenceCatalogPath}>`;
-  const referenceCatalogHasHistory = candidate.currentKnopInventoryTurtle
-    .includes(`sflo:hasArtifactHistory <${referenceCatalogPath}/_history001>`);
-  const knopInventoryHasHistory = candidate.currentKnopInventoryTurtle.includes(
-    `sflo:hasArtifactHistory <${knopPath}/_inventory/_history001>`,
+  const slice = detectPendingWeaveSlice(
+    candidate.designatorPath,
+    candidate.currentKnopInventoryTurtle,
   );
 
-  if (
-    candidate.currentKnopInventoryTurtle.includes(
-      referenceCatalogRelationship,
-    ) &&
-    !referenceCatalogHasHistory
-  ) {
+  if (slice === "firstReferenceCatalogWeave") {
     return candidate.referenceCatalogArtifact !== undefined;
   }
 
-  if (
-    candidate.currentKnopInventoryTurtle.includes(payloadRelationship) &&
-    !payloadHasHistory
-  ) {
+  if (slice === "firstPayloadWeave") {
     return candidate.payloadArtifact !== undefined;
   }
 
-  return !knopInventoryHasHistory;
+  return slice === "firstKnopWeave";
+}
+
+function normalizeRequestedDesignatorPaths(
+  requestedDesignatorPaths: readonly string[],
+): ReadonlySet<string> | undefined {
+  const normalized = requestedDesignatorPaths
+    .map((path) => path.trim())
+    .filter((path) => path.length > 0);
+
+  return normalized.length === 0 ? undefined : new Set(normalized);
 }
 
 function assertUpdatedTargetsExist(

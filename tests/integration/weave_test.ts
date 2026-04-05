@@ -206,3 +206,109 @@ Deno.test("executeWeave fails closed when a created weave target already exists"
     "already exists",
   );
 });
+
+Deno.test("executeWeave ignores settled Knops before loading missing working artifacts", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-weave-settled-ignore-");
+  await materializeMeshAliceBioBranch("04-alice-knop-created", workspaceRoot);
+  await addSupplementalKnopToMeshInventory(workspaceRoot, "bob/bio");
+  await writeSupplementalKnopSurface(
+    workspaceRoot,
+    "bob/bio",
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+
+<bob/bio/_knop> a sflo:Knop ;
+  sflo:hasKnopMetadata <bob/bio/_knop/_meta> ;
+  sflo:hasKnopInventory <bob/bio/_knop/_inventory> ;
+  sflo:hasWorkingKnopInventoryFile <bob/bio/_knop/_inventory/inventory.ttl> ;
+  sflo:hasPayloadArtifact <bob/bio> .
+
+<bob/bio> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasArtifactHistory <bob/bio/_history001> ;
+  sflo:hasWorkingLocatedFile <missing-bob-bio.ttl> .
+
+<bob/bio/_knop/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasArtifactHistory <bob/bio/_knop/_inventory/_history001> .
+`,
+  );
+
+  const result = await executeWeave({
+    workspaceRoot,
+  });
+
+  assertEquals(result.wovenDesignatorPaths, ["alice"]);
+});
+
+Deno.test("executeWeave ignores non-requested weave candidates before loading working artifacts", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-weave-requested-ignore-");
+  await materializeMeshAliceBioBranch("04-alice-knop-created", workspaceRoot);
+  await addSupplementalKnopToMeshInventory(workspaceRoot, "bob/bio");
+  await writeSupplementalKnopSurface(
+    workspaceRoot,
+    "bob/bio",
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+
+<bob/bio/_knop> a sflo:Knop ;
+  sflo:hasKnopMetadata <bob/bio/_knop/_meta> ;
+  sflo:hasKnopInventory <bob/bio/_knop/_inventory> ;
+  sflo:hasWorkingKnopInventoryFile <bob/bio/_knop/_inventory/inventory.ttl> ;
+  sflo:hasPayloadArtifact <bob/bio> .
+
+<bob/bio> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <missing-bob-bio.ttl> .
+`,
+  );
+
+  const result = await executeWeave({
+    workspaceRoot,
+    request: {
+      designatorPaths: ["alice"],
+    },
+  });
+
+  assertEquals(result.wovenDesignatorPaths, ["alice"]);
+});
+
+async function addSupplementalKnopToMeshInventory(
+  workspaceRoot: string,
+  designatorPath: string,
+): Promise<void> {
+  const meshInventoryPath = join(
+    workspaceRoot,
+    "_mesh/_inventory/inventory.ttl",
+  );
+  const current = await Deno.readTextFile(meshInventoryPath);
+  await Deno.writeTextFile(
+    meshInventoryPath,
+    `${current.trimEnd()}
+
+<${designatorPath}/_knop> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <${designatorPath}/_knop/_inventory/inventory.ttl> .
+`,
+  );
+}
+
+async function writeSupplementalKnopSurface(
+  workspaceRoot: string,
+  designatorPath: string,
+  inventoryTurtle: string,
+): Promise<void> {
+  const knopPath = join(workspaceRoot, `${designatorPath}/_knop`);
+  await Deno.mkdir(join(knopPath, "_meta"), { recursive: true });
+  await Deno.mkdir(join(knopPath, "_inventory"), { recursive: true });
+  await Deno.writeTextFile(
+    join(knopPath, "_meta/meta.ttl"),
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+
+<${designatorPath}/_knop> a sflo:Knop ;
+  sflo:designatorPath "${designatorPath}" ;
+  sflo:hasWorkingKnopInventoryFile <${designatorPath}/_knop/_inventory/inventory.ttl> .
+`,
+  );
+  await Deno.writeTextFile(
+    join(knopPath, "_inventory/inventory.ttl"),
+    inventoryTurtle,
+  );
+}
