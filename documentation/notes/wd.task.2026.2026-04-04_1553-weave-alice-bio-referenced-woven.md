@@ -130,11 +130,11 @@ That means the task should prove the first history-aware catalog page shape with
 
 ## Implementation Plan
 
-- [ ] Confirm whether the existing weave behavior spec is sufficient as-is for the `09` slice.
-- [ ] Define the next local request/result shapes for `weave` in shared `core` and `runtime` if reference-catalog weaving requires a refinement.
+- [x] Confirm that [[wd.spec.2026-04-03-weave-behavior]] is sufficient as the current behavior spec for the `09` slice.
+- [x] Confirm that the existing thin local `weave` request/result shape stays narrow for this slice and does not require a new artifact-target model.
 - [ ] Add failing unit and integration tests for the `09` reference-catalog-weave behavior.
-- [ ] Define the minimal shared runtime page-model and HTML-rendering extension needed for current and historical `ReferenceCatalog` pages.
-- [ ] Implement the next local or in-process `weave` path over shared `core` and `runtime`.
+- [ ] Extend the existing shared runtime page-rendering seam to cover current and historical `ReferenceCatalog` pages without introducing a separate renderer path.
+- [ ] Implement the first-history `alice/_knop/_references` weave path and keep the working `references.ttl` file byte-identical to the latest historical snapshot after weave.
+- [ ] Implement `alice/_knop/_inventory` advancement to `_s0002` while keeping `_mesh/_inventory/inventory.ttl` unchanged.
 - [ ] Add a black-box CLI acceptance test scoped by the settled `09-alice-bio-referenced-woven` Accord manifest.
-- [ ] Draft or refine the thin public API example or contract fragment for `weave` in `semantic-flow-framework` if this slice sharpens the public contract.
 - [ ] Update relevant overview/spec/framework notes as the slice settles.

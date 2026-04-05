@@ -120,40 +120,25 @@ export async function executeKnopAddReference(
     await applyPlanAtomically(workspaceRoot, plan);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    await operationalLogger.error(
-      "knop.addReference.failed",
-      "Local knop add-reference failed",
-      {
-        workspaceRoot,
-        designatorPath,
-        referenceTargetDesignatorPath,
-        referenceRole,
-        referenceCatalogIri: plan?.referenceCatalogIri,
-        referenceLinkIri: plan?.referenceLinkIri,
-        error: message,
-      },
-    );
-    await auditLogger.record(
-      "knop.addReference.failed",
-      "Local knop add-reference failed",
-      {
-        workspaceRoot,
-        designatorPath,
-        referenceTargetDesignatorPath,
-        referenceRole,
-        referenceCatalogIri: plan?.referenceCatalogIri,
-        referenceLinkIri: plan?.referenceLinkIri,
-        error: message,
-      },
+    const originalError = (
+        error instanceof KnopAddReferenceInputError ||
+        error instanceof KnopAddReferenceRuntimeError
+      )
+      ? error
+      : new KnopAddReferenceRuntimeError(message);
+
+    await logKnopAddReferenceFailedBestEffort(
+      operationalLogger,
+      auditLogger,
+      workspaceRoot,
+      designatorPath,
+      referenceTargetDesignatorPath,
+      referenceRole,
+      plan,
+      message,
     );
 
-    if (
-      error instanceof KnopAddReferenceInputError ||
-      error instanceof KnopAddReferenceRuntimeError
-    ) {
-      throw error;
-    }
-    throw new KnopAddReferenceRuntimeError(message);
+    throw originalError;
   }
 
   const result: KnopAddReferenceResult = {
@@ -499,7 +484,7 @@ async function commitStagedPlanMutation(
   }
 
   for (const file of stagedPlanMutation.updatedFiles) {
-    await Deno.rename(file.absolutePath, file.backupPath!);
+    await Deno.copyFile(file.absolutePath, file.backupPath!);
     await Deno.rename(file.tempPath, file.absolutePath);
   }
 }
@@ -591,6 +576,47 @@ async function removeEmptyDirectoriesBestEffort(
     } catch {
       // Rollback cleanup should not obscure the primary result.
     }
+  }
+}
+
+async function logKnopAddReferenceFailedBestEffort(
+  operationalLogger: StructuredLogger,
+  auditLogger: AuditLogger,
+  workspaceRoot: string,
+  designatorPath: string,
+  referenceTargetDesignatorPath: string,
+  referenceRole: string,
+  plan: KnopAddReferencePlan | undefined,
+  errorMessage: string,
+): Promise<void> {
+  const attributes = {
+    workspaceRoot,
+    designatorPath,
+    referenceTargetDesignatorPath,
+    referenceRole,
+    referenceCatalogIri: plan?.referenceCatalogIri,
+    referenceLinkIri: plan?.referenceLinkIri,
+    error: errorMessage,
+  };
+
+  try {
+    await operationalLogger.error(
+      "knop.addReference.failed",
+      "Local knop add-reference failed",
+      attributes,
+    );
+  } catch {
+    // Failure logging must not mask the original add-reference error.
+  }
+
+  try {
+    await auditLogger.record(
+      "knop.addReference.failed",
+      "Local knop add-reference failed",
+      attributes,
+    );
+  } catch {
+    // Failure logging must not mask the original add-reference error.
   }
 }
 

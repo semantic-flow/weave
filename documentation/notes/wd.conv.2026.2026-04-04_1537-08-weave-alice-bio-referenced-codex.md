@@ -344,3 +344,206 @@ fix(knop): harden add-reference validation and atomic writes
 - treat success logging as best-effort after commit
 - add regression tests for invalid inputs and logging-failure behavior
 ```
+
+# User_2026-04-04_2019_36
+
+can you compose a task for the next slice?
+
+# gpt-5.4_2026-04-04_2019_46
+
+I’m checking the current `09` task note and the conformance sequence so the next slice note lands on the right transition and uses the same task-note structure.
+
+# gpt-5.4_2026-04-04_2019_55
+
+I’ve confirmed the current task is the `08 -> 09` weave slice, so the next real step is the `09 -> 10` semantic update. I’m reading the settled `10` manifest and nearby completed task patterns so the new note is scoped tightly instead of turning into a vague “update something” placeholder.
+
+# gpt-5.4_2026-04-04_2020_04
+
+I have the next timestamp. I’m checking the actual `09 -> 10` fixture delta so the task note names the real semantic surface: which files should change, which ones must stay frozen, and whether this wants a new dedicated `payload.update` spec note or just a thin extension of the existing integrate/update guidance.
+
+# gpt-5.4_2026-04-04_2020_27
+
+The fixture delta is clean: `09 -> 10` changes only `alice-bio.ttl`, and the manifest names the operation `payload.update`. I’m drafting the task as a deliberately narrow non-woven semantic slice, not a general RDF-editing project and not the later `v2` weave.
+
+# gpt-5.4_2026-04-04_2020_53
+
+There isn’t an existing `payload.update` behavior spec, unlike `mesh.create`, `knop.create`, `integrate`, `knop.addReference`, and `weave`. I’m treating that as part of the task: queue the new semantic slice and make the task explicitly say a dedicated narrow `payload.update` spec should be written rather than smuggling the behavior into the weave note.
+
+# gpt-5.4_2026-04-04_2021_00
+
+I have enough to draft it. The new task is going to be a narrow `payload.update` slice: one working payload file changes, every woven artifact stays frozen, and the later `11` weave remains explicitly out of scope.
+
+# gpt-5.4_2026-04-04_2021_04
+
+I’m writing the note now and queueing it in `wd.todo`. I’m also keeping the internal links in Dendron style and leaving the currently active `09` task untouched, since this is just the follow-on slice.
+
+# gpt-5.4_2026-04-04_2022_14
+
+The note is in place and queued. I’m giving it one quick pass for wording and linkage so the next person picking it up doesn’t get tripped by an accidental ambiguity in the scope or spec reference.
+
+# gpt-5.4_2026-04-04_2022_18
+
+Drafted the next slice task at [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]]. It queues the narrow `09-alice-bio-referenced-woven` -> `10-alice-bio-updated` `payload.update` slice, with the core constraint that only `alice-bio.ttl` changes and all woven support artifacts stay frozen.
+
+I also added it to [[wd.todo#L10]], immediately after the current `09` weave task. No tests run; this was a docs-only update.
+
+# User_2026-04-04_2023_30
+
+update the implementation plan in [[wd.task.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]]
+
+# gpt-5.4_2026-04-04_2023_42
+
+I’m checking the current task note against the live code and tests so the implementation plan reflects what is already settled versus what still belongs to the `09` slice.
+
+# gpt-5.4_2026-04-04_2023_54
+
+The current plan still reads like an unsifted draft even though the note already settles a few of those questions in prose. I’m checking the prior task-note pattern so I can update this one consistently instead of just flipping boxes at random.
+
+# gpt-5.4_2026-04-04_2024_19
+
+I found the mismatch: the note already settles the spec and request-shape questions in prose, but the plan still treats them as open work. I’m tightening the plan so it shows those items as resolved and breaks the remaining `09` work into the concrete artifact/history, inventory, page, and acceptance steps that are actually left.
+
+# gpt-5.4_2026-04-04_2024_30
+
+The plan is updated. I’m doing a quick readback so I don’t leave the note with a plan that contradicts the earlier decisions section.
+
+# gpt-5.4_2026-04-04_2024_35
+
+Updated the implementation plan in [[wd.task.2026.2026-04-04_1553-weave-alice-bio-referenced-woven#L131]].
+
+The main change was to align the plan with what the note already settles:
+- marked the spec-sufficiency and narrow-request-shape items complete
+- removed the speculative framework-contract item
+- split the remaining work into the actual `09` slice deliverables: tests, page-seam extension, `alice/_knop/_references` first-history weaving, `alice/_knop/_inventory` advancement with `_mesh/_inventory` unchanged, and the black-box acceptance test
+
+No tests run; this was a docs-only edit.
+
+# User_2026-04-04_2029_44
+
+fix the lint errors
+
+# gpt-5.4_2026-04-04_2029_51
+
+I’m running the repo lint task first to get the actual failures from the current tree, then I’ll patch only the files that are still violating lint.
+
+# gpt-5.4_2026-04-04_2029_56
+
+The failures are narrow and confined to the new regression test doubles. I’m checking the sink interface and then I’ll make the smallest change that satisfies lint without changing test behavior.
+
+# gpt-5.4_2026-04-04_2029_57
+
+I’ve got the cause: those sink stubs are allowed to be synchronous by the `LogSink` interface, so the `async` keywords are unnecessary. I’m removing them and rerunning lint.
+
+# gpt-5.4_2026-04-04_2030_08
+
+Fixed the lint errors in [knop_add_reference_test.ts](/home/djradon/hub/semantic-flow/weave/tests/integration/knop_add_reference_test.ts#L151) by removing unnecessary `async` from the synchronous test sink stubs.
+
+Verification: `deno task lint` now passes. I did not run the full test suite.
+
+# User_2026-04-04_2153_30
+
+What about : 
+
+Verify each finding against the current code and only fix it if needed.
+
+Inline comments:
+In `@src/runtime/knop/add_reference.ts`:
+- Around line 121-148: The catch block currently awaits operationalLogger.error
+and auditLogger.record and can throw, masking the original
+KnopAddReference*Error; change it to preserve the original error (capture it as
+originalErr), compute the message, then call operationalLogger.error and
+auditLogger.record inside their own try/catch blocks (best-effort: swallow/log
+any logging failures but do not let them throw), and finally rethrow the
+originalErr so the original validation/commit failure is propagated; reference
+operationalLogger.error, auditLogger.record and the surrounding catch for the
+addReference flow.
+
+In `@tests/integration/knop_add_reference_test.ts`:
+- Around line 151-169: The test sinks' async write(record) stubs in the
+StructuredLogger used for throwingOperationalLogger and the inner
+StructuredLogger passed to AuditLogger must explicitly return a Promise to
+satisfy require-await; modify both write implementations (the write methods on
+the StructuredLogger instances) to return Promise.reject(new Error("operational
+success log failed")) / Promise.reject(new Error("audit success log failed"))
+when record.event === "knop.addReference.succeeded" and return Promise.resolve()
+otherwise so the failure injection still works but lint passes.
+
+---
+
+Duplicate comments:
+In `@src/runtime/knop/add_reference.ts`:
+- Around line 501-504: The two-step swap in the loop
+(Deno.rename(file.absolutePath, file.backupPath!) followed by
+Deno.rename(file.tempPath, file.absolutePath)) is non-atomic because the
+destination can be missing between awaits; change this to an atomic replace by
+renaming the new file directly over the destination (use
+Deno.rename(file.tempPath, file.absolutePath)) so the target path is never
+missing. If you still need a backup, create it first with a non-destructive copy
+(e.g., Deno.copyFile(file.absolutePath, file.backupPath!)) and then atomically
+replace with Deno.rename(file.tempPath, file.absolutePath); update the loop in
+add_reference.ts to use these operations on the
+file.tempPath/file.absolutePath/file.backupPath symbols.
+
+# gpt-5.4_2026-04-04_2159_13
+
+I’m checking the live `knop add-reference` runtime and the current test double shape before touching anything. The failure-path logging and the updated-file commit loop are the two places that might still be real; the test-sink comment may already be stale after the lint fix.
+
+# gpt-5.4_2026-04-04_2159_35
+
+The live code confirms two of those review comments are still real: failure-path logging can mask the original error, and the updated-file commit path still moves the destination out of the way before replacement. The test-sink comment is stale now that those stubs are synchronous and `deno task lint` already passes.
+
+# gpt-5.4_2026-04-04_2159_47
+
+I’m patching both real issues now: failure logging becomes best-effort so it can’t mask the underlying error, and the updated-file commit loop will stop moving the live destination out of the way before replacement. I’m also adding one regression test for the failure-path logging case so this doesn’t reopen later.
+
+# gpt-5.4_2026-04-04_2200_12
+
+I’m patching the runtime in two spots now: the `catch` path will log best-effort and rethrow the original normalized failure, and the updated-file commit path will switch from rename-away-then-rename-in to backup-copy plus direct replacement. After that I’ll add a regression test for the failure-logging case.
+
+# gpt-5.4_2026-04-04_2200_26
+
+The runtime changes are in. I’m adding the regression test that forces the failure logger path to throw, so we prove the underlying add-reference error still surfaces instead of getting replaced by a logging error.
+
+# gpt-5.4_2026-04-04_2200_43
+
+I’ve added the regression coverage. Next I’m formatting the touched files and running the targeted `knop add-reference` tests plus lint so we can separate real behavior issues from simple formatting noise.
+
+# gpt-5.4_2026-04-04_2200_46
+
+Lint is clean. The targeted tests are compiling now; I’m waiting for the actual runtime results, especially the new failure-logging regression, before I touch anything else.
+
+# gpt-5.4_2026-04-04_2200_50
+
+The targeted `knop add-reference` suite is green. I’m running the normal repo test task once more because the runtime commit path changed, and that’s the quickest way to rule out spillover beyond the focused regression set.
+
+# gpt-5.4_2026-04-04_2201_12
+
+I verified all three review items against the current tree and the tests are green. I’m pulling exact line references now so the close-out can distinguish the two real fixes from the one stale comment I intentionally left alone.
+
+# gpt-5.4_2026-04-04_2201_29
+
+Two of those findings were still real, and I fixed them.
+
+- Failure-path logging masking the original error: real. The `catch` in [add_reference.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/knop/add_reference.ts#L121) now normalizes the original failure first, logs with best-effort helpers in [add_reference.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/knop/add_reference.ts#L582), and rethrows the original normalized add-reference error instead of letting `operationalLogger.error` or `auditLogger.record` replace it.
+- Updated-file commit leaving the destination missing between awaits: real. The updated-file commit loop in [add_reference.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/knop/add_reference.ts#L486) now copies the old file to backup and then renames the staged file directly onto the destination, instead of renaming the live destination away first.
+- Promise-returning test sink comment: stale. The current sink stubs in [knop_add_reference_test.ts](/home/djradon/hub/semantic-flow/weave/tests/integration/knop_add_reference_test.ts#L158) and [knop_add_reference_test.ts](/home/djradon/hub/semantic-flow/weave/tests/integration/knop_add_reference_test.ts#L205) are synchronous now, which already satisfies the `LogSink` interface and the lint rule, so I did not change them to explicit `Promise.resolve()` / `Promise.reject()` forms.
+
+I added a regression test for the failure-logging case in [knop_add_reference_test.ts](/home/djradon/hub/semantic-flow/weave/tests/integration/knop_add_reference_test.ts#L142). Verification: `deno task lint` and `deno task test` both pass.
+
+# User_2026-04-04_2209_36
+
+commit mesg.
+
+What next?
+
+# gpt-5.4_2026-04-04_2209_55
+
+```text
+fix(knop): preserve add-reference failures and tighten staged replace
+
+- preserve the original add-reference error when failed-path logging throws
+- use backup copy plus direct staged rename for updated-file commits
+- add regression coverage for failed-path logging
+```
+
+Next should still be [[wd.task.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]], not [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]]. `09` is the next carried fixture slice and it unblocks `10`. I’d start that task by adding the failing `09-alice-bio-referenced-woven` integration and black-box CLI acceptance tests, then extend the shared weave/page seam for `ReferenceCatalog` pages.

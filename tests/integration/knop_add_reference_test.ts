@@ -139,6 +139,60 @@ Deno.test("executeKnopAddReference rejects unsafe designator segments before tou
   );
 });
 
+Deno.test("executeKnopAddReference preserves the original failure when failed-path logging also throws", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-knop-add-reference-failed-logging-",
+  );
+  await materializeMeshAliceBioBranch(
+    "07-alice-bio-integrated-woven",
+    workspaceRoot,
+  );
+  await Deno.mkdir(join(workspaceRoot, "alice/_knop/_references"), {
+    recursive: true,
+  });
+  await Deno.writeTextFile(
+    join(workspaceRoot, "alice/_knop/_references/references.ttl"),
+    "# existing\n",
+  );
+
+  const throwingOperationalLogger = new StructuredLogger([{
+    write(record: { event: string }) {
+      if (record.event === "knop.addReference.failed") {
+        throw new Error("operational failed log failed");
+      }
+    },
+  }], {
+    channel: "operational",
+  });
+  const throwingAuditLogger = new AuditLogger(
+    new StructuredLogger([{
+      write(record: { event: string }) {
+        if (record.event === "knop.addReference.failed") {
+          throw new Error("audit failed log failed");
+        }
+      },
+    }], {
+      channel: "security-audit",
+    }),
+  );
+
+  await assertRejects(
+    () =>
+      executeKnopAddReference({
+        workspaceRoot,
+        request: {
+          designatorPath: "alice",
+          referenceTargetDesignatorPath: "alice/bio",
+          referenceRole: "canonical",
+        },
+        operationalLogger: throwingOperationalLogger,
+        auditLogger: throwingAuditLogger,
+      }),
+    KnopAddReferenceRuntimeError,
+    "already exists",
+  );
+});
+
 Deno.test("executeKnopAddReference treats success logging failures as best-effort after commit", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-knop-add-reference-logging-",
@@ -149,7 +203,7 @@ Deno.test("executeKnopAddReference treats success logging failures as best-effor
   );
 
   const throwingOperationalLogger = new StructuredLogger([{
-    async write(record: { event: string }) {
+    write(record: { event: string }) {
       if (record.event === "knop.addReference.succeeded") {
         throw new Error("operational success log failed");
       }
@@ -159,7 +213,7 @@ Deno.test("executeKnopAddReference treats success logging failures as best-effor
   });
   const throwingAuditLogger = new AuditLogger(
     new StructuredLogger([{
-      async write(record: { event: string }) {
+      write(record: { event: string }) {
         if (record.event === "knop.addReference.succeeded") {
           throw new Error("audit success log failed");
         }

@@ -9,4 +9,5 @@ created: 1774046031081
 ## Current Priorities
 
 - [ ] [[wd.task.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]]
+- [ ] [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]]
 - [ ] [[wd.task.2026.2026-04-04_0952-rdf-parsing]]
