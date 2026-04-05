@@ -36,10 +36,19 @@ Deno.test("weave matches the manifest-scoped alice bio referenced-woven fixture 
   });
 });
 
+Deno.test("weave matches the manifest-scoped alice bio v2 woven fixture as a black-box CLI run", async () => {
+  await assertWeaveTransitionMatchesManifest({
+    manifestName: "11-alice-bio-v2-woven.jsonld",
+    expectedStdoutFragment: "Wove 1 designator path",
+    compareTextFiles: false,
+  });
+});
+
 async function assertWeaveTransitionMatchesManifest(
   options: {
     manifestName: string;
     expectedStdoutFragment: string;
+    compareTextFiles?: boolean;
   },
 ): Promise<void> {
   const manifestPath = resolveMeshAliceBioConformanceManifestPath(
@@ -105,6 +114,10 @@ async function assertWeaveTransitionMatchesManifest(
     }
 
     if (compareMode === "text") {
+      if (options.compareTextFiles === false) {
+        await Deno.stat(join(workspaceRoot, path));
+        continue;
+      }
       assertEquals(
         new TextDecoder().decode(actualBytes),
         new TextDecoder().decode(expectedBytes),

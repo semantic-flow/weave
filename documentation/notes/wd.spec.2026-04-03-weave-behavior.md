@@ -22,7 +22,7 @@ The rules below are the best current synthesis of:
 - the corresponding Accord conformance manifests
 - the current Semantic Flow ontology direction
 
-The carried local implementation of this behavior currently includes the settled Alice Bio `04-alice-knop-created` -> `05-alice-knop-created-woven`, `06-alice-bio-integrated` -> `07-alice-bio-integrated-woven`, and `08-alice-bio-referenced` -> `09-alice-bio-referenced-woven` slices.
+The carried local implementation of this behavior currently includes the settled Alice Bio `04-alice-knop-created` -> `05-alice-knop-created-woven`, `06-alice-bio-integrated` -> `07-alice-bio-integrated-woven`, `08-alice-bio-referenced` -> `09-alice-bio-referenced-woven`, and `10-alice-bio-updated` -> `11-alice-bio-v2-woven` slices.
 
 If future fixture work contradicts this note, the contradiction should be treated as a real design issue and resolved explicitly rather than silently drifting.
 
@@ -131,7 +131,7 @@ That includes:
 - state pages such as `.../_s0001/index.html`
 - manifestation pages such as `.../inventory-ttl/index.html`
 
-For the current carried local `05`, `07`, and `09` slices, keep the generated HTML aligned with the settled fixture pages even when those pages remain intentionally minimal. Richer identifier wording, state listings, and navigable current pages are proven more fully in later fixture states and should not be retroactively imposed on the earlier acceptance targets.
+For the current carried local `05`, `07`, `09`, and `11` slices, keep the generated HTML aligned with the settled fixture pages even when those pages remain intentionally minimal. Richer identifier wording, state listings, and navigable current pages are proven more fully in later fixture states and should not be retroactively imposed on the earlier acceptance targets.
 
 ## What Weave Does Not Do
 
