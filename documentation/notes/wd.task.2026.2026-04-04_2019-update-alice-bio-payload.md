@@ -73,6 +73,7 @@ That means:
 
 - the target designator should already resolve to an existing integrated payload artifact
 - the local runtime should resolve the existing working located file for that payload artifact from the already-versioned payload surface rather than treating existing history as an unsupported shape
+- local replacement input should accept either a plain filesystem path or an explicit `file:` URL, reject remote `scheme://` sources, and avoid misclassifying colon-containing filenames as URLs
 - the current slice should not invent a patch language, relocate the working file, or create a new historical snapshot before the later `11` weave
 - the current slice should not route through any page-regeneration path; the `09` catalog and payload pages are frozen context for this semantic update, not outputs of it
 
@@ -84,6 +85,7 @@ That means:
 - The first carried slice should update the existing working payload bytes in place rather than introducing a general RDF diff or patch abstraction.
 - The first carried slice should treat the existing `alice/bio` payload artifact history and the frozen `09` generated pages as normal preconditions, not as signals that the runtime is already “too woven” to update.
 - The current local validation floor should stay narrow: changed RDF should parse cleanly and match the settled fixture semantics, while broader merged-graph or SHACL validation remains a later concern.
+- The first local source boundary should stay explicit: support local filesystem paths and `file:` URLs, reject remote URL schemes, and keep host-path interpretation in local runtime rather than shared `core`.
 
 ## Decisions
 
@@ -108,6 +110,10 @@ That means:
 - Start with failing integration and black-box CLI tests against the settled `10-alice-bio-updated` fixture target so the single-file invariant is locked in before implementation.
 - Add integration tests for local filesystem results against the settled `10-alice-bio-updated` fixture target.
 - Add a black-box CLI acceptance test scoped by the settled `10-alice-bio-updated` Accord manifest.
+- Cover both accepted local source forms: plain filesystem paths and explicit `file:` URLs.
+- Add regression coverage that remote `scheme://` inputs are rejected and colon-containing filenames still stay on the filesystem-path path.
+- Lock in fail-closed behavior: invalid Turtle replacement input should abort the update and leave the current working payload file unchanged.
+- Cover CLI validation for conflicting positional versus `--designator-path` inputs and for a missing designator path before logging or execution starts.
 - Keep the comparison black-box and fixture-oriented, with strong checks that untouched support artifacts remain unchanged.
 
 ## Non-Goals
@@ -136,6 +142,8 @@ The carried `09-alice-bio-referenced-woven` -> `10-alice-bio-updated` slice is n
 
 - `payload.update` now has a dedicated behavior note at [[wd.spec.2026-04-04-payload-update-behavior]].
 - the first local CLI surface is `weave payload update <source> [designatorPath]`, with `--designator-path` as the explicit option form
-- shared `core` now plans replacement of the already managed working payload file for an existing woven payload artifact, while local `runtime` resolves the workspace state and stages replacement bytes from a local path or `file:` URL
+- shared `core` now plans replacement of the already managed working payload file for an existing woven payload artifact, using parser-backed inventory checks rather than brittle string matching, while local `runtime` resolves the workspace state and stages replacement bytes from a local path or explicit `file:` URL
+- the local runtime rejects remote URL schemes, keeps colon-containing filenames on the filesystem-path path, and fails closed if replacement Turtle does not parse, leaving the existing working payload file untouched
 - the carried implementation keeps the settled `10` invariant: only `alice-bio.ttl` changes, while `_mesh/_inventory/inventory.ttl`, Knop inventories, historical payload snapshots, and generated pages remain unchanged
 - focused unit, integration, and black-box CLI coverage now lock the slice against the settled `10-alice-bio-updated` manifest and fixture
+- broader RDF parsing cleanup still belongs in [[wd.task.2026.2026-04-04_0952-rdf-parsing]] rather than this narrow carried slice

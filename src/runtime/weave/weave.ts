@@ -250,7 +250,7 @@ async function loadWeaveableKnopCandidates(
       continue;
     }
 
-    if (slice === "firstPayloadWeave") {
+    if (slice === "firstPayloadWeave" || slice === "secondPayloadWeave") {
       candidate.payloadArtifact = await loadPayloadWorkingArtifact(
         workspaceRoot,
         designatorPath,
@@ -316,13 +316,21 @@ async function loadPayloadWorkingArtifact(
   }
 
   const workingFilePath = workingFilePathMatch[1]!;
+  const latestHistoricalSnapshotPath = currentKnopInventoryTurtle.includes(
+      `sflo:latestHistoricalState <${designatorPath}/_history001/_s0001> ;`,
+    )
+    ? join(
+      workspaceRoot,
+      toPayloadHistoricalSnapshotPath(designatorPath, workingFilePath, "_s0001"),
+    )
+    : undefined;
+
+  let currentPayloadTurtle: string;
+  let latestHistoricalSnapshotTurtle: string | undefined;
   try {
-    return {
-      workingFilePath,
-      currentPayloadTurtle: await Deno.readTextFile(
-        join(workspaceRoot, workingFilePath),
-      ),
-    };
+    currentPayloadTurtle = await Deno.readTextFile(
+      join(workspaceRoot, workingFilePath),
+    );
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new WeaveRuntimeError(
@@ -331,6 +339,33 @@ async function loadPayloadWorkingArtifact(
     }
     throw error;
   }
+
+  if (latestHistoricalSnapshotPath) {
+    try {
+      latestHistoricalSnapshotTurtle = await Deno.readTextFile(
+        latestHistoricalSnapshotPath,
+      );
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) {
+        throw new WeaveRuntimeError(
+          `Workspace is missing the latest payload historical snapshot for ${designatorPath}: ${
+            toPayloadHistoricalSnapshotPath(
+              designatorPath,
+              workingFilePath,
+              "_s0001",
+            )
+          }`,
+        );
+      }
+      throw error;
+    }
+  }
+
+  return {
+    workingFilePath,
+    currentPayloadTurtle,
+    latestHistoricalSnapshotTurtle,
+  };
 }
 
 async function loadReferenceCatalogWorkingArtifact(
@@ -401,6 +436,13 @@ function isWeaveableKnopCandidate(
     return candidate.payloadArtifact !== undefined;
   }
 
+  if (slice === "secondPayloadWeave") {
+    return candidate.payloadArtifact !== undefined &&
+      candidate.payloadArtifact.latestHistoricalSnapshotTurtle !== undefined &&
+      candidate.payloadArtifact.currentPayloadTurtle !==
+        candidate.payloadArtifact.latestHistoricalSnapshotTurtle;
+  }
+
   return slice === "firstKnopWeave";
 }
 
@@ -466,6 +508,21 @@ function validateRdfFiles(files: readonly PlannedFile[]): void {
       );
     }
   }
+}
+
+function toPayloadHistoricalSnapshotPath(
+  designatorPath: string,
+  workingFilePath: string,
+  stateSegment: string,
+): string {
+  const fileName = toFileName(workingFilePath);
+  const manifestationSegment = fileName.replaceAll(".", "-");
+  return `${designatorPath}/_history001/${stateSegment}/${manifestationSegment}/${fileName}`;
+}
+
+function toFileName(path: string): string {
+  const segments = path.split("/");
+  return segments[segments.length - 1]!;
 }
 
 async function writeFiles(

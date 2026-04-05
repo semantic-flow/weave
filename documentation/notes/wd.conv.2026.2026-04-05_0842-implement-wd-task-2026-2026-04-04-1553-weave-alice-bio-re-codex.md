@@ -677,3 +677,292 @@ Verified with:
 - `deno task lint`
 
 I can’t tell you the new Codecov percentage from local tooling here, but this is the most plausible remaining high-value diff-coverage add for the current branch.
+
+# User_2026-04-05_0858_22
+
+Any learnings you can apply to [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]] ? Ready to go on that?
+
+# gpt-5.4_2026-04-05_0858_39
+
+Yes. A few concrete learnings are worth folding into [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]]:
+
+- clarify source resolution more explicitly:
+  `payload.update` accepts plain local filesystem paths and explicit `file:` URLs, rejects remote `scheme://` sources, and must not misclassify colon-containing filenames as URLs
+- add a fail-closed invariant:
+  if the replacement Turtle does not parse, the update aborts and leaves the existing working payload file unchanged
+- tighten the testing section:
+  cover conflicting and missing `designatorPath` CLI inputs, `file:` source handling, remote URL rejection, and invalid-RDF rollback behavior
+- keep the RDF note boundary explicit:
+  narrow parser-backed validation inside `payload.update` was worth taking, but broader RDF-read cleanup still belongs in [[wd.task.2026.2026-04-04_0952-rdf-parsing]]
+
+And yes, it’s ready. The payload slice itself is implemented and the follow-up hardening is in. If you want, I can update that task note now to reflect the settled behavior and tests.
+
+# User_2026-04-05_0859_36
+
+OK, update and then implement.
+
+# gpt-5.4_2026-04-05_0859_45
+
+I’m updating the payload task note first so it matches the settled behavior we actually proved, then I’ll check whether any implementation gap remains after the follow-up hardening.
+
+# gpt-5.4_2026-04-05_0900_43
+
+I’m updating the payload task note to reflect the settled behavior and then I’ll verify whether any code work remains beyond what is already on the branch.
+
+# gpt-5.4_2026-04-05_0900_49
+
+I’ve confirmed the code path is already in place; the remaining useful work here is to tighten the task note so it matches the implemented source-handling, validation, and test boundaries.
+
+# gpt-5.4_2026-04-05_0901_07
+
+The note is updated. I’m doing one quick pass against the current diff so I can tell you cleanly whether anything beyond documentation was actually needed.
+
+# gpt-5.4_2026-04-05_0901_14
+
+Updated [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]] to match the settled implementation.
+
+The note now explicitly captures:
+- accepted source forms: plain filesystem paths and explicit `file:` URLs
+- rejected source forms: remote `scheme://` URLs
+- the colon-containing filename edge case
+- fail-closed invalid-Turtle behavior
+- the extra CLI validation coverage for conflicting or missing `designatorPath`
+- the boundary that broader RDF cleanup still belongs in [[wd.task.2026.2026-04-04_0952-rdf-parsing]]
+
+On the “implement” part: there was no remaining code gap to fill. The `payload.update` slice and the follow-up hardening are already on this branch, so this turn only needed the task-note update.
+
+I did not run tests in this turn because the only new change was documentation.
+
+# User_2026-04-05_0902_13
+
+OK, so new task note for the next slice?
+
+# gpt-5.4_2026-04-05_0902_30
+
+Yes.
+
+The clean next step is a new `wd.task.*` note for the next carried slice, not more expansion inside [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]]. That note is now correctly scoped to the non-woven `09 -> 10` payload update.
+
+The next task note should be for the `10-alice-bio-updated -> 11-alice-bio-v2-woven` slice. That keeps the boundary crisp:
+
+- `payload.update` mutates current working payload bytes
+- the next `weave` slice versions that payload state and regenerates the woven surface
+
+I would keep the current task note in place and draft a new one for `11`. If you want, I can create that note now.
+
+# User_2026-04-05_0903_21
+
+yes please.
+
+# gpt-5.4_2026-04-05_0903_30
+
+I’m drafting the next task note around the `10 -> 11` boundary and will anchor it to the existing fixture/spec language before I add the file.
+
+# gpt-5.4_2026-04-05_0903_37
+
+I have the shape of the prior tasks; now I’m pulling the `11` fixture signals so the new note is specific instead of hand-wavy.
+
+# gpt-5.4_2026-04-05_0903_47
+
+I’m generating the new note with a fresh timestamp rather than guessing one, so it fits the existing Dendron naming pattern.
+
+# gpt-5.4_2026-04-05_0903_57
+
+The `11` manifest widens the surface a bit, so I’m extracting the exact expected file changes before I write the scope bullets.
+
+# gpt-5.4_2026-04-05_0904_06
+
+I have enough fixture detail now. I’m creating a focused task note for the second payload weave rather than a generic “next weave” placeholder.
+
+# gpt-5.4_2026-04-05_0904_15
+
+I’m keeping this as a task note only. No code or overview churn yet unless you ask for it.
+
+# gpt-5.4_2026-04-05_0904_36
+
+The `11` task is not just “second history state.” The manifest expects broader page regeneration, so I’m baking that into the note rather than under-scoping it.
+
+# gpt-5.4_2026-04-05_0904_51
+
+I’m writing the note with the actual `11` fixture constraints, including the broader HTML regeneration surface, so it does not understate the slice.
+
+# gpt-5.4_2026-04-05_0905_26
+
+The note is in place. I’m doing a quick sanity read so I can call out scope accurately and not hand you a malformed task file.
+
+# gpt-5.4_2026-04-05_0905_31
+
+Created [[wd.task.2026.2026-04-05_0903-weave-alice-bio-v2-woven]].
+
+The note scopes the next carried slice as `10-alice-bio-updated -> 11-alice-bio-v2-woven`, centered on:
+- creating `alice/bio/_history001/_s0002/...`
+- advancing `alice/bio/_knop/_inventory` to `_s0002`
+- keeping `_mesh/_inventory/inventory.ttl` unchanged
+- regenerating the broader `11` HTML surface, including current and historical `alice/bio` pages and the affected history landing pages
+
+I did not run tests because this turn only added documentation. Current uncommitted note-related files are the updated [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]] and the new `11` task note.
+
+# User_2026-04-05_0905_54
+
+by "broader HTML regeneration surface", do you mean HTML content changes? If so, I wouldn't worry about that too much. For now we really only care that the ResourcePages get created, not what their content is.
+
+# gpt-5.4_2026-04-05_0906_07
+
+I mean “more page files are expected to exist or be regenerated,” not “we should spend time enriching page copy or layout.” I’m tightening the new task note to reflect that distinction explicitly.
+
+# gpt-5.4_2026-04-05_0906_21
+
+I tightened the note language. One small pass to catch wording issues, then I’ll answer the design point directly.
+
+# gpt-5.4_2026-04-05_0906_24
+
+One typo in the note; fixing that and then I’ll answer the acceptance-boundary part plainly.
+
+# gpt-5.4_2026-04-05_0906_31
+
+Yes. I meant “more HTML files are in scope,” not “we should invest in better page content.”
+
+For this slice, the right interpretation is:
+- care that the required ResourcePages exist at the expected paths
+- keep page content minimal and fixture-driven
+- do not treat `11` as a renderer-design task
+
+I updated [[wd.task.2026.2026-04-05_0903-weave-alice-bio-v2-woven]] to say that explicitly.
+
+One caveat: if we keep the current `11` Accord manifest as the black-box acceptance layer, HTML still matters somewhat because those file expectations are `compareMode: "text"`, not just existence checks. So I agree with your product priority, but the acceptance harness may still force fixture-text matching unless we deliberately relax that later. I did not change that contract here.
+
+# User_2026-04-05_0907_31
+
+OK, ready to implement? New chat or continue in this one?
+
+# gpt-5.4_2026-04-05_0907_38
+
+Yes. Same chat is better.
+
+The `11` task note is now scoped tightly enough to implement, and this thread already has the relevant context from `09`, `10`, the payload hardening, and the `11` fixture expectations. A new chat would mostly just throw away context.
+
+Only caveat: the branch currently has uncommitted note changes in [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]] and [[wd.task.2026.2026-04-05_0903-weave-alice-bio-v2-woven]]. That is not a blocker unless you want a clean commit boundary first.
+
+If you want, I can start the `10 -> 11` implementation now in this chat.
+
+# User_2026-04-05_0907_53
+
+yes, start implementation
+
+# gpt-5.4_2026-04-05_0908_02
+
+I’m starting the `10 -> 11` weave slice by checking the current `weave` core/runtime seams against the `11-alice-bio-v2-woven` manifest and the existing `09`/`10` tests, then I’ll add failing integration and CLI coverage before touching implementation.
+
+# gpt-5.4_2026-04-05_0908_08
+
+I’ve confirmed the current `weave` path only knows the first Knop, first payload, and first ReferenceCatalog slices. Next I’m mapping the exact `11` gap in core planning, runtime candidate loading, and the page model tests.
+
+# gpt-5.4_2026-04-05_0908_18
+
+I need the exact `11` page/file delta now, because the implementation risk is mostly in what we create, not in the CLI surface. I’m comparing the current page-builder outputs with the fixture files next.
+
+# gpt-5.4_2026-04-05_0908_25
+
+I’ve got the current builder shapes. Now I’m pulling the actual `10 -> 11` fixture diff so I can make the failing tests precise instead of guessing which pages or inventory fields need to advance.
+
+# gpt-5.4_2026-04-05_0908_39
+
+The main implementation gap is clearer now: `11` is not just a new payload snapshot. The current runtime only creates new pages, but the fixture expects existing ResourcePages to be updated too. I’m checking how much page content actually changed before I decide whether to add a small “updated pages” seam or something broader.
+
+# gpt-5.4_2026-04-05_0908_53
+
+The fixture change is bigger than a mere file-exists check: `11` introduces richer generic history pages and slightly richer identifier pages. I’m sampling one file from each class now so I can decide whether to extend the current renderer generically or keep it as a narrow `11`-specific layer.
+
+# gpt-5.4_2026-04-05_0909_50
+
+I can keep the earlier slices stable if I scope the richer rendering to `11` only. I’m pulling the remaining page templates now to see whether they collapse into a few generic models or whether I should deliberately weaken the `11` HTML assertions instead.
+
+# gpt-5.4_2026-04-05_0909_57
+
+Plan for the `11` slice:
+
+1. Add failing coverage for the new payload-history weave and the page-file behavior we actually want to preserve.
+2. Extend `core/weave` to recognize and plan a second payload-state weave, including `_s0002` payload history and `_s0002` payload KnopInventory.
+3. Extend runtime execution so `weave` can update existing ResourcePages as well as create new ones.
+4. Decide the HTML boundary pragmatically:
+   - keep the new state/manifests/pages present
+   - avoid broad renderer churn unless the failing tests show it is required
+5. Run the focused weave suites and then update notes only if the implementation boundary moved.
+
+# gpt-5.4_2026-04-05_0910_34
+
+I’m taking the narrower route that matches your priority: treat `11` as “new history/materialization surfaces appear” first, not “rewrite every old page to richer prose.” That means the next tests will focus on the new `_s0002` files plus the inventory/history advancement, not on matching all fixture HTML text.
+
+# gpt-5.4_2026-04-05_0911_03
+
+I’ve decided the first implementation pass will honor your stated boundary: make the `11` state and page files appear correctly, and keep HTML-content assertions intentionally light for the new slice. I’m adding failing tests on that basis now.
+
+# gpt-5.4_2026-04-05_0911_41
+
+The failing coverage is in. I’m running the weave-focused unit, integration, and CLI tests now to expose the exact implementation breakpoints before editing the core/runtime paths.
+
+# gpt-5.4_2026-04-05_0912_18
+
+The core change is going in now: a new narrow `secondPayloadWeave` slice with no mesh-inventory rewrite, just `_s0002` payload and payload-KnopInventory history materialization.
+
+# gpt-5.4_2026-04-05_0913_25
+
+The core slice is in. I’m wiring runtime discovery so `alice/bio` is actually surfaced as weaveable from the settled `10` workspace instead of being skipped as already woven.
+
+# gpt-5.4_2026-04-05_0913_34
+
+I’ve connected runtime candidate loading. Running the same weave suites now to see whether the remaining failures are logic or output-shape issues.
+
+# gpt-5.4_2026-04-05_0914_09
+
+The false positive came from `alice/bio` already having `_s0001` in the `08/09` workspace. I’m tightening runtime discovery so the second payload weave is only considered when the current working payload actually differs from the latest historical snapshot.
+
+# gpt-5.4_2026-04-05_0914_24
+
+I tightened the candidate gate, but the snapshot-load error path is too brittle as written. I’m cleaning that up before rerunning tests.
+
+# gpt-5.4_2026-04-05_0914_37
+
+The candidate gating is corrected. I’m rerunning the weave suites to check whether we’re down to output-shape or lint issues.
+
+# gpt-5.4_2026-04-05_0914_56
+
+The code path is passing the targeted weave suites now. I’m doing the cleanup pass next: lint/format checks, then I’ll update the task note and the high-level overview to reflect the settled `11` boundary we actually implemented.
+
+# gpt-5.4_2026-04-05_0915_05
+
+I’m updating the `11` task note and the overview now to reflect the implementation boundary that actually landed: second payload-state weave, new `_s0002` ResourcePages, and intentionally minimal HTML-content expectations for this slice.
+
+# gpt-5.4_2026-04-05_0915_43
+
+I’m making one small spec note update too, because the weave behavior note still claims the carried implementation stops at `09`.
+
+# gpt-5.4_2026-04-05_0915_58
+
+The slice is implemented. I’m running one consolidated verification pass now: the weave-focused tests plus a diff hygiene check.
+
+# gpt-5.4_2026-04-05_0916_17
+
+Implemented the `10-alice-bio-updated -> 11-alice-bio-v2-woven` slice.
+
+The core change is in [weave.ts](/home/djradon/hub/semantic-flow/weave/src/core/weave/weave.ts): `weave` now recognizes a narrow `secondPayloadWeave` slice, creates `alice/bio/_history001/_s0002/...`, advances `alice/bio/_knop/_inventory` to `_s0002`, and keeps `_mesh/_inventory/inventory.ttl` unchanged. Runtime candidate loading in [weave.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/weave/weave.ts) now only treats that slice as weaveable when the current working payload actually differs from the latest historical snapshot, which avoids falsely surfacing `alice/bio` during the `08 -> 09` reference-catalog weave.
+
+Coverage is in [weave_test.ts](/home/djradon/hub/semantic-flow/weave/src/core/weave/weave_test.ts), [weave_test.ts](/home/djradon/hub/semantic-flow/weave/tests/integration/weave_test.ts), and [weave_cli_test.ts](/home/djradon/hub/semantic-flow/weave/tests/e2e/weave_cli_test.ts). I also updated [[wd.task.2026.2026-04-05_0903-weave-alice-bio-v2-woven]], [[wd.codebase-overview]], and [[wd.spec.2026-04-03-weave-behavior]]. For this slice, the `11` black-box CLI test intentionally treats HTML page content as lower priority than page-path materialization, so it checks RDF outputs canonically and HTML presence rather than full text parity.
+
+Verified with `deno task lint`, `deno test --allow-env --allow-read --allow-write --allow-run src/core/weave/weave_test.ts tests/integration/weave_test.ts tests/e2e/weave_cli_test.ts`, and scoped `git diff --check`. I did not run the full repo test suite.
+
+# User_2026-04-05_0918_58
+
+commit mesg
+
+# gpt-5.4_2026-04-05_0919_03
+
+```text
+feat(weave): carry alice bio 10 -> 11 second payload weave slice
+
+- add the narrow second payload-state weave path for an already woven payload artifact
+- create alice/bio/_history001/_s0002 and advance alice/bio/_knop/_inventory to _s0002 while keeping _mesh/_inventory unchanged
+- treat a second payload weave as eligible only when the working payload differs from the latest historical snapshot
+- add unit, integration, and black-box CLI coverage for 11-alice-bio-v2-woven
+- document the carried 11 slice and update the weave behavior and codebase overview notes
+```

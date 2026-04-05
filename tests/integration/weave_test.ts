@@ -188,6 +188,83 @@ Deno.test("executeWeave matches the settled alice bio referenced-woven fixture",
   );
 });
 
+Deno.test("executeWeave materializes the second alice bio payload weave slice", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-weave-payload-v2-");
+  await materializeMeshAliceBioBranch("10-alice-bio-updated", workspaceRoot);
+
+  const result = await executeWeave({
+    workspaceRoot,
+    request: {
+      designatorPaths: ["alice/bio"],
+    },
+  });
+
+  assertEquals(result.wovenDesignatorPaths, ["alice/bio"]);
+  assertEquals(result.updatedPaths, ["alice/bio/_knop/_inventory/inventory.ttl"]);
+  assertEquals(
+    [...result.createdPaths].sort(),
+    [
+      "alice/bio/_history001/_s0002/alice-bio-ttl/alice-bio.ttl",
+      "alice/bio/_history001/_s0002/alice-bio-ttl/index.html",
+      "alice/bio/_history001/_s0002/index.html",
+      "alice/bio/_knop/_inventory/_history001/_s0002/index.html",
+      "alice/bio/_knop/_inventory/_history001/_s0002/inventory-ttl/index.html",
+      "alice/bio/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+    ],
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+    ),
+    await readMeshAliceBioBranchFile(
+      "11-alice-bio-v2-woven",
+      "alice/bio/_knop/_inventory/inventory.ttl",
+    ),
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(
+        workspaceRoot,
+        "alice/bio/_history001/_s0002/alice-bio-ttl/alice-bio.ttl",
+      ),
+    ),
+    await Deno.readTextFile(join(workspaceRoot, "alice-bio.ttl")),
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(
+        workspaceRoot,
+        "alice/bio/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+      ),
+    ),
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+    ),
+  );
+  await Deno.stat(join(workspaceRoot, "alice/bio/_history001/_s0002/index.html"));
+  await Deno.stat(
+    join(workspaceRoot, "alice/bio/_history001/_s0002/alice-bio-ttl/index.html"),
+  );
+  await Deno.stat(
+    join(workspaceRoot, "alice/bio/_knop/_inventory/_history001/_s0002/index.html"),
+  );
+  await Deno.stat(
+    join(
+      workspaceRoot,
+      "alice/bio/_knop/_inventory/_history001/_s0002/inventory-ttl/index.html",
+    ),
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+    ),
+    await readMeshAliceBioBranchFile(
+      "11-alice-bio-v2-woven",
+      "_mesh/_inventory/inventory.ttl",
+    ),
+  );
+});
+
 Deno.test("executeWeave fails closed when a created weave target already exists", async () => {
   const workspaceRoot = await createTestTmpDir("weave-weave-existing-");
   await materializeMeshAliceBioBranch("04-alice-knop-created", workspaceRoot);
