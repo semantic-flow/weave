@@ -1,4 +1,4 @@
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertRejects } from "@std/assert";
 import { join, relative } from "@std/path";
 import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import {
@@ -103,6 +103,116 @@ Deno.test("weave payload update matches the manifest-scoped alice-bio updated fi
 
   await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
   await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
+});
+
+Deno.test("weave payload update rejects conflicting designator paths before logging or execution", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-payload-update-conflict-",
+  );
+  await materializeMeshAliceBioBranch(
+    "09-alice-bio-referenced-woven",
+    workspaceRoot,
+  );
+
+  const sourceRoot = await createTestTmpDir(
+    "weave-e2e-payload-update-conflict-source-",
+  );
+  const sourcePath = join(sourceRoot, "alice-bio-v2.ttl");
+  await Deno.writeTextFile(
+    sourcePath,
+    await readMeshAliceBioBranchFile("10-alice-bio-updated", "alice-bio.ttl"),
+  );
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      "payload",
+      "update",
+      sourcePath,
+      "alice/bio",
+      "--designator-path",
+      "bob/bio",
+      "--workspace",
+      workspaceRoot,
+    ],
+    cwd: new URL(".", repoRoot),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assertEquals(output.success, false);
+  assert(
+    stderr.includes("payload update received conflicting designator paths"),
+    stderr,
+  );
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl")),
+    Deno.errors.NotFound,
+  );
+  assertEquals(
+    await Deno.readTextFile(join(workspaceRoot, "alice-bio.ttl")),
+    await readMeshAliceBioBranchFile(
+      "09-alice-bio-referenced-woven",
+      "alice-bio.ttl",
+    ),
+  );
+});
+
+Deno.test("weave payload update requires a designator path before logging or execution", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-payload-update-missing-designator-",
+  );
+  await materializeMeshAliceBioBranch(
+    "09-alice-bio-referenced-woven",
+    workspaceRoot,
+  );
+
+  const sourceRoot = await createTestTmpDir(
+    "weave-e2e-payload-update-missing-designator-source-",
+  );
+  const sourcePath = join(sourceRoot, "alice-bio-v2.ttl");
+  await Deno.writeTextFile(
+    sourcePath,
+    await readMeshAliceBioBranchFile("10-alice-bio-updated", "alice-bio.ttl"),
+  );
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      "payload",
+      "update",
+      sourcePath,
+      "--workspace",
+      workspaceRoot,
+    ],
+    cwd: new URL(".", repoRoot),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assertEquals(output.success, false);
+  assert(
+    stderr.includes(
+      "payload update requires a designator path as [designatorPath] or --designator-path",
+    ),
+    stderr,
+  );
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl")),
+    Deno.errors.NotFound,
+  );
 });
 
 async function listRelativeFiles(
