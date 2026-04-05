@@ -22,7 +22,7 @@ The rules below are the best current synthesis of:
 - the corresponding Accord conformance manifests
 - the current Semantic Flow ontology direction
 
-The carried local implementation of this behavior currently includes the settled Alice Bio `04-alice-knop-created` -> `05-alice-knop-created-woven` and `06-alice-bio-integrated` -> `07-alice-bio-integrated-woven` slices.
+The carried local implementation of this behavior currently includes the settled Alice Bio `04-alice-knop-created` -> `05-alice-knop-created-woven`, `06-alice-bio-integrated` -> `07-alice-bio-integrated-woven`, and `08-alice-bio-referenced` -> `09-alice-bio-referenced-woven` slices.
 
 If future fixture work contradicts this note, the contradiction should be treated as a real design issue and resolved explicitly rather than silently drifting.
 
@@ -131,7 +131,7 @@ That includes:
 - state pages such as `.../_s0001/index.html`
 - manifestation pages such as `.../inventory-ttl/index.html`
 
-For the current carried local `05` and `07` slices, keep the generated HTML aligned with the settled fixture pages even when those pages remain intentionally minimal. Richer identifier wording, state listings, and navigable current pages are proven more fully in later fixture states and should not be retroactively imposed on the earlier acceptance targets.
+For the current carried local `05`, `07`, and `09` slices, keep the generated HTML aligned with the settled fixture pages even when those pages remain intentionally minimal. Richer identifier wording, state listings, and navigable current pages are proven more fully in later fixture states and should not be retroactively imposed on the earlier acceptance targets.
 
 ## What Weave Does Not Do
 
@@ -272,6 +272,8 @@ The main weave-behavior consequences are:
 - `ReferenceLink` identities are stable fragment IRIs rooted at the catalog resource
 - the current catalog page is the dereference target for both current and retired links
 - current catalog page generation must therefore consult both the current working catalog and catalog history
+
+For the current carried local `09` slice, the settled fixture proves only the first current-link case: one current `#reference001` anchor rendered on the current catalog page together with the first catalog-history pages. Richer retired-link recovery remains a later extension of the same page-generation seam rather than completed carried behavior.
 
 That history-aware dereferenceability requirement is unusual enough that it should remain explicit in future implementations.
 

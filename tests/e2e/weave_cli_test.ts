@@ -29,6 +29,13 @@ Deno.test("weave matches the manifest-scoped alice bio integrated-woven fixture 
   });
 });
 
+Deno.test("weave matches the manifest-scoped alice bio referenced-woven fixture as a black-box CLI run", async () => {
+  await assertWeaveTransitionMatchesManifest({
+    manifestName: "09-alice-bio-referenced-woven.jsonld",
+    expectedStdoutFragment: "Wove 1 designator path",
+  });
+});
+
 async function assertWeaveTransitionMatchesManifest(
   options: {
     manifestName: string;

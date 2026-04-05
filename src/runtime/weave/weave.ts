@@ -4,6 +4,7 @@ import type { PlannedFile } from "../../core/planned_file.ts";
 import {
   type PayloadWorkingArtifact,
   planWeave,
+  type ReferenceCatalogWorkingArtifact,
   type WeaveableKnopCandidate,
   WeaveInputError,
   type WeavePlan,
@@ -226,11 +227,7 @@ async function loadWeaveableKnopCandidates(
       throw error;
     }
 
-    if (currentKnopInventoryTurtle.includes("sflo:hasArtifactHistory")) {
-      continue;
-    }
-
-    candidates.push({
+    const candidate: WeaveableKnopCandidate = {
       designatorPath,
       currentKnopMetadataTurtle,
       currentKnopInventoryTurtle,
@@ -239,7 +236,18 @@ async function loadWeaveableKnopCandidates(
         designatorPath,
         currentKnopInventoryTurtle,
       ),
-    });
+      referenceCatalogArtifact: await loadReferenceCatalogWorkingArtifact(
+        workspaceRoot,
+        designatorPath,
+        currentKnopInventoryTurtle,
+      ),
+    };
+
+    if (!isWeaveableKnopCandidate(candidate)) {
+      continue;
+    }
+
+    candidates.push(candidate);
   }
 
   return candidates.sort((left, right) =>
@@ -299,6 +307,97 @@ async function loadPayloadWorkingArtifact(
     }
     throw error;
   }
+}
+
+async function loadReferenceCatalogWorkingArtifact(
+  workspaceRoot: string,
+  designatorPath: string,
+  currentKnopInventoryTurtle: string,
+): Promise<ReferenceCatalogWorkingArtifact | undefined> {
+  const knopPath = `${designatorPath}/_knop`;
+  const referenceCatalogPath = `${knopPath}/_references`;
+  if (
+    !currentKnopInventoryTurtle.includes(
+      `sflo:hasReferenceCatalog <${referenceCatalogPath}>`,
+    )
+  ) {
+    return undefined;
+  }
+
+  const referenceCatalogBlock = currentKnopInventoryTurtle
+    .split("\n\n")
+    .find((block) =>
+      block.startsWith(
+        `<${referenceCatalogPath}> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;`,
+      )
+    );
+
+  if (!referenceCatalogBlock) {
+    throw new WeaveRuntimeError(
+      `Could not resolve the ReferenceCatalog block for ${designatorPath}.`,
+    );
+  }
+
+  const workingFilePathMatch = referenceCatalogBlock.match(
+    /sflo:hasWorkingLocatedFile <([^>]+)>/,
+  );
+  if (!workingFilePathMatch) {
+    throw new WeaveRuntimeError(
+      `Could not resolve the working ReferenceCatalog file for ${designatorPath}.`,
+    );
+  }
+
+  const workingFilePath = workingFilePathMatch[1]!;
+  try {
+    return {
+      workingFilePath,
+      currentReferenceCatalogTurtle: await Deno.readTextFile(
+        join(workspaceRoot, workingFilePath),
+      ),
+    };
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      throw new WeaveRuntimeError(
+        `Workspace is missing the working ReferenceCatalog file for ${designatorPath}: ${workingFilePath}`,
+      );
+    }
+    throw error;
+  }
+}
+
+function isWeaveableKnopCandidate(candidate: WeaveableKnopCandidate): boolean {
+  const designatorPath = candidate.designatorPath;
+  const knopPath = `${designatorPath}/_knop`;
+  const payloadRelationship = `sflo:hasPayloadArtifact <${designatorPath}>`;
+  const payloadHasHistory = candidate.currentKnopInventoryTurtle.includes(
+    `sflo:hasArtifactHistory <${designatorPath}/_history001>`,
+  );
+  const referenceCatalogPath = `${knopPath}/_references`;
+  const referenceCatalogRelationship =
+    `sflo:hasReferenceCatalog <${referenceCatalogPath}>`;
+  const referenceCatalogHasHistory = candidate.currentKnopInventoryTurtle
+    .includes(`sflo:hasArtifactHistory <${referenceCatalogPath}/_history001>`);
+  const knopInventoryHasHistory = candidate.currentKnopInventoryTurtle.includes(
+    `sflo:hasArtifactHistory <${knopPath}/_inventory/_history001>`,
+  );
+
+  if (
+    candidate.currentKnopInventoryTurtle.includes(
+      referenceCatalogRelationship,
+    ) &&
+    !referenceCatalogHasHistory
+  ) {
+    return candidate.referenceCatalogArtifact !== undefined;
+  }
+
+  if (
+    candidate.currentKnopInventoryTurtle.includes(payloadRelationship) &&
+    !payloadHasHistory
+  ) {
+    return candidate.payloadArtifact !== undefined;
+  }
+
+  return !knopInventoryHasHistory;
 }
 
 function assertUpdatedTargetsExist(

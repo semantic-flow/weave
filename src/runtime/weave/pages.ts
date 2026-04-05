@@ -47,6 +47,34 @@ export function renderResourcePage(
 `;
   }
 
+  if (page.kind === "referenceCatalog") {
+    const currentLinks = page.currentLinks.map((link) =>
+      `        <li id="${link.fragment}"><code>#${link.fragment}</code>: ${link.referenceRoleLabel} reference target <code>${link.referenceTargetPath}</code>.</li>`
+    ).join("\n");
+
+    return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>${meshLabel} ${resourcePath}</title>
+  <link rel="canonical" href="${canonical}">
+</head>
+<body>
+  <main>
+    <h1>${page.catalogPath}</h1>
+    <p>Resource page for the ${page.ownerDesignatorPath} ReferenceCatalog artifact.</p>
+    <section>
+      <h2>Current Links</h2>
+      <ul>
+${currentLinks}
+      </ul>
+    </section>
+  </main>
+</body>
+</html>
+`;
+  }
+
   return `<!doctype html>
 <html lang="en">
 <head>

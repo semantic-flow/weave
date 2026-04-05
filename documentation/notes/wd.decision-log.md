@@ -167,3 +167,11 @@ created: 1773630801215
 - Why:
   - The settled `08` fixture explicitly proves a canonical Alice -> Alice Bio link rather than an omission-default role policy.
   - The later Bob extraction path is the first natural carried `Supplemental` case, so a silent local default would have blurred two different fixture-backed behaviors.
+
+### 2026-04-04: Third Local weave Slice Targets Alice 08 -> 09
+
+- Decision: Treat the settled Alice Bio `08-alice-bio-referenced` -> `09-alice-bio-referenced-woven` transition as the next carried local `weave` implementation slice, keep the existing thin `designatorPaths` request surface, version the Knop-owned `ReferenceCatalog`, advance `alice/_knop/_inventory` to `_s0002`, leave `_mesh/_inventory/inventory.ttl` unchanged, and extend the shared runtime page-rendering seam with current and historical `ReferenceCatalog` pages.
+- References: [[wd.task.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]], [[wd.spec.2026-04-03-weave-behavior]]
+- Why:
+  - It proves the first `ReferenceCatalog` history and the first support-artifact weave on an already-versioned Knop surface without widening the mesh inventory beyond the public current surface.
+  - The settled `09` fixture only requires one current-link anchor and no retired-link recovery yet, so the shared page seam should grow minimally rather than fork into a separate renderer path.
