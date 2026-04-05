@@ -5,6 +5,7 @@ import { IntegrateInputError } from "../core/integrate/integrate.ts";
 import { KnopAddReferenceInputError } from "../core/knop/add_reference.ts";
 import { KnopCreateInputError } from "../core/knop/create.ts";
 import { MeshCreateInputError } from "../core/mesh/create.ts";
+import { PayloadUpdateInputError } from "../core/payload/update.ts";
 import { WeaveInputError } from "../core/weave/weave.ts";
 import { createRuntimeLoggers } from "../runtime/logging/factory.ts";
 import {
@@ -27,6 +28,11 @@ import {
   executeMeshCreate,
   MeshCreateRuntimeError,
 } from "../runtime/mesh/create.ts";
+import {
+  describePayloadUpdateResult,
+  executePayloadUpdate,
+  PayloadUpdateRuntimeError,
+} from "../runtime/payload/update.ts";
 import {
   describeWeaveResult,
   executeWeave,
@@ -121,6 +127,60 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             console.log(path);
           }
         }),
+    )
+    .command(
+      "payload",
+      new Command()
+        .description("Payload operations.")
+        .command(
+          "update",
+          new Command()
+            .description(
+              "Replace the working bytes of an existing payload artifact.",
+            )
+            .arguments("<source:string> [designatorPath:string]")
+            .option(
+              "--designator-path <designatorPath:string>",
+              "Designator path of the existing payload artifact to update.",
+            )
+            .option(
+              "--workspace <workspace:string>",
+              "Workspace root to update.",
+              { default: "." },
+            )
+            .action(async (options, source, designatorPathArg) => {
+              const workspaceRoot = resolve(options.workspace);
+              const designatorPath = resolvePayloadUpdateDesignatorPath(
+                options,
+                designatorPathArg,
+              );
+              const logDir = join(workspaceRoot, ".weave", "logs");
+              const { operationalLogger, auditLogger } = createRuntimeLoggers({
+                logDir,
+              });
+
+              await auditLogger.command("payload.update", {
+                workspaceRoot,
+                designatorPath,
+                source,
+                localMode: true,
+              });
+
+              const result = await executePayloadUpdate({
+                workspaceRoot,
+                request: {
+                  designatorPath,
+                  source,
+                },
+                operationalLogger,
+                auditLogger,
+              });
+              console.log(describePayloadUpdateResult(result));
+              for (const path of result.updatedPaths) {
+                console.log(path);
+              }
+            }),
+        ),
     )
     .command(
       "mesh",
@@ -349,10 +409,42 @@ function resolveIntegrateDesignatorPath(
   );
 }
 
+function resolvePayloadUpdateDesignatorPath(
+  options: { designatorPath?: string },
+  designatorPathArg?: string,
+): string {
+  const optionValue = options.designatorPath?.trim() ?? "";
+  const argumentValue = designatorPathArg?.trim() ?? "";
+
+  if (optionValue.length > 0 && argumentValue.length > 0) {
+    if (optionValue !== argumentValue) {
+      throw new PayloadUpdateInputError(
+        "payload update received conflicting designator paths",
+      );
+    }
+
+    return optionValue;
+  }
+
+  if (optionValue.length > 0) {
+    return optionValue;
+  }
+
+  if (argumentValue.length > 0) {
+    return argumentValue;
+  }
+
+  throw new PayloadUpdateInputError(
+    "payload update requires a designator path as [designatorPath] or --designator-path",
+  );
+}
+
 function getCliErrorMessage(error: unknown): string {
   if (
     error instanceof IntegrateInputError ||
     error instanceof IntegrateRuntimeError ||
+    error instanceof PayloadUpdateInputError ||
+    error instanceof PayloadUpdateRuntimeError ||
     error instanceof KnopAddReferenceInputError ||
     error instanceof KnopAddReferenceRuntimeError ||
     error instanceof WeaveInputError ||

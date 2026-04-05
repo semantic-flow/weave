@@ -175,3 +175,11 @@ created: 1773630801215
 - Why:
   - It proves the first `ReferenceCatalog` history and the first support-artifact weave on an already-versioned Knop surface without widening the mesh inventory beyond the public current surface.
   - The settled `09` fixture only requires one current-link anchor and no retired-link recovery yet, so the shared page seam should grow minimally rather than fork into a separate renderer path.
+
+### 2026-04-04: First Local payload.update Slice Targets Alice 09 -> 10
+
+- Decision: Treat the settled Alice Bio `09-alice-bio-referenced-woven` -> `10-alice-bio-updated` transition as the first carried local `payload.update` implementation slice, expose the human-facing CLI as `weave payload update <source> [designatorPath]` with `--designator-path` as the explicit option form, and keep shared `core` planning centered on the existing woven payload artifact and its mesh-relative working file rather than on host filesystem paths.
+- References: [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]], [[wd.spec.2026-04-04-payload-update-behavior]]
+- Why:
+  - The settled `10` fixture proves a real semantic payload change while also proving that histories, inventories, and generated pages stay frozen in this non-woven step.
+  - Letting the local runtime stage replacement bytes from a local path or `file:` URL, including one outside the workspace, preserves the one-file `alice-bio.ttl` result without polluting the semantic contract with host-path semantics or temporary mesh artifacts.
