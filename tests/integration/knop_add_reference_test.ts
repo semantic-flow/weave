@@ -4,6 +4,8 @@ import {
   executeKnopAddReference,
   KnopAddReferenceRuntimeError,
 } from "../../src/runtime/knop/add_reference.ts";
+import { AuditLogger } from "../../src/runtime/logging/audit_logger.ts";
+import { StructuredLogger } from "../../src/runtime/logging/logger.ts";
 import {
   materializeMeshAliceBioBranch,
   readMeshAliceBioBranchFile,
@@ -104,5 +106,91 @@ Deno.test("executeKnopAddReference fails closed when the reference catalog worki
       }),
     KnopAddReferenceRuntimeError,
     "already exists",
+  );
+});
+
+Deno.test("executeKnopAddReference rejects unsafe designator segments before touching the workspace", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-knop-add-reference-bad-");
+  await materializeMeshAliceBioBranch(
+    "07-alice-bio-integrated-woven",
+    workspaceRoot,
+  );
+
+  await assertRejects(
+    () =>
+      executeKnopAddReference({
+        workspaceRoot,
+        request: {
+          designatorPath: "alice:bio",
+          referenceTargetDesignatorPath: "alice/bio",
+          referenceRole: "canonical",
+        },
+      }),
+    KnopAddReferenceRuntimeError,
+    'normalizeDesignatorPath rejected segment "alice:bio"',
+  );
+
+  await assertRejects(
+    () =>
+      Deno.stat(
+        join(workspaceRoot, "alice:bio/_knop/_references/references.ttl"),
+      ),
+    Deno.errors.NotFound,
+  );
+});
+
+Deno.test("executeKnopAddReference treats success logging failures as best-effort after commit", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-knop-add-reference-logging-",
+  );
+  await materializeMeshAliceBioBranch(
+    "07-alice-bio-integrated-woven",
+    workspaceRoot,
+  );
+
+  const throwingOperationalLogger = new StructuredLogger([{
+    async write(record: { event: string }) {
+      if (record.event === "knop.addReference.succeeded") {
+        throw new Error("operational success log failed");
+      }
+    },
+  }], {
+    channel: "operational",
+  });
+  const throwingAuditLogger = new AuditLogger(
+    new StructuredLogger([{
+      async write(record: { event: string }) {
+        if (record.event === "knop.addReference.succeeded") {
+          throw new Error("audit success log failed");
+        }
+      },
+    }], {
+      channel: "security-audit",
+    }),
+  );
+
+  const result = await executeKnopAddReference({
+    workspaceRoot,
+    request: {
+      designatorPath: "alice",
+      referenceTargetDesignatorPath: "alice/bio",
+      referenceRole: "canonical",
+    },
+    operationalLogger: throwingOperationalLogger,
+    auditLogger: throwingAuditLogger,
+  });
+
+  assertEquals(
+    result.createdPaths,
+    ["alice/_knop/_references/references.ttl"],
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/_knop/_references/references.ttl"),
+    ),
+    await readMeshAliceBioBranchFile(
+      "08-alice-bio-referenced",
+      "alice/_knop/_references/references.ttl",
+    ),
   );
 });

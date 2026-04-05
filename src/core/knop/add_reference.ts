@@ -1,6 +1,7 @@
 import type { PlannedFile } from "../planned_file.ts";
 
 const reservedDesignatorSegments = new Set(["_knop", "_mesh"]);
+const safeDesignatorSegmentPattern = /^[A-Za-z0-9._-]+$/;
 
 const referenceRoleIriByToken = {
   canonical:
@@ -48,9 +49,13 @@ export function planKnopAddReference(
   request: ResolvedKnopAddReferenceRequest,
 ): KnopAddReferencePlan {
   const meshBase = normalizeMeshBase(request.meshBase);
-  const designatorPath = normalizeDesignatorPath(request.designatorPath);
+  const designatorPath = normalizeDesignatorPath(
+    request.designatorPath,
+    "designatorPath",
+  );
   const referenceTargetDesignatorPath = normalizeDesignatorPath(
     request.referenceTargetDesignatorPath,
+    "referenceTargetDesignatorPath",
   );
   const referenceRoleToken = normalizeReferenceRole(request.referenceRole);
   const referenceRoleIri = referenceRoleIriByToken[referenceRoleToken];
@@ -114,39 +119,49 @@ function normalizeMeshBase(meshBase: string): string {
   return url.href;
 }
 
-function normalizeDesignatorPath(designatorPath: string): string {
+function normalizeDesignatorPath(
+  designatorPath: string,
+  fieldName: string,
+): string {
   const trimmed = designatorPath.trim();
   if (trimmed.length === 0) {
-    throw new KnopAddReferenceInputError("designatorPath is required");
+    throw new KnopAddReferenceInputError(`${fieldName} is required`);
   }
   if (trimmed.startsWith("/") || trimmed.endsWith("/")) {
     throw new KnopAddReferenceInputError(
-      "designatorPath must not start or end with '/'",
+      `${fieldName} must not start or end with '/'`,
     );
   }
   if (
     trimmed.includes("\\") || trimmed.includes("?") || trimmed.includes("#")
   ) {
     throw new KnopAddReferenceInputError(
-      "designatorPath contains unsupported path characters",
+      `${fieldName} contains unsupported path characters`,
     );
   }
 
   const segments = trimmed.split("/");
   if (segments.some((segment) => segment.length === 0)) {
     throw new KnopAddReferenceInputError(
-      "designatorPath must not contain empty path segments",
+      `${fieldName} must not contain empty path segments`,
     );
   }
   if (segments.some((segment) => segment === "." || segment === "..")) {
     throw new KnopAddReferenceInputError(
-      "designatorPath must not contain '.' or '..' path segments",
+      `${fieldName} must not contain '.' or '..' path segments`,
     );
   }
   if (segments.some((segment) => reservedDesignatorSegments.has(segment))) {
     throw new KnopAddReferenceInputError(
-      "designatorPath must not contain reserved path segments",
+      `${fieldName} must not contain reserved path segments`,
     );
+  }
+  for (const segment of segments) {
+    if (!safeDesignatorSegmentPattern.test(segment)) {
+      throw new KnopAddReferenceInputError(
+        `normalizeDesignatorPath rejected segment "${segment}" in ${fieldName}: toKnopPath only accepts path segments matching [A-Za-z0-9._-]+`,
+      );
+    }
   }
 
   return trimmed;
@@ -157,7 +172,9 @@ function normalizeReferenceRole(referenceRole: string): ReferenceRoleToken {
   if (normalized.length === 0) {
     throw new KnopAddReferenceInputError("referenceRole is required");
   }
-  if (normalized in referenceRoleIriByToken) {
+  if (
+    Object.prototype.hasOwnProperty.call(referenceRoleIriByToken, normalized)
+  ) {
     return normalized as ReferenceRoleToken;
   }
   throw new KnopAddReferenceInputError(

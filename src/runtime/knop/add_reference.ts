@@ -9,6 +9,7 @@ import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
 
 const reservedDesignatorSegments = new Set(["_knop", "_mesh"]);
+const safeDesignatorSegmentPattern = /^[A-Za-z0-9._-]+$/;
 
 export interface LocalKnopAddReferenceRequest {
   designatorPath: string;
@@ -40,6 +41,18 @@ export class KnopAddReferenceRuntimeError extends Error {
     super(message);
     this.name = "KnopAddReferenceRuntimeError";
   }
+}
+
+interface StagedFileMutation {
+  absolutePath: string;
+  tempPath: string;
+  backupPath?: string;
+}
+
+interface StagedPlanMutation {
+  createdFiles: StagedFileMutation[];
+  updatedFiles: StagedFileMutation[];
+  createdDirectories: string[];
 }
 
 export async function executeKnopAddReference(
@@ -94,8 +107,8 @@ export async function executeKnopAddReference(
     plan = planKnopAddReference({
       meshBase,
       currentKnopInventoryTurtle,
-      designatorPath,
-      referenceTargetDesignatorPath,
+      designatorPath: normalizedDesignatorPath,
+      referenceTargetDesignatorPath: normalizedReferenceTargetDesignatorPath,
       referenceRole,
     });
 
@@ -104,8 +117,7 @@ export async function executeKnopAddReference(
       normalizedReferenceTargetDesignatorPath,
     );
     await assertCreateTargetsDoNotExist(workspaceRoot, plan);
-    await writeCreatedFiles(workspaceRoot, plan);
-    await writeUpdatedFiles(workspaceRoot, plan);
+    await applyPlanAtomically(workspaceRoot, plan);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await operationalLogger.error(
@@ -156,35 +168,11 @@ export async function executeKnopAddReference(
     updatedPaths: plan.updatedFiles.map((file) => file.path),
   };
 
-  await operationalLogger.info(
-    "knop.addReference.succeeded",
-    "Local knop add-reference succeeded",
-    {
-      workspaceRoot,
-      designatorPath: result.designatorPath,
-      referenceTargetDesignatorPath: result.referenceTargetDesignatorPath,
-      referenceCatalogIri: result.referenceCatalogIri,
-      referenceLinkIri: result.referenceLinkIri,
-      referenceRoleIri: result.referenceRoleIri,
-      referenceTargetIri: result.referenceTargetIri,
-      createdPaths: result.createdPaths,
-      updatedPaths: result.updatedPaths,
-    },
-  );
-  await auditLogger.record(
-    "knop.addReference.succeeded",
-    "Local knop add-reference succeeded",
-    {
-      workspaceRoot,
-      designatorPath: result.designatorPath,
-      referenceTargetDesignatorPath: result.referenceTargetDesignatorPath,
-      referenceCatalogIri: result.referenceCatalogIri,
-      referenceLinkIri: result.referenceLinkIri,
-      referenceRoleIri: result.referenceRoleIri,
-      referenceTargetIri: result.referenceTargetIri,
-      createdPaths: result.createdPaths,
-      updatedPaths: result.updatedPaths,
-    },
+  await logKnopAddReferenceSucceededBestEffort(
+    operationalLogger,
+    auditLogger,
+    workspaceRoot,
+    result,
   );
 
   return result;
@@ -320,28 +308,6 @@ async function assertCreateTargetsDoNotExist(
   }
 }
 
-async function writeCreatedFiles(
-  workspaceRoot: string,
-  plan: KnopAddReferencePlan,
-): Promise<void> {
-  for (const file of plan.createdFiles) {
-    const absolutePath = join(workspaceRoot, file.path);
-    await Deno.mkdir(dirname(absolutePath), { recursive: true });
-    await Deno.writeTextFile(absolutePath, file.contents, { createNew: true });
-  }
-}
-
-async function writeUpdatedFiles(
-  workspaceRoot: string,
-  plan: KnopAddReferencePlan,
-): Promise<void> {
-  for (const file of plan.updatedFiles) {
-    const absolutePath = join(workspaceRoot, file.path);
-    await Deno.mkdir(dirname(absolutePath), { recursive: true });
-    await Deno.writeTextFile(absolutePath, file.contents);
-  }
-}
-
 function normalizeLocalDesignatorPath(
   designatorPath: string,
   fieldName: string,
@@ -379,6 +345,290 @@ function normalizeLocalDesignatorPath(
       `${fieldName} must not contain reserved path segments`,
     );
   }
+  for (const segment of segments) {
+    if (!safeDesignatorSegmentPattern.test(segment)) {
+      throw new KnopAddReferenceRuntimeError(
+        `normalizeDesignatorPath rejected segment "${segment}" in ${fieldName}: toKnopPath only accepts path segments matching [A-Za-z0-9._-]+`,
+      );
+    }
+  }
 
   return trimmed;
+}
+
+async function applyPlanAtomically(
+  workspaceRoot: string,
+  plan: KnopAddReferencePlan,
+): Promise<void> {
+  const stagedPlanMutation = await stagePlanMutation(workspaceRoot, plan);
+
+  try {
+    await commitStagedPlanMutation(stagedPlanMutation);
+  } catch (error) {
+    try {
+      await rollbackStagedPlanMutation(stagedPlanMutation);
+    } catch (rollbackError) {
+      const message = error instanceof Error ? error.message : String(error);
+      const rollbackMessage = rollbackError instanceof Error
+        ? rollbackError.message
+        : String(rollbackError);
+      throw new KnopAddReferenceRuntimeError(
+        `Atomic knop add-reference commit failed: ${message}; rollback also failed: ${rollbackMessage}`,
+      );
+    }
+
+    throw error;
+  }
+
+  await cleanupCommittedStagedPlanMutationBestEffort(stagedPlanMutation);
+}
+
+async function stagePlanMutation(
+  workspaceRoot: string,
+  plan: KnopAddReferencePlan,
+): Promise<StagedPlanMutation> {
+  const stagedPlanMutation: StagedPlanMutation = {
+    createdFiles: [],
+    updatedFiles: [],
+    createdDirectories: [],
+  };
+  const trackedDirectories = new Set<string>();
+
+  try {
+    for (const file of plan.createdFiles) {
+      const absolutePath = join(workspaceRoot, file.path);
+      const directoryPath = dirname(absolutePath);
+      await ensureDirectoryExists(
+        directoryPath,
+        stagedPlanMutation.createdDirectories,
+        trackedDirectories,
+      );
+      stagedPlanMutation.createdFiles.push({
+        absolutePath,
+        tempPath: await writeStagedFile(directoryPath, file.contents),
+      });
+    }
+
+    for (const file of plan.updatedFiles) {
+      const absolutePath = join(workspaceRoot, file.path);
+      const directoryPath = dirname(absolutePath);
+      await ensureDirectoryExists(
+        directoryPath,
+        stagedPlanMutation.createdDirectories,
+        trackedDirectories,
+      );
+      stagedPlanMutation.updatedFiles.push({
+        absolutePath,
+        tempPath: await writeStagedFile(directoryPath, file.contents),
+        backupPath: join(
+          directoryPath,
+          `.weave-backup-${crypto.randomUUID()}.ttl`,
+        ),
+      });
+    }
+  } catch (error) {
+    await rollbackStagedPlanMutation(stagedPlanMutation);
+    throw error;
+  }
+
+  return stagedPlanMutation;
+}
+
+async function ensureDirectoryExists(
+  directoryPath: string,
+  createdDirectories: string[],
+  trackedDirectories: Set<string>,
+): Promise<void> {
+  const missingDirectories: string[] = [];
+  let currentPath = directoryPath;
+
+  while (true) {
+    try {
+      const stat = await Deno.stat(currentPath);
+      if (!stat.isDirectory) {
+        throw new KnopAddReferenceRuntimeError(
+          `Workspace path is not a directory: ${currentPath}`,
+        );
+      }
+      break;
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) {
+        missingDirectories.push(currentPath);
+        const parentPath = dirname(currentPath);
+        if (parentPath === currentPath) {
+          break;
+        }
+        currentPath = parentPath;
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  if (missingDirectories.length === 0) {
+    return;
+  }
+
+  await Deno.mkdir(directoryPath, { recursive: true });
+  for (const createdDirectory of missingDirectories.reverse()) {
+    if (trackedDirectories.has(createdDirectory)) {
+      continue;
+    }
+    trackedDirectories.add(createdDirectory);
+    createdDirectories.push(createdDirectory);
+  }
+}
+
+async function writeStagedFile(
+  directoryPath: string,
+  contents: string,
+): Promise<string> {
+  const tempPath = join(
+    directoryPath,
+    `.weave-staged-${crypto.randomUUID()}.tmp`,
+  );
+  await Deno.writeTextFile(tempPath, contents, { createNew: true });
+  return tempPath;
+}
+
+async function commitStagedPlanMutation(
+  stagedPlanMutation: StagedPlanMutation,
+): Promise<void> {
+  for (const file of stagedPlanMutation.createdFiles) {
+    await Deno.rename(file.tempPath, file.absolutePath);
+  }
+
+  for (const file of stagedPlanMutation.updatedFiles) {
+    await Deno.rename(file.absolutePath, file.backupPath!);
+    await Deno.rename(file.tempPath, file.absolutePath);
+  }
+}
+
+async function rollbackStagedPlanMutation(
+  stagedPlanMutation: StagedPlanMutation,
+): Promise<void> {
+  let firstRollbackError: unknown;
+
+  for (const file of [...stagedPlanMutation.updatedFiles].reverse()) {
+    try {
+      await removePathIfExists(file.tempPath);
+      if (!(await pathExists(file.backupPath!))) {
+        continue;
+      }
+      await removePathIfExists(file.absolutePath);
+      await Deno.rename(file.backupPath!, file.absolutePath);
+    } catch (error) {
+      firstRollbackError ??= error;
+    }
+  }
+
+  for (const file of [...stagedPlanMutation.createdFiles].reverse()) {
+    try {
+      await removePathIfExists(file.tempPath);
+      await removePathIfExists(file.absolutePath);
+    } catch (error) {
+      firstRollbackError ??= error;
+    }
+  }
+
+  await removeEmptyDirectoriesBestEffort(stagedPlanMutation.createdDirectories);
+
+  if (firstRollbackError) {
+    throw firstRollbackError;
+  }
+}
+
+async function cleanupCommittedStagedPlanMutationBestEffort(
+  stagedPlanMutation: StagedPlanMutation,
+): Promise<void> {
+  for (const file of stagedPlanMutation.createdFiles) {
+    await removePathIfExistsBestEffort(file.tempPath);
+  }
+
+  for (const file of stagedPlanMutation.updatedFiles) {
+    await removePathIfExistsBestEffort(file.tempPath);
+    await removePathIfExistsBestEffort(file.backupPath!);
+  }
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await Deno.stat(path);
+    return true;
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+async function removePathIfExists(path: string): Promise<void> {
+  try {
+    await Deno.remove(path);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return;
+    }
+    throw error;
+  }
+}
+
+async function removePathIfExistsBestEffort(path: string): Promise<void> {
+  try {
+    await removePathIfExists(path);
+  } catch {
+    // Best-effort cleanup should never fail the committed operation.
+  }
+}
+
+async function removeEmptyDirectoriesBestEffort(
+  createdDirectories: readonly string[],
+): Promise<void> {
+  for (const directoryPath of [...createdDirectories].reverse()) {
+    try {
+      await Deno.remove(directoryPath);
+    } catch {
+      // Rollback cleanup should not obscure the primary result.
+    }
+  }
+}
+
+async function logKnopAddReferenceSucceededBestEffort(
+  operationalLogger: StructuredLogger,
+  auditLogger: AuditLogger,
+  workspaceRoot: string,
+  result: KnopAddReferenceResult,
+): Promise<void> {
+  const attributes = {
+    workspaceRoot,
+    designatorPath: result.designatorPath,
+    referenceTargetDesignatorPath: result.referenceTargetDesignatorPath,
+    referenceCatalogIri: result.referenceCatalogIri,
+    referenceLinkIri: result.referenceLinkIri,
+    referenceRoleIri: result.referenceRoleIri,
+    referenceTargetIri: result.referenceTargetIri,
+    createdPaths: result.createdPaths,
+    updatedPaths: result.updatedPaths,
+  };
+
+  try {
+    await operationalLogger.info(
+      "knop.addReference.succeeded",
+      "Local knop add-reference succeeded",
+      attributes,
+    );
+  } catch {
+    // Success logging must not turn a committed workspace mutation into a failure.
+  }
+
+  try {
+    await auditLogger.record(
+      "knop.addReference.succeeded",
+      "Local knop add-reference succeeded",
+      attributes,
+    );
+  } catch {
+    // Success logging must not turn a committed workspace mutation into a failure.
+  }
 }

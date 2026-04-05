@@ -205,3 +205,142 @@ Added the “leave task-note renames to the user unless explicitly asked” rule
 Drafted the next carried-slice task note at [[wd.task.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]] and queued it in [[wd.todo]]. It scopes the next slice to `08-alice-bio-referenced -> 09-alice-bio-referenced-woven`: weave `alice/_knop/_references`, advance `alice/_knop/_inventory`, generate the catalog pages, and leave `_mesh/_inventory` unchanged.
 
 No tests run; this was a docs-only update.
+
+# User_2026-04-04_1634_40
+
+coderabbit feedback:
+
+Verify each finding against the current code and only fix it if needed.
+
+Inline comments:
+In `@src/cli/run.ts`:
+- Around line 198-227: Trim and validate the positional designatorPath inside
+the .action handler before using it: call designatorPath =
+String(designatorPath).trim() (or equivalent) after it is received, then check
+it is non-empty and if invalid throw/return a clear error (same pattern as
+resolveRequiredOptionValue) so execution (including executeKnopAddReference and
+auditLogger.command) never proceeds with a whitespace-only value; update any
+error message to mention the positional designatorPath.
+
+In `@src/core/knop/add_reference.ts`:
+- Around line 50-68: normalizeDesignatorPath currently allows segments like
+"alice:bio" that can produce non-mesh-relative IRIs; update
+normalizeDesignatorPath to validate each segment against a safe segment charset
+(only allow a-z, A-Z, 0-9, hyphen, underscore, dot — reject colons, slashes,
+spaces, etc.), and throw a clear validation error when a segment fails. In
+add_reference.ts (places constructing designatorPath and
+referenceTargetDesignatorPath and where toKnopPath is used) call the tightened
+normalizeDesignatorPath and ensure any invalid input causes fast failure rather
+than producing IRIs; mirror the identical charset check in the runtime validator
+code paths mentioned (the blocks around lines 117-153 and 168-185) so both
+compile-time and runtime enforce the same rule. Ensure error messages reference
+the offending segment and the function names normalizeDesignatorPath and
+toKnopPath for easy debugging.
+- Around line 155-165: The normalizeReferenceRole function currently uses the
+"in" operator against referenceRoleIriByToken which matches prototype properties
+(e.g., "constructor"); change the validation to check only own properties by
+using Object.prototype.hasOwnProperty.call(referenceRoleIriByToken, normalized)
+instead of "normalized in referenceRoleIriByToken", keep throwing
+KnopAddReferenceInputError for empty/unsupported values and return the
+normalized value as ReferenceRoleToken as before.
+
+In `@src/runtime/knop/add_reference.ts`:
+- Around line 102-108: The workspace mutation is not atomic because
+writeCreatedFiles and writeUpdatedFiles commit changes before all work (and
+success logging) completes; modify the add-reference flow so mutations are done
+atomically: for created files use a staging-and-rename strategy (write to temp
+paths then atomically rename into final paths) or implement a rollback path that
+removes any newly created files if a later step fails, and ensure
+writeUpdatedFiles applies updates transactionally (e.g., write to temp files and
+replace). Keep the pre-checks (assertReferenceTargetExists,
+assertCreateTargetsDoNotExist) as-is but perform the staged commit immediately
+after those checks and before any post-commit logging; make the success log
+calls best-effort (catch/log but don’t throw) so logging failures do not leave
+the workspace mutated without allowing retries. Ensure the new behavior is
+applied to both the block around writeCreatedFiles/writeUpdatedFiles and the
+other occurrence noted (lines ~159-188) so all workspace mutations are atomic.
+
+# gpt-5.4_2026-04-04_1635_10
+
+I’m verifying the actual code paths against the review comments first, then I’ll patch only the findings that are real for the current `knop add-reference` slice.
+
+# gpt-5.4_2026-04-04_1635_57
+
+Verifying the CodeRabbit findings against the current implementation now. I’m checking each one in the live code, then I’ll patch only the issues that are real and add tests where the behavior changed.
+
+# gpt-5.4_2026-04-04_1636_06
+
+The three substantive findings are real in the current tree: positional CLI validation is missing, path-segment validation is too permissive, and the runtime write path is not atomic. I’m patching those now and I’ll add focused regression coverage for the new failure cases instead of changing unrelated behavior.
+
+# gpt-5.4_2026-04-04_1638_15
+
+I’ve narrowed the fix scope to the actual regressions in `knop add-reference`. I’m editing the CLI first so whitespace-only positional input is rejected before any audit logging or runtime execution.
+
+# gpt-5.4_2026-04-04_1638_21
+
+Next I’m tightening the designator-path normalization in the core planner. This is the place that was still willing to turn bad segments into IRIs, so I’m making the segment rule explicit and fixing the `referenceRole` own-property check at the same time.
+
+# gpt-5.4_2026-04-04_1639_06
+
+I’m on the runtime now. The change here is two parts: make the local validator match the planner’s segment rules, and stage the filesystem mutation so a later failure can roll back cleanly instead of leaving half-applied files behind.
+
+# gpt-5.4_2026-04-04_1639_44
+
+The core planner changes are in. I’m adding regression tests now for the two concrete input bugs that were real: bad path segments like `alice:bio` and prototype-property tokens like `constructor`.
+
+# gpt-5.4_2026-04-04_1640_17
+
+I’ve covered the planner and runtime. I’m adding one black-box CLI regression now so the whitespace-only positional case stays closed all the way out at the command surface.
+
+# gpt-5.4_2026-04-04_1640_39
+
+There’s one follow-up in the runtime patch: I’m making the post-commit cleanup actually best-effort so a temp-file cleanup miss can’t reintroduce the same “mutation succeeded but the command failed” class of problem.
+
+# gpt-5.4_2026-04-04_1641_06
+
+The fixes are patched. I’m formatting the touched files and then running the targeted `knop add-reference` tests first so I can catch any type or behavior regressions before deciding whether a full suite run is worth the extra time.
+
+# gpt-5.4_2026-04-04_1641_10
+
+The test compile step is past formatting and into execution. If anything fails now it should be a real behavioral mismatch, not just syntax or lint noise.
+
+# gpt-5.4_2026-04-04_1641_16
+
+The failures are permission-related, not code failures. I’m rerunning the same targeted tests with the permissions those integration and CLI cases actually need so we can see the real result set.
+
+# gpt-5.4_2026-04-04_1641_27
+
+The targeted regressions are green. I’m running the repo’s normal test task once to make sure the tighter validation and CLI surface didn’t break anything outside the `add-reference` slice.
+
+# gpt-5.4_2026-04-04_1641_50
+
+The code changes are done and the full repo test task passed. I’m just collecting the exact file/line references now so the close-out is precise and I can distinguish the actual fixes from unrelated workspace noise.
+
+# gpt-5.4_2026-04-04_1642_20
+
+I verified the CodeRabbit comments against the current code. The CLI positional validation issue, the unsafe designator-segment issue, the `referenceRole` own-property issue, and the non-atomic runtime write path were all real, so I fixed those and nothing broader.
+
+- In [run.ts](/home/djradon/hub/semantic-flow/weave/src/cli/run.ts#L198), `knop add-reference` now trims and validates the positional `designatorPath` before any audit logging or execution, with a clear error that names the positional argument.
+- In [add_reference.ts](/home/djradon/hub/semantic-flow/weave/src/core/knop/add_reference.ts#L122) and [add_reference.ts](/home/djradon/hub/semantic-flow/weave/src/core/knop/add_reference.ts#L170), `normalizeDesignatorPath` now rejects unsafe segments like `alice:bio` with an error that mentions `normalizeDesignatorPath` and `toKnopPath`, and `normalizeReferenceRole` now uses `hasOwnProperty` instead of `in`.
+- In [add_reference.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/knop/add_reference.ts#L311), [add_reference.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/knop/add_reference.ts#L359), and [add_reference.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/knop/add_reference.ts#L597), the runtime now enforces the same segment rule, stages file writes through temp files plus rollback, and treats success logging as best-effort so a committed mutation does not fail afterward.
+
+I added regression coverage in [add_reference_test.ts](/home/djradon/hub/semantic-flow/weave/src/core/knop/add_reference_test.ts#L157), [knop_add_reference_test.ts](/home/djradon/hub/semantic-flow/weave/tests/integration/knop_add_reference_test.ts#L112), and [knop_add_reference_cli_test.ts](/home/djradon/hub/semantic-flow/weave/tests/e2e/knop_add_reference_cli_test.ts#L103). Verification: `deno task test` passed.
+
+There is also an unrelated modified note in the worktree, [[wd.conv.2026.2026-04-04_1537-08-weave-alice-bio-referenced-codex]], which I left alone.
+
+# User_2026-04-04_1958_25
+
+commit mesg?
+
+# gpt-5.4_2026-04-04_1958_51
+
+```text
+fix(knop): harden add-reference validation and atomic writes
+
+- validate and trim the positional `designatorPath` in the CLI
+- reject unsafe designator path segments in core and runtime normalization
+- use an own-property check for `referenceRole` token validation
+- stage add-reference workspace mutations atomically with rollback on failure
+- treat success logging as best-effort after commit
+- add regression tests for invalid inputs and logging-failure behavior
+```

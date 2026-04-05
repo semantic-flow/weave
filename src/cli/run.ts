@@ -196,6 +196,10 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               { default: "." },
             )
             .action(async (options, designatorPath) => {
+              const normalizedDesignatorPath = resolveRequiredArgumentValue(
+                designatorPath,
+                "knop add-reference requires a positional designatorPath",
+              );
               const workspaceRoot = resolve(options.workspace);
               const referenceTargetDesignatorPath = resolveRequiredOptionValue(
                 options.referenceTargetDesignatorPath,
@@ -212,7 +216,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
 
               await auditLogger.command("knop.addReference", {
                 workspaceRoot,
-                designatorPath,
+                designatorPath: normalizedDesignatorPath,
                 referenceTargetDesignatorPath,
                 referenceRole,
                 localMode: true,
@@ -221,7 +225,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               const result = await executeKnopAddReference({
                 workspaceRoot,
                 request: {
-                  designatorPath,
+                  designatorPath: normalizedDesignatorPath,
                   referenceTargetDesignatorPath,
                   referenceRole,
                 },
@@ -375,4 +379,14 @@ function resolveRequiredOptionValue(
     throw new KnopAddReferenceInputError(errorMessage);
   }
   return trimmed;
+}
+
+function resolveRequiredArgumentValue(
+  value: string | undefined,
+  errorMessage: string,
+): string {
+  return resolveRequiredOptionValue(
+    typeof value === "string" ? value : undefined,
+    errorMessage,
+  );
 }

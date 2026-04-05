@@ -1,4 +1,4 @@
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertRejects } from "@std/assert";
 import { join, relative } from "@std/path";
 import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import {
@@ -98,6 +98,55 @@ Deno.test("weave knop add-reference matches the manifest-scoped alice-bio refere
 
   await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
   await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
+});
+
+Deno.test("weave knop add-reference rejects a whitespace-only positional designatorPath before logging or execution", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-knop-add-reference-empty-",
+  );
+  await materializeMeshAliceBioBranch(
+    "07-alice-bio-integrated-woven",
+    workspaceRoot,
+  );
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      "knop",
+      "add-reference",
+      "   ",
+      "--reference-target-designator-path",
+      "alice/bio",
+      "--reference-role",
+      "canonical",
+      "--workspace",
+      workspaceRoot,
+    ],
+    cwd: new URL(".", repoRoot),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assertEquals(output.success, false);
+  assert(
+    stderr.includes("knop add-reference requires a positional designatorPath"),
+    stderr,
+  );
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl")),
+    Deno.errors.NotFound,
+  );
+  await assertRejects(
+    () =>
+      Deno.stat(join(workspaceRoot, "alice/_knop/_references/references.ttl")),
+    Deno.errors.NotFound,
+  );
 });
 
 async function listRelativeFiles(

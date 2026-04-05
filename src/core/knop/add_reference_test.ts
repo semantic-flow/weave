@@ -171,6 +171,36 @@ Deno.test("planKnopAddReference rejects unsupported reference roles", () => {
   );
 });
 
+Deno.test("planKnopAddReference rejects prototype property reference roles", () => {
+  assertThrows(
+    () =>
+      planKnopAddReference({
+        meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+        designatorPath: "alice",
+        referenceTargetDesignatorPath: "alice/bio",
+        referenceRole: "constructor",
+        currentKnopInventoryTurtle: wovenKnopInventory,
+      }),
+    KnopAddReferenceInputError,
+    "Unsupported referenceRole",
+  );
+});
+
+Deno.test("planKnopAddReference rejects unsafe designator segments before building IRIs", () => {
+  assertThrows(
+    () =>
+      planKnopAddReference({
+        meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+        designatorPath: "alice:bio",
+        referenceTargetDesignatorPath: "alice/bio",
+        referenceRole: "canonical",
+        currentKnopInventoryTurtle: wovenKnopInventory,
+      }),
+    KnopAddReferenceInputError,
+    'normalizeDesignatorPath rejected segment "alice:bio"',
+  );
+});
+
 Deno.test("planKnopAddReference rejects an already-registered reference catalog", () => {
   assertThrows(
     () =>
