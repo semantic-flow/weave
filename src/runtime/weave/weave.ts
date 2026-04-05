@@ -2,12 +2,15 @@ import { dirname, join } from "@std/path";
 import { Parser } from "n3";
 import type { PlannedFile } from "../../core/planned_file.ts";
 import {
+  detectPendingWeaveSlice,
   type PayloadWorkingArtifact,
   planWeave,
+  type ReferenceCatalogWorkingArtifact,
   type WeaveableKnopCandidate,
   WeaveInputError,
   type WeavePlan,
   type WeaveRequest,
+  type WeaveSlice,
 } from "../../core/weave/weave.ts";
 import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
@@ -58,6 +61,7 @@ export async function executeWeave(
     const weaveableKnops = await loadWeaveableKnopCandidates(
       workspaceRoot,
       meshState.currentMeshInventoryTurtle,
+      options.request?.designatorPaths ?? [],
     );
     plan = planWeave({
       request: options.request ?? {},
@@ -194,6 +198,7 @@ async function loadMeshState(
 async function loadWeaveableKnopCandidates(
   workspaceRoot: string,
   currentMeshInventoryTurtle: string,
+  requestedDesignatorPaths: readonly string[],
 ): Promise<readonly WeaveableKnopCandidate[]> {
   const knopMatches = [
     ...currentMeshInventoryTurtle.matchAll(/<([^>]+\/_knop)> a sflo:Knop ;/g),
@@ -201,9 +206,14 @@ async function loadWeaveableKnopCandidates(
   const designatorPaths = knopMatches.map((match) =>
     match[1]!.slice(0, -"/_knop".length)
   );
+  const requested = normalizeRequestedDesignatorPaths(requestedDesignatorPaths);
 
   const candidates: WeaveableKnopCandidate[] = [];
   for (const designatorPath of designatorPaths) {
+    if (requested && !requested.has(designatorPath)) {
+      continue;
+    }
+
     const knopPath = `${designatorPath}/_knop`;
     const metadataPath = join(workspaceRoot, `${knopPath}/_meta/meta.ttl`);
     const inventoryPath = join(
@@ -226,20 +236,42 @@ async function loadWeaveableKnopCandidates(
       throw error;
     }
 
-    if (currentKnopInventoryTurtle.includes("sflo:hasArtifactHistory")) {
-      continue;
-    }
-
-    candidates.push({
+    const candidate: WeaveableKnopCandidate = {
       designatorPath,
       currentKnopMetadataTurtle,
       currentKnopInventoryTurtle,
-      payloadArtifact: await loadPayloadWorkingArtifact(
+    };
+    const slice = detectPendingWeaveSlice(
+      designatorPath,
+      currentKnopInventoryTurtle,
+    );
+
+    if (!slice) {
+      continue;
+    }
+
+    if (slice === "firstPayloadWeave") {
+      candidate.payloadArtifact = await loadPayloadWorkingArtifact(
         workspaceRoot,
         designatorPath,
         currentKnopInventoryTurtle,
-      ),
-    });
+      );
+    }
+
+    if (slice === "firstReferenceCatalogWeave") {
+      candidate.referenceCatalogArtifact =
+        await loadReferenceCatalogWorkingArtifact(
+          workspaceRoot,
+          designatorPath,
+          currentKnopInventoryTurtle,
+        );
+    }
+
+    if (!isWeaveableKnopCandidate(candidate, slice)) {
+      continue;
+    }
+
+    candidates.push(candidate);
   }
 
   return candidates.sort((left, right) =>
@@ -299,6 +331,87 @@ async function loadPayloadWorkingArtifact(
     }
     throw error;
   }
+}
+
+async function loadReferenceCatalogWorkingArtifact(
+  workspaceRoot: string,
+  designatorPath: string,
+  currentKnopInventoryTurtle: string,
+): Promise<ReferenceCatalogWorkingArtifact | undefined> {
+  const knopPath = `${designatorPath}/_knop`;
+  const referenceCatalogPath = `${knopPath}/_references`;
+  if (
+    !currentKnopInventoryTurtle.includes(
+      `sflo:hasReferenceCatalog <${referenceCatalogPath}>`,
+    )
+  ) {
+    return undefined;
+  }
+
+  const referenceCatalogBlock = currentKnopInventoryTurtle
+    .split("\n\n")
+    .find((block) =>
+      block.startsWith(
+        `<${referenceCatalogPath}> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;`,
+      )
+    );
+
+  if (!referenceCatalogBlock) {
+    throw new WeaveRuntimeError(
+      `Could not resolve the ReferenceCatalog block for ${designatorPath}.`,
+    );
+  }
+
+  const workingFilePathMatch = referenceCatalogBlock.match(
+    /sflo:hasWorkingLocatedFile <([^>]+)>/,
+  );
+  if (!workingFilePathMatch) {
+    throw new WeaveRuntimeError(
+      `Could not resolve the working ReferenceCatalog file for ${designatorPath}.`,
+    );
+  }
+
+  const workingFilePath = workingFilePathMatch[1]!;
+  try {
+    return {
+      workingFilePath,
+      currentReferenceCatalogTurtle: await Deno.readTextFile(
+        join(workspaceRoot, workingFilePath),
+      ),
+    };
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      throw new WeaveRuntimeError(
+        `Workspace is missing the working ReferenceCatalog file for ${designatorPath}: ${workingFilePath}`,
+      );
+    }
+    throw error;
+  }
+}
+
+function isWeaveableKnopCandidate(
+  candidate: WeaveableKnopCandidate,
+  slice: WeaveSlice,
+): boolean {
+  if (slice === "firstReferenceCatalogWeave") {
+    return candidate.referenceCatalogArtifact !== undefined;
+  }
+
+  if (slice === "firstPayloadWeave") {
+    return candidate.payloadArtifact !== undefined;
+  }
+
+  return slice === "firstKnopWeave";
+}
+
+function normalizeRequestedDesignatorPaths(
+  requestedDesignatorPaths: readonly string[],
+): ReadonlySet<string> | undefined {
+  const normalized = requestedDesignatorPaths
+    .map((path) => path.trim())
+    .filter((path) => path.length > 0);
+
+  return normalized.length === 0 ? undefined : new Set(normalized);
 }
 
 function assertUpdatedTargetsExist(

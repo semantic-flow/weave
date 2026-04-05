@@ -19,29 +19,69 @@ export function renderResourcePage(
   const resourcePath = toResourcePath(page.path);
   const canonical = new URL(resourcePath, meshBase).href;
   const meshLabel = deriveMeshLabel(meshBase);
+  const escapedResourcePath = escapeHtml(resourcePath);
+  const escapedCanonical = escapeHtml(canonical);
+  const escapedMeshLabel = escapeHtml(meshLabel);
 
   if (page.kind === "identifier") {
-    const workingFileSentence = page.workingFilePath
+    const workingFileHref = page.workingFilePath
+      ? toRelativeHref(page.path, page.workingFilePath)
+      : undefined;
+    const workingFileSentence = workingFileHref
       ? ` and currently uses the working RDF file <a href="${
-        toRelativeHref(page.path, page.workingFilePath)
-      }">${toRelativeHref(page.path, page.workingFilePath)}</a>`
+        escapeHtml(workingFileHref)
+      }">${escapeHtml(workingFileHref)}</a>`
       : "";
 
     return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>${meshLabel} ${resourcePath}</title>
-  <link rel="canonical" href="${canonical}">
+  <title>${escapedMeshLabel} ${escapedResourcePath}</title>
+  <link rel="canonical" href="${escapedCanonical}">
 </head>
 <body>
   <main>
-    <h1><strong>${page.designatorPath}</strong></h1>
-    <p>Resource page for the Semantic Flow identifier <a href="${canonical}">${canonical}</a>.</p>
+    <h1><strong>${escapeHtml(page.designatorPath)}</strong></h1>
+    <p>Resource page for the Semantic Flow identifier <a href="${escapedCanonical}">${escapedCanonical}</a>.</p>
   </main>
   <footer>
-    <small>The Semantic Flow identifier <a href="${canonical}">${canonical}</a> has an associated Knop at <a href="./_knop">./_knop</a>${workingFileSentence}.</small>
+    <small>The Semantic Flow identifier <a href="${escapedCanonical}">${escapedCanonical}</a> has an associated Knop at <a href="./_knop">./_knop</a>${workingFileSentence}.</small>
   </footer>
+</body>
+</html>
+`;
+  }
+
+  if (page.kind === "referenceCatalog") {
+    const currentLinks = page.currentLinks.map((link) =>
+      `        <li id="${escapeHtml(link.fragment)}"><code>#${
+        escapeHtml(link.fragment)
+      }</code>: ${escapeHtml(link.referenceRoleLabel)} reference target <code>${
+        escapeHtml(link.referenceTargetPath)
+      }</code>.</li>`
+    ).join("\n");
+
+    return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>${escapedMeshLabel} ${escapedResourcePath}</title>
+  <link rel="canonical" href="${escapedCanonical}">
+</head>
+<body>
+  <main>
+    <h1>${escapeHtml(page.catalogPath)}</h1>
+    <p>Resource page for the ${
+      escapeHtml(page.ownerDesignatorPath)
+    } ReferenceCatalog artifact.</p>
+    <section>
+      <h2>Current Links</h2>
+      <ul>
+${currentLinks}
+      </ul>
+    </section>
+  </main>
 </body>
 </html>
 `;
@@ -51,13 +91,13 @@ export function renderResourcePage(
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>${meshLabel} ${resourcePath}</title>
-  <link rel="canonical" href="${canonical}">
+  <title>${escapedMeshLabel} ${escapedResourcePath}</title>
+  <link rel="canonical" href="${escapedCanonical}">
 </head>
 <body>
   <main>
-    <h1>${resourcePath}</h1>
-    <p>${page.description}</p>
+    <h1>${escapedResourcePath}</h1>
+    <p>${escapeHtml(page.description)}</p>
   </main>
 </body>
 </html>
@@ -82,4 +122,13 @@ function deriveMeshLabel(meshBase: string): string {
     segment.length > 0
   );
   return segments[segments.length - 1] ?? "_mesh";
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
