@@ -1,6 +1,7 @@
 import { Command } from "@cliffy/command";
 import { Input } from "@cliffy/prompt";
 import { join, resolve } from "@std/path";
+import { ExtractInputError } from "../core/extract/extract.ts";
 import { IntegrateInputError } from "../core/integrate/integrate.ts";
 import { KnopAddReferenceInputError } from "../core/knop/add_reference.ts";
 import { KnopCreateInputError } from "../core/knop/create.ts";
@@ -8,6 +9,11 @@ import { MeshCreateInputError } from "../core/mesh/create.ts";
 import { PayloadUpdateInputError } from "../core/payload/update.ts";
 import { WeaveInputError } from "../core/weave/weave.ts";
 import { createRuntimeLoggers } from "../runtime/logging/factory.ts";
+import {
+  describeExtractResult,
+  executeExtract,
+  ExtractRuntimeError,
+} from "../runtime/extract/extract.ts";
 import {
   describeIntegrateResult,
   executeIntegrate,
@@ -76,6 +82,53 @@ export async function runWeaveCli(args: string[]): Promise<number> {
       }
     })
     .throwErrors()
+    .command(
+      "extract",
+      new Command()
+        .description(
+          "Create a minimal Knop-managed surface for a local resource referenced inside a woven payload artifact.",
+        )
+        .arguments("<designatorPath:string>")
+        .option(
+          "--workspace <workspace:string>",
+          "Workspace root to update.",
+          { default: "." },
+        )
+        .action(async (options, designatorPath) => {
+          const normalizedDesignatorPath = resolveRequiredArgumentValue(
+            designatorPath,
+            "extract requires a positional designatorPath",
+            (message) => new ExtractInputError(message),
+          );
+          const workspaceRoot = resolve(options.workspace);
+          const logDir = join(workspaceRoot, ".weave", "logs");
+          const { operationalLogger, auditLogger } = createRuntimeLoggers({
+            logDir,
+          });
+
+          await auditLogger.command("extract", {
+            workspaceRoot,
+            designatorPath: normalizedDesignatorPath,
+            localMode: true,
+          });
+
+          const result = await executeExtract({
+            workspaceRoot,
+            request: {
+              designatorPath: normalizedDesignatorPath,
+            },
+            operationalLogger,
+            auditLogger,
+          });
+          console.log(describeExtractResult(result));
+          for (const path of result.createdPaths) {
+            console.log(path);
+          }
+          for (const path of result.updatedPaths) {
+            console.log(path);
+          }
+        }),
+    )
     .command(
       "integrate",
       new Command()
@@ -436,6 +489,8 @@ function resolveDesignatorPath(
 
 function getCliErrorMessage(error: unknown): string {
   if (
+    error instanceof ExtractInputError ||
+    error instanceof ExtractRuntimeError ||
     error instanceof IntegrateInputError ||
     error instanceof IntegrateRuntimeError ||
     error instanceof PayloadUpdateInputError ||
@@ -460,10 +515,12 @@ function getCliErrorMessage(error: unknown): string {
 function resolveRequiredOptionValue(
   value: string | undefined,
   errorMessage: string,
+  createError: (message: string) => Error = (message) =>
+    new KnopAddReferenceInputError(message),
 ): string {
   const trimmed = value?.trim() ?? "";
   if (trimmed.length === 0) {
-    throw new KnopAddReferenceInputError(errorMessage);
+    throw createError(errorMessage);
   }
   return trimmed;
 }
@@ -471,9 +528,11 @@ function resolveRequiredOptionValue(
 function resolveRequiredArgumentValue(
   value: string | undefined,
   errorMessage: string,
+  createError?: (message: string) => Error,
 ): string {
   return resolveRequiredOptionValue(
     typeof value === "string" ? value : undefined,
     errorMessage,
+    createError,
   );
 }

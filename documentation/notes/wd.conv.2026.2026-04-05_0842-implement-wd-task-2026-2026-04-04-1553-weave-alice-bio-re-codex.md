@@ -1044,3 +1044,83 @@ New chat is better now.
 This thread already spans `09`, `10`, `11`, several review-fix passes, coverage work, and two new task notes. For `extract`, a fresh thread gives a cleaner boundary and reduces the chance of accidental carryover from the `weave` and `payload.update` assumptions.
 
 You can continue here technically, but I would start a new chat for [[wd.task.2026.2026-04-05_1004-extract-bob]].
+
+# User_2026-04-06_0909_50
+
+prompt?
+
+# gpt-5.4_2026-04-06_0910_10
+
+Use this:
+
+```text
+Implement [[wd.task.2026.2026-04-05_1004-extract-bob]].
+
+Context:
+- `10-alice-bio-updated -> 11-alice-bio-v2-woven` is implemented and passing on this branch.
+- next carried slice is `11 -> 12`
+- this is the first narrow `extract` slice, so add a dedicated behavior note for `extract` before implementation
+- start with failing integration and black-box CLI tests against `12-bob-extracted`
+- keep the slice non-woven and fixture-first
+
+Constraints:
+- update `_mesh/_inventory/inventory.ttl` to register `bob/_knop`
+- create:
+  - `bob/_knop/_meta/meta.ttl`
+  - `bob/_knop/_inventory/inventory.ttl`
+  - `bob/_knop/_references/references.ttl`
+- create one `ReferenceLink` rooted at `bob/_knop/_references#reference001`
+- use `ReferenceRole/Supplemental`
+- set `referenceTarget <alice/bio>`
+- set `referenceTargetState <alice/bio/_history001/_s0002>`
+- keep `alice-bio.ttl` unchanged
+- keep existing Alice surfaces unchanged
+- do not create any Bob ResourcePages yet; Bob page paths should remain absent
+- do not split Bob into a payload artifact
+- do not rename the task note to completed unless explicitly asked
+
+Acceptance/testing posture:
+- follow [[wd.testing]]
+- keep CLI acceptance manifest-scoped for `12-bob-extracted`
+- do not treat unrelated fixture `README.md` churn as operation output
+- prefer reusing the existing core/runtime/CLI slice patterns from `knop create`, `knop add-reference`, `payload.update`, and the recent `11` weave work
+```
+
+If you want, I can also give you a shorter “minimal prompt” variant.
+
+Use this:
+
+```text
+Implement [[wd.task.2026.2026-04-05_1004-extract-bob]].
+
+Context:
+- `10-alice-bio-updated -> 11-alice-bio-v2-woven` is implemented and passing on this branch.
+- next carried slice is `11 -> 12`
+- this is the first narrow `extract` slice, so add a dedicated behavior note for `extract` before implementation
+- start with failing integration and black-box CLI tests against `12-bob-extracted`
+- keep the slice non-woven and fixture-first
+
+Constraints:
+- update `_mesh/_inventory/inventory.ttl` to register `bob/_knop`
+- create:
+  - `bob/_knop/_meta/meta.ttl`
+  - `bob/_knop/_inventory/inventory.ttl`
+  - `bob/_knop/_references/references.ttl`
+- create one `ReferenceLink` rooted at `bob/_knop/_references#reference001`
+- use `ReferenceRole/Supplemental`
+- set `referenceTarget <alice/bio>`
+- set `referenceTargetState <alice/bio/_history001/_s0002>`
+- keep `alice-bio.ttl` unchanged
+- keep existing Alice surfaces unchanged
+- do not create any Bob ResourcePages yet; Bob page paths should remain absent
+- do not split Bob into a payload artifact
+- do not rename the task note to completed unless explicitly asked
+
+Acceptance/testing posture:
+- follow [[wd.testing]]
+- keep CLI acceptance manifest-scoped for `12-bob-extracted`
+- do not treat unrelated fixture `README.md` churn as operation output
+- prefer reusing the existing core/runtime/CLI slice patterns from `knop create`, `knop add-reference`, `payload.update`, and the recent `11` weave work
+```
+
+If you want, I can also give you a shorter “minimal prompt” variant.

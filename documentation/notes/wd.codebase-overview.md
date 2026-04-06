@@ -12,7 +12,7 @@ created: 1773673181726
   semantic operations and domain rules
   mesh create, knop create, integrate, payload update, version, validate, generate, extract, weave
   request/result types shared by all callers
-  current carried slices: `mesh create` request validation/support-artifact rendering, `knop create` planning over an existing mesh inventory, the first narrow `integrate` planning slice for `05-alice-knop-created-woven` -> `06-alice-bio-integrated`, the first narrow `knop add-reference` planning slice for `07-alice-bio-integrated-woven` -> `08-alice-bio-referenced`, the first narrow `payload.update` planning slice for `09-alice-bio-referenced-woven` -> `10-alice-bio-updated`, and the first four narrow `weave` planning slices for `04-alice-knop-created` -> `05-alice-knop-created-woven`, `06-alice-bio-integrated` -> `07-alice-bio-integrated-woven`, `08-alice-bio-referenced` -> `09-alice-bio-referenced-woven`, and `10-alice-bio-updated` -> `11-alice-bio-v2-woven`
+  current carried slices: `mesh create` request validation/support-artifact rendering, `knop create` planning over an existing mesh inventory, the first narrow `integrate` planning slice for `05-alice-knop-created-woven` -> `06-alice-bio-integrated`, the first narrow `knop add-reference` planning slice for `07-alice-bio-integrated-woven` -> `08-alice-bio-referenced`, the first narrow `payload.update` planning slice for `09-alice-bio-referenced-woven` -> `10-alice-bio-updated`, the first narrow `extract` planning slice for `11-alice-bio-v2-woven` -> `12-bob-extracted`, and the first four narrow `weave` planning slices for `04-alice-knop-created` -> `05-alice-knop-created-woven`, `06-alice-bio-integrated` -> `07-alice-bio-integrated-woven`, `08-alice-bio-referenced` -> `09-alice-bio-referenced-woven`, and `10-alice-bio-updated` -> `11-alice-bio-v2-woven`
 
 ### runtime
   local workspace execution
@@ -20,7 +20,7 @@ created: 1773673181726
   job execution primitives, but not HTTP
   includes first-pass Deno-native structured operational and audit logging
   persistent config direction is RDF, probably JSON-LD, and should remain queryable via SPARQL
-  current carried slices: local filesystem materialization for `mesh create`, `knop create`, `knop add-reference`, the first local `integrate` pass over an existing workspace payload file, the first local `payload.update` pass over an already woven payload artifact, and the first four local `weave` passes over an existing workspace with a shared runtime ResourcePage renderer seam
+  current carried slices: local filesystem materialization for `mesh create`, `knop create`, `knop add-reference`, the first local `integrate` pass over an existing workspace payload file, the first local `payload.update` pass over an already woven payload artifact, the first local `extract` pass that resolves one target designator against exactly one woven payload artifact in the workspace and pins `referenceTargetState` to that artifact's latest historical state, and the first four local `weave` passes over an existing workspace with a shared runtime ResourcePage renderer seam
   current logging slice: narrow Kato-inspired `LogRecord` / sink / `StructuredLogger` / `AuditLogger` JSONL layer
 
 ### daemon
@@ -35,8 +35,8 @@ created: 1773673181726
   remote mode: talks to daemon over HTTP
   local mode: calls core/runtime directly
   no separate semantic logic
-  current carried slices: top-level local `weave`, plus local `weave mesh create`, `weave knop create`, `weave knop add-reference`, `weave integrate`, and `weave payload update`, all over shared core/runtime
-  current acceptance paths: black-box CLI execution checked against the `02-mesh-created`, `04-alice-knop-created`, `05-alice-knop-created-woven`, `06-alice-bio-integrated`, `07-alice-bio-integrated-woven`, `08-alice-bio-referenced`, `09-alice-bio-referenced-woven`, `10-alice-bio-updated`, and `11-alice-bio-v2-woven` Accord manifest scopes
+  current carried slices: top-level local `weave`, plus local `weave mesh create`, `weave knop create`, `weave knop add-reference`, `weave integrate`, `weave payload update`, and `weave extract`, all over shared core/runtime
+  current acceptance paths: black-box CLI execution checked against the `02-mesh-created`, `04-alice-knop-created`, `05-alice-knop-created-woven`, `06-alice-bio-integrated`, `07-alice-bio-integrated-woven`, `08-alice-bio-referenced`, `09-alice-bio-referenced-woven`, `10-alice-bio-updated`, `11-alice-bio-v2-woven`, and `12-bob-extracted` Accord manifest scopes
 
 ### web app
   browser client of daemon
@@ -57,10 +57,12 @@ created: 1773673181726
 - The sixth carried implementation slice is the local `weave` path matching the settled Alice Bio `08-alice-bio-referenced` -> `09-alice-bio-referenced-woven` fixture state.
 - The seventh carried implementation slice is the local `payload.update` path matching the settled Alice Bio `09-alice-bio-referenced-woven` -> `10-alice-bio-updated` fixture state.
 - The eighth carried implementation slice is the local `weave` path matching the settled Alice Bio `10-alice-bio-updated` -> `11-alice-bio-v2-woven` fixture state.
+- The ninth carried implementation slice is the local `extract` path matching the settled Alice Bio `11-alice-bio-v2-woven` -> `12-bob-extracted` fixture state.
 - The current carried `weave` slices are the local `04-alice-knop-created` -> `05-alice-knop-created-woven`, `06-alice-bio-integrated` -> `07-alice-bio-integrated-woven`, `08-alice-bio-referenced` -> `09-alice-bio-referenced-woven`, and `10-alice-bio-updated` -> `11-alice-bio-v2-woven` paths, including first-history creation for Knop support artifacts, first payload-artifact history creation, first ReferenceCatalog history creation on an already-versioned Knop surface, second payload-history creation on an already-versioned payload surface, and minimal generated HTML pages rendered through a shared runtime page seam.
 - `mesh create` now has a manifest-scoped black-box CLI acceptance test and thin framework example payloads.
 - `knop create` now resolves `meshBase` from existing mesh metadata, creates the first Knop support artifacts, and has a manifest-scoped black-box CLI acceptance test.
 - `knop add-reference` now resolves `meshBase` from existing mesh metadata, requires an explicit local `referenceRole`, creates the first Knop-owned `ReferenceCatalog` working file, updates the existing Knop inventory, and has manifest-scoped black-box CLI acceptance coverage for `08-alice-bio-referenced`.
 - `integrate` now resolves a local source path or `file:` URL into a mesh-relative working file path, creates the first payload-Knop support artifacts, updates MeshInventory, and has manifest-scoped black-box CLI acceptance coverage together with thin framework examples.
 - `payload.update` now resolves the existing working payload file from an already woven payload surface, stages replacement bytes from a local path or `file:` URL without changing the semantic mesh path, updates only `alice-bio.ttl` for the carried `10` slice, and has manifest-scoped black-box CLI acceptance coverage together with thin framework examples.
+- `extract` now resolves the target designator against exactly one woven payload artifact already present in the workspace, creates a new minimal Knop plus `ReferenceCatalog`, pins the created `ReferenceLink` to the source payload artifact's latest historical state, leaves Alice payload bytes and existing Alice surfaces unchanged, and has manifest-scoped black-box CLI acceptance coverage for `12-bob-extracted`.
 - `weave` now runs as the top-level local CLI action, versions the first Alice Knop support artifacts, the first Alice Bio payload history surface, the first Alice ReferenceCatalog history surface, and the second Alice Bio payload historical state, advances MeshInventory only where the public current surface changed, and has manifest-scoped black-box CLI acceptance coverage through `11`.
