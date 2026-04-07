@@ -2,7 +2,7 @@
 id: v6m1s9q2l4c8k7r3p0n5twd
 title: 2026 04 04 Alice Bio Referenced
 desc: ''
-updated: 1775368800000
+updated: 1775545942858
 created: 1775368800000
 ---
 
@@ -72,7 +72,7 @@ Unlike the carried `weave` slices, there is no existing broad behavior note that
 
 ### Why not make RDF parsing the next carried task
 
-The existing [[wd.task.2026.2026-04-04_0952-rdf-parsing]] note is legitimate, but it is a cross-cutting cleanup task rather than the next semantic slice.
+The existing [[wd.completed.2026.2026-04-04_0952-rdf-parsing]] note is legitimate, but it is a cross-cutting cleanup task rather than the next semantic slice.
 
 It should not block the next carried fixture transition unless this reference-catalog work directly exposes a specific parsing failure that must be addressed immediately.
 

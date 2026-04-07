@@ -2,7 +2,7 @@
 id: integrate-alice-bio-a68b486a
 title: integrate alice bio
 desc: ''
-updated: 1775338581960
+updated: 1775545942862
 created: 1775317159924
 participants:
   - djradon
@@ -250,7 +250,7 @@ No tests ran, since this was a task-note update only.
 
 Fix the logger.
 
-I've created [[wd.task.2026.2026-04-04_0952-rdf-parsing]] -- please fill that out with all the locations we should replace regex with RDF-aware parsing.
+I've created [[wd.completed.2026.2026-04-04_0952-rdf-parsing]] -- please fill that out with all the locations we should replace regex with RDF-aware parsing.
 
 # gpt-5.4_2026-04-04_0953_58
 
@@ -270,7 +270,7 @@ The code fix is in. I’m marking the logger review item complete in the integra
 
 I fixed the logger bug by centralizing partial-logger preservation in [factory.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/logging/factory.ts) via `resolveRuntimeLoggers(...)`, then switched the local runtime entrypoints to use it in [create.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/mesh/create.ts), [create.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/knop/create.ts), [integrate.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/integrate/integrate.ts), and [weave.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/weave/weave.ts). I did it across all four because the bug was copy-pasted, not integrate-specific. There’s also a regression test now in [logger_test.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/logging/logger_test.ts), and I marked the CodeRabbit logger item complete in [[wd.completed.2026.2026-04-04-integrate-alice-bio]].
 
-I also filled out [[wd.task.2026.2026-04-04_0952-rdf-parsing]] with the current production RDF-parsing debt, grouped by priority. It now covers:
+I also filled out [[wd.completed.2026.2026-04-04_0952-rdf-parsing]] with the current production RDF-parsing debt, grouped by priority. It now covers:
 - runtime `meshBase` regex extraction in `knop create`, `integrate`, and `weave`
 - runtime `weave` Knop discovery and woven-state checks
 - string-fragment shape assertions in `src/core/weave/weave.ts`
@@ -405,7 +405,7 @@ And I would keep the RDF parsing note as adjacent follow-up context, not the mai
 
 # User_2026-04-04_1249_48
 
-What's next, [[wd.task.2026.2026-04-04_0952-rdf-parsing]] or [[wd.completed.2026.2026-04-04-weave-alice-bio-integrated-woven]] ?
+What's next, [[wd.completed.2026.2026-04-04_0952-rdf-parsing]] or [[wd.completed.2026.2026-04-04-weave-alice-bio-integrated-woven]] ?
 
 Open Issues:
 
@@ -413,7 +413,7 @@ Open Issues:
 
 # gpt-5.4_2026-04-04_1250_26
 
-Next should be [[wd.completed.2026.2026-04-04-weave-alice-bio-integrated-woven]], not [[wd.task.2026.2026-04-04_0952-rdf-parsing]].
+Next should be [[wd.completed.2026.2026-04-04-weave-alice-bio-integrated-woven]], not [[wd.completed.2026.2026-04-04_0952-rdf-parsing]].
 
 Reason:
 - `06 -> 07` is the next carried semantic slice in the settled fixture ladder.

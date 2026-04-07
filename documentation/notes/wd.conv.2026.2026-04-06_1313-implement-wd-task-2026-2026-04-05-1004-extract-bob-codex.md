@@ -2,7 +2,7 @@
 id: implement-wdtask20262026-oo06kp
 title: 'Implement [[wd.completed.2026.2026-04-05_1004-extract-bob]].'
 desc: ''
-updated: 1775534944150
+updated: 1775545942854
 created: 1775506439095
 participants:
   - djradon
@@ -521,7 +521,7 @@ The weave slice tasks are intentionally reusing the shared weave spec, so they a
 - [wd.completed.2026.2026-04-05_0903-weave-alice-bio-v2-woven.md](wd.completed.2026.2026-04-05_0903-weave-alice-bio-v2-woven.md)
 - [wd.completed.2026.2026-04-06_1331-weave-bob-extracted-woven.md](wd.completed.2026.2026-04-06_1331-weave-bob-extracted-woven.md)
 
-The only likely future gap is [wd.task.2026.2026-04-06_1905-markdown-payload-publishing.md](wd.task.2026.2026-04-06_1905-markdown-payload-publishing.md), but that note is still basically empty. If that becomes a real externally visible behavior slice, it should probably get its own `wd.spec.*`. By contrast, [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md) looks like internal cleanup, so I would not create a behavior spec for it.
+The only likely future gap is [wd.task.2026.2026-04-06_1905-markdown-payload-publishing.md](wd.task.2026.2026-04-06_1905-markdown-payload-publishing.md), but that note is still basically empty. If that becomes a real externally visible behavior slice, it should probably get its own `wd.spec.*`. By contrast, [wd.completed.2026.2026-04-04_0952-rdf-parsing.md](wd.completed.2026.2026-04-04_0952-rdf-parsing.md) looks like internal cleanup, so I would not create a behavior spec for it.
 
 # User_2026-04-06_1912_22
 
@@ -746,7 +746,7 @@ test: deepen weave coverage for extracted bob paths
 
 # User_2026-04-06_1924_58
 
-I think we're almost done this weave implementation. Any last follow up? Any updates for [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md) - and is that our next step, before diving into payload-publishing?
+I think we're almost done this weave implementation. Any last follow up? Any updates for [wd.completed.2026.2026-04-04_0952-rdf-parsing.md](wd.completed.2026.2026-04-04_0952-rdf-parsing.md) - and is that our next step, before diving into payload-publishing?
 
 # gpt-5.4_2026-04-06_1925_08
 
@@ -772,7 +772,7 @@ I’ve got the answer. I’m grabbing exact line anchors for the remaining britt
 
 For the current carried RDF/Turtle ladder, yes, we’re basically done. I would not say “weave is done” globally, because payload publishing will introduce a new weave family, but the current `01 -> 13` implementation arc looks closed.
 
-The only follow-up I’d prioritize before payload publishing is the high-risk RDF parsing cleanup. The broad note at [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md) is still directionally right, but it is slightly stale. It should now explicitly include:
+The only follow-up I’d prioritize before payload publishing is the high-risk RDF parsing cleanup. The broad note at [wd.completed.2026.2026-04-04_0952-rdf-parsing.md](wd.completed.2026.2026-04-04_0952-rdf-parsing.md) is still directionally right, but it is slightly stale. It should now explicitly include:
 - the duplicated runtime `meshBase` regex loaders in [create.ts](../../src/runtime/knop/create.ts#L198), [integrate.ts](../../src/runtime/integrate/integrate.ts#L300), [extract.ts](../../src/runtime/extract/extract.ts#L213), and [weave.ts](../../src/runtime/weave/weave.ts#L183)
 - the newer string-based runtime readers in [extract.ts](../../src/runtime/extract/extract.ts#L260) and [weave.ts](../../src/runtime/weave/weave.ts#L198)
 - the low-priority string-surgery seams in [extract.ts](../../src/core/extract/extract.ts#L260)
@@ -786,7 +786,7 @@ So yes, I think RDF parsing is the next step before payload publishing, but only
 
 I would not block payload publishing on the later graph-mutation refactors in `core/knop/create` and `core/integrate`. Those are real debt, but they are a bigger rewrite and not the best sequencing for momentum.
 
-If you want, I can update [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md) now and narrow it into the exact next carried cleanup slice.
+If you want, I can update [wd.completed.2026.2026-04-04_0952-rdf-parsing.md](wd.completed.2026.2026-04-04_0952-rdf-parsing.md) now and narrow it into the exact next carried cleanup slice.
 
 # User_2026-04-06_1927_00
 
@@ -874,7 +874,7 @@ There is still unrelated note churn in [wd.conv.2026.2026-04-06_1313-implement-w
 
 # User_2026-04-06_1930_16
 
-Yes, update [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md)
+Yes, update [wd.completed.2026.2026-04-04_0952-rdf-parsing.md](wd.completed.2026.2026-04-04_0952-rdf-parsing.md)
 
 # gpt-5.4_2026-04-06_1930_26
 
@@ -890,7 +890,7 @@ The note rewrite is in. I’m reviewing the final diff to make sure the task now
 
 # gpt-5.4_2026-04-06_1932_07
 
-Updated [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md).
+Updated [wd.completed.2026.2026-04-04_0952-rdf-parsing.md](wd.completed.2026.2026-04-04_0952-rdf-parsing.md).
 
 The note now:
 - reflects the post-`extract` / post-`13` codebase instead of the earlier pre-Bob snapshot
@@ -911,7 +911,7 @@ commit message
 ```text
 docs: refresh rdf parsing task scope after extract and bob weave
 
-- update [[wd.task.2026.2026-04-04_0952-rdf-parsing]] to reflect the current post-`extract` and post-`13-bob-extracted-woven` codebase
+- update [[wd.completed.2026.2026-04-04_0952-rdf-parsing]] to reflect the current post-`extract` and post-`13-bob-extracted-woven` codebase
 - add the missing `extract` runtime `meshBase` regex loader and the duplicated `extract`/`weave` Turtle discovery paths to the debt inventory
 - record the partial RDF-aware seam already present in `core/weave` so the cleanup plan builds on existing quad parsing work
 - clarify that the next recommended step is shared runtime read-path cleanup before [[wd.task.2026.2026-04-06_1905-markdown-payload-publishing]]
@@ -932,7 +932,7 @@ weave: dedupe html helpers and refresh rdf parsing follow-up scope
 - simplify reference-catalog page rendering by reusing local escaped href and label values instead of repeating helper calls inline
 - add focused helper coverage for shared HTML escaping, relative hrefs, mesh-label derivation, and caller-specific toResourcePath error handling
 - keep the refactor green under full deno task ci
-- update [[wd.task.2026.2026-04-04_0952-rdf-parsing]] to reflect the post-extract and post-13 codebase, including extract runtime readers and the current recommended cleanup order before markdown payload publishing
+- update [[wd.completed.2026.2026-04-04_0952-rdf-parsing]] to reflect the post-extract and post-13 codebase, including extract runtime readers and the current recommended cleanup order before markdown payload publishing
 ```
 
 # User_2026-04-06_1947_59
@@ -960,7 +960,7 @@ I checked the function. That CodeRabbit point is valid, and it belongs in the RD
 
 # gpt-5.4_2026-04-06_1948_28
 
-Added that concern to [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md).
+Added that concern to [wd.completed.2026.2026-04-04_0952-rdf-parsing.md](wd.completed.2026.2026-04-04_0952-rdf-parsing.md).
 
 I folded it into the existing RDF-debt inventory as:
 - another Priority 4 narrow Turtle-surgery seam in [weave.ts](../../src/core/weave/weave.ts#L2095)

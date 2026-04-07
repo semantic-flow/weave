@@ -3,7 +3,7 @@ id: weave-rdf-parsing-135m0q
 title: 'weave rdf parsing'
 desc: ''
 created: 1775530714979
-updated: 1775530714979
+updated: 1775545942861
 participants: [djradon, codex.gpt-5.4]
 ---
 
@@ -11,7 +11,7 @@ participants: [djradon, codex.gpt-5.4]
 
 weave rdf parsing
 
-I think we're ready to tackle [[wd.task.2026.2026-04-04_0952-rdf-parsing]] 
+I think we're ready to tackle [[wd.completed.2026.2026-04-04_0952-rdf-parsing]] 
 
 Is this still the right approach? Any open issues?
 
@@ -29,7 +29,7 @@ I found one more thing that changes the recommendation: there is already RDF-awa
 
 I have enough to answer substantively. I’m pulling exact code references now so I can call out the gaps cleanly instead of hand-waving about “some other files”.
 
-Yes, broadly. The sequencing in [[wd.task.2026.2026-04-04_0952-rdf-parsing#L70]] is still the right one: fix live runtime readers first, then tighten `core/weave`, and leave the big graph-mutation rewrites for later. That still matches the code in [weave.ts](../../src/runtime/weave/weave.ts#L158), [extract.ts](../../src/runtime/extract/extract.ts#L188), [create.ts](../../src/core/knop/create.ts#L165), and [integrate.ts](../../src/core/integrate/integrate.ts#L218).
+Yes, broadly. The sequencing in [[wd.completed.2026.2026-04-04_0952-rdf-parsing#L70]] is still the right one: fix live runtime readers first, then tighten `core/weave`, and leave the big graph-mutation rewrites for later. That still matches the code in [weave.ts](../../src/runtime/weave/weave.ts#L158), [extract.ts](../../src/runtime/extract/extract.ts#L188), [create.ts](../../src/core/knop/create.ts#L165), and [integrate.ts](../../src/core/integrate/integrate.ts#L218).
 
 The main issue is that the note is underscoped now, so I would update it before implementation.
 
@@ -55,7 +55,7 @@ The note is patched. I’m doing one pass over the result to make sure the scope
 
 # gpt-5.4_2026-04-06_1959_25
 
-I updated [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md).
+I updated [wd.completed.2026.2026-04-04_0952-rdf-parsing.md](wd.completed.2026.2026-04-04_0952-rdf-parsing.md).
 
 The main changes are:
 
@@ -80,7 +80,7 @@ I’m applying the two note fixes now: correcting the `extract.ts` function name
 
 # gpt-5.4_2026-04-06_2110_15
 
-Updated [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md).
+Updated [wd.completed.2026.2026-04-04_0952-rdf-parsing.md](wd.completed.2026.2026-04-04_0952-rdf-parsing.md).
 
 I corrected the `extract.ts` Priority 1 function name to `loadMeshState` and added `runtime/extract`’s existing `payloadMentionsTarget` `n3` seam under Priority 2 partial progress so the note now reflects the runtime-side RDF-aware work already in place.
 
@@ -138,7 +138,7 @@ I’m opening [wd.todo.md](wd.todo.md) to match its existing structure, then I�
 
 Added the backlog note to [wd.todo.md](wd.todo.md).
 
-Yes, I can proceed with implementation in this chat. The right first slice is still narrow: Priority 1 from [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md), meaning one shared RDF-aware `meshBase` reader, replace the six runtime regex call sites, and add tests. I would not jump straight to daemon-oriented caching work.
+Yes, I can proceed with implementation in this chat. The right first slice is still narrow: Priority 1 from [wd.completed.2026.2026-04-04_0952-rdf-parsing.md](wd.completed.2026.2026-04-04_0952-rdf-parsing.md), meaning one shared RDF-aware `meshBase` reader, replace the six runtime regex call sites, and add tests. I would not jump straight to daemon-oriented caching work.
 
 # User_2026-04-06_2131_22
 
@@ -238,7 +238,7 @@ The ticket is patched. I’m giving the updated sections one quick pass so I can
 
 # gpt-5.4_2026-04-06_2142_01
 
-Updated [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md). It now records Priority 1 as complete, points at the shared helper in [metadata.ts](../../src/runtime/mesh/metadata.ts), notes the equivalent-metadata coverage, and makes Priority 2 the clear next step.
+Updated [wd.completed.2026.2026-04-04_0952-rdf-parsing.md](wd.completed.2026.2026-04-04_0952-rdf-parsing.md). It now records Priority 1 as complete, points at the shared helper in [metadata.ts](../../src/runtime/mesh/metadata.ts), notes the equivalent-metadata coverage, and makes Priority 2 the clear next step.
 
 Post-change considerations:
 
@@ -324,7 +324,7 @@ The task note had gone stale in a few places after the refactor, not just the ch
 
 Updated the task note and proceeded with Priority 2.
 
-The backlog note is now in [wd.todo.md](wd.todo.md), including the narrower follow-up about tightening `meshBase` to the expected mesh subject later. The task note at [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md) now marks Priority 2 complete and shifts the next step to `core/weave` shape assertions.
+The backlog note is now in [wd.todo.md](wd.todo.md), including the narrower follow-up about tightening `meshBase` to the expected mesh subject later. The task note at [wd.completed.2026.2026-04-04_0952-rdf-parsing.md](wd.completed.2026.2026-04-04_0952-rdf-parsing.md) now marks Priority 2 complete and shifts the next step to `core/weave` shape assertions.
 
 The code change is a shared parsed inventory seam in [inventory.ts](../../src/runtime/mesh/inventory.ts) with unit coverage in [inventory_test.ts](../../src/runtime/mesh/inventory_test.ts). `extract`, `weave`, and `payload.update` now use that helper instead of their local Knop/payload/reference block parsers in [extract.ts](../../src/runtime/extract/extract.ts), [weave.ts](../../src/runtime/weave/weave.ts), and [update.ts](../../src/runtime/payload/update.ts). The old `matchAll` and `split("\n\n")` inventory readers are gone from those three runtime files.
 
@@ -457,7 +457,7 @@ did you update the implementation plan?
 
 # gpt-5.4_2026-04-06_2203_00
 
-Yes. [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md) now marks both completed items as done:
+Yes. [wd.completed.2026.2026-04-04_0952-rdf-parsing.md](wd.completed.2026.2026-04-04_0952-rdf-parsing.md) now marks both completed items as done:
 
 - shared `meshBase` runtime reader
 - shared parsed inventory helpers for `extract`, `weave`, and `payload.update`
@@ -534,7 +534,7 @@ The task note is updated. I’m doing one last quick status pass so I can close 
 
 # gpt-5.4_2026-04-06_2224_05
 
-Implemented Priority 3 and updated [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md). The main code is in [weave.ts](../../src/core/weave/weave.ts) and [weave_test.ts](../../src/core/weave/weave_test.ts): `detectPendingWeaveSlice` and the carried `core/weave` shape assertions now parse RDF and check required/forbidden facts instead of relying on exact Turtle fragments. I also threaded the new `meshBase` argument through [runtime/weave.ts](../../src/runtime/weave/weave.ts).
+Implemented Priority 3 and updated [wd.completed.2026.2026-04-04_0952-rdf-parsing.md](wd.completed.2026.2026-04-04_0952-rdf-parsing.md). The main code is in [weave.ts](../../src/core/weave/weave.ts) and [weave_test.ts](../../src/core/weave/weave_test.ts): `detectPendingWeaveSlice` and the carried `core/weave` shape assertions now parse RDF and check required/forbidden facts instead of relying on exact Turtle fragments. I also threaded the new `meshBase` argument through [runtime/weave.ts](../../src/runtime/weave/weave.ts).
 
 I added planner tests for semantically equivalent Turtle in first-payload planning, first-reference-catalog planning, and second-payload slice detection. One existing non-alice planner test had to be tightened because it was accidentally changing `@base`; the old string-matching code ignored that inconsistency, while the new RDF-aware code correctly does not.
 
@@ -603,7 +603,7 @@ The task note is updated. I’m doing one quick status/diff pass so I can call o
 
 Implemented the next RDF parsing slice and updated the task note.
 
-`core/weave` no longer block-parses current ReferenceCatalog Turtle. [weave.ts](../../src/core/weave/weave.ts#L1505) now parses quads, resolves `ReferenceLink` facts by subject, and preserves the existing `WeaveInputError` contract; the two planner call sites now pass `meshBase` into that reader at [weave.ts](../../src/core/weave/weave.ts#L604) and [weave.ts](../../src/core/weave/weave.ts#L829). I added equivalent-Turtle coverage for both the first ReferenceCatalog slice and the extracted Bob slice in [weave_test.ts](../../src/core/weave/weave_test.ts#L443) and [weave_test.ts](../../src/core/weave/weave_test.ts#L784). The task note now reflects that this parser is gone and that the remaining near-term debt is the `core/extract` surgery plus the extracted-weave `replaceExactOrThrow(...)` ladder in [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md#L35).
+`core/weave` no longer block-parses current ReferenceCatalog Turtle. [weave.ts](../../src/core/weave/weave.ts#L1505) now parses quads, resolves `ReferenceLink` facts by subject, and preserves the existing `WeaveInputError` contract; the two planner call sites now pass `meshBase` into that reader at [weave.ts](../../src/core/weave/weave.ts#L604) and [weave.ts](../../src/core/weave/weave.ts#L829). I added equivalent-Turtle coverage for both the first ReferenceCatalog slice and the extracted Bob slice in [weave_test.ts](../../src/core/weave/weave_test.ts#L443) and [weave_test.ts](../../src/core/weave/weave_test.ts#L784). The task note now reflects that this parser is gone and that the remaining near-term debt is the `core/extract` surgery plus the extracted-weave `replaceExactOrThrow(...)` ladder in [wd.completed.2026.2026-04-04_0952-rdf-parsing.md](wd.completed.2026.2026-04-04_0952-rdf-parsing.md#L35).
 
 Validation passed:
 - `deno test --allow-read --allow-write --allow-run=git,deno --allow-env src/core/weave/weave_test.ts tests/integration/weave_test.ts`
@@ -671,7 +671,7 @@ The note is updated and consistent with the code. I’m doing one final status p
 
 Implemented the next extract-side cleanup and updated the task note.
 
-[extract.ts](../../src/core/extract/extract.ts#L99) now renders the created extract KnopInventory and ReferenceCatalog directly from known extract facts instead of mutating sibling planner outputs, with the canonical renderers at [extract.ts](../../src/core/extract/extract.ts#L263) and [extract.ts](../../src/core/extract/extract.ts#L295). The only remaining documented extract text seam is [extract.ts](../../src/core/extract/extract.ts#L317), which still reorders the new mesh-inventory `LocatedFile` block. I also updated the extract assertion comment in [extract_test.ts](../../src/core/extract/extract_test.ts#L68) and narrowed the remaining debt in [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md#L45).
+[extract.ts](../../src/core/extract/extract.ts#L99) now renders the created extract KnopInventory and ReferenceCatalog directly from known extract facts instead of mutating sibling planner outputs, with the canonical renderers at [extract.ts](../../src/core/extract/extract.ts#L263) and [extract.ts](../../src/core/extract/extract.ts#L295). The only remaining documented extract text seam is [extract.ts](../../src/core/extract/extract.ts#L317), which still reorders the new mesh-inventory `LocatedFile` block. I also updated the extract assertion comment in [extract_test.ts](../../src/core/extract/extract_test.ts#L68) and narrowed the remaining debt in [wd.completed.2026.2026-04-04_0952-rdf-parsing.md](wd.completed.2026.2026-04-04_0952-rdf-parsing.md#L45).
 
 Validation passed:
 - `deno test --allow-read --allow-write --allow-run=git,deno --allow-env src/core/extract/extract_test.ts tests/integration/extract_test.ts`
@@ -769,7 +769,7 @@ The note and validation are both current. I’m doing one final status/reference
 
 # gpt-5.4_2026-04-06_2243_07
 
-Implemented the next two slices and updated [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md#L35).
+Implemented the next two slices and updated [wd.completed.2026.2026-04-04_0952-rdf-parsing.md](wd.completed.2026.2026-04-04_0952-rdf-parsing.md#L35).
 
 - [add_reference.ts](../../src/core/knop/add_reference.ts#L91) no longer rewrites KnopInventory by line splicing. It now parses the current KnopInventory, classifies unwoven vs woven carried shape, and renders the updated inventory directly while preserving the settled fixture bytes.
 - [add_reference_test.ts](../../src/core/knop/add_reference_test.ts#L114) now covers exact woven output, unwoven input support, and semantically equivalent woven Turtle acceptance.
@@ -871,7 +871,7 @@ Core and runtime integration coverage are clean, and lint is clean after the con
 
 # gpt-5.4_2026-04-06_2309_53
 
-Implemented the remaining Priority 5 slice in [create.ts](../../src/core/knop/create.ts) and [integrate.ts](../../src/core/integrate/integrate.ts). Both now parse carried MeshInventory quads, reject unsupported or already-registered shapes via RDF facts, and render the settled updated MeshInventory directly instead of mutating Turtle lines. I also strengthened [create_test.ts](../../src/core/knop/create_test.ts) and [integrate_test.ts](../../src/core/integrate/integrate_test.ts) to compare exact fixture bytes and accept semantically equivalent current MeshInventory Turtle, and updated [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md) to mark the implementation plan complete.
+Implemented the remaining Priority 5 slice in [create.ts](../../src/core/knop/create.ts) and [integrate.ts](../../src/core/integrate/integrate.ts). Both now parse carried MeshInventory quads, reject unsupported or already-registered shapes via RDF facts, and render the settled updated MeshInventory directly instead of mutating Turtle lines. I also strengthened [create_test.ts](../../src/core/knop/create_test.ts) and [integrate_test.ts](../../src/core/integrate/integrate_test.ts) to compare exact fixture bytes and accept semantically equivalent current MeshInventory Turtle, and updated [wd.completed.2026.2026-04-04_0952-rdf-parsing.md](wd.completed.2026.2026-04-04_0952-rdf-parsing.md) to mark the implementation plan complete.
 
 Validation passed:
 - `deno test --allow-read --allow-write --allow-run=git,deno --allow-env src/core/knop/create_test.ts src/core/integrate/integrate_test.ts tests/integration/knop_create_test.ts tests/integration/integrate_test.ts`
@@ -1060,7 +1060,7 @@ I’ve finished the additional seam replacements. I’m checking the final workt
 
 [weave.ts](../../src/core/weave/weave.ts) no longer uses the extracted-weave `replaceExactOrThrow(...)` ladder for `12 -> 13`. It now renders the settled extracted-woven MeshInventory directly from the carried inputs after the existing parser-backed shape checks.
 
-I also updated [extract_test.ts](../../src/core/extract/extract_test.ts), [weave_test.ts](../../src/core/weave/weave_test.ts), and [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md) so Priority 4 is now recorded as complete and the equivalent-Turtle tests now assert acceptance rather than fail-closed behavior.
+I also updated [extract_test.ts](../../src/core/extract/extract_test.ts), [weave_test.ts](../../src/core/weave/weave_test.ts), and [wd.completed.2026.2026-04-04_0952-rdf-parsing.md](wd.completed.2026.2026-04-04_0952-rdf-parsing.md) so Priority 4 is now recorded as complete and the equivalent-Turtle tests now assert acceptance rather than fail-closed behavior.
 
 **Verification**
 
@@ -1088,7 +1088,7 @@ OK, so you think we're done with the "rdf-parsing" task?
 
 # gpt-5.4_2026-04-06_2332_06
 
-Yes, for the scope captured in [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md), I would treat it as done.
+Yes, for the scope captured in [wd.completed.2026.2026-04-04_0952-rdf-parsing.md](wd.completed.2026.2026-04-04_0952-rdf-parsing.md), I would treat it as done.
 
 The implementation plan in that note is now complete. The carried runtime and planner seams that were still interpreting RDF as text have been replaced with parser-backed fact checks or direct settled renderers, and the targeted tests plus `deno task lint` and `deno task check` are green.
 
@@ -1442,3 +1442,241 @@ Passed:
 One caveat: this preserves unrelated subject blocks, which addresses the real data-loss concern. It still canonicalizes the specific rewritten subjects for the extracted-weave slice, so it is not yet a full quad-level “preserve arbitrary extra triples on rewritten subjects” solution. That would be a larger graph-update rewrite.
 
 Commit message suggestion: `core: preserve unrelated mesh inventory blocks in extracted weave`
+
+# User_2026-04-07_0001_43
+
+Can you give an example of "“preserve arbitrary extra triples on rewritten subjects” and include it in [wd.todo.md](wd.todo.md) ?
+
+# gpt-5.4_2026-04-07_0001_51
+
+I’m opening `wd.todo.md` to add the note in the right place and I’ll include a concrete example of what “preserve arbitrary extra triples on rewritten subjects” means.
+
+# gpt-5.4_2026-04-07_0002_09
+
+I found the right spot. I’m adding a backlog item that defines the preservation requirement with a concrete `bob/_knop` example rather than leaving it abstract.
+
+# gpt-5.4_2026-04-07_0002_21
+
+Added the example to [wd.todo.md](wd.todo.md).
+
+The concrete case I recorded is: if extracted weave rewrites `<bob/_knop>` to add `sflo:hasResourcePage <bob/_knop/index.html>`, but that same subject already has unrelated metadata like `<bob/_knop> ex:importedFrom <https://example.org/source>` or `<bob/_knop> sflo:hasLabel "Bob Knop"`, a graph-preserving rewrite should keep those extra triples and only touch the triples this slice owns.
+
+No tests ran; this was a note-only edit.
+
+# User_2026-04-07_0003_28
+
+"later mesh"?
+
+# gpt-5.4_2026-04-07_0003_33
+
+That phrase was sloppy.
+
+I meant “a future richer mesh state” or “a later version of the product/data model,” not a later historical state in the mesh history. The point is just that the same subject might eventually carry extra triples that this current slice does not know about.
+
+A clearer wording would be:
+
+- “if a future richer mesh inventory also records unrelated extra triples on that same subject...”
+
+If you want, I can tighten that wording in [wd.todo.md](wd.todo.md).
+
+# User_2026-04-07_0005_05
+
+it's okay. I'm to tired to tell if that's an actual possibility. I'm assuming this is for inventory, which should only ever be written by the system.
+
+# gpt-5.4_2026-04-07_0005_13
+
+That’s a fair read.
+
+If inventory remains a strictly system-owned canonical artifact, then “preserve arbitrary extra triples” is not an immediate requirement for user-authored data. In that model, the real risk is narrower:
+
+- future Weave versions may add new system-generated triples to existing subjects
+- an older rewrite path could accidentally drop those newer system-generated triples
+
+So the backlog note is really about forward-compatible system evolution, not about humans hand-editing inventory.
+
+If you want the stricter stance, I’d phrase it as: inventory is system-owned, so arbitrary third-party triples are out of scope, but rewrites should eventually preserve unknown system-generated triples on existing subjects.
+
+# User_2026-04-07_0011_36
+
+what's next?
+
+# gpt-5.4_2026-04-07_0011_44
+
+I’m checking the roadmap and the nearby task notes so I can answer from the repo’s current sequencing, not just memory.
+
+# gpt-5.4_2026-04-07_0012_01
+
+The next concrete task is still [wd.task.2026.2026-04-06_1905-markdown-payload-publishing.md](wd.task.2026.2026-04-06_1905-markdown-payload-publishing.md). [roadmap.md](roadmap.md) only has one loose near-term bullet, `allow naming of histories and states`, but the publishing note is the next real implementation-shaped slice.
+
+I would not jump straight into code from that note yet, because its Implementation Plan is still blank. The right next step is to turn it into a narrow carried slice with explicit decisions about:
+
+- one first consumer/profile
+- one output surface, probably `docs/` or equivalent
+- one Markdown baseline renderer
+- one wikilink/frontmatter policy for the optional Dendron profile
+- one fallback behavior for unpublished-but-linkable notes
+
+So my recommendation is:
+
+1. tighten the implementation plan in [wd.task.2026.2026-04-06_1905-markdown-payload-publishing.md](wd.task.2026.2026-04-06_1905-markdown-payload-publishing.md)
+2. pick the smallest first carried publishing path
+3. then implement that slice
+
+If you want, I can draft that implementation plan next.
+
+# User_2026-04-07_0030_39
+
+Before we jump into payload publishing, I want to be able to choose the history and state path segments, as this will be important for the ontology publishing scenario. See @wd.task.2026.2026-04-07_0020-history-and-state-naming.md
+
+Ask questions and help me fill that out.
+
+# gpt-5.4_2026-04-07_0030_54
+
+I’m reading the new task note and the nearby API/codebase context first so I can ask targeted questions instead of generic ones.
+
+# gpt-5.4_2026-04-07_0031_45
+
+After reading [wd.task.2026.2026-04-07_0020-history-and-state-naming.md](wd.task.2026.2026-04-07_0020-history-and-state-naming.md), I think this needs to stay narrow or it will sprawl fast. `_history001` and `_s0001` are hardcoded all through `core/weave`, `integrate`, `payload.update`, `extract`, tests, and page generation. The first question is scope.
+
+My recommended defaults, and the questions I need answered, are:
+
+1. Scope: do you want this first slice to cover only payload artifact histories/states, or every artifact type?
+I recommend payload artifacts first. Leave mesh inventory, Knop metadata/inventory, and ReferenceCatalog on the current generated `_history001` / `_s0001` scheme.
+
+2. Creation point: should custom naming apply only when a history/state is first created, with no retroactive renaming?
+I recommend yes. Renaming existing paths is a different migration problem.
+
+3. Defaults: if the caller does not specify names, should behavior stay exactly as it is now?
+I recommend yes. Keep `_history001`, `_s0001`, `_s0002`, etc. as the default fallback.
+
+4. Path grammar: what counts as a valid custom segment?
+I recommend “single path segment, no slash, preserve case, ASCII `[A-Za-z0-9._-]+`”. Your `v0.0.1` example fits that cleanly.
+
+5. Ordinals: should `historyOrdinal`, `stateOrdinal`, `nextHistoryOrdinal`, and `nextStateOrdinal` remain in RDF even when the path names become semantic?
+I strongly recommend yes. Path name should be presentation/stability; ordinals should remain the machine ordering model.
+
+6. First API surface: where should the names be supplied first?
+My recommendation:
+- `integrate`: optional `historySegment` when creating the first payload history later via weave is not enough if you want a named history root early
+- `weave`: optional `stateSegment` for each newly created payload state
+- possibly `weave` also needs `historySegment` when it creates a first payload history
+- do not expose this yet on `knop create`, `knop add-reference`, or extracted-support weaving
+
+7. Cross-artifact behavior: when one weave creates several histories/states in one operation, which artifact gets the custom name?
+I recommend only the payload artifact being versioned. Support artifacts created in the same operation should keep system names for now.
+
+8. Concrete ontology example: what exact path do you want to be able to produce?
+For example, is the target something like `ontology/releases/v0.0.1/ontology-ttl/ontology.ttl`, or something else?
+
+If you answer those, I can turn the note into a solid first draft with filled `Summary`, `Open Issues`, `Decisions`, `Contract Changes`, `Testing`, and a real implementation plan.
+
+# User_2026-04-07_0043_27
+
+1. fine to limit to payload histories/states. 2. custom naming for history only when a history is first created. States must be able to be given a name on every weave operation, even if that results in inconsistent naming. The tricky parts: you can't re-use names. Regardless, no re-naming, we want to keep to honor pseudo-immutability principle. 3. yes, if not specified behavior stays as it is now. 4. yes, conservative path grammar. 5. Yes, ordinals continue. 6. recommendations are good, I don't think knop create/add-reference or extract create the history or state dirs anyhow. we're talking about core, not CLI commands right? 7. Yes, since we're limiting to payload histories/states only, no need to worry about support artifacts. 8. example is exactly right.
+
+1. fine to limit to payload histories/states. 2. custom naming for history only when a history is first created. States must be able to be given a name on every weave operation, even if that results in inconsistent naming. The tricky parts: you can't re-use names. Regardless, no re-naming, we want to keep to honor pseudo-immutability principle. 3. yes, if not specified behavior stays as it is now. 4. yes, conservative path grammar. 5. Yes, ordinals continue. 6. recommendations are good, I don't think knop create/add-reference or extract create the history or state dirs anyhow. we're talking about core, not CLI commands right? 7. Yes, since we're limiting to payload histories/states only, no need to worry about support artifacts. 8. example is exactly right.
+
+# gpt-5.4_2026-04-07_0043_43
+
+I’ve got your answers. I’m reading the repo guidance notes once, then I’ll fold these decisions into the task note and call out the remaining open questions that still matter before implementation.
+
+# gpt-5.4_2026-04-07_0043_49
+
+I have enough to draft the note. I’m checking the ontology summary once because this task changes artifact/history naming semantics, then I’ll patch the task note with the decisions you’ve already made and leave only the truly unresolved points open.
+
+# gpt-5.4_2026-04-07_0044_23
+
+I’m checking the current `core/weave` request shape before I write the contract section, so the note names the likely seam instead of hand-waving.
+
+# gpt-5.4_2026-04-07_0044_37
+
+I’m patching the task note now with the decisions you’ve already made. I’m going to leave only the contract-shape questions open, mainly how a future `WeaveRequest` should carry names when it can target more than one designator.
+
+# gpt-5.4_2026-04-07_0045_47
+
+I’ve drafted the history/state naming note from your answers and I’m checking it for gaps before I hand it back. I’ll tighten any wording issues, then I’ll surface only the few decisions that still need your input.
+
+# gpt-5.4_2026-04-07_0045_51
+
+I’ve got the note into decent shape. One wording fix is still needed, and the remaining uncertainty is mostly the request shape for multi-target weave, not the semantics you just settled.
+
+# gpt-5.4_2026-04-07_0046_03
+
+Your answers already resolved two of the three “open issues” in the note. I’m narrowing that section so it reflects reality, then I’ll ask you the one remaining design choice that actually matters.
+
+# gpt-5.4_2026-04-07_0046_22
+
+I tightened [wd.task.2026.2026-04-07_0020-history-and-state-naming.md](wd.task.2026.2026-04-07_0020-history-and-state-naming.md): fixed the wording glitch, removed the two “open issues” your answers already settled, and recorded that this is core-first and that history naming is supplied on the weave that first materializes the history.
+
+At this point there’s really one design question left:
+
+I recommend the first core contract use scalar optional fields on `WeaveRequest`, something like `historySegment?: string` and `stateSegment?: string`, and fail closed if custom naming is supplied on a weave request that targets more than one payload artifact. That keeps the first slice narrow and matches your ontology-publishing case. If multi-target named weaves become real later, we can move to a per-designator map then.
+
+If you agree, I’ll update the note to make that explicit and fill in the request-shape section accordingly.
+
+# User_2026-04-07_0047_22
+
+We might need to update the ontology to be able specify what the current history name is
+
+# gpt-5.4_2026-04-07_0047_31
+
+I’m checking whether this actually needs a new ontology term or whether the current history segment is already derivable from existing `ArtifactHistory` IRIs and mesh inventory links. Then I’ll tell you the narrower change, not just “add a field.”
+
+# gpt-5.4_2026-04-07_0047_49
+
+I don’t think we need a new ontology property just to say what the current history name is.
+
+We already have `sflo:currentArtifactHistory` in the core ontology at [semantic-flow-core-ontology.ttl](../../dependencies/github.com/semantic-flow/ontology/semantic-flow-core-ontology.ttl), and that points to the actual `ArtifactHistory` resource. If the current history is `<ontology/releases>`, then the “current history name” is already derivable from that IRI’s last path segment: `releases`.
+
+So I’d separate two ideas:
+
+- Current history identity: already modeled by `sflo:currentArtifactHistory`.
+- Preferred future history segment before a history exists: not currently modeled, and that would be a different thing.
+
+For the task we just drafted, I would not add a new ontology predicate like `currentHistoryName`. That would duplicate the resource identity and create drift risk. The better move is smaller:
+
+- keep `sflo:currentArtifactHistory` as the authoritative pointer
+- allow its target IRI to be non-generated, e.g. `<ontology/releases>`
+- keep `sflo:historyOrdinal` and `sflo:nextHistoryOrdinal` as machine metadata
+- update ontology comments/docs to clarify that ordinals are not the same thing as the path segment and that the history IRI may use caller-chosen naming
+
+If you want a persisted preference before first weave, that is the case where a new term might make sense, but it should be something like “preferred initial history segment,” not “current history name.”
+
+My recommendation: update ontology documentation/comments, not the ontology shape, for this first slice. If you want, I can add that as a note in [wd.task.2026.2026-04-07_0020-history-and-state-naming.md](wd.task.2026.2026-04-07_0020-history-and-state-naming.md).
+
+# User_2026-04-07_0049_15
+
+I think we should allow custom naming on multiple targets, e.g. if SHACL gets the same release/vx.y.z naming. Note that I added an item to TODO that allow list-of-target specification.
+
+# gpt-5.4_2026-04-07_0049_22
+
+I’m checking the new TODO item and the current naming note against that multi-target direction. If the TODO really changes the contract shape, I’ll fold it into the task note instead of leaving the note internally inconsistent.
+
+# gpt-5.4_2026-04-07_0049_31
+
+Your new TODO item changes the answer to the last open question. Scalar naming fields are now the wrong shape; the first contract should be target-scoped so named multi-target weave is possible without inventing a second API later.
+
+# gpt-5.4_2026-04-07_0049_50
+
+Yes. That changes the request-shape decision in a real way.
+
+If `ontology` and `shacl` may both be woven in one operation with the same `releases` / `v0.0.1` naming, then scalar `historySegment` / `stateSegment` fields are the wrong contract. The naming inputs need to be target-scoped, and uniqueness should be enforced per artifact history, not globally.
+
+I updated [wd.task.2026.2026-04-07_0020-history-and-state-naming.md](wd.task.2026.2026-04-07_0020-history-and-state-naming.md) to reflect that:
+- multi-target custom naming is now an explicit decision
+- the contract section now points toward target specs instead of scalar fields
+- testing now includes a multi-target named weave case
+- the remaining open issue is narrower: do we move directly to target objects, or temporarily keep `designatorPaths` alongside them for compatibility
+
+My recommendation is to move toward a shape like:
+```ts
+targets?: readonly {
+  designatorPath: string;
+  historySegment?: string;
+  stateSegment?: string;
+}[]
+```
+
+and treat bare `designatorPaths` as legacy shorthand for unnamed/default targets, if we need a transition. That matches the TODO direction and avoids painting `WeaveRequest` into a corner.
+
+The only question I’d keep open in the note is: do you want the first implementation to support both `designatorPaths` and `targets`, or do you want to cut straight to `targets` in core?

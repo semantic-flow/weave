@@ -2,7 +2,7 @@
 id: 36n2frq6aqahs0czp3v6u4as
 title: 2026 04 04 2019 Update Alice Bio Payload
 desc: ''
-updated: 1775534865855
+updated: 1775545942859
 created: 1775359260000
 ---
 wd.completed.2026.2026-04-05_0903-weave-alice-bio-v2-woven
@@ -146,4 +146,4 @@ The carried `09-alice-bio-referenced-woven` -> `10-alice-bio-updated` slice is n
 - the local runtime rejects remote URL schemes, keeps colon-containing filenames on the filesystem-path path, and fails closed if replacement Turtle does not parse, leaving the existing working payload file untouched
 - the carried implementation keeps the settled `10` invariant: only `alice-bio.ttl` changes, while `_mesh/_inventory/inventory.ttl`, Knop inventories, historical payload snapshots, and generated pages remain unchanged
 - focused unit, integration, and black-box CLI coverage now lock the slice against the settled `10-alice-bio-updated` manifest and fixture
-- broader RDF parsing cleanup still belongs in [[wd.task.2026.2026-04-04_0952-rdf-parsing]] rather than this narrow carried slice
+- broader RDF parsing cleanup still belongs in [[wd.completed.2026.2026-04-04_0952-rdf-parsing]] rather than this narrow carried slice

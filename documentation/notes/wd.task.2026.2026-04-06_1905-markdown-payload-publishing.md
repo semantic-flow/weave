@@ -2,7 +2,7 @@
 id: rvoyc7eqrx86kvauhtl41o9
 title: 2026 04 06 1905 Markdown Payload Publishing
 desc: ''
-updated: 1775527837222
+updated: 1775546922635
 created: 1775527837223
 ---
 
@@ -40,6 +40,8 @@ For the current first slice, the implementation and contract should assume:
 - richer Dendron semantics should only activate when the selected source-format profile requests them
 
 ## Discussion
+
+- eventually, we'll want to be able to do the same thing for HTML and potentially other formats, so need to keep this extensible
 
 ## Open Issues
 

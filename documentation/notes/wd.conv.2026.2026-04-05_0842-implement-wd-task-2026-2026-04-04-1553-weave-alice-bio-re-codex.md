@@ -2,7 +2,7 @@
 id: implement-wdtask20262026-weylcx
 title: 'Implement [[wd.task.2026.2026-04-04_1553-weave-alice-bio-re…'
 desc: ''
-updated: 1775534901904
+updated: 1775545942857
 created: 1775403749671
 participants:
   - djradon
@@ -419,7 +419,7 @@ I’ve confirmed the `async` test comment is already resolved. I’m patching th
 
 # User_2026-04-04_2301_32
 
-we do have a future task related to rdf, [[wd.task.2026.2026-04-04_0952-rdf-parsing]] if that helps.
+we do have a future task related to rdf, [[wd.completed.2026.2026-04-04_0952-rdf-parsing]] if that helps.
 
 # gpt-5.4_2026-04-04_2301_39
 
@@ -437,7 +437,7 @@ The payload suite surfaced one real type-check issue from the new parser-backed 
 
 The payload path is green. Because I changed the shared CLI designator-path resolver, I’m running the integrate CLI acceptance too, then I’ll do a scoped whitespace check and summarize which review comments actually held.
 
-Using [[wd.task.2026.2026-04-04_0952-rdf-parsing]] as a boundary was useful. I treated the broad RDF-parser migration as future work, but still took the localized `payload.update` parser fix because that file was already under review and the change stayed narrow.
+Using [[wd.completed.2026.2026-04-04_0952-rdf-parsing]] as a boundary was useful. I treated the broad RDF-parser migration as future work, but still took the localized `payload.update` parser fix because that file was already under review and the change stayed narrow.
 
 Status of the comments:
 - The `async` callback in [update_test.ts](/home/djradon/hub/semantic-flow/weave/src/core/payload/update_test.ts) was already fixed before this pass.
@@ -695,7 +695,7 @@ Yes. A few concrete learnings are worth folding into [[wd.completed.2026.2026-04
 - tighten the testing section:
   cover conflicting and missing `designatorPath` CLI inputs, `file:` source handling, remote URL rejection, and invalid-RDF rollback behavior
 - keep the RDF note boundary explicit:
-  narrow parser-backed validation inside `payload.update` was worth taking, but broader RDF-read cleanup still belongs in [[wd.task.2026.2026-04-04_0952-rdf-parsing]]
+  narrow parser-backed validation inside `payload.update` was worth taking, but broader RDF-read cleanup still belongs in [[wd.completed.2026.2026-04-04_0952-rdf-parsing]]
 
 And yes, it’s ready. The payload slice itself is implemented and the follow-up hardening is in. If you want, I can update that task note now to reflect the settled behavior and tests.
 
@@ -729,7 +729,7 @@ The note now explicitly captures:
 - the colon-containing filename edge case
 - fail-closed invalid-Turtle behavior
 - the extra CLI validation coverage for conflicting or missing `designatorPath`
-- the boundary that broader RDF cleanup still belongs in [[wd.task.2026.2026-04-04_0952-rdf-parsing]]
+- the boundary that broader RDF cleanup still belongs in [[wd.completed.2026.2026-04-04_0952-rdf-parsing]]
 
 On the “implement” part: there was no remaining code gap to fill. The `payload.update` slice and the follow-up hardening are already on this branch, so this turn only needed the task-note update.
 
