@@ -1,7 +1,12 @@
-import * as posix from "@std/path/posix";
 import { Parser } from "n3";
 import type { Quad } from "n3";
 import type { PlannedFile } from "../planned_file.ts";
+import {
+  deriveMeshLabel,
+  escapeHtml,
+  toRelativeHref,
+  toResourcePath,
+} from "./html.ts";
 
 export interface WeaveRequest {
   designatorPaths?: readonly string[];
@@ -2364,7 +2369,10 @@ function renderArtifactHistoryIndexPage(
     states: readonly { segment: string; latest: boolean }[];
   },
 ): string {
-  const resourcePath = toResourcePath(options.pagePath);
+  const resourcePath = toResourcePath(
+    options.pagePath,
+    (message) => new WeaveInputError(message),
+  );
   const canonical = new URL(resourcePath, meshBase).href;
   const meshLabel = deriveMeshLabel(meshBase);
   const states = options.states.map((state) =>
@@ -2699,35 +2707,6 @@ function toMeshRelativePath(
   }
 
   return iri.slice(meshBase.length);
-}
-
-function toResourcePath(pagePath: string): string {
-  if (!pagePath.endsWith("/index.html")) {
-    throw new WeaveInputError(`Unsupported resource page path: ${pagePath}`);
-  }
-
-  return pagePath.slice(0, -"/index.html".length);
-}
-
-function toRelativeHref(fromPagePath: string, targetPath: string): string {
-  return posix.relative(posix.dirname(fromPagePath), targetPath);
-}
-
-function deriveMeshLabel(meshBase: string): string {
-  const url = new URL(meshBase);
-  const segments = url.pathname.split("/").filter((segment) =>
-    segment.length > 0
-  );
-  return segments[segments.length - 1] ?? "_mesh";
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
 }
 
 function buildFirstKnopWeavePages(

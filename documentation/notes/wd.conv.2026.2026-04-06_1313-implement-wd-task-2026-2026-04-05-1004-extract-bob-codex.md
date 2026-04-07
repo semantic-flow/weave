@@ -741,3 +741,194 @@ test: deepen weave coverage for extracted bob paths
 - add an integration test that rejects bob weave when the referenced alice payload lacks a woven current history
 - keep the repo green under deno task ci and refresh coverage output
 ```
+
+# User_2026-04-06_1924_58
+
+I think we're almost done this weave implementation. Any last follow up? Any updates for [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md) - and is that our next step, before diving into payload-publishing?
+
+# gpt-5.4_2026-04-06_1925_08
+
+I’m checking the current task notes and guidance first so I can answer from the repo’s actual stated plan, not memory.
+
+# gpt-5.4_2026-04-06_1925_16
+
+I’ve got the note context. I’m checking the code paths named in the RDF parsing task now to separate “still open” from “already partially done.”
+
+# gpt-5.4_2026-04-06_1925_29
+
+There’s been some partial movement already: `core/weave` now has RDF quad helpers, but the main slice-detection and assertion paths are still mostly string-based. I’m pulling the exact helper area so I can tell you whether `wd.task...rdf-parsing` needs updating or just reprioritizing.
+
+# gpt-5.4_2026-04-06_1926_07
+
+One thing changed after Bob extract/weave landed: the RDF-parsing task note is slightly stale. I’m checking `extract` too, because it added another string-surgery seam that probably belongs in that note even if it’s low priority.
+
+# gpt-5.4_2026-04-06_1926_29
+
+I’ve got the answer. I’m grabbing exact line anchors for the remaining brittle read paths so I can point you to the real blockers, not hand-wave.
+
+# gpt-5.4_2026-04-06_1927_00
+
+For the current carried RDF/Turtle ladder, yes, we’re basically done. I would not say “weave is done” globally, because payload publishing will introduce a new weave family, but the current `01 -> 13` implementation arc looks closed.
+
+The only follow-up I’d prioritize before payload publishing is the high-risk RDF parsing cleanup. The broad note at [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md) is still directionally right, but it is slightly stale. It should now explicitly include:
+- the duplicated runtime `meshBase` regex loaders in [create.ts](../../src/runtime/knop/create.ts#L198), [integrate.ts](../../src/runtime/integrate/integrate.ts#L300), [extract.ts](../../src/runtime/extract/extract.ts#L213), and [weave.ts](../../src/runtime/weave/weave.ts#L183)
+- the newer string-based runtime readers in [extract.ts](../../src/runtime/extract/extract.ts#L260) and [weave.ts](../../src/runtime/weave/weave.ts#L198)
+- the low-priority string-surgery seams in [extract.ts](../../src/core/extract/extract.ts#L260)
+
+One important nuance: I would not mark the current RDF parsing checkboxes complete yet. The note should also record that `core/weave` already has a partial RDF-aware seam for source payload lookup via `n3` in [weave.ts](../../src/core/weave/weave.ts#L2628), but that does not satisfy the main cleanup items.
+
+So yes, I think RDF parsing is the next step before payload publishing, but only the narrow read-path part:
+1. shared RDF-aware `meshBase` loader across `knop create`, `integrate`, `extract`, and `weave`
+2. shared parsed inventory helpers for runtime candidate discovery in `extract` and `weave`
+3. then move to markdown payload publishing
+
+I would not block payload publishing on the later graph-mutation refactors in `core/knop/create` and `core/integrate`. Those are real debt, but they are a bigger rewrite and not the best sequencing for momentum.
+
+If you want, I can update [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md) now and narrow it into the exact next carried cleanup slice.
+
+# User_2026-04-06_1927_00
+
+more coderabbit comments:
+
+Verify each finding against the current code and only fix it if needed.
+
+Nitpick comments:
+In `@src/core/weave/weave.ts`:
+- Around line 2704-2731: The four utility functions toResourcePath,
+toRelativeHref, deriveMeshLabel, and escapeHtml are duplicated; extract them
+into a new shared HTML utilities module, export those functions from that
+module, and replace the local implementations in both weave.ts and pages.ts with
+imports of the shared functions so behavior and signatures remain identical
+(preserve error types and URL/path handling in deriveMeshLabel and
+toResourcePath and the exact escape sequences in escapeHtml); update imports
+where these functions were used and run/add unit tests to ensure no behavioral
+changes.
+
+In `@src/runtime/weave/pages.ts`:
+- Around line 150-155: The two helper functions toRelativeResourceHref and
+toRelativeHref contain identical logic (both return
+posix.relative(posix.dirname(from), target)); consolidate them by removing one
+and updating all callers to use a single canonical helper (choose the clearer
+name for your domain, e.g., toRelativeHref or keep toRelativeResourceHref) or,
+if you intentionally need both for semantic clarity, implement one as a thin
+wrapper that calls the other and add a brief doc comment explaining the semantic
+distinction; update references to the removed function accordingly.
+- Around line 58-94: The currentLinks mapping in src/runtime/weave/pages.ts
+repeats toRelativeResourceHref(…) and escapeHtml(…) calls multiple times making
+the template verbose; refactor the mapping in the page.currentLinks generation
+to compute and reuse local variables (e.g., targetHref =
+toRelativeResourceHref(targetBasePath, link.referenceTargetPath), stateHref =
+link.referenceTargetStatePath && toRelativeResourceHref(targetBasePath,
+link.referenceTargetStatePath), and their escaped equivalents
+escapedTargetHref/escapedStateHref and escapedFragment/escapedRole) and then use
+those variables inside the two template branches to keep the string templates
+concise and avoid duplicate calls in the map callback for currentLinks.
+
+# gpt-5.4_2026-04-06_1927_07
+
+I’m checking the current `weave` and page-rendering helpers against the comments first, then I’ll patch only the ones that are still real and run the relevant tests.
+
+# gpt-5.4_2026-04-06_1928_16
+
+I verified the comments. The duplication is real, and the pages helper collapse is safe as long as we keep the distinction in the call arguments, not in separate function bodies. I’m patching that into a shared utility module and adding narrow utility tests.
+
+# gpt-5.4_2026-04-06_1928_28
+
+I’ve confirmed the exact helper surface. Next step is a small shared utility module plus a focused test file so we don’t regress escaping or relative-link behavior while deduplicating.
+
+# gpt-5.4_2026-04-06_1928_41
+
+I’m editing the shared helper extraction now. After that I’ll run the page tests, weave tests, and `deno task ci` so we can tell whether this was purely structural or shook any relative-link assumptions loose.
+
+# gpt-5.4_2026-04-06_1929_24
+
+The helper extraction is in. I’m formatting and running the focused weave/page tests first, then I’ll do a full `deno task ci` pass if those stay green.
+
+# gpt-5.4_2026-04-06_1929_30
+
+The refactor compiled cleanly. I’m waiting on the focused weave/page test run now; if that stays green I’ll run the full CI sweep.
+
+# gpt-5.4_2026-04-06_1929_36
+
+Targeted tests are green. Full CI is in the long test phase now; I’m waiting on that before I close this out.
+
+# gpt-5.4_2026-04-06_1929_50
+
+The new shared helper has held through unit and e2e coverage so far. CI is just finishing the last acceptance fixtures now.
+
+# gpt-5.4_2026-04-06_1930_16
+
+Verified the three nitpicks against current code. They were real, and I fixed them.
+
+- Added shared HTML/page helpers in [html.ts](../../src/core/weave/html.ts) and moved both [weave.ts](../../src/core/weave/weave.ts#L1) and [pages.ts](../../src/runtime/weave/pages.ts#L1) onto them.
+- Preserved error behavior by keeping runtime `toResourcePath(...)` on the default `Error` path while core `weave` passes a `WeaveInputError` factory at [weave.ts](../../src/core/weave/weave.ts#L2372).
+- Removed the duplicate `toRelativeResourceHref` body in [pages.ts](../../src/runtime/weave/pages.ts#L61) and reused the same shared `toRelativeHref(...)` helper with the existing resource-path argument.
+- Refactored the `referenceCatalog` link rendering in [pages.ts](../../src/runtime/weave/pages.ts#L63) to compute local href/escaped values once instead of repeating calls inline.
+- Added regression coverage for the shared helpers in [html_test.ts](../../src/core/weave/html_test.ts).
+
+Validation passed with `deno task ci`.
+
+There is still unrelated note churn in [wd.conv.2026.2026-04-06_1313-implement-wd-task-2026-2026-04-05-1004-extract-bob-codex.md](wd.conv.2026.2026-04-06_1313-implement-wd-task-2026-2026-04-05-1004-extract-bob-codex.md); I left that alone.
+
+# User_2026-04-06_1930_16
+
+Yes, update [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md)
+
+# gpt-5.4_2026-04-06_1930_26
+
+I’m updating the RDF parsing task note to match the code as it exists now, especially the newer extract paths and the partial RDF-aware seam already in `core/weave`.
+
+# gpt-5.4_2026-04-06_1931_09
+
+I’ve got the revised structure. I’m rewriting the note in place so it reflects the current post-`extract` / post-`13` code and explicitly separates the near-term runtime cleanup from the later mutation rewrite.
+
+# gpt-5.4_2026-04-06_1932_02
+
+The note rewrite is in. I’m reviewing the final diff to make sure the task now points at the actual next cleanup slice and doesn’t accidentally over-commit us to the larger graph-mutation work.
+
+# gpt-5.4_2026-04-06_1932_07
+
+Updated [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md).
+
+The note now:
+- reflects the post-`extract` / post-`13` codebase instead of the earlier pre-Bob snapshot
+- adds `extract` to the runtime `meshBase` regex inventory
+- calls out the duplicated runtime Turtle discovery paths in `extract` and `weave`
+- records the partial RDF-aware progress already present in `core/weave`
+- explicitly separates the near-term runtime read-path cleanup from the later `_mesh/_inventory` graph-mutation rewrite
+- states that the runtime read-path cleanup is the better next step before [[wd.task.2026.2026-04-06_1905-markdown-payload-publishing]]
+
+I did not run CI for this one because it is a task-note-only update.
+
+# User_2026-04-06_1935_13
+
+commit message
+
+# gpt-5.4_2026-04-06_1935_21
+
+```text
+docs: refresh rdf parsing task scope after extract and bob weave
+
+- update [[wd.task.2026.2026-04-04_0952-rdf-parsing]] to reflect the current post-`extract` and post-`13-bob-extracted-woven` codebase
+- add the missing `extract` runtime `meshBase` regex loader and the duplicated `extract`/`weave` Turtle discovery paths to the debt inventory
+- record the partial RDF-aware seam already present in `core/weave` so the cleanup plan builds on existing quad parsing work
+- clarify that the next recommended step is shared runtime read-path cleanup before [[wd.task.2026.2026-04-06_1905-markdown-payload-publishing]]
+- keep the larger `_mesh/_inventory` graph-mutation rewrite explicitly in scope, but no longer present it as the immediate blocker
+```
+
+# User_2026-04-06_1935_43
+
+sorry, include the coderabbit fixes
+
+# gpt-5.4_2026-04-06_1935_47
+
+```text
+weave: dedupe html helpers and refresh rdf parsing follow-up scope
+
+- extract shared weave HTML utilities for resource-path derivation, relative href generation, mesh labeling, and HTML escaping
+- update core weave and runtime page rendering to use the shared helpers while preserving existing error behavior
+- simplify reference-catalog page rendering by reusing local escaped href and label values instead of repeating helper calls inline
+- add focused helper coverage for shared HTML escaping, relative hrefs, mesh-label derivation, and caller-specific toResourcePath error handling
+- keep the refactor green under full deno task ci
+- update [[wd.task.2026.2026-04-04_0952-rdf-parsing]] to reflect the post-extract and post-13 codebase, including extract runtime readers and the current recommended cleanup order before markdown payload publishing
+```

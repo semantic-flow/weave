@@ -250,3 +250,42 @@ The note now encodes the boundary we discussed:
 No tests were run since this was a task-note edit only.
 
 If you want, I can fill the next three sections too: `Non-Goals`, `Open Issues`, and a tight `Implementation Plan` checklist.
+
+# User_2026-04-06_1934_44
+
+All along I've been talking about how a semantic mesh is web-servable "as-is" after a weave. But now I have this possibility of putting the semantic mesh in /docs which has the benefit of not polluting the source repo with a bunch of folders and ResourcePages and old versions. There's also the github-supported option of generating the site separately, or serving from a branch. But the /docs targeted semantic mesh seems pretty ideal to me. What are your thoughts. When would you want to do a whole-repo semantic mesh vs /docs or branch. Generated via actions seems less ideal, because you can't browse the thing locally (or serve it locally).
+
+# gpt-5.4_2026-04-06_1935_33
+
+`/docs`-rooted published mesh sounds like the right default for this note-publishing line of work.
+
+It keeps the strong property you care about, "after `weave`, the mesh is web-servable as-is," while avoiding the uglier property, "the whole authoring repo gets filled with generated histories and `index.html` trees." That is a good trade.
+
+The important distinction is:
+
+- repo root: authoring and source workspace
+- `/docs`: published semantic mesh root
+
+That is still a real semantic mesh. It is not a fake export. It just means the published mesh is a derived surface rather than the entire checkout.
+
+I’d choose each mode like this:
+
+- Whole-repo semantic mesh:
+  Use this when the repo itself is the canonical mesh workspace, current files and historical states should live next to each other, and the generated structure is part of the thing you actually want to inspect and version directly. Good fit for fixture repos, reference meshes, and artifact-native projects.
+
+- `/docs` semantic mesh:
+  Use this when the source repo is primarily an authoring environment and the public mesh is a publishable projection. This is probably the best fit for Markdown/note publishing, Kato/Weave/Accord docs, and anything where generated histories/pages would otherwise drown the source tree.
+
+- Branch or deploy artifact:
+  Use this when generated output is too large or noisy to keep on the main branch, or when publishing permissions/process need to be separated. I would treat this as deployment plumbing, not the primary model.
+
+I agree with your pushback on Actions-only generation. CI can publish, but it should not be the only place the mesh can be built. The canonical operation should work locally first, then CI should run the same build and publish the result. Otherwise you lose local inspection, local serving, and confidence that the published surface is reproducible outside GitHub.
+
+So my recommendation is:
+
+- for Markdown payload publishing, target a semantic mesh under `/docs`
+- keep local generation first-class
+- treat branch/Actions publishing as optional delivery mechanisms later
+- keep whole-repo mesh as a separate mode that still matters for other Weave use cases
+
+The one thing I would be explicit about in the task note is that `/docs` is the published mesh root, not merely a website output folder. That wording will keep the architecture honest.
