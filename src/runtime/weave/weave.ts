@@ -12,6 +12,16 @@ import {
   type WeaveRequest,
   type WeaveSlice,
 } from "../../core/weave/weave.ts";
+import {
+  listKnopDesignatorPaths,
+  resolvePayloadArtifactInventoryState,
+  resolveReferenceCatalogInventoryState,
+  resolveReferenceTargetDesignatorPath,
+} from "../mesh/inventory.ts";
+import {
+  MeshMetadataResolutionError,
+  resolveMeshBaseFromMetadataTurtle,
+} from "../mesh/metadata.ts";
 import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
@@ -60,6 +70,7 @@ export async function executeWeave(
     const meshState = await loadMeshState(workspaceRoot);
     const weaveableKnops = await loadWeaveableKnopCandidates(
       workspaceRoot,
+      meshState.meshBase,
       meshState.currentMeshInventoryTurtle,
       options.request?.designatorPaths ?? [],
     );
@@ -180,31 +191,37 @@ async function loadMeshState(
     throw error;
   }
 
-  const meshBaseMatch = meshMetadataTurtle.match(
-    /sflo:meshBase "([^"]+)"\^\^xsd:anyURI/,
-  );
-  if (!meshBaseMatch) {
-    throw new WeaveRuntimeError(
-      "Could not resolve meshBase from _mesh/_meta/meta.ttl",
-    );
+  let meshBase: string;
+  try {
+    meshBase = resolveMeshBaseFromMetadataTurtle(meshMetadataTurtle);
+  } catch (error) {
+    if (error instanceof MeshMetadataResolutionError) {
+      throw new WeaveRuntimeError(error.message);
+    }
+    if (error instanceof Error) {
+      throw new WeaveRuntimeError(
+        `Could not resolve mesh base from metadata: ${error.message}`,
+      );
+    }
+    throw error;
   }
 
   return {
-    meshBase: meshBaseMatch[1]!,
+    meshBase,
     currentMeshInventoryTurtle,
   };
 }
 
 async function loadWeaveableKnopCandidates(
   workspaceRoot: string,
+  meshBase: string,
   currentMeshInventoryTurtle: string,
   requestedDesignatorPaths: readonly string[],
 ): Promise<readonly WeaveableKnopCandidate[]> {
-  const knopMatches = [
-    ...currentMeshInventoryTurtle.matchAll(/<([^>]+\/_knop)> a sflo:Knop ;/g),
-  ];
-  const designatorPaths = knopMatches.map((match) =>
-    match[1]!.slice(0, -"/_knop".length)
+  const designatorPaths = listKnopDesignatorPaths(
+    meshBase,
+    currentMeshInventoryTurtle,
+    "Could not parse the current MeshInventory while resolving weaveable Knop candidates.",
   );
   const requested = normalizeRequestedDesignatorPaths(requestedDesignatorPaths);
 
@@ -242,6 +259,7 @@ async function loadWeaveableKnopCandidates(
       currentKnopInventoryTurtle,
     };
     const slice = detectPendingWeaveSlice(
+      meshBase,
       designatorPath,
       currentKnopInventoryTurtle,
     );
@@ -256,6 +274,7 @@ async function loadWeaveableKnopCandidates(
     ) {
       candidate.payloadArtifact = await loadPayloadWorkingArtifact(
         workspaceRoot,
+        meshBase,
         designatorPath,
         currentKnopInventoryTurtle,
       );
@@ -268,6 +287,7 @@ async function loadWeaveableKnopCandidates(
       candidate.referenceCatalogArtifact =
         await loadReferenceCatalogWorkingArtifact(
           workspaceRoot,
+          meshBase,
           designatorPath,
           currentKnopInventoryTurtle,
         );
@@ -277,6 +297,7 @@ async function loadWeaveableKnopCandidates(
       candidate.referenceTargetSourcePayloadArtifact =
         await loadReferenceTargetSourcePayloadArtifact(
           workspaceRoot,
+          meshBase,
           designatorPath,
           candidate.referenceCatalogArtifact,
         );
@@ -296,55 +317,28 @@ async function loadWeaveableKnopCandidates(
 
 async function loadPayloadWorkingArtifact(
   workspaceRoot: string,
+  meshBase: string,
   designatorPath: string,
   currentKnopInventoryTurtle: string,
 ): Promise<PayloadWorkingArtifact | undefined> {
-  if (
-    !currentKnopInventoryTurtle.includes(
-      `sflo:hasPayloadArtifact <${designatorPath}>`,
-    )
-  ) {
+  const payloadArtifact = resolvePayloadArtifactInventoryState(
+    meshBase,
+    currentKnopInventoryTurtle,
+    designatorPath,
+    {
+      parseErrorMessage:
+        `Could not parse the current Knop inventory while resolving the payload artifact for ${designatorPath}.`,
+      missingWorkingFileMessage:
+        `Could not resolve the working payload file for ${designatorPath}.`,
+    },
+  );
+  if (!payloadArtifact) {
     return undefined;
   }
-
-  const payloadBlock = currentKnopInventoryTurtle
-    .split("\n\n")
-    .find((block) =>
-      block.startsWith(
-        `<${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;`,
-      )
-    );
-
-  if (!payloadBlock) {
-    throw new WeaveRuntimeError(
-      `Could not resolve the payload artifact block for ${designatorPath}.`,
-    );
-  }
-
-  const workingFilePathMatch = payloadBlock.match(
-    /sflo:hasWorkingLocatedFile <([^>]+)>/,
-  );
-  if (!workingFilePathMatch) {
-    throw new WeaveRuntimeError(
-      `Could not resolve the working payload file for ${designatorPath}.`,
-    );
-  }
-
-  const workingFilePath = workingFilePathMatch[1]!;
-  const currentHistoryPathMatch = payloadBlock.match(
-    /sflo:currentArtifactHistory <([^>]+)>/,
-  );
-  const currentHistoryPath = currentHistoryPathMatch?.[1];
-  const historyBlock = currentHistoryPath
-    ? currentKnopInventoryTurtle
-      .split("\n\n")
-      .find((block) =>
-        block.startsWith(`<${currentHistoryPath}> a sflo:ArtifactHistory ;`)
-      )
+  const workingFilePath = payloadArtifact.workingFilePath;
+  const latestHistoricalStatePath = payloadArtifact.currentArtifactHistoryExists
+    ? payloadArtifact.latestHistoricalStatePath
     : undefined;
-  const latestHistoricalStatePath = historyBlock?.match(
-    /sflo:latestHistoricalState <([^>]+)>/,
-  )?.[1];
   const latestHistoricalSnapshotPath = latestHistoricalStatePath
     ? join(
       workspaceRoot,
@@ -404,6 +398,7 @@ async function loadPayloadWorkingArtifact(
 
 async function loadReferenceTargetSourcePayloadArtifact(
   workspaceRoot: string,
+  meshBase: string,
   designatorPath: string,
   referenceCatalogArtifact: ReferenceCatalogWorkingArtifact | undefined,
 ): Promise<WeaveableKnopCandidate["referenceTargetSourcePayloadArtifact"]> {
@@ -411,26 +406,19 @@ async function loadReferenceTargetSourcePayloadArtifact(
     return undefined;
   }
 
-  const linkBlock = referenceCatalogArtifact.currentReferenceCatalogTurtle
-    .split("\n\n")
-    .map((block) => block.trim())
-    .find((block) => block.startsWith(`<${designatorPath}/_knop/_references#`));
-  if (!linkBlock) {
-    throw new WeaveRuntimeError(
-      `Could not resolve the current extracted ReferenceCatalog link for ${designatorPath}.`,
-    );
-  }
-
-  const referenceTargetPathMatch = linkBlock.match(
-    /sflo:referenceTarget <([^>]+)>/,
+  const sourceDesignatorPath = resolveReferenceTargetDesignatorPath(
+    meshBase,
+    referenceCatalogArtifact.currentReferenceCatalogTurtle,
+    designatorPath,
+    {
+      parseErrorMessage:
+        `Could not parse the current ReferenceCatalog while resolving the extracted weave source for ${designatorPath}.`,
+      missingReferenceLinkMessage:
+        `Could not resolve the current extracted ReferenceCatalog link for ${designatorPath}.`,
+      missingReferenceTargetMessage:
+        `Could not resolve the current extracted ReferenceCatalog target for ${designatorPath}.`,
+    },
   );
-  if (!referenceTargetPathMatch) {
-    throw new WeaveRuntimeError(
-      `Could not resolve the current extracted ReferenceCatalog target for ${designatorPath}.`,
-    );
-  }
-
-  const sourceDesignatorPath = referenceTargetPathMatch[1]!;
   const sourceKnopInventoryPath = join(
     workspaceRoot,
     `${sourceDesignatorPath}/_knop/_inventory/inventory.ttl`,
@@ -452,6 +440,7 @@ async function loadReferenceTargetSourcePayloadArtifact(
 
   const sourcePayloadArtifact = await loadPayloadWorkingArtifact(
     workspaceRoot,
+    meshBase,
     sourceDesignatorPath,
     sourceKnopInventoryTurtle,
   );
@@ -471,43 +460,25 @@ async function loadReferenceTargetSourcePayloadArtifact(
 
 async function loadReferenceCatalogWorkingArtifact(
   workspaceRoot: string,
+  meshBase: string,
   designatorPath: string,
   currentKnopInventoryTurtle: string,
 ): Promise<ReferenceCatalogWorkingArtifact | undefined> {
-  const knopPath = `${designatorPath}/_knop`;
-  const referenceCatalogPath = `${knopPath}/_references`;
-  if (
-    !currentKnopInventoryTurtle.includes(
-      `sflo:hasReferenceCatalog <${referenceCatalogPath}>`,
-    )
-  ) {
+  const referenceCatalog = resolveReferenceCatalogInventoryState(
+    meshBase,
+    currentKnopInventoryTurtle,
+    designatorPath,
+    {
+      parseErrorMessage:
+        `Could not parse the current Knop inventory while resolving the ReferenceCatalog for ${designatorPath}.`,
+      missingWorkingFileMessage:
+        `Could not resolve the working ReferenceCatalog file for ${designatorPath}.`,
+    },
+  );
+  if (!referenceCatalog) {
     return undefined;
   }
-
-  const referenceCatalogBlock = currentKnopInventoryTurtle
-    .split("\n\n")
-    .find((block) =>
-      block.startsWith(
-        `<${referenceCatalogPath}> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;`,
-      )
-    );
-
-  if (!referenceCatalogBlock) {
-    throw new WeaveRuntimeError(
-      `Could not resolve the ReferenceCatalog block for ${designatorPath}.`,
-    );
-  }
-
-  const workingFilePathMatch = referenceCatalogBlock.match(
-    /sflo:hasWorkingLocatedFile <([^>]+)>/,
-  );
-  if (!workingFilePathMatch) {
-    throw new WeaveRuntimeError(
-      `Could not resolve the working ReferenceCatalog file for ${designatorPath}.`,
-    );
-  }
-
-  const workingFilePath = workingFilePathMatch[1]!;
+  const workingFilePath = referenceCatalog.workingFilePath;
   try {
     return {
       workingFilePath,

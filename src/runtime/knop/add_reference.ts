@@ -4,6 +4,10 @@ import {
   type KnopAddReferencePlan,
   planKnopAddReference,
 } from "../../core/knop/add_reference.ts";
+import {
+  loadWorkspaceMeshBase,
+  MeshMetadataResolutionError,
+} from "../mesh/metadata.ts";
 import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
@@ -199,30 +203,24 @@ async function ensureWorkspaceRootExists(workspaceRoot: string): Promise<void> {
 }
 
 async function loadMeshBase(workspaceRoot: string): Promise<string> {
-  const meshMetadataPath = join(workspaceRoot, "_mesh/_meta/meta.ttl");
-  let meshMetadataTurtle: string;
-
   try {
-    meshMetadataTurtle = await Deno.readTextFile(meshMetadataPath);
+    return await loadWorkspaceMeshBase(workspaceRoot);
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new KnopAddReferenceRuntimeError(
         "Workspace does not contain an existing mesh support surface",
       );
     }
+    if (error instanceof MeshMetadataResolutionError) {
+      throw new KnopAddReferenceRuntimeError(error.message);
+    }
+    if (error instanceof Error) {
+      throw new KnopAddReferenceRuntimeError(
+        `Could not resolve mesh base from metadata: ${error.message}`,
+      );
+    }
     throw error;
   }
-
-  const meshBaseMatch = meshMetadataTurtle.match(
-    /sflo:meshBase "([^"]+)"\^\^xsd:anyURI/,
-  );
-  if (!meshBaseMatch) {
-    throw new KnopAddReferenceRuntimeError(
-      "Could not resolve meshBase from _mesh/_meta/meta.ttl",
-    );
-  }
-
-  return meshBaseMatch[1]!;
 }
 
 async function loadCurrentKnopInventory(

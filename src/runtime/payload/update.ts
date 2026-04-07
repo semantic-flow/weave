@@ -6,6 +6,11 @@ import {
   type PayloadUpdatePlan,
   planPayloadUpdate,
 } from "../../core/payload/update.ts";
+import { resolvePayloadArtifactInventoryState } from "../mesh/inventory.ts";
+import {
+  MeshMetadataResolutionError,
+  resolveMeshBaseFromMetadataTurtle,
+} from "../mesh/metadata.ts";
 import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
@@ -342,38 +347,38 @@ async function loadCurrentPayloadState(
     throw error;
   }
 
-  const meshBaseMatch = meshMetadataTurtle.match(
-    /sflo:meshBase "([^"]+)"\^\^xsd:anyURI/,
-  );
-  if (!meshBaseMatch) {
-    throw new PayloadUpdateRuntimeError(
-      "Could not resolve meshBase from _mesh/_meta/meta.ttl",
-    );
+  let meshBase: string;
+  try {
+    meshBase = resolveMeshBaseFromMetadataTurtle(meshMetadataTurtle);
+  } catch (error) {
+    if (error instanceof MeshMetadataResolutionError) {
+      throw new PayloadUpdateRuntimeError(error.message);
+    }
+    if (error instanceof Error) {
+      throw new PayloadUpdateRuntimeError(
+        `Could not resolve mesh base from metadata: ${error.message}`,
+      );
+    }
+    throw error;
   }
 
-  const payloadBlock = currentKnopInventoryTurtle
-    .split("\n\n")
-    .find((block) =>
-      block.startsWith(
-        `<${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;`,
-      )
-    );
-  if (!payloadBlock) {
+  const payloadArtifact = resolvePayloadArtifactInventoryState(
+    meshBase,
+    currentKnopInventoryTurtle,
+    designatorPath,
+    {
+      parseErrorMessage:
+        `Could not parse the current Knop inventory while resolving the payload artifact for ${designatorPath}.`,
+      missingWorkingFileMessage:
+        `Could not resolve the working payload file for ${designatorPath}.`,
+    },
+  );
+  if (!payloadArtifact) {
     throw new PayloadUpdateRuntimeError(
       `Could not resolve the payload artifact block for ${designatorPath}.`,
     );
   }
-
-  const workingFilePathMatch = payloadBlock.match(
-    /sflo:hasWorkingLocatedFile <([^>]+)>/,
-  );
-  if (!workingFilePathMatch) {
-    throw new PayloadUpdateRuntimeError(
-      `Could not resolve the working payload file for ${designatorPath}.`,
-    );
-  }
-
-  const workingFilePath = workingFilePathMatch[1]!;
+  const workingFilePath = payloadArtifact.workingFilePath;
   try {
     const stat = await Deno.stat(join(workspaceRoot, workingFilePath));
     if (!stat.isFile) {
@@ -391,7 +396,7 @@ async function loadCurrentPayloadState(
   }
 
   return {
-    meshBase: meshBaseMatch[1]!,
+    meshBase,
     currentKnopInventoryTurtle,
     workingFilePath,
   };

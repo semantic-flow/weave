@@ -1,10 +1,12 @@
 ---
 id: separate-dendrogen-site-uum30u
-title: 'separate dendrogen site generator or just weave'
+title: separate dendrogen site generator or just weave
 desc: ''
-created: 1775527447080
 updated: 1775527447080
-participants: [djradon, codex.gpt-5.4]
+created: 1775527447080
+participants:
+  - djradon
+  - codex.gpt-5.4
 ---
 
 # User_2026-04-06_1608_51
@@ -37,7 +39,7 @@ Make it part of `weave` from the start. I would not spin up a separate Kato-spec
 
 - That matches Weave’s stated job in [[product-vision]] and [README.md](../../README.md): publishing digital artifacts and semantic meshes is already core scope, not an adjacent concern.
 - Weave already treats HTML page generation as shared runtime behavior, not app-specific garnish. That is explicit in [[wd.codebase-overview]], [[wd.spec.2026-04-03-weave-behavior]], and the current renderer seam in [pages.ts](../../src/runtime/weave/pages.ts).
-- The repo has already chosen “extend the shared runtime page-rendering seam, don’t fork a second renderer family” in multiple notes, including [[wd.completed.2026.2026-03-20-architecture-planning]], [[wd.task.2026.2026-04-05_0903-weave-alice-bio-v2-woven]], and [[wd.task.2026.2026-04-06_1331-weave-bob-extracted-woven]].
+- The repo has already chosen “extend the shared runtime page-rendering seam, don’t fork a second renderer family” in multiple notes, including [[wd.completed.2026.2026-03-20-architecture-planning]], [[wd.completed.2026.2026-04-05_0903-weave-alice-bio-v2-woven]], and [[wd.completed.2026.2026-04-06_1331-weave-bob-extracted-woven]].
 - Your “split-brain” concern is real but not disqualifying. Weave already separates working files from public pages: a working file can live at one path while the dereferenceable/public page lives elsewhere. So source notes can stay under `documentation/notes/` while the public mesh is rooted at `docs/`.
 - The part I would push back on is “every Dendron note gets integrated into a semantic mesh rooted at `/docs`” if that means “every note becomes public.” Better model: every note can be a source artifact in the workspace, but only an explicit published subset gets public `docs/` ResourcePages. That preserves your unpublished-note fallback logic from [task.2026.2026-04-06-kato-website.md](../../../../spectacular-voyage/kato/documentation/notes/task.2026.2026-04-06-kato-website.md) without turning Weave into an indiscriminate vault dumper.
 
@@ -289,3 +291,68 @@ So my recommendation is:
 - keep whole-repo mesh as a separate mode that still matters for other Weave use cases
 
 The one thing I would be explicit about in the task note is that `/docs` is the published mesh root, not merely a website output folder. That wording will keep the architecture honest.
+
+# User_2026-04-06_1938_20
+
+The three choices of mode are great, I want to add them to docs. sff or weave?
+
+# gpt-5.4_2026-04-06_1938_31
+
+I’m checking the current boundary between `semantic-flow-framework` and `weave` docs before I answer. The question is whether these modes are part of the public Semantic Flow contract or an implementation/publishing posture choice.
+
+# gpt-5.4_2026-04-06_1938_37
+
+I’ve got the repo boundary in view. One quick pass over the framework notes will tell me whether these modes belong in the public architecture docs there, or whether they stay implementation-facing in `weave`.
+
+# gpt-5.4_2026-04-06_1938_56
+
+`weave`, primarily.
+
+These three modes are implementation and publishing-topology choices, not core Semantic Flow contract. The framework already states that the API is implementation-neutral in [sf.api.architecture.md](../../dependencies/github.com/semantic-flow/semantic-flow-framework/notes/sf.api.architecture.md). “Whole repo mesh vs `/docs` mesh vs deploy branch/artifact” is exactly the kind of thing that should vary across implementations and repos.
+
+So I’d do this:
+
+- Put the full three-mode discussion in [wd.task.2026.2026-04-06_1905-markdown-payload-publishing.md](wd.task.2026.2026-04-06_1905-markdown-payload-publishing.md).
+- Once you settle it, record the decision in [wd.decision-log.md](wd.decision-log.md).
+- If it becomes part of the ongoing architecture, reflect it briefly in [wd.codebase-overview.md](wd.codebase-overview.md) or a later `wd.spec.*` if behavior gets externally visible.
+
+I would only put a thin note in `sff` if you want one framework-level clarification like:
+
+- a semantic mesh may be served directly from the authoring root or from a derived published root such as `/docs`
+- exact publication layout is implementation-specific
+
+That belongs as a short caveat, not a full mode taxonomy.
+
+So the rule is:
+
+- `weave`: detailed modes, tradeoffs, defaults
+- `sff`: one implementation-neutral sentence at most, only if needed
+
+If you want, I can patch the three modes into the Weave task note now.
+
+# User_2026-04-06_1941_30
+
+I put it in [wu.repository-options.md](wu.repository-options.md) -- it seems valuable as user guidance.
+
+# gpt-5.4_2026-04-06_1941_39
+
+I’m checking the note you added so I can answer against the actual wording, but the placement already sounds right: repository-shape choices are user-facing, not just internal implementation detail.
+
+# gpt-5.4_2026-04-06_1941_52
+
+Yes, that’s the right place.
+
+[wu.repository-options.md](wu.repository-options.md) reads like user guidance, not internal architecture churn:
+
+- it answers a repo-setup question a user actually has to choose
+- it stays implementation-light
+- it doesn’t try to turn Weave-specific tradeoffs into framework law
+
+I’d keep the full rationale in the task note and use `wu.repository-options` as the concise user-facing version.
+
+The one thing I’d still add is a short opening sentence and one explicit local-first note:
+
+- these are publication topology options for a semantic mesh
+- CI/branch publishing can be useful delivery plumbing, but local generation should remain a first-class path
+
+That would make the note more complete without bloating it.

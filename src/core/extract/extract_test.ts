@@ -65,8 +65,8 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
       "bob/_knop/_references/references.ttl",
     ),
   );
-  // Keep this explicit so future fixture-format changes still exercise the
-  // injectReferenceTargetState string-shaping seam in planExtract.
+  // Keep this explicit so future extract changes still pin the reference to a
+  // historical state in the rendered ReferenceCatalog file.
   assertStringIncludes(
     plan.createdFiles[2]?.contents ?? "",
     "sflo:referenceTargetState <alice/bio/_history001/_s0002> .",
@@ -131,3 +131,40 @@ Deno.test("planExtract preserves the original knop-planning error as the cause",
     );
   }
 });
+
+Deno.test("planExtract accepts a semantically equivalent source payload LocatedFile block", async () => {
+  const currentMeshInventoryTurtle = withRdfPrefix(
+    await readMeshAliceBioBranchFile(
+      "11-alice-bio-v2-woven",
+      "_mesh/_inventory/inventory.ttl",
+    ),
+  ).replace(
+    "<alice-bio.ttl> a sflo:LocatedFile, sflo:RdfDocument .",
+    "<alice-bio.ttl> rdf:type sflo:RdfDocument, sflo:LocatedFile .",
+  );
+
+  const plan = planExtract({
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle,
+    designatorPath: "bob",
+    referenceTargetDesignatorPath: "alice/bio",
+    referenceTargetStatePath: "alice/bio/_history001/_s0002",
+    referenceTargetWorkingFilePath: "alice-bio.ttl",
+  });
+
+  assertEquals(
+    plan.updatedFiles[0]?.contents ?? "",
+    await readMeshAliceBioBranchFile(
+      "12-bob-extracted",
+      "_mesh/_inventory/inventory.ttl",
+    ),
+  );
+});
+
+function withRdfPrefix(turtle: string): string {
+  return turtle.includes("@prefix rdf:") ? turtle : turtle.replace(
+    "@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .",
+    `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .`,
+  );
+}

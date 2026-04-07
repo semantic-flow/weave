@@ -2,13 +2,13 @@
 id: d01dnm6aodsshhffzapy23ag
 title: 2026 04 05 1004 Extract Bob
 desc: ''
-updated: 1775408650000
+updated: 1775534908263
 created: 1775408650000
 ---
 
 ## Goals
 
-- Carry the next real local semantic slice after [[wd.task.2026.2026-04-05_0903-weave-alice-bio-v2-woven]].
+- Carry the next real local semantic slice after [[wd.completed.2026.2026-04-05_0903-weave-alice-bio-v2-woven]].
 - Implement the first local or in-process `extract` path over shared `core` and `runtime`.
 - Add a dedicated behavior spec note for `extract` rather than leaving the new operation implicit in fixture diffs alone.
 - Keep this first extraction implementation narrow enough to prove referenced-resource extraction behavior without absorbing Bob weaving, payload splitting, or a generic graph-refactoring system.

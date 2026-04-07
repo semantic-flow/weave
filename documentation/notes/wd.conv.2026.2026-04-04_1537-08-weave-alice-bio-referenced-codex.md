@@ -1,10 +1,12 @@
 ---
 id: 08-weave-alice-bio-refer-f6sdcv
-title: '08 weave alice bio referenced'
+title: 08 weave alice bio referenced
 desc: ''
+updated: 1775534716641
 created: 1775342261732
-updated: 1775342261732
-participants: [djradon, codex.gpt-5.4]
+participants:
+  - djradon
+  - codex.gpt-5.4
 ---
 
 # User_2026-04-04_1530_10
@@ -202,7 +204,7 @@ The new task note and guidance updates are in place. I’m reading them back onc
 
 Added the “leave task-note renames to the user unless explicitly asked” rule to [[AGENTS]] and also to [[wd.general-guidance]] so the repo guidance doesn’t contradict itself.
 
-Drafted the next carried-slice task note at [[wd.task.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]] and queued it in [[wd.todo]]. It scopes the next slice to `08-alice-bio-referenced -> 09-alice-bio-referenced-woven`: weave `alice/_knop/_references`, advance `alice/_knop/_inventory`, generate the catalog pages, and leave `_mesh/_inventory` unchanged.
+Drafted the next carried-slice task note at [[wd.completed.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]] and queued it in [[wd.todo]]. It scopes the next slice to `08-alice-bio-referenced -> 09-alice-bio-referenced-woven`: weave `alice/_knop/_references`, advance `alice/_knop/_inventory`, generate the catalog pages, and leave `_mesh/_inventory` unchanged.
 
 No tests run; this was a docs-only update.
 
@@ -383,13 +385,13 @@ The note is in place and queued. I’m giving it one quick pass for wording and 
 
 # gpt-5.4_2026-04-04_2022_18
 
-Drafted the next slice task at [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]]. It queues the narrow `09-alice-bio-referenced-woven` -> `10-alice-bio-updated` `payload.update` slice, with the core constraint that only `alice-bio.ttl` changes and all woven support artifacts stay frozen.
+Drafted the next slice task at [[wd.completed.2026.2026-04-04_2019-update-alice-bio-payload]]. It queues the narrow `09-alice-bio-referenced-woven` -> `10-alice-bio-updated` `payload.update` slice, with the core constraint that only `alice-bio.ttl` changes and all woven support artifacts stay frozen.
 
 I also added it to [[wd.todo#L10]], immediately after the current `09` weave task. No tests run; this was a docs-only update.
 
 # User_2026-04-04_2023_30
 
-update the implementation plan in [[wd.task.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]]
+update the implementation plan in [[wd.completed.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]]
 
 # gpt-5.4_2026-04-04_2023_42
 
@@ -409,7 +411,7 @@ The plan is updated. I’m doing a quick readback so I don’t leave the note wi
 
 # gpt-5.4_2026-04-04_2024_35
 
-Updated the implementation plan in [[wd.task.2026.2026-04-04_1553-weave-alice-bio-referenced-woven#L131]].
+Updated the implementation plan in [[wd.completed.2026.2026-04-04_1553-weave-alice-bio-referenced-woven#L131]].
 
 The main change was to align the plan with what the note already settles:
 - marked the spec-sufficiency and narrow-request-shape items complete
@@ -546,7 +548,7 @@ fix(knop): preserve add-reference failures and tighten staged replace
 - add regression coverage for failed-path logging
 ```
 
-Next should still be [[wd.task.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]], not [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]]. `09` is the next carried fixture slice and it unblocks `10`. I’d start that task by adding the failing `09-alice-bio-referenced-woven` integration and black-box CLI acceptance tests, then extend the shared weave/page seam for `ReferenceCatalog` pages.
+Next should still be [[wd.completed.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]], not [[wd.completed.2026.2026-04-04_2019-update-alice-bio-payload]]. `09` is the next carried fixture slice and it unblocks `10`. I’d start that task by adding the failing `09-alice-bio-referenced-woven` integration and black-box CLI acceptance tests, then extend the shared weave/page seam for `ReferenceCatalog` pages.
 
 # User_2026-04-04_2212_01
 
@@ -556,12 +558,12 @@ new chat?
 
 Yes.
 
-A fresh chat is the cleaner move for [[wd.task.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]]. The current thread has mixed docs work, `08` implementation, CodeRabbit follow-up, and queue management. Starting clean will make the `09` weave slice easier to track.
+A fresh chat is the cleaner move for [[wd.completed.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]]. The current thread has mixed docs work, `08` implementation, CodeRabbit follow-up, and queue management. Starting clean will make the `09` weave slice easier to track.
 
 Use a handoff like:
 
 ```text
-Implement [[wd.task.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]].
+Implement [[wd.completed.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]].
 
 Context:
 - `08-alice-bio-referenced` is implemented and passing.

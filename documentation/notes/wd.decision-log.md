@@ -2,7 +2,7 @@
 id: xniuk4dvzoi717h9g8epjbk
 title: Decision Log
 desc: ''
-updated: 1775338353369
+updated: 1775534821076
 created: 1773630801215
 ---
 
@@ -171,7 +171,7 @@ created: 1773630801215
 ### 2026-04-04: Third Local weave Slice Targets Alice 08 -> 09
 
 - Decision: Treat the settled Alice Bio `08-alice-bio-referenced` -> `09-alice-bio-referenced-woven` transition as the next carried local `weave` implementation slice, keep the existing thin `designatorPaths` request surface, version the Knop-owned `ReferenceCatalog`, advance `alice/_knop/_inventory` to `_s0002`, leave `_mesh/_inventory/inventory.ttl` unchanged, and extend the shared runtime page-rendering seam with current and historical `ReferenceCatalog` pages.
-- References: [[wd.task.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]], [[wd.spec.2026-04-03-weave-behavior]]
+- References: [[wd.completed.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]], [[wd.spec.2026-04-03-weave-behavior]]
 - Why:
   - It proves the first `ReferenceCatalog` history and the first support-artifact weave on an already-versioned Knop surface without widening the mesh inventory beyond the public current surface.
   - The settled `09` fixture only requires one current-link anchor and no retired-link recovery yet, so the shared page seam should grow minimally rather than fork into a separate renderer path.
@@ -179,7 +179,7 @@ created: 1773630801215
 ### 2026-04-04: First Local payload.update Slice Targets Alice 09 -> 10
 
 - Decision: Treat the settled Alice Bio `09-alice-bio-referenced-woven` -> `10-alice-bio-updated` transition as the first carried local `payload.update` implementation slice, expose the human-facing CLI as `weave payload update <source> [designatorPath]` with `--designator-path` as the explicit option form, and keep shared `core` planning centered on the existing woven payload artifact and its mesh-relative working file rather than on host filesystem paths.
-- References: [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]], [[wd.spec.2026-04-04-payload-update-behavior]]
+- References: [[wd.completed.2026.2026-04-04_2019-update-alice-bio-payload]], [[wd.spec.2026-04-04-payload-update-behavior]]
 - Why:
   - The settled `10` fixture proves a real semantic payload change while also proving that histories, inventories, and generated pages stay frozen in this non-woven step.
   - Letting the local runtime stage replacement bytes from a local path or `file:` URL, including one outside the workspace, preserves the one-file `alice-bio.ttl` result without polluting the semantic contract with host-path semantics or temporary mesh artifacts.
@@ -187,7 +187,7 @@ created: 1773630801215
 ### 2026-04-06: First Local extract Slice Targets Bob 11 -> 12
 
 - Decision: Treat the settled Alice Bio `11-alice-bio-v2-woven` -> `12-bob-extracted` transition as the first carried local `extract` slice, expose the human-facing CLI as `weave extract <designatorPath>`, and keep source resolution local and fail-closed against exactly one woven payload artifact that currently mentions the target designator.
-- References: [[wd.task.2026.2026-04-05_1004-extract-bob]], [[wd.spec.2026-04-05-extract-behavior]]
+- References: [[wd.completed.2026.2026-04-05_1004-extract-bob]], [[wd.spec.2026-04-05-extract-behavior]]
 - Why:
   - The carried `12` fixture proves a narrow current-surface extraction boundary, not a generic source-selection or graph-rewrite API.
   - Pinning the created Bob `ReferenceLink` to the source payload artifact's latest historical state preserves the non-woven semantic step while keeping broader payload splitting and Bob weaving out of scope.
@@ -195,7 +195,7 @@ created: 1773630801215
 ### 2026-04-06: Fifth Local weave Slice Targets Bob 12 -> 13
 
 - Decision: Treat the settled Alice Bio `12-bob-extracted` -> `13-bob-extracted-woven` transition as the next carried local `weave` slice, keep the thin `designatorPaths` request surface, version Bob `_meta`, `_inventory`, and `_references`, advance `_mesh/_inventory` to `_s0004`, and keep the black-box CLI acceptance manifest-scoped so unrelated fixture `README.md` churn is ignored.
-- References: [[wd.task.2026.2026-04-06_1331-weave-bob-extracted-woven]], [[wd.spec.2026-04-03-weave-behavior]]
+- References: [[wd.completed.2026.2026-04-06_1331-weave-bob-extracted-woven]], [[wd.spec.2026-04-03-weave-behavior]]
 - Why:
   - The carried `13` fixture is the first extracted-resource weave and the first carried case where one existing current page changes because a newly public extracted resource becomes live.
   - Extending the shared renderer seam only where the fixture forces it avoids absorbing a broader page-system rewrite while still proving Bob current/history pages and the updated Alice link surface.

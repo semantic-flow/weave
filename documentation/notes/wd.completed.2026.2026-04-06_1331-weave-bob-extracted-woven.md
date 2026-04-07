@@ -8,7 +8,7 @@ created: 1775507494416
 
 ## Goals
 
-- Carry the next real local `weave` slice after [[wd.task.2026.2026-04-05_1004-extract-bob]].
+- Carry the next real local `weave` slice after [[wd.completed.2026.2026-04-05_1004-extract-bob]].
 - Implement the first local or in-process `weave` path for an extracted resource that already has a non-woven Knop-managed current surface.
 - Reuse the same spec, test, and acceptance pattern already used for the earlier carried `weave` slices.
 - Keep this `weave` implementation narrow enough to prove Bob support-artifact history creation and Bob-facing ResourcePage materialization without absorbing payload splitting, a broader renderer redesign, or a generic extracted-resource framework.

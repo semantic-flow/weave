@@ -1,5 +1,10 @@
 import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
-import { planWeave, type PlanWeaveInput, WeaveInputError } from "./weave.ts";
+import {
+  detectPendingWeaveSlice,
+  planWeave,
+  type PlanWeaveInput,
+  WeaveInputError,
+} from "./weave.ts";
 import { readMeshAliceBioBranchFile } from "../../../tests/support/mesh_alice_bio_fixture.ts";
 
 const firstWeaveMeshInventoryTurtle =
@@ -319,6 +324,73 @@ Deno.test("planWeave renders the first alice bio payload weave slice", () => {
   );
 });
 
+Deno.test("planWeave accepts semantically equivalent first payload weave Turtle", () => {
+  const equivalentMeshInventoryTurtle = withRdfPrefix(
+    firstPayloadWeaveMeshInventoryTurtle,
+  )
+    .replace(
+      "<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;",
+      "<_mesh/_inventory> rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:MeshInventory ;",
+    )
+    .replace(
+      "<_mesh/_inventory/_history001> a sflo:ArtifactHistory ;",
+      "<_mesh/_inventory/_history001>\n  rdf:type sflo:ArtifactHistory ;",
+    )
+    .replace(
+      "<alice/bio> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;",
+      "<alice/bio> rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:PayloadArtifact ;",
+    )
+    .replace(
+      "<alice/bio/_knop> a sflo:Knop ;",
+      "<alice/bio/_knop>\n  rdf:type sflo:Knop ;",
+    );
+  const equivalentKnopMetadataTurtle = withRdfPrefix(
+    firstPayloadWeaveKnopMetadataTurtle,
+  ).replace(
+    "<alice/bio/_knop> a sflo:Knop ;",
+    "<alice/bio/_knop>\n  rdf:type sflo:Knop ;",
+  );
+  const equivalentKnopInventoryTurtle = withRdfPrefix(
+    firstPayloadWeaveKnopInventoryTurtle,
+  )
+    .replace(
+      "<alice/bio/_knop> a sflo:Knop ;",
+      "<alice/bio/_knop>\n  rdf:type sflo:Knop ;",
+    )
+    .replace(
+      "<alice/bio> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;",
+      "<alice/bio> rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:PayloadArtifact ;",
+    );
+
+  const plan = planWeave({
+    request: {
+      designatorPaths: ["alice/bio"],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: equivalentMeshInventoryTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice/bio",
+      currentKnopMetadataTurtle: equivalentKnopMetadataTurtle,
+      currentKnopInventoryTurtle: equivalentKnopInventoryTurtle,
+      payloadArtifact: {
+        workingFilePath: "alice-bio.ttl",
+        currentPayloadTurtle:
+          `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix schema: <https://schema.org/> .
+
+<alice> a schema:Person .
+`,
+      },
+    }],
+  });
+
+  assertEquals(plan.wovenDesignatorPaths, ["alice/bio"]);
+  assertEquals(plan.updatedFiles.map((file) => file.path), [
+    "_mesh/_inventory/inventory.ttl",
+    "alice/bio/_knop/_inventory/inventory.ttl",
+  ]);
+});
+
 Deno.test("planWeave renders the first alice reference-catalog weave slice", () => {
   const plan = planWeave({
     request: {},
@@ -366,6 +438,84 @@ Deno.test("planWeave renders the first alice reference-catalog weave slice", () 
     plan.updatedFiles[0]?.contents ?? "",
     "sflo:hasArtifactHistory <alice/_knop/_references/_history001> ;",
   );
+});
+
+Deno.test("planWeave accepts semantically equivalent first reference-catalog weave Turtle", () => {
+  const equivalentMeshInventoryTurtle = withRdfPrefix(
+    firstReferenceCatalogWeaveMeshInventoryTurtle,
+  )
+    .replace(
+      "<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;",
+      "<_mesh/_inventory> rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:MeshInventory ;",
+    )
+    .replace(
+      "<_mesh/_inventory/_history001> a sflo:ArtifactHistory ;",
+      "<_mesh/_inventory/_history001>\n  rdf:type sflo:ArtifactHistory ;",
+    )
+    .replace(
+      "<alice/_knop> a sflo:Knop ;",
+      "<alice/_knop>\n  rdf:type sflo:Knop ;",
+    );
+  const equivalentKnopMetadataTurtle = withRdfPrefix(
+    firstWeaveKnopMetadataTurtle,
+  ).replace(
+    "<alice/_knop> a sflo:Knop ;",
+    "<alice/_knop>\n  rdf:type sflo:Knop ;",
+  );
+  const equivalentKnopInventoryTurtle = withRdfPrefix(
+    firstReferenceCatalogWeaveKnopInventoryTurtle,
+  )
+    .replace(
+      "<alice/_knop> a sflo:Knop ;",
+      "<alice/_knop>\n  rdf:type sflo:Knop ;",
+    )
+    .replace(
+      "<alice/_knop/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;",
+      "<alice/_knop/_inventory> rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:KnopInventory ;",
+    )
+    .replace(
+      "<alice/_knop/_references> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;",
+      "<alice/_knop/_references> rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:ReferenceCatalog ;",
+    )
+    .replace(
+      "<alice/_knop/_inventory/_history001> a sflo:ArtifactHistory ;",
+      "<alice/_knop/_inventory/_history001>\n  rdf:type sflo:ArtifactHistory ;",
+    );
+  const equivalentReferenceCatalogTurtle = withRdfPrefix(
+    firstReferenceCatalogWeaveReferenceCatalogTurtle,
+  ).replace(
+    `<alice/_knop/_references#reference001> a sflo:ReferenceLink ;
+  sflo:referenceLinkFor <alice> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Canonical> ;
+  sflo:referenceTarget <alice/bio> .
+`,
+    `<alice/_knop/_references#reference001>
+  sflo:referenceTarget <alice/bio> ;
+  rdf:type sflo:ReferenceLink ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Canonical> ;
+  sflo:referenceLinkFor <alice> .
+`,
+  );
+
+  const plan = planWeave({
+    request: {},
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: equivalentMeshInventoryTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice",
+      currentKnopMetadataTurtle: equivalentKnopMetadataTurtle,
+      currentKnopInventoryTurtle: equivalentKnopInventoryTurtle,
+      referenceCatalogArtifact: {
+        workingFilePath: "alice/_knop/_references/references.ttl",
+        currentReferenceCatalogTurtle: equivalentReferenceCatalogTurtle,
+      },
+    }],
+  });
+
+  assertEquals(plan.wovenDesignatorPaths, ["alice"]);
+  assertEquals(plan.updatedFiles.map((file) => file.path), [
+    "alice/_knop/_inventory/inventory.ttl",
+  ]);
 });
 
 Deno.test("planWeave preserves the current ReferenceCatalog working file path", () => {
@@ -422,22 +572,77 @@ Deno.test("planWeave supports the first reference-catalog weave slice for non-al
     request: {},
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: firstReferenceCatalogWeaveMeshInventoryTurtle
-      .replaceAll("alice/bio", "carol/bio")
-      .replaceAll("alice", "carol"),
+      .replaceAll("<alice/_knop>", "<carol/_knop>")
+      .replaceAll(
+        "<alice/_knop/_inventory/inventory.ttl>",
+        "<carol/_knop/_inventory/inventory.ttl>",
+      )
+      .replaceAll("<alice/bio>", "<carol/bio>")
+      .replaceAll(
+        "<alice/bio/_knop>",
+        "<carol/bio/_knop>",
+      ),
     weaveableKnops: [{
       designatorPath: "carol",
-      currentKnopMetadataTurtle: firstWeaveKnopMetadataTurtle.replaceAll(
-        "alice",
-        "carol",
-      ),
+      currentKnopMetadataTurtle: firstWeaveKnopMetadataTurtle
+        .replace("<alice/_knop>", "<carol/_knop>")
+        .replace('sflo:designatorPath "alice"', 'sflo:designatorPath "carol"')
+        .replace(
+          "<alice/_knop/_inventory/inventory.ttl>",
+          "<carol/_knop/_inventory/inventory.ttl>",
+        ),
       currentKnopInventoryTurtle: firstReferenceCatalogWeaveKnopInventoryTurtle
-        .replaceAll("alice", "carol"),
+        .replaceAll("<alice/_knop>", "<carol/_knop>")
+        .replaceAll(
+          "<alice/_knop/_meta>",
+          "<carol/_knop/_meta>",
+        )
+        .replaceAll(
+          "<alice/_knop/_inventory>",
+          "<carol/_knop/_inventory>",
+        )
+        .replaceAll(
+          "<alice/_knop/_inventory/inventory.ttl>",
+          "<carol/_knop/_inventory/inventory.ttl>",
+        )
+        .replaceAll(
+          "<alice/_knop/_references>",
+          "<carol/_knop/_references>",
+        )
+        .replaceAll(
+          "<alice/_knop/_references/references.ttl>",
+          "<carol/_knop/_references/references.ttl>",
+        )
+        .replaceAll(
+          "<alice/_knop/_inventory/_history001>",
+          "<carol/_knop/_inventory/_history001>",
+        )
+        .replaceAll(
+          "<alice/_knop/_inventory/_history001/_s0001>",
+          "<carol/_knop/_inventory/_history001/_s0001>",
+        )
+        .replaceAll(
+          "<alice/_knop/index.html>",
+          "<carol/_knop/index.html>",
+        )
+        .replaceAll(
+          "<alice/_knop/_inventory/index.html>",
+          "<carol/_knop/_inventory/index.html>",
+        )
+        .replaceAll(
+          "<alice/_knop/_inventory/_history001/index.html>",
+          "<carol/_knop/_inventory/_history001/index.html>",
+        ),
       referenceCatalogArtifact: {
         workingFilePath: "carol/_knop/_references/references.ttl",
         currentReferenceCatalogTurtle:
           firstReferenceCatalogWeaveReferenceCatalogTurtle
-            .replaceAll("alice/bio", "carol/bio")
-            .replaceAll("alice", "carol"),
+            .replaceAll("<alice>", "<carol>")
+            .replaceAll(
+              "<alice/_knop/_references#reference001>",
+              "<carol/_knop/_references#reference001>",
+            )
+            .replaceAll("<alice/bio>", "<carol/bio>"),
       },
     }],
   });
@@ -504,6 +709,41 @@ Deno.test("planWeave renders the second alice bio payload weave slice", () => {
   );
 });
 
+Deno.test("detectPendingWeaveSlice accepts semantically equivalent second payload weave Turtle", () => {
+  const equivalentKnopInventoryTurtle = withRdfPrefix(
+    secondPayloadWeaveKnopInventoryTurtle,
+  )
+    .replace(
+      "<alice/bio/_knop> a sflo:Knop ;",
+      "<alice/bio/_knop>\n  rdf:type sflo:Knop ;",
+    )
+    .replace(
+      "<alice/bio> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;",
+      "<alice/bio> rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:PayloadArtifact ;",
+    )
+    .replace(
+      "<alice/bio/_history001> a sflo:ArtifactHistory ;",
+      "<alice/bio/_history001>\n  rdf:type sflo:ArtifactHistory ;",
+    )
+    .replace(
+      "<alice/bio/_knop/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;",
+      "<alice/bio/_knop/_inventory> rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:KnopInventory ;",
+    )
+    .replace(
+      "<alice/bio/_knop/_inventory/_history001> a sflo:ArtifactHistory ;",
+      "<alice/bio/_knop/_inventory/_history001>\n  rdf:type sflo:ArtifactHistory ;",
+    );
+
+  assertEquals(
+    detectPendingWeaveSlice(
+      "https://semantic-flow.github.io/mesh-alice-bio/",
+      "alice/bio",
+      equivalentKnopInventoryTurtle,
+    ),
+    "secondPayloadWeave",
+  );
+});
+
 Deno.test("planWeave renders the extracted bob woven slice", async () => {
   const plan = planWeave(await createExtractedBobWeaveInput());
 
@@ -538,6 +778,68 @@ Deno.test("planWeave renders the extracted bob woven slice", async () => {
   assertStringIncludes(
     plan.updatedFiles[3]?.contents ?? "",
     '<td><a href="../bob">bob</a></td>',
+  );
+});
+
+Deno.test("planWeave accepts semantically equivalent extracted bob ReferenceCatalog Turtle", async () => {
+  const input = await createExtractedBobWeaveInput();
+  input.weaveableKnops[0]!.referenceCatalogArtifact = {
+    ...input.weaveableKnops[0]!.referenceCatalogArtifact!,
+    currentReferenceCatalogTurtle: withRdfPrefix(
+      input.weaveableKnops[0]!.referenceCatalogArtifact!
+        .currentReferenceCatalogTurtle,
+    ).replace(
+      " a sflo:ReferenceLink ;",
+      " rdf:type sflo:ReferenceLink ;",
+    ),
+  };
+
+  const plan = planWeave(input);
+
+  assertEquals(plan.wovenDesignatorPaths, ["bob"]);
+  assertEquals(
+    plan.createdPages.find((page) =>
+      page.path === "bob/_knop/_references/index.html"
+    ),
+    {
+      kind: "referenceCatalog",
+      path: "bob/_knop/_references/index.html",
+      catalogPath: "bob/_knop/_references",
+      ownerDesignatorPath: "bob",
+      currentLinks: [{
+        fragment: "reference001",
+        referenceRoleLabel: "supplemental",
+        referenceTargetPath: "alice/bio",
+        referenceTargetStatePath: "alice/bio/_history001/_s0002",
+      }],
+    },
+  );
+});
+
+Deno.test("planWeave accepts a semantically equivalent extracted bob Knop block", async () => {
+  const input = await createExtractedBobWeaveInput();
+  input.currentMeshInventoryTurtle = withRdfPrefix(
+    input.currentMeshInventoryTurtle,
+  )
+    .replace(
+      `<bob/_knop> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <bob/_knop/_inventory/inventory.ttl> .
+`,
+      `<bob/_knop>
+  rdf:type sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <bob/_knop/_inventory/inventory.ttl> .
+`,
+    );
+
+  const plan = planWeave(input);
+
+  assertEquals(plan.wovenDesignatorPaths, ["bob"]);
+  assertEquals(
+    plan.updatedFiles[0]?.contents ?? "",
+    await readMeshAliceBioBranchFile(
+      "13-bob-extracted-woven",
+      "_mesh/_inventory/inventory.ttl",
+    ),
   );
 });
 
@@ -597,6 +899,87 @@ Deno.test("planWeave rejects extracted bob weave inputs when the source payload 
   );
 });
 
+Deno.test("planWeave preserves unrelated mesh inventory blocks during extracted bob weave", async () => {
+  const input = await createExtractedBobWeaveInput();
+  input.currentMeshInventoryTurtle = input.currentMeshInventoryTurtle
+    .replace(
+      "  sflo:hasKnop <bob/_knop> ;\n  sflo:hasResourcePage <_mesh/index.html> .",
+      "  sflo:hasKnop <bob/_knop> ;\n  sflo:hasKnop <carol/_knop> ;\n  sflo:hasResourcePage <_mesh/index.html> .",
+    )
+    .replace(
+      `<alice/bio/_knop> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <alice/bio/_knop/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <alice/bio/_knop/index.html> .`,
+      `<alice/bio/_knop> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <alice/bio/_knop/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <alice/bio/_knop/index.html> .
+
+<carol>
+  sflo:hasResourcePage <carol/index.html> .
+
+<carol/_knop> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <carol/_knop/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <carol/_knop/index.html> .`,
+    )
+    .replace(
+      `<bob/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<alice-bio.ttl> a sflo:LocatedFile, sflo:RdfDocument .`,
+      `<bob/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<carol/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<alice-bio.ttl> a sflo:LocatedFile, sflo:RdfDocument .`,
+    )
+    .replace(
+      `<alice/bio/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<_mesh/_meta/index.html> a sflo:ResourcePage, sflo:LocatedFile .`,
+      `<alice/bio/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<carol/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<carol/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<_mesh/_meta/index.html> a sflo:ResourcePage, sflo:LocatedFile .`,
+    );
+
+  const plan = planWeave(input);
+
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    `<carol/_knop> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <carol/_knop/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <carol/_knop/index.html> .`,
+  );
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    `<carol/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .`,
+  );
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    `<carol/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .`,
+  );
+});
+
+Deno.test("planWeave rejects orphaned extracted bob ReferenceCatalog links", async () => {
+  const input = await createExtractedBobWeaveInput();
+  input.weaveableKnops[0]!.referenceCatalogArtifact = {
+    ...input.weaveableKnops[0]!.referenceCatalogArtifact!,
+    currentReferenceCatalogTurtle: input.weaveableKnops[0]!
+      .referenceCatalogArtifact!.currentReferenceCatalogTurtle.replace(
+        "<bob> sflo:hasReferenceLink <bob/_knop/_references#reference001> .\n\n",
+        "",
+      ),
+  };
+
+  assertThrows(
+    () => planWeave(input),
+    WeaveInputError,
+    "owner did not declare current link reference001",
+  );
+});
+
 Deno.test("planWeave rejects when no weaveable candidates were provided", () => {
   assertThrows(
     () =>
@@ -649,4 +1032,12 @@ async function createExtractedBobWeaveInput(): Promise<PlanWeaveInput> {
       },
     }],
   };
+}
+
+function withRdfPrefix(turtle: string): string {
+  return turtle.includes("@prefix rdf:") ? turtle : turtle.replace(
+    "@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .",
+    `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .`,
+  );
 }

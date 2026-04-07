@@ -1,35 +1,15 @@
-import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
+import { assertEquals, assertThrows } from "@std/assert";
 import { KnopCreateInputError, planKnopCreate } from "./create.ts";
+import { readMeshAliceBioBranchFile } from "../../../tests/support/mesh_alice_bio_fixture.ts";
 
-const wovenMeshInventory =
-  `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-
-<_mesh> a sflo:SemanticMesh ;
-  sflo:meshBase "https://semantic-flow.github.io/mesh-alice-bio/"^^xsd:anyURI ;
-  sflo:hasMeshMetadata <_mesh/_meta> ;
-  sflo:hasMeshInventory <_mesh/_inventory> ;
-  sflo:hasResourcePage <_mesh/index.html> .
-
-<_mesh/_meta> a sflo:MeshMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <_mesh/_meta/meta.ttl> .
-
-<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> .
-
-<_mesh/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<_mesh/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<_mesh/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-`;
-
-Deno.test("planKnopCreate renders first knop support artifacts", () => {
+Deno.test("planKnopCreate renders first knop support artifacts", async () => {
   const plan = planKnopCreate({
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     designatorPath: "alice",
-    currentMeshInventoryTurtle: wovenMeshInventory,
+    currentMeshInventoryTurtle: await readMeshAliceBioBranchFile(
+      "03-mesh-created-woven",
+      "_mesh/_inventory/inventory.ttl",
+    ),
   });
 
   assertEquals(
@@ -47,17 +27,26 @@ Deno.test("planKnopCreate renders first knop support artifacts", () => {
     plan.updatedFiles.map((file) => file.path),
     ["_mesh/_inventory/inventory.ttl"],
   );
-  assertStringIncludes(
-    plan.createdFiles[0]?.contents ?? "",
-    'sflo:designatorPath "alice" ;',
+  assertEquals(
+    plan.createdFiles[0]?.contents,
+    await readMeshAliceBioBranchFile(
+      "04-alice-knop-created",
+      "alice/_knop/_meta/meta.ttl",
+    ),
   );
-  assertStringIncludes(
-    plan.createdFiles[1]?.contents ?? "",
-    "<alice/_knop/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;",
+  assertEquals(
+    plan.createdFiles[1]?.contents,
+    await readMeshAliceBioBranchFile(
+      "04-alice-knop-created",
+      "alice/_knop/_inventory/inventory.ttl",
+    ),
   );
-  assertStringIncludes(
-    plan.updatedFiles[0]?.contents ?? "",
-    "  sflo:hasKnop <alice/_knop> ;",
+  assertEquals(
+    plan.updatedFiles[0]?.contents,
+    await readMeshAliceBioBranchFile(
+      "04-alice-knop-created",
+      "_mesh/_inventory/inventory.ttl",
+    ),
   );
 });
 
@@ -67,25 +56,68 @@ Deno.test("planKnopCreate rejects reserved designator path segments", () => {
       planKnopCreate({
         meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
         designatorPath: "alice/_knop",
-        currentMeshInventoryTurtle: wovenMeshInventory,
+        currentMeshInventoryTurtle: "",
       }),
     KnopCreateInputError,
     "reserved path segments",
   );
 });
 
-Deno.test("planKnopCreate rejects an already-registered knop", () => {
+Deno.test("planKnopCreate rejects an already-registered knop", async () => {
+  const currentMeshInventoryTurtle = await readMeshAliceBioBranchFile(
+    "04-alice-knop-created",
+    "_mesh/_inventory/inventory.ttl",
+  );
+
   assertThrows(
     () =>
       planKnopCreate({
         meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
         designatorPath: "alice",
-        currentMeshInventoryTurtle: wovenMeshInventory.replace(
-          "  sflo:hasResourcePage <_mesh/index.html> .",
-          "  sflo:hasKnop <alice/_knop> ;\n  sflo:hasResourcePage <_mesh/index.html> .\n\n<alice/_knop> a sflo:Knop ;\n  sflo:hasWorkingKnopInventoryFile <alice/_knop/_inventory/inventory.ttl> .",
-        ),
+        currentMeshInventoryTurtle,
       }),
     KnopCreateInputError,
     "already registers knop",
   );
 });
+
+Deno.test(
+  "planKnopCreate accepts semantically equivalent woven MeshInventory turtle",
+  async () => {
+    const currentMeshInventoryTurtle = withRdfPrefix(
+      await readMeshAliceBioBranchFile(
+        "03-mesh-created-woven",
+        "_mesh/_inventory/inventory.ttl",
+      ),
+    )
+      .replace(
+        "<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;",
+        "<_mesh/_inventory> rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:MeshInventory ;",
+      )
+      .replace(
+        "<_mesh/_meta/_history001/_s0001/meta-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;",
+        "<_mesh/_meta/_history001/_s0001/meta-ttl> rdf:type sflo:RdfDocument, sflo:ArtifactManifestation ;",
+      );
+
+    const plan = planKnopCreate({
+      meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+      designatorPath: "alice",
+      currentMeshInventoryTurtle,
+    });
+
+    assertEquals(
+      plan.updatedFiles[0]?.contents,
+      await readMeshAliceBioBranchFile(
+        "04-alice-knop-created",
+        "_mesh/_inventory/inventory.ttl",
+      ),
+    );
+  },
+);
+
+function withRdfPrefix(turtle: string): string {
+  return turtle.includes("@prefix rdf:") ? turtle : turtle.replace(
+    "@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .\n",
+    "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .\n",
+  );
+}

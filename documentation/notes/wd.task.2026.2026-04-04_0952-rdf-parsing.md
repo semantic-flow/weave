@@ -15,13 +15,11 @@ created: 1775321555314
 
 ## Summary
 
-Weave currently uses `n3` to validate generated Turtle parses, and `core/weave` now also uses parsed quads for some source-payload fact resolution. Even so, several carried slices still inspect or mutate RDF by reading Turtle as text.
+Weave currently uses `n3` to validate generated Turtle parses, `core/weave` now uses parsed quads for some source-payload fact resolution, and `core/payload.update` already uses parsed quad matching for one settled carried shape. Even so, several carried slices still inspect or mutate RDF by reading Turtle as text.
 
 That was acceptable for the first narrow fixture-driven slices, but it is now real technical debt:
 
-- four runtime loaders still extract `meshBase` via regex
-- runtime `extract` and `weave` now carry near-duplicate Turtle block parsers for Knop, payload, and ReferenceCatalog discovery
-- `core/weave` slice detection and shape assertions still rely on required Turtle fragments
+- shared runtime `meshBase` loading, runtime inventory discovery, and `core/weave` carried-shape gating are now centralized in RDF-aware helpers, but the remaining narrow rewrite/mutation seams still inspect Turtle as text
 - `core/extract`, `core/knop/create`, and `core/integrate` still perform fixture-shaped string surgery over existing Turtle
 
 This task exists to make that debt explicit and scoped. It is not an argument to rewrite all RDF handling at once or to block current carried slices on a large parser refactor.
@@ -29,7 +27,7 @@ This task exists to make that debt explicit and scoped. It is not an argument to
 The immediate highest-value cleanup is narrower than a full rewrite:
 
 - first, replace shared runtime readers over live workspace RDF
-- second, deduplicate parser-aware inventory discovery across `extract` and `weave`
+- second, deduplicate parser-aware inventory discovery across `extract`, `weave`, and `payload.update`
 - later, revisit the broader core assertion and graph-mutation rewrites
 
 That sequencing matters because the runtime readers are the most likely to fail on harmless Turtle serialization changes in a live workspace, while the mutation rewrites are larger structural work that should not automatically block the next publication-facing slice.
@@ -38,8 +36,15 @@ That sequencing matters because the runtime readers are the most likely to fail 
 
 - This note is still open.
 - The original inventory in this note became incomplete once the `11 -> 12` `extract` and `12 -> 13` extracted-resource `weave` slices landed.
-- `src/core/weave/weave.ts` now has a partial RDF-aware seam for source payload fact lookup, so the task should build on that rather than starting from zero.
-- The next defensible cleanup step before [[wd.task.2026.2026-04-06_1905-markdown-payload-publishing]] is the shared runtime read-path work, not the larger `_mesh/_inventory` mutation rewrite.
+- Priority 1 is now complete: `src/runtime/mesh/metadata.ts` provides one shared RDF-aware `meshBase` reader, and the six runtime call sites no longer regex `_mesh/_meta/meta.ttl`.
+- Priority 2 is now complete: `src/runtime/mesh/inventory.ts` provides shared parsed inventory discovery for Knop lookup, payload working-file lookup, ReferenceCatalog working-file lookup, and extracted reference-target lookup across `extract`, `weave`, and `payload.update`.
+- Priority 3 is now complete: `src/core/weave/weave.ts` now classifies carried weave slices and validates carried mesh/Knop/payload/reference shapes through parsed RDF facts rather than required Turtle fragments.
+- The remaining `core/weave` block parser is now gone too: current ReferenceCatalog link discovery now parses quads, so `core/weave` no longer depends on `split("\\n\\n")` or regex block matching for carried ReferenceCatalog reads.
+- Unit and integration coverage now prove that semantically equivalent mesh metadata Turtle is accepted across the affected runtime paths, and helper unit tests now cover semantically equivalent inventory Turtle for the shared runtime reader seam.
+- `src/core/weave/weave.ts` already had a partial RDF-aware seam for source payload fact lookup, and `src/core/payload/update.ts` already proved the narrower "required facts over parsed quads" pattern for a carried slice; Priority 3 now extends that same posture to slice classification and carried-shape gating.
+- Priority 4 is now complete too: `core/extract` and the extracted-resource `core/weave` slice both render their carried MeshInventory updates directly from known values after parser-backed carried-shape checks, so they no longer depend on block reordering or `replaceExactOrThrow(...)` over settled Turtle substrings.
+- Priority 5 is now complete too: `core/knop/create` and `core/integrate` now parse the carried MeshInventory facts they depend on and render the settled updated MeshInventory directly instead of mutating Turtle lines in place.
+- The implementation plan in this note is now complete. Remaining RDF debt here is no longer about the currently carried runtime and planning slices; any future work would be broader serializer/graph-model policy or later non-carried graph mutation surfaces.
 
 ## Discussion
 
@@ -74,101 +79,139 @@ Before Markdown payload publishing, the most important risk is that shared runti
 That argues for a near-term cleanup order of:
 
 - runtime `meshBase` loading
-- runtime inventory discovery used by `extract` and `weave`
-- `core/weave` slice detection and shape assertions
+- runtime inventory discovery used by `extract`, `weave`, and `payload.update`
+- `core/weave` slice detection and carried-slice shape assertions
 
 By contrast, the line-oriented `_mesh/_inventory` mutation in `core/knop/create` and `core/integrate` is still real debt, but it is a larger graph-rewrite project and not the best immediate blocker if the goal is to stabilize the current carried runtime before the next publication-facing task.
 
 ## Current Locations
 
-### Priority 1: Runtime RDF reads that load required workspace facts
+### Completed: Shared runtime RDF reads that load required workspace facts
 
+- `src/runtime/mesh/metadata.ts`
+  - `loadWorkspaceMeshBase`
+  - `resolveMeshBaseFromMetadataTurtle`
+  - now parse `_mesh/_meta/meta.ttl` with `n3` quads and require exactly one `sflo:meshBase` `xsd:anyURI` literal
 - `src/runtime/knop/create.ts`
   - `loadCurrentMeshState`
-  - currently extracts `meshBase` from `_mesh/_meta/meta.ttl` with a regex over Turtle text
+  - now delegates `meshBase` resolution to the shared runtime mesh metadata helper
 - `src/runtime/integrate/integrate.ts`
   - `loadCurrentMeshState`
-  - currently extracts `meshBase` from `_mesh/_meta/meta.ttl` with a regex over Turtle text
+  - now delegates `meshBase` resolution to the shared runtime mesh metadata helper
 - `src/runtime/extract/extract.ts`
-  - `loadCurrentMeshState`
-  - currently extracts `meshBase` from `_mesh/_meta/meta.ttl` with a regex over Turtle text
+  - `loadMeshState`
+  - now delegates `meshBase` resolution to the shared runtime mesh metadata helper
 - `src/runtime/weave/weave.ts`
   - `loadMeshState`
-  - currently extracts `meshBase` from `_mesh/_meta/meta.ttl` with a regex over Turtle text
+  - now delegates `meshBase` resolution to the shared runtime mesh metadata helper
+- `src/runtime/payload/update.ts`
+  - `loadCurrentPayloadState`
+  - now delegates `meshBase` resolution to the shared runtime mesh metadata helper
+- `src/runtime/knop/add_reference.ts`
+  - `loadMeshBase`
+  - now delegates `meshBase` resolution to the shared runtime mesh metadata helper
 
-These are the highest-priority replacements because they are shared runtime reads over live workspace data and are more likely to fail on harmless serialization changes.
+This priority is complete. The runtime is now robust to harmless Turtle serialization changes in mesh metadata for these carried local operations.
 
-### Priority 2: Runtime RDF discovery duplicated across `extract` and `weave`
+### Completed: Shared runtime inventory discovery across `extract`, `weave`, and `payload.update`
 
+- `src/runtime/mesh/inventory.ts`
+  - `listKnopDesignatorPaths`
+  - `resolvePayloadArtifactInventoryState`
+  - `resolveReferenceCatalogInventoryState`
+  - `resolveReferenceTargetDesignatorPath`
+  - now parse `MeshInventory`, `KnopInventory`, and `ReferenceCatalog` Turtle with `n3` quads and resolve only the specific carried facts the runtime needs
 - `src/runtime/weave/weave.ts`
   - `loadWeaveableKnopCandidates`
-  - discovers Knop IRIs with `matchAll(/<([^>]+\\/_knop)> a sflo:Knop ;/g)` over `currentMeshInventoryTurtle`
-  - `loadPayloadWorkingArtifact`, `loadReferenceCatalogWorkingArtifact`, and `loadReferenceTargetSourcePayloadArtifact` rely on `includes`, `split("\\n\\n")`, `startsWith`, and regex over Turtle blocks
+  - now delegates Knop discovery to the shared runtime inventory helper
+  - `loadPayloadWorkingArtifact`, `loadReferenceCatalogWorkingArtifact`, and `loadReferenceTargetSourcePayloadArtifact`
+  - now delegate carried payload, ReferenceCatalog, and extracted-reference discovery to the shared runtime inventory helper
 - `src/runtime/extract/extract.ts`
   - `loadExtractSourcePayloadCandidates`
-  - discovers Knop IRIs with `matchAll(/<([^>]+\\/_knop)> a sflo:Knop ;/g)` over `currentMeshInventoryTurtle`
-  - `loadExtractSourcePayloadCandidate` relies on `includes`, `split("\\n\\n")`, `startsWith`, and regex over Turtle blocks
+  - now delegates Knop discovery to the shared runtime inventory helper
+  - `loadExtractSourcePayloadCandidate`
+  - now delegates carried payload-artifact and history discovery to the shared runtime inventory helper while keeping extract-specific fail-closed checks around current history resolution
+- `src/runtime/payload/update.ts`
+  - `loadCurrentPayloadState`
+  - now delegates carried payload-artifact and working-file discovery to the shared runtime inventory helper
 
-This should move to shared parsed-quads inspection of `MeshInventory`, `KnopInventory`, payload-artifact, and ReferenceCatalog relationships so `extract` and `weave` stop carrying two near-identical text parsers.
+This priority is complete. The runtime no longer duplicates adjacent Knop/payload/reference inventory block parsers across those three carried operations.
 
-### Priority 3: Core `weave` shape assertions expressed as string fragments
+Partial progress already existed here too and is still relevant:
+
+- `src/runtime/extract/extract.ts`
+  - `payloadMentionsTarget`
+  - already parses working payload Turtle with `n3` quads when resolving whether a candidate payload mentions the requested extract target
+
+### Completed: Core `weave` carried-shape gating over parsed RDF facts
 
 - `src/core/weave/weave.ts`
   - `detectPendingWeaveSlice`
-  - currently classifies carried weave slices through required string fragments and `includes` checks
+  - now classifies carried weave slices by parsing current KnopInventory Turtle and checking required/forbidden RDF facts rather than substring fragments
 - `src/core/weave/weave.ts`
   - current mesh and Knop shape assertion helpers
-  - currently validate supported slice shapes and "already has history" through specific Turtle fragments and `includes` checks
+  - now validate supported carried mesh/Knop/payload/reference shapes and "already has history" checks through parsed RDF facts rather than required Turtle fragments
 
-These are not generic validators yet, but they should still reason over parsed RDF terms rather than specific Turtle formatting.
+This priority is complete. The planner still is not a generic validator, but it now reasons over parsed RDF terms instead of specific Turtle formatting for the carried slice gate.
 
-Partial progress already exists here:
+The boundary stayed intentionally narrow:
+
+- carried slice detection and settled-shape assertions moved from Turtle fragments to required RDF facts
+- the change did not expand into generic RDF validation, SHACL, or a broad shape-engine effort
+
+Existing parser-aware seams were reused here:
 
 - `src/core/weave/weave.ts`
   - `requireLiteralValue`
   - `requireNamedNodePath`
   - `parseTurtleQuads`
-  - already use `n3` quads for source-payload fact resolution while rendering extracted/current pages
+  - already used `n3` quads for source-payload fact resolution while rendering extracted/current pages
+- `src/core/weave/weave.ts`
+  - `extractCurrentReferenceCatalogLinks`
+  - now parses current ReferenceCatalog Turtle with `n3` quads and resolves carried link facts without relying on exact block shape, predicate order, or `a` shorthand
+- `src/core/payload/update.ts`
+  - `parseQuadKeys`
+  - `quadSetHasAnyMatch`
+  - already proved the narrower "required facts over parsed quads" approach against semantically equivalent Turtle for one carried payload-update shape
 
-That seam should be reused rather than reintroducing another ad hoc parser path.
-
-### Priority 4: Narrow extract-specific Turtle surgery
+### Priority 4: Remaining narrow extract/extracted-weave Turtle surgery
 
 - `src/core/extract/extract.ts`
-  - `injectReferenceTargetState`
-  - `reorderMeshInventoryLocatedFiles`
-  - `normalizeExtractKnopInventoryTurtle`
-  - currently mutate planned Turtle through regex insertion and block reordering
-- `src/runtime/weave/weave.ts`
-  - `loadPayloadWorkingArtifact`
-  - still performs deliberate narrow block parsing over Knop inventory Turtle for the carried slice
+  - `planExtract`
+  - no longer reorders the newly inserted `_knop/_inventory/inventory.ttl` `LocatedFile` block by splitting planned MeshInventory Turtle
+  - now validates the carried `11 -> 12` MeshInventory shape through parsed RDF facts and renders the settled extracted MeshInventory directly from known values
+  - the created extract KnopMetadata, KnopInventory, and ReferenceCatalog files are also rendered directly from known extract facts
+- `src/core/weave/weave.ts`
+  - `renderFirstExtractedKnopWovenMeshInventoryTurtle`
+  - no longer rewrites the settled `12 -> 13` MeshInventory Turtle by chaining `replaceExactOrThrow(...)` over exact fixture substrings
+  - now renders the settled extracted-woven MeshInventory directly from known carried values after the existing parser-backed carried-shape checks
 
-These are real RDF-handling debt, but they are lower priority than the shared runtime readers above unless the carried extract/weave surfaces broaden and need to tolerate more flexible Turtle serialization.
+This priority is now complete for the carried extract and extracted-weave slices. Equivalent-Turtle coverage now proves these planners accept semantically equivalent current MeshInventory inputs rather than failing closed on block-shape changes.
 
 ### Priority 5: Core Turtle mutation via line-oriented mesh-inventory editing
 
+- `src/core/knop/add_reference.ts`
+  - `renderUpdatedKnopInventoryTurtle`
+  - no longer rewrites `_knop/_inventory/inventory.ttl` by line indexing and `splice`
+  - now classifies unwoven vs woven carried KnopInventory shapes through parsed RDF facts and renders the updated inventory directly from known values while preserving the settled pre-weave fixture bytes
 - `src/core/knop/create.ts`
   - `renderUpdatedMeshInventoryTurtle`
-  - `insertKnopIntoMeshBlock`
-  - `insertKnopBlock`
-  - `insertKnopInventoryLocatedFile`
-  - currently checks for existing graph facts via string includes and rewrites `_mesh/_inventory/inventory.ttl` by line indexing and `splice`
+  - no longer rewrites `_mesh/_inventory/inventory.ttl` by line indexing and `splice`
+  - now validates the carried `03 -> 04` MeshInventory shape through parsed RDF facts and renders the settled first-knop MeshInventory directly
 - `src/core/integrate/integrate.ts`
   - `renderUpdatedMeshInventoryTurtle`
-  - `insertKnopIntoMeshBlock`
-  - `insertPayloadAndKnopBlocks`
-  - `insertLocatedFileDeclarations`
-  - currently checks for existing graph facts via string includes and rewrites `_mesh/_inventory/inventory.ttl` by line indexing and `splice`
+  - no longer rewrites `_mesh/_inventory/inventory.ttl` by line indexing and `splice`
+  - now validates the carried `05 -> 06` MeshInventory shape through parsed RDF facts, resolves the existing woven Knop/identifier seam from quads, and renders the settled first-payload MeshInventory directly
 
-These are still the biggest structural cleanup items. They should eventually parse the existing inventory graph, apply graph-level changes, and reserialize, but they are not the most urgent blocker if the goal is to stabilize the current runtime before payload publishing.
+This priority is now complete for the currently carried `knop create`, `integrate`, and `knop add_reference` slices. The broader future graph-mutation work, if needed, is now outside this task's immediate implementation plan.
 
 ## Suggested Follow-Up Order
 
-1. Replace runtime `meshBase` regex extraction in `knop create`, `integrate`, `extract`, and `weave` with one shared RDF-aware helper.
-2. Replace the duplicated runtime `extract` and `weave` Knop/payload/reference discovery logic with shared parsed inventory inspection.
-3. Replace `core/weave` string-fragment slice detection and shape assertions with graph-aware slice assertions that reuse the existing quad-parsing seam where possible.
-4. Re-evaluate the remaining narrow `core/extract` and runtime block parsers once the shared runtime readers are in place.
-5. Replace `core/knop/create` and `core/integrate` line-oriented mesh-inventory mutation with graph mutation plus serialization.
+1. Completed: replace runtime `meshBase` regex extraction in `knop create`, `integrate`, `extract`, `weave`, `payload.update`, and `knop.add_reference` with one shared RDF-aware helper.
+2. Completed: replace the duplicated runtime `extract`, `weave`, and `payload.update` Knop/payload/reference discovery logic with shared parsed inventory inspection.
+3. Completed: replace `core/weave` string-fragment slice detection and shape assertions with graph-aware carried-slice assertions that reuse the existing quad-parsing seam where possible.
+4. Completed: replace the remaining `core/extract` and extracted-resource `core/weave` MeshInventory text seams with parser-backed carried-shape checks plus direct settled rendering.
+5. Completed: replace `core/knop/create` and `core/integrate` line-oriented MeshInventory mutation with parsed carried-shape checks plus direct settled rendering.
 
 ## Decisions
 
@@ -177,8 +220,11 @@ These are still the biggest structural cleanup items. They should eventually par
 - Prioritize shared runtime workspace reads before broader graph-mutation refactors.
 - Fold the newer `extract` and extracted-resource `weave` readers into this task rather than creating a second RDF-cleanup note.
 - Keep pure rendering helpers out of scope unless they first inspect existing Turtle structure.
+- Use one shared runtime mesh metadata parser for `_mesh/_meta/meta.ttl` rather than repeating per-operation `meshBase` readers.
+- Reuse the existing `core/payload.update` parsed-quad matching posture as a model for carried-shape assertions where practical.
 - Consider the shared runtime read-path cleanup the most defensible next step before [[wd.task.2026.2026-04-06_1905-markdown-payload-publishing]].
 - Do not block Markdown payload publishing on rewriting `core/knop/create` and `core/integrate` mesh-inventory mutation if the higher-risk runtime reader cleanup has already landed.
+- Do not block Markdown payload publishing on rewriting `core/knop/add_reference` inventory mutation if the higher-risk runtime reader cleanup has already landed.
 - Do not hide these replacements inside unrelated feature tasks unless the affected location is already being touched for another concrete reason.
 
 ## Contract Changes
@@ -189,9 +235,18 @@ These are still the biggest structural cleanup items. They should eventually par
 ## Testing
 
 - Each replaced runtime loader should gain or keep tests proving it still resolves the intended workspace facts.
+- A shared helper unit test plus equivalent-metadata integration tests now cover the completed `meshBase` reader replacement slice.
+- Shared runtime inventory discovery now has helper unit tests that cover Knop discovery, payload-artifact discovery, ReferenceCatalog discovery, extracted reference-target discovery, and the carried distinction between a referenced history path and a typed ArtifactHistory node.
+- `src/core/weave/weave_test.ts` now covers semantically equivalent carried Turtle for first payload planning, first ReferenceCatalog planning, extracted ReferenceCatalog link reads, and second-payload slice detection so the planner gate and current ReferenceCatalog reads are no longer formatting-coupled to the settled fixtures.
+- `src/core/extract/extract_test.ts` and `tests/integration/extract_test.ts` still assert the settled Bob extract fixture exactly, which now implicitly covers the direct renderers for the created KnopMetadata, KnopInventory, ReferenceCatalog, and MeshInventory files.
+- `src/core/extract/extract_test.ts` now also proves the parser-backed extract MeshInventory renderer accepts a semantically equivalent source payload `LocatedFile` declaration and still emits the settled `12-bob-extracted` fixture bytes.
+- `src/core/weave/weave_test.ts` now also proves the parser-backed extracted-weave MeshInventory renderer accepts a semantically equivalent extracted Bob Knop block and still emits the settled `13-bob-extracted-woven` fixture bytes.
+- `src/core/knop/add_reference_test.ts` now covers both unwoven and woven supported KnopInventory inputs and proves the parser-backed rewrite accepts semantically equivalent woven Turtle while preserving the settled referenced fixture bytes.
+- `src/core/knop/create_test.ts` and `src/core/integrate/integrate_test.ts` now compare the created and updated artifacts against the settled `04` and `06` fixture bytes and prove the parser-backed MeshInventory rewrites accept semantically equivalent current MeshInventory Turtle.
 - Refactors should preserve the current carried-slice acceptance tests for `mesh create`, `knop create`, `integrate`, `extract`, and `weave`.
 - New RDF-aware helpers should be tested against Turtle that is semantically equivalent but formatted differently from the current fixtures where practical.
-- Shared runtime inventory readers should gain tests that cover Knop discovery, payload-artifact discovery, ReferenceCatalog discovery, and current-history resolution under equivalent-but-differently-formatted Turtle where feasible.
+- Shared runtime reader refactors should add or extend coverage for `payload.update` and `knop.add_reference`, not only `extract` and `weave`.
+- Any retained narrow `replaceExactOrThrow(...)` seam should have tests that assert the exact accepted input shape, so formatting-coupled replacements fail loudly when the settled fixture shape changes.
 
 ## Non-Goals
 
@@ -203,13 +258,18 @@ These are still the biggest structural cleanup items. They should eventually par
 ## Related Coderabbit comments
 
 - The currently relevant review guidance is the repeated request to replace narrow string-based Turtle readers in `src/runtime/weave/weave.ts` and `src/runtime/extract/extract.ts` with parser-aware logic or, at minimum, explicitly documented narrow assumptions.
+- Another relevant review comment calls out `src/core/weave/weave.ts` `renderFirstExtractedKnopWovenMeshInventoryTurtle` as exact-string-coupled replacement logic that should either be made parser-aware or explicitly documented and guarded by shape tests if retained temporarily.
 - Recent HTML helper dedupe and escaping comments were addressed separately and are not part of this task any more.
 
 ## Implementation Plan
 
-- [ ] Add a shared RDF-aware helper for reading `meshBase` from `_mesh/_meta/meta.ttl` and replace the four runtime regex call sites.
-- [ ] Add shared parsed inventory helpers and replace duplicated runtime discovery in `src/runtime/extract/extract.ts` and `src/runtime/weave/weave.ts`.
-- [ ] Replace string-fragment slice detection and shape assertions in `src/core/weave/weave.ts` with graph-aware checks that reuse the existing quad-parsing seam where possible.
-- [ ] Re-evaluate whether the carried `extract` and extracted-resource `weave` surfaces still need fixture-shaped string parsing once the shared runtime discovery helpers are in place.
-- [ ] Replace line-oriented `_mesh/_inventory/inventory.ttl` mutation in `src/core/knop/create.ts` with graph mutation plus serialization.
-- [ ] Replace line-oriented `_mesh/_inventory/inventory.ttl` mutation in `src/core/integrate/integrate.ts` with graph mutation plus serialization.
+- [x] Add a shared RDF-aware helper for reading `meshBase` from `_mesh/_meta/meta.ttl` and replace the six runtime regex call sites.
+- [x] Add shared parsed inventory helpers and replace duplicated runtime discovery in `src/runtime/extract/extract.ts`, `src/runtime/weave/weave.ts`, and `src/runtime/payload/update.ts`.
+- [x] Replace string-fragment slice detection and shape assertions in `src/core/weave/weave.ts` with graph-aware carried-slice checks that reuse the existing quad-parsing seam where possible.
+- [x] Replace the carried `core/weave` ReferenceCatalog block parser with parsed-quad link discovery and equivalent-Turtle planner coverage.
+- [x] Stop mutating the created extract KnopInventory and ReferenceCatalog Turtle from sibling planner outputs; render those files directly from known extract facts instead.
+- [x] Replace the remaining extract located-file reorder and extracted-resource `weave` fixture-shaped rewrite seam with parser-backed carried-shape checks plus direct settled rendering.
+- [x] Re-evaluate whether `src/runtime/knop/add_reference.ts` should switch to the same shared runtime mesh metadata reader in the first cleanup slice even though it does not inspect inventory structure.
+- [x] Replace line-oriented `_knop/_inventory/inventory.ttl` mutation in `src/core/knop/add_reference.ts` with parsed-shape classification plus direct rendering that preserves the settled carried fixtures.
+- [x] Replace line-oriented `_mesh/_inventory/inventory.ttl` mutation in `src/core/knop/create.ts` with graph-aware carried-shape checks plus direct settled rendering.
+- [x] Replace line-oriented `_mesh/_inventory/inventory.ttl` mutation in `src/core/integrate/integrate.ts` with graph-aware carried-shape checks plus direct settled rendering.

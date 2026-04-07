@@ -5,6 +5,10 @@ import {
   type KnopCreateRequest,
   planKnopCreate,
 } from "../../core/knop/create.ts";
+import {
+  MeshMetadataResolutionError,
+  resolveMeshBaseFromMetadataTurtle,
+} from "../mesh/metadata.ts";
 import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
@@ -195,17 +199,23 @@ async function loadCurrentMeshState(
     throw error;
   }
 
-  const meshBaseMatch = meshMetadataTurtle.match(
-    /sflo:meshBase "([^"]+)"\^\^xsd:anyURI/,
-  );
-  if (!meshBaseMatch) {
-    throw new KnopCreateRuntimeError(
-      "Could not resolve meshBase from _mesh/_meta/meta.ttl",
-    );
+  let meshBase: string;
+  try {
+    meshBase = resolveMeshBaseFromMetadataTurtle(meshMetadataTurtle);
+  } catch (error) {
+    if (error instanceof MeshMetadataResolutionError) {
+      throw new KnopCreateRuntimeError(error.message);
+    }
+    if (error instanceof Error) {
+      throw new KnopCreateRuntimeError(
+        `Could not resolve mesh base from metadata: ${error.message}`,
+      );
+    }
+    throw error;
   }
 
   return {
-    meshBase: meshBaseMatch[1]!,
+    meshBase,
     currentMeshInventoryTurtle,
   };
 }
