@@ -390,3 +390,150 @@ extract: tighten extract validation and test assertions
 - warn on unexpected best-effort extract cleanup failures instead of swallowing non-NotFound errors silently
 - keep the extract slice green under full `deno task ci`
 ```
+
+# User_2026-04-06_1854_16
+
+OK, start the new slice/task.
+
+# gpt-5.4_2026-04-06_1854_27
+
+Starting `12-bob-extracted -> 13-bob-extracted-woven` now. I’m checking the new task note, the current worktree, and the existing `weave` planning/tests first so I can add the failing `13` integration and manifest-scoped CLI tests against the right seams before touching implementation.
+
+# gpt-5.4_2026-04-06_1854_41
+
+I have enough context to lock the test boundary. The first real risk for `13` is not just history creation, it’s that the current `weave` CLI helper still assumes full-tree equality and would accidentally pull `README.md` churn into the acceptance result, so I’m shaping the new tests to stay manifest-scoped from the start.
+
+# gpt-5.4_2026-04-06_1856_03
+
+Starting `12-bob-extracted -> 13-bob-extracted-woven` from the new task note. I’m verifying the current weave path, then I’ll add failing integration and manifest-scoped CLI tests before touching runtime behavior.
+
+# gpt-5.4_2026-04-06_1856_09
+
+The current weave implementation only knows the earlier Alice slices. I’m reading the rest of the planner and runtime now so the failing tests pin the exact delta for Bob instead of guessing at the shape.
+
+# gpt-5.4_2026-04-06_1856_15
+
+The fixture boundary is the hard source of truth here, especially because `13` updates an existing page and ignores unrelated `README.md` churn. I’m pulling the manifest and ref diff now so the tests target only the carried surface.
+
+# gpt-5.4_2026-04-06_1856_25
+
+I’ve confirmed the slice boundary: `13` is not just “more pages”, it also introduces the first weave case that updates an existing non-Bob page and advances mesh inventory to a new public state. Next I’m reading the exact fixture files that need to be reproduced so the implementation stays narrow.
+
+# gpt-5.4_2026-04-06_1856_55
+
+The main implementation gap is now clear: the current weave path can only create new pages, but `13` also needs to update existing HTML (`alice/index.html` and `_mesh/_inventory/_history001/index.html`). I’m checking the exact non-woven Bob inputs now so I can thread just enough context through planning instead of bolting on a broad renderer rewrite.
+
+# gpt-5.4_2026-04-06_1858_13
+
+I’m adding the failing tests now. The first change is to pin `13` in the unit, integration, and CLI seams, and to make the CLI helper stop treating unrelated fixture files as operation output for this slice.
+
+# gpt-5.4_2026-04-06_1859_03
+
+The new acceptance checks are in. I’m running the targeted weave tests now to capture the current failure mode before changing planner/runtime code.
+
+# gpt-5.4_2026-04-06_1859_10
+
+The first run failed at the Deno permission boundary, not in the slice logic. I’m switching to the project’s normal test permissions so we see the real Bob-weave failure instead of an env-access false positive.
+
+# gpt-5.4_2026-04-06_1902_16
+
+I have the implementation shape now: a new extracted-weave slice, source-payload loading in the runtime, and narrow custom HTML generation only for the pages `13` actually changes. I’m patching planner/runtime/types first, then I’ll fill in the Bob/Alice/mesh page renderers and re-run the targeted tests.
+
+# gpt-5.4_2026-04-06_1907_20
+
+The slice is implemented narrowly enough to exercise now: new Bob-specific weave classification, source-payload resolution, mesh/inventory versioning, and the few page surfaces `13` actually changes. I’m running the targeted weave tests again to catch any shape drift before broader validation.
+
+# gpt-5.4_2026-04-06_1907_29
+
+Type-checking is blocking on the new payload-quad helpers, not on slice behavior. I’m tightening those types first, then I’ll re-run the Bob-specific tests to see the actual fixture mismatches.
+
+# gpt-5.4_2026-04-06_1907_59
+
+The Bob reference page is now the main mismatch. The issue is path semantics: the fixture resolves cross-resource links from the resource URL (`.../_references`), not from the backing `index.html` file path. I’m correcting that renderer now.
+
+# gpt-5.4_2026-04-06_1908_28
+
+The black-box CLI path is green now, so the remaining failure is in my new integration assertion shape rather than the weave output itself. I’m fixing that test to compare created-path sets consistently, then I’ll add a focused core planner test and run the full weave slice coverage.
+
+# gpt-5.4_2026-04-06_1909_05
+
+The Bob weave slice is green at unit, integration, and manifest-scoped CLI scope. I’m doing the cleanup pass now: formatting, broader weave regression coverage, then the usual note updates so the new slice is recorded the same way the earlier carried work was.
+
+# gpt-5.4_2026-04-06_1909_20
+
+The code is in place. I’m updating the developer notes now so the repo’s carried-slice inventory reflects that `weave` now reaches `13-bob-extracted-woven`, without renaming the task note.
+
+# gpt-5.4_2026-04-06_1910_03
+
+I’ve updated the slice notes and am running the full repo validation now, not just the targeted weave tests. That will catch any drift from the new planner/runtime types or the reference-page rendering change.
+
+# gpt-5.4_2026-04-06_1910_49
+
+Implemented `12-bob-extracted -> 13-bob-extracted-woven` end to end. The new slice is carried through [weave.ts](../../src/core/weave/weave.ts), [weave.ts](../../src/runtime/weave/weave.ts), and [pages.ts](../../src/runtime/weave/pages.ts): it recognizes the first extracted-resource weave, versions Bob `_meta`, `_inventory`, and `_references`, advances `_mesh/_inventory` to `_s0004`, generates the Bob current/history pages, and updates `alice/index.html` when Bob becomes a live mesh resource. I also added slice coverage in [weave_test.ts](../../src/core/weave/weave_test.ts), [weave_test.ts](../../tests/integration/weave_test.ts), and [weave_cli_test.ts](../../tests/e2e/weave_cli_test.ts), with the CLI acceptance staying manifest-scoped for `13` so unrelated fixture `README.md` churn is ignored.
+
+I updated [wd.spec.2026-04-03-weave-behavior.md](wd.spec.2026-04-03-weave-behavior.md), [wd.codebase-overview.md](wd.codebase-overview.md), [wd.decision-log.md](wd.decision-log.md), and checked off the implementation plan in [wd.task.2026.2026-04-06_1331-weave-bob-extracted-woven.md](wd.task.2026.2026-04-06_1331-weave-bob-extracted-woven.md). `deno task ci` passed.
+
+There is unrelated conversation-note churn in the worktree:
+[wd.conv.2026.2026-04-06_1313-implement-wd-task-2026-2026-04-05-1004-extract-bob-codex.md](wd.conv.2026.2026-04-06_1313-implement-wd-task-2026-2026-04-05-1004-extract-bob-codex.md) and [wd.conv.2026.2026-04-06_1904-separate-dendrogen-site-generator-or-just-weave-codex.md](wd.conv.2026.2026-04-06_1904-separate-dendrogen-site-generator-or-just-weave-codex.md). I left those alone.
+
+Suggested commit message:
+
+```text
+weave: carry bob extracted surface through 13-bob-extracted-woven
+
+- add the first extracted-resource weave slice for 12-bob-extracted -> 13-bob-extracted-woven
+- version bob _meta, _inventory, and _references into first historical states while keeping working Turtle aligned with snapshots
+- advance _mesh/_inventory to _s0004 and materialize the required Bob and mesh ResourcePages
+- update alice/index.html when bob becomes a live mesh resource
+- add core, integration, and manifest-scoped CLI coverage for 13-bob-extracted-woven
+- update weave behavior, overview, decision log, and task notes for the new carried slice
+```
+
+# User_2026-04-06_1910_49
+
+Are we missing any wd.spec* files?
+
+# gpt-5.4_2026-04-06_1911_00
+
+I’m checking the current `wd.spec.*` inventory against the carried operations and task notes, so the answer is grounded in the repo rather than memory.
+
+# gpt-5.4_2026-04-06_1911_06
+
+I’ve got the inventory. I’m checking the two open non-slice tasks that don’t already have matching specs so I can separate “not needed” from “probably missing”.
+
+# gpt-5.4_2026-04-06_1911_25
+
+Short answer: for the current carried operation surfaces, no obvious `wd.spec.*` gaps.
+
+Current behavior-spec inventory covers the implemented behavior-bearing operations:
+- [wd.spec.2026-04-03-mesh-create.md](wd.spec.2026-04-03-mesh-create.md)
+- [wd.spec.2026-04-03-knop-create.md](wd.spec.2026-04-03-knop-create.md)
+- [wd.spec.2026-04-03-weave-behavior.md](wd.spec.2026-04-03-weave-behavior.md)
+- [wd.spec.2026-04-04-integrate-behavior.md](wd.spec.2026-04-04-integrate-behavior.md)
+- [wd.spec.2026-04-04-knop-add-reference-behavior.md](wd.spec.2026-04-04-knop-add-reference-behavior.md)
+- [wd.spec.2026-04-04-payload-update-behavior.md](wd.spec.2026-04-04-payload-update-behavior.md)
+- [wd.spec.2026-04-05-extract-behavior.md](wd.spec.2026-04-05-extract-behavior.md)
+
+The weave slice tasks are intentionally reusing the shared weave spec, so they are not missing per-slice specs:
+- [wd.task.2026.2026-04-04_1553-weave-alice-bio-referenced-woven.md](wd.task.2026.2026-04-04_1553-weave-alice-bio-referenced-woven.md)
+- [wd.task.2026.2026-04-05_0903-weave-alice-bio-v2-woven.md](wd.task.2026.2026-04-05_0903-weave-alice-bio-v2-woven.md)
+- [wd.task.2026.2026-04-06_1331-weave-bob-extracted-woven.md](wd.task.2026.2026-04-06_1331-weave-bob-extracted-woven.md)
+
+The only likely future gap is [wd.task.2026.2026-04-06_1905-markdown-payload-publishing.md](wd.task.2026.2026-04-06_1905-markdown-payload-publishing.md), but that note is still basically empty. If that becomes a real externally visible behavior slice, it should probably get its own `wd.spec.*`. By contrast, [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md) looks like internal cleanup, so I would not create a behavior spec for it.
+
+# User_2026-04-06_1912_22
+
+commit mesg
+
+# gpt-5.4_2026-04-06_1912_26
+
+```text
+weave: carry bob extraction through 13-bob-extracted-woven
+
+- add the first extracted-resource weave slice for 12-bob-extracted -> 13-bob-extracted-woven
+- version bob _meta, _inventory, and _references into first historical states while keeping working Turtle aligned with the new snapshots
+- advance _mesh/_inventory to _s0004 and materialize the required Bob and mesh ResourcePages
+- update alice/index.html when bob becomes a live mesh resource
+- add core, integration, and manifest-scoped CLI coverage for 13-bob-extracted-woven
+- update weave behavior, codebase overview, decision log, and the task note for the new carried slice
+```

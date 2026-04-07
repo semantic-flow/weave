@@ -44,11 +44,20 @@ Deno.test("weave matches the manifest-scoped alice bio v2 woven fixture as a bla
   });
 });
 
+Deno.test("weave matches the manifest-scoped bob extracted woven fixture as a black-box CLI run", async () => {
+  await assertWeaveTransitionMatchesManifest({
+    manifestName: "13-bob-extracted-woven.jsonld",
+    expectedStdoutFragment: "Wove 1 designator path",
+    compareWorkspaceTree: false,
+  });
+});
+
 async function assertWeaveTransitionMatchesManifest(
   options: {
     manifestName: string;
     expectedStdoutFragment: string;
     compareTextFiles?: boolean;
+    compareWorkspaceTree?: boolean;
   },
 ): Promise<void> {
   const manifestPath = resolveMeshAliceBioConformanceManifestPath(
@@ -83,10 +92,12 @@ async function assertWeaveTransitionMatchesManifest(
   assert(output.success, stderr);
   assert(stdout.includes(options.expectedStdoutFragment), stdout);
 
-  assertEquals(
-    await listRelativeFiles(workspaceRoot, ".weave/"),
-    await listMeshAliceBioBranchFiles(transitionCase.toRef!),
-  );
+  if (options.compareWorkspaceTree !== false) {
+    assertEquals(
+      await listRelativeFiles(workspaceRoot, ".weave/"),
+      await listMeshAliceBioBranchFiles(transitionCase.toRef!),
+    );
+  }
 
   const fileExpectations = getManifestFileExpectations(transitionCase);
   for (const fileExpectation of fileExpectations) {

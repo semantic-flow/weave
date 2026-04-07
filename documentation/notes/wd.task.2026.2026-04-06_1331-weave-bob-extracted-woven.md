@@ -168,11 +168,11 @@ The black-box CLI acceptance for this slice should stay manifest-scoped and file
 
 ## Implementation Plan
 
-- [ ] Confirm that [[wd.spec.2026-04-03-weave-behavior]] is sufficient as the current behavior spec for the `13` slice.
-- [ ] Add failing unit and integration tests for the Bob woven-history and page-materialization behavior required by `13`.
-- [ ] Extend the current `weave` planning and classification seams to recognize the first weave over an extracted Knop support surface.
-- [ ] Implement Bob `_meta`, `_inventory`, and `_references` `_history001/_s0001/...` creation and keep the current Bob Turtle working files aligned with those snapshots after weave.
-- [ ] Implement `_mesh/_inventory` advancement to `_s0004` and materialize the corresponding `_s0004` mesh inventory pages.
-- [ ] Extend the shared runtime page-rendering seam enough to materialize the Bob-facing current and history pages required by the settled `13` fixture, including the carried `alice/index.html` change.
-- [ ] Add a black-box CLI acceptance test scoped by the settled `13-bob-extracted-woven` Accord manifest.
-- [ ] Update relevant overview/spec/framework notes as the slice settles.
+- [x] Confirm that [[wd.spec.2026-04-03-weave-behavior]] is sufficient as the current behavior spec for the `13` slice.
+- [x] Add failing unit and integration tests for the Bob woven-history and page-materialization behavior required by `13`.
+- [x] Extend the current `weave` planning and classification seams to recognize the first weave over an extracted Knop support surface.
+- [x] Implement Bob `_meta`, `_inventory`, and `_references` `_history001/_s0001/...` creation and keep the current Bob Turtle working files aligned with those snapshots after weave.
+- [x] Implement `_mesh/_inventory` advancement to `_s0004` and materialize the corresponding `_s0004` mesh inventory pages.
+- [x] Extend the shared runtime page-rendering seam enough to materialize the Bob-facing current and history pages required by the settled `13` fixture, including the carried `alice/index.html` change.
+- [x] Add a black-box CLI acceptance test scoped by the settled `13-bob-extracted-woven` Accord manifest.
+- [x] Update relevant overview/spec/framework notes as the slice settles.

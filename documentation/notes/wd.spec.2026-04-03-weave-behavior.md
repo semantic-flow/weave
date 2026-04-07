@@ -22,7 +22,7 @@ The rules below are the best current synthesis of:
 - the corresponding Accord conformance manifests
 - the current Semantic Flow ontology direction
 
-The carried local implementation of this behavior currently includes the settled Alice Bio `04-alice-knop-created` -> `05-alice-knop-created-woven`, `06-alice-bio-integrated` -> `07-alice-bio-integrated-woven`, `08-alice-bio-referenced` -> `09-alice-bio-referenced-woven`, and `10-alice-bio-updated` -> `11-alice-bio-v2-woven` slices.
+The carried local implementation of this behavior currently includes the settled Alice Bio `04-alice-knop-created` -> `05-alice-knop-created-woven`, `06-alice-bio-integrated` -> `07-alice-bio-integrated-woven`, `08-alice-bio-referenced` -> `09-alice-bio-referenced-woven`, `10-alice-bio-updated` -> `11-alice-bio-v2-woven`, and `12-bob-extracted` -> `13-bob-extracted-woven` slices.
 
 If future fixture work contradicts this note, the contradiction should be treated as a real design issue and resolved explicitly rather than silently drifting.
 

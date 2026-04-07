@@ -250,7 +250,10 @@ async function loadWeaveableKnopCandidates(
       continue;
     }
 
-    if (slice === "firstPayloadWeave" || slice === "secondPayloadWeave") {
+    if (
+      slice === "firstPayloadWeave" || slice === "secondPayloadWeave" ||
+      slice === "firstExtractedKnopWeave"
+    ) {
       candidate.payloadArtifact = await loadPayloadWorkingArtifact(
         workspaceRoot,
         designatorPath,
@@ -258,12 +261,24 @@ async function loadWeaveableKnopCandidates(
       );
     }
 
-    if (slice === "firstReferenceCatalogWeave") {
+    if (
+      slice === "firstReferenceCatalogWeave" ||
+      slice === "firstExtractedKnopWeave"
+    ) {
       candidate.referenceCatalogArtifact =
         await loadReferenceCatalogWorkingArtifact(
           workspaceRoot,
           designatorPath,
           currentKnopInventoryTurtle,
+        );
+    }
+
+    if (slice === "firstExtractedKnopWeave") {
+      candidate.referenceTargetSourcePayloadArtifact =
+        await loadReferenceTargetSourcePayloadArtifact(
+          workspaceRoot,
+          designatorPath,
+          candidate.referenceCatalogArtifact,
         );
     }
 
@@ -316,15 +331,29 @@ async function loadPayloadWorkingArtifact(
   }
 
   const workingFilePath = workingFilePathMatch[1]!;
-  const latestHistoricalSnapshotPath = currentKnopInventoryTurtle.includes(
-      `sflo:latestHistoricalState <${designatorPath}/_history001/_s0001> ;`,
-    )
+  const currentHistoryPathMatch = payloadBlock.match(
+    /sflo:currentArtifactHistory <([^>]+)>/,
+  );
+  const currentHistoryPath = currentHistoryPathMatch?.[1];
+  const historyBlock = currentHistoryPath
+    ? currentKnopInventoryTurtle
+      .split("\n\n")
+      .find((block) =>
+        block.startsWith(`<${currentHistoryPath}> a sflo:ArtifactHistory ;`)
+      )
+    : undefined;
+  const latestHistoricalStatePath = historyBlock?.match(
+    /sflo:latestHistoricalState <([^>]+)>/,
+  )?.[1];
+  const latestHistoricalSnapshotPath = latestHistoricalStatePath
     ? join(
       workspaceRoot,
       toPayloadHistoricalSnapshotPath(
         designatorPath,
         workingFilePath,
-        "_s0001",
+        latestHistoricalStatePath.slice(
+          latestHistoricalStatePath.lastIndexOf("/") + 1,
+        ),
       ),
     )
     : undefined;
@@ -369,6 +398,74 @@ async function loadPayloadWorkingArtifact(
     workingFilePath,
     currentPayloadTurtle,
     latestHistoricalSnapshotTurtle,
+    latestHistoricalStatePath,
+  };
+}
+
+async function loadReferenceTargetSourcePayloadArtifact(
+  workspaceRoot: string,
+  designatorPath: string,
+  referenceCatalogArtifact: ReferenceCatalogWorkingArtifact | undefined,
+): Promise<WeaveableKnopCandidate["referenceTargetSourcePayloadArtifact"]> {
+  if (!referenceCatalogArtifact) {
+    return undefined;
+  }
+
+  const linkBlock = referenceCatalogArtifact.currentReferenceCatalogTurtle
+    .split("\n\n")
+    .map((block) => block.trim())
+    .find((block) => block.startsWith(`<${designatorPath}/_knop/_references#`));
+  if (!linkBlock) {
+    throw new WeaveRuntimeError(
+      `Could not resolve the current extracted ReferenceCatalog link for ${designatorPath}.`,
+    );
+  }
+
+  const referenceTargetPathMatch = linkBlock.match(
+    /sflo:referenceTarget <([^>]+)>/,
+  );
+  if (!referenceTargetPathMatch) {
+    throw new WeaveRuntimeError(
+      `Could not resolve the current extracted ReferenceCatalog target for ${designatorPath}.`,
+    );
+  }
+
+  const sourceDesignatorPath = referenceTargetPathMatch[1]!;
+  const sourceKnopInventoryPath = join(
+    workspaceRoot,
+    `${sourceDesignatorPath}/_knop/_inventory/inventory.ttl`,
+  );
+  let sourceKnopInventoryTurtle: string;
+
+  try {
+    sourceKnopInventoryTurtle = await Deno.readTextFile(
+      sourceKnopInventoryPath,
+    );
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      throw new WeaveRuntimeError(
+        `Workspace is missing the woven source payload inventory for ${designatorPath}: ${sourceDesignatorPath}/_knop/_inventory/inventory.ttl`,
+      );
+    }
+    throw error;
+  }
+
+  const sourcePayloadArtifact = await loadPayloadWorkingArtifact(
+    workspaceRoot,
+    sourceDesignatorPath,
+    sourceKnopInventoryTurtle,
+  );
+  if (!sourcePayloadArtifact?.latestHistoricalStatePath) {
+    throw new WeaveRuntimeError(
+      `Extracted weave source for ${designatorPath} is missing a woven current payload history: ${sourceDesignatorPath}`,
+    );
+  }
+
+  return {
+    designatorPath: sourceDesignatorPath,
+    workingFilePath: sourcePayloadArtifact.workingFilePath,
+    currentPayloadTurtle: sourcePayloadArtifact.currentPayloadTurtle,
+    latestHistoricalStatePath: sourcePayloadArtifact.latestHistoricalStatePath,
   };
 }
 
@@ -432,6 +529,11 @@ function isWeaveableKnopCandidate(
   candidate: WeaveableKnopCandidate,
   slice: WeaveSlice,
 ): boolean {
+  if (slice === "firstExtractedKnopWeave") {
+    return candidate.referenceCatalogArtifact !== undefined &&
+      candidate.referenceTargetSourcePayloadArtifact !== undefined;
+  }
+
   if (slice === "firstReferenceCatalogWeave") {
     return candidate.referenceCatalogArtifact !== undefined;
   }

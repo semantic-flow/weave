@@ -54,12 +54,43 @@ export function renderResourcePage(
   }
 
   if (page.kind === "referenceCatalog") {
+    const targetBasePath = resourcePath;
     const currentLinks = page.currentLinks.map((link) =>
-      `        <li id="${escapeHtml(link.fragment)}"><code>#${
-        escapeHtml(link.fragment)
-      }</code>: ${escapeHtml(link.referenceRoleLabel)} reference target <code>${
-        escapeHtml(link.referenceTargetPath)
-      }</code>.</li>`
+      link.referenceTargetStatePath
+        ? `        <li id="${escapeHtml(link.fragment)}"><code>#${
+          escapeHtml(link.fragment)
+        }</code>: ${
+          escapeHtml(link.referenceRoleLabel)
+        } reference target <a href="${
+          escapeHtml(
+            toRelativeResourceHref(targetBasePath, link.referenceTargetPath),
+          )
+        }">${
+          escapeHtml(
+            toRelativeResourceHref(targetBasePath, link.referenceTargetPath),
+          )
+        }</a>, pinned to <a href="${
+          escapeHtml(
+            toRelativeResourceHref(
+              targetBasePath,
+              link.referenceTargetStatePath,
+            ),
+          )
+        }">${
+          escapeHtml(
+            toRelativeResourceHref(
+              targetBasePath,
+              link.referenceTargetStatePath,
+            ),
+          )
+        }</a>.</li>`
+        : `        <li id="${escapeHtml(link.fragment)}"><code>#${
+          escapeHtml(link.fragment)
+        }</code>: ${
+          escapeHtml(link.referenceRoleLabel)
+        } reference target <code>${
+          escapeHtml(link.referenceTargetPath)
+        }</code>.</li>`
     ).join("\n");
 
     return `<!doctype html>
@@ -114,6 +145,13 @@ function toResourcePath(pagePath: string): string {
 
 function toRelativeHref(fromPagePath: string, targetPath: string): string {
   return posix.relative(posix.dirname(fromPagePath), targetPath);
+}
+
+function toRelativeResourceHref(
+  fromResourcePath: string,
+  targetPath: string,
+): string {
+  return posix.relative(posix.dirname(fromResourcePath), targetPath);
 }
 
 function deriveMeshLabel(meshBase: string): string {
