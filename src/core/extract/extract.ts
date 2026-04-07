@@ -1,12 +1,10 @@
-import { RESERVED_DESIGNATOR_SEGMENTS } from "../designator_segments.ts";
+import { normalizeSafeDesignatorPath } from "../designator_segments.ts";
 import {
   KnopAddReferenceInputError,
   planKnopAddReference,
 } from "../knop/add_reference.ts";
 import { KnopCreateInputError, planKnopCreate } from "../knop/create.ts";
 import type { PlannedFile } from "../planned_file.ts";
-
-const safePathSegmentPattern = /^[A-Za-z0-9._-]+$/;
 
 export interface ExtractRequest {
   designatorPath: string;
@@ -174,14 +172,11 @@ function normalizeDesignatorPath(
   designatorPath: string,
   fieldName: string,
 ): string {
-  const normalized = normalizeRelativeIriPath(designatorPath, fieldName);
-  const segments = normalized.split("/");
-  if (segments.some((segment) => RESERVED_DESIGNATOR_SEGMENTS.has(segment))) {
-    throw new ExtractInputError(
-      `${fieldName} must not contain reserved path segments`,
-    );
-  }
-  return normalized;
+  return normalizeSafeDesignatorPath(
+    designatorPath,
+    fieldName,
+    (message) => new ExtractInputError(message),
+  );
 }
 
 function normalizeWorkingFilePath(workingFilePath: string): string {
@@ -247,14 +242,6 @@ function normalizeRelativeIriPath(value: string, fieldName: string): string {
       `${fieldName} must not contain '.' or '..' path segments`,
     );
   }
-  for (const segment of segments) {
-    if (!safePathSegmentPattern.test(segment)) {
-      throw new ExtractInputError(
-        `normalizeRelativeIriPath rejected segment "${segment}" in ${fieldName}: only path segments matching [A-Za-z0-9._-]+ are supported in the current local extract slice`,
-      );
-    }
-  }
-
   return trimmed;
 }
 
@@ -276,6 +263,13 @@ function injectReferenceTargetState(
   referencesTurtle: string,
   referenceTargetStatePath: string,
 ): string {
+  // This first carried extract slice renders the referenceTarget line in a
+  // tightly fixture-shaped form: two-space indent, one `sflo:referenceTarget`
+  // predicate line, trailing ` .`, and a final newline. If that formatting
+  // changes, this regex insertion can fail closed even when the RDF meaning is
+  // still recoverable. TODO: replace this string surgery with RDF-aware
+  // parse/serialize manipulation if the extract surface starts accepting more
+  // varied Turtle shapes.
   const referenceTargetLinePattern =
     /(\n {2}sflo:referenceTarget <[^>]+>) \.\n?$/;
   const match = referencesTurtle.match(referenceTargetLinePattern);

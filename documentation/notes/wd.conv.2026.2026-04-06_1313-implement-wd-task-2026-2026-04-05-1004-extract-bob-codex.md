@@ -138,3 +138,255 @@ extract: implement first local bob extraction slice
 - add core, integration, and manifest-scoped black-box CLI coverage for `12-bob-extracted`
 - update [[wd.codebase-overview]], [[wd.decision-log]], and the task note to reflect the new extract slice
 ```
+
+# User_2026-04-06_1328_58
+
+next steps?
+
+# gpt-5.4_2026-04-06_1329_10
+
+I’d do this next, in order:
+
+1. Commit the extract slice, staging only the real slice files and not the unrelated conversation-note churn.
+2. Leave [wd.task.2026.2026-04-05_1004-extract-bob.md](wd.task.2026.2026-04-05_1004-extract-bob.md) as a `wd.task.*` note unless you explicitly want the rename.
+3. Start the next carried slice: `12-bob-extracted -> 13-bob-extracted-woven`.
+
+For `13`, the right posture is the same as the earlier weave slices:
+- reuse [[wd.spec.2026-04-03-weave-behavior]] unless `13` exposes a real new weave rule
+- start with failing integration and manifest-scoped CLI tests against `13-bob-extracted-woven`
+- then implement only the woven delta: Bob support-artifact histories, Bob pages, and the `_mesh/_inventory` advancement that now exposes Bob’s public current surface
+
+If you want, I can start `13-bob-extracted-woven` now.
+
+# User_2026-04-06_1330_11
+
+Start it directly? Fine with me, but we've been doing separate task notes.
+
+# gpt-5.4_2026-04-06_1330_24
+
+No. `13-bob-extracted-woven` should get its own `wd.task.*` note first.
+
+That slice is a different boundary from `12`:
+- it advances from semantic extraction to `weave`
+- it introduces Bob histories and Bob page generation
+- it likely advances `_mesh/_inventory` again because Bob’s public current surface becomes visible
+
+So I’d keep the discipline:
+1. draft a dedicated `wd.task.*` note for `12 -> 13`
+2. start with failing integration and manifest-scoped CLI tests
+3. implement the woven delta only
+
+If you want, I can do that next: create the new task note and then carry `13-bob-extracted-woven` end to end.
+
+# User_2026-04-06_1331_04
+
+OK, compose the task note plese.
+
+# gpt-5.4_2026-04-06_1331_14
+
+I’m drafting a separate `wd.task.*` note for the `12 -> 13` woven slice, not piggybacking it onto the extract note. I’m checking the task template and the settled `13-bob-extracted-woven` fixture/manifest first so the note locks onto the actual carried boundary instead of a guessed weave scope.
+
+# gpt-5.4_2026-04-06_1331_29
+
+I’ve got the exact `13` boundary now: Bob support-artifact histories, Bob page materialization, `_mesh/_inventory` advancing to `_s0004`, and `alice/index.html` changing because Bob becomes a live page, while `alice-bio.ttl` stays unchanged. I’m writing the task note as a separate weave slice that reuses the existing weave spec rather than inventing another broad spec note.
+
+# gpt-5.4_2026-04-06_1331_51
+
+I’m choosing a dedicated `13` task note name and frontmatter now. Then I’ll draft it in the same style as the earlier slice notes: clear scope, explicit non-goals, and a fixture-first implementation plan that starts with failing tests.
+
+# gpt-5.4_2026-04-06_1332_22
+
+I’m writing the note now as an unstarted task note, not pre-marking any implementation boxes. It will lock the `13` scope to the settled fixture: Bob histories, Bob pages, mesh inventory `_s0004`, and the small but real `alice/index.html` weave update.
+
+# gpt-5.4_2026-04-06_1332_58
+
+Created the new task note at [wd.task.2026.2026-04-06_1331-weave-bob-extracted-woven.md](wd.task.2026.2026-04-06_1331-weave-bob-extracted-woven.md).
+
+It treats `12-bob-extracted -> 13-bob-extracted-woven` as a separate carried `weave` slice, reuses [[wd.spec.2026-04-03-weave-behavior]], and locks the scope to:
+- Bob support-artifact histories
+- Bob current and historical ResourcePages
+- `_mesh/_inventory` advancing to `_s0004`
+- the carried `alice/index.html` update
+- keeping `alice-bio.ttl` unchanged
+- ignoring unrelated fixture `README.md` churn in acceptance
+
+If you want, I can start the slice now from that note: failing integration test first, then manifest-scoped CLI test, then implementation.
+
+# User_2026-04-06_1841_01
+
+coderabbit had some comments:
+
+Verify each finding against the current code and only fix it if needed.
+
+Inline comments:
+In `@tests/e2e/extract_cli_test.ts`:
+- Around line 97-98: The two bare await Deno.stat(...) calls can throw
+Deno.errors.NotFound and produce unclear failures; wrap each existence check
+with an explicit assertion that includes a descriptive message: either import
+and use assertExists(await Deno.stat(...), `expected log file
+.weave/logs/operational.jsonl to exist under ${workspaceRoot}`) (and likewise
+for security-audit.jsonl) or perform a try/catch around Deno.stat and call
+fail(...) with a clear message if NotFound is caught; reference the existing
+Deno.stat calls and the workspaceRoot/log filenames to locate and update the
+checks.
+
+---
+
+Nitpick comments:
+In `@src/cli/run.ts`:
+- Around line 515-526: The helper resolveRequiredOptionValue currently defaults
+createError to KnopAddReferenceInputError (a command-specific class), which is a
+smell; either remove the default so callers must pass an explicit createError,
+or introduce a generic error type (e.g., CliInputError) and use that as the
+default factory instead of KnopAddReferenceInputError; update callers (if you
+remove the default) to pass the appropriate factory, or if you add
+CliInputError, replace the default in resolveRequiredOptionValue to create a
+CliInputError and keep existing callers unchanged.
+
+In `@src/core/extract/extract.ts`:
+- Around line 275-292: The regex-based injection in injectReferenceTargetState
+(using referenceTargetLinePattern) is brittle because it assumes a very specific
+Turtle formatting; update the function by adding a clear comment above it that
+documents the exact input assumptions (expected line with "sflo:referenceTarget
+<...> ." with two-space indent and trailing period/newline) and the risks, and
+consider TODO note to migrate to an RDF-aware manipulation (e.g.,
+parse/serialize with an RDF library) if input variations are expected; keep the
+current regex logic but make the assumption explicit and add a brief unit test
+note referencing injectReferenceTargetState to ensure future changes preserve
+the fixture format.
+
+In `@src/runtime/extract/extract.ts`:
+- Around line 740-745: In removeEmptyDirectoriesBestEffort, the catch currently
+only continues on Deno.errors.NotFound and otherwise swallows errors; change the
+handler to keep the NotFound behavior but surface other failures by logging
+(e.g., console.warn or the module logger) including the path and error object so
+permission/IO errors are visible; reference the caught `error`,
+`Deno.errors.NotFound`, and the `removeEmptyDirectoriesBestEffort` function when
+making this change.
+- Line 14: safeDesignatorSegmentPattern and the validation logic in
+normalizeLocalDesignatorPath duplicate rules already present in the core extract
+implementation; extract the shared regex and any related validation helpers into
+a new common validation module (e.g., export a constant and a
+validateDesignatorSegment/validateDesignatorPath function) and update both
+normalizeLocalDesignatorPath and the existing core code to import and use those
+shared symbols (safeDesignatorSegmentPattern and the new validate helper) so
+both layers delegate to the same canonical logic and avoid drift while
+preserving defense-in-depth.
+
+# gpt-5.4_2026-04-06_1841_20
+
+I’m checking the current `extract` code and tests against each CodeRabbit comment before changing anything. I’ll verify whether each point is still real in this branch, then patch only the ones that hold up and rerun the relevant validation.
+
+# User_2026-04-06_1842_21
+
+coderabbit feedback:
+
+Verify each finding against the current code and only fix it if needed.
+
+Inline comments:
+In `@tests/e2e/extract_cli_test.ts`:
+- Around line 97-98: The two bare await Deno.stat(...) calls can throw
+Deno.errors.NotFound and produce unclear failures; wrap each existence check
+with an explicit assertion that includes a descriptive message: either import
+and use assertExists(await Deno.stat(...), `expected log file
+.weave/logs/operational.jsonl to exist under ${workspaceRoot}`) (and likewise
+for security-audit.jsonl) or perform a try/catch around Deno.stat and call
+fail(...) with a clear message if NotFound is caught; reference the existing
+Deno.stat calls and the workspaceRoot/log filenames to locate and update the
+checks.
+
+---
+
+Nitpick comments:
+In `@src/cli/run.ts`:
+- Around line 515-526: The helper resolveRequiredOptionValue currently defaults
+createError to KnopAddReferenceInputError (a command-specific class), which is a
+smell; either remove the default so callers must pass an explicit createError,
+or introduce a generic error type (e.g., CliInputError) and use that as the
+default factory instead of KnopAddReferenceInputError; update callers (if you
+remove the default) to pass the appropriate factory, or if you add
+CliInputError, replace the default in resolveRequiredOptionValue to create a
+CliInputError and keep existing callers unchanged.
+
+In `@src/core/extract/extract.ts`:
+- Around line 275-292: The regex-based injection in injectReferenceTargetState
+(using referenceTargetLinePattern) is brittle because it assumes a very specific
+Turtle formatting; update the function by adding a clear comment above it that
+documents the exact input assumptions (expected line with "sflo:referenceTarget
+<...> ." with two-space indent and trailing period/newline) and the risks, and
+consider TODO note to migrate to an RDF-aware manipulation (e.g.,
+parse/serialize with an RDF library) if input variations are expected; keep the
+current regex logic but make the assumption explicit and add a brief unit test
+note referencing injectReferenceTargetState to ensure future changes preserve
+the fixture format.
+
+In `@src/runtime/extract/extract.ts`:
+- Around line 740-745: In removeEmptyDirectoriesBestEffort, the catch currently
+only continues on Deno.errors.NotFound and otherwise swallows errors; change the
+handler to keep the NotFound behavior but surface other failures by logging
+(e.g., console.warn or the module logger) including the path and error object so
+permission/IO errors are visible; reference the caught `error`,
+`Deno.errors.NotFound`, and the `removeEmptyDirectoriesBestEffort` function when
+making this change.
+- Line 14: safeDesignatorSegmentPattern and the validation logic in
+normalizeLocalDesignatorPath duplicate rules already present in the core extract
+implementation; extract the shared regex and any related validation helpers into
+a new common validation module (e.g., export a constant and a
+validateDesignatorSegment/validateDesignatorPath function) and update both
+normalizeLocalDesignatorPath and the existing core code to import and use those
+shared symbols (safeDesignatorSegmentPattern and the new validate helper) so
+both layers delegate to the same canonical logic and avoid drift while
+preserving defense-in-depth.
+
+# gpt-5.4_2026-04-06_1842_33
+
+I’m checking each CodeRabbit point against the current extract slice before touching anything. First I’m reading the referenced files at the exact seams it called out so I can separate real issues from generic linting advice.
+
+# gpt-5.4_2026-04-06_1842_56
+
+I’ve verified the feedback against the current code. Four of the points are worth fixing in this slice; one needs a narrow refactor rather than hand-waving because the core/runtime extract validators already risk drifting apart. I’m checking the exact helper call sites now, then I’ll patch only the extract-related code paths CodeRabbit identified.
+
+# gpt-5.4_2026-04-06_1843_33
+
+The `run.ts` point is real but narrow: only extract and `knop add-reference` use those required-value helpers today, so I can remove the misleading default instead of introducing a whole new CLI error type. I’m also centralizing the extract designator-path validation now, because the core/runtime duplication is real and it’s cheap to eliminate without touching the older operations.
+
+# gpt-5.4_2026-04-06_1843_50
+
+I’m patching the extract code and tests now. The main changes are: explicit log-file existence assertions in the CLI test, removing the CLI helper’s command-specific default error factory, documenting the regex assumption in `injectReferenceTargetState`, surfacing cleanup failures in runtime, and sharing the extract designator-path validator between core and runtime.
+
+# gpt-5.4_2026-04-06_1844_23
+
+The patches are in. I’m running formatting and the focused validation path first, because the `run.ts` helper signature change can break compile quickly if I missed a call site.
+
+# gpt-5.4_2026-04-06_1844_35
+
+The focused extract suite is green. I changed a shared helper module and the CLI input helper signature, so I’m running full CI now to make sure there isn’t a wider regression hiding outside the extract tests.
+
+# gpt-5.4_2026-04-06_1845_14
+
+Verified the CodeRabbit feedback against the current extract code. All five points were real enough to fix in this slice, and I patched them.
+
+- [extract_cli_test.ts](../../tests/e2e/extract_cli_test.ts): replaced the two bare log-file `Deno.stat(...)` calls with explicit existence assertions that fail with clear messages.
+- [run.ts](../../src/cli/run.ts): removed the misleading default `KnopAddReferenceInputError` factory from the generic required-value helpers and made callers pass the right error type explicitly.
+- [extract.ts](../../src/core/extract/extract.ts): documented the fixture-format assumption in `injectReferenceTargetState` and reinforced it through the extract planner test in [extract_test.ts](../../src/core/extract/extract_test.ts).
+- [extract.ts](../../src/runtime/extract/extract.ts): `removeEmptyDirectoriesBestEffort` now still ignores `NotFound` but emits a warning for other cleanup failures instead of swallowing them silently.
+- [designator_segments.ts](../../src/core/designator_segments.ts), [extract.ts](../../src/core/extract/extract.ts), [extract.ts](../../src/runtime/extract/extract.ts): shared the extract designator-path validation so core and runtime use the same canonical rules while still validating independently.
+
+Validation passed with `deno task ci`.
+
+# User_2026-04-06_1852_18
+
+commit mesg
+
+# gpt-5.4_2026-04-06_1852_27
+
+```text
+extract: tighten extract validation and test assertions
+
+- replace bare extract CLI log-file stat checks with explicit existence assertions and clearer failure messages
+- remove the command-specific default error factory from the CLI required-value helpers and require explicit caller error types
+- document the fixture-format assumptions behind extract referenceTargetState string injection and reinforce them in extract planner coverage
+- share extract designator-path validation between core and runtime to avoid rule drift while preserving defense-in-depth
+- warn on unexpected best-effort extract cleanup failures instead of swallowing non-NotFound errors silently
+- keep the extract slice green under full `deno task ci`
+```

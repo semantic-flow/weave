@@ -1,4 +1,4 @@
-import { assertEquals, assertThrows } from "@std/assert";
+import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
 import { readMeshAliceBioBranchFile } from "../../../tests/support/mesh_alice_bio_fixture.ts";
 import { ExtractInputError, planExtract } from "./extract.ts";
 
@@ -63,6 +63,12 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
       "12-bob-extracted",
       "bob/_knop/_references/references.ttl",
     ),
+  );
+  // Keep this explicit so future fixture-format changes still exercise the
+  // injectReferenceTargetState string-shaping seam in planExtract.
+  assertStringIncludes(
+    plan.createdFiles[2]?.contents ?? "",
+    "sflo:referenceTargetState <alice/bio/_history001/_s0002> .",
   );
   assertEquals(
     plan.updatedFiles[0]?.contents ?? "",

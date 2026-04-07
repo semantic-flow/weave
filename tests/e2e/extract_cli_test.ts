@@ -1,4 +1,4 @@
-import { assert, assertEquals, assertRejects } from "@std/assert";
+import { assert, assertEquals, assertRejects, fail } from "@std/assert";
 import { join } from "@std/path";
 import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import {
@@ -94,8 +94,14 @@ Deno.test("weave extract matches the manifest-scoped bob extracted fixture as a 
     assertEquals(actualBytes, expectedBytes);
   }
 
-  await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
-  await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
+  await assertPathExists(
+    join(workspaceRoot, ".weave/logs/operational.jsonl"),
+    `expected log file .weave/logs/operational.jsonl to exist under ${workspaceRoot}`,
+  );
+  await assertPathExists(
+    join(workspaceRoot, ".weave/logs/security-audit.jsonl"),
+    `expected log file .weave/logs/security-audit.jsonl to exist under ${workspaceRoot}`,
+  );
 });
 
 Deno.test("weave extract rejects a whitespace-only positional designatorPath before logging or execution", async () => {
@@ -135,3 +141,17 @@ Deno.test("weave extract rejects a whitespace-only positional designatorPath bef
     Deno.errors.NotFound,
   );
 });
+
+async function assertPathExists(
+  path: string,
+  errorMessage: string,
+): Promise<void> {
+  try {
+    await Deno.stat(path);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      fail(errorMessage);
+    }
+    throw error;
+  }
+}

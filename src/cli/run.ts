@@ -312,15 +312,18 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               const normalizedDesignatorPath = resolveRequiredArgumentValue(
                 designatorPath,
                 "knop add-reference requires a positional designatorPath",
+                (message) => new KnopAddReferenceInputError(message),
               );
               const workspaceRoot = resolve(options.workspace);
               const referenceTargetDesignatorPath = resolveRequiredOptionValue(
                 options.referenceTargetDesignatorPath,
                 "knop add-reference requires --reference-target-designator-path",
+                (message) => new KnopAddReferenceInputError(message),
               );
               const referenceRole = resolveRequiredOptionValue(
                 options.referenceRole,
                 "knop add-reference requires --reference-role",
+                (message) => new KnopAddReferenceInputError(message),
               );
               const logDir = join(workspaceRoot, ".weave", "logs");
               const { operationalLogger, auditLogger } = createRuntimeLoggers({
@@ -515,8 +518,7 @@ function getCliErrorMessage(error: unknown): string {
 function resolveRequiredOptionValue(
   value: string | undefined,
   errorMessage: string,
-  createError: (message: string) => Error = (message) =>
-    new KnopAddReferenceInputError(message),
+  createError: (message: string) => Error,
 ): string {
   const trimmed = value?.trim() ?? "";
   if (trimmed.length === 0) {
@@ -528,7 +530,7 @@ function resolveRequiredOptionValue(
 function resolveRequiredArgumentValue(
   value: string | undefined,
   errorMessage: string,
-  createError?: (message: string) => Error,
+  createError: (message: string) => Error,
 ): string {
   return resolveRequiredOptionValue(
     typeof value === "string" ? value : undefined,
