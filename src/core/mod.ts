@@ -1,4 +1,5 @@
 export * from "./planned_file.ts";
+export * from "./targeting.ts";
 export * from "./extract/mod.ts";
 export * from "./integrate/mod.ts";
 export * from "./knop/mod.ts";

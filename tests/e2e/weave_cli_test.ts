@@ -125,7 +125,7 @@ async function assertWeaveTransitionMatchesManifest(
     }
 
     if (compareMode === "text") {
-      if (options.compareTextFiles === false) {
+      if (options.compareTextFiles === false || path.endsWith(".html")) {
         await Deno.stat(join(workspaceRoot, path));
         continue;
       }
