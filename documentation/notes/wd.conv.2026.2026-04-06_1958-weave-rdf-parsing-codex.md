@@ -792,3 +792,101 @@ core: replace knop add-reference inventory mutation with parsed shape renderers
 - add exact and equivalent-Turtle coverage for add-reference inputs
 - shape-test the remaining extract and extracted-weave text-coupled seams
 ```
+
+# User_2026-04-06_2258_37
+
+proceed
+
+# gpt-5.4_2026-04-06_2258_53
+
+Proceeding with Priority 5, starting from the remaining MeshInventory mutators. I’m checking `core/knop/create` and `core/integrate` side by side so I can see whether one parsed-shape classifier can cover both instead of doing two unrelated rewrites.
+
+# gpt-5.4_2026-04-06_2259_44
+
+I’m proceeding with the remaining RDF parsing debt in `core/knop/create` and `core/integrate`. First I’m re-reading the local guidance and the two mutators to confirm the smallest safe slice before editing.
+
+# gpt-5.4_2026-04-06_2259_51
+
+I’ve confirmed the note and the two remaining mutators match the current debt list. Next I’m checking their tests and settled fixture expectations so I can replace string surgery with parsed-shape rendering without changing the intended bytes.
+
+# gpt-5.4_2026-04-06_2259_59
+
+I have enough context to edit. Plan is straightforward: convert `core/knop/create` first to parsed MeshInventory shape classification and direct rendering against the settled fixture shape, then apply the same pattern to `core/integrate`, then expand tests from substring checks to exact-bytes and equivalent-Turtle acceptance.
+
+# gpt-5.4_2026-04-06_2300_07
+
+The ontology summary note moved or isn’t present at that path, so I’m not blocking on it. I’m pulling the exact settled MeshInventory fixtures next so the new renderers can preserve today’s canonical output instead of inventing a new serialization.
+
+# gpt-5.4_2026-04-06_2301_02
+
+I’m checking the existing `core/weave` mesh-shape assertions before I duplicate anything. If those already encode the same carried MeshInventory facts, I’ll borrow the same fact sets instead of inventing a second incompatible notion of “valid current mesh inventory.”
+
+# gpt-5.4_2026-04-06_2303_08
+
+I’m editing `core/knop/create` now. The change is not a serializer refactor; it’s the same narrower move as the earlier slices: parse the carried MeshInventory facts, reject unsupported shapes, then render the settled target inventory directly.
+
+# gpt-5.4_2026-04-06_2304_26
+
+`core/knop/create` is converted. I’m reading it back now for type or shape mistakes before I touch `integrate`; the exact same pattern needs to land there, so it’s cheaper to catch drift once.
+
+# gpt-5.4_2026-04-06_2304_57
+
+I’m applying the same narrow pattern to `core/integrate`. This one needs one extra step: parse enough of the current inventory to preserve the already-woven knop and identifier block, instead of hardcoding the current `alice` fixture into the renderer.
+
+# gpt-5.4_2026-04-06_2306_58
+
+The `integrate` rewrite is in. I’m doing a pass for missed call-site updates and obvious lint failures before I move to tests; these two files got large enough that small mismatches are the main risk now.
+
+# gpt-5.4_2026-04-06_2307_18
+
+I’m updating the unit tests now. The previous tests were too weak for this slice; they only checked substrings, which would miss exactly the kind of silent output drift this parser-driven rewrite is supposed to prevent.
+
+# gpt-5.4_2026-04-06_2308_30
+
+The code is in place. I’m running formatter and a narrow test pass first, because the likely issues now are syntactic or type-level rather than behavioral drift.
+
+# gpt-5.4_2026-04-06_2308_34
+
+The formatter is clean. The unit tests are compiling now; I’m waiting on the first result before I widen to the runtime integration tests and the full lint/check pass.
+
+# gpt-5.4_2026-04-06_2308_41
+
+The parser-driven unit coverage is green. I’m updating the task note before the broader validation pass so the note matches the code if lint or type-check turns up a follow-on tweak.
+
+# gpt-5.4_2026-04-06_2308_48
+
+I’m narrowing the task note now. The implementation checklist should not keep pointing at `core/knop/create` and `core/integrate` once the code has moved; the real remaining debt is the explicitly guarded extract/extracted-weave seam, not those two mutators anymore.
+
+# gpt-5.4_2026-04-06_2309_13
+
+The note is aligned. I’m on the broader validation pass now: core unit tests plus the runtime integration fixtures, then lint and type-check. If anything remains, it’s likely to be a too-strict shape assertion or an unused constant.
+
+# gpt-5.4_2026-04-06_2309_17
+
+Lint found exactly the expected issue: a few ontology constants in `core/knop/create` are now dead after the rewrite. I’m removing those and then rerunning the full pass.
+
+# gpt-5.4_2026-04-06_2309_35
+
+Core and runtime integration coverage are clean, and lint is clean after the constant trim. I’m doing one last `check` on the final file state and then I’ll summarize the remaining considerations and the exact scope now left in the task note.
+
+# gpt-5.4_2026-04-06_2309_53
+
+Implemented the remaining Priority 5 slice in [create.ts](../../src/core/knop/create.ts) and [integrate.ts](../../src/core/integrate/integrate.ts). Both now parse carried MeshInventory quads, reject unsupported or already-registered shapes via RDF facts, and render the settled updated MeshInventory directly instead of mutating Turtle lines. I also strengthened [create_test.ts](../../src/core/knop/create_test.ts) and [integrate_test.ts](../../src/core/integrate/integrate_test.ts) to compare exact fixture bytes and accept semantically equivalent current MeshInventory Turtle, and updated [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md) to mark the implementation plan complete.
+
+Validation passed:
+- `deno test --allow-read --allow-write --allow-run=git,deno --allow-env src/core/knop/create_test.ts src/core/integrate/integrate_test.ts tests/integration/knop_create_test.ts tests/integration/integrate_test.ts`
+- `deno task lint`
+- `deno task check`
+
+Post-change, the meaningful remaining RDF debt is narrower than before: the explicitly guarded fail-closed seams in `core/extract` and extracted-resource `core/weave`. I would not keep extending this task into generic graph mutation unless those guarded seams start blocking Markdown payload publishing.
+
+Commit message suggestion:
+```text
+core: replace carried mesh inventory line mutation with RDF-aware renderers
+
+- parse current MeshInventory facts in knop create and integrate instead of editing Turtle lines in place
+- preserve existing duplicate-registration errors while failing closed on unsupported carried mesh shapes
+- render settled 03->04 and 05->06 mesh inventory outputs directly from parsed state
+- strengthen core tests to compare exact fixture bytes and accept semantically equivalent MeshInventory Turtle
+- update the RDF parsing task note to mark the implementation plan complete
+```
