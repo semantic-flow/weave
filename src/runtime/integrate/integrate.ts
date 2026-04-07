@@ -12,6 +12,7 @@ import {
   type IntegratePlan,
   planIntegrate,
 } from "../../core/integrate/integrate.ts";
+import { resolveMeshBaseFromMetadataTurtle } from "../mesh/metadata.ts";
 import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
@@ -297,17 +298,8 @@ async function loadCurrentMeshState(
     throw error;
   }
 
-  const meshBaseMatch = meshMetadataTurtle.match(
-    /sflo:meshBase "([^"]+)"\^\^xsd:anyURI/,
-  );
-  if (!meshBaseMatch) {
-    throw new IntegrateRuntimeError(
-      "Could not resolve meshBase from _mesh/_meta/meta.ttl",
-    );
-  }
-
   return {
-    meshBase: meshBaseMatch[1]!,
+    meshBase: resolveMeshBaseFromMetadataTurtle(meshMetadataTurtle),
     currentMeshInventoryTurtle,
   };
 }

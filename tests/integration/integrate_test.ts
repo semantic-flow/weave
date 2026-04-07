@@ -8,6 +8,10 @@ import {
   materializeMeshAliceBioBranch,
   readMeshAliceBioBranchFile,
 } from "../support/mesh_alice_bio_fixture.ts";
+import {
+  MESH_ALICE_BIO_BASE,
+  writeEquivalentMeshMetadata,
+} from "../support/mesh_metadata.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 Deno.test("executeIntegrate matches the settled alice-bio integrated fixture", async () => {
@@ -100,4 +104,24 @@ Deno.test("executeIntegrate rejects a source file outside the workspace", async 
     IntegrateRuntimeError,
     "inside the workspace",
   );
+});
+
+Deno.test("executeIntegrate accepts semantically equivalent mesh metadata turtle", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-integrate-metadata-");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await writeEquivalentMeshMetadata(workspaceRoot);
+
+  const result = await executeIntegrate({
+    workspaceRoot,
+    request: {
+      designatorPath: "alice/bio",
+      source: "alice-bio.ttl",
+    },
+  });
+
+  assertEquals(result.meshBase, MESH_ALICE_BIO_BASE);
+  assertEquals(result.workingFilePath, "alice-bio.ttl");
 });

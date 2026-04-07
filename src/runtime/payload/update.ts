@@ -6,6 +6,7 @@ import {
   type PayloadUpdatePlan,
   planPayloadUpdate,
 } from "../../core/payload/update.ts";
+import { resolveMeshBaseFromMetadataTurtle } from "../mesh/metadata.ts";
 import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
@@ -342,15 +343,6 @@ async function loadCurrentPayloadState(
     throw error;
   }
 
-  const meshBaseMatch = meshMetadataTurtle.match(
-    /sflo:meshBase "([^"]+)"\^\^xsd:anyURI/,
-  );
-  if (!meshBaseMatch) {
-    throw new PayloadUpdateRuntimeError(
-      "Could not resolve meshBase from _mesh/_meta/meta.ttl",
-    );
-  }
-
   const payloadBlock = currentKnopInventoryTurtle
     .split("\n\n")
     .find((block) =>
@@ -391,7 +383,7 @@ async function loadCurrentPayloadState(
   }
 
   return {
-    meshBase: meshBaseMatch[1]!,
+    meshBase: resolveMeshBaseFromMetadataTurtle(meshMetadataTurtle),
     currentKnopInventoryTurtle,
     workingFilePath,
   };

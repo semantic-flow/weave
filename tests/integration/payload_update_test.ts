@@ -5,6 +5,10 @@ import {
   materializeMeshAliceBioBranch,
   readMeshAliceBioBranchFile,
 } from "../support/mesh_alice_bio_fixture.ts";
+import {
+  MESH_ALICE_BIO_BASE,
+  writeEquivalentMeshMetadata,
+} from "../support/mesh_metadata.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 import { PayloadUpdateRuntimeError } from "../../src/runtime/payload/update.ts";
 
@@ -210,4 +214,35 @@ Deno.test("executePayloadUpdate rejects invalid Turtle and preserves the working
     await Deno.readTextFile(join(workspaceRoot, "alice-bio.ttl")),
     originalPayload,
   );
+});
+
+Deno.test("executePayloadUpdate accepts semantically equivalent mesh metadata turtle", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-payload-update-metadata-",
+  );
+  await materializeMeshAliceBioBranch(
+    "09-alice-bio-referenced-woven",
+    workspaceRoot,
+  );
+  await writeEquivalentMeshMetadata(workspaceRoot);
+
+  const sourceRoot = await createTestTmpDir(
+    "weave-payload-update-metadata-source-",
+  );
+  const sourcePath = join(sourceRoot, "alice-bio-v2.ttl");
+  await Deno.writeTextFile(
+    sourcePath,
+    await readMeshAliceBioBranchFile("10-alice-bio-updated", "alice-bio.ttl"),
+  );
+
+  const result = await executePayloadUpdate({
+    workspaceRoot,
+    request: {
+      designatorPath: "alice/bio",
+      source: sourcePath,
+    },
+  });
+
+  assertEquals(result.meshBase, MESH_ALICE_BIO_BASE);
+  assertEquals(result.updatedPaths, ["alice-bio.ttl"]);
 });

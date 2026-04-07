@@ -8,6 +8,10 @@ import {
   materializeMeshAliceBioBranch,
   readMeshAliceBioBranchFile,
 } from "../support/mesh_alice_bio_fixture.ts";
+import {
+  MESH_ALICE_BIO_BASE,
+  writeEquivalentMeshMetadata,
+} from "../support/mesh_metadata.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 Deno.test("executeExtract matches the settled bob extracted fixture", async () => {
@@ -107,4 +111,20 @@ Deno.test("executeExtract fails closed when the target Bob support surface alrea
     ExtractRuntimeError,
     "already exists",
   );
+});
+
+Deno.test("executeExtract accepts semantically equivalent mesh metadata turtle", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-extract-metadata-");
+  await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
+  await writeEquivalentMeshMetadata(workspaceRoot);
+
+  const result = await executeExtract({
+    workspaceRoot,
+    request: {
+      designatorPath: "bob",
+    },
+  });
+
+  assertEquals(result.meshBase, MESH_ALICE_BIO_BASE);
+  assertEquals(result.referenceTargetDesignatorPath, "alice/bio");
 });

@@ -10,6 +10,10 @@ import {
   materializeMeshAliceBioBranch,
   readMeshAliceBioBranchFile,
 } from "../support/mesh_alice_bio_fixture.ts";
+import {
+  MESH_ALICE_BIO_BASE,
+  writeEquivalentMeshMetadata,
+} from "../support/mesh_metadata.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 Deno.test("executeKnopAddReference matches the settled alice-bio referenced fixture", async () => {
@@ -247,4 +251,27 @@ Deno.test("executeKnopAddReference treats success logging failures as best-effor
       "alice/_knop/_references/references.ttl",
     ),
   );
+});
+
+Deno.test("executeKnopAddReference accepts semantically equivalent mesh metadata turtle", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-knop-add-reference-metadata-",
+  );
+  await materializeMeshAliceBioBranch(
+    "07-alice-bio-integrated-woven",
+    workspaceRoot,
+  );
+  await writeEquivalentMeshMetadata(workspaceRoot);
+
+  const result = await executeKnopAddReference({
+    workspaceRoot,
+    request: {
+      designatorPath: "alice",
+      referenceTargetDesignatorPath: "alice/bio",
+      referenceRole: "canonical",
+    },
+  });
+
+  assertEquals(result.meshBase, MESH_ALICE_BIO_BASE);
+  assertEquals(result.createdPaths, ["alice/_knop/_references/references.ttl"]);
 });

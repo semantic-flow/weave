@@ -8,6 +8,10 @@ import {
   materializeMeshAliceBioBranch,
   readMeshAliceBioBranchFile,
 } from "../support/mesh_alice_bio_fixture.ts";
+import {
+  MESH_ALICE_BIO_BASE,
+  writeEquivalentMeshMetadata,
+} from "../support/mesh_metadata.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 Deno.test("executeWeave matches the settled alice knop-created-woven fixture", async () => {
@@ -500,6 +504,19 @@ Deno.test("executeWeave ignores non-requested weave candidates before loading wo
     },
   });
 
+  assertEquals(result.wovenDesignatorPaths, ["alice"]);
+});
+
+Deno.test("executeWeave accepts semantically equivalent mesh metadata turtle", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-weave-metadata-");
+  await materializeMeshAliceBioBranch("04-alice-knop-created", workspaceRoot);
+  await writeEquivalentMeshMetadata(workspaceRoot);
+
+  const result = await executeWeave({
+    workspaceRoot,
+  });
+
+  assertEquals(result.meshBase, MESH_ALICE_BIO_BASE);
   assertEquals(result.wovenDesignatorPaths, ["alice"]);
 });
 
