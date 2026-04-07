@@ -1,6 +1,11 @@
-import * as posix from "@std/path/posix";
 import type { ResourcePageModel } from "../../core/weave/weave.ts";
 import type { PlannedFile } from "../../core/planned_file.ts";
+import {
+  deriveMeshLabel,
+  escapeHtml,
+  toRelativeHref,
+  toResourcePath,
+} from "../../core/weave/html.ts";
 
 export function renderResourcePages(
   meshBase: string,
@@ -54,13 +59,25 @@ export function renderResourcePage(
   }
 
   if (page.kind === "referenceCatalog") {
-    const currentLinks = page.currentLinks.map((link) =>
-      `        <li id="${escapeHtml(link.fragment)}"><code>#${
-        escapeHtml(link.fragment)
-      }</code>: ${escapeHtml(link.referenceRoleLabel)} reference target <code>${
-        escapeHtml(link.referenceTargetPath)
-      }</code>.</li>`
-    ).join("\n");
+    const targetBasePath = resourcePath;
+    const currentLinks = page.currentLinks.map((link) => {
+      const targetHref = toRelativeHref(
+        targetBasePath,
+        link.referenceTargetPath,
+      );
+      const stateHref = link.referenceTargetStatePath
+        ? toRelativeHref(targetBasePath, link.referenceTargetStatePath)
+        : undefined;
+      const escapedFragment = escapeHtml(link.fragment);
+      const escapedRoleLabel = escapeHtml(link.referenceRoleLabel);
+      const escapedTargetHref = escapeHtml(targetHref);
+      const escapedStateHref = stateHref ? escapeHtml(stateHref) : undefined;
+      const escapedTargetPath = escapeHtml(link.referenceTargetPath);
+
+      return stateHref
+        ? `        <li id="${escapedFragment}"><code>#${escapedFragment}</code>: ${escapedRoleLabel} reference target <a href="${escapedTargetHref}">${escapedTargetHref}</a>, pinned to <a href="${escapedStateHref}">${escapedStateHref}</a>.</li>`
+        : `        <li id="${escapedFragment}"><code>#${escapedFragment}</code>: ${escapedRoleLabel} reference target <code>${escapedTargetPath}</code>.</li>`;
+    }).join("\n");
 
     return `<!doctype html>
 <html lang="en">
@@ -102,33 +119,4 @@ ${currentLinks}
 </body>
 </html>
 `;
-}
-
-function toResourcePath(pagePath: string): string {
-  if (!pagePath.endsWith("/index.html")) {
-    throw new Error(`Unsupported resource page path: ${pagePath}`);
-  }
-
-  return pagePath.slice(0, -"/index.html".length);
-}
-
-function toRelativeHref(fromPagePath: string, targetPath: string): string {
-  return posix.relative(posix.dirname(fromPagePath), targetPath);
-}
-
-function deriveMeshLabel(meshBase: string): string {
-  const url = new URL(meshBase);
-  const segments = url.pathname.split("/").filter((segment) =>
-    segment.length > 0
-  );
-  return segments[segments.length - 1] ?? "_mesh";
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
 }

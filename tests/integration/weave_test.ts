@@ -275,6 +275,152 @@ Deno.test("executeWeave materializes the second alice bio payload weave slice", 
   );
 });
 
+Deno.test("executeWeave materializes the extracted bob woven slice", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-weave-bob-extracted-");
+  await materializeMeshAliceBioBranch("12-bob-extracted", workspaceRoot);
+
+  const result = await executeWeave({
+    workspaceRoot,
+    request: {
+      designatorPaths: ["bob"],
+    },
+  });
+
+  assertEquals(result.wovenDesignatorPaths, ["bob"]);
+  assertEquals(
+    [...result.updatedPaths].sort(),
+    [
+      "_mesh/_inventory/_history001/index.html",
+      "_mesh/_inventory/inventory.ttl",
+      "alice/index.html",
+      "bob/_knop/_inventory/inventory.ttl",
+    ],
+  );
+  assertEquals(
+    [...result.createdPaths].sort(),
+    [
+      "_mesh/_inventory/_history001/_s0004/index.html",
+      "_mesh/_inventory/_history001/_s0004/inventory-ttl/index.html",
+      "_mesh/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl",
+      "bob/index.html",
+      "bob/_knop/index.html",
+      "bob/_knop/_inventory/_history001/index.html",
+      "bob/_knop/_inventory/_history001/_s0001/index.html",
+      "bob/_knop/_inventory/_history001/_s0001/inventory-ttl/index.html",
+      "bob/_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      "bob/_knop/_inventory/index.html",
+      "bob/_knop/_meta/_history001/index.html",
+      "bob/_knop/_meta/_history001/_s0001/index.html",
+      "bob/_knop/_meta/_history001/_s0001/meta-ttl/index.html",
+      "bob/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
+      "bob/_knop/_meta/index.html",
+      "bob/_knop/_references/_history001/index.html",
+      "bob/_knop/_references/_history001/_s0001/index.html",
+      "bob/_knop/_references/_history001/_s0001/references-ttl/index.html",
+      "bob/_knop/_references/_history001/_s0001/references-ttl/references.ttl",
+      "bob/_knop/_references/index.html",
+    ].sort(),
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+    ),
+    await readMeshAliceBioBranchFile(
+      "13-bob-extracted-woven",
+      "_mesh/_inventory/inventory.ttl",
+    ),
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "bob/_knop/_inventory/inventory.ttl"),
+    ),
+    await readMeshAliceBioBranchFile(
+      "13-bob-extracted-woven",
+      "bob/_knop/_inventory/inventory.ttl",
+    ),
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(
+        workspaceRoot,
+        "bob/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
+      ),
+    ),
+    await readMeshAliceBioBranchFile(
+      "13-bob-extracted-woven",
+      "bob/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
+    ),
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(
+        workspaceRoot,
+        "bob/_knop/_references/_history001/_s0001/references-ttl/references.ttl",
+      ),
+    ),
+    await readMeshAliceBioBranchFile(
+      "13-bob-extracted-woven",
+      "bob/_knop/_references/_history001/_s0001/references-ttl/references.ttl",
+    ),
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "_mesh/_inventory/_history001/index.html"),
+    ),
+    await readMeshAliceBioBranchFile(
+      "13-bob-extracted-woven",
+      "_mesh/_inventory/_history001/index.html",
+    ),
+  );
+  assertEquals(
+    await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
+    await readMeshAliceBioBranchFile(
+      "13-bob-extracted-woven",
+      "alice/index.html",
+    ),
+  );
+  assertEquals(
+    await Deno.readTextFile(join(workspaceRoot, "bob/index.html")),
+    await readMeshAliceBioBranchFile(
+      "13-bob-extracted-woven",
+      "bob/index.html",
+    ),
+  );
+  assertEquals(
+    await Deno.readTextFile(join(workspaceRoot, "alice-bio.ttl")),
+    await readMeshAliceBioBranchFile(
+      "13-bob-extracted-woven",
+      "alice-bio.ttl",
+    ),
+  );
+});
+
+Deno.test("executeWeave fails closed when bob's woven source payload has no current history", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-bob-extracted-missing-history-",
+  );
+  await materializeMeshAliceBioBranch("12-bob-extracted", workspaceRoot);
+
+  await replaceFileText(
+    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+    `sflo:currentArtifactHistory <alice/bio/_history001> ;
+  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;`,
+    `sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;`,
+  );
+
+  await assertRejects(
+    () =>
+      executeWeave({
+        workspaceRoot,
+        request: {
+          designatorPaths: ["bob"],
+        },
+      }),
+    WeaveRuntimeError,
+    "missing a woven current payload history",
+  );
+});
+
 Deno.test("executeWeave fails closed when a created weave target already exists", async () => {
   const workspaceRoot = await createTestTmpDir("weave-weave-existing-");
   await materializeMeshAliceBioBranch("04-alice-knop-created", workspaceRoot);
@@ -398,4 +544,16 @@ async function writeSupplementalKnopSurface(
     join(knopPath, "_inventory/inventory.ttl"),
     inventoryTurtle,
   );
+}
+
+async function replaceFileText(
+  path: string,
+  before: string,
+  after: string,
+): Promise<void> {
+  const current = await Deno.readTextFile(path);
+  if (!current.includes(before)) {
+    throw new Error(`Failed to find expected text in ${path}`);
+  }
+  await Deno.writeTextFile(path, current.replace(before, after));
 }

@@ -183,3 +183,19 @@ created: 1773630801215
 - Why:
   - The settled `10` fixture proves a real semantic payload change while also proving that histories, inventories, and generated pages stay frozen in this non-woven step.
   - Letting the local runtime stage replacement bytes from a local path or `file:` URL, including one outside the workspace, preserves the one-file `alice-bio.ttl` result without polluting the semantic contract with host-path semantics or temporary mesh artifacts.
+
+### 2026-04-06: First Local extract Slice Targets Bob 11 -> 12
+
+- Decision: Treat the settled Alice Bio `11-alice-bio-v2-woven` -> `12-bob-extracted` transition as the first carried local `extract` slice, expose the human-facing CLI as `weave extract <designatorPath>`, and keep source resolution local and fail-closed against exactly one woven payload artifact that currently mentions the target designator.
+- References: [[wd.task.2026.2026-04-05_1004-extract-bob]], [[wd.spec.2026-04-05-extract-behavior]]
+- Why:
+  - The carried `12` fixture proves a narrow current-surface extraction boundary, not a generic source-selection or graph-rewrite API.
+  - Pinning the created Bob `ReferenceLink` to the source payload artifact's latest historical state preserves the non-woven semantic step while keeping broader payload splitting and Bob weaving out of scope.
+
+### 2026-04-06: Fifth Local weave Slice Targets Bob 12 -> 13
+
+- Decision: Treat the settled Alice Bio `12-bob-extracted` -> `13-bob-extracted-woven` transition as the next carried local `weave` slice, keep the thin `designatorPaths` request surface, version Bob `_meta`, `_inventory`, and `_references`, advance `_mesh/_inventory` to `_s0004`, and keep the black-box CLI acceptance manifest-scoped so unrelated fixture `README.md` churn is ignored.
+- References: [[wd.task.2026.2026-04-06_1331-weave-bob-extracted-woven]], [[wd.spec.2026-04-03-weave-behavior]]
+- Why:
+  - The carried `13` fixture is the first extracted-resource weave and the first carried case where one existing current page changes because a newly public extracted resource becomes live.
+  - Extending the shared renderer seam only where the fixture forces it avoids absorbing a broader page-system rewrite while still proving Bob current/history pages and the updated Alice link surface.

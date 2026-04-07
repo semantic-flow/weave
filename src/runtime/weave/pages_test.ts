@@ -112,3 +112,44 @@ Deno.test("renderResourcePage escapes dynamic ReferenceCatalog HTML fragments", 
 `,
   );
 });
+
+Deno.test("renderResourcePage renders extracted ReferenceCatalog pages pinned to a historical state", () => {
+  assertEquals(
+    renderResourcePage(
+      "https://semantic-flow.github.io/mesh-alice-bio/",
+      {
+        kind: "referenceCatalog",
+        path: "bob/_knop/_references/index.html",
+        catalogPath: "bob/_knop/_references",
+        ownerDesignatorPath: "bob",
+        currentLinks: [{
+          fragment: "reference001",
+          referenceRoleLabel: "supplemental",
+          referenceTargetPath: "alice/bio",
+          referenceTargetStatePath: "alice/bio/_history001/_s0002",
+        }],
+      },
+    ),
+    `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>mesh-alice-bio bob/_knop/_references</title>
+  <link rel="canonical" href="https://semantic-flow.github.io/mesh-alice-bio/bob/_knop/_references">
+</head>
+<body>
+  <main>
+    <h1>bob/_knop/_references</h1>
+    <p>Resource page for the bob ReferenceCatalog artifact.</p>
+    <section>
+      <h2>Current Links</h2>
+      <ul>
+        <li id="reference001"><code>#reference001</code>: supplemental reference target <a href="../../alice/bio">../../alice/bio</a>, pinned to <a href="../../alice/bio/_history001/_s0002">../../alice/bio/_history001/_s0002</a>.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>
+`,
+  );
+});

@@ -148,9 +148,19 @@ The black-box CLI acceptance for this slice should stay manifest-scoped and file
 
 ## Implementation Plan
 
-- [ ] Draft [[wd.spec.2026-04-05-extract-behavior]] and settle the first local request/result boundary for `extract`.
-- [ ] Define the first local CLI surface for the carried `extract` operation.
-- [ ] Add failing integration and black-box CLI tests for the narrow `11` -> `12` extraction behavior, then add unit tests where a real planning or validation seam appears.
-- [ ] Implement the first local or in-process `extract` path over shared `core` and `runtime`.
-- [ ] Draft or refine the thin public API example or contract fragment for `extract` in `semantic-flow-framework` if this slice sharpens the public contract.
-- [ ] Update relevant overview/spec/framework notes as the slice settles.
+- [x] Draft [[wd.spec.2026-04-05-extract-behavior]] and settle the first local request/result boundary for `extract`.
+- [x] Define the first local CLI surface for the carried `extract` operation.
+- [x] Add failing integration and black-box CLI tests for the narrow `11` -> `12` extraction behavior, then add unit tests where a real planning or validation seam appears.
+- [x] Implement the first local or in-process `extract` path over shared `core` and `runtime`.
+- [c] Draft or refine the thin public API example or contract fragment for `extract` in `semantic-flow-framework` if this slice sharpens the public contract.
+- [x] Update relevant overview/spec/framework notes as the slice settles.
+
+## Outcome
+
+The carried `11-alice-bio-v2-woven` -> `12-bob-extracted` slice is now implemented locally.
+
+- shared `core` now plans a narrow `extract` slice by composing the existing `knop.create` and `knop.addReference` patterns, while adding extract-specific `referenceTargetState` handling and fixture-aligned file ordering
+- local `runtime` now resolves the source payload artifact by scanning the current woven payload surfaces in the workspace, requiring exactly one woven payload artifact to mention the requested target designator, and pinning the created Bob link to that source artifact's latest historical state
+- local `cli` now exposes `weave extract <designatorPath>` as the first carried human-facing extract surface
+- focused unit, integration, and manifest-scoped black-box CLI coverage now lock the carried `12` slice against the settled Alice Bio fixture while keeping Bob ResourcePages absent and ignoring unrelated fixture `README.md` churn
+- no additional `semantic-flow-framework` contract update was needed for this slice because the existing `extract` vocabulary and `12-bob-extracted` manifest already fit the carried local boundary
