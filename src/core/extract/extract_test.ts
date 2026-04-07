@@ -65,8 +65,8 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
       "bob/_knop/_references/references.ttl",
     ),
   );
-  // Keep this explicit so future fixture-format changes still exercise the
-  // injectReferenceTargetState string-shaping seam in planExtract.
+  // Keep this explicit so future extract changes still pin the reference to a
+  // historical state in the rendered ReferenceCatalog file.
   assertStringIncludes(
     plan.createdFiles[2]?.contents ?? "",
     "sflo:referenceTargetState <alice/bio/_history001/_s0002> .",

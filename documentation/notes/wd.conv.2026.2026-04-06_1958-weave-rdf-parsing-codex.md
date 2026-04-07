@@ -622,3 +622,71 @@ core: parse carried ReferenceCatalog links with RDF quads
 - add planner coverage for semantically equivalent ReferenceCatalog Turtle in first-reference and extracted weave slices
 - update the RDF parsing task note to narrow the remaining debt to extract-specific rewrite seams
 ```
+
+# User_2026-04-06_2230_32
+
+proceed
+
+# gpt-5.4_2026-04-06_2230_44
+
+Proceeding with the remaining extract-side RDF parsing debt. I’m inspecting `core/extract` and its tests first so I can choose the smallest defensible cut rather than mixing the extract surgery with the extracted-weave rewrite ladder.
+
+# gpt-5.4_2026-04-06_2231_00
+
+I’ve confirmed the remaining extract debt is isolated to three helpers in `core/extract`. Before editing, I’m checking the current `knop create` and `knop add_reference` outputs plus the extracted fixture shape, because the safest next cut is to stop parsing those files as blocks while still preserving the settled extract output shape.
+
+# gpt-5.4_2026-04-06_2231_47
+
+The main technical decision here is whether to rewrite all three helpers now or only the ones that can be made parser-aware without destabilizing the settled extract fixture. I’m checking the higher-level extract tests before I choose, because `reorderMeshInventoryLocatedFiles` sits on a much larger `_mesh/_inventory` document and I don’t want to hide a broader serialization change inside this slice.
+
+# gpt-5.4_2026-04-06_2232_37
+
+I’m editing `core/extract` now. The cut is narrower than a full parser refactor: stop mutating the created KnopInventory and ReferenceCatalog Turtle from sibling planner outputs, render those files directly from known extract facts instead, and leave the `_mesh/_inventory` block reorder as the one remaining documented narrow seam.
+
+# gpt-5.4_2026-04-06_2232_55
+
+The extract planner no longer edits the created KnopInventory or ReferenceCatalog by string surgery. I’m checking the patch shape now, then I’ll clean up the leftover function boundary and adjust the tests/task note to match the new narrower residual seam.
+
+# gpt-5.4_2026-04-06_2232_58
+
+The planner patch is structurally right; there’s just a leftover dead function stub from the old KnopInventory normalizer. I’m cleaning that up and tightening the extract test comment so it reflects the new state of the seam accurately.
+
+# gpt-5.4_2026-04-06_2233_10
+
+The extract planner now renders the created KnopInventory and ReferenceCatalog directly from known extract facts; only the mesh-inventory block reorder remains as a documented narrow text seam. I’m running the focused extract tests now, then `lint` and `check`, and I’ll update the task note if the suite is clean.
+
+# gpt-5.4_2026-04-06_2233_20
+
+The extract-specific tests are green and the settled Bob fixture still matches exactly. I’m running `lint` and `check` now, then I’ll narrow the task note so it no longer lists the two extract helpers we just removed.
+
+# gpt-5.4_2026-04-06_2233_26
+
+The code is clean. I’m updating the task note to reflect the smaller residual debt precisely: `core/extract` no longer has three string-surgery helpers, just the located-file reorder, and the next slice is now that plus the extracted-weave `replaceExactOrThrow(...)` ladder.
+
+# gpt-5.4_2026-04-06_2233_48
+
+The note is updated and consistent with the code. I’m doing one final status pass so I can call out exactly what landed and what still remains before we move to the last extract/weave seam.
+
+# gpt-5.4_2026-04-06_2234_02
+
+Implemented the next extract-side cleanup and updated the task note.
+
+[extract.ts](../../src/core/extract/extract.ts#L99) now renders the created extract KnopInventory and ReferenceCatalog directly from known extract facts instead of mutating sibling planner outputs, with the canonical renderers at [extract.ts](../../src/core/extract/extract.ts#L263) and [extract.ts](../../src/core/extract/extract.ts#L295). The only remaining documented extract text seam is [extract.ts](../../src/core/extract/extract.ts#L317), which still reorders the new mesh-inventory `LocatedFile` block. I also updated the extract assertion comment in [extract_test.ts](../../src/core/extract/extract_test.ts#L68) and narrowed the remaining debt in [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md#L45).
+
+Validation passed:
+- `deno test --allow-read --allow-write --allow-run=git,deno --allow-env src/core/extract/extract_test.ts tests/integration/extract_test.ts`
+- `deno task lint`
+- `deno task check`
+
+What’s next is narrower now: either replace or explicitly shape-test [extract.ts](../../src/core/extract/extract.ts#L317) together with the extracted-weave `replaceExactOrThrow(...)` ladder in [weave.ts](../../src/core/weave/weave.ts#L2470). I would still keep the larger `core/knop/create` / `core/integrate` / `core/knop/add_reference` graph-mutation rewrite out of this immediate slice.
+
+Commit message suggestion:
+
+```text
+core: render extract artifacts directly from known facts
+
+- stop mutating extract KnopInventory and ReferenceCatalog Turtle from sibling planner output
+- render canonical extract support files directly from normalized extract inputs
+- leave only the mesh inventory located-file reorder as the remaining extract text seam
+- update extract tests and the RDF parsing task note to reflect the narrower remaining debt
+```

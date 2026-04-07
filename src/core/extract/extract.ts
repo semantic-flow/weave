@@ -110,15 +110,18 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
         createdKnopMetadataFile,
         {
           path: updatedKnopInventoryFile.path,
-          contents: normalizeExtractKnopInventoryTurtle(
-            updatedKnopInventoryFile.contents,
+          contents: renderExtractKnopInventoryTurtle(
+            meshBase,
             designatorPath,
           ),
         },
         {
           path: createdReferencesFile.path,
-          contents: injectReferenceTargetState(
-            createdReferencesFile.contents,
+          contents: renderExtractReferenceCatalogTurtle(
+            meshBase,
+            designatorPath,
+            referenceTargetDesignatorPath,
+            knopAddReferencePlan.referenceRoleIri,
             referenceTargetStatePath,
           ),
         },
@@ -257,30 +260,58 @@ function requirePlannedFile(
   return file;
 }
 
-function injectReferenceTargetState(
-  referencesTurtle: string,
+function renderExtractKnopInventoryTurtle(
+  meshBase: string,
+  designatorPath: string,
+): string {
+  const knopPath = toKnopPath(designatorPath);
+
+  return `@base <${meshBase}> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+
+<${knopPath}> a sflo:Knop ;
+  sflo:hasKnopMetadata <${knopPath}/_meta> ;
+  sflo:hasKnopInventory <${knopPath}/_inventory> ;
+  sflo:hasReferenceCatalog <${knopPath}/_references> ;
+  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> .
+
+<${knopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${knopPath}/_meta/meta.ttl> .
+
+<${knopPath}/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${knopPath}/_inventory/inventory.ttl> .
+
+<${knopPath}/_references> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${knopPath}/_references/references.ttl> .
+
+<${knopPath}/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<${knopPath}/_references/references.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+`;
+}
+
+function renderExtractReferenceCatalogTurtle(
+  meshBase: string,
+  designatorPath: string,
+  referenceTargetDesignatorPath: string,
+  referenceRoleIri: string,
   referenceTargetStatePath: string,
 ): string {
-  // This first carried extract slice renders the referenceTarget line in a
-  // tightly fixture-shaped form: two-space indent, one `sflo:referenceTarget`
-  // predicate line, trailing ` .`, and a final newline. If that formatting
-  // changes, this regex insertion can fail closed even when the RDF meaning is
-  // still recoverable. TODO: replace this string surgery with RDF-aware
-  // parse/serialize manipulation if the extract surface starts accepting more
-  // varied Turtle shapes.
-  const referenceTargetLinePattern =
-    /(\n {2}sflo:referenceTarget <[^>]+>) \.\n?$/;
-  const match = referencesTurtle.match(referenceTargetLinePattern);
-  if (!match) {
-    throw new ExtractInputError(
-      "Failed to add referenceTargetState to the planned reference catalog Turtle",
-    );
-  }
+  const referenceCatalogPath = `${toKnopPath(designatorPath)}/_references`;
 
-  return referencesTurtle.replace(
-    referenceTargetLinePattern,
-    `$1 ;\n  sflo:referenceTargetState <${referenceTargetStatePath}> .\n`,
-  );
+  return `@base <${meshBase}> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+
+<${designatorPath}> sflo:hasReferenceLink <${referenceCatalogPath}#reference001> .
+
+<${referenceCatalogPath}#reference001> a sflo:ReferenceLink ;
+  sflo:referenceLinkFor <${designatorPath}> ;
+  sflo:hasReferenceRole <${referenceRoleIri}> ;
+  sflo:referenceTarget <${referenceTargetDesignatorPath}> ;
+  sflo:referenceTargetState <${referenceTargetStatePath}> .
+`;
 }
 
 function reorderMeshInventoryLocatedFiles(
@@ -288,6 +319,12 @@ function reorderMeshInventoryLocatedFiles(
   knopInventoryLocatedFilePath: string,
   sourceWorkingFilePath: string,
 ): string {
+  // This is the remaining narrow extract-specific text seam. `planKnopCreate`
+  // still emits the surrounding MeshInventory Turtle, and this helper only
+  // reorders the newly inserted LocatedFile block to keep the settled extract
+  // fixture ordering. Revisit this together with the broader extracted-weave
+  // rewrite ladder rather than hiding a larger mesh-inventory serializer
+  // change inside `core/extract`.
   const blocks = meshInventoryTurtle.split("\n\n");
   const knopInventoryBlockIndex = blocks.findIndex((block) =>
     block.startsWith(
@@ -325,27 +362,6 @@ function reorderMeshInventoryLocatedFiles(
 
   return blocks.join("\n\n");
 }
-
-function normalizeExtractKnopInventoryTurtle(
-  knopInventoryTurtle: string,
-  designatorPath: string,
-): string {
-  const knopPath = `${designatorPath}/_knop`;
-  const blocks = knopInventoryTurtle.split("\n\n");
-  const knopBlockIndex = blocks.findIndex((block) =>
-    block.startsWith(`<${knopPath}> a sflo:Knop ;`)
-  );
-  if (knopBlockIndex === -1) {
-    throw new ExtractInputError(
-      `Failed to resolve the planned knop block for ${knopPath}`,
-    );
-  }
-
-  blocks[knopBlockIndex] = `<${knopPath}> a sflo:Knop ;
-  sflo:hasKnopMetadata <${knopPath}/_meta> ;
-  sflo:hasKnopInventory <${knopPath}/_inventory> ;
-  sflo:hasReferenceCatalog <${knopPath}/_references> ;
-  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> .`;
-
-  return blocks.join("\n\n");
+function toKnopPath(designatorPath: string): string {
+  return `${designatorPath}/_knop`;
 }
