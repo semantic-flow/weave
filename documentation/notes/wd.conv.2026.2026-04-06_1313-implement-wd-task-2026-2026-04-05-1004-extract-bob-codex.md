@@ -585,3 +585,48 @@ calling Deno.rename(file.tempPath, file.absolutePath).
 # gpt-5.4_2026-04-06_1914_05
 
 I’m verifying each CodeRabbit point against the current extract code before changing anything. First step is to read the referenced spots and confirm which comments still apply on this branch.
+
+# gpt-5.4_2026-04-06_1914_20
+
+Three of the comments look real on inspection: the misleading designator-path error text, the lost cause when rewrapping extract input errors, and the duplicated path-validation logic. The staged-backup comment does not look correct as written, because rollback currently depends on backups preserving the pre-commit file bytes, so I’m fixing the first three and leaving the backup logic unchanged.
+
+# gpt-5.4_2026-04-06_1914_35
+
+I’m making the extract-side fixes now. I’m also adding one regression test for wrapped causes so we don’t lose that context again; the backup-path comment is staying as-is because changing it to `tempPath` would break rollback semantics.
+
+# gpt-5.4_2026-04-06_1915_01
+
+I’ve patched the shared validation and error-wrapping paths. I’m adding one focused core regression test for preserved causes now, then I’ll run extract-related validation and a full CI pass.
+
+# gpt-5.4_2026-04-06_1915_22
+
+The extract-targeted coverage is green. I’m running the full repo checks now so these validation changes don’t drift against the rest of the carried slices.
+
+# gpt-5.4_2026-04-06_1916_07
+
+Verified all four comments against the current code.
+
+- Fixed the misleading segment-validation message in [designator_segments.ts](../../src/core/designator_segments.ts).
+- Fixed extract error rewrapping in [extract.ts](../../src/core/extract/extract.ts) so `ExtractInputError` now preserves the original `KnopCreateInputError`/`KnopAddReferenceInputError` as `cause`.
+- Refactored the duplicated extract path validation in [extract.ts](../../src/core/extract/extract.ts) into one shared helper while keeping the existing whitespace behavior split between working-file paths and relative IRI paths.
+- Added a regression test for preserved causes in [extract_test.ts](../../src/core/extract/extract_test.ts).
+
+I did not apply the `tempPath -> backupPath` suggestion in [extract.ts](../../src/runtime/extract/extract.ts). That would break rollback semantics, because rollback currently depends on `backupPath` holding the pre-commit bytes for the live file, not the new staged bytes. If we want to harden that area, the right follow-up is explicit locking or a different atomic swap strategy, not copying the staged temp into the backup.
+
+`deno task ci` passed.
+
+# User_2026-04-06_1918_01
+
+commit message
+
+# gpt-5.4_2026-04-06_1918_08
+
+```text
+extract: tighten extract validation and error context
+
+- replace the misleading designator-segment validation message so it references normalizeSafeDesignatorPath instead of toKnopPath
+- preserve the original knop-planning error as the cause when planExtract rewraps input failures
+- factor shared extract path normalization logic out of normalizeWorkingFilePath and normalizeRelativeIriPath while keeping their whitespace rules unchanged
+- add regression coverage that planExtract preserves wrapped error causes
+- keep extract integration and CLI behavior green under full deno task ci
+```

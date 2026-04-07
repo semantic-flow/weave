@@ -1,6 +1,7 @@
 import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
 import { readMeshAliceBioBranchFile } from "../../../tests/support/mesh_alice_bio_fixture.ts";
 import { ExtractInputError, planExtract } from "./extract.ts";
+import { KnopCreateInputError } from "../knop/create.ts";
 
 Deno.test("planExtract renders the first non-woven bob extraction artifacts", async () => {
   const plan = planExtract({
@@ -98,4 +99,35 @@ Deno.test("planExtract rejects absolute referenceTargetWorkingFilePath values", 
     ExtractInputError,
     "mesh-relative file path",
   );
+});
+
+Deno.test("planExtract preserves the original knop-planning error as the cause", async () => {
+  const currentMeshInventoryTurtle = await readMeshAliceBioBranchFile(
+    "11-alice-bio-v2-woven",
+    "_mesh/_inventory/inventory.ttl",
+  );
+
+  let thrown: unknown;
+  try {
+    planExtract({
+      meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+      currentMeshInventoryTurtle,
+      designatorPath: "alice",
+      referenceTargetDesignatorPath: "alice/bio",
+      referenceTargetStatePath: "alice/bio/_history001/_s0002",
+      referenceTargetWorkingFilePath: "alice-bio.ttl",
+    });
+  } catch (error) {
+    thrown = error;
+  }
+
+  if (!(thrown instanceof ExtractInputError)) {
+    throw thrown;
+  }
+
+  if (!(thrown.cause instanceof KnopCreateInputError)) {
+    throw new Error(
+      "Expected ExtractInputError.cause to preserve KnopCreateInputError",
+    );
+  }
 });

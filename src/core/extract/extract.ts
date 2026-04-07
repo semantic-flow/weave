@@ -33,8 +33,8 @@ export interface ExtractPlan {
 }
 
 export class ExtractInputError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = "ExtractInputError";
   }
 }
@@ -137,7 +137,7 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
       error instanceof KnopCreateInputError ||
       error instanceof KnopAddReferenceInputError
     ) {
-      throw new ExtractInputError(error.message);
+      throw new ExtractInputError(error.message, { cause: error });
     }
     throw error;
   }
@@ -180,68 +180,66 @@ function normalizeDesignatorPath(
 }
 
 function normalizeWorkingFilePath(workingFilePath: string): string {
-  const trimmed = workingFilePath.trim();
-  if (trimmed.length === 0) {
-    throw new ExtractInputError("referenceTargetWorkingFilePath is required");
-  }
-  if (trimmed.startsWith("/") || trimmed.endsWith("/")) {
-    throw new ExtractInputError(
+  return normalizeValidatedPath(workingFilePath, {
+    fieldName: "referenceTargetWorkingFilePath",
+    rejectWhitespace: true,
+    slashMessage:
       "referenceTargetWorkingFilePath must be a mesh-relative file path",
-    );
-  }
-  if (
-    trimmed.includes("\\") || trimmed.includes("?") || trimmed.includes("#") ||
-    /\s/.test(trimmed)
-  ) {
-    throw new ExtractInputError(
+    unsupportedCharactersMessage:
       "referenceTargetWorkingFilePath contains unsupported path characters",
-    );
-  }
-
-  const segments = trimmed.split("/");
-  if (segments.some((segment) => segment.length === 0)) {
-    throw new ExtractInputError(
+    emptySegmentsMessage:
       "referenceTargetWorkingFilePath must not contain empty path segments",
-    );
-  }
-  if (segments.some((segment) => segment === "." || segment === "..")) {
-    throw new ExtractInputError(
+    dotSegmentsMessage:
       "referenceTargetWorkingFilePath must be a mesh-relative file path",
-    );
-  }
-
-  return trimmed;
+  });
 }
 
 function normalizeRelativeIriPath(value: string, fieldName: string): string {
+  return normalizeValidatedPath(value, {
+    fieldName,
+    rejectWhitespace: false,
+    slashMessage: `${fieldName} must not start or end with '/'`,
+    unsupportedCharactersMessage:
+      `${fieldName} contains unsupported path characters`,
+    emptySegmentsMessage: `${fieldName} must not contain empty path segments`,
+    dotSegmentsMessage:
+      `${fieldName} must not contain '.' or '..' path segments`,
+  });
+}
+
+function normalizeValidatedPath(
+  value: string,
+  options: {
+    fieldName: string;
+    rejectWhitespace: boolean;
+    slashMessage: string;
+    unsupportedCharactersMessage: string;
+    emptySegmentsMessage: string;
+    dotSegmentsMessage: string;
+  },
+): string {
   const trimmed = value.trim();
   if (trimmed.length === 0) {
-    throw new ExtractInputError(`${fieldName} is required`);
+    throw new ExtractInputError(`${options.fieldName} is required`);
   }
   if (trimmed.startsWith("/") || trimmed.endsWith("/")) {
-    throw new ExtractInputError(
-      `${fieldName} must not start or end with '/'`,
-    );
+    throw new ExtractInputError(options.slashMessage);
   }
   if (
-    trimmed.includes("\\") || trimmed.includes("?") || trimmed.includes("#")
+    trimmed.includes("\\") || trimmed.includes("?") || trimmed.includes("#") ||
+    (options.rejectWhitespace && /\s/.test(trimmed))
   ) {
-    throw new ExtractInputError(
-      `${fieldName} contains unsupported path characters`,
-    );
+    throw new ExtractInputError(options.unsupportedCharactersMessage);
   }
 
   const segments = trimmed.split("/");
   if (segments.some((segment) => segment.length === 0)) {
-    throw new ExtractInputError(
-      `${fieldName} must not contain empty path segments`,
-    );
+    throw new ExtractInputError(options.emptySegmentsMessage);
   }
   if (segments.some((segment) => segment === "." || segment === "..")) {
-    throw new ExtractInputError(
-      `${fieldName} must not contain '.' or '..' path segments`,
-    );
+    throw new ExtractInputError(options.dotSegmentsMessage);
   }
+
   return trimmed;
 }
 

@@ -40,7 +40,7 @@ export function normalizeSafeDesignatorPath(
   for (const segment of segments) {
     if (!SAFE_DESIGNATOR_SEGMENT_PATTERN.test(segment)) {
       throw createError(
-        `normalizeDesignatorPath rejected segment "${segment}" in ${fieldName}: toKnopPath only accepts path segments matching [A-Za-z0-9._-]+`,
+        `normalizeSafeDesignatorPath rejected segment "${segment}" in ${fieldName}: path validation only accepts path segments matching [A-Za-z0-9._-]+`,
       );
     }
   }
