@@ -635,8 +635,10 @@ function planFirstExtractedKnopWeave(
 
   const wovenMeshInventoryTurtle =
     renderFirstExtractedKnopWovenMeshInventoryTurtle(
-      currentMeshInventoryTurtle,
+      meshBase,
       designatorPath,
+      referenceTargetSourcePayloadArtifact.designatorPath,
+      referenceTargetSourcePayloadArtifact.workingFilePath,
     );
   const wovenKnopInventoryTurtle =
     renderFirstExtractedKnopWovenKnopInventoryTurtle(
@@ -1521,7 +1523,7 @@ function extractCurrentReferenceCatalogLinks(
     new Set(
       quads.flatMap((quad) =>
         quad.subject.termType === "NamedNode" &&
-            quad.subject.value.startsWith(linkSubjectPrefix)
+          quad.subject.value.startsWith(linkSubjectPrefix)
           ? [quad.subject.value]
           : []
       ),
@@ -2461,47 +2463,83 @@ function renderSecondPayloadWovenKnopInventoryTurtle(
 }
 
 function renderFirstExtractedKnopWovenMeshInventoryTurtle(
-  currentMeshInventoryTurtle: string,
+  meshBase: string,
   designatorPath: string,
+  sourcePayloadDesignatorPath: string,
+  sourceWorkingFilePath: string,
 ): string {
+  const rootDesignatorPath = toRootDesignatorPath(sourcePayloadDesignatorPath);
+  const rootKnopPath = toKnopPath(rootDesignatorPath);
+  const sourceKnopPath = toKnopPath(sourcePayloadDesignatorPath);
   const knopPath = toKnopPath(designatorPath);
 
-  let woven = currentMeshInventoryTurtle;
-  woven = replaceExactOrThrow(
-    woven,
-    "<alice>\n  sflo:hasResourcePage <alice/index.html> .\n\n",
-    `<alice>
-  sflo:hasResourcePage <alice/index.html> .
+  return `@base <${meshBase}> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<_mesh> a sflo:SemanticMesh ;
+  sflo:meshBase "${meshBase}"^^xsd:anyURI ;
+  sflo:hasMeshMetadata <_mesh/_meta> ;
+  sflo:hasMeshInventory <_mesh/_inventory> ;
+  sflo:hasKnop <${rootKnopPath}> ;
+  sflo:hasKnop <${sourceKnopPath}> ;
+  sflo:hasKnop <${knopPath}> ;
+  sflo:hasResourcePage <_mesh/index.html> .
+
+<${rootDesignatorPath}>
+  sflo:hasResourcePage <${rootDesignatorPath}/index.html> .
 
 <${designatorPath}>
   sflo:hasResourcePage <${designatorPath}/index.html> .
 
-`,
-    `the settled current identifier block before exposing ${designatorPath}`,
-  );
-  woven = replaceExactOrThrow(
-    woven,
-    `<${knopPath}> a sflo:Knop ;
-  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> .
-`,
-    `<${knopPath}> a sflo:Knop ;
+<${rootKnopPath}> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <${rootKnopPath}/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <${rootKnopPath}/index.html> .
+
+<${sourcePayloadDesignatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${sourceWorkingFilePath}> ;
+  sflo:hasResourcePage <${sourcePayloadDesignatorPath}/index.html> .
+
+<${sourceKnopPath}> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <${sourceKnopPath}/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <${sourceKnopPath}/index.html> .
+
+<${knopPath}> a sflo:Knop ;
   sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> ;
   sflo:hasResourcePage <${knopPath}/index.html> .
-`,
-    `the settled extracted Knop block for ${designatorPath}`,
-  );
-  woven = replaceExactOrThrow(
-    woven,
-    `<_mesh/_inventory/_history001> a sflo:ArtifactHistory ;
+
+<_mesh/_meta> a sflo:MeshMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasArtifactHistory <_mesh/_meta/_history001> ;
+  sflo:currentArtifactHistory <_mesh/_meta/_history001> ;
+  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
+  sflo:hasWorkingLocatedFile <_mesh/_meta/meta.ttl> ;
+  sflo:hasResourcePage <_mesh/_meta/index.html> .
+
+<_mesh/_meta/_history001> a sflo:ArtifactHistory ;
   sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0001> ;
-  sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0002> ;
-  sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0003> ;
-  sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0003> ;
-  sflo:nextStateOrdinal "4"^^xsd:nonNegativeInteger ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/index.html> .
-`,
-    `<_mesh/_inventory/_history001> a sflo:ArtifactHistory ;
+  sflo:hasHistoricalState <_mesh/_meta/_history001/_s0001> ;
+  sflo:latestHistoricalState <_mesh/_meta/_history001/_s0001> ;
+  sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger ;
+  sflo:hasResourcePage <_mesh/_meta/_history001/index.html> .
+
+<_mesh/_meta/_history001/_s0001> a sflo:HistoricalState ;
+  sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
+  sflo:hasManifestation <_mesh/_meta/_history001/_s0001/meta-ttl> ;
+  sflo:locatedFileForState <_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
+  sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/index.html> .
+
+<_mesh/_meta/_history001/_s0001/meta-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
+  sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/meta-ttl/index.html> .
+
+<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasArtifactHistory <_mesh/_inventory/_history001> ;
+  sflo:currentArtifactHistory <_mesh/_inventory/_history001> ;
+  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
+  sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/index.html> .
+
+<_mesh/_inventory/_history001> a sflo:ArtifactHistory ;
   sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
   sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0001> ;
   sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0002> ;
@@ -2510,18 +2548,36 @@ function renderFirstExtractedKnopWovenMeshInventoryTurtle(
   sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0004> ;
   sflo:nextStateOrdinal "5"^^xsd:nonNegativeInteger ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/index.html> .
-`,
-    "the settled current MeshInventory history block before adding _s0004",
-  );
-  woven = replaceExactOrThrow(
-    woven,
-    `<_mesh/_inventory/_history001/_s0003/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/inventory-ttl/index.html> .
 
-<_mesh/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-`,
-    `<_mesh/_inventory/_history001/_s0003/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+<_mesh/_inventory/_history001/_s0001> a sflo:HistoricalState ;
+  sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
+  sflo:hasManifestation <_mesh/_inventory/_history001/_s0001/inventory-ttl> ;
+  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/index.html> .
+
+<_mesh/_inventory/_history001/_s0001/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html> .
+
+<_mesh/_inventory/_history001/_s0002> a sflo:HistoricalState ;
+  sflo:stateOrdinal "2"^^xsd:nonNegativeInteger ;
+  sflo:previousHistoricalState <_mesh/_inventory/_history001/_s0001> ;
+  sflo:hasManifestation <_mesh/_inventory/_history001/_s0002/inventory-ttl> ;
+  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/index.html> .
+
+<_mesh/_inventory/_history001/_s0002/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/inventory-ttl/index.html> .
+
+<_mesh/_inventory/_history001/_s0003> a sflo:HistoricalState ;
+  sflo:stateOrdinal "3"^^xsd:nonNegativeInteger ;
+  sflo:previousHistoricalState <_mesh/_inventory/_history001/_s0002> ;
+  sflo:hasManifestation <_mesh/_inventory/_history001/_s0003/inventory-ttl> ;
+  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/index.html> .
+
+<_mesh/_inventory/_history001/_s0003/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
   sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/inventory-ttl/index.html> .
 
@@ -2537,53 +2593,69 @@ function renderFirstExtractedKnopWovenMeshInventoryTurtle(
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0004/inventory-ttl/index.html> .
 
 <_mesh/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-`,
-    "the settled MeshInventory _s0003 manifestation block before adding _s0004",
-  );
-  woven = replaceExactOrThrow(
-    woven,
-    "<_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .\n\n<alice/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .\n",
-    `<_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<_mesh/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <_mesh/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<alice/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-`,
-    "the settled MeshInventory located-file block before adding _s0004",
-  );
-  woven = replaceExactOrThrow(
-    woven,
-    "<alice/index.html> a sflo:ResourcePage, sflo:LocatedFile .\n\n<alice/bio/index.html> a sflo:ResourcePage, sflo:LocatedFile .\n",
-    `<alice/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${rootKnopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<${sourceKnopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<${sourceWorkingFilePath}> a sflo:LocatedFile, sflo:RdfDocument .
+
+<_mesh/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<${rootDesignatorPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <${designatorPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<alice/bio/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-`,
-    `the settled current identifier page block before exposing ${designatorPath}`,
-  );
-  woven = replaceExactOrThrow(
-    woven,
-    "<alice/bio/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .\n\n<_mesh/_meta/index.html> a sflo:ResourcePage, sflo:LocatedFile .\n",
-    `<alice/bio/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${sourcePayloadDesignatorPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<${rootKnopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<${sourceKnopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <${knopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <_mesh/_meta/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-`,
-    `the settled Knop page block before exposing ${knopPath}`,
-  );
-  return replaceExactOrThrow(
-    woven,
-    "<_mesh/_inventory/_history001/_s0003/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .\n",
-    `<_mesh/_inventory/_history001/_s0003/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<_mesh/_meta/_history001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<_mesh/_meta/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<_mesh/_meta/_history001/_s0001/meta-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<_mesh/_inventory/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<_mesh/_inventory/_history001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<_mesh/_inventory/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<_mesh/_inventory/_history001/_s0002/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<_mesh/_inventory/_history001/_s0002/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<_mesh/_inventory/_history001/_s0003/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<_mesh/_inventory/_history001/_s0003/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <_mesh/_inventory/_history001/_s0004/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <_mesh/_inventory/_history001/_s0004/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-`,
-    "the settled MeshInventory page block before adding _s0004 pages",
-  );
+`;
 }
 
 function renderFirstExtractedKnopWovenKnopInventoryTurtle(
@@ -2986,21 +3058,6 @@ function renderExtractedPersonIdentifierPage(
 `;
 }
 
-function replaceExactOrThrow(
-  input: string,
-  before: string,
-  after: string,
-  label: string,
-): string {
-  if (!input.includes(before)) {
-    throw new WeaveInputError(
-      `Could not render the extracted weave slice because the planner could not find ${label}.`,
-    );
-  }
-
-  return input.replace(before, after);
-}
-
 function assertHasNamedNodeFacts(
   quads: readonly Quad[],
   meshBase: string,
@@ -3110,9 +3167,9 @@ function requireSingleNamedNodeObject(
 ): string {
   const values = quads.flatMap((quad) =>
     quad.subject.termType === "NamedNode" &&
-        quad.subject.value === subjectIri &&
-        quad.predicate.value === predicateIri &&
-        quad.object.termType === "NamedNode"
+      quad.subject.value === subjectIri &&
+      quad.predicate.value === predicateIri &&
+      quad.object.termType === "NamedNode"
       ? [quad.object.value]
       : []
   );
@@ -3132,9 +3189,9 @@ function requireOptionalNamedNodeObject(
 ): string | undefined {
   const values = quads.flatMap((quad) =>
     quad.subject.termType === "NamedNode" &&
-        quad.subject.value === subjectIri &&
-        quad.predicate.value === predicateIri &&
-        quad.object.termType === "NamedNode"
+      quad.subject.value === subjectIri &&
+      quad.predicate.value === predicateIri &&
+      quad.object.termType === "NamedNode"
       ? [quad.object.value]
       : []
   );
@@ -3224,6 +3281,13 @@ function toMeshRelativePath(
 
 function toAbsoluteIri(meshBase: string, value: string): string {
   return new URL(value, meshBase).href;
+}
+
+function toRootDesignatorPath(designatorPath: string): string {
+  const firstSlash = designatorPath.indexOf("/");
+  return firstSlash === -1
+    ? designatorPath
+    : designatorPath.slice(0, firstSlash);
 }
 
 function buildFirstKnopWeavePages(

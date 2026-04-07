@@ -890,3 +890,194 @@ core: replace carried mesh inventory line mutation with RDF-aware renderers
 - strengthen core tests to compare exact fixture bytes and accept semantically equivalent MeshInventory Turtle
 - update the RDF parsing task note to mark the implementation plan complete
 ```
+
+# User_2026-04-06_2313_50
+
+I feel trepidatious that we're doing all this in turtle, but maybe turtle is just the intermediary format and we can accept other RDF serializations too?
+
+# gpt-5.4_2026-04-06_2314_07
+
+I’m checking how deep the `.ttl` assumption actually goes before I answer, because the right answer depends on whether Turtle is just a parser choice or still part of the current storage contract.
+
+# gpt-5.4_2026-04-06_2314_26
+
+Your trepidation is reasonable, but the right distinction is:
+
+Turtle should not be the internal model.
+Turtle can still be the canonical on-disk format for now.
+
+That is mostly where the code is landing. The recent RDF parsing work moves logic toward parsed quads and fact checks, which is the right internal posture. But the repository is still very much Turtle-native at the storage boundary: [create.ts](../../src/core/mesh/create.ts), [create.ts](../../src/core/knop/create.ts), and [integrate.ts](../../src/core/integrate/integrate.ts) all still mint `.ttl` files and render Turtle directly.
+
+So today, Turtle is not just an intermediary. It is part of the current filesystem contract.
+
+What changed is narrower and still valuable:
+- We are no longer treating Turtle text as the semantic model.
+- We are increasingly treating parsed RDF facts as the semantic model.
+- We still serialize the settled artifacts back to Turtle.
+
+That is a good intermediate architecture.
+
+I would not try to make the whole system serialization-agnostic right now. That’s a larger shift than “use RDF-aware parsing.” It would require:
+- parser/serializer selection by media type or extension
+- artifact metadata for serialization choice
+- relaxing hardcoded `.ttl` paths and filename expectations
+- deciding whether one artifact may change serialization across history states
+- revisiting runtime checks that still assume `.ttl` payloads, like in [integrate.ts](../../src/runtime/integrate/integrate.ts) and [extract.ts](../../src/runtime/extract/extract.ts)
+
+My recommendation is:
+
+- Keep Turtle as the canonical stored format for support artifacts for now.
+- Keep moving operation logic onto parsed RDF graphs instead of Turtle text.
+- Later, if needed, accept additional RDF serializations at ingest/export boundaries and normalize them into the graph model before writing canonical Turtle into the mesh.
+
+That gives you the benefit you want without destabilizing the repository structure. If you want, I can add a short note to [wd.todo.md](wd.todo.md) or the Markdown publishing task about “canonical Turtle storage vs multi-serialization ingest/export” so the concern is recorded explicitly.
+
+# User_2026-04-06_2316_57
+
+proceed
+
+# gpt-5.4_2026-04-06_2317_04
+
+I’m adding the backlog note to `wd.todo.md` and keeping it narrow: canonical Turtle storage for now, possible multi-serialization ingest/export later, explicitly separated from the current RDF parsing cleanup.
+
+# gpt-5.4_2026-04-06_2317_12
+
+I found the idea already half-recorded in `wd.todo.md` as raw notes. I’m folding it into one explicit backlog item so it reads like the rest of the file and keeps the current recommendation clear.
+
+# gpt-5.4_2026-04-06_2317_21
+
+Added the backlog item to [wd.todo.md](wd.todo.md).
+
+It now records the narrower stance explicitly: canonical Turtle on disk for now, with any future multi-serialization RDF support treated as ingest/export boundary work rather than a reason to destabilize current mesh storage.
+
+No code or tests were changed for this note-only edit.
+
+# User_2026-04-06_2318_10
+
+proceed with additional seams?
+
+# gpt-5.4_2026-04-06_2318_20
+
+I’m proceeding with the remaining narrow seams from the RDF parsing note. First I’m re-reading the task note and the two guarded spots in `core/extract` and `core/weave` to see whether they can be converted cleanly without broadening the carried-slice contract.
+
+# gpt-5.4_2026-04-06_2318_31
+
+I have the remaining debt isolated now. I’m reading the surrounding planner flow before editing, because the right move is probably to stop patching planned Turtle and render the updated MeshInventory directly, not to replace one fragile reorder with another.
+
+# gpt-5.4_2026-04-06_2318_37
+
+I’ve confirmed the pattern: `extract` is still patching a prior plan output, and extracted `weave` is still editing the current Turtle in place. I’m pulling the settled `11`, `12`, and `13` MeshInventory fixtures next so I can render the target states directly instead of replacing substrings.
+
+# gpt-5.4_2026-04-06_2319_03
+
+I’m checking the existing extracted-weave shape assertions and helpers before I write new renderers. If those already capture the carried `12 -> 13` facts cleanly, I can reuse them instead of building a second near-duplicate parser seam.
+
+# gpt-5.4_2026-04-06_2319_08
+
+I need the settled `13` MeshInventory bytes before I replace the extracted-weave ladder. I’m pulling that fixture directly from the branch ref so the new renderer can target the actual current output, not an inferred variant.
+
+# gpt-5.4_2026-04-06_2319_52
+
+I found a more important consequence: after the `core/knop/create` narrowing, `extract` is now the wrong place to keep piggybacking on `planKnopCreate` for MeshInventory updates. I’m fixing that by giving `extract` its own parser-backed MeshInventory renderer, then I’ll replace the extracted-weave ladder the same way.
+
+# gpt-5.4_2026-04-06_2321_01
+
+I’m editing `core/extract` now. The goal is to stop depending on `planKnopCreate` for mesh updates entirely: validate the carried `11 -> 12` MeshInventory shape with parsed facts, render the settled `12` inventory directly, and keep the created Knop/ReferenceCatalog artifacts direct as well.
+
+# gpt-5.4_2026-04-06_2322_28
+
+The extract patch missed because the file has drifted a bit from what I expected. I’m reading the full file and then applying a tighter patch against the actual current text.
+
+# gpt-5.4_2026-04-06_2322_33
+
+I’ve got the actual file state now. I’m replacing the planner body in smaller chunks so I don’t disturb the surrounding normalization logic more than necessary.
+
+# gpt-5.4_2026-04-06_2324_26
+
+The extract rewrite is in. I’m reading it back now before tests, because this change also removes a now-invalid reuse of `planKnopCreate`, so the main risk is a small logic hole rather than the renderer shape itself.
+
+# gpt-5.4_2026-04-06_2324_31
+
+The extract file formatted cleanly; I’m waiting on tests now. If they fail, it’s likely either an overly narrow shape check or a changed error contract around the old `KnopCreateInputError` reuse.
+
+# gpt-5.4_2026-04-06_2324_50
+
+The extract failure is a shape-check mismatch, not a renderer mismatch. I’m pinpointing which asserted fact is too strict against the real `11` fixture before I touch the tests.
+
+# gpt-5.4_2026-04-06_2324_59
+
+I found the first extract mismatch: I asserted `latestHistoricalState` on `_mesh/_inventory` instead of `_mesh/_inventory/_history001`. Fixing that before rerunning the extract tests.
+
+# gpt-5.4_2026-04-06_2325_15
+
+The extract shape check is narrowed correctly now. I’m rerunning the extract tests; after that I’ll update the old fail-closed test, because that seam should now accept semantically equivalent LocatedFile serialization rather than rejecting it.
+
+# gpt-5.4_2026-04-06_2325_28
+
+I’m editing the extracted-weave MeshInventory renderer now. This one is simpler than the old ladder: the carried preconditions are already asserted up-front, so the remaining change is to render the settled `12 -> 13` MeshInventory directly from the known extracted-weave inputs.
+
+# gpt-5.4_2026-04-06_2326_42
+
+I’ve removed the extracted-weave ladder itself. Now I’m converting the two old guard tests from “fail closed” to “accept equivalent Turtle,” because those guards should no longer exist once the renderers stop depending on exact block text.
+
+# gpt-5.4_2026-04-06_2327_00
+
+The old seam-specific tests are now flipped to the behavior we actually want. I’m formatting and running the extract/weave test slice next; if that’s green, the task note can finally mark Priority 4 complete rather than just guarded.
+
+# gpt-5.4_2026-04-06_2327_04
+
+The extract and weave slices are compiling. I’m waiting on the full core plus integration result now; this is the point where a missing exact-byte detail in the direct renderer would show up.
+
+# gpt-5.4_2026-04-06_2327_12
+
+The remaining seam replacements are working against both core and integration fixtures. I’m updating the RDF parsing note now to mark Priority 4 complete and remove the stale “fail-closed remaining seam” framing.
+
+# gpt-5.4_2026-04-06_2327_43
+
+The note update landed, but I’m doing one pass to remove stale wording about “remaining extract seam” so the document matches the code exactly before the final validation run.
+
+# gpt-5.4_2026-04-06_2327_47
+
+There’s one stale testing bullet left in the note that still talks about the old extract reorder seam as if it remained. I’m trimming that wording and then I’ll run the final lint/check pass.
+
+# gpt-5.4_2026-04-06_2327_58
+
+I’m on the final validation pass now: lint and type-check across the repo. The extract and weave core/integration slices are already green, so this last pass is mostly for unused imports or signature drift.
+
+# gpt-5.4_2026-04-06_2328_01
+
+The only cleanup left is dead code: `replaceExactOrThrow` is now unused after the extracted-weave renderer rewrite. I’m removing it and then rerunning lint.
+
+# gpt-5.4_2026-04-06_2328_20
+
+I’ve finished the additional seam replacements. I’m checking the final worktree state once so I can summarize the exact scope cleanly and call out the remaining risk, which is now mostly architectural rather than string-parsing debt.
+
+# gpt-5.4_2026-04-06_2329_01
+
+**Implemented**
+
+[extract.ts](../../src/core/extract/extract.ts) no longer piggybacks on `planKnopCreate` and then reorders MeshInventory text. It now validates the carried `11 -> 12` MeshInventory shape via parsed RDF facts and renders the settled extracted MeshInventory directly, while still preserving the `KnopCreateInputError` cause path for duplicate-knop cases.
+
+[weave.ts](../../src/core/weave/weave.ts) no longer uses the extracted-weave `replaceExactOrThrow(...)` ladder for `12 -> 13`. It now renders the settled extracted-woven MeshInventory directly from the carried inputs after the existing parser-backed shape checks.
+
+I also updated [extract_test.ts](../../src/core/extract/extract_test.ts), [weave_test.ts](../../src/core/weave/weave_test.ts), and [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md) so Priority 4 is now recorded as complete and the equivalent-Turtle tests now assert acceptance rather than fail-closed behavior.
+
+**Verification**
+
+Passed:
+- `deno test --allow-read --allow-write --allow-run=git,deno --allow-env src/core/extract/extract_test.ts tests/integration/extract_test.ts src/core/weave/weave_test.ts tests/integration/weave_test.ts`
+- `deno task lint`
+- `deno task check`
+
+The remaining RDF debt is no longer in the carried extract/weave planners. What’s left is broader policy work, like canonical Turtle vs multi-serialization support, not these old text seams.
+
+Commit message suggestion:
+```text
+core: replace remaining extract and extracted-weave mesh inventory text seams
+
+- render extract mesh inventory directly from parser-backed carried shape checks
+- stop reusing knop-create planning inside extract for mesh inventory updates
+- replace extracted-weave mesh inventory replacement ladder with direct settled rendering
+- update extract and weave tests to accept semantically equivalent current Turtle
+- mark Priority 4 complete in the RDF parsing task note
+```

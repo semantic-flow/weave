@@ -132,7 +132,7 @@ Deno.test("planExtract preserves the original knop-planning error as the cause",
   }
 });
 
-Deno.test("planExtract fails closed when the source payload LocatedFile block changes shape", async () => {
+Deno.test("planExtract accepts a semantically equivalent source payload LocatedFile block", async () => {
   const currentMeshInventoryTurtle = withRdfPrefix(
     await readMeshAliceBioBranchFile(
       "11-alice-bio-v2-woven",
@@ -143,18 +143,21 @@ Deno.test("planExtract fails closed when the source payload LocatedFile block ch
     "<alice-bio.ttl> rdf:type sflo:RdfDocument, sflo:LocatedFile .",
   );
 
-  assertThrows(
-    () =>
-      planExtract({
-        meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
-        currentMeshInventoryTurtle,
-        designatorPath: "bob",
-        referenceTargetDesignatorPath: "alice/bio",
-        referenceTargetStatePath: "alice/bio/_history001/_s0002",
-        referenceTargetWorkingFilePath: "alice-bio.ttl",
-      }),
-    ExtractInputError,
-    "Failed to resolve the source payload located-file block for alice-bio.ttl",
+  const plan = planExtract({
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle,
+    designatorPath: "bob",
+    referenceTargetDesignatorPath: "alice/bio",
+    referenceTargetStatePath: "alice/bio/_history001/_s0002",
+    referenceTargetWorkingFilePath: "alice-bio.ttl",
+  });
+
+  assertEquals(
+    plan.updatedFiles[0]?.contents ?? "",
+    await readMeshAliceBioBranchFile(
+      "12-bob-extracted",
+      "_mesh/_inventory/inventory.ttl",
+    ),
   );
 });
 
