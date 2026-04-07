@@ -131,3 +131,37 @@ Deno.test("planExtract preserves the original knop-planning error as the cause",
     );
   }
 });
+
+Deno.test("planExtract fails closed when the source payload LocatedFile block changes shape", async () => {
+  const currentMeshInventoryTurtle = withRdfPrefix(
+    await readMeshAliceBioBranchFile(
+      "11-alice-bio-v2-woven",
+      "_mesh/_inventory/inventory.ttl",
+    ),
+  ).replace(
+    "<alice-bio.ttl> a sflo:LocatedFile, sflo:RdfDocument .",
+    "<alice-bio.ttl> rdf:type sflo:RdfDocument, sflo:LocatedFile .",
+  );
+
+  assertThrows(
+    () =>
+      planExtract({
+        meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+        currentMeshInventoryTurtle,
+        designatorPath: "bob",
+        referenceTargetDesignatorPath: "alice/bio",
+        referenceTargetStatePath: "alice/bio/_history001/_s0002",
+        referenceTargetWorkingFilePath: "alice-bio.ttl",
+      }),
+    ExtractInputError,
+    "Failed to resolve the source payload located-file block for alice-bio.ttl",
+  );
+});
+
+function withRdfPrefix(turtle: string): string {
+  return turtle.includes("@prefix rdf:") ? turtle : turtle.replace(
+    "@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .",
+    `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .`,
+  );
+}

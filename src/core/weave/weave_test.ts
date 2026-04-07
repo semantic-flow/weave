@@ -816,6 +816,26 @@ Deno.test("planWeave accepts semantically equivalent extracted bob ReferenceCata
   );
 });
 
+Deno.test("planWeave fails closed when the extracted bob Knop block changes shape", async () => {
+  const input = await createExtractedBobWeaveInput();
+  input.currentMeshInventoryTurtle = withRdfPrefix(input.currentMeshInventoryTurtle)
+    .replace(
+      `<bob/_knop> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <bob/_knop/_inventory/inventory.ttl> .
+`,
+      `<bob/_knop>
+  rdf:type sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <bob/_knop/_inventory/inventory.ttl> .
+`,
+    );
+
+  assertThrows(
+    () => planWeave(input),
+    WeaveInputError,
+    "Could not render the extracted weave slice because the planner could not find the settled extracted Knop block for bob.",
+  );
+});
+
 Deno.test("planWeave rejects extracted bob weave inputs without a pinned source historical state", async () => {
   const input = await createExtractedBobWeaveInput();
   input.weaveableKnops[0]!.referenceCatalogArtifact = {

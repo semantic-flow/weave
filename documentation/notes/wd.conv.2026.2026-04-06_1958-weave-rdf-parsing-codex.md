@@ -690,3 +690,105 @@ core: render extract artifacts directly from known facts
 - leave only the mesh inventory located-file reorder as the remaining extract text seam
 - update extract tests and the RDF parsing task note to reflect the narrower remaining debt
 ```
+
+# User_2026-04-06_2234_44
+
+proceed
+
+# gpt-5.4_2026-04-06_2235_00
+
+Proceeding with the last narrow extract/weave seam. I’m inspecting the extracted-weave mesh-inventory rewrite and the extract located-file reorder together so I can decide whether to replace them cleanly or lock them down with explicit shape tests.
+
+# gpt-5.4_2026-04-06_2236_02
+
+I’ve decided not to hide a broader serializer rewrite inside this slice. The safest next move is to lock down the last two seams explicitly: add tests proving they fail closed on semantically equivalent-but-differently-serialized input, so the narrow remaining debt is intentional instead of accidental.
+
+# gpt-5.4_2026-04-06_2236_11
+
+I’m adding explicit failure-closed tests now. One targets the extract located-file reorder by changing only the source `LocatedFile` serialization; the other targets the extracted-weave ladder by changing only the current Bob Knop block to `rdf:type`.
+
+# gpt-5.4_2026-04-06_2236_30
+
+The seam-guard tests are in. I’m running the focused extract and weave suites now; if they pass, I’ll update the task note to say the remaining seams are not just documented, they’re explicitly shape-tested.
+
+# gpt-5.4_2026-04-06_2236_42
+
+The seam-guard tests passed. I’m running `lint` and `check` now, then I’ll update the task note so it’s explicit that the remaining extract/weave seams are intentionally shape-tested, not silently unverified.
+
+# gpt-5.4_2026-04-06_2236_57
+
+I’m updating the task note first so the state doesn’t drift: the last extract/weave seams are still present, but they’re now explicitly guarded by failure-closed shape tests. After that I’ll inspect `core/knop/add_reference`, which looks like the smallest remaining mutation rewrite.
+
+# gpt-5.4_2026-04-06_2237_23
+
+The task note is current again. I’m moving to Priority 5 now and starting with `core/knop/add_reference`, because it’s the smallest of the remaining line-oriented inventory mutators and should tell us whether a narrow graph-mutation pattern is worth extracting.
+
+# gpt-5.4_2026-04-06_2237_37
+
+`core/knop/add_reference` is the right next target: it only mutates a KnopInventory, not the whole MeshInventory. I’m checking the settled add-reference expectations before editing so I don’t accidentally collapse a pre-weave shape into a woven one.
+
+# gpt-5.4_2026-04-06_2237_46
+
+I’ve confirmed `knop add-reference` is still a pre-weave shape mutation over an already woven KnopInventory. I’m pulling the settled target file now to compare it against the current helper and see whether we can replace the mutation with a direct renderer instead of another graph serializer.
+
+# gpt-5.4_2026-04-06_2239_44
+
+I’ve got the shape split clear now. `knop add-reference` needs to support both unwoven KnopInventory input from `planKnopCreate` and woven KnopInventory input from the actual runtime. I’m patching it as parsed-shape classification plus two exact renderers, which is narrow enough to keep the settled fixture bytes stable.
+
+# gpt-5.4_2026-04-06_2241_14
+
+The core mutation rewrite is in place conceptually, but I need to tighten the new parser-backed shape checker and then add tests for both branches: woven runtime input and unwoven extract-style input. After that I’ll run the targeted add-reference suites.
+
+# gpt-5.4_2026-04-06_2241_20
+
+I’ve got the parser-backed brancher in place. I’m fixing the last compile issue and then adding two coverage points: one exact woven fixture test against `08-alice-bio-referenced`, and one unwoven branch test so the extract path stays covered even though it no longer consumes the rendered contents directly.
+
+# gpt-5.4_2026-04-06_2241_52
+
+The add-reference tests now cover both supported input shapes and one equivalent-Turtle acceptance case. I’m running the focused add-reference suites first; if the new renderer branch holds, I’ll widen to `lint` and `check`.
+
+# gpt-5.4_2026-04-06_2242_11
+
+`core/knop/add_reference` is green in both the core and integration suites. I’m running `lint` and `check` now, then I’ll update the RDF parsing note to mark that mutation rewrite complete and narrow the remaining work to `core/knop/create` and `core/integrate`.
+
+# gpt-5.4_2026-04-06_2242_17
+
+There’s one trivial lint issue from the rewrite: a leftover `referenceCatalogPath` local. I’m removing that, rerunning validation, and then I’ll update the task note to move `core/knop/add_reference` out of the remaining-debt list.
+
+# gpt-5.4_2026-04-06_2242_23
+
+The add-reference rewrite is otherwise holding. I’m rerunning `lint`, then I’ll tighten the task note so it only names `core/knop/create` and `core/integrate` as the remaining Priority 5 mutation work.
+
+# gpt-5.4_2026-04-06_2242_27
+
+The note still reflects the pre-rewrite state for `core/knop/add_reference`. I’m patching that now, then I’ll do one final status pass and stop unless you want me to roll straight into `core/knop/create`.
+
+# gpt-5.4_2026-04-06_2242_55
+
+The note and validation are both current. I’m doing one final status/reference pass now so the close-out is precise about what landed and what the next slice actually is.
+
+# gpt-5.4_2026-04-06_2243_07
+
+Implemented the next two slices and updated [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md#L35).
+
+- [add_reference.ts](../../src/core/knop/add_reference.ts#L91) no longer rewrites KnopInventory by line splicing. It now parses the current KnopInventory, classifies unwoven vs woven carried shape, and renders the updated inventory directly while preserving the settled fixture bytes.
+- [add_reference_test.ts](../../src/core/knop/add_reference_test.ts#L114) now covers exact woven output, unwoven input support, and semantically equivalent woven Turtle acceptance.
+- I also locked down the last remaining extract/weave text seams with explicit failure-closed tests in [extract_test.ts](../../src/core/extract/extract_test.ts#L134) and [weave_test.ts](../../src/core/weave/weave_test.ts#L819).
+
+Passed:
+- `deno test --allow-read --allow-write --allow-run=git,deno --allow-env src/core/extract/extract_test.ts src/core/weave/weave_test.ts src/core/knop/add_reference_test.ts tests/integration/extract_test.ts tests/integration/weave_test.ts tests/integration/knop_add_reference_test.ts`
+- `deno task lint`
+- `deno task check`
+
+The remaining Priority 5 debt is now just [create.ts](../../src/core/knop/create.ts) and [integrate.ts](../../src/core/integrate/integrate.ts). The right next slice is `core/knop/create`, then `core/integrate`.
+
+Commit message suggestion:
+
+```text
+core: replace knop add-reference inventory mutation with parsed shape renderers
+
+- classify unwoven vs woven carried KnopInventory shapes with parsed RDF facts
+- replace line-oriented knop inventory mutation with direct rendering that preserves settled fixtures
+- add exact and equivalent-Turtle coverage for add-reference inputs
+- shape-test the remaining extract and extracted-weave text-coupled seams
+```
