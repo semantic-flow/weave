@@ -19,8 +19,7 @@ Weave currently uses `n3` to validate generated Turtle parses, `core/weave` now 
 
 That was acceptable for the first narrow fixture-driven slices, but it is now real technical debt:
 
-- shared runtime `meshBase` loading and runtime inventory discovery are now centralized in RDF-aware helpers, but the remaining carried-shape assertions and mutation seams still inspect Turtle as text
-- `core/weave` slice detection and shape assertions still rely on required Turtle fragments
+- shared runtime `meshBase` loading, runtime inventory discovery, and `core/weave` carried-shape gating are now centralized in RDF-aware helpers, but the remaining narrow rewrite/mutation seams still inspect Turtle as text
 - `core/extract`, `core/knop/create`, `core/integrate`, and `core/knop/add_reference` still perform fixture-shaped string surgery over existing Turtle
 
 This task exists to make that debt explicit and scoped. It is not an argument to rewrite all RDF handling at once or to block current carried slices on a large parser refactor.
@@ -39,9 +38,10 @@ That sequencing matters because the runtime readers are the most likely to fail 
 - The original inventory in this note became incomplete once the `11 -> 12` `extract` and `12 -> 13` extracted-resource `weave` slices landed.
 - Priority 1 is now complete: `src/runtime/mesh/metadata.ts` provides one shared RDF-aware `meshBase` reader, and the six runtime call sites no longer regex `_mesh/_meta/meta.ttl`.
 - Priority 2 is now complete: `src/runtime/mesh/inventory.ts` provides shared parsed inventory discovery for Knop lookup, payload working-file lookup, ReferenceCatalog working-file lookup, and extracted reference-target lookup across `extract`, `weave`, and `payload.update`.
+- Priority 3 is now complete: `src/core/weave/weave.ts` now classifies carried weave slices and validates carried mesh/Knop/payload/reference shapes through parsed RDF facts rather than required Turtle fragments.
 - Unit and integration coverage now prove that semantically equivalent mesh metadata Turtle is accepted across the affected runtime paths, and helper unit tests now cover semantically equivalent inventory Turtle for the shared runtime reader seam.
-- `src/core/weave/weave.ts` now has a partial RDF-aware seam for source payload fact lookup, and `src/core/payload/update.ts` already proves the narrower "required facts over parsed quads" pattern for a carried slice, so this task should build on those seams rather than starting from zero.
-- The next defensible cleanup step before [[wd.task.2026.2026-04-06_1905-markdown-payload-publishing]] is `core/weave` carried-shape assertion cleanup, not the larger `_mesh/_inventory` mutation rewrite.
+- `src/core/weave/weave.ts` already had a partial RDF-aware seam for source payload fact lookup, and `src/core/payload/update.ts` already proved the narrower "required facts over parsed quads" pattern for a carried slice; Priority 3 now extends that same posture to slice classification and carried-shape gating.
+- The next defensible cleanup step before [[wd.task.2026.2026-04-06_1905-markdown-payload-publishing]] is re-evaluating the remaining narrow extract/weave string-coupled rewrite seams, not the larger `_mesh/_inventory` mutation rewrite.
 
 ## Discussion
 
@@ -140,35 +140,33 @@ Partial progress already existed here too and is still relevant:
   - `payloadMentionsTarget`
   - already parses working payload Turtle with `n3` quads when resolving whether a candidate payload mentions the requested extract target
 
-### Priority 3: Core `weave` shape assertions expressed as string fragments
+### Completed: Core `weave` carried-shape gating over parsed RDF facts
 
 - `src/core/weave/weave.ts`
   - `detectPendingWeaveSlice`
-  - currently classifies carried weave slices through required string fragments and `includes` checks
+  - now classifies carried weave slices by parsing current KnopInventory Turtle and checking required/forbidden RDF facts rather than substring fragments
 - `src/core/weave/weave.ts`
   - current mesh and Knop shape assertion helpers
-  - currently validate supported slice shapes and "already has history" through specific Turtle fragments and `includes` checks
+  - now validate supported carried mesh/Knop/payload/reference shapes and "already has history" checks through parsed RDF facts rather than required Turtle fragments
 
-These are not generic validators yet, but they should still reason over parsed RDF terms rather than specific Turtle formatting.
+This priority is complete. The planner still is not a generic validator, but it now reasons over parsed RDF terms instead of specific Turtle formatting for the carried slice gate.
 
-For this task, the target boundary should stay narrow:
+The boundary stayed intentionally narrow:
 
-- convert carried slice detection and settled-shape assertions from Turtle fragments to required RDF facts
-- do not turn this step into generic RDF validation, SHACL, or a broad shape-engine effort
+- carried slice detection and settled-shape assertions moved from Turtle fragments to required RDF facts
+- the change did not expand into generic RDF validation, SHACL, or a broad shape-engine effort
 
-Partial progress already exists here:
+Existing parser-aware seams were reused here:
 
 - `src/core/weave/weave.ts`
   - `requireLiteralValue`
   - `requireNamedNodePath`
   - `parseTurtleQuads`
-  - already use `n3` quads for source-payload fact resolution while rendering extracted/current pages
+  - already used `n3` quads for source-payload fact resolution while rendering extracted/current pages
 - `src/core/payload/update.ts`
   - `parseQuadKeys`
   - `quadSetHasAnyMatch`
-  - already prove the narrower "required facts over parsed quads" approach against semantically equivalent Turtle for one carried payload-update shape
-
-Those seams should be reused rather than reintroducing another ad hoc parser path.
+  - already proved the narrower "required facts over parsed quads" approach against semantically equivalent Turtle for one carried payload-update shape
 
 ### Priority 4: Narrow extract-specific Turtle surgery
 
@@ -219,8 +217,8 @@ These are still the biggest structural cleanup items. They should eventually par
 
 1. Completed: replace runtime `meshBase` regex extraction in `knop create`, `integrate`, `extract`, `weave`, `payload.update`, and `knop.add_reference` with one shared RDF-aware helper.
 2. Completed: replace the duplicated runtime `extract`, `weave`, and `payload.update` Knop/payload/reference discovery logic with shared parsed inventory inspection.
-3. Replace `core/weave` string-fragment slice detection and shape assertions with graph-aware carried-slice assertions that reuse the existing quad-parsing seam where possible.
-4. Re-evaluate the remaining narrow `core/extract` and runtime block parsers once the shared runtime readers are in place.
+3. Completed: replace `core/weave` string-fragment slice detection and shape assertions with graph-aware carried-slice assertions that reuse the existing quad-parsing seam where possible.
+4. Re-evaluate the remaining narrow `core/extract` and runtime block parsers once the shared runtime readers and `core/weave` carried-shape gate are in place.
 5. Replace `core/knop/create`, `core/integrate`, and `core/knop/add_reference` line-oriented inventory mutation with graph mutation plus serialization.
 
 ## Decisions
@@ -247,6 +245,7 @@ These are still the biggest structural cleanup items. They should eventually par
 - Each replaced runtime loader should gain or keep tests proving it still resolves the intended workspace facts.
 - A shared helper unit test plus equivalent-metadata integration tests now cover the completed `meshBase` reader replacement slice.
 - Shared runtime inventory discovery now has helper unit tests that cover Knop discovery, payload-artifact discovery, ReferenceCatalog discovery, extracted reference-target discovery, and the carried distinction between a referenced history path and a typed ArtifactHistory node.
+- `src/core/weave/weave_test.ts` now covers semantically equivalent carried Turtle for first payload planning, first ReferenceCatalog planning, and second-payload slice detection so the planner gate is no longer formatting-coupled to the settled fixtures.
 - Refactors should preserve the current carried-slice acceptance tests for `mesh create`, `knop create`, `integrate`, `extract`, and `weave`.
 - New RDF-aware helpers should be tested against Turtle that is semantically equivalent but formatted differently from the current fixtures where practical.
 - Shared runtime reader refactors should add or extend coverage for `payload.update` and `knop.add_reference`, not only `extract` and `weave`.
@@ -269,7 +268,7 @@ These are still the biggest structural cleanup items. They should eventually par
 
 - [x] Add a shared RDF-aware helper for reading `meshBase` from `_mesh/_meta/meta.ttl` and replace the six runtime regex call sites.
 - [x] Add shared parsed inventory helpers and replace duplicated runtime discovery in `src/runtime/extract/extract.ts`, `src/runtime/weave/weave.ts`, and `src/runtime/payload/update.ts`.
-- [ ] Replace string-fragment slice detection and shape assertions in `src/core/weave/weave.ts` with graph-aware carried-slice checks that reuse the existing quad-parsing seam where possible.
+- [x] Replace string-fragment slice detection and shape assertions in `src/core/weave/weave.ts` with graph-aware carried-slice checks that reuse the existing quad-parsing seam where possible.
 - [ ] Re-evaluate whether the carried `extract` and extracted-resource `weave` surfaces still need fixture-shaped string parsing once the shared runtime discovery helpers are in place.
 - [x] Re-evaluate whether `src/runtime/knop/add_reference.ts` should switch to the same shared runtime mesh metadata reader in the first cleanup slice even though it does not inspect inventory structure.
 - [ ] Replace line-oriented `_mesh/_inventory/inventory.ttl` mutation in `src/core/knop/create.ts` with graph mutation plus serialization.

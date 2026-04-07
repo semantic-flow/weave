@@ -259,6 +259,7 @@ async function loadWeaveableKnopCandidates(
       currentKnopInventoryTurtle,
     };
     const slice = detectPendingWeaveSlice(
+      meshBase,
       designatorPath,
       currentKnopInventoryTurtle,
     );

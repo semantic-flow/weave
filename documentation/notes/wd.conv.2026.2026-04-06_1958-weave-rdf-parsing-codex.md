@@ -428,3 +428,121 @@ Verification passed:
 - `deno task check`
 
 Commit message suggestion: `runtime: type and wrap mesh metadata resolution failures`
+
+# User_2026-04-06_2202_30
+
+OK, what's next?
+
+# gpt-5.4_2026-04-06_2202_40
+
+I’m checking the current `core/weave` seam so I can answer with the next concrete slice rather than a generic “Priority 3” label.
+
+# gpt-5.4_2026-04-06_2202_55
+
+Next is still Priority 3: move `core/weave` from string-fragment shape checks to parsed-fact checks.
+
+Concretely, I’d do it in this order:
+
+1. Convert slice detection in [weave.ts](../../src/core/weave/weave.ts#L279).
+2. Convert the carried shape assertions that still rely on `includes()` in [weave.ts](../../src/core/weave/weave.ts#L844).
+3. Reuse the existing quad seam near [weave.ts](../../src/core/weave/weave.ts#L2636) instead of inventing another parser layer.
+
+I would not jump to the `replaceExactOrThrow(...)` mesh-inventory rewrites yet in [weave.ts](../../src/core/weave/weave.ts#L2102), and I would not jump to daemon/cache work. The runtime readers are now the less fragile part; `core/weave` is the remaining blocker if we want the carried slices to tolerate equivalent Turtle formatting before Markdown publishing.
+
+If you want, I can start that next slice now: first `detectPendingWeaveSlice`, then the `assertCurrentMeshInventoryShapeFor*` family, with focused tests around semantically equivalent KnopInventory and MeshInventory Turtle.
+
+# User_2026-04-06_2202_55
+
+did you update the implementation plan?
+
+# gpt-5.4_2026-04-06_2203_00
+
+Yes. [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md) now marks both completed items as done:
+
+- shared `meshBase` runtime reader
+- shared parsed inventory helpers for `extract`, `weave`, and `payload.update`
+
+The remaining unchecked next item is the `core/weave` graph-aware carried-slice check slice.
+
+# User_2026-04-06_2211_30
+
+proceed
+
+# gpt-5.4_2026-04-06_2211_41
+
+I’m proceeding with the `core/weave` slice now. First I’m reading the current detection/assertion helpers and the existing tests so I can replace the formatting-coupled checks with parsed-fact checks without broadening behavior.
+
+# gpt-5.4_2026-04-06_2211_45
+
+I’ve confirmed the string debt is concentrated in `detectPendingWeaveSlice` and the carried assertion helpers, not the later exact rewrite seam. I’m reading the planner tests next so I can add semantic-equivalence coverage at the right layer instead of only relying on runtime integration tests.
+
+# gpt-5.4_2026-04-06_2212_00
+
+I’ve got the planner tests open. The right implementation boundary is clear now: convert only the inventory/metadata Turtle assertions, not the later exact rewrite seam and not the non-RDF path checks. I’m checking for any additional `includes()`-based shape helpers below the section we already inspected so I don’t leave a half-converted planner.
+
+# gpt-5.4_2026-04-06_2214_53
+
+I have the boundary pinned down. I’m editing `core/weave` now: thread `meshBase` into slice detection/assertion, replace the `includes()` checks with parsed RDF fact checks, and leave the later `replaceExactOrThrow(...)` mutation seam alone.
+
+# gpt-5.4_2026-04-06_2216_58
+
+The file drifted enough that the bulk patch didn’t apply cleanly. I’m switching to smaller patches against the exact current call sites so I don’t risk stomping unrelated logic in `core/weave`.
+
+# gpt-5.4_2026-04-06_2220_10
+
+The planner-side `includes()` checks are now down to the intentionally deferred seams: the path-string check on `latestHistoricalStatePath` and the `replaceExactOrThrow(...)` rewrite seam. I’m adding planner tests now for equivalent Turtle so this slice proves real value instead of only refactoring internals.
+
+# gpt-5.4_2026-04-06_2220_38
+
+I’m using tests that deliberately change serialization but not meaning, instead of writing brand-new fixtures. That keeps the coverage focused on the exact fragility we’re removing: type-line formatting, predicate order, and resource-page triple formatting.
+
+# gpt-5.4_2026-04-06_2221_07
+
+The core tests now cover equivalent serialization in three places: first payload planning, first reference-catalog planning, and second-payload slice detection. I’m formatting and running the focused `core/weave` test slice first, because that’s where any signature drift will show up immediately.
+
+# gpt-5.4_2026-04-06_2221_15
+
+The focused test runs are building now. If something fails here it will almost certainly be a parser-fact mismatch or an over-tightened carried-shape check, which is exactly what I want to catch before broader validation.
+
+# gpt-5.4_2026-04-06_2221_24
+
+The runtime integration layer is green. The core test failure was just the Deno permission mismatch from the repo’s test stack, not a planner regression, so I’m rerunning the core suite with the same env permission the repo already needs elsewhere.
+
+# gpt-5.4_2026-04-06_2221_44
+
+I found one real regression: the old “non-alice designator” test was accidentally changing the Turtle `@base` from `mesh-alice-bio` to `mesh-carol-bio` with a blanket `replaceAll("alice", "carol")`. The old string-matching code ignored that inconsistency; the new RDF-aware code correctly notices it. I’m tightening that test instead of teaching the planner to accept a contradictory mesh base.
+
+# gpt-5.4_2026-04-06_2222_13
+
+I tightened the non-alice test to stop mutating `@base`. I’m rerunning the core planner suite with the permissions it actually needs for fixture lookup, which should tell us whether the remaining logic change is sound or if one of the carried assertions is still too strict.
+
+# gpt-5.4_2026-04-06_2222_52
+
+The core planner suite is green now, including the equivalent-Turtle cases and the existing extracted/weird-case coverage. I’m doing the normal repo validation next, then I’ll update the RDF task note to mark the `core/weave` slice done if the broader checks stay clean.
+
+# gpt-5.4_2026-04-06_2222_56
+
+Lint found one harmless leftover constant from the helper refactor. I’m removing that and then rerunning lint; the typecheck was otherwise progressing cleanly through the repo.
+
+# gpt-5.4_2026-04-06_2223_16
+
+The code slice is complete and validated. I’m updating the task note now so it reflects the new reality: runtime readers and `core/weave` carried-shape assertions are both graph-aware, while the remaining debt is the narrower rewrite/block-parser seam rather than the general planner gating.
+
+# gpt-5.4_2026-04-06_2223_51
+
+The task note is updated. I’m doing one last quick status pass so I can close with the real next step and not a stale checklist item.
+
+# gpt-5.4_2026-04-06_2224_05
+
+Implemented Priority 3 and updated [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md). The main code is in [weave.ts](../../src/core/weave/weave.ts) and [weave_test.ts](../../src/core/weave/weave_test.ts): `detectPendingWeaveSlice` and the carried `core/weave` shape assertions now parse RDF and check required/forbidden facts instead of relying on exact Turtle fragments. I also threaded the new `meshBase` argument through [runtime/weave.ts](../../src/runtime/weave/weave.ts).
+
+I added planner tests for semantically equivalent Turtle in first-payload planning, first-reference-catalog planning, and second-payload slice detection. One existing non-alice planner test had to be tightened because it was accidentally changing `@base`; the old string-matching code ignored that inconsistency, while the new RDF-aware code correctly does not.
+
+Validation passed:
+- `deno test --allow-read --allow-write --allow-run=git,deno --allow-env src/core/weave/weave_test.ts tests/integration/weave_test.ts`
+- `deno task lint`
+- `deno task check`
+
+What’s next is no longer `core/weave` gating. The remaining near-term debt before broader graph mutation is the narrower string-coupled seam: [weave.ts](../../src/core/weave/weave.ts) still has `extractCurrentReferenceCatalogLinks`, the `latestHistoricalStatePath.includes(...)` path check, and the `replaceExactOrThrow(...)` extracted-weave rewrite ladder, while [extract.ts](../../src/core/extract/extract.ts) still has the block-oriented extract surgery.
+
+Commit message suggestion: `core: make weave slice gating RDF-aware`
