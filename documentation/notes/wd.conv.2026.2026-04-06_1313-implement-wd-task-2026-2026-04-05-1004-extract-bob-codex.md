@@ -537,3 +537,51 @@ weave: carry bob extraction through 13-bob-extracted-woven
 - add core, integration, and manifest-scoped CLI coverage for 13-bob-extracted-woven
 - update weave behavior, codebase overview, decision log, and the task note for the new carried slice
 ```
+
+# User_2026-04-06_1913_58
+
+more coderabbit comments for previous slice:
+
+Verify each finding against the current code and only fix it if needed.
+
+Nitpick comments:
+In `@src/core/designator_segments.ts`:
+- Around line 40-46: The error message in normalizeSafeDesignatorPath currently
+mentions toKnopPath which is misleading; update the createError call in the loop
+that validates SAFE_DESIGNATOR_SEGMENT_PATTERN (the segment validation using
+SAFE_DESIGNATOR_SEGMENT_PATTERN inside normalizeSafeDesignatorPath) to reference
+normalizeSafeDesignatorPath (or a generic phrasing like "path validation only
+accepts...") instead of "toKnopPath", keeping the same allowed pattern text and
+context in the message.
+
+In `@src/core/extract/extract.ts`:
+- Around line 135-143: The current catch block that handles KnopCreateInputError
+and KnopAddReferenceInputError rethrows a new ExtractInputError but loses the
+original stack; update the throw so the new ExtractInputError preserves the
+original error as its cause (e.g., construct ExtractInputError with the original
+error as the cause) inside the same catch handler where KnopCreateInputError and
+KnopAddReferenceInputError are detected to retain debugging context.
+- Around line 182-246: Both normalizeWorkingFilePath and
+normalizeRelativeIriPath duplicate path-validation logic; extract a shared
+helper (e.g., validateNormalizedPath or normalizePathBase) that accepts the raw
+string, fieldName, and an option flag (allowWhitespace or rejectWhitespace) and
+performs trim, empty check, leading/trailing slash check, unsupported-char
+check, empty-segment check, and dot-segment check; then refactor
+normalizeWorkingFilePath to call the helper with rejectWhitespace=true and
+normalizeRelativeIriPath to call it with rejectWhitespace=false (or vice versa)
+so the whitespace rule remains correct while removing the duplicated validation
+code.
+
+In `@src/runtime/extract/extract.ts`:
+- Around line 640-643: The current loop copies the live target
+(Deno.copyFile(file.absolutePath, file.backupPath)) then renames temp into
+place, which creates a TOCTOU window; instead copy from the stable temp (use
+Deno.copyFile(file.tempPath, file.backupPath)) or acquire an advisory lock
+around the pair of operations so the backup reflects the exact data being
+installed; update the loop handling stagedPlanMutation.updatedFiles to use
+file.tempPath as the source for backups (or add explicit file locking) before
+calling Deno.rename(file.tempPath, file.absolutePath).
+
+# gpt-5.4_2026-04-06_1914_05
+
+I’m verifying each CodeRabbit point against the current extract code before changing anything. First step is to read the referenced spots and confirm which comments still apply on this branch.
