@@ -116,7 +116,7 @@ Deno.test(
 );
 
 function withRdfPrefix(turtle: string): string {
-  return turtle.replace(
+  return turtle.includes("@prefix rdf:") ? turtle : turtle.replace(
     "@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .\n",
     "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .\n",
   );

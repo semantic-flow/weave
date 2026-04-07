@@ -23,6 +23,7 @@ const SFLO_HAS_KNOP_INVENTORY_IRI = `${SFLO_NAMESPACE}hasKnopInventory`;
 const SFLO_HAS_KNOP_METADATA_IRI = `${SFLO_NAMESPACE}hasKnopMetadata`;
 const SFLO_HAS_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasPayloadArtifact`;
 const SFLO_HAS_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}hasReferenceCatalog`;
+const SFLO_HAS_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}hasReferenceLink`;
 const SFLO_HAS_REFERENCE_ROLE_IRI = `${SFLO_NAMESPACE}hasReferenceRole`;
 const SFLO_HAS_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}hasResourcePage`;
 const SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI =
@@ -590,6 +591,7 @@ function planFirstExtractedKnopWeave(
     currentMeshInventoryTurtle,
     designatorPath,
     referenceTargetSourcePayloadArtifact.designatorPath,
+    referenceTargetSourcePayloadArtifact.workingFilePath,
   );
   assertCurrentKnopInventoryShapeForFirstExtractedKnopWeave(
     meshBase,
@@ -635,10 +637,9 @@ function planFirstExtractedKnopWeave(
 
   const wovenMeshInventoryTurtle =
     renderFirstExtractedKnopWovenMeshInventoryTurtle(
-      meshBase,
+      currentMeshInventoryTurtle,
       designatorPath,
       referenceTargetSourcePayloadArtifact.designatorPath,
-      referenceTargetSourcePayloadArtifact.workingFilePath,
     );
   const wovenKnopInventoryTurtle =
     renderFirstExtractedKnopWovenKnopInventoryTurtle(
@@ -1105,7 +1106,11 @@ function assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
   currentMeshInventoryTurtle: string,
   designatorPath: string,
   sourcePayloadDesignatorPath: string,
+  sourceWorkingFilePath: string,
 ): void {
+  const rootDesignatorPath = toRootDesignatorPath(sourcePayloadDesignatorPath);
+  const rootKnopPath = toKnopPath(rootDesignatorPath);
+  const sourceKnopPath = toKnopPath(sourcePayloadDesignatorPath);
   const knopPath = toKnopPath(designatorPath);
   const errorMessage =
     `The current local weave slice only supports the settled extracted-knop pre-weave mesh inventory shape for ${designatorPath}.`;
@@ -1134,8 +1139,35 @@ function assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
     [sourcePayloadDesignatorPath, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
     [
       sourcePayloadDesignatorPath,
+      SFLO_HAS_WORKING_LOCATED_FILE_IRI,
+      sourceWorkingFilePath,
+    ],
+    [
+      sourcePayloadDesignatorPath,
       SFLO_HAS_RESOURCE_PAGE_IRI,
       `${sourcePayloadDesignatorPath}/index.html`,
+    ],
+    [rootKnopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
+    [
+      rootKnopPath,
+      SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI,
+      `${rootKnopPath}/_inventory/inventory.ttl`,
+    ],
+    [
+      rootKnopPath,
+      SFLO_HAS_RESOURCE_PAGE_IRI,
+      `${rootKnopPath}/index.html`,
+    ],
+    [sourceKnopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
+    [
+      sourceKnopPath,
+      SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI,
+      `${sourceKnopPath}/_inventory/inventory.ttl`,
+    ],
+    [
+      sourceKnopPath,
+      SFLO_HAS_RESOURCE_PAGE_IRI,
+      `${sourceKnopPath}/index.html`,
     ],
     [knopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
   ]);
@@ -1536,6 +1568,20 @@ function extractCurrentReferenceCatalogLinks(
     if (fragment.length === 0) {
       throw new WeaveInputError(
         errorMessage,
+      );
+    }
+
+    if (
+      !hasNamedNodeFact(
+        quads,
+        meshBase,
+        designatorPath,
+        SFLO_HAS_REFERENCE_LINK_IRI,
+        subjectIri,
+      )
+    ) {
+      throw new WeaveInputError(
+        `ReferenceCatalog owner did not declare current link ${fragment} for ${designatorPath}.`,
       );
     }
 
@@ -2463,83 +2509,97 @@ function renderSecondPayloadWovenKnopInventoryTurtle(
 }
 
 function renderFirstExtractedKnopWovenMeshInventoryTurtle(
-  meshBase: string,
+  currentMeshInventoryTurtle: string,
   designatorPath: string,
   sourcePayloadDesignatorPath: string,
-  sourceWorkingFilePath: string,
 ): string {
   const rootDesignatorPath = toRootDesignatorPath(sourcePayloadDesignatorPath);
-  const rootKnopPath = toKnopPath(rootDesignatorPath);
   const sourceKnopPath = toKnopPath(sourcePayloadDesignatorPath);
   const knopPath = toKnopPath(designatorPath);
+  const historyPath = "_mesh/_inventory/_history001";
+  const stateFourPath = `${historyPath}/_s0004`;
+  const stateFourManifestationPath = `${stateFourPath}/inventory-ttl`;
+  let blocks = normalizeMeshInventoryHeader(
+    splitTurtleBlocks(currentMeshInventoryTurtle),
+  );
 
-  return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+  blocks = upsertSubjectBlockAfter(
+    blocks,
+    rootDesignatorPath,
+    designatorPath,
+    renderMeshIdentifierBlock(designatorPath),
+  );
+  blocks = replaceSubjectBlock(
+    blocks,
+    knopPath,
+    renderMeshKnopBlockWithResourcePage(knopPath),
+  );
+  blocks = replaceSubjectBlock(
+    blocks,
+    historyPath,
+    renderMeshInventoryHistoryWithFourthStateBlock(),
+  );
+  blocks = upsertSubjectBlockAfter(
+    blocks,
+    `${historyPath}/_s0003/inventory-ttl`,
+    stateFourPath,
+    renderMeshInventoryStateFourBlock(),
+  );
+  blocks = upsertSubjectBlockAfter(
+    blocks,
+    stateFourPath,
+    stateFourManifestationPath,
+    renderMeshInventoryStateFourManifestationBlock(),
+  );
+  blocks = upsertSubjectBlockAfter(
+    blocks,
+    `${historyPath}/_s0003/inventory-ttl/inventory.ttl`,
+    `${stateFourManifestationPath}/inventory.ttl`,
+    renderLocatedFileBlock(`${stateFourManifestationPath}/inventory.ttl`),
+  );
+  blocks = upsertSubjectBlockAfter(
+    blocks,
+    `${rootDesignatorPath}/index.html`,
+    `${designatorPath}/index.html`,
+    renderResourcePageLocatedFileBlock(`${designatorPath}/index.html`),
+  );
+  blocks = upsertSubjectBlockAfter(
+    blocks,
+    `${sourceKnopPath}/index.html`,
+    `${knopPath}/index.html`,
+    renderResourcePageLocatedFileBlock(`${knopPath}/index.html`),
+  );
+  blocks = upsertSubjectBlockAfter(
+    blocks,
+    `${historyPath}/_s0003/inventory-ttl/index.html`,
+    `${stateFourPath}/index.html`,
+    renderResourcePageLocatedFileBlock(`${stateFourPath}/index.html`),
+  );
+  blocks = upsertSubjectBlockAfter(
+    blocks,
+    `${stateFourPath}/index.html`,
+    `${stateFourManifestationPath}/index.html`,
+    renderResourcePageLocatedFileBlock(
+      `${stateFourManifestationPath}/index.html`,
+    ),
+  );
 
-<_mesh> a sflo:SemanticMesh ;
-  sflo:meshBase "${meshBase}"^^xsd:anyURI ;
-  sflo:hasMeshMetadata <_mesh/_meta> ;
-  sflo:hasMeshInventory <_mesh/_inventory> ;
-  sflo:hasKnop <${rootKnopPath}> ;
-  sflo:hasKnop <${sourceKnopPath}> ;
-  sflo:hasKnop <${knopPath}> ;
-  sflo:hasResourcePage <_mesh/index.html> .
+  return `${blocks.join("\n\n")}\n`;
+}
 
-<${rootDesignatorPath}>
-  sflo:hasResourcePage <${rootDesignatorPath}/index.html> .
+function renderMeshIdentifierBlock(designatorPath: string): string {
+  return `<${designatorPath}>
+  sflo:hasResourcePage <${designatorPath}/index.html> .`;
+}
 
-<${designatorPath}>
-  sflo:hasResourcePage <${designatorPath}/index.html> .
-
-<${rootKnopPath}> a sflo:Knop ;
-  sflo:hasWorkingKnopInventoryFile <${rootKnopPath}/_inventory/inventory.ttl> ;
-  sflo:hasResourcePage <${rootKnopPath}/index.html> .
-
-<${sourcePayloadDesignatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <${sourceWorkingFilePath}> ;
-  sflo:hasResourcePage <${sourcePayloadDesignatorPath}/index.html> .
-
-<${sourceKnopPath}> a sflo:Knop ;
-  sflo:hasWorkingKnopInventoryFile <${sourceKnopPath}/_inventory/inventory.ttl> ;
-  sflo:hasResourcePage <${sourceKnopPath}/index.html> .
-
-<${knopPath}> a sflo:Knop ;
+function renderMeshKnopBlockWithResourcePage(knopPath: string): string {
+  return `<${knopPath}> a sflo:Knop ;
   sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> ;
-  sflo:hasResourcePage <${knopPath}/index.html> .
+  sflo:hasResourcePage <${knopPath}/index.html> .`;
+}
 
-<_mesh/_meta> a sflo:MeshMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasArtifactHistory <_mesh/_meta/_history001> ;
-  sflo:currentArtifactHistory <_mesh/_meta/_history001> ;
-  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasWorkingLocatedFile <_mesh/_meta/meta.ttl> ;
-  sflo:hasResourcePage <_mesh/_meta/index.html> .
-
-<_mesh/_meta/_history001> a sflo:ArtifactHistory ;
-  sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasHistoricalState <_mesh/_meta/_history001/_s0001> ;
-  sflo:latestHistoricalState <_mesh/_meta/_history001/_s0001> ;
-  sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasResourcePage <_mesh/_meta/_history001/index.html> .
-
-<_mesh/_meta/_history001/_s0001> a sflo:HistoricalState ;
-  sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <_mesh/_meta/_history001/_s0001/meta-ttl> ;
-  sflo:locatedFileForState <_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
-  sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/index.html> .
-
-<_mesh/_meta/_history001/_s0001/meta-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
-  sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/meta-ttl/index.html> .
-
-<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasArtifactHistory <_mesh/_inventory/_history001> ;
-  sflo:currentArtifactHistory <_mesh/_inventory/_history001> ;
-  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/index.html> .
-
-<_mesh/_inventory/_history001> a sflo:ArtifactHistory ;
+function renderMeshInventoryHistoryWithFourthStateBlock(): string {
+  return `<_mesh/_inventory/_history001> a sflo:ArtifactHistory ;
   sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
   sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0001> ;
   sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0002> ;
@@ -2547,115 +2607,105 @@ function renderFirstExtractedKnopWovenMeshInventoryTurtle(
   sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0004> ;
   sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0004> ;
   sflo:nextStateOrdinal "5"^^xsd:nonNegativeInteger ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/index.html> .
+  sflo:hasResourcePage <_mesh/_inventory/_history001/index.html> .`;
+}
 
-<_mesh/_inventory/_history001/_s0001> a sflo:HistoricalState ;
-  sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0001/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/index.html> .
-
-<_mesh/_inventory/_history001/_s0001/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html> .
-
-<_mesh/_inventory/_history001/_s0002> a sflo:HistoricalState ;
-  sflo:stateOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:previousHistoricalState <_mesh/_inventory/_history001/_s0001> ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0002/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/index.html> .
-
-<_mesh/_inventory/_history001/_s0002/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/inventory-ttl/index.html> .
-
-<_mesh/_inventory/_history001/_s0003> a sflo:HistoricalState ;
-  sflo:stateOrdinal "3"^^xsd:nonNegativeInteger ;
-  sflo:previousHistoricalState <_mesh/_inventory/_history001/_s0002> ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0003/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/index.html> .
-
-<_mesh/_inventory/_history001/_s0003/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/inventory-ttl/index.html> .
-
-<_mesh/_inventory/_history001/_s0004> a sflo:HistoricalState ;
+function renderMeshInventoryStateFourBlock(): string {
+  return `<_mesh/_inventory/_history001/_s0004> a sflo:HistoricalState ;
   sflo:stateOrdinal "4"^^xsd:nonNegativeInteger ;
   sflo:previousHistoricalState <_mesh/_inventory/_history001/_s0003> ;
   sflo:hasManifestation <_mesh/_inventory/_history001/_s0004/inventory-ttl> ;
   sflo:locatedFileForState <_mesh/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0004/index.html> .
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0004/index.html> .`;
+}
 
-<_mesh/_inventory/_history001/_s0004/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+function renderMeshInventoryStateFourManifestationBlock(): string {
+  return `<_mesh/_inventory/_history001/_s0004/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
   sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0004/inventory-ttl/index.html> .
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0004/inventory-ttl/index.html> .`;
+}
 
-<_mesh/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+function renderLocatedFileBlock(path: string): string {
+  return `<${path}> a sflo:LocatedFile, sflo:RdfDocument .`;
+}
 
-<_mesh/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+function renderResourcePageLocatedFileBlock(path: string): string {
+  return `<${path}> a sflo:ResourcePage, sflo:LocatedFile .`;
+}
 
-<_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+function splitTurtleBlocks(turtle: string): string[] {
+  return turtle.trimEnd().split("\n\n");
+}
 
-<_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+function normalizeMeshInventoryHeader(blocks: string[]): string[] {
+  if (blocks.length === 0) {
+    return blocks;
+  }
 
-<_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+  const [header, ...rest] = blocks;
+  return [
+    header.replace(
+      "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n",
+      "",
+    ),
+    ...rest,
+  ];
+}
 
-<_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+function replaceSubjectBlock(
+  blocks: string[],
+  subjectPath: string,
+  replacementBlock: string,
+): string[] {
+  const index = findSubjectBlockIndex(blocks, subjectPath);
+  if (index === -1) {
+    throw new WeaveInputError(
+      `Current mesh inventory did not contain subject block <${subjectPath}>.`,
+    );
+  }
 
-<_mesh/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+  const nextBlocks = [...blocks];
+  nextBlocks[index] = replacementBlock;
+  return nextBlocks;
+}
 
-<${rootKnopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+function upsertSubjectBlockAfter(
+  blocks: string[],
+  anchorSubjectPath: string,
+  subjectPath: string,
+  block: string,
+): string[] {
+  const existingIndex = findSubjectBlockIndex(blocks, subjectPath);
+  if (existingIndex !== -1) {
+    const nextBlocks = [...blocks];
+    nextBlocks[existingIndex] = block;
+    return nextBlocks;
+  }
 
-<${sourceKnopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+  const anchorIndex = findSubjectBlockIndex(blocks, anchorSubjectPath);
+  if (anchorIndex === -1) {
+    throw new WeaveInputError(
+      `Current mesh inventory did not contain anchor subject block <${anchorSubjectPath}>.`,
+    );
+  }
 
-<${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+  const nextBlocks = [...blocks];
+  nextBlocks.splice(anchorIndex + 1, 0, block);
+  return nextBlocks;
+}
 
-<${sourceWorkingFilePath}> a sflo:LocatedFile, sflo:RdfDocument .
+function findSubjectBlockIndex(
+  blocks: readonly string[],
+  subjectPath: string,
+): number {
+  return blocks.findIndex((block) =>
+    getSubjectPathFromBlock(block) === subjectPath
+  );
+}
 
-<_mesh/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${rootDesignatorPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${designatorPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${sourcePayloadDesignatorPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${rootKnopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${sourceKnopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${knopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_meta/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_meta/_history001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_meta/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_meta/_history001/_s0001/meta-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/_history001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/_history001/_s0002/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/_history001/_s0002/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/_history001/_s0003/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/_history001/_s0003/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/_history001/_s0004/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/_history001/_s0004/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-`;
+function getSubjectPathFromBlock(block: string): string | undefined {
+  const match = block.match(/^<([^>]+)>/);
+  return match?.[1];
 }
 
 function renderFirstExtractedKnopWovenKnopInventoryTurtle(

@@ -899,6 +899,87 @@ Deno.test("planWeave rejects extracted bob weave inputs when the source payload 
   );
 });
 
+Deno.test("planWeave preserves unrelated mesh inventory blocks during extracted bob weave", async () => {
+  const input = await createExtractedBobWeaveInput();
+  input.currentMeshInventoryTurtle = input.currentMeshInventoryTurtle
+    .replace(
+      "  sflo:hasKnop <bob/_knop> ;\n  sflo:hasResourcePage <_mesh/index.html> .",
+      "  sflo:hasKnop <bob/_knop> ;\n  sflo:hasKnop <carol/_knop> ;\n  sflo:hasResourcePage <_mesh/index.html> .",
+    )
+    .replace(
+      `<alice/bio/_knop> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <alice/bio/_knop/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <alice/bio/_knop/index.html> .`,
+      `<alice/bio/_knop> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <alice/bio/_knop/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <alice/bio/_knop/index.html> .
+
+<carol>
+  sflo:hasResourcePage <carol/index.html> .
+
+<carol/_knop> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <carol/_knop/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <carol/_knop/index.html> .`,
+    )
+    .replace(
+      `<bob/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<alice-bio.ttl> a sflo:LocatedFile, sflo:RdfDocument .`,
+      `<bob/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<carol/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<alice-bio.ttl> a sflo:LocatedFile, sflo:RdfDocument .`,
+    )
+    .replace(
+      `<alice/bio/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<_mesh/_meta/index.html> a sflo:ResourcePage, sflo:LocatedFile .`,
+      `<alice/bio/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<carol/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<carol/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<_mesh/_meta/index.html> a sflo:ResourcePage, sflo:LocatedFile .`,
+    );
+
+  const plan = planWeave(input);
+
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    `<carol/_knop> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <carol/_knop/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <carol/_knop/index.html> .`,
+  );
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    `<carol/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .`,
+  );
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    `<carol/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .`,
+  );
+});
+
+Deno.test("planWeave rejects orphaned extracted bob ReferenceCatalog links", async () => {
+  const input = await createExtractedBobWeaveInput();
+  input.weaveableKnops[0]!.referenceCatalogArtifact = {
+    ...input.weaveableKnops[0]!.referenceCatalogArtifact!,
+    currentReferenceCatalogTurtle: input.weaveableKnops[0]!
+      .referenceCatalogArtifact!.currentReferenceCatalogTurtle.replace(
+        "<bob> sflo:hasReferenceLink <bob/_knop/_references#reference001> .\n\n",
+        "",
+      ),
+  };
+
+  assertThrows(
+    () => planWeave(input),
+    WeaveInputError,
+    "owner did not declare current link reference001",
+  );
+});
+
 Deno.test("planWeave rejects when no weaveable candidates were provided", () => {
   assertThrows(
     () =>

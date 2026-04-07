@@ -1210,3 +1210,235 @@ Verified with:
 - `deno task check`
 
 Commit message suggestion: `runtime: tighten extracted reference discovery and mesh path resolution`
+
+# User_2026-04-06_2347_43
+
+What do you think of these coderabbit comments:
+
+Verify each finding against the current code and only fix it if needed.
+
+Inline comments:
+In `@src/core/knop/add_reference.ts`:
+- Line 37: File formatting is failing due to unformatted code around the
+constant SFLO_LOCATED_FILE_FOR_STATE_IRI (and other hunks at lines indicated in
+the review); run `deno fmt` on src/core/knop/add_reference.ts (or run `deno fmt`
+across the repo) to apply the required formatting changes, then re-run `deno fmt
+--check` to ensure the file (and hunks around SFLO_LOCATED_FILE_FOR_STATE_IRI)
+pass CI before merging.
+
+In `@src/core/weave/weave.ts`:
+- Around line 1103-1150: The current check in
+assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave only validates a
+subset of triples (via parseWeaveShapeQuads +
+assertHasNamedNodeFacts/assertHasLiteralFacts) and then
+renderFirstExtractedKnopWovenMeshInventoryTurtle rebuilds the inventory with
+only root/source/extracted entries, which silently drops unrelated mesh data;
+fix by either (A) making
+assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave stricter to detect and
+reject any extra mesh-related triples (compare the set of parsed quads against
+the exact allowed set and throw with context) or (B) change
+renderFirstExtractedKnopWovenMeshInventoryTurtle to merge preserved quads from
+parseWeaveShapeQuads (keep any quads whose subjects/predicates are not in the
+rewritten set) instead of overwriting the entire document; update the logic
+around parseWeaveShapeQuads, assertHasNamedNodeFacts, and the
+rewrite/serialization in renderFirstExtractedKnopWovenMeshInventoryTurtle
+accordingly so unrelated knops/identifiers/deeper paths are either preserved or
+cause a clear rejection.
+
+---
+
+Outside diff comments:
+In `@src/core/weave/weave.ts`:
+- Around line 588-642: The code currently never verifies that
+referenceTargetSourcePayloadArtifact.workingFilePath matches the mesh
+inventory’s current sflo:hasWorkingLocatedFile for that designatorPath, allowing
+a caller-supplied/stale path to be written back; add a strict validation after
+extractCurrentReferenceCatalogLinks and before
+renderFirstExtractedKnopWovenMeshInventoryTurtle that compares the working file
+path from the parsed current mesh inventory entry (derived from currentLinks or
+the mesh inventory lookup you already assert via
+assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave) with
+referenceTargetSourcePayloadArtifact.workingFilePath and throw a WeaveInputError
+if they differ so planFirstExtractedKnopWeave cannot silently rewrite a
+wrong/stale workingFilePath.
+- Around line 1507-1614: The function extractCurrentReferenceCatalogLinks
+currently accepts any referenceLink subject if its inner triples validate;
+require that the owner actually declares the link via an sflo:hasReferenceLink
+edge: after computing subjectIri and before accepting the link, check that the
+owner's subject (toAbsoluteIri(meshBase, designatorPath)) has a named-node fact
+with predicate SFLO_HAS_REFERENCE_LINK_IRI and object subjectIri using the
+existing hasNamedNodeFact helper (or equivalent); if that check fails, throw a
+WeaveInputError with a clear message. Update the validation block in
+extractCurrentReferenceCatalogLinks (near the existing hasNamedNodeFact and
+requireSingleNamedNodeObject calls) to perform this owner-edge check so orphaned
+ReferenceLink nodes are rejected.
+
+---
+
+Nitpick comments:
+In `@src/core/knop/create_test.ts`:
+- Around line 118-123: The withRdfPrefix helper should be made idempotent by
+first checking whether the turtle string already contains an RDF prefix
+declaration (e.g. a pattern matching "@prefix rdf:" or the RDF namespace URI
+"http://www.w3.org/1999/02/22-rdf-syntax-ns#"); if present, return the original
+string unchanged, otherwise inject the rdf prefix before the sflo prefix as
+currently done. Update the withRdfPrefix function to perform this conditional
+check (similar to the guard used in helpers in src/core/extract/extract_test.ts
+and src/core/knop/add_reference_test.ts) so repeated calls won’t duplicate the
+`@prefix` rdf: line.
+
+In `@src/core/knop/create.ts`:
+- Around line 648-790: Duplicate quad-fact helper logic
+(assertHasNamedNodeFacts, assertHasLiteralFacts, hasNamedNodeFact,
+hasLiteralFact, hasPredicateForSubject, listTypedSubjectPaths,
+toRelativeMeshPath, parseMeshInventoryQuads) appears in multiple places; extract
+these helpers into a single shared module (e.g. a new helpers/util) and export
+them, then replace the copies in the current module (functions in create.ts) and
+the equivalents in the other modules (the add_reference and extract
+implementations) with imports from that shared module; ensure signatures remain
+identical, update any import sites, and run/typecheck to fix any import paths or
+lint errors.
+
+# gpt-5.4_2026-04-06_2347_53
+
+I’m checking each comment against the current code first. If a point is still real, I’ll patch only that item and rerun the relevant checks.
+
+# gpt-5.4_2026-04-06_2348_09
+
+I’ve checked the highlighted blocks. The formatting complaint looks stale; the larger extracted-weave shape comment may still be real, so I’m comparing it to the other carried-shape assertions before deciding whether to patch or reject it.
+
+# gpt-5.4_2026-04-06_2348_23
+
+The formatter complaint is stale. I’m checking the two weave comments more carefully now: the owner-edge check looks like a good narrow hardening; the “stale working file path” claim may be off depending on what the mesh inventory actually carries for the source payload.
+
+# gpt-5.4_2026-04-06_2349_03
+
+I’m comparing the extracted-weave assertion to the stricter mesh-shape checks we already use in `core/knop/create` and `core/extract`. If it’s materially looser than those, I’ll tighten it instead of leaving a one-off data-loss hole.
+
+# gpt-5.4_2026-04-06_2350_17
+
+I’ve separated the comments into three buckets: stale formatter noise, narrow real hardenings, and one broader refactor suggestion I’m not taking. I’m patching the narrow real ones now in `core/weave` plus the low-risk idempotence fix in the test helper.
+
+# User_2026-04-06_2350_34
+
+regarding " unrelated knops/identifiers/deeper paths are either preserved or
+cause a clear rejection.", we want preserved, right?
+
+# gpt-5.4_2026-04-06_2350_49
+
+Long-term, yes. If current mesh inventories may legitimately contain unrelated knops, identifiers, or deeper paths, preserving them is the right semantic behavior; rejection is only the safer short-term guard for a narrow carried-slice planner.
+
+I’d separate the two choices clearly:
+
+- `preserve` is the right product direction
+- `reject` is the safer local patch when the code still renders whole Turtle documents from a narrow settled shape
+
+I had started the narrow rejection hardening because it was the least invasive way to close the data-loss hole. If you want the correct long-term behavior here, I should pivot and make this seam preserve unrelated graph content instead of rejecting it. That is a bigger change than the other CodeRabbit fixes, but it’s the better answer if this planner needs to coexist with richer meshes.
+
+# gpt-5.4_2026-04-06_2350_54
+
+Yes, if we’re talking about the intended behavior beyond the narrow carried-fixture phase.
+
+Rejecting extras is a safe stopgap when a planner still rebuilds an entire Turtle document from a tiny known subset. But semantically, if the mesh inventory already contains unrelated knops, identifiers, or deeper paths, the planner should preserve them, not throw them away or reject them just because this slice doesn’t care about them.
+
+That does change the implementation choice:
+
+- `reject` means “keep the current direct renderer, but fail closed on anything outside the known slice”
+- `preserve` means “stop treating the whole file as a slice-specific template and instead do a targeted graph update”
+
+So my view is:
+
+- short-term defensive patch: rejection is acceptable
+- correct long-term behavior: preservation is better
+
+Because you’ve said “we want preserved,” I would not keep the stricter-rejection version as the final answer for that seam. I should rework that part toward graph-preserving mutation instead.
+
+# User_2026-04-06_2351_50
+
+yes please.
+
+# gpt-5.4_2026-04-06_2352_07
+
+I’m pivoting that seam away from “reject extras” and toward preserving unrelated mesh content. First I’m inspecting the current extracted-weave renderer and tests so I can replace the whole-document rewrite without breaking the settled fixture path.
+
+# gpt-5.4_2026-04-06_2352_39
+
+I’ve got the design: preserve untouched subject blocks verbatim and only rewrite the extracted-weave subjects plus appended history/page blocks. I’m pulling the `12 -> 13` fixture diff now so I only touch the blocks that actually change.
+
+# gpt-5.4_2026-04-06_2353_20
+
+I have the exact `12 -> 13` mesh diff now. Only a handful of subject blocks actually change, which means I can preserve unrelated mesh content by replacing those subject blocks and appending the new `_s0004` blocks instead of regenerating the whole document.
+
+# gpt-5.4_2026-04-06_2354_52
+
+I’m swapping out the whole-document extracted-weave renderer now. The new path will preserve untouched mesh blocks verbatim and only replace or append the handful of blocks that actually change in `12 -> 13`.
+
+# gpt-5.4_2026-04-06_2357_02
+
+I’ve got the bigger render replacement in place conceptually. Next I’m wiring in small subject-block helpers so the extracted-weave mesh update preserves everything else verbatim instead of reconstructing the whole file.
+
+# gpt-5.4_2026-04-06_2357_37
+
+I’m adding two lock-in tests for this seam: one to prove extracted-weave now preserves unrelated mesh blocks, and one to reject orphaned `ReferenceLink` nodes that aren’t actually owned by the designator.
+
+# gpt-5.4_2026-04-06_2357_57
+
+The preserve path is patched. I’m running the extracted-weave core tests first; if this falls over it will be in the new subject-block insertion order or one of the anchor assumptions.
+
+# gpt-5.4_2026-04-06_2358_06
+
+`deno fmt --check` caught a couple of line wraps in `core/weave`. I’m formatting that file and waiting on the test run.
+
+# gpt-5.4_2026-04-06_2358_19
+
+The type errors were from constants I’d removed too aggressively from the extracted-weave shape check. I’ve restored the required root/source path bindings and I’m rerunning the same core suite.
+
+# gpt-5.4_2026-04-06_2358_23
+
+The file is typechecking now. If the suite still fails, it will be a behavioral mismatch in block insertion or one of the new preservation tests.
+
+# gpt-5.4_2026-04-06_2358_40
+
+The stray insertion landed in the wrong mesh-shape helper. I’ve moved it to the extracted-weave assertion and I’m rerunning the same focused suite.
+
+# gpt-5.4_2026-04-06_2358_46
+
+The typecheck is clean again. I’m waiting on the runtime of the core weave tests now.
+
+# gpt-5.4_2026-04-06_2359_13
+
+I’ve narrowed the remaining mismatch to two things: preserving the injected `rdf:` prefix from the test input, and one page-block insertion anchor. I’m normalizing the header back to the canonical mesh-inventory prefix set and fixing that anchor order now.
+
+# gpt-5.4_2026-04-06_2359_34
+
+I’ve corrected the header normalization and the `_s0004` page anchor order. Rerunning the same core weave suite now.
+
+# gpt-5.4_2026-04-06_2359_38
+
+The only thing left to prove is the test behavior. If this passes, I’ll run the corresponding integration suite plus lint/check to make sure the preserve path didn’t break the wider weave flow.
+
+# gpt-5.4_2026-04-06_2359_45
+
+The core weave suite is green. I’m running the corresponding integration tests plus lint and full typecheck now before I close this out.
+
+# gpt-5.4_2026-04-06_2359_49
+
+Lint is clean. I’m just waiting on the integration weave test run and the full `deno check` to finish.
+
+# gpt-5.4_2026-04-07_0000_04
+
+I reviewed those comments against current code and only took the ones that were still real.
+
+I did not take the `add_reference.ts` formatting comment. `deno fmt --check` was already clean there, so that review note was stale. I also did not take the “extract shared quad helpers now” refactor in [create.ts](../../src/core/knop/create.ts); that’s mechanical cleanup, not a bug fix.
+
+I did take the substantive `core/weave` items, but with the preservation direction you called out. In [weave.ts](../../src/core/weave/weave.ts), the extracted-weave mesh inventory path now preserves unrelated subject blocks instead of regenerating the whole document, while still validating the source payload working file against current mesh inventory facts and rejecting orphaned `ReferenceLink` nodes that are not declared via `sflo:hasReferenceLink`. I also made `withRdfPrefix(...)` idempotent in [create_test.ts](../../src/core/knop/create_test.ts), and added coverage in [weave_test.ts](../../src/core/weave/weave_test.ts) for preserving unrelated mesh inventory blocks plus the orphaned-link rejection.
+
+Passed:
+- `deno test --allow-read --allow-write --allow-run=git,deno --allow-env src/core/weave/weave_test.ts`
+- `deno test --allow-read --allow-write --allow-run=git,deno --allow-env src/core/knop/create_test.ts tests/integration/weave_test.ts`
+- `deno task lint`
+- `deno task check`
+
+One caveat: this preserves unrelated subject blocks, which addresses the real data-loss concern. It still canonicalizes the specific rewritten subjects for the extracted-weave slice, so it is not yet a full quad-level “preserve arbitrary extra triples on rewritten subjects” solution. That would be a larger graph-update rewrite.
+
+Commit message suggestion: `core: preserve unrelated mesh inventory blocks in extracted weave`
