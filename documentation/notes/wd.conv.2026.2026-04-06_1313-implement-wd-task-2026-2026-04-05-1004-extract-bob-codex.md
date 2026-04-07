@@ -932,3 +932,37 @@ weave: dedupe html helpers and refresh rdf parsing follow-up scope
 - keep the refactor green under full deno task ci
 - update [[wd.task.2026.2026-04-04_0952-rdf-parsing]] to reflect the post-extract and post-13 codebase, including extract runtime readers and the current recommended cleanup order before markdown payload publishing
 ```
+
+# User_2026-04-06_1947_59
+
+Coderabbit has a comment that we should be able to incorporate into the RDF task:
+
+In `@src/core/weave/weave.ts`:
+- Around line 2095-2219: The replacement logic in
+renderFirstExtractedKnopWovenMeshInventoryTurtle relies on exact Turtle string
+shapes (via replaceExactOrThrow) and is fragile to whitespace/predicate-order
+changes; add a clear doc comment at the top of
+renderFirstExtractedKnopWovenMeshInventoryTurtle explaining this coupling,
+listing the exact replaceExactOrThrow match strings it depends on, noting
+maintainers must update these replacements whenever the mesh inventory shape
+assertions change, and suggest adding/adjusting unit tests that assert the exact
+input shapes to catch regressions.
+
+# gpt-5.4_2026-04-06_1948_09
+
+I’m checking the exact `core/weave` replacement seam first so I can fold the CodeRabbit concern into the RDF task note with the right scope and wording.
+
+# gpt-5.4_2026-04-06_1948_15
+
+I checked the function. That CodeRabbit point is valid, and it belongs in the RDF task as another fixture-shaped Turtle surgery seam in `core/weave`, not as a separate task.
+
+# gpt-5.4_2026-04-06_1948_28
+
+Added that concern to [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md).
+
+I folded it into the existing RDF-debt inventory as:
+- another Priority 4 narrow Turtle-surgery seam in [weave.ts](../../src/core/weave/weave.ts#L2095)
+- a testing expectation that any retained `replaceExactOrThrow(...)` seam should have exact-shape regression tests
+- a Related CodeRabbit note calling out that this function should either become parser-aware or be explicitly documented and guarded by shape tests if kept temporarily
+
+I did not run CI because this was another task-note-only update.
