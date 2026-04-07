@@ -219,3 +219,212 @@ Passed:
 - replace six runtime `meshBase` regex extraction call sites with shared helper usage
 - add unit coverage for equivalent mesh metadata Turtle and invalid meshBase shapes
 - add integration coverage proving affected runtime operations still succeed with semantically equivalent mesh metadata formatting
+
+# User_2026-04-06_2140_31
+
+update the task ticket please. Any post-change considerations?
+
+# gpt-5.4_2026-04-06_2140_45
+
+I’m updating the RDF parsing task note to reflect the completed Priority 1 slice and the new validation coverage, then I’ll summarize the main post-change considerations so the next step is clear rather than implicit.
+
+# gpt-5.4_2026-04-06_2141_25
+
+I’m patching the task note now to record the completed Priority 1 slice, the new shared helper, and the validation that landed with it. After that I’ll call out the couple of post-change considerations that are actually worth tracking.
+
+# gpt-5.4_2026-04-06_2141_52
+
+The ticket is patched. I’m giving the updated sections one quick pass so I can summarize the new state cleanly and flag only the real follow-up considerations, not speculative noise.
+
+# gpt-5.4_2026-04-06_2142_01
+
+Updated [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md). It now records Priority 1 as complete, points at the shared helper in [metadata.ts](../../src/runtime/mesh/metadata.ts), notes the equivalent-metadata coverage, and makes Priority 2 the clear next step.
+
+Post-change considerations:
+
+- The new helper currently accepts any document with exactly one `sflo:meshBase` `xsd:anyURI` literal. That is fine for the carried mesh metadata shape, but if `_mesh/_meta/meta.ttl` grows, we may want to tighten it to require the expected subject as well.
+- The real next slice is still runtime inventory discovery in `extract`, `weave`, and `payload.update`. That is where the remaining formatting fragility lives.
+- I would keep this as operation-scoped read logic for now. This change improves daemon reuse later, but it is not yet an argument for a daemon-wide in-memory mesh cache.
+
+# User_2026-04-06_2145_00
+
+"the expected subject as well."?
+
+# gpt-5.4_2026-04-06_2145_15
+
+In [metadata.ts](../../src/runtime/mesh/metadata.ts#L31), the helper currently accepts any quad in the file whose predicate is `sflo:meshBase` and whose object is an `xsd:anyURI` literal.
+
+I meant we could tighten that later to require that the `sflo:meshBase` triple is attached to the mesh resource we actually expect, probably `<_mesh>`, not just any subject in `_mesh/_meta/meta.ttl`.
+
+Why that matters:
+
+- current behavior is fine for the carried metadata shape
+- but if that file later contains another resource with its own `sflo:meshBase`, the helper could reject as ambiguous or accept the wrong one
+
+So “expected subject” means something like:
+
+- subject must be `<_mesh>` or its base-resolved IRI
+- optionally also require that subject to be typed `sflo:SemanticMesh`
+
+I did not enforce that yet because this slice was meant to replace regex fragility, not silently broaden into fuller metadata shape validation.
+
+# User_2026-04-06_2146_24
+
+ok, add that to [wd.todo.md](wd.todo.md) and then proceed.
+
+# gpt-5.4_2026-04-06_2148_33
+
+I’m moving to Priority 2 now: shared parsed inventory helpers for `extract`, `weave`, and `payload.update`. I’m going to centralize the Knop/payload/reference lookups under `runtime/mesh`, refactor the three runtime readers to use them, and cover the equivalent-format cases with helper tests before rerunning the relevant suite.
+
+# gpt-5.4_2026-04-06_2149_20
+
+I found the main constraint for Priority 2: end-to-end “equivalent inventory formatting” tests are blocked in places by the still-string-based `core/weave` and mutation seams. So I’m putting the format-flexibility proof mostly into shared helper unit tests while keeping the existing runtime integration suite as the behavior safety net.
+
+# gpt-5.4_2026-04-06_2151_02
+
+The first refactor patch failed on context drift in `payload.update.ts`, so I’m reloading the exact current sections and then I’ll apply the changes in smaller patches. That’s just patch hygiene, not a design change.
+
+# gpt-5.4_2026-04-06_2151_52
+
+I’m proceeding with the next RDF parsing slice. First I’m checking the current runtime inventory readers and the backlog note so I can refactor the shared read path without drifting into mutation work.
+
+# gpt-5.4_2026-04-06_2152_04
+
+The backlog note for operation-scoped read models is already there. I’m also adding the narrower follow-up about tightening mesh metadata subject matching, then I’ll refactor the shared inventory readers in `extract`, `weave`, and `payload.update`.
+
+# gpt-5.4_2026-04-06_2152_13
+
+I have the current runtime seams in view. Next I’m pulling the existing parser-based inventory code and the task note’s Priority 2 wording so the new helper API matches the intended boundary instead of inventing a broader model.
+
+# gpt-5.4_2026-04-06_2153_09
+
+I’ve confirmed the remaining formatter-coupled readers are exactly the Priority 2 ones the note calls out. I’m adding the follow-up TODO entry now, then I’m landing a small shared inventory helper and wiring the three runtime paths onto it.
+
+# gpt-5.4_2026-04-06_2154_58
+
+I’ve got the helper surface pinned down: one parsed inventory reader for Knop discovery, one for payload artifact state, one for ReferenceCatalog state, and one for reference-target lookup. I’m writing those first so the runtime call sites only change at the edges.
+
+# gpt-5.4_2026-04-06_2156_39
+
+The helper and runtime call-site edits are in. I’m formatting and then running the targeted test slice first so I can catch any API or message drift before I touch the task note.
+
+# gpt-5.4_2026-04-06_2156_47
+
+The refactor compiles. I’m waiting on the targeted test run now; after that I’ll do the broader lint/check pass and then update the task note with what actually landed.
+
+# gpt-5.4_2026-04-06_2157_10
+
+The shared runtime inventory reader slice passed the targeted tests and the repo-wide `lint`/`check` passes. I’m updating the task note now so it reflects the actual boundary that landed: shared read-path parsing is done, but `core/weave` and the mutation seams are still the next real debt.
+
+# gpt-5.4_2026-04-06_2157_18
+
+The task note had gone stale in a few places after the refactor, not just the checklist. I’m tightening the summary and priority descriptions so it no longer claims the three runtime paths still use the block parsers we just removed.
+
+# gpt-5.4_2026-04-06_2158_09
+
+Updated the task note and proceeded with Priority 2.
+
+The backlog note is now in [wd.todo.md](wd.todo.md), including the narrower follow-up about tightening `meshBase` to the expected mesh subject later. The task note at [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md) now marks Priority 2 complete and shifts the next step to `core/weave` shape assertions.
+
+The code change is a shared parsed inventory seam in [inventory.ts](../../src/runtime/mesh/inventory.ts) with unit coverage in [inventory_test.ts](../../src/runtime/mesh/inventory_test.ts). `extract`, `weave`, and `payload.update` now use that helper instead of their local Knop/payload/reference block parsers in [extract.ts](../../src/runtime/extract/extract.ts), [weave.ts](../../src/runtime/weave/weave.ts), and [update.ts](../../src/runtime/payload/update.ts). The old `matchAll` and `split("\n\n")` inventory readers are gone from those three runtime files.
+
+Verification passed:
+- `deno test --allow-read --allow-write --allow-run=git,deno --allow-env src/runtime/mesh/metadata_test.ts src/runtime/mesh/inventory_test.ts tests/integration/extract_test.ts tests/integration/weave_test.ts tests/integration/payload_update_test.ts`
+- `deno task lint`
+- `deno task check`
+
+Post-change considerations:
+- The next real debt is still `core/weave`; runtime discovery is now graph-aware, but end-to-end acceptance of differently formatted Knop inventories is still limited by carried shape checks in core.
+- The new helper is intentionally narrow. It resolves required facts for current slices; it is not a generic validator or graph rewrite layer.
+- The deferred `meshBase` subject-tightening is only noted in backlog for now; [metadata.ts](../../src/runtime/mesh/metadata.ts) still accepts the one valid `sflo:meshBase` literal regardless of subject.
+
+Commit message suggestion:
+`runtime: share RDF-aware inventory discovery across carried readers`
+
+- add shared parsed inventory helpers for knop, payload, reference catalog, and extracted target discovery
+- replace duplicated text-based inventory readers in extract, weave, and payload.update
+- add unit coverage for semantically equivalent inventory turtle and keep carried integration tests green
+
+# User_2026-04-06_2158_09
+
+coderabbit feedback:
+
+In `@src/runtime/extract/extract.ts`:
+- Around line 214-217: Wrap calls to resolveMeshBaseFromMetadataTurtle inside
+loadMeshState with a try-catch that catches any Error and rethrows an
+ExtractRuntimeError carrying the original error message and/or error as cause;
+specifically, in loadMeshState, replace the direct return of meshBase:
+resolveMeshBaseFromMetadataTurtle(meshMetadataTurtle) with logic that calls
+resolveMeshBaseFromMetadataTurtle(meshMetadataTurtle) inside try { ... } and on
+catch (err) throw new ExtractRuntimeError('Could not resolve mesh base from
+metadata', err) (or include err.message), ensuring the module preserves its
+ExtractRuntimeError contract.
+
+In `@src/runtime/mesh/metadata.ts`:
+- Around line 25-44: Replace the plain thrown Error instances in metadata
+resolution with the typed MeshMetadataResolutionError: catch parse failures of
+meshMetadataTurtle (the try around new Parser().parse) and throw new
+MeshMetadataResolutionError(MESH_BASE_ERROR_MESSAGE, { cause: err }) (or
+equivalent constructor) instead of throw new Error(...), and likewise replace
+the size-check error (where meshBaseValues.size !== 1) with throwing
+MeshMetadataResolutionError(MESH_BASE_ERROR_MESSAGE). Update callers (notably
+the extract flow that calls metadata resolution) to map/propagate
+MeshMetadataResolutionError into the runtime-specific error path so extract
+returns an ExtractRuntimeError-wrapped failure.
+
+---
+
+Nitpick comments:
+In `@tests/support/mesh_metadata.ts`:
+- Around line 10-11: The test currently calls Deno.writeTextFile for the path
+produced by join(workspaceRoot, "_mesh/_meta/meta.ttl") without ensuring the
+parent directory exists; update the setup in tests/support/mesh_metadata.ts to
+create the "_mesh/_meta" directory first (e.g., call
+Deno.mkdir(join(workspaceRoot, "_mesh", "_meta"), { recursive: true }) or an
+equivalent ensureDir helper) before invoking Deno.writeTextFile so the write
+cannot fail due to a missing directory.
+
+# gpt-5.4_2026-04-06_2158_22
+
+I’m addressing the review feedback directly. First I’m checking the current metadata helper and each runtime caller so I can tighten the error typing without changing the external runtime error contracts.
+
+# gpt-5.4_2026-04-06_2158_32
+
+The helper still throws plain `Error`, and `extract` is the one CodeRabbit called out explicitly. I’m tightening the metadata helper first, then I’ll wrap the runtime-side metadata resolution where it preserves the module-specific error type instead of leaking a helper type upward.
+
+# gpt-5.4_2026-04-06_2159_04
+
+The cleanest fix is a typed metadata-resolution error plus a runtime-specific wrap at the metadata boundary. I’m making that explicit and adding a test for the extract-side contract so this doesn’t regress later.
+
+# gpt-5.4_2026-04-06_2159_11
+
+I’m making the wrap consistent across the runtime callers that read mesh metadata, not just `extract`. The underlying helper will throw a typed resolution error, and each runtime boundary will translate that into its own runtime error type before the main operation logic sees it.
+
+# gpt-5.4_2026-04-06_2200_01
+
+I’ve applied the error typing and runtime wrapping. I’m adding one extract integration test that deliberately breaks mesh metadata, so we verify the runtime still fails with `ExtractRuntimeError` instead of leaking the helper-level type.
+
+# gpt-5.4_2026-04-06_2200_11
+
+The contract test is in. I’m formatting and then running the metadata-focused integration slice across all affected runtime commands, since I touched every metadata caller for consistency rather than only `extract`.
+
+# gpt-5.4_2026-04-06_2200_22
+
+The metadata-focused test slice is running. I also checked the worktree so I don’t accidentally lose the earlier Priority 2 changes; the only relevant dirt is the runtime/doc work we’ve already been carrying in this thread.
+
+# gpt-5.4_2026-04-06_2200_38
+
+The feedback fixes are green under tests and lint. I’m just waiting for `deno task check` to finish, then I’ll summarize exactly what changed and what I think about the review itself.
+
+# gpt-5.4_2026-04-06_2200_49
+
+The feedback was directionally right. The plain `Error` throws in [metadata.ts](../../src/runtime/mesh/metadata.ts) were too weak, and the test helper in [mesh_metadata.ts](../../tests/support/mesh_metadata.ts) should not assume `_mesh/_meta` already exists.
+
+I applied it and went slightly broader for consistency. [metadata.ts](../../src/runtime/mesh/metadata.ts) now throws `MeshMetadataResolutionError`, [metadata_test.ts](../../src/runtime/mesh/metadata_test.ts) asserts that type, and the runtime metadata boundaries in [extract.ts](../../src/runtime/extract/extract.ts), [create.ts](../../src/runtime/knop/create.ts), [integrate.ts](../../src/runtime/integrate/integrate.ts), [weave.ts](../../src/runtime/weave/weave.ts), [update.ts](../../src/runtime/payload/update.ts), and [add_reference.ts](../../src/runtime/knop/add_reference.ts) now translate metadata-resolution failures back into their module-specific runtime errors. I also added an extract regression test in [extract_test.ts](../../tests/integration/extract_test.ts) to ensure invalid mesh metadata still comes back as `ExtractRuntimeError`.
+
+Verification passed:
+- `deno test --allow-read --allow-write --allow-run=git,deno --allow-env src/runtime/mesh/metadata_test.ts tests/integration/knop_create_test.ts tests/integration/integrate_test.ts tests/integration/extract_test.ts tests/integration/weave_test.ts tests/integration/payload_update_test.ts tests/integration/knop_add_reference_test.ts`
+- `deno task lint`
+- `deno task check`
+
+Commit message suggestion: `runtime: type and wrap mesh metadata resolution failures`

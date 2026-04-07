@@ -7,7 +7,14 @@ import {
   planExtract,
 } from "../../core/extract/extract.ts";
 import type { PlannedFile } from "../../core/planned_file.ts";
-import { resolveMeshBaseFromMetadataTurtle } from "../mesh/metadata.ts";
+import {
+  listKnopDesignatorPaths,
+  resolvePayloadArtifactInventoryState,
+} from "../mesh/inventory.ts";
+import {
+  MeshMetadataResolutionError,
+  resolveMeshBaseFromMetadataTurtle,
+} from "../mesh/metadata.ts";
 import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
@@ -211,8 +218,23 @@ async function loadMeshState(
     throw error;
   }
 
+  let meshBase: string;
+  try {
+    meshBase = resolveMeshBaseFromMetadataTurtle(meshMetadataTurtle);
+  } catch (error) {
+    if (error instanceof MeshMetadataResolutionError) {
+      throw new ExtractRuntimeError(error.message);
+    }
+    if (error instanceof Error) {
+      throw new ExtractRuntimeError(
+        `Could not resolve mesh base from metadata: ${error.message}`,
+      );
+    }
+    throw error;
+  }
+
   return {
-    meshBase: resolveMeshBaseFromMetadataTurtle(meshMetadataTurtle),
+    meshBase,
     currentMeshInventoryTurtle,
   };
 }
@@ -225,6 +247,7 @@ async function resolveExtractSourcePayload(
 ): Promise<ExtractSourcePayload> {
   const candidates = await loadExtractSourcePayloadCandidates(
     workspaceRoot,
+    meshBase,
     currentMeshInventoryTurtle,
   );
   const matchingCandidates = candidates.filter((candidate) =>
@@ -251,13 +274,13 @@ async function resolveExtractSourcePayload(
 
 async function loadExtractSourcePayloadCandidates(
   workspaceRoot: string,
+  meshBase: string,
   currentMeshInventoryTurtle: string,
 ): Promise<readonly ExtractSourcePayload[]> {
-  const knobMatches = [
-    ...currentMeshInventoryTurtle.matchAll(/<([^>]+\/_knop)> a sflo:Knop ;/g),
-  ];
-  const designatorPaths = knobMatches.map((match) =>
-    match[1]!.slice(0, -"/_knop".length)
+  const designatorPaths = listKnopDesignatorPaths(
+    meshBase,
+    currentMeshInventoryTurtle,
+    "Could not parse the current MeshInventory while resolving extract source payload candidates.",
   );
   const candidates: ExtractSourcePayload[] = [];
 
@@ -281,6 +304,7 @@ async function loadExtractSourcePayloadCandidates(
 
     const candidate = await loadExtractSourcePayloadCandidate(
       workspaceRoot,
+      meshBase,
       designatorPath,
       currentKnopInventoryTurtle,
     );
@@ -296,64 +320,33 @@ async function loadExtractSourcePayloadCandidates(
 
 async function loadExtractSourcePayloadCandidate(
   workspaceRoot: string,
+  meshBase: string,
   designatorPath: string,
   currentKnopInventoryTurtle: string,
 ): Promise<ExtractSourcePayload | undefined> {
-  if (
-    !currentKnopInventoryTurtle.includes(
-      `sflo:hasPayloadArtifact <${designatorPath}>`,
-    )
-  ) {
+  const payloadArtifact = resolvePayloadArtifactInventoryState(
+    meshBase,
+    currentKnopInventoryTurtle,
+    designatorPath,
+    {
+      parseErrorMessage:
+        `Could not parse the current Knop inventory while resolving the extract source payload for ${designatorPath}.`,
+      missingWorkingFileMessage:
+        `Could not resolve the working payload file for ${designatorPath}.`,
+    },
+  );
+  if (!payloadArtifact) {
     return undefined;
   }
-
-  const payloadBlock = currentKnopInventoryTurtle
-    .split("\n\n")
-    .find((block) =>
-      block.startsWith(
-        `<${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;`,
-      )
-    );
-  if (!payloadBlock) {
-    throw new ExtractRuntimeError(
-      `Could not resolve the current payload artifact block for ${designatorPath}.`,
-    );
-  }
-
-  const workingFilePathMatch = payloadBlock.match(
-    /sflo:hasWorkingLocatedFile <([^>]+)>/,
-  );
-  if (!workingFilePathMatch) {
-    throw new ExtractRuntimeError(
-      `Could not resolve the working payload file for ${designatorPath}.`,
-    );
-  }
-
-  const currentArtifactHistoryMatch = payloadBlock.match(
-    /sflo:currentArtifactHistory <([^>]+)>/,
-  );
-  if (!currentArtifactHistoryMatch) {
+  if (!payloadArtifact.currentArtifactHistoryPath) {
     return undefined;
   }
-
-  const currentArtifactHistoryPath = currentArtifactHistoryMatch[1]!;
-  const historyBlock = currentKnopInventoryTurtle
-    .split("\n\n")
-    .find((block) =>
-      block.startsWith(
-        `<${currentArtifactHistoryPath}> a sflo:ArtifactHistory ;`,
-      )
-    );
-  if (!historyBlock) {
+  if (!payloadArtifact.currentArtifactHistoryExists) {
     throw new ExtractRuntimeError(
       `Could not resolve the current payload history block for ${designatorPath}.`,
     );
   }
-
-  const latestHistoricalStateMatch = historyBlock.match(
-    /sflo:latestHistoricalState <([^>]+)>/,
-  );
-  if (!latestHistoricalStateMatch) {
+  if (!payloadArtifact.latestHistoricalStatePath) {
     throw new ExtractRuntimeError(
       `Could not resolve the latest payload historical state for ${designatorPath}.`,
     );
@@ -362,13 +355,13 @@ async function loadExtractSourcePayloadCandidate(
   const currentPayloadTurtle = await readPayloadWorkingFile(
     workspaceRoot,
     designatorPath,
-    workingFilePathMatch[1]!,
+    payloadArtifact.workingFilePath,
   );
 
   return {
     designatorPath,
-    workingFilePath: workingFilePathMatch[1]!,
-    latestHistoricalStatePath: latestHistoricalStateMatch[1]!,
+    workingFilePath: payloadArtifact.workingFilePath,
+    latestHistoricalStatePath: payloadArtifact.latestHistoricalStatePath,
     currentPayloadTurtle,
   };
 }

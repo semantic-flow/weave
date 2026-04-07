@@ -9,6 +9,13 @@ const XSD_ANYURI_IRI = "http://www.w3.org/2001/XMLSchema#anyURI";
 const MESH_BASE_ERROR_MESSAGE =
   "Could not resolve meshBase from _mesh/_meta/meta.ttl";
 
+export class MeshMetadataResolutionError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "MeshMetadataResolutionError";
+  }
+}
+
 export async function loadWorkspaceMeshBase(
   workspaceRoot: string,
 ): Promise<string> {
@@ -24,8 +31,10 @@ export function resolveMeshBaseFromMetadataTurtle(
 
   try {
     quads = new Parser().parse(meshMetadataTurtle);
-  } catch {
-    throw new Error(MESH_BASE_ERROR_MESSAGE);
+  } catch (error) {
+    throw new MeshMetadataResolutionError(MESH_BASE_ERROR_MESSAGE, {
+      cause: error,
+    });
   }
 
   const meshBaseValues = new Set<string>(
@@ -40,7 +49,7 @@ export function resolveMeshBaseFromMetadataTurtle(
   );
 
   if (meshBaseValues.size !== 1) {
-    throw new Error(MESH_BASE_ERROR_MESSAGE);
+    throw new MeshMetadataResolutionError(MESH_BASE_ERROR_MESSAGE);
   }
 
   return meshBaseValues.values().next().value!;

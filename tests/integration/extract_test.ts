@@ -128,3 +128,29 @@ Deno.test("executeExtract accepts semantically equivalent mesh metadata turtle",
   assertEquals(result.meshBase, MESH_ALICE_BIO_BASE);
   assertEquals(result.referenceTargetDesignatorPath, "alice/bio");
 });
+
+Deno.test("executeExtract wraps invalid mesh metadata as ExtractRuntimeError", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-extract-invalid-metadata-",
+  );
+  await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
+  await Deno.writeTextFile(
+    join(workspaceRoot, "_mesh/_meta/meta.ttl"),
+    `@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+
+<_mesh> sflo:meshBase "https://semantic-flow.github.io/mesh-alice-bio/" .
+`,
+  );
+
+  await assertRejects(
+    () =>
+      executeExtract({
+        workspaceRoot,
+        request: {
+          designatorPath: "bob",
+        },
+      }),
+    ExtractRuntimeError,
+    "Could not resolve meshBase from _mesh/_meta/meta.ttl",
+  );
+});

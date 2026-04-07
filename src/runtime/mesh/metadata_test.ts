@@ -1,6 +1,7 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import {
   loadWorkspaceMeshBase,
+  MeshMetadataResolutionError,
   resolveMeshBaseFromMetadataTurtle,
 } from "./metadata.ts";
 
@@ -30,7 +31,7 @@ Deno.test("resolveMeshBaseFromMetadataTurtle rejects mesh metadata without exact
 <_mesh> sflo:meshBase "https://example.org/" .
 `,
       ),
-    Error,
+    MeshMetadataResolutionError,
     "Could not resolve meshBase from _mesh/_meta/meta.ttl",
   );
 
@@ -43,7 +44,7 @@ Deno.test("resolveMeshBaseFromMetadataTurtle rejects mesh metadata without exact
 <_mesh> sflo:meshBase "https://example.org/a/"^^xsd:anyURI, "https://example.org/b/"^^xsd:anyURI .
 `,
       ),
-    Error,
+    MeshMetadataResolutionError,
     "Could not resolve meshBase from _mesh/_meta/meta.ttl",
   );
 });

@@ -12,7 +12,10 @@ import {
   type IntegratePlan,
   planIntegrate,
 } from "../../core/integrate/integrate.ts";
-import { resolveMeshBaseFromMetadataTurtle } from "../mesh/metadata.ts";
+import {
+  MeshMetadataResolutionError,
+  resolveMeshBaseFromMetadataTurtle,
+} from "../mesh/metadata.ts";
 import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
@@ -298,8 +301,23 @@ async function loadCurrentMeshState(
     throw error;
   }
 
+  let meshBase: string;
+  try {
+    meshBase = resolveMeshBaseFromMetadataTurtle(meshMetadataTurtle);
+  } catch (error) {
+    if (error instanceof MeshMetadataResolutionError) {
+      throw new IntegrateRuntimeError(error.message);
+    }
+    if (error instanceof Error) {
+      throw new IntegrateRuntimeError(
+        `Could not resolve mesh base from metadata: ${error.message}`,
+      );
+    }
+    throw error;
+  }
+
   return {
-    meshBase: resolveMeshBaseFromMetadataTurtle(meshMetadataTurtle),
+    meshBase,
     currentMeshInventoryTurtle,
   };
 }

@@ -7,6 +7,7 @@ export async function writeEquivalentMeshMetadata(
   workspaceRoot: string,
   meshBase = MESH_ALICE_BIO_BASE,
 ): Promise<void> {
+  await Deno.mkdir(join(workspaceRoot, "_mesh", "_meta"), { recursive: true });
   await Deno.writeTextFile(
     join(workspaceRoot, "_mesh/_meta/meta.ttl"),
     `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .

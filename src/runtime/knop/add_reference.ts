@@ -4,7 +4,10 @@ import {
   type KnopAddReferencePlan,
   planKnopAddReference,
 } from "../../core/knop/add_reference.ts";
-import { loadWorkspaceMeshBase } from "../mesh/metadata.ts";
+import {
+  loadWorkspaceMeshBase,
+  MeshMetadataResolutionError,
+} from "../mesh/metadata.ts";
 import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
@@ -206,6 +209,14 @@ async function loadMeshBase(workspaceRoot: string): Promise<string> {
     if (error instanceof Deno.errors.NotFound) {
       throw new KnopAddReferenceRuntimeError(
         "Workspace does not contain an existing mesh support surface",
+      );
+    }
+    if (error instanceof MeshMetadataResolutionError) {
+      throw new KnopAddReferenceRuntimeError(error.message);
+    }
+    if (error instanceof Error) {
+      throw new KnopAddReferenceRuntimeError(
+        `Could not resolve mesh base from metadata: ${error.message}`,
       );
     }
     throw error;
