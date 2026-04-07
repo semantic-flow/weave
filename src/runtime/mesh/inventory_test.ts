@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertThrows } from "@std/assert";
 import {
   listKnopDesignatorPaths,
   resolvePayloadArtifactInventoryState,
@@ -117,11 +117,15 @@ Deno.test("resolveReferenceTargetDesignatorPath accepts semantically equivalent 
   assertEquals(
     resolveReferenceTargetDesignatorPath(
       MESH_BASE,
-      `@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+      `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
 @base <${MESH_BASE}> .
 
-<alice/_knop/_references#reference001> sflo:referenceRole sflo:ExtractedReference ;
-  sflo:referenceTarget <alice/bio> .
+<alice/_knop/_references#reference001> rdf:type sflo:ReferenceLink ;
+  sflo:referenceLinkFor <alice> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Supplemental> ;
+  sflo:referenceTarget <alice/bio> ;
+  sflo:referenceTargetState <alice/bio/_history001/_s0002> .
 `,
       "alice",
       {
@@ -133,5 +137,85 @@ Deno.test("resolveReferenceTargetDesignatorPath accepts semantically equivalent 
       },
     ),
     "alice/bio",
+  );
+});
+
+Deno.test("resolveReferenceTargetDesignatorPath ignores unrelated catalog fragments", () => {
+  assertEquals(
+    resolveReferenceTargetDesignatorPath(
+      MESH_BASE,
+      `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@base <${MESH_BASE}> .
+
+<alice/_knop/_references#note> sflo:referenceTarget <carol/bio> .
+
+<alice/_knop/_references#reference001> rdf:type sflo:ReferenceLink ;
+  sflo:referenceLinkFor <alice> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Supplemental> ;
+  sflo:referenceTarget <alice/bio> ;
+  sflo:referenceTargetState <alice/bio/_history001/_s0002> .
+`,
+      "alice",
+      {
+        parseErrorMessage: "Could not parse ReferenceCatalog",
+        missingReferenceLinkMessage:
+          "Could not resolve current extracted ReferenceCatalog link",
+        missingReferenceTargetMessage:
+          "Could not resolve current extracted ReferenceCatalog target",
+      },
+    ),
+    "alice/bio",
+  );
+});
+
+Deno.test("resolvePayloadArtifactInventoryState rejects working file IRIs with query or fragment parts", () => {
+  assertThrows(
+    () =>
+      resolvePayloadArtifactInventoryState(
+        MESH_BASE,
+        `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@base <${MESH_BASE}> .
+
+<alice/bio/_history001> rdf:type sflo:ArtifactHistory .
+<alice/bio> sflo:hasWorkingLocatedFile <alice-bio.ttl?rev=1> ;
+  rdf:type sflo:PayloadArtifact ;
+  sflo:currentArtifactHistory <alice/bio/_history001> .
+<alice/bio/_knop> rdf:type sflo:Knop ;
+  sflo:hasPayloadArtifact <alice/bio> .
+`,
+        "alice/bio",
+        {
+          parseErrorMessage: "Could not parse Knop inventory",
+          missingWorkingFileMessage: "Could not resolve working payload file",
+        },
+      ),
+    Error,
+    "Could not resolve working payload file",
+  );
+  assertThrows(
+    () =>
+      resolvePayloadArtifactInventoryState(
+        MESH_BASE,
+        `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@base <${MESH_BASE}> .
+
+<alice/bio/_history001> rdf:type sflo:ArtifactHistory .
+<alice/bio> sflo:hasWorkingLocatedFile <alice-bio.ttl#manifest> ;
+  rdf:type sflo:PayloadArtifact ;
+  sflo:currentArtifactHistory <alice/bio/_history001> .
+<alice/bio/_knop> rdf:type sflo:Knop ;
+  sflo:hasPayloadArtifact <alice/bio> .
+`,
+        "alice/bio",
+        {
+          parseErrorMessage: "Could not parse Knop inventory",
+          missingWorkingFileMessage: "Could not resolve working payload file",
+        },
+      ),
+    Error,
+    "Could not resolve working payload file",
   );
 });

@@ -13,7 +13,11 @@ const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
 const SFLO_KNOP_IRI = `${SFLO_NAMESPACE}Knop`;
 const SFLO_LATEST_HISTORICAL_STATE_IRI =
   `${SFLO_NAMESPACE}latestHistoricalState`;
+const SFLO_REFERENCE_LINK_FOR_IRI = `${SFLO_NAMESPACE}referenceLinkFor`;
+const SFLO_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}ReferenceLink`;
 const SFLO_REFERENCE_TARGET_IRI = `${SFLO_NAMESPACE}referenceTarget`;
+const SFLO_REFERENCE_TARGET_STATE_IRI =
+  `${SFLO_NAMESPACE}referenceTargetState`;
 
 export interface PayloadArtifactInventoryState {
   workingFilePath: string;
@@ -193,14 +197,45 @@ export function resolveReferenceTargetDesignatorPath(
   const linkSubjectPrefix = `${
     toMeshIri(meshBase, `${designatorPath}/_knop/_references`)
   }#`;
-  const linkSubjects = new Set<string>(
-    quads
-      .filter((quad) =>
-        quad.subject.termType === "NamedNode" &&
-        quad.subject.value.startsWith(linkSubjectPrefix)
+  const designatorIri = toMeshIri(meshBase, designatorPath);
+  const linkSubjects = new Set<string>();
+
+  for (const quad of quads) {
+    if (quad.subject.termType !== "NamedNode") {
+      continue;
+    }
+
+    const subjectIri = quad.subject.value;
+    if (!subjectIri.startsWith(linkSubjectPrefix)) {
+      continue;
+    }
+    if (!hasNamedNodeObject(quads, subjectIri, RDF_TYPE_IRI, SFLO_REFERENCE_LINK_IRI)) {
+      continue;
+    }
+    if (
+      !hasNamedNodeObject(
+        quads,
+        subjectIri,
+        SFLO_REFERENCE_LINK_FOR_IRI,
+        designatorIri,
       )
-      .map((quad) => quad.subject.value),
-  );
+    ) {
+      continue;
+    }
+    if (
+      !resolveOptionalUniqueNamedNodePath(
+        quads,
+        meshBase,
+        subjectIri,
+        SFLO_REFERENCE_TARGET_STATE_IRI,
+        messages.missingReferenceLinkMessage,
+      )
+    ) {
+      continue;
+    }
+
+    linkSubjects.add(subjectIri);
+  }
 
   if (linkSubjects.size === 0) {
     throw new Error(messages.missingReferenceLinkMessage);
@@ -336,5 +371,13 @@ function tryToMeshPath(meshBase: string, iri: string): string | undefined {
   }
 
   const meshPath = iri.slice(meshBase.length);
-  return meshPath.length === 0 ? undefined : meshPath;
+  if (
+    meshPath.length === 0 ||
+    meshPath.includes("#") ||
+    meshPath.includes("?")
+  ) {
+    return undefined;
+  }
+
+  return meshPath;
 }

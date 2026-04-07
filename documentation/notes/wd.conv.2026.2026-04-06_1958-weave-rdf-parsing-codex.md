@@ -1081,3 +1081,132 @@ core: replace remaining extract and extracted-weave mesh inventory text seams
 - update extract and weave tests to accept semantically equivalent current Turtle
 - mark Priority 4 complete in the RDF parsing task note
 ```
+
+# User_2026-04-06_2331_53
+
+OK, so you think we're done with the "rdf-parsing" task?
+
+# gpt-5.4_2026-04-06_2332_06
+
+Yes, for the scope captured in [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md), I would treat it as done.
+
+The implementation plan in that note is now complete. The carried runtime and planner seams that were still interpreting RDF as text have been replaced with parser-backed fact checks or direct settled renderers, and the targeted tests plus `deno task lint` and `deno task check` are green.
+
+What remains is adjacent, not this task:
+- the backlog item in [wd.todo.md](wd.todo.md) about canonical Turtle vs multi-serialization RDF support
+- the narrower metadata follow-up about requiring `sflo:meshBase` on the expected mesh subject
+- any future non-carried graph-mutation work that is not part of the inventory in this note
+
+So: materially complete, yes. I would not keep this note open just to absorb those broader follow-ons.
+
+# User_2026-04-06_2333_41
+
+Did we review these coderabbit suggestions:
+
+Inline comments:
+In `@src/runtime/mesh/inventory.ts`:
+- Around line 333-339: The function tryToMeshPath currently accepts IRIs with
+fragment or query parts (e.g., "alice.ttl#v1" or "alice/bio?rev=1") which later
+get concatenated as filesystem paths; modify tryToMeshPath(meshBase: string,
+iri: string) so that after confirming iri.startsWith(meshBase) you compute
+meshPath = iri.slice(meshBase.length) and then reject (return undefined) if
+meshPath is empty OR if meshPath contains a fragment ('#') or query ('?')
+character (i.e., check meshPath.includes('#') || meshPath.includes('?')),
+leaving the rest of the logic unchanged.
+- Around line 193-203: The current construction of linkSubjects (using
+linkSubjectPrefix and quads) includes every fragment under the catalog resource;
+change the filter so it only selects subject NamedNodes that both
+startWith(linkSubjectPrefix) and have a matching quad in quads with that
+subject, predicate "sflo:referenceRole" and object "sflo:ExtractedReference"
+(i.e., ensure you check for the sflo:referenceRole sflo:ExtractedReference
+marker before adding to linkSubjects); update the filter logic that builds
+linkSubjects to perform this extra predicate/object check against quads to
+restrict to extracted references.
+
+---
+
+Nitpick comments:
+In `@src/runtime/integrate/integrate.ts`:
+- Around line 304-317: The catch in the resolveMeshBaseFromMetadataTurtle call
+contains unreachable branches; since resolveMeshBaseFromMetadataTurtle only
+throws MeshMetadataResolutionError, simplify the handler to catch
+MeshMetadataResolutionError and rethrow as IntegrateRuntimeError (using the
+original error.message), and either remove the instanceof Error and final throw
+or, if you want defensive future-proofing, replace them with a brief comment
+stating the function currently only throws MeshMetadataResolutionError;
+reference resolveMeshBaseFromMetadataTurtle, MeshMetadataResolutionError, and
+IntegrateRuntimeError when making the change.
+
+# gpt-5.4_2026-04-06_2333_49
+
+I’m checking those three spots directly in the current code so I can tell you whether they were already addressed and whether the suggestions are correct.
+
+# gpt-5.4_2026-04-06_2334_00
+
+I’ve confirmed those exact suggestions are not yet reflected in the current code. I’m checking the surrounding tests now to separate “real bug” from “cleanup-only nit.”
+
+# gpt-5.4_2026-04-06_2334_34
+
+I found a more important issue while checking that second suggestion: the suggested predicate/object pair does not match the current project shape. I’m opening a real carried ReferenceCatalog fixture next so I can review it against the runtime loader instead of taking CodeRabbit’s wording at face value.
+
+# gpt-5.4_2026-04-06_2335_03
+
+I’ve finished the review. Two of the three comments are worth taking; one points at a real looseness but proposes the wrong RDF shape.
+
+# gpt-5.4_2026-04-06_2335_34
+
+Not before now. I reviewed them against the current code just now.
+
+- The `tryToMeshPath(...)` comment is valid. [inventory.ts](../../src/runtime/mesh/inventory.ts#L333) still accepts IRIs whose mesh-relative tail contains `#` or `?`, and downstream we do treat those as filesystem-ish paths. That should be tightened.
+- The `resolveReferenceTargetDesignatorPath(...)` comment is only partially right. [inventory.ts](../../src/runtime/mesh/inventory.ts#L193) is too loose because it grabs any fragment subject under the catalog. But CodeRabbit’s proposed fix is based on the wrong RDF shape. Current code renders `ReferenceLink` facts as `a sflo:ReferenceLink` plus `sflo:hasReferenceRole <...>` and `sflo:referenceTarget ...` in [extract.ts](../../src/core/extract/extract.ts#L486), and `core/weave` already parses that shape in [weave.ts](../../src/core/weave/weave.ts#L1542). The runtime test at [inventory_test.ts](../../src/runtime/mesh/inventory_test.ts#L123) is actually the stale part here: it still uses `sflo:referenceRole sflo:ExtractedReference`. I would not implement CodeRabbit’s filter literally.
+- The `integrate` catch simplification is valid but minor. [integrate.ts](../../src/runtime/integrate/integrate.ts#L307) still has unreachable branches under the current [metadata.ts](../../src/runtime/mesh/metadata.ts#L25) contract. That is cleanup, not a live bug.
+
+So the right follow-up is:
+- take the `tryToMeshPath` hardening
+- simplify the `integrate` catch
+- tighten `resolveReferenceTargetDesignatorPath`, but against the actual `ReferenceLink` model, not CodeRabbit’s outdated `sflo:referenceRole sflo:ExtractedReference` idea
+
+If you want, I can patch those next.
+
+# User_2026-04-06_2336_00
+
+yes please
+
+# gpt-5.4_2026-04-06_2336_10
+
+I’m patching the two real issues and the minor cleanup now: harden mesh-relative IRI handling, tighten extracted-reference discovery to the actual `ReferenceLink` shape, and simplify the stale `integrate` catch.
+
+# gpt-5.4_2026-04-06_2336_16
+
+I’ve got enough context. The runtime inventory test is still using the stale `sflo:referenceRole sflo:ExtractedReference` shape, so I’m fixing that test at the same time as the loader.
+
+# gpt-5.4_2026-04-06_2337_24
+
+I’m editing the runtime helper and its focused tests now. I’m keeping the extracted-link filter aligned with the current `ReferenceLink`/`hasReferenceRole` shape instead of the stale reviewer wording.
+
+# gpt-5.4_2026-04-06_2338_06
+
+I’ve patched the code. I’m adding one more focused assertion for fragment rejection so we actually cover both branches of the new path hardening.
+
+# gpt-5.4_2026-04-06_2338_20
+
+The targeted suite is running. If anything fails it will likely be the new extracted-link filter, because that’s where I intentionally tightened behavior.
+
+# gpt-5.4_2026-04-06_2338_29
+
+The focused tests passed. I’m waiting on the full typecheck now, then I’ll summarize exactly what was real in those review comments and what we changed.
+
+# gpt-5.4_2026-04-06_2338_44
+
+Reviewed and fixed the substantive parts.
+
+The changes are in [inventory.ts](../../src/runtime/mesh/inventory.ts) and [integrate.ts](../../src/runtime/integrate/integrate.ts). `tryToMeshPath(...)` now rejects mesh-relative IRIs containing `#` or `?`, and `resolveReferenceTargetDesignatorPath(...)` no longer treats every catalog fragment as a candidate extracted link. I tightened that against the actual project shape, not CodeRabbit’s stale wording: it now looks for a fragment subject that is `a sflo:ReferenceLink`, points back with `sflo:referenceLinkFor <designator>`, and has a pinned `sflo:referenceTargetState`. The `integrate` metadata catch is also simplified to the real `MeshMetadataResolutionError -> IntegrateRuntimeError` mapping.
+
+I updated [inventory_test.ts](../../src/runtime/mesh/inventory_test.ts) to match the real `ReferenceLink` shape, added a regression that ignores unrelated catalog fragments, and added coverage for rejecting query/fragment-tainted working file IRIs. I did not implement the literal `sflo:referenceRole sflo:ExtractedReference` suggestion because that shape is not what this repo currently writes or reads.
+
+Verified with:
+- `deno test --allow-read --allow-write --allow-run=git,deno --allow-env src/runtime/mesh/inventory_test.ts tests/integration/weave_test.ts tests/integration/integrate_test.ts`
+- `deno task lint`
+- `deno task check`
+
+Commit message suggestion: `runtime: tighten extracted reference discovery and mesh path resolution`

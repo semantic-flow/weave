@@ -308,11 +308,7 @@ async function loadCurrentMeshState(
     if (error instanceof MeshMetadataResolutionError) {
       throw new IntegrateRuntimeError(error.message);
     }
-    if (error instanceof Error) {
-      throw new IntegrateRuntimeError(
-        `Could not resolve mesh base from metadata: ${error.message}`,
-      );
-    }
+    // resolveMeshBaseFromMetadataTurtle currently only throws MeshMetadataResolutionError.
     throw error;
   }
 

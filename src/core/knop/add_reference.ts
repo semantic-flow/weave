@@ -34,8 +34,7 @@ const SFLO_KNOP_INVENTORY_IRI = `${SFLO_NAMESPACE}KnopInventory`;
 const SFLO_KNOP_METADATA_IRI = `${SFLO_NAMESPACE}KnopMetadata`;
 const SFLO_LATEST_HISTORICAL_STATE_IRI =
   `${SFLO_NAMESPACE}latestHistoricalState`;
-const SFLO_LOCATED_FILE_FOR_STATE_IRI =
-  `${SFLO_NAMESPACE}locatedFileForState`;
+const SFLO_LOCATED_FILE_FOR_STATE_IRI = `${SFLO_NAMESPACE}locatedFileForState`;
 const SFLO_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}LocatedFile`;
 const SFLO_NEXT_HISTORY_ORDINAL_IRI = `${SFLO_NAMESPACE}nextHistoryOrdinal`;
 const SFLO_NEXT_STATE_ORDINAL_IRI = `${SFLO_NAMESPACE}nextStateOrdinal`;
@@ -311,14 +310,13 @@ function classifyCurrentKnopInventoryShape(
     );
   }
 
-  const hasWovenHistory =
-    hasNamedNodeFact(
-      quads,
-      meshBase,
-      knopPath,
-      SFLO_HAS_RESOURCE_PAGE_IRI,
-      `${knopPath}/index.html`,
-    ) ||
+  const hasWovenHistory = hasNamedNodeFact(
+    quads,
+    meshBase,
+    knopPath,
+    SFLO_HAS_RESOURCE_PAGE_IRI,
+    `${knopPath}/index.html`,
+  ) ||
     hasPredicateForSubject(
       quads,
       meshBase,
@@ -403,71 +401,296 @@ function assertCurrentWovenKnopInventoryShape(
   knopPath: string,
   errorMessage: string,
 ): void {
-  assertCurrentUnwovenKnopInventoryShape(quads, meshBase, knopPath, errorMessage);
+  assertCurrentUnwovenKnopInventoryShape(
+    quads,
+    meshBase,
+    knopPath,
+    errorMessage,
+  );
   assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
     [knopPath, SFLO_HAS_RESOURCE_PAGE_IRI, `${knopPath}/index.html`],
-    [`${knopPath}/_meta`, SFLO_HAS_ARTIFACT_HISTORY_IRI, `${knopPath}/_meta/_history001`],
-    [`${knopPath}/_meta`, SFLO_CURRENT_ARTIFACT_HISTORY_IRI, `${knopPath}/_meta/_history001`],
-    [`${knopPath}/_meta`, SFLO_HAS_RESOURCE_PAGE_IRI, `${knopPath}/_meta/index.html`],
-    [`${knopPath}/_inventory`, SFLO_HAS_ARTIFACT_HISTORY_IRI, `${knopPath}/_inventory/_history001`],
-    [`${knopPath}/_inventory`, SFLO_CURRENT_ARTIFACT_HISTORY_IRI, `${knopPath}/_inventory/_history001`],
-    [`${knopPath}/_inventory`, SFLO_HAS_RESOURCE_PAGE_IRI, `${knopPath}/_inventory/index.html`],
+    [
+      `${knopPath}/_meta`,
+      SFLO_HAS_ARTIFACT_HISTORY_IRI,
+      `${knopPath}/_meta/_history001`,
+    ],
+    [
+      `${knopPath}/_meta`,
+      SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
+      `${knopPath}/_meta/_history001`,
+    ],
+    [
+      `${knopPath}/_meta`,
+      SFLO_HAS_RESOURCE_PAGE_IRI,
+      `${knopPath}/_meta/index.html`,
+    ],
+    [
+      `${knopPath}/_inventory`,
+      SFLO_HAS_ARTIFACT_HISTORY_IRI,
+      `${knopPath}/_inventory/_history001`,
+    ],
+    [
+      `${knopPath}/_inventory`,
+      SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
+      `${knopPath}/_inventory/_history001`,
+    ],
+    [
+      `${knopPath}/_inventory`,
+      SFLO_HAS_RESOURCE_PAGE_IRI,
+      `${knopPath}/_inventory/index.html`,
+    ],
     [`${knopPath}/_meta/_history001`, RDF_TYPE_IRI, SFLO_ARTIFACT_HISTORY_IRI],
-    [`${knopPath}/_meta/_history001`, SFLO_HAS_HISTORICAL_STATE_IRI, `${knopPath}/_meta/_history001/_s0001`],
-    [`${knopPath}/_meta/_history001`, SFLO_LATEST_HISTORICAL_STATE_IRI, `${knopPath}/_meta/_history001/_s0001`],
-    [`${knopPath}/_meta/_history001`, SFLO_HAS_RESOURCE_PAGE_IRI, `${knopPath}/_meta/_history001/index.html`],
-    [`${knopPath}/_meta/_history001/_s0001`, RDF_TYPE_IRI, SFLO_HISTORICAL_STATE_IRI],
-    [`${knopPath}/_meta/_history001/_s0001`, SFLO_HAS_MANIFESTATION_IRI, `${knopPath}/_meta/_history001/_s0001/meta-ttl`],
-    [`${knopPath}/_meta/_history001/_s0001`, SFLO_LOCATED_FILE_FOR_STATE_IRI, `${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl`],
-    [`${knopPath}/_meta/_history001/_s0001`, SFLO_HAS_RESOURCE_PAGE_IRI, `${knopPath}/_meta/_history001/_s0001/index.html`],
-    [`${knopPath}/_meta/_history001/_s0001/meta-ttl`, RDF_TYPE_IRI, SFLO_ARTIFACT_MANIFESTATION_IRI],
-    [`${knopPath}/_meta/_history001/_s0001/meta-ttl`, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
-    [`${knopPath}/_meta/_history001/_s0001/meta-ttl`, SFLO_HAS_LOCATED_FILE_IRI, `${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl`],
-    [`${knopPath}/_meta/_history001/_s0001/meta-ttl`, SFLO_HAS_RESOURCE_PAGE_IRI, `${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html`],
-    [`${knopPath}/_inventory/_history001`, RDF_TYPE_IRI, SFLO_ARTIFACT_HISTORY_IRI],
-    [`${knopPath}/_inventory/_history001`, SFLO_HAS_HISTORICAL_STATE_IRI, `${knopPath}/_inventory/_history001/_s0001`],
-    [`${knopPath}/_inventory/_history001`, SFLO_LATEST_HISTORICAL_STATE_IRI, `${knopPath}/_inventory/_history001/_s0001`],
-    [`${knopPath}/_inventory/_history001`, SFLO_HAS_RESOURCE_PAGE_IRI, `${knopPath}/_inventory/_history001/index.html`],
-    [`${knopPath}/_inventory/_history001/_s0001`, RDF_TYPE_IRI, SFLO_HISTORICAL_STATE_IRI],
-    [`${knopPath}/_inventory/_history001/_s0001`, SFLO_HAS_MANIFESTATION_IRI, `${knopPath}/_inventory/_history001/_s0001/inventory-ttl`],
-    [`${knopPath}/_inventory/_history001/_s0001`, SFLO_LOCATED_FILE_FOR_STATE_IRI, `${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl`],
-    [`${knopPath}/_inventory/_history001/_s0001`, SFLO_HAS_RESOURCE_PAGE_IRI, `${knopPath}/_inventory/_history001/_s0001/index.html`],
-    [`${knopPath}/_inventory/_history001/_s0001/inventory-ttl`, RDF_TYPE_IRI, SFLO_ARTIFACT_MANIFESTATION_IRI],
-    [`${knopPath}/_inventory/_history001/_s0001/inventory-ttl`, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
-    [`${knopPath}/_inventory/_history001/_s0001/inventory-ttl`, SFLO_HAS_LOCATED_FILE_IRI, `${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl`],
-    [`${knopPath}/_inventory/_history001/_s0001/inventory-ttl`, SFLO_HAS_RESOURCE_PAGE_IRI, `${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html`],
+    [
+      `${knopPath}/_meta/_history001`,
+      SFLO_HAS_HISTORICAL_STATE_IRI,
+      `${knopPath}/_meta/_history001/_s0001`,
+    ],
+    [
+      `${knopPath}/_meta/_history001`,
+      SFLO_LATEST_HISTORICAL_STATE_IRI,
+      `${knopPath}/_meta/_history001/_s0001`,
+    ],
+    [
+      `${knopPath}/_meta/_history001`,
+      SFLO_HAS_RESOURCE_PAGE_IRI,
+      `${knopPath}/_meta/_history001/index.html`,
+    ],
+    [
+      `${knopPath}/_meta/_history001/_s0001`,
+      RDF_TYPE_IRI,
+      SFLO_HISTORICAL_STATE_IRI,
+    ],
+    [
+      `${knopPath}/_meta/_history001/_s0001`,
+      SFLO_HAS_MANIFESTATION_IRI,
+      `${knopPath}/_meta/_history001/_s0001/meta-ttl`,
+    ],
+    [
+      `${knopPath}/_meta/_history001/_s0001`,
+      SFLO_LOCATED_FILE_FOR_STATE_IRI,
+      `${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl`,
+    ],
+    [
+      `${knopPath}/_meta/_history001/_s0001`,
+      SFLO_HAS_RESOURCE_PAGE_IRI,
+      `${knopPath}/_meta/_history001/_s0001/index.html`,
+    ],
+    [
+      `${knopPath}/_meta/_history001/_s0001/meta-ttl`,
+      RDF_TYPE_IRI,
+      SFLO_ARTIFACT_MANIFESTATION_IRI,
+    ],
+    [
+      `${knopPath}/_meta/_history001/_s0001/meta-ttl`,
+      RDF_TYPE_IRI,
+      SFLO_RDF_DOCUMENT_IRI,
+    ],
+    [
+      `${knopPath}/_meta/_history001/_s0001/meta-ttl`,
+      SFLO_HAS_LOCATED_FILE_IRI,
+      `${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl`,
+    ],
+    [
+      `${knopPath}/_meta/_history001/_s0001/meta-ttl`,
+      SFLO_HAS_RESOURCE_PAGE_IRI,
+      `${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html`,
+    ],
+    [
+      `${knopPath}/_inventory/_history001`,
+      RDF_TYPE_IRI,
+      SFLO_ARTIFACT_HISTORY_IRI,
+    ],
+    [
+      `${knopPath}/_inventory/_history001`,
+      SFLO_HAS_HISTORICAL_STATE_IRI,
+      `${knopPath}/_inventory/_history001/_s0001`,
+    ],
+    [
+      `${knopPath}/_inventory/_history001`,
+      SFLO_LATEST_HISTORICAL_STATE_IRI,
+      `${knopPath}/_inventory/_history001/_s0001`,
+    ],
+    [
+      `${knopPath}/_inventory/_history001`,
+      SFLO_HAS_RESOURCE_PAGE_IRI,
+      `${knopPath}/_inventory/_history001/index.html`,
+    ],
+    [
+      `${knopPath}/_inventory/_history001/_s0001`,
+      RDF_TYPE_IRI,
+      SFLO_HISTORICAL_STATE_IRI,
+    ],
+    [
+      `${knopPath}/_inventory/_history001/_s0001`,
+      SFLO_HAS_MANIFESTATION_IRI,
+      `${knopPath}/_inventory/_history001/_s0001/inventory-ttl`,
+    ],
+    [
+      `${knopPath}/_inventory/_history001/_s0001`,
+      SFLO_LOCATED_FILE_FOR_STATE_IRI,
+      `${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl`,
+    ],
+    [
+      `${knopPath}/_inventory/_history001/_s0001`,
+      SFLO_HAS_RESOURCE_PAGE_IRI,
+      `${knopPath}/_inventory/_history001/_s0001/index.html`,
+    ],
+    [
+      `${knopPath}/_inventory/_history001/_s0001/inventory-ttl`,
+      RDF_TYPE_IRI,
+      SFLO_ARTIFACT_MANIFESTATION_IRI,
+    ],
+    [
+      `${knopPath}/_inventory/_history001/_s0001/inventory-ttl`,
+      RDF_TYPE_IRI,
+      SFLO_RDF_DOCUMENT_IRI,
+    ],
+    [
+      `${knopPath}/_inventory/_history001/_s0001/inventory-ttl`,
+      SFLO_HAS_LOCATED_FILE_IRI,
+      `${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl`,
+    ],
+    [
+      `${knopPath}/_inventory/_history001/_s0001/inventory-ttl`,
+      SFLO_HAS_RESOURCE_PAGE_IRI,
+      `${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html`,
+    ],
     [`${knopPath}/index.html`, RDF_TYPE_IRI, SFLO_RESOURCE_PAGE_IRI],
     [`${knopPath}/index.html`, RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
     [`${knopPath}/_meta/index.html`, RDF_TYPE_IRI, SFLO_RESOURCE_PAGE_IRI],
     [`${knopPath}/_meta/index.html`, RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
-    [`${knopPath}/_meta/_history001/index.html`, RDF_TYPE_IRI, SFLO_RESOURCE_PAGE_IRI],
-    [`${knopPath}/_meta/_history001/index.html`, RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
-    [`${knopPath}/_meta/_history001/_s0001/index.html`, RDF_TYPE_IRI, SFLO_RESOURCE_PAGE_IRI],
-    [`${knopPath}/_meta/_history001/_s0001/index.html`, RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
-    [`${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html`, RDF_TYPE_IRI, SFLO_RESOURCE_PAGE_IRI],
-    [`${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html`, RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
+    [
+      `${knopPath}/_meta/_history001/index.html`,
+      RDF_TYPE_IRI,
+      SFLO_RESOURCE_PAGE_IRI,
+    ],
+    [
+      `${knopPath}/_meta/_history001/index.html`,
+      RDF_TYPE_IRI,
+      SFLO_LOCATED_FILE_IRI,
+    ],
+    [
+      `${knopPath}/_meta/_history001/_s0001/index.html`,
+      RDF_TYPE_IRI,
+      SFLO_RESOURCE_PAGE_IRI,
+    ],
+    [
+      `${knopPath}/_meta/_history001/_s0001/index.html`,
+      RDF_TYPE_IRI,
+      SFLO_LOCATED_FILE_IRI,
+    ],
+    [
+      `${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html`,
+      RDF_TYPE_IRI,
+      SFLO_RESOURCE_PAGE_IRI,
+    ],
+    [
+      `${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html`,
+      RDF_TYPE_IRI,
+      SFLO_LOCATED_FILE_IRI,
+    ],
     [`${knopPath}/_inventory/index.html`, RDF_TYPE_IRI, SFLO_RESOURCE_PAGE_IRI],
     [`${knopPath}/_inventory/index.html`, RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
-    [`${knopPath}/_inventory/_history001/index.html`, RDF_TYPE_IRI, SFLO_RESOURCE_PAGE_IRI],
-    [`${knopPath}/_inventory/_history001/index.html`, RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
-    [`${knopPath}/_inventory/_history001/_s0001/index.html`, RDF_TYPE_IRI, SFLO_RESOURCE_PAGE_IRI],
-    [`${knopPath}/_inventory/_history001/_s0001/index.html`, RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
-    [`${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html`, RDF_TYPE_IRI, SFLO_RESOURCE_PAGE_IRI],
-    [`${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html`, RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
-    [`${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl`, RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
-    [`${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl`, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
-    [`${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl`, RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
-    [`${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl`, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
+    [
+      `${knopPath}/_inventory/_history001/index.html`,
+      RDF_TYPE_IRI,
+      SFLO_RESOURCE_PAGE_IRI,
+    ],
+    [
+      `${knopPath}/_inventory/_history001/index.html`,
+      RDF_TYPE_IRI,
+      SFLO_LOCATED_FILE_IRI,
+    ],
+    [
+      `${knopPath}/_inventory/_history001/_s0001/index.html`,
+      RDF_TYPE_IRI,
+      SFLO_RESOURCE_PAGE_IRI,
+    ],
+    [
+      `${knopPath}/_inventory/_history001/_s0001/index.html`,
+      RDF_TYPE_IRI,
+      SFLO_LOCATED_FILE_IRI,
+    ],
+    [
+      `${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html`,
+      RDF_TYPE_IRI,
+      SFLO_RESOURCE_PAGE_IRI,
+    ],
+    [
+      `${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html`,
+      RDF_TYPE_IRI,
+      SFLO_LOCATED_FILE_IRI,
+    ],
+    [
+      `${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl`,
+      RDF_TYPE_IRI,
+      SFLO_LOCATED_FILE_IRI,
+    ],
+    [
+      `${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl`,
+      RDF_TYPE_IRI,
+      SFLO_RDF_DOCUMENT_IRI,
+    ],
+    [
+      `${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl`,
+      RDF_TYPE_IRI,
+      SFLO_LOCATED_FILE_IRI,
+    ],
+    [
+      `${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl`,
+      RDF_TYPE_IRI,
+      SFLO_RDF_DOCUMENT_IRI,
+    ],
   ]);
   assertHasLiteralFacts(quads, meshBase, errorMessage, [
-    [`${knopPath}/_meta`, SFLO_NEXT_HISTORY_ORDINAL_IRI, "2", XSD_NON_NEGATIVE_INTEGER_IRI],
-    [`${knopPath}/_inventory`, SFLO_NEXT_HISTORY_ORDINAL_IRI, "2", XSD_NON_NEGATIVE_INTEGER_IRI],
-    [`${knopPath}/_meta/_history001`, SFLO_HISTORY_ORDINAL_IRI, "1", XSD_NON_NEGATIVE_INTEGER_IRI],
-    [`${knopPath}/_meta/_history001`, SFLO_NEXT_STATE_ORDINAL_IRI, "2", XSD_NON_NEGATIVE_INTEGER_IRI],
-    [`${knopPath}/_meta/_history001/_s0001`, SFLO_STATE_ORDINAL_IRI, "1", XSD_NON_NEGATIVE_INTEGER_IRI],
-    [`${knopPath}/_inventory/_history001`, SFLO_HISTORY_ORDINAL_IRI, "1", XSD_NON_NEGATIVE_INTEGER_IRI],
-    [`${knopPath}/_inventory/_history001`, SFLO_NEXT_STATE_ORDINAL_IRI, "2", XSD_NON_NEGATIVE_INTEGER_IRI],
-    [`${knopPath}/_inventory/_history001/_s0001`, SFLO_STATE_ORDINAL_IRI, "1", XSD_NON_NEGATIVE_INTEGER_IRI],
+    [
+      `${knopPath}/_meta`,
+      SFLO_NEXT_HISTORY_ORDINAL_IRI,
+      "2",
+      XSD_NON_NEGATIVE_INTEGER_IRI,
+    ],
+    [
+      `${knopPath}/_inventory`,
+      SFLO_NEXT_HISTORY_ORDINAL_IRI,
+      "2",
+      XSD_NON_NEGATIVE_INTEGER_IRI,
+    ],
+    [
+      `${knopPath}/_meta/_history001`,
+      SFLO_HISTORY_ORDINAL_IRI,
+      "1",
+      XSD_NON_NEGATIVE_INTEGER_IRI,
+    ],
+    [
+      `${knopPath}/_meta/_history001`,
+      SFLO_NEXT_STATE_ORDINAL_IRI,
+      "2",
+      XSD_NON_NEGATIVE_INTEGER_IRI,
+    ],
+    [
+      `${knopPath}/_meta/_history001/_s0001`,
+      SFLO_STATE_ORDINAL_IRI,
+      "1",
+      XSD_NON_NEGATIVE_INTEGER_IRI,
+    ],
+    [
+      `${knopPath}/_inventory/_history001`,
+      SFLO_HISTORY_ORDINAL_IRI,
+      "1",
+      XSD_NON_NEGATIVE_INTEGER_IRI,
+    ],
+    [
+      `${knopPath}/_inventory/_history001`,
+      SFLO_NEXT_STATE_ORDINAL_IRI,
+      "2",
+      XSD_NON_NEGATIVE_INTEGER_IRI,
+    ],
+    [
+      `${knopPath}/_inventory/_history001/_s0001`,
+      SFLO_STATE_ORDINAL_IRI,
+      "1",
+      XSD_NON_NEGATIVE_INTEGER_IRI,
+    ],
   ]);
 }
 
