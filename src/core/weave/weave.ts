@@ -2,13 +2,6 @@ import { Parser } from "n3";
 import type { Quad } from "n3";
 import type { PlannedFile } from "../planned_file.ts";
 import {
-  type NormalizedVersionTargetSpec,
-  normalizeVersionTargetSpecs,
-  resolveTargetSelections,
-  type TargetSpec,
-  type VersionTargetSpec,
-} from "../targeting.ts";
-import {
   deriveMeshLabel,
   escapeHtml,
   toRelativeHref,
@@ -53,19 +46,7 @@ const SFLO_REFERENCE_TARGET_IRI = `${SFLO_NAMESPACE}referenceTarget`;
 const SFLO_REFERENCE_TARGET_STATE_IRI = `${SFLO_NAMESPACE}referenceTargetState`;
 
 export interface WeaveRequest {
-  targets?: readonly VersionTargetSpec[];
-}
-
-export interface ValidateRequest {
-  targets?: readonly TargetSpec[];
-}
-
-export interface GenerateRequest {
-  targets?: readonly TargetSpec[];
-}
-
-export interface VersionRequest {
-  targets?: readonly VersionTargetSpec[];
+  designatorPaths?: readonly string[];
 }
 
 export interface PayloadWorkingArtifact {
@@ -130,7 +111,7 @@ export type ResourcePageModel =
   | ReferenceCatalogResourcePageModel;
 
 export interface PlanWeaveInput {
-  request: VersionRequest;
+  request: WeaveRequest;
   meshBase: string;
   currentMeshInventoryTurtle: string;
   weaveableKnops: readonly WeaveableKnopCandidate[];
@@ -142,13 +123,6 @@ export interface WeavePlan {
   createdFiles: readonly PlannedFile[];
   updatedFiles: readonly PlannedFile[];
   createdPages: readonly ResourcePageModel[];
-}
-
-export interface VersionPlan {
-  meshBase: string;
-  versionedDesignatorPaths: readonly string[];
-  createdFiles: readonly PlannedFile[];
-  updatedFiles: readonly PlannedFile[];
 }
 
 export class WeaveInputError extends Error {
@@ -167,14 +141,12 @@ export type WeaveSlice =
 
 export function planWeave(input: PlanWeaveInput): WeavePlan {
   const meshBase = normalizeMeshBase(input.meshBase);
-  const requestedTargets = normalizeVersionTargetSpecs(
-    input.request.targets,
-    "request.targets",
-    (message) => new WeaveInputError(message),
+  const requestedDesignatorPaths = normalizeRequestedDesignatorPaths(
+    input.request.designatorPaths ?? [],
   );
   const weaveableKnops = filterWeaveableKnops(
     input.weaveableKnops,
-    requestedTargets,
+    requestedDesignatorPaths,
   );
 
   if (weaveableKnops.length === 0) {
@@ -240,23 +212,6 @@ export function planWeave(input: PlanWeaveInput): WeavePlan {
   }
 }
 
-export function planVersion(input: PlanWeaveInput): VersionPlan {
-  const plan = planWeave(input);
-  const createdFiles = plan.createdFiles.filter((file) =>
-    !file.path.endsWith(".html")
-  );
-  const updatedFiles = plan.updatedFiles.filter((file) =>
-    !file.path.endsWith(".html")
-  );
-
-  return {
-    meshBase: plan.meshBase,
-    versionedDesignatorPaths: plan.wovenDesignatorPaths,
-    createdFiles,
-    updatedFiles,
-  };
-}
-
 function normalizeMeshBase(meshBase: string): string {
   const trimmed = meshBase.trim();
   if (trimmed.length === 0) {
@@ -280,29 +235,30 @@ function normalizeMeshBase(meshBase: string): string {
   return url.href;
 }
 
+function normalizeRequestedDesignatorPaths(
+  designatorPaths: readonly string[],
+): readonly string[] {
+  return designatorPaths
+    .map((path) => path.trim())
+    .filter((path) => path.length > 0);
+}
+
 function filterWeaveableKnops(
   weaveableKnops: readonly WeaveableKnopCandidate[],
-  requestedTargets: readonly NormalizedVersionTargetSpec[],
+  requestedDesignatorPaths: readonly string[],
 ): readonly WeaveableKnopCandidate[] {
-  if (requestedTargets.length === 0) {
+  if (requestedDesignatorPaths.length === 0) {
     return weaveableKnops;
   }
 
-  const resolvedTargets = resolveTargetSelections(
-    weaveableKnops.map((candidate) => candidate.designatorPath),
-    requestedTargets,
-    (message) => new WeaveInputError(message),
-  );
-  const requested = new Set(
-    resolvedTargets.map((selection) => selection.designatorPath),
-  );
+  const requested = new Set(requestedDesignatorPaths);
   const filtered = weaveableKnops.filter((candidate) =>
     requested.has(candidate.designatorPath)
   );
 
   if (filtered.length === 0) {
     throw new WeaveInputError(
-      "Requested targets did not match any weave candidates.",
+      "Requested designator paths did not match any weave candidates.",
     );
   }
 

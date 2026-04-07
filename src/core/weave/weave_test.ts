@@ -274,7 +274,7 @@ Deno.test("planWeave renders the first alice knop-created-woven slice", () => {
 Deno.test("planWeave renders the first alice bio payload weave slice", () => {
   const plan = planWeave({
     request: {
-      targets: [{ designatorPath: "alice/bio" }],
+      designatorPaths: ["alice/bio"],
     },
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: firstPayloadWeaveMeshInventoryTurtle,
@@ -364,7 +364,7 @@ Deno.test("planWeave accepts semantically equivalent first payload weave Turtle"
 
   const plan = planWeave({
     request: {
-      targets: [{ designatorPath: "alice/bio" }],
+      designatorPaths: ["alice/bio"],
     },
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: equivalentMeshInventoryTurtle,
@@ -660,7 +660,7 @@ Deno.test("planWeave supports the first reference-catalog weave slice for non-al
 Deno.test("planWeave renders the second alice bio payload weave slice", () => {
   const plan = planWeave({
     request: {
-      targets: [{ designatorPath: "alice/bio" }],
+      designatorPaths: ["alice/bio"],
     },
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: firstReferenceCatalogWeaveMeshInventoryTurtle,
@@ -997,7 +997,7 @@ Deno.test("planWeave rejects when no weaveable candidates were provided", () => 
 async function createExtractedBobWeaveInput(): Promise<PlanWeaveInput> {
   return {
     request: {
-      targets: [{ designatorPath: "bob" }],
+      designatorPaths: ["bob"],
     },
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: await readMeshAliceBioBranchFile(
