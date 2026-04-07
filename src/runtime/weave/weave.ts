@@ -1,14 +1,24 @@
 import { dirname, join } from "@std/path";
-import { Parser } from "n3";
+import { Parser, type Quad } from "n3";
 import type { PlannedFile } from "../../core/planned_file.ts";
 import {
+  type NormalizedTargetSpec,
+  type NormalizedVersionTargetSpec,
+  normalizeTargetSpecs,
+  normalizeVersionTargetSpecs,
+  resolveTargetSelections,
+} from "../../core/targeting.ts";
+import {
   detectPendingWeaveSlice,
+  type GenerateRequest,
   type PayloadWorkingArtifact,
-  planWeave,
+  planVersion,
   type ReferenceCatalogWorkingArtifact,
+  type ValidateRequest,
+  type VersionPlan,
+  type VersionRequest,
   type WeaveableKnopCandidate,
   WeaveInputError,
-  type WeavePlan,
   type WeaveRequest,
   type WeaveSlice,
 } from "../../core/weave/weave.ts";
@@ -27,11 +37,55 @@ import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
 import { renderResourcePages } from "./pages.ts";
 
+const SFLO_NAMESPACE =
+  "https://semantic-flow.github.io/semantic-flow-ontology/";
+const SFLO_HAS_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}hasResourcePage`;
+
+export interface ExecuteValidateOptions {
+  workspaceRoot: string;
+  request?: ValidateRequest;
+}
+
+export interface ExecuteVersionOptions {
+  workspaceRoot: string;
+  request?: VersionRequest;
+}
+
+export interface ExecuteGenerateOptions {
+  workspaceRoot: string;
+  request?: GenerateRequest;
+}
+
 export interface ExecuteWeaveOptions {
   workspaceRoot: string;
   request?: WeaveRequest;
   operationalLogger?: StructuredLogger;
   auditLogger?: AuditLogger;
+}
+
+export interface ValidateFinding {
+  severity: "error";
+  message: string;
+}
+
+export interface ValidateResult {
+  meshBase?: string;
+  validatedDesignatorPaths: readonly string[];
+  findings: readonly ValidateFinding[];
+}
+
+export interface VersionResult {
+  meshBase: string;
+  versionedDesignatorPaths: readonly string[];
+  createdPaths: readonly string[];
+  updatedPaths: readonly string[];
+}
+
+export interface GenerateResult {
+  meshBase: string;
+  generatedDesignatorPaths: readonly string[];
+  createdPaths: readonly string[];
+  updatedPaths: readonly string[];
 }
 
 export interface WeaveResult {
@@ -48,57 +102,192 @@ export class WeaveRuntimeError extends Error {
   }
 }
 
+interface MeshState {
+  meshBase: string;
+  currentMeshInventoryTurtle: string;
+}
+
+interface PreparedVersionExecution {
+  meshState: MeshState;
+  plan: VersionPlan;
+}
+
+interface GenerateDesignatorContext {
+  designatorPath: string;
+  payloadWorkingFilePath?: string;
+  pagePaths: readonly string[];
+}
+
+export async function executeValidate(
+  options: ExecuteValidateOptions,
+): Promise<ValidateResult> {
+  try {
+    const targets = normalizeValidateRequest(options.request);
+    const prepared = await prepareVersionExecution(
+      options.workspaceRoot,
+      {
+        targets: targets.map((target) => ({ ...target.source })),
+      },
+    );
+    validateRdfFiles([
+      ...prepared.plan.createdFiles,
+      ...prepared.plan.updatedFiles,
+    ]);
+
+    return {
+      meshBase: prepared.meshState.meshBase,
+      validatedDesignatorPaths: prepared.plan.versionedDesignatorPaths,
+      findings: [],
+    };
+  } catch (error) {
+    if (
+      error instanceof WeaveInputError || error instanceof WeaveRuntimeError
+    ) {
+      return {
+        validatedDesignatorPaths: [],
+        findings: [{
+          severity: "error",
+          message: error.message,
+        }],
+      };
+    }
+    throw error;
+  }
+}
+
+export async function executeVersion(
+  options: ExecuteVersionOptions,
+): Promise<VersionResult> {
+  const targets = normalizeVersionRequest(options.request);
+  const prepared = await prepareVersionExecution(
+    options.workspaceRoot,
+    {
+      targets: targets.map((target) => ({ ...target.source })),
+    },
+  );
+  assertUpdatedTargetsExist(options.workspaceRoot, prepared.plan.updatedFiles);
+  await assertCreateTargetsDoNotExist(
+    options.workspaceRoot,
+    prepared.plan.createdFiles,
+  );
+  validateRdfFiles([
+    ...prepared.plan.createdFiles,
+    ...prepared.plan.updatedFiles,
+  ]);
+  await writeFiles(options.workspaceRoot, prepared.plan.createdFiles, true);
+  await writeFiles(options.workspaceRoot, prepared.plan.updatedFiles, false);
+
+  return {
+    meshBase: prepared.meshState.meshBase,
+    versionedDesignatorPaths: prepared.plan.versionedDesignatorPaths,
+    createdPaths: prepared.plan.createdFiles.map((file) => file.path),
+    updatedPaths: prepared.plan.updatedFiles.map((file) => file.path),
+  };
+}
+
+export async function executeGenerate(
+  options: ExecuteGenerateOptions,
+): Promise<GenerateResult> {
+  const targets = normalizeGenerateRequest(options.request);
+  await ensureWorkspaceRootExists(options.workspaceRoot);
+  const meshState = await loadMeshState(options.workspaceRoot);
+  const allDesignatorPaths = listKnopDesignatorPaths(
+    meshState.meshBase,
+    meshState.currentMeshInventoryTurtle,
+    "Could not parse the current MeshInventory while resolving generate targets.",
+  );
+  const selectedDesignatorPaths = resolveSelectedDesignatorPaths(
+    allDesignatorPaths,
+    targets,
+  );
+  const pageFiles = await collectGeneratedPageFiles(
+    options.workspaceRoot,
+    meshState,
+    selectedDesignatorPaths,
+    targets.length === 0,
+  );
+  const writeResult = await writeFilesUpsert(options.workspaceRoot, pageFiles);
+
+  return {
+    meshBase: meshState.meshBase,
+    generatedDesignatorPaths: selectedDesignatorPaths,
+    createdPaths: writeResult.createdPaths,
+    updatedPaths: writeResult.updatedPaths,
+  };
+}
+
 export async function executeWeave(
   options: ExecuteWeaveOptions,
 ): Promise<WeaveResult> {
   const { operationalLogger, auditLogger } = resolveLoggers(options);
   const workspaceRoot = options.workspaceRoot;
-  let plan: WeavePlan | undefined;
-  let createdOutputFiles: readonly PlannedFile[] = [];
+  let wovenDesignatorPaths: readonly string[] = [];
 
   await operationalLogger.info("weave.started", "Starting local weave", {
     workspaceRoot,
-    designatorPaths: options.request?.designatorPaths ?? [],
+    targets: options.request?.targets ?? [],
   });
   await auditLogger.record("weave.started", "Local weave started", {
     workspaceRoot,
-    designatorPaths: options.request?.designatorPaths ?? [],
+    targets: options.request?.targets ?? [],
   });
 
   try {
-    await ensureWorkspaceRootExists(workspaceRoot);
-    const meshState = await loadMeshState(workspaceRoot);
-    const weaveableKnops = await loadWeaveableKnopCandidates(
+    const validation = await executeValidate({
       workspaceRoot,
-      meshState.meshBase,
-      meshState.currentMeshInventoryTurtle,
-      options.request?.designatorPaths ?? [],
-    );
-    plan = planWeave({
-      request: options.request ?? {},
-      meshBase: meshState.meshBase,
-      currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
-      weaveableKnops,
+      request: toValidateRequest(options.request),
     });
-    createdOutputFiles = [
-      ...plan.createdFiles,
-      ...renderResourcePages(plan.meshBase, plan.createdPages),
-    ];
-    assertUpdatedTargetsExist(workspaceRoot, plan.updatedFiles);
-    await assertCreateTargetsDoNotExist(workspaceRoot, createdOutputFiles);
-    validateRdfFiles([...plan.createdFiles, ...plan.updatedFiles]);
-    await writeFiles(workspaceRoot, createdOutputFiles, true);
-    await writeFiles(workspaceRoot, plan.updatedFiles, false);
+    if (validation.findings.length > 0) {
+      throw new WeaveInputError(validation.findings[0]!.message);
+    }
+
+    const versionResult = await executeVersion({
+      workspaceRoot,
+      request: options.request,
+    });
+    wovenDesignatorPaths = versionResult.versionedDesignatorPaths;
+
+    const generateResult = await executeGenerate({
+      workspaceRoot,
+    });
+
+    const result: WeaveResult = {
+      meshBase: versionResult.meshBase,
+      wovenDesignatorPaths,
+      createdPaths: [
+        ...versionResult.createdPaths,
+        ...generateResult.createdPaths,
+      ],
+      updatedPaths: [
+        ...versionResult.updatedPaths,
+        ...generateResult.updatedPaths,
+      ],
+    };
+
+    await operationalLogger.info("weave.succeeded", "Local weave succeeded", {
+      workspaceRoot,
+      wovenDesignatorPaths: result.wovenDesignatorPaths,
+      createdPaths: result.createdPaths,
+      updatedPaths: result.updatedPaths,
+    });
+    await auditLogger.record("weave.succeeded", "Local weave succeeded", {
+      workspaceRoot,
+      wovenDesignatorPaths: result.wovenDesignatorPaths,
+      createdPaths: result.createdPaths,
+      updatedPaths: result.updatedPaths,
+    });
+
+    return result;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await operationalLogger.error("weave.failed", "Local weave failed", {
       workspaceRoot,
-      wovenDesignatorPaths: plan?.wovenDesignatorPaths,
+      wovenDesignatorPaths,
       error: message,
     });
     await auditLogger.record("weave.failed", "Local weave failed", {
       workspaceRoot,
-      wovenDesignatorPaths: plan?.wovenDesignatorPaths,
+      wovenDesignatorPaths,
       error: message,
     });
 
@@ -109,28 +298,6 @@ export async function executeWeave(
     }
     throw new WeaveRuntimeError(message);
   }
-
-  const result: WeaveResult = {
-    meshBase: plan.meshBase,
-    wovenDesignatorPaths: plan.wovenDesignatorPaths,
-    createdPaths: createdOutputFiles.map((file) => file.path),
-    updatedPaths: plan.updatedFiles.map((file) => file.path),
-  };
-
-  await operationalLogger.info("weave.succeeded", "Local weave succeeded", {
-    workspaceRoot,
-    wovenDesignatorPaths: result.wovenDesignatorPaths,
-    createdPaths: result.createdPaths,
-    updatedPaths: result.updatedPaths,
-  });
-  await auditLogger.record("weave.succeeded", "Local weave succeeded", {
-    workspaceRoot,
-    wovenDesignatorPaths: result.wovenDesignatorPaths,
-    createdPaths: result.createdPaths,
-    updatedPaths: result.updatedPaths,
-  });
-
-  return result;
 }
 
 export function describeWeaveResult(result: WeaveResult): string {
@@ -144,6 +311,119 @@ function resolveLoggers(
   auditLogger: AuditLogger;
 } {
   return resolveRuntimeLoggers(options);
+}
+
+function normalizeValidateRequest(
+  request: ValidateRequest | undefined,
+): readonly NormalizedTargetSpec[] {
+  assertSupportedRequestKeys(request, "request", new Set(["targets"]));
+  return normalizeTargetSpecs(
+    request?.targets,
+    "request.targets",
+    (message) => new WeaveInputError(message),
+  );
+}
+
+function normalizeGenerateRequest(
+  request: GenerateRequest | undefined,
+): readonly NormalizedTargetSpec[] {
+  assertSupportedRequestKeys(request, "request", new Set(["targets"]));
+  return normalizeTargetSpecs(
+    request?.targets,
+    "request.targets",
+    (message) => new WeaveInputError(message),
+  );
+}
+
+function normalizeVersionRequest(
+  request: VersionRequest | undefined,
+): readonly NormalizedVersionTargetSpec[] {
+  assertSupportedRequestKeys(request, "request", new Set(["targets"]));
+  return normalizeVersionTargetSpecs(
+    request?.targets,
+    "request.targets",
+    (message) => new WeaveInputError(message),
+  );
+}
+
+function toValidateRequest(
+  request: WeaveRequest | undefined,
+): ValidateRequest | undefined {
+  if (!request) {
+    return undefined;
+  }
+
+  return {
+    targets: request.targets?.map((target) => ({
+      designatorPath: target.designatorPath,
+      ...(target.recursive ? { recursive: true } : {}),
+    })),
+  };
+}
+
+function assertSupportedRequestKeys(
+  request: unknown,
+  fieldName: string,
+  allowedKeys: ReadonlySet<string>,
+): void {
+  if (request === undefined) {
+    return;
+  }
+  if (!request || typeof request !== "object" || Array.isArray(request)) {
+    throw new WeaveInputError(`${fieldName} must be an object`);
+  }
+
+  for (const key of Object.keys(request)) {
+    if (!allowedKeys.has(key)) {
+      throw new WeaveInputError(`${fieldName}.${key} is not supported`);
+    }
+  }
+}
+
+async function prepareVersionExecution(
+  workspaceRoot: string,
+  request: VersionRequest,
+): Promise<PreparedVersionExecution> {
+  await ensureWorkspaceRootExists(workspaceRoot);
+  const meshState = await loadMeshState(workspaceRoot);
+  const selectedDesignatorPaths = resolveSelectedDesignatorPaths(
+    listKnopDesignatorPaths(
+      meshState.meshBase,
+      meshState.currentMeshInventoryTurtle,
+      "Could not parse the current MeshInventory while resolving weaveable Knop candidates.",
+    ),
+    normalizeVersionRequest(request),
+  );
+  const weaveableKnops = await loadWeaveableKnopCandidates(
+    workspaceRoot,
+    meshState.meshBase,
+    meshState.currentMeshInventoryTurtle,
+    selectedDesignatorPaths,
+  );
+  const plan = planVersion({
+    request,
+    meshBase: meshState.meshBase,
+    currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
+    weaveableKnops,
+  });
+
+  return {
+    meshState,
+    plan,
+  };
+}
+
+function resolveSelectedDesignatorPaths(
+  allDesignatorPaths: readonly string[],
+  targets:
+    | readonly NormalizedTargetSpec[]
+    | readonly NormalizedVersionTargetSpec[],
+): readonly string[] {
+  return resolveTargetSelections(
+    allDesignatorPaths,
+    targets,
+    (message) => new WeaveInputError(message),
+  ).map((selection) => selection.designatorPath);
 }
 
 async function ensureWorkspaceRootExists(workspaceRoot: string): Promise<void> {
@@ -168,7 +448,7 @@ async function ensureWorkspaceRootExists(workspaceRoot: string): Promise<void> {
 
 async function loadMeshState(
   workspaceRoot: string,
-): Promise<{ meshBase: string; currentMeshInventoryTurtle: string }> {
+): Promise<MeshState> {
   const meshMetadataPath = join(workspaceRoot, "_mesh/_meta/meta.ttl");
   const meshInventoryPath = join(
     workspaceRoot,
@@ -223,11 +503,11 @@ async function loadWeaveableKnopCandidates(
     currentMeshInventoryTurtle,
     "Could not parse the current MeshInventory while resolving weaveable Knop candidates.",
   );
-  const requested = normalizeRequestedDesignatorPaths(requestedDesignatorPaths);
+  const requested = new Set(requestedDesignatorPaths);
 
   const candidates: WeaveableKnopCandidate[] = [];
   for (const designatorPath of designatorPaths) {
-    if (requested && !requested.has(designatorPath)) {
+    if (requested.size > 0 && !requested.has(designatorPath)) {
       continue;
     }
 
@@ -523,16 +803,6 @@ function isWeaveableKnopCandidate(
   return slice === "firstKnopWeave";
 }
 
-function normalizeRequestedDesignatorPaths(
-  requestedDesignatorPaths: readonly string[],
-): ReadonlySet<string> | undefined {
-  const normalized = requestedDesignatorPaths
-    .map((path) => path.trim())
-    .filter((path) => path.length > 0);
-
-  return normalized.length === 0 ? undefined : new Set(normalized);
-}
-
 function assertUpdatedTargetsExist(
   workspaceRoot: string,
   files: readonly PlannedFile[],
@@ -587,6 +857,210 @@ function validateRdfFiles(files: readonly PlannedFile[]): void {
   }
 }
 
+async function collectGeneratedPageFiles(
+  workspaceRoot: string,
+  meshState: MeshState,
+  selectedDesignatorPaths: readonly string[],
+  includeAllMeshPages: boolean,
+): Promise<readonly PlannedFile[]> {
+  const pageModels: {
+    kind: "identifier" | "simple";
+    path: string;
+    designatorPath?: string;
+    workingFilePath?: string;
+    description?: string;
+  }[] = [];
+  const pagePaths = new Set<string>();
+  const selectedSet = new Set(selectedDesignatorPaths);
+  const designatorContexts = await loadGenerateDesignatorContexts(
+    workspaceRoot,
+    meshState,
+    selectedDesignatorPaths,
+  );
+  const publicIdentifierPaths = new Map(
+    designatorContexts.map((context) => [
+      `${context.designatorPath}/index.html`,
+      context,
+    ]),
+  );
+
+  for (
+    const pagePath of listResourcePagePaths(
+      meshState.meshBase,
+      meshState.currentMeshInventoryTurtle,
+      "Could not parse the current MeshInventory while collecting ResourcePages.",
+    )
+  ) {
+    if (
+      !includeAllMeshPages &&
+      !pagePath.startsWith("_mesh/") &&
+      !selectedSet.has(pagePath.slice(0, -"/index.html".length))
+    ) {
+      continue;
+    }
+    if (pagePaths.has(pagePath)) {
+      continue;
+    }
+
+    const publicContext = publicIdentifierPaths.get(pagePath);
+    if (publicContext) {
+      pageModels.push({
+        kind: "identifier",
+        path: pagePath,
+        designatorPath: publicContext.designatorPath,
+        workingFilePath: publicContext.payloadWorkingFilePath,
+      });
+    } else {
+      pageModels.push({
+        kind: "simple",
+        path: pagePath,
+        description: `Generated resource page for ${toResourcePath(pagePath)}.`,
+      });
+    }
+    pagePaths.add(pagePath);
+  }
+
+  for (const context of designatorContexts) {
+    for (const pagePath of context.pagePaths) {
+      if (pagePaths.has(pagePath)) {
+        continue;
+      }
+
+      pageModels.push({
+        kind: "simple",
+        path: pagePath,
+        description: `Generated resource page for ${toResourcePath(pagePath)}.`,
+      });
+      pagePaths.add(pagePath);
+    }
+  }
+
+  return renderResourcePages(
+    meshState.meshBase,
+    pageModels.map((model) =>
+      model.kind === "identifier"
+        ? {
+          kind: "identifier" as const,
+          path: model.path,
+          designatorPath: model.designatorPath!,
+          workingFilePath: model.workingFilePath,
+        }
+        : {
+          kind: "simple" as const,
+          path: model.path,
+          description: model.description!,
+        }
+    ),
+  );
+}
+
+async function loadGenerateDesignatorContexts(
+  workspaceRoot: string,
+  meshState: MeshState,
+  designatorPaths: readonly string[],
+): Promise<readonly GenerateDesignatorContext[]> {
+  const contexts: GenerateDesignatorContext[] = [];
+
+  for (const designatorPath of designatorPaths) {
+    const knopInventoryPath = join(
+      workspaceRoot,
+      `${designatorPath}/_knop/_inventory/inventory.ttl`,
+    );
+    let currentKnopInventoryTurtle: string;
+
+    try {
+      currentKnopInventoryTurtle = await Deno.readTextFile(knopInventoryPath);
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) {
+        continue;
+      }
+      throw error;
+    }
+
+    const payloadArtifact = resolvePayloadArtifactInventoryState(
+      meshState.meshBase,
+      currentKnopInventoryTurtle,
+      designatorPath,
+      {
+        parseErrorMessage:
+          `Could not parse the current Knop inventory while collecting pages for ${designatorPath}.`,
+        missingWorkingFileMessage:
+          `Could not resolve the working payload file for ${designatorPath}.`,
+      },
+    );
+
+    contexts.push({
+      designatorPath,
+      payloadWorkingFilePath: payloadArtifact?.workingFilePath,
+      pagePaths: listResourcePagePaths(
+        meshState.meshBase,
+        currentKnopInventoryTurtle,
+        `Could not parse the current Knop inventory while collecting ResourcePages for ${designatorPath}.`,
+      ),
+    });
+  }
+
+  return contexts;
+}
+
+function listResourcePagePaths(
+  meshBase: string,
+  inventoryTurtle: string,
+  parseErrorMessage: string,
+): readonly string[] {
+  const quads = parseInventoryQuads(
+    meshBase,
+    inventoryTurtle,
+    parseErrorMessage,
+  );
+  const paths = new Set<string>();
+
+  for (const quad of quads) {
+    if (
+      quad.predicate.value !== SFLO_HAS_RESOURCE_PAGE_IRI ||
+      quad.object.termType !== "NamedNode"
+    ) {
+      continue;
+    }
+
+    const pagePath = tryToMeshPath(meshBase, quad.object.value);
+    if (!pagePath?.endsWith("/index.html")) {
+      continue;
+    }
+
+    paths.add(pagePath);
+  }
+
+  return [...paths].sort((left, right) => left.localeCompare(right));
+}
+
+function parseInventoryQuads(
+  meshBase: string,
+  inventoryTurtle: string,
+  parseErrorMessage: string,
+): readonly Quad[] {
+  try {
+    return new Parser({ baseIRI: meshBase }).parse(inventoryTurtle);
+  } catch {
+    throw new WeaveRuntimeError(parseErrorMessage);
+  }
+}
+
+function tryToMeshPath(meshBase: string, iri: string): string | undefined {
+  if (!iri.startsWith(meshBase)) {
+    return undefined;
+  }
+
+  const suffix = iri.slice(meshBase.length);
+  return suffix.length === 0 ? undefined : suffix;
+}
+
+function toResourcePath(pagePath: string): string {
+  return pagePath.endsWith("/index.html")
+    ? pagePath.slice(0, -"/index.html".length)
+    : pagePath;
+}
+
 function toPayloadHistoricalSnapshotPath(
   designatorPath: string,
   workingFilePath: string,
@@ -616,4 +1090,45 @@ async function writeFiles(
       createNew ? { createNew: true } : undefined,
     );
   }
+}
+
+async function writeFilesUpsert(
+  workspaceRoot: string,
+  files: readonly PlannedFile[],
+): Promise<{ createdPaths: string[]; updatedPaths: string[] }> {
+  const createdPaths: string[] = [];
+  const updatedPaths: string[] = [];
+
+  for (const file of files) {
+    const absolutePath = join(workspaceRoot, file.path);
+    let exists = false;
+    let currentContents: string | undefined;
+
+    try {
+      currentContents = await Deno.readTextFile(absolutePath);
+      exists = true;
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) {
+        throw error;
+      }
+    }
+
+    if (exists && currentContents === file.contents) {
+      continue;
+    }
+
+    await Deno.mkdir(dirname(absolutePath), { recursive: true });
+    await Deno.writeTextFile(absolutePath, file.contents);
+
+    if (exists) {
+      updatedPaths.push(file.path);
+    } else {
+      createdPaths.push(file.path);
+    }
+  }
+
+  return {
+    createdPaths,
+    updatedPaths,
+  };
 }
