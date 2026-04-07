@@ -16,8 +16,7 @@ const SFLO_LATEST_HISTORICAL_STATE_IRI =
 const SFLO_REFERENCE_LINK_FOR_IRI = `${SFLO_NAMESPACE}referenceLinkFor`;
 const SFLO_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}ReferenceLink`;
 const SFLO_REFERENCE_TARGET_IRI = `${SFLO_NAMESPACE}referenceTarget`;
-const SFLO_REFERENCE_TARGET_STATE_IRI =
-  `${SFLO_NAMESPACE}referenceTargetState`;
+const SFLO_REFERENCE_TARGET_STATE_IRI = `${SFLO_NAMESPACE}referenceTargetState`;
 
 export interface PayloadArtifactInventoryState {
   workingFilePath: string;
@@ -209,7 +208,14 @@ export function resolveReferenceTargetDesignatorPath(
     if (!subjectIri.startsWith(linkSubjectPrefix)) {
       continue;
     }
-    if (!hasNamedNodeObject(quads, subjectIri, RDF_TYPE_IRI, SFLO_REFERENCE_LINK_IRI)) {
+    if (
+      !hasNamedNodeObject(
+        quads,
+        subjectIri,
+        RDF_TYPE_IRI,
+        SFLO_REFERENCE_LINK_IRI,
+      )
+    ) {
       continue;
     }
     if (
