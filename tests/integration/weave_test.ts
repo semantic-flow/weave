@@ -395,6 +395,32 @@ Deno.test("executeWeave materializes the extracted bob woven slice", async () =>
   );
 });
 
+Deno.test("executeWeave fails closed when bob's woven source payload has no current history", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-bob-extracted-missing-history-",
+  );
+  await materializeMeshAliceBioBranch("12-bob-extracted", workspaceRoot);
+
+  await replaceFileText(
+    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+    `sflo:currentArtifactHistory <alice/bio/_history001> ;
+  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;`,
+    `sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;`,
+  );
+
+  await assertRejects(
+    () =>
+      executeWeave({
+        workspaceRoot,
+        request: {
+          designatorPaths: ["bob"],
+        },
+      }),
+    WeaveRuntimeError,
+    "missing a woven current payload history",
+  );
+});
+
 Deno.test("executeWeave fails closed when a created weave target already exists", async () => {
   const workspaceRoot = await createTestTmpDir("weave-weave-existing-");
   await materializeMeshAliceBioBranch("04-alice-knop-created", workspaceRoot);
@@ -518,4 +544,16 @@ async function writeSupplementalKnopSurface(
     join(knopPath, "_inventory/inventory.ttl"),
     inventoryTurtle,
   );
+}
+
+async function replaceFileText(
+  path: string,
+  before: string,
+  after: string,
+): Promise<void> {
+  const current = await Deno.readTextFile(path);
+  if (!current.includes(before)) {
+    throw new Error(`Failed to find expected text in ${path}`);
+  }
+  await Deno.writeTextFile(path, current.replace(before, after));
 }

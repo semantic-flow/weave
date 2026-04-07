@@ -215,3 +215,38 @@ So in [wd.task.2026.2026-04-06_1905-markdown-payload-publishing.md](wd.task.2026
 One small cleanup while you’re there: the title is slightly off-pattern. I’d use `2026 04 06 1905 Markdown Payload Publishing`, not `2026 04 06_1905 ...`.
 
 If you want, I can draft the `Goals`, `Summary`, and `Decisions` sections for this note in that exact framing.
+
+# User_2026-04-06_1919_20
+
+yes please
+
+# gpt-5.4_2026-04-06_1919_30
+
+I’m drafting the note directly in the task file now. I’ll fill `Goals`, `Summary`, and `Decisions` around the boundary we settled: plain Markdown baseline, Dendron as a source-format profile, and publication behavior as a separate profile layer.
+
+# gpt-5.4_2026-04-06_1919_47
+
+The patch missed because the frontmatter changed since I last read it. I’m reloading the note and then applying the draft cleanly.
+
+# gpt-5.4_2026-04-06_1919_51
+
+I’ve got the current file again. Applying the section text now, and I’m also normalizing the title timestamp while I’m in there.
+
+# gpt-5.4_2026-04-06_1920_01
+
+The draft is in place. I’m reading it back once to make sure the wording is tight and it didn’t accidentally broaden the task into “build the whole publishing stack now.”
+
+# gpt-5.4_2026-04-06_1920_08
+
+Drafted the sections directly in [wd.task.2026.2026-04-06_1905-markdown-payload-publishing.md](wd.task.2026.2026-04-06_1905-markdown-payload-publishing.md) and normalized the title to `2026 04 06 1905 Markdown Payload Publishing`.
+
+The note now encodes the boundary we discussed:
+
+- plain Markdown is the baseline
+- Dendron is a source-interpretation profile
+- publication behavior is a separate profile layer
+- source files and generated public pages may live on different surfaces
+
+No tests were run since this was a task-note edit only.
+
+If you want, I can fill the next three sections too: `Non-Goals`, `Open Issues`, and a tight `Implementation Plan` checklist.

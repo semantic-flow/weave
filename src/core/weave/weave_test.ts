@@ -1,5 +1,5 @@
 import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
-import { planWeave, WeaveInputError } from "./weave.ts";
+import { planWeave, type PlanWeaveInput, WeaveInputError } from "./weave.ts";
 import { readMeshAliceBioBranchFile } from "../../../tests/support/mesh_alice_bio_fixture.ts";
 
 const firstWeaveMeshInventoryTurtle =
@@ -505,43 +505,7 @@ Deno.test("planWeave renders the second alice bio payload weave slice", () => {
 });
 
 Deno.test("planWeave renders the extracted bob woven slice", async () => {
-  const plan = planWeave({
-    request: {
-      designatorPaths: ["bob"],
-    },
-    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
-    currentMeshInventoryTurtle: await readMeshAliceBioBranchFile(
-      "12-bob-extracted",
-      "_mesh/_inventory/inventory.ttl",
-    ),
-    weaveableKnops: [{
-      designatorPath: "bob",
-      currentKnopMetadataTurtle: await readMeshAliceBioBranchFile(
-        "12-bob-extracted",
-        "bob/_knop/_meta/meta.ttl",
-      ),
-      currentKnopInventoryTurtle: await readMeshAliceBioBranchFile(
-        "12-bob-extracted",
-        "bob/_knop/_inventory/inventory.ttl",
-      ),
-      referenceCatalogArtifact: {
-        workingFilePath: "bob/_knop/_references/references.ttl",
-        currentReferenceCatalogTurtle: await readMeshAliceBioBranchFile(
-          "12-bob-extracted",
-          "bob/_knop/_references/references.ttl",
-        ),
-      },
-      referenceTargetSourcePayloadArtifact: {
-        designatorPath: "alice/bio",
-        workingFilePath: "alice-bio.ttl",
-        currentPayloadTurtle: await readMeshAliceBioBranchFile(
-          "12-bob-extracted",
-          "alice-bio.ttl",
-        ),
-        latestHistoricalStatePath: "alice/bio/_history001/_s0002",
-      },
-    }],
-  });
+  const plan = planWeave(await createExtractedBobWeaveInput());
 
   assertEquals(plan.wovenDesignatorPaths, ["bob"]);
   assertEquals(plan.updatedFiles.map((file) => file.path), [
@@ -577,6 +541,62 @@ Deno.test("planWeave renders the extracted bob woven slice", async () => {
   );
 });
 
+Deno.test("planWeave rejects extracted bob weave inputs without a pinned source historical state", async () => {
+  const input = await createExtractedBobWeaveInput();
+  input.weaveableKnops[0]!.referenceCatalogArtifact = {
+    workingFilePath: "bob/_knop/_references/references.ttl",
+    currentReferenceCatalogTurtle:
+      `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+
+<bob> sflo:hasReferenceLink <bob/_knop/_references#reference001> .
+
+<bob/_knop/_references#reference001> a sflo:ReferenceLink ;
+  sflo:referenceLinkFor <bob> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Supplemental> ;
+  sflo:referenceTarget <alice/bio> .
+`,
+  };
+
+  assertThrows(
+    () => planWeave(input),
+    WeaveInputError,
+    "must pin its source ReferenceCatalog link to a historical state",
+  );
+});
+
+Deno.test("planWeave rejects extracted bob weave inputs when the source payload path does not match", async () => {
+  const input = await createExtractedBobWeaveInput();
+  input.weaveableKnops[0]!.referenceCatalogArtifact = {
+    ...input.weaveableKnops[0]!.referenceCatalogArtifact!,
+    currentReferenceCatalogTurtle: input.weaveableKnops[0]!
+      .referenceCatalogArtifact!.currentReferenceCatalogTurtle.replace(
+        "sflo:referenceTarget <alice/bio> ;",
+        "sflo:referenceTarget <carol/bio> ;",
+      ),
+  };
+
+  assertThrows(
+    () => planWeave(input),
+    WeaveInputError,
+    "did not resolve the expected source payload path",
+  );
+});
+
+Deno.test("planWeave rejects extracted bob weave inputs when the source payload state does not match", async () => {
+  const input = await createExtractedBobWeaveInput();
+  input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact = {
+    ...input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact!,
+    latestHistoricalStatePath: "alice/bio/_history001/_s0001",
+  };
+
+  assertThrows(
+    () => planWeave(input),
+    WeaveInputError,
+    "did not resolve the expected source payload state",
+  );
+});
+
 Deno.test("planWeave rejects when no weaveable candidates were provided", () => {
   assertThrows(
     () =>
@@ -590,3 +610,43 @@ Deno.test("planWeave rejects when no weaveable candidates were provided", () => 
     "No weave candidates",
   );
 });
+
+async function createExtractedBobWeaveInput(): Promise<PlanWeaveInput> {
+  return {
+    request: {
+      designatorPaths: ["bob"],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: await readMeshAliceBioBranchFile(
+      "12-bob-extracted",
+      "_mesh/_inventory/inventory.ttl",
+    ),
+    weaveableKnops: [{
+      designatorPath: "bob",
+      currentKnopMetadataTurtle: await readMeshAliceBioBranchFile(
+        "12-bob-extracted",
+        "bob/_knop/_meta/meta.ttl",
+      ),
+      currentKnopInventoryTurtle: await readMeshAliceBioBranchFile(
+        "12-bob-extracted",
+        "bob/_knop/_inventory/inventory.ttl",
+      ),
+      referenceCatalogArtifact: {
+        workingFilePath: "bob/_knop/_references/references.ttl",
+        currentReferenceCatalogTurtle: await readMeshAliceBioBranchFile(
+          "12-bob-extracted",
+          "bob/_knop/_references/references.ttl",
+        ),
+      },
+      referenceTargetSourcePayloadArtifact: {
+        designatorPath: "alice/bio",
+        workingFilePath: "alice-bio.ttl",
+        currentPayloadTurtle: await readMeshAliceBioBranchFile(
+          "12-bob-extracted",
+          "alice-bio.ttl",
+        ),
+        latestHistoricalStatePath: "alice/bio/_history001/_s0002",
+      },
+    }],
+  };
+}

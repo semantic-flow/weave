@@ -630,3 +630,114 @@ extract: tighten extract validation and error context
 - add regression coverage that planExtract preserves wrapped error causes
 - keep extract integration and CLI behavior green under full deno task ci
 ```
+
+# User_2026-04-06_1918_45
+
+Codecov is a little low for this PR, are there opportunities for valuable testing?
+
+# gpt-5.4_2026-04-06_1919_01
+
+I’m checking the actual coverage pressure points in the files touched by this PR instead of guessing from the Codecov badge. First I’ll look at the diff and local coverage on the modified extract/weave paths, then I’ll separate high-value gaps from test noise.
+
+# gpt-5.4_2026-04-06_1919_07
+
+The current worktree is clean apart from a conversation note, so the testing opportunities need to be inferred from the committed PR code rather than unstaged changes. I’m looking at the recent commits and local coverage on the new extract/weave paths now.
+
+# gpt-5.4_2026-04-06_1919_12
+
+The PR delta is concentrated in `core/runtime extract` and the new Bob weave support, so that’s where Codecov pressure will be. I’m running coverage detail on those files specifically to find high-signal gaps, not just low-percentage lines.
+
+# gpt-5.4_2026-04-06_1920_06
+
+I have the coverage picture. I’m reading the new extract/weave code paths once more so I can recommend tests that exercise real invariants rather than just chasing percentages.
+
+# gpt-5.4_2026-04-06_1920_12
+
+The obvious low-value percentage chaser would be “test every helper branch in the giant weave planner.” I’m avoiding that and checking where a small number of tests would actually harden the new Bob/extract behavior.
+
+# gpt-5.4_2026-04-06_1920_32
+
+Yes. There are a few worthwhile additions, but I would keep them targeted rather than trying to brute-force the percentage.
+
+**High Value**
+- Add a unit test for pinned extracted `ReferenceCatalog` page rendering in [pages_test.ts](../../src/runtime/weave/pages_test.ts). [pages.ts](../../src/runtime/weave/pages.ts) now has a separate branch for `referenceTargetStatePath`, and that path already regressed once on relative-link calculation.
+- Add negative unit tests for extracted-weave invariants in [weave_test.ts](../../src/core/weave/weave_test.ts). The highest-signal missing cases in [weave.ts](../../src/core/weave/weave.ts) are:
+  - missing `referenceTargetStatePath`
+  - mismatched `referenceTargetPath`
+  - mismatched `latestHistoricalStatePath`
+- Add fail-closed runtime tests around extracted-source resolution in [weave.ts](../../src/runtime/weave/weave.ts). The new `loadReferenceTargetSourcePayloadArtifact` path is important and mostly only covered by the happy path. Good cases are:
+  - Bob reference points to a source inventory that is missing
+  - source payload exists but has no woven current history
+  - extracted `ReferenceCatalog` link block is malformed
+
+**Good But Secondary**
+- Add direct unit tests for shared path validation in [designator_segments.ts](../../src/core/designator_segments.ts) and [extract.ts](../../src/core/extract/extract.ts). Those files are low in coverage, and a few focused tests for reserved segments, unsafe chars, whitespace rejection for working-file paths, and dot-segment rejection would be useful because the helpers are shared.
+- Add narrow tests for the brittle string-surgery seams in [extract.ts](../../src/core/extract/extract.ts):
+  - `injectReferenceTargetState` fails closed on unexpected Turtle shape
+  - `reorderMeshInventoryLocatedFiles` is a no-op when already ordered
+
+**Not Worth Chasing**
+- I would not try to raise coverage by snapshot-testing every long HTML/Turtle renderer branch in [weave.ts](../../src/core/weave/weave.ts). That will buy percentage faster than confidence.
+- I also would not force a test around the extract backup/rename TOCTOU concern unless we first add a real fault-injection seam in [extract.ts](../../src/runtime/extract/extract.ts). Right now that would be brittle.
+
+If you want the best return for this PR, I’d do these three:
+1. pinned extracted `ReferenceCatalog` page unit test
+2. extracted-weave negative planner tests
+3. extracted-source runtime failure test
+
+# User_2026-04-06_1921_42
+
+ok, please do.
+
+# gpt-5.4_2026-04-06_1921_51
+
+I’m adding the three highest-value tests: the pinned extracted `ReferenceCatalog` page renderer case, negative planner checks for the Bob extracted-weave invariants, and one runtime failure case around resolving Bob’s woven source payload.
+
+# gpt-5.4_2026-04-06_1921_54
+
+I have enough context to patch the tests directly. I’m keeping the additions narrow: one new renderer test, three planner invariant tests, and one runtime failure test that mutates the Bob fixture into a broken woven-source state.
+
+# gpt-5.4_2026-04-06_1922_14
+
+I’m editing the three test files now: one renderer unit test, planner negative tests built from the Bob fixture input, and one integration test that corrupts the source payload history before weaving Bob.
+
+# gpt-5.4_2026-04-06_1922_57
+
+I’ve added the tests. I’m formatting and running targeted weave coverage now so we see whether these are exposing real regressions or just increasing exercised branches as intended.
+
+# gpt-5.4_2026-04-06_1923_11
+
+The first new negative planner test is failing earlier than intended because I changed the source-payload object, which trips the mesh-shape guard first. I’m narrowing that test to corrupt the Bob reference target instead, so it exercises the mismatch check we actually care about.
+
+# gpt-5.4_2026-04-06_1923_33
+
+The new tests are green in the targeted weave areas. I’m running the full repo checks now, and then I’ll do one more coverage pass so we can judge whether these additions were meaningful for the PR rather than just locally green.
+
+# gpt-5.4_2026-04-06_1924_30
+
+I added the three highest-signal tests and I’m finishing validation now: full CI plus a fresh coverage run to see whether the additions moved the right files, not just the percentage.
+
+# gpt-5.4_2026-04-06_1924_34
+
+The new tests are doing what we wanted: CI is green, and the coverage run shows improved exercise exactly in the Bob extract/weave paths rather than broad snapshot churn. I’m checking the final diff now so I can summarize the changes cleanly.
+
+# gpt-5.4_2026-04-06_1924_46
+
+Added the three tests that were most likely to buy real confidence rather than synthetic percentage:
+
+- [pages_test.ts](../../src/runtime/weave/pages_test.ts) now covers pinned extracted `ReferenceCatalog` rendering, including the historical-state link branch.
+- [weave_test.ts](../../src/core/weave/weave_test.ts) now has fail-closed planner tests for missing pinned state, mismatched source payload path, and mismatched source payload state.
+- [weave_test.ts](../../tests/integration/weave_test.ts) now checks that Bob weave fails closed when the referenced Alice payload has no woven current history.
+
+Validation passed with `deno task ci` and `deno task test:coverage`. Current coverage is `74.2%` branch / `77.2%` line overall, and the fresh report is at [coverage/html/index.html](../../coverage/html/index.html). I left the unrelated Dendron note churn alone.
+
+Suggested commit message:
+
+```text
+test: deepen weave coverage for extracted bob paths
+
+- add a pages test for extracted ReferenceCatalog rendering pinned to a historical state
+- add fail-closed planner tests for missing and mismatched extracted source payload bindings
+- add an integration test that rejects bob weave when the referenced alice payload lacks a woven current history
+- keep the repo green under deno task ci and refresh coverage output
+```
