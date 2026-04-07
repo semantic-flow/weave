@@ -2,13 +2,13 @@
 id: 36n2frq6aqahs0czp3v6u4as
 title: 2026 04 04 2019 Update Alice Bio Payload
 desc: ''
-updated: 1775359260000
+updated: 1775534865855
 created: 1775359260000
 ---
-
+wd.completed.2026.2026-04-05_0903-weave-alice-bio-v2-woven
 ## Goals
 
-- Carry the next real local semantic slice after [[wd.task.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]].
+- Carry the next real local semantic slice after [[wd.completed.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]].
 - Implement the first local or in-process `payload.update` path over shared `core` and `runtime`.
 - Add a dedicated behavior spec note for `payload.update` rather than leaving this new operation implicit in fixture diffs alone.
 - Keep this first payload-update implementation narrow enough to prove non-woven working-payload replacement behavior without absorbing the later `11-alice-bio-v2-woven` weave responsibilities or a generic RDF patch system.

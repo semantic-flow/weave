@@ -1,15 +1,17 @@
 ---
 id: implement-wdtask20262026-oo06kp
-title: 'Implement [[wd.task.2026.2026-04-05_1004-extract-bob]].'
+title: 'Implement [[wd.completed.2026.2026-04-05_1004-extract-bob]].'
 desc: ''
+updated: 1775534944150
 created: 1775506439095
-updated: 1775506439095
-participants: [djradon, codex.gpt-5.4]
+participants:
+  - djradon
+  - codex.gpt-5.4
 ---
 
 # User_2026-04-06_0911_23
 
-Implement [[wd.task.2026.2026-04-05_1004-extract-bob]].
+Implement [[wd.completed.2026.2026-04-05_1004-extract-bob]].
 
 Context:
 - `10-alice-bio-updated -> 11-alice-bio-v2-woven` is implemented and passing on this branch.
@@ -103,7 +105,7 @@ I’ve finished the implementation and validation pass. I’m doing one last sta
 
 Implemented the `11 -> 12` extract slice. The new behavior spec is in [[wd.spec.2026-04-05-extract-behavior]], the shared planner is in [extract.ts](../../src/core/extract/extract.ts), the local runtime is in [extract.ts](../../src/runtime/extract/extract.ts), and the CLI now exposes `weave extract <designatorPath>` from [run.ts](../../src/cli/run.ts). The slice stays non-woven: it creates Bob’s `_meta`, `_inventory`, and `_references`, updates `_mesh/_inventory`, pins the Supplemental link to `alice/bio/_history001/_s0002`, leaves `alice-bio.ttl` and existing Alice surfaces unchanged, and does not create any Bob pages.
 
-Coverage is in [extract_test.ts](../../src/core/extract/extract_test.ts), [extract_test.ts](../../tests/integration/extract_test.ts), and [extract_cli_test.ts](../../tests/e2e/extract_cli_test.ts). I also updated [[wd.codebase-overview]], [[wd.decision-log]], and the task note [[wd.task.2026.2026-04-05_1004-extract-bob]]. `deno task ci` passed.
+Coverage is in [extract_test.ts](../../src/core/extract/extract_test.ts), [extract_test.ts](../../tests/integration/extract_test.ts), and [extract_cli_test.ts](../../tests/e2e/extract_cli_test.ts). I also updated [[wd.codebase-overview]], [[wd.decision-log]], and the task note [[wd.completed.2026.2026-04-05_1004-extract-bob]]. `deno task ci` passed.
 
 Suggested commit message:
 
@@ -148,7 +150,7 @@ next steps?
 I’d do this next, in order:
 
 1. Commit the extract slice, staging only the real slice files and not the unrelated conversation-note churn.
-2. Leave [wd.task.2026.2026-04-05_1004-extract-bob.md](wd.task.2026.2026-04-05_1004-extract-bob.md) as a `wd.task.*` note unless you explicitly want the rename.
+2. Leave [wd.completed.2026.2026-04-05_1004-extract-bob.md](wd.completed.2026.2026-04-05_1004-extract-bob.md) as a `wd.task.*` note unless you explicitly want the rename.
 3. Start the next carried slice: `12-bob-extracted -> 13-bob-extracted-woven`.
 
 For `13`, the right posture is the same as the earlier weave slices:
@@ -200,7 +202,7 @@ I’m writing the note now as an unstarted task note, not pre-marking any implem
 
 # gpt-5.4_2026-04-06_1332_58
 
-Created the new task note at [wd.task.2026.2026-04-06_1331-weave-bob-extracted-woven.md](wd.task.2026.2026-04-06_1331-weave-bob-extracted-woven.md).
+Created the new task note at [wd.completed.2026.2026-04-06_1331-weave-bob-extracted-woven.md](wd.completed.2026.2026-04-06_1331-weave-bob-extracted-woven.md).
 
 It treats `12-bob-extracted -> 13-bob-extracted-woven` as a separate carried `weave` slice, reuses [[wd.spec.2026-04-03-weave-behavior]], and locks the scope to:
 - Bob support-artifact histories
@@ -471,7 +473,7 @@ I’ve updated the slice notes and am running the full repo validation now, not 
 
 Implemented `12-bob-extracted -> 13-bob-extracted-woven` end to end. The new slice is carried through [weave.ts](../../src/core/weave/weave.ts), [weave.ts](../../src/runtime/weave/weave.ts), and [pages.ts](../../src/runtime/weave/pages.ts): it recognizes the first extracted-resource weave, versions Bob `_meta`, `_inventory`, and `_references`, advances `_mesh/_inventory` to `_s0004`, generates the Bob current/history pages, and updates `alice/index.html` when Bob becomes a live mesh resource. I also added slice coverage in [weave_test.ts](../../src/core/weave/weave_test.ts), [weave_test.ts](../../tests/integration/weave_test.ts), and [weave_cli_test.ts](../../tests/e2e/weave_cli_test.ts), with the CLI acceptance staying manifest-scoped for `13` so unrelated fixture `README.md` churn is ignored.
 
-I updated [wd.spec.2026-04-03-weave-behavior.md](wd.spec.2026-04-03-weave-behavior.md), [wd.codebase-overview.md](wd.codebase-overview.md), [wd.decision-log.md](wd.decision-log.md), and checked off the implementation plan in [wd.task.2026.2026-04-06_1331-weave-bob-extracted-woven.md](wd.task.2026.2026-04-06_1331-weave-bob-extracted-woven.md). `deno task ci` passed.
+I updated [wd.spec.2026-04-03-weave-behavior.md](wd.spec.2026-04-03-weave-behavior.md), [wd.codebase-overview.md](wd.codebase-overview.md), [wd.decision-log.md](wd.decision-log.md), and checked off the implementation plan in [wd.completed.2026.2026-04-06_1331-weave-bob-extracted-woven.md](wd.completed.2026.2026-04-06_1331-weave-bob-extracted-woven.md). `deno task ci` passed.
 
 There is unrelated conversation-note churn in the worktree:
 [wd.conv.2026.2026-04-06_1313-implement-wd-task-2026-2026-04-05-1004-extract-bob-codex.md](wd.conv.2026.2026-04-06_1313-implement-wd-task-2026-2026-04-05-1004-extract-bob-codex.md) and [wd.conv.2026.2026-04-06_1904-separate-dendrogen-site-generator-or-just-weave-codex.md](wd.conv.2026.2026-04-06_1904-separate-dendrogen-site-generator-or-just-weave-codex.md). I left those alone.
@@ -515,9 +517,9 @@ Current behavior-spec inventory covers the implemented behavior-bearing operatio
 - [wd.spec.2026-04-05-extract-behavior.md](wd.spec.2026-04-05-extract-behavior.md)
 
 The weave slice tasks are intentionally reusing the shared weave spec, so they are not missing per-slice specs:
-- [wd.task.2026.2026-04-04_1553-weave-alice-bio-referenced-woven.md](wd.task.2026.2026-04-04_1553-weave-alice-bio-referenced-woven.md)
-- [wd.task.2026.2026-04-05_0903-weave-alice-bio-v2-woven.md](wd.task.2026.2026-04-05_0903-weave-alice-bio-v2-woven.md)
-- [wd.task.2026.2026-04-06_1331-weave-bob-extracted-woven.md](wd.task.2026.2026-04-06_1331-weave-bob-extracted-woven.md)
+- [wd.completed.2026.2026-04-04_1553-weave-alice-bio-referenced-woven.md](wd.completed.2026.2026-04-04_1553-weave-alice-bio-referenced-woven.md)
+- [wd.completed.2026.2026-04-05_0903-weave-alice-bio-v2-woven.md](wd.completed.2026.2026-04-05_0903-weave-alice-bio-v2-woven.md)
+- [wd.completed.2026.2026-04-06_1331-weave-bob-extracted-woven.md](wd.completed.2026.2026-04-06_1331-weave-bob-extracted-woven.md)
 
 The only likely future gap is [wd.task.2026.2026-04-06_1905-markdown-payload-publishing.md](wd.task.2026.2026-04-06_1905-markdown-payload-publishing.md), but that note is still basically empty. If that becomes a real externally visible behavior slice, it should probably get its own `wd.spec.*`. By contrast, [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md) looks like internal cleanup, so I would not create a behavior spec for it.
 

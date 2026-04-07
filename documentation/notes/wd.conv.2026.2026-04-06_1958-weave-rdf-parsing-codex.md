@@ -66,3 +66,22 @@ The main changes are:
 - added `core/knop/add_reference` to the deferred graph-mutation rewrite bucket
 
 I did not start implementation. Review the note and tell me what you want changed before I touch code.
+
+# User_2026-04-06_2109_56
+
+claude feedback:
+
+Priority 1 implementation plan checkbox should say loadMeshState not loadCurrentMeshState for extract.ts.
+The existing payloadMentionsTarget n3 usage in extract.ts is worth calling out in the "partial progress" section of Priority 3 or Priority 2, since it's an existing RDF-aware seam in the runtime layer (not just core).
+
+# gpt-5.4_2026-04-06_2110_10
+
+I’m applying the two note fixes now: correcting the `extract.ts` function name in the Priority 1 inventory, and adding the existing runtime `payloadMentionsTarget` quad-parsing seam so the note reflects that runtime progress more accurately.
+
+# gpt-5.4_2026-04-06_2110_15
+
+Updated [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md).
+
+I corrected the `extract.ts` Priority 1 function name to `loadMeshState` and added `runtime/extract`’s existing `payloadMentionsTarget` `n3` seam under Priority 2 partial progress so the note now reflects the runtime-side RDF-aware work already in place.
+
+No implementation started.

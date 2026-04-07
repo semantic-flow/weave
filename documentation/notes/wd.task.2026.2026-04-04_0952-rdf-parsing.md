@@ -90,7 +90,7 @@ By contrast, the line-oriented `_mesh/_inventory` mutation in `core/knop/create`
   - `loadCurrentMeshState`
   - currently extracts `meshBase` from `_mesh/_meta/meta.ttl` with a regex over Turtle text
 - `src/runtime/extract/extract.ts`
-  - `loadCurrentMeshState`
+  - `loadMeshState`
   - currently extracts `meshBase` from `_mesh/_meta/meta.ttl` with a regex over Turtle text
 - `src/runtime/weave/weave.ts`
   - `loadMeshState`
@@ -119,6 +119,12 @@ These are the highest-priority replacements because they are shared runtime read
   - resolves the current payload artifact and working file through `split("\\n\\n")`, `startsWith`, and regex over the current KnopInventory Turtle
 
 This should move to shared parsed-quads inspection of `MeshInventory`, `KnopInventory`, payload-artifact, and ReferenceCatalog relationships so `extract`, `weave`, and `payload.update` stop carrying adjacent text parsers for the same inventory shapes.
+
+Partial progress already exists here too:
+
+- `src/runtime/extract/extract.ts`
+  - `payloadMentionsTarget`
+  - already parses working payload Turtle with `n3` quads when resolving whether a candidate payload mentions the requested extract target
 
 ### Priority 3: Core `weave` shape assertions expressed as string fragments
 

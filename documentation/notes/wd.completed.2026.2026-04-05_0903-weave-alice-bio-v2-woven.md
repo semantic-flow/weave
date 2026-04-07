@@ -8,7 +8,7 @@ created: 1775405054301
 
 ## Goals
 
-- Carry the next real local `weave` slice after [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]].
+- Carry the next real local `weave` slice after [[wd.completed.2026.2026-04-04_2019-update-alice-bio-payload]].
 - Implement the first local or in-process `weave` path for an already woven payload artifact receiving a second historical state.
 - Reuse the same spec, test, and acceptance pattern already used for the earlier carried slices.
 - Keep this `weave` implementation narrow enough to prove second-state payload weaving and the required ResourcePage materialization without absorbing Bob extraction or a broad renderer redesign.

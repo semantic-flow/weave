@@ -2,14 +2,16 @@
 id: implement-wdtask20262026-weylcx
 title: 'Implement [[wd.task.2026.2026-04-04_1553-weave-alice-bio-re…'
 desc: ''
+updated: 1775534901904
 created: 1775403749671
-updated: 1775403749671
-participants: [djradon, codex.gpt-5.4]
+participants:
+  - djradon
+  - codex.gpt-5.4
 ---
 
 # User_2026-04-04_2220_24
 
-Implement [[wd.task.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]].
+Implement [[wd.completed.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]].
 
 Context:
 - `08-alice-bio-referenced` is implemented and passing.
@@ -22,7 +24,7 @@ Context:
 
 # gpt-5.4_2026-04-04_2220_30
 
-I’m implementing `[[wd.task.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]]` by first reading the repo guidance and the task/spec notes, then I’ll add failing integration and CLI coverage for `09-alice-bio-referenced-woven` before touching the implementation seam.
+I’m implementing `[[wd.completed.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]]` by first reading the repo guidance and the task/spec notes, then I’ll add failing integration and CLI coverage for `09-alice-bio-referenced-woven` before touching the implementation seam.
 
 I’ve confirmed the worktree is clean. Next I’m pulling the task note, spec, and repo guidance into context so the test additions and seam changes stay aligned with the existing slice conventions.
 
@@ -94,7 +96,7 @@ feat(weave): carry alice 08 -> 09 reference-catalog weave slice
 
 # User_2026-04-04_2233_26
 
-Any learnings you can apply to [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]] ?
+Any learnings you can apply to [[wd.completed.2026.2026-04-04_2019-update-alice-bio-payload]] ?
 
 # gpt-5.4_2026-04-04_2233_38
 
@@ -102,7 +104,7 @@ I’m checking the `10-alice-bio-updated` task note against what the `09` implem
 
 There are a few concrete lessons from `09` worth baking into the `10` note, not just hand-waving: treat the already-versioned payload surface as normal input, explicitly freeze the newly generated catalog pages, and move the manifest-backed CLI test earlier in the TDD loop. I’m patching those into the task note now.
 
-Yes. I applied a few concrete `09` learnings directly to [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]]:
+Yes. I applied a few concrete `09` learnings directly to [[wd.completed.2026.2026-04-04_2019-update-alice-bio-payload]]:
 
 - clarified that `payload.update` must treat the already-versioned `alice/bio` payload surface as normal input, not as an unsupported “already woven” shape
 - made the frozen `09` outputs explicit non-targets, including `alice/_knop/_references/index.html`, `alice/_knop/_references/_history001/...`, and `alice/bio/index.html`
@@ -119,7 +121,7 @@ can we just proceed, same chat, same branch?
 
 Yes. Same chat and same branch are fine.
 
-This next slice is a direct continuation of the one we just carried, so there’s no technical need to split context. The only real reason to stop would be if you want a separate commit/review boundary first. Otherwise I can continue straight into [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]] on the current branch.
+This next slice is a direct continuation of the one we just carried, so there’s no technical need to split context. The only real reason to stop would be if you want a separate commit/review boundary first. Otherwise I can continue straight into [[wd.completed.2026.2026-04-04_2019-update-alice-bio-payload]] on the current branch.
 
 # User_2026-04-04_2237_27
 
@@ -127,7 +129,7 @@ continue
 
 # gpt-5.4_2026-04-04_2237_40
 
-I’m continuing directly into `[[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]]`. First step is to inspect the settled `09 -> 10` fixture, the existing `integrate`/`knop add-reference` patterns, and whether a `payload.update` spec or code stub already exists before I add failing tests.
+I’m continuing directly into `[[wd.completed.2026.2026-04-04_2019-update-alice-bio-payload]]`. First step is to inspect the settled `09 -> 10` fixture, the existing `integrate`/`knop add-reference` patterns, and whether a `payload.update` spec or code stub already exists before I add failing tests.
 
 The fixture is cleaner than `09`: only `alice-bio.ttl` changes, and the manifest already nails the machine-facing name as `payload.update`. I’m inspecting the current `integrate` and `knop add-reference` implementations now so I can reuse their request/runtime split and choose a CLI spelling that is consistent instead of inventing a one-off.
 
@@ -181,7 +183,7 @@ The core work is complete. I’m getting a quick diff summary for both checkouts
 
 Implemented the `09-alice-bio-referenced-woven -> 10-alice-bio-updated` slice on this branch. The core plan is in [update.ts](/home/djradon/hub/semantic-flow/weave/src/core/payload/update.ts#L5), the local runtime path is in [update.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/payload/update.ts#L48) and [update.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/payload/update.ts#L253), and the CLI surface is in [run.ts](/home/djradon/hub/semantic-flow/weave/src/cli/run.ts#L132) and [run.ts](/home/djradon/hub/semantic-flow/weave/src/cli/run.ts#L412). This path updates only the existing working payload file for `alice/bio`, accepts a local path or `file:` source for staging, validates Turtle before commit, and leaves inventories, history, and generated pages unchanged.
 
-Coverage and notes are in [payload_update_test.ts](/home/djradon/hub/semantic-flow/weave/tests/integration/payload_update_test.ts#L10), [payload_update_cli_test.ts](/home/djradon/hub/semantic-flow/weave/tests/e2e/payload_update_cli_test.ts#L18), [[wd.spec.2026-04-04-payload-update-behavior#L21]], [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload#L124]], [[wd.codebase-overview#L13]], and [[wd.decision-log#L180]]. Thin contract/example updates are also sitting in the nested framework checkout at [semantic-flow-api-spec.yaml](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/semantic-flow-api-spec.yaml#L246), [[sf.api.examples#L26]], [payload-update-job-request.jsonld](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/api/payload-update-job-request.jsonld#L1), and [payload-update-job-succeeded.jsonld](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/api/payload-update-job-succeeded.jsonld#L1).
+Coverage and notes are in [payload_update_test.ts](/home/djradon/hub/semantic-flow/weave/tests/integration/payload_update_test.ts#L10), [payload_update_cli_test.ts](/home/djradon/hub/semantic-flow/weave/tests/e2e/payload_update_cli_test.ts#L18), [[wd.spec.2026-04-04-payload-update-behavior#L21]], [[wd.completed.2026.2026-04-04_2019-update-alice-bio-payload#L124]], [[wd.codebase-overview#L13]], and [[wd.decision-log#L180]]. Thin contract/example updates are also sitting in the nested framework checkout at [semantic-flow-api-spec.yaml](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/semantic-flow-api-spec.yaml#L246), [[sf.api.examples#L26]], [payload-update-job-request.jsonld](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/api/payload-update-job-request.jsonld#L1), and [payload-update-job-succeeded.jsonld](/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/api/payload-update-job-succeeded.jsonld#L1).
 
 Verified with `deno test --allow-env --allow-read --allow-write --allow-run src/core/payload/update_test.ts tests/integration tests/e2e` (`27 passed`) and `git diff --check` in both `weave` and the nested `semantic-flow-framework` checkout. I did not run any framework-specific test suite.
 
@@ -473,7 +475,7 @@ fix(payload): tighten local payload update validation and CLI seams
 
 # User_2026-04-05_0817_07
 
-OK, ready for [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]] ? New chat or continue in this one?
+OK, ready for [[wd.completed.2026.2026-04-04_2019-update-alice-bio-payload]] ? New chat or continue in this one?
 
 # gpt-5.4_2026-04-05_0817_17
 
@@ -680,11 +682,11 @@ I can’t tell you the new Codecov percentage from local tooling here, but this 
 
 # User_2026-04-05_0858_22
 
-Any learnings you can apply to [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]] ? Ready to go on that?
+Any learnings you can apply to [[wd.completed.2026.2026-04-04_2019-update-alice-bio-payload]] ? Ready to go on that?
 
 # gpt-5.4_2026-04-05_0858_39
 
-Yes. A few concrete learnings are worth folding into [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]]:
+Yes. A few concrete learnings are worth folding into [[wd.completed.2026.2026-04-04_2019-update-alice-bio-payload]]:
 
 - clarify source resolution more explicitly:
   `payload.update` accepts plain local filesystem paths and explicit `file:` URLs, rejects remote `scheme://` sources, and must not misclassify colon-containing filenames as URLs
@@ -719,7 +721,7 @@ The note is updated. I’m doing one quick pass against the current diff so I ca
 
 # gpt-5.4_2026-04-05_0901_14
 
-Updated [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]] to match the settled implementation.
+Updated [[wd.completed.2026.2026-04-04_2019-update-alice-bio-payload]] to match the settled implementation.
 
 The note now explicitly captures:
 - accepted source forms: plain filesystem paths and explicit `file:` URLs
@@ -741,7 +743,7 @@ OK, so new task note for the next slice?
 
 Yes.
 
-The clean next step is a new `wd.task.*` note for the next carried slice, not more expansion inside [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]]. That note is now correctly scoped to the non-woven `09 -> 10` payload update.
+The clean next step is a new `wd.task.*` note for the next carried slice, not more expansion inside [[wd.completed.2026.2026-04-04_2019-update-alice-bio-payload]]. That note is now correctly scoped to the non-woven `09 -> 10` payload update.
 
 The next task note should be for the `10-alice-bio-updated -> 11-alice-bio-v2-woven` slice. That keeps the boundary crisp:
 
@@ -792,7 +794,7 @@ The note is in place. I’m doing a quick sanity read so I can call out scope ac
 
 # gpt-5.4_2026-04-05_0905_31
 
-Created [[wd.task.2026.2026-04-05_0903-weave-alice-bio-v2-woven]].
+Created [[wd.completed.2026.2026-04-05_0903-weave-alice-bio-v2-woven]].
 
 The note scopes the next carried slice as `10-alice-bio-updated -> 11-alice-bio-v2-woven`, centered on:
 - creating `alice/bio/_history001/_s0002/...`
@@ -800,7 +802,7 @@ The note scopes the next carried slice as `10-alice-bio-updated -> 11-alice-bio-
 - keeping `_mesh/_inventory/inventory.ttl` unchanged
 - regenerating the broader `11` HTML surface, including current and historical `alice/bio` pages and the affected history landing pages
 
-I did not run tests because this turn only added documentation. Current uncommitted note-related files are the updated [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]] and the new `11` task note.
+I did not run tests because this turn only added documentation. Current uncommitted note-related files are the updated [[wd.completed.2026.2026-04-04_2019-update-alice-bio-payload]] and the new `11` task note.
 
 # User_2026-04-05_0905_54
 
@@ -827,7 +829,7 @@ For this slice, the right interpretation is:
 - keep page content minimal and fixture-driven
 - do not treat `11` as a renderer-design task
 
-I updated [[wd.task.2026.2026-04-05_0903-weave-alice-bio-v2-woven]] to say that explicitly.
+I updated [[wd.completed.2026.2026-04-05_0903-weave-alice-bio-v2-woven]] to say that explicitly.
 
 One caveat: if we keep the current `11` Accord manifest as the black-box acceptance layer, HTML still matters somewhat because those file expectations are `compareMode: "text"`, not just existence checks. So I agree with your product priority, but the acceptance harness may still force fixture-text matching unless we deliberately relax that later. I did not change that contract here.
 
@@ -841,7 +843,7 @@ Yes. Same chat is better.
 
 The `11` task note is now scoped tightly enough to implement, and this thread already has the relevant context from `09`, `10`, the payload hardening, and the `11` fixture expectations. A new chat would mostly just throw away context.
 
-Only caveat: the branch currently has uncommitted note changes in [[wd.task.2026.2026-04-04_2019-update-alice-bio-payload]] and [[wd.task.2026.2026-04-05_0903-weave-alice-bio-v2-woven]]. That is not a blocker unless you want a clean commit boundary first.
+Only caveat: the branch currently has uncommitted note changes in [[wd.completed.2026.2026-04-04_2019-update-alice-bio-payload]] and [[wd.completed.2026.2026-04-05_0903-weave-alice-bio-v2-woven]]. That is not a blocker unless you want a clean commit boundary first.
 
 If you want, I can start the `10 -> 11` implementation now in this chat.
 
@@ -947,7 +949,7 @@ Implemented the `10-alice-bio-updated -> 11-alice-bio-v2-woven` slice.
 
 The core change is in [weave.ts](/home/djradon/hub/semantic-flow/weave/src/core/weave/weave.ts): `weave` now recognizes a narrow `secondPayloadWeave` slice, creates `alice/bio/_history001/_s0002/...`, advances `alice/bio/_knop/_inventory` to `_s0002`, and keeps `_mesh/_inventory/inventory.ttl` unchanged. Runtime candidate loading in [weave.ts](/home/djradon/hub/semantic-flow/weave/src/runtime/weave/weave.ts) now only treats that slice as weaveable when the current working payload actually differs from the latest historical snapshot, which avoids falsely surfacing `alice/bio` during the `08 -> 09` reference-catalog weave.
 
-Coverage is in [weave_test.ts](/home/djradon/hub/semantic-flow/weave/src/core/weave/weave_test.ts), [weave_test.ts](/home/djradon/hub/semantic-flow/weave/tests/integration/weave_test.ts), and [weave_cli_test.ts](/home/djradon/hub/semantic-flow/weave/tests/e2e/weave_cli_test.ts). I also updated [[wd.task.2026.2026-04-05_0903-weave-alice-bio-v2-woven]], [[wd.codebase-overview]], and [[wd.spec.2026-04-03-weave-behavior]]. For this slice, the `11` black-box CLI test intentionally treats HTML page content as lower priority than page-path materialization, so it checks RDF outputs canonically and HTML presence rather than full text parity.
+Coverage is in [weave_test.ts](/home/djradon/hub/semantic-flow/weave/src/core/weave/weave_test.ts), [weave_test.ts](/home/djradon/hub/semantic-flow/weave/tests/integration/weave_test.ts), and [weave_cli_test.ts](/home/djradon/hub/semantic-flow/weave/tests/e2e/weave_cli_test.ts). I also updated [[wd.completed.2026.2026-04-05_0903-weave-alice-bio-v2-woven]], [[wd.codebase-overview]], and [[wd.spec.2026-04-03-weave-behavior]]. For this slice, the `11` black-box CLI test intentionally treats HTML page content as lower priority than page-path materialization, so it checks RDF outputs canonically and HTML presence rather than full text parity.
 
 Verified with `deno task lint`, `deno test --allow-env --allow-read --allow-write --allow-run src/core/weave/weave_test.ts tests/integration/weave_test.ts tests/e2e/weave_cli_test.ts`, and scoped `git diff --check`. I did not run the full repo test suite.
 
@@ -1027,7 +1029,7 @@ The note is in place. I’m doing a quick sanity read so I can call out any scop
 
 # gpt-5.4_2026-04-05_1005_39
 
-Created [[wd.task.2026.2026-04-05_1004-extract-bob]].
+Created [[wd.completed.2026.2026-04-05_1004-extract-bob]].
 
 It scopes the next carried slice as `11-alice-bio-v2-woven -> 12-bob-extracted`: update `_mesh/_inventory`, create Bob’s minimal Knop support artifacts, add one `Supplemental` reference back to `alice/bio` pinned to `_s0002`, and keep Bob pages absent until the later weave. I also made the acceptance boundary explicit: the CLI test for this slice should stay manifest-scoped and ignore the unrelated fixture `README.md` churn.
 
@@ -1043,7 +1045,7 @@ New chat is better now.
 
 This thread already spans `09`, `10`, `11`, several review-fix passes, coverage work, and two new task notes. For `extract`, a fresh thread gives a cleaner boundary and reduces the chance of accidental carryover from the `weave` and `payload.update` assumptions.
 
-You can continue here technically, but I would start a new chat for [[wd.task.2026.2026-04-05_1004-extract-bob]].
+You can continue here technically, but I would start a new chat for [[wd.completed.2026.2026-04-05_1004-extract-bob]].
 
 # User_2026-04-06_0909_50
 
@@ -1054,7 +1056,7 @@ prompt?
 Use this:
 
 ```text
-Implement [[wd.task.2026.2026-04-05_1004-extract-bob]].
+Implement [[wd.completed.2026.2026-04-05_1004-extract-bob]].
 
 Context:
 - `10-alice-bio-updated -> 11-alice-bio-v2-woven` is implemented and passing on this branch.
@@ -1091,7 +1093,7 @@ If you want, I can also give you a shorter “minimal prompt” variant.
 Use this:
 
 ```text
-Implement [[wd.task.2026.2026-04-05_1004-extract-bob]].
+Implement [[wd.completed.2026.2026-04-05_1004-extract-bob]].
 
 Context:
 - `10-alice-bio-updated -> 11-alice-bio-v2-woven` is implemented and passing on this branch.

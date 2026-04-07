@@ -1,10 +1,12 @@
 ---
 id: separate-dendrogen-site-uum30u
-title: 'separate dendrogen site generator or just weave'
+title: separate dendrogen site generator or just weave
 desc: ''
-created: 1775527447080
 updated: 1775527447080
-participants: [djradon, codex.gpt-5.4]
+created: 1775527447080
+participants:
+  - djradon
+  - codex.gpt-5.4
 ---
 
 # User_2026-04-06_1608_51
@@ -37,7 +39,7 @@ Make it part of `weave` from the start. I would not spin up a separate Kato-spec
 
 - That matches Weave’s stated job in [[product-vision]] and [README.md](../../README.md): publishing digital artifacts and semantic meshes is already core scope, not an adjacent concern.
 - Weave already treats HTML page generation as shared runtime behavior, not app-specific garnish. That is explicit in [[wd.codebase-overview]], [[wd.spec.2026-04-03-weave-behavior]], and the current renderer seam in [pages.ts](../../src/runtime/weave/pages.ts).
-- The repo has already chosen “extend the shared runtime page-rendering seam, don’t fork a second renderer family” in multiple notes, including [[wd.completed.2026.2026-03-20-architecture-planning]], [[wd.task.2026.2026-04-05_0903-weave-alice-bio-v2-woven]], and [[wd.task.2026.2026-04-06_1331-weave-bob-extracted-woven]].
+- The repo has already chosen “extend the shared runtime page-rendering seam, don’t fork a second renderer family” in multiple notes, including [[wd.completed.2026.2026-03-20-architecture-planning]], [[wd.completed.2026.2026-04-05_0903-weave-alice-bio-v2-woven]], and [[wd.completed.2026.2026-04-06_1331-weave-bob-extracted-woven]].
 - Your “split-brain” concern is real but not disqualifying. Weave already separates working files from public pages: a working file can live at one path while the dereferenceable/public page lives elsewhere. So source notes can stay under `documentation/notes/` while the public mesh is rooted at `docs/`.
 - The part I would push back on is “every Dendron note gets integrated into a semantic mesh rooted at `/docs`” if that means “every note becomes public.” Better model: every note can be a source artifact in the workspace, but only an explicit published subset gets public `docs/` ResourcePages. That preserves your unpublished-note fallback logic from [task.2026.2026-04-06-kato-website.md](../../../../spectacular-voyage/kato/documentation/notes/task.2026.2026-04-06-kato-website.md) without turning Weave into an indiscriminate vault dumper.
 
