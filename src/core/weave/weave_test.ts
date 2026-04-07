@@ -481,6 +481,21 @@ Deno.test("planWeave accepts semantically equivalent first reference-catalog wea
       "<alice/_knop/_inventory/_history001> a sflo:ArtifactHistory ;",
       "<alice/_knop/_inventory/_history001>\n  rdf:type sflo:ArtifactHistory ;",
     );
+  const equivalentReferenceCatalogTurtle = withRdfPrefix(
+    firstReferenceCatalogWeaveReferenceCatalogTurtle,
+  ).replace(
+    `<alice/_knop/_references#reference001> a sflo:ReferenceLink ;
+  sflo:referenceLinkFor <alice> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Canonical> ;
+  sflo:referenceTarget <alice/bio> .
+`,
+    `<alice/_knop/_references#reference001>
+  sflo:referenceTarget <alice/bio> ;
+  rdf:type sflo:ReferenceLink ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Canonical> ;
+  sflo:referenceLinkFor <alice> .
+`,
+  );
 
   const plan = planWeave({
     request: {},
@@ -492,8 +507,7 @@ Deno.test("planWeave accepts semantically equivalent first reference-catalog wea
       currentKnopInventoryTurtle: equivalentKnopInventoryTurtle,
       referenceCatalogArtifact: {
         workingFilePath: "alice/_knop/_references/references.ttl",
-        currentReferenceCatalogTurtle:
-          firstReferenceCatalogWeaveReferenceCatalogTurtle,
+        currentReferenceCatalogTurtle: equivalentReferenceCatalogTurtle,
       },
     }],
   });
@@ -764,6 +778,41 @@ Deno.test("planWeave renders the extracted bob woven slice", async () => {
   assertStringIncludes(
     plan.updatedFiles[3]?.contents ?? "",
     '<td><a href="../bob">bob</a></td>',
+  );
+});
+
+Deno.test("planWeave accepts semantically equivalent extracted bob ReferenceCatalog Turtle", async () => {
+  const input = await createExtractedBobWeaveInput();
+  input.weaveableKnops[0]!.referenceCatalogArtifact = {
+    ...input.weaveableKnops[0]!.referenceCatalogArtifact!,
+    currentReferenceCatalogTurtle: withRdfPrefix(
+      input.weaveableKnops[0]!.referenceCatalogArtifact!
+        .currentReferenceCatalogTurtle,
+    ).replace(
+      " a sflo:ReferenceLink ;",
+      " rdf:type sflo:ReferenceLink ;",
+    ),
+  };
+
+  const plan = planWeave(input);
+
+  assertEquals(plan.wovenDesignatorPaths, ["bob"]);
+  assertEquals(
+    plan.createdPages.find((page) =>
+      page.path === "bob/_knop/_references/index.html"
+    ),
+    {
+      kind: "referenceCatalog",
+      path: "bob/_knop/_references/index.html",
+      catalogPath: "bob/_knop/_references",
+      ownerDesignatorPath: "bob",
+      currentLinks: [{
+        fragment: "reference001",
+        referenceRoleLabel: "supplemental",
+        referenceTargetPath: "alice/bio",
+        referenceTargetStatePath: "alice/bio/_history001/_s0002",
+      }],
+    },
   );
 });
 

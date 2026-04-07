@@ -546,3 +546,79 @@ Validation passed:
 What’s next is no longer `core/weave` gating. The remaining near-term debt before broader graph mutation is the narrower string-coupled seam: [weave.ts](../../src/core/weave/weave.ts) still has `extractCurrentReferenceCatalogLinks`, the `latestHistoricalStatePath.includes(...)` path check, and the `replaceExactOrThrow(...)` extracted-weave rewrite ladder, while [extract.ts](../../src/core/extract/extract.ts) still has the block-oriented extract surgery.
 
 Commit message suggestion: `core: make weave slice gating RDF-aware`
+
+# User_2026-04-06_2225_21
+
+proceed
+
+# gpt-5.4_2026-04-06_2225_35
+
+I’m proceeding with the next narrow RDF slice: the remaining carried extract/extracted-weave read logic, not the big graph-mutation rewrite. First I’m checking the current `core/weave` ReferenceCatalog reader and the `core/extract` block parser so I can pick the next smallest piece that removes real formatting fragility.
+
+# gpt-5.4_2026-04-06_2225_51
+
+I found the clean next cut: `core/weave` still block-parses current ReferenceCatalog Turtle even though the rest of the planner gate is now RDF-aware. I’m converting that reader next and leaving the exact-rewrite seam alone.
+
+# gpt-5.4_2026-04-06_2226_53
+
+Proceeding with the next narrow RDF parsing slice: `core/weave` reference catalog link discovery. I’m refreshing the repo guidance and then I’ll replace the remaining block parser in `core/weave` with parsed-quad logic and add focused tests.
+
+# gpt-5.4_2026-04-06_2226_59
+
+I’ve refreshed the repo guidance and confirmed the remaining `core/weave` string-coupled seam is the current ReferenceCatalog link reader. Next I’m patching that function to parse quads and then I’ll add equivalent-Turtle planner coverage around the reference-catalog paths.
+
+# gpt-5.4_2026-04-06_2227_05
+
+The remaining `core/weave` parser is self-contained enough to swap without widening the scope. I’m checking the existing quad helpers and then I’ll patch both call sites and the tests in one edit so the error semantics stay stable.
+
+# gpt-5.4_2026-04-06_2227_29
+
+I’ve isolated the exact behavior to preserve: same `WeaveInputError` messages, but the reader should now tolerate reordered predicates and `rdf:type` in current ReferenceCatalog files. I’m patching both the parser and tests together so we don’t leave an unproven seam behind.
+
+# gpt-5.4_2026-04-06_2227_35
+
+I’m editing `core/weave` now. The change is narrow: add RDF-aware ReferenceCatalog link extraction, thread `meshBase` through the two callers, drop the last block parser in that file, and extend tests to cover equivalent current ReferenceCatalog Turtle including pinned historical-state links.
+
+# gpt-5.4_2026-04-06_2228_16
+
+The parser change is in place. I’m adding tests that would have failed under the old implementation: current ReferenceCatalog Turtle with `rdf:type` and reordered link predicates, including the extracted case where `referenceTargetState` is present.
+
+# gpt-5.4_2026-04-06_2228_38
+
+The `core/weave` code is patched and the new tests are in. I’m running the focused `weave` test set first; if that passes, I’ll run `lint` and `check`, then I’ll update the task note to reflect that this remaining `core/weave` block parser is gone.
+
+# gpt-5.4_2026-04-06_2228_49
+
+The focused weave suite is green. I’m running `lint` and `check` now, and I’ll also do a quick grep to confirm `core/weave` no longer contains the old ReferenceCatalog block parser pattern.
+
+# gpt-5.4_2026-04-06_2228_59
+
+The code is green. I’m updating the task note now so it reflects the smaller follow-on state accurately: the `core/weave` ReferenceCatalog reader is no longer part of the debt inventory, and the remaining items are the extract-specific rewrites plus the `replaceExactOrThrow` ladder.
+
+# gpt-5.4_2026-04-06_2229_32
+
+The task note is updated. I’m doing one quick status/diff pass so I can call out the exact remaining debt cleanly instead of hand-waving over it in the wrap-up.
+
+# gpt-5.4_2026-04-06_2229_48
+
+Implemented the next RDF parsing slice and updated the task note.
+
+`core/weave` no longer block-parses current ReferenceCatalog Turtle. [weave.ts](../../src/core/weave/weave.ts#L1505) now parses quads, resolves `ReferenceLink` facts by subject, and preserves the existing `WeaveInputError` contract; the two planner call sites now pass `meshBase` into that reader at [weave.ts](../../src/core/weave/weave.ts#L604) and [weave.ts](../../src/core/weave/weave.ts#L829). I added equivalent-Turtle coverage for both the first ReferenceCatalog slice and the extracted Bob slice in [weave_test.ts](../../src/core/weave/weave_test.ts#L443) and [weave_test.ts](../../src/core/weave/weave_test.ts#L784). The task note now reflects that this parser is gone and that the remaining near-term debt is the `core/extract` surgery plus the extracted-weave `replaceExactOrThrow(...)` ladder in [wd.task.2026.2026-04-04_0952-rdf-parsing.md](wd.task.2026.2026-04-04_0952-rdf-parsing.md#L35).
+
+Validation passed:
+- `deno test --allow-read --allow-write --allow-run=git,deno --allow-env src/core/weave/weave_test.ts tests/integration/weave_test.ts`
+- `deno task lint`
+- `deno task check`
+
+Post-change, the practical next slice is narrow and clear: `src/core/extract/extract.ts` block/regex surgery, then the extracted-weave rewrite ladder in [weave.ts](../../src/core/weave/weave.ts#L2470). I would not jump yet to the larger graph-mutation rewrites in `core/knop/create`, `core/integrate`, or `core/knop/add_reference`.
+
+Commit message suggestion:
+
+```text
+core: parse carried ReferenceCatalog links with RDF quads
+
+- replace core/weave ReferenceCatalog block parsing with quad-based link discovery
+- preserve existing WeaveInputError behavior while tolerating rdf:type and predicate reordering
+- add planner coverage for semantically equivalent ReferenceCatalog Turtle in first-reference and extracted weave slices
+- update the RDF parsing task note to narrow the remaining debt to extract-specific rewrite seams
+```

@@ -23,6 +23,7 @@ const SFLO_HAS_KNOP_INVENTORY_IRI = `${SFLO_NAMESPACE}hasKnopInventory`;
 const SFLO_HAS_KNOP_METADATA_IRI = `${SFLO_NAMESPACE}hasKnopMetadata`;
 const SFLO_HAS_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasPayloadArtifact`;
 const SFLO_HAS_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}hasReferenceCatalog`;
+const SFLO_HAS_REFERENCE_ROLE_IRI = `${SFLO_NAMESPACE}hasReferenceRole`;
 const SFLO_HAS_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}hasResourcePage`;
 const SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI =
   `${SFLO_NAMESPACE}hasWorkingKnopInventoryFile`;
@@ -38,6 +39,10 @@ const SFLO_NEXT_STATE_ORDINAL_IRI = `${SFLO_NAMESPACE}nextStateOrdinal`;
 const SFLO_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}PayloadArtifact`;
 const SFLO_RDF_DOCUMENT_IRI = `${SFLO_NAMESPACE}RdfDocument`;
 const SFLO_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}ReferenceCatalog`;
+const SFLO_REFERENCE_LINK_FOR_IRI = `${SFLO_NAMESPACE}referenceLinkFor`;
+const SFLO_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}ReferenceLink`;
+const SFLO_REFERENCE_TARGET_IRI = `${SFLO_NAMESPACE}referenceTarget`;
+const SFLO_REFERENCE_TARGET_STATE_IRI = `${SFLO_NAMESPACE}referenceTargetState`;
 
 export interface WeaveRequest {
   designatorPaths?: readonly string[];
@@ -597,6 +602,7 @@ function planFirstExtractedKnopWeave(
   );
 
   const currentLinks = extractCurrentReferenceCatalogLinks(
+    meshBase,
     referenceCatalogArtifact.currentReferenceCatalogTurtle,
     designatorPath,
     `${knopPath}/_references`,
@@ -821,6 +827,7 @@ function planFirstReferenceCatalogWeave(
     referenceCatalogWorkingFilePath,
   );
   const referenceCatalogLinks = extractCurrentReferenceCatalogLinks(
+    meshBase,
     referenceCatalogArtifact.currentReferenceCatalogTurtle,
     designatorPath,
     referenceCatalogPath,
@@ -1496,49 +1503,99 @@ function assertCurrentKnopInventoryShapeForSecondPayloadWeave(
 }
 
 function extractCurrentReferenceCatalogLinks(
+  meshBase: string,
   currentReferenceCatalogTurtle: string,
   designatorPath: string,
   referenceCatalogPath: string,
 ): readonly ReferenceCatalogCurrentLinkModel[] {
-  const blocks = currentReferenceCatalogTurtle
-    .split("\n\n")
-    .map((block) => block.trim())
-    .filter((block) => block.startsWith(`<${referenceCatalogPath}#`));
+  const errorMessage =
+    `Could not parse the current ReferenceCatalog working file for ${designatorPath}.`;
+  const referenceCatalogIri = toAbsoluteIri(meshBase, referenceCatalogPath);
+  const linkSubjectPrefix = `${referenceCatalogIri}#`;
+  const quads = parseWeaveShapeQuads(
+    meshBase,
+    currentReferenceCatalogTurtle,
+    errorMessage,
+  );
+  const linkSubjects = Array.from(
+    new Set(
+      quads.flatMap((quad) =>
+        quad.subject.termType === "NamedNode" &&
+            quad.subject.value.startsWith(linkSubjectPrefix)
+          ? [quad.subject.value]
+          : []
+      ),
+    ),
+  );
   const links: ReferenceCatalogCurrentLinkModel[] = [];
 
-  for (const block of blocks) {
-    const fragmentMatch = block.match(
-      new RegExp(
-        `^<${
-          escapeForRegExp(referenceCatalogPath)
-        }#([^>]+)> a sflo:ReferenceLink ;`,
-      ),
-    );
-    const linkForMatch = block.match(/sflo:referenceLinkFor <([^>]+)> ;/);
-    const roleMatch = block.match(/sflo:hasReferenceRole <([^>]+)> ;/);
-    const targetMatch = block.match(/sflo:referenceTarget <([^>]+)> [.;]$/m);
-    const targetStateMatch = block.match(
-      /sflo:referenceTargetState <([^>]+)> \.$/m,
-    );
-
-    if (!fragmentMatch || !linkForMatch || !roleMatch || !targetMatch) {
+  for (const subjectIri of linkSubjects) {
+    const fragment = subjectIri.slice(linkSubjectPrefix.length);
+    if (fragment.length === 0) {
       throw new WeaveInputError(
-        `Could not parse the current ReferenceCatalog working file for ${designatorPath}.`,
+        errorMessage,
       );
     }
 
-    if (linkForMatch[1] !== designatorPath) {
+    if (
+      !hasNamedNodeFact(
+        quads,
+        meshBase,
+        subjectIri,
+        RDF_TYPE_IRI,
+        SFLO_REFERENCE_LINK_IRI,
+      )
+    ) {
+      throw new WeaveInputError(errorMessage);
+    }
+
+    const linkForIri = requireSingleNamedNodeObject(
+      quads,
+      subjectIri,
+      SFLO_REFERENCE_LINK_FOR_IRI,
+      errorMessage,
+    );
+    if (linkForIri !== toAbsoluteIri(meshBase, designatorPath)) {
       throw new WeaveInputError(
         `ReferenceCatalog link target subject did not match ${designatorPath}.`,
       );
     }
 
+    const referenceRoleIri = requireSingleNamedNodeObject(
+      quads,
+      subjectIri,
+      SFLO_HAS_REFERENCE_ROLE_IRI,
+      errorMessage,
+    );
+    const referenceTargetIri = requireSingleNamedNodeObject(
+      quads,
+      subjectIri,
+      SFLO_REFERENCE_TARGET_IRI,
+      errorMessage,
+    );
+    const referenceTargetStateIri = requireOptionalNamedNodeObject(
+      quads,
+      subjectIri,
+      SFLO_REFERENCE_TARGET_STATE_IRI,
+      errorMessage,
+    );
+
     links.push({
-      fragment: fragmentMatch[1]!,
-      referenceRoleLabel: toReferenceRoleLabel(roleMatch[1]!),
-      referenceTargetPath: targetMatch[1]!,
-      ...(targetStateMatch?.[1]
-        ? { referenceTargetStatePath: targetStateMatch[1] }
+      fragment,
+      referenceRoleLabel: toReferenceRoleLabel(referenceRoleIri),
+      referenceTargetPath: toMeshRelativePath(
+        meshBase,
+        referenceTargetIri,
+        `ReferenceCatalog link target for ${designatorPath}`,
+      ),
+      ...(referenceTargetStateIri
+        ? {
+          referenceTargetStatePath: toMeshRelativePath(
+            meshBase,
+            referenceTargetStateIri,
+            `ReferenceCatalog link target state for ${designatorPath}`,
+          ),
+        }
         : {}),
     });
   }
@@ -3045,6 +3102,50 @@ function parseWeaveShapeQuads(
   }
 }
 
+function requireSingleNamedNodeObject(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+  errorMessage: string,
+): string {
+  const values = quads.flatMap((quad) =>
+    quad.subject.termType === "NamedNode" &&
+        quad.subject.value === subjectIri &&
+        quad.predicate.value === predicateIri &&
+        quad.object.termType === "NamedNode"
+      ? [quad.object.value]
+      : []
+  );
+
+  if (values.length !== 1) {
+    throw new WeaveInputError(errorMessage);
+  }
+
+  return values[0]!;
+}
+
+function requireOptionalNamedNodeObject(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+  errorMessage: string,
+): string | undefined {
+  const values = quads.flatMap((quad) =>
+    quad.subject.termType === "NamedNode" &&
+        quad.subject.value === subjectIri &&
+        quad.predicate.value === predicateIri &&
+        quad.object.termType === "NamedNode"
+      ? [quad.object.value]
+      : []
+  );
+
+  if (values.length > 1) {
+    throw new WeaveInputError(errorMessage);
+  }
+
+  return values[0];
+}
+
 function requireLiteralValue(
   meshBase: string,
   turtle: string,
@@ -3407,10 +3508,6 @@ function toFileName(path: string): string {
 function toReferenceRoleLabel(referenceRoleIri: string): string {
   const segments = referenceRoleIri.split("/");
   return (segments[segments.length - 1] ?? referenceRoleIri).toLowerCase();
-}
-
-function escapeForRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function toKnopPath(designatorPath: string): string {
