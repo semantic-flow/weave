@@ -7,6 +7,7 @@ import { KnopAddReferenceInputError } from "../core/knop/add_reference.ts";
 import { KnopCreateInputError } from "../core/knop/create.ts";
 import { MeshCreateInputError } from "../core/mesh/create.ts";
 import { PayloadUpdateInputError } from "../core/payload/update.ts";
+import { normalizeCliDesignatorPath } from "../core/designator_segments.ts";
 import type { TargetSpec, VersionTargetSpec } from "../core/targeting.ts";
 import { WeaveInputError } from "../core/weave/weave.ts";
 import { createRuntimeLoggers } from "../runtime/logging/factory.ts";
@@ -275,9 +276,10 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           { default: "." },
         )
         .action(async (options, designatorPath) => {
-          const normalizedDesignatorPath = resolveRequiredArgumentValue(
+          const normalizedDesignatorPath = resolveCliArgumentDesignatorPath(
             designatorPath,
             "extract requires a positional designatorPath",
+            "extract designatorPath",
             (message) => new ExtractInputError(message),
           );
           const workspaceRoot = resolve(options.workspace);
@@ -489,17 +491,20 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               { default: "." },
             )
             .action(async (options, designatorPath) => {
-              const normalizedDesignatorPath = resolveRequiredArgumentValue(
+              const normalizedDesignatorPath = resolveCliArgumentDesignatorPath(
                 designatorPath,
                 "knop add-reference requires a positional designatorPath",
+                "knop add-reference designatorPath",
                 (message) => new KnopAddReferenceInputError(message),
               );
               const workspaceRoot = resolve(options.workspace);
-              const referenceTargetDesignatorPath = resolveRequiredOptionValue(
-                options.referenceTargetDesignatorPath,
-                "knop add-reference requires --reference-target-designator-path",
-                (message) => new KnopAddReferenceInputError(message),
-              );
+              const referenceTargetDesignatorPath =
+                resolveCliOptionDesignatorPath(
+                  options.referenceTargetDesignatorPath,
+                  "knop add-reference requires --reference-target-designator-path",
+                  "knop add-reference referenceTargetDesignatorPath",
+                  (message) => new KnopAddReferenceInputError(message),
+                );
               const referenceRole = resolveRequiredOptionValue(
                 options.referenceRole,
                 "knop add-reference requires --reference-role",
@@ -550,6 +555,12 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               { default: "." },
             )
             .action(async (options, designatorPath) => {
+              const normalizedDesignatorPath = resolveCliArgumentDesignatorPath(
+                designatorPath,
+                "knop create requires a positional designatorPath",
+                "knop create designatorPath",
+                (message) => new KnopCreateInputError(message),
+              );
               const workspaceRoot = resolve(options.workspace);
               const logDir = join(workspaceRoot, ".weave", "logs");
               const { operationalLogger, auditLogger } = createRuntimeLoggers({
@@ -558,13 +569,13 @@ export async function runWeaveCli(args: string[]): Promise<number> {
 
               await auditLogger.command("knop.create", {
                 workspaceRoot,
-                designatorPath,
+                designatorPath: normalizedDesignatorPath,
                 localMode: true,
               });
 
               const result = await executeKnopCreate({
                 workspaceRoot,
-                request: { designatorPath },
+                request: { designatorPath: normalizedDesignatorPath },
                 operationalLogger,
                 auditLogger,
               });
@@ -648,10 +659,12 @@ function resolveDesignatorPath(
     createError: (message: string) => Error;
   },
 ): string {
-  const optionValue = options.designatorPath?.trim() ?? "";
-  const argumentValue = designatorPathArg?.trim() ?? "";
+  const optionValue = normalizeOptionalCliDesignatorPath(
+    options.designatorPath,
+  );
+  const argumentValue = normalizeOptionalCliDesignatorPath(designatorPathArg);
 
-  if (optionValue.length > 0 && argumentValue.length > 0) {
+  if (optionValue !== undefined && argumentValue !== undefined) {
     if (optionValue !== argumentValue) {
       throw errorMessages.createError(errorMessages.conflictMessage);
     }
@@ -659,11 +672,11 @@ function resolveDesignatorPath(
     return optionValue;
   }
 
-  if (optionValue.length > 0) {
+  if (optionValue !== undefined) {
     return optionValue;
   }
 
-  if (argumentValue.length > 0) {
+  if (argumentValue !== undefined) {
     return argumentValue;
   }
 
@@ -775,9 +788,18 @@ function parseTargetSpec(
     record[key] = rawFieldValue;
   }
 
-  const designatorPath = record.designatorPath?.trim() ?? "";
+  const rawDesignatorPath = record.designatorPath?.trim() ?? "";
+  const designatorPath = rawDesignatorPath.length === 0
+    ? ""
+    : normalizeCliDesignatorPath(
+      rawDesignatorPath,
+      `${fieldName}.designatorPath`,
+      (message) => new WeaveInputError(message),
+    );
   if (designatorPath.length === 0) {
-    throw new WeaveInputError(`${fieldName}.designatorPath is required`);
+    if (rawDesignatorPath.length === 0) {
+      throw new WeaveInputError(`${fieldName}.designatorPath is required`);
+    }
   }
 
   if (record.recursive === undefined) {
@@ -856,4 +878,40 @@ function resolveRequiredArgumentValue(
     errorMessage,
     createError,
   );
+}
+
+function resolveCliArgumentDesignatorPath(
+  value: string | undefined,
+  errorMessage: string,
+  fieldName: string,
+  createError: (message: string) => Error,
+): string {
+  return normalizeCliDesignatorPath(
+    resolveRequiredArgumentValue(value, errorMessage, createError),
+    fieldName,
+    createError,
+  );
+}
+
+function resolveCliOptionDesignatorPath(
+  value: string | undefined,
+  errorMessage: string,
+  fieldName: string,
+  createError: (message: string) => Error,
+): string {
+  return normalizeCliDesignatorPath(
+    resolveRequiredOptionValue(value, errorMessage, createError),
+    fieldName,
+    createError,
+  );
+}
+
+function normalizeOptionalCliDesignatorPath(
+  value: string | undefined,
+): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed === undefined || trimmed.length === 0
+    ? undefined
+    : normalizeCliDesignatorPath(trimmed, "designatorPath", (message) =>
+      new Error(message));
 }

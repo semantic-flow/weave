@@ -1,6 +1,10 @@
 import { dirname, join } from "@std/path";
 import { Parser, type Quad } from "n3";
-import { normalizeSafeDesignatorPath } from "../../core/designator_segments.ts";
+import {
+  formatDesignatorPathForDisplay,
+  normalizeSafeDesignatorPath,
+  toKnopPath,
+} from "../../core/designator_segments.ts";
 import {
   ExtractInputError,
   type ExtractPlan,
@@ -161,7 +165,9 @@ export async function executeExtract(
 }
 
 export function describeExtractResult(result: ExtractResult): string {
-  return `Extracted ${result.designatorPath} into ${result.referenceCatalogIri}, created ${result.createdPaths.length} knop support artifacts, and updated ${result.updatedPaths.length} mesh support artifact.`;
+  return `Extracted ${
+    formatDesignatorPathForDisplay(result.designatorPath)
+  } into ${result.referenceCatalogIri}, created ${result.createdPaths.length} knop support artifacts, and updated ${result.updatedPaths.length} mesh support artifact.`;
 }
 
 function resolveLoggers(
@@ -287,7 +293,7 @@ async function loadExtractSourcePayloadCandidates(
   for (const designatorPath of designatorPaths) {
     const currentKnopInventoryPath = join(
       workspaceRoot,
-      `${designatorPath}/_knop/_inventory/inventory.ttl`,
+      `${toKnopPath(designatorPath)}/_inventory/inventory.ttl`,
     );
     let currentKnopInventoryTurtle: string;
 
@@ -477,6 +483,7 @@ function normalizeLocalDesignatorPath(
     designatorPath,
     fieldName,
     (message) => new ExtractRuntimeError(message),
+    { allowRoot: true },
   );
 }
 

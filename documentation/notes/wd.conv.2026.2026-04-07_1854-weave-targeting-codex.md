@@ -885,3 +885,93 @@ feat(cli): improve target parse errors and document CLI usage
 ```
 
 I would leave `documentation/notes/wd.conv.2026.2026-04-07_1854-weave-targeting-codex.md` out of this commit unless you explicitly want conversation-log churn included.
+
+# User_2026-04-08_0857_04
+
+yes please
+
+# gpt-5.4_2026-04-08_0857_22
+
+I’m going to make the commit now using the message I suggested, and I’ll leave the Kato conversation note out of it so the commit stays scoped to the CLI/docs change.
+
+# gpt-5.4_2026-04-08_0857_38
+
+I didn’t create the commit.
+
+Current worktree only has [wd.conv.2026.2026-04-07_1854-weave-targeting-codex.md](wd.conv.2026.2026-04-07_1854-weave-targeting-codex.md) modified, and I’m not going to fold the Kato conversation note into the CLI/docs commit by default.
+
+So one of these is true:
+
+- the real CLI/docs changes were already committed
+- they were reverted or moved out of the worktree
+
+If you want, I can inspect the recent commit history and confirm whether the intended commit already landed.
+
+# User_2026-04-08_1132_59
+
+write the task note for root designator path support next.
+
+# gpt-5.4_2026-04-08_1133_14
+
+I’m drafting a dedicated task note for root designator path support. I’ll pull the current task-note template and the nearby weave notes first so the new note matches the repo’s tracking style and captures the real implementation blockers, not just the CLI surface.
+
+# gpt-5.4_2026-04-08_1133_30
+
+I’ve got the template and the nearby targeting note. I’m checking whether root designator support is mentioned anywhere else so the new task note can cross-link cleanly and avoid contradicting current docs.
+
+# gpt-5.4_2026-04-08_1134_24
+
+I’ve got the shape. I’m writing the note as a real implementation task, not a vague design stub, so it pins down `/` as the CLI sentinel, `""` as the internal root form, and the exact places where current path assumptions break.
+
+# gpt-5.4_2026-04-08_1134_47
+
+The note is in place. I’m doing one readback to make sure it pins down the `/` sentinel cleanly, keeps the internal empty-string representation explicit, and doesn’t accidentally broaden support-artifact targeting.
+
+# gpt-5.4_2026-04-08_1135_02
+
+Created [wd.task.2026.2026-04-08_1133-root-designator-path-support.md](wd.task.2026.2026-04-08_1133-root-designator-path-support.md).
+
+It pins down the main contract:
+
+- `/` is the CLI root sentinel
+- `""` is the internal normalized root designator path
+- root is the mesh-base resource, equivalent to RDF `<>`
+- exact `/` targets only root, recursive `/` targets root plus descendants
+- root-owned artifact paths must be `_knop`, `_history001`, `index.html`, not slash-prefixed variants
+
+The note also scopes the real implementation work: root-aware path helpers, inventory discovery including `<_knop>`, shared `--target` support, single-designator CLI inputs, rendering `/` in user-facing displays, and the required core/runtime/integration/e2e coverage.
+
+No tests ran; this was a note-only change.
+
+# User_2026-04-08_1135_02
+
+what would be the actual deno command to execute weave cli?
+
+# gpt-5.4_2026-04-08_1135_15
+
+I’m checking the entrypoint and tasks so I can give you the exact invocation the repo actually expects, not just the raw test harness command.
+
+# gpt-5.4_2026-04-08_1135_35
+
+From the repo root, the raw command is:
+
+```sh
+deno run --allow-read --allow-write --allow-env src/main.ts
+```
+
+That is the CLI entrypoint in [src/main.ts](../../src/main.ts), and it matches the `dev:root` task in [deno.json](../../deno.json).
+
+Examples:
+
+```sh
+deno run --allow-read --allow-write --allow-env src/main.ts --help
+deno run --allow-read --allow-write --allow-env src/main.ts validate --target 'designatorPath=alice/bio'
+deno run --allow-read --allow-write --allow-env src/main.ts version --target 'designatorPath=alice/bio'
+deno run --allow-read --allow-write --allow-env src/main.ts generate --target 'designatorPath=alice,recursive=true'
+```
+
+Equivalent convenience task:
+
+```sh
+deno task dev:root
+```

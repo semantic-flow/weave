@@ -1,5 +1,9 @@
 import { dirname, join } from "@std/path";
 import { Parser, type Quad } from "n3";
+import {
+  toDesignatorResourcePagePath,
+  toKnopPath,
+} from "../../core/designator_segments.ts";
 import type { PlannedFile } from "../../core/planned_file.ts";
 import {
   type NormalizedTargetSpec,
@@ -639,7 +643,7 @@ async function loadWeaveableKnopCandidates(
       continue;
     }
 
-    const knopPath = `${designatorPath}/_knop`;
+    const knopPath = toKnopPath(designatorPath);
     const metadataPath = join(workspaceRoot, `${knopPath}/_meta/meta.ttl`);
     const inventoryPath = join(
       workspaceRoot,
@@ -834,7 +838,7 @@ async function loadReferenceTargetSourcePayloadArtifact(
   );
   const sourceKnopInventoryPath = join(
     workspaceRoot,
-    `${sourceDesignatorPath}/_knop/_inventory/inventory.ttl`,
+    `${toKnopPath(sourceDesignatorPath)}/_inventory/inventory.ttl`,
   );
   let sourceKnopInventoryTurtle: string;
 
@@ -846,7 +850,9 @@ async function loadReferenceTargetSourcePayloadArtifact(
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new WeaveRuntimeError(
-        `Workspace is missing the woven source payload inventory for ${designatorPath}: ${sourceDesignatorPath}/_knop/_inventory/inventory.ttl`,
+        `Workspace is missing the woven source payload inventory for ${designatorPath}: ${
+          toKnopPath(sourceDesignatorPath)
+        }/_inventory/inventory.ttl`,
       );
     }
     throw error;
@@ -1038,7 +1044,7 @@ async function collectGeneratedPageFiles(
   );
   const publicIdentifierPaths = new Map(
     designatorContexts.map((context) => [
-      `${context.designatorPath}/index.html`,
+      toDesignatorResourcePagePath(context.designatorPath),
       context,
     ]),
   );
@@ -1123,7 +1129,7 @@ async function loadGenerateDesignatorContexts(
   for (const designatorPath of designatorPaths) {
     const knopInventoryPath = join(
       workspaceRoot,
-      `${designatorPath}/_knop/_inventory/inventory.ttl`,
+      `${toKnopPath(designatorPath)}/_inventory/inventory.ttl`,
     );
     let currentKnopInventoryTurtle: string;
 
@@ -1183,7 +1189,10 @@ function listResourcePagePaths(
     }
 
     const pagePath = tryToMeshPath(meshBase, quad.object.value);
-    if (!pagePath?.endsWith("/index.html")) {
+    if (pagePath === undefined) {
+      continue;
+    }
+    if (pagePath !== "index.html" && !pagePath.endsWith("/index.html")) {
       continue;
     }
 
@@ -1215,6 +1224,9 @@ function tryToMeshPath(meshBase: string, iri: string): string | undefined {
 }
 
 function toResourcePath(pagePath: string): string {
+  if (pagePath === "index.html") {
+    return "";
+  }
   return pagePath.endsWith("/index.html")
     ? pagePath.slice(0, -"/index.html".length)
     : pagePath;

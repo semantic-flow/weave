@@ -1,4 +1,4 @@
-import { assertEquals, assertRejects } from "@std/assert";
+import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import {
   executeKnopCreate,
@@ -61,6 +61,44 @@ Deno.test("executeKnopCreate matches the settled alice-bio knop-created fixture"
       "04-alice-knop-created",
       "_mesh/_inventory/inventory.ttl",
     ),
+  );
+});
+
+Deno.test("executeKnopCreate creates root-owned support artifacts without leading slashes", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-knop-create-root-");
+  await materializeMeshAliceBioBranch("03-mesh-created-woven", workspaceRoot);
+
+  const result = await executeKnopCreate({
+    workspaceRoot,
+    request: {
+      designatorPath: "",
+    },
+  });
+
+  assertEquals(result.designatorPath, "");
+  assertEquals(
+    [...result.createdPaths].sort(),
+    [
+      "_knop/_inventory/inventory.ttl",
+      "_knop/_meta/meta.ttl",
+    ],
+  );
+  assertEquals(result.updatedPaths, ["_mesh/_inventory/inventory.ttl"]);
+  assertStringIncludes(
+    await Deno.readTextFile(join(workspaceRoot, "_knop/_meta/meta.ttl")),
+    'sflo:designatorPath ""',
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "_knop/_inventory/inventory.ttl"),
+    ),
+    "<_knop> a sflo:Knop ;",
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "_knop/_inventory/inventory.ttl"),
+    ),
+    "sflo:hasWorkingKnopInventoryFile <_knop/_inventory/inventory.ttl> .",
   );
 });
 

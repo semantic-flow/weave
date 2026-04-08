@@ -15,6 +15,10 @@ import {
   materializeMeshAliceBioBranch,
   readMeshAliceBioBranchFile,
 } from "../support/mesh_alice_bio_fixture.ts";
+import {
+  bootstrapRootWovenWorkspace,
+  integrateRootPayload,
+} from "../support/root_designator.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 Deno.test("executeValidate returns structured findings for version-only target fields", async () => {
@@ -86,6 +90,73 @@ Deno.test("executeVersion accepts version-only target fields", async () => {
       "alice/bio/releases/v0.0.1/alice-bio-ttl/alice-bio.ttl",
     ),
   );
+});
+
+Deno.test("executeValidate accepts the exact root target", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-validate-root-");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await integrateRootPayload(workspaceRoot);
+
+  const result = await executeValidate({
+    workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "" }],
+    },
+  });
+
+  assertEquals(result.validatedDesignatorPaths, [""]);
+  assertEquals(result.findings, []);
+});
+
+Deno.test("executeVersion accepts the exact root target", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-version-root-");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await integrateRootPayload(workspaceRoot);
+
+  const result = await executeVersion({
+    workspaceRoot,
+    request: {
+      targets: [{
+        designatorPath: "",
+        historySegment: "releases",
+        stateSegment: "v0.0.1",
+      }],
+    },
+  });
+
+  assertEquals(result.versionedDesignatorPaths, [""]);
+  assert(
+    result.createdPaths.includes(
+      "releases/v0.0.1/root-ttl/root.ttl",
+    ),
+  );
+  await Deno.stat(join(workspaceRoot, "releases/v0.0.1/root-ttl/root.ttl"));
+});
+
+Deno.test("executeGenerate accepts the exact root target", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-generate-root-");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await bootstrapRootWovenWorkspace(workspaceRoot);
+
+  const result = await executeGenerate({
+    workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "" }],
+    },
+  });
+
+  assertEquals(result.generatedDesignatorPaths, [""]);
+  await Deno.stat(join(workspaceRoot, "index.html"));
+  await Deno.stat(join(workspaceRoot, "_knop/index.html"));
 });
 
 Deno.test("executeVersion rejects a mismatched payload historySegment on an already-versioned payload", async () => {

@@ -18,6 +18,7 @@ import {
   MESH_ALICE_BIO_BASE,
   writeEquivalentMeshMetadata,
 } from "../support/mesh_metadata.ts";
+import { integrateRootPayload } from "../support/root_designator.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 Deno.test("executeWeave matches the settled alice knop-created-woven fixture", async () => {
@@ -56,6 +57,44 @@ Deno.test("executeWeave matches the settled alice knop-created-woven fixture", a
       "05-alice-knop-created-woven",
       "alice-bio.ttl",
     ),
+  );
+});
+
+Deno.test("executeWeave supports the exact root target", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-weave-root-");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await integrateRootPayload(workspaceRoot);
+
+  const result = await executeWeave({
+    workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "" }],
+    },
+  });
+
+  assertEquals(result.wovenDesignatorPaths, [""]);
+  assert(result.createdPaths.includes("index.html"));
+  assert(result.createdPaths.includes("_knop/_meta/_history001/index.html"));
+  assert(result.updatedPaths.includes("_mesh/_inventory/inventory.ttl"));
+  assert(result.updatedPaths.includes("_knop/_inventory/inventory.ttl"));
+  await Deno.stat(join(workspaceRoot, "index.html"));
+  await Deno.stat(join(workspaceRoot, "_knop/index.html"));
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+    ),
+    `sflo:hasKnop <_knop> ;
+  sflo:hasResourcePage <_mesh/index.html> .`,
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "_knop/_inventory/inventory.ttl"),
+    ),
+    `<> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasArtifactHistory <_history001> ;`,
   );
 });
 

@@ -1,6 +1,11 @@
 import { Parser } from "n3";
 import type { Quad } from "n3";
-import { normalizeSafeDesignatorPath } from "../designator_segments.ts";
+import {
+  normalizeSafeDesignatorPath,
+  toDesignatorResourcePagePath,
+  toKnopPath,
+  toReferenceCatalogPath,
+} from "../designator_segments.ts";
 import { KnopCreateInputError } from "../knop/create.ts";
 import type { PlannedFile } from "../planned_file.ts";
 
@@ -85,7 +90,7 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
 
   try {
     const knopPath = toKnopPath(designatorPath);
-    const referenceCatalogPath = `${knopPath}/_references`;
+    const referenceCatalogPath = toReferenceCatalogPath(designatorPath);
     const updatedMeshInventoryTurtle = renderExtractMeshInventoryTurtle(
       meshBase,
       request.currentMeshInventoryTurtle,
@@ -108,21 +113,21 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
       referenceTargetStatePath,
       createdFiles: [
         {
-          path: `${designatorPath}/_knop/_meta/meta.ttl`,
+          path: `${knopPath}/_meta/meta.ttl`,
           contents: renderExtractKnopMetadataTurtle(
             meshBase,
             designatorPath,
           ),
         },
         {
-          path: `${designatorPath}/_knop/_inventory/inventory.ttl`,
+          path: `${knopPath}/_inventory/inventory.ttl`,
           contents: renderExtractKnopInventoryTurtle(
             meshBase,
             designatorPath,
           ),
         },
         {
-          path: `${designatorPath}/_knop/_references/references.ttl`,
+          path: `${referenceCatalogPath}/references.ttl`,
           contents: renderExtractReferenceCatalogTurtle(
             meshBase,
             designatorPath,
@@ -178,6 +183,7 @@ function normalizeDesignatorPath(
     designatorPath,
     fieldName,
     (message) => new ExtractInputError(message),
+    { allowRoot: true },
   );
 }
 
@@ -264,6 +270,10 @@ function renderExtractMeshInventoryTurtle(
   const rootKnopPath = toKnopPath(rootDesignatorPath);
   const sourceKnopPath = toKnopPath(sourcePayloadDesignatorPath);
   const knopPath = toKnopPath(designatorPath);
+  const rootPagePath = toDesignatorResourcePagePath(rootDesignatorPath);
+  const sourcePayloadPagePath = toDesignatorResourcePagePath(
+    sourcePayloadDesignatorPath,
+  );
 
   return `@base <${meshBase}> .
 @prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
@@ -279,7 +289,7 @@ function renderExtractMeshInventoryTurtle(
   sflo:hasResourcePage <_mesh/index.html> .
 
 <${rootDesignatorPath}>
-  sflo:hasResourcePage <${rootDesignatorPath}/index.html> .
+  sflo:hasResourcePage <${rootPagePath}> .
 
 <${rootKnopPath}> a sflo:Knop ;
   sflo:hasWorkingKnopInventoryFile <${rootKnopPath}/_inventory/inventory.ttl> ;
@@ -287,7 +297,7 @@ function renderExtractMeshInventoryTurtle(
 
 <${sourcePayloadDesignatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <${sourceWorkingFilePath}> ;
-  sflo:hasResourcePage <${sourcePayloadDesignatorPath}/index.html> .
+  sflo:hasResourcePage <${sourcePayloadPagePath}> .
 
 <${sourceKnopPath}> a sflo:Knop ;
   sflo:hasWorkingKnopInventoryFile <${sourceKnopPath}/_inventory/inventory.ttl> ;
@@ -390,9 +400,9 @@ function renderExtractMeshInventoryTurtle(
 
 <_mesh/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<${rootDesignatorPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${rootPagePath}> a sflo:ResourcePage, sflo:LocatedFile .
 
-<${sourcePayloadDesignatorPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${sourcePayloadPagePath}> a sflo:ResourcePage, sflo:LocatedFile .
 
 <${rootKnopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -478,7 +488,7 @@ function renderExtractReferenceCatalogTurtle(
   referenceRoleIri: string,
   referenceTargetStatePath: string,
 ): string {
-  const referenceCatalogPath = `${toKnopPath(designatorPath)}/_references`;
+  const referenceCatalogPath = toReferenceCatalogPath(designatorPath);
 
   return `@base <${meshBase}> .
 @prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
@@ -504,6 +514,11 @@ function assertCurrentMeshInventoryShapeForExtract(
   const rootKnopPath = toKnopPath(rootDesignatorPath);
   const sourceKnopPath = toKnopPath(sourcePayloadDesignatorPath);
   const knopPath = toKnopPath(designatorPath);
+  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
+  const rootPagePath = toDesignatorResourcePagePath(rootDesignatorPath);
+  const sourcePayloadPagePath = toDesignatorResourcePagePath(
+    sourcePayloadDesignatorPath,
+  );
   const errorMessage =
     `current mesh inventory has an unsupported carried extract shape for ${designatorPath}`;
   const quads = parseMeshInventoryQuads(
@@ -539,7 +554,7 @@ function assertCurrentMeshInventoryShapeForExtract(
       meshBase,
       designatorPath,
       SFLO_HAS_RESOURCE_PAGE_IRI,
-      `${designatorPath}/index.html`,
+      designatorPagePath,
     )
   ) {
     throw new ExtractInputError(
@@ -583,7 +598,7 @@ function assertCurrentMeshInventoryShapeForExtract(
     [
       rootDesignatorPath,
       SFLO_HAS_RESOURCE_PAGE_IRI,
-      `${rootDesignatorPath}/index.html`,
+      rootPagePath,
     ],
     [rootKnopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
     [rootKnopPath, SFLO_HAS_RESOURCE_PAGE_IRI, `${rootKnopPath}/index.html`],
@@ -603,7 +618,7 @@ function assertCurrentMeshInventoryShapeForExtract(
     [
       sourcePayloadDesignatorPath,
       SFLO_HAS_RESOURCE_PAGE_IRI,
-      `${sourcePayloadDesignatorPath}/index.html`,
+      sourcePayloadPagePath,
     ],
     [sourceKnopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
     [
@@ -800,8 +815,4 @@ function toRootDesignatorPath(designatorPath: string): string {
   return firstSlash === -1
     ? designatorPath
     : designatorPath.slice(0, firstSlash);
-}
-
-function toKnopPath(designatorPath: string): string {
-  return `${designatorPath}/_knop`;
 }

@@ -1,8 +1,11 @@
 import { Parser } from "n3";
 import type { Quad } from "n3";
 import type { PlannedFile } from "../planned_file.ts";
+import {
+  normalizeSafeDesignatorPath,
+  toKnopPath,
+} from "../designator_segments.ts";
 
-const reservedDesignatorSegments = new Set(["_knop", "_mesh"]);
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const XSD_ANY_URI_IRI = "http://www.w3.org/2001/XMLSchema#anyURI";
 const XSD_NON_NEGATIVE_INTEGER_IRI =
@@ -149,41 +152,12 @@ function normalizeMeshBase(meshBase: string): string {
 }
 
 function normalizeDesignatorPath(designatorPath: string): string {
-  const trimmed = designatorPath.trim();
-  if (trimmed.length === 0) {
-    throw new IntegrateInputError("designatorPath is required");
-  }
-  if (trimmed.startsWith("/") || trimmed.endsWith("/")) {
-    throw new IntegrateInputError(
-      "designatorPath must not start or end with '/'",
-    );
-  }
-  if (
-    trimmed.includes("\\") || trimmed.includes("?") || trimmed.includes("#")
-  ) {
-    throw new IntegrateInputError(
-      "designatorPath contains unsupported path characters",
-    );
-  }
-
-  const segments = trimmed.split("/");
-  if (segments.some((segment) => segment.length === 0)) {
-    throw new IntegrateInputError(
-      "designatorPath must not contain empty path segments",
-    );
-  }
-  if (segments.some((segment) => segment === "." || segment === "..")) {
-    throw new IntegrateInputError(
-      "designatorPath must not contain '.' or '..' path segments",
-    );
-  }
-  if (segments.some((segment) => reservedDesignatorSegments.has(segment))) {
-    throw new IntegrateInputError(
-      "designatorPath must not contain reserved path segments",
-    );
-  }
-
-  return trimmed;
+  return normalizeSafeDesignatorPath(
+    designatorPath,
+    "designatorPath",
+    (message) => new IntegrateInputError(message),
+    { allowRoot: true },
+  );
 }
 
 function normalizeWorkingFilePath(workingFilePath: string): string {
@@ -1086,8 +1060,4 @@ function parseMeshInventoryQuads(
   } catch {
     throw new IntegrateInputError(errorMessage);
   }
-}
-
-function toKnopPath(designatorPath: string): string {
-  return `${designatorPath}/_knop`;
 }

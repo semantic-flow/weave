@@ -9,6 +9,10 @@ import {
   MESH_ALICE_BIO_BASE,
   writeEquivalentMeshMetadata,
 } from "../support/mesh_metadata.ts";
+import {
+  bootstrapRootWovenWorkspace,
+  ROOT_PAYLOAD_TURTLE_V2,
+} from "../support/root_designator.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 import { PayloadUpdateRuntimeError } from "../../src/runtime/payload/update.ts";
 
@@ -70,6 +74,37 @@ Deno.test("executePayloadUpdate matches the settled alice-bio updated fixture", 
       "10-alice-bio-updated",
       "alice/_knop/_references/index.html",
     ),
+  );
+});
+
+Deno.test("executePayloadUpdate supports the root designator path", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-payload-update-root-");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await bootstrapRootWovenWorkspace(workspaceRoot);
+
+  const sourceRoot = await createTestTmpDir(
+    "weave-payload-update-root-source-",
+  );
+  const sourcePath = join(sourceRoot, "root-v2.ttl");
+  await Deno.writeTextFile(sourcePath, ROOT_PAYLOAD_TURTLE_V2);
+
+  const result = await executePayloadUpdate({
+    workspaceRoot,
+    request: {
+      designatorPath: "",
+      source: sourcePath,
+    },
+  });
+
+  assertEquals(result.designatorPath, "");
+  assertEquals(result.workingFilePath, "root.ttl");
+  assertEquals(result.updatedPaths, ["root.ttl"]);
+  assertEquals(
+    await Deno.readTextFile(join(workspaceRoot, "root.ttl")),
+    ROOT_PAYLOAD_TURTLE_V2,
   );
 });
 

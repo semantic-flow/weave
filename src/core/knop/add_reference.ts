@@ -1,9 +1,12 @@
 import { Parser } from "n3";
 import type { Quad } from "n3";
 import type { PlannedFile } from "../planned_file.ts";
+import {
+  normalizeSafeDesignatorPath,
+  toKnopPath,
+  toReferenceCatalogPath,
+} from "../designator_segments.ts";
 
-const reservedDesignatorSegments = new Set(["_knop", "_mesh"]);
-const safeDesignatorSegmentPattern = /^[A-Za-z0-9._-]+$/;
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const XSD_NON_NEGATIVE_INTEGER_IRI =
   "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
@@ -166,48 +169,12 @@ function normalizeDesignatorPath(
   designatorPath: string,
   fieldName: string,
 ): string {
-  const trimmed = designatorPath.trim();
-  if (trimmed.length === 0) {
-    throw new KnopAddReferenceInputError(`${fieldName} is required`);
-  }
-  if (trimmed.startsWith("/") || trimmed.endsWith("/")) {
-    throw new KnopAddReferenceInputError(
-      `${fieldName} must not start or end with '/'`,
-    );
-  }
-  if (
-    trimmed.includes("\\") || trimmed.includes("?") || trimmed.includes("#")
-  ) {
-    throw new KnopAddReferenceInputError(
-      `${fieldName} contains unsupported path characters`,
-    );
-  }
-
-  const segments = trimmed.split("/");
-  if (segments.some((segment) => segment.length === 0)) {
-    throw new KnopAddReferenceInputError(
-      `${fieldName} must not contain empty path segments`,
-    );
-  }
-  if (segments.some((segment) => segment === "." || segment === "..")) {
-    throw new KnopAddReferenceInputError(
-      `${fieldName} must not contain '.' or '..' path segments`,
-    );
-  }
-  if (segments.some((segment) => reservedDesignatorSegments.has(segment))) {
-    throw new KnopAddReferenceInputError(
-      `${fieldName} must not contain reserved path segments`,
-    );
-  }
-  for (const segment of segments) {
-    if (!safeDesignatorSegmentPattern.test(segment)) {
-      throw new KnopAddReferenceInputError(
-        `normalizeDesignatorPath rejected segment "${segment}" in ${fieldName}: toKnopPath only accepts path segments matching [A-Za-z0-9._-]+`,
-      );
-    }
-  }
-
-  return trimmed;
+  return normalizeSafeDesignatorPath(
+    designatorPath,
+    fieldName,
+    (message) => new KnopAddReferenceInputError(message),
+    { allowRoot: true },
+  );
 }
 
 function normalizeReferenceRole(referenceRole: string): ReferenceRoleToken {
@@ -231,7 +198,7 @@ function renderReferencesTurtle(
   referenceTargetDesignatorPath: string,
   referenceRoleIri: string,
 ): string {
-  const referenceCatalogPath = `${toKnopPath(designatorPath)}/_references`;
+  const referenceCatalogPath = toReferenceCatalogPath(designatorPath);
 
   return `@base <${meshBase}> .
 @prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
@@ -927,8 +894,4 @@ function parseKnopInventoryQuads(
   } catch {
     throw new KnopAddReferenceInputError(errorMessage);
   }
-}
-
-function toKnopPath(designatorPath: string): string {
-  return `${designatorPath}/_knop`;
 }

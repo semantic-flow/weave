@@ -1,5 +1,9 @@
 import { Parser, type Quad } from "n3";
-import { RESERVED_DESIGNATOR_SEGMENTS } from "../designator_segments.ts";
+import {
+  appendMeshPath,
+  normalizeSafeDesignatorPath,
+  toKnopPath,
+} from "../designator_segments.ts";
 import type { PlannedFile } from "../planned_file.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
@@ -86,41 +90,12 @@ function normalizeMeshBase(meshBase: string): string {
 }
 
 function normalizeDesignatorPath(designatorPath: string): string {
-  const trimmed = designatorPath.trim();
-  if (trimmed.length === 0) {
-    throw new PayloadUpdateInputError("designatorPath is required");
-  }
-  if (trimmed.startsWith("/") || trimmed.endsWith("/")) {
-    throw new PayloadUpdateInputError(
-      "designatorPath must not start or end with '/'",
-    );
-  }
-  if (
-    trimmed.includes("\\") || trimmed.includes("?") || trimmed.includes("#")
-  ) {
-    throw new PayloadUpdateInputError(
-      "designatorPath contains unsupported path characters",
-    );
-  }
-
-  const segments = trimmed.split("/");
-  if (segments.some((segment) => segment.length === 0)) {
-    throw new PayloadUpdateInputError(
-      "designatorPath must not contain empty path segments",
-    );
-  }
-  if (segments.some((segment) => segment === "." || segment === "..")) {
-    throw new PayloadUpdateInputError(
-      "designatorPath must not contain '.' or '..' path segments",
-    );
-  }
-  if (segments.some((segment) => RESERVED_DESIGNATOR_SEGMENTS.has(segment))) {
-    throw new PayloadUpdateInputError(
-      "designatorPath must not contain reserved path segments",
-    );
-  }
-
-  return trimmed;
+  return normalizeSafeDesignatorPath(
+    designatorPath,
+    "designatorPath",
+    (message) => new PayloadUpdateInputError(message),
+    { allowRoot: true },
+  );
 }
 
 function normalizeWorkingFilePath(workingFilePath: string): string {
@@ -172,7 +147,7 @@ function assertCurrentPayloadArtifactShape(
   designatorPath: string,
   workingFilePath: string,
 ): void {
-  const knopPath = `${designatorPath}/_knop`;
+  const knopPath = toKnopPath(designatorPath);
   const requiredFragments = [
     {
       subject: toIriCandidates(currentKnopInventoryTurtle, knopPath),
@@ -209,7 +184,7 @@ function assertCurrentPayloadArtifactShape(
       predicate: [`${SFLO_NAMESPACE}currentArtifactHistory`],
       object: toIriCandidates(
         currentKnopInventoryTurtle,
-        `${designatorPath}/_history001`,
+        appendMeshPath(designatorPath, "_history001"),
       ),
     },
   ];

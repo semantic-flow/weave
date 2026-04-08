@@ -2,6 +2,14 @@ import { Parser } from "n3";
 import type { Quad } from "n3";
 import type { PlannedFile } from "../planned_file.ts";
 import {
+  appendMeshPath,
+  formatDesignatorPathForDisplay,
+  isDirectChildMeshPath,
+  toDesignatorResourcePagePath,
+  toKnopPath,
+  toReferenceCatalogPath,
+} from "../designator_segments.ts";
+import {
   type NormalizedVersionTargetSpec,
   normalizeVersionTargetSpecs,
   resolveTargetSelections,
@@ -702,6 +710,7 @@ function planFirstExtractedKnopWeave(
 ): WeavePlan {
   const designatorPath = candidate.designatorPath;
   const knopPath = toKnopPath(designatorPath);
+  const displayDesignatorPath = formatDesignatorPathForDisplay(designatorPath);
   const referenceCatalogArtifact = candidate.referenceCatalogArtifact!;
   const referenceTargetSourcePayloadArtifact = candidate
     .referenceTargetSourcePayloadArtifact!;
@@ -791,7 +800,7 @@ function planFirstExtractedKnopWeave(
         contents: referenceCatalogArtifact.currentReferenceCatalogTurtle,
       },
       {
-        path: `${designatorPath}/index.html`,
+        path: toDesignatorResourcePagePath(designatorPath),
         contents: renderExtractedPersonIdentifierPage(
           meshBase,
           designatorPath,
@@ -808,7 +817,7 @@ function planFirstExtractedKnopWeave(
         contents: renderArtifactHistoryIndexPage(meshBase, {
           pagePath: `${knopPath}/_meta/_history001/index.html`,
           description:
-            `Resource page for the current explicit history of the ${designatorPath} KnopMetadata artifact.`,
+            `Resource page for the current explicit history of the ${displayDesignatorPath} KnopMetadata artifact.`,
           artifactLabel: "KnopMetadata artifact",
           workingFilePath: `${knopPath}/_meta/meta.ttl`,
           states: [{ segment: "_s0001", latest: true }],
@@ -819,7 +828,7 @@ function planFirstExtractedKnopWeave(
         contents: renderArtifactHistoryIndexPage(meshBase, {
           pagePath: `${knopPath}/_inventory/_history001/index.html`,
           description:
-            `Resource page for the current explicit history of the ${designatorPath} KnopInventory artifact.`,
+            `Resource page for the current explicit history of the ${displayDesignatorPath} KnopInventory artifact.`,
           artifactLabel: "KnopInventory artifact",
           workingFilePath: `${knopPath}/_inventory/inventory.ttl`,
           states: [{ segment: "_s0001", latest: true }],
@@ -830,7 +839,7 @@ function planFirstExtractedKnopWeave(
         contents: renderArtifactHistoryIndexPage(meshBase, {
           pagePath: `${knopPath}/_references/_history001/index.html`,
           description:
-            `Resource page for the current explicit history of the ${designatorPath} ReferenceCatalog artifact.`,
+            `Resource page for the current explicit history of the ${displayDesignatorPath} ReferenceCatalog artifact.`,
           artifactLabel: "ReferenceCatalog artifact",
           workingFilePath: referenceCatalogArtifact.workingFilePath,
           states: [{ segment: "_s0001", latest: true }],
@@ -884,31 +893,31 @@ function planFirstExtractedKnopWeave(
       ),
       simplePage(
         `${knopPath}/index.html`,
-        `Resource page for the Knop associated with the ${designatorPath} designator.`,
+        `Resource page for the Knop associated with the ${displayDesignatorPath} designator.`,
       ),
       simplePage(
         `${knopPath}/_meta/index.html`,
-        `Resource page for the ${designatorPath} KnopMetadata artifact.`,
+        `Resource page for the ${displayDesignatorPath} KnopMetadata artifact.`,
       ),
       simplePage(
         `${knopPath}/_meta/_history001/_s0001/index.html`,
-        `Resource page for the first ${designatorPath} KnopMetadata historical state.`,
+        `Resource page for the first ${displayDesignatorPath} KnopMetadata historical state.`,
       ),
       simplePage(
         `${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html`,
-        `Resource page for the Turtle manifestation of the first ${designatorPath} KnopMetadata historical state.`,
+        `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} KnopMetadata historical state.`,
       ),
       simplePage(
         `${knopPath}/_inventory/index.html`,
-        `Resource page for the ${designatorPath} KnopInventory artifact.`,
+        `Resource page for the ${displayDesignatorPath} KnopInventory artifact.`,
       ),
       simplePage(
         `${knopPath}/_inventory/_history001/_s0001/index.html`,
-        `Resource page for the first ${designatorPath} KnopInventory historical state.`,
+        `Resource page for the first ${displayDesignatorPath} KnopInventory historical state.`,
       ),
       simplePage(
         `${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html`,
-        `Resource page for the Turtle manifestation of the first ${designatorPath} KnopInventory historical state.`,
+        `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} KnopInventory historical state.`,
       ),
       referenceCatalogPage(
         `${knopPath}/_references/index.html`,
@@ -918,11 +927,11 @@ function planFirstExtractedKnopWeave(
       ),
       simplePage(
         `${knopPath}/_references/_history001/_s0001/index.html`,
-        `Resource page for the first ${designatorPath} ReferenceCatalog historical state.`,
+        `Resource page for the first ${displayDesignatorPath} ReferenceCatalog historical state.`,
       ),
       simplePage(
         `${knopPath}/_references/_history001/_s0001/references-ttl/index.html`,
-        `Resource page for the Turtle manifestation of the first ${designatorPath} ReferenceCatalog historical state.`,
+        `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} ReferenceCatalog historical state.`,
       ),
     ],
   };
@@ -1247,6 +1256,10 @@ function assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
   const rootKnopPath = toKnopPath(rootDesignatorPath);
   const sourceKnopPath = toKnopPath(sourcePayloadDesignatorPath);
   const knopPath = toKnopPath(designatorPath);
+  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
+  const sourcePayloadPagePath = toDesignatorResourcePagePath(
+    sourcePayloadDesignatorPath,
+  );
   const errorMessage =
     `The current local weave slice only supports the settled extracted-knop pre-weave mesh inventory shape for ${designatorPath}.`;
   const quads = parseWeaveShapeQuads(
@@ -1280,7 +1293,7 @@ function assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
     [
       sourcePayloadDesignatorPath,
       SFLO_HAS_RESOURCE_PAGE_IRI,
-      `${sourcePayloadDesignatorPath}/index.html`,
+      sourcePayloadPagePath,
     ],
     [rootKnopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
     [
@@ -1321,7 +1334,7 @@ function assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
       meshBase,
       designatorPath,
       SFLO_HAS_RESOURCE_PAGE_IRI,
-      `${designatorPath}/index.html`,
+      designatorPagePath,
     ) ||
     hasNamedNodeFact(
       quads,
@@ -1826,6 +1839,7 @@ function renderFirstKnopWovenMeshInventoryTurtle(
   designatorPath: string,
 ): string {
   const knopPath = toKnopPath(designatorPath);
+  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
   const historyPath = "_mesh/_inventory/_history001";
   const stateTwoPath = `${historyPath}/_s0002`;
   const stateTwoManifestationPath = `${stateTwoPath}/inventory-ttl`;
@@ -1897,12 +1911,12 @@ function renderFirstKnopWovenMeshInventoryTurtle(
   blocks = upsertSubjectBlockAfter(
     blocks,
     "_mesh/index.html",
-    `${designatorPath}/index.html`,
-    renderResourcePageLocatedFileBlock(`${designatorPath}/index.html`),
+    designatorPagePath,
+    renderResourcePageLocatedFileBlock(designatorPagePath),
   );
   blocks = upsertSubjectBlockAfter(
     blocks,
-    `${designatorPath}/index.html`,
+    designatorPagePath,
     `${knopPath}/index.html`,
     renderResourcePageLocatedFileBlock(`${knopPath}/index.html`),
   );
@@ -2025,6 +2039,8 @@ function renderFirstPayloadWovenMeshInventoryTurtle(
   const knopPath = toKnopPath(designatorPath);
   const rootDesignatorPath = toRootDesignatorPath(designatorPath);
   const rootKnopPath = toKnopPath(rootDesignatorPath);
+  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
+  const rootPagePath = toDesignatorResourcePagePath(rootDesignatorPath);
   const historyPath = "_mesh/_inventory/_history001";
   const stateThreePath = `${historyPath}/_s0003`;
   const stateThreeManifestationPath = `${stateThreePath}/inventory-ttl`;
@@ -2097,16 +2113,14 @@ function renderFirstPayloadWovenMeshInventoryTurtle(
   );
   blocks = upsertSubjectBlockAfter(
     blocks,
-    rootDesignatorPath === designatorPath
-      ? "_mesh/index.html"
-      : `${rootDesignatorPath}/index.html`,
-    `${designatorPath}/index.html`,
-    renderResourcePageLocatedFileBlock(`${designatorPath}/index.html`),
+    rootDesignatorPath === designatorPath ? "_mesh/index.html" : rootPagePath,
+    designatorPagePath,
+    renderResourcePageLocatedFileBlock(designatorPagePath),
   );
   blocks = upsertSubjectBlockAfter(
     blocks,
     rootDesignatorPath === designatorPath
-      ? `${designatorPath}/index.html`
+      ? designatorPagePath
       : `${rootKnopPath}/index.html`,
     `${knopPath}/index.html`,
     renderResourcePageLocatedFileBlock(`${knopPath}/index.html`),
@@ -2134,6 +2148,7 @@ function renderLegacyFirstKnopWovenMeshInventoryTurtle(
   designatorPath: string,
 ): string {
   const knopPath = toKnopPath(designatorPath);
+  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
 
   return `@base <${meshBase}> .
 @prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
@@ -2147,7 +2162,7 @@ function renderLegacyFirstKnopWovenMeshInventoryTurtle(
   sflo:hasResourcePage <_mesh/index.html> .
 
 <${designatorPath}>
-  sflo:hasResourcePage <${designatorPath}/index.html> .
+  sflo:hasResourcePage <${designatorPagePath}> .
 
 <${knopPath}> a sflo:Knop ;
   sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> ;
@@ -2227,7 +2242,7 @@ function renderLegacyFirstKnopWovenMeshInventoryTurtle(
 
 <_mesh/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<${designatorPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${designatorPagePath}> a sflo:ResourcePage, sflo:LocatedFile .
 
 <${knopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -2259,6 +2274,7 @@ function renderLegacyFirstPayloadWovenMeshInventoryTurtle(
   workingFilePath: string,
 ): string {
   const knopPath = toKnopPath(designatorPath);
+  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
 
   return `@base <${meshBase}> .
 @prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
@@ -2281,7 +2297,7 @@ function renderLegacyFirstPayloadWovenMeshInventoryTurtle(
 
 <${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <${workingFilePath}> ;
-  sflo:hasResourcePage <${designatorPath}/index.html> .
+  sflo:hasResourcePage <${designatorPagePath}> .
 
 <${knopPath}> a sflo:Knop ;
   sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> ;
@@ -2381,7 +2397,7 @@ function renderLegacyFirstPayloadWovenMeshInventoryTurtle(
 
 <alice/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<${designatorPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${designatorPagePath}> a sflo:ResourcePage, sflo:LocatedFile .
 
 <alice/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -2420,6 +2436,7 @@ function renderFirstPayloadWovenKnopInventoryTurtle(
   workingFilePath: string,
 ): string {
   const knopPath = toKnopPath(designatorPath);
+  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
   const payloadManifestationPath = toPayloadManifestationPath(
     payloadLayout.nextStatePath,
     workingFilePath,
@@ -2444,7 +2461,7 @@ function renderFirstPayloadWovenKnopInventoryTurtle(
   sflo:currentArtifactHistory <${payloadLayout.historyPath}> ;
   sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
   sflo:hasWorkingLocatedFile <${workingFilePath}> ;
-  sflo:hasResourcePage <${designatorPath}/index.html> .
+  sflo:hasResourcePage <${designatorPagePath}> .
 
 <${payloadLayout.historyPath}> a sflo:ArtifactHistory ;
   sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
@@ -2523,7 +2540,7 @@ function renderFirstPayloadWovenKnopInventoryTurtle(
 
 <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<${designatorPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${designatorPagePath}> a sflo:ResourcePage, sflo:LocatedFile .
 
 <${payloadLayout.historyPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -2717,6 +2734,7 @@ function renderSecondPayloadWovenKnopInventoryTurtle(
   workingFilePath: string,
 ): string {
   const knopPath = toKnopPath(designatorPath);
+  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
   const payloadStateOnePath = payloadLayout.currentStatePath!;
   const payloadStateOneManifestationPath = toPayloadManifestationPath(
     payloadStateOnePath,
@@ -2744,7 +2762,7 @@ function renderSecondPayloadWovenKnopInventoryTurtle(
   sflo:currentArtifactHistory <${payloadLayout.historyPath}> ;
   sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
   sflo:hasWorkingLocatedFile <${workingFilePath}> ;
-  sflo:hasResourcePage <${designatorPath}/index.html> .
+  sflo:hasResourcePage <${designatorPagePath}> .
 
 <${payloadLayout.historyPath}> a sflo:ArtifactHistory ;
   sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
@@ -2851,7 +2869,7 @@ function renderSecondPayloadWovenKnopInventoryTurtle(
 
 <${knopPath}/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<${designatorPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${designatorPagePath}> a sflo:ResourcePage, sflo:LocatedFile .
 
 <${payloadLayout.historyPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -2895,6 +2913,8 @@ function renderFirstExtractedKnopWovenMeshInventoryTurtle(
   const rootDesignatorPath = toRootDesignatorPath(sourcePayloadDesignatorPath);
   const sourceKnopPath = toKnopPath(sourcePayloadDesignatorPath);
   const knopPath = toKnopPath(designatorPath);
+  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
+  const rootPagePath = toDesignatorResourcePagePath(rootDesignatorPath);
   const historyPath = "_mesh/_inventory/_history001";
   const stateFourPath = `${historyPath}/_s0004`;
   const stateFourManifestationPath = `${stateFourPath}/inventory-ttl`;
@@ -2938,9 +2958,9 @@ function renderFirstExtractedKnopWovenMeshInventoryTurtle(
   );
   blocks = upsertSubjectBlockAfter(
     blocks,
-    `${rootDesignatorPath}/index.html`,
-    `${designatorPath}/index.html`,
-    renderResourcePageLocatedFileBlock(`${designatorPath}/index.html`),
+    rootPagePath,
+    designatorPagePath,
+    renderResourcePageLocatedFileBlock(designatorPagePath),
   );
   blocks = upsertSubjectBlockAfter(
     blocks,
@@ -2967,8 +2987,9 @@ function renderFirstExtractedKnopWovenMeshInventoryTurtle(
 }
 
 function renderMeshIdentifierBlock(designatorPath: string): string {
+  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
   return `<${designatorPath}>
-  sflo:hasResourcePage <${designatorPath}/index.html> .`;
+  sflo:hasResourcePage <${designatorPagePath}> .`;
 }
 
 function renderMeshRootBlock(
@@ -2997,9 +3018,10 @@ function renderMeshPayloadArtifactBlockWithResourcePage(
   designatorPath: string,
   workingFilePath: string,
 ): string {
+  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
   return `<${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <${workingFilePath}> ;
-  sflo:hasResourcePage <${designatorPath}/index.html> .`;
+  sflo:hasResourcePage <${designatorPagePath}> .`;
 }
 
 function renderMeshInventoryHistoryWithSecondStateBlock(): string {
@@ -3200,7 +3222,7 @@ function findSubjectBlockIndex(
 }
 
 function getSubjectPathFromBlock(block: string): string | undefined {
-  const match = block.match(/^<([^>]+)>/);
+  const match = block.match(/^<([^>]*)>/);
   return match?.[1];
 }
 
@@ -3514,6 +3536,8 @@ function renderExtractedPersonIdentifierPage(
   currentPayloadTurtle: string,
 ): string {
   const meshLabel = deriveMeshLabel(meshBase);
+  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
+  const displayDesignatorPath = formatDesignatorPathForDisplay(designatorPath);
   const givenName = requireLiteralValue(
     meshBase,
     currentPayloadTurtle,
@@ -3529,15 +3553,15 @@ function renderExtractedPersonIdentifierPage(
     `${designatorPath} foaf:nick`,
   );
   const sourceResourceHref = toRelativeHref(
-    `${designatorPath}/index.html`,
+    designatorPagePath,
     sourcePayloadDesignatorPath,
   );
   const sourceHistoryHref = toRelativeHref(
-    `${designatorPath}/index.html`,
+    designatorPagePath,
     sourcePayloadHistoryPath,
   );
   const sourceWorkingFileHref = toRelativeHref(
-    `${designatorPath}/index.html`,
+    designatorPagePath,
     sourceWorkingFilePath,
   );
   const canonical = new URL(designatorPath, meshBase).href;
@@ -3546,12 +3570,12 @@ function renderExtractedPersonIdentifierPage(
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>${escapeHtml(meshLabel)} ${escapeHtml(designatorPath)}</title>
+  <title>${escapeHtml(meshLabel)} ${escapeHtml(displayDesignatorPath)}</title>
   <link rel="canonical" href="${escapeHtml(canonical)}">
 </head>
 <body>
   <main>
-    <h1><strong>${escapeHtml(designatorPath)}</strong></h1>
+    <h1><strong>${escapeHtml(displayDesignatorPath)}</strong></h1>
     <p>Resource page for the Semantic Flow identifier <a href="${
     escapeHtml(canonical)
   }">${escapeHtml(canonical)}</a>.</p>
@@ -3848,6 +3872,8 @@ function buildFirstKnopWeavePages(
   designatorPath: string,
 ): readonly ResourcePageModel[] {
   const knopPath = toKnopPath(designatorPath);
+  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
+  const displayDesignatorPath = formatDesignatorPathForDisplay(designatorPath);
 
   return [
     simplePage(
@@ -3858,42 +3884,42 @@ function buildFirstKnopWeavePages(
       "_mesh/_inventory/_history001/_s0002/inventory-ttl/index.html",
       "Resource page for the Turtle manifestation of the second MeshInventory historical state.",
     ),
-    identifierPage(`${designatorPath}/index.html`, designatorPath),
+    identifierPage(designatorPagePath, designatorPath),
     simplePage(
       `${knopPath}/index.html`,
-      `Resource page for the Knop associated with the ${designatorPath} designator.`,
+      `Resource page for the Knop associated with the ${displayDesignatorPath} designator.`,
     ),
     simplePage(
       `${knopPath}/_meta/index.html`,
-      `Resource page for the ${designatorPath} KnopMetadata artifact.`,
+      `Resource page for the ${displayDesignatorPath} KnopMetadata artifact.`,
     ),
     simplePage(
       `${knopPath}/_meta/_history001/index.html`,
-      `Resource page for the current explicit history of the ${designatorPath} KnopMetadata artifact.`,
+      `Resource page for the current explicit history of the ${displayDesignatorPath} KnopMetadata artifact.`,
     ),
     simplePage(
       `${knopPath}/_meta/_history001/_s0001/index.html`,
-      `Resource page for the first ${designatorPath} KnopMetadata historical state.`,
+      `Resource page for the first ${displayDesignatorPath} KnopMetadata historical state.`,
     ),
     simplePage(
       `${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html`,
-      `Resource page for the Turtle manifestation of the first ${designatorPath} KnopMetadata historical state.`,
+      `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} KnopMetadata historical state.`,
     ),
     simplePage(
       `${knopPath}/_inventory/index.html`,
-      `Resource page for the ${designatorPath} KnopInventory artifact.`,
+      `Resource page for the ${displayDesignatorPath} KnopInventory artifact.`,
     ),
     simplePage(
       `${knopPath}/_inventory/_history001/index.html`,
-      `Resource page for the current explicit history of the ${designatorPath} KnopInventory artifact.`,
+      `Resource page for the current explicit history of the ${displayDesignatorPath} KnopInventory artifact.`,
     ),
     simplePage(
       `${knopPath}/_inventory/_history001/_s0001/index.html`,
-      `Resource page for the first ${designatorPath} KnopInventory historical state.`,
+      `Resource page for the first ${displayDesignatorPath} KnopInventory historical state.`,
     ),
     simplePage(
       `${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html`,
-      `Resource page for the Turtle manifestation of the first ${designatorPath} KnopInventory historical state.`,
+      `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} KnopInventory historical state.`,
     ),
   ];
 }
@@ -3904,6 +3930,8 @@ function buildFirstPayloadWeavePages(
   workingFilePath: string,
 ): readonly ResourcePageModel[] {
   const knopPath = toKnopPath(designatorPath);
+  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
+  const displayDesignatorPath = formatDesignatorPathForDisplay(designatorPath);
   const payloadManifestationPath = toPayloadManifestationPath(
     payloadLayout.nextStatePath,
     workingFilePath,
@@ -3919,57 +3947,57 @@ function buildFirstPayloadWeavePages(
       "Resource page for the Turtle manifestation of the third MeshInventory historical state.",
     ),
     identifierPage(
-      `${designatorPath}/index.html`,
+      designatorPagePath,
       designatorPath,
       workingFilePath,
     ),
     simplePage(
       `${payloadLayout.historyPath}/index.html`,
-      `Resource page for the current explicit history of the ${designatorPath} payload artifact.`,
+      `Resource page for the current explicit history of the ${displayDesignatorPath} payload artifact.`,
     ),
     simplePage(
       `${payloadLayout.nextStatePath}/index.html`,
-      `Resource page for the first historical state of the ${designatorPath} payload artifact.`,
+      `Resource page for the first historical state of the ${displayDesignatorPath} payload artifact.`,
     ),
     simplePage(
       `${payloadManifestationPath}/index.html`,
-      `Resource page for the Turtle manifestation of the first ${designatorPath} payload historical state.`,
+      `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} payload historical state.`,
     ),
     simplePage(
       `${knopPath}/index.html`,
-      `Resource page for the Knop associated with the ${designatorPath} designator.`,
+      `Resource page for the Knop associated with the ${displayDesignatorPath} designator.`,
     ),
     simplePage(
       `${knopPath}/_meta/index.html`,
-      `Resource page for the ${designatorPath} KnopMetadata artifact.`,
+      `Resource page for the ${displayDesignatorPath} KnopMetadata artifact.`,
     ),
     simplePage(
       `${knopPath}/_meta/_history001/index.html`,
-      `Resource page for the current explicit history of the ${designatorPath} KnopMetadata artifact.`,
+      `Resource page for the current explicit history of the ${displayDesignatorPath} KnopMetadata artifact.`,
     ),
     simplePage(
       `${knopPath}/_meta/_history001/_s0001/index.html`,
-      `Resource page for the first ${designatorPath} KnopMetadata historical state.`,
+      `Resource page for the first ${displayDesignatorPath} KnopMetadata historical state.`,
     ),
     simplePage(
       `${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html`,
-      `Resource page for the Turtle manifestation of the first ${designatorPath} KnopMetadata historical state.`,
+      `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} KnopMetadata historical state.`,
     ),
     simplePage(
       `${knopPath}/_inventory/index.html`,
-      `Resource page for the ${designatorPath} KnopInventory artifact.`,
+      `Resource page for the ${displayDesignatorPath} KnopInventory artifact.`,
     ),
     simplePage(
       `${knopPath}/_inventory/_history001/index.html`,
-      `Resource page for the current explicit history of the ${designatorPath} KnopInventory artifact.`,
+      `Resource page for the current explicit history of the ${displayDesignatorPath} KnopInventory artifact.`,
     ),
     simplePage(
       `${knopPath}/_inventory/_history001/_s0001/index.html`,
-      `Resource page for the first ${designatorPath} KnopInventory historical state.`,
+      `Resource page for the first ${displayDesignatorPath} KnopInventory historical state.`,
     ),
     simplePage(
       `${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html`,
-      `Resource page for the Turtle manifestation of the first ${designatorPath} KnopInventory historical state.`,
+      `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} KnopInventory historical state.`,
     ),
   ];
 }
@@ -3980,7 +4008,8 @@ function buildFirstReferenceCatalogWeavePages(
   currentLinks: readonly ReferenceCatalogCurrentLinkModel[],
 ): readonly ResourcePageModel[] {
   const knopPath = toKnopPath(designatorPath);
-  const referenceCatalogPath = `${knopPath}/_references`;
+  const referenceCatalogPath = toReferenceCatalogPath(designatorPath);
+  const displayDesignatorPath = formatDesignatorPathForDisplay(designatorPath);
   const referenceCatalogManifestationPath = toArtifactManifestationPath(
     `${referenceCatalogPath}/_history001/_s0001`,
     workingFilePath,
@@ -3989,11 +4018,11 @@ function buildFirstReferenceCatalogWeavePages(
   return [
     simplePage(
       `${knopPath}/_inventory/_history001/_s0002/index.html`,
-      `Resource page for the second ${designatorPath} KnopInventory historical state.`,
+      `Resource page for the second ${displayDesignatorPath} KnopInventory historical state.`,
     ),
     simplePage(
       `${knopPath}/_inventory/_history001/_s0002/inventory-ttl/index.html`,
-      `Resource page for the Turtle manifestation of the second ${designatorPath} KnopInventory historical state.`,
+      `Resource page for the Turtle manifestation of the second ${displayDesignatorPath} KnopInventory historical state.`,
     ),
     referenceCatalogPage(
       `${referenceCatalogPath}/index.html`,
@@ -4003,15 +4032,15 @@ function buildFirstReferenceCatalogWeavePages(
     ),
     simplePage(
       `${referenceCatalogPath}/_history001/index.html`,
-      `Resource page for the current explicit history of the ${designatorPath} ReferenceCatalog artifact.`,
+      `Resource page for the current explicit history of the ${displayDesignatorPath} ReferenceCatalog artifact.`,
     ),
     simplePage(
       `${referenceCatalogPath}/_history001/_s0001/index.html`,
-      `Resource page for the first ${designatorPath} ReferenceCatalog historical state.`,
+      `Resource page for the first ${displayDesignatorPath} ReferenceCatalog historical state.`,
     ),
     simplePage(
       `${referenceCatalogManifestationPath}/index.html`,
-      `Resource page for the Turtle manifestation of the first ${designatorPath} ReferenceCatalog historical state.`,
+      `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} ReferenceCatalog historical state.`,
     ),
   ];
 }
@@ -4022,6 +4051,7 @@ function buildSecondPayloadWeavePages(
   workingFilePath: string,
 ): readonly ResourcePageModel[] {
   const knopPath = toKnopPath(designatorPath);
+  const displayDesignatorPath = formatDesignatorPathForDisplay(designatorPath);
   const payloadManifestationPath = toPayloadManifestationPath(
     payloadLayout.nextStatePath,
     workingFilePath,
@@ -4030,19 +4060,19 @@ function buildSecondPayloadWeavePages(
   return [
     simplePage(
       `${payloadLayout.nextStatePath}/index.html`,
-      `Resource page for the second historical state of the ${designatorPath} payload artifact.`,
+      `Resource page for the second historical state of the ${displayDesignatorPath} payload artifact.`,
     ),
     simplePage(
       `${payloadManifestationPath}/index.html`,
-      `Resource page for the Turtle manifestation of the second ${designatorPath} payload historical state.`,
+      `Resource page for the Turtle manifestation of the second ${displayDesignatorPath} payload historical state.`,
     ),
     simplePage(
       `${knopPath}/_inventory/_history001/_s0002/index.html`,
-      `Resource page for the second historical state of the ${designatorPath} KnopInventory artifact.`,
+      `Resource page for the second historical state of the ${displayDesignatorPath} KnopInventory artifact.`,
     ),
     simplePage(
       `${knopPath}/_inventory/_history001/_s0002/inventory-ttl/index.html`,
-      `Resource page for the Turtle manifestation of the second ${designatorPath} KnopInventory historical state.`,
+      `Resource page for the Turtle manifestation of the second ${displayDesignatorPath} KnopInventory historical state.`,
     ),
   ];
 }
@@ -4051,9 +4081,10 @@ function resolveFirstPayloadVersionLayout(
   designatorPath: string,
   target?: NormalizedVersionTargetSpec,
 ): PayloadVersionLayout {
-  const historyPath = `${designatorPath}/${
-    target?.historySegment ?? "_history001"
-  }`;
+  const historyPath = appendMeshPath(
+    designatorPath,
+    target?.historySegment ?? "_history001",
+  );
   const nextStatePath = `${historyPath}/${target?.stateSegment ?? "_s0001"}`;
 
   return {
@@ -4077,7 +4108,7 @@ function resolveSecondPayloadVersionLayout(
     historyPath,
   );
   const requestedHistoryPath = target?.historySegment
-    ? `${designatorPath}/${target.historySegment}`
+    ? appendMeshPath(designatorPath, target.historySegment)
     : undefined;
 
   if (
@@ -4183,7 +4214,7 @@ function requirePayloadHistoryPath(
       `Could not resolve the current payload history for ${designatorPath}.`,
     );
   }
-  if (!historyPath.startsWith(`${designatorPath}/`)) {
+  if (!isDirectChildMeshPath(designatorPath, historyPath)) {
     throw new WeaveInputError(
       `Current payload history for ${designatorPath} was outside the payload designator path: ${historyPath}`,
     );
@@ -4268,8 +4299,4 @@ function toLastPathSegment(path: string): string {
 function toReferenceRoleLabel(referenceRoleIri: string): string {
   const segments = referenceRoleIri.split("/");
   return (segments[segments.length - 1] ?? referenceRoleIri).toLowerCase();
-}
-
-function toKnopPath(designatorPath: string): string {
-  return `${designatorPath}/_knop`;
 }

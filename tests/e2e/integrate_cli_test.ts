@@ -11,6 +11,10 @@ import {
   readMeshAliceBioBranchFile,
   resolveMeshAliceBioConformanceManifestPath,
 } from "../support/mesh_alice_bio_fixture.ts";
+import {
+  ROOT_PAYLOAD_TURTLE,
+  ROOT_WORKING_FILE_PATH,
+} from "../support/root_designator.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 const repoRoot = new URL("../../", import.meta.url);
@@ -143,6 +147,45 @@ Deno.test("weave integrate rejects conflicting designator paths before logging o
   await assertPathAbsent(
     join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
   );
+});
+
+Deno.test("weave integrate accepts the root designator path as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-integrate-root-");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await Deno.writeTextFile(
+    join(workspaceRoot, ROOT_WORKING_FILE_PATH),
+    ROOT_PAYLOAD_TURTLE,
+  );
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      "integrate",
+      ROOT_WORKING_FILE_PATH,
+      "--designator-path",
+      "/",
+      "--workspace",
+      workspaceRoot,
+    ],
+    cwd: new URL(".", repoRoot),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Integrated"), stdout);
+  await Deno.stat(join(workspaceRoot, "_knop/_meta/meta.ttl"));
+  await Deno.stat(join(workspaceRoot, "_knop/_inventory/inventory.ttl"));
 });
 
 Deno.test("weave integrate requires a designator path before logging or execution", async () => {

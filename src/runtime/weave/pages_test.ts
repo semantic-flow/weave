@@ -33,6 +33,38 @@ Deno.test("renderResourcePage renders identifier pages with working file links",
   );
 });
 
+Deno.test("renderResourcePage renders the root identifier as slash", () => {
+  assertEquals(
+    renderResourcePage(
+      "https://semantic-flow.github.io/mesh-alice-bio/",
+      {
+        kind: "identifier",
+        path: "index.html",
+        designatorPath: "",
+        workingFilePath: "root.ttl",
+      },
+    ),
+    `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>mesh-alice-bio /</title>
+  <link rel="canonical" href="https://semantic-flow.github.io/mesh-alice-bio/">
+</head>
+<body>
+  <main>
+    <h1><strong>/</strong></h1>
+    <p>Resource page for the Semantic Flow identifier <a href="https://semantic-flow.github.io/mesh-alice-bio/">https://semantic-flow.github.io/mesh-alice-bio/</a>.</p>
+  </main>
+  <footer>
+    <small>The Semantic Flow identifier <a href="https://semantic-flow.github.io/mesh-alice-bio/">https://semantic-flow.github.io/mesh-alice-bio/</a> has an associated Knop at <a href="./_knop">./_knop</a> and currently uses the working RDF file <a href="root.ttl">root.ttl</a>.</small>
+  </footer>
+</body>
+</html>
+`,
+  );
+});
+
 Deno.test("renderResourcePage renders current ReferenceCatalog pages with fragment anchors", () => {
   assertEquals(
     renderResourcePage(

@@ -50,19 +50,21 @@ Notes:
 
 ## Root special case
 
-The intended root-designator sentinel is `/`, so the canonical CLI spelling will be:
+The root-designator sentinel is `/`.
+
+Exact root targeting:
 
 ```sh
 weave --target 'designatorPath=/'
 ```
 
-and recursive root targeting will be:
+Recursive root targeting:
 
 ```sh
 weave --target 'designatorPath=/,recursive=true'
 ```
 
-Current releases do not implement root designator targeting yet. For now, `/` is reserved for that special case and should not be treated as working syntax yet.
+The same `/` sentinel is accepted anywhere a command expects a designator path, including `weave integrate`, `weave extract`, `weave payload update`, `weave knop create`, and `weave knop add-reference --reference-target-designator-path`.
 
 ## Commands
 
@@ -151,6 +153,7 @@ Integrates a local source file into a designator path as a payload artifact.
 ```sh
 weave integrate ./alice-bio.ttl alice/bio
 weave integrate ./alice-bio.ttl --designator-path alice/bio
+weave integrate ./root.ttl --designator-path /
 ```
 
 Constraints:
@@ -164,6 +167,7 @@ Creates a minimal Knop-managed surface for a local resource referenced inside a 
 
 ```sh
 weave extract bob
+weave extract /
 ```
 
 ### `weave payload update`
@@ -173,6 +177,7 @@ Replaces the working bytes of an existing payload artifact.
 ```sh
 weave payload update ./alice-bio-v2.ttl alice/bio
 weave payload update ./alice-bio-v2.ttl --designator-path alice/bio
+weave payload update ./root-v2.ttl /
 ```
 
 Constraints:
@@ -186,6 +191,7 @@ Creates the first Knop support artifacts for a designator path.
 
 ```sh
 weave knop create alice/bio
+weave knop create /
 ```
 
 ### `weave knop add-reference`
@@ -196,6 +202,11 @@ Creates the first reference-catalog surface for a designator path.
 weave knop add-reference \
   alice/bio \
   --reference-target-designator-path bob \
+  --reference-role Supplemental
+
+weave knop add-reference \
+  alice \
+  --reference-target-designator-path / \
   --reference-role Supplemental
 ```
 

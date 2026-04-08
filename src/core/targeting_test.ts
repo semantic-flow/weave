@@ -41,6 +41,40 @@ Deno.test("resolveTargetSelections matches exact targets", () => {
   );
 });
 
+Deno.test("resolveTargetSelections matches the exact root target", () => {
+  const targets = normalizeTargetSpecs(
+    [{ designatorPath: "" }],
+    "targets",
+    createError,
+  );
+
+  assertEquals(
+    resolveTargetSelections(
+      ["", "alice", "alice/bio"],
+      targets,
+      createError,
+    ).map((selection) => selection.designatorPath),
+    [""],
+  );
+});
+
+Deno.test("resolveTargetSelections matches recursive root targets", () => {
+  const targets = normalizeTargetSpecs(
+    [{ designatorPath: "", recursive: true }],
+    "targets",
+    createError,
+  );
+
+  assertEquals(
+    resolveTargetSelections(
+      ["", "alice", "alice/bio"],
+      targets,
+      createError,
+    ).map((selection) => selection.designatorPath),
+    ["", "alice", "alice/bio"],
+  );
+});
+
 Deno.test("resolveTargetSelections matches recursive targets by most-specific path", () => {
   const targets = normalizeTargetSpecs(
     [
@@ -69,6 +103,36 @@ Deno.test("resolveTargetSelections matches recursive targets by most-specific pa
         designatorPath: "alice/bio/notes",
         targetDesignatorPath: "alice",
       },
+    ],
+  );
+});
+
+Deno.test("resolveTargetSelections lets a more-specific descendant target override recursive root", () => {
+  const targets = normalizeTargetSpecs(
+    [
+      { designatorPath: "", recursive: true },
+      { designatorPath: "alice/bio" },
+    ],
+    "targets",
+    createError,
+  );
+
+  const resolved = resolveTargetSelections(
+    ["", "alice", "alice/bio", "alice/bio/notes"],
+    targets,
+    createError,
+  );
+
+  assertEquals(
+    resolved.map((selection) => ({
+      designatorPath: selection.designatorPath,
+      targetDesignatorPath: selection.target?.designatorPath,
+    })),
+    [
+      { designatorPath: "", targetDesignatorPath: "" },
+      { designatorPath: "alice", targetDesignatorPath: "" },
+      { designatorPath: "alice/bio", targetDesignatorPath: "alice/bio" },
+      { designatorPath: "alice/bio/notes", targetDesignatorPath: "" },
     ],
   );
 });

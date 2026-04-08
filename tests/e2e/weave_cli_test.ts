@@ -11,6 +11,10 @@ import {
   readMeshAliceBioBranchFile,
   resolveMeshAliceBioConformanceManifestPath,
 } from "../support/mesh_alice_bio_fixture.ts";
+import {
+  bootstrapRootWovenWorkspace,
+  integrateRootPayload,
+} from "../support/root_designator.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 const repoRoot = new URL("../../", import.meta.url);
@@ -30,6 +34,28 @@ Deno.test("weave validate succeeds as a black-box CLI run", async () => {
     "validate",
     "--target",
     "designatorPath=alice/bio",
+    "--workspace",
+    workspaceRoot,
+  ]);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Validated 1 designator path"), stdout);
+});
+
+Deno.test("weave validate accepts the exact root target as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-validate-root-");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await integrateRootPayload(workspaceRoot);
+
+  const output = await runCliCommand([
+    "validate",
+    "--target",
+    "designatorPath=/",
     "--workspace",
     workspaceRoot,
   ]);
@@ -72,6 +98,33 @@ Deno.test("weave version succeeds as a black-box CLI run", async () => {
   );
 });
 
+Deno.test("weave version accepts the exact root target as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-version-root-");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await integrateRootPayload(workspaceRoot);
+
+  const output = await runCliCommand([
+    "version",
+    "--target",
+    "designatorPath=/",
+    "--payload-history-segment",
+    "releases",
+    "--payload-state-segment",
+    "v0.0.1",
+    "--workspace",
+    workspaceRoot,
+  ]);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Versioned 1 designator path"), stdout);
+  await Deno.stat(join(workspaceRoot, "releases/v0.0.1/root-ttl/root.ttl"));
+});
+
 Deno.test("weave generate succeeds as a black-box CLI run", async () => {
   const workspaceRoot = await createTestTmpDir("weave-e2e-generate-");
   await materializeMeshAliceBioBranch("10-alice-bio-updated", workspaceRoot);
@@ -107,6 +160,30 @@ Deno.test("weave generate succeeds as a black-box CLI run", async () => {
   );
 });
 
+Deno.test("weave generate accepts the exact root target as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-generate-root-");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await bootstrapRootWovenWorkspace(workspaceRoot);
+
+  const output = await runCliCommand([
+    "generate",
+    "--target",
+    "designatorPath=/",
+    "--workspace",
+    workspaceRoot,
+  ]);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Generated 1 designator path"), stdout);
+  await Deno.stat(join(workspaceRoot, "index.html"));
+  await Deno.stat(join(workspaceRoot, "_knop/index.html"));
+});
+
 Deno.test("weave matches the manifest-scoped alice bio integrated-woven fixture as a black-box CLI run", async () => {
   await assertWeaveTransitionMatchesManifest({
     manifestName: "07-alice-bio-integrated-woven.jsonld",
@@ -120,6 +197,29 @@ Deno.test("weave accepts an exact --target spec as a black-box CLI run", async (
     expectedStdoutFragment: "Wove 1 designator path",
     cliArgs: ["--target", "designatorPath=alice/bio"],
   });
+});
+
+Deno.test("weave accepts an exact root --target spec as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-weave-root-");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await integrateRootPayload(workspaceRoot);
+
+  const output = await runCliCommand([
+    "--target",
+    "designatorPath=/",
+    "--workspace",
+    workspaceRoot,
+  ]);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Wove 1 designator path"), stdout);
+  await Deno.stat(join(workspaceRoot, "index.html"));
+  await Deno.stat(join(workspaceRoot, "_history001/_s0001/root-ttl/root.ttl"));
 });
 
 Deno.test("weave accepts a recursive --target spec as a black-box CLI run", async () => {
