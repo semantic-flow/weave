@@ -207,3 +207,13 @@ created: 1773630801215
 - Why:
   - A repeatable key-value form mirrors the shared target object shape closely enough to stay thin, while avoiding scalar flag sprawl or positional mini-language syntax that would need to be backed out later.
   - Keeping version-only naming fields out of `weave --target` preserves the shared targeting boundary and leaves later standalone `version` CLI work room to expose version-specific options deliberately.
+
+### 2026-04-07: Recursive version Batches Stage a Virtual Current Workspace
+
+- Decision: Implement recursive local `version` batching by reloading candidates against a virtual current workspace overlay after each staged target plan, and keep the batch fail-closed until the entire write set is known.
+- References: [[wd.task.2026.2026-04-07_0820-validate-version-generate]]
+- Why:
+  - Reusing the existing single-candidate slice planners is acceptable only if later targets see the staged current inventories and snapshots created by earlier targets in the same batch.
+  - Planning the whole batch before writes preserves the intended default against partial recursive publication.
+- Follow-Up Tasks:
+  - [ ] Decide whether standalone top-level `validate`, `version`, and `generate` CLI commands should be exposed now that the runtime seams and recursive batch behavior are coherent.

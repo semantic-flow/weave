@@ -80,8 +80,7 @@ and operations should derive owned support-artifact work from those roots.
 
 ## Open Issues
 
-- Payload `historySegment` / `stateSegment` are still contract-only in current code; making them semantically effective is now tracked explicitly in [[wd.task.2026.2026-04-07_1852-payload-version-naming]].
-- Recursive multi-target `version` batching is still not implemented in current core; `planVersion(...)` still delegates through the single-candidate `planWeave(...)` path, so the settled batch/fail-closed decision remains an implementation gap.
+- Standalone top-level `validate`, `version`, and `generate` CLI commands are still deferred; the current local decomposition is real at the runtime seam, but root `weave` remains the only exposed high-level CLI surface in the first pass.
 
 ## Decisions
 
@@ -102,6 +101,8 @@ and operations should derive owned support-artifact work from those roots.
 - Best-effort partial recursive versioning is the wrong default because it can leave a mesh semantically inconsistent halfway through a publication run.
 - `weave` should remain as a convenience chain over `validate`, `version`, and `generate` even after those operations exist separately.
 - The first implementation should prioritize coherent shared seams in `core` and `runtime` before broader CLI ergonomics.
+- Recursive `version` batching should stage the full write set against a virtual current workspace state before touching the real workspace.
+- Early mesh-inventory renders that advance `_mesh/_inventory` should preserve unrelated current mesh entries when the current inventory already materializes them, rather than regenerating a single-designator snapshot.
 
 ## Contract Changes
 
@@ -148,15 +149,15 @@ and operations should derive owned support-artifact work from those roots.
 
 ## Implementation Plan
 
-- [ ] Refine this task note into a concrete decomposition boundary between shared targeting and version-specific options.
-- [ ] Define the shared target model separately from version-specific payload naming fields.
-- [ ] Identify and extract the current internal `weave` seams for target resolution, validation, version planning, and page generation.
-- [ ] Define standalone `ValidateRequest`, `VersionRequest`, and `GenerateRequest` contracts for local workspace mode.
-- [ ] Define `ValidateResult` around structured findings rather than pass/fail only.
-- [ ] Re-express `WeaveRequest` and `executeWeave(...)` as orchestration over those same seams rather than a separate parallel contract.
-- [ ] Keep the first implementation resource-root targeted and fail closed on support-artifact-only explicit targets.
-- [ ] Keep standalone `generate` settled-state-only in the first pass.
-- [ ] Decide and implement the version-oriented root `weave` CLI pass-through for payload `historySegment` / `stateSegment` without widening shared `--target`.
-- [ ] Batch recursive `version` planning before writes rather than using best-effort per-target mutation.
-- [ ] Add core and runtime tests proving the decomposed seams still preserve current carried `weave` behavior.
-- [ ] Decide later whether to expose standalone CLI commands immediately or after the internal seams settle.
+- [x] Refine this task note into a concrete decomposition boundary between shared targeting and version-specific options.
+- [x] Define the shared target model separately from version-specific payload naming fields.
+- [x] Identify and extract the current internal `weave` seams for target resolution, validation, version planning, and page generation.
+- [x] Define standalone `ValidateRequest`, `VersionRequest`, and `GenerateRequest` contracts for local workspace mode.
+- [x] Define `ValidateResult` around structured findings rather than pass/fail only.
+- [x] Re-express `WeaveRequest` and `executeWeave(...)` as orchestration over those same seams rather than a separate parallel contract.
+- [x] Keep the first implementation resource-root targeted and fail closed on support-artifact-only explicit targets.
+- [x] Keep standalone `generate` settled-state-only in the first pass.
+- [x] Decide and implement the version-oriented root `weave` CLI pass-through for payload `historySegment` / `stateSegment` without widening shared `--target`.
+- [x] Batch recursive `version` planning before writes rather than using best-effort per-target mutation.
+- [x] Add core and runtime tests proving the decomposed seams still preserve current carried `weave` behavior.
+- [d] Decide later whether to expose standalone CLI commands immediately or after the internal seams settle.

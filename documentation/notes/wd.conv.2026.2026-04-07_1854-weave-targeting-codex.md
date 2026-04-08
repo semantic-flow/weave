@@ -341,3 +341,263 @@ feat(weave): implement payload version naming
 - generalize payload history/state path handling in core and runtime
 - add core, integration, and e2e coverage for custom naming and mismatched history
 ```
+
+# User_2026-04-07_2036_29
+
+I'm not sure I thought through payload-history-segment adequately. The idea originally was to support multiple histories, like maybe a releases history vs a working history. Can you specify a new history at every weave, or only on the first one? If you can have multiple histories, you should be able to specify a new payload-history-segment and re-weave even if the file hasn't changed? And we decided to track the "current" history? Or maybe we didn't. But if payload-history-segment isn't specified on weave, it should just re-use the most recent one?
+
+# gpt-5.4_2026-04-07_2036_52
+
+I’m checking the implemented semantics against the code rather than hand-waving here. I want to separate what the current code actually does from what your broader multi-history model would require.
+
+# gpt-5.4_2026-04-07_2036_59
+
+I have the actual behavior now. Short version: the current implementation does not support arbitrarily opening a new payload history on each weave. It supports choosing the first history name, then sticking to the current one.
+
+# gpt-5.4_2026-04-07_2037_36
+
+Current behavior is narrower than the model you just described.
+
+Right now:
+
+- On the first payload weave, `payload-history-segment` can name the initial payload history; otherwise it defaults to `_history001` in [src/core/weave/weave.ts#L3711](../../src/core/weave/weave.ts#L3711).
+- On a later payload weave, if a current payload history already exists, a provided `payload-history-segment` must match that current history or the weave fails closed in [src/core/weave/weave.ts#L3726](../../src/core/weave/weave.ts#L3726).
+- If `payload-history-segment` is omitted on a later weave, the code reuses the current payload history from inventory in [src/core/weave/weave.ts#L3731](../../src/core/weave/weave.ts#L3731).
+- Yes, we do track a current history. The payload RDF writes both `sflo:hasArtifactHistory` and `sflo:currentArtifactHistory` in [src/core/weave/weave.ts#L2220](../../src/core/weave/weave.ts#L2220) and again for the second payload state in [src/core/weave/weave.ts#L2520](../../src/core/weave/weave.ts#L2520).
+
+So the answer to your direct question is: you cannot specify a new history at every weave in the current implementation. You can only name the first one, or later restate the same current one.
+
+The bigger issue is that true multi-history payload versioning is not implemented yet. If you want `releases` vs `working`, then the model needs to support:
+
+- multiple payload `hasArtifactHistory` entries
+- one explicit `currentArtifactHistory`
+- a rule for whether `--payload-history-segment foo` means “append to existing `foo`” or “create and switch current history to `foo`”
+- a rule for unchanged-content reweaves
+
+On that last point, I would not make unchanged-content reweaves implicit. If switching histories or creating a new history on identical bytes is allowed, it should be explicit, because otherwise `weave` stops being meaningfully idempotent.
+
+The clean semantics would be:
+
+1. If no payload history exists yet, omitted `payload-history-segment` creates `_history001`; provided one creates that history and makes it current.
+2. If a payload history exists and no `payload-history-segment` is given, weave appends to the current history.
+3. If a different `payload-history-segment` is given and that history exists, weave switches to it and appends there.
+4. If a different `payload-history-segment` is given and it does not exist, weave creates it and makes it current.
+5. Creating a new historical state with unchanged payload bytes should require an explicit force-style flag or a separate version operation.
+
+That is a different task than what we just implemented. The current code is “single current payload history with optional custom name,” not “multiple payload histories.”
+
+If you want, I can write the follow-on task note for true multi-history payload versioning and pin down the switching semantics before we touch code.
+
+# User_2026-04-07_2043_49
+
+That's okay, let me think about it some more.
+
+What's next?
+
+# gpt-5.4_2026-04-07_2044_05
+
+I’m checking the current task stack against the roadmap so the recommendation is based on the repo’s own sequencing, not just my preference.
+
+# gpt-5.4_2026-04-07_2044_25
+
+Two sensible “next” options emerged, and they are different kinds of work.
+
+If you want the next product-facing feature, the roadmap already says the near-term item is HTML payload support in [roadmap.md](roadmap.md): “support HTML as DigitalArtifact that can still be optionally chromed.” That is the cleanest next user-visible capability.
+
+If you want to keep finishing the weave/version plumbing first, the next engineering gap is recursive multi-target `version` batching from [wd.task.2026.2026-04-07_0820-validate-version-generate.md](wd.task.2026.2026-04-07_0820-validate-version-generate.md). That is still unresolved, and unlike multi-history payloads, the semantics are already mostly decided.
+
+I would not do “true multiple payload histories” next. The roadmap’s “Multiple histories” section is still exploratory, and the model questions you just raised are real. That should stay in note/design mode until the semantics are explicit.
+
+So my recommendation is:
+
+1. If you want feature progress: write a task note for HTML-as-DigitalArtifact with optional chrome.
+2. If you want architectural cleanup first: implement recursive multi-target `version` batching.
+3. Leave multiple payload histories for later, after a dedicated design note settles switching/current-history/idempotence rules.
+
+If you want, I can draft the HTML task note next.
+
+# User_2026-04-07_2054_19
+
+HTML support is mostly around using generate on HTML to (optionally) put chrome on it. But it maybe deserves a litle more thought. Like when an HTML file references a CSS file, does it reference the working file? (Probably). It's for the case where you want a generate semantic site to be generated not (completely) from markdown files. 
+
+But what's really bothering me right now... I was assuming, nay excited, that Working LocatedFiles could live outside the mesh in a docs-dir-based mesh. But if it's outside it can't be exposed, and we don't have a "latest" convenience version inside the mesh (anymore.) Do we have to bring that back? Or at least make it an option?
+
+# gpt-5.4_2026-04-07_2054_37
+
+I’m checking the ontology and current weave assumptions around `WorkingLocatedFile` and current/latest exposure. I want to answer from the actual model and code, because this is one of those places where a small modeling shortcut can box the whole site layout in later.
+
+# gpt-5.4_2026-04-07_2054_47
+
+I’m pulling the ontology definitions too, because this question is really about whether the current RDF contract distinguishes “working source” from “public current surface” strongly enough.
+
+# gpt-5.4_2026-04-07_2054_52
+
+I found the current model edges. The ontology gives you `hasWorkingLocatedFile` and `currentArtifactHistory`, but it does not currently give you a first-class “current published file” inside the mesh distinct from the working file. That’s the real tension you’re feeling.
+
+# User_2026-04-07_2054_56
+
+Or just require a whole-repo based mesh if you need the WorkingLocatedFile to be accessible.
+
+# gpt-5.4_2026-04-07_2055_13
+
+I’m checking one narrow thing before I answer: whether the current runtime already hard-requires mesh-relative working files, or whether that’s mostly a modeling preference right now.
+
+# gpt-5.4_2026-04-07_2055_53
+
+I’m grabbing exact line references for the ontology/runtime constraint so I can be concrete about what is “current implementation” versus “recommended direction.”
+
+# gpt-5.4_2026-04-07_2057_00
+
+As a temporary implementation rule, yes. As the long-term model, no.
+
+The ontology already treats `hasWorkingLocatedFile` as an authoring/current shortcut, not as “the public current bytes.” In the vendored ontology, it is explicitly for “sparse authoring support without materializing working/current state resources” in [semantic-flow-core-ontology.ttl#L137](../../dependencies/github.com/semantic-flow/ontology/semantic-flow-core-ontology.ttl#L137). And `currentArtifactHistory` points to the default history for further versioning, not to a public current file in [semantic-flow-core-ontology.ttl#L86](../../dependencies/github.com/semantic-flow/ontology/semantic-flow-core-ontology.ttl#L86).
+
+The problem is the current implementation does bake in the stronger assumption:
+- runtime inventory resolution only accepts mesh-relative paths for working files in [inventory.ts#L326](../../src/runtime/mesh/inventory.ts#L326)
+- generated identifier pages link directly to the working file in [pages.ts#L31](../../src/runtime/weave/pages.ts#L31)
+
+So if you want to move fast, “current local runtime requires mesh-relative working files” is a reasonable short-term constraint. That effectively means whole-repo-based mesh, or at least “working files must live under the mesh base subtree.”
+
+But I would not elevate that into the semantic rule. If docs-dir-based meshes are real, then forcing `hasWorkingLocatedFile` to be publicly reachable collapses two distinct things:
+- authoring/source location
+- published current bytes inside the mesh
+
+My recommendation is:
+
+- Short term: document the current constraint honestly as mesh-relative `hasWorkingLocatedFile` only.
+- Medium term: add a separate current/public surface inside the mesh.
+  - smallest step: optional generated `latest` alias/copy
+  - cleaner step: a distinct `currentLocatedFile` or `currentManifestation` concept
+- Do not make `hasWorkingLocatedFile` carry both meanings.
+
+That same distinction is going to matter for HTML too. If a working HTML file lives outside the public mesh, then CSS/asset references raise exactly the same question: are they authoring references, or public published references?
+
+So: yes, whole-repo-based mesh is acceptable as a temporary rule. No, I would not make it the permanent answer if split source/public layouts are important.
+
+# User_2026-04-07_2121_20
+
+for now, proceed with [wd.task.2026.2026-04-07_0820-validate-version-generate.md](wd.task.2026.2026-04-07_0820-validate-version-generate.md)
+
+# gpt-5.4_2026-04-07_2121_35
+
+I’m picking up the `validate/version/generate` task directly now. First I’m checking what parts of that note are still unimplemented in the current code so I don’t blindly push the wrong slice.
+
+# gpt-5.4_2026-04-07_2121_59
+
+The big unresolved piece in that note is still recursive multi-target `version`, and that one is not just a checkbox update. I’m tracing the actual planning interactions first, because naive “loop over targets” will produce wrong mesh-inventory states.
+
+# gpt-5.4_2026-04-07_2122_12
+
+I’m checking the planner output shape next, because batch versioning only works cleanly if I can maintain a virtual current state between candidates without accidentally dragging page generation back into `version`.
+
+# gpt-5.4_2026-04-07_2123_07
+
+I’m picking up the `0820` task as implementation work, not just note maintenance. First I’m re-reading the task note and the current planner/runtime surfaces so I can isolate the remaining gap and patch the right slice.
+
+# gpt-5.4_2026-04-07_2123_10
+
+The task note has narrowed down quite a bit since the earlier pass. What’s actually left is the recursive multi-target `version` batch path, so I’m reading the planner and its existing tests with that assumption instead of reworking already-settled seams.
+
+# gpt-5.4_2026-04-07_2123_27
+
+The planner confirms the remaining problem: `version` is still just `planWeave()` with `.html` filtered out, so recursive selection immediately trips the single-candidate guard. I’m digging one layer deeper now to see whether batching can be done by reusing the slice planners with a virtual mesh state, or whether the candidate loader also needs a staged-state path.
+
+# gpt-5.4_2026-04-07_2123_36
+
+I’ve confirmed the core constraint isn’t just target selection; mesh inventory state advances between slices. That means the safe implementation is a staged batch planner: compute the whole recursive `version` plan in memory, mutate a virtual current state between candidates, and only write after the entire batch succeeds.
+
+# gpt-5.4_2026-04-07_2125_23
+
+I’m at the test-design step now. I need one fixture state where recursive targeting naturally selects more than one pending resource, so I’m checking the carried Alice/Bob branches instead of fabricating a brittle synthetic mesh unless I have to.
+
+# gpt-5.4_2026-04-07_2128_46
+
+I’ve got the implementation shape. I’m editing the runtime batch planner now so `version` can stage multiple targeted resources in memory, advance a virtual current state between them, and still fail before any writes if a later target becomes invalid.
+
+# gpt-5.4_2026-04-07_2129_25
+
+The first patch didn’t land cleanly because a couple of runtime read sites have drifted. I’m refreshing the exact function bodies and then I’ll apply the batch planner in smaller, safer edits.
+
+# gpt-5.4_2026-04-07_2131_17
+
+I’ve got the runtime batch path in place. I’m adding two integration checks now: one happy-path recursive batch that stages `alice` then `alice/bio`, and one fail-closed batch that proves a later target can invalidate under staged state without any files being written.
+
+# gpt-5.4_2026-04-07_2133_18
+
+The batch planner and coverage are in. I’m formatting and running the targeted test files first so I can catch type or behavioral drift before I touch the task note.
+
+# gpt-5.4_2026-04-07_2133_26
+
+The code compiles so far; the integration runs are still active. I’m waiting on the actual behavior now, especially the negative batch case where the staged source state should invalidate the later extracted target.
+
+# gpt-5.4_2026-04-07_2133_37
+
+The direct `deno test` invocations hit the repo’s usual permission issue: these tests need the task wrapper’s flags, not the bare runner. I’m rerunning through the project task entrypoint so we get a real behavioral result instead of a sandbox false negative.
+
+# gpt-5.4_2026-04-07_2134_21
+
+The recursive `weave` test flushed out the real edge: the staged batch logic works, but the first-knop mesh-inventory renderer is still slice-hardcoded and drops unrelated existing Knops. I’m inspecting those mesh-inventory renderers now, because without preserving existing entries the batch planner can’t carry descendants forward.
+
+# gpt-5.4_2026-04-07_2136_55
+
+The runtime failure turned out to be a real core bug, not a test artifact: the first-knop mesh-inventory renderer was throwing away other Knops entirely. I’m fixing that in core now by making the early mesh-inventory renders preserve existing mesh entries instead of hardcoding a single-designator snapshot.
+
+# gpt-5.4_2026-04-07_2139_03
+
+I fixed the underlying core issue as well: early mesh-inventory renders now preserve existing mesh blocks instead of regenerating a single-designator world. I’m reformatting and rerunning the targeted tests against that version before I widen to the full suite.
+
+# gpt-5.4_2026-04-07_2139_30
+
+The batch path itself is holding; the positive fixture was just missing one required pre-weave fact. I only injected the descendant Knop into mesh inventory, but first-payload planning also requires the descendant payload artifact block there, so I’m fixing the synthetic workspace setup rather than the planner.
+
+# gpt-5.4_2026-04-07_2140_15
+
+The regex filter is unreliable with this task wrapper, so it’s reporting everything as filtered out. I’m running the affected integration files directly through the task entrypoint now so we get actual executed tests, not a misleading green no-op.
+
+# gpt-5.4_2026-04-07_2140_38
+
+The core tests exposed two more real assumptions. Some planner fixtures are intentionally minimal, so the new block-preserving renderers need to tolerate inventories without a full `_mesh` block or without certain page blocks, and the positive integration assertions are now too strict about exact block order. I’m tightening both ends instead of backing out the generalization.
+
+# gpt-5.4_2026-04-07_2143_06
+
+The core fallback is in and the synthetic recursive assertions are loosened to semantic facts instead of exact block order. I’m rerunning the core weave planner tests alongside the affected integration files now; if these hold, I can move to the repo-wide checks and the task-note sync.
+
+# gpt-5.4_2026-04-07_2143_23
+
+The recursive batch path is behaving now in both core and integration coverage. I’m syncing the documentation next so the task note stops claiming this is still an implementation gap, and I’ll record the batching approach before I run the full repo checks.
+
+# gpt-5.4_2026-04-07_2143_37
+
+I’m updating the task note to reflect the actual new boundary rather than leaving stale “implementation gap” language in place. I’m also recording the batching decision explicitly, because the important part is not just that recursive `version` works now, but how it works and why it stays fail-closed.
+
+# gpt-5.4_2026-04-07_2144_34
+
+The implementation and note sync are done. I’m on the full verification pass now: type-check, lint, and the full test suite, so we can close the loop on the task note with real repo-wide results rather than just the targeted cases.
+
+# gpt-5.4_2026-04-07_2145_24
+
+Verification is clean across the repo. I’m doing one last pass over the final diff and then I’ll give you the outcome, the touched areas, and a commit message that matches the actual implementation boundary.
+
+# gpt-5.4_2026-04-07_2145_43
+
+Implemented the remaining `0820` gap: recursive multi-target `version` now batches against a staged virtual workspace state before any writes. The main logic is in [src/runtime/weave/weave.ts](../../src/runtime/weave/weave.ts), where `prepareVersionExecution()` now reloads candidates from an in-memory overlay after each staged target and fails closed if a later target becomes invalid. In [src/core/weave/weave.ts](../../src/core/weave/weave.ts), the early mesh-inventory renderers now preserve existing mesh entries when the current inventory already materializes them, with legacy fallback for the minimal core planner fixtures.
+
+Coverage was added in [tests/integration/validate_version_generate_test.ts](../../tests/integration/validate_version_generate_test.ts) and [tests/integration/weave_test.ts](../../tests/integration/weave_test.ts), and the core planner regressions are still covered in [src/core/weave/weave_test.ts](../../src/core/weave/weave_test.ts). I also synced [wd.task.2026.2026-04-07_0820-validate-version-generate.md](wd.task.2026.2026-04-07_0820-validate-version-generate.md), [wd.codebase-overview.md](wd.codebase-overview.md), and [wd.decision-log.md](wd.decision-log.md). I left your unrelated edits in [roadmap.md](roadmap.md) and [wd.conv.2026.2026-04-07_1854-weave-targeting-codex.md](wd.conv.2026.2026-04-07_1854-weave-targeting-codex.md) alone.
+
+Verification passed:
+- `deno task check`
+- `deno task lint`
+- `deno task test`
+
+Suggested commit message:
+
+```text
+feat(weave): batch recursive version planning fail-closed
+
+- stage recursive version targets against a virtual current workspace overlay
+- reload staged weave candidates between targets before touching the workspace
+- preserve existing mesh inventory entries during early weave inventory renders
+- keep legacy mesh render fallbacks for minimal planner fixtures
+- add integration coverage for recursive batch success and staged-state failure
+- sync the validate/version/generate task note, overview, and decision log
+```

@@ -1,4 +1,9 @@
-import { assert, assertEquals, assertRejects } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
 import { WeaveInputError } from "../../src/core/weave/weave.ts";
 import {
@@ -98,6 +103,79 @@ Deno.test("executeWeave matches the settled alice bio integrated-woven fixture",
     ),
     await Deno.readTextFile(join(workspaceRoot, "alice-bio.ttl")),
   );
+});
+
+Deno.test("executeWeave batches recursive targets through validate, version, and generate", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-weave-recursive-");
+  await materializeMeshAliceBioBranch("04-alice-knop-created", workspaceRoot);
+  await addSupplementalKnopToMeshInventory(workspaceRoot, "alice/bio");
+  await addSupplementalPayloadArtifactToMeshInventory(
+    workspaceRoot,
+    "alice/bio",
+    "alice-bio.ttl",
+  );
+  await writeSupplementalKnopSurface(
+    workspaceRoot,
+    "alice/bio",
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+
+<alice/bio/_knop> a sflo:Knop ;
+  sflo:hasKnopMetadata <alice/bio/_knop/_meta> ;
+  sflo:hasKnopInventory <alice/bio/_knop/_inventory> ;
+  sflo:hasWorkingKnopInventoryFile <alice/bio/_knop/_inventory/inventory.ttl> ;
+  sflo:hasPayloadArtifact <alice/bio> .
+
+<alice/bio> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <alice-bio.ttl> .
+`,
+  );
+
+  const result = await executeWeave({
+    workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "alice", recursive: true }],
+    },
+  });
+
+  assertEquals(result.wovenDesignatorPaths, ["alice", "alice/bio"]);
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+    ),
+    `sflo:hasKnop <alice/bio/_knop> ;
+  sflo:hasResourcePage <_mesh/index.html> .`,
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+    ),
+    `sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0003> ;
+  sflo:nextStateOrdinal "4"^^xsd:nonNegativeInteger ;`,
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/_knop/_inventory/inventory.ttl"),
+    ),
+    `sflo:currentArtifactHistory <alice/_knop/_inventory/_history001> ;
+  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;`,
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+    ),
+    `sflo:currentArtifactHistory <alice/bio/_history001> ;
+  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;`,
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+    ),
+    `sflo:latestHistoricalState <alice/bio/_history001/_s0001> ;
+  sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger ;`,
+  );
+  await Deno.stat(join(workspaceRoot, "alice/index.html"));
+  await Deno.stat(join(workspaceRoot, "alice/bio/index.html"));
 });
 
 Deno.test("executeWeave honors requested payload history and state naming", async () => {
@@ -551,6 +629,26 @@ async function addSupplementalKnopToMeshInventory(
 
 <${designatorPath}/_knop> a sflo:Knop ;
   sflo:hasWorkingKnopInventoryFile <${designatorPath}/_knop/_inventory/inventory.ttl> .
+`,
+  );
+}
+
+async function addSupplementalPayloadArtifactToMeshInventory(
+  workspaceRoot: string,
+  designatorPath: string,
+  workingFilePath: string,
+): Promise<void> {
+  const meshInventoryPath = join(
+    workspaceRoot,
+    "_mesh/_inventory/inventory.ttl",
+  );
+  const current = await Deno.readTextFile(meshInventoryPath);
+  await Deno.writeTextFile(
+    meshInventoryPath,
+    `${current.trimEnd()}
+
+<${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${workingFilePath}> .
 `,
   );
 }
