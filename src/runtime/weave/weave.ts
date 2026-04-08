@@ -125,9 +125,7 @@ export async function executeValidate(
     const targets = normalizeValidateRequest(options.request);
     const prepared = await prepareVersionExecution(
       options.workspaceRoot,
-      {
-        targets: targets.map((target) => ({ ...target.source })),
-      },
+      toNormalizedVersionTargets(targets),
     );
     validateRdfFiles([
       ...prepared.plan.createdFiles,
@@ -161,9 +159,7 @@ export async function executeVersion(
   const targets = normalizeVersionRequest(options.request);
   const prepared = await prepareVersionExecution(
     options.workspaceRoot,
-    {
-      targets: targets.map((target) => ({ ...target.source })),
-    },
+    targets,
   );
   assertUpdatedTargetsExist(options.workspaceRoot, prepared.plan.updatedFiles);
   await assertCreateTargetsDoNotExist(
@@ -382,7 +378,7 @@ function assertSupportedRequestKeys(
 
 async function prepareVersionExecution(
   workspaceRoot: string,
-  request: VersionRequest,
+  targets: readonly NormalizedVersionTargetSpec[],
 ): Promise<PreparedVersionExecution> {
   await ensureWorkspaceRootExists(workspaceRoot);
   const meshState = await loadMeshState(workspaceRoot);
@@ -392,7 +388,7 @@ async function prepareVersionExecution(
       meshState.currentMeshInventoryTurtle,
       "Could not parse the current MeshInventory while resolving weaveable Knop candidates.",
     ),
-    normalizeVersionRequest(request),
+    targets,
   );
   const weaveableKnops = await loadWeaveableKnopCandidates(
     workspaceRoot,
@@ -401,7 +397,9 @@ async function prepareVersionExecution(
     selectedDesignatorPaths,
   );
   const plan = planVersion({
-    request,
+    request: {
+      targets: targets.map((target) => ({ ...target.source })),
+    },
     meshBase: meshState.meshBase,
     currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
     weaveableKnops,
@@ -411,6 +409,16 @@ async function prepareVersionExecution(
     meshState,
     plan,
   };
+}
+
+function toNormalizedVersionTargets(
+  targets: readonly NormalizedTargetSpec[],
+): readonly NormalizedVersionTargetSpec[] {
+  return targets.map((target) => ({
+    source: { ...target.source },
+    designatorPath: target.designatorPath,
+    recursive: target.recursive,
+  }));
 }
 
 function resolveSelectedDesignatorPaths(
