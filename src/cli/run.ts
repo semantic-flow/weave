@@ -7,6 +7,7 @@ import { KnopAddReferenceInputError } from "../core/knop/add_reference.ts";
 import { KnopCreateInputError } from "../core/knop/create.ts";
 import { MeshCreateInputError } from "../core/mesh/create.ts";
 import { PayloadUpdateInputError } from "../core/payload/update.ts";
+import type { VersionTargetSpec } from "../core/targeting.ts";
 import { WeaveInputError } from "../core/weave/weave.ts";
 import { createRuntimeLoggers } from "../runtime/logging/factory.ts";
 import {
@@ -61,11 +62,24 @@ export async function runWeaveCli(args: string[]): Promise<number> {
       "Target spec as comma-separated key=value fields. Supported keys: designatorPath, recursive.",
       { collect: true },
     )
+    .option(
+      "--payload-history-segment <segment:string>",
+      "Payload history segment name to pass only to version for a single targeted payload weave.",
+    )
+    .option(
+      "--payload-state-segment <segment:string>",
+      "Payload state segment name to pass only to version for a single targeted payload weave.",
+    )
     .action(async (
-      options: { workspace: string; target?: string[] },
+      options: {
+        workspace: string;
+        target?: string[];
+        payloadHistorySegment?: string;
+        payloadStateSegment?: string;
+      },
     ) => {
       const workspaceRoot = resolve(options.workspace);
-      const targets = resolveWeaveTargetSpecs(options.target);
+      const targets = resolveWeaveTargetSpecs(options);
       const logDir = join(workspaceRoot, ".weave", "logs");
       const { operationalLogger, auditLogger } = createRuntimeLoggers({
         logDir,
@@ -501,19 +515,59 @@ function resolveDesignatorPath(
 }
 
 function resolveWeaveTargetSpecs(
-  values: readonly string[] | undefined,
-): readonly { designatorPath: string; recursive?: boolean }[] {
+  options: {
+    target?: readonly string[];
+    payloadHistorySegment?: string;
+    payloadStateSegment?: string;
+  },
+): readonly VersionTargetSpec[] {
+  const values = options.target;
   if (!values || values.length === 0) {
+    if (
+      options.payloadHistorySegment !== undefined ||
+      options.payloadStateSegment !== undefined
+    ) {
+      throw new WeaveInputError(
+        "Payload history/state naming requires exactly one --target.",
+      );
+    }
     return [];
   }
 
-  return values.map((value, index) => parseWeaveTargetSpec(value, index));
+  const targets = values.map((value, index) =>
+    parseWeaveTargetSpec(value, index)
+  );
+  const payloadHistorySegment = resolveOptionalWeavePayloadSegment(
+    options.payloadHistorySegment,
+    "weave --payload-history-segment",
+  );
+  const payloadStateSegment = resolveOptionalWeavePayloadSegment(
+    options.payloadStateSegment,
+    "weave --payload-state-segment",
+  );
+
+  if (
+    payloadHistorySegment === undefined && payloadStateSegment === undefined
+  ) {
+    return targets;
+  }
+  if (targets.length !== 1) {
+    throw new WeaveInputError(
+      "Payload history/state naming requires exactly one --target.",
+    );
+  }
+
+  return [{
+    ...targets[0]!,
+    ...(payloadHistorySegment ? { historySegment: payloadHistorySegment } : {}),
+    ...(payloadStateSegment ? { stateSegment: payloadStateSegment } : {}),
+  }];
 }
 
 function parseWeaveTargetSpec(
   value: string,
   index: number,
-): { designatorPath: string; recursive?: boolean } {
+): VersionTargetSpec {
   const fieldName = `weave --target[${index}]`;
   const trimmed = value.trim();
   if (trimmed.length === 0) {
@@ -570,6 +624,21 @@ function parseWeaveTargetSpec(
   return record.recursive === "true"
     ? { designatorPath, recursive: true }
     : { designatorPath };
+}
+
+function resolveOptionalWeavePayloadSegment(
+  value: string | undefined,
+  fieldName: string,
+): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  return resolveRequiredOptionValue(
+    value,
+    `${fieldName} is required`,
+    (message) => new WeaveInputError(message),
+  );
 }
 
 function getCliErrorMessage(error: unknown): string {

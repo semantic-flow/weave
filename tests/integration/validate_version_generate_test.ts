@@ -75,8 +75,31 @@ Deno.test("executeVersion accepts version-only target fields", async () => {
   assertEquals(result.versionedDesignatorPaths, ["alice/bio"]);
   assert(
     result.createdPaths.includes(
-      "alice/bio/_history001/_s0001/alice-bio-ttl/alice-bio.ttl",
+      "alice/bio/releases/v0.0.1/alice-bio-ttl/alice-bio.ttl",
     ),
+  );
+});
+
+Deno.test("executeVersion rejects a mismatched payload historySegment on an already-versioned payload", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-version-mismatched-history-",
+  );
+  await materializeMeshAliceBioBranch("10-alice-bio-updated", workspaceRoot);
+
+  await assertRejects(
+    () =>
+      executeVersion({
+        workspaceRoot,
+        request: {
+          targets: [{
+            designatorPath: "alice/bio",
+            historySegment: "releases",
+            stateSegment: "v0.0.2",
+          }],
+        },
+      }),
+    WeaveInputError,
+    "does not match the current payload history",
   );
 });
 

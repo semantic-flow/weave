@@ -100,6 +100,50 @@ Deno.test("executeWeave matches the settled alice bio integrated-woven fixture",
   );
 });
 
+Deno.test("executeWeave honors requested payload history and state naming", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-weave-payload-custom-");
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const result = await executeWeave({
+    workspaceRoot,
+    request: {
+      targets: [{
+        designatorPath: "alice/bio",
+        historySegment: "releases",
+        stateSegment: "v0.0.1",
+      }],
+    },
+  });
+
+  assertEquals(result.wovenDesignatorPaths, ["alice/bio"]);
+  assert(
+    result.createdPaths.includes(
+      "alice/bio/releases/v0.0.1/alice-bio-ttl/alice-bio.ttl",
+    ),
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(
+        workspaceRoot,
+        "alice/bio/releases/v0.0.1/alice-bio-ttl/alice-bio.ttl",
+      ),
+    ),
+    await Deno.readTextFile(join(workspaceRoot, "alice-bio.ttl")),
+  );
+  await Deno.stat(join(workspaceRoot, "alice/bio/releases/index.html"));
+  await Deno.stat(join(workspaceRoot, "alice/bio/releases/v0.0.1/index.html"));
+  await assertRejects(
+    () =>
+      Deno.stat(
+        join(
+          workspaceRoot,
+          "alice/bio/_history001/_s0001/alice-bio-ttl/alice-bio.ttl",
+        ),
+      ),
+    Deno.errors.NotFound,
+  );
+});
+
 Deno.test("executeWeave forwards targets to generate and leaves unrelated pages untouched", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-weave-targeted-generate-",

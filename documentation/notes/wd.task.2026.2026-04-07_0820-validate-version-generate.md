@@ -31,18 +31,21 @@ The first pass should stay narrow:
 
 - no support-artifact-only scopes
 - payload `historySegment` / `stateSegment` are version-specific options, not generic target fields
+- the root `weave` CLI may accept payload history/state naming as version-oriented inputs, but shared `--target` syntax should remain limited to shared targeting fields
 - no attempt yet at full semantic validation or SHACL-driven validation
 - no immediate requirement to expose polished standalone CLI ergonomics before the internal seams are coherent
 - no standalone `version` success path that intentionally leaves current ResourcePages stale in the first pass
 
 ## Discussion
 
-The current runtime `weave` flow already exposes the rough decomposition, just not as first-class operations:
+The current runtime `weave` flow already exposes the rough decomposition as local runtime operations:
 
 - candidate loading and precondition checks happen before planning
 - `planWeave(...)` performs the version/history mutation planning in `core`
 - `renderResourcePages(...)` is already a separate runtime page-rendering seam
 - `validateRdfFiles(...)` already performs a narrow output validation pass before writing files
+
+The current root `weave` CLI now also exposes the shared targeting surface through repeatable `--target <key=value,...>` parsing, but that targeting surface is intentionally shared-target-only. Version-specific payload naming should be treated differently: the root `weave` CLI may accept it as version-oriented input, but it should pass those fields only to `version` inside the composed `weave` flow rather than widening shared `TargetSpec`.
 
 So the question is not whether there are separable concerns. The question is whether Weave should keep hiding them behind one verb.
 
@@ -77,7 +80,8 @@ and operations should derive owned support-artifact work from those roots.
 
 ## Open Issues
 
-- None currently blocking the first implementation pass.
+- Payload `historySegment` / `stateSegment` are still contract-only in current code; making them semantically effective is now tracked explicitly in [[wd.task.2026.2026-04-07_1852-payload-version-naming]].
+- Recursive multi-target `version` batching is still not implemented in current core; `planVersion(...)` still delegates through the single-candidate `planWeave(...)` path, so the settled batch/fail-closed decision remains an implementation gap.
 
 ## Decisions
 
@@ -86,6 +90,7 @@ and operations should derive owned support-artifact work from those roots.
 - `historySegment` and `stateSegment` are version-specific fields, not generic targeting fields.
 - Those naming fields apply only to payload artifact versioning in the first pass.
 - `validate` and `generate` should not accept payload history/state naming fields.
+- The root `weave` CLI may accept payload history/state naming fields as version-oriented inputs, but those fields should bypass shared `--target` parsing and pass through only to `version`.
 - `version` owns history creation, current-artifact updates, and whatever support-artifact and inventory updates are required by the targeted resource surface.
 - `generate` is derivative-only and should not mutate histories or current RDF artifacts.
 - The first standalone `validate` scope should stay narrow and local, matching current shape and RDF-syntax checks rather than inventing a full semantic validation framework.
@@ -111,6 +116,7 @@ and operations should derive owned support-artifact work from those roots.
 - `GenerateRequest` should use shared resource targets only.
 - `VersionRequest` should use version-oriented targets so payload naming options live only there.
 - `WeaveRequest` should be expressed in terms of the same decomposed contracts rather than inventing a separate parallel targeting model.
+- The root `weave` CLI may expose version-only payload naming inputs, but they are not part of shared `TargetSpec` and should not be added to shared `--target` syntax.
 - In the first pass, support-artifact-only paths such as `_mesh/_inventory`, `alice/_knop/_meta`, or `alice/_knop/_references` should be rejected as explicit top-level targets.
 - Recursive targeting, if enabled for a request, should still resolve to matching resource-root targets; derived support-artifact work remains operation-owned.
 - `ValidateResult` should carry structured findings even when the first validator scope remains narrow and local.
@@ -124,6 +130,7 @@ and operations should derive owned support-artifact work from those roots.
 - Add coverage proving shared resource targets select logical resource roots rather than support-artifact paths.
 - Add coverage proving support-artifact-only targets are rejected in the first pass.
 - Add coverage proving payload `historySegment` / `stateSegment` are accepted for `version`/`weave` and rejected for `validate`/`generate`.
+- Add coverage proving root `weave` CLI payload naming inputs, once exposed, are forwarded only to `version` and do not widen shared target parsing.
 - Add coverage proving `generate` does not change RDF/history artifacts.
 - Add coverage proving standalone `generate` reads only from settled workspace state in the first pass.
 - Add coverage proving `version` performs the expected support-artifact and inventory updates for the targeted resource surface.
@@ -149,6 +156,7 @@ and operations should derive owned support-artifact work from those roots.
 - [ ] Re-express `WeaveRequest` and `executeWeave(...)` as orchestration over those same seams rather than a separate parallel contract.
 - [ ] Keep the first implementation resource-root targeted and fail closed on support-artifact-only explicit targets.
 - [ ] Keep standalone `generate` settled-state-only in the first pass.
+- [ ] Decide and implement the version-oriented root `weave` CLI pass-through for payload `historySegment` / `stateSegment` without widening shared `--target`.
 - [ ] Batch recursive `version` planning before writes rather than using best-effort per-target mutation.
 - [ ] Add core and runtime tests proving the decomposed seams still preserve current carried `weave` behavior.
 - [ ] Decide later whether to expose standalone CLI commands immediately or after the internal seams settle.

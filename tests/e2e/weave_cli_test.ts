@@ -45,6 +45,46 @@ Deno.test("weave accepts a recursive --target spec as a black-box CLI run", asyn
   });
 });
 
+Deno.test("weave accepts payload history/state naming flags as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-payload-naming-");
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      "--target",
+      "designatorPath=alice/bio",
+      "--payload-history-segment",
+      "releases",
+      "--payload-state-segment",
+      "v0.0.1",
+      "--workspace",
+      workspaceRoot,
+    ],
+    cwd: new URL(".", repoRoot),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Wove 1 designator path"), stdout);
+  await Deno.stat(
+    join(
+      workspaceRoot,
+      "alice/bio/releases/v0.0.1/alice-bio-ttl/alice-bio.ttl",
+    ),
+  );
+  await Deno.stat(join(workspaceRoot, "alice/bio/releases/index.html"));
+  await Deno.stat(join(workspaceRoot, "alice/bio/releases/v0.0.1/index.html"));
+});
+
 Deno.test("weave matches the manifest-scoped alice bio referenced-woven fixture as a black-box CLI run", async () => {
   await assertWeaveTransitionMatchesManifest({
     manifestName: "09-alice-bio-referenced-woven.jsonld",

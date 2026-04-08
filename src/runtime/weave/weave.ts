@@ -625,6 +625,7 @@ async function loadPayloadWorkingArtifact(
     return undefined;
   }
   const workingFilePath = payloadArtifact.workingFilePath;
+  const currentArtifactHistoryPath = payloadArtifact.currentArtifactHistoryPath;
   const latestHistoricalStatePath = payloadArtifact.currentArtifactHistoryExists
     ? payloadArtifact.latestHistoricalStatePath
     : undefined;
@@ -632,11 +633,8 @@ async function loadPayloadWorkingArtifact(
     ? join(
       workspaceRoot,
       toPayloadHistoricalSnapshotPath(
-        designatorPath,
+        latestHistoricalStatePath,
         workingFilePath,
-        latestHistoricalStatePath.slice(
-          latestHistoricalStatePath.lastIndexOf("/") + 1,
-        ),
       ),
     )
     : undefined;
@@ -666,9 +664,8 @@ async function loadPayloadWorkingArtifact(
         throw new WeaveRuntimeError(
           `Workspace is missing the latest payload historical snapshot for ${designatorPath}: ${
             toPayloadHistoricalSnapshotPath(
-              designatorPath,
+              latestHistoricalStatePath!,
               workingFilePath,
-              "_s0001",
             )
           }`,
         );
@@ -680,6 +677,7 @@ async function loadPayloadWorkingArtifact(
   return {
     workingFilePath,
     currentPayloadTurtle,
+    currentArtifactHistoryPath,
     latestHistoricalSnapshotTurtle,
     latestHistoricalStatePath,
   };
@@ -1071,13 +1069,12 @@ function toResourcePath(pagePath: string): string {
 }
 
 function toPayloadHistoricalSnapshotPath(
-  designatorPath: string,
+  historyStatePath: string,
   workingFilePath: string,
-  stateSegment: string,
 ): string {
   const fileName = toFileName(workingFilePath);
   const manifestationSegment = fileName.replaceAll(".", "-");
-  return `${designatorPath}/_history001/${stateSegment}/${manifestationSegment}/${fileName}`;
+  return `${historyStatePath}/${manifestationSegment}/${fileName}`;
 }
 
 function toFileName(path: string): string {
