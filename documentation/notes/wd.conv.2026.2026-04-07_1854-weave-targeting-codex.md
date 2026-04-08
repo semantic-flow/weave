@@ -601,3 +601,90 @@ feat(weave): batch recursive version planning fail-closed
 - add integration coverage for recursive batch success and staged-state failure
 - sync the validate/version/generate task note, overview, and decision log
 ```
+
+# User_2026-04-07_2306_23
+
+"standalone CLI commands"? Is that validate, version and generate?
+
+# gpt-5.4_2026-04-07_2306_35
+
+Yes. In that note, “standalone CLI commands” means separate user-facing entry points for `validate`, `version`, and `generate`, instead of only exposing the composed `weave` flow.
+
+Concretely, I mean something like:
+
+```sh
+weave validate --target ...
+weave version --target ...
+weave generate --target ...
+```
+
+not necessarily three separate binaries. The runtime seams already exist; what is still deferred is the user-facing CLI surface for them. If you want, I can tighten the note wording to “standalone CLI subcommands” or “separate user-facing CLI entry points” so it’s less ambiguous.
+
+# User_2026-04-07_2307_14
+
+that's fine. Just implement them.
+
+# gpt-5.4_2026-04-07_2307_21
+
+I’m implementing the separate CLI entry points now. First I’m reading the current `run.ts` command tree and the existing `weave` CLI tests so I can add `validate`, `version`, and `generate` without inventing a conflicting argument shape.
+
+# gpt-5.4_2026-04-07_2307_25
+
+I’ve confirmed the CLI only exposes the composed root `weave` flow right now. Next I’m wiring three subcommands onto the same target-parsing boundary so we reuse the existing request shapes instead of inventing a second CLI contract.
+
+# gpt-5.4_2026-04-07_2307_36
+
+I’m checking the existing target parser helpers before editing. If the subcommands can reuse the same parser and only differ in whether payload naming flags are allowed, the CLI will stay coherent instead of drifting by command.
+
+# gpt-5.4_2026-04-07_2307_55
+
+I need to check one CLI quirk before patching: whether the root command’s existing options are inherited by subcommands. If they are, `validate` and `generate` could accidentally accept version-only flags, which would be the wrong boundary.
+
+# gpt-5.4_2026-04-07_2308_34
+
+I’ve got the command shape. I’m editing the runtime descriptions and CLI wiring now: `validate`/`generate` will use shared `--target`, `version` will additionally accept the payload naming flags, and bare `weave` will keep its current behavior.
+
+# gpt-5.4_2026-04-07_2310_03
+
+I’m adding black-box CLI coverage now. The runtime seams are already tested; what I need here is proof that the new subcommands expose the right surface and preserve the existing boundaries, especially that `version` does not generate pages.
+
+# gpt-5.4_2026-04-07_2310_20
+
+The CLI and black-box tests are patched. I’m formatting and compiling next so I can catch any command-tree or helper drift before I touch the note/status docs.
+
+# gpt-5.4_2026-04-07_2310_35
+
+The code side is in good shape. I’m syncing the note and overview now so they stop saying the CLI entry points are deferred, then I’ll run the full repo verification pass.
+
+# gpt-5.4_2026-04-07_2310_52
+
+I’ve synced the docs to the new CLI boundary. Final step is the full repo pass again, because the command tree and black-box tests changed after the earlier green run.
+
+# gpt-5.4_2026-04-07_2310_59
+
+The compile and lint passes are clean. I’m just waiting on the full test suite now, mainly the new e2e CLI coverage, because that’s the only part this change can realistically break at this point.
+
+# gpt-5.4_2026-04-07_2311_13
+
+The new subcommands are passing black-box CLI coverage. I’m waiting on the tail of the integration suite, but the risk is basically burned down now because the command wiring already exercised the only new surface.
+
+# gpt-5.4_2026-04-07_2311_45
+
+Implemented `weave validate`, `weave version`, and `weave generate` in [run.ts](../../src/cli/run.ts). They reuse the same target parsing boundary as bare `weave`; only `version` accepts `--payload-history-segment` and `--payload-state-segment`, while `validate` and `generate` stay on shared targeting only. I also added result summaries in [weave.ts](../../src/runtime/weave/weave.ts) and black-box CLI coverage in [weave_cli_test.ts](../../tests/e2e/weave_cli_test.ts).
+
+I synced [wd.task.2026.2026-04-07_0820-validate-version-generate.md](wd.task.2026.2026-04-07_0820-validate-version-generate.md), [wd.codebase-overview.md](wd.codebase-overview.md), and [wd.decision-log.md](wd.decision-log.md). I left the unrelated Kato conversation note [wd.conv.2026.2026-04-07_1854-weave-targeting-codex.md](wd.conv.2026.2026-04-07_1854-weave-targeting-codex.md) alone.
+
+Verification passed: `deno task check`, `deno task lint`, and `deno task test`.
+
+Suggested commit message:
+
+```text
+feat(cli): add standalone validate version generate commands
+
+- expose local weave validate/version/generate subcommands over existing runtime seams
+- keep shared --target parsing consistent across composed and standalone commands
+- allow payload history/state naming only on version and bare weave
+- add CLI result summaries for validate/version/generate
+- add black-box CLI coverage for the new command surfaces
+- sync the validate/version/generate task note, overview, and decision log
+```

@@ -303,6 +303,28 @@ export function describeWeaveResult(result: WeaveResult): string {
   return `Wove ${result.wovenDesignatorPaths.length} designator path and created ${result.createdPaths.length} files while updating ${result.updatedPaths.length} working artifacts.`;
 }
 
+export function describeValidateResult(result: ValidateResult): string {
+  const validatedLabel = result.validatedDesignatorPaths.length === 1
+    ? "designator path"
+    : "designator paths";
+  const findingLabel = result.findings.length === 1 ? "issue" : "issues";
+  return `Validated ${result.validatedDesignatorPaths.length} ${validatedLabel} and found ${result.findings.length} ${findingLabel}.`;
+}
+
+export function describeVersionResult(result: VersionResult): string {
+  const designatorLabel = result.versionedDesignatorPaths.length === 1
+    ? "designator path"
+    : "designator paths";
+  return `Versioned ${result.versionedDesignatorPaths.length} ${designatorLabel} and created ${result.createdPaths.length} files while updating ${result.updatedPaths.length} working artifacts.`;
+}
+
+export function describeGenerateResult(result: GenerateResult): string {
+  const designatorLabel = result.generatedDesignatorPaths.length === 1
+    ? "designator path"
+    : "designator paths";
+  return `Generated ${result.generatedDesignatorPaths.length} ${designatorLabel} and created ${result.createdPaths.length} files while updating ${result.updatedPaths.length} existing pages.`;
+}
+
 function resolveLoggers(
   options: ExecuteWeaveOptions,
 ): {

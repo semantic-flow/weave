@@ -215,5 +215,11 @@ created: 1773630801215
 - Why:
   - Reusing the existing single-candidate slice planners is acceptable only if later targets see the staged current inventories and snapshots created by earlier targets in the same batch.
   - Planning the whole batch before writes preserves the intended default against partial recursive publication.
-- Follow-Up Tasks:
-  - [ ] Decide whether standalone top-level `validate`, `version`, and `generate` CLI commands should be exposed now that the runtime seams and recursive batch behavior are coherent.
+
+### 2026-04-07: Expose validate, version, and generate as top-level CLI Subcommands
+
+- Decision: Expose the decomposed local runtime operations as `weave validate`, `weave version`, and `weave generate`, while keeping bare `weave` as the composed convenience chain.
+- References: [[wd.task.2026.2026-04-07_0820-validate-version-generate]]
+- Why:
+  - The internal seams are now coherent enough that hiding them behind bare `weave` only makes the tooling less inspectable and less scriptable.
+  - Keeping the same target parsing boundary across the composed and standalone commands avoids inventing a second CLI contract.

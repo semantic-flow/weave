@@ -7,7 +7,7 @@ import { KnopAddReferenceInputError } from "../core/knop/add_reference.ts";
 import { KnopCreateInputError } from "../core/knop/create.ts";
 import { MeshCreateInputError } from "../core/mesh/create.ts";
 import { PayloadUpdateInputError } from "../core/payload/update.ts";
-import type { VersionTargetSpec } from "../core/targeting.ts";
+import type { TargetSpec, VersionTargetSpec } from "../core/targeting.ts";
 import { WeaveInputError } from "../core/weave/weave.ts";
 import { createRuntimeLoggers } from "../runtime/logging/factory.ts";
 import {
@@ -41,10 +41,19 @@ import {
   PayloadUpdateRuntimeError,
 } from "../runtime/payload/update.ts";
 import {
+  describeGenerateResult,
+  describeValidateResult,
+  describeVersionResult,
   describeWeaveResult,
+  executeGenerate,
+  executeValidate,
+  executeVersion,
   executeWeave,
   WeaveRuntimeError,
 } from "../runtime/weave/weave.ts";
+
+const TARGET_OPTION_DESCRIPTION =
+  "Target spec as comma-separated key=value fields. Supported keys: designatorPath, recursive.";
 
 export async function runWeaveCli(args: string[]): Promise<number> {
   let exitCode = 0;
@@ -59,7 +68,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
     )
     .option(
       "--target <target:string>",
-      "Target spec as comma-separated key=value fields. Supported keys: designatorPath, recursive.",
+      TARGET_OPTION_DESCRIPTION,
       { collect: true },
     )
     .option(
@@ -79,7 +88,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
       },
     ) => {
       const workspaceRoot = resolve(options.workspace);
-      const targets = resolveWeaveTargetSpecs(options);
+      const targets = resolveVersionTargetSpecs(options, "weave");
       const logDir = join(workspaceRoot, ".weave", "logs");
       const { operationalLogger, auditLogger } = createRuntimeLoggers({
         logDir,
@@ -105,6 +114,153 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         console.log(path);
       }
     })
+    .command(
+      "validate",
+      new Command()
+        .description("Validate the current local state for targeted resources.")
+        .option(
+          "--workspace <workspace:string>",
+          "Workspace root to validate.",
+          { default: "." },
+        )
+        .option(
+          "--target <target:string>",
+          TARGET_OPTION_DESCRIPTION,
+          { collect: true },
+        )
+        .action(async (
+          options: {
+            workspace: string;
+            target?: string[];
+          },
+        ) => {
+          const workspaceRoot = resolve(options.workspace);
+          const targets = resolveSharedTargetSpecs(options, "validate");
+          const logDir = join(workspaceRoot, ".weave", "logs");
+          const { auditLogger } = createRuntimeLoggers({ logDir });
+
+          await auditLogger.command("validate", {
+            workspaceRoot,
+            targets,
+            localMode: true,
+          });
+
+          const result = await executeValidate({
+            workspaceRoot,
+            request: targets.length > 0 ? { targets } : undefined,
+          });
+          if (result.findings.length > 0) {
+            throw new WeaveInputError(
+              result.findings.map((finding) =>
+                `${finding.severity}: ${finding.message}`
+              ).join("\n"),
+            );
+          }
+          console.log(describeValidateResult(result));
+        }),
+    )
+    .command(
+      "version",
+      new Command()
+        .description(
+          "Version the current targeted resources without page generation.",
+        )
+        .option(
+          "--workspace <workspace:string>",
+          "Workspace root to update.",
+          { default: "." },
+        )
+        .option(
+          "--target <target:string>",
+          TARGET_OPTION_DESCRIPTION,
+          { collect: true },
+        )
+        .option(
+          "--payload-history-segment <segment:string>",
+          "Payload history segment name for a single targeted payload version.",
+        )
+        .option(
+          "--payload-state-segment <segment:string>",
+          "Payload state segment name for a single targeted payload version.",
+        )
+        .action(async (
+          options: {
+            workspace: string;
+            target?: string[];
+            payloadHistorySegment?: string;
+            payloadStateSegment?: string;
+          },
+        ) => {
+          const workspaceRoot = resolve(options.workspace);
+          const targets = resolveVersionTargetSpecs(options, "version");
+          const logDir = join(workspaceRoot, ".weave", "logs");
+          const { auditLogger } = createRuntimeLoggers({ logDir });
+
+          await auditLogger.command("version", {
+            workspaceRoot,
+            targets,
+            localMode: true,
+          });
+
+          const result = await executeVersion({
+            workspaceRoot,
+            request: targets.length > 0 ? { targets } : undefined,
+          });
+          console.log(describeVersionResult(result));
+          for (const path of result.createdPaths) {
+            console.log(path);
+          }
+          for (const path of result.updatedPaths) {
+            console.log(path);
+          }
+        }),
+    )
+    .command(
+      "generate",
+      new Command()
+        .description(
+          "Render current ResourcePages from the settled local workspace state.",
+        )
+        .option(
+          "--workspace <workspace:string>",
+          "Workspace root to update.",
+          { default: "." },
+        )
+        .option(
+          "--target <target:string>",
+          TARGET_OPTION_DESCRIPTION,
+          { collect: true },
+        )
+        .action(async (
+          options: {
+            workspace: string;
+            target?: string[];
+          },
+        ) => {
+          const workspaceRoot = resolve(options.workspace);
+          const targets = resolveSharedTargetSpecs(options, "generate");
+          const logDir = join(workspaceRoot, ".weave", "logs");
+          const { auditLogger } = createRuntimeLoggers({ logDir });
+
+          await auditLogger.command("generate", {
+            workspaceRoot,
+            targets,
+            localMode: true,
+          });
+
+          const result = await executeGenerate({
+            workspaceRoot,
+            request: targets.length > 0 ? { targets } : undefined,
+          });
+          console.log(describeGenerateResult(result));
+          for (const path of result.createdPaths) {
+            console.log(path);
+          }
+          for (const path of result.updatedPaths) {
+            console.log(path);
+          }
+        }),
+    )
     .throwErrors()
     .command(
       "extract",
@@ -514,15 +670,32 @@ function resolveDesignatorPath(
   throw errorMessages.createError(errorMessages.missingMessage);
 }
 
-function resolveWeaveTargetSpecs(
+function resolveSharedTargetSpecs(
+  options: {
+    target?: readonly string[];
+  },
+  commandName: string,
+): readonly TargetSpec[] {
+  const values = options.target;
+  if (!values || values.length === 0) {
+    return [];
+  }
+
+  return values.map((value, index) =>
+    parseTargetSpec(value, index, commandName)
+  );
+}
+
+function resolveVersionTargetSpecs(
   options: {
     target?: readonly string[];
     payloadHistorySegment?: string;
     payloadStateSegment?: string;
   },
+  commandName: string,
 ): readonly VersionTargetSpec[] {
-  const values = options.target;
-  if (!values || values.length === 0) {
+  const targets = resolveSharedTargetSpecs(options, commandName);
+  if (targets.length === 0) {
     if (
       options.payloadHistorySegment !== undefined ||
       options.payloadStateSegment !== undefined
@@ -533,17 +706,13 @@ function resolveWeaveTargetSpecs(
     }
     return [];
   }
-
-  const targets = values.map((value, index) =>
-    parseWeaveTargetSpec(value, index)
-  );
   const payloadHistorySegment = resolveOptionalWeavePayloadSegment(
     options.payloadHistorySegment,
-    "weave --payload-history-segment",
+    `${commandName} --payload-history-segment`,
   );
   const payloadStateSegment = resolveOptionalWeavePayloadSegment(
     options.payloadStateSegment,
-    "weave --payload-state-segment",
+    `${commandName} --payload-state-segment`,
   );
 
   if (
@@ -564,11 +733,12 @@ function resolveWeaveTargetSpecs(
   }];
 }
 
-function parseWeaveTargetSpec(
+function parseTargetSpec(
   value: string,
   index: number,
-): VersionTargetSpec {
-  const fieldName = `weave --target[${index}]`;
+  commandName: string,
+): TargetSpec {
+  const fieldName = `${commandName} --target[${index}]`;
   const trimmed = value.trim();
   if (trimmed.length === 0) {
     throw new WeaveInputError(`${fieldName} is required`);

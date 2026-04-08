@@ -80,7 +80,7 @@ and operations should derive owned support-artifact work from those roots.
 
 ## Open Issues
 
-- Standalone top-level `validate`, `version`, and `generate` CLI commands are still deferred; the current local decomposition is real at the runtime seam, but root `weave` remains the only exposed high-level CLI surface in the first pass.
+- The first standalone CLI surface now exists as `weave validate`, `weave version`, and `weave generate`, but broader ergonomics such as aliases, richer finding presentation, and command-surface polishing remain open follow-up work rather than part of this task.
 
 ## Decisions
 
@@ -160,4 +160,4 @@ and operations should derive owned support-artifact work from those roots.
 - [x] Decide and implement the version-oriented root `weave` CLI pass-through for payload `historySegment` / `stateSegment` without widening shared `--target`.
 - [x] Batch recursive `version` planning before writes rather than using best-effort per-target mutation.
 - [x] Add core and runtime tests proving the decomposed seams still preserve current carried `weave` behavior.
-- [d] Decide later whether to expose standalone CLI commands immediately or after the internal seams settle.
+- [x] Expose standalone CLI commands once the internal seams settle enough to support them coherently.

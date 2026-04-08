@@ -1,4 +1,4 @@
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertRejects } from "@std/assert";
 import { join, relative } from "@std/path";
 import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import {
@@ -20,6 +20,91 @@ Deno.test("weave matches the manifest-scoped alice knop-created-woven fixture as
     manifestName: "05-alice-knop-created-woven.jsonld",
     expectedStdoutFragment: "Wove 1 designator path",
   });
+});
+
+Deno.test("weave validate succeeds as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-validate-");
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const output = await runCliCommand([
+    "validate",
+    "--target",
+    "designatorPath=alice/bio",
+    "--workspace",
+    workspaceRoot,
+  ]);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Validated 1 designator path"), stdout);
+});
+
+Deno.test("weave version succeeds as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-version-");
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const output = await runCliCommand([
+    "version",
+    "--target",
+    "designatorPath=alice/bio",
+    "--payload-history-segment",
+    "releases",
+    "--payload-state-segment",
+    "v0.0.1",
+    "--workspace",
+    workspaceRoot,
+  ]);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Versioned 1 designator path"), stdout);
+  await Deno.stat(
+    join(
+      workspaceRoot,
+      "alice/bio/releases/v0.0.1/alice-bio-ttl/alice-bio.ttl",
+    ),
+  );
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, "alice/bio/releases/index.html")),
+    Deno.errors.NotFound,
+  );
+});
+
+Deno.test("weave generate succeeds as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-generate-");
+  await materializeMeshAliceBioBranch("10-alice-bio-updated", workspaceRoot);
+
+  const meshInventoryBefore = await Deno.readTextFile(
+    join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+  );
+  const output = await runCliCommand([
+    "generate",
+    "--target",
+    "designatorPath=alice/bio",
+    "--workspace",
+    workspaceRoot,
+  ]);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Generated 1 designator path"), stdout);
+  await Deno.stat(join(workspaceRoot, "alice/bio/index.html"));
+  await assertRejects(
+    () =>
+      Deno.stat(
+        join(workspaceRoot, "alice/bio/_history001/_s0002/index.html"),
+      ),
+    Deno.errors.NotFound,
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+    ),
+    meshInventoryBefore,
+  );
 });
 
 Deno.test("weave matches the manifest-scoped alice bio integrated-woven fixture as a black-box CLI run", async () => {
@@ -158,22 +243,11 @@ async function assertWeaveTransitionMatchesManifest(
   );
   await materializeMeshAliceBioBranch(transitionCase.fromRef!, workspaceRoot);
 
-  const command = new Deno.Command("deno", {
-    args: [
-      "run",
-      "--allow-read",
-      "--allow-write",
-      "--allow-env",
-      "src/main.ts",
-      ...(options.cliArgs ?? []),
-      "--workspace",
-      workspaceRoot,
-    ],
-    cwd: new URL(".", repoRoot),
-    stdout: "piped",
-    stderr: "piped",
-  });
-  const output = await command.output();
+  const output = await runCliCommand([
+    ...(options.cliArgs ?? []),
+    "--workspace",
+    workspaceRoot,
+  ]);
   const stdout = new TextDecoder().decode(output.stdout);
   const stderr = new TextDecoder().decode(output.stderr);
 
@@ -229,6 +303,24 @@ async function assertWeaveTransitionMatchesManifest(
 
   await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
   await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
+}
+
+function runCliCommand(args: readonly string[]): Promise<Deno.CommandOutput> {
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      ...args,
+    ],
+    cwd: new URL(".", repoRoot),
+    stdout: "piped",
+    stderr: "piped",
+  });
+
+  return command.output();
 }
 
 async function listRelativeFiles(

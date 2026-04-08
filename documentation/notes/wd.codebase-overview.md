@@ -35,7 +35,7 @@ created: 1773673181726
   remote mode: talks to daemon over HTTP
   local mode: calls core/runtime directly
   no separate semantic logic
-  current carried slices: top-level local `weave` with repeatable `--target <key=value,...>` resource targeting plus version-oriented payload naming pass-through, together with recursive batch versioning under the composed `weave` flow, plus local `weave mesh create`, `weave knop create`, `weave knop add-reference`, `weave integrate`, `weave payload update`, and `weave extract`, all over shared core/runtime
+  current carried slices: top-level local `weave` with repeatable `--target <key=value,...>` resource targeting plus version-oriented payload naming pass-through, standalone local `weave validate`, `weave version`, and `weave generate` entry points over the same shared seams, recursive batch versioning under the composed `weave` flow, plus local `weave mesh create`, `weave knop create`, `weave knop add-reference`, `weave integrate`, `weave payload update`, and `weave extract`, all over shared core/runtime
   current acceptance paths: black-box CLI execution checked against the `02-mesh-created`, `04-alice-knop-created`, `05-alice-knop-created-woven`, `06-alice-bio-integrated`, `07-alice-bio-integrated-woven`, `08-alice-bio-referenced`, `09-alice-bio-referenced-woven`, `10-alice-bio-updated`, `11-alice-bio-v2-woven`, `12-bob-extracted`, and `13-bob-extracted-woven` Accord manifest scopes
 
 ### web app
