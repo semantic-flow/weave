@@ -688,3 +688,200 @@ feat(cli): add standalone validate version generate commands
 - add black-box CLI coverage for the new command surfaces
 - sync the validate/version/generate task note, overview, and decision log
 ```
+
+# User_2026-04-07_2315_38
+
+greptile had feedback... for each item in @wd.review.2026-04-07-validate-version-generate-greptile.md please add a checkbox and evaluate whether it's worth implementing.
+
+# gpt-5.4_2026-04-07_2315_44
+
+I’m reviewing the Greptile feedback note first so I can turn each item into an actionable checklist entry instead of guessing at the intent. After that I’ll patch the note with per-item checkboxes and a short implement/not-implement judgment for each one.
+
+# gpt-5.4_2026-04-07_2316_36
+
+I’m checking the review note against the repo guidance before editing it. Then I’ll patch each Greptile item into a checklist entry with a concrete implement / defer judgment.
+
+# gpt-5.4_2026-04-07_2316_40
+
+I’ve got the note contents. I’m checking the current code paths now so the worth-implementing judgments are grounded in the actual implementation, not just Greptile’s prose.
+
+# gpt-5.4_2026-04-07_2317_07
+
+I’ve got enough context. I’m patching the review note now so each Greptile point is a checklist item with an explicit disposition and rationale, without changing the underlying review content.
+
+# gpt-5.4_2026-04-07_2317_19
+
+The note is patched. I’m doing a quick read-back now to make sure the checklist formatting is clean and the dispositions match the current code rather than overcommitting to low-value cleanup.
+
+# gpt-5.4_2026-04-07_2317_29
+
+Updated [wd.review.2026-04-07-validate-version-generate-greptile.md](wd.review.2026-04-07-validate-version-generate-greptile.md) so each Greptile item is now a checklist entry with an explicit worth-implementing judgment.
+
+My dispositions in the note are:
+
+- `SharedTargetRequest` alias: probably not worth doing now
+- specific per-field CLI error for trailing `=`: worth doing
+- `recursive=false` handling: worth clarifying, but as help/docs behavior, not a runtime semantics change
+
+No tests ran since this was a note-only edit.
+
+# User_2026-04-07_2318_45
+
+ok, just do the specific per-field CLI error
+
+# gpt-5.4_2026-04-07_2318_51
+
+I’m changing the CLI target parser so a trailing `=` reports the field-specific error instead of the generic format error. I’ll update the parser and add a focused CLI test to pin the behavior down before I run the relevant checks.
+
+# gpt-5.4_2026-04-07_2319_08
+
+I found the parser branch Greptile called out. I’m tightening only that condition and adding one black-box CLI test for `designatorPath=` so we don’t accidentally regress back to the generic message later.
+
+# gpt-5.4_2026-04-07_2319_12
+
+I’m editing the parser and the e2e test now. I’m also marking that Greptile item done in the review note so the note reflects the code instead of drifting.
+
+# gpt-5.4_2026-04-07_2319_31
+
+The code path is updated and the review note is synced. I’m running the CLI e2e file that covers this parser surface, then lint, so we know the change didn’t introduce a formatting or static issue elsewhere.
+
+# gpt-5.4_2026-04-07_2319_38
+
+Lint is clean. The e2e run is still in flight, so I’m waiting on that before I close this out.
+
+# User_2026-04-07_2319_39
+
+What if we want to specify the legit "empty" designator path?
+
+# gpt-5.4_2026-04-07_2319_47
+
+I’m checking whether the core targeting model actually permits an empty designator path. If it does, the parser tweak I just made is too aggressive and we should change course before treating `designatorPath=` as a hard error.
+
+# gpt-5.4_2026-04-07_2320_07
+
+Right now, we can’t. An empty designator path is not a valid target anywhere in the current model.
+
+The constraint is deeper than the CLI parser:
+
+- [designator_segments.ts:8](../../src/core/designator_segments.ts#L8) rejects an empty `designatorPath` outright.
+- [targeting.ts:146](../../src/core/targeting.ts#L146) always normalizes through that function.
+- the current specs and commands treat `designatorPath` as required, not optional.
+
+So `designatorPath=` is not a “legit empty path” today. It is just invalid input, and the parser returning `weave --target[0].designatorPath is required` is consistent with the rest of the codebase.
+
+Also, `designatorPath=` is a bad encoding for root even if we later decide to support it, because it is indistinguishable from “user forgot the value.” If root designators become a real feature, we should give them an explicit representation instead of overloading an empty string.
+
+The real question is: do we want root-designator support at all? If yes, that is a broader design task, not a parser tweak. It would need changes in targeting, path normalization, file layout assumptions, and likely a distinct CLI spelling.
+
+# User_2026-04-07_2321_22
+
+yes, we want root designator path. It's equivalent to <> in RDF.
+
+# gpt-5.4_2026-04-07_2321_36
+
+I’m checking where the code assumes non-empty designator paths so I can tell you whether “root designator path equals `<>`” is just a parser issue or a broader invariant breach. Then I’ll tell you the safest representation to use on the CLI.
+
+# gpt-5.4_2026-04-07_2321_46
+
+Root designator support is bigger than the CLI, and I found one hard blocker already: inventory discovery currently throws root away by design. I’m checking how IRIs and mesh-relative paths are built so I can tell you whether empty-string root is viable internally or whether it needs an explicit sentinel.
+
+# gpt-5.4_2026-04-07_2322_08
+
+If root designators are in scope, then `designatorPath=` is the wrong test case for the parser change. I’m switching the new coverage to a different field so we keep the better per-field error without baking in “empty designator path is invalid forever.”
+
+# gpt-5.4_2026-04-07_2322_14
+
+I’ve de-risked the parser test. I’m running the focused CLI test file with the permissions it actually needs so I can give you a clean status instead of leaving it half-verified.
+
+# gpt-5.4_2026-04-07_2322_17
+
+Lint is still clean. The CLI tests are still running, so I’m waiting on that result before I close the loop on the root-designator implications.
+
+# gpt-5.4_2026-04-07_2322_21
+
+The failures were only permission-related in the test harness, not logic regressions. I’m rerunning the same CLI suite with `--allow-run` because the fixture loader shells out to `git`.
+
+# gpt-5.4_2026-04-07_2322_24
+
+The CLI suite is progressing cleanly under the right permissions. I’m waiting for the rest of the run so I can give you a final status together with the root-designator implications.
+
+# gpt-5.4_2026-04-07_2322_44
+
+Yes. If the root identifier is semantically “the mesh base itself,” then internally it should be representable as the empty designator path, because that is the natural relative-path analogue of RDF `<>`.
+
+But the CLI should not spell that as `designatorPath=`. That is too ambiguous with “missing value.” The safer contract is:
+
+- internal representation: `designatorPath === ""`
+- CLI representation: an explicit root sentinel, preferably `designatorPath=/`
+- recursive root targeting: `designatorPath=/,recursive=true` means “everything”
+
+That does require broader work, not just parser relaxation. Current code assumes non-empty paths in several places:
+- [designator_segments.ts#L8](../../src/core/designator_segments.ts#L8)
+- [inventory.ts#L55](../../src/runtime/mesh/inventory.ts#L55)
+- [weave.ts#L4273](../../src/core/weave/weave.ts#L4273)
+
+So root support needs root-aware path helpers, not raw string interpolation like ``${designatorPath}/_knop``. Otherwise you end up with bad paths like `/_knop` instead of `_knop`.
+
+I also adjusted the new parser coverage so it no longer hardcodes “empty designator path is invalid forever”; it now checks `recursive=` instead. Verification passed with:
+- `deno task lint`
+- `deno test --allow-read --allow-write --allow-env --allow-run tests/e2e/weave_cli_test.ts`
+
+If you want, I can write the task note for root designator path support next.
+
+# User_2026-04-07_2324_19
+
+just use "/" as root sentinel.
+
+Please fill out wu.cli-reference with a concise but complete guide to CLI usage, and include the root special case
+
+# gpt-5.4_2026-04-07_2324_31
+
+I’m reading the current CLI note and the implemented command surface first so I can replace it with an accurate reference instead of a wish-list. I’ll keep it concise, but I’m not going to document `/` as already working unless the code actually supports it.
+
+# gpt-5.4_2026-04-07_2324_34
+
+The top-level weave commands are clear. I’m reading the rest of `run.ts` now so the reference includes the non-weave commands too, not just the newer validate/version/generate surface.
+
+# gpt-5.4_2026-04-07_2324_51
+
+I’ve got the full command surface. I’m replacing the empty note with a compact reference that covers the actual commands, targeting rules, examples, and the root sentinel as a planned special case rather than pretending it already works.
+
+# gpt-5.4_2026-04-07_2325_11
+
+The reference is written. I’m reading it back once to make sure it stays concise, doesn’t overpromise root support, and matches the actual CLI options and constraints.
+
+# gpt-5.4_2026-04-07_2325_16
+
+The reference covers most of the surface, but I left out `extract`, which makes it incomplete. I’m adding that plus a one-line note about `--help` so the doc closes the loop cleanly.
+
+# gpt-5.4_2026-04-07_2325_22
+
+Updated [wu.cli-reference.md](wu.cli-reference.md) into a concise user-facing CLI guide.
+
+It now covers the actual command surface, shared `--target` syntax, payload naming constraints, common examples, and the root special case. I documented `/` as the intended root sentinel, but explicitly marked it as reserved rather than already implemented, because the current CLI still rejects root designator targeting.
+
+No tests ran; this was a documentation-only change.
+
+# User_2026-04-08_0700_13
+
+commit mesg
+
+# gpt-5.4_2026-04-08_0700_22
+
+I’m checking the current worktree so the commit message matches the actual staged scope rather than just the last discussion topic.
+
+# gpt-5.4_2026-04-08_0700_38
+
+Use this, assuming you do not include the Kato conversation note in the commit:
+
+```text
+feat(cli): improve target parse errors and document CLI usage
+
+- return per-field errors for --target fields with missing values
+- add e2e coverage for malformed target specs with empty field values
+- add a concise user-facing CLI reference covering commands, targeting, and payload naming
+- document the intended "/" root-designator sentinel as reserved future syntax
+- record Greptile review follow-up and mark the CLI error improvement done
+```
+
+I would leave `documentation/notes/wd.conv.2026.2026-04-07_1854-weave-targeting-codex.md` out of this commit unless you explicitly want conversation-log churn included.

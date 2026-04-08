@@ -223,6 +223,25 @@ Deno.test("weave rejects unsupported --target fields", async () => {
   );
 });
 
+Deno.test("weave reports a per-field error when a target field value is missing", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-target-missing-");
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const output = await runCliCommand([
+    "--target",
+    "designatorPath=alice/bio,recursive=",
+    "--workspace",
+    workspaceRoot,
+  ]);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assertEquals(output.success, false);
+  assert(
+    stderr.includes("weave --target[0].recursive is required"),
+    stderr,
+  );
+});
+
 async function assertWeaveTransitionMatchesManifest(
   options: {
     manifestName: string;

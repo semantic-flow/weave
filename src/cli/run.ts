@@ -754,9 +754,7 @@ function parseTargetSpec(
     }
 
     const separatorIndex = entry.indexOf("=");
-    if (
-      separatorIndex <= 0 || separatorIndex === entry.length - 1
-    ) {
+    if (separatorIndex <= 0) {
       throw new WeaveInputError(
         `${fieldName} must use key=value fields separated by commas`,
       );

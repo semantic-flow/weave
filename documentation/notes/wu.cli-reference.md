@@ -1,0 +1,227 @@
+---
+id: zcfvz4v7wxljtye9263tchs
+title: CLI Reference
+desc: ''
+updated: 1775629411758
+created: 1775629411758
+---
+
+## Overview
+
+`weave` is a workspace-oriented CLI. Most commands operate on the current directory unless `--workspace <path>` is provided.
+
+Commands print a one-line summary to stdout followed by created or updated paths when relevant. Input or runtime errors return a non-zero exit code and print the error message to stderr.
+
+Weave also writes runtime logs under `.weave/logs/` inside the workspace.
+
+Use `weave --help` or `weave <command> --help` to inspect the live CLI.
+
+## Common patterns
+
+`--workspace <path>` selects the workspace root. It defaults to `.`.
+
+`--target <spec>` limits `weave`, `weave validate`, `weave version`, and `weave generate` to specific designator paths.
+
+If no `--target` flags are provided, those commands operate on all applicable weave candidates in the workspace.
+
+## Target syntax
+
+`--target` uses a comma-separated `key=value` form.
+
+Supported keys:
+
+- `designatorPath`
+- `recursive`
+
+Examples:
+
+```sh
+weave --target 'designatorPath=alice/bio'
+weave generate --target 'designatorPath=alice,recursive=true'
+weave validate --target 'designatorPath=alice/bio' --target 'designatorPath=bob'
+```
+
+Notes:
+
+- `designatorPath` is required.
+- `recursive=true` includes descendants of the given designator path.
+- `recursive=false` is accepted and currently behaves the same as omitting `recursive`.
+- Version-oriented fields such as `historySegment` and `stateSegment` are not part of `--target`.
+
+## Root special case
+
+The intended root-designator sentinel is `/`, so the canonical CLI spelling will be:
+
+```sh
+weave --target 'designatorPath=/'
+```
+
+and recursive root targeting will be:
+
+```sh
+weave --target 'designatorPath=/,recursive=true'
+```
+
+Current releases do not implement root designator targeting yet. For now, `/` is reserved for that special case and should not be treated as working syntax yet.
+
+## Commands
+
+### `weave`
+
+Runs the composed local weave flow:
+
+1. validate
+2. version
+3. generate
+
+Examples:
+
+```sh
+weave
+weave --workspace ./my-mesh
+weave --target 'designatorPath=alice/bio'
+weave --target 'designatorPath=alice,recursive=true'
+```
+
+Payload naming may be passed through to the internal `version` step:
+
+```sh
+weave \
+  --target 'designatorPath=alice/bio' \
+  --payload-history-segment releases \
+  --payload-state-segment v0.0.1
+```
+
+Constraints:
+
+- payload naming requires exactly one `--target`
+- payload naming is applied only to payload versioning, not to shared target selection
+
+### `weave validate`
+
+Validates current local weave state without writing files.
+
+```sh
+weave validate
+weave validate --target 'designatorPath=alice/bio'
+weave validate --target 'designatorPath=alice,recursive=true'
+```
+
+### `weave version`
+
+Versions current targeted resources without generating pages.
+
+```sh
+weave version
+weave version --target 'designatorPath=alice/bio'
+weave version \
+  --target 'designatorPath=alice/bio' \
+  --payload-history-segment releases \
+  --payload-state-segment v0.0.1
+```
+
+Constraints:
+
+- payload naming requires exactly one `--target`
+
+### `weave generate`
+
+Generates current ResourcePages from the settled local workspace state without creating new historical states.
+
+```sh
+weave generate
+weave generate --target 'designatorPath=alice/bio'
+weave generate --target 'designatorPath=alice,recursive=true'
+```
+
+### `weave mesh create`
+
+Creates the initial mesh support artifacts in an empty or new workspace.
+
+```sh
+weave mesh create --mesh-base 'https://example.org/'
+weave mesh create --workspace ./my-mesh --mesh-base 'https://example.org/'
+weave mesh create --interactive
+```
+
+### `weave integrate`
+
+Integrates a local source file into a designator path as a payload artifact.
+
+```sh
+weave integrate ./alice-bio.ttl alice/bio
+weave integrate ./alice-bio.ttl --designator-path alice/bio
+```
+
+Constraints:
+
+- the designator path may be given either positionally or with `--designator-path`
+- if both are provided, they must match
+
+### `weave extract`
+
+Creates a minimal Knop-managed surface for a local resource referenced inside a woven payload artifact.
+
+```sh
+weave extract bob
+```
+
+### `weave payload update`
+
+Replaces the working bytes of an existing payload artifact.
+
+```sh
+weave payload update ./alice-bio-v2.ttl alice/bio
+weave payload update ./alice-bio-v2.ttl --designator-path alice/bio
+```
+
+Constraints:
+
+- the designator path may be given either positionally or with `--designator-path`
+- if both are provided, they must match
+
+### `weave knop create`
+
+Creates the first Knop support artifacts for a designator path.
+
+```sh
+weave knop create alice/bio
+```
+
+### `weave knop add-reference`
+
+Creates the first reference-catalog surface for a designator path.
+
+```sh
+weave knop add-reference \
+  alice/bio \
+  --reference-target-designator-path bob \
+  --reference-role Supplemental
+```
+
+## Practical examples
+
+Initialize a mesh:
+
+```sh
+weave mesh create --workspace ./mesh --mesh-base 'https://example.org/'
+```
+
+Integrate a payload, then weave it:
+
+```sh
+weave integrate ./alice-bio.ttl alice/bio --workspace ./mesh
+weave --target 'designatorPath=alice/bio' --workspace ./mesh
+```
+
+Version without generation:
+
+```sh
+weave version --target 'designatorPath=alice/bio' --workspace ./mesh
+```
+
+Generate pages only:
+
+```sh
+weave generate --target 'designatorPath=alice,recursive=true' --workspace ./mesh
+```
