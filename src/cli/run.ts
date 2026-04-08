@@ -56,8 +56,16 @@ export async function runWeaveCli(args: string[]): Promise<number> {
       "Workspace root to update for the default weave action.",
       { default: "." },
     )
-    .action(async (options) => {
+    .option(
+      "--target <target:string>",
+      "Target spec as comma-separated key=value fields. Supported keys: designatorPath, recursive.",
+      { collect: true },
+    )
+    .action(async (
+      options: { workspace: string; target?: string[] },
+    ) => {
       const workspaceRoot = resolve(options.workspace);
+      const targets = resolveWeaveTargetSpecs(options.target);
       const logDir = join(workspaceRoot, ".weave", "logs");
       const { operationalLogger, auditLogger } = createRuntimeLoggers({
         logDir,
@@ -65,11 +73,13 @@ export async function runWeaveCli(args: string[]): Promise<number> {
 
       await auditLogger.command("weave", {
         workspaceRoot,
+        targets,
         localMode: true,
       });
 
       const result = await executeWeave({
         workspaceRoot,
+        request: targets.length > 0 ? { targets } : undefined,
         operationalLogger,
         auditLogger,
       });
@@ -488,6 +498,78 @@ function resolveDesignatorPath(
   }
 
   throw errorMessages.createError(errorMessages.missingMessage);
+}
+
+function resolveWeaveTargetSpecs(
+  values: readonly string[] | undefined,
+): readonly { designatorPath: string; recursive?: boolean }[] {
+  if (!values || values.length === 0) {
+    return [];
+  }
+
+  return values.map((value, index) => parseWeaveTargetSpec(value, index));
+}
+
+function parseWeaveTargetSpec(
+  value: string,
+  index: number,
+): { designatorPath: string; recursive?: boolean } {
+  const fieldName = `weave --target[${index}]`;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    throw new WeaveInputError(`${fieldName} is required`);
+  }
+
+  const record: Record<string, string> = {};
+  for (const segment of trimmed.split(",")) {
+    const entry = segment.trim();
+    if (entry.length === 0) {
+      throw new WeaveInputError(
+        `${fieldName} must use key=value fields separated by commas`,
+      );
+    }
+
+    const separatorIndex = entry.indexOf("=");
+    if (
+      separatorIndex <= 0 || separatorIndex === entry.length - 1
+    ) {
+      throw new WeaveInputError(
+        `${fieldName} must use key=value fields separated by commas`,
+      );
+    }
+
+    const key = entry.slice(0, separatorIndex).trim();
+    const rawFieldValue = entry.slice(separatorIndex + 1).trim();
+    if (rawFieldValue.length === 0) {
+      throw new WeaveInputError(`${fieldName}.${key} is required`);
+    }
+    if (key !== "designatorPath" && key !== "recursive") {
+      throw new WeaveInputError(`${fieldName}.${key} is not supported`);
+    }
+    if (Object.hasOwn(record, key)) {
+      throw new WeaveInputError(`${fieldName} contains duplicate key: ${key}`);
+    }
+
+    record[key] = rawFieldValue;
+  }
+
+  const designatorPath = record.designatorPath?.trim() ?? "";
+  if (designatorPath.length === 0) {
+    throw new WeaveInputError(`${fieldName}.designatorPath is required`);
+  }
+
+  if (record.recursive === undefined) {
+    return { designatorPath };
+  }
+  if (record.recursive !== "true" && record.recursive !== "false") {
+    throw new WeaveInputError(
+      `${fieldName}.recursive must be true or false`,
+    );
+  }
+
+  return record.recursive === "true"
+    ? { designatorPath, recursive: true }
+    : { designatorPath };
 }
 
 function getCliErrorMessage(error: unknown): string {

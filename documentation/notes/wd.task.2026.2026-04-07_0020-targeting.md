@@ -9,7 +9,7 @@ created: 1775546440859
 ## Goals
 
 - Define a shared target-scoped request model for local operations that need to address one or more designator paths.
-- Implement that target model first on `weave`, while shaping it so later standalone `version`, `validate`, and `generate` surfaces can reuse it.
+- Implement that target model first on the local `weave` CLI surface, while shaping it so existing local `version`, `validate`, and `generate` runtime seams and later standalone surfaces can reuse it.
 - Keep shared targeting resource-root based: target logical designator-root resources, not support artifacts directly.
 - Define recursion and overlap behavior for targets so later multi-target operations can remain deterministic.
 
@@ -20,7 +20,7 @@ This task should define the first shared targeting model for local Weave operati
 The intended first boundary is:
 
 - introduce a target-scoped request shape that can later be reused by standalone `version`, `validate`, and `generate` operations
-- apply that request model end-to-end to `weave` first, because `weave` is the only current first-class operation that already combines versioning, validation, and generation behavior
+- apply that request model end-to-end to `weave` first, because `weave` is the current first-class CLI operation that already composes versioning, validation, and generation behavior
 - keep targets resource-root based, for example `alice`, `alice/bio`, `ontology`, or `ontology/shacl`
 - reject support-artifact-only explicit targets such as `_mesh/_inventory`, `alice/_knop/_meta`, or `alice/_knop/_references` in the first pass
 - leave payload history/state naming to [[wd.task.2026.2026-04-07_0820-validate-version-generate]]
@@ -29,7 +29,7 @@ The motivating publication examples are target roots such as `ontology` and `ont
 
 ## Discussion
 
-The broader architecture language also talks about `version`, `validate`, and `generate`, but in the current local implementation those are not first-class runtime or CLI operations yet. Today, versioning, RDF validation, and page generation are effectively folded into `weave`.
+The broader architecture language also talks about `version`, `validate`, and `generate`. Those now exist as local runtime seams, but they are not yet settled standalone CLI surfaces. In the current local CLI, versioning, RDF validation, and page generation are still effectively composed through `weave`.
 
 So this task should do two things without conflating them:
 
@@ -62,7 +62,7 @@ That means overlap behavior must be explicit. The intended rule is:
 
 ## Open Issues
 
-- What is the thinnest acceptable first CLI syntax for supplying one or more named `targets`, including per-target recursion, without turning this task into a broader CLI ergonomics redesign?
+- None currently blocking the first implementation pass.
 
 ## Decisions
 
@@ -75,6 +75,7 @@ That means overlap behavior must be explicit. The intended rule is:
 - Explicit targets remain exact-match by default; recursion is opt-in per target.
 - When multiple targets match the same weave candidate, the most specific matching target wins.
 - If multiple matching targets have the same normalized `designatorPath`, the request should fail closed as ambiguous.
+- The first CLI syntax should be a repeatable `--target <key=value,...>` flag that maps directly to one target object; in this task the supported keys are `designatorPath` and optional `recursive`.
 - Payload `historySegment` and `stateSegment` are not part of the shared target model; they belong to version-oriented requests as captured in [[wd.task.2026.2026-04-07_0820-validate-version-generate]].
 - Broader multi-target version orchestration should follow the `validate/version/generate` decomposition rather than being forced into the current single-candidate `weave` planner first.
 
@@ -83,10 +84,11 @@ That means overlap behavior must be explicit. The intended rule is:
 - The first concrete contract change is in `WeaveRequest`, which should become target-scoped.
 - The same target specification shape should be reusable later by standalone `version`, `validate`, and `generate` requests if and when those surfaces are introduced.
 - `runtime/weave` should accept the same target-scoped request shape and pass it through without reinterpretation.
-- The CLI `weave` command should accept a minimal first syntax for one or more target specifications and translate that syntax directly into the `targets` request shape.
+- The CLI `weave` command should accept a repeatable `--target <key=value,...>` syntax for one or more target specifications and translate that syntax directly into the `targets` request shape.
 - `WeaveRequest` should move to a list of target specifications such as:
   - `designatorPath`
   - optional `recursive`
+- For this task, `weave --target` should expose only shared targeting fields rather than version-only naming fields.
 - When `recursive` is true, the target applies to matching descendant payload designator paths as well as the exact path.
 - When more than one target matches a candidate, the winner is the matching target with the longest normalized `designatorPath`.
 - If more than one matching target has the same normalized `designatorPath`, planning should fail closed rather than using request order as a precedence rule.
@@ -115,10 +117,10 @@ That means overlap behavior must be explicit. The intended rule is:
 
 ## Implementation Plan
 
-- [ ] Refine `WeaveRequest` to use target-scoped request objects instead of `designatorPaths`.
-- [ ] Define target matching semantics, including exact versus recursive targets and the most-specific-wins precedence rule.
-- [ ] Keep the target specification shape narrow and reusable so later standalone `version`, `validate`, and `generate` surfaces can adopt it without a second redesign.
-- [ ] Reject support-artifact-only explicit targets in the first pass.
-- [ ] Thread the new `targets` request shape through `runtime/weave` as a thin pass-through to `core/weave`.
-- [ ] Add the thinnest acceptable CLI syntax for one or more named `targets`, translating directly into the runtime/core request shape without broader CLI redesign.
-- [ ] Add core, runtime, integration, and CLI coverage for default targeting, exact targets, recursive targets, ambiguous overlaps, and support-artifact rejection.
+- [x] Refine `WeaveRequest` to use target-scoped request objects instead of `designatorPaths`.
+- [x] Define target matching semantics, including exact versus recursive targets and the most-specific-wins precedence rule.
+- [x] Keep the target specification shape narrow and reusable so later standalone `version`, `validate`, and `generate` surfaces can adopt it without a second redesign.
+- [x] Reject support-artifact-only explicit targets in the first pass.
+- [x] Thread the new `targets` request shape through `runtime/weave` as a thin pass-through to `core/weave`.
+- [x] Add repeatable `--target <key=value,...>` CLI parsing for one or more named `targets`, translating directly into the runtime/core request shape without broader CLI redesign.
+- [x] Add core, runtime, integration, and CLI coverage for default targeting, exact targets, recursive targets, ambiguous overlaps, and support-artifact rejection.

@@ -100,6 +100,32 @@ Deno.test("executeWeave matches the settled alice bio integrated-woven fixture",
   );
 });
 
+Deno.test("executeWeave forwards targets to generate and leaves unrelated pages untouched", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-targeted-generate-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  await Deno.writeTextFile(
+    join(workspaceRoot, "alice/index.html"),
+    "<html>sentinel</html>\n",
+  );
+
+  const result = await executeWeave({
+    workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "alice/bio" }],
+    },
+  });
+
+  assertEquals(result.wovenDesignatorPaths, ["alice/bio"]);
+  assertEquals(
+    await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
+    "<html>sentinel</html>\n",
+  );
+  await Deno.stat(join(workspaceRoot, "alice/bio/index.html"));
+});
+
 Deno.test("executeWeave matches the settled alice bio referenced-woven fixture", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-weave-reference-catalog-",

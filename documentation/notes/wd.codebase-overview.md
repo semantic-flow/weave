@@ -20,7 +20,7 @@ created: 1773673181726
   job execution primitives, but not HTTP
   includes first-pass Deno-native structured operational and audit logging
   persistent config direction is RDF, probably JSON-LD, and should remain queryable via SPARQL
-  current carried slices: local filesystem materialization for `mesh create`, `knop create`, `knop add-reference`, the first local `integrate` pass over an existing workspace payload file, the first local `payload.update` pass over an already woven payload artifact, the first local `extract` pass that resolves one target designator against exactly one woven payload artifact in the workspace and pins `referenceTargetState` to that artifact's latest historical state, and the first five local `weave` passes over an existing workspace with a shared runtime ResourcePage renderer seam, including the first extracted-resource weave that versions Bob support artifacts, advances `_mesh/_inventory` to `_s0004`, and updates one existing current identifier page
+  current carried slices: local filesystem materialization for `mesh create`, `knop create`, `knop add-reference`, the first local `integrate` pass over an existing workspace payload file, the first local `payload.update` pass over an already woven payload artifact, the first local `extract` pass that resolves one target designator against exactly one woven payload artifact in the workspace and pins `referenceTargetState` to that artifact's latest historical state, the first local `validate` / `version` / `generate` runtime seams under `runtime/weave`, and the first five local `weave` passes over an existing workspace with a shared runtime ResourcePage renderer seam, including the first extracted-resource weave that versions Bob support artifacts, advances `_mesh/_inventory` to `_s0004`, and updates one existing current identifier page
   current logging slice: narrow Kato-inspired `LogRecord` / sink / `StructuredLogger` / `AuditLogger` JSONL layer
 
 ### daemon
@@ -35,7 +35,7 @@ created: 1773673181726
   remote mode: talks to daemon over HTTP
   local mode: calls core/runtime directly
   no separate semantic logic
-  current carried slices: top-level local `weave`, plus local `weave mesh create`, `weave knop create`, `weave knop add-reference`, `weave integrate`, `weave payload update`, and `weave extract`, all over shared core/runtime
+  current carried slices: top-level local `weave` with repeatable `--target <key=value,...>` resource targeting, plus local `weave mesh create`, `weave knop create`, `weave knop add-reference`, `weave integrate`, `weave payload update`, and `weave extract`, all over shared core/runtime
   current acceptance paths: black-box CLI execution checked against the `02-mesh-created`, `04-alice-knop-created`, `05-alice-knop-created-woven`, `06-alice-bio-integrated`, `07-alice-bio-integrated-woven`, `08-alice-bio-referenced`, `09-alice-bio-referenced-woven`, `10-alice-bio-updated`, `11-alice-bio-v2-woven`, `12-bob-extracted`, and `13-bob-extracted-woven` Accord manifest scopes
 
 ### web app

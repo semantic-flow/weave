@@ -231,7 +231,7 @@ export async function executeWeave(
   try {
     const validation = await executeValidate({
       workspaceRoot,
-      request: toValidateRequest(options.request),
+      request: toSharedTargetRequest(options.request),
     });
     if (validation.findings.length > 0) {
       throw new WeaveInputError(validation.findings[0]!.message);
@@ -245,6 +245,7 @@ export async function executeWeave(
 
     const generateResult = await executeGenerate({
       workspaceRoot,
+      request: toSharedTargetRequest(options.request),
     });
 
     const result: WeaveResult = {
@@ -342,7 +343,7 @@ function normalizeVersionRequest(
   );
 }
 
-function toValidateRequest(
+function toSharedTargetRequest(
   request: WeaveRequest | undefined,
 ): ValidateRequest | undefined {
   if (!request) {

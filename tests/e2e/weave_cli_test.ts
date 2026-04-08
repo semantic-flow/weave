@@ -29,6 +29,22 @@ Deno.test("weave matches the manifest-scoped alice bio integrated-woven fixture 
   });
 });
 
+Deno.test("weave accepts an exact --target spec as a black-box CLI run", async () => {
+  await assertWeaveTransitionMatchesManifest({
+    manifestName: "07-alice-bio-integrated-woven.jsonld",
+    expectedStdoutFragment: "Wove 1 designator path",
+    cliArgs: ["--target", "designatorPath=alice/bio"],
+  });
+});
+
+Deno.test("weave accepts a recursive --target spec as a black-box CLI run", async () => {
+  await assertWeaveTransitionMatchesManifest({
+    manifestName: "07-alice-bio-integrated-woven.jsonld",
+    expectedStdoutFragment: "Wove 1 designator path",
+    cliArgs: ["--target", "designatorPath=alice,recursive=true"],
+  });
+});
+
 Deno.test("weave matches the manifest-scoped alice bio referenced-woven fixture as a black-box CLI run", async () => {
   await assertWeaveTransitionMatchesManifest({
     manifestName: "09-alice-bio-referenced-woven.jsonld",
@@ -52,12 +68,43 @@ Deno.test("weave matches the manifest-scoped bob extracted woven fixture as a bl
   });
 });
 
+Deno.test("weave rejects unsupported --target fields", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-target-parse-");
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      "--target",
+      "designatorPath=alice/bio,stateSegment=v0.0.1",
+      "--workspace",
+      workspaceRoot,
+    ],
+    cwd: new URL(".", repoRoot),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assertEquals(output.success, false);
+  assert(
+    stderr.includes("weave --target[0].stateSegment is not supported"),
+    stderr,
+  );
+});
+
 async function assertWeaveTransitionMatchesManifest(
   options: {
     manifestName: string;
     expectedStdoutFragment: string;
     compareTextFiles?: boolean;
     compareWorkspaceTree?: boolean;
+    cliArgs?: readonly string[];
   },
 ): Promise<void> {
   const manifestPath = resolveMeshAliceBioConformanceManifestPath(
@@ -78,6 +125,7 @@ async function assertWeaveTransitionMatchesManifest(
       "--allow-write",
       "--allow-env",
       "src/main.ts",
+      ...(options.cliArgs ?? []),
       "--workspace",
       workspaceRoot,
     ],
