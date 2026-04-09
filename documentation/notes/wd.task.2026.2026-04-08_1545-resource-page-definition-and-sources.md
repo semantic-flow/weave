@@ -88,10 +88,11 @@ The renderer/template boundary also matters. Templates should stay relatively du
 The current recommendation from [[wd.task.2026.2026-04-08_1735-page-definition-ontology-and-config]] is:
 
 - `_knop/_page/page.ttl` should be modeled as a `ResourcePageDefinition` support artifact attached to the owning `Knop` with `hasResourcePageDefinition`.
+- the `_knop/_page` boundary itself should be modeled as a `ResourcePageBundle` attached to the owning `Knop` with `hasResourcePageBundle`
 - authored content composition should use `ResourcePageRegion` plus `hasResourcePageSource`, not a `Slot` vocabulary in core
 - local bundle file references should go through `ResourcePageBundleFile` plus `pageBundleRelativePath`, not raw path strings directly on a source node
 - `ResourcePageBundleFile` should remain a bundle-member helper concept, not a signal that every local file must be inventoried
-- `_knop/_page/_assets` should be modeled as a `ResourcePageAssetBundle` boundary resource attached with `hasPageAssetBundle`
+- `_knop/_page/_assets` should be modeled as a `ResourcePageAssetBundle` boundary resource attached from the `ResourcePageBundle` with `hasPageAssetBundle`
 - page-source selection should separate:
   - requested source target or state
   - source mode (`Pinned` vs `Current`)
@@ -105,7 +106,9 @@ Minimal shape:
 @prefix sflo: <https://semantic-flow.github.io/ontology/core/> .
 
 :pageDefinition a sflo:ResourcePageDefinition ;
-  sflo:hasPageRegion :mainRegion ;
+  sflo:hasPageRegion :mainRegion .
+
+:pageBundle a sflo:ResourcePageBundle ;
   sflo:hasPageAssetBundle :pageAssets .
 
 :mainRegion a sflo:ResourcePageRegion ;
@@ -147,6 +150,7 @@ Minimal shape:
 - `ResourcePageAssetBundle` is clearer than `AssetFolder` or `PageAssetFolder`.
 - `accept` should describe fallback policy, not replace the separate pinned-vs-current source mode axis.
 - Keeping both a bundle-level concept and a bundle-member `ResourcePageBundleFile` concept is acceptable as long as the file-level concept remains non-governance-bearing by default.
+- `ResourcePageBundle` is a better class name than `KnopPageResourceBundle`; the ownership semantics belong in `hasResourcePageBundle`.
 
 ## Contract Changes
 

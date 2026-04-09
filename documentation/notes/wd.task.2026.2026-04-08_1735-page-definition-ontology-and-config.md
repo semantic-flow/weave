@@ -85,17 +85,22 @@ The first pass should treat the `_knop/_page` manifest as a knop-owned support a
   - use `Region`, not `Slot`, because template slots belong in presentation config rather than in the content model
 - `ResourcePageSource`
   - per-region source binding plus per-source resolution policy
+- `ResourcePageBundle`
+  - local structural bundle boundary for `_knop/_page`
+  - owner-specificity belongs in `hasResourcePageBundle`, not in a class name such as `KnopPageResourceBundle`
 - `ResourcePageBundleFile`
-  - helper resource for local files under `_knop/_page`
+  - helper resource for local files within a `ResourcePageBundle`
   - keeps base semantics explicit instead of hiding them in ambiguous path literals
   - does not imply that every such file must be a governed artifact or a `KnopInventory` entry
 - `ResourcePageAssetBundle`
-  - helper resource for the `_knop/_page/_assets` boundary only
+  - nested local bundle boundary for `_knop/_page/_assets`
   - should not imply that every file under `_assets` becomes a governed artifact or a `KnopInventory` entry
 
 Recommended core properties:
 
 - `hasResourcePageDefinition`
+- `hasResourcePageBundle`
+- `hasPageBundleFile`
 - `hasPageRegion`
 - `regionKey`
 - `regionOrder`
@@ -103,7 +108,6 @@ Recommended core properties:
 - `sourceOrder`
 - `hasSourceBundleFile`
 - `hasSourceArtifact`
-- `hasSourceHistoricalState`
 - `hasSourceLocatedFile`
 - `hasSourceDistribution`
 - `pageBundleRelativePath`
@@ -125,6 +129,7 @@ Naming pushback:
 - Do not use `resourcePageSourceState` as the main property name. That blurs requested state, resolved state, and runtime outcome. `hasRequestedSourceState` is clearer.
 - Do not put `accept` into the mode enum alongside `exact` and `current`. `accept` belongs to fallback policy, not to the separate question of whether the source is pinned versus current-following.
 - Do not use a generic name such as `AssetFolder`. `ResourcePageAssetBundle` is explicit about scope and avoids implying a general filesystem-artifact ontology.
+- Do not use `KnopPageResourceBundle` as the class name. The owner is already captured by `Knop -> hasResourcePageBundle -> ResourcePageBundle`.
 
 ### Config ontology
 
@@ -148,10 +153,14 @@ Naming pushback:
 @prefix sflo: <https://semantic-flow.github.io/ontology/core/> .
 
 <https://example.org/alice/_knop> sflo:hasResourcePageDefinition :pageDefinition .
+<https://example.org/alice/_knop> sflo:hasResourcePageBundle :pageBundle .
+
+:pageBundle a sflo:ResourcePageBundle ;
+  sflo:hasPageBundleFile :sidebarFile ;
+  sflo:hasPageAssetBundle :pageAssets .
 
 :pageDefinition a sflo:ResourcePageDefinition ;
-  sflo:hasPageRegion :mainRegion, :sidebarRegion ;
-  sflo:hasPageAssetBundle :pageAssets .
+  sflo:hasPageRegion :mainRegion, :sidebarRegion .
 
 :mainRegion a sflo:ResourcePageRegion ;
   sflo:regionKey "main" ;
@@ -194,7 +203,8 @@ Naming pushback:
 - KnopInventory should remain about governed artifact surfaces, not every local support file under `_knop`.
 - The first-pass core content model should use `ResourcePageRegion`, not `ResourcePageSlot`.
 - Per-source state selection and fallback should be modeled as separate axes using `hasRequestedSourceState` and `hasResourcePageSourceFallbackPolicy`.
-- Local bundle sources should be modeled through `ResourcePageBundleFile` plus `pageBundleRelativePath` rather than raw path strings directly on `ResourcePageSource`.
+- Local bundle sources should be modeled through `ResourcePageBundle`, `ResourcePageBundleFile`, and `pageBundleRelativePath` rather than raw path strings directly on `ResourcePageSource`.
+- Use `ResourcePageBundle`, not `KnopPageResourceBundle`, as the class name for the whole `_knop/_page` boundary resource.
 - `ResourcePageBundleFile` is a structural helper concept only and should not by itself require or recommend recursive inventory capture.
 
 ## Contract Changes
