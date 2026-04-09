@@ -11,6 +11,7 @@ import {
   readMeshAliceBioBranchFile,
   resolveMeshAliceBioConformanceManifestPath,
 } from "../support/mesh_alice_bio_fixture.ts";
+import { bootstrapRootWovenWorkspace } from "../support/root_designator.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 const repoRoot = new URL("../../", import.meta.url);
@@ -98,6 +99,60 @@ Deno.test("weave knop add-reference matches the manifest-scoped alice-bio refere
 
   await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
   await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
+});
+
+Deno.test("weave knop add-reference accepts the root reference target as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-knop-add-reference-root-target-",
+  );
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await bootstrapRootWovenWorkspace(workspaceRoot);
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      "knop",
+      "add-reference",
+      "alice",
+      "--reference-target-designator-path",
+      "/",
+      "--reference-role",
+      "supplemental",
+      "--workspace",
+      workspaceRoot,
+    ],
+    cwd: new URL(".", repoRoot),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Added reference link"), stdout);
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/_knop/_references/references.ttl"),
+    ),
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+
+<alice> sflo:hasReferenceLink <alice/_knop/_references#reference001> .
+
+<alice/_knop/_references#reference001> a sflo:ReferenceLink ;
+  sflo:referenceLinkFor <alice> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Supplemental> ;
+  sflo:referenceTarget <> .
+`,
+  );
 });
 
 Deno.test("weave knop add-reference rejects a whitespace-only positional designatorPath before logging or execution", async () => {

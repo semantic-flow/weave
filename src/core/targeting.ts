@@ -73,7 +73,8 @@ export function resolveTargetSelections<T extends TargetSpec>(
     const matches = targets.filter((target) =>
       target.designatorPath === designatorPath ||
       (target.recursive &&
-        designatorPath.startsWith(`${target.designatorPath}/`))
+        (target.designatorPath.length === 0 ||
+          designatorPath.startsWith(`${target.designatorPath}/`)))
     );
     if (matches.length === 0) {
       continue;
@@ -169,6 +170,7 @@ function normalizeTarget(
     ),
     `${fieldName}.designatorPath`,
     createError,
+    { allowRoot: true },
   );
   const recursive = normalizeOptionalBoolean(
     record.recursive,

@@ -284,7 +284,7 @@ Deno.test("planKnopAddReference rejects unsafe designator segments before buildi
         currentKnopInventoryTurtle: wovenKnopInventory,
       }),
     KnopAddReferenceInputError,
-    'normalizeDesignatorPath rejected segment "alice:bio"',
+    'normalizeSafeDesignatorPath rejected segment "alice:bio"',
   );
 });
 

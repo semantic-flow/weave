@@ -14,6 +14,7 @@ import {
   MESH_ALICE_BIO_BASE,
   writeEquivalentMeshMetadata,
 } from "../support/mesh_metadata.ts";
+import { bootstrapRootWovenWorkspace } from "../support/root_designator.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 Deno.test("executeKnopAddReference matches the settled alice-bio referenced fixture", async () => {
@@ -82,6 +83,48 @@ Deno.test("executeKnopAddReference matches the settled alice-bio referenced fixt
   );
 });
 
+Deno.test("executeKnopAddReference accepts the root as a reference target", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-knop-add-reference-root-target-",
+  );
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await bootstrapRootWovenWorkspace(workspaceRoot);
+
+  const result = await executeKnopAddReference({
+    workspaceRoot,
+    request: {
+      designatorPath: "alice",
+      referenceTargetDesignatorPath: "",
+      referenceRole: "supplemental",
+    },
+  });
+
+  assertEquals(
+    result.referenceTargetIri,
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+  );
+  assertEquals(result.createdPaths, ["alice/_knop/_references/references.ttl"]);
+  assertEquals(result.updatedPaths, ["alice/_knop/_inventory/inventory.ttl"]);
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/_knop/_references/references.ttl"),
+    ),
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+
+<alice> sflo:hasReferenceLink <alice/_knop/_references#reference001> .
+
+<alice/_knop/_references#reference001> a sflo:ReferenceLink ;
+  sflo:referenceLinkFor <alice> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Supplemental> ;
+  sflo:referenceTarget <> .
+`,
+  );
+});
+
 Deno.test("executeKnopAddReference fails closed when the reference catalog working file already exists", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-knop-add-reference-existing-",
@@ -131,7 +174,7 @@ Deno.test("executeKnopAddReference rejects unsafe designator segments before tou
         },
       }),
     KnopAddReferenceRuntimeError,
-    'normalizeDesignatorPath rejected segment "alice:bio"',
+    'normalizeSafeDesignatorPath rejected segment "alice:bio"',
   );
 
   await assertRejects(

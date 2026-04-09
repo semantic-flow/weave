@@ -1,5 +1,10 @@
 import { dirname, join } from "@std/path";
 import { Parser, type Quad } from "n3";
+import {
+  formatDesignatorPathForDisplay,
+  toDesignatorResourcePagePath,
+  toKnopPath,
+} from "../../core/designator_segments.ts";
 import type { PlannedFile } from "../../core/planned_file.ts";
 import {
   type NormalizedTargetSpec,
@@ -111,6 +116,8 @@ interface PreparedVersionExecution {
   meshState: MeshState;
   plan: VersionPlan;
 }
+
+type TextFileOverlay = Map<string, string>;
 
 interface GenerateDesignatorContext {
   designatorPath: string;
@@ -231,7 +238,7 @@ export async function executeWeave(
   try {
     const validation = await executeValidate({
       workspaceRoot,
-      request: toValidateRequest(options.request),
+      request: toSharedTargetRequest(options.request),
     });
     if (validation.findings.length > 0) {
       throw new WeaveInputError(validation.findings[0]!.message);
@@ -245,6 +252,7 @@ export async function executeWeave(
 
     const generateResult = await executeGenerate({
       workspaceRoot,
+      request: toSharedTargetRequest(options.request),
     });
 
     const result: WeaveResult = {
@@ -300,6 +308,28 @@ export function describeWeaveResult(result: WeaveResult): string {
   return `Wove ${result.wovenDesignatorPaths.length} designator path and created ${result.createdPaths.length} files while updating ${result.updatedPaths.length} working artifacts.`;
 }
 
+export function describeValidateResult(result: ValidateResult): string {
+  const validatedLabel = result.validatedDesignatorPaths.length === 1
+    ? "designator path"
+    : "designator paths";
+  const findingLabel = result.findings.length === 1 ? "issue" : "issues";
+  return `Validated ${result.validatedDesignatorPaths.length} ${validatedLabel} and found ${result.findings.length} ${findingLabel}.`;
+}
+
+export function describeVersionResult(result: VersionResult): string {
+  const designatorLabel = result.versionedDesignatorPaths.length === 1
+    ? "designator path"
+    : "designator paths";
+  return `Versioned ${result.versionedDesignatorPaths.length} ${designatorLabel} and created ${result.createdPaths.length} files while updating ${result.updatedPaths.length} working artifacts.`;
+}
+
+export function describeGenerateResult(result: GenerateResult): string {
+  const designatorLabel = result.generatedDesignatorPaths.length === 1
+    ? "designator path"
+    : "designator paths";
+  return `Generated ${result.generatedDesignatorPaths.length} ${designatorLabel} and created ${result.createdPaths.length} files while updating ${result.updatedPaths.length} existing pages.`;
+}
+
 function resolveLoggers(
   options: ExecuteWeaveOptions,
 ): {
@@ -342,15 +372,26 @@ function normalizeVersionRequest(
   );
 }
 
-function toValidateRequest(
+function toSharedTargetRequest(
   request: WeaveRequest | undefined,
 ): ValidateRequest | undefined {
   if (!request) {
     return undefined;
   }
 
+  // executeWeave runs validate -> version -> generate as separate phases. Keep
+  // this bridge normalized through the version-target parser first so shared
+  // validate/generate targeting stays semantically aligned with version
+  // targeting as the request shape evolves.
+  assertSupportedRequestKeys(request, "request", new Set(["targets"]));
+  const normalizedTargets = normalizeVersionTargetSpecs(
+    request.targets,
+    "request.targets",
+    (message) => new WeaveInputError(message),
+  );
+
   return {
-    targets: request.targets?.map((target) => ({
+    targets: normalizedTargets.map((target) => ({
       designatorPath: target.designatorPath,
       ...(target.recursive ? { recursive: true } : {}),
     })),
@@ -382,33 +423,171 @@ async function prepareVersionExecution(
 ): Promise<PreparedVersionExecution> {
   await ensureWorkspaceRootExists(workspaceRoot);
   const meshState = await loadMeshState(workspaceRoot);
-  const selectedDesignatorPaths = resolveSelectedDesignatorPaths(
-    listKnopDesignatorPaths(
-      meshState.meshBase,
-      meshState.currentMeshInventoryTurtle,
-      "Could not parse the current MeshInventory while resolving weaveable Knop candidates.",
-    ),
-    targets,
+  const allDesignatorPaths = listKnopDesignatorPaths(
+    meshState.meshBase,
+    meshState.currentMeshInventoryTurtle,
+    "Could not parse the current MeshInventory while resolving weaveable Knop candidates.",
   );
-  const weaveableKnops = await loadWeaveableKnopCandidates(
+  const resolvedTargets = targets.length === 0 ? [] : resolveTargetSelections(
+    allDesignatorPaths,
+    targets,
+    (message) => new WeaveInputError(message),
+  );
+  const requestedDesignatorPaths = resolvedTargets.map((selection) =>
+    selection.designatorPath
+  );
+  const targetByDesignatorPath = new Map(
+    resolvedTargets.map((selection) => [
+      selection.designatorPath,
+      selection.target as NormalizedVersionTargetSpec | undefined,
+    ]),
+  );
+  const overlay: TextFileOverlay = new Map();
+  const initialWeaveableKnops = await loadWeaveableKnopCandidates(
     workspaceRoot,
     meshState.meshBase,
     meshState.currentMeshInventoryTurtle,
-    selectedDesignatorPaths,
+    requestedDesignatorPaths,
+    overlay,
   );
-  const plan = planVersion({
-    request: {
-      targets: targets.map((target) => ({ ...target.source })),
-    },
+  assertRequestedTargetsAreWeaveable(
+    targets,
+    initialWeaveableKnops,
+  );
+
+  if (initialWeaveableKnops.length === 0) {
+    throw new WeaveInputError(
+      targets.length === 0
+        ? "No weave candidates were found."
+        : "Requested targets did not match any weave candidates.",
+    );
+  }
+
+  const remainingDesignatorPaths = initialWeaveableKnops.map((candidate) =>
+    candidate.designatorPath
+  );
+  const createdFiles: PlannedFile[] = [];
+  const createdPaths = new Set<string>();
+  const updatedFileByPath = new Map<string, PlannedFile>();
+  const updatedPathOrder: string[] = [];
+  const versionedDesignatorPaths: string[] = [];
+
+  while (remainingDesignatorPaths.length > 0) {
+    const stagedMeshState = await loadMeshState(workspaceRoot, overlay);
+    const stagedWeaveableKnops = await loadWeaveableKnopCandidates(
+      workspaceRoot,
+      stagedMeshState.meshBase,
+      stagedMeshState.currentMeshInventoryTurtle,
+      remainingDesignatorPaths,
+      overlay,
+    );
+
+    if (stagedWeaveableKnops.length === 0) {
+      throw new WeaveInputError(
+        `Recursive version planning could not continue cleanly for the remaining targets: ${
+          remainingDesignatorPaths.join(", ")
+        }.`,
+      );
+    }
+
+    const nextCandidate = stagedWeaveableKnops[0]!;
+    const nextDesignatorPath = nextCandidate.designatorPath;
+    const target = targetByDesignatorPath.get(nextDesignatorPath);
+    const nextPlan = planVersion({
+      request: target ? { targets: [{ ...target.source }] } : {},
+      meshBase: stagedMeshState.meshBase,
+      currentMeshInventoryTurtle: stagedMeshState.currentMeshInventoryTurtle,
+      weaveableKnops: [nextCandidate],
+    });
+
+    for (const file of nextPlan.createdFiles) {
+      if (createdPaths.has(file.path) || updatedFileByPath.has(file.path)) {
+        throw new WeaveInputError(
+          `Recursive version planning produced a conflicting created file: ${file.path}`,
+        );
+      }
+      createdFiles.push(file);
+      createdPaths.add(file.path);
+    }
+
+    for (const file of nextPlan.updatedFiles) {
+      if (createdPaths.has(file.path)) {
+        throw new WeaveInputError(
+          `Recursive version planning attempted to update a newly created file: ${file.path}`,
+        );
+      }
+      if (!updatedFileByPath.has(file.path)) {
+        updatedPathOrder.push(file.path);
+      }
+      updatedFileByPath.set(file.path, file);
+    }
+
+    versionedDesignatorPaths.push(...nextPlan.versionedDesignatorPaths);
+    applyPlannedFilesToOverlay(workspaceRoot, overlay, nextPlan.createdFiles);
+    applyPlannedFilesToOverlay(workspaceRoot, overlay, nextPlan.updatedFiles);
+
+    const completedPath = nextPlan.versionedDesignatorPaths[0]!;
+    const completedIndex = remainingDesignatorPaths.indexOf(completedPath);
+    if (completedIndex < 0) {
+      throw new WeaveInputError(
+        `Recursive version planning lost track of ${completedPath}.`,
+      );
+    }
+    remainingDesignatorPaths.splice(completedIndex, 1);
+  }
+
+  const plan: VersionPlan = {
     meshBase: meshState.meshBase,
-    currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
-    weaveableKnops,
-  });
+    versionedDesignatorPaths,
+    createdFiles,
+    updatedFiles: updatedPathOrder.map((path) => updatedFileByPath.get(path)!),
+  };
 
   return {
     meshState,
     plan,
   };
+}
+
+function assertRequestedTargetsAreWeaveable(
+  targets: readonly NormalizedVersionTargetSpec[],
+  weaveableKnops: readonly WeaveableKnopCandidate[],
+): void {
+  if (targets.length === 0) {
+    return;
+  }
+
+  const weaveablePaths = new Set(
+    weaveableKnops.map((candidate) => candidate.designatorPath),
+  );
+  // Exact and recursive targets intentionally differ here. An exact request is
+  // asking for that designator itself to be versionable right now, while a
+  // recursive request is allowed to succeed when any descendant in the
+  // requested subtree is weaveable even if the subtree root is already settled.
+  const missingTargets = targets.filter((target) =>
+    target.recursive
+      ? ![...weaveablePaths].some((designatorPath) =>
+        target.designatorPath.length === 0 ||
+        designatorPath === target.designatorPath ||
+        designatorPath.startsWith(`${target.designatorPath}/`)
+      )
+      : !weaveablePaths.has(target.designatorPath)
+  );
+  if (missingTargets.length === 0) {
+    return;
+  }
+
+  throw new WeaveInputError(
+    `Requested targets are not currently weaveable: ${
+      missingTargets.map((target) =>
+        target.recursive
+          ? `${
+            formatDesignatorPathForDisplay(target.designatorPath)
+          } (recursive)`
+          : formatDesignatorPathForDisplay(target.designatorPath)
+      ).join(", ")
+    }.`,
+  );
 }
 
 function toNormalizedVersionTargets(
@@ -456,6 +635,7 @@ async function ensureWorkspaceRootExists(workspaceRoot: string): Promise<void> {
 
 async function loadMeshState(
   workspaceRoot: string,
+  overlay?: ReadonlyMap<string, string>,
 ): Promise<MeshState> {
   const meshMetadataPath = join(workspaceRoot, "_mesh/_meta/meta.ttl");
   const meshInventoryPath = join(
@@ -467,8 +647,8 @@ async function loadMeshState(
 
   try {
     [meshMetadataTurtle, currentMeshInventoryTurtle] = await Promise.all([
-      Deno.readTextFile(meshMetadataPath),
-      Deno.readTextFile(meshInventoryPath),
+      readTextFileWithOverlay(meshMetadataPath, overlay),
+      readTextFileWithOverlay(meshInventoryPath, overlay),
     ]);
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
@@ -505,6 +685,7 @@ async function loadWeaveableKnopCandidates(
   meshBase: string,
   currentMeshInventoryTurtle: string,
   requestedDesignatorPaths: readonly string[],
+  overlay?: ReadonlyMap<string, string>,
 ): Promise<readonly WeaveableKnopCandidate[]> {
   const designatorPaths = listKnopDesignatorPaths(
     meshBase,
@@ -519,7 +700,7 @@ async function loadWeaveableKnopCandidates(
       continue;
     }
 
-    const knopPath = `${designatorPath}/_knop`;
+    const knopPath = toKnopPath(designatorPath);
     const metadataPath = join(workspaceRoot, `${knopPath}/_meta/meta.ttl`);
     const inventoryPath = join(
       workspaceRoot,
@@ -531,8 +712,8 @@ async function loadWeaveableKnopCandidates(
     try {
       [currentKnopMetadataTurtle, currentKnopInventoryTurtle] = await Promise
         .all([
-          Deno.readTextFile(metadataPath),
-          Deno.readTextFile(inventoryPath),
+          readTextFileWithOverlay(metadataPath, overlay),
+          readTextFileWithOverlay(inventoryPath, overlay),
         ]);
     } catch (error) {
       if (error instanceof Deno.errors.NotFound) {
@@ -565,6 +746,7 @@ async function loadWeaveableKnopCandidates(
         meshBase,
         designatorPath,
         currentKnopInventoryTurtle,
+        overlay,
       );
     }
 
@@ -578,6 +760,7 @@ async function loadWeaveableKnopCandidates(
           meshBase,
           designatorPath,
           currentKnopInventoryTurtle,
+          overlay,
         );
     }
 
@@ -588,6 +771,7 @@ async function loadWeaveableKnopCandidates(
           meshBase,
           designatorPath,
           candidate.referenceCatalogArtifact,
+          overlay,
         );
     }
 
@@ -608,6 +792,7 @@ async function loadPayloadWorkingArtifact(
   meshBase: string,
   designatorPath: string,
   currentKnopInventoryTurtle: string,
+  overlay?: ReadonlyMap<string, string>,
 ): Promise<PayloadWorkingArtifact | undefined> {
   const payloadArtifact = resolvePayloadArtifactInventoryState(
     meshBase,
@@ -624,6 +809,7 @@ async function loadPayloadWorkingArtifact(
     return undefined;
   }
   const workingFilePath = payloadArtifact.workingFilePath;
+  const currentArtifactHistoryPath = payloadArtifact.currentArtifactHistoryPath;
   const latestHistoricalStatePath = payloadArtifact.currentArtifactHistoryExists
     ? payloadArtifact.latestHistoricalStatePath
     : undefined;
@@ -631,11 +817,8 @@ async function loadPayloadWorkingArtifact(
     ? join(
       workspaceRoot,
       toPayloadHistoricalSnapshotPath(
-        designatorPath,
+        latestHistoricalStatePath,
         workingFilePath,
-        latestHistoricalStatePath.slice(
-          latestHistoricalStatePath.lastIndexOf("/") + 1,
-        ),
       ),
     )
     : undefined;
@@ -643,8 +826,9 @@ async function loadPayloadWorkingArtifact(
   let currentPayloadTurtle: string;
   let latestHistoricalSnapshotTurtle: string | undefined;
   try {
-    currentPayloadTurtle = await Deno.readTextFile(
+    currentPayloadTurtle = await readTextFileWithOverlay(
       join(workspaceRoot, workingFilePath),
+      overlay,
     );
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
@@ -657,17 +841,17 @@ async function loadPayloadWorkingArtifact(
 
   if (latestHistoricalSnapshotPath) {
     try {
-      latestHistoricalSnapshotTurtle = await Deno.readTextFile(
+      latestHistoricalSnapshotTurtle = await readTextFileWithOverlay(
         latestHistoricalSnapshotPath,
+        overlay,
       );
     } catch (error) {
       if (error instanceof Deno.errors.NotFound) {
         throw new WeaveRuntimeError(
           `Workspace is missing the latest payload historical snapshot for ${designatorPath}: ${
             toPayloadHistoricalSnapshotPath(
-              designatorPath,
+              latestHistoricalStatePath!,
               workingFilePath,
-              "_s0001",
             )
           }`,
         );
@@ -679,6 +863,7 @@ async function loadPayloadWorkingArtifact(
   return {
     workingFilePath,
     currentPayloadTurtle,
+    currentArtifactHistoryPath,
     latestHistoricalSnapshotTurtle,
     latestHistoricalStatePath,
   };
@@ -689,6 +874,7 @@ async function loadReferenceTargetSourcePayloadArtifact(
   meshBase: string,
   designatorPath: string,
   referenceCatalogArtifact: ReferenceCatalogWorkingArtifact | undefined,
+  overlay?: ReadonlyMap<string, string>,
 ): Promise<WeaveableKnopCandidate["referenceTargetSourcePayloadArtifact"]> {
   if (!referenceCatalogArtifact) {
     return undefined;
@@ -709,18 +895,21 @@ async function loadReferenceTargetSourcePayloadArtifact(
   );
   const sourceKnopInventoryPath = join(
     workspaceRoot,
-    `${sourceDesignatorPath}/_knop/_inventory/inventory.ttl`,
+    `${toKnopPath(sourceDesignatorPath)}/_inventory/inventory.ttl`,
   );
   let sourceKnopInventoryTurtle: string;
 
   try {
-    sourceKnopInventoryTurtle = await Deno.readTextFile(
+    sourceKnopInventoryTurtle = await readTextFileWithOverlay(
       sourceKnopInventoryPath,
+      overlay,
     );
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new WeaveRuntimeError(
-        `Workspace is missing the woven source payload inventory for ${designatorPath}: ${sourceDesignatorPath}/_knop/_inventory/inventory.ttl`,
+        `Workspace is missing the woven source payload inventory for ${designatorPath}: ${
+          toKnopPath(sourceDesignatorPath)
+        }/_inventory/inventory.ttl`,
       );
     }
     throw error;
@@ -731,6 +920,7 @@ async function loadReferenceTargetSourcePayloadArtifact(
     meshBase,
     sourceDesignatorPath,
     sourceKnopInventoryTurtle,
+    overlay,
   );
   if (!sourcePayloadArtifact?.latestHistoricalStatePath) {
     throw new WeaveRuntimeError(
@@ -751,6 +941,7 @@ async function loadReferenceCatalogWorkingArtifact(
   meshBase: string,
   designatorPath: string,
   currentKnopInventoryTurtle: string,
+  overlay?: ReadonlyMap<string, string>,
 ): Promise<ReferenceCatalogWorkingArtifact | undefined> {
   const referenceCatalog = resolveReferenceCatalogInventoryState(
     meshBase,
@@ -770,8 +961,9 @@ async function loadReferenceCatalogWorkingArtifact(
   try {
     return {
       workingFilePath,
-      currentReferenceCatalogTurtle: await Deno.readTextFile(
+      currentReferenceCatalogTurtle: await readTextFileWithOverlay(
         join(workspaceRoot, workingFilePath),
+        overlay,
       ),
     };
   } catch (error) {
@@ -847,6 +1039,28 @@ async function assertCreateTargetsDoNotExist(
   }
 }
 
+function applyPlannedFilesToOverlay(
+  workspaceRoot: string,
+  overlay: TextFileOverlay,
+  files: readonly PlannedFile[],
+): void {
+  for (const file of files) {
+    overlay.set(join(workspaceRoot, file.path), file.contents);
+  }
+}
+
+async function readTextFileWithOverlay(
+  path: string,
+  overlay?: ReadonlyMap<string, string>,
+): Promise<string> {
+  const stagedContents = overlay?.get(path);
+  if (stagedContents !== undefined) {
+    return stagedContents;
+  }
+
+  return await Deno.readTextFile(path);
+}
+
 function validateRdfFiles(files: readonly PlannedFile[]): void {
   const parser = new Parser();
 
@@ -887,7 +1101,7 @@ async function collectGeneratedPageFiles(
   );
   const publicIdentifierPaths = new Map(
     designatorContexts.map((context) => [
-      `${context.designatorPath}/index.html`,
+      toDesignatorResourcePagePath(context.designatorPath),
       context,
     ]),
   );
@@ -972,7 +1186,7 @@ async function loadGenerateDesignatorContexts(
   for (const designatorPath of designatorPaths) {
     const knopInventoryPath = join(
       workspaceRoot,
-      `${designatorPath}/_knop/_inventory/inventory.ttl`,
+      `${toKnopPath(designatorPath)}/_inventory/inventory.ttl`,
     );
     let currentKnopInventoryTurtle: string;
 
@@ -1032,7 +1246,10 @@ function listResourcePagePaths(
     }
 
     const pagePath = tryToMeshPath(meshBase, quad.object.value);
-    if (!pagePath?.endsWith("/index.html")) {
+    if (pagePath === undefined) {
+      continue;
+    }
+    if (pagePath !== "index.html" && !pagePath.endsWith("/index.html")) {
       continue;
     }
 
@@ -1064,19 +1281,21 @@ function tryToMeshPath(meshBase: string, iri: string): string | undefined {
 }
 
 function toResourcePath(pagePath: string): string {
+  if (pagePath === "index.html") {
+    return "";
+  }
   return pagePath.endsWith("/index.html")
     ? pagePath.slice(0, -"/index.html".length)
     : pagePath;
 }
 
 function toPayloadHistoricalSnapshotPath(
-  designatorPath: string,
+  historyStatePath: string,
   workingFilePath: string,
-  stateSegment: string,
 ): string {
   const fileName = toFileName(workingFilePath);
   const manifestationSegment = fileName.replaceAll(".", "-");
-  return `${designatorPath}/_history001/${stateSegment}/${manifestationSegment}/${fileName}`;
+  return `${historyStatePath}/${manifestationSegment}/${fileName}`;
 }
 
 function toFileName(path: string): string {

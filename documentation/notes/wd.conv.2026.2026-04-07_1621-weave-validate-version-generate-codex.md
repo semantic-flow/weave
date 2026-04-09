@@ -431,3 +431,52 @@ refactor(weave): remove duplicate target normalization in runtime seam
 # User_2026-04-07_1750_45
 
 we're still on the validate-version-generate-rereview -- do I need to do anything special to mege to main?
+
+# User_2026-04-07_1753_56
+
+help me clean up those temporary branches
+
+# gpt-5.4_2026-04-07_1754_12
+
+I’m checking the current branch graph and merged status first so I can tell the temporary review branches apart from anything you may still want to keep, then I’ll clean up the obvious ones.
+
+# gpt-5.4_2026-04-07_1754_17
+
+I found the merged temporary branches. I’m leaving your current `targeting` branch alone and deleting only the old review branches: the local `cr/*` branches plus the old `validate-version-generate*` branches, and the matching remote temp branches.
+
+# gpt-5.4_2026-04-07_1754_22
+
+The local cleanup is done. I’m removing the matching remote temp branches next, then I’ll show you what remains.
+
+# gpt-5.4_2026-04-07_1754_30
+
+Two of the remote temp refs were already gone, so Git aborted that delete batch early. I’m checking the remaining remote refs and deleting only what still exists.
+
+# gpt-5.4_2026-04-07_1754_41
+
+The only remote temp branch left was `origin/validate-version-generate`. I’ve sent that delete now; then I’ll do one last prune/list so you have the final state.
+
+# gpt-5.4_2026-04-07_1754_53
+
+Cleaned up the temporary review branches.
+
+What remains locally:
+- `main`
+- `targeting`
+
+What remains remotely:
+- `origin/main`
+
+Current branch is still `targeting`, and the only uncommitted change is:
+- [wd.conv.2026.2026-04-07_1621-weave-validate-version-generate-codex.md](wd.conv.2026.2026-04-07_1621-weave-validate-version-generate-codex.md)
+
+Deleted local branches:
+- `cr/validate-version-generate-base`
+- `cr/validate-version-generate-review`
+- `validate-version-generate`
+- `validate-version-generate-review`
+
+Deleted remote branch:
+- `origin/validate-version-generate`
+
+The old `cr/*` remote refs were already gone and disappeared after `git fetch --prune`.

@@ -2,18 +2,31 @@
 id: g8nk8rv3jwqqjxyd4pgjkox
 title: Roadmap
 desc: ''
-updated: 1775544985545
 created: 1773889263552
 ---
 
-## Near-term
+## Priority Queue
 
-- allow naming of histories and states
-- 
+- `[importance: high] [how-soon: now]` Define the ontology and next-generation config vocabulary for customizable resource pages before implementing the runtime/model changes. This should cover `ResourcePageDefinition`, page regions/sources, per-source state/mode/fallback policy, and a bundle-level metadata resource for `_knop/_page/_assets`. Reuse the good parts of the older template/config ideas without reviving the regex-heavy monolithic mapping model. See [[wd.task.2026.2026-04-08_1735-page-definition-ontology-and-config]].
+- `[importance: high] [how-soon: now]` Decide how `_knop/_page/_assets` is represented in ontology and config: probably as a page-local asset bundle or folder resource with metadata, but not as a signal to inventory every bundled file as a governed artifact. See [[wd.task.2026.2026-04-08_1735-page-definition-ontology-and-config]].
+- `[importance: high] [how-soon: next]` Refactor [[wd.codebase-overview|runtime weave]] orchestration in `src/runtime/weave/weave.ts` into smaller seams for request normalization, staged version planning, candidate loading, shared target-coverage rules, and page-generation orchestration. The current file is too large and currently carries multiple correctness-sensitive policies. See [[wd.task.2026.2026-04-08_1615-weave-orchestration-refactor]].
+- `[importance: high] [how-soon: next]` Unify weave target preparation across `validate`, `version`, `generate`, and `executeWeave` so target normalization and selection happen once. This removes the current drift risk where one phase can learn new target semantics before the others do. See [[wd.task.2026.2026-04-08_1615-weave-orchestration-refactor]].
+- `[importance: high] [how-soon: next]` Introduce a knop-owned `ResourcePageDefinition`-style bundle under `_knop/_page` so identifiers such as `alice/` can have a customized public page without pretending the identifier itself is a payload-bearing DigitalArtifact. Keep control metadata local while allowing page content to come from sibling files, in-mesh artifacts, or explicitly allowed external sources. See [[wd.task.2026.2026-04-08_1545-resource-page-definition-and-sources]].
+- `[importance: high] [how-soon: next]` Attach state, mode, and fallback policy to each `resourcePageSource`, not just to the page as a whole, so different page regions can resolve different source artifacts independently. Favor `accept`-style vocabulary over loose boolean flags, and reuse existing artifact/version/distribution concepts where possible instead of inventing package-manager-like semantics. See [[wd.task.2026.2026-04-08_1545-resource-page-definition-and-sources]].
+- `[importance: high] [how-soon: next]` Let `_knop/_page` optionally point at an independently versioned DigitalArtifact identifier, including an identifier outside the current mesh, but keep the local knop-owned `_page` artifact authoritative about how that source is resolved and rendered. See [[wd.task.2026.2026-04-08_1545-resource-page-definition-and-sources]].
+- `[importance: high] [how-soon: next]` Define the security and resolution policy for extra-mesh page sources and other extra-mesh working files: allowed schemes, pinning requirements, caching, offline behavior, HTML/script safety, and fail-closed error handling. See [[wd.task.2026.2026-04-08_1545-resource-page-definition-and-sources]].
+- `[importance: high] [how-soon: next]` Keep `_knop/_page/_assets` as a local ahistorical bundle area even if the bundle itself gains metadata in ontology/config. If an asset needs independent versioning, publication, or reuse, make it a separate payload artifact and reference it from the page definition rather than trying to version `_assets` directly. See [[wd.task.2026.2026-04-08_1545-resource-page-definition-and-sources]].
+- `[importance: high] [how-soon: next]` Move page HTML construction fully into runtime rendering seams. Core weave planning should emit page models only, and the existing `alice/index.html` special-case builders should be retired in favor of a more general page model and renderer.
+- `[importance: medium] [how-soon: next]` Keep templates and chrome policy adjacent to, but separate from, page-content composition. Renderer code should compute breadcrumbs, nav slices, and any optional search inputs; templates should render structured inputs rather than turning page generation into a client/runtime framework. See [[wd.task.2026.2026-04-08_1545-resource-page-definition-and-sources]].
+- `[importance: medium] [how-soon: next]` Write a behavior spec for root lifecycle and customizable identifier pages, then add Accord acceptance coverage for those behaviors.
+- `[importance: medium] [how-soon: next]` Extend the `mesh-alice-bio` fixture ladder with page-customization transitions such as `14-alice-page-customized` and `15-alice-page-customized-woven`.
+- `[importance: medium] [how-soon: next]` Start a separate root-focused fixture ladder or branch from an early mesh state for empty-root behavior. Root isolation is worth testing, but it should not be conflated with the late Alice/Bio extracted-resource ladder.
+- `[importance: medium] [how-soon: later]` Add reusable fixture helpers for root-sourced extract and page-customization scenarios so tests do not need to hand-build synthetic Turtle shapes repeatedly.
+- `[importance: medium] [how-soon: later]` Continue replacing raw designator-path concatenation and prefix checks with shared helpers from `src/core/designator_segments.ts` to reduce future root-path regressions.
+- `[importance: medium] [how-soon: later]` Replace remaining subject-level canonical rewrites with graph-preserving updates when richer mesh inventories and support surfaces are expected.
+- `[importance: medium] [how-soon: later]` Expand templating and chrome controls for generated pages, including per-page preferences and mesh-level defaults.
+- `[importance: low] [how-soon: later]` Add local and inheritable config once the artifact and page model is stable enough to justify configuration surface area.
 
+## Multiple Histories
 
-## Longer-term
-
-- support HTML as DigitalArtifact that can still be optionally chromed 
-- config (local and inheritable)
-- templating / dynamic chrome inclusion and nav/TOC
+see [[wd.conv.2026.2026-04-07_1854-weave-targeting-codex#gpt-54_2026-04-07_2037_36]]

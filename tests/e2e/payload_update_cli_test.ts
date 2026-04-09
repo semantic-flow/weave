@@ -11,6 +11,10 @@ import {
   readMeshAliceBioBranchFile,
   resolveMeshAliceBioConformanceManifestPath,
 } from "../support/mesh_alice_bio_fixture.ts";
+import {
+  bootstrapRootWovenWorkspace,
+  ROOT_PAYLOAD_TURTLE_V2,
+} from "../support/root_designator.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 const repoRoot = new URL("../../", import.meta.url);
@@ -103,6 +107,52 @@ Deno.test("weave payload update matches the manifest-scoped alice-bio updated fi
 
   await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
   await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
+});
+
+Deno.test("weave payload update accepts the root designator path as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-payload-update-root-",
+  );
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await bootstrapRootWovenWorkspace(workspaceRoot);
+
+  const sourceRoot = await createTestTmpDir(
+    "weave-e2e-payload-update-root-source-",
+  );
+  const sourcePath = join(sourceRoot, "root-v2.ttl");
+  await Deno.writeTextFile(sourcePath, ROOT_PAYLOAD_TURTLE_V2);
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      "payload",
+      "update",
+      sourcePath,
+      "/",
+      "--workspace",
+      workspaceRoot,
+    ],
+    cwd: new URL(".", repoRoot),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Updated payload"), stdout);
+  assertEquals(
+    await Deno.readTextFile(join(workspaceRoot, "root.ttl")),
+    ROOT_PAYLOAD_TURTLE_V2,
+  );
 });
 
 Deno.test("weave payload update rejects conflicting designator paths before logging or execution", async () => {

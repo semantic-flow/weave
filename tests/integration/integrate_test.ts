@@ -1,4 +1,4 @@
-import { assertEquals, assertRejects } from "@std/assert";
+import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import {
   executeIntegrate,
@@ -12,6 +12,10 @@ import {
   MESH_ALICE_BIO_BASE,
   writeEquivalentMeshMetadata,
 } from "../support/mesh_metadata.ts";
+import {
+  ROOT_PAYLOAD_TURTLE,
+  ROOT_WORKING_FILE_PATH,
+} from "../support/root_designator.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 Deno.test("executeIntegrate matches the settled alice-bio integrated fixture", async () => {
@@ -72,6 +76,53 @@ Deno.test("executeIntegrate matches the settled alice-bio integrated fixture", a
       "06-alice-bio-integrated",
       "alice-bio.ttl",
     ),
+  );
+});
+
+Deno.test("executeIntegrate supports the root designator path", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-integrate-root-");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await Deno.writeTextFile(
+    join(workspaceRoot, ROOT_WORKING_FILE_PATH),
+    ROOT_PAYLOAD_TURTLE,
+  );
+
+  const result = await executeIntegrate({
+    workspaceRoot,
+    request: {
+      designatorPath: "",
+      source: ROOT_WORKING_FILE_PATH,
+    },
+  });
+
+  assertEquals(result.designatorPath, "");
+  assertEquals(result.workingFilePath, ROOT_WORKING_FILE_PATH);
+  assertEquals(
+    [...result.createdPaths].sort(),
+    [
+      "_knop/_inventory/inventory.ttl",
+      "_knop/_meta/meta.ttl",
+    ],
+  );
+  assertEquals(result.updatedPaths, ["_mesh/_inventory/inventory.ttl"]);
+  assertEquals(
+    await Deno.readTextFile(join(workspaceRoot, ROOT_WORKING_FILE_PATH)),
+    ROOT_PAYLOAD_TURTLE,
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "_knop/_inventory/inventory.ttl"),
+    ),
+    "sflo:hasPayloadArtifact <> .",
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+    ),
+    "sflo:hasKnop <_knop> ;",
   );
 });
 

@@ -1,4 +1,8 @@
 import { Parser, type Quad } from "n3";
+import {
+  toKnopPath,
+  toReferenceCatalogPath,
+} from "../../core/designator_segments.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const SFLO_NAMESPACE =
@@ -52,16 +56,16 @@ export function listKnopDesignatorPaths(
     }
 
     const subjectPath = tryToMeshPath(meshBase, quad.subject.value);
-    if (!subjectPath?.endsWith("/_knop")) {
+    if (subjectPath === undefined) {
+      continue;
+    }
+    if (subjectPath !== "_knop" && !subjectPath.endsWith("/_knop")) {
       continue;
     }
 
-    const designatorPath = subjectPath.slice(0, -"/_knop".length);
-    if (designatorPath.length === 0) {
-      continue;
-    }
-
-    designatorPaths.add(designatorPath);
+    designatorPaths.add(
+      subjectPath === "_knop" ? "" : subjectPath.slice(0, -"/_knop".length),
+    );
   }
 
   return [...designatorPaths].sort((left, right) => left.localeCompare(right));
@@ -81,7 +85,7 @@ export function resolvePayloadArtifactInventoryState(
     inventoryTurtle,
     messages.parseErrorMessage,
   );
-  const knopIri = toMeshIri(meshBase, `${designatorPath}/_knop`);
+  const knopIri = toMeshIri(meshBase, toKnopPath(designatorPath));
   const payloadArtifactIri = toMeshIri(meshBase, designatorPath);
 
   if (
@@ -150,10 +154,10 @@ export function resolveReferenceCatalogInventoryState(
     inventoryTurtle,
     messages.parseErrorMessage,
   );
-  const knopIri = toMeshIri(meshBase, `${designatorPath}/_knop`);
+  const knopIri = toMeshIri(meshBase, toKnopPath(designatorPath));
   const referenceCatalogIri = toMeshIri(
     meshBase,
-    `${designatorPath}/_knop/_references`,
+    toReferenceCatalogPath(designatorPath),
   );
 
   if (
@@ -194,7 +198,7 @@ export function resolveReferenceTargetDesignatorPath(
     messages.parseErrorMessage,
   );
   const linkSubjectPrefix = `${
-    toMeshIri(meshBase, `${designatorPath}/_knop/_references`)
+    toMeshIri(meshBase, toReferenceCatalogPath(designatorPath))
   }#`;
   const designatorIri = toMeshIri(meshBase, designatorPath);
   const linkSubjects = new Set<string>();
@@ -316,7 +320,7 @@ function requireUniqueNamedNodePath(
     errorMessage,
   );
 
-  if (!value) {
+  if (value === undefined) {
     throw new Error(errorMessage);
   }
 
@@ -365,7 +369,7 @@ function requireMeshPath(
   errorMessage: string,
 ): string {
   const meshPath = tryToMeshPath(meshBase, iri);
-  if (!meshPath) {
+  if (meshPath === undefined) {
     throw new Error(errorMessage);
   }
   return meshPath;
@@ -377,11 +381,7 @@ function tryToMeshPath(meshBase: string, iri: string): string | undefined {
   }
 
   const meshPath = iri.slice(meshBase.length);
-  if (
-    meshPath.length === 0 ||
-    meshPath.includes("#") ||
-    meshPath.includes("?")
-  ) {
+  if (meshPath.includes("#") || meshPath.includes("?")) {
     return undefined;
   }
 

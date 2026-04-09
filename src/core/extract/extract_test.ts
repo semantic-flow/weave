@@ -3,6 +3,35 @@ import { readMeshAliceBioBranchFile } from "../../../tests/support/mesh_alice_bi
 import { ExtractInputError, planExtract } from "./extract.ts";
 import { KnopCreateInputError } from "../knop/create.ts";
 
+const rootSourcePreExtractMeshInventoryTurtle =
+  `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<_mesh> a sflo:SemanticMesh ;
+  sflo:meshBase "https://semantic-flow.github.io/mesh-alice-bio/"^^xsd:anyURI ;
+  sflo:hasMeshMetadata <_mesh/_meta> ;
+  sflo:hasMeshInventory <_mesh/_inventory> ;
+  sflo:hasKnop <_knop> ;
+  sflo:hasResourcePage <_mesh/index.html> .
+
+<> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <root-person.ttl> ;
+  sflo:hasResourcePage <index.html> .
+
+<_knop> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <_knop/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <_knop/index.html> .
+
+<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument .
+
+<_mesh/_inventory/_history001>
+  sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0003> ;
+  sflo:nextStateOrdinal "4"^^xsd:nonNegativeInteger .
+
+<root-person.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+`;
+
 Deno.test("planExtract renders the first non-woven bob extraction artifacts", async () => {
   const plan = planExtract({
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
@@ -77,6 +106,78 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
       "12-bob-extracted",
       "_mesh/_inventory/inventory.ttl",
     ),
+  );
+});
+
+Deno.test("planExtract accepts a root source payload when the root and source knops are the same", () => {
+  const plan = planExtract({
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: rootSourcePreExtractMeshInventoryTurtle,
+    designatorPath: "alice/bio",
+    referenceTargetDesignatorPath: "",
+    referenceTargetStatePath: "_history001/_s0001",
+    referenceTargetWorkingFilePath: "root-person.ttl",
+  });
+
+  assertEquals(
+    plan.createdFiles.map((file) => file.path),
+    [
+      "alice/bio/_knop/_meta/meta.ttl",
+      "alice/bio/_knop/_inventory/inventory.ttl",
+      "alice/bio/_knop/_references/references.ttl",
+    ],
+  );
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    `sflo:hasKnop <_knop> ;
+  sflo:hasKnop <alice/bio/_knop> ;`,
+  );
+  assertEquals(
+    countOccurrences(
+      plan.updatedFiles[0]?.contents ?? "",
+      "sflo:hasKnop <_knop> ;",
+    ),
+    1,
+  );
+  assertEquals(
+    countOccurrences(
+      plan.updatedFiles[0]?.contents ?? "",
+      "sflo:hasResourcePage <index.html> .",
+    ),
+    1,
+  );
+  assertEquals(
+    countOccurrences(
+      plan.updatedFiles[0]?.contents ?? "",
+      "sflo:hasResourcePage <_knop/index.html> .",
+    ),
+    1,
+  );
+  assertEquals(
+    countOccurrences(
+      plan.updatedFiles[0]?.contents ?? "",
+      "<_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .",
+    ),
+    1,
+  );
+  assertEquals(
+    countOccurrences(
+      plan.updatedFiles[0]?.contents ?? "",
+      "<index.html> a sflo:ResourcePage, sflo:LocatedFile .",
+    ),
+    1,
+  );
+  assertEquals(
+    countOccurrences(
+      plan.updatedFiles[0]?.contents ?? "",
+      "<_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .",
+    ),
+    1,
+  );
+  assertStringIncludes(
+    plan.createdFiles[2]?.contents ?? "",
+    `sflo:referenceTarget <> ;
+  sflo:referenceTargetState <_history001/_s0001> .`,
   );
 });
 
@@ -167,4 +268,8 @@ function withRdfPrefix(turtle: string): string {
     `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .`,
   );
+}
+
+function countOccurrences(haystack: string, needle: string): number {
+  return haystack.split(needle).length - 1;
 }

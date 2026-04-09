@@ -4,6 +4,9 @@ export function toResourcePath(
   pagePath: string,
   createError: (message: string) => Error = (message) => new Error(message),
 ): string {
+  if (pagePath === "index.html") {
+    return "";
+  }
   if (!pagePath.endsWith("/index.html")) {
     throw createError(`Unsupported resource page path: ${pagePath}`);
   }

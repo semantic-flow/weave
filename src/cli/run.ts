@@ -7,6 +7,8 @@ import { KnopAddReferenceInputError } from "../core/knop/add_reference.ts";
 import { KnopCreateInputError } from "../core/knop/create.ts";
 import { MeshCreateInputError } from "../core/mesh/create.ts";
 import { PayloadUpdateInputError } from "../core/payload/update.ts";
+import { normalizeCliDesignatorPath } from "../core/designator_segments.ts";
+import type { TargetSpec, VersionTargetSpec } from "../core/targeting.ts";
 import { WeaveInputError } from "../core/weave/weave.ts";
 import { createRuntimeLoggers } from "../runtime/logging/factory.ts";
 import {
@@ -40,10 +42,19 @@ import {
   PayloadUpdateRuntimeError,
 } from "../runtime/payload/update.ts";
 import {
+  describeGenerateResult,
+  describeValidateResult,
+  describeVersionResult,
   describeWeaveResult,
+  executeGenerate,
+  executeValidate,
+  executeVersion,
   executeWeave,
   WeaveRuntimeError,
 } from "../runtime/weave/weave.ts";
+
+const TARGET_OPTION_DESCRIPTION =
+  "Target spec as comma-separated key=value fields. Supported keys: designatorPath, recursive.";
 
 export async function runWeaveCli(args: string[]): Promise<number> {
   let exitCode = 0;
@@ -56,8 +67,29 @@ export async function runWeaveCli(args: string[]): Promise<number> {
       "Workspace root to update for the default weave action.",
       { default: "." },
     )
-    .action(async (options) => {
+    .option(
+      "--target <target:string>",
+      TARGET_OPTION_DESCRIPTION,
+      { collect: true },
+    )
+    .option(
+      "--payload-history-segment <segment:string>",
+      "Payload history segment name to pass only to version for a single targeted payload weave.",
+    )
+    .option(
+      "--payload-state-segment <segment:string>",
+      "Payload state segment name to pass only to version for a single targeted payload weave.",
+    )
+    .action(async (
+      options: {
+        workspace: string;
+        target?: string[];
+        payloadHistorySegment?: string;
+        payloadStateSegment?: string;
+      },
+    ) => {
       const workspaceRoot = resolve(options.workspace);
+      const targets = resolveVersionTargetSpecs(options, "weave");
       const logDir = join(workspaceRoot, ".weave", "logs");
       const { operationalLogger, auditLogger } = createRuntimeLoggers({
         logDir,
@@ -65,11 +97,13 @@ export async function runWeaveCli(args: string[]): Promise<number> {
 
       await auditLogger.command("weave", {
         workspaceRoot,
+        targets,
         localMode: true,
       });
 
       const result = await executeWeave({
         workspaceRoot,
+        request: targets.length > 0 ? { targets } : undefined,
         operationalLogger,
         auditLogger,
       });
@@ -81,6 +115,153 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         console.log(path);
       }
     })
+    .command(
+      "validate",
+      new Command()
+        .description("Validate the current local state for targeted resources.")
+        .option(
+          "--workspace <workspace:string>",
+          "Workspace root to validate.",
+          { default: "." },
+        )
+        .option(
+          "--target <target:string>",
+          TARGET_OPTION_DESCRIPTION,
+          { collect: true },
+        )
+        .action(async (
+          options: {
+            workspace: string;
+            target?: string[];
+          },
+        ) => {
+          const workspaceRoot = resolve(options.workspace);
+          const targets = resolveSharedTargetSpecs(options, "validate");
+          const logDir = join(workspaceRoot, ".weave", "logs");
+          const { auditLogger } = createRuntimeLoggers({ logDir });
+
+          await auditLogger.command("validate", {
+            workspaceRoot,
+            targets,
+            localMode: true,
+          });
+
+          const result = await executeValidate({
+            workspaceRoot,
+            request: targets.length > 0 ? { targets } : undefined,
+          });
+          if (result.findings.length > 0) {
+            throw new WeaveInputError(
+              result.findings.map((finding) =>
+                `${finding.severity}: ${finding.message}`
+              ).join("\n"),
+            );
+          }
+          console.log(describeValidateResult(result));
+        }),
+    )
+    .command(
+      "version",
+      new Command()
+        .description(
+          "Version the current targeted resources without page generation.",
+        )
+        .option(
+          "--workspace <workspace:string>",
+          "Workspace root to update.",
+          { default: "." },
+        )
+        .option(
+          "--target <target:string>",
+          TARGET_OPTION_DESCRIPTION,
+          { collect: true },
+        )
+        .option(
+          "--payload-history-segment <segment:string>",
+          "Payload history segment name for a single targeted payload version.",
+        )
+        .option(
+          "--payload-state-segment <segment:string>",
+          "Payload state segment name for a single targeted payload version.",
+        )
+        .action(async (
+          options: {
+            workspace: string;
+            target?: string[];
+            payloadHistorySegment?: string;
+            payloadStateSegment?: string;
+          },
+        ) => {
+          const workspaceRoot = resolve(options.workspace);
+          const targets = resolveVersionTargetSpecs(options, "version");
+          const logDir = join(workspaceRoot, ".weave", "logs");
+          const { auditLogger } = createRuntimeLoggers({ logDir });
+
+          await auditLogger.command("version", {
+            workspaceRoot,
+            targets,
+            localMode: true,
+          });
+
+          const result = await executeVersion({
+            workspaceRoot,
+            request: targets.length > 0 ? { targets } : undefined,
+          });
+          console.log(describeVersionResult(result));
+          for (const path of result.createdPaths) {
+            console.log(path);
+          }
+          for (const path of result.updatedPaths) {
+            console.log(path);
+          }
+        }),
+    )
+    .command(
+      "generate",
+      new Command()
+        .description(
+          "Render current ResourcePages from the settled local workspace state.",
+        )
+        .option(
+          "--workspace <workspace:string>",
+          "Workspace root to update.",
+          { default: "." },
+        )
+        .option(
+          "--target <target:string>",
+          TARGET_OPTION_DESCRIPTION,
+          { collect: true },
+        )
+        .action(async (
+          options: {
+            workspace: string;
+            target?: string[];
+          },
+        ) => {
+          const workspaceRoot = resolve(options.workspace);
+          const targets = resolveSharedTargetSpecs(options, "generate");
+          const logDir = join(workspaceRoot, ".weave", "logs");
+          const { auditLogger } = createRuntimeLoggers({ logDir });
+
+          await auditLogger.command("generate", {
+            workspaceRoot,
+            targets,
+            localMode: true,
+          });
+
+          const result = await executeGenerate({
+            workspaceRoot,
+            request: targets.length > 0 ? { targets } : undefined,
+          });
+          console.log(describeGenerateResult(result));
+          for (const path of result.createdPaths) {
+            console.log(path);
+          }
+          for (const path of result.updatedPaths) {
+            console.log(path);
+          }
+        }),
+    )
     .throwErrors()
     .command(
       "extract",
@@ -95,9 +276,10 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           { default: "." },
         )
         .action(async (options, designatorPath) => {
-          const normalizedDesignatorPath = resolveRequiredArgumentValue(
+          const normalizedDesignatorPath = resolveCliArgumentDesignatorPath(
             designatorPath,
             "extract requires a positional designatorPath",
+            "extract designatorPath",
             (message) => new ExtractInputError(message),
           );
           const workspaceRoot = resolve(options.workspace);
@@ -309,17 +491,20 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               { default: "." },
             )
             .action(async (options, designatorPath) => {
-              const normalizedDesignatorPath = resolveRequiredArgumentValue(
+              const normalizedDesignatorPath = resolveCliArgumentDesignatorPath(
                 designatorPath,
                 "knop add-reference requires a positional designatorPath",
+                "knop add-reference designatorPath",
                 (message) => new KnopAddReferenceInputError(message),
               );
               const workspaceRoot = resolve(options.workspace);
-              const referenceTargetDesignatorPath = resolveRequiredOptionValue(
-                options.referenceTargetDesignatorPath,
-                "knop add-reference requires --reference-target-designator-path",
-                (message) => new KnopAddReferenceInputError(message),
-              );
+              const referenceTargetDesignatorPath =
+                resolveCliOptionDesignatorPath(
+                  options.referenceTargetDesignatorPath,
+                  "knop add-reference requires --reference-target-designator-path",
+                  "knop add-reference referenceTargetDesignatorPath",
+                  (message) => new KnopAddReferenceInputError(message),
+                );
               const referenceRole = resolveRequiredOptionValue(
                 options.referenceRole,
                 "knop add-reference requires --reference-role",
@@ -370,6 +555,12 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               { default: "." },
             )
             .action(async (options, designatorPath) => {
+              const normalizedDesignatorPath = resolveCliArgumentDesignatorPath(
+                designatorPath,
+                "knop create requires a positional designatorPath",
+                "knop create designatorPath",
+                (message) => new KnopCreateInputError(message),
+              );
               const workspaceRoot = resolve(options.workspace);
               const logDir = join(workspaceRoot, ".weave", "logs");
               const { operationalLogger, auditLogger } = createRuntimeLoggers({
@@ -378,13 +569,13 @@ export async function runWeaveCli(args: string[]): Promise<number> {
 
               await auditLogger.command("knop.create", {
                 workspaceRoot,
-                designatorPath,
+                designatorPath: normalizedDesignatorPath,
                 localMode: true,
               });
 
               const result = await executeKnopCreate({
                 workspaceRoot,
-                request: { designatorPath },
+                request: { designatorPath: normalizedDesignatorPath },
                 operationalLogger,
                 auditLogger,
               });
@@ -468,10 +659,12 @@ function resolveDesignatorPath(
     createError: (message: string) => Error;
   },
 ): string {
-  const optionValue = options.designatorPath?.trim() ?? "";
-  const argumentValue = designatorPathArg?.trim() ?? "";
+  const optionValue = normalizeOptionalCliDesignatorPath(
+    options.designatorPath,
+  );
+  const argumentValue = normalizeOptionalCliDesignatorPath(designatorPathArg);
 
-  if (optionValue.length > 0 && argumentValue.length > 0) {
+  if (optionValue !== undefined && argumentValue !== undefined) {
     if (optionValue !== argumentValue) {
       throw errorMessages.createError(errorMessages.conflictMessage);
     }
@@ -479,15 +672,163 @@ function resolveDesignatorPath(
     return optionValue;
   }
 
-  if (optionValue.length > 0) {
+  if (optionValue !== undefined) {
     return optionValue;
   }
 
-  if (argumentValue.length > 0) {
+  if (argumentValue !== undefined) {
     return argumentValue;
   }
 
   throw errorMessages.createError(errorMessages.missingMessage);
+}
+
+function resolveSharedTargetSpecs(
+  options: {
+    target?: readonly string[];
+  },
+  commandName: string,
+): readonly TargetSpec[] {
+  const values = options.target;
+  if (!values || values.length === 0) {
+    return [];
+  }
+
+  return values.map((value, index) =>
+    parseTargetSpec(value, index, commandName)
+  );
+}
+
+function resolveVersionTargetSpecs(
+  options: {
+    target?: readonly string[];
+    payloadHistorySegment?: string;
+    payloadStateSegment?: string;
+  },
+  commandName: string,
+): readonly VersionTargetSpec[] {
+  const targets = resolveSharedTargetSpecs(options, commandName);
+  if (targets.length === 0) {
+    if (
+      options.payloadHistorySegment !== undefined ||
+      options.payloadStateSegment !== undefined
+    ) {
+      throw new WeaveInputError(
+        "Payload history/state naming requires exactly one --target.",
+      );
+    }
+    return [];
+  }
+  const payloadHistorySegment = resolveOptionalWeavePayloadSegment(
+    options.payloadHistorySegment,
+    `${commandName} --payload-history-segment`,
+  );
+  const payloadStateSegment = resolveOptionalWeavePayloadSegment(
+    options.payloadStateSegment,
+    `${commandName} --payload-state-segment`,
+  );
+
+  if (
+    payloadHistorySegment === undefined && payloadStateSegment === undefined
+  ) {
+    return targets;
+  }
+  if (targets.length !== 1) {
+    throw new WeaveInputError(
+      "Payload history/state naming requires exactly one --target.",
+    );
+  }
+
+  return [{
+    ...targets[0]!,
+    ...(payloadHistorySegment ? { historySegment: payloadHistorySegment } : {}),
+    ...(payloadStateSegment ? { stateSegment: payloadStateSegment } : {}),
+  }];
+}
+
+function parseTargetSpec(
+  value: string,
+  index: number,
+  commandName: string,
+): TargetSpec {
+  const fieldName = `${commandName} --target[${index}]`;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    throw new WeaveInputError(`${fieldName} is required`);
+  }
+
+  const record: Record<string, string> = {};
+  for (const segment of trimmed.split(",")) {
+    const entry = segment.trim();
+    if (entry.length === 0) {
+      throw new WeaveInputError(
+        `${fieldName} must use key=value fields separated by commas`,
+      );
+    }
+
+    const separatorIndex = entry.indexOf("=");
+    if (separatorIndex <= 0) {
+      throw new WeaveInputError(
+        `${fieldName} must use key=value fields separated by commas`,
+      );
+    }
+
+    const key = entry.slice(0, separatorIndex).trim();
+    const rawFieldValue = entry.slice(separatorIndex + 1).trim();
+    if (rawFieldValue.length === 0) {
+      throw new WeaveInputError(`${fieldName}.${key} is required`);
+    }
+    if (key !== "designatorPath" && key !== "recursive") {
+      throw new WeaveInputError(`${fieldName}.${key} is not supported`);
+    }
+    if (Object.hasOwn(record, key)) {
+      throw new WeaveInputError(`${fieldName} contains duplicate key: ${key}`);
+    }
+
+    record[key] = rawFieldValue;
+  }
+
+  const rawDesignatorPath = record.designatorPath?.trim() ?? "";
+  const designatorPath = rawDesignatorPath.length === 0
+    ? ""
+    : normalizeCliDesignatorPath(
+      rawDesignatorPath,
+      `${fieldName}.designatorPath`,
+      (message) => new WeaveInputError(message),
+    );
+  if (designatorPath.length === 0) {
+    if (rawDesignatorPath.length === 0) {
+      throw new WeaveInputError(`${fieldName}.designatorPath is required`);
+    }
+  }
+
+  if (record.recursive === undefined) {
+    return { designatorPath };
+  }
+  if (record.recursive !== "true" && record.recursive !== "false") {
+    throw new WeaveInputError(
+      `${fieldName}.recursive must be true or false`,
+    );
+  }
+
+  return record.recursive === "true"
+    ? { designatorPath, recursive: true }
+    : { designatorPath };
+}
+
+function resolveOptionalWeavePayloadSegment(
+  value: string | undefined,
+  fieldName: string,
+): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  return resolveRequiredOptionValue(
+    value,
+    `${fieldName} is required`,
+    (message) => new WeaveInputError(message),
+  );
 }
 
 function getCliErrorMessage(error: unknown): string {
@@ -537,4 +878,40 @@ function resolveRequiredArgumentValue(
     errorMessage,
     createError,
   );
+}
+
+function resolveCliArgumentDesignatorPath(
+  value: string | undefined,
+  errorMessage: string,
+  fieldName: string,
+  createError: (message: string) => Error,
+): string {
+  return normalizeCliDesignatorPath(
+    resolveRequiredArgumentValue(value, errorMessage, createError),
+    fieldName,
+    createError,
+  );
+}
+
+function resolveCliOptionDesignatorPath(
+  value: string | undefined,
+  errorMessage: string,
+  fieldName: string,
+  createError: (message: string) => Error,
+): string {
+  return normalizeCliDesignatorPath(
+    resolveRequiredOptionValue(value, errorMessage, createError),
+    fieldName,
+    createError,
+  );
+}
+
+function normalizeOptionalCliDesignatorPath(
+  value: string | undefined,
+): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed === undefined || trimmed.length === 0
+    ? undefined
+    : normalizeCliDesignatorPath(trimmed, "designatorPath", (message) =>
+      new Error(message));
 }

@@ -1,4 +1,5 @@
 import type { ResourcePageModel } from "../../core/weave/weave.ts";
+import { formatDesignatorPathForDisplay } from "../../core/designator_segments.ts";
 import type { PlannedFile } from "../../core/planned_file.ts";
 import {
   deriveMeshLabel,
@@ -22,9 +23,10 @@ export function renderResourcePage(
   page: ResourcePageModel,
 ): string {
   const resourcePath = toResourcePath(page.path);
+  const displayResourcePath = formatDesignatorPathForDisplay(resourcePath);
   const canonical = new URL(resourcePath, meshBase).href;
   const meshLabel = deriveMeshLabel(meshBase);
-  const escapedResourcePath = escapeHtml(resourcePath);
+  const escapedResourcePath = escapeHtml(displayResourcePath);
   const escapedCanonical = escapeHtml(canonical);
   const escapedMeshLabel = escapeHtml(meshLabel);
 
@@ -47,7 +49,9 @@ export function renderResourcePage(
 </head>
 <body>
   <main>
-    <h1><strong>${escapeHtml(page.designatorPath)}</strong></h1>
+    <h1><strong>${
+      escapeHtml(formatDesignatorPathForDisplay(page.designatorPath))
+    }</strong></h1>
     <p>Resource page for the Semantic Flow identifier <a href="${escapedCanonical}">${escapedCanonical}</a>.</p>
   </main>
   <footer>
@@ -72,10 +76,12 @@ export function renderResourcePage(
       const escapedRoleLabel = escapeHtml(link.referenceRoleLabel);
       const escapedTargetHref = escapeHtml(targetHref);
       const escapedStateHref = stateHref ? escapeHtml(stateHref) : undefined;
-      const escapedTargetPath = escapeHtml(link.referenceTargetPath);
+      const escapedTargetPath = escapeHtml(
+        formatDesignatorPathForDisplay(link.referenceTargetPath),
+      );
 
       return stateHref
-        ? `        <li id="${escapedFragment}"><code>#${escapedFragment}</code>: ${escapedRoleLabel} reference target <a href="${escapedTargetHref}">${escapedTargetHref}</a>, pinned to <a href="${escapedStateHref}">${escapedStateHref}</a>.</li>`
+        ? `        <li id="${escapedFragment}"><code>#${escapedFragment}</code>: ${escapedRoleLabel} reference target <a href="${escapedTargetHref}">${escapedTargetPath}</a>, pinned to <a href="${escapedStateHref}">${escapedStateHref}</a>.</li>`
         : `        <li id="${escapedFragment}"><code>#${escapedFragment}</code>: ${escapedRoleLabel} reference target <code>${escapedTargetPath}</code>.</li>`;
     }).join("\n");
 
@@ -90,7 +96,7 @@ export function renderResourcePage(
   <main>
     <h1>${escapeHtml(page.catalogPath)}</h1>
     <p>Resource page for the ${
-      escapeHtml(page.ownerDesignatorPath)
+      escapeHtml(formatDesignatorPathForDisplay(page.ownerDesignatorPath))
     } ReferenceCatalog artifact.</p>
     <section>
       <h2>Current Links</h2>

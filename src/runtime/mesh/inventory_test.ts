@@ -27,6 +27,23 @@ Deno.test("listKnopDesignatorPaths accepts semantically equivalent mesh inventor
   );
 });
 
+Deno.test("listKnopDesignatorPaths includes the root designator when the root Knop exists", () => {
+  assertEquals(
+    listKnopDesignatorPaths(
+      MESH_BASE,
+      `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@base <${MESH_BASE}> .
+
+<_knop> rdf:type sflo:Knop .
+<alice/_knop> rdf:type sflo:Knop .
+`,
+      "Could not parse mesh inventory",
+    ),
+    ["", "alice"],
+  );
+});
+
 Deno.test("resolvePayloadArtifactInventoryState accepts semantically equivalent Knop inventory turtle", () => {
   assertEquals(
     resolvePayloadArtifactInventoryState(

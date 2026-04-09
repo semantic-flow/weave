@@ -10,13 +10,7 @@
 			"path": "dependencies/github.com/semantic-flow/weave-dev-archive"
 		},
 		{
-			"path": "dependencies/github.com/semantic-flow/sflo-dendron-notes"
-		},
-		{
 			"path": "dependencies/github.com/semantic-flow/semantic-flow-framework"
-		},
-		{
-			"path": "dependencies/github.com/semantic-flow/sflo"
 		},
 		{
 			"path": "dependencies/github.com/semantic-flow/mesh-alice-bio"

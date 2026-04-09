@@ -199,3 +199,27 @@ created: 1773630801215
 - Why:
   - The carried `13` fixture is the first extracted-resource weave and the first carried case where one existing current page changes because a newly public extracted resource becomes live.
   - Extending the shared renderer seam only where the fixture forces it avoids absorbing a broader page-system rewrite while still proving Bob current/history pages and the updated Alice link surface.
+
+### 2026-04-07: First Target-Aware weave CLI Uses Repeatable --target Specs
+
+- Decision: Use repeatable `weave --target <key=value,...>` flags as the first target-aware CLI surface, support only shared targeting keys `designatorPath` and optional `recursive` there, and forward the resulting target objects through the composed local `weave` flow rather than inventing a separate CLI-only targeting model.
+- References: [[wd.task.2026.2026-04-07_0020-targeting]], [[wd.task.2026.2026-04-07_0820-validate-version-generate]]
+- Why:
+  - A repeatable key-value form mirrors the shared target object shape closely enough to stay thin, while avoiding scalar flag sprawl or positional mini-language syntax that would need to be backed out later.
+  - Keeping version-only naming fields out of `weave --target` preserves the shared targeting boundary and leaves later standalone `version` CLI work room to expose version-specific options deliberately.
+
+### 2026-04-07: Recursive version Batches Stage a Virtual Current Workspace
+
+- Decision: Implement recursive local `version` batching by reloading candidates against a virtual current workspace overlay after each staged target plan, and keep the batch fail-closed until the entire write set is known.
+- References: [[wd.task.2026.2026-04-07_0820-validate-version-generate]]
+- Why:
+  - Reusing the existing single-candidate slice planners is acceptable only if later targets see the staged current inventories and snapshots created by earlier targets in the same batch.
+  - Planning the whole batch before writes preserves the intended default against partial recursive publication.
+
+### 2026-04-07: Expose validate, version, and generate as top-level CLI Subcommands
+
+- Decision: Expose the decomposed local runtime operations as `weave validate`, `weave version`, and `weave generate`, while keeping bare `weave` as the composed convenience chain.
+- References: [[wd.task.2026.2026-04-07_0820-validate-version-generate]]
+- Why:
+  - The internal seams are now coherent enough that hiding them behind bare `weave` only makes the tooling less inspectable and less scriptable.
+  - Keeping the same target parsing boundary across the composed and standalone commands avoids inventing a second CLI contract.

@@ -1,6 +1,11 @@
 import { Parser } from "n3";
 import type { Quad } from "n3";
-import { normalizeSafeDesignatorPath } from "../designator_segments.ts";
+import {
+  normalizeSafeDesignatorPath,
+  toDesignatorResourcePagePath,
+  toKnopPath,
+  toReferenceCatalogPath,
+} from "../designator_segments.ts";
 import { KnopCreateInputError } from "../knop/create.ts";
 import type { PlannedFile } from "../planned_file.ts";
 
@@ -85,7 +90,7 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
 
   try {
     const knopPath = toKnopPath(designatorPath);
-    const referenceCatalogPath = `${knopPath}/_references`;
+    const referenceCatalogPath = toReferenceCatalogPath(designatorPath);
     const updatedMeshInventoryTurtle = renderExtractMeshInventoryTurtle(
       meshBase,
       request.currentMeshInventoryTurtle,
@@ -108,21 +113,21 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
       referenceTargetStatePath,
       createdFiles: [
         {
-          path: `${designatorPath}/_knop/_meta/meta.ttl`,
+          path: `${knopPath}/_meta/meta.ttl`,
           contents: renderExtractKnopMetadataTurtle(
             meshBase,
             designatorPath,
           ),
         },
         {
-          path: `${designatorPath}/_knop/_inventory/inventory.ttl`,
+          path: `${knopPath}/_inventory/inventory.ttl`,
           contents: renderExtractKnopInventoryTurtle(
             meshBase,
             designatorPath,
           ),
         },
         {
-          path: `${designatorPath}/_knop/_references/references.ttl`,
+          path: `${referenceCatalogPath}/references.ttl`,
           contents: renderExtractReferenceCatalogTurtle(
             meshBase,
             designatorPath,
@@ -178,6 +183,7 @@ function normalizeDesignatorPath(
     designatorPath,
     fieldName,
     (message) => new ExtractInputError(message),
+    { allowRoot: true },
   );
 }
 
@@ -264,6 +270,58 @@ function renderExtractMeshInventoryTurtle(
   const rootKnopPath = toKnopPath(rootDesignatorPath);
   const sourceKnopPath = toKnopPath(sourcePayloadDesignatorPath);
   const knopPath = toKnopPath(designatorPath);
+  const rootPagePath = toDesignatorResourcePagePath(rootDesignatorPath);
+  const sourcePayloadPagePath = toDesignatorResourcePagePath(
+    sourcePayloadDesignatorPath,
+  );
+  const meshKnopLines = uniquePaths([
+    rootKnopPath,
+    sourceKnopPath,
+    knopPath,
+  ]).map((path) => `  sflo:hasKnop <${path}> ;`).join("\n");
+  const rootDesignatorBlock = rootDesignatorPath === sourcePayloadDesignatorPath
+    ? ""
+    : `<${rootDesignatorPath}>
+  sflo:hasResourcePage <${rootPagePath}> .
+
+`;
+  const rootKnopBlock = renderExistingKnopBlock(rootKnopPath);
+  const sourceKnopBlock = rootKnopPath === sourceKnopPath
+    ? ""
+    : `${renderExistingKnopBlock(sourceKnopPath)}
+
+`;
+  const locatedFileDeclarations = renderLocatedFileDeclarations([
+    "_mesh/_meta/meta.ttl",
+    "_mesh/_inventory/inventory.ttl",
+    "_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl",
+    "_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+    "_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+    "_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl",
+    `${rootKnopPath}/_inventory/inventory.ttl`,
+    `${sourceKnopPath}/_inventory/inventory.ttl`,
+    `${knopPath}/_inventory/inventory.ttl`,
+    sourceWorkingFilePath,
+  ]);
+  const resourcePageDeclarations = renderResourcePageDeclarations([
+    "_mesh/index.html",
+    rootPagePath,
+    sourcePayloadPagePath,
+    `${rootKnopPath}/index.html`,
+    `${sourceKnopPath}/index.html`,
+    "_mesh/_meta/index.html",
+    "_mesh/_meta/_history001/index.html",
+    "_mesh/_meta/_history001/_s0001/index.html",
+    "_mesh/_meta/_history001/_s0001/meta-ttl/index.html",
+    "_mesh/_inventory/index.html",
+    "_mesh/_inventory/_history001/index.html",
+    "_mesh/_inventory/_history001/_s0001/index.html",
+    "_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html",
+    "_mesh/_inventory/_history001/_s0002/index.html",
+    "_mesh/_inventory/_history001/_s0002/inventory-ttl/index.html",
+    "_mesh/_inventory/_history001/_s0003/index.html",
+    "_mesh/_inventory/_history001/_s0003/inventory-ttl/index.html",
+  ]);
 
   return `@base <${meshBase}> .
 @prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
@@ -273,27 +331,16 @@ function renderExtractMeshInventoryTurtle(
   sflo:meshBase "${meshBase}"^^xsd:anyURI ;
   sflo:hasMeshMetadata <_mesh/_meta> ;
   sflo:hasMeshInventory <_mesh/_inventory> ;
-  sflo:hasKnop <${rootKnopPath}> ;
-  sflo:hasKnop <${sourceKnopPath}> ;
-  sflo:hasKnop <${knopPath}> ;
+${meshKnopLines}
   sflo:hasResourcePage <_mesh/index.html> .
 
-<${rootDesignatorPath}>
-  sflo:hasResourcePage <${rootDesignatorPath}/index.html> .
-
-<${rootKnopPath}> a sflo:Knop ;
-  sflo:hasWorkingKnopInventoryFile <${rootKnopPath}/_inventory/inventory.ttl> ;
-  sflo:hasResourcePage <${rootKnopPath}/index.html> .
+${rootDesignatorBlock}${rootKnopBlock}
 
 <${sourcePayloadDesignatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <${sourceWorkingFilePath}> ;
-  sflo:hasResourcePage <${sourcePayloadDesignatorPath}/index.html> .
+  sflo:hasResourcePage <${sourcePayloadPagePath}> .
 
-<${sourceKnopPath}> a sflo:Knop ;
-  sflo:hasWorkingKnopInventoryFile <${sourceKnopPath}/_inventory/inventory.ttl> ;
-  sflo:hasResourcePage <${sourceKnopPath}/index.html> .
-
-<${knopPath}> a sflo:Knop ;
+${sourceKnopBlock}<${knopPath}> a sflo:Knop ;
   sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> .
 
 <_mesh/_meta> a sflo:MeshMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
@@ -368,60 +415,32 @@ function renderExtractMeshInventoryTurtle(
   sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/inventory-ttl/index.html> .
 
-<_mesh/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+${locatedFileDeclarations}
 
-<_mesh/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<${rootKnopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<${sourceKnopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<${sourceWorkingFilePath}> a sflo:LocatedFile, sflo:RdfDocument .
-
-<_mesh/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${rootDesignatorPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${sourcePayloadDesignatorPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${rootKnopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${sourceKnopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_meta/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_meta/_history001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_meta/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_meta/_history001/_s0001/meta-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/_history001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/_history001/_s0002/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/_history001/_s0002/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/_history001/_s0003/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/_history001/_s0003/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+${resourcePageDeclarations}
 `;
+}
+
+function uniquePaths(paths: readonly string[]): string[] {
+  return [...new Set(paths)];
+}
+
+function renderExistingKnopBlock(knopPath: string): string {
+  return `<${knopPath}> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <${knopPath}/index.html> .`;
+}
+
+function renderLocatedFileDeclarations(paths: readonly string[]): string {
+  return uniquePaths(paths)
+    .map((path) => `<${path}> a sflo:LocatedFile, sflo:RdfDocument .`)
+    .join("\n\n");
+}
+
+function renderResourcePageDeclarations(paths: readonly string[]): string {
+  return uniquePaths(paths)
+    .map((path) => `<${path}> a sflo:ResourcePage, sflo:LocatedFile .`)
+    .join("\n\n");
 }
 
 function renderExtractKnopInventoryTurtle(
@@ -478,7 +497,7 @@ function renderExtractReferenceCatalogTurtle(
   referenceRoleIri: string,
   referenceTargetStatePath: string,
 ): string {
-  const referenceCatalogPath = `${toKnopPath(designatorPath)}/_references`;
+  const referenceCatalogPath = toReferenceCatalogPath(designatorPath);
 
   return `@base <${meshBase}> .
 @prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
@@ -504,6 +523,11 @@ function assertCurrentMeshInventoryShapeForExtract(
   const rootKnopPath = toKnopPath(rootDesignatorPath);
   const sourceKnopPath = toKnopPath(sourcePayloadDesignatorPath);
   const knopPath = toKnopPath(designatorPath);
+  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
+  const rootPagePath = toDesignatorResourcePagePath(rootDesignatorPath);
+  const sourcePayloadPagePath = toDesignatorResourcePagePath(
+    sourcePayloadDesignatorPath,
+  );
   const errorMessage =
     `current mesh inventory has an unsupported carried extract shape for ${designatorPath}`;
   const quads = parseMeshInventoryQuads(
@@ -539,7 +563,7 @@ function assertCurrentMeshInventoryShapeForExtract(
       meshBase,
       designatorPath,
       SFLO_HAS_RESOURCE_PAGE_IRI,
-      `${designatorPath}/index.html`,
+      designatorPagePath,
     )
   ) {
     throw new ExtractInputError(
@@ -553,10 +577,10 @@ function assertCurrentMeshInventoryShapeForExtract(
     "_mesh",
     SFLO_HAS_KNOP_IRI,
   );
+  const expectedMeshKnopPaths = [...new Set([rootKnopPath, sourceKnopPath])];
   if (
-    meshKnopPaths.length !== 2 ||
-    !meshKnopPaths.includes(rootKnopPath) ||
-    !meshKnopPaths.includes(sourceKnopPath)
+    meshKnopPaths.length !== expectedMeshKnopPaths.length ||
+    expectedMeshKnopPaths.some((path) => !meshKnopPaths.includes(path))
   ) {
     throw new ExtractInputError(errorMessage);
   }
@@ -583,7 +607,7 @@ function assertCurrentMeshInventoryShapeForExtract(
     [
       rootDesignatorPath,
       SFLO_HAS_RESOURCE_PAGE_IRI,
-      `${rootDesignatorPath}/index.html`,
+      rootPagePath,
     ],
     [rootKnopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
     [rootKnopPath, SFLO_HAS_RESOURCE_PAGE_IRI, `${rootKnopPath}/index.html`],
@@ -603,7 +627,7 @@ function assertCurrentMeshInventoryShapeForExtract(
     [
       sourcePayloadDesignatorPath,
       SFLO_HAS_RESOURCE_PAGE_IRI,
-      `${sourcePayloadDesignatorPath}/index.html`,
+      sourcePayloadPagePath,
     ],
     [sourceKnopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
     [
@@ -800,8 +824,4 @@ function toRootDesignatorPath(designatorPath: string): string {
   return firstSlash === -1
     ? designatorPath
     : designatorPath.slice(0, firstSlash);
-}
-
-function toKnopPath(designatorPath: string): string {
-  return `${designatorPath}/_knop`;
 }

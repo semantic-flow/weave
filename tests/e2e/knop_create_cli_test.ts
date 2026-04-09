@@ -1,4 +1,4 @@
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join, relative } from "@std/path";
 import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import {
@@ -94,6 +94,40 @@ Deno.test("weave knop create matches the manifest-scoped alice-bio fixture as a 
 
   await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
   await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
+});
+
+Deno.test("weave knop create accepts the root designator path as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-knop-create-root-");
+  await materializeMeshAliceBioBranch("03-mesh-created-woven", workspaceRoot);
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      "knop",
+      "create",
+      "/",
+      "--workspace",
+      workspaceRoot,
+    ],
+    cwd: new URL(".", repoRoot),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Created 2 knop support artifacts"), stdout);
+  assertStringIncludes(
+    await Deno.readTextFile(join(workspaceRoot, "_knop/_meta/meta.ttl")),
+    'sflo:designatorPath ""',
+  );
+  await Deno.stat(join(workspaceRoot, "_knop/_inventory/inventory.ttl"));
 });
 
 async function listRelativeFiles(

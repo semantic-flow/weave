@@ -1,4 +1,4 @@
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertRejects } from "@std/assert";
 import { join, relative } from "@std/path";
 import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import {
@@ -11,6 +11,10 @@ import {
   readMeshAliceBioBranchFile,
   resolveMeshAliceBioConformanceManifestPath,
 } from "../support/mesh_alice_bio_fixture.ts";
+import {
+  bootstrapRootWovenWorkspace,
+  integrateRootPayload,
+} from "../support/root_designator.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 const repoRoot = new URL("../../", import.meta.url);
@@ -22,11 +26,291 @@ Deno.test("weave matches the manifest-scoped alice knop-created-woven fixture as
   });
 });
 
+Deno.test("weave validate succeeds as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-validate-");
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const output = await runCliCommand([
+    "validate",
+    "--target",
+    "designatorPath=alice/bio",
+    "--workspace",
+    workspaceRoot,
+  ]);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Validated 1 designator path"), stdout);
+});
+
+Deno.test("weave validate accepts the exact root target as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-validate-root-");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await integrateRootPayload(workspaceRoot);
+
+  const output = await runCliCommand([
+    "validate",
+    "--target",
+    "designatorPath=/",
+    "--workspace",
+    workspaceRoot,
+  ]);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Validated 1 designator path"), stdout);
+});
+
+Deno.test("weave version succeeds as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-version-");
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const output = await runCliCommand([
+    "version",
+    "--target",
+    "designatorPath=alice/bio",
+    "--payload-history-segment",
+    "releases",
+    "--payload-state-segment",
+    "v0.0.1",
+    "--workspace",
+    workspaceRoot,
+  ]);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Versioned 1 designator path"), stdout);
+  await Deno.stat(
+    join(
+      workspaceRoot,
+      "alice/bio/releases/v0.0.1/alice-bio-ttl/alice-bio.ttl",
+    ),
+  );
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, "alice/bio/releases/index.html")),
+    Deno.errors.NotFound,
+  );
+});
+
+Deno.test("weave version accepts the exact root target as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-version-root-");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await integrateRootPayload(workspaceRoot);
+
+  const output = await runCliCommand([
+    "version",
+    "--target",
+    "designatorPath=/",
+    "--payload-history-segment",
+    "releases",
+    "--payload-state-segment",
+    "v0.0.1",
+    "--workspace",
+    workspaceRoot,
+  ]);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Versioned 1 designator path"), stdout);
+  await Deno.stat(join(workspaceRoot, "releases/v0.0.1/root-ttl/root.ttl"));
+});
+
+Deno.test("weave generate succeeds as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-generate-");
+  await materializeMeshAliceBioBranch("10-alice-bio-updated", workspaceRoot);
+
+  const meshInventoryBefore = await Deno.readTextFile(
+    join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+  );
+  const output = await runCliCommand([
+    "generate",
+    "--target",
+    "designatorPath=alice/bio",
+    "--workspace",
+    workspaceRoot,
+  ]);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Generated 1 designator path"), stdout);
+  await Deno.stat(join(workspaceRoot, "alice/bio/index.html"));
+  await assertRejects(
+    () =>
+      Deno.stat(
+        join(workspaceRoot, "alice/bio/_history001/_s0002/index.html"),
+      ),
+    Deno.errors.NotFound,
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+    ),
+    meshInventoryBefore,
+  );
+});
+
+Deno.test("weave generate accepts the exact root target as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-generate-root-");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await bootstrapRootWovenWorkspace(workspaceRoot);
+
+  const output = await runCliCommand([
+    "generate",
+    "--target",
+    "designatorPath=/",
+    "--workspace",
+    workspaceRoot,
+  ]);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Generated 1 designator path"), stdout);
+  await Deno.stat(join(workspaceRoot, "index.html"));
+  await Deno.stat(join(workspaceRoot, "_knop/index.html"));
+});
+
 Deno.test("weave matches the manifest-scoped alice bio integrated-woven fixture as a black-box CLI run", async () => {
   await assertWeaveTransitionMatchesManifest({
     manifestName: "07-alice-bio-integrated-woven.jsonld",
     expectedStdoutFragment: "Wove 1 designator path",
   });
+});
+
+Deno.test("weave accepts an exact --target spec as a black-box CLI run", async () => {
+  await assertWeaveTransitionMatchesManifest({
+    manifestName: "07-alice-bio-integrated-woven.jsonld",
+    expectedStdoutFragment: "Wove 1 designator path",
+    cliArgs: ["--target", "designatorPath=alice/bio"],
+  });
+});
+
+Deno.test("weave accepts an exact root --target spec as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-weave-root-");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await integrateRootPayload(workspaceRoot);
+
+  const output = await runCliCommand([
+    "--target",
+    "designatorPath=/",
+    "--workspace",
+    workspaceRoot,
+  ]);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Wove 1 designator path"), stdout);
+  await Deno.stat(join(workspaceRoot, "index.html"));
+  await Deno.stat(join(workspaceRoot, "_history001/_s0001/root-ttl/root.ttl"));
+});
+
+Deno.test("weave accepts a recursive --target spec as a black-box CLI run", async () => {
+  await assertWeaveTransitionMatchesManifest({
+    manifestName: "07-alice-bio-integrated-woven.jsonld",
+    expectedStdoutFragment: "Wove 1 designator path",
+    cliArgs: ["--target", "designatorPath=alice,recursive=true"],
+  });
+});
+
+Deno.test("weave accepts payload history/state naming flags as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-payload-naming-");
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const output = await runCliCommand([
+    "--target",
+    "designatorPath=alice/bio",
+    "--payload-history-segment",
+    "releases",
+    "--payload-state-segment",
+    "v0.0.1",
+    "--workspace",
+    workspaceRoot,
+  ]);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Wove 1 designator path"), stdout);
+  await Deno.stat(
+    join(
+      workspaceRoot,
+      "alice/bio/releases/v0.0.1/alice-bio-ttl/alice-bio.ttl",
+    ),
+  );
+  await Deno.stat(join(workspaceRoot, "alice/bio/releases/index.html"));
+  await Deno.stat(join(workspaceRoot, "alice/bio/releases/v0.0.1/index.html"));
+});
+
+Deno.test("weave rejects payload history/state naming flags without exactly one target", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-payload-naming-no-target-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const output = await runCliCommand([
+    "--payload-history-segment",
+    "releases",
+    "--payload-state-segment",
+    "v0.0.1",
+    "--workspace",
+    workspaceRoot,
+  ]);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assertEquals(output.success, false);
+  assert(
+    stderr.includes(
+      "Payload history/state naming requires exactly one --target.",
+    ),
+    stderr,
+  );
+});
+
+Deno.test("weave rejects payload history/state naming flags with multiple targets", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-payload-naming-many-targets-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const output = await runCliCommand([
+    "--target",
+    "designatorPath=alice",
+    "--target",
+    "designatorPath=alice/bio",
+    "--payload-history-segment",
+    "releases",
+    "--payload-state-segment",
+    "v0.0.1",
+    "--workspace",
+    workspaceRoot,
+  ]);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assertEquals(output.success, false);
+  assert(
+    stderr.includes(
+      "Payload history/state naming requires exactly one --target.",
+    ),
+    stderr,
+  );
 });
 
 Deno.test("weave matches the manifest-scoped alice bio referenced-woven fixture as a black-box CLI run", async () => {
@@ -52,12 +336,62 @@ Deno.test("weave matches the manifest-scoped bob extracted woven fixture as a bl
   });
 });
 
+Deno.test("weave rejects unsupported --target fields", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-target-parse-");
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      "--target",
+      "designatorPath=alice/bio,stateSegment=v0.0.1",
+      "--workspace",
+      workspaceRoot,
+    ],
+    cwd: new URL(".", repoRoot),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assertEquals(output.success, false);
+  assert(
+    stderr.includes("weave --target[0].stateSegment is not supported"),
+    stderr,
+  );
+});
+
+Deno.test("weave reports a per-field error when a target field value is missing", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-target-missing-");
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const output = await runCliCommand([
+    "--target",
+    "designatorPath=alice/bio,recursive=",
+    "--workspace",
+    workspaceRoot,
+  ]);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assertEquals(output.success, false);
+  assert(
+    stderr.includes("weave --target[0].recursive is required"),
+    stderr,
+  );
+});
+
 async function assertWeaveTransitionMatchesManifest(
   options: {
     manifestName: string;
     expectedStdoutFragment: string;
     compareTextFiles?: boolean;
     compareWorkspaceTree?: boolean;
+    cliArgs?: readonly string[];
   },
 ): Promise<void> {
   const manifestPath = resolveMeshAliceBioConformanceManifestPath(
@@ -71,21 +405,11 @@ async function assertWeaveTransitionMatchesManifest(
   );
   await materializeMeshAliceBioBranch(transitionCase.fromRef!, workspaceRoot);
 
-  const command = new Deno.Command("deno", {
-    args: [
-      "run",
-      "--allow-read",
-      "--allow-write",
-      "--allow-env",
-      "src/main.ts",
-      "--workspace",
-      workspaceRoot,
-    ],
-    cwd: new URL(".", repoRoot),
-    stdout: "piped",
-    stderr: "piped",
-  });
-  const output = await command.output();
+  const output = await runCliCommand([
+    ...(options.cliArgs ?? []),
+    "--workspace",
+    workspaceRoot,
+  ]);
   const stdout = new TextDecoder().decode(output.stdout);
   const stderr = new TextDecoder().decode(output.stderr);
 
@@ -141,6 +465,24 @@ async function assertWeaveTransitionMatchesManifest(
 
   await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
   await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
+}
+
+function runCliCommand(args: readonly string[]): Promise<Deno.CommandOutput> {
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      ...args,
+    ],
+    cwd: new URL(".", repoRoot),
+    stdout: "piped",
+    stderr: "piped",
+  });
+
+  return command.output();
 }
 
 async function listRelativeFiles(

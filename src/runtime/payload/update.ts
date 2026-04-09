@@ -1,6 +1,9 @@
 import { dirname, fromFileUrl, isAbsolute, join, resolve } from "@std/path";
 import { Parser } from "n3";
-import { RESERVED_DESIGNATOR_SEGMENTS } from "../../core/designator_segments.ts";
+import {
+  normalizeSafeDesignatorPath,
+  toKnopPath,
+} from "../../core/designator_segments.ts";
 import {
   PayloadUpdateInputError,
   type PayloadUpdatePlan,
@@ -14,8 +17,6 @@ import {
 import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
-
-const safeDesignatorSegmentPattern = /^[A-Za-z0-9._-]+$/;
 
 export interface LocalPayloadUpdateRequest {
   designatorPath: string;
@@ -214,48 +215,12 @@ function normalizeLocalDesignatorPath(
   designatorPath: string,
   fieldName: string,
 ): string {
-  const trimmed = designatorPath.trim();
-  if (trimmed.length === 0) {
-    throw new PayloadUpdateRuntimeError(`${fieldName} is required`);
-  }
-  if (trimmed.startsWith("/") || trimmed.endsWith("/")) {
-    throw new PayloadUpdateRuntimeError(
-      `${fieldName} must not start or end with '/'`,
-    );
-  }
-  if (
-    trimmed.includes("\\") || trimmed.includes("?") || trimmed.includes("#")
-  ) {
-    throw new PayloadUpdateRuntimeError(
-      `${fieldName} contains unsupported path characters`,
-    );
-  }
-
-  const segments = trimmed.split("/");
-  if (segments.some((segment) => segment.length === 0)) {
-    throw new PayloadUpdateRuntimeError(
-      `${fieldName} must not contain empty path segments`,
-    );
-  }
-  if (segments.some((segment) => segment === "." || segment === "..")) {
-    throw new PayloadUpdateRuntimeError(
-      `${fieldName} must not contain '.' or '..' path segments`,
-    );
-  }
-  if (segments.some((segment) => RESERVED_DESIGNATOR_SEGMENTS.has(segment))) {
-    throw new PayloadUpdateRuntimeError(
-      `${fieldName} must not contain reserved path segments`,
-    );
-  }
-  for (const segment of segments) {
-    if (!safeDesignatorSegmentPattern.test(segment)) {
-      throw new PayloadUpdateRuntimeError(
-        `normalizeDesignatorPath rejected segment "${segment}" in ${fieldName}: toKnopPath only accepts path segments matching [A-Za-z0-9._-]+`,
-      );
-    }
-  }
-
-  return trimmed;
+  return normalizeSafeDesignatorPath(
+    designatorPath,
+    fieldName,
+    (message) => new PayloadUpdateRuntimeError(message),
+    { allowRoot: true },
+  );
 }
 
 async function resolveReplacementSource(
@@ -328,7 +293,7 @@ async function loadCurrentPayloadState(
   const meshMetadataPath = join(workspaceRoot, "_mesh/_meta/meta.ttl");
   const knopInventoryPath = join(
     workspaceRoot,
-    `${designatorPath}/_knop/_inventory/inventory.ttl`,
+    `${toKnopPath(designatorPath)}/_inventory/inventory.ttl`,
   );
   let meshMetadataTurtle: string;
   let currentKnopInventoryTurtle: string;
