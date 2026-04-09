@@ -71,13 +71,119 @@ The split I would currently aim for is:
   - concrete renderer behavior
   - file-layout conventions that do not need ontology-level commitment
 
+## First-Pass Recommendation
+
+The first pass should treat the `_knop/_page` manifest as a knop-owned support artifact in core ontology, while regions, sources, and the `_assets` boundary remain bounded helper resources described by that artifact rather than separate governed artifacts.
+
+### Core ontology
+
+- `ResourcePageDefinition`
+  - artifact-level support resource for the `_knop/_page` manifest
+  - should subclass `DigitalArtifact`, `RdfDocument`, and `SemanticFlowResource`
+- `ResourcePageRegion`
+  - structural content region for authored page composition
+  - use `Region`, not `Slot`, because template slots belong in presentation config rather than in the content model
+- `ResourcePageSource`
+  - per-region source binding plus per-source resolution policy
+- `ResourcePageBundleFile`
+  - helper resource for local files under `_knop/_page`
+  - keeps base semantics explicit instead of hiding them in ambiguous path literals
+  - does not imply that every such file must be a governed artifact or a `KnopInventory` entry
+- `ResourcePageAssetBundle`
+  - helper resource for the `_knop/_page/_assets` boundary only
+  - should not imply that every file under `_assets` becomes a governed artifact or a `KnopInventory` entry
+
+Recommended core properties:
+
+- `hasResourcePageDefinition`
+- `hasPageRegion`
+- `regionKey`
+- `regionOrder`
+- `hasResourcePageSource`
+- `sourceOrder`
+- `hasSourceBundleFile`
+- `hasSourceArtifact`
+- `hasSourceHistoricalState`
+- `hasSourceLocatedFile`
+- `hasSourceDistribution`
+- `pageBundleRelativePath`
+- `hasRequestedSourceHistory`
+- `hasRequestedSourceState`
+- `hasResourcePageSourceMode`
+- `hasResourcePageSourceFallbackPolicy`
+- `hasPageAssetBundle`
+
+Recommended controlled vocabularies:
+
+- `ResourcePageSourceMode/Pinned`
+- `ResourcePageSourceMode/Current`
+- `ResourcePageSourceFallbackPolicy/ExactOnly`
+- `ResourcePageSourceFallbackPolicy/AcceptLatestInRequestedHistory`
+
+Naming pushback:
+
+- Do not use `resourcePageSourceState` as the main property name. That blurs requested state, resolved state, and runtime outcome. `hasRequestedSourceState` is clearer.
+- Do not put `accept` into the mode enum alongside `exact` and `current`. `accept` belongs to fallback policy, not to the separate question of whether the source is pinned versus current-following.
+- Do not use a generic name such as `AssetFolder`. `ResourcePageAssetBundle` is explicit about scope and avoids implying a general filesystem-artifact ontology.
+
+### Config ontology
+
+- `ResourcePagePresentationConfig`
+  - presentation- and chrome-level preferences attached adjacent to a `ResourcePageDefinition`
+- `hasResourcePagePresentationConfig`
+- template resources, stylesheet references, and later mesh-level defaults should live here rather than in the core page-composition model
+- if the older template lineage is kept, prefer explicit ResourcePage-scoped names such as `InnerResourcePageTemplate` and `OuterResourcePageTemplate`
+
+### Implementation only
+
+- concrete bundle file names such as `_knop/_page/page.ttl`
+- the fixed serialization convention that maps `ResourcePageAssetBundle` to `_knop/_page/_assets`
+- runtime-computed breadcrumb, navigation, and search inputs
+- template-specific slot wiring and render-context assembly
+
+### Minimal example RDF shape
+
+```turtle
+@prefix : <#> .
+@prefix sflo: <https://semantic-flow.github.io/ontology/core/> .
+
+<https://example.org/alice/_knop> sflo:hasResourcePageDefinition :pageDefinition .
+
+:pageDefinition a sflo:ResourcePageDefinition ;
+  sflo:hasPageRegion :mainRegion, :sidebarRegion ;
+  sflo:hasPageAssetBundle :pageAssets .
+
+:mainRegion a sflo:ResourcePageRegion ;
+  sflo:regionKey "main" ;
+  sflo:hasResourcePageSource :mainSource .
+
+:mainSource a sflo:ResourcePageSource ;
+  sflo:hasSourceArtifact <https://example.org/alice/bio/_knop/payload> ;
+  sflo:hasRequestedSourceHistory <https://example.org/alice/bio/_history001> ;
+  sflo:hasRequestedSourceState <https://example.org/alice/bio/_history001/_s0003> ;
+  sflo:hasResourcePageSourceMode sflo:ResourcePageSourceMode/Pinned ;
+  sflo:hasResourcePageSourceFallbackPolicy sflo:ResourcePageSourceFallbackPolicy/AcceptLatestInRequestedHistory .
+
+:sidebarRegion a sflo:ResourcePageRegion ;
+  sflo:regionKey "sidebar" ;
+  sflo:hasResourcePageSource :sidebarSource .
+
+:sidebarSource a sflo:ResourcePageSource ;
+  sflo:hasSourceBundleFile :sidebarFile .
+
+:sidebarFile a sflo:ResourcePageBundleFile ;
+  sflo:pageBundleRelativePath "sidebar.md" .
+
+:pageAssets a sflo:ResourcePageAssetBundle .
+```
+
 ## Open Issues
 
-- Which page-definition concepts belong in core ontology versus config ontology.
-- Final naming for the asset-bundle resource.
-- Whether page regions should themselves be first-class resources or blank-node-like structural descriptions in the first pass.
+- Whether `ResourcePagePresentationConfig` should live in a page-specific config module or in the broader modernized config ontology from [[ont.task.2026.2026-03-23-config-modernization]].
+- Whether later profiles should add a controlled region-role vocabulary beyond the first-pass `regionKey` string.
+- Whether `ResourcePageAssetBundle` should stay page-scoped permanently or later generalize into a wider asset-bundle concept.
 - How much template/chrome policy should be formalized in this slice versus deferred.
-- Whether page-source mode/fallback vocabulary should live in core ontology or config ontology.
+- Whether first-pass extra-mesh sources should be limited to explicit distributions only, or may also point at broader external artifact IRIs.
 
 ## Decisions
 
@@ -86,6 +192,10 @@ The split I would currently aim for is:
 - Older template/config ideas should be reused selectively, not transplanted wholesale.
 - Content composition and template/chrome policy should remain distinct layers even if both are expressed in RDF.
 - KnopInventory should remain about governed artifact surfaces, not every local support file under `_knop`.
+- The first-pass core content model should use `ResourcePageRegion`, not `ResourcePageSlot`.
+- Per-source state selection and fallback should be modeled as separate axes using `hasRequestedSourceState` and `hasResourcePageSourceFallbackPolicy`.
+- Local bundle sources should be modeled through `ResourcePageBundleFile` plus `pageBundleRelativePath` rather than raw path strings directly on `ResourcePageSource`.
+- `ResourcePageBundleFile` is a structural helper concept only and should not by itself require or recommend recursive inventory capture.
 
 ## Contract Changes
 
@@ -93,6 +203,7 @@ The split I would currently aim for is:
 - Introduce vocabulary for per-source state, mode, and fallback policy.
 - Introduce a bundle-level metadata resource for `_knop/_page/_assets`.
 - Clarify the config vocabulary surface for template/chrome preferences and defaults.
+- Represent local page-bundle files as explicit helper resources so relative-path base semantics stay clear.
 
 ## Testing
 

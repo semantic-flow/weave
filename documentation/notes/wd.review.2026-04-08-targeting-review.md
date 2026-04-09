@@ -260,7 +260,7 @@ into executeVersion.
 
 Duplicate comments:
 In `@src/core/weave/weave.ts`:
-- Around line 330-333: The filtering logic using targetByDesignatorPath.get(...)
+- [c] Around line 330-333: The filtering logic using targetByDesignatorPath.get(...)
 treats undefined as "missing" and drops valid selections whose target is
 explicitly undefined; update the block that builds filtered (the flatMap over
 weaveableKnops) to first check membership with
@@ -268,7 +268,7 @@ targetByDesignatorPath.has(candidate.designatorPath) and only then retrieve the
 value via get so entries with a present key and an undefined value are preserved
 (refer to weaveableKnops, targetByDesignatorPath, and the filtered construction
 in resolveTargetSelections).
-- Around line 1885-1888: The call to replaceSubjectBlock will throw when a knop
+- [c] Around line 1885-1888: The call to replaceSubjectBlock will throw when a knop
 subject block is missing for the first-knop weave; change the logic to call
 upsertSubjectBlockAfter instead so the block is created when absent and updated
 when present. Specifically, replace the invocation of
@@ -279,7 +279,7 @@ surrounding checks (including assertCurrentMeshInventoryShapeForFirstKnopWeave
 and the legacy-fallback branch) intact so behavior for non-first weaves is
 unchanged. Ensure you import or reference upsertSubjectBlockAfter in the same
 module where replaceSubjectBlock is used.
-- Around line 470-510: detectPendingWeaveSlice currently calls
+- [c] Around line 470-510: detectPendingWeaveSlice currently calls
 requirePayloadCurrentStatePathFromInventory inside a compound if, and that
 helper throws a WeaveInputError when latestHistoricalState is missing causing
 detectPendingWeaveSlice to throw instead of returning undefined for non-matching
@@ -297,7 +297,7 @@ loadWeaveableKnopCandidates, latestHistoricalState in your changes.
 
 Nitpick comments:
 In `@documentation/notes/wd.review.2026-04-08-targeting-review.md`:
-- Around line 39-43: The markdown has extra spaces inside code/emphasis markers
+- [x] Around line 39-43: The markdown has extra spaces inside code/emphasis markers
 and a typo: remove internal spaces so examples/readme fragments use `wd.task.*`
 and `wd.completed.*` (not ` wd.task.* ` / ` wd.completed.* `), correct the
 misspelling "deferrment" to "deferment", and ensure the sentence fragment
@@ -307,7 +307,7 @@ the updated wording that wd.task.* must not be renamed to wd.completed.* unless
 the user explicitly asks.
 
 In `@src/core/extract/extract.ts`:
-- Around line 269-300: The template emits duplicate triples when the source
+- [ ] Around line 269-300: The template emits duplicate triples when the source
 payload equals the root (rootDesignatorPath === sourcePayloadDesignatorPath)
 because rootKnopPath === sourceKnopPath and rootPagePath ===
 sourcePayloadPagePath; modify the rendering logic in the function that builds
@@ -318,7 +318,7 @@ only emit sflo:hasKnop and sflo:hasResourcePage lines once for identical values
 template).
 
 In `@src/core/weave/weave.ts`:
-- Around line 2738-2740: The code currently uses a non-null assertion on
+- [c] Around line 2738-2740: The code currently uses a non-null assertion on
 payloadLayout.currentStatePath (in the block that also calls toKnopPath and
 toDesignatorResourcePagePath) but the type marks currentStatePath optional and
 relies on resolveSecondPayloadVersionLayout to populate it; add an explicit
@@ -331,7 +331,7 @@ and resolveSecondPayloadVersionLayout when implementing the guard or type
 refinement.
 
 In `@tests/integration/validate_version_generate_test.ts`:
-- Around line 454-516: The three helper functions
+- [c] Around line 454-516: The three helper functions
 addSupplementalKnopToMeshInventory,
 addSupplementalPayloadArtifactToMeshInventory, and writeSupplementalKnopSurface
 are duplicated with tests/integration/weave_test.ts; extract them into a single
@@ -345,4 +345,13 @@ inventory/knop surface builders.
 
 ## Entelligence 2
 
-In src/core/weave/weave.ts, lines 328-333, the filtering logic uses `target === undefined` to exclude candidates, but `Map.get()` returns `undefined` both when the key is absent AND when the stored value is `undefined`. This means any candidate whose resolved target is `undefined` (a valid 'match with no specific version spec' case) is incorrectly dropped. Fix by using `targetByDesignatorPath.has(candidate.designatorPath)` to check for key presence separately from the value, then retrieve the value for the result object.
+- [c] In src/core/weave/weave.ts, lines 328-333, the filtering logic uses `target === undefined` to exclude candidates, but `Map.get()` returns `undefined` both when the key is absent AND when the stored value is `undefined`. This means any candidate whose resolved target is `undefined` (a valid 'match with no specific version spec' case) is incorrectly dropped. Fix by using `targetByDesignatorPath.has(candidate.designatorPath)` to check for key presence separately from the value, then retrieve the value for the result object.
+
+
+## Entelligence 3
+
+- [c] In src/core/weave/weave.ts, inside `detectPendingWeaveSlice`, the new logic introduces a gap: when `payloadAnyHistoryPath` is truthy (history exists via SFLO_HAS_ARTIFACT_HISTORY_IRI) but `payloadHistoryPath` is undefined (no SFLO_CURRENT_ARTIFACT_HISTORY_IRI), neither `firstPayloadWeave` nor `secondPayloadWeave` is returned, so the function falls through to return `undefined`. The old code used a single `payloadHasHistory` boolean for both branches, so this case was handled. Either (a) confirm this gap is intentional and document why a payload with only `hasArtifactHistory` and no `currentArtifactHistory` is not a valid weave candidate, or (b) decide whether `payloadAnyHistoryPath` (rather than `payloadHistoryPath`) should also guard the `secondPayloadWeave` condition, and update accordingly.
+
+- [c] In src/core/weave/weave.ts, lines 475-484, inside `detectPendingWeaveSlice`, the call to `requirePayloadCurrentStatePathFromInventory` is passed as an argument to `hasNamedNodeFact`. Because JavaScript evaluates function arguments eagerly, if `payloadHistoryPath` is set but no `latestHistoricalState` triple exists in the inventory, this throws a `WeaveInputError` rather than allowing the `secondPayloadWeave` branch to evaluate to false. Fix this by first using `resolveOptionalNamedNodePath` to get an optional current state path, and only calling `hasNamedNodeFact` with it if it is defined — preserving the function's contract of returning `WeaveSlice | undefined` without throwing.
+
+- [c] In `src/core/weave/weave.ts`, inside `renderFirstKnopWovenMeshInventoryTurtle` (around line 1892), the call `replaceSubjectBlock(blocks, knopPath, renderMeshKnopBlockWithResourcePage(knopPath))` will throw if the current mesh inventory does not already contain a subject block for `knopPath`. For a first-knop weave the knop may not yet be declared in the mesh inventory. Replace `replaceSubjectBlock` with an `upsertSubjectBlockAfter` (anchored on `designatorPath`) so the block is inserted when missing rather than throwing. Alternatively, add an assertion in `assertCurrentMeshInventoryShapeForFirstKnopWeave` that the knop subject block already exists, and document that precondition.

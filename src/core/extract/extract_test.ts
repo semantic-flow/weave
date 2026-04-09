@@ -132,6 +132,48 @@ Deno.test("planExtract accepts a root source payload when the root and source kn
     `sflo:hasKnop <_knop> ;
   sflo:hasKnop <alice/bio/_knop> ;`,
   );
+  assertEquals(
+    countOccurrences(
+      plan.updatedFiles[0]?.contents ?? "",
+      "sflo:hasKnop <_knop> ;",
+    ),
+    1,
+  );
+  assertEquals(
+    countOccurrences(
+      plan.updatedFiles[0]?.contents ?? "",
+      "sflo:hasResourcePage <index.html> .",
+    ),
+    1,
+  );
+  assertEquals(
+    countOccurrences(
+      plan.updatedFiles[0]?.contents ?? "",
+      "sflo:hasResourcePage <_knop/index.html> .",
+    ),
+    1,
+  );
+  assertEquals(
+    countOccurrences(
+      plan.updatedFiles[0]?.contents ?? "",
+      "<_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .",
+    ),
+    1,
+  );
+  assertEquals(
+    countOccurrences(
+      plan.updatedFiles[0]?.contents ?? "",
+      "<index.html> a sflo:ResourcePage, sflo:LocatedFile .",
+    ),
+    1,
+  );
+  assertEquals(
+    countOccurrences(
+      plan.updatedFiles[0]?.contents ?? "",
+      "<_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .",
+    ),
+    1,
+  );
   assertStringIncludes(
     plan.createdFiles[2]?.contents ?? "",
     `sflo:referenceTarget <> ;
@@ -226,4 +268,8 @@ function withRdfPrefix(turtle: string): string {
     `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .`,
   );
+}
+
+function countOccurrences(haystack: string, needle: string): number {
+  return haystack.split(needle).length - 1;
 }

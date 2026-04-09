@@ -83,14 +83,50 @@ But we should not revive the older brittle parts uncritically:
 
 The renderer/template boundary also matters. Templates should stay relatively dumb. Breadcrumbs, nav slices, and any later search index hooks should be computed in runtime code and passed as structured inputs rather than making templates responsible for information architecture.
 
+## First-Pass Alignment
+
+The current recommendation from [[wd.task.2026.2026-04-08_1735-page-definition-ontology-and-config]] is:
+
+- `_knop/_page/page.ttl` should be modeled as a `ResourcePageDefinition` support artifact attached to the owning `Knop` with `hasResourcePageDefinition`.
+- authored content composition should use `ResourcePageRegion` plus `hasResourcePageSource`, not a `Slot` vocabulary in core
+- local bundle file references should go through `ResourcePageBundleFile` plus `pageBundleRelativePath`, not raw path strings directly on a source node
+- `ResourcePageBundleFile` should remain a bundle-member helper concept, not a signal that every local file must be inventoried
+- `_knop/_page/_assets` should be modeled as a `ResourcePageAssetBundle` boundary resource attached with `hasPageAssetBundle`
+- page-source selection should separate:
+  - requested source target or state
+  - source mode (`Pinned` vs `Current`)
+  - fallback policy (`ExactOnly` vs `AcceptLatestInRequestedHistory`)
+- template/chrome policy should move to config vocabulary such as `ResourcePagePresentationConfig`, not into the core content-source model
+
+Minimal shape:
+
+```turtle
+@prefix : <#> .
+@prefix sflo: <https://semantic-flow.github.io/ontology/core/> .
+
+:pageDefinition a sflo:ResourcePageDefinition ;
+  sflo:hasPageRegion :mainRegion ;
+  sflo:hasPageAssetBundle :pageAssets .
+
+:mainRegion a sflo:ResourcePageRegion ;
+  sflo:regionKey "main" ;
+  sflo:hasResourcePageSource :mainSource .
+
+:mainSource a sflo:ResourcePageSource ;
+  sflo:hasSourceArtifact <https://example.org/alice/bio/_knop/payload> ;
+  sflo:hasRequestedSourceState <https://example.org/alice/bio/_history001/_s0003> ;
+  sflo:hasResourcePageSourceMode sflo:ResourcePageSourceMode/Pinned ;
+  sflo:hasResourcePageSourceFallbackPolicy sflo:ResourcePageSourceFallbackPolicy/AcceptLatestInRequestedHistory .
+
+:pageAssets a sflo:ResourcePageAssetBundle .
+```
+
 ## Open Issues
 
-- Final class/property names are still open; likely candidates include `ResourcePageDefinition`, `ResourcePageRegion`, and the `resourcePageSource*` family.
-- The bundle-metadata resource name is still open; `AssetFolder` is workable but probably too generic, and something like `PageAssetBundle` or `ResourcePageAssetFolder` may better reflect the intended boundary.
-- The mode vocabulary is not settled. `exact | accept | current` currently looks better than `prefer`, but `required | accept | current` may prove clearer.
-- The fallback vocabulary is not settled. The safest first pass may be same-history-only fallback rather than arbitrary lower/higher or cross-history search.
-- The exact manifest shape for local relative bundle files is still open.
-- The first-pass external-source policy should probably be narrower than the long-term model.
+- Whether first-pass runtime support should allow multiple ordered sources per region immediately, or start with one source per region and add `sourceOrder` only when composition pressure appears in real examples.
+- Whether extra-mesh sources should be limited to explicitly described distributions in the first pass.
+- Whether first-pass fallback should stop at `AcceptLatestInRequestedHistory` or also allow an explicit current-history fallback policy later.
+- Whether local bundle-file helper resources should also carry media-type hints, or whether extension-driven/runtime inference is sufficient initially.
 
 ## Decisions
 
@@ -106,6 +142,11 @@ The renderer/template boundary also matters. Templates should stay relatively du
 - Extra-mesh sources may be allowed, but only with explicit opt-in policy and fail-closed behavior.
 - Template/chrome selection is adjacent to page definition but should remain a separate concern from content composition.
 - Runtime code should compute nav/breadcrumb/search structures; templates should render structured inputs rather than own the information architecture logic.
+- `ResourcePageRegion` is the better first-pass core term; reserve `slot` language for template/render configuration if it is needed later.
+- `hasRequestedSourceState` is clearer than `resourcePageSourceState`.
+- `ResourcePageAssetBundle` is clearer than `AssetFolder` or `PageAssetFolder`.
+- `accept` should describe fallback policy, not replace the separate pinned-vs-current source mode axis.
+- Keeping both a bundle-level concept and a bundle-member `ResourcePageBundleFile` concept is acceptable as long as the file-level concept remains non-governance-bearing by default.
 
 ## Contract Changes
 
@@ -119,6 +160,7 @@ The renderer/template boundary also matters. Templates should stay relatively du
 - Define `_knop/_page/_assets` as the relative-path base for local bundled static assets.
 - Define a bundle-level resource for `_knop/_page/_assets` metadata without promoting every bundled file into KnopInventory by default.
 - Keep `index.html` as generated public output rather than the canonical editable page source.
+- Introduce an explicit helper resource for local page-bundle files so `_knop/_page` relative-path semantics are not buried in ad hoc string fields.
 
 ## Testing
 

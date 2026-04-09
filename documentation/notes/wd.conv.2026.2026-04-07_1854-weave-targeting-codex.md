@@ -1006,3 +1006,54 @@ The rest of the newest appended comments look stale against current code, so I d
 - the `Map.get(...)/undefined` target-selection complaint is not a real bug in the current flow because resolved targeted selections always carry a concrete target when targets were supplied
 
 No tests ran because this was a review-note-only update. If you want, I can keep going through the older unresolved `[c]` items and prune or confirm those next.
+
+# User_2026-04-09_0027_40
+
+Please update [wd.review.2026-04-08-targeting-review.md](wd.review.2026-04-08-targeting-review.md)  to include checkboxes [ ] with [c] for all the items cancelled already or of the new ones not worth doing.
+
+# gpt-5.4_2026-04-09_0027_55
+
+I’m normalizing the review note status markers now. First I’ll scan the whole file so I only change the unresolved items that should clearly be marked `[c]` rather than guessing from the visible excerpt.
+
+# gpt-5.4_2026-04-09_0027_58
+
+There are still several appended items at the end without status markers. I’m reading the tail of the note now and then I’ll convert the ones we’ve already effectively cancelled into explicit `[c]` entries.
+
+# gpt-5.4_2026-04-09_0028_11
+
+I’ve reached the unmarked tail items. I’m spot-checking the code paths they mention before I cancel them, so the note records real decisions instead of hand-waving them away.
+
+# gpt-5.4_2026-04-09_0028_25
+
+A couple of the remaining appended findings are still plausible, so I’m checking the specific invariants they rely on before I decide which ones should get `[c]` and which ones should stay open.
+
+# gpt-5.4_2026-04-09_0028_51
+
+I’ve identified the obvious no-action duplicates and stale findings. I’m checking whether the note has any more unmarked tail items beyond this block before I rewrite their markers.
+
+# gpt-5.4_2026-04-09_0029_26
+
+I’m normalizing the remaining unmarked bullets now: clear duplicates/stale findings get `[c]`, the already-fixed note-format nit gets `[x]`, and the one extract-root duplicate-triples item that still looks actionable stays open as `[ ]`.
+
+# gpt-5.4_2026-04-09_0029_51
+
+The note moved a bit under me, so I’m patching the remaining bullets in smaller chunks rather than forcing a brittle bulk edit.
+
+# gpt-5.4_2026-04-09_0030_24
+
+The remaining tail items are marked. I’m reading the updated section back once to confirm the statuses are exactly what you asked for: stale/duplicate/no-action items as `[c]`, already-fixed note cleanup as `[x]`, and the one still-actionable extract issue left open as `[ ]`.
+
+# gpt-5.4_2026-04-09_0030_31
+
+I’ve got the statuses where you asked. I’m doing one quick structural scan for any remaining plain `- ` bullets in that note so I don’t leave stray unmarked review items behind.
+
+# gpt-5.4_2026-04-09_0030_37
+
+Updated [wd.review.2026-04-08-targeting-review.md](wd.review.2026-04-08-targeting-review.md) so the remaining appended items now all have status checkboxes.
+
+I marked:
+- stale/duplicate/not-worth-doing items as `[c]`
+- the already-fixed note-format nit as `[x]`
+- the extract root-duplicate-triples item as `[ ]` since that one still looks actionable
+
+No tests ran; this was a review-note-only edit.
