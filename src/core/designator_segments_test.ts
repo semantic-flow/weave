@@ -41,6 +41,19 @@ Deno.test("normalizeCliDesignatorPath rejects a missing value", () => {
   );
 });
 
+Deno.test("normalizeCliDesignatorPath rejects unsafe non-root paths", () => {
+  assertThrows(
+    () =>
+      normalizeCliDesignatorPath(
+        "../etc/passwd",
+        "designatorPath",
+        createError,
+      ),
+    Error,
+    "must not contain '.' or '..' path segments",
+  );
+});
+
 Deno.test("root-aware path helpers do not add leading slashes", () => {
   assertEquals(appendMeshPath("", "_knop"), "_knop");
   assertEquals(toKnopPath(""), "_knop");
@@ -50,6 +63,7 @@ Deno.test("root-aware path helpers do not add leading slashes", () => {
 });
 
 Deno.test("isDirectChildMeshPath treats the root as the parent of single-segment paths", () => {
+  assertEquals(isDirectChildMeshPath("", ""), false);
   assertEquals(isDirectChildMeshPath("", "_history001"), true);
   assertEquals(isDirectChildMeshPath("", "alice"), true);
   assertEquals(isDirectChildMeshPath("", "alice/bio"), false);

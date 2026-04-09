@@ -1,6 +1,7 @@
 import { dirname, join } from "@std/path";
 import { Parser, type Quad } from "n3";
 import {
+  formatDesignatorPathForDisplay,
   toDesignatorResourcePagePath,
   toKnopPath,
 } from "../../core/designator_segments.ts";
@@ -378,8 +379,15 @@ function toSharedTargetRequest(
     return undefined;
   }
 
+  assertSupportedRequestKeys(request, "request", new Set(["targets"]));
+  const normalizedTargets = normalizeVersionTargetSpecs(
+    request.targets,
+    "request.targets",
+    (message) => new WeaveInputError(message),
+  );
+
   return {
-    targets: request.targets?.map((target) => ({
+    targets: normalizedTargets.map((target) => ({
       designatorPath: target.designatorPath,
       ...(target.recursive ? { recursive: true } : {}),
     })),
@@ -437,6 +445,10 @@ async function prepareVersionExecution(
     meshState.currentMeshInventoryTurtle,
     requestedDesignatorPaths,
     overlay,
+  );
+  assertRequestedTargetsAreWeaveable(
+    targets,
+    initialWeaveableKnops,
   );
 
   if (initialWeaveableKnops.length === 0) {
@@ -531,6 +543,43 @@ async function prepareVersionExecution(
     meshState,
     plan,
   };
+}
+
+function assertRequestedTargetsAreWeaveable(
+  targets: readonly NormalizedVersionTargetSpec[],
+  weaveableKnops: readonly WeaveableKnopCandidate[],
+): void {
+  if (targets.length === 0) {
+    return;
+  }
+
+  const weaveablePaths = new Set(
+    weaveableKnops.map((candidate) => candidate.designatorPath),
+  );
+  const missingTargets = targets.filter((target) =>
+    target.recursive
+      ? ![...weaveablePaths].some((designatorPath) =>
+        target.designatorPath.length === 0 ||
+        designatorPath === target.designatorPath ||
+        designatorPath.startsWith(`${target.designatorPath}/`)
+      )
+      : !weaveablePaths.has(target.designatorPath)
+  );
+  if (missingTargets.length === 0) {
+    return;
+  }
+
+  throw new WeaveInputError(
+    `Requested targets are not currently weaveable: ${
+      missingTargets.map((target) =>
+        target.recursive
+          ? `${
+            formatDesignatorPathForDisplay(target.designatorPath)
+          } (recursive)`
+          : formatDesignatorPathForDisplay(target.designatorPath)
+      ).join(", ")
+    }.`,
+  );
 }
 
 function toNormalizedVersionTargets(

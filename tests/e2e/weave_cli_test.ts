@@ -234,27 +234,16 @@ Deno.test("weave accepts payload history/state naming flags as a black-box CLI r
   const workspaceRoot = await createTestTmpDir("weave-e2e-payload-naming-");
   await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
 
-  const command = new Deno.Command("deno", {
-    args: [
-      "run",
-      "--allow-read",
-      "--allow-write",
-      "--allow-env",
-      "src/main.ts",
-      "--target",
-      "designatorPath=alice/bio",
-      "--payload-history-segment",
-      "releases",
-      "--payload-state-segment",
-      "v0.0.1",
-      "--workspace",
-      workspaceRoot,
-    ],
-    cwd: new URL(".", repoRoot),
-    stdout: "piped",
-    stderr: "piped",
-  });
-  const output = await command.output();
+  const output = await runCliCommand([
+    "--target",
+    "designatorPath=alice/bio",
+    "--payload-history-segment",
+    "releases",
+    "--payload-state-segment",
+    "v0.0.1",
+    "--workspace",
+    workspaceRoot,
+  ]);
   const stdout = new TextDecoder().decode(output.stdout);
   const stderr = new TextDecoder().decode(output.stderr);
 
@@ -268,6 +257,60 @@ Deno.test("weave accepts payload history/state naming flags as a black-box CLI r
   );
   await Deno.stat(join(workspaceRoot, "alice/bio/releases/index.html"));
   await Deno.stat(join(workspaceRoot, "alice/bio/releases/v0.0.1/index.html"));
+});
+
+Deno.test("weave rejects payload history/state naming flags without exactly one target", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-payload-naming-no-target-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const output = await runCliCommand([
+    "--payload-history-segment",
+    "releases",
+    "--payload-state-segment",
+    "v0.0.1",
+    "--workspace",
+    workspaceRoot,
+  ]);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assertEquals(output.success, false);
+  assert(
+    stderr.includes(
+      "Payload history/state naming requires exactly one --target.",
+    ),
+    stderr,
+  );
+});
+
+Deno.test("weave rejects payload history/state naming flags with multiple targets", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-payload-naming-many-targets-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const output = await runCliCommand([
+    "--target",
+    "designatorPath=alice",
+    "--target",
+    "designatorPath=alice/bio",
+    "--payload-history-segment",
+    "releases",
+    "--payload-state-segment",
+    "v0.0.1",
+    "--workspace",
+    workspaceRoot,
+  ]);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assertEquals(output.success, false);
+  assert(
+    stderr.includes(
+      "Payload history/state naming requires exactly one --target.",
+    ),
+    stderr,
+  );
 });
 
 Deno.test("weave matches the manifest-scoped alice bio referenced-woven fixture as a black-box CLI run", async () => {

@@ -1,4 +1,5 @@
 import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
+import { planExtract } from "../extract/extract.ts";
 import {
   detectPendingWeaveSlice,
   planWeave,
@@ -44,6 +45,54 @@ const firstWeaveKnopMetadataTurtle =
 <alice/_knop> a sflo:Knop ;
   sflo:designatorPath "alice" ;
   sflo:hasWorkingKnopInventoryFile <alice/_knop/_inventory/inventory.ttl> .
+`;
+
+const rootSourcePreExtractMeshInventoryTurtle =
+  `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<_mesh> a sflo:SemanticMesh ;
+  sflo:meshBase "https://semantic-flow.github.io/mesh-alice-bio/"^^xsd:anyURI ;
+  sflo:hasMeshMetadata <_mesh/_meta> ;
+  sflo:hasMeshInventory <_mesh/_inventory> ;
+  sflo:hasKnop <_knop> ;
+  sflo:hasResourcePage <_mesh/index.html> .
+
+<> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <root-person.ttl> ;
+  sflo:hasResourcePage <index.html> .
+
+<_knop> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <_knop/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <_knop/index.html> .
+
+<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:currentArtifactHistory <_mesh/_inventory/_history001> .
+
+<_mesh/_inventory/_history001>
+  sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0003> ;
+  sflo:nextStateOrdinal "4"^^xsd:nonNegativeInteger .
+
+<root-person.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+`;
+
+const rootSourcePersonPayloadTurtle =
+  `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix schema: <https://schema.org/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+
+<> a schema:Dataset ;
+  schema:name "Root Source Payload" .
+
+<alice> a schema:Person ;
+  foaf:name "Alice" ;
+  schema:birthDate "2000-01-01" ;
+  foaf:knows <alice/bio> .
+
+<alice/bio> a schema:Person ;
+  foaf:givenName "Alice" ;
+  foaf:nick "alice-bio" .
 `;
 
 const firstWeaveKnopInventoryTurtle =
@@ -1075,6 +1124,68 @@ Deno.test("planWeave rejects extracted bob weave inputs when the source payload 
     () => planWeave(input),
     WeaveInputError,
     "did not resolve the expected source payload state",
+  );
+});
+
+Deno.test("planWeave accepts extracted weave inputs sourced from the root payload", () => {
+  const extractPlan = planExtract({
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: rootSourcePreExtractMeshInventoryTurtle,
+    designatorPath: "alice/bio",
+    referenceTargetDesignatorPath: "",
+    referenceTargetStatePath: "_history001/_s0001",
+    referenceTargetWorkingFilePath: "root-person.ttl",
+  });
+  const createdFileByPath = new Map(
+    extractPlan.createdFiles.map((file) => [file.path, file.contents]),
+  );
+
+  const plan = planWeave({
+    request: {
+      targets: [{ designatorPath: "alice/bio" }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: extractPlan.updatedFiles[0]!.contents,
+    weaveableKnops: [{
+      designatorPath: "alice/bio",
+      currentKnopMetadataTurtle: createdFileByPath.get(
+        "alice/bio/_knop/_meta/meta.ttl",
+      )!,
+      currentKnopInventoryTurtle: createdFileByPath.get(
+        "alice/bio/_knop/_inventory/inventory.ttl",
+      )!,
+      referenceCatalogArtifact: {
+        workingFilePath: "alice/bio/_knop/_references/references.ttl",
+        currentReferenceCatalogTurtle: createdFileByPath.get(
+          "alice/bio/_knop/_references/references.ttl",
+        )!,
+      },
+      referenceTargetSourcePayloadArtifact: {
+        designatorPath: "",
+        workingFilePath: "root-person.ttl",
+        currentPayloadTurtle: rootSourcePersonPayloadTurtle,
+        latestHistoricalStatePath: "_history001/_s0001",
+      },
+    }],
+  });
+
+  assertEquals(plan.wovenDesignatorPaths, ["alice/bio"]);
+  assertEquals(
+    plan.createdPages.find((page) =>
+      page.path === "alice/bio/_knop/_references/index.html"
+    ),
+    {
+      kind: "referenceCatalog",
+      path: "alice/bio/_knop/_references/index.html",
+      catalogPath: "alice/bio/_knop/_references",
+      ownerDesignatorPath: "alice/bio",
+      currentLinks: [{
+        fragment: "reference001",
+        referenceRoleLabel: "supplemental",
+        referenceTargetPath: "",
+        referenceTargetStatePath: "_history001/_s0001",
+      }],
+    },
   );
 });
 

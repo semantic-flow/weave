@@ -92,6 +92,56 @@ Deno.test("executeVersion accepts version-only target fields", async () => {
   );
 });
 
+Deno.test("executeVersion rejects mixed requested targets when some are not currently weaveable", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-version-mixed-targets-");
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const meshInventoryBefore = await Deno.readTextFile(
+    join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+  );
+  const aliceBioInventoryBefore = await Deno.readTextFile(
+    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+  );
+
+  await assertRejects(
+    () =>
+      executeVersion({
+        workspaceRoot,
+        request: {
+          targets: [
+            { designatorPath: "alice" },
+            { designatorPath: "alice/bio" },
+          ],
+        },
+      }),
+    WeaveInputError,
+    "Requested targets are not currently weaveable: alice.",
+  );
+
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+    ),
+    meshInventoryBefore,
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+    ),
+    aliceBioInventoryBefore,
+  );
+  await assertRejects(
+    () =>
+      Deno.stat(
+        join(
+          workspaceRoot,
+          "alice/bio/_history001/_s0001/alice-bio-ttl/alice-bio.ttl",
+        ),
+      ),
+    Deno.errors.NotFound,
+  );
+});
+
 Deno.test("executeValidate accepts the exact root target", async () => {
   const workspaceRoot = await createTestTmpDir("weave-validate-root-");
   await materializeMeshAliceBioBranch(

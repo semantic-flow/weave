@@ -68,7 +68,7 @@ export function normalizeCliDesignatorPath(
 
   return trimmed === ROOT_DESIGNATOR_CLI_SENTINEL
     ? ROOT_DESIGNATOR_PATH
-    : trimmed;
+    : normalizeSafeDesignatorPath(trimmed, fieldName, createError);
 }
 
 export function formatDesignatorPathForDisplay(designatorPath: string): string {
@@ -102,7 +102,7 @@ export function isDirectChildMeshPath(
   childPath: string,
 ): boolean {
   if (parentPath.length === 0) {
-    return !childPath.includes("/");
+    return childPath.length > 0 && !childPath.includes("/");
   }
   if (!childPath.startsWith(`${parentPath}/`)) {
     return false;

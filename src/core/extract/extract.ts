@@ -568,10 +568,10 @@ function assertCurrentMeshInventoryShapeForExtract(
     "_mesh",
     SFLO_HAS_KNOP_IRI,
   );
+  const expectedMeshKnopPaths = [...new Set([rootKnopPath, sourceKnopPath])];
   if (
-    meshKnopPaths.length !== 2 ||
-    !meshKnopPaths.includes(rootKnopPath) ||
-    !meshKnopPaths.includes(sourceKnopPath)
+    meshKnopPaths.length !== expectedMeshKnopPaths.length ||
+    expectedMeshKnopPaths.some((path) => !meshKnopPaths.includes(path))
   ) {
     throw new ExtractInputError(errorMessage);
   }

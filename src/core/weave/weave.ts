@@ -1418,11 +1418,13 @@ function assertReferenceTargetSourcePayloadShapeForFirstExtractedKnopWeave(
     );
   }
 
+  const expectedPrefix = payloadArtifact.designatorPath.length === 0
+    ? undefined
+    : `${payloadArtifact.designatorPath}/`;
   if (
-    !payloadArtifact.latestHistoricalStatePath.startsWith(
-      `${payloadArtifact.designatorPath}/`,
-    ) ||
-    payloadArtifact.latestHistoricalStatePath === payloadArtifact.designatorPath
+    payloadArtifact.latestHistoricalStatePath.length === 0 ||
+    (expectedPrefix !== undefined &&
+      !payloadArtifact.latestHistoricalStatePath.startsWith(expectedPrefix))
   ) {
     throw new WeaveInputError(
       `The current local extracted weave slice only supports source payloads with an explicit current historical state.`,

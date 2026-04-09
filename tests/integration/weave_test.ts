@@ -98,6 +98,25 @@ Deno.test("executeWeave supports the exact root target", async () => {
   );
 });
 
+Deno.test("executeWeave validates malformed shared target requests before planning", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-weave-invalid-target-");
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const request = {
+    targets: [null],
+  } as unknown as Parameters<typeof executeWeave>[0]["request"];
+
+  await assertRejects(
+    () =>
+      executeWeave({
+        workspaceRoot,
+        request,
+      }),
+    WeaveInputError,
+    "request.targets[0] must be an object",
+  );
+});
+
 Deno.test("executeWeave matches the settled alice bio integrated-woven fixture", async () => {
   const workspaceRoot = await createTestTmpDir("weave-weave-payload-");
   await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
