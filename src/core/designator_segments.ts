@@ -82,6 +82,10 @@ export function appendMeshPath(basePath: string, suffix: string): string {
     return basePath;
   }
 
+  // Mesh-relative support-artifact paths stay relative even for the root
+  // designator. Callers should use these helpers instead of hand-building
+  // `${designatorPath}/...` paths, which tend to reintroduce leading-slash
+  // bugs for the root path.
   return basePath.length === 0 ? suffix : `${basePath}/${suffix}`;
 }
 

@@ -2,7 +2,7 @@
 id: to6kpa4g183qo0c5vob4qrv
 title: 2026 04 08 Targeting Review
 desc: ''
-updated: 1775682073513
+updated: 1775714624457
 created: 1775680710976
 ---
 
@@ -228,3 +228,117 @@ Key Findings:
 - [c] replaceSubjectBlock throws WeaveInputError when the subject block for knopPath is absent — exactly the condition that holds for every first-knop weave — so the entire first-knop weave path will throw unconditionally instead of inserting the new block; this bug is flagged in both the current and previous unresolved reviews.
 - [x] normalizeCliDesignatorPath in designator_segments.ts bypasses all safety checks from normalizeSafeDesignatorPath for non-root, non-empty inputs, meaning path traversal strings like ../../../etc/passwd or segments containing ?/# are passed through unchecked to path builders and inventory lookups.
 - [c] The target: undefined ambiguity in resolveTargetSelections causes matched candidates with no specific version spec to be silently dropped from filtered because Map.get() returning undefined is indistinguishable from a missing key — this is an unresolved comment from a previous review that has not been addressed.
+
+## Coderabbit 4
+
+Verify each finding against the current code and only fix it if needed.
+
+Inline comments:
+In `@documentation/notes/wd.review.2026-04-08-targeting-review.md`:
+- [c] Around line 1-7: Remove the manual frontmatter line "updated: 1775682073513"
+from the note's YAML frontmatter so Dendron can manage it automatically; locate
+the frontmatter block (the triple-dashed header containing id, title, desc,
+updated, created) and delete only the updated field, leaving id, title, desc,
+and created intact, then save so Dendron will auto-populate the updated
+timestamp.
+
+---
+
+Outside diff comments:
+In `@src/runtime/weave/weave.ts`:
+- [c] Around line 375-395: toSharedTargetRequest currently calls
+normalizeVersionTargetSpecs which accepts version-only fields
+(historySegment/stateSegment) allowing unsupported custom version naming through
+the weave path; fix by validating the normalizedTargets (or adjust
+normalizeVersionTargetSpecs invocation) to reject any target objects that
+include historySegment or stateSegment and throw a WeaveInputError with a clear
+message when found. Update toSharedTargetRequest to check each normalized target
+for presence of historySegment/stateSegment (and any other version-only keys)
+before returning, so executeWeave will never forward version-only target data
+into executeVersion.
+
+---
+
+Duplicate comments:
+In `@src/core/weave/weave.ts`:
+- Around line 330-333: The filtering logic using targetByDesignatorPath.get(...)
+treats undefined as "missing" and drops valid selections whose target is
+explicitly undefined; update the block that builds filtered (the flatMap over
+weaveableKnops) to first check membership with
+targetByDesignatorPath.has(candidate.designatorPath) and only then retrieve the
+value via get so entries with a present key and an undefined value are preserved
+(refer to weaveableKnops, targetByDesignatorPath, and the filtered construction
+in resolveTargetSelections).
+- Around line 1885-1888: The call to replaceSubjectBlock will throw when a knop
+subject block is missing for the first-knop weave; change the logic to call
+upsertSubjectBlockAfter instead so the block is created when absent and updated
+when present. Specifically, replace the invocation of
+replaceSubjectBlock(blocks, knopPath,
+renderMeshKnopBlockWithResourcePage(knopPath)) with upsertSubjectBlockAfter
+using the same knopPath and renderMeshKnopBlockWithResourcePage result; keep the
+surrounding checks (including assertCurrentMeshInventoryShapeForFirstKnopWeave
+and the legacy-fallback branch) intact so behavior for non-first weaves is
+unchanged. Ensure you import or reference upsertSubjectBlockAfter in the same
+module where replaceSubjectBlock is used.
+- Around line 470-510: detectPendingWeaveSlice currently calls
+requirePayloadCurrentStatePathFromInventory inside a compound if, and that
+helper throws a WeaveInputError when latestHistoricalState is missing causing
+detectPendingWeaveSlice to throw instead of returning undefined for non-matching
+candidates; change the logic to resolve the payload current state path with a
+non-throwing helper or call requirePayloadCurrentStatePathFromInventory outside
+the compound in detectPendingWeaveSlice and guard on its result (e.g., assign to
+a local latestPath variable and if it's falsy return undefined) so that when
+latestHistoricalState is absent the function simply returns undefined rather
+than propagating an exception; keep the rest of the
+hasNamedNodeFact/hasLiteralFact checks intact and reference
+requirePayloadCurrentStatePathFromInventory, detectPendingWeaveSlice,
+loadWeaveableKnopCandidates, latestHistoricalState in your changes.
+
+---
+
+Nitpick comments:
+In `@documentation/notes/wd.review.2026-04-08-targeting-review.md`:
+- Around line 39-43: The markdown has extra spaces inside code/emphasis markers
+and a typo: remove internal spaces so examples/readme fragments use `wd.task.*`
+and `wd.completed.*` (not ` wd.task.* ` / ` wd.completed.* `), correct the
+misspelling "deferrment" to "deferment", and ensure the sentence fragment
+"`documentation/notes/wd.task.*.md`: Do not rename wd.task.* notes to"
+consistently uses the trimmed code tokens (`wd.task.*`, `wd.completed.*`) and
+the updated wording that wd.task.* must not be renamed to wd.completed.* unless
+the user explicitly asks.
+
+In `@src/core/extract/extract.ts`:
+- Around line 269-300: The template emits duplicate triples when the source
+payload equals the root (rootDesignatorPath === sourcePayloadDesignatorPath)
+because rootKnopPath === sourceKnopPath and rootPagePath ===
+sourcePayloadPagePath; modify the rendering logic in the function that builds
+this RDF block so it deduplicates those entries (e.g., check equality of
+rootKnopPath vs sourceKnopPath and rootPagePath vs sourcePayloadPagePath) and
+only emit sflo:hasKnop and sflo:hasResourcePage lines once for identical values
+(or build a set of unique knob/page values before joining them into the
+template).
+
+In `@src/core/weave/weave.ts`:
+- Around line 2738-2740: The code currently uses a non-null assertion on
+payloadLayout.currentStatePath (in the block that also calls toKnopPath and
+toDesignatorResourcePagePath) but the type marks currentStatePath optional and
+relies on resolveSecondPayloadVersionLayout to populate it; add an explicit
+runtime guard: check payloadLayout.currentStatePath before using it and either
+throw a clear error (e.g., "expected currentStatePath for second payload weave")
+or bail out gracefully, or alternatively tighten the type returned by
+resolveSecondPayloadVersionLayout so payloadLayout always includes
+currentStatePath for second payloads; reference payloadLayout.currentStatePath
+and resolveSecondPayloadVersionLayout when implementing the guard or type
+refinement.
+
+In `@tests/integration/validate_version_generate_test.ts`:
+- Around line 454-516: The three helper functions
+addSupplementalKnopToMeshInventory,
+addSupplementalPayloadArtifactToMeshInventory, and writeSupplementalKnopSurface
+are duplicated with tests/integration/weave_test.ts; extract them into a single
+shared module under tests/support (e.g., tests/support/mesh_builders.ts), export
+the functions there, replace the local implementations in
+validate_version_generate_test.ts and weave_test.ts with imports from that
+shared module, and update any relative import paths and test usages to reference
+the centralized helpers so both suites use the same canonical mesh
+inventory/knop surface builders.

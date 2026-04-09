@@ -379,6 +379,10 @@ function toSharedTargetRequest(
     return undefined;
   }
 
+  // executeWeave runs validate -> version -> generate as separate phases. Keep
+  // this bridge normalized through the version-target parser first so shared
+  // validate/generate targeting stays semantically aligned with version
+  // targeting as the request shape evolves.
   assertSupportedRequestKeys(request, "request", new Set(["targets"]));
   const normalizedTargets = normalizeVersionTargetSpecs(
     request.targets,
@@ -556,6 +560,10 @@ function assertRequestedTargetsAreWeaveable(
   const weaveablePaths = new Set(
     weaveableKnops.map((candidate) => candidate.designatorPath),
   );
+  // Exact and recursive targets intentionally differ here. An exact request is
+  // asking for that designator itself to be versionable right now, while a
+  // recursive request is allowed to succeed when any descendant in the
+  // requested subtree is weaveable even if the subtree root is already settled.
   const missingTargets = targets.filter((target) =>
     target.recursive
       ? ![...weaveablePaths].some((designatorPath) =>
