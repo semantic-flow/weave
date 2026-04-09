@@ -2,7 +2,6 @@
 id: to6kpa4g183qo0c5vob4qrv
 title: 2026 04 08 Targeting Review
 desc: ''
-updated: 1775714624457
 created: 1775680710976
 ---
 
@@ -235,7 +234,7 @@ Verify each finding against the current code and only fix it if needed.
 
 Inline comments:
 In `@documentation/notes/wd.review.2026-04-08-targeting-review.md`:
-- [c] Around line 1-7: Remove the manual frontmatter line "updated: 1775682073513"
+- [x] Around line 1-7: Remove the manual frontmatter line "updated: 1775682073513"
 from the note's YAML frontmatter so Dendron can manage it automatically; locate
 the frontmatter block (the triple-dashed header containing id, title, desc,
 updated, created) and delete only the updated field, leaving id, title, desc,
@@ -342,3 +341,8 @@ validate_version_generate_test.ts and weave_test.ts with imports from that
 shared module, and update any relative import paths and test usages to reference
 the centralized helpers so both suites use the same canonical mesh
 inventory/knop surface builders.
+
+
+## Entelligence 2
+
+In src/core/weave/weave.ts, lines 328-333, the filtering logic uses `target === undefined` to exclude candidates, but `Map.get()` returns `undefined` both when the key is absent AND when the stored value is `undefined`. This means any candidate whose resolved target is `undefined` (a valid 'match with no specific version spec' case) is incorrectly dropped. Fix by using `targetByDesignatorPath.has(candidate.designatorPath)` to check for key presence separately from the value, then retrieve the value for the result object.

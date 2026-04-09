@@ -975,3 +975,34 @@ Equivalent convenience task:
 ```sh
 deno task dev:root
 ```
+
+# User_2026-04-09_0001_59
+
+Please continue with the latest review comments appended.
+
+# gpt-5.4_2026-04-09_0002_09
+
+I’m reading the appended targeting review comments and checking the current worktree so I can tell which ones are already addressed, which are real, and which need code changes.
+
+# gpt-5.4_2026-04-09_0002_28
+
+I’ve got the review note. I’m checking the newest unresolved findings in code now so I can separate real regressions from stale review noise before I change anything.
+
+# gpt-5.4_2026-04-09_0002_37
+
+The code has already moved quite a bit past some of the older comments. I’m checking the remaining Entelligence/Coderabbit items now, especially the ones that look like they could still be real regressions rather than already-stale review output.
+
+# gpt-5.4_2026-04-09_0003_19
+
+Most of the newest code comments are stale against the current branch. The one real repo-policy issue is the manual `updated` frontmatter in the review note itself, and I’m syncing that note now while preserving the appended review content.
+
+# gpt-5.4_2026-04-09_0003_38
+
+Updated [wd.review.2026-04-08-targeting-review.md](wd.review.2026-04-08-targeting-review.md) to remove the manual `updated` frontmatter and marked that latest Coderabbit item done.
+
+The rest of the newest appended comments look stale against current code, so I did not force code changes for them:
+- the `planFirstKnopWeave` arity complaint no longer matches the current call site
+- the `toSharedTargetRequest` complaint conflicts with the current intended `weave` contract, where `WeaveRequest` may still carry version-oriented fields programmatically while shared CLI `--target` remains restricted
+- the `Map.get(...)/undefined` target-selection complaint is not a real bug in the current flow because resolved targeted selections always carry a concrete target when targets were supplied
+
+No tests ran because this was a review-note-only update. If you want, I can keep going through the older unresolved `[c]` items and prune or confirm those next.
