@@ -5,6 +5,7 @@ import {
 } from "../../core/designator_segments.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+const SFC_NAMESPACE = "https://semantic-flow.github.io/ontology/core/";
 const SFLO_NAMESPACE =
   "https://semantic-flow.github.io/semantic-flow-ontology/";
 const SFLO_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}ArtifactHistory`;
@@ -21,6 +22,9 @@ const SFLO_REFERENCE_LINK_FOR_IRI = `${SFLO_NAMESPACE}referenceLinkFor`;
 const SFLO_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}ReferenceLink`;
 const SFLO_REFERENCE_TARGET_IRI = `${SFLO_NAMESPACE}referenceTarget`;
 const SFLO_REFERENCE_TARGET_STATE_IRI = `${SFLO_NAMESPACE}referenceTargetState`;
+const SFC_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFC_NAMESPACE}hasKnopAssetBundle`;
+const SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI =
+  `${SFC_NAMESPACE}hasResourcePageDefinition`;
 
 export interface PayloadArtifactInventoryState {
   workingFilePath: string;
@@ -31,6 +35,15 @@ export interface PayloadArtifactInventoryState {
 
 export interface ReferenceCatalogInventoryState {
   workingFilePath: string;
+}
+
+export interface ResourcePageDefinitionInventoryState {
+  artifactPath: string;
+  workingFilePath: string;
+  currentArtifactHistoryPath?: string;
+  currentArtifactHistoryExists: boolean;
+  latestHistoricalStatePath?: string;
+  assetBundlePath?: string;
 }
 
 export function listKnopDesignatorPaths(
@@ -179,6 +192,84 @@ export function resolveReferenceCatalogInventoryState(
       SFLO_HAS_WORKING_LOCATED_FILE_IRI,
       messages.missingWorkingFileMessage,
     ),
+  };
+}
+
+export function resolveResourcePageDefinitionInventoryState(
+  meshBase: string,
+  inventoryTurtle: string,
+  designatorPath: string,
+  messages: {
+    parseErrorMessage: string;
+    missingWorkingFileMessage: string;
+  },
+): ResourcePageDefinitionInventoryState | undefined {
+  const quads = parseInventoryQuads(
+    meshBase,
+    inventoryTurtle,
+    messages.parseErrorMessage,
+  );
+  const knopIri = toMeshIri(meshBase, toKnopPath(designatorPath));
+  const artifactPath = resolveOptionalUniqueNamedNodePath(
+    quads,
+    meshBase,
+    knopIri,
+    SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI,
+    messages.parseErrorMessage,
+  );
+
+  if (!artifactPath) {
+    return undefined;
+  }
+
+  const artifactIri = toMeshIri(meshBase, artifactPath);
+  const workingFilePath = requireUniqueNamedNodePath(
+    quads,
+    meshBase,
+    artifactIri,
+    SFLO_HAS_WORKING_LOCATED_FILE_IRI,
+    messages.missingWorkingFileMessage,
+  );
+  const currentArtifactHistoryPath = resolveOptionalUniqueNamedNodePath(
+    quads,
+    meshBase,
+    artifactIri,
+    SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
+    messages.parseErrorMessage,
+  );
+  const currentArtifactHistoryExists = currentArtifactHistoryPath
+    ? hasNamedNodeObject(
+      quads,
+      toMeshIri(meshBase, currentArtifactHistoryPath),
+      RDF_TYPE_IRI,
+      SFLO_ARTIFACT_HISTORY_IRI,
+    )
+    : false;
+  const latestHistoricalStatePath =
+    currentArtifactHistoryPath && currentArtifactHistoryExists
+      ? resolveOptionalUniqueNamedNodePath(
+        quads,
+        meshBase,
+        toMeshIri(meshBase, currentArtifactHistoryPath),
+        SFLO_LATEST_HISTORICAL_STATE_IRI,
+        messages.parseErrorMessage,
+      )
+      : undefined;
+  const assetBundlePath = resolveOptionalUniqueNamedNodePath(
+    quads,
+    meshBase,
+    knopIri,
+    SFC_HAS_KNOP_ASSET_BUNDLE_IRI,
+    messages.parseErrorMessage,
+  );
+
+  return {
+    artifactPath,
+    workingFilePath,
+    currentArtifactHistoryPath,
+    currentArtifactHistoryExists,
+    latestHistoricalStatePath,
+    assetBundlePath,
   };
 }
 

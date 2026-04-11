@@ -371,6 +371,68 @@ Deno.test("executeWeave matches the settled alice bio referenced-woven fixture",
   );
 });
 
+Deno.test("executeWeave matches the settled alice page-customized-woven fixture", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-weave-page-definition-");
+  await materializeMeshAliceBioBranch(
+    "14-alice-page-customized",
+    workspaceRoot,
+  );
+
+  const result = await executeWeave({
+    workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "alice" }],
+    },
+  });
+
+  assertEquals(result.wovenDesignatorPaths, ["alice"]);
+  assert(
+    result.createdPaths.includes(
+      "alice/_knop/_page/_history001/_s0001/page-ttl/page.ttl",
+    ),
+  );
+  assert(
+    result.createdPaths.includes(
+      "alice/_knop/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl",
+    ),
+  );
+  assert(result.updatedPaths.includes("alice/_knop/_inventory/inventory.ttl"));
+  assert(
+    result.createdPaths.includes("alice/index.html") ||
+      result.updatedPaths.includes("alice/index.html"),
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/_knop/_inventory/inventory.ttl"),
+    ),
+    await readMeshAliceBioBranchFile(
+      "15-alice-page-customized-woven",
+      "alice/_knop/_inventory/inventory.ttl",
+    ),
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
+    `<link rel="stylesheet" href="./_knop/_assets/alice.css">`,
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
+    `<p>This identifier page is customized by <code>alice/_knop/_page/page.ttl</code>.</p>`,
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
+    `<a href="./_knop/_page">./_knop/_page</a>`,
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/_knop/_page/index.html"),
+    ),
+    await readMeshAliceBioBranchFile(
+      "15-alice-page-customized-woven",
+      "alice/_knop/_page/index.html",
+    ),
+  );
+});
+
 Deno.test("executeWeave materializes the second alice bio payload weave slice", async () => {
   const workspaceRoot = await createTestTmpDir("weave-weave-payload-v2-");
   await materializeMeshAliceBioBranch("10-alice-bio-updated", workspaceRoot);

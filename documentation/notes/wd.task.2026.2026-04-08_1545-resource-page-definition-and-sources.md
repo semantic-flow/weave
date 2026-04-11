@@ -202,16 +202,16 @@ Minimal shape:
 
 ### Phase 0: Lock The Runtime Slice To The Settled Model
 
-- [ ] Treat [[wd.task.2026.2026-04-08_1735-page-definition-ontology-and-config]] and [[wd.spec.2026-04-11-identifier-page-customization-and-root-lifecycle]] as the contract source, so this task implements settled `ResourcePageDefinition` / `ArtifactResolutionTarget` / `ResourcePageSource` behavior rather than reopening ontology decisions in runtime code.
+- [x] Treat [[wd.task.2026.2026-04-08_1735-page-definition-ontology-and-config]] and [[wd.spec.2026-04-11-identifier-page-customization-and-root-lifecycle]] as the contract source, so this task implements settled `ResourcePageDefinition` / `ArtifactResolutionTarget` / `ResourcePageSource` behavior rather than reopening ontology decisions in runtime code.
 - [x] Add a behavior spec and fixture plan before implementing the runtime/model changes. See [[wd.spec.2026-04-11-identifier-page-customization-and-root-lifecycle]].
-- [ ] Keep the first implementation-bearing slice narrower than the whole future model: local workspace-file sources, authority/precedence, fail-closed behavior, and `_knop/_assets` handling should land before broader in-mesh/import source support unless the code shape makes those cheap and coherent to include.
+- [x] Keep the first implementation-bearing slice narrower than the whole future model: local workspace-file sources, authority/precedence, fail-closed behavior, and `_knop/_assets` handling should land before broader in-mesh/import source support unless the code shape makes those cheap and coherent to include.
 
 ### Phase 1: Acceptance-First Fixture And Manifest Scaffolding
 
 - [x] Extend `mesh-alice-bio` with the first carried non-root customization transition pair, `14-alice-page-customized` and `15-alice-page-customized-woven`, early enough that they can drive the runtime slice rather than merely validate it afterward.
 - [x] Draft the matching Accord manifests early, including the exact transition boundaries, expected file additions/changes, and any explicit exclusions needed for deterministic comparison.
 - [x] Keep the first carried fixture scope narrow: prove authority/precedence, local workspace-file sources, and `_knop/_assets` handling before broadening into in-mesh or import-oriented source behavior.
-- [ ] Use the staged `14/15` fixture pair as the primary acceptance target while implementing the first runtime slice, updating the runtime toward the fixture rather than inventing runtime behavior first and backfilling fixtures later.
+- [x] Use the staged `14/15` fixture pair as the primary acceptance target while implementing the first runtime slice, updating the runtime toward the fixture rather than inventing runtime behavior first and backfilling fixtures later.
 - [ ] Leave `16/17` imported-source behavior and `18-21` root continuation in the near-term plan, but do not let them block the first carried local-Knop slice.
 
 #### Proposed Ladder Sketch
@@ -279,6 +279,7 @@ These manifests are now the authoritative acceptance draft for the first carried
 - `14` still uses provisional `operationId: "resourcePage.define"` until the concrete API/job naming settles.
 - the first support-artifact manifestation token remains `page-ttl`
 - the fixture inventory files still mix existing `sflo` history/page vocabulary with the newer core page-definition vocabulary because the carried fixture repo has not been broadly migrated yet
+- the carried `15` branch's public `alice/index.html` snapshot predates the latest `alice/alice.md` wording, so runtime integration coverage now treats the live workspace-local Markdown as authoritative for public-page text while still using the fixture branch for inventory and support-artifact expectations
 
 Current `14-alice-page-customized` manifest shape:
 
@@ -297,10 +298,6 @@ Current `14-alice-page-customized` manifest shape:
 - absent files:
   - `alice/_knop/_page/index.html`
   - `alice/_assets/alice.css`
-  - `alice/_knop/main.md`
-  - `alice/_knop/sidebar.md`
-  - `alice/_knop/_page/main.md`
-  - `alice/_knop/_page/sidebar.md`
   - `alice/_knop/_page/_assets/alice.css`
 - RDF assertions prove:
   - `alice/_knop/_page` is a `ResourcePageDefinition`
@@ -336,8 +333,6 @@ Current `15-alice-page-customized-woven` manifest shape:
   - `_mesh/_inventory/inventory.ttl`
 - absent files:
   - `alice/_assets/alice.css`
-  - `alice/_knop/main.md`
-  - `alice/_knop/sidebar.md`
   - `alice/_knop/_page/_assets/alice.css`
 - RDF assertions prove:
   - `alice/_knop/_page` now has a normal support-artifact history at `_history001`
@@ -349,24 +344,24 @@ Current `15-alice-page-customized-woven` manifest shape:
 ### Phase 2: Discovery, Authority, And Runtime Loading
 
 - [ ] Add a `_knop/_page` discovery seam anchored only to the owning Knop, including the root case at `_knop/_page/page.ttl`.
-- [ ] Make `D/_knop/_page/page.ttl` the only local authoritative working file for identifier-page customization of `D/index.html`.
-- [ ] Ensure that a discovered valid `_knop/_page` definition takes precedence over generic identifier-page generation for that identifier only.
-- [ ] Ensure that a discovered but malformed or unresolved `_knop/_page` definition fails closed rather than silently falling back to the generic identifier page.
-- [ ] Introduce a runtime loader that parses the `ResourcePageDefinition`, resolves any workspace-local helper resources it references, and returns a page-definition read model separate from the existing generic identifier-page model.
-- [ ] Keep `_knop/_page` history/state behavior aligned with other support artifacts: changes to `page.ttl` should version as `ResourcePageDefinition` changes, while referenced workspace-local helper files stay non-governance-bearing by default.
+- [x] Make `D/_knop/_page/page.ttl` the only local authoritative working file for identifier-page customization of `D/index.html`.
+- [x] Ensure that a discovered valid `_knop/_page` definition takes precedence over generic identifier-page generation for that identifier only.
+- [x] Ensure that a discovered but malformed or unresolved `_knop/_page` definition fails closed rather than silently falling back to the generic identifier page.
+- [x] Introduce a runtime loader that parses the `ResourcePageDefinition`, resolves any workspace-local helper resources it references, and returns a page-definition read model separate from the existing generic identifier-page model.
+- [x] Keep `_knop/_page` history/state behavior aligned with other support artifacts: changes to `page.ttl` should version as `ResourcePageDefinition` changes, while referenced workspace-local helper files stay non-governance-bearing by default.
 
 ### Phase 3: Local Workspace Sources And Knop Asset Handling
 
-- [ ] Implement local `LocatedFile` source resolution for `ResourcePageSource`, with first-pass support for `WorkspaceRelativeFile` and rejection of malformed or escaping relative paths.
-- [ ] Treat ordinary Markdown as the default authored local format for `.md` files in the first pass, without implying Dendron semantics.
-- [ ] Support one `ResourcePageSource` per `ResourcePageRegion` in the first implementation slice; if a definition requests broader ordered composition before that lands, fail closed rather than inventing ad hoc merge rules.
-- [ ] Extend the page-rendering seam so identifier pages can render resolved region content instead of only the current generic identifier-page text.
-- [ ] Keep page-local assets at `_knop/_assets/...` and let generated identifier pages reference those paths directly rather than copying them into a separate public `_assets/...` surface.
-- [ ] Keep `_knop/_assets` out of recursive `KnopInventory` capture and out of separate history/state creation by default.
+- [x] Implement local `LocatedFile` source resolution for `ResourcePageSource`, with first-pass support for `WorkspaceRelativeFile` and rejection of malformed or escaping relative paths.
+- [x] Treat ordinary Markdown as the default authored local format for `.md` files in the first pass, without implying Dendron semantics.
+- [x] Support one `ResourcePageSource` per `ResourcePageRegion` in the first implementation slice; if a definition requests broader ordered composition before that lands, fail closed rather than inventing ad hoc merge rules.
+- [x] Extend the page-rendering seam so identifier pages can render resolved region content instead of only the current generic identifier-page text.
+- [x] Keep page-local assets at `_knop/_assets/...` and let generated identifier pages reference those paths directly rather than copying them into a separate public `_assets/...` surface.
+- [x] Keep `_knop/_assets` out of recursive `KnopInventory` capture and out of separate history/state creation by default.
 
 ### Phase 4: Generic-Page Interop And Planning Seams
 
-- [ ] Keep generic generation authoritative for `_mesh`, Knop support-artifact, history, state, and manifestation pages unless a later spec explicitly expands `_knop/_page` to those surfaces.
+- [x] Keep generic generation authoritative for `_mesh`, Knop support-artifact, history, state, and manifestation pages unless a later spec explicitly expands `_knop/_page` to those surfaces.
 - [ ] Refactor the current identifier-page planning seam so `core/weave` can choose between a generic identifier-page model and a page-definition-driven model without hard-coding special cases in one large branch.
 - [ ] Keep page-content composition separate from template/chrome policy, so `ResourcePagePresentationConfig` stays adjacent and optional rather than becoming a prerequisite for first-pass page-definition support.
 - [ ] Preserve root behavior: `_mesh/index.html` remains mesh support, while root `index.html` is the identifier page customized by root `_knop/_page` when present.
@@ -382,9 +377,9 @@ Current `15-alice-page-customized-woven` manifest shape:
 ### Phase 6: Tests, Follow-On Fixtures, And Documentation
 
 - [ ] Add focused unit/runtime coverage for discovery and authority, including root `_knop/_page` handling and fail-closed malformed-definition behavior.
-- [ ] Add focused coverage for workspace-relative file resolution, path-escape rejection, and direct `_knop/_assets` use without copied public asset materialization.
-- [ ] Add focused coverage for `ResourcePageDefinition` history/state behavior as a normal support artifact while keeping referenced workspace-local helper files non-recursive.
-- [ ] Add integration coverage proving a valid `_knop/_page` overrides generic identifier-page generation for the owning identifier only.
+- [x] Add focused coverage for workspace-relative file resolution, path-escape rejection, and direct `_knop/_assets` use without copied public asset materialization.
+- [x] Add focused coverage for `ResourcePageDefinition` history/state behavior as a normal support artifact while keeping referenced workspace-local helper files non-recursive.
+- [x] Add integration coverage proving a valid `_knop/_page` overrides generic identifier-page generation for the owning identifier only.
 - [ ] Add integration coverage for local Knop-owned file sources first, then in-mesh artifact sources, then import-boundary behavior.
 - [ ] Continue the Accord fixture ladder after the first carried slice is stable: `16/17` for imported-source behavior and `18-21` for root lifecycle continuation.
 - [ ] Update [[wd.codebase-overview]] once the runtime seams and carried slice are real.

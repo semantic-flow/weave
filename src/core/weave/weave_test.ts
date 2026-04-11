@@ -1284,6 +1284,82 @@ Deno.test("planWeave rejects when no weaveable candidates were provided", () => 
   );
 });
 
+Deno.test("detectPendingWeaveSlice recognizes the first page-definition weave slice", async () => {
+  assertEquals(
+    detectPendingWeaveSlice(
+      "https://semantic-flow.github.io/mesh-alice-bio/",
+      "alice",
+      await readMeshAliceBioBranchFile(
+        "14-alice-page-customized",
+        "alice/_knop/_inventory/inventory.ttl",
+      ),
+    ),
+    "firstPageDefinitionWeave",
+  );
+});
+
+Deno.test("planWeave renders the first page-definition weave slice", async () => {
+  const meshBase = "https://semantic-flow.github.io/mesh-alice-bio/";
+  const pageDefinitionTurtle = await readMeshAliceBioBranchFile(
+    "14-alice-page-customized",
+    "alice/_knop/_page/page.ttl",
+  );
+  const plan = planWeave({
+    request: {
+      targets: [{ designatorPath: "alice" }],
+    },
+    meshBase,
+    currentMeshInventoryTurtle: await readMeshAliceBioBranchFile(
+      "14-alice-page-customized",
+      "_mesh/_inventory/inventory.ttl",
+    ),
+    weaveableKnops: [{
+      designatorPath: "alice",
+      currentKnopMetadataTurtle: await readMeshAliceBioBranchFile(
+        "14-alice-page-customized",
+        "alice/_knop/_meta/meta.ttl",
+      ),
+      currentKnopInventoryTurtle: await readMeshAliceBioBranchFile(
+        "14-alice-page-customized",
+        "alice/_knop/_inventory/inventory.ttl",
+      ),
+      resourcePageDefinitionArtifact: {
+        artifactPath: "alice/_knop/_page",
+        workingFilePath: "alice/_knop/_page/page.ttl",
+        currentPageDefinitionTurtle: pageDefinitionTurtle,
+        currentArtifactHistoryExists: false,
+        assetBundlePath: "alice/_knop/_assets",
+      },
+    }],
+  });
+
+  assertEquals(plan.wovenDesignatorPaths, ["alice"]);
+  assertEquals(plan.updatedFiles.map((file) => file.path), [
+    "alice/_knop/_inventory/inventory.ttl",
+  ]);
+  assertEquals(plan.createdFiles.map((file) => file.path), [
+    "alice/_knop/_page/_history001/_s0001/page-ttl/page.ttl",
+    "alice/_knop/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl",
+  ]);
+  assertEquals(plan.createdFiles[0]?.contents, pageDefinitionTurtle);
+  assertEquals(
+    plan.updatedFiles[0]?.contents,
+    await readMeshAliceBioBranchFile(
+      "15-alice-page-customized-woven",
+      "alice/_knop/_inventory/inventory.ttl",
+    ),
+  );
+  assertEquals(plan.createdPages.map((page) => page.path), [
+    "alice/index.html",
+    "alice/_knop/_inventory/_history001/_s0003/index.html",
+    "alice/_knop/_inventory/_history001/_s0003/inventory-ttl/index.html",
+    "alice/_knop/_page/index.html",
+    "alice/_knop/_page/_history001/index.html",
+    "alice/_knop/_page/_history001/_s0001/index.html",
+    "alice/_knop/_page/_history001/_s0001/page-ttl/index.html",
+  ]);
+});
+
 async function createExtractedBobWeaveInput(): Promise<PlanWeaveInput> {
   return {
     request: {

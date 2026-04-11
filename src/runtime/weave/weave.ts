@@ -19,6 +19,8 @@ import {
   type PayloadWorkingArtifact,
   planVersion,
   type ReferenceCatalogWorkingArtifact,
+  type ResourcePageDefinitionWorkingArtifact,
+  type ResourcePageModel,
   type ValidateRequest,
   type VersionPlan,
   type VersionRequest,
@@ -32,6 +34,7 @@ import {
   resolvePayloadArtifactInventoryState,
   resolveReferenceCatalogInventoryState,
   resolveReferenceTargetDesignatorPath,
+  resolveResourcePageDefinitionInventoryState,
 } from "../mesh/inventory.ts";
 import {
   MeshMetadataResolutionError,
@@ -40,6 +43,13 @@ import {
 import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
+import {
+  type CustomIdentifierPageModelInput,
+  describeResourcePageDefinitionArtifact,
+  loadActiveCustomIdentifierPage,
+  loadResourcePageDefinitionWorkingArtifact,
+  ResourcePageDefinitionResolutionError,
+} from "./page_definition.ts";
 import { renderResourcePages } from "./pages.ts";
 
 const SFLO_NAMESPACE =
@@ -123,6 +133,8 @@ interface GenerateDesignatorContext {
   designatorPath: string;
   payloadWorkingFilePath?: string;
   pagePaths: readonly string[];
+  customIdentifierPage?: CustomIdentifierPageModelInput;
+  pageDescriptions: ReadonlyMap<string, string>;
 }
 
 export async function executeValidate(
@@ -764,6 +776,16 @@ async function loadWeaveableKnopCandidates(
         );
     }
 
+    if (slice === "firstPageDefinitionWeave") {
+      candidate.resourcePageDefinitionArtifact =
+        await loadResourcePageDefinitionArtifact(
+          workspaceRoot,
+          meshBase,
+          designatorPath,
+          currentKnopInventoryTurtle,
+        );
+    }
+
     if (slice === "firstExtractedKnopWeave") {
       candidate.referenceTargetSourcePayloadArtifact =
         await loadReferenceTargetSourcePayloadArtifact(
@@ -976,6 +998,38 @@ async function loadReferenceCatalogWorkingArtifact(
   }
 }
 
+async function loadResourcePageDefinitionArtifact(
+  workspaceRoot: string,
+  meshBase: string,
+  designatorPath: string,
+  currentKnopInventoryTurtle: string,
+): Promise<ResourcePageDefinitionWorkingArtifact | undefined> {
+  const inventoryState = resolveResourcePageDefinitionInventoryState(
+    meshBase,
+    currentKnopInventoryTurtle,
+    designatorPath,
+    {
+      parseErrorMessage:
+        `Could not parse the current Knop inventory while resolving the ResourcePageDefinition for ${designatorPath}.`,
+      missingWorkingFileMessage:
+        `Could not resolve the working ResourcePageDefinition file for ${designatorPath}.`,
+    },
+  );
+
+  try {
+    return await loadResourcePageDefinitionWorkingArtifact(
+      workspaceRoot,
+      designatorPath,
+      inventoryState,
+    );
+  } catch (error) {
+    if (error instanceof ResourcePageDefinitionResolutionError) {
+      throw new WeaveRuntimeError(error.message);
+    }
+    throw error;
+  }
+}
+
 function isWeaveableKnopCandidate(
   candidate: WeaveableKnopCandidate,
   slice: WeaveSlice,
@@ -987,6 +1041,10 @@ function isWeaveableKnopCandidate(
 
   if (slice === "firstReferenceCatalogWeave") {
     return candidate.referenceCatalogArtifact !== undefined;
+  }
+
+  if (slice === "firstPageDefinitionWeave") {
+    return candidate.resourcePageDefinitionArtifact !== undefined;
   }
 
   if (slice === "firstPayloadWeave") {
@@ -1085,13 +1143,7 @@ async function collectGeneratedPageFiles(
   selectedDesignatorPaths: readonly string[],
   includeAllMeshPages: boolean,
 ): Promise<readonly PlannedFile[]> {
-  const pageModels: {
-    kind: "identifier" | "simple";
-    path: string;
-    designatorPath?: string;
-    workingFilePath?: string;
-    description?: string;
-  }[] = [];
+  const pageModels: ResourcePageModel[] = [];
   const pagePaths = new Set<string>();
   const selectedSet = new Set(selectedDesignatorPaths);
   const designatorContexts = await loadGenerateDesignatorContexts(
@@ -1126,12 +1178,23 @@ async function collectGeneratedPageFiles(
 
     const publicContext = publicIdentifierPaths.get(pagePath);
     if (publicContext) {
-      pageModels.push({
-        kind: "identifier",
-        path: pagePath,
-        designatorPath: publicContext.designatorPath,
-        workingFilePath: publicContext.payloadWorkingFilePath,
-      });
+      if (publicContext.customIdentifierPage) {
+        pageModels.push({
+          kind: "customIdentifier",
+          path: pagePath,
+          designatorPath: publicContext.designatorPath,
+          definitionPath: publicContext.customIdentifierPage.definitionPath,
+          stylesheetPaths: publicContext.customIdentifierPage.stylesheetPaths,
+          regions: publicContext.customIdentifierPage.regions,
+        });
+      } else {
+        pageModels.push({
+          kind: "identifier",
+          path: pagePath,
+          designatorPath: publicContext.designatorPath,
+          workingFilePath: publicContext.payloadWorkingFilePath,
+        });
+      }
     } else {
       pageModels.push({
         kind: "simple",
@@ -1151,29 +1214,14 @@ async function collectGeneratedPageFiles(
       pageModels.push({
         kind: "simple",
         path: pagePath,
-        description: `Generated resource page for ${toResourcePath(pagePath)}.`,
+        description: context.pageDescriptions.get(pagePath) ??
+          `Generated resource page for ${toResourcePath(pagePath)}.`,
       });
       pagePaths.add(pagePath);
     }
   }
 
-  return renderResourcePages(
-    meshState.meshBase,
-    pageModels.map((model) =>
-      model.kind === "identifier"
-        ? {
-          kind: "identifier" as const,
-          path: model.path,
-          designatorPath: model.designatorPath!,
-          workingFilePath: model.workingFilePath,
-        }
-        : {
-          kind: "simple" as const,
-          path: model.path,
-          description: model.description!,
-        }
-    ),
-  );
+  return renderResourcePages(meshState.meshBase, pageModels);
 }
 
 async function loadGenerateDesignatorContexts(
@@ -1210,10 +1258,53 @@ async function loadGenerateDesignatorContexts(
           `Could not resolve the working payload file for ${designatorPath}.`,
       },
     );
+    const pageDescriptions = new Map<string, string>();
+    const resourcePageDefinitionState =
+      resolveResourcePageDefinitionInventoryState(
+        meshState.meshBase,
+        currentKnopInventoryTurtle,
+        designatorPath,
+        {
+          parseErrorMessage:
+            `Could not parse the current Knop inventory while resolving the ResourcePageDefinition for ${designatorPath}.`,
+          missingWorkingFileMessage:
+            `Could not resolve the working ResourcePageDefinition file for ${designatorPath}.`,
+        },
+      );
+    let customIdentifierPage: CustomIdentifierPageModelInput | undefined;
+
+    try {
+      const resourcePageDefinitionArtifact =
+        await loadResourcePageDefinitionWorkingArtifact(
+          workspaceRoot,
+          designatorPath,
+          resourcePageDefinitionState,
+        );
+      customIdentifierPage = await loadActiveCustomIdentifierPage(
+        workspaceRoot,
+        meshState.meshBase,
+        designatorPath,
+        resourcePageDefinitionArtifact,
+      );
+
+      if (resourcePageDefinitionArtifact) {
+        pageDescriptions.set(
+          `${resourcePageDefinitionArtifact.artifactPath}/index.html`,
+          describeResourcePageDefinitionArtifact(designatorPath),
+        );
+      }
+    } catch (error) {
+      if (error instanceof ResourcePageDefinitionResolutionError) {
+        throw new WeaveRuntimeError(error.message);
+      }
+      throw error;
+    }
 
     contexts.push({
       designatorPath,
       payloadWorkingFilePath: payloadArtifact?.workingFilePath,
+      customIdentifierPage,
+      pageDescriptions,
       pagePaths: listResourcePagePaths(
         meshState.meshBase,
         currentKnopInventoryTurtle,

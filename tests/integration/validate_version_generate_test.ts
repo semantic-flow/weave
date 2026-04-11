@@ -209,6 +209,106 @@ Deno.test("executeGenerate accepts the exact root target", async () => {
   await Deno.stat(join(workspaceRoot, "_knop/index.html"));
 });
 
+Deno.test("executeVersion versions the first alice page-definition support artifact state", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-version-page-definition-",
+  );
+  await materializeMeshAliceBioBranch(
+    "14-alice-page-customized",
+    workspaceRoot,
+  );
+
+  const result = await executeVersion({
+    workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "alice" }],
+    },
+  });
+
+  assertEquals(result.versionedDesignatorPaths, ["alice"]);
+  assert(
+    result.createdPaths.includes(
+      "alice/_knop/_page/_history001/_s0001/page-ttl/page.ttl",
+    ),
+  );
+  assert(
+    result.createdPaths.includes(
+      "alice/_knop/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl",
+    ),
+  );
+  assert(result.updatedPaths.includes("alice/_knop/_inventory/inventory.ttl"));
+  assertEquals(
+    await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
+    await readMeshAliceBioBranchFile(
+      "14-alice-page-customized",
+      "alice/index.html",
+    ),
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/_knop/_inventory/inventory.ttl"),
+    ),
+    await readMeshAliceBioBranchFile(
+      "15-alice-page-customized-woven",
+      "alice/_knop/_inventory/inventory.ttl",
+    ),
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(
+        workspaceRoot,
+        "alice/_knop/_page/_history001/_s0001/page-ttl/page.ttl",
+      ),
+    ),
+    await readMeshAliceBioBranchFile(
+      "14-alice-page-customized",
+      "alice/_knop/_page/page.ttl",
+    ),
+  );
+});
+
+Deno.test("executeGenerate renders the customized alice identifier page after page-definition weave", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-generate-page-definition-",
+  );
+  await materializeMeshAliceBioBranch(
+    "15-alice-page-customized-woven",
+    workspaceRoot,
+  );
+
+  const result = await executeGenerate({
+    workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "alice" }],
+    },
+  });
+
+  assertEquals(result.generatedDesignatorPaths, ["alice"]);
+  await Deno.stat(join(workspaceRoot, "alice/index.html"));
+  await Deno.stat(join(workspaceRoot, "alice/_knop/_page/index.html"));
+  assertStringIncludes(
+    await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
+    `<link rel="stylesheet" href="./_knop/_assets/alice.css">`,
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
+    `<p>This identifier page is customized by <code>alice/_knop/_page/page.ttl</code>.</p>`,
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
+    `<a href="./_knop/_page">./_knop/_page</a>`,
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/_knop/_page/index.html"),
+    ),
+    await readMeshAliceBioBranchFile(
+      "15-alice-page-customized-woven",
+      "alice/_knop/_page/index.html",
+    ),
+  );
+});
+
 Deno.test("executeVersion rejects a mismatched payload historySegment on an already-versioned payload", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-version-mismatched-history-",
