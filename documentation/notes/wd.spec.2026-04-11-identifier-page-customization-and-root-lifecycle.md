@@ -106,7 +106,7 @@ Local authored files are resolved through a direct `LocatedFile` target on the s
 Behavioral consequences:
 
 - the path stays relative to the current workspace root rather than becoming an absolute filesystem path
-- the path may point at Knop-local helper content such as `alice/_knop/main.md`, but it may also point at other in-workspace documentation or support files when the page definition intentionally follows them
+- the path may point at a natural workspace location such as `alice/alice.md` or a shared helper file such as `mesh-content/sidebar.md`; Knop-local placement is allowed but not required
 - ordinary Markdown is the default authored text format for `.md` helper files
 - Dendron semantics are not implied by `.md` alone and should activate only under a later explicit interpretation profile
 - workspace-relative file inputs are current-working local inputs, not separately governed artifacts by default
@@ -272,9 +272,9 @@ Proposed Accord manifests:
 
 What `14` should prove:
 
-- Alice gains a knop-owned `_knop/_page` support artifact plus Knop-local authored inputs
+- Alice gains a knop-owned `_knop/_page` support artifact plus workspace-local authored inputs at natural repository paths
 - the definition uses ordinary Markdown local content, not Dendron-only semantics
-- at least one region resolves from a local Knop-owned file
+- at least one region resolves from a workspace-local file outside `_knop/_page`
 - at least one second local region proves multi-region composition without yet requiring in-mesh or imported source support
 - `_knop/_assets` content appears only as Knop-local support input, not as new inventory entries
 
@@ -283,7 +283,7 @@ What `15` should prove:
 - `alice/index.html` now follows the customized definition rather than the generic identifier renderer
 - `alice/index.html` may reference `alice/_knop/_assets/...` directly, without a copied `alice/_assets/...` surface
 - Alice support-artifact pages remain under generic generation unless separately specified
-- malformed or unresolved Knop-local inputs would have failed the operation instead of falling back silently
+- malformed or unresolved workspace-local inputs would have failed the operation instead of falling back silently
 
 ### Follow-on non-root coverage
 

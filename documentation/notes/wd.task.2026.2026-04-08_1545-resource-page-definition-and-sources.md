@@ -25,7 +25,7 @@ The intended direction is:
 - `_page` stays a normal support-artifact surface rather than becoming a little subtree of authored content
 - a small RDF manifest in `page.ttl` describes page regions, source bindings, chrome preferences, and resolution policy
 - the ontology/config vocabulary for that manifest should be defined before runtime implementation broadens
-- substantial authored content usually lives in workspace-local files outside `_page` or in referenced DigitalArtifacts rather than inside long RDF literals
+- substantial authored content usually lives in natural workspace locations outside `_page`, such as `alice/alice.md` or `mesh-content/sidebar.md`, or in referenced DigitalArtifacts rather than inside long RDF literals
 - ordinary Markdown should be the default authored local-content format; richer Dendron conventions should only activate under an explicit source-interpretation profile
 - each `resourcePageSource` can independently choose a source artifact, an optional requested state, and a mode/fallback policy
 - outside-the-tree or extra-mesh content should enter page generation through an explicit import step, not as a direct live "latest" source
@@ -48,8 +48,8 @@ We need to support several distinct things without conflating them:
 The current design pressure suggests a structure more like:
 
 - `_knop/_page/page.ttl`
-- `_knop/main.md`
-- `_knop/sidebar.md`
+- `alice/alice.md`
+- `mesh-content/sidebar.md`
 - `_knop/_assets/...`
 
 where `page.ttl` references those workspace-local files or other artifact identifiers.
@@ -208,9 +208,9 @@ Minimal shape:
 
 ### Phase 1: Acceptance-First Fixture And Manifest Scaffolding
 
-- [ ] Extend `mesh-alice-bio` with the first carried non-root customization transition pair, `14-alice-page-customized` and `15-alice-page-customized-woven`, early enough that they can drive the runtime slice rather than merely validate it afterward.
-- [ ] Draft the matching Accord manifests early, including the exact transition boundaries, expected file additions/changes, and any explicit exclusions needed for deterministic comparison.
-- [ ] Keep the first carried fixture scope narrow: prove authority/precedence, local workspace-file sources, and `_knop/_assets` handling before broadening into in-mesh or import-oriented source behavior.
+- [x] Extend `mesh-alice-bio` with the first carried non-root customization transition pair, `14-alice-page-customized` and `15-alice-page-customized-woven`, early enough that they can drive the runtime slice rather than merely validate it afterward.
+- [x] Draft the matching Accord manifests early, including the exact transition boundaries, expected file additions/changes, and any explicit exclusions needed for deterministic comparison.
+- [x] Keep the first carried fixture scope narrow: prove authority/precedence, local workspace-file sources, and `_knop/_assets` handling before broadening into in-mesh or import-oriented source behavior.
 - [ ] Use the staged `14/15` fixture pair as the primary acceptance target while implementing the first runtime slice, updating the runtime toward the fixture rather than inventing runtime behavior first and backfilling fixtures later.
 - [ ] Leave `16/17` imported-source behavior and `18-21` root continuation in the near-term plan, but do not let them block the first carried local-Knop slice.
 
@@ -219,9 +219,9 @@ Minimal shape:
 `14-alice-page-customized`
 
 - Add `alice/_knop/_page/page.ttl` as the first `ResourcePageDefinition` working file for Alice.
-- Add minimal Knop-local support files such as `alice/_knop/main.md`, `alice/_knop/sidebar.md`, and `alice/_knop/_assets/alice.css`.
+- Add initial workspace-local content files such as `alice/alice.md` and `mesh-content/sidebar.md`, plus the Knop-local stylesheet `alice/_knop/_assets/alice.css`.
 - Update `alice/_knop/_inventory/inventory.ttl` to register the new page-definition support surface and its current working file.
-- Keep the fixture narrow and local-only: both initial page regions should resolve from Knop-local files rather than from in-mesh or imported artifacts.
+- Keep the fixture narrow and local-only: both initial page regions should resolve from workspace-local files rather than from in-mesh or imported artifacts.
 - Do not weave histories or generate new pages yet; `alice/index.html` should remain the previously generated generic page in this non-woven state.
 - Do not advance `_mesh/_inventory`; the page-definition support artifact is Knop-internal and the public current resource map has not widened yet.
 
@@ -229,7 +229,7 @@ Minimal shape:
 
 - Weave `14` so the `ResourcePageDefinition` behaves like a normal support artifact with its own first history/state materialization.
 - Generate Alice page-definition support-artifact pages under `alice/_knop/_page/...` using the ordinary support-artifact page machinery rather than a custom `_page`-specific renderer.
-- Update `alice/index.html` so it is now driven by `alice/_knop/_page/page.ttl` and its Knop-local sources instead of the generic identifier-page path.
+- Update `alice/index.html` so it is now driven by `alice/_knop/_page/page.ttl` and its workspace-local sources instead of the generic identifier-page path.
 - Keep referenced support assets at `alice/_knop/_assets/...`; do not introduce a copied `alice/_assets/...` surface.
 - Advance `alice/_knop/_inventory` to reflect the new support-artifact current state, but keep `_mesh/_inventory` unchanged unless implementation uncovers a real current-surface-map reason to move it.
 
@@ -257,393 +257,94 @@ Minimal shape:
 
 `20-root-page-customized`
 
-- Add `_knop/_page/page.ttl` plus minimal root Knop-local support files and `_knop/_assets/...`.
+- Add `_knop/_page/page.ttl` plus minimal root workspace-local content files and `_knop/_assets/...`.
 - Update root Knop inventory to register the root `ResourcePageDefinition` support artifact.
 - Keep this branch non-woven: `index.html` should still be the previous generic root page until weave runs.
 
 `21-root-page-customized-woven`
 
 - Weave `20` so root `_knop/_page` gets normal support-artifact history/state materialization and support-artifact pages.
-- Update root `index.html` to follow root `_knop/_page/page.ttl` and its Knop-local sources.
+- Update root `index.html` to follow root `_knop/_page/page.ttl` and its workspace-local sources.
 - Keep root support assets at `_knop/_assets/...` rather than materializing a copied `_assets/...` surface.
 
-#### Draft Accord Shape For `14` And `15`
+#### Accord Shape For `14` And `15`
 
-These are draft manifest sketches, not authoritative manifests yet. They are concrete enough to drive fixture authoring and runtime work, but they still assume:
+The first real Accord manifests now exist at:
 
-- the eventual non-woven page-definition authoring operation name is still open, so `14` uses a provisional `operationId`
-- the final support-artifact manifestation token for `page.ttl` is likely `page-ttl`, but that should be treated as a draft naming expectation until the fixture lands
-- the exact first-pass naming convention for Knop-local authored content files is still draft; this sketch uses `main.md` and `sidebar.md` directly under `_knop`
+- `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/14-alice-page-customized.jsonld`
+- `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/15-alice-page-customized-woven.jsonld`
 
-Proposed `14-alice-page-customized.jsonld` shape:
+These manifests are now the authoritative acceptance draft for the first carried page-customization slice. The remaining draft aspects are narrow and explicit:
 
-```json
-{
-  "@context": {
-    "@vocab": "https://spectacular-voyage.github.io/accord/ns#",
-    "dcterms": "http://purl.org/dc/terms/",
-    "id": "@id",
-    "type": "@type",
-    "changeType": {
-      "@type": "@vocab"
-    },
-    "compareMode": {
-      "@type": "@vocab"
-    },
-    "targetsFileExpectation": {
-      "@type": "@id"
-    },
-    "ignorePredicate": {
-      "@type": "@id"
-    }
-  },
-  "type": "Manifest",
-  "id": "urn:accord:semantic-flow:alice-bio:14-alice-page-customized",
-  "dcterms:title": "Alice Bio 14 alice page customized",
-  "dcterms:description": "Checks the non-woven step that adds Alice's knop-owned _knop/_page definition artifact, keeps the first slice local-Knop-only, updates Alice Knop inventory, and leaves generated public output unchanged until weave.",
-  "hasCase": [
-    {
-      "type": "TransitionCase",
-      "id": "#define-alice-page",
-      "dcterms:title": "Add Alice page-definition artifact without weaving",
-      "dcterms:description": "Adds alice/_knop/_page/page.ttl, Knop-local authored support files, and Knop-local assets under alice/_knop/_assets, updates alice/_knop/_inventory to register the new ResourcePageDefinition support artifact, and leaves alice/index.html unchanged until the next weave.",
-      "fixtureRepo": "github.com/semantic-flow/mesh-alice-bio",
-      "operationId": "resourcePage.define",
-      "fromRef": "13-bob-extracted-woven",
-      "toRef": "14-alice-page-customized",
-      "targetDesignatorPath": "alice",
-      "hasFileExpectation": [
-        {
-          "id": "#alice-knop-page-definition-ttl",
-          "type": "FileExpectation",
-          "path": "alice/_knop/_page/page.ttl",
-          "changeType": "added",
-          "compareMode": "rdfCanonical"
-        },
-        {
-          "id": "#alice-knop-page-main-md",
-          "type": "FileExpectation",
-          "path": "alice/_knop/main.md",
-          "changeType": "added",
-          "compareMode": "text"
-        },
-        {
-          "id": "#alice-knop-page-sidebar-md",
-          "type": "FileExpectation",
-          "path": "alice/_knop/sidebar.md",
-          "changeType": "added",
-          "compareMode": "text"
-        },
-        {
-          "id": "#alice-knop-page-css",
-          "type": "FileExpectation",
-          "path": "alice/_knop/_assets/alice.css",
-          "changeType": "added",
-          "compareMode": "text"
-        },
-        {
-          "id": "#alice-knop-inventory-ttl",
-          "type": "FileExpectation",
-          "path": "alice/_knop/_inventory/inventory.ttl",
-          "changeType": "updated",
-          "compareMode": "rdfCanonical"
-        },
-        {
-          "id": "#mesh-inventory-ttl",
-          "type": "FileExpectation",
-          "path": "_mesh/_inventory/inventory.ttl",
-          "changeType": "unchanged",
-          "compareMode": "rdfCanonical"
-        },
-        {
-          "id": "#alice-page",
-          "type": "FileExpectation",
-          "path": "alice/index.html",
-          "changeType": "unchanged",
-          "compareMode": "text"
-        },
-        {
-          "id": "#alice-public-css",
-          "type": "FileExpectation",
-          "path": "alice/_assets/alice.css",
-          "changeType": "absent"
-        },
-        {
-          "id": "#alice-page-subtree-main-md",
-          "type": "FileExpectation",
-          "path": "alice/_knop/_page/main.md",
-          "changeType": "absent"
-        },
-        {
-          "id": "#alice-page-subtree-css",
-          "type": "FileExpectation",
-          "path": "alice/_knop/_page/_assets/alice.css",
-          "changeType": "absent"
-        },
-        {
-          "id": "#alice-knop-page-definition-page",
-          "type": "FileExpectation",
-          "path": "alice/_knop/_page/index.html",
-          "changeType": "absent"
-        }
-      ],
-      "hasRdfExpectation": [
-        {
-          "id": "#alice-knop-page-definition-rdf",
-          "type": "RdfExpectation",
-          "targetsFileExpectation": "#alice-knop-page-definition-ttl",
-          "hasAskAssertion": [
-            {
-              "type": "SparqlAskAssertion",
-              "query": "ASK { ?pageDefinition a <https://semantic-flow.github.io/ontology/core/ResourcePageDefinition> ; <https://semantic-flow.github.io/ontology/core/hasPageRegion> ?mainRegion, ?sidebarRegion . ?mainRegion <https://semantic-flow.github.io/ontology/core/regionKey> \"main\" . ?sidebarRegion <https://semantic-flow.github.io/ontology/core/regionKey> \"sidebar\" . }",
-              "expectedBoolean": true
-            },
-            {
-              "type": "SparqlAskAssertion",
-              "query": "ASK { ?mainSource <https://semantic-flow.github.io/ontology/core/hasTargetLocatedFile> ?mainFile . ?mainFile a <https://semantic-flow.github.io/ontology/core/WorkspaceRelativeFile> ; <https://semantic-flow.github.io/ontology/core/workspaceRelativePath> \"alice/_knop/main.md\" . ?sidebarSource <https://semantic-flow.github.io/ontology/core/hasTargetLocatedFile> ?sidebarFile . ?sidebarFile a <https://semantic-flow.github.io/ontology/core/WorkspaceRelativeFile> ; <https://semantic-flow.github.io/ontology/core/workspaceRelativePath> \"alice/_knop/sidebar.md\" . }",
-              "expectedBoolean": true
-            },
-            {
-              "type": "SparqlAskAssertion",
-              "query": "ASK { <https://semantic-flow.github.io/mesh-alice-bio/alice/_knop> <https://semantic-flow.github.io/ontology/core/hasKnopAssetBundle> ?assetBundle . ?assetBundle a <https://semantic-flow.github.io/ontology/core/KnopAssetBundle> . }",
-              "expectedBoolean": true
-            }
-          ]
-        },
-        {
-          "id": "#alice-knop-inventory-rdf",
-          "type": "RdfExpectation",
-          "targetsFileExpectation": "#alice-knop-inventory-ttl",
-          "ignorePredicate": [
-            "http://purl.org/dc/terms/created",
-            "http://purl.org/dc/terms/updated"
-          ],
-          "hasAskAssertion": [
-            {
-              "type": "SparqlAskAssertion",
-              "query": "ASK { <https://semantic-flow.github.io/mesh-alice-bio/alice/_knop> <https://semantic-flow.github.io/ontology/core/hasResourcePageDefinition> <https://semantic-flow.github.io/mesh-alice-bio/alice/_knop/_page> . <https://semantic-flow.github.io/mesh-alice-bio/alice/_knop/_page> a <https://semantic-flow.github.io/ontology/core/ResourcePageDefinition> ; <https://semantic-flow.github.io/ontology/core/hasWorkingLocatedFile> <https://semantic-flow.github.io/mesh-alice-bio/alice/_knop/_page/page.ttl> . }",
-              "expectedBoolean": true
-            },
-            {
-              "type": "SparqlAskAssertion",
-              "query": "ASK { <https://semantic-flow.github.io/mesh-alice-bio/alice/_knop> <https://semantic-flow.github.io/ontology/core/hasKnopAssetBundle> ?assetBundle . ?assetBundle a <https://semantic-flow.github.io/ontology/core/KnopAssetBundle> . }",
-              "expectedBoolean": true
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
-```
+- `14` still uses provisional `operationId: "resourcePage.define"` until the concrete API/job naming settles.
+- the first support-artifact manifestation token remains `page-ttl`
+- the fixture inventory files still mix existing `sflo` history/page vocabulary with the newer core page-definition vocabulary because the carried fixture repo has not been broadly migrated yet
 
-Proposed `15-alice-page-customized-woven.jsonld` shape:
+Current `14-alice-page-customized` manifest shape:
 
-```json
-{
-  "@context": {
-    "@vocab": "https://spectacular-voyage.github.io/accord/ns#",
-    "dcterms": "http://purl.org/dc/terms/",
-    "id": "@id",
-    "type": "@type",
-    "changeType": {
-      "@type": "@vocab"
-    },
-    "compareMode": {
-      "@type": "@vocab"
-    },
-    "targetsFileExpectation": {
-      "@type": "@id"
-    },
-    "ignorePredicate": {
-      "@type": "@id"
-    }
-  },
-  "type": "Manifest",
-  "id": "urn:accord:semantic-flow:alice-bio:15-alice-page-customized-woven",
-  "dcterms:title": "Alice Bio 15 alice page customized woven",
-  "dcterms:description": "Checks the weave over Alice's page-definition support artifact, including first history/state materialization for the ResourcePageDefinition, updated Knop inventory, updated Alice identifier page output, and direct use of Knop-owned _knop/_assets paths without widening mesh inventory.",
-  "hasCase": [
-    {
-      "type": "TransitionCase",
-      "id": "#weave-alice-page-definition",
-      "dcterms:title": "Weave Alice page-definition support artifact",
-      "dcterms:description": "Versions alice/_knop/_page as a normal support artifact, generates Alice's page-definition support-artifact pages, updates alice/index.html to follow page.ttl and its Knop-local sources, keeps alice/_knop/_assets/alice.css in place, and advances alice/_knop/_inventory without advancing _mesh/_inventory.",
-      "fixtureRepo": "github.com/semantic-flow/mesh-alice-bio",
-      "operationId": "weave",
-      "fromRef": "14-alice-page-customized",
-      "toRef": "15-alice-page-customized-woven",
-      "targetDesignatorPath": "alice",
-      "hasFileExpectation": [
-        {
-          "id": "#alice-knop-page-definition-ttl",
-          "type": "FileExpectation",
-          "path": "alice/_knop/_page/page.ttl",
-          "changeType": "unchanged",
-          "compareMode": "rdfCanonical"
-        },
-        {
-          "id": "#alice-knop-page-main-md",
-          "type": "FileExpectation",
-          "path": "alice/_knop/main.md",
-          "changeType": "unchanged",
-          "compareMode": "text"
-        },
-        {
-          "id": "#alice-knop-page-sidebar-md",
-          "type": "FileExpectation",
-          "path": "alice/_knop/sidebar.md",
-          "changeType": "unchanged",
-          "compareMode": "text"
-        },
-        {
-          "id": "#alice-knop-page-css",
-          "type": "FileExpectation",
-          "path": "alice/_knop/_assets/alice.css",
-          "changeType": "unchanged",
-          "compareMode": "text"
-        },
-        {
-          "id": "#alice-knop-page-definition-s1-ttl",
-          "type": "FileExpectation",
-          "path": "alice/_knop/_page/_history001/_s0001/page-ttl/page.ttl",
-          "changeType": "added",
-          "compareMode": "rdfCanonical"
-        },
-        {
-          "id": "#alice-knop-page-definition-page",
-          "type": "FileExpectation",
-          "path": "alice/_knop/_page/index.html",
-          "changeType": "added",
-          "compareMode": "text"
-        },
-        {
-          "id": "#alice-knop-page-definition-history-page",
-          "type": "FileExpectation",
-          "path": "alice/_knop/_page/_history001/index.html",
-          "changeType": "added",
-          "compareMode": "text"
-        },
-        {
-          "id": "#alice-knop-page-definition-s1-page",
-          "type": "FileExpectation",
-          "path": "alice/_knop/_page/_history001/_s0001/index.html",
-          "changeType": "added",
-          "compareMode": "text"
-        },
-        {
-          "id": "#alice-knop-page-definition-s1-manifestation-page",
-          "type": "FileExpectation",
-          "path": "alice/_knop/_page/_history001/_s0001/page-ttl/index.html",
-          "changeType": "added",
-          "compareMode": "text"
-        },
-        {
-          "id": "#alice-knop-inventory-ttl",
-          "type": "FileExpectation",
-          "path": "alice/_knop/_inventory/inventory.ttl",
-          "changeType": "updated",
-          "compareMode": "rdfCanonical"
-        },
-        {
-          "id": "#alice-page",
-          "type": "FileExpectation",
-          "path": "alice/index.html",
-          "changeType": "updated",
-          "compareMode": "text"
-        },
-        {
-          "id": "#alice-public-css",
-          "type": "FileExpectation",
-          "path": "alice/_assets/alice.css",
-          "changeType": "absent"
-        },
-        {
-          "id": "#alice-page-subtree-css",
-          "type": "FileExpectation",
-          "path": "alice/_knop/_page/_assets/alice.css",
-          "changeType": "absent"
-        },
-        {
-          "id": "#mesh-inventory-ttl",
-          "type": "FileExpectation",
-          "path": "_mesh/_inventory/inventory.ttl",
-          "changeType": "unchanged",
-          "compareMode": "rdfCanonical"
-        }
-      ],
-      "hasRdfExpectation": [
-        {
-          "id": "#alice-knop-page-definition-rdf",
-          "type": "RdfExpectation",
-          "targetsFileExpectation": "#alice-knop-page-definition-ttl",
-          "hasAskAssertion": [
-            {
-              "type": "SparqlAskAssertion",
-              "query": "ASK { ?pageDefinition a <https://semantic-flow.github.io/ontology/core/ResourcePageDefinition> ; <https://semantic-flow.github.io/ontology/core/hasPageRegion> ?mainRegion, ?sidebarRegion . ?mainRegion <https://semantic-flow.github.io/ontology/core/regionKey> \"main\" . ?sidebarRegion <https://semantic-flow.github.io/ontology/core/regionKey> \"sidebar\" . }",
-              "expectedBoolean": true
-            }
-          ]
-        },
-        {
-          "id": "#alice-knop-page-definition-s1-rdf",
-          "type": "RdfExpectation",
-          "targetsFileExpectation": "#alice-knop-page-definition-s1-ttl",
-          "hasAskAssertion": [
-            {
-              "type": "SparqlAskAssertion",
-              "query": "ASK { ?pageDefinition a <https://semantic-flow.github.io/ontology/core/ResourcePageDefinition> . }",
-              "expectedBoolean": true
-            }
-          ]
-        },
-        {
-          "id": "#alice-knop-inventory-rdf",
-          "type": "RdfExpectation",
-          "targetsFileExpectation": "#alice-knop-inventory-ttl",
-          "ignorePredicate": [
-            "http://purl.org/dc/terms/created",
-            "http://purl.org/dc/terms/updated"
-          ],
-          "hasAskAssertion": [
-            {
-              "type": "SparqlAskAssertion",
-              "query": "ASK { <https://semantic-flow.github.io/mesh-alice-bio/alice/_knop> <https://semantic-flow.github.io/ontology/core/hasResourcePageDefinition> <https://semantic-flow.github.io/mesh-alice-bio/alice/_knop/_page> . <https://semantic-flow.github.io/mesh-alice-bio/alice/_knop/_page> <https://semantic-flow.github.io/ontology/core/currentArtifactHistory> <https://semantic-flow.github.io/mesh-alice-bio/alice/_knop/_page/_history001> . <https://semantic-flow.github.io/mesh-alice-bio/alice/_knop/_page/_history001> <https://semantic-flow.github.io/ontology/core/latestHistoricalState> <https://semantic-flow.github.io/mesh-alice-bio/alice/_knop/_page/_history001/_s0001> . }",
-              "expectedBoolean": true
-            },
-            {
-              "type": "SparqlAskAssertion",
-              "query": "ASK { <https://semantic-flow.github.io/mesh-alice-bio/alice/_knop/_page> <https://semantic-flow.github.io/ontology/core/hasResourcePage> <https://semantic-flow.github.io/mesh-alice-bio/alice/_knop/_page/index.html> . }",
-              "expectedBoolean": true
-            },
-            {
-              "type": "SparqlAskAssertion",
-              "query": "ASK { <https://semantic-flow.github.io/mesh-alice-bio/alice/_knop> <https://semantic-flow.github.io/ontology/core/hasKnopAssetBundle> ?assetBundle . ?assetBundle a <https://semantic-flow.github.io/ontology/core/KnopAssetBundle> . }",
-              "expectedBoolean": true
-            }
-          ]
-        },
-        {
-          "id": "#mesh-inventory-rdf",
-          "type": "RdfExpectation",
-          "targetsFileExpectation": "#mesh-inventory-ttl",
-          "ignorePredicate": [
-            "http://purl.org/dc/terms/created",
-            "http://purl.org/dc/terms/updated"
-          ],
-          "hasAskAssertion": [
-            {
-              "type": "SparqlAskAssertion",
-              "query": "ASK { <https://semantic-flow.github.io/mesh-alice-bio/_mesh/_inventory/_history001> <https://semantic-flow.github.io/ontology/core/latestHistoricalState> <https://semantic-flow.github.io/mesh-alice-bio/_mesh/_inventory/_history001/_s0004> . }",
-              "expectedBoolean": true
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
-```
+- transition: `13-bob-extracted-woven` -> `14-alice-page-customized`
+- target: `alice`
+- added files:
+  - `alice/_knop/_page/page.ttl`
+  - `alice/alice.md`
+  - `mesh-content/sidebar.md`
+  - `alice/_knop/_assets/alice.css`
+- updated files:
+  - `alice/_knop/_inventory/inventory.ttl`
+- unchanged files:
+  - `_mesh/_inventory/inventory.ttl`
+  - `alice/index.html`
+- absent files:
+  - `alice/_knop/_page/index.html`
+  - `alice/_assets/alice.css`
+  - `alice/_knop/main.md`
+  - `alice/_knop/sidebar.md`
+  - `alice/_knop/_page/main.md`
+  - `alice/_knop/_page/sidebar.md`
+  - `alice/_knop/_page/_assets/alice.css`
+- RDF assertions prove:
+  - `alice/_knop/_page` is a `ResourcePageDefinition`
+  - the definition has `main` and `sidebar` regions
+  - both initial `ResourcePageSource` nodes resolve by `hasTargetLocatedFile` to `WorkspaceRelativeFile` targets at `alice/alice.md` and `mesh-content/sidebar.md`
+  - `alice/_knop/_inventory/inventory.ttl` registers both `hasResourcePageDefinition` and `hasKnopAssetBundle`
+  - the non-woven state still has no `_page` artifact history yet
+
+Current `15-alice-page-customized-woven` manifest shape:
+
+- transition: `14-alice-page-customized` -> `15-alice-page-customized-woven`
+- target: `alice`
+- unchanged authored inputs:
+  - `alice/_knop/_page/page.ttl`
+  - `alice/alice.md`
+  - `mesh-content/sidebar.md`
+  - `alice/_knop/_assets/alice.css`
+- added `_page` support-artifact outputs:
+  - `alice/_knop/_page/index.html`
+  - `alice/_knop/_page/_history001/index.html`
+  - `alice/_knop/_page/_history001/_s0001/index.html`
+  - `alice/_knop/_page/_history001/_s0001/page-ttl/index.html`
+  - `alice/_knop/_page/_history001/_s0001/page-ttl/page.ttl`
+- added Alice inventory state outputs:
+  - `alice/_knop/_inventory/_history001/_s0003/index.html`
+  - `alice/_knop/_inventory/_history001/_s0003/inventory-ttl/index.html`
+  - `alice/_knop/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl`
+- updated files:
+  - `alice/_knop/_inventory/inventory.ttl`
+  - `alice/_knop/_inventory/_history001/index.html`
+  - `alice/index.html`
+- unchanged files:
+  - `_mesh/_inventory/inventory.ttl`
+- absent files:
+  - `alice/_assets/alice.css`
+  - `alice/_knop/main.md`
+  - `alice/_knop/sidebar.md`
+  - `alice/_knop/_page/_assets/alice.css`
+- RDF assertions prove:
+  - `alice/_knop/_page` now has a normal support-artifact history at `_history001`
+  - `_history001/_s0001` is the latest page-definition state and materializes `page-ttl/page.ttl`
+  - `alice/_knop/_page` now has its own generated support-artifact resource page
+  - `alice/_knop/_inventory/_history001` now advances to `_s0003`
+  - `_mesh/_inventory` stays unchanged across the weave step
 
 ### Phase 2: Discovery, Authority, And Runtime Loading
 
