@@ -1,17 +1,19 @@
 ---
 id: root-designator-path-sup-y1t23z
-title: 'root-designator-path-support'
+title: root-designator-path-support
 desc: ''
-created: 1775716108618
 updated: 1775716108618
-participants: [djradon, codex.gpt-5.4]
+created: 1775716108618
+participants:
+  - djradon
+  - codex.gpt-5.4
 ---
 
 # User_2026-04-08_1154_29
 
 root-designator-path-support
 
-Please review [[wd.task.2026.2026-04-08_1133-root-designator-path-support]] and let me know if you're ready to begin implementation.
+Please review [[wd.completed.2026.2026-04-08_1133-root-designator-path-support]] and let me know if you're ready to begin implementation.
 
 # gpt-5.4_2026-04-08_1154_38
 
@@ -125,7 +127,7 @@ Implemented root designator support end to end.
 
 `/` now works as the CLI root sentinel across shared targeting and single-designator commands in [run.ts](../../src/cli/run.ts), normalizing to internal `""` through shared helpers in [designator_segments.ts](../../src/core/designator_segments.ts). Root-owned paths now render correctly as `_knop`, `_history001`, and `index.html` rather than gaining leading slashes, and root display surfaces render `/` in [pages.ts](../../src/runtime/weave/pages.ts) and the weave planners in [weave.ts](../../src/core/weave/weave.ts). Inventory discovery and runtime loading now include a root Knop at `_knop` in [inventory.ts](../../src/runtime/mesh/inventory.ts).
 
-I also updated the CLI and overview notes in [[wu.cli-reference]], [[wd.codebase-overview]], and checked off the task note in [[wd.task.2026.2026-04-08_1133-root-designator-path-support]]. Coverage now includes unit, runtime, integration, and black-box CLI tests for exact and recursive root targeting plus root command flows.
+I also updated the CLI and overview notes in [[wu.cli-reference]], [[wd.codebase-overview]], and checked off the task note in [[wd.completed.2026.2026-04-08_1133-root-designator-path-support]]. Coverage now includes unit, runtime, integration, and black-box CLI tests for exact and recursive root targeting plus root command flows.
 
 Verification: `deno task ci` passed.
 

@@ -10,6 +10,7 @@ created: 1775715975066
 - Define the ontology and config vocabulary needed for customizable identifier pages before runtime implementation broadens.
 - Carry forward the strongest ideas from the earlier template/config work without reintroducing its brittle pieces.
 - Introduce a bundle-level metadata resource for `_knop/_page/_assets` without turning KnopInventory into a manifest of every bundled file.
+- Clarify how outside-the-tree or extra-mesh content enters page composition through an explicit import boundary rather than as a direct live current page source.
 - Clarify which concepts belong in core ontology, which belong in config ontology, and which should remain implementation-only.
 
 ## Summary
@@ -40,9 +41,33 @@ The older config/template work still contains useful pressure:
 
 But we should not copy the older model directly:
 
-- regex-heavy target matching is too brittle
+- regex-heavy target matching is too brittle for the first pass
 - monolithic mapping-set objects have weak merge algebra
-- path literals with unclear base semantics are a trap
+- path literals with implicit or serialization-dependent base semantics are a trap
+
+### Proposed keep/defer/reject list from `dependencies/github.com/semantic-flow/ontology/old/sflo-config-ontology.jsonld`
+
+#### Keep
+
+- The generic config substrate is still worth preserving in some form: `Config`, `ConfigArtifact`, `hasConfig`, and `configFor`.
+- `hasEffectiveConfig` is still a useful concept for runtime/debug views as long as it stays explicitly non-authoritative.
+- The old insistence that templates and stylesheets be first-class artifacts, not raw URL strings, is still the right pressure.
+- The old `InnerTemplate`, `OuterTemplate`, and `Stylesheet` concepts should probably survive in renamed page-scoped form such as `InnerResourcePageTemplate`, `OuterResourcePageTemplate`, and maybe `ResourcePageStylesheet`.
+
+#### Defer
+
+- Specialized attachment properties such as `hasMeshConfig`, `hasKnopConfig`, and `hasAbstractArtifactConfig` are plausible, but they are broader than the immediate `_knop/_page` slice and do not need to be settled before first-pass page-definition modeling lands.
+- Broad runtime booleans such as `generateResourcePages` and `createHistoricalStatesOnWeave` belong to the wider config story more than to the immediate `_knop/_page` vocabulary, so they should not drive the first pass here.
+- Any bulk template-assignment mechanism should be deferred until real pressure appears. If that pressure does show up later, the next thing to try should be constrained selectors such as target class, source-interpretation profile, or designator-path prefix before jumping straight to full regex.
+- Relative path literals are acceptable when the model makes their base explicit, for example by hanging them off a `ResourcePageBundle`/`ResourcePageBundleFile` boundary rather than leaving them as free-floating strings with ambiguous resolution semantics.
+
+#### Reject
+
+- `TemplateMappingSet` and `TemplateMapping` should not be transplanted into the first-pass page-definition/config model.
+- `mappingPriority` and the implied conflict-resolution algebra should not come along either.
+- `mappingTargetClassRegex` and `mappingTargetSlugRegex` should not be transplanted into the first-pass page-definition/config model, even if some constrained selector or regex mechanism is revisited later.
+- A config shape that decides page presentation primarily by pattern-matching over filenames, slugs, or path strings is the wrong first boundary for `_knop/_page`.
+- A template/config model that makes template selection responsible for navigation, breadcrumb, or other information-architecture logic should remain rejected; runtime should compute those structures and templates should render them.
 
 The `_knop/_page/_assets` question is a good example of why ontology work matters first. We probably do want some metadata about the local asset bundle, but that does not mean:
 
@@ -70,6 +95,8 @@ The split I would currently aim for is:
 - implementation:
   - concrete renderer behavior
   - file-layout conventions that do not need ontology-level commitment
+
+The outside-source boundary should stay sharp here too. If content originates outside the tree or outside the mesh, the page model should describe how it was imported into a governed in-tree artifact; it should not make the outside origin the direct live page source that "current" rendering follows.
 
 ## First-Pass Recommendation
 
@@ -192,7 +219,7 @@ Naming pushback:
 - Whether later profiles should add a controlled region-role vocabulary beyond the first-pass `regionKey` string.
 - Whether `ResourcePageAssetBundle` should stay page-scoped permanently or later generalize into a wider asset-bundle concept.
 - How much template/chrome policy should be formalized in this slice versus deferred.
-- Whether first-pass extra-mesh sources should be limited to explicit distributions only, or may also point at broader external artifact IRIs.
+- Whether first-pass import metadata for outside-the-tree content should be limited to explicit distributions only, or may also point at broader external artifact IRIs as import origins.
 
 ## Decisions
 
@@ -204,6 +231,8 @@ Naming pushback:
 - The first-pass core content model should use `ResourcePageRegion`, not `ResourcePageSlot`.
 - Per-source state selection and fallback should be modeled as separate axes using `hasRequestedSourceState` and `hasResourcePageSourceFallbackPolicy`.
 - Local bundle sources should be modeled through `ResourcePageBundle`, `ResourcePageBundleFile`, and `pageBundleRelativePath` rather than raw path strings directly on `ResourcePageSource`.
+- Outside-the-tree or extra-mesh content should enter page composition through an explicit import boundary rather than as a direct live page source.
+- The imported in-tree artifact and its current `WorkingLocatedFile` should be the source that page resolution follows.
 - Use `ResourcePageBundle`, not `KnopPageResourceBundle`, as the class name for the whole `_knop/_page` boundary resource.
 - `ResourcePageBundleFile` is a structural helper concept only and should not by itself require or recommend recursive inventory capture.
 
@@ -212,6 +241,7 @@ Naming pushback:
 - Introduce vocabulary for page-definition resources and page sources.
 - Introduce vocabulary for per-source state, mode, and fallback policy.
 - Introduce a bundle-level metadata resource for `_knop/_page/_assets`.
+- Represent outside-the-tree origin data as import-facing metadata rather than as a direct current-following page-source contract.
 - Clarify the config vocabulary surface for template/chrome preferences and defaults.
 - Represent local page-bundle files as explicit helper resources so relative-path base semantics stay clear.
 
@@ -221,7 +251,7 @@ Naming pushback:
 - Add ontology/config examples that demonstrate:
   - local bundle files
   - in-mesh source artifacts
-  - external source references
+  - import-oriented external origin references
   - bundle-level `_assets` metadata without per-file inventory capture
 - Later runtime tests should use those modeled examples rather than inventing new shapes ad hoc.
 

@@ -8,11 +8,12 @@ created: 1775715234849
 ## Goals
 
 - Define a knop-owned page-definition bundle under `_knop/_page` so an identifier such as `alice/` can own a customized `alice/index.html` without becoming a payload-bearing artifact itself.
+- Keep ordinary Markdown as the baseline authored source format for page-bundle content, while treating Dendron compatibility as an optional interpretation profile rather than the default required mode.
 - Define the runtime-facing consequences of the page-definition ontology/config model without trying to invent that vocabulary ad hoc inside implementation code.
-- Separate page control metadata from page content so the model can use local bundle files, in-mesh artifacts, and explicit external sources without collapsing them into one RDF blob.
+- Separate page control metadata from page content so the model can use local bundle files, in-mesh artifacts, and imported outside content without collapsing them into one RDF blob.
 - Attach source selection policy to each page source or region, not only to the page as a whole.
 - Keep local `_page/_assets` ahistorical and bundle-oriented while making reusable or versioned assets first-class DigitalArtifacts elsewhere in the mesh.
-- Define the first safe resolution boundary for in-mesh and extra-mesh page sources.
+- Define the first safe resolution boundary for in-mesh page sources and import-oriented handling of outside-the-tree or extra-mesh content.
 
 ## Summary
 
@@ -24,7 +25,9 @@ The intended direction is:
 - a small RDF manifest in `_page/` describes page regions, source bindings, chrome preferences, and resolution policy
 - the ontology/config vocabulary for that manifest should be defined before runtime implementation broadens
 - substantial authored content usually lives in sibling files under `_page/` or in referenced DigitalArtifacts rather than inside long RDF literals
+- ordinary Markdown should be the default authored bundle-content format; richer Dendron conventions should only activate under an explicit source-interpretation profile
 - each `resourcePageSource` can independently choose a source artifact, an optional requested state, and a mode/fallback policy
+- outside-the-tree or extra-mesh content should enter page generation through an explicit import step, not as a direct live "latest" source
 
 That makes `_knop/_page` the control plane while keeping content and versioned source artifacts first-class.
 
@@ -38,7 +41,7 @@ We need to support several distinct things without conflating them:
 - local bundle content such as Markdown, HTML fragments, and images
 - bundle-level metadata about local assets without pretending every bundled file is a first-class governed artifact
 - reuse of independently versioned in-mesh content artifacts
-- explicitly allowed external source artifacts
+- explicitly allowed import inputs for content that originates outside the tree or outside the mesh
 - template/chrome selection
 
 The current design pressure suggests a structure more like:
@@ -49,6 +52,14 @@ The current design pressure suggests a structure more like:
 - `_knop/_page/_assets/...`
 
 where `page.ttl` references those local files or other artifact identifiers.
+
+The tricky case is outside-the-tree content. Letting an identifier page follow a direct external or host-local "latest" source is the wrong boundary, because the resulting current public state is no longer guaranteed to be locally dereferenceable or reproducible from the mesh alone.
+
+The safer first-pass model is explicit import:
+
+- copy the outside content into the tree
+- let that imported copy become the `WorkingLocatedFile` for a governed in-tree artifact
+- have the page definition point at that local/imported artifact rather than the outside origin directly
 
 Each page region may need a different source artifact and therefore a different selection policy. A page-level single "source state" is too coarse if, for example, the main body follows one artifact history while a sidebar points at another current artifact.
 
@@ -127,13 +138,14 @@ Minimal shape:
 ## Open Issues
 
 - Whether first-pass runtime support should allow multiple ordered sources per region immediately, or start with one source per region and add `sourceOrder` only when composition pressure appears in real examples.
-- Whether extra-mesh sources should be limited to explicitly described distributions in the first pass.
+- Whether first-pass import metadata for outside-the-tree content should be limited to explicitly described distributions.
 - Whether first-pass fallback should stop at `AcceptLatestInRequestedHistory` or also allow an explicit current-history fallback policy later.
 - Whether local bundle-file helper resources should also carry media-type hints, or whether extension-driven/runtime inference is sufficient initially.
 
 ## Decisions
 
 - `_knop/_page` should be the local authoritative page-definition bundle for a resource page.
+- Ordinary Markdown should remain the default authored content format for local `_knop/_page` bundle files; Dendron compatibility, if added, should be an optional source-interpretation profile layered on top rather than the default required mode.
 - The ontology/config vocabulary for `_knop/_page` should be defined before broad runtime implementation begins.
 - `_knop/_page` should not itself become a separate nested knop.
 - Each page source or region should carry its own source, requested state, mode, and fallback policy rather than forcing one page-global setting.
@@ -142,7 +154,9 @@ Minimal shape:
 - `_knop/_page/_assets` may still need a bundle-level metadata resource in ontology/config, but that must not imply "inventory every child file".
 - If an asset needs independent history, publication, or reuse, it should be modeled as a separate DigitalArtifact and referenced from the page definition.
 - In-mesh artifact references should be first-class page sources.
-- Extra-mesh sources may be allowed, but only with explicit opt-in policy and fail-closed behavior.
+- Outside-the-tree or extra-mesh content should not be used as a direct live latest-following page source in the first pass.
+- If page content originates outside the tree/mesh, it should first be imported into a governed in-tree artifact, and that imported artifact's current `WorkingLocatedFile` should become the page source that generation follows.
+- Extra-mesh origins may be allowed, but only as explicit import inputs with fail-closed behavior.
 - Template/chrome selection is adjacent to page definition but should remain a separate concern from content composition.
 - Runtime code should compute nav/breadcrumb/search structures; templates should render structured inputs rather than own the information architecture logic.
 - `ResourcePageRegion` is the better first-pass core term; reserve `slot` language for template/render configuration if it is needed later.
@@ -159,8 +173,9 @@ Minimal shape:
 - Define a manifest artifact in that bundle that can reference:
   - local relative bundle files
   - in-mesh DigitalArtifact identifiers
-  - explicit external IRIs
+  - imported in-tree artifacts whose current `WorkingLocatedFile` came from an outside-the-tree or extra-mesh origin
 - Define per-source selection fields for state, mode, and fallback policy.
+- Define an explicit import boundary for outside-the-tree content rather than direct live external-latest page resolution.
 - Define `_knop/_page/_assets` as the relative-path base for local bundled static assets.
 - Define a bundle-level resource for `_knop/_page/_assets` metadata without promoting every bundled file into KnopInventory by default.
 - Keep `index.html` as generated public output rather than the canonical editable page source.
@@ -169,7 +184,7 @@ Minimal shape:
 ## Testing
 
 - Write a behavior spec for customizable identifier pages before the implementation broadens.
-- Add integration coverage for local bundle sources, in-mesh artifact sources, and fail-closed external-source cases.
+- Add integration coverage for local bundle sources, in-mesh artifact sources, import-based outside-the-tree sources, and fail-closed direct external-latest cases.
 - Add coverage proving different page regions can resolve different source artifacts and states independently.
 - Add Accord acceptance coverage through new fixture transitions such as `14-alice-page-customized` and `15-alice-page-customized-woven`.
 - Add a separate early-root fixture path if root-page customization needs isolated coverage rather than late-ladder coupling.
@@ -186,9 +201,10 @@ Minimal shape:
 
 - [ ] Coordinate with [[wd.task.2026.2026-04-08_1735-page-definition-ontology-and-config]] so the runtime shape follows an explicit ontology/config model.
 - [ ] Draft the minimal `_knop/_page` bundle layout and manifest shape.
+- [ ] Decide how ordinary Markdown bundle sources differ from any later optional Dendron interpretation profile.
 - [ ] Decide the first-pass per-source mode and fallback vocabulary.
 - [ ] Define the local relative bundle-file semantics for `_knop/_page`.
 - [ ] Define the first-pass in-mesh source resolution behavior.
-- [ ] Define the first-pass extra-mesh source policy and failure modes.
+- [ ] Define the first-pass import boundary, source policy, and failure modes for outside-the-tree and extra-mesh content.
 - [ ] Split page-content composition from template/chrome policy.
 - [ ] Add a behavior spec and fixture plan before implementing the runtime/model changes.

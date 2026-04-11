@@ -1,10 +1,12 @@
 ---
 id: weave-rdf-parsing-135m0q
-title: 'weave rdf parsing'
+title: weave rdf parsing
 desc: ''
-created: 1775530714979
 updated: 1775574971310
-participants: [djradon, codex.gpt-5.4]
+created: 1775530714979
+participants:
+  - djradon
+  - codex.gpt-5.4
 ---
 
 # User_2026-04-06_1952_55
@@ -1982,7 +1984,7 @@ The only thing still “open” is CLI spelling, but it is not a blocker anymore
 
 I recommend a new chat for implementation. This thread is already long and planning-heavy, and the implementation will touch `core/weave`, `runtime/weave`, CLI parsing, and tests. A fresh thread started from [wd.task.2026.2026-04-07_0020-targeting.md](wd.task.2026.2026-04-07_0020-targeting.md) will keep the working context tighter.
 
-If you want, start the new chat with: “Implement [[wd.task.2026.2026-04-07_0020-targeting]]. Use the task note as settled unless blocked.”
+If you want, start the new chat with: “Implement [[wd.completed.2026.2026-04-07_0020-targeting]]. Use the task note as settled unless blocked.”
 
 # User_2026-04-07_0817_50
 
@@ -2275,4 +2277,4 @@ The key settled points are:
 
 I’d still recommend a new implementation chat, because this thread is now mostly planning and note work. A good kickoff would be:
 
-Implement [[wd.task.2026.2026-04-07_0820-validate-version-generate]] first. Use [[wd.task.2026.2026-04-07_0020-targeting]] as the targeting contract, but do not put payload naming fields into generic `TargetSpec`.
+Implement [[wd.completed.2026.2026-04-07_0820-validate-version-generate]] first. Use [[wd.completed.2026.2026-04-07_0020-targeting]] as the targeting contract, but do not put payload naming fields into generic `TargetSpec`.

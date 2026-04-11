@@ -23,7 +23,7 @@ The intended first boundary is:
 - apply that request model end-to-end to `weave` first, because `weave` is the current first-class CLI operation that already composes versioning, validation, and generation behavior
 - keep targets resource-root based, for example `alice`, `alice/bio`, `ontology`, or `ontology/shacl`
 - reject support-artifact-only explicit targets such as `_mesh/_inventory`, `alice/_knop/_meta`, or `alice/_knop/_references` in the first pass
-- leave payload history/state naming to [[wd.task.2026.2026-04-07_0820-validate-version-generate]]
+- leave payload history/state naming to [[wd.completed.2026.2026-04-07_0820-validate-version-generate]]
 
 The motivating publication examples are target roots such as `ontology` and `ontology/shacl`, which later version-oriented operations may version under paths such as `ontology/releases/v0.0.1/ontology-ttl/ontology.ttl`.
 
@@ -76,7 +76,7 @@ That means overlap behavior must be explicit. The intended rule is:
 - When multiple targets match the same weave candidate, the most specific matching target wins.
 - If multiple matching targets have the same normalized `designatorPath`, the request should fail closed as ambiguous.
 - The first CLI syntax should be a repeatable `--target <key=value,...>` flag that maps directly to one target object; in this task the supported keys are `designatorPath` and optional `recursive`.
-- Payload `historySegment` and `stateSegment` are not part of the shared target model; they belong to version-oriented requests as captured in [[wd.task.2026.2026-04-07_0820-validate-version-generate]].
+- Payload `historySegment` and `stateSegment` are not part of the shared target model; they belong to version-oriented requests as captured in [[wd.completed.2026.2026-04-07_0820-validate-version-generate]].
 - Broader multi-target version orchestration should follow the `validate/version/generate` decomposition rather than being forced into the current single-candidate `weave` planner first.
 
 ## Contract Changes
@@ -98,7 +98,7 @@ That means overlap behavior must be explicit. The intended rule is:
 ## Testing
 
 - Keep all current tests green when no explicit targets are supplied.
-- Add core coverage for exact-match target selection.0
+- Add core coverage for exact-match target selection.
 - Add core coverage for recursive target selection over descendant resource roots.
 - Add core coverage for overlapping recursive and exact targets resolving by most-specific target.
 - Add runtime and CLI coverage proving the `targets` request shape reaches `core/weave` intact.
@@ -106,7 +106,7 @@ That means overlap behavior must be explicit. The intended rule is:
 - Add coverage proving recursive targets apply to descendant resource roots rather than support-artifact paths.
 - Add coverage proving duplicate targets at the same specificity fail closed as ambiguous.
 - Add coverage proving support-artifact-only explicit targets are rejected.
-- Leave payload history/state naming coverage to [[wd.task.2026.2026-04-07_0820-validate-version-generate]].
+- Leave payload history/state naming coverage to [[wd.completed.2026.2026-04-07_0820-validate-version-generate]].
 
 ## Non-Goals
 

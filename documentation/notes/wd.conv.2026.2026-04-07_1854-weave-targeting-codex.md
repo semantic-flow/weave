@@ -1,17 +1,19 @@
 ---
 id: weave-targeting-lbtq2f
-title: 'weave targeting'
+title: weave targeting
 desc: ''
+updated: 1775887694140
 created: 1775613259132
-updated: 1775613259132
-participants: [djradon, codex.gpt-5.4]
+participants:
+  - djradon
+  - codex.gpt-5.4
 ---
 
 # User_2026-04-07_1755_45
 
 weave targeting
 
-I think we're ready to pick up [[wd.task.2026.2026-04-07_0020-targeting]] -- please review. Help me decide the open issue.
+I think we're ready to pick up [[wd.completed.2026.2026-04-07_0020-targeting]] -- please review. Help me decide the open issue.
 
 # gpt-5.4_2026-04-07_1756_00
 
@@ -37,7 +39,7 @@ I’ve narrowed it. The note is basically ready; the remaining choice is whether
 
 The main design recommendation is solid now. I’m doing one last pass over the `validate`/`version`/`generate` tests, because if those contracts are already real in code then the CLI syntax should avoid boxing them into a dead end.
 
-The note is ready enough to implement. The one thing I’d tighten is that its discussion is slightly stale: standalone `validate` / `version` / `generate` already exist as runtime seams in [src/runtime/weave/weave.ts:121](../../src/runtime/weave/weave.ts), and the shared target model already exists in [src/core/targeting.ts:6](../../src/core/targeting.ts). What’s still missing is the CLI surface in [src/cli/run.ts:51](../../src/cli/run.ts) and the note’s open issue at [[wd.task.2026.2026-04-07_0020-targeting]].
+The note is ready enough to implement. The one thing I’d tighten is that its discussion is slightly stale: standalone `validate` / `version` / `generate` already exist as runtime seams in [src/runtime/weave/weave.ts:121](../../src/runtime/weave/weave.ts), and the shared target model already exists in [src/core/targeting.ts:6](../../src/core/targeting.ts). What’s still missing is the CLI surface in [src/cli/run.ts:51](../../src/cli/run.ts) and the note’s open issue at [[wd.completed.2026.2026-04-07_0020-targeting]].
 
 My recommendation is:
 
@@ -49,7 +51,7 @@ weave \
 
 Use a repeatable `--target <spec>` flag, where `<spec>` is a thin comma-separated `key=value` map that mirrors the request object. For this task, support only `designatorPath` and optional `recursive=true`.
 
-I would not do `--recursive-target`, positional mini-languages, or JSON blobs right now. Those look simpler, but they create a CLI-only contract that diverges from the actual target object shape and will need redesign once version-oriented fields matter. The explicit `key=value` form is a little clunky, but it is the thinnest real pass-through to `request.targets`, which is exactly what the task note says it wants at [[wd.task.2026.2026-04-07_0020-targeting]].
+I would not do `--recursive-target`, positional mini-languages, or JSON blobs right now. Those look simpler, but they create a CLI-only contract that diverges from the actual target object shape and will need redesign once version-oriented fields matter. The explicit `key=value` form is a little clunky, but it is the thinnest real pass-through to `request.targets`, which is exactly what the task note says it wants at [[wd.completed.2026.2026-04-07_0020-targeting]].
 
 If you want, I can patch the note to record that decision and then wire up the CLI parser/tests.
 
@@ -91,7 +93,7 @@ Implemented the targeting CLI and closed the note’s open issue.
 
 In [src/cli/run.ts](../../src/cli/run.ts), bare `weave` now accepts repeatable `--target <key=value,...>` flags. For this task it supports `designatorPath` and optional `recursive`, and it rejects version-only fields instead of inventing a separate CLI model. In [src/runtime/weave/weave.ts](../../src/runtime/weave/weave.ts), `executeWeave()` now forwards shared targets into `generate` as well as `validate`, so targeted weave is actually end-to-end. Coverage was added in [tests/e2e/weave_cli_test.ts](../../tests/e2e/weave_cli_test.ts) and [tests/integration/weave_test.ts](../../tests/integration/weave_test.ts).
 
-I also settled the docs in [[wd.task.2026.2026-04-07_0020-targeting]], recorded the decision in [[wd.decision-log]], and updated [[wd.codebase-overview]]. I left the pre-existing unrelated edit in [[wd.conv.2026.2026-04-07_1621-weave-validate-version-generate-codex]] untouched.
+I also settled the docs in [[wd.completed.2026.2026-04-07_0020-targeting]], recorded the decision in [[wd.decision-log]], and updated [[wd.codebase-overview]]. I left the pre-existing unrelated edit in [[wd.conv.2026.2026-04-07_1621-weave-validate-version-generate-codex]] untouched.
 
 Verification ran cleanly: `deno task check`, `deno task lint`, and `deno task test` all passed.
 
@@ -143,9 +145,9 @@ I’m checking the task-note template and nearby notes first so the new note fol
 
 I’ve confirmed the existing `0820` note still bundles too much. I’m creating a narrower task note for making payload history/state naming real end-to-end, without reopening the shared-targeting decision or stuffing version-only fields into `weave --target`.
 
-I’m creating the note as a narrow follow-on to [[wd.task.2026.2026-04-07_0820-validate-version-generate]]: make payload history/state naming real in `version`/`weave`, but keep it out of the shared-target CLI surface for now.
+I’m creating the note as a narrow follow-on to [[wd.completed.2026.2026-04-07_0820-validate-version-generate]]: make payload history/state naming real in `version`/`weave`, but keep it out of the shared-target CLI surface for now.
 
-Created [[wd.task.2026.2026-04-07_1852-payload-version-naming]].
+Created [[wd.completed.2026.2026-04-07_1852-payload-version-naming]].
 
 It scopes the next step narrowly: make `historySegment` and `stateSegment` actually affect payload versioning in `version`/programmatic `weave`, preserve current defaults when omitted, fail closed on mismatched existing histories, and keep those fields out of the shared `weave --target` CLI surface.
 
@@ -153,7 +155,7 @@ I did not touch your existing modified files in the worktree. No tests ran; this
 
 # User_2026-04-07_1854_11
 
-does [[wd.task.2026.2026-04-07_0820-validate-version-generate]] need any updates? Any additional issues surfaced?
+does [[wd.completed.2026.2026-04-07_0820-validate-version-generate]] need any updates? Any additional issues surfaced?
 
 # gpt-5.4_2026-04-07_1854_55
 
@@ -929,7 +931,7 @@ The note is in place. I’m doing one readback to make sure it pins down the `/`
 
 # gpt-5.4_2026-04-08_1135_02
 
-Created [wd.task.2026.2026-04-08_1133-root-designator-path-support.md](wd.task.2026.2026-04-08_1133-root-designator-path-support.md).
+Created [wd.completed.2026.2026-04-08_1133-root-designator-path-support.md](wd.completed.2026.2026-04-08_1133-root-designator-path-support.md).
 
 It pins down the main contract:
 
