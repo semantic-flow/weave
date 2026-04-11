@@ -5,20 +5,15 @@ import { formatDesignatorPathForDisplay } from "../../core/designator_segments.t
 import type { ResourcePageDefinitionWorkingArtifact } from "../../core/weave/weave.ts";
 import { type ResourcePageDefinitionInventoryState } from "../mesh/inventory.ts";
 
-const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const SFC_NAMESPACE = "https://semantic-flow.github.io/ontology/core/";
-const SFLO_NAMESPACE =
-  "https://semantic-flow.github.io/semantic-flow-ontology/";
 const SFC_HAS_PAGE_REGION_IRI = `${SFC_NAMESPACE}hasPageRegion`;
 const SFC_HAS_RESOURCE_PAGE_SOURCE_IRI =
   `${SFC_NAMESPACE}hasResourcePageSource`;
 const SFC_HAS_TARGET_ARTIFACT_IRI = `${SFC_NAMESPACE}hasTargetArtifact`;
 const SFC_HAS_TARGET_DISTRIBUTION_IRI = `${SFC_NAMESPACE}hasTargetDistribution`;
 const SFC_HAS_TARGET_LOCATED_FILE_IRI = `${SFC_NAMESPACE}hasTargetLocatedFile`;
+const SFC_TARGET_MESH_PATH_IRI = `${SFC_NAMESPACE}targetMeshPath`;
 const SFC_REGION_KEY_IRI = `${SFC_NAMESPACE}regionKey`;
-const SFC_WORKSPACE_RELATIVE_PATH_IRI = `${SFC_NAMESPACE}workspaceRelativePath`;
-const SFC_WORKSPACE_RELATIVE_FILE_IRI = `${SFC_NAMESPACE}WorkspaceRelativeFile`;
-const SFLO_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}LocatedFile`;
 
 export interface CustomIdentifierRegionModel {
   key: string;
@@ -40,7 +35,7 @@ export class ResourcePageDefinitionResolutionError extends Error {
 }
 
 export async function loadResourcePageDefinitionWorkingArtifact(
-  workspaceRoot: string,
+  meshRoot: string,
   designatorPath: string,
   inventoryState: ResourcePageDefinitionInventoryState | undefined,
 ): Promise<ResourcePageDefinitionWorkingArtifact | undefined> {
@@ -52,13 +47,13 @@ export async function loadResourcePageDefinitionWorkingArtifact(
     return {
       ...inventoryState,
       currentPageDefinitionTurtle: await Deno.readTextFile(
-        join(workspaceRoot, inventoryState.workingFilePath),
+        join(meshRoot, inventoryState.workingFilePath),
       ),
     };
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new ResourcePageDefinitionResolutionError(
-        `Workspace is missing the working ResourcePageDefinition file for ${
+        `Mesh root is missing the working ResourcePageDefinition file for ${
           formatDesignatorPathForDisplay(designatorPath)
         }: ${inventoryState.workingFilePath}`,
       );
@@ -68,7 +63,7 @@ export async function loadResourcePageDefinitionWorkingArtifact(
 }
 
 export async function loadActiveCustomIdentifierPage(
-  workspaceRoot: string,
+  meshRoot: string,
   meshBase: string,
   designatorPath: string,
   artifact: ResourcePageDefinitionWorkingArtifact | undefined,
@@ -125,42 +120,30 @@ export async function loadActiveCustomIdentifierPage(
         sourceSubject,
         SFC_HAS_TARGET_DISTRIBUTION_IRI,
       );
-
-      if (targetArtifact.length > 0 || targetDistribution.length > 0) {
-        throw new ResourcePageDefinitionResolutionError(
-          `ResourcePageDefinition region ${key} for ${
-            formatDesignatorPathForDisplay(designatorPath)
-          } uses artifact-resolution targets that this first implementation slice does not support yet.`,
-        );
-      }
-
-      const locatedFileSubject = requireUniqueNamedNode(
+      const targetLocatedFile = collectNamedNodeObjects(
         quads,
         sourceSubject,
         SFC_HAS_TARGET_LOCATED_FILE_IRI,
-        `ResourcePageDefinition region ${key} is missing its target LocatedFile for ${
-          formatDesignatorPathForDisplay(designatorPath)
-        }.`,
-      );
-      requireType(
-        quads,
-        locatedFileSubject,
-        SFC_WORKSPACE_RELATIVE_FILE_IRI,
-        `ResourcePageDefinition region ${key} must use a WorkspaceRelativeFile target in this first implementation slice.`,
-      );
-      requireType(
-        quads,
-        locatedFileSubject,
-        SFLO_LOCATED_FILE_IRI,
-        `ResourcePageDefinition region ${key} must identify a LocatedFile target.`,
       );
 
-      const sourcePath = normalizeWorkspaceRelativePath(
+      if (
+        targetArtifact.length > 0 ||
+        targetDistribution.length > 0 ||
+        targetLocatedFile.length > 0
+      ) {
+        throw new ResourcePageDefinitionResolutionError(
+          `ResourcePageDefinition region ${key} for ${
+            formatDesignatorPathForDisplay(designatorPath)
+          } uses artifact/distribution/located-file targets that this first implementation slice does not support yet.`,
+        );
+      }
+
+      const sourcePath = normalizeTargetMeshPath(
         requireUniqueLiteral(
           quads,
-          locatedFileSubject,
-          SFC_WORKSPACE_RELATIVE_PATH_IRI,
-          `WorkspaceRelativeFile ${locatedFileSubject} is missing workspaceRelativePath for ${
+          sourceSubject,
+          SFC_TARGET_MESH_PATH_IRI,
+          `ResourcePageDefinition region ${key} is missing targetMeshPath for ${
             formatDesignatorPathForDisplay(designatorPath)
           }.`,
         ),
@@ -171,14 +154,14 @@ export async function loadActiveCustomIdentifierPage(
         return {
           key,
           sourcePath,
-          markdown: await Deno.readTextFile(join(workspaceRoot, sourcePath)),
+          markdown: await Deno.readTextFile(join(meshRoot, sourcePath)),
         };
       } catch (error) {
         if (error instanceof Deno.errors.NotFound) {
           throw new ResourcePageDefinitionResolutionError(
             `ResourcePageDefinition region ${key} for ${
               formatDesignatorPathForDisplay(designatorPath)
-            } points at a missing workspace file: ${sourcePath}`,
+            } points at a missing mesh-local file: ${sourcePath}`,
           );
         }
         throw error;
@@ -191,7 +174,7 @@ export async function loadActiveCustomIdentifierPage(
     regions: sortRegions(regions),
     stylesheetPaths: artifact.assetBundlePath
       ? await listStylesheetPaths(
-        workspaceRoot,
+        meshRoot,
         artifact.assetBundlePath,
         designatorPath,
       )
@@ -287,26 +270,7 @@ function requireUniqueLiteral(
   return values.values().next().value!;
 }
 
-function requireType(
-  quads: readonly Quad[],
-  subjectIri: string,
-  typeIri: string,
-  errorMessage: string,
-): void {
-  const hasType = quads.some((quad) =>
-    quad.subject.termType === "NamedNode" &&
-    quad.subject.value === subjectIri &&
-    quad.predicate.value === RDF_TYPE_IRI &&
-    quad.object.termType === "NamedNode" &&
-    quad.object.value === typeIri
-  );
-
-  if (!hasType) {
-    throw new ResourcePageDefinitionResolutionError(errorMessage);
-  }
-}
-
-function normalizeWorkspaceRelativePath(
+function normalizeTargetMeshPath(
   value: string,
   designatorPath: string,
 ): string {
@@ -315,17 +279,17 @@ function normalizeWorkspaceRelativePath(
 
   if (trimmed.length === 0) {
     throw new ResourcePageDefinitionResolutionError(
-      `ResourcePageDefinition for ${pathDisplay} contains an empty workspaceRelativePath.`,
+      `ResourcePageDefinition for ${pathDisplay} contains an empty targetMeshPath.`,
     );
   }
   if (trimmed.includes("\\")) {
     throw new ResourcePageDefinitionResolutionError(
-      `workspaceRelativePath values must use forward slashes; found ${trimmed}.`,
+      `targetMeshPath values must use forward slashes; found ${trimmed}.`,
     );
   }
   if (trimmed.startsWith("/") || /^[A-Za-z]:/.test(trimmed)) {
     throw new ResourcePageDefinitionResolutionError(
-      `workspaceRelativePath values must stay relative to the workspace root; found ${trimmed}.`,
+      `targetMeshPath values must stay relative to the mesh root; found ${trimmed}.`,
     );
   }
 
@@ -336,7 +300,7 @@ function normalizeWorkspaceRelativePath(
     normalized.startsWith("../")
   ) {
     throw new ResourcePageDefinitionResolutionError(
-      `workspaceRelativePath values must remain inside the workspace root; found ${trimmed}.`,
+      `targetMeshPath values must remain inside the mesh root; found ${trimmed}.`,
     );
   }
 
@@ -344,7 +308,7 @@ function normalizeWorkspaceRelativePath(
 }
 
 async function listStylesheetPaths(
-  workspaceRoot: string,
+  meshRoot: string,
   assetBundlePath: string,
   designatorPath: string,
 ): Promise<readonly string[]> {
@@ -352,7 +316,7 @@ async function listStylesheetPaths(
 
   try {
     for await (
-      const entry of Deno.readDir(join(workspaceRoot, assetBundlePath))
+      const entry of Deno.readDir(join(meshRoot, assetBundlePath))
     ) {
       if (!entry.isFile || !entry.name.endsWith(".css")) {
         continue;
@@ -364,7 +328,7 @@ async function listStylesheetPaths(
       throw new ResourcePageDefinitionResolutionError(
         `ResourcePageDefinition for ${
           formatDesignatorPathForDisplay(designatorPath)
-        } declares a Knop asset bundle that is missing on disk: ${assetBundlePath}`,
+        } declares a Knop asset bundle that is missing under the mesh root: ${assetBundlePath}`,
       );
     }
     throw error;

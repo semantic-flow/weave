@@ -85,7 +85,7 @@ Behavioral consequences:
 
 This does not imply recursive history for the surrounding local support inputs:
 
-- workspace-local authored files referenced by `page.ttl` do not become separate governed artifacts by default
+- mesh-local authored files referenced by `page.ttl` do not become separate governed artifacts by default
 - `_knop/_assets` remains local and ahistorical by default
 - those helper files participate through the current state of the `ResourcePageDefinition` artifact and its working file, not by each gaining their own independent support-artifact histories automatically
 
@@ -95,21 +95,21 @@ A `ResourcePageRegion` may resolve content from exactly one first-pass `Resource
 
 The first-pass source kinds are:
 
-- workspace-relative local files referenced by `page.ttl`
+- mesh-local files referenced by `page.ttl`
 - in-mesh governed artifacts
 - imported in-tree artifacts whose bytes originated outside the tree or outside the mesh
 
-### Workspace-relative local files
+### Mesh-local files
 
-Local authored files are resolved through a direct `LocatedFile` target on the source, typically a `WorkspaceRelativeFile` with `workspaceRelativePath`.
+Local authored files are resolved through `targetMeshPath` directly on the `ResourcePageSource`.
 
 Behavioral consequences:
 
-- the path stays relative to the current workspace root rather than becoming an absolute filesystem path
-- the path may point at a natural workspace location such as `alice/alice.md` or a shared helper file such as `mesh-content/sidebar.md`; Knop-local placement is allowed but not required
+- the path stays relative to the mesh root rather than becoming an absolute filesystem path
+- the path may point at a natural mesh location such as `alice/alice.md` or a shared helper file such as `mesh-content/sidebar.md`; Knop-local placement is allowed but not required
 - ordinary Markdown is the default authored text format for `.md` helper files
 - Dendron semantics are not implied by `.md` alone and should activate only under a later explicit interpretation profile
-- workspace-relative file inputs are current-working local inputs, not separately governed artifacts by default
+- mesh-local path inputs are current-working local inputs, not separately governed artifacts by default
 
 ### In-mesh artifact sources
 
@@ -134,7 +134,7 @@ The allowed first-pass path is:
 
 At weave time, generation follows the imported in-tree artifact's current `WorkingLocatedFile`, not the outside origin directly.
 
-This keeps page generation reproducible from the current workspace and mesh state instead of turning `weave` into a live fetcher.
+This keeps page generation reproducible from the current mesh state instead of turning `weave` into a live fetcher.
 
 ## Per-Source Mode And Fallback Semantics
 
@@ -197,7 +197,7 @@ That includes at least these cases:
 
 - `_knop/_page/page.ttl` is missing after `_knop/_page` has been declared or discovered as present
 - the page definition cannot be parsed or validated well enough to resolve regions and sources
-- a workspace-relative file source is malformed, missing, or escapes the allowed workspace-relative boundary
+- a `targetMeshPath` source is malformed, missing, or escapes the mesh boundary
 - a pinned in-mesh source cannot be resolved under `ExactOnly`
 - an imported-source artifact lacks the in-tree governed artifact or current `WorkingLocatedFile` that generation is supposed to follow
 - a page definition attempts to point directly at outside-the-tree or extra-mesh live content instead of an imported in-tree artifact
@@ -272,9 +272,9 @@ Proposed Accord manifests:
 
 What `14` should prove:
 
-- Alice gains a knop-owned `_knop/_page` support artifact plus workspace-local authored inputs at natural repository paths
+- Alice gains a knop-owned `_knop/_page` support artifact plus mesh-local authored inputs at natural repository paths
 - the definition uses ordinary Markdown local content, not Dendron-only semantics
-- at least one region resolves from a workspace-local file outside `_knop/_page`
+- at least one region resolves from a mesh-local file outside `_knop/_page`
 - at least one second local region proves multi-region composition without yet requiring in-mesh or imported source support
 - `_knop/_assets` content appears only as Knop-local support input, not as new inventory entries
 
@@ -283,7 +283,7 @@ What `15` should prove:
 - `alice/index.html` now follows the customized definition rather than the generic identifier renderer
 - `alice/index.html` may reference `alice/_knop/_assets/...` directly, without a copied `alice/_assets/...` surface
 - Alice support-artifact pages remain under generic generation unless separately specified
-- malformed or unresolved workspace-local inputs would have failed the operation instead of falling back silently
+- malformed or unresolved `targetMeshPath` inputs would have failed the operation instead of falling back silently
 
 ### Follow-on non-root coverage
 

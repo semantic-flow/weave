@@ -59,7 +59,7 @@ But we should not copy the older model directly:
 - Specialized attachment properties such as `hasMeshConfig`, `hasKnopConfig`, and `hasAbstractArtifactConfig` are plausible, but they are broader than the immediate `_knop/_page` slice and do not need to be settled before first-pass page-definition modeling lands.
 - Broad runtime booleans such as `generateResourcePages` and `createHistoricalStatesOnWeave` belong to the wider config story more than to the immediate `_knop/_page` vocabulary, so they should not drive the first pass here.
 - Any bulk template-assignment mechanism should be deferred until real pressure appears. If that pressure does show up later, the next thing to try should be constrained selectors such as target class, source-interpretation profile, or designator-path prefix before jumping straight to full regex.
-- Relative path literals are acceptable when the model makes their base explicit, for example by hanging them off a helper `LocatedFile` such as `WorkspaceRelativeFile` rather than leaving them as free-floating strings with ambiguous resolution semantics.
+- Relative path literals are acceptable when the model makes their base explicit. In the current direction that means `targetMeshPath` on `ArtifactResolutionTarget`, not helper pseudo-files with ambiguous runtime anchoring.
 
 #### Reject
 
@@ -108,7 +108,7 @@ The first pass should treat the `_knop/_page` manifest as a knop-owned support a
   - artifact-level support resource for the `_knop/_page` manifest
   - should subclass `DigitalArtifact`, `RdfDocument`, and `SemanticFlowResource`
 - `ArtifactResolutionTarget`
-  - generic policy-bearing relator for resolving bytes from either a `DigitalArtifact`, a direct `LocatedFile`, or another packaged target
+  - generic policy-bearing relator for resolving bytes from either a `DigitalArtifact`, a direct mesh-local path string, a direct `LocatedFile`, or another packaged target
   - should carry requested history/state plus mode/fallback policy
 - `ResourcePageRegion`
   - structural content region for authored page composition
@@ -116,9 +116,6 @@ The first pass should treat the `_knop/_page` manifest as a knop-owned support a
 - `ResourcePageSource`
   - page-specific subclass of `ArtifactResolutionTarget` used for per-region source binding
   - keeps page-composition queries and future page-specific constraints readable even though the resolution pattern is generic
-- `WorkspaceRelativeFile`
-  - helper `LocatedFile` for unmanaged workspace-relative inputs such as `alice/_knop/sidebar.md` or repo documentation files elsewhere in the workspace
-  - does not imply that the referenced file is a governed artifact or a `KnopInventory` entry
 - `KnopAssetBundle`
   - bounded local helper boundary for `_knop/_assets`
   - should not imply that every file under `_assets` becomes a governed artifact or a `KnopInventory` entry
@@ -132,7 +129,7 @@ Recommended core properties:
 - `regionOrder`
 - `hasResourcePageSource`
 - `sourceOrder`
-- `workspaceRelativePath`
+- `targetMeshPath`
 - `hasTargetArtifact`
 - `hasTargetLocatedFile`
 - `hasTargetDistribution`
@@ -152,11 +149,11 @@ Naming pushback:
 
 - Do not introduce page-specific alias properties such as `hasRequestedSourceState` when the generic `ArtifactResolutionTarget` properties already say the right thing.
 - Do not put `accept` into the mode enum alongside `exact` and `current`. `accept` belongs to fallback policy, not to the separate question of whether the source is pinned versus current-following.
-- Do not make an artifact target mandatory when a direct `LocatedFile` is sufficient. `ArtifactResolutionTarget` should support either shape.
+- Do not make an artifact target mandatory when `targetMeshPath` or a direct `LocatedFile` is sufficient. `ArtifactResolutionTarget` should support either shape.
 - Do not collapse `ResourcePageSource` away into a fully generic relator. The page-specific subtype is still useful even though the resolution pattern is shared.
 - Do not rename `ResourcePageSource` just to echo its superclass. The region-to-source relation is already clear, and the class's target semantics come from `ArtifactResolutionTarget`.
 - Do not use a generic name such as `AssetFolder`. `KnopAssetBundle` is explicit about scope and avoids implying a general filesystem-artifact ontology.
-- Do not revive page-bundle helper classes just to avoid relative path literals. `WorkspaceRelativeFile` already gives a cleaner explicit base for local source resolution.
+- Do not revive page-bundle helper classes just to avoid relative path literals. `targetMeshPath` already gives a cleaner explicit base for mesh-local source resolution.
 
 ### Config ontology
 
@@ -201,10 +198,7 @@ Naming pushback:
   sflo:hasResourcePageSource :sidebarSource .
 
 :sidebarSource a sflo:ResourcePageSource ;
-  sflo:hasTargetLocatedFile :sidebarFile .
-
-:sidebarFile a sflo:WorkspaceRelativeFile ;
-  sflo:workspaceRelativePath "alice/_knop/sidebar.md" .
+  sflo:targetMeshPath "alice/_knop/sidebar.md" .
 
 :pageAssets a sflo:KnopAssetBundle .
 ```
@@ -227,7 +221,7 @@ Naming pushback:
 - The first-pass core content model should use `ResourcePageRegion`, not `ResourcePageSlot`.
 - `ResourcePageSource` should remain as a page-specific subclass of a generic `ArtifactResolutionTarget`.
 - Per-source state selection and fallback should be modeled as separate axes using the generic artifact-resolution pattern directly, without duplicating page-specific alias properties.
-- Local workspace/helper sources should be modeled as direct `LocatedFile` targets, typically `WorkspaceRelativeFile`, rather than raw path strings directly on `ResourcePageSource`.
+- Local mesh/helper sources should be modeled by `targetMeshPath` directly on `ArtifactResolutionTarget`, not by helper pseudo-files.
 - Outside-the-tree or extra-mesh content should enter page composition through an explicit import boundary rather than as a direct live page source.
 - The imported in-tree artifact and its current `WorkingLocatedFile` should be the source that page resolution follows.
 - `KnopAssetBundle` should be used only for the bounded `_knop/_assets` helper area, not as a signal that every asset file becomes governed.
@@ -236,11 +230,11 @@ Naming pushback:
 
 - Introduce vocabulary for page-definition resources, generic artifact-resolution targets, and page-specific sources.
 - Introduce vocabulary for per-source history/state, mode, and fallback policy.
-- Introduce a helper `LocatedFile` pattern for workspace-relative local sources.
+- Introduce `targetMeshPath` for mesh-local direct source bindings.
 - Introduce a bounded helper resource for `_knop/_assets`.
 - Represent outside-the-tree origin data as import-facing metadata rather than as a direct current-following page-source contract.
 - Clarify the config vocabulary surface for template/chrome preferences and defaults.
-- Represent local Knop-owned helper files as explicit helper resources so relative-path base semantics stay clear.
+- Represent local Knop-owned helper files through explicit `targetMeshPath` values so mesh-root-relative semantics stay clear.
 
 ## Testing
 

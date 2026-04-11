@@ -227,7 +227,7 @@ Deno.test("renderResourcePage renders pinned root ReferenceCatalog targets as sl
   );
 });
 
-Deno.test("renderResourcePage renders customized identifier pages from workspace-local regions", () => {
+Deno.test("renderResourcePage renders customized identifier pages from mesh-local regions", () => {
   assertEquals(
     renderResourcePage(
       "https://semantic-flow.github.io/mesh-alice-bio/",

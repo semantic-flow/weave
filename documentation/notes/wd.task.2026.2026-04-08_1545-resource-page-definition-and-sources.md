@@ -8,9 +8,9 @@ created: 1775715234849
 ## Goals
 
 - Define a knop-owned page-definition support artifact at `_knop/_page/page.ttl` so an identifier such as `alice/` can own a customized `alice/index.html` without becoming a payload-bearing artifact itself.
-- Keep ordinary Markdown as the baseline authored source format for workspace-local page content, while treating Dendron compatibility as an optional interpretation profile rather than the default required mode.
+- Keep ordinary Markdown as the baseline authored source format for mesh-local page content, while treating Dendron compatibility as an optional interpretation profile rather than the default required mode.
 - Define the runtime-facing consequences of the page-definition ontology/config model without trying to invent that vocabulary ad hoc inside implementation code.
-- Separate page control metadata from page content so the model can use workspace-local files, in-mesh artifacts, and imported outside content without collapsing them into one RDF blob.
+- Separate page control metadata from page content so the model can use mesh-local files, in-mesh artifacts, and imported outside content without collapsing them into one RDF blob.
 - Attach source selection policy to each page source or region, not only to the page as a whole.
 - Keep local `_knop/_assets` ahistorical and support-oriented while making reusable or versioned assets first-class DigitalArtifacts elsewhere in the mesh.
 - Define the first safe resolution boundary for in-mesh page sources and import-oriented handling of outside-the-tree or extra-mesh content.
@@ -25,7 +25,7 @@ The intended direction is:
 - `_page` stays a normal support-artifact surface rather than becoming a little subtree of authored content
 - a small RDF manifest in `page.ttl` describes page regions, source bindings, chrome preferences, and resolution policy
 - the ontology/config vocabulary for that manifest should be defined before runtime implementation broadens
-- substantial authored content usually lives in natural workspace locations outside `_page`, such as `alice/alice.md` or `mesh-content/sidebar.md`, or in referenced DigitalArtifacts rather than inside long RDF literals
+- substantial authored content usually lives in natural mesh locations outside `_page`, such as `alice/alice.md` or `mesh-content/sidebar.md`, or in referenced DigitalArtifacts rather than inside long RDF literals
 - ordinary Markdown should be the default authored local-content format; richer Dendron conventions should only activate under an explicit source-interpretation profile
 - each `resourcePageSource` can independently choose a source artifact, an optional requested state, and a mode/fallback policy
 - outside-the-tree or extra-mesh content should enter page generation through an explicit import step, not as a direct live "latest" source
@@ -39,7 +39,7 @@ This is not just a template question.
 We need to support several distinct things without conflating them:
 
 - identifier-page customization
-- workspace-local support content such as Markdown, HTML fragments, and images
+- mesh-local support content such as Markdown, HTML fragments, and images
 - helper metadata about local support assets without pretending every supporting file is a first-class governed artifact
 - reuse of independently versioned in-mesh content artifacts
 - explicitly allowed import inputs for content that originates outside the tree or outside the mesh
@@ -52,7 +52,7 @@ The current design pressure suggests a structure more like:
 - `mesh-content/sidebar.md`
 - `_knop/_assets/...`
 
-where `page.ttl` references those workspace-local files or other artifact identifiers.
+where `page.ttl` references those mesh-local files or other artifact identifiers.
 
 The tricky case is outside-the-tree content. Letting an identifier page follow a direct external or host-local "latest" source is the wrong boundary, because the resulting current public state is no longer guaranteed to be locally dereferenceable or reproducible from the mesh alone.
 
@@ -102,7 +102,7 @@ The current recommendation from [[wd.task.2026.2026-04-08_1735-page-definition-o
 - `_knop/_page/page.ttl` should be modeled as a `ResourcePageDefinition` support artifact attached to the owning `Knop` with `hasResourcePageDefinition`.
 - `ResourcePageSource` should remain the page-specific source relator, but it should now specialize a generic `ArtifactResolutionTarget`
 - authored content composition should use `ResourcePageRegion` plus `hasResourcePageSource`, not a `Slot` vocabulary in core
-- local workspace/helper files should resolve through a direct `LocatedFile` target, typically `WorkspaceRelativeFile` plus `workspaceRelativePath`, not raw path strings directly on a source node
+- local mesh helper files should resolve through `targetMeshPath` directly on the `ArtifactResolutionTarget`, not through ad hoc fake file resources
 - `_knop/_assets` should be the local asset area; any helper concept for it should be `KnopAssetBundle`, not a nested page-bundle vocabulary
 - page-source selection should separate:
   - requested source target or state
@@ -140,12 +140,12 @@ Minimal shape:
 - Whether first-pass runtime support should allow multiple ordered sources per region immediately, or start with one source per region and add `sourceOrder` only when composition pressure appears in real examples.
 - Whether first-pass import metadata for outside-the-tree content should be limited to explicitly described distributions.
 - Whether first-pass fallback should stop at `AcceptLatestInRequestedHistory` or also allow an explicit current-history fallback policy later.
-- Whether local workspace-relative helper sources should also carry media-type hints, or whether extension-driven/runtime inference is sufficient initially.
+- Whether local `targetMeshPath` helper sources should also carry media-type hints, or whether extension-driven/runtime inference is sufficient initially.
 
 ## Decisions
 
 - `_knop/_page` should be the local authoritative page-definition support artifact for a resource page.
-- Ordinary Markdown should remain the default authored content format for local workspace page files; Dendron compatibility, if added, should be an optional source-interpretation profile layered on top rather than the default required mode.
+- Ordinary Markdown should remain the default authored content format for local mesh page files; Dendron compatibility, if added, should be an optional source-interpretation profile layered on top rather than the default required mode.
 - The ontology/config vocabulary for `_knop/_page` should be defined before broad runtime implementation begins.
 - `_knop/_page` should not itself become a separate nested knop.
 - Each page source or region should carry its own source, requested state, mode, and fallback policy rather than forcing one page-global setting.
@@ -162,16 +162,16 @@ Minimal shape:
 - `ResourcePageRegion` is the better first-pass core term; reserve `slot` language for template/render configuration if it is needed later.
 - `ResourcePageSource` should remain as a page-specific subclass of a generic `ArtifactResolutionTarget`.
 - `ResourcePageSource` should keep its current class name. Renaming it to `ResourcePageSourceTarget` would mostly repeat what the superclass already says while adding churn to an otherwise readable region-to-source relation.
-- Direct `LocatedFile` targets, especially `WorkspaceRelativeFile`, should be valid source bindings even when there is no artifact-level target to resolve.
+- Direct `targetMeshPath` bindings should be valid source bindings even when there is no artifact-level target to resolve.
 - `KnopAssetBundle` is clearer than `AssetFolder` or `PageAssetFolder`, but it should not be read as a requirement that every page support file live under `_knop/_assets`.
 - `accept` should describe fallback policy, not replace the separate pinned-vs-current source mode axis.
 
 ## Contract Changes
 
 - Introduce a knop-owned page-definition support artifact at `_knop/_page`.
-- Introduce ontology/config vocabulary for that page-definition artifact, generic artifact-resolution targets, workspace-relative helper files, and Knop asset boundaries before the runtime contract broadens.
+- Introduce ontology/config vocabulary for that page-definition artifact, generic artifact-resolution targets, mesh-local path bindings, and Knop asset boundaries before the runtime contract broadens.
 - Define a manifest artifact in that support surface that can reference:
-  - local workspace-relative helper files
+  - local mesh-relative helper paths
   - in-mesh DigitalArtifact identifiers
   - imported in-tree artifacts whose current `WorkingLocatedFile` came from an outside-the-tree or extra-mesh origin
 - Define per-source selection fields for state, mode, and fallback policy.
@@ -204,13 +204,13 @@ Minimal shape:
 
 - [x] Treat [[wd.task.2026.2026-04-08_1735-page-definition-ontology-and-config]] and [[wd.spec.2026-04-11-identifier-page-customization-and-root-lifecycle]] as the contract source, so this task implements settled `ResourcePageDefinition` / `ArtifactResolutionTarget` / `ResourcePageSource` behavior rather than reopening ontology decisions in runtime code.
 - [x] Add a behavior spec and fixture plan before implementing the runtime/model changes. See [[wd.spec.2026-04-11-identifier-page-customization-and-root-lifecycle]].
-- [x] Keep the first implementation-bearing slice narrower than the whole future model: local workspace-file sources, authority/precedence, fail-closed behavior, and `_knop/_assets` handling should land before broader in-mesh/import source support unless the code shape makes those cheap and coherent to include.
+- [x] Keep the first implementation-bearing slice narrower than the whole future model: local mesh-path sources, authority/precedence, fail-closed behavior, and `_knop/_assets` handling should land before broader in-mesh/import source support unless the code shape makes those cheap and coherent to include.
 
 ### Phase 1: Acceptance-First Fixture And Manifest Scaffolding
 
 - [x] Extend `mesh-alice-bio` with the first carried non-root customization transition pair, `14-alice-page-customized` and `15-alice-page-customized-woven`, early enough that they can drive the runtime slice rather than merely validate it afterward.
 - [x] Draft the matching Accord manifests early, including the exact transition boundaries, expected file additions/changes, and any explicit exclusions needed for deterministic comparison.
-- [x] Keep the first carried fixture scope narrow: prove authority/precedence, local workspace-file sources, and `_knop/_assets` handling before broadening into in-mesh or import-oriented source behavior.
+- [x] Keep the first carried fixture scope narrow: prove authority/precedence, local mesh-path sources, and `_knop/_assets` handling before broadening into in-mesh or import-oriented source behavior.
 - [x] Use the staged `14/15` fixture pair as the primary acceptance target while implementing the first runtime slice, updating the runtime toward the fixture rather than inventing runtime behavior first and backfilling fixtures later.
 - [ ] Leave `16/17` imported-source behavior and `18-21` root continuation in the near-term plan, but do not let them block the first carried local-Knop slice.
 
@@ -219,9 +219,9 @@ Minimal shape:
 `14-alice-page-customized`
 
 - Add `alice/_knop/_page/page.ttl` as the first `ResourcePageDefinition` working file for Alice.
-- Add initial workspace-local content files such as `alice/alice.md` and `mesh-content/sidebar.md`, plus the Knop-local stylesheet `alice/_knop/_assets/alice.css`.
+- Add initial mesh-local content files such as `alice/alice.md` and `mesh-content/sidebar.md`, plus the Knop-local stylesheet `alice/_knop/_assets/alice.css`.
 - Update `alice/_knop/_inventory/inventory.ttl` to register the new page-definition support surface and its current working file.
-- Keep the fixture narrow and local-only: both initial page regions should resolve from workspace-local files rather than from in-mesh or imported artifacts.
+- Keep the fixture narrow and local-only: both initial page regions should resolve from `targetMeshPath` values rather than from in-mesh or imported artifacts.
 - Do not weave histories or generate new pages yet; `alice/index.html` should remain the previously generated generic page in this non-woven state.
 - Do not advance `_mesh/_inventory`; the page-definition support artifact is Knop-internal and the public current resource map has not widened yet.
 
@@ -229,7 +229,7 @@ Minimal shape:
 
 - Weave `14` so the `ResourcePageDefinition` behaves like a normal support artifact with its own first history/state materialization.
 - Generate Alice page-definition support-artifact pages under `alice/_knop/_page/...` using the ordinary support-artifact page machinery rather than a custom `_page`-specific renderer.
-- Update `alice/index.html` so it is now driven by `alice/_knop/_page/page.ttl` and its workspace-local sources instead of the generic identifier-page path.
+- Update `alice/index.html` so it is now driven by `alice/_knop/_page/page.ttl` and its mesh-local sources instead of the generic identifier-page path.
 - Keep referenced support assets at `alice/_knop/_assets/...`; do not introduce a copied `alice/_assets/...` surface.
 - Advance `alice/_knop/_inventory` to reflect the new support-artifact current state, but keep `_mesh/_inventory` unchanged unless implementation uncovers a real current-surface-map reason to move it.
 
@@ -257,14 +257,14 @@ Minimal shape:
 
 `20-root-page-customized`
 
-- Add `_knop/_page/page.ttl` plus minimal root workspace-local content files and `_knop/_assets/...`.
+- Add `_knop/_page/page.ttl` plus minimal root mesh-local content files and `_knop/_assets/...`.
 - Update root Knop inventory to register the root `ResourcePageDefinition` support artifact.
 - Keep this branch non-woven: `index.html` should still be the previous generic root page until weave runs.
 
 `21-root-page-customized-woven`
 
 - Weave `20` so root `_knop/_page` gets normal support-artifact history/state materialization and support-artifact pages.
-- Update root `index.html` to follow root `_knop/_page/page.ttl` and its workspace-local sources.
+- Update root `index.html` to follow root `_knop/_page/page.ttl` and its mesh-local sources.
 - Keep root support assets at `_knop/_assets/...` rather than materializing a copied `_assets/...` surface.
 
 #### Accord Shape For `14` And `15`
@@ -279,7 +279,7 @@ These manifests are now the authoritative acceptance draft for the first carried
 - `14` still uses provisional `operationId: "resourcePage.define"` until the concrete API/job naming settles.
 - the first support-artifact manifestation token remains `page-ttl`
 - the fixture inventory files still mix existing `sflo` history/page vocabulary with the newer core page-definition vocabulary because the carried fixture repo has not been broadly migrated yet
-- the carried `15` branch's public `alice/index.html` snapshot predates the latest `alice/alice.md` wording, so runtime integration coverage now treats the live workspace-local Markdown as authoritative for public-page text while still using the fixture branch for inventory and support-artifact expectations
+- the carried `15` branch's public `alice/index.html` snapshot predates the latest `alice/alice.md` wording, so runtime integration coverage now treats the live mesh-local Markdown as authoritative for public-page text while still using the fixture branch for inventory and support-artifact expectations
 
 Current `14-alice-page-customized` manifest shape:
 
@@ -302,7 +302,7 @@ Current `14-alice-page-customized` manifest shape:
 - RDF assertions prove:
   - `alice/_knop/_page` is a `ResourcePageDefinition`
   - the definition has `main` and `sidebar` regions
-  - both initial `ResourcePageSource` nodes resolve by `hasTargetLocatedFile` to `WorkspaceRelativeFile` targets at `alice/alice.md` and `mesh-content/sidebar.md`
+  - both initial `ResourcePageSource` nodes resolve by `targetMeshPath` to `alice/alice.md` and `mesh-content/sidebar.md`
   - `alice/_knop/_inventory/inventory.ttl` registers both `hasResourcePageDefinition` and `hasKnopAssetBundle`
   - the non-woven state still has no `_page` artifact history yet
 
@@ -347,12 +347,12 @@ Current `15-alice-page-customized-woven` manifest shape:
 - [x] Make `D/_knop/_page/page.ttl` the only local authoritative working file for identifier-page customization of `D/index.html`.
 - [x] Ensure that a discovered valid `_knop/_page` definition takes precedence over generic identifier-page generation for that identifier only.
 - [x] Ensure that a discovered but malformed or unresolved `_knop/_page` definition fails closed rather than silently falling back to the generic identifier page.
-- [x] Introduce a runtime loader that parses the `ResourcePageDefinition`, resolves any workspace-local helper resources it references, and returns a page-definition read model separate from the existing generic identifier-page model.
-- [x] Keep `_knop/_page` history/state behavior aligned with other support artifacts: changes to `page.ttl` should version as `ResourcePageDefinition` changes, while referenced workspace-local helper files stay non-governance-bearing by default.
+- [x] Introduce a runtime loader that parses the `ResourcePageDefinition`, resolves any mesh-local helper resources it references, and returns a page-definition read model separate from the existing generic identifier-page model.
+- [x] Keep `_knop/_page` history/state behavior aligned with other support artifacts: changes to `page.ttl` should version as `ResourcePageDefinition` changes, while referenced mesh-local helper files stay non-governance-bearing by default.
 
-### Phase 3: Local Workspace Sources And Knop Asset Handling
+### Phase 3: Local Mesh-Path Sources And Knop Asset Handling
 
-- [x] Implement local `LocatedFile` source resolution for `ResourcePageSource`, with first-pass support for `WorkspaceRelativeFile` and rejection of malformed or escaping relative paths.
+- [x] Implement local `targetMeshPath` source resolution for `ResourcePageSource`, with rejection of malformed or escaping mesh-relative paths.
 - [x] Treat ordinary Markdown as the default authored local format for `.md` files in the first pass, without implying Dendron semantics.
 - [x] Support one `ResourcePageSource` per `ResourcePageRegion` in the first implementation slice; if a definition requests broader ordered composition before that lands, fail closed rather than inventing ad hoc merge rules.
 - [x] Extend the page-rendering seam so identifier pages can render resolved region content instead of only the current generic identifier-page text.
@@ -377,8 +377,8 @@ Current `15-alice-page-customized-woven` manifest shape:
 ### Phase 6: Tests, Follow-On Fixtures, And Documentation
 
 - [ ] Add focused unit/runtime coverage for discovery and authority, including root `_knop/_page` handling and fail-closed malformed-definition behavior.
-- [x] Add focused coverage for workspace-relative file resolution, path-escape rejection, and direct `_knop/_assets` use without copied public asset materialization.
-- [x] Add focused coverage for `ResourcePageDefinition` history/state behavior as a normal support artifact while keeping referenced workspace-local helper files non-recursive.
+- [x] Add focused coverage for `targetMeshPath` resolution, path-escape rejection, and direct `_knop/_assets` use without copied public asset materialization.
+- [x] Add focused coverage for `ResourcePageDefinition` history/state behavior as a normal support artifact while keeping referenced mesh-local helper files non-recursive.
 - [x] Add integration coverage proving a valid `_knop/_page` overrides generic identifier-page generation for the owning identifier only.
 - [ ] Add integration coverage for local Knop-owned file sources first, then in-mesh artifact sources, then import-boundary behavior.
 - [ ] Continue the Accord fixture ladder after the first carried slice is stable: `16/17` for imported-source behavior and `18-21` for root lifecycle continuation.
