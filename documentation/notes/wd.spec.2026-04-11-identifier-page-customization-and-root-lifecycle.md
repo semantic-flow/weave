@@ -113,7 +113,7 @@ Behavioral consequences:
 
 ### In-mesh artifact sources
 
-A page source may point at an in-mesh governed artifact through the generic `ArtifactResolutionTarget` fields such as `hasTargetArtifact`, `hasRequestedTargetState`, `hasArtifactResolutionMode`, and `hasArtifactResolutionFallbackPolicy`. Page-specific aliases such as `hasSourceArtifact`, `hasRequestedSourceState`, `hasResourcePageSourceMode`, and `hasResourcePageSourceFallbackPolicy` remain available on `ResourcePageSource`.
+A page source may point at an in-mesh governed artifact through the generic `ArtifactResolutionTarget` fields such as `hasTargetArtifact`, `hasRequestedTargetState`, `hasArtifactResolutionMode`, and `hasArtifactResolutionFallbackPolicy`, used directly on `ResourcePageSource`.
 
 Behavioral consequences:
 

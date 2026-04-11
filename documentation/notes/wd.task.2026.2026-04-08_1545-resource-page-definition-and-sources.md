@@ -129,10 +129,10 @@ Minimal shape:
   sflo:hasResourcePageSource :mainSource .
 
 :mainSource a sflo:ResourcePageSource ;
-  sflo:hasSourceArtifact <https://example.org/alice/bio/_knop/payload> ;
-  sflo:hasRequestedSourceState <https://example.org/alice/bio/_history001/_s0003> ;
-  sflo:hasResourcePageSourceMode sflo:ArtifactResolutionMode/Pinned ;
-  sflo:hasResourcePageSourceFallbackPolicy sflo:ArtifactResolutionFallbackPolicy/AcceptLatestInRequestedHistory .
+  sflo:hasTargetArtifact <https://example.org/alice/bio/_knop/payload> ;
+  sflo:hasRequestedTargetState <https://example.org/alice/bio/_history001/_s0003> ;
+  sflo:hasArtifactResolutionMode sflo:ArtifactResolutionMode/Pinned ;
+  sflo:hasArtifactResolutionFallbackPolicy sflo:ArtifactResolutionFallbackPolicy/AcceptLatestInRequestedHistory .
 ```
 
 ## Open Issues
@@ -160,8 +160,8 @@ Minimal shape:
 - Template/chrome selection is adjacent to page definition but should remain a separate concern from content composition.
 - Runtime code should compute nav/breadcrumb/search structures; templates should render structured inputs rather than own the information architecture logic.
 - `ResourcePageRegion` is the better first-pass core term; reserve `slot` language for template/render configuration if it is needed later.
-- `hasRequestedSourceState` is clearer than `resourcePageSourceState`.
 - `ResourcePageSource` should remain as a page-specific subclass of a generic `ArtifactResolutionTarget`.
+- `ResourcePageSource` should keep its current class name. Renaming it to `ResourcePageSourceTarget` would mostly repeat what the superclass already says while adding churn to an otherwise readable region-to-source relation.
 - Direct `LocatedFile` targets, especially `WorkspaceRelativeFile`, should be valid source bindings even when there is no artifact-level target to resolve.
 - `KnopAssetBundle` is clearer than `AssetFolder` or `PageAssetFolder`, but it should not be read as a requirement that every page support file live under `_knop/_assets`.
 - `accept` should describe fallback policy, not replace the separate pinned-vs-current source mode axis.
@@ -400,7 +400,7 @@ Proposed `14-alice-page-customized.jsonld` shape:
             },
             {
               "type": "SparqlAskAssertion",
-              "query": "ASK { ?mainSource <https://semantic-flow.github.io/ontology/core/hasSourceLocatedFile> ?mainFile . ?mainFile a <https://semantic-flow.github.io/ontology/core/WorkspaceRelativeFile> ; <https://semantic-flow.github.io/ontology/core/workspaceRelativePath> \"alice/_knop/main.md\" . ?sidebarSource <https://semantic-flow.github.io/ontology/core/hasSourceLocatedFile> ?sidebarFile . ?sidebarFile a <https://semantic-flow.github.io/ontology/core/WorkspaceRelativeFile> ; <https://semantic-flow.github.io/ontology/core/workspaceRelativePath> \"alice/_knop/sidebar.md\" . }",
+              "query": "ASK { ?mainSource <https://semantic-flow.github.io/ontology/core/hasTargetLocatedFile> ?mainFile . ?mainFile a <https://semantic-flow.github.io/ontology/core/WorkspaceRelativeFile> ; <https://semantic-flow.github.io/ontology/core/workspaceRelativePath> \"alice/_knop/main.md\" . ?sidebarSource <https://semantic-flow.github.io/ontology/core/hasTargetLocatedFile> ?sidebarFile . ?sidebarFile a <https://semantic-flow.github.io/ontology/core/WorkspaceRelativeFile> ; <https://semantic-flow.github.io/ontology/core/workspaceRelativePath> \"alice/_knop/sidebar.md\" . }",
               "expectedBoolean": true
             },
             {
@@ -672,7 +672,7 @@ Proposed `15-alice-page-customized-woven.jsonld` shape:
 
 ### Phase 5: Artifact Resolution And Import-Oriented Source Support
 
-- [ ] Add first-pass in-mesh artifact source resolution through the generic artifact-resolution pattern (`hasTargetArtifact`, requested history/state, mode, and fallback) together with the existing `ResourcePageSource` aliases such as `hasSourceArtifact` and `hasRequestedSourceState`.
+- [ ] Add first-pass in-mesh artifact source resolution through the generic artifact-resolution pattern (`hasTargetArtifact`, requested history/state, mode, and fallback) directly on `ResourcePageSource`.
 - [ ] Implement `Pinned` versus `Current` as separate source-mode behavior rather than collapsing them into fallback or “prefer” booleans.
 - [ ] Implement first-pass fallback policy behavior for `ExactOnly` and `AcceptLatestInRequestedHistory`, with explicit rejection of cross-history, cross-artifact, or unrelated-working-file fallback.
 - [ ] Add import-oriented source handling for outside-the-tree or extra-mesh content only after it crosses an explicit in-tree governed-artifact boundary.

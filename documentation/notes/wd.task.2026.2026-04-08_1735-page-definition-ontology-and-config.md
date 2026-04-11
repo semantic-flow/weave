@@ -140,13 +140,6 @@ Recommended core properties:
 - `hasRequestedTargetState`
 - `hasArtifactResolutionMode`
 - `hasArtifactResolutionFallbackPolicy`
-- `hasSourceArtifact`
-- `hasSourceLocatedFile`
-- `hasSourceDistribution`
-- `hasRequestedSourceHistory`
-- `hasRequestedSourceState`
-- `hasResourcePageSourceMode`
-- `hasResourcePageSourceFallbackPolicy`
 
 Recommended controlled vocabularies:
 
@@ -157,10 +150,11 @@ Recommended controlled vocabularies:
 
 Naming pushback:
 
-- Do not use `resourcePageSourceState` as the main property name. That blurs requested state, resolved state, and runtime outcome. `hasRequestedSourceState` is clearer.
+- Do not introduce page-specific alias properties such as `hasRequestedSourceState` when the generic `ArtifactResolutionTarget` properties already say the right thing.
 - Do not put `accept` into the mode enum alongside `exact` and `current`. `accept` belongs to fallback policy, not to the separate question of whether the source is pinned versus current-following.
 - Do not make an artifact target mandatory when a direct `LocatedFile` is sufficient. `ArtifactResolutionTarget` should support either shape.
 - Do not collapse `ResourcePageSource` away into a fully generic relator. The page-specific subtype is still useful even though the resolution pattern is shared.
+- Do not rename `ResourcePageSource` just to echo its superclass. The region-to-source relation is already clear, and the class's target semantics come from `ArtifactResolutionTarget`.
 - Do not use a generic name such as `AssetFolder`. `KnopAssetBundle` is explicit about scope and avoids implying a general filesystem-artifact ontology.
 - Do not revive page-bundle helper classes just to avoid relative path literals. `WorkspaceRelativeFile` already gives a cleaner explicit base for local source resolution.
 
@@ -196,18 +190,18 @@ Naming pushback:
   sflo:hasResourcePageSource :mainSource .
 
 :mainSource a sflo:ResourcePageSource ;
-  sflo:hasSourceArtifact <https://example.org/alice/bio/_knop/payload> ;
-  sflo:hasRequestedSourceHistory <https://example.org/alice/bio/_history001> ;
-  sflo:hasRequestedSourceState <https://example.org/alice/bio/_history001/_s0003> ;
-  sflo:hasResourcePageSourceMode sflo:ArtifactResolutionMode/Pinned ;
-  sflo:hasResourcePageSourceFallbackPolicy sflo:ArtifactResolutionFallbackPolicy/AcceptLatestInRequestedHistory .
+  sflo:hasTargetArtifact <https://example.org/alice/bio/_knop/payload> ;
+  sflo:hasRequestedTargetHistory <https://example.org/alice/bio/_history001> ;
+  sflo:hasRequestedTargetState <https://example.org/alice/bio/_history001/_s0003> ;
+  sflo:hasArtifactResolutionMode sflo:ArtifactResolutionMode/Pinned ;
+  sflo:hasArtifactResolutionFallbackPolicy sflo:ArtifactResolutionFallbackPolicy/AcceptLatestInRequestedHistory .
 
 :sidebarRegion a sflo:ResourcePageRegion ;
   sflo:regionKey "sidebar" ;
   sflo:hasResourcePageSource :sidebarSource .
 
 :sidebarSource a sflo:ResourcePageSource ;
-  sflo:hasSourceLocatedFile :sidebarFile .
+  sflo:hasTargetLocatedFile :sidebarFile .
 
 :sidebarFile a sflo:WorkspaceRelativeFile ;
   sflo:workspaceRelativePath "alice/_knop/sidebar.md" .
@@ -232,7 +226,7 @@ Naming pushback:
 - KnopInventory should remain about governed artifact surfaces, not every local support file under `_knop`.
 - The first-pass core content model should use `ResourcePageRegion`, not `ResourcePageSlot`.
 - `ResourcePageSource` should remain as a page-specific subclass of a generic `ArtifactResolutionTarget`.
-- Per-source state selection and fallback should be modeled as separate axes using the generic artifact-resolution pattern and page-specific aliases such as `hasRequestedSourceState` and `hasResourcePageSourceFallbackPolicy`.
+- Per-source state selection and fallback should be modeled as separate axes using the generic artifact-resolution pattern directly, without duplicating page-specific alias properties.
 - Local workspace/helper sources should be modeled as direct `LocatedFile` targets, typically `WorkspaceRelativeFile`, rather than raw path strings directly on `ResourcePageSource`.
 - Outside-the-tree or extra-mesh content should enter page composition through an explicit import boundary rather than as a direct live page source.
 - The imported in-tree artifact and its current `WorkingLocatedFile` should be the source that page resolution follows.
