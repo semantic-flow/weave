@@ -107,6 +107,7 @@ Behavioral consequences:
 
 - the path stays relative to the mesh root rather than becoming an absolute filesystem path
 - the path may point at a natural mesh location such as `alice/alice.md` or a shared helper file such as `mesh-content/sidebar.md`; Knop-local placement is allowed but not required
+- a later operational profile may allow `../` traversal beyond the mesh root, but only within an explicitly configured allowed local-directory boundary
 - ordinary Markdown is the default authored text format for `.md` helper files
 - Dendron semantics are not implied by `.md` alone and should activate only under a later explicit interpretation profile
 - mesh-local path inputs are current-working local inputs, not separately governed artifacts by default
@@ -118,9 +119,29 @@ A page source may point at an in-mesh governed artifact through the generic `Art
 Behavioral consequences:
 
 - the source target is a governed in-mesh artifact, not an arbitrary path string
-- `Current` mode follows the source artifact's current `hasWorkingLocatedFile`
+- `Current` mode follows the source artifact's `workingFilePath` when present, otherwise its current `hasWorkingLocatedFile`
 - `Pinned` mode follows the requested historical state rather than the working file
 - fallback policy constrains what may happen if the requested state cannot be used as requested
+
+### Working-Path Precedence And Consistency
+
+For governed artifacts, `workingFilePath` and `hasWorkingLocatedFile` do different jobs.
+
+- `workingFilePath` is the operational local-path hook that runtime should use to find the current working bytes
+- `hasWorkingLocatedFile` remains the semantic `LocatedFile` relation when the current working bytes are also modeled as a mesh-addressable file resource
+- if both are present and the `LocatedFile` denotes the same local current file, they should agree
+- if both are present and disagree about the current local working bytes, the runtime should fail closed rather than silently picking one
+- if `workingFilePath` points outside the mesh tree under an allowed local-directory policy, `hasWorkingLocatedFile` may be absent
+
+### Operational Boundary For Local Paths
+
+Allowed local-path boundaries for `targetMeshPath` and `workingFilePath` belong to operational configuration, not to page-definition RDF itself.
+
+First-pass implications:
+
+- core ontology should carry the relative path values, not absolute host paths
+- runtime configuration should define which directories are allowed when local paths use `../`
+- earlier host-config work such as `dependencies/github.com/semantic-flow/ontology/old/sflo-host-ontology.jsonld` is relevant precedent, but the exact config vocabulary can remain separate from this page-definition contract
 
 ### Imported outside content
 
@@ -197,7 +218,8 @@ That includes at least these cases:
 
 - `_knop/_page/page.ttl` is missing after `_knop/_page` has been declared or discovered as present
 - the page definition cannot be parsed or validated well enough to resolve regions and sources
-- a `targetMeshPath` source is malformed, missing, or escapes the mesh boundary
+- a `targetMeshPath` source is malformed, missing, or escapes the currently allowed local-directory boundary
+- a governed source artifact has inconsistent `workingFilePath` and `hasWorkingLocatedFile` assertions for the same current working surface
 - a pinned in-mesh source cannot be resolved under `ExactOnly`
 - an imported-source artifact lacks the in-tree governed artifact or current `WorkingLocatedFile` that generation is supposed to follow
 - a page definition attempts to point directly at outside-the-tree or extra-mesh live content instead of an imported in-tree artifact

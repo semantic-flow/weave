@@ -103,6 +103,7 @@ The current recommendation from [[wd.task.2026.2026-04-08_1735-page-definition-o
 - `ResourcePageSource` should remain the page-specific source relator, but it should now specialize a generic `ArtifactResolutionTarget`
 - authored content composition should use `ResourcePageRegion` plus `hasResourcePageSource`, not a `Slot` vocabulary in core
 - local mesh helper files should resolve through `targetMeshPath` directly on the `ArtifactResolutionTarget`, not through ad hoc fake file resources
+- governed artifact current-byte lookup should use `workingFilePath` when present, with `hasWorkingLocatedFile` remaining the semantic `LocatedFile` hook when the working bytes are also modeled as a mesh-addressable file
 - `_knop/_assets` should be the local asset area; any helper concept for it should be `KnopAssetBundle`, not a nested page-bundle vocabulary
 - page-source selection should separate:
   - requested source target or state
@@ -141,6 +142,7 @@ Minimal shape:
 - Whether first-pass import metadata for outside-the-tree content should be limited to explicitly described distributions.
 - Whether first-pass fallback should stop at `AcceptLatestInRequestedHistory` or also allow an explicit current-history fallback policy later.
 - Whether local `targetMeshPath` helper sources should also carry media-type hints, or whether extension-driven/runtime inference is sufficient initially.
+- Which operational config vocabulary should carry allowed-directory rules for `targetMeshPath` and `workingFilePath`; the old `sflo-host` line in `dependencies/github.com/semantic-flow/ontology/old/sflo-host-ontology.jsonld` is a useful precedent but not yet the settled answer.
 
 ## Decisions
 
@@ -163,13 +165,17 @@ Minimal shape:
 - `ResourcePageSource` should remain as a page-specific subclass of a generic `ArtifactResolutionTarget`.
 - `ResourcePageSource` should keep its current class name. Renaming it to `ResourcePageSourceTarget` would mostly repeat what the superclass already says while adding churn to an otherwise readable region-to-source relation.
 - Direct `targetMeshPath` bindings should be valid source bindings even when there is no artifact-level target to resolve.
+- `workingFilePath` should be introduced as the operational local-path hook for a `DigitalArtifact`, distinct from `hasWorkingLocatedFile`.
+- `hasWorkingLocatedFile` should remain the semantic `LocatedFile` relation; when both it and `workingFilePath` are present for the same local current file, they should agree and mismatch should fail closed.
 - `KnopAssetBundle` is clearer than `AssetFolder` or `PageAssetFolder`, but it should not be read as a requirement that every page support file live under `_knop/_assets`.
 - `accept` should describe fallback policy, not replace the separate pinned-vs-current source mode axis.
+- Allowed-directory policy for `targetMeshPath` and `workingFilePath` belongs in host/runtime operational config, not in the core page-definition vocabulary.
 
 ## Contract Changes
 
 - Introduce a knop-owned page-definition support artifact at `_knop/_page`.
 - Introduce ontology/config vocabulary for that page-definition artifact, generic artifact-resolution targets, mesh-local path bindings, and Knop asset boundaries before the runtime contract broadens.
+- Introduce `workingFilePath` as the operational local current-byte path for artifacts, with explicit precedence/consistency rules relative to `hasWorkingLocatedFile`.
 - Define a manifest artifact in that support surface that can reference:
   - local mesh-relative helper paths
   - in-mesh DigitalArtifact identifiers
@@ -178,6 +184,7 @@ Minimal shape:
 - Define an explicit import boundary for outside-the-tree content rather than direct live external-latest page resolution.
 - Define `_knop/_assets` as the fixed location for local static assets referenced by page definitions.
 - Define any helper resource for local page files and assets so its relative-path semantics are explicit rather than buried in ad hoc string fields.
+- Define the allowed-directories boundary for `targetMeshPath` and `workingFilePath` in operational config rather than persisting absolute host roots in RDF.
 - Keep `index.html` as generated public output rather than the canonical editable page source.
 - Keep `_page` itself limited to the `ResourcePageDefinition` working file and its normal support-artifact histories/pages.
 
@@ -369,10 +376,12 @@ Current `15-alice-page-customized-woven` manifest shape:
 ### Phase 5: Artifact Resolution And Import-Oriented Source Support
 
 - [ ] Add first-pass in-mesh artifact source resolution through the generic artifact-resolution pattern (`hasTargetArtifact`, requested history/state, mode, and fallback) directly on `ResourcePageSource`.
+- [ ] Add `workingFilePath` support to governed-artifact current resolution, with fail-closed mismatch handling against `hasWorkingLocatedFile`.
 - [ ] Implement `Pinned` versus `Current` as separate source-mode behavior rather than collapsing them into fallback or “prefer” booleans.
 - [ ] Implement first-pass fallback policy behavior for `ExactOnly` and `AcceptLatestInRequestedHistory`, with explicit rejection of cross-history, cross-artifact, or unrelated-working-file fallback.
 - [ ] Add import-oriented source handling for outside-the-tree or extra-mesh content only after it crosses an explicit in-tree governed-artifact boundary.
 - [ ] Fail closed on direct live outside-source usage instead of letting `weave` fetch or follow arbitrary current external content.
+- [ ] Broaden local path handling so `targetMeshPath` and `workingFilePath` may use `../` only within host/runtime-configured allowed directories rather than the current mesh-root-only boundary.
 
 ### Phase 6: Tests, Follow-On Fixtures, And Documentation
 
