@@ -2,7 +2,7 @@
 id: weave-rdf-parsing-135m0q
 title: weave rdf parsing
 desc: ''
-updated: 1775574971310
+updated: 1775902188061
 created: 1775530714979
 participants:
   - djradon
@@ -1528,7 +1528,7 @@ If you want, I can draft that implementation plan next.
 
 # User_2026-04-07_0030_39
 
-Before we jump into payload publishing, I want to be able to choose the history and state path segments, as this will be important for the ontology publishing scenario. See @wd.task.2026.2026-04-07_0020-targeting.md
+Before we jump into payload publishing, I want to be able to choose the history and state path segments, as this will be important for the ontology publishing scenario. See @wd.completed.2026.2026-04-07_0020-targeting.md
 
 Ask questions and help me fill that out.
 
@@ -1538,7 +1538,7 @@ I’m reading the new task note and the nearby API/codebase context first so I c
 
 # gpt-5.4_2026-04-07_0031_45
 
-After reading [wd.task.2026.2026-04-07_0020-targeting.md](wd.task.2026.2026-04-07_0020-targeting.md), I think this needs to stay narrow or it will sprawl fast. `_history001` and `_s0001` are hardcoded all through `core/weave`, `integrate`, `payload.update`, `extract`, tests, and page generation. The first question is scope.
+After reading [wd.completed.2026.2026-04-07_0020-targeting.md](wd.completed.2026.2026-04-07_0020-targeting.md), I think this needs to stay narrow or it will sprawl fast. `_history001` and `_s0001` are hardcoded all through `core/weave`, `integrate`, `payload.update`, `extract`, tests, and page generation. The first question is scope.
 
 My recommended defaults, and the questions I need answered, are:
 
@@ -1608,7 +1608,7 @@ Your answers already resolved two of the three “open issues” in the note. I�
 
 # gpt-5.4_2026-04-07_0046_22
 
-I tightened [wd.task.2026.2026-04-07_0020-targeting.md](wd.task.2026.2026-04-07_0020-targeting.md): fixed the wording glitch, removed the two “open issues” your answers already settled, and recorded that this is core-first and that history naming is supplied on the weave that first materializes the history.
+I tightened [wd.completed.2026.2026-04-07_0020-targeting.md](wd.completed.2026.2026-04-07_0020-targeting.md): fixed the wording glitch, removed the two “open issues” your answers already settled, and recorded that this is core-first and that history naming is supplied on the weave that first materializes the history.
 
 At this point there’s really one design question left:
 
@@ -1644,7 +1644,7 @@ For the task we just drafted, I would not add a new ontology predicate like `cur
 
 If you want a persisted preference before first weave, that is the case where a new term might make sense, but it should be something like “preferred initial history segment,” not “current history name.”
 
-My recommendation: update ontology documentation/comments, not the ontology shape, for this first slice. If you want, I can add that as a note in [wd.task.2026.2026-04-07_0020-targeting.md](wd.task.2026.2026-04-07_0020-targeting.md).
+My recommendation: update ontology documentation/comments, not the ontology shape, for this first slice. If you want, I can add that as a note in [wd.completed.2026.2026-04-07_0020-targeting.md](wd.completed.2026.2026-04-07_0020-targeting.md).
 
 # User_2026-04-07_0049_15
 
@@ -1664,7 +1664,7 @@ Yes. That changes the request-shape decision in a real way.
 
 If `ontology` and `shacl` may both be woven in one operation with the same `releases` / `v0.0.1` naming, then scalar `historySegment` / `stateSegment` fields are the wrong contract. The naming inputs need to be target-scoped, and uniqueness should be enforced per artifact history, not globally.
 
-I updated [wd.task.2026.2026-04-07_0020-targeting.md](wd.task.2026.2026-04-07_0020-targeting.md) to reflect that:
+I updated [wd.completed.2026.2026-04-07_0020-targeting.md](wd.completed.2026.2026-04-07_0020-targeting.md) to reflect that:
 - multi-target custom naming is now an explicit decision
 - the contract section now points toward target specs instead of scalar fields
 - testing now includes a multi-target named weave case
@@ -1705,7 +1705,7 @@ I’m also recording the fixture-model question in backlog, because it’s broad
 
 # gpt-5.4_2026-04-07_0737_56
 
-I updated [wd.task.2026.2026-04-07_0020-targeting.md](wd.task.2026.2026-04-07_0020-targeting.md) to record the `targets` direction, and I added the broader fixture-model question to [wd.todo.md](wd.todo.md).
+I updated [wd.completed.2026.2026-04-07_0020-targeting.md](wd.completed.2026.2026-04-07_0020-targeting.md) to record the `targets` direction, and I added the broader fixture-model question to [wd.todo.md](wd.todo.md).
 
 For this naming task, I do think we need additional test data, but I do not think we need another branch ladder. The current harness is branch-backed in [mesh_alice_bio_fixture.ts](../../tests/support/mesh_alice_bio_fixture.ts), and that was explicitly preserved in [wd.completed.2026.2026-04-04-ci-dependency-fixes.md](wd.completed.2026.2026-04-04-ci-dependency-fixes.md). That corpus is good for the carried Alice slices, but it is a bad fit for new custom-naming cases. The cleaner move is a small naming-focused local fixture shape, probably before/after folders under `tests/fixtures/`, just for this task.
 
@@ -1746,7 +1746,7 @@ I’m checking one last thing before I answer cleanly: whether anything in Weave
 
 Yes, that branch-based approach is workable. [mesh_alice_bio_fixture.ts](../../tests/support/mesh_alice_bio_fixture.ts) treats fixture refs as arbitrary git refs, so a branch like `07a-alice-bio-named-history-woven` is mechanically fine, and the current ladder already gives us the natural anchors `06-alice-bio-integrated`, `07-alice-bio-integrated-woven`, `10-alice-bio-updated`, and `11-alice-bio-v2-woven`. I didn’t find any Weave test helper that requires a strictly numeric branch prefix.
 
-The real downside is not the ref name, it’s the carried-fixture overhead: each variant wants a matching conformance manifest, branch docs, and ladder maintenance. That’s why I still think the right test model is hybrid: use branch-backed variants where they stay natural, and use small local fixtures for awkward cases like multi-target named weave. I updated [wd.task.2026.2026-04-07_0020-targeting.md](wd.task.2026.2026-04-07_0020-targeting.md) to reflect `targets` plus that hybrid testing plan.
+The real downside is not the ref name, it’s the carried-fixture overhead: each variant wants a matching conformance manifest, branch docs, and ladder maintenance. That’s why I still think the right test model is hybrid: use branch-backed variants where they stay natural, and use small local fixtures for awkward cases like multi-target named weave. I updated [wd.completed.2026.2026-04-07_0020-targeting.md](wd.completed.2026.2026-04-07_0020-targeting.md) to reflect `targets` plus that hybrid testing plan.
 
 One open question remains in that note: should this first task carry the new `targets` shape only through `core/weave`, or through runtime too, or all the way to CLI in the same pass? No tests ran; this was note-only.
 
@@ -1796,7 +1796,7 @@ I’ve got the exact spots. I’m resolving the remaining open issue in favor of
 
 # gpt-5.4_2026-04-07_0755_50
 
-Updated [wd.task.2026.2026-04-07_0020-targeting.md](wd.task.2026.2026-04-07_0020-targeting.md).
+Updated [wd.completed.2026.2026-04-07_0020-targeting.md](wd.completed.2026.2026-04-07_0020-targeting.md).
 
 It now makes the end-to-end decision explicit:
 - `targets` goes straight through `core/weave`, `runtime/weave`, and CLI
@@ -1950,7 +1950,7 @@ I’m making one additional constraint explicit while I patch this: `most specif
 
 # gpt-5.4_2026-04-07_0814_29
 
-Updated [wd.task.2026.2026-04-07_0020-targeting.md](wd.task.2026.2026-04-07_0020-targeting.md).
+Updated [wd.completed.2026.2026-04-07_0020-targeting.md](wd.completed.2026.2026-04-07_0020-targeting.md).
 
 The note now treats recursion as part of the first `targets` contract:
 - each target can carry `recursive?: boolean`
@@ -1982,13 +1982,13 @@ The only thing still “open” is CLI spelling, but it is not a blocker anymore
 - duplicate targets at the same specificity fail closed
 - carry the contract through `core`, `runtime`, and CLI
 
-I recommend a new chat for implementation. This thread is already long and planning-heavy, and the implementation will touch `core/weave`, `runtime/weave`, CLI parsing, and tests. A fresh thread started from [wd.task.2026.2026-04-07_0020-targeting.md](wd.task.2026.2026-04-07_0020-targeting.md) will keep the working context tighter.
+I recommend a new chat for implementation. This thread is already long and planning-heavy, and the implementation will touch `core/weave`, `runtime/weave`, CLI parsing, and tests. A fresh thread started from [wd.completed.2026.2026-04-07_0020-targeting.md](wd.completed.2026.2026-04-07_0020-targeting.md) will keep the working context tighter.
 
 If you want, start the new chat with: “Implement [[wd.completed.2026.2026-04-07_0020-targeting]]. Use the task note as settled unless blocked.”
 
 # User_2026-04-07_0817_50
 
-I renamed the tast to wd.task.2026.2026-04-07_0020-targeting. Do we capture that it's not just weave, but also validate and version and generate that should be target-ready? I think maybe we haven't implemented validate yet?
+I renamed the tast to wd.completed.2026.2026-04-07_0020-targeting. Do we capture that it's not just weave, but also validate and version and generate that should be target-ready? I think maybe we haven't implemented validate yet?
 
 # gpt-5.4_2026-04-07_0817_59
 
@@ -2060,7 +2060,7 @@ The note is structurally aligned now. I’m doing one readback to catch any ling
 
 # gpt-5.4_2026-04-07_0822_26
 
-Cleaned up [wd.task.2026.2026-04-07_0020-targeting.md](wd.task.2026.2026-04-07_0020-targeting.md).
+Cleaned up [wd.completed.2026.2026-04-07_0020-targeting.md](wd.completed.2026.2026-04-07_0020-targeting.md).
 
 The note now says explicitly:
 
@@ -2099,7 +2099,7 @@ So I would draw the boundary like this:
   - `generate`: likely generation scope/options later
 - Not in the shared target core: raw support-artifact targeting by path
 
-Because of that, yes, I think you should fill out [wd.task.2026.2026-04-07_0820-validate-version-generate.md](wd.task.2026.2026-04-07_0820-validate-version-generate.md) before going farther with targeting implementation. I would not necessarily split `weave` in code first, but I would split it conceptually first. Right now [wd.task.2026.2026-04-07_0020-targeting.md](wd.task.2026.2026-04-07_0020-targeting.md) still bakes version-specific fields into what is supposed to be a shared target model.
+Because of that, yes, I think you should fill out [wd.task.2026.2026-04-07_0820-validate-version-generate.md](wd.task.2026.2026-04-07_0820-validate-version-generate.md) before going farther with targeting implementation. I would not necessarily split `weave` in code first, but I would split it conceptually first. Right now [wd.completed.2026.2026-04-07_0020-targeting.md](wd.completed.2026.2026-04-07_0020-targeting.md) still bakes version-specific fields into what is supposed to be a shared target model.
 
 My recommendation is:
 
@@ -2140,7 +2140,7 @@ On “why not split `weave` in code?”: I think we should split it, but by extr
 
 The version-specific fields I meant are exactly `historySegment` and `stateSegment`. They affect creation of `ArtifactHistory` / `HistoricalState` paths and descendant paths, so they belong to `version` and to `weave` only because `weave` includes versioning. They do not belong to generic `targets`, and they do not belong to `validate` or `generate`.
 
-No tests ran; this was a note-only edit. One follow-up I would recommend is reconciling [wd.task.2026.2026-04-07_0020-targeting.md](wd.task.2026.2026-04-07_0020-targeting.md) with this newer separation, because that note still treats naming fields as part of the generic target shape.
+No tests ran; this was a note-only edit. One follow-up I would recommend is reconciling [wd.completed.2026.2026-04-07_0020-targeting.md](wd.completed.2026.2026-04-07_0020-targeting.md) with this newer separation, because that note still treats naming fields as part of the generic target shape.
 
 # User_2026-04-07_0846_08
 
@@ -2178,7 +2178,7 @@ But these are not:
 
 Those are support artifacts owned by the targeted resource surface. The operation may touch them, but they are not the thing you target directly.
 
-I reconciled [wd.task.2026.2026-04-07_0020-targeting.md](wd.task.2026.2026-04-07_0020-targeting.md) with [wd.task.2026.2026-04-07_0820-validate-version-generate.md](wd.task.2026.2026-04-07_0820-validate-version-generate.md). The targeting note now treats `TargetSpec` as just:
+I reconciled [wd.completed.2026.2026-04-07_0020-targeting.md](wd.completed.2026.2026-04-07_0020-targeting.md) with [wd.task.2026.2026-04-07_0820-validate-version-generate.md](wd.task.2026.2026-04-07_0820-validate-version-generate.md). The targeting note now treats `TargetSpec` as just:
 - `designatorPath`
 - optional `recursive`
 
@@ -2264,7 +2264,7 @@ OK, are we ready to implement?
 
 Yes.
 
-[wd.task.2026.2026-04-07_0820-validate-version-generate.md](wd.task.2026.2026-04-07_0820-validate-version-generate.md) and [wd.task.2026.2026-04-07_0020-targeting.md](wd.task.2026.2026-04-07_0020-targeting.md) are now aligned enough to start code.
+[wd.task.2026.2026-04-07_0820-validate-version-generate.md](wd.task.2026.2026-04-07_0820-validate-version-generate.md) and [wd.completed.2026.2026-04-07_0020-targeting.md](wd.completed.2026.2026-04-07_0020-targeting.md) are now aligned enough to start code.
 
 The key settled points are:
 

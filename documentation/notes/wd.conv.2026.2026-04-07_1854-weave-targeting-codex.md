@@ -2,7 +2,7 @@
 id: weave-targeting-lbtq2f
 title: weave targeting
 desc: ''
-updated: 1775887694140
+updated: 1775902188059
 created: 1775613259132
 participants:
   - djradon
@@ -216,7 +216,7 @@ Next should be [wd.task.2026.2026-04-07_1852-payload-version-naming.md](wd.task.
 
 That is the cleanest next move because:
 
-- the shared targeting work in [wd.task.2026.2026-04-07_0020-targeting.md](wd.task.2026.2026-04-07_0020-targeting.md) is materially settled
+- the shared targeting work in [wd.completed.2026.2026-04-07_0020-targeting.md](wd.completed.2026.2026-04-07_0020-targeting.md) is materially settled
 - `validate` / `version` / `generate` seams exist, but `historySegment` and `stateSegment` are still fake-contract fields
 - implementing payload naming is contained and directly useful for publication flows
 - recursive multi-target `version` batching from [wd.task.2026.2026-04-07_0820-validate-version-generate.md](wd.task.2026.2026-04-07_0820-validate-version-generate.md) is broader and should come after the naming contract is truthful

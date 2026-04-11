@@ -264,9 +264,9 @@ Naming pushback:
 
 ## Implementation Plan
 
-- [ ] Review the old template/config ontology and conversation notes for reusable ideas and traps.
-- [ ] Decide which page-definition concepts belong in core ontology and which in config ontology.
-- [ ] Draft the first-pass vocabulary for page definitions, regions, sources, and source policy.
-- [ ] Draft the first-pass asset-bundle metadata concept for `_knop/_page/_assets`.
-- [ ] Record example RDF shapes that the runtime page-definition task can later implement.
+- [x] Review the old template/config ontology and conversation notes for reusable ideas and traps.
+- [x] Decide which page-definition concepts belong in core ontology and which in config ontology.
+- [x] Draft the first-pass vocabulary for page definitions, regions, sources, and source policy.
+- [x] Draft the first-pass asset-bundle metadata concept for `_knop/_page/_assets`.
+- [x] Record example RDF shapes that the runtime page-definition task can later implement.
 - [ ] Update related roadmap/task/spec notes once the vocabulary direction is settled.

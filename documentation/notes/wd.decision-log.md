@@ -2,7 +2,7 @@
 id: xniuk4dvzoi717h9g8epjbk
 title: Decision Log
 desc: ''
-updated: 1775534821076
+updated: 1775902188057
 created: 1773630801215
 ---
 
@@ -227,7 +227,7 @@ created: 1773630801215
 ### 2026-04-07: Payload Version Naming Stays Version-Oriented
 
 - Decision: Make payload `historySegment` and `stateSegment` semantically effective for payload artifact versioning, preserve `_history001` and `_sNNNN` defaults when omitted, require a requested `historySegment` to match the already-settled current payload history when one exists, and keep these fields out of shared `TargetSpec` and shared `weave --target` parsing.
-- References: [[wd.completed.2026.2026-04-07_1852-payload-version-naming]], [[wd.completed.2026.2026-04-07_0820-validate-version-generate]], [[wd.task.2026.2026-04-07_0020-targeting]]
+- References: [[wd.completed.2026.2026-04-07_1852-payload-version-naming]], [[wd.completed.2026.2026-04-07_0820-validate-version-generate]], [[wd.completed.2026.2026-04-07_0020-targeting]]
 - Why:
   - This makes the version-oriented request contract truthful without polluting the shared targeting model.
   - Limiting custom naming to payload artifact versioning keeps mesh and Knop support-artifact layout system-controlled in the first pass.
@@ -235,7 +235,7 @@ created: 1773630801215
 ### 2026-04-08: Root Designator Path Uses `/` at the CLI and `""` Internally
 
 - Decision: Treat the root designator path as the mesh base resource equivalent to RDF `<>`, spell it as `/` on CLI surfaces, normalize it to `""` in runtime/core request handling, and preserve resource-root targeting semantics without conflating the root resource with `_mesh` support artifacts.
-- References: [[wd.completed.2026.2026-04-08_1133-root-designator-path-support]], [[wd.task.2026.2026-04-07_0020-targeting]]
+- References: [[wd.completed.2026.2026-04-08_1133-root-designator-path-support]], [[wd.completed.2026.2026-04-07_0020-targeting]]
 - Why:
   - An explicit `/` sentinel is clearer and safer than overloading an omitted or blank designator-path value to mean root.
   - Normalizing root once at the CLI boundary keeps target resolution, path derivation, and user-facing display coherent across commands.

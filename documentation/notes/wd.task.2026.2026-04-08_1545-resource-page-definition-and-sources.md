@@ -183,7 +183,7 @@ Minimal shape:
 
 ## Testing
 
-- Write a behavior spec for customizable identifier pages before the implementation broadens.
+- Write a behavior spec for customizable identifier pages before the implementation broadens. See [[wd.spec.2026-04-11-identifier-page-customization-and-root-lifecycle]].
 - Add integration coverage for local bundle sources, in-mesh artifact sources, import-based outside-the-tree sources, and fail-closed direct external-latest cases.
 - Add coverage proving different page regions can resolve different source artifacts and states independently.
 - Add Accord acceptance coverage through new fixture transitions such as `14-alice-page-customized` and `15-alice-page-customized-woven`.
@@ -207,4 +207,4 @@ Minimal shape:
 - [ ] Define the first-pass in-mesh source resolution behavior.
 - [ ] Define the first-pass import boundary, source policy, and failure modes for outside-the-tree and extra-mesh content.
 - [ ] Split page-content composition from template/chrome policy.
-- [ ] Add a behavior spec and fixture plan before implementing the runtime/model changes.
+- [x] Add a behavior spec and fixture plan before implementing the runtime/model changes. See [[wd.spec.2026-04-11-identifier-page-customization-and-root-lifecycle]].
