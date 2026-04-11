@@ -8,9 +8,9 @@ created: 1775902232359
 
 ## Purpose
 
-This note captures the current intended behavior for customized current identifier pages driven by a knop-owned `_knop/_page` bundle.
+This note captures the current intended behavior for identifier-page customization driven by a knop-owned `_knop/_page` support artifact.
 
-It is an implementation-facing behavior spec for the first customizable identifier-page slice, not a final public API contract or a full template-system design.
+It is an implementation-facing behavior spec for the first identifier-page customization slice, not a final public API contract or a full template-system design.
 
 ## Status
 
@@ -18,10 +18,10 @@ The ontology/config direction from [[wd.task.2026.2026-04-08_1735-page-definitio
 
 The first implementation-bearing acceptance targets proposed here are:
 
-- `mesh-alice-bio` late-ladder transitions for non-root customized pages
-- a separate root-focused fixture series for root lifecycle and root page customization
+- `mesh-alice-bio` late-ladder transitions for non-root identifier-page customization
+- later `mesh-alice-bio` continuation steps for root lifecycle and root page customization
 
-This split is intentional. Root behavior starts near mesh creation and root Knop creation, so burying it behind the late Alice/Bob extraction ladder would make the acceptance story harder to read and easier to get wrong.
+Adding a root later in the mesh lifecycle is a normal case, so root coverage does not need its own separate fixture series by default.
 
 ## Scope
 
@@ -39,14 +39,14 @@ Template/chrome selection remains adjacent but separate through config vocabular
 
 ## Discovery And Authority
 
-### `_knop/_page` is the only local authority for customized identifier pages
+### `_knop/_page` is the only local authority for identifier-page customization
 
-For an identifier `D`, the only local authoritative customization surface for the current identifier page is the owning Knop bundle at `D/_knop/_page`.
+For an identifier `D`, the only local authoritative customization surface for the current identifier page is the owning Knop support artifact at `D/_knop/_page`.
 
 For the root identifier, the same rule applies with root-relative paths:
 
 - root Knop: `_knop`
-- root page bundle: `_knop/_page`
+- root page definition artifact: `_knop/_page`
 - root public identifier page: `index.html`
 
 No sibling directory, descendant Knop, mesh-level support artifact, or generic renderer heuristic may override a discovered valid `_knop/_page` definition for that identifier.
@@ -56,20 +56,38 @@ No sibling directory, descendant Knop, mesh-level support artifact, or generic r
 The first-pass local convention should be:
 
 - `D/_knop/_page/page.ttl` is the current working file for the `ResourcePageDefinition`
-- sibling files under `D/_knop/_page/` are the local `ResourcePageBundle` content space
-- `D/_knop/_page/_assets/` is the local `ResourcePageAssetBundle`
+- `D/_knop/_page` is a normal support-artifact surface and should not become a general container for auxiliary authored files
+- when local filesystem-authored page inputs are used, they live on the owning `D/_knop/...` surface outside `_page`
+- `D/_knop/_assets/` is the local Knop-owned asset area for page support files referenced by the definition
 
-Runtime discovery should stay anchored to the owning Knop and this bundle boundary. It should not scan arbitrary directories for page manifests.
+Runtime discovery should stay anchored to the owning Knop and the `_knop/_page/page.ttl` working file. It should not scan arbitrary directories for page manifests.
 
 ### Customized page definitions take precedence over generic identifier-page generation
 
 If `D/_knop/_page` is absent, `weave` should continue to generate the current identifier page using the existing generic rules.
 
-If `D/_knop/_page` is present and resolves successfully, that bundle is authoritative for `D/index.html` and should replace generic current identifier-page composition for that identifier only.
+If `D/_knop/_page` is present and resolves successfully, that definition is authoritative for `D/index.html` and should replace generic current identifier-page composition for that identifier only.
 
-If `D/_knop/_page` is present but malformed, unresolved, or otherwise invalid, `weave` must fail closed. It must not silently ignore the bundle and fall back to the generic identifier page.
+If `D/_knop/_page` is present but malformed, unresolved, or otherwise invalid, `weave` must fail closed. It must not silently ignore the definition and fall back to the generic identifier page.
 
 That pushback matters. Silent fallback would make customization look optional when it is actually a declared source of truth for the public page.
+
+## `ResourcePageDefinition` History And State Behavior
+
+The `ResourcePageDefinition` at `D/_knop/_page` is a normal support artifact and should participate in history/state materialization the same way other support artifacts do.
+
+Behavioral consequences:
+
+- the working definition file remains `D/_knop/_page/page.ttl`
+- when explicit histories are materialized for the page-definition artifact, they should follow the same support-artifact history/state conventions used elsewhere in the mesh
+- a change to the `ResourcePageDefinition` should be versioned as a change to that support artifact, not treated as an untracked local-only helper-file mutation
+- generic support-artifact generation should remain responsible for any `_knop/_page` artifact landing pages, history landing pages, state pages, and manifestation pages unless a later spec says otherwise
+
+This does not imply recursive history for the surrounding local support inputs:
+
+- workspace-local authored files referenced by `page.ttl` do not become separate governed artifacts by default
+- `_knop/_assets` remains local and ahistorical by default
+- those helper files participate through the current state of the `ResourcePageDefinition` artifact and its working file, not by each gaining their own independent support-artifact histories automatically
 
 ## Source Kinds And Resolution
 
@@ -77,24 +95,25 @@ A `ResourcePageRegion` may resolve content from exactly one first-pass `Resource
 
 The first-pass source kinds are:
 
-- local bundle files inside `_knop/_page`
+- workspace-relative local files referenced by `page.ttl`
 - in-mesh governed artifacts
 - imported in-tree artifacts whose bytes originated outside the tree or outside the mesh
 
-### Local bundle files
+### Workspace-relative local files
 
-Local authored bundle files are resolved through `ResourcePageBundleFile` plus `pageBundleRelativePath`.
+Local authored files are resolved through a direct `LocatedFile` target on the source, typically a `WorkspaceRelativeFile` with `workspaceRelativePath`.
 
 Behavioral consequences:
 
-- relative paths are resolved only against the owning `_knop/_page` bundle
-- ordinary Markdown is the default authored text format for `.md` bundle files
+- the path stays relative to the current workspace root rather than becoming an absolute filesystem path
+- the path may point at Knop-local helper content such as `alice/_knop/main.md`, but it may also point at other in-workspace documentation or support files when the page definition intentionally follows them
+- ordinary Markdown is the default authored text format for `.md` helper files
 - Dendron semantics are not implied by `.md` alone and should activate only under a later explicit interpretation profile
-- local bundle files are current-working bundle inputs, not separately governed artifacts by default
+- workspace-relative file inputs are current-working local inputs, not separately governed artifacts by default
 
 ### In-mesh artifact sources
 
-A page source may point at an in-mesh governed artifact through the current core vocabulary such as `hasSourceArtifact`, `hasRequestedSourceState`, `hasResourcePageSourceMode`, and `hasResourcePageSourceFallbackPolicy`.
+A page source may point at an in-mesh governed artifact through the generic `ArtifactResolutionTarget` fields such as `hasTargetArtifact`, `hasRequestedTargetState`, `hasArtifactResolutionMode`, and `hasArtifactResolutionFallbackPolicy`. Page-specific aliases such as `hasSourceArtifact`, `hasRequestedSourceState`, `hasResourcePageSourceMode`, and `hasResourcePageSourceFallbackPolicy` remain available on `ResourcePageSource`.
 
 Behavioral consequences:
 
@@ -148,27 +167,27 @@ In particular it must not:
 - jump to an outside origin
 - silently choose a sibling artifact
 
-For local bundle-file sources, mode and fallback do not broaden resolution. The resolved source is the named local bundle file or the operation fails.
+For direct local file sources, mode and fallback do not broaden resolution. The resolved source is the named local file or the operation fails.
 
-## `_knop/_page/_assets` Behavior
+## `_knop/_assets` Behavior
 
-`_knop/_page/_assets` is a page-local static asset bundle, not a governed artifact set.
+`_knop/_assets` is the Knop-owned local static asset area used by identifier-page customization, not a governed artifact set.
 
 First-pass consequences:
 
-- files under `_knop/_page/_assets` are local current-bundle inputs only
+- files under `_knop/_assets` are local current support inputs only
 - they do not become `KnopInventory` entries by default
 - they do not gain independent history or publication identity by default
 - if an asset needs independent reuse, publication identity, or history, it should be promoted to a separate governed artifact and referenced as such
 
-The public identifier page should not expose `_knop/_page/_assets` directly. The first-pass materialization contract should publish those bundled assets into the identifier page's public current surface under `_assets/` relative to the identifier root.
+The public identifier page may reference `_knop/_assets/...` directly. `weave` should not copy or mirror those files into `alice/_assets/...` or root `_assets/...` as a separate generated current surface.
 
 Examples:
 
-- `alice/_knop/_page/_assets/portrait.jpg` materializes publicly as `alice/_assets/portrait.jpg`
-- root `_knop/_page/_assets/site.css` materializes publicly as `_assets/site.css`
+- `alice/_knop/_assets/portrait.jpg` remains `alice/_knop/_assets/portrait.jpg`
+- root `_knop/_assets/site.css` remains `_knop/_assets/site.css`
 
-That public copy/mirroring behavior belongs to current page generation only. It does not make `_assets` a separately governed semantic surface.
+That direct-reference behavior does not make `_knop/_assets` a separately governed semantic surface.
 
 ## Fail-Closed Behavior
 
@@ -178,11 +197,11 @@ That includes at least these cases:
 
 - `_knop/_page/page.ttl` is missing after `_knop/_page` has been declared or discovered as present
 - the page definition cannot be parsed or validated well enough to resolve regions and sources
-- a local bundle file source points outside the bundle boundary
+- a workspace-relative file source is malformed, missing, or escapes the allowed workspace-relative boundary
 - a pinned in-mesh source cannot be resolved under `ExactOnly`
 - an imported-source artifact lacks the in-tree governed artifact or current `WorkingLocatedFile` that generation is supposed to follow
 - a page definition attempts to point directly at outside-the-tree or extra-mesh live content instead of an imported in-tree artifact
-- a required bundled asset is missing
+- a required `_knop/_assets` file is missing
 
 Fail closed here means:
 
@@ -208,15 +227,13 @@ Consequences for page generation:
 
 ### Root customization uses the same authority boundary
 
-If a root Knop exists at `_knop` and no `_knop/_page` bundle exists, generic current identifier-page generation should produce root `index.html`.
+If a root Knop exists at `_knop` and no `_knop/_page` definition exists, generic current identifier-page generation should produce root `index.html`.
 
 If `_knop/_page` exists and resolves successfully, it is authoritative for root `index.html` just as `alice/_knop/_page` is authoritative for `alice/index.html`.
 
-If the root page bundle is malformed or unresolved, `weave` must fail closed rather than silently generating a generic root page.
+If the root page definition is malformed or unresolved, `weave` must fail closed rather than silently generating a generic root page.
 
-### Root lifecycle should stay separate from the late Alice ladder
-
-Root page customization should not be the next branch in the late `13-bob-extracted-woven` continuation.
+### Root lifecycle can continue on the same ladder
 
 The root lifecycle starts much earlier:
 
@@ -224,18 +241,18 @@ The root lifecycle starts much earlier:
 - a root Knop may exist before any root page customization exists
 - root `index.html` path rules differ from non-root pages because they must stay slashless and coexist with `_mesh`
 
-Those are enough differences that a separate root-focused fixture series is the cleaner acceptance shape.
+Those differences still matter, but they do not require a separate fixture series. Adding a root later on the carried `mesh-alice-bio` ladder is a legitimate lifecycle case and should remain a normal acceptance path.
 
 ## Invariants
 
-- A customized identifier page does not make the identifier itself a payload-bearing artifact.
+- Identifier-page customization does not make the identifier itself a payload-bearing artifact.
 - `index.html` remains generated public output, not the canonical authored source.
 - `_knop/_page` customizes only the current identifier page for its owning resource in this first slice.
 - Generic generation remains authoritative for support-artifact pages, history pages, state pages, and manifestation pages unless a later spec says otherwise.
 - Outside content must cross an explicit import boundary before it can contribute to page generation.
 - The imported in-tree artifact's current `WorkingLocatedFile` is what generation follows.
 - Root `index.html` and `_mesh/index.html` remain distinct pages with distinct ownership.
-- `_knop/_page/_assets` remains local and ahistorical by default.
+- `_knop/_assets` remains local and ahistorical by default.
 
 ## Proposed Acceptance Plan
 
@@ -255,18 +272,18 @@ Proposed Accord manifests:
 
 What `14` should prove:
 
-- Alice gains a knop-owned `_knop/_page` bundle
-- the definition uses ordinary Markdown bundle content, not Dendron-only semantics
-- at least one region resolves from a local bundle file
-- at least one second region or source binding proves per-source independence, ideally using an in-mesh artifact source
-- bundled `_assets` content appears only as local page-bundle input, not as new inventory entries
+- Alice gains a knop-owned `_knop/_page` support artifact plus Knop-local authored inputs
+- the definition uses ordinary Markdown local content, not Dendron-only semantics
+- at least one region resolves from a local Knop-owned file
+- at least one second local region proves multi-region composition without yet requiring in-mesh or imported source support
+- `_knop/_assets` content appears only as Knop-local support input, not as new inventory entries
 
 What `15` should prove:
 
 - `alice/index.html` now follows the customized definition rather than the generic identifier renderer
-- bundled `_assets` are materialized into `alice/_assets/...`
+- `alice/index.html` may reference `alice/_knop/_assets/...` directly, without a copied `alice/_assets/...` surface
 - Alice support-artifact pages remain under generic generation unless separately specified
-- malformed or unresolved bundle inputs would have failed the operation instead of falling back silently
+- malformed or unresolved Knop-local inputs would have failed the operation instead of falling back silently
 
 ### Follow-on non-root coverage
 
@@ -286,31 +303,32 @@ Those should prove:
 
 - an outside-origin content path must first land in a governed in-tree artifact
 - page generation follows that imported artifact's current `WorkingLocatedFile`
-- a direct live outside-source attempt fails closed
 
-### Separate root-focused fixture series
+The corresponding fail-closed direct-outside-source rejection should be covered in focused runtime/integration tests rather than forced into a successful fixture transition.
 
-Root-page customization belongs in a separate fixture ladder or branch family, even if it stays in the same repository.
+### Root-focused continuation on the same ladder
 
-Proposed root-focused steps:
+Root-page customization should continue on the same carried `mesh-alice-bio` ladder rather than being split into a separate fixture family by default.
 
-- `root-01-root-knop-created`
-- `root-02-root-knop-created-woven`
-- `root-03-root-page-customized`
-- `root-04-root-page-customized-woven`
+Proposed root-focused continuation steps:
+
+- `18-root-knop-created`
+- `19-root-knop-created-woven`
+- `20-root-page-customized`
+- `21-root-page-customized-woven`
 
 Proposed Accord manifests:
 
-- `examples/alice-bio/conformance/root-01-root-knop-created.jsonld`
-- `examples/alice-bio/conformance/root-02-root-knop-created-woven.jsonld`
-- `examples/alice-bio/conformance/root-03-root-page-customized.jsonld`
-- `examples/alice-bio/conformance/root-04-root-page-customized-woven.jsonld`
+- `examples/alice-bio/conformance/18-root-knop-created.jsonld`
+- `examples/alice-bio/conformance/19-root-knop-created-woven.jsonld`
+- `examples/alice-bio/conformance/20-root-page-customized.jsonld`
+- `examples/alice-bio/conformance/21-root-page-customized-woven.jsonld`
 
-What the root series should prove:
+What the root continuation should prove:
 
 - root `index.html` exists only when a root Knop exists
 - root `_knop/_page` customizes `index.html`, not `_mesh/index.html`
-- root bundled assets materialize at `_assets/...` without leading slashes
+- root Knop-owned assets remain at `_knop/_assets/...` without leading slashes
 - root current-page discovery and authority follow the same `_knop/_page` rules as non-root pages
 - root-specific path layout remains slashless and coexists correctly with `_mesh/...`
 

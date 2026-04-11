@@ -43,7 +43,7 @@ jobs:
       - name: Set up Deno
         uses: denoland/setup-deno@v2
         with:
-          deno-version: 2.7.11
+          deno-version: 2.7.12
 
       - name: Check formatting
         run: deno task fmt:check
