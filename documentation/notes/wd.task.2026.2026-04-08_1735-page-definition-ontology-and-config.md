@@ -114,6 +114,10 @@ The first pass should treat the `_knop/_page` manifest as a knop-owned support a
   - operational local-path hook on `DigitalArtifact` for current working bytes
   - should stay distinct from `hasWorkingLocatedFile`, which remains the semantic `LocatedFile` facet relation when one exists
   - should allow `../` segments only subject to host/runtime operational configuration
+- `workingAccessUrl`
+  - operational remote/external current-byte hook on `DigitalArtifact`
+  - should stay distinct from both `workingFilePath` and `hasWorkingLocatedFile`
+  - should not by itself imply that any runtime may fetch it without explicit operational policy
 - `ResourcePageRegion`
   - structural content region for authored page composition
   - use `Region`, not `Slot`, because template slots belong in presentation config rather than in the content model
@@ -135,6 +139,7 @@ Recommended core properties:
 - `sourceOrder`
 - `targetMeshPath`
 - `workingFilePath`
+- `workingAccessUrl`
 - `hasTargetArtifact`
 - `hasTargetLocatedFile`
 - `hasTargetDistribution`
@@ -160,7 +165,8 @@ Naming pushback:
 - Do not use a generic name such as `AssetFolder`. `KnopAssetBundle` is explicit about scope and avoids implying a general filesystem-artifact ontology.
 - Do not revive page-bundle helper classes just to avoid relative path literals. `targetMeshPath` already gives a cleaner explicit base for mesh-local source resolution.
 - Do not collapse `workingFilePath` into `hasWorkingLocatedFile`. One is an operational local path hook; the other is a semantic `LocatedFile` relation.
-- When both `workingFilePath` and `hasWorkingLocatedFile` are present for the same local current surface, they should identify the same current bytes and mismatch should fail closed.
+- Do not collapse `workingAccessUrl` into `workingFilePath` or `hasWorkingLocatedFile`. It is an operational remote/external locator, not a local path and not a semantic file facet.
+- When multiple current-byte locators are present for the same working surface, they should identify the same current bytes and mismatch should fail closed.
 
 ### Config ontology
 
@@ -175,6 +181,7 @@ Naming pushback:
 - concrete helper file names such as `_knop/_page/page.ttl`
 - the fixed serialization convention that maps `KnopAssetBundle` to `_knop/_assets`
 - the allowed-directories policy that decides whether `targetMeshPath` or `workingFilePath` may use `../` outside the mesh root
+- the network-use policy that decides whether `workingAccessUrl` may be followed at all, and under which origin/scheme constraints
 - the concrete host/runtime config vocabulary for that policy; previous `sflo-host` work in `dependencies/github.com/semantic-flow/ontology/old/sflo-host-ontology.jsonld` is relevant precedent
 - runtime-computed breadcrumb, navigation, and search inputs
 - template-specific slot wiring and render-context assembly
@@ -220,6 +227,7 @@ Naming pushback:
 - How much template/chrome policy should be formalized in this slice versus deferred.
 - Whether first-pass import metadata for outside-the-tree content should be limited to explicit distributions only, or may also point at broader external artifact IRIs as import origins.
 - Which operational config vocabulary should carry allowed-directory rules for `targetMeshPath` and `workingFilePath`; the old `sflo-host` line is a plausible precedent, but it should not be copied forward uncritically.
+- Which operational config vocabulary should carry remote-current-byte policy for `workingAccessUrl`; the old `sflo-host` line is a plausible precedent, but it should not be copied forward uncritically.
 
 ## Decisions
 
@@ -233,11 +241,13 @@ Naming pushback:
 - Per-source state selection and fallback should be modeled as separate axes using the generic artifact-resolution pattern directly, without duplicating page-specific alias properties.
 - Local mesh/helper sources should be modeled by `targetMeshPath` directly on `ArtifactResolutionTarget`, not by helper pseudo-files.
 - `workingFilePath` should be added as the operational local-path hook for a `DigitalArtifact`, distinct from `hasWorkingLocatedFile`.
-- `hasWorkingLocatedFile` should remain the semantic `LocatedFile` relation; when both it and `workingFilePath` are present for the same local current file, they should agree.
+- `workingAccessUrl` should be added as the operational remote/external current-byte hook for a `DigitalArtifact`, distinct from both `workingFilePath` and `hasWorkingLocatedFile`.
+- `hasWorkingLocatedFile` should remain the semantic `LocatedFile` relation; when multiple current-byte locators are present for the same current working surface, they should agree.
 - Outside-the-tree or extra-mesh content should enter page composition through an explicit import boundary rather than as a direct live page source.
 - The imported in-tree artifact and its current `WorkingLocatedFile` should be the source that page resolution follows.
 - `KnopAssetBundle` should be used only for the bounded `_knop/_assets` helper area, not as a signal that every asset file becomes governed.
 - Allowed-directory policy for `targetMeshPath` and `workingFilePath` belongs in host/runtime operational config, not in the core ontology.
+- Remote-use policy for `workingAccessUrl` also belongs in host/runtime operational config, not in the core ontology.
 
 ## Contract Changes
 
@@ -245,12 +255,15 @@ Naming pushback:
 - Introduce vocabulary for per-source history/state, mode, and fallback policy.
 - Introduce `targetMeshPath` for mesh-local direct source bindings.
 - Introduce `workingFilePath` for artifact-level operational local current-byte paths.
+- Introduce `workingAccessUrl` for artifact-level operational remote/external current-byte URLs.
 - Introduce a bounded helper resource for `_knop/_assets`.
 - Represent outside-the-tree origin data as import-facing metadata rather than as a direct current-following page-source contract.
 - Clarify the config vocabulary surface for template/chrome preferences and defaults.
 - Represent local Knop-owned helper files through explicit `targetMeshPath` values so mesh-root-relative semantics stay clear.
 - Define consistency and precedence rules between `workingFilePath` and `hasWorkingLocatedFile`.
+- Define consistency and precedence rules across `workingFilePath`, `workingAccessUrl`, and `hasWorkingLocatedFile`.
 - Defer the exact allowed-directories vocabulary to host/runtime operational config rather than hard-coding it into core ontology.
+- Defer the exact remote-current-byte policy vocabulary to host/runtime operational config rather than hard-coding it into core ontology.
 
 ## Testing
 

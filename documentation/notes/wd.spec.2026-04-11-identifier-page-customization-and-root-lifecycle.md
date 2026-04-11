@@ -119,28 +119,33 @@ A page source may point at an in-mesh governed artifact through the generic `Art
 Behavioral consequences:
 
 - the source target is a governed in-mesh artifact, not an arbitrary path string
-- `Current` mode follows the source artifact's `workingFilePath` when present, otherwise its current `hasWorkingLocatedFile`
+- `Current` mode follows the source artifact's `workingFilePath` when present, otherwise its `workingAccessUrl` when an operational profile explicitly allows remote current-byte access, otherwise its current `hasWorkingLocatedFile`
 - `Pinned` mode follows the requested historical state rather than the working file
 - fallback policy constrains what may happen if the requested state cannot be used as requested
+
+For this first page-generation slice, a governed source artifact that resolves only through `workingAccessUrl` should still be treated as out of bounds unless a later spec explicitly widens page generation to permit remote current-byte access. The broader artifact model may name that current surface now without requiring `weave` to follow it yet.
 
 ### Working-Path Precedence And Consistency
 
 For governed artifacts, `workingFilePath` and `hasWorkingLocatedFile` do different jobs.
 
 - `workingFilePath` is the operational local-path hook that runtime should use to find the current working bytes
+- `workingAccessUrl` is the operational remote/external current-byte hook when a runtime is explicitly allowed to fetch or stream current bytes from outside the local filesystem
 - `hasWorkingLocatedFile` remains the semantic `LocatedFile` relation when the current working bytes are also modeled as a mesh-addressable file resource
-- if both are present and the `LocatedFile` denotes the same local current file, they should agree
-- if both are present and disagree about the current local working bytes, the runtime should fail closed rather than silently picking one
+- if multiple current-byte locators are present and denote the same current working surface, they should agree
+- if multiple current-byte locators are present and disagree about the current working bytes, the runtime should fail closed rather than silently picking one
 - if `workingFilePath` points outside the mesh tree under an allowed local-directory policy, `hasWorkingLocatedFile` may be absent
+- if only `workingAccessUrl` is present, a runtime that does not explicitly allow remote current-byte access should fail closed rather than silently fetching
 
 ### Operational Boundary For Local Paths
 
-Allowed local-path boundaries for `targetMeshPath` and `workingFilePath` belong to operational configuration, not to page-definition RDF itself.
+Allowed local-path boundaries for `targetMeshPath` and `workingFilePath`, and network-use policy for `workingAccessUrl`, belong to operational configuration, not to page-definition RDF itself.
 
 First-pass implications:
 
 - core ontology should carry the relative path values, not absolute host paths
 - runtime configuration should define which directories are allowed when local paths use `../`
+- runtime configuration should define whether remote current-byte access through `workingAccessUrl` is allowed at all, and if so under which origin/scheme constraints
 - earlier host-config work such as `dependencies/github.com/semantic-flow/ontology/old/sflo-host-ontology.jsonld` is relevant precedent, but the exact config vocabulary can remain separate from this page-definition contract
 
 ### Imported outside content
@@ -220,6 +225,7 @@ That includes at least these cases:
 - the page definition cannot be parsed or validated well enough to resolve regions and sources
 - a `targetMeshPath` source is malformed, missing, or escapes the currently allowed local-directory boundary
 - a governed source artifact has inconsistent `workingFilePath` and `hasWorkingLocatedFile` assertions for the same current working surface
+- a governed source artifact resolves only through `workingAccessUrl`, but the active operational profile does not allow remote current-byte access
 - a pinned in-mesh source cannot be resolved under `ExactOnly`
 - an imported-source artifact lacks the in-tree governed artifact or current `WorkingLocatedFile` that generation is supposed to follow
 - a page definition attempts to point directly at outside-the-tree or extra-mesh live content instead of an imported in-tree artifact
