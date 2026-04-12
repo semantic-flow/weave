@@ -108,7 +108,7 @@ The first pass should treat the `_knop/_page` manifest as a knop-owned support a
   - artifact-level support resource for the `_knop/_page` manifest
   - should subclass `DigitalArtifact`, `RdfDocument`, and `SemanticFlowResource`
 - `ArtifactResolutionTarget`
-  - generic policy-bearing relator for resolving bytes from either a `DigitalArtifact`, a direct mesh-local path string, a direct `LocatedFile`, or another packaged target
+  - generic policy-bearing relator for resolving bytes from either a `DigitalArtifact`, a direct mesh-local path string, a direct access URL, a direct `LocatedFile`, or another packaged target
   - should carry requested history/state plus mode/fallback policy
 - `workingFilePath`
   - operational local-path hook on `DigitalArtifact` for current working bytes
@@ -138,6 +138,7 @@ Recommended core properties:
 - `hasResourcePageSource`
 - `sourceOrder`
 - `targetMeshPath`
+- `targetAccessUrl`
 - `workingFilePath`
 - `workingAccessUrl`
 - `hasTargetArtifact`
@@ -160,10 +161,12 @@ Naming pushback:
 - Do not introduce page-specific alias properties such as `hasRequestedSourceState` when the generic `ArtifactResolutionTarget` properties already say the right thing.
 - Do not put `accept` into the mode enum alongside `exact` and `current`. `accept` belongs to fallback policy, not to the separate question of whether the source is pinned versus current-following.
 - Do not make an artifact target mandatory when `targetMeshPath` or a direct `LocatedFile` is sufficient. `ArtifactResolutionTarget` should support either shape.
+- Do not make an artifact target mandatory when `targetMeshPath`, `targetAccessUrl`, or a direct `LocatedFile` is sufficient. `ArtifactResolutionTarget` should support either shape.
 - Do not collapse `ResourcePageSource` away into a fully generic relator. The page-specific subtype is still useful even though the resolution pattern is shared.
 - Do not rename `ResourcePageSource` just to echo its superclass. The region-to-source relation is already clear, and the class's target semantics come from `ArtifactResolutionTarget`.
 - Do not use a generic name such as `AssetFolder`. `KnopAssetBundle` is explicit about scope and avoids implying a general filesystem-artifact ontology.
 - Do not revive page-bundle helper classes just to avoid relative path literals. `targetMeshPath` already gives a cleaner explicit base for mesh-local source resolution.
+- Do not collapse `targetAccessUrl` into `hasTargetArtifact` or `hasTargetLocatedFile`. It is the operational remote/external direct-target locator.
 - Do not collapse `workingFilePath` into `hasWorkingLocatedFile`. One is an operational local path hook; the other is a semantic `LocatedFile` relation.
 - Do not collapse `workingAccessUrl` into `workingFilePath` or `hasWorkingLocatedFile`. It is an operational remote/external locator, not a local path and not a semantic file facet.
 - When multiple current-byte locators are present for the same working surface, they should identify the same current bytes and mismatch should fail closed.
@@ -181,6 +184,7 @@ Naming pushback:
 - concrete helper file names such as `_knop/_page/page.ttl`
 - the fixed serialization convention that maps `KnopAssetBundle` to `_knop/_assets`
 - the allowed-directories policy that decides whether `targetMeshPath` or `workingFilePath` may use `../` outside the mesh root
+- the network-use policy that decides whether `targetAccessUrl` may be followed at all, and under which origin/scheme constraints
 - the network-use policy that decides whether `workingAccessUrl` may be followed at all, and under which origin/scheme constraints
 - the concrete host/runtime config vocabulary for that policy; previous `sflo-host` work in `dependencies/github.com/semantic-flow/ontology/old/sflo-host-ontology.jsonld` is relevant precedent
 - runtime-computed breadcrumb, navigation, and search inputs
@@ -227,6 +231,7 @@ Naming pushback:
 - How much template/chrome policy should be formalized in this slice versus deferred.
 - Whether first-pass import metadata for outside-the-tree content should be limited to explicit distributions only, or may also point at broader external artifact IRIs as import origins.
 - Which operational config vocabulary should carry allowed-directory rules for `targetMeshPath` and `workingFilePath`; the old `sflo-host` line is a plausible precedent, but it should not be copied forward uncritically.
+- Which operational config vocabulary should carry remote target-access policy for `targetAccessUrl`; the old `sflo-host` line is a plausible precedent, but it should not be copied forward uncritically.
 - Which operational config vocabulary should carry remote-current-byte policy for `workingAccessUrl`; the old `sflo-host` line is a plausible precedent, but it should not be copied forward uncritically.
 
 ## Decisions
@@ -240,6 +245,7 @@ Naming pushback:
 - `ResourcePageSource` should remain as a page-specific subclass of a generic `ArtifactResolutionTarget`.
 - Per-source state selection and fallback should be modeled as separate axes using the generic artifact-resolution pattern directly, without duplicating page-specific alias properties.
 - Local mesh/helper sources should be modeled by `targetMeshPath` directly on `ArtifactResolutionTarget`, not by helper pseudo-files.
+- `targetAccessUrl` should be added as the operational remote/external direct-target hook on `ArtifactResolutionTarget`.
 - `workingFilePath` should be added as the operational local-path hook for a `DigitalArtifact`, distinct from `hasWorkingLocatedFile`.
 - `workingAccessUrl` should be added as the operational remote/external current-byte hook for a `DigitalArtifact`, distinct from both `workingFilePath` and `hasWorkingLocatedFile`.
 - `hasWorkingLocatedFile` should remain the semantic `LocatedFile` relation; when multiple current-byte locators are present for the same current working surface, they should agree.
@@ -247,6 +253,7 @@ Naming pushback:
 - The imported in-tree artifact and its current `WorkingLocatedFile` should be the source that page resolution follows.
 - `KnopAssetBundle` should be used only for the bounded `_knop/_assets` helper area, not as a signal that every asset file becomes governed.
 - Allowed-directory policy for `targetMeshPath` and `workingFilePath` belongs in host/runtime operational config, not in the core ontology.
+- Remote-use policy for `targetAccessUrl` also belongs in host/runtime operational config, not in the core ontology.
 - Remote-use policy for `workingAccessUrl` also belongs in host/runtime operational config, not in the core ontology.
 
 ## Contract Changes
@@ -254,6 +261,7 @@ Naming pushback:
 - Introduce vocabulary for page-definition resources, generic artifact-resolution targets, and page-specific sources.
 - Introduce vocabulary for per-source history/state, mode, and fallback policy.
 - Introduce `targetMeshPath` for mesh-local direct source bindings.
+- Introduce `targetAccessUrl` for remote/external direct target bindings.
 - Introduce `workingFilePath` for artifact-level operational local current-byte paths.
 - Introduce `workingAccessUrl` for artifact-level operational remote/external current-byte URLs.
 - Introduce a bounded helper resource for `_knop/_assets`.
@@ -263,6 +271,7 @@ Naming pushback:
 - Define consistency and precedence rules between `workingFilePath` and `hasWorkingLocatedFile`.
 - Define consistency and precedence rules across `workingFilePath`, `workingAccessUrl`, and `hasWorkingLocatedFile`.
 - Defer the exact allowed-directories vocabulary to host/runtime operational config rather than hard-coding it into core ontology.
+- Defer the exact remote target-access policy vocabulary to host/runtime operational config rather than hard-coding it into core ontology.
 - Defer the exact remote-current-byte policy vocabulary to host/runtime operational config rather than hard-coding it into core ontology.
 
 ## Testing

@@ -125,6 +125,18 @@ Behavioral consequences:
 
 For this first page-generation slice, a governed source artifact that resolves only through `workingAccessUrl` should still be treated as out of bounds unless a later spec explicitly widens page generation to permit remote current-byte access. The broader artifact model may name that current surface now without requiring `weave` to follow it yet.
 
+### Direct access-URL targets
+
+The broader `ArtifactResolutionTarget` model may also name target bytes directly through `targetAccessUrl`.
+
+Behavioral consequences:
+
+- `targetAccessUrl` is the direct remote/external counterpart to `targetMeshPath`
+- it names target bytes without requiring an intermediate governed artifact or `LocatedFile`
+- using it remains subject to explicit operational network policy
+
+For this first page-generation slice, direct `targetAccessUrl` on `ResourcePageSource` should still be treated as out of bounds unless a later spec explicitly widens page generation to permit remote target access.
+
 ### Working-Path Precedence And Consistency
 
 For governed artifacts, `workingFilePath` and `hasWorkingLocatedFile` do different jobs.
@@ -139,12 +151,13 @@ For governed artifacts, `workingFilePath` and `hasWorkingLocatedFile` do differe
 
 ### Operational Boundary For Local Paths
 
-Allowed local-path boundaries for `targetMeshPath` and `workingFilePath`, and network-use policy for `workingAccessUrl`, belong to operational configuration, not to page-definition RDF itself.
+Allowed local-path boundaries for `targetMeshPath` and `workingFilePath`, and network-use policy for `targetAccessUrl` and `workingAccessUrl`, belong to operational configuration, not to page-definition RDF itself.
 
 First-pass implications:
 
 - core ontology should carry the relative path values, not absolute host paths
 - runtime configuration should define which directories are allowed when local paths use `../`
+- runtime configuration should define whether direct remote target access through `targetAccessUrl` is allowed at all, and if so under which origin/scheme constraints
 - runtime configuration should define whether remote current-byte access through `workingAccessUrl` is allowed at all, and if so under which origin/scheme constraints
 - earlier host-config work such as `dependencies/github.com/semantic-flow/ontology/old/sflo-host-ontology.jsonld` is relevant precedent, but the exact config vocabulary can remain separate from this page-definition contract
 
@@ -224,6 +237,7 @@ That includes at least these cases:
 - `_knop/_page/page.ttl` is missing after `_knop/_page` has been declared or discovered as present
 - the page definition cannot be parsed or validated well enough to resolve regions and sources
 - a `targetMeshPath` source is malformed, missing, or escapes the currently allowed local-directory boundary
+- a `targetAccessUrl` source is present, but the active operational profile does not allow remote target access
 - a governed source artifact has inconsistent `workingFilePath` and `hasWorkingLocatedFile` assertions for the same current working surface
 - a governed source artifact resolves only through `workingAccessUrl`, but the active operational profile does not allow remote current-byte access
 - a pinned in-mesh source cannot be resolved under `ExactOnly`
