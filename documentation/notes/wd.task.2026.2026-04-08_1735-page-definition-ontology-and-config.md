@@ -186,7 +186,7 @@ Naming pushback:
 - the allowed-directories policy that decides whether `targetMeshPath` or `workingFilePath` may use `../` outside the mesh root
 - the network-use policy that decides whether `targetAccessUrl` may be followed at all, and under which origin/scheme constraints
 - the network-use policy that decides whether `workingAccessUrl` may be followed at all, and under which origin/scheme constraints
-- the concrete host/runtime config vocabulary for that policy; previous `sflo-host` work in `dependencies/github.com/semantic-flow/ontology/old/sflo-host-ontology.jsonld` is relevant precedent
+- the concrete host/runtime config vocabulary for that policy; previous `sflo-host` work in `dependencies/github.com/semantic-flow/ontology/old/sflo-host-ontology.jsonld` is relevant precedent, but the active follow-on is now [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]]
 - runtime-computed breadcrumb, navigation, and search inputs
 - template-specific slot wiring and render-context assembly
 
@@ -230,9 +230,9 @@ Naming pushback:
 - Whether `KnopAssetBundle` should remain the right helper abstraction permanently or later generalize into a wider asset-bundle concept.
 - How much template/chrome policy should be formalized in this slice versus deferred.
 - Whether first-pass import metadata for outside-the-tree content should be limited to explicit distributions only, or may also point at broader external artifact IRIs as import origins.
-- Which operational config vocabulary should carry allowed-directory rules for `targetMeshPath` and `workingFilePath`; the old `sflo-host` line is a plausible precedent, but it should not be copied forward uncritically.
-- Which operational config vocabulary should carry remote target-access policy for `targetAccessUrl`; the old `sflo-host` line is a plausible precedent, but it should not be copied forward uncritically.
-- Which operational config vocabulary should carry remote-current-byte policy for `workingAccessUrl`; the old `sflo-host` line is a plausible precedent, but it should not be copied forward uncritically.
+- Which operational config vocabulary should carry allowed-directory rules for `targetMeshPath` and `workingFilePath`; see [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
+- Which operational config vocabulary should carry remote target-access policy for `targetAccessUrl`; see [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
+- Which operational config vocabulary should carry remote-current-byte policy for `workingAccessUrl`; see [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
 
 ## Decisions
 

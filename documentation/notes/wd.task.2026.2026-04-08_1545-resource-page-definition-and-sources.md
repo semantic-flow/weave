@@ -143,9 +143,9 @@ Minimal shape:
 - Whether first-pass import metadata for outside-the-tree content should be limited to explicitly described distributions.
 - Whether first-pass fallback should stop at `AcceptLatestInRequestedHistory` or also allow an explicit current-history fallback policy later.
 - Whether local `targetMeshPath` helper sources should also carry media-type hints, or whether extension-driven/runtime inference is sufficient initially.
-- Which operational config vocabulary should carry allowed-directory rules for `targetMeshPath` and `workingFilePath`; the old `sflo-host` line in `dependencies/github.com/semantic-flow/ontology/old/sflo-host-ontology.jsonld` is a useful precedent but not yet the settled answer.
-- Which operational config vocabulary should carry remote target-access policy for `targetAccessUrl`; the old `sflo-host` line in `dependencies/github.com/semantic-flow/ontology/old/sflo-host-ontology.jsonld` is a useful precedent but not yet the settled answer.
-- Which operational config vocabulary should carry remote-current-byte policy for `workingAccessUrl`; the old `sflo-host` line in `dependencies/github.com/semantic-flow/ontology/old/sflo-host-ontology.jsonld` is a useful precedent but not yet the settled answer.
+- Which operational config vocabulary should carry allowed-directory rules for `targetMeshPath` and `workingFilePath`; see [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
+- Which operational config vocabulary should carry remote target-access policy for `targetAccessUrl`; see [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
+- Which operational config vocabulary should carry remote-current-byte policy for `workingAccessUrl`; see [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
 
 ## Decisions
 
@@ -387,16 +387,16 @@ Current `15-alice-page-customized-woven` manifest shape:
 ### Phase 5: Artifact Resolution And Import-Oriented Source Support
 
 - [ ] Add first-pass in-mesh artifact source resolution through the generic artifact-resolution pattern (`hasTargetArtifact`, requested history/state, mode, and fallback) directly on `ResourcePageSource`.
-- [ ] Add `targetAccessUrl` handling to `ArtifactResolutionTarget` only behind explicit operational policy, with fail-closed behavior when remote target access is disallowed.
+- [ ] Add `targetAccessUrl` handling to `ArtifactResolutionTarget` only behind explicit operational policy, with fail-closed behavior when remote target access is disallowed. See [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
 - [ ] Decide whether first-pass page generation should ever follow `targetAccessUrl` directly, or continue requiring import or governed-artifact indirection for remote-origin content even if the broader artifact-resolution model permits direct external targets.
 - [ ] Add `workingFilePath` support to governed-artifact current resolution, with fail-closed mismatch handling against `hasWorkingLocatedFile`.
-- [ ] Add `workingAccessUrl` handling to governed-artifact current resolution only behind explicit operational policy, with fail-closed behavior when remote current-byte access is disallowed.
+- [ ] Add `workingAccessUrl` handling to governed-artifact current resolution only behind explicit operational policy, with fail-closed behavior when remote current-byte access is disallowed. See [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
 - [ ] Decide whether first-pass page generation should ever follow `workingAccessUrl` directly, or continue requiring imported in-tree artifacts for remote-origin content even if the broader artifact model permits external current-byte locators.
 - [ ] Implement `Pinned` versus `Current` as separate source-mode behavior rather than collapsing them into fallback or “prefer” booleans.
 - [ ] Implement first-pass fallback policy behavior for `ExactOnly` and `AcceptLatestInRequestedHistory`, with explicit rejection of cross-history, cross-artifact, or unrelated-working-file fallback.
 - [ ] Add import-oriented source handling for outside-the-tree or extra-mesh content only after it crosses an explicit in-tree governed-artifact boundary.
 - [ ] Fail closed on direct live outside-source usage instead of letting `weave` fetch or follow arbitrary current external content.
-- [ ] Broaden local path handling so `targetMeshPath` and `workingFilePath` may use `../` only within host/runtime-configured allowed directories rather than the current mesh-root-only boundary.
+- [ ] Broaden local path handling so `targetMeshPath` and `workingFilePath` may use `../` only within host/runtime-configured allowed directories rather than the current mesh-root-only boundary. See [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
 
 ### Phase 6: Tests, Follow-On Fixtures, And Documentation
 
