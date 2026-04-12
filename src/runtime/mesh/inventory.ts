@@ -15,6 +15,7 @@ const SFLO_HAS_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasPayloadArtifact`;
 const SFLO_HAS_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}hasReferenceCatalog`;
 const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
   `${SFLO_NAMESPACE}hasWorkingLocatedFile`;
+const SFLO_WORKING_FILE_PATH_IRI = `${SFLO_NAMESPACE}workingFilePath`;
 const SFLO_KNOP_IRI = `${SFLO_NAMESPACE}Knop`;
 const SFLO_LATEST_HISTORICAL_STATE_IRI =
   `${SFLO_NAMESPACE}latestHistoricalState`;
@@ -112,11 +113,10 @@ export function resolvePayloadArtifactInventoryState(
     return undefined;
   }
 
-  const workingFilePath = requireUniqueNamedNodePath(
+  const workingFilePath = requireWorkingFilePath(
     quads,
     meshBase,
     payloadArtifactIri,
-    SFLO_HAS_WORKING_LOCATED_FILE_IRI,
     messages.missingWorkingFileMessage,
   );
   const currentArtifactHistoryPath = resolveOptionalUniqueNamedNodePath(
@@ -185,11 +185,10 @@ export function resolveReferenceCatalogInventoryState(
   }
 
   return {
-    workingFilePath: requireUniqueNamedNodePath(
+    workingFilePath: requireWorkingFilePath(
       quads,
       meshBase,
       referenceCatalogIri,
-      SFLO_HAS_WORKING_LOCATED_FILE_IRI,
       messages.missingWorkingFileMessage,
     ),
   };
@@ -223,11 +222,10 @@ export function resolveResourcePageDefinitionInventoryState(
   }
 
   const artifactIri = toMeshIri(meshBase, artifactPath);
-  const workingFilePath = requireUniqueNamedNodePath(
+  const workingFilePath = requireWorkingFilePath(
     quads,
     meshBase,
     artifactIri,
-    SFLO_HAS_WORKING_LOCATED_FILE_IRI,
     messages.missingWorkingFileMessage,
   );
   const currentArtifactHistoryPath = resolveOptionalUniqueNamedNodePath(
@@ -396,26 +394,42 @@ function hasNamedNodeObject(
   );
 }
 
-function requireUniqueNamedNodePath(
+function requireWorkingFilePath(
   quads: readonly Quad[],
   meshBase: string,
   subjectIri: string,
-  predicateIri: string,
   errorMessage: string,
 ): string {
-  const value = resolveOptionalUniqueNamedNodePath(
+  const literalWorkingFilePath = resolveOptionalUniqueLiteralWorkingFilePath(
+    quads,
+    subjectIri,
+    SFLO_WORKING_FILE_PATH_IRI,
+    errorMessage,
+  );
+  const locatedWorkingFilePath = resolveOptionalUniqueNamedNodePath(
     quads,
     meshBase,
     subjectIri,
-    predicateIri,
+    SFLO_HAS_WORKING_LOCATED_FILE_IRI,
     errorMessage,
   );
 
-  if (value === undefined) {
+  if (
+    literalWorkingFilePath !== undefined &&
+    locatedWorkingFilePath !== undefined &&
+    literalWorkingFilePath !== locatedWorkingFilePath
+  ) {
     throw new Error(errorMessage);
   }
 
-  return value;
+  if (literalWorkingFilePath !== undefined) {
+    return literalWorkingFilePath;
+  }
+  if (locatedWorkingFilePath !== undefined) {
+    return locatedWorkingFilePath;
+  }
+
+  throw new Error(errorMessage);
 }
 
 function resolveOptionalUniqueNamedNodePath(
@@ -448,6 +462,71 @@ function resolveOptionalUniqueNamedNodePath(
   }
 
   return values.values().next().value!;
+}
+
+function resolveOptionalUniqueLiteralWorkingFilePath(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+  errorMessage: string,
+): string | undefined {
+  const values = new Set<string>();
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.subject.value !== subjectIri ||
+      quad.predicate.value !== predicateIri ||
+      quad.object.termType !== "Literal"
+    ) {
+      continue;
+    }
+
+    values.add(normalizeWorkingFilePath(quad.object.value, errorMessage));
+  }
+
+  if (values.size === 0) {
+    return undefined;
+  }
+  if (values.size !== 1) {
+    throw new Error(errorMessage);
+  }
+
+  return values.values().next().value!;
+}
+
+function normalizeWorkingFilePath(
+  value: string,
+  errorMessage: string,
+): string {
+  const trimmed = value.trim();
+
+  if (
+    trimmed.length === 0 ||
+    trimmed.startsWith("/") ||
+    trimmed.endsWith("/") ||
+    /^[A-Za-z]:/.test(trimmed)
+  ) {
+    throw new Error(errorMessage);
+  }
+  if (
+    trimmed.includes("\\") ||
+    trimmed.includes("?") ||
+    trimmed.includes("#") ||
+    /\s/.test(trimmed)
+  ) {
+    throw new Error(errorMessage);
+  }
+
+  const segments = trimmed.split("/");
+  if (segments.some((segment) => segment.length === 0)) {
+    throw new Error(errorMessage);
+  }
+  if (segments.some((segment) => segment === "." || segment === "..")) {
+    throw new Error(errorMessage);
+  }
+
+  return trimmed;
 }
 
 function toMeshIri(meshBase: string, meshPath: string): string {

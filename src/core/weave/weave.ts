@@ -53,6 +53,7 @@ const SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI =
   `${SFLO_NAMESPACE}hasWorkingKnopInventoryFile`;
 const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
   `${SFLO_NAMESPACE}hasWorkingLocatedFile`;
+const SFLO_WORKING_FILE_PATH_IRI = `${SFLO_NAMESPACE}workingFilePath`;
 const SFLO_KNOP_IRI = `${SFLO_NAMESPACE}Knop`;
 const SFLO_KNOP_INVENTORY_IRI = `${SFLO_NAMESPACE}KnopInventory`;
 const SFLO_KNOP_METADATA_IRI = `${SFLO_NAMESPACE}KnopMetadata`;
@@ -1437,11 +1438,6 @@ function assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
     [sourcePayloadDesignatorPath, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
     [
       sourcePayloadDesignatorPath,
-      SFLO_HAS_WORKING_LOCATED_FILE_IRI,
-      sourceWorkingFilePath,
-    ],
-    [
-      sourcePayloadDesignatorPath,
       SFLO_HAS_RESOURCE_PAGE_IRI,
       sourcePayloadPagePath,
     ],
@@ -1477,6 +1473,13 @@ function assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
       XSD_NON_NEGATIVE_INTEGER_IRI,
     ],
   ]);
+  assertHasCurrentWorkingFileLocator(
+    quads,
+    meshBase,
+    errorMessage,
+    sourcePayloadDesignatorPath,
+    sourceWorkingFilePath,
+  );
 
   if (
     hasNamedNodeFact(
@@ -1529,28 +1532,34 @@ function assertCurrentKnopInventoryShapeForFirstExtractedKnopWeave(
     [`${knopPath}/_meta`, RDF_TYPE_IRI, SFLO_KNOP_METADATA_IRI],
     [`${knopPath}/_meta`, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
     [`${knopPath}/_meta`, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
-    [
-      `${knopPath}/_meta`,
-      SFLO_HAS_WORKING_LOCATED_FILE_IRI,
-      `${knopPath}/_meta/meta.ttl`,
-    ],
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_KNOP_INVENTORY_IRI],
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
-    [
-      `${knopPath}/_inventory`,
-      SFLO_HAS_WORKING_LOCATED_FILE_IRI,
-      `${knopPath}/_inventory/inventory.ttl`,
-    ],
     [referenceCatalogPath, RDF_TYPE_IRI, SFLO_REFERENCE_CATALOG_IRI],
     [referenceCatalogPath, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
     [referenceCatalogPath, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
-    [
-      referenceCatalogPath,
-      SFLO_HAS_WORKING_LOCATED_FILE_IRI,
-      referenceCatalogWorkingFilePath,
-    ],
   ]);
+  assertHasCurrentWorkingFileLocator(
+    quads,
+    meshBase,
+    errorMessage,
+    `${knopPath}/_meta`,
+    `${knopPath}/_meta/meta.ttl`,
+  );
+  assertHasCurrentWorkingFileLocator(
+    quads,
+    meshBase,
+    errorMessage,
+    `${knopPath}/_inventory`,
+    `${knopPath}/_inventory/inventory.ttl`,
+  );
+  assertHasCurrentWorkingFileLocator(
+    quads,
+    meshBase,
+    errorMessage,
+    referenceCatalogPath,
+    referenceCatalogWorkingFilePath,
+  );
 
   if (hasPredicateFact(quads, SFLO_HAS_ARTIFACT_HISTORY_IRI)) {
     throw new WeaveInputError(
@@ -1676,8 +1685,14 @@ function assertCurrentPayloadArtifactShape(
     [designatorPath, RDF_TYPE_IRI, SFLO_PAYLOAD_ARTIFACT_IRI],
     [designatorPath, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
     [designatorPath, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
-    [designatorPath, SFLO_HAS_WORKING_LOCATED_FILE_IRI, workingFilePath],
   ]);
+  assertHasCurrentWorkingFileLocator(
+    quads,
+    meshBase,
+    errorMessage,
+    designatorPath,
+    workingFilePath,
+  );
 
   if (
     resolveOptionalNamedNodePath(
@@ -1738,12 +1753,14 @@ function assertCurrentKnopInventoryShapeForFirstPageDefinitionWeave(
     [`${knopPath}/_page`, RDF_TYPE_IRI, SFC_RESOURCE_PAGE_DEFINITION_IRI],
     [`${knopPath}/_page`, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
     [`${knopPath}/_page`, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
-    [
-      `${knopPath}/_page`,
-      SFLO_HAS_WORKING_LOCATED_FILE_IRI,
-      pageDefinitionArtifact.workingFilePath,
-    ],
   ]);
+  assertHasCurrentWorkingFileLocator(
+    quads,
+    meshBase,
+    errorMessage,
+    `${knopPath}/_page`,
+    pageDefinitionArtifact.workingFilePath,
+  );
   assertHasLiteralFacts(quads, meshBase, errorMessage, [[
     `${knopPath}/_inventory/_history001`,
     SFLO_NEXT_STATE_ORDINAL_IRI,
@@ -1837,12 +1854,14 @@ function assertCurrentKnopInventoryShapeForFirstReferenceCatalogWeave(
     [referenceCatalogPath, RDF_TYPE_IRI, SFLO_REFERENCE_CATALOG_IRI],
     [referenceCatalogPath, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
     [referenceCatalogPath, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
-    [
-      referenceCatalogPath,
-      SFLO_HAS_WORKING_LOCATED_FILE_IRI,
-      workingFilePath,
-    ],
   ]);
+  assertHasCurrentWorkingFileLocator(
+    quads,
+    meshBase,
+    errorMessage,
+    referenceCatalogPath,
+    workingFilePath,
+  );
   assertHasLiteralFacts(quads, meshBase, errorMessage, [
     [
       `${knopPath}/_inventory/_history001`,
@@ -1908,11 +1927,6 @@ function assertCurrentKnopInventoryShapeForSecondPayloadWeave(
       SFLO_LATEST_HISTORICAL_STATE_IRI,
       currentPayloadStatePath,
     ],
-    [
-      designatorPath,
-      SFLO_HAS_WORKING_LOCATED_FILE_IRI,
-      payloadArtifact.workingFilePath,
-    ],
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_KNOP_INVENTORY_IRI],
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
@@ -1926,12 +1940,21 @@ function assertCurrentKnopInventoryShapeForSecondPayloadWeave(
       SFLO_LATEST_HISTORICAL_STATE_IRI,
       `${knopPath}/_inventory/_history001/_s0001`,
     ],
-    [
-      `${knopPath}/_inventory`,
-      SFLO_HAS_WORKING_LOCATED_FILE_IRI,
-      `${knopPath}/_inventory/inventory.ttl`,
-    ],
   ]);
+  assertHasCurrentWorkingFileLocator(
+    quads,
+    meshBase,
+    errorMessage,
+    designatorPath,
+    payloadArtifact.workingFilePath,
+  );
+  assertHasCurrentWorkingFileLocator(
+    quads,
+    meshBase,
+    errorMessage,
+    `${knopPath}/_inventory`,
+    `${knopPath}/_inventory/inventory.ttl`,
+  );
   assertHasLiteralFacts(quads, meshBase, errorMessage, [
     [
       payloadHistoryPath,
@@ -4150,6 +4173,59 @@ function assertHasLiteralFacts(
   }
 }
 
+function assertHasCurrentWorkingFileLocator(
+  quads: readonly Quad[],
+  meshBase: string,
+  errorMessage: string,
+  subjectValue: string,
+  workingFilePath: string,
+): void {
+  const subjectIri = toAbsoluteIri(meshBase, subjectValue);
+  const values = new Set<string>();
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.subject.value !== subjectIri
+    ) {
+      continue;
+    }
+
+    if (
+      quad.predicate.value === SFLO_HAS_WORKING_LOCATED_FILE_IRI &&
+      quad.object.termType === "NamedNode"
+    ) {
+      try {
+        values.add(
+          toMeshRelativePath(
+            meshBase,
+            quad.object.value,
+            `working file locator for ${subjectValue}`,
+          ),
+        );
+      } catch {
+        throw new WeaveInputError(errorMessage);
+      }
+      continue;
+    }
+
+    if (
+      quad.predicate.value === SFLO_WORKING_FILE_PATH_IRI &&
+      quad.object.termType === "Literal"
+    ) {
+      try {
+        values.add(normalizeWorkingFilePathLiteral(quad.object.value));
+      } catch {
+        throw new WeaveInputError(errorMessage);
+      }
+    }
+  }
+
+  if (values.size !== 1 || !values.has(workingFilePath)) {
+    throw new WeaveInputError(errorMessage);
+  }
+}
+
 function hasNamedNodeFact(
   quads: readonly Quad[],
   meshBase: string,
@@ -4326,6 +4402,38 @@ function toMeshRelativePath(
   }
 
   return iri.slice(meshBase.length);
+}
+
+function normalizeWorkingFilePathLiteral(value: string): string {
+  const trimmed = value.trim();
+
+  if (
+    trimmed.length === 0 ||
+    trimmed.startsWith("/") ||
+    trimmed.endsWith("/") ||
+    /^[A-Za-z]:/.test(trimmed)
+  ) {
+    throw new Error("invalid workingFilePath");
+  }
+  if (
+    trimmed.includes("\\") ||
+    trimmed.includes("?") ||
+    trimmed.includes("#") ||
+    /\s/.test(trimmed)
+  ) {
+    throw new Error("invalid workingFilePath");
+  }
+
+  const segments = trimmed.split("/");
+  if (
+    segments.some((segment) =>
+      segment.length === 0 || segment === "." || segment === ".."
+    )
+  ) {
+    throw new Error("invalid workingFilePath");
+  }
+
+  return trimmed;
 }
 
 function toAbsoluteIri(meshBase: string, value: string): string {

@@ -433,6 +433,62 @@ Deno.test("executeWeave matches the settled alice page-customized-woven fixture"
   );
 });
 
+Deno.test("executeWeave resolves payload current files from workingFilePath literals", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-working-file-path-",
+  );
+  await materializeMeshAliceBioBranch("10-alice-bio-updated", workspaceRoot);
+  await replaceFileText(
+    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+    `sflo:hasWorkingLocatedFile <alice-bio.ttl> ;`,
+    `sflo:workingFilePath "alice-bio.ttl" ;`,
+  );
+
+  const result = await executeWeave({
+    workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "alice/bio" }],
+    },
+  });
+
+  assertEquals(result.wovenDesignatorPaths, ["alice/bio"]);
+  assert(
+    result.updatedPaths.includes("alice/bio/_knop/_inventory/inventory.ttl"),
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(join(workspaceRoot, "alice/bio/index.html")),
+    `../../alice-bio.ttl`,
+  );
+});
+
+Deno.test("executeWeave resolves page definitions from workingFilePath literals", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-page-definition-working-file-path-",
+  );
+  await materializeMeshAliceBioBranch(
+    "14-alice-page-customized",
+    workspaceRoot,
+  );
+  await replaceFileText(
+    join(workspaceRoot, "alice/_knop/_inventory/inventory.ttl"),
+    `sflo:hasWorkingLocatedFile <alice/_knop/_page/page.ttl> .`,
+    `sflo:workingFilePath "alice/_knop/_page/page.ttl" .`,
+  );
+
+  const result = await executeWeave({
+    workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "alice" }],
+    },
+  });
+
+  assertEquals(result.wovenDesignatorPaths, ["alice"]);
+  assertStringIncludes(
+    await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
+    `<p>This identifier page is customized by <code>alice/_knop/_page/page.ttl</code>.</p>`,
+  );
+});
+
 Deno.test("executeWeave materializes the second alice bio payload weave slice", async () => {
   const workspaceRoot = await createTestTmpDir("weave-weave-payload-v2-");
   await materializeMeshAliceBioBranch("10-alice-bio-updated", workspaceRoot);
