@@ -11,6 +11,7 @@ created: 1775953446000
 - Move allowed-directory and network-access policy for `workingFilePath`, `targetMeshPath`, `workingAccessUrl`, and `targetAccessUrl` out of ad hoc runtime assumptions and into an explicit configuration contract.
 - Reuse the useful "application config exists" idea from the old `sflo-host` line without inheriting its daemon-service bias as the default shape for current Weave work.
 - Make extra-mesh local targeting possible in a controlled way, especially `../` path traversal for `workingFilePath` and `targetMeshPath` within configured local boundaries.
+- Split repo-traveling operational access policy from user- or machine-local operational access policy so portable checkout expectations do not silently become host-trust decisions.
 - Keep operational config separate from core mesh RDF so persisted mesh data remains portable across users, machines, and checkout locations.
 
 ## Summary
@@ -27,6 +28,8 @@ What we do not yet have is the operational policy layer that says when a runtime
 That policy is no longer just a daemon concern. The current Weave CLI already needs it, because the next runtime slice is controlled extra-mesh local targeting for `../...` paths, and later slices may need explicit remote access policy too.
 
 The old `sflo-host` ontology is useful as precedent because it recognized that application/runtime behavior needs its own config surface. But it is not the right model to copy forward directly. Its center of gravity is `HostServiceConfig`, logging channels, contained service toggles, port/host/scheme binding, and service-host mesh registration. That is mostly daemon or long-running-host shape, not the shared runtime-resolution policy that current CLI and daemon both need.
+
+The current best direction is to keep this vocabulary in `semantic-flow-config-ontology.ttl` for now, with `OperationalConfig` as the broader root concept. A narrower `RuntimeResolutionConfig` can still appear later if the vocabulary grows enough that the resolution subset wants its own explicit subtype.
 
 This task should define the modern operational-config direction for runtime resolution boundaries and then wire it into Weave conservatively.
 
@@ -57,6 +60,49 @@ Most of the old `sflo-host` surface is service-host oriented:
 That is not the right first shape for the current problem.
 
 We need a config surface that a one-shot CLI invocation can load just as naturally as a daemon process. So the new note should not start from "host service" as the conceptual center. It should start from "runtime resolution policy" or equivalent.
+
+### Repo-traveling policy versus machine-local policy
+
+The strongest split for this task is not "daemon config versus CLI config" and not "all config is a versioned support artifact." It is:
+
+- repo-traveling operational policy that can safely ship with a checkout
+- machine-local operational policy that represents host trust and user preference
+
+The current likely conventions are:
+
+- `/.sf-repo-access.ttl`
+- `~/.sf-local-access.ttl`
+
+The first file should be able to say things like:
+
+- extra-mesh `../...` paths are allowed when they stay inside the checked-out repo boundary
+- certain repo-adjacent directories are allowed because the project intentionally lays content out that way
+
+The second file should be able to say things like:
+
+- broader host-local directories are allowed on this machine
+- remote access is allowed for specific schemes or origins
+- this user wants stricter or broader policy than the repo default
+
+That split matters because a cloned repo should not, by itself, be able to grant arbitrary host access. Repo-traveling policy should stay within a boundary that collaborators can reasonably audit and carry. Broader machine trust belongs in local config.
+
+### Relationship to mesh-managed config artifacts
+
+Older notes also explored versioned support-artifact config such as `_mesh/_mesh-config`, `_knop/_local-config`, and `_knop/_inheritable-config`. That line still has value, but it solves a different problem.
+
+Portable mesh-managed config artifacts are a good fit for:
+
+- page presentation defaults
+- renderer preferences
+- inheritable mesh behavior that should travel with the mesh
+
+They are not the best default home for host trust policy such as:
+
+- whether this machine may read `../documentation/...`
+- whether this machine may read outside the repo entirely
+- whether this machine may follow remote URLs
+
+So this task should keep mesh-managed `ConfigArtifact` work distinct from host/runtime trust policy, even though both live in the broader config line.
 
 ### Why this is now a first-class task
 
@@ -99,10 +145,11 @@ For example, it would be reasonable for the CLI to accept an explicit config fil
 The modern config ontology at `dependencies/github.com/semantic-flow/ontology/semantic-flow-config-ontology.ttl` already provides a generic `Config` / `ConfigArtifact` model. That suggests a likely direction:
 
 - keep generic config attachment in the config ontology line
-- define a new operational/runtime-resolution config vocabulary on top of that line, or adjacent to it
+- define `OperationalConfig` in that line for now rather than splitting immediately into a separate host/operational ontology
+- treat any later `RuntimeResolutionConfig` as a possible specialization rather than the first root concept
 - avoid dropping runtime policy directly into the core ontology
 
-The exact namespace split is still open. It may live in the current config ontology, or in a narrowly scoped companion ontology if that keeps concerns clearer.
+The namespace split can stay open for later if the operational line grows enough to justify its own companion ontology, but that is not a reason to block the first pass.
 
 ### Relationship to `1545`
 
@@ -117,11 +164,11 @@ That lets `1545` stay focused on page-definition behavior instead of turning int
 
 ## Open Issues
 
-- Whether the new vocabulary should live directly in `semantic-flow-config-ontology.ttl` or in a separate operational/host companion ontology.
-- Whether the first-pass root object should be named something like `OperationalConfig`, `RuntimeResolutionConfig`, or `HostRuntimeConfig`.
 - How config discovery and precedence should work across explicit CLI arguments, environment, and optional default file locations.
 - Whether local-directory policy should be represented as allowed roots, allowed path prefixes, or richer directory resources.
-- How to express policy for multiple meshes in one workspace or one daemon process without reviving the old `meshPaths` service-registration framing as the primary abstraction.
+- How to express policy for multiple meshes in one checkout or one daemon process without reviving the old `meshPaths` service-registration framing as the primary abstraction.
+- How strict the repo-traveling boundary should be: inside mesh only, inside repo only, or a constrained set of repo-adjacent paths rooted from the checkout.
+- Whether `/.sf-repo-access.ttl` and `~/.sf-local-access.ttl` should be the first-pass conventional file names or only documented example conventions.
 - Whether remote policy should be all-or-nothing at first or should immediately support scheme/origin allowlists.
 - How operational config should be surfaced in tests so extra-mesh path cases are easy to exercise without hiding policy in global environment state.
 - Whether logging/service-host concerns from the old `sflo-host` line should remain explicitly out of scope for this task or be listed as later follow-on work.
@@ -131,20 +178,28 @@ That lets `1545` stay focused on page-definition behavior instead of turning int
 - Operational resolution policy should be treated as a first-class config concern rather than as ad hoc runtime branching.
 - The new operational-config direction must be usable by CLI and daemon, not daemon-only.
 - The old `sflo-host` ontology is precedent, not a drop-in model.
+- The first-pass vocabulary should live in `semantic-flow-config-ontology.ttl` rather than blocking on a separate operational companion ontology.
+- `OperationalConfig` is the better broad root concept for this task; a narrower `RuntimeResolutionConfig` can still appear later as a subtype if the line needs it.
 - Service-host concerns such as port binding, contained service toggles, and log rotation should not define the center of this task.
 - Allowed-directory rules for `workingFilePath` and `targetMeshPath` should live in operational config, not in persisted mesh RDF.
 - Remote-use rules for `workingAccessUrl` and `targetAccessUrl` should also live in operational config, not in persisted mesh RDF.
 - The first widening target should be controlled extra-mesh local path resolution through configured allowed directories, not remote fetching.
+- Repo-traveling operational policy and machine-local operational policy should be modeled as distinct layers, even if they share vocabulary.
+- A repo-traveling access file should not by itself grant arbitrary host access outside the checked-out repo boundary.
+- Machine-local policy is the right place for broader host trust decisions such as extra-repo directories or remote-access allowances.
+- Mesh-managed `ConfigArtifact` work remains valid for portable behavior/config, but it should not become the default mechanism for machine-local host trust policy.
 - Runtime behavior should stay fail-closed when operational config is missing, malformed, or disallows the requested path or URL.
 
 ## Contract Changes
 
 - Introduce a modern operational-config task and vocabulary direction for runtime resolution policy.
 - Define a shared config shape that can be consumed by both CLI and daemon execution surfaces.
+- Define a repo-traveling operational access layer and a machine-local operational access layer with explicit precedence.
 - Define allowed local-directory policy for `workingFilePath` and `targetMeshPath`.
 - Define remote-access policy for `workingAccessUrl` and `targetAccessUrl`.
 - Define config-loading and precedence expectations at the runtime boundary.
 - Define how operational config interacts with portable mesh RDF without requiring absolute host paths in core data.
+- Define whether first-pass conventional discovery includes files such as `/.sf-repo-access.ttl` and `~/.sf-local-access.ttl`.
 
 ## Testing
 
@@ -162,6 +217,7 @@ That lets `1545` stay focused on page-definition behavior instead of turning int
 - Taking on log rotation, log sinks, API toggles, SPARQL toggles, or static-server toggles in this same slice.
 - Widening remote URL fetching before local allowed-directory policy is settled.
 - Persisting machine-specific absolute host paths in mesh RDF.
+- Making machine-local trust policy a default mesh-managed support artifact concern.
 
 ## Implementation Plan
 
@@ -174,8 +230,10 @@ That lets `1545` stay focused on page-definition behavior instead of turning int
 ### Phase 1: Define The Config Contract
 
 - [ ] Draft the first-pass operational-config vocabulary and example shapes.
+- [ ] Draft the split between repo-traveling access policy and machine-local access policy, including likely conventions such as `/.sf-repo-access.ttl` and `~/.sf-local-access.ttl`.
 - [ ] Define the runtime-facing semantics for allowed local directories, remote-access policy, and fail-closed behavior.
 - [ ] Define CLI/daemon/shared consumption expectations and config precedence rules.
+- [ ] Decide whether the first-pass access checker compares resolved paths against allowed roots, allowed prefixes, or richer directory resources.
 - [ ] Decide whether the first-pass config should support one mesh root, multiple mesh roots, or an abstract runtime context with multiple allowed roots.
 
 ### Phase 2: Implement Local Boundary Policy

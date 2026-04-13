@@ -231,6 +231,7 @@ Naming pushback:
 - How much template/chrome policy should be formalized in this slice versus deferred.
 - Whether first-pass import metadata for outside-the-tree content should be limited to explicit distributions only, or may also point at broader external artifact IRIs as import origins.
 - Which operational config vocabulary should carry allowed-directory rules for `targetMeshPath` and `workingFilePath`; see [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
+- The current operational-config direction is to keep that policy in the config ontology line under `OperationalConfig`, while separating repo-traveling access policy from machine-local trust policy; see [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
 - Which operational config vocabulary should carry remote target-access policy for `targetAccessUrl`; see [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
 - Which operational config vocabulary should carry remote-current-byte policy for `workingAccessUrl`; see [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
 

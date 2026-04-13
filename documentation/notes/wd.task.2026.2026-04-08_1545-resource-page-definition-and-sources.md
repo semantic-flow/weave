@@ -144,6 +144,7 @@ Minimal shape:
 - Whether first-pass fallback should stop at `AcceptLatestInRequestedHistory` or also allow an explicit current-history fallback policy later.
 - Whether local `targetMeshPath` helper sources should also carry media-type hints, or whether extension-driven/runtime inference is sufficient initially.
 - Which operational config vocabulary should carry allowed-directory rules for `targetMeshPath` and `workingFilePath`; see [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
+- The current operational-config direction is to keep that vocabulary in the config ontology line under a broad `OperationalConfig`, with a repo-traveling access layer kept distinct from machine-local trust policy; see [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
 - Which operational config vocabulary should carry remote target-access policy for `targetAccessUrl`; see [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
 - Which operational config vocabulary should carry remote-current-byte policy for `workingAccessUrl`; see [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
 
