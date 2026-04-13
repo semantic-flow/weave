@@ -231,7 +231,7 @@ Minimal shape:
 - [x] Draft the matching Accord manifests early, including the exact transition boundaries, expected file additions/changes, and any explicit exclusions needed for deterministic comparison.
 - [x] Keep the first carried fixture scope narrow: prove authority/precedence, local mesh-path sources, and `_knop/_assets` handling before broadening into in-mesh or import-oriented source behavior.
 - [x] Use the staged `14/15` fixture pair as the primary acceptance target while implementing the first runtime slice, updating the runtime toward the fixture rather than inventing runtime behavior first and backfilling fixtures later.
-- [x] Leave the carried follow-on ladder in the near-term plan, but do not let it block the first settled `14/15` slice: `16/17` should introduce and weave the governed Markdown artifact used for later page sourcing, `18/19` should prove Alice artifact-backed page sources, `20/21` should cover Bob imported-source behavior from a genuine outside-origin URL, and `22-25` should carry root continuation. `22/23` are now real carried root-lifecycle pairs; `24/25` remain.
+- [x] Leave the carried follow-on ladder in the near-term plan, but do not let it block the first settled `14/15` slice: `16/17` should introduce and weave the governed Markdown artifact used for later page sourcing, `18/19` should prove Alice artifact-backed page sources, `20/21` should cover Bob imported-source behavior from a genuine outside-origin URL, and `22-25` should carry root continuation. `22/23` and `24/25` are now all real carried root-lifecycle and root-customization pairs.
 
 #### Proposed Ladder Sketch
 
@@ -317,7 +317,7 @@ Minimal shape:
 
 `25-root-page-customized-woven`
 
-- Weave `22` so root `_knop/_page` gets normal support-artifact history/state materialization and support-artifact pages.
+- Weave `24` so root `_knop/_page` gets normal support-artifact history/state materialization and support-artifact pages.
 - Update root `index.html` to follow root `_knop/_page/page.ttl` and its mesh-local sources.
 - Keep root support assets at `_knop/_assets/...` rather than materializing a copied `_assets/...` surface.
 
@@ -350,8 +350,12 @@ The carried root-lifecycle manifests now also exist at:
 
 - `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/22-root-knop-created.jsonld`
 - `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/23-root-knop-created-woven.jsonld`
+- `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/24-root-page-customized.jsonld`
+- `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/25-root-page-customized-woven.jsonld`
 
-These `22/23` manifests cover the later-ladder root lifecycle without introducing root page customization yet. `22` proves root Knop support-surface creation in an already-evolved mesh. `23` proves the later first root-Knop weave, including `_mesh/_inventory/_history001/_s0006`, root `index.html`, root `_knop/index.html`, and the first root Knop support-artifact histories. The remaining root follow-on work is `24/25` for `_knop/_page`-driven root page customization.
+These `22/23` manifests cover the later-ladder root lifecycle without introducing root page customization yet. `22` proves root Knop support-surface creation in an already-evolved mesh. `23` proves the later first root-Knop weave, including `_mesh/_inventory/_history001/_s0006`, root `index.html`, root `_knop/index.html`, and the first root Knop support-artifact histories.
+
+These `24/25` manifests finish the root page-customization continuation. `24` adds `_knop/_page/page.ttl`, `home.md`, `mesh-content/root-sidebar.md`, and `_knop/_assets/site.css` while leaving the generic root page in place. `25` then versions `_knop/_page` into `_history001/_s0001`, advances root `_knop/_inventory` to `_history001/_s0002`, updates root `index.html` to the repo-tour layout, and keeps root `_knop` free of a reference-catalog surface.
 
 - `14` still uses provisional `operationId: "resourcePage.define"` until the concrete API/job naming settles.
 - the first support-artifact manifestation token remains `page-ttl`
@@ -564,7 +568,7 @@ Current `19-alice-page-artifact-source-woven` manifest shape:
 - [x] Keep generic generation authoritative for `_mesh`, Knop support-artifact, history, state, and manifestation pages unless a later spec explicitly expands `_knop/_page` to those surfaces.
 - [ ] Refactor the current identifier-page planning seam so `core/weave` can choose between a generic identifier-page model and a page-definition-driven model without hard-coding special cases in one large branch.
 - [ ] Keep page-content composition separate from template/chrome policy, so `ResourcePagePresentationConfig` stays adjacent and optional rather than becoming a prerequisite for first-pass page-definition support.
-- [ ] Preserve root behavior: `_mesh/index.html` remains mesh support, while root `index.html` is the identifier page customized by root `_knop/_page` when present.
+- [x] Preserve root behavior: `_mesh/index.html` remains mesh support, while root `index.html` is the identifier page customized by root `_knop/_page` when present.
 
 ### Phase 5: Artifact Resolution And Import-Oriented Source Support
 
@@ -590,5 +594,5 @@ Current `19-alice-page-artifact-source-woven` manifest shape:
 - [x] Add focused coverage for later page-definition revisions that version a second `_page` state and later Alice KnopInventory state without widening mesh inventory.
 - [ ] Add integration coverage for import-boundary behavior.
 - [x] Continue the Accord fixture ladder after the now-real `16-21` slices with `22/23` for root lifecycle continuation.
-- [ ] Finish the root continuation ladder with `24/25` for root page customization.
+- [x] Finish the root continuation ladder with `24/25` for root page customization.
 - [ ] Update [[wd.codebase-overview]] once the runtime seams and carried slice are real.

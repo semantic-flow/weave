@@ -602,6 +602,57 @@ Deno.test("executeWeave versions a later page-definition revision that repoints 
   );
 });
 
+Deno.test("executeWeave versions the first root page-definition revision", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-root-page-definition-",
+  );
+  await materializeMeshAliceBioBranch("24-root-page-customized", workspaceRoot);
+
+  const result = await executeWeave({
+    workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "" }],
+    },
+  });
+
+  assertEquals(result.wovenDesignatorPaths, [""]);
+  assert(result.createdPaths.includes(
+    "_knop/_page/_history001/_s0001/page-ttl/page.ttl",
+  ));
+  assert(result.createdPaths.includes(
+    "_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+  ));
+  assert(result.updatedPaths.includes("_knop/_inventory/inventory.ttl"));
+  assertStringIncludes(
+    await Deno.readTextFile(join(workspaceRoot, "index.html")),
+    "Tour of the repo",
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(join(workspaceRoot, "index.html")),
+    "Knop-backed identifiers",
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(join(workspaceRoot, "index.html")),
+    "./_knop/_assets/site.css",
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "_knop/_inventory/inventory.ttl"),
+    ),
+    "sflo:latestHistoricalState <_knop/_page/_history001/_s0001> ;",
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "_knop/_inventory/inventory.ttl"),
+    ),
+    "sflo:latestHistoricalState <_knop/_inventory/_history001/_s0002> ;",
+  );
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, "_knop/_references/index.html")),
+    Deno.errors.NotFound,
+  );
+});
+
 Deno.test("executeWeave resolves artifact-backed page sources through workingFilePath when repo policy permits them", async () => {
   const repoRoot = await createTestTmpDir(
     "weave-weave-page-definition-artifact-working-file-allow-",

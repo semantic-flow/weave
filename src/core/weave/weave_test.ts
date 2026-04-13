@@ -1813,6 +1813,69 @@ Deno.test("planWeave renders a later page-definition weave revision", async () =
   ]);
 });
 
+Deno.test("planWeave renders a root page-definition weave without requiring a reference catalog", async () => {
+  const meshBase = "https://semantic-flow.github.io/mesh-alice-bio/";
+  const currentPageDefinitionTurtle = await readMeshAliceBioBranchFile(
+    "24-root-page-customized",
+    "_knop/_page/page.ttl",
+  );
+  const plan = planWeave({
+    request: {
+      targets: [{ designatorPath: "" }],
+    },
+    meshBase,
+    currentMeshInventoryTurtle: await readMeshAliceBioBranchFile(
+      "24-root-page-customized",
+      "_mesh/_inventory/inventory.ttl",
+    ),
+    weaveableKnops: [{
+      designatorPath: "",
+      currentKnopMetadataTurtle: await readMeshAliceBioBranchFile(
+        "24-root-page-customized",
+        "_knop/_meta/meta.ttl",
+      ),
+      currentKnopInventoryTurtle: await readMeshAliceBioBranchFile(
+        "24-root-page-customized",
+        "_knop/_inventory/inventory.ttl",
+      ),
+      resourcePageDefinitionArtifact: {
+        artifactPath: "_knop/_page",
+        workingFilePath: "_knop/_page/page.ttl",
+        currentPageDefinitionTurtle,
+        currentArtifactHistoryExists: false,
+        assetBundlePath: "_knop/_assets",
+      },
+    }],
+  });
+
+  assertEquals(plan.wovenDesignatorPaths, [""]);
+  assertEquals(plan.updatedFiles.map((file) => file.path), [
+    "_knop/_inventory/inventory.ttl",
+  ]);
+  assertEquals(plan.createdFiles.map((file) => file.path), [
+    "_knop/_page/_history001/_s0001/page-ttl/page.ttl",
+    "_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+  ]);
+  assertEquals(plan.createdFiles[0]?.contents, currentPageDefinitionTurtle);
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    "sflo:latestHistoricalState <_knop/_page/_history001/_s0001> ;",
+  );
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    "sflo:latestHistoricalState <_knop/_inventory/_history001/_s0002> ;",
+  );
+  assertEquals(plan.createdPages.map((page) => page.path), [
+    "index.html",
+    "_knop/_inventory/_history001/_s0002/index.html",
+    "_knop/_inventory/_history001/_s0002/inventory-ttl/index.html",
+    "_knop/_page/index.html",
+    "_knop/_page/_history001/index.html",
+    "_knop/_page/_history001/_s0001/index.html",
+    "_knop/_page/_history001/_s0001/page-ttl/index.html",
+  ]);
+});
+
 async function createExtractedBobWeaveInput(): Promise<PlanWeaveInput> {
   return {
     request: {

@@ -1123,6 +1123,11 @@ function planPageDefinitionWeave(
       pageDefinitionArtifact,
       progression,
     );
+  const hasReferenceCatalog = hasReferenceCatalogInKnopInventory(
+    meshBase,
+    candidate.currentKnopInventoryTurtle,
+    designatorPath,
+  );
 
   if (!pageDefinitionArtifact.currentArtifactHistoryExists) {
     assertCurrentKnopInventoryShapeForFirstPageDefinitionWeave(
@@ -1151,6 +1156,7 @@ function planPageDefinitionWeave(
       progression,
       knopInventoryProgression,
       pageDefinitionArtifact.assetBundlePath,
+      hasReferenceCatalog,
     );
 
   return {
@@ -1179,6 +1185,27 @@ function planPageDefinitionWeave(
       knopInventoryProgression,
     ),
   };
+}
+
+function hasReferenceCatalogInKnopInventory(
+  meshBase: string,
+  currentKnopInventoryTurtle: string,
+  designatorPath: string,
+): boolean {
+  const knopPath = toKnopPath(designatorPath);
+  const quads = parseWeaveShapeQuads(
+    meshBase,
+    currentKnopInventoryTurtle,
+    `Unable to resolve the current KnopInventory shape for ${designatorPath}.`,
+  );
+
+  return hasNamedNodeFact(
+    quads,
+    meshBase,
+    knopPath,
+    SFLO_HAS_REFERENCE_CATALOG_IRI,
+    `${knopPath}/_references`,
+  );
 }
 
 function planSecondPayloadWeave(
@@ -1314,7 +1341,6 @@ function resolveCurrentKnopInventoryProgressionForPageDefinitionWeave(
   pageDefinitionProgression: PageDefinitionWeaveProgression,
 ): MeshInventoryProgression {
   const knopPath = toKnopPath(designatorPath);
-  const referenceCatalogPath = `${knopPath}/_references`;
   const pageDefinitionPath = pageDefinitionArtifact.artifactPath;
   const errorMessage =
     `The current local weave slice only supports a settled page-definition KnopInventory progression for ${designatorPath}.`;
@@ -1328,7 +1354,6 @@ function resolveCurrentKnopInventoryProgressionForPageDefinitionWeave(
     [knopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
     [knopPath, SFLO_HAS_KNOP_METADATA_IRI, `${knopPath}/_meta`],
     [knopPath, SFLO_HAS_KNOP_INVENTORY_IRI, `${knopPath}/_inventory`],
-    [knopPath, SFLO_HAS_REFERENCE_CATALOG_IRI, referenceCatalogPath],
     [knopPath, SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI, pageDefinitionPath],
     [
       knopPath,
@@ -2044,7 +2069,6 @@ function assertCurrentKnopInventoryShapeForFirstPageDefinitionWeave(
     [knopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
     [knopPath, SFLO_HAS_KNOP_METADATA_IRI, `${knopPath}/_meta`],
     [knopPath, SFLO_HAS_KNOP_INVENTORY_IRI, `${knopPath}/_inventory`],
-    [knopPath, SFLO_HAS_REFERENCE_CATALOG_IRI, `${knopPath}/_references`],
     [knopPath, SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI, `${knopPath}/_page`],
     [
       knopPath,
@@ -3461,10 +3485,14 @@ function renderSubsequentPageDefinitionWovenKnopInventoryTurtle(
   progression: PageDefinitionWeaveProgression,
   knopInventoryProgression: MeshInventoryProgression,
   assetBundlePath?: string,
+  hasReferenceCatalog = true,
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const referenceCatalogPath = `${knopPath}/_references`;
   const pageDefinitionPath = `${knopPath}/_page`;
+  const referenceCatalogLines = hasReferenceCatalog
+    ? `  sflo:hasReferenceCatalog <${referenceCatalogPath}> ;\n`
+    : "";
   const assetBundleLines = assetBundlePath
     ? ` ;
   <${SFC_HAS_KNOP_ASSET_BUNDLE_IRI}> <${assetBundlePath}>`
@@ -3566,6 +3594,51 @@ ${renderResourcePageLocatedFileBlock(`${statePath}/inventory-ttl/index.html`)}`;
 ${renderResourcePageLocatedFileBlock(`${statePath}/page-ttl/index.html`)}`;
     },
   ).join("\n\n");
+  const referenceCatalogArtifactBlock = hasReferenceCatalog
+    ? `
+
+<${referenceCatalogPath}> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasArtifactHistory <${referenceCatalogPath}/_history001> ;
+  sflo:currentArtifactHistory <${referenceCatalogPath}/_history001> ;
+  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
+  sflo:hasWorkingLocatedFile <${referenceCatalogPath}/references.ttl> ;
+  sflo:hasResourcePage <${referenceCatalogPath}/index.html> .`
+    : "";
+  const referenceCatalogHistoryBlocks = hasReferenceCatalog
+    ? `
+
+<${knopPath}/_references/_history001> a sflo:ArtifactHistory ;
+  sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
+  sflo:hasHistoricalState <${knopPath}/_references/_history001/_s0001> ;
+  sflo:latestHistoricalState <${knopPath}/_references/_history001/_s0001> ;
+  sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger ;
+  sflo:hasResourcePage <${knopPath}/_references/_history001/index.html> .
+
+<${knopPath}/_references/_history001/_s0001> a sflo:HistoricalState ;
+  sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
+  sflo:hasManifestation <${knopPath}/_references/_history001/_s0001/references-ttl> ;
+  sflo:locatedFileForState <${knopPath}/_references/_history001/_s0001/references-ttl/references.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_references/_history001/_s0001/index.html> .
+
+<${knopPath}/_references/_history001/_s0001/references-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <${knopPath}/_references/_history001/_s0001/references-ttl/references.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_references/_history001/_s0001/references-ttl/index.html> .`
+    : "";
+  const referenceCatalogLocatedFileBlock = hasReferenceCatalog
+    ? `\n\n<${referenceCatalogPath}/references.ttl> a sflo:LocatedFile, sflo:RdfDocument .`
+    : "";
+  const referenceCatalogHistoricalLocatedFileBlock = hasReferenceCatalog
+    ? `\n\n<${knopPath}/_references/_history001/_s0001/references-ttl/references.ttl> a sflo:LocatedFile, sflo:RdfDocument .`
+    : "";
+  const referenceCatalogResourcePageBlocks = hasReferenceCatalog
+    ? `\n\n<${referenceCatalogPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<${referenceCatalogPath}/_history001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<${referenceCatalogPath}/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<${knopPath}/_references/_history001/_s0001/references-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .`
+    : "";
 
   return `@base <${meshBase}> .
 @prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
@@ -3575,7 +3648,7 @@ ${renderResourcePageLocatedFileBlock(`${statePath}/page-ttl/index.html`)}`;
   sflo:hasKnopMetadata <${knopPath}/_meta> ;
   sflo:hasKnopInventory <${knopPath}/_inventory> ;
   sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> ;
-  sflo:hasReferenceCatalog <${referenceCatalogPath}> ;
+${referenceCatalogLines}
   sflo:hasResourcePage <${knopPath}/index.html> ;
   <${SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI}> <${pageDefinitionPath}>${assetBundleLines} .
 
@@ -3609,13 +3682,7 @@ ${renderResourcePageLocatedFileBlock(`${statePath}/page-ttl/index.html`)}`;
   sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
   sflo:hasWorkingLocatedFile <${knopPath}/_inventory/inventory.ttl> ;
   sflo:hasResourcePage <${knopPath}/_inventory/index.html> .
-
-<${referenceCatalogPath}> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasArtifactHistory <${referenceCatalogPath}/_history001> ;
-  sflo:currentArtifactHistory <${referenceCatalogPath}/_history001> ;
-  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasWorkingLocatedFile <${referenceCatalogPath}/references.ttl> ;
-  sflo:hasResourcePage <${referenceCatalogPath}/index.html> .
+${referenceCatalogArtifactBlock}
 
 <${pageDefinitionPath}> a <${SFC_RESOURCE_PAGE_DEFINITION_IRI}>, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <${progression.historyPath}> ;
@@ -3662,37 +3729,19 @@ ${
 ${knopInventoryStateBlocks}
 
 ${knopInventoryManifestationBlocks}
-
-<${knopPath}/_references/_history001> a sflo:ArtifactHistory ;
-  sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasHistoricalState <${knopPath}/_references/_history001/_s0001> ;
-  sflo:latestHistoricalState <${knopPath}/_references/_history001/_s0001> ;
-  sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasResourcePage <${knopPath}/_references/_history001/index.html> .
-
-<${knopPath}/_references/_history001/_s0001> a sflo:HistoricalState ;
-  sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <${knopPath}/_references/_history001/_s0001/references-ttl> ;
-  sflo:locatedFileForState <${knopPath}/_references/_history001/_s0001/references-ttl/references.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_references/_history001/_s0001/index.html> .
-
-<${knopPath}/_references/_history001/_s0001/references-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${knopPath}/_references/_history001/_s0001/references-ttl/references.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_references/_history001/_s0001/references-ttl/index.html> .
+${referenceCatalogHistoryBlocks}
 
 <${knopPath}/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<${referenceCatalogPath}/references.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+${referenceCatalogLocatedFileBlock}
 
 ${currentWorkingFileDeclaration}
 
 <${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 ${knopInventoryLocatedFileBlocks}
-
-<${knopPath}/_references/_history001/_s0001/references-ttl/references.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+${referenceCatalogHistoricalLocatedFileBlock}
 
 ${pageDefinitionLocatedFileBlocks}
 
@@ -3711,14 +3760,7 @@ ${pageDefinitionLocatedFileBlocks}
 <${knopInventoryProgression.historyPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 ${knopInventoryResourcePageBlocks}
-
-<${referenceCatalogPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${referenceCatalogPath}/_history001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${referenceCatalogPath}/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${knopPath}/_references/_history001/_s0001/references-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+${referenceCatalogResourcePageBlocks}
 
 <${pageDefinitionPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
