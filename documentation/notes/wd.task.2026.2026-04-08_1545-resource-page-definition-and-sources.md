@@ -446,9 +446,9 @@ Current `17-alice-page-main-integrated-woven` manifest shape:
   - `alice/page-main/_knop/_inventory/_history001/_s0001/inventory-ttl/index.html`
   - `alice/page-main/_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl`
 - added mesh inventory state outputs:
-  - `_mesh/_inventory/_history001/_s0004/index.html`
-  - `_mesh/_inventory/_history001/_s0004/inventory-ttl/index.html`
-  - `_mesh/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl`
+  - `_mesh/_inventory/_history001/_s0005/index.html`
+  - `_mesh/_inventory/_history001/_s0005/inventory-ttl/index.html`
+  - `_mesh/_inventory/_history001/_s0005/inventory-ttl/inventory.ttl`
 - updated files:
   - `_mesh/_inventory/inventory.ttl`
   - `_mesh/_inventory/_history001/index.html`
@@ -460,7 +460,7 @@ Current `17-alice-page-main-integrated-woven` manifest shape:
   - `alice/index.html`
 - RDF assertions prove:
   - the new `alice/page-main` payload artifact now has `_history001/_s0001` and a public `alice/page-main/index.html`
-  - `_mesh/_inventory/_history001` now advances to `_s0004` to register the new woven `alice/page-main` current surface
+  - `_mesh/_inventory/_history001` now advances to `_s0005` to register the new woven `alice/page-main` current surface
   - `alice/_knop/_page#main-source` still resolves through `targetMeshPath "alice/alice.md"`
   - Alice's public page has not changed yet
 
