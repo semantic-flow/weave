@@ -1,9 +1,18 @@
 import { join } from "@std/path";
 import * as pathPosix from "@std/path/posix";
 import { Parser, type Quad } from "n3";
-import { formatDesignatorPathForDisplay } from "../../core/designator_segments.ts";
+import {
+  formatDesignatorPathForDisplay,
+  normalizeSafeDesignatorPath,
+  toKnopPath,
+} from "../../core/designator_segments.ts";
 import type { ResourcePageDefinitionWorkingArtifact } from "../../core/weave/weave.ts";
-import { type ResourcePageDefinitionInventoryState } from "../mesh/inventory.ts";
+import {
+  resolvePayloadArtifactInventoryState,
+  resolveReferenceCatalogInventoryState,
+  resolveResourcePageDefinitionInventoryState,
+  type ResourcePageDefinitionInventoryState,
+} from "../mesh/inventory.ts";
 import {
   LocalPathAccessError,
   type OperationalLocalPathPolicy,
@@ -17,8 +26,30 @@ const SFC_HAS_RESOURCE_PAGE_SOURCE_IRI =
 const SFC_HAS_TARGET_ARTIFACT_IRI = `${SFC_NAMESPACE}hasTargetArtifact`;
 const SFC_HAS_TARGET_DISTRIBUTION_IRI = `${SFC_NAMESPACE}hasTargetDistribution`;
 const SFC_HAS_TARGET_LOCATED_FILE_IRI = `${SFC_NAMESPACE}hasTargetLocatedFile`;
+const SFC_HAS_REQUESTED_TARGET_HISTORY_IRI =
+  `${SFC_NAMESPACE}hasRequestedTargetHistory`;
+const SFC_HAS_REQUESTED_TARGET_STATE_IRI =
+  `${SFC_NAMESPACE}hasRequestedTargetState`;
+const SFC_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
+  `${SFC_NAMESPACE}hasArtifactResolutionMode`;
+const SFC_HAS_ARTIFACT_RESOLUTION_FALLBACK_POLICY_IRI =
+  `${SFC_NAMESPACE}hasArtifactResolutionFallbackPolicy`;
 const SFC_TARGET_MESH_PATH_IRI = `${SFC_NAMESPACE}targetMeshPath`;
+const SFC_TARGET_ACCESS_URL_IRI = `${SFC_NAMESPACE}targetAccessUrl`;
 const SFC_REGION_KEY_IRI = `${SFC_NAMESPACE}regionKey`;
+const SFC_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
+  `${SFC_NAMESPACE}ArtifactResolutionMode/Current`;
+const PAGE_DEFINITION_ARTIFACT_SUFFIX = "/_knop/_page";
+const ROOT_PAGE_DEFINITION_ARTIFACT_PATH = "_knop/_page";
+const ROOT_REFERENCE_CATALOG_PATH = "_knop/_references";
+const REFERENCE_CATALOG_SUFFIX = "/_knop/_references";
+
+interface ArtifactSourceCurrentState {
+  kind: "payload" | "referenceCatalog" | "resourcePageDefinition";
+  designatorPath: string;
+  artifactPath: string;
+  workingFilePath: string;
+}
 
 export interface CustomIdentifierRegionModel {
   key: string;
@@ -133,6 +164,26 @@ export async function loadActiveCustomIdentifierPage(
         sourceSubject,
         SFC_HAS_TARGET_ARTIFACT_IRI,
       );
+      const requestedTargetHistories = collectNamedNodeObjects(
+        quads,
+        sourceSubject,
+        SFC_HAS_REQUESTED_TARGET_HISTORY_IRI,
+      );
+      const requestedTargetStates = collectNamedNodeObjects(
+        quads,
+        sourceSubject,
+        SFC_HAS_REQUESTED_TARGET_STATE_IRI,
+      );
+      const artifactResolutionModes = collectNamedNodeObjects(
+        quads,
+        sourceSubject,
+        SFC_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
+      );
+      const artifactResolutionFallbackPolicies = collectNamedNodeObjects(
+        quads,
+        sourceSubject,
+        SFC_HAS_ARTIFACT_RESOLUTION_FALLBACK_POLICY_IRI,
+      );
       const targetDistribution = collectNamedNodeObjects(
         quads,
         sourceSubject,
@@ -143,60 +194,131 @@ export async function loadActiveCustomIdentifierPage(
         sourceSubject,
         SFC_HAS_TARGET_LOCATED_FILE_IRI,
       );
+      const targetMeshPaths = collectLiteralObjects(
+        quads,
+        sourceSubject,
+        SFC_TARGET_MESH_PATH_IRI,
+      );
+      const targetAccessUrls = collectLiteralObjects(
+        quads,
+        sourceSubject,
+        SFC_TARGET_ACCESS_URL_IRI,
+      );
 
       if (
-        targetArtifact.length > 0 ||
+        countDeclaredTargetLocators([
+          targetArtifact.length,
+          targetDistribution.length,
+          targetLocatedFile.length,
+          targetMeshPaths.length,
+          targetAccessUrls.length,
+        ]) > 1
+      ) {
+        throw new ResourcePageDefinitionResolutionError(
+          `ResourcePageDefinition region ${key} for ${
+            formatDesignatorPathForDisplay(designatorPath)
+          } declares multiple target locators; this first implementation slice requires exactly one target locator per ResourcePageSource.`,
+        );
+      }
+
+      if (targetMeshPaths.length === 1) {
+        if (
+          requestedTargetHistories.length > 0 ||
+          requestedTargetStates.length > 0 ||
+          artifactResolutionModes.length > 0 ||
+          artifactResolutionFallbackPolicies.length > 0
+        ) {
+          throw new ResourcePageDefinitionResolutionError(
+            `ResourcePageDefinition region ${key} for ${
+              formatDesignatorPathForDisplay(designatorPath)
+            } applies artifact-resolution policy fields to a direct targetMeshPath source, which this first implementation slice does not support.`,
+          );
+        }
+
+        const sourcePath = normalizeTargetMeshPath(
+          targetMeshPaths[0]!,
+          designatorPath,
+        );
+
+        return {
+          key,
+          sourcePath,
+          markdown: await readAllowedSourceText(
+            localPathPolicy,
+            "targetMeshPath",
+            sourcePath,
+            `ResourcePageDefinition region ${key} for ${
+              formatDesignatorPathForDisplay(designatorPath)
+            } points outside the allowed local-path boundary: ${sourcePath}`,
+            `ResourcePageDefinition region ${key} for ${
+              formatDesignatorPathForDisplay(designatorPath)
+            } points at a missing mesh-local file: ${sourcePath}`,
+          ),
+        };
+      }
+
+      if (targetAccessUrls.length > 0) {
+        throw new ResourcePageDefinitionResolutionError(
+          `ResourcePageDefinition region ${key} for ${
+            formatDesignatorPathForDisplay(designatorPath)
+          } uses targetAccessUrl, which page generation does not support in this implementation slice.`,
+        );
+      }
+
+      if (
         targetDistribution.length > 0 ||
         targetLocatedFile.length > 0
       ) {
         throw new ResourcePageDefinitionResolutionError(
           `ResourcePageDefinition region ${key} for ${
             formatDesignatorPathForDisplay(designatorPath)
-          } uses artifact/distribution/located-file targets that this first implementation slice does not support yet.`,
+          } uses distribution/located-file targets that this first implementation slice does not support yet.`,
         );
       }
 
-      const sourcePath = normalizeTargetMeshPath(
-        requireUniqueLiteral(
-          quads,
-          sourceSubject,
-          SFC_TARGET_MESH_PATH_IRI,
-          `ResourcePageDefinition region ${key} is missing targetMeshPath for ${
-            formatDesignatorPathForDisplay(designatorPath)
-          }.`,
-        ),
-        designatorPath,
+      const targetArtifactIri = requireSingleNamedNodeTarget(
+        targetArtifact,
+        `ResourcePageDefinition region ${key} for ${
+          formatDesignatorPathForDisplay(designatorPath)
+        } must declare exactly one target locator.`,
+      );
+      const resolutionMode = requireOptionalSingleNamedNodeTarget(
+        artifactResolutionModes,
+        `ResourcePageDefinition region ${key} for ${
+          formatDesignatorPathForDisplay(designatorPath)
+        } declares multiple artifact resolution modes.`,
       );
 
-      try {
-        return {
-          key,
-          sourcePath,
-          markdown: await Deno.readTextFile(
-            resolveAllowedLocalPath(
-              localPathPolicy,
-              "targetMeshPath",
-              sourcePath,
-            ),
-          ),
-        };
-      } catch (error) {
-        if (error instanceof LocalPathAccessError) {
-          throw new ResourcePageDefinitionResolutionError(
-            `ResourcePageDefinition region ${key} for ${
-              formatDesignatorPathForDisplay(designatorPath)
-            } points outside the allowed local-path boundary: ${sourcePath}`,
-          );
-        }
-        if (error instanceof Deno.errors.NotFound) {
-          throw new ResourcePageDefinitionResolutionError(
-            `ResourcePageDefinition region ${key} for ${
-              formatDesignatorPathForDisplay(designatorPath)
-            } points at a missing mesh-local file: ${sourcePath}`,
-          );
-        }
-        throw error;
+      if (
+        requestedTargetHistories.length > 0 ||
+        requestedTargetStates.length > 0 ||
+        artifactResolutionFallbackPolicies.length > 0
+      ) {
+        throw new ResourcePageDefinitionResolutionError(
+          `ResourcePageDefinition region ${key} for ${
+            formatDesignatorPathForDisplay(designatorPath)
+          } requests pinned/history/fallback artifact resolution that this first artifact-backed page-source slice does not support yet.`,
+        );
       }
+      if (
+        resolutionMode !== undefined &&
+        resolutionMode !== SFC_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI
+      ) {
+        throw new ResourcePageDefinitionResolutionError(
+          `ResourcePageDefinition region ${key} for ${
+            formatDesignatorPathForDisplay(designatorPath)
+          } requests a non-Current artifact resolution mode that this first artifact-backed page-source slice does not support yet.`,
+        );
+      }
+
+      return await loadCurrentArtifactSourceRegion(
+        meshRoot,
+        localPathPolicy,
+        meshBase,
+        designatorPath,
+        key,
+        targetArtifactIri,
+      );
     }),
   );
 
@@ -260,6 +382,29 @@ function collectNamedNodeObjects(
   return [...values];
 }
 
+function collectLiteralObjects(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+): readonly string[] {
+  const values = new Set<string>();
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.subject.value !== subjectIri ||
+      quad.predicate.value !== predicateIri ||
+      quad.object.termType !== "Literal"
+    ) {
+      continue;
+    }
+
+    values.add(quad.object.value);
+  }
+
+  return [...values];
+}
+
 function requireUniqueNamedNode(
   quads: readonly Quad[],
   subjectIri: string,
@@ -301,6 +446,35 @@ function requireUniqueLiteral(
   return values.values().next().value!;
 }
 
+function requireSingleNamedNodeTarget(
+  values: readonly string[],
+  errorMessage: string,
+): string {
+  if (values.length !== 1) {
+    throw new ResourcePageDefinitionResolutionError(errorMessage);
+  }
+
+  return values[0]!;
+}
+
+function requireOptionalSingleNamedNodeTarget(
+  values: readonly string[],
+  errorMessage: string,
+): string | undefined {
+  if (values.length === 0) {
+    return undefined;
+  }
+  if (values.length !== 1) {
+    throw new ResourcePageDefinitionResolutionError(errorMessage);
+  }
+
+  return values[0]!;
+}
+
+function countDeclaredTargetLocators(lengths: readonly number[]): number {
+  return lengths.filter((length) => length > 0).length;
+}
+
 function normalizeTargetMeshPath(
   value: string,
   designatorPath: string,
@@ -332,6 +506,264 @@ function normalizeTargetMeshPath(
   }
 
   return normalized;
+}
+
+async function loadCurrentArtifactSourceRegion(
+  meshRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
+  meshBase: string,
+  ownerDesignatorPath: string,
+  regionKey: string,
+  targetArtifactIri: string,
+): Promise<CustomIdentifierRegionModel> {
+  const currentState = await resolveArtifactSourceCurrentState(
+    meshRoot,
+    meshBase,
+    ownerDesignatorPath,
+    regionKey,
+    targetArtifactIri,
+  );
+
+  return {
+    key: regionKey,
+    sourcePath: currentState.workingFilePath,
+    markdown: await readAllowedSourceText(
+      localPathPolicy,
+      "workingFilePath",
+      currentState.workingFilePath,
+      `ResourcePageDefinition region ${regionKey} for ${
+        formatDesignatorPathForDisplay(ownerDesignatorPath)
+      } points at governed artifact ${currentState.artifactPath}, whose current working bytes are outside the allowed local-path boundary: ${currentState.workingFilePath}`,
+      `ResourcePageDefinition region ${regionKey} for ${
+        formatDesignatorPathForDisplay(ownerDesignatorPath)
+      } points at governed artifact ${currentState.artifactPath}, whose current working file is missing: ${currentState.workingFilePath}`,
+    ),
+  };
+}
+
+async function resolveArtifactSourceCurrentState(
+  meshRoot: string,
+  meshBase: string,
+  ownerDesignatorPath: string,
+  regionKey: string,
+  targetArtifactIri: string,
+): Promise<ArtifactSourceCurrentState> {
+  const targetArtifactPath = requireMeshPathFromTargetArtifact(
+    meshBase,
+    targetArtifactIri,
+    `ResourcePageDefinition region ${regionKey} for ${
+      formatDesignatorPathForDisplay(ownerDesignatorPath)
+    } must target an in-mesh governed artifact.`,
+  );
+  const targetKind = describeSupportedTargetArtifact(
+    targetArtifactPath,
+    `ResourcePageDefinition region ${regionKey} for ${
+      formatDesignatorPathForDisplay(ownerDesignatorPath)
+    } targets unsupported artifact ${targetArtifactPath}; this first slice supports payload artifacts, ReferenceCatalog artifacts, and ResourcePageDefinition artifacts only.`,
+  );
+  const targetKnopInventoryPath = join(
+    meshRoot,
+    `${toKnopPath(targetKind.designatorPath)}/_inventory/inventory.ttl`,
+  );
+
+  let targetKnopInventoryTurtle: string;
+  try {
+    targetKnopInventoryTurtle = await Deno.readTextFile(
+      targetKnopInventoryPath,
+    );
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      throw new ResourcePageDefinitionResolutionError(
+        `ResourcePageDefinition region ${regionKey} for ${
+          formatDesignatorPathForDisplay(ownerDesignatorPath)
+        } targets governed artifact ${targetArtifactPath}, but its owning Knop inventory is missing: ${
+          pathPosix.join(
+            toKnopPath(targetKind.designatorPath),
+            "_inventory/inventory.ttl",
+          )
+        }`,
+      );
+    }
+    throw error;
+  }
+
+  const workingFilePath = resolveArtifactSourceWorkingFilePath(
+    meshBase,
+    targetKnopInventoryTurtle,
+    targetKind,
+    ownerDesignatorPath,
+    regionKey,
+  );
+
+  return {
+    ...targetKind,
+    workingFilePath,
+  };
+}
+
+function resolveArtifactSourceWorkingFilePath(
+  meshBase: string,
+  targetKnopInventoryTurtle: string,
+  target: Omit<ArtifactSourceCurrentState, "workingFilePath">,
+  ownerDesignatorPath: string,
+  regionKey: string,
+): string {
+  const parseErrorMessage =
+    `Could not parse the current Knop inventory while resolving page-source artifact ${target.artifactPath} for ${
+      formatDesignatorPathForDisplay(ownerDesignatorPath)
+    }.`;
+  const missingWorkingFileMessage =
+    `Could not resolve the current working file for page-source artifact ${target.artifactPath} used by region ${regionKey} of ${
+      formatDesignatorPathForDisplay(ownerDesignatorPath)
+    }.`;
+
+  if (target.kind === "payload") {
+    const inventoryState = resolvePayloadArtifactInventoryState(
+      meshBase,
+      targetKnopInventoryTurtle,
+      target.designatorPath,
+      {
+        parseErrorMessage,
+        missingWorkingFileMessage,
+      },
+    );
+    if (!inventoryState) {
+      throw new ResourcePageDefinitionResolutionError(
+        `ResourcePageDefinition region ${regionKey} for ${
+          formatDesignatorPathForDisplay(ownerDesignatorPath)
+        } targets ${target.artifactPath}, but that payload artifact is not registered in its owning Knop inventory.`,
+      );
+    }
+    return inventoryState.workingFilePath;
+  }
+
+  if (target.kind === "referenceCatalog") {
+    const inventoryState = resolveReferenceCatalogInventoryState(
+      meshBase,
+      targetKnopInventoryTurtle,
+      target.designatorPath,
+      {
+        parseErrorMessage,
+        missingWorkingFileMessage,
+      },
+    );
+    if (!inventoryState) {
+      throw new ResourcePageDefinitionResolutionError(
+        `ResourcePageDefinition region ${regionKey} for ${
+          formatDesignatorPathForDisplay(ownerDesignatorPath)
+        } targets ${target.artifactPath}, but that ReferenceCatalog artifact is not registered in its owning Knop inventory.`,
+      );
+    }
+    return inventoryState.workingFilePath;
+  }
+
+  const inventoryState = resolveResourcePageDefinitionInventoryState(
+    meshBase,
+    targetKnopInventoryTurtle,
+    target.designatorPath,
+    {
+      parseErrorMessage,
+      missingWorkingFileMessage,
+    },
+  );
+  if (!inventoryState || inventoryState.artifactPath !== target.artifactPath) {
+    throw new ResourcePageDefinitionResolutionError(
+      `ResourcePageDefinition region ${regionKey} for ${
+        formatDesignatorPathForDisplay(ownerDesignatorPath)
+      } targets ${target.artifactPath}, but that ResourcePageDefinition artifact is not registered in its owning Knop inventory.`,
+    );
+  }
+
+  return inventoryState.workingFilePath;
+}
+
+function requireMeshPathFromTargetArtifact(
+  meshBase: string,
+  artifactIri: string,
+  errorMessage: string,
+): string {
+  if (!artifactIri.startsWith(meshBase)) {
+    throw new ResourcePageDefinitionResolutionError(errorMessage);
+  }
+
+  const meshPath = artifactIri.slice(meshBase.length);
+  if (meshPath.includes("#") || meshPath.includes("?")) {
+    throw new ResourcePageDefinitionResolutionError(errorMessage);
+  }
+
+  return meshPath;
+}
+
+function describeSupportedTargetArtifact(
+  artifactPath: string,
+  errorMessage: string,
+): Omit<ArtifactSourceCurrentState, "workingFilePath"> {
+  if (
+    artifactPath === ROOT_REFERENCE_CATALOG_PATH ||
+    artifactPath.endsWith(REFERENCE_CATALOG_SUFFIX)
+  ) {
+    return {
+      kind: "referenceCatalog",
+      designatorPath: artifactPath === ROOT_REFERENCE_CATALOG_PATH
+        ? ""
+        : artifactPath.slice(0, -REFERENCE_CATALOG_SUFFIX.length),
+      artifactPath,
+    };
+  }
+
+  if (
+    artifactPath === ROOT_PAGE_DEFINITION_ARTIFACT_PATH ||
+    artifactPath.endsWith(PAGE_DEFINITION_ARTIFACT_SUFFIX)
+  ) {
+    return {
+      kind: "resourcePageDefinition",
+      designatorPath: artifactPath === ROOT_PAGE_DEFINITION_ARTIFACT_PATH
+        ? ""
+        : artifactPath.slice(0, -PAGE_DEFINITION_ARTIFACT_SUFFIX.length),
+      artifactPath,
+    };
+  }
+
+  try {
+    return {
+      kind: "payload",
+      designatorPath: normalizeSafeDesignatorPath(
+        artifactPath,
+        "target artifact path",
+        (message) => new ResourcePageDefinitionResolutionError(message),
+        { allowRoot: true },
+      ),
+      artifactPath,
+    };
+  } catch {
+    throw new ResourcePageDefinitionResolutionError(errorMessage);
+  }
+}
+
+async function readAllowedSourceText(
+  localPathPolicy: OperationalLocalPathPolicy,
+  locatorKind: "workingFilePath" | "targetMeshPath",
+  sourcePath: string,
+  accessErrorMessage: string,
+  missingErrorMessage: string,
+): Promise<string> {
+  try {
+    return await Deno.readTextFile(
+      resolveAllowedLocalPath(
+        localPathPolicy,
+        locatorKind,
+        sourcePath,
+      ),
+    );
+  } catch (error) {
+    if (error instanceof LocalPathAccessError) {
+      throw new ResourcePageDefinitionResolutionError(accessErrorMessage);
+    }
+    if (error instanceof Deno.errors.NotFound) {
+      throw new ResourcePageDefinitionResolutionError(missingErrorMessage);
+    }
+    throw error;
+  }
 }
 
 async function listStylesheetPaths(

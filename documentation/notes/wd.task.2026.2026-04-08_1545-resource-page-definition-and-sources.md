@@ -387,7 +387,7 @@ Current `15-alice-page-customized-woven` manifest shape:
 
 ### Phase 5: Artifact Resolution And Import-Oriented Source Support
 
-- [ ] Add first-pass in-mesh artifact source resolution through the generic artifact-resolution pattern (`hasTargetArtifact`, requested history/state, mode, and fallback) directly on `ResourcePageSource`.
+- [x] Add first-pass in-mesh artifact source resolution through `hasTargetArtifact` directly on `ResourcePageSource`, with default/`Current` current-byte loading from the governed artifact's current working surface and fail-closed rejection of `Pinned`, requested history/state, fallback policy, direct located-file/distribution, and remote target forms until later slices land.
 - [ ] Add `targetAccessUrl` handling to `ArtifactResolutionTarget` only behind explicit operational policy, with fail-closed behavior when remote target access is disallowed. See [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
 - [ ] Decide whether first-pass page generation should ever follow `targetAccessUrl` directly, or continue requiring import or governed-artifact indirection for remote-origin content even if the broader artifact-resolution model permits direct external targets.
 - [x] Add `workingFilePath` support to governed-artifact current resolution, with fail-closed mismatch handling against `hasWorkingLocatedFile`.
@@ -405,6 +405,7 @@ Current `15-alice-page-customized-woven` manifest shape:
 - [x] Add focused coverage for `targetMeshPath` resolution, path-escape rejection, and direct `_knop/_assets` use without copied public asset materialization.
 - [x] Add focused coverage for `ResourcePageDefinition` history/state behavior as a normal support artifact while keeping referenced mesh-local helper files non-recursive.
 - [x] Add integration coverage proving a valid `_knop/_page` overrides generic identifier-page generation for the owning identifier only.
-- [ ] Add integration coverage for local Knop-owned file sources first, then in-mesh artifact sources, then import-boundary behavior.
+- [x] Add integration coverage for local mesh-path page sources and first-pass in-mesh artifact-backed page sources.
+- [ ] Add integration coverage for import-boundary behavior.
 - [ ] Continue the Accord fixture ladder after the first carried slice is stable: `16/17` for imported-source behavior and `18-21` for root lifecycle continuation.
 - [ ] Update [[wd.codebase-overview]] once the runtime seams and carried slice are real.

@@ -433,6 +433,189 @@ Deno.test("executeWeave matches the settled alice page-customized-woven fixture"
   );
 });
 
+Deno.test("executeWeave resolves current artifact-backed page sources through hasTargetArtifact", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-page-definition-artifact-source-",
+  );
+  await materializeMeshAliceBioBranch(
+    "14-alice-page-customized",
+    workspaceRoot,
+  );
+  await Deno.writeTextFile(
+    join(workspaceRoot, "artifact-sidebar.md"),
+    `Artifact-backed sidebar
+
+- from governed source
+`,
+  );
+  await addArtifactBackedPageSource(
+    workspaceRoot,
+    "alice/source",
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+
+<alice/source/_knop> a sflo:Knop ;
+  sflo:hasKnopMetadata <alice/source/_knop/_meta> ;
+  sflo:hasKnopInventory <alice/source/_knop/_inventory> ;
+  sflo:hasWorkingKnopInventoryFile <alice/source/_knop/_inventory/inventory.ttl> ;
+  sflo:hasPayloadArtifact <alice/source> .
+
+<alice/source> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <artifact-sidebar.md> .
+`,
+    "artifact-sidebar.md",
+  );
+  await replaceFileText(
+    join(workspaceRoot, "alice/_knop/_page/page.ttl"),
+    `<#sidebar-source> a sfc:ResourcePageSource ;
+  sfc:targetMeshPath "mesh-content/sidebar.md" .`,
+    `<#sidebar-source> a sfc:ResourcePageSource ;
+  sfc:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> ;
+  sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Current> .`,
+  );
+
+  const result = await executeWeave({
+    workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "alice" }],
+    },
+  });
+
+  assertEquals(result.wovenDesignatorPaths, ["alice"]);
+  assertStringIncludes(
+    await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
+    "Artifact-backed sidebar",
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
+    "from governed source",
+  );
+});
+
+Deno.test("executeWeave resolves artifact-backed page sources through workingFilePath when repo policy permits them", async () => {
+  const repoRoot = await createTestTmpDir(
+    "weave-weave-page-definition-artifact-working-file-allow-",
+  );
+  const workspaceRoot = join(repoRoot, "mesh");
+  await materializeMeshAliceBioBranch(
+    "14-alice-page-customized",
+    workspaceRoot,
+  );
+  await Deno.mkdir(join(repoRoot, "documentation"), { recursive: true });
+  await Deno.writeTextFile(
+    join(repoRoot, ".sf-repo-access.ttl"),
+    `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+
+<> a sfcfg:RepoOperationalConfig ;
+  sfcfg:hasLocalPathAccessRule [
+    a sfcfg:LocalPathAccessRule ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/LocalPathBase/MeshRoot> ;
+    sfcfg:pathPrefix "../documentation/" ;
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/LocalPathLocatorKind/WorkingFilePath>
+  ] .
+`,
+  );
+  await Deno.writeTextFile(
+    join(repoRoot, "documentation/sidebar.md"),
+    `Policy-backed artifact sidebar
+
+- from extra-mesh workingFilePath
+`,
+  );
+  await addArtifactBackedPageSource(
+    workspaceRoot,
+    "alice/source",
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+
+<alice/source/_knop> a sflo:Knop ;
+  sflo:hasKnopMetadata <alice/source/_knop/_meta> ;
+  sflo:hasKnopInventory <alice/source/_knop/_inventory> ;
+  sflo:hasWorkingKnopInventoryFile <alice/source/_knop/_inventory/inventory.ttl> ;
+  sflo:hasPayloadArtifact <alice/source> .
+
+<alice/source> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:workingFilePath "../documentation/sidebar.md" .
+`,
+    "../documentation/sidebar.md",
+  );
+  await replaceFileText(
+    join(workspaceRoot, "alice/_knop/_page/page.ttl"),
+    `<#sidebar-source> a sfc:ResourcePageSource ;
+  sfc:targetMeshPath "mesh-content/sidebar.md" .`,
+    `<#sidebar-source> a sfc:ResourcePageSource ;
+  sfc:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> .`,
+  );
+
+  const result = await executeWeave({
+    workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "alice" }],
+    },
+  });
+
+  assertEquals(result.wovenDesignatorPaths, ["alice"]);
+  assertStringIncludes(
+    await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
+    "Policy-backed artifact sidebar",
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
+    "extra-mesh workingFilePath",
+  );
+});
+
+Deno.test("executeWeave fails closed when artifact-backed page sources request pinned resolution", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-page-definition-artifact-pinned-",
+  );
+  await materializeMeshAliceBioBranch(
+    "14-alice-page-customized",
+    workspaceRoot,
+  );
+  await Deno.writeTextFile(
+    join(workspaceRoot, "artifact-sidebar.md"),
+    "Artifact-backed sidebar\n",
+  );
+  await addArtifactBackedPageSource(
+    workspaceRoot,
+    "alice/source",
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+
+<alice/source/_knop> a sflo:Knop ;
+  sflo:hasKnopMetadata <alice/source/_knop/_meta> ;
+  sflo:hasKnopInventory <alice/source/_knop/_inventory> ;
+  sflo:hasWorkingKnopInventoryFile <alice/source/_knop/_inventory/inventory.ttl> ;
+  sflo:hasPayloadArtifact <alice/source> .
+
+<alice/source> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <artifact-sidebar.md> .
+`,
+    "artifact-sidebar.md",
+  );
+  await replaceFileText(
+    join(workspaceRoot, "alice/_knop/_page/page.ttl"),
+    `<#sidebar-source> a sfc:ResourcePageSource ;
+  sfc:targetMeshPath "mesh-content/sidebar.md" .`,
+    `<#sidebar-source> a sfc:ResourcePageSource ;
+  sfc:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> ;
+  sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Pinned> .`,
+  );
+
+  await assertRejects(
+    () =>
+      executeWeave({
+        workspaceRoot,
+        request: {
+          targets: [{ designatorPath: "alice" }],
+        },
+      }),
+    WeaveRuntimeError,
+    "non-Current artifact resolution mode",
+  );
+});
+
 Deno.test("executeWeave resolves payload current files from workingFilePath literals", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-weave-working-file-path-",
@@ -987,6 +1170,25 @@ async function writeSupplementalKnopSurface(
   );
   await Deno.writeTextFile(
     join(knopPath, "_inventory/inventory.ttl"),
+    inventoryTurtle,
+  );
+}
+
+async function addArtifactBackedPageSource(
+  workspaceRoot: string,
+  designatorPath: string,
+  inventoryTurtle: string,
+  workingFilePath: string,
+): Promise<void> {
+  await addSupplementalKnopToMeshInventory(workspaceRoot, designatorPath);
+  await addSupplementalPayloadArtifactToMeshInventory(
+    workspaceRoot,
+    designatorPath,
+    workingFilePath,
+  );
+  await writeSupplementalKnopSurface(
+    workspaceRoot,
+    designatorPath,
     inventoryTurtle,
   );
 }
