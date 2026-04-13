@@ -27,6 +27,15 @@ What we do not yet have is the operational policy layer that says when a runtime
 
 That policy is no longer just a daemon concern. The current Weave CLI already needs it for controlled extra-mesh local targeting through `../...` paths, and later slices may need explicit remote access policy too.
 
+Current status clarification:
+
+- `workingFilePath` and `targetMeshPath` already have active runtime behavior plus operational-config loading for local-boundary checks.
+- `workingAccessUrl` and `targetAccessUrl` do not currently have active runtime dereferencing behavior.
+- Bob's carried import slice uses `workingAccessUrl` only as recorded outside-origin metadata on `bob/page-main`.
+- Bob's carried import slice does not use `targetAccessUrl`.
+
+So in this task, "policy gating" for remote locators should be read narrowly: if Weave later starts dereferencing `workingAccessUrl` or `targetAccessUrl`, that behavior must only happen under explicit operational allow rules. Until then, those properties are modeled vocabulary, not active fetch behavior.
+
 The old `sflo-host` ontology is useful as precedent because it recognized that application/runtime behavior needs its own config surface. But it is not the right model to copy forward directly. Its center of gravity is `HostServiceConfig`, logging channels, contained service toggles, port/host/scheme binding, and service-host mesh registration. That is mostly daemon or long-running-host shape, not the shared runtime-resolution policy that current CLI and daemon both need.
 
 The current best direction is to keep this vocabulary in `semantic-flow-config-ontology.ttl` for now, with `OperationalConfig` as the broader root concept. A narrower `RuntimeResolutionConfig` can still appear later if the vocabulary grows enough that the resolution subset wants its own explicit subtype.
@@ -185,6 +194,8 @@ At minimum, the first operational-config slice should cover:
 - fail-closed behavior when a path or URL falls outside configured policy
 
 That policy should be expressible without persisting absolute machine-specific paths into mesh RDF.
+
+Right now only the local-path part of that list is active. The remote parts remain planned and model-level.
 
 ### CLI and daemon should consume the same policy surface
 
@@ -345,9 +356,9 @@ That lets `1545` stay focused on page-definition behavior instead of turning int
 
 ### Phase 3: Defer Or Gate Remote Policy Carefully
 
-- [ ] Add explicit policy gating for `workingAccessUrl`.
-- [ ] Add explicit policy gating for `targetAccessUrl`.
-- [ ] Decide whether remote access remains model-only in the first operational-config slice or whether narrowly scoped runtime use is justified immediately after local-boundary support lands.
+- [ ] Decide whether `workingAccessUrl` should remain model-only for now or become an actively dereferenceable runtime locator.
+- [ ] Decide whether `targetAccessUrl` should remain model-only for now or become an actively dereferenceable runtime locator.
+- [ ] If either remote locator becomes actively dereferenceable, add explicit operational allow rules and fail-closed tests before any network fetch behavior lands.
 - [ ] Decide whether `integrate`, which already needs to support workspace-local and policy-approved extra-mesh local file association, should broaden further into policy-gated remote/external locator handling, or whether remote-origin association should stay centered on `import` while `integrate` remains the local-byte-binding surface.
 
 ### Phase 4: Validate And Align Notes

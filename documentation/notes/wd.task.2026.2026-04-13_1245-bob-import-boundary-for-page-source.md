@@ -18,7 +18,9 @@ Alice page customization has now progressed through:
 - `16/17`: governed Markdown source artifact introduced and woven
 - `18/19`: Alice page definition repointed to that governed artifact and woven
 
-The next planned pair, `20/21`, is materially different. It is not just another page-definition variation. It is the first slice that needs an explicit outside-origin import boundary.
+The Bob `20/21` pair is materially different. It is not just another page-definition variation. It is the first slice that needs an explicit outside-origin import boundary.
+
+`20/21` are now real carried fixture pairs, but they got ahead of a first-class `import` command surface. That is why this task still remains open.
 
 Today, Weave still does not yet have:
 
@@ -26,7 +28,7 @@ Today, Weave still does not yet have:
 - settled import-facing ontology vocabulary for current outside-origin associations
 - a general `import` planner/runtime/CLI surface that can materialize the carried Bob fixture path directly
 
-So the next productive step is to define that slice concretely before trying to carry or implement it.
+So the next productive step is not more fixture carrying. It is to backfill the actual `import` surface against the already-carried Bob shape.
 
 ## Discussion
 
@@ -53,6 +55,7 @@ The first slice should not imply:
 - remote RDF dataset rendering as page content
 - live `targetAccessUrl` page sourcing
 - remote `workingAccessUrl` current-byte following during page generation
+- automatic weaving of `bob/page-main` itself into `bob/page-main/index.html`
 
 Instead, it should prove a narrower sequence:
 
@@ -83,6 +86,7 @@ This does introduce one deliberate semantic asymmetry: the imported page content
 - The first carried Bob import slice should introduce governed artifact `bob/page-main` with local working file `bob-page-main.md`.
 - The first carried Bob import slice should record the chosen outside-origin URL on the governed artifact through `core:workingAccessUrl` while page generation still follows the local `hasWorkingLocatedFile` boundary rather than the remote URL directly.
 - The first carried Bob import slice is allowed to use authored page content that is semantically richer than the current extracted Bob triples; RDF reconciliation is explicitly outside this slice.
+- `20/21` intentionally leave `bob/page-main` itself unwoven, so `bob/page-main/index.html` remains absent in this slice.
 
 ## Contract Changes
 
@@ -125,9 +129,11 @@ This does introduce one deliberate semantic asymmetry: the imported page content
 - [ ] Add the first runtime/core import slice needed to materialize imported Markdown into a governed Bob artifact.
 - [ ] Keep the first import implementation fail-closed and narrow.
 - [ ] Avoid broadening page generation to live remote sources as part of this slice.
+- [ ] Make the first real `import` surface capable of producing the already-carried `20-bob-page-imported-source` shape without hand-staged fixture edits.
 
 ### Phase 3: Carry The Fixture Pair
 
 - [x] Create `20-bob-page-imported-source` in `mesh-alice-bio`.
 - [x] Weave it into `21-bob-page-imported-source-woven`.
-- [ ] Publish the pair only after the manifests and runtime behavior agree.
+- [x] Publish the pair once the manifests and runtime behavior were close enough for the carried acceptance layer.
+- [ ] Backfill the first-class `import` surface so the carried pair is no longer ahead of the command/runtime story.
