@@ -148,7 +148,7 @@ weave mesh create --interactive
 
 ### `weave integrate`
 
-Integrates a local source file into a designator path as a payload artifact.
+Integrates a local source file into a designator path as a payload artifact, including policy-approved extra-mesh local sources.
 
 ```sh
 weave integrate ./alice-bio.ttl alice/bio

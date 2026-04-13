@@ -231,7 +231,7 @@ Minimal shape:
 - [x] Draft the matching Accord manifests early, including the exact transition boundaries, expected file additions/changes, and any explicit exclusions needed for deterministic comparison.
 - [x] Keep the first carried fixture scope narrow: prove authority/precedence, local mesh-path sources, and `_knop/_assets` handling before broadening into in-mesh or import-oriented source behavior.
 - [x] Use the staged `14/15` fixture pair as the primary acceptance target while implementing the first runtime slice, updating the runtime toward the fixture rather than inventing runtime behavior first and backfilling fixtures later.
-- [ ] Leave `16/17` imported-source behavior and `18-21` root continuation in the near-term plan, but do not let them block the first carried local-Knop slice.
+- [ ] Leave the carried follow-on ladder in the near-term plan, but do not let it block the first settled `14/15` slice: `16/17` should introduce and weave the governed Markdown artifact used for later page sourcing, `18/19` should prove Alice artifact-backed page sources, `20/21` should cover Bob imported-source behavior from a genuine outside-origin URL, and `22-25` should carry root continuation.
 
 #### Proposed Ladder Sketch
 
@@ -252,37 +252,66 @@ Minimal shape:
 - Keep referenced support assets at `alice/_knop/_assets/...`; do not introduce a copied `alice/_assets/...` surface.
 - Advance `alice/_knop/_inventory` to reflect the new support-artifact current state, but keep `_mesh/_inventory` unchanged unless implementation uncovers a real current-surface-map reason to move it.
 
-`16-alice-page-imported-source`
+`16-alice-page-main-integrated`
 
-- Add a governed in-tree artifact whose current `WorkingLocatedFile` is the imported source the page will follow.
-- Repoint one Alice page region from a local Knop file to that imported in-tree artifact while leaving the rest of the page-definition structure intact.
+- Introduce a governed in-mesh Markdown-bearing artifact such as `alice/page-main` without yet repointing Alice's page definition away from its current direct `targetMeshPath` source.
+- Keep the carried example narrow and concrete: the new artifact should have a normal payload/Knop shape and a current Markdown working file such as `alice-page-main.md`.
+- This is an integration step, not an import step. The source bytes are still in the whole-repo mesh rather than crossing an outside-origin boundary.
+- Keep Alice's existing page definition and public `alice/index.html` unchanged until the later artifact-backed page-source pair.
+
+`17-alice-page-main-integrated-woven`
+
+- Weave `16` so the governed Markdown artifact behaves like a normal woven payload artifact with its own history, pages, and advanced mesh inventory state.
+- Keep Alice's existing page definition and public `alice/index.html` unchanged; this pair is only about preparing the governed source artifact that the next pair will reference.
+
+`18-alice-page-artifact-source`
+
+- Repoint one Alice page region from a direct `targetMeshPath` source to the already-woven governed Markdown artifact `alice/page-main`.
+- Keep the carried example narrow and concrete: the page source should target the governed artifact identity, while current-byte resolution follows that artifact's current `workingFilePath` / `hasWorkingLocatedFile`.
+- Keep this slice at `Current` behavior only; do not introduce `Pinned` or fallback semantics into the carried fixture pair yet.
+
+`19-alice-page-artifact-source-woven`
+
+- Weave `18` so the artifact-backed page definition is versioned and rendered.
+- Prove that `alice/index.html` now follows the governed Markdown source artifact's current working surface rather than a direct local `targetMeshPath`.
+- Keep this pair focused on `Current` artifact-backed behavior; `Pinned` and fallback remain follow-on runtime/fixture work.
+
+`20-bob-page-imported-source`
+
+- Add a governed in-tree artifact for Bob whose current `WorkingLocatedFile` is sourced through an explicit outside-origin import.
+- Add Bob page customization in a way that keeps Alice's settled `18/19` artifact-backed page state intact rather than overwriting it immediately with a different import-oriented concern.
 - Keep the outside-origin boundary explicit in data and files; do not let the page definition point directly at a live outside location.
+- Keep the first carried import pair aligned with the current renderer: import Markdown or similarly plain authored text that the page-definition runtime can render as Markdown today.
+- Do not use the first carried import pair to imply RDF-dataset-to-page rendering; if the imported source is Turtle or another structured dataset, a later transformation/extraction layer would still be needed before it becomes good page-region content.
+- Prefer a direct file/export URL for the first carried fixture rather than an HTTP content-negotiation flow that requires custom request headers.
 
-`17-alice-page-imported-source-woven`
+`21-bob-page-imported-source-woven`
 
-- Weave `16` so the imported-source-backed page definition is versioned and rendered.
-- Prove that `alice/index.html` now follows the imported in-tree artifact's current `WorkingLocatedFile`, not a direct outside-source location.
+- Weave `18` so the imported-source-backed page definition is versioned and rendered.
+- Prove that `bob/index.html` now follows the imported in-tree artifact's current `WorkingLocatedFile`, not a direct outside-source location.
 - Keep direct-live outside-source rejection in focused runtime/integration tests rather than trying to encode that failure case as a successful Accord transition.
+- Keep HTTP request shaping such as custom `Accept` headers out of the first carried import fixture unless no reasonable direct file/export URL exists; that broader remote-fetch feature should remain a follow-on operational/import concern.
+- Keep the woven acceptance focused on imported page-content bytes that the current Markdown-oriented renderer can consume directly, rather than on remote RDF dataset handling.
 
-`18-root-knop-created`
+`22-root-knop-created`
 
 - Add the root Knop support surface at `_knop` in a later mesh lifecycle step, not as a special early bootstrap-only case.
 - Keep root `index.html` generic at this stage; this branch should establish the root support surface before root page customization.
 
-`19-root-knop-created-woven`
+`23-root-knop-created-woven`
 
 - Weave the root Knop creation so root support-artifact histories/pages exist and root `index.html` is present as the generic identifier page.
 - Keep `_mesh/index.html` distinct and unchanged in ownership semantics.
 
-`20-root-page-customized`
+`24-root-page-customized`
 
 - Add `_knop/_page/page.ttl` plus minimal root mesh-local content files and `_knop/_assets/...`.
 - Update root Knop inventory to register the root `ResourcePageDefinition` support artifact.
 - Keep this branch non-woven: `index.html` should still be the previous generic root page until weave runs.
 
-`21-root-page-customized-woven`
+`25-root-page-customized-woven`
 
-- Weave `20` so root `_knop/_page` gets normal support-artifact history/state materialization and support-artifact pages.
+- Weave `22` so root `_knop/_page` gets normal support-artifact history/state materialization and support-artifact pages.
 - Update root `index.html` to follow root `_knop/_page/page.ttl` and its mesh-local sources.
 - Keep root support assets at `_knop/_assets/...` rather than materializing a copied `_assets/...` surface.
 
@@ -294,6 +323,15 @@ The first real Accord manifests now exist at:
 - `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/15-alice-page-customized-woven.jsonld`
 
 These manifests are now the authoritative acceptance draft for the first carried page-customization slice. The remaining draft aspects are narrow and explicit:
+
+The next drafted governed-artifact and artifact-backed manifests now also exist at:
+
+- `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/16-alice-page-main-integrated.jsonld`
+- `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/17-alice-page-main-integrated-woven.jsonld`
+- `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/18-alice-page-artifact-source.jsonld`
+- `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/19-alice-page-artifact-source-woven.jsonld`
+
+These `16/17` manifests introduce and weave the governed Markdown-bearing payload artifact `alice/page-main` with working file `alice-page-main.md` without yet changing Alice's page definition. The drafted `18/19` manifests then repoint Alice's `main` region to that governed artifact while keeping the shared `sidebar` region on `mesh-content/sidebar.md`. They are acceptance targets for the next carried fixture pairs rather than claims that the corresponding fixture branches are already published.
 
 - `14` still uses provisional `operationId: "resourcePage.define"` until the concrete API/job naming settles.
 - the first support-artifact manifestation token remains `page-ttl`
@@ -360,6 +398,129 @@ Current `15-alice-page-customized-woven` manifest shape:
   - `alice/_knop/_inventory/_history001` now advances to `_s0003`
   - `_mesh/_inventory` stays unchanged across the weave step
 
+Current `16-alice-page-main-integrated` manifest shape:
+
+- transition: `15-alice-page-customized-woven` -> `16-alice-page-main-integrated`
+- target: `alice`
+- added files:
+  - `alice-page-main.md`
+  - `alice/page-main/_knop/_meta/meta.ttl`
+  - `alice/page-main/_knop/_inventory/inventory.ttl`
+- updated files:
+  - `_mesh/_inventory/inventory.ttl`
+- unchanged files:
+  - `alice/_knop/_page/page.ttl`
+  - `alice/alice.md`
+  - `mesh-content/sidebar.md`
+  - `alice/_knop/_assets/alice.css`
+  - `alice/_knop/_inventory/inventory.ttl`
+  - `alice/index.html`
+- absent files:
+  - `alice/page-main/index.html`
+  - `alice/page-main/_knop/index.html`
+- RDF assertions prove:
+  - `_mesh/_inventory/inventory.ttl` now registers the new `alice/page-main` payload artifact and its Knop
+  - the new governed source artifact currently uses `alice-page-main.md` as its working file but still has no explicit history before weave
+  - `alice/_knop/_page#main-source` still points directly to `targetMeshPath "alice/alice.md"`
+  - Alice's page definition has not yet been repointed to `alice/page-main`
+
+Current `17-alice-page-main-integrated-woven` manifest shape:
+
+- transition: `16-alice-page-main-integrated` -> `17-alice-page-main-integrated-woven`
+- target: `alice/page-main`
+- unchanged authored/source files:
+  - `alice-page-main.md`
+  - `alice/_knop/_page/page.ttl`
+  - `alice/alice.md`
+  - `mesh-content/sidebar.md`
+- added payload-artifact outputs:
+  - `alice/page-main/index.html`
+  - `alice/page-main/_history001/index.html`
+  - `alice/page-main/_history001/_s0001/index.html`
+  - `alice/page-main/_history001/_s0001/alice-page-main-md/index.html`
+  - `alice/page-main/_history001/_s0001/alice-page-main-md/alice-page-main.md`
+  - `alice/page-main/_knop/index.html`
+  - `alice/page-main/_knop/_inventory/index.html`
+  - `alice/page-main/_knop/_inventory/_history001/index.html`
+  - `alice/page-main/_knop/_inventory/_history001/_s0001/index.html`
+  - `alice/page-main/_knop/_inventory/_history001/_s0001/inventory-ttl/index.html`
+  - `alice/page-main/_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl`
+- added mesh inventory state outputs:
+  - `_mesh/_inventory/_history001/_s0004/index.html`
+  - `_mesh/_inventory/_history001/_s0004/inventory-ttl/index.html`
+  - `_mesh/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl`
+- updated files:
+  - `_mesh/_inventory/inventory.ttl`
+  - `_mesh/_inventory/_history001/index.html`
+  - `alice/page-main/_knop/_inventory/inventory.ttl`
+- unchanged files:
+  - `alice/_knop/_page/index.html`
+  - `alice/_knop/_page/_history001/_s0001/page-ttl/page.ttl`
+  - `alice/_knop/_inventory/inventory.ttl`
+  - `alice/index.html`
+- RDF assertions prove:
+  - the new `alice/page-main` payload artifact now has `_history001/_s0001` and a public `alice/page-main/index.html`
+  - `_mesh/_inventory/_history001` now advances to `_s0004` to register the new woven `alice/page-main` current surface
+  - `alice/_knop/_page#main-source` still resolves through `targetMeshPath "alice/alice.md"`
+  - Alice's public page has not changed yet
+
+Current `18-alice-page-artifact-source` manifest shape:
+
+- transition: `17-alice-page-main-integrated-woven` -> `18-alice-page-artifact-source`
+- target: `alice`
+- updated files:
+  - `alice/_knop/_page/page.ttl`
+- unchanged files:
+  - `alice-page-main.md`
+  - `alice/alice.md`
+  - `mesh-content/sidebar.md`
+  - `_mesh/_inventory/inventory.ttl`
+  - `alice/page-main/_knop/_inventory/inventory.ttl`
+  - `alice/_knop/_page/index.html`
+  - `alice/_knop/_page/_history001/_s0001/page-ttl/page.ttl`
+  - `alice/_knop/_inventory/inventory.ttl`
+  - `alice/index.html`
+- RDF assertions prove:
+  - `alice/_knop/_page#main-source` now points to the governed artifact `alice/page-main`
+  - that main source explicitly requests `ArtifactResolutionMode/Current`
+  - `alice/_knop/_page#sidebar-source` still points to `mesh-content/sidebar.md`
+  - the old direct `targetMeshPath "alice/alice.md"` is no longer used by the main source
+  - the already-woven `alice/page-main` payload artifact is now the page's governed source
+  - `alice/_knop/_page/_history001` still stops at `_s0001`
+  - `alice/_knop/_inventory/_history001` still stops at `_s0003`
+
+Current `19-alice-page-artifact-source-woven` manifest shape:
+
+- transition: `18-alice-page-artifact-source` -> `19-alice-page-artifact-source-woven`
+- target: `alice`
+- unchanged authored/source files:
+  - `alice/_knop/_page/page.ttl`
+  - `alice-page-main.md`
+  - `alice/page-main/index.html`
+- added `_page` support-artifact outputs:
+  - `alice/_knop/_page/_history001/_s0002/index.html`
+  - `alice/_knop/_page/_history001/_s0002/page-ttl/index.html`
+  - `alice/_knop/_page/_history001/_s0002/page-ttl/page.ttl`
+- added Alice inventory state outputs:
+  - `alice/_knop/_inventory/_history001/_s0004/index.html`
+  - `alice/_knop/_inventory/_history001/_s0004/inventory-ttl/index.html`
+  - `alice/_knop/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl`
+- updated files:
+  - `alice/_knop/_page/index.html`
+  - `alice/_knop/_page/_history001/index.html`
+  - `alice/_knop/_inventory/inventory.ttl`
+  - `alice/_knop/_inventory/_history001/index.html`
+  - `alice/index.html`
+- unchanged files:
+  - `_mesh/_inventory/inventory.ttl`
+  - `alice/_knop/_page/_history001/_s0001/page-ttl/page.ttl`
+- RDF assertions prove:
+  - the second page-definition state `_s0002` carries the same `alice/page-main`-backed main source and mesh-local sidebar source as the working `page.ttl`
+  - `alice/_knop/_page/_history001` now advances to `_s0002`, with `_s0002` pointing back to `_s0001`
+  - `alice/_knop/_inventory/_history001` now advances to `_s0004`
+  - `_mesh/_inventory` stays unchanged because the governed source artifact was already integrated and woven in `16/17`
+  - `alice/index.html` is what updates to follow that governed Markdown-backed source
+
 ### Phase 2: Discovery, Authority, And Runtime Loading
 
 - [ ] Add a `_knop/_page` discovery seam anchored only to the owning Knop, including the root case at `_knop/_page/page.ttl`.
@@ -407,5 +568,5 @@ Current `15-alice-page-customized-woven` manifest shape:
 - [x] Add integration coverage proving a valid `_knop/_page` overrides generic identifier-page generation for the owning identifier only.
 - [x] Add integration coverage for local mesh-path page sources and first-pass in-mesh artifact-backed page sources.
 - [ ] Add integration coverage for import-boundary behavior.
-- [ ] Continue the Accord fixture ladder after the first carried slice is stable: `16/17` for imported-source behavior and `18-21` for root lifecycle continuation.
+- [ ] Continue the Accord fixture ladder after the first carried slice is stable: `16/17` for the governed Markdown source artifact, `18/19` for Alice artifact-backed page sources, `20/21` for Bob imported-source behavior, and `22-25` for root lifecycle continuation.
 - [ ] Update [[wd.codebase-overview]] once the runtime seams and carried slice are real.

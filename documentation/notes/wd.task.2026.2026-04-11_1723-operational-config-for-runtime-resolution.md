@@ -348,6 +348,7 @@ That lets `1545` stay focused on page-definition behavior instead of turning int
 - [ ] Add explicit policy gating for `workingAccessUrl`.
 - [ ] Add explicit policy gating for `targetAccessUrl`.
 - [ ] Decide whether remote access remains model-only in the first operational-config slice or whether narrowly scoped runtime use is justified immediately after local-boundary support lands.
+- [ ] Decide whether `integrate`, which already needs to support workspace-local and policy-approved extra-mesh local file association, should broaden further into policy-gated remote/external locator handling, or whether remote-origin association should stay centered on `import` while `integrate` remains the local-byte-binding surface.
 
 ### Phase 4: Validate And Align Notes
 

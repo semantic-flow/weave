@@ -329,24 +329,48 @@ What `15` should prove:
 
 ### Follow-on non-root coverage
 
-The next likely non-root transitions after `15` should cover import-boundary behavior rather than jump straight into a bigger templating story.
+The next likely non-root transitions after `15` should first introduce and weave the governed Markdown artifact that later page sourcing will reference, then catch the carried fixture ladder up to the artifact-backed behavior already implemented in runtime, and only then move to import-boundary behavior.
 
 Proposed names:
 
-- `16-alice-page-imported-source`
-- `17-alice-page-imported-source-woven`
+- `16-alice-page-main-integrated`
+- `17-alice-page-main-integrated-woven`
+- `18-alice-page-artifact-source`
+- `19-alice-page-artifact-source-woven`
+- `20-bob-page-imported-source`
+- `21-bob-page-imported-source-woven`
 
 Proposed Accord manifests:
 
-- `examples/alice-bio/conformance/16-alice-page-imported-source.jsonld`
-- `examples/alice-bio/conformance/17-alice-page-imported-source-woven.jsonld`
+- `examples/alice-bio/conformance/16-alice-page-main-integrated.jsonld`
+- `examples/alice-bio/conformance/17-alice-page-main-integrated-woven.jsonld`
+- `examples/alice-bio/conformance/18-alice-page-artifact-source.jsonld`
+- `examples/alice-bio/conformance/19-alice-page-artifact-source-woven.jsonld`
+- `examples/alice-bio/conformance/20-bob-page-imported-source.jsonld`
+- `examples/alice-bio/conformance/21-bob-page-imported-source-woven.jsonld`
 
-Those should prove:
+`16/17` should prove:
 
+- a governed in-mesh Markdown-bearing artifact such as `alice/page-main` can be integrated and woven before any page-definition repoint happens
+- the ladder treats that step as ordinary in-mesh artifact integration, not as import from an outside origin
+- Alice's existing page definition and public `alice/index.html` stay unchanged while that governed source artifact is prepared
+
+`18/19` should prove:
+
+- one Alice page region now targets a governed in-mesh Markdown-bearing artifact such as `alice/page-main` rather than an RDF dataset artifact
+- page generation follows that artifact's current working surface rather than a direct `targetMeshPath`
+- the carried fixture pair stays narrow at default / `Current` behavior and does not yet require pinned-state or fallback semantics
+
+`20/21` should prove:
+
+- Bob page customization can be introduced through an outside-origin import without immediately overwriting Alice's settled local and artifact-backed customization steps
 - an outside-origin content path must first land in a governed in-tree artifact
 - page generation follows that imported artifact's current `WorkingLocatedFile`
+- the first carried import-boundary pair should use imported Markdown or similarly plain authored text that the current page renderer can consume directly
+- importing an RDF dataset as page content should remain a later transformation/extraction concern rather than an implied capability of the first import-boundary fixture pair
+- the first carried remote-import example should prefer a direct file/export URL rather than an endpoint that only becomes usable through HTTP request-shaping such as custom `Accept` headers
 
-The corresponding fail-closed direct-outside-source rejection should be covered in focused runtime/integration tests rather than forced into a successful fixture transition.
+The corresponding fail-closed direct-outside-source rejection should be covered in focused runtime/integration tests rather than forced into a successful fixture transition. Support for remote RDF sites that require content negotiation or custom request headers should stay a follow-on operational/import feature rather than a prerequisite for the first carried import-boundary pair.
 
 ### Root-focused continuation on the same ladder
 
@@ -354,17 +378,17 @@ Root-page customization should continue on the same carried `mesh-alice-bio` lad
 
 Proposed root-focused continuation steps:
 
-- `18-root-knop-created`
-- `19-root-knop-created-woven`
-- `20-root-page-customized`
-- `21-root-page-customized-woven`
+- `22-root-knop-created`
+- `23-root-knop-created-woven`
+- `24-root-page-customized`
+- `25-root-page-customized-woven`
 
 Proposed Accord manifests:
 
-- `examples/alice-bio/conformance/18-root-knop-created.jsonld`
-- `examples/alice-bio/conformance/19-root-knop-created-woven.jsonld`
-- `examples/alice-bio/conformance/20-root-page-customized.jsonld`
-- `examples/alice-bio/conformance/21-root-page-customized-woven.jsonld`
+- `examples/alice-bio/conformance/22-root-knop-created.jsonld`
+- `examples/alice-bio/conformance/23-root-knop-created-woven.jsonld`
+- `examples/alice-bio/conformance/24-root-page-customized.jsonld`
+- `examples/alice-bio/conformance/25-root-page-customized-woven.jsonld`
 
 What the root continuation should prove:
 
