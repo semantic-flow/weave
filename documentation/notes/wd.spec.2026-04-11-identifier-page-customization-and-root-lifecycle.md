@@ -329,9 +329,14 @@ What `15` should prove:
 
 ### Follow-on non-root coverage
 
-The next likely non-root transitions after `15` should first introduce and weave the governed Markdown artifact that later page sourcing will reference, then catch the carried fixture ladder up to the artifact-backed behavior already implemented in runtime, and only then move to import-boundary behavior.
+The non-root ladder now includes two settled follow-on pairs beyond `15`:
 
-Proposed names:
+- `16/17` introduce and weave the governed Markdown artifact that later page sourcing references
+- `18/19` repoint Alice to that governed artifact and weave the resulting page-definition revision
+
+The next non-root transition pair should move from the now-real Alice artifact-backed state into Bob import-boundary behavior.
+
+Current carried names:
 
 - `16-alice-page-main-integrated`
 - `17-alice-page-main-integrated-woven`
@@ -340,7 +345,7 @@ Proposed names:
 - `20-bob-page-imported-source`
 - `21-bob-page-imported-source-woven`
 
-Proposed Accord manifests:
+Current and next Accord manifests:
 
 - `examples/alice-bio/conformance/16-alice-page-main-integrated.jsonld`
 - `examples/alice-bio/conformance/17-alice-page-main-integrated-woven.jsonld`

@@ -231,7 +231,7 @@ Minimal shape:
 - [x] Draft the matching Accord manifests early, including the exact transition boundaries, expected file additions/changes, and any explicit exclusions needed for deterministic comparison.
 - [x] Keep the first carried fixture scope narrow: prove authority/precedence, local mesh-path sources, and `_knop/_assets` handling before broadening into in-mesh or import-oriented source behavior.
 - [x] Use the staged `14/15` fixture pair as the primary acceptance target while implementing the first runtime slice, updating the runtime toward the fixture rather than inventing runtime behavior first and backfilling fixtures later.
-- [ ] Leave the carried follow-on ladder in the near-term plan, but do not let it block the first settled `14/15` slice: `16/17` should introduce and weave the governed Markdown artifact used for later page sourcing, `18/19` should prove Alice artifact-backed page sources, `20/21` should cover Bob imported-source behavior from a genuine outside-origin URL, and `22-25` should carry root continuation.
+- [x] Leave the carried follow-on ladder in the near-term plan, but do not let it block the first settled `14/15` slice: `16/17` should introduce and weave the governed Markdown artifact used for later page sourcing, `18/19` should prove Alice artifact-backed page sources, `20/21` should cover Bob imported-source behavior from a genuine outside-origin URL, and `22-25` should carry root continuation.
 
 #### Proposed Ladder Sketch
 
@@ -287,7 +287,7 @@ Minimal shape:
 
 `21-bob-page-imported-source-woven`
 
-- Weave `18` so the imported-source-backed page definition is versioned and rendered.
+- Weave `20` so the imported-source-backed page definition is versioned and rendered.
 - Prove that `bob/index.html` now follows the imported in-tree artifact's current `WorkingLocatedFile`, not a direct outside-source location.
 - Keep direct-live outside-source rejection in focused runtime/integration tests rather than trying to encode that failure case as a successful Accord transition.
 - Keep HTTP request shaping such as custom `Accept` headers out of the first carried import fixture unless no reasonable direct file/export URL exists; that broader remote-fetch feature should remain a follow-on operational/import concern.
@@ -331,7 +331,7 @@ The next drafted governed-artifact and artifact-backed manifests now also exist 
 - `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/18-alice-page-artifact-source.jsonld`
 - `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/19-alice-page-artifact-source-woven.jsonld`
 
-These `16/17` manifests introduce and weave the governed Markdown-bearing payload artifact `alice/page-main` with working file `alice-page-main.md` without yet changing Alice's page definition. The drafted `18/19` manifests then repoint Alice's `main` region to that governed artifact while keeping the shared `sidebar` region on `mesh-content/sidebar.md`. The `16/17` fixture pair is now real, and the runtime now also supports the follow-on `18 -> 19` page-definition weave shape even though that artifact-backed pair has not yet been carried and published in the fixture repo.
+These `16/17` manifests introduce and weave the governed Markdown-bearing payload artifact `alice/page-main` with working file `alice-page-main.md` without yet changing Alice's page definition. The drafted `18/19` manifests then repoint Alice's `main` region to that governed artifact while keeping the shared `sidebar` region on `mesh-content/sidebar.md`. Both `16/17` and `18/19` are now real carried fixture pairs. The next unfinished ladder step is the Bob import-boundary pair tracked in [[wd.task.2026.2026-04-13_1245-bob-import-boundary-for-page-source]].
 
 - `14` still uses provisional `operationId: "resourcePage.define"` until the concrete API/job naming settles.
 - the first support-artifact manifestation token remains `page-ttl`
@@ -569,5 +569,5 @@ Current `19-alice-page-artifact-source-woven` manifest shape:
 - [x] Add integration coverage for local mesh-path page sources and first-pass in-mesh artifact-backed page sources.
 - [x] Add focused coverage for later page-definition revisions that version a second `_page` state and later Alice KnopInventory state without widening mesh inventory.
 - [ ] Add integration coverage for import-boundary behavior.
-- [ ] Continue the Accord fixture ladder after the first carried slice is stable: `16/17` for the governed Markdown source artifact, `18/19` for Alice artifact-backed page sources, `20/21` for Bob imported-source behavior, and `22-25` for root lifecycle continuation.
+- [ ] Continue the Accord fixture ladder after the now-real `16-19` slices: `20/21` for Bob imported-source behavior and `22-25` for root lifecycle continuation.
 - [ ] Update [[wd.codebase-overview]] once the runtime seams and carried slice are real.
