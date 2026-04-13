@@ -188,6 +188,76 @@ Deno.test("weave integrate accepts the root designator path as a black-box CLI r
   await Deno.stat(join(workspaceRoot, "_knop/_inventory/inventory.ttl"));
 });
 
+Deno.test("weave integrate allows repo-adjacent local sources when repo policy permits them as a black-box CLI run", async () => {
+  const tempRepoRoot = await createTestTmpDir("weave-e2e-integrate-policy-");
+  const workspaceRoot = join(tempRepoRoot, "mesh");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await Deno.mkdir(join(tempRepoRoot, "documentation"), { recursive: true });
+  await Deno.writeTextFile(
+    join(tempRepoRoot, ".sf-repo-access.ttl"),
+    `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+
+<> a sfcfg:RepoOperationalConfig ;
+  sfcfg:hasLocalPathAccessRule [
+    a sfcfg:LocalPathAccessRule ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/LocalPathBase/MeshRoot> ;
+    sfcfg:pathPrefix "../documentation/" ;
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/LocalPathLocatorKind/WorkingFilePath>
+  ] .
+`,
+  );
+  await Deno.writeTextFile(
+    join(tempRepoRoot, "documentation/alice-bio.ttl"),
+    await readMeshAliceBioBranchFile(
+      "05-alice-knop-created-woven",
+      "alice-bio.ttl",
+    ),
+  );
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      "integrate",
+      "../documentation/alice-bio.ttl",
+      "--designator-path",
+      "alice/bio",
+      "--workspace",
+      workspaceRoot,
+    ],
+    cwd: new URL(".", repoRoot),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Integrated"), stdout);
+  const createdInventory = await Deno.readTextFile(
+    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+  );
+  assert(
+    createdInventory.includes(
+      'sflo:workingFilePath "../documentation/alice-bio.ttl" .',
+    ),
+    createdInventory,
+  );
+  assertEquals(
+    createdInventory.includes(
+      "sflo:hasWorkingLocatedFile <../documentation/alice-bio.ttl> .",
+    ),
+    false,
+  );
+});
+
 Deno.test("weave integrate requires a designator path before logging or execution", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-e2e-integrate-missing-designator-",

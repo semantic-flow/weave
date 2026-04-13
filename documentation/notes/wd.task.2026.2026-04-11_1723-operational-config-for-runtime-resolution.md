@@ -25,7 +25,7 @@ We now have core vocabulary for current-byte locators and direct resolution targ
 
 What we do not yet have is the operational policy layer that says when a runtime may actually use them.
 
-That policy is no longer just a daemon concern. The current Weave CLI already needs it, because the next runtime slice is controlled extra-mesh local targeting for `../...` paths, and later slices may need explicit remote access policy too.
+That policy is no longer just a daemon concern. The current Weave CLI already needs it for controlled extra-mesh local targeting through `../...` paths, and later slices may need explicit remote access policy too.
 
 The old `sflo-host` ontology is useful as precedent because it recognized that application/runtime behavior needs its own config surface. But it is not the right model to copy forward directly. Its center of gravity is `HostServiceConfig`, logging channels, contained service toggles, port/host/scheme binding, and service-host mesh registration. That is mostly daemon or long-running-host shape, not the shared runtime-resolution policy that current CLI and daemon both need.
 
@@ -193,6 +193,8 @@ The important design constraint is shared consumption:
 - the CLI should be able to load the operational config and apply the same resolution policy as the daemon
 - the daemon should not get a special ontology branch that the CLI bypasses
 - tests should be able to inject or materialize the same config shape deterministically
+
+That does not mean every command needs to eagerly load or consult operational config. The shared seam should be used by the commands and runtime paths that actually resolve policy-governed locators such as `workingFilePath`, `targetMeshPath`, `workingAccessUrl`, or `targetAccessUrl`.
 
 That does not mean the CLI and daemon need identical discovery behavior. It means the policy model and semantics should be shared even if the loading surface differs.
 

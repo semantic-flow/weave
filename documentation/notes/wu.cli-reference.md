@@ -160,6 +160,10 @@ Constraints:
 
 - the designator path may be given either positionally or with `--designator-path`
 - if both are provided, they must match
+- the current local CLI slice accepts local filesystem paths or `file:` URLs
+- sources inside the workspace are accepted directly
+- extra-mesh local sources are accepted only when operational policy allows the resulting relative `workingFilePath`
+- remote-source integration is still a broader semantic/API direction, not part of the current CLI contract
 
 ### `weave extract`
 
@@ -172,7 +176,7 @@ weave extract /
 
 ### `weave payload update`
 
-Replaces the working bytes of an existing payload artifact.
+Replaces the current working bytes of an existing payload artifact. This updates the current working surface only; `weave` or `weave version` is what records those bytes into explicit history.
 
 ```sh
 weave payload update ./alice-bio-v2.ttl alice/bio

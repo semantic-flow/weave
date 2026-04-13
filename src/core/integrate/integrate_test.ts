@@ -71,9 +71,46 @@ Deno.test("planIntegrate rejects absolute working file paths", async () => {
         currentMeshInventoryTurtle,
       }),
     IntegrateInputError,
-    "mesh-relative file path",
+    "relative file path",
   );
 });
+
+Deno.test(
+  "planIntegrate accepts extra-mesh workingFilePath values and renders them as literals",
+  async () => {
+    const currentMeshInventoryTurtle = await readMeshAliceBioBranchFile(
+      "05-alice-knop-created-woven",
+      "_mesh/_inventory/inventory.ttl",
+    );
+
+    const plan = planIntegrate({
+      designatorPath: "alice/bio",
+      workingFilePath: "../documentation/alice-bio.ttl",
+      meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+      currentMeshInventoryTurtle,
+    });
+
+    assertEquals(plan.workingFilePath, "../documentation/alice-bio.ttl");
+    assertEquals(
+      plan.createdFiles[1]?.contents.includes(
+        'sflo:workingFilePath "../documentation/alice-bio.ttl" .',
+      ),
+      true,
+    );
+    assertEquals(
+      plan.createdFiles[1]?.contents.includes(
+        "sflo:hasWorkingLocatedFile <../documentation/alice-bio.ttl> .",
+      ),
+      false,
+    );
+    assertEquals(
+      plan.updatedFiles[0]?.contents.includes(
+        'sflo:workingFilePath "../documentation/alice-bio.ttl" .',
+      ),
+      true,
+    );
+  },
+);
 
 Deno.test(
   "planIntegrate accepts semantically equivalent woven MeshInventory turtle",
