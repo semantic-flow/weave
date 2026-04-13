@@ -37,6 +37,12 @@ import {
   resolveResourcePageDefinitionInventoryState,
 } from "../mesh/inventory.ts";
 import {
+  loadOperationalLocalPathPolicy,
+  LocalPathAccessError,
+  type OperationalLocalPathPolicy,
+  resolveAllowedLocalPath,
+} from "../operational/local_path_policy.ts";
+import {
   MeshMetadataResolutionError,
   resolveMeshBaseFromMetadataTurtle,
 } from "../mesh/metadata.ts";
@@ -142,9 +148,13 @@ export async function executeValidate(
 ): Promise<ValidateResult> {
   try {
     const targets = normalizeValidateRequest(options.request);
+    const localPathPolicy = await loadOperationalLocalPathPolicy(
+      options.workspaceRoot,
+    );
     const prepared = await prepareVersionExecution(
       options.workspaceRoot,
       toNormalizedVersionTargets(targets),
+      localPathPolicy,
     );
     validateRdfFiles([
       ...prepared.plan.createdFiles,
@@ -176,9 +186,13 @@ export async function executeVersion(
   options: ExecuteVersionOptions,
 ): Promise<VersionResult> {
   const targets = normalizeVersionRequest(options.request);
+  const localPathPolicy = await loadOperationalLocalPathPolicy(
+    options.workspaceRoot,
+  );
   const prepared = await prepareVersionExecution(
     options.workspaceRoot,
     targets,
+    localPathPolicy,
   );
   assertUpdatedTargetsExist(options.workspaceRoot, prepared.plan.updatedFiles);
   await assertCreateTargetsDoNotExist(
@@ -205,6 +219,9 @@ export async function executeGenerate(
 ): Promise<GenerateResult> {
   const targets = normalizeGenerateRequest(options.request);
   await ensureWorkspaceRootExists(options.workspaceRoot);
+  const localPathPolicy = await loadOperationalLocalPathPolicy(
+    options.workspaceRoot,
+  );
   const meshState = await loadMeshState(options.workspaceRoot);
   const allDesignatorPaths = listKnopDesignatorPaths(
     meshState.meshBase,
@@ -217,6 +234,7 @@ export async function executeGenerate(
   );
   const pageFiles = await collectGeneratedPageFiles(
     options.workspaceRoot,
+    localPathPolicy,
     meshState,
     selectedDesignatorPaths,
     targets.length === 0,
@@ -432,6 +450,7 @@ function assertSupportedRequestKeys(
 async function prepareVersionExecution(
   workspaceRoot: string,
   targets: readonly NormalizedVersionTargetSpec[],
+  localPathPolicy: OperationalLocalPathPolicy,
 ): Promise<PreparedVersionExecution> {
   await ensureWorkspaceRootExists(workspaceRoot);
   const meshState = await loadMeshState(workspaceRoot);
@@ -457,6 +476,7 @@ async function prepareVersionExecution(
   const overlay: TextFileOverlay = new Map();
   const initialWeaveableKnops = await loadWeaveableKnopCandidates(
     workspaceRoot,
+    localPathPolicy,
     meshState.meshBase,
     meshState.currentMeshInventoryTurtle,
     requestedDesignatorPaths,
@@ -488,6 +508,7 @@ async function prepareVersionExecution(
     const stagedMeshState = await loadMeshState(workspaceRoot, overlay);
     const stagedWeaveableKnops = await loadWeaveableKnopCandidates(
       workspaceRoot,
+      localPathPolicy,
       stagedMeshState.meshBase,
       stagedMeshState.currentMeshInventoryTurtle,
       remainingDesignatorPaths,
@@ -694,6 +715,7 @@ async function loadMeshState(
 
 async function loadWeaveableKnopCandidates(
   workspaceRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
   meshBase: string,
   currentMeshInventoryTurtle: string,
   requestedDesignatorPaths: readonly string[],
@@ -755,6 +777,7 @@ async function loadWeaveableKnopCandidates(
     ) {
       candidate.payloadArtifact = await loadPayloadWorkingArtifact(
         workspaceRoot,
+        localPathPolicy,
         meshBase,
         designatorPath,
         currentKnopInventoryTurtle,
@@ -769,6 +792,7 @@ async function loadWeaveableKnopCandidates(
       candidate.referenceCatalogArtifact =
         await loadReferenceCatalogWorkingArtifact(
           workspaceRoot,
+          localPathPolicy,
           meshBase,
           designatorPath,
           currentKnopInventoryTurtle,
@@ -780,6 +804,7 @@ async function loadWeaveableKnopCandidates(
       candidate.resourcePageDefinitionArtifact =
         await loadResourcePageDefinitionArtifact(
           workspaceRoot,
+          localPathPolicy,
           meshBase,
           designatorPath,
           currentKnopInventoryTurtle,
@@ -790,6 +815,7 @@ async function loadWeaveableKnopCandidates(
       candidate.referenceTargetSourcePayloadArtifact =
         await loadReferenceTargetSourcePayloadArtifact(
           workspaceRoot,
+          localPathPolicy,
           meshBase,
           designatorPath,
           candidate.referenceCatalogArtifact,
@@ -811,6 +837,7 @@ async function loadWeaveableKnopCandidates(
 
 async function loadPayloadWorkingArtifact(
   workspaceRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
   meshBase: string,
   designatorPath: string,
   currentKnopInventoryTurtle: string,
@@ -849,10 +876,19 @@ async function loadPayloadWorkingArtifact(
   let latestHistoricalSnapshotTurtle: string | undefined;
   try {
     currentPayloadTurtle = await readTextFileWithOverlay(
-      join(workspaceRoot, workingFilePath),
+      resolveAllowedLocalPath(
+        localPathPolicy,
+        "workingFilePath",
+        workingFilePath,
+      ),
       overlay,
     );
   } catch (error) {
+    if (error instanceof LocalPathAccessError) {
+      throw new WeaveRuntimeError(
+        `Working payload file for ${designatorPath} is outside the allowed local-path boundary: ${workingFilePath}`,
+      );
+    }
     if (error instanceof Deno.errors.NotFound) {
       throw new WeaveRuntimeError(
         `Workspace is missing the working payload file for ${designatorPath}: ${workingFilePath}`,
@@ -893,6 +929,7 @@ async function loadPayloadWorkingArtifact(
 
 async function loadReferenceTargetSourcePayloadArtifact(
   workspaceRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
   meshBase: string,
   designatorPath: string,
   referenceCatalogArtifact: ReferenceCatalogWorkingArtifact | undefined,
@@ -939,6 +976,7 @@ async function loadReferenceTargetSourcePayloadArtifact(
 
   const sourcePayloadArtifact = await loadPayloadWorkingArtifact(
     workspaceRoot,
+    localPathPolicy,
     meshBase,
     sourceDesignatorPath,
     sourceKnopInventoryTurtle,
@@ -959,7 +997,8 @@ async function loadReferenceTargetSourcePayloadArtifact(
 }
 
 async function loadReferenceCatalogWorkingArtifact(
-  workspaceRoot: string,
+  _workspaceRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
   meshBase: string,
   designatorPath: string,
   currentKnopInventoryTurtle: string,
@@ -984,11 +1023,20 @@ async function loadReferenceCatalogWorkingArtifact(
     return {
       workingFilePath,
       currentReferenceCatalogTurtle: await readTextFileWithOverlay(
-        join(workspaceRoot, workingFilePath),
+        resolveAllowedLocalPath(
+          localPathPolicy,
+          "workingFilePath",
+          workingFilePath,
+        ),
         overlay,
       ),
     };
   } catch (error) {
+    if (error instanceof LocalPathAccessError) {
+      throw new WeaveRuntimeError(
+        `Working ReferenceCatalog file for ${designatorPath} is outside the allowed local-path boundary: ${workingFilePath}`,
+      );
+    }
     if (error instanceof Deno.errors.NotFound) {
       throw new WeaveRuntimeError(
         `Workspace is missing the working ReferenceCatalog file for ${designatorPath}: ${workingFilePath}`,
@@ -1000,6 +1048,7 @@ async function loadReferenceCatalogWorkingArtifact(
 
 async function loadResourcePageDefinitionArtifact(
   workspaceRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
   meshBase: string,
   designatorPath: string,
   currentKnopInventoryTurtle: string,
@@ -1019,6 +1068,7 @@ async function loadResourcePageDefinitionArtifact(
   try {
     return await loadResourcePageDefinitionWorkingArtifact(
       workspaceRoot,
+      localPathPolicy,
       designatorPath,
       inventoryState,
     );
@@ -1139,6 +1189,7 @@ function validateRdfFiles(files: readonly PlannedFile[]): void {
 
 async function collectGeneratedPageFiles(
   workspaceRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
   meshState: MeshState,
   selectedDesignatorPaths: readonly string[],
   includeAllMeshPages: boolean,
@@ -1148,6 +1199,7 @@ async function collectGeneratedPageFiles(
   const selectedSet = new Set(selectedDesignatorPaths);
   const designatorContexts = await loadGenerateDesignatorContexts(
     workspaceRoot,
+    localPathPolicy,
     meshState,
     selectedDesignatorPaths,
   );
@@ -1226,6 +1278,7 @@ async function collectGeneratedPageFiles(
 
 async function loadGenerateDesignatorContexts(
   workspaceRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
   meshState: MeshState,
   designatorPaths: readonly string[],
 ): Promise<readonly GenerateDesignatorContext[]> {
@@ -1277,11 +1330,13 @@ async function loadGenerateDesignatorContexts(
       const resourcePageDefinitionArtifact =
         await loadResourcePageDefinitionWorkingArtifact(
           workspaceRoot,
+          localPathPolicy,
           designatorPath,
           resourcePageDefinitionState,
         );
       customIdentifierPage = await loadActiveCustomIdentifierPage(
         workspaceRoot,
+        localPathPolicy,
         meshState.meshBase,
         designatorPath,
         resourcePageDefinitionArtifact,

@@ -1,5 +1,6 @@
 import { Parser } from "n3";
 import type { Quad } from "n3";
+import * as pathPosix from "@std/path/posix";
 import type { PlannedFile } from "../planned_file.ts";
 import {
   appendMeshPath,
@@ -2551,6 +2552,12 @@ function renderLegacyFirstPayloadWovenMeshInventoryTurtle(
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
+  const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
+    workingFilePath,
+  );
+  const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
+    workingFilePath,
+  );
 
   return `@base <${meshBase}> .
 @prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
@@ -2572,7 +2579,7 @@ function renderLegacyFirstPayloadWovenMeshInventoryTurtle(
   sflo:hasResourcePage <alice/_knop/index.html> .
 
 <${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <${workingFilePath}> ;
+  ${currentWorkingFileLocator}
   sflo:hasResourcePage <${designatorPagePath}> .
 
 <${knopPath}> a sflo:Knop ;
@@ -2667,7 +2674,7 @@ function renderLegacyFirstPayloadWovenMeshInventoryTurtle(
 
 <${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<${workingFilePath}> a sflo:LocatedFile, sflo:RdfDocument .
+${currentWorkingFileDeclaration}
 
 <_mesh/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -2720,6 +2727,12 @@ function renderFirstPayloadWovenKnopInventoryTurtle(
   const payloadSnapshotPath = `${payloadManifestationPath}/${
     toFileName(workingFilePath)
   }`;
+  const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
+    workingFilePath,
+  );
+  const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
+    workingFilePath,
+  );
 
   return `@base <${meshBase}> .
 @prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
@@ -2736,7 +2749,7 @@ function renderFirstPayloadWovenKnopInventoryTurtle(
   sflo:hasArtifactHistory <${payloadLayout.historyPath}> ;
   sflo:currentArtifactHistory <${payloadLayout.historyPath}> ;
   sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasWorkingLocatedFile <${workingFilePath}> ;
+  ${currentWorkingFileLocator}
   sflo:hasResourcePage <${designatorPagePath}> .
 
 <${payloadLayout.historyPath}> a sflo:ArtifactHistory ;
@@ -2808,7 +2821,7 @@ function renderFirstPayloadWovenKnopInventoryTurtle(
 
 <${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<${workingFilePath}> a sflo:LocatedFile, sflo:RdfDocument .
+${currentWorkingFileDeclaration}
 
 <${payloadSnapshotPath}> a sflo:LocatedFile, sflo:RdfDocument .
 
@@ -2853,6 +2866,12 @@ function renderFirstReferenceCatalogWovenKnopInventoryTurtle(
   const referenceCatalogPath = `${knopPath}/_references`;
   const referenceCatalogManifestationPath = toArtifactManifestationPath(
     `${referenceCatalogPath}/_history001/_s0001`,
+    workingFilePath,
+  );
+  const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
+    workingFilePath,
+  );
+  const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
     workingFilePath,
   );
 
@@ -2902,7 +2921,7 @@ function renderFirstReferenceCatalogWovenKnopInventoryTurtle(
   sflo:hasArtifactHistory <${referenceCatalogPath}/_history001> ;
   sflo:currentArtifactHistory <${referenceCatalogPath}/_history001> ;
   sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasWorkingLocatedFile <${workingFilePath}> ;
+  ${currentWorkingFileLocator}
   sflo:hasResourcePage <${referenceCatalogPath}/index.html> .
 
 <${knopPath}/_inventory/_history001> a sflo:ArtifactHistory ;
@@ -2959,7 +2978,7 @@ function renderFirstReferenceCatalogWovenKnopInventoryTurtle(
 
 <${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<${workingFilePath}> a sflo:LocatedFile, sflo:RdfDocument .
+${currentWorkingFileDeclaration}
 
 <${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
@@ -3024,6 +3043,12 @@ function renderFirstPageDefinitionWovenKnopInventoryTurtle(
   const assetBundleBlock = assetBundlePath
     ? `<${assetBundlePath}> a <${SFC_KNOP_ASSET_BUNDLE_IRI}> .\n\n`
     : "";
+  const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
+    workingFilePath,
+  );
+  const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
+    workingFilePath,
+  );
 
   return `@base <${meshBase}> .
 @prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
@@ -3079,7 +3104,7 @@ function renderFirstPageDefinitionWovenKnopInventoryTurtle(
   sflo:hasArtifactHistory <${pageDefinitionHistoryPath}> ;
   sflo:currentArtifactHistory <${pageDefinitionHistoryPath}> ;
   sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasWorkingLocatedFile <${workingFilePath}> ;
+  ${currentWorkingFileLocator}
   sflo:hasResourcePage <${pageDefinitionPath}/index.html> .
 
 ${assetBundleBlock}<${pageDefinitionHistoryPath}> a sflo:ArtifactHistory ;
@@ -3163,7 +3188,7 @@ ${assetBundleBlock}<${pageDefinitionHistoryPath}> a sflo:ArtifactHistory ;
 
 <${referenceCatalogPath}/references.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<${workingFilePath}> a sflo:LocatedFile, sflo:RdfDocument .
+${currentWorkingFileDeclaration}
 
 <${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
@@ -3239,6 +3264,12 @@ function renderSecondPayloadWovenKnopInventoryTurtle(
     workingFilePath,
   );
   const payloadFileName = toFileName(workingFilePath);
+  const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
+    workingFilePath,
+  );
+  const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
+    workingFilePath,
+  );
 
   return `@base <${meshBase}> .
 @prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
@@ -3255,7 +3286,7 @@ function renderSecondPayloadWovenKnopInventoryTurtle(
   sflo:hasArtifactHistory <${payloadLayout.historyPath}> ;
   sflo:currentArtifactHistory <${payloadLayout.historyPath}> ;
   sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasWorkingLocatedFile <${workingFilePath}> ;
+  ${currentWorkingFileLocator}
   sflo:hasResourcePage <${designatorPagePath}> .
 
 <${payloadLayout.historyPath}> a sflo:ArtifactHistory ;
@@ -3351,7 +3382,7 @@ function renderSecondPayloadWovenKnopInventoryTurtle(
 
 <${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<${workingFilePath}> a sflo:LocatedFile, sflo:RdfDocument .
+${currentWorkingFileDeclaration}
 
 <${payloadStateOneManifestationPath}/${payloadFileName}> a sflo:LocatedFile, sflo:RdfDocument .
 
@@ -3513,8 +3544,11 @@ function renderMeshPayloadArtifactBlockWithResourcePage(
   workingFilePath: string,
 ): string {
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
+  const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
+    workingFilePath,
+  );
   return `<${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <${workingFilePath}> ;
+  ${currentWorkingFileLocator}
   sflo:hasResourcePage <${designatorPagePath}> .`;
 }
 
@@ -4424,16 +4458,33 @@ function normalizeWorkingFilePathLiteral(value: string): string {
     throw new Error("invalid workingFilePath");
   }
 
-  const segments = trimmed.split("/");
-  if (
-    segments.some((segment) =>
-      segment.length === 0 || segment === "." || segment === ".."
-    )
-  ) {
+  const normalized = pathPosix.normalize(trimmed);
+  if (normalized === "." || normalized === "..") {
     throw new Error("invalid workingFilePath");
   }
 
-  return trimmed;
+  const segments = normalized.split("/");
+  if (segments.some((segment) => segment.length === 0)) {
+    throw new Error("invalid workingFilePath");
+  }
+
+  return normalized;
+}
+
+function usesMeshLocalWorkingLocatedFile(workingFilePath: string): boolean {
+  return !normalizeWorkingFilePathLiteral(workingFilePath).startsWith("../");
+}
+
+function renderCurrentWorkingFileLocator(workingFilePath: string): string {
+  return usesMeshLocalWorkingLocatedFile(workingFilePath)
+    ? `sflo:hasWorkingLocatedFile <${workingFilePath}> ;`
+    : `sflo:workingFilePath ${JSON.stringify(workingFilePath)} ;`;
+}
+
+function renderCurrentWorkingFileDeclaration(workingFilePath: string): string {
+  return usesMeshLocalWorkingLocatedFile(workingFilePath)
+    ? `<${workingFilePath}> a sflo:LocatedFile, sflo:RdfDocument .`
+    : "";
 }
 
 function toAbsoluteIri(meshBase: string, value: string): string {

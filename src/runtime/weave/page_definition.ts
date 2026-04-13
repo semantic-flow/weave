@@ -4,6 +4,11 @@ import { Parser, type Quad } from "n3";
 import { formatDesignatorPathForDisplay } from "../../core/designator_segments.ts";
 import type { ResourcePageDefinitionWorkingArtifact } from "../../core/weave/weave.ts";
 import { type ResourcePageDefinitionInventoryState } from "../mesh/inventory.ts";
+import {
+  LocalPathAccessError,
+  type OperationalLocalPathPolicy,
+  resolveAllowedLocalPath,
+} from "../operational/local_path_policy.ts";
 
 const SFC_NAMESPACE = "https://semantic-flow.github.io/ontology/core/";
 const SFC_HAS_PAGE_REGION_IRI = `${SFC_NAMESPACE}hasPageRegion`;
@@ -35,7 +40,8 @@ export class ResourcePageDefinitionResolutionError extends Error {
 }
 
 export async function loadResourcePageDefinitionWorkingArtifact(
-  meshRoot: string,
+  _meshRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
   designatorPath: string,
   inventoryState: ResourcePageDefinitionInventoryState | undefined,
 ): Promise<ResourcePageDefinitionWorkingArtifact | undefined> {
@@ -47,10 +53,21 @@ export async function loadResourcePageDefinitionWorkingArtifact(
     return {
       ...inventoryState,
       currentPageDefinitionTurtle: await Deno.readTextFile(
-        join(meshRoot, inventoryState.workingFilePath),
+        resolveAllowedLocalPath(
+          localPathPolicy,
+          "workingFilePath",
+          inventoryState.workingFilePath,
+        ),
       ),
     };
   } catch (error) {
+    if (error instanceof LocalPathAccessError) {
+      throw new ResourcePageDefinitionResolutionError(
+        `Working ResourcePageDefinition file for ${
+          formatDesignatorPathForDisplay(designatorPath)
+        } is outside the allowed local-path boundary: ${inventoryState.workingFilePath}`,
+      );
+    }
     if (error instanceof Deno.errors.NotFound) {
       throw new ResourcePageDefinitionResolutionError(
         `Mesh root is missing the working ResourcePageDefinition file for ${
@@ -64,6 +81,7 @@ export async function loadResourcePageDefinitionWorkingArtifact(
 
 export async function loadActiveCustomIdentifierPage(
   meshRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
   meshBase: string,
   designatorPath: string,
   artifact: ResourcePageDefinitionWorkingArtifact | undefined,
@@ -154,9 +172,22 @@ export async function loadActiveCustomIdentifierPage(
         return {
           key,
           sourcePath,
-          markdown: await Deno.readTextFile(join(meshRoot, sourcePath)),
+          markdown: await Deno.readTextFile(
+            resolveAllowedLocalPath(
+              localPathPolicy,
+              "targetMeshPath",
+              sourcePath,
+            ),
+          ),
         };
       } catch (error) {
+        if (error instanceof LocalPathAccessError) {
+          throw new ResourcePageDefinitionResolutionError(
+            `ResourcePageDefinition region ${key} for ${
+              formatDesignatorPathForDisplay(designatorPath)
+            } points outside the allowed local-path boundary: ${sourcePath}`,
+          );
+        }
         if (error instanceof Deno.errors.NotFound) {
           throw new ResourcePageDefinitionResolutionError(
             `ResourcePageDefinition region ${key} for ${
@@ -294,13 +325,9 @@ function normalizeTargetMeshPath(
   }
 
   const normalized = pathPosix.normalize(trimmed);
-  if (
-    normalized === "." ||
-    normalized === ".." ||
-    normalized.startsWith("../")
-  ) {
+  if (normalized === "." || normalized === "..") {
     throw new ResourcePageDefinitionResolutionError(
-      `targetMeshPath values must remain inside the mesh root; found ${trimmed}.`,
+      `targetMeshPath values must point at a file-like path; found ${trimmed}.`,
     );
   }
 

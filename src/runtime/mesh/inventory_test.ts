@@ -296,12 +296,11 @@ Deno.test("resolvePayloadArtifactInventoryState rejects inconsistent workingFile
   );
 });
 
-Deno.test("resolvePayloadArtifactInventoryState rejects unsupported workingFilePath literals", () => {
-  assertThrows(
-    () =>
-      resolvePayloadArtifactInventoryState(
-        MESH_BASE,
-        `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+Deno.test("resolvePayloadArtifactInventoryState accepts extra-mesh workingFilePath literals syntactically", () => {
+  assertEquals(
+    resolvePayloadArtifactInventoryState(
+      MESH_BASE,
+      `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
 @base <${MESH_BASE}> .
 
@@ -312,14 +311,18 @@ Deno.test("resolvePayloadArtifactInventoryState rejects unsupported workingFileP
 <alice/bio/_knop> rdf:type sflo:Knop ;
   sflo:hasPayloadArtifact <alice/bio> .
 `,
-        "alice/bio",
-        {
-          parseErrorMessage: "Could not parse Knop inventory",
-          missingWorkingFileMessage: "Could not resolve working payload file",
-        },
-      ),
-    Error,
-    "Could not resolve working payload file",
+      "alice/bio",
+      {
+        parseErrorMessage: "Could not parse Knop inventory",
+        missingWorkingFileMessage: "Could not resolve working payload file",
+      },
+    ),
+    {
+      workingFilePath: "../alice-bio.ttl",
+      currentArtifactHistoryPath: "alice/bio/_history001",
+      currentArtifactHistoryExists: true,
+      latestHistoricalStatePath: undefined,
+    },
   );
 });
 

@@ -1,4 +1,5 @@
 import { Parser, type Quad } from "n3";
+import * as pathPosix from "@std/path/posix";
 import {
   toKnopPath,
   toReferenceCatalogPath,
@@ -518,15 +519,16 @@ function normalizeWorkingFilePath(
     throw new Error(errorMessage);
   }
 
-  const segments = trimmed.split("/");
+  const normalized = pathPosix.normalize(trimmed);
+  if (normalized === "." || normalized === "..") {
+    throw new Error(errorMessage);
+  }
+  const segments = normalized.split("/");
   if (segments.some((segment) => segment.length === 0)) {
     throw new Error(errorMessage);
   }
-  if (segments.some((segment) => segment === "." || segment === "..")) {
-    throw new Error(errorMessage);
-  }
 
-  return trimmed;
+  return normalized;
 }
 
 function toMeshIri(meshBase: string, meshPath: string): string {
