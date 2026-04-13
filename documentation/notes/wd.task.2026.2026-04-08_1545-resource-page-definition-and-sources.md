@@ -231,7 +231,7 @@ Minimal shape:
 - [x] Draft the matching Accord manifests early, including the exact transition boundaries, expected file additions/changes, and any explicit exclusions needed for deterministic comparison.
 - [x] Keep the first carried fixture scope narrow: prove authority/precedence, local mesh-path sources, and `_knop/_assets` handling before broadening into in-mesh or import-oriented source behavior.
 - [x] Use the staged `14/15` fixture pair as the primary acceptance target while implementing the first runtime slice, updating the runtime toward the fixture rather than inventing runtime behavior first and backfilling fixtures later.
-- [x] Leave the carried follow-on ladder in the near-term plan, but do not let it block the first settled `14/15` slice: `16/17` should introduce and weave the governed Markdown artifact used for later page sourcing, `18/19` should prove Alice artifact-backed page sources, `20/21` should cover Bob imported-source behavior from a genuine outside-origin URL, and `22-25` should carry root continuation.
+- [x] Leave the carried follow-on ladder in the near-term plan, but do not let it block the first settled `14/15` slice: `16/17` should introduce and weave the governed Markdown artifact used for later page sourcing, `18/19` should prove Alice artifact-backed page sources, `20/21` should cover Bob imported-source behavior from a genuine outside-origin URL, and `22-25` should carry root continuation. `22/23` are now real carried root-lifecycle pairs; `24/25` remain.
 
 #### Proposed Ladder Sketch
 
@@ -307,6 +307,8 @@ Minimal shape:
 - Weave the root Knop creation so root support-artifact histories/pages exist and root `index.html` is present as the generic identifier page.
 - Keep `_mesh/index.html` distinct and unchanged in ownership semantics.
 
+`22/23` are now real carried fixture pairs. `22` introduces `_knop/_meta/meta.ttl` and `_knop/_inventory/inventory.ttl` while updating `_mesh/_inventory/inventory.ttl` to register the root Knop in a later carried mesh state. `23` then advances `_mesh/_inventory` to `_history001/_s0006`, versions the root Knop support artifacts into their first histories, and generates the generic root `index.html` plus `_knop/index.html` without yet introducing `_knop/_page`.
+
 `24-root-page-customized`
 
 - Add `_knop/_page/page.ttl` plus minimal root mesh-local content files and `_knop/_assets/...`.
@@ -343,6 +345,13 @@ The carried import-boundary manifests now exist at:
 - `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/21-bob-page-imported-source-woven.jsonld`
 
 These `20/21` manifests use outside-origin Markdown from `https://raw.githubusercontent.com/djradon/public-notes/refs/heads/main/user.bob-newhart.md`, import it into governed artifact `bob/page-main` with local working file `bob-page-main.md`, and then repoint Bob's page definition at that governed artifact. `20/21` are now real carried fixture pairs. The acceptance shape still explicitly treats this as import-boundary and page-source behavior rather than RDF reconciliation with Bob's still-minimal extracted local graph, and the first general `import` planner/runtime/CLI surface remains follow-on work.
+
+The carried root-lifecycle manifests now also exist at:
+
+- `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/22-root-knop-created.jsonld`
+- `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/23-root-knop-created-woven.jsonld`
+
+These `22/23` manifests cover the later-ladder root lifecycle without introducing root page customization yet. `22` proves root Knop support-surface creation in an already-evolved mesh. `23` proves the later first root-Knop weave, including `_mesh/_inventory/_history001/_s0006`, root `index.html`, root `_knop/index.html`, and the first root Knop support-artifact histories. The remaining root follow-on work is `24/25` for `_knop/_page`-driven root page customization.
 
 - `14` still uses provisional `operationId: "resourcePage.define"` until the concrete API/job naming settles.
 - the first support-artifact manifestation token remains `page-ttl`
@@ -580,5 +589,6 @@ Current `19-alice-page-artifact-source-woven` manifest shape:
 - [x] Add integration coverage for local mesh-path page sources and first-pass in-mesh artifact-backed page sources.
 - [x] Add focused coverage for later page-definition revisions that version a second `_page` state and later Alice KnopInventory state without widening mesh inventory.
 - [ ] Add integration coverage for import-boundary behavior.
-- [ ] Continue the Accord fixture ladder after the now-real `16-21` slices with `22-25` for root lifecycle continuation.
+- [x] Continue the Accord fixture ladder after the now-real `16-21` slices with `22/23` for root lifecycle continuation.
+- [ ] Finish the root continuation ladder with `24/25` for root page customization.
 - [ ] Update [[wd.codebase-overview]] once the runtime seams and carried slice are real.

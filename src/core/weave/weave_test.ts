@@ -6,6 +6,7 @@ import {
 } from "@std/assert";
 import { compareRdfContent } from "../../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import { planExtract } from "../extract/extract.ts";
+import { planKnopCreate } from "../knop/create.ts";
 import {
   detectPendingWeaveSlice,
   planWeave,
@@ -588,6 +589,63 @@ Deno.test("planWeave renders a later first payload weave slice against a carried
   assertStringIncludes(
     plan.updatedFiles[1]?.contents ?? "",
     "sflo:currentArtifactHistory <alice/page-main/_history001> ;",
+  );
+});
+
+Deno.test("planWeave supports a later first root Knop weave against a carried mesh inventory", async () => {
+  const createPlan = planKnopCreate({
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    designatorPath: "",
+    currentMeshInventoryTurtle: await readMeshAliceBioBranchFile(
+      "21-bob-page-imported-source-woven",
+      "_mesh/_inventory/inventory.ttl",
+    ),
+  });
+
+  const plan = planWeave({
+    request: {
+      targets: [{ designatorPath: "" }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: createPlan.updatedFiles[0]!.contents,
+    weaveableKnops: [{
+      designatorPath: "",
+      currentKnopMetadataTurtle: createPlan.createdFiles[0]!.contents,
+      currentKnopInventoryTurtle: createPlan.createdFiles[1]!.contents,
+    }],
+  });
+
+  assertEquals(plan.wovenDesignatorPaths, [""]);
+  assertEquals(
+    plan.createdFiles.map((file) => file.path),
+    [
+      "_mesh/_inventory/_history001/_s0006/inventory-ttl/inventory.ttl",
+      "_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
+      "_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+    ],
+  );
+  assertEquals(plan.createdPages[0], {
+    kind: "simple",
+    path: "_mesh/_inventory/_history001/_s0006/index.html",
+    description: "Resource page for the sixth MeshInventory historical state.",
+  });
+  assertEquals(plan.createdPages[2], {
+    kind: "identifier",
+    path: "index.html",
+    designatorPath: "",
+    workingFilePath: undefined,
+  });
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    "sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0006> ;",
+  );
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    "<>\n  sflo:hasResourcePage <index.html> .",
+  );
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    "<_knop> a sflo:Knop ;\n  sflo:hasWorkingKnopInventoryFile <_knop/_inventory/inventory.ttl> ;\n  sflo:hasResourcePage <_knop/index.html> .",
   );
 });
 

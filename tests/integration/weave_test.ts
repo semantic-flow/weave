@@ -7,6 +7,7 @@ import {
 import { join } from "@std/path";
 import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import { WeaveInputError } from "../../src/core/weave/weave.ts";
+import { executeKnopCreate } from "../../src/runtime/knop/create.ts";
 import {
   executeWeave,
   WeaveRuntimeError,
@@ -96,6 +97,56 @@ Deno.test("executeWeave supports the exact root target", async () => {
     ),
     `<> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <_history001> ;`,
+  );
+});
+
+Deno.test("executeWeave supports a later first root Knop weave against a carried mesh state", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-weave-root-knop-later-");
+  await materializeMeshAliceBioBranch(
+    "21-bob-page-imported-source-woven",
+    workspaceRoot,
+  );
+
+  await executeKnopCreate({
+    workspaceRoot,
+    request: {
+      designatorPath: "",
+    },
+  });
+
+  const result = await executeWeave({
+    workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "" }],
+    },
+  });
+
+  assertEquals(result.wovenDesignatorPaths, [""]);
+  assert(
+    result.createdPaths.includes(
+      "_mesh/_inventory/_history001/_s0006/inventory-ttl/inventory.ttl",
+    ),
+  );
+  assert(
+    result.createdPaths.includes(
+      "_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+    ),
+  );
+  assert(result.updatedPaths.includes("_mesh/_inventory/inventory.ttl"));
+  assert(result.updatedPaths.includes("_knop/_inventory/inventory.ttl"));
+  await Deno.stat(join(workspaceRoot, "index.html"));
+  await Deno.stat(join(workspaceRoot, "_knop/index.html"));
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+    ),
+    "sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0006> ;",
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+    ),
+    "<>\n  sflo:hasResourcePage <index.html> .",
   );
 });
 

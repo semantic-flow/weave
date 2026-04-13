@@ -381,23 +381,29 @@ Current Accord manifests:
 
 The corresponding fail-closed direct-outside-source rejection should be covered in focused runtime/integration tests rather than forced into a successful fixture transition. Support for remote RDF sites that require content negotiation or custom request headers should stay a follow-on operational/import feature rather than a prerequisite for the first carried import-boundary pair.
 
-`20/21` are now real carried fixture pairs. The remaining follow-on work here is the first general `import` planner/runtime/CLI surface plus the root-focused continuation.
+`20/21` are now real carried fixture pairs. `22/23` are now also real carried fixture pairs for the later root-lifecycle seam. The remaining follow-on work here is the first general `import` planner/runtime/CLI surface plus `24/25` for root page customization.
 
 ### Root-focused continuation on the same ladder
 
 Root-page customization should continue on the same carried `mesh-alice-bio` ladder rather than being split into a separate fixture family by default.
 
-Proposed root-focused continuation steps:
+Current carried root-focused steps:
 
 - `22-root-knop-created`
 - `23-root-knop-created-woven`
+
+Remaining root-focused continuation steps:
+
 - `24-root-page-customized`
 - `25-root-page-customized-woven`
 
-Proposed Accord manifests:
+Current root-focused Accord manifests:
 
 - `examples/alice-bio/conformance/22-root-knop-created.jsonld`
 - `examples/alice-bio/conformance/23-root-knop-created-woven.jsonld`
+
+Remaining proposed Accord manifests:
+
 - `examples/alice-bio/conformance/24-root-page-customized.jsonld`
 - `examples/alice-bio/conformance/25-root-page-customized-woven.jsonld`
 
@@ -408,6 +414,14 @@ What the root continuation should prove:
 - root Knop-owned assets remain at `_knop/_assets/...` without leading slashes
 - root current-page discovery and authority follow the same `_knop/_page` rules as non-root pages
 - root-specific path layout remains slashless and coexists correctly with `_mesh/...`
+
+`22/23` now prove the first two parts of that continuation:
+
+- root Knop creation remains valid in a later carried mesh state rather than only near the beginning of the ladder
+- root `index.html` and `_knop/index.html` appear only after the root Knop is woven
+- root `_knop` history/state progression works without forcing `_mesh/index.html` and root `index.html` to collapse into one resource
+
+The remaining `24/25` work is specifically about `_knop/_page`-driven customization of root `index.html`.
 
 ## Non-Goals
 

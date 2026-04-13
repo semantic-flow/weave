@@ -62,6 +62,11 @@ export interface KnopCreatePlan {
   updatedFiles: readonly PlannedFile[];
 }
 
+interface ResolvedKnopCreateMeshInventoryShape {
+  kind: "legacy" | "carried";
+  existingKnopPaths: readonly string[];
+}
+
 export class KnopCreateInputError extends Error {
   constructor(message: string) {
     super(message);
@@ -182,19 +187,28 @@ function renderUpdatedMeshInventoryTurtle(
   currentMeshInventoryTurtle: string,
   knopPath: string,
 ): string {
-  assertCurrentMeshInventoryShapeForKnopCreate(
+  const shape = resolveCurrentMeshInventoryShapeForKnopCreate(
     meshBase,
     currentMeshInventoryTurtle,
     knopPath,
   );
-  return renderFirstKnopCreatedMeshInventoryTurtle(meshBase, knopPath);
+  if (shape.kind === "legacy") {
+    return renderFirstKnopCreatedMeshInventoryTurtle(meshBase, knopPath);
+  }
+
+  return renderLaterKnopCreatedMeshInventoryTurtle(
+    meshBase,
+    currentMeshInventoryTurtle,
+    knopPath,
+    shape.existingKnopPaths,
+  );
 }
 
-function assertCurrentMeshInventoryShapeForKnopCreate(
+function resolveCurrentMeshInventoryShapeForKnopCreate(
   meshBase: string,
   currentMeshInventoryTurtle: string,
   knopPath: string,
-): void {
+): ResolvedKnopCreateMeshInventoryShape {
   const errorMessage =
     `current mesh inventory has an unsupported carried shape for knop create: ${knopPath}`;
   const quads = parseMeshInventoryQuads(
@@ -227,13 +241,43 @@ function assertCurrentMeshInventoryShapeForKnopCreate(
       `mesh inventory already registers knop: ${knopPath}`,
     );
   }
-  if (
-    existingKnopPaths.length > 0 ||
-    hasPredicateForSubject(quads, meshBase, "_mesh", SFLO_HAS_KNOP_IRI)
-  ) {
-    throw new KnopCreateInputError(errorMessage);
+
+  const hasAnyKnopFacts = hasPredicateForSubject(
+    quads,
+    meshBase,
+    "_mesh",
+    SFLO_HAS_KNOP_IRI,
+  );
+
+  if (!hasAnyKnopFacts && existingKnopPaths.length === 0) {
+    assertHasLegacyCurrentMeshInventoryShapeForKnopCreate(
+      quads,
+      meshBase,
+      errorMessage,
+    );
+    return {
+      kind: "legacy",
+      existingKnopPaths,
+    };
   }
 
+  assertHasCarriedCurrentMeshInventoryShapeForKnopCreate(
+    quads,
+    meshBase,
+    errorMessage,
+    existingKnopPaths,
+  );
+  return {
+    kind: "carried",
+    existingKnopPaths,
+  };
+}
+
+function assertHasLegacyCurrentMeshInventoryShapeForKnopCreate(
+  quads: readonly Quad[],
+  meshBase: string,
+  errorMessage: string,
+): void {
   assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
     ["_mesh", RDF_TYPE_IRI, SFLO_SEMANTIC_MESH_IRI],
     ["_mesh", SFLO_HAS_MESH_METADATA_IRI, "_mesh/_meta"],
@@ -521,6 +565,130 @@ function assertCurrentMeshInventoryShapeForKnopCreate(
   ]);
 }
 
+function assertHasCarriedCurrentMeshInventoryShapeForKnopCreate(
+  quads: readonly Quad[],
+  meshBase: string,
+  errorMessage: string,
+  existingKnopPaths: readonly string[],
+): void {
+  assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
+    ["_mesh", RDF_TYPE_IRI, SFLO_SEMANTIC_MESH_IRI],
+    ["_mesh", SFLO_HAS_MESH_METADATA_IRI, "_mesh/_meta"],
+    ["_mesh", SFLO_HAS_MESH_INVENTORY_IRI, "_mesh/_inventory"],
+    ["_mesh", SFLO_HAS_RESOURCE_PAGE_IRI, "_mesh/index.html"],
+    ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_MESH_INVENTORY_IRI],
+    ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
+    ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
+    [
+      "_mesh/_inventory",
+      SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
+      "_mesh/_inventory/_history001",
+    ],
+    [
+      "_mesh/_inventory",
+      SFLO_HAS_WORKING_LOCATED_FILE_IRI,
+      "_mesh/_inventory/inventory.ttl",
+    ],
+    [
+      "_mesh/_inventory",
+      SFLO_HAS_RESOURCE_PAGE_IRI,
+      "_mesh/_inventory/index.html",
+    ],
+    ["_mesh/_inventory/_history001", RDF_TYPE_IRI, SFLO_ARTIFACT_HISTORY_IRI],
+  ]);
+
+  if (existingKnopPaths.length === 0) {
+    throw new KnopCreateInputError(errorMessage);
+  }
+
+  for (const existingKnopPath of existingKnopPaths) {
+    if (
+      !hasNamedNodeFact(
+        quads,
+        meshBase,
+        "_mesh",
+        SFLO_HAS_KNOP_IRI,
+        existingKnopPath,
+      )
+    ) {
+      throw new KnopCreateInputError(errorMessage);
+    }
+  }
+
+  const latestStatePath = requireSingleNamedNodePath(
+    quads,
+    meshBase,
+    "_mesh/_inventory/_history001",
+    SFLO_LATEST_HISTORICAL_STATE_IRI,
+    errorMessage,
+  );
+  const latestStateOrdinal = parseStateOrdinalFromPath(
+    latestStatePath,
+    errorMessage,
+  );
+  const nextStateOrdinal = requireSingleNonNegativeIntegerLiteral(
+    quads,
+    meshBase,
+    "_mesh/_inventory/_history001",
+    SFLO_NEXT_STATE_ORDINAL_IRI,
+    errorMessage,
+  );
+  if (
+    toHistoryPathFromStatePath(latestStatePath) !==
+      "_mesh/_inventory/_history001" ||
+    nextStateOrdinal !== latestStateOrdinal + 1
+  ) {
+    throw new KnopCreateInputError(errorMessage);
+  }
+
+  if (
+    !hasNamedNodeFact(
+      quads,
+      meshBase,
+      latestStatePath,
+      RDF_TYPE_IRI,
+      SFLO_HISTORICAL_STATE_IRI,
+    )
+  ) {
+    throw new KnopCreateInputError(errorMessage);
+  }
+}
+
+function renderLaterKnopCreatedMeshInventoryTurtle(
+  meshBase: string,
+  currentMeshInventoryTurtle: string,
+  knopPath: string,
+  existingKnopPaths: readonly string[],
+): string {
+  const blocks = normalizeMeshInventoryHeader(
+    splitTurtleBlocks(currentMeshInventoryTurtle),
+  );
+  const knopPaths = [...existingKnopPaths];
+  if (!knopPaths.includes(knopPath)) {
+    knopPaths.unshift(knopPath);
+  }
+
+  let nextBlocks = replaceSubjectBlock(
+    blocks,
+    "_mesh",
+    renderMeshRootBlock(meshBase, knopPaths),
+  );
+  nextBlocks = upsertSubjectBlockAfter(
+    nextBlocks,
+    knopPaths.at(-1) ?? "_mesh",
+    knopPath,
+    renderMeshKnopBlockWithoutResourcePage(knopPath),
+  );
+  nextBlocks = upsertSubjectBlockAfter(
+    nextBlocks,
+    "_mesh/_inventory/inventory.ttl",
+    `${knopPath}/_inventory/inventory.ttl`,
+    renderLocatedFileBlock(`${knopPath}/_inventory/inventory.ttl`),
+  );
+
+  return `${nextBlocks.join("\n\n")}\n`;
+}
+
 function renderFirstKnopCreatedMeshInventoryTurtle(
   meshBase: string,
   knopPath: string,
@@ -617,6 +785,106 @@ function renderFirstKnopCreatedMeshInventoryTurtle(
 
 <_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 `;
+}
+
+function renderMeshRootBlock(
+  meshBase: string,
+  knopPaths: readonly string[],
+): string {
+  const knopLines = knopPaths.map((path) => `  sflo:hasKnop <${path}> ;`).join(
+    "\n",
+  );
+
+  return `<_mesh> a sflo:SemanticMesh ;
+  sflo:meshBase "${meshBase}"^^xsd:anyURI ;
+  sflo:hasMeshMetadata <_mesh/_meta> ;
+  sflo:hasMeshInventory <_mesh/_inventory> ;
+${knopLines}
+  sflo:hasResourcePage <_mesh/index.html> .`;
+}
+
+function renderMeshKnopBlockWithoutResourcePage(knopPath: string): string {
+  return `<${knopPath}> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> .`;
+}
+
+function renderLocatedFileBlock(path: string): string {
+  return `<${path}> a sflo:LocatedFile, sflo:RdfDocument .`;
+}
+
+function splitTurtleBlocks(turtle: string): string[] {
+  return turtle.trimEnd().split("\n\n");
+}
+
+function normalizeMeshInventoryHeader(blocks: string[]): string[] {
+  if (blocks.length === 0) {
+    return blocks;
+  }
+
+  const [header, ...rest] = blocks;
+  return [
+    header.replace(
+      "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n",
+      "",
+    ),
+    ...rest,
+  ];
+}
+
+function replaceSubjectBlock(
+  blocks: readonly string[],
+  subjectPath: string,
+  replacementBlock: string,
+): string[] {
+  const index = findSubjectBlockIndex(blocks, subjectPath);
+  if (index === -1) {
+    throw new KnopCreateInputError(
+      `current mesh inventory did not contain subject block <${subjectPath}>`,
+    );
+  }
+
+  const nextBlocks = [...blocks];
+  nextBlocks[index] = replacementBlock;
+  return nextBlocks;
+}
+
+function upsertSubjectBlockAfter(
+  blocks: readonly string[],
+  anchorSubjectPath: string,
+  subjectPath: string,
+  block: string,
+): string[] {
+  const existingIndex = findSubjectBlockIndex(blocks, subjectPath);
+  if (existingIndex !== -1) {
+    const nextBlocks = [...blocks];
+    nextBlocks[existingIndex] = block;
+    return nextBlocks;
+  }
+
+  const anchorIndex = findSubjectBlockIndex(blocks, anchorSubjectPath);
+  if (anchorIndex === -1) {
+    throw new KnopCreateInputError(
+      `current mesh inventory did not contain anchor subject block <${anchorSubjectPath}>`,
+    );
+  }
+
+  const nextBlocks = [...blocks];
+  nextBlocks.splice(anchorIndex + 1, 0, block);
+  return nextBlocks;
+}
+
+function findSubjectBlockIndex(
+  blocks: readonly string[],
+  subjectPath: string,
+): number {
+  return blocks.findIndex((block) =>
+    getSubjectPathFromBlock(block) === subjectPath
+  );
+}
+
+function getSubjectPathFromBlock(block: string): string | undefined {
+  const match = block.match(/^<([^>]*)>/);
+  return match?.[1];
 }
 
 function assertHasNamedNodeFacts(
@@ -740,6 +1008,88 @@ function listTypedSubjectPaths(
   }
 
   return [...paths];
+}
+
+function requireSingleNamedNodePath(
+  quads: readonly Quad[],
+  meshBase: string,
+  subjectValue: string,
+  predicateIri: string,
+  errorMessage: string,
+): string {
+  const objectIri = requireSingleNamedNodeObject(
+    quads,
+    meshBase,
+    subjectValue,
+    predicateIri,
+    errorMessage,
+  );
+  const path = toRelativeMeshPath(meshBase, objectIri);
+  if (path === undefined) {
+    throw new KnopCreateInputError(errorMessage);
+  }
+  return path;
+}
+
+function requireSingleNamedNodeObject(
+  quads: readonly Quad[],
+  meshBase: string,
+  subjectValue: string,
+  predicateIri: string,
+  errorMessage: string,
+): string {
+  const subjectIri = new URL(subjectValue, meshBase).href;
+  const matches = quads.filter((quad) =>
+    quad.subject.termType === "NamedNode" &&
+    quad.subject.value === subjectIri &&
+    quad.predicate.value === predicateIri &&
+    quad.object.termType === "NamedNode"
+  );
+  if (matches.length !== 1) {
+    throw new KnopCreateInputError(errorMessage);
+  }
+
+  return matches[0]!.object.value;
+}
+
+function requireSingleNonNegativeIntegerLiteral(
+  quads: readonly Quad[],
+  meshBase: string,
+  subjectValue: string,
+  predicateIri: string,
+  errorMessage: string,
+): number {
+  const subjectIri = new URL(subjectValue, meshBase).href;
+  const matches = quads.filter((quad) =>
+    quad.subject.termType === "NamedNode" &&
+    quad.subject.value === subjectIri &&
+    quad.predicate.value === predicateIri &&
+    quad.object.termType === "Literal" &&
+    quad.object.datatype.value === XSD_NON_NEGATIVE_INTEGER_IRI
+  );
+  if (matches.length !== 1) {
+    throw new KnopCreateInputError(errorMessage);
+  }
+
+  const parsed = Number.parseInt(matches[0]!.object.value, 10);
+  if (!Number.isSafeInteger(parsed) || parsed < 0) {
+    throw new KnopCreateInputError(errorMessage);
+  }
+
+  return parsed;
+}
+
+function parseStateOrdinalFromPath(path: string, errorMessage: string): number {
+  const segment = path.split("/").pop();
+  if (!segment || !/^_s\d{4}$/.test(segment)) {
+    throw new KnopCreateInputError(errorMessage);
+  }
+
+  return Number.parseInt(segment.slice(2), 10);
+}
+
+function toHistoryPathFromStatePath(statePath: string): string {
+  return statePath.slice(0, statePath.lastIndexOf("/"));
 }
 
 function toRelativeMeshPath(
