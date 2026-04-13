@@ -1,4 +1,10 @@
-import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
+import {
+  assertEquals,
+  assertFalse,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
+import { compareRdfContent } from "../../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import { planExtract } from "../extract/extract.ts";
 import {
   detectPendingWeaveSlice,
@@ -1555,11 +1561,17 @@ Deno.test("planWeave renders the first page-definition weave slice", async () =>
   ]);
   assertEquals(plan.createdFiles[0]?.contents, pageDefinitionTurtle);
   assertEquals(
-    plan.updatedFiles[0]?.contents,
-    await readMeshAliceBioBranchFile(
-      "15-alice-page-customized-woven",
-      "alice/_knop/_inventory/inventory.ttl",
-    ),
+    await compareRdfContent({
+      left: new TextEncoder().encode(plan.updatedFiles[0]?.contents ?? ""),
+      right: new TextEncoder().encode(
+        await readMeshAliceBioBranchFile(
+          "15-alice-page-customized-woven",
+          "alice/_knop/_inventory/inventory.ttl",
+        ),
+      ),
+      path: "alice/_knop/_inventory/inventory.ttl",
+    }),
+    true,
   );
   assertEquals(plan.createdPages.map((page) => page.path), [
     "alice/index.html",
@@ -1569,6 +1581,99 @@ Deno.test("planWeave renders the first page-definition weave slice", async () =>
     "alice/_knop/_page/_history001/index.html",
     "alice/_knop/_page/_history001/_s0001/index.html",
     "alice/_knop/_page/_history001/_s0001/page-ttl/index.html",
+  ]);
+});
+
+Deno.test("planWeave generalizes the first page-definition weave slice for earlier KnopInventory states", async () => {
+  const meshBase = "https://semantic-flow.github.io/mesh-alice-bio/";
+  const currentKnopInventoryTurtle = (
+    await readMeshAliceBioBranchFile(
+      "13-bob-extracted-woven",
+      "bob/_knop/_inventory/inventory.ttl",
+    )
+  )
+    .replace(
+      "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n",
+      "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n@prefix sfc: <https://semantic-flow.github.io/ontology/core/> .\n",
+    )
+    .replace(
+      `  sflo:hasReferenceCatalog <bob/_knop/_references> ;\n  sflo:hasWorkingKnopInventoryFile <bob/_knop/_inventory/inventory.ttl> ;\n  sflo:hasResourcePage <bob/_knop/index.html> .\n`,
+      `  sflo:hasReferenceCatalog <bob/_knop/_references> ;\n  sflo:hasWorkingKnopInventoryFile <bob/_knop/_inventory/inventory.ttl> ;\n  sflo:hasResourcePage <bob/_knop/index.html> ;\n  sfc:hasResourcePageDefinition <bob/_knop/_page> .\n`,
+    )
+    .replace(
+      `<bob/_knop/_references> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;\n  sflo:hasArtifactHistory <bob/_knop/_references/_history001> ;\n  sflo:currentArtifactHistory <bob/_knop/_references/_history001> ;\n  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;\n  sflo:hasWorkingLocatedFile <bob/_knop/_references/references.ttl> ;\n  sflo:hasResourcePage <bob/_knop/_references/index.html> .\n`,
+      `<bob/_knop/_references> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;\n  sflo:hasArtifactHistory <bob/_knop/_references/_history001> ;\n  sflo:currentArtifactHistory <bob/_knop/_references/_history001> ;\n  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;\n  sflo:hasWorkingLocatedFile <bob/_knop/_references/references.ttl> ;\n  sflo:hasResourcePage <bob/_knop/_references/index.html> .\n\n<bob/_knop/_page> a sfc:ResourcePageDefinition, sflo:DigitalArtifact, sflo:RdfDocument ;\n  sflo:hasWorkingLocatedFile <bob/_knop/_page/page.ttl> .\n`,
+    )
+    .replace(
+      `<bob/_knop/_references/references.ttl> a sflo:LocatedFile, sflo:RdfDocument .\n`,
+      `<bob/_knop/_references/references.ttl> a sflo:LocatedFile, sflo:RdfDocument .\n\n<bob/_knop/_page/page.ttl> a sflo:LocatedFile, sflo:RdfDocument .\n`,
+    );
+  const pageDefinitionTurtle =
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/bob/_knop/_page> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sfc: <https://semantic-flow.github.io/ontology/core/> .
+
+<> a sfc:ResourcePageDefinition, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sfc:hasPageRegion <#main-region> .
+
+<#main-region> a sfc:ResourcePageRegion ;
+  sfc:regionKey "main" ;
+  sfc:hasResourcePageSource <#main-source> .
+
+<#main-source> a sfc:ResourcePageSource ;
+  sfc:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/bob/page-main> ;
+  sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Current> .
+`;
+  const plan = planWeave({
+    request: {
+      targets: [{ designatorPath: "bob" }],
+    },
+    meshBase,
+    currentMeshInventoryTurtle: await readMeshAliceBioBranchFile(
+      "13-bob-extracted-woven",
+      "_mesh/_inventory/inventory.ttl",
+    ),
+    weaveableKnops: [{
+      designatorPath: "bob",
+      currentKnopMetadataTurtle: await readMeshAliceBioBranchFile(
+        "13-bob-extracted-woven",
+        "bob/_knop/_meta/meta.ttl",
+      ),
+      currentKnopInventoryTurtle,
+      resourcePageDefinitionArtifact: {
+        artifactPath: "bob/_knop/_page",
+        workingFilePath: "bob/_knop/_page/page.ttl",
+        currentPageDefinitionTurtle: pageDefinitionTurtle,
+        currentArtifactHistoryExists: false,
+      },
+    }],
+  });
+
+  assertEquals(plan.wovenDesignatorPaths, ["bob"]);
+  assertEquals(plan.updatedFiles.map((file) => file.path), [
+    "bob/_knop/_inventory/inventory.ttl",
+  ]);
+  assertEquals(plan.createdFiles.map((file) => file.path), [
+    "bob/_knop/_page/_history001/_s0001/page-ttl/page.ttl",
+    "bob/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+  ]);
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    "sflo:latestHistoricalState <bob/_knop/_inventory/_history001/_s0002> ;",
+  );
+  assertFalse(
+    (plan.updatedFiles[0]?.contents ?? "").includes(
+      "sflo:latestHistoricalState <bob/_knop/_inventory/_history001/_s0003> ;",
+    ),
+  );
+  assertEquals(plan.createdPages.map((page) => page.path), [
+    "bob/index.html",
+    "bob/_knop/_inventory/_history001/_s0002/index.html",
+    "bob/_knop/_inventory/_history001/_s0002/inventory-ttl/index.html",
+    "bob/_knop/_page/index.html",
+    "bob/_knop/_page/_history001/index.html",
+    "bob/_knop/_page/_history001/_s0001/index.html",
+    "bob/_knop/_page/_history001/_s0001/page-ttl/index.html",
   ]);
 });
 

@@ -334,7 +334,7 @@ The non-root ladder now includes two settled follow-on pairs beyond `15`:
 - `16/17` introduce and weave the governed Markdown artifact that later page sourcing references
 - `18/19` repoint Alice to that governed artifact and weave the resulting page-definition revision
 
-The next non-root transition pair should move from the now-real Alice artifact-backed state into Bob import-boundary behavior.
+The non-root ladder now extends from the real Alice artifact-backed state into Bob import-boundary behavior.
 
 Current carried names:
 
@@ -345,7 +345,7 @@ Current carried names:
 - `20-bob-page-imported-source`
 - `21-bob-page-imported-source-woven`
 
-Current and next Accord manifests:
+Current Accord manifests:
 
 - `examples/alice-bio/conformance/16-alice-page-main-integrated.jsonld`
 - `examples/alice-bio/conformance/17-alice-page-main-integrated-woven.jsonld`
@@ -380,6 +380,8 @@ Current and next Accord manifests:
 - the first carried remote-import example should prefer a direct file/export URL rather than an endpoint that only becomes usable through HTTP request-shaping such as custom `Accept` headers
 
 The corresponding fail-closed direct-outside-source rejection should be covered in focused runtime/integration tests rather than forced into a successful fixture transition. Support for remote RDF sites that require content negotiation or custom request headers should stay a follow-on operational/import feature rather than a prerequisite for the first carried import-boundary pair.
+
+`20/21` are now real carried fixture pairs. The remaining follow-on work here is the first general `import` planner/runtime/CLI surface plus the root-focused continuation.
 
 ### Root-focused continuation on the same ladder
 

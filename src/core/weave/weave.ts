@@ -1138,21 +1138,14 @@ function planPageDefinitionWeave(
   }
 
   const renderedKnopInventory =
-    pageDefinitionArtifact.currentArtifactHistoryExists
-      ? renderSubsequentPageDefinitionWovenKnopInventoryTurtle(
-        meshBase,
-        designatorPath,
-        pageDefinitionArtifact.workingFilePath,
-        progression,
-        knopInventoryProgression,
-        pageDefinitionArtifact.assetBundlePath,
-      )
-      : renderFirstPageDefinitionWovenKnopInventoryTurtle(
-        meshBase,
-        designatorPath,
-        pageDefinitionArtifact.workingFilePath,
-        pageDefinitionArtifact.assetBundlePath,
-      );
+    renderSubsequentPageDefinitionWovenKnopInventoryTurtle(
+      meshBase,
+      designatorPath,
+      pageDefinitionArtifact.workingFilePath,
+      progression,
+      knopInventoryProgression,
+      pageDefinitionArtifact.assetBundlePath,
+    );
 
   return {
     meshBase,
@@ -1174,13 +1167,11 @@ function planPageDefinitionWeave(
         contents: renderedKnopInventory,
       },
     ],
-    createdPages: pageDefinitionArtifact.currentArtifactHistoryExists
-      ? buildSubsequentPageDefinitionWeavePages(
-        designatorPath,
-        progression,
-        knopInventoryProgression,
-      )
-      : buildFirstPageDefinitionWeavePages(designatorPath),
+    createdPages: buildSubsequentPageDefinitionWeavePages(
+      designatorPath,
+      progression,
+      knopInventoryProgression,
+    ),
   };
 }
 
@@ -3416,230 +3407,6 @@ ${currentWorkingFileDeclaration}
 `;
 }
 
-function renderFirstPageDefinitionWovenKnopInventoryTurtle(
-  meshBase: string,
-  designatorPath: string,
-  workingFilePath: string,
-  assetBundlePath?: string,
-): string {
-  const knopPath = toKnopPath(designatorPath);
-  const referenceCatalogPath = `${knopPath}/_references`;
-  const pageDefinitionPath = `${knopPath}/_page`;
-  const pageDefinitionHistoryPath = `${pageDefinitionPath}/_history001`;
-  const pageDefinitionStatePath = `${pageDefinitionHistoryPath}/_s0001`;
-  const pageDefinitionManifestationPath = `${pageDefinitionStatePath}/page-ttl`;
-  const pageDefinitionSnapshotPath =
-    `${pageDefinitionManifestationPath}/page.ttl`;
-  const assetBundleLines = assetBundlePath
-    ? ` ;
-  <${SFC_HAS_KNOP_ASSET_BUNDLE_IRI}> <${assetBundlePath}>`
-    : "";
-  const assetBundleBlock = assetBundlePath
-    ? `<${assetBundlePath}> a <${SFC_KNOP_ASSET_BUNDLE_IRI}> .\n\n`
-    : "";
-  const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
-    workingFilePath,
-  );
-  const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
-    workingFilePath,
-  );
-
-  return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-
-<${knopPath}> a sflo:Knop ;
-  sflo:hasKnopMetadata <${knopPath}/_meta> ;
-  sflo:hasKnopInventory <${knopPath}/_inventory> ;
-  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> ;
-  sflo:hasReferenceCatalog <${referenceCatalogPath}> ;
-  sflo:hasResourcePage <${knopPath}/index.html> ;
-  <${SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI}> <${pageDefinitionPath}>${assetBundleLines} .
-
-<${knopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasArtifactHistory <${knopPath}/_meta/_history001> ;
-  sflo:currentArtifactHistory <${knopPath}/_meta/_history001> ;
-  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasWorkingLocatedFile <${knopPath}/_meta/meta.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_meta/index.html> .
-
-<${knopPath}/_meta/_history001> a sflo:ArtifactHistory ;
-  sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasHistoricalState <${knopPath}/_meta/_history001/_s0001> ;
-  sflo:latestHistoricalState <${knopPath}/_meta/_history001/_s0001> ;
-  sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasResourcePage <${knopPath}/_meta/_history001/index.html> .
-
-<${knopPath}/_meta/_history001/_s0001> a sflo:HistoricalState ;
-  sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <${knopPath}/_meta/_history001/_s0001/meta-ttl> ;
-  sflo:locatedFileForState <${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/index.html> .
-
-<${knopPath}/_meta/_history001/_s0001/meta-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html> .
-
-<${knopPath}/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasArtifactHistory <${knopPath}/_inventory/_history001> ;
-  sflo:currentArtifactHistory <${knopPath}/_inventory/_history001> ;
-  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasWorkingLocatedFile <${knopPath}/_inventory/inventory.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_inventory/index.html> .
-
-<${referenceCatalogPath}> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasArtifactHistory <${referenceCatalogPath}/_history001> ;
-  sflo:currentArtifactHistory <${referenceCatalogPath}/_history001> ;
-  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasWorkingLocatedFile <${referenceCatalogPath}/references.ttl> ;
-  sflo:hasResourcePage <${referenceCatalogPath}/index.html> .
-
-<${pageDefinitionPath}> a <${SFC_RESOURCE_PAGE_DEFINITION_IRI}>, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasArtifactHistory <${pageDefinitionHistoryPath}> ;
-  sflo:currentArtifactHistory <${pageDefinitionHistoryPath}> ;
-  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
-  ${currentWorkingFileLocator}
-  sflo:hasResourcePage <${pageDefinitionPath}/index.html> .
-
-${assetBundleBlock}<${pageDefinitionHistoryPath}> a sflo:ArtifactHistory ;
-  sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasHistoricalState <${pageDefinitionStatePath}> ;
-  sflo:latestHistoricalState <${pageDefinitionStatePath}> ;
-  sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasResourcePage <${pageDefinitionHistoryPath}/index.html> .
-
-<${pageDefinitionStatePath}> a sflo:HistoricalState ;
-  sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <${pageDefinitionManifestationPath}> ;
-  sflo:locatedFileForState <${pageDefinitionSnapshotPath}> ;
-  sflo:hasResourcePage <${pageDefinitionStatePath}/index.html> .
-
-<${pageDefinitionManifestationPath}> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${pageDefinitionSnapshotPath}> ;
-  sflo:hasResourcePage <${pageDefinitionManifestationPath}/index.html> .
-
-<${knopPath}/_inventory/_history001> a sflo:ArtifactHistory ;
-  sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasHistoricalState <${knopPath}/_inventory/_history001/_s0001> ;
-  sflo:hasHistoricalState <${knopPath}/_inventory/_history001/_s0002> ;
-  sflo:hasHistoricalState <${knopPath}/_inventory/_history001/_s0003> ;
-  sflo:latestHistoricalState <${knopPath}/_inventory/_history001/_s0003> ;
-  sflo:nextStateOrdinal "4"^^xsd:nonNegativeInteger ;
-  sflo:hasResourcePage <${knopPath}/_inventory/_history001/index.html> .
-
-<${knopPath}/_inventory/_history001/_s0001> a sflo:HistoricalState ;
-  sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <${knopPath}/_inventory/_history001/_s0001/inventory-ttl> ;
-  sflo:locatedFileForState <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0001/index.html> .
-
-<${knopPath}/_inventory/_history001/_s0001/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html> .
-
-<${knopPath}/_inventory/_history001/_s0002> a sflo:HistoricalState ;
-  sflo:stateOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:previousHistoricalState <${knopPath}/_inventory/_history001/_s0001> ;
-  sflo:hasManifestation <${knopPath}/_inventory/_history001/_s0002/inventory-ttl> ;
-  sflo:locatedFileForState <${knopPath}/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0002/index.html> .
-
-<${knopPath}/_inventory/_history001/_s0002/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${knopPath}/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0002/inventory-ttl/index.html> .
-
-<${knopPath}/_inventory/_history001/_s0003> a sflo:HistoricalState ;
-  sflo:stateOrdinal "3"^^xsd:nonNegativeInteger ;
-  sflo:previousHistoricalState <${knopPath}/_inventory/_history001/_s0002> ;
-  sflo:hasManifestation <${knopPath}/_inventory/_history001/_s0003/inventory-ttl> ;
-  sflo:locatedFileForState <${knopPath}/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0003/index.html> .
-
-<${knopPath}/_inventory/_history001/_s0003/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${knopPath}/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0003/inventory-ttl/index.html> .
-
-<${knopPath}/_references/_history001> a sflo:ArtifactHistory ;
-  sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasHistoricalState <${knopPath}/_references/_history001/_s0001> ;
-  sflo:latestHistoricalState <${knopPath}/_references/_history001/_s0001> ;
-  sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasResourcePage <${knopPath}/_references/_history001/index.html> .
-
-<${knopPath}/_references/_history001/_s0001> a sflo:HistoricalState ;
-  sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <${knopPath}/_references/_history001/_s0001/references-ttl> ;
-  sflo:locatedFileForState <${knopPath}/_references/_history001/_s0001/references-ttl/references.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_references/_history001/_s0001/index.html> .
-
-<${knopPath}/_references/_history001/_s0001/references-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${knopPath}/_references/_history001/_s0001/references-ttl/references.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_references/_history001/_s0001/references-ttl/index.html> .
-
-<${knopPath}/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<${referenceCatalogPath}/references.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-${currentWorkingFileDeclaration}
-
-<${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<${knopPath}/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<${knopPath}/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<${knopPath}/_references/_history001/_s0001/references-ttl/references.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<${pageDefinitionSnapshotPath}> a sflo:LocatedFile, sflo:RdfDocument .
-
-<${knopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${knopPath}/_meta/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${knopPath}/_meta/_history001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${knopPath}/_meta/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${knopPath}/_inventory/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${knopPath}/_inventory/_history001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${knopPath}/_inventory/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${knopPath}/_inventory/_history001/_s0002/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${knopPath}/_inventory/_history001/_s0002/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${knopPath}/_inventory/_history001/_s0003/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${knopPath}/_inventory/_history001/_s0003/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${referenceCatalogPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${referenceCatalogPath}/_history001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${referenceCatalogPath}/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${knopPath}/_references/_history001/_s0001/references-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${pageDefinitionPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${pageDefinitionHistoryPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${pageDefinitionStatePath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${pageDefinitionManifestationPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-`;
-}
-
 function renderSubsequentPageDefinitionWovenKnopInventoryTurtle(
   meshBase: string,
   designatorPath: string,
@@ -5412,43 +5179,6 @@ function buildFirstReferenceCatalogWeavePages(
     simplePage(
       `${referenceCatalogManifestationPath}/index.html`,
       `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} ReferenceCatalog historical state.`,
-    ),
-  ];
-}
-
-function buildFirstPageDefinitionWeavePages(
-  designatorPath: string,
-): readonly ResourcePageModel[] {
-  const knopPath = toKnopPath(designatorPath);
-  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
-  const displayDesignatorPath = formatDesignatorPathForDisplay(designatorPath);
-  const pageDefinitionPath = `${knopPath}/_page`;
-
-  return [
-    identifierPage(designatorPagePath, designatorPath),
-    simplePage(
-      `${knopPath}/_inventory/_history001/_s0003/index.html`,
-      `Resource page for the third ${displayDesignatorPath} KnopInventory historical state.`,
-    ),
-    simplePage(
-      `${knopPath}/_inventory/_history001/_s0003/inventory-ttl/index.html`,
-      `Resource page for the Turtle manifestation of the third ${displayDesignatorPath} KnopInventory historical state.`,
-    ),
-    simplePage(
-      `${pageDefinitionPath}/index.html`,
-      `Resource page for the ${displayDesignatorPath} ResourcePageDefinition artifact.`,
-    ),
-    simplePage(
-      `${pageDefinitionPath}/_history001/index.html`,
-      `Resource page for the current explicit history of the ${displayDesignatorPath} ResourcePageDefinition artifact.`,
-    ),
-    simplePage(
-      `${pageDefinitionPath}/_history001/_s0001/index.html`,
-      `Resource page for the first ${displayDesignatorPath} ResourcePageDefinition historical state.`,
-    ),
-    simplePage(
-      `${pageDefinitionPath}/_history001/_s0001/page-ttl/index.html`,
-      `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} ResourcePageDefinition historical state.`,
     ),
   ];
 }

@@ -20,11 +20,11 @@ Alice page customization has now progressed through:
 
 The next planned pair, `20/21`, is materially different. It is not just another page-definition variation. It is the first slice that needs an explicit outside-origin import boundary.
 
-Today, Weave does not yet have:
+Today, Weave still does not yet have:
 
 - an `import` planner/runtime/CLI surface
 - settled import-facing ontology vocabulary for current outside-origin associations
-- a carried fixture pair proving imported Markdown content flows through a governed in-tree artifact into page generation
+- a general `import` planner/runtime/CLI surface that can materialize the carried Bob fixture path directly
 
 So the next productive step is to define that slice concretely before trying to carry or implement it.
 
@@ -128,6 +128,6 @@ This does introduce one deliberate semantic asymmetry: the imported page content
 
 ### Phase 3: Carry The Fixture Pair
 
-- [ ] Create `20-bob-page-imported-source` in `mesh-alice-bio`.
-- [ ] Weave it into `21-bob-page-imported-source-woven`.
+- [x] Create `20-bob-page-imported-source` in `mesh-alice-bio`.
+- [x] Weave it into `21-bob-page-imported-source-woven`.
 - [ ] Publish the pair only after the manifests and runtime behavior agree.

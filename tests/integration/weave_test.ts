@@ -5,6 +5,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { join } from "@std/path";
+import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import { WeaveInputError } from "../../src/core/weave/weave.ts";
 import {
   executeWeave,
@@ -402,13 +403,21 @@ Deno.test("executeWeave matches the settled alice page-customized-woven fixture"
       result.updatedPaths.includes("alice/index.html"),
   );
   assertEquals(
-    await Deno.readTextFile(
-      join(workspaceRoot, "alice/_knop/_inventory/inventory.ttl"),
-    ),
-    await readMeshAliceBioBranchFile(
-      "15-alice-page-customized-woven",
-      "alice/_knop/_inventory/inventory.ttl",
-    ),
+    await compareRdfContent({
+      left: new TextEncoder().encode(
+        await Deno.readTextFile(
+          join(workspaceRoot, "alice/_knop/_inventory/inventory.ttl"),
+        ),
+      ),
+      right: new TextEncoder().encode(
+        await readMeshAliceBioBranchFile(
+          "15-alice-page-customized-woven",
+          "alice/_knop/_inventory/inventory.ttl",
+        ),
+      ),
+      path: "alice/_knop/_inventory/inventory.ttl",
+    }),
+    true,
   );
   assertStringIncludes(
     await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),

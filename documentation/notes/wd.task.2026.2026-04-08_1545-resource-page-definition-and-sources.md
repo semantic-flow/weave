@@ -337,12 +337,12 @@ The next drafted governed-artifact and artifact-backed manifests now also exist 
 
 These `16/17` manifests introduce and weave the governed Markdown-bearing payload artifact `alice/page-main` with working file `alice-page-main.md` without yet changing Alice's page definition. The drafted `18/19` manifests then repoint Alice's `main` region to that governed artifact while keeping the shared `sidebar` region on `mesh-content/sidebar.md`. Both `16/17` and `18/19` are now real carried fixture pairs.
 
-The next drafted import-boundary manifests are:
+The carried import-boundary manifests now exist at:
 
 - `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/20-bob-page-imported-source.jsonld`
 - `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/21-bob-page-imported-source-woven.jsonld`
 
-These `20/21` manifests use outside-origin Markdown from `https://raw.githubusercontent.com/djradon/public-notes/refs/heads/main/user.bob-newhart.md`, import it into governed artifact `bob/page-main` with local working file `bob-page-main.md`, and then repoint Bob's page definition at that governed artifact. The acceptance draft explicitly treats this as import-boundary and page-source behavior rather than RDF reconciliation with Bob's still-minimal extracted local graph.
+These `20/21` manifests use outside-origin Markdown from `https://raw.githubusercontent.com/djradon/public-notes/refs/heads/main/user.bob-newhart.md`, import it into governed artifact `bob/page-main` with local working file `bob-page-main.md`, and then repoint Bob's page definition at that governed artifact. `20/21` are now real carried fixture pairs. The acceptance shape still explicitly treats this as import-boundary and page-source behavior rather than RDF reconciliation with Bob's still-minimal extracted local graph, and the first general `import` planner/runtime/CLI surface remains follow-on work.
 
 - `14` still uses provisional `operationId: "resourcePage.define"` until the concrete API/job naming settles.
 - the first support-artifact manifestation token remains `page-ttl`
@@ -580,5 +580,5 @@ Current `19-alice-page-artifact-source-woven` manifest shape:
 - [x] Add integration coverage for local mesh-path page sources and first-pass in-mesh artifact-backed page sources.
 - [x] Add focused coverage for later page-definition revisions that version a second `_page` state and later Alice KnopInventory state without widening mesh inventory.
 - [ ] Add integration coverage for import-boundary behavior.
-- [ ] Continue the Accord fixture ladder after the now-real `16-19` slices: `20/21` for Bob imported-source behavior and `22-25` for root lifecycle continuation.
+- [ ] Continue the Accord fixture ladder after the now-real `16-21` slices with `22-25` for root lifecycle continuation.
 - [ ] Update [[wd.codebase-overview]] once the runtime seams and carried slice are real.
