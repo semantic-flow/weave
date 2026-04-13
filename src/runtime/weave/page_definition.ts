@@ -71,7 +71,7 @@ export class ResourcePageDefinitionResolutionError extends Error {
 }
 
 export async function loadResourcePageDefinitionWorkingArtifact(
-  _meshRoot: string,
+  meshRoot: string,
   localPathPolicy: OperationalLocalPathPolicy,
   designatorPath: string,
   inventoryState: ResourcePageDefinitionInventoryState | undefined,
@@ -81,6 +81,18 @@ export async function loadResourcePageDefinitionWorkingArtifact(
   }
 
   try {
+    const latestHistoricalSnapshotTurtle =
+      inventoryState.latestHistoricalStatePath
+        ? await Deno.readTextFile(
+          join(
+            meshRoot,
+            toPageDefinitionHistoricalSnapshotPath(
+              inventoryState.latestHistoricalStatePath,
+            ),
+          ),
+        )
+        : undefined;
+
     return {
       ...inventoryState,
       currentPageDefinitionTurtle: await Deno.readTextFile(
@@ -90,6 +102,7 @@ export async function loadResourcePageDefinitionWorkingArtifact(
           inventoryState.workingFilePath,
         ),
       ),
+      latestHistoricalSnapshotTurtle,
     };
   } catch (error) {
     if (error instanceof LocalPathAccessError) {
@@ -100,6 +113,17 @@ export async function loadResourcePageDefinitionWorkingArtifact(
       );
     }
     if (error instanceof Deno.errors.NotFound) {
+      if (inventoryState.latestHistoricalStatePath) {
+        throw new ResourcePageDefinitionResolutionError(
+          `Mesh root is missing the latest ResourcePageDefinition snapshot for ${
+            formatDesignatorPathForDisplay(designatorPath)
+          }: ${
+            toPageDefinitionHistoricalSnapshotPath(
+              inventoryState.latestHistoricalStatePath,
+            )
+          }`,
+        );
+      }
       throw new ResourcePageDefinitionResolutionError(
         `Mesh root is missing the working ResourcePageDefinition file for ${
           formatDesignatorPathForDisplay(designatorPath)
@@ -357,6 +381,10 @@ function parsePageDefinitionQuads(
       }.`,
     );
   }
+}
+
+function toPageDefinitionHistoricalSnapshotPath(statePath: string): string {
+  return `${statePath}/page-ttl/page.ttl`;
 }
 
 function collectNamedNodeObjects(

@@ -492,6 +492,56 @@ Deno.test("executeWeave resolves current artifact-backed page sources through ha
   );
 });
 
+Deno.test("executeWeave versions a later page-definition revision that repoints Alice to alice/page-main", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-page-definition-follow-on-",
+  );
+  await materializeMeshAliceBioBranch(
+    "17-alice-page-main-integrated-woven",
+    workspaceRoot,
+  );
+  await replaceFileText(
+    join(workspaceRoot, "alice/_knop/_page/page.ttl"),
+    `<#main-source> a sfc:ResourcePageSource ;
+  sfc:targetMeshPath "alice/alice.md" .`,
+    `<#main-source> a sfc:ResourcePageSource ;
+  sfc:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/page-main> ;
+  sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Current> .`,
+  );
+
+  const result = await executeWeave({
+    workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "alice" }],
+    },
+  });
+
+  assertEquals(result.wovenDesignatorPaths, ["alice"]);
+  assert(result.createdPaths.includes(
+    "alice/_knop/_page/_history001/_s0002/page-ttl/page.ttl",
+  ));
+  assert(result.createdPaths.includes(
+    "alice/_knop/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl",
+  ));
+  assert(result.updatedPaths.includes("alice/_knop/_inventory/inventory.ttl"));
+  assertStringIncludes(
+    await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
+    "governed Markdown source for Alice's main page region",
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/_knop/_inventory/inventory.ttl"),
+    ),
+    "sflo:latestHistoricalState <alice/_knop/_page/_history001/_s0002> ;",
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/_knop/_inventory/inventory.ttl"),
+    ),
+    "sflo:latestHistoricalState <alice/_knop/_inventory/_history001/_s0004> ;",
+  );
+});
+
 Deno.test("executeWeave resolves artifact-backed page sources through workingFilePath when repo policy permits them", async () => {
   const repoRoot = await createTestTmpDir(
     "weave-weave-page-definition-artifact-working-file-allow-",

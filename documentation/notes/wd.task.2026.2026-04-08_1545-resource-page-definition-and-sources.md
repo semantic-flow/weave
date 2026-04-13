@@ -331,7 +331,7 @@ The next drafted governed-artifact and artifact-backed manifests now also exist 
 - `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/18-alice-page-artifact-source.jsonld`
 - `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/19-alice-page-artifact-source-woven.jsonld`
 
-These `16/17` manifests introduce and weave the governed Markdown-bearing payload artifact `alice/page-main` with working file `alice-page-main.md` without yet changing Alice's page definition. The drafted `18/19` manifests then repoint Alice's `main` region to that governed artifact while keeping the shared `sidebar` region on `mesh-content/sidebar.md`. They are acceptance targets for the next carried fixture pairs rather than claims that the corresponding fixture branches are already published.
+These `16/17` manifests introduce and weave the governed Markdown-bearing payload artifact `alice/page-main` with working file `alice-page-main.md` without yet changing Alice's page definition. The drafted `18/19` manifests then repoint Alice's `main` region to that governed artifact while keeping the shared `sidebar` region on `mesh-content/sidebar.md`. The `16/17` fixture pair is now real, and the runtime now also supports the follow-on `18 -> 19` page-definition weave shape even though that artifact-backed pair has not yet been carried and published in the fixture repo.
 
 - `14` still uses provisional `operationId: "resourcePage.define"` until the concrete API/job naming settles.
 - the first support-artifact manifestation token remains `page-ttl`
@@ -567,6 +567,7 @@ Current `19-alice-page-artifact-source-woven` manifest shape:
 - [x] Add focused coverage for `ResourcePageDefinition` history/state behavior as a normal support artifact while keeping referenced mesh-local helper files non-recursive.
 - [x] Add integration coverage proving a valid `_knop/_page` overrides generic identifier-page generation for the owning identifier only.
 - [x] Add integration coverage for local mesh-path page sources and first-pass in-mesh artifact-backed page sources.
+- [x] Add focused coverage for later page-definition revisions that version a second `_page` state and later Alice KnopInventory state without widening mesh inventory.
 - [ ] Add integration coverage for import-boundary behavior.
 - [ ] Continue the Accord fixture ladder after the first carried slice is stable: `16/17` for the governed Markdown source artifact, `18/19` for Alice artifact-backed page sources, `20/21` for Bob imported-source behavior, and `22-25` for root lifecycle continuation.
 - [ ] Update [[wd.codebase-overview]] once the runtime seams and carried slice are real.

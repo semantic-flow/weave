@@ -1496,7 +1496,7 @@ Deno.test("planWeave rejects when no weaveable candidates were provided", () => 
   );
 });
 
-Deno.test("detectPendingWeaveSlice recognizes the first page-definition weave slice", async () => {
+Deno.test("detectPendingWeaveSlice recognizes the page-definition weave slice", async () => {
   assertEquals(
     detectPendingWeaveSlice(
       "https://semantic-flow.github.io/mesh-alice-bio/",
@@ -1506,7 +1506,7 @@ Deno.test("detectPendingWeaveSlice recognizes the first page-definition weave sl
         "alice/_knop/_inventory/inventory.ttl",
       ),
     ),
-    "firstPageDefinitionWeave",
+    "pageDefinitionWeave",
   );
 });
 
@@ -1569,6 +1569,84 @@ Deno.test("planWeave renders the first page-definition weave slice", async () =>
     "alice/_knop/_page/_history001/index.html",
     "alice/_knop/_page/_history001/_s0001/index.html",
     "alice/_knop/_page/_history001/_s0001/page-ttl/index.html",
+  ]);
+});
+
+Deno.test("planWeave renders a later page-definition weave revision", async () => {
+  const meshBase = "https://semantic-flow.github.io/mesh-alice-bio/";
+  const currentPageDefinitionTurtle = (
+    await readMeshAliceBioBranchFile(
+      "17-alice-page-main-integrated-woven",
+      "alice/_knop/_page/page.ttl",
+    )
+  ).replace(
+    `<#main-source> a sfc:ResourcePageSource ;
+  sfc:targetMeshPath "alice/alice.md" .`,
+    `<#main-source> a sfc:ResourcePageSource ;
+  sfc:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/page-main> ;
+  sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Current> .`,
+  );
+  const latestHistoricalSnapshotTurtle = await readMeshAliceBioBranchFile(
+    "17-alice-page-main-integrated-woven",
+    "alice/_knop/_page/_history001/_s0001/page-ttl/page.ttl",
+  );
+  const plan = planWeave({
+    request: {
+      targets: [{ designatorPath: "alice" }],
+    },
+    meshBase,
+    currentMeshInventoryTurtle: await readMeshAliceBioBranchFile(
+      "17-alice-page-main-integrated-woven",
+      "_mesh/_inventory/inventory.ttl",
+    ),
+    weaveableKnops: [{
+      designatorPath: "alice",
+      currentKnopMetadataTurtle: await readMeshAliceBioBranchFile(
+        "17-alice-page-main-integrated-woven",
+        "alice/_knop/_meta/meta.ttl",
+      ),
+      currentKnopInventoryTurtle: await readMeshAliceBioBranchFile(
+        "17-alice-page-main-integrated-woven",
+        "alice/_knop/_inventory/inventory.ttl",
+      ),
+      resourcePageDefinitionArtifact: {
+        artifactPath: "alice/_knop/_page",
+        workingFilePath: "alice/_knop/_page/page.ttl",
+        currentPageDefinitionTurtle,
+        currentArtifactHistoryPath: "alice/_knop/_page/_history001",
+        currentArtifactHistoryExists: true,
+        latestHistoricalStatePath: "alice/_knop/_page/_history001/_s0001",
+        latestHistoricalSnapshotTurtle,
+        assetBundlePath: "alice/_knop/_assets",
+      },
+    }],
+  });
+
+  assertEquals(plan.wovenDesignatorPaths, ["alice"]);
+  assertEquals(plan.updatedFiles.map((file) => file.path), [
+    "alice/_knop/_inventory/inventory.ttl",
+  ]);
+  assertEquals(plan.createdFiles.map((file) => file.path), [
+    "alice/_knop/_page/_history001/_s0002/page-ttl/page.ttl",
+    "alice/_knop/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl",
+  ]);
+  assertEquals(plan.createdFiles[0]?.contents, currentPageDefinitionTurtle);
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    "sflo:latestHistoricalState <alice/_knop/_page/_history001/_s0002> ;",
+  );
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    "sflo:latestHistoricalState <alice/_knop/_inventory/_history001/_s0004> ;",
+  );
+  assertEquals(plan.createdPages.map((page) => page.path), [
+    "alice/index.html",
+    "alice/_knop/_inventory/_history001/_s0004/index.html",
+    "alice/_knop/_inventory/_history001/_s0004/inventory-ttl/index.html",
+    "alice/_knop/_page/index.html",
+    "alice/_knop/_page/_history001/index.html",
+    "alice/_knop/_page/_history001/_s0002/index.html",
+    "alice/_knop/_page/_history001/_s0002/page-ttl/index.html",
   ]);
 });
 

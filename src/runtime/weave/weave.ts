@@ -800,7 +800,7 @@ async function loadWeaveableKnopCandidates(
         );
     }
 
-    if (slice === "firstPageDefinitionWeave") {
+    if (slice === "pageDefinitionWeave") {
       candidate.resourcePageDefinitionArtifact =
         await loadResourcePageDefinitionArtifact(
           workspaceRoot,
@@ -1093,8 +1093,21 @@ function isWeaveableKnopCandidate(
     return candidate.referenceCatalogArtifact !== undefined;
   }
 
-  if (slice === "firstPageDefinitionWeave") {
-    return candidate.resourcePageDefinitionArtifact !== undefined;
+  if (slice === "pageDefinitionWeave") {
+    return candidate.resourcePageDefinitionArtifact !== undefined &&
+      (
+        !candidate.resourcePageDefinitionArtifact
+          .currentArtifactHistoryExists ||
+        (
+          candidate.resourcePageDefinitionArtifact
+              .latestHistoricalSnapshotTurtle !==
+            undefined &&
+          candidate.resourcePageDefinitionArtifact
+              .currentPageDefinitionTurtle !==
+            candidate.resourcePageDefinitionArtifact
+              .latestHistoricalSnapshotTurtle
+        )
+      );
   }
 
   if (slice === "firstPayloadWeave") {
