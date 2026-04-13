@@ -176,7 +176,7 @@ weave extract /
 
 ### `weave payload update`
 
-Replaces the current working bytes of an existing payload artifact. This updates the current working surface only; `weave` or `weave version` is what records those bytes into explicit history.
+Convenience command for replacing the current working bytes of an existing payload artifact. This updates the current working surface only; `weave` or `weave version` is what records those bytes into explicit history.
 
 ```sh
 weave payload update ./alice-bio-v2.ttl alice/bio
@@ -188,6 +188,7 @@ Constraints:
 
 - the designator path may be given either positionally or with `--designator-path`
 - if both are provided, they must match
+- this is a local working-surface mutation, not a distinct history/materialization operation
 
 ### `weave knop create`
 
