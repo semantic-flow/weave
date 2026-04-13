@@ -371,8 +371,12 @@ Current and next Accord manifests:
 - Bob page customization can be introduced through an outside-origin import without immediately overwriting Alice's settled local and artifact-backed customization steps
 - an outside-origin content path must first land in a governed in-tree artifact
 - page generation follows that imported artifact's current `WorkingLocatedFile`
+- the first concrete carried shape uses governed artifact `bob/page-main` with local working file `bob-page-main.md`
+- the first concrete outside-origin Markdown URL is `https://raw.githubusercontent.com/djradon/public-notes/refs/heads/main/user.bob-newhart.md`
+- the governed artifact records that outside-origin URL through `core:workingAccessUrl` while page generation still follows the local governed working file instead of the remote URL
 - the first carried import-boundary pair should use imported Markdown or similarly plain authored text that the current page renderer can consume directly
 - importing an RDF dataset as page content should remain a later transformation/extraction concern rather than an implied capability of the first import-boundary fixture pair
+- the imported Bob page copy may be semantically richer than the currently extracted Bob triples; that reconciliation problem remains out of scope for this slice
 - the first carried remote-import example should prefer a direct file/export URL rather than an endpoint that only becomes usable through HTTP request-shaping such as custom `Accept` headers
 
 The corresponding fail-closed direct-outside-source rejection should be covered in focused runtime/integration tests rather than forced into a successful fixture transition. Support for remote RDF sites that require content negotiation or custom request headers should stay a follow-on operational/import feature rather than a prerequisite for the first carried import-boundary pair.

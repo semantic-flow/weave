@@ -61,12 +61,16 @@ Instead, it should prove a narrower sequence:
 3. point Bob's `ResourcePageDefinition` at that governed artifact
 4. weave Bob so the imported content shows up in `bob/index.html`
 
+For the first carried example, the chosen outside-origin Markdown source is:
+
+- `https://raw.githubusercontent.com/djradon/public-notes/refs/heads/main/user.bob-newhart.md`
+
+This does introduce one deliberate semantic asymmetry: the imported page content is explicitly about Bob Newhart, while the currently extracted Bob graph in `mesh-alice-bio` remains a much thinner generic `schema:Person` description. That is acceptable for this slice because `20/21` are proving the import boundary and page-source flow, not RDF reconciliation between extracted local triples and imported authored page copy.
+
 ## Open Issues
 
-- Which exact outside-origin Markdown URL should the carried fixture use?
-- What import-facing metadata must be recorded on the governed artifact in the first pass?
 - Should the first runtime import slice fetch directly from URL, or should it accept a pre-fetched imported file plus explicit origin metadata and leave network fetch for a follow-on?
-- Should the first imported Bob artifact be `bob/page-main`, `bob/imported-main`, or something similar?
+- How much additional import/provenance metadata is needed beyond the first-pass `core:workingAccessUrl` marker on the governed artifact?
 - How much of the import slice belongs in core ontology versus config or later provenance work?
 
 ## Decisions
@@ -75,6 +79,10 @@ Instead, it should prove a narrower sequence:
 - The first carried Bob import slice should avoid RDF dataset content and HTTP content negotiation.
 - Direct live remote page-source resolution remains out of scope; import must establish the governed in-tree boundary first.
 - This task should stay distinct from [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]]. Operational policy may later govern remote fetch, but that task is not a substitute for an import boundary.
+- The first carried Bob import slice should use `https://raw.githubusercontent.com/djradon/public-notes/refs/heads/main/user.bob-newhart.md` as the outside-origin Markdown source.
+- The first carried Bob import slice should introduce governed artifact `bob/page-main` with local working file `bob-page-main.md`.
+- The first carried Bob import slice should record the chosen outside-origin URL on the governed artifact through `core:workingAccessUrl` while page generation still follows the local `hasWorkingLocatedFile` boundary rather than the remote URL directly.
+- The first carried Bob import slice is allowed to use authored page content that is semantically richer than the current extracted Bob triples; RDF reconciliation is explicitly outside this slice.
 
 ## Contract Changes
 
@@ -102,15 +110,15 @@ Instead, it should prove a narrower sequence:
 
 ### Phase 0: Define The Bob Import Shape
 
-- [ ] Decide the first carried imported Bob artifact identity and working file naming.
-- [ ] Decide the minimum import-facing metadata required for the first carried slice.
-- [ ] Choose a stable direct URL for imported Markdown content.
+- [x] Decide the first carried imported Bob artifact identity and working file naming.
+- [x] Decide the minimum import-facing metadata required for the first carried slice.
+- [x] Choose a stable direct URL for imported Markdown content.
 
 ### Phase 1: Align Specs And Acceptance Drafts
 
-- [ ] Update [[wd.task.2026.2026-04-08_1545-resource-page-definition-and-sources]] so `20/21` are described as the first true import-boundary pair now that `16-19` are real.
-- [ ] Update [[wd.spec.2026-04-11-identifier-page-customization-and-root-lifecycle]] with the first concrete Bob import-boundary shape.
-- [ ] Draft `20-bob-page-imported-source.jsonld` and `21-bob-page-imported-source-woven.jsonld`.
+- [x] Update [[wd.task.2026.2026-04-08_1545-resource-page-definition-and-sources]] so `20/21` are described as the first true import-boundary pair now that `16-19` are real.
+- [x] Update [[wd.spec.2026-04-11-identifier-page-customization-and-root-lifecycle]] with the first concrete Bob import-boundary shape.
+- [x] Draft `20-bob-page-imported-source.jsonld` and `21-bob-page-imported-source-woven.jsonld`.
 
 ### Phase 2: Implement The First Import Surface
 

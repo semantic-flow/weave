@@ -282,8 +282,12 @@ Minimal shape:
 - Add Bob page customization in a way that keeps Alice's settled `18/19` artifact-backed page state intact rather than overwriting it immediately with a different import-oriented concern.
 - Keep the outside-origin boundary explicit in data and files; do not let the page definition point directly at a live outside location.
 - Keep the first carried import pair aligned with the current renderer: import Markdown or similarly plain authored text that the page-definition runtime can render as Markdown today.
+- Use governed artifact `bob/page-main` with local working file `bob-page-main.md` for the first carried slice.
+- Use `https://raw.githubusercontent.com/djradon/public-notes/refs/heads/main/user.bob-newhart.md` as the first concrete outside-origin Markdown URL.
+- Record that outside-origin URL on the governed artifact through `core:workingAccessUrl`, while page generation still follows the local `hasWorkingLocatedFile` boundary.
 - Do not use the first carried import pair to imply RDF-dataset-to-page rendering; if the imported source is Turtle or another structured dataset, a later transformation/extraction layer would still be needed before it becomes good page-region content.
 - Prefer a direct file/export URL for the first carried fixture rather than an HTTP content-negotiation flow that requires custom request headers.
+- Allow the imported page copy to be semantically richer than the currently extracted Bob triples; this pair is about import-boundary and page-source behavior, not RDF reconciliation.
 
 `21-bob-page-imported-source-woven`
 
@@ -331,7 +335,14 @@ The next drafted governed-artifact and artifact-backed manifests now also exist 
 - `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/18-alice-page-artifact-source.jsonld`
 - `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/19-alice-page-artifact-source-woven.jsonld`
 
-These `16/17` manifests introduce and weave the governed Markdown-bearing payload artifact `alice/page-main` with working file `alice-page-main.md` without yet changing Alice's page definition. The drafted `18/19` manifests then repoint Alice's `main` region to that governed artifact while keeping the shared `sidebar` region on `mesh-content/sidebar.md`. Both `16/17` and `18/19` are now real carried fixture pairs. The next unfinished ladder step is the Bob import-boundary pair tracked in [[wd.task.2026.2026-04-13_1245-bob-import-boundary-for-page-source]].
+These `16/17` manifests introduce and weave the governed Markdown-bearing payload artifact `alice/page-main` with working file `alice-page-main.md` without yet changing Alice's page definition. The drafted `18/19` manifests then repoint Alice's `main` region to that governed artifact while keeping the shared `sidebar` region on `mesh-content/sidebar.md`. Both `16/17` and `18/19` are now real carried fixture pairs.
+
+The next drafted import-boundary manifests are:
+
+- `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/20-bob-page-imported-source.jsonld`
+- `dependencies/github.com/semantic-flow/semantic-flow-framework/examples/alice-bio/conformance/21-bob-page-imported-source-woven.jsonld`
+
+These `20/21` manifests use outside-origin Markdown from `https://raw.githubusercontent.com/djradon/public-notes/refs/heads/main/user.bob-newhart.md`, import it into governed artifact `bob/page-main` with local working file `bob-page-main.md`, and then repoint Bob's page definition at that governed artifact. The acceptance draft explicitly treats this as import-boundary and page-source behavior rather than RDF reconciliation with Bob's still-minimal extracted local graph.
 
 - `14` still uses provisional `operationId: "resourcePage.define"` until the concrete API/job naming settles.
 - the first support-artifact manifestation token remains `page-ttl`
