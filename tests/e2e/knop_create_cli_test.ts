@@ -4,7 +4,6 @@ import { compareRdfContent } from "../../dependencies/github.com/spectacular-voy
 import {
   getManifestFileExpectations,
   readSingleTransitionCase,
-  shouldCompareManifestTextFileContents,
 } from "../support/accord_manifest.ts";
 import {
   listMeshAliceBioBranchFiles,
@@ -64,11 +63,17 @@ Deno.test("weave knop create matches the manifest-scoped alice-bio fixture as a 
       continue;
     }
 
+    const compareMode = fileExpectation.compareMode;
+
+    if (compareMode === undefined) {
+      await Deno.stat(join(workspaceRoot, path));
+      continue;
+    }
+
     const actualBytes = await Deno.readFile(join(workspaceRoot, path));
     const expectedBytes = new TextEncoder().encode(
       await readMeshAliceBioBranchFile(transitionCase.toRef!, path),
     );
-    const compareMode = fileExpectation.compareMode ?? "bytes";
 
     if (compareMode === "rdfCanonical") {
       assertEquals(
@@ -83,11 +88,6 @@ Deno.test("weave knop create matches the manifest-scoped alice-bio fixture as a 
     }
 
     if (compareMode === "text") {
-      if (!shouldCompareManifestTextFileContents(path)) {
-        await Deno.stat(join(workspaceRoot, path));
-        continue;
-      }
-
       assertEquals(
         new TextDecoder().decode(actualBytes),
         new TextDecoder().decode(expectedBytes),
@@ -95,7 +95,12 @@ Deno.test("weave knop create matches the manifest-scoped alice-bio fixture as a 
       continue;
     }
 
-    assertEquals(actualBytes, expectedBytes);
+    if (compareMode === "bytes") {
+      assertEquals(actualBytes, expectedBytes);
+      continue;
+    }
+
+    throw new Error(`Unsupported compare mode ${compareMode} for ${path}`);
   }
 
   await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));

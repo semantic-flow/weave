@@ -575,3 +575,161 @@ I’m going to replace the skeleton with a concrete blocker task: exact failing 
 Filled out [wd.task.2026.2026-05-02-fix-failing-tests.md](wd.task.2026.2026-05-02-fix-failing-tests.md).
 
 It now captures the current passing checks, the exact failing command and 7-test failure cluster, the two observed failure modes, likely fixture/runtime drift questions, and an implementation plan. `git diff --check` passes for the new note.
+
+# User_2026-05-02_0934_05
+
+let's get rid of 
+    rdfs:isDefinedBy <ontology> . in the [fantasy-rules-ontology.ttl](../../dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules/ontology/fantasy-rules-ontology.ttl) , seems unnecessary and unconventional.
+
+let's get rid of 
+    rdfs:isDefinedBy <ontology> . in the [fantasy-rules-ontology.ttl](../../dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules/ontology/fantasy-rules-ontology.ttl) , seems unnecessary and unconventional.
+
+# gpt-5.5_2026-05-02_0934_22
+
+I’ll make that directly in the fixture repo, then validate the Turtle so we don’t leave a dangling semicolon or malformed final triple.
+
+# gpt-5.5_2026-05-02_0934_27
+
+There are 18 occurrences. I’m removing the statement and making the preceding predicate the block terminator in each case.
+
+# gpt-5.5_2026-05-02_0935_14
+
+Turtle validation passed. Since this is another intentional source-fixture adjustment on `01-source-only`, I’m committing it locally and leaving push/review separate.
+
+# gpt-5.5_2026-05-02_0935_27
+
+Removed the per-term `rdfs:isDefinedBy <ontology>` assertions from [fantasy-rules-ontology.ttl](../../dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules/ontology/fantasy-rules-ontology.ttl).
+
+Validated with:
+
+```sh
+riot --validate ontology/fantasy-rules-ontology.ttl shacl/fantasy-rules-shacl.ttl
+```
+
+Committed locally on `01-source-only`:
+
+```text
+febc638 Remove redundant ontology isDefinedBy assertions
+```
+
+No push made.
+
+# User_2026-05-02_0945_09
+
+for all the "instance" terms like fant:Neutral or fant:Wisdom, we should probably use lower camel case to be consistent with RDF conventions: only classes get initial uppers.
+
+# gpt-5.5_2026-05-02_0945_24
+
+I’ll rename only the individual IRIs, leaving class and property terms as they are. Then I’ll validate the ontology and SHACL together so the fixture stays parseable.
+
+# gpt-5.5_2026-05-02_0945_27
+
+The fixture is clean on `01-source-only`. I’m applying the lower-camel rename for ability and alignment individuals now; labels stay human-readable.
+
+# gpt-5.5_2026-05-02_0945_49
+
+Validation passed. I’m committing this as another local source-fixture cleanup and won’t push it.
+
+# gpt-5.5_2026-05-02_0946_00
+
+Renamed the individual terms in [fantasy-rules-ontology.ttl](../../dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules/ontology/fantasy-rules-ontology.ttl):
+
+- `fant:Strength` -> `fant:strength`
+- `fant:Wisdom` -> `fant:wisdom`
+- `fant:LawfulGood` -> `fant:lawfulGood`
+- etc.
+
+Classes and properties are unchanged. Validated with `riot --validate ontology/fantasy-rules-ontology.ttl shacl/fantasy-rules-shacl.ttl`.
+
+Committed locally on `01-source-only`:
+
+```text
+3cea3bc Use lower camel case for ontology individuals
+```
+
+No push made.
+
+# User_2026-05-02_1007_40
+
+Let's remove all the redundant 
+    dcterms:source <https://www.dndbeyond.com/srd> .
+
+The one on the ontology captures things adequately.
+
+# gpt-5.5_2026-05-02_1007_48
+
+I’ll remove the repeated term-level `dcterms:source` assertions and keep the ontology-level source statement, then validate the Turtle.
+
+# gpt-5.5_2026-05-02_1007_51
+
+There are 13 redundant term-level statements after the ontology-level source. I’m removing those and fixing punctuation block-by-block.
+
+# gpt-5.5_2026-05-02_1008_22
+
+Only the ontology-level `dcterms:source` remains, and validation passed. I’ll commit this local fixture cleanup.
+
+# gpt-5.5_2026-05-02_1008_33
+
+Removed the repeated term-level `dcterms:source <https://www.dndbeyond.com/srd>` statements. The ontology-level source remains.
+
+Validated with:
+
+```sh
+riot --validate ontology/fantasy-rules-ontology.ttl shacl/fantasy-rules-shacl.ttl
+```
+
+Committed locally on `01-source-only`:
+
+```text
+06530f4 Keep SRD source metadata at ontology level
+```
+
+No push made.
+
+# User_2026-05-02_1023_09
+
+let's add to [fantasy-rules-shacl.ttl](../../dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules/shacl/fantasy-rules-shacl.ttl) a "marker" shape that allows (but doesn't not require) schema:name
+
+# gpt-5.5_2026-05-02_1023_20
+
+I’ll add `schema:` and an optional property shape on `fant:CharacterShape`. Since SHACL is open by default, this is mostly a documented/typed allowance; no `sh:minCount` means it won’t require `schema:name`.
+
+# User_2026-05-02_1023_44
+
+or actually characterName
+
+# gpt-5.5_2026-05-02_1023_52
+
+I’ll switch that marker from `schema:name` to our own `fant:characterName`, and add the corresponding ontology datatype property so the SHACL path is defined. Still no `sh:minCount`, so it remains optional.
+
+# User_2026-05-02_1024_20
+
+Sorry, schema:characterName
+
+# gpt-5.5_2026-05-02_1024_28
+
+No problem. I’ll move the optional marker to `schema:characterName` and remove the custom `fant:characterName` ontology property.
+
+# gpt-5.5_2026-05-02_1025_00
+
+Validation passed with `schema:characterName`. I’ll commit this optional SHACL marker locally.
+
+# gpt-5.5_2026-05-02_1025_13
+
+Updated [fantasy-rules-shacl.ttl](../../dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules/shacl/fantasy-rules-shacl.ttl) to add an optional marker property for `schema:characterName` on `fant:CharacterShape`.
+
+No `sh:minCount`, so it’s allowed but not required. I kept `sh:datatype xsd:string`.
+
+Validated with:
+
+```sh
+riot --validate ontology/fantasy-rules-ontology.ttl shacl/fantasy-rules-shacl.ttl
+```
+
+Committed locally on `01-source-only`:
+
+```text
+0f7387e Allow optional character name in SHACL
+```
+
+No push made.
