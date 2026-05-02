@@ -9,7 +9,8 @@ created: 1775715975066
 
 - Define the ontology and config vocabulary needed for customizable identifier pages before runtime implementation broadens.
 - Carry forward the strongest ideas from the earlier template/config work without reintroducing its brittle pieces.
-- Introduce a bundle-level metadata resource for `_knop/_page/_assets` without turning KnopInventory into a manifest of every bundled file.
+- Introduce a bounded helper resource for `_knop/_assets` without turning KnopInventory into a manifest of every supporting file.
+- Clarify how outside-the-tree or extra-mesh content enters page composition through an explicit import boundary rather than as a direct live current page source.
 - Clarify which concepts belong in core ontology, which belong in config ontology, and which should remain implementation-only.
 
 ## Summary
@@ -23,7 +24,7 @@ We need current vocabulary for things like:
 - `resourcePageSource`
 - per-source requested state
 - per-source mode and fallback policy
-- page-local asset bundle metadata for `_knop/_page/_assets`
+- page-local asset helper metadata for `_knop/_assets`
 - template/chrome preferences that are adjacent to, but distinct from, page-content composition
 
 Without that vocabulary, runtime work will end up inventing semantics ad hoc in TypeScript and then freezing them accidentally.
@@ -40,11 +41,35 @@ The older config/template work still contains useful pressure:
 
 But we should not copy the older model directly:
 
-- regex-heavy target matching is too brittle
+- regex-heavy target matching is too brittle for the first pass
 - monolithic mapping-set objects have weak merge algebra
-- path literals with unclear base semantics are a trap
+- path literals with implicit or serialization-dependent base semantics are a trap
 
-The `_knop/_page/_assets` question is a good example of why ontology work matters first. We probably do want some metadata about the local asset bundle, but that does not mean:
+### Proposed keep/defer/reject list from `dependencies/github.com/semantic-flow/ontology/old/sflo-config-ontology.jsonld`
+
+#### Keep
+
+- The generic config substrate is still worth preserving in some form: `Config`, `ConfigArtifact`, `hasConfig`, and `configFor`.
+- `hasEffectiveConfig` is still a useful concept for runtime/debug views as long as it stays explicitly non-authoritative.
+- The old insistence that templates and stylesheets be first-class artifacts, not raw URL strings, is still the right pressure.
+- The old `InnerTemplate`, `OuterTemplate`, and `Stylesheet` concepts should probably survive in renamed page-scoped form such as `InnerResourcePageTemplate`, `OuterResourcePageTemplate`, and maybe `ResourcePageStylesheet`.
+
+#### Defer
+
+- Specialized attachment properties such as `hasMeshConfig`, `hasKnopConfig`, and `hasAbstractArtifactConfig` are plausible, but they are broader than the immediate `_knop/_page` slice and do not need to be settled before first-pass page-definition modeling lands.
+- Broad runtime booleans such as `generateResourcePages` and `createHistoricalStatesOnWeave` belong to the wider config story more than to the immediate `_knop/_page` vocabulary, so they should not drive the first pass here.
+- Any bulk template-assignment mechanism should be deferred until real pressure appears. If that pressure does show up later, the next thing to try should be constrained selectors such as target class, source-interpretation profile, or designator-path prefix before jumping straight to full regex.
+- Relative path literals are acceptable when the model makes their base explicit. In the current direction that means `targetMeshPath` on `ArtifactResolutionTarget`, not helper pseudo-files with ambiguous runtime anchoring.
+
+#### Reject
+
+- `TemplateMappingSet` and `TemplateMapping` should not be transplanted into the first-pass page-definition/config model.
+- `mappingPriority` and the implied conflict-resolution algebra should not come along either.
+- `mappingTargetClassRegex` and `mappingTargetSlugRegex` should not be transplanted into the first-pass page-definition/config model, even if some constrained selector or regex mechanism is revisited later.
+- A config shape that decides page presentation primarily by pattern-matching over filenames, slugs, or path strings is the wrong first boundary for `_knop/_page`.
+- A template/config model that makes template selection responsible for navigation, breadcrumb, or other information-architecture logic should remain rejected; runtime should compute those structures and templates should render them.
+
+The `_knop/_assets` question is a good example of why ontology work matters first. We probably do want some metadata about the local asset area, but that does not mean:
 
 - every asset file should become a first-class governed artifact
 - every asset file should be listed in KnopInventory
@@ -71,60 +96,80 @@ The split I would currently aim for is:
   - concrete renderer behavior
   - file-layout conventions that do not need ontology-level commitment
 
+The outside-source boundary should stay sharp here too. If content originates outside the tree or outside the mesh, the page model should describe how it was imported into a governed in-tree artifact; it should not make the outside origin the direct live page source that "current" rendering follows.
+
 ## First-Pass Recommendation
 
-The first pass should treat the `_knop/_page` manifest as a knop-owned support artifact in core ontology, while regions, sources, and the `_assets` boundary remain bounded helper resources described by that artifact rather than separate governed artifacts.
+The first pass should treat the `_knop/_page` manifest as a knop-owned support artifact in core ontology, while regions, sources, and the `_knop` / `_knop/_assets` helper boundaries remain bounded helper resources described by that artifact rather than separate governed artifacts.
 
 ### Core ontology
 
 - `ResourcePageDefinition`
   - artifact-level support resource for the `_knop/_page` manifest
   - should subclass `DigitalArtifact`, `RdfDocument`, and `SemanticFlowResource`
+- `ArtifactResolutionTarget`
+  - generic policy-bearing relator for resolving bytes from either a `DigitalArtifact`, a direct mesh-local path string, a direct access URL, a direct `LocatedFile`, or another packaged target
+  - should carry requested history/state plus mode/fallback policy
+- `workingFilePath`
+  - operational local-path hook on `DigitalArtifact` for current working bytes
+  - should stay distinct from `hasWorkingLocatedFile`, which remains the semantic `LocatedFile` facet relation when one exists
+  - should allow `../` segments only subject to host/runtime operational configuration
+- `workingAccessUrl`
+  - operational remote/external current-byte hook on `DigitalArtifact`
+  - should stay distinct from both `workingFilePath` and `hasWorkingLocatedFile`
+  - should not by itself imply that any runtime may fetch it without explicit operational policy
 - `ResourcePageRegion`
   - structural content region for authored page composition
   - use `Region`, not `Slot`, because template slots belong in presentation config rather than in the content model
 - `ResourcePageSource`
-  - per-region source binding plus per-source resolution policy
-- `ResourcePageBundleFile`
-  - helper resource for local files under `_knop/_page`
-  - keeps base semantics explicit instead of hiding them in ambiguous path literals
-  - does not imply that every such file must be a governed artifact or a `KnopInventory` entry
-- `ResourcePageAssetBundle`
-  - helper resource for the `_knop/_page/_assets` boundary only
+  - page-specific subclass of `ArtifactResolutionTarget` used for per-region source binding
+  - keeps page-composition queries and future page-specific constraints readable even though the resolution pattern is generic
+- `KnopAssetBundle`
+  - bounded local helper boundary for `_knop/_assets`
   - should not imply that every file under `_assets` becomes a governed artifact or a `KnopInventory` entry
 
 Recommended core properties:
 
 - `hasResourcePageDefinition`
+- `hasKnopAssetBundle`
 - `hasPageRegion`
 - `regionKey`
 - `regionOrder`
 - `hasResourcePageSource`
 - `sourceOrder`
-- `hasSourceBundleFile`
-- `hasSourceArtifact`
-- `hasSourceHistoricalState`
-- `hasSourceLocatedFile`
-- `hasSourceDistribution`
-- `pageBundleRelativePath`
-- `hasRequestedSourceHistory`
-- `hasRequestedSourceState`
-- `hasResourcePageSourceMode`
-- `hasResourcePageSourceFallbackPolicy`
-- `hasPageAssetBundle`
+- `targetMeshPath`
+- `targetAccessUrl`
+- `workingFilePath`
+- `workingAccessUrl`
+- `hasTargetArtifact`
+- `hasTargetLocatedFile`
+- `hasTargetDistribution`
+- `hasRequestedTargetHistory`
+- `hasRequestedTargetState`
+- `hasArtifactResolutionMode`
+- `hasArtifactResolutionFallbackPolicy`
 
 Recommended controlled vocabularies:
 
-- `ResourcePageSourceMode/Pinned`
-- `ResourcePageSourceMode/Current`
-- `ResourcePageSourceFallbackPolicy/ExactOnly`
-- `ResourcePageSourceFallbackPolicy/AcceptLatestInRequestedHistory`
+- `ArtifactResolutionMode/Pinned`
+- `ArtifactResolutionMode/Current`
+- `ArtifactResolutionFallbackPolicy/ExactOnly`
+- `ArtifactResolutionFallbackPolicy/AcceptLatestInRequestedHistory`
 
 Naming pushback:
 
-- Do not use `resourcePageSourceState` as the main property name. That blurs requested state, resolved state, and runtime outcome. `hasRequestedSourceState` is clearer.
+- Do not introduce page-specific alias properties such as `hasRequestedSourceState` when the generic `ArtifactResolutionTarget` properties already say the right thing.
 - Do not put `accept` into the mode enum alongside `exact` and `current`. `accept` belongs to fallback policy, not to the separate question of whether the source is pinned versus current-following.
-- Do not use a generic name such as `AssetFolder`. `ResourcePageAssetBundle` is explicit about scope and avoids implying a general filesystem-artifact ontology.
+- Do not make an artifact target mandatory when `targetMeshPath` or a direct `LocatedFile` is sufficient. `ArtifactResolutionTarget` should support either shape.
+- Do not make an artifact target mandatory when `targetMeshPath`, `targetAccessUrl`, or a direct `LocatedFile` is sufficient. `ArtifactResolutionTarget` should support either shape.
+- Do not collapse `ResourcePageSource` away into a fully generic relator. The page-specific subtype is still useful even though the resolution pattern is shared.
+- Do not rename `ResourcePageSource` just to echo its superclass. The region-to-source relation is already clear, and the class's target semantics come from `ArtifactResolutionTarget`.
+- Do not use a generic name such as `AssetFolder`. `KnopAssetBundle` is explicit about scope and avoids implying a general filesystem-artifact ontology.
+- Do not revive page-bundle helper classes just to avoid relative path literals. `targetMeshPath` already gives a cleaner explicit base for mesh-local source resolution.
+- Do not collapse `targetAccessUrl` into `hasTargetArtifact` or `hasTargetLocatedFile`. It is the operational remote/external direct-target locator.
+- Do not collapse `workingFilePath` into `hasWorkingLocatedFile`. One is an operational local path hook; the other is a semantic `LocatedFile` relation.
+- Do not collapse `workingAccessUrl` into `workingFilePath` or `hasWorkingLocatedFile`. It is an operational remote/external locator, not a local path and not a semantic file facet.
+- When multiple current-byte locators are present for the same working surface, they should identify the same current bytes and mismatch should fail closed.
 
 ### Config ontology
 
@@ -136,8 +181,12 @@ Naming pushback:
 
 ### Implementation only
 
-- concrete bundle file names such as `_knop/_page/page.ttl`
-- the fixed serialization convention that maps `ResourcePageAssetBundle` to `_knop/_page/_assets`
+- concrete helper file names such as `_knop/_page/page.ttl`
+- the fixed serialization convention that maps `KnopAssetBundle` to `_knop/_assets`
+- the allowed-directories policy that decides whether `targetMeshPath` or `workingFilePath` may use `../` outside the mesh root
+- the network-use policy that decides whether `targetAccessUrl` may be followed at all, and under which origin/scheme constraints
+- the network-use policy that decides whether `workingAccessUrl` may be followed at all, and under which origin/scheme constraints
+- the concrete host/runtime config vocabulary for that policy; previous `sflo-host` work in `dependencies/github.com/semantic-flow/ontology/old/sflo-host-ontology.jsonld` is relevant precedent, but the active follow-on is now [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]]
 - runtime-computed breadcrumb, navigation, and search inputs
 - template-specific slot wiring and render-context assembly
 
@@ -147,72 +196,93 @@ Naming pushback:
 @prefix : <#> .
 @prefix sflo: <https://semantic-flow.github.io/ontology/core/> .
 
-<https://example.org/alice/_knop> sflo:hasResourcePageDefinition :pageDefinition .
+<https://example.org/alice/_knop> sflo:hasResourcePageDefinition :pageDefinition ;
+  sflo:hasKnopAssetBundle :pageAssets .
 
 :pageDefinition a sflo:ResourcePageDefinition ;
-  sflo:hasPageRegion :mainRegion, :sidebarRegion ;
-  sflo:hasPageAssetBundle :pageAssets .
+  sflo:hasPageRegion :mainRegion, :sidebarRegion .
 
 :mainRegion a sflo:ResourcePageRegion ;
   sflo:regionKey "main" ;
   sflo:hasResourcePageSource :mainSource .
 
 :mainSource a sflo:ResourcePageSource ;
-  sflo:hasSourceArtifact <https://example.org/alice/bio/_knop/payload> ;
-  sflo:hasRequestedSourceHistory <https://example.org/alice/bio/_history001> ;
-  sflo:hasRequestedSourceState <https://example.org/alice/bio/_history001/_s0003> ;
-  sflo:hasResourcePageSourceMode sflo:ResourcePageSourceMode/Pinned ;
-  sflo:hasResourcePageSourceFallbackPolicy sflo:ResourcePageSourceFallbackPolicy/AcceptLatestInRequestedHistory .
+  sflo:hasTargetArtifact <https://example.org/alice/bio/_knop/payload> ;
+  sflo:hasRequestedTargetHistory <https://example.org/alice/bio/_history001> ;
+  sflo:hasRequestedTargetState <https://example.org/alice/bio/_history001/_s0003> ;
+  sflo:hasArtifactResolutionMode sflo:ArtifactResolutionMode/Pinned ;
+  sflo:hasArtifactResolutionFallbackPolicy sflo:ArtifactResolutionFallbackPolicy/AcceptLatestInRequestedHistory .
 
 :sidebarRegion a sflo:ResourcePageRegion ;
   sflo:regionKey "sidebar" ;
   sflo:hasResourcePageSource :sidebarSource .
 
 :sidebarSource a sflo:ResourcePageSource ;
-  sflo:hasSourceBundleFile :sidebarFile .
+  sflo:targetMeshPath "alice/_knop/sidebar.md" .
 
-:sidebarFile a sflo:ResourcePageBundleFile ;
-  sflo:pageBundleRelativePath "sidebar.md" .
-
-:pageAssets a sflo:ResourcePageAssetBundle .
+:pageAssets a sflo:KnopAssetBundle .
 ```
 
 ## Open Issues
 
 - Whether `ResourcePagePresentationConfig` should live in a page-specific config module or in the broader modernized config ontology from [[ont.task.2026.2026-03-23-config-modernization]].
 - Whether later profiles should add a controlled region-role vocabulary beyond the first-pass `regionKey` string.
-- Whether `ResourcePageAssetBundle` should stay page-scoped permanently or later generalize into a wider asset-bundle concept.
+- Whether `KnopAssetBundle` should remain the right helper abstraction permanently or later generalize into a wider asset-bundle concept.
 - How much template/chrome policy should be formalized in this slice versus deferred.
-- Whether first-pass extra-mesh sources should be limited to explicit distributions only, or may also point at broader external artifact IRIs.
+- Whether first-pass import metadata for outside-the-tree content should be limited to explicit distributions only, or may also point at broader external artifact IRIs as import origins.
+- Which operational config vocabulary should carry allowed-directory rules for `targetMeshPath` and `workingFilePath`; see [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
+- The current operational-config direction is to keep that policy in the config ontology line under `OperationalConfig`, while separating repo-traveling access policy from machine-local trust policy and using first-pass `LocalPathAccessRule` / `RemoteAccessRule` allowlists rather than regex or implicit path semantics; see [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
+- Which operational config vocabulary should carry remote target-access policy for `targetAccessUrl`; see [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
+- Which operational config vocabulary should carry remote-current-byte policy for `workingAccessUrl`; see [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
 
 ## Decisions
 
 - Ontology/config modeling should precede broad runtime implementation for `_knop/_page`.
-- The asset-bundle concept should be modeled, but bounded tightly enough that it does not imply recursive inventory capture.
+- The asset-helper concept should be modeled, but bounded tightly enough that it does not imply recursive inventory capture.
 - Older template/config ideas should be reused selectively, not transplanted wholesale.
 - Content composition and template/chrome policy should remain distinct layers even if both are expressed in RDF.
 - KnopInventory should remain about governed artifact surfaces, not every local support file under `_knop`.
 - The first-pass core content model should use `ResourcePageRegion`, not `ResourcePageSlot`.
-- Per-source state selection and fallback should be modeled as separate axes using `hasRequestedSourceState` and `hasResourcePageSourceFallbackPolicy`.
-- Local bundle sources should be modeled through `ResourcePageBundleFile` plus `pageBundleRelativePath` rather than raw path strings directly on `ResourcePageSource`.
-- `ResourcePageBundleFile` is a structural helper concept only and should not by itself require or recommend recursive inventory capture.
+- `ResourcePageSource` should remain as a page-specific subclass of a generic `ArtifactResolutionTarget`.
+- Per-source state selection and fallback should be modeled as separate axes using the generic artifact-resolution pattern directly, without duplicating page-specific alias properties.
+- Local mesh/helper sources should be modeled by `targetMeshPath` directly on `ArtifactResolutionTarget`, not by helper pseudo-files.
+- `targetAccessUrl` should be added as the operational remote/external direct-target hook on `ArtifactResolutionTarget`.
+- `workingFilePath` should be added as the operational local-path hook for a `DigitalArtifact`, distinct from `hasWorkingLocatedFile`.
+- `workingAccessUrl` should be added as the operational remote/external current-byte hook for a `DigitalArtifact`, distinct from both `workingFilePath` and `hasWorkingLocatedFile`.
+- `hasWorkingLocatedFile` should remain the semantic `LocatedFile` relation; when multiple current-byte locators are present for the same current working surface, they should agree.
+- Outside-the-tree or extra-mesh content should enter page composition through an explicit import boundary rather than as a direct live page source.
+- The imported in-tree artifact and its current `WorkingLocatedFile` should be the source that page resolution follows.
+- `KnopAssetBundle` should be used only for the bounded `_knop/_assets` helper area, not as a signal that every asset file becomes governed.
+- Allowed-directory policy for `targetMeshPath` and `workingFilePath` belongs in host/runtime operational config, not in the core ontology.
+- Remote-use policy for `targetAccessUrl` also belongs in host/runtime operational config, not in the core ontology.
+- Remote-use policy for `workingAccessUrl` also belongs in host/runtime operational config, not in the core ontology.
 
 ## Contract Changes
 
-- Introduce vocabulary for page-definition resources and page sources.
-- Introduce vocabulary for per-source state, mode, and fallback policy.
-- Introduce a bundle-level metadata resource for `_knop/_page/_assets`.
+- Introduce vocabulary for page-definition resources, generic artifact-resolution targets, and page-specific sources.
+- Introduce vocabulary for per-source history/state, mode, and fallback policy.
+- Introduce `targetMeshPath` for mesh-local direct source bindings.
+- Introduce `targetAccessUrl` for remote/external direct target bindings.
+- Introduce `workingFilePath` for artifact-level operational local current-byte paths.
+- Introduce `workingAccessUrl` for artifact-level operational remote/external current-byte URLs.
+- Introduce a bounded helper resource for `_knop/_assets`.
+- Represent outside-the-tree origin data as import-facing metadata rather than as a direct current-following page-source contract.
 - Clarify the config vocabulary surface for template/chrome preferences and defaults.
-- Represent local page-bundle files as explicit helper resources so relative-path base semantics stay clear.
+- Represent local Knop-owned helper files through explicit `targetMeshPath` values so mesh-root-relative semantics stay clear.
+- Define consistency and precedence rules between `workingFilePath` and `hasWorkingLocatedFile`.
+- Define consistency and precedence rules across `workingFilePath`, `workingAccessUrl`, and `hasWorkingLocatedFile`.
+- Defer the exact allowed-directories vocabulary to host/runtime operational config rather than hard-coding it into core ontology.
+- Defer the exact remote target-access policy vocabulary to host/runtime operational config rather than hard-coding it into core ontology.
+- Defer the exact remote-current-byte policy vocabulary to host/runtime operational config rather than hard-coding it into core ontology.
 
 ## Testing
 
 - Write or update behavior notes before implementation locks in semantics accidentally.
 - Add ontology/config examples that demonstrate:
-  - local bundle files
+  - local Knop-owned helper files
   - in-mesh source artifacts
-  - external source references
-  - bundle-level `_assets` metadata without per-file inventory capture
+  - import-oriented external origin references
+  - `_knop/_assets` helper metadata without per-file inventory capture
 - Later runtime tests should use those modeled examples rather than inventing new shapes ad hoc.
 
 ## Non-Goals
@@ -224,9 +294,9 @@ Naming pushback:
 
 ## Implementation Plan
 
-- [ ] Review the old template/config ontology and conversation notes for reusable ideas and traps.
-- [ ] Decide which page-definition concepts belong in core ontology and which in config ontology.
-- [ ] Draft the first-pass vocabulary for page definitions, regions, sources, and source policy.
-- [ ] Draft the first-pass asset-bundle metadata concept for `_knop/_page/_assets`.
-- [ ] Record example RDF shapes that the runtime page-definition task can later implement.
+- [x] Review the old template/config ontology and conversation notes for reusable ideas and traps.
+- [x] Decide which page-definition concepts belong in core ontology and which in config ontology.
+- [x] Draft the first-pass vocabulary for page definitions, regions, sources, and source policy.
+- [x] Draft the first-pass asset-helper metadata concept for `_knop/_assets`.
+- [x] Record example RDF shapes that the runtime page-definition task can later implement.
 - [ ] Update related roadmap/task/spec notes once the vocabulary direction is settled.

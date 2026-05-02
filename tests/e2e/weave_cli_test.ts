@@ -78,6 +78,8 @@ Deno.test("weave version succeeds as a black-box CLI run", async () => {
     "releases",
     "--payload-state-segment",
     "v0.0.1",
+    "--payload-manifestation-segment",
+    "ttl",
     "--workspace",
     workspaceRoot,
   ]);
@@ -89,7 +91,7 @@ Deno.test("weave version succeeds as a black-box CLI run", async () => {
   await Deno.stat(
     join(
       workspaceRoot,
-      "alice/bio/releases/v0.0.1/alice-bio-ttl/alice-bio.ttl",
+      "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
     ),
   );
   await assertRejects(
@@ -114,6 +116,8 @@ Deno.test("weave version accepts the exact root target as a black-box CLI run", 
     "releases",
     "--payload-state-segment",
     "v0.0.1",
+    "--payload-manifestation-segment",
+    "ttl",
     "--workspace",
     workspaceRoot,
   ]);
@@ -122,7 +126,7 @@ Deno.test("weave version accepts the exact root target as a black-box CLI run", 
 
   assert(output.success, stderr);
   assert(stdout.includes("Versioned 1 designator path"), stdout);
-  await Deno.stat(join(workspaceRoot, "releases/v0.0.1/root-ttl/root.ttl"));
+  await Deno.stat(join(workspaceRoot, "releases/v0.0.1/ttl/root.ttl"));
 });
 
 Deno.test("weave generate succeeds as a black-box CLI run", async () => {
@@ -230,7 +234,7 @@ Deno.test("weave accepts a recursive --target spec as a black-box CLI run", asyn
   });
 });
 
-Deno.test("weave accepts payload history/state naming flags as a black-box CLI run", async () => {
+Deno.test("weave accepts payload version naming flags as a black-box CLI run", async () => {
   const workspaceRoot = await createTestTmpDir("weave-e2e-payload-naming-");
   await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
 
@@ -241,6 +245,8 @@ Deno.test("weave accepts payload history/state naming flags as a black-box CLI r
     "releases",
     "--payload-state-segment",
     "v0.0.1",
+    "--payload-manifestation-segment",
+    "ttl",
     "--workspace",
     workspaceRoot,
   ]);
@@ -252,14 +258,14 @@ Deno.test("weave accepts payload history/state naming flags as a black-box CLI r
   await Deno.stat(
     join(
       workspaceRoot,
-      "alice/bio/releases/v0.0.1/alice-bio-ttl/alice-bio.ttl",
+      "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
     ),
   );
   await Deno.stat(join(workspaceRoot, "alice/bio/releases/index.html"));
   await Deno.stat(join(workspaceRoot, "alice/bio/releases/v0.0.1/index.html"));
 });
 
-Deno.test("weave rejects payload history/state naming flags without exactly one target", async () => {
+Deno.test("weave rejects payload version naming flags without exactly one target", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-e2e-payload-naming-no-target-",
   );
@@ -278,13 +284,13 @@ Deno.test("weave rejects payload history/state naming flags without exactly one 
   assertEquals(output.success, false);
   assert(
     stderr.includes(
-      "Payload history/state naming requires exactly one --target.",
+      "Payload version naming requires exactly one --target.",
     ),
     stderr,
   );
 });
 
-Deno.test("weave rejects payload history/state naming flags with multiple targets", async () => {
+Deno.test("weave rejects payload version naming flags with multiple targets", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-e2e-payload-naming-many-targets-",
   );
@@ -307,7 +313,7 @@ Deno.test("weave rejects payload history/state naming flags with multiple target
   assertEquals(output.success, false);
   assert(
     stderr.includes(
-      "Payload history/state naming requires exactly one --target.",
+      "Payload version naming requires exactly one --target.",
     ),
     stderr,
   );
@@ -324,7 +330,6 @@ Deno.test("weave matches the manifest-scoped alice bio v2 woven fixture as a bla
   await assertWeaveTransitionMatchesManifest({
     manifestName: "11-alice-bio-v2-woven.jsonld",
     expectedStdoutFragment: "Wove 1 designator path",
-    compareTextFiles: false,
   });
 });
 
@@ -389,7 +394,6 @@ async function assertWeaveTransitionMatchesManifest(
   options: {
     manifestName: string;
     expectedStdoutFragment: string;
-    compareTextFiles?: boolean;
     compareWorkspaceTree?: boolean;
     cliArgs?: readonly string[];
   },
@@ -430,11 +434,17 @@ async function assertWeaveTransitionMatchesManifest(
       continue;
     }
 
+    const compareMode = fileExpectation.compareMode;
+
+    if (compareMode === undefined) {
+      await Deno.stat(join(workspaceRoot, path));
+      continue;
+    }
+
     const actualBytes = await Deno.readFile(join(workspaceRoot, path));
     const expectedBytes = new TextEncoder().encode(
       await readMeshAliceBioBranchFile(transitionCase.toRef!, path),
     );
-    const compareMode = fileExpectation.compareMode ?? "bytes";
 
     if (compareMode === "rdfCanonical") {
       assertEquals(
@@ -449,10 +459,6 @@ async function assertWeaveTransitionMatchesManifest(
     }
 
     if (compareMode === "text") {
-      if (options.compareTextFiles === false || path.endsWith(".html")) {
-        await Deno.stat(join(workspaceRoot, path));
-        continue;
-      }
       assertEquals(
         new TextDecoder().decode(actualBytes),
         new TextDecoder().decode(expectedBytes),
@@ -460,7 +466,12 @@ async function assertWeaveTransitionMatchesManifest(
       continue;
     }
 
-    assertEquals(actualBytes, expectedBytes);
+    if (compareMode === "bytes") {
+      assertEquals(actualBytes, expectedBytes);
+      continue;
+    }
+
+    throw new Error(`Unsupported compare mode ${compareMode} for ${path}`);
   }
 
   await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));

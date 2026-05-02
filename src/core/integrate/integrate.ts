@@ -1,5 +1,6 @@
 import { Parser } from "n3";
 import type { Quad } from "n3";
+import * as pathPosix from "@std/path/posix";
 import type { PlannedFile } from "../planned_file.ts";
 import {
   normalizeSafeDesignatorPath,
@@ -165,9 +166,12 @@ function normalizeWorkingFilePath(workingFilePath: string): string {
   if (trimmed.length === 0) {
     throw new IntegrateInputError("workingFilePath is required");
   }
-  if (trimmed.startsWith("/") || trimmed.endsWith("/")) {
+  if (
+    trimmed.startsWith("/") || trimmed.endsWith("/") ||
+    /^[A-Za-z]:/.test(trimmed)
+  ) {
     throw new IntegrateInputError(
-      "workingFilePath must be a mesh-relative file path",
+      "workingFilePath must be a relative file path",
     );
   }
   if (
@@ -179,19 +183,37 @@ function normalizeWorkingFilePath(workingFilePath: string): string {
     );
   }
 
-  const segments = trimmed.split("/");
+  const normalized = pathPosix.normalize(trimmed);
+  if (normalized === "." || normalized === "..") {
+    throw new IntegrateInputError(
+      "workingFilePath must be a relative file path",
+    );
+  }
+
+  const segments = normalized.split("/");
   if (segments.some((segment) => segment.length === 0)) {
     throw new IntegrateInputError(
       "workingFilePath must not contain empty path segments",
     );
   }
-  if (segments.some((segment) => segment === "." || segment === "..")) {
-    throw new IntegrateInputError(
-      "workingFilePath must be a mesh-relative file path",
-    );
-  }
 
-  return trimmed;
+  return normalized;
+}
+
+function usesMeshLocalWorkingLocatedFile(workingFilePath: string): boolean {
+  return !normalizeWorkingFilePath(workingFilePath).startsWith("../");
+}
+
+function renderCurrentWorkingFileLocator(workingFilePath: string): string {
+  return usesMeshLocalWorkingLocatedFile(workingFilePath)
+    ? `sflo:hasWorkingLocatedFile <${workingFilePath}> .`
+    : `sflo:workingFilePath ${JSON.stringify(workingFilePath)} .`;
+}
+
+function renderCurrentWorkingFileDeclaration(workingFilePath: string): string {
+  return usesMeshLocalWorkingLocatedFile(workingFilePath)
+    ? `<${workingFilePath}> a sflo:LocatedFile, sflo:RdfDocument .`
+    : "";
 }
 
 function renderKnopMetadataTurtle(
@@ -214,6 +236,12 @@ function renderKnopInventoryTurtle(
   workingFilePath: string,
 ): string {
   const knopPath = toKnopPath(designatorPath);
+  const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
+    workingFilePath,
+  );
+  const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
+    workingFilePath,
+  );
   return `@base <${meshBase}> .
 @prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
 
@@ -224,7 +252,7 @@ function renderKnopInventoryTurtle(
   sflo:hasPayloadArtifact <${designatorPath}> .
 
 <${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <${workingFilePath}> .
+  ${currentWorkingFileLocator}
 
 <${knopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <${knopPath}/_meta/meta.ttl> .
@@ -236,7 +264,7 @@ function renderKnopInventoryTurtle(
 
 <${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<${workingFilePath}> a sflo:LocatedFile, sflo:RdfDocument .
+${currentWorkingFileDeclaration}
 `;
 }
 
@@ -769,6 +797,12 @@ function renderFirstPayloadIntegratedMeshInventoryTurtle(
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const knopInventoryPath = `${knopPath}/_inventory/inventory.ttl`;
+  const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
+    workingFilePath,
+  );
+  const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
+    workingFilePath,
+  );
 
   return `@base <${meshBase}> .
 @prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
@@ -790,7 +824,7 @@ function renderFirstPayloadIntegratedMeshInventoryTurtle(
   sflo:hasResourcePage <${currentState.existingKnopPath}/index.html> .
 
 <${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <${workingFilePath}> .
+  ${currentWorkingFileLocator}
 
 <${knopPath}> a sflo:Knop ;
   sflo:hasWorkingKnopInventoryFile <${knopInventoryPath}> .
@@ -869,7 +903,7 @@ function renderFirstPayloadIntegratedMeshInventoryTurtle(
 
 <${knopInventoryPath}> a sflo:LocatedFile, sflo:RdfDocument .
 
-<${workingFilePath}> a sflo:LocatedFile, sflo:RdfDocument .
+${currentWorkingFileDeclaration}
 
 <_mesh/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 

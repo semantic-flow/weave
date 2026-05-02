@@ -1,4 +1,4 @@
-import { assertEquals, assertThrows } from "@std/assert";
+import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
 import { KnopCreateInputError, planKnopCreate } from "./create.ts";
 import { readMeshAliceBioBranchFile } from "../../../tests/support/mesh_alice_bio_fixture.ts";
 
@@ -111,6 +111,40 @@ Deno.test(
         "04-alice-knop-created",
         "_mesh/_inventory/inventory.ttl",
       ),
+    );
+  },
+);
+
+Deno.test(
+  "planKnopCreate supports creating the root Knop in a later carried mesh state",
+  async () => {
+    const plan = planKnopCreate({
+      meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+      designatorPath: "",
+      currentMeshInventoryTurtle: await readMeshAliceBioBranchFile(
+        "21-bob-page-imported-source-woven",
+        "_mesh/_inventory/inventory.ttl",
+      ),
+    });
+
+    assertEquals(
+      plan.createdFiles.map((file) => file.path),
+      [
+        "_knop/_meta/meta.ttl",
+        "_knop/_inventory/inventory.ttl",
+      ],
+    );
+    assertStringIncludes(
+      plan.updatedFiles[0]?.contents ?? "",
+      "sflo:hasKnop <_knop> ;",
+    );
+    assertStringIncludes(
+      plan.updatedFiles[0]?.contents ?? "",
+      "sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0005> ;",
+    );
+    assertStringIncludes(
+      plan.updatedFiles[0]?.contents ?? "",
+      "<_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .",
     );
   },
 );

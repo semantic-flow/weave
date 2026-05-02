@@ -16,6 +16,12 @@ import {
   MeshMetadataResolutionError,
   resolveMeshBaseFromMetadataTurtle,
 } from "../mesh/metadata.ts";
+import {
+  loadOperationalLocalPathPolicy,
+  LocalPathAccessError,
+  type OperationalLocalPathPolicy,
+  resolveAllowedLocalPath,
+} from "../operational/local_path_policy.ts";
 import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
@@ -80,7 +86,12 @@ export async function executeIntegrate(
 
   try {
     await ensureWorkspaceRootExists(workspaceRoot);
-    const resolvedSource = await resolveLocalSource(workspaceRoot, source);
+    const localPathPolicy = await loadOperationalLocalPathPolicy(workspaceRoot);
+    const resolvedSource = await resolveLocalSource(
+      workspaceRoot,
+      localPathPolicy,
+      source,
+    );
     workingFilePath = resolvedSource.workingFilePath;
     const meshState = await loadCurrentMeshState(workspaceRoot);
     plan = planIntegrate({
@@ -207,6 +218,7 @@ async function ensureWorkspaceRootExists(workspaceRoot: string): Promise<void> {
 
 async function resolveLocalSource(
   workspaceRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
   source: string,
 ): Promise<{ absoluteSourcePath: string; workingFilePath: string }> {
   const trimmed = source.trim();
@@ -237,15 +249,29 @@ async function resolveLocalSource(
 
   const workingFilePath = relative(workspaceRoot, absoluteSourcePath)
     .replaceAll("\\", "/");
-  if (
-    workingFilePath.length === 0 ||
-    workingFilePath === ".." ||
-    workingFilePath.startsWith("../") ||
-    isAbsolute(workingFilePath)
-  ) {
+  if (workingFilePath.length === 0 || workingFilePath === "..") {
     throw new IntegrateRuntimeError(
-      `integrate source must resolve inside the workspace: ${trimmed}`,
+      `integrate source is not a file: ${trimmed}`,
     );
+  }
+  try {
+    const allowedSourcePath = resolveAllowedLocalPath(
+      localPathPolicy,
+      "workingFilePath",
+      workingFilePath,
+    );
+    if (resolve(allowedSourcePath) !== resolve(absoluteSourcePath)) {
+      throw new IntegrateRuntimeError(
+        `integrate source resolved inconsistently against operational path policy: ${trimmed}`,
+      );
+    }
+  } catch (error) {
+    if (error instanceof LocalPathAccessError) {
+      throw new IntegrateRuntimeError(
+        `integrate source is outside the allowed local-path boundary: ${trimmed}`,
+      );
+    }
+    throw error;
   }
 
   return {

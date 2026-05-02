@@ -141,3 +141,40 @@ Deno.test("executeKnopCreate accepts semantically equivalent mesh metadata turtl
   assertEquals(result.meshBase, MESH_ALICE_BIO_BASE);
   assertEquals(result.updatedPaths, ["_mesh/_inventory/inventory.ttl"]);
 });
+
+Deno.test("executeKnopCreate supports the root Knop in a later carried mesh state", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-knop-create-root-later-");
+  await materializeMeshAliceBioBranch(
+    "21-bob-page-imported-source-woven",
+    workspaceRoot,
+  );
+
+  const result = await executeKnopCreate({
+    workspaceRoot,
+    request: {
+      designatorPath: "",
+    },
+  });
+
+  assertEquals(result.designatorPath, "");
+  assertEquals(
+    [...result.createdPaths].sort(),
+    [
+      "_knop/_inventory/inventory.ttl",
+      "_knop/_meta/meta.ttl",
+    ],
+  );
+  assertEquals(result.updatedPaths, ["_mesh/_inventory/inventory.ttl"]);
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+    ),
+    "sflo:hasKnop <_knop> ;",
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+    ),
+    "sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0005> ;",
+  );
+});

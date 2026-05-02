@@ -156,13 +156,13 @@ Deno.test("normalizeTargetSpecs rejects version-only fields", () => {
       normalizeTargetSpecs(
         [{
           designatorPath: "alice/bio",
-          stateSegment: "v0.0.1",
+          manifestationSegment: "ttl",
         }],
         "targets",
         createError,
       ),
     WeaveInputError,
-    "stateSegment is not supported",
+    "manifestationSegment is not supported",
   );
 });
 
@@ -173,6 +173,7 @@ Deno.test("normalizeVersionTargetSpecs accepts version-only fields", () => {
         designatorPath: "alice/bio",
         historySegment: "releases",
         stateSegment: "v0.0.1",
+        manifestationSegment: "ttl",
       }],
       "targets",
       createError,
@@ -182,11 +183,13 @@ Deno.test("normalizeVersionTargetSpecs accepts version-only fields", () => {
         designatorPath: "alice/bio",
         historySegment: "releases",
         stateSegment: "v0.0.1",
+        manifestationSegment: "ttl",
       },
       designatorPath: "alice/bio",
       recursive: false,
       historySegment: "releases",
       stateSegment: "v0.0.1",
+      manifestationSegment: "ttl",
     },
   );
 });

@@ -2,7 +2,7 @@
 id: n2fj8u6h1prx3m0q4stya7b
 title: 2026 04 07_1852 Payload Version Naming
 desc: ''
-updated: 1775613150562
+updated: 1775887627419
 created: 1775613150562
 ---
 
@@ -26,7 +26,7 @@ The first pass should stay narrow:
 - keep `validate` and `generate` free of version-only naming fields
 - keep the shared `weave --target` CLI limited to shared target fields such as `designatorPath` and `recursive`, even if the root `weave` CLI later accepts separate version-oriented naming options
 
-This task follows the contract boundary already established in [[wd.task.2026.2026-04-07_0820-validate-version-generate]] and the shared-targeting decision recorded in [[wd.task.2026.2026-04-07_0020-targeting]].
+This task follows the contract boundary already established in [[wd.completed.2026.2026-04-07_0820-validate-version-generate]] and the shared-targeting decision recorded in [[wd.completed.2026.2026-04-07_0020-targeting]].
 
 ## Discussion
 
@@ -35,7 +35,7 @@ There are two honest ways to resolve the current mismatch:
 - remove `historySegment` and `stateSegment` from the version-oriented request contract until they are implemented
 - implement the naming behavior those fields already imply
 
-The better move is to implement them, but only at the payload-artifact boundary that [[wd.task.2026.2026-04-07_0820-validate-version-generate]] already scoped.
+The better move is to implement them, but only at the payload-artifact boundary that [[wd.completed.2026.2026-04-07_0820-validate-version-generate]] already scoped.
 
 In this task, `historySegment` and `stateSegment` should be treated as path segment names for the payload artifact's history and new historical state. They are not human-facing labels, and they should not replace the numeric `historyOrdinal`, `stateOrdinal`, or `nextStateOrdinal` bookkeeping already carried in RDF. A payload state may therefore live at a path such as `alice/bio/releases/v0.0.1/...` while still carrying numeric ordinals in the semantic model.
 

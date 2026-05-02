@@ -80,12 +80,17 @@ export async function runWeaveCli(args: string[]): Promise<number> {
       "--payload-state-segment <segment:string>",
       "Payload state segment name to pass only to version for a single targeted payload weave.",
     )
+    .option(
+      "--payload-manifestation-segment <segment:string>",
+      "Payload manifestation segment name to pass only to version for a single targeted payload weave.",
+    )
     .action(async (
       options: {
         workspace: string;
         target?: string[];
         payloadHistorySegment?: string;
         payloadStateSegment?: string;
+        payloadManifestationSegment?: string;
       },
     ) => {
       const workspaceRoot = resolve(options.workspace);
@@ -184,12 +189,17 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           "--payload-state-segment <segment:string>",
           "Payload state segment name for a single targeted payload version.",
         )
+        .option(
+          "--payload-manifestation-segment <segment:string>",
+          "Payload manifestation segment name for a single targeted payload version.",
+        )
         .action(async (
           options: {
             workspace: string;
             target?: string[];
             payloadHistorySegment?: string;
             payloadStateSegment?: string;
+            payloadManifestationSegment?: string;
           },
         ) => {
           const workspaceRoot = resolve(options.workspace);
@@ -704,6 +714,7 @@ function resolveVersionTargetSpecs(
     target?: readonly string[];
     payloadHistorySegment?: string;
     payloadStateSegment?: string;
+    payloadManifestationSegment?: string;
   },
   commandName: string,
 ): readonly VersionTargetSpec[] {
@@ -711,10 +722,11 @@ function resolveVersionTargetSpecs(
   if (targets.length === 0) {
     if (
       options.payloadHistorySegment !== undefined ||
-      options.payloadStateSegment !== undefined
+      options.payloadStateSegment !== undefined ||
+      options.payloadManifestationSegment !== undefined
     ) {
       throw new WeaveInputError(
-        "Payload history/state naming requires exactly one --target.",
+        "Payload version naming requires exactly one --target.",
       );
     }
     return [];
@@ -727,15 +739,21 @@ function resolveVersionTargetSpecs(
     options.payloadStateSegment,
     `${commandName} --payload-state-segment`,
   );
+  const payloadManifestationSegment = resolveOptionalWeavePayloadSegment(
+    options.payloadManifestationSegment,
+    `${commandName} --payload-manifestation-segment`,
+  );
 
   if (
-    payloadHistorySegment === undefined && payloadStateSegment === undefined
+    payloadHistorySegment === undefined &&
+    payloadStateSegment === undefined &&
+    payloadManifestationSegment === undefined
   ) {
     return targets;
   }
   if (targets.length !== 1) {
     throw new WeaveInputError(
-      "Payload history/state naming requires exactly one --target.",
+      "Payload version naming requires exactly one --target.",
     );
   }
 
@@ -743,6 +761,9 @@ function resolveVersionTargetSpecs(
     ...targets[0]!,
     ...(payloadHistorySegment ? { historySegment: payloadHistorySegment } : {}),
     ...(payloadStateSegment ? { stateSegment: payloadStateSegment } : {}),
+    ...(payloadManifestationSegment
+      ? { manifestationSegment: payloadManifestationSegment }
+      : {}),
   }];
 }
 

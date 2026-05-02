@@ -46,7 +46,7 @@ Notes:
 - `designatorPath` is required.
 - `recursive=true` includes descendants of the given designator path.
 - `recursive=false` is accepted and currently behaves the same as omitting `recursive`.
-- Version-oriented fields such as `historySegment` and `stateSegment` are not part of `--target`.
+- Version-oriented fields such as `historySegment`, `stateSegment`, and `manifestationSegment` are not part of `--target`.
 
 ## Root special case
 
@@ -91,13 +91,15 @@ Payload naming may be passed through to the internal `version` step:
 weave \
   --target 'designatorPath=alice/bio' \
   --payload-history-segment releases \
-  --payload-state-segment v0.0.1
+  --payload-state-segment v0.0.1 \
+  --payload-manifestation-segment ttl
 ```
 
 Constraints:
 
-- payload naming requires exactly one `--target`
+- payload version naming requires exactly one `--target`
 - payload naming is applied only to payload versioning, not to shared target selection
+- if `--payload-manifestation-segment` is omitted, the current default derives the manifestation segment from the payload filename, such as `alice-bio-ttl` for `alice-bio.ttl`
 
 ### `weave validate`
 
@@ -119,12 +121,13 @@ weave version --target 'designatorPath=alice/bio'
 weave version \
   --target 'designatorPath=alice/bio' \
   --payload-history-segment releases \
-  --payload-state-segment v0.0.1
+  --payload-state-segment v0.0.1 \
+  --payload-manifestation-segment ttl
 ```
 
 Constraints:
 
-- payload naming requires exactly one `--target`
+- payload version naming requires exactly one `--target`
 
 ### `weave generate`
 
@@ -148,7 +151,7 @@ weave mesh create --interactive
 
 ### `weave integrate`
 
-Integrates a local source file into a designator path as a payload artifact.
+Integrates a local source file into a designator path as a payload artifact, including policy-approved extra-mesh local sources.
 
 ```sh
 weave integrate ./alice-bio.ttl alice/bio
@@ -160,6 +163,10 @@ Constraints:
 
 - the designator path may be given either positionally or with `--designator-path`
 - if both are provided, they must match
+- the current local CLI slice accepts local filesystem paths or `file:` URLs
+- sources inside the workspace are accepted directly
+- extra-mesh local sources are accepted only when operational policy allows the resulting relative `workingFilePath`
+- remote-source integration is still a broader semantic/API direction, not part of the current CLI contract
 
 ### `weave extract`
 
@@ -172,7 +179,7 @@ weave extract /
 
 ### `weave payload update`
 
-Replaces the working bytes of an existing payload artifact.
+Convenience command for replacing the current working bytes of an existing payload artifact. This updates the current working surface only; `weave` or `weave version` is what records those bytes into explicit history.
 
 ```sh
 weave payload update ./alice-bio-v2.ttl alice/bio
@@ -184,6 +191,7 @@ Constraints:
 
 - the designator path may be given either positionally or with `--designator-path`
 - if both are provided, they must match
+- this is a local working-surface mutation, not a distinct history/materialization operation
 
 ### `weave knop create`
 

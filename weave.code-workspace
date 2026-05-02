@@ -1,45 +1,48 @@
 {
-	"folders": [
-		{
-			"path": "."
-		},
-		{
-			"path": "dependencies/github.com/semantic-flow/ontology"
-		},
-		{
-			"path": "dependencies/github.com/semantic-flow/weave-dev-archive"
-		},
-		{
-			"path": "dependencies/github.com/semantic-flow/semantic-flow-framework"
-		},
-		{
-			"path": "dependencies/github.com/semantic-flow/mesh-alice-bio"
-		},
-		{
-			"path": "dependencies/github.com/spectacular-voyage/accord"
-		}
-	],
-	"settings": {
-		"pasteImage.path": "${currentFileDir}/assets/images",
-		"pasteImage.prefix": "/",
-		"markdown-preview-enhanced.enableWikiLinkSyntax": true,
-		"markdown-preview-enhanced.wikiLinkFileExtension": ".md"
-	},
-	"extensions": {
-		"recommendations": [
-			"dendron.dendron",
-			"dendron.dendron-paste-image",
-			"dendron.dendron-markdown-shortcuts",
-			"denoland.vscode-deno",
-			"redhat.vscode-yaml"
-		],
-		"unwantedRecommendations": [
-			"dendron.dendron-markdown-links",
-			"dendron.dendron-markdown-notes",
-			"dendron.dendron-markdown-preview-enhanced",
-			"shd101wyy.markdown-preview-enhanced",
-			"kortina.vscode-markdown-notes",
-			"mushan.vscode-paste-image"
-		]
-	}
+  "folders": [
+    {
+      "path": "."
+    },
+    {
+      "path": "dependencies/github.com/semantic-flow/ontology"
+    },
+    {
+      "path": "dependencies/github.com/semantic-flow/weave-dev-archive"
+    },
+    {
+      "path": "dependencies/github.com/semantic-flow/semantic-flow-framework"
+    },
+    {
+      "path": "dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules"
+    },
+    {
+      "path": "dependencies/github.com/semantic-flow/mesh-alice-bio"
+    },
+    {
+      "path": "dependencies/github.com/spectacular-voyage/accord"
+    }
+  ],
+  "settings": {
+    "pasteImage.path": "${currentFileDir}/assets/images",
+    "pasteImage.prefix": "/",
+    "markdown-preview-enhanced.enableWikiLinkSyntax": true,
+    "markdown-preview-enhanced.wikiLinkFileExtension": ".md"
+  },
+  "extensions": {
+    "recommendations": [
+      "dendron.dendron",
+      "dendron.dendron-paste-image",
+      "dendron.dendron-markdown-shortcuts",
+      "denoland.vscode-deno",
+      "redhat.vscode-yaml"
+    ],
+    "unwantedRecommendations": [
+      "dendron.dendron-markdown-links",
+      "dendron.dendron-markdown-notes",
+      "dendron.dendron-markdown-preview-enhanced",
+      "shd101wyy.markdown-preview-enhanced",
+      "kortina.vscode-markdown-notes",
+      "mushan.vscode-paste-image"
+    ]
+  }
 }

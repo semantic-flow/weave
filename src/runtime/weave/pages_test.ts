@@ -226,3 +226,71 @@ Deno.test("renderResourcePage renders pinned root ReferenceCatalog targets as sl
 `,
   );
 });
+
+Deno.test("renderResourcePage renders customized identifier pages from mesh-local regions", () => {
+  assertEquals(
+    renderResourcePage(
+      "https://semantic-flow.github.io/mesh-alice-bio/",
+      {
+        kind: "customIdentifier",
+        path: "alice/index.html",
+        designatorPath: "alice",
+        definitionPath: "alice/_knop/_page",
+        stylesheetPaths: ["alice/_knop/_assets/alice.css"],
+        regions: [
+          {
+            key: "main",
+            sourcePath: "alice/alice.md",
+            markdown: `# Alice
+
+This customized identifier page is driven by \`alice/_knop/_page/page.ttl\`.
+
+Alice's integrated biography is available at [./bio](./bio), and the extracted Bob resource is available at [../bob](../bob).
+`,
+          },
+          {
+            key: "sidebar",
+            sourcePath: "mesh-content/sidebar.md",
+            markdown: `## Quick links
+
+- [Alice Knop](./_knop)
+- [Alice bio](./bio)
+- [Bob](../bob)
+`,
+          },
+        ],
+      },
+    ),
+    `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>mesh-alice-bio alice</title>
+  <link rel="canonical" href="https://semantic-flow.github.io/mesh-alice-bio/alice">
+  <link rel="stylesheet" href="./_knop/_assets/alice.css">
+</head>
+<body class="alice-custom-page">
+  <main class="alice-layout">
+    <article class="alice-main">
+      <h1>Alice</h1>
+      <p>This customized identifier page is driven by <code>alice/_knop/_page/page.ttl</code>.</p>
+      <p>Alice's integrated biography is available at <a href="./bio">./bio</a>, and the extracted Bob resource is available at <a href="../bob">../bob</a>.</p>
+    </article>
+    <aside class="alice-sidebar">
+      <h2>Quick links</h2>
+      <ul>
+        <li><a href="./_knop">Alice Knop</a></li>
+        <li><a href="./bio">Alice bio</a></li>
+        <li><a href="../bob">Bob</a></li>
+      </ul>
+    </aside>
+
+  </main>
+  <footer>
+    <small>The Semantic Flow identifier <a href="https://semantic-flow.github.io/mesh-alice-bio/alice">https://semantic-flow.github.io/mesh-alice-bio/alice</a> is currently rendered from the page-definition support artifact at <a href="./_knop/_page">./_knop/_page</a>.</small>
+  </footer>
+</body>
+</html>
+`,
+  );
+});

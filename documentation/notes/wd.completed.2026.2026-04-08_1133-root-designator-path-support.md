@@ -11,7 +11,7 @@ created: 1775711600000
 - Support the root designator path as a first-class resource across local CLI, runtime, and core planning.
 - Treat the root designator as the mesh base IRI, equivalent to RDF `<>`, without conflating it with `_mesh` support artifacts.
 - Use `/` as the CLI sentinel for root while keeping the normalized internal representation path-relative.
-- Preserve the resource-root targeting rules established in [[wd.task.2026.2026-04-07_0020-targeting]].
+- Preserve the resource-root targeting rules established in [[wd.completed.2026.2026-04-07_0020-targeting]].
 
 ## Summary
 
@@ -43,7 +43,7 @@ The target-selection semantics also need to stay sharp:
 - omitted targets still mean "all weaveable candidates"
 - `designatorPath=/` exact targeting means "only the root identifier"
 - `designatorPath=/,recursive=true` means "the root identifier plus all descendant identifiers"
-- the existing most-specific-wins rule from [[wd.task.2026.2026-04-07_0020-targeting]] should remain in force, so a more specific descendant target still overrides a recursive root target
+- the existing most-specific-wins rule from [[wd.completed.2026.2026-04-07_0020-targeting]] should remain in force, so a more specific descendant target still overrides a recursive root target
 
 The support-artifact boundary also matters:
 
@@ -68,7 +68,7 @@ This task should make root spelling consistent across CLI surfaces. Any CLI argu
 - Recursive `/` targeting selects the root designator resource plus descendant resources.
 - Root-owned support artifacts must remain mesh-relative paths with no leading slash, for example `_knop`, `_history001`, and `index.html`.
 - User-facing displays of the root designator path should render `/`, not a blank string.
-- The resource-root targeting boundary from [[wd.task.2026.2026-04-07_0020-targeting]] remains unchanged; `/` is a resource-root target, not a generic support-artifact escape hatch.
+- The resource-root targeting boundary from [[wd.completed.2026.2026-04-07_0020-targeting]] remains unchanged; `/` is a resource-root target, not a generic support-artifact escape hatch.
 
 ## Contract Changes
 

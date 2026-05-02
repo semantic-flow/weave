@@ -68,11 +68,17 @@ Deno.test("weave extract matches the manifest-scoped bob extracted fixture as a 
       continue;
     }
 
+    const compareMode = fileExpectation.compareMode;
+
+    if (compareMode === undefined) {
+      await Deno.stat(join(workspaceRoot, path));
+      continue;
+    }
+
     const actualBytes = await Deno.readFile(join(workspaceRoot, path));
     const expectedBytes = new TextEncoder().encode(
       await readMeshAliceBioBranchFile(transitionCase.toRef!, path),
     );
-    const compareMode = fileExpectation.compareMode ?? "bytes";
 
     if (compareMode === "rdfCanonical") {
       assertEquals(
@@ -94,7 +100,12 @@ Deno.test("weave extract matches the manifest-scoped bob extracted fixture as a 
       continue;
     }
 
-    assertEquals(actualBytes, expectedBytes);
+    if (compareMode === "bytes") {
+      assertEquals(actualBytes, expectedBytes);
+      continue;
+    }
+
+    throw new Error(`Unsupported compare mode ${compareMode} for ${path}`);
   }
 
   await assertPathExists(

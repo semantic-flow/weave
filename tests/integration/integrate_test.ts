@@ -126,7 +126,7 @@ Deno.test("executeIntegrate supports the root designator path", async () => {
   );
 });
 
-Deno.test("executeIntegrate rejects a source file outside the workspace", async () => {
+Deno.test("executeIntegrate fails closed when source is outside the allowed local boundary", async () => {
   const workspaceRoot = await createTestTmpDir("weave-integrate-workspace-");
   await materializeMeshAliceBioBranch(
     "05-alice-knop-created-woven",
@@ -153,7 +153,75 @@ Deno.test("executeIntegrate rejects a source file outside the workspace", async 
         },
       }),
     IntegrateRuntimeError,
-    "inside the workspace",
+    "outside the allowed local-path boundary",
+  );
+});
+
+Deno.test("executeIntegrate allows repo-adjacent local sources when repo policy permits them", async () => {
+  const repoRoot = await createTestTmpDir("weave-integrate-policy-");
+  const workspaceRoot = join(repoRoot, "mesh");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await Deno.mkdir(join(repoRoot, "documentation"), { recursive: true });
+  await Deno.writeTextFile(
+    join(repoRoot, ".sf-repo-access.ttl"),
+    `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+
+<> a sfcfg:RepoOperationalConfig ;
+  sfcfg:hasLocalPathAccessRule [
+    a sfcfg:LocalPathAccessRule ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/LocalPathBase/MeshRoot> ;
+    sfcfg:pathPrefix "../documentation/" ;
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/LocalPathLocatorKind/WorkingFilePath>
+  ] .
+`,
+  );
+  const sharedSourcePath = join(repoRoot, "documentation/alice-bio.ttl");
+  await Deno.writeTextFile(
+    sharedSourcePath,
+    await readMeshAliceBioBranchFile(
+      "05-alice-knop-created-woven",
+      "alice-bio.ttl",
+    ),
+  );
+
+  const result = await executeIntegrate({
+    workspaceRoot,
+    request: {
+      designatorPath: "alice/bio",
+      source: "../documentation/alice-bio.ttl",
+    },
+  });
+
+  assertEquals(result.designatorPath, "alice/bio");
+  assertEquals(result.workingFilePath, "../documentation/alice-bio.ttl");
+  const createdInventory = await Deno.readTextFile(
+    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+  );
+  const updatedMeshInventory = await Deno.readTextFile(
+    join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+  );
+  assertStringIncludes(
+    createdInventory,
+    `sflo:workingFilePath "../documentation/alice-bio.ttl" .`,
+  );
+  assertStringIncludes(
+    updatedMeshInventory,
+    `sflo:workingFilePath "../documentation/alice-bio.ttl" .`,
+  );
+  assertEquals(
+    createdInventory.includes(
+      "sflo:hasWorkingLocatedFile <../documentation/alice-bio.ttl> .",
+    ),
+    false,
+  );
+  assertEquals(
+    updatedMeshInventory.includes(
+      "sflo:hasWorkingLocatedFile <../documentation/alice-bio.ttl> .",
+    ),
+    false,
   );
 });
 

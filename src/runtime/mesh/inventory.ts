@@ -1,36 +1,55 @@
 import { Parser, type Quad } from "n3";
+import * as pathPosix from "@std/path/posix";
 import {
   toKnopPath,
   toReferenceCatalogPath,
 } from "../../core/designator_segments.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+const SFC_NAMESPACE = "https://semantic-flow.github.io/ontology/core/";
 const SFLO_NAMESPACE =
   "https://semantic-flow.github.io/semantic-flow-ontology/";
 const SFLO_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}ArtifactHistory`;
 const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
   `${SFLO_NAMESPACE}currentArtifactHistory`;
+const SFLO_HAS_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}hasLocatedFile`;
+const SFLO_HAS_MANIFESTATION_IRI = `${SFLO_NAMESPACE}hasManifestation`;
 const SFLO_HAS_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasPayloadArtifact`;
 const SFLO_HAS_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}hasReferenceCatalog`;
 const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
   `${SFLO_NAMESPACE}hasWorkingLocatedFile`;
+const SFLO_WORKING_FILE_PATH_IRI = `${SFLO_NAMESPACE}workingFilePath`;
 const SFLO_KNOP_IRI = `${SFLO_NAMESPACE}Knop`;
 const SFLO_LATEST_HISTORICAL_STATE_IRI =
   `${SFLO_NAMESPACE}latestHistoricalState`;
+const SFLO_LOCATED_FILE_FOR_STATE_IRI = `${SFLO_NAMESPACE}locatedFileForState`;
 const SFLO_REFERENCE_LINK_FOR_IRI = `${SFLO_NAMESPACE}referenceLinkFor`;
 const SFLO_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}ReferenceLink`;
 const SFLO_REFERENCE_TARGET_IRI = `${SFLO_NAMESPACE}referenceTarget`;
 const SFLO_REFERENCE_TARGET_STATE_IRI = `${SFLO_NAMESPACE}referenceTargetState`;
+const SFC_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFC_NAMESPACE}hasKnopAssetBundle`;
+const SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI =
+  `${SFC_NAMESPACE}hasResourcePageDefinition`;
 
 export interface PayloadArtifactInventoryState {
   workingFilePath: string;
   currentArtifactHistoryPath?: string;
   currentArtifactHistoryExists: boolean;
   latestHistoricalStatePath?: string;
+  latestHistoricalSnapshotPath?: string;
 }
 
 export interface ReferenceCatalogInventoryState {
   workingFilePath: string;
+}
+
+export interface ResourcePageDefinitionInventoryState {
+  artifactPath: string;
+  workingFilePath: string;
+  currentArtifactHistoryPath?: string;
+  currentArtifactHistoryExists: boolean;
+  latestHistoricalStatePath?: string;
+  assetBundlePath?: string;
 }
 
 export function listKnopDesignatorPaths(
@@ -99,11 +118,10 @@ export function resolvePayloadArtifactInventoryState(
     return undefined;
   }
 
-  const workingFilePath = requireUniqueNamedNodePath(
+  const workingFilePath = requireWorkingFilePath(
     quads,
     meshBase,
     payloadArtifactIri,
-    SFLO_HAS_WORKING_LOCATED_FILE_IRI,
     messages.missingWorkingFileMessage,
   );
   const currentArtifactHistoryPath = resolveOptionalUniqueNamedNodePath(
@@ -131,12 +149,21 @@ export function resolvePayloadArtifactInventoryState(
         messages.parseErrorMessage,
       )
       : undefined;
+  const latestHistoricalSnapshotPath = latestHistoricalStatePath
+    ? resolveOptionalHistoricalStateLocatedFilePath(
+      quads,
+      meshBase,
+      latestHistoricalStatePath,
+      messages.parseErrorMessage,
+    )
+    : undefined;
 
   return {
     workingFilePath,
     currentArtifactHistoryPath,
     currentArtifactHistoryExists,
     latestHistoricalStatePath,
+    ...(latestHistoricalSnapshotPath ? { latestHistoricalSnapshotPath } : {}),
   };
 }
 
@@ -172,13 +199,89 @@ export function resolveReferenceCatalogInventoryState(
   }
 
   return {
-    workingFilePath: requireUniqueNamedNodePath(
+    workingFilePath: requireWorkingFilePath(
       quads,
       meshBase,
       referenceCatalogIri,
-      SFLO_HAS_WORKING_LOCATED_FILE_IRI,
       messages.missingWorkingFileMessage,
     ),
+  };
+}
+
+export function resolveResourcePageDefinitionInventoryState(
+  meshBase: string,
+  inventoryTurtle: string,
+  designatorPath: string,
+  messages: {
+    parseErrorMessage: string;
+    missingWorkingFileMessage: string;
+  },
+): ResourcePageDefinitionInventoryState | undefined {
+  const quads = parseInventoryQuads(
+    meshBase,
+    inventoryTurtle,
+    messages.parseErrorMessage,
+  );
+  const knopIri = toMeshIri(meshBase, toKnopPath(designatorPath));
+  const artifactPath = resolveOptionalUniqueNamedNodePath(
+    quads,
+    meshBase,
+    knopIri,
+    SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI,
+    messages.parseErrorMessage,
+  );
+
+  if (!artifactPath) {
+    return undefined;
+  }
+
+  const artifactIri = toMeshIri(meshBase, artifactPath);
+  const workingFilePath = requireWorkingFilePath(
+    quads,
+    meshBase,
+    artifactIri,
+    messages.missingWorkingFileMessage,
+  );
+  const currentArtifactHistoryPath = resolveOptionalUniqueNamedNodePath(
+    quads,
+    meshBase,
+    artifactIri,
+    SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
+    messages.parseErrorMessage,
+  );
+  const currentArtifactHistoryExists = currentArtifactHistoryPath
+    ? hasNamedNodeObject(
+      quads,
+      toMeshIri(meshBase, currentArtifactHistoryPath),
+      RDF_TYPE_IRI,
+      SFLO_ARTIFACT_HISTORY_IRI,
+    )
+    : false;
+  const latestHistoricalStatePath =
+    currentArtifactHistoryPath && currentArtifactHistoryExists
+      ? resolveOptionalUniqueNamedNodePath(
+        quads,
+        meshBase,
+        toMeshIri(meshBase, currentArtifactHistoryPath),
+        SFLO_LATEST_HISTORICAL_STATE_IRI,
+        messages.parseErrorMessage,
+      )
+      : undefined;
+  const assetBundlePath = resolveOptionalUniqueNamedNodePath(
+    quads,
+    meshBase,
+    knopIri,
+    SFC_HAS_KNOP_ASSET_BUNDLE_IRI,
+    messages.parseErrorMessage,
+  );
+
+  return {
+    artifactPath,
+    workingFilePath,
+    currentArtifactHistoryPath,
+    currentArtifactHistoryExists,
+    latestHistoricalStatePath,
+    assetBundlePath,
   };
 }
 
@@ -305,26 +408,42 @@ function hasNamedNodeObject(
   );
 }
 
-function requireUniqueNamedNodePath(
+function requireWorkingFilePath(
   quads: readonly Quad[],
   meshBase: string,
   subjectIri: string,
-  predicateIri: string,
   errorMessage: string,
 ): string {
-  const value = resolveOptionalUniqueNamedNodePath(
+  const literalWorkingFilePath = resolveOptionalUniqueLiteralWorkingFilePath(
+    quads,
+    subjectIri,
+    SFLO_WORKING_FILE_PATH_IRI,
+    errorMessage,
+  );
+  const locatedWorkingFilePath = resolveOptionalUniqueNamedNodePath(
     quads,
     meshBase,
     subjectIri,
-    predicateIri,
+    SFLO_HAS_WORKING_LOCATED_FILE_IRI,
     errorMessage,
   );
 
-  if (value === undefined) {
+  if (
+    literalWorkingFilePath !== undefined &&
+    locatedWorkingFilePath !== undefined &&
+    literalWorkingFilePath !== locatedWorkingFilePath
+  ) {
     throw new Error(errorMessage);
   }
 
-  return value;
+  if (literalWorkingFilePath !== undefined) {
+    return literalWorkingFilePath;
+  }
+  if (locatedWorkingFilePath !== undefined) {
+    return locatedWorkingFilePath;
+  }
+
+  throw new Error(errorMessage);
 }
 
 function resolveOptionalUniqueNamedNodePath(
@@ -357,6 +476,114 @@ function resolveOptionalUniqueNamedNodePath(
   }
 
   return values.values().next().value!;
+}
+
+function resolveOptionalHistoricalStateLocatedFilePath(
+  quads: readonly Quad[],
+  meshBase: string,
+  statePath: string,
+  errorMessage: string,
+): string | undefined {
+  const stateIri = toMeshIri(meshBase, statePath);
+  const shortcutLocatedFilePath = resolveOptionalUniqueNamedNodePath(
+    quads,
+    meshBase,
+    stateIri,
+    SFLO_LOCATED_FILE_FOR_STATE_IRI,
+    errorMessage,
+  );
+  const manifestationPath = resolveOptionalUniqueNamedNodePath(
+    quads,
+    meshBase,
+    stateIri,
+    SFLO_HAS_MANIFESTATION_IRI,
+    errorMessage,
+  );
+  const manifestationLocatedFilePath = manifestationPath
+    ? resolveOptionalUniqueNamedNodePath(
+      quads,
+      meshBase,
+      toMeshIri(meshBase, manifestationPath),
+      SFLO_HAS_LOCATED_FILE_IRI,
+      errorMessage,
+    )
+    : undefined;
+
+  if (
+    shortcutLocatedFilePath !== undefined &&
+    manifestationLocatedFilePath !== undefined &&
+    shortcutLocatedFilePath !== manifestationLocatedFilePath
+  ) {
+    throw new Error(errorMessage);
+  }
+
+  return shortcutLocatedFilePath ?? manifestationLocatedFilePath;
+}
+
+function resolveOptionalUniqueLiteralWorkingFilePath(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+  errorMessage: string,
+): string | undefined {
+  const values = new Set<string>();
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.subject.value !== subjectIri ||
+      quad.predicate.value !== predicateIri ||
+      quad.object.termType !== "Literal"
+    ) {
+      continue;
+    }
+
+    values.add(normalizeWorkingFilePath(quad.object.value, errorMessage));
+  }
+
+  if (values.size === 0) {
+    return undefined;
+  }
+  if (values.size !== 1) {
+    throw new Error(errorMessage);
+  }
+
+  return values.values().next().value!;
+}
+
+function normalizeWorkingFilePath(
+  value: string,
+  errorMessage: string,
+): string {
+  const trimmed = value.trim();
+
+  if (
+    trimmed.length === 0 ||
+    trimmed.startsWith("/") ||
+    trimmed.endsWith("/") ||
+    /^[A-Za-z]:/.test(trimmed)
+  ) {
+    throw new Error(errorMessage);
+  }
+  if (
+    trimmed.includes("\\") ||
+    trimmed.includes("?") ||
+    trimmed.includes("#") ||
+    /\s/.test(trimmed)
+  ) {
+    throw new Error(errorMessage);
+  }
+
+  const normalized = pathPosix.normalize(trimmed);
+  if (normalized === "." || normalized === "..") {
+    throw new Error(errorMessage);
+  }
+  const segments = normalized.split("/");
+  if (segments.some((segment) => segment.length === 0)) {
+    throw new Error(errorMessage);
+  }
+
+  return normalized;
 }
 
 function toMeshIri(meshBase: string, meshPath: string): string {

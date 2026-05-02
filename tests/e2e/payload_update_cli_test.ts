@@ -76,11 +76,17 @@ Deno.test("weave payload update matches the manifest-scoped alice-bio updated fi
       continue;
     }
 
+    const compareMode = fileExpectation.compareMode;
+
+    if (compareMode === undefined) {
+      await Deno.stat(join(workspaceRoot, path));
+      continue;
+    }
+
     const actualBytes = await Deno.readFile(join(workspaceRoot, path));
     const expectedBytes = new TextEncoder().encode(
       await readMeshAliceBioBranchFile(transitionCase.toRef!, path),
     );
-    const compareMode = fileExpectation.compareMode ?? "bytes";
 
     if (compareMode === "rdfCanonical") {
       assertEquals(
@@ -102,7 +108,12 @@ Deno.test("weave payload update matches the manifest-scoped alice-bio updated fi
       continue;
     }
 
-    assertEquals(actualBytes, expectedBytes);
+    if (compareMode === "bytes") {
+      assertEquals(actualBytes, expectedBytes);
+      continue;
+    }
+
+    throw new Error(`Unsupported compare mode ${compareMode} for ${path}`);
   }
 
   await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));

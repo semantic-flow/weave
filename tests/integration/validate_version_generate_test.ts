@@ -5,6 +5,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { join } from "@std/path";
+import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import { WeaveInputError } from "../../src/core/weave/weave.ts";
 import {
   executeGenerate,
@@ -80,6 +81,7 @@ Deno.test("executeVersion accepts version-only target fields", async () => {
         designatorPath: "alice/bio",
         historySegment: "releases",
         stateSegment: "v0.0.1",
+        manifestationSegment: "ttl",
       }],
     },
   });
@@ -87,8 +89,58 @@ Deno.test("executeVersion accepts version-only target fields", async () => {
   assertEquals(result.versionedDesignatorPaths, ["alice/bio"]);
   assert(
     result.createdPaths.includes(
-      "alice/bio/releases/v0.0.1/alice-bio-ttl/alice-bio.ttl",
+      "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
     ),
+  );
+});
+
+Deno.test("executeVersion reuses custom payload manifestation paths on the next payload version", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-version-target-manifestation-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  await executeVersion({
+    workspaceRoot,
+    request: {
+      targets: [{
+        designatorPath: "alice/bio",
+        historySegment: "releases",
+        stateSegment: "v0.0.1",
+        manifestationSegment: "ttl",
+      }],
+    },
+  });
+  await Deno.writeTextFile(
+    join(workspaceRoot, "alice-bio.ttl"),
+    `${await Deno.readTextFile(
+      join(workspaceRoot, "alice-bio.ttl"),
+    )}\n<alice/bio> <https://schema.org/version> \"2\" .\n`,
+  );
+
+  const result = await executeVersion({
+    workspaceRoot,
+    request: {
+      targets: [{
+        designatorPath: "alice/bio",
+        historySegment: "releases",
+        stateSegment: "v0.0.2",
+        manifestationSegment: "ttl",
+      }],
+    },
+  });
+
+  assertEquals(result.versionedDesignatorPaths, ["alice/bio"]);
+  assert(
+    result.createdPaths.includes(
+      "alice/bio/releases/v0.0.2/ttl/alice-bio.ttl",
+    ),
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/bio/releases/v0.0.2/ttl/alice-bio.ttl"),
+    ),
+    await Deno.readTextFile(join(workspaceRoot, "alice-bio.ttl")),
   );
 });
 
@@ -207,6 +259,114 @@ Deno.test("executeGenerate accepts the exact root target", async () => {
   assertEquals(result.generatedDesignatorPaths, [""]);
   await Deno.stat(join(workspaceRoot, "index.html"));
   await Deno.stat(join(workspaceRoot, "_knop/index.html"));
+});
+
+Deno.test("executeVersion versions the first alice page-definition support artifact state", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-version-page-definition-",
+  );
+  await materializeMeshAliceBioBranch(
+    "14-alice-page-customized",
+    workspaceRoot,
+  );
+
+  const result = await executeVersion({
+    workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "alice" }],
+    },
+  });
+
+  assertEquals(result.versionedDesignatorPaths, ["alice"]);
+  assert(
+    result.createdPaths.includes(
+      "alice/_knop/_page/_history001/_s0001/page-ttl/page.ttl",
+    ),
+  );
+  assert(
+    result.createdPaths.includes(
+      "alice/_knop/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl",
+    ),
+  );
+  assert(result.updatedPaths.includes("alice/_knop/_inventory/inventory.ttl"));
+  assertEquals(
+    await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
+    await readMeshAliceBioBranchFile(
+      "14-alice-page-customized",
+      "alice/index.html",
+    ),
+  );
+  assertEquals(
+    await compareRdfContent({
+      left: new TextEncoder().encode(
+        await Deno.readTextFile(
+          join(workspaceRoot, "alice/_knop/_inventory/inventory.ttl"),
+        ),
+      ),
+      right: new TextEncoder().encode(
+        await readMeshAliceBioBranchFile(
+          "15-alice-page-customized-woven",
+          "alice/_knop/_inventory/inventory.ttl",
+        ),
+      ),
+      path: "alice/_knop/_inventory/inventory.ttl",
+    }),
+    true,
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(
+        workspaceRoot,
+        "alice/_knop/_page/_history001/_s0001/page-ttl/page.ttl",
+      ),
+    ),
+    await readMeshAliceBioBranchFile(
+      "14-alice-page-customized",
+      "alice/_knop/_page/page.ttl",
+    ),
+  );
+});
+
+Deno.test("executeGenerate renders the customized alice identifier page after page-definition weave", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-generate-page-definition-",
+  );
+  await materializeMeshAliceBioBranch(
+    "15-alice-page-customized-woven",
+    workspaceRoot,
+  );
+
+  const result = await executeGenerate({
+    workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "alice" }],
+    },
+  });
+
+  assertEquals(result.generatedDesignatorPaths, ["alice"]);
+  await Deno.stat(join(workspaceRoot, "alice/index.html"));
+  await Deno.stat(join(workspaceRoot, "alice/_knop/_page/index.html"));
+  assertStringIncludes(
+    await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
+    `<link rel="stylesheet" href="./_knop/_assets/alice.css">`,
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
+    `<p>This identifier page is customized by <code>alice/_knop/_page/page.ttl</code>.</p>`,
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
+    `<a href="./_knop/_page">./_knop/_page</a>`,
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/_knop/_page/index.html"),
+    ),
+    await readMeshAliceBioBranchFile(
+      "15-alice-page-customized-woven",
+      "alice/_knop/_page/index.html",
+    ),
+  );
 });
 
 Deno.test("executeVersion rejects a mismatched payload historySegment on an already-versioned payload", async () => {

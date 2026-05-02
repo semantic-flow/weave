@@ -1,17 +1,19 @@
 ---
 id: weave-validate-version-g-qkyb0e
-title: 'weave validate-version-generate'
+title: weave validate-version-generate
 desc: ''
-created: 1775604119356
 updated: 1775604119356
-participants: [djradon, codex.gpt-5.4]
+created: 1775604119356
+participants:
+  - djradon
+  - codex.gpt-5.4
 ---
 
 # User_2026-04-07_1436_14
 
 weave validate-version-generate
 
-Implement [[wd.task.2026.2026-04-07_0820-validate-version-generate]] first. Use [[wd.task.2026.2026-04-07_0020-targeting]] as the targeting contract, but do not put payload naming fields into generic TargetSpec.
+Implement [[wd.completed.2026.2026-04-07_0820-validate-version-generate]] first. Use [[wd.completed.2026.2026-04-07_0020-targeting]] as the targeting contract, but do not put payload naming fields into generic TargetSpec.
 
 # gpt-5.4_2026-04-07_1436_20
 

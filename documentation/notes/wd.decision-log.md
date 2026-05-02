@@ -2,7 +2,7 @@
 id: xniuk4dvzoi717h9g8epjbk
 title: Decision Log
 desc: ''
-updated: 1775534821076
+updated: 1775902188057
 created: 1773630801215
 ---
 
@@ -203,7 +203,7 @@ created: 1773630801215
 ### 2026-04-07: First Target-Aware weave CLI Uses Repeatable --target Specs
 
 - Decision: Use repeatable `weave --target <key=value,...>` flags as the first target-aware CLI surface, support only shared targeting keys `designatorPath` and optional `recursive` there, and forward the resulting target objects through the composed local `weave` flow rather than inventing a separate CLI-only targeting model.
-- References: [[wd.task.2026.2026-04-07_0020-targeting]], [[wd.task.2026.2026-04-07_0820-validate-version-generate]]
+- References: [[wd.completed.2026.2026-04-07_0020-targeting]], [[wd.completed.2026.2026-04-07_0820-validate-version-generate]]
 - Why:
   - A repeatable key-value form mirrors the shared target object shape closely enough to stay thin, while avoiding scalar flag sprawl or positional mini-language syntax that would need to be backed out later.
   - Keeping version-only naming fields out of `weave --target` preserves the shared targeting boundary and leaves later standalone `version` CLI work room to expose version-specific options deliberately.
@@ -211,7 +211,7 @@ created: 1773630801215
 ### 2026-04-07: Recursive version Batches Stage a Virtual Current Workspace
 
 - Decision: Implement recursive local `version` batching by reloading candidates against a virtual current workspace overlay after each staged target plan, and keep the batch fail-closed until the entire write set is known.
-- References: [[wd.task.2026.2026-04-07_0820-validate-version-generate]]
+- References: [[wd.completed.2026.2026-04-07_0820-validate-version-generate]]
 - Why:
   - Reusing the existing single-candidate slice planners is acceptable only if later targets see the staged current inventories and snapshots created by earlier targets in the same batch.
   - Planning the whole batch before writes preserves the intended default against partial recursive publication.
@@ -219,7 +219,23 @@ created: 1773630801215
 ### 2026-04-07: Expose validate, version, and generate as top-level CLI Subcommands
 
 - Decision: Expose the decomposed local runtime operations as `weave validate`, `weave version`, and `weave generate`, while keeping bare `weave` as the composed convenience chain.
-- References: [[wd.task.2026.2026-04-07_0820-validate-version-generate]]
+- References: [[wd.completed.2026.2026-04-07_0820-validate-version-generate]]
 - Why:
   - The internal seams are now coherent enough that hiding them behind bare `weave` only makes the tooling less inspectable and less scriptable.
   - Keeping the same target parsing boundary across the composed and standalone commands avoids inventing a second CLI contract.
+
+### 2026-04-07: Payload Version Naming Stays Version-Oriented
+
+- Decision: Make payload `historySegment` and `stateSegment` semantically effective for payload artifact versioning, preserve `_history001` and `_sNNNN` defaults when omitted, require a requested `historySegment` to match the already-settled current payload history when one exists, and keep these fields out of shared `TargetSpec` and shared `weave --target` parsing.
+- References: [[wd.completed.2026.2026-04-07_1852-payload-version-naming]], [[wd.completed.2026.2026-04-07_0820-validate-version-generate]], [[wd.completed.2026.2026-04-07_0020-targeting]]
+- Why:
+  - This makes the version-oriented request contract truthful without polluting the shared targeting model.
+  - Limiting custom naming to payload artifact versioning keeps mesh and Knop support-artifact layout system-controlled in the first pass.
+
+### 2026-04-08: Root Designator Path Uses `/` at the CLI and `""` Internally
+
+- Decision: Treat the root designator path as the mesh base resource equivalent to RDF `<>`, spell it as `/` on CLI surfaces, normalize it to `""` in runtime/core request handling, and preserve resource-root targeting semantics without conflating the root resource with `_mesh` support artifacts.
+- References: [[wd.completed.2026.2026-04-08_1133-root-designator-path-support]], [[wd.completed.2026.2026-04-07_0020-targeting]]
+- Why:
+  - An explicit `/` sentinel is clearer and safer than overloading an omitted or blank designator-path value to mean root.
+  - Normalizing root once at the CLI boundary keeps target resolution, path derivation, and user-facing display coherent across commands.
