@@ -11,6 +11,7 @@ export interface TargetSpec {
 export interface VersionTargetSpec extends TargetSpec {
   historySegment?: string;
   stateSegment?: string;
+  manifestationSegment?: string;
 }
 
 export interface NormalizedTargetSpec<T extends TargetSpec = TargetSpec> {
@@ -23,6 +24,7 @@ export interface NormalizedVersionTargetSpec
   extends NormalizedTargetSpec<VersionTargetSpec> {
   historySegment?: string;
   stateSegment?: string;
+  manifestationSegment?: string;
 }
 
 export interface ResolvedTargetSelection<T extends TargetSpec = TargetSpec> {
@@ -153,7 +155,13 @@ function normalizeTarget(
 
   const record = target as Record<string, unknown>;
   const allowedKeys = allowVersionFields
-    ? new Set(["designatorPath", "recursive", "historySegment", "stateSegment"])
+    ? new Set([
+      "designatorPath",
+      "recursive",
+      "historySegment",
+      "stateSegment",
+      "manifestationSegment",
+    ])
     : new Set(["designatorPath", "recursive"]);
 
   for (const key of Object.keys(record)) {
@@ -199,6 +207,11 @@ function normalizeTarget(
     `${fieldName}.stateSegment`,
     createError,
   );
+  const manifestationSegment = normalizeOptionalSegment(
+    record.manifestationSegment,
+    `${fieldName}.manifestationSegment`,
+    createError,
+  );
 
   return {
     source: {
@@ -206,11 +219,13 @@ function normalizeTarget(
       ...(recursive ? { recursive: true } : {}),
       ...(historySegment ? { historySegment } : {}),
       ...(stateSegment ? { stateSegment } : {}),
+      ...(manifestationSegment ? { manifestationSegment } : {}),
     },
     designatorPath,
     recursive,
     historySegment,
     stateSegment,
+    manifestationSegment,
   };
 }
 

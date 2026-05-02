@@ -12,6 +12,8 @@ const SFLO_NAMESPACE =
 const SFLO_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}ArtifactHistory`;
 const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
   `${SFLO_NAMESPACE}currentArtifactHistory`;
+const SFLO_HAS_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}hasLocatedFile`;
+const SFLO_HAS_MANIFESTATION_IRI = `${SFLO_NAMESPACE}hasManifestation`;
 const SFLO_HAS_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasPayloadArtifact`;
 const SFLO_HAS_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}hasReferenceCatalog`;
 const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
@@ -20,6 +22,7 @@ const SFLO_WORKING_FILE_PATH_IRI = `${SFLO_NAMESPACE}workingFilePath`;
 const SFLO_KNOP_IRI = `${SFLO_NAMESPACE}Knop`;
 const SFLO_LATEST_HISTORICAL_STATE_IRI =
   `${SFLO_NAMESPACE}latestHistoricalState`;
+const SFLO_LOCATED_FILE_FOR_STATE_IRI = `${SFLO_NAMESPACE}locatedFileForState`;
 const SFLO_REFERENCE_LINK_FOR_IRI = `${SFLO_NAMESPACE}referenceLinkFor`;
 const SFLO_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}ReferenceLink`;
 const SFLO_REFERENCE_TARGET_IRI = `${SFLO_NAMESPACE}referenceTarget`;
@@ -33,6 +36,7 @@ export interface PayloadArtifactInventoryState {
   currentArtifactHistoryPath?: string;
   currentArtifactHistoryExists: boolean;
   latestHistoricalStatePath?: string;
+  latestHistoricalSnapshotPath?: string;
 }
 
 export interface ReferenceCatalogInventoryState {
@@ -145,12 +149,21 @@ export function resolvePayloadArtifactInventoryState(
         messages.parseErrorMessage,
       )
       : undefined;
+  const latestHistoricalSnapshotPath = latestHistoricalStatePath
+    ? resolveOptionalHistoricalStateLocatedFilePath(
+      quads,
+      meshBase,
+      latestHistoricalStatePath,
+      messages.parseErrorMessage,
+    )
+    : undefined;
 
   return {
     workingFilePath,
     currentArtifactHistoryPath,
     currentArtifactHistoryExists,
     latestHistoricalStatePath,
+    ...(latestHistoricalSnapshotPath ? { latestHistoricalSnapshotPath } : {}),
   };
 }
 
@@ -463,6 +476,48 @@ function resolveOptionalUniqueNamedNodePath(
   }
 
   return values.values().next().value!;
+}
+
+function resolveOptionalHistoricalStateLocatedFilePath(
+  quads: readonly Quad[],
+  meshBase: string,
+  statePath: string,
+  errorMessage: string,
+): string | undefined {
+  const stateIri = toMeshIri(meshBase, statePath);
+  const shortcutLocatedFilePath = resolveOptionalUniqueNamedNodePath(
+    quads,
+    meshBase,
+    stateIri,
+    SFLO_LOCATED_FILE_FOR_STATE_IRI,
+    errorMessage,
+  );
+  const manifestationPath = resolveOptionalUniqueNamedNodePath(
+    quads,
+    meshBase,
+    stateIri,
+    SFLO_HAS_MANIFESTATION_IRI,
+    errorMessage,
+  );
+  const manifestationLocatedFilePath = manifestationPath
+    ? resolveOptionalUniqueNamedNodePath(
+      quads,
+      meshBase,
+      toMeshIri(meshBase, manifestationPath),
+      SFLO_HAS_LOCATED_FILE_IRI,
+      errorMessage,
+    )
+    : undefined;
+
+  if (
+    shortcutLocatedFilePath !== undefined &&
+    manifestationLocatedFilePath !== undefined &&
+    shortcutLocatedFilePath !== manifestationLocatedFilePath
+  ) {
+    throw new Error(errorMessage);
+  }
+
+  return shortcutLocatedFilePath ?? manifestationLocatedFilePath;
 }
 
 function resolveOptionalUniqueLiteralWorkingFilePath(

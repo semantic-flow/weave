@@ -299,6 +299,7 @@ Deno.test("executeWeave honors requested payload history and state naming", asyn
         designatorPath: "alice/bio",
         historySegment: "releases",
         stateSegment: "v0.0.1",
+        manifestationSegment: "ttl",
       }],
     },
   });
@@ -306,14 +307,14 @@ Deno.test("executeWeave honors requested payload history and state naming", asyn
   assertEquals(result.wovenDesignatorPaths, ["alice/bio"]);
   assert(
     result.createdPaths.includes(
-      "alice/bio/releases/v0.0.1/alice-bio-ttl/alice-bio.ttl",
+      "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
     ),
   );
   assertEquals(
     await Deno.readTextFile(
       join(
         workspaceRoot,
-        "alice/bio/releases/v0.0.1/alice-bio-ttl/alice-bio.ttl",
+        "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
       ),
     ),
     await Deno.readTextFile(join(workspaceRoot, "alice-bio.ttl")),
@@ -325,7 +326,7 @@ Deno.test("executeWeave honors requested payload history and state naming", asyn
       Deno.stat(
         join(
           workspaceRoot,
-          "alice/bio/_history001/_s0001/alice-bio-ttl/alice-bio.ttl",
+          "alice/bio/_history001/_s0001/ttl/alice-bio.ttl",
         ),
       ),
     Deno.errors.NotFound,

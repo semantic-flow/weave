@@ -1,4 +1,5 @@
 import {
+  assert,
   assertEquals,
   assertFalse,
   assertStringIncludes,
@@ -703,6 +704,54 @@ Deno.test("planWeave applies requested payload history and state naming on the f
   );
 });
 
+Deno.test("planWeave applies requested payload manifestation naming on the first payload weave slice", () => {
+  const plan = planWeave({
+    request: {
+      targets: [{
+        designatorPath: "alice/bio",
+        historySegment: "releases",
+        stateSegment: "v0.0.1",
+        manifestationSegment: "ttl",
+      }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: firstPayloadWeaveMeshInventoryTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice/bio",
+      currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+      currentKnopInventoryTurtle: firstPayloadWeaveKnopInventoryTurtle,
+      payloadArtifact: {
+        workingFilePath: "alice-bio.ttl",
+        currentPayloadTurtle:
+          `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix schema: <https://schema.org/> .
+
+<alice> a schema:Person .
+`,
+      },
+    }],
+  });
+
+  assert(
+    plan.createdFiles.some((file) =>
+      file.path === "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl"
+    ),
+  );
+  assert(
+    plan.createdPages.some((page) =>
+      page.path === "alice/bio/releases/v0.0.1/ttl/index.html"
+    ),
+  );
+  assertStringIncludes(
+    plan.updatedFiles[1]?.contents ?? "",
+    "sflo:hasManifestation <alice/bio/releases/v0.0.1/ttl> ;",
+  );
+  assertStringIncludes(
+    plan.updatedFiles[1]?.contents ?? "",
+    "sflo:locatedFileForState <alice/bio/releases/v0.0.1/ttl/alice-bio.ttl> ;",
+  );
+});
+
 Deno.test("planWeave accepts semantically equivalent first payload weave Turtle", () => {
   const equivalentMeshInventoryTurtle = withRdfPrefix(
     firstPayloadWeaveMeshInventoryTurtle,
@@ -1103,6 +1152,7 @@ Deno.test("planWeave applies requested payload naming on the second payload weav
         designatorPath: "alice/bio",
         historySegment: "releases",
         stateSegment: "v0.0.2",
+        manifestationSegment: "ttl",
       }],
     },
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
@@ -1130,13 +1180,13 @@ Deno.test("planWeave applies requested payload naming on the second payload weav
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
-      "alice/bio/releases/v0.0.2/alice-bio-ttl/alice-bio.ttl",
+      "alice/bio/releases/v0.0.2/ttl/alice-bio.ttl",
       "alice/bio/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
     ],
   );
   assertEquals(plan.createdPages.map((page) => page.path), [
     "alice/bio/releases/v0.0.2/index.html",
-    "alice/bio/releases/v0.0.2/alice-bio-ttl/index.html",
+    "alice/bio/releases/v0.0.2/ttl/index.html",
     "alice/bio/_knop/_inventory/_history001/_s0002/index.html",
     "alice/bio/_knop/_inventory/_history001/_s0002/inventory-ttl/index.html",
   ]);

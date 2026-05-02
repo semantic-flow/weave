@@ -81,6 +81,7 @@ Deno.test("executeVersion accepts version-only target fields", async () => {
         designatorPath: "alice/bio",
         historySegment: "releases",
         stateSegment: "v0.0.1",
+        manifestationSegment: "ttl",
       }],
     },
   });
@@ -88,8 +89,58 @@ Deno.test("executeVersion accepts version-only target fields", async () => {
   assertEquals(result.versionedDesignatorPaths, ["alice/bio"]);
   assert(
     result.createdPaths.includes(
-      "alice/bio/releases/v0.0.1/alice-bio-ttl/alice-bio.ttl",
+      "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
     ),
+  );
+});
+
+Deno.test("executeVersion reuses custom payload manifestation paths on the next payload version", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-version-target-manifestation-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  await executeVersion({
+    workspaceRoot,
+    request: {
+      targets: [{
+        designatorPath: "alice/bio",
+        historySegment: "releases",
+        stateSegment: "v0.0.1",
+        manifestationSegment: "ttl",
+      }],
+    },
+  });
+  await Deno.writeTextFile(
+    join(workspaceRoot, "alice-bio.ttl"),
+    `${await Deno.readTextFile(
+      join(workspaceRoot, "alice-bio.ttl"),
+    )}\n<alice/bio> <https://schema.org/version> \"2\" .\n`,
+  );
+
+  const result = await executeVersion({
+    workspaceRoot,
+    request: {
+      targets: [{
+        designatorPath: "alice/bio",
+        historySegment: "releases",
+        stateSegment: "v0.0.2",
+        manifestationSegment: "ttl",
+      }],
+    },
+  });
+
+  assertEquals(result.versionedDesignatorPaths, ["alice/bio"]);
+  assert(
+    result.createdPaths.includes(
+      "alice/bio/releases/v0.0.2/ttl/alice-bio.ttl",
+    ),
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/bio/releases/v0.0.2/ttl/alice-bio.ttl"),
+    ),
+    await Deno.readTextFile(join(workspaceRoot, "alice-bio.ttl")),
   );
 });
 

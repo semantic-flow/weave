@@ -76,6 +76,42 @@ Deno.test("resolvePayloadArtifactInventoryState accepts semantically equivalent 
   );
 });
 
+Deno.test("resolvePayloadArtifactInventoryState resolves latest payload snapshot paths from state and manifestation links", () => {
+  assertEquals(
+    resolvePayloadArtifactInventoryState(
+      MESH_BASE,
+      `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@base <${MESH_BASE}> .
+
+<alice/bio/_history001> sflo:latestHistoricalState <alice/bio/_history001/_s0002> ;
+  rdf:type sflo:ArtifactHistory .
+<alice/bio/_history001/_s0002> sflo:hasManifestation <alice/bio/_history001/_s0002/ttl> ;
+  sflo:locatedFileForState <alice/bio/_history001/_s0002/ttl/alice-bio.ttl> .
+<alice/bio/_history001/_s0002/ttl> sflo:hasLocatedFile <alice/bio/_history001/_s0002/ttl/alice-bio.ttl> .
+<alice/bio> sflo:hasWorkingLocatedFile <alice-bio.ttl> ;
+  rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:PayloadArtifact ;
+  sflo:currentArtifactHistory <alice/bio/_history001> .
+<alice/bio/_knop> rdf:type sflo:Knop ;
+  sflo:hasPayloadArtifact <alice/bio> .
+`,
+      "alice/bio",
+      {
+        parseErrorMessage: "Could not parse Knop inventory",
+        missingWorkingFileMessage: "Could not resolve working payload file",
+      },
+    ),
+    {
+      workingFilePath: "alice-bio.ttl",
+      currentArtifactHistoryPath: "alice/bio/_history001",
+      currentArtifactHistoryExists: true,
+      latestHistoricalStatePath: "alice/bio/_history001/_s0002",
+      latestHistoricalSnapshotPath:
+        "alice/bio/_history001/_s0002/ttl/alice-bio.ttl",
+    },
+  );
+});
+
 Deno.test("resolvePayloadArtifactInventoryState tracks a missing ArtifactHistory node without failing closed", () => {
   assertEquals(
     resolvePayloadArtifactInventoryState(

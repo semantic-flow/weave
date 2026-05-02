@@ -46,7 +46,7 @@ Notes:
 - `designatorPath` is required.
 - `recursive=true` includes descendants of the given designator path.
 - `recursive=false` is accepted and currently behaves the same as omitting `recursive`.
-- Version-oriented fields such as `historySegment` and `stateSegment` are not part of `--target`.
+- Version-oriented fields such as `historySegment`, `stateSegment`, and `manifestationSegment` are not part of `--target`.
 
 ## Root special case
 
@@ -91,13 +91,15 @@ Payload naming may be passed through to the internal `version` step:
 weave \
   --target 'designatorPath=alice/bio' \
   --payload-history-segment releases \
-  --payload-state-segment v0.0.1
+  --payload-state-segment v0.0.1 \
+  --payload-manifestation-segment ttl
 ```
 
 Constraints:
 
-- payload naming requires exactly one `--target`
+- payload version naming requires exactly one `--target`
 - payload naming is applied only to payload versioning, not to shared target selection
+- if `--payload-manifestation-segment` is omitted, the current default derives the manifestation segment from the payload filename, such as `alice-bio-ttl` for `alice-bio.ttl`
 
 ### `weave validate`
 
@@ -119,12 +121,13 @@ weave version --target 'designatorPath=alice/bio'
 weave version \
   --target 'designatorPath=alice/bio' \
   --payload-history-segment releases \
-  --payload-state-segment v0.0.1
+  --payload-state-segment v0.0.1 \
+  --payload-manifestation-segment ttl
 ```
 
 Constraints:
 
-- payload naming requires exactly one `--target`
+- payload version naming requires exactly one `--target`
 
 ### `weave generate`
 

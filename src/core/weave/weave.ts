@@ -91,6 +91,7 @@ export interface PayloadWorkingArtifact {
   workingFilePath: string;
   currentPayloadTurtle: string;
   currentArtifactHistoryPath?: string;
+  latestHistoricalSnapshotPath?: string;
   latestHistoricalSnapshotTurtle?: string;
   latestHistoricalStatePath?: string;
 }
@@ -214,7 +215,9 @@ interface SelectedWeaveableKnopCandidate {
 interface PayloadVersionLayout {
   historyPath: string;
   currentStatePath?: string;
+  currentManifestationPath?: string;
   nextStatePath: string;
+  nextManifestationPath: string;
 }
 
 interface MeshInventoryProgression {
@@ -607,7 +610,9 @@ function assertPayloadNamingSupportedForSlice(
 ): void {
   if (
     !target ||
-    (target.historySegment === undefined && target.stateSegment === undefined)
+    (target.historySegment === undefined &&
+      target.stateSegment === undefined &&
+      target.manifestationSegment === undefined)
   ) {
     return;
   }
@@ -617,7 +622,7 @@ function assertPayloadNamingSupportedForSlice(
   }
 
   throw new WeaveInputError(
-    `historySegment and stateSegment are only supported for payload versioning; ${designatorPath} is currently ${
+    `historySegment, stateSegment, and manifestationSegment are only supported for payload versioning; ${designatorPath} is currently ${
       slice ?? "not weaveable"
     }.`,
   );
@@ -724,13 +729,10 @@ function planFirstPayloadWeave(
   const knopPath = toKnopPath(designatorPath);
   const payloadLayout = resolveFirstPayloadVersionLayout(
     designatorPath,
+    payloadArtifact.workingFilePath,
     target,
   );
-  const payloadManifestationPath = toPayloadManifestationPath(
-    payloadLayout.nextStatePath,
-    payloadArtifact.workingFilePath,
-  );
-  const payloadSnapshotPath = `${payloadManifestationPath}/${
+  const payloadSnapshotPath = `${payloadLayout.nextManifestationPath}/${
     toFileName(payloadArtifact.workingFilePath)
   }`;
 
@@ -1235,11 +1237,7 @@ function planSecondPayloadWeave(
     payloadLayout.nextStatePath,
   );
 
-  const payloadManifestationPath = toPayloadManifestationPath(
-    payloadLayout.nextStatePath,
-    payloadArtifact.workingFilePath,
-  );
-  const payloadSnapshotPath = `${payloadManifestationPath}/${
+  const payloadSnapshotPath = `${payloadLayout.nextManifestationPath}/${
     toFileName(payloadArtifact.workingFilePath)
   }`;
 
@@ -1276,7 +1274,6 @@ function planSecondPayloadWeave(
     createdPages: buildSecondPayloadWeavePages(
       designatorPath,
       payloadLayout,
-      payloadArtifact.workingFilePath,
     ),
   };
 }
@@ -3176,11 +3173,7 @@ function renderFirstPayloadWovenKnopInventoryTurtle(
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
-  const payloadManifestationPath = toPayloadManifestationPath(
-    payloadLayout.nextStatePath,
-    workingFilePath,
-  );
-  const payloadSnapshotPath = `${payloadManifestationPath}/${
+  const payloadSnapshotPath = `${payloadLayout.nextManifestationPath}/${
     toFileName(workingFilePath)
   }`;
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
@@ -3217,13 +3210,13 @@ function renderFirstPayloadWovenKnopInventoryTurtle(
 
 <${payloadLayout.nextStatePath}> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <${payloadManifestationPath}> ;
+  sflo:hasManifestation <${payloadLayout.nextManifestationPath}> ;
   sflo:locatedFileForState <${payloadSnapshotPath}> ;
   sflo:hasResourcePage <${payloadLayout.nextStatePath}/index.html> .
 
-<${payloadManifestationPath}> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+<${payloadLayout.nextManifestationPath}> a sflo:ArtifactManifestation, sflo:RdfDocument ;
   sflo:hasLocatedFile <${payloadSnapshotPath}> ;
-  sflo:hasResourcePage <${payloadManifestationPath}/index.html> .
+  sflo:hasResourcePage <${payloadLayout.nextManifestationPath}/index.html> .
 
 <${knopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <${knopPath}/_meta/_history001> ;
@@ -3291,7 +3284,7 @@ ${currentWorkingFileDeclaration}
 
 <${payloadLayout.nextStatePath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<${payloadManifestationPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${payloadLayout.nextManifestationPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <${knopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -3803,14 +3796,9 @@ function renderSecondPayloadWovenKnopInventoryTurtle(
   const knopPath = toKnopPath(designatorPath);
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
   const payloadStateOnePath = payloadLayout.currentStatePath!;
-  const payloadStateOneManifestationPath = toPayloadManifestationPath(
-    payloadStateOnePath,
-    workingFilePath,
-  );
-  const payloadStateTwoManifestationPath = toPayloadManifestationPath(
-    payloadLayout.nextStatePath,
-    workingFilePath,
-  );
+  const payloadStateOneManifestationPath = payloadLayout
+    .currentManifestationPath!;
+  const payloadStateTwoManifestationPath = payloadLayout.nextManifestationPath;
   const payloadFileName = toFileName(workingFilePath);
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
     workingFilePath,
@@ -5135,10 +5123,6 @@ function buildFirstPayloadWeavePages(
   const knopPath = toKnopPath(designatorPath);
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
   const displayDesignatorPath = formatDesignatorPathForDisplay(designatorPath);
-  const payloadManifestationPath = toPayloadManifestationPath(
-    payloadLayout.nextStatePath,
-    workingFilePath,
-  );
   const meshInventoryStateOrdinalLabel = toOrdinalLabel(
     meshInventoryProgression.nextStateOrdinal,
   );
@@ -5166,7 +5150,7 @@ function buildFirstPayloadWeavePages(
       `Resource page for the first historical state of the ${displayDesignatorPath} payload artifact.`,
     ),
     simplePage(
-      `${payloadManifestationPath}/index.html`,
+      `${payloadLayout.nextManifestationPath}/index.html`,
       `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} payload historical state.`,
     ),
     simplePage(
@@ -5301,22 +5285,16 @@ function buildSubsequentPageDefinitionWeavePages(
 function buildSecondPayloadWeavePages(
   designatorPath: string,
   payloadLayout: PayloadVersionLayout,
-  workingFilePath: string,
 ): readonly ResourcePageModel[] {
   const knopPath = toKnopPath(designatorPath);
   const displayDesignatorPath = formatDesignatorPathForDisplay(designatorPath);
-  const payloadManifestationPath = toPayloadManifestationPath(
-    payloadLayout.nextStatePath,
-    workingFilePath,
-  );
-
   return [
     simplePage(
       `${payloadLayout.nextStatePath}/index.html`,
       `Resource page for the second historical state of the ${displayDesignatorPath} payload artifact.`,
     ),
     simplePage(
-      `${payloadManifestationPath}/index.html`,
+      `${payloadLayout.nextManifestationPath}/index.html`,
       `Resource page for the Turtle manifestation of the second ${displayDesignatorPath} payload historical state.`,
     ),
     simplePage(
@@ -5332,6 +5310,7 @@ function buildSecondPayloadWeavePages(
 
 function resolveFirstPayloadVersionLayout(
   designatorPath: string,
+  workingFilePath: string,
   target?: NormalizedVersionTargetSpec,
 ): PayloadVersionLayout {
   const historyPath = appendMeshPath(
@@ -5339,10 +5318,16 @@ function resolveFirstPayloadVersionLayout(
     target?.historySegment ?? "_history001",
   );
   const nextStatePath = `${historyPath}/${target?.stateSegment ?? "_s0001"}`;
+  const nextManifestationPath = toPayloadManifestationPath(
+    nextStatePath,
+    workingFilePath,
+    target?.manifestationSegment,
+  );
 
   return {
     historyPath,
     nextStatePath,
+    nextManifestationPath,
   };
 }
 
@@ -5359,6 +5344,11 @@ function resolveSecondPayloadVersionLayout(
     designatorPath,
     payloadArtifact,
     historyPath,
+  );
+  const currentManifestationPath = resolveCurrentPayloadManifestationPath(
+    designatorPath,
+    payloadArtifact,
+    currentStatePath,
   );
   const requestedHistoryPath = target?.historySegment
     ? appendMeshPath(designatorPath, target.historySegment)
@@ -5384,11 +5374,18 @@ function resolveSecondPayloadVersionLayout(
       } already names the current historical state for ${designatorPath}.`,
     );
   }
+  const nextManifestationPath = toPayloadManifestationPath(
+    nextStatePath,
+    payloadArtifact.workingFilePath,
+    target?.manifestationSegment,
+  );
 
   return {
     historyPath,
     currentStatePath,
+    currentManifestationPath,
     nextStatePath,
+    nextManifestationPath,
   };
 }
 
@@ -5434,27 +5431,61 @@ function referenceCatalogPage(
 function toPayloadManifestationPath(
   payloadStatePath: string,
   workingFilePath: string,
+  manifestationSegment?: string,
 ): string {
   return toArtifactManifestationPath(
     payloadStatePath,
     workingFilePath,
+    manifestationSegment,
   );
 }
 
 function toArtifactManifestationPath(
   historyStatePath: string,
   workingFilePath: string,
+  manifestationSegment?: string,
 ): string {
-  return `${historyStatePath}/${toManifestationSegment(workingFilePath)}`;
+  return `${historyStatePath}/${
+    manifestationSegment ?? toManifestationSegment(workingFilePath)
+  }`;
 }
 
 function toManifestationSegment(workingFilePath: string): string {
   return toFileName(workingFilePath).replaceAll(".", "-");
 }
 
+function resolveCurrentPayloadManifestationPath(
+  designatorPath: string,
+  payloadArtifact: PayloadWorkingArtifact,
+  currentStatePath: string,
+): string {
+  const snapshotPath = payloadArtifact.latestHistoricalSnapshotPath;
+  if (snapshotPath === undefined) {
+    return toPayloadManifestationPath(
+      currentStatePath,
+      payloadArtifact.workingFilePath,
+    );
+  }
+  if (!snapshotPath.startsWith(`${currentStatePath}/`)) {
+    throw new WeaveInputError(
+      `Current payload located file for ${designatorPath} was outside the current payload historical state: ${snapshotPath}`,
+    );
+  }
+
+  return toParentPath(snapshotPath);
+}
+
 function toFileName(path: string): string {
   const segments = path.split("/");
   return segments[segments.length - 1]!;
+}
+
+function toParentPath(path: string): string {
+  const separatorIndex = path.lastIndexOf("/");
+  if (separatorIndex < 0) {
+    return "";
+  }
+  return path.slice(0, separatorIndex);
 }
 
 function requirePayloadHistoryPath(

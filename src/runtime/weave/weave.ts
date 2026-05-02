@@ -863,13 +863,14 @@ async function loadPayloadWorkingArtifact(
     ? payloadArtifact.latestHistoricalStatePath
     : undefined;
   const latestHistoricalSnapshotPath = latestHistoricalStatePath
-    ? join(
-      workspaceRoot,
+    ? payloadArtifact.latestHistoricalSnapshotPath ??
       toPayloadHistoricalSnapshotPath(
         latestHistoricalStatePath,
         workingFilePath,
-      ),
-    )
+      )
+    : undefined;
+  const latestHistoricalSnapshotLocalPath = latestHistoricalSnapshotPath
+    ? join(workspaceRoot, latestHistoricalSnapshotPath)
     : undefined;
 
   let currentPayloadTurtle: string;
@@ -897,21 +898,16 @@ async function loadPayloadWorkingArtifact(
     throw error;
   }
 
-  if (latestHistoricalSnapshotPath) {
+  if (latestHistoricalSnapshotLocalPath) {
     try {
       latestHistoricalSnapshotTurtle = await readTextFileWithOverlay(
-        latestHistoricalSnapshotPath,
+        latestHistoricalSnapshotLocalPath,
         overlay,
       );
     } catch (error) {
       if (error instanceof Deno.errors.NotFound) {
         throw new WeaveRuntimeError(
-          `Workspace is missing the latest payload historical snapshot for ${designatorPath}: ${
-            toPayloadHistoricalSnapshotPath(
-              latestHistoricalStatePath!,
-              workingFilePath,
-            )
-          }`,
+          `Workspace is missing the latest payload historical snapshot for ${designatorPath}: ${latestHistoricalSnapshotPath}`,
         );
       }
       throw error;
@@ -922,6 +918,7 @@ async function loadPayloadWorkingArtifact(
     workingFilePath,
     currentPayloadTurtle,
     currentArtifactHistoryPath,
+    ...(latestHistoricalSnapshotPath ? { latestHistoricalSnapshotPath } : {}),
     latestHistoricalSnapshotTurtle,
     latestHistoricalStatePath,
   };
