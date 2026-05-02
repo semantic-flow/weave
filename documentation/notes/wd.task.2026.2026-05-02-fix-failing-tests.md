@@ -15,11 +15,25 @@ created: 1777737387316
 
 ## Summary
 
-The `next/v0.0.1` branch currently has passing typecheck/lint and passing focused payload `manifestationSegment` coverage, but it is not merge-ready because a page-definition/source-resolution test cluster is failing.
+The `next/v0.0.1` branch had passing typecheck/lint and passing focused payload `manifestationSegment` coverage, but was not merge-ready because a page-definition/source-resolution test cluster was failing.
 
-The failures are not in the fantasy-rules sidecar fixture and do not appear to be caused by payload manifestation naming. They are concentrated around Alice Bio page-definition rendering and source resolution, especially current artifact-backed page sources, page definitions that use `workingFilePath`, and repo-adjacent `targetMeshPath` policy cases.
+The failures were not in the fantasy-rules sidecar fixture and did not appear to be caused by payload manifestation naming. They were concentrated around Alice Bio page-definition rendering and source resolution, especially current artifact-backed page sources, page definitions that use `workingFilePath`, and repo-adjacent `targetMeshPath` policy cases.
 
-This should be treated as a release-branch stabilization task and a blocker for merging `next/v0.0.1` into `main`. It does not need to block Phase 0 or source-only work for [[wd.task.2026.2026-05-02-fantasy-rules-sidecar]], but it should block any fantasy-rules sidecar phases that rely on generated page behavior or on the sidecar branch being merged.
+This was treated as a release-branch stabilization task and a blocker for merging `next/v0.0.1` into `main`. It did not need to block Phase 0 or source-only work for [[wd.task.2026.2026-05-02-fantasy-rules-sidecar]], but it blocked any fantasy-rules sidecar phases that rely on generated page behavior or on the sidecar branch being merged.
+
+## Current Status
+
+Resolved on `next/v0.0.1`.
+
+The original failing page-definition/source-resolution cluster now passes. The root cause was fixture/test drift around the Alice page-definition source shape; the intended current contract remains latest ontology terms only, especially `sfc:targetMeshPath`, not legacy `WorkspaceRelativeFile`/`workspaceRelativePath` page-source resolution. The Alice Bio fixture branch was published with the corrected current source terms, Weave tests now rely on that fixed fixture rather than local overlays, and Resource Page HTML conformance checks were separately removed from SFF manifests so generated/custom Resource Page contents are no longer cross-repo snapshot contracts.
+
+Validation completed on 2026-05-02:
+
+- `deno task fmt`
+- `deno task fmt:check`
+- `deno task lint`
+- `deno task check`
+- `deno task test` (`220 passed | 0 failed`)
 
 ## Discussion
 
@@ -112,16 +126,16 @@ The fix should start by inspecting the actual `14-alice-page-customized` and `15
 
 ## Implementation Plan
 
-- [ ] Re-run and record the exact failure baseline from `tests/integration/weave_test.ts`.
-- [ ] Inspect `14-alice-page-customized` and `15-alice-page-customized-woven` fixture contents for `alice/_knop/_page/page.ttl`, generated `alice/index.html`, and related inventory RDF.
-- [ ] Inspect the corresponding Alice Bio conformance manifests for the page-customization transition.
-- [ ] Decide whether distribution/located-file page-source targets are an intended contract or fixture drift.
-- [ ] If the tests are stale, update them to patch or assert against the current fixture shape without weakening the behavioral contract.
-- [ ] If the runtime is missing intended support, implement distribution/located-file page-source resolution with fail-closed behavior and focused coverage.
-- [ ] Restore artifact-backed page-source tests for current resolution, `workingFilePath`, and pinned-mode rejection.
-- [ ] Restore `targetMeshPath` policy tests for both denied traversal and explicitly allowed repo-adjacent paths.
-- [ ] Run the narrow failing-test command until all listed failures pass.
-- [ ] Run `deno task lint`.
-- [ ] Run `deno task check`.
-- [ ] Run `deno test --allow-read --allow-write --allow-run=git,deno --allow-env tests/integration/weave_test.ts`.
-- [ ] Run or queue full `deno task test` before marking `next/v0.0.1` merge-ready.
+- [x] Re-run and record the exact failure baseline from `tests/integration/weave_test.ts`.
+- [x] Inspect `14-alice-page-customized` and `15-alice-page-customized-woven` fixture contents for `alice/_knop/_page/page.ttl`, generated `alice/index.html`, and related inventory RDF.
+- [x] Inspect the corresponding Alice Bio conformance manifests for the page-customization transition.
+- [x] Decide whether distribution/located-file page-source targets are an intended contract or fixture drift.
+- [x] If the tests are stale, update them to patch or assert against the current fixture shape without weakening the behavioral contract.
+- [x] Determine that distribution/located-file page-source support is not part of this release contract; keep unsupported shapes fail-closed.
+- [x] Restore artifact-backed page-source tests for current resolution, `workingFilePath`, and pinned-mode rejection.
+- [x] Restore `targetMeshPath` policy tests for both denied traversal and explicitly allowed repo-adjacent paths.
+- [x] Run the narrow failing-test command until all listed failures pass.
+- [x] Run `deno task lint`.
+- [x] Run `deno task check`.
+- [x] Run `deno test --allow-read --allow-write --allow-run=git,deno --allow-env tests/integration/weave_test.ts`.
+- [x] Run or queue full `deno task test` before marking `next/v0.0.1` merge-ready.
