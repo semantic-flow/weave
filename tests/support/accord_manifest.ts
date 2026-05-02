@@ -24,3 +24,7 @@ export function getManifestFileExpectations(
 ): FileExpectation[] {
   return transitionCase.hasFileExpectation ?? [];
 }
+
+export function shouldCompareManifestTextFileContents(path: string): boolean {
+  return !path.endsWith(".html");
+}

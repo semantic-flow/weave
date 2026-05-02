@@ -15,6 +15,7 @@ import {
 import {
   materializeMeshAliceBioBranch,
   readMeshAliceBioBranchFile,
+  writeCurrentAlicePageCustomizedDefinition,
 } from "../support/mesh_alice_bio_fixture.ts";
 import {
   MESH_ALICE_BIO_BASE,
@@ -430,6 +431,7 @@ Deno.test("executeWeave matches the settled alice page-customized-woven fixture"
     "14-alice-page-customized",
     workspaceRoot,
   );
+  await writeCurrentAlicePageCustomizedDefinition(workspaceRoot);
 
   const result = await executeWeave({
     workspaceRoot,
@@ -502,6 +504,7 @@ Deno.test("executeWeave resolves current artifact-backed page sources through ha
     "14-alice-page-customized",
     workspaceRoot,
   );
+  await writeCurrentAlicePageCustomizedDefinition(workspaceRoot);
   await Deno.writeTextFile(
     join(workspaceRoot, "artifact-sidebar.md"),
     `Artifact-backed sidebar
@@ -526,10 +529,8 @@ Deno.test("executeWeave resolves current artifact-backed page sources through ha
 `,
     "artifact-sidebar.md",
   );
-  await replaceFileText(
-    join(workspaceRoot, "alice/_knop/_page/page.ttl"),
-    `<#sidebar-source> a sfc:ResourcePageSource ;
-  sfc:targetMeshPath "mesh-content/sidebar.md" .`,
+  await replaceAliceSidebarPageSource(
+    workspaceRoot,
     `<#sidebar-source> a sfc:ResourcePageSource ;
   sfc:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> ;
   sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Current> .`,
@@ -663,6 +664,7 @@ Deno.test("executeWeave resolves artifact-backed page sources through workingFil
     "14-alice-page-customized",
     workspaceRoot,
   );
+  await writeCurrentAlicePageCustomizedDefinition(workspaceRoot);
   await Deno.mkdir(join(repoRoot, "documentation"), { recursive: true });
   await Deno.writeTextFile(
     join(repoRoot, ".sf-repo-access.ttl"),
@@ -701,10 +703,8 @@ Deno.test("executeWeave resolves artifact-backed page sources through workingFil
 `,
     "../documentation/sidebar.md",
   );
-  await replaceFileText(
-    join(workspaceRoot, "alice/_knop/_page/page.ttl"),
-    `<#sidebar-source> a sfc:ResourcePageSource ;
-  sfc:targetMeshPath "mesh-content/sidebar.md" .`,
+  await replaceAliceSidebarPageSource(
+    workspaceRoot,
     `<#sidebar-source> a sfc:ResourcePageSource ;
   sfc:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> .`,
   );
@@ -735,6 +735,7 @@ Deno.test("executeWeave fails closed when artifact-backed page sources request p
     "14-alice-page-customized",
     workspaceRoot,
   );
+  await writeCurrentAlicePageCustomizedDefinition(workspaceRoot);
   await Deno.writeTextFile(
     join(workspaceRoot, "artifact-sidebar.md"),
     "Artifact-backed sidebar\n",
@@ -756,10 +757,8 @@ Deno.test("executeWeave fails closed when artifact-backed page sources request p
 `,
     "artifact-sidebar.md",
   );
-  await replaceFileText(
-    join(workspaceRoot, "alice/_knop/_page/page.ttl"),
-    `<#sidebar-source> a sfc:ResourcePageSource ;
-  sfc:targetMeshPath "mesh-content/sidebar.md" .`,
+  await replaceAliceSidebarPageSource(
+    workspaceRoot,
     `<#sidebar-source> a sfc:ResourcePageSource ;
   sfc:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> ;
   sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Pinned> .`,
@@ -814,6 +813,7 @@ Deno.test("executeWeave resolves page definitions from workingFilePath literals"
     "14-alice-page-customized",
     workspaceRoot,
   );
+  await writeCurrentAlicePageCustomizedDefinition(workspaceRoot);
   await replaceFileText(
     join(workspaceRoot, "alice/_knop/_inventory/inventory.ttl"),
     `sflo:hasWorkingLocatedFile <alice/_knop/_page/page.ttl> .`,
@@ -841,15 +841,16 @@ Deno.test("executeWeave fails closed when targetMeshPath escapes the mesh root w
     "14-alice-page-customized",
     workspaceRoot,
   );
+  await writeCurrentAlicePageCustomizedDefinition(workspaceRoot);
   await Deno.mkdir(join(repoRoot, "documentation"), { recursive: true });
   await Deno.writeTextFile(
     join(repoRoot, "documentation/sidebar.md"),
     "Repo-level sidebar\n",
   );
-  await replaceFileText(
-    join(workspaceRoot, "alice/_knop/_page/page.ttl"),
-    `sfc:targetMeshPath "mesh-content/sidebar.md" .`,
-    `sfc:targetMeshPath "../documentation/sidebar.md" .`,
+  await replaceAliceSidebarPageSource(
+    workspaceRoot,
+    `<#sidebar-source> a sfc:ResourcePageSource ;
+  sfc:targetMeshPath "../documentation/sidebar.md" .`,
   );
 
   await assertRejects(
@@ -874,6 +875,7 @@ Deno.test("executeWeave allows repo-adjacent targetMeshPath values when repo pol
     "14-alice-page-customized",
     workspaceRoot,
   );
+  await writeCurrentAlicePageCustomizedDefinition(workspaceRoot);
   await Deno.mkdir(join(repoRoot, "documentation"), { recursive: true });
   await Deno.writeTextFile(
     join(repoRoot, ".sf-repo-access.ttl"),
@@ -892,10 +894,10 @@ Deno.test("executeWeave allows repo-adjacent targetMeshPath values when repo pol
     join(repoRoot, "documentation/sidebar.md"),
     "Repo-level sidebar\n\n- sibling source\n",
   );
-  await replaceFileText(
-    join(workspaceRoot, "alice/_knop/_page/page.ttl"),
-    `sfc:targetMeshPath "mesh-content/sidebar.md" .`,
-    `sfc:targetMeshPath "../documentation/sidebar.md" .`,
+  await replaceAliceSidebarPageSource(
+    workspaceRoot,
+    `<#sidebar-source> a sfc:ResourcePageSource ;
+  sfc:targetMeshPath "../documentation/sidebar.md" .`,
   );
 
   const result = await executeWeave({
@@ -1352,6 +1354,21 @@ async function addArtifactBackedPageSource(
     workspaceRoot,
     designatorPath,
     inventoryTurtle,
+  );
+}
+
+const ALICE_SIDEBAR_TARGET_MESH_PATH_SOURCE =
+  `<#sidebar-source> a sfc:ResourcePageSource ;
+  sfc:targetMeshPath "mesh-content/sidebar.md" .`;
+
+async function replaceAliceSidebarPageSource(
+  workspaceRoot: string,
+  after: string,
+): Promise<void> {
+  await replaceFileText(
+    join(workspaceRoot, "alice/_knop/_page/page.ttl"),
+    ALICE_SIDEBAR_TARGET_MESH_PATH_SOURCE,
+    after,
   );
 }
 

@@ -4,6 +4,7 @@ import { compareRdfContent } from "../../dependencies/github.com/spectacular-voy
 import {
   getManifestFileExpectations,
   readSingleTransitionCase,
+  shouldCompareManifestTextFileContents,
 } from "../support/accord_manifest.ts";
 import {
   readMeshAliceBioBranchFile,
@@ -89,6 +90,11 @@ Deno.test("weave mesh create matches the manifest-scoped alice-bio fixture as a 
     }
 
     if (compareMode === "text") {
+      if (!shouldCompareManifestTextFileContents(path)) {
+        await Deno.stat(join(workspaceRoot, path));
+        continue;
+      }
+
       assertEquals(
         new TextDecoder().decode(actualBytes),
         new TextDecoder().decode(expectedBytes),

@@ -33,6 +33,38 @@ export function resolveMeshAliceBioConformanceManifestPath(
   );
 }
 
+export const ALICE_PAGE_CUSTOMIZED_DEFINITION_TURTLE =
+  `@base <https://semantic-flow.github.io/mesh-alice-bio/alice/_knop/_page> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sfc: <https://semantic-flow.github.io/ontology/core/> .
+
+<> a sfc:ResourcePageDefinition, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sfc:hasPageRegion <#main-region>, <#sidebar-region> .
+
+<#main-region> a sfc:ResourcePageRegion ;
+  sfc:regionKey "main" ;
+  sfc:hasResourcePageSource <#main-source> .
+
+<#main-source> a sfc:ResourcePageSource ;
+  sfc:targetMeshPath "alice/alice.md" .
+
+<#sidebar-region> a sfc:ResourcePageRegion ;
+  sfc:regionKey "sidebar" ;
+  sfc:hasResourcePageSource <#sidebar-source> .
+
+<#sidebar-source> a sfc:ResourcePageSource ;
+  sfc:targetMeshPath "mesh-content/sidebar.md" .
+`;
+
+export async function writeCurrentAlicePageCustomizedDefinition(
+  workspaceRoot: string,
+): Promise<void> {
+  await Deno.writeTextFile(
+    join(workspaceRoot, "alice/_knop/_page/page.ttl"),
+    ALICE_PAGE_CUSTOMIZED_DEFINITION_TURTLE,
+  );
+}
+
 async function resolveMeshAliceBioGitRef(ref: string): Promise<string> {
   const cached = resolvedRefCache.get(ref);
   if (cached) {

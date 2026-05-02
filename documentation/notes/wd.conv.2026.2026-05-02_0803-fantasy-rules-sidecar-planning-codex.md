@@ -451,3 +451,127 @@ Tests:
 - deno task check
 - focused manifestation/version naming tests
 ```
+
+# User_2026-05-02_0847_45
+
+should we do a PR to merge next/v0.0.1 to main?
+
+# gpt-5.5_2026-05-02_0847_57
+
+I’m checking the current branch state before answering, because the right PR timing depends on whether the code/docs are committed and whether the remaining test failures are from this slice or pre-existing page-definition cases.
+
+# gpt-5.5_2026-05-02_0848_18
+
+Yes, but I’d open it as a **draft PR**, not merge-ready yet.
+
+Current state:
+
+- `weave` is on `next/v0.0.1`, ahead of `origin/next/v0.0.1` by 2 commits.
+- Branch diff to `main` is large: 51 files, many accumulated feature/docs commits.
+- There is one uncommitted conversation note: `documentation/notes/wd.conv.2026.2026-05-02_0803-fantasy-rules-sidecar-planning-codex.md`.
+- `deno task lint` passes.
+- `deno task check` passes.
+- Focused manifestation/version naming tests pass.
+- A broader focused run still showed page-definition integration/e2e failures, so I would not mark it ready to merge until those are either fixed or confirmed as pre-existing branch debt.
+
+Recommended PR posture:
+
+```text
+Draft PR: next/v0.0.1 -> main
+
+Purpose:
+- collect the v0.0.1 release branch work for review
+- surface current CI status
+- make remaining blockers explicit before merge
+```
+
+I’d clean up or commit the conversation note, push `next/v0.0.1`, open the draft PR, and put the known test status in the PR description.
+
+# User_2026-05-02_0851_12
+
+what's the known test status?
+
+Also, I'm thinking to accumulate conversations in the weave-dev-archive repo moving forward. Or maybe the semantic-flow-framework repo. It moves them a little farther away from the code, which might be a problem for you and other LLMs, but keeps the weave repo focused. Conversations are cross-cutting, so doesn't totally make sense to have them all in weave.
+
+# gpt-5.5_2026-05-02_0851_26
+
+I’ll verify the remaining failures with a narrow filter so the status isn’t based only on the earlier broad run. That should distinguish the manifestation work from the page-definition debt.
+
+# gpt-5.5_2026-05-02_0851_50
+
+**Known Test Status**
+
+Passing:
+
+- `deno task lint`
+- `deno task check`
+- Focused manifestation/version naming tests: `9 passed`
+- Focused CLI payload version naming tests: `5 passed`
+
+Known failing area:
+
+- `tests/integration/weave_test.ts` page-definition/source-resolution cluster:
+  - `executeWeave matches the settled alice page-customized-woven fixture`
+  - artifact-backed page sources via `hasTargetArtifact`
+  - artifact-backed page sources via `workingFilePath`
+  - pinned artifact-backed page-source rejection
+  - page definitions from `workingFilePath` literals
+  - `targetMeshPath` escape denial
+  - repo-adjacent `targetMeshPath` allow case
+
+Latest narrow run: `1 passed, 7 failed, 19 filtered out`.
+
+Those failures look page-definition / target source-resolution related, not payload `manifestationSegment` related.
+
+**Conversation Archive**
+
+I’d put raw conversations in `weave-dev-archive`, not `semantic-flow-framework`.
+
+Reason: conversations are cross-cutting and mostly provenance/debug history, not framework API surface. The framework repo should carry distilled artifacts: API examples, conformance manifests, specs, decisions. The archive repo should carry transcripts.
+
+To avoid making things hard for LLMs:
+
+- keep short task/spec/decision notes in the owning repo
+- link those notes to the relevant archived conversation
+- keep `weave/AGENTS.md` pointing to the archive path
+- use stable names like `wa.conv.2026...` in `weave-dev-archive/notes/`
+
+So: raw chat in archive, distilled decisions near the code/spec they affect.
+
+# User_2026-05-02_0854_20
+
+If I link with dendron/wikilink style links (i.e., just the filename without md) can you easily find them cross-repos?
+
+Do we need a task to address the failing tests? Should we do that before continuing with [wd.task.2026.2026-05-02-fantasy-rules-sidecar.md](wd.task.2026.2026-05-02-fantasy-rules-sidecar.md) ?
+
+# gpt-5.5_2026-05-02_0854_38
+
+Yes, I can find Dendron/wikilink-style links across repos if the note filename is unique enough. I’ll usually `rg` the wikilink target across the workspace and vendored repos. The weak spot is ambiguity: `[[sf.api]]` or `[[wd.todo]]` is fine if naming is consistent, but cross-repo links are easier for LLMs and humans if the note id carries its repo namespace, like `wa.conv.*`, `sf.*`, `wd.*`, `ont.*`.
+
+For rendered docs, cross-repo wikilinks only work if Dendron knows those vaults. For source navigation and LLM work, wikilinks are fine; for extra safety, add a short sentence naming the repo, e.g. “See [[wa.conv...]] in weave-dev-archive.”
+
+On the failing tests: yes, I’d create a separate task. They are not fantasy-rules specific; they are page-definition/source-resolution regressions or drift on `next/v0.0.1`. I would make them a blocker for merging `next/v0.0.1` to `main`.
+
+I would not block all fantasy sidecar work. Phase 0/Phase 1 fixture planning and source-only branch work can continue. But I would fix the failing page-definition tests before relying on generated pages, before claiming the sidecar weave phases are settled, and definitely before merging the release branch.
+
+# User_2026-05-02_0857_19
+
+OK, please fill out [wd.task.2026.2026-05-02-fix-failing-tests.md](wd.task.2026.2026-05-02-fix-failing-tests.md)
+
+# gpt-5.5_2026-05-02_0857_29
+
+I’ll open the new task note and the local task template, then fill it with the current failing-test scope and merge-blocker criteria.
+
+# gpt-5.5_2026-05-02_0857_36
+
+The new note is just the skeleton right now. I couldn’t read the template through the vendored dependency path, so I’m locating the actual template path before patching the note.
+
+# gpt-5.5_2026-05-02_0857_47
+
+I’m going to replace the skeleton with a concrete blocker task: exact failing tests, observed failure modes, likely ownership, and a plan that separates this from the fantasy-rules fixture source work.
+
+# gpt-5.5_2026-05-02_0858_36
+
+Filled out [wd.task.2026.2026-05-02-fix-failing-tests.md](wd.task.2026.2026-05-02-fix-failing-tests.md).
+
+It now captures the current passing checks, the exact failing command and 7-test failure cluster, the two observed failure modes, likely fixture/runtime drift questions, and an implementation plan. `git diff --check` passes for the new note.

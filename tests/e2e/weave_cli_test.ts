@@ -4,6 +4,7 @@ import { compareRdfContent } from "../../dependencies/github.com/spectacular-voy
 import {
   getManifestFileExpectations,
   readSingleTransitionCase,
+  shouldCompareManifestTextFileContents,
 } from "../support/accord_manifest.ts";
 import {
   listMeshAliceBioBranchFiles,
@@ -455,7 +456,10 @@ async function assertWeaveTransitionMatchesManifest(
     }
 
     if (compareMode === "text") {
-      if (options.compareTextFiles === false || path.endsWith(".html")) {
+      if (
+        options.compareTextFiles === false ||
+        !shouldCompareManifestTextFileContents(path)
+      ) {
         await Deno.stat(join(workspaceRoot, path));
         continue;
       }
