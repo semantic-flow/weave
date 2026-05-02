@@ -14,10 +14,7 @@ import {
   type PlanWeaveInput,
   WeaveInputError,
 } from "./weave.ts";
-import {
-  ALICE_PAGE_CUSTOMIZED_DEFINITION_TURTLE,
-  readMeshAliceBioBranchFile,
-} from "../../../tests/support/mesh_alice_bio_fixture.ts";
+import { readMeshAliceBioBranchFile } from "../../../tests/support/mesh_alice_bio_fixture.ts";
 
 const firstWeaveMeshInventoryTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
@@ -1629,7 +1626,10 @@ Deno.test("detectPendingWeaveSlice recognizes the page-definition weave slice", 
 
 Deno.test("planWeave renders the first page-definition weave slice", async () => {
   const meshBase = "https://semantic-flow.github.io/mesh-alice-bio/";
-  const pageDefinitionTurtle = ALICE_PAGE_CUSTOMIZED_DEFINITION_TURTLE;
+  const pageDefinitionTurtle = await readMeshAliceBioBranchFile(
+    "14-alice-page-customized",
+    "alice/_knop/_page/page.ttl",
+  );
   const plan = planWeave({
     request: {
       targets: [{ designatorPath: "alice" }],

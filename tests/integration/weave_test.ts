@@ -15,7 +15,6 @@ import {
 import {
   materializeMeshAliceBioBranch,
   readMeshAliceBioBranchFile,
-  writeCurrentAlicePageCustomizedDefinition,
 } from "../support/mesh_alice_bio_fixture.ts";
 import {
   MESH_ALICE_BIO_BASE,
@@ -431,7 +430,6 @@ Deno.test("executeWeave matches the settled alice page-customized-woven fixture"
     "14-alice-page-customized",
     workspaceRoot,
   );
-  await writeCurrentAlicePageCustomizedDefinition(workspaceRoot);
 
   const result = await executeWeave({
     workspaceRoot,
@@ -504,7 +502,6 @@ Deno.test("executeWeave resolves current artifact-backed page sources through ha
     "14-alice-page-customized",
     workspaceRoot,
   );
-  await writeCurrentAlicePageCustomizedDefinition(workspaceRoot);
   await Deno.writeTextFile(
     join(workspaceRoot, "artifact-sidebar.md"),
     `Artifact-backed sidebar
@@ -664,7 +661,6 @@ Deno.test("executeWeave resolves artifact-backed page sources through workingFil
     "14-alice-page-customized",
     workspaceRoot,
   );
-  await writeCurrentAlicePageCustomizedDefinition(workspaceRoot);
   await Deno.mkdir(join(repoRoot, "documentation"), { recursive: true });
   await Deno.writeTextFile(
     join(repoRoot, ".sf-repo-access.ttl"),
@@ -735,7 +731,6 @@ Deno.test("executeWeave fails closed when artifact-backed page sources request p
     "14-alice-page-customized",
     workspaceRoot,
   );
-  await writeCurrentAlicePageCustomizedDefinition(workspaceRoot);
   await Deno.writeTextFile(
     join(workspaceRoot, "artifact-sidebar.md"),
     "Artifact-backed sidebar\n",
@@ -813,7 +808,6 @@ Deno.test("executeWeave resolves page definitions from workingFilePath literals"
     "14-alice-page-customized",
     workspaceRoot,
   );
-  await writeCurrentAlicePageCustomizedDefinition(workspaceRoot);
   await replaceFileText(
     join(workspaceRoot, "alice/_knop/_inventory/inventory.ttl"),
     `sflo:hasWorkingLocatedFile <alice/_knop/_page/page.ttl> .`,
@@ -841,7 +835,6 @@ Deno.test("executeWeave fails closed when targetMeshPath escapes the mesh root w
     "14-alice-page-customized",
     workspaceRoot,
   );
-  await writeCurrentAlicePageCustomizedDefinition(workspaceRoot);
   await Deno.mkdir(join(repoRoot, "documentation"), { recursive: true });
   await Deno.writeTextFile(
     join(repoRoot, "documentation/sidebar.md"),
@@ -875,7 +868,6 @@ Deno.test("executeWeave allows repo-adjacent targetMeshPath values when repo pol
     "14-alice-page-customized",
     workspaceRoot,
   );
-  await writeCurrentAlicePageCustomizedDefinition(workspaceRoot);
   await Deno.mkdir(join(repoRoot, "documentation"), { recursive: true });
   await Deno.writeTextFile(
     join(repoRoot, ".sf-repo-access.ttl"),

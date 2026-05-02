@@ -13,10 +13,8 @@ import {
   executeVersion,
 } from "../../src/runtime/weave/weave.ts";
 import {
-  ALICE_PAGE_CUSTOMIZED_DEFINITION_TURTLE,
   materializeMeshAliceBioBranch,
   readMeshAliceBioBranchFile,
-  writeCurrentAlicePageCustomizedDefinition,
 } from "../support/mesh_alice_bio_fixture.ts";
 import {
   bootstrapRootWovenWorkspace,
@@ -271,7 +269,6 @@ Deno.test("executeVersion versions the first alice page-definition support artif
     "14-alice-page-customized",
     workspaceRoot,
   );
-  await writeCurrentAlicePageCustomizedDefinition(workspaceRoot);
 
   const result = await executeVersion({
     workspaceRoot,
@@ -323,7 +320,10 @@ Deno.test("executeVersion versions the first alice page-definition support artif
         "alice/_knop/_page/_history001/_s0001/page-ttl/page.ttl",
       ),
     ),
-    ALICE_PAGE_CUSTOMIZED_DEFINITION_TURTLE,
+    await readMeshAliceBioBranchFile(
+      "14-alice-page-customized",
+      "alice/_knop/_page/page.ttl",
+    ),
   );
 });
 
