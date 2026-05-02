@@ -77,7 +77,7 @@ The source ontology is its own meaningful workstream. The SRD 5.2.1 document is 
 
 The first ontology seed should stay small: `AbilityScore`, `Alignment`, `Character`, and a few representative controlled values or examples are enough. Larger SRD modeling work belongs in later task notes.
 
-Use slash term IRIs first, not hash IRIs. The fixture should eventually support both patterns, but slash IRIs are the better first proof because term resource pages can stand independently and deprecated or removed terms do not force the ontology document page to keep carrying every old term description forever. The local rationale is also captured in `/home/djradon/hub/djradon/dendron-workspace/public-notes/vs.hash-vs-slash.md`.
+Use slash term IRIs first, not hash IRIs. The fixture should eventually support both patterns, but slash IRIs are the better first proof because term resource pages can stand independently and deprecated or removed terms do not force the ontology document page to keep carrying every old term description forever. The first-pass term path should be root-level `terms/...`, for example `https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/terms/AbilityScore`. The local rationale is also captured in `/home/djradon/hub/djradon/dendron-workspace/public-notes/vs.hash-vs-slash.md`.
 
 The third question is whether the new fixture can improve how generated resource pages feel. The Alice Bio pages are useful, but the next fixture should push toward a calmer, clearer publication surface:
 
@@ -135,7 +135,7 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - The fixture should avoid relying on trademarked branding or copied prose beyond what is intentionally and properly attributed from SRD 5.2.1.
 - SRD attribution should live in `NOTICE.md`; ontology metadata should include source/provenance for SRD-derived vocabulary, but `dcterms:license` on the fantasy-rules ontology should identify the fantasy-rules ontology's own license, not the SRD license.
 - Authoring `fantasy-rules-ontology.ttl` is a real modeling slice and should be planned deliberately rather than treated as incidental fixture setup.
-- Use slash IRIs for ontology terms first. Hash-term support can be proven later.
+- Use slash IRIs for ontology terms first, with term resources under root-level `terms/...` paths such as `terms/AbilityScore`. Hash-term support can be proven later.
 - The fixture should carry ontology and SHACL as separate artifacts with independent histories.
 - Release paths should be artifact-local: `ontology/releases/v0.1.0` and `shacl/releases/v0.1.0`, not a single repo-global `releases/v0.1.0/...` path.
 - `owl:versionIRI` should point at versioned located Turtle bytes for OWL/RDF tool compatibility.
@@ -198,21 +198,22 @@ The first ladder should be branch-based unless implementation pressure proves a 
 
 ### Phase 0: Fixture Shape, Ladder, And Source Policy
 
-- [ ] Confirm the first public base IRI for `mesh-sidecar-fantasy-rules`.
-- [ ] Draft the small first ontology slice around `AbilityScore`, `Alignment`, `Character`, and representative controlled values or examples.
+- [x] Confirm the first public base IRI for `mesh-sidecar-fantasy-rules`.
+- [x] Draft the small first ontology slice around `AbilityScore`, `Alignment`, `Character`, and representative controlled values or examples.
 - [ ] Review SRD 5.2.1 source for the small seed slice and defer larger SRD modeling.
-- [ ] Add the SRD CC-BY-4.0 attribution boundary to `NOTICE.md` and choose source/provenance metadata for the ontology.
-- [ ] Use slash IRIs for first-pass ontology terms.
-- [ ] Draft the initial numbered branch ladder through `07-shacl-integrated-woven`, preserving the Alice Bio distinction between non-woven operation branches and `*-woven` branches.
-- [ ] Create the first `semantic-flow-framework/examples/sidecar-fantasy-rules/conformance/README.md` plan before the first non-seed transition is treated as settled.
-- [ ] Define the branch-ref testing loop for source branch, operation execution, destination branch, and Accord manifest comparison.
-- [ ] Put first-pass mesh-owned helper page content under `docs/_mesh/content/`.
+- [x] Plan the SRD CC-BY-4.0 attribution boundary for `NOTICE.md` and choose source/provenance metadata for the ontology.
+- [x] Use slash IRIs for first-pass ontology terms.
+- [x] Draft the initial numbered branch ladder through `07-shacl-integrated-woven`, preserving the Alice Bio distinction between non-woven operation branches and `*-woven` branches.
+- [x] Create the first `semantic-flow-framework/examples/sidecar-fantasy-rules/conformance/README.md` plan before the first non-seed transition is treated as settled.
+- [x] Define the branch-ref testing loop for source branch, operation execution, destination branch, and Accord manifest comparison.
+- [x] Put first-pass mesh-owned helper page content under `docs/_mesh/content/`.
 
 ### Phase 1: Build Out The Sidecar Fixture Repo
 
 - [ ] Initialize or update `mesh-sidecar-fantasy-rules` as the sidecar fixture repo.
 - [ ] Add authored ontology source under `ontology/`.
 - [ ] Add authored SHACL source under `shacl/`.
+- [ ] Add `NOTICE.md` with the SRD 5.2.1 CC-BY-4.0 attribution boundary.
 - [ ] Add `docs/` as the sidecar mesh root with `.nojekyll`.
 - [ ] Add mesh metadata and inventory for a docs-rooted mesh.
 - [ ] Add operational config needed for repo-local adjacent source access.
