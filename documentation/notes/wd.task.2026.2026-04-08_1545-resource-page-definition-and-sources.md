@@ -102,9 +102,9 @@ The current recommendation from [[wd.task.2026.2026-04-08_1735-page-definition-o
 - `_knop/_page/page.ttl` should be modeled as a `ResourcePageDefinition` support artifact attached to the owning `Knop` with `hasResourcePageDefinition`.
 - `ResourcePageSource` should remain the page-specific source relator, but it should now specialize a generic `ArtifactResolutionTarget`
 - authored content composition should use `ResourcePageRegion` plus `hasResourcePageSource`, not a `Slot` vocabulary in core
-- local mesh helper files should resolve through `targetMeshPath` directly on the `ArtifactResolutionTarget`, not through ad hoc fake file resources
+- local mesh helper files should resolve through `targetLocalRelativePath` directly on the `ArtifactResolutionTarget`, not through ad hoc fake file resources
 - direct remote/external targets may be represented through `targetAccessUrl` on `ArtifactResolutionTarget`, but page-generation use should remain policy-gated and out of first pass unless explicitly widened later
-- governed artifact current-byte lookup should use `workingFilePath` when present, with `workingAccessUrl` reserved as the broader-model remote/external current-byte hook and `hasWorkingLocatedFile` remaining the semantic `LocatedFile` hook when the working bytes are also modeled as a mesh-addressable file
+- governed artifact current-byte lookup should use `workingLocalRelativePath` when present, with `workingAccessUrl` reserved as the broader-model remote/external current-byte hook and `hasWorkingLocatedFile` remaining the semantic `LocatedFile` hook when the working bytes are also modeled as a mesh-addressable file
 - `_knop/_assets` should be the local asset area; any helper concept for it should be `KnopAssetBundle`, not a nested page-bundle vocabulary
 - page-source selection should separate:
   - requested source target or state
@@ -142,8 +142,8 @@ Minimal shape:
 - Whether first-pass runtime support should allow multiple ordered sources per region immediately, or start with one source per region and add `sourceOrder` only when composition pressure appears in real examples.
 - Whether first-pass import metadata for outside-the-tree content should be limited to explicitly described distributions.
 - Whether first-pass fallback should stop at `AcceptLatestInRequestedHistory` or also allow an explicit current-history fallback policy later.
-- Whether local `targetMeshPath` helper sources should also carry media-type hints, or whether extension-driven/runtime inference is sufficient initially.
-- Which operational config vocabulary should carry allowed-directory rules for `targetMeshPath` and `workingFilePath`; see [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
+- Whether local `targetLocalRelativePath` helper sources should also carry media-type hints, or whether extension-driven/runtime inference is sufficient initially.
+- Which operational config vocabulary should carry allowed-directory rules for `targetLocalRelativePath` and `workingLocalRelativePath`; see [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
 - The current operational-config direction is to keep that vocabulary in the config ontology line under a broad `OperationalConfig`, with a repo-traveling access layer kept distinct from machine-local trust policy and a first-pass `LocalPathAccessRule` / `RemoteAccessRule` allowlist model for boundary checks; see [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
 - Which operational config vocabulary should carry remote target-access policy for `targetAccessUrl`; see [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
 - Which operational config vocabulary should carry remote-current-byte policy for `workingAccessUrl`; see [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
@@ -168,14 +168,14 @@ Minimal shape:
 - `ResourcePageRegion` is the better first-pass core term; reserve `slot` language for template/render configuration if it is needed later.
 - `ResourcePageSource` should remain as a page-specific subclass of a generic `ArtifactResolutionTarget`.
 - `ResourcePageSource` should keep its current class name. Renaming it to `ResourcePageSourceTarget` would mostly repeat what the superclass already says while adding churn to an otherwise readable region-to-source relation.
-- Direct `targetMeshPath` bindings should be valid source bindings even when there is no artifact-level target to resolve.
-- `targetAccessUrl` should be introduced as the operational remote/external direct-target hook on `ArtifactResolutionTarget`, distinct from both `targetMeshPath` and artifact-targeted resolution.
-- `workingFilePath` should be introduced as the operational local-path hook for a `DigitalArtifact`, distinct from `hasWorkingLocatedFile`.
-- `workingAccessUrl` should be introduced as the operational remote/external current-byte hook for a `DigitalArtifact`, distinct from both `workingFilePath` and `hasWorkingLocatedFile`.
+- Direct `targetLocalRelativePath` bindings should be valid source bindings even when there is no artifact-level target to resolve.
+- `targetAccessUrl` should be introduced as the operational remote/external direct-target hook on `ArtifactResolutionTarget`, distinct from both `targetLocalRelativePath` and artifact-targeted resolution.
+- `workingLocalRelativePath` should be introduced as the operational local-path hook for a `DigitalArtifact`, distinct from `hasWorkingLocatedFile`.
+- `workingAccessUrl` should be introduced as the operational remote/external current-byte hook for a `DigitalArtifact`, distinct from both `workingLocalRelativePath` and `hasWorkingLocatedFile`.
 - `hasWorkingLocatedFile` should remain the semantic `LocatedFile` relation; when multiple current-byte locators are present for the same current working surface, they should agree and mismatch should fail closed.
 - `KnopAssetBundle` is clearer than `AssetFolder` or `PageAssetFolder`, but it should not be read as a requirement that every page support file live under `_knop/_assets`.
 - `accept` should describe fallback policy, not replace the separate pinned-vs-current source mode axis.
-- Allowed-directory policy for `targetMeshPath` and `workingFilePath` belongs in host/runtime operational config, not in the core page-definition vocabulary.
+- Allowed-directory policy for `targetLocalRelativePath` and `workingLocalRelativePath` belongs in host/runtime operational config, not in the core page-definition vocabulary.
 - Remote-use policy for `targetAccessUrl` belongs in host/runtime operational config, not in the core page-definition vocabulary.
 - Remote-use policy for `workingAccessUrl` also belongs in host/runtime operational config, not in the core page-definition vocabulary.
 
@@ -183,9 +183,9 @@ Minimal shape:
 
 - Introduce a knop-owned page-definition support artifact at `_knop/_page`.
 - Introduce ontology/config vocabulary for that page-definition artifact, generic artifact-resolution targets, mesh-local path bindings, and Knop asset boundaries before the runtime contract broadens.
-- Introduce `workingFilePath` as the operational local current-byte path for artifacts, with explicit precedence/consistency rules relative to `hasWorkingLocatedFile`.
+- Introduce `workingLocalRelativePath` as the operational local current-byte path for artifacts, with explicit precedence/consistency rules relative to `hasWorkingLocatedFile`.
 - Introduce `targetAccessUrl` as the operational remote/external direct-target URL for `ArtifactResolutionTarget`.
-- Introduce `workingAccessUrl` as the operational remote/external current-byte URL for artifacts, with explicit precedence/consistency rules relative to `workingFilePath` and `hasWorkingLocatedFile`.
+- Introduce `workingAccessUrl` as the operational remote/external current-byte URL for artifacts, with explicit precedence/consistency rules relative to `workingLocalRelativePath` and `hasWorkingLocatedFile`.
 - Define a manifest artifact in that support surface that can reference:
   - local mesh-relative helper paths
   - in-mesh DigitalArtifact identifiers
@@ -194,7 +194,7 @@ Minimal shape:
 - Define an explicit import boundary for outside-the-tree content rather than direct live external-latest page resolution.
 - Define `_knop/_assets` as the fixed location for local static assets referenced by page definitions.
 - Define any helper resource for local page files and assets so its relative-path semantics are explicit rather than buried in ad hoc string fields.
-- Define the allowed-directories boundary for `targetMeshPath` and `workingFilePath` in operational config rather than persisting absolute host roots in RDF.
+- Define the allowed-directories boundary for `targetLocalRelativePath` and `workingLocalRelativePath` in operational config rather than persisting absolute host roots in RDF.
 - Define direct remote-target policy for `targetAccessUrl` in operational config rather than implying network access from core RDF alone.
 - Define remote-current-byte policy for `workingAccessUrl` in operational config rather than implying network access from core RDF alone.
 - Keep `index.html` as generated public output rather than the canonical editable page source.
@@ -240,7 +240,7 @@ Minimal shape:
 - Add `alice/_knop/_page/page.ttl` as the first `ResourcePageDefinition` working file for Alice.
 - Add initial mesh-local content files such as `alice/alice.md` and `mesh-content/sidebar.md`, plus the Knop-local stylesheet `alice/_knop/_assets/alice.css`.
 - Update `alice/_knop/_inventory/inventory.ttl` to register the new page-definition support surface and its current working file.
-- Keep the fixture narrow and local-only: both initial page regions should resolve from `targetMeshPath` values rather than from in-mesh or imported artifacts.
+- Keep the fixture narrow and local-only: both initial page regions should resolve from `targetLocalRelativePath` values rather than from in-mesh or imported artifacts.
 - Do not weave histories or generate new pages yet; `alice/index.html` should remain the previously generated generic page in this non-woven state.
 - Do not advance `_mesh/_inventory`; the page-definition support artifact is Knop-internal and the public current resource map has not widened yet.
 
@@ -254,7 +254,7 @@ Minimal shape:
 
 `16-alice-page-main-integrated`
 
-- Introduce a governed in-mesh Markdown-bearing artifact such as `alice/page-main` without yet repointing Alice's page definition away from its current direct `targetMeshPath` source.
+- Introduce a governed in-mesh Markdown-bearing artifact such as `alice/page-main` without yet repointing Alice's page definition away from its current direct `targetLocalRelativePath` source.
 - Keep the carried example narrow and concrete: the new artifact should have a normal payload/Knop shape and a current Markdown working file such as `alice-page-main.md`.
 - This is an integration step, not an import step. The source bytes are still in the whole-repo mesh rather than crossing an outside-origin boundary.
 - Keep Alice's existing page definition and public `alice/index.html` unchanged until the later artifact-backed page-source pair.
@@ -266,14 +266,14 @@ Minimal shape:
 
 `18-alice-page-artifact-source`
 
-- Repoint one Alice page region from a direct `targetMeshPath` source to the already-woven governed Markdown artifact `alice/page-main`.
-- Keep the carried example narrow and concrete: the page source should target the governed artifact identity, while current-byte resolution follows that artifact's current `workingFilePath` / `hasWorkingLocatedFile`.
+- Repoint one Alice page region from a direct `targetLocalRelativePath` source to the already-woven governed Markdown artifact `alice/page-main`.
+- Keep the carried example narrow and concrete: the page source should target the governed artifact identity, while current-byte resolution follows that artifact's current `workingLocalRelativePath` / `hasWorkingLocatedFile`.
 - Keep this slice at `Current` behavior only; do not introduce `Pinned` or fallback semantics into the carried fixture pair yet.
 
 `19-alice-page-artifact-source-woven`
 
 - Weave `18` so the artifact-backed page definition is versioned and rendered.
-- Prove that `alice/index.html` now follows the governed Markdown source artifact's current working surface rather than a direct local `targetMeshPath`.
+- Prove that `alice/index.html` now follows the governed Markdown source artifact's current working surface rather than a direct local `targetLocalRelativePath`.
 - Keep this pair focused on `Current` artifact-backed behavior; `Pinned` and fallback remain follow-on runtime/fixture work.
 
 `20-bob-page-imported-source`
@@ -383,7 +383,7 @@ Current `14-alice-page-customized` manifest shape:
 - RDF assertions prove:
   - `alice/_knop/_page` is a `ResourcePageDefinition`
   - the definition has `main` and `sidebar` regions
-  - both initial `ResourcePageSource` nodes resolve by `targetMeshPath` to `alice/alice.md` and `mesh-content/sidebar.md`
+  - both initial `ResourcePageSource` nodes resolve by `targetLocalRelativePath` to `alice/alice.md` and `mesh-content/sidebar.md`
   - `alice/_knop/_inventory/inventory.ttl` registers both `hasResourcePageDefinition` and `hasKnopAssetBundle`
   - the non-woven state still has no `_page` artifact history yet
 
@@ -445,7 +445,7 @@ Current `16-alice-page-main-integrated` manifest shape:
 - RDF assertions prove:
   - `_mesh/_inventory/inventory.ttl` now registers the new `alice/page-main` payload artifact and its Knop
   - the new governed source artifact currently uses `alice-page-main.md` as its working file but still has no explicit history before weave
-  - `alice/_knop/_page#main-source` still points directly to `targetMeshPath "alice/alice.md"`
+  - `alice/_knop/_page#main-source` still points directly to `targetLocalRelativePath "alice/alice.md"`
   - Alice's page definition has not yet been repointed to `alice/page-main`
 
 Current `17-alice-page-main-integrated-woven` manifest shape:
@@ -485,7 +485,7 @@ Current `17-alice-page-main-integrated-woven` manifest shape:
 - RDF assertions prove:
   - the new `alice/page-main` payload artifact now has `_history001/_s0001` and a public `alice/page-main/index.html`
   - `_mesh/_inventory/_history001` now advances to `_s0005` to register the new woven `alice/page-main` current surface
-  - `alice/_knop/_page#main-source` still resolves through `targetMeshPath "alice/alice.md"`
+  - `alice/_knop/_page#main-source` still resolves through `targetLocalRelativePath "alice/alice.md"`
   - Alice's public page has not changed yet
 
 Current `18-alice-page-artifact-source` manifest shape:
@@ -508,7 +508,7 @@ Current `18-alice-page-artifact-source` manifest shape:
   - `alice/_knop/_page#main-source` now points to the governed artifact `alice/page-main`
   - that main source explicitly requests `ArtifactResolutionMode/Current`
   - `alice/_knop/_page#sidebar-source` still points to `mesh-content/sidebar.md`
-  - the old direct `targetMeshPath "alice/alice.md"` is no longer used by the main source
+  - the old direct `targetLocalRelativePath "alice/alice.md"` is no longer used by the main source
   - the already-woven `alice/page-main` payload artifact is now the page's governed source
   - `alice/_knop/_page/_history001` still stops at `_s0001`
   - `alice/_knop/_inventory/_history001` still stops at `_s0003`
@@ -556,7 +556,7 @@ Current `19-alice-page-artifact-source-woven` manifest shape:
 
 ### Phase 3: Local Mesh-Path Sources And Knop Asset Handling
 
-- [x] Implement local `targetMeshPath` source resolution for `ResourcePageSource`, with rejection of malformed or escaping mesh-relative paths.
+- [x] Implement local `targetLocalRelativePath` source resolution for `ResourcePageSource`, with rejection of malformed or escaping mesh-relative paths.
 - [x] Treat ordinary Markdown as the default authored local format for `.md` files in the first pass, without implying Dendron semantics.
 - [x] Support one `ResourcePageSource` per `ResourcePageRegion` in the first implementation slice; if a definition requests broader ordered composition before that lands, fail closed rather than inventing ad hoc merge rules.
 - [x] Extend the page-rendering seam so identifier pages can render resolved region content instead of only the current generic identifier-page text.
@@ -575,19 +575,19 @@ Current `19-alice-page-artifact-source-woven` manifest shape:
 - [x] Add first-pass in-mesh artifact source resolution through `hasTargetArtifact` directly on `ResourcePageSource`, with default/`Current` current-byte loading from the governed artifact's current working surface and fail-closed rejection of `Pinned`, requested history/state, fallback policy, direct located-file/distribution, and remote target forms until later slices land.
 - [ ] Add `targetAccessUrl` handling to `ArtifactResolutionTarget` only behind explicit operational policy, with fail-closed behavior when remote target access is disallowed. See [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
 - [ ] Decide whether first-pass page generation should ever follow `targetAccessUrl` directly, or continue requiring import or governed-artifact indirection for remote-origin content even if the broader artifact-resolution model permits direct external targets.
-- [x] Add `workingFilePath` support to governed-artifact current resolution, with fail-closed mismatch handling against `hasWorkingLocatedFile`.
+- [x] Add `workingLocalRelativePath` support to governed-artifact current resolution, with fail-closed mismatch handling against `hasWorkingLocatedFile`.
 - [ ] Add `workingAccessUrl` handling to governed-artifact current resolution only behind explicit operational policy, with fail-closed behavior when remote current-byte access is disallowed. See [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
 - [ ] Decide whether first-pass page generation should ever follow `workingAccessUrl` directly, or continue requiring imported in-tree artifacts for remote-origin content even if the broader artifact model permits external current-byte locators.
 - [ ] Implement `Pinned` versus `Current` as separate source-mode behavior rather than collapsing them into fallback or “prefer” booleans.
 - [ ] Implement first-pass fallback policy behavior for `ExactOnly` and `AcceptLatestInRequestedHistory`, with explicit rejection of cross-history, cross-artifact, or unrelated-working-file fallback.
 - [ ] Add import-oriented source handling for outside-the-tree or extra-mesh content only after it crosses an explicit in-tree governed-artifact boundary.
 - [ ] Fail closed on direct live outside-source usage instead of letting `weave` fetch or follow arbitrary current external content.
-- [x] Broaden local path handling so `targetMeshPath` and `workingFilePath` may use `../` only within host/runtime-configured allowed directories rather than the current mesh-root-only boundary. See [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
+- [x] Broaden local path handling so `targetLocalRelativePath` and `workingLocalRelativePath` may use `../` only within host/runtime-configured allowed directories rather than the current mesh-root-only boundary. See [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
 
 ### Phase 6: Tests, Follow-On Fixtures, And Documentation
 
 - [ ] Add focused unit/runtime coverage for discovery and authority, including root `_knop/_page` handling and fail-closed malformed-definition behavior.
-- [x] Add focused coverage for `targetMeshPath` resolution, path-escape rejection, and direct `_knop/_assets` use without copied public asset materialization.
+- [x] Add focused coverage for `targetLocalRelativePath` resolution, path-escape rejection, and direct `_knop/_assets` use without copied public asset materialization.
 - [x] Add focused coverage for `ResourcePageDefinition` history/state behavior as a normal support artifact while keeping referenced mesh-local helper files non-recursive.
 - [x] Add integration coverage proving a valid `_knop/_page` overrides generic identifier-page generation for the owning identifier only.
 - [x] Add integration coverage for local mesh-path page sources and first-pass in-mesh artifact-backed page sources.

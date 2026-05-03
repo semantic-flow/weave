@@ -46,7 +46,7 @@ export interface ResolvedExtractRequest extends ExtractRequest {
   currentMeshInventoryTurtle: string;
   referenceTargetDesignatorPath: string;
   referenceTargetStatePath: string;
-  referenceTargetWorkingFilePath: string;
+  referenceTargetWorkingLocalRelativePath: string;
 }
 
 export interface ExtractPlan {
@@ -84,9 +84,10 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
     request.referenceTargetStatePath,
     "referenceTargetStatePath",
   );
-  const referenceTargetWorkingFilePath = normalizeWorkingFilePath(
-    request.referenceTargetWorkingFilePath,
-  );
+  const referenceTargetWorkingLocalRelativePath =
+    normalizeWorkingLocalRelativePath(
+      request.referenceTargetWorkingLocalRelativePath,
+    );
 
   try {
     const knopPath = toKnopPath(designatorPath);
@@ -96,7 +97,7 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
       request.currentMeshInventoryTurtle,
       designatorPath,
       referenceTargetDesignatorPath,
-      referenceTargetWorkingFilePath,
+      referenceTargetWorkingLocalRelativePath,
     );
 
     return {
@@ -187,18 +188,20 @@ function normalizeDesignatorPath(
   );
 }
 
-function normalizeWorkingFilePath(workingFilePath: string): string {
-  return normalizeValidatedPath(workingFilePath, {
-    fieldName: "referenceTargetWorkingFilePath",
+function normalizeWorkingLocalRelativePath(
+  workingLocalRelativePath: string,
+): string {
+  return normalizeValidatedPath(workingLocalRelativePath, {
+    fieldName: "referenceTargetWorkingLocalRelativePath",
     rejectWhitespace: true,
     slashMessage:
-      "referenceTargetWorkingFilePath must be a mesh-relative file path",
+      "referenceTargetWorkingLocalRelativePath must be a mesh-relative file path",
     unsupportedCharactersMessage:
-      "referenceTargetWorkingFilePath contains unsupported path characters",
+      "referenceTargetWorkingLocalRelativePath contains unsupported path characters",
     emptySegmentsMessage:
-      "referenceTargetWorkingFilePath must not contain empty path segments",
+      "referenceTargetWorkingLocalRelativePath must not contain empty path segments",
     dotSegmentsMessage:
-      "referenceTargetWorkingFilePath must be a mesh-relative file path",
+      "referenceTargetWorkingLocalRelativePath must be a mesh-relative file path",
   });
 }
 
@@ -256,14 +259,14 @@ function renderExtractMeshInventoryTurtle(
   currentMeshInventoryTurtle: string,
   designatorPath: string,
   sourcePayloadDesignatorPath: string,
-  sourceWorkingFilePath: string,
+  sourceWorkingLocalRelativePath: string,
 ): string {
   assertCurrentMeshInventoryShapeForExtract(
     meshBase,
     currentMeshInventoryTurtle,
     designatorPath,
     sourcePayloadDesignatorPath,
-    sourceWorkingFilePath,
+    sourceWorkingLocalRelativePath,
   );
 
   const rootDesignatorPath = toRootDesignatorPath(sourcePayloadDesignatorPath);
@@ -301,7 +304,7 @@ function renderExtractMeshInventoryTurtle(
     `${rootKnopPath}/_inventory/inventory.ttl`,
     `${sourceKnopPath}/_inventory/inventory.ttl`,
     `${knopPath}/_inventory/inventory.ttl`,
-    sourceWorkingFilePath,
+    sourceWorkingLocalRelativePath,
   ]);
   const resourcePageDeclarations = renderResourcePageDeclarations([
     "_mesh/index.html",
@@ -337,7 +340,7 @@ ${meshKnopLines}
 ${rootDesignatorBlock}${rootKnopBlock}
 
 <${sourcePayloadDesignatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <${sourceWorkingFilePath}> ;
+  sflo:hasWorkingLocatedFile <${sourceWorkingLocalRelativePath}> ;
   sflo:hasResourcePage <${sourcePayloadPagePath}> .
 
 ${sourceKnopBlock}<${knopPath}> a sflo:Knop ;
@@ -517,7 +520,7 @@ function assertCurrentMeshInventoryShapeForExtract(
   currentMeshInventoryTurtle: string,
   designatorPath: string,
   sourcePayloadDesignatorPath: string,
-  sourceWorkingFilePath: string,
+  sourceWorkingLocalRelativePath: string,
 ): void {
   const rootDesignatorPath = toRootDesignatorPath(sourcePayloadDesignatorPath);
   const rootKnopPath = toKnopPath(rootDesignatorPath);
@@ -622,7 +625,7 @@ function assertCurrentMeshInventoryShapeForExtract(
     [
       sourcePayloadDesignatorPath,
       SFLO_HAS_WORKING_LOCATED_FILE_IRI,
-      sourceWorkingFilePath,
+      sourceWorkingLocalRelativePath,
     ],
     [
       sourcePayloadDesignatorPath,
@@ -648,8 +651,8 @@ function assertCurrentMeshInventoryShapeForExtract(
       SFLO_LATEST_HISTORICAL_STATE_IRI,
       "_mesh/_inventory/_history001/_s0003",
     ],
-    [sourceWorkingFilePath, RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
-    [sourceWorkingFilePath, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
+    [sourceWorkingLocalRelativePath, RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
+    [sourceWorkingLocalRelativePath, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
   ]);
   assertHasLiteralFacts(quads, meshBase, errorMessage, [
     ["_mesh", SFLO_MESH_BASE_IRI, meshBase, XSD_ANY_URI_IRI],

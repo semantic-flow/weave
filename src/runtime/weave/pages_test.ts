@@ -9,7 +9,7 @@ Deno.test("renderResourcePage renders identifier pages with working file links",
         kind: "identifier",
         path: "alice/bio/index.html",
         designatorPath: "alice/bio",
-        workingFilePath: "alice-bio.ttl",
+        workingLocalRelativePath: "alice-bio.ttl",
       },
     ),
     `<!doctype html>
@@ -41,7 +41,7 @@ Deno.test("renderResourcePage renders the root identifier as slash", () => {
         kind: "identifier",
         path: "index.html",
         designatorPath: "",
-        workingFilePath: "root.ttl",
+        workingLocalRelativePath: "root.ttl",
       },
     ),
     `<!doctype html>

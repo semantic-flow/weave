@@ -43,7 +43,7 @@ export interface IntegrateResult {
   designatorPath: string;
   payloadArtifactIri: string;
   knopIri: string;
-  workingFilePath: string;
+  workingLocalRelativePath: string;
   createdPaths: readonly string[];
   updatedPaths: readonly string[];
 }
@@ -63,7 +63,7 @@ export async function executeIntegrate(
   const designatorPath = options.request.designatorPath;
   const source = options.request.source;
   let plan: IntegratePlan | undefined;
-  let workingFilePath: string | undefined;
+  let workingLocalRelativePath: string | undefined;
 
   await operationalLogger.info(
     "integrate.started",
@@ -92,13 +92,13 @@ export async function executeIntegrate(
       localPathPolicy,
       source,
     );
-    workingFilePath = resolvedSource.workingFilePath;
+    workingLocalRelativePath = resolvedSource.workingLocalRelativePath;
     const meshState = await loadCurrentMeshState(workspaceRoot);
     plan = planIntegrate({
       meshBase: meshState.meshBase,
       currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
       designatorPath,
-      workingFilePath,
+      workingLocalRelativePath,
     });
     assertUpdatedTargetsExist(workspaceRoot, plan);
     await assertCreateTargetsDoNotExist(workspaceRoot, plan);
@@ -114,7 +114,7 @@ export async function executeIntegrate(
         workspaceRoot,
         designatorPath,
         source,
-        workingFilePath,
+        workingLocalRelativePath,
         payloadArtifactIri: plan?.payloadArtifactIri,
         knopIri: plan?.knopIri,
         error: message,
@@ -127,7 +127,7 @@ export async function executeIntegrate(
         workspaceRoot,
         designatorPath,
         source,
-        workingFilePath,
+        workingLocalRelativePath,
         payloadArtifactIri: plan?.payloadArtifactIri,
         knopIri: plan?.knopIri,
         error: message,
@@ -148,7 +148,7 @@ export async function executeIntegrate(
     designatorPath: plan.designatorPath,
     payloadArtifactIri: plan.payloadArtifactIri,
     knopIri: plan.knopIri,
-    workingFilePath: plan.workingFilePath,
+    workingLocalRelativePath: plan.workingLocalRelativePath,
     createdPaths: plan.createdFiles.map((file) => file.path),
     updatedPaths: plan.updatedFiles.map((file) => file.path),
   };
@@ -161,7 +161,7 @@ export async function executeIntegrate(
       designatorPath: result.designatorPath,
       payloadArtifactIri: result.payloadArtifactIri,
       knopIri: result.knopIri,
-      workingFilePath: result.workingFilePath,
+      workingLocalRelativePath: result.workingLocalRelativePath,
       createdPaths: result.createdPaths,
       updatedPaths: result.updatedPaths,
     },
@@ -174,7 +174,7 @@ export async function executeIntegrate(
       designatorPath: result.designatorPath,
       payloadArtifactIri: result.payloadArtifactIri,
       knopIri: result.knopIri,
-      workingFilePath: result.workingFilePath,
+      workingLocalRelativePath: result.workingLocalRelativePath,
       createdPaths: result.createdPaths,
       updatedPaths: result.updatedPaths,
     },
@@ -184,7 +184,7 @@ export async function executeIntegrate(
 }
 
 export function describeIntegrateResult(result: IntegrateResult): string {
-  return `Integrated ${result.workingFilePath} as ${result.payloadArtifactIri} and created ${result.createdPaths.length} support artifacts while updating ${result.updatedPaths.length} mesh artifact.`;
+  return `Integrated ${result.workingLocalRelativePath} as ${result.payloadArtifactIri} and created ${result.createdPaths.length} support artifacts while updating ${result.updatedPaths.length} mesh artifact.`;
 }
 
 function resolveLoggers(
@@ -220,7 +220,7 @@ async function resolveLocalSource(
   workspaceRoot: string,
   localPathPolicy: OperationalLocalPathPolicy,
   source: string,
-): Promise<{ absoluteSourcePath: string; workingFilePath: string }> {
+): Promise<{ absoluteSourcePath: string; workingLocalRelativePath: string }> {
   const trimmed = source.trim();
   if (trimmed.length === 0) {
     throw new IntegrateRuntimeError(
@@ -247,9 +247,11 @@ async function resolveLocalSource(
     );
   }
 
-  const workingFilePath = relative(workspaceRoot, absoluteSourcePath)
+  const workingLocalRelativePath = relative(workspaceRoot, absoluteSourcePath)
     .replaceAll("\\", "/");
-  if (workingFilePath.length === 0 || workingFilePath === "..") {
+  if (
+    workingLocalRelativePath.length === 0 || workingLocalRelativePath === ".."
+  ) {
     throw new IntegrateRuntimeError(
       `integrate source is not a file: ${trimmed}`,
     );
@@ -257,8 +259,8 @@ async function resolveLocalSource(
   try {
     const allowedSourcePath = resolveAllowedLocalPath(
       localPathPolicy,
-      "workingFilePath",
-      workingFilePath,
+      "workingLocalRelativePath",
+      workingLocalRelativePath,
     );
     if (resolve(allowedSourcePath) !== resolve(absoluteSourcePath)) {
       throw new IntegrateRuntimeError(
@@ -276,7 +278,7 @@ async function resolveLocalSource(
 
   return {
     absoluteSourcePath,
-    workingFilePath,
+    workingLocalRelativePath,
   };
 }
 

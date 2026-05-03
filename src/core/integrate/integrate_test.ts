@@ -5,7 +5,7 @@ import { readMeshAliceBioBranchFile } from "../../../tests/support/mesh_alice_bi
 Deno.test("planIntegrate renders first payload integration artifacts", async () => {
   const plan = planIntegrate({
     designatorPath: "alice/bio",
-    workingFilePath: "alice-bio.ttl",
+    workingLocalRelativePath: "alice-bio.ttl",
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: await readMeshAliceBioBranchFile(
       "05-alice-knop-created-woven",
@@ -21,7 +21,7 @@ Deno.test("planIntegrate renders first payload integration artifacts", async () 
     plan.knopIri,
     "https://semantic-flow.github.io/mesh-alice-bio/alice/bio/_knop",
   );
-  assertEquals(plan.workingFilePath, "alice-bio.ttl");
+  assertEquals(plan.workingLocalRelativePath, "alice-bio.ttl");
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
@@ -66,7 +66,7 @@ Deno.test("planIntegrate rejects absolute working file paths", async () => {
     () =>
       planIntegrate({
         designatorPath: "alice/bio",
-        workingFilePath: "/tmp/alice-bio.ttl",
+        workingLocalRelativePath: "/tmp/alice-bio.ttl",
         meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
         currentMeshInventoryTurtle,
       }),
@@ -76,7 +76,7 @@ Deno.test("planIntegrate rejects absolute working file paths", async () => {
 });
 
 Deno.test(
-  "planIntegrate accepts extra-mesh workingFilePath values and renders them as literals",
+  "planIntegrate accepts extra-mesh workingLocalRelativePath values and renders them as literals",
   async () => {
     const currentMeshInventoryTurtle = await readMeshAliceBioBranchFile(
       "05-alice-knop-created-woven",
@@ -85,15 +85,18 @@ Deno.test(
 
     const plan = planIntegrate({
       designatorPath: "alice/bio",
-      workingFilePath: "../documentation/alice-bio.ttl",
+      workingLocalRelativePath: "../documentation/alice-bio.ttl",
       meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
       currentMeshInventoryTurtle,
     });
 
-    assertEquals(plan.workingFilePath, "../documentation/alice-bio.ttl");
+    assertEquals(
+      plan.workingLocalRelativePath,
+      "../documentation/alice-bio.ttl",
+    );
     assertEquals(
       plan.createdFiles[1]?.contents.includes(
-        'sflo:workingFilePath "../documentation/alice-bio.ttl" .',
+        'sflo:workingLocalRelativePath "../documentation/alice-bio.ttl" .',
       ),
       true,
     );
@@ -105,7 +108,7 @@ Deno.test(
     );
     assertEquals(
       plan.updatedFiles[0]?.contents.includes(
-        'sflo:workingFilePath "../documentation/alice-bio.ttl" .',
+        'sflo:workingLocalRelativePath "../documentation/alice-bio.ttl" .',
       ),
       true,
     );
@@ -132,7 +135,7 @@ Deno.test(
 
     const plan = planIntegrate({
       designatorPath: "alice/bio",
-      workingFilePath: "alice-bio.ttl",
+      workingLocalRelativePath: "alice-bio.ttl",
       meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
       currentMeshInventoryTurtle,
     });

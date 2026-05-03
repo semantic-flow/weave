@@ -8,9 +8,9 @@ created: 1775953446000
 ## Goals
 
 - Define a process-agnostic operational-config model for runtime resolution policy so the same policy shape can be used by CLI, daemon, and other local execution surfaces.
-- Move allowed-directory and network-access policy for `workingFilePath`, `targetMeshPath`, `workingAccessUrl`, and `targetAccessUrl` out of ad hoc runtime assumptions and into an explicit configuration contract.
+- Move allowed-directory and network-access policy for `workingLocalRelativePath`, `targetLocalRelativePath`, `workingAccessUrl`, and `targetAccessUrl` out of ad hoc runtime assumptions and into an explicit configuration contract.
 - Reuse the useful "application config exists" idea from the old `sflo-host` line without inheriting its daemon-service bias as the default shape for current Weave work.
-- Make extra-mesh local targeting possible in a controlled way, especially `../` path traversal for `workingFilePath` and `targetMeshPath` within configured local boundaries.
+- Make extra-mesh local targeting possible in a controlled way, especially `../` path traversal for `workingLocalRelativePath` and `targetLocalRelativePath` within configured local boundaries.
 - Split repo-traveling operational access policy from user- or machine-local operational access policy so portable checkout expectations do not silently become host-trust decisions.
 - Keep operational config separate from core mesh RDF so persisted mesh data remains portable across users, machines, and checkout locations.
 
@@ -18,9 +18,9 @@ created: 1775953446000
 
 We now have core vocabulary for current-byte locators and direct resolution targets:
 
-- `workingFilePath`
+- `workingLocalRelativePath`
 - `workingAccessUrl`
-- `targetMeshPath`
+- `targetLocalRelativePath`
 - `targetAccessUrl`
 
 What we do not yet have is the operational policy layer that says when a runtime may actually use them.
@@ -29,7 +29,7 @@ That policy is no longer just a daemon concern. The current Weave CLI already ne
 
 Current status clarification:
 
-- `workingFilePath` and `targetMeshPath` already have active runtime behavior plus operational-config loading for local-boundary checks.
+- `workingLocalRelativePath` and `targetLocalRelativePath` already have active runtime behavior plus operational-config loading for local-boundary checks.
 - `workingAccessUrl` and `targetAccessUrl` do not currently have active runtime dereferencing behavior.
 - Bob's carried import slice uses `workingAccessUrl` only as recorded outside-origin metadata on `bob/page-main`.
 - Bob's carried import slice does not use `targetAccessUrl`.
@@ -43,8 +43,8 @@ The current best direction is to keep this vocabulary in `semantic-flow-config-o
 The first-pass draft vocabulary now includes:
 
 - `OperationalConfig`
-- `RepoOperationalConfig`
-- `LocalOperationalConfig`
+- `MeshConfig`
+- `LocalConfig`
 - `LocalPathAccessRule`
 - `RemoteAccessRule`
 - `LocalPathBase`
@@ -83,22 +83,22 @@ That is not the right first shape for the current problem.
 
 We need a config surface that a one-shot CLI invocation can load just as naturally as a daemon process. So the new note should not start from "host service" as the conceptual center. It should start from "runtime resolution policy" or equivalent.
 
-### Repo-traveling policy versus machine-local policy
+### Mesh-carried policy versus machine-local policy
 
 The strongest split for this task is not "daemon config versus CLI config" and not "all config is a versioned support artifact." It is:
 
-- repo-traveling operational policy that can safely ship with a checkout
+- mesh-carried config that can safely ship with a mesh
 - machine-local operational policy that represents host trust and user preference
 
 The current likely conventions are:
 
-- `/.sf-repo-access.ttl`
+- `_mesh/_config/config.ttl`
 - `~/.sf-local-access.ttl`
 
 The first file should be able to say things like:
 
-- extra-mesh `../...` paths are allowed when they stay inside the checked-out repo boundary
-- certain repo-adjacent directories are allowed because the project intentionally lays content out that way
+- extra-mesh `../...` paths are expected when they stay inside the active workspace boundary
+- certain workspace-adjacent directories are expected because the project intentionally lays content out that way
 
 The second file should be able to say things like:
 
@@ -106,7 +106,7 @@ The second file should be able to say things like:
 - remote access is allowed for specific schemes or origins
 - this user wants stricter or broader policy than the repo default
 
-That split matters because a cloned repo should not, by itself, be able to grant arbitrary host access. Repo-traveling policy should stay within a boundary that collaborators can reasonably audit and carry. Broader machine trust belongs in local config.
+That split matters because a portable mesh should not, by itself, be able to grant arbitrary host access. Mesh-carried policy should stay within a runtime-enforced workspace boundary that collaborators can reasonably audit and carry. Broader machine trust belongs in local config.
 
 ### Relationship to mesh-managed config artifacts
 
@@ -151,21 +151,21 @@ The current draft shape in the config ontology is:
 
 For local path rules, the declared bases currently include:
 
-- `LocalPathBase/MeshRoot`
-- `LocalPathBase/UserHome`
-- `LocalPathBase/AbsolutePath`
+- `meshRootPathBase`
+- `userHomePathBase`
+- `absolutePathBase`
 
 This is intentionally smaller than a more ambitious directory-resource model. It gives the runtime a concrete first-pass access checker while leaving room to introduce richer directory resources later if real pressure appears.
 
-For a non-whole-repo mesh, this means a repo-traveling access file may live at the repo root while still authoring `pathPrefix` values relative to the mesh root. A path such as `../documentation/sidebar.md` is still most naturally described from the mesh root's point of view, because that is how `targetMeshPath` and `workingFilePath` are authored in mesh RDF.
+For a non-whole-repo mesh, this means mesh-carried config may live under `_mesh/_config` while still authoring `pathPrefix` values relative to the mesh root. A path such as `../documentation/sidebar.md` is still most naturally described from the mesh root's point of view, because that is how `targetLocalRelativePath` and `workingLocalRelativePath` are authored in mesh RDF.
 
-The first-pass runtime model assumes one active mesh root per execution. The non-whole-repo case does not require a dedicated long-lived fixture repo; focused tests can materialize a mesh beneath a temporary repo root and place `/.sf-repo-access.ttl` plus repo-adjacent files alongside it.
+The first-pass runtime model assumes one active mesh root per execution. The non-whole-repo case does not require a dedicated long-lived fixture repo; focused tests can materialize a mesh beneath a temporary workspace root and place `_mesh/_config/config.ttl` plus adjacent source files alongside it.
 
 ### First-pass effective policy
 
 The first-pass model should stay honest about what it does and does not support.
 
-- repo-traveling config contributes positive allow rules
+- mesh-carried config contributes positive allow rules within the runtime-enforced workspace boundary
 - machine-local config contributes additional positive allow rules
 - if no applicable rule matches, access is denied
 
@@ -175,8 +175,8 @@ That means the first-pass effective policy is the union of discovered applicable
 
 The core/runtime work has already reached the point where operational policy is the next blocker:
 
-- `workingFilePath` is now implemented as a local current-byte locator in runtime resolution
-- `targetMeshPath` is already used for local page-source resolution
+- `workingLocalRelativePath` is now implemented as a local current-byte locator in runtime resolution
+- `targetLocalRelativePath` is already used for local page-source resolution
 - both are still conservatively mesh-root-bound in runtime behavior
 - the next requested capability is controlled extra-mesh local targeting through `../...`
 - later, `workingAccessUrl` and `targetAccessUrl` will need equally explicit remote-use policy
@@ -187,8 +187,8 @@ If we try to keep widening these behaviors without a dedicated operational-confi
 
 At minimum, the first operational-config slice should cover:
 
-- which local directories are allowed when `workingFilePath` uses `../`
-- which local directories are allowed when `targetMeshPath` uses `../`
+- which local directories are allowed when `workingLocalRelativePath` uses `../`
+- which local directories are allowed when `targetLocalRelativePath` uses `../`
 - whether direct remote target access through `targetAccessUrl` is allowed at all
 - whether remote current-byte access through `workingAccessUrl` is allowed at all
 - fail-closed behavior when a path or URL falls outside configured policy
@@ -205,7 +205,7 @@ The important design constraint is shared consumption:
 - the daemon should not get a special ontology branch that the CLI bypasses
 - tests should be able to inject or materialize the same config shape deterministically
 
-That does not mean every command needs to eagerly load or consult operational config. The shared seam should be used by the commands and runtime paths that actually resolve policy-governed locators such as `workingFilePath`, `targetMeshPath`, `workingAccessUrl`, or `targetAccessUrl`.
+That does not mean every command needs to eagerly load or consult operational config. The shared seam should be used by the commands and runtime paths that actually resolve policy-governed locators such as `workingLocalRelativePath`, `targetLocalRelativePath`, `workingAccessUrl`, or `targetAccessUrl`.
 
 That does not mean the CLI and daemon need identical discovery behavior. It means the policy model and semantics should be shared even if the loading surface differs.
 
@@ -224,17 +224,18 @@ The namespace split can stay open for later if the operational line grows enough
 
 ### Minimal example shapes
 
-Repo-traveling access policy:
+Mesh-carried access policy:
 
 ```turtle
 @prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
 
-<> a sfcfg:RepoOperationalConfig ;
+<> a sfcfg:MeshConfig ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/LocalPathBase/MeshRoot> ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/meshRootPathBase> ;
     sfcfg:pathPrefix "../documentation/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/LocalPathLocatorKind/Any>
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/workingLocalRelativePathLocatorKind>,
+      <https://semantic-flow.github.io/ontology/config/targetLocalRelativePathLocatorKind>
   ] .
 ```
 
@@ -244,16 +245,16 @@ Machine-local access policy:
 @prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
-<> a sfcfg:LocalOperationalConfig ;
+<> a sfcfg:LocalConfig ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/LocalPathBase/AbsolutePath> ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/absolutePathBase> ;
     sfcfg:pathPrefix "/Users/example/shared-notes/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/LocalPathLocatorKind/TargetMeshPath>
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/targetLocalRelativePathLocatorKind>
   ] ;
   sfcfg:hasRemoteAccessRule [
     a sfcfg:RemoteAccessRule ;
-    sfcfg:hasRemoteLocatorKind <https://semantic-flow.github.io/ontology/config/RemoteLocatorKind/TargetAccessUrl> ;
+    sfcfg:hasRemoteLocatorKind <https://semantic-flow.github.io/ontology/config/targetAccessUrlLocatorKind> ;
     sfcfg:allowedRemoteScheme "https" ;
     sfcfg:allowedRemoteOrigin "https://raw.githubusercontent.com"^^xsd:anyURI
   ] .
@@ -263,7 +264,7 @@ Machine-local access policy:
 
 This task is now the natural home for the operational-config questions that `[[wd.task.2026.2026-04-08_1545-resource-page-definition-and-sources]]` should not have to carry by itself:
 
-- allowed-directory rules for `targetMeshPath` and `workingFilePath`
+- allowed-directory rules for `targetLocalRelativePath` and `workingLocalRelativePath`
 - remote-use policy for `targetAccessUrl`
 - remote-use policy for `workingAccessUrl`
 - CLI-versus-daemon loading and precedence
@@ -274,8 +275,8 @@ That lets `1545` stay focused on page-definition behavior instead of turning int
 
 - How config discovery and precedence should work across explicit CLI arguments, environment, and optional default file locations.
 - How to express policy for multiple meshes in one checkout or one daemon process without reviving the old `meshPaths` service-registration framing as the primary abstraction.
-- How strict the repo-traveling boundary should be: inside mesh only, inside repo only, or a constrained set of repo-adjacent paths rooted from the checkout.
-- Whether `/.sf-repo-access.ttl` and `~/.sf-local-access.ttl` should be the first-pass conventional file names or only documented example conventions.
+- How strict the mesh-carried boundary should be: inside mesh only, inside workspace only, or a constrained set of workspace-adjacent paths rooted from the active workspace.
+- Whether `_mesh/_config/config.ttl` and `~/.sf-local-access.ttl` should be the first-pass conventional file names or only documented example conventions.
 - Whether remote policy should be all-or-nothing at first or should immediately support scheme/origin allowlists.
 - Whether the positive-allow-only first pass should later grow explicit deny or local-override vocabulary.
 - How operational config should be surfaced in tests so extra-mesh path cases are easy to exercise without hiding policy in global environment state.
@@ -291,7 +292,7 @@ That lets `1545` stay focused on page-definition behavior instead of turning int
 - Service-host concerns such as port binding, contained service toggles, and log rotation should not define the center of this task.
 - The first-pass local-boundary model should use explicit `LocalPathAccessRule` resources with a declared base plus `pathPrefix`, not regex or implicit path semantics.
 - The first-pass remote-boundary model should use explicit `RemoteAccessRule` resources with locator-kind plus scheme/origin constraints.
-- Allowed-directory rules for `workingFilePath` and `targetMeshPath` should live in operational config, not in persisted mesh RDF.
+- Allowed-directory rules for `workingLocalRelativePath` and `targetLocalRelativePath` should live in operational config, not in persisted mesh RDF.
 - Remote-use rules for `workingAccessUrl` and `targetAccessUrl` should also live in operational config, not in persisted mesh RDF.
 - The first widening target should be controlled extra-mesh local path resolution through configured allowed directories, not remote fetching.
 - Repo-traveling operational policy and machine-local operational policy should be modeled as distinct layers, even if they share vocabulary.
@@ -305,17 +306,17 @@ That lets `1545` stay focused on page-definition behavior instead of turning int
 
 - Introduce a modern operational-config task and vocabulary direction for runtime resolution policy.
 - Define a shared config shape that can be consumed by both CLI and daemon execution surfaces.
-- Define a repo-traveling operational access layer and a machine-local operational access layer with explicit first-pass combination semantics.
-- Define allowed local-directory policy for `workingFilePath` and `targetMeshPath` through `LocalPathAccessRule`, `LocalPathBase`, and `pathPrefix`.
+- Define a mesh-carried config layer and a machine-local config layer with explicit first-pass combination semantics.
+- Define allowed local-directory policy for `workingLocalRelativePath` and `targetLocalRelativePath` through `LocalPathAccessRule`, `LocalPathBase`, and `pathPrefix`.
 - Define remote-access policy for `workingAccessUrl` and `targetAccessUrl` through `RemoteAccessRule`, locator kind, and scheme/origin constraints.
 - Define config-loading and precedence expectations at the runtime boundary.
 - Define how operational config interacts with portable mesh RDF without requiring absolute host paths in core data.
-- Define whether first-pass conventional discovery includes files such as `/.sf-repo-access.ttl` and `~/.sf-local-access.ttl`.
+- Define whether first-pass conventional discovery includes files such as `_mesh/_config/config.ttl` and `~/.sf-local-access.ttl`.
 
 ## Testing
 
-- Add focused runtime tests proving `workingFilePath` and `targetMeshPath` reject `../...` paths when no operational allowance is configured.
-- Add focused runtime tests proving `workingFilePath` and `targetMeshPath` can resolve `../...` paths when they remain within configured allowed local directories.
+- Add focused runtime tests proving `workingLocalRelativePath` and `targetLocalRelativePath` reject `../...` paths when no operational allowance is configured.
+- Add focused runtime tests proving `workingLocalRelativePath` and `targetLocalRelativePath` can resolve `../...` paths when they remain within configured allowed local directories.
 - Add fail-closed tests for malformed operational config.
 - Add CLI-facing coverage proving the CLI can load and apply the operational config rather than silently bypassing it.
 - Add daemon-facing coverage later if or when daemon runtime loading becomes real enough to exercise the same policy surface.
@@ -341,7 +342,7 @@ That lets `1545` stay focused on page-definition behavior instead of turning int
 ### Phase 1: Define The Config Contract
 
 - [x] Draft the first-pass operational-config vocabulary and example shapes.
-- [x] Draft the split between repo-traveling access policy and machine-local access policy, including likely conventions such as `/.sf-repo-access.ttl` and `~/.sf-local-access.ttl`.
+- [x] Draft the split between mesh-carried access policy and machine-local access policy, including likely conventions such as `_mesh/_config/config.ttl` and `~/.sf-local-access.ttl`.
 - [x] Define the runtime-facing semantics for allowed local directories, remote-access policy, and fail-closed behavior.
 - [x] Define CLI/daemon/shared consumption expectations and config precedence rules.
 - [x] Decide whether the first-pass access checker compares resolved paths against allowed roots, allowed prefixes, or richer directory resources.
@@ -350,8 +351,8 @@ That lets `1545` stay focused on page-definition behavior instead of turning int
 ### Phase 2: Implement Local Boundary Policy
 
 - [x] Add runtime loading for the new operational config in a way that CLI and daemon can both consume.
-- [x] Broaden `workingFilePath` handling so `../...` is allowed only within configured allowed local directories.
-- [x] Broaden `targetMeshPath` handling so `../...` is allowed only within configured allowed local directories.
+- [x] Broaden `workingLocalRelativePath` handling so `../...` is allowed only within configured allowed local directories.
+- [x] Broaden `targetLocalRelativePath` handling so `../...` is allowed only within configured allowed local directories.
 - [x] Keep fail-closed behavior for malformed paths, missing config, or paths outside the configured boundary.
 
 ### Phase 3: Defer Or Gate Remote Policy Carefully

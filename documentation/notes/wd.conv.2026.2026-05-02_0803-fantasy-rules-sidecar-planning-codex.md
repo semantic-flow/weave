@@ -733,3 +733,177 @@ Committed locally on `01-source-only`:
 ```
 
 No push made.
+
+# User_2026-05-02_1635_23
+
+let's add a fant:level datatype property, integer, range 0 - 20
+
+let's add a fant:level datatype property, integer, range 0 - 20
+
+# gpt-5.5_2026-05-02_1635_42
+
+I’ll add it as an ontology datatype property and a SHACL constraint on `CharacterShape`: integer, optional, single-valued unless you’d rather allow multiple levels, with inclusive bounds 0 and 20.
+
+# gpt-5.5_2026-05-02_1635_48
+
+There’s an untracked `examples/` directory in the fixture repo, so I’ll leave that alone and only touch the ontology and SHACL files.
+
+# gpt-5.5_2026-05-02_1636_15
+
+Validation passed. I’ll commit just the ontology and SHACL changes, leaving the untracked `examples/` directory untouched.
+
+# gpt-5.5_2026-05-02_1636_31
+
+Added `fant:level`.
+
+Changes:
+- [fantasy-rules-ontology.ttl](../../dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules/ontology/fantasy-rules-ontology.ttl): `fant:level` as an `owl:DatatypeProperty` on `fant:Character`, `rdfs:range xsd:integer`.
+- [fantasy-rules-shacl.ttl](../../dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules/shacl/fantasy-rules-shacl.ttl): optional `fant:level` property with `xsd:integer`, `sh:minInclusive 0`, `sh:maxInclusive 20`, `sh:maxCount 1`.
+
+Validated with `riot --validate ontology/fantasy-rules-ontology.ttl shacl/fantasy-rules-shacl.ttl`.
+
+Committed locally:
+
+```text
+2941a8d Add character level term and shape
+```
+
+I left the untracked `examples/` directory untouched.
+
+# User_2026-05-02_1642_37
+
+OK, and let's add fant:CharacterClass and use the below enumeration. You can ignore "Likes" and "Complexity", but add a fant:primaryAbility property, and appropriate SHACL constraints, including and vs or for primary ability.
+
+Table: Class Overview
+Class 	Likes 	Primary Ability 	Complexity
+Barbarian 	Battle 	Strength 	Average
+Bard 	Performing 	Charisma 	High
+Cleric 	Gods 	Wisdom 	Average
+Druid 	Nature 	Wisdom 	High
+Fighter 	Weapons 	Strength or Dexterity 	Low
+Monk 	Unarmed combat 	Dexterity and Wisdom 	High
+Paladin 	Defense 	Strength and Charisma 	Average
+Ranger 	Survival 	Dexterity and Wisdom 	Average
+Rogue 	Stealth 	Dexterity 	Low
+Sorcerer 	Power 	Charisma 	High
+Warlock 	Occult lore 	Charisma 	High
+Wizard 	Spellbooks 	Intelligence 	Average
+
+# gpt-5.5_2026-05-02_1642_55
+
+I’ll model the class overview as `fant:CharacterClass` individuals plus a `fant:primaryAbility` relation. For the SHACL side I’ll keep the base `CharacterClassShape` simple, then add per-class node shapes that distinguish “or” classes from “and” classes.
+
+# gpt-5.5_2026-05-02_1644_09
+
+I’ll update the fixture ontology and SHACL in the sidecar repo only. I’m going to keep the class overview as source/reference data with repeated `fant:primaryAbility` values where the SRD lists more than one, then use SHACL node shapes to distinguish single-value, `or`, and `and` cases.
+
+# gpt-5.5_2026-05-02_1644_23
+
+The existing graph has a clean lower-camel pattern for individuals, so I’ll add `fant:barbarian` etc. as `fant:CharacterClass` instances. For Fighter I’ll model the table alternatives as two listed primary abilities, with SHACL allowing either listed ability; for Monk/Paladin/Ranger the shapes require both listed abilities.
+
+# gpt-5.5_2026-05-02_1645_29
+
+The edits are in place. I’m checking Turtle syntax and the patch shape now; if a SHACL validator is available locally I’ll run that too, otherwise I’ll at least do RDF syntax validation and whitespace checks.
+
+# gpt-5.5_2026-05-02_1645_40
+
+Syntax and whitespace checks passed. I’m doing one more local validation pass if the environment has a SHACL runner; otherwise this is limited to Turtle parsing.
+
+# gpt-5.5_2026-05-02_1646_13
+
+The SHACL graph validates the ontology as conforming with Jena’s `shacl validate`. I’m going to commit only the ontology and SHACL changes on `01-source-only`; the untracked `examples/` directory remains untouched.
+
+# gpt-5.5_2026-05-02_1646_39
+
+Added and committed in `mesh-sidecar-fantasy-rules` on `01-source-only`.
+
+Changed:
+- [fantasy-rules-ontology.ttl](../../dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules/ontology/fantasy-rules-ontology.ttl:44): added `fant:CharacterClass`, `fant:primaryAbility`, and the SRD class instances.
+- [fantasy-rules-shacl.ttl](../../dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules/shacl/fantasy-rules-shacl.ttl:38): added class/primary-ability constraints, including separate `or` handling for Fighter and `and` handling for Monk, Paladin, and Ranger.
+
+Validation:
+- `riot --validate ontology/fantasy-rules-ontology.ttl shacl/fantasy-rules-shacl.ttl`
+- `shacl validate --shapes shacl/fantasy-rules-shacl.ttl --data ontology/fantasy-rules-ontology.ttl --text` returned `Conforms`
+- `git diff --check`
+
+Commit:
+- `fa1d32e Add character class primary abilities`
+
+No push. `examples/` is still untracked and untouched.
+
+# User_2026-05-02_1655_30
+
+Sorry, we haven't captured the fighter case: players have to choose strength or dexterity. Characters have a primaryAbility, not CharacterClasses. And SHACL constrains which.
+
+# gpt-5.5_2026-05-02_1655_46
+
+You’re right: putting `fant:primaryAbility` on `fant:CharacterClass` made the class overview look like reference metadata, but it doesn’t model the player choice. I’m going to move `primaryAbility` onto `Character`, add a `hasCharacterClass` link, keep class individuals as the enumeration, and make SHACL validate the allowed/required primary abilities per chosen class.
+
+# gpt-5.5_2026-05-02_1656_39
+
+I found the prior commit is clean except for the conceptual issue you flagged. I’m going to replace the class-targeted primary ability shapes with character-targeted choice shapes, because otherwise the ontology cannot express “this Fighter character chose Dexterity” versus “the Fighter class lists two options.”
+
+# gpt-5.5_2026-05-02_1658_25
+
+The ontology now has no class-level `primaryAbility` facts; the class nodes are just the enumeration. I’m validating both syntax and the revised SHACL behavior, including a focused check that a Fighter with both Strength and Dexterity fails.
+
+# gpt-5.5_2026-05-02_1659_04
+
+The focused check behaved correctly: a Fighter choosing Dexterity conforms, and a Fighter with both Strength and Dexterity produces an `sh:or` violation. I’m doing the normal ontology-as-data validation now, then I’ll commit the correction separately.
+
+# gpt-5.5_2026-05-02_1659_22
+
+The correction is coherent now: `fant:hasCharacterClass` selects the class, `fant:primaryAbility` lives on the character, and Fighter’s shape requires exactly one of Strength or Dexterity. I’m committing this as a follow-up fix rather than rewriting the existing local branch history.
+
+# gpt-5.5_2026-05-02_1659_39
+
+Corrected and committed as `1d77ec3 Move primary ability choices to characters`.
+
+What changed:
+- [fantasy-rules-ontology.ttl](../../dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules/ontology/fantasy-rules-ontology.ttl:73): added `fant:hasCharacterClass`.
+- [fantasy-rules-ontology.ttl](../../dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules/ontology/fantasy-rules-ontology.ttl:79): changed `fant:primaryAbility` domain to `fant:Character`.
+- Removed `fant:primaryAbility` facts from the `fant:CharacterClass` individuals.
+- [fantasy-rules-shacl.ttl](../../dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules/shacl/fantasy-rules-shacl.ttl:50): replaced class-node constraints with character-node class/primary-ability choice constraints.
+
+Validation:
+- Turtle syntax passed with `riot --validate`.
+- SHACL ontology validation returned `Conforms`.
+- Focused temp check: Fighter with Dexterity conforms; Fighter with both Strength and Dexterity fails with an `sh:or` violation.
+
+No push. `examples/` remains untracked and untouched.
+
+# User_2026-05-02_1701_51
+
+OK, now generate [gunaar.ttl](../../dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules/examples/gunaar.ttl) as "Gunaar", a level 2 barbarian, str 18, dex 15, con 16, int 13, wis 14, cha 12
+
+# gpt-5.5_2026-05-02_1702_05
+
+I’ll fill the example as SHACL-valid data against the current ontology: explicit `fant:Character` plus `fant:PlayerCharacter`, class selection, primary ability, level, and six named ability score nodes.
+
+# gpt-5.5_2026-05-02_1702_20
+
+The example is written. I’m validating the Turtle and checking it against the SHACL graph with the ontology included as data so the referenced classes and abilities are present.
+
+# gpt-5.5_2026-05-02_1702_40
+
+The file parses, but my first combined SHACL validation used a nameless temp file and Jena could not infer its RDF syntax. I’m rerunning that with a `.ttl` suffix and then I’ll commit the example file only.
+
+# gpt-5.5_2026-05-02_1702_58
+
+`examples/` contains only `gunaar.ttl`, and the combined ontology-plus-example SHACL validation returns `Conforms`. I’m committing this as a source-only example fixture now.
+
+# gpt-5.5_2026-05-02_1703_08
+
+Generated and committed [gunaar.ttl](../../dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules/examples/gunaar.ttl:1).
+
+It models Gunaar as a level 2 Barbarian with `fant:primaryAbility fant:strength` and all six ability scores.
+
+Validation passed:
+- `riot --validate examples/gunaar.ttl`
+- combined ontology + example SHACL validation returned `Conforms`
+- `git diff --check`
+
+Commit:
+- `8e57c62 Add Gunaar character example`
+
+Working tree is clean on `01-source-only`.

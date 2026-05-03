@@ -18,7 +18,7 @@ const SFLO_HAS_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasPayloadArtifact`;
 const SFLO_HAS_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}hasReferenceCatalog`;
 const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
   `${SFLO_NAMESPACE}hasWorkingLocatedFile`;
-const SFLO_WORKING_FILE_PATH_IRI = `${SFLO_NAMESPACE}workingFilePath`;
+const SFLO_WORKING_FILE_PATH_IRI = `${SFLO_NAMESPACE}workingLocalRelativePath`;
 const SFLO_KNOP_IRI = `${SFLO_NAMESPACE}Knop`;
 const SFLO_LATEST_HISTORICAL_STATE_IRI =
   `${SFLO_NAMESPACE}latestHistoricalState`;
@@ -32,7 +32,7 @@ const SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI =
   `${SFC_NAMESPACE}hasResourcePageDefinition`;
 
 export interface PayloadArtifactInventoryState {
-  workingFilePath: string;
+  workingLocalRelativePath: string;
   currentArtifactHistoryPath?: string;
   currentArtifactHistoryExists: boolean;
   latestHistoricalStatePath?: string;
@@ -40,12 +40,12 @@ export interface PayloadArtifactInventoryState {
 }
 
 export interface ReferenceCatalogInventoryState {
-  workingFilePath: string;
+  workingLocalRelativePath: string;
 }
 
 export interface ResourcePageDefinitionInventoryState {
   artifactPath: string;
-  workingFilePath: string;
+  workingLocalRelativePath: string;
   currentArtifactHistoryPath?: string;
   currentArtifactHistoryExists: boolean;
   latestHistoricalStatePath?: string;
@@ -118,7 +118,7 @@ export function resolvePayloadArtifactInventoryState(
     return undefined;
   }
 
-  const workingFilePath = requireWorkingFilePath(
+  const workingLocalRelativePath = requireWorkingLocalRelativePath(
     quads,
     meshBase,
     payloadArtifactIri,
@@ -159,7 +159,7 @@ export function resolvePayloadArtifactInventoryState(
     : undefined;
 
   return {
-    workingFilePath,
+    workingLocalRelativePath,
     currentArtifactHistoryPath,
     currentArtifactHistoryExists,
     latestHistoricalStatePath,
@@ -199,7 +199,7 @@ export function resolveReferenceCatalogInventoryState(
   }
 
   return {
-    workingFilePath: requireWorkingFilePath(
+    workingLocalRelativePath: requireWorkingLocalRelativePath(
       quads,
       meshBase,
       referenceCatalogIri,
@@ -236,7 +236,7 @@ export function resolveResourcePageDefinitionInventoryState(
   }
 
   const artifactIri = toMeshIri(meshBase, artifactPath);
-  const workingFilePath = requireWorkingFilePath(
+  const workingLocalRelativePath = requireWorkingLocalRelativePath(
     quads,
     meshBase,
     artifactIri,
@@ -277,7 +277,7 @@ export function resolveResourcePageDefinitionInventoryState(
 
   return {
     artifactPath,
-    workingFilePath,
+    workingLocalRelativePath,
     currentArtifactHistoryPath,
     currentArtifactHistoryExists,
     latestHistoricalStatePath,
@@ -408,19 +408,20 @@ function hasNamedNodeObject(
   );
 }
 
-function requireWorkingFilePath(
+function requireWorkingLocalRelativePath(
   quads: readonly Quad[],
   meshBase: string,
   subjectIri: string,
   errorMessage: string,
 ): string {
-  const literalWorkingFilePath = resolveOptionalUniqueLiteralWorkingFilePath(
-    quads,
-    subjectIri,
-    SFLO_WORKING_FILE_PATH_IRI,
-    errorMessage,
-  );
-  const locatedWorkingFilePath = resolveOptionalUniqueNamedNodePath(
+  const literalWorkingLocalRelativePath =
+    resolveOptionalUniqueLiteralWorkingLocalRelativePath(
+      quads,
+      subjectIri,
+      SFLO_WORKING_FILE_PATH_IRI,
+      errorMessage,
+    );
+  const locatedWorkingLocalRelativePath = resolveOptionalUniqueNamedNodePath(
     quads,
     meshBase,
     subjectIri,
@@ -429,18 +430,18 @@ function requireWorkingFilePath(
   );
 
   if (
-    literalWorkingFilePath !== undefined &&
-    locatedWorkingFilePath !== undefined &&
-    literalWorkingFilePath !== locatedWorkingFilePath
+    literalWorkingLocalRelativePath !== undefined &&
+    locatedWorkingLocalRelativePath !== undefined &&
+    literalWorkingLocalRelativePath !== locatedWorkingLocalRelativePath
   ) {
     throw new Error(errorMessage);
   }
 
-  if (literalWorkingFilePath !== undefined) {
-    return literalWorkingFilePath;
+  if (literalWorkingLocalRelativePath !== undefined) {
+    return literalWorkingLocalRelativePath;
   }
-  if (locatedWorkingFilePath !== undefined) {
-    return locatedWorkingFilePath;
+  if (locatedWorkingLocalRelativePath !== undefined) {
+    return locatedWorkingLocalRelativePath;
   }
 
   throw new Error(errorMessage);
@@ -520,7 +521,7 @@ function resolveOptionalHistoricalStateLocatedFilePath(
   return shortcutLocatedFilePath ?? manifestationLocatedFilePath;
 }
 
-function resolveOptionalUniqueLiteralWorkingFilePath(
+function resolveOptionalUniqueLiteralWorkingLocalRelativePath(
   quads: readonly Quad[],
   subjectIri: string,
   predicateIri: string,
@@ -538,7 +539,9 @@ function resolveOptionalUniqueLiteralWorkingFilePath(
       continue;
     }
 
-    values.add(normalizeWorkingFilePath(quad.object.value, errorMessage));
+    values.add(
+      normalizeWorkingLocalRelativePath(quad.object.value, errorMessage),
+    );
   }
 
   if (values.size === 0) {
@@ -551,7 +554,7 @@ function resolveOptionalUniqueLiteralWorkingFilePath(
   return values.values().next().value!;
 }
 
-function normalizeWorkingFilePath(
+function normalizeWorkingLocalRelativePath(
   value: string,
   errorMessage: string,
 ): string {

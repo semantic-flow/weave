@@ -101,7 +101,7 @@ The first-pass source kinds are:
 
 ### Mesh-local files
 
-Local authored files are resolved through `targetMeshPath` directly on the `ResourcePageSource`.
+Local authored files are resolved through `targetLocalRelativePath` directly on the `ResourcePageSource`.
 
 Behavioral consequences:
 
@@ -119,7 +119,7 @@ A page source may point at an in-mesh governed artifact through the generic `Art
 Behavioral consequences:
 
 - the source target is a governed in-mesh artifact, not an arbitrary path string
-- `Current` mode follows the source artifact's `workingFilePath` when present, otherwise its `workingAccessUrl` when an operational profile explicitly allows remote current-byte access, otherwise its current `hasWorkingLocatedFile`
+- `Current` mode follows the source artifact's `workingLocalRelativePath` when present, otherwise its `workingAccessUrl` when an operational profile explicitly allows remote current-byte access, otherwise its current `hasWorkingLocatedFile`
 - `Pinned` mode follows the requested historical state rather than the working file
 - fallback policy constrains what may happen if the requested state cannot be used as requested
 
@@ -131,7 +131,7 @@ The broader `ArtifactResolutionTarget` model may also name target bytes directly
 
 Behavioral consequences:
 
-- `targetAccessUrl` is the direct remote/external counterpart to `targetMeshPath`
+- `targetAccessUrl` is the direct remote/external counterpart to `targetLocalRelativePath`
 - it names target bytes without requiring an intermediate governed artifact or `LocatedFile`
 - using it remains subject to explicit operational network policy
 
@@ -139,19 +139,19 @@ For this first page-generation slice, direct `targetAccessUrl` on `ResourcePageS
 
 ### Working-Path Precedence And Consistency
 
-For governed artifacts, `workingFilePath` and `hasWorkingLocatedFile` do different jobs.
+For governed artifacts, `workingLocalRelativePath` and `hasWorkingLocatedFile` do different jobs.
 
-- `workingFilePath` is the operational local-path hook that runtime should use to find the current working bytes
+- `workingLocalRelativePath` is the operational local-path hook that runtime should use to find the current working bytes
 - `workingAccessUrl` is the operational remote/external current-byte hook when a runtime is explicitly allowed to fetch or stream current bytes from outside the local filesystem
 - `hasWorkingLocatedFile` remains the semantic `LocatedFile` relation when the current working bytes are also modeled as a mesh-addressable file resource
 - if multiple current-byte locators are present and denote the same current working surface, they should agree
 - if multiple current-byte locators are present and disagree about the current working bytes, the runtime should fail closed rather than silently picking one
-- if `workingFilePath` points outside the mesh tree under an allowed local-directory policy, `hasWorkingLocatedFile` may be absent
+- if `workingLocalRelativePath` points outside the mesh tree under an allowed local-directory policy, `hasWorkingLocatedFile` may be absent
 - if only `workingAccessUrl` is present, a runtime that does not explicitly allow remote current-byte access should fail closed rather than silently fetching
 
 ### Operational Boundary For Local Paths
 
-Allowed local-path boundaries for `targetMeshPath` and `workingFilePath`, and network-use policy for `targetAccessUrl` and `workingAccessUrl`, belong to operational configuration, not to page-definition RDF itself.
+Allowed local-path boundaries for `targetLocalRelativePath` and `workingLocalRelativePath`, and network-use policy for `targetAccessUrl` and `workingAccessUrl`, belong to operational configuration, not to page-definition RDF itself.
 
 First-pass implications:
 
@@ -236,9 +236,9 @@ That includes at least these cases:
 
 - `_knop/_page/page.ttl` is missing after `_knop/_page` has been declared or discovered as present
 - the page definition cannot be parsed or validated well enough to resolve regions and sources
-- a `targetMeshPath` source is malformed, missing, or escapes the currently allowed local-directory boundary
+- a `targetLocalRelativePath` source is malformed, missing, or escapes the currently allowed local-directory boundary
 - a `targetAccessUrl` source is present, but the active operational profile does not allow remote target access
-- a governed source artifact has inconsistent `workingFilePath` and `hasWorkingLocatedFile` assertions for the same current working surface
+- a governed source artifact has inconsistent `workingLocalRelativePath` and `hasWorkingLocatedFile` assertions for the same current working surface
 - a governed source artifact resolves only through `workingAccessUrl`, but the active operational profile does not allow remote current-byte access
 - a pinned in-mesh source cannot be resolved under `ExactOnly`
 - an imported-source artifact lacks the in-tree governed artifact or current `WorkingLocatedFile` that generation is supposed to follow
@@ -325,7 +325,7 @@ What `15` should prove:
 - `alice/index.html` now follows the customized definition rather than the generic identifier renderer
 - `alice/index.html` may reference `alice/_knop/_assets/...` directly, without a copied `alice/_assets/...` surface
 - Alice support-artifact pages remain under generic generation unless separately specified
-- malformed or unresolved `targetMeshPath` inputs would have failed the operation instead of falling back silently
+- malformed or unresolved `targetLocalRelativePath` inputs would have failed the operation instead of falling back silently
 
 ### Follow-on non-root coverage
 
@@ -363,7 +363,7 @@ Current Accord manifests:
 `18/19` should prove:
 
 - one Alice page region now targets a governed in-mesh Markdown-bearing artifact such as `alice/page-main` rather than an RDF dataset artifact
-- page generation follows that artifact's current working surface rather than a direct `targetMeshPath`
+- page generation follows that artifact's current working surface rather than a direct `targetLocalRelativePath`
 - the carried fixture pair stays narrow at default / `Current` behavior and does not yet require pinned-state or fallback semantics
 
 `20/21` should prove:
@@ -415,7 +415,7 @@ What the root continuation should prove:
 
 `24/25` now finish that continuation:
 
-- `_knop/_page/page.ttl` can customize root `index.html` using the same `targetMeshPath`-driven page-source model used for non-root identifiers
+- `_knop/_page/page.ttl` can customize root `index.html` using the same `targetLocalRelativePath`-driven page-source model used for non-root identifiers
 - root-owned support assets can live at `_knop/_assets/...` and be referenced directly from the customized root page
 - root `_knop/_page` versions as a normal support artifact and advances root `_knop/_inventory` without widening `_mesh/_inventory`
 - root page-definition weave must not invent `_knop/_references` when the root Knop does not already own a reference catalog

@@ -56,7 +56,7 @@ export class ExtractRuntimeError extends Error {
 
 interface ExtractSourcePayload {
   designatorPath: string;
-  workingFilePath: string;
+  workingLocalRelativePath: string;
   latestHistoricalStatePath: string;
   currentPayloadTurtle: string;
 }
@@ -114,7 +114,8 @@ export async function executeExtract(
       designatorPath: normalizedDesignatorPath,
       referenceTargetDesignatorPath: sourcePayload.designatorPath,
       referenceTargetStatePath: sourcePayload.latestHistoricalStatePath,
-      referenceTargetWorkingFilePath: sourcePayload.workingFilePath,
+      referenceTargetWorkingLocalRelativePath:
+        sourcePayload.workingLocalRelativePath,
     });
     await assertUpdatedTargetsExist(workspaceRoot, plan);
     await assertCreateTargetsDoNotExist(workspaceRoot, plan);
@@ -361,12 +362,12 @@ async function loadExtractSourcePayloadCandidate(
   const currentPayloadTurtle = await readPayloadWorkingFile(
     workspaceRoot,
     designatorPath,
-    payloadArtifact.workingFilePath,
+    payloadArtifact.workingLocalRelativePath,
   );
 
   return {
     designatorPath,
-    workingFilePath: payloadArtifact.workingFilePath,
+    workingLocalRelativePath: payloadArtifact.workingLocalRelativePath,
     latestHistoricalStatePath: payloadArtifact.latestHistoricalStatePath,
     currentPayloadTurtle,
   };
@@ -375,16 +376,19 @@ async function loadExtractSourcePayloadCandidate(
 async function readPayloadWorkingFile(
   workspaceRoot: string,
   designatorPath: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
 ): Promise<string> {
-  const absoluteWorkingFilePath = join(workspaceRoot, workingFilePath);
+  const absoluteWorkingLocalRelativePath = join(
+    workspaceRoot,
+    workingLocalRelativePath,
+  );
 
   try {
-    return await Deno.readTextFile(absoluteWorkingFilePath);
+    return await Deno.readTextFile(absoluteWorkingLocalRelativePath);
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new ExtractRuntimeError(
-        `Working payload file for ${designatorPath} does not exist: ${workingFilePath}`,
+        `Working payload file for ${designatorPath} does not exist: ${workingLocalRelativePath}`,
       );
     }
     throw error;

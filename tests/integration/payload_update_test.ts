@@ -39,7 +39,7 @@ Deno.test("executePayloadUpdate matches the settled alice-bio updated fixture", 
   });
 
   assertEquals(result.designatorPath, "alice/bio");
-  assertEquals(result.workingFilePath, "alice-bio.ttl");
+  assertEquals(result.workingLocalRelativePath, "alice-bio.ttl");
   assertEquals(result.updatedPaths, ["alice-bio.ttl"]);
   assertEquals(
     await Deno.readTextFile(join(workspaceRoot, "alice-bio.ttl")),
@@ -100,7 +100,7 @@ Deno.test("executePayloadUpdate supports the root designator path", async () => 
   });
 
   assertEquals(result.designatorPath, "");
-  assertEquals(result.workingFilePath, "root.ttl");
+  assertEquals(result.workingLocalRelativePath, "root.ttl");
   assertEquals(result.updatedPaths, ["root.ttl"]);
   assertEquals(
     await Deno.readTextFile(join(workspaceRoot, "root.ttl")),

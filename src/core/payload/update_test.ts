@@ -5,7 +5,7 @@ import { PayloadUpdateInputError, planPayloadUpdate } from "./update.ts";
 Deno.test("planPayloadUpdate renders the first payload-update slice", async () => {
   const plan = planPayloadUpdate({
     designatorPath: "alice/bio",
-    workingFilePath: "alice-bio.ttl",
+    workingLocalRelativePath: "alice-bio.ttl",
     replacementPayloadTurtle: await readMeshAliceBioBranchFile(
       "10-alice-bio-updated",
       "alice-bio.ttl",
@@ -21,7 +21,7 @@ Deno.test("planPayloadUpdate renders the first payload-update slice", async () =
     plan.payloadArtifactIri,
     "https://semantic-flow.github.io/mesh-alice-bio/alice/bio",
   );
-  assertEquals(plan.workingFilePath, "alice-bio.ttl");
+  assertEquals(plan.workingLocalRelativePath, "alice-bio.ttl");
   assertEquals(plan.updatedFiles.map((file) => file.path), ["alice-bio.ttl"]);
   assertEquals(
     plan.updatedFiles[0]?.contents,
@@ -34,7 +34,7 @@ Deno.test("planPayloadUpdate rejects an inventory that does not resolve the wove
     () =>
       planPayloadUpdate({
         designatorPath: "alice/bio",
-        workingFilePath: "alice-bio.ttl",
+        workingLocalRelativePath: "alice-bio.ttl",
         replacementPayloadTurtle: "@base <https://example.org/> .\n",
         meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
         currentKnopInventoryTurtle:
@@ -53,7 +53,7 @@ Deno.test("planPayloadUpdate rejects an inventory that does not resolve the wove
 Deno.test("planPayloadUpdate accepts semantically equivalent woven payload inventory turtle", () => {
   const plan = planPayloadUpdate({
     designatorPath: "alice/bio",
-    workingFilePath: "alice-bio.ttl",
+    workingLocalRelativePath: "alice-bio.ttl",
     replacementPayloadTurtle: "@base <https://example.org/> .\n",
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentKnopInventoryTurtle:

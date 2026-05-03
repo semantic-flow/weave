@@ -58,7 +58,7 @@ interface CurrentIntegrateMeshState {
 
 export interface IntegrateRequest {
   designatorPath: string;
-  workingFilePath: string;
+  workingLocalRelativePath: string;
 }
 
 export interface ResolvedIntegrateRequest extends IntegrateRequest {
@@ -71,7 +71,7 @@ export interface IntegratePlan {
   designatorPath: string;
   payloadArtifactIri: string;
   knopIri: string;
-  workingFilePath: string;
+  workingLocalRelativePath: string;
   createdFiles: readonly PlannedFile[];
   updatedFiles: readonly PlannedFile[];
 }
@@ -88,14 +88,16 @@ export function planIntegrate(
 ): IntegratePlan {
   const meshBase = normalizeMeshBase(request.meshBase);
   const designatorPath = normalizeDesignatorPath(request.designatorPath);
-  const workingFilePath = normalizeWorkingFilePath(request.workingFilePath);
+  const workingLocalRelativePath = normalizeWorkingLocalRelativePath(
+    request.workingLocalRelativePath,
+  );
   const knopPath = toKnopPath(designatorPath);
   const knopInventoryPath = `${knopPath}/_inventory/inventory.ttl`;
   const updatedMeshInventoryTurtle = renderUpdatedMeshInventoryTurtle(
     meshBase,
     request.currentMeshInventoryTurtle,
     designatorPath,
-    workingFilePath,
+    workingLocalRelativePath,
   );
 
   return {
@@ -103,7 +105,7 @@ export function planIntegrate(
     designatorPath,
     payloadArtifactIri: new URL(designatorPath, meshBase).href,
     knopIri: new URL(knopPath, meshBase).href,
-    workingFilePath,
+    workingLocalRelativePath,
     createdFiles: [
       {
         path: `${knopPath}/_meta/meta.ttl`,
@@ -114,7 +116,7 @@ export function planIntegrate(
         contents: renderKnopInventoryTurtle(
           meshBase,
           designatorPath,
-          workingFilePath,
+          workingLocalRelativePath,
         ),
       },
     ],
@@ -161,17 +163,19 @@ function normalizeDesignatorPath(designatorPath: string): string {
   );
 }
 
-function normalizeWorkingFilePath(workingFilePath: string): string {
-  const trimmed = workingFilePath.trim();
+function normalizeWorkingLocalRelativePath(
+  workingLocalRelativePath: string,
+): string {
+  const trimmed = workingLocalRelativePath.trim();
   if (trimmed.length === 0) {
-    throw new IntegrateInputError("workingFilePath is required");
+    throw new IntegrateInputError("workingLocalRelativePath is required");
   }
   if (
     trimmed.startsWith("/") || trimmed.endsWith("/") ||
     /^[A-Za-z]:/.test(trimmed)
   ) {
     throw new IntegrateInputError(
-      "workingFilePath must be a relative file path",
+      "workingLocalRelativePath must be a relative file path",
     );
   }
   if (
@@ -179,40 +183,49 @@ function normalizeWorkingFilePath(workingFilePath: string): string {
     /\s/.test(trimmed)
   ) {
     throw new IntegrateInputError(
-      "workingFilePath contains unsupported path characters",
+      "workingLocalRelativePath contains unsupported path characters",
     );
   }
 
   const normalized = pathPosix.normalize(trimmed);
   if (normalized === "." || normalized === "..") {
     throw new IntegrateInputError(
-      "workingFilePath must be a relative file path",
+      "workingLocalRelativePath must be a relative file path",
     );
   }
 
   const segments = normalized.split("/");
   if (segments.some((segment) => segment.length === 0)) {
     throw new IntegrateInputError(
-      "workingFilePath must not contain empty path segments",
+      "workingLocalRelativePath must not contain empty path segments",
     );
   }
 
   return normalized;
 }
 
-function usesMeshLocalWorkingLocatedFile(workingFilePath: string): boolean {
-  return !normalizeWorkingFilePath(workingFilePath).startsWith("../");
+function usesMeshLocalWorkingLocatedFile(
+  workingLocalRelativePath: string,
+): boolean {
+  return !normalizeWorkingLocalRelativePath(workingLocalRelativePath)
+    .startsWith("../");
 }
 
-function renderCurrentWorkingFileLocator(workingFilePath: string): string {
-  return usesMeshLocalWorkingLocatedFile(workingFilePath)
-    ? `sflo:hasWorkingLocatedFile <${workingFilePath}> .`
-    : `sflo:workingFilePath ${JSON.stringify(workingFilePath)} .`;
+function renderCurrentWorkingFileLocator(
+  workingLocalRelativePath: string,
+): string {
+  return usesMeshLocalWorkingLocatedFile(workingLocalRelativePath)
+    ? `sflo:hasWorkingLocatedFile <${workingLocalRelativePath}> .`
+    : `sflo:workingLocalRelativePath ${
+      JSON.stringify(workingLocalRelativePath)
+    } .`;
 }
 
-function renderCurrentWorkingFileDeclaration(workingFilePath: string): string {
-  return usesMeshLocalWorkingLocatedFile(workingFilePath)
-    ? `<${workingFilePath}> a sflo:LocatedFile, sflo:RdfDocument .`
+function renderCurrentWorkingFileDeclaration(
+  workingLocalRelativePath: string,
+): string {
+  return usesMeshLocalWorkingLocatedFile(workingLocalRelativePath)
+    ? `<${workingLocalRelativePath}> a sflo:LocatedFile, sflo:RdfDocument .`
     : "";
 }
 
@@ -233,14 +246,14 @@ function renderKnopMetadataTurtle(
 function renderKnopInventoryTurtle(
   meshBase: string,
   designatorPath: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
-    workingFilePath,
+    workingLocalRelativePath,
   );
   const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
-    workingFilePath,
+    workingLocalRelativePath,
   );
   return `@base <${meshBase}> .
 @prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
@@ -272,20 +285,20 @@ function renderUpdatedMeshInventoryTurtle(
   meshBase: string,
   currentMeshInventoryTurtle: string,
   designatorPath: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
 ): string {
   const currentState = resolveCurrentIntegrateMeshState(
     meshBase,
     currentMeshInventoryTurtle,
     designatorPath,
-    workingFilePath,
+    workingLocalRelativePath,
   );
 
   return renderFirstPayloadIntegratedMeshInventoryTurtle(
     meshBase,
     currentState,
     designatorPath,
-    workingFilePath,
+    workingLocalRelativePath,
   );
 }
 
@@ -293,7 +306,7 @@ function resolveCurrentIntegrateMeshState(
   meshBase: string,
   currentMeshInventoryTurtle: string,
   designatorPath: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
 ): CurrentIntegrateMeshState {
   const knopPath = toKnopPath(designatorPath);
   const errorMessage =
@@ -362,13 +375,13 @@ function resolveCurrentIntegrateMeshState(
     hasNamedNodeFact(
       quads,
       meshBase,
-      workingFilePath,
+      workingLocalRelativePath,
       RDF_TYPE_IRI,
       SFLO_LOCATED_FILE_IRI,
     )
   ) {
     throw new IntegrateInputError(
-      `mesh inventory already registers working file: ${workingFilePath}`,
+      `mesh inventory already registers working file: ${workingLocalRelativePath}`,
     );
   }
 
@@ -793,15 +806,15 @@ function renderFirstPayloadIntegratedMeshInventoryTurtle(
   meshBase: string,
   currentState: CurrentIntegrateMeshState,
   designatorPath: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const knopInventoryPath = `${knopPath}/_inventory/inventory.ttl`;
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
-    workingFilePath,
+    workingLocalRelativePath,
   );
   const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
-    workingFilePath,
+    workingLocalRelativePath,
   );
 
   return `@base <${meshBase}> .

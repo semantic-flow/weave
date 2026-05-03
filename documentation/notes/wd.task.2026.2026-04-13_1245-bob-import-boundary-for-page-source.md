@@ -91,7 +91,7 @@ This does introduce one deliberate semantic asymmetry: the imported page content
 ## Contract Changes
 
 - Introduce a first implementation-facing `import` contract for outside-origin content that becomes governed local artifact state.
-- Clarify how imported current bytes relate to existing `workingFilePath`, `workingAccessUrl`, and page-source artifact resolution semantics.
+- Clarify how imported current bytes relate to existing `workingLocalRelativePath`, `workingAccessUrl`, and page-source artifact resolution semantics.
 - Potentially introduce first-pass import metadata expectations in ontology/config notes if implementation requires them.
 
 ## Testing

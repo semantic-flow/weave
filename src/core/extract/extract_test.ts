@@ -42,7 +42,7 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
     designatorPath: "bob",
     referenceTargetDesignatorPath: "alice/bio",
     referenceTargetStatePath: "alice/bio/_history001/_s0002",
-    referenceTargetWorkingFilePath: "alice-bio.ttl",
+    referenceTargetWorkingLocalRelativePath: "alice-bio.ttl",
   });
 
   assertEquals(
@@ -116,7 +116,7 @@ Deno.test("planExtract accepts a root source payload when the root and source kn
     designatorPath: "alice/bio",
     referenceTargetDesignatorPath: "",
     referenceTargetStatePath: "_history001/_s0001",
-    referenceTargetWorkingFilePath: "root-person.ttl",
+    referenceTargetWorkingLocalRelativePath: "root-person.ttl",
   });
 
   assertEquals(
@@ -181,7 +181,7 @@ Deno.test("planExtract accepts a root source payload when the root and source kn
   );
 });
 
-Deno.test("planExtract rejects absolute referenceTargetWorkingFilePath values", async () => {
+Deno.test("planExtract rejects absolute referenceTargetWorkingLocalRelativePath values", async () => {
   const currentMeshInventoryTurtle = await readMeshAliceBioBranchFile(
     "11-alice-bio-v2-woven",
     "_mesh/_inventory/inventory.ttl",
@@ -195,7 +195,7 @@ Deno.test("planExtract rejects absolute referenceTargetWorkingFilePath values", 
         designatorPath: "bob",
         referenceTargetDesignatorPath: "alice/bio",
         referenceTargetStatePath: "alice/bio/_history001/_s0002",
-        referenceTargetWorkingFilePath: "/tmp/alice-bio.ttl",
+        referenceTargetWorkingLocalRelativePath: "/tmp/alice-bio.ttl",
       }),
     ExtractInputError,
     "mesh-relative file path",
@@ -216,7 +216,7 @@ Deno.test("planExtract preserves the original knop-planning error as the cause",
       designatorPath: "alice",
       referenceTargetDesignatorPath: "alice/bio",
       referenceTargetStatePath: "alice/bio/_history001/_s0002",
-      referenceTargetWorkingFilePath: "alice-bio.ttl",
+      referenceTargetWorkingLocalRelativePath: "alice-bio.ttl",
     });
   } catch (error) {
     thrown = error;
@@ -250,7 +250,7 @@ Deno.test("planExtract accepts a semantically equivalent source payload LocatedF
     designatorPath: "bob",
     referenceTargetDesignatorPath: "alice/bio",
     referenceTargetStatePath: "alice/bio/_history001/_s0002",
-    referenceTargetWorkingFilePath: "alice-bio.ttl",
+    referenceTargetWorkingLocalRelativePath: "alice-bio.ttl",
   });
 
   assertEquals(

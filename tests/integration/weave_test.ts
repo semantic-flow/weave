@@ -562,7 +562,7 @@ Deno.test("executeWeave versions a later page-definition revision that repoints 
   await replaceFileText(
     join(workspaceRoot, "alice/_knop/_page/page.ttl"),
     `<#main-source> a sfc:ResourcePageSource ;
-  sfc:targetMeshPath "alice/alice.md" .`,
+  sfc:targetLocalRelativePath "alice/alice.md" .`,
     `<#main-source> a sfc:ResourcePageSource ;
   sfc:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/page-main> ;
   sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Current> .`,
@@ -652,7 +652,7 @@ Deno.test("executeWeave versions the first root page-definition revision", async
   );
 });
 
-Deno.test("executeWeave resolves artifact-backed page sources through workingFilePath when repo policy permits them", async () => {
+Deno.test("executeWeave resolves artifact-backed page sources through workingLocalRelativePath when repo policy permits them", async () => {
   const repoRoot = await createTestTmpDir(
     "weave-weave-page-definition-artifact-working-file-allow-",
   );
@@ -662,16 +662,17 @@ Deno.test("executeWeave resolves artifact-backed page sources through workingFil
     workspaceRoot,
   );
   await Deno.mkdir(join(repoRoot, "documentation"), { recursive: true });
+  await Deno.mkdir(join(workspaceRoot, "_mesh/_config"), { recursive: true });
   await Deno.writeTextFile(
-    join(repoRoot, ".sf-repo-access.ttl"),
+    join(workspaceRoot, "_mesh/_config/config.ttl"),
     `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
 
-<> a sfcfg:RepoOperationalConfig ;
+<> a sfcfg:MeshConfig ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/LocalPathBase/MeshRoot> ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/meshRootPathBase> ;
     sfcfg:pathPrefix "../documentation/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/LocalPathLocatorKind/WorkingFilePath>
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/workingLocalRelativePathLocatorKind>
   ] .
 `,
   );
@@ -679,7 +680,7 @@ Deno.test("executeWeave resolves artifact-backed page sources through workingFil
     join(repoRoot, "documentation/sidebar.md"),
     `Policy-backed artifact sidebar
 
-- from extra-mesh workingFilePath
+- from extra-mesh workingLocalRelativePath
 `,
   );
   await addArtifactBackedPageSource(
@@ -695,7 +696,7 @@ Deno.test("executeWeave resolves artifact-backed page sources through workingFil
   sflo:hasPayloadArtifact <alice/source> .
 
 <alice/source> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:workingFilePath "../documentation/sidebar.md" .
+  sflo:workingLocalRelativePath "../documentation/sidebar.md" .
 `,
     "../documentation/sidebar.md",
   );
@@ -719,7 +720,7 @@ Deno.test("executeWeave resolves artifact-backed page sources through workingFil
   );
   assertStringIncludes(
     await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
-    "extra-mesh workingFilePath",
+    "extra-mesh workingLocalRelativePath",
   );
 });
 
@@ -772,7 +773,7 @@ Deno.test("executeWeave fails closed when artifact-backed page sources request p
   );
 });
 
-Deno.test("executeWeave resolves payload current files from workingFilePath literals", async () => {
+Deno.test("executeWeave resolves payload current files from workingLocalRelativePath literals", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-weave-working-file-path-",
   );
@@ -780,7 +781,7 @@ Deno.test("executeWeave resolves payload current files from workingFilePath lite
   await replaceFileText(
     join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
     `sflo:hasWorkingLocatedFile <alice-bio.ttl> ;`,
-    `sflo:workingFilePath "alice-bio.ttl" ;`,
+    `sflo:workingLocalRelativePath "alice-bio.ttl" ;`,
   );
 
   const result = await executeWeave({
@@ -800,7 +801,7 @@ Deno.test("executeWeave resolves payload current files from workingFilePath lite
   );
 });
 
-Deno.test("executeWeave resolves page definitions from workingFilePath literals", async () => {
+Deno.test("executeWeave resolves page definitions from workingLocalRelativePath literals", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-weave-page-definition-working-file-path-",
   );
@@ -811,7 +812,7 @@ Deno.test("executeWeave resolves page definitions from workingFilePath literals"
   await replaceFileText(
     join(workspaceRoot, "alice/_knop/_inventory/inventory.ttl"),
     `sflo:hasWorkingLocatedFile <alice/_knop/_page/page.ttl> .`,
-    `sflo:workingFilePath "alice/_knop/_page/page.ttl" .`,
+    `sflo:workingLocalRelativePath "alice/_knop/_page/page.ttl" .`,
   );
 
   const result = await executeWeave({
@@ -828,7 +829,7 @@ Deno.test("executeWeave resolves page definitions from workingFilePath literals"
   );
 });
 
-Deno.test("executeWeave fails closed when targetMeshPath escapes the mesh root without operational policy", async () => {
+Deno.test("executeWeave fails closed when targetLocalRelativePath escapes the mesh root without operational policy", async () => {
   const repoRoot = await createTestTmpDir("weave-weave-target-mesh-path-deny-");
   const workspaceRoot = join(repoRoot, "mesh");
   await materializeMeshAliceBioBranch(
@@ -843,7 +844,7 @@ Deno.test("executeWeave fails closed when targetMeshPath escapes the mesh root w
   await replaceAliceSidebarPageSource(
     workspaceRoot,
     `<#sidebar-source> a sfc:ResourcePageSource ;
-  sfc:targetMeshPath "../documentation/sidebar.md" .`,
+  sfc:targetLocalRelativePath "../documentation/sidebar.md" .`,
   );
 
   await assertRejects(
@@ -859,7 +860,7 @@ Deno.test("executeWeave fails closed when targetMeshPath escapes the mesh root w
   );
 });
 
-Deno.test("executeWeave allows repo-adjacent targetMeshPath values when repo policy permits them", async () => {
+Deno.test("executeWeave allows repo-adjacent targetLocalRelativePath values when repo policy permits them", async () => {
   const repoRoot = await createTestTmpDir(
     "weave-weave-target-mesh-path-allow-",
   );
@@ -869,16 +870,17 @@ Deno.test("executeWeave allows repo-adjacent targetMeshPath values when repo pol
     workspaceRoot,
   );
   await Deno.mkdir(join(repoRoot, "documentation"), { recursive: true });
+  await Deno.mkdir(join(workspaceRoot, "_mesh/_config"), { recursive: true });
   await Deno.writeTextFile(
-    join(repoRoot, ".sf-repo-access.ttl"),
+    join(workspaceRoot, "_mesh/_config/config.ttl"),
     `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
 
-<> a sfcfg:RepoOperationalConfig ;
+<> a sfcfg:MeshConfig ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/LocalPathBase/MeshRoot> ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/meshRootPathBase> ;
     sfcfg:pathPrefix "../documentation/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/LocalPathLocatorKind/TargetMeshPath>
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/targetLocalRelativePathLocatorKind>
   ] .
 `,
   );
@@ -889,7 +891,7 @@ Deno.test("executeWeave allows repo-adjacent targetMeshPath values when repo pol
   await replaceAliceSidebarPageSource(
     workspaceRoot,
     `<#sidebar-source> a sfc:ResourcePageSource ;
-  sfc:targetMeshPath "../documentation/sidebar.md" .`,
+  sfc:targetLocalRelativePath "../documentation/sidebar.md" .`,
   );
 
   const result = await executeWeave({
@@ -906,21 +908,22 @@ Deno.test("executeWeave allows repo-adjacent targetMeshPath values when repo pol
   );
 });
 
-Deno.test("executeWeave allows repo-adjacent workingFilePath values when repo policy permits them", async () => {
+Deno.test("executeWeave allows repo-adjacent workingLocalRelativePath values when repo policy permits them", async () => {
   const repoRoot = await createTestTmpDir("weave-weave-working-file-allow-");
   const workspaceRoot = join(repoRoot, "mesh");
   await materializeMeshAliceBioBranch("10-alice-bio-updated", workspaceRoot);
   await Deno.mkdir(join(repoRoot, "documentation"), { recursive: true });
+  await Deno.mkdir(join(workspaceRoot, "_mesh/_config"), { recursive: true });
   await Deno.writeTextFile(
-    join(repoRoot, ".sf-repo-access.ttl"),
+    join(workspaceRoot, "_mesh/_config/config.ttl"),
     `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
 
-<> a sfcfg:RepoOperationalConfig ;
+<> a sfcfg:MeshConfig ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/LocalPathBase/MeshRoot> ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/meshRootPathBase> ;
     sfcfg:pathPrefix "../documentation/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/LocalPathLocatorKind/WorkingFilePath>
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/workingLocalRelativePathLocatorKind>
   ] .
 `,
   );
@@ -932,7 +935,7 @@ Deno.test("executeWeave allows repo-adjacent workingFilePath values when repo po
   await replaceFileText(
     join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
     `sflo:hasWorkingLocatedFile <alice-bio.ttl> ;`,
-    `sflo:workingFilePath "../documentation/alice-bio.ttl" ;`,
+    `sflo:workingLocalRelativePath "../documentation/alice-bio.ttl" ;`,
   );
 
   const result = await executeWeave({
@@ -948,7 +951,7 @@ Deno.test("executeWeave allows repo-adjacent workingFilePath values when repo po
   );
   assertStringIncludes(
     updatedInventory,
-    `sflo:workingFilePath "../documentation/alice-bio.ttl" ;`,
+    `sflo:workingLocalRelativePath "../documentation/alice-bio.ttl" ;`,
   );
   assert(
     !updatedInventory.includes(
@@ -1289,7 +1292,7 @@ async function addSupplementalKnopToMeshInventory(
 async function addSupplementalPayloadArtifactToMeshInventory(
   workspaceRoot: string,
   designatorPath: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
 ): Promise<void> {
   const meshInventoryPath = join(
     workspaceRoot,
@@ -1301,7 +1304,7 @@ async function addSupplementalPayloadArtifactToMeshInventory(
     `${current.trimEnd()}
 
 <${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <${workingFilePath}> .
+  sflo:hasWorkingLocatedFile <${workingLocalRelativePath}> .
 `,
   );
 }
@@ -1334,13 +1337,13 @@ async function addArtifactBackedPageSource(
   workspaceRoot: string,
   designatorPath: string,
   inventoryTurtle: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
 ): Promise<void> {
   await addSupplementalKnopToMeshInventory(workspaceRoot, designatorPath);
   await addSupplementalPayloadArtifactToMeshInventory(
     workspaceRoot,
     designatorPath,
-    workingFilePath,
+    workingLocalRelativePath,
   );
   await writeSupplementalKnopSurface(
     workspaceRoot,
@@ -1351,7 +1354,7 @@ async function addArtifactBackedPageSource(
 
 const ALICE_SIDEBAR_TARGET_MESH_PATH_SOURCE =
   `<#sidebar-source> a sfc:ResourcePageSource ;
-  sfc:targetMeshPath "mesh-content/sidebar.md" .`;
+  sfc:targetLocalRelativePath "mesh-content/sidebar.md" .`;
 
 async function replaceAliceSidebarPageSource(
   workspaceRoot: string,

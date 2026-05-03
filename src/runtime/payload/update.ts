@@ -34,7 +34,7 @@ export interface PayloadUpdateResult {
   meshBase: string;
   designatorPath: string;
   payloadArtifactIri: string;
-  workingFilePath: string;
+  workingLocalRelativePath: string;
   updatedPaths: readonly string[];
 }
 
@@ -97,7 +97,7 @@ export async function executePayloadUpdate(
       meshBase: payloadState.meshBase,
       currentKnopInventoryTurtle: payloadState.currentKnopInventoryTurtle,
       designatorPath: normalizedDesignatorPath,
-      workingFilePath: payloadState.workingFilePath,
+      workingLocalRelativePath: payloadState.workingLocalRelativePath,
       replacementPayloadTurtle: resolvedSource.replacementPayloadTurtle,
     });
     await assertUpdatedTargetsExist(workspaceRoot, plan);
@@ -113,7 +113,7 @@ export async function executePayloadUpdate(
         designatorPath,
         source,
         payloadArtifactIri: plan?.payloadArtifactIri,
-        workingFilePath: plan?.workingFilePath,
+        workingLocalRelativePath: plan?.workingLocalRelativePath,
         error: message,
       },
     );
@@ -125,7 +125,7 @@ export async function executePayloadUpdate(
         designatorPath,
         source,
         payloadArtifactIri: plan?.payloadArtifactIri,
-        workingFilePath: plan?.workingFilePath,
+        workingLocalRelativePath: plan?.workingLocalRelativePath,
         error: message,
       },
     );
@@ -143,7 +143,7 @@ export async function executePayloadUpdate(
     meshBase: plan.meshBase,
     designatorPath: plan.designatorPath,
     payloadArtifactIri: plan.payloadArtifactIri,
-    workingFilePath: plan.workingFilePath,
+    workingLocalRelativePath: plan.workingLocalRelativePath,
     updatedPaths: plan.updatedFiles.map((file) => file.path),
   };
 
@@ -154,7 +154,7 @@ export async function executePayloadUpdate(
       workspaceRoot,
       designatorPath: result.designatorPath,
       payloadArtifactIri: result.payloadArtifactIri,
-      workingFilePath: result.workingFilePath,
+      workingLocalRelativePath: result.workingLocalRelativePath,
       updatedPaths: result.updatedPaths,
     },
   );
@@ -165,7 +165,7 @@ export async function executePayloadUpdate(
       workspaceRoot,
       designatorPath: result.designatorPath,
       payloadArtifactIri: result.payloadArtifactIri,
-      workingFilePath: result.workingFilePath,
+      workingLocalRelativePath: result.workingLocalRelativePath,
       updatedPaths: result.updatedPaths,
     },
   );
@@ -179,7 +179,7 @@ export function describePayloadUpdateResult(
   const updatedFileCount = result.updatedPaths.length;
   const updatedFileLabel = updatedFileCount === 1 ? "file" : "files";
 
-  return `Updated payload ${result.payloadArtifactIri} by replacing working file ${result.workingFilePath} (updated ${updatedFileCount} ${updatedFileLabel}).`;
+  return `Updated payload ${result.payloadArtifactIri} by replacing working file ${result.workingLocalRelativePath} (updated ${updatedFileCount} ${updatedFileLabel}).`;
 }
 
 function resolveLoggers(
@@ -288,7 +288,7 @@ async function loadCurrentPayloadState(
 ): Promise<{
   meshBase: string;
   currentKnopInventoryTurtle: string;
-  workingFilePath: string;
+  workingLocalRelativePath: string;
 }> {
   const meshMetadataPath = join(workspaceRoot, "_mesh/_meta/meta.ttl");
   const knopInventoryPath = join(
@@ -343,18 +343,18 @@ async function loadCurrentPayloadState(
       `Could not resolve the payload artifact block for ${designatorPath}.`,
     );
   }
-  const workingFilePath = payloadArtifact.workingFilePath;
+  const workingLocalRelativePath = payloadArtifact.workingLocalRelativePath;
   try {
-    const stat = await Deno.stat(join(workspaceRoot, workingFilePath));
+    const stat = await Deno.stat(join(workspaceRoot, workingLocalRelativePath));
     if (!stat.isFile) {
       throw new PayloadUpdateRuntimeError(
-        `Resolved working payload path is not a file for ${designatorPath}: ${workingFilePath}`,
+        `Resolved working payload path is not a file for ${designatorPath}: ${workingLocalRelativePath}`,
       );
     }
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new PayloadUpdateRuntimeError(
-        `Workspace is missing the working payload file for ${designatorPath}: ${workingFilePath}`,
+        `Workspace is missing the working payload file for ${designatorPath}: ${workingLocalRelativePath}`,
       );
     }
     throw error;
@@ -363,7 +363,7 @@ async function loadCurrentPayloadState(
   return {
     meshBase,
     currentKnopInventoryTurtle,
-    workingFilePath,
+    workingLocalRelativePath,
   };
 }
 

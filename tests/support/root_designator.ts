@@ -35,9 +35,9 @@ export const ROOT_PERSON_SOURCE_TURTLE = `@base <${MESH_ALICE_BIO_BASE}> .
 export async function writeRootPayloadFile(
   workspaceRoot: string,
   contents = ROOT_PAYLOAD_TURTLE,
-  workingFilePath = ROOT_WORKING_FILE_PATH,
+  workingLocalRelativePath = ROOT_WORKING_FILE_PATH,
 ): Promise<string> {
-  const absolutePath = join(workspaceRoot, workingFilePath);
+  const absolutePath = join(workspaceRoot, workingLocalRelativePath);
   await Deno.writeTextFile(absolutePath, contents);
   return absolutePath;
 }
@@ -46,21 +46,22 @@ export async function integrateRootPayload(
   workspaceRoot: string,
   options?: {
     contents?: string;
-    workingFilePath?: string;
+    workingLocalRelativePath?: string;
   },
 ) {
-  const workingFilePath = options?.workingFilePath ?? ROOT_WORKING_FILE_PATH;
+  const workingLocalRelativePath = options?.workingLocalRelativePath ??
+    ROOT_WORKING_FILE_PATH;
   await writeRootPayloadFile(
     workspaceRoot,
     options?.contents ?? ROOT_PAYLOAD_TURTLE,
-    workingFilePath,
+    workingLocalRelativePath,
   );
 
   return await executeIntegrate({
     workspaceRoot,
     request: {
       designatorPath: "",
-      source: workingFilePath,
+      source: workingLocalRelativePath,
     },
   });
 }
@@ -78,7 +79,7 @@ export async function bootstrapRootWovenWorkspace(
   workspaceRoot: string,
   options?: {
     contents?: string;
-    workingFilePath?: string;
+    workingLocalRelativePath?: string;
   },
 ) {
   await integrateRootPayload(workspaceRoot, options);

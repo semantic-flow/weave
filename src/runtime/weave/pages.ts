@@ -31,8 +31,8 @@ export function renderResourcePage(
   const escapedMeshLabel = escapeHtml(meshLabel);
 
   if (page.kind === "identifier") {
-    const workingFileHref = page.workingFilePath
-      ? toRelativeHref(page.path, page.workingFilePath)
+    const workingFileHref = page.workingLocalRelativePath
+      ? toRelativeHref(page.path, page.workingLocalRelativePath)
       : undefined;
     const workingFileSentence = workingFileHref
       ? ` and currently uses the working RDF file <a href="${

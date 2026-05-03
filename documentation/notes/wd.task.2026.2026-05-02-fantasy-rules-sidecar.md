@@ -63,7 +63,7 @@ This fixture should carry several related questions at once, but they should not
 The first question is sidecar topology:
 
 - can Weave create and operate a mesh rooted at `docs/`?
-- can a mesh artifact use `workingFilePath` to point at adjacent repo-local source such as `../ontology/fantasy-rules-ontology.ttl`?
+- can a mesh artifact use `workingLocalRelativePath` to point at adjacent repo-local source such as `../ontology/fantasy-rules-ontology.ttl`?
 - can operational config allow that adjacent path while still rejecting arbitrary traversal?
 - can weave copy historical snapshots into the public mesh under `docs/`?
 - can generated pages and support artifacts stay under `docs/` without exposing the entire repo as a public Pages surface?
@@ -128,12 +128,6 @@ The first ladder should be branch-based unless implementation pressure proves a 
 
 ## Open Issues
 
-- Should this fixture introduce a scaffold/template command such as `weave mesh create --root docs`, or should it only document the command shape for later implementation?
-- Should authoring `fantasy-rules-ontology.ttl` be split into its own task note before the sidecar mesh ladder proceeds beyond source seeding?
-- How much of the improved resource-page look-and-feel belongs in this task versus a separate renderer/template task?
-- Should trailing-slash URL polish be enabled on all generated resource pages or only on pages whose canonical IRI is explicitly slashless?
-- How should generated pages preserve relative-link behavior if `history.replaceState` changes the displayed URL?
-- What exact operational config should allow `workingFilePath` values that traverse from `docs/` to adjacent source directories?
 - Should the default payload manifestation segment migrate from filename-derived segments such as `fantasy-rules-ontology-ttl` to extension-derived segments such as `ttl`, and what should the no-extension fallback be?
 - Should a version-bumped ontology branch be a separate follow-up ladder pair, and if so should it version only the ontology first or ontology and SHACL together?
 
@@ -141,13 +135,15 @@ The first ladder should be branch-based unless implementation pressure proves a 
 
 - The fixture repository name should be `mesh-sidecar-fantasy-rules`.
 - The mesh root should be `docs/`.
+- Creating `docs/` as a sidecar mesh root should be an expansion of `weave mesh create`, not a separate fixture-only scaffold command. The expected command shape is `weave mesh create --workspace docs --mesh-base https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/`.
+- `weave mesh create` should include `.nojekyll` by default for GitHub Pages publishing targets, with an explicit opt-out switch for users who do not want that file.
 - The fixture should be fantasy-rules inspired, not a full rules ontology.
 - The first carried domain should be tiny and stable: classes such as `AbilityScore`, `Alignment`, `Character`, and perhaps a small number of representative individuals or controlled values are enough.
 - The SRD 5.2.1 PDF should be the initial source-reference boundary for rules vocabulary decisions. It is published under CC-BY-4.0 and requires attribution.
 - The SRD 5.2 Markdown transcription can be used as a convenience source for source review and extraction, but the official SRD source and attribution statement remain authoritative.
 - The fixture should avoid relying on trademarked branding or copied prose beyond what is intentionally and properly attributed from SRD 5.2.1.
 - SRD attribution should live in `NOTICE.md`; ontology metadata should include source/provenance for SRD-derived vocabulary, but `dcterms:license` on the fantasy-rules ontology should identify the fantasy-rules ontology's own license, not the SRD license.
-- Authoring `fantasy-rules-ontology.ttl` is a real modeling slice and should be planned deliberately rather than treated as incidental fixture setup.
+- The first-pass authored ontology, SHACL, and example files already exist in the fixture repo, so no separate source-authoring task note is needed before the sidecar mesh ladder proceeds.
 - Use slash IRIs for ontology terms first, with term resources under ontology-root `ontology/...` paths such as `ontology/AbilityScore`. Hash-term support can be proven later.
 - Use the authored Turtle prefix `fant:` for the fantasy-rules ontology namespace.
 - The fixture should carry ontology and SHACL as separate artifacts with independent histories.
@@ -166,16 +162,21 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - Treat Accord manifests as transition contracts for the ladder, not as branch metadata or late acceptance paperwork.
 - Store Fantasy Rules Sidecar conformance manifests in `semantic-flow-framework/examples/sidecar-fantasy-rules/conformance/`.
 - Author the first manifest for each transition as that transition settles, before a runner or generated fixture is allowed to define the expected behavior.
-- Sidecar support should remain fail-closed. A `workingFilePath` outside the mesh root is allowed only when operational config explicitly permits that adjacent repo-local path.
+- Sidecar support should remain fail-closed. A `workingLocalRelativePath` outside the mesh root is allowed only when operational config explicitly permits that adjacent repo-local path.
+- For this fixture, the adjacent source allowance should use the existing config ontology terms `sfcfg:MeshConfig` and `sfcfg:hasLocalPathAccessRule`, with `sfcfg:meshRootPathBase`, `sfcfg:workingLocalRelativePathLocatorKind`, and explicit `sfcfg:pathPrefix` values such as `../ontology/`, `../shacl/`, and `../examples/`.
+- The desired portable config surface should live under mesh-owned config such as `docs/_mesh/_config/`, not as a repo-root `.sf-repo-access.ttl` file.
 - Mesh-owned helper page content should live under `docs/_mesh/content/` in this fixture.
-- Improved resource pages are in scope, but only after the core sidecar artifact/versioning shape is clear.
+- Improved resource-page look-and-feel should be deferred to a separate renderer/template task; this task should only make the page behavior changes needed for the sidecar fixture contract.
 - `RdfDocument` resource pages should include raw RDF content when the document bytes are locally available.
-- The trailing-slash URL script is in scope as an experiment, but it must not break relative links, canonical links, copied IRI controls, or no-JavaScript page usability.
+- The trailing-slash URL script should only run on generated resource pages whose canonical IRI is explicitly slashless, which is expected to include most resource pages. It must not break relative links, canonical links, copied IRI controls, or no-JavaScript page usability.
+- Generated resource pages should preserve link behavior after slashless URL polish by using project-root-relative links for mesh navigation, resource pages, support assets, and local previews.
 
 ## Contract Changes
 
 - Add or clarify a sidecar mesh creation/use contract where the mesh root is not the repository root.
-- Ensure `workingFilePath` can be resolved relative to a mesh root such as `docs/` while obeying explicit local path access policy.
+- Expand `weave mesh create` so it can create a docs-rooted mesh surface with GitHub Pages `.nojekyll` defaults and an explicit opt-out.
+- Ensure `workingLocalRelativePath` can be resolved relative to a mesh root such as `docs/` while obeying explicit local path access policy.
+- Use `MeshConfig` and `hasLocalPathAccessRule` from the Semantic Flow config ontology as the first-pass sidecar path-policy contract.
 - Ensure weaving can copy historical snapshots from adjacent source files into mesh-owned release paths under `docs/`.
 - Define expected artifact-local release path handling for non-ordinal histories such as `ontology/releases` and named states such as `v0.0.1`.
 - Define version/weave request fields for custom ArtifactHistory, HistoricalState, and ArtifactManifestation path segments, including `releases`, `v0.0.1`, and `ttl`.
@@ -185,8 +186,8 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - Define how branch refs, operation execution, and Accord manifests are combined into acceptance tests for the sidecar fixture.
 - Define the resource-page model needed for ontology/SHACL landing pages, release pages, manifestation pages, and located-file pages.
 - Define how `RdfDocument` resource pages obtain and render raw RDF bytes from current working files and historical located files.
-- Potentially introduce a shared page presentation/template seam so new resource-page improvements do not become fixture-specific HTML builders.
-- Potentially introduce a generated page script contract for canonical IRI URL display, including when it may call `history.replaceState` and how generated links remain safe.
+- Defer shared page presentation/template improvements unless they are required for the sidecar fixture contract.
+- Potentially introduce a generated page script contract for slashless canonical IRI URL display, including when it may call `history.replaceState` and how generated project-root-relative links remain safe.
 - Decide whether mesh-owned helper page content should move from top-level `mesh-content/` to `_mesh`-owned content paths.
 
 ## Testing
@@ -194,8 +195,8 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - Add fixture-level Accord acceptance coverage for `mesh-sidecar-fantasy-rules` as each branch transition is settled.
 - Add branch-ref comparison tests that check out the source branch, run the intended operation or `weave`, and compare the resulting workspace to the destination branch under the matching Accord manifest.
 - Add tests that run Weave against a workspace whose mesh root is `docs/`.
-- Add tests proving `workingFilePath` can read explicitly allowed adjacent source files such as `../ontology/fantasy-rules-ontology.ttl` and `../shacl/fantasy-rules-shacl.ttl`.
-- Add fail-closed tests for disallowed `workingFilePath` traversal outside the configured repo-local boundary.
+- Add tests proving `workingLocalRelativePath` can read explicitly allowed adjacent source files such as `../ontology/fantasy-rules-ontology.ttl` and `../shacl/fantasy-rules-shacl.ttl`.
+- Add fail-closed tests for disallowed `workingLocalRelativePath` traversal outside the configured repo-local boundary.
 - Add tests proving woven release snapshots are materialized inside `docs/` and remain byte-identical to the source bytes for that release.
 - Add tests proving custom version path segments produce `ontology/releases/v0.0.1/ttl/...` and `shacl/releases/v0.0.1/ttl/...`, not the ordinal or filename-derived defaults.
 - Add tests for `owl:versionIRI` pointing to versioned located Turtle files.
@@ -235,17 +236,19 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - [x] Initialize or update `mesh-sidecar-fantasy-rules` as the sidecar fixture repo.
 - [x] Add authored ontology source under `ontology/`.
 - [x] Add authored SHACL source under `shacl/`.
+- [x] Add a first-pass example under `examples/`.
 - [x] Add `NOTICE.md` with the SRD 5.2.1 CC-BY-4.0 attribution boundary.
-- [ ] Add `docs/` as the sidecar mesh root with `.nojekyll`.
-- [ ] Add mesh metadata and inventory for a docs-rooted mesh.
-- [ ] Add operational config needed for repo-local adjacent source access.
+- [ ] Expand `weave mesh create` so `--workspace docs --mesh-base https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/` creates the docs-rooted mesh support surface.
+- [ ] Add `.nojekyll` from `weave mesh create` by default for GitHub Pages publishing targets, with an opt-out switch.
+- [ ] Use the expanded `weave mesh create` command to add mesh metadata and inventory for a docs-rooted mesh.
+- [ ] Add mesh-owned config under `docs/_mesh/_config/` with `sfcfg:MeshConfig` and explicit `sfcfg:hasLocalPathAccessRule` entries for adjacent ontology, SHACL, and example source access.
 - [ ] Add Accord manifests for the seed and mesh-creation transitions as they settle.
 
 ### Phase 2: Integrate Ontology And SHACL Artifacts
 
 - [ ] Integrate the ontology artifact at public path `ontology`.
 - [ ] Integrate the SHACL artifact at public path `shacl`.
-- [ ] Use `workingFilePath` to associate each artifact with its adjacent authored source file.
+- [ ] Use `workingLocalRelativePath` to associate each artifact with its adjacent authored source file.
 - [ ] Keep `hasWorkingLocatedFile` usage semantically consistent with the current located-byte story.
 - [ ] Add current resource pages for root, ontology, SHACL, and relevant support artifacts.
 - [ ] Add Accord manifests for the ontology and SHACL integration transitions as they settle.
@@ -259,11 +262,12 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - [ ] Ensure working source bytes and latest historical located bytes match where the release is current.
 - [ ] Add Accord manifests for the first ontology and SHACL release/weave transitions as they settle.
 
-### Phase 4: Improve Resource Pages
+### Phase 4: Resource Page Behavior
 
 - [ ] Draft the target page model for ontology and SHACL artifact pages.
-- [ ] Improve current artifact pages to show identity, current bytes, releases, histories, and support resources clearly.
-- [ ] Improve historical-state and located-file pages enough that a reader can navigate the release structure without reading raw Turtle first.
+- [d] Defer broader resource-page look-and-feel improvements to a separate renderer/template task.
+- [ ] Keep current artifact pages sufficient to show identity, current bytes, releases, histories, and support resources for the fixture contract.
+- [ ] Keep historical-state and located-file pages sufficient for navigating the release structure without reading raw Turtle first.
 - [ ] Add raw RDF panels to `RdfDocument` resource pages for locally available current and historical bytes.
 - [ ] Move reusable page HTML/CSS rendering toward shared runtime seams rather than fixture-specific builders.
 - [ ] Add or update specs if the resource-page contract changes materially.

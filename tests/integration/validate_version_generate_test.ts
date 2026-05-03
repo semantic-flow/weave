@@ -633,7 +633,7 @@ async function addSupplementalKnopToMeshInventory(
 async function addSupplementalPayloadArtifactToMeshInventory(
   workspaceRoot: string,
   designatorPath: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
 ): Promise<void> {
   const meshInventoryPath = join(
     workspaceRoot,
@@ -645,7 +645,7 @@ async function addSupplementalPayloadArtifactToMeshInventory(
     `${current.trimEnd()}
 
 <${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <${workingFilePath}> .
+  sflo:hasWorkingLocatedFile <${workingLocalRelativePath}> .
 `,
   );
 }

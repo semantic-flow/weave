@@ -12,7 +12,7 @@ const SFLO_NAMESPACE =
 
 export interface PayloadUpdateRequest {
   designatorPath: string;
-  workingFilePath: string;
+  workingLocalRelativePath: string;
   replacementPayloadTurtle: string;
 }
 
@@ -25,7 +25,7 @@ export interface PayloadUpdatePlan {
   meshBase: string;
   designatorPath: string;
   payloadArtifactIri: string;
-  workingFilePath: string;
+  workingLocalRelativePath: string;
   updatedFiles: readonly PlannedFile[];
 }
 
@@ -41,7 +41,9 @@ export function planPayloadUpdate(
 ): PayloadUpdatePlan {
   const meshBase = normalizeMeshBase(request.meshBase);
   const designatorPath = normalizeDesignatorPath(request.designatorPath);
-  const workingFilePath = normalizeWorkingFilePath(request.workingFilePath);
+  const workingLocalRelativePath = normalizeWorkingLocalRelativePath(
+    request.workingLocalRelativePath,
+  );
   const replacementPayloadTurtle = normalizeReplacementPayloadTurtle(
     request.replacementPayloadTurtle,
   );
@@ -49,16 +51,16 @@ export function planPayloadUpdate(
   assertCurrentPayloadArtifactShape(
     request.currentKnopInventoryTurtle,
     designatorPath,
-    workingFilePath,
+    workingLocalRelativePath,
   );
 
   return {
     meshBase,
     designatorPath,
     payloadArtifactIri: new URL(designatorPath, meshBase).href,
-    workingFilePath,
+    workingLocalRelativePath,
     updatedFiles: [{
-      path: workingFilePath,
+      path: workingLocalRelativePath,
       contents: replacementPayloadTurtle,
     }],
   };
@@ -98,14 +100,16 @@ function normalizeDesignatorPath(designatorPath: string): string {
   );
 }
 
-function normalizeWorkingFilePath(workingFilePath: string): string {
-  const trimmed = workingFilePath.trim();
+function normalizeWorkingLocalRelativePath(
+  workingLocalRelativePath: string,
+): string {
+  const trimmed = workingLocalRelativePath.trim();
   if (trimmed.length === 0) {
-    throw new PayloadUpdateInputError("workingFilePath is required");
+    throw new PayloadUpdateInputError("workingLocalRelativePath is required");
   }
   if (trimmed.startsWith("/") || trimmed.endsWith("/")) {
     throw new PayloadUpdateInputError(
-      "workingFilePath must be a mesh-relative file path",
+      "workingLocalRelativePath must be a mesh-relative file path",
     );
   }
   if (
@@ -113,19 +117,19 @@ function normalizeWorkingFilePath(workingFilePath: string): string {
     /\s/.test(trimmed)
   ) {
     throw new PayloadUpdateInputError(
-      "workingFilePath contains unsupported path characters",
+      "workingLocalRelativePath contains unsupported path characters",
     );
   }
 
   const segments = trimmed.split("/");
   if (segments.some((segment) => segment.length === 0)) {
     throw new PayloadUpdateInputError(
-      "workingFilePath must not contain empty path segments",
+      "workingLocalRelativePath must not contain empty path segments",
     );
   }
   if (segments.some((segment) => segment === "." || segment === "..")) {
     throw new PayloadUpdateInputError(
-      "workingFilePath must be a mesh-relative file path",
+      "workingLocalRelativePath must be a mesh-relative file path",
     );
   }
 
@@ -145,7 +149,7 @@ function normalizeReplacementPayloadTurtle(
 function assertCurrentPayloadArtifactShape(
   currentKnopInventoryTurtle: string,
   designatorPath: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
 ): void {
   const knopPath = toKnopPath(designatorPath);
   const requiredFragments = [
@@ -177,7 +181,10 @@ function assertCurrentPayloadArtifactShape(
     {
       subject: toIriCandidates(currentKnopInventoryTurtle, designatorPath),
       predicate: [`${SFLO_NAMESPACE}hasWorkingLocatedFile`],
-      object: toIriCandidates(currentKnopInventoryTurtle, workingFilePath),
+      object: toIriCandidates(
+        currentKnopInventoryTurtle,
+        workingLocalRelativePath,
+      ),
     },
     {
       subject: toIriCandidates(currentKnopInventoryTurtle, designatorPath),

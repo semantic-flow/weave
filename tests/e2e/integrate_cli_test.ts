@@ -207,16 +207,17 @@ Deno.test("weave integrate allows repo-adjacent local sources when repo policy p
     workspaceRoot,
   );
   await Deno.mkdir(join(tempRepoRoot, "documentation"), { recursive: true });
+  await Deno.mkdir(join(workspaceRoot, "_mesh/_config"), { recursive: true });
   await Deno.writeTextFile(
-    join(tempRepoRoot, ".sf-repo-access.ttl"),
+    join(workspaceRoot, "_mesh/_config/config.ttl"),
     `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
 
-<> a sfcfg:RepoOperationalConfig ;
+<> a sfcfg:MeshConfig ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/LocalPathBase/MeshRoot> ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/meshRootPathBase> ;
     sfcfg:pathPrefix "../documentation/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/LocalPathLocatorKind/WorkingFilePath>
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/workingLocalRelativePathLocatorKind>
   ] .
 `,
   );
@@ -257,7 +258,7 @@ Deno.test("weave integrate allows repo-adjacent local sources when repo policy p
   );
   assert(
     createdInventory.includes(
-      'sflo:workingFilePath "../documentation/alice-bio.ttl" .',
+      'sflo:workingLocalRelativePath "../documentation/alice-bio.ttl" .',
     ),
     createdInventory,
   );

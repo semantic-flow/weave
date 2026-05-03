@@ -137,7 +137,7 @@ type TextFileOverlay = Map<string, string>;
 
 interface GenerateDesignatorContext {
   designatorPath: string;
-  payloadWorkingFilePath?: string;
+  payloadWorkingLocalRelativePath?: string;
   pagePaths: readonly string[];
   customIdentifierPage?: CustomIdentifierPageModelInput;
   pageDescriptions: ReadonlyMap<string, string>;
@@ -857,7 +857,7 @@ async function loadPayloadWorkingArtifact(
   if (!payloadArtifact) {
     return undefined;
   }
-  const workingFilePath = payloadArtifact.workingFilePath;
+  const workingLocalRelativePath = payloadArtifact.workingLocalRelativePath;
   const currentArtifactHistoryPath = payloadArtifact.currentArtifactHistoryPath;
   const latestHistoricalStatePath = payloadArtifact.currentArtifactHistoryExists
     ? payloadArtifact.latestHistoricalStatePath
@@ -866,7 +866,7 @@ async function loadPayloadWorkingArtifact(
     ? payloadArtifact.latestHistoricalSnapshotPath ??
       toPayloadHistoricalSnapshotPath(
         latestHistoricalStatePath,
-        workingFilePath,
+        workingLocalRelativePath,
       )
     : undefined;
   const latestHistoricalSnapshotLocalPath = latestHistoricalSnapshotPath
@@ -879,20 +879,20 @@ async function loadPayloadWorkingArtifact(
     currentPayloadTurtle = await readTextFileWithOverlay(
       resolveAllowedLocalPath(
         localPathPolicy,
-        "workingFilePath",
-        workingFilePath,
+        "workingLocalRelativePath",
+        workingLocalRelativePath,
       ),
       overlay,
     );
   } catch (error) {
     if (error instanceof LocalPathAccessError) {
       throw new WeaveRuntimeError(
-        `Working payload file for ${designatorPath} is outside the allowed local-path boundary: ${workingFilePath}`,
+        `Working payload file for ${designatorPath} is outside the allowed local-path boundary: ${workingLocalRelativePath}`,
       );
     }
     if (error instanceof Deno.errors.NotFound) {
       throw new WeaveRuntimeError(
-        `Workspace is missing the working payload file for ${designatorPath}: ${workingFilePath}`,
+        `Workspace is missing the working payload file for ${designatorPath}: ${workingLocalRelativePath}`,
       );
     }
     throw error;
@@ -915,7 +915,7 @@ async function loadPayloadWorkingArtifact(
   }
 
   return {
-    workingFilePath,
+    workingLocalRelativePath,
     currentPayloadTurtle,
     currentArtifactHistoryPath,
     ...(latestHistoricalSnapshotPath ? { latestHistoricalSnapshotPath } : {}),
@@ -987,7 +987,7 @@ async function loadReferenceTargetSourcePayloadArtifact(
 
   return {
     designatorPath: sourceDesignatorPath,
-    workingFilePath: sourcePayloadArtifact.workingFilePath,
+    workingLocalRelativePath: sourcePayloadArtifact.workingLocalRelativePath,
     currentPayloadTurtle: sourcePayloadArtifact.currentPayloadTurtle,
     latestHistoricalStatePath: sourcePayloadArtifact.latestHistoricalStatePath,
   };
@@ -1015,15 +1015,15 @@ async function loadReferenceCatalogWorkingArtifact(
   if (!referenceCatalog) {
     return undefined;
   }
-  const workingFilePath = referenceCatalog.workingFilePath;
+  const workingLocalRelativePath = referenceCatalog.workingLocalRelativePath;
   try {
     return {
-      workingFilePath,
+      workingLocalRelativePath,
       currentReferenceCatalogTurtle: await readTextFileWithOverlay(
         resolveAllowedLocalPath(
           localPathPolicy,
-          "workingFilePath",
-          workingFilePath,
+          "workingLocalRelativePath",
+          workingLocalRelativePath,
         ),
         overlay,
       ),
@@ -1031,12 +1031,12 @@ async function loadReferenceCatalogWorkingArtifact(
   } catch (error) {
     if (error instanceof LocalPathAccessError) {
       throw new WeaveRuntimeError(
-        `Working ReferenceCatalog file for ${designatorPath} is outside the allowed local-path boundary: ${workingFilePath}`,
+        `Working ReferenceCatalog file for ${designatorPath} is outside the allowed local-path boundary: ${workingLocalRelativePath}`,
       );
     }
     if (error instanceof Deno.errors.NotFound) {
       throw new WeaveRuntimeError(
-        `Workspace is missing the working ReferenceCatalog file for ${designatorPath}: ${workingFilePath}`,
+        `Workspace is missing the working ReferenceCatalog file for ${designatorPath}: ${workingLocalRelativePath}`,
       );
     }
     throw error;
@@ -1254,7 +1254,8 @@ async function collectGeneratedPageFiles(
           kind: "identifier",
           path: pagePath,
           designatorPath: publicContext.designatorPath,
-          workingFilePath: publicContext.payloadWorkingFilePath,
+          workingLocalRelativePath:
+            publicContext.payloadWorkingLocalRelativePath,
         });
       }
     } else {
@@ -1367,7 +1368,8 @@ async function loadGenerateDesignatorContexts(
 
     contexts.push({
       designatorPath,
-      payloadWorkingFilePath: payloadArtifact?.workingFilePath,
+      payloadWorkingLocalRelativePath: payloadArtifact
+        ?.workingLocalRelativePath,
       customIdentifierPage,
       pageDescriptions,
       pagePaths: listResourcePagePaths(
@@ -1447,9 +1449,9 @@ function toResourcePath(pagePath: string): string {
 
 function toPayloadHistoricalSnapshotPath(
   historyStatePath: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
 ): string {
-  const fileName = toFileName(workingFilePath);
+  const fileName = toFileName(workingLocalRelativePath);
   const manifestationSegment = fileName.replaceAll(".", "-");
   return `${historyStatePath}/${manifestationSegment}/${fileName}`;
 }

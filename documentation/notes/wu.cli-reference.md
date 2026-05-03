@@ -165,7 +165,7 @@ Constraints:
 - if both are provided, they must match
 - the current local CLI slice accepts local filesystem paths or `file:` URLs
 - sources inside the workspace are accepted directly
-- extra-mesh local sources are accepted only when operational policy allows the resulting relative `workingFilePath`
+- extra-mesh local sources are accepted only when operational policy allows the resulting relative `workingLocalRelativePath`
 - remote-source integration is still a broader semantic/API direction, not part of the current CLI contract
 
 ### `weave extract`

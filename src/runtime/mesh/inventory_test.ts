@@ -68,7 +68,7 @@ Deno.test("resolvePayloadArtifactInventoryState accepts semantically equivalent 
       },
     ),
     {
-      workingFilePath: "alice-bio.ttl",
+      workingLocalRelativePath: "alice-bio.ttl",
       currentArtifactHistoryPath: "alice/bio/_history001",
       currentArtifactHistoryExists: true,
       latestHistoricalStatePath: "alice/bio/_history001/_s0002",
@@ -102,7 +102,7 @@ Deno.test("resolvePayloadArtifactInventoryState resolves latest payload snapshot
       },
     ),
     {
-      workingFilePath: "alice-bio.ttl",
+      workingLocalRelativePath: "alice-bio.ttl",
       currentArtifactHistoryPath: "alice/bio/_history001",
       currentArtifactHistoryExists: true,
       latestHistoricalStatePath: "alice/bio/_history001/_s0002",
@@ -133,7 +133,7 @@ Deno.test("resolvePayloadArtifactInventoryState tracks a missing ArtifactHistory
       },
     ),
     {
-      workingFilePath: "alice-bio.ttl",
+      workingLocalRelativePath: "alice-bio.ttl",
       currentArtifactHistoryPath: "alice/bio/_history001",
       currentArtifactHistoryExists: false,
       latestHistoricalStatePath: undefined,
@@ -162,7 +162,7 @@ Deno.test("resolveReferenceCatalogInventoryState accepts semantically equivalent
       },
     ),
     {
-      workingFilePath: "alice/_knop/_references/references.ttl",
+      workingLocalRelativePath: "alice/_knop/_references/references.ttl",
     },
   );
 });
@@ -274,7 +274,7 @@ Deno.test("resolvePayloadArtifactInventoryState rejects working file IRIs with q
   );
 });
 
-Deno.test("resolvePayloadArtifactInventoryState accepts workingFilePath literals without hasWorkingLocatedFile", () => {
+Deno.test("resolvePayloadArtifactInventoryState accepts workingLocalRelativePath literals without hasWorkingLocatedFile", () => {
   assertEquals(
     resolvePayloadArtifactInventoryState(
       MESH_BASE,
@@ -283,7 +283,7 @@ Deno.test("resolvePayloadArtifactInventoryState accepts workingFilePath literals
 @base <${MESH_BASE}> .
 
 <alice/bio/_history001> rdf:type sflo:ArtifactHistory .
-<alice/bio> sflo:workingFilePath "alice-bio.ttl" ;
+<alice/bio> sflo:workingLocalRelativePath "alice-bio.ttl" ;
   rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:PayloadArtifact ;
   sflo:currentArtifactHistory <alice/bio/_history001> .
 <alice/bio/_knop> rdf:type sflo:Knop ;
@@ -296,7 +296,7 @@ Deno.test("resolvePayloadArtifactInventoryState accepts workingFilePath literals
       },
     ),
     {
-      workingFilePath: "alice-bio.ttl",
+      workingLocalRelativePath: "alice-bio.ttl",
       currentArtifactHistoryPath: "alice/bio/_history001",
       currentArtifactHistoryExists: true,
       latestHistoricalStatePath: undefined,
@@ -304,7 +304,7 @@ Deno.test("resolvePayloadArtifactInventoryState accepts workingFilePath literals
   );
 });
 
-Deno.test("resolvePayloadArtifactInventoryState rejects inconsistent workingFilePath and hasWorkingLocatedFile", () => {
+Deno.test("resolvePayloadArtifactInventoryState rejects inconsistent workingLocalRelativePath and hasWorkingLocatedFile", () => {
   assertThrows(
     () =>
       resolvePayloadArtifactInventoryState(
@@ -314,7 +314,7 @@ Deno.test("resolvePayloadArtifactInventoryState rejects inconsistent workingFile
 @base <${MESH_BASE}> .
 
 <alice/bio/_history001> rdf:type sflo:ArtifactHistory .
-<alice/bio> sflo:workingFilePath "alice-bio-v2.ttl" ;
+<alice/bio> sflo:workingLocalRelativePath "alice-bio-v2.ttl" ;
   sflo:hasWorkingLocatedFile <alice-bio.ttl> ;
   rdf:type sflo:PayloadArtifact ;
   sflo:currentArtifactHistory <alice/bio/_history001> .
@@ -332,7 +332,7 @@ Deno.test("resolvePayloadArtifactInventoryState rejects inconsistent workingFile
   );
 });
 
-Deno.test("resolvePayloadArtifactInventoryState accepts extra-mesh workingFilePath literals syntactically", () => {
+Deno.test("resolvePayloadArtifactInventoryState accepts extra-mesh workingLocalRelativePath literals syntactically", () => {
   assertEquals(
     resolvePayloadArtifactInventoryState(
       MESH_BASE,
@@ -341,7 +341,7 @@ Deno.test("resolvePayloadArtifactInventoryState accepts extra-mesh workingFilePa
 @base <${MESH_BASE}> .
 
 <alice/bio/_history001> rdf:type sflo:ArtifactHistory .
-<alice/bio> sflo:workingFilePath "../alice-bio.ttl" ;
+<alice/bio> sflo:workingLocalRelativePath "../alice-bio.ttl" ;
   rdf:type sflo:PayloadArtifact ;
   sflo:currentArtifactHistory <alice/bio/_history001> .
 <alice/bio/_knop> rdf:type sflo:Knop ;
@@ -354,7 +354,7 @@ Deno.test("resolvePayloadArtifactInventoryState accepts extra-mesh workingFilePa
       },
     ),
     {
-      workingFilePath: "../alice-bio.ttl",
+      workingLocalRelativePath: "../alice-bio.ttl",
       currentArtifactHistoryPath: "alice/bio/_history001",
       currentArtifactHistoryExists: true,
       latestHistoricalStatePath: undefined,
@@ -362,7 +362,7 @@ Deno.test("resolvePayloadArtifactInventoryState accepts extra-mesh workingFilePa
   );
 });
 
-Deno.test("resolveReferenceCatalogInventoryState accepts workingFilePath literals without hasWorkingLocatedFile", () => {
+Deno.test("resolveReferenceCatalogInventoryState accepts workingLocalRelativePath literals without hasWorkingLocatedFile", () => {
   assertEquals(
     resolveReferenceCatalogInventoryState(
       MESH_BASE,
@@ -371,7 +371,7 @@ Deno.test("resolveReferenceCatalogInventoryState accepts workingFilePath literal
 @base <${MESH_BASE}> .
 
 <alice/_knop/_references> rdf:type sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:workingFilePath "alice/_knop/_references/references.ttl" .
+  sflo:workingLocalRelativePath "alice/_knop/_references/references.ttl" .
 <alice/_knop> rdf:type sflo:Knop ;
   sflo:hasReferenceCatalog <alice/_knop/_references> .
 `,
@@ -383,12 +383,12 @@ Deno.test("resolveReferenceCatalogInventoryState accepts workingFilePath literal
       },
     ),
     {
-      workingFilePath: "alice/_knop/_references/references.ttl",
+      workingLocalRelativePath: "alice/_knop/_references/references.ttl",
     },
   );
 });
 
-Deno.test("resolveResourcePageDefinitionInventoryState accepts workingFilePath literals without hasWorkingLocatedFile", () => {
+Deno.test("resolveResourcePageDefinitionInventoryState accepts workingLocalRelativePath literals without hasWorkingLocatedFile", () => {
   assertEquals(
     resolveResourcePageDefinitionInventoryState(
       MESH_BASE,
@@ -402,7 +402,7 @@ Deno.test("resolveResourcePageDefinitionInventoryState accepts workingFilePath l
   sfc:hasKnopAssetBundle <alice/_knop/_assets> .
 
 <alice/_knop/_page> rdf:type sfc:ResourcePageDefinition, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:workingFilePath "alice/_knop/_page/page.ttl" .
+  sflo:workingLocalRelativePath "alice/_knop/_page/page.ttl" .
 
 <alice/_knop/_assets> rdf:type sfc:KnopAssetBundle .
 `,
@@ -415,7 +415,7 @@ Deno.test("resolveResourcePageDefinitionInventoryState accepts workingFilePath l
     ),
     {
       artifactPath: "alice/_knop/_page",
-      workingFilePath: "alice/_knop/_page/page.ttl",
+      workingLocalRelativePath: "alice/_knop/_page/page.ttl",
       currentArtifactHistoryPath: undefined,
       currentArtifactHistoryExists: false,
       latestHistoricalStatePath: undefined,

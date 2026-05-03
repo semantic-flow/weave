@@ -1,39 +1,43 @@
-import { assertEquals, assertThrows } from "@std/assert";
+import { assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { join, resolve } from "@std/path";
 import {
   loadOperationalLocalPathPolicy,
   LocalPathAccessError,
+  OperationalConfigError,
   resolveAllowedLocalPath,
 } from "./local_path_policy.ts";
 
-Deno.test("loadOperationalLocalPathPolicy discovers repo access config above a non-whole-repo mesh", async () => {
+Deno.test("loadOperationalLocalPathPolicy discovers mesh-owned config in a non-whole-repo mesh", async () => {
   const tempRoot = await Deno.makeTempDir({
     prefix: "weave-local-path-policy-",
   });
   const repoRoot = join(tempRoot, "repo");
   const meshRoot = join(repoRoot, "mesh");
-  await Deno.mkdir(meshRoot, { recursive: true });
+  await Deno.mkdir(join(meshRoot, "_mesh/_config"), { recursive: true });
   await Deno.writeTextFile(
-    join(repoRoot, ".sf-repo-access.ttl"),
+    join(meshRoot, "_mesh/_config/config.ttl"),
     `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
 
-<> a sfcfg:RepoOperationalConfig ;
+<> a sfcfg:MeshConfig ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/LocalPathBase/MeshRoot> ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/meshRootPathBase> ;
     sfcfg:pathPrefix "../documentation/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/LocalPathLocatorKind/Any>
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/targetLocalRelativePathLocatorKind>
   ] .
 `,
   );
 
   const policy = await loadOperationalLocalPathPolicy(meshRoot);
 
-  assertEquals(policy.repoConfigPath, join(repoRoot, ".sf-repo-access.ttl"));
+  assertEquals(
+    policy.meshConfigPath,
+    join(meshRoot, "_mesh/_config/config.ttl"),
+  );
   assertEquals(
     resolveAllowedLocalPath(
       policy,
-      "targetMeshPath",
+      "targetLocalRelativePath",
       "../documentation/sidebar.md",
     ),
     resolve(repoRoot, "documentation/sidebar.md"),
@@ -51,11 +55,38 @@ Deno.test("resolveAllowedLocalPath denies extra-mesh paths when no config matche
     () =>
       resolveAllowedLocalPath(
         policy,
-        "targetMeshPath",
+        "targetLocalRelativePath",
         "../documentation/sidebar.md",
       ),
     LocalPathAccessError,
     "outside the mesh root",
+  );
+});
+
+Deno.test("loadOperationalLocalPathPolicy rejects mesh config that grants arbitrary host traversal", async () => {
+  const tempRoot = await Deno.makeTempDir({
+    prefix: "weave-local-path-policy-host-",
+  });
+  const meshRoot = join(tempRoot, "workspace/docs");
+  await Deno.mkdir(join(meshRoot, "_mesh/_config"), { recursive: true });
+  await Deno.writeTextFile(
+    join(meshRoot, "_mesh/_config/config.ttl"),
+    `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasLocalPathAccessRule [
+    a sfcfg:LocalPathAccessRule ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/meshRootPathBase> ;
+    sfcfg:pathPrefix "../../" ;
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/workingLocalRelativePathLocatorKind>
+  ] .
+`,
+  );
+
+  await assertRejects(
+    () => loadOperationalLocalPathPolicy(meshRoot),
+    OperationalConfigError,
+    "arbitrary host traversal",
   );
 });
 
@@ -71,12 +102,12 @@ Deno.test("loadOperationalLocalPathPolicy applies machine-local absolute path ru
     join(homeRoot, ".sf-local-access.ttl"),
     `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
 
-<> a sfcfg:LocalOperationalConfig ;
+<> a sfcfg:LocalConfig ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/LocalPathBase/AbsolutePath> ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/absolutePathBase> ;
     sfcfg:pathPrefix "${sharedRoot}/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/LocalPathLocatorKind/WorkingFilePath>
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/workingLocalRelativePathLocatorKind>
   ] .
 `,
   );
@@ -92,7 +123,7 @@ Deno.test("loadOperationalLocalPathPolicy applies machine-local absolute path ru
     assertEquals(
       resolveAllowedLocalPath(
         policy,
-        "workingFilePath",
+        "workingLocalRelativePath",
         "../shared-notes/current.ttl",
       ),
       resolve(sharedRoot, "current.ttl"),

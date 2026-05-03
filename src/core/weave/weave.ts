@@ -55,7 +55,7 @@ const SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI =
   `${SFLO_NAMESPACE}hasWorkingKnopInventoryFile`;
 const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
   `${SFLO_NAMESPACE}hasWorkingLocatedFile`;
-const SFLO_WORKING_FILE_PATH_IRI = `${SFLO_NAMESPACE}workingFilePath`;
+const SFLO_WORKING_FILE_PATH_IRI = `${SFLO_NAMESPACE}workingLocalRelativePath`;
 const SFLO_KNOP_IRI = `${SFLO_NAMESPACE}Knop`;
 const SFLO_KNOP_INVENTORY_IRI = `${SFLO_NAMESPACE}KnopInventory`;
 const SFLO_KNOP_METADATA_IRI = `${SFLO_NAMESPACE}KnopMetadata`;
@@ -88,7 +88,7 @@ export interface VersionRequest {
 }
 
 export interface PayloadWorkingArtifact {
-  workingFilePath: string;
+  workingLocalRelativePath: string;
   currentPayloadTurtle: string;
   currentArtifactHistoryPath?: string;
   latestHistoricalSnapshotPath?: string;
@@ -97,20 +97,20 @@ export interface PayloadWorkingArtifact {
 }
 
 export interface ReferenceCatalogWorkingArtifact {
-  workingFilePath: string;
+  workingLocalRelativePath: string;
   currentReferenceCatalogTurtle: string;
 }
 
 export interface ReferenceTargetSourcePayloadArtifact {
   designatorPath: string;
-  workingFilePath: string;
+  workingLocalRelativePath: string;
   currentPayloadTurtle: string;
   latestHistoricalStatePath: string;
 }
 
 export interface ResourcePageDefinitionWorkingArtifact {
   artifactPath: string;
-  workingFilePath: string;
+  workingLocalRelativePath: string;
   currentPageDefinitionTurtle: string;
   currentArtifactHistoryPath?: string;
   currentArtifactHistoryExists: boolean;
@@ -133,7 +133,7 @@ export interface IdentifierResourcePageModel {
   kind: "identifier";
   path: string;
   designatorPath: string;
-  workingFilePath?: string;
+  workingLocalRelativePath?: string;
 }
 
 export interface SimpleResourcePageModel {
@@ -722,18 +722,18 @@ function planFirstPayloadWeave(
     meshBase,
     candidate.currentKnopInventoryTurtle,
     candidate.designatorPath,
-    payloadArtifact.workingFilePath,
+    payloadArtifact.workingLocalRelativePath,
   );
 
   const designatorPath = candidate.designatorPath;
   const knopPath = toKnopPath(designatorPath);
   const payloadLayout = resolveFirstPayloadVersionLayout(
     designatorPath,
-    payloadArtifact.workingFilePath,
+    payloadArtifact.workingLocalRelativePath,
     target,
   );
   const payloadSnapshotPath = `${payloadLayout.nextManifestationPath}/${
-    toFileName(payloadArtifact.workingFilePath)
+    toFileName(payloadArtifact.workingLocalRelativePath)
   }`;
 
   return {
@@ -747,7 +747,7 @@ function planFirstPayloadWeave(
           currentMeshInventoryTurtle,
           meshBase,
           designatorPath,
-          payloadArtifact.workingFilePath,
+          payloadArtifact.workingLocalRelativePath,
           meshInventoryProgression,
         ),
       },
@@ -766,7 +766,7 @@ function planFirstPayloadWeave(
           meshBase,
           designatorPath,
           payloadLayout,
-          payloadArtifact.workingFilePath,
+          payloadArtifact.workingLocalRelativePath,
         ),
       },
     ],
@@ -777,7 +777,7 @@ function planFirstPayloadWeave(
           currentMeshInventoryTurtle,
           meshBase,
           designatorPath,
-          payloadArtifact.workingFilePath,
+          payloadArtifact.workingLocalRelativePath,
           meshInventoryProgression,
         ),
       },
@@ -787,14 +787,14 @@ function planFirstPayloadWeave(
           meshBase,
           designatorPath,
           payloadLayout,
-          payloadArtifact.workingFilePath,
+          payloadArtifact.workingLocalRelativePath,
         ),
       },
     ],
     createdPages: buildFirstPayloadWeavePages(
       designatorPath,
       payloadLayout,
-      payloadArtifact.workingFilePath,
+      payloadArtifact.workingLocalRelativePath,
       meshInventoryProgression,
     ),
   };
@@ -817,13 +817,13 @@ function planFirstExtractedKnopWeave(
     currentMeshInventoryTurtle,
     designatorPath,
     referenceTargetSourcePayloadArtifact.designatorPath,
-    referenceTargetSourcePayloadArtifact.workingFilePath,
+    referenceTargetSourcePayloadArtifact.workingLocalRelativePath,
   );
   assertCurrentKnopInventoryShapeForFirstExtractedKnopWeave(
     meshBase,
     candidate.currentKnopInventoryTurtle,
     designatorPath,
-    referenceCatalogArtifact.workingFilePath,
+    referenceCatalogArtifact.workingLocalRelativePath,
   );
   assertReferenceTargetSourcePayloadShapeForFirstExtractedKnopWeave(
     referenceTargetSourcePayloadArtifact,
@@ -871,7 +871,7 @@ function planFirstExtractedKnopWeave(
     renderFirstExtractedKnopWovenKnopInventoryTurtle(
       meshBase,
       designatorPath,
-      referenceCatalogArtifact.workingFilePath,
+      referenceCatalogArtifact.workingLocalRelativePath,
     );
 
   return {
@@ -905,7 +905,7 @@ function planFirstExtractedKnopWeave(
           toHistoryPathFromStatePath(
             referenceTargetSourcePayloadArtifact.latestHistoricalStatePath,
           ),
-          referenceTargetSourcePayloadArtifact.workingFilePath,
+          referenceTargetSourcePayloadArtifact.workingLocalRelativePath,
           referenceTargetSourcePayloadArtifact.currentPayloadTurtle,
         ),
       },
@@ -916,7 +916,7 @@ function planFirstExtractedKnopWeave(
           description:
             `Resource page for the current explicit history of the ${displayDesignatorPath} KnopMetadata artifact.`,
           artifactLabel: "KnopMetadata artifact",
-          workingFilePath: `${knopPath}/_meta/meta.ttl`,
+          workingLocalRelativePath: `${knopPath}/_meta/meta.ttl`,
           states: [{ segment: "_s0001", latest: true }],
         }),
       },
@@ -927,7 +927,7 @@ function planFirstExtractedKnopWeave(
           description:
             `Resource page for the current explicit history of the ${displayDesignatorPath} KnopInventory artifact.`,
           artifactLabel: "KnopInventory artifact",
-          workingFilePath: `${knopPath}/_inventory/inventory.ttl`,
+          workingLocalRelativePath: `${knopPath}/_inventory/inventory.ttl`,
           states: [{ segment: "_s0001", latest: true }],
         }),
       },
@@ -938,7 +938,8 @@ function planFirstExtractedKnopWeave(
           description:
             `Resource page for the current explicit history of the ${displayDesignatorPath} ReferenceCatalog artifact.`,
           artifactLabel: "ReferenceCatalog artifact",
-          workingFilePath: referenceCatalogArtifact.workingFilePath,
+          workingLocalRelativePath:
+            referenceCatalogArtifact.workingLocalRelativePath,
           states: [{ segment: "_s0001", latest: true }],
         }),
       },
@@ -959,7 +960,7 @@ function planFirstExtractedKnopWeave(
           description:
             "Resource page for the current explicit history of the MeshInventory artifact.",
           artifactLabel: "Inventory artifact",
-          workingFilePath: "_mesh/_inventory/inventory.ttl",
+          workingLocalRelativePath: "_mesh/_inventory/inventory.ttl",
           states: [
             { segment: "_s0001", latest: false },
             { segment: "_s0002", latest: false },
@@ -1050,16 +1051,16 @@ function planFirstReferenceCatalogWeave(
     meshBase,
     candidate.currentKnopInventoryTurtle,
     candidate.designatorPath,
-    referenceCatalogArtifact.workingFilePath,
+    referenceCatalogArtifact.workingLocalRelativePath,
   );
 
   const knopPath = toKnopPath(designatorPath);
   const referenceCatalogPath = `${knopPath}/_references`;
-  const referenceCatalogWorkingFilePath = referenceCatalogArtifact
-    .workingFilePath;
+  const referenceCatalogWorkingLocalRelativePath = referenceCatalogArtifact
+    .workingLocalRelativePath;
   const referenceCatalogManifestationPath = toArtifactManifestationPath(
     `${referenceCatalogPath}/_history001/_s0001`,
-    referenceCatalogWorkingFilePath,
+    referenceCatalogWorkingLocalRelativePath,
   );
   const referenceCatalogLinks = extractCurrentReferenceCatalogLinks(
     meshBase,
@@ -1078,12 +1079,12 @@ function planFirstReferenceCatalogWeave(
         contents: renderFirstReferenceCatalogWovenKnopInventoryTurtle(
           meshBase,
           designatorPath,
-          referenceCatalogWorkingFilePath,
+          referenceCatalogWorkingLocalRelativePath,
         ),
       },
       {
         path: `${referenceCatalogManifestationPath}/${
-          toFileName(referenceCatalogWorkingFilePath)
+          toFileName(referenceCatalogWorkingLocalRelativePath)
         }`,
         contents: referenceCatalogArtifact.currentReferenceCatalogTurtle,
       },
@@ -1094,13 +1095,13 @@ function planFirstReferenceCatalogWeave(
         contents: renderFirstReferenceCatalogWovenKnopInventoryTurtle(
           meshBase,
           designatorPath,
-          referenceCatalogWorkingFilePath,
+          referenceCatalogWorkingLocalRelativePath,
         ),
       },
     ],
     createdPages: buildFirstReferenceCatalogWeavePages(
       designatorPath,
-      referenceCatalogWorkingFilePath,
+      referenceCatalogWorkingLocalRelativePath,
       referenceCatalogLinks,
     ),
   };
@@ -1154,7 +1155,7 @@ function planPageDefinitionWeave(
     renderSubsequentPageDefinitionWovenKnopInventoryTurtle(
       meshBase,
       designatorPath,
-      pageDefinitionArtifact.workingFilePath,
+      pageDefinitionArtifact.workingLocalRelativePath,
       progression,
       knopInventoryProgression,
       pageDefinitionArtifact.assetBundlePath,
@@ -1238,7 +1239,7 @@ function planSecondPayloadWeave(
   );
 
   const payloadSnapshotPath = `${payloadLayout.nextManifestationPath}/${
-    toFileName(payloadArtifact.workingFilePath)
+    toFileName(payloadArtifact.workingLocalRelativePath)
   }`;
 
   return {
@@ -1256,7 +1257,7 @@ function planSecondPayloadWeave(
           meshBase,
           designatorPath,
           payloadLayout,
-          payloadArtifact.workingFilePath,
+          payloadArtifact.workingLocalRelativePath,
         ),
       },
     ],
@@ -1267,7 +1268,7 @@ function planSecondPayloadWeave(
           meshBase,
           designatorPath,
           payloadLayout,
-          payloadArtifact.workingFilePath,
+          payloadArtifact.workingLocalRelativePath,
         ),
       },
     ],
@@ -1369,7 +1370,7 @@ function resolveCurrentKnopInventoryProgressionForPageDefinitionWeave(
     meshBase,
     errorMessage,
     pageDefinitionPath,
-    pageDefinitionArtifact.workingFilePath,
+    pageDefinitionArtifact.workingLocalRelativePath,
   );
 
   const historyIri = requireSingleNamedNodeObject(
@@ -1731,7 +1732,7 @@ function assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
   currentMeshInventoryTurtle: string,
   designatorPath: string,
   sourcePayloadDesignatorPath: string,
-  sourceWorkingFilePath: string,
+  sourceWorkingLocalRelativePath: string,
 ): void {
   const rootDesignatorPath = toRootDesignatorPath(sourcePayloadDesignatorPath);
   const rootKnopPath = toKnopPath(rootDesignatorPath);
@@ -1808,7 +1809,7 @@ function assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
     meshBase,
     errorMessage,
     sourcePayloadDesignatorPath,
-    sourceWorkingFilePath,
+    sourceWorkingLocalRelativePath,
   );
 
   if (
@@ -1837,7 +1838,7 @@ function assertCurrentKnopInventoryShapeForFirstExtractedKnopWeave(
   meshBase: string,
   currentKnopInventoryTurtle: string,
   designatorPath: string,
-  referenceCatalogWorkingFilePath: string,
+  referenceCatalogWorkingLocalRelativePath: string,
 ): void {
   const knopPath = toKnopPath(designatorPath);
   const referenceCatalogPath = `${knopPath}/_references`;
@@ -1888,7 +1889,7 @@ function assertCurrentKnopInventoryShapeForFirstExtractedKnopWeave(
     meshBase,
     errorMessage,
     referenceCatalogPath,
-    referenceCatalogWorkingFilePath,
+    referenceCatalogWorkingLocalRelativePath,
   );
 
   if (hasPredicateFact(quads, SFLO_HAS_ARTIFACT_HISTORY_IRI)) {
@@ -1901,9 +1902,9 @@ function assertCurrentKnopInventoryShapeForFirstExtractedKnopWeave(
 function assertReferenceTargetSourcePayloadShapeForFirstExtractedKnopWeave(
   payloadArtifact: ReferenceTargetSourcePayloadArtifact,
 ): void {
-  if (!payloadArtifact.workingFilePath.endsWith(".ttl")) {
+  if (!payloadArtifact.workingLocalRelativePath.endsWith(".ttl")) {
     throw new WeaveInputError(
-      `The current local extracted weave slice only supports Turtle source payload files; found ${payloadArtifact.workingFilePath}.`,
+      `The current local extracted weave slice only supports Turtle source payload files; found ${payloadArtifact.workingLocalRelativePath}.`,
     );
   }
 
@@ -2001,7 +2002,7 @@ function assertCurrentPayloadArtifactShape(
   meshBase: string,
   currentKnopInventoryTurtle: string,
   designatorPath: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
 ): void {
   const errorMessage =
     `The current local weave slice only supports the settled integrated payload shape for ${designatorPath}.`;
@@ -2021,7 +2022,7 @@ function assertCurrentPayloadArtifactShape(
     meshBase,
     errorMessage,
     designatorPath,
-    workingFilePath,
+    workingLocalRelativePath,
   );
 
   if (
@@ -2089,7 +2090,7 @@ function assertCurrentKnopInventoryShapeForFirstPageDefinitionWeave(
     meshBase,
     errorMessage,
     `${knopPath}/_page`,
-    pageDefinitionArtifact.workingFilePath,
+    pageDefinitionArtifact.workingLocalRelativePath,
   );
   assertHasLiteralFacts(quads, meshBase, errorMessage, [[
     `${knopPath}/_inventory/_history001`,
@@ -2198,7 +2199,7 @@ function assertCurrentKnopInventoryShapeForSubsequentPageDefinitionWeave(
     meshBase,
     errorMessage,
     `${knopPath}/_page`,
-    pageDefinitionArtifact.workingFilePath,
+    pageDefinitionArtifact.workingLocalRelativePath,
   );
   assertHasLiteralFacts(quads, meshBase, errorMessage, [
     [
@@ -2256,7 +2257,7 @@ function assertCurrentKnopInventoryShapeForFirstReferenceCatalogWeave(
   meshBase: string,
   currentKnopInventoryTurtle: string,
   designatorPath: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
 ): void {
   const knopPath = toKnopPath(designatorPath);
   const referenceCatalogPath = `${knopPath}/_references`;
@@ -2293,7 +2294,7 @@ function assertCurrentKnopInventoryShapeForFirstReferenceCatalogWeave(
     meshBase,
     errorMessage,
     referenceCatalogPath,
-    workingFilePath,
+    workingLocalRelativePath,
   );
   assertHasLiteralFacts(quads, meshBase, errorMessage, [
     [
@@ -2379,7 +2380,7 @@ function assertCurrentKnopInventoryShapeForSecondPayloadWeave(
     meshBase,
     errorMessage,
     designatorPath,
-    payloadArtifact.workingFilePath,
+    payloadArtifact.workingLocalRelativePath,
   );
   assertHasCurrentWorkingFileLocator(
     quads,
@@ -2751,7 +2752,7 @@ function renderFirstPayloadWovenMeshInventoryTurtle(
   currentMeshInventoryTurtle: string,
   meshBase: string,
   designatorPath: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
   meshInventoryProgression: MeshInventoryProgression,
 ): string {
   const knopPath = toKnopPath(designatorPath);
@@ -2780,7 +2781,7 @@ function renderFirstPayloadWovenMeshInventoryTurtle(
     return renderLegacyFirstPayloadWovenMeshInventoryTurtle(
       meshBase,
       designatorPath,
-      workingFilePath,
+      workingLocalRelativePath,
     );
   }
   let blocks = initialBlocks;
@@ -2803,7 +2804,7 @@ function renderFirstPayloadWovenMeshInventoryTurtle(
     designatorPath,
     renderMeshPayloadArtifactBlockWithResourcePage(
       designatorPath,
-      workingFilePath,
+      workingLocalRelativePath,
     ),
   );
   blocks = replaceSubjectBlock(
@@ -3001,15 +3002,15 @@ function renderLegacyFirstKnopWovenMeshInventoryTurtle(
 function renderLegacyFirstPayloadWovenMeshInventoryTurtle(
   meshBase: string,
   designatorPath: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
-    workingFilePath,
+    workingLocalRelativePath,
   );
   const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
-    workingFilePath,
+    workingLocalRelativePath,
   );
 
   return `@base <${meshBase}> .
@@ -3169,18 +3170,18 @@ function renderFirstPayloadWovenKnopInventoryTurtle(
   meshBase: string,
   designatorPath: string,
   payloadLayout: PayloadVersionLayout,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
   const payloadSnapshotPath = `${payloadLayout.nextManifestationPath}/${
-    toFileName(workingFilePath)
+    toFileName(workingLocalRelativePath)
   }`;
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
-    workingFilePath,
+    workingLocalRelativePath,
   );
   const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
-    workingFilePath,
+    workingLocalRelativePath,
   );
 
   return `@base <${meshBase}> .
@@ -3309,19 +3310,19 @@ ${currentWorkingFileDeclaration}
 function renderFirstReferenceCatalogWovenKnopInventoryTurtle(
   meshBase: string,
   designatorPath: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const referenceCatalogPath = `${knopPath}/_references`;
   const referenceCatalogManifestationPath = toArtifactManifestationPath(
     `${referenceCatalogPath}/_history001/_s0001`,
-    workingFilePath,
+    workingLocalRelativePath,
   );
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
-    workingFilePath,
+    workingLocalRelativePath,
   );
   const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
-    workingFilePath,
+    workingLocalRelativePath,
   );
 
   return `@base <${meshBase}> .
@@ -3413,13 +3414,13 @@ function renderFirstReferenceCatalogWovenKnopInventoryTurtle(
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
   sflo:hasManifestation <${referenceCatalogManifestationPath}> ;
   sflo:locatedFileForState <${referenceCatalogManifestationPath}/${
-    toFileName(workingFilePath)
+    toFileName(workingLocalRelativePath)
   }> ;
   sflo:hasResourcePage <${referenceCatalogPath}/_history001/_s0001/index.html> .
 
 <${referenceCatalogManifestationPath}> a sflo:ArtifactManifestation, sflo:RdfDocument ;
   sflo:hasLocatedFile <${referenceCatalogManifestationPath}/${
-    toFileName(workingFilePath)
+    toFileName(workingLocalRelativePath)
   }> ;
   sflo:hasResourcePage <${referenceCatalogManifestationPath}/index.html> .
 
@@ -3436,7 +3437,7 @@ ${currentWorkingFileDeclaration}
 <${knopPath}/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${referenceCatalogManifestationPath}/${
-    toFileName(workingFilePath)
+    toFileName(workingLocalRelativePath)
   }> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${knopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
@@ -3474,7 +3475,7 @@ ${currentWorkingFileDeclaration}
 function renderSubsequentPageDefinitionWovenKnopInventoryTurtle(
   meshBase: string,
   designatorPath: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
   progression: PageDefinitionWeaveProgression,
   knopInventoryProgression: MeshInventoryProgression,
   assetBundlePath?: string,
@@ -3494,10 +3495,10 @@ function renderSubsequentPageDefinitionWovenKnopInventoryTurtle(
     ? `<${assetBundlePath}> a <${SFC_KNOP_ASSET_BUNDLE_IRI}> .\n\n`
     : "";
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
-    workingFilePath,
+    workingLocalRelativePath,
   );
   const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
-    workingFilePath,
+    workingLocalRelativePath,
   );
   const pageDefinitionStateBlocks = Array.from(
     { length: progression.nextStateOrdinal },
@@ -3791,7 +3792,7 @@ function renderSecondPayloadWovenKnopInventoryTurtle(
   meshBase: string,
   designatorPath: string,
   payloadLayout: PayloadVersionLayout,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
@@ -3799,12 +3800,12 @@ function renderSecondPayloadWovenKnopInventoryTurtle(
   const payloadStateOneManifestationPath = payloadLayout
     .currentManifestationPath!;
   const payloadStateTwoManifestationPath = payloadLayout.nextManifestationPath;
-  const payloadFileName = toFileName(workingFilePath);
+  const payloadFileName = toFileName(workingLocalRelativePath);
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
-    workingFilePath,
+    workingLocalRelativePath,
   );
   const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
-    workingFilePath,
+    workingLocalRelativePath,
   );
 
   return `@base <${meshBase}> .
@@ -4077,11 +4078,11 @@ function renderMeshKnopBlockWithResourcePage(knopPath: string): string {
 
 function renderMeshPayloadArtifactBlockWithResourcePage(
   designatorPath: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
 ): string {
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
-    workingFilePath,
+    workingLocalRelativePath,
   );
   return `<${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
   ${currentWorkingFileLocator}
@@ -4285,13 +4286,13 @@ function getSubjectPathFromBlock(block: string): string | undefined {
 function renderFirstExtractedKnopWovenKnopInventoryTurtle(
   meshBase: string,
   designatorPath: string,
-  referenceCatalogWorkingFilePath: string,
+  referenceCatalogWorkingLocalRelativePath: string,
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const referenceCatalogPath = `${knopPath}/_references`;
   const referenceCatalogManifestationPath =
     `${referenceCatalogPath}/_history001/_s0001/${
-      toManifestationSegment(referenceCatalogWorkingFilePath)
+      toManifestationSegment(referenceCatalogWorkingLocalRelativePath)
     }`;
 
   return `@base <${meshBase}> .
@@ -4357,7 +4358,7 @@ function renderFirstExtractedKnopWovenKnopInventoryTurtle(
   sflo:hasArtifactHistory <${referenceCatalogPath}/_history001> ;
   sflo:currentArtifactHistory <${referenceCatalogPath}/_history001> ;
   sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasWorkingLocatedFile <${referenceCatalogWorkingFilePath}> ;
+  sflo:hasWorkingLocatedFile <${referenceCatalogWorkingLocalRelativePath}> ;
   sflo:hasResourcePage <${referenceCatalogPath}/index.html> .
 
 <${referenceCatalogPath}/_history001> a sflo:ArtifactHistory ;
@@ -4371,13 +4372,13 @@ function renderFirstExtractedKnopWovenKnopInventoryTurtle(
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
   sflo:hasManifestation <${referenceCatalogManifestationPath}> ;
   sflo:locatedFileForState <${referenceCatalogManifestationPath}/${
-    toFileName(referenceCatalogWorkingFilePath)
+    toFileName(referenceCatalogWorkingLocalRelativePath)
   }> ;
   sflo:hasResourcePage <${referenceCatalogPath}/_history001/_s0001/index.html> .
 
 <${referenceCatalogManifestationPath}> a sflo:ArtifactManifestation, sflo:RdfDocument ;
   sflo:hasLocatedFile <${referenceCatalogManifestationPath}/${
-    toFileName(referenceCatalogWorkingFilePath)
+    toFileName(referenceCatalogWorkingLocalRelativePath)
   }> ;
   sflo:hasResourcePage <${referenceCatalogManifestationPath}/index.html> .
 
@@ -4385,14 +4386,14 @@ function renderFirstExtractedKnopWovenKnopInventoryTurtle(
 
 <${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<${referenceCatalogWorkingFilePath}> a sflo:LocatedFile, sflo:RdfDocument .
+<${referenceCatalogWorkingLocalRelativePath}> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${referenceCatalogManifestationPath}/${
-    toFileName(referenceCatalogWorkingFilePath)
+    toFileName(referenceCatalogWorkingLocalRelativePath)
   }> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${knopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
@@ -4429,7 +4430,7 @@ function renderArtifactHistoryIndexPage(
     pagePath: string;
     description: string;
     artifactLabel: string;
-    workingFilePath: string;
+    workingLocalRelativePath: string;
     states: readonly { segment: string; latest: boolean }[];
   },
 ): string {
@@ -4461,9 +4462,13 @@ function renderArtifactHistoryIndexPage(
       <ul>
         <li>${escapeHtml(options.artifactLabel)}: <a href="../">../</a></li>
         <li>Current working file: <a href="${
-    escapeHtml(toRelativeHref(options.pagePath, options.workingFilePath))
+    escapeHtml(
+      toRelativeHref(options.pagePath, options.workingLocalRelativePath),
+    )
   }">${
-    escapeHtml(toRelativeHref(options.pagePath, options.workingFilePath))
+    escapeHtml(
+      toRelativeHref(options.pagePath, options.workingLocalRelativePath),
+    )
   }</a></li>
       </ul>
     </section>
@@ -4588,7 +4593,7 @@ function renderExtractedPersonIdentifierPage(
   designatorPath: string,
   sourcePayloadDesignatorPath: string,
   sourcePayloadHistoryPath: string,
-  sourceWorkingFilePath: string,
+  sourceWorkingLocalRelativePath: string,
   currentPayloadTurtle: string,
 ): string {
   const meshLabel = deriveMeshLabel(meshBase);
@@ -4618,7 +4623,7 @@ function renderExtractedPersonIdentifierPage(
   );
   const sourceWorkingFileHref = toRelativeHref(
     designatorPagePath,
-    sourceWorkingFilePath,
+    sourceWorkingLocalRelativePath,
   );
   const canonical = new URL(designatorPath, meshBase).href;
 
@@ -4740,7 +4745,7 @@ function assertHasCurrentWorkingFileLocator(
   meshBase: string,
   errorMessage: string,
   subjectValue: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
 ): void {
   const subjectIri = toAbsoluteIri(meshBase, subjectValue);
   const values = new Set<string>();
@@ -4776,14 +4781,14 @@ function assertHasCurrentWorkingFileLocator(
       quad.object.termType === "Literal"
     ) {
       try {
-        values.add(normalizeWorkingFilePathLiteral(quad.object.value));
+        values.add(normalizeWorkingLocalRelativePathLiteral(quad.object.value));
       } catch {
         throw new WeaveInputError(errorMessage);
       }
     }
   }
 
-  if (values.size !== 1 || !values.has(workingFilePath)) {
+  if (values.size !== 1 || !values.has(workingLocalRelativePath)) {
     throw new WeaveInputError(errorMessage);
   }
 }
@@ -4994,7 +4999,7 @@ function toMeshRelativePath(
   return iri.slice(meshBase.length);
 }
 
-function normalizeWorkingFilePathLiteral(value: string): string {
+function normalizeWorkingLocalRelativePathLiteral(value: string): string {
   const trimmed = value.trim();
 
   if (
@@ -5003,7 +5008,7 @@ function normalizeWorkingFilePathLiteral(value: string): string {
     trimmed.endsWith("/") ||
     /^[A-Za-z]:/.test(trimmed)
   ) {
-    throw new Error("invalid workingFilePath");
+    throw new Error("invalid workingLocalRelativePath");
   }
   if (
     trimmed.includes("\\") ||
@@ -5011,35 +5016,44 @@ function normalizeWorkingFilePathLiteral(value: string): string {
     trimmed.includes("#") ||
     /\s/.test(trimmed)
   ) {
-    throw new Error("invalid workingFilePath");
+    throw new Error("invalid workingLocalRelativePath");
   }
 
   const normalized = pathPosix.normalize(trimmed);
   if (normalized === "." || normalized === "..") {
-    throw new Error("invalid workingFilePath");
+    throw new Error("invalid workingLocalRelativePath");
   }
 
   const segments = normalized.split("/");
   if (segments.some((segment) => segment.length === 0)) {
-    throw new Error("invalid workingFilePath");
+    throw new Error("invalid workingLocalRelativePath");
   }
 
   return normalized;
 }
 
-function usesMeshLocalWorkingLocatedFile(workingFilePath: string): boolean {
-  return !normalizeWorkingFilePathLiteral(workingFilePath).startsWith("../");
+function usesMeshLocalWorkingLocatedFile(
+  workingLocalRelativePath: string,
+): boolean {
+  return !normalizeWorkingLocalRelativePathLiteral(workingLocalRelativePath)
+    .startsWith("../");
 }
 
-function renderCurrentWorkingFileLocator(workingFilePath: string): string {
-  return usesMeshLocalWorkingLocatedFile(workingFilePath)
-    ? `sflo:hasWorkingLocatedFile <${workingFilePath}> ;`
-    : `sflo:workingFilePath ${JSON.stringify(workingFilePath)} ;`;
+function renderCurrentWorkingFileLocator(
+  workingLocalRelativePath: string,
+): string {
+  return usesMeshLocalWorkingLocatedFile(workingLocalRelativePath)
+    ? `sflo:hasWorkingLocatedFile <${workingLocalRelativePath}> ;`
+    : `sflo:workingLocalRelativePath ${
+      JSON.stringify(workingLocalRelativePath)
+    } ;`;
 }
 
-function renderCurrentWorkingFileDeclaration(workingFilePath: string): string {
-  return usesMeshLocalWorkingLocatedFile(workingFilePath)
-    ? `<${workingFilePath}> a sflo:LocatedFile, sflo:RdfDocument .`
+function renderCurrentWorkingFileDeclaration(
+  workingLocalRelativePath: string,
+): string {
+  return usesMeshLocalWorkingLocatedFile(workingLocalRelativePath)
+    ? `<${workingLocalRelativePath}> a sflo:LocatedFile, sflo:RdfDocument .`
     : "";
 }
 
@@ -5117,7 +5131,7 @@ function buildFirstKnopWeavePages(
 function buildFirstPayloadWeavePages(
   designatorPath: string,
   payloadLayout: PayloadVersionLayout,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
   meshInventoryProgression: MeshInventoryProgression,
 ): readonly ResourcePageModel[] {
   const knopPath = toKnopPath(designatorPath);
@@ -5139,7 +5153,7 @@ function buildFirstPayloadWeavePages(
     identifierPage(
       designatorPagePath,
       designatorPath,
-      workingFilePath,
+      workingLocalRelativePath,
     ),
     simplePage(
       `${payloadLayout.historyPath}/index.html`,
@@ -5194,7 +5208,7 @@ function buildFirstPayloadWeavePages(
 
 function buildFirstReferenceCatalogWeavePages(
   designatorPath: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
   currentLinks: readonly ReferenceCatalogCurrentLinkModel[],
 ): readonly ResourcePageModel[] {
   const knopPath = toKnopPath(designatorPath);
@@ -5202,7 +5216,7 @@ function buildFirstReferenceCatalogWeavePages(
   const displayDesignatorPath = formatDesignatorPathForDisplay(designatorPath);
   const referenceCatalogManifestationPath = toArtifactManifestationPath(
     `${referenceCatalogPath}/_history001/_s0001`,
-    workingFilePath,
+    workingLocalRelativePath,
   );
 
   return [
@@ -5310,7 +5324,7 @@ function buildSecondPayloadWeavePages(
 
 function resolveFirstPayloadVersionLayout(
   designatorPath: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
   target?: NormalizedVersionTargetSpec,
 ): PayloadVersionLayout {
   const historyPath = appendMeshPath(
@@ -5320,7 +5334,7 @@ function resolveFirstPayloadVersionLayout(
   const nextStatePath = `${historyPath}/${target?.stateSegment ?? "_s0001"}`;
   const nextManifestationPath = toPayloadManifestationPath(
     nextStatePath,
-    workingFilePath,
+    workingLocalRelativePath,
     target?.manifestationSegment,
   );
 
@@ -5376,7 +5390,7 @@ function resolveSecondPayloadVersionLayout(
   }
   const nextManifestationPath = toPayloadManifestationPath(
     nextStatePath,
-    payloadArtifact.workingFilePath,
+    payloadArtifact.workingLocalRelativePath,
     target?.manifestationSegment,
   );
 
@@ -5392,13 +5406,13 @@ function resolveSecondPayloadVersionLayout(
 function identifierPage(
   path: string,
   designatorPath: string,
-  workingFilePath?: string,
+  workingLocalRelativePath?: string,
 ): IdentifierResourcePageModel {
   return {
     kind: "identifier",
     path,
     designatorPath,
-    workingFilePath,
+    workingLocalRelativePath,
   };
 }
 
@@ -5430,28 +5444,28 @@ function referenceCatalogPage(
 
 function toPayloadManifestationPath(
   payloadStatePath: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
   manifestationSegment?: string,
 ): string {
   return toArtifactManifestationPath(
     payloadStatePath,
-    workingFilePath,
+    workingLocalRelativePath,
     manifestationSegment,
   );
 }
 
 function toArtifactManifestationPath(
   historyStatePath: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
   manifestationSegment?: string,
 ): string {
   return `${historyStatePath}/${
-    manifestationSegment ?? toManifestationSegment(workingFilePath)
+    manifestationSegment ?? toManifestationSegment(workingLocalRelativePath)
   }`;
 }
 
-function toManifestationSegment(workingFilePath: string): string {
-  return toFileName(workingFilePath).replaceAll(".", "-");
+function toManifestationSegment(workingLocalRelativePath: string): string {
+  return toFileName(workingLocalRelativePath).replaceAll(".", "-");
 }
 
 function resolveCurrentPayloadManifestationPath(
@@ -5463,7 +5477,7 @@ function resolveCurrentPayloadManifestationPath(
   if (snapshotPath === undefined) {
     return toPayloadManifestationPath(
       currentStatePath,
-      payloadArtifact.workingFilePath,
+      payloadArtifact.workingLocalRelativePath,
     );
   }
   if (!snapshotPath.startsWith(`${currentStatePath}/`)) {
