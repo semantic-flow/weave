@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { join, relative } from "@std/path";
+import { join, relative, toFileUrl } from "@std/path";
 import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import {
   getManifestFileExpectations,
@@ -12,6 +12,7 @@ import {
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 const repoRoot = new URL("../../", import.meta.url);
+const cliPath = new URL("src/main.ts", repoRoot).pathname;
 
 Deno.test("weave mesh create matches the manifest-scoped alice-bio fixture as a black-box CLI run", async () => {
   const manifestPath = resolveMeshAliceBioConformanceManifestPath(
@@ -34,7 +35,7 @@ Deno.test("weave mesh create matches the manifest-scoped alice-bio fixture as a 
       "--allow-read",
       "--allow-write",
       "--allow-env",
-      "src/main.ts",
+      cliPath,
       "mesh",
       "create",
       "--workspace",
@@ -128,17 +129,17 @@ Deno.test("weave mesh create supports a docs-rooted sidecar mesh as a black-box 
       "--allow-read",
       "--allow-write",
       "--allow-env",
-      "src/main.ts",
+      cliPath,
       "mesh",
       "create",
       "--workspace",
-      workspaceRoot,
+      ".",
       "--mesh-root",
       "docs",
       "--mesh-base",
       "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
     ],
-    cwd: new URL(".", repoRoot),
+    cwd: toFileUrl(`${workspaceRoot}/`),
     stdout: "piped",
     stderr: "piped",
   });
@@ -165,6 +166,44 @@ Deno.test("weave mesh create supports a docs-rooted sidecar mesh as a black-box 
   );
 });
 
+Deno.test("weave mesh create rejects mesh roots outside the workspace as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-mesh-create-root-outside-",
+  );
+  await Deno.mkdir(join(workspaceRoot, "docs"), { recursive: true });
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      cliPath,
+      "mesh",
+      "create",
+      "--workspace",
+      "docs",
+      "--mesh-root",
+      ".",
+      "--mesh-base",
+      "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    ],
+    cwd: toFileUrl(`${workspaceRoot}/`),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(!output.success, stdout);
+  assert(
+    stderr.includes("mesh root must stay inside the workspace root"),
+    stderr,
+  );
+  assertEquals(await listRelativeFiles(workspaceRoot, ".weave/"), []);
+});
+
 Deno.test("weave mesh create can skip .nojekyll as a black-box CLI run", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-e2e-mesh-create-no-nojekyll-",
@@ -176,7 +215,7 @@ Deno.test("weave mesh create can skip .nojekyll as a black-box CLI run", async (
       "--allow-read",
       "--allow-write",
       "--allow-env",
-      "src/main.ts",
+      cliPath,
       "mesh",
       "create",
       "--workspace",

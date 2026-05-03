@@ -22,8 +22,8 @@ The first acceptance target is the settled `mesh-alice-bio` transition from `01-
 
 - `meshBase` is required.
 - `meshBase` must be an absolute IRI and must end with a trailing `/`.
-- `workspace` identifies the local workspace root and defaults to `.`
-- `meshRoot` identifies the mesh root path inside the workspace and defaults to `.`
+- `workspace` identifies the local workspace root, is resolved from the command working directory, and defaults to `.`
+- `meshRoot` identifies the mesh root path, is resolved from the command working directory, must stay inside `workspace`, and defaults to `.`
 - `.nojekyll` is created by default when `meshBase` is a GitHub Pages URL, unless the caller opts out
 - the target workspace may already contain non-mesh files such as a source RDF document
 

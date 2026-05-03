@@ -136,6 +136,7 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - The fixture repository name should be `mesh-sidecar-fantasy-rules`.
 - The mesh root should be `docs/`.
 - Creating `docs/` as a sidecar mesh root should be an expansion of `weave mesh create`, not a separate fixture-only scaffold command. The expected command shape is `weave mesh create --workspace . --mesh-root docs --mesh-base https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/`, where `--workspace` names the repo/workspace root and `--mesh-root` names the mesh location on disk inside that workspace.
+- The `weave mesh create` CLI should resolve both `--workspace` and `--mesh-root` from the command working directory, then require the resolved mesh root to stay inside the resolved workspace root.
 - `weave mesh create` should include `.nojekyll` by default for GitHub Pages publishing targets, with an explicit opt-out switch for users who do not want that file.
 - The fixture should be fantasy-rules inspired, not a full rules ontology.
 - The first carried domain should be tiny and stable: classes such as `AbilityScore`, `Alignment`, `Character`, and perhaps a small number of representative individuals or controlled values are enough.

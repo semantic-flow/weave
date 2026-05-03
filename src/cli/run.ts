@@ -1,6 +1,6 @@
 import { Command } from "@cliffy/command";
 import { Input } from "@cliffy/prompt";
-import { join, resolve } from "@std/path";
+import { isAbsolute, join, relative, resolve } from "@std/path";
 import { ExtractInputError } from "../core/extract/extract.ts";
 import { IntegrateInputError } from "../core/integrate/integrate.ts";
 import { KnopAddReferenceInputError } from "../core/knop/add_reference.ts";
@@ -448,8 +448,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             )
             .option(
               "--mesh-root <meshRoot:string>",
-              "Mesh root path inside the workspace.",
-              { default: "." },
+              "Mesh root path. Relative values are resolved from the current directory and must stay inside the workspace.",
             )
             .option(
               "--no-nojekyll",
@@ -461,7 +460,10 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             )
             .action(async (options) => {
               const workspaceRoot = resolve(options.workspace);
-              const meshRoot = options.meshRoot;
+              const meshRoot = normalizeCliMeshRoot(
+                workspaceRoot,
+                options.meshRoot,
+              );
               const meshBase = await resolveMeshBaseOption(options);
               const logDir = join(workspaceRoot, ".weave", "logs");
               const { operationalLogger, auditLogger } = createRuntimeLoggers({
@@ -628,6 +630,30 @@ export async function runWeaveCli(args: string[]): Promise<number> {
   }
 
   return exitCode;
+}
+
+function normalizeCliMeshRoot(
+  workspaceRoot: string,
+  meshRoot: string | undefined,
+): string {
+  if (meshRoot === undefined) {
+    return ".";
+  }
+
+  const absoluteMeshRoot = resolve(meshRoot);
+  const relation = relative(workspaceRoot, absoluteMeshRoot).replaceAll(
+    "\\",
+    "/",
+  );
+  if (relation.length === 0) {
+    return ".";
+  }
+  if (relation.startsWith("../") || relation === ".." || isAbsolute(relation)) {
+    throw new Error(
+      `mesh root must stay inside the workspace root: ${meshRoot}`,
+    );
+  }
+  return relation;
 }
 
 async function resolveMeshBaseOption(
