@@ -2,6 +2,7 @@
 id: g8nk8rv3jwqqjxyd4pgjkox
 title: Roadmap
 desc: ''
+updated: 1777828028962
 created: 1773889263552
 ---
 
@@ -30,7 +31,7 @@ created: 1773889263552
 
 ## Multiple Histories
 
-see [[wd.conv.2026.2026-04-07_1854-weave-targeting-codex#gpt-54_2026-04-07_2037_36]]
+see [[wa.conv.2026.2026-04-07_1854-weave-targeting-codex#gpt-54_2026-04-07_2037_36]]
 
 ## Semantic Flow Overlay
 

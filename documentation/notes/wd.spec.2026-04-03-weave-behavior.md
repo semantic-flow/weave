@@ -8,7 +8,7 @@ created: 1775230930110
 
 ## Purpose
 
-This note captures the current expected behavior of the `weave` operation as learned from the settled `mesh-alice-bio` fixture ladder in [[wd.completed.2026.2026-03-25-mesh-alice-bio]].
+This note captures the current expected behavior of the `weave` operation as learned from the settled `mesh-alice-bio` fixture ladder in [[wa.completed.2026.2026-03-25-mesh-alice-bio]].
 
 It is meant to be the high-level operational spec for Weave behavior, not a replay of every branch detail and not a CLI design note.
 
@@ -310,5 +310,5 @@ This note does not specify:
 
 ## Related Notes
 
-- [[wd.completed.2026.2026-03-25-mesh-alice-bio]]
+- [[wa.completed.2026.2026-03-25-mesh-alice-bio]]
 - [[ont.reference-links]]

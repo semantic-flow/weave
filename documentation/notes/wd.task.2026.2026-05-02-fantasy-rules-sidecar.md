@@ -1,7 +1,7 @@
 ---
 id: 6wjbum23c4rli8cojvtcp0i
 title: 2026 05 02 Fantasy Rules Sidecar
-desc: 'sidecar mesh fixture for dereferenceable ontology and SHACL publishing'
+desc: sidecar mesh fixture for dereferenceable ontology and SHACL publishing
 updated: 1777705655304
 created: 1777705655304
 ---
@@ -110,7 +110,7 @@ This task also intersects with the open layout question in [[sf.todo]]: `mesh-co
 
 ### Alice Bio Precedent
 
-The closest precedent is [[wd.completed.2026.2026-03-25-mesh-alice-bio]] together with the framework conformance task [[sf.completed.2026.2026-03-29-conformance-for-mesh-alice-bio]] and the examples index [[sf.api.examples]].
+The closest precedent is [[wa.completed.2026.2026-03-25-mesh-alice-bio]] together with the framework conformance task [[sf.completed.2026.2026-03-29-conformance-for-mesh-alice-bio]] and the examples index [[sf.api.examples]].
 
 The reusable parts are:
 
@@ -128,14 +128,14 @@ The first ladder should be branch-based unless implementation pressure proves a 
 
 ## Open Issues
 
-- Should the default payload manifestation segment migrate from filename-derived segments such as `fantasy-rules-ontology-ttl` to extension-derived segments such as `ttl`, and what should the no-extension fallback be?
-- Should a version-bumped ontology branch be a separate follow-up ladder pair, and if so should it version only the ontology first or ontology and SHACL together?
+- How should RDF datasets such as `examples/gunaar.ttl` declare the ontology version or compatibility line they were authored against?
+- Should Semantic Flow define a small metadata property for dataset-to-ontology compatibility, or reuse an existing vocabulary pattern where the dataset announces the ontology artifact or ontology major version it expects?
 
 ## Decisions
 
 - The fixture repository name should be `mesh-sidecar-fantasy-rules`.
 - The mesh root should be `docs/`.
-- Creating `docs/` as a sidecar mesh root should be an expansion of `weave mesh create`, not a separate fixture-only scaffold command. The expected command shape is `weave mesh create --workspace docs --mesh-base https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/`.
+- Creating `docs/` as a sidecar mesh root should be an expansion of `weave mesh create`, not a separate fixture-only scaffold command. The expected command shape is `weave mesh create --workspace . --mesh-root docs --mesh-base https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/`, where `--workspace` names the repo/workspace root and `--mesh-root` names the mesh location on disk inside that workspace.
 - `weave mesh create` should include `.nojekyll` by default for GitHub Pages publishing targets, with an explicit opt-out switch for users who do not want that file.
 - The fixture should be fantasy-rules inspired, not a full rules ontology.
 - The first carried domain should be tiny and stable: classes such as `AbilityScore`, `Alignment`, `Character`, and perhaps a small number of representative individuals or controlled values are enough.
@@ -151,13 +151,20 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - The first release should use custom version path segments: ArtifactHistory `releases`, HistoricalState `v0.0.1`, and ArtifactManifestation `ttl`.
 - The first ontology located file should be `ontology/releases/v0.0.1/ttl/fantasy-rules-ontology.ttl`, with the SHACL equivalent under `shacl/releases/v0.0.1/ttl/fantasy-rules-shacl.ttl`.
 - Version naming belongs on version/weave requests, not on generic targeting; unsupported custom segment requests should fail closed rather than silently producing default `_history001`, `_s0001`, or filename-derived manifestation paths.
-- The first sidecar release should request `manifestationSegment: "ttl"` explicitly; changing the default manifestation segment derivation for existing fixtures such as Alice Bio is a separate migration.
+- The default payload manifestation segment should migrate from filename-derived segments such as `fantasy-rules-ontology-ttl` to extension-derived segments such as `ttl`.
+- The no-extension manifestation fallback still needs an implementation-level decision, but the normal RDF publishing path should be extension-backed by default.
+- The Alice Bio ladder should be re-laddered for the extension-backed manifestation default rather than hidden behind fixture normalization.
+- The first sidecar release should still request `manifestationSegment: "ttl"` explicitly until the default migration has landed everywhere, so this fixture does not depend on a half-migrated default.
 - `dcterms:hasVersion` and `owl:versionIRI` should be deferred until the release/weave branch that materializes the target `HistoricalState` and versioned located Turtle bytes.
 - Once release metadata is added, `dcterms:hasVersion` should point at the Semantic Flow `HistoricalState` and `owl:versionIRI` should point at versioned located Turtle bytes for OWL/RDF tool compatibility.
 - Semantic Flow-specific release-state detail should be present in the mesh, but the authored ontology file should stay mostly normal OWL/RDF.
+- If the meaning of a term needs to change, publish a new term instead of changing the meaning behind the existing IRI.
+- Incompatible ontology changes should generally be treated as a new ontology artifact or compatibility line, not as a silent semantic rewrite of the same term set.
 - Historical located files should be copied into the mesh by default when versioning is enabled.
 - Use a numbered branch ladder for the hand-authored fixture, following the Alice Bio comparison pattern.
-- The first ladder should run through `07-shacl-integrated-woven`; a version-bumped ontology pair can be added later.
+- The first ladder should run through `07-shacl-integrated-woven`; version-bumped ontology and SHACL branches can be added as a later follow-up pair.
+- Ontology and SHACL should normally be bumped together in the fixture, even if only one source file has semantic changes, because they are published as a compatibility pair for this small ontology project.
+- A future version-bumped example branch should include dataset compatibility metadata in `examples/gunaar.ttl` once the project settles how datasets announce the ontology version or compatibility line they target.
 - Use branch refs as test fixtures: source refs define operation input, destination refs define expected output, and Accord manifests define the transition assertions.
 - Treat Accord manifests as transition contracts for the ladder, not as branch metadata or late acceptance paperwork.
 - Store Fantasy Rules Sidecar conformance manifests in `semantic-flow-framework/examples/sidecar-fantasy-rules/conformance/`.
@@ -165,6 +172,8 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - Sidecar support should remain fail-closed. A `workingLocalRelativePath` outside the mesh root is allowed only when operational config explicitly permits that adjacent repo-local path.
 - For this fixture, the adjacent source allowance should use the existing config ontology terms `sfcfg:MeshConfig` and `sfcfg:hasLocalPathAccessRule`, with `sfcfg:meshRootPathBase`, `sfcfg:workingLocalRelativePathLocatorKind`, and explicit `sfcfg:pathPrefix` values such as `../ontology/`, `../shacl/`, and `../examples/`.
 - The desired portable config surface should live under mesh-owned config such as `docs/_mesh/_config/`, not as a repo-root `.sf-repo-access.ttl` file.
+- `weave mesh create` should create a baseline mesh config support artifact at `_mesh/_config/config.ttl` under the mesh root. For this sidecar fixture, that is `docs/_mesh/_config/config.ttl`.
+- The baseline `MeshConfig` should grant no extra-mesh access unless explicit sidecar path-policy options add constrained `sfcfg:hasLocalPathAccessRule` entries.
 - Mesh-owned helper page content should live under `docs/_mesh/content/` in this fixture.
 - Improved resource-page look-and-feel should be deferred to a separate renderer/template task; this task should only make the page behavior changes needed for the sidecar fixture contract.
 - `RdfDocument` resource pages should include raw RDF content when the document bytes are locally available.
@@ -174,14 +183,18 @@ The first ladder should be branch-based unless implementation pressure proves a 
 ## Contract Changes
 
 - Add or clarify a sidecar mesh creation/use contract where the mesh root is not the repository root.
-- Expand `weave mesh create` so it can create a docs-rooted mesh surface with GitHub Pages `.nojekyll` defaults and an explicit opt-out.
+- Expand `weave mesh create` so it separates the local workspace root from the mesh root path, can create a docs-rooted mesh surface, and keeps whole-repo meshes as the default `--mesh-root .` case.
+- Expand `weave mesh create` so it creates baseline `_mesh/_config/config.ttl` support RDF and can optionally seed constrained mesh-adjacent path rules.
+- Include GitHub Pages `.nojekyll` defaults and an explicit opt-out in `weave mesh create`.
 - Ensure `workingLocalRelativePath` can be resolved relative to a mesh root such as `docs/` while obeying explicit local path access policy.
 - Use `MeshConfig` and `hasLocalPathAccessRule` from the Semantic Flow config ontology as the first-pass sidecar path-policy contract.
 - Ensure weaving can copy historical snapshots from adjacent source files into mesh-owned release paths under `docs/`.
 - Define expected artifact-local release path handling for non-ordinal histories such as `ontology/releases` and named states such as `v0.0.1`.
 - Define version/weave request fields for custom ArtifactHistory, HistoricalState, and ArtifactManifestation path segments, including `releases`, `v0.0.1`, and `ttl`.
-- Define the future default-manifestation-segment rule separately if the project migrates from filename-derived defaults to extension-derived defaults.
+- Migrate the default manifestation-segment rule from filename-derived defaults to extension-derived defaults, while preserving explicit request overrides.
+- Define the no-extension manifestation-segment fallback before making the extension-backed default normative.
 - Define how ontology and SHACL artifacts advertise current working bytes, versioned located bytes, and generated resource pages in inventory.
+- Define how example datasets such as `examples/gunaar.ttl` can advertise the ontology version or compatibility line they were authored against.
 - Define the sidecar fixture's transition-manifest convention in the framework examples tree, reusing the Alice Bio one-manifest-per-transition approach.
 - Define how branch refs, operation execution, and Accord manifests are combined into acceptance tests for the sidecar fixture.
 - Define the resource-page model needed for ontology/SHACL landing pages, release pages, manifestation pages, and located-file pages.
@@ -238,10 +251,11 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - [x] Add authored SHACL source under `shacl/`.
 - [x] Add a first-pass example under `examples/`.
 - [x] Add `NOTICE.md` with the SRD 5.2.1 CC-BY-4.0 attribution boundary.
-- [ ] Expand `weave mesh create` so `--workspace docs --mesh-base https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/` creates the docs-rooted mesh support surface.
+- [x] Expand `weave mesh create` so `--workspace . --mesh-root docs --mesh-base https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/` creates the docs-rooted mesh support surface.
 - [ ] Add `.nojekyll` from `weave mesh create` by default for GitHub Pages publishing targets, with an opt-out switch.
 - [ ] Use the expanded `weave mesh create` command to add mesh metadata and inventory for a docs-rooted mesh.
-- [ ] Add mesh-owned config under `docs/_mesh/_config/` with `sfcfg:MeshConfig` and explicit `sfcfg:hasLocalPathAccessRule` entries for adjacent ontology, SHACL, and example source access.
+- [ ] Have `weave mesh create` create baseline mesh-owned config at `docs/_mesh/_config/config.ttl`.
+- [ ] Add explicit `sfcfg:hasLocalPathAccessRule` entries for adjacent ontology, SHACL, and example source access when creating or updating the sidecar fixture.
 - [ ] Add Accord manifests for the seed and mesh-creation transitions as they settle.
 
 ### Phase 2: Integrate Ontology And SHACL Artifacts
@@ -257,10 +271,18 @@ The first ladder should be branch-based unless implementation pressure proves a 
 
 - [ ] Weave ontology release `v0.0.1` under `ontology/releases/v0.0.1`.
 - [ ] Weave SHACL release `v0.0.1` under `shacl/releases/v0.0.1`.
+- [ ] Treat ontology and SHACL release bumps as a pair in the fixture, even when only one source file changes.
 - [ ] Materialize Turtle manifestations under each release state using the `ttl` manifestation segment.
 - [ ] Ensure `owl:versionIRI` points at the versioned located Turtle file.
 - [ ] Ensure working source bytes and latest historical located bytes match where the release is current.
 - [ ] Add Accord manifests for the first ontology and SHACL release/weave transitions as they settle.
+
+### Phase 3B: Version-Bump Follow-Up Pair
+
+- [ ] Add a follow-up ontology and SHACL version-bump pair after the first sidecar ladder is working.
+- [ ] Decide how `examples/gunaar.ttl` declares the ontology version or compatibility line it was authored against.
+- [ ] Add compatibility metadata to `examples/gunaar.ttl` when the metadata pattern is settled.
+- [ ] Use the follow-up pair to test how datasets, ontology files, SHACL files, release histories, and generated pages behave when only part of the source content has semantic changes but the published compatibility pair advances together.
 
 ### Phase 4: Resource Page Behavior
 
@@ -284,6 +306,7 @@ The first ladder should be branch-based unless implementation pressure proves a 
 ### Phase 6: Acceptance And Documentation
 
 - [ ] Add Weave integration/e2e tests for docs-rooted sidecar operation.
+- [ ] Migrate the default manifestation segment derivation to extension-backed segments and re-ladder `mesh-alice-bio` for the new default.
 - [ ] Update [[wu.repository-options]] if the fixture changes the sidecar recommendation.
 - [ ] Update [[wd.codebase-overview]] once implementation lands.
 - [ ] Update [[wd.decision-log]] with settled sidecar, release-path, and resource-page decisions before closing the task.

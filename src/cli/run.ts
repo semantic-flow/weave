@@ -447,11 +447,17 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               { default: "." },
             )
             .option(
+              "--mesh-root <meshRoot:string>",
+              "Mesh root path inside the workspace.",
+              { default: "." },
+            )
+            .option(
               "--interactive",
               "Prompt for meshBase when it was not provided on the command line.",
             )
             .action(async (options) => {
               const workspaceRoot = resolve(options.workspace);
+              const meshRoot = options.meshRoot;
               const meshBase = await resolveMeshBaseOption(options);
               const logDir = join(workspaceRoot, ".weave", "logs");
               const { operationalLogger, auditLogger } = createRuntimeLoggers({
@@ -460,11 +466,13 @@ export async function runWeaveCli(args: string[]): Promise<number> {
 
               await auditLogger.command("mesh.create", {
                 workspaceRoot,
+                meshRoot,
                 localMode: true,
               });
 
               const result = await executeMeshCreate({
                 workspaceRoot,
+                meshRoot,
                 request: { meshBase },
                 operationalLogger,
                 auditLogger,

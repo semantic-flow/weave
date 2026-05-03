@@ -114,6 +114,55 @@ Deno.test("weave mesh create matches the manifest-scoped alice-bio fixture as a 
   await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
 });
 
+Deno.test("weave mesh create supports a docs-rooted sidecar mesh as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-mesh-create-docs-");
+  await Deno.mkdir(join(workspaceRoot, "ontology"), { recursive: true });
+  await Deno.writeTextFile(
+    join(workspaceRoot, "ontology/fantasy-rules-ontology.ttl"),
+    "# source stays outside docs\n",
+  );
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      "mesh",
+      "create",
+      "--workspace",
+      workspaceRoot,
+      "--mesh-root",
+      "docs",
+      "--mesh-base",
+      "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    ],
+    cwd: new URL(".", repoRoot),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Created 2 mesh support artifacts"), stdout);
+  assert(stdout.includes("docs/_mesh/_meta/meta.ttl"), stdout);
+  assert(stdout.includes("docs/_mesh/_inventory/inventory.ttl"), stdout);
+
+  await Deno.stat(join(workspaceRoot, "docs/_mesh/_meta/meta.ttl"));
+  await Deno.stat(join(workspaceRoot, "docs/_mesh/_inventory/inventory.ttl"));
+  assertEquals(
+    await listRelativeFiles(workspaceRoot, ".weave/"),
+    [
+      "docs/_mesh/_inventory/inventory.ttl",
+      "docs/_mesh/_meta/meta.ttl",
+      "ontology/fantasy-rules-ontology.ttl",
+    ],
+  );
+});
+
 async function listRelativeFiles(
   root: string,
   excludedPrefix: string,

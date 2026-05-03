@@ -71,3 +71,58 @@ Deno.test("executeMeshCreate fails closed when mesh support artifacts already ex
     "already exists",
   );
 });
+
+Deno.test("executeMeshCreate can create a docs-rooted sidecar mesh", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-mesh-create-sidecar-");
+  await Deno.mkdir(join(workspaceRoot, "ontology"), { recursive: true });
+  await Deno.writeTextFile(
+    join(workspaceRoot, "ontology/fantasy-rules-ontology.ttl"),
+    "# source stays outside docs\n",
+  );
+
+  const result = await executeMeshCreate({
+    workspaceRoot,
+    meshRoot: "docs",
+    request: {
+      meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    },
+  });
+
+  assertEquals(
+    result.meshIri,
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/_mesh",
+  );
+  assertEquals(
+    [...result.createdPaths].sort(),
+    [
+      "docs/_mesh/_inventory/inventory.ttl",
+      "docs/_mesh/_meta/meta.ttl",
+    ],
+  );
+  await Deno.stat(join(workspaceRoot, "docs/_mesh/_meta/meta.ttl"));
+  await Deno.stat(join(workspaceRoot, "docs/_mesh/_inventory/inventory.ttl"));
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "ontology/fantasy-rules-ontology.ttl"),
+    ),
+    "# source stays outside docs\n",
+  );
+});
+
+Deno.test("executeMeshCreate rejects mesh roots outside the workspace", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-mesh-create-escape-");
+
+  await assertRejects(
+    () =>
+      executeMeshCreate({
+        workspaceRoot,
+        meshRoot: "../docs",
+        request: {
+          meshBase:
+            "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+        },
+      }),
+    MeshCreateRuntimeError,
+    "meshRoot must stay within the workspace root",
+  );
+});

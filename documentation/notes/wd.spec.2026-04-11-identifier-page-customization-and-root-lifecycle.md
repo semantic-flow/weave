@@ -256,7 +256,7 @@ Fail closed here means:
 
 ### Root is a real resource, not `_mesh`
 
-This note inherits the root designator contract from [[wd.completed.2026.2026-04-08_1133-root-designator-path-support]].
+This note inherits the root designator contract from [[wa.completed.2026.2026-04-08_1133-root-designator-path-support]].
 
 The root identifier is the mesh-base resource itself, spelled as `/` on CLI surfaces and normalized to `""` internally. It is not the same thing as `_mesh`.
 

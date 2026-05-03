@@ -22,16 +22,20 @@ The first acceptance target is the settled `mesh-alice-bio` transition from `01-
 
 - `meshBase` is required.
 - `meshBase` must be an absolute IRI and must end with a trailing `/`.
+- `workspace` identifies the local workspace root and defaults to `.`
+- `meshRoot` identifies the mesh root path inside the workspace and defaults to `.`
 - the target workspace may already contain non-mesh files such as a source RDF document
 
 ## What Mesh Create Does
 
-`mesh create` establishes the first mesh-managed support surface for a workspace.
+`mesh create` establishes the first mesh-managed support surface for a workspace. For a whole-workspace mesh, the mesh root is the workspace root. For a sidecar mesh, the workspace root is the containing project and the mesh root is a child path such as `docs/`.
 
 In the current bootstrap slice, that means creating:
 
 - `_mesh/_meta/meta.ttl`
 - `_mesh/_inventory/inventory.ttl`
+
+Those paths are relative to the mesh root. With `--workspace . --mesh-root docs`, the created files are `docs/_mesh/_meta/meta.ttl` and `docs/_mesh/_inventory/inventory.ttl`.
 
 The created RDF should establish at least:
 
@@ -56,6 +60,7 @@ In this first slice, `mesh create` does not:
 - existing non-mesh workspace files remain unchanged
 - the first carried Alice Bio path should leave `alice-bio.ttl` byte-identical to the `01-source-only` state
 - the created mesh support files should match the current intended `02-mesh-created` fixture state for Alice Bio
+- `meshRoot` must stay inside the workspace root
 - if target support-artifact files already exist, the operation should fail closed rather than silently overwrite them
 - runtime-local `.weave/logs` output is not part of the semantic mesh surface
 
