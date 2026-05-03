@@ -2,6 +2,7 @@ import type { PlannedFile } from "../planned_file.ts";
 
 export interface MeshCreateRequest {
   meshBase: string;
+  includeNoJekyll?: boolean;
 }
 
 export interface MeshCreatePlan {
@@ -20,6 +21,8 @@ export class MeshCreateInputError extends Error {
 export function planMeshCreate(request: MeshCreateRequest): MeshCreatePlan {
   const meshBase = normalizeMeshBase(request.meshBase);
   const meshIri = new URL("_mesh", meshBase).href;
+  const includeNoJekyll = request.includeNoJekyll ??
+    shouldIncludeNoJekyll(meshBase);
 
   return {
     meshBase,
@@ -33,8 +36,14 @@ export function planMeshCreate(request: MeshCreateRequest): MeshCreatePlan {
         path: "_mesh/_inventory/inventory.ttl",
         contents: renderMeshInventoryTurtle(meshBase),
       },
+      ...(includeNoJekyll ? [{ path: ".nojekyll", contents: "" }] : []),
     ],
   };
+}
+
+function shouldIncludeNoJekyll(meshBase: string): boolean {
+  const url = new URL(meshBase);
+  return url.hostname === "github.io" || url.hostname.endsWith(".github.io");
 }
 
 function normalizeMeshBase(meshBase: string): string {

@@ -28,6 +28,7 @@ Deno.test("executeMeshCreate matches the settled alice-bio mesh-created fixture"
   assertEquals(
     [...result.createdPaths].sort(),
     [
+      ".nojekyll",
       "_mesh/_inventory/inventory.ttl",
       "_mesh/_meta/meta.ttl",
     ],
@@ -49,6 +50,7 @@ Deno.test("executeMeshCreate matches the settled alice-bio mesh-created fixture"
       "_mesh/_inventory/inventory.ttl",
     ),
   );
+  assertEquals(await Deno.readTextFile(join(workspaceRoot, ".nojekyll")), "");
 });
 
 Deno.test("executeMeshCreate fails closed when mesh support artifacts already exist", async () => {
@@ -95,10 +97,12 @@ Deno.test("executeMeshCreate can create a docs-rooted sidecar mesh", async () =>
   assertEquals(
     [...result.createdPaths].sort(),
     [
+      "docs/.nojekyll",
       "docs/_mesh/_inventory/inventory.ttl",
       "docs/_mesh/_meta/meta.ttl",
     ],
   );
+  await Deno.stat(join(workspaceRoot, "docs/.nojekyll"));
   await Deno.stat(join(workspaceRoot, "docs/_mesh/_meta/meta.ttl"));
   await Deno.stat(join(workspaceRoot, "docs/_mesh/_inventory/inventory.ttl"));
   assertEquals(

@@ -452,6 +452,10 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               { default: "." },
             )
             .option(
+              "--no-nojekyll",
+              "Do not create a GitHub Pages .nojekyll publishing guard.",
+            )
+            .option(
               "--interactive",
               "Prompt for meshBase when it was not provided on the command line.",
             )
@@ -473,7 +477,12 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               const result = await executeMeshCreate({
                 workspaceRoot,
                 meshRoot,
-                request: { meshBase },
+                request: {
+                  meshBase,
+                  includeNoJekyll: options.nojekyll === false
+                    ? false
+                    : undefined,
+                },
                 operationalLogger,
                 auditLogger,
               });

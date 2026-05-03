@@ -172,8 +172,9 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - Sidecar support should remain fail-closed. A `workingLocalRelativePath` outside the mesh root is allowed only when operational config explicitly permits that adjacent repo-local path.
 - For this fixture, the adjacent source allowance should use the existing config ontology terms `sfcfg:MeshConfig` and `sfcfg:hasLocalPathAccessRule`, with `sfcfg:meshRootPathBase`, `sfcfg:workingLocalRelativePathLocatorKind`, and explicit `sfcfg:pathPrefix` values such as `../ontology/`, `../shacl/`, and `../examples/`.
 - The desired portable config surface should live under mesh-owned config such as `docs/_mesh/_config/`, not as a repo-root `.sf-repo-access.ttl` file.
-- `weave mesh create` should create a baseline mesh config support artifact at `_mesh/_config/config.ttl` under the mesh root. For this sidecar fixture, that is `docs/_mesh/_config/config.ttl`.
-- The baseline `MeshConfig` should grant no extra-mesh access unless explicit sidecar path-policy options add constrained `sfcfg:hasLocalPathAccessRule` entries.
+- `weave mesh create` should create a mesh config support artifact at `_mesh/_config/config.ttl` when the caller specifies a workspace root that differs from the mesh root. For this sidecar fixture, that is `docs/_mesh/_config/config.ttl`.
+- The sidecar `MeshConfig` should record `sfcfg:workspaceRootRelativeToMeshRoot "../"` for `--workspace . --mesh-root docs`, giving tools the portable relationship from mesh root to containing workspace root without recording an absolute host path.
+- The sidecar `MeshConfig` should grant no extra-mesh access unless explicit sidecar path-policy options add constrained `sfcfg:hasLocalPathAccessRule` entries.
 - Mesh-owned helper page content should live under `docs/_mesh/content/` in this fixture.
 - Improved resource-page look-and-feel should be deferred to a separate renderer/template task; this task should only make the page behavior changes needed for the sidecar fixture contract.
 - `RdfDocument` resource pages should include raw RDF content when the document bytes are locally available.
@@ -184,7 +185,7 @@ The first ladder should be branch-based unless implementation pressure proves a 
 
 - Add or clarify a sidecar mesh creation/use contract where the mesh root is not the repository root.
 - Expand `weave mesh create` so it separates the local workspace root from the mesh root path, can create a docs-rooted mesh surface, and keeps whole-repo meshes as the default `--mesh-root .` case.
-- Expand `weave mesh create` so it creates baseline `_mesh/_config/config.ttl` support RDF and can optionally seed constrained mesh-adjacent path rules.
+- Expand `weave mesh create` so sidecar creation emits `_mesh/_config/config.ttl` support RDF with `sfcfg:workspaceRootRelativeToMeshRoot`, and can optionally seed constrained mesh-adjacent path rules.
 - Include GitHub Pages `.nojekyll` defaults and an explicit opt-out in `weave mesh create`.
 - Ensure `workingLocalRelativePath` can be resolved relative to a mesh root such as `docs/` while obeying explicit local path access policy.
 - Use `MeshConfig` and `hasLocalPathAccessRule` from the Semantic Flow config ontology as the first-pass sidecar path-policy contract.
@@ -252,9 +253,9 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - [x] Add a first-pass example under `examples/`.
 - [x] Add `NOTICE.md` with the SRD 5.2.1 CC-BY-4.0 attribution boundary.
 - [x] Expand `weave mesh create` so `--workspace . --mesh-root docs --mesh-base https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/` creates the docs-rooted mesh support surface.
-- [ ] Add `.nojekyll` from `weave mesh create` by default for GitHub Pages publishing targets, with an opt-out switch.
+- [x] Add `.nojekyll` from `weave mesh create` by default for GitHub Pages publishing targets, with an opt-out switch.
 - [ ] Use the expanded `weave mesh create` command to add mesh metadata and inventory for a docs-rooted mesh.
-- [ ] Have `weave mesh create` create baseline mesh-owned config at `docs/_mesh/_config/config.ttl`.
+- [ ] Have `weave mesh create` create sidecar mesh-owned config at `docs/_mesh/_config/config.ttl` with `sfcfg:workspaceRootRelativeToMeshRoot "../"`.
 - [ ] Add explicit `sfcfg:hasLocalPathAccessRule` entries for adjacent ontology, SHACL, and example source access when creating or updating the sidecar fixture.
 - [ ] Add Accord manifests for the seed and mesh-creation transitions as they settle.
 
