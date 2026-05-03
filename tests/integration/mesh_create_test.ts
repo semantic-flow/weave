@@ -98,11 +98,23 @@ Deno.test("executeMeshCreate can create a docs-rooted sidecar mesh", async () =>
     [...result.createdPaths].sort(),
     [
       "docs/.nojekyll",
+      "docs/_mesh/_config/config.ttl",
       "docs/_mesh/_inventory/inventory.ttl",
       "docs/_mesh/_meta/meta.ttl",
     ],
   );
   await Deno.stat(join(workspaceRoot, "docs/.nojekyll"));
+  const config = await Deno.readTextFile(
+    join(workspaceRoot, "docs/_mesh/_config/config.ttl"),
+  );
+  assertEquals(
+    config,
+    `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:workspaceRootRelativeToMeshRoot "../" .
+`,
+  );
   await Deno.stat(join(workspaceRoot, "docs/_mesh/_meta/meta.ttl"));
   await Deno.stat(join(workspaceRoot, "docs/_mesh/_inventory/inventory.ttl"));
   assertEquals(

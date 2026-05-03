@@ -143,6 +143,8 @@ weave generate --target 'designatorPath=alice,recursive=true'
 
 Creates the initial mesh support artifacts in an empty or new workspace.
 
+When `--mesh-root` names a child path such as `docs`, Weave creates the mesh under that path and writes `_mesh/_config/config.ttl` to record the portable relationship from the mesh root back to the workspace root. For `--workspace . --mesh-root docs`, that value is `../`.
+
 ```sh
 weave mesh create --mesh-base 'https://example.org/'
 weave mesh create --workspace ./my-mesh --mesh-base 'https://example.org/'

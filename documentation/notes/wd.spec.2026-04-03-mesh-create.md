@@ -35,8 +35,11 @@ In the current bootstrap slice, that means creating:
 
 - `_mesh/_meta/meta.ttl`
 - `_mesh/_inventory/inventory.ttl`
+- `_mesh/_config/config.ttl`, only when the mesh root differs from the workspace root
 
-Those paths are relative to the mesh root. With `--workspace . --mesh-root docs`, the created files are `docs/_mesh/_meta/meta.ttl` and `docs/_mesh/_inventory/inventory.ttl`.
+Those paths are relative to the mesh root. With `--workspace . --mesh-root docs`, the created support files include `docs/_mesh/_meta/meta.ttl`, `docs/_mesh/_inventory/inventory.ttl`, and `docs/_mesh/_config/config.ttl`.
+
+For a sidecar mesh root such as `docs/`, `mesh create` also creates `docs/_mesh/_config/config.ttl`. The config is an `sfcfg:MeshConfig` and records the portable workspace relationship with `sfcfg:workspaceRootRelativeToMeshRoot "../"`. Whole-workspace meshes do not get a config file solely to record `"."`.
 
 For GitHub Pages mesh bases, `mesh create` also creates `.nojekyll` at the mesh root by default. This file is a static publishing guard rather than an RDF support artifact, so it is not listed in mesh inventory.
 
@@ -47,6 +50,7 @@ The created RDF should establish at least:
 - the `MeshMetadata` artifact
 - the `MeshInventory` artifact
 - working located-file links for the metadata and inventory Turtle files in inventory
+- for sidecar meshes, a mesh-owned config artifact recording the workspace root relative to the mesh root
 
 ## What Mesh Create Does Not Do
 
@@ -55,6 +59,7 @@ In this first slice, `mesh create` does not:
 - create any `Knop`
 - create payload history
 - generate `ResourcePage` HTML
+- add local path access grants
 - run full `weave`
 - introduce daemon behavior
 
@@ -64,6 +69,8 @@ In this first slice, `mesh create` does not:
 - the first carried Alice Bio path should leave `alice-bio.ttl` byte-identical to the `01-source-only` state
 - the created mesh support files should match the current intended `02-mesh-created` fixture state for Alice Bio
 - `meshRoot` must stay inside the workspace root
+- whole-root meshes do not create `_mesh/_config/config.ttl` solely for the workspace relationship
+- sidecar mesh config records a portable relative path and no extra-mesh access grants
 - `.nojekyll` is empty when created by `mesh create`
 - if target support-artifact files already exist, the operation should fail closed rather than silently overwrite them
 - runtime-local `.weave/logs` output is not part of the semantic mesh surface

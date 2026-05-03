@@ -148,17 +148,28 @@ Deno.test("weave mesh create supports a docs-rooted sidecar mesh as a black-box 
   const stderr = new TextDecoder().decode(output.stderr);
 
   assert(output.success, stderr);
-  assert(stdout.includes("Created 3 mesh support artifacts"), stdout);
+  assert(stdout.includes("Created 4 mesh support artifacts"), stdout);
   assert(stdout.includes("docs/.nojekyll"), stdout);
+  assert(stdout.includes("docs/_mesh/_config/config.ttl"), stdout);
   assert(stdout.includes("docs/_mesh/_meta/meta.ttl"), stdout);
   assert(stdout.includes("docs/_mesh/_inventory/inventory.ttl"), stdout);
 
+  const config = await Deno.readTextFile(
+    join(workspaceRoot, "docs/_mesh/_config/config.ttl"),
+  );
+  assert(config.includes("<> a sfcfg:MeshConfig ;"), config);
+  assert(
+    config.includes('sfcfg:workspaceRootRelativeToMeshRoot "../" .'),
+    config,
+  );
+  assert(!config.includes("sfcfg:hasLocalPathAccessRule"), config);
   await Deno.stat(join(workspaceRoot, "docs/_mesh/_meta/meta.ttl"));
   await Deno.stat(join(workspaceRoot, "docs/_mesh/_inventory/inventory.ttl"));
   assertEquals(
     await listRelativeFiles(workspaceRoot, ".weave/"),
     [
       "docs/.nojekyll",
+      "docs/_mesh/_config/config.ttl",
       "docs/_mesh/_inventory/inventory.ttl",
       "docs/_mesh/_meta/meta.ttl",
       "ontology/fantasy-rules-ontology.ttl",

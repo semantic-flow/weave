@@ -256,7 +256,7 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - [x] Expand `weave mesh create` so `--workspace . --mesh-root docs --mesh-base https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/` creates the docs-rooted mesh support surface.
 - [x] Add `.nojekyll` from `weave mesh create` by default for GitHub Pages publishing targets, with an opt-out switch.
 - [ ] Use the expanded `weave mesh create` command to add mesh metadata and inventory for a docs-rooted mesh.
-- [ ] Have `weave mesh create` create sidecar mesh-owned config at `docs/_mesh/_config/config.ttl` with `sfcfg:workspaceRootRelativeToMeshRoot "../"`.
+- [x] Have `weave mesh create` create sidecar mesh-owned config at `docs/_mesh/_config/config.ttl` with `sfcfg:workspaceRootRelativeToMeshRoot "../"`.
 - [ ] Add explicit `sfcfg:hasLocalPathAccessRule` entries for adjacent ontology, SHACL, and example source access when creating or updating the sidecar fixture.
 - [ ] Add Accord manifests for the seed and mesh-creation transitions as they settle.
 

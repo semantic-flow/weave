@@ -32,10 +32,14 @@ export class MeshCreateRuntimeError extends Error {
 export async function executeMeshCreate(
   options: ExecuteMeshCreateOptions,
 ): Promise<MeshCreateResult> {
-  const plan = planMeshCreate(options.request);
   const { operationalLogger, auditLogger } = resolveLoggers(options);
   const workspaceRoot = options.workspaceRoot;
   const meshRoot = normalizeMeshRoot(options.meshRoot);
+  const planRequest = meshRoot === "." ? options.request : {
+    ...options.request,
+    workspaceRootRelativeToMeshRoot: workspaceRootRelativeToMeshRoot(meshRoot),
+  };
+  const plan = planMeshCreate(planRequest);
   const meshRootAbsolutePath = join(workspaceRoot, meshRoot);
 
   await operationalLogger.info(
@@ -151,6 +155,14 @@ function normalizeMeshRoot(meshRoot: string | undefined): string {
 
 function toWorkspaceRelativePath(meshRoot: string, path: string): string {
   return meshRoot === "." ? path : `${meshRoot}/${path}`;
+}
+
+function workspaceRootRelativeToMeshRoot(meshRoot: string): string {
+  const segmentCount =
+    meshRoot.split("/").filter((segment) =>
+      segment.length > 0 && segment !== "."
+    ).length;
+  return "../".repeat(segmentCount);
 }
 
 export function describeMeshCreateResult(result: MeshCreateResult): string {
