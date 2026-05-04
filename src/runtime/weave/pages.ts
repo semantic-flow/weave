@@ -69,6 +69,9 @@ const SCHEMA_NAME_IRIS = [
   "https://schema.org/Name",
   "http://schema.org/Name",
 ] as const;
+const GENERATED_AT_ISO = "2026-05-03T00:00:00.000Z";
+const GENERATED_AT_DISPLAY = "May 3, 2026";
+const WEAVE_REPOSITORY_URL = "https://github.com/semantic-flow/weave/";
 
 const defaultResourcePageTheme: ResourcePageTheme = {
   render: renderDefaultResourcePage,
@@ -366,7 +369,8 @@ ${section.html}
     .wf-source-meta { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 14px 12px; color: #596259; font-size: 0.88rem; }
     pre { margin: 0; max-height: 64vh; overflow: auto; border-top: 1px solid #d7dcd4; background: #151a16; color: #e7ece4; padding: 16px; font-size: 0.86rem; line-height: 1.55; tab-size: 2; }
     pre code { display: block; background: transparent; color: inherit; border-radius: 0; padding: 0; white-space: pre; }
-    footer { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 0 0 28px; color: #687167; }
+    .wf-generated { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 10px 0 34px; text-align: center; color: rgba(49, 57, 49, 0.62); font-size: 0.9rem; }
+    .wf-generated a { color: inherit; font-weight: 700; }
   </style>
   <script>
     if (location.pathname.endsWith("/") && !location.search && !location.hash) {
@@ -385,6 +389,9 @@ ${summary}${classes}${metadata}
 ${histories}${sections ? `${sections}\n` : ""}${rawSections}
     </article>
   </main>
+  <footer class="wf-generated">
+    Generated <span class="wf-term" title="${GENERATED_AT_ISO}">${GENERATED_AT_DISPLAY}</span> by <a href="${WEAVE_REPOSITORY_URL}">Weave</a>
+  </footer>
 </body>
 </html>
 `;
