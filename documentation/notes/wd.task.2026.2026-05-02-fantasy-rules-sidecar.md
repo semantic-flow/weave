@@ -332,5 +332,5 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - [ ] Add Weave integration/e2e tests for docs-rooted sidecar operation.
 - [ ] Migrate the default manifestation segment derivation to extension-backed segments and re-ladder `mesh-alice-bio` for the new default.
 - [ ] Update [[wu.repository-options]] if the fixture changes the sidecar recommendation.
-- [ ] Update [[wd.codebase-overview]] once implementation lands.
+- [x] Update [[wd.codebase-overview]] once implementation lands.
 - [ ] Update [[wd.decision-log]] with settled sidecar, release-path, and resource-page decisions before closing the task.

@@ -34,6 +34,8 @@ const SFLO_NEXT_STATE_ORDINAL_IRI = `${SFLO_NAMESPACE}nextStateOrdinal`;
 const SFLO_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}PayloadArtifact`;
 const SFLO_RDF_DOCUMENT_IRI = `${SFLO_NAMESPACE}RdfDocument`;
 const SFLO_SEMANTIC_MESH_IRI = `${SFLO_NAMESPACE}SemanticMesh`;
+const SFLO_WORKING_LOCAL_RELATIVE_PATH_IRI =
+  `${SFLO_NAMESPACE}workingLocalRelativePath`;
 const SUPPLEMENTAL_REFERENCE_ROLE_IRI =
   `${SFLO_NAMESPACE}ReferenceRole/Supplemental`;
 
@@ -201,7 +203,8 @@ function normalizeWorkingLocalRelativePath(
     emptySegmentsMessage:
       "referenceTargetWorkingLocalRelativePath must not contain empty path segments",
     dotSegmentsMessage:
-      "referenceTargetWorkingLocalRelativePath must be a mesh-relative file path",
+      "referenceTargetWorkingLocalRelativePath contains unsupported path segments",
+    allowParentSegments: true,
   });
 }
 
@@ -215,6 +218,7 @@ function normalizeRelativeIriPath(value: string, fieldName: string): string {
     emptySegmentsMessage: `${fieldName} must not contain empty path segments`,
     dotSegmentsMessage:
       `${fieldName} must not contain '.' or '..' path segments`,
+    allowParentSegments: false,
   });
 }
 
@@ -227,6 +231,7 @@ function normalizeValidatedPath(
     unsupportedCharactersMessage: string;
     emptySegmentsMessage: string;
     dotSegmentsMessage: string;
+    allowParentSegments: boolean;
   },
 ): string {
   const trimmed = value.trim();
@@ -247,7 +252,11 @@ function normalizeValidatedPath(
   if (segments.some((segment) => segment.length === 0)) {
     throw new ExtractInputError(options.emptySegmentsMessage);
   }
-  if (segments.some((segment) => segment === "." || segment === "..")) {
+  if (
+    segments.some((segment) =>
+      segment === "." || (!options.allowParentSegments && segment === "..")
+    )
+  ) {
     throw new ExtractInputError(options.dotSegmentsMessage);
   }
 
@@ -255,6 +264,60 @@ function normalizeValidatedPath(
 }
 
 function renderExtractMeshInventoryTurtle(
+  meshBase: string,
+  currentMeshInventoryTurtle: string,
+  designatorPath: string,
+  sourcePayloadDesignatorPath: string,
+  sourceWorkingLocalRelativePath: string,
+): string {
+  assertMeshInventorySupportsExtract(
+    meshBase,
+    currentMeshInventoryTurtle,
+    designatorPath,
+    sourcePayloadDesignatorPath,
+    sourceWorkingLocalRelativePath,
+  );
+
+  if (
+    hasLegacyCarriedExtractMeshInventoryShape(
+      meshBase,
+      currentMeshInventoryTurtle,
+      sourcePayloadDesignatorPath,
+    )
+  ) {
+    return renderLegacyExtractMeshInventoryTurtle(
+      meshBase,
+      currentMeshInventoryTurtle,
+      designatorPath,
+      sourcePayloadDesignatorPath,
+      sourceWorkingLocalRelativePath,
+    );
+  }
+
+  return appendExtractMeshInventoryTurtle(
+    currentMeshInventoryTurtle,
+    designatorPath,
+  );
+}
+
+function appendExtractMeshInventoryTurtle(
+  currentMeshInventoryTurtle: string,
+  designatorPath: string,
+): string {
+  const knopPath = toKnopPath(designatorPath);
+
+  return `${currentMeshInventoryTurtle.trimEnd()}
+
+<_mesh> sflo:hasKnop <${knopPath}> .
+
+<${knopPath}> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> .
+
+<${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+`;
+}
+
+function renderLegacyExtractMeshInventoryTurtle(
   meshBase: string,
   currentMeshInventoryTurtle: string,
   designatorPath: string,
@@ -422,6 +485,140 @@ ${locatedFileDeclarations}
 
 ${resourcePageDeclarations}
 `;
+}
+
+function assertMeshInventorySupportsExtract(
+  meshBase: string,
+  currentMeshInventoryTurtle: string,
+  designatorPath: string,
+  sourcePayloadDesignatorPath: string,
+  sourceWorkingLocalRelativePath: string,
+): void {
+  const knopPath = toKnopPath(designatorPath);
+  const sourceKnopPath = toKnopPath(sourcePayloadDesignatorPath);
+  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
+  const errorMessage =
+    `current mesh inventory has an unsupported extract shape for ${designatorPath}`;
+  const quads = parseMeshInventoryQuads(
+    meshBase,
+    currentMeshInventoryTurtle,
+    errorMessage,
+  );
+
+  if (
+    hasNamedNodeFact(
+      quads,
+      meshBase,
+      knopPath,
+      RDF_TYPE_IRI,
+      SFLO_KNOP_IRI,
+    ) ||
+    hasNamedNodeFact(
+      quads,
+      meshBase,
+      "_mesh",
+      SFLO_HAS_KNOP_IRI,
+      knopPath,
+    )
+  ) {
+    throw new KnopCreateInputError(
+      `mesh inventory already registers knop: ${knopPath}`,
+    );
+  }
+
+  if (
+    hasNamedNodeFact(
+      quads,
+      meshBase,
+      designatorPath,
+      SFLO_HAS_RESOURCE_PAGE_IRI,
+      designatorPagePath,
+    )
+  ) {
+    throw new ExtractInputError(
+      `Mesh inventory already exposes current woven pages for ${designatorPath}.`,
+    );
+  }
+
+  assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
+    ["_mesh", RDF_TYPE_IRI, SFLO_SEMANTIC_MESH_IRI],
+    ["_mesh", SFLO_HAS_MESH_METADATA_IRI, "_mesh/_meta"],
+    ["_mesh", SFLO_HAS_MESH_INVENTORY_IRI, "_mesh/_inventory"],
+    ["_mesh", SFLO_HAS_KNOP_IRI, sourceKnopPath],
+    [sourceKnopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
+    [
+      sourceKnopPath,
+      SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI,
+      `${sourceKnopPath}/_inventory/inventory.ttl`,
+    ],
+    [sourcePayloadDesignatorPath, RDF_TYPE_IRI, SFLO_PAYLOAD_ARTIFACT_IRI],
+    [sourcePayloadDesignatorPath, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
+    [sourcePayloadDesignatorPath, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
+    ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_MESH_INVENTORY_IRI],
+    ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
+    ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
+  ]);
+  assertHasLiteralFacts(quads, meshBase, errorMessage, [
+    ["_mesh", SFLO_MESH_BASE_IRI, meshBase, XSD_ANY_URI_IRI],
+  ]);
+
+  if (
+    !hasNamedNodeFact(
+      quads,
+      meshBase,
+      sourcePayloadDesignatorPath,
+      SFLO_HAS_WORKING_LOCATED_FILE_IRI,
+      sourceWorkingLocalRelativePath,
+    ) &&
+    !hasLiteralValueFact(
+      quads,
+      meshBase,
+      sourcePayloadDesignatorPath,
+      SFLO_WORKING_LOCAL_RELATIVE_PATH_IRI,
+      sourceWorkingLocalRelativePath,
+    )
+  ) {
+    throw new ExtractInputError(errorMessage);
+  }
+}
+
+function hasLegacyCarriedExtractMeshInventoryShape(
+  meshBase: string,
+  currentMeshInventoryTurtle: string,
+  sourcePayloadDesignatorPath: string,
+): boolean {
+  const errorMessage = "current mesh inventory is not the legacy extract shape";
+  let quads: Quad[];
+  try {
+    quads = parseMeshInventoryQuads(
+      meshBase,
+      currentMeshInventoryTurtle,
+      errorMessage,
+    );
+  } catch {
+    return false;
+  }
+
+  const rootDesignatorPath = toRootDesignatorPath(sourcePayloadDesignatorPath);
+  const rootKnopPath = toKnopPath(rootDesignatorPath);
+  const sourceKnopPath = toKnopPath(sourcePayloadDesignatorPath);
+  const meshKnopPaths = listNamedNodeObjectPaths(
+    quads,
+    meshBase,
+    "_mesh",
+    SFLO_HAS_KNOP_IRI,
+  );
+  const expectedMeshKnopPaths = [...new Set([rootKnopPath, sourceKnopPath])];
+  const payloadArtifactPaths = listTypedSubjectPaths(
+    quads,
+    meshBase,
+    SFLO_PAYLOAD_ARTIFACT_IRI,
+  );
+
+  return payloadArtifactPaths.length === 1 &&
+    payloadArtifactPaths[0] === sourcePayloadDesignatorPath &&
+    meshKnopPaths.length === expectedMeshKnopPaths.length &&
+    expectedMeshKnopPaths.every((path) => meshKnopPaths.includes(path));
 }
 
 function uniquePaths(paths: readonly string[]): string[] {
@@ -744,6 +941,24 @@ function hasLiteralFact(
     quad.object.termType === "Literal" &&
     quad.object.value === literalValue &&
     quad.object.datatype.value === datatypeIri
+  );
+}
+
+function hasLiteralValueFact(
+  quads: readonly Quad[],
+  meshBase: string,
+  subjectValue: string,
+  predicateIri: string,
+  literalValue: string,
+): boolean {
+  const subjectIri = new URL(subjectValue, meshBase).href;
+
+  return quads.some((quad) =>
+    quad.subject.termType === "NamedNode" &&
+    quad.subject.value === subjectIri &&
+    quad.predicate.value === predicateIri &&
+    quad.object.termType === "Literal" &&
+    quad.object.value === literalValue
   );
 }
 

@@ -1,4 +1,4 @@
-import { dirname, join } from "@std/path";
+import { dirname, join, relative } from "@std/path";
 import { Parser, type Quad } from "n3";
 import {
   formatDesignatorPathForDisplay,
@@ -19,16 +19,24 @@ import {
   MeshMetadataResolutionError,
   resolveMeshBaseFromMetadataTurtle,
 } from "../mesh/metadata.ts";
+import {
+  loadOperationalLocalPathPolicy,
+  LocalPathAccessError,
+  type OperationalLocalPathPolicy,
+  resolveAllowedLocalPath,
+} from "../operational/local_path_policy.ts";
 import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
 
 export interface LocalExtractRequest {
   designatorPath: string;
+  sourceDesignatorPath?: string;
 }
 
 export interface ExecuteExtractOptions {
-  workspaceRoot: string;
+  meshRoot?: string;
+  workspaceRoot?: string;
   request: LocalExtractRequest;
   operationalLogger?: StructuredLogger;
   auditLogger?: AuditLogger;
@@ -82,31 +90,49 @@ export async function executeExtract(
   options: ExecuteExtractOptions,
 ): Promise<ExtractResult> {
   const { operationalLogger, auditLogger } = resolveLoggers(options);
-  const workspaceRoot = options.workspaceRoot;
+  const meshRoot = options.meshRoot ?? options.workspaceRoot;
+  if (!meshRoot) {
+    throw new ExtractRuntimeError("meshRoot is required");
+  }
+  const localPathPolicy = await loadOperationalLocalPathPolicy(meshRoot);
+  const workspaceRoot = localPathPolicy.workspaceRoot;
   const designatorPath = options.request.designatorPath;
+  const sourceDesignatorPath = options.request.sourceDesignatorPath;
   let plan: ExtractPlan | undefined;
 
   await operationalLogger.info("extract.started", "Starting local extract", {
+    meshRoot,
     workspaceRoot,
     designatorPath,
+    sourceDesignatorPath,
   });
   await auditLogger.record("extract.started", "Local extract started", {
+    meshRoot,
     workspaceRoot,
     designatorPath,
+    sourceDesignatorPath,
   });
 
   try {
-    await ensureWorkspaceRootExists(workspaceRoot);
+    await ensureMeshRootExists(meshRoot);
     const normalizedDesignatorPath = normalizeLocalDesignatorPath(
       designatorPath,
       "designatorPath",
     );
-    const meshState = await loadMeshState(workspaceRoot);
+    const normalizedSourceDesignatorPath = sourceDesignatorPath === undefined
+      ? undefined
+      : normalizeLocalDesignatorPath(
+        sourceDesignatorPath,
+        "sourceDesignatorPath",
+      );
+    const meshState = await loadMeshState(meshRoot);
     const sourcePayload = await resolveExtractSourcePayload(
-      workspaceRoot,
+      meshRoot,
+      localPathPolicy,
       meshState.currentMeshInventoryTurtle,
       meshState.meshBase,
       normalizedDesignatorPath,
+      normalizedSourceDesignatorPath,
     );
     plan = planExtract({
       meshBase: meshState.meshBase,
@@ -117,10 +143,10 @@ export async function executeExtract(
       referenceTargetWorkingLocalRelativePath:
         sourcePayload.workingLocalRelativePath,
     });
-    await assertUpdatedTargetsExist(workspaceRoot, plan);
-    await assertCreateTargetsDoNotExist(workspaceRoot, plan);
+    await assertUpdatedTargetsExist(meshRoot, plan);
+    await assertCreateTargetsDoNotExist(meshRoot, plan);
     validateRdfFiles([...plan.createdFiles, ...plan.updatedFiles]);
-    await applyPlanAtomically(workspaceRoot, plan);
+    await applyPlanAtomically(meshRoot, plan);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const originalError = (
@@ -133,6 +159,7 @@ export async function executeExtract(
     await logExtractFailedBestEffort(
       operationalLogger,
       auditLogger,
+      meshRoot,
       workspaceRoot,
       designatorPath,
       plan,
@@ -151,13 +178,18 @@ export async function executeExtract(
     referenceTargetIri: plan.referenceTargetIri,
     referenceTargetDesignatorPath: plan.referenceTargetDesignatorPath,
     referenceTargetStateIri: plan.referenceTargetStateIri,
-    createdPaths: plan.createdFiles.map((file) => file.path),
-    updatedPaths: plan.updatedFiles.map((file) => file.path),
+    createdPaths: plan.createdFiles.map((file) =>
+      toWorkspaceRelativePath(localPathPolicy, file.path)
+    ),
+    updatedPaths: plan.updatedFiles.map((file) =>
+      toWorkspaceRelativePath(localPathPolicy, file.path)
+    ),
   };
 
   await logExtractSucceededBestEffort(
     operationalLogger,
     auditLogger,
+    meshRoot,
     workspaceRoot,
     result,
   );
@@ -180,14 +212,14 @@ function resolveLoggers(
   return resolveRuntimeLoggers(options);
 }
 
-async function ensureWorkspaceRootExists(workspaceRoot: string): Promise<void> {
+async function ensureMeshRootExists(meshRoot: string): Promise<void> {
   let stat: Deno.FileInfo;
   try {
-    stat = await Deno.stat(workspaceRoot);
+    stat = await Deno.stat(meshRoot);
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new ExtractRuntimeError(
-        `Workspace root does not exist: ${workspaceRoot}`,
+        `Mesh root does not exist: ${meshRoot}`,
       );
     }
     throw error;
@@ -195,17 +227,17 @@ async function ensureWorkspaceRootExists(workspaceRoot: string): Promise<void> {
 
   if (!stat.isDirectory) {
     throw new ExtractRuntimeError(
-      `Workspace root is not a directory: ${workspaceRoot}`,
+      `Mesh root is not a directory: ${meshRoot}`,
     );
   }
 }
 
 async function loadMeshState(
-  workspaceRoot: string,
+  meshRoot: string,
 ): Promise<{ meshBase: string; currentMeshInventoryTurtle: string }> {
-  const meshMetadataPath = join(workspaceRoot, "_mesh/_meta/meta.ttl");
+  const meshMetadataPath = join(meshRoot, "_mesh/_meta/meta.ttl");
   const meshInventoryPath = join(
-    workspaceRoot,
+    meshRoot,
     "_mesh/_inventory/inventory.ttl",
   );
   let meshMetadataTurtle: string;
@@ -247,16 +279,43 @@ async function loadMeshState(
 }
 
 async function resolveExtractSourcePayload(
-  workspaceRoot: string,
+  meshRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
   currentMeshInventoryTurtle: string,
   meshBase: string,
   targetDesignatorPath: string,
+  sourceDesignatorPath?: string,
 ): Promise<ExtractSourcePayload> {
   const candidates = await loadExtractSourcePayloadCandidates(
-    workspaceRoot,
+    meshRoot,
+    localPathPolicy,
     meshBase,
     currentMeshInventoryTurtle,
   );
+
+  if (sourceDesignatorPath !== undefined) {
+    const selectedCandidate = candidates.find((candidate) =>
+      candidate.designatorPath === sourceDesignatorPath
+    );
+    if (!selectedCandidate) {
+      throw new ExtractRuntimeError(
+        `Selected extract source is not an eligible woven payload artifact: ${sourceDesignatorPath}`,
+      );
+    }
+    if (
+      !payloadMentionsTarget(
+        selectedCandidate.currentPayloadTurtle,
+        meshBase,
+        targetDesignatorPath,
+      )
+    ) {
+      throw new ExtractRuntimeError(
+        `Selected extract source ${sourceDesignatorPath} does not mention ${targetDesignatorPath}`,
+      );
+    }
+    return selectedCandidate;
+  }
+
   const matchingCandidates = candidates.filter((candidate) =>
     payloadMentionsTarget(
       candidate.currentPayloadTurtle,
@@ -280,7 +339,8 @@ async function resolveExtractSourcePayload(
 }
 
 async function loadExtractSourcePayloadCandidates(
-  workspaceRoot: string,
+  meshRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
   meshBase: string,
   currentMeshInventoryTurtle: string,
 ): Promise<readonly ExtractSourcePayload[]> {
@@ -293,7 +353,7 @@ async function loadExtractSourcePayloadCandidates(
 
   for (const designatorPath of designatorPaths) {
     const currentKnopInventoryPath = join(
-      workspaceRoot,
+      meshRoot,
       `${toKnopPath(designatorPath)}/_inventory/inventory.ttl`,
     );
     let currentKnopInventoryTurtle: string;
@@ -310,7 +370,7 @@ async function loadExtractSourcePayloadCandidates(
     }
 
     const candidate = await loadExtractSourcePayloadCandidate(
-      workspaceRoot,
+      localPathPolicy,
       meshBase,
       designatorPath,
       currentKnopInventoryTurtle,
@@ -326,7 +386,7 @@ async function loadExtractSourcePayloadCandidates(
 }
 
 async function loadExtractSourcePayloadCandidate(
-  workspaceRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
   meshBase: string,
   designatorPath: string,
   currentKnopInventoryTurtle: string,
@@ -360,7 +420,7 @@ async function loadExtractSourcePayloadCandidate(
   }
 
   const currentPayloadTurtle = await readPayloadWorkingFile(
-    workspaceRoot,
+    localPathPolicy,
     designatorPath,
     payloadArtifact.workingLocalRelativePath,
   );
@@ -374,14 +434,23 @@ async function loadExtractSourcePayloadCandidate(
 }
 
 async function readPayloadWorkingFile(
-  workspaceRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
   designatorPath: string,
   workingLocalRelativePath: string,
 ): Promise<string> {
-  const absoluteWorkingLocalRelativePath = join(
-    workspaceRoot,
-    workingLocalRelativePath,
-  );
+  let absoluteWorkingLocalRelativePath: string;
+  try {
+    absoluteWorkingLocalRelativePath = resolveAllowedLocalPath(
+      localPathPolicy,
+      "workingLocalRelativePath",
+      workingLocalRelativePath,
+    );
+  } catch (error) {
+    if (error instanceof LocalPathAccessError) {
+      throw new ExtractRuntimeError(error.message);
+    }
+    throw error;
+  }
 
   try {
     return await Deno.readTextFile(absoluteWorkingLocalRelativePath);
@@ -393,6 +462,18 @@ async function readPayloadWorkingFile(
     }
     throw error;
   }
+}
+
+function toWorkspaceRelativePath(
+  policy: OperationalLocalPathPolicy,
+  meshRelativePath: string,
+): string {
+  const absolutePath = join(policy.meshRoot, meshRelativePath);
+  const relation = relative(policy.workspaceRoot, absolutePath).replaceAll(
+    "\\",
+    "/",
+  );
+  return relation.length === 0 ? "." : relation;
 }
 
 function payloadMentionsTarget(
@@ -732,6 +813,7 @@ async function removePathIfExists(path: string): Promise<void> {
 async function logExtractFailedBestEffort(
   operationalLogger: StructuredLogger,
   auditLogger: AuditLogger,
+  meshRoot: string,
   workspaceRoot: string,
   designatorPath: string,
   plan: ExtractPlan | undefined,
@@ -739,6 +821,7 @@ async function logExtractFailedBestEffort(
 ): Promise<void> {
   try {
     await operationalLogger.error("extract.failed", "Local extract failed", {
+      meshRoot,
       workspaceRoot,
       designatorPath,
       referenceTargetDesignatorPath: plan?.referenceTargetDesignatorPath,
@@ -751,6 +834,7 @@ async function logExtractFailedBestEffort(
 
   try {
     await auditLogger.record("extract.failed", "Local extract failed", {
+      meshRoot,
       workspaceRoot,
       designatorPath,
       referenceTargetDesignatorPath: plan?.referenceTargetDesignatorPath,
@@ -765,6 +849,7 @@ async function logExtractFailedBestEffort(
 async function logExtractSucceededBestEffort(
   operationalLogger: StructuredLogger,
   auditLogger: AuditLogger,
+  meshRoot: string,
   workspaceRoot: string,
   result: ExtractResult,
 ): Promise<void> {
@@ -773,6 +858,7 @@ async function logExtractSucceededBestEffort(
       "extract.succeeded",
       "Local extract succeeded",
       {
+        meshRoot,
         workspaceRoot,
         designatorPath: result.designatorPath,
         referenceTargetDesignatorPath: result.referenceTargetDesignatorPath,
@@ -787,6 +873,7 @@ async function logExtractSucceededBestEffort(
 
   try {
     await auditLogger.record("extract.succeeded", "Local extract succeeded", {
+      meshRoot,
       workspaceRoot,
       designatorPath: result.designatorPath,
       referenceTargetDesignatorPath: result.referenceTargetDesignatorPath,

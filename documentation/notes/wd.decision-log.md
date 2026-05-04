@@ -200,6 +200,14 @@ created: 1773630801215
   - The carried `13` fixture is the first extracted-resource weave and the first carried case where one existing current page changes because a newly public extracted resource becomes live.
   - Extending the shared renderer seam only where the fixture forces it avoids absorbing a broader page-system rewrite while still proving Bob current/history pages and the updated Alice link surface.
 
+### 2026-05-04: Sidecar Term Extraction Uses Explicit Source Selection
+
+- Decision: Extend local `extract` for the Fantasy Rules sidecar `07-shacl-integrated-woven` -> `08-ontology-and-shacl-terms-extracted` transition by supporting docs-rooted `--mesh-root` execution, explicit `--source-designator-path` selection for ambiguous multi-payload term mentions, and append-only mesh-inventory updates for new term Knops.
+- References: [[wd.task.2026.2026-05-03-term-extraction]], [[wd.task.2026.2026-05-02-fantasy-rules-sidecar]], [[sf.spec.2026-04-05-extract-behavior]]
+- Why:
+  - Ontology terms such as `ontology/AbilityScore` are legitimately mentioned by both the ontology and SHACL payloads, so fail-closed inference still needs an explicit source selector for the intended extraction source.
+  - The sidecar mesh inventory already carries ontology, SHACL, config, and support artifacts; reconstructing a single-payload Bob-shaped inventory would be the wrong abstraction. Appending only the new term Knop facts preserves unrelated mesh state while keeping `08` non-woven.
+
 ### 2026-04-07: First Target-Aware weave CLI Uses Repeatable --target Specs
 
 - Decision: Use repeatable `weave --target <key=value,...>` flags as the first target-aware CLI surface, support only shared targeting keys `designatorPath` and optional `recursive` there, and forward the resulting target objects through the composed local `weave` flow rather than inventing a separate CLI-only targeting model.

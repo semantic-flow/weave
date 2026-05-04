@@ -290,33 +290,55 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         )
         .arguments("<designatorPath:string>")
         .option(
-          "--workspace <workspace:string>",
-          "Workspace root to update.",
-          { default: "." },
+          "--mesh-root <meshRoot:string>",
+          "Mesh root to update. Defaults to the current directory.",
         )
-        .action(async (options, designatorPath) => {
+        .option(
+          "--workspace <workspace:string>",
+          "Legacy alias for --mesh-root when operating on whole-repo meshes.",
+        )
+        .option(
+          "--source-designator-path <sourceDesignatorPath:string>",
+          "Explicit woven payload designator to extract from when target mention resolution would be ambiguous.",
+        )
+        .action(async (
+          options: {
+            meshRoot?: string;
+            workspace?: string;
+            sourceDesignatorPath?: string;
+          },
+          designatorPath,
+        ) => {
           const normalizedDesignatorPath = resolveCliArgumentDesignatorPath(
             designatorPath,
             "extract requires a positional designatorPath",
             "extract designatorPath",
             (message) => new ExtractInputError(message),
           );
-          const workspaceRoot = resolve(options.workspace);
+          const meshRoot = resolve(
+            options.meshRoot ?? options.workspace ?? ".",
+          );
+          const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
           const logDir = join(workspaceRoot, ".weave", "logs");
           const { operationalLogger, auditLogger } = createRuntimeLoggers({
             logDir,
           });
 
           await auditLogger.command("extract", {
+            meshRoot,
             workspaceRoot,
             designatorPath: normalizedDesignatorPath,
+            sourceDesignatorPath: options.sourceDesignatorPath,
             localMode: true,
           });
 
           const result = await executeExtract({
-            workspaceRoot,
+            meshRoot,
             request: {
               designatorPath: normalizedDesignatorPath,
+              ...(options.sourceDesignatorPath
+                ? { sourceDesignatorPath: options.sourceDesignatorPath }
+                : {}),
             },
             operationalLogger,
             auditLogger,
