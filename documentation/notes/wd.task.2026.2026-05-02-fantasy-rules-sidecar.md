@@ -66,7 +66,7 @@ The first ladder should stay focused on the core sidecar path:
 
 The first named release pair should come after the root/examples collection surface and the Gunaar dataset pair, so the release slice exercises multiple histories in a richer mesh rather than only the two primary RDF documents.
 
-The first follow-up release pair should immediately exercise the same named release histories with `v0.0.2`, including at least one authored ontology or SHACL source change that affects an extracted term page. This makes the version bump a practical test that extracted pages refresh from changed source RDF rather than only testing copied release bytes.
+The first follow-up release pair should immediately exercise the same named release histories with `v0.0.2`, including at least one authored ontology or SHACL source change that affects an already extracted term page and at least one new mesh-scoped term discoverable by all-terms extraction. This makes the version bump a practical test that extracted pages refresh from changed source RDF rather than only testing copied release bytes, while also bringing the fixture forward from the intentionally narrow `08` extraction slice to source-scoped all-terms extraction.
 
 ## Discussion
 
@@ -177,12 +177,13 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - `11-root-knop-woven` should weave the root and `examples/` collection Knops into history and pages before adding the Gunaar dataset.
 - `12-gunaar-example-dataset` should integrate `examples/gunaar.ttl` as public artifact `examples/gunaar`; `13-gunaar-example-dataset-woven` should weave that dataset into history and pages.
 - `14-first-release` and `15-first-release-woven` should publish the first named release histories for ontology and SHACL after the Gunaar dataset pair.
-- `16-version-bump` and `17-version-bump-woven` should publish the next paired ontology and SHACL release under the existing `releases` ArtifactHistories with `stateSegment=v0.0.2`, and should include a source change that proves extracted term pages are refreshed by the woven output.
+- `16-version-bump` and `17-version-bump-woven` should publish the next paired ontology and SHACL release under the existing `releases` ArtifactHistories with `stateSegment=v0.0.2`, should include a source change that proves extracted term pages are refreshed by the woven output, and should run source-scoped all-terms extraction for both ontology and SHACL after the `v0.0.2` source states exist.
 - Ontology and SHACL should normally be bumped together in the fixture, even if only one source file has semantic changes, because they are published as a compatibility pair for this small ontology project.
 - Named ArtifactHistory paths such as `releases` should not consume or advance `sflo:nextHistoryOrdinal`; that property remains the next auto-generated `_historyNNN` counter for the artifact.
 - Semver-style HistoricalState paths such as `v0.0.1` should be explicitly requested and should not receive `sflo:stateOrdinal`; the containing named ArtifactHistory should still carry `sflo:nextStateOrdinal` for fallback default `_sNNNN` allocation if a later state request omits an explicit name.
 - Once a payload history has established a named HistoricalState such as `v0.0.1`, later `weave` or `version` operations must fail closed when that payload would be versioned without an explicit next `stateSegment`. A caller may continue semver naming with `v0.0.2` or explicitly opt into ordinal fallback with a segment such as `_s0001`; Weave should not silently choose between those policies.
 - Payload version segment defaults may apply broadly to all included payload artifacts, but target-specific segment fields should override the broad defaults. Support artifacts keep system-controlled history and state names until a separate support-artifact naming contract is defined.
+- Because `weave extract --all-terms` pins new term surfaces to the source artifact's latest historical state and currently skips already registered Knops, the `17` extraction step should run after the `v0.0.2` weave. If the fixture must prove an already extracted page refreshes from the new source, Weave also needs explicit refresh/update semantics for the existing term's `sfc:ExtractionSource`; all-terms alone only creates missing term surfaces under the current skip-existing contract.
 - The version-bump branch should include dataset compatibility metadata in `examples/gunaar.ttl` once the project settles how datasets announce the ontology version or compatibility line they target; do not block the first extracted-page refresh test on that still-open modeling decision.
 - Use branch refs as test fixtures: source refs define operation input, destination refs define expected output, and Accord manifests define the transition assertions.
 - Treat Accord manifests as transition contracts for the ladder, not as branch metadata or late acceptance paperwork.
@@ -320,7 +321,9 @@ The first ladder should be branch-based unless implementation pressure proves a 
 ### Phase 3B: Version-Bump Follow-Up Pair
 
 - [ ] Add `16-version-bump` and `17-version-bump-woven` as the follow-up ontology and SHACL version-bump pair after the first release ladder is working.
-- [ ] Use the follow-up pair to prove extracted term pages update when their source RDF changes; include at least one changed authored ontology or SHACL term that already has an extracted page.
+- [ ] In `16-version-bump`, update the authored ontology and SHACL sources with `v0.0.2` release metadata, at least one changed term that already has an extracted page, and at least one new mesh-scoped term that all-terms extraction should discover.
+- [ ] In `17-version-bump-woven`, weave the paired `v0.0.2` ontology and SHACL releases first, then run `weave extract --all-terms --source-designator-path ontology --yes` and `weave extract --all-terms --source-designator-path shacl --yes`, and then regenerate/weave pages as needed.
+- [ ] Use the follow-up pair to prove extracted term pages update when their source RDF changes; if current all-terms skip-existing behavior prevents this for already extracted terms, treat that as an implementation gap to close rather than weakening the fixture expectation.
 - [ ] Use the follow-up pair to test how datasets, ontology files, SHACL files, release histories, extracted term pages, and generated pages behave when only part of the source content has semantic changes but the published compatibility pair advances together.
 - [ ] Use the follow-up pair to prove broad payload state naming for ontology and SHACL together, such as one request-level/default state segment applied to both selected payload artifacts.
 
