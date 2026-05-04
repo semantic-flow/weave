@@ -1365,7 +1365,7 @@ async function collectGeneratedPageFiles(
       pageModels.push({
         kind: "simple",
         path: pagePath,
-        description: `Generated resource page for ${toResourcePath(pagePath)}.`,
+        description: describeSemanticFlowResource(toResourcePath(pagePath)),
         historyGroups: meshHistoryGroups.get(resourcePath) ??
           findHistoryGroupsForResource(resourcePath, designatorContexts),
         rawSourcePanels: meshRawSourcePanels.get(pagePath) ??
@@ -1385,7 +1385,7 @@ async function collectGeneratedPageFiles(
         kind: "simple",
         path: pagePath,
         description: context.pageDescriptions.get(pagePath) ??
-          `Generated resource page for ${toResourcePath(pagePath)}.`,
+          describeSemanticFlowResource(toResourcePath(pagePath)),
         historyGroups: context.historyGroupsByResourcePath.get(
           toResourcePath(pagePath),
         ),
@@ -1722,6 +1722,73 @@ function listResourcePagePaths(
   }
 
   return [...paths].sort((left, right) => left.localeCompare(right));
+}
+
+function describeSemanticFlowResource(resourcePath: string): string {
+  const displayPath = resourcePath.length === 0 ? "/" : resourcePath;
+  if (isArtifactManifestationPath(resourcePath)) {
+    const statePath = dirname(resourcePath);
+    return `Artifact manifestation ${
+      toLastPathSegment(resourcePath)
+    } for historical state ${toLastPathSegment(statePath)}.`;
+  }
+  if (isHistoricalStatePath(resourcePath)) {
+    const historyPath = dirname(resourcePath);
+    return `Historical state ${toLastPathSegment(resourcePath)} for the ${
+      toLastPathSegment(historyPath)
+    } ArtifactHistory.`;
+  }
+  if (isArtifactHistoryPath(resourcePath)) {
+    return `ArtifactHistory for ${
+      formatOwnerResourcePath(dirname(resourcePath))
+    }.`;
+  }
+  if (resourcePath === "_mesh") {
+    return "Semantic Flow mesh resource.";
+  }
+  if (resourcePath.endsWith("/_knop") || resourcePath === "_knop") {
+    return `Knop control surface for ${
+      formatOwnerResourcePath(dirname(resourcePath))
+    }.`;
+  }
+  if (resourcePath.endsWith("/_meta")) {
+    return `KnopMetadata artifact for ${
+      formatOwnerResourcePath(dirname(dirname(resourcePath)))
+    }.`;
+  }
+  if (resourcePath.endsWith("/_inventory")) {
+    return `Inventory artifact for ${
+      formatOwnerResourcePath(dirname(resourcePath))
+    }.`;
+  }
+  if (resourcePath.endsWith("/_config")) {
+    return "MeshConfig artifact for this mesh.";
+  }
+  return `Semantic Flow resource ${displayPath}.`;
+}
+
+function formatOwnerResourcePath(resourcePath: string): string {
+  if (resourcePath === "." || resourcePath.length === 0) {
+    return "/";
+  }
+  return resourcePath;
+}
+
+function toLastPathSegment(path: string): string {
+  const segments = path.split("/").filter((segment) => segment.length > 0);
+  return segments[segments.length - 1] ?? "/";
+}
+
+function isArtifactHistoryPath(resourcePath: string): boolean {
+  return /(^|\/)_history[0-9]+$/.test(resourcePath);
+}
+
+function isHistoricalStatePath(resourcePath: string): boolean {
+  return /(^|\/)_history[0-9]+\/_s[0-9]+$/.test(resourcePath);
+}
+
+function isArtifactManifestationPath(resourcePath: string): boolean {
+  return /(^|\/)_history[0-9]+\/_s[0-9]+\/[^/]+$/.test(resourcePath);
 }
 
 function collectHistoryGroupsByResourcePath(
