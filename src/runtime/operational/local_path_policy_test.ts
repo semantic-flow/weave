@@ -19,6 +19,7 @@ Deno.test("loadOperationalLocalPathPolicy discovers mesh-owned config in a non-w
     `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
 
 <> a sfcfg:MeshConfig ;
+  sfcfg:workspaceRootRelativeToMeshRoot "../" ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
     sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/meshRootPathBase> ;

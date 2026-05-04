@@ -68,7 +68,7 @@ export async function integrateRootPayload(
 
 export async function weaveRootPayload(workspaceRoot: string) {
   return await executeWeave({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "" }],
     },

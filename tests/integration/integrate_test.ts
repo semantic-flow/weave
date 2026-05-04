@@ -171,6 +171,7 @@ Deno.test("executeIntegrate allows repo-adjacent local sources when repo policy 
     `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
 
 <> a sfcfg:MeshConfig ;
+  sfcfg:workspaceRootRelativeToMeshRoot "../" ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
     sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/meshRootPathBase> ;

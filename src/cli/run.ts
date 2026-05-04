@@ -52,6 +52,7 @@ import {
   executeWeave,
   WeaveRuntimeError,
 } from "../runtime/weave/weave.ts";
+import { loadOperationalLocalPathPolicy } from "../runtime/operational/local_path_policy.ts";
 
 const TARGET_OPTION_DESCRIPTION =
   "Target spec as comma-separated key=value fields. Supported keys: designatorPath, recursive.";
@@ -63,8 +64,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
     .name("weave")
     .description("Filesystem-oriented Semantic Flow tooling.")
     .option(
-      "--workspace <workspace:string>",
-      "Workspace root to update for the default weave action.",
+      "--mesh-root <meshRoot:string>",
+      "Mesh root to weave. Defaults to the current directory.",
       { default: "." },
     )
     .option(
@@ -86,14 +87,15 @@ export async function runWeaveCli(args: string[]): Promise<number> {
     )
     .action(async (
       options: {
-        workspace: string;
+        meshRoot: string;
         target?: string[];
         payloadHistorySegment?: string;
         payloadStateSegment?: string;
         payloadManifestationSegment?: string;
       },
     ) => {
-      const workspaceRoot = resolve(options.workspace);
+      const meshRoot = resolve(options.meshRoot);
+      const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
       const targets = resolveVersionTargetSpecs(options, "weave");
       const logDir = join(workspaceRoot, ".weave", "logs");
       const { operationalLogger, auditLogger } = createRuntimeLoggers({
@@ -101,13 +103,14 @@ export async function runWeaveCli(args: string[]): Promise<number> {
       });
 
       await auditLogger.command("weave", {
+        meshRoot,
         workspaceRoot,
         targets,
         localMode: true,
       });
 
       const result = await executeWeave({
-        workspaceRoot,
+        meshRoot,
         request: targets.length > 0 ? { targets } : undefined,
         operationalLogger,
         auditLogger,
@@ -125,8 +128,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
       new Command()
         .description("Validate the current local state for targeted resources.")
         .option(
-          "--workspace <workspace:string>",
-          "Workspace root to validate.",
+          "--mesh-root <meshRoot:string>",
+          "Mesh root to validate. Defaults to the current directory.",
           { default: "." },
         )
         .option(
@@ -136,23 +139,25 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         )
         .action(async (
           options: {
-            workspace: string;
+            meshRoot: string;
             target?: string[];
           },
         ) => {
-          const workspaceRoot = resolve(options.workspace);
+          const meshRoot = resolve(options.meshRoot);
+          const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
           const targets = resolveSharedTargetSpecs(options, "validate");
           const logDir = join(workspaceRoot, ".weave", "logs");
           const { auditLogger } = createRuntimeLoggers({ logDir });
 
           await auditLogger.command("validate", {
+            meshRoot,
             workspaceRoot,
             targets,
             localMode: true,
           });
 
           const result = await executeValidate({
-            workspaceRoot,
+            meshRoot,
             request: targets.length > 0 ? { targets } : undefined,
           });
           if (result.findings.length > 0) {
@@ -172,8 +177,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           "Version the current targeted resources without page generation.",
         )
         .option(
-          "--workspace <workspace:string>",
-          "Workspace root to update.",
+          "--mesh-root <meshRoot:string>",
+          "Mesh root to version. Defaults to the current directory.",
           { default: "." },
         )
         .option(
@@ -195,26 +200,28 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         )
         .action(async (
           options: {
-            workspace: string;
+            meshRoot: string;
             target?: string[];
             payloadHistorySegment?: string;
             payloadStateSegment?: string;
             payloadManifestationSegment?: string;
           },
         ) => {
-          const workspaceRoot = resolve(options.workspace);
+          const meshRoot = resolve(options.meshRoot);
+          const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
           const targets = resolveVersionTargetSpecs(options, "version");
           const logDir = join(workspaceRoot, ".weave", "logs");
           const { auditLogger } = createRuntimeLoggers({ logDir });
 
           await auditLogger.command("version", {
+            meshRoot,
             workspaceRoot,
             targets,
             localMode: true,
           });
 
           const result = await executeVersion({
-            workspaceRoot,
+            meshRoot,
             request: targets.length > 0 ? { targets } : undefined,
           });
           console.log(describeVersionResult(result));
@@ -233,8 +240,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           "Render current ResourcePages from the settled local workspace state.",
         )
         .option(
-          "--workspace <workspace:string>",
-          "Workspace root to update.",
+          "--mesh-root <meshRoot:string>",
+          "Mesh root for page generation. Defaults to the current directory.",
           { default: "." },
         )
         .option(
@@ -244,23 +251,25 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         )
         .action(async (
           options: {
-            workspace: string;
+            meshRoot: string;
             target?: string[];
           },
         ) => {
-          const workspaceRoot = resolve(options.workspace);
+          const meshRoot = resolve(options.meshRoot);
+          const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
           const targets = resolveSharedTargetSpecs(options, "generate");
           const logDir = join(workspaceRoot, ".weave", "logs");
           const { auditLogger } = createRuntimeLoggers({ logDir });
 
           await auditLogger.command("generate", {
+            meshRoot,
             workspaceRoot,
             targets,
             localMode: true,
           });
 
           const result = await executeGenerate({
-            workspaceRoot,
+            meshRoot,
             request: targets.length > 0 ? { targets } : undefined,
           });
           console.log(describeGenerateResult(result));
@@ -654,6 +663,10 @@ function normalizeCliMeshRoot(
     );
   }
   return relation;
+}
+
+async function inferCliWorkspaceRoot(meshRoot: string): Promise<string> {
+  return (await loadOperationalLocalPathPolicy(meshRoot)).workspaceRoot;
 }
 
 async function resolveMeshBaseOption(

@@ -136,7 +136,7 @@ Deno.test("weave extract accepts the root designator path as a black-box CLI run
     },
   });
   await executeWeave({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "alice/bio" }],
     },

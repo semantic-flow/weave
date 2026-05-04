@@ -34,7 +34,7 @@ Deno.test("executeValidate returns structured findings for version-only target f
   } as unknown as Parameters<typeof executeValidate>[0]["request"];
 
   const result = await executeValidate({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request,
   });
 
@@ -62,7 +62,7 @@ Deno.test("executeGenerate rejects version-only target fields", async () => {
   await assertRejects(
     () =>
       executeGenerate({
-        workspaceRoot,
+        meshRoot: workspaceRoot,
         request,
       }),
     WeaveInputError,
@@ -75,7 +75,7 @@ Deno.test("executeVersion accepts version-only target fields", async () => {
   await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
 
   const result = await executeVersion({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{
         designatorPath: "alice/bio",
@@ -101,7 +101,7 @@ Deno.test("executeVersion reuses custom payload manifestation paths on the next 
   await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
 
   await executeVersion({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{
         designatorPath: "alice/bio",
@@ -119,7 +119,7 @@ Deno.test("executeVersion reuses custom payload manifestation paths on the next 
   );
 
   const result = await executeVersion({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{
         designatorPath: "alice/bio",
@@ -158,7 +158,7 @@ Deno.test("executeVersion rejects mixed requested targets when some are not curr
   await assertRejects(
     () =>
       executeVersion({
-        workspaceRoot,
+        meshRoot: workspaceRoot,
         request: {
           targets: [
             { designatorPath: "alice" },
@@ -203,7 +203,7 @@ Deno.test("executeValidate accepts the exact root target", async () => {
   await integrateRootPayload(workspaceRoot);
 
   const result = await executeValidate({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "" }],
     },
@@ -222,7 +222,7 @@ Deno.test("executeVersion accepts the exact root target", async () => {
   await integrateRootPayload(workspaceRoot);
 
   const result = await executeVersion({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{
         designatorPath: "",
@@ -250,7 +250,7 @@ Deno.test("executeGenerate accepts the exact root target", async () => {
   await bootstrapRootWovenWorkspace(workspaceRoot);
 
   const result = await executeGenerate({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "" }],
     },
@@ -271,7 +271,7 @@ Deno.test("executeVersion versions the first alice page-definition support artif
   );
 
   const result = await executeVersion({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "alice" }],
     },
@@ -337,7 +337,7 @@ Deno.test("executeGenerate renders the customized alice identifier page after pa
   );
 
   const result = await executeGenerate({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "alice" }],
     },
@@ -378,7 +378,7 @@ Deno.test("executeVersion rejects a mismatched payload historySegment on an alre
   await assertRejects(
     () =>
       executeVersion({
-        workspaceRoot,
+        meshRoot: workspaceRoot,
         request: {
           targets: [{
             designatorPath: "alice/bio",
@@ -419,7 +419,7 @@ Deno.test("executeVersion batches recursive targets through staged current state
   );
 
   const result = await executeVersion({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "alice", recursive: true }],
     },
@@ -521,7 +521,7 @@ Deno.test("executeVersion fails closed when a later batch target becomes invalid
   await assertRejects(
     () =>
       executeVersion({
-        workspaceRoot,
+        meshRoot: workspaceRoot,
         request: {
           targets: [
             { designatorPath: "alice/bio" },
@@ -569,7 +569,7 @@ Deno.test("executeGenerate does not mutate RDF artifacts", async () => {
   );
 
   const result = await executeGenerate({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
   });
 
   assert(result.createdPaths.every((path) => path.endsWith(".html")));
@@ -593,7 +593,7 @@ Deno.test("executeGenerate reads only the settled current workspace state", asyn
   await materializeMeshAliceBioBranch("10-alice-bio-updated", workspaceRoot);
 
   await executeGenerate({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "alice/bio" }],
     },

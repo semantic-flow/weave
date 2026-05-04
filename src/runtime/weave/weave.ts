@@ -1,4 +1,4 @@
-import { dirname, join } from "@std/path";
+import { dirname, join, relative } from "@std/path";
 import { Parser, type Quad } from "n3";
 import {
   formatDesignatorPathForDisplay,
@@ -63,22 +63,22 @@ const SFLO_NAMESPACE =
 const SFLO_HAS_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}hasResourcePage`;
 
 export interface ExecuteValidateOptions {
-  workspaceRoot: string;
+  meshRoot: string;
   request?: ValidateRequest;
 }
 
 export interface ExecuteVersionOptions {
-  workspaceRoot: string;
+  meshRoot: string;
   request?: VersionRequest;
 }
 
 export interface ExecuteGenerateOptions {
-  workspaceRoot: string;
+  meshRoot: string;
   request?: GenerateRequest;
 }
 
 export interface ExecuteWeaveOptions {
-  workspaceRoot: string;
+  meshRoot: string;
   request?: WeaveRequest;
   operationalLogger?: StructuredLogger;
   auditLogger?: AuditLogger;
@@ -148,11 +148,12 @@ export async function executeValidate(
 ): Promise<ValidateResult> {
   try {
     const targets = normalizeValidateRequest(options.request);
+    const meshRoot = resolveExecutionMeshRoot(options);
     const localPathPolicy = await loadOperationalLocalPathPolicy(
-      options.workspaceRoot,
+      meshRoot,
     );
     const prepared = await prepareVersionExecution(
-      options.workspaceRoot,
+      meshRoot,
       toNormalizedVersionTargets(targets),
       localPathPolicy,
     );
@@ -186,31 +187,36 @@ export async function executeVersion(
   options: ExecuteVersionOptions,
 ): Promise<VersionResult> {
   const targets = normalizeVersionRequest(options.request);
+  const meshRoot = resolveExecutionMeshRoot(options);
   const localPathPolicy = await loadOperationalLocalPathPolicy(
-    options.workspaceRoot,
+    meshRoot,
   );
   const prepared = await prepareVersionExecution(
-    options.workspaceRoot,
+    meshRoot,
     targets,
     localPathPolicy,
   );
-  assertUpdatedTargetsExist(options.workspaceRoot, prepared.plan.updatedFiles);
+  assertUpdatedTargetsExist(meshRoot, prepared.plan.updatedFiles);
   await assertCreateTargetsDoNotExist(
-    options.workspaceRoot,
+    meshRoot,
     prepared.plan.createdFiles,
   );
   validateRdfFiles([
     ...prepared.plan.createdFiles,
     ...prepared.plan.updatedFiles,
   ]);
-  await writeFiles(options.workspaceRoot, prepared.plan.createdFiles, true);
-  await writeFiles(options.workspaceRoot, prepared.plan.updatedFiles, false);
+  await writeFiles(meshRoot, prepared.plan.createdFiles, true);
+  await writeFiles(meshRoot, prepared.plan.updatedFiles, false);
 
   return {
     meshBase: prepared.meshState.meshBase,
     versionedDesignatorPaths: prepared.plan.versionedDesignatorPaths,
-    createdPaths: prepared.plan.createdFiles.map((file) => file.path),
-    updatedPaths: prepared.plan.updatedFiles.map((file) => file.path),
+    createdPaths: prepared.plan.createdFiles.map((file) =>
+      toWorkspaceRelativePath(localPathPolicy, file.path)
+    ),
+    updatedPaths: prepared.plan.updatedFiles.map((file) =>
+      toWorkspaceRelativePath(localPathPolicy, file.path)
+    ),
   };
 }
 
@@ -218,11 +224,12 @@ export async function executeGenerate(
   options: ExecuteGenerateOptions,
 ): Promise<GenerateResult> {
   const targets = normalizeGenerateRequest(options.request);
-  await ensureWorkspaceRootExists(options.workspaceRoot);
+  const meshRoot = resolveExecutionMeshRoot(options);
+  await ensureWorkspaceRootExists(meshRoot);
   const localPathPolicy = await loadOperationalLocalPathPolicy(
-    options.workspaceRoot,
+    meshRoot,
   );
-  const meshState = await loadMeshState(options.workspaceRoot);
+  const meshState = await loadMeshState(meshRoot);
   const allDesignatorPaths = listKnopDesignatorPaths(
     meshState.meshBase,
     meshState.currentMeshInventoryTurtle,
@@ -233,19 +240,23 @@ export async function executeGenerate(
     targets,
   );
   const pageFiles = await collectGeneratedPageFiles(
-    options.workspaceRoot,
+    meshRoot,
     localPathPolicy,
     meshState,
     selectedDesignatorPaths,
     targets.length === 0,
   );
-  const writeResult = await writeFilesUpsert(options.workspaceRoot, pageFiles);
+  const writeResult = await writeFilesUpsert(meshRoot, pageFiles);
 
   return {
     meshBase: meshState.meshBase,
     generatedDesignatorPaths: selectedDesignatorPaths,
-    createdPaths: writeResult.createdPaths,
-    updatedPaths: writeResult.updatedPaths,
+    createdPaths: writeResult.createdPaths.map((path) =>
+      toWorkspaceRelativePath(localPathPolicy, path)
+    ),
+    updatedPaths: writeResult.updatedPaths.map((path) =>
+      toWorkspaceRelativePath(localPathPolicy, path)
+    ),
   };
 }
 
@@ -253,7 +264,9 @@ export async function executeWeave(
   options: ExecuteWeaveOptions,
 ): Promise<WeaveResult> {
   const { operationalLogger, auditLogger } = resolveLoggers(options);
-  const workspaceRoot = options.workspaceRoot;
+  const meshRoot = resolveExecutionMeshRoot(options);
+  const initialPolicy = await loadOperationalLocalPathPolicy(meshRoot);
+  const workspaceRoot = initialPolicy.workspaceRoot;
   let wovenDesignatorPaths: readonly string[] = [];
 
   await operationalLogger.info("weave.started", "Starting local weave", {
@@ -267,7 +280,7 @@ export async function executeWeave(
 
   try {
     const validation = await executeValidate({
-      workspaceRoot,
+      meshRoot,
       request: toSharedTargetRequest(options.request),
     });
     if (validation.findings.length > 0) {
@@ -275,13 +288,13 @@ export async function executeWeave(
     }
 
     const versionResult = await executeVersion({
-      workspaceRoot,
+      meshRoot,
       request: options.request,
     });
     wovenDesignatorPaths = versionResult.versionedDesignatorPaths;
 
     const generateResult = await executeGenerate({
-      workspaceRoot,
+      meshRoot,
       request: toSharedTargetRequest(options.request),
     });
 
@@ -631,6 +644,30 @@ function toNormalizedVersionTargets(
     designatorPath: target.designatorPath,
     recursive: target.recursive,
   }));
+}
+
+function resolveExecutionMeshRoot(
+  options:
+    | ExecuteValidateOptions
+    | ExecuteVersionOptions
+    | ExecuteGenerateOptions
+    | ExecuteWeaveOptions,
+): string {
+  if (options.meshRoot.trim().length === 0) {
+    throw new WeaveRuntimeError("mesh root is required");
+  }
+  return options.meshRoot;
+}
+
+function toWorkspaceRelativePath(
+  policy: OperationalLocalPathPolicy,
+  meshRelativePath: string,
+): string {
+  const path = relative(
+    policy.workspaceRoot,
+    join(policy.meshRoot, meshRelativePath),
+  ).replaceAll("\\", "/");
+  return path.length === 0 ? "." : path;
 }
 
 function resolveSelectedDesignatorPaths(

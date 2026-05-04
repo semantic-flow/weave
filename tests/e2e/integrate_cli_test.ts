@@ -213,6 +213,7 @@ Deno.test("weave integrate allows repo-adjacent local sources when repo policy p
     `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
 
 <> a sfcfg:MeshConfig ;
+  sfcfg:workspaceRootRelativeToMeshRoot "../" ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
     sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/meshRootPathBase> ;

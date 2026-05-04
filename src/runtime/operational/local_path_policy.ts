@@ -19,6 +19,8 @@ const WORKING_LOCAL_RELATIVE_PATH_LOCATOR_KIND_IRI =
   `${CONFIG_NAMESPACE}workingLocalRelativePathLocatorKind`;
 const TARGET_LOCAL_RELATIVE_PATH_LOCATOR_KIND_IRI =
   `${CONFIG_NAMESPACE}targetLocalRelativePathLocatorKind`;
+const WORKSPACE_ROOT_RELATIVE_TO_MESH_ROOT_IRI =
+  `${CONFIG_NAMESPACE}workspaceRootRelativeToMeshRoot`;
 const MESH_CONFIG_PATH = "_mesh/_config/config.ttl";
 const LOCAL_ACCESS_FILE_NAME = ".sf-local-access.ttl";
 
@@ -39,6 +41,7 @@ interface LocalPathAccessRule {
 
 export interface OperationalLocalPathPolicy {
   meshRoot: string;
+  workspaceRoot: string;
   meshConfigPath?: string;
   localConfigPath?: string;
   rules: readonly LocalPathAccessRule[];
@@ -62,6 +65,9 @@ export async function loadOperationalLocalPathPolicy(
   meshRoot: string,
 ): Promise<OperationalLocalPathPolicy> {
   const meshConfigPath = await resolveMeshConfigPath(meshRoot);
+  const workspaceRoot = meshConfigPath
+    ? await resolveWorkspaceRootFromMeshConfig(meshRoot, meshConfigPath)
+    : meshRoot;
   const localConfigPath = await resolveLocalAccessConfigPath();
   const rules: LocalPathAccessRule[] = [];
 
@@ -74,6 +80,7 @@ export async function loadOperationalLocalPathPolicy(
 
   return {
     meshRoot,
+    workspaceRoot,
     meshConfigPath,
     localConfigPath,
     rules,
@@ -103,6 +110,12 @@ export function resolveAllowedLocalPath(
     if (!allowedRoot) {
       continue;
     }
+    if (
+      rule.source === "mesh" &&
+      !isWithinRoot(candidateAbsolutePath, policy.workspaceRoot)
+    ) {
+      continue;
+    }
 
     if (isWithinRoot(candidateAbsolutePath, allowedRoot)) {
       return candidateAbsolutePath;
@@ -112,6 +125,52 @@ export function resolveAllowedLocalPath(
   throw new LocalPathAccessError(
     `${locatorKind} resolves outside the mesh root and no operational allow rule matched: ${relativePath}`,
   );
+}
+
+async function resolveWorkspaceRootFromMeshConfig(
+  meshRoot: string,
+  meshConfigPath: string,
+): Promise<string> {
+  const turtle = await Deno.readTextFile(meshConfigPath);
+  const quads = parseConfigQuads(meshConfigPath, turtle);
+  const values = quads
+    .filter((quad) =>
+      quad.predicate.value === WORKSPACE_ROOT_RELATIVE_TO_MESH_ROOT_IRI &&
+      quad.object.termType === "Literal"
+    )
+    .map((quad) => quad.object.value.trim());
+
+  if (values.length === 0) {
+    return meshRoot;
+  }
+  if (values.length !== 1) {
+    throw new OperationalConfigError(
+      `Expected exactly one ${WORKSPACE_ROOT_RELATIVE_TO_MESH_ROOT_IRI} value in ${meshConfigPath}`,
+    );
+  }
+
+  const relativeWorkspaceRoot = values[0]!;
+  if (
+    relativeWorkspaceRoot.length === 0 ||
+    relativeWorkspaceRoot.includes("\\") ||
+    isAbsolute(relativeWorkspaceRoot)
+  ) {
+    throw new OperationalConfigError(
+      `Invalid workspaceRootRelativeToMeshRoot in ${meshConfigPath}: ${relativeWorkspaceRoot}`,
+    );
+  }
+
+  const workspaceRoot = resolvePosixRelativePath(
+    meshRoot,
+    relativeWorkspaceRoot,
+  );
+  if (!isWithinRoot(meshRoot, workspaceRoot)) {
+    throw new OperationalConfigError(
+      `workspaceRootRelativeToMeshRoot must resolve to a workspace root containing the mesh root: ${meshConfigPath}`,
+    );
+  }
+
+  return workspaceRoot;
 }
 
 async function loadLocalPathRules(

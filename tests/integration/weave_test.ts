@@ -28,7 +28,7 @@ Deno.test("executeWeave matches the settled alice knop-created-woven fixture", a
   await materializeMeshAliceBioBranch("04-alice-knop-created", workspaceRoot);
 
   const result = await executeWeave({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
   });
 
   assertEquals(result.wovenDesignatorPaths, ["alice"]);
@@ -71,7 +71,7 @@ Deno.test("executeWeave supports the exact root target", async () => {
   await integrateRootPayload(workspaceRoot);
 
   const result = await executeWeave({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "" }],
     },
@@ -115,7 +115,7 @@ Deno.test("executeWeave supports a later first root Knop weave against a carried
   });
 
   const result = await executeWeave({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "" }],
     },
@@ -161,7 +161,7 @@ Deno.test("executeWeave validates malformed shared target requests before planni
   await assertRejects(
     () =>
       executeWeave({
-        workspaceRoot,
+        meshRoot: workspaceRoot,
         request,
       }),
     WeaveInputError,
@@ -174,7 +174,7 @@ Deno.test("executeWeave matches the settled alice bio integrated-woven fixture",
   await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
 
   const result = await executeWeave({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "alice/bio" }],
     },
@@ -242,7 +242,7 @@ Deno.test("executeWeave batches recursive targets through validate, version, and
   );
 
   const result = await executeWeave({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "alice", recursive: true }],
     },
@@ -293,7 +293,7 @@ Deno.test("executeWeave honors requested payload history and state naming", asyn
   await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
 
   const result = await executeWeave({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{
         designatorPath: "alice/bio",
@@ -345,7 +345,7 @@ Deno.test("executeWeave forwards targets to generate and leaves unrelated pages 
   );
 
   const result = await executeWeave({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "alice/bio" }],
     },
@@ -366,7 +366,7 @@ Deno.test("executeWeave matches the settled alice bio referenced-woven fixture",
   await materializeMeshAliceBioBranch("08-alice-bio-referenced", workspaceRoot);
 
   const result = await executeWeave({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
   });
 
   assertEquals(result.wovenDesignatorPaths, ["alice"]);
@@ -432,7 +432,7 @@ Deno.test("executeWeave matches the settled alice page-customized-woven fixture"
   );
 
   const result = await executeWeave({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "alice" }],
     },
@@ -534,7 +534,7 @@ Deno.test("executeWeave resolves current artifact-backed page sources through ha
   );
 
   const result = await executeWeave({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "alice" }],
     },
@@ -569,7 +569,7 @@ Deno.test("executeWeave versions a later page-definition revision that repoints 
   );
 
   const result = await executeWeave({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "alice" }],
     },
@@ -608,7 +608,7 @@ Deno.test("executeWeave versions the first root page-definition revision", async
   await materializeMeshAliceBioBranch("24-root-page-customized", workspaceRoot);
 
   const result = await executeWeave({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "" }],
     },
@@ -668,6 +668,7 @@ Deno.test("executeWeave resolves artifact-backed page sources through workingLoc
     `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
 
 <> a sfcfg:MeshConfig ;
+  sfcfg:workspaceRootRelativeToMeshRoot "../" ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
     sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/meshRootPathBase> ;
@@ -707,7 +708,7 @@ Deno.test("executeWeave resolves artifact-backed page sources through workingLoc
   );
 
   const result = await executeWeave({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "alice" }],
     },
@@ -763,7 +764,7 @@ Deno.test("executeWeave fails closed when artifact-backed page sources request p
   await assertRejects(
     () =>
       executeWeave({
-        workspaceRoot,
+        meshRoot: workspaceRoot,
         request: {
           targets: [{ designatorPath: "alice" }],
         },
@@ -785,7 +786,7 @@ Deno.test("executeWeave resolves payload current files from workingLocalRelative
   );
 
   const result = await executeWeave({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "alice/bio" }],
     },
@@ -816,7 +817,7 @@ Deno.test("executeWeave resolves page definitions from workingLocalRelativePath 
   );
 
   const result = await executeWeave({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "alice" }],
     },
@@ -850,7 +851,7 @@ Deno.test("executeWeave fails closed when targetLocalRelativePath escapes the me
   await assertRejects(
     () =>
       executeWeave({
-        workspaceRoot,
+        meshRoot: workspaceRoot,
         request: {
           targets: [{ designatorPath: "alice" }],
         },
@@ -876,6 +877,7 @@ Deno.test("executeWeave allows repo-adjacent targetLocalRelativePath values when
     `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
 
 <> a sfcfg:MeshConfig ;
+  sfcfg:workspaceRootRelativeToMeshRoot "../" ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
     sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/meshRootPathBase> ;
@@ -895,7 +897,7 @@ Deno.test("executeWeave allows repo-adjacent targetLocalRelativePath values when
   );
 
   const result = await executeWeave({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "alice" }],
     },
@@ -919,6 +921,7 @@ Deno.test("executeWeave allows repo-adjacent workingLocalRelativePath values whe
     `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
 
 <> a sfcfg:MeshConfig ;
+  sfcfg:workspaceRootRelativeToMeshRoot "../" ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
     sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/meshRootPathBase> ;
@@ -939,7 +942,7 @@ Deno.test("executeWeave allows repo-adjacent workingLocalRelativePath values whe
   );
 
   const result = await executeWeave({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "alice/bio" }],
     },
@@ -974,7 +977,7 @@ Deno.test("executeWeave materializes the second alice bio payload weave slice", 
   await materializeMeshAliceBioBranch("10-alice-bio-updated", workspaceRoot);
 
   const result = await executeWeave({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "alice/bio" }],
     },
@@ -1060,7 +1063,7 @@ Deno.test("executeWeave materializes the extracted bob woven slice", async () =>
   await materializeMeshAliceBioBranch("12-bob-extracted", workspaceRoot);
 
   const result = await executeWeave({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "bob" }],
     },
@@ -1156,7 +1159,7 @@ Deno.test("executeWeave fails closed when bob's woven source payload has no curr
   await assertRejects(
     () =>
       executeWeave({
-        workspaceRoot,
+        meshRoot: workspaceRoot,
         request: {
           targets: [{ designatorPath: "bob" }],
         },
@@ -1187,7 +1190,7 @@ Deno.test("executeWeave fails closed when a created weave target already exists"
   await assertRejects(
     () =>
       executeWeave({
-        workspaceRoot,
+        meshRoot: workspaceRoot,
       }),
     WeaveRuntimeError,
     "already exists",
@@ -1220,7 +1223,7 @@ Deno.test("executeWeave ignores settled Knops before loading missing working art
   );
 
   const result = await executeWeave({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
   });
 
   assertEquals(result.wovenDesignatorPaths, ["alice"]);
@@ -1248,7 +1251,7 @@ Deno.test("executeWeave ignores non-requested weave candidates before loading wo
   );
 
   const result = await executeWeave({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "alice" }],
     },
@@ -1263,7 +1266,7 @@ Deno.test("executeWeave accepts semantically equivalent mesh metadata turtle", a
   await writeEquivalentMeshMetadata(workspaceRoot);
 
   const result = await executeWeave({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
   });
 
   assertEquals(result.meshBase, MESH_ALICE_BIO_BASE);

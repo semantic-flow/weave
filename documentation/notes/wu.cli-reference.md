@@ -8,21 +8,21 @@ created: 1775629411758
 
 ## Overview
 
-`weave` is a workspace-oriented CLI. Most commands operate on the current directory unless `--workspace <path>` is provided.
+`weave` is a mesh-oriented CLI. The main `weave`, `weave validate`, `weave version`, and `weave generate` commands treat the current directory as the mesh root unless `--mesh-root <path>` is provided.
 
 Commands print a one-line summary to stdout followed by created or updated paths when relevant. Input or runtime errors return a non-zero exit code and print the error message to stderr.
 
-Weave also writes runtime logs under `.weave/logs/` inside the workspace.
+Weave writes runtime logs under `.weave/logs/` inside the workspace. For whole-root meshes the workspace is the mesh root. For sidecar meshes, Weave infers the workspace from `_mesh/_config/config.ttl`.
 
 Use `weave --help` or `weave <command> --help` to inspect the live CLI.
 
 ## Common patterns
 
-`--workspace <path>` selects the workspace root. It defaults to `.`.
+`--mesh-root <path>` selects the mesh root for `weave`, `weave validate`, `weave version`, and `weave generate`. It defaults to `.`.
 
 `--target <spec>` limits `weave`, `weave validate`, `weave version`, and `weave generate` to specific designator paths.
 
-If no `--target` flags are provided, those commands operate on all applicable weave candidates in the workspace.
+If no `--target` flags are provided, those commands operate on all applicable weave candidates in the mesh.
 
 ## Target syntax
 
@@ -80,7 +80,7 @@ Examples:
 
 ```sh
 weave
-weave --workspace ./my-mesh
+weave --mesh-root ./docs
 weave --target 'designatorPath=alice/bio'
 weave --target 'designatorPath=alice,recursive=true'
 ```
@@ -234,17 +234,17 @@ Integrate a payload, then weave it:
 
 ```sh
 weave integrate ./alice-bio.ttl alice/bio --workspace ./mesh
-weave --target 'designatorPath=alice/bio' --workspace ./mesh
+weave --target 'designatorPath=alice/bio' --mesh-root ./mesh
 ```
 
 Version without generation:
 
 ```sh
-weave version --target 'designatorPath=alice/bio' --workspace ./mesh
+weave version --target 'designatorPath=alice/bio' --mesh-root ./mesh
 ```
 
 Generate pages only:
 
 ```sh
-weave generate --target 'designatorPath=alice,recursive=true' --workspace ./mesh
+weave generate --target 'designatorPath=alice,recursive=true' --mesh-root ./mesh
 ```
