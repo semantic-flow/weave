@@ -208,6 +208,15 @@ created: 1773630801215
   - Ontology terms such as `ontology/AbilityScore` are legitimately mentioned by both the ontology and SHACL payloads, so fail-closed inference still needs an explicit source selector for the intended extraction source.
   - The sidecar mesh inventory already carries ontology, SHACL, config, and support artifacts; reconstructing a single-payload Bob-shaped inventory would be the wrong abstraction. Appending only the new term Knop facts preserves unrelated mesh state while keeping `08` non-woven.
 
+### 2026-05-04: All-Terms Extraction Creates Only New Public Term Knops
+
+- Decision: Add `weave extract --all-terms --source-designator-path <source>` as a source-scoped batch extraction mode that discovers named mesh-scoped RDF nodes from the selected woven RDF payload, previews the identifiers to be created, requires confirmation unless `--yes` is supplied, skips already registered Knops, ignores blank nodes, and excludes support/generated artifact paths from creation.
+- References: [[wd.task.2026.2026-05-04-all-terms-extraction]], [[sf.spec.2026-04-05-extract-behavior]]
+- Why:
+  - Batch extraction should remove the one-command-per-term burden without turning source RDF into an uncontrolled artifact generator.
+  - Existing identifier surfaces are already governed by their Knops, so the batch operation should be additive over missing terms rather than trying to refresh or overwrite existing surfaces.
+  - Semantic Flow support artifacts and generated page/file artifacts are implementation surfaces, not public term surfaces to mint just because a payload graph references their IRIs.
+
 ### 2026-05-04: Sidecar Extracted-Term Weave Uses Pinned Source States
 
 - Decision: Extend local `weave` for the Fantasy Rules sidecar `08-ontology-and-shacl-terms-extracted` -> `09-ontology-and-shacl-terms-extracted-woven` transition so extracted term Knops can be woven in a recursive multi-target batch, generated term pages read source RDF from pinned inventory `sfc:ExtractionSource` states, and term path anchoring follows the term namespace rather than the source artifact designator.

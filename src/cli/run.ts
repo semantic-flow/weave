@@ -1,5 +1,5 @@
 import { Command } from "@cliffy/command";
-import { Input } from "@cliffy/prompt";
+import { Confirm, Input } from "@cliffy/prompt";
 import { isAbsolute, join, relative, resolve } from "@std/path";
 import { ExtractInputError } from "../core/extract/extract.ts";
 import { IntegrateInputError } from "../core/integrate/integrate.ts";
@@ -12,9 +12,12 @@ import type { TargetSpec, VersionTargetSpec } from "../core/targeting.ts";
 import { WeaveInputError } from "../core/weave/weave.ts";
 import { createRuntimeLoggers } from "../runtime/logging/factory.ts";
 import {
+  describeExtractAllTermsResult,
   describeExtractResult,
   executeExtract,
+  executeExtractAllTerms,
   ExtractRuntimeError,
+  previewExtractAllTerms,
 } from "../runtime/extract/extract.ts";
 import {
   describeIntegrateResult,
@@ -288,7 +291,11 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         .description(
           "Create a minimal Knop-managed surface for a local resource referenced inside a woven payload artifact.",
         )
-        .arguments("<designatorPath:string>")
+        .arguments("[designatorPath:string]")
+        .option(
+          "--all-terms",
+          "Extract all new mesh-scoped named terms from the selected RDF source artifact.",
+        )
         .option(
           "--mesh-root <meshRoot:string>",
           "Mesh root to update. Defaults to the current directory.",
@@ -298,25 +305,85 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           "--source-designator-path <sourceDesignatorPath:string>",
           "Explicit woven payload designator to extract from when target mention resolution would be ambiguous.",
         )
+        .option(
+          "--yes",
+          "Confirm all-terms extraction without an interactive prompt.",
+        )
         .action(async (
           options: {
             meshRoot: string;
             sourceDesignatorPath?: string;
+            allTerms?: boolean;
+            yes?: boolean;
           },
-          designatorPath,
+          designatorPath?: string,
         ) => {
-          const normalizedDesignatorPath = resolveCliArgumentDesignatorPath(
-            designatorPath,
-            "extract requires a positional designatorPath",
-            "extract designatorPath",
-            (message) => new ExtractInputError(message),
-          );
           const meshRoot = resolve(options.meshRoot);
           const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
           const logDir = join(workspaceRoot, ".weave", "logs");
           const { operationalLogger, auditLogger } = createRuntimeLoggers({
             logDir,
           });
+
+          if (options.allTerms) {
+            if (
+              typeof designatorPath === "string" &&
+              designatorPath.trim().length > 0
+            ) {
+              throw new ExtractInputError(
+                "extract --all-terms does not accept a positional designatorPath",
+              );
+            }
+            const sourceDesignatorPath = resolveRequiredOptionValue(
+              options.sourceDesignatorPath,
+              "extract --all-terms requires --source-designator-path",
+              (message) => new ExtractInputError(message),
+            );
+            const preview = await previewExtractAllTerms({
+              meshRoot,
+              request: { sourceDesignatorPath },
+            });
+            printExtractAllTermsPreview(preview.extractedDesignatorPaths);
+            if (!options.yes) {
+              const confirmed = await Confirm.prompt({
+                message: "Create all listed identifiers?",
+                default: false,
+              });
+              if (!confirmed) {
+                console.log("All-terms extract cancelled.");
+                return;
+              }
+            }
+
+            await auditLogger.command("extract.allTerms", {
+              meshRoot,
+              workspaceRoot,
+              sourceDesignatorPath,
+              localMode: true,
+            });
+
+            const result = await executeExtractAllTerms({
+              meshRoot,
+              request: { sourceDesignatorPath },
+              operationalLogger,
+              auditLogger,
+            });
+            console.log(describeExtractAllTermsResult(result));
+            for (const path of result.createdPaths) {
+              console.log(path);
+            }
+            for (const path of result.updatedPaths) {
+              console.log(path);
+            }
+            return;
+          }
+
+          const normalizedDesignatorPath = resolveCliArgumentDesignatorPath(
+            designatorPath,
+            "extract requires a positional designatorPath",
+            "extract designatorPath",
+            (message) => new ExtractInputError(message),
+          );
 
           await auditLogger.command("extract", {
             meshRoot,
@@ -721,6 +788,17 @@ async function resolveMeshBaseOption(
       return value.trim().length > 0 || "meshBase is required";
     },
   });
+}
+
+function printExtractAllTermsPreview(
+  designatorPaths: readonly string[],
+): void {
+  console.log(
+    `All-terms extract will create ${designatorPaths.length} identifiers:`,
+  );
+  for (const designatorPath of designatorPaths) {
+    console.log(`- ${designatorPath}`);
+  }
 }
 
 function resolveIntegrateDesignatorPath(

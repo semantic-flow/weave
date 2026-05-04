@@ -266,6 +266,125 @@ Deno.test("weave extract supports docs-rooted sidecar meshes with an explicit so
   );
 });
 
+Deno.test("weave extract --all-terms previews and creates new terms with --yes", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-extract-all-terms-");
+  await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
+  await Deno.writeTextFile(
+    join(workspaceRoot, "alice-bio.ttl"),
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix schema: <https://schema.org/> .
+
+<alice/bio> schema:about <bob>, <carol>, <bob/_knop> .
+<carol> schema:name "Carol" .
+`,
+  );
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      "extract",
+      "--all-terms",
+      "--yes",
+      "--source-designator-path",
+      "alice/bio",
+      "--mesh-root",
+      workspaceRoot,
+    ],
+    cwd: new URL(".", repoRoot),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(
+    stdout.includes("All-terms extract will create 2 identifiers"),
+    stdout,
+  );
+  assert(stdout.includes("- bob"), stdout);
+  assert(stdout.includes("- carol"), stdout);
+  assert(stdout.includes("Extracted 2 new terms from alice/bio"), stdout);
+  await Deno.stat(join(workspaceRoot, "bob/_knop/_meta/meta.ttl"));
+  await Deno.stat(join(workspaceRoot, "carol/_knop/_meta/meta.ttl"));
+});
+
+Deno.test("weave extract --all-terms requires an explicit source selector", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-extract-all-terms-source-",
+  );
+  await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      "extract",
+      "--all-terms",
+      "--yes",
+      "--mesh-root",
+      workspaceRoot,
+    ],
+    cwd: new URL(".", repoRoot),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assertEquals(output.success, false);
+  assert(
+    stderr.includes("extract --all-terms requires --source-designator-path"),
+    stderr,
+  );
+});
+
+Deno.test("weave extract --all-terms rejects a positional designator path", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-extract-all-terms-positional-",
+  );
+  await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      "extract",
+      "bob",
+      "--all-terms",
+      "--yes",
+      "--source-designator-path",
+      "alice/bio",
+      "--mesh-root",
+      workspaceRoot,
+    ],
+    cwd: new URL(".", repoRoot),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assertEquals(output.success, false);
+  assert(
+    stderr.includes(
+      "extract --all-terms does not accept a positional designatorPath",
+    ),
+    stderr,
+  );
+});
+
 Deno.test("weave extract rejects a whitespace-only positional designatorPath before logging or execution", async () => {
   const workspaceRoot = await createTestTmpDir("weave-e2e-extract-empty-");
   await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);

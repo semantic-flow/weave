@@ -34,6 +34,10 @@ export interface LocalExtractRequest {
   sourceDesignatorPath?: string;
 }
 
+export interface LocalExtractAllTermsRequest {
+  sourceDesignatorPath: string;
+}
+
 export interface ExecuteExtractOptions {
   meshRoot?: string;
   workspaceRoot?: string;
@@ -49,6 +53,19 @@ export interface ExtractResult {
   sourceArtifactIri: string;
   sourceDesignatorPath: string;
   sourceStateIri: string;
+  createdPaths: readonly string[];
+  updatedPaths: readonly string[];
+}
+
+export interface ExtractAllTermsResult {
+  meshBase: string;
+  sourceDesignatorPath: string;
+  sourceArtifactIri: string;
+  sourceStateIri: string;
+  discoveredDesignatorPaths: readonly string[];
+  extractedDesignatorPaths: readonly string[];
+  skippedExistingDesignatorPaths: readonly string[];
+  skippedSupportDesignatorPaths: readonly string[];
   createdPaths: readonly string[];
   updatedPaths: readonly string[];
 }
@@ -192,14 +209,208 @@ export async function executeExtract(
   return result;
 }
 
+export async function executeExtractAllTerms(
+  options: Omit<ExecuteExtractOptions, "request"> & {
+    request: LocalExtractAllTermsRequest;
+  },
+): Promise<ExtractAllTermsResult> {
+  const { operationalLogger, auditLogger } = resolveLoggers(options);
+  const meshRoot = options.meshRoot ?? options.workspaceRoot;
+  if (!meshRoot) {
+    throw new ExtractRuntimeError("meshRoot is required");
+  }
+  const localPathPolicy = await loadOperationalLocalPathPolicy(meshRoot);
+  const workspaceRoot = localPathPolicy.workspaceRoot;
+  const sourceDesignatorPath = options.request.sourceDesignatorPath;
+  let plannedMutation: PlannedMutation | undefined;
+
+  await operationalLogger.info(
+    "extract.allTerms.started",
+    "Starting local all-terms extract",
+    {
+      meshRoot,
+      workspaceRoot,
+      sourceDesignatorPath,
+    },
+  );
+  await auditLogger.record(
+    "extract.allTerms.started",
+    "Local all-terms extract started",
+    {
+      meshRoot,
+      workspaceRoot,
+      sourceDesignatorPath,
+    },
+  );
+
+  try {
+    await ensureMeshRootExists(meshRoot);
+    const normalizedSourceDesignatorPath = normalizeLocalDesignatorPath(
+      sourceDesignatorPath,
+      "sourceDesignatorPath",
+    );
+    const meshState = await loadMeshState(meshRoot);
+    const sourcePayload = await resolveSelectedExtractSourcePayload(
+      meshRoot,
+      localPathPolicy,
+      meshState.currentMeshInventoryTurtle,
+      meshState.meshBase,
+      normalizedSourceDesignatorPath,
+    );
+    const discovery = discoverAllTermDesignatorPaths({
+      meshBase: meshState.meshBase,
+      sourceDesignatorPath: normalizedSourceDesignatorPath,
+      currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
+      currentPayloadTurtle: sourcePayload.currentPayloadTurtle,
+    });
+    const plans: ExtractPlan[] = [];
+    let currentMeshInventoryTurtle = meshState.currentMeshInventoryTurtle;
+
+    for (const designatorPath of discovery.extractedDesignatorPaths) {
+      const plan = planExtract({
+        meshBase: meshState.meshBase,
+        currentMeshInventoryTurtle,
+        designatorPath,
+        sourceDesignatorPath: sourcePayload.designatorPath,
+        sourceStatePath: sourcePayload.latestHistoricalStatePath,
+        sourceWorkingLocalRelativePath: sourcePayload.workingLocalRelativePath,
+      });
+      plans.push(plan);
+      currentMeshInventoryTurtle = plan.updatedFiles.find((file) =>
+        file.path === "_mesh/_inventory/inventory.ttl"
+      )?.contents ?? currentMeshInventoryTurtle;
+    }
+
+    plannedMutation = combineExtractPlans(plans);
+    await assertUpdatedTargetsExist(meshRoot, plannedMutation);
+    await assertCreateTargetsDoNotExist(meshRoot, plannedMutation);
+    validateRdfFiles([
+      ...plannedMutation.createdFiles,
+      ...plannedMutation.updatedFiles,
+    ]);
+    await applyPlanAtomically(meshRoot, plannedMutation);
+
+    const result: ExtractAllTermsResult = {
+      meshBase: meshState.meshBase,
+      sourceDesignatorPath: sourcePayload.designatorPath,
+      sourceArtifactIri:
+        new URL(sourcePayload.designatorPath, meshState.meshBase)
+          .href,
+      sourceStateIri: new URL(
+        sourcePayload.latestHistoricalStatePath,
+        meshState.meshBase,
+      ).href,
+      discoveredDesignatorPaths: discovery.discoveredDesignatorPaths,
+      extractedDesignatorPaths: discovery.extractedDesignatorPaths,
+      skippedExistingDesignatorPaths: discovery.skippedExistingDesignatorPaths,
+      skippedSupportDesignatorPaths: discovery.skippedSupportDesignatorPaths,
+      createdPaths: plannedMutation.createdFiles.map((file) =>
+        toWorkspaceRelativePath(localPathPolicy, file.path)
+      ),
+      updatedPaths: plannedMutation.updatedFiles.map((file) =>
+        toWorkspaceRelativePath(localPathPolicy, file.path)
+      ),
+    };
+
+    await logExtractAllTermsSucceededBestEffort(
+      operationalLogger,
+      auditLogger,
+      meshRoot,
+      workspaceRoot,
+      result,
+    );
+
+    return result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const originalError = (
+        error instanceof ExtractInputError ||
+        error instanceof ExtractRuntimeError
+      )
+      ? error
+      : new ExtractRuntimeError(message);
+
+    await logExtractFailedBestEffort(
+      operationalLogger,
+      auditLogger,
+      meshRoot,
+      workspaceRoot,
+      sourceDesignatorPath,
+      plannedMutation,
+      message,
+    );
+
+    throw originalError;
+  }
+}
+
+export async function previewExtractAllTerms(
+  options: Omit<ExecuteExtractOptions, "request"> & {
+    request: LocalExtractAllTermsRequest;
+  },
+): Promise<ExtractAllTermsResult> {
+  const meshRoot = options.meshRoot ?? options.workspaceRoot;
+  if (!meshRoot) {
+    throw new ExtractRuntimeError("meshRoot is required");
+  }
+  const localPathPolicy = await loadOperationalLocalPathPolicy(meshRoot);
+  await ensureMeshRootExists(meshRoot);
+  const normalizedSourceDesignatorPath = normalizeLocalDesignatorPath(
+    options.request.sourceDesignatorPath,
+    "sourceDesignatorPath",
+  );
+  const meshState = await loadMeshState(meshRoot);
+  const sourcePayload = await resolveSelectedExtractSourcePayload(
+    meshRoot,
+    localPathPolicy,
+    meshState.currentMeshInventoryTurtle,
+    meshState.meshBase,
+    normalizedSourceDesignatorPath,
+  );
+  const discovery = discoverAllTermDesignatorPaths({
+    meshBase: meshState.meshBase,
+    sourceDesignatorPath: normalizedSourceDesignatorPath,
+    currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
+    currentPayloadTurtle: sourcePayload.currentPayloadTurtle,
+  });
+
+  return {
+    meshBase: meshState.meshBase,
+    sourceDesignatorPath: sourcePayload.designatorPath,
+    sourceArtifactIri: new URL(sourcePayload.designatorPath, meshState.meshBase)
+      .href,
+    sourceStateIri: new URL(
+      sourcePayload.latestHistoricalStatePath,
+      meshState.meshBase,
+    ).href,
+    discoveredDesignatorPaths: discovery.discoveredDesignatorPaths,
+    extractedDesignatorPaths: discovery.extractedDesignatorPaths,
+    skippedExistingDesignatorPaths: discovery.skippedExistingDesignatorPaths,
+    skippedSupportDesignatorPaths: discovery.skippedSupportDesignatorPaths,
+    createdPaths: [],
+    updatedPaths: [],
+  };
+}
+
 export function describeExtractResult(result: ExtractResult): string {
   return `Extracted ${
     formatDesignatorPathForDisplay(result.designatorPath)
   } with source ${result.extractionSourceIri}, created ${result.createdPaths.length} knop support artifacts, and updated ${result.updatedPaths.length} mesh support artifact.`;
 }
 
+export function describeExtractAllTermsResult(
+  result: ExtractAllTermsResult,
+): string {
+  return `Extracted ${result.extractedDesignatorPaths.length} new terms from ${
+    formatDesignatorPathForDisplay(result.sourceDesignatorPath)
+  }, skipped ${result.skippedExistingDesignatorPaths.length} existing terms and ${result.skippedSupportDesignatorPaths.length} support artifacts.`;
+}
+
 function resolveLoggers(
-  options: ExecuteExtractOptions,
+  options: {
+    operationalLogger?: StructuredLogger;
+    auditLogger?: AuditLogger;
+  },
 ): {
   operationalLogger: StructuredLogger;
   auditLogger: AuditLogger;
@@ -331,6 +542,30 @@ async function resolveExtractSourcePayload(
   }
 
   return matchingCandidates[0]!;
+}
+
+async function resolveSelectedExtractSourcePayload(
+  meshRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
+  currentMeshInventoryTurtle: string,
+  meshBase: string,
+  sourceDesignatorPath: string,
+): Promise<ExtractSourcePayload> {
+  const candidates = await loadExtractSourcePayloadCandidates(
+    meshRoot,
+    localPathPolicy,
+    meshBase,
+    currentMeshInventoryTurtle,
+  );
+  const selectedCandidate = candidates.find((candidate) =>
+    candidate.designatorPath === sourceDesignatorPath
+  );
+  if (!selectedCandidate) {
+    throw new ExtractRuntimeError(
+      `Selected extract source is not an eligible woven payload artifact: ${sourceDesignatorPath}`,
+    );
+  }
+  return selectedCandidate;
 }
 
 async function loadExtractSourcePayloadCandidates(
@@ -494,9 +729,157 @@ function payloadMentionsTarget(
   );
 }
 
+function discoverAllTermDesignatorPaths(
+  options: {
+    meshBase: string;
+    sourceDesignatorPath: string;
+    currentMeshInventoryTurtle: string;
+    currentPayloadTurtle: string;
+  },
+): {
+  discoveredDesignatorPaths: readonly string[];
+  extractedDesignatorPaths: readonly string[];
+  skippedExistingDesignatorPaths: readonly string[];
+  skippedSupportDesignatorPaths: readonly string[];
+} {
+  const existingDesignatorPaths = new Set(
+    listKnopDesignatorPaths(
+      options.meshBase,
+      options.currentMeshInventoryTurtle,
+      "Could not parse the current MeshInventory while resolving existing extracted terms.",
+    ),
+  );
+  const discovered = new Set<string>();
+  const skippedExisting = new Set<string>();
+  const skippedSupport = new Set<string>();
+  let quads: Quad[];
+
+  try {
+    quads = new Parser({
+      baseIRI: new URL(options.sourceDesignatorPath, options.meshBase).href,
+    }).parse(options.currentPayloadTurtle);
+  } catch {
+    throw new ExtractRuntimeError(
+      `Could not parse working payload RDF while discovering terms from ${options.sourceDesignatorPath}`,
+    );
+  }
+
+  for (const quad of quads) {
+    for (const iri of listQuadNamedNodeIris(quad)) {
+      const rawDesignatorPath = toMeshScopedRawDesignatorPath(
+        options.meshBase,
+        iri,
+      );
+      if (rawDesignatorPath === undefined) {
+        continue;
+      }
+      if (isSupportOrGeneratedArtifactPath(rawDesignatorPath)) {
+        skippedSupport.add(rawDesignatorPath);
+        continue;
+      }
+      const designatorPath = normalizeDiscoveredDesignatorPath(
+        rawDesignatorPath,
+        iri,
+      );
+      if (existingDesignatorPaths.has(designatorPath)) {
+        skippedExisting.add(designatorPath);
+        continue;
+      }
+      discovered.add(designatorPath);
+    }
+  }
+
+  return {
+    discoveredDesignatorPaths: [...discovered].sort((left, right) =>
+      left.localeCompare(right)
+    ),
+    extractedDesignatorPaths: [...discovered].sort((left, right) =>
+      left.localeCompare(right)
+    ),
+    skippedExistingDesignatorPaths: [...skippedExisting].sort((left, right) =>
+      left.localeCompare(right)
+    ),
+    skippedSupportDesignatorPaths: [...skippedSupport].sort((left, right) =>
+      left.localeCompare(right)
+    ),
+  };
+}
+
+function listQuadNamedNodeIris(quad: Quad): readonly string[] {
+  const iris = [quad.subject.value, quad.predicate.value];
+  if (quad.object.termType === "NamedNode") {
+    iris.push(quad.object.value);
+  }
+  return iris;
+}
+
+function toMeshScopedRawDesignatorPath(
+  meshBase: string,
+  iri: string,
+): string | undefined {
+  if (!iri.startsWith(meshBase)) {
+    return undefined;
+  }
+
+  return iri.slice(meshBase.length);
+}
+
+function normalizeDiscoveredDesignatorPath(
+  rawDesignatorPath: string,
+  iri: string,
+): string {
+  try {
+    return normalizeLocalDesignatorPath(
+      rawDesignatorPath,
+      `discovered term IRI ${iri}`,
+    );
+  } catch (error) {
+    if (error instanceof ExtractRuntimeError) {
+      throw new ExtractRuntimeError(
+        `Discovered mesh-scoped term IRI cannot be converted to a safe designator path: ${iri}`,
+      );
+    }
+    throw error;
+  }
+}
+
+function isSupportOrGeneratedArtifactPath(designatorPath: string): boolean {
+  if (designatorPath.length === 0) {
+    return false;
+  }
+  const segments = designatorPath.split("/");
+  return segments.some((segment) => segment.startsWith("_")) ||
+    designatorPath.endsWith("/index.html") ||
+    designatorPath === "index.html" ||
+    designatorPath.endsWith(".ttl");
+}
+
+function combineExtractPlans(plans: readonly ExtractPlan[]): PlannedMutation {
+  if (plans.length === 0) {
+    return {
+      createdFiles: [],
+      updatedFiles: [],
+    };
+  }
+
+  const latestMeshInventory = plans.at(-1)!.updatedFiles.find((file) =>
+    file.path === "_mesh/_inventory/inventory.ttl"
+  );
+  if (!latestMeshInventory) {
+    throw new ExtractRuntimeError(
+      "All-terms extract did not produce an updated mesh inventory.",
+    );
+  }
+
+  return {
+    createdFiles: plans.flatMap((plan) => [...plan.createdFiles]),
+    updatedFiles: [latestMeshInventory],
+  };
+}
+
 async function assertUpdatedTargetsExist(
   workspaceRoot: string,
-  plan: ExtractPlan,
+  plan: PlannedMutation,
 ): Promise<void> {
   for (const file of plan.updatedFiles) {
     let stat: Deno.FileInfo;
@@ -521,7 +904,7 @@ async function assertUpdatedTargetsExist(
 
 async function assertCreateTargetsDoNotExist(
   workspaceRoot: string,
-  plan: ExtractPlan,
+  plan: PlannedMutation,
 ): Promise<void> {
   for (const file of plan.createdFiles) {
     try {
@@ -569,7 +952,7 @@ function normalizeLocalDesignatorPath(
 
 async function applyPlanAtomically(
   workspaceRoot: string,
-  plan: ExtractPlan,
+  plan: PlannedMutation,
 ): Promise<void> {
   const stagedPlanMutation = await stagePlanMutation(workspaceRoot, plan);
 
@@ -811,16 +1194,17 @@ async function logExtractFailedBestEffort(
   meshRoot: string,
   workspaceRoot: string,
   designatorPath: string,
-  plan: ExtractPlan | undefined,
+  plan: ExtractPlan | PlannedMutation | undefined,
   message: string,
 ): Promise<void> {
+  const extractPlan = plan && "sourceDesignatorPath" in plan ? plan : undefined;
   try {
     await operationalLogger.error("extract.failed", "Local extract failed", {
       meshRoot,
       workspaceRoot,
       designatorPath,
-      sourceDesignatorPath: plan?.sourceDesignatorPath,
-      sourceStateIri: plan?.sourceStateIri,
+      sourceDesignatorPath: extractPlan?.sourceDesignatorPath,
+      sourceStateIri: extractPlan?.sourceStateIri,
       error: message,
     });
   } catch {
@@ -832,10 +1216,58 @@ async function logExtractFailedBestEffort(
       meshRoot,
       workspaceRoot,
       designatorPath,
-      sourceDesignatorPath: plan?.sourceDesignatorPath,
-      sourceStateIri: plan?.sourceStateIri,
+      sourceDesignatorPath: extractPlan?.sourceDesignatorPath,
+      sourceStateIri: extractPlan?.sourceStateIri,
       error: message,
     });
+  } catch {
+    // best-effort logging
+  }
+}
+
+async function logExtractAllTermsSucceededBestEffort(
+  operationalLogger: StructuredLogger,
+  auditLogger: AuditLogger,
+  meshRoot: string,
+  workspaceRoot: string,
+  result: ExtractAllTermsResult,
+): Promise<void> {
+  try {
+    await operationalLogger.info(
+      "extract.allTerms.succeeded",
+      "Local all-terms extract succeeded",
+      {
+        meshRoot,
+        workspaceRoot,
+        sourceDesignatorPath: result.sourceDesignatorPath,
+        sourceStateIri: result.sourceStateIri,
+        extractedDesignatorPaths: result.extractedDesignatorPaths,
+        skippedExistingDesignatorPaths: result.skippedExistingDesignatorPaths,
+        skippedSupportDesignatorPaths: result.skippedSupportDesignatorPaths,
+        createdPaths: result.createdPaths,
+        updatedPaths: result.updatedPaths,
+      },
+    );
+  } catch {
+    // best-effort logging
+  }
+
+  try {
+    await auditLogger.record(
+      "extract.allTerms.succeeded",
+      "Local all-terms extract succeeded",
+      {
+        meshRoot,
+        workspaceRoot,
+        sourceDesignatorPath: result.sourceDesignatorPath,
+        sourceStateIri: result.sourceStateIri,
+        extractedDesignatorPaths: result.extractedDesignatorPaths,
+        skippedExistingDesignatorPaths: result.skippedExistingDesignatorPaths,
+        skippedSupportDesignatorPaths: result.skippedSupportDesignatorPaths,
+        createdPaths: result.createdPaths,
+        updatedPaths: result.updatedPaths,
+      },
+    );
   } catch {
     // best-effort logging
   }

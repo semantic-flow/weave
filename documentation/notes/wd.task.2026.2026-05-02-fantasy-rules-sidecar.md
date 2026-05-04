@@ -61,8 +61,12 @@ The first ladder should stay focused on the core sidecar path:
 - `13-gunaar-example-dataset-woven`
 - `14-first-release`
 - `15-first-release-woven`
+- `16-version-bump`
+- `17-version-bump-woven`
 
 The first named release pair should come after the root/examples collection surface and the Gunaar dataset pair, so the release slice exercises multiple histories in a richer mesh rather than only the two primary RDF documents.
+
+The first follow-up release pair should immediately exercise the same named release histories with `v0.0.2`, including at least one authored ontology or SHACL source change that affects an extracted term page. This makes the version bump a practical test that extracted pages refresh from changed source RDF rather than only testing copied release bytes.
 
 ## Discussion
 
@@ -168,17 +172,18 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - Incompatible ontology changes should generally be treated as a new ontology artifact or compatibility line, not as a silent semantic rewrite of the same term set.
 - Historical located files should be copied into the mesh by default when versioning is enabled.
 - Use a numbered branch ladder for the hand-authored fixture, following the Alice Bio comparison pattern.
-- The first sidecar ladder should continue past `07-shacl-integrated-woven` through ontology and SHACL term extraction, root/examples collection Knops, Gunaar example dataset integration, and the first named ontology/SHACL release pair.
+- The first sidecar ladder should continue past `07-shacl-integrated-woven` through ontology and SHACL term extraction, root/examples collection Knops, Gunaar example dataset integration, the first named ontology/SHACL release pair, and a follow-up version-bump pair.
 - `10-root-knop` should add a friendly root Knop for the repository Resource Page and an `examples/` Knop to act as the collection surface for example datasets.
 - `11-root-knop-woven` should weave the root and `examples/` collection Knops into history and pages before adding the Gunaar dataset.
 - `12-gunaar-example-dataset` should integrate `examples/gunaar.ttl` as public artifact `examples/gunaar`; `13-gunaar-example-dataset-woven` should weave that dataset into history and pages.
 - `14-first-release` and `15-first-release-woven` should publish the first named release histories for ontology and SHACL after the Gunaar dataset pair.
+- `16-version-bump` and `17-version-bump-woven` should publish the next paired ontology and SHACL release under the existing `releases` ArtifactHistories with `stateSegment=v0.0.2`, and should include a source change that proves extracted term pages are refreshed by the woven output.
 - Ontology and SHACL should normally be bumped together in the fixture, even if only one source file has semantic changes, because they are published as a compatibility pair for this small ontology project.
 - Named ArtifactHistory paths such as `releases` should not consume or advance `sflo:nextHistoryOrdinal`; that property remains the next auto-generated `_historyNNN` counter for the artifact.
 - Semver-style HistoricalState paths such as `v0.0.1` should be explicitly requested and should not receive `sflo:stateOrdinal`; the containing named ArtifactHistory should still carry `sflo:nextStateOrdinal` for fallback default `_sNNNN` allocation if a later state request omits an explicit name.
 - Once a payload history has established a named HistoricalState such as `v0.0.1`, later `weave` or `version` operations must fail closed when that payload would be versioned without an explicit next `stateSegment`. A caller may continue semver naming with `v0.0.2` or explicitly opt into ordinal fallback with a segment such as `_s0001`; Weave should not silently choose between those policies.
 - Payload version segment defaults may apply broadly to all included payload artifacts, but target-specific segment fields should override the broad defaults. Support artifacts keep system-controlled history and state names until a separate support-artifact naming contract is defined.
-- A future version-bumped example branch should include dataset compatibility metadata in `examples/gunaar.ttl` once the project settles how datasets announce the ontology version or compatibility line they target.
+- The version-bump branch should include dataset compatibility metadata in `examples/gunaar.ttl` once the project settles how datasets announce the ontology version or compatibility line they target; do not block the first extracted-page refresh test on that still-open modeling decision.
 - Use branch refs as test fixtures: source refs define operation input, destination refs define expected output, and Accord manifests define the transition assertions.
 - Treat Accord manifests as transition contracts for the ladder, not as branch metadata or late acceptance paperwork.
 - Store Fantasy Rules Sidecar conformance manifests in `semantic-flow-framework/examples/sidecar-fantasy-rules/conformance/`.
@@ -314,14 +319,15 @@ The first ladder should be branch-based unless implementation pressure proves a 
 
 ### Phase 3B: Version-Bump Follow-Up Pair
 
-- [ ] Add a follow-up ontology and SHACL version-bump pair after the first sidecar ladder is working.
-- [ ] Use the follow-up pair to test how datasets, ontology files, SHACL files, release histories, and generated pages behave when only part of the source content has semantic changes but the published compatibility pair advances together.
+- [ ] Add `16-version-bump` and `17-version-bump-woven` as the follow-up ontology and SHACL version-bump pair after the first release ladder is working.
+- [ ] Use the follow-up pair to prove extracted term pages update when their source RDF changes; include at least one changed authored ontology or SHACL term that already has an extracted page.
+- [ ] Use the follow-up pair to test how datasets, ontology files, SHACL files, release histories, extracted term pages, and generated pages behave when only part of the source content has semantic changes but the published compatibility pair advances together.
 - [ ] Use the follow-up pair to prove broad payload state naming for ontology and SHACL together, such as one request-level/default state segment applied to both selected payload artifacts.
 
 ### Phase 3C: Explicit Return To Ordinal Sequencing
 
 - [ ] Add a later pair for explicitly returning from named release state sequencing to default ordinal state or history sequencing.
-- [ ] Prefer a `16-return-to-ordinal-history` / `17-return-to-ordinal-history-woven` pair if this should exercise both default ArtifactHistory and default HistoricalState allocation by requesting `_history002` and allowing `_s0001`.
+- [d] Defer the previously considered immediate ordinal-return branch pair; `16/17` are now reserved for the version-bump pair.
 - [ ] Alternatively use a named-history state fallback pair if the more important behavior is explicitly requesting `stateSegment=_s0001` under the existing `releases` history.
 - [x] Keep this pair explicit; a broad weave with omitted state naming after `v0.0.1` should fail closed with a message explaining how to provide `stateSegment` or choose ordinal fallback.
 
@@ -336,7 +342,7 @@ Settled API/CLI surface: there is no separate "return to ordinal sequencing" com
 - [x] Keep historical-state and located-file pages sufficient for navigating existing woven history without reading raw Turtle first.
 - [x] Add raw RDF panels to `RdfDocument` resource pages for locally available current and historical bytes.
 - [x] Move reusable page HTML/CSS rendering toward shared runtime seams rather than fixture-specific builders.
-- [ ] Add generic History-section truncation for repeated lists longer than 10 items: show the first 2 and last 7 with a vertical ellipsis gap marker.
+- [x] Add generic History-section truncation for repeated lists longer than 10 items: show the first 2 and last 7 with a vertical ellipsis gap marker.
 - [d] Add or update specs for resource-page presentation in the renderer task if that contract changes materially.
 - [d] Do not make renderer-specific prose, layout, or visual expectations part of Fantasy Rules Sidecar Accord manifests.
 

@@ -2,6 +2,7 @@ import { assertEquals, assertRejects } from "@std/assert";
 import { join } from "@std/path";
 import {
   executeExtract,
+  executeExtractAllTerms,
   ExtractRuntimeError,
 } from "../../src/runtime/extract/extract.ts";
 import {
@@ -124,6 +125,82 @@ Deno.test("executeExtract accepts semantically equivalent mesh metadata turtle",
 
   assertEquals(result.meshBase, MESH_ALICE_BIO_BASE);
   assertEquals(result.sourceDesignatorPath, "alice/bio");
+});
+
+Deno.test("executeExtractAllTerms extracts only new named mesh terms and skips support artifacts", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-extract-all-terms-");
+  await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
+  await Deno.writeTextFile(
+    join(workspaceRoot, "alice-bio.ttl"),
+    `@base <${MESH_ALICE_BIO_BASE}> .
+@prefix schema: <https://schema.org/> .
+
+<alice/bio> schema:about <bob>, <carol>, <bob/_knop>, <_mesh>, <bob/index.html>, <bob/source.ttl> ;
+  schema:mentions [
+    schema:name "Blank node support is intentionally ignored"
+  ] .
+
+<alice> schema:name "Alice" .
+<carol> schema:name "Carol" .
+`,
+  );
+
+  const result = await executeExtractAllTerms({
+    workspaceRoot,
+    request: {
+      sourceDesignatorPath: "alice/bio",
+    },
+  });
+
+  assertEquals(result.extractedDesignatorPaths, ["bob", "carol"]);
+  assertEquals(result.skippedExistingDesignatorPaths, ["alice", "alice/bio"]);
+  assertEquals(
+    result.skippedSupportDesignatorPaths,
+    ["_mesh", "bob/_knop", "bob/index.html", "bob/source.ttl"],
+  );
+  assertEquals(
+    [...result.createdPaths].sort(),
+    [
+      "bob/_knop/_inventory/inventory.ttl",
+      "bob/_knop/_meta/meta.ttl",
+      "carol/_knop/_inventory/inventory.ttl",
+      "carol/_knop/_meta/meta.ttl",
+    ],
+  );
+  assertEquals(result.updatedPaths, ["_mesh/_inventory/inventory.ttl"]);
+  await Deno.stat(join(workspaceRoot, "bob/_knop/_meta/meta.ttl"));
+  await Deno.stat(join(workspaceRoot, "carol/_knop/_meta/meta.ttl"));
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, "bob/_knop/_knop/_meta/meta.ttl")),
+    Deno.errors.NotFound,
+  );
+});
+
+Deno.test("executeExtractAllTerms fails closed for unsafe mesh-scoped term IRIs", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-extract-all-terms-unsafe-",
+  );
+  await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
+  await Deno.writeTextFile(
+    join(workspaceRoot, "alice-bio.ttl"),
+    `@base <${MESH_ALICE_BIO_BASE}> .
+@prefix schema: <https://schema.org/> .
+
+<alice/bio> schema:about <bad#fragment> .
+`,
+  );
+
+  await assertRejects(
+    () =>
+      executeExtractAllTerms({
+        workspaceRoot,
+        request: {
+          sourceDesignatorPath: "alice/bio",
+        },
+      }),
+    ExtractRuntimeError,
+    "cannot be converted to a safe designator path",
+  );
 });
 
 Deno.test("executeExtract extracts selected sidecar ontology and SHACL terms with explicit sources", async () => {

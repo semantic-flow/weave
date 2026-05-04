@@ -87,12 +87,19 @@ const SCHEMA_NAME_IRIS = [
   "https://schema.org/Name",
   "http://schema.org/Name",
 ] as const;
+const HISTORY_TRUNCATION_THRESHOLD = 10;
+const HISTORY_TRUNCATION_HEAD_COUNT = 2;
+const HISTORY_TRUNCATION_TAIL_COUNT = 7;
 const SFC_EXTRACTION_SOURCE_IRI =
   "https://semantic-flow.github.io/ontology/core/ExtractionSource";
 const SFC_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
   "https://semantic-flow.github.io/ontology/core/hasArtifactResolutionMode";
 const SFC_HAS_REQUESTED_TARGET_STATE_IRI =
   "https://semantic-flow.github.io/ontology/core/hasRequestedTargetState";
+
+type TruncatedHistoryItem<T> =
+  | { kind: "item"; value: T }
+  | { kind: "gap"; omittedCount: number };
 const SFC_HAS_TARGET_ARTIFACT_IRI =
   "https://semantic-flow.github.io/ontology/core/hasTargetArtifact";
 const WEAVE_REPOSITORY_URL = "https://github.com/semantic-flow/weave/";
@@ -553,6 +560,7 @@ ${section.html}
     .wf-history-node > summary.wf-history-node-header { display: list-item; padding: 0; }
     .wf-history-class { color: #687167; font-style: italic; font-size: 0.85rem; }
     .wf-history-file-iri { font-size: 0.82rem; overflow-wrap: anywhere; }
+    .wf-history-gap { display: flex; align-items: center; justify-content: center; min-height: 28px; color: #687167; font-size: 1.15rem; line-height: 1; }
     .wf-source-meta { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 14px 12px; color: #596259; font-size: 0.88rem; }
     pre { margin: 0; width: 100%; max-width: 100%; max-height: 64vh; overflow: auto; border-top: 1px solid #d7dcd4; background: #0d1117; color: #e6edf3; padding: 16px; font-size: 0.86rem; line-height: 1.55; tab-size: 2; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
     pre code { display: block; min-width: 0; background: transparent; color: inherit; border-radius: 0; padding: 0; white-space: inherit; overflow-wrap: inherit; word-break: inherit; }
@@ -686,6 +694,40 @@ ${renderHistoryGroups(input)}
 `;
 }
 
+function truncateHistoryItems<T>(
+  items: readonly T[],
+): readonly TruncatedHistoryItem<T>[] {
+  if (items.length <= HISTORY_TRUNCATION_THRESHOLD) {
+    return items.map((value) => ({ kind: "item", value }));
+  }
+
+  const tailStart = items.length - HISTORY_TRUNCATION_TAIL_COUNT;
+  return [
+    ...items.slice(0, HISTORY_TRUNCATION_HEAD_COUNT).map((value) => ({
+      kind: "item" as const,
+      value,
+    })),
+    {
+      kind: "gap" as const,
+      omittedCount: tailStart - HISTORY_TRUNCATION_HEAD_COUNT,
+    },
+    ...items.slice(tailStart).map((value) => ({
+      kind: "item" as const,
+      value,
+    })),
+  ];
+}
+
+function renderHistoryGap(omittedCount: number, indent: number): string {
+  const spaces = " ".repeat(indent);
+  const label = omittedCount === 1
+    ? "1 history item omitted"
+    : `${omittedCount} history items omitted`;
+  return `${spaces}<div class="wf-history-gap" role="separator" aria-label="${
+    escapeHtml(label)
+  }">⋮</div>`;
+}
+
 function toHistorySectionTitle(input: ResourcePageRenderInput): string {
   if (isArtifactHistoryResource(input)) {
     return "Historical States";
@@ -721,7 +763,11 @@ function isArtifactManifestationResource(
 }
 
 function renderHistoryGroups(input: ResourcePageRenderInput): string {
-  return input.historyGroups.map((group) => {
+  return truncateHistoryItems(input.historyGroups).map((item) => {
+    if (item.kind === "gap") {
+      return renderHistoryGap(item.omittedCount, 8);
+    }
+    const group = item.value;
     if (input.resourcePath === group.path) {
       return renderHistoricalStates(input, group);
     }
@@ -739,9 +785,7 @@ function renderHistoryGroups(input: ResourcePageRenderInput): string {
     }
     const historyHref = toMeshResourceHref(input.meshRootHref, group.path);
     const states = group.states.length > 0
-      ? group.states.map((state) => renderHistoryState(input, state)).join(
-        "\n",
-      )
+      ? renderHistoryStateList(input, group.states)
       : "          <p>No historical states are listed yet.</p>";
 
     return `        <div class="wf-history-tree">
@@ -762,12 +806,23 @@ function renderHistoricalStates(
   group: ResourcePageHistoryGroupModel,
 ): string {
   const states = group.states.length > 0
-    ? group.states.map((state) => renderHistoryState(input, state)).join("\n")
+    ? renderHistoryStateList(input, group.states)
     : "          <p>No historical states are listed yet.</p>";
 
   return `        <div class="wf-history-tree">
 ${states}
         </div>`;
+}
+
+function renderHistoryStateList(
+  input: ResourcePageRenderInput,
+  states: ResourcePageHistoryGroupModel["states"],
+): string {
+  return truncateHistoryItems(states).map((item) =>
+    item.kind === "gap"
+      ? renderHistoryGap(item.omittedCount, 12)
+      : renderHistoryState(input, item.value)
+  ).join("\n");
 }
 
 function renderManifestations(

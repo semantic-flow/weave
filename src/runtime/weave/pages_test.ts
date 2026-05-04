@@ -417,6 +417,73 @@ Deno.test("renderResourcePage renders RDF description, classes, and histories", 
   );
 });
 
+Deno.test("renderResourcePage truncates long history group lists", async () => {
+  const historyGroups = Array.from({ length: 12 }, (_, index) => {
+    const historySegment = `_history${String(index + 1).padStart(3, "0")}`;
+    return {
+      label: "Artifact history",
+      path: `ontology/${historySegment}`,
+      states: [],
+    };
+  });
+
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "identifier",
+      path: "ontology/index.html",
+      designatorPath: "ontology",
+      historyGroups,
+    },
+  );
+
+  assertStringIncludes(html, "wf-history-gap");
+  assertStringIncludes(html, 'aria-label="3 history items omitted"');
+  assertStringIncludes(html, ">⋮</div>");
+  assertStringIncludes(html, "ontology/_history001");
+  assertStringIncludes(html, "ontology/_history002");
+  assertFalse(html.includes("ontology/_history003"));
+  assertFalse(html.includes("ontology/_history005"));
+  assertStringIncludes(html, "ontology/_history006");
+  assertStringIncludes(html, "ontology/_history012");
+});
+
+Deno.test("renderResourcePage truncates long historical state lists", async () => {
+  const states = Array.from({ length: 12 }, (_, index) => {
+    const stateSegment = `_s${String(index + 1).padStart(4, "0")}`;
+    const statePath = `ontology/_history001/${stateSegment}`;
+    return {
+      path: statePath,
+      manifestationPath: `${statePath}/ttl`,
+      locatedFilePath: `${statePath}/ttl/fantasy-rules-ontology.ttl`,
+    };
+  });
+
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "simple",
+      path: "ontology/_history001/index.html",
+      description: "Generated resource page.",
+      historyGroups: [{
+        label: "Artifact history",
+        path: "ontology/_history001",
+        states,
+      }],
+    },
+  );
+
+  assertStringIncludes(html, "<summary>Historical States</summary>");
+  assertStringIncludes(html, 'aria-label="3 history items omitted"');
+  assertStringIncludes(html, ">⋮</div>");
+  assertStringIncludes(html, "ontology/_history001/_s0001");
+  assertStringIncludes(html, "ontology/_history001/_s0002");
+  assertFalse(html.includes("ontology/_history001/_s0003"));
+  assertFalse(html.includes("ontology/_history001/_s0005"));
+  assertStringIncludes(html, "ontology/_history001/_s0006");
+  assertStringIncludes(html, "ontology/_history001/_s0012");
+});
+
 Deno.test("renderResourcePage compacts SHACL classes with the sh prefix", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",

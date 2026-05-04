@@ -2363,7 +2363,7 @@ function describeSemanticFlowResource(
   }
   if (resourcePath.endsWith("/_meta")) {
     if (resourcePath === "_mesh/_meta") {
-      return "Mesh metadata for this mesh";
+      return "Metadata for this Semantic Mesh";
     }
     return `Knop metadata for ${
       formatOwnerResourcePath(dirname(dirname(resourcePath)))
@@ -2371,12 +2371,12 @@ function describeSemanticFlowResource(
   }
   if (resourcePath.endsWith("/_inventory")) {
     if (resourcePath === "_mesh/_inventory") {
-      return "Mesh inventory for this mesh";
+      return "Inventory for this Semantic Mesh";
     }
     return `Inventory for ${formatOwnerResourcePath(dirname(resourcePath))}`;
   }
   if (resourcePath.endsWith("/_config")) {
-    return "Mesh config for this mesh";
+    return "Configuration for this Semantic Mesh";
   }
   return `Semantic Flow resource ${displayPath}`;
 }

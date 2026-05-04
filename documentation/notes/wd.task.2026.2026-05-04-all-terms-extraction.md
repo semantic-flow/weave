@@ -32,10 +32,10 @@ weave extract <targetDesignatorPath> [--mesh-root <meshRoot>] [--source-designat
 
 `<targetDesignatorPath>` is the resource, term, or Knop surface being created. `--source-designator-path` selects the already woven payload artifact whose RDF describes that target. The source option is not the term being extracted.
 
-The proposed batch shape is:
+The batch shape is:
 
 ```sh
-weave extract --all-terms --mesh-root <meshRoot> --source-designator-path <sourceDesignatorPath>
+weave extract --all-terms --mesh-root <meshRoot> --source-designator-path <sourceDesignatorPath> [--yes]
 ```
 
 For `--all-terms`, the selected source artifact must resolve to a woven RDF payload artifact. Weave parses the source RDF, expands every named RDF node IRI appearing in subject, predicate, or object position, filters to IRIs within the mesh's base IRI space, converts each scoped IRI to the corresponding mesh designator path, and creates the same minimal extracted Knop support surface that one-by-one extraction would create for that term.
@@ -44,15 +44,13 @@ The source and target namespaces must remain independent. `--source-designator-p
 
 This should not scan arbitrary latest source files. It should behave like current extraction: the source binding is to a woven payload state already present in the mesh, and each extracted term records an inventory-carried `sfc:ExtractionSource` pointing back to the source artifact and requested source state.
 
-The command should fail closed before writing if any selected scoped term cannot be converted to a safe designator path or if any selected term would overwrite an existing non-matching Knop support surface. The implementation can later decide whether an already existing extracted term with an equivalent `sfc:ExtractionSource` should be skipped, reported as already present, or require an explicit idempotency flag.
+The command should fail closed before writing if any selected scoped term cannot be converted to a safe designator path or if any selected term would overwrite an existing non-matching Knop support surface. Already registered Knops are treated as existing identifiers and skipped; `--all-terms` only creates missing term surfaces.
+
+The CLI previews the identifiers it will create before writing and asks for confirmation. `--yes` confirms the preview noninteractively for scripts and tests.
 
 ## Open Issues
 
-- Should source documents ever opt out of extracting an otherwise in-scope named node, or should `--all-terms` remain strictly all mesh-scoped named nodes?
-- Should the command later support narrowing flags for named terms with vocabulary-like signals such as `rdf:type owl:Class`, `rdf:type rdf:Property`, `rdf:type sh:NodeShape`, `rdf:type sh:PropertyShape`, `rdf:type skos:Concept`, or explicit `rdfs:label` / `rdfs:comment`?
-- How should blank-node-backed SHACL property shapes be treated when they belong structurally to a named node shape but do not have their own mesh-scoped IRI?
-- What should the exact idempotency policy be when some terms are already extracted and some are new?
-- Should term discovery ignore source-document support artifacts and generated page RDF if the source payload graph references them, or is the mesh-base IRI filter alone sufficient?
+- Should the command later support narrowing flags for named terms with vocabulary-like signals such as `rdf:type owl:Class`, `rdf:type rdf:Property`, `rdf:type sh:NodeShape`, `rdf:type sh:PropertyShape`, `rdf:type skos:Concept`, explicit `rdfs:label` / `rdfs:comment`, regexes, or identifier hierarchy filters?
 
 ## Decisions
 
@@ -60,15 +58,23 @@ The command should fail closed before writing if any selected scoped term cannot
 - The mesh scope test happens after RDF parsing and IRI expansion, so absolute IRIs, `<>` / relative-base IRIs, and prefixed names are equivalent when they expand to the same IRI.
 - The selected source artifact and extracted target namespace are independent. A `shacl` source can extract `ontology/...` targets when the expanded term IRIs are in the ontology namespace under the same mesh base.
 - The first Fantasy Rules sidecar extraction branch remains explicit and narrow; do not rewrite it to use `--all-terms`.
-- `--all-terms` is future CLI behavior and should not be documented as currently implemented in user-facing command examples until the implementation lands.
+- Source documents do not get an in-RDF opt-out mechanism for the initial implementation. The CLI preview/confirmation step is the operator control surface for avoiding accidental creation.
+- Blank nodes are ignored as independent extraction targets.
+- Already registered Knops are skipped; batch extraction only creates new identifiers.
+- Semantic Flow support artifacts and generated resource-page/file artifacts must not be created just because the selected source graph references their IRIs. The mesh-base IRI filter is not sufficient by itself for support-artifact exclusion.
+- Narrowing by type/class, regex, and identifier hierarchy is useful but deferred.
 
 ## Contract Changes
 
-- Extend `weave extract` with a planned `--all-terms` option that makes the positional `<targetDesignatorPath>` optional only when `--all-terms` is present.
+- Extend `weave extract` with `--all-terms`, making the positional `<targetDesignatorPath>` optional only when `--all-terms` is present.
 - Require `--source-designator-path` for `--all-terms`; batch extraction must be source-scoped instead of searching all woven payloads opportunistically.
 - Define scoped terms by expanded IRI membership in the mesh base IRI space.
+- Ignore blank nodes as extraction targets.
+- Skip already registered Knops.
+- Exclude Semantic Flow support artifact paths and generated page/file artifact paths from all-terms creation.
+- Preview the identifiers to create and require confirmation unless `--yes` is supplied.
 - Create the same extracted Knop support shape as single-target extraction, including inventory-carried `sfc:ExtractionSource`.
-- Preserve all-or-fail behavior for unsafe target paths and conflicting existing surfaces unless an explicit later idempotency policy changes that contract.
+- Preserve all-or-fail behavior for unsafe target paths and conflicting non-registered existing surfaces unless an explicit later idempotency policy changes that contract.
 
 ## Testing
 
@@ -76,9 +82,10 @@ The command should fail closed before writing if any selected scoped term cannot
 - Add CLI validation coverage that rejects combining `--all-terms` with a positional `<targetDesignatorPath>` unless an implementation deliberately chooses a mixed mode.
 - Add RDF expansion coverage showing that absolute IRIs, relative/base IRIs, and prefixed names are discovered as the same scoped terms.
 - Add sidecar-style coverage where `--source-designator-path shacl` extracts a term under `ontology/...` because the SHACL graph uses a prefix for a mesh-scoped ontology term.
-- Add fail-closed coverage for an out-of-scope IRI appearing in the selected source graph.
+- Add coverage showing out-of-scope IRIs are ignored.
 - Add fail-closed coverage for a scoped term whose expanded IRI cannot be converted to a safe designator path.
-- Add conflict coverage for pre-existing Knop support surfaces.
+- Add coverage for skipping already registered Knops and support/generated artifact paths.
+- Add conflict coverage for pre-existing non-registered Knop support surfaces.
 - Add at least one fixture or integration test that compares a `--all-terms` run against an equivalent set of explicit single-target extractions for a small RDF source.
 
 ## Non-Goals
@@ -92,11 +99,11 @@ The command should fail closed before writing if any selected scoped term cannot
 
 ## Implementation Plan
 
-- [ ] Update CLI parsing so `weave extract` accepts `--all-terms` without a positional target.
-- [ ] Require `--source-designator-path` when `--all-terms` is present.
-- [ ] Add RDF term discovery that expands IRIs and filters named RDF nodes by mesh base IRI.
-- [ ] Convert discovered scoped IRIs to mesh designator paths.
-- [ ] Reuse the single-target extraction planner/materializer for each discovered term.
-- [ ] Define and implement conflict/idempotency behavior.
-- [ ] Add CLI, runtime, and fixture-level tests for source-scoped all-terms extraction.
-- [ ] Update [[wu.cli-reference]] after the flag is implemented.
+- [x] Update CLI parsing so `weave extract` accepts `--all-terms` without a positional target.
+- [x] Require `--source-designator-path` when `--all-terms` is present.
+- [x] Add RDF term discovery that expands IRIs and filters named RDF nodes by mesh base IRI.
+- [x] Convert discovered scoped IRIs to mesh designator paths.
+- [x] Reuse the single-target extraction planner/materializer for each discovered term.
+- [x] Define and implement conflict/idempotency behavior.
+- [x] Add CLI and runtime tests for source-scoped all-terms extraction.
+- [x] Update [[wu.cli-reference]] after the flag is implemented.

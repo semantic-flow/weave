@@ -214,14 +214,18 @@ Current syntax:
 
 ```sh
 weave extract <targetDesignatorPath> [--mesh-root <meshRoot>] [--source-designator-path <sourceDesignatorPath>]
+weave extract --all-terms --source-designator-path <sourceDesignatorPath> [--mesh-root <meshRoot>] [--yes]
 ```
 
 `<targetDesignatorPath>` is the resource or term surface to create. `--source-designator-path <sourceDesignatorPath>` selects the already woven payload artifact that describes that target when source resolution would otherwise be ambiguous; it is not the term being extracted.
+
+`--all-terms` extracts every new named mesh-scoped term discovered in the selected source RDF artifact. It previews the identifiers that will be created and asks for confirmation before writing; `--yes` confirms the preview for noninteractive runs. Existing Knops, blank nodes, support artifact paths, and generated page/file artifact paths are skipped.
 
 ```sh
 weave extract bob
 weave extract /
 weave extract ontology/CharacterShape --mesh-root docs --source-designator-path shacl
+weave extract --all-terms --mesh-root docs --source-designator-path shacl --yes
 ```
 
 For example, the current Fantasy Rules sidecar term slice is represented as explicit single-target extractions:
