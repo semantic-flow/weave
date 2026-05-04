@@ -270,7 +270,7 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - [x] Verify the generated `02-sidecar-mesh-created` branch output against the transition manifest.
 - [x] Make `weave`, `weave validate`, `weave version`, and `weave generate` resolve from a mesh root, infer workspace root from mesh config when present, and otherwise treat the mesh root as the workspace root.
 - [x] Add the first mesh-support-only weave transition so `02-sidecar-mesh-created` can produce the `03-sidecar-mesh-created-woven` current support ResourcePages without requiring an application Knop or payload candidate, including the sidecar config support artifact when present.
-- [x] Make `weave integrate` mesh-root centered too: resolve source paths from the command working directory, infer workspace root from mesh config, and remove `--workspace` from the Weave CLI surface.
+- [x] Make existing-mesh CLI operations mesh-root centered: use `--mesh-root` for operations after mesh creation, infer workspace root from mesh config, and keep `--workspace` only on `weave mesh create`.
 
 ### Phase 2: Integrate Ontology And SHACL Artifacts
 
@@ -290,7 +290,7 @@ The first ladder should be branch-based unless implementation pressure proves a 
 
 ### Phase 3: Weave The First Release
 
-- [ ] Complete `10-root-knop`, including a root Knop and an `examples/` collection Knop, before the first named release pair.
+- [x] Complete `10-root-knop`, including a root Knop and an `examples/` collection Knop, before the first named release pair.
 - [ ] Integrate the Gunaar example dataset at public path `examples/gunaar` in `11-gunaar-example-dataset`.
 - [ ] Ensure Gunaar dataset integration adds the constrained `sfcfg:hasLocalPathAccessRule` entry for `../examples/`; the grant should be created by the integration operation that introduces the adjacent example source artifact.
 - [ ] Use `workingLocalRelativePath` to associate the Gunaar dataset artifact with `../examples/gunaar.ttl`.

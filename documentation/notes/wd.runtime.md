@@ -16,7 +16,7 @@ Portable Semantic Flow behavior belongs in `sf.spec.*` notes in the Semantic Flo
 
 ## CLI Mesh Roots
 
-The Weave CLI spells local mesh selection as `--mesh-root` for `weave`, `weave validate`, `weave version`, `weave generate`, and `weave integrate`. When omitted, the command working directory is used as the mesh root.
+The Weave CLI spells local mesh selection as `--mesh-root` for mesh operations after creation, including `weave`, `weave validate`, `weave version`, `weave generate`, `weave integrate`, `weave extract`, `weave payload update`, `weave knop create`, and `weave knop add-reference`. When omitted, the command working directory is used as the mesh root.
 
 For `weave integrate`, relative source paths are resolved from the command working directory. The stored `workingLocalRelativePath` remains relative to the mesh root after local path policy approves the source.
 
@@ -24,7 +24,7 @@ When integrating a source outside the mesh root but inside the inferred workspac
 
 If an adjacent workspace source is denied and a mesh config exists, the runtime should suggest the corresponding `--grant-source-directory` value. Adjacent interworkspace sources should use explicit local/operator access policy unless the mesh config deliberately defines a larger workspace relationship; mesh-carried grants should not silently expand beyond the inferred workspace root.
 
-`weave mesh create` also accepts `--workspace` because it may need to create the initial mesh config before any mesh-carried workspace relationship exists.
+`weave mesh create` is the exception: it also accepts `--workspace` because it may need to create the initial mesh config before any mesh-carried workspace relationship exists.
 
 ## Runtime Logs
 

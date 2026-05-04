@@ -8,7 +8,7 @@ created: 1775629411758
 
 ## Overview
 
-`weave` is a mesh-oriented CLI. The main `weave`, `weave validate`, `weave version`, and `weave generate` commands treat the current directory as the mesh root unless `--mesh-root <path>` is provided.
+`weave` is a mesh-oriented CLI. Commands that operate on an existing mesh treat the current directory as the mesh root unless `--mesh-root <path>` is provided.
 
 Commands print a one-line summary to stdout followed by created or updated paths when relevant. Input or runtime errors return a non-zero exit code and print the error message to stderr.
 
@@ -18,7 +18,7 @@ Use `weave --help` or `weave <command> --help` to inspect the live CLI.
 
 ## Common patterns
 
-`--mesh-root <path>` selects the mesh root for `weave`, `weave validate`, `weave version`, and `weave generate`. It defaults to `.`.
+`--mesh-root <path>` selects the mesh root for existing-mesh operations such as `weave`, `weave validate`, `weave version`, `weave generate`, `weave integrate`, `weave extract`, `weave payload update`, `weave knop create`, and `weave knop add-reference`. It defaults to `.`.
 
 `--target <spec>` limits `weave`, `weave validate`, `weave version`, and `weave generate` to specific designator paths.
 
@@ -186,6 +186,7 @@ Creates a minimal Knop-managed surface for a local resource referenced inside a 
 ```sh
 weave extract bob
 weave extract /
+weave extract ontology/CharacterShape --mesh-root docs --source-designator-path shacl
 ```
 
 ### `weave payload update`
@@ -196,6 +197,7 @@ Convenience command for replacing the current working bytes of an existing paylo
 weave payload update ./alice-bio-v2.ttl alice/bio
 weave payload update ./alice-bio-v2.ttl --designator-path alice/bio
 weave payload update ./root-v2.ttl /
+weave payload update ./alice-bio-v2.ttl alice/bio --mesh-root ./mesh
 ```
 
 Constraints:
@@ -211,6 +213,7 @@ Creates the first Knop support artifacts for a designator path.
 ```sh
 weave knop create alice/bio
 weave knop create /
+weave knop create / --mesh-root docs
 ```
 
 ### `weave knop add-reference`
@@ -226,7 +229,8 @@ weave knop add-reference \
 weave knop add-reference \
   alice \
   --reference-target-designator-path / \
-  --reference-role Supplemental
+  --reference-role Supplemental \
+  --mesh-root ./mesh
 ```
 
 ## Practical examples

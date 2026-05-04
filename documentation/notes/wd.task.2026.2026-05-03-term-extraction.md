@@ -48,7 +48,7 @@ For `09`, the `weave` operation should version the new support artifacts, valida
 
 If a later ontology or SHACL version no longer describes an extracted term, the existing extracted term surface should not be silently rewritten from missing current data. The conservative behavior is: no automatic fresh update is made for that term unless an explicit refresh/deprecation/removal operation is requested. Its page can still render from the previously pinned source state. A later fixture can decide whether disappearance from the latest source should create a `Deprecated` reference, a warning on the page, or a new lifecycle operation, but it should not be an implicit side effect of ordinary weave.
 
-The source binding is intentionally not modeled as a `ReferenceLink`. `ReferenceCatalog` remains for managed reference relators such as the Alice reference slice; extraction provenance belongs in the extracted Knop's inventory because it is part of the materialized identifier surface's source-resolution contract.
+The source binding is intentionally not modeled as a `ReferenceLink`. `ReferenceCatalog` remains for managed reference relators such as the Alice reference slice; extraction provenance belongs in the extracted Knop's inventory as `sfc:ExtractionSource` because it is part of the materialized identifier surface's source-resolution contract.
 
 ## Open Issues
 
@@ -84,13 +84,13 @@ The source binding is intentionally not modeled as a `ReferenceLink`. `Reference
 - Extend `extract` behavior from one Bob-like target to a sidecar ontology-and-SHACL-term use case where selected term identifiers are extracted from governed, woven RDF documents.
 - Define that non-woven term extraction creates Knop-managed current surfaces and updates working mesh inventory, but does not create histories or pages.
 - Define that the woven term extraction step versions those support artifacts and generates public dereferenceable term pages.
-- Clarify how extracted term surfaces point back to the source ontology or SHACL artifact and the relevant woven state through an explicit reference link.
+- Clarify how extracted term surfaces point back to the source ontology or SHACL artifact and the relevant woven state through an inventory-carried `sfc:ExtractionSource`.
 - Clarify that source-derived term-page content is backed by that explicit reference, not by opportunistic latest-source scanning.
 - Add sidecar Accord manifests for `07 -> 08` and `08 -> 09` as part of this task once the expected branch outputs are concrete enough to make the manifests normative.
 
 ## Testing
 
-- Do not create the 08/09 conformance manifests until the extracted term set, reference role, and expected branch output are settled.
+- Do not create the 08/09 conformance manifests until the extracted term set, `sfc:ExtractionSource` shape, and expected branch output are settled.
 - Add `semantic-flow-framework/examples/sidecar-fantasy-rules/conformance/08-ontology-and-shacl-terms-extracted.jsonld` as part of this task when the 08 transition is ready to become normative.
 - Add `semantic-flow-framework/examples/sidecar-fantasy-rules/conformance/09-ontology-and-shacl-terms-extracted-woven.jsonld` as part of this task when the 09 transition is ready to become normative.
 - Validate each new manifest before treating its fixture branch as settled.

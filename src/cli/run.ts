@@ -292,10 +292,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         .option(
           "--mesh-root <meshRoot:string>",
           "Mesh root to update. Defaults to the current directory.",
-        )
-        .option(
-          "--workspace <workspace:string>",
-          "Legacy alias for --mesh-root when operating on whole-repo meshes.",
+          { default: "." },
         )
         .option(
           "--source-designator-path <sourceDesignatorPath:string>",
@@ -303,8 +300,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         )
         .action(async (
           options: {
-            meshRoot?: string;
-            workspace?: string;
+            meshRoot: string;
             sourceDesignatorPath?: string;
           },
           designatorPath,
@@ -315,9 +311,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             "extract designatorPath",
             (message) => new ExtractInputError(message),
           );
-          const meshRoot = resolve(
-            options.meshRoot ?? options.workspace ?? ".",
-          );
+          const meshRoot = resolve(options.meshRoot);
           const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
           const logDir = join(workspaceRoot, ".weave", "logs");
           const { operationalLogger, auditLogger } = createRuntimeLoggers({
@@ -429,12 +423,13 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               "Designator path of the existing payload artifact to update.",
             )
             .option(
-              "--workspace <workspace:string>",
-              "Workspace root to update.",
+              "--mesh-root <meshRoot:string>",
+              "Mesh root to update. Defaults to the current directory.",
               { default: "." },
             )
             .action(async (options, source, designatorPathArg) => {
-              const workspaceRoot = resolve(options.workspace);
+              const meshRoot = resolve(options.meshRoot);
+              const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
               const designatorPath = resolvePayloadUpdateDesignatorPath(
                 options,
                 designatorPathArg,
@@ -445,6 +440,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               });
 
               await auditLogger.command("payload.update", {
+                meshRoot,
                 workspaceRoot,
                 designatorPath,
                 source,
@@ -452,7 +448,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               });
 
               const result = await executePayloadUpdate({
-                workspaceRoot,
+                workspaceRoot: meshRoot,
                 request: {
                   designatorPath,
                   source,
@@ -555,8 +551,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               "ReferenceRole token to assign to the created ReferenceLink.",
             )
             .option(
-              "--workspace <workspace:string>",
-              "Workspace root to update.",
+              "--mesh-root <meshRoot:string>",
+              "Mesh root to update. Defaults to the current directory.",
               { default: "." },
             )
             .action(async (options, designatorPath) => {
@@ -566,7 +562,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 "knop add-reference designatorPath",
                 (message) => new KnopAddReferenceInputError(message),
               );
-              const workspaceRoot = resolve(options.workspace);
+              const meshRoot = resolve(options.meshRoot);
+              const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
               const referenceTargetDesignatorPath =
                 resolveCliOptionDesignatorPath(
                   options.referenceTargetDesignatorPath,
@@ -585,6 +582,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               });
 
               await auditLogger.command("knop.addReference", {
+                meshRoot,
                 workspaceRoot,
                 designatorPath: normalizedDesignatorPath,
                 referenceTargetDesignatorPath,
@@ -593,7 +591,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               });
 
               const result = await executeKnopAddReference({
-                workspaceRoot,
+                workspaceRoot: meshRoot,
                 request: {
                   designatorPath: normalizedDesignatorPath,
                   referenceTargetDesignatorPath,
@@ -619,8 +617,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             )
             .arguments("<designatorPath:string>")
             .option(
-              "--workspace <workspace:string>",
-              "Workspace root to update.",
+              "--mesh-root <meshRoot:string>",
+              "Mesh root to update. Defaults to the current directory.",
               { default: "." },
             )
             .action(async (options, designatorPath) => {
@@ -630,20 +628,22 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 "knop create designatorPath",
                 (message) => new KnopCreateInputError(message),
               );
-              const workspaceRoot = resolve(options.workspace);
+              const meshRoot = resolve(options.meshRoot);
+              const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
               const logDir = join(workspaceRoot, ".weave", "logs");
               const { operationalLogger, auditLogger } = createRuntimeLoggers({
                 logDir,
               });
 
               await auditLogger.command("knop.create", {
+                meshRoot,
                 workspaceRoot,
                 designatorPath: normalizedDesignatorPath,
                 localMode: true,
               });
 
               const result = await executeKnopCreate({
-                workspaceRoot,
+                workspaceRoot: meshRoot,
                 request: { designatorPath: normalizedDesignatorPath },
                 operationalLogger,
                 auditLogger,
