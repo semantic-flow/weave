@@ -306,7 +306,7 @@ ${input.metadataRows.map((row) => renderMetadataRow(row)).join("\n")}
   const histories = input.historyGroups.length > 0
     ? `    <section class="wf-section">
       <details class="wf-history">
-        <summary>Histories</summary>
+        <summary>History</summary>
 ${renderHistoryGroups(input)}
       </details>
     </section>
@@ -345,6 +345,7 @@ ${section.html}
     .wf-metadata tr:first-child th, .wf-metadata tr:first-child td { border-top: 0; }
     .wf-metadata th { width: 180px; color: #4f594f; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0; }
     .wf-metadata td { overflow-wrap: anywhere; }
+    .wf-term { cursor: help; border-bottom: 1px dotted currentColor; }
     .wf-section, .wf-source { margin-top: 24px; border-top: 1px solid #cdd2ca; padding-top: 18px; }
     h2 { margin: 0 0 12px; font-size: 1rem; line-height: 1.25; letter-spacing: 0; color: #2f382f; }
     ul { margin: 0; padding-left: 1.2rem; }
@@ -354,10 +355,14 @@ ${section.html}
     details { border: 1px solid #c9cec7; border-radius: 8px; background: #fff; }
     details + details { margin-top: 12px; }
     summary { cursor: pointer; padding: 12px 14px; font-weight: 750; }
-    .wf-history { padding-bottom: 10px; }
-    .wf-history-group { padding: 0 14px 8px; }
-    .wf-history-group h3 { margin: 8px 0; font-size: 0.95rem; }
-    .wf-history-group ul { margin-top: 8px; }
+    .wf-history { padding-bottom: 12px; }
+    .wf-history-tree { display: grid; gap: 10px; padding: 0 14px 4px; }
+    .wf-history-node { border: 1px solid #d5dbd3; border-radius: 8px; background: #f8faf7; padding: 10px; }
+    .wf-history-node .wf-history-node { margin-top: 8px; background: #eef3ef; }
+    .wf-history-node .wf-history-node .wf-history-node { background: #e7eee9; }
+    .wf-history-node .wf-history-node .wf-history-node .wf-history-node { background: #dfe8e2; }
+    .wf-history-node-header { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+    .wf-history-class { color: #687167; font-style: italic; font-size: 0.85rem; }
     .wf-source-meta { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 14px 12px; color: #596259; font-size: 0.88rem; }
     pre { margin: 0; max-height: 64vh; overflow: auto; border-top: 1px solid #d7dcd4; background: #151a16; color: #e7ece4; padding: 16px; font-size: 0.86rem; line-height: 1.55; tab-size: 2; }
     pre code { display: block; background: transparent; color: inherit; border-radius: 0; padding: 0; white-space: pre; }
@@ -387,7 +392,7 @@ ${histories}${sections ? `${sections}\n` : ""}${rawSections}
 
 function renderMetadataRow(row: ResourcePageMetadataRow): string {
   const label = row.tooltip
-    ? `<span title="${escapeHtml(row.tooltip)}">${escapeHtml(row.label)}</span>`
+    ? renderTooltipLabel(row.label, row.tooltip)
     : escapeHtml(row.label);
   const value = row.href
     ? `<a href="${escapeHtml(row.href)}">${escapeHtml(row.value)}</a>`
@@ -399,33 +404,102 @@ function renderHistoryGroups(input: ResourcePageRenderInput): string {
   return input.historyGroups.map((group) => {
     const historyHref = toMeshResourceHref(input.meshRootHref, group.path);
     const states = group.states.length > 0
-      ? `          <ul>
-${
-        group.states.map((state) => {
-          const stateHref = toMeshResourceHref(input.meshRootHref, state.path);
-          const locatedFile = state.locatedFilePath
-            ? ` <small>RDF: <a href="${
-              escapeHtml(
-                toMeshResourceHref(input.meshRootHref, state.locatedFilePath),
-              )
-            }">${escapeHtml(state.locatedFilePath)}</a></small>`
-            : "";
-          return `            <li><a href="${escapeHtml(stateHref)}">${
-            escapeHtml(state.path)
-          }</a>${locatedFile}</li>`;
-        }).join("\n")
-      }
-          </ul>`
+      ? group.states.map((state) => renderHistoryState(input, state)).join(
+        "\n",
+      )
       : "          <p>No historical states are listed yet.</p>";
 
-    return `        <div class="wf-history-group">
-          <h3>${escapeHtml(group.label)}</h3>
-          <p><a href="${escapeHtml(historyHref)}">${
+    return `        <div class="wf-history-tree">
+          <div class="wf-history-node">
+            <div class="wf-history-node-header"><a href="${
+      escapeHtml(historyHref)
+    }">${
       escapeHtml(group.path)
-    }</a></p>
+    }</a> <span class="wf-history-class">sflo:ArtifactHistory</span></div>
 ${states}
+          </div>
         </div>`;
   }).join("\n");
+}
+
+function renderHistoryState(
+  input: ResourcePageRenderInput,
+  state: ResourcePageHistoryGroupModel["states"][number],
+): string {
+  const stateHref = toMeshResourceHref(input.meshRootHref, state.path);
+  const child = state.manifestationPath
+    ? renderHistoryManifestation(input, state.manifestationPath, state)
+    : state.locatedFilePath
+    ? renderHistoryLocatedFile(input, state.locatedFilePath, 14)
+    : "";
+
+  return `            <div class="wf-history-node">
+              <div class="wf-history-node-header"><a href="${
+    escapeHtml(stateHref)
+  }">${
+    escapeHtml(toLastPathSegment(state.path))
+  }</a> <span class="wf-history-class">sflo:HistoricalState</span></div>
+${child}
+            </div>`;
+}
+
+function renderHistoryManifestation(
+  input: ResourcePageRenderInput,
+  manifestationPath: string,
+  state: ResourcePageHistoryGroupModel["states"][number],
+): string {
+  const manifestationHref = toMeshResourceHref(
+    input.meshRootHref,
+    manifestationPath,
+  );
+  const locatedFile = state.locatedFilePath
+    ? renderHistoryLocatedFile(input, state.locatedFilePath, 16)
+    : "";
+
+  return `              <div class="wf-history-node">
+                <div class="wf-history-node-header"><a href="${
+    escapeHtml(manifestationHref)
+  }">${
+    escapeHtml(toLastPathSegment(manifestationPath))
+  }</a> <span class="wf-history-class">sflo:ArtifactManifestation</span></div>
+${locatedFile}
+              </div>`;
+}
+
+function renderHistoryLocatedFile(
+  input: ResourcePageRenderInput,
+  locatedFilePath: string,
+  indent: number,
+): string {
+  const locatedFileHref = toMeshResourceHref(
+    input.meshRootHref,
+    locatedFilePath,
+  );
+  const spaces = " ".repeat(indent);
+  return `${spaces}<div class="wf-history-node">
+${spaces}  <div class="wf-history-node-header"><a href="${
+    escapeHtml(locatedFileHref)
+  }">${
+    escapeHtml(toLastPathSegment(locatedFilePath))
+  }</a> <span class="wf-history-class">sflo:LocatedFile</span></div>
+${spaces}</div>`;
+}
+
+function renderTooltipLabel(label: string, tooltip: string): string {
+  if (label === "Associated Knop") {
+    return `Associated <span class="wf-term" title="${
+      escapeHtml(tooltip)
+    }">Knop</span>`;
+  }
+
+  return `<span class="wf-term" title="${escapeHtml(tooltip)}">${
+    escapeHtml(label)
+  }</span>`;
+}
+
+function toLastPathSegment(path: string): string {
+  const segments = path.split("/").filter((segment) => segment.length > 0);
+  return segments[segments.length - 1] ?? "/";
 }
 
 function renderRawSourcePanels(input: ResourcePageRenderInput): string {

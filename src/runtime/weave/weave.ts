@@ -1823,22 +1823,21 @@ function resolveArtifactHistoryGroup(
     label: "Artifact history",
     path: historyPath,
     states: [...statePaths].sort((left, right) => left.localeCompare(right))
-      .map((statePath) => ({
-        path: statePath,
-        locatedFilePath: resolveHistoricalStateLocatedFilePath(
-          meshBase,
-          quads,
-          statePath,
-        ),
-      })),
+      .map((statePath) =>
+        resolveHistoricalStateModel(meshBase, quads, statePath)
+      ),
   };
 }
 
-function resolveHistoricalStateLocatedFilePath(
+function resolveHistoricalStateModel(
   meshBase: string,
   quads: readonly Quad[],
   statePath: string,
-): string | undefined {
+): {
+  path: string;
+  manifestationPath?: string;
+  locatedFilePath?: string;
+} {
   const stateIri = new URL(statePath, meshBase).href;
   const shortcutLocatedFilePath = resolveFirstMeshPathObject(
     meshBase,
@@ -1861,7 +1860,16 @@ function resolveHistoricalStateLocatedFilePath(
     )
     : undefined;
 
-  return shortcutLocatedFilePath ?? manifestationLocatedFilePath;
+  return {
+    path: statePath,
+    ...(manifestationPath ? { manifestationPath } : {}),
+    ...((shortcutLocatedFilePath ?? manifestationLocatedFilePath)
+      ? {
+        locatedFilePath: shortcutLocatedFilePath ??
+          manifestationLocatedFilePath,
+      }
+      : {}),
+  };
 }
 
 function resolveFirstMeshPathObject(

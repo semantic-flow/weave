@@ -75,7 +75,11 @@ Deno.test("executeWeave materializes current support ResourcePages for a docs-ro
   const configPage = await Deno.readTextFile(
     join(workspaceRoot, "docs/_mesh/_config/index.html"),
   );
-  assertStringIncludes(configPage, "<summary>Histories</summary>");
+  assertStringIncludes(configPage, "<summary>History</summary>");
+  assertStringIncludes(configPage, "sflo:ArtifactHistory");
+  assertStringIncludes(configPage, "sflo:HistoricalState");
+  assertStringIncludes(configPage, "sflo:ArtifactManifestation");
+  assertStringIncludes(configPage, "sflo:LocatedFile");
   assertStringIncludes(
     configPage,
     'href="/mesh-sidecar-fantasy-rules/_mesh/_config/_history001/_s0001"',

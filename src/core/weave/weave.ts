@@ -194,6 +194,7 @@ export interface ResourcePageRawSourcePanelModel {
 
 export interface ResourcePageHistoryStateModel {
   path: string;
+  manifestationPath?: string;
   locatedFilePath?: string;
 }
 

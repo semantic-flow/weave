@@ -204,6 +204,8 @@ Deno.test("renderResourcePage renders RDF description, classes, and histories", 
         path: "ontology/_history001",
         states: [{
           path: "ontology/_history001/_s0001",
+          manifestationPath:
+            "ontology/_history001/_s0001/fantasy-rules-ontology-ttl",
           locatedFilePath:
             "ontology/_history001/_s0001/fantasy-rules-ontology-ttl/fantasy-rules-ontology.ttl",
         }],
@@ -225,10 +227,18 @@ Deno.test("renderResourcePage renders RDF description, classes, and histories", 
   assertStringIncludes(html, "<h1>Fantasy Rules Ontology</h1>");
   assertStringIncludes(html, "A small ontology fixture.");
   assertStringIncludes(html, '<p class="wf-classes">owl:Ontology</p>');
-  assertStringIncludes(html, "<summary>Histories</summary>");
+  assertStringIncludes(html, "<summary>History</summary>");
+  assertStringIncludes(html, "sflo:ArtifactHistory");
+  assertStringIncludes(html, "sflo:HistoricalState");
+  assertStringIncludes(html, "sflo:ArtifactManifestation");
+  assertStringIncludes(html, "sflo:LocatedFile");
   assertStringIncludes(
     html,
     'href="/mesh-sidecar-fantasy-rules/ontology/_history001/_s0001"',
+  );
+  assertStringIncludes(
+    html,
+    'href="/mesh-sidecar-fantasy-rules/ontology/_history001/_s0001/fantasy-rules-ontology-ttl"',
   );
   assertStringIncludes(
     html,
