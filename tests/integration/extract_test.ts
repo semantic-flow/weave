@@ -30,21 +30,17 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
   });
 
   assertEquals(result.designatorPath, "bob");
-  assertEquals(result.referenceTargetDesignatorPath, "alice/bio");
+  assertEquals(result.sourceDesignatorPath, "alice/bio");
   assertEquals(
-    result.referenceCatalogIri,
-    "https://semantic-flow.github.io/mesh-alice-bio/bob/_knop/_references",
+    result.extractionSourceIri,
+    "https://semantic-flow.github.io/mesh-alice-bio/bob/_knop/_inventory#extraction-source",
   );
   assertEquals(
-    result.referenceLinkIri,
-    "https://semantic-flow.github.io/mesh-alice-bio/bob/_knop/_references#reference001",
-  );
-  assertEquals(
-    result.referenceTargetIri,
+    result.sourceArtifactIri,
     "https://semantic-flow.github.io/mesh-alice-bio/alice/bio",
   );
   assertEquals(
-    result.referenceTargetStateIri,
+    result.sourceStateIri,
     "https://semantic-flow.github.io/mesh-alice-bio/alice/bio/_history001/_s0002",
   );
   assertEquals(
@@ -52,7 +48,6 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
     [
       "bob/_knop/_inventory/inventory.ttl",
       "bob/_knop/_meta/meta.ttl",
-      "bob/_knop/_references/references.ttl",
     ],
   );
   assertEquals(result.updatedPaths, ["_mesh/_inventory/inventory.ttl"]);
@@ -62,7 +57,6 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
       "_mesh/_inventory/inventory.ttl",
       "bob/_knop/_meta/meta.ttl",
       "bob/_knop/_inventory/inventory.ttl",
-      "bob/_knop/_references/references.ttl",
       "alice-bio.ttl",
       "alice/_knop/_inventory/inventory.ttl",
       "alice/_knop/_references/references.ttl",
@@ -82,7 +76,6 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
       "bob/_knop/index.html",
       "bob/_knop/_meta/index.html",
       "bob/_knop/_inventory/index.html",
-      "bob/_knop/_references/index.html",
     ]
   ) {
     await assertRejects(
@@ -130,7 +123,7 @@ Deno.test("executeExtract accepts semantically equivalent mesh metadata turtle",
   });
 
   assertEquals(result.meshBase, MESH_ALICE_BIO_BASE);
-  assertEquals(result.referenceTargetDesignatorPath, "alice/bio");
+  assertEquals(result.sourceDesignatorPath, "alice/bio");
 });
 
 Deno.test("executeExtract extracts selected sidecar ontology and SHACL terms with explicit sources", async () => {
@@ -154,13 +147,12 @@ Deno.test("executeExtract extracts selected sidecar ontology and SHACL terms wit
       request: { designatorPath, sourceDesignatorPath },
     });
     assertEquals(result.designatorPath, designatorPath);
-    assertEquals(result.referenceTargetDesignatorPath, sourceDesignatorPath);
+    assertEquals(result.sourceDesignatorPath, sourceDesignatorPath);
     assertEquals(
       [...result.createdPaths].sort(),
       [
         `docs/${designatorPath}/_knop/_inventory/inventory.ttl`,
         `docs/${designatorPath}/_knop/_meta/meta.ttl`,
-        `docs/${designatorPath}/_knop/_references/references.ttl`,
       ],
     );
     assertEquals(result.updatedPaths, ["docs/_mesh/_inventory/inventory.ttl"]);
@@ -171,19 +163,14 @@ Deno.test("executeExtract extracts selected sidecar ontology and SHACL terms wit
       "docs/_mesh/_inventory/inventory.ttl",
       "docs/ontology/AbilityScore/_knop/_meta/meta.ttl",
       "docs/ontology/AbilityScore/_knop/_inventory/inventory.ttl",
-      "docs/ontology/AbilityScore/_knop/_references/references.ttl",
       "docs/ontology/Alignment/_knop/_meta/meta.ttl",
       "docs/ontology/Alignment/_knop/_inventory/inventory.ttl",
-      "docs/ontology/Alignment/_knop/_references/references.ttl",
       "docs/ontology/Character/_knop/_meta/meta.ttl",
       "docs/ontology/Character/_knop/_inventory/inventory.ttl",
-      "docs/ontology/Character/_knop/_references/references.ttl",
       "docs/ontology/PlayerCharacter/_knop/_meta/meta.ttl",
       "docs/ontology/PlayerCharacter/_knop/_inventory/inventory.ttl",
-      "docs/ontology/PlayerCharacter/_knop/_references/references.ttl",
       "docs/ontology/CharacterShape/_knop/_meta/meta.ttl",
       "docs/ontology/CharacterShape/_knop/_inventory/inventory.ttl",
-      "docs/ontology/CharacterShape/_knop/_references/references.ttl",
       "ontology/fantasy-rules-ontology.ttl",
       "shacl/fantasy-rules-shacl.ttl",
       "docs/_mesh/_config/config.ttl",
@@ -203,7 +190,6 @@ Deno.test("executeExtract extracts selected sidecar ontology and SHACL terms wit
     const absentPath of [
       "docs/ontology/AbilityScore/index.html",
       "docs/ontology/CharacterShape/index.html",
-      "docs/ontology/AbilityScore/_knop/_references/index.html",
     ]
   ) {
     await assertRejects(

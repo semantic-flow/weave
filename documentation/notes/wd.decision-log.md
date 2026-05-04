@@ -190,11 +190,11 @@ created: 1773630801215
 - References: [[wa.completed.2026.2026-04-05_1004-extract-bob]], [[sf.spec.2026-04-05-extract-behavior]]
 - Why:
   - The carried `12` fixture proves a narrow current-surface extraction boundary, not a generic source-selection or graph-rewrite API.
-  - Pinning the created Bob `ReferenceLink` to the source payload artifact's latest historical state preserves the non-woven semantic step while keeping broader payload splitting and Bob weaving out of scope.
+  - Pinning Bob's inventory-carried `sfc:ExtractionSource` to the source payload artifact's latest historical state preserves the non-woven semantic step while keeping broader payload splitting and Bob weaving out of scope.
 
 ### 2026-04-06: Fifth Local weave Slice Targets Bob 12 -> 13
 
-- Decision: Treat the settled Alice Bio `12-bob-extracted` -> `13-bob-extracted-woven` transition as the next carried local `weave` slice, keep the thin `designatorPaths` request surface, version Bob `_meta`, `_inventory`, and `_references`, advance `_mesh/_inventory` to `_s0004`, and keep the black-box CLI acceptance manifest-scoped so unrelated fixture `README.md` churn is ignored.
+- Decision: Treat the settled Alice Bio `12-bob-extracted` -> `13-bob-extracted-woven` transition as the next carried local `weave` slice, keep the thin `designatorPaths` request surface, version Bob `_meta` and `_inventory`, advance `_mesh/_inventory` to `_s0004`, and keep the black-box CLI acceptance manifest-scoped so unrelated fixture `README.md` churn is ignored.
 - References: [[wa.completed.2026.2026-04-06_1331-weave-bob-extracted-woven]], [[sf.spec.2026-04-03-weave-behavior]]
 - Why:
   - The carried `13` fixture is the first extracted-resource weave and the first carried case where one existing current page changes because a newly public extracted resource becomes live.
@@ -210,11 +210,19 @@ created: 1773630801215
 
 ### 2026-05-04: Sidecar Extracted-Term Weave Uses Pinned Source States
 
-- Decision: Extend local `weave` for the Fantasy Rules sidecar `08-ontology-and-shacl-terms-extracted` -> `09-ontology-and-shacl-terms-extracted-woven` transition so extracted term Knops can be woven in a recursive multi-target batch, generated term pages read source RDF from pinned `ReferenceCatalog` target states, and term path anchoring follows the term namespace rather than the source artifact designator.
+- Decision: Extend local `weave` for the Fantasy Rules sidecar `08-ontology-and-shacl-terms-extracted` -> `09-ontology-and-shacl-terms-extracted-woven` transition so extracted term Knops can be woven in a recursive multi-target batch, generated term pages read source RDF from pinned inventory `sfc:ExtractionSource` states, and term path anchoring follows the term namespace rather than the source artifact designator.
 - References: [[wd.task.2026.2026-05-03-term-extraction]], [[wd.task.2026.2026-05-02-fantasy-rules-sidecar]], [[sf.spec.2026-04-03-weave-behavior]]
 - Why:
   - `ontology/CharacterShape` is intentionally sourced from the `shacl` artifact while remaining an `ontology/...` term. The authored SHACL Turtle uses the `fant:` prefix for that ontology namespace, so path-prefix inference would pick the wrong source.
   - Multiple extracted terms advance MeshInventory one state per term while preserving the previously woven sidecar mesh state.
+
+### 2026-05-04: Extraction Source Binding Lives In Knop Inventory
+
+- Decision: Replace the extraction-specific `ReferenceCatalog` / `ReferenceLink` source binding with `sfc:ExtractionSource`, rooted at `D/_knop/_inventory#extraction-source` and linked from the extracted Knop with `sfc:hasExtractionSource`. Keep ordinary `ReferenceCatalog` behavior for explicit reference-management operations such as `knop add-reference`.
+- References: [[wd.task.2026.2026-05-03-term-extraction]], [[sf.spec.2026-04-05-extract-behavior]], [[ont.decision-log]]
+- Why:
+  - Extraction source binding is part of the extracted identifier surface's provenance and resolution contract, not a user-authored or cataloged reference about the resource.
+  - Fragment IRIs let the inventory page preserve dereferenceability for the extraction source relator without adding an otherwise empty `_references` support artifact.
 
 ### 2026-04-07: First Target-Aware weave CLI Uses Repeatable --target Specs
 

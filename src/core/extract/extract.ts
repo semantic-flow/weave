@@ -4,7 +4,6 @@ import {
   normalizeSafeDesignatorPath,
   toDesignatorResourcePagePath,
   toKnopPath,
-  toReferenceCatalogPath,
 } from "../designator_segments.ts";
 import { KnopCreateInputError } from "../knop/create.ts";
 import type { PlannedFile } from "../planned_file.ts";
@@ -13,8 +12,11 @@ const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const XSD_ANY_URI_IRI = "http://www.w3.org/2001/XMLSchema#anyURI";
 const XSD_NON_NEGATIVE_INTEGER_IRI =
   "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
+const SFC_NAMESPACE = "https://semantic-flow.github.io/ontology/core/";
 const SFLO_NAMESPACE =
   "https://semantic-flow.github.io/semantic-flow-ontology/";
+const SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
+  `${SFC_NAMESPACE}ArtifactResolutionMode/Pinned`;
 const SFLO_DIGITAL_ARTIFACT_IRI = `${SFLO_NAMESPACE}DigitalArtifact`;
 const SFLO_HAS_KNOP_IRI = `${SFLO_NAMESPACE}hasKnop`;
 const SFLO_HAS_MESH_INVENTORY_IRI = `${SFLO_NAMESPACE}hasMeshInventory`;
@@ -36,8 +38,6 @@ const SFLO_RDF_DOCUMENT_IRI = `${SFLO_NAMESPACE}RdfDocument`;
 const SFLO_SEMANTIC_MESH_IRI = `${SFLO_NAMESPACE}SemanticMesh`;
 const SFLO_WORKING_LOCAL_RELATIVE_PATH_IRI =
   `${SFLO_NAMESPACE}workingLocalRelativePath`;
-const SUPPLEMENTAL_REFERENCE_ROLE_IRI =
-  `${SFLO_NAMESPACE}ReferenceRole/Supplemental`;
 
 export interface ExtractRequest {
   designatorPath: string;
@@ -46,21 +46,19 @@ export interface ExtractRequest {
 export interface ResolvedExtractRequest extends ExtractRequest {
   meshBase: string;
   currentMeshInventoryTurtle: string;
-  referenceTargetDesignatorPath: string;
-  referenceTargetStatePath: string;
-  referenceTargetWorkingLocalRelativePath: string;
+  sourceDesignatorPath: string;
+  sourceStatePath: string;
+  sourceWorkingLocalRelativePath: string;
 }
 
 export interface ExtractPlan {
   meshBase: string;
   designatorPath: string;
-  referenceCatalogIri: string;
-  referenceLinkIri: string;
-  referenceRoleIri: string;
-  referenceTargetIri: string;
-  referenceTargetDesignatorPath: string;
-  referenceTargetStateIri: string;
-  referenceTargetStatePath: string;
+  extractionSourceIri: string;
+  sourceArtifactIri: string;
+  sourceDesignatorPath: string;
+  sourceStateIri: string;
+  sourceStatePath: string;
   createdFiles: readonly PlannedFile[];
   updatedFiles: readonly PlannedFile[];
 }
@@ -78,42 +76,37 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
     request.designatorPath,
     "designatorPath",
   );
-  const referenceTargetDesignatorPath = normalizeDesignatorPath(
-    request.referenceTargetDesignatorPath,
-    "referenceTargetDesignatorPath",
+  const sourceDesignatorPath = normalizeDesignatorPath(
+    request.sourceDesignatorPath,
+    "sourceDesignatorPath",
   );
-  const referenceTargetStatePath = normalizeRelativeIriPath(
-    request.referenceTargetStatePath,
-    "referenceTargetStatePath",
+  const sourceStatePath = normalizeRelativeIriPath(
+    request.sourceStatePath,
+    "sourceStatePath",
   );
-  const referenceTargetWorkingLocalRelativePath =
-    normalizeWorkingLocalRelativePath(
-      request.referenceTargetWorkingLocalRelativePath,
-    );
+  const sourceWorkingLocalRelativePath = normalizeWorkingLocalRelativePath(
+    request.sourceWorkingLocalRelativePath,
+  );
 
   try {
     const knopPath = toKnopPath(designatorPath);
-    const referenceCatalogPath = toReferenceCatalogPath(designatorPath);
     const updatedMeshInventoryTurtle = renderExtractMeshInventoryTurtle(
       meshBase,
       request.currentMeshInventoryTurtle,
       designatorPath,
-      referenceTargetDesignatorPath,
-      referenceTargetWorkingLocalRelativePath,
+      sourceDesignatorPath,
+      sourceWorkingLocalRelativePath,
     );
 
     return {
       meshBase,
       designatorPath,
-      referenceCatalogIri: new URL(referenceCatalogPath, meshBase).href,
-      referenceLinkIri:
-        new URL(`${referenceCatalogPath}#reference001`, meshBase)
-          .href,
-      referenceRoleIri: SUPPLEMENTAL_REFERENCE_ROLE_IRI,
-      referenceTargetIri: new URL(referenceTargetDesignatorPath, meshBase).href,
-      referenceTargetDesignatorPath,
-      referenceTargetStateIri: new URL(referenceTargetStatePath, meshBase).href,
-      referenceTargetStatePath,
+      extractionSourceIri:
+        new URL(`${knopPath}/_inventory#extraction-source`, meshBase).href,
+      sourceArtifactIri: new URL(sourceDesignatorPath, meshBase).href,
+      sourceDesignatorPath,
+      sourceStateIri: new URL(sourceStatePath, meshBase).href,
+      sourceStatePath,
       createdFiles: [
         {
           path: `${knopPath}/_meta/meta.ttl`,
@@ -127,16 +120,8 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
           contents: renderExtractKnopInventoryTurtle(
             meshBase,
             designatorPath,
-          ),
-        },
-        {
-          path: `${referenceCatalogPath}/references.ttl`,
-          contents: renderExtractReferenceCatalogTurtle(
-            meshBase,
-            designatorPath,
-            referenceTargetDesignatorPath,
-            SUPPLEMENTAL_REFERENCE_ROLE_IRI,
-            referenceTargetStatePath,
+            sourceDesignatorPath,
+            sourceStatePath,
           ),
         },
       ],
@@ -194,16 +179,16 @@ function normalizeWorkingLocalRelativePath(
   workingLocalRelativePath: string,
 ): string {
   return normalizeValidatedPath(workingLocalRelativePath, {
-    fieldName: "referenceTargetWorkingLocalRelativePath",
+    fieldName: "sourceWorkingLocalRelativePath",
     rejectWhitespace: true,
     slashMessage:
-      "referenceTargetWorkingLocalRelativePath must be a mesh-relative file path",
+      "sourceWorkingLocalRelativePath must be a mesh-relative file path",
     unsupportedCharactersMessage:
-      "referenceTargetWorkingLocalRelativePath contains unsupported path characters",
+      "sourceWorkingLocalRelativePath contains unsupported path characters",
     emptySegmentsMessage:
-      "referenceTargetWorkingLocalRelativePath must not contain empty path segments",
+      "sourceWorkingLocalRelativePath must not contain empty path segments",
     dotSegmentsMessage:
-      "referenceTargetWorkingLocalRelativePath contains unsupported path segments",
+      "sourceWorkingLocalRelativePath contains unsupported path segments",
     allowParentSegments: true,
   });
 }
@@ -646,17 +631,25 @@ function renderResourcePageDeclarations(paths: readonly string[]): string {
 function renderExtractKnopInventoryTurtle(
   meshBase: string,
   designatorPath: string,
+  sourceDesignatorPath: string,
+  sourceStatePath: string,
 ): string {
   const knopPath = toKnopPath(designatorPath);
 
   return `@base <${meshBase}> .
 @prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sfc: <https://semantic-flow.github.io/ontology/core/> .
 
 <${knopPath}> a sflo:Knop ;
   sflo:hasKnopMetadata <${knopPath}/_meta> ;
   sflo:hasKnopInventory <${knopPath}/_inventory> ;
-  sflo:hasReferenceCatalog <${knopPath}/_references> ;
+  sfc:hasExtractionSource <${knopPath}/_inventory#extraction-source> ;
   sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> .
+
+<${knopPath}/_inventory#extraction-source> a sfc:ExtractionSource ;
+  sfc:hasTargetArtifact <${sourceDesignatorPath}> ;
+  sfc:hasRequestedTargetState <${sourceStatePath}> ;
+  sfc:hasArtifactResolutionMode <${SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI}> .
 
 <${knopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <${knopPath}/_meta/meta.ttl> .
@@ -664,14 +657,9 @@ function renderExtractKnopInventoryTurtle(
 <${knopPath}/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <${knopPath}/_inventory/inventory.ttl> .
 
-<${knopPath}/_references> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <${knopPath}/_references/references.ttl> .
-
 <${knopPath}/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<${knopPath}/_references/references.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 `;
 }
 
@@ -687,28 +675,6 @@ function renderExtractKnopMetadataTurtle(
 <${knopPath}> a sflo:Knop ;
   sflo:designatorPath "${designatorPath}" ;
   sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> .
-`;
-}
-
-function renderExtractReferenceCatalogTurtle(
-  meshBase: string,
-  designatorPath: string,
-  referenceTargetDesignatorPath: string,
-  referenceRoleIri: string,
-  referenceTargetStatePath: string,
-): string {
-  const referenceCatalogPath = toReferenceCatalogPath(designatorPath);
-
-  return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
-
-<${designatorPath}> sflo:hasReferenceLink <${referenceCatalogPath}#reference001> .
-
-<${referenceCatalogPath}#reference001> a sflo:ReferenceLink ;
-  sflo:referenceLinkFor <${designatorPath}> ;
-  sflo:hasReferenceRole <${referenceRoleIri}> ;
-  sflo:referenceTarget <${referenceTargetDesignatorPath}> ;
-  sflo:referenceTargetState <${referenceTargetStatePath}> .
 `;
 }
 

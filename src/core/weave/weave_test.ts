@@ -1392,21 +1392,10 @@ Deno.test("planWeave renders the extracted bob woven slice", async () => {
     "alice/index.html",
   ]);
   assertEquals(
-    plan.createdPages.find((page) =>
+    plan.createdPages.some((page) =>
       page.path === "bob/_knop/_references/index.html"
     ),
-    {
-      kind: "referenceCatalog",
-      path: "bob/_knop/_references/index.html",
-      catalogPath: "bob/_knop/_references",
-      ownerDesignatorPath: "bob",
-      currentLinks: [{
-        fragment: "reference001",
-        referenceRoleLabel: "supplemental",
-        referenceTargetPath: "alice/bio",
-        referenceTargetStatePath: "alice/bio/_history001/_s0002",
-      }],
-    },
+    false,
   );
   assertStringIncludes(
     plan.updatedFiles[0]?.contents ?? "",
@@ -1418,38 +1407,23 @@ Deno.test("planWeave renders the extracted bob woven slice", async () => {
   );
 });
 
-Deno.test("planWeave accepts semantically equivalent extracted bob ReferenceCatalog Turtle", async () => {
+Deno.test("planWeave accepts semantically equivalent extracted bob ExtractionSource Turtle", async () => {
   const input = await createExtractedBobWeaveInput();
-  input.weaveableKnops[0]!.referenceCatalogArtifact = {
-    ...input.weaveableKnops[0]!.referenceCatalogArtifact!,
-    currentReferenceCatalogTurtle: withRdfPrefix(
-      input.weaveableKnops[0]!.referenceCatalogArtifact!
-        .currentReferenceCatalogTurtle,
-    ).replace(
-      " a sflo:ReferenceLink ;",
-      " rdf:type sflo:ReferenceLink ;",
-    ),
-  };
+  input.weaveableKnops[0]!.currentKnopInventoryTurtle = withRdfPrefix(
+    input.weaveableKnops[0]!.currentKnopInventoryTurtle,
+  ).replace(
+    " a sfc:ExtractionSource ;",
+    " rdf:type sfc:ExtractionSource ;",
+  );
 
   const plan = planWeave(input);
 
   assertEquals(plan.wovenDesignatorPaths, ["bob"]);
   assertEquals(
-    plan.createdPages.find((page) =>
+    plan.createdPages.some((page) =>
       page.path === "bob/_knop/_references/index.html"
     ),
-    {
-      kind: "referenceCatalog",
-      path: "bob/_knop/_references/index.html",
-      catalogPath: "bob/_knop/_references",
-      ownerDesignatorPath: "bob",
-      currentLinks: [{
-        fragment: "reference001",
-        referenceRoleLabel: "supplemental",
-        referenceTargetPath: "alice/bio",
-        referenceTargetStatePath: "alice/bio/_history001/_s0002",
-      }],
-    },
+    false,
   );
 });
 
@@ -1482,43 +1456,31 @@ Deno.test("planWeave accepts a semantically equivalent extracted bob Knop block"
 
 Deno.test("planWeave rejects extracted bob weave inputs without a pinned source historical state", async () => {
   const input = await createExtractedBobWeaveInput();
-  input.weaveableKnops[0]!.referenceCatalogArtifact = {
-    workingLocalRelativePath: "bob/_knop/_references/references.ttl",
-    currentReferenceCatalogTurtle:
-      `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
-
-<bob> sflo:hasReferenceLink <bob/_knop/_references#reference001> .
-
-<bob/_knop/_references#reference001> a sflo:ReferenceLink ;
-  sflo:referenceLinkFor <bob> ;
-  sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Supplemental> ;
-  sflo:referenceTarget <alice/bio> .
-`,
-  };
+  input.weaveableKnops[0]!.currentKnopInventoryTurtle = input
+    .weaveableKnops[0]!.currentKnopInventoryTurtle.replace(
+      "  sfc:hasRequestedTargetState <alice/bio/_history001/_s0002> ;\n",
+      "",
+    );
 
   assertThrows(
     () => planWeave(input),
     WeaveInputError,
-    "must pin its source ReferenceCatalog link to a historical state",
+    "settled extracted-knop inventory shape",
   );
 });
 
 Deno.test("planWeave rejects extracted bob weave inputs when the source payload path does not match", async () => {
   const input = await createExtractedBobWeaveInput();
-  input.weaveableKnops[0]!.referenceCatalogArtifact = {
-    ...input.weaveableKnops[0]!.referenceCatalogArtifact!,
-    currentReferenceCatalogTurtle: input.weaveableKnops[0]!
-      .referenceCatalogArtifact!.currentReferenceCatalogTurtle.replace(
-        "sflo:referenceTarget <alice/bio> ;",
-        "sflo:referenceTarget <carol/bio> ;",
-      ),
-  };
+  input.weaveableKnops[0]!.currentKnopInventoryTurtle = input
+    .weaveableKnops[0]!.currentKnopInventoryTurtle.replace(
+      "sfc:hasTargetArtifact <alice/bio> ;",
+      "sfc:hasTargetArtifact <carol/bio> ;",
+    );
 
   assertThrows(
     () => planWeave(input),
     WeaveInputError,
-    "did not resolve the expected source payload path",
+    "settled extracted-knop inventory shape",
   );
 });
 
@@ -1532,7 +1494,7 @@ Deno.test("planWeave rejects extracted bob weave inputs when the source payload 
   assertThrows(
     () => planWeave(input),
     WeaveInputError,
-    "did not resolve the expected source payload state",
+    "settled extracted-knop inventory shape",
   );
 });
 
@@ -1541,9 +1503,9 @@ Deno.test("planWeave accepts extracted weave inputs sourced from the root payloa
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: rootSourcePreExtractMeshInventoryTurtle,
     designatorPath: "alice/bio",
-    referenceTargetDesignatorPath: "",
-    referenceTargetStatePath: "_history001/_s0001",
-    referenceTargetWorkingLocalRelativePath: "root-person.ttl",
+    sourceDesignatorPath: "",
+    sourceStatePath: "_history001/_s0001",
+    sourceWorkingLocalRelativePath: "root-person.ttl",
   });
   const createdFileByPath = new Map(
     extractPlan.createdFiles.map((file) => [file.path, file.contents]),
@@ -1563,12 +1525,6 @@ Deno.test("planWeave accepts extracted weave inputs sourced from the root payloa
       currentKnopInventoryTurtle: createdFileByPath.get(
         "alice/bio/_knop/_inventory/inventory.ttl",
       )!,
-      referenceCatalogArtifact: {
-        workingLocalRelativePath: "alice/bio/_knop/_references/references.ttl",
-        currentReferenceCatalogTurtle: createdFileByPath.get(
-          "alice/bio/_knop/_references/references.ttl",
-        )!,
-      },
       referenceTargetSourcePayloadArtifact: {
         designatorPath: "",
         workingLocalRelativePath: "root-person.ttl",
@@ -1580,21 +1536,10 @@ Deno.test("planWeave accepts extracted weave inputs sourced from the root payloa
 
   assertEquals(plan.wovenDesignatorPaths, ["alice/bio"]);
   assertEquals(
-    plan.createdPages.find((page) =>
+    plan.createdPages.some((page) =>
       page.path === "alice/bio/_knop/_references/index.html"
     ),
-    {
-      kind: "referenceCatalog",
-      path: "alice/bio/_knop/_references/index.html",
-      catalogPath: "alice/bio/_knop/_references",
-      ownerDesignatorPath: "alice/bio",
-      currentLinks: [{
-        fragment: "reference001",
-        referenceRoleLabel: "supplemental",
-        referenceTargetPath: "",
-        referenceTargetStatePath: "_history001/_s0001",
-      }],
-    },
+    false,
   );
 });
 
@@ -1661,21 +1606,18 @@ Deno.test("planWeave preserves unrelated mesh inventory blocks during extracted 
   );
 });
 
-Deno.test("planWeave rejects orphaned extracted bob ReferenceCatalog links", async () => {
+Deno.test("planWeave rejects extracted bob inventory without typed ExtractionSource", async () => {
   const input = await createExtractedBobWeaveInput();
-  input.weaveableKnops[0]!.referenceCatalogArtifact = {
-    ...input.weaveableKnops[0]!.referenceCatalogArtifact!,
-    currentReferenceCatalogTurtle: input.weaveableKnops[0]!
-      .referenceCatalogArtifact!.currentReferenceCatalogTurtle.replace(
-        "<bob> sflo:hasReferenceLink <bob/_knop/_references#reference001> .\n\n",
-        "",
-      ),
-  };
+  input.weaveableKnops[0]!.currentKnopInventoryTurtle = input
+    .weaveableKnops[0]!.currentKnopInventoryTurtle.replace(
+      "<bob/_knop/_inventory#extraction-source> a sfc:ExtractionSource ;\n",
+      "",
+    );
 
   assertThrows(
     () => planWeave(input),
     WeaveInputError,
-    "owner did not declare current link reference001",
+    "settled first-history KnopInventory shape",
   );
 });
 
@@ -1784,20 +1726,12 @@ Deno.test("planWeave generalizes the first page-definition weave slice for earli
     )
   )
     .replace(
-      "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n",
-      "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n@prefix sfc: <https://semantic-flow.github.io/ontology/core/> .\n",
+      `  sflo:hasWorkingKnopInventoryFile <bob/_knop/_inventory/inventory.ttl> ;\n  sflo:hasResourcePage <bob/_knop/index.html> .\n`,
+      `  sflo:hasWorkingKnopInventoryFile <bob/_knop/_inventory/inventory.ttl> ;\n  sflo:hasResourcePage <bob/_knop/index.html> ;\n  sfc:hasResourcePageDefinition <bob/_knop/_page> .\n`,
     )
     .replace(
-      `  sflo:hasReferenceCatalog <bob/_knop/_references> ;\n  sflo:hasWorkingKnopInventoryFile <bob/_knop/_inventory/inventory.ttl> ;\n  sflo:hasResourcePage <bob/_knop/index.html> .\n`,
-      `  sflo:hasReferenceCatalog <bob/_knop/_references> ;\n  sflo:hasWorkingKnopInventoryFile <bob/_knop/_inventory/inventory.ttl> ;\n  sflo:hasResourcePage <bob/_knop/index.html> ;\n  sfc:hasResourcePageDefinition <bob/_knop/_page> .\n`,
-    )
-    .replace(
-      `<bob/_knop/_references> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;\n  sflo:hasArtifactHistory <bob/_knop/_references/_history001> ;\n  sflo:currentArtifactHistory <bob/_knop/_references/_history001> ;\n  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;\n  sflo:hasWorkingLocatedFile <bob/_knop/_references/references.ttl> ;\n  sflo:hasResourcePage <bob/_knop/_references/index.html> .\n`,
-      `<bob/_knop/_references> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;\n  sflo:hasArtifactHistory <bob/_knop/_references/_history001> ;\n  sflo:currentArtifactHistory <bob/_knop/_references/_history001> ;\n  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;\n  sflo:hasWorkingLocatedFile <bob/_knop/_references/references.ttl> ;\n  sflo:hasResourcePage <bob/_knop/_references/index.html> .\n\n<bob/_knop/_page> a sfc:ResourcePageDefinition, sflo:DigitalArtifact, sflo:RdfDocument ;\n  sflo:hasWorkingLocatedFile <bob/_knop/_page/page.ttl> .\n`,
-    )
-    .replace(
-      `<bob/_knop/_references/references.ttl> a sflo:LocatedFile, sflo:RdfDocument .\n`,
-      `<bob/_knop/_references/references.ttl> a sflo:LocatedFile, sflo:RdfDocument .\n\n<bob/_knop/_page/page.ttl> a sflo:LocatedFile, sflo:RdfDocument .\n`,
+      `<bob/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .\n`,
+      `<bob/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .\n\n<bob/_knop/_page> a sfc:ResourcePageDefinition, sflo:DigitalArtifact, sflo:RdfDocument ;\n  sflo:hasWorkingLocatedFile <bob/_knop/_page/page.ttl> .\n\n<bob/_knop/_page/page.ttl> a sflo:LocatedFile, sflo:RdfDocument .\n`,
     );
   const pageDefinitionTurtle =
     `@base <https://semantic-flow.github.io/mesh-alice-bio/bob/_knop/_page> .
@@ -2029,13 +1963,6 @@ async function createExtractedBobWeaveInput(): Promise<PlanWeaveInput> {
         "12-bob-extracted",
         "bob/_knop/_inventory/inventory.ttl",
       ),
-      referenceCatalogArtifact: {
-        workingLocalRelativePath: "bob/_knop/_references/references.ttl",
-        currentReferenceCatalogTurtle: await readMeshAliceBioBranchFile(
-          "12-bob-extracted",
-          "bob/_knop/_references/references.ttl",
-        ),
-      },
       referenceTargetSourcePayloadArtifact: {
         designatorPath: "alice/bio",
         workingLocalRelativePath: "alice-bio.ttl",

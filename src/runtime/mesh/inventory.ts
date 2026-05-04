@@ -9,6 +9,15 @@ const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const SFC_NAMESPACE = "https://semantic-flow.github.io/ontology/core/";
 const SFLO_NAMESPACE =
   "https://semantic-flow.github.io/semantic-flow-ontology/";
+const SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
+  `${SFC_NAMESPACE}ArtifactResolutionMode/Pinned`;
+const SFC_EXTRACTION_SOURCE_IRI = `${SFC_NAMESPACE}ExtractionSource`;
+const SFC_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
+  `${SFC_NAMESPACE}hasArtifactResolutionMode`;
+const SFC_HAS_EXTRACTION_SOURCE_IRI = `${SFC_NAMESPACE}hasExtractionSource`;
+const SFC_HAS_REQUESTED_TARGET_STATE_IRI =
+  `${SFC_NAMESPACE}hasRequestedTargetState`;
+const SFC_HAS_TARGET_ARTIFACT_IRI = `${SFC_NAMESPACE}hasTargetArtifact`;
 const SFLO_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}ArtifactHistory`;
 const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
   `${SFLO_NAMESPACE}currentArtifactHistory`;
@@ -46,6 +55,12 @@ export interface ReferenceCatalogInventoryState {
 export interface ReferenceTargetLinkState {
   referenceTargetPath: string;
   referenceTargetStatePath: string;
+}
+
+export interface ExtractionSourceInventoryState {
+  sourceArtifactPath: string;
+  requestedTargetStatePath: string;
+  artifactResolutionModeIri: string;
 }
 
 export interface ResourcePageDefinitionInventoryState {
@@ -210,6 +225,90 @@ export function resolveReferenceCatalogInventoryState(
       referenceCatalogIri,
       messages.missingWorkingFileMessage,
     ),
+  };
+}
+
+export function resolveExtractionSourceInventoryState(
+  meshBase: string,
+  inventoryTurtle: string,
+  designatorPath: string,
+  messages: {
+    parseErrorMessage: string;
+    missingExtractionSourceMessage: string;
+    missingTargetArtifactMessage: string;
+    missingRequestedTargetStateMessage: string;
+    unsupportedResolutionModeMessage: string;
+  },
+): ExtractionSourceInventoryState | undefined {
+  const quads = parseInventoryQuads(
+    meshBase,
+    inventoryTurtle,
+    messages.parseErrorMessage,
+  );
+  const knopIri = toMeshIri(meshBase, toKnopPath(designatorPath));
+  const extractionSourceIri = new URL(
+    `${toKnopPath(designatorPath)}/_inventory#extraction-source`,
+    meshBase,
+  ).href;
+
+  if (
+    !hasNamedNodeObject(
+      quads,
+      knopIri,
+      SFC_HAS_EXTRACTION_SOURCE_IRI,
+      extractionSourceIri,
+    )
+  ) {
+    return undefined;
+  }
+
+  if (
+    !hasNamedNodeObject(
+      quads,
+      extractionSourceIri,
+      RDF_TYPE_IRI,
+      SFC_EXTRACTION_SOURCE_IRI,
+    )
+  ) {
+    throw new Error(messages.missingExtractionSourceMessage);
+  }
+
+  const sourceArtifactPath = resolveOptionalUniqueNamedNodePath(
+    quads,
+    meshBase,
+    extractionSourceIri,
+    SFC_HAS_TARGET_ARTIFACT_IRI,
+    messages.missingTargetArtifactMessage,
+  );
+  if (!sourceArtifactPath) {
+    throw new Error(messages.missingTargetArtifactMessage);
+  }
+
+  const requestedTargetStatePath = resolveOptionalUniqueNamedNodePath(
+    quads,
+    meshBase,
+    extractionSourceIri,
+    SFC_HAS_REQUESTED_TARGET_STATE_IRI,
+    messages.missingRequestedTargetStateMessage,
+  );
+  if (!requestedTargetStatePath) {
+    throw new Error(messages.missingRequestedTargetStateMessage);
+  }
+
+  const artifactResolutionModeIri = resolveOptionalUniqueNamedNodeIri(
+    quads,
+    extractionSourceIri,
+    SFC_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
+    messages.unsupportedResolutionModeMessage,
+  );
+  if (artifactResolutionModeIri !== SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI) {
+    throw new Error(messages.unsupportedResolutionModeMessage);
+  }
+
+  return {
+    sourceArtifactPath,
+    requestedTargetStatePath,
+    artifactResolutionModeIri,
   };
 }
 
@@ -533,6 +632,37 @@ function resolveOptionalUniqueNamedNodePath(
     }
 
     values.add(requireMeshPath(meshBase, quad.object.value, errorMessage));
+  }
+
+  if (values.size === 0) {
+    return undefined;
+  }
+  if (values.size !== 1) {
+    throw new Error(errorMessage);
+  }
+
+  return values.values().next().value!;
+}
+
+function resolveOptionalUniqueNamedNodeIri(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+  errorMessage: string,
+): string | undefined {
+  const values = new Set<string>();
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.subject.value !== subjectIri ||
+      quad.predicate.value !== predicateIri ||
+      quad.object.termType !== "NamedNode"
+    ) {
+      continue;
+    }
+
+    values.add(quad.object.value);
   }
 
   if (values.size === 0) {

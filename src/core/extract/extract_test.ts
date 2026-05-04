@@ -40,25 +40,21 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
       "_mesh/_inventory/inventory.ttl",
     ),
     designatorPath: "bob",
-    referenceTargetDesignatorPath: "alice/bio",
-    referenceTargetStatePath: "alice/bio/_history001/_s0002",
-    referenceTargetWorkingLocalRelativePath: "alice-bio.ttl",
+    sourceDesignatorPath: "alice/bio",
+    sourceStatePath: "alice/bio/_history001/_s0002",
+    sourceWorkingLocalRelativePath: "alice-bio.ttl",
   });
 
   assertEquals(
-    plan.referenceCatalogIri,
-    "https://semantic-flow.github.io/mesh-alice-bio/bob/_knop/_references",
+    plan.extractionSourceIri,
+    "https://semantic-flow.github.io/mesh-alice-bio/bob/_knop/_inventory#extraction-source",
   );
   assertEquals(
-    plan.referenceLinkIri,
-    "https://semantic-flow.github.io/mesh-alice-bio/bob/_knop/_references#reference001",
+    plan.sourceArtifactIri,
+    "https://semantic-flow.github.io/mesh-alice-bio/alice/bio",
   );
   assertEquals(
-    plan.referenceRoleIri,
-    "https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Supplemental",
-  );
-  assertEquals(
-    plan.referenceTargetStateIri,
+    plan.sourceStateIri,
     "https://semantic-flow.github.io/mesh-alice-bio/alice/bio/_history001/_s0002",
   );
   assertEquals(
@@ -66,7 +62,6 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
     [
       "bob/_knop/_meta/meta.ttl",
       "bob/_knop/_inventory/inventory.ttl",
-      "bob/_knop/_references/references.ttl",
     ],
   );
   assertEquals(
@@ -87,18 +82,11 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
       "bob/_knop/_inventory/inventory.ttl",
     ),
   );
-  assertEquals(
-    plan.createdFiles[2]?.contents ?? "",
-    await readMeshAliceBioBranchFile(
-      "12-bob-extracted",
-      "bob/_knop/_references/references.ttl",
-    ),
-  );
-  // Keep this explicit so future extract changes still pin the reference to a
-  // historical state in the rendered ReferenceCatalog file.
+  // Keep this explicit so future extract changes still pin the source binding
+  // to a historical state in the rendered KnopInventory file.
   assertStringIncludes(
-    plan.createdFiles[2]?.contents ?? "",
-    "sflo:referenceTargetState <alice/bio/_history001/_s0002> .",
+    plan.createdFiles[1]?.contents ?? "",
+    "sfc:hasRequestedTargetState <alice/bio/_history001/_s0002> ;",
   );
   assertEquals(
     plan.updatedFiles[0]?.contents ?? "",
@@ -114,9 +102,9 @@ Deno.test("planExtract accepts a root source payload when the root and source kn
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: rootSourcePreExtractMeshInventoryTurtle,
     designatorPath: "alice/bio",
-    referenceTargetDesignatorPath: "",
-    referenceTargetStatePath: "_history001/_s0001",
-    referenceTargetWorkingLocalRelativePath: "root-person.ttl",
+    sourceDesignatorPath: "",
+    sourceStatePath: "_history001/_s0001",
+    sourceWorkingLocalRelativePath: "root-person.ttl",
   });
 
   assertEquals(
@@ -124,7 +112,6 @@ Deno.test("planExtract accepts a root source payload when the root and source kn
     [
       "alice/bio/_knop/_meta/meta.ttl",
       "alice/bio/_knop/_inventory/inventory.ttl",
-      "alice/bio/_knop/_references/references.ttl",
     ],
   );
   assertStringIncludes(
@@ -175,13 +162,13 @@ Deno.test("planExtract accepts a root source payload when the root and source kn
     1,
   );
   assertStringIncludes(
-    plan.createdFiles[2]?.contents ?? "",
-    `sflo:referenceTarget <> ;
-  sflo:referenceTargetState <_history001/_s0001> .`,
+    plan.createdFiles[1]?.contents ?? "",
+    `sfc:hasTargetArtifact <> ;
+  sfc:hasRequestedTargetState <_history001/_s0001> ;`,
   );
 });
 
-Deno.test("planExtract rejects absolute referenceTargetWorkingLocalRelativePath values", async () => {
+Deno.test("planExtract rejects absolute sourceWorkingLocalRelativePath values", async () => {
   const currentMeshInventoryTurtle = await readMeshAliceBioBranchFile(
     "11-alice-bio-v2-woven",
     "_mesh/_inventory/inventory.ttl",
@@ -193,9 +180,9 @@ Deno.test("planExtract rejects absolute referenceTargetWorkingLocalRelativePath 
         meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
         currentMeshInventoryTurtle,
         designatorPath: "bob",
-        referenceTargetDesignatorPath: "alice/bio",
-        referenceTargetStatePath: "alice/bio/_history001/_s0002",
-        referenceTargetWorkingLocalRelativePath: "/tmp/alice-bio.ttl",
+        sourceDesignatorPath: "alice/bio",
+        sourceStatePath: "alice/bio/_history001/_s0002",
+        sourceWorkingLocalRelativePath: "/tmp/alice-bio.ttl",
       }),
     ExtractInputError,
     "mesh-relative file path",
@@ -214,9 +201,9 @@ Deno.test("planExtract preserves the original knop-planning error as the cause",
       meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
       currentMeshInventoryTurtle,
       designatorPath: "alice",
-      referenceTargetDesignatorPath: "alice/bio",
-      referenceTargetStatePath: "alice/bio/_history001/_s0002",
-      referenceTargetWorkingLocalRelativePath: "alice-bio.ttl",
+      sourceDesignatorPath: "alice/bio",
+      sourceStatePath: "alice/bio/_history001/_s0002",
+      sourceWorkingLocalRelativePath: "alice-bio.ttl",
     });
   } catch (error) {
     thrown = error;
@@ -248,9 +235,9 @@ Deno.test("planExtract accepts a semantically equivalent source payload LocatedF
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle,
     designatorPath: "bob",
-    referenceTargetDesignatorPath: "alice/bio",
-    referenceTargetStatePath: "alice/bio/_history001/_s0002",
-    referenceTargetWorkingLocalRelativePath: "alice-bio.ttl",
+    sourceDesignatorPath: "alice/bio",
+    sourceStatePath: "alice/bio/_history001/_s0002",
+    sourceWorkingLocalRelativePath: "alice-bio.ttl",
   });
 
   assertEquals(

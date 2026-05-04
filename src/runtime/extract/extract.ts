@@ -45,12 +45,10 @@ export interface ExecuteExtractOptions {
 export interface ExtractResult {
   meshBase: string;
   designatorPath: string;
-  referenceCatalogIri: string;
-  referenceLinkIri: string;
-  referenceRoleIri: string;
-  referenceTargetIri: string;
-  referenceTargetDesignatorPath: string;
-  referenceTargetStateIri: string;
+  extractionSourceIri: string;
+  sourceArtifactIri: string;
+  sourceDesignatorPath: string;
+  sourceStateIri: string;
   createdPaths: readonly string[];
   updatedPaths: readonly string[];
 }
@@ -138,10 +136,9 @@ export async function executeExtract(
       meshBase: meshState.meshBase,
       currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
       designatorPath: normalizedDesignatorPath,
-      referenceTargetDesignatorPath: sourcePayload.designatorPath,
-      referenceTargetStatePath: sourcePayload.latestHistoricalStatePath,
-      referenceTargetWorkingLocalRelativePath:
-        sourcePayload.workingLocalRelativePath,
+      sourceDesignatorPath: sourcePayload.designatorPath,
+      sourceStatePath: sourcePayload.latestHistoricalStatePath,
+      sourceWorkingLocalRelativePath: sourcePayload.workingLocalRelativePath,
     });
     await assertUpdatedTargetsExist(meshRoot, plan);
     await assertCreateTargetsDoNotExist(meshRoot, plan);
@@ -172,12 +169,10 @@ export async function executeExtract(
   const result: ExtractResult = {
     meshBase: plan.meshBase,
     designatorPath: plan.designatorPath,
-    referenceCatalogIri: plan.referenceCatalogIri,
-    referenceLinkIri: plan.referenceLinkIri,
-    referenceRoleIri: plan.referenceRoleIri,
-    referenceTargetIri: plan.referenceTargetIri,
-    referenceTargetDesignatorPath: plan.referenceTargetDesignatorPath,
-    referenceTargetStateIri: plan.referenceTargetStateIri,
+    extractionSourceIri: plan.extractionSourceIri,
+    sourceArtifactIri: plan.sourceArtifactIri,
+    sourceDesignatorPath: plan.sourceDesignatorPath,
+    sourceStateIri: plan.sourceStateIri,
     createdPaths: plan.createdFiles.map((file) =>
       toWorkspaceRelativePath(localPathPolicy, file.path)
     ),
@@ -200,7 +195,7 @@ export async function executeExtract(
 export function describeExtractResult(result: ExtractResult): string {
   return `Extracted ${
     formatDesignatorPathForDisplay(result.designatorPath)
-  } into ${result.referenceCatalogIri}, created ${result.createdPaths.length} knop support artifacts, and updated ${result.updatedPaths.length} mesh support artifact.`;
+  } with source ${result.extractionSourceIri}, created ${result.createdPaths.length} knop support artifacts, and updated ${result.updatedPaths.length} mesh support artifact.`;
 }
 
 function resolveLoggers(
@@ -824,8 +819,8 @@ async function logExtractFailedBestEffort(
       meshRoot,
       workspaceRoot,
       designatorPath,
-      referenceTargetDesignatorPath: plan?.referenceTargetDesignatorPath,
-      referenceTargetStateIri: plan?.referenceTargetStateIri,
+      sourceDesignatorPath: plan?.sourceDesignatorPath,
+      sourceStateIri: plan?.sourceStateIri,
       error: message,
     });
   } catch {
@@ -837,8 +832,8 @@ async function logExtractFailedBestEffort(
       meshRoot,
       workspaceRoot,
       designatorPath,
-      referenceTargetDesignatorPath: plan?.referenceTargetDesignatorPath,
-      referenceTargetStateIri: plan?.referenceTargetStateIri,
+      sourceDesignatorPath: plan?.sourceDesignatorPath,
+      sourceStateIri: plan?.sourceStateIri,
       error: message,
     });
   } catch {
@@ -861,8 +856,8 @@ async function logExtractSucceededBestEffort(
         meshRoot,
         workspaceRoot,
         designatorPath: result.designatorPath,
-        referenceTargetDesignatorPath: result.referenceTargetDesignatorPath,
-        referenceTargetStateIri: result.referenceTargetStateIri,
+        sourceDesignatorPath: result.sourceDesignatorPath,
+        sourceStateIri: result.sourceStateIri,
         createdPaths: result.createdPaths,
         updatedPaths: result.updatedPaths,
       },
@@ -876,8 +871,8 @@ async function logExtractSucceededBestEffort(
       meshRoot,
       workspaceRoot,
       designatorPath: result.designatorPath,
-      referenceTargetDesignatorPath: result.referenceTargetDesignatorPath,
-      referenceTargetStateIri: result.referenceTargetStateIri,
+      sourceDesignatorPath: result.sourceDesignatorPath,
+      sourceStateIri: result.sourceStateIri,
       createdPaths: result.createdPaths,
       updatedPaths: result.updatedPaths,
     });

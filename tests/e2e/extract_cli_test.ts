@@ -164,23 +164,37 @@ Deno.test("weave extract accepts the root designator path as a black-box CLI run
   const stderr = new TextDecoder().decode(output.stderr);
 
   assert(output.success, stderr);
-  assert(stdout.includes("Extracted / into"), stdout);
+  assert(stdout.includes("Extracted / with source"), stdout);
   await Deno.stat(join(workspaceRoot, "_knop/_meta/meta.ttl"));
   await Deno.stat(join(workspaceRoot, "_knop/_inventory/inventory.ttl"));
   assertEquals(
     await Deno.readTextFile(
-      join(workspaceRoot, "_knop/_references/references.ttl"),
+      join(workspaceRoot, "_knop/_inventory/inventory.ttl"),
     ),
     `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
 @prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sfc: <https://semantic-flow.github.io/ontology/core/> .
 
-<> sflo:hasReferenceLink <_knop/_references#reference001> .
+<_knop> a sflo:Knop ;
+  sflo:hasKnopMetadata <_knop/_meta> ;
+  sflo:hasKnopInventory <_knop/_inventory> ;
+  sfc:hasExtractionSource <_knop/_inventory#extraction-source> ;
+  sflo:hasWorkingKnopInventoryFile <_knop/_inventory/inventory.ttl> .
 
-<_knop/_references#reference001> a sflo:ReferenceLink ;
-  sflo:referenceLinkFor <> ;
-  sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Supplemental> ;
-  sflo:referenceTarget <alice/bio> ;
-  sflo:referenceTargetState <alice/bio/_history001/_s0001> .
+<_knop/_inventory#extraction-source> a sfc:ExtractionSource ;
+  sfc:hasTargetArtifact <alice/bio> ;
+  sfc:hasRequestedTargetState <alice/bio/_history001/_s0001> ;
+  sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Pinned> .
+
+<_knop/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <_knop/_meta/meta.ttl> .
+
+<_knop/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <_knop/_inventory/inventory.ttl> .
+
+<_knop/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 `,
   );
 });
@@ -221,19 +235,33 @@ Deno.test("weave extract supports docs-rooted sidecar meshes with an explicit so
     await Deno.readTextFile(
       join(
         workspaceRoot,
-        "docs/ontology/CharacterShape/_knop/_references/references.ttl",
+        "docs/ontology/CharacterShape/_knop/_inventory/inventory.ttl",
       ),
     ),
     `@base <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/> .
 @prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sfc: <https://semantic-flow.github.io/ontology/core/> .
 
-<ontology/CharacterShape> sflo:hasReferenceLink <ontology/CharacterShape/_knop/_references#reference001> .
+<ontology/CharacterShape/_knop> a sflo:Knop ;
+  sflo:hasKnopMetadata <ontology/CharacterShape/_knop/_meta> ;
+  sflo:hasKnopInventory <ontology/CharacterShape/_knop/_inventory> ;
+  sfc:hasExtractionSource <ontology/CharacterShape/_knop/_inventory#extraction-source> ;
+  sflo:hasWorkingKnopInventoryFile <ontology/CharacterShape/_knop/_inventory/inventory.ttl> .
 
-<ontology/CharacterShape/_knop/_references#reference001> a sflo:ReferenceLink ;
-  sflo:referenceLinkFor <ontology/CharacterShape> ;
-  sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Supplemental> ;
-  sflo:referenceTarget <shacl> ;
-  sflo:referenceTargetState <shacl/_history001/_s0001> .
+<ontology/CharacterShape/_knop/_inventory#extraction-source> a sfc:ExtractionSource ;
+  sfc:hasTargetArtifact <shacl> ;
+  sfc:hasRequestedTargetState <shacl/_history001/_s0001> ;
+  sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Pinned> .
+
+<ontology/CharacterShape/_knop/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <ontology/CharacterShape/_knop/_meta/meta.ttl> .
+
+<ontology/CharacterShape/_knop/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <ontology/CharacterShape/_knop/_inventory/inventory.ttl> .
+
+<ontology/CharacterShape/_knop/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<ontology/CharacterShape/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 `,
   );
 });

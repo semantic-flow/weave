@@ -11,6 +11,7 @@ import {
   executeGenerate,
   executeValidate,
   executeVersion,
+  WeaveRuntimeError,
 } from "../../src/runtime/weave/weave.ts";
 import {
   materializeMeshAliceBioBranch,
@@ -496,17 +497,10 @@ Deno.test("executeVersion fails closed when a later batch target becomes invalid
   await writeSupplementalKnopSurface(
     workspaceRoot,
     "bob",
-    await readMeshAliceBioBranchFile(
-      "12-bob-extracted",
-      "bob/_knop/_inventory/inventory.ttl",
-    ),
-  );
-  await Deno.writeTextFile(
-    join(workspaceRoot, "bob/_knop/_references/references.ttl"),
     (
       await readMeshAliceBioBranchFile(
         "12-bob-extracted",
-        "bob/_knop/_references/references.ttl",
+        "bob/_knop/_inventory/inventory.ttl",
       )
     ).replace(
       "alice/bio/_history001/_s0002",
@@ -532,8 +526,8 @@ Deno.test("executeVersion fails closed when a later batch target becomes invalid
           ],
         },
       }),
-    WeaveInputError,
-    "did not resolve the expected source payload state",
+    WeaveRuntimeError,
+    "is pinned to",
   );
 
   assertEquals(

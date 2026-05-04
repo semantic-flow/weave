@@ -30,6 +30,15 @@ const XSD_NON_NEGATIVE_INTEGER_IRI =
   "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
 const SFLO_NAMESPACE =
   "https://semantic-flow.github.io/semantic-flow-ontology/";
+const SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
+  `${SFC_NAMESPACE}ArtifactResolutionMode/Pinned`;
+const SFC_EXTRACTION_SOURCE_IRI = `${SFC_NAMESPACE}ExtractionSource`;
+const SFC_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
+  `${SFC_NAMESPACE}hasArtifactResolutionMode`;
+const SFC_HAS_EXTRACTION_SOURCE_IRI = `${SFC_NAMESPACE}hasExtractionSource`;
+const SFC_HAS_REQUESTED_TARGET_STATE_IRI =
+  `${SFC_NAMESPACE}hasRequestedTargetState`;
+const SFC_HAS_TARGET_ARTIFACT_IRI = `${SFC_NAMESPACE}hasTargetArtifact`;
 const SFC_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFC_NAMESPACE}hasKnopAssetBundle`;
 const SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI =
   `${SFC_NAMESPACE}hasResourcePageDefinition`;
@@ -757,15 +766,6 @@ function classifyWeaveSlice(
 
   if (
     slice === "firstExtractedKnopWeave" &&
-    !candidate.referenceCatalogArtifact
-  ) {
-    throw new WeaveInputError(
-      `Extracted weave candidate ${candidate.designatorPath} is missing working ReferenceCatalog state.`,
-    );
-  }
-
-  if (
-    slice === "firstExtractedKnopWeave" &&
     !candidate.referenceTargetSourcePayloadArtifact
   ) {
     throw new WeaveInputError(
@@ -842,6 +842,13 @@ export function detectPendingWeaveSlice(
       SFLO_HAS_ARTIFACT_HISTORY_IRI,
       errorMessage,
     );
+  const extractionSourceRelationship = hasNamedNodeFact(
+    quads,
+    meshBase,
+    knopPath,
+    SFC_HAS_EXTRACTION_SOURCE_IRI,
+    `${knopPath}/_inventory#extraction-source`,
+  );
   const referenceCatalogRelationship = hasNamedNodeFact(
     quads,
     meshBase,
@@ -871,7 +878,7 @@ export function detectPendingWeaveSlice(
     `${knopPath}/_inventory/_history001`,
   );
 
-  if (referenceCatalogRelationship && !knopInventoryHasHistory) {
+  if (extractionSourceRelationship && !knopInventoryHasHistory) {
     return "firstExtractedKnopWeave";
   }
 
@@ -1145,7 +1152,6 @@ function planFirstExtractedKnopWeave(
   const designatorPath = candidate.designatorPath;
   const knopPath = toKnopPath(designatorPath);
   const displayDesignatorPath = formatDesignatorPathForDisplay(designatorPath);
-  const referenceCatalogArtifact = candidate.referenceCatalogArtifact!;
   const referenceTargetSourcePayloadArtifact = candidate
     .referenceTargetSourcePayloadArtifact!;
   const meshInventoryProgression =
@@ -1171,43 +1177,12 @@ function planFirstExtractedKnopWeave(
     meshBase,
     candidate.currentKnopInventoryTurtle,
     designatorPath,
-    referenceCatalogArtifact.workingLocalRelativePath,
+    referenceTargetSourcePayloadArtifact.designatorPath,
+    referenceTargetSourcePayloadArtifact.latestHistoricalStatePath,
   );
   assertReferenceTargetSourcePayloadShapeForFirstExtractedKnopWeave(
     referenceTargetSourcePayloadArtifact,
   );
-
-  const currentLinks = extractCurrentReferenceCatalogLinks(
-    meshBase,
-    referenceCatalogArtifact.currentReferenceCatalogTurtle,
-    designatorPath,
-    `${knopPath}/_references`,
-  );
-  const primaryLink = currentLinks[0]!;
-
-  if (!primaryLink.referenceTargetStatePath) {
-    throw new WeaveInputError(
-      `Extracted weave candidate ${designatorPath} must pin its source ReferenceCatalog link to a historical state.`,
-    );
-  }
-
-  if (
-    primaryLink.referenceTargetPath !==
-      referenceTargetSourcePayloadArtifact.designatorPath
-  ) {
-    throw new WeaveInputError(
-      `Extracted weave candidate ${designatorPath} did not resolve the expected source payload path.`,
-    );
-  }
-
-  if (
-    primaryLink.referenceTargetStatePath !==
-      referenceTargetSourcePayloadArtifact.latestHistoricalStatePath
-  ) {
-    throw new WeaveInputError(
-      `Extracted weave candidate ${designatorPath} did not resolve the expected source payload state.`,
-    );
-  }
 
   const wovenMeshInventoryTurtle = useAliceBioLegacyPages
     ? renderFirstExtractedKnopWovenMeshInventoryTurtle(
@@ -1224,7 +1199,8 @@ function planFirstExtractedKnopWeave(
     renderFirstExtractedKnopWovenKnopInventoryTurtle(
       meshBase,
       designatorPath,
-      referenceCatalogArtifact.workingLocalRelativePath,
+      referenceTargetSourcePayloadArtifact.designatorPath,
+      referenceTargetSourcePayloadArtifact.latestHistoricalStatePath,
     );
 
   return {
@@ -1244,11 +1220,6 @@ function planFirstExtractedKnopWeave(
         path:
           `${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl`,
         contents: wovenKnopInventoryTurtle,
-      },
-      {
-        path:
-          `${knopPath}/_references/_history001/_s0001/references-ttl/references.ttl`,
-        contents: referenceCatalogArtifact.currentReferenceCatalogTurtle,
       },
       {
         path: toDesignatorResourcePagePath(designatorPath),
@@ -1284,18 +1255,6 @@ function planFirstExtractedKnopWeave(
             `Resource page for the current explicit history of the ${displayDesignatorPath} KnopInventory artifact.`,
           artifactLabel: "KnopInventory artifact",
           workingLocalRelativePath: `${knopPath}/_inventory/inventory.ttl`,
-          states: [{ segment: "_s0001", latest: true }],
-        }),
-      },
-      {
-        path: `${knopPath}/_references/_history001/index.html`,
-        contents: renderArtifactHistoryIndexPage(meshBase, {
-          pagePath: `${knopPath}/_references/_history001/index.html`,
-          description:
-            `Resource page for the current explicit history of the ${displayDesignatorPath} ReferenceCatalog artifact.`,
-          artifactLabel: "ReferenceCatalog artifact",
-          workingLocalRelativePath:
-            referenceCatalogArtifact.workingLocalRelativePath,
           states: [{ segment: "_s0001", latest: true }],
         }),
       },
@@ -1378,20 +1337,6 @@ function planFirstExtractedKnopWeave(
       simplePage(
         `${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html`,
         `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} KnopInventory historical state.`,
-      ),
-      referenceCatalogPage(
-        `${knopPath}/_references/index.html`,
-        `${knopPath}/_references`,
-        designatorPath,
-        currentLinks,
-      ),
-      simplePage(
-        `${knopPath}/_references/_history001/_s0001/index.html`,
-        `Resource page for the first ${displayDesignatorPath} ReferenceCatalog historical state.`,
-      ),
-      simplePage(
-        `${knopPath}/_references/_history001/_s0001/references-ttl/index.html`,
-        `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} ReferenceCatalog historical state.`,
       ),
     ],
   };
@@ -2216,10 +2161,11 @@ function assertCurrentKnopInventoryShapeForFirstExtractedKnopWeave(
   meshBase: string,
   currentKnopInventoryTurtle: string,
   designatorPath: string,
-  referenceCatalogWorkingLocalRelativePath: string,
+  sourceDesignatorPath: string,
+  sourceStatePath: string,
 ): void {
   const knopPath = toKnopPath(designatorPath);
-  const referenceCatalogPath = `${knopPath}/_references`;
+  const extractionSourcePath = `${knopPath}/_inventory#extraction-source`;
   const errorMessage =
     `The current local weave slice only supports the settled extracted-knop inventory shape for ${designatorPath}.`;
   const quads = parseWeaveShapeQuads(
@@ -2232,7 +2178,7 @@ function assertCurrentKnopInventoryShapeForFirstExtractedKnopWeave(
     [knopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
     [knopPath, SFLO_HAS_KNOP_METADATA_IRI, `${knopPath}/_meta`],
     [knopPath, SFLO_HAS_KNOP_INVENTORY_IRI, `${knopPath}/_inventory`],
-    [knopPath, SFLO_HAS_REFERENCE_CATALOG_IRI, referenceCatalogPath],
+    [knopPath, SFC_HAS_EXTRACTION_SOURCE_IRI, extractionSourcePath],
     [
       knopPath,
       SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI,
@@ -2244,9 +2190,18 @@ function assertCurrentKnopInventoryShapeForFirstExtractedKnopWeave(
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_KNOP_INVENTORY_IRI],
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
-    [referenceCatalogPath, RDF_TYPE_IRI, SFLO_REFERENCE_CATALOG_IRI],
-    [referenceCatalogPath, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
-    [referenceCatalogPath, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
+    [extractionSourcePath, RDF_TYPE_IRI, SFC_EXTRACTION_SOURCE_IRI],
+    [
+      extractionSourcePath,
+      SFC_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
+      SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI,
+    ],
+    [extractionSourcePath, SFC_HAS_TARGET_ARTIFACT_IRI, sourceDesignatorPath],
+    [
+      extractionSourcePath,
+      SFC_HAS_REQUESTED_TARGET_STATE_IRI,
+      sourceStatePath,
+    ],
   ]);
   assertHasCurrentWorkingFileLocator(
     quads,
@@ -2261,13 +2216,6 @@ function assertCurrentKnopInventoryShapeForFirstExtractedKnopWeave(
     errorMessage,
     `${knopPath}/_inventory`,
     `${knopPath}/_inventory/inventory.ttl`,
-  );
-  assertHasCurrentWorkingFileLocator(
-    quads,
-    meshBase,
-    errorMessage,
-    referenceCatalogPath,
-    referenceCatalogWorkingLocalRelativePath,
   );
 
   if (hasPredicateFact(quads, SFLO_HAS_ARTIFACT_HISTORY_IRI)) {
@@ -4832,25 +4780,27 @@ function getSubjectPathFromBlock(block: string): string | undefined {
 function renderFirstExtractedKnopWovenKnopInventoryTurtle(
   meshBase: string,
   designatorPath: string,
-  referenceCatalogWorkingLocalRelativePath: string,
+  sourceDesignatorPath: string,
+  sourceStatePath: string,
 ): string {
   const knopPath = toKnopPath(designatorPath);
-  const referenceCatalogPath = `${knopPath}/_references`;
-  const referenceCatalogManifestationPath =
-    `${referenceCatalogPath}/_history001/_s0001/${
-      toManifestationSegment(referenceCatalogWorkingLocalRelativePath)
-    }`;
 
   return `@base <${meshBase}> .
 @prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sfc: <https://semantic-flow.github.io/ontology/core/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <${knopPath}> a sflo:Knop ;
   sflo:hasKnopMetadata <${knopPath}/_meta> ;
   sflo:hasKnopInventory <${knopPath}/_inventory> ;
-  sflo:hasReferenceCatalog <${referenceCatalogPath}> ;
+  sfc:hasExtractionSource <${knopPath}/_inventory#extraction-source> ;
   sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> ;
   sflo:hasResourcePage <${knopPath}/index.html> .
+
+<${knopPath}/_inventory#extraction-source> a sfc:ExtractionSource ;
+  sfc:hasTargetArtifact <${sourceDesignatorPath}> ;
+  sfc:hasRequestedTargetState <${sourceStatePath}> ;
+  sfc:hasArtifactResolutionMode <${SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI}> .
 
 <${knopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <${knopPath}/_meta/_history001> ;
@@ -4900,47 +4850,13 @@ function renderFirstExtractedKnopWovenKnopInventoryTurtle(
   sflo:hasLocatedFile <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
   sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html> .
 
-<${referenceCatalogPath}> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasArtifactHistory <${referenceCatalogPath}/_history001> ;
-  sflo:currentArtifactHistory <${referenceCatalogPath}/_history001> ;
-  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasWorkingLocatedFile <${referenceCatalogWorkingLocalRelativePath}> ;
-  sflo:hasResourcePage <${referenceCatalogPath}/index.html> .
-
-<${referenceCatalogPath}/_history001> a sflo:ArtifactHistory ;
-  sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasHistoricalState <${referenceCatalogPath}/_history001/_s0001> ;
-  sflo:latestHistoricalState <${referenceCatalogPath}/_history001/_s0001> ;
-  sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasResourcePage <${referenceCatalogPath}/_history001/index.html> .
-
-<${referenceCatalogPath}/_history001/_s0001> a sflo:HistoricalState ;
-  sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <${referenceCatalogManifestationPath}> ;
-  sflo:locatedFileForState <${referenceCatalogManifestationPath}/${
-    toFileName(referenceCatalogWorkingLocalRelativePath)
-  }> ;
-  sflo:hasResourcePage <${referenceCatalogPath}/_history001/_s0001/index.html> .
-
-<${referenceCatalogManifestationPath}> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${referenceCatalogManifestationPath}/${
-    toFileName(referenceCatalogWorkingLocalRelativePath)
-  }> ;
-  sflo:hasResourcePage <${referenceCatalogManifestationPath}/index.html> .
-
 <${knopPath}/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<${referenceCatalogWorkingLocalRelativePath}> a sflo:LocatedFile, sflo:RdfDocument .
-
 <${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<${referenceCatalogManifestationPath}/${
-    toFileName(referenceCatalogWorkingLocalRelativePath)
-  }> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${knopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -4959,14 +4875,6 @@ function renderFirstExtractedKnopWovenKnopInventoryTurtle(
 <${knopPath}/_inventory/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${referenceCatalogPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${referenceCatalogPath}/_history001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${referenceCatalogPath}/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${referenceCatalogManifestationPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 `;
 }
 

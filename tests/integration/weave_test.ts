@@ -1168,11 +1168,6 @@ Deno.test("executeWeave materializes the extracted bob woven slice", async () =>
       "bob/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
     ),
   );
-  assert(
-    result.createdPaths.includes(
-      "bob/_knop/_references/_history001/_s0001/references-ttl/references.ttl",
-    ),
-  );
   assertEquals(
     await Deno.readTextFile(
       join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
@@ -1201,18 +1196,6 @@ Deno.test("executeWeave materializes the extracted bob woven slice", async () =>
     await readMeshAliceBioBranchFile(
       "13-bob-extracted-woven",
       "bob/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
-    ),
-  );
-  assertEquals(
-    await Deno.readTextFile(
-      join(
-        workspaceRoot,
-        "bob/_knop/_references/_history001/_s0001/references-ttl/references.ttl",
-      ),
-    ),
-    await readMeshAliceBioBranchFile(
-      "13-bob-extracted-woven",
-      "bob/_knop/_references/_history001/_s0001/references-ttl/references.ttl",
     ),
   );
   await Deno.stat(
@@ -1266,11 +1249,6 @@ Deno.test("executeWeave materializes sidecar extracted ontology and SHACL terms"
   );
   assert(
     result.createdPaths.includes("docs/ontology/CharacterShape/index.html"),
-  );
-  assert(
-    result.createdPaths.includes(
-      "docs/ontology/CharacterShape/_knop/_references/_history001/_s0001/references-ttl/references.ttl",
-    ),
   );
   assertEquals(
     await compareRdfContent({

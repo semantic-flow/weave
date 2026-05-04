@@ -30,7 +30,7 @@ This is separate from [[wd.task.2026.2026-05-02-fantasy-rules-sidecar]] because 
 
 The first sidecar ladder proves that ontology and SHACL documents can be governed as sidecar artifacts. That does not automatically make each ontology class or SHACL shape a first-class dereferenceable Semantic Flow resource. For slash IRIs such as `https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/AbilityScore` and `https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/CharacterShape`, the mesh should be able to expose term pages backed by Knop surfaces.
 
-This task should apply the Alice Bio extraction precedent without copying its exact Bob-shaped assumptions. The Alice Bio slice extracted one resource mentioned in a payload document and created a minimal Knop plus a supplemental reference back to the source payload state. That pinned `referenceTargetState` is especially important here. The fantasy-rules slice should extract several selected ontology terms from the governed ontology artifact and at least one selected shape term from the governed SHACL artifact, and each extracted term should keep an explicit reference back to the artifact state whose triples justified the extraction.
+This task should apply the Alice Bio extraction precedent without copying its exact Bob-shaped assumptions. The Alice Bio slice extracted one resource mentioned in a payload document and created a minimal Knop plus an inventory-carried `sfc:ExtractionSource` back to the source payload state. That pinned source state is especially important here. The fantasy-rules slice should extract several selected ontology terms from the governed ontology artifact and at least one selected shape term from the governed SHACL artifact, and each extracted term should keep an explicit source binding back to the artifact state whose triples justified the extraction.
 
 The first extracted term set should stay small. A reasonable starting set is:
 
@@ -42,18 +42,17 @@ The first extracted term set should stay small. A reasonable starting set is:
 
 Representative controlled values and additional shapes can follow after the class/shape term path is settled. Extracting every subject IRI from the ontology or SHACL graph in the first pair is the wrong target: it would make the fixture noisy, make branch review harder, and force broad source-selection policy before the core term-surface behavior is proven.
 
-For `08`, extraction should create current support surfaces only. It should update the working mesh inventory so the extracted term Knops are discoverable, and it should create minimal `D/_knop/_meta/meta.ttl`, `D/_knop/_inventory/inventory.ttl`, and probably `D/_knop/_references/references.ttl` files for each extracted term. The reference catalog should include a link whose `referenceTarget` is the ontology or SHACL artifact and whose `referenceTargetState` is the woven historical state used for extraction. It should not create histories or generated pages yet.
+For `08`, extraction should create current support surfaces only. It should update the working mesh inventory so the extracted term Knops are discoverable, and it should create minimal `D/_knop/_meta/meta.ttl` and `D/_knop/_inventory/inventory.ttl` files for each extracted term. The Knop inventory should include `sfc:hasExtractionSource <D/_knop/_inventory#extraction-source>`, whose target artifact is the ontology or SHACL artifact and whose requested target state is the woven historical state used for extraction. It should not create histories or generated pages yet.
 
 For `09`, the `weave` operation should version the new support artifacts, validate the resulting current surface, and generate public pages for the extracted terms and their support artifacts. The term pages should be term pages, not generic artifact pages: they should identify the term, show useful type/label/comment/path facts from the ontology or SHACL document when available, and link back to the governing artifact and historical state that justified the extraction. Page generation should resolve those displayed term facts through the pinned source link, not by scanning whatever source happens to be latest at render time.
 
 If a later ontology or SHACL version no longer describes an extracted term, the existing extracted term surface should not be silently rewritten from missing current data. The conservative behavior is: no automatic fresh update is made for that term unless an explicit refresh/deprecation/removal operation is requested. Its page can still render from the previously pinned source state. A later fixture can decide whether disappearance from the latest source should create a `Deprecated` reference, a warning on the page, or a new lifecycle operation, but it should not be an implicit side effect of ordinary weave.
 
-The exact reference role still needs care. `ReferenceRole/Supplemental` was right for Bob because Alice's bio remained a descriptive source for Bob. Ontology and SHACL term extraction may deserve a stronger `DefinedBy`, `Source`, or schema-specific role if the ontology vocabulary already has one. If no better role exists yet, the first fixture can use `Supplemental` explicitly and leave a follow-up decision to refine role vocabulary.
+The source binding is intentionally not modeled as a `ReferenceLink`. `ReferenceCatalog` remains for managed reference relators such as the Alice reference slice; extraction provenance belongs in the extracted Knop's inventory because it is part of the materialized identifier surface's source-resolution contract.
 
 ## Open Issues
 
 - Which exact term list should be extracted in the first 08/09 pair?
-- Should extracted ontology and SHACL term references use existing `ReferenceRole/Supplemental`, or should the ontology define a more precise role such as "defined by" before this pair is treated as settled?
 - Should `extract` accept an explicit source artifact selector for this slice, or should the first sidecar implementation infer the woven ontology or SHACL source from the target designator paths?
 - Should one `extract` request create multiple term surfaces in a batch, or should 08 represent a sequence of single-target extractions whose combined result is the branch state?
 - What is the eventual refresh behavior when a newer ontology or SHACL state changes, removes, or deprecates an already extracted term?
@@ -68,16 +67,16 @@ The exact reference role still needs care. `ReferenceRole/Supplemental` was righ
 - Treat this as ontology and SHACL term identifier extraction, not payload splitting.
 - Do not rewrite `ontology/fantasy-rules-ontology.ttl`, `shacl/fantasy-rules-shacl.ttl`, or their woven bytes during extraction.
 - Use docs-rooted designator paths such as `ontology/AbilityScore`, producing local mesh paths under `docs/ontology/AbilityScore/`.
-- Each extracted term must keep an explicit source reference to the ontology or SHACL artifact and the specific woven state used for extraction.
-- Generated term pages should use that pinned source reference for source-derived display facts.
+- Each extracted term must keep an explicit `sfc:ExtractionSource` in its Knop inventory, pointing to the ontology or SHACL artifact and the specific woven state used for extraction.
+- Generated term pages should use that pinned extraction source for source-derived display facts.
 - If a later ontology or SHACL source no longer contains the term, ordinary weave should not silently erase or rewrite the extracted term page from missing latest data.
 - Keep the first extracted set narrow and explicitly listed in the manifests.
 - Defer hash-IRI extraction; this pair is for the existing slash-IRI term convention.
 - The first `08` term set is `ontology/AbilityScore`, `ontology/Alignment`, `ontology/Character`, `ontology/PlayerCharacter`, and `ontology/CharacterShape`.
-- Use `ReferenceRole/Supplemental` for the first sidecar term-extraction slice while leaving a more precise source/definition role as a future ontology decision.
+- Do not use `ReferenceCatalog` or `ReferenceLink` for extraction source binding; extraction provenance belongs in the extracted Knop's inventory as `sfc:ExtractionSource`.
 - Represent `08` as a sequence of single-target `extract` operations with explicit source designators where needed: ontology class terms extract from `ontology`, and `ontology/CharacterShape` extracts from `shacl`.
 - Treat the extracted term namespace and the source artifact designator as independent. `ontology/CharacterShape` is intentionally extracted under the ontology namespace from the pinned `shacl` artifact state, with the SHACL Turtle using the `fant:` prefix to name the ontology term IRI.
-- Generated term pages attach source-derived RDF facts from the `ReferenceCatalog` `referenceTarget` and `referenceTargetState`, not by assuming the term path prefix identifies the source artifact and not by scanning latest current source opportunistically.
+- Generated term pages attach source-derived RDF facts from the inventory `sfc:ExtractionSource`, not by assuming the term path prefix identifies the source artifact and not by scanning latest current source opportunistically.
 
 ## Contract Changes
 
@@ -119,8 +118,8 @@ The exact reference role still needs care. `ReferenceRole/Supplemental` was righ
 - [x] Update the fixture README with `08-ontology-and-shacl-terms-extracted` and `09-ontology-and-shacl-terms-extracted-woven`.
 - [x] Update the sidecar conformance README with the new transition names and walkthrough.
 - [x] Decide the exact first extracted term list before authoring the 08 manifest.
-- [x] Decide whether the first reference role should remain `ReferenceRole/Supplemental` or use a more precise ontology/source role.
-- [x] Define the exact source-reference shape for extracted terms, including `referenceTarget` and `referenceTargetState`.
+- [x] Decide whether extraction source binding belongs in `ReferenceCatalog` or Knop inventory.
+- [x] Define the exact `sfc:ExtractionSource` shape for extracted terms, including target artifact, requested target state, and resolution mode.
 - [x] Define the page-generation rule for rendering term facts from the pinned ontology or SHACL source state.
 - [x] Update [[sf.spec.2026-04-05-extract-behavior]] with the ontology-and-SHACL-term extraction shape before implementation depends on it.
 - [x] Author `08-ontology-and-shacl-terms-extracted.jsonld` only after the 08 expected output shape is settled enough for the manifest to be normative.
