@@ -307,6 +307,41 @@ Deno.test("renderResourcePage scopes history component sections to the current l
   assertEquals(manifestationHtml.includes("sflo:ArtifactManifestation"), true);
 });
 
+Deno.test("renderResourcePage renders Knop artifact links without history cake", () => {
+  const html = renderResourcePage(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "knop",
+      path: "alice/_knop/index.html",
+      designatorPath: "alice",
+      governedArtifacts: [{
+        label: "PayloadArtifact",
+        path: "alice/bio",
+      }],
+      supportingArtifacts: [
+        {
+          label: "KnopMetadata",
+          path: "alice/_knop/_meta",
+        },
+        {
+          label: "KnopInventory",
+          path: "alice/_knop/_inventory",
+        },
+      ],
+    },
+  );
+
+  assertStringIncludes(html, "<h1>alice/_knop</h1>");
+  assertStringIncludes(html, "<h2>Governed Artifacts</h2>");
+  assertStringIncludes(html, "PayloadArtifact");
+  assertStringIncludes(html, 'href="/mesh-alice-bio/alice/bio"');
+  assertStringIncludes(html, "<h2>Supporting Artifacts</h2>");
+  assertStringIncludes(html, 'href="/mesh-alice-bio/alice/_knop/_meta"');
+  assertStringIncludes(html, 'href="/mesh-alice-bio/alice/_knop/_inventory"');
+  assertEquals(html.includes("<summary>History</summary>"), false);
+  assertEquals(html.includes("sflo:ArtifactHistory"), false);
+});
+
 Deno.test("renderResourcePage renders customized identifier pages from mesh-local regions", () => {
   assertEquals(
     renderResourcePage(

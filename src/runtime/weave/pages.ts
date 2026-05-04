@@ -302,6 +302,51 @@ function toDefaultResourcePageRenderInput(
     };
   }
 
+  if (page.kind === "knop") {
+    const artifactSections = [
+      ...(page.governedArtifacts.length > 0
+        ? [{
+          title: "Governed Artifacts",
+          html: renderKnopArtifactLinks(meshRootHref, page.governedArtifacts),
+        }]
+        : []),
+      ...(page.supportingArtifacts.length > 0
+        ? [{
+          title: "Supporting Artifacts",
+          html: renderKnopArtifactLinks(meshRootHref, page.supportingArtifacts),
+        }]
+        : []),
+    ];
+
+    return {
+      meshLabel,
+      meshBase,
+      meshRootHref,
+      pagePath: page.path,
+      resourcePath,
+      displayResourcePath,
+      canonical,
+      generatedAtIso,
+      generatedAtDisplay,
+      title: formatDesignatorPathForDisplay(
+        toKnopResourcePath(page.designatorPath),
+      ),
+      breadcrumbs: toResourcePageBreadcrumbs(
+        meshLabel,
+        meshRootHref,
+        toParentResourcePath(resourcePath),
+      ),
+      summary: `Knop control surface for ${
+        formatDesignatorPathForDisplay(page.designatorPath)
+      }.`,
+      rdfClasses: ["sflo:Knop"],
+      metadataRows: [{ label: "Canonical IRI", value: canonical }],
+      historyGroups: [],
+      sections: artifactSections,
+      rawSourcePanels: [],
+    };
+  }
+
   const rdfFacts = extractRdfFacts(canonical, page.rawSourcePanels ?? []);
 
   return {
@@ -330,6 +375,23 @@ function toDefaultResourcePageRenderInput(
     sections: [],
     rawSourcePanels: page.rawSourcePanels ?? [],
   };
+}
+
+function renderKnopArtifactLinks(
+  meshRootHref: string,
+  artifacts: readonly { label: string; path: string }[],
+): string {
+  return `      <ul>
+${
+    artifacts.map((artifact) => {
+      const href = toMeshResourceHref(meshRootHref, artifact.path);
+      const displayPath = formatDesignatorPathForDisplay(artifact.path);
+      return `        <li>${escapeHtml(artifact.label)}: <a href="${
+        escapeHtml(href)
+      }">${escapeHtml(displayPath)}</a></li>`;
+    }).join("\n")
+  }
+      </ul>`;
 }
 
 function renderDefaultResourcePage(input: ResourcePageRenderInput): string {

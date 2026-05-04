@@ -2,7 +2,7 @@
 id: 348segdrcq0dsum9ygzu4dg
 title: 2026 05 03 Resource Page Renderer Refresh
 desc: ''
-updated: 1777859406686
+updated: 1777877898292
 created: 1777859406686
 ---
 
@@ -46,6 +46,10 @@ Runtime code should continue to compute page data such as resource identity, lab
 
 Raw RDF panels should start simple: escaped text in a readable source panel, preferably with a clear raw-file link and provenance label such as current working bytes, historical located file bytes, or manifestation bytes. Syntax highlighting and client-side enhancements can be added later if the static HTML remains useful without JavaScript.
 
+Knop pages should show the artifacts managed by the Knop rather than the artifact-history tree for those artifacts. The current default presentation should separate governed artifacts, such as payload artifacts, from supporting artifacts, such as Knop metadata, Knop inventory, reference catalogs, page definitions, and asset bundles.
+
+History sections can grow long as named histories and semver states accumulate. The default renderer should keep long repeated lists readable with a generic truncation rule: if a repeated History-section list has more than 10 items, show the first 2 and last 7 with a vertical ellipsis gap marker. Paging or dynamic loading can come later.
+
 ## Open Issues
 
 - What conservative byte-size limit should Weave use before omitting or collapsing an inline raw-source panel?
@@ -68,11 +72,15 @@ Raw RDF panels should start simple: escaped text in a readable source panel, pre
 - The initial built-in theme emits embedded CSS in each generated generic ResourcePage. A shared generated asset can be revisited when there is enough theme/config machinery to manage cache and path behavior cleanly.
 - Recommended future config vocabulary terms are `sfcfg:hasDefaultResourcePagePresentationConfig` for mesh/default attachment, `sfcfg:ResourcePagePresentationConfig` for the config node, and `sfcfg:ResourcePageTheme` for the selected theme resource/class.
 - This slice includes minimal trailing-slash browser polish with `history.replaceState` while keeping canonical links authoritative.
+- Knop pages should show governed and supporting artifacts, not the History-section tree for those artifacts.
+- Long History-section lists should use the generic first-2/last-7 truncation rule with a vertical ellipsis gap marker.
 
 ## Contract Changes
 
 - Generated `RdfDocument` ResourcePages should include an inline raw RDF panel when the relevant current working file, historical located file, or manifestation bytes are locally resolvable under policy.
 - Generated ResourcePages should expose clearer structured navigation among the resource, its Knop where applicable, support artifacts, histories, states, manifestations, located files, and raw source files.
+- Generated Knop ResourcePages should expose governed artifacts and supporting artifacts without rendering the generic History section for the Knop page itself.
+- Generated History sections should truncate repeated lists longer than 10 items by rendering the first 2 and last 7 items with an explicit vertical ellipsis gap marker.
 - Weave should have a compiled-in ResourcePage presentation fallback that applies when no more specific presentation config is available.
 - Future config work should be able to layer page-specific, mesh-level, local, and implementation fallback presentation choices without changing `_knop/_page` semantics.
 
@@ -82,6 +90,8 @@ Raw RDF panels should start simple: escaped text in a readable source panel, pre
 - Add tests for current working RDF bytes and historical/manifestation RDF bytes if both are available in the current fixture surface.
 - Add tests proving raw RDF rendering preserves links to the raw file.
 - Add tests proving generic pages still render when no `_knop/_page` definition exists.
+- Add tests proving generated Knop pages show governed/supporting artifacts and omit the generic History section.
+- Add tests proving long History-section repeated lists use the first-2/last-7 truncation rule with a visible gap marker.
 - Add regression tests for existing `_knop/_page` precedence so the default theme does not override explicit page definitions.
 - Add sidecar fixture coverage once the ontology-integrated woven branch is generated, using the ontology page as the first concrete proof.
 - Add browser-oriented or snapshot-style checks only if the renderer change becomes large enough that DOM structure and responsive layout need protection.
@@ -102,6 +112,8 @@ Raw RDF panels should start simple: escaped text in a readable source panel, pre
 - [x] Define a structured render input for generic ResourcePages, including identity, labels, descriptions, RDF classes, page kind, navigation links, support links, raw file links, and optional raw source panels.
 - [x] Implement a built-in Weave default theme for generic generated ResourcePages.
 - [x] Add raw RDF panel support for locally resolvable `RdfDocument` current and historical bytes.
+- [x] Render Knop pages as governed/supporting artifact summaries instead of generic History-section pages.
+- [ ] Add generic first-2/last-7 truncation for long cake-section repeated lists (in supporting files only).
 - [x] Preserve existing `_knop/_page` behavior and ensure explicit page definitions still take precedence over generic generation for their owning identifier page.
 - [x] Update or add tests for generic page rendering, raw RDF panels, and `_knop/_page` precedence.
 - [d] Weave the sidecar fantasy-rules ontology branch and verify the ontology ResourcePage is readable, useful, and includes raw Turtle. Deferred until the human is ready to advance the fantasy-rules fixture.

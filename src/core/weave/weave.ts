@@ -170,6 +170,19 @@ export interface ReferenceCatalogResourcePageModel {
   rawSourcePanels?: readonly ResourcePageRawSourcePanelModel[];
 }
 
+export interface KnopArtifactLinkModel {
+  label: string;
+  path: string;
+}
+
+export interface KnopResourcePageModel {
+  kind: "knop";
+  path: string;
+  designatorPath: string;
+  governedArtifacts: readonly KnopArtifactLinkModel[];
+  supportingArtifacts: readonly KnopArtifactLinkModel[];
+}
+
 export interface CustomIdentifierRegionResourcePageModel {
   key: string;
   markdown: string;
@@ -206,6 +219,7 @@ export interface ResourcePageHistoryGroupModel {
 
 export type ResourcePageModel =
   | IdentifierResourcePageModel
+  | KnopResourcePageModel
   | SimpleResourcePageModel
   | ReferenceCatalogResourcePageModel
   | CustomIdentifierResourcePageModel;

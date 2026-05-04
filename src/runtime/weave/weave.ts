@@ -16,6 +16,7 @@ import {
 import {
   detectPendingWeaveSlice,
   type GenerateRequest,
+  type KnopArtifactLinkModel,
   type PayloadWorkingArtifact,
   planMeshSupportResourcePages,
   planVersion,
@@ -63,6 +64,7 @@ import { renderResourcePages } from "./pages.ts";
 
 const SFLO_NAMESPACE =
   "https://semantic-flow.github.io/semantic-flow-ontology/";
+const SFC_NAMESPACE = "https://semantic-flow.github.io/ontology/core/";
 const SFLO_HAS_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}hasResourcePage`;
 const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
   `${SFLO_NAMESPACE}currentArtifactHistory`;
@@ -70,6 +72,13 @@ const SFLO_HAS_HISTORICAL_STATE_IRI = `${SFLO_NAMESPACE}hasHistoricalState`;
 const SFLO_HAS_MANIFESTATION_IRI = `${SFLO_NAMESPACE}hasManifestation`;
 const SFLO_HAS_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}hasLocatedFile`;
 const SFLO_LOCATED_FILE_FOR_STATE_IRI = `${SFLO_NAMESPACE}locatedFileForState`;
+const SFLO_HAS_KNOP_METADATA_IRI = `${SFLO_NAMESPACE}hasKnopMetadata`;
+const SFLO_HAS_KNOP_INVENTORY_IRI = `${SFLO_NAMESPACE}hasKnopInventory`;
+const SFLO_HAS_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasPayloadArtifact`;
+const SFLO_HAS_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}hasReferenceCatalog`;
+const SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI =
+  `${SFC_NAMESPACE}hasResourcePageDefinition`;
+const SFC_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFC_NAMESPACE}hasKnopAssetBundle`;
 const DCTERMS_TITLE_IRI = "http://purl.org/dc/terms/title";
 const RDFS_LABEL_IRI = "http://www.w3.org/2000/01/rdf-schema#label";
 
@@ -153,6 +162,8 @@ type TextFileOverlay = Map<string, string>;
 interface GenerateDesignatorContext {
   designatorPath: string;
   payloadWorkingLocalRelativePath?: string;
+  governedArtifacts: readonly KnopArtifactLinkModel[];
+  supportingArtifacts: readonly KnopArtifactLinkModel[];
   pagePaths: readonly string[];
   customIdentifierPage?: CustomIdentifierPageModelInput;
   historyGroupsByResourcePath: ReadonlyMap<
@@ -1315,6 +1326,12 @@ async function collectGeneratedPageFiles(
       context,
     ]),
   );
+  const knopResourcePaths = new Map(
+    designatorContexts.map((context) => [
+      toKnopPath(context.designatorPath),
+      context,
+    ]),
+  );
   const meshRawSourcePanels = await collectMeshSupportRawSourcePanels(
     workspaceRoot,
     meshState,
@@ -1368,6 +1385,15 @@ async function collectGeneratedPageFiles(
           rawSourcePanels: publicContext.rawSourcePanels.get(pagePath),
         });
       }
+    } else if (knopResourcePaths.has(resourcePath)) {
+      const knopContext = knopResourcePaths.get(resourcePath)!;
+      pageModels.push({
+        kind: "knop",
+        path: pagePath,
+        designatorPath: knopContext.designatorPath,
+        governedArtifacts: knopContext.governedArtifacts,
+        supportingArtifacts: knopContext.supportingArtifacts,
+      });
     } else {
       const rawSourcePanels = meshRawSourcePanels.get(pagePath) ??
         findRawSourcePanelsForPage(pagePath, designatorContexts);
@@ -1402,20 +1428,32 @@ async function collectGeneratedPageFiles(
       const resourcePath = toResourcePath(pagePath);
       const rawSourcePanels = context.rawSourcePanels.get(pagePath);
       pageModels.push({
-        kind: "simple",
-        path: pagePath,
-        description: context.pageDescriptions.get(pagePath) ??
-          describeSemanticFlowResource(
-            meshState.meshBase,
-            resourcePath,
-            rawSourcePanels ??
-              findOwnerRawSourcePanelsForArtifactHistoryInContext(
+        ...(resourcePath === toKnopPath(context.designatorPath)
+          ? {
+            kind: "knop" as const,
+            path: pagePath,
+            designatorPath: context.designatorPath,
+            governedArtifacts: context.governedArtifacts,
+            supportingArtifacts: context.supportingArtifacts,
+          }
+          : {
+            kind: "simple" as const,
+            path: pagePath,
+            description: context.pageDescriptions.get(pagePath) ??
+              describeSemanticFlowResource(
+                meshState.meshBase,
                 resourcePath,
-                context,
+                rawSourcePanels ??
+                  findOwnerRawSourcePanelsForArtifactHistoryInContext(
+                    resourcePath,
+                    context,
+                  ),
               ),
-          ),
-        historyGroups: context.historyGroupsByResourcePath.get(resourcePath),
-        rawSourcePanels,
+            historyGroups: context.historyGroupsByResourcePath.get(
+              resourcePath,
+            ),
+            rawSourcePanels,
+          }),
       });
       pagePaths.add(pagePath);
     }
@@ -1519,6 +1557,11 @@ async function loadGenerateDesignatorContexts(
       designatorPath,
       payloadWorkingLocalRelativePath: payloadArtifact
         ?.workingLocalRelativePath,
+      ...collectKnopArtifactLinks(
+        meshState.meshBase,
+        currentKnopInventoryTurtle,
+        designatorPath,
+      ),
       customIdentifierPage,
       historyGroupsByResourcePath: collectHistoryGroupsByResourcePath(
         meshState.meshBase,
@@ -1609,6 +1652,76 @@ function findRawSourcePanelsForPage(
     }
   }
   return undefined;
+}
+
+function collectKnopArtifactLinks(
+  meshBase: string,
+  currentKnopInventoryTurtle: string,
+  designatorPath: string,
+): {
+  governedArtifacts: readonly KnopArtifactLinkModel[];
+  supportingArtifacts: readonly KnopArtifactLinkModel[];
+} {
+  const quads = parseInventoryQuads(
+    meshBase,
+    currentKnopInventoryTurtle,
+    `Could not parse the current Knop inventory while collecting Knop artifacts for ${designatorPath}.`,
+  );
+  const knopIri = new URL(toKnopPath(designatorPath), meshBase).href;
+
+  return {
+    governedArtifacts: collectKnopArtifactLinksForPredicates(
+      meshBase,
+      quads,
+      knopIri,
+      [[SFLO_HAS_PAYLOAD_ARTIFACT_IRI, "PayloadArtifact"]],
+    ),
+    supportingArtifacts: collectKnopArtifactLinksForPredicates(
+      meshBase,
+      quads,
+      knopIri,
+      [
+        [SFLO_HAS_KNOP_METADATA_IRI, "KnopMetadata"],
+        [SFLO_HAS_KNOP_INVENTORY_IRI, "KnopInventory"],
+        [SFLO_HAS_REFERENCE_CATALOG_IRI, "ReferenceCatalog"],
+        [SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI, "ResourcePageDefinition"],
+        [SFC_HAS_KNOP_ASSET_BUNDLE_IRI, "KnopAssetBundle"],
+      ],
+    ),
+  };
+}
+
+function collectKnopArtifactLinksForPredicates(
+  meshBase: string,
+  quads: readonly Quad[],
+  knopIri: string,
+  predicates: readonly (readonly [predicateIri: string, label: string])[],
+): readonly KnopArtifactLinkModel[] {
+  const links: KnopArtifactLinkModel[] = [];
+  const seen = new Set<string>();
+
+  for (const [predicateIri, label] of predicates) {
+    for (const quad of quads) {
+      if (
+        quad.subject.termType !== "NamedNode" ||
+        quad.subject.value !== knopIri ||
+        quad.predicate.value !== predicateIri ||
+        quad.object.termType !== "NamedNode"
+      ) {
+        continue;
+      }
+
+      const path = toMeshPath(meshBase, quad.object.value);
+      if (!path || seen.has(path)) {
+        continue;
+      }
+
+      links.push({ label, path });
+      seen.add(path);
+    }
+  }
+
+  return links;
 }
 
 function findHistoryGroupsForResource(

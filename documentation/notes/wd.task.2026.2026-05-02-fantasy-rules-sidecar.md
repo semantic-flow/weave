@@ -53,8 +53,15 @@ The first ladder should stay focused on the core sidecar path:
 - `05-ontology-integrated-woven`
 - `06-shacl-integrated`
 - `07-shacl-integrated-woven`
+- `08-ontology-and-shacl-terms-extracted`
+- `09-ontology-and-shacl-terms-extracted-woven`
+- `10-root-knop`
+- `11-gunaar-example-dataset`
+- `12-gunaar-example-dataset-woven`
+- `13-first-release`
+- `14-first-release-woven`
 
-Version-bumped ontology states can be added later, after the first docs-rooted ontology and SHACL path is working and covered by conformance.
+The first named release pair should come after the root/examples collection surface and the Gunaar dataset pair, so the release slice exercises multiple histories in a richer mesh rather than only the two primary RDF documents.
 
 ## Discussion
 
@@ -160,7 +167,10 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - Incompatible ontology changes should generally be treated as a new ontology artifact or compatibility line, not as a silent semantic rewrite of the same term set.
 - Historical located files should be copied into the mesh by default when versioning is enabled.
 - Use a numbered branch ladder for the hand-authored fixture, following the Alice Bio comparison pattern.
-- The first ladder should run through `07-shacl-integrated-woven`; version-bumped ontology and SHACL branches can be added as a later follow-up pair.
+- The first sidecar ladder should continue past `07-shacl-integrated-woven` through ontology and SHACL term extraction, root/examples collection Knops, Gunaar example dataset integration, and the first named ontology/SHACL release pair.
+- `10-root-knop` should add a friendly root Knop for the repository Resource Page and an `examples/` Knop to act as the collection surface for example datasets.
+- `11-gunaar-example-dataset` should integrate `examples/gunaar.ttl` as public artifact `examples/gunaar`; `12-gunaar-example-dataset-woven` should weave that dataset into history and pages.
+- `13-first-release` and `14-first-release-woven` should publish the first named release histories for ontology and SHACL after the Gunaar dataset pair.
 - Ontology and SHACL should normally be bumped together in the fixture, even if only one source file has semantic changes, because they are published as a compatibility pair for this small ontology project.
 - A future version-bumped example branch should include dataset compatibility metadata in `examples/gunaar.ttl` once the project settles how datasets announce the ontology version or compatibility line they target.
 - Use branch refs as test fixtures: source refs define operation input, destination refs define expected output, and Accord manifests define the transition assertions.
@@ -278,10 +288,16 @@ The first ladder should be branch-based unless implementation pressure proves a 
 
 ### Phase 3: Weave The First Release
 
+- [ ] Complete `10-root-knop`, including a root Knop and an `examples/` collection Knop, before the first named release pair.
+- [ ] Integrate the Gunaar example dataset at public path `examples/gunaar` in `11-gunaar-example-dataset`.
+- [ ] Ensure Gunaar dataset integration adds the constrained `sfcfg:hasLocalPathAccessRule` entry for `../examples/`; the grant should be created by the integration operation that introduces the adjacent example source artifact.
+- [ ] Use `workingLocalRelativePath` to associate the Gunaar dataset artifact with `../examples/gunaar.ttl`.
+- [ ] Weave the Gunaar dataset in `12-gunaar-example-dataset-woven`.
 - [ ] Weave ontology release `v0.0.1` under `ontology/releases/v0.0.1`.
 - [ ] Weave SHACL release `v0.0.1` under `shacl/releases/v0.0.1`.
 - [ ] Treat ontology and SHACL release bumps as a pair in the fixture, even when only one source file changes.
 - [ ] Materialize Turtle manifestations under each release state using the `ttl` manifestation segment.
+- [ ] Exercise multiple ArtifactHistories by creating or selecting the named `releases` history while preserving earlier ordinal publication histories.
 - [ ] Ensure `owl:versionIRI` points at the versioned located Turtle file.
 - [ ] Ensure working source bytes and latest historical located bytes match where the release is current.
 - [ ] Add Accord manifests for the first ontology and SHACL release/weave transitions as they settle.
@@ -301,6 +317,7 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - [x] Keep historical-state and located-file pages sufficient for navigating existing woven history without reading raw Turtle first.
 - [x] Add raw RDF panels to `RdfDocument` resource pages for locally available current and historical bytes.
 - [x] Move reusable page HTML/CSS rendering toward shared runtime seams rather than fixture-specific builders.
+- [ ] Add generic History-section truncation for repeated lists longer than 10 items: show the first 2 and last 7 with a vertical ellipsis gap marker.
 - [d] Add or update specs for resource-page presentation in the renderer task if that contract changes materially.
 - [d] Do not make renderer-specific prose, layout, or visual expectations part of Fantasy Rules Sidecar Accord manifests.
 

@@ -267,6 +267,22 @@ Deno.test("executeWeave matches the settled alice bio integrated-woven fixture",
     ),
   );
   await Deno.stat(join(workspaceRoot, "alice/bio/index.html"));
+  const knopPage = await Deno.readTextFile(
+    join(workspaceRoot, "alice/bio/_knop/index.html"),
+  );
+  assertStringIncludes(knopPage, "<h2>Governed Artifacts</h2>");
+  assertStringIncludes(knopPage, "PayloadArtifact");
+  assertStringIncludes(knopPage, 'href="/mesh-alice-bio/alice/bio"');
+  assertStringIncludes(knopPage, "<h2>Supporting Artifacts</h2>");
+  assertStringIncludes(
+    knopPage,
+    'href="/mesh-alice-bio/alice/bio/_knop/_meta"',
+  );
+  assertStringIncludes(
+    knopPage,
+    'href="/mesh-alice-bio/alice/bio/_knop/_inventory"',
+  );
+  assertEquals(knopPage.includes("<summary>History</summary>"), false);
   assertEquals(
     await Deno.readTextFile(
       join(
