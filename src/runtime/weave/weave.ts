@@ -1466,6 +1466,7 @@ async function collectGeneratedPageFiles(
         kind: "knop",
         path: pagePath,
         designatorPath: knopContext.designatorPath,
+        ownerTitle: resolveKnopOwnerTitle(meshState.meshBase, knopContext),
         governedArtifacts: knopContext.governedArtifacts,
         supportingArtifacts: knopContext.supportingArtifacts,
         childIdentifiers: toKnopChildIdentifiers(
@@ -1515,6 +1516,7 @@ async function collectGeneratedPageFiles(
             kind: "knop" as const,
             path: pagePath,
             designatorPath: context.designatorPath,
+            ownerTitle: resolveKnopOwnerTitle(meshState.meshBase, context),
             governedArtifacts: context.governedArtifacts,
             supportingArtifacts: context.supportingArtifacts,
             childIdentifiers: toKnopChildIdentifiers(
@@ -1603,6 +1605,17 @@ function toKnopChildIdentifiers(
   return Array.from(childByPath.values()).sort((left, right) =>
     left.label.localeCompare(right.label, "en", { sensitivity: "base" })
   );
+}
+
+function resolveKnopOwnerTitle(
+  meshBase: string,
+  context: GenerateDesignatorContext,
+): string | undefined {
+  const ownerPagePath = toDesignatorResourcePagePath(context.designatorPath);
+  const rawSourcePanels = context.rawSourcePanels.get(ownerPagePath);
+  return rawSourcePanels
+    ? extractResourceTitle(meshBase, context.designatorPath, rawSourcePanels)
+    : undefined;
 }
 
 function isChildIdentifierResourcePath(resourcePath: string): boolean {
@@ -2344,7 +2357,7 @@ function describeSemanticFlowResource(
     return "Semantic Mesh.";
   }
   if (resourcePath.endsWith("/_knop") || resourcePath === "_knop") {
-    return `Knop control surface for ${
+    return `Semantic Flow bundle of supporting data for ${
       formatOwnerResourcePath(dirname(resourcePath))
     }.`;
   }

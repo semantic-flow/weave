@@ -1,6 +1,7 @@
 import {
   assert,
   assertEquals,
+  assertFalse,
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
@@ -1500,6 +1501,11 @@ Deno.test("executeGenerate lists every sidecar payload history with current hist
   const ontologyPage = await Deno.readTextFile(
     join(workspaceRoot, "docs/ontology/index.html"),
   );
+  assertFalse(ontologyPage.includes("Associated Knop"));
+  assertStringIncludes(
+    ontologyPage,
+    '<a class="wf-knop-link" href="/mesh-sidecar-fantasy-rules/ontology/_knop" title="Knop" aria-label="Knop">🪢</a>',
+  );
   assertStringIncludes(ontologyPage, "Child Identifiers");
   assertStringIncludes(
     ontologyPage,
@@ -1511,6 +1517,10 @@ Deno.test("executeGenerate lists every sidecar payload history with current hist
   );
   const ontologyKnopPage = await Deno.readTextFile(
     join(workspaceRoot, "docs/ontology/_knop/index.html"),
+  );
+  assertStringIncludes(
+    ontologyKnopPage,
+    "Semantic Flow bundle of supporting data for Fantasy Rules Ontology.",
   );
   assertStringIncludes(ontologyKnopPage, "Child Identifiers");
   assertStringIncludes(

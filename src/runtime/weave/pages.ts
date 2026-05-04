@@ -256,20 +256,7 @@ function toDefaultResourcePageRenderInput(
       summary: rdfFacts.description,
       rdfClasses: rdfFacts.classes,
       metadataRows: [
-        { label: "Canonical IRI", value: canonical },
-        {
-          label: "Associated Knop",
-          href: toMeshResourceHref(
-            meshRootHref,
-            toKnopResourcePath(resourcePath),
-          ),
-          value: toDisplayDesignatorPath(
-            toKnopResourcePath(resourcePath),
-            meshLabel,
-          ),
-          tooltip:
-            "A Knop is the Semantic Flow control surface for this identifier: metadata, inventory, references, and page definitions live there.",
-        },
+        toCanonicalIriMetadataRow(canonical, meshRootHref, resourcePath),
         ...(page.workingLocalRelativePath
           ? [{
             label: "Working File",
@@ -390,8 +377,9 @@ function toDefaultResourcePageRenderInput(
         meshRootHref,
         resourcePath,
       ),
-      summary: `Knop control surface for ${
-        toDisplayDesignatorPath(page.designatorPath, meshLabel)
+      summary: `Semantic Flow bundle of supporting data for ${
+        page.ownerTitle ??
+          toDisplayDesignatorPath(page.designatorPath, meshLabel)
       }.`,
       rdfClasses: [
         rdfClass(
@@ -535,6 +523,8 @@ ${section.html}
     .wf-metadata tr:first-child th, .wf-metadata tr:first-child td { border-top: 0; }
     .wf-metadata th { width: 180px; color: #4f594f; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0; }
     .wf-metadata td { overflow-wrap: anywhere; }
+    .wf-knop-link { display: inline-block; margin-left: 0.34rem; font-size: 0.72em; line-height: 1; text-decoration: none; vertical-align: super; opacity: 0.72; }
+    .wf-knop-link:hover, .wf-knop-link:focus { opacity: 1; text-decoration: none; }
     .wf-child-identifiers { display: flex; flex-wrap: wrap; gap: 5px; }
     .wf-child-identifier { display: inline-block; padding: 0.08rem 0.36rem; border: 1px solid #cdd8cf; border-radius: 2px; background: #eef3ef; text-decoration: none; white-space: nowrap; }
     .wf-child-identifier:hover, .wf-child-identifier:focus { background: #e0ebe4; border-color: #b8c8bc; }
@@ -633,6 +623,24 @@ function renderMetadataRow(row: ResourcePageMetadataRow): string {
     ? `<a href="${escapeHtml(row.href)}">${escapeHtml(row.value)}</a>`
     : `<span>${escapeHtml(row.value)}</span>`;
   return `            <tr><th scope="row">${label}</th><td>${value}</td></tr>`;
+}
+
+function toCanonicalIriMetadataRow(
+  canonical: string,
+  meshRootHref: string,
+  resourcePath: string,
+): ResourcePageMetadataRow {
+  const knopHref = toMeshResourceHref(
+    meshRootHref,
+    toKnopResourcePath(resourcePath),
+  );
+  return {
+    label: "Canonical IRI",
+    value: canonical,
+    html: `<span>${escapeHtml(canonical)}</span><a class="wf-knop-link" href="${
+      escapeHtml(knopHref)
+    }" title="Knop" aria-label="Knop">🪢</a>`,
+  };
 }
 
 function toChildIdentifierMetadataRows(
@@ -849,12 +857,6 @@ ${spaces}</div>`;
 }
 
 function renderTooltipLabel(label: string, tooltip: string): string {
-  if (label === "Associated Knop") {
-    return `Associated <span class="wf-term" title="${
-      escapeHtml(tooltip)
-    }">Knop</span>`;
-  }
-
   return `<span class="wf-term" title="${escapeHtml(tooltip)}">${
     escapeHtml(label)
   }</span>`;

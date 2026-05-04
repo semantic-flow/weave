@@ -18,6 +18,11 @@ Deno.test("renderResourcePage renders identifier pages with working file links",
     html,
     '<link rel="canonical" href="https://semantic-flow.github.io/mesh-alice-bio/alice/bio">',
   );
+  assertStringIncludes(
+    html,
+    '<a class="wf-knop-link" href="/mesh-alice-bio/alice/bio/_knop" title="Knop" aria-label="Knop">🪢</a>',
+  );
+  assertFalse(html.includes("Associated Knop"));
   assertStringIncludes(html, 'href="/mesh-alice-bio/alice-bio.ttl"');
   assertStringIncludes(html, 'href="/mesh-alice-bio/alice/bio/_knop"');
 });
@@ -209,6 +214,7 @@ Deno.test("renderResourcePage renders Knop pages with local titles", async () =>
       kind: "knop",
       path: "ontology/_knop/index.html",
       designatorPath: "ontology",
+      ownerTitle: "Fantasy Rules Ontology",
       governedArtifacts: [],
       supportingArtifacts: [],
       childIdentifiers: [
@@ -224,6 +230,10 @@ Deno.test("renderResourcePage renders Knop pages with local titles", async () =>
     "<title>mesh-sidecar-fantasy-rules _knop</title>",
   );
   assertStringIncludes(html, "<h1>_knop</h1>");
+  assertStringIncludes(
+    html,
+    "Semantic Flow bundle of supporting data for Fantasy Rules Ontology.",
+  );
   assertStringIncludes(
     html,
     'href="/mesh-sidecar-fantasy-rules/ontology"',
@@ -559,6 +569,10 @@ Deno.test("renderResourcePage renders Knop artifact links without history cake",
   );
 
   assertStringIncludes(html, "<h1>_knop</h1>");
+  assertStringIncludes(
+    html,
+    "Semantic Flow bundle of supporting data for alice.",
+  );
   assertStringIncludes(html, "<h2>Governed Artifacts</h2>");
   assertStringIncludes(html, "PayloadArtifact");
   assertStringIncludes(html, 'href="/mesh-alice-bio/alice/bio"');

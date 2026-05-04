@@ -192,6 +192,7 @@ export interface KnopResourcePageModel {
   kind: "knop";
   path: string;
   designatorPath: string;
+  ownerTitle?: string;
   governedArtifacts: readonly KnopArtifactLinkModel[];
   supportingArtifacts: readonly KnopArtifactLinkModel[];
   childIdentifiers?: readonly ResourcePageChildIdentifierModel[];
