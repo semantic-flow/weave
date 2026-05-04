@@ -146,10 +146,28 @@ Deno.test("planMeshSupportResourcePages adds current support ResourcePages inclu
   const plan = planMeshSupportResourcePages({
     meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
     currentMeshInventoryTurtle: sidecarMeshCreatedInventoryTurtle,
+    currentMeshMetadataTurtle:
+      `@base <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+
+<_mesh> a sflo:SemanticMesh .
+`,
+    currentMeshConfigTurtle:
+      `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+
+<> a sfcfg:MeshConfig .
+`,
   });
 
   assertEquals(plan.versionedDesignatorPaths, []);
-  assertEquals(plan.createdFiles, []);
+  assertEquals(
+    plan.createdFiles.map((file) => file.path),
+    [
+      "_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl",
+      "_mesh/_config/_history001/_s0001/config-ttl/config.ttl",
+      "_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+    ],
+  );
   assertEquals(
     plan.updatedFiles.map((file) => file.path),
     ["_mesh/_inventory/inventory.ttl"],
@@ -161,11 +179,19 @@ Deno.test("planMeshSupportResourcePages adds current support ResourcePages inclu
   );
   assertStringIncludes(
     inventory,
-    "sflo:hasWorkingLocatedFile <_mesh/_config/config.ttl> ;\n  sflo:hasResourcePage <_mesh/_config/index.html> .",
+    "sflo:hasWorkingLocatedFile <_mesh/_config/config.ttl> ;\n  sflo:hasResourcePage <_mesh/_config/index.html> ;\n  sflo:hasArtifactHistory <_mesh/_config/_history001> ;",
   );
   assertStringIncludes(
     inventory,
     "<_mesh/_config/index.html> a sflo:ResourcePage, sflo:LocatedFile .",
+  );
+  assertStringIncludes(
+    inventory,
+    "sflo:currentArtifactHistory <_mesh/_inventory/_history001> ;",
+  );
+  assertStringIncludes(
+    inventory,
+    "<_mesh/_config/_history001/_s0001/config-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;",
   );
 });
 

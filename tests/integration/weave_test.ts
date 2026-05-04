@@ -42,11 +42,23 @@ Deno.test("executeWeave materializes current support ResourcePages for a docs-ro
   assertEquals(
     [...result.createdPaths].sort(),
     [
+      "docs/_mesh/_config/_history001/_s0001/config-ttl/config.ttl",
       "docs/_mesh/_config/index.html",
+      "docs/_mesh/_config/_history001/index.html",
+      "docs/_mesh/_config/_history001/_s0001/index.html",
+      "docs/_mesh/_config/_history001/_s0001/config-ttl/index.html",
+      "docs/_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
       "docs/_mesh/_inventory/index.html",
+      "docs/_mesh/_inventory/_history001/index.html",
+      "docs/_mesh/_inventory/_history001/_s0001/index.html",
+      "docs/_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html",
+      "docs/_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl",
       "docs/_mesh/_meta/index.html",
+      "docs/_mesh/_meta/_history001/index.html",
+      "docs/_mesh/_meta/_history001/_s0001/index.html",
+      "docs/_mesh/_meta/_history001/_s0001/meta-ttl/index.html",
       "docs/_mesh/index.html",
-    ],
+    ].sort(),
   );
   assertEquals(result.updatedPaths, ["docs/_mesh/_inventory/inventory.ttl"]);
   const inventory = await Deno.readTextFile(
@@ -58,7 +70,7 @@ Deno.test("executeWeave materializes current support ResourcePages for a docs-ro
   );
   assertStringIncludes(
     inventory,
-    "sflo:hasWorkingLocatedFile <_mesh/_config/config.ttl> ;\n  sflo:hasResourcePage <_mesh/_config/index.html> .",
+    "sflo:hasWorkingLocatedFile <_mesh/_config/config.ttl> ;\n  sflo:hasResourcePage <_mesh/_config/index.html> ;\n  sflo:hasArtifactHistory <_mesh/_config/_history001> ;",
   );
   await Deno.stat(join(workspaceRoot, "docs/_mesh/_config/index.html"));
 });

@@ -127,7 +127,9 @@ export class WeaveRuntimeError extends Error {
 
 interface MeshState {
   meshBase: string;
+  currentMeshMetadataTurtle: string;
   currentMeshInventoryTurtle: string;
+  currentMeshConfigTurtle?: string;
 }
 
 interface PreparedVersionExecution {
@@ -515,6 +517,8 @@ async function prepareVersionExecution(
         plan: planMeshSupportResourcePages({
           meshBase: meshState.meshBase,
           currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
+          currentMeshMetadataTurtle: meshState.currentMeshMetadataTurtle,
+          currentMeshConfigTurtle: meshState.currentMeshConfigTurtle,
         }),
       };
     }
@@ -727,14 +731,18 @@ async function loadMeshState(
     workspaceRoot,
     "_mesh/_inventory/inventory.ttl",
   );
+  const meshConfigPath = join(workspaceRoot, "_mesh/_config/config.ttl");
   let meshMetadataTurtle: string;
   let currentMeshInventoryTurtle: string;
+  let currentMeshConfigTurtle: string | undefined;
 
   try {
-    [meshMetadataTurtle, currentMeshInventoryTurtle] = await Promise.all([
-      readTextFileWithOverlay(meshMetadataPath, overlay),
-      readTextFileWithOverlay(meshInventoryPath, overlay),
-    ]);
+    [meshMetadataTurtle, currentMeshInventoryTurtle, currentMeshConfigTurtle] =
+      await Promise.all([
+        readTextFileWithOverlay(meshMetadataPath, overlay),
+        readTextFileWithOverlay(meshInventoryPath, overlay),
+        readOptionalTextFileWithOverlay(meshConfigPath, overlay),
+      ]);
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new WeaveRuntimeError(
@@ -761,7 +769,11 @@ async function loadMeshState(
 
   return {
     meshBase,
+    currentMeshMetadataTurtle: meshMetadataTurtle,
     currentMeshInventoryTurtle,
+    ...(currentMeshConfigTurtle !== undefined
+      ? { currentMeshConfigTurtle }
+      : {}),
   };
 }
 
@@ -1229,6 +1241,20 @@ async function readTextFileWithOverlay(
   }
 
   return await Deno.readTextFile(path);
+}
+
+async function readOptionalTextFileWithOverlay(
+  path: string,
+  overlay?: ReadonlyMap<string, string>,
+): Promise<string | undefined> {
+  try {
+    return await readTextFileWithOverlay(path, overlay);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return undefined;
+    }
+    throw error;
+  }
 }
 
 function validateRdfFiles(files: readonly PlannedFile[]): void {

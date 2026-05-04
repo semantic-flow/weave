@@ -90,6 +90,8 @@ export interface VersionRequest {
 export interface PlanMeshSupportResourcePagesInput {
   meshBase: string;
   currentMeshInventoryTurtle: string;
+  currentMeshMetadataTurtle: string;
+  currentMeshConfigTurtle?: string;
 }
 
 export interface PayloadWorkingArtifact {
@@ -398,9 +400,32 @@ export function planMeshSupportResourcePages(
         path: "_mesh/_config",
         pagePath: "_mesh/_config/index.html",
         description: "Resource page for the current MeshConfig artifact.",
+        historyPath: "_mesh/_config/_history001",
+        statePath: "_mesh/_config/_history001/_s0001",
+        manifestationPath: "_mesh/_config/_history001/_s0001/config-ttl",
+        snapshotPath: "_mesh/_config/_history001/_s0001/config-ttl/config.ttl",
+        currentTurtle: input.currentMeshConfigTurtle,
       }]
       : []),
   ];
+  const hasCurrentMeshInventoryHistory = hasNamedNodeFact(
+    quads,
+    meshBase,
+    "_mesh/_inventory",
+    SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
+    "_mesh/_inventory/_history001",
+  );
+
+  if (!hasCurrentMeshInventoryHistory) {
+    return planInitialMeshSupportResourcePageWeave({
+      meshBase,
+      currentMeshInventoryTurtle,
+      currentMeshMetadataTurtle: input.currentMeshMetadataTurtle,
+      currentMeshConfigTurtle: input.currentMeshConfigTurtle,
+      hasConfig: hasSubject(quads, meshBase, "_mesh/_config"),
+    });
+  }
+
   const existingPagePaths = new Set(
     supportResources
       .filter((resource) =>
@@ -456,6 +481,179 @@ export function planMeshSupportResourcePages(
     updatedFiles: [{
       path: "_mesh/_inventory/inventory.ttl",
       contents: `${blocks.join("\n\n")}\n`,
+    }],
+  };
+}
+
+function planInitialMeshSupportResourcePageWeave(input: {
+  meshBase: string;
+  currentMeshInventoryTurtle: string;
+  currentMeshMetadataTurtle: string;
+  currentMeshConfigTurtle?: string;
+  hasConfig: boolean;
+}): VersionPlan {
+  const supportResources = [
+    {
+      path: "_mesh/_meta",
+      pagePath: "_mesh/_meta/index.html",
+      historyPath: "_mesh/_meta/_history001",
+      statePath: "_mesh/_meta/_history001/_s0001",
+      manifestationPath: "_mesh/_meta/_history001/_s0001/meta-ttl",
+      snapshotPath: "_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl",
+      currentTurtle: input.currentMeshMetadataTurtle,
+    },
+    {
+      path: "_mesh/_inventory",
+      pagePath: "_mesh/_inventory/index.html",
+      historyPath: "_mesh/_inventory/_history001",
+      statePath: "_mesh/_inventory/_history001/_s0001",
+      manifestationPath: "_mesh/_inventory/_history001/_s0001/inventory-ttl",
+      snapshotPath:
+        "_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      currentTurtle: "",
+    },
+    ...(input.hasConfig
+      ? [{
+        path: "_mesh/_config",
+        pagePath: "_mesh/_config/index.html",
+        historyPath: "_mesh/_config/_history001",
+        statePath: "_mesh/_config/_history001/_s0001",
+        manifestationPath: "_mesh/_config/_history001/_s0001/config-ttl",
+        snapshotPath: "_mesh/_config/_history001/_s0001/config-ttl/config.ttl",
+        currentTurtle: input.currentMeshConfigTurtle,
+      }]
+      : []),
+  ];
+  const blocks = normalizeMeshInventoryHeader(
+    splitTurtleBlocks(input.currentMeshInventoryTurtle),
+  );
+
+  for (const support of supportResources) {
+    if (findSubjectBlockIndex(blocks, support.path) === -1) {
+      throw new WeaveInputError(
+        `Current mesh inventory did not contain support resource <${support.path}>.`,
+      );
+    }
+    if (support.currentTurtle === undefined) {
+      throw new WeaveInputError(
+        `Current mesh support file was missing for <${support.path}>.`,
+      );
+    }
+  }
+
+  let nextBlocks = blocks;
+  nextBlocks = replaceSubjectBlock(
+    nextBlocks,
+    "_mesh",
+    appendResourcePageFactToBlock(
+      nextBlocks[findSubjectBlockIndex(nextBlocks, "_mesh")]!,
+      "_mesh/index.html",
+    ),
+  );
+  nextBlocks = upsertSubjectBlockAfter(
+    nextBlocks,
+    "_mesh",
+    "_mesh/index.html",
+    renderResourcePageLocatedFileBlock("_mesh/index.html"),
+  );
+
+  for (const support of supportResources) {
+    nextBlocks = replaceSubjectBlock(
+      nextBlocks,
+      support.path,
+      appendInitialSupportHistoryFactsToBlock(
+        appendResourcePageFactToBlock(
+          nextBlocks[findSubjectBlockIndex(nextBlocks, support.path)]!,
+          support.pagePath,
+        ),
+        support.historyPath,
+      ),
+    );
+    nextBlocks = upsertSubjectBlockAfter(
+      nextBlocks,
+      support.path,
+      support.historyPath,
+      renderInitialSupportHistoryBlock(support.historyPath, support.statePath),
+    );
+    nextBlocks = upsertSubjectBlockAfter(
+      nextBlocks,
+      support.historyPath,
+      support.statePath,
+      renderInitialSupportStateBlock(
+        support.statePath,
+        support.manifestationPath,
+        support.snapshotPath,
+      ),
+    );
+    nextBlocks = upsertSubjectBlockAfter(
+      nextBlocks,
+      support.statePath,
+      support.manifestationPath,
+      renderInitialSupportManifestationBlock(
+        support.manifestationPath,
+        support.snapshotPath,
+      ),
+    );
+    nextBlocks = upsertSubjectBlockAfter(
+      nextBlocks,
+      `${support.path}/${
+        support.path === "_mesh/_inventory"
+          ? "inventory.ttl"
+          : support.path === "_mesh/_meta"
+          ? "meta.ttl"
+          : "config.ttl"
+      }`,
+      support.snapshotPath,
+      renderLocatedFileBlock(support.snapshotPath),
+    );
+    nextBlocks = upsertSubjectBlockAfter(
+      nextBlocks,
+      support.path,
+      support.pagePath,
+      renderResourcePageLocatedFileBlock(support.pagePath),
+    );
+    nextBlocks = upsertSubjectBlockAfter(
+      nextBlocks,
+      support.pagePath,
+      `${support.historyPath}/index.html`,
+      renderResourcePageLocatedFileBlock(`${support.historyPath}/index.html`),
+    );
+    nextBlocks = upsertSubjectBlockAfter(
+      nextBlocks,
+      `${support.historyPath}/index.html`,
+      `${support.statePath}/index.html`,
+      renderResourcePageLocatedFileBlock(`${support.statePath}/index.html`),
+    );
+    nextBlocks = upsertSubjectBlockAfter(
+      nextBlocks,
+      `${support.statePath}/index.html`,
+      `${support.manifestationPath}/index.html`,
+      renderResourcePageLocatedFileBlock(
+        `${support.manifestationPath}/index.html`,
+      ),
+    );
+  }
+
+  const updatedInventoryTurtle = `${nextBlocks.join("\n\n")}\n`;
+
+  return {
+    meshBase: input.meshBase,
+    versionedDesignatorPaths: [],
+    createdFiles: [
+      ...supportResources
+        .filter((support) => support.path !== "_mesh/_inventory")
+        .map((support) => ({
+          path: support.snapshotPath,
+          contents: support.currentTurtle!,
+        })),
+      {
+        path: "_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+        contents: updatedInventoryTurtle,
+      },
+    ],
+    updatedFiles: [{
+      path: "_mesh/_inventory/inventory.ttl",
+      contents: updatedInventoryTurtle,
     }],
   };
 }
@@ -4289,6 +4487,56 @@ function appendResourcePageFactToBlock(
     );
   }
   return `${block.slice(0, -2)} ;\n  ${fact} .`;
+}
+
+function appendInitialSupportHistoryFactsToBlock(
+  block: string,
+  historyPath: string,
+): string {
+  if (block.includes("sflo:currentArtifactHistory")) {
+    return block;
+  }
+  if (!block.endsWith(" .")) {
+    throw new WeaveInputError(
+      `Current mesh inventory subject block cannot receive history facts for <${historyPath}>.`,
+    );
+  }
+  return `${
+    block.slice(0, -2)
+  } ;\n  sflo:hasArtifactHistory <${historyPath}> ;\n  sflo:currentArtifactHistory <${historyPath}> ;\n  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger .`;
+}
+
+function renderInitialSupportHistoryBlock(
+  historyPath: string,
+  statePath: string,
+): string {
+  return `<${historyPath}> a sflo:ArtifactHistory ;
+  sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
+  sflo:hasHistoricalState <${statePath}> ;
+  sflo:latestHistoricalState <${statePath}> ;
+  sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger ;
+  sflo:hasResourcePage <${historyPath}/index.html> .`;
+}
+
+function renderInitialSupportStateBlock(
+  statePath: string,
+  manifestationPath: string,
+  snapshotPath: string,
+): string {
+  return `<${statePath}> a sflo:HistoricalState ;
+  sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
+  sflo:hasManifestation <${manifestationPath}> ;
+  sflo:locatedFileForState <${snapshotPath}> ;
+  sflo:hasResourcePage <${statePath}/index.html> .`;
+}
+
+function renderInitialSupportManifestationBlock(
+  manifestationPath: string,
+  snapshotPath: string,
+): string {
+  return `<${manifestationPath}> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <${snapshotPath}> ;
+  sflo:hasResourcePage <${manifestationPath}/index.html> .`;
 }
 
 function resolveMeshRootKnopPaths(
