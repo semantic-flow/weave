@@ -524,8 +524,8 @@ ${section.html}
     .wf-history-class { color: #687167; font-style: italic; font-size: 0.85rem; }
     .wf-history-file-iri { font-size: 0.82rem; overflow-wrap: anywhere; }
     .wf-source-meta { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 14px 12px; color: #596259; font-size: 0.88rem; }
-    pre { margin: 0; max-height: 64vh; overflow: auto; border-top: 1px solid #d7dcd4; background: #151a16; color: #e7ece4; padding: 16px; font-size: 0.86rem; line-height: 1.55; tab-size: 2; }
-    pre code { display: block; background: transparent; color: inherit; border-radius: 0; padding: 0; white-space: pre; }
+    pre { margin: 0; max-height: 64vh; overflow: auto; border-top: 1px solid #d7dcd4; background: #151a16; color: #e7ece4; padding: 16px; font-size: 0.86rem; line-height: 1.55; tab-size: 2; white-space: pre-wrap; overflow-wrap: anywhere; }
+    pre code { display: block; background: transparent; color: inherit; border-radius: 0; padding: 0; white-space: inherit; overflow-wrap: inherit; }
     .wf-generated { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 8px 0 32px; text-align: center; color: rgba(49, 57, 49, 0.42); font-size: 0.78rem; }
     .wf-generated a { color: inherit; font-weight: 700; }
   </style>

@@ -198,7 +198,15 @@ Deno.test("renderResourcePage renders escaped raw RDF panels and raw file links"
   );
   assertStringIncludes(
     html,
-    "pre code { display: block; background: transparent; color: inherit;",
+    "pre { margin: 0; max-height: 64vh; overflow: auto;",
+  );
+  assertStringIncludes(
+    html,
+    "white-space: pre-wrap; overflow-wrap: anywhere;",
+  );
+  assertStringIncludes(
+    html,
+    "pre code { display: block; background: transparent; color: inherit; border-radius: 0; padding: 0; white-space: inherit; overflow-wrap: inherit;",
   );
   assertStringIncludes(
     html,
