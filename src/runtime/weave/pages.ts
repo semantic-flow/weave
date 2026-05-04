@@ -15,6 +15,7 @@ import {
 
 interface ResourcePageRenderInput {
   meshLabel: string;
+  meshBase: string;
   meshRootHref: string;
   pagePath: string;
   resourcePath: string;
@@ -23,6 +24,7 @@ interface ResourcePageRenderInput {
   generatedAtIso: string;
   generatedAtDisplay: string;
   title: string;
+  breadcrumbs: readonly ResourcePageBreadcrumb[];
   summary?: string;
   rdfClasses: readonly string[];
   metadataRows: readonly ResourcePageMetadataRow[];
@@ -36,6 +38,11 @@ interface ResourcePageMetadataRow {
   href?: string;
   value: string;
   tooltip?: string;
+}
+
+interface ResourcePageBreadcrumb {
+  label: string;
+  href: string;
 }
 
 interface ResourcePageSection {
@@ -111,6 +118,7 @@ export function renderResourcePage(
       toDefaultResourcePageRenderInput(
         page,
         meshLabel,
+        meshBase,
         meshRootHref,
         resourcePath,
         displayResourcePath,
@@ -179,6 +187,7 @@ ${
 function toDefaultResourcePageRenderInput(
   page: Exclude<ResourcePageModel, { kind: "customIdentifier" }>,
   meshLabel: string,
+  meshBase: string,
   meshRootHref: string,
   resourcePath: string,
   displayResourcePath: string,
@@ -195,6 +204,7 @@ function toDefaultResourcePageRenderInput(
 
     return {
       meshLabel,
+      meshBase,
       meshRootHref,
       pagePath: page.path,
       resourcePath,
@@ -204,6 +214,7 @@ function toDefaultResourcePageRenderInput(
       generatedAtDisplay,
       title: rdfFacts.title ??
         formatDesignatorPathForDisplay(page.designatorPath),
+      breadcrumbs: toResourcePageBreadcrumbs(meshLabel, meshRootHref, ""),
       summary: rdfFacts.description,
       rdfClasses: rdfFacts.classes,
       metadataRows: [
@@ -259,6 +270,7 @@ function toDefaultResourcePageRenderInput(
 
     return {
       meshLabel,
+      meshBase,
       meshRootHref,
       pagePath: page.path,
       resourcePath,
@@ -267,6 +279,11 @@ function toDefaultResourcePageRenderInput(
       generatedAtIso,
       generatedAtDisplay,
       title: rdfFacts.title ?? page.catalogPath,
+      breadcrumbs: toResourcePageBreadcrumbs(
+        meshLabel,
+        meshRootHref,
+        toParentResourcePath(resourcePath),
+      ),
       summary: `ReferenceCatalog artifact for ${
         formatDesignatorPathForDisplay(page.ownerDesignatorPath)
       }.`,
@@ -285,6 +302,7 @@ function toDefaultResourcePageRenderInput(
 
   return {
     meshLabel,
+    meshBase,
     meshRootHref,
     pagePath: page.path,
     resourcePath,
@@ -294,6 +312,11 @@ function toDefaultResourcePageRenderInput(
     generatedAtDisplay,
     title: rdfFacts.title ??
       toDefaultResourcePageTitle(resourcePath, displayResourcePath),
+    breadcrumbs: toResourcePageBreadcrumbs(
+      meshLabel,
+      meshRootHref,
+      toParentResourcePath(resourcePath),
+    ),
     summary: page.description,
     rdfClasses: rdfFacts.classes.length > 0
       ? rdfFacts.classes
@@ -332,6 +355,7 @@ ${input.metadataRows.map((row) => renderMetadataRow(row)).join("\n")}
 ${section.html}
     </section>`
   ).join("\n");
+  const breadcrumbs = renderBreadcrumbs(input);
 
   return `<!doctype html>
 <html lang="en">
@@ -350,6 +374,8 @@ ${section.html}
     main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 42px; }
     .wf-shell { display: grid; gap: 18px; }
     .wf-eyebrow { margin: 0 0 10px; color: #5e675d; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0; font-weight: 700; }
+    .wf-breadcrumbs { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+    .wf-breadcrumbs a { color: inherit; text-decoration-color: rgba(94, 103, 93, 0.45); }
     .wf-hero { border-top: 5px solid #435247; padding: 26px 0 12px; }
     h1 { margin: 0; overflow-wrap: anywhere; font-size: clamp(1.7rem, 4vw, 2.7rem); line-height: 1.04; letter-spacing: 0; }
     .wf-classes { margin: 8px 0 0; color: #687167; font-style: italic; }
@@ -381,7 +407,9 @@ ${section.html}
     .wf-history-node--manifestation { background: #e7eee9; }
     .wf-history-node--file { background: #dfe8e2; }
     .wf-history-node-header { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+    .wf-history-node > summary.wf-history-node-header { display: list-item; padding: 0; }
     .wf-history-class { color: #687167; font-style: italic; font-size: 0.85rem; }
+    .wf-history-file-iri { font-size: 0.82rem; overflow-wrap: anywhere; }
     .wf-source-meta { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 14px 12px; color: #596259; font-size: 0.88rem; }
     pre { margin: 0; max-height: 64vh; overflow: auto; border-top: 1px solid #d7dcd4; background: #151a16; color: #e7ece4; padding: 16px; font-size: 0.86rem; line-height: 1.55; tab-size: 2; }
     pre code { display: block; background: transparent; color: inherit; border-radius: 0; padding: 0; white-space: pre; }
@@ -398,7 +426,7 @@ ${section.html}
   <main>
     <article class="wf-shell">
       <header class="wf-hero">
-        <p class="wf-eyebrow">${escapeHtml(input.meshLabel)}</p>
+${breadcrumbs}
         <h1>${escapeHtml(input.title)}</h1>
 ${classes}${summary}${metadata}
       </header>
@@ -415,6 +443,25 @@ ${historySection}${sections ? `${sections}\n` : ""}${rawSections}
 </body>
 </html>
 `;
+}
+
+function renderBreadcrumbs(input: ResourcePageRenderInput): string {
+  if (input.breadcrumbs.length === 0) {
+    return `        <p class="wf-eyebrow">${escapeHtml(input.meshLabel)}</p>`;
+  }
+
+  return `        <nav class="wf-eyebrow wf-breadcrumbs" aria-label="Breadcrumb">
+${
+    input.breadcrumbs.map((breadcrumb, index) => {
+      const separator = index === 0
+        ? ""
+        : ` <span aria-hidden="true">/</span> `;
+      return `${separator}<a href="${escapeHtml(breadcrumb.href)}">${
+        escapeHtml(breadcrumb.label)
+      }</a>`;
+    }).join("")
+  }
+        </nav>`;
 }
 
 function renderMetadataRow(row: ResourcePageMetadataRow): string {
@@ -479,14 +526,14 @@ function renderHistoryGroups(input: ResourcePageRenderInput): string {
       : "          <p>No historical states are listed yet.</p>";
 
     return `        <div class="wf-history-tree">
-          <div class="wf-history-node wf-history-node--history">
-            <div class="wf-history-node-header"><a href="${
+          <details class="wf-history-node wf-history-node--history" open>
+            <summary class="wf-history-node-header"><a href="${
       escapeHtml(historyHref)
     }">${
       escapeHtml(group.path)
-    }</a> <span class="wf-history-class">sflo:ArtifactHistory</span></div>
+    }</a> <span class="wf-history-class">sflo:ArtifactHistory</span></summary>
 ${states}
-          </div>
+          </details>
         </div>`;
   }).join("\n");
 }
@@ -537,14 +584,14 @@ function renderHistoryState(
     ? renderHistoryLocatedFile(input, state.locatedFilePath, 14)
     : "";
 
-  return `            <div class="wf-history-node wf-history-node--state">
-              <div class="wf-history-node-header"><a href="${
+  return `            <details class="wf-history-node wf-history-node--state" open>
+              <summary class="wf-history-node-header"><a href="${
     escapeHtml(stateHref)
   }">${
     escapeHtml(toLastPathSegment(state.path))
-  }</a> <span class="wf-history-class">sflo:HistoricalState</span></div>
+  }</a> <span class="wf-history-class">sflo:HistoricalState</span></summary>
 ${child}
-            </div>`;
+            </details>`;
 }
 
 function renderHistoryManifestation(
@@ -560,14 +607,14 @@ function renderHistoryManifestation(
     ? renderHistoryLocatedFile(input, state.locatedFilePath, 16)
     : "";
 
-  return `              <div class="wf-history-node wf-history-node--manifestation">
-                <div class="wf-history-node-header"><a href="${
+  return `              <details class="wf-history-node wf-history-node--manifestation" open>
+                <summary class="wf-history-node-header"><a href="${
     escapeHtml(manifestationHref)
   }">${
     escapeHtml(toLastPathSegment(manifestationPath))
-  }</a> <span class="wf-history-class">sflo:ArtifactManifestation</span></div>
+  }</a> <span class="wf-history-class">sflo:ArtifactManifestation</span></summary>
 ${locatedFile}
-              </div>`;
+              </details>`;
 }
 
 function renderHistoryLocatedFile(
@@ -579,12 +626,13 @@ function renderHistoryLocatedFile(
     input.meshRootHref,
     locatedFilePath,
   );
+  const locatedFileIri = new URL(locatedFilePath, input.meshBase).href;
   const spaces = " ".repeat(indent);
   return `${spaces}<div class="wf-history-node wf-history-node--file">
 ${spaces}  <div class="wf-history-node-header"><a href="${
     escapeHtml(locatedFileHref)
-  }">${
-    escapeHtml(toLastPathSegment(locatedFilePath))
+  }" class="wf-history-file-iri">${
+    escapeHtml(locatedFileIri)
   }</a> <span class="wf-history-class">sflo:LocatedFile</span></div>
 ${spaces}</div>`;
 }
@@ -606,14 +654,44 @@ function toLastPathSegment(path: string): string {
   return segments[segments.length - 1] ?? "/";
 }
 
+function toParentResourcePath(path: string): string {
+  const segments = path.split("/").filter((segment) => segment.length > 0);
+  return segments.slice(0, -1).join("/");
+}
+
 function toDefaultResourcePageTitle(
   resourcePath: string,
   displayResourcePath: string,
 ): string {
-  if (isArtifactHistoryResourcePath(resourcePath)) {
-    return "Historical States";
+  return isArtifactHistoryResourcePath(resourcePath) ||
+      isHistoricalStateResourcePath(resourcePath) ||
+      isArtifactManifestationResourcePath(resourcePath)
+    ? toLastPathSegment(resourcePath)
+    : displayResourcePath;
+}
+
+function toResourcePageBreadcrumbs(
+  meshLabel: string,
+  meshRootHref: string,
+  parentPath: string,
+): readonly ResourcePageBreadcrumb[] {
+  const breadcrumbs: ResourcePageBreadcrumb[] = [{
+    label: meshLabel,
+    href: meshRootHref,
+  }];
+  const segments = parentPath === "." || parentPath.length === 0
+    ? []
+    : parentPath.split("/").filter((segment) => segment.length > 0);
+
+  for (let index = 0; index < segments.length; index += 1) {
+    const path = segments.slice(0, index + 1).join("/");
+    breadcrumbs.push({
+      label: segments[index],
+      href: toMeshResourceHref(meshRootHref, path),
+    });
   }
-  return displayResourcePath;
+
+  return breadcrumbs;
 }
 
 function formatGeneratedAtDisplay(generatedAt: Date): string {

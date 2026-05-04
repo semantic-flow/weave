@@ -1757,7 +1757,7 @@ function describeSemanticFlowResource(resourcePath: string): string {
     }.`;
   }
   if (resourcePath === "_mesh") {
-    return "Semantic Flow mesh resource.";
+    return "Semantic Mesh.";
   }
   if (resourcePath.endsWith("/_knop") || resourcePath === "_knop") {
     return `Knop control surface for ${

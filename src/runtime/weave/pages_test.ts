@@ -286,7 +286,11 @@ Deno.test("renderResourcePage scopes history component sections to the current l
     },
   );
 
-  assertStringIncludes(historyHtml, "<h1>Historical States</h1>");
+  assertStringIncludes(historyHtml, "<h1>_history001</h1>");
+  assertStringIncludes(
+    historyHtml,
+    '<a href="/mesh-sidecar-fantasy-rules/ontology">ontology</a>',
+  );
   assertStringIncludes(historyHtml, "<summary>Historical States</summary>");
   assertStringIncludes(historyHtml, "sflo:HistoricalState");
   assertEquals(
