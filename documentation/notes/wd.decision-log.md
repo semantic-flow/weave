@@ -242,6 +242,15 @@ created: 1773630801215
   - Weave does not yet have a semver increment policy or interactive release prompt, so `nextStateOrdinal` remains an ordinal fallback counter, not a semver successor.
   - A broad whole-mesh weave should be allowed to provide common payload version segment defaults, while still failing before writes if any included named-state payload lacks an explicit successor segment.
 
+### 2026-05-04: Extraction Sources Default To Current Resolution
+
+- Decision: Make `Current` the default `sfc:ExtractionSource` resolution for newly extracted terms, keep pinned resolution explicit through `--source-state`, replace `--source-designator-path` with `--source`, replace `--yes` with `--accept-preview`, and add `weave set extraction-source` as the maintenance command for changing an existing extracted Knop's source-resolution contract.
+- References: [[wd.task.2026.2026-05-04-extraction-improvements]], [[wd.task.2026.2026-05-02-fantasy-rules-sidecar]], [[wu.cli-reference]]
+- Why:
+  - Ontology and SHACL term pages should normally refresh from the source artifact's current state after a release advances; pinning is still available when reproducibility against a historical source state is the intended contract.
+  - `extract --all-terms` remains a creation operation that skips existing Knops, so migrating already-created term surfaces needs an explicit update command.
+  - The pre-v1 CLI should use flags that name the accepted action and source-resolution mode directly instead of carrying vague or legacy aliases.
+
 ### 2026-04-07: First Target-Aware weave CLI Uses Repeatable --target Specs
 
 - Decision: Use repeatable `weave --target <key=value,...>` flags as the first target-aware CLI surface, support only shared targeting keys `designatorPath` and optional `recursive` there, and forward the resulting target objects through the composed local `weave` flow rather than inventing a separate CLI-only targeting model.

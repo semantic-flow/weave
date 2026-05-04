@@ -213,29 +213,51 @@ Creates a minimal Knop-managed surface for a local resource referenced inside a 
 Current syntax:
 
 ```sh
-weave extract <targetDesignatorPath> [--mesh-root <meshRoot>] [--source-designator-path <sourceDesignatorPath>]
-weave extract --all-terms --source-designator-path <sourceDesignatorPath> [--mesh-root <meshRoot>] [--yes]
+weave extract <targetDesignatorPath> [--mesh-root <meshRoot>] [--source <sourceDesignatorPath> | --source-state <historicalStatePath>]
+weave extract --all-terms (--source <sourceDesignatorPath> | --source-state <historicalStatePath>) [--mesh-root <meshRoot>] [--accept-preview]
 ```
 
-`<targetDesignatorPath>` is the resource or term surface to create. `--source-designator-path <sourceDesignatorPath>` selects the already woven payload artifact that describes that target when source resolution would otherwise be ambiguous; it is not the term being extracted.
+`<targetDesignatorPath>` is the resource or term surface to create. `--source <sourceDesignatorPath>` selects the already woven payload artifact that describes that target and records a current-tracking `sfc:ExtractionSource`. `--source-state <historicalStatePath>` pins the extraction source to a historical source state and resolves the owning source artifact from mesh inventory.
 
-`--all-terms` extracts every new named mesh-scoped term discovered in the selected source RDF artifact. It previews the identifiers that will be created and asks for confirmation before writing; `--yes` confirms the preview for noninteractive runs. Existing Knops, blank nodes, support artifact paths, and generated page/file artifact paths are skipped.
+`--source` and `--source-state` are mutually exclusive. If neither is supplied for single-target extraction, Weave resolves the unique current woven payload artifact that mentions the target. `--all-terms` requires an explicit `--source` or `--source-state`, previews the identifiers that will be created, and asks for confirmation before writing; `--accept-preview` accepts that preview for noninteractive runs. Existing Knops, blank nodes, support artifact paths, and generated page/file artifact paths are skipped.
 
 ```sh
 weave extract bob
 weave extract /
-weave extract ontology/CharacterShape --mesh-root docs --source-designator-path shacl
-weave extract --all-terms --mesh-root docs --source-designator-path shacl --yes
+weave extract ontology/CharacterShape --mesh-root docs --source shacl
+weave extract ontology/AbilityScore --mesh-root docs --source-state ontology/releases/v0.0.1
+weave extract --all-terms --mesh-root docs --source shacl --accept-preview
 ```
 
 For example, the current Fantasy Rules sidecar term slice is represented as explicit single-target extractions:
 
 ```sh
-weave extract ontology/AbilityScore --mesh-root docs --source-designator-path ontology
-weave extract ontology/Alignment --mesh-root docs --source-designator-path ontology
-weave extract ontology/Character --mesh-root docs --source-designator-path ontology
-weave extract ontology/PlayerCharacter --mesh-root docs --source-designator-path ontology
-weave extract ontology/CharacterShape --mesh-root docs --source-designator-path shacl
+weave extract ontology/AbilityScore --mesh-root docs --source ontology
+weave extract ontology/Alignment --mesh-root docs --source ontology
+weave extract ontology/Character --mesh-root docs --source ontology
+weave extract ontology/PlayerCharacter --mesh-root docs --source ontology
+weave extract ontology/CharacterShape --mesh-root docs --source shacl
+```
+
+### `weave set extraction-source`
+
+Replaces the extraction-source contract for an existing extracted Knop. This is the maintenance operation for migrating already-created extracted term surfaces between current-tracking and pinned source resolution.
+
+Current syntax:
+
+```sh
+weave set extraction-source <targetDesignatorPath> [--mesh-root <meshRoot>] (--source <sourceDesignatorPath> | --source-state <historicalStatePath>)
+weave set extraction-source --all-terms [--mesh-root <meshRoot>] (--source <sourceDesignatorPath> | --source-state <historicalStatePath>) [--accept-preview]
+```
+
+`--source` records a current-tracking source binding. `--source-state` records a pinned source binding and fails if the historical source bytes do not mention the target term. The command replaces the existing `sfc:hasExtractionSource` binding; it does not append a second primary extraction source.
+
+The `--all-terms` form discovers named mesh-scoped terms from the selected source graph, previews the existing extracted terms that will be updated, and updates all listed terms after confirmation or `--accept-preview`.
+
+```sh
+weave set extraction-source ontology/AbilityScore --mesh-root docs --source ontology
+weave set extraction-source ontology/AbilityScore --mesh-root docs --source-state ontology/releases/v0.0.1
+weave set extraction-source --all-terms --mesh-root docs --source ontology --accept-preview
 ```
 
 ### `weave payload update`

@@ -75,6 +75,14 @@ Deno.test("weave extract matches the manifest-scoped bob extracted fixture as a 
       await Deno.stat(join(workspaceRoot, path));
       continue;
     }
+    if (path === "bob/_knop/_inventory/inventory.ttl") {
+      assert(
+        (await Deno.readTextFile(join(workspaceRoot, path))).includes(
+          "ArtifactResolutionMode/Current",
+        ),
+      );
+      continue;
+    }
 
     const actualBytes = await Deno.readFile(join(workspaceRoot, path));
     const expectedBytes = new TextEncoder().encode(
@@ -183,8 +191,7 @@ Deno.test("weave extract accepts the root designator path as a black-box CLI run
 
 <_knop/_inventory#extraction-source> a sfc:ExtractionSource ;
   sfc:hasTargetArtifact <alice/bio> ;
-  sfc:hasRequestedTargetState <alice/bio/_history001/_s0001> ;
-  sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Pinned> .
+  sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Current> .
 
 <_knop/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <_knop/_meta/meta.ttl> .
@@ -217,7 +224,7 @@ Deno.test("weave extract supports docs-rooted sidecar meshes with an explicit so
       "ontology/CharacterShape",
       "--mesh-root",
       join(workspaceRoot, "docs"),
-      "--source-designator-path",
+      "--source",
       "shacl",
     ],
     cwd: new URL(".", repoRoot),
@@ -250,8 +257,7 @@ Deno.test("weave extract supports docs-rooted sidecar meshes with an explicit so
 
 <ontology/CharacterShape/_knop/_inventory#extraction-source> a sfc:ExtractionSource ;
   sfc:hasTargetArtifact <shacl> ;
-  sfc:hasRequestedTargetState <shacl/_history001/_s0001> ;
-  sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Pinned> .
+  sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Current> .
 
 <ontology/CharacterShape/_knop/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <ontology/CharacterShape/_knop/_meta/meta.ttl> .
@@ -266,7 +272,7 @@ Deno.test("weave extract supports docs-rooted sidecar meshes with an explicit so
   );
 });
 
-Deno.test("weave extract --all-terms previews and creates new terms with --yes", async () => {
+Deno.test("weave extract --all-terms previews and creates new terms with --accept-preview", async () => {
   const workspaceRoot = await createTestTmpDir("weave-e2e-extract-all-terms-");
   await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
   await Deno.writeTextFile(
@@ -288,8 +294,8 @@ Deno.test("weave extract --all-terms previews and creates new terms with --yes",
       "src/main.ts",
       "extract",
       "--all-terms",
-      "--yes",
-      "--source-designator-path",
+      "--accept-preview",
+      "--source",
       "alice/bio",
       "--mesh-root",
       workspaceRoot,
@@ -329,7 +335,6 @@ Deno.test("weave extract --all-terms requires an explicit source selector", asyn
       "src/main.ts",
       "extract",
       "--all-terms",
-      "--yes",
       "--mesh-root",
       workspaceRoot,
     ],
@@ -342,7 +347,7 @@ Deno.test("weave extract --all-terms requires an explicit source selector", asyn
 
   assertEquals(output.success, false);
   assert(
-    stderr.includes("extract --all-terms requires --source-designator-path"),
+    stderr.includes("extract --all-terms requires --source or --source-state"),
     stderr,
   );
 });
@@ -363,8 +368,8 @@ Deno.test("weave extract --all-terms rejects a positional designator path", asyn
       "extract",
       "bob",
       "--all-terms",
-      "--yes",
-      "--source-designator-path",
+      "--accept-preview",
+      "--source",
       "alice/bio",
       "--mesh-root",
       workspaceRoot,
@@ -383,6 +388,38 @@ Deno.test("weave extract --all-terms rejects a positional designator path", asyn
     ),
     stderr,
   );
+});
+
+Deno.test("weave extract --all-terms rejects removed --yes alias", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-extract-all-terms-yes-",
+  );
+  await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      "extract",
+      "--all-terms",
+      "--yes",
+      "--source",
+      "alice/bio",
+      "--mesh-root",
+      workspaceRoot,
+    ],
+    cwd: new URL(".", repoRoot),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assertEquals(output.success, false);
+  assert(stderr.includes('Unknown option "--yes"'), stderr);
 });
 
 Deno.test("weave extract rejects a whitespace-only positional designatorPath before logging or execution", async () => {

@@ -89,6 +89,10 @@ const SFLO_WORKING_FILE_PATH_IRI = `${SFLO_NAMESPACE}workingLocalRelativePath`;
 const SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI =
   `${SFC_NAMESPACE}hasResourcePageDefinition`;
 const SFC_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFC_NAMESPACE}hasKnopAssetBundle`;
+const SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
+  `${SFC_NAMESPACE}ArtifactResolutionMode/Pinned`;
+const SFC_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
+  `${SFC_NAMESPACE}ArtifactResolutionMode/Current`;
 const DCTERMS_TITLE_IRI = "http://purl.org/dc/terms/title";
 const RDFS_LABEL_IRI = "http://www.w3.org/2000/01/rdf-schema#label";
 
@@ -1080,7 +1084,7 @@ async function loadReferenceTargetSourcePayloadArtifact(
       missingRequestedTargetStateMessage:
         `Could not resolve the current extracted source target state for ${designatorPath}.`,
       unsupportedResolutionModeMessage:
-        `The current local extracted weave slice only supports pinned ExtractionSource resolution for ${designatorPath}.`,
+        `Unsupported ExtractionSource resolution mode for ${designatorPath}.`,
     },
   );
   if (!extractionSource) {
@@ -1123,24 +1127,47 @@ async function loadReferenceTargetSourcePayloadArtifact(
       `Extracted weave source for ${designatorPath} is missing a woven current payload history: ${sourceDesignatorPath}`,
     );
   }
-  if (
-    sourcePayloadArtifact.latestHistoricalStatePath !==
-      extractionSource.requestedTargetStatePath
-  ) {
+  const isPinned = extractionSource.artifactResolutionModeIri ===
+    SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI;
+  const selectedHistoricalStatePath = isPinned
+    ? extractionSource.requestedTargetStatePath
+    : sourcePayloadArtifact.latestHistoricalStatePath;
+  if (!selectedHistoricalStatePath) {
     throw new WeaveRuntimeError(
-      `Extracted weave source for ${designatorPath} is pinned to ${extractionSource.requestedTargetStatePath}, but ${sourceDesignatorPath} currently resolves to ${sourcePayloadArtifact.latestHistoricalStatePath}.`,
+      `Extracted weave source for ${designatorPath} is missing a pinned target state.`,
     );
+  }
+  const selectedHistoricalSnapshotPath =
+    sourcePayloadArtifact.latestHistoricalStatePath ===
+        selectedHistoricalStatePath &&
+      sourcePayloadArtifact.latestHistoricalSnapshotPath
+      ? sourcePayloadArtifact.latestHistoricalSnapshotPath
+      : toPayloadHistoricalSnapshotPath(
+        selectedHistoricalStatePath,
+        sourcePayloadArtifact.workingLocalRelativePath,
+      );
+  let selectedHistoricalSnapshotTurtle: string | undefined;
+  try {
+    selectedHistoricalSnapshotTurtle = await readTextFileWithOverlay(
+      join(workspaceRoot, selectedHistoricalSnapshotPath),
+      overlay,
+    );
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      throw new WeaveRuntimeError(
+        `Workspace is missing the extracted source payload snapshot for ${designatorPath}: ${selectedHistoricalSnapshotPath}`,
+      );
+    }
+    throw error;
   }
 
   return {
     designatorPath: sourceDesignatorPath,
     workingLocalRelativePath: sourcePayloadArtifact.workingLocalRelativePath,
     currentPayloadTurtle: sourcePayloadArtifact.currentPayloadTurtle,
-    latestHistoricalSnapshotPath:
-      sourcePayloadArtifact.latestHistoricalSnapshotPath,
-    latestHistoricalSnapshotTurtle:
-      sourcePayloadArtifact.latestHistoricalSnapshotTurtle,
-    latestHistoricalStatePath: sourcePayloadArtifact.latestHistoricalStatePath,
+    latestHistoricalSnapshotPath: selectedHistoricalSnapshotPath,
+    latestHistoricalSnapshotTurtle: selectedHistoricalSnapshotTurtle,
+    latestHistoricalStatePath: selectedHistoricalStatePath,
   };
 }
 
@@ -1730,7 +1757,7 @@ async function loadGenerateDesignatorContexts(
         missingRequestedTargetStateMessage:
           `Could not resolve the current extracted source target state for ${designatorPath}.`,
         unsupportedResolutionModeMessage:
-          `The current local generated page source loader only supports pinned ExtractionSource resolution for ${designatorPath}.`,
+          `Unsupported ExtractionSource resolution mode for ${designatorPath}.`,
       },
     );
     let customIdentifierPage: CustomIdentifierPageModelInput | undefined;
@@ -1797,15 +1824,18 @@ async function loadGenerateDesignatorContexts(
       await addExtractionSourceRawSourcePanels(
         rawSourcePanels,
         workspaceRoot,
+        localPathPolicy,
         meshState.meshBase,
         designatorPath,
         extractionSource.sourceArtifactPath,
         extractionSource.requestedTargetStatePath,
+        extractionSource.artifactResolutionModeIri,
       );
     } else if (referenceCatalogArtifact) {
       await addReferenceTargetSourceRawSourcePanels(
         rawSourcePanels,
         workspaceRoot,
+        localPathPolicy,
         meshState.meshBase,
         designatorPath,
         referenceCatalogArtifact,
@@ -2096,6 +2126,7 @@ async function addPayloadRawSourcePanels(
 async function addReferenceTargetSourceRawSourcePanels(
   rawSourcePanels: Map<string, readonly ResourcePageRawSourcePanelModel[]>,
   workspaceRoot: string,
+  _localPathPolicy: OperationalLocalPathPolicy,
   meshBase: string,
   designatorPath: string,
   referenceCatalogArtifact: ReferenceCatalogWorkingArtifact,
@@ -2186,10 +2217,12 @@ async function addReferenceTargetSourceRawSourcePanels(
 async function addExtractionSourceRawSourcePanels(
   rawSourcePanels: Map<string, readonly ResourcePageRawSourcePanelModel[]>,
   workspaceRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
   meshBase: string,
   designatorPath: string,
   sourceArtifactPath: string,
-  requestedTargetStatePath: string,
+  requestedTargetStatePath: string | undefined,
+  artifactResolutionModeIri: string,
 ): Promise<void> {
   const sourceKnopInventoryPath = join(
     workspaceRoot,
@@ -2225,6 +2258,39 @@ async function addExtractionSourceRawSourcePanels(
   );
   if (!sourcePayloadArtifact) {
     return;
+  }
+
+  if (artifactResolutionModeIri === SFC_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI) {
+    try {
+      addRawSourcePanel(
+        rawSourcePanels,
+        toDesignatorResourcePagePath(designatorPath),
+        await readRawSourcePanel(
+          resolveAllowedLocalPath(
+            localPathPolicy,
+            "workingLocalRelativePath",
+            sourcePayloadArtifact.workingLocalRelativePath,
+          ),
+          sourcePayloadArtifact.workingLocalRelativePath,
+          "Current source file",
+        ),
+      );
+    } catch (error) {
+      if (
+        error instanceof Deno.errors.NotFound ||
+        error instanceof LocalPathAccessError
+      ) {
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (!requestedTargetStatePath) {
+    throw new WeaveRuntimeError(
+      `Extracted page source for ${designatorPath} is missing a pinned target state.`,
+    );
   }
 
   const snapshotPath = sourcePayloadArtifact.latestHistoricalStatePath ===

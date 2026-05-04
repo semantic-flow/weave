@@ -17,6 +17,8 @@ const SFLO_NAMESPACE =
   "https://semantic-flow.github.io/semantic-flow-ontology/";
 const SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
   `${SFC_NAMESPACE}ArtifactResolutionMode/Pinned`;
+const SFC_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
+  `${SFC_NAMESPACE}ArtifactResolutionMode/Current`;
 const SFLO_DIGITAL_ARTIFACT_IRI = `${SFLO_NAMESPACE}DigitalArtifact`;
 const SFLO_HAS_KNOP_IRI = `${SFLO_NAMESPACE}hasKnop`;
 const SFLO_HAS_MESH_INVENTORY_IRI = `${SFLO_NAMESPACE}hasMeshInventory`;
@@ -47,7 +49,8 @@ export interface ResolvedExtractRequest extends ExtractRequest {
   meshBase: string;
   currentMeshInventoryTurtle: string;
   sourceDesignatorPath: string;
-  sourceStatePath: string;
+  sourceStatePath?: string;
+  sourceResolutionMode?: "current" | "pinned";
   sourceWorkingLocalRelativePath: string;
 }
 
@@ -57,8 +60,9 @@ export interface ExtractPlan {
   extractionSourceIri: string;
   sourceArtifactIri: string;
   sourceDesignatorPath: string;
-  sourceStateIri: string;
-  sourceStatePath: string;
+  sourceStateIri?: string;
+  sourceStatePath?: string;
+  sourceResolutionMode: "current" | "pinned";
   createdFiles: readonly PlannedFile[];
   updatedFiles: readonly PlannedFile[];
 }
@@ -80,10 +84,25 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
     request.sourceDesignatorPath,
     "sourceDesignatorPath",
   );
-  const sourceStatePath = normalizeRelativeIriPath(
-    request.sourceStatePath,
-    "sourceStatePath",
-  );
+  const sourceResolutionMode = request.sourceResolutionMode === undefined
+    ? request.sourceStatePath === undefined ? "current" : "pinned"
+    : normalizeSourceResolutionMode(request.sourceResolutionMode);
+  const sourceStatePath = request.sourceStatePath === undefined
+    ? undefined
+    : normalizeRelativeIriPath(
+      request.sourceStatePath,
+      "sourceStatePath",
+    );
+  if (sourceResolutionMode === "pinned" && sourceStatePath === undefined) {
+    throw new ExtractInputError(
+      "sourceStatePath is required for pinned extraction",
+    );
+  }
+  if (sourceResolutionMode === "current" && sourceStatePath !== undefined) {
+    throw new ExtractInputError(
+      "sourceStatePath is only valid for pinned extraction",
+    );
+  }
   const sourceWorkingLocalRelativePath = normalizeWorkingLocalRelativePath(
     request.sourceWorkingLocalRelativePath,
   );
@@ -105,8 +124,11 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
         new URL(`${knopPath}/_inventory#extraction-source`, meshBase).href,
       sourceArtifactIri: new URL(sourceDesignatorPath, meshBase).href,
       sourceDesignatorPath,
-      sourceStateIri: new URL(sourceStatePath, meshBase).href,
+      ...(sourceStatePath
+        ? { sourceStateIri: new URL(sourceStatePath, meshBase).href }
+        : {}),
       sourceStatePath,
+      sourceResolutionMode,
       createdFiles: [
         {
           path: `${knopPath}/_meta/meta.ttl`,
@@ -121,6 +143,7 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
             meshBase,
             designatorPath,
             sourceDesignatorPath,
+            sourceResolutionMode,
             sourceStatePath,
           ),
         },
@@ -136,6 +159,15 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
     }
     throw error;
   }
+}
+
+function normalizeSourceResolutionMode(
+  sourceResolutionMode: string,
+): "current" | "pinned" {
+  if (sourceResolutionMode === "current" || sourceResolutionMode === "pinned") {
+    return sourceResolutionMode;
+  }
+  throw new ExtractInputError("sourceResolutionMode must be current or pinned");
 }
 
 function normalizeMeshBase(meshBase: string): string {
@@ -632,9 +664,16 @@ function renderExtractKnopInventoryTurtle(
   meshBase: string,
   designatorPath: string,
   sourceDesignatorPath: string,
-  sourceStatePath: string,
+  sourceResolutionMode: "current" | "pinned",
+  sourceStatePath?: string,
 ): string {
   const knopPath = toKnopPath(designatorPath);
+  const extractionSourceFacts = sourceResolutionMode === "pinned"
+    ? `  sfc:hasTargetArtifact <${sourceDesignatorPath}> ;
+  sfc:hasRequestedTargetState <${sourceStatePath}> ;
+  sfc:hasArtifactResolutionMode <${SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI}> .`
+    : `  sfc:hasTargetArtifact <${sourceDesignatorPath}> ;
+  sfc:hasArtifactResolutionMode <${SFC_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI}> .`;
 
   return `@base <${meshBase}> .
 @prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
@@ -647,9 +686,7 @@ function renderExtractKnopInventoryTurtle(
   sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> .
 
 <${knopPath}/_inventory#extraction-source> a sfc:ExtractionSource ;
-  sfc:hasTargetArtifact <${sourceDesignatorPath}> ;
-  sfc:hasRequestedTargetState <${sourceStatePath}> ;
-  sfc:hasArtifactResolutionMode <${SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI}> .
+${extractionSourceFacts}
 
 <${knopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <${knopPath}/_meta/meta.ttl> .

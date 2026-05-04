@@ -3,6 +3,7 @@ import { join } from "@std/path";
 import {
   executeExtract,
   executeExtractAllTerms,
+  executeSetExtractionSource,
   ExtractRuntimeError,
 } from "../../src/runtime/extract/extract.ts";
 import {
@@ -40,10 +41,8 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
     result.sourceArtifactIri,
     "https://semantic-flow.github.io/mesh-alice-bio/alice/bio",
   );
-  assertEquals(
-    result.sourceStateIri,
-    "https://semantic-flow.github.io/mesh-alice-bio/alice/bio/_history001/_s0002",
-  );
+  assertEquals(result.sourceStateIri, undefined);
+  assertEquals(result.sourceResolutionMode, "current");
   assertEquals(
     [...result.createdPaths].sort(),
     [
@@ -57,7 +56,6 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
     const path of [
       "_mesh/_inventory/inventory.ttl",
       "bob/_knop/_meta/meta.ttl",
-      "bob/_knop/_inventory/inventory.ttl",
       "alice-bio.ttl",
       "alice/_knop/_inventory/inventory.ttl",
       "alice/_knop/_references/references.ttl",
@@ -70,6 +68,35 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
       path,
     );
   }
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "bob/_knop/_inventory/inventory.ttl"),
+    ),
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sfc: <https://semantic-flow.github.io/ontology/core/> .
+
+<bob/_knop> a sflo:Knop ;
+  sflo:hasKnopMetadata <bob/_knop/_meta> ;
+  sflo:hasKnopInventory <bob/_knop/_inventory> ;
+  sfc:hasExtractionSource <bob/_knop/_inventory#extraction-source> ;
+  sflo:hasWorkingKnopInventoryFile <bob/_knop/_inventory/inventory.ttl> .
+
+<bob/_knop/_inventory#extraction-source> a sfc:ExtractionSource ;
+  sfc:hasTargetArtifact <alice/bio> ;
+  sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Current> .
+
+<bob/_knop/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <bob/_knop/_meta/meta.ttl> .
+
+<bob/_knop/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <bob/_knop/_inventory/inventory.ttl> .
+
+<bob/_knop/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<bob/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+`,
+  );
 
   for (
     const absentPath of [
@@ -239,15 +266,10 @@ Deno.test("executeExtract extracts selected sidecar ontology and SHACL terms wit
     const path of [
       "docs/_mesh/_inventory/inventory.ttl",
       "docs/ontology/AbilityScore/_knop/_meta/meta.ttl",
-      "docs/ontology/AbilityScore/_knop/_inventory/inventory.ttl",
       "docs/ontology/Alignment/_knop/_meta/meta.ttl",
-      "docs/ontology/Alignment/_knop/_inventory/inventory.ttl",
       "docs/ontology/Character/_knop/_meta/meta.ttl",
-      "docs/ontology/Character/_knop/_inventory/inventory.ttl",
       "docs/ontology/PlayerCharacter/_knop/_meta/meta.ttl",
-      "docs/ontology/PlayerCharacter/_knop/_inventory/inventory.ttl",
       "docs/ontology/CharacterShape/_knop/_meta/meta.ttl",
-      "docs/ontology/CharacterShape/_knop/_inventory/inventory.ttl",
       "ontology/fantasy-rules-ontology.ttl",
       "shacl/fantasy-rules-shacl.ttl",
       "docs/_mesh/_config/config.ttl",
@@ -262,6 +284,24 @@ Deno.test("executeExtract extracts selected sidecar ontology and SHACL terms wit
       path,
     );
   }
+  assertEquals(
+    (await Deno.readTextFile(
+      join(
+        workspaceRoot,
+        "docs/ontology/AbilityScore/_knop/_inventory/inventory.ttl",
+      ),
+    )).includes("ArtifactResolutionMode/Current"),
+    true,
+  );
+  assertEquals(
+    (await Deno.readTextFile(
+      join(
+        workspaceRoot,
+        "docs/ontology/CharacterShape/_knop/_inventory/inventory.ttl",
+      ),
+    )).includes("sfc:hasTargetArtifact <shacl>"),
+    true,
+  );
 
   for (
     const absentPath of [
@@ -294,6 +334,45 @@ Deno.test("executeExtract fails closed for ambiguous sidecar term sources withou
       }),
     ExtractRuntimeError,
     "Ambiguous extract source",
+  );
+});
+
+Deno.test("executeSetExtractionSource replaces an existing pinned source binding with current", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-set-extraction-source-");
+  await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
+
+  await executeExtract({
+    workspaceRoot,
+    request: {
+      designatorPath: "bob",
+      sourceStatePath: "alice/bio/_history001/_s0002",
+    },
+  });
+
+  const result = await executeSetExtractionSource({
+    workspaceRoot,
+    request: {
+      designatorPath: "bob",
+      sourceDesignatorPath: "alice/bio",
+    },
+  });
+
+  assertEquals(result.sourceResolutionMode, "current");
+  assertEquals(result.updatedPaths, ["bob/_knop/_inventory/inventory.ttl"]);
+  const inventoryTurtle = await Deno.readTextFile(
+    join(workspaceRoot, "bob/_knop/_inventory/inventory.ttl"),
+  );
+  assertEquals(
+    inventoryTurtle.includes("ArtifactResolutionMode/Current"),
+    true,
+  );
+  assertEquals(
+    inventoryTurtle.includes("hasRequestedTargetState"),
+    false,
+  );
+  assertEquals(
+    inventoryTurtle.match(/sfc:hasExtractionSource/g)?.length,
+    1,
   );
 });
 

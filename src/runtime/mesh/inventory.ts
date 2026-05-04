@@ -11,6 +11,8 @@ const SFLO_NAMESPACE =
   "https://semantic-flow.github.io/semantic-flow-ontology/";
 const SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
   `${SFC_NAMESPACE}ArtifactResolutionMode/Pinned`;
+const SFC_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
+  `${SFC_NAMESPACE}ArtifactResolutionMode/Current`;
 const SFC_EXTRACTION_SOURCE_IRI = `${SFC_NAMESPACE}ExtractionSource`;
 const SFC_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
   `${SFC_NAMESPACE}hasArtifactResolutionMode`;
@@ -59,7 +61,7 @@ export interface ReferenceTargetLinkState {
 
 export interface ExtractionSourceInventoryState {
   sourceArtifactPath: string;
-  requestedTargetStatePath: string;
+  requestedTargetStatePath?: string;
   artifactResolutionModeIri: string;
 }
 
@@ -291,23 +293,29 @@ export function resolveExtractionSourceInventoryState(
     SFC_HAS_REQUESTED_TARGET_STATE_IRI,
     messages.missingRequestedTargetStateMessage,
   );
-  if (!requestedTargetStatePath) {
-    throw new Error(messages.missingRequestedTargetStateMessage);
-  }
 
   const artifactResolutionModeIri = resolveOptionalUniqueNamedNodeIri(
     quads,
     extractionSourceIri,
     SFC_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
     messages.unsupportedResolutionModeMessage,
-  );
-  if (artifactResolutionModeIri !== SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI) {
+  ) ?? SFC_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI;
+  if (
+    artifactResolutionModeIri !== SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI &&
+    artifactResolutionModeIri !== SFC_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI
+  ) {
     throw new Error(messages.unsupportedResolutionModeMessage);
+  }
+  if (
+    artifactResolutionModeIri === SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI &&
+    !requestedTargetStatePath
+  ) {
+    throw new Error(messages.missingRequestedTargetStateMessage);
   }
 
   return {
     sourceArtifactPath,
-    requestedTargetStatePath,
+    ...(requestedTargetStatePath ? { requestedTargetStatePath } : {}),
     artifactResolutionModeIri,
   };
 }

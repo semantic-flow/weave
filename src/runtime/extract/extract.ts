@@ -29,13 +29,38 @@ import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
 
+const SFLO_NAMESPACE =
+  "https://semantic-flow.github.io/semantic-flow-ontology/";
+const SFLO_HAS_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}hasLocatedFile`;
+const SFLO_HAS_MANIFESTATION_IRI = `${SFLO_NAMESPACE}hasManifestation`;
+const SFLO_LOCATED_FILE_FOR_STATE_IRI = `${SFLO_NAMESPACE}locatedFileForState`;
+const SFC_NAMESPACE = "https://semantic-flow.github.io/ontology/core/";
+const SFC_HAS_EXTRACTION_SOURCE_IRI = `${SFC_NAMESPACE}hasExtractionSource`;
+const SFC_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
+  `${SFC_NAMESPACE}ArtifactResolutionMode/Current`;
+const SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
+  `${SFC_NAMESPACE}ArtifactResolutionMode/Pinned`;
+
 export interface LocalExtractRequest {
   designatorPath: string;
   sourceDesignatorPath?: string;
+  sourceStatePath?: string;
 }
 
 export interface LocalExtractAllTermsRequest {
-  sourceDesignatorPath: string;
+  sourceDesignatorPath?: string;
+  sourceStatePath?: string;
+}
+
+export interface LocalSetExtractionSourceRequest {
+  designatorPath: string;
+  sourceDesignatorPath?: string;
+  sourceStatePath?: string;
+}
+
+export interface LocalSetExtractionSourceAllTermsRequest {
+  sourceDesignatorPath?: string;
+  sourceStatePath?: string;
 }
 
 export interface ExecuteExtractOptions {
@@ -52,7 +77,8 @@ export interface ExtractResult {
   extractionSourceIri: string;
   sourceArtifactIri: string;
   sourceDesignatorPath: string;
-  sourceStateIri: string;
+  sourceStateIri?: string;
+  sourceResolutionMode: "current" | "pinned";
   createdPaths: readonly string[];
   updatedPaths: readonly string[];
 }
@@ -61,12 +87,33 @@ export interface ExtractAllTermsResult {
   meshBase: string;
   sourceDesignatorPath: string;
   sourceArtifactIri: string;
-  sourceStateIri: string;
+  sourceStateIri?: string;
+  sourceResolutionMode: "current" | "pinned";
   discoveredDesignatorPaths: readonly string[];
   extractedDesignatorPaths: readonly string[];
   skippedExistingDesignatorPaths: readonly string[];
   skippedSupportDesignatorPaths: readonly string[];
   createdPaths: readonly string[];
+  updatedPaths: readonly string[];
+}
+
+export interface SetExtractionSourceResult {
+  meshBase: string;
+  designatorPath: string;
+  sourceDesignatorPath: string;
+  sourceStateIri?: string;
+  sourceResolutionMode: "current" | "pinned";
+  updatedPaths: readonly string[];
+}
+
+export interface SetExtractionSourceAllTermsResult {
+  meshBase: string;
+  sourceDesignatorPath: string;
+  sourceStateIri?: string;
+  sourceResolutionMode: "current" | "pinned";
+  discoveredDesignatorPaths: readonly string[];
+  updatedDesignatorPaths: readonly string[];
+  skippedDesignatorPaths: readonly string[];
   updatedPaths: readonly string[];
 }
 
@@ -80,8 +127,11 @@ export class ExtractRuntimeError extends Error {
 interface ExtractSourcePayload {
   designatorPath: string;
   workingLocalRelativePath: string;
+  sourceResolutionMode: "current" | "pinned";
+  sourceStatePath?: string;
+  sourcePayloadTurtle: string;
+  currentKnopInventoryTurtle: string;
   latestHistoricalStatePath: string;
-  currentPayloadTurtle: string;
 }
 
 interface StagedFileMutation {
@@ -113,6 +163,7 @@ export async function executeExtract(
   const workspaceRoot = localPathPolicy.workspaceRoot;
   const designatorPath = options.request.designatorPath;
   const sourceDesignatorPath = options.request.sourceDesignatorPath;
+  const sourceStatePath = options.request.sourceStatePath;
   let plan: ExtractPlan | undefined;
 
   await operationalLogger.info("extract.started", "Starting local extract", {
@@ -120,12 +171,14 @@ export async function executeExtract(
     workspaceRoot,
     designatorPath,
     sourceDesignatorPath,
+    sourceStatePath,
   });
   await auditLogger.record("extract.started", "Local extract started", {
     meshRoot,
     workspaceRoot,
     designatorPath,
     sourceDesignatorPath,
+    sourceStatePath,
   });
 
   try {
@@ -148,13 +201,17 @@ export async function executeExtract(
       meshState.meshBase,
       normalizedDesignatorPath,
       normalizedSourceDesignatorPath,
+      sourceStatePath,
     );
     plan = planExtract({
       meshBase: meshState.meshBase,
       currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
       designatorPath: normalizedDesignatorPath,
       sourceDesignatorPath: sourcePayload.designatorPath,
-      sourceStatePath: sourcePayload.latestHistoricalStatePath,
+      sourceResolutionMode: sourcePayload.sourceResolutionMode,
+      ...(sourcePayload.sourceStatePath
+        ? { sourceStatePath: sourcePayload.sourceStatePath }
+        : {}),
       sourceWorkingLocalRelativePath: sourcePayload.workingLocalRelativePath,
     });
     await assertUpdatedTargetsExist(meshRoot, plan);
@@ -190,6 +247,7 @@ export async function executeExtract(
     sourceArtifactIri: plan.sourceArtifactIri,
     sourceDesignatorPath: plan.sourceDesignatorPath,
     sourceStateIri: plan.sourceStateIri,
+    sourceResolutionMode: plan.sourceResolutionMode,
     createdPaths: plan.createdFiles.map((file) =>
       toWorkspaceRelativePath(localPathPolicy, file.path)
     ),
@@ -222,6 +280,7 @@ export async function executeExtractAllTerms(
   const localPathPolicy = await loadOperationalLocalPathPolicy(meshRoot);
   const workspaceRoot = localPathPolicy.workspaceRoot;
   const sourceDesignatorPath = options.request.sourceDesignatorPath;
+  const sourceStatePath = options.request.sourceStatePath;
   let plannedMutation: PlannedMutation | undefined;
 
   await operationalLogger.info(
@@ -230,7 +289,8 @@ export async function executeExtractAllTerms(
     {
       meshRoot,
       workspaceRoot,
-      sourceDesignatorPath,
+      sourceSelector: sourceDesignatorPath ?? sourceStatePath,
+      sourceStatePath,
     },
   );
   await auditLogger.record(
@@ -240,28 +300,26 @@ export async function executeExtractAllTerms(
       meshRoot,
       workspaceRoot,
       sourceDesignatorPath,
+      sourceStatePath,
     },
   );
 
   try {
     await ensureMeshRootExists(meshRoot);
-    const normalizedSourceDesignatorPath = normalizeLocalDesignatorPath(
-      sourceDesignatorPath,
-      "sourceDesignatorPath",
-    );
     const meshState = await loadMeshState(meshRoot);
     const sourcePayload = await resolveSelectedExtractSourcePayload(
       meshRoot,
       localPathPolicy,
       meshState.currentMeshInventoryTurtle,
       meshState.meshBase,
-      normalizedSourceDesignatorPath,
+      sourceDesignatorPath,
+      sourceStatePath,
     );
     const discovery = discoverAllTermDesignatorPaths({
       meshBase: meshState.meshBase,
-      sourceDesignatorPath: normalizedSourceDesignatorPath,
+      sourceDesignatorPath: sourcePayload.designatorPath,
       currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
-      currentPayloadTurtle: sourcePayload.currentPayloadTurtle,
+      currentPayloadTurtle: sourcePayload.sourcePayloadTurtle,
     });
     const plans: ExtractPlan[] = [];
     let currentMeshInventoryTurtle = meshState.currentMeshInventoryTurtle;
@@ -272,7 +330,10 @@ export async function executeExtractAllTerms(
         currentMeshInventoryTurtle,
         designatorPath,
         sourceDesignatorPath: sourcePayload.designatorPath,
-        sourceStatePath: sourcePayload.latestHistoricalStatePath,
+        sourceResolutionMode: sourcePayload.sourceResolutionMode,
+        ...(sourcePayload.sourceStatePath
+          ? { sourceStatePath: sourcePayload.sourceStatePath }
+          : {}),
         sourceWorkingLocalRelativePath: sourcePayload.workingLocalRelativePath,
       });
       plans.push(plan);
@@ -296,10 +357,10 @@ export async function executeExtractAllTerms(
       sourceArtifactIri:
         new URL(sourcePayload.designatorPath, meshState.meshBase)
           .href,
-      sourceStateIri: new URL(
-        sourcePayload.latestHistoricalStatePath,
-        meshState.meshBase,
-      ).href,
+      sourceStateIri: sourcePayload.sourceStatePath
+        ? new URL(sourcePayload.sourceStatePath, meshState.meshBase).href
+        : undefined,
+      sourceResolutionMode: sourcePayload.sourceResolutionMode,
       discoveredDesignatorPaths: discovery.discoveredDesignatorPaths,
       extractedDesignatorPaths: discovery.extractedDesignatorPaths,
       skippedExistingDesignatorPaths: discovery.skippedExistingDesignatorPaths,
@@ -335,7 +396,7 @@ export async function executeExtractAllTerms(
       auditLogger,
       meshRoot,
       workspaceRoot,
-      sourceDesignatorPath,
+      sourceDesignatorPath ?? sourceStatePath ?? "unknown source",
       plannedMutation,
       message,
     );
@@ -355,23 +416,20 @@ export async function previewExtractAllTerms(
   }
   const localPathPolicy = await loadOperationalLocalPathPolicy(meshRoot);
   await ensureMeshRootExists(meshRoot);
-  const normalizedSourceDesignatorPath = normalizeLocalDesignatorPath(
-    options.request.sourceDesignatorPath,
-    "sourceDesignatorPath",
-  );
   const meshState = await loadMeshState(meshRoot);
   const sourcePayload = await resolveSelectedExtractSourcePayload(
     meshRoot,
     localPathPolicy,
     meshState.currentMeshInventoryTurtle,
     meshState.meshBase,
-    normalizedSourceDesignatorPath,
+    options.request.sourceDesignatorPath,
+    options.request.sourceStatePath,
   );
   const discovery = discoverAllTermDesignatorPaths({
     meshBase: meshState.meshBase,
-    sourceDesignatorPath: normalizedSourceDesignatorPath,
+    sourceDesignatorPath: sourcePayload.designatorPath,
     currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
-    currentPayloadTurtle: sourcePayload.currentPayloadTurtle,
+    currentPayloadTurtle: sourcePayload.sourcePayloadTurtle,
   });
 
   return {
@@ -379,10 +437,10 @@ export async function previewExtractAllTerms(
     sourceDesignatorPath: sourcePayload.designatorPath,
     sourceArtifactIri: new URL(sourcePayload.designatorPath, meshState.meshBase)
       .href,
-    sourceStateIri: new URL(
-      sourcePayload.latestHistoricalStatePath,
-      meshState.meshBase,
-    ).href,
+    sourceStateIri: sourcePayload.sourceStatePath
+      ? new URL(sourcePayload.sourceStatePath, meshState.meshBase).href
+      : undefined,
+    sourceResolutionMode: sourcePayload.sourceResolutionMode,
     discoveredDesignatorPaths: discovery.discoveredDesignatorPaths,
     extractedDesignatorPaths: discovery.extractedDesignatorPaths,
     skippedExistingDesignatorPaths: discovery.skippedExistingDesignatorPaths,
@@ -392,10 +450,192 @@ export async function previewExtractAllTerms(
   };
 }
 
+export async function executeSetExtractionSource(
+  options: Omit<ExecuteExtractOptions, "request"> & {
+    request: LocalSetExtractionSourceRequest;
+  },
+): Promise<SetExtractionSourceResult> {
+  const meshRoot = options.meshRoot ?? options.workspaceRoot;
+  if (!meshRoot) {
+    throw new ExtractRuntimeError("meshRoot is required");
+  }
+  const localPathPolicy = await loadOperationalLocalPathPolicy(meshRoot);
+  await ensureMeshRootExists(meshRoot);
+  const designatorPath = normalizeLocalDesignatorPath(
+    options.request.designatorPath,
+    "designatorPath",
+  );
+  const meshState = await loadMeshState(meshRoot);
+  const sourcePayload = await resolveExtractSourcePayload(
+    meshRoot,
+    localPathPolicy,
+    meshState.currentMeshInventoryTurtle,
+    meshState.meshBase,
+    designatorPath,
+    options.request.sourceDesignatorPath,
+    options.request.sourceStatePath,
+  );
+  const inventoryPath = `${
+    toKnopPath(designatorPath)
+  }/_inventory/inventory.ttl`;
+  const currentInventoryTurtle = await readExistingKnopInventory(
+    meshRoot,
+    inventoryPath,
+    designatorPath,
+  );
+  const updatedInventoryTurtle = replaceExtractionSourceBinding(
+    meshState.meshBase,
+    currentInventoryTurtle,
+    designatorPath,
+    sourcePayload,
+  );
+  const mutation: PlannedMutation = {
+    createdFiles: [],
+    updatedFiles: [{
+      path: inventoryPath,
+      contents: updatedInventoryTurtle,
+    }],
+  };
+
+  validateRdfFiles(mutation.updatedFiles);
+  await applyPlanAtomically(meshRoot, mutation);
+
+  return {
+    meshBase: meshState.meshBase,
+    designatorPath,
+    sourceDesignatorPath: sourcePayload.designatorPath,
+    sourceStateIri: sourcePayload.sourceStatePath
+      ? new URL(sourcePayload.sourceStatePath, meshState.meshBase).href
+      : undefined,
+    sourceResolutionMode: sourcePayload.sourceResolutionMode,
+    updatedPaths: mutation.updatedFiles.map((file) =>
+      toWorkspaceRelativePath(localPathPolicy, file.path)
+    ),
+  };
+}
+
+export async function previewSetExtractionSourceAllTerms(
+  options: Omit<ExecuteExtractOptions, "request"> & {
+    request: LocalSetExtractionSourceAllTermsRequest;
+  },
+): Promise<SetExtractionSourceAllTermsResult> {
+  return await planSetExtractionSourceAllTerms(options, false);
+}
+
+export async function executeSetExtractionSourceAllTerms(
+  options: Omit<ExecuteExtractOptions, "request"> & {
+    request: LocalSetExtractionSourceAllTermsRequest;
+  },
+): Promise<SetExtractionSourceAllTermsResult> {
+  return await planSetExtractionSourceAllTerms(options, true);
+}
+
+async function planSetExtractionSourceAllTerms(
+  options: Omit<ExecuteExtractOptions, "request"> & {
+    request: LocalSetExtractionSourceAllTermsRequest;
+  },
+  write: boolean,
+): Promise<SetExtractionSourceAllTermsResult> {
+  const meshRoot = options.meshRoot ?? options.workspaceRoot;
+  if (!meshRoot) {
+    throw new ExtractRuntimeError("meshRoot is required");
+  }
+  const localPathPolicy = await loadOperationalLocalPathPolicy(meshRoot);
+  await ensureMeshRootExists(meshRoot);
+  const meshState = await loadMeshState(meshRoot);
+  const sourcePayload = await resolveSelectedExtractSourcePayload(
+    meshRoot,
+    localPathPolicy,
+    meshState.currentMeshInventoryTurtle,
+    meshState.meshBase,
+    options.request.sourceDesignatorPath,
+    options.request.sourceStatePath,
+  );
+  const discovery = discoverAllTermDesignatorPaths({
+    meshBase: meshState.meshBase,
+    sourceDesignatorPath: sourcePayload.designatorPath,
+    currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
+    currentPayloadTurtle: sourcePayload.sourcePayloadTurtle,
+  });
+  const updatedFiles: PlannedFile[] = [];
+  const updatedDesignatorPaths: string[] = [];
+  const skippedDesignatorPaths: string[] = [];
+
+  for (const designatorPath of discovery.skippedExistingDesignatorPaths) {
+    const inventoryPath = `${
+      toKnopPath(designatorPath)
+    }/_inventory/inventory.ttl`;
+    const currentInventoryTurtle = await readExistingKnopInventory(
+      meshRoot,
+      inventoryPath,
+      designatorPath,
+    );
+    if (
+      !hasExtractionSourceBinding(
+        meshState.meshBase,
+        currentInventoryTurtle,
+        designatorPath,
+      )
+    ) {
+      skippedDesignatorPaths.push(designatorPath);
+      continue;
+    }
+    updatedFiles.push({
+      path: inventoryPath,
+      contents: replaceExtractionSourceBinding(
+        meshState.meshBase,
+        currentInventoryTurtle,
+        designatorPath,
+        sourcePayload,
+      ),
+    });
+    updatedDesignatorPaths.push(designatorPath);
+  }
+
+  const mutation: PlannedMutation = { createdFiles: [], updatedFiles };
+  validateRdfFiles(mutation.updatedFiles);
+  if (write) {
+    await applyPlanAtomically(meshRoot, mutation);
+  }
+
+  return {
+    meshBase: meshState.meshBase,
+    sourceDesignatorPath: sourcePayload.designatorPath,
+    sourceStateIri: sourcePayload.sourceStatePath
+      ? new URL(sourcePayload.sourceStatePath, meshState.meshBase).href
+      : undefined,
+    sourceResolutionMode: sourcePayload.sourceResolutionMode,
+    discoveredDesignatorPaths: discovery.skippedExistingDesignatorPaths,
+    updatedDesignatorPaths,
+    skippedDesignatorPaths,
+    updatedPaths: mutation.updatedFiles.map((file) =>
+      toWorkspaceRelativePath(localPathPolicy, file.path)
+    ),
+  };
+}
+
 export function describeExtractResult(result: ExtractResult): string {
   return `Extracted ${
     formatDesignatorPathForDisplay(result.designatorPath)
   } with source ${result.extractionSourceIri}, created ${result.createdPaths.length} knop support artifacts, and updated ${result.updatedPaths.length} mesh support artifact.`;
+}
+
+export function describeSetExtractionSourceResult(
+  result: SetExtractionSourceResult,
+): string {
+  return `Updated extraction source for ${
+    formatDesignatorPathForDisplay(result.designatorPath)
+  } to ${result.sourceResolutionMode} source ${
+    formatDesignatorPathForDisplay(result.sourceDesignatorPath)
+  }.`;
+}
+
+export function describeSetExtractionSourceAllTermsResult(
+  result: SetExtractionSourceAllTermsResult,
+): string {
+  return `Updated ${result.updatedDesignatorPaths.length} extracted terms from ${
+    formatDesignatorPathForDisplay(result.sourceDesignatorPath)
+  }, skipped ${result.skippedDesignatorPaths.length} non-extracted existing terms.`;
 }
 
 export function describeExtractAllTermsResult(
@@ -491,13 +731,40 @@ async function resolveExtractSourcePayload(
   meshBase: string,
   targetDesignatorPath: string,
   sourceDesignatorPath?: string,
+  sourceStatePath?: string,
 ): Promise<ExtractSourcePayload> {
+  if (sourceDesignatorPath !== undefined && sourceStatePath !== undefined) {
+    throw new ExtractRuntimeError(
+      "extract requires either --source or --source-state, not both",
+    );
+  }
   const candidates = await loadExtractSourcePayloadCandidates(
     meshRoot,
     localPathPolicy,
     meshBase,
     currentMeshInventoryTurtle,
   );
+
+  if (sourceStatePath !== undefined) {
+    const selectedCandidate = await resolvePinnedExtractSourcePayloadByState(
+      meshRoot,
+      meshBase,
+      candidates,
+      sourceStatePath,
+    );
+    if (
+      !payloadMentionsTarget(
+        selectedCandidate.sourcePayloadTurtle,
+        meshBase,
+        targetDesignatorPath,
+      )
+    ) {
+      throw new ExtractRuntimeError(
+        `Selected extract source state ${sourceStatePath} does not mention ${targetDesignatorPath}`,
+      );
+    }
+    return selectedCandidate;
+  }
 
   if (sourceDesignatorPath !== undefined) {
     const selectedCandidate = candidates.find((candidate) =>
@@ -510,7 +777,7 @@ async function resolveExtractSourcePayload(
     }
     if (
       !payloadMentionsTarget(
-        selectedCandidate.currentPayloadTurtle,
+        selectedCandidate.sourcePayloadTurtle,
         meshBase,
         targetDesignatorPath,
       )
@@ -524,7 +791,7 @@ async function resolveExtractSourcePayload(
 
   const matchingCandidates = candidates.filter((candidate) =>
     payloadMentionsTarget(
-      candidate.currentPayloadTurtle,
+      candidate.sourcePayloadTurtle,
       meshBase,
       targetDesignatorPath,
     )
@@ -549,20 +816,43 @@ async function resolveSelectedExtractSourcePayload(
   localPathPolicy: OperationalLocalPathPolicy,
   currentMeshInventoryTurtle: string,
   meshBase: string,
-  sourceDesignatorPath: string,
+  sourceDesignatorPath?: string,
+  sourceStatePath?: string,
 ): Promise<ExtractSourcePayload> {
+  if (sourceDesignatorPath !== undefined && sourceStatePath !== undefined) {
+    throw new ExtractRuntimeError(
+      "extract --all-terms requires either --source or --source-state, not both",
+    );
+  }
+  if (sourceDesignatorPath === undefined && sourceStatePath === undefined) {
+    throw new ExtractRuntimeError(
+      "extract --all-terms requires --source or --source-state",
+    );
+  }
   const candidates = await loadExtractSourcePayloadCandidates(
     meshRoot,
     localPathPolicy,
     meshBase,
     currentMeshInventoryTurtle,
   );
+  if (sourceStatePath !== undefined) {
+    return await resolvePinnedExtractSourcePayloadByState(
+      meshRoot,
+      meshBase,
+      candidates,
+      sourceStatePath,
+    );
+  }
+  const normalizedSourceDesignatorPath = normalizeLocalDesignatorPath(
+    sourceDesignatorPath!,
+    "sourceDesignatorPath",
+  );
   const selectedCandidate = candidates.find((candidate) =>
-    candidate.designatorPath === sourceDesignatorPath
+    candidate.designatorPath === normalizedSourceDesignatorPath
   );
   if (!selectedCandidate) {
     throw new ExtractRuntimeError(
-      `Selected extract source is not an eligible woven payload artifact: ${sourceDesignatorPath}`,
+      `Selected extract source is not an eligible woven payload artifact: ${normalizedSourceDesignatorPath}`,
     );
   }
   return selectedCandidate;
@@ -658,9 +948,154 @@ async function loadExtractSourcePayloadCandidate(
   return {
     designatorPath,
     workingLocalRelativePath: payloadArtifact.workingLocalRelativePath,
+    sourceResolutionMode: "current",
+    sourceStatePath: undefined,
+    sourcePayloadTurtle: currentPayloadTurtle,
+    currentKnopInventoryTurtle,
     latestHistoricalStatePath: payloadArtifact.latestHistoricalStatePath,
-    currentPayloadTurtle,
   };
+}
+
+async function resolvePinnedExtractSourcePayloadByState(
+  meshRoot: string,
+  meshBase: string,
+  candidates: readonly ExtractSourcePayload[],
+  sourceStatePath: string,
+): Promise<ExtractSourcePayload> {
+  const normalizedSourceStatePath = normalizeLocalDesignatorPath(
+    sourceStatePath,
+    "sourceStatePath",
+  );
+  const matches = candidates
+    .map((candidate) => {
+      const historicalSnapshotPath = resolveHistoricalStateLocatedFilePath(
+        meshBase,
+        candidate.currentKnopInventoryTurtle,
+        normalizedSourceStatePath,
+        `Could not resolve the selected extract source state ${normalizedSourceStatePath}.`,
+      );
+      return historicalSnapshotPath === undefined
+        ? undefined
+        : { candidate, historicalSnapshotPath };
+    })
+    .filter((match): match is {
+      candidate: ExtractSourcePayload;
+      historicalSnapshotPath: string;
+    } => match !== undefined);
+
+  if (matches.length === 0) {
+    throw new ExtractRuntimeError(
+      `Selected extract source state is not an eligible woven payload state: ${normalizedSourceStatePath}`,
+    );
+  }
+  if (matches.length !== 1) {
+    throw new ExtractRuntimeError(
+      `Ambiguous extract source state ${normalizedSourceStatePath}; found ${matches.length} source artifacts`,
+    );
+  }
+
+  const { candidate, historicalSnapshotPath } = matches[0]!;
+  let sourcePayloadTurtle: string;
+  try {
+    sourcePayloadTurtle = await Deno.readTextFile(
+      join(meshRoot, historicalSnapshotPath),
+    );
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      throw new ExtractRuntimeError(
+        `Workspace is missing the selected extract source state snapshot: ${historicalSnapshotPath}`,
+      );
+    }
+    throw error;
+  }
+
+  return {
+    ...candidate,
+    sourceResolutionMode: "pinned",
+    sourceStatePath: normalizedSourceStatePath,
+    sourcePayloadTurtle,
+  };
+}
+
+function resolveHistoricalStateLocatedFilePath(
+  meshBase: string,
+  inventoryTurtle: string,
+  statePath: string,
+  errorMessage: string,
+): string | undefined {
+  let quads: Quad[];
+  try {
+    quads = new Parser({ baseIRI: meshBase }).parse(inventoryTurtle);
+  } catch {
+    throw new ExtractRuntimeError(errorMessage);
+  }
+
+  const stateIri = new URL(statePath, meshBase).href;
+  const shortcutLocatedFilePath = resolveUniqueNamedNodeMeshPath(
+    meshBase,
+    quads,
+    stateIri,
+    SFLO_LOCATED_FILE_FOR_STATE_IRI,
+    errorMessage,
+  );
+  const manifestationPath = resolveUniqueNamedNodeMeshPath(
+    meshBase,
+    quads,
+    stateIri,
+    SFLO_HAS_MANIFESTATION_IRI,
+    errorMessage,
+  );
+  const manifestationLocatedFilePath = manifestationPath
+    ? resolveUniqueNamedNodeMeshPath(
+      meshBase,
+      quads,
+      new URL(manifestationPath, meshBase).href,
+      SFLO_HAS_LOCATED_FILE_IRI,
+      errorMessage,
+    )
+    : undefined;
+
+  if (
+    shortcutLocatedFilePath !== undefined &&
+    manifestationLocatedFilePath !== undefined &&
+    shortcutLocatedFilePath !== manifestationLocatedFilePath
+  ) {
+    throw new ExtractRuntimeError(errorMessage);
+  }
+
+  return shortcutLocatedFilePath ?? manifestationLocatedFilePath;
+}
+
+function resolveUniqueNamedNodeMeshPath(
+  meshBase: string,
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+  errorMessage: string,
+): string | undefined {
+  const values = new Set<string>();
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.subject.value !== subjectIri ||
+      quad.predicate.value !== predicateIri ||
+      quad.object.termType !== "NamedNode"
+    ) {
+      continue;
+    }
+    const path = toMeshScopedRawDesignatorPath(meshBase, quad.object.value);
+    if (path === undefined) {
+      throw new ExtractRuntimeError(errorMessage);
+    }
+    values.add(path);
+  }
+  if (values.size === 0) {
+    return undefined;
+  }
+  if (values.size !== 1) {
+    throw new ExtractRuntimeError(errorMessage);
+  }
+  return values.values().next().value!;
 }
 
 async function readPayloadWorkingFile(
@@ -875,6 +1310,105 @@ function combineExtractPlans(plans: readonly ExtractPlan[]): PlannedMutation {
     createdFiles: plans.flatMap((plan) => [...plan.createdFiles]),
     updatedFiles: [latestMeshInventory],
   };
+}
+
+async function readExistingKnopInventory(
+  meshRoot: string,
+  inventoryPath: string,
+  designatorPath: string,
+): Promise<string> {
+  try {
+    return await Deno.readTextFile(join(meshRoot, inventoryPath));
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      throw new ExtractRuntimeError(
+        `Existing extracted Knop inventory does not exist for ${designatorPath}: ${inventoryPath}`,
+      );
+    }
+    throw error;
+  }
+}
+
+function hasExtractionSourceBinding(
+  meshBase: string,
+  inventoryTurtle: string,
+  designatorPath: string,
+): boolean {
+  let quads: Quad[];
+  try {
+    quads = new Parser({ baseIRI: meshBase }).parse(inventoryTurtle);
+  } catch {
+    throw new ExtractRuntimeError(
+      `Could not parse existing extracted Knop inventory for ${designatorPath}.`,
+    );
+  }
+  const knopIri = new URL(toKnopPath(designatorPath), meshBase).href;
+  const extractionSourceIri = new URL(
+    `${toKnopPath(designatorPath)}/_inventory#extraction-source`,
+    meshBase,
+  ).href;
+  return quads.some((quad) =>
+    quad.subject.termType === "NamedNode" &&
+    quad.subject.value === knopIri &&
+    quad.predicate.value === SFC_HAS_EXTRACTION_SOURCE_IRI &&
+    quad.object.termType === "NamedNode" &&
+    quad.object.value === extractionSourceIri
+  );
+}
+
+function replaceExtractionSourceBinding(
+  meshBase: string,
+  inventoryTurtle: string,
+  designatorPath: string,
+  sourcePayload: ExtractSourcePayload,
+): string {
+  if (!hasExtractionSourceBinding(meshBase, inventoryTurtle, designatorPath)) {
+    throw new ExtractRuntimeError(
+      `Existing Knop is not an extracted Knop: ${designatorPath}`,
+    );
+  }
+  const extractionSourcePath = `${
+    toKnopPath(designatorPath)
+  }/_inventory#extraction-source`;
+  const escapedExtractionSourcePath = escapeRegExp(extractionSourcePath);
+  const extractionSourceBlockPattern = new RegExp(
+    `<${escapedExtractionSourcePath}> a sfc:ExtractionSource ;\\n` +
+      `(?:  sfc:hasTargetArtifact <[^>]+> ;\\n)` +
+      `(?:  sfc:hasRequestedTargetState <[^>]+> ;\\n)?` +
+      `(?:  sfc:hasArtifactResolutionMode <[^>]+> \\.|` +
+      `  sfc:hasArtifactResolutionMode <[^>]+> ;\\n` +
+      `  sfc:hasRequestedTargetState <[^>]+> \\.)`,
+  );
+  const replacement = renderExtractionSourceBlock(
+    extractionSourcePath,
+    sourcePayload,
+  );
+  if (!extractionSourceBlockPattern.test(inventoryTurtle)) {
+    throw new ExtractRuntimeError(
+      `Could not replace existing ExtractionSource block for ${designatorPath}.`,
+    );
+  }
+  return inventoryTurtle.replace(extractionSourceBlockPattern, replacement);
+}
+
+function renderExtractionSourceBlock(
+  extractionSourcePath: string,
+  sourcePayload: ExtractSourcePayload,
+): string {
+  if (sourcePayload.sourceResolutionMode === "pinned") {
+    return `<${extractionSourcePath}> a sfc:ExtractionSource ;
+  sfc:hasTargetArtifact <${sourcePayload.designatorPath}> ;
+  sfc:hasRequestedTargetState <${sourcePayload.sourceStatePath}> ;
+  sfc:hasArtifactResolutionMode <${SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI}> .`;
+  }
+
+  return `<${extractionSourcePath}> a sfc:ExtractionSource ;
+  sfc:hasTargetArtifact <${sourcePayload.designatorPath}> ;
+  sfc:hasArtifactResolutionMode <${SFC_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI}> .`;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 async function assertUpdatedTargetsExist(

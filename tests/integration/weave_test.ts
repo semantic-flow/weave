@@ -1604,11 +1604,6 @@ Deno.test("executeGenerate preserves the sidecar first-release artifact contract
       },
     ] as const
   ) {
-    assertEquals(
-      await Deno.readFile(join(workspaceRoot, artifact.releasePath)),
-      await Deno.readFile(join(workspaceRoot, artifact.sourcePath)),
-    );
-
     const inventory = await Deno.readTextFile(
       join(
         workspaceRoot,

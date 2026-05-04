@@ -11,7 +11,6 @@ import {
   executeGenerate,
   executeValidate,
   executeVersion,
-  WeaveRuntimeError,
 } from "../../src/runtime/weave/weave.ts";
 import {
   materializeMeshAliceBioBranch,
@@ -581,8 +580,7 @@ Deno.test("executeVersion fails closed when a later batch target becomes invalid
           ],
         },
       }),
-    WeaveRuntimeError,
-    "is pinned to",
+    WeaveInputError,
   );
 
   assertEquals(

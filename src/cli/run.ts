@@ -14,10 +14,15 @@ import { createRuntimeLoggers } from "../runtime/logging/factory.ts";
 import {
   describeExtractAllTermsResult,
   describeExtractResult,
+  describeSetExtractionSourceAllTermsResult,
+  describeSetExtractionSourceResult,
   executeExtract,
   executeExtractAllTerms,
+  executeSetExtractionSource,
+  executeSetExtractionSourceAllTerms,
   ExtractRuntimeError,
   previewExtractAllTerms,
+  previewSetExtractionSourceAllTerms,
 } from "../runtime/extract/extract.ts";
 import {
   describeIntegrateResult,
@@ -302,19 +307,24 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           { default: "." },
         )
         .option(
-          "--source-designator-path <sourceDesignatorPath:string>",
-          "Explicit woven payload designator to extract from when target mention resolution would be ambiguous.",
+          "--source <sourceDesignatorPath:string>",
+          "Explicit current-tracking woven payload designator to extract from when target mention resolution would be ambiguous.",
         )
         .option(
-          "--yes",
-          "Confirm all-terms extraction without an interactive prompt.",
+          "--source-state <sourceStatePath:string>",
+          "Historical source state to pin the extraction source to.",
+        )
+        .option(
+          "--accept-preview",
+          "Accept the all-terms preview without an interactive prompt.",
         )
         .action(async (
           options: {
             meshRoot: string;
-            sourceDesignatorPath?: string;
+            source?: string;
+            sourceState?: string;
             allTerms?: boolean;
-            yes?: boolean;
+            acceptPreview?: boolean;
           },
           designatorPath?: string,
         ) => {
@@ -334,17 +344,29 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 "extract --all-terms does not accept a positional designatorPath",
               );
             }
-            const sourceDesignatorPath = resolveRequiredOptionValue(
-              options.sourceDesignatorPath,
-              "extract --all-terms requires --source-designator-path",
-              (message) => new ExtractInputError(message),
+            assertMutuallyExclusiveSourceOptions(
+              options.source,
+              options.sourceState,
+              "extract --all-terms",
             );
+            if (!options.source && !options.sourceState) {
+              throw new ExtractInputError(
+                "extract --all-terms requires --source or --source-state",
+              );
+            }
             const preview = await previewExtractAllTerms({
               meshRoot,
-              request: { sourceDesignatorPath },
+              request: {
+                ...(options.source
+                  ? { sourceDesignatorPath: options.source }
+                  : {}),
+                ...(options.sourceState
+                  ? { sourceStatePath: options.sourceState }
+                  : {}),
+              },
             });
             printExtractAllTermsPreview(preview.extractedDesignatorPaths);
-            if (!options.yes) {
+            if (!options.acceptPreview) {
               const confirmed = await Confirm.prompt({
                 message: "Create all listed identifiers?",
                 default: false,
@@ -358,13 +380,21 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             await auditLogger.command("extract.allTerms", {
               meshRoot,
               workspaceRoot,
-              sourceDesignatorPath,
+              sourceDesignatorPath: options.source,
+              sourceStatePath: options.sourceState,
               localMode: true,
             });
 
             const result = await executeExtractAllTerms({
               meshRoot,
-              request: { sourceDesignatorPath },
+              request: {
+                ...(options.source
+                  ? { sourceDesignatorPath: options.source }
+                  : {}),
+                ...(options.sourceState
+                  ? { sourceStatePath: options.sourceState }
+                  : {}),
+              },
               operationalLogger,
               auditLogger,
             });
@@ -384,12 +414,18 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             "extract designatorPath",
             (message) => new ExtractInputError(message),
           );
+          assertMutuallyExclusiveSourceOptions(
+            options.source,
+            options.sourceState,
+            "extract",
+          );
 
           await auditLogger.command("extract", {
             meshRoot,
             workspaceRoot,
             designatorPath: normalizedDesignatorPath,
-            sourceDesignatorPath: options.sourceDesignatorPath,
+            sourceDesignatorPath: options.source,
+            sourceStatePath: options.sourceState,
             localMode: true,
           });
 
@@ -397,8 +433,11 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             meshRoot,
             request: {
               designatorPath: normalizedDesignatorPath,
-              ...(options.sourceDesignatorPath
-                ? { sourceDesignatorPath: options.sourceDesignatorPath }
+              ...(options.source
+                ? { sourceDesignatorPath: options.source }
+                : {}),
+              ...(options.sourceState
+                ? { sourceStatePath: options.sourceState }
                 : {}),
             },
             operationalLogger,
@@ -412,6 +451,157 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             console.log(path);
           }
         }),
+    )
+    .command(
+      "set",
+      new Command()
+        .description("Update local Weave resource settings.")
+        .command(
+          "extraction-source",
+          new Command()
+            .description(
+              "Replace the extraction-source contract for an existing extracted Knop.",
+            )
+            .arguments("[designatorPath:string]")
+            .option(
+              "--all-terms",
+              "Update all existing extracted terms discovered in the selected RDF source artifact.",
+            )
+            .option(
+              "--mesh-root <meshRoot:string>",
+              "Mesh root to update. Defaults to the current directory.",
+              { default: "." },
+            )
+            .option(
+              "--source <sourceDesignatorPath:string>",
+              "Current-tracking woven payload designator to use as the extraction source.",
+            )
+            .option(
+              "--source-state <sourceStatePath:string>",
+              "Historical source state to pin the extraction source to.",
+            )
+            .option(
+              "--accept-preview",
+              "Accept the all-terms preview without an interactive prompt.",
+            )
+            .action(async (
+              options: {
+                meshRoot: string;
+                source?: string;
+                sourceState?: string;
+                allTerms?: boolean;
+                acceptPreview?: boolean;
+              },
+              designatorPath?: string,
+            ) => {
+              const meshRoot = resolve(options.meshRoot);
+              const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
+              const logDir = join(workspaceRoot, ".weave", "logs");
+              const { operationalLogger, auditLogger } = createRuntimeLoggers({
+                logDir,
+              });
+              assertMutuallyExclusiveSourceOptions(
+                options.source,
+                options.sourceState,
+                "set extraction-source",
+              );
+              if (!options.source && !options.sourceState) {
+                throw new ExtractInputError(
+                  "set extraction-source requires --source or --source-state",
+                );
+              }
+
+              if (options.allTerms) {
+                if (
+                  typeof designatorPath === "string" &&
+                  designatorPath.trim().length > 0
+                ) {
+                  throw new ExtractInputError(
+                    "set extraction-source --all-terms does not accept a positional designatorPath",
+                  );
+                }
+                const request = {
+                  ...(options.source
+                    ? { sourceDesignatorPath: options.source }
+                    : {}),
+                  ...(options.sourceState
+                    ? { sourceStatePath: options.sourceState }
+                    : {}),
+                };
+                const preview = await previewSetExtractionSourceAllTerms({
+                  meshRoot,
+                  request,
+                });
+                printSetExtractionSourceAllTermsPreview(
+                  preview.updatedDesignatorPaths,
+                );
+                if (!options.acceptPreview) {
+                  const confirmed = await Confirm.prompt({
+                    message: "Update all listed extraction sources?",
+                    default: false,
+                  });
+                  if (!confirmed) {
+                    console.log(
+                      "All-terms extraction-source update cancelled.",
+                    );
+                    return;
+                  }
+                }
+
+                await auditLogger.command("set.extractionSource.allTerms", {
+                  meshRoot,
+                  workspaceRoot,
+                  sourceDesignatorPath: options.source,
+                  sourceStatePath: options.sourceState,
+                  localMode: true,
+                });
+                const result = await executeSetExtractionSourceAllTerms({
+                  meshRoot,
+                  request,
+                  operationalLogger,
+                  auditLogger,
+                });
+                console.log(describeSetExtractionSourceAllTermsResult(result));
+                for (const path of result.updatedPaths) {
+                  console.log(path);
+                }
+                return;
+              }
+
+              const normalizedDesignatorPath = resolveCliArgumentDesignatorPath(
+                designatorPath,
+                "set extraction-source requires a positional designatorPath",
+                "set extraction-source designatorPath",
+                (message) => new ExtractInputError(message),
+              );
+              await auditLogger.command("set.extractionSource", {
+                meshRoot,
+                workspaceRoot,
+                designatorPath: normalizedDesignatorPath,
+                sourceDesignatorPath: options.source,
+                sourceStatePath: options.sourceState,
+                localMode: true,
+              });
+              const result = await executeSetExtractionSource({
+                meshRoot,
+                request: {
+                  designatorPath: normalizedDesignatorPath,
+                  ...(options.source
+                    ? { sourceDesignatorPath: options.source }
+                    : {}),
+                  ...(options.sourceState
+                    ? { sourceStatePath: options.sourceState }
+                    : {}),
+                },
+                operationalLogger,
+                auditLogger,
+              });
+              console.log(describeSetExtractionSourceResult(result));
+              for (const path of result.updatedPaths) {
+                console.log(path);
+              }
+            }),
+        ),
     )
     .command(
       "integrate",
@@ -801,6 +991,17 @@ function printExtractAllTermsPreview(
   }
 }
 
+function printSetExtractionSourceAllTermsPreview(
+  designatorPaths: readonly string[],
+): void {
+  console.log(
+    `All-terms extraction-source update will update ${designatorPaths.length} identifiers:`,
+  );
+  for (const designatorPath of designatorPaths) {
+    console.log(`- ${designatorPath}`);
+  }
+}
+
 function resolveIntegrateDesignatorPath(
   options: { designatorPath?: string },
   designatorPathArg?: string,
@@ -1129,6 +1330,18 @@ function resolveRequiredArgumentValue(
     errorMessage,
     createError,
   );
+}
+
+function assertMutuallyExclusiveSourceOptions(
+  sourceDesignatorPath: string | undefined,
+  sourceStatePath: string | undefined,
+  commandName: string,
+): void {
+  if (sourceDesignatorPath && sourceStatePath) {
+    throw new ExtractInputError(
+      `${commandName} requires either --source or --source-state, not both`,
+    );
+  }
 }
 
 function resolveCliArgumentDesignatorPath(

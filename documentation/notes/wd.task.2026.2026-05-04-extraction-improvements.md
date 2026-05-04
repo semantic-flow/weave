@@ -142,15 +142,15 @@ This task is related to but distinct from forced unchanged state creation. The s
 ## Implementation Plan
 
 - [ ] Update this task note and related sidecar/all-terms notes with the settled extraction-source resolution contract.
-- [ ] Update [[wu.cli-reference]] with `--source`, `--source-state`, `--accept-preview`, and `weave set extraction-source`.
+- [x] Update [[wu.cli-reference]] with `--source`, `--source-state`, `--accept-preview`, and `weave set extraction-source`.
 - [ ] Update the relevant Semantic Flow behavior spec, likely [[sf.spec.2026-04-05-extract-behavior]], for current and pinned source-resolution semantics.
-- [ ] Extend extraction planning so `ExtractionSource` can be rendered in current or pinned mode.
-- [ ] Update single-target extract runtime and CLI parsing to use `--source` and `--source-state`.
-- [ ] Update all-terms extract runtime and CLI parsing to use `--source` / `--source-state` and `--accept-preview`.
-- [ ] Update generated page source loading so current-mode extraction sources resolve the source artifact's current latest state at generation time.
-- [ ] Add `weave set extraction-source` runtime support for one target.
-- [ ] Add `weave set extraction-source --all-terms` runtime support for batch migration/update.
+- [x] Extend extraction planning so `ExtractionSource` can be rendered in current or pinned mode.
+- [x] Update single-target extract runtime and CLI parsing to use `--source` and `--source-state`.
+- [x] Update all-terms extract runtime and CLI parsing to use `--source` / `--source-state` and `--accept-preview`.
+- [x] Update generated page source loading so current-mode extraction sources resolve the source artifact's current latest state at generation time.
+- [x] Add `weave set extraction-source` runtime support for one target.
+- [x] Add `weave set extraction-source --all-terms` runtime support for batch migration/update.
 - [ ] Add or update SHACL constraints so an extracted Knop inventory has at most one `sfc:hasExtractionSource`.
-- [ ] Update unit, integration, and e2e tests for the new contract.
+- [x] Update unit, integration, and e2e tests for the new contract.
 - [x] Decide whether to retrofit existing Fantasy Rules `08/09` rungs or keep them pinned and migrate in `16/17`.
-- [ ] Update [[wd.decision-log]] once behavior is implemented and the fixture policy is settled.
+- [x] Update [[wd.decision-log]] once behavior is implemented and the fixture policy is settled.
