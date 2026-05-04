@@ -1412,6 +1412,47 @@ Deno.test("planWeave can start a requested payload history after another history
   );
 });
 
+Deno.test("planWeave rejects implicit ordinal advancement after a named payload state", () => {
+  const currentKnopInventoryTurtle = secondPayloadWeaveKnopInventoryTurtle
+    .replaceAll(
+      "alice/bio/_history001/_s0001",
+      "alice/bio/releases/v0.0.1",
+    )
+    .replaceAll("alice/bio/_history001", "alice/bio/releases");
+
+  assertThrows(
+    () =>
+      planWeave({
+        request: {
+          targets: [{ designatorPath: "alice/bio" }],
+        },
+        meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+        currentMeshInventoryTurtle:
+          firstReferenceCatalogWeaveMeshInventoryTurtle,
+        weaveableKnops: [{
+          designatorPath: "alice/bio",
+          currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+          currentKnopInventoryTurtle,
+          payloadArtifact: {
+            workingLocalRelativePath: "alice-bio.ttl",
+            currentArtifactHistoryPath: "alice/bio/releases",
+            currentPayloadTurtle:
+              `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix schema: <https://schema.org/> .
+
+<alice> a schema:Person .
+<alice/bio> dcterms:creator <alice> .
+`,
+            latestHistoricalStatePath: "alice/bio/releases/v0.0.1",
+          },
+        }],
+      }),
+    WeaveInputError,
+    "Cannot auto-version payload artifact alice/bio because current payload history alice/bio/releases uses named historical state alice/bio/releases/v0.0.1",
+  );
+});
+
 Deno.test("planWeave renders the extracted bob woven slice", async () => {
   const plan = planWeave(await createExtractedBobWeaveInput());
 

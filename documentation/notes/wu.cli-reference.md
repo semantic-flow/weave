@@ -32,6 +32,9 @@ Supported keys:
 
 - `designatorPath`
 - `recursive`
+- `historySegment` for `weave` and `weave version`
+- `stateSegment` for `weave` and `weave version`
+- `manifestationSegment` for `weave` and `weave version`
 
 Examples:
 
@@ -39,6 +42,7 @@ Examples:
 weave --target 'designatorPath=alice/bio'
 weave generate --target 'designatorPath=alice,recursive=true'
 weave validate --target 'designatorPath=alice/bio' --target 'designatorPath=bob'
+weave version --target 'designatorPath=ontology,historySegment=releases,stateSegment=v0.0.2,manifestationSegment=ttl'
 ```
 
 Notes:
@@ -46,7 +50,8 @@ Notes:
 - `designatorPath` is required.
 - `recursive=true` includes descendants of the given designator path.
 - `recursive=false` is accepted and currently behaves the same as omitting `recursive`.
-- Version-oriented fields such as `historySegment`, `stateSegment`, and `manifestationSegment` are not part of `--target`.
+- Version-oriented target fields are accepted only by `weave` and `weave version`; `weave validate` and `weave generate` reject them because they do not create historical states.
+- For recursive version targets, version-oriented fields act as defaults for matched payload artifacts. More specific targets can override them.
 
 ## Root special case
 
@@ -97,10 +102,28 @@ weave \
   --payload-manifestation-segment ttl
 ```
 
+The same payload naming flags can be used as general defaults for all included payload artifacts:
+
+```sh
+weave \
+  --payload-history-segment releases \
+  --payload-state-segment v0.0.2 \
+  --payload-manifestation-segment ttl
+```
+
+For mixed naming, put the state names directly on the matching targets:
+
+```sh
+weave \
+  --target 'designatorPath=ontology,historySegment=releases,stateSegment=v0.0.2,manifestationSegment=ttl' \
+  --target 'designatorPath=shacl,historySegment=releases,stateSegment=v0.0.2,manifestationSegment=ttl'
+```
+
 Constraints:
 
-- payload version naming requires exactly one `--target`
-- payload naming is applied only to payload versioning, not to shared target selection
+- payload naming is applied only to payload artifacts selected for versioning; support artifacts keep system-controlled history paths
+- per-target payload naming overrides the general `--payload-*` defaults for that target
+- if a payload's current history uses a named HistoricalState such as `v0.0.1`, a later version request must provide the next `stateSegment` or explicitly request ordinal fallback with a segment such as `_s0001`
 - if `--payload-manifestation-segment` is omitted, the current default derives the manifestation segment from the payload filename, such as `alice-bio-ttl` for `alice-bio.ttl`
 
 ### `weave validate`
@@ -125,11 +148,15 @@ weave version \
   --payload-history-segment releases \
   --payload-state-segment v0.0.1 \
   --payload-manifestation-segment ttl
+weave version \
+  --target 'designatorPath=ontology,stateSegment=v0.0.2,manifestationSegment=ttl' \
+  --target 'designatorPath=shacl,stateSegment=v0.0.2,manifestationSegment=ttl'
 ```
 
 Constraints:
 
-- payload version naming requires exactly one `--target`
+- payload version naming can be provided as general `--payload-*` defaults or as per-target fields
+- if a named-state payload history is current, omitted `stateSegment` fails closed instead of silently choosing an ordinal successor
 
 ### `weave generate`
 

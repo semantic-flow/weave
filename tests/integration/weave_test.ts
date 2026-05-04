@@ -494,6 +494,81 @@ Deno.test("executeWeave can start a named payload history after an ordinal histo
   );
 });
 
+Deno.test("executeWeave applies recursive payload state naming to named-state histories", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-recursive-payload-state-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  await executeWeave({
+    meshRoot: workspaceRoot,
+    request: {
+      targets: [{
+        designatorPath: "alice/bio",
+        historySegment: "releases",
+        stateSegment: "v0.0.1",
+        manifestationSegment: "ttl",
+      }],
+    },
+  });
+  await Deno.writeTextFile(
+    join(workspaceRoot, "alice-bio.ttl"),
+    `${await Deno.readTextFile(
+      join(workspaceRoot, "alice-bio.ttl"),
+    )}\n<alice/bio> <https://schema.org/version> \"2\" .\n`,
+  );
+
+  const result = await executeWeave({
+    meshRoot: workspaceRoot,
+    request: {
+      targets: [{
+        designatorPath: "",
+        recursive: true,
+        stateSegment: "v0.0.2",
+        manifestationSegment: "ttl",
+      }],
+    },
+  });
+
+  assertEquals(result.wovenDesignatorPaths, ["alice/bio"]);
+  assert(
+    result.createdPaths.includes(
+      "alice/bio/releases/v0.0.2/ttl/alice-bio.ttl",
+    ),
+  );
+});
+
+Deno.test("executeWeave fails closed before broad auto-advancement of named payload states", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-named-state-requires-target-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  await executeWeave({
+    meshRoot: workspaceRoot,
+    request: {
+      targets: [{
+        designatorPath: "alice/bio",
+        historySegment: "releases",
+        stateSegment: "v0.0.1",
+        manifestationSegment: "ttl",
+      }],
+    },
+  });
+  await Deno.writeTextFile(
+    join(workspaceRoot, "alice-bio.ttl"),
+    `${await Deno.readTextFile(
+      join(workspaceRoot, "alice-bio.ttl"),
+    )}\n<alice/bio> <https://schema.org/version> \"2\" .\n`,
+  );
+
+  await assertRejects(
+    () => executeWeave({ meshRoot: workspaceRoot }),
+    WeaveInputError,
+    "Provide stateSegment on the target",
+  );
+});
+
 Deno.test("executeWeave forwards targets to generate and leaves unrelated pages untouched", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-weave-targeted-generate-",

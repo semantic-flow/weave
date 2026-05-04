@@ -226,11 +226,12 @@ created: 1773630801215
 
 ### 2026-05-04: Named Release Histories Do Not Consume Ordinal Counters
 
-- Decision: Let payload weave start an explicitly named ArtifactHistory such as `releases` on an already versioned payload artifact, while leaving `sflo:nextHistoryOrdinal` unchanged as the next auto `_historyNNN` counter. Semver-style HistoricalState names such as `v0.0.1` are explicitly requested and do not receive `sflo:stateOrdinal`; the named history still carries `sflo:nextStateOrdinal` so a later omitted state name can fall back to default `_sNNNN` allocation.
+- Decision: Let payload weave start an explicitly named ArtifactHistory such as `releases` on an already versioned payload artifact, while leaving `sflo:nextHistoryOrdinal` unchanged as the next auto `_historyNNN` counter. Semver-style HistoricalState names such as `v0.0.1` are explicitly requested and do not receive `sflo:stateOrdinal`; the named history still carries `sflo:nextStateOrdinal`, but later auto-versioning fails closed after a named state unless the caller supplies the next `stateSegment` or explicitly requests an ordinal fallback segment.
 - References: [[wd.task.2026.2026-05-02-fantasy-rules-sidecar]]
 - Why:
   - Named histories and ordinal histories are different naming policies. Creating `releases` should not make a future omitted history become `_history003` when `_history002` has never existed.
   - Weave does not yet have a semver increment policy or interactive release prompt, so `nextStateOrdinal` remains an ordinal fallback counter, not a semver successor.
+  - A broad whole-mesh weave should be allowed to provide common payload version segment defaults, while still failing before writes if any included named-state payload lacks an explicit successor segment.
 
 ### 2026-04-07: First Target-Aware weave CLI Uses Repeatable --target Specs
 

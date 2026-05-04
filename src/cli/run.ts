@@ -55,7 +55,7 @@ import {
 import { loadOperationalLocalPathPolicy } from "../runtime/operational/local_path_policy.ts";
 
 const TARGET_OPTION_DESCRIPTION =
-  "Target spec as comma-separated key=value fields. Supported keys: designatorPath, recursive.";
+  "Target spec as comma-separated key=value fields. Supported keys: designatorPath, recursive. Versioning commands also accept historySegment, stateSegment, and manifestationSegment.";
 
 export async function runWeaveCli(args: string[]): Promise<number> {
   let exitCode = 0;
@@ -792,7 +792,7 @@ function resolveSharedTargetSpecs(
   }
 
   return values.map((value, index) =>
-    parseTargetSpec(value, index, commandName)
+    parseTargetSpec(value, index, commandName, false)
   );
 }
 
@@ -805,18 +805,44 @@ function resolveVersionTargetSpecs(
   },
   commandName: string,
 ): readonly VersionTargetSpec[] {
-  const targets = resolveSharedTargetSpecs(options, commandName);
+  const values = options.target;
+  const targets =
+    values?.map((value, index) =>
+      parseTargetSpec(value, index, commandName, true)
+    ) ?? [];
   if (targets.length === 0) {
+    const payloadHistorySegment = resolveOptionalWeavePayloadSegment(
+      options.payloadHistorySegment,
+      `${commandName} --payload-history-segment`,
+    );
+    const payloadStateSegment = resolveOptionalWeavePayloadSegment(
+      options.payloadStateSegment,
+      `${commandName} --payload-state-segment`,
+    );
+    const payloadManifestationSegment = resolveOptionalWeavePayloadSegment(
+      options.payloadManifestationSegment,
+      `${commandName} --payload-manifestation-segment`,
+    );
+
     if (
-      options.payloadHistorySegment !== undefined ||
-      options.payloadStateSegment !== undefined ||
-      options.payloadManifestationSegment !== undefined
+      payloadHistorySegment === undefined &&
+      payloadStateSegment === undefined &&
+      payloadManifestationSegment === undefined
     ) {
-      throw new WeaveInputError(
-        "Payload version naming requires exactly one --target.",
-      );
+      return [];
     }
-    return [];
+
+    return [{
+      designatorPath: "",
+      recursive: true,
+      ...(payloadHistorySegment
+        ? { historySegment: payloadHistorySegment }
+        : {}),
+      ...(payloadStateSegment ? { stateSegment: payloadStateSegment } : {}),
+      ...(payloadManifestationSegment
+        ? { manifestationSegment: payloadManifestationSegment }
+        : {}),
+    }];
   }
   const payloadHistorySegment = resolveOptionalWeavePayloadSegment(
     options.payloadHistorySegment,
@@ -831,34 +857,40 @@ function resolveVersionTargetSpecs(
     `${commandName} --payload-manifestation-segment`,
   );
 
-  if (
-    payloadHistorySegment === undefined &&
-    payloadStateSegment === undefined &&
-    payloadManifestationSegment === undefined
-  ) {
-    return targets;
-  }
-  if (targets.length !== 1) {
-    throw new WeaveInputError(
-      "Payload version naming requires exactly one --target.",
-    );
-  }
-
-  return [{
-    ...targets[0]!,
-    ...(payloadHistorySegment ? { historySegment: payloadHistorySegment } : {}),
-    ...(payloadStateSegment ? { stateSegment: payloadStateSegment } : {}),
-    ...(payloadManifestationSegment
-      ? { manifestationSegment: payloadManifestationSegment }
-      : {}),
-  }];
+  return targets.map((target) => ({
+    ...target,
+    ...(target.historySegment !== undefined ||
+        payloadHistorySegment === undefined
+      ? {}
+      : { historySegment: payloadHistorySegment }),
+    ...(target.stateSegment !== undefined || payloadStateSegment === undefined
+      ? {}
+      : { stateSegment: payloadStateSegment }),
+    ...(target.manifestationSegment !== undefined ||
+        payloadManifestationSegment === undefined
+      ? {}
+      : { manifestationSegment: payloadManifestationSegment }),
+  }));
 }
 
 function parseTargetSpec(
   value: string,
   index: number,
   commandName: string,
-): TargetSpec {
+  allowVersionFields: false,
+): TargetSpec;
+function parseTargetSpec(
+  value: string,
+  index: number,
+  commandName: string,
+  allowVersionFields: true,
+): VersionTargetSpec;
+function parseTargetSpec(
+  value: string,
+  index: number,
+  commandName: string,
+  allowVersionFields: boolean,
+): TargetSpec | VersionTargetSpec {
   const fieldName = `${commandName} --target[${index}]`;
   const trimmed = value.trim();
   if (trimmed.length === 0) {
@@ -881,13 +913,14 @@ function parseTargetSpec(
       );
     }
 
-    const key = entry.slice(0, separatorIndex).trim();
+    const rawKey = entry.slice(0, separatorIndex).trim();
+    const key = normalizeTargetSpecKey(rawKey, allowVersionFields);
     const rawFieldValue = entry.slice(separatorIndex + 1).trim();
     if (rawFieldValue.length === 0) {
-      throw new WeaveInputError(`${fieldName}.${key} is required`);
+      throw new WeaveInputError(`${fieldName}.${rawKey} is required`);
     }
-    if (key !== "designatorPath" && key !== "recursive") {
-      throw new WeaveInputError(`${fieldName}.${key} is not supported`);
+    if (key === undefined) {
+      throw new WeaveInputError(`${fieldName}.${rawKey} is not supported`);
     }
     if (Object.hasOwn(record, key)) {
       throw new WeaveInputError(`${fieldName} contains duplicate key: ${key}`);
@@ -910,18 +943,50 @@ function parseTargetSpec(
     }
   }
 
-  if (record.recursive === undefined) {
-    return { designatorPath };
-  }
-  if (record.recursive !== "true" && record.recursive !== "false") {
+  const recursive = record.recursive;
+  if (
+    recursive !== undefined && recursive !== "true" && recursive !== "false"
+  ) {
     throw new WeaveInputError(
       `${fieldName}.recursive must be true or false`,
     );
   }
 
-  return record.recursive === "true"
-    ? { designatorPath, recursive: true }
-    : { designatorPath };
+  return {
+    designatorPath,
+    ...(recursive === "true" ? { recursive: true } : {}),
+    ...(record.historySegment ? { historySegment: record.historySegment } : {}),
+    ...(record.stateSegment ? { stateSegment: record.stateSegment } : {}),
+    ...(record.manifestationSegment
+      ? { manifestationSegment: record.manifestationSegment }
+      : {}),
+  };
+}
+
+function normalizeTargetSpecKey(
+  key: string,
+  allowVersionFields: boolean,
+): string | undefined {
+  if (key === "designatorPath" || key === "recursive") {
+    return key;
+  }
+  if (!allowVersionFields) {
+    return undefined;
+  }
+
+  switch (key) {
+    case "historySegment":
+    case "payloadHistorySegment":
+      return "historySegment";
+    case "stateSegment":
+    case "payloadStateSegment":
+      return "stateSegment";
+    case "manifestationSegment":
+    case "payloadManifestationSegment":
+      return "manifestationSegment";
+    default:
+      return undefined;
+  }
 }
 
 function resolveOptionalWeavePayloadSegment(

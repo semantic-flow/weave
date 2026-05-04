@@ -145,6 +145,43 @@ Deno.test("executeVersion reuses custom payload manifestation paths on the next 
   );
 });
 
+Deno.test("executeVersion fails closed before auto-advancing a named payload state", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-version-named-state-requires-target-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  await executeVersion({
+    meshRoot: workspaceRoot,
+    request: {
+      targets: [{
+        designatorPath: "alice/bio",
+        historySegment: "releases",
+        stateSegment: "v0.0.1",
+        manifestationSegment: "ttl",
+      }],
+    },
+  });
+  await Deno.writeTextFile(
+    join(workspaceRoot, "alice-bio.ttl"),
+    `${await Deno.readTextFile(
+      join(workspaceRoot, "alice-bio.ttl"),
+    )}\n<alice/bio> <https://schema.org/version> \"2\" .\n`,
+  );
+
+  await assertRejects(
+    () =>
+      executeVersion({
+        meshRoot: workspaceRoot,
+        request: {
+          targets: [{ designatorPath: "alice/bio" }],
+        },
+      }),
+    WeaveInputError,
+    "Provide stateSegment on the target",
+  );
+});
+
 Deno.test("executeVersion rejects mixed requested targets when some are not currently weaveable", async () => {
   const workspaceRoot = await createTestTmpDir("weave-version-mixed-targets-");
   await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);

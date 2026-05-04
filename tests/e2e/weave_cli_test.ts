@@ -103,6 +103,54 @@ Deno.test("weave version succeeds as a black-box CLI run", async () => {
   );
 });
 
+Deno.test("weave accepts per-target payload version fields as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-target-version-");
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const output = await runCliCommand([
+    "version",
+    "--target",
+    "designatorPath=alice/bio,historySegment=releases,stateSegment=v0.0.1,manifestationSegment=ttl",
+  ], workspaceRoot);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Versioned 1 designator path"), stdout);
+  await Deno.stat(
+    join(
+      workspaceRoot,
+      "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
+    ),
+  );
+});
+
+Deno.test("weave applies general payload version fields to included targets", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-general-version-");
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const output = await runCliCommand([
+    "version",
+    "--payload-history-segment",
+    "releases",
+    "--payload-state-segment",
+    "v0.0.1",
+    "--payload-manifestation-segment",
+    "ttl",
+  ], workspaceRoot);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Versioned 1 designator path"), stdout);
+  await Deno.stat(
+    join(
+      workspaceRoot,
+      "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
+    ),
+  );
+});
+
 Deno.test("weave version accepts the exact root target as a black-box CLI run", async () => {
   const workspaceRoot = await createTestTmpDir("weave-e2e-version-root-");
   await materializeMeshAliceBioBranch(
@@ -306,9 +354,9 @@ Deno.test("weave accepts payload version naming flags as a black-box CLI run", a
   await Deno.stat(join(workspaceRoot, "alice/bio/releases/v0.0.1/index.html"));
 });
 
-Deno.test("weave rejects payload version naming flags without exactly one target", async () => {
+Deno.test("weave applies payload version naming flags without explicit targets", async () => {
   const workspaceRoot = await createTestTmpDir(
-    "weave-e2e-payload-naming-no-target-",
+    "weave-e2e-payload-naming-all-targets-",
   );
   await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
 
@@ -317,19 +365,23 @@ Deno.test("weave rejects payload version naming flags without exactly one target
     "releases",
     "--payload-state-segment",
     "v0.0.1",
+    "--payload-manifestation-segment",
+    "ttl",
   ], workspaceRoot);
+  const stdout = new TextDecoder().decode(output.stdout);
   const stderr = new TextDecoder().decode(output.stderr);
 
-  assertEquals(output.success, false);
-  assert(
-    stderr.includes(
-      "Payload version naming requires exactly one --target.",
+  assert(output.success, stderr);
+  assert(stdout.includes("Wove 1 designator path"), stdout);
+  await Deno.stat(
+    join(
+      workspaceRoot,
+      "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
     ),
-    stderr,
   );
 });
 
-Deno.test("weave rejects payload version naming flags with multiple targets", async () => {
+Deno.test("weave applies payload version naming flags across multiple targets", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-e2e-payload-naming-many-targets-",
   );
@@ -337,22 +389,26 @@ Deno.test("weave rejects payload version naming flags with multiple targets", as
 
   const output = await runCliCommand([
     "--target",
-    "designatorPath=alice",
+    "designatorPath=alice,recursive=true",
     "--target",
     "designatorPath=alice/bio",
     "--payload-history-segment",
     "releases",
     "--payload-state-segment",
     "v0.0.1",
+    "--payload-manifestation-segment",
+    "ttl",
   ], workspaceRoot);
+  const stdout = new TextDecoder().decode(output.stdout);
   const stderr = new TextDecoder().decode(output.stderr);
 
-  assertEquals(output.success, false);
-  assert(
-    stderr.includes(
-      "Payload version naming requires exactly one --target.",
+  assert(output.success, stderr);
+  assert(stdout.includes("Wove 1 designator path"), stdout);
+  await Deno.stat(
+    join(
+      workspaceRoot,
+      "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
     ),
-    stderr,
   );
 });
 
@@ -559,7 +615,7 @@ Deno.test("weave matches the manifest-scoped sidecar Gunaar dataset woven fixtur
   await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
 });
 
-Deno.test("weave rejects unsupported --target fields", async () => {
+Deno.test("weave validate rejects version-only --target fields", async () => {
   const workspaceRoot = await createTestTmpDir("weave-e2e-target-parse-");
   await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
 
@@ -570,6 +626,7 @@ Deno.test("weave rejects unsupported --target fields", async () => {
       "--allow-write",
       "--allow-env",
       cliEntrypoint,
+      "validate",
       "--target",
       "designatorPath=alice/bio,stateSegment=v0.0.1",
     ],
@@ -582,7 +639,7 @@ Deno.test("weave rejects unsupported --target fields", async () => {
 
   assertEquals(output.success, false);
   assert(
-    stderr.includes("weave --target[0].stateSegment is not supported"),
+    stderr.includes("validate --target[0].stateSegment is not supported"),
     stderr,
   );
 });

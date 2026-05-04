@@ -176,6 +176,8 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - Ontology and SHACL should normally be bumped together in the fixture, even if only one source file has semantic changes, because they are published as a compatibility pair for this small ontology project.
 - Named ArtifactHistory paths such as `releases` should not consume or advance `sflo:nextHistoryOrdinal`; that property remains the next auto-generated `_historyNNN` counter for the artifact.
 - Semver-style HistoricalState paths such as `v0.0.1` should be explicitly requested and should not receive `sflo:stateOrdinal`; the containing named ArtifactHistory should still carry `sflo:nextStateOrdinal` for fallback default `_sNNNN` allocation if a later state request omits an explicit name.
+- Once a payload history has established a named HistoricalState such as `v0.0.1`, later `weave` or `version` operations must fail closed when that payload would be versioned without an explicit next `stateSegment`. A caller may continue semver naming with `v0.0.2` or explicitly opt into ordinal fallback with a segment such as `_s0001`; Weave should not silently choose between those policies.
+- Payload version segment defaults may apply broadly to all included payload artifacts, but target-specific segment fields should override the broad defaults. Support artifacts keep system-controlled history and state names until a separate support-artifact naming contract is defined.
 - A future version-bumped example branch should include dataset compatibility metadata in `examples/gunaar.ttl` once the project settles how datasets announce the ontology version or compatibility line they target.
 - Use branch refs as test fixtures: source refs define operation input, destination refs define expected output, and Accord manifests define the transition assertions.
 - Treat Accord manifests as transition contracts for the ladder, not as branch metadata or late acceptance paperwork.
@@ -313,6 +315,14 @@ The first ladder should be branch-based unless implementation pressure proves a 
 
 - [ ] Add a follow-up ontology and SHACL version-bump pair after the first sidecar ladder is working.
 - [ ] Use the follow-up pair to test how datasets, ontology files, SHACL files, release histories, and generated pages behave when only part of the source content has semantic changes but the published compatibility pair advances together.
+- [ ] Use the follow-up pair to prove broad payload state naming for ontology and SHACL together, such as one request-level/default state segment applied to both selected payload artifacts.
+
+### Phase 3C: Explicit Return To Ordinal Sequencing
+
+- [ ] Add a later pair for explicitly returning from named release state sequencing to default ordinal state or history sequencing.
+- [ ] Prefer a `16-return-to-ordinal-history` / `17-return-to-ordinal-history-woven` pair if this should exercise both default ArtifactHistory and default HistoricalState allocation by requesting `_history002` and allowing `_s0001`.
+- [ ] Alternatively use a named-history state fallback pair if the more important behavior is explicitly requesting `stateSegment=_s0001` under the existing `releases` history.
+- [ ] Keep this pair explicit; a broad weave with omitted state naming after `v0.0.1` should fail closed with a message explaining how to provide `stateSegment` or choose ordinal fallback.
 
 ### Phase 4: Resource Page Behavior
 

@@ -987,6 +987,9 @@ function assertPayloadNamingSupportedForSlice(
   if (slice === "firstPayloadWeave" || slice === "secondPayloadWeave") {
     return;
   }
+  if (target.recursive) {
+    return;
+  }
 
   throw new WeaveInputError(
     `historySegment, stateSegment, and manifestationSegment are only supported for payload versioning; ${designatorPath} is currently ${
@@ -6504,6 +6507,18 @@ function resolveSecondPayloadVersionLayout(
       designatorPath,
       currentStatePath,
     );
+  if (
+    target?.stateSegment === undefined &&
+    parseOptionalStateOrdinalFromPath(currentStatePath) === undefined
+  ) {
+    throw new WeaveInputError(
+      `Cannot auto-version payload artifact ${
+        formatDesignatorPathForDisplay(designatorPath)
+      } because current payload history ${historyPath} uses named historical state ${currentStatePath}. Provide stateSegment on the target, or explicitly request ordinal fallback with stateSegment=${
+        toStateSegment(1)
+      }.`,
+    );
+  }
   const nextStatePath = target?.stateSegment
     ? `${historyPath}/${target.stateSegment}`
     : resolveNextOrdinalStatePathFromHistory(
