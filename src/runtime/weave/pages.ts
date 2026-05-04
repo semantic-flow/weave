@@ -13,6 +13,7 @@ import {
 
 interface ResourcePageRenderInput {
   meshLabel: string;
+  meshRootHref: string;
   pagePath: string;
   resourcePath: string;
   displayResourcePath: string;
@@ -27,7 +28,7 @@ interface ResourcePageRenderInput {
 
 interface ResourcePageLink {
   label: string;
-  href: string;
+  href?: string;
   detail?: string;
 }
 
@@ -62,6 +63,7 @@ export function renderResourcePage(
   const displayResourcePath = formatDesignatorPathForDisplay(resourcePath);
   const canonical = new URL(resourcePath, meshBase).href;
   const meshLabel = deriveMeshLabel(meshBase);
+  const meshRootHref = toMeshRootHref(meshBase);
   const escapedResourcePath = escapeHtml(displayResourcePath);
   const escapedCanonical = escapeHtml(canonical);
   const escapedMeshLabel = escapeHtml(meshLabel);
@@ -71,6 +73,7 @@ export function renderResourcePage(
       toDefaultResourcePageRenderInput(
         page,
         meshLabel,
+        meshRootHref,
         resourcePath,
         displayResourcePath,
         canonical,
@@ -137,17 +140,19 @@ ${
 function toDefaultResourcePageRenderInput(
   page: Exclude<ResourcePageModel, { kind: "customIdentifier" }>,
   meshLabel: string,
+  meshRootHref: string,
   resourcePath: string,
   displayResourcePath: string,
   canonical: string,
 ): ResourcePageRenderInput {
   if (page.kind === "identifier") {
     const workingFileHref = page.workingLocalRelativePath
-      ? toRelativeHref(page.path, page.workingLocalRelativePath)
+      ? toPublicSourceHref(meshRootHref, page.workingLocalRelativePath)
       : undefined;
 
     return {
       meshLabel,
+      meshRootHref,
       pagePath: page.path,
       resourcePath,
       displayResourcePath,
@@ -157,12 +162,20 @@ function toDefaultResourcePageRenderInput(
       badges: ["Semantic Flow identifier"],
       primaryLinks: [
         { label: "Canonical IRI", href: canonical },
-        { label: "Associated Knop", href: "./_knop" },
-        ...(workingFileHref
+        {
+          label: "Associated Knop",
+          href: toMeshResourceHref(
+            meshRootHref,
+            toKnopResourcePath(resourcePath),
+          ),
+        },
+        ...(page.workingLocalRelativePath
           ? [{
             label: "Working RDF file",
             href: workingFileHref,
-            detail: "current working bytes",
+            detail: workingFileHref
+              ? "current working bytes"
+              : `local source: ${page.workingLocalRelativePath}`,
           }]
           : []),
       ],
@@ -172,14 +185,13 @@ function toDefaultResourcePageRenderInput(
   }
 
   if (page.kind === "referenceCatalog") {
-    const targetBasePath = resourcePath;
     const currentLinks = page.currentLinks.map((link) => {
-      const targetHref = toRelativeHref(
-        targetBasePath,
+      const targetHref = toMeshResourceHref(
+        meshRootHref,
         link.referenceTargetPath,
       );
       const stateHref = link.referenceTargetStatePath
-        ? toRelativeHref(targetBasePath, link.referenceTargetStatePath)
+        ? toMeshResourceHref(meshRootHref, link.referenceTargetStatePath)
         : undefined;
       const escapedFragment = escapeHtml(link.fragment);
       const escapedRoleLabel = escapeHtml(link.referenceRoleLabel);
@@ -196,6 +208,7 @@ function toDefaultResourcePageRenderInput(
 
     return {
       meshLabel,
+      meshRootHref,
       pagePath: page.path,
       resourcePath,
       displayResourcePath,
@@ -216,6 +229,7 @@ function toDefaultResourcePageRenderInput(
 
   return {
     meshLabel,
+    meshRootHref,
     pagePath: page.path,
     resourcePath,
     displayResourcePath,
@@ -318,9 +332,10 @@ ${sections ? `${sections}\n` : ""}${rawSections}
 
 function renderPrimaryLink(link: ResourcePageLink): string {
   const detail = link.detail ? `<small>${escapeHtml(link.detail)}</small>` : "";
-  return `          <li><a href="${escapeHtml(link.href)}">${
-    escapeHtml(link.label)
-  }</a>${detail}</li>`;
+  const label = link.href
+    ? `<a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>`
+    : `<span>${escapeHtml(link.label)}</span>`;
+  return `          <li>${label}${detail}</li>`;
 }
 
 function renderRawSourcePanels(input: ResourcePageRenderInput): string {
@@ -337,7 +352,7 @@ function renderRawSourcePanel(
   input: ResourcePageRenderInput,
   panel: ResourcePageRawSourcePanelModel,
 ): string {
-  const sourceHref = toRelativeHref(input.pagePath, panel.sourcePath);
+  const sourceHref = toPublicSourceHref(input.meshRootHref, panel.sourcePath);
   const body = panel.contents === undefined
     ? `        <p>This source is ${
       panel.omittedByteLength ?? 0
@@ -348,10 +363,40 @@ function renderRawSourcePanel(
         <summary>${escapeHtml(panel.label)}</summary>
         <div class="wf-source-meta">
           <span>${escapeHtml(panel.sourcePath)}</span>
-          <a href="${escapeHtml(sourceHref)}">Raw file</a>
+          ${
+    sourceHref
+      ? `<a href="${escapeHtml(sourceHref)}">Raw file</a>`
+      : `<span>Local source outside mesh root</span>`
+  }
         </div>
 ${body}
       </details>`;
+}
+
+function toMeshRootHref(meshBase: string): string {
+  const pathname = new URL(meshBase).pathname;
+  return pathname.endsWith("/") ? pathname : `${pathname}/`;
+}
+
+function toMeshResourceHref(
+  meshRootHref: string,
+  resourcePath: string,
+): string {
+  return `${meshRootHref}${resourcePath}`;
+}
+
+function toPublicSourceHref(
+  meshRootHref: string,
+  sourcePath: string,
+): string | undefined {
+  if (sourcePath.startsWith("../")) {
+    return undefined;
+  }
+  return toMeshResourceHref(meshRootHref, sourcePath);
+}
+
+function toKnopResourcePath(resourcePath: string): string {
+  return resourcePath.length === 0 ? "_knop" : `${resourcePath}/_knop`;
 }
 
 function classifyResourcePage(resourcePath: string): string {

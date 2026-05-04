@@ -14,8 +14,8 @@ Deno.test("renderResourcePage renders identifier pages with working file links",
 
   assertStringIncludes(html, "<title>mesh-alice-bio alice/bio</title>");
   assertStringIncludes(html, "<h1>alice/bio</h1>");
-  assertStringIncludes(html, 'href="../../alice-bio.ttl"');
-  assertStringIncludes(html, 'href="./_knop"');
+  assertStringIncludes(html, 'href="/mesh-alice-bio/alice-bio.ttl"');
+  assertStringIncludes(html, 'href="/mesh-alice-bio/alice/bio/_knop"');
 });
 
 Deno.test("renderResourcePage renders the root identifier as slash", () => {
@@ -31,7 +31,7 @@ Deno.test("renderResourcePage renders the root identifier as slash", () => {
 
   assertStringIncludes(html, "<title>mesh-alice-bio /</title>");
   assertStringIncludes(html, "<h1>/</h1>");
-  assertStringIncludes(html, 'href="root.ttl"');
+  assertStringIncludes(html, 'href="/mesh-alice-bio/root.ttl"');
 });
 
 Deno.test("renderResourcePage renders current ReferenceCatalog pages with fragment anchors", () => {
@@ -100,10 +100,13 @@ Deno.test("renderResourcePage renders extracted ReferenceCatalog pages pinned to
     },
   );
 
-  assertStringIncludes(html, '<a href="../../alice/bio">alice/bio</a>');
   assertStringIncludes(
     html,
-    '<a href="../../alice/bio/_history001/_s0002">../../alice/bio/_history001/_s0002</a>',
+    '<a href="/mesh-alice-bio/alice/bio">alice/bio</a>',
+  );
+  assertStringIncludes(
+    html,
+    '<a href="/mesh-alice-bio/alice/bio/_history001/_s0002">/mesh-alice-bio/alice/bio/_history001/_s0002</a>',
   );
 });
 
@@ -124,10 +127,10 @@ Deno.test("renderResourcePage renders pinned root ReferenceCatalog targets as sl
     },
   );
 
-  assertStringIncludes(html, '<a href="../../..">/</a>');
+  assertStringIncludes(html, '<a href="/mesh-alice-bio/">/</a>');
   assertStringIncludes(
     html,
-    '<a href="../../../_history001/_s0001">../../../_history001/_s0001</a>',
+    '<a href="/mesh-alice-bio/_history001/_s0001">/mesh-alice-bio/_history001/_s0001</a>',
   );
 });
 
@@ -147,7 +150,10 @@ Deno.test("renderResourcePage renders escaped raw RDF panels and raw file links"
   );
 
   assertStringIncludes(html, "<h2>Raw RDF Source</h2>");
-  assertStringIncludes(html, '<a href="../../alice-bio.ttl">Raw file</a>');
+  assertStringIncludes(
+    html,
+    '<a href="/mesh-alice-bio/alice-bio.ttl">Raw file</a>',
+  );
   assertStringIncludes(
     html,
     "pre code { display: block; background: transparent; color: inherit;",
@@ -156,6 +162,33 @@ Deno.test("renderResourcePage renders escaped raw RDF panels and raw file links"
     html,
     "&lt;alice&gt; &lt;knows&gt; &quot;Bob &amp; Alice&quot; .",
   );
+});
+
+Deno.test("renderResourcePage does not link extra-mesh local source paths", () => {
+  const html = renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "identifier",
+      path: "ontology/index.html",
+      designatorPath: "ontology",
+      workingLocalRelativePath: "../ontology/fantasy-rules-ontology.ttl",
+      rawSourcePanels: [{
+        label: "Current working RDF bytes",
+        sourcePath: "../ontology/fantasy-rules-ontology.ttl",
+        contents: "<ontology> a <Ontology> .",
+      }],
+    },
+  );
+
+  assertStringIncludes(
+    html,
+    'href="/mesh-sidecar-fantasy-rules/ontology/_knop"',
+  );
+  assertStringIncludes(
+    html,
+    "local source: ../ontology/fantasy-rules-ontology.ttl",
+  );
+  assertStringIncludes(html, "Local source outside mesh root");
 });
 
 Deno.test("renderResourcePage renders customized identifier pages from mesh-local regions", () => {

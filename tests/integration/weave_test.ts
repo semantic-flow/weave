@@ -853,7 +853,7 @@ Deno.test("executeWeave resolves payload current files from workingLocalRelative
   );
   assertStringIncludes(
     await Deno.readTextFile(join(workspaceRoot, "alice/bio/index.html")),
-    `../../alice-bio.ttl`,
+    `/mesh-alice-bio/alice-bio.ttl`,
   );
 });
 
