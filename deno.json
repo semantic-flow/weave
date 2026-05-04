@@ -5,8 +5,8 @@
     "fmt:check": "deno fmt --check deno.json src tests",
     "lint": "deno lint src tests",
     "check": "deno check src/**/*.ts tests/**/*.ts",
-    "test": "deno test --allow-read --allow-write --allow-run=git,deno --allow-env src tests",
-    "test:coverage": "deno test --allow-read --allow-write --allow-run=git,deno --allow-env --coverage=coverage src tests",
+    "test": "WEAVE_GENERATED_AT=2026-05-03T00:00:00.000Z deno test --allow-read --allow-write --allow-run=git,deno --allow-env src tests",
+    "test:coverage": "WEAVE_GENERATED_AT=2026-05-03T00:00:00.000Z deno test --allow-read --allow-write --allow-run=git,deno --allow-env --coverage=coverage src tests",
     "coverage:lcov": "deno coverage --lcov --output=coverage/lcov.info --exclude='^file:.*/dependencies/' --exclude='^file:.*/tests/' coverage",
     "ci": "deno task fmt:check && deno task lint && deno task check && deno task test"
   },

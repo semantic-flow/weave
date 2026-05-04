@@ -84,6 +84,7 @@ export interface ExecuteVersionOptions {
 export interface ExecuteGenerateOptions {
   meshRoot: string;
   request?: GenerateRequest;
+  now?: () => Date;
 }
 
 export interface ExecuteWeaveOptions {
@@ -91,6 +92,7 @@ export interface ExecuteWeaveOptions {
   request?: WeaveRequest;
   operationalLogger?: StructuredLogger;
   auditLogger?: AuditLogger;
+  now?: () => Date;
 }
 
 export interface ValidateFinding {
@@ -266,6 +268,7 @@ export async function executeGenerate(
     meshState,
     selectedDesignatorPaths,
     targets.length === 0,
+    resolveGeneratedAt(options.now),
   );
   const writeResult = await writeFilesUpsert(meshRoot, pageFiles);
 
@@ -317,6 +320,7 @@ export async function executeWeave(
     const generateResult = await executeGenerate({
       meshRoot,
       request: toSharedTargetRequest(options.request),
+      now: options.now,
     });
 
     const result: WeaveResult = {
@@ -1292,6 +1296,7 @@ async function collectGeneratedPageFiles(
   meshState: MeshState,
   selectedDesignatorPaths: readonly string[],
   includeAllMeshPages: boolean,
+  generatedAt: Date,
 ): Promise<readonly PlannedFile[]> {
   const pageModels: ResourcePageModel[] = [];
   const pagePaths = new Set<string>();
@@ -1395,7 +1400,15 @@ async function collectGeneratedPageFiles(
     }
   }
 
-  return renderResourcePages(meshState.meshBase, pageModels);
+  return renderResourcePages(meshState.meshBase, pageModels, { generatedAt });
+}
+
+function resolveGeneratedAt(now?: () => Date): Date {
+  if (now) {
+    return now();
+  }
+  const generatedAt = Deno.env.get("WEAVE_GENERATED_AT");
+  return generatedAt ? new Date(generatedAt) : new Date();
 }
 
 async function loadGenerateDesignatorContexts(

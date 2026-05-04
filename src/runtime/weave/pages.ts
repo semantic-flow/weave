@@ -20,6 +20,8 @@ interface ResourcePageRenderInput {
   resourcePath: string;
   displayResourcePath: string;
   canonical: string;
+  generatedAtIso: string;
+  generatedAtDisplay: string;
   title: string;
   summary?: string;
   rdfClasses: readonly string[];
@@ -69,27 +71,31 @@ const SCHEMA_NAME_IRIS = [
   "https://schema.org/Name",
   "http://schema.org/Name",
 ] as const;
-const GENERATED_AT_ISO = "2026-05-03T00:00:00.000Z";
-const GENERATED_AT_DISPLAY = "May 3, 2026";
 const WEAVE_REPOSITORY_URL = "https://github.com/semantic-flow/weave/";
 
 const defaultResourcePageTheme: ResourcePageTheme = {
   render: renderDefaultResourcePage,
 };
 
+export interface ResourcePageRenderOptions {
+  generatedAt?: Date;
+}
+
 export function renderResourcePages(
   meshBase: string,
   pages: readonly ResourcePageModel[],
+  options: ResourcePageRenderOptions = {},
 ): readonly PlannedFile[] {
   return pages.map((page) => ({
     path: page.path,
-    contents: renderResourcePage(meshBase, page),
+    contents: renderResourcePage(meshBase, page, options),
   }));
 }
 
 export function renderResourcePage(
   meshBase: string,
   page: ResourcePageModel,
+  options: ResourcePageRenderOptions = {},
 ): string {
   const resourcePath = toResourcePath(page.path);
   const displayResourcePath = formatDesignatorPathForDisplay(resourcePath);
@@ -109,6 +115,7 @@ export function renderResourcePage(
         resourcePath,
         displayResourcePath,
         canonical,
+        options.generatedAt ?? new Date(),
       ),
     );
   }
@@ -176,7 +183,10 @@ function toDefaultResourcePageRenderInput(
   resourcePath: string,
   displayResourcePath: string,
   canonical: string,
+  generatedAt: Date,
 ): ResourcePageRenderInput {
+  const generatedAtIso = generatedAt.toISOString();
+  const generatedAtDisplay = formatGeneratedAtDisplay(generatedAt);
   if (page.kind === "identifier") {
     const rdfFacts = extractRdfFacts(canonical, page.rawSourcePanels ?? []);
     const workingFileHref = page.workingLocalRelativePath
@@ -190,6 +200,8 @@ function toDefaultResourcePageRenderInput(
       resourcePath,
       displayResourcePath,
       canonical,
+      generatedAtIso,
+      generatedAtDisplay,
       title: rdfFacts.title ??
         formatDesignatorPathForDisplay(page.designatorPath),
       summary: rdfFacts.description,
@@ -252,6 +264,8 @@ function toDefaultResourcePageRenderInput(
       resourcePath,
       displayResourcePath,
       canonical,
+      generatedAtIso,
+      generatedAtDisplay,
       title: rdfFacts.title ?? page.catalogPath,
       summary: `ReferenceCatalog artifact for ${
         formatDesignatorPathForDisplay(page.ownerDesignatorPath)
@@ -276,6 +290,8 @@ function toDefaultResourcePageRenderInput(
     resourcePath,
     displayResourcePath,
     canonical,
+    generatedAtIso,
+    generatedAtDisplay,
     title: rdfFacts.title ??
       toDefaultResourcePageTitle(resourcePath, displayResourcePath),
     summary: page.description,
@@ -390,7 +406,11 @@ ${historySection}${sections ? `${sections}\n` : ""}${rawSections}
     </article>
   </main>
   <footer class="wf-generated">
-    Generated on <span class="wf-term wf-date-tip" tabindex="0" title="${GENERATED_AT_ISO}" data-tooltip="${GENERATED_AT_ISO}">${GENERATED_AT_DISPLAY}</span> by <a href="${WEAVE_REPOSITORY_URL}">Weave</a>
+    Generated on <span class="wf-term wf-date-tip" tabindex="0" title="${
+    escapeHtml(input.generatedAtIso)
+  }" data-tooltip="${escapeHtml(input.generatedAtIso)}">${
+    escapeHtml(input.generatedAtDisplay)
+  }</span> by <a href="${WEAVE_REPOSITORY_URL}">Weave</a>
   </footer>
 </body>
 </html>
@@ -594,6 +614,15 @@ function toDefaultResourcePageTitle(
     return "Historical States";
   }
   return displayResourcePath;
+}
+
+function formatGeneratedAtDisplay(generatedAt: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(generatedAt);
 }
 
 function renderRawSourcePanels(input: ResourcePageRenderInput): string {
