@@ -17,7 +17,7 @@ The goal is not maximum test count. The goal is high-signal tests that make sema
 - tests should be meaningfully helpful; avoid useless tests for the sake of code coverage
 - prefer TDD where practical
 - write the smallest failing test that captures the intended behavior or bug before implementing the fix
-- when the expected behavior is still unclear, write or refine a `wd.spec.*` note first, then derive failing tests from it
+- when the expected Semantic Flow behavior is still unclear, write or refine an `sf.spec.*` note first, then derive failing tests from it
 - classify tests by scope, not by how they “feel”
 - black-box functional tests are a testing style; many of them will still be integration tests by scope
 - a spec note is not a substitute for executable tests
@@ -89,7 +89,7 @@ Practical guidance:
 - prefer manifest-backed comparisons over ad hoc snapshot assertions when a reusable transition is available
 - keep Accord checks black-box and implementation-agnostic
 - use Accord alongside narrower unit and integration tests rather than instead of them
-- when a new externally visible operation stabilizes, consider whether it should gain a `wd.spec.*` note and an Accord-backed acceptance path
+- when a new externally visible Semantic Flow operation stabilizes, consider whether it should gain an `sf.spec.*` note and an Accord-backed acceptance path
 
 ### Shared Harness and Fixtures
 
@@ -105,7 +105,7 @@ Preferred placement:
 When possible, the default loop should be:
 
 1. Identify the intended behavior or the bug.
-2. If the behavior is non-trivial or externally visible, write or update a `wd.spec.*` note first.
+2. If the behavior is non-trivial or externally visible Semantic Flow behavior, write or update an `sf.spec.*` note first.
 3. Add a failing test at the narrowest useful scope.
 4. Implement the smallest change that makes the test pass.
 5. Refactor while keeping tests green.
@@ -120,16 +120,16 @@ For new features, prefer:
 
 ## Spec-Driven Testing
 
-Weave may use `documentation/notes/wd.spec.*` notes as behavior specs that drive tests.
+Weave uses Semantic Flow Framework `sf.spec.*` notes as behavior specs that drive tests.
 
-Use a `wd.spec.*` note when:
+Use an `sf.spec.*` note when:
 
 - the behavior is externally visible or cross-cutting
 - the behavior spans multiple files or subsystems
 - the expected result is easier to state as observable behavior than as internal implementation detail
 - the resulting tests are likely to be black-box or integration-style
 
-A good `wd.spec.*` note should clarify:
+A good `sf.spec.*` note should clarify:
 
 - what the operation or behavior does
 - what it does not do
@@ -143,7 +143,7 @@ Those notes may later drive:
 - black-box functional tests
 - Accord manifests or other acceptance-level checks
 
-If a `wd.spec.*` note and executable tests disagree, do not let them silently drift. Resolve the contradiction explicitly.
+If an `sf.spec.*` note and executable tests disagree, do not let them silently drift. Resolve the contradiction explicitly.
 
 ## When Test-After Is Acceptable
 

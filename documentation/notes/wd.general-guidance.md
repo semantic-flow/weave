@@ -53,9 +53,9 @@ Before a task is closed, [[wd.decision-log]] should be updated with important de
 
 ## Behavior specs
 
-Use `documentation/notes/wd.spec.*` for current behavior specs that are meant to guide implementation and drive higher-level tests.
+Semantic Flow behavior specs live in the Semantic Flow Framework notes as `sf.spec.*`. These specs describe externally visible Semantic Flow operation behavior and are meant to guide implementation and drive higher-level tests across implementations.
 
-Use a `wd.spec.*` note when:
+Use or update an `sf.spec.*` note when:
 
 - the behavior is externally visible
 - the behavior spans multiple subsystems or files
@@ -68,7 +68,9 @@ These notes are especially useful as sources for:
 - black-box functional tests
 - Accord manifests or similar acceptance checks
 
-A `wd.spec.*` note is not a replacement for executable tests and is not automatically the public API contract. It is a current implementation-facing behavior spec. See [[wd.testing]] for the testing posture that goes with this.
+An `sf.spec.*` note is not a replacement for executable tests and is not automatically the thin public API contract. It is the current behavior-spec layer above API examples and conformance manifests. See [[wd.testing]] for the testing posture that goes with this.
+
+Keep Weave app runtime, CLI, local filesystem, daemon, and host-environment details in Weave developer notes such as [[wd.runtime]] unless they are part of the portable Semantic Flow behavior.
 
 
 ## Development Loop
@@ -88,7 +90,7 @@ During active development, run only what matches your change:
 - `deno task test` when changing logic/tests.
 - `deno task check` when changing types/contracts/public APIs.
 - `deno task lint` when touching broader structural code.
-- if behavior changed materially, update the relevant `wd.spec.*` note and tests together rather than letting them drift
+- if Semantic Flow behavior changed materially, update the relevant `sf.spec.*` note and tests together rather than letting them drift
 
 
 ### Before merge

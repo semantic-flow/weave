@@ -99,6 +99,6 @@ The first-payload generalization should therefore be treated as the prototype fo
 
 ### Phase 3: Align Acceptance And Documentation When Each Slice Lands
 
-- [x] Update the relevant `wd.task.*` or `wd.spec.*` note when one of the tracked narrow seams is actually generalized.
+- [x] Update the relevant `wd.task.*` or `sf.spec.*` note when one of the tracked narrow seams is actually generalized.
 - [ ] Update any drafted Accord manifest expectations that still encode obsolete state numbers once the corresponding slice becomes real.
 - [ ] Keep the roadmap honest about which generalizations are real, which are pending, and which remain speculative.
