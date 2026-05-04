@@ -134,12 +134,11 @@ export async function renderResourcePage(
   options: ResourcePageRenderOptions = {},
 ): Promise<string> {
   const resourcePath = toResourcePath(page.path);
-  const displayResourcePath = formatDesignatorPathForDisplay(resourcePath);
   const canonical = toCanonicalResourceIri(meshBase, resourcePath);
   const meshLabel = deriveMeshLabel(meshBase);
+  const displayResourcePath = toDisplayDesignatorPath(resourcePath, meshLabel);
   const meshRootHref = toMeshRootHref(meshBase);
   const escapedCanonical = escapeHtml(canonical);
-  const escapedMeshLabel = escapeHtml(meshLabel);
 
   if (page.kind !== "customIdentifier") {
     return await defaultResourcePageTheme.render(
@@ -159,7 +158,6 @@ export async function renderResourcePage(
   if (page.kind === "customIdentifier") {
     const displayTitle = toDefaultResourcePageTitle(
       resourcePath,
-      displayResourcePath,
       meshLabel,
     );
     const stylesheetLinks = page.stylesheetPaths.map((stylesheetPath) =>
@@ -184,9 +182,9 @@ export async function renderResourcePage(
     return `<!doctype html>
 <html lang="en">
 <head>
-	  <meta charset="utf-8">
-	  <title>${escapeHtml(toHtmlDocumentTitle(meshLabel, displayTitle))}</title>
-	  <link rel="canonical" href="${escapedCanonical}">
+  <meta charset="utf-8">
+  <title>${escapeHtml(toHtmlDocumentTitle(meshLabel, displayTitle))}</title>
+  <link rel="canonical" href="${escapedCanonical}">
 ${stylesheetLinks ? `${stylesheetLinks}\n` : ""}</head>
 <body class="${escapeHtml(`${slug}-custom-page`)}">
   <main class="${escapeHtml(`${slug}-layout`)}">
@@ -248,7 +246,6 @@ function toDefaultResourcePageRenderInput(
       title: rdfFacts.title ??
         toDefaultResourcePageTitle(
           page.designatorPath,
-          formatDesignatorPathForDisplay(page.designatorPath),
           meshLabel,
         ),
       breadcrumbs: toResourcePageBreadcrumbs(
@@ -266,8 +263,9 @@ function toDefaultResourcePageRenderInput(
             meshRootHref,
             toKnopResourcePath(resourcePath),
           ),
-          value: formatDesignatorPathForDisplay(
+          value: toDisplayDesignatorPath(
             toKnopResourcePath(resourcePath),
+            meshLabel,
           ),
           tooltip:
             "A Knop is the Semantic Flow control surface for this identifier: metadata, inventory, references, and page definitions live there.",
@@ -305,7 +303,7 @@ function toDefaultResourcePageRenderInput(
       const escapedTargetHref = escapeHtml(targetHref);
       const escapedStateHref = stateHref ? escapeHtml(stateHref) : undefined;
       const escapedTargetPath = escapeHtml(
-        formatDesignatorPathForDisplay(link.referenceTargetPath),
+        toDisplayDesignatorPath(link.referenceTargetPath, meshLabel),
       );
 
       return stateHref
@@ -330,7 +328,7 @@ function toDefaultResourcePageRenderInput(
         resourcePath,
       ),
       summary: `Reference catalog for ${
-        formatDesignatorPathForDisplay(page.ownerDesignatorPath)
+        toDisplayDesignatorPath(page.ownerDesignatorPath, meshLabel)
       }`,
       rdfClasses: [
         rdfClass(
@@ -357,13 +355,21 @@ function toDefaultResourcePageRenderInput(
       ...(page.governedArtifacts.length > 0
         ? [{
           title: "Governed Artifacts",
-          html: renderKnopArtifactLinks(meshRootHref, page.governedArtifacts),
+          html: renderKnopArtifactLinks(
+            meshRootHref,
+            meshLabel,
+            page.governedArtifacts,
+          ),
         }]
         : []),
       ...(page.supportingArtifacts.length > 0
         ? [{
           title: "Supporting Artifacts",
-          html: renderKnopArtifactLinks(meshRootHref, page.supportingArtifacts),
+          html: renderKnopArtifactLinks(
+            meshRootHref,
+            meshLabel,
+            page.supportingArtifacts,
+          ),
         }]
         : []),
     ];
@@ -385,7 +391,7 @@ function toDefaultResourcePageRenderInput(
         resourcePath,
       ),
       summary: `Knop control surface for ${
-        formatDesignatorPathForDisplay(page.designatorPath)
+        toDisplayDesignatorPath(page.designatorPath, meshLabel)
       }.`,
       rdfClasses: [
         rdfClass(
@@ -419,7 +425,7 @@ function toDefaultResourcePageRenderInput(
     generatedAtIso,
     generatedAtDisplay,
     title: rdfFacts.title ??
-      toDefaultResourcePageTitle(resourcePath, displayResourcePath, meshLabel),
+      toDefaultResourcePageTitle(resourcePath, meshLabel),
     breadcrumbs: toResourcePageBreadcrumbs(
       meshLabel,
       meshRootHref,
@@ -441,6 +447,7 @@ function toDefaultResourcePageRenderInput(
       canonical,
       page.rawSourcePanels ?? [],
       meshRootHref,
+      meshLabel,
     ),
     rawSourcePanels: page.rawSourcePanels ?? [],
   };
@@ -448,13 +455,14 @@ function toDefaultResourcePageRenderInput(
 
 function renderKnopArtifactLinks(
   meshRootHref: string,
+  meshLabel: string,
   artifacts: readonly { label: string; path: string }[],
 ): string {
   return `      <ul>
 ${
     artifacts.map((artifact) => {
       const href = toMeshResourceHref(meshRootHref, artifact.path);
-      const displayPath = formatDesignatorPathForDisplay(artifact.path);
+      const displayPath = toDisplayDesignatorPath(artifact.path, meshLabel);
       return `        <li>${escapeHtml(artifact.label)}: <a href="${
         escapeHtml(href)
       }">${escapeHtml(displayPath)}</a></li>`;
@@ -502,7 +510,7 @@ ${section.html}
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-	  <title>${
+  <title>${
     escapeHtml(toHtmlDocumentTitle(input.meshLabel, input.title))
   }</title>
   <link rel="canonical" href="${escapeHtml(input.canonical)}">
@@ -859,10 +867,18 @@ function toLastPathSegment(path: string): string {
 
 function toDefaultResourcePageTitle(
   resourcePath: string,
-  displayResourcePath: string,
   meshLabel: string,
 ): string {
   return resourcePath.length > 0 ? toLastPathSegment(resourcePath) : meshLabel;
+}
+
+function toDisplayDesignatorPath(
+  designatorPath: string,
+  meshLabel: string,
+): string {
+  return designatorPath.length === 0
+    ? meshLabel
+    : formatDesignatorPathForDisplay(designatorPath);
 }
 
 function toHtmlDocumentTitle(meshLabel: string, pageTitle: string): string {
@@ -1084,6 +1100,7 @@ function extractFragmentSections(
   canonical: string,
   rawSourcePanels: readonly ResourcePageRawSourcePanelModel[],
   meshRootHref: string,
+  meshLabel: string,
 ): readonly ResourcePageSection[] {
   const prefixMap = collectPrefixMap(rawSourcePanels);
   const quads = rawSourcePanels.flatMap((panel) =>
@@ -1127,6 +1144,7 @@ function extractFragmentSections(
           "Target Artifact",
           targetArtifactIri,
           meshRootHref,
+          meshLabel,
           prefixMap,
         )
         : undefined,
@@ -1135,6 +1153,7 @@ function extractFragmentSections(
           "Requested Target State",
           requestedTargetStateIri,
           meshRootHref,
+          meshLabel,
           prefixMap,
         )
         : undefined,
@@ -1143,6 +1162,7 @@ function extractFragmentSections(
           "Resolution Mode",
           artifactResolutionModeIri,
           meshRootHref,
+          meshLabel,
           prefixMap,
         )
         : undefined,
@@ -1166,16 +1186,21 @@ function renderFragmentIriRow(
   label: string,
   iri: string,
   meshRootHref: string,
+  meshLabel: string,
   prefixMap: ReadonlyMap<string, string>,
 ): string {
   const meshPath = toMeshPath(meshRootHref, iri);
-  const value = meshPath ? formatDesignatorPathForDisplay(meshPath) : iri;
-  const href = meshPath ? toMeshResourceHref(meshRootHref, meshPath) : iri;
+  const value = meshPath !== undefined
+    ? toDisplayDesignatorPath(meshPath, meshLabel)
+    : iri;
+  const href = meshPath !== undefined
+    ? toMeshResourceHref(meshRootHref, meshPath)
+    : iri;
 
   return `          <tr><th scope="row">${escapeHtml(label)}</th><td><a href="${
     escapeHtml(href)
   }">${
-    escapeHtml(meshPath ? value : compactRdfIri(value, prefixMap))
+    escapeHtml(meshPath !== undefined ? value : compactRdfIri(value, prefixMap))
   }</a></td></tr>`;
 }
 
@@ -1284,10 +1309,17 @@ function toMeshPath(meshRootHref: string, iri: string): string | undefined {
     return undefined;
   }
 
-  if (url.search || !url.pathname.startsWith(meshRootHref)) {
+  if (url.search) {
     return undefined;
   }
 
+  const rootPathname = meshRootHref === "/" ? "/" : meshRootHref.slice(0, -1);
+  if (url.pathname === rootPathname) {
+    return url.hash ? url.hash : "";
+  }
+  if (!url.pathname.startsWith(meshRootHref)) {
+    return undefined;
+  }
   const path = url.pathname.slice(meshRootHref.length);
   return url.hash ? `${path}${url.hash}` : path;
 }

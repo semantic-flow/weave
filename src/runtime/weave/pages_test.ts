@@ -178,7 +178,7 @@ Deno.test("renderResourcePage renders extracted ReferenceCatalog pages pinned to
   );
 });
 
-Deno.test("renderResourcePage renders pinned root ReferenceCatalog targets as slashless root links", async () => {
+Deno.test("renderResourcePage renders pinned root ReferenceCatalog targets as slashless root links with mesh labels", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
@@ -195,7 +195,7 @@ Deno.test("renderResourcePage renders pinned root ReferenceCatalog targets as sl
     },
   );
 
-  assertStringIncludes(html, '<a href="/mesh-alice-bio">/</a>');
+  assertStringIncludes(html, '<a href="/mesh-alice-bio">mesh-alice-bio</a>');
   assertStringIncludes(
     html,
     '<a href="/mesh-alice-bio/_history001/_s0001">/mesh-alice-bio/_history001/_s0001</a>',

@@ -322,13 +322,16 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - [ ] Add a later pair for explicitly returning from named release state sequencing to default ordinal state or history sequencing.
 - [ ] Prefer a `16-return-to-ordinal-history` / `17-return-to-ordinal-history-woven` pair if this should exercise both default ArtifactHistory and default HistoricalState allocation by requesting `_history002` and allowing `_s0001`.
 - [ ] Alternatively use a named-history state fallback pair if the more important behavior is explicitly requesting `stateSegment=_s0001` under the existing `releases` history.
-- [ ] Keep this pair explicit; a broad weave with omitted state naming after `v0.0.1` should fail closed with a message explaining how to provide `stateSegment` or choose ordinal fallback.
+- [x] Keep this pair explicit; a broad weave with omitted state naming after `v0.0.1` should fail closed with a message explaining how to provide `stateSegment` or choose ordinal fallback.
+
+Settled API/CLI surface: there is no separate "return to ordinal sequencing" command. The operator uses the existing payload version naming fields on `weave` or `weave version`. To continue semver in the current named history, provide `stateSegment=v0.0.2`. To explicitly fall back to ordinal states inside the current `releases` history, provide `stateSegment=_s0001`. To start a fresh ordinal history after `releases`, provide `historySegment=_history002`; if no state segment is supplied for that new history, the default state is `_s0001`, though the fixture may choose to pass `stateSegment=_s0001` as documentation-by-command. Request-level defaults such as `--payload-state-segment _s0001` and `--payload-history-segment _history002` may apply broadly to selected payload artifacts, while target-specific `historySegment` and `stateSegment` values override those defaults.
 
 ### Phase 4: Resource Page Behavior
 
 - [d] Keep the target page model for ontology and SHACL artifact pages in the renderer task unless the sidecar fixture exposes a missing Semantic Flow behavior requirement.
 - [d] Defer broader resource-page look-and-feel improvements to [[wa.completed.2026.2026-05-03-resource-page-renderer-refresh]].
 - [x] Keep current artifact pages sufficient to show identity, current bytes, histories, and support resources for the fixture contract.
+- [x] Show every `sflo:hasArtifactHistory` on artifact pages, not only `sflo:currentArtifactHistory`, ordered with the current/latest history first so named `releases` histories do not hide earlier ordinal histories.
 - [x] Keep historical-state and located-file pages sufficient for navigating existing woven history without reading raw Turtle first.
 - [x] Add raw RDF panels to `RdfDocument` resource pages for locally available current and historical bytes.
 - [x] Move reusable page HTML/CSS rendering toward shared runtime seams rather than fixture-specific builders.
@@ -338,11 +341,15 @@ The first ladder should be branch-based unless implementation pressure proves a 
 
 ### Phase 5: URL Polish Experiment
 
-- [ ] Design the canonical-IRI display script for generated `index.html` pages.
-- [ ] Require an explicit canonical IRI signal before trimming a trailing slash.
-- [ ] Preserve relative-link behavior with root-relative/absolute links or an explicit safe `<base>` strategy.
-- [ ] Keep pages usable with JavaScript disabled.
-- [ ] Add tests for slashful load URL, slashless displayed URL, canonical link, and link navigation.
+- [x] Design the canonical-IRI display script for generated `index.html` pages.
+- [x] Require an explicit canonical IRI signal before trimming a trailing slash.
+- [x] Preserve relative-link behavior with root-relative/absolute links or an explicit safe `<base>` strategy.
+- [x] Keep pages usable with JavaScript disabled.
+- [x] Add tests for slashful load URL, slashless displayed URL, canonical link, and link navigation.
+
+Settled behavior: `sflo:meshBase` stays trailing-slash for RDF and URL resolution, while generated resource-page canonical links use slashless resource IRIs where the resource path is slashless, including the mesh repo root page. The default page script reads the explicit canonical link and only calls `history.replaceState` when the current slashful path exactly matches the canonical slashless path, with no query or hash. Generated mesh navigation links remain root-relative, so link behavior survives URL polish and pages remain usable with JavaScript disabled.
+
+Root resource-page titles and visible root designator labels should use the mesh segment, such as `mesh-sidecar-fantasy-rules`, when Weave can derive it from `sflo:meshBase`; bare `/` remains an input/path sentinel, not the default public label.
 
 ### Phase 6: Acceptance And Documentation
 
