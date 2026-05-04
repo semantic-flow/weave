@@ -1336,7 +1336,7 @@ Deno.test("detectPendingWeaveSlice supports custom payload history and state nam
   );
 });
 
-Deno.test("planWeave rejects a mismatched requested payload history on the second payload weave slice", () => {
+Deno.test("planWeave can start a requested payload history after another history exists", () => {
   const currentKnopInventoryTurtle = secondPayloadWeaveKnopInventoryTurtle
     .replaceAll(
       "alice/bio/_history001/_s0001",
@@ -1344,40 +1344,71 @@ Deno.test("planWeave rejects a mismatched requested payload history on the secon
     )
     .replaceAll("alice/bio/_history001", "alice/bio/releases");
 
-  assertThrows(
-    () =>
-      planWeave({
-        request: {
-          targets: [{
-            designatorPath: "alice/bio",
-            historySegment: "archive",
-            stateSegment: "v0.0.2",
-          }],
-        },
-        meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
-        currentMeshInventoryTurtle:
-          firstReferenceCatalogWeaveMeshInventoryTurtle,
-        weaveableKnops: [{
-          designatorPath: "alice/bio",
-          currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
-          currentKnopInventoryTurtle,
-          payloadArtifact: {
-            workingLocalRelativePath: "alice-bio.ttl",
-            currentArtifactHistoryPath: "alice/bio/releases",
-            currentPayloadTurtle:
-              `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+  const plan = planWeave({
+    request: {
+      targets: [{
+        designatorPath: "alice/bio",
+        historySegment: "archive",
+        stateSegment: "v0.0.1",
+        manifestationSegment: "ttl",
+      }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: firstReferenceCatalogWeaveMeshInventoryTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice/bio",
+      currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+      currentKnopInventoryTurtle,
+      payloadArtifact: {
+        workingLocalRelativePath: "alice-bio.ttl",
+        currentArtifactHistoryPath: "alice/bio/releases",
+        currentPayloadTurtle:
+          `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
 @prefix dcterms: <http://purl.org/dc/terms/> .
 @prefix schema: <https://schema.org/> .
 
 <alice> a schema:Person .
 <alice/bio> dcterms:creator <alice> .
 `,
-            latestHistoricalStatePath: "alice/bio/releases/v0.0.1",
-          },
-        }],
-      }),
-    WeaveInputError,
-    "does not match the current payload history",
+        latestHistoricalStatePath: "alice/bio/releases/v0.0.1",
+      },
+    }],
+  });
+
+  assert(
+    plan.createdFiles.some((file) =>
+      file.path === "alice/bio/archive/v0.0.1/ttl/alice-bio.ttl"
+    ),
+  );
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    "sflo:currentArtifactHistory <alice/bio/archive> ;",
+  );
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    `sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;`,
+  );
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    "sflo:hasArtifactHistory <alice/bio/releases> ;",
+  );
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    "sflo:hasArtifactHistory <alice/bio/archive> ;",
+  );
+  assertFalse(
+    (plan.updatedFiles[0]?.contents ?? "").includes(
+      "<alice/bio/archive> a sflo:ArtifactHistory ;\n  sflo:historyOrdinal",
+    ),
+  );
+  assertFalse(
+    (plan.updatedFiles[0]?.contents ?? "").includes(
+      "<alice/bio/archive/v0.0.1> a sflo:HistoricalState ;\n  sflo:stateOrdinal",
+    ),
+  );
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    `sflo:nextStateOrdinal "1"^^xsd:nonNegativeInteger`,
   );
 });
 

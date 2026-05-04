@@ -373,26 +373,44 @@ Deno.test("executeGenerate renders the customized alice identifier page after pa
   );
 });
 
-Deno.test("executeVersion rejects a mismatched payload historySegment on an already-versioned payload", async () => {
+Deno.test("executeVersion can start a named payload history on an already-versioned payload", async () => {
   const workspaceRoot = await createTestTmpDir(
-    "weave-version-mismatched-history-",
+    "weave-version-new-history-",
   );
   await materializeMeshAliceBioBranch("10-alice-bio-updated", workspaceRoot);
 
-  await assertRejects(
-    () =>
-      executeVersion({
-        meshRoot: workspaceRoot,
-        request: {
-          targets: [{
-            designatorPath: "alice/bio",
-            historySegment: "releases",
-            stateSegment: "v0.0.2",
-          }],
-        },
-      }),
-    WeaveInputError,
-    "does not match the current payload history",
+  const result = await executeVersion({
+    meshRoot: workspaceRoot,
+    request: {
+      targets: [{
+        designatorPath: "alice/bio",
+        historySegment: "releases",
+        stateSegment: "v0.0.2",
+        manifestationSegment: "ttl",
+      }],
+    },
+  });
+
+  assertEquals(result.versionedDesignatorPaths, ["alice/bio"]);
+  assert(
+    result.createdPaths.includes(
+      "alice/bio/releases/v0.0.2/ttl/alice-bio.ttl",
+    ),
+  );
+  await Deno.stat(
+    join(workspaceRoot, "alice/bio/releases/v0.0.2/ttl/alice-bio.ttl"),
+  );
+  const inventory = await Deno.readTextFile(
+    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+  );
+  assertStringIncludes(
+    inventory,
+    `sflo:nextStateOrdinal "1"^^xsd:nonNegativeInteger ;`,
+  );
+  assert(
+    !inventory.includes(
+      "<alice/bio/releases/v0.0.2> a sflo:HistoricalState ;\n  sflo:stateOrdinal",
+    ),
   );
 });
 

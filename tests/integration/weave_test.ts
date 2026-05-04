@@ -416,6 +416,84 @@ Deno.test("executeWeave honors requested payload history and state naming", asyn
   );
 });
 
+Deno.test("executeWeave can start a named payload history after an ordinal history exists", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-payload-new-history-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  await executeWeave({
+    meshRoot: workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "alice/bio" }],
+    },
+  });
+
+  const result = await executeWeave({
+    meshRoot: workspaceRoot,
+    request: {
+      targets: [{
+        designatorPath: "alice/bio",
+        historySegment: "releases",
+        stateSegment: "v0.0.1",
+        manifestationSegment: "ttl",
+      }],
+    },
+  });
+
+  assertEquals(result.wovenDesignatorPaths, ["alice/bio"]);
+  assert(
+    result.createdPaths.includes(
+      "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
+    ),
+  );
+  await Deno.stat(
+    join(
+      workspaceRoot,
+      "alice/bio/_history001/_s0001/alice-bio-ttl/alice-bio.ttl",
+    ),
+  );
+  await Deno.stat(
+    join(workspaceRoot, "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl"),
+  );
+  const inventory = await Deno.readTextFile(
+    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+  );
+  assertStringIncludes(
+    inventory,
+    "sflo:hasArtifactHistory <alice/bio/_history001> ;",
+  );
+  assertStringIncludes(
+    inventory,
+    "sflo:hasArtifactHistory <alice/bio/releases> ;",
+  );
+  assertStringIncludes(
+    inventory,
+    "sflo:currentArtifactHistory <alice/bio/releases> ;",
+  );
+  assertStringIncludes(
+    inventory,
+    "<alice/bio/releases> a sflo:ArtifactHistory ;",
+  );
+  assertStringIncludes(
+    inventory,
+    "sflo:hasHistoricalState <alice/bio/releases/v0.0.1> ;",
+  );
+  assertStringIncludes(
+    inventory,
+    "sflo:latestHistoricalState <alice/bio/releases/v0.0.1> ;",
+  );
+  assertStringIncludes(
+    inventory,
+    `sflo:nextStateOrdinal "1"^^xsd:nonNegativeInteger ;`,
+  );
+  assert(
+    !inventory.includes(
+      "<alice/bio/releases/v0.0.1> a sflo:HistoricalState ;\n  sflo:stateOrdinal",
+    ),
+  );
+});
+
 Deno.test("executeWeave forwards targets to generate and leaves unrelated pages untouched", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-weave-targeted-generate-",

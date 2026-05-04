@@ -317,13 +317,11 @@ export async function executeWeave(
   });
 
   try {
-    const validation = await executeValidate({
+    await validateVersionRequestForWeave(
       meshRoot,
-      request: toSharedTargetRequest(options.request),
-    });
-    if (validation.findings.length > 0) {
-      throw new WeaveInputError(validation.findings[0]!.message);
-    }
+      options.request,
+      initialPolicy,
+    );
 
     const versionResult = await executeVersion({
       meshRoot,
@@ -383,6 +381,30 @@ export async function executeWeave(
       throw error;
     }
     throw new WeaveRuntimeError(message);
+  }
+}
+
+async function validateVersionRequestForWeave(
+  meshRoot: string,
+  request: WeaveRequest | undefined,
+  localPathPolicy: OperationalLocalPathPolicy,
+): Promise<void> {
+  try {
+    const targets = normalizeVersionRequest(request);
+    const prepared = await prepareVersionExecution(
+      meshRoot,
+      targets,
+      localPathPolicy,
+    );
+    validateRdfFiles([
+      ...prepared.plan.createdFiles,
+      ...prepared.plan.updatedFiles,
+    ]);
+  } catch (error) {
+    if (error instanceof WeaveRuntimeError) {
+      throw new WeaveInputError(error.message);
+    }
+    throw error;
   }
 }
 
@@ -532,6 +554,7 @@ async function prepareVersionExecution(
     meshState.meshBase,
     meshState.currentMeshInventoryTurtle,
     requestedDesignatorPaths,
+    targetByDesignatorPath,
     overlay,
   );
   assertRequestedTargetsAreWeaveable(
@@ -573,6 +596,7 @@ async function prepareVersionExecution(
       stagedMeshState.meshBase,
       stagedMeshState.currentMeshInventoryTurtle,
       remainingDesignatorPaths,
+      targetByDesignatorPath,
       overlay,
     );
 
@@ -812,6 +836,10 @@ async function loadWeaveableKnopCandidates(
   meshBase: string,
   currentMeshInventoryTurtle: string,
   requestedDesignatorPaths: readonly string[],
+  targetByDesignatorPath: ReadonlyMap<
+    string,
+    NormalizedVersionTargetSpec | undefined
+  >,
   overlay?: ReadonlyMap<string, string>,
 ): Promise<readonly WeaveableKnopCandidate[]> {
   const designatorPaths = listKnopDesignatorPaths(
@@ -858,6 +886,7 @@ async function loadWeaveableKnopCandidates(
       meshBase,
       designatorPath,
       currentKnopInventoryTurtle,
+      targetByDesignatorPath.get(designatorPath),
     );
 
     if (!slice) {
@@ -913,7 +942,13 @@ async function loadWeaveableKnopCandidates(
         );
     }
 
-    if (!isWeaveableKnopCandidate(candidate, slice)) {
+    if (
+      !isWeaveableKnopCandidate(
+        candidate,
+        slice,
+        targetByDesignatorPath.get(designatorPath),
+      )
+    ) {
       continue;
     }
 
@@ -1187,6 +1222,7 @@ async function loadResourcePageDefinitionArtifact(
 function isWeaveableKnopCandidate(
   candidate: WeaveableKnopCandidate,
   slice: WeaveSlice,
+  target?: NormalizedVersionTargetSpec,
 ): boolean {
   if (slice === "firstExtractedKnopWeave") {
     return candidate.referenceTargetSourcePayloadArtifact !== undefined;
@@ -1219,12 +1255,23 @@ function isWeaveableKnopCandidate(
 
   if (slice === "secondPayloadWeave") {
     return candidate.payloadArtifact !== undefined &&
-      candidate.payloadArtifact.latestHistoricalSnapshotTurtle !== undefined &&
-      candidate.payloadArtifact.currentPayloadTurtle !==
-        candidate.payloadArtifact.latestHistoricalSnapshotTurtle;
+      (hasPayloadVersionNamingTarget(target) ||
+        (candidate.payloadArtifact.latestHistoricalSnapshotTurtle !==
+            undefined &&
+          candidate.payloadArtifact.currentPayloadTurtle !==
+            candidate.payloadArtifact.latestHistoricalSnapshotTurtle));
   }
 
   return slice === "firstKnopWeave";
+}
+
+function hasPayloadVersionNamingTarget(
+  target?: NormalizedVersionTargetSpec,
+): boolean {
+  return target !== undefined &&
+    (target.historySegment !== undefined ||
+      target.stateSegment !== undefined ||
+      target.manifestationSegment !== undefined);
 }
 
 function assertUpdatedTargetsExist(

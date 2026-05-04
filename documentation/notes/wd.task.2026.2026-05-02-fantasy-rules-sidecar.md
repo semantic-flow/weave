@@ -174,6 +174,8 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - `12-gunaar-example-dataset` should integrate `examples/gunaar.ttl` as public artifact `examples/gunaar`; `13-gunaar-example-dataset-woven` should weave that dataset into history and pages.
 - `14-first-release` and `15-first-release-woven` should publish the first named release histories for ontology and SHACL after the Gunaar dataset pair.
 - Ontology and SHACL should normally be bumped together in the fixture, even if only one source file has semantic changes, because they are published as a compatibility pair for this small ontology project.
+- Named ArtifactHistory paths such as `releases` should not consume or advance `sflo:nextHistoryOrdinal`; that property remains the next auto-generated `_historyNNN` counter for the artifact.
+- Semver-style HistoricalState paths such as `v0.0.1` should be explicitly requested and should not receive `sflo:stateOrdinal`; the containing named ArtifactHistory should still carry `sflo:nextStateOrdinal` for fallback default `_sNNNN` allocation if a later state request omits an explicit name.
 - A future version-bumped example branch should include dataset compatibility metadata in `examples/gunaar.ttl` once the project settles how datasets announce the ontology version or compatibility line they target.
 - Use branch refs as test fixtures: source refs define operation input, destination refs define expected output, and Accord manifests define the transition assertions.
 - Treat Accord manifests as transition contracts for the ladder, not as branch metadata or late acceptance paperwork.
@@ -281,7 +283,7 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - [x] Add the constrained `sfcfg:hasLocalPathAccessRule` entry for `../ontology/` as part of ontology artifact integration.
 - [x] Integrate the SHACL artifact at public path `shacl`.
 - [x] Ensure SHACL integration adds the constrained `sfcfg:hasLocalPathAccessRule` entry for `../shacl/`; the grant should be created by the integration operation that introduces the adjacent SHACL source artifact.
-- [ ] Add the constrained `sfcfg:hasLocalPathAccessRule` entry for `../examples/` only when example datasets are integrated as sidecar artifacts.
+- [x] Add the constrained `sfcfg:hasLocalPathAccessRule` entry for `../examples/` only when example datasets are integrated as sidecar artifacts.
 - [x] Use `workingLocalRelativePath` to associate the ontology artifact with its adjacent authored source file.
 - [x] Use `workingLocalRelativePath` to associate the SHACL artifact with its adjacent authored source file.
 - [ ] Keep `hasWorkingLocatedFile` usage semantically consistent with the current located-byte story.
@@ -298,14 +300,14 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - [x] Ensure Gunaar dataset integration adds the constrained `sfcfg:hasLocalPathAccessRule` entry for `../examples/`; the grant should be created by the integration operation that introduces the adjacent example source artifact.
 - [x] Use `workingLocalRelativePath` to associate the Gunaar dataset artifact with `../examples/gunaar.ttl`.
 - [x] Weave the Gunaar dataset in `13-gunaar-example-dataset-woven`.
-- [ ] Weave ontology release `v0.0.1` under `ontology/releases/v0.0.1`.
-- [ ] Weave SHACL release `v0.0.1` under `shacl/releases/v0.0.1`.
-- [ ] Treat ontology and SHACL release bumps as a pair in the fixture, even when only one source file changes.
-- [ ] Materialize Turtle manifestations under each release state using the `ttl` manifestation segment.
-- [ ] Exercise multiple ArtifactHistories by creating or selecting the named `releases` history while preserving earlier ordinal publication histories.
-- [ ] Ensure `owl:versionIRI` points at the versioned located Turtle file.
-- [ ] Ensure working source bytes and latest historical located bytes match where the release is current.
-- [ ] Add Accord manifests for the first ontology and SHACL release/weave transitions as they settle.
+- [x] Weave ontology release `v0.0.1` under `ontology/releases/v0.0.1`.
+- [x] Weave SHACL release `v0.0.1` under `shacl/releases/v0.0.1`.
+- [x] Treat ontology and SHACL release bumps as a pair in the fixture, even when only one source file changes.
+- [x] Materialize Turtle manifestations under each release state using the `ttl` manifestation segment.
+- [x] Exercise multiple ArtifactHistories by creating or selecting the named `releases` history while preserving earlier ordinal publication histories.
+- [x] Ensure `owl:versionIRI` points at the versioned located Turtle file.
+- [x] Ensure working source bytes and latest historical located bytes match where the release is current.
+- [x] Add Accord manifests for the first ontology and SHACL release/weave transitions as they settle.
 
 ### Phase 3B: Version-Bump Follow-Up Pair
 

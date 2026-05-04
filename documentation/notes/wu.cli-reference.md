@@ -183,9 +183,27 @@ Constraints:
 
 Creates a minimal Knop-managed surface for a local resource referenced inside a woven payload artifact.
 
+Current syntax:
+
+```sh
+weave extract <targetDesignatorPath> [--mesh-root <meshRoot>] [--source-designator-path <sourceDesignatorPath>]
+```
+
+`<targetDesignatorPath>` is the resource or term surface to create. `--source-designator-path <sourceDesignatorPath>` selects the already woven payload artifact that describes that target when source resolution would otherwise be ambiguous; it is not the term being extracted.
+
 ```sh
 weave extract bob
 weave extract /
+weave extract ontology/CharacterShape --mesh-root docs --source-designator-path shacl
+```
+
+For example, the current Fantasy Rules sidecar term slice is represented as explicit single-target extractions:
+
+```sh
+weave extract ontology/AbilityScore --mesh-root docs --source-designator-path ontology
+weave extract ontology/Alignment --mesh-root docs --source-designator-path ontology
+weave extract ontology/Character --mesh-root docs --source-designator-path ontology
+weave extract ontology/PlayerCharacter --mesh-root docs --source-designator-path ontology
 weave extract ontology/CharacterShape --mesh-root docs --source-designator-path shacl
 ```
 
