@@ -1547,6 +1547,36 @@ Deno.test("executeGenerate lists every sidecar payload history with current hist
   );
 });
 
+Deno.test("executeGenerate renders current Knop support artifact source panels", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-generate-support-source-panels-",
+  );
+  await materializeMeshSidecarFantasyRulesBranch(
+    "15-first-release-woven",
+    workspaceRoot,
+  );
+
+  const result = await executeGenerate({
+    meshRoot: join(workspaceRoot, "docs"),
+    request: { targets: [{ designatorPath: "shacl" }] },
+    now: () => new Date("2026-05-04T00:00:00.000Z"),
+  });
+
+  assertEquals(result.generatedDesignatorPaths, ["shacl"]);
+  const metadataPage = await Deno.readTextFile(
+    join(workspaceRoot, "docs/shacl/_knop/_meta/index.html"),
+  );
+  assertStringIncludes(
+    metadataPage,
+    "<summary>Current KnopMetadata file</summary>",
+  );
+  assertStringIncludes(
+    metadataPage,
+    '<a href="/mesh-sidecar-fantasy-rules/shacl/_knop/_meta/meta.ttl">Raw file</a>',
+  );
+  assertStringIncludes(metadataPage, "shacl/_knop/_inventory/inventory.ttl");
+});
+
 Deno.test("executeWeave fails closed when a created weave target already exists", async () => {
   const workspaceRoot = await createTestTmpDir("weave-weave-existing-");
   await materializeMeshAliceBioBranch("04-alice-knop-created", workspaceRoot);

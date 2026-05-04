@@ -194,6 +194,7 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - Mesh-owned helper page content should live under `docs/_mesh/content/` in this fixture.
 - Improved resource-page look-and-feel belongs to [[wa.completed.2026.2026-05-03-resource-page-renderer-refresh]]; this task should only depend on resource-page behavior needed for the sidecar fixture contract.
 - `RdfDocument` resource pages should include raw RDF content when the document bytes are locally available.
+- Knop support artifacts such as `KnopMetadata` and `KnopInventory` should use their declared `sflo:hasWorkingLocatedFile` or `sflo:workingLocalRelativePath` values to show current raw RDF on their generated resource pages; they should not need separate page-definition working-file metadata.
 - The trailing-slash URL script should only run on generated resource pages whose canonical IRI is explicitly slashless, which is expected to include most resource pages. It must not break relative links, canonical links, copied IRI controls, or no-JavaScript page usability.
 - Generated resource pages should preserve link behavior after slashless URL polish by using project-root-relative links for mesh navigation, resource pages, support assets, and local previews.
 

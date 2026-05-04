@@ -83,6 +83,9 @@ const SFLO_HAS_KNOP_METADATA_IRI = `${SFLO_NAMESPACE}hasKnopMetadata`;
 const SFLO_HAS_KNOP_INVENTORY_IRI = `${SFLO_NAMESPACE}hasKnopInventory`;
 const SFLO_HAS_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasPayloadArtifact`;
 const SFLO_HAS_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}hasReferenceCatalog`;
+const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
+  `${SFLO_NAMESPACE}hasWorkingLocatedFile`;
+const SFLO_WORKING_FILE_PATH_IRI = `${SFLO_NAMESPACE}workingLocalRelativePath`;
 const SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI =
   `${SFC_NAMESPACE}hasResourcePageDefinition`;
 const SFC_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFC_NAMESPACE}hasKnopAssetBundle`;
@@ -1667,6 +1670,11 @@ async function loadGenerateDesignatorContexts(
       string,
       readonly ResourcePageRawSourcePanelModel[]
     >();
+    const artifactLinks = collectKnopArtifactLinks(
+      meshState.meshBase,
+      currentKnopInventoryTurtle,
+      designatorPath,
+    );
     addRawSourcePanel(
       rawSourcePanels,
       `${toKnopPath(designatorPath)}/_inventory/index.html`,
@@ -1752,11 +1760,7 @@ async function loadGenerateDesignatorContexts(
       designatorPath,
       payloadWorkingLocalRelativePath: payloadArtifact
         ?.workingLocalRelativePath,
-      ...collectKnopArtifactLinks(
-        meshState.meshBase,
-        currentKnopInventoryTurtle,
-        designatorPath,
-      ),
+      ...artifactLinks,
       customIdentifierPage,
       historyGroupsByResourcePath: collectHistoryGroupsByResourcePath(
         meshState.meshBase,
@@ -1794,6 +1798,14 @@ async function loadGenerateDesignatorContexts(
         referenceCatalogArtifact,
       );
     }
+    await addSupportArtifactRawSourcePanels(
+      rawSourcePanels,
+      localPathPolicy,
+      meshState.meshBase,
+      currentKnopInventoryTurtle,
+      designatorPath,
+      artifactLinks.supportingArtifacts,
+    );
   }
 
   return contexts;
@@ -1930,6 +1942,61 @@ function collectKnopArtifactLinksForPredicates(
   }
 
   return links;
+}
+
+async function addSupportArtifactRawSourcePanels(
+  rawSourcePanels: Map<string, readonly ResourcePageRawSourcePanelModel[]>,
+  localPathPolicy: OperationalLocalPathPolicy,
+  meshBase: string,
+  currentKnopInventoryTurtle: string,
+  designatorPath: string,
+  supportArtifacts: readonly KnopArtifactLinkModel[],
+): Promise<void> {
+  const quads = parseInventoryQuads(
+    meshBase,
+    currentKnopInventoryTurtle,
+    `Could not parse the current Knop inventory while collecting support artifact source panels for ${designatorPath}.`,
+  );
+
+  for (const artifact of supportArtifacts) {
+    const pagePath = toDesignatorResourcePagePath(artifact.path);
+    if (rawSourcePanels.has(pagePath)) {
+      continue;
+    }
+
+    const workingLocalRelativePath = resolveArtifactWorkingLocalRelativePath(
+      quads,
+      meshBase,
+      artifact.path,
+    );
+    if (!workingLocalRelativePath) {
+      continue;
+    }
+
+    try {
+      addRawSourcePanel(
+        rawSourcePanels,
+        pagePath,
+        await readRawSourcePanel(
+          resolveAllowedLocalPath(
+            localPathPolicy,
+            "workingLocalRelativePath",
+            workingLocalRelativePath,
+          ),
+          workingLocalRelativePath,
+          `Current ${artifact.label} file`,
+        ),
+      );
+    } catch (error) {
+      if (
+        error instanceof Deno.errors.NotFound ||
+        error instanceof LocalPathAccessError
+      ) {
+        continue;
+      }
+      throw error;
+    }
+  }
 }
 
 function findHistoryGroupsForResource(
@@ -2706,6 +2773,83 @@ function resolveOptionalNonNegativeIntegerLiteral(
     }
   }
   return undefined;
+}
+
+function resolveArtifactWorkingLocalRelativePath(
+  quads: readonly Quad[],
+  meshBase: string,
+  artifactPath: string,
+): string | undefined {
+  const artifactIri = new URL(artifactPath, meshBase).href;
+  const literalValue = resolveOptionalUniqueLiteralObject(
+    quads,
+    artifactIri,
+    SFLO_WORKING_FILE_PATH_IRI,
+  );
+  const locatedFileValue = resolveOptionalUniqueNamedNodeMeshPath(
+    quads,
+    meshBase,
+    artifactIri,
+    SFLO_HAS_WORKING_LOCATED_FILE_IRI,
+  );
+
+  if (
+    literalValue !== undefined &&
+    locatedFileValue !== undefined &&
+    literalValue !== locatedFileValue
+  ) {
+    return undefined;
+  }
+
+  return literalValue ?? locatedFileValue;
+}
+
+function resolveOptionalUniqueLiteralObject(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+): string | undefined {
+  const values = new Set<string>();
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.subject.value !== subjectIri ||
+      quad.predicate.value !== predicateIri ||
+      quad.object.termType !== "Literal"
+    ) {
+      continue;
+    }
+
+    values.add(quad.object.value);
+  }
+
+  return values.size === 1 ? values.values().next().value! : undefined;
+}
+
+function resolveOptionalUniqueNamedNodeMeshPath(
+  quads: readonly Quad[],
+  meshBase: string,
+  subjectIri: string,
+  predicateIri: string,
+): string | undefined {
+  const values = new Set<string>();
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.subject.value !== subjectIri ||
+      quad.predicate.value !== predicateIri ||
+      quad.object.termType !== "NamedNode"
+    ) {
+      continue;
+    }
+
+    const meshPath = toMeshPath(meshBase, quad.object.value);
+    if (meshPath !== undefined) {
+      values.add(meshPath);
+    }
+  }
+
+  return values.size === 1 ? values.values().next().value! : undefined;
 }
 
 function toMeshPath(meshBase: string, iri: string): string | undefined {
