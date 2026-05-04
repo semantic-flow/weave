@@ -139,12 +139,14 @@ export interface IdentifierResourcePageModel {
   path: string;
   designatorPath: string;
   workingLocalRelativePath?: string;
+  rawSourcePanels?: readonly ResourcePageRawSourcePanelModel[];
 }
 
 export interface SimpleResourcePageModel {
   kind: "simple";
   path: string;
   description: string;
+  rawSourcePanels?: readonly ResourcePageRawSourcePanelModel[];
 }
 
 export interface ReferenceCatalogCurrentLinkModel {
@@ -160,6 +162,7 @@ export interface ReferenceCatalogResourcePageModel {
   catalogPath: string;
   ownerDesignatorPath: string;
   currentLinks: readonly ReferenceCatalogCurrentLinkModel[];
+  rawSourcePanels?: readonly ResourcePageRawSourcePanelModel[];
 }
 
 export interface CustomIdentifierRegionResourcePageModel {
@@ -175,6 +178,13 @@ export interface CustomIdentifierResourcePageModel {
   definitionPath: string;
   stylesheetPaths: readonly string[];
   regions: readonly CustomIdentifierRegionResourcePageModel[];
+}
+
+export interface ResourcePageRawSourcePanelModel {
+  label: string;
+  sourcePath: string;
+  contents?: string;
+  omittedByteLength?: number;
 }
 
 export type ResourcePageModel =

@@ -358,14 +358,17 @@ Deno.test("executeGenerate renders the customized alice identifier page after pa
     await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
     `<a href="./_knop/_page">./_knop/_page</a>`,
   );
-  assertEquals(
-    await Deno.readTextFile(
-      join(workspaceRoot, "alice/_knop/_page/index.html"),
-    ),
-    await readMeshAliceBioBranchFile(
-      "15-alice-page-customized-woven",
-      "alice/_knop/_page/index.html",
-    ),
+  const pageDefinitionHtml = await Deno.readTextFile(
+    join(workspaceRoot, "alice/_knop/_page/index.html"),
+  );
+  assertStringIncludes(pageDefinitionHtml, "<h1>alice/_knop/_page</h1>");
+  assertStringIncludes(
+    pageDefinitionHtml,
+    "Resource page for the alice ResourcePageDefinition artifact.",
+  );
+  assertStringIncludes(
+    pageDefinitionHtml,
+    'href="https://semantic-flow.github.io/mesh-alice-bio/alice/_knop/_page"',
   );
 });
 

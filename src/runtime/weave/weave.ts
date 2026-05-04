@@ -22,6 +22,7 @@ import {
   type ReferenceCatalogWorkingArtifact,
   type ResourcePageDefinitionWorkingArtifact,
   type ResourcePageModel,
+  type ResourcePageRawSourcePanelModel,
   type ValidateRequest,
   type VersionPlan,
   type VersionRequest,
@@ -142,7 +143,13 @@ interface GenerateDesignatorContext {
   pagePaths: readonly string[];
   customIdentifierPage?: CustomIdentifierPageModelInput;
   pageDescriptions: ReadonlyMap<string, string>;
+  rawSourcePanels: ReadonlyMap<
+    string,
+    readonly ResourcePageRawSourcePanelModel[]
+  >;
 }
+
+const RAW_SOURCE_INLINE_BYTE_LIMIT = 1024 * 1024;
 
 export async function executeValidate(
   options: ExecuteValidateOptions,
@@ -1264,6 +1271,10 @@ async function collectGeneratedPageFiles(
       context,
     ]),
   );
+  const meshRawSourcePanels = await collectMeshSupportRawSourcePanels(
+    workspaceRoot,
+    meshState,
+  );
 
   for (
     const pagePath of listResourcePagePaths(
@@ -1301,6 +1312,7 @@ async function collectGeneratedPageFiles(
           designatorPath: publicContext.designatorPath,
           workingLocalRelativePath:
             publicContext.payloadWorkingLocalRelativePath,
+          rawSourcePanels: publicContext.rawSourcePanels.get(pagePath),
         });
       }
     } else {
@@ -1308,6 +1320,8 @@ async function collectGeneratedPageFiles(
         kind: "simple",
         path: pagePath,
         description: `Generated resource page for ${toResourcePath(pagePath)}.`,
+        rawSourcePanels: meshRawSourcePanels.get(pagePath) ??
+          findRawSourcePanelsForPage(pagePath, designatorContexts),
       });
     }
     pagePaths.add(pagePath);
@@ -1324,6 +1338,7 @@ async function collectGeneratedPageFiles(
         path: pagePath,
         description: context.pageDescriptions.get(pagePath) ??
           `Generated resource page for ${toResourcePath(pagePath)}.`,
+        rawSourcePanels: context.rawSourcePanels.get(pagePath),
       });
       pagePaths.add(pagePath);
     }
@@ -1368,6 +1383,10 @@ async function loadGenerateDesignatorContexts(
       },
     );
     const pageDescriptions = new Map<string, string>();
+    const rawSourcePanels = new Map<
+      string,
+      readonly ResourcePageRawSourcePanelModel[]
+    >();
     const resourcePageDefinitionState =
       resolveResourcePageDefinitionInventoryState(
         meshState.meshBase,
@@ -1417,15 +1436,187 @@ async function loadGenerateDesignatorContexts(
         ?.workingLocalRelativePath,
       customIdentifierPage,
       pageDescriptions,
+      rawSourcePanels,
       pagePaths: listResourcePagePaths(
         meshState.meshBase,
         currentKnopInventoryTurtle,
         `Could not parse the current Knop inventory while collecting ResourcePages for ${designatorPath}.`,
       ),
     });
+
+    if (payloadArtifact) {
+      await addPayloadRawSourcePanels(
+        rawSourcePanels,
+        workspaceRoot,
+        localPathPolicy,
+        designatorPath,
+        payloadArtifact,
+      );
+    }
   }
 
   return contexts;
+}
+
+async function collectMeshSupportRawSourcePanels(
+  workspaceRoot: string,
+  meshState: MeshState,
+): Promise<ReadonlyMap<string, readonly ResourcePageRawSourcePanelModel[]>> {
+  const rawSourcePanels = new Map<
+    string,
+    readonly ResourcePageRawSourcePanelModel[]
+  >();
+
+  addRawSourcePanel(rawSourcePanels, "_mesh/_inventory/index.html", {
+    label: "Current MeshInventory RDF bytes",
+    sourcePath: "_mesh/_inventory/inventory.ttl",
+    contents: meshState.currentMeshInventoryTurtle,
+  });
+
+  for (
+    const support of [
+      {
+        pagePath: "_mesh/_meta/index.html",
+        sourcePath: "_mesh/_meta/meta.ttl",
+        label: "Current MeshMetadata RDF bytes",
+      },
+      {
+        pagePath: "_mesh/_config/index.html",
+        sourcePath: "_mesh/_config/config.ttl",
+        label: "Current MeshConfig RDF bytes",
+      },
+    ]
+  ) {
+    try {
+      addRawSourcePanel(
+        rawSourcePanels,
+        support.pagePath,
+        await readRawSourcePanel(
+          join(workspaceRoot, support.sourcePath),
+          support.sourcePath,
+          support.label,
+        ),
+      );
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  return rawSourcePanels;
+}
+
+function findRawSourcePanelsForPage(
+  pagePath: string,
+  contexts: readonly GenerateDesignatorContext[],
+): readonly ResourcePageRawSourcePanelModel[] | undefined {
+  for (const context of contexts) {
+    const panels = context.rawSourcePanels.get(pagePath);
+    if (panels) {
+      return panels;
+    }
+  }
+  return undefined;
+}
+
+async function addPayloadRawSourcePanels(
+  rawSourcePanels: Map<string, readonly ResourcePageRawSourcePanelModel[]>,
+  workspaceRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
+  designatorPath: string,
+  payloadArtifact: {
+    workingLocalRelativePath: string;
+    latestHistoricalStatePath?: string;
+    latestHistoricalSnapshotPath?: string;
+  },
+): Promise<void> {
+  try {
+    const currentPanel = await readRawSourcePanel(
+      resolveAllowedLocalPath(
+        localPathPolicy,
+        "workingLocalRelativePath",
+        payloadArtifact.workingLocalRelativePath,
+      ),
+      payloadArtifact.workingLocalRelativePath,
+      "Current working RDF bytes",
+    );
+    addRawSourcePanel(
+      rawSourcePanels,
+      toDesignatorResourcePagePath(designatorPath),
+      currentPanel,
+    );
+  } catch (error) {
+    if (
+      error instanceof Deno.errors.NotFound ||
+      error instanceof LocalPathAccessError
+    ) {
+      return;
+    }
+    throw error;
+  }
+
+  if (!payloadArtifact.latestHistoricalStatePath) {
+    return;
+  }
+
+  const snapshotPath = payloadArtifact.latestHistoricalSnapshotPath ??
+    toPayloadHistoricalSnapshotPath(
+      payloadArtifact.latestHistoricalStatePath,
+      payloadArtifact.workingLocalRelativePath,
+    );
+  const snapshotAbsolutePath = join(workspaceRoot, snapshotPath);
+
+  try {
+    const historicalPanel = await readRawSourcePanel(
+      snapshotAbsolutePath,
+      snapshotPath,
+      "Historical manifestation RDF bytes",
+    );
+    addRawSourcePanel(
+      rawSourcePanels,
+      `${dirname(snapshotPath)}/index.html`,
+      historicalPanel,
+    );
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return;
+    }
+    throw error;
+  }
+}
+
+async function readRawSourcePanel(
+  absolutePath: string,
+  sourcePath: string,
+  label: string,
+): Promise<ResourcePageRawSourcePanelModel> {
+  const info = await Deno.stat(absolutePath);
+  if (info.size > RAW_SOURCE_INLINE_BYTE_LIMIT) {
+    return {
+      label,
+      sourcePath,
+      omittedByteLength: info.size,
+    };
+  }
+
+  return {
+    label,
+    sourcePath,
+    contents: await Deno.readTextFile(absolutePath),
+  };
+}
+
+function addRawSourcePanel(
+  rawSourcePanels: Map<string, readonly ResourcePageRawSourcePanelModel[]>,
+  pagePath: string,
+  panel: ResourcePageRawSourcePanelModel,
+): void {
+  rawSourcePanels.set(pagePath, [
+    ...(rawSourcePanels.get(pagePath) ?? []),
+    panel,
+  ]);
 }
 
 function listResourcePagePaths(
