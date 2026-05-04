@@ -217,7 +217,7 @@ function toDefaultResourcePageRenderInput(
       breadcrumbs: toResourcePageBreadcrumbs(
         meshLabel,
         meshRootHref,
-        resourcePath,
+        toParentResourcePath(resourcePath),
       ),
       summary: rdfFacts.description,
       rdfClasses: rdfFacts.classes,
@@ -286,7 +286,7 @@ function toDefaultResourcePageRenderInput(
       breadcrumbs: toResourcePageBreadcrumbs(
         meshLabel,
         meshRootHref,
-        resourcePath,
+        toParentResourcePath(resourcePath),
       ),
       summary: `Reference catalog for ${
         formatDesignatorPathForDisplay(page.ownerDesignatorPath)
@@ -319,7 +319,7 @@ function toDefaultResourcePageRenderInput(
     breadcrumbs: toResourcePageBreadcrumbs(
       meshLabel,
       meshRootHref,
-      resourcePath,
+      toParentResourcePath(resourcePath),
     ),
     summary: page.description,
     rdfClasses: rdfFacts.classes.length > 0
@@ -656,6 +656,11 @@ function renderTooltipLabel(label: string, tooltip: string): string {
 function toLastPathSegment(path: string): string {
   const segments = path.split("/").filter((segment) => segment.length > 0);
   return segments[segments.length - 1] ?? "/";
+}
+
+function toParentResourcePath(path: string): string {
+  const segments = path.split("/").filter((segment) => segment.length > 0);
+  return segments.slice(0, -1).join("/");
 }
 
 function toDefaultResourcePageTitle(
