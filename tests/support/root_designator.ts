@@ -58,7 +58,7 @@ export async function integrateRootPayload(
   );
 
   return await executeIntegrate({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       designatorPath: "",
       source: workingLocalRelativePath,

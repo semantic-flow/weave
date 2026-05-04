@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertRejects } from "@std/assert";
-import { join, relative } from "@std/path";
+import { join, relative, toFileUrl } from "@std/path";
 import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import {
   getManifestFileExpectations,
@@ -18,6 +18,7 @@ import {
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 const repoRoot = new URL("../../", import.meta.url);
+const cliPath = new URL("src/main.ts", repoRoot).pathname;
 
 Deno.test("weave integrate matches the manifest-scoped alice-bio integrated fixture as a black-box CLI run", async () => {
   const manifestPath = resolveMeshAliceBioConformanceManifestPath(
@@ -37,15 +38,13 @@ Deno.test("weave integrate matches the manifest-scoped alice-bio integrated fixt
       "--allow-read",
       "--allow-write",
       "--allow-env",
-      "src/main.ts",
+      cliPath,
       "integrate",
       "alice-bio.ttl",
       "--designator-path",
       "alice/bio",
-      "--workspace",
-      workspaceRoot,
     ],
-    cwd: new URL(".", repoRoot),
+    cwd: toFileUrl(`${workspaceRoot}/`),
     stdout: "piped",
     stderr: "piped",
   });
@@ -130,16 +129,14 @@ Deno.test("weave integrate rejects conflicting designator paths before logging o
       "--allow-read",
       "--allow-write",
       "--allow-env",
-      "src/main.ts",
+      cliPath,
       "integrate",
       "alice-bio.ttl",
       "alice/bio",
       "--designator-path",
       "bob/bio",
-      "--workspace",
-      workspaceRoot,
     ],
-    cwd: new URL(".", repoRoot),
+    cwd: toFileUrl(`${workspaceRoot}/`),
     stdout: "piped",
     stderr: "piped",
   });
@@ -177,15 +174,13 @@ Deno.test("weave integrate accepts the root designator path as a black-box CLI r
       "--allow-read",
       "--allow-write",
       "--allow-env",
-      "src/main.ts",
+      cliPath,
       "integrate",
       ROOT_WORKING_FILE_PATH,
       "--designator-path",
       "/",
-      "--workspace",
-      workspaceRoot,
     ],
-    cwd: new URL(".", repoRoot),
+    cwd: toFileUrl(`${workspaceRoot}/`),
     stdout: "piped",
     stderr: "piped",
   });
@@ -236,15 +231,15 @@ Deno.test("weave integrate allows repo-adjacent local sources when repo policy p
       "--allow-read",
       "--allow-write",
       "--allow-env",
-      "src/main.ts",
+      cliPath,
       "integrate",
-      "../documentation/alice-bio.ttl",
+      "documentation/alice-bio.ttl",
       "--designator-path",
       "alice/bio",
-      "--workspace",
-      workspaceRoot,
+      "--mesh-root",
+      "mesh",
     ],
-    cwd: new URL(".", repoRoot),
+    cwd: toFileUrl(`${tempRepoRoot}/`),
     stdout: "piped",
     stderr: "piped",
   });
@@ -286,13 +281,11 @@ Deno.test("weave integrate requires a designator path before logging or executio
       "--allow-read",
       "--allow-write",
       "--allow-env",
-      "src/main.ts",
+      cliPath,
       "integrate",
       "alice-bio.ttl",
-      "--workspace",
-      workspaceRoot,
     ],
-    cwd: new URL(".", repoRoot),
+    cwd: toFileUrl(`${workspaceRoot}/`),
     stdout: "piped",
     stderr: "piped",
   });

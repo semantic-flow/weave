@@ -342,22 +342,24 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           "Designator path to assign to the integrated payload artifact.",
         )
         .option(
-          "--workspace <workspace:string>",
-          "Workspace root to update.",
+          "--mesh-root <meshRoot:string>",
+          "Mesh root to update. Defaults to the current directory.",
           { default: "." },
         )
         .action(async (options, source, designatorPathArg) => {
-          const workspaceRoot = resolve(options.workspace);
           const designatorPath = resolveIntegrateDesignatorPath(
             options,
             designatorPathArg,
           );
+          const meshRoot = resolve(options.meshRoot);
+          const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
           const logDir = join(workspaceRoot, ".weave", "logs");
           const { operationalLogger, auditLogger } = createRuntimeLoggers({
             logDir,
           });
 
           await auditLogger.command("integrate", {
+            meshRoot,
             workspaceRoot,
             designatorPath,
             source,
@@ -365,7 +367,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           });
 
           const result = await executeIntegrate({
-            workspaceRoot,
+            meshRoot,
+            sourceBaseDirectory: Deno.cwd(),
             request: {
               designatorPath,
               source,

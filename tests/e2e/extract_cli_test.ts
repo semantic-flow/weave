@@ -129,7 +129,7 @@ Deno.test("weave extract accepts the root designator path as a black-box CLI run
     ROOT_PERSON_SOURCE_TURTLE,
   );
   await executeIntegrate({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       designatorPath: "alice/bio",
       source: "alice-bio-root.ttl",

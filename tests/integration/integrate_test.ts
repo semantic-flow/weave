@@ -26,7 +26,7 @@ Deno.test("executeIntegrate matches the settled alice-bio integrated fixture", a
   );
 
   const result = await executeIntegrate({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       designatorPath: "alice/bio",
       source: "alice-bio.ttl",
@@ -91,7 +91,7 @@ Deno.test("executeIntegrate supports the root designator path", async () => {
   );
 
   const result = await executeIntegrate({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       designatorPath: "",
       source: ROOT_WORKING_FILE_PATH,
@@ -146,7 +146,7 @@ Deno.test("executeIntegrate fails closed when source is outside the allowed loca
   await assertRejects(
     () =>
       executeIntegrate({
-        workspaceRoot,
+        meshRoot: workspaceRoot,
         request: {
           designatorPath: "alice/bio",
           source: externalSourcePath,
@@ -190,10 +190,11 @@ Deno.test("executeIntegrate allows repo-adjacent local sources when repo policy 
   );
 
   const result = await executeIntegrate({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
+    sourceBaseDirectory: repoRoot,
     request: {
       designatorPath: "alice/bio",
-      source: "../documentation/alice-bio.ttl",
+      source: "documentation/alice-bio.ttl",
     },
   });
 
@@ -239,7 +240,7 @@ Deno.test("executeIntegrate accepts semantically equivalent mesh metadata turtle
   await writeEquivalentMeshMetadata(workspaceRoot);
 
   const result = await executeIntegrate({
-    workspaceRoot,
+    meshRoot: workspaceRoot,
     request: {
       designatorPath: "alice/bio",
       source: "alice-bio.ttl",

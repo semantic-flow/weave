@@ -32,7 +32,8 @@ export interface LocalIntegrateRequest {
 }
 
 export interface ExecuteIntegrateOptions {
-  workspaceRoot: string;
+  meshRoot: string;
+  sourceBaseDirectory?: string;
   request: LocalIntegrateRequest;
   operationalLogger?: StructuredLogger;
   auditLogger?: AuditLogger;
@@ -59,11 +60,14 @@ export async function executeIntegrate(
   options: ExecuteIntegrateOptions,
 ): Promise<IntegrateResult> {
   const { operationalLogger, auditLogger } = resolveLoggers(options);
-  const workspaceRoot = options.workspaceRoot;
+  const meshRoot = options.meshRoot;
   const designatorPath = options.request.designatorPath;
   const source = options.request.source;
   let plan: IntegratePlan | undefined;
   let workingLocalRelativePath: string | undefined;
+  const localPathPolicy = await loadOperationalLocalPathPolicy(meshRoot);
+  const workspaceRoot = localPathPolicy.workspaceRoot;
+  const sourceBaseDirectory = options.sourceBaseDirectory ?? meshRoot;
 
   await operationalLogger.info(
     "integrate.started",
@@ -85,26 +89,26 @@ export async function executeIntegrate(
   );
 
   try {
-    await ensureWorkspaceRootExists(workspaceRoot);
-    const localPathPolicy = await loadOperationalLocalPathPolicy(workspaceRoot);
+    await ensureMeshRootExists(meshRoot);
     const resolvedSource = await resolveLocalSource(
-      workspaceRoot,
+      sourceBaseDirectory,
+      meshRoot,
       localPathPolicy,
       source,
     );
     workingLocalRelativePath = resolvedSource.workingLocalRelativePath;
-    const meshState = await loadCurrentMeshState(workspaceRoot);
+    const meshState = await loadCurrentMeshState(meshRoot);
     plan = planIntegrate({
       meshBase: meshState.meshBase,
       currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
       designatorPath,
       workingLocalRelativePath,
     });
-    assertUpdatedTargetsExist(workspaceRoot, plan);
-    await assertCreateTargetsDoNotExist(workspaceRoot, plan);
+    assertUpdatedTargetsExist(meshRoot, plan);
+    await assertCreateTargetsDoNotExist(meshRoot, plan);
     validateRdfPlan(plan);
-    await writeCreatedFiles(workspaceRoot, plan);
-    await writeUpdatedFiles(workspaceRoot, plan);
+    await writeCreatedFiles(meshRoot, plan);
+    await writeUpdatedFiles(meshRoot, plan);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await operationalLogger.error(
@@ -149,8 +153,12 @@ export async function executeIntegrate(
     payloadArtifactIri: plan.payloadArtifactIri,
     knopIri: plan.knopIri,
     workingLocalRelativePath: plan.workingLocalRelativePath,
-    createdPaths: plan.createdFiles.map((file) => file.path),
-    updatedPaths: plan.updatedFiles.map((file) => file.path),
+    createdPaths: plan.createdFiles.map((file) =>
+      toWorkspaceRelativePath(localPathPolicy, file.path)
+    ),
+    updatedPaths: plan.updatedFiles.map((file) =>
+      toWorkspaceRelativePath(localPathPolicy, file.path)
+    ),
   };
 
   await operationalLogger.info(
@@ -196,14 +204,14 @@ function resolveLoggers(
   return resolveRuntimeLoggers(options);
 }
 
-async function ensureWorkspaceRootExists(workspaceRoot: string): Promise<void> {
+async function ensureMeshRootExists(meshRoot: string): Promise<void> {
   let stat: Deno.FileInfo;
   try {
-    stat = await Deno.stat(workspaceRoot);
+    stat = await Deno.stat(meshRoot);
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new IntegrateRuntimeError(
-        `Workspace root does not exist: ${workspaceRoot}`,
+        `Mesh root does not exist: ${meshRoot}`,
       );
     }
     throw error;
@@ -211,13 +219,14 @@ async function ensureWorkspaceRootExists(workspaceRoot: string): Promise<void> {
 
   if (!stat.isDirectory) {
     throw new IntegrateRuntimeError(
-      `Workspace root is not a directory: ${workspaceRoot}`,
+      `Mesh root is not a directory: ${meshRoot}`,
     );
   }
 }
 
 async function resolveLocalSource(
-  workspaceRoot: string,
+  sourceBaseDirectory: string,
+  meshRoot: string,
   localPathPolicy: OperationalLocalPathPolicy,
   source: string,
 ): Promise<{ absoluteSourcePath: string; workingLocalRelativePath: string }> {
@@ -228,7 +237,7 @@ async function resolveLocalSource(
     );
   }
 
-  const absoluteSourcePath = resolveSourcePath(workspaceRoot, trimmed);
+  const absoluteSourcePath = resolveSourcePath(sourceBaseDirectory, trimmed);
   let stat: Deno.FileInfo;
   try {
     stat = await Deno.stat(absoluteSourcePath);
@@ -247,7 +256,7 @@ async function resolveLocalSource(
     );
   }
 
-  const workingLocalRelativePath = relative(workspaceRoot, absoluteSourcePath)
+  const workingLocalRelativePath = relative(meshRoot, absoluteSourcePath)
     .replaceAll("\\", "/");
   if (
     workingLocalRelativePath.length === 0 || workingLocalRelativePath === ".."
@@ -282,7 +291,10 @@ async function resolveLocalSource(
   };
 }
 
-function resolveSourcePath(workspaceRoot: string, source: string): string {
+function resolveSourcePath(
+  sourceBaseDirectory: string,
+  source: string,
+): string {
   const parsedUrl = tryParseUrl(source);
   if (parsedUrl) {
     if (parsedUrl.protocol !== "file:") {
@@ -293,7 +305,20 @@ function resolveSourcePath(workspaceRoot: string, source: string): string {
     return resolve(fromFileUrl(parsedUrl));
   }
 
-  return isAbsolute(source) ? resolve(source) : resolve(workspaceRoot, source);
+  return isAbsolute(source)
+    ? resolve(source)
+    : resolve(sourceBaseDirectory, source);
+}
+
+function toWorkspaceRelativePath(
+  policy: OperationalLocalPathPolicy,
+  meshRelativePath: string,
+): string {
+  const path = relative(
+    policy.workspaceRoot,
+    join(policy.meshRoot, meshRelativePath),
+  ).replaceAll("\\", "/");
+  return path.length === 0 ? "." : path;
 }
 
 function tryParseUrl(value: string): URL | undefined {
