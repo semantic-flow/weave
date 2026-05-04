@@ -328,9 +328,7 @@ function toDefaultResourcePageRenderInput(
       canonical,
       generatedAtIso,
       generatedAtDisplay,
-      title: formatDesignatorPathForDisplay(
-        toKnopResourcePath(page.designatorPath),
-      ),
+      title: toLastPathSegment(toKnopResourcePath(page.designatorPath)),
       breadcrumbs: toResourcePageBreadcrumbs(
         meshLabel,
         meshRootHref,
@@ -428,9 +426,7 @@ ${section.html}
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${escapeHtml(input.meshLabel)} ${
-    escapeHtml(input.displayResourcePath)
-  }</title>
+  <title>${escapeHtml(input.meshLabel)} ${escapeHtml(input.title)}</title>
   <link rel="canonical" href="${escapeHtml(input.canonical)}">
   <style>
     :root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f6f7f4; color: #20231f; }

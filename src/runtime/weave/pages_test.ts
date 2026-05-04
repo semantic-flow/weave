@@ -134,6 +134,29 @@ Deno.test("renderResourcePage renders pinned root ReferenceCatalog targets as sl
   );
 });
 
+Deno.test("renderResourcePage renders Knop pages with local titles", () => {
+  const html = renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "knop",
+      path: "ontology/_knop/index.html",
+      designatorPath: "ontology",
+      governedArtifacts: [],
+      supportingArtifacts: [],
+    },
+  );
+
+  assertStringIncludes(
+    html,
+    "<title>mesh-sidecar-fantasy-rules _knop</title>",
+  );
+  assertStringIncludes(html, "<h1>_knop</h1>");
+  assertStringIncludes(
+    html,
+    'href="/mesh-sidecar-fantasy-rules/ontology"',
+  );
+});
+
 Deno.test("renderResourcePage renders escaped raw RDF panels and raw file links", () => {
   const html = renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",
@@ -331,7 +354,7 @@ Deno.test("renderResourcePage renders Knop artifact links without history cake",
     },
   );
 
-  assertStringIncludes(html, "<h1>alice/_knop</h1>");
+  assertStringIncludes(html, "<h1>_knop</h1>");
   assertStringIncludes(html, "<h2>Governed Artifacts</h2>");
   assertStringIncludes(html, "PayloadArtifact");
   assertStringIncludes(html, 'href="/mesh-alice-bio/alice/bio"');
