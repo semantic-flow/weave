@@ -10,6 +10,7 @@ import { planExtract } from "../extract/extract.ts";
 import { planKnopCreate } from "../knop/create.ts";
 import {
   detectPendingWeaveSlice,
+  planMeshSupportResourcePages,
   planWeave,
   type PlanWeaveInput,
   WeaveInputError,
@@ -44,6 +45,34 @@ const firstWeaveMeshInventoryTurtle =
   sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0001> ;
   sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/index.html> .
+`;
+
+const sidecarMeshCreatedInventoryTurtle =
+  `@base <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<_mesh> a sflo:SemanticMesh ;
+  sflo:meshBase "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/"^^xsd:anyURI ;
+  sflo:hasMeshMetadata <_mesh/_meta> ;
+  sflo:hasMeshInventory <_mesh/_inventory> ;
+  sfcfg:hasConfig <_mesh/_config> .
+
+<_mesh/_meta> a sflo:MeshMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <_mesh/_meta/meta.ttl> .
+
+<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> .
+
+<_mesh/_config> a sfcfg:MeshConfig, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <_mesh/_config/config.ttl> .
+
+<_mesh/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<_mesh/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<_mesh/_config/config.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 `;
 
 const firstWeaveKnopMetadataTurtle =
@@ -112,6 +141,33 @@ const firstWeaveKnopInventoryTurtle =
   sflo:hasKnopInventory <alice/_knop/_inventory> ;
   sflo:hasWorkingKnopInventoryFile <alice/_knop/_inventory/inventory.ttl> .
 `;
+
+Deno.test("planMeshSupportResourcePages adds current support ResourcePages including config", () => {
+  const plan = planMeshSupportResourcePages({
+    meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    currentMeshInventoryTurtle: sidecarMeshCreatedInventoryTurtle,
+  });
+
+  assertEquals(plan.versionedDesignatorPaths, []);
+  assertEquals(plan.createdFiles, []);
+  assertEquals(
+    plan.updatedFiles.map((file) => file.path),
+    ["_mesh/_inventory/inventory.ttl"],
+  );
+  const inventory = plan.updatedFiles[0]?.contents ?? "";
+  assertStringIncludes(
+    inventory,
+    "sfcfg:hasConfig <_mesh/_config> ;\n  sflo:hasResourcePage <_mesh/index.html> .",
+  );
+  assertStringIncludes(
+    inventory,
+    "sflo:hasWorkingLocatedFile <_mesh/_config/config.ttl> ;\n  sflo:hasResourcePage <_mesh/_config/index.html> .",
+  );
+  assertStringIncludes(
+    inventory,
+    "<_mesh/_config/index.html> a sflo:ResourcePage, sflo:LocatedFile .",
+  );
+});
 
 const firstPayloadWeaveMeshInventoryTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .

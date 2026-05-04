@@ -260,7 +260,7 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - [x] Generate the `02-sidecar-mesh-created` fixture branch by running the current docs-rooted `weave mesh create` command from `01-source-only`.
 - [x] Verify the generated `02-sidecar-mesh-created` branch output against the transition manifest.
 - [x] Make `weave`, `weave validate`, `weave version`, and `weave generate` resolve from a mesh root, infer workspace root from mesh config when present, and otherwise treat the mesh root as the workspace root.
-- [ ] Add the first mesh-support-only weave transition so `02-sidecar-mesh-created` can produce the `03-sidecar-mesh-created-woven` root mesh ResourcePage without requiring an application Knop or payload candidate.
+- [x] Add the first mesh-support-only weave transition so `02-sidecar-mesh-created` can produce the `03-sidecar-mesh-created-woven` current support ResourcePages without requiring an application Knop or payload candidate, including the sidecar config support artifact when present.
 
 ### Phase 2: Integrate Ontology And SHACL Artifacts
 

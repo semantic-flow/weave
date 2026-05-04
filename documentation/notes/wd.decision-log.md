@@ -100,7 +100,7 @@ created: 1773630801215
 ### 2026-04-03: Bootstrap Logging Extraction Boundary
 
 - Decision: For the first Weave slice, keep the Kato logging carry-forward limited to `LogRecord`, log sinks, `StructuredLogger`, `AuditLogger`, and JSONL file output.
-- References: [[wa.completed.2026.2026-04-03-weave-bootstrap-mesh-create]], [[wd.spec.2026-04-03-mesh-create]]
+- References: [[wa.completed.2026.2026-04-03-weave-bootstrap-mesh-create]], [[sf.spec.2026-04-03-mesh-create]]
 - Why:
   - This preserves the useful operational-vs-audit split and local JSONL behavior without pulling in Kato's broader logging adapter stack, daemon wiring, or unrelated runtime concerns.
 - Follow-Up Tasks:
@@ -109,14 +109,14 @@ created: 1773630801215
 ### 2026-04-03: knop create Resolves Mesh Identity from Workspace
 
 - Decision: The first local `knop create` CLI requires an explicit `designatorPath` and resolves `meshBase` from the existing workspace mesh support surface rather than asking users to restate mesh identity.
-- References: [[wa.completed.2026.2026-04-03-knop-create]], [[wd.spec.2026-04-03-knop-create]]
+- References: [[wa.completed.2026.2026-04-03-knop-create]], [[sf.spec.2026-04-03-knop-create]]
 - Why:
   - `knop create` acts on an existing mesh, so repeating `meshBase` on the CLI is redundant and easier to misuse.
 
 ### 2026-04-04: First Local weave Slice Targets Alice 04 -> 05
 
 - Decision: Treat the settled Alice Bio `04-alice-knop-created` -> `05-alice-knop-created-woven` transition as the first carried local `weave` implementation slice, limited to one first-weave Knop candidate together with the corresponding MeshInventory advancement and first generated Knop-facing pages.
-- References: [[wa.completed.2026.2026-04-04-weave-alice-knop-created-woven]], [[wd.spec.2026-04-03-weave-behavior]]
+- References: [[wa.completed.2026.2026-04-04-weave-alice-knop-created-woven]], [[sf.spec.2026-04-03-weave-behavior]]
 - Why:
   - It is the first settled `version + validate + generate` case after `knop create`.
   - It proves first-history creation for Knop support artifacts and a later-state advancement for MeshInventory without absorbing payload integration.
@@ -132,7 +132,7 @@ created: 1773630801215
 ### 2026-04-04: First Local integrate Slice Targets Alice 05 -> 06
 
 - Decision: Treat the settled Alice Bio `05-alice-knop-created-woven` -> `06-alice-bio-integrated` transition as the first carried local `integrate` implementation slice, limited to creating the payload-Knop support artifacts and updating `MeshInventory` while leaving histories and generated pages for the later woven step.
-- References: [[wa.completed.2026.2026-04-04-integrate-alice-bio]], [[wd.spec.2026-04-04-integrate-behavior]]
+- References: [[wa.completed.2026.2026-04-04-integrate-alice-bio]], [[sf.spec.2026-04-04-integrate-behavior]]
 - Why:
   - It is the next settled semantic operation boundary after the first completed local `weave` slice.
   - The fixture already proves that payload integration is distinct from later `weave` behavior.
@@ -140,7 +140,7 @@ created: 1773630801215
 ### 2026-04-04: integrate CLI Uses Explicit Source While core Stays Mesh-Relative
 
 - Decision: Make the first local `integrate` CLI take the source as the primary positional input and accept `designatorPath` either as a second positional argument or via `--designator-path`, while keeping host paths out of shared `core` by planning the operation from a mesh-relative working file path.
-- References: [[wa.completed.2026.2026-04-04-integrate-alice-bio]], [[wd.spec.2026-04-04-integrate-behavior]]
+- References: [[wa.completed.2026.2026-04-04-integrate-alice-bio]], [[sf.spec.2026-04-04-integrate-behavior]]
 - Why:
   - The local CLI should read as acting on a source artifact rather than on a designator path.
   - A mesh-relative working file path in `core` leaves room for later runtime staging from `file:` or remote source URIs without collapsing the semantic contract into host-path semantics.
@@ -148,7 +148,7 @@ created: 1773630801215
 ### 2026-04-04: Second Local weave Slice Targets Alice 06 -> 07
 
 - Decision: Treat the settled Alice Bio `06-alice-bio-integrated` -> `07-alice-bio-integrated-woven` transition as the next carried local `weave` implementation slice, keep `designatorPaths` as the thin target surface, and route both the earlier `05` pages and the new `07` pages through a shared runtime page-rendering seam.
-- References: [[wa.completed.2026.2026-04-04-weave-alice-bio-integrated-woven]], [[wd.spec.2026-04-03-weave-behavior]]
+- References: [[wa.completed.2026.2026-04-04-weave-alice-bio-integrated-woven]], [[sf.spec.2026-04-03-weave-behavior]]
 - Why:
   - It proves first payload-artifact history creation plus first payload-Knop support-artifact histories without absorbing later reference-catalog or Bob behavior.
   - The payload slice did not justify a broader artifact-target request contract; the existing narrow `designatorPaths` request still fit.
@@ -156,14 +156,14 @@ created: 1773630801215
 ### 2026-04-04: Current Local weave Validation Floor Is Parse-Only
 
 - Decision: Keep the current carried local `weave` runtime at parse-only RDF validation for generated outputs, while leaving merged-graph, ontology, and SHACL validation as a later follow-up.
-- References: [[wa.completed.2026.2026-04-04-weave-alice-bio-integrated-woven]], [[wd.spec.2026-04-03-weave-behavior]]
+- References: [[wa.completed.2026.2026-04-04-weave-alice-bio-integrated-woven]], [[sf.spec.2026-04-03-weave-behavior]]
 - Why:
   - Parse validation is enough to carry the settled `07` payload weave slice without pretending the broader validator stack is already implemented.
 
 ### 2026-04-04: First Local knop.addReference Slice Targets Alice 07 -> 08
 
 - Decision: Treat the settled Alice Bio `07-alice-bio-integrated-woven` -> `08-alice-bio-referenced` transition as the first carried local `knop.addReference` slice, expose the human-facing CLI as `weave knop add-reference <designatorPath> --reference-target-designator-path <referenceTargetDesignatorPath> --reference-role <referenceRole>`, keep `knop.addReference` as the machine-facing job kind, derive `referenceLinkFor` from the targeted Knop's referent, and require `referenceRole` explicitly rather than silently defaulting it.
-- References: [[wa.completed.2026.2026-04-04-alice-bio-referenced]], [[wd.spec.2026-04-04-knop-add-reference-behavior]]
+- References: [[wa.completed.2026.2026-04-04-alice-bio-referenced]], [[sf.spec.2026-04-04-knop-add-reference-behavior]]
 - Why:
   - The settled `08` fixture explicitly proves a canonical Alice -> Alice Bio link rather than an omission-default role policy.
   - The later Bob extraction path is the first natural carried `Supplemental` case, so a silent local default would have blurred two different fixture-backed behaviors.
@@ -171,7 +171,7 @@ created: 1773630801215
 ### 2026-04-04: Third Local weave Slice Targets Alice 08 -> 09
 
 - Decision: Treat the settled Alice Bio `08-alice-bio-referenced` -> `09-alice-bio-referenced-woven` transition as the next carried local `weave` implementation slice, keep the existing thin `designatorPaths` request surface, version the Knop-owned `ReferenceCatalog`, advance `alice/_knop/_inventory` to `_s0002`, leave `_mesh/_inventory/inventory.ttl` unchanged, and extend the shared runtime page-rendering seam with current and historical `ReferenceCatalog` pages.
-- References: [[wa.completed.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]], [[wd.spec.2026-04-03-weave-behavior]]
+- References: [[wa.completed.2026.2026-04-04_1553-weave-alice-bio-referenced-woven]], [[sf.spec.2026-04-03-weave-behavior]]
 - Why:
   - It proves the first `ReferenceCatalog` history and the first support-artifact weave on an already-versioned Knop surface without widening the mesh inventory beyond the public current surface.
   - The settled `09` fixture only requires one current-link anchor and no retired-link recovery yet, so the shared page seam should grow minimally rather than fork into a separate renderer path.
@@ -179,7 +179,7 @@ created: 1773630801215
 ### 2026-04-04: First Local payload.update Slice Targets Alice 09 -> 10
 
 - Decision: Treat the settled Alice Bio `09-alice-bio-referenced-woven` -> `10-alice-bio-updated` transition as the first carried local `payload.update` implementation slice, expose the human-facing CLI as `weave payload update <source> [designatorPath]` with `--designator-path` as the explicit option form, and keep shared `core` planning centered on the existing woven payload artifact and its mesh-relative working file rather than on host filesystem paths.
-- References: [[wa.completed.2026.2026-04-04_2019-update-alice-bio-payload]], [[wd.spec.2026-04-04-payload-update-behavior]]
+- References: [[wa.completed.2026.2026-04-04_2019-update-alice-bio-payload]], [[sf.spec.2026-04-04-payload-update-behavior]]
 - Why:
   - The settled `10` fixture proves a real semantic payload change while also proving that histories, inventories, and generated pages stay frozen in this non-woven step.
   - Letting the local runtime stage replacement bytes from a local path or `file:` URL, including one outside the workspace, preserves the one-file `alice-bio.ttl` result without polluting the semantic contract with host-path semantics or temporary mesh artifacts.
@@ -187,7 +187,7 @@ created: 1773630801215
 ### 2026-04-06: First Local extract Slice Targets Bob 11 -> 12
 
 - Decision: Treat the settled Alice Bio `11-alice-bio-v2-woven` -> `12-bob-extracted` transition as the first carried local `extract` slice, expose the human-facing CLI as `weave extract <designatorPath>`, and keep source resolution local and fail-closed against exactly one woven payload artifact that currently mentions the target designator.
-- References: [[wa.completed.2026.2026-04-05_1004-extract-bob]], [[wd.spec.2026-04-05-extract-behavior]]
+- References: [[wa.completed.2026.2026-04-05_1004-extract-bob]], [[sf.spec.2026-04-05-extract-behavior]]
 - Why:
   - The carried `12` fixture proves a narrow current-surface extraction boundary, not a generic source-selection or graph-rewrite API.
   - Pinning the created Bob `ReferenceLink` to the source payload artifact's latest historical state preserves the non-woven semantic step while keeping broader payload splitting and Bob weaving out of scope.
@@ -195,7 +195,7 @@ created: 1773630801215
 ### 2026-04-06: Fifth Local weave Slice Targets Bob 12 -> 13
 
 - Decision: Treat the settled Alice Bio `12-bob-extracted` -> `13-bob-extracted-woven` transition as the next carried local `weave` slice, keep the thin `designatorPaths` request surface, version Bob `_meta`, `_inventory`, and `_references`, advance `_mesh/_inventory` to `_s0004`, and keep the black-box CLI acceptance manifest-scoped so unrelated fixture `README.md` churn is ignored.
-- References: [[wa.completed.2026.2026-04-06_1331-weave-bob-extracted-woven]], [[wd.spec.2026-04-03-weave-behavior]]
+- References: [[wa.completed.2026.2026-04-06_1331-weave-bob-extracted-woven]], [[sf.spec.2026-04-03-weave-behavior]]
 - Why:
   - The carried `13` fixture is the first extracted-resource weave and the first carried case where one existing current page changes because a newly public extracted resource becomes live.
   - Extending the shared renderer seam only where the fixture forces it avoids absorbing a broader page-system rewrite while still proving Bob current/history pages and the updated Alice link surface.

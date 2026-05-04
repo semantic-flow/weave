@@ -87,6 +87,11 @@ export interface VersionRequest {
   targets?: readonly VersionTargetSpec[];
 }
 
+export interface PlanMeshSupportResourcePagesInput {
+  meshBase: string;
+  currentMeshInventoryTurtle: string;
+}
+
 export interface PayloadWorkingArtifact {
   workingLocalRelativePath: string;
   currentPayloadTurtle: string;
@@ -349,6 +354,99 @@ export function planVersion(input: PlanWeaveInput): VersionPlan {
     versionedDesignatorPaths: plan.wovenDesignatorPaths,
     createdFiles,
     updatedFiles,
+  };
+}
+
+export function planMeshSupportResourcePages(
+  input: PlanMeshSupportResourcePagesInput,
+): VersionPlan {
+  const meshBase = normalizeMeshBase(input.meshBase);
+  const currentMeshInventoryTurtle = input.currentMeshInventoryTurtle;
+  const quads = parseWeaveShapeQuads(
+    meshBase,
+    currentMeshInventoryTurtle,
+    "Could not parse the current MeshInventory while planning mesh support ResourcePages.",
+  );
+  const supportResources = [
+    {
+      path: "_mesh",
+      pagePath: "_mesh/index.html",
+      description: "Resource page for the SemanticMesh.",
+    },
+    {
+      path: "_mesh/_meta",
+      pagePath: "_mesh/_meta/index.html",
+      description: "Resource page for the current MeshMetadata artifact.",
+    },
+    {
+      path: "_mesh/_inventory",
+      pagePath: "_mesh/_inventory/index.html",
+      description: "Resource page for the current MeshInventory artifact.",
+    },
+    ...(hasSubject(quads, meshBase, "_mesh/_config")
+      ? [{
+        path: "_mesh/_config",
+        pagePath: "_mesh/_config/index.html",
+        description: "Resource page for the current MeshConfig artifact.",
+      }]
+      : []),
+  ];
+  const existingPagePaths = new Set(
+    supportResources
+      .filter((resource) =>
+        hasNamedNodeFact(
+          quads,
+          meshBase,
+          resource.path,
+          SFLO_HAS_RESOURCE_PAGE_IRI,
+          resource.pagePath,
+        )
+      )
+      .map((resource) => resource.pagePath),
+  );
+
+  if (existingPagePaths.size === supportResources.length) {
+    return {
+      meshBase,
+      versionedDesignatorPaths: [],
+      createdFiles: [],
+      updatedFiles: [],
+    };
+  }
+
+  let blocks = normalizeMeshInventoryHeader(
+    splitTurtleBlocks(currentMeshInventoryTurtle),
+  );
+  for (const resource of supportResources) {
+    if (findSubjectBlockIndex(blocks, resource.path) === -1) {
+      throw new WeaveInputError(
+        `Current mesh inventory did not contain support resource <${resource.path}>.`,
+      );
+    }
+    blocks = replaceSubjectBlock(
+      blocks,
+      resource.path,
+      appendResourcePageFactToBlock(
+        blocks[findSubjectBlockIndex(blocks, resource.path)]!,
+        resource.pagePath,
+      ),
+    );
+    blocks = upsertSubjectBlockAfter(
+      blocks,
+      resource.path,
+      resource.pagePath,
+      renderResourcePageLocatedFileBlock(resource.pagePath),
+    );
+  }
+
+  return {
+    meshBase,
+    versionedDesignatorPaths: [],
+    createdFiles: [],
+    updatedFiles: [{
+      path: "_mesh/_inventory/inventory.ttl",
+      contents: `${blocks.join("\n\n")}\n`,
+    }],
   };
 }
 
@@ -4167,6 +4265,22 @@ function renderResourcePageLocatedFileBlock(path: string): string {
   return `<${path}> a sflo:ResourcePage, sflo:LocatedFile .`;
 }
 
+function appendResourcePageFactToBlock(
+  block: string,
+  pagePath: string,
+): string {
+  const fact = `sflo:hasResourcePage <${pagePath}>`;
+  if (block.includes(fact)) {
+    return block;
+  }
+  if (!block.endsWith(" .")) {
+    throw new WeaveInputError(
+      `Current mesh inventory subject block cannot receive ResourcePage fact for <${pagePath}>.`,
+    );
+  }
+  return `${block.slice(0, -2)} ;\n  ${fact} .`;
+}
+
 function resolveMeshRootKnopPaths(
   meshBase: string,
   currentMeshInventoryTurtle: string,
@@ -4809,6 +4923,18 @@ function hasNamedNodeFact(
     quad.predicate.value === predicateIri &&
     quad.object.termType === "NamedNode" &&
     quad.object.value === objectIri
+  );
+}
+
+function hasSubject(
+  quads: readonly Quad[],
+  meshBase: string,
+  subjectValue: string,
+): boolean {
+  const subjectIri = toAbsoluteIri(meshBase, subjectValue);
+  return quads.some((quad) =>
+    quad.subject.termType === "NamedNode" &&
+    quad.subject.value === subjectIri
   );
 }
 

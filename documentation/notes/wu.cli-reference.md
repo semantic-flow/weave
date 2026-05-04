@@ -76,6 +76,8 @@ Runs the composed local weave flow:
 2. version
 3. generate
 
+For a newly created mesh with no Knops yet, `weave` can still materialize current support ResourcePages for `_mesh`, `_mesh/_meta`, `_mesh/_inventory`, and `_mesh/_config` when a sidecar config artifact exists.
+
 Examples:
 
 ```sh

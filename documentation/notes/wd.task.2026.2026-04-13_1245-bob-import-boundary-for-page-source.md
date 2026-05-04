@@ -2,6 +2,7 @@
 id: 3m3w2gj2q3b0u9t8e1r4h7k
 title: 2026 04 13_1245 Bob Import Boundary For Page Source
 desc: ''
+updated: 1777828029968
 created: 1776109500000
 ---
 
@@ -121,7 +122,7 @@ This does introduce one deliberate semantic asymmetry: the imported page content
 ### Phase 1: Align Specs And Acceptance Drafts
 
 - [x] Update [[wd.task.2026.2026-04-08_1545-resource-page-definition-and-sources]] so `20/21` are described as the first true import-boundary pair now that `16-19` are real.
-- [x] Update [[wd.spec.2026-04-11-identifier-page-customization-and-root-lifecycle]] with the first concrete Bob import-boundary shape.
+- [x] Update [[sf.spec.2026-04-11-identifier-page-customization-and-root-lifecycle]] with the first concrete Bob import-boundary shape.
 - [x] Draft `20-bob-page-imported-source.jsonld` and `21-bob-page-imported-source-woven.jsonld`.
 
 ### Phase 2: Implement The First Import Surface

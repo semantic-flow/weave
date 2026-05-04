@@ -2,6 +2,7 @@
 id: s7q2k3n4v5b6m8c1x9z4p6r
 title: 2026 04 08_1545 Resource Page Definition And Sources
 desc: ''
+updated: 1777828029498
 created: 1775715234849
 ---
 
@@ -202,7 +203,7 @@ Minimal shape:
 
 ## Testing
 
-- Write a behavior spec for customizable identifier pages before the implementation broadens. See [[wd.spec.2026-04-11-identifier-page-customization-and-root-lifecycle]].
+- Write a behavior spec for customizable identifier pages before the implementation broadens. See [[sf.spec.2026-04-11-identifier-page-customization-and-root-lifecycle]].
 - Stage the first carried `mesh-alice-bio` transitions and Accord manifests early enough to act as acceptance-first targets for the runtime slice, rather than treating fixture work as end-of-task polish.
 - Add integration coverage for local Knop-owned file sources, in-mesh artifact sources, import-based outside-the-tree sources, and fail-closed direct external-latest cases.
 - Add coverage proving different page regions can resolve different source artifacts and states independently.
@@ -221,8 +222,8 @@ Minimal shape:
 
 ### Phase 0: Lock The Runtime Slice To The Settled Model
 
-- [x] Treat [[wd.task.2026.2026-04-08_1735-page-definition-ontology-and-config]] and [[wd.spec.2026-04-11-identifier-page-customization-and-root-lifecycle]] as the contract source, so this task implements settled `ResourcePageDefinition` / `ArtifactResolutionTarget` / `ResourcePageSource` behavior rather than reopening ontology decisions in runtime code.
-- [x] Add a behavior spec and fixture plan before implementing the runtime/model changes. See [[wd.spec.2026-04-11-identifier-page-customization-and-root-lifecycle]].
+- [x] Treat [[wd.task.2026.2026-04-08_1735-page-definition-ontology-and-config]] and [[sf.spec.2026-04-11-identifier-page-customization-and-root-lifecycle]] as the contract source, so this task implements settled `ResourcePageDefinition` / `ArtifactResolutionTarget` / `ResourcePageSource` behavior rather than reopening ontology decisions in runtime code.
+- [x] Add a behavior spec and fixture plan before implementing the runtime/model changes. See [[sf.spec.2026-04-11-identifier-page-customization-and-root-lifecycle]].
 - [x] Keep the first implementation-bearing slice narrower than the whole future model: local mesh-path sources, authority/precedence, fail-closed behavior, and `_knop/_assets` handling should land before broader in-mesh/import source support unless the code shape makes those cheap and coherent to include.
 
 ### Phase 1: Acceptance-First Fixture And Manifest Scaffolding

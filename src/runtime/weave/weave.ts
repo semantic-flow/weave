@@ -17,6 +17,7 @@ import {
   detectPendingWeaveSlice,
   type GenerateRequest,
   type PayloadWorkingArtifact,
+  planMeshSupportResourcePages,
   planVersion,
   type ReferenceCatalogWorkingArtifact,
   type ResourcePageDefinitionWorkingArtifact,
@@ -501,10 +502,17 @@ async function prepareVersionExecution(
   );
 
   if (initialWeaveableKnops.length === 0) {
+    if (targets.length === 0) {
+      return {
+        meshState,
+        plan: planMeshSupportResourcePages({
+          meshBase: meshState.meshBase,
+          currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
+        }),
+      };
+    }
     throw new WeaveInputError(
-      targets.length === 0
-        ? "No weave candidates were found."
-        : "Requested targets did not match any weave candidates.",
+      "Requested targets did not match any weave candidates.",
     );
   }
 

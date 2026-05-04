@@ -8,6 +8,7 @@ import { join } from "@std/path";
 import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import { WeaveInputError } from "../../src/core/weave/weave.ts";
 import { executeKnopCreate } from "../../src/runtime/knop/create.ts";
+import { executeMeshCreate } from "../../src/runtime/mesh/create.ts";
 import {
   executeWeave,
   WeaveRuntimeError,
@@ -22,6 +23,45 @@ import {
 } from "../support/mesh_metadata.ts";
 import { integrateRootPayload } from "../support/root_designator.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
+
+Deno.test("executeWeave materializes current support ResourcePages for a docs-rooted sidecar mesh", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-weave-sidecar-support-");
+  await executeMeshCreate({
+    workspaceRoot,
+    meshRoot: "docs",
+    request: {
+      meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    },
+  });
+
+  const result = await executeWeave({
+    meshRoot: join(workspaceRoot, "docs"),
+  });
+
+  assertEquals(result.wovenDesignatorPaths, []);
+  assertEquals(
+    [...result.createdPaths].sort(),
+    [
+      "docs/_mesh/_config/index.html",
+      "docs/_mesh/_inventory/index.html",
+      "docs/_mesh/_meta/index.html",
+      "docs/_mesh/index.html",
+    ],
+  );
+  assertEquals(result.updatedPaths, ["docs/_mesh/_inventory/inventory.ttl"]);
+  const inventory = await Deno.readTextFile(
+    join(workspaceRoot, "docs/_mesh/_inventory/inventory.ttl"),
+  );
+  assertStringIncludes(
+    inventory,
+    "sfcfg:hasConfig <_mesh/_config> ;\n  sflo:hasResourcePage <_mesh/index.html> .",
+  );
+  assertStringIncludes(
+    inventory,
+    "sflo:hasWorkingLocatedFile <_mesh/_config/config.ttl> ;\n  sflo:hasResourcePage <_mesh/_config/index.html> .",
+  );
+  await Deno.stat(join(workspaceRoot, "docs/_mesh/_config/index.html"));
+});
 
 Deno.test("executeWeave matches the settled alice knop-created-woven fixture", async () => {
   const workspaceRoot = await createTestTmpDir("weave-weave-first-");

@@ -246,6 +246,31 @@ Deno.test("weave infers workspace root from docs-rooted mesh config as a black-b
   await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
 });
 
+Deno.test("weave materializes support ResourcePages for a docs-rooted sidecar mesh as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-sidecar-support-");
+  const createOutput = await runCliCommand([
+    "mesh",
+    "create",
+    "--mesh-root",
+    "docs",
+    "--mesh-base",
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+  ], workspaceRoot);
+  assert(createOutput.success, new TextDecoder().decode(createOutput.stderr));
+
+  const output = await runCliCommand(["--mesh-root", "docs"], workspaceRoot);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Wove 0 designator path"), stdout);
+  assert(stdout.includes("docs/_mesh/index.html"), stdout);
+  assert(stdout.includes("docs/_mesh/_config/index.html"), stdout);
+  await Deno.stat(join(workspaceRoot, "docs/_mesh/index.html"));
+  await Deno.stat(join(workspaceRoot, "docs/_mesh/_config/index.html"));
+  await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
+});
+
 Deno.test("weave accepts payload version naming flags as a black-box CLI run", async () => {
   const workspaceRoot = await createTestTmpDir("weave-e2e-payload-naming-");
   await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
