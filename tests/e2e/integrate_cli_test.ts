@@ -12,6 +12,12 @@ import {
   resolveMeshAliceBioConformanceManifestPath,
 } from "../support/mesh_alice_bio_fixture.ts";
 import {
+  listMeshSidecarFantasyRulesBranchFiles,
+  materializeMeshSidecarFantasyRulesBranch,
+  readMeshSidecarFantasyRulesBranchFile,
+  resolveMeshSidecarFantasyRulesConformanceManifestPath,
+} from "../support/mesh_sidecar_fantasy_rules_fixture.ts";
+import {
   ROOT_PAYLOAD_TURTLE,
   ROOT_WORKING_FILE_PATH,
 } from "../support/root_designator.ts";
@@ -268,6 +274,112 @@ Deno.test("weave integrate grants and uses a repo-adjacent source directory as a
     ),
     false,
   );
+});
+
+Deno.test("weave integrate matches the manifest-scoped sidecar Gunaar dataset fixture", async () => {
+  const manifestPath = resolveMeshSidecarFantasyRulesConformanceManifestPath(
+    "12-gunaar-example-dataset.jsonld",
+  );
+  const transitionCase = await readSingleTransitionCase(manifestPath);
+  assertEquals(transitionCase.operationId, "integrate");
+  assertEquals(transitionCase.fromRef, "11-root-knop-woven");
+  assertEquals(transitionCase.toRef, "12-gunaar-example-dataset");
+  assertEquals(transitionCase.targetDesignatorPath, "examples/gunaar");
+
+  const workspaceRoot = await createTestTmpDir("weave-e2e-integrate-gunaar-");
+  await materializeMeshSidecarFantasyRulesBranch(
+    transitionCase.fromRef!,
+    workspaceRoot,
+  );
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      cliPath,
+      "integrate",
+      "examples/gunaar.ttl",
+      "examples/gunaar",
+      "--mesh-root",
+      "docs",
+      "--grant-source-directory",
+      "examples",
+    ],
+    cwd: toFileUrl(`${workspaceRoot}/`),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Integrated"), stdout);
+
+  assertEquals(
+    await listRelativeFiles(workspaceRoot, ".weave/"),
+    await listMeshSidecarFantasyRulesBranchFiles(transitionCase.toRef!),
+  );
+
+  const fileExpectations = getManifestFileExpectations(transitionCase);
+  for (const fileExpectation of fileExpectations) {
+    const path = fileExpectation.path;
+    if (!path) {
+      continue;
+    }
+
+    if (fileExpectation.changeType === "absent") {
+      await assertPathAbsent(join(workspaceRoot, path));
+      continue;
+    }
+
+    const compareMode = fileExpectation.compareMode;
+
+    if (compareMode === undefined) {
+      await Deno.stat(join(workspaceRoot, path));
+      continue;
+    }
+
+    const actualBytes = await Deno.readFile(join(workspaceRoot, path));
+    const expectedBytes = new TextEncoder().encode(
+      await readMeshSidecarFantasyRulesBranchFile(
+        transitionCase.toRef!,
+        path,
+      ),
+    );
+
+    if (compareMode === "rdfCanonical") {
+      assertEquals(
+        await compareRdfContent({
+          left: actualBytes,
+          right: expectedBytes,
+          path,
+        }),
+        true,
+      );
+      continue;
+    }
+
+    if (compareMode === "text") {
+      assertEquals(
+        new TextDecoder().decode(actualBytes),
+        new TextDecoder().decode(expectedBytes),
+      );
+      continue;
+    }
+
+    if (compareMode === "bytes") {
+      assertEquals(actualBytes, expectedBytes);
+      continue;
+    }
+
+    throw new Error(`Unsupported compare mode ${compareMode} for ${path}`);
+  }
+
+  await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
+  await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
 });
 
 Deno.test("weave integrate requires a designator path before logging or execution", async () => {

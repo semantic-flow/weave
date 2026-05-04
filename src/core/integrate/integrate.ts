@@ -575,6 +575,9 @@ function toRelativeMeshPath(
 }
 
 function fromKnopPath(knopPath: string): string | undefined {
+  if (knopPath === "_knop") {
+    return "";
+  }
   return knopPath.endsWith("/_knop")
     ? knopPath.slice(0, -"/_knop".length)
     : undefined;

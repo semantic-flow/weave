@@ -56,10 +56,11 @@ The first ladder should stay focused on the core sidecar path:
 - `08-ontology-and-shacl-terms-extracted`
 - `09-ontology-and-shacl-terms-extracted-woven`
 - `10-root-knop`
-- `11-gunaar-example-dataset`
-- `12-gunaar-example-dataset-woven`
-- `13-first-release`
-- `14-first-release-woven`
+- `11-root-knop-woven`
+- `12-gunaar-example-dataset`
+- `13-gunaar-example-dataset-woven`
+- `14-first-release`
+- `15-first-release-woven`
 
 The first named release pair should come after the root/examples collection surface and the Gunaar dataset pair, so the release slice exercises multiple histories in a richer mesh rather than only the two primary RDF documents.
 
@@ -169,8 +170,9 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - Use a numbered branch ladder for the hand-authored fixture, following the Alice Bio comparison pattern.
 - The first sidecar ladder should continue past `07-shacl-integrated-woven` through ontology and SHACL term extraction, root/examples collection Knops, Gunaar example dataset integration, and the first named ontology/SHACL release pair.
 - `10-root-knop` should add a friendly root Knop for the repository Resource Page and an `examples/` Knop to act as the collection surface for example datasets.
-- `11-gunaar-example-dataset` should integrate `examples/gunaar.ttl` as public artifact `examples/gunaar`; `12-gunaar-example-dataset-woven` should weave that dataset into history and pages.
-- `13-first-release` and `14-first-release-woven` should publish the first named release histories for ontology and SHACL after the Gunaar dataset pair.
+- `11-root-knop-woven` should weave the root and `examples/` collection Knops into history and pages before adding the Gunaar dataset.
+- `12-gunaar-example-dataset` should integrate `examples/gunaar.ttl` as public artifact `examples/gunaar`; `13-gunaar-example-dataset-woven` should weave that dataset into history and pages.
+- `14-first-release` and `15-first-release-woven` should publish the first named release histories for ontology and SHACL after the Gunaar dataset pair.
 - Ontology and SHACL should normally be bumped together in the fixture, even if only one source file has semantic changes, because they are published as a compatibility pair for this small ontology project.
 - A future version-bumped example branch should include dataset compatibility metadata in `examples/gunaar.ttl` once the project settles how datasets announce the ontology version or compatibility line they target.
 - Use branch refs as test fixtures: source refs define operation input, destination refs define expected output, and Accord manifests define the transition assertions.
@@ -291,10 +293,11 @@ The first ladder should be branch-based unless implementation pressure proves a 
 ### Phase 3: Weave The First Release
 
 - [x] Complete `10-root-knop`, including a root Knop and an `examples/` collection Knop, before the first named release pair.
-- [ ] Integrate the Gunaar example dataset at public path `examples/gunaar` in `11-gunaar-example-dataset`.
-- [ ] Ensure Gunaar dataset integration adds the constrained `sfcfg:hasLocalPathAccessRule` entry for `../examples/`; the grant should be created by the integration operation that introduces the adjacent example source artifact.
-- [ ] Use `workingLocalRelativePath` to associate the Gunaar dataset artifact with `../examples/gunaar.ttl`.
-- [ ] Weave the Gunaar dataset in `12-gunaar-example-dataset-woven`.
+- [x] Weave the root and `examples/` collection Knops in `11-root-knop-woven`.
+- [x] Integrate the Gunaar example dataset at public path `examples/gunaar` in `12-gunaar-example-dataset`.
+- [x] Ensure Gunaar dataset integration adds the constrained `sfcfg:hasLocalPathAccessRule` entry for `../examples/`; the grant should be created by the integration operation that introduces the adjacent example source artifact.
+- [x] Use `workingLocalRelativePath` to associate the Gunaar dataset artifact with `../examples/gunaar.ttl`.
+- [x] Weave the Gunaar dataset in `13-gunaar-example-dataset-woven`.
 - [ ] Weave ontology release `v0.0.1` under `ontology/releases/v0.0.1`.
 - [ ] Weave SHACL release `v0.0.1` under `shacl/releases/v0.0.1`.
 - [ ] Treat ontology and SHACL release bumps as a pair in the fixture, even when only one source file changes.

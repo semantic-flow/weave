@@ -1,6 +1,7 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import { IntegrateInputError, planIntegrate } from "./integrate.ts";
 import { readMeshAliceBioBranchFile } from "../../../tests/support/mesh_alice_bio_fixture.ts";
+import { readMeshSidecarFantasyRulesBranchFile } from "../../../tests/support/mesh_sidecar_fantasy_rules_fixture.ts";
 import { compareRdfContent } from "../../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 
 Deno.test("planIntegrate renders first payload integration artifacts", async () => {
@@ -162,6 +163,38 @@ Deno.test(
     );
   },
 );
+
+Deno.test("planIntegrate accepts a carried mesh inventory with a root Knop", async () => {
+  const plan = planIntegrate({
+    designatorPath: "examples/gunaar",
+    workingLocalRelativePath: "../examples/gunaar.ttl",
+    meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    currentMeshInventoryTurtle: await readMeshSidecarFantasyRulesBranchFile(
+      "10-root-knop",
+      "docs/_mesh/_inventory/inventory.ttl",
+    ),
+  });
+
+  assertEquals(
+    plan.createdFiles.map((file) => file.path),
+    [
+      "examples/gunaar/_knop/_meta/meta.ttl",
+      "examples/gunaar/_knop/_inventory/inventory.ttl",
+    ],
+  );
+  assertEquals(
+    plan.updatedFiles[0]?.contents.includes(
+      "<_mesh> sflo:hasKnop <examples/gunaar/_knop> .",
+    ),
+    true,
+  );
+  assertEquals(
+    plan.updatedFiles[0]?.contents.includes(
+      'sflo:workingLocalRelativePath "../examples/gunaar.ttl" .',
+    ),
+    true,
+  );
+});
 
 function encode(value: string): Uint8Array {
   return new TextEncoder().encode(value);
