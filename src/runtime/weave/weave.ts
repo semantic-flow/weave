@@ -21,7 +21,7 @@ import {
   planMeshSupportResourcePages,
   planVersion,
   type ReferenceCatalogWorkingArtifact,
-  type ResourcePageContainedIdentifierModel,
+  type ResourcePageChildIdentifierModel,
   type ResourcePageDefinitionWorkingArtifact,
   type ResourcePageHistoryGroupModel,
   type ResourcePageModel,
@@ -1413,8 +1413,9 @@ async function collectGeneratedPageFiles(
     meshState.currentMeshInventoryTurtle,
     "Could not parse the current MeshInventory while collecting ResourcePages.",
   );
-  const containedIdentifiersByResourcePath =
-    collectContainedIdentifiersByResourcePath(allPagePaths);
+  const childIdentifiersByResourcePath = collectChildIdentifiersByResourcePath(
+    allPagePaths,
+  );
 
   for (const pagePath of allPagePaths) {
     if (
@@ -1447,7 +1448,7 @@ async function collectGeneratedPageFiles(
           designatorPath: publicContext.designatorPath,
           workingLocalRelativePath:
             publicContext.payloadWorkingLocalRelativePath,
-          containedIdentifiers: containedIdentifiersByResourcePath.get(
+          childIdentifiers: childIdentifiersByResourcePath.get(
             resourcePath,
           ),
           historyGroups: publicContext.historyGroupsByResourcePath.get(
@@ -1464,6 +1465,10 @@ async function collectGeneratedPageFiles(
         designatorPath: knopContext.designatorPath,
         governedArtifacts: knopContext.governedArtifacts,
         supportingArtifacts: knopContext.supportingArtifacts,
+        childIdentifiers: toKnopChildIdentifiers(
+          knopContext.supportingArtifacts,
+          childIdentifiersByResourcePath.get(resourcePath),
+        ),
       });
     } else {
       const rawSourcePanels = meshRawSourcePanels.get(pagePath) ??
@@ -1483,7 +1488,7 @@ async function collectGeneratedPageFiles(
               designatorContexts,
             ),
         ),
-        containedIdentifiers: containedIdentifiersByResourcePath.get(
+        childIdentifiers: childIdentifiersByResourcePath.get(
           resourcePath,
         ),
         historyGroups,
@@ -1509,6 +1514,10 @@ async function collectGeneratedPageFiles(
             designatorPath: context.designatorPath,
             governedArtifacts: context.governedArtifacts,
             supportingArtifacts: context.supportingArtifacts,
+            childIdentifiers: toKnopChildIdentifiers(
+              context.supportingArtifacts,
+              childIdentifiersByResourcePath.get(resourcePath),
+            ),
           }
           : {
             kind: "simple" as const,
@@ -1523,7 +1532,7 @@ async function collectGeneratedPageFiles(
                     context,
                   ),
               ),
-            containedIdentifiers: containedIdentifiersByResourcePath.get(
+            childIdentifiers: childIdentifiersByResourcePath.get(
               resourcePath,
             ),
             historyGroups: context.historyGroupsByResourcePath.get(
@@ -1541,39 +1550,68 @@ async function collectGeneratedPageFiles(
   });
 }
 
-function collectContainedIdentifiersByResourcePath(
+function collectChildIdentifiersByResourcePath(
   pagePaths: readonly string[],
-): ReadonlyMap<string, readonly ResourcePageContainedIdentifierModel[]> {
-  const publicIdentifierPaths = pagePaths
-    .map((pagePath) => toResourcePath(pagePath))
-    .filter(isPublicIdentifierResourcePath);
-  const containedByResourcePath = new Map<
+): ReadonlyMap<string, readonly ResourcePageChildIdentifierModel[]> {
+  const resourcePaths = pagePaths.map((pagePath) => toResourcePath(pagePath));
+  const childIdentifiersByResourcePath = new Map<
     string,
-    ResourcePageContainedIdentifierModel[]
+    ResourcePageChildIdentifierModel[]
   >();
 
-  for (const childPath of publicIdentifierPaths) {
+  for (const childPath of resourcePaths) {
+    if (!isChildIdentifierResourcePath(childPath)) {
+      continue;
+    }
     const parentPath = toParentResourcePath(childPath);
-    const containedIdentifiers = containedByResourcePath.get(parentPath) ?? [];
-    containedIdentifiers.push({
+    const childIdentifiers = childIdentifiersByResourcePath.get(parentPath) ??
+      [];
+    childIdentifiers.push({
       label: toLastPathSegment(childPath),
       path: childPath,
     });
-    containedByResourcePath.set(parentPath, containedIdentifiers);
+    childIdentifiersByResourcePath.set(parentPath, childIdentifiers);
   }
 
-  for (const containedIdentifiers of containedByResourcePath.values()) {
-    containedIdentifiers.sort((left, right) =>
+  for (const childIdentifiers of childIdentifiersByResourcePath.values()) {
+    childIdentifiers.sort((left, right) =>
       left.label.localeCompare(right.label, "en", { sensitivity: "base" })
     );
   }
 
-  return containedByResourcePath;
+  return childIdentifiersByResourcePath;
 }
 
-function isPublicIdentifierResourcePath(resourcePath: string): boolean {
-  return resourcePath.length > 0 &&
-    !resourcePath.split("/").some((segment) => segment.startsWith("_"));
+function toKnopChildIdentifiers(
+  supportingArtifacts: readonly KnopArtifactLinkModel[],
+  discoveredChildren: readonly ResourcePageChildIdentifierModel[] = [],
+): readonly ResourcePageChildIdentifierModel[] {
+  const childByPath = new Map<string, ResourcePageChildIdentifierModel>();
+  for (const child of discoveredChildren) {
+    childByPath.set(child.path, child);
+  }
+  for (const artifact of supportingArtifacts) {
+    childByPath.set(artifact.path, {
+      label: toLastPathSegment(artifact.path),
+      path: artifact.path,
+    });
+  }
+
+  return Array.from(childByPath.values()).sort((left, right) =>
+    left.label.localeCompare(right.label, "en", { sensitivity: "base" })
+  );
+}
+
+function isChildIdentifierResourcePath(resourcePath: string): boolean {
+  if (resourcePath.length === 0) {
+    return false;
+  }
+  const parentPath = toParentResourcePath(resourcePath);
+  if (parentPath === "_knop" || parentPath.endsWith("/_knop")) {
+    return true;
+  }
+
+  return !resourcePath.split("/").some((segment) => segment.startsWith("_"));
 }
 
 function toParentResourcePath(resourcePath: string): string {

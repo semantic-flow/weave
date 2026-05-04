@@ -14,6 +14,10 @@ Deno.test("renderResourcePage renders identifier pages with working file links",
 
   assertStringIncludes(html, "<title>mesh-alice-bio bio</title>");
   assertStringIncludes(html, "<h1>bio</h1>");
+  assertStringIncludes(
+    html,
+    '<link rel="canonical" href="https://semantic-flow.github.io/mesh-alice-bio/alice/bio">',
+  );
   assertStringIncludes(html, 'href="/mesh-alice-bio/alice-bio.ttl"');
   assertStringIncludes(html, 'href="/mesh-alice-bio/alice/bio/_knop"');
 });
@@ -36,7 +40,7 @@ Deno.test("renderResourcePage renders nested identifier fallback titles locally"
   assertStringIncludes(html, 'href="/mesh-alice-bio/alice/page-main/_knop"');
 });
 
-Deno.test("renderResourcePage renders the root identifier as slash", async () => {
+Deno.test("renderResourcePage renders the root identifier with the mesh label title", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
@@ -47,29 +51,54 @@ Deno.test("renderResourcePage renders the root identifier as slash", async () =>
     },
   );
 
-  assertStringIncludes(html, "<title>mesh-alice-bio /</title>");
-  assertStringIncludes(html, "<h1>/</h1>");
+  assertStringIncludes(html, "<title>mesh-alice-bio</title>");
+  assertStringIncludes(html, "<h1>mesh-alice-bio</h1>");
+  assertStringIncludes(
+    html,
+    '<link rel="canonical" href="https://semantic-flow.github.io/mesh-alice-bio">',
+  );
+  assertFalse(
+    html.includes(
+      '<link rel="canonical" href="https://semantic-flow.github.io/mesh-alice-bio/">',
+    ),
+  );
+  assertStringIncludes(
+    html,
+    `const canonicalLink = document.querySelector('link[rel="canonical"]');`,
+  );
+  assertStringIncludes(
+    html,
+    `location.pathname.endsWith("/") && !location.search && !location.hash`,
+  );
+  assertStringIncludes(
+    html,
+    `canonicalUrl.pathname === location.pathname.slice(0, -1)`,
+  );
+  assertStringIncludes(
+    html,
+    `history.replaceState(null, "", canonicalUrl.pathname);`,
+  );
   assertStringIncludes(html, 'href="/mesh-alice-bio/root.ttl"');
 });
 
-Deno.test("renderResourcePage renders contained identifier pills", async () => {
+Deno.test("renderResourcePage renders child identifier pills", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
     {
       kind: "identifier",
       path: "ontology/index.html",
       designatorPath: "ontology",
-      containedIdentifiers: [
+      childIdentifiers: [
         { label: "AbilityScore", path: "ontology/AbilityScore" },
         { label: "Character", path: "ontology/Character" },
       ],
     },
   );
 
-  assertStringIncludes(html, "Contained Identifiers");
+  assertStringIncludes(html, "Child Identifiers");
   assertStringIncludes(
     html,
-    '<span class="wf-contained-identifiers"><nobr><a class="wf-contained-identifier" href="/mesh-sidecar-fantasy-rules/ontology/AbilityScore">AbilityScore</a></nobr><nobr><a class="wf-contained-identifier" href="/mesh-sidecar-fantasy-rules/ontology/Character">Character</a></nobr></span>',
+    '<span class="wf-child-identifiers"><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/AbilityScore">AbilityScore</a></nobr><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/Character">Character</a></nobr></span>',
   );
 });
 
@@ -149,7 +178,7 @@ Deno.test("renderResourcePage renders extracted ReferenceCatalog pages pinned to
   );
 });
 
-Deno.test("renderResourcePage renders pinned root ReferenceCatalog targets as slash", async () => {
+Deno.test("renderResourcePage renders pinned root ReferenceCatalog targets as slashless root links", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
@@ -166,7 +195,7 @@ Deno.test("renderResourcePage renders pinned root ReferenceCatalog targets as sl
     },
   );
 
-  assertStringIncludes(html, '<a href="/mesh-alice-bio/">/</a>');
+  assertStringIncludes(html, '<a href="/mesh-alice-bio">/</a>');
   assertStringIncludes(
     html,
     '<a href="/mesh-alice-bio/_history001/_s0001">/mesh-alice-bio/_history001/_s0001</a>',
@@ -182,6 +211,11 @@ Deno.test("renderResourcePage renders Knop pages with local titles", async () =>
       designatorPath: "ontology",
       governedArtifacts: [],
       supportingArtifacts: [],
+      childIdentifiers: [
+        { label: "_inventory", path: "ontology/_knop/_inventory" },
+        { label: "_meta", path: "ontology/_knop/_meta" },
+        { label: "_page", path: "ontology/_knop/_page" },
+      ],
     },
   );
 
@@ -195,6 +229,15 @@ Deno.test("renderResourcePage renders Knop pages with local titles", async () =>
     'href="/mesh-sidecar-fantasy-rules/ontology"',
   );
   assertStringIncludes(html, '<span aria-current="page">_knop</span>');
+  assertStringIncludes(html, "Child Identifiers");
+  assertStringIncludes(
+    html,
+    '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/_knop/_inventory">_inventory</a></nobr>',
+  );
+  assertStringIncludes(
+    html,
+    '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/_knop/_meta">_meta</a></nobr>',
+  );
 });
 
 Deno.test("renderResourcePage renders escaped raw RDF panels and raw file links", async () => {

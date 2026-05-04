@@ -1,5 +1,5 @@
 import type {
-  ResourcePageContainedIdentifierModel,
+  ResourcePageChildIdentifierModel,
   ResourcePageHistoryGroupModel,
   ResourcePageModel,
   ResourcePageRawSourcePanelModel,
@@ -135,7 +135,7 @@ export async function renderResourcePage(
 ): Promise<string> {
   const resourcePath = toResourcePath(page.path);
   const displayResourcePath = formatDesignatorPathForDisplay(resourcePath);
-  const canonical = new URL(resourcePath, meshBase).href;
+  const canonical = toCanonicalResourceIri(meshBase, resourcePath);
   const meshLabel = deriveMeshLabel(meshBase);
   const meshRootHref = toMeshRootHref(meshBase);
   const escapedCanonical = escapeHtml(canonical);
@@ -160,6 +160,7 @@ export async function renderResourcePage(
     const displayTitle = toDefaultResourcePageTitle(
       resourcePath,
       displayResourcePath,
+      meshLabel,
     );
     const stylesheetLinks = page.stylesheetPaths.map((stylesheetPath) =>
       `  <link rel="stylesheet" href="${
@@ -183,9 +184,9 @@ export async function renderResourcePage(
     return `<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>${escapedMeshLabel} ${escapeHtml(displayTitle)}</title>
-  <link rel="canonical" href="${escapedCanonical}">
+	  <meta charset="utf-8">
+	  <title>${escapeHtml(toHtmlDocumentTitle(meshLabel, displayTitle))}</title>
+	  <link rel="canonical" href="${escapedCanonical}">
 ${stylesheetLinks ? `${stylesheetLinks}\n` : ""}</head>
 <body class="${escapeHtml(`${slug}-custom-page`)}">
   <main class="${escapeHtml(`${slug}-layout`)}">
@@ -248,6 +249,7 @@ function toDefaultResourcePageRenderInput(
         toDefaultResourcePageTitle(
           page.designatorPath,
           formatDesignatorPathForDisplay(page.designatorPath),
+          meshLabel,
         ),
       breadcrumbs: toResourcePageBreadcrumbs(
         meshLabel,
@@ -277,9 +279,9 @@ function toDefaultResourcePageRenderInput(
             value: page.workingLocalRelativePath,
           }]
           : []),
-        ...toContainedIdentifierMetadataRows(
+        ...toChildIdentifierMetadataRows(
           meshRootHref,
-          page.containedIdentifiers ?? [],
+          page.childIdentifiers ?? [],
         ),
       ],
       historyGroups: page.historyGroups ?? [],
@@ -391,7 +393,13 @@ function toDefaultResourcePageRenderInput(
           "https://semantic-flow.github.io/semantic-flow-ontology/Knop",
         ),
       ],
-      metadataRows: [{ label: "Canonical IRI", value: canonical }],
+      metadataRows: [
+        { label: "Canonical IRI", value: canonical },
+        ...toChildIdentifierMetadataRows(
+          meshRootHref,
+          page.childIdentifiers ?? [],
+        ),
+      ],
       historyGroups: [],
       sections: artifactSections,
       rawSourcePanels: [],
@@ -411,7 +419,7 @@ function toDefaultResourcePageRenderInput(
     generatedAtIso,
     generatedAtDisplay,
     title: rdfFacts.title ??
-      toDefaultResourcePageTitle(resourcePath, displayResourcePath),
+      toDefaultResourcePageTitle(resourcePath, displayResourcePath, meshLabel),
     breadcrumbs: toResourcePageBreadcrumbs(
       meshLabel,
       meshRootHref,
@@ -423,9 +431,9 @@ function toDefaultResourcePageRenderInput(
       : [classifyResourcePage(resourcePath, page.historyGroups ?? [])],
     metadataRows: [
       { label: "Canonical IRI", value: canonical },
-      ...toContainedIdentifierMetadataRows(
+      ...toChildIdentifierMetadataRows(
         meshRootHref,
-        page.containedIdentifiers ?? [],
+        page.childIdentifiers ?? [],
       ),
     ],
     historyGroups: page.historyGroups ?? [],
@@ -494,7 +502,9 @@ ${section.html}
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${escapeHtml(input.meshLabel)} ${escapeHtml(input.title)}</title>
+	  <title>${
+    escapeHtml(toHtmlDocumentTitle(input.meshLabel, input.title))
+  }</title>
   <link rel="canonical" href="${escapeHtml(input.canonical)}">
   <style>
     :root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f6f7f4; color: #20231f; }
@@ -517,9 +527,9 @@ ${section.html}
     .wf-metadata tr:first-child th, .wf-metadata tr:first-child td { border-top: 0; }
     .wf-metadata th { width: 180px; color: #4f594f; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0; }
     .wf-metadata td { overflow-wrap: anywhere; }
-    .wf-contained-identifiers { display: flex; flex-wrap: wrap; gap: 6px; }
-    .wf-contained-identifier { display: inline-block; padding: 0.08rem 0.42rem; border: 1px solid #cdd8cf; border-radius: 999px; background: #eef3ef; text-decoration: none; white-space: nowrap; }
-    .wf-contained-identifier:hover, .wf-contained-identifier:focus { background: #e0ebe4; }
+    .wf-child-identifiers { display: flex; flex-wrap: wrap; gap: 6px; }
+    .wf-child-identifier { display: inline-block; padding: 0.08rem 0.42rem; border: 1px solid #cdd8cf; border-radius: 999px; background: #eef3ef; text-decoration: none; white-space: nowrap; }
+    .wf-child-identifier:hover, .wf-child-identifier:focus { background: #e0ebe4; }
     .wf-term { cursor: help; border-bottom: 1px dotted currentColor; }
     .wf-date-tip { position: relative; display: inline-block; }
     .wf-date-tip::after { content: attr(data-tooltip); position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); opacity: 0; pointer-events: none; background: rgba(27, 32, 27, 0.94); color: #fff; border-radius: 5px; padding: 5px 7px; font-size: 0.78rem; white-space: nowrap; transition: opacity 120ms ease; }
@@ -553,8 +563,12 @@ ${section.html}
     .wf-generated a { color: inherit; font-weight: 700; }
   </style>
   <script>
-    if (location.pathname.endsWith("/") && !location.search && !location.hash) {
-      history.replaceState(null, "", location.pathname.slice(0, -1));
+    const canonicalLink = document.querySelector('link[rel="canonical"]');
+    if (canonicalLink && location.pathname.endsWith("/") && !location.search && !location.hash) {
+      const canonicalUrl = new URL(canonicalLink.href);
+      if (canonicalUrl.origin === location.origin && canonicalUrl.pathname === location.pathname.slice(0, -1)) {
+        history.replaceState(null, "", canonicalUrl.pathname);
+      }
     }
   </script>
 </head>
@@ -613,22 +627,22 @@ function renderMetadataRow(row: ResourcePageMetadataRow): string {
   return `            <tr><th scope="row">${label}</th><td>${value}</td></tr>`;
 }
 
-function toContainedIdentifierMetadataRows(
+function toChildIdentifierMetadataRows(
   meshRootHref: string,
-  containedIdentifiers: readonly ResourcePageContainedIdentifierModel[],
+  childIdentifiers: readonly ResourcePageChildIdentifierModel[],
 ): readonly ResourcePageMetadataRow[] {
-  if (containedIdentifiers.length === 0) {
+  if (childIdentifiers.length === 0) {
     return [];
   }
 
   return [{
-    label: "Contained Identifiers",
-    value: containedIdentifiers.map((identifier) => identifier.label).join(
+    label: "Child Identifiers",
+    value: childIdentifiers.map((identifier) => identifier.label).join(
       ", ",
     ),
-    html: `<span class="wf-contained-identifiers">${
-      containedIdentifiers.map((identifier) =>
-        `<nobr><a class="wf-contained-identifier" href="${
+    html: `<span class="wf-child-identifiers">${
+      childIdentifiers.map((identifier) =>
+        `<nobr><a class="wf-child-identifier" href="${
           escapeHtml(toMeshResourceHref(meshRootHref, identifier.path))
         }">${escapeHtml(identifier.label)}</a></nobr>`
       ).join("")
@@ -846,10 +860,13 @@ function toLastPathSegment(path: string): string {
 function toDefaultResourcePageTitle(
   resourcePath: string,
   displayResourcePath: string,
+  meshLabel: string,
 ): string {
-  return resourcePath.length > 0
-    ? toLastPathSegment(resourcePath)
-    : displayResourcePath;
+  return resourcePath.length > 0 ? toLastPathSegment(resourcePath) : meshLabel;
+}
+
+function toHtmlDocumentTitle(meshLabel: string, pageTitle: string): string {
+  return pageTitle === meshLabel ? meshLabel : `${meshLabel} ${pageTitle}`;
 }
 
 function toResourcePageBreadcrumbs(
@@ -859,7 +876,7 @@ function toResourcePageBreadcrumbs(
 ): readonly ResourcePageBreadcrumb[] {
   const breadcrumbs: ResourcePageBreadcrumb[] = [{
     label: meshLabel,
-    href: meshRootHref,
+    href: toMeshResourceHref(meshRootHref, ""),
   }];
   const segments = resourcePath === "." || resourcePath.length === 0
     ? []
@@ -975,10 +992,28 @@ function toMeshRootHref(meshBase: string): string {
   return pathname.endsWith("/") ? pathname : `${pathname}/`;
 }
 
+function toCanonicalResourceIri(
+  meshBase: string,
+  resourcePath: string,
+): string {
+  const canonical = new URL(resourcePath, meshBase);
+  if (
+    resourcePath.length === 0 &&
+    canonical.pathname !== "/" &&
+    canonical.pathname.endsWith("/")
+  ) {
+    canonical.pathname = canonical.pathname.slice(0, -1);
+  }
+  return canonical.href;
+}
+
 function toMeshResourceHref(
   meshRootHref: string,
   resourcePath: string,
 ): string {
+  if (resourcePath.length === 0 && meshRootHref !== "/") {
+    return meshRootHref.slice(0, -1);
+  }
   return `${meshRootHref}${resourcePath}`;
 }
 

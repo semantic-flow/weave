@@ -152,7 +152,7 @@ export interface IdentifierResourcePageModel {
   path: string;
   designatorPath: string;
   workingLocalRelativePath?: string;
-  containedIdentifiers?: readonly ResourcePageContainedIdentifierModel[];
+  childIdentifiers?: readonly ResourcePageChildIdentifierModel[];
   historyGroups?: readonly ResourcePageHistoryGroupModel[];
   rawSourcePanels?: readonly ResourcePageRawSourcePanelModel[];
 }
@@ -161,7 +161,7 @@ export interface SimpleResourcePageModel {
   kind: "simple";
   path: string;
   description: string;
-  containedIdentifiers?: readonly ResourcePageContainedIdentifierModel[];
+  childIdentifiers?: readonly ResourcePageChildIdentifierModel[];
   historyGroups?: readonly ResourcePageHistoryGroupModel[];
   rawSourcePanels?: readonly ResourcePageRawSourcePanelModel[];
 }
@@ -194,6 +194,7 @@ export interface KnopResourcePageModel {
   designatorPath: string;
   governedArtifacts: readonly KnopArtifactLinkModel[];
   supportingArtifacts: readonly KnopArtifactLinkModel[];
+  childIdentifiers?: readonly ResourcePageChildIdentifierModel[];
 }
 
 export interface CustomIdentifierRegionResourcePageModel {
@@ -218,7 +219,7 @@ export interface ResourcePageRawSourcePanelModel {
   omittedByteLength?: number;
 }
 
-export interface ResourcePageContainedIdentifierModel {
+export interface ResourcePageChildIdentifierModel {
   label: string;
   path: string;
 }

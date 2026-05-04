@@ -1500,14 +1500,26 @@ Deno.test("executeGenerate lists every sidecar payload history with current hist
   const ontologyPage = await Deno.readTextFile(
     join(workspaceRoot, "docs/ontology/index.html"),
   );
-  assertStringIncludes(ontologyPage, "Contained Identifiers");
+  assertStringIncludes(ontologyPage, "Child Identifiers");
   assertStringIncludes(
     ontologyPage,
-    '<nobr><a class="wf-contained-identifier" href="/mesh-sidecar-fantasy-rules/ontology/AbilityScore">AbilityScore</a></nobr>',
+    '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/AbilityScore">AbilityScore</a></nobr>',
   );
   assertStringIncludes(
     ontologyPage,
-    '<nobr><a class="wf-contained-identifier" href="/mesh-sidecar-fantasy-rules/ontology/Character">Character</a></nobr>',
+    '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/Character">Character</a></nobr>',
+  );
+  const ontologyKnopPage = await Deno.readTextFile(
+    join(workspaceRoot, "docs/ontology/_knop/index.html"),
+  );
+  assertStringIncludes(ontologyKnopPage, "Child Identifiers");
+  assertStringIncludes(
+    ontologyKnopPage,
+    '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/_knop/_inventory">_inventory</a></nobr>',
+  );
+  assertStringIncludes(
+    ontologyKnopPage,
+    '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/_knop/_meta">_meta</a></nobr>',
   );
   const releaseHistoryIndex = ontologyPage.indexOf(
     'href="/mesh-sidecar-fantasy-rules/ontology/releases"',
