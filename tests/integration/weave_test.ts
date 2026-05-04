@@ -18,6 +18,10 @@ import {
   readMeshAliceBioBranchFile,
 } from "../support/mesh_alice_bio_fixture.ts";
 import {
+  materializeMeshSidecarFantasyRulesBranch,
+  readMeshSidecarFantasyRulesBranchFile,
+} from "../support/mesh_sidecar_fantasy_rules_fixture.ts";
+import {
   MESH_ALICE_BIO_BASE,
   writeEquivalentMeshMetadata,
 } from "../support/mesh_metadata.ts";
@@ -1223,6 +1227,99 @@ Deno.test("executeWeave materializes the extracted bob woven slice", async () =>
       "alice-bio.ttl",
     ),
   );
+});
+
+Deno.test("executeWeave materializes sidecar extracted ontology and SHACL terms", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-sidecar-extracted-terms-",
+  );
+  await materializeMeshSidecarFantasyRulesBranch(
+    "08-ontology-and-shacl-terms-extracted",
+    workspaceRoot,
+  );
+
+  const result = await executeWeave({
+    meshRoot: join(workspaceRoot, "docs"),
+    request: {
+      targets: [
+        { designatorPath: "ontology/AbilityScore" },
+        { designatorPath: "ontology/Alignment" },
+        { designatorPath: "ontology/Character" },
+        { designatorPath: "ontology/PlayerCharacter" },
+        { designatorPath: "ontology/CharacterShape" },
+      ],
+    },
+    now: () => new Date("2026-05-04T00:00:00.000Z"),
+  });
+
+  assertEquals(result.wovenDesignatorPaths, [
+    "ontology/AbilityScore",
+    "ontology/Alignment",
+    "ontology/Character",
+    "ontology/CharacterShape",
+    "ontology/PlayerCharacter",
+  ]);
+  assert(
+    result.createdPaths.includes(
+      "docs/_mesh/_inventory/_history001/_s0008/inventory-ttl/inventory.ttl",
+    ),
+  );
+  assert(
+    result.createdPaths.includes("docs/ontology/CharacterShape/index.html"),
+  );
+  assert(
+    result.createdPaths.includes(
+      "docs/ontology/CharacterShape/_knop/_references/_history001/_s0001/references-ttl/references.ttl",
+    ),
+  );
+  assertEquals(
+    await compareRdfContent({
+      left: new TextEncoder().encode(
+        await Deno.readTextFile(
+          join(workspaceRoot, "docs/_mesh/_inventory/inventory.ttl"),
+        ),
+      ),
+      right: new TextEncoder().encode(
+        await readMeshSidecarFantasyRulesBranchFile(
+          "09-ontology-and-shacl-terms-extracted-woven",
+          "docs/_mesh/_inventory/inventory.ttl",
+        ),
+      ),
+      path: "docs/_mesh/_inventory/inventory.ttl",
+    }),
+    true,
+  );
+  assertEquals(
+    await compareRdfContent({
+      left: new TextEncoder().encode(
+        await Deno.readTextFile(
+          join(
+            workspaceRoot,
+            "docs/ontology/CharacterShape/_knop/_inventory/inventory.ttl",
+          ),
+        ),
+      ),
+      right: new TextEncoder().encode(
+        await readMeshSidecarFantasyRulesBranchFile(
+          "09-ontology-and-shacl-terms-extracted-woven",
+          "docs/ontology/CharacterShape/_knop/_inventory/inventory.ttl",
+        ),
+      ),
+      path: "docs/ontology/CharacterShape/_knop/_inventory/inventory.ttl",
+    }),
+    true,
+  );
+
+  const characterShapePage = await Deno.readTextFile(
+    join(workspaceRoot, "docs/ontology/CharacterShape/index.html"),
+  );
+  assertStringIncludes(characterShapePage, "sh:NodeShape");
+  assertStringIncludes(characterShapePage, "Pinned source RDF bytes");
+  assertStringIncludes(
+    characterShapePage,
+    "shacl/_history001/_s0001/fantasy-rules-shacl-ttl/fantasy-rules-shacl.ttl",
+  );
+  assertStringIncludes(characterShapePage, "fant:CharacterShape");
 });
 
 Deno.test("executeWeave fails closed when bob's woven source payload has no current history", async () => {

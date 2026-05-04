@@ -208,6 +208,14 @@ created: 1773630801215
   - Ontology terms such as `ontology/AbilityScore` are legitimately mentioned by both the ontology and SHACL payloads, so fail-closed inference still needs an explicit source selector for the intended extraction source.
   - The sidecar mesh inventory already carries ontology, SHACL, config, and support artifacts; reconstructing a single-payload Bob-shaped inventory would be the wrong abstraction. Appending only the new term Knop facts preserves unrelated mesh state while keeping `08` non-woven.
 
+### 2026-05-04: Sidecar Extracted-Term Weave Uses Pinned Source States
+
+- Decision: Extend local `weave` for the Fantasy Rules sidecar `08-ontology-and-shacl-terms-extracted` -> `09-ontology-and-shacl-terms-extracted-woven` transition so extracted term Knops can be woven in a recursive multi-target batch, generated term pages read source RDF from pinned `ReferenceCatalog` target states, and term path anchoring follows the term namespace rather than the source artifact designator.
+- References: [[wd.task.2026.2026-05-03-term-extraction]], [[wd.task.2026.2026-05-02-fantasy-rules-sidecar]], [[sf.spec.2026-04-03-weave-behavior]]
+- Why:
+  - `ontology/CharacterShape` is intentionally sourced from the `shacl` artifact while remaining an `ontology/...` term. The authored SHACL Turtle uses the `fant:` prefix for that ontology namespace, so path-prefix inference would pick the wrong source.
+  - Multiple extracted terms advance MeshInventory one state per term while preserving the previously woven sidecar mesh state.
+
 ### 2026-04-07: First Target-Aware weave CLI Uses Repeatable --target Specs
 
 - Decision: Use repeatable `weave --target <key=value,...>` flags as the first target-aware CLI surface, support only shared targeting keys `designatorPath` and optional `recursive` there, and forward the resulting target objects through the composed local `weave` flow rather than inventing a separate CLI-only targeting model.

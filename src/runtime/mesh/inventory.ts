@@ -43,6 +43,11 @@ export interface ReferenceCatalogInventoryState {
   workingLocalRelativePath: string;
 }
 
+export interface ReferenceTargetLinkState {
+  referenceTargetPath: string;
+  referenceTargetStatePath: string;
+}
+
 export interface ResourcePageDefinitionInventoryState {
   artifactPath: string;
   workingLocalRelativePath: string;
@@ -295,6 +300,47 @@ export function resolveReferenceTargetDesignatorPath(
     missingReferenceTargetMessage: string;
   },
 ): string {
+  return resolveReferenceTargetLinkState(
+    meshBase,
+    referenceCatalogTurtle,
+    designatorPath,
+    messages,
+  ).referenceTargetPath;
+}
+
+export function resolveReferenceTargetLinkState(
+  meshBase: string,
+  referenceCatalogTurtle: string,
+  designatorPath: string,
+  messages: {
+    parseErrorMessage: string;
+    missingReferenceLinkMessage: string;
+    missingReferenceTargetMessage: string;
+  },
+): ReferenceTargetLinkState {
+  const referenceTargetLinkState = tryResolveReferenceTargetLinkState(
+    meshBase,
+    referenceCatalogTurtle,
+    designatorPath,
+    messages,
+  );
+  if (!referenceTargetLinkState) {
+    throw new Error(messages.missingReferenceLinkMessage);
+  }
+
+  return referenceTargetLinkState;
+}
+
+export function tryResolveReferenceTargetLinkState(
+  meshBase: string,
+  referenceCatalogTurtle: string,
+  designatorPath: string,
+  messages: {
+    parseErrorMessage: string;
+    missingReferenceLinkMessage: string;
+    missingReferenceTargetMessage: string;
+  },
+): ReferenceTargetLinkState | undefined {
   const quads = parseInventoryQuads(
     meshBase,
     referenceCatalogTurtle,
@@ -351,10 +397,11 @@ export function resolveReferenceTargetDesignatorPath(
   }
 
   if (linkSubjects.size === 0) {
-    throw new Error(messages.missingReferenceLinkMessage);
+    return undefined;
   }
 
   const referenceTargetPaths = new Set<string>();
+  const referenceTargetStatePaths = new Set<string>();
   for (const quad of quads) {
     if (
       quad.subject.termType !== "NamedNode" ||
@@ -374,11 +421,30 @@ export function resolveReferenceTargetDesignatorPath(
     );
   }
 
+  for (const subjectIri of linkSubjects) {
+    const referenceTargetStatePath = resolveOptionalUniqueNamedNodePath(
+      quads,
+      meshBase,
+      subjectIri,
+      SFLO_REFERENCE_TARGET_STATE_IRI,
+      messages.missingReferenceLinkMessage,
+    );
+    if (referenceTargetStatePath) {
+      referenceTargetStatePaths.add(referenceTargetStatePath);
+    }
+  }
+
   if (referenceTargetPaths.size !== 1) {
     throw new Error(messages.missingReferenceTargetMessage);
   }
+  if (referenceTargetStatePaths.size !== 1) {
+    throw new Error(messages.missingReferenceLinkMessage);
+  }
 
-  return referenceTargetPaths.values().next().value!;
+  return {
+    referenceTargetPath: referenceTargetPaths.values().next().value!,
+    referenceTargetStatePath: referenceTargetStatePaths.values().next().value!,
+  };
 }
 
 function parseInventoryQuads(

@@ -249,7 +249,10 @@ Deno.test("renderResourcePage renders RDF description, classes, and histories", 
 
   assertStringIncludes(html, "<h1>Fantasy Rules Ontology</h1>");
   assertStringIncludes(html, "A small ontology fixture.");
-  assertStringIncludes(html, '<p class="wf-classes">a owl:Ontology</p>');
+  assertStringIncludes(
+    html,
+    '<p class="wf-classes">a <a href="http://www.w3.org/2002/07/owl#Ontology">owl:Ontology</a></p>',
+  );
   assertStringIncludes(html, "<summary>History</summary>");
   assertStringIncludes(html, "sflo:ArtifactHistory");
   assertStringIncludes(html, "sflo:HistoricalState");
@@ -266,6 +269,68 @@ Deno.test("renderResourcePage renders RDF description, classes, and histories", 
   assertStringIncludes(
     html,
     'href="/mesh-sidecar-fantasy-rules/ontology/_history001/_s0001/fantasy-rules-ontology-ttl/fantasy-rules-ontology.ttl"',
+  );
+});
+
+Deno.test("renderResourcePage compacts SHACL classes with the sh prefix", () => {
+  const html = renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "identifier",
+      path: "shacl/index.html",
+      designatorPath: "shacl",
+      rawSourcePanels: [{
+        label: "Current working RDF bytes",
+        sourcePath: "../shacl/fantasy-rules-shacl.ttl",
+        contents: `@prefix sh: <http://www.w3.org/ns/shacl#> .
+
+<shacl> a sh:ShapesGraph .
+`,
+      }],
+    },
+  );
+
+  assertStringIncludes(
+    html,
+    '<p class="wf-classes">a <a href="http://www.w3.org/ns/shacl#ShapesGraph">sh:ShapesGraph</a></p>',
+  );
+});
+
+Deno.test("renderResourcePage renders term facts from a different source artifact namespace", () => {
+  const html = renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "identifier",
+      path: "ontology/CharacterShape/index.html",
+      designatorPath: "ontology/CharacterShape",
+      rawSourcePanels: [{
+        label: "Pinned source RDF bytes",
+        sourcePath:
+          "shacl/_history001/_s0001/fantasy-rules-shacl-ttl/fantasy-rules-shacl.ttl",
+        contents:
+          `@prefix fant: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+
+fant:CharacterShape a sh:NodeShape ;
+  rdfs:label "Character shape" ;
+  rdfs:comment "Validates character data." ;
+  sh:targetClass fant:Character .
+`,
+      }],
+    },
+  );
+
+  assertStringIncludes(html, "<h1>Character shape</h1>");
+  assertStringIncludes(html, "Validates character data.");
+  assertStringIncludes(
+    html,
+    '<p class="wf-classes">a <a href="http://www.w3.org/ns/shacl#NodeShape">sh:NodeShape</a></p>',
+  );
+  assertStringIncludes(html, "Pinned source RDF bytes");
+  assertStringIncludes(
+    html,
+    'href="/mesh-sidecar-fantasy-rules/shacl/_history001/_s0001/fantasy-rules-shacl-ttl/fantasy-rules-shacl.ttl"',
   );
 });
 

@@ -112,6 +112,8 @@ export interface ReferenceTargetSourcePayloadArtifact {
   designatorPath: string;
   workingLocalRelativePath: string;
   currentPayloadTurtle: string;
+  latestHistoricalSnapshotPath?: string;
+  latestHistoricalSnapshotTurtle?: string;
   latestHistoricalStatePath: string;
 }
 
@@ -1146,6 +1148,17 @@ function planFirstExtractedKnopWeave(
   const referenceCatalogArtifact = candidate.referenceCatalogArtifact!;
   const referenceTargetSourcePayloadArtifact = candidate
     .referenceTargetSourcePayloadArtifact!;
+  const meshInventoryProgression =
+    resolveCurrentMeshInventoryProgressionForFirstKnopWeave(
+      meshBase,
+      currentMeshInventoryTurtle,
+      designatorPath,
+    );
+  const sourcePayloadTurtle =
+    referenceTargetSourcePayloadArtifact.latestHistoricalSnapshotTurtle ??
+      referenceTargetSourcePayloadArtifact.currentPayloadTurtle;
+  const useAliceBioLegacyPages = designatorPath === "bob" &&
+    referenceTargetSourcePayloadArtifact.designatorPath === "alice/bio";
 
   assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
     meshBase,
@@ -1196,11 +1209,16 @@ function planFirstExtractedKnopWeave(
     );
   }
 
-  const wovenMeshInventoryTurtle =
-    renderFirstExtractedKnopWovenMeshInventoryTurtle(
+  const wovenMeshInventoryTurtle = useAliceBioLegacyPages
+    ? renderFirstExtractedKnopWovenMeshInventoryTurtle(
       currentMeshInventoryTurtle,
       designatorPath,
       referenceTargetSourcePayloadArtifact.designatorPath,
+    )
+    : renderGenericFirstExtractedKnopWovenMeshInventoryTurtle(
+      currentMeshInventoryTurtle,
+      designatorPath,
+      meshInventoryProgression,
     );
   const wovenKnopInventoryTurtle =
     renderFirstExtractedKnopWovenKnopInventoryTurtle(
@@ -1214,7 +1232,8 @@ function planFirstExtractedKnopWeave(
     wovenDesignatorPaths: [designatorPath],
     createdFiles: [
       {
-        path: "_mesh/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl",
+        path:
+          `${meshInventoryProgression.nextStatePath}/inventory-ttl/inventory.ttl`,
         contents: wovenMeshInventoryTurtle,
       },
       {
@@ -1233,16 +1252,18 @@ function planFirstExtractedKnopWeave(
       },
       {
         path: toDesignatorResourcePagePath(designatorPath),
-        contents: renderExtractedPersonIdentifierPage(
-          meshBase,
-          designatorPath,
-          referenceTargetSourcePayloadArtifact.designatorPath,
-          toHistoryPathFromStatePath(
-            referenceTargetSourcePayloadArtifact.latestHistoricalStatePath,
-          ),
-          referenceTargetSourcePayloadArtifact.workingLocalRelativePath,
-          referenceTargetSourcePayloadArtifact.currentPayloadTurtle,
-        ),
+        contents: useAliceBioLegacyPages
+          ? renderExtractedPersonIdentifierPage(
+            meshBase,
+            designatorPath,
+            referenceTargetSourcePayloadArtifact.designatorPath,
+            toHistoryPathFromStatePath(
+              referenceTargetSourcePayloadArtifact.latestHistoricalStatePath,
+            ),
+            referenceTargetSourcePayloadArtifact.workingLocalRelativePath,
+            sourcePayloadTurtle,
+          )
+          : renderGenericExtractedIdentifierPage(meshBase, designatorPath),
       },
       {
         path: `${knopPath}/_meta/_history001/index.html`,
@@ -1304,25 +1325,31 @@ function planFirstExtractedKnopWeave(
           ],
         }),
       },
-      {
-        path: "alice/index.html",
-        contents: renderAliceIdentifierPageAfterFirstExtractedWeave(
-          meshBase,
-          referenceTargetSourcePayloadArtifact.currentPayloadTurtle,
-          toHistoryPathFromStatePath(
-            referenceTargetSourcePayloadArtifact.latestHistoricalStatePath,
+      ...(useAliceBioLegacyPages
+        ? [{
+          path: "alice/index.html",
+          contents: renderAliceIdentifierPageAfterFirstExtractedWeave(
+            meshBase,
+            sourcePayloadTurtle,
+            toHistoryPathFromStatePath(
+              referenceTargetSourcePayloadArtifact.latestHistoricalStatePath,
+            ),
           ),
-        ),
-      },
+        }]
+        : []),
     ],
     createdPages: [
       simplePage(
-        "_mesh/_inventory/_history001/_s0004/index.html",
-        "Resource page for the fourth MeshInventory historical state.",
+        `${meshInventoryProgression.nextStatePath}/index.html`,
+        `Resource page for the ${
+          toOrdinalLabel(meshInventoryProgression.nextStateOrdinal)
+        } MeshInventory historical state.`,
       ),
       simplePage(
-        "_mesh/_inventory/_history001/_s0004/inventory-ttl/index.html",
-        "Resource page for the Turtle manifestation of the fourth MeshInventory historical state.",
+        `${meshInventoryProgression.nextStatePath}/inventory-ttl/index.html`,
+        `Resource page for the Turtle manifestation of the ${
+          toOrdinalLabel(meshInventoryProgression.nextStateOrdinal)
+        } MeshInventory historical state.`,
       ),
       simplePage(
         `${knopPath}/index.html`,
@@ -2094,11 +2121,6 @@ function assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
       SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
       "_mesh/_inventory/_history001",
     ],
-    [
-      "_mesh/_inventory/_history001",
-      SFLO_LATEST_HISTORICAL_STATE_IRI,
-      "_mesh/_inventory/_history001/_s0003",
-    ],
     [sourcePayloadDesignatorPath, RDF_TYPE_IRI, SFLO_PAYLOAD_ARTIFACT_IRI],
     [sourcePayloadDesignatorPath, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
     [sourcePayloadDesignatorPath, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
@@ -2131,14 +2153,35 @@ function assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
     ],
     [knopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
   ]);
-  assertHasLiteralFacts(quads, meshBase, errorMessage, [
-    [
-      "_mesh/_inventory/_history001",
-      SFLO_NEXT_STATE_ORDINAL_IRI,
-      "4",
-      XSD_NON_NEGATIVE_INTEGER_IRI,
-    ],
-  ]);
+  const historyIri = toAbsoluteIri(meshBase, "_mesh/_inventory/_history001");
+  const latestStateIri = requireSingleNamedNodeObject(
+    quads,
+    historyIri,
+    SFLO_LATEST_HISTORICAL_STATE_IRI,
+    errorMessage,
+  );
+  const latestStatePath = toMeshRelativePath(
+    meshBase,
+    latestStateIri,
+    "the latest MeshInventory historical state",
+  );
+  const latestStateOrdinal = parseStateOrdinalFromPath(
+    latestStatePath,
+    errorMessage,
+  );
+  const nextStateOrdinal = requireSingleNonNegativeIntegerLiteral(
+    quads,
+    historyIri,
+    SFLO_NEXT_STATE_ORDINAL_IRI,
+    errorMessage,
+  );
+  if (
+    toHistoryPathFromStatePath(latestStatePath) !==
+      "_mesh/_inventory/_history001" ||
+    nextStateOrdinal !== latestStateOrdinal + 1
+  ) {
+    throw new WeaveInputError(errorMessage);
+  }
   assertHasCurrentWorkingFileLocator(
     quads,
     meshBase,
@@ -4383,6 +4426,108 @@ function renderFirstExtractedKnopWovenMeshInventoryTurtle(
   return `${blocks.join("\n\n")}\n`;
 }
 
+function renderGenericFirstExtractedKnopWovenMeshInventoryTurtle(
+  currentMeshInventoryTurtle: string,
+  designatorPath: string,
+  meshInventoryProgression: MeshInventoryProgression,
+): string {
+  const knopPath = toKnopPath(designatorPath);
+  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
+  const parentDesignatorPath = toParentDesignatorPath(designatorPath);
+  const historyPath = meshInventoryProgression.historyPath;
+  const latestManifestationPath =
+    meshInventoryProgression.latestManifestationPath;
+  const nextStatePath = meshInventoryProgression.nextStatePath;
+  const nextStateOrdinal = meshInventoryProgression.nextStateOrdinal;
+  const nextManifestationPath = `${nextStatePath}/inventory-ttl`;
+  let blocks = normalizeMeshInventoryHeader(
+    splitTurtleBlocks(currentMeshInventoryTurtle),
+  );
+  const preferredAnchorResourcePath = parentDesignatorPath ?? "_mesh";
+  const anchorResourcePath = findSubjectBlockIndex(
+      blocks,
+      preferredAnchorResourcePath,
+    ) === -1
+    ? "_mesh"
+    : preferredAnchorResourcePath;
+  const preferredAnchorPagePath = parentDesignatorPath === undefined
+    ? "_mesh/index.html"
+    : toDesignatorResourcePagePath(parentDesignatorPath);
+  const anchorPagePath = findSubjectBlockIndex(
+      blocks,
+      preferredAnchorPagePath,
+    ) === -1
+    ? "_mesh/index.html"
+    : preferredAnchorPagePath;
+
+  blocks = upsertSubjectBlockAfter(
+    blocks,
+    anchorResourcePath,
+    designatorPath,
+    renderMeshIdentifierBlock(designatorPath),
+  );
+  blocks = replaceSubjectBlock(
+    blocks,
+    knopPath,
+    renderMeshKnopBlockWithResourcePage(knopPath),
+  );
+  blocks = replaceSubjectBlock(
+    blocks,
+    historyPath,
+    renderMeshInventoryHistoryBlock(historyPath, nextStateOrdinal),
+  );
+  blocks = upsertSubjectBlockAfter(
+    blocks,
+    latestManifestationPath,
+    nextStatePath,
+    renderMeshInventoryStateBlock(
+      nextStatePath,
+      nextStateOrdinal,
+      meshInventoryProgression.latestStatePath,
+    ),
+  );
+  blocks = upsertSubjectBlockAfter(
+    blocks,
+    nextStatePath,
+    nextManifestationPath,
+    renderMeshInventoryStateManifestationBlock(nextStatePath),
+  );
+  blocks = upsertSubjectBlockAfter(
+    blocks,
+    `${latestManifestationPath}/inventory.ttl`,
+    `${nextManifestationPath}/inventory.ttl`,
+    renderLocatedFileBlock(`${nextManifestationPath}/inventory.ttl`),
+  );
+  blocks = upsertSubjectBlockAfter(
+    blocks,
+    anchorPagePath,
+    designatorPagePath,
+    renderResourcePageLocatedFileBlock(designatorPagePath),
+  );
+  blocks = upsertSubjectBlockAfter(
+    blocks,
+    designatorPagePath,
+    `${knopPath}/index.html`,
+    renderResourcePageLocatedFileBlock(`${knopPath}/index.html`),
+  );
+  blocks = upsertSubjectBlockAfter(
+    blocks,
+    `${latestManifestationPath}/index.html`,
+    `${nextStatePath}/index.html`,
+    renderResourcePageLocatedFileBlock(`${nextStatePath}/index.html`),
+  );
+  blocks = upsertSubjectBlockAfter(
+    blocks,
+    `${nextStatePath}/index.html`,
+    `${nextManifestationPath}/index.html`,
+    renderResourcePageLocatedFileBlock(
+      `${nextManifestationPath}/index.html`,
+    ),
+  );
+
+  return `${blocks.join("\n\n")}\n`;
+}
+
 function renderMeshIdentifierBlock(designatorPath: string): string {
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
   return `<${designatorPath}>
@@ -5098,6 +5243,32 @@ function renderExtractedPersonIdentifierPage(
 `;
 }
 
+function renderGenericExtractedIdentifierPage(
+  meshBase: string,
+  designatorPath: string,
+): string {
+  const canonical = new URL(designatorPath, meshBase).href;
+  const displayDesignatorPath = formatDesignatorPathForDisplay(designatorPath);
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>${escapeHtml(displayDesignatorPath)}</title>
+  <link rel="canonical" href="${escapeHtml(canonical)}">
+</head>
+<body>
+  <main>
+    <h1>${escapeHtml(displayDesignatorPath)}</h1>
+    <p>Resource page for the Semantic Flow identifier <a href="${
+    escapeHtml(canonical)
+  }">${escapeHtml(canonical)}</a>.</p>
+  </main>
+</body>
+</html>
+`;
+}
+
 function assertHasNamedNodeFacts(
   quads: readonly Quad[],
   meshBase: string,
@@ -5479,6 +5650,11 @@ function toRootDesignatorPath(designatorPath: string): string {
   return firstSlash === -1
     ? designatorPath
     : designatorPath.slice(0, firstSlash);
+}
+
+function toParentDesignatorPath(designatorPath: string): string | undefined {
+  const lastSlash = designatorPath.lastIndexOf("/");
+  return lastSlash === -1 ? undefined : designatorPath.slice(0, lastSlash);
 }
 
 function buildFirstKnopWeavePages(

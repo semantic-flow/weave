@@ -177,6 +177,8 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - Treat Accord manifests as transition contracts for the ladder, not as branch metadata or late acceptance paperwork.
 - Store Fantasy Rules Sidecar conformance manifests in `semantic-flow-framework/examples/sidecar-fantasy-rules/conformance/`.
 - Author the first manifest for each transition as that transition settles, before a runner or generated fixture is allowed to define the expected behavior.
+- Treat extracted term paths and source artifact designators as independent. `ontology/CharacterShape` intentionally remains under the ontology namespace while its source facts are pinned to the `shacl` artifact state whose Turtle uses the `fant:` prefix.
+- Generated pages for extracted terms should load source-derived RDF facts through the term `ReferenceCatalog` and its `referenceTargetState`, not by inferring the source artifact from the term path prefix.
 - Sidecar support should remain fail-closed. A `workingLocalRelativePath` outside the mesh root is allowed only when operational config explicitly permits that adjacent repo-local path.
 - For this fixture, adjacent source allowances should be added when the corresponding sidecar artifact is integrated, not when the mesh is merely created. Those allowances should use the existing config ontology terms `sfcfg:MeshConfig` and `sfcfg:hasLocalPathAccessRule`, with `sfcfg:meshRootPathBase`, `sfcfg:workingLocalRelativePathLocatorKind`, and explicit `sfcfg:pathPrefix` values such as `../ontology/`, `../shacl/`, and, once example datasets are integrated, `../examples/`.
 - The desired portable config surface should live under mesh-owned config such as `docs/_mesh/_config/`, not as a repo-root `.sf-repo-access.ttl` file.

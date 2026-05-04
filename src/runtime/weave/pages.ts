@@ -26,7 +26,7 @@ interface ResourcePageRenderInput {
   title: string;
   breadcrumbs: readonly ResourcePageBreadcrumb[];
   summary?: string;
-  rdfClasses: readonly string[];
+  rdfClasses: readonly ResourcePageRdfClass[];
   metadataRows: readonly ResourcePageMetadataRow[];
   historyGroups: readonly ResourcePageHistoryGroupModel[];
   sections: readonly ResourcePageSection[];
@@ -53,7 +53,12 @@ interface ResourcePageSection {
 interface ResourcePageRdfFacts {
   title?: string;
   description?: string;
-  classes: readonly string[];
+  classes: readonly ResourcePageRdfClass[];
+}
+
+interface ResourcePageRdfClass {
+  label: string;
+  iri: string;
 }
 
 interface ResourcePageTheme {
@@ -79,6 +84,15 @@ const SCHEMA_NAME_IRIS = [
   "http://schema.org/Name",
 ] as const;
 const WEAVE_REPOSITORY_URL = "https://github.com/semantic-flow/weave/";
+const COMMON_RDF_PREFIXES: readonly [namespace: string, prefix: string][] = [
+  ["http://www.w3.org/2002/07/owl#", "owl"],
+  ["http://www.w3.org/ns/shacl#", "sh"],
+  ["http://www.w3.org/2000/01/rdf-schema#", "rdfs"],
+  ["http://www.w3.org/1999/02/22-rdf-syntax-ns#", "rdf"],
+  ["https://semantic-flow.github.io/semantic-flow-ontology/", "sflo"],
+  ["https://semantic-flow.github.io/ontology/core/", "sfc"],
+  ["https://semantic-flow.github.io/ontology/config/", "sfcfg"],
+];
 
 const defaultResourcePageTheme: ResourcePageTheme = {
   render: renderDefaultResourcePage,
@@ -291,7 +305,16 @@ function toDefaultResourcePageRenderInput(
       summary: `Reference catalog for ${
         formatDesignatorPathForDisplay(page.ownerDesignatorPath)
       }`,
-      rdfClasses: ["sflo:ReferenceCatalog", "sflo:RdfDocument"],
+      rdfClasses: [
+        rdfClass(
+          "sflo:ReferenceCatalog",
+          "https://semantic-flow.github.io/semantic-flow-ontology/ReferenceCatalog",
+        ),
+        rdfClass(
+          "sflo:RdfDocument",
+          "https://semantic-flow.github.io/semantic-flow-ontology/RdfDocument",
+        ),
+      ],
       metadataRows: [{ label: "Canonical IRI", value: canonical }],
       historyGroups: page.historyGroups ?? [],
       sections: [{
@@ -337,7 +360,12 @@ function toDefaultResourcePageRenderInput(
       summary: `Knop control surface for ${
         formatDesignatorPathForDisplay(page.designatorPath)
       }.`,
-      rdfClasses: ["sflo:Knop"],
+      rdfClasses: [
+        rdfClass(
+          "sflo:Knop",
+          "https://semantic-flow.github.io/semantic-flow-ontology/Knop",
+        ),
+      ],
       metadataRows: [{ label: "Canonical IRI", value: canonical }],
       historyGroups: [],
       sections: artifactSections,
@@ -401,7 +429,9 @@ function renderDefaultResourcePage(input: ResourcePageRenderInput): string {
     : "";
   const classes = input.rdfClasses.length > 0
     ? `        <p class="wf-classes">a ${
-      input.rdfClasses.map((className) => escapeHtml(className)).join(", ")
+      input.rdfClasses.map((className) => renderRdfClassLink(className)).join(
+        ", ",
+      )
     }</p>\n`
     : "";
   const metadata = input.metadataRows.length > 0
@@ -441,6 +471,7 @@ ${section.html}
     .wf-hero { border-top: 5px solid #435247; padding: 26px 0 12px; }
     h1 { margin: 0; overflow-wrap: anywhere; font-size: clamp(1.7rem, 4vw, 2.7rem); line-height: 1.04; letter-spacing: 0; }
     .wf-classes { margin: 8px 0 0; color: #687167; font-style: italic; }
+    .wf-classes a { color: inherit; text-decoration: underline; text-decoration-color: rgba(104, 113, 103, 0.34); text-decoration-thickness: 0.06em; text-underline-offset: 0.18em; }
     .wf-summary { max-width: 820px; margin: 14px 0 0; color: #3f463f; font-size: 1.05rem; line-height: 1.6; }
     .wf-metadata { width: 100%; margin-top: 24px; border-collapse: collapse; border-top: 1px solid #cdd2ca; border-bottom: 1px solid #cdd2ca; }
     .wf-metadata th, .wf-metadata td { padding: 10px 12px; border-top: 1px solid #e0e4dd; text-align: left; vertical-align: top; }
@@ -534,6 +565,12 @@ function renderMetadataRow(row: ResourcePageMetadataRow): string {
     ? `<a href="${escapeHtml(row.href)}">${escapeHtml(row.value)}</a>`
     : `<span>${escapeHtml(row.value)}</span>`;
   return `            <tr><th scope="row">${label}</th><td>${value}</td></tr>`;
+}
+
+function renderRdfClassLink(className: ResourcePageRdfClass): string {
+  return `<a href="${escapeHtml(className.iri)}">${
+    escapeHtml(className.label)
+  }</a>`;
 }
 
 function renderHistorySection(input: ResourcePageRenderInput): string {
@@ -828,6 +865,7 @@ function extractRdfFacts(
   canonical: string,
   rawSourcePanels: readonly ResourcePageRawSourcePanelModel[],
 ): ResourcePageRdfFacts {
+  const prefixMap = collectPrefixMap(rawSourcePanels);
   const quads = rawSourcePanels.flatMap((panel) =>
     panel.contents ? parseRdfPanel(canonical, panel.contents) : []
   );
@@ -847,7 +885,7 @@ function extractRdfFacts(
     DCTERMS_DESCRIPTION_IRI,
   ) ?? findFirstLiteralObject(quads, canonical, RDFS_COMMENT_IRI) ??
     findFirstLiteralObject(quads, canonical, SKOS_DEFINITION_IRI);
-  const classes = new Set<string>();
+  const classes = new Map<string, ResourcePageRdfClass>();
 
   for (const quad of quads) {
     if (
@@ -856,15 +894,56 @@ function extractRdfFacts(
       quad.predicate.value === RDF_TYPE_IRI &&
       quad.object.termType === "NamedNode"
     ) {
-      classes.add(compactRdfIri(quad.object.value));
+      classes.set(quad.object.value, {
+        label: compactRdfIri(quad.object.value, prefixMap),
+        iri: quad.object.value,
+      });
     }
   }
 
   return {
     ...(title ? { title } : {}),
     ...(description ? { description } : {}),
-    classes: [...classes].sort((left, right) => left.localeCompare(right)),
+    classes: [...classes.values()].sort((left, right) =>
+      left.label.localeCompare(right.label)
+    ),
   };
+}
+
+function collectPrefixMap(
+  rawSourcePanels: readonly ResourcePageRawSourcePanelModel[],
+): ReadonlyMap<string, string> {
+  const prefixByNamespace = new Map<string, string>();
+
+  for (const [namespace, prefix] of COMMON_RDF_PREFIXES) {
+    prefixByNamespace.set(namespace, prefix);
+  }
+
+  for (const panel of rawSourcePanels) {
+    if (!panel.contents) {
+      continue;
+    }
+    for (const [namespace, prefix] of parseDeclaredPrefixes(panel.contents)) {
+      prefixByNamespace.set(namespace, prefix);
+    }
+  }
+
+  return prefixByNamespace;
+}
+
+function parseDeclaredPrefixes(turtle: string): readonly [string, string][] {
+  const prefixes: [string, string][] = [];
+  const prefixPattern = /(?:@prefix|PREFIX)\s+([A-Za-z][\w-]*):\s*<([^>]+)>/gi;
+
+  for (const match of turtle.matchAll(prefixPattern)) {
+    const prefix = match[1];
+    const namespace = match[2];
+    if (prefix && namespace) {
+      prefixes.push([namespace, prefix]);
+    }
+  }
+
+  return prefixes;
 }
 
 function parseRdfPanel(
@@ -910,18 +989,16 @@ function findFirstLiteralObjectFromPredicates(
   return undefined;
 }
 
-function compactRdfIri(iri: string): string {
-  for (
-    const [namespace, prefix] of [
-      ["http://www.w3.org/2002/07/owl#", "owl"],
-      ["http://www.w3.org/2000/01/rdf-schema#", "rdfs"],
-      ["http://www.w3.org/1999/02/22-rdf-syntax-ns#", "rdf"],
-      ["https://semantic-flow.github.io/semantic-flow-ontology/", "sflo"],
-      ["https://semantic-flow.github.io/ontology/core/", "sfc"],
-      ["https://semantic-flow.github.io/ontology/config/", "sfcfg"],
-    ] as const
-  ) {
+function compactRdfIri(
+  iri: string,
+  prefixByNamespace: ReadonlyMap<string, string>,
+): string {
+  const namespaces = [...prefixByNamespace.keys()].sort((left, right) =>
+    right.length - left.length
+  );
+  for (const namespace of namespaces) {
     if (iri.startsWith(namespace)) {
+      const prefix = prefixByNamespace.get(namespace)!;
       return `${prefix}:${iri.slice(namespace.length)}`;
     }
   }
@@ -936,20 +1013,63 @@ function compactRdfIri(iri: string): string {
     : iri;
 }
 
-function classifyResourcePage(resourcePath: string): string {
-  if (resourcePath === "_mesh") return "sflo:SemanticMesh";
-  if (resourcePath.endsWith("/_knop")) return "sflo:Knop";
-  if (resourcePath.endsWith("/_meta")) return "sflo:RdfDocument";
-  if (resourcePath.endsWith("/_inventory")) return "sflo:RdfDocument";
-  if (resourcePath.endsWith("/_config")) return "sfcfg:MeshConfig";
+function rdfClass(label: string, iri: string): ResourcePageRdfClass {
+  return { label, iri };
+}
+
+function classifyResourcePage(resourcePath: string): ResourcePageRdfClass {
+  if (resourcePath === "_mesh") {
+    return rdfClass(
+      "sflo:SemanticMesh",
+      "https://semantic-flow.github.io/semantic-flow-ontology/SemanticMesh",
+    );
+  }
+  if (resourcePath.endsWith("/_knop")) {
+    return rdfClass(
+      "sflo:Knop",
+      "https://semantic-flow.github.io/semantic-flow-ontology/Knop",
+    );
+  }
+  if (resourcePath.endsWith("/_meta")) {
+    return rdfClass(
+      "sflo:RdfDocument",
+      "https://semantic-flow.github.io/semantic-flow-ontology/RdfDocument",
+    );
+  }
+  if (resourcePath.endsWith("/_inventory")) {
+    return rdfClass(
+      "sflo:RdfDocument",
+      "https://semantic-flow.github.io/semantic-flow-ontology/RdfDocument",
+    );
+  }
+  if (resourcePath.endsWith("/_config")) {
+    return rdfClass(
+      "sfcfg:MeshConfig",
+      "https://semantic-flow.github.io/ontology/config/MeshConfig",
+    );
+  }
   if (resourcePath.includes("/_history")) {
     if (resourcePath.match(/\/_s[0-9]+\/[^/]+$/)) {
-      return "sflo:ArtifactManifestation";
+      return rdfClass(
+        "sflo:ArtifactManifestation",
+        "https://semantic-flow.github.io/semantic-flow-ontology/ArtifactManifestation",
+      );
     }
-    if (resourcePath.match(/\/_s[0-9]+$/)) return "sflo:HistoricalState";
-    return "sflo:ArtifactHistory";
+    if (resourcePath.match(/\/_s[0-9]+$/)) {
+      return rdfClass(
+        "sflo:HistoricalState",
+        "https://semantic-flow.github.io/semantic-flow-ontology/HistoricalState",
+      );
+    }
+    return rdfClass(
+      "sflo:ArtifactHistory",
+      "https://semantic-flow.github.io/semantic-flow-ontology/ArtifactHistory",
+    );
   }
-  return "sflo:DigitalArtifact";
+  return rdfClass(
+    "sflo:DigitalArtifact",
+    "https://semantic-flow.github.io/semantic-flow-ontology/DigitalArtifact",
+  );
 }
 
 function isArtifactHistoryResourcePath(resourcePath: string): boolean {

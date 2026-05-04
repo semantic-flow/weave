@@ -76,6 +76,8 @@ The exact reference role still needs care. `ReferenceRole/Supplemental` was righ
 - The first `08` term set is `ontology/AbilityScore`, `ontology/Alignment`, `ontology/Character`, `ontology/PlayerCharacter`, and `ontology/CharacterShape`.
 - Use `ReferenceRole/Supplemental` for the first sidecar term-extraction slice while leaving a more precise source/definition role as a future ontology decision.
 - Represent `08` as a sequence of single-target `extract` operations with explicit source designators where needed: ontology class terms extract from `ontology`, and `ontology/CharacterShape` extracts from `shacl`.
+- Treat the extracted term namespace and the source artifact designator as independent. `ontology/CharacterShape` is intentionally extracted under the ontology namespace from the pinned `shacl` artifact state, with the SHACL Turtle using the `fant:` prefix to name the ontology term IRI.
+- Generated term pages attach source-derived RDF facts from the `ReferenceCatalog` `referenceTarget` and `referenceTargetState`, not by assuming the term path prefix identifies the source artifact and not by scanning latest current source opportunistically.
 
 ## Contract Changes
 
@@ -119,12 +121,12 @@ The exact reference role still needs care. `ReferenceRole/Supplemental` was righ
 - [x] Decide the exact first extracted term list before authoring the 08 manifest.
 - [x] Decide whether the first reference role should remain `ReferenceRole/Supplemental` or use a more precise ontology/source role.
 - [x] Define the exact source-reference shape for extracted terms, including `referenceTarget` and `referenceTargetState`.
-- [ ] Define the page-generation rule for rendering term facts from the pinned ontology or SHACL source state.
+- [x] Define the page-generation rule for rendering term facts from the pinned ontology or SHACL source state.
 - [x] Update [[sf.spec.2026-04-05-extract-behavior]] with the ontology-and-SHACL-term extraction shape before implementation depends on it.
 - [x] Author `08-ontology-and-shacl-terms-extracted.jsonld` only after the 08 expected output shape is settled enough for the manifest to be normative.
 - [x] Create the `08-ontology-and-shacl-terms-extracted` fixture branch from `07-shacl-integrated-woven`.
-- [ ] Author `09-ontology-and-shacl-terms-extracted-woven.jsonld` only after the 09 expected output shape is settled enough for the manifest to be normative.
-- [ ] Create the `09-ontology-and-shacl-terms-extracted-woven` fixture branch from 08 by running the `weave` operation.
+- [x] Author `09-ontology-and-shacl-terms-extracted-woven.jsonld` only after the 09 expected output shape is settled enough for the manifest to be normative.
+- [x] Create the `09-ontology-and-shacl-terms-extracted-woven` fixture branch from 08 by running the `weave` operation.
 - [x] Add or update Weave tests for the 07 -> 08 transition.
-- [ ] Add or update Weave tests for the 08 -> 09 transition.
+- [x] Add or update Weave tests for the 08 -> 09 transition.
 - [x] Update [[wd.codebase-overview]] and [[wd.decision-log]] after the behavior is implemented and settled.

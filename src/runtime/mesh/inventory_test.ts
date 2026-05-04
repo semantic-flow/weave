@@ -4,7 +4,9 @@ import {
   resolvePayloadArtifactInventoryState,
   resolveReferenceCatalogInventoryState,
   resolveReferenceTargetDesignatorPath,
+  resolveReferenceTargetLinkState,
   resolveResourcePageDefinitionInventoryState,
+  tryResolveReferenceTargetLinkState,
 } from "./inventory.ts";
 
 const MESH_BASE = "https://semantic-flow.github.io/mesh-alice-bio/";
@@ -191,6 +193,62 @@ Deno.test("resolveReferenceTargetDesignatorPath accepts semantically equivalent 
       },
     ),
     "alice/bio",
+  );
+});
+
+Deno.test("resolveReferenceTargetLinkState returns the pinned target state", () => {
+  assertEquals(
+    resolveReferenceTargetLinkState(
+      MESH_BASE,
+      `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@base <${MESH_BASE}> .
+
+<alice/_knop/_references#reference001> rdf:type sflo:ReferenceLink ;
+  sflo:referenceLinkFor <alice> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Supplemental> ;
+  sflo:referenceTarget <alice/bio> ;
+  sflo:referenceTargetState <alice/bio/_history001/_s0002> .
+`,
+      "alice",
+      {
+        parseErrorMessage: "Could not parse ReferenceCatalog",
+        missingReferenceLinkMessage:
+          "Could not resolve current extracted ReferenceCatalog link",
+        missingReferenceTargetMessage:
+          "Could not resolve current extracted ReferenceCatalog target",
+      },
+    ),
+    {
+      referenceTargetPath: "alice/bio",
+      referenceTargetStatePath: "alice/bio/_history001/_s0002",
+    },
+  );
+});
+
+Deno.test("tryResolveReferenceTargetLinkState returns undefined for unpinned links", () => {
+  assertEquals(
+    tryResolveReferenceTargetLinkState(
+      MESH_BASE,
+      `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@base <${MESH_BASE}> .
+
+<alice/_knop/_references#reference001> rdf:type sflo:ReferenceLink ;
+  sflo:referenceLinkFor <alice> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Supplemental> ;
+  sflo:referenceTarget <alice/bio> .
+`,
+      "alice",
+      {
+        parseErrorMessage: "Could not parse ReferenceCatalog",
+        missingReferenceLinkMessage:
+          "Could not resolve current extracted ReferenceCatalog link",
+        missingReferenceTargetMessage:
+          "Could not resolve current extracted ReferenceCatalog target",
+      },
+    ),
+    undefined,
   );
 });
 
