@@ -52,6 +52,27 @@ Deno.test("renderResourcePage renders the root identifier as slash", async () =>
   assertStringIncludes(html, 'href="/mesh-alice-bio/root.ttl"');
 });
 
+Deno.test("renderResourcePage renders contained identifier pills", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "identifier",
+      path: "ontology/index.html",
+      designatorPath: "ontology",
+      containedIdentifiers: [
+        { label: "AbilityScore", path: "ontology/AbilityScore" },
+        { label: "Character", path: "ontology/Character" },
+      ],
+    },
+  );
+
+  assertStringIncludes(html, "Contained Identifiers");
+  assertStringIncludes(
+    html,
+    '<span class="wf-contained-identifiers"><nobr><a class="wf-contained-identifier" href="/mesh-sidecar-fantasy-rules/ontology/AbilityScore">AbilityScore</a></nobr><nobr><a class="wf-contained-identifier" href="/mesh-sidecar-fantasy-rules/ontology/Character">Character</a></nobr></span>',
+  );
+});
+
 Deno.test("renderResourcePage renders current ReferenceCatalog pages with fragment anchors", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",

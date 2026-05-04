@@ -1,4 +1,5 @@
 import type {
+  ResourcePageContainedIdentifierModel,
   ResourcePageHistoryGroupModel,
   ResourcePageModel,
   ResourcePageRawSourcePanelModel,
@@ -38,6 +39,7 @@ interface ResourcePageMetadataRow {
   label: string;
   href?: string;
   value: string;
+  html?: string;
   tooltip?: string;
 }
 
@@ -275,6 +277,10 @@ function toDefaultResourcePageRenderInput(
             value: page.workingLocalRelativePath,
           }]
           : []),
+        ...toContainedIdentifierMetadataRows(
+          meshRootHref,
+          page.containedIdentifiers ?? [],
+        ),
       ],
       historyGroups: page.historyGroups ?? [],
       sections: [],
@@ -414,8 +420,14 @@ function toDefaultResourcePageRenderInput(
     summary: page.description,
     rdfClasses: rdfFacts.classes.length > 0
       ? rdfFacts.classes
-      : [classifyResourcePage(resourcePath)],
-    metadataRows: [{ label: "Canonical IRI", value: canonical }],
+      : [classifyResourcePage(resourcePath, page.historyGroups ?? [])],
+    metadataRows: [
+      { label: "Canonical IRI", value: canonical },
+      ...toContainedIdentifierMetadataRows(
+        meshRootHref,
+        page.containedIdentifiers ?? [],
+      ),
+    ],
     historyGroups: page.historyGroups ?? [],
     sections: extractFragmentSections(
       canonical,
@@ -505,6 +517,9 @@ ${section.html}
     .wf-metadata tr:first-child th, .wf-metadata tr:first-child td { border-top: 0; }
     .wf-metadata th { width: 180px; color: #4f594f; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0; }
     .wf-metadata td { overflow-wrap: anywhere; }
+    .wf-contained-identifiers { display: flex; flex-wrap: wrap; gap: 6px; }
+    .wf-contained-identifier { display: inline-block; padding: 0.08rem 0.42rem; border: 1px solid #cdd8cf; border-radius: 999px; background: #eef3ef; text-decoration: none; white-space: nowrap; }
+    .wf-contained-identifier:hover, .wf-contained-identifier:focus { background: #e0ebe4; }
     .wf-term { cursor: help; border-bottom: 1px dotted currentColor; }
     .wf-date-tip { position: relative; display: inline-block; }
     .wf-date-tip::after { content: attr(data-tooltip); position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); opacity: 0; pointer-events: none; background: rgba(27, 32, 27, 0.94); color: #fff; border-radius: 5px; padding: 5px 7px; font-size: 0.78rem; white-space: nowrap; transition: opacity 120ms ease; }
@@ -590,10 +605,35 @@ function renderMetadataRow(row: ResourcePageMetadataRow): string {
   const label = row.tooltip
     ? renderTooltipLabel(row.label, row.tooltip)
     : escapeHtml(row.label);
-  const value = row.href
+  const value = row.html
+    ? row.html
+    : row.href
     ? `<a href="${escapeHtml(row.href)}">${escapeHtml(row.value)}</a>`
     : `<span>${escapeHtml(row.value)}</span>`;
   return `            <tr><th scope="row">${label}</th><td>${value}</td></tr>`;
+}
+
+function toContainedIdentifierMetadataRows(
+  meshRootHref: string,
+  containedIdentifiers: readonly ResourcePageContainedIdentifierModel[],
+): readonly ResourcePageMetadataRow[] {
+  if (containedIdentifiers.length === 0) {
+    return [];
+  }
+
+  return [{
+    label: "Contained Identifiers",
+    value: containedIdentifiers.map((identifier) => identifier.label).join(
+      ", ",
+    ),
+    html: `<span class="wf-contained-identifiers">${
+      containedIdentifiers.map((identifier) =>
+        `<nobr><a class="wf-contained-identifier" href="${
+          escapeHtml(toMeshResourceHref(meshRootHref, identifier.path))
+        }">${escapeHtml(identifier.label)}</a></nobr>`
+      ).join("")
+    }</span>`,
+  }];
 }
 
 function renderRdfClassLink(className: ResourcePageRdfClass): string {
@@ -617,16 +657,37 @@ ${renderHistoryGroups(input)}
 }
 
 function toHistorySectionTitle(input: ResourcePageRenderInput): string {
-  if (isArtifactHistoryResourcePath(input.resourcePath)) {
+  if (isArtifactHistoryResource(input)) {
     return "Historical States";
   }
-  if (isHistoricalStateResourcePath(input.resourcePath)) {
+  if (isHistoricalStateResource(input)) {
     return "Manifestations";
   }
-  if (isArtifactManifestationResourcePath(input.resourcePath)) {
+  if (isArtifactManifestationResource(input)) {
     return "Located Files";
   }
   return "History";
+}
+
+function isArtifactHistoryResource(input: ResourcePageRenderInput): boolean {
+  return input.historyGroups.some((group) =>
+    group.path === input.resourcePath
+  ) ||
+    isArtifactHistoryResourcePath(input.resourcePath);
+}
+
+function isHistoricalStateResource(input: ResourcePageRenderInput): boolean {
+  return input.historyGroups.some((group) =>
+    group.states.some((state) => state.path === input.resourcePath)
+  ) || isHistoricalStateResourcePath(input.resourcePath);
+}
+
+function isArtifactManifestationResource(
+  input: ResourcePageRenderInput,
+): boolean {
+  return input.historyGroups.some((group) =>
+    group.states.some((state) => state.manifestationPath === input.resourcePath)
+  ) || isArtifactManifestationResourcePath(input.resourcePath);
 }
 
 function renderHistoryGroups(input: ResourcePageRenderInput): string {
@@ -1224,7 +1285,10 @@ function rdfClass(label: string, iri: string): ResourcePageRdfClass {
   return { label, iri };
 }
 
-function classifyResourcePage(resourcePath: string): ResourcePageRdfClass {
+function classifyResourcePage(
+  resourcePath: string,
+  historyGroups: readonly ResourcePageHistoryGroupModel[] = [],
+): ResourcePageRdfClass {
   if (resourcePath === "_mesh") {
     return rdfClass(
       "sflo:SemanticMesh",
@@ -1255,19 +1319,30 @@ function classifyResourcePage(resourcePath: string): ResourcePageRdfClass {
       "https://semantic-flow.github.io/ontology/config/MeshConfig",
     );
   }
-  if (resourcePath.includes("/_history")) {
-    if (resourcePath.match(/\/_s[0-9]+\/[^/]+$/)) {
-      return rdfClass(
-        "sflo:ArtifactManifestation",
-        "https://semantic-flow.github.io/semantic-flow-ontology/ArtifactManifestation",
-      );
-    }
-    if (resourcePath.match(/\/_s[0-9]+$/)) {
-      return rdfClass(
-        "sflo:HistoricalState",
-        "https://semantic-flow.github.io/semantic-flow-ontology/HistoricalState",
-      );
-    }
+  if (
+    historyGroups.some((group) =>
+      group.states.some((state) => state.manifestationPath === resourcePath)
+    ) || isArtifactManifestationResourcePath(resourcePath)
+  ) {
+    return rdfClass(
+      "sflo:ArtifactManifestation",
+      "https://semantic-flow.github.io/semantic-flow-ontology/ArtifactManifestation",
+    );
+  }
+  if (
+    historyGroups.some((group) =>
+      group.states.some((state) => state.path === resourcePath)
+    ) || isHistoricalStateResourcePath(resourcePath)
+  ) {
+    return rdfClass(
+      "sflo:HistoricalState",
+      "https://semantic-flow.github.io/semantic-flow-ontology/HistoricalState",
+    );
+  }
+  if (
+    historyGroups.some((group) => group.path === resourcePath) ||
+    isArtifactHistoryResourcePath(resourcePath)
+  ) {
     return rdfClass(
       "sflo:ArtifactHistory",
       "https://semantic-flow.github.io/semantic-flow-ontology/ArtifactHistory",

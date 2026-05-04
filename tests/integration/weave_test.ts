@@ -10,6 +10,7 @@ import { WeaveInputError } from "../../src/core/weave/weave.ts";
 import { executeKnopCreate } from "../../src/runtime/knop/create.ts";
 import { executeMeshCreate } from "../../src/runtime/mesh/create.ts";
 import {
+  executeGenerate,
   executeWeave,
   WeaveRuntimeError,
 } from "../../src/runtime/weave/weave.ts";
@@ -1477,6 +1478,60 @@ Deno.test("executeWeave fails closed when bob's woven source payload has no curr
       }),
     WeaveInputError,
     "missing a woven current payload history",
+  );
+});
+
+Deno.test("executeGenerate lists every sidecar payload history with current history first", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-generate-sidecar-release-histories-",
+  );
+  await materializeMeshSidecarFantasyRulesBranch(
+    "15-first-release-woven",
+    workspaceRoot,
+  );
+
+  const result = await executeGenerate({
+    meshRoot: join(workspaceRoot, "docs"),
+    request: { targets: [{ designatorPath: "ontology" }] },
+    now: () => new Date("2026-05-04T00:00:00.000Z"),
+  });
+
+  assertEquals(result.generatedDesignatorPaths, ["ontology"]);
+  const ontologyPage = await Deno.readTextFile(
+    join(workspaceRoot, "docs/ontology/index.html"),
+  );
+  assertStringIncludes(ontologyPage, "Contained Identifiers");
+  assertStringIncludes(
+    ontologyPage,
+    '<nobr><a class="wf-contained-identifier" href="/mesh-sidecar-fantasy-rules/ontology/AbilityScore">AbilityScore</a></nobr>',
+  );
+  assertStringIncludes(
+    ontologyPage,
+    '<nobr><a class="wf-contained-identifier" href="/mesh-sidecar-fantasy-rules/ontology/Character">Character</a></nobr>',
+  );
+  const releaseHistoryIndex = ontologyPage.indexOf(
+    'href="/mesh-sidecar-fantasy-rules/ontology/releases"',
+  );
+  const originalHistoryIndex = ontologyPage.indexOf(
+    'href="/mesh-sidecar-fantasy-rules/ontology/_history001"',
+  );
+  assert(releaseHistoryIndex >= 0, "expected release history link");
+  assert(originalHistoryIndex >= 0, "expected original history link");
+  assert(
+    releaseHistoryIndex < originalHistoryIndex,
+    "expected current release history to appear before the original history",
+  );
+
+  const releaseHistoryPage = await Deno.readTextFile(
+    join(workspaceRoot, "docs/ontology/releases/index.html"),
+  );
+  assertStringIncludes(
+    releaseHistoryPage,
+    '<a href="https://semantic-flow.github.io/semantic-flow-ontology/ArtifactHistory">sflo:ArtifactHistory</a>',
+  );
+  assertStringIncludes(
+    releaseHistoryPage,
+    "<summary>Historical States</summary>",
   );
 });
 

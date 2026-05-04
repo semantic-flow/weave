@@ -152,6 +152,7 @@ export interface IdentifierResourcePageModel {
   path: string;
   designatorPath: string;
   workingLocalRelativePath?: string;
+  containedIdentifiers?: readonly ResourcePageContainedIdentifierModel[];
   historyGroups?: readonly ResourcePageHistoryGroupModel[];
   rawSourcePanels?: readonly ResourcePageRawSourcePanelModel[];
 }
@@ -160,6 +161,7 @@ export interface SimpleResourcePageModel {
   kind: "simple";
   path: string;
   description: string;
+  containedIdentifiers?: readonly ResourcePageContainedIdentifierModel[];
   historyGroups?: readonly ResourcePageHistoryGroupModel[];
   rawSourcePanels?: readonly ResourcePageRawSourcePanelModel[];
 }
@@ -214,6 +216,11 @@ export interface ResourcePageRawSourcePanelModel {
   sourcePath: string;
   contents?: string;
   omittedByteLength?: number;
+}
+
+export interface ResourcePageContainedIdentifierModel {
+  label: string;
+  path: string;
 }
 
 export interface ResourcePageHistoryStateModel {
