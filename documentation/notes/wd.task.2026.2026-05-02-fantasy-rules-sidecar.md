@@ -2,7 +2,7 @@
 id: 6wjbum23c4rli8cojvtcp0i
 title: 2026 05 02 Fantasy Rules Sidecar
 desc: sidecar mesh fixture for dereferenceable ontology and SHACL publishing
-updated: 1777853199031
+updated: 1777878162292
 created: 1777705655304
 ---
 
@@ -97,7 +97,7 @@ Use slash term IRIs first, not hash IRIs. The fixture should eventually support 
 
 The authored Turtle prefix should use `fant:` for the fantasy-rules ontology namespace, with `@prefix fant: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .`. Full IRIs remain fine in generated mesh RDF where they make cross-artifact relations clearer.
 
-The third question is whether the new fixture can exercise the generic generated resource-page surface without making renderer behavior part of the fixture contract. The Alice Bio pages are useful, and the sidecar fixture should consume the shared renderer improvements from [[wd.task.2026.2026-05-03-resource-page-renderer-refresh]], but conformance for this fixture should focus on Semantic Flow artifacts, inventories, path policy, generated page presence, and raw RDF availability rather than pixel-level or prose-level presentation expectations.
+The third question is whether the new fixture can exercise the generic generated resource-page surface without making renderer behavior part of the fixture contract. The Alice Bio pages are useful, and the sidecar fixture should consume the shared renderer improvements from [[wa.completed.2026.2026-05-03-resource-page-renderer-refresh]], but conformance for this fixture should focus on Semantic Flow artifacts, inventories, path policy, generated page presence, and raw RDF availability rather than pixel-level or prose-level presentation expectations.
 
 - artifact landing pages exist for ontology and SHACL artifacts when those artifacts are integrated
 - generated pages exist for current source bytes, versioned bytes, history pages, and support artifacts
@@ -184,7 +184,7 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - The sidecar `MeshConfig` should record `sfcfg:workspaceRootRelativeToMeshRoot "../"` for `--workspace . --mesh-root docs`, giving tools the portable relationship from mesh root to containing workspace root without recording an absolute host path.
 - The sidecar `MeshConfig` produced by `weave mesh create` should grant no extra-mesh access. Constrained `sfcfg:hasLocalPathAccessRule` entries belong to later integration steps that actually introduce adjacent-source artifacts.
 - Mesh-owned helper page content should live under `docs/_mesh/content/` in this fixture.
-- Improved resource-page look-and-feel belongs to [[wd.task.2026.2026-05-03-resource-page-renderer-refresh]]; this task should only depend on resource-page behavior needed for the sidecar fixture contract.
+- Improved resource-page look-and-feel belongs to [[wa.completed.2026.2026-05-03-resource-page-renderer-refresh]]; this task should only depend on resource-page behavior needed for the sidecar fixture contract.
 - `RdfDocument` resource pages should include raw RDF content when the document bytes are locally available.
 - The trailing-slash URL script should only run on generated resource pages whose canonical IRI is explicitly slashless, which is expected to include most resource pages. It must not break relative links, canonical links, copied IRI controls, or no-JavaScript page usability.
 - Generated resource pages should preserve link behavior after slashless URL polish by using project-root-relative links for mesh navigation, resource pages, support assets, and local previews.
@@ -282,9 +282,9 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - [x] Use `workingLocalRelativePath` to associate the SHACL artifact with its adjacent authored source file.
 - [ ] Keep `hasWorkingLocatedFile` usage semantically consistent with the current located-byte story.
 - [x] Add current resource pages for root, ontology, and relevant support artifacts.
-- [ ] Add current resource pages for SHACL and relevant support artifacts.
+- [x] Add current resource pages for SHACL and relevant support artifacts.
 - [x] Add the Accord manifest for the ontology integration transition.
-- [ ] Add Accord manifests for the remaining SHACL integration transitions as they settle.
+- [x] Add Accord manifests for the remaining SHACL integration transitions as they settle.
 
 ### Phase 3: Weave The First Release
 
@@ -305,14 +305,12 @@ The first ladder should be branch-based unless implementation pressure proves a 
 ### Phase 3B: Version-Bump Follow-Up Pair
 
 - [ ] Add a follow-up ontology and SHACL version-bump pair after the first sidecar ladder is working.
-- [ ] Decide how `examples/gunaar.ttl` declares the ontology version or compatibility line it was authored against.
-- [ ] Add compatibility metadata to `examples/gunaar.ttl` when the metadata pattern is settled.
 - [ ] Use the follow-up pair to test how datasets, ontology files, SHACL files, release histories, and generated pages behave when only part of the source content has semantic changes but the published compatibility pair advances together.
 
 ### Phase 4: Resource Page Behavior
 
 - [d] Keep the target page model for ontology and SHACL artifact pages in the renderer task unless the sidecar fixture exposes a missing Semantic Flow behavior requirement.
-- [d] Defer broader resource-page look-and-feel improvements to [[wd.task.2026.2026-05-03-resource-page-renderer-refresh]].
+- [d] Defer broader resource-page look-and-feel improvements to [[wa.completed.2026.2026-05-03-resource-page-renderer-refresh]].
 - [x] Keep current artifact pages sufficient to show identity, current bytes, histories, and support resources for the fixture contract.
 - [x] Keep historical-state and located-file pages sufficient for navigating existing woven history without reading raw Turtle first.
 - [x] Add raw RDF panels to `RdfDocument` resource pages for locally available current and historical bytes.
