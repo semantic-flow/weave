@@ -4,6 +4,7 @@ import type {
   ResourcePageRawSourcePanelModel,
 } from "../../core/weave/weave.ts";
 import { Parser, type Quad } from "n3";
+import { codeToHtml } from "shiki";
 import { formatDesignatorPathForDisplay } from "../../core/designator_segments.ts";
 import type { PlannedFile } from "../../core/planned_file.ts";
 import {
@@ -63,7 +64,7 @@ interface ResourcePageRdfClass {
 }
 
 interface ResourcePageTheme {
-  render(input: ResourcePageRenderInput): string;
+  render(input: ResourcePageRenderInput): Promise<string>;
 }
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
@@ -93,6 +94,7 @@ const SFC_HAS_REQUESTED_TARGET_STATE_IRI =
 const SFC_HAS_TARGET_ARTIFACT_IRI =
   "https://semantic-flow.github.io/ontology/core/hasTargetArtifact";
 const WEAVE_REPOSITORY_URL = "https://github.com/semantic-flow/weave/";
+const SOURCE_THEME = "github-dark-default";
 const COMMON_RDF_PREFIXES: readonly [namespace: string, prefix: string][] = [
   ["http://www.w3.org/2002/07/owl#", "owl"],
   ["http://www.w3.org/ns/shacl#", "sh"],
@@ -111,22 +113,24 @@ export interface ResourcePageRenderOptions {
   generatedAt?: Date;
 }
 
-export function renderResourcePages(
+export async function renderResourcePages(
   meshBase: string,
   pages: readonly ResourcePageModel[],
   options: ResourcePageRenderOptions = {},
-): readonly PlannedFile[] {
-  return pages.map((page) => ({
-    path: page.path,
-    contents: renderResourcePage(meshBase, page, options),
-  }));
+): Promise<readonly PlannedFile[]> {
+  return await Promise.all(
+    pages.map(async (page) => ({
+      path: page.path,
+      contents: await renderResourcePage(meshBase, page, options),
+    })),
+  );
 }
 
-export function renderResourcePage(
+export async function renderResourcePage(
   meshBase: string,
   page: ResourcePageModel,
   options: ResourcePageRenderOptions = {},
-): string {
+): Promise<string> {
   const resourcePath = toResourcePath(page.path);
   const displayResourcePath = formatDesignatorPathForDisplay(resourcePath);
   const canonical = new URL(resourcePath, meshBase).href;
@@ -136,7 +140,7 @@ export function renderResourcePage(
   const escapedMeshLabel = escapeHtml(meshLabel);
 
   if (page.kind !== "customIdentifier") {
-    return defaultResourcePageTheme.render(
+    return await defaultResourcePageTheme.render(
       toDefaultResourcePageRenderInput(
         page,
         meshLabel,
@@ -439,9 +443,11 @@ ${
       </ul>`;
 }
 
-function renderDefaultResourcePage(input: ResourcePageRenderInput): string {
+async function renderDefaultResourcePage(
+  input: ResourcePageRenderInput,
+): Promise<string> {
   const rawSections = input.rawSourcePanels.length > 0
-    ? `\n${renderRawSourcePanels(input)}`
+    ? `\n${await renderRawSourcePanels(input)}`
     : "";
   const summary = input.summary
     ? `        <p class="wf-summary">${escapeHtml(input.summary)}</p>\n`
@@ -484,7 +490,8 @@ ${section.html}
     body { margin: 0; min-height: 100vh; background: linear-gradient(180deg, #f6f7f4 0%, #ebece7 100%); }
     a { color: #1f5f85; text-decoration-thickness: 0.08em; text-underline-offset: 0.18em; }
     main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 42px; }
-    .wf-shell { display: grid; gap: 18px; }
+    .wf-shell { display: grid; gap: 18px; min-width: 0; }
+    .wf-shell > * { min-width: 0; }
     .wf-eyebrow { margin: 0 0 10px; color: #5e675d; font-size: 0.82rem; letter-spacing: 0; font-weight: 700; }
     .wf-breadcrumbs { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
     .wf-breadcrumbs a { color: inherit; text-decoration-color: rgba(94, 103, 93, 0.45); }
@@ -502,13 +509,13 @@ ${section.html}
     .wf-date-tip { position: relative; display: inline-block; }
     .wf-date-tip::after { content: attr(data-tooltip); position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); opacity: 0; pointer-events: none; background: rgba(27, 32, 27, 0.94); color: #fff; border-radius: 5px; padding: 5px 7px; font-size: 0.78rem; white-space: nowrap; transition: opacity 120ms ease; }
     .wf-date-tip:hover::after, .wf-date-tip:focus::after { opacity: 1; }
-    .wf-section, .wf-source { margin-top: 24px; border-top: 1px solid #cdd2ca; padding-top: 18px; }
+    .wf-section, .wf-source { margin-top: 24px; border-top: 1px solid #cdd2ca; padding-top: 18px; min-width: 0; }
     h2 { margin: 0 0 12px; font-size: 1rem; line-height: 1.25; letter-spacing: 0; color: #2f382f; }
     ul { margin: 0; padding-left: 1.2rem; }
     li { margin: 0.45rem 0; line-height: 1.45; }
     code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
     code { background: #e9ece6; border-radius: 4px; padding: 0.12rem 0.25rem; }
-    details { border: 1px solid #c9cec7; border-radius: 8px; background: #fff; }
+    details { border: 1px solid #c9cec7; border-radius: 8px; background: #fff; min-width: 0; }
     details + details { margin-top: 12px; }
     summary { cursor: pointer; padding: 12px 14px; font-weight: 750; }
     .wf-history { padding-bottom: 12px; }
@@ -524,8 +531,9 @@ ${section.html}
     .wf-history-class { color: #687167; font-style: italic; font-size: 0.85rem; }
     .wf-history-file-iri { font-size: 0.82rem; overflow-wrap: anywhere; }
     .wf-source-meta { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 14px 12px; color: #596259; font-size: 0.88rem; }
-    pre { margin: 0; max-height: 64vh; overflow: auto; border-top: 1px solid #d7dcd4; background: #151a16; color: #e7ece4; padding: 16px; font-size: 0.86rem; line-height: 1.55; tab-size: 2; white-space: pre-wrap; overflow-wrap: anywhere; }
-    pre code { display: block; background: transparent; color: inherit; border-radius: 0; padding: 0; white-space: inherit; overflow-wrap: inherit; }
+    pre { margin: 0; width: 100%; max-width: 100%; max-height: 64vh; overflow: auto; border-top: 1px solid #d7dcd4; background: #0d1117; color: #e6edf3; padding: 16px; font-size: 0.86rem; line-height: 1.55; tab-size: 2; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
+    pre code { display: block; min-width: 0; background: transparent; color: inherit; border-radius: 0; padding: 0; white-space: inherit; overflow-wrap: inherit; word-break: inherit; }
+    pre code span { overflow-wrap: inherit; word-break: inherit; }
     .wf-generated { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 8px 0 32px; text-align: center; color: rgba(49, 57, 49, 0.42); font-size: 0.78rem; }
     .wf-generated a { color: inherit; font-weight: 700; }
   </style>
@@ -818,25 +826,30 @@ function formatGeneratedAtDisplay(generatedAt: Date): string {
   }).format(generatedAt);
 }
 
-function renderRawSourcePanels(input: ResourcePageRenderInput): string {
+async function renderRawSourcePanels(
+  input: ResourcePageRenderInput,
+): Promise<string> {
+  const panels = await Promise.all(
+    input.rawSourcePanels.map((panel) => renderRawSourcePanel(input, panel)),
+  );
   return `    <section class="wf-source">
-${
-    input.rawSourcePanels.map((panel) => renderRawSourcePanel(input, panel))
-      .join("\n")
-  }
+${panels.join("\n")}
     </section>`;
 }
 
-function renderRawSourcePanel(
+async function renderRawSourcePanel(
   input: ResourcePageRenderInput,
   panel: ResourcePageRawSourcePanelModel,
-): string {
+): Promise<string> {
   const sourceHref = toPublicSourceHref(input.meshRootHref, panel.sourcePath);
   const body = panel.contents === undefined
     ? `        <p>This source is ${
       panel.omittedByteLength ?? 0
     } bytes, so Weave omitted the inline copy. Use the raw file link instead.</p>`
-    : `        <pre><code>${escapeHtml(panel.contents)}</code></pre>`;
+    : indentHighlightedSource(
+      await renderHighlightedSource(panel.sourcePath, panel.contents),
+      8,
+    );
 
   return `      <details open>
         <summary>${escapeHtml(panel.label)}</summary>
@@ -850,6 +863,58 @@ function renderRawSourcePanel(
         </div>
 ${body}
       </details>`;
+}
+
+async function renderHighlightedSource(
+  sourcePath: string,
+  contents: string,
+): Promise<string> {
+  const language = inferSourceLanguage(sourcePath);
+  try {
+    return await codeToHtml(contents, {
+      lang: language,
+      theme: SOURCE_THEME,
+    });
+  } catch {
+    return await codeToHtml(contents, {
+      lang: "text",
+      theme: SOURCE_THEME,
+    });
+  }
+}
+
+function inferSourceLanguage(sourcePath: string): string {
+  const normalizedPath = sourcePath.toLowerCase();
+  if (normalizedPath.endsWith(".md") || normalizedPath.endsWith(".markdown")) {
+    return "markdown";
+  }
+  if (
+    normalizedPath.endsWith(".ttl") ||
+    normalizedPath.endsWith(".trig") ||
+    normalizedPath.endsWith(".nt") ||
+    normalizedPath.endsWith(".nq")
+  ) {
+    return "turtle";
+  }
+  if (normalizedPath.endsWith(".rq") || normalizedPath.endsWith(".sparql")) {
+    return "sparql";
+  }
+  if (normalizedPath.endsWith(".json") || normalizedPath.endsWith(".jsonld")) {
+    return "json";
+  }
+  if (
+    normalizedPath.endsWith(".rdf") ||
+    normalizedPath.endsWith(".owl") ||
+    normalizedPath.endsWith(".xml")
+  ) {
+    return "xml";
+  }
+  return "text";
+}
+
+function indentHighlightedSource(html: string, spaces: number): string {
+  const indent = " ".repeat(spaces);
+  return html.split("\n").map((line) => `${indent}${line}`).join("\n");
 }
 
 function toMeshRootHref(meshBase: string): string {

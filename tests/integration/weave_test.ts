@@ -1297,7 +1297,8 @@ Deno.test("executeWeave materializes sidecar extracted ontology and SHACL terms"
     characterShapePage,
     "shacl/_history001/_s0001/fantasy-rules-shacl-ttl/fantasy-rules-shacl.ttl",
   );
-  assertStringIncludes(characterShapePage, "fant:CharacterShape");
+  assertStringIncludes(characterShapePage, "fant:");
+  assertStringIncludes(characterShapePage, "CharacterShape");
 });
 
 Deno.test("executeWeave fails closed when bob's woven source payload has no current history", async () => {

@@ -17,7 +17,8 @@
     "@std/path": "jsr:@std/path@1",
     "jsonld": "npm:jsonld@9.0.0",
     "n3": "npm:n3@2.0.3",
-    "rdf-canonize": "npm:rdf-canonize@5.0.0"
+    "rdf-canonize": "npm:rdf-canonize@5.0.0",
+    "shiki": "npm:shiki@4.0.2"
   },
   "exclude": [
     ".test-tmp/**",

@@ -1473,7 +1473,9 @@ async function collectGeneratedPageFiles(
     }
   }
 
-  return renderResourcePages(meshState.meshBase, pageModels, { generatedAt });
+  return await renderResourcePages(meshState.meshBase, pageModels, {
+    generatedAt,
+  });
 }
 
 function resolveGeneratedAt(now?: () => Date): Date {

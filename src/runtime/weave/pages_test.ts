@@ -1,8 +1,8 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { renderResourcePage } from "./pages.ts";
 
-Deno.test("renderResourcePage renders identifier pages with working file links", () => {
-  const html = renderResourcePage(
+Deno.test("renderResourcePage renders identifier pages with working file links", async () => {
+  const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
       kind: "identifier",
@@ -18,8 +18,8 @@ Deno.test("renderResourcePage renders identifier pages with working file links",
   assertStringIncludes(html, 'href="/mesh-alice-bio/alice/bio/_knop"');
 });
 
-Deno.test("renderResourcePage renders nested identifier fallback titles locally", () => {
-  const html = renderResourcePage(
+Deno.test("renderResourcePage renders nested identifier fallback titles locally", async () => {
+  const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
       kind: "identifier",
@@ -36,8 +36,8 @@ Deno.test("renderResourcePage renders nested identifier fallback titles locally"
   assertStringIncludes(html, 'href="/mesh-alice-bio/alice/page-main/_knop"');
 });
 
-Deno.test("renderResourcePage renders the root identifier as slash", () => {
-  const html = renderResourcePage(
+Deno.test("renderResourcePage renders the root identifier as slash", async () => {
+  const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
       kind: "identifier",
@@ -52,8 +52,8 @@ Deno.test("renderResourcePage renders the root identifier as slash", () => {
   assertStringIncludes(html, 'href="/mesh-alice-bio/root.ttl"');
 });
 
-Deno.test("renderResourcePage renders current ReferenceCatalog pages with fragment anchors", () => {
-  const html = renderResourcePage(
+Deno.test("renderResourcePage renders current ReferenceCatalog pages with fragment anchors", async () => {
+  const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
       kind: "referenceCatalog",
@@ -76,8 +76,8 @@ Deno.test("renderResourcePage renders current ReferenceCatalog pages with fragme
   );
 });
 
-Deno.test("renderResourcePage escapes dynamic ReferenceCatalog HTML fragments", () => {
-  const html = renderResourcePage(
+Deno.test("renderResourcePage escapes dynamic ReferenceCatalog HTML fragments", async () => {
+  const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
       kind: "referenceCatalog",
@@ -101,8 +101,8 @@ Deno.test("renderResourcePage escapes dynamic ReferenceCatalog HTML fragments", 
   assertStringIncludes(html, "alice/bio?x=&lt;y&gt;&amp;z=&quot;1&quot;");
 });
 
-Deno.test("renderResourcePage renders extracted ReferenceCatalog pages pinned to a historical state", () => {
-  const html = renderResourcePage(
+Deno.test("renderResourcePage renders extracted ReferenceCatalog pages pinned to a historical state", async () => {
+  const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
       kind: "referenceCatalog",
@@ -128,8 +128,8 @@ Deno.test("renderResourcePage renders extracted ReferenceCatalog pages pinned to
   );
 });
 
-Deno.test("renderResourcePage renders pinned root ReferenceCatalog targets as slash", () => {
-  const html = renderResourcePage(
+Deno.test("renderResourcePage renders pinned root ReferenceCatalog targets as slash", async () => {
+  const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
       kind: "referenceCatalog",
@@ -152,8 +152,8 @@ Deno.test("renderResourcePage renders pinned root ReferenceCatalog targets as sl
   );
 });
 
-Deno.test("renderResourcePage renders Knop pages with local titles", () => {
-  const html = renderResourcePage(
+Deno.test("renderResourcePage renders Knop pages with local titles", async () => {
+  const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
     {
       kind: "knop",
@@ -176,8 +176,8 @@ Deno.test("renderResourcePage renders Knop pages with local titles", () => {
   assertStringIncludes(html, '<span aria-current="page">_knop</span>');
 });
 
-Deno.test("renderResourcePage renders escaped raw RDF panels and raw file links", () => {
-  const html = renderResourcePage(
+Deno.test("renderResourcePage renders escaped raw RDF panels and raw file links", async () => {
+  const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
       kind: "identifier",
@@ -198,24 +198,29 @@ Deno.test("renderResourcePage renders escaped raw RDF panels and raw file links"
   );
   assertStringIncludes(
     html,
-    "pre { margin: 0; max-height: 64vh; overflow: auto;",
+    ".wf-shell { display: grid; gap: 18px; min-width: 0; }",
   );
   assertStringIncludes(
     html,
-    "white-space: pre-wrap; overflow-wrap: anywhere;",
+    "pre { margin: 0; width: 100%; max-width: 100%; max-height: 64vh; overflow: auto;",
   );
   assertStringIncludes(
     html,
-    "pre code { display: block; background: transparent; color: inherit; border-radius: 0; padding: 0; white-space: inherit; overflow-wrap: inherit;",
+    "white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;",
   );
   assertStringIncludes(
     html,
-    "&lt;alice&gt; &lt;knows&gt; &quot;Bob &amp; Alice&quot; .",
+    "pre code { display: block; min-width: 0; background: transparent; color: inherit; border-radius: 0; padding: 0; white-space: inherit; overflow-wrap: inherit; word-break: inherit;",
+  );
+  assertStringIncludes(html, '<pre class="shiki github-dark-default"');
+  assertStringIncludes(
+    html,
+    "&#x3C;alice>",
   );
 });
 
-Deno.test("renderResourcePage renders inventory fragment sections for ExtractionSource", () => {
-  const html = renderResourcePage(
+Deno.test("renderResourcePage renders inventory fragment sections for ExtractionSource", async () => {
+  const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
       kind: "simple",
@@ -249,8 +254,8 @@ Deno.test("renderResourcePage renders inventory fragment sections for Extraction
   assertStringIncludes(html, "sfc:ArtifactResolutionMode/Pinned");
 });
 
-Deno.test("renderResourcePage does not link extra-mesh local source paths", () => {
-  const html = renderResourcePage(
+Deno.test("renderResourcePage does not link extra-mesh local source paths", async () => {
+  const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
     {
       kind: "identifier",
@@ -276,8 +281,8 @@ Deno.test("renderResourcePage does not link extra-mesh local source paths", () =
   assertStringIncludes(html, "Local source outside mesh root");
 });
 
-Deno.test("renderResourcePage renders RDF description, classes, and histories", () => {
-  const html = renderResourcePage(
+Deno.test("renderResourcePage renders RDF description, classes, and histories", async () => {
+  const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
     {
       kind: "identifier",
@@ -334,8 +339,8 @@ Deno.test("renderResourcePage renders RDF description, classes, and histories", 
   );
 });
 
-Deno.test("renderResourcePage compacts SHACL classes with the sh prefix", () => {
-  const html = renderResourcePage(
+Deno.test("renderResourcePage compacts SHACL classes with the sh prefix", async () => {
+  const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
     {
       kind: "identifier",
@@ -358,8 +363,8 @@ Deno.test("renderResourcePage compacts SHACL classes with the sh prefix", () => 
   );
 });
 
-Deno.test("renderResourcePage renders term facts from a different source artifact namespace", () => {
-  const html = renderResourcePage(
+Deno.test("renderResourcePage renders term facts from a different source artifact namespace", async () => {
+  const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
     {
       kind: "identifier",
@@ -396,7 +401,7 @@ fant:CharacterShape a sh:NodeShape ;
   );
 });
 
-Deno.test("renderResourcePage scopes history component sections to the current layer", () => {
+Deno.test("renderResourcePage scopes history component sections to the current layer", async () => {
   const historyGroup = {
     label: "Artifact history",
     path: "ontology/_history001",
@@ -408,7 +413,7 @@ Deno.test("renderResourcePage scopes history component sections to the current l
         "ontology/_history001/_s0001/fantasy-rules-ontology-ttl/fantasy-rules-ontology.ttl",
     }],
   };
-  const historyHtml = renderResourcePage(
+  const historyHtml = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
     {
       kind: "simple",
@@ -417,7 +422,7 @@ Deno.test("renderResourcePage scopes history component sections to the current l
       historyGroups: [historyGroup],
     },
   );
-  const stateHtml = renderResourcePage(
+  const stateHtml = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
     {
       kind: "simple",
@@ -426,7 +431,7 @@ Deno.test("renderResourcePage scopes history component sections to the current l
       historyGroups: [historyGroup],
     },
   );
-  const manifestationHtml = renderResourcePage(
+  const manifestationHtml = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
     {
       kind: "simple",
@@ -461,8 +466,8 @@ Deno.test("renderResourcePage scopes history component sections to the current l
   assertEquals(manifestationHtml.includes("sflo:ArtifactManifestation"), true);
 });
 
-Deno.test("renderResourcePage renders Knop artifact links without history cake", () => {
-  const html = renderResourcePage(
+Deno.test("renderResourcePage renders Knop artifact links without history cake", async () => {
+  const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
       kind: "knop",
@@ -496,9 +501,9 @@ Deno.test("renderResourcePage renders Knop artifact links without history cake",
   assertEquals(html.includes("sflo:ArtifactHistory"), false);
 });
 
-Deno.test("renderResourcePage renders customized identifier pages from mesh-local regions", () => {
+Deno.test("renderResourcePage renders customized identifier pages from mesh-local regions", async () => {
   assertEquals(
-    renderResourcePage(
+    await renderResourcePage(
       "https://semantic-flow.github.io/mesh-alice-bio/",
       {
         kind: "customIdentifier",
