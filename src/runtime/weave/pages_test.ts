@@ -1,4 +1,4 @@
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import { assertEquals, assertFalse, assertStringIncludes } from "@std/assert";
 import { renderResourcePage } from "./pages.ts";
 
 Deno.test("renderResourcePage renders identifier pages with working file links", async () => {
@@ -213,6 +213,10 @@ Deno.test("renderResourcePage renders escaped raw RDF panels and raw file links"
     "pre code { display: block; min-width: 0; background: transparent; color: inherit; border-radius: 0; padding: 0; white-space: inherit; overflow-wrap: inherit; word-break: inherit;",
   );
   assertStringIncludes(html, '<pre class="shiki github-dark-default"');
+  assertFalse(
+    html.includes('\n        <span class="line"'),
+    "Shiki source lines should not include template indentation that renders inside pre-wrap blocks.",
+  );
   assertStringIncludes(
     html,
     "&#x3C;alice>",

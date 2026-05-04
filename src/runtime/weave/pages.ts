@@ -846,10 +846,7 @@ async function renderRawSourcePanel(
     ? `        <p>This source is ${
       panel.omittedByteLength ?? 0
     } bytes, so Weave omitted the inline copy. Use the raw file link instead.</p>`
-    : indentHighlightedSource(
-      await renderHighlightedSource(panel.sourcePath, panel.contents),
-      8,
-    );
+    : await renderHighlightedSource(panel.sourcePath, panel.contents);
 
   return `      <details open>
         <summary>${escapeHtml(panel.label)}</summary>
@@ -910,11 +907,6 @@ function inferSourceLanguage(sourcePath: string): string {
     return "xml";
   }
   return "text";
-}
-
-function indentHighlightedSource(html: string, spaces: number): string {
-  const indent = " ".repeat(spaces);
-  return html.split("\n").map((line) => `${indent}${line}`).join("\n");
 }
 
 function toMeshRootHref(meshBase: string): string {
