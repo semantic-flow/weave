@@ -50,7 +50,7 @@ Deno.test("renderResourcePage renders current ReferenceCatalog pages with fragme
     },
   );
 
-  assertStringIncludes(html, "<h1>alice/_knop/_references</h1>");
+  assertStringIncludes(html, "<h1>_references</h1>");
   assertStringIncludes(html, "<h2>Current Links</h2>");
   assertStringIncludes(
     html,

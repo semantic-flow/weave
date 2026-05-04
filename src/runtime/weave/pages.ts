@@ -667,9 +667,7 @@ function toDefaultResourcePageTitle(
   resourcePath: string,
   displayResourcePath: string,
 ): string {
-  return isArtifactHistoryResourcePath(resourcePath) ||
-      isHistoricalStateResourcePath(resourcePath) ||
-      isArtifactManifestationResourcePath(resourcePath)
+  return resourcePath.length > 0
     ? toLastPathSegment(resourcePath)
     : displayResourcePath;
 }

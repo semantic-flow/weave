@@ -14,7 +14,7 @@ created: 1777705655304
 - Use the [System Reference Document 5.2.1](https://media.dndbeyond.com/compendium-images/srd/5.2/SRD_CC_v5.2.1.pdf) as the source-reference boundary for fantasy-rules vocabulary work, subject to its CC-BY-4.0 attribution requirements.
 - Use the [SRD 5.2 Markdown transcription](https://github.com/springbov/dndsrd5.2_markdown/blob/main/DND-SRD-5.2-CC.md) as a working convenience source for review and extraction, while keeping the official SRD source and attribution statement authoritative.
 - Keep the domain intentionally small: enough to feel real, not enough to become a fantasy rules knowledge-graph project.
-- Use the fixture to improve Weave's sidecar ergonomics, resource-page templates, and visual presentation.
+- Use the fixture to improve Weave's sidecar ergonomics while keeping general resource-page presentation behavior in the separate renderer task.
 - Include the raw RDF content on `RdfDocument` resource pages, not just links to Turtle files.
 - Evaluate a safe JavaScript URL-polish behavior for generated resource pages where the browser URL can display the canonical IRI without a trailing slash.
 - Capture reusable conventions for future ontology projects such as URPX without putting URPX-specific complexity into the fixture.
@@ -90,15 +90,12 @@ Use slash term IRIs first, not hash IRIs. The fixture should eventually support 
 
 The authored Turtle prefix should use `fant:` for the fantasy-rules ontology namespace, with `@prefix fant: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .`. Full IRIs remain fine in generated mesh RDF where they make cross-artifact relations clearer.
 
-The third question is whether the new fixture can improve how generated resource pages feel. The Alice Bio pages are useful, but the next fixture should push toward a calmer, clearer publication surface:
+The third question is whether the new fixture can exercise the generic generated resource-page surface without making renderer behavior part of the fixture contract. The Alice Bio pages are useful, and the sidecar fixture should consume the shared renderer improvements from [[wd.task.2026.2026-05-03-resource-page-renderer-refresh]], but conformance for this fixture should focus on Semantic Flow artifacts, inventories, path policy, generated page presence, and raw RDF availability rather than pixel-level or prose-level presentation expectations.
 
-- better artifact landing pages for ontology and SHACL artifacts
-- clearer current-vs-release sections
-- direct links to current source bytes, versioned bytes, history pages, and support artifacts
-- raw RDF rendering for `RdfDocument` pages, including ontology, SHACL, manifestation, and located-file pages where the bytes are locally available
-- visible labels, descriptions, media types, and version values where the RDF provides them
-- more intentional navigation between root, ontology, SHACL, release states, and located files
-- a shared visual baseline that can later become a template/theme story rather than a collection of fixture-specific HTML strings
+- artifact landing pages exist for ontology and SHACL artifacts when those artifacts are integrated
+- generated pages exist for current source bytes, versioned bytes, history pages, and support artifacts
+- raw RDF rendering exists for `RdfDocument` pages, including ontology, SHACL, manifestation, and located-file pages where the bytes are locally available
+- page generation remains rooted in shared runtime seams rather than fixture-specific HTML strings
 
 For RDF documents, the page should let a reader inspect the actual triples without leaving the resource page. That can start as an escaped `<pre><code>` block or a progressively enhanced source panel. The important contract is that `RdfDocument` resource pages are not only metadata about a file; they also expose the RDF document content when Weave has local bytes. The raw file URL should still exist for tools and copy/download workflows.
 
@@ -177,7 +174,7 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - The sidecar `MeshConfig` should record `sfcfg:workspaceRootRelativeToMeshRoot "../"` for `--workspace . --mesh-root docs`, giving tools the portable relationship from mesh root to containing workspace root without recording an absolute host path.
 - The sidecar `MeshConfig` produced by `weave mesh create` should grant no extra-mesh access. Constrained `sfcfg:hasLocalPathAccessRule` entries belong to later integration steps that actually introduce adjacent-source artifacts.
 - Mesh-owned helper page content should live under `docs/_mesh/content/` in this fixture.
-- Improved resource-page look-and-feel should be deferred to a separate renderer/template task; this task should only make the page behavior changes needed for the sidecar fixture contract.
+- Improved resource-page look-and-feel belongs to [[wd.task.2026.2026-05-03-resource-page-renderer-refresh]]; this task should only depend on resource-page behavior needed for the sidecar fixture contract.
 - `RdfDocument` resource pages should include raw RDF content when the document bytes are locally available.
 - The trailing-slash URL script should only run on generated resource pages whose canonical IRI is explicitly slashless, which is expected to include most resource pages. It must not break relative links, canonical links, copied IRI controls, or no-JavaScript page usability.
 - Generated resource pages should preserve link behavior after slashless URL polish by using project-root-relative links for mesh navigation, resource pages, support assets, and local previews.
@@ -199,7 +196,7 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - Define how example datasets such as `examples/gunaar.ttl` can advertise the ontology version or compatibility line they were authored against.
 - Define the sidecar fixture's transition-manifest convention in the framework examples tree, reusing the Alice Bio one-manifest-per-transition approach.
 - Define how branch refs, operation execution, and Accord manifests are combined into acceptance tests for the sidecar fixture.
-- Define the resource-page model needed for ontology/SHACL landing pages, release pages, manifestation pages, and located-file pages.
+- Define the resource-page behavior needed for ontology/SHACL landing pages, release pages, manifestation pages, and located-file pages, without making renderer-specific prose, layout, or visual styling part of sidecar fixture conformance.
 - Define how `RdfDocument` resource pages obtain and render raw RDF bytes from current working files and historical located files.
 - Defer shared page presentation/template improvements unless they are required for the sidecar fixture contract.
 - Potentially introduce a generated page script contract for slashless canonical IRI URL display, including when it may call `history.replaceState` and how generated project-root-relative links remain safe.
@@ -218,7 +215,7 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - Add tests that generated resource pages link to current artifact pages, histories, states, manifestations, and located files without assuming a whole-repo mesh root.
 - Add tests that `RdfDocument` resource pages include escaped raw RDF content from the correct current or historical located file.
 - Add browser-oriented or HTML-level tests for the trailing-slash script if it lands, including relative-link behavior after `history.replaceState`.
-- Add visual/regression checks for the new resource-page template baseline if the renderer changes materially.
+- Keep visual/regression checks for the generated resource-page template baseline in the renderer task, not in the Fantasy Rules Sidecar fixture acceptance layer.
 
 ## Non-Goals
 
@@ -268,12 +265,14 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - [x] Add an explicit `weave integrate --grant-source-directory` path so sidecar artifact integration can add the corresponding constrained mesh-carried source-directory rule while keeping ungranted extra-mesh source access fail-closed.
 - [x] Integrate the ontology artifact at public path `ontology`.
 - [x] Add the constrained `sfcfg:hasLocalPathAccessRule` entry for `../ontology/` as part of ontology artifact integration.
-- [ ] Integrate the SHACL artifact at public path `shacl`.
-- [ ] Add the constrained `sfcfg:hasLocalPathAccessRule` entry for `../shacl/` as part of SHACL artifact integration.
+- [x] Integrate the SHACL artifact at public path `shacl`.
+- [x] Ensure SHACL integration adds the constrained `sfcfg:hasLocalPathAccessRule` entry for `../shacl/`; the grant should be created by the integration operation that introduces the adjacent SHACL source artifact.
 - [ ] Add the constrained `sfcfg:hasLocalPathAccessRule` entry for `../examples/` only when example datasets are integrated as sidecar artifacts.
-- [ ] Use `workingLocalRelativePath` to associate each artifact with its adjacent authored source file.
+- [x] Use `workingLocalRelativePath` to associate the ontology artifact with its adjacent authored source file.
+- [x] Use `workingLocalRelativePath` to associate the SHACL artifact with its adjacent authored source file.
 - [ ] Keep `hasWorkingLocatedFile` usage semantically consistent with the current located-byte story.
-- [ ] Add current resource pages for root, ontology, SHACL, and relevant support artifacts.
+- [x] Add current resource pages for root, ontology, and relevant support artifacts.
+- [ ] Add current resource pages for SHACL and relevant support artifacts.
 - [x] Add the Accord manifest for the ontology integration transition.
 - [ ] Add Accord manifests for the remaining SHACL integration transitions as they settle.
 
@@ -296,14 +295,14 @@ The first ladder should be branch-based unless implementation pressure proves a 
 
 ### Phase 4: Resource Page Behavior
 
-- [ ] Draft the target page model for ontology and SHACL artifact pages.
-- [d] Defer broader resource-page look-and-feel improvements to a separate renderer/template task.
-- [ ] Keep current artifact pages sufficient to show identity, current bytes, releases, histories, and support resources for the fixture contract.
-- [ ] Keep historical-state and located-file pages sufficient for navigating the release structure without reading raw Turtle first.
-- [ ] Add raw RDF panels to `RdfDocument` resource pages for locally available current and historical bytes.
-- [ ] Move reusable page HTML/CSS rendering toward shared runtime seams rather than fixture-specific builders.
-- [ ] Add or update specs if the resource-page contract changes materially.
-- [ ] Add or update Accord manifests for resource-page expectations changed by this phase.
+- [d] Keep the target page model for ontology and SHACL artifact pages in the renderer task unless the sidecar fixture exposes a missing Semantic Flow behavior requirement.
+- [d] Defer broader resource-page look-and-feel improvements to [[wd.task.2026.2026-05-03-resource-page-renderer-refresh]].
+- [x] Keep current artifact pages sufficient to show identity, current bytes, histories, and support resources for the fixture contract.
+- [x] Keep historical-state and located-file pages sufficient for navigating existing woven history without reading raw Turtle first.
+- [x] Add raw RDF panels to `RdfDocument` resource pages for locally available current and historical bytes.
+- [x] Move reusable page HTML/CSS rendering toward shared runtime seams rather than fixture-specific builders.
+- [d] Add or update specs for resource-page presentation in the renderer task if that contract changes materially.
+- [d] Do not make renderer-specific prose, layout, or visual expectations part of Fantasy Rules Sidecar Accord manifests.
 
 ### Phase 5: URL Polish Experiment
 

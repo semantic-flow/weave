@@ -549,7 +549,7 @@ Deno.test("executeWeave matches the settled alice page-customized-woven fixture"
   const pageDefinitionHtml = await Deno.readTextFile(
     join(workspaceRoot, "alice/_knop/_page/index.html"),
   );
-  assertStringIncludes(pageDefinitionHtml, "<h1>alice/_knop/_page</h1>");
+  assertStringIncludes(pageDefinitionHtml, "<h1>_page</h1>");
   assertStringIncludes(
     pageDefinitionHtml,
     "Resource page definition for alice",
