@@ -150,6 +150,10 @@ Deno.test("renderResourcePage renders escaped raw RDF panels and raw file links"
   assertStringIncludes(html, '<a href="../../alice-bio.ttl">Raw file</a>');
   assertStringIncludes(
     html,
+    "pre code { display: block; background: transparent; color: inherit;",
+  );
+  assertStringIncludes(
+    html,
     "&lt;alice&gt; &lt;knows&gt; &quot;Bob &amp; Alice&quot; .",
   );
 });

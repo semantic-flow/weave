@@ -276,6 +276,7 @@ ${section.html}
     summary { cursor: pointer; padding: 12px 14px; font-weight: 750; }
     .wf-source-meta { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 14px 12px; color: #596259; font-size: 0.88rem; }
     pre { margin: 0; max-height: 64vh; overflow: auto; border-top: 1px solid #d7dcd4; background: #151a16; color: #e7ece4; padding: 16px; font-size: 0.86rem; line-height: 1.55; tab-size: 2; }
+    pre code { display: block; background: transparent; color: inherit; border-radius: 0; padding: 0; white-space: pre; }
     footer { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 0 0 28px; color: #687167; }
   </style>
   <script>
