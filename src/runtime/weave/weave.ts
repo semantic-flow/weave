@@ -1782,6 +1782,21 @@ function collectHistoryGroupsByResourcePath(
     );
   }
 
+  for (const historyGroups of [...groupsByResourcePath.values()]) {
+    for (const historyGroup of historyGroups) {
+      for (const state of historyGroup.states) {
+        addHistoryGroup(groupsByResourcePath, state.path, historyGroup);
+        if (state.manifestationPath) {
+          addHistoryGroup(
+            groupsByResourcePath,
+            state.manifestationPath,
+            historyGroup,
+          );
+        }
+      }
+    }
+  }
+
   return groupsByResourcePath;
 }
 

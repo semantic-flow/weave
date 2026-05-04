@@ -226,7 +226,7 @@ Deno.test("renderResourcePage renders RDF description, classes, and histories", 
 
   assertStringIncludes(html, "<h1>Fantasy Rules Ontology</h1>");
   assertStringIncludes(html, "A small ontology fixture.");
-  assertStringIncludes(html, '<p class="wf-classes">owl:Ontology</p>');
+  assertStringIncludes(html, '<p class="wf-classes">a owl:Ontology</p>');
   assertStringIncludes(html, "<summary>History</summary>");
   assertStringIncludes(html, "sflo:ArtifactHistory");
   assertStringIncludes(html, "sflo:HistoricalState");
@@ -244,6 +244,63 @@ Deno.test("renderResourcePage renders RDF description, classes, and histories", 
     html,
     'href="/mesh-sidecar-fantasy-rules/ontology/_history001/_s0001/fantasy-rules-ontology-ttl/fantasy-rules-ontology.ttl"',
   );
+});
+
+Deno.test("renderResourcePage scopes history component sections to the current layer", () => {
+  const historyGroup = {
+    label: "Artifact history",
+    path: "ontology/_history001",
+    states: [{
+      path: "ontology/_history001/_s0001",
+      manifestationPath:
+        "ontology/_history001/_s0001/fantasy-rules-ontology-ttl",
+      locatedFilePath:
+        "ontology/_history001/_s0001/fantasy-rules-ontology-ttl/fantasy-rules-ontology.ttl",
+    }],
+  };
+  const historyHtml = renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "simple",
+      path: "ontology/_history001/index.html",
+      description: "Generated resource page.",
+      historyGroups: [historyGroup],
+    },
+  );
+  const stateHtml = renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "simple",
+      path: "ontology/_history001/_s0001/index.html",
+      description: "Generated resource page.",
+      historyGroups: [historyGroup],
+    },
+  );
+  const manifestationHtml = renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "simple",
+      path: "ontology/_history001/_s0001/fantasy-rules-ontology-ttl/index.html",
+      description: "Generated resource page.",
+      historyGroups: [historyGroup],
+    },
+  );
+
+  assertStringIncludes(historyHtml, "<h1>Historical States</h1>");
+  assertStringIncludes(historyHtml, "<summary>Historical States</summary>");
+  assertStringIncludes(historyHtml, "sflo:HistoricalState");
+  assertEquals(
+    historyHtml.includes(
+      '<a href="/mesh-sidecar-fantasy-rules/ontology/_history001">ontology/_history001</a>',
+    ),
+    false,
+  );
+  assertStringIncludes(stateHtml, "<summary>Manifestations</summary>");
+  assertStringIncludes(stateHtml, "sflo:ArtifactManifestation");
+  assertEquals(stateHtml.includes("sflo:HistoricalState"), true);
+  assertStringIncludes(manifestationHtml, "<summary>Located Files</summary>");
+  assertStringIncludes(manifestationHtml, "sflo:LocatedFile");
+  assertEquals(manifestationHtml.includes("sflo:ArtifactManifestation"), true);
 });
 
 Deno.test("renderResourcePage renders customized identifier pages from mesh-local regions", () => {

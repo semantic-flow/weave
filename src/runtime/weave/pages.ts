@@ -276,7 +276,8 @@ function toDefaultResourcePageRenderInput(
     resourcePath,
     displayResourcePath,
     canonical,
-    title: rdfFacts.title ?? displayResourcePath,
+    title: rdfFacts.title ??
+      toDefaultResourcePageTitle(resourcePath, displayResourcePath),
     summary: page.description,
     rdfClasses: rdfFacts.classes.length > 0
       ? rdfFacts.classes
@@ -308,15 +309,7 @@ ${input.metadataRows.map((row) => renderMetadataRow(row)).join("\n")}
         </table>
 `
     : "";
-  const histories = input.historyGroups.length > 0
-    ? `    <section class="wf-section">
-      <details class="wf-history">
-        <summary>History</summary>
-${renderHistoryGroups(input)}
-      </details>
-    </section>
-`
-    : "";
+  const historySection = renderHistorySection(input);
   const sections = input.sections.map((section) =>
     `    <section class="wf-section">
       <h2>${escapeHtml(section.title)}</h2>
@@ -365,10 +358,12 @@ ${section.html}
     summary { cursor: pointer; padding: 12px 14px; font-weight: 750; }
     .wf-history { padding-bottom: 12px; }
     .wf-history-tree { display: grid; gap: 10px; padding: 0 14px 4px; }
-    .wf-history-node { border: 1px solid #d5dbd3; border-radius: 8px; background: #f8faf7; padding: 10px; }
-    .wf-history-node .wf-history-node { margin-top: 8px; background: #eef3ef; }
-    .wf-history-node .wf-history-node .wf-history-node { background: #e7eee9; }
-    .wf-history-node .wf-history-node .wf-history-node .wf-history-node { background: #dfe8e2; }
+    .wf-history-node { border: 1px solid #d5dbd3; border-radius: 8px; padding: 10px; }
+    .wf-history-node + .wf-history-node, .wf-history-node .wf-history-node { margin-top: 8px; }
+    .wf-history-node--history { background: #f8faf7; }
+    .wf-history-node--state { background: #eef3ef; }
+    .wf-history-node--manifestation { background: #e7eee9; }
+    .wf-history-node--file { background: #dfe8e2; }
     .wf-history-node-header { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
     .wf-history-class { color: #687167; font-style: italic; font-size: 0.85rem; }
     .wf-source-meta { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 14px 12px; color: #596259; font-size: 0.88rem; }
@@ -391,7 +386,7 @@ ${section.html}
         <h1>${escapeHtml(input.title)}</h1>
 ${classes}${summary}${metadata}
       </header>
-${histories}${sections ? `${sections}\n` : ""}${rawSections}
+${historySection}${sections ? `${sections}\n` : ""}${rawSections}
     </article>
   </main>
   <footer class="wf-generated">
@@ -412,8 +407,50 @@ function renderMetadataRow(row: ResourcePageMetadataRow): string {
   return `            <tr><th scope="row">${label}</th><td>${value}</td></tr>`;
 }
 
+function renderHistorySection(input: ResourcePageRenderInput): string {
+  if (input.historyGroups.length === 0) {
+    return "";
+  }
+  const title = toHistorySectionTitle(input);
+  return `    <section class="wf-section">
+      <details class="wf-history">
+        <summary>${escapeHtml(title)}</summary>
+${renderHistoryGroups(input)}
+      </details>
+    </section>
+`;
+}
+
+function toHistorySectionTitle(input: ResourcePageRenderInput): string {
+  if (isArtifactHistoryResourcePath(input.resourcePath)) {
+    return "Historical States";
+  }
+  if (isHistoricalStateResourcePath(input.resourcePath)) {
+    return "Manifestations";
+  }
+  if (isArtifactManifestationResourcePath(input.resourcePath)) {
+    return "Located Files";
+  }
+  return "History";
+}
+
 function renderHistoryGroups(input: ResourcePageRenderInput): string {
   return input.historyGroups.map((group) => {
+    if (input.resourcePath === group.path) {
+      return renderHistoricalStates(input, group);
+    }
+    const matchingState = group.states.find((state) =>
+      state.path === input.resourcePath
+    );
+    if (matchingState) {
+      return renderManifestations(input, matchingState);
+    }
+    const matchingManifestation = group.states.find((state) =>
+      state.manifestationPath === input.resourcePath
+    );
+    if (matchingManifestation?.locatedFilePath) {
+      return renderLocatedFiles(input, matchingManifestation.locatedFilePath);
+    }
     const historyHref = toMeshResourceHref(input.meshRootHref, group.path);
     const states = group.states.length > 0
       ? group.states.map((state) => renderHistoryState(input, state)).join(
@@ -422,7 +459,7 @@ function renderHistoryGroups(input: ResourcePageRenderInput): string {
       : "          <p>No historical states are listed yet.</p>";
 
     return `        <div class="wf-history-tree">
-          <div class="wf-history-node">
+          <div class="wf-history-node wf-history-node--history">
             <div class="wf-history-node-header"><a href="${
       escapeHtml(historyHref)
     }">${
@@ -432,6 +469,41 @@ ${states}
           </div>
         </div>`;
   }).join("\n");
+}
+
+function renderHistoricalStates(
+  input: ResourcePageRenderInput,
+  group: ResourcePageHistoryGroupModel,
+): string {
+  const states = group.states.length > 0
+    ? group.states.map((state) => renderHistoryState(input, state)).join("\n")
+    : "          <p>No historical states are listed yet.</p>";
+
+  return `        <div class="wf-history-tree">
+${states}
+        </div>`;
+}
+
+function renderManifestations(
+  input: ResourcePageRenderInput,
+  state: ResourcePageHistoryGroupModel["states"][number],
+): string {
+  const manifestation = state.manifestationPath
+    ? renderHistoryManifestation(input, state.manifestationPath, state)
+    : "          <p>No manifestations are listed yet.</p>";
+
+  return `        <div class="wf-history-tree">
+${manifestation}
+        </div>`;
+}
+
+function renderLocatedFiles(
+  input: ResourcePageRenderInput,
+  locatedFilePath: string,
+): string {
+  return `        <div class="wf-history-tree">
+${renderHistoryLocatedFile(input, locatedFilePath, 10)}
+        </div>`;
 }
 
 function renderHistoryState(
@@ -445,7 +517,7 @@ function renderHistoryState(
     ? renderHistoryLocatedFile(input, state.locatedFilePath, 14)
     : "";
 
-  return `            <div class="wf-history-node">
+  return `            <div class="wf-history-node wf-history-node--state">
               <div class="wf-history-node-header"><a href="${
     escapeHtml(stateHref)
   }">${
@@ -468,7 +540,7 @@ function renderHistoryManifestation(
     ? renderHistoryLocatedFile(input, state.locatedFilePath, 16)
     : "";
 
-  return `              <div class="wf-history-node">
+  return `              <div class="wf-history-node wf-history-node--manifestation">
                 <div class="wf-history-node-header"><a href="${
     escapeHtml(manifestationHref)
   }">${
@@ -488,7 +560,7 @@ function renderHistoryLocatedFile(
     locatedFilePath,
   );
   const spaces = " ".repeat(indent);
-  return `${spaces}<div class="wf-history-node">
+  return `${spaces}<div class="wf-history-node wf-history-node--file">
 ${spaces}  <div class="wf-history-node-header"><a href="${
     escapeHtml(locatedFileHref)
   }">${
@@ -512,6 +584,16 @@ function renderTooltipLabel(label: string, tooltip: string): string {
 function toLastPathSegment(path: string): string {
   const segments = path.split("/").filter((segment) => segment.length > 0);
   return segments[segments.length - 1] ?? "/";
+}
+
+function toDefaultResourcePageTitle(
+  resourcePath: string,
+  displayResourcePath: string,
+): string {
+  if (isArtifactHistoryResourcePath(resourcePath)) {
+    return "Historical States";
+  }
+  return displayResourcePath;
 }
 
 function renderRawSourcePanels(input: ResourcePageRenderInput): string {
@@ -701,6 +783,20 @@ function classifyResourcePage(resourcePath: string): string {
     return "sflo:ArtifactHistory";
   }
   return "sflo:DigitalArtifact";
+}
+
+function isArtifactHistoryResourcePath(resourcePath: string): boolean {
+  return /(^|\/)_history[0-9]+/.test(resourcePath) &&
+    !isHistoricalStateResourcePath(resourcePath) &&
+    !isArtifactManifestationResourcePath(resourcePath);
+}
+
+function isHistoricalStateResourcePath(resourcePath: string): boolean {
+  return /(^|\/)_history[0-9]+\/_s[0-9]+$/.test(resourcePath);
+}
+
+function isArtifactManifestationResourcePath(resourcePath: string): boolean {
+  return /(^|\/)_history[0-9]+\/_s[0-9]+\/[^/]+$/.test(resourcePath);
 }
 
 function assertNeverResourcePage(page: never): never {
