@@ -12,10 +12,28 @@ Deno.test("renderResourcePage renders identifier pages with working file links",
     },
   );
 
-  assertStringIncludes(html, "<title>mesh-alice-bio alice/bio</title>");
-  assertStringIncludes(html, "<h1>alice/bio</h1>");
+  assertStringIncludes(html, "<title>mesh-alice-bio bio</title>");
+  assertStringIncludes(html, "<h1>bio</h1>");
   assertStringIncludes(html, 'href="/mesh-alice-bio/alice-bio.ttl"');
   assertStringIncludes(html, 'href="/mesh-alice-bio/alice/bio/_knop"');
+});
+
+Deno.test("renderResourcePage renders nested identifier fallback titles locally", () => {
+  const html = renderResourcePage(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "identifier",
+      path: "alice/page-main/index.html",
+      designatorPath: "alice/page-main",
+      workingLocalRelativePath: "alice-page-main.md",
+    },
+  );
+
+  assertStringIncludes(html, "<title>mesh-alice-bio page-main</title>");
+  assertStringIncludes(html, "<h1>page-main</h1>");
+  assertStringIncludes(html, 'href="/mesh-alice-bio/alice"');
+  assertStringIncludes(html, '<span aria-current="page">page-main</span>');
+  assertStringIncludes(html, 'href="/mesh-alice-bio/alice/page-main/_knop"');
 });
 
 Deno.test("renderResourcePage renders the root identifier as slash", () => {
@@ -155,6 +173,7 @@ Deno.test("renderResourcePage renders Knop pages with local titles", () => {
     html,
     'href="/mesh-sidecar-fantasy-rules/ontology"',
   );
+  assertStringIncludes(html, '<span aria-current="page">_knop</span>');
 });
 
 Deno.test("renderResourcePage renders escaped raw RDF panels and raw file links", () => {
@@ -165,14 +184,14 @@ Deno.test("renderResourcePage renders escaped raw RDF panels and raw file links"
       path: "alice/bio/index.html",
       designatorPath: "alice/bio",
       rawSourcePanels: [{
-        label: "Current working RDF bytes",
+        label: "Current working file",
         sourcePath: "alice-bio.ttl",
         contents: '<alice> <knows> "Bob & Alice" .',
       }],
     },
   );
 
-  assertStringIncludes(html, "<h2>Raw RDF Source</h2>");
+  assertStringIncludes(html, "<summary>Current working file</summary>");
   assertStringIncludes(
     html,
     '<a href="/mesh-alice-bio/alice-bio.ttl">Raw file</a>',
@@ -187,6 +206,41 @@ Deno.test("renderResourcePage renders escaped raw RDF panels and raw file links"
   );
 });
 
+Deno.test("renderResourcePage renders inventory fragment sections for ExtractionSource", () => {
+  const html = renderResourcePage(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "simple",
+      path: "bob/_knop/_inventory/index.html",
+      description: "Generated resource page.",
+      rawSourcePanels: [{
+        label: "Current KnopInventory file",
+        sourcePath: "bob/_knop/_inventory/inventory.ttl",
+        contents: `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sfc: <https://semantic-flow.github.io/ontology/core/> .
+
+<bob/_knop/_inventory#extraction-source> a sfc:ExtractionSource ;
+  sfc:hasTargetArtifact <alice/bio> ;
+  sfc:hasRequestedTargetState <alice/bio/_history001/_s0002> ;
+  sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Pinned> .
+`,
+      }],
+    },
+  );
+
+  assertStringIncludes(
+    html,
+    '<section class="wf-section" id="extraction-source">',
+  );
+  assertStringIncludes(html, "<h2>Extraction Source</h2>");
+  assertStringIncludes(html, 'href="/mesh-alice-bio/alice/bio"');
+  assertStringIncludes(
+    html,
+    'href="/mesh-alice-bio/alice/bio/_history001/_s0002"',
+  );
+  assertStringIncludes(html, "sfc:ArtifactResolutionMode/Pinned");
+});
+
 Deno.test("renderResourcePage does not link extra-mesh local source paths", () => {
   const html = renderResourcePage(
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
@@ -196,7 +250,7 @@ Deno.test("renderResourcePage does not link extra-mesh local source paths", () =
       designatorPath: "ontology",
       workingLocalRelativePath: "../ontology/fantasy-rules-ontology.ttl",
       rawSourcePanels: [{
-        label: "Current working RDF bytes",
+        label: "Current working file",
         sourcePath: "../ontology/fantasy-rules-ontology.ttl",
         contents: "<ontology> a <Ontology> .",
       }],
@@ -234,7 +288,7 @@ Deno.test("renderResourcePage renders RDF description, classes, and histories", 
         }],
       }],
       rawSourcePanels: [{
-        label: "Current working RDF bytes",
+        label: "Current working file",
         sourcePath: "../ontology/fantasy-rules-ontology.ttl",
         contents: `@prefix dcterms: <http://purl.org/dc/terms/> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
@@ -280,7 +334,7 @@ Deno.test("renderResourcePage compacts SHACL classes with the sh prefix", () => 
       path: "shacl/index.html",
       designatorPath: "shacl",
       rawSourcePanels: [{
-        label: "Current working RDF bytes",
+        label: "Current working file",
         sourcePath: "../shacl/fantasy-rules-shacl.ttl",
         contents: `@prefix sh: <http://www.w3.org/ns/shacl#> .
 
@@ -304,7 +358,7 @@ Deno.test("renderResourcePage renders term facts from a different source artifac
       path: "ontology/CharacterShape/index.html",
       designatorPath: "ontology/CharacterShape",
       rawSourcePanels: [{
-        label: "Pinned source RDF bytes",
+        label: "Pinned source file",
         sourcePath:
           "shacl/_history001/_s0001/fantasy-rules-shacl-ttl/fantasy-rules-shacl.ttl",
         contents:
@@ -327,7 +381,7 @@ fant:CharacterShape a sh:NodeShape ;
     html,
     '<p class="wf-classes">a <a href="http://www.w3.org/ns/shacl#NodeShape">sh:NodeShape</a></p>',
   );
-  assertStringIncludes(html, "Pinned source RDF bytes");
+  assertStringIncludes(html, "Pinned source file");
   assertStringIncludes(
     html,
     'href="/mesh-sidecar-fantasy-rules/shacl/_history001/_s0001/fantasy-rules-shacl-ttl/fantasy-rules-shacl.ttl"',
@@ -378,6 +432,10 @@ Deno.test("renderResourcePage scopes history component sections to the current l
   assertStringIncludes(
     historyHtml,
     '<a href="/mesh-sidecar-fantasy-rules/ontology">ontology</a>',
+  );
+  assertStringIncludes(
+    historyHtml,
+    '<span aria-current="page">_history001</span>',
   );
   assertStringIncludes(historyHtml, "<summary>Historical States</summary>");
   assertStringIncludes(historyHtml, "sflo:HistoricalState");

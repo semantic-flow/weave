@@ -42,10 +42,11 @@ interface ResourcePageMetadataRow {
 
 interface ResourcePageBreadcrumb {
   label: string;
-  href: string;
+  href?: string;
 }
 
 interface ResourcePageSection {
+  id?: string;
   title: string;
   html: string;
 }
@@ -83,6 +84,14 @@ const SCHEMA_NAME_IRIS = [
   "https://schema.org/Name",
   "http://schema.org/Name",
 ] as const;
+const SFC_EXTRACTION_SOURCE_IRI =
+  "https://semantic-flow.github.io/ontology/core/ExtractionSource";
+const SFC_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
+  "https://semantic-flow.github.io/ontology/core/hasArtifactResolutionMode";
+const SFC_HAS_REQUESTED_TARGET_STATE_IRI =
+  "https://semantic-flow.github.io/ontology/core/hasRequestedTargetState";
+const SFC_HAS_TARGET_ARTIFACT_IRI =
+  "https://semantic-flow.github.io/ontology/core/hasTargetArtifact";
 const WEAVE_REPOSITORY_URL = "https://github.com/semantic-flow/weave/";
 const COMMON_RDF_PREFIXES: readonly [namespace: string, prefix: string][] = [
   ["http://www.w3.org/2002/07/owl#", "owl"],
@@ -123,7 +132,6 @@ export function renderResourcePage(
   const canonical = new URL(resourcePath, meshBase).href;
   const meshLabel = deriveMeshLabel(meshBase);
   const meshRootHref = toMeshRootHref(meshBase);
-  const escapedResourcePath = escapeHtml(displayResourcePath);
   const escapedCanonical = escapeHtml(canonical);
   const escapedMeshLabel = escapeHtml(meshLabel);
 
@@ -143,6 +151,10 @@ export function renderResourcePage(
   }
 
   if (page.kind === "customIdentifier") {
+    const displayTitle = toDefaultResourcePageTitle(
+      resourcePath,
+      displayResourcePath,
+    );
     const stylesheetLinks = page.stylesheetPaths.map((stylesheetPath) =>
       `  <link rel="stylesheet" href="${
         escapeHtml(
@@ -166,7 +178,7 @@ export function renderResourcePage(
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>${escapedMeshLabel} ${escapedResourcePath}</title>
+  <title>${escapedMeshLabel} ${escapeHtml(displayTitle)}</title>
   <link rel="canonical" href="${escapedCanonical}">
 ${stylesheetLinks ? `${stylesheetLinks}\n` : ""}</head>
 <body class="${escapeHtml(`${slug}-custom-page`)}">
@@ -227,11 +239,14 @@ function toDefaultResourcePageRenderInput(
       generatedAtIso,
       generatedAtDisplay,
       title: rdfFacts.title ??
-        formatDesignatorPathForDisplay(page.designatorPath),
+        toDefaultResourcePageTitle(
+          page.designatorPath,
+          formatDesignatorPathForDisplay(page.designatorPath),
+        ),
       breadcrumbs: toResourcePageBreadcrumbs(
         meshLabel,
         meshRootHref,
-        toParentResourcePath(resourcePath),
+        resourcePath,
       ),
       summary: rdfFacts.description,
       rdfClasses: rdfFacts.classes,
@@ -300,7 +315,7 @@ function toDefaultResourcePageRenderInput(
       breadcrumbs: toResourcePageBreadcrumbs(
         meshLabel,
         meshRootHref,
-        toParentResourcePath(resourcePath),
+        resourcePath,
       ),
       summary: `Reference catalog for ${
         formatDesignatorPathForDisplay(page.ownerDesignatorPath)
@@ -355,7 +370,7 @@ function toDefaultResourcePageRenderInput(
       breadcrumbs: toResourcePageBreadcrumbs(
         meshLabel,
         meshRootHref,
-        toParentResourcePath(resourcePath),
+        resourcePath,
       ),
       summary: `Knop control surface for ${
         formatDesignatorPathForDisplay(page.designatorPath)
@@ -390,7 +405,7 @@ function toDefaultResourcePageRenderInput(
     breadcrumbs: toResourcePageBreadcrumbs(
       meshLabel,
       meshRootHref,
-      toParentResourcePath(resourcePath),
+      resourcePath,
     ),
     summary: page.description,
     rdfClasses: rdfFacts.classes.length > 0
@@ -398,7 +413,11 @@ function toDefaultResourcePageRenderInput(
       : [classifyResourcePage(resourcePath)],
     metadataRows: [{ label: "Canonical IRI", value: canonical }],
     historyGroups: page.historyGroups ?? [],
-    sections: [],
+    sections: extractFragmentSections(
+      canonical,
+      page.rawSourcePanels ?? [],
+      meshRootHref,
+    ),
     rawSourcePanels: page.rawSourcePanels ?? [],
   };
 }
@@ -443,12 +462,13 @@ ${input.metadataRows.map((row) => renderMetadataRow(row)).join("\n")}
 `
     : "";
   const historySection = renderHistorySection(input);
-  const sections = input.sections.map((section) =>
-    `    <section class="wf-section">
+  const sections = input.sections.map((section) => {
+    const idAttribute = section.id ? ` id="${escapeHtml(section.id)}"` : "";
+    return `    <section class="wf-section"${idAttribute}>
       <h2>${escapeHtml(section.title)}</h2>
 ${section.html}
-    </section>`
-  ).join("\n");
+    </section>`;
+  }).join("\n");
   const breadcrumbs = renderBreadcrumbs(input);
 
   return `<!doctype html>
@@ -549,9 +569,10 @@ ${
       const separator = index === 0
         ? ""
         : ` <span aria-hidden="true">/</span> `;
-      return `${separator}<a href="${escapeHtml(breadcrumb.href)}">${
-        escapeHtml(breadcrumb.label)
-      }</a>`;
+      const label = escapeHtml(breadcrumb.label);
+      return breadcrumb.href
+        ? `${separator}<a href="${escapeHtml(breadcrumb.href)}">${label}</a>`
+        : `${separator}<span aria-current="page">${label}</span>`;
     }).join("")
   }
         </nav>`;
@@ -753,11 +774,6 @@ function toLastPathSegment(path: string): string {
   return segments[segments.length - 1] ?? "/";
 }
 
-function toParentResourcePath(path: string): string {
-  const segments = path.split("/").filter((segment) => segment.length > 0);
-  return segments.slice(0, -1).join("/");
-}
-
 function toDefaultResourcePageTitle(
   resourcePath: string,
   displayResourcePath: string,
@@ -770,21 +786,23 @@ function toDefaultResourcePageTitle(
 function toResourcePageBreadcrumbs(
   meshLabel: string,
   meshRootHref: string,
-  parentPath: string,
+  resourcePath: string,
 ): readonly ResourcePageBreadcrumb[] {
   const breadcrumbs: ResourcePageBreadcrumb[] = [{
     label: meshLabel,
     href: meshRootHref,
   }];
-  const segments = parentPath === "." || parentPath.length === 0
+  const segments = resourcePath === "." || resourcePath.length === 0
     ? []
-    : parentPath.split("/").filter((segment) => segment.length > 0);
+    : resourcePath.split("/").filter((segment) => segment.length > 0);
 
   for (let index = 0; index < segments.length; index += 1) {
     const path = segments.slice(0, index + 1).join("/");
     breadcrumbs.push({
       label: segments[index],
-      href: toMeshResourceHref(meshRootHref, path),
+      ...(index === segments.length - 1
+        ? {}
+        : { href: toMeshResourceHref(meshRootHref, path) }),
     });
   }
 
@@ -802,7 +820,6 @@ function formatGeneratedAtDisplay(generatedAt: Date): string {
 
 function renderRawSourcePanels(input: ResourcePageRenderInput): string {
   return `    <section class="wf-source">
-      <h2>Raw RDF Source</h2>
 ${
     input.rawSourcePanels.map((panel) => renderRawSourcePanel(input, panel))
       .join("\n")
@@ -910,6 +927,105 @@ function extractRdfFacts(
   };
 }
 
+function extractFragmentSections(
+  canonical: string,
+  rawSourcePanels: readonly ResourcePageRawSourcePanelModel[],
+  meshRootHref: string,
+): readonly ResourcePageSection[] {
+  const prefixMap = collectPrefixMap(rawSourcePanels);
+  const quads = rawSourcePanels.flatMap((panel) =>
+    panel.contents ? parseRdfPanel(canonical, panel.contents) : []
+  );
+  const sections: ResourcePageSection[] = [];
+  const subjects = new Set<string>();
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType === "NamedNode" &&
+      quad.subject.value.startsWith(`${canonical}#`) &&
+      quad.predicate.value === RDF_TYPE_IRI &&
+      quad.object.termType === "NamedNode" &&
+      quad.object.value === SFC_EXTRACTION_SOURCE_IRI
+    ) {
+      subjects.add(quad.subject.value);
+    }
+  }
+
+  for (const subjectIri of [...subjects].sort()) {
+    const fragment = subjectIri.slice(canonical.length + 1);
+    const targetArtifactIri = findFirstNamedNodeObject(
+      quads,
+      subjectIri,
+      SFC_HAS_TARGET_ARTIFACT_IRI,
+    );
+    const requestedTargetStateIri = findFirstNamedNodeObject(
+      quads,
+      subjectIri,
+      SFC_HAS_REQUESTED_TARGET_STATE_IRI,
+    );
+    const artifactResolutionModeIri = findFirstNamedNodeObject(
+      quads,
+      subjectIri,
+      SFC_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
+    );
+    const rows = [
+      targetArtifactIri
+        ? renderFragmentIriRow(
+          "Target Artifact",
+          targetArtifactIri,
+          meshRootHref,
+          prefixMap,
+        )
+        : undefined,
+      requestedTargetStateIri
+        ? renderFragmentIriRow(
+          "Requested Target State",
+          requestedTargetStateIri,
+          meshRootHref,
+          prefixMap,
+        )
+        : undefined,
+      artifactResolutionModeIri
+        ? renderFragmentIriRow(
+          "Resolution Mode",
+          artifactResolutionModeIri,
+          meshRootHref,
+          prefixMap,
+        )
+        : undefined,
+    ].filter((row): row is string => row !== undefined).join("\n");
+
+    sections.push({
+      id: fragment,
+      title: "Extraction Source",
+      html: `      <table class="wf-metadata">
+        <tbody>
+${rows}
+        </tbody>
+      </table>`,
+    });
+  }
+
+  return sections;
+}
+
+function renderFragmentIriRow(
+  label: string,
+  iri: string,
+  meshRootHref: string,
+  prefixMap: ReadonlyMap<string, string>,
+): string {
+  const meshPath = toMeshPath(meshRootHref, iri);
+  const value = meshPath ? formatDesignatorPathForDisplay(meshPath) : iri;
+  const href = meshPath ? toMeshResourceHref(meshRootHref, meshPath) : iri;
+
+  return `          <tr><th scope="row">${escapeHtml(label)}</th><td><a href="${
+    escapeHtml(href)
+  }">${
+    escapeHtml(meshPath ? value : compactRdfIri(value, prefixMap))
+  }</a></td></tr>`;
+}
+
 function collectPrefixMap(
   rawSourcePanels: readonly ResourcePageRawSourcePanelModel[],
 ): ReadonlyMap<string, string> {
@@ -975,6 +1091,24 @@ function findFirstLiteralObject(
   return undefined;
 }
 
+function findFirstNamedNodeObject(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+): string | undefined {
+  for (const quad of quads) {
+    if (
+      quad.subject.termType === "NamedNode" &&
+      quad.subject.value === subjectIri &&
+      quad.predicate.value === predicateIri &&
+      quad.object.termType === "NamedNode"
+    ) {
+      return quad.object.value;
+    }
+  }
+  return undefined;
+}
+
 function findFirstLiteralObjectFromPredicates(
   quads: readonly Quad[],
   subjectIri: string,
@@ -987,6 +1121,22 @@ function findFirstLiteralObjectFromPredicates(
     }
   }
   return undefined;
+}
+
+function toMeshPath(meshRootHref: string, iri: string): string | undefined {
+  let url: URL;
+  try {
+    url = new URL(iri);
+  } catch {
+    return undefined;
+  }
+
+  if (url.search || !url.pathname.startsWith(meshRootHref)) {
+    return undefined;
+  }
+
+  const path = url.pathname.slice(meshRootHref.length);
+  return url.hash ? `${path}${url.hash}` : path;
 }
 
 function compactRdfIri(

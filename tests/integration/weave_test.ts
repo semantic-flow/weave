@@ -1314,7 +1314,7 @@ Deno.test("executeWeave materializes sidecar extracted ontology and SHACL terms"
     join(workspaceRoot, "docs/ontology/CharacterShape/index.html"),
   );
   assertStringIncludes(characterShapePage, "sh:NodeShape");
-  assertStringIncludes(characterShapePage, "Pinned source RDF bytes");
+  assertStringIncludes(characterShapePage, "Pinned source file");
   assertStringIncludes(
     characterShapePage,
     "shacl/_history001/_s0001/fantasy-rules-shacl-ttl/fantasy-rules-shacl.ttl",

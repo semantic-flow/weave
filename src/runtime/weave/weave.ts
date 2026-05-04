@@ -35,9 +35,9 @@ import {
 } from "../../core/weave/weave.ts";
 import {
   listKnopDesignatorPaths,
+  resolveExtractionSourceInventoryState,
   resolvePayloadArtifactInventoryState,
   resolveReferenceCatalogInventoryState,
-  resolveReferenceTargetLinkState,
   resolveResourcePageDefinitionInventoryState,
   tryResolveReferenceTargetLinkState,
 } from "../mesh/inventory.ts";
@@ -77,6 +77,7 @@ const SFLO_HAS_KNOP_METADATA_IRI = `${SFLO_NAMESPACE}hasKnopMetadata`;
 const SFLO_HAS_KNOP_INVENTORY_IRI = `${SFLO_NAMESPACE}hasKnopInventory`;
 const SFLO_HAS_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasPayloadArtifact`;
 const SFLO_HAS_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}hasReferenceCatalog`;
+const SFC_HAS_EXTRACTION_SOURCE_IRI = `${SFC_NAMESPACE}hasExtractionSource`;
 const SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI =
   `${SFC_NAMESPACE}hasResourcePageDefinition`;
 const SFC_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFC_NAMESPACE}hasKnopAssetBundle`;
@@ -878,10 +879,7 @@ async function loadWeaveableKnopCandidates(
       );
     }
 
-    if (
-      slice === "firstReferenceCatalogWeave" ||
-      slice === "firstExtractedKnopWeave"
-    ) {
+    if (slice === "firstReferenceCatalogWeave") {
       candidate.referenceCatalogArtifact =
         await loadReferenceCatalogWorkingArtifact(
           workspaceRoot,
@@ -911,7 +909,7 @@ async function loadWeaveableKnopCandidates(
           localPathPolicy,
           meshBase,
           designatorPath,
-          candidate.referenceCatalogArtifact,
+          currentKnopInventoryTurtle,
           overlay,
         );
     }
@@ -1022,27 +1020,31 @@ async function loadReferenceTargetSourcePayloadArtifact(
   localPathPolicy: OperationalLocalPathPolicy,
   meshBase: string,
   designatorPath: string,
-  referenceCatalogArtifact: ReferenceCatalogWorkingArtifact | undefined,
+  currentKnopInventoryTurtle: string,
   overlay?: ReadonlyMap<string, string>,
 ): Promise<WeaveableKnopCandidate["referenceTargetSourcePayloadArtifact"]> {
-  if (!referenceCatalogArtifact) {
-    return undefined;
-  }
-
-  const referenceTargetLinkState = resolveReferenceTargetLinkState(
+  const extractionSource = resolveExtractionSourceInventoryState(
     meshBase,
-    referenceCatalogArtifact.currentReferenceCatalogTurtle,
+    currentKnopInventoryTurtle,
     designatorPath,
     {
       parseErrorMessage:
-        `Could not parse the current ReferenceCatalog while resolving the extracted weave source for ${designatorPath}.`,
-      missingReferenceLinkMessage:
-        `Could not resolve the current extracted ReferenceCatalog link for ${designatorPath}.`,
-      missingReferenceTargetMessage:
-        `Could not resolve the current extracted ReferenceCatalog target for ${designatorPath}.`,
+        `Could not parse the current Knop inventory while resolving the extracted weave source for ${designatorPath}.`,
+      missingExtractionSourceMessage:
+        `Could not resolve the current extracted source binding for ${designatorPath}.`,
+      missingTargetArtifactMessage:
+        `Could not resolve the current extracted source target for ${designatorPath}.`,
+      missingRequestedTargetStateMessage:
+        `Could not resolve the current extracted source target state for ${designatorPath}.`,
+      unsupportedResolutionModeMessage:
+        `The current local extracted weave slice only supports pinned ExtractionSource resolution for ${designatorPath}.`,
     },
   );
-  const sourceDesignatorPath = referenceTargetLinkState.referenceTargetPath;
+  if (!extractionSource) {
+    return undefined;
+  }
+
+  const sourceDesignatorPath = extractionSource.sourceArtifactPath;
   const sourceKnopInventoryPath = join(
     workspaceRoot,
     `${toKnopPath(sourceDesignatorPath)}/_inventory/inventory.ttl`,
@@ -1080,10 +1082,10 @@ async function loadReferenceTargetSourcePayloadArtifact(
   }
   if (
     sourcePayloadArtifact.latestHistoricalStatePath !==
-      referenceTargetLinkState.referenceTargetStatePath
+      extractionSource.requestedTargetStatePath
   ) {
     throw new WeaveRuntimeError(
-      `Extracted weave source for ${designatorPath} is pinned to ${referenceTargetLinkState.referenceTargetStatePath}, but ${sourceDesignatorPath} currently resolves to ${sourcePayloadArtifact.latestHistoricalStatePath}.`,
+      `Extracted weave source for ${designatorPath} is pinned to ${extractionSource.requestedTargetStatePath}, but ${sourceDesignatorPath} currently resolves to ${sourcePayloadArtifact.latestHistoricalStatePath}.`,
     );
   }
 
@@ -1188,8 +1190,7 @@ function isWeaveableKnopCandidate(
   slice: WeaveSlice,
 ): boolean {
   if (slice === "firstExtractedKnopWeave") {
-    return candidate.referenceCatalogArtifact !== undefined &&
-      candidate.referenceTargetSourcePayloadArtifact !== undefined;
+    return candidate.referenceTargetSourcePayloadArtifact !== undefined;
   }
 
   if (slice === "firstReferenceCatalogWeave") {
@@ -1524,6 +1525,15 @@ async function loadGenerateDesignatorContexts(
       string,
       readonly ResourcePageRawSourcePanelModel[]
     >();
+    addRawSourcePanel(
+      rawSourcePanels,
+      `${toKnopPath(designatorPath)}/_inventory/index.html`,
+      {
+        label: "Current KnopInventory file",
+        sourcePath: `${toKnopPath(designatorPath)}/_inventory/inventory.ttl`,
+        contents: currentKnopInventoryTurtle,
+      },
+    );
     const resourcePageDefinitionState =
       resolveResourcePageDefinitionInventoryState(
         meshState.meshBase,
@@ -1542,6 +1552,23 @@ async function loadGenerateDesignatorContexts(
       meshState.meshBase,
       designatorPath,
       currentKnopInventoryTurtle,
+    );
+    const extractionSource = resolveExtractionSourceInventoryState(
+      meshState.meshBase,
+      currentKnopInventoryTurtle,
+      designatorPath,
+      {
+        parseErrorMessage:
+          `Could not parse the current Knop inventory while resolving page source facts for ${designatorPath}.`,
+        missingExtractionSourceMessage:
+          `Could not resolve the current extracted source binding for ${designatorPath}.`,
+        missingTargetArtifactMessage:
+          `Could not resolve the current extracted source target for ${designatorPath}.`,
+        missingRequestedTargetStateMessage:
+          `Could not resolve the current extracted source target state for ${designatorPath}.`,
+        unsupportedResolutionModeMessage:
+          `The current local generated page source loader only supports pinned ExtractionSource resolution for ${designatorPath}.`,
+      },
     );
     let customIdentifierPage: CustomIdentifierPageModelInput | undefined;
     const pagePaths = listResourcePagePaths(
@@ -1607,6 +1634,15 @@ async function loadGenerateDesignatorContexts(
         designatorPath,
         payloadArtifact,
       );
+    } else if (extractionSource) {
+      await addExtractionSourceRawSourcePanels(
+        rawSourcePanels,
+        workspaceRoot,
+        meshState.meshBase,
+        designatorPath,
+        extractionSource.sourceArtifactPath,
+        extractionSource.requestedTargetStatePath,
+      );
     } else if (referenceCatalogArtifact) {
       await addReferenceTargetSourceRawSourcePanels(
         rawSourcePanels,
@@ -1631,7 +1667,7 @@ async function collectMeshSupportRawSourcePanels(
   >();
 
   addRawSourcePanel(rawSourcePanels, "_mesh/_inventory/index.html", {
-    label: "Current MeshInventory RDF bytes",
+    label: "Current MeshInventory file",
     sourcePath: "_mesh/_inventory/inventory.ttl",
     contents: meshState.currentMeshInventoryTurtle,
   });
@@ -1641,12 +1677,12 @@ async function collectMeshSupportRawSourcePanels(
       {
         pagePath: "_mesh/_meta/index.html",
         sourcePath: "_mesh/_meta/meta.ttl",
-        label: "Current MeshMetadata RDF bytes",
+        label: "Current MeshMetadata file",
       },
       {
         pagePath: "_mesh/_config/index.html",
         sourcePath: "_mesh/_config/config.ttl",
-        label: "Current MeshConfig RDF bytes",
+        label: "Current MeshConfig file",
       },
     ]
   ) {
@@ -1788,7 +1824,7 @@ async function addPayloadRawSourcePanels(
         payloadArtifact.workingLocalRelativePath,
       ),
       payloadArtifact.workingLocalRelativePath,
-      "Current working RDF bytes",
+      "Current working file",
     );
     addRawSourcePanel(
       rawSourcePanels,
@@ -1820,7 +1856,7 @@ async function addPayloadRawSourcePanels(
     const historicalPanel = await readRawSourcePanel(
       snapshotAbsolutePath,
       snapshotPath,
-      "Historical manifestation RDF bytes",
+      "Historical manifestation file",
     );
     addRawSourcePanel(
       rawSourcePanels,
@@ -1912,13 +1948,86 @@ async function addReferenceTargetSourceRawSourcePanels(
       await readRawSourcePanel(
         join(workspaceRoot, snapshotPath),
         snapshotPath,
-        "Pinned source RDF bytes",
+        "Pinned source file",
       ),
     );
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new WeaveRuntimeError(
-        `Workspace is missing the pinned page source RDF bytes for ${designatorPath}: ${snapshotPath}`,
+        `Workspace is missing the pinned page source file for ${designatorPath}: ${snapshotPath}`,
+      );
+    }
+    throw error;
+  }
+}
+
+async function addExtractionSourceRawSourcePanels(
+  rawSourcePanels: Map<string, readonly ResourcePageRawSourcePanelModel[]>,
+  workspaceRoot: string,
+  meshBase: string,
+  designatorPath: string,
+  sourceArtifactPath: string,
+  requestedTargetStatePath: string,
+): Promise<void> {
+  const sourceKnopInventoryPath = join(
+    workspaceRoot,
+    `${toKnopPath(sourceArtifactPath)}/_inventory/inventory.ttl`,
+  );
+  let sourceKnopInventoryTurtle: string;
+
+  try {
+    sourceKnopInventoryTurtle = await Deno.readTextFile(
+      sourceKnopInventoryPath,
+    );
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      throw new WeaveRuntimeError(
+        `Workspace is missing the page source payload inventory for ${designatorPath}: ${
+          toKnopPath(sourceArtifactPath)
+        }/_inventory/inventory.ttl`,
+      );
+    }
+    throw error;
+  }
+
+  const sourcePayloadArtifact = resolvePayloadArtifactInventoryState(
+    meshBase,
+    sourceKnopInventoryTurtle,
+    sourceArtifactPath,
+    {
+      parseErrorMessage:
+        `Could not parse the source Knop inventory while resolving page source facts for ${designatorPath}.`,
+      missingWorkingFileMessage:
+        `Could not resolve the source working payload file for ${designatorPath}.`,
+    },
+  );
+  if (!sourcePayloadArtifact) {
+    return;
+  }
+
+  const snapshotPath = sourcePayloadArtifact.latestHistoricalStatePath ===
+        requestedTargetStatePath &&
+      sourcePayloadArtifact.latestHistoricalSnapshotPath
+    ? sourcePayloadArtifact.latestHistoricalSnapshotPath
+    : toPayloadHistoricalSnapshotPath(
+      requestedTargetStatePath,
+      sourcePayloadArtifact.workingLocalRelativePath,
+    );
+
+  try {
+    addRawSourcePanel(
+      rawSourcePanels,
+      toDesignatorResourcePagePath(designatorPath),
+      await readRawSourcePanel(
+        join(workspaceRoot, snapshotPath),
+        snapshotPath,
+        "Pinned source file",
+      ),
+    );
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      throw new WeaveRuntimeError(
+        `Workspace is missing the pinned page source file for ${designatorPath}: ${snapshotPath}`,
       );
     }
     throw error;
