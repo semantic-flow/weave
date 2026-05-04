@@ -362,9 +362,9 @@ export async function loadActiveCustomIdentifierPage(
 export function describeResourcePageDefinitionArtifact(
   designatorPath: string,
 ): string {
-  return `Resource page for the ${
+  return `Resource page definition for ${
     formatDesignatorPathForDisplay(designatorPath)
-  } ResourcePageDefinition artifact.`;
+  }`;
 }
 
 function parsePageDefinitionQuads(

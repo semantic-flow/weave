@@ -70,6 +70,8 @@ const SFLO_HAS_HISTORICAL_STATE_IRI = `${SFLO_NAMESPACE}hasHistoricalState`;
 const SFLO_HAS_MANIFESTATION_IRI = `${SFLO_NAMESPACE}hasManifestation`;
 const SFLO_HAS_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}hasLocatedFile`;
 const SFLO_LOCATED_FILE_FOR_STATE_IRI = `${SFLO_NAMESPACE}locatedFileForState`;
+const DCTERMS_TITLE_IRI = "http://purl.org/dc/terms/title";
+const RDFS_LABEL_IRI = "http://www.w3.org/2000/01/rdf-schema#label";
 
 export interface ExecuteValidateOptions {
   meshRoot: string;
@@ -1367,14 +1369,25 @@ async function collectGeneratedPageFiles(
         });
       }
     } else {
+      const rawSourcePanels = meshRawSourcePanels.get(pagePath) ??
+        findRawSourcePanelsForPage(pagePath, designatorContexts);
+      const historyGroups = meshHistoryGroups.get(resourcePath) ??
+        findHistoryGroupsForResource(resourcePath, designatorContexts);
       pageModels.push({
         kind: "simple",
         path: pagePath,
-        description: describeSemanticFlowResource(toResourcePath(pagePath)),
-        historyGroups: meshHistoryGroups.get(resourcePath) ??
-          findHistoryGroupsForResource(resourcePath, designatorContexts),
-        rawSourcePanels: meshRawSourcePanels.get(pagePath) ??
-          findRawSourcePanelsForPage(pagePath, designatorContexts),
+        description: describeSemanticFlowResource(
+          meshState.meshBase,
+          resourcePath,
+          rawSourcePanels ??
+            findOwnerRawSourcePanelsForArtifactHistory(
+              resourcePath,
+              meshRawSourcePanels,
+              designatorContexts,
+            ),
+        ),
+        historyGroups,
+        rawSourcePanels,
       });
     }
     pagePaths.add(pagePath);
@@ -1386,15 +1399,23 @@ async function collectGeneratedPageFiles(
         continue;
       }
 
+      const resourcePath = toResourcePath(pagePath);
+      const rawSourcePanels = context.rawSourcePanels.get(pagePath);
       pageModels.push({
         kind: "simple",
         path: pagePath,
         description: context.pageDescriptions.get(pagePath) ??
-          describeSemanticFlowResource(toResourcePath(pagePath)),
-        historyGroups: context.historyGroupsByResourcePath.get(
-          toResourcePath(pagePath),
-        ),
-        rawSourcePanels: context.rawSourcePanels.get(pagePath),
+          describeSemanticFlowResource(
+            meshState.meshBase,
+            resourcePath,
+            rawSourcePanels ??
+              findOwnerRawSourcePanelsForArtifactHistoryInContext(
+                resourcePath,
+                context,
+              ),
+          ),
+        historyGroups: context.historyGroupsByResourcePath.get(resourcePath),
+        rawSourcePanels,
       });
       pagePaths.add(pagePath);
     }
@@ -1737,24 +1758,36 @@ function listResourcePagePaths(
   return [...paths].sort((left, right) => left.localeCompare(right));
 }
 
-function describeSemanticFlowResource(resourcePath: string): string {
+function describeSemanticFlowResource(
+  meshBase: string,
+  resourcePath: string,
+  ownerRawSourcePanels?: readonly ResourcePageRawSourcePanelModel[],
+): string {
   const displayPath = resourcePath.length === 0 ? "/" : resourcePath;
   if (isArtifactManifestationPath(resourcePath)) {
     const statePath = dirname(resourcePath);
-    return `Artifact manifestation ${
-      toLastPathSegment(resourcePath)
-    } for historical state ${toLastPathSegment(statePath)}.`;
+    return `Artifact manifestation for the ${
+      toLastPathSegment(statePath)
+    } historical state`;
   }
   if (isHistoricalStatePath(resourcePath)) {
     const historyPath = dirname(resourcePath);
-    return `Historical state ${toLastPathSegment(resourcePath)} for the ${
+    return `Historical state for the ${
       toLastPathSegment(historyPath)
-    } ArtifactHistory.`;
+    } artifact history`;
   }
   if (isArtifactHistoryPath(resourcePath)) {
-    return `ArtifactHistory for ${
-      formatOwnerResourcePath(dirname(resourcePath))
-    }.`;
+    const ownerResourcePath = dirname(resourcePath);
+    const ownerTitle = ownerRawSourcePanels
+      ? extractResourceTitle(
+        meshBase,
+        ownerResourcePath,
+        ownerRawSourcePanels,
+      )
+      : undefined;
+    return `Artifact history for ${
+      ownerTitle ?? formatOwnerResourcePath(ownerResourcePath)
+    }`;
   }
   if (resourcePath === "_mesh") {
     return "Semantic Mesh.";
@@ -1765,19 +1798,94 @@ function describeSemanticFlowResource(resourcePath: string): string {
     }.`;
   }
   if (resourcePath.endsWith("/_meta")) {
-    return `KnopMetadata artifact for ${
+    if (resourcePath === "_mesh/_meta") {
+      return "Mesh metadata for this mesh";
+    }
+    return `Knop metadata for ${
       formatOwnerResourcePath(dirname(dirname(resourcePath)))
-    }.`;
+    }`;
   }
   if (resourcePath.endsWith("/_inventory")) {
-    return `Inventory artifact for ${
-      formatOwnerResourcePath(dirname(resourcePath))
-    }.`;
+    if (resourcePath === "_mesh/_inventory") {
+      return "Mesh inventory for this mesh";
+    }
+    return `Inventory for ${formatOwnerResourcePath(dirname(resourcePath))}`;
   }
   if (resourcePath.endsWith("/_config")) {
-    return "MeshConfig artifact for this mesh.";
+    return "Mesh config for this mesh";
   }
-  return `Semantic Flow resource ${displayPath}.`;
+  return `Semantic Flow resource ${displayPath}`;
+}
+
+function findOwnerRawSourcePanelsForArtifactHistory(
+  resourcePath: string,
+  meshRawSourcePanels: ReadonlyMap<
+    string,
+    readonly ResourcePageRawSourcePanelModel[]
+  >,
+  designatorContexts: readonly GenerateDesignatorContext[],
+): readonly ResourcePageRawSourcePanelModel[] | undefined {
+  if (!isArtifactHistoryPath(resourcePath)) {
+    return undefined;
+  }
+  const ownerPagePath = toDesignatorResourcePagePath(dirname(resourcePath));
+  return meshRawSourcePanels.get(ownerPagePath) ??
+    findRawSourcePanelsForPage(ownerPagePath, designatorContexts);
+}
+
+function findOwnerRawSourcePanelsForArtifactHistoryInContext(
+  resourcePath: string,
+  context: GenerateDesignatorContext,
+): readonly ResourcePageRawSourcePanelModel[] | undefined {
+  if (!isArtifactHistoryPath(resourcePath)) {
+    return undefined;
+  }
+  return context.rawSourcePanels.get(
+    toDesignatorResourcePagePath(dirname(resourcePath)),
+  );
+}
+
+function extractResourceTitle(
+  meshBase: string,
+  resourcePath: string,
+  rawSourcePanels: readonly ResourcePageRawSourcePanelModel[],
+): string | undefined {
+  const canonical = new URL(resourcePath, meshBase).href;
+  const quads = rawSourcePanels.flatMap((panel) =>
+    panel.contents ? parseRawSourcePanel(canonical, panel.contents) : []
+  );
+
+  return findFirstLiteralObject(quads, canonical, DCTERMS_TITLE_IRI) ??
+    findFirstLiteralObject(quads, canonical, RDFS_LABEL_IRI);
+}
+
+function parseRawSourcePanel(
+  canonical: string,
+  turtle: string,
+): readonly Quad[] {
+  try {
+    return new Parser({ baseIRI: canonical }).parse(turtle);
+  } catch {
+    return [];
+  }
+}
+
+function findFirstLiteralObject(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+): string | undefined {
+  for (const quad of quads) {
+    if (
+      quad.subject.termType === "NamedNode" &&
+      quad.subject.value === subjectIri &&
+      quad.predicate.value === predicateIri &&
+      quad.object.termType === "Literal"
+    ) {
+      return quad.object.value;
+    }
+  }
+  return undefined;
 }
 
 function formatOwnerResourcePath(resourcePath: string): string {

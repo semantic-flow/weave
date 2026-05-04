@@ -214,7 +214,11 @@ function toDefaultResourcePageRenderInput(
       generatedAtDisplay,
       title: rdfFacts.title ??
         formatDesignatorPathForDisplay(page.designatorPath),
-      breadcrumbs: toResourcePageBreadcrumbs(meshLabel, meshRootHref, ""),
+      breadcrumbs: toResourcePageBreadcrumbs(
+        meshLabel,
+        meshRootHref,
+        resourcePath,
+      ),
       summary: rdfFacts.description,
       rdfClasses: rdfFacts.classes,
       metadataRows: [
@@ -282,11 +286,11 @@ function toDefaultResourcePageRenderInput(
       breadcrumbs: toResourcePageBreadcrumbs(
         meshLabel,
         meshRootHref,
-        toParentResourcePath(resourcePath),
+        resourcePath,
       ),
-      summary: `ReferenceCatalog artifact for ${
+      summary: `Reference catalog for ${
         formatDesignatorPathForDisplay(page.ownerDesignatorPath)
-      }.`,
+      }`,
       rdfClasses: ["sflo:ReferenceCatalog", "sflo:RdfDocument"],
       metadataRows: [{ label: "Canonical IRI", value: canonical }],
       historyGroups: page.historyGroups ?? [],
@@ -315,7 +319,7 @@ function toDefaultResourcePageRenderInput(
     breadcrumbs: toResourcePageBreadcrumbs(
       meshLabel,
       meshRootHref,
-      toParentResourcePath(resourcePath),
+      resourcePath,
     ),
     summary: page.description,
     rdfClasses: rdfFacts.classes.length > 0
@@ -373,7 +377,7 @@ ${section.html}
     a { color: #1f5f85; text-decoration-thickness: 0.08em; text-underline-offset: 0.18em; }
     main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 42px; }
     .wf-shell { display: grid; gap: 18px; }
-    .wf-eyebrow { margin: 0 0 10px; color: #5e675d; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0; font-weight: 700; }
+    .wf-eyebrow { margin: 0 0 10px; color: #5e675d; font-size: 0.82rem; letter-spacing: 0; font-weight: 700; }
     .wf-breadcrumbs { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
     .wf-breadcrumbs a { color: inherit; text-decoration-color: rgba(94, 103, 93, 0.45); }
     .wf-hero { border-top: 5px solid #435247; padding: 26px 0 12px; }
@@ -652,11 +656,6 @@ function renderTooltipLabel(label: string, tooltip: string): string {
 function toLastPathSegment(path: string): string {
   const segments = path.split("/").filter((segment) => segment.length > 0);
   return segments[segments.length - 1] ?? "/";
-}
-
-function toParentResourcePath(path: string): string {
-  const segments = path.split("/").filter((segment) => segment.length > 0);
-  return segments.slice(0, -1).join("/");
 }
 
 function toDefaultResourcePageTitle(

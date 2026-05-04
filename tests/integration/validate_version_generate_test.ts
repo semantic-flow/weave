@@ -364,7 +364,7 @@ Deno.test("executeGenerate renders the customized alice identifier page after pa
   assertStringIncludes(pageDefinitionHtml, "<h1>alice/_knop/_page</h1>");
   assertStringIncludes(
     pageDefinitionHtml,
-    "Resource page for the alice ResourcePageDefinition artifact.",
+    "Resource page definition for alice",
   );
   assertStringIncludes(
     pageDefinitionHtml,
