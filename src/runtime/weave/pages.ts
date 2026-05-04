@@ -256,7 +256,7 @@ function toDefaultResourcePageRenderInput(
       summary: `ReferenceCatalog artifact for ${
         formatDesignatorPathForDisplay(page.ownerDesignatorPath)
       }.`,
-      rdfClasses: ["ReferenceCatalog", "RDF document"],
+      rdfClasses: ["sflo:ReferenceCatalog", "sflo:RdfDocument"],
       metadataRows: [{ label: "Canonical IRI", value: canonical }],
       historyGroups: page.historyGroups ?? [],
       sections: [{
@@ -278,7 +278,9 @@ function toDefaultResourcePageRenderInput(
     canonical,
     title: rdfFacts.title ?? displayResourcePath,
     summary: page.description,
-    rdfClasses: [classifyResourcePage(resourcePath)],
+    rdfClasses: rdfFacts.classes.length > 0
+      ? rdfFacts.classes
+      : [classifyResourcePage(resourcePath)],
     metadataRows: [{ label: "Canonical IRI", value: canonical }],
     historyGroups: page.historyGroups ?? [],
     sections: [],
@@ -294,7 +296,7 @@ function renderDefaultResourcePage(input: ResourcePageRenderInput): string {
     ? `        <p class="wf-summary">${escapeHtml(input.summary)}</p>\n`
     : "";
   const classes = input.rdfClasses.length > 0
-    ? `        <p class="wf-classes">${
+    ? `        <p class="wf-classes">a ${
       input.rdfClasses.map((className) => escapeHtml(className)).join(", ")
     }</p>\n`
     : "";
@@ -340,9 +342,9 @@ ${section.html}
     .wf-shell { display: grid; gap: 18px; }
     .wf-eyebrow { margin: 0 0 10px; color: #5e675d; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0; font-weight: 700; }
     .wf-hero { border-top: 5px solid #435247; padding: 26px 0 12px; }
-    h1 { margin: 0; overflow-wrap: anywhere; font-size: clamp(2rem, 6vw, 4.8rem); line-height: 0.98; letter-spacing: 0; }
-    .wf-summary { max-width: 820px; margin: 18px 0 0; color: #3f463f; font-size: 1.05rem; line-height: 1.6; }
-    .wf-classes { margin: 10px 0 0; color: #687167; font-style: italic; }
+    h1 { margin: 0; overflow-wrap: anywhere; font-size: clamp(1.7rem, 4vw, 2.7rem); line-height: 1.04; letter-spacing: 0; }
+    .wf-classes { margin: 8px 0 0; color: #687167; font-style: italic; }
+    .wf-summary { max-width: 820px; margin: 14px 0 0; color: #3f463f; font-size: 1.05rem; line-height: 1.6; }
     .wf-metadata { width: 100%; margin-top: 24px; border-collapse: collapse; border-top: 1px solid #cdd2ca; border-bottom: 1px solid #cdd2ca; }
     .wf-metadata th, .wf-metadata td { padding: 10px 12px; border-top: 1px solid #e0e4dd; text-align: left; vertical-align: top; }
     .wf-metadata tr:first-child th, .wf-metadata tr:first-child td { border-top: 0; }
@@ -384,7 +386,7 @@ ${section.html}
       <header class="wf-hero">
         <p class="wf-eyebrow">${escapeHtml(input.meshLabel)}</p>
         <h1>${escapeHtml(input.title)}</h1>
-${summary}${classes}${metadata}
+${classes}${summary}${metadata}
       </header>
 ${histories}${sections ? `${sections}\n` : ""}${rawSections}
     </article>
@@ -664,6 +666,7 @@ function compactRdfIri(iri: string): string {
       ["http://www.w3.org/1999/02/22-rdf-syntax-ns#", "rdf"],
       ["https://semantic-flow.github.io/semantic-flow-ontology/", "sflo"],
       ["https://semantic-flow.github.io/ontology/core/", "sfc"],
+      ["https://semantic-flow.github.io/ontology/config/", "sfcfg"],
     ] as const
   ) {
     if (iri.startsWith(namespace)) {
@@ -682,17 +685,19 @@ function compactRdfIri(iri: string): string {
 }
 
 function classifyResourcePage(resourcePath: string): string {
-  if (resourcePath === "_mesh") return "SemanticMesh";
-  if (resourcePath.endsWith("/_knop")) return "Knop";
-  if (resourcePath.endsWith("/_meta")) return "Metadata artifact";
-  if (resourcePath.endsWith("/_inventory")) return "Inventory artifact";
-  if (resourcePath.endsWith("/_config")) return "Config artifact";
+  if (resourcePath === "_mesh") return "sflo:SemanticMesh";
+  if (resourcePath.endsWith("/_knop")) return "sflo:Knop";
+  if (resourcePath.endsWith("/_meta")) return "sflo:RdfDocument";
+  if (resourcePath.endsWith("/_inventory")) return "sflo:RdfDocument";
+  if (resourcePath.endsWith("/_config")) return "sfcfg:MeshConfig";
   if (resourcePath.includes("/_history")) {
-    if (resourcePath.match(/\/_s[0-9]+\/[^/]+$/)) return "Manifestation";
-    if (resourcePath.match(/\/_s[0-9]+$/)) return "Historical state";
-    return "Artifact history";
+    if (resourcePath.match(/\/_s[0-9]+\/[^/]+$/)) {
+      return "sflo:ArtifactManifestation";
+    }
+    if (resourcePath.match(/\/_s[0-9]+$/)) return "sflo:HistoricalState";
+    return "sflo:ArtifactHistory";
   }
-  return "Resource";
+  return "sflo:DigitalArtifact";
 }
 
 function assertNeverResourcePage(page: never): never {
