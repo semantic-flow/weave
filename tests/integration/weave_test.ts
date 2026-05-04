@@ -72,7 +72,14 @@ Deno.test("executeWeave materializes current support ResourcePages for a docs-ro
     inventory,
     "sflo:hasWorkingLocatedFile <_mesh/_config/config.ttl> ;\n  sflo:hasResourcePage <_mesh/_config/index.html> ;\n  sflo:hasArtifactHistory <_mesh/_config/_history001> ;",
   );
-  await Deno.stat(join(workspaceRoot, "docs/_mesh/_config/index.html"));
+  const configPage = await Deno.readTextFile(
+    join(workspaceRoot, "docs/_mesh/_config/index.html"),
+  );
+  assertStringIncludes(configPage, "<summary>Histories</summary>");
+  assertStringIncludes(
+    configPage,
+    'href="/mesh-sidecar-fantasy-rules/_mesh/_config/_history001/_s0001"',
+  );
 });
 
 Deno.test("executeWeave matches the settled alice knop-created-woven fixture", async () => {

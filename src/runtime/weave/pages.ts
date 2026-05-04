@@ -1,7 +1,9 @@
 import type {
+  ResourcePageHistoryGroupModel,
   ResourcePageModel,
   ResourcePageRawSourcePanelModel,
 } from "../../core/weave/weave.ts";
+import { Parser, type Quad } from "n3";
 import { formatDesignatorPathForDisplay } from "../../core/designator_segments.ts";
 import type { PlannedFile } from "../../core/planned_file.ts";
 import {
@@ -19,17 +21,19 @@ interface ResourcePageRenderInput {
   displayResourcePath: string;
   canonical: string;
   title: string;
-  summary: string;
-  badges: readonly string[];
-  primaryLinks: readonly ResourcePageLink[];
+  summary?: string;
+  rdfClasses: readonly string[];
+  metadataRows: readonly ResourcePageMetadataRow[];
+  historyGroups: readonly ResourcePageHistoryGroupModel[];
   sections: readonly ResourcePageSection[];
   rawSourcePanels: readonly ResourcePageRawSourcePanelModel[];
 }
 
-interface ResourcePageLink {
+interface ResourcePageMetadataRow {
   label: string;
   href?: string;
-  detail?: string;
+  value: string;
+  tooltip?: string;
 }
 
 interface ResourcePageSection {
@@ -37,9 +41,34 @@ interface ResourcePageSection {
   html: string;
 }
 
+interface ResourcePageRdfFacts {
+  title?: string;
+  description?: string;
+  classes: readonly string[];
+}
+
 interface ResourcePageTheme {
   render(input: ResourcePageRenderInput): string;
 }
+
+const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+const DCTERMS_DESCRIPTION_IRI = "http://purl.org/dc/terms/description";
+const DCTERMS_TITLE_IRI = "http://purl.org/dc/terms/title";
+const FOAF_NAME_IRI = "http://xmlns.com/foaf/0.1/name";
+const RDFS_COMMENT_IRI = "http://www.w3.org/2000/01/rdf-schema#comment";
+const RDFS_LABEL_IRI = "http://www.w3.org/2000/01/rdf-schema#label";
+const SKOS_DEFINITION_IRI = "http://www.w3.org/2004/02/skos/core#definition";
+const SKOS_PREF_LABEL_IRI = "http://www.w3.org/2004/02/skos/core#prefLabel";
+const SCHEMA_CHARACTER_NAME_IRIS = [
+  "https://schema.org/characterName",
+  "http://schema.org/characterName",
+] as const;
+const SCHEMA_NAME_IRIS = [
+  "https://schema.org/name",
+  "http://schema.org/name",
+  "https://schema.org/Name",
+  "http://schema.org/Name",
+] as const;
 
 const defaultResourcePageTheme: ResourcePageTheme = {
   render: renderDefaultResourcePage,
@@ -146,6 +175,7 @@ function toDefaultResourcePageRenderInput(
   canonical: string,
 ): ResourcePageRenderInput {
   if (page.kind === "identifier") {
+    const rdfFacts = extractRdfFacts(canonical, page.rawSourcePanels ?? []);
     const workingFileHref = page.workingLocalRelativePath
       ? toPublicSourceHref(meshRootHref, page.workingLocalRelativePath)
       : undefined;
@@ -157,34 +187,40 @@ function toDefaultResourcePageRenderInput(
       resourcePath,
       displayResourcePath,
       canonical,
-      title: formatDesignatorPathForDisplay(page.designatorPath),
-      summary: "Semantic Flow identifier.",
-      badges: ["Semantic Flow identifier"],
-      primaryLinks: [
-        { label: "Canonical IRI", href: canonical },
+      title: rdfFacts.title ??
+        formatDesignatorPathForDisplay(page.designatorPath),
+      summary: rdfFacts.description,
+      rdfClasses: rdfFacts.classes,
+      metadataRows: [
+        { label: "Canonical IRI", value: canonical },
         {
           label: "Associated Knop",
           href: toMeshResourceHref(
             meshRootHref,
             toKnopResourcePath(resourcePath),
           ),
+          value: formatDesignatorPathForDisplay(
+            toKnopResourcePath(resourcePath),
+          ),
+          tooltip:
+            "A Knop is the Semantic Flow control surface for this identifier: metadata, inventory, references, and page definitions live there.",
         },
         ...(page.workingLocalRelativePath
           ? [{
-            label: "Working RDF file",
+            label: "Working File",
             href: workingFileHref,
-            detail: workingFileHref
-              ? "current working bytes"
-              : `local source: ${page.workingLocalRelativePath}`,
+            value: page.workingLocalRelativePath,
           }]
           : []),
       ],
+      historyGroups: page.historyGroups ?? [],
       sections: [],
       rawSourcePanels: page.rawSourcePanels ?? [],
     };
   }
 
   if (page.kind === "referenceCatalog") {
+    const rdfFacts = extractRdfFacts(canonical, page.rawSourcePanels ?? []);
     const currentLinks = page.currentLinks.map((link) => {
       const targetHref = toMeshResourceHref(
         meshRootHref,
@@ -213,12 +249,13 @@ function toDefaultResourcePageRenderInput(
       resourcePath,
       displayResourcePath,
       canonical,
-      title: page.catalogPath,
+      title: rdfFacts.title ?? page.catalogPath,
       summary: `ReferenceCatalog artifact for ${
         formatDesignatorPathForDisplay(page.ownerDesignatorPath)
       }.`,
-      badges: ["ReferenceCatalog", "RDF document"],
-      primaryLinks: [{ label: "Canonical IRI", href: canonical }],
+      rdfClasses: ["ReferenceCatalog", "RDF document"],
+      metadataRows: [{ label: "Canonical IRI", value: canonical }],
+      historyGroups: page.historyGroups ?? [],
       sections: [{
         title: "Current Links",
         html: `      <ul>\n${currentLinks}\n      </ul>`,
@@ -227,6 +264,8 @@ function toDefaultResourcePageRenderInput(
     };
   }
 
+  const rdfFacts = extractRdfFacts(canonical, page.rawSourcePanels ?? []);
+
   return {
     meshLabel,
     meshRootHref,
@@ -234,19 +273,44 @@ function toDefaultResourcePageRenderInput(
     resourcePath,
     displayResourcePath,
     canonical,
-    title: displayResourcePath,
+    title: rdfFacts.title ?? displayResourcePath,
     summary: page.description,
-    badges: [classifyResourcePage(resourcePath)],
-    primaryLinks: [{ label: "Canonical IRI", href: canonical }],
+    rdfClasses: [classifyResourcePage(resourcePath)],
+    metadataRows: [{ label: "Canonical IRI", value: canonical }],
+    historyGroups: page.historyGroups ?? [],
     sections: [],
     rawSourcePanels: page.rawSourcePanels ?? [],
   };
 }
 
 function renderDefaultResourcePage(input: ResourcePageRenderInput): string {
-  const canonicalDisplay = escapeHtml(input.canonical);
   const rawSections = input.rawSourcePanels.length > 0
     ? `\n${renderRawSourcePanels(input)}`
+    : "";
+  const summary = input.summary
+    ? `        <p class="wf-summary">${escapeHtml(input.summary)}</p>\n`
+    : "";
+  const classes = input.rdfClasses.length > 0
+    ? `        <p class="wf-classes">${
+      input.rdfClasses.map((className) => escapeHtml(className)).join(", ")
+    }</p>\n`
+    : "";
+  const metadata = input.metadataRows.length > 0
+    ? `        <table class="wf-metadata">
+          <tbody>
+${input.metadataRows.map((row) => renderMetadataRow(row)).join("\n")}
+          </tbody>
+        </table>
+`
+    : "";
+  const histories = input.historyGroups.length > 0
+    ? `    <section class="wf-section">
+      <details class="wf-history">
+        <summary>Histories</summary>
+${renderHistoryGroups(input)}
+      </details>
+    </section>
+`
     : "";
   const sections = input.sections.map((section) =>
     `    <section class="wf-section">
@@ -275,10 +339,12 @@ ${section.html}
     .wf-hero { border-top: 5px solid #435247; padding: 26px 0 12px; }
     h1 { margin: 0; overflow-wrap: anywhere; font-size: clamp(2rem, 6vw, 4.8rem); line-height: 0.98; letter-spacing: 0; }
     .wf-summary { max-width: 820px; margin: 18px 0 0; color: #3f463f; font-size: 1.05rem; line-height: 1.6; }
-    .wf-badges, .wf-links { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 0; padding: 0; list-style: none; }
-    .wf-badges li { border: 1px solid #c9cec7; background: #ffffffb8; color: #394139; border-radius: 999px; padding: 5px 10px; font-size: 0.78rem; font-weight: 700; }
-    .wf-links a { display: inline-flex; min-height: 34px; align-items: center; border: 1px solid #bfc8c1; border-radius: 6px; background: #fff; padding: 7px 10px; color: #173f59; font-weight: 650; text-decoration: none; }
-    .wf-links small { display: block; margin-top: 4px; color: #667065; }
+    .wf-classes { margin: 10px 0 0; color: #687167; font-style: italic; }
+    .wf-metadata { width: 100%; margin-top: 24px; border-collapse: collapse; border-top: 1px solid #cdd2ca; border-bottom: 1px solid #cdd2ca; }
+    .wf-metadata th, .wf-metadata td { padding: 10px 12px; border-top: 1px solid #e0e4dd; text-align: left; vertical-align: top; }
+    .wf-metadata tr:first-child th, .wf-metadata tr:first-child td { border-top: 0; }
+    .wf-metadata th { width: 180px; color: #4f594f; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0; }
+    .wf-metadata td { overflow-wrap: anywhere; }
     .wf-section, .wf-source { margin-top: 24px; border-top: 1px solid #cdd2ca; padding-top: 18px; }
     h2 { margin: 0 0 12px; font-size: 1rem; line-height: 1.25; letter-spacing: 0; color: #2f382f; }
     ul { margin: 0; padding-left: 1.2rem; }
@@ -288,6 +354,10 @@ ${section.html}
     details { border: 1px solid #c9cec7; border-radius: 8px; background: #fff; }
     details + details { margin-top: 12px; }
     summary { cursor: pointer; padding: 12px 14px; font-weight: 750; }
+    .wf-history { padding-bottom: 10px; }
+    .wf-history-group { padding: 0 14px 8px; }
+    .wf-history-group h3 { margin: 8px 0; font-size: 0.95rem; }
+    .wf-history-group ul { margin-top: 8px; }
     .wf-source-meta { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 14px 12px; color: #596259; font-size: 0.88rem; }
     pre { margin: 0; max-height: 64vh; overflow: auto; border-top: 1px solid #d7dcd4; background: #151a16; color: #e7ece4; padding: 16px; font-size: 0.86rem; line-height: 1.55; tab-size: 2; }
     pre code { display: block; background: transparent; color: inherit; border-radius: 0; padding: 0; white-space: pre; }
@@ -305,37 +375,57 @@ ${section.html}
       <header class="wf-hero">
         <p class="wf-eyebrow">${escapeHtml(input.meshLabel)}</p>
         <h1>${escapeHtml(input.title)}</h1>
-        <p class="wf-summary">${escapeHtml(input.summary)}</p>
-        <ul class="wf-badges">
-${
-    input.badges.map((badge) => `          <li>${escapeHtml(badge)}</li>`).join(
-      "\n",
-    )
-  }
-        </ul>
-        <ul class="wf-links">
-${input.primaryLinks.map((link) => renderPrimaryLink(link)).join("\n")}
-        </ul>
+${summary}${classes}${metadata}
       </header>
-${sections ? `${sections}\n` : ""}${rawSections}
+${histories}${sections ? `${sections}\n` : ""}${rawSections}
     </article>
   </main>
-  <footer>
-    <small>Canonical Semantic Flow resource: <a href="${
-    escapeHtml(input.canonical)
-  }">${canonicalDisplay}</a>.</small>
-  </footer>
 </body>
 </html>
 `;
 }
 
-function renderPrimaryLink(link: ResourcePageLink): string {
-  const detail = link.detail ? `<small>${escapeHtml(link.detail)}</small>` : "";
-  const label = link.href
-    ? `<a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>`
-    : `<span>${escapeHtml(link.label)}</span>`;
-  return `          <li>${label}${detail}</li>`;
+function renderMetadataRow(row: ResourcePageMetadataRow): string {
+  const label = row.tooltip
+    ? `<span title="${escapeHtml(row.tooltip)}">${escapeHtml(row.label)}</span>`
+    : escapeHtml(row.label);
+  const value = row.href
+    ? `<a href="${escapeHtml(row.href)}">${escapeHtml(row.value)}</a>`
+    : `<span>${escapeHtml(row.value)}</span>`;
+  return `            <tr><th scope="row">${label}</th><td>${value}</td></tr>`;
+}
+
+function renderHistoryGroups(input: ResourcePageRenderInput): string {
+  return input.historyGroups.map((group) => {
+    const historyHref = toMeshResourceHref(input.meshRootHref, group.path);
+    const states = group.states.length > 0
+      ? `          <ul>
+${
+        group.states.map((state) => {
+          const stateHref = toMeshResourceHref(input.meshRootHref, state.path);
+          const locatedFile = state.locatedFilePath
+            ? ` <small>RDF: <a href="${
+              escapeHtml(
+                toMeshResourceHref(input.meshRootHref, state.locatedFilePath),
+              )
+            }">${escapeHtml(state.locatedFilePath)}</a></small>`
+            : "";
+          return `            <li><a href="${escapeHtml(stateHref)}">${
+            escapeHtml(state.path)
+          }</a>${locatedFile}</li>`;
+        }).join("\n")
+      }
+          </ul>`
+      : "          <p>No historical states are listed yet.</p>";
+
+    return `        <div class="wf-history-group">
+          <h3>${escapeHtml(group.label)}</h3>
+          <p><a href="${escapeHtml(historyHref)}">${
+      escapeHtml(group.path)
+    }</a></p>
+${states}
+        </div>`;
+  }).join("\n");
 }
 
 function renderRawSourcePanels(input: ResourcePageRenderInput): string {
@@ -397,6 +487,117 @@ function toPublicSourceHref(
 
 function toKnopResourcePath(resourcePath: string): string {
   return resourcePath.length === 0 ? "_knop" : `${resourcePath}/_knop`;
+}
+
+function extractRdfFacts(
+  canonical: string,
+  rawSourcePanels: readonly ResourcePageRawSourcePanelModel[],
+): ResourcePageRdfFacts {
+  const quads = rawSourcePanels.flatMap((panel) =>
+    panel.contents ? parseRdfPanel(canonical, panel.contents) : []
+  );
+  const title = findFirstLiteralObject(quads, canonical, DCTERMS_TITLE_IRI) ??
+    findFirstLiteralObjectFromPredicates(
+      quads,
+      canonical,
+      SCHEMA_CHARACTER_NAME_IRIS,
+    ) ??
+    findFirstLiteralObjectFromPredicates(quads, canonical, SCHEMA_NAME_IRIS) ??
+    findFirstLiteralObject(quads, canonical, RDFS_LABEL_IRI) ??
+    findFirstLiteralObject(quads, canonical, SKOS_PREF_LABEL_IRI) ??
+    findFirstLiteralObject(quads, canonical, FOAF_NAME_IRI);
+  const description = findFirstLiteralObject(
+    quads,
+    canonical,
+    DCTERMS_DESCRIPTION_IRI,
+  ) ?? findFirstLiteralObject(quads, canonical, RDFS_COMMENT_IRI) ??
+    findFirstLiteralObject(quads, canonical, SKOS_DEFINITION_IRI);
+  const classes = new Set<string>();
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType === "NamedNode" &&
+      quad.subject.value === canonical &&
+      quad.predicate.value === RDF_TYPE_IRI &&
+      quad.object.termType === "NamedNode"
+    ) {
+      classes.add(compactRdfIri(quad.object.value));
+    }
+  }
+
+  return {
+    ...(title ? { title } : {}),
+    ...(description ? { description } : {}),
+    classes: [...classes].sort((left, right) => left.localeCompare(right)),
+  };
+}
+
+function parseRdfPanel(
+  canonical: string,
+  turtle: string,
+): readonly Quad[] {
+  try {
+    return new Parser({ baseIRI: canonical }).parse(turtle);
+  } catch {
+    return [];
+  }
+}
+
+function findFirstLiteralObject(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+): string | undefined {
+  for (const quad of quads) {
+    if (
+      quad.subject.termType === "NamedNode" &&
+      quad.subject.value === subjectIri &&
+      quad.predicate.value === predicateIri &&
+      quad.object.termType === "Literal"
+    ) {
+      return quad.object.value;
+    }
+  }
+  return undefined;
+}
+
+function findFirstLiteralObjectFromPredicates(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIris: readonly string[],
+): string | undefined {
+  for (const predicateIri of predicateIris) {
+    const value = findFirstLiteralObject(quads, subjectIri, predicateIri);
+    if (value) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function compactRdfIri(iri: string): string {
+  for (
+    const [namespace, prefix] of [
+      ["http://www.w3.org/2002/07/owl#", "owl"],
+      ["http://www.w3.org/2000/01/rdf-schema#", "rdfs"],
+      ["http://www.w3.org/1999/02/22-rdf-syntax-ns#", "rdf"],
+      ["https://semantic-flow.github.io/semantic-flow-ontology/", "sflo"],
+      ["https://semantic-flow.github.io/ontology/core/", "sfc"],
+    ] as const
+  ) {
+    if (iri.startsWith(namespace)) {
+      return `${prefix}:${iri.slice(namespace.length)}`;
+    }
+  }
+
+  const hashIndex = iri.lastIndexOf("#");
+  if (hashIndex !== -1 && hashIndex < iri.length - 1) {
+    return iri.slice(hashIndex + 1);
+  }
+  const slashIndex = iri.lastIndexOf("/");
+  return slashIndex !== -1 && slashIndex < iri.length - 1
+    ? iri.slice(slashIndex + 1)
+    : iri;
 }
 
 function classifyResourcePage(resourcePath: string): string {

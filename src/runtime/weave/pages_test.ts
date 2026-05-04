@@ -186,9 +186,54 @@ Deno.test("renderResourcePage does not link extra-mesh local source paths", () =
   );
   assertStringIncludes(
     html,
-    "local source: ../ontology/fantasy-rules-ontology.ttl",
+    '<tr><th scope="row">Working File</th><td><span>../ontology/fantasy-rules-ontology.ttl</span></td></tr>',
   );
   assertStringIncludes(html, "Local source outside mesh root");
+});
+
+Deno.test("renderResourcePage renders RDF description, classes, and histories", () => {
+  const html = renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "identifier",
+      path: "ontology/index.html",
+      designatorPath: "ontology",
+      workingLocalRelativePath: "../ontology/fantasy-rules-ontology.ttl",
+      historyGroups: [{
+        label: "Artifact history",
+        path: "ontology/_history001",
+        states: [{
+          path: "ontology/_history001/_s0001",
+          locatedFilePath:
+            "ontology/_history001/_s0001/fantasy-rules-ontology-ttl/fantasy-rules-ontology.ttl",
+        }],
+      }],
+      rawSourcePanels: [{
+        label: "Current working RDF bytes",
+        sourcePath: "../ontology/fantasy-rules-ontology.ttl",
+        contents: `@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+
+<ontology> a owl:Ontology ;
+  dcterms:title "Fantasy Rules Ontology" ;
+  dcterms:description "A small ontology fixture." .
+`,
+      }],
+    },
+  );
+
+  assertStringIncludes(html, "<h1>Fantasy Rules Ontology</h1>");
+  assertStringIncludes(html, "A small ontology fixture.");
+  assertStringIncludes(html, '<p class="wf-classes">owl:Ontology</p>');
+  assertStringIncludes(html, "<summary>Histories</summary>");
+  assertStringIncludes(
+    html,
+    'href="/mesh-sidecar-fantasy-rules/ontology/_history001/_s0001"',
+  );
+  assertStringIncludes(
+    html,
+    'href="/mesh-sidecar-fantasy-rules/ontology/_history001/_s0001/fantasy-rules-ontology-ttl/fantasy-rules-ontology.ttl"',
+  );
 });
 
 Deno.test("renderResourcePage renders customized identifier pages from mesh-local regions", () => {

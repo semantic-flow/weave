@@ -21,6 +21,7 @@ import {
   planVersion,
   type ReferenceCatalogWorkingArtifact,
   type ResourcePageDefinitionWorkingArtifact,
+  type ResourcePageHistoryGroupModel,
   type ResourcePageModel,
   type ResourcePageRawSourcePanelModel,
   type ValidateRequest,
@@ -63,6 +64,12 @@ import { renderResourcePages } from "./pages.ts";
 const SFLO_NAMESPACE =
   "https://semantic-flow.github.io/semantic-flow-ontology/";
 const SFLO_HAS_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}hasResourcePage`;
+const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
+  `${SFLO_NAMESPACE}currentArtifactHistory`;
+const SFLO_HAS_HISTORICAL_STATE_IRI = `${SFLO_NAMESPACE}hasHistoricalState`;
+const SFLO_HAS_MANIFESTATION_IRI = `${SFLO_NAMESPACE}hasManifestation`;
+const SFLO_HAS_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}hasLocatedFile`;
+const SFLO_LOCATED_FILE_FOR_STATE_IRI = `${SFLO_NAMESPACE}locatedFileForState`;
 
 export interface ExecuteValidateOptions {
   meshRoot: string;
@@ -144,6 +151,10 @@ interface GenerateDesignatorContext {
   payloadWorkingLocalRelativePath?: string;
   pagePaths: readonly string[];
   customIdentifierPage?: CustomIdentifierPageModelInput;
+  historyGroupsByResourcePath: ReadonlyMap<
+    string,
+    readonly ResourcePageHistoryGroupModel[]
+  >;
   pageDescriptions: ReadonlyMap<string, string>;
   rawSourcePanels: ReadonlyMap<
     string,
@@ -1301,6 +1312,11 @@ async function collectGeneratedPageFiles(
     workspaceRoot,
     meshState,
   );
+  const meshHistoryGroups = collectHistoryGroupsByResourcePath(
+    meshState.meshBase,
+    meshState.currentMeshInventoryTurtle,
+    "Could not parse the current MeshInventory while collecting ResourcePage histories.",
+  );
 
   for (
     const pagePath of listResourcePagePaths(
@@ -1321,6 +1337,7 @@ async function collectGeneratedPageFiles(
     }
 
     const publicContext = publicIdentifierPaths.get(pagePath);
+    const resourcePath = toResourcePath(pagePath);
     if (publicContext) {
       if (publicContext.customIdentifierPage) {
         pageModels.push({
@@ -1338,6 +1355,9 @@ async function collectGeneratedPageFiles(
           designatorPath: publicContext.designatorPath,
           workingLocalRelativePath:
             publicContext.payloadWorkingLocalRelativePath,
+          historyGroups: publicContext.historyGroupsByResourcePath.get(
+            resourcePath,
+          ),
           rawSourcePanels: publicContext.rawSourcePanels.get(pagePath),
         });
       }
@@ -1346,6 +1366,8 @@ async function collectGeneratedPageFiles(
         kind: "simple",
         path: pagePath,
         description: `Generated resource page for ${toResourcePath(pagePath)}.`,
+        historyGroups: meshHistoryGroups.get(resourcePath) ??
+          findHistoryGroupsForResource(resourcePath, designatorContexts),
         rawSourcePanels: meshRawSourcePanels.get(pagePath) ??
           findRawSourcePanelsForPage(pagePath, designatorContexts),
       });
@@ -1364,6 +1386,9 @@ async function collectGeneratedPageFiles(
         path: pagePath,
         description: context.pageDescriptions.get(pagePath) ??
           `Generated resource page for ${toResourcePath(pagePath)}.`,
+        historyGroups: context.historyGroupsByResourcePath.get(
+          toResourcePath(pagePath),
+        ),
         rawSourcePanels: context.rawSourcePanels.get(pagePath),
       });
       pagePaths.add(pagePath);
@@ -1461,6 +1486,11 @@ async function loadGenerateDesignatorContexts(
       payloadWorkingLocalRelativePath: payloadArtifact
         ?.workingLocalRelativePath,
       customIdentifierPage,
+      historyGroupsByResourcePath: collectHistoryGroupsByResourcePath(
+        meshState.meshBase,
+        currentKnopInventoryTurtle,
+        `Could not parse the current Knop inventory while collecting ResourcePage histories for ${designatorPath}.`,
+      ),
       pageDescriptions,
       rawSourcePanels,
       pagePaths: listResourcePagePaths(
@@ -1542,6 +1572,21 @@ function findRawSourcePanelsForPage(
     const panels = context.rawSourcePanels.get(pagePath);
     if (panels) {
       return panels;
+    }
+  }
+  return undefined;
+}
+
+function findHistoryGroupsForResource(
+  resourcePath: string,
+  contexts: readonly GenerateDesignatorContext[],
+): readonly ResourcePageHistoryGroupModel[] | undefined {
+  for (const context of contexts) {
+    const historyGroups = context.historyGroupsByResourcePath.get(
+      resourcePath,
+    );
+    if (historyGroups) {
+      return historyGroups;
     }
   }
   return undefined;
@@ -1677,6 +1722,185 @@ function listResourcePagePaths(
   }
 
   return [...paths].sort((left, right) => left.localeCompare(right));
+}
+
+function collectHistoryGroupsByResourcePath(
+  meshBase: string,
+  inventoryTurtle: string,
+  parseErrorMessage: string,
+): ReadonlyMap<string, readonly ResourcePageHistoryGroupModel[]> {
+  const quads = parseInventoryQuads(
+    meshBase,
+    inventoryTurtle,
+    parseErrorMessage,
+  );
+  const groupsByResourcePath = new Map<
+    string,
+    ResourcePageHistoryGroupModel[]
+  >();
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.predicate.value !== SFLO_CURRENT_ARTIFACT_HISTORY_IRI ||
+      quad.object.termType !== "NamedNode"
+    ) {
+      continue;
+    }
+
+    const artifactPath = toMeshPath(meshBase, quad.subject.value);
+    const historyPath = toMeshPath(meshBase, quad.object.value);
+    if (!artifactPath || !historyPath) {
+      continue;
+    }
+
+    addHistoryGroup(
+      groupsByResourcePath,
+      artifactPath,
+      resolveArtifactHistoryGroup(meshBase, quads, historyPath),
+    );
+  }
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.predicate.value !== SFLO_HAS_HISTORICAL_STATE_IRI ||
+      quad.object.termType !== "NamedNode"
+    ) {
+      continue;
+    }
+
+    const historyPath = toMeshPath(meshBase, quad.subject.value);
+    if (!historyPath) {
+      continue;
+    }
+
+    addHistoryGroup(
+      groupsByResourcePath,
+      historyPath,
+      resolveArtifactHistoryGroup(meshBase, quads, historyPath),
+    );
+  }
+
+  return groupsByResourcePath;
+}
+
+function addHistoryGroup(
+  groupsByResourcePath: Map<string, ResourcePageHistoryGroupModel[]>,
+  resourcePath: string,
+  historyGroup: ResourcePageHistoryGroupModel,
+): void {
+  const existingGroups = groupsByResourcePath.get(resourcePath) ?? [];
+  if (existingGroups.some((group) => group.path === historyGroup.path)) {
+    return;
+  }
+  groupsByResourcePath.set(resourcePath, [...existingGroups, historyGroup]);
+}
+
+function resolveArtifactHistoryGroup(
+  meshBase: string,
+  quads: readonly Quad[],
+  historyPath: string,
+): ResourcePageHistoryGroupModel {
+  const historyIri = new URL(historyPath, meshBase).href;
+  const statePaths = new Set<string>();
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType === "NamedNode" &&
+      quad.subject.value === historyIri &&
+      quad.predicate.value === SFLO_HAS_HISTORICAL_STATE_IRI &&
+      quad.object.termType === "NamedNode"
+    ) {
+      const statePath = toMeshPath(meshBase, quad.object.value);
+      if (statePath) {
+        statePaths.add(statePath);
+      }
+    }
+  }
+
+  return {
+    label: "Artifact history",
+    path: historyPath,
+    states: [...statePaths].sort((left, right) => left.localeCompare(right))
+      .map((statePath) => ({
+        path: statePath,
+        locatedFilePath: resolveHistoricalStateLocatedFilePath(
+          meshBase,
+          quads,
+          statePath,
+        ),
+      })),
+  };
+}
+
+function resolveHistoricalStateLocatedFilePath(
+  meshBase: string,
+  quads: readonly Quad[],
+  statePath: string,
+): string | undefined {
+  const stateIri = new URL(statePath, meshBase).href;
+  const shortcutLocatedFilePath = resolveFirstMeshPathObject(
+    meshBase,
+    quads,
+    stateIri,
+    SFLO_LOCATED_FILE_FOR_STATE_IRI,
+  );
+  const manifestationPath = resolveFirstMeshPathObject(
+    meshBase,
+    quads,
+    stateIri,
+    SFLO_HAS_MANIFESTATION_IRI,
+  );
+  const manifestationLocatedFilePath = manifestationPath
+    ? resolveFirstMeshPathObject(
+      meshBase,
+      quads,
+      new URL(manifestationPath, meshBase).href,
+      SFLO_HAS_LOCATED_FILE_IRI,
+    )
+    : undefined;
+
+  return shortcutLocatedFilePath ?? manifestationLocatedFilePath;
+}
+
+function resolveFirstMeshPathObject(
+  meshBase: string,
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+): string | undefined {
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.subject.value !== subjectIri ||
+      quad.predicate.value !== predicateIri ||
+      quad.object.termType !== "NamedNode"
+    ) {
+      continue;
+    }
+
+    const meshPath = toMeshPath(meshBase, quad.object.value);
+    if (meshPath) {
+      return meshPath;
+    }
+  }
+  return undefined;
+}
+
+function toMeshPath(meshBase: string, iri: string): string | undefined {
+  const meshUrl = new URL(meshBase);
+  const iriUrl = new URL(iri);
+  if (iriUrl.origin !== meshUrl.origin) {
+    return undefined;
+  }
+  const basePath = meshUrl.pathname.endsWith("/")
+    ? meshUrl.pathname
+    : `${meshUrl.pathname}/`;
+  if (!iriUrl.pathname.startsWith(basePath)) {
+    return undefined;
+  }
+  return decodeURIComponent(iriUrl.pathname.slice(basePath.length));
 }
 
 function parseInventoryQuads(

@@ -141,6 +141,7 @@ export interface IdentifierResourcePageModel {
   path: string;
   designatorPath: string;
   workingLocalRelativePath?: string;
+  historyGroups?: readonly ResourcePageHistoryGroupModel[];
   rawSourcePanels?: readonly ResourcePageRawSourcePanelModel[];
 }
 
@@ -148,6 +149,7 @@ export interface SimpleResourcePageModel {
   kind: "simple";
   path: string;
   description: string;
+  historyGroups?: readonly ResourcePageHistoryGroupModel[];
   rawSourcePanels?: readonly ResourcePageRawSourcePanelModel[];
 }
 
@@ -164,6 +166,7 @@ export interface ReferenceCatalogResourcePageModel {
   catalogPath: string;
   ownerDesignatorPath: string;
   currentLinks: readonly ReferenceCatalogCurrentLinkModel[];
+  historyGroups?: readonly ResourcePageHistoryGroupModel[];
   rawSourcePanels?: readonly ResourcePageRawSourcePanelModel[];
 }
 
@@ -187,6 +190,17 @@ export interface ResourcePageRawSourcePanelModel {
   sourcePath: string;
   contents?: string;
   omittedByteLength?: number;
+}
+
+export interface ResourcePageHistoryStateModel {
+  path: string;
+  locatedFilePath?: string;
+}
+
+export interface ResourcePageHistoryGroupModel {
+  label: string;
+  path: string;
+  states: readonly ResourcePageHistoryStateModel[];
 }
 
 export type ResourcePageModel =
