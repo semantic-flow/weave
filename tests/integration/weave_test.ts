@@ -1547,6 +1547,128 @@ Deno.test("executeGenerate lists every sidecar payload history with current hist
   );
 });
 
+Deno.test("executeGenerate preserves the sidecar first-release artifact contract", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-generate-sidecar-release-contract-",
+  );
+  await materializeMeshSidecarFantasyRulesBranch(
+    "15-first-release-woven",
+    workspaceRoot,
+  );
+
+  const result = await executeGenerate({
+    meshRoot: join(workspaceRoot, "docs"),
+    request: {
+      targets: [
+        { designatorPath: "ontology" },
+        { designatorPath: "shacl" },
+      ],
+    },
+    now: () => new Date("2026-05-04T00:00:00.000Z"),
+  });
+
+  assertEquals(result.generatedDesignatorPaths, ["ontology", "shacl"]);
+
+  for (
+    const artifact of [
+      {
+        designatorPath: "ontology",
+        sourcePath: "ontology/fantasy-rules-ontology.ttl",
+        releasePath:
+          "docs/ontology/releases/v0.0.1/ttl/fantasy-rules-ontology.ttl",
+        releaseFileName: "fantasy-rules-ontology.ttl",
+        legacyReleasePath:
+          "ontology/releases/v0.0.1/fantasy-rules-ontology-ttl",
+        versionIri: "ontology/releases/v0.0.1/ttl/fantasy-rules-ontology.ttl",
+        pageNeedle: "Fantasy Rules Ontology",
+      },
+      {
+        designatorPath: "shacl",
+        sourcePath: "shacl/fantasy-rules-shacl.ttl",
+        releasePath: "docs/shacl/releases/v0.0.1/ttl/fantasy-rules-shacl.ttl",
+        releaseFileName: "fantasy-rules-shacl.ttl",
+        legacyReleasePath: "shacl/releases/v0.0.1/fantasy-rules-shacl-ttl",
+        versionIri:
+          "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/shacl/releases/v0.0.1/ttl/fantasy-rules-shacl.ttl",
+        pageNeedle: "Fantasy Rules SHACL Shapes",
+      },
+    ] as const
+  ) {
+    assertEquals(
+      await Deno.readFile(join(workspaceRoot, artifact.releasePath)),
+      await Deno.readFile(join(workspaceRoot, artifact.sourcePath)),
+    );
+
+    const inventory = await Deno.readTextFile(
+      join(
+        workspaceRoot,
+        `docs/${artifact.designatorPath}/_knop/_inventory/inventory.ttl`,
+      ),
+    );
+    assertStringIncludes(
+      inventory,
+      `sflo:hasArtifactHistory <${artifact.designatorPath}/_history001> ;`,
+    );
+    assertStringIncludes(
+      inventory,
+      `sflo:hasArtifactHistory <${artifact.designatorPath}/releases> ;`,
+    );
+    assertStringIncludes(
+      inventory,
+      `sflo:currentArtifactHistory <${artifact.designatorPath}/releases> ;`,
+    );
+    assertStringIncludes(
+      inventory,
+      `sflo:hasManifestation <${artifact.designatorPath}/releases/v0.0.1/ttl> ;`,
+    );
+    assertStringIncludes(
+      inventory,
+      `sflo:locatedFileForState <${artifact.designatorPath}/releases/v0.0.1/ttl/${artifact.releaseFileName}> ;`,
+    );
+    assert(
+      !inventory.includes(artifact.legacyReleasePath),
+      `did not expect filename-derived release manifestation path ${artifact.legacyReleasePath}`,
+    );
+
+    const source = await Deno.readTextFile(
+      join(workspaceRoot, artifact.sourcePath),
+    );
+    assertStringIncludes(source, `owl:versionIRI <${artifact.versionIri}>`);
+
+    const artifactPage = await Deno.readTextFile(
+      join(workspaceRoot, `docs/${artifact.designatorPath}/index.html`),
+    );
+    assertStringIncludes(
+      artifactPage,
+      `href="/mesh-sidecar-fantasy-rules/${artifact.designatorPath}/releases"`,
+    );
+    assertStringIncludes(
+      artifactPage,
+      `href="/mesh-sidecar-fantasy-rules/${artifact.designatorPath}/releases/v0.0.1"`,
+    );
+    assertStringIncludes(
+      artifactPage,
+      `href="/mesh-sidecar-fantasy-rules/${artifact.designatorPath}/releases/v0.0.1/ttl"`,
+    );
+    assertStringIncludes(
+      artifactPage,
+      `href="/mesh-sidecar-fantasy-rules/${
+        artifact.releasePath.slice("docs/".length)
+      }"`,
+    );
+    assertStringIncludes(artifactPage, artifact.pageNeedle);
+
+    const manifestationPage = await Deno.readTextFile(
+      join(
+        workspaceRoot,
+        `docs/${artifact.designatorPath}/releases/v0.0.1/ttl/index.html`,
+      ),
+    );
+    assertStringIncludes(manifestationPage, "Historical manifestation file");
+    assertStringIncludes(manifestationPage, artifact.pageNeedle);
+  }
+});
+
 Deno.test("executeGenerate renders current Knop support artifact source panels", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-generate-support-source-panels-",

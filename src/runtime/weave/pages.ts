@@ -535,9 +535,9 @@ ${section.html}
     .wf-metadata tr:first-child th, .wf-metadata tr:first-child td { border-top: 0; }
     .wf-metadata th { width: 180px; color: #4f594f; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0; }
     .wf-metadata td { overflow-wrap: anywhere; }
-    .wf-child-identifiers { display: flex; flex-wrap: wrap; gap: 6px; }
-    .wf-child-identifier { display: inline-block; padding: 0.08rem 0.42rem; border: 1px solid #cdd8cf; border-radius: 999px; background: #eef3ef; text-decoration: none; white-space: nowrap; }
-    .wf-child-identifier:hover, .wf-child-identifier:focus { background: #e0ebe4; }
+    .wf-child-identifiers { display: flex; flex-wrap: wrap; gap: 5px; }
+    .wf-child-identifier { display: inline-block; padding: 0.08rem 0.36rem; border: 1px solid #cdd8cf; border-radius: 2px; background: #eef3ef; text-decoration: none; white-space: nowrap; }
+    .wf-child-identifier:hover, .wf-child-identifier:focus { background: #e0ebe4; border-color: #b8c8bc; }
     .wf-term { cursor: help; border-bottom: 1px dotted currentColor; }
     .wf-date-tip { position: relative; display: inline-block; }
     .wf-date-tip::after { content: attr(data-tooltip); position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); opacity: 0; pointer-events: none; background: rgba(27, 32, 27, 0.94); color: #fff; border-radius: 5px; padding: 5px 7px; font-size: 0.78rem; white-space: nowrap; transition: opacity 120ms ease; }

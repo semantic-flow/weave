@@ -289,7 +289,7 @@ The first ladder should be branch-based unless implementation pressure proves a 
 - [x] Add the constrained `sfcfg:hasLocalPathAccessRule` entry for `../examples/` only when example datasets are integrated as sidecar artifacts.
 - [x] Use `workingLocalRelativePath` to associate the ontology artifact with its adjacent authored source file.
 - [x] Use `workingLocalRelativePath` to associate the SHACL artifact with its adjacent authored source file.
-- [ ] Keep `hasWorkingLocatedFile` usage semantically consistent with the current located-byte story.
+- [x] Keep `hasWorkingLocatedFile` usage semantically consistent with the current located-byte story.
 - [x] Add current resource pages for root, ontology, and relevant support artifacts.
 - [x] Add current resource pages for SHACL and relevant support artifacts.
 - [x] Add the Accord manifest for the ontology integration transition.
@@ -354,7 +354,7 @@ Root resource-page titles and visible root designator labels should use the mesh
 
 ### Phase 6: Acceptance And Documentation
 
-- [ ] Add Weave integration/e2e tests for docs-rooted sidecar operation.
+- [x] Add Weave integration/e2e tests for docs-rooted sidecar operation.
 - [ ] Migrate the default manifestation segment derivation to extension-backed segments and re-ladder `mesh-alice-bio` for the new default.
 - [ ] Update [[wu.repository-options]] if the fixture changes the sidecar recommendation.
 - [x] Update [[wd.codebase-overview]] once implementation lands.
