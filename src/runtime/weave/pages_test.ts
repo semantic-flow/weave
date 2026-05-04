@@ -74,7 +74,7 @@ Deno.test("renderResourcePage escapes dynamic ReferenceCatalog HTML fragments", 
     },
   );
 
-  assertStringIncludes(html, "alice/_knop/_references&lt;&amp;&quot;&gt;");
+  assertStringIncludes(html, "_references&lt;&amp;&quot;&gt;");
   assertStringIncludes(html, "alice &amp; &quot;bob&quot;");
   assertStringIncludes(
     html,

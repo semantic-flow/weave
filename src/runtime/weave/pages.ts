@@ -282,7 +282,7 @@ function toDefaultResourcePageRenderInput(
       canonical,
       generatedAtIso,
       generatedAtDisplay,
-      title: rdfFacts.title ?? page.catalogPath,
+      title: rdfFacts.title ?? toLastPathSegment(page.catalogPath),
       breadcrumbs: toResourcePageBreadcrumbs(
         meshLabel,
         meshRootHref,
