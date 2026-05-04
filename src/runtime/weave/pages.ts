@@ -351,6 +351,9 @@ ${section.html}
     .wf-metadata th { width: 180px; color: #4f594f; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0; }
     .wf-metadata td { overflow-wrap: anywhere; }
     .wf-term { cursor: help; border-bottom: 1px dotted currentColor; }
+    .wf-date-tip { position: relative; display: inline-block; }
+    .wf-date-tip::after { content: attr(data-tooltip); position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); opacity: 0; pointer-events: none; background: rgba(27, 32, 27, 0.94); color: #fff; border-radius: 5px; padding: 5px 7px; font-size: 0.78rem; white-space: nowrap; transition: opacity 120ms ease; }
+    .wf-date-tip:hover::after, .wf-date-tip:focus::after { opacity: 1; }
     .wf-section, .wf-source { margin-top: 24px; border-top: 1px solid #cdd2ca; padding-top: 18px; }
     h2 { margin: 0 0 12px; font-size: 1rem; line-height: 1.25; letter-spacing: 0; color: #2f382f; }
     ul { margin: 0; padding-left: 1.2rem; }
@@ -392,7 +395,7 @@ ${histories}${sections ? `${sections}\n` : ""}${rawSections}
     </article>
   </main>
   <footer class="wf-generated">
-    Generated <span class="wf-term" title="${GENERATED_AT_ISO}">${GENERATED_AT_DISPLAY}</span> by <a href="${WEAVE_REPOSITORY_URL}">Weave</a>
+    Generated on <span class="wf-term wf-date-tip" tabindex="0" title="${GENERATED_AT_ISO}" data-tooltip="${GENERATED_AT_ISO}">${GENERATED_AT_DISPLAY}</span> by <a href="${WEAVE_REPOSITORY_URL}">Weave</a>
   </footer>
 </body>
 </html>
