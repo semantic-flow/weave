@@ -1,6 +1,7 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import { IntegrateInputError, planIntegrate } from "./integrate.ts";
 import { readMeshAliceBioBranchFile } from "../../../tests/support/mesh_alice_bio_fixture.ts";
+import { compareRdfContent } from "../../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 
 Deno.test("planIntegrate renders first payload integration artifacts", async () => {
   const plan = planIntegrate({
@@ -48,11 +49,17 @@ Deno.test("planIntegrate renders first payload integration artifacts", async () 
     ),
   );
   assertEquals(
-    plan.updatedFiles[0]?.contents,
-    await readMeshAliceBioBranchFile(
-      "06-alice-bio-integrated",
-      "_mesh/_inventory/inventory.ttl",
-    ),
+    await compareRdfContent({
+      left: encode(plan.updatedFiles[0]?.contents ?? ""),
+      right: encode(
+        await readMeshAliceBioBranchFile(
+          "06-alice-bio-integrated",
+          "_mesh/_inventory/inventory.ttl",
+        ),
+      ),
+      path: "_mesh/_inventory/inventory.ttl",
+    }),
+    true,
   );
 });
 
@@ -141,14 +148,24 @@ Deno.test(
     });
 
     assertEquals(
-      plan.updatedFiles[0]?.contents,
-      await readMeshAliceBioBranchFile(
-        "06-alice-bio-integrated",
-        "_mesh/_inventory/inventory.ttl",
-      ),
+      await compareRdfContent({
+        left: encode(plan.updatedFiles[0]?.contents ?? ""),
+        right: encode(
+          await readMeshAliceBioBranchFile(
+            "06-alice-bio-integrated",
+            "_mesh/_inventory/inventory.ttl",
+          ),
+        ),
+        path: "_mesh/_inventory/inventory.ttl",
+      }),
+      true,
     );
   },
 );
+
+function encode(value: string): Uint8Array {
+  return new TextEncoder().encode(value);
+}
 
 function withRdfPrefix(turtle: string): string {
   return turtle.replace(

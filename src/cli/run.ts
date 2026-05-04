@@ -346,6 +346,10 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           "Mesh root to update. Defaults to the current directory.",
           { default: "." },
         )
+        .option(
+          "--grant-source-directory <path:string>",
+          "Add a mesh config workingLocalRelativePath grant for this source directory.",
+        )
         .action(async (options, source, designatorPathArg) => {
           const designatorPath = resolveIntegrateDesignatorPath(
             options,
@@ -363,12 +367,14 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             workspaceRoot,
             designatorPath,
             source,
+            grantSourceDirectory: options.grantSourceDirectory,
             localMode: true,
           });
 
           const result = await executeIntegrate({
             meshRoot,
             sourceBaseDirectory: Deno.cwd(),
+            sourceAccessDirectory: options.grantSourceDirectory,
             request: {
               designatorPath,
               source,

@@ -265,15 +265,17 @@ The first ladder should be branch-based unless implementation pressure proves a 
 
 ### Phase 2: Integrate Ontology And SHACL Artifacts
 
-- [ ] Integrate the ontology artifact at public path `ontology`.
-- [ ] Add the constrained `sfcfg:hasLocalPathAccessRule` entry for `../ontology/` as part of ontology artifact integration.
+- [x] Add an explicit `weave integrate --grant-source-directory` path so sidecar artifact integration can add the corresponding constrained mesh-carried source-directory rule while keeping ungranted extra-mesh source access fail-closed.
+- [x] Integrate the ontology artifact at public path `ontology`.
+- [x] Add the constrained `sfcfg:hasLocalPathAccessRule` entry for `../ontology/` as part of ontology artifact integration.
 - [ ] Integrate the SHACL artifact at public path `shacl`.
 - [ ] Add the constrained `sfcfg:hasLocalPathAccessRule` entry for `../shacl/` as part of SHACL artifact integration.
 - [ ] Add the constrained `sfcfg:hasLocalPathAccessRule` entry for `../examples/` only when example datasets are integrated as sidecar artifacts.
 - [ ] Use `workingLocalRelativePath` to associate each artifact with its adjacent authored source file.
 - [ ] Keep `hasWorkingLocatedFile` usage semantically consistent with the current located-byte story.
 - [ ] Add current resource pages for root, ontology, SHACL, and relevant support artifacts.
-- [ ] Add Accord manifests for the ontology and SHACL integration transitions as they settle.
+- [x] Add the Accord manifest for the ontology integration transition.
+- [ ] Add Accord manifests for the remaining SHACL integration transitions as they settle.
 
 ### Phase 3: Weave The First Release
 

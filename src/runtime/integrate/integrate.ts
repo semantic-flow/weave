@@ -17,6 +17,7 @@ import {
   resolveMeshBaseFromMetadataTurtle,
 } from "../mesh/metadata.ts";
 import {
+  ensureMeshConfigWorkingDirectoryAccessRule,
   loadOperationalLocalPathPolicy,
   LocalPathAccessError,
   type OperationalLocalPathPolicy,
@@ -34,6 +35,7 @@ export interface LocalIntegrateRequest {
 export interface ExecuteIntegrateOptions {
   meshRoot: string;
   sourceBaseDirectory?: string;
+  sourceAccessDirectory?: string;
   request: LocalIntegrateRequest;
   operationalLogger?: StructuredLogger;
   auditLogger?: AuditLogger;
@@ -65,7 +67,8 @@ export async function executeIntegrate(
   const source = options.request.source;
   let plan: IntegratePlan | undefined;
   let workingLocalRelativePath: string | undefined;
-  const localPathPolicy = await loadOperationalLocalPathPolicy(meshRoot);
+  let meshConfigUpdated = false;
+  let localPathPolicy = await loadOperationalLocalPathPolicy(meshRoot);
   const workspaceRoot = localPathPolicy.workspaceRoot;
   const sourceBaseDirectory = options.sourceBaseDirectory ?? meshRoot;
 
@@ -90,6 +93,16 @@ export async function executeIntegrate(
 
   try {
     await ensureMeshRootExists(meshRoot);
+    if (options.sourceAccessDirectory !== undefined) {
+      meshConfigUpdated = await grantSourceDirectoryAccess({
+        sourceBaseDirectory,
+        meshRoot,
+        localPathPolicy,
+        source,
+        sourceAccessDirectory: options.sourceAccessDirectory,
+      });
+      localPathPolicy = await loadOperationalLocalPathPolicy(meshRoot);
+    }
     const resolvedSource = await resolveLocalSource(
       sourceBaseDirectory,
       meshRoot,
@@ -156,9 +169,14 @@ export async function executeIntegrate(
     createdPaths: plan.createdFiles.map((file) =>
       toWorkspaceRelativePath(localPathPolicy, file.path)
     ),
-    updatedPaths: plan.updatedFiles.map((file) =>
-      toWorkspaceRelativePath(localPathPolicy, file.path)
-    ),
+    updatedPaths: [
+      ...plan.updatedFiles.map((file) =>
+        toWorkspaceRelativePath(localPathPolicy, file.path)
+      ),
+      ...(meshConfigUpdated
+        ? [toWorkspaceRelativePath(localPathPolicy, "_mesh/_config/config.ttl")]
+        : []),
+    ],
   };
 
   await operationalLogger.info(
@@ -279,7 +297,13 @@ async function resolveLocalSource(
   } catch (error) {
     if (error instanceof LocalPathAccessError) {
       throw new IntegrateRuntimeError(
-        `integrate source is outside the allowed local-path boundary: ${trimmed}`,
+        `integrate source is outside the allowed local-path boundary: ${trimmed}${
+          renderLocalPathAccessSuggestion(
+            sourceBaseDirectory,
+            localPathPolicy,
+            absoluteSourcePath,
+          )
+        }`,
       );
     }
     throw error;
@@ -289,6 +313,66 @@ async function resolveLocalSource(
     absoluteSourcePath,
     workingLocalRelativePath,
   };
+}
+
+async function grantSourceDirectoryAccess(
+  options: {
+    sourceBaseDirectory: string;
+    meshRoot: string;
+    localPathPolicy: OperationalLocalPathPolicy;
+    source: string;
+    sourceAccessDirectory: string;
+  },
+): Promise<boolean> {
+  const absoluteSourcePath = resolveSourcePath(
+    options.sourceBaseDirectory,
+    options.source.trim(),
+  );
+  const absoluteAccessDirectory = resolveSourcePath(
+    options.sourceBaseDirectory,
+    options.sourceAccessDirectory.trim(),
+  );
+  let stat: Deno.FileInfo;
+  try {
+    stat = await Deno.stat(absoluteAccessDirectory);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      throw new IntegrateRuntimeError(
+        `source access directory does not exist: ${options.sourceAccessDirectory}`,
+      );
+    }
+    throw error;
+  }
+  if (!stat.isDirectory) {
+    throw new IntegrateRuntimeError(
+      `source access directory is not a directory: ${options.sourceAccessDirectory}`,
+    );
+  }
+  if (!isWithinRoot(absoluteSourcePath, absoluteAccessDirectory)) {
+    throw new IntegrateRuntimeError(
+      `source access directory does not contain integrate source: ${options.sourceAccessDirectory}`,
+    );
+  }
+  if (
+    !isWithinRoot(
+      absoluteAccessDirectory,
+      options.localPathPolicy.workspaceRoot,
+    )
+  ) {
+    throw new IntegrateRuntimeError(
+      `source access directory is outside the inferred workspace root: ${options.sourceAccessDirectory}`,
+    );
+  }
+  if (isWithinRoot(absoluteAccessDirectory, options.meshRoot)) {
+    return false;
+  }
+
+  const pathPrefix = relative(options.meshRoot, absoluteAccessDirectory)
+    .replaceAll("\\", "/");
+  return await ensureMeshConfigWorkingDirectoryAccessRule(
+    options.localPathPolicy,
+    pathPrefix,
+  );
 }
 
 function resolveSourcePath(
@@ -310,6 +394,30 @@ function resolveSourcePath(
     : resolve(sourceBaseDirectory, source);
 }
 
+function renderLocalPathAccessSuggestion(
+  sourceBaseDirectory: string,
+  localPathPolicy: OperationalLocalPathPolicy,
+  absoluteSourcePath: string,
+): string {
+  const sourceDirectory = dirname(absoluteSourcePath);
+  if (
+    isWithinRoot(sourceDirectory, localPathPolicy.workspaceRoot) &&
+    !isWithinRoot(sourceDirectory, localPathPolicy.meshRoot) &&
+    localPathPolicy.meshConfigPath !== undefined
+  ) {
+    const relativeSourceDirectory = relative(
+      sourceBaseDirectory,
+      sourceDirectory,
+    ).replaceAll("\\", "/");
+    const suggestedDirectory = relativeSourceDirectory.length === 0
+      ? "."
+      : relativeSourceDirectory;
+    return `; run again with --grant-source-directory ${suggestedDirectory} to add a constrained mesh config grant for that source directory`;
+  }
+
+  return "; add an explicit local path access rule before integrating extra-workspace sources";
+}
+
 function toWorkspaceRelativePath(
   policy: OperationalLocalPathPolicy,
   meshRelativePath: string,
@@ -319,6 +427,12 @@ function toWorkspaceRelativePath(
     join(policy.meshRoot, meshRelativePath),
   ).replaceAll("\\", "/");
   return path.length === 0 ? "." : path;
+}
+
+function isWithinRoot(candidatePath: string, rootPath: string): boolean {
+  const relation = relative(resolve(rootPath), resolve(candidatePath));
+  return relation.length === 0 ||
+    (!relation.startsWith("..") && !isAbsolute(relation));
 }
 
 function tryParseUrl(value: string): URL | undefined {

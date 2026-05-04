@@ -12,6 +12,7 @@ created: 1777854312008
 - Use the pair to clarify Semantic Flow `extract` behavior for ontology-term publishing, not graph splitting or payload rewriting.
 - Keep the first extracted term set deliberately small and reviewable.
 - Make the extracted ontology terms dereferenceable through Knop-managed current surfaces and generated pages under the docs-rooted sidecar mesh.
+- Preserve an explicit source link from each extracted term back to the ontology artifact state that justified the extraction, so generated term pages can continue to render from the original source.
 - Plan Accord transition coverage for both the non-woven extraction step and the woven publication step, without creating the manifest files until the 08/09 branch shapes are settled.
 
 ## Summary
@@ -29,7 +30,7 @@ This is separate from [[wd.task.2026.2026-05-02-fantasy-rules-sidecar]] because 
 
 The first sidecar ladder proves that an ontology document can be governed and released as a sidecar artifact. That does not automatically make each ontology term a first-class dereferenceable Semantic Flow resource. For slash IRIs such as `https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/AbilityScore`, the mesh should be able to expose a term page at `docs/ontology/AbilityScore/index.html` backed by a Knop surface at `docs/ontology/AbilityScore/_knop/`.
 
-This task should apply the Alice Bio extraction precedent without copying its exact Bob-shaped assumptions. The Alice Bio slice extracted one resource mentioned in a payload document and created a minimal Knop plus a supplemental reference back to the source payload state. The fantasy-rules slice should extract several selected ontology terms from one governed ontology artifact. The source artifact is the woven ontology document, and each extracted term should be justified by triples in that document.
+This task should apply the Alice Bio extraction precedent without copying its exact Bob-shaped assumptions. The Alice Bio slice extracted one resource mentioned in a payload document and created a minimal Knop plus a supplemental reference back to the source payload state. That pinned `referenceTargetState` is especially important here. The fantasy-rules slice should extract several selected ontology terms from one governed ontology artifact, and each extracted term should keep an explicit reference back to the ontology artifact state whose triples justified the extraction.
 
 The first extracted term set should stay small. A reasonable starting set is:
 
@@ -40,9 +41,11 @@ The first extracted term set should stay small. A reasonable starting set is:
 
 Representative controlled values can follow after the class-term path is settled. Extracting every subject IRI from the ontology in the first pair is the wrong target: it would make the fixture noisy, make branch review harder, and force broad source-selection policy before the core term-surface behavior is proven.
 
-For `08`, extraction should create current support surfaces only. It should update the working mesh inventory so the extracted term Knops are discoverable, and it should create minimal `D/_knop/_meta/meta.ttl`, `D/_knop/_inventory/inventory.ttl`, and probably `D/_knop/_references/references.ttl` files for each extracted term. It should not create histories or generated pages yet.
+For `08`, extraction should create current support surfaces only. It should update the working mesh inventory so the extracted term Knops are discoverable, and it should create minimal `D/_knop/_meta/meta.ttl`, `D/_knop/_inventory/inventory.ttl`, and probably `D/_knop/_references/references.ttl` files for each extracted term. The reference catalog should include a link whose `referenceTarget` is the ontology artifact and whose `referenceTargetState` is the woven ontology release state used for extraction. It should not create histories or generated pages yet.
 
-For `09`, the `weave` operation should version the new support artifacts, validate the resulting current surface, and generate public pages for the extracted terms and their support artifacts. The term pages should be term pages, not generic artifact pages: they should identify the term, show useful type/label/comment facts from the ontology document when available, and link back to the governing ontology artifact and release state that justified the extraction.
+For `09`, the `weave` operation should version the new support artifacts, validate the resulting current surface, and generate public pages for the extracted terms and their support artifacts. The term pages should be term pages, not generic artifact pages: they should identify the term, show useful type/label/comment facts from the ontology document when available, and link back to the governing ontology artifact and release state that justified the extraction. Page generation should resolve those displayed term facts through the pinned source link, not by scanning whatever ontology source happens to be latest at render time.
+
+If a later ontology version no longer describes an extracted term, the existing extracted term surface should not be silently rewritten from missing current data. The conservative behavior is: no automatic fresh update is made for that term unless an explicit refresh/deprecation/removal operation is requested. Its page can still render from the previously pinned source state. A later fixture can decide whether disappearance from the latest ontology should create a `Deprecated` reference, a warning on the page, or a new lifecycle operation, but it should not be an implicit side effect of ordinary weave.
 
 The exact reference role still needs care. `ReferenceRole/Supplemental` was right for Bob because Alice's bio remained a descriptive source for Bob. Ontology term extraction may deserve a stronger `DefinedBy`, `Source`, or ontology-specific role if the ontology vocabulary already has one. If no better role exists yet, the first fixture can use `Supplemental` explicitly and leave a follow-up decision to refine role vocabulary.
 
@@ -52,6 +55,7 @@ The exact reference role still needs care. `ReferenceRole/Supplemental` was righ
 - Should extracted ontology term references use existing `ReferenceRole/Supplemental`, or should the ontology define a more precise role such as "defined by" before this pair is treated as settled?
 - Should `extract` accept an explicit source artifact selector for this slice, or should the first sidecar implementation infer the single woven ontology source from the target designator paths?
 - Should one `extract` request create multiple term surfaces in a batch, or should 08 represent a sequence of single-target extractions whose combined result is the branch state?
+- What is the eventual refresh behavior when a newer ontology state changes, removes, or deprecates an already extracted term?
 - How much ontology-derived term detail belongs in generated term pages in 09 versus staying deferred to a broader resource-page template task?
 - Should controlled-value individuals be included in the first pair, or deferred until class extraction is stable?
 
@@ -63,6 +67,9 @@ The exact reference role still needs care. `ReferenceRole/Supplemental` was righ
 - Treat this as ontology-term identifier extraction, not ontology payload splitting.
 - Do not rewrite `ontology/fantasy-rules-ontology.ttl` or the woven ontology release bytes during extraction.
 - Use docs-rooted designator paths such as `ontology/AbilityScore`, producing local mesh paths under `docs/ontology/AbilityScore/`.
+- Each extracted term must keep an explicit source reference to the ontology artifact and the specific woven ontology state used for extraction.
+- Generated term pages should use that pinned source reference for ontology-derived display facts.
+- If a later ontology source no longer contains the term, ordinary weave should not silently erase or rewrite the extracted term page from missing latest data.
 - Keep the first extracted set narrow and explicitly listed in the manifests.
 - Defer hash-IRI extraction; this pair is for the existing slash-IRI term convention.
 
@@ -72,7 +79,8 @@ The exact reference role still needs care. `ReferenceRole/Supplemental` was righ
 - Extend `extract` behavior from one Bob-like target to a sidecar ontology-term use case where selected term identifiers are extracted from one governed, woven RDF document.
 - Define that non-woven term extraction creates Knop-managed current surfaces and updates working mesh inventory, but does not create histories or pages.
 - Define that the woven term extraction step versions those support artifacts and generates public dereferenceable term pages.
-- Clarify how extracted term surfaces point back to the source ontology artifact and the relevant woven ontology state.
+- Clarify how extracted term surfaces point back to the source ontology artifact and the relevant woven ontology state through an explicit reference link.
+- Clarify that ontology-derived term-page content is source-backed by that explicit reference, not by opportunistic latest-source scanning.
 - Add sidecar Accord manifests for `07 -> 08` and `08 -> 09` as part of this task once the expected branch outputs are concrete enough to make the manifests normative.
 
 ## Testing
@@ -85,6 +93,7 @@ The exact reference role still needs care. `ReferenceRole/Supplemental` was righ
 - Add or update Weave integration coverage that checks out `08-ontology-terms-extracted`, runs the `weave` operation, and compares the result to `09-ontology-terms-extracted-woven`.
 - Include fail-closed coverage for extracting a term that is not described by the selected woven ontology source.
 - Include fail-closed coverage for attempting to overwrite an existing term Knop support surface.
+- Include coverage that generated term pages can render ontology-derived facts from the pinned ontology state.
 - Include page-presence assertions for generated term pages in 09, without requiring exact HTML text comparison unless the renderer contract is intentionally tightened.
 
 ## Non-Goals
@@ -93,6 +102,7 @@ The exact reference role still needs care. `ReferenceRole/Supplemental` was righ
 - Supporting hash-IRI term extraction.
 - Splitting the ontology document into one payload artifact per term.
 - Rewriting or normalizing the authored ontology source as part of extraction.
+- Automatically deleting, rewriting, or deprecating an extracted term when a later ontology version no longer contains that term.
 - Creating a complete fantasy-rules vocabulary.
 - Settling all resource-page template design for ontology term pages.
 - Adding remote source fetching or live `workingAccessUrl` dereferencing.
@@ -104,6 +114,8 @@ The exact reference role still needs care. `ReferenceRole/Supplemental` was righ
 - [x] Update the sidecar conformance README with the new transition names and walkthrough.
 - [ ] Decide the exact first extracted term list before authoring the 08 manifest.
 - [ ] Decide whether the first reference role should remain `ReferenceRole/Supplemental` or use a more precise ontology/source role.
+- [ ] Define the exact source-reference shape for extracted terms, including `referenceTarget` and `referenceTargetState`.
+- [ ] Define the page-generation rule for rendering term facts from the pinned ontology source state.
 - [ ] Update [[sf.spec.2026-04-05-extract-behavior]] with the ontology-term extraction shape before implementation depends on it.
 - [ ] Author `08-ontology-terms-extracted.jsonld` only after the 08 expected output shape is settled enough for the manifest to be normative.
 - [ ] Create the `08-ontology-terms-extracted` fixture branch from `07-shacl-integrated-woven`.

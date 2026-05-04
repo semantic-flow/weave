@@ -194,7 +194,7 @@ Deno.test("weave integrate accepts the root designator path as a black-box CLI r
   await Deno.stat(join(workspaceRoot, "_knop/_inventory/inventory.ttl"));
 });
 
-Deno.test("weave integrate allows repo-adjacent local sources when repo policy permits them as a black-box CLI run", async () => {
+Deno.test("weave integrate grants and uses a repo-adjacent source directory as a black-box CLI run", async () => {
   const tempRepoRoot = await createTestTmpDir("weave-e2e-integrate-policy-");
   const workspaceRoot = join(tempRepoRoot, "mesh");
   await materializeMeshAliceBioBranch(
@@ -208,13 +208,7 @@ Deno.test("weave integrate allows repo-adjacent local sources when repo policy p
     `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
 
 <> a sfcfg:MeshConfig ;
-  sfcfg:workspaceRootRelativeToMeshRoot "../" ;
-  sfcfg:hasLocalPathAccessRule [
-    a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/meshRootPathBase> ;
-    sfcfg:pathPrefix "../documentation/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/workingLocalRelativePathLocatorKind>
-  ] .
+  sfcfg:workspaceRootRelativeToMeshRoot "../" .
 `,
   );
   await Deno.writeTextFile(
@@ -238,6 +232,8 @@ Deno.test("weave integrate allows repo-adjacent local sources when repo policy p
       "alice/bio",
       "--mesh-root",
       "mesh",
+      "--grant-source-directory",
+      "documentation",
     ],
     cwd: toFileUrl(`${tempRepoRoot}/`),
     stdout: "piped",
@@ -249,6 +245,14 @@ Deno.test("weave integrate allows repo-adjacent local sources when repo policy p
 
   assert(output.success, stderr);
   assert(stdout.includes("Integrated"), stdout);
+  assert(stdout.includes("mesh/_mesh/_config/config.ttl"), stdout);
+  const config = await Deno.readTextFile(
+    join(workspaceRoot, "_mesh/_config/config.ttl"),
+  );
+  assert(
+    config.includes('sfcfg:pathPrefix "../documentation/"'),
+    config,
+  );
   const createdInventory = await Deno.readTextFile(
     join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
   );

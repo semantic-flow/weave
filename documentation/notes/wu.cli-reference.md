@@ -162,7 +162,7 @@ Integrates a local source file into a designator path as a payload artifact, inc
 ```sh
 weave integrate ./alice-bio.ttl alice/bio
 weave integrate ./alice-bio.ttl --designator-path alice/bio
-weave integrate ./ontology/fantasy-rules-ontology.ttl ontology --mesh-root docs
+weave integrate ./ontology/fantasy-rules-ontology.ttl ontology --mesh-root docs --grant-source-directory ontology
 weave integrate ./root.ttl --designator-path /
 ```
 
@@ -172,9 +172,11 @@ Constraints:
 - if both are provided, they must match
 - `--mesh-root <path>` selects the mesh root and defaults to the current directory
 - relative source paths are resolved from the command working directory
+- `--grant-source-directory <path>` adds a mesh-carried `workingLocalRelativePath` grant for that source directory before resolving the source
 - the current local CLI slice accepts local filesystem paths or `file:` URLs
 - sources inside the mesh root are accepted directly
 - extra-mesh local sources are accepted only when operational policy allows the resulting relative `workingLocalRelativePath`
+- denied adjacent workspace sources report the matching `--grant-source-directory` suggestion when Weave can infer one
 - remote-source integration is still a broader semantic/API direction, not part of the current CLI contract
 
 ### `weave extract`
