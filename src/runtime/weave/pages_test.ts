@@ -20,7 +20,15 @@ Deno.test("renderResourcePage renders identifier pages with working file links",
   );
   assertStringIncludes(
     html,
-    `<summary>Semantic Flow Metadata</summary>`,
+    `<summary>Semantic Flow metadata</summary>`,
+  );
+  assertStringIncludes(
+    html,
+    `<details class="wf-semantic-flow-metadata">
+        <summary>Semantic Flow metadata</summary>`,
+  );
+  assertFalse(
+    html.includes(`<details class="wf-semantic-flow-metadata" open>`),
   );
   assertStringIncludes(
     html,
@@ -48,7 +56,7 @@ Deno.test("renderResourcePage renders identifier extraction source metadata", as
 
   assertStringIncludes(
     html,
-    `<summary>Semantic Flow Metadata</summary>`,
+    `<summary>Semantic Flow metadata</summary>`,
   );
   assertStringIncludes(
     html,
@@ -138,6 +146,31 @@ Deno.test("renderResourcePage renders child identifier pills", async () => {
     html,
     '<span class="wf-child-identifiers"><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/AbilityScore">AbilityScore</a></nobr><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/Character">Character</a></nobr></span>',
   );
+});
+
+Deno.test("renderResourcePage collapses child identifier overflow", async () => {
+  const childIdentifiers = Array.from({ length: 23 }, (_, index) => {
+    const label = `Child${String(index + 1).padStart(2, "0")}`;
+    return { label, path: `ontology/${label}` };
+  });
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "identifier",
+      path: "ontology/index.html",
+      designatorPath: "ontology",
+      childIdentifiers,
+    },
+  );
+
+  assertStringIncludes(html, "Child Identifiers");
+  assertStringIncludes(html, ">Child20</a>");
+  assertStringIncludes(
+    html,
+    '<details class="wf-child-identifiers-more"><summary title="Show 3 more child identifiers">...</summary>',
+  );
+  assertStringIncludes(html, ">Child21</a>");
+  assertStringIncludes(html, ">Child23</a>");
 });
 
 Deno.test("renderResourcePage renders current ReferenceCatalog pages with fragment anchors", async () => {
@@ -388,7 +421,12 @@ Deno.test("renderResourcePage does not link extra-mesh local source paths", asyn
   );
   assertStringIncludes(
     html,
-    `<summary>Semantic Flow Metadata</summary>`,
+    `<summary>Semantic Flow metadata</summary>`,
+  );
+  assertEquals(
+    html.lastIndexOf("<summary>Semantic Flow metadata</summary>") >
+      html.lastIndexOf("<summary>Current working file</summary>"),
+    true,
   );
   assertStringIncludes(
     html,

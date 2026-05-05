@@ -550,9 +550,14 @@ ${section.html}
     .wf-metadata td { overflow-wrap: anywhere; }
     .wf-knop-link { display: inline-block; margin-left: 0.34rem; font-size: 0.72em; line-height: 1; text-decoration: none; vertical-align: super; opacity: 0.72; }
     .wf-knop-link:hover, .wf-knop-link:focus { opacity: 1; text-decoration: none; }
-    .wf-child-identifiers { display: flex; flex-wrap: wrap; gap: 5px; }
+    .wf-child-identifiers { display: flex; flex-wrap: wrap; gap: 5px; align-items: baseline; }
     .wf-child-identifier { display: inline-block; padding: 0.08rem 0.36rem; border: 1px solid #cdd8cf; border-radius: 2px; background: #eef3ef; text-decoration: none; white-space: nowrap; }
     .wf-child-identifier:hover, .wf-child-identifier:focus { background: #e0ebe4; border-color: #b8c8bc; }
+    .wf-child-identifiers-more { display: contents; }
+    .wf-child-identifiers-more > summary { display: inline-block; padding: 0.08rem 0.36rem; border: 1px solid #cdd8cf; border-radius: 2px; background: #eef3ef; color: #1f5f85; cursor: pointer; line-height: inherit; }
+    .wf-child-identifiers-more > summary::-webkit-details-marker { display: none; }
+    .wf-child-identifiers-more > summary::marker { content: ""; }
+    .wf-child-identifiers-more[open] > summary { display: none; }
     .wf-term { cursor: help; border-bottom: 1px dotted currentColor; }
     .wf-date-tip { position: relative; display: inline-block; }
     .wf-date-tip::after { content: attr(data-tooltip); position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); opacity: 0; pointer-events: none; background: rgba(27, 32, 27, 0.94); color: #fff; border-radius: 5px; padding: 5px 7px; font-size: 0.78rem; white-space: nowrap; transition: opacity 120ms ease; }
@@ -604,9 +609,9 @@ ${breadcrumbs}
         <h1>${escapeHtml(input.title)}</h1>
 ${classes}${summary}${metadata}
       </header>
-${semanticFlowMetadataSection}${historySection}${
+${historySection}${
     sections ? `${sections}\n` : ""
-  }${rawSections}
+  }${rawSections}${semanticFlowMetadataSection}
     </article>
   </main>
   <footer class="wf-generated">
@@ -666,8 +671,8 @@ function renderSemanticFlowMetadataSection(
     return "";
   }
 
-  return `      <details class="wf-semantic-flow-metadata" open>
-        <summary>Semantic Flow Metadata</summary>
+  return `      <details class="wf-semantic-flow-metadata">
+        <summary>Semantic Flow metadata</summary>
 ${renderMetadataTable(rows, 8)}      </details>
 `;
 }
@@ -756,6 +761,17 @@ function toChildIdentifierMetadataRows(
   if (childIdentifiers.length === 0) {
     return [];
   }
+  const visibleIdentifiers = childIdentifiers.slice(0, 20);
+  const hiddenIdentifiers = childIdentifiers.slice(20);
+  const renderIdentifier = (identifier: ResourcePageChildIdentifierModel) =>
+    `<nobr><a class="wf-child-identifier" href="${
+      escapeHtml(toMeshResourceHref(meshRootHref, identifier.path))
+    }">${escapeHtml(identifier.label)}</a></nobr>`;
+  const hiddenIdentifiersHtml = hiddenIdentifiers.length > 0
+    ? `<details class="wf-child-identifiers-more"><summary title="Show ${hiddenIdentifiers.length} more child identifiers">...</summary>${
+      hiddenIdentifiers.map(renderIdentifier).join("")
+    }</details>`
+    : "";
 
   return [{
     label: "Child Identifiers",
@@ -763,12 +779,8 @@ function toChildIdentifierMetadataRows(
       ", ",
     ),
     html: `<span class="wf-child-identifiers">${
-      childIdentifiers.map((identifier) =>
-        `<nobr><a class="wf-child-identifier" href="${
-          escapeHtml(toMeshResourceHref(meshRootHref, identifier.path))
-        }">${escapeHtml(identifier.label)}</a></nobr>`
-      ).join("")
-    }</span>`,
+      visibleIdentifiers.map(renderIdentifier).join("")
+    }${hiddenIdentifiersHtml}</span>`,
   }];
 }
 
