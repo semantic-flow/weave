@@ -31,6 +31,7 @@ interface ResourcePageRenderInput {
   summary?: string;
   rdfClasses: readonly ResourcePageRdfClass[];
   metadataRows: readonly ResourcePageMetadataRow[];
+  includeSemanticFlowMetadata: boolean;
   semanticFlowMetadataRows: readonly ResourcePageMetadataRow[];
   historyGroups: readonly ResourcePageHistoryGroupModel[];
   sections: readonly ResourcePageSection[];
@@ -59,6 +60,7 @@ interface ResourcePageSection {
 interface ResourcePageRdfFacts {
   title?: string;
   description?: string;
+  note?: string;
   classes: readonly ResourcePageRdfClass[];
 }
 
@@ -78,6 +80,7 @@ const FOAF_NAME_IRI = "http://xmlns.com/foaf/0.1/name";
 const RDFS_COMMENT_IRI = "http://www.w3.org/2000/01/rdf-schema#comment";
 const RDFS_LABEL_IRI = "http://www.w3.org/2000/01/rdf-schema#label";
 const SKOS_DEFINITION_IRI = "http://www.w3.org/2004/02/skos/core#definition";
+const SKOS_NOTE_IRI = "http://www.w3.org/2004/02/skos/core#note";
 const SKOS_PREF_LABEL_IRI = "http://www.w3.org/2004/02/skos/core#prefLabel";
 const SCHEMA_CHARACTER_NAME_IRIS = [
   "https://schema.org/characterName",
@@ -128,6 +131,7 @@ const defaultResourcePageTheme: ResourcePageTheme = {
 
 export interface ResourcePageRenderOptions {
   generatedAt?: Date;
+  includeSemanticFlowMetadata?: boolean;
 }
 
 export async function renderResourcePages(
@@ -166,6 +170,7 @@ export async function renderResourcePage(
         displayResourcePath,
         canonical,
         options.generatedAt ?? new Date(),
+        options.includeSemanticFlowMetadata ?? false,
       ),
     );
   }
@@ -239,6 +244,7 @@ function toDefaultResourcePageRenderInput(
   displayResourcePath: string,
   canonical: string,
   generatedAt: Date,
+  includeSemanticFlowMetadata: boolean,
 ): ResourcePageRenderInput {
   const generatedAtIso = generatedAt.toISOString();
   const generatedAtDisplay = formatGeneratedAtDisplay(generatedAt);
@@ -275,13 +281,16 @@ function toDefaultResourcePageRenderInput(
       summary: rdfFacts.description,
       rdfClasses: rdfFacts.classes,
       metadataRows: [
-        toCanonicalIriMetadataRow(canonical, meshRootHref, resourcePath),
+        { label: "Canonical IRI", value: canonical },
+        ...(rdfFacts.note ? [{ label: "Note", value: rdfFacts.note }] : []),
         ...toChildIdentifierMetadataRows(
           meshRootHref,
           page.childIdentifiers ?? [],
         ),
       ],
+      includeSemanticFlowMetadata,
       semanticFlowMetadataRows: [
+        toKnopMetadataRow(meshRootHref, meshLabel, resourcePath),
         ...(page.workingLocalRelativePath
           ? [{
             label: "Working File",
@@ -354,6 +363,7 @@ function toDefaultResourcePageRenderInput(
         ),
       ],
       metadataRows: [{ label: "Canonical IRI", value: canonical }],
+      includeSemanticFlowMetadata,
       semanticFlowMetadataRows: [],
       historyGroups: page.historyGroups ?? [],
       sections: [{
@@ -421,6 +431,7 @@ function toDefaultResourcePageRenderInput(
           page.childIdentifiers ?? [],
         ),
       ],
+      includeSemanticFlowMetadata,
       semanticFlowMetadataRows: [],
       historyGroups: [],
       sections: artifactSections,
@@ -458,6 +469,7 @@ function toDefaultResourcePageRenderInput(
         page.childIdentifiers ?? [],
       ),
     ],
+    includeSemanticFlowMetadata,
     semanticFlowMetadataRows: [],
     historyGroups: page.historyGroups ?? [],
     sections: extractFragmentSections(
@@ -505,9 +517,9 @@ async function renderDefaultResourcePage(
     }</p>\n`
     : "";
   const metadata = renderMetadataTable(input.metadataRows, 8);
-  const semanticFlowMetadataSection = renderSemanticFlowMetadataSection(
-    input.semanticFlowMetadataRows,
-  );
+  const semanticFlowMetadataSection = input.includeSemanticFlowMetadata
+    ? renderSemanticFlowMetadataSection(input.semanticFlowMetadataRows)
+    : "";
   const historySection = renderHistorySection(input);
   const sections = input.sections.map((section) => {
     const idAttribute = section.id ? ` id="${escapeHtml(section.id)}"` : "";
@@ -528,11 +540,11 @@ ${section.html}
   }</title>
   <link rel="canonical" href="${escapeHtml(input.canonical)}">
   <style>
-    :root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f6f7f4; color: #20231f; }
+    :root { min-height: 100%; color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f6f7f4; color: #20231f; }
     * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; background: linear-gradient(180deg, #f6f7f4 0%, #ebece7 100%); }
+    body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: linear-gradient(180deg, #f6f7f4 0%, #ebece7 100%); }
     a { color: #1f5f85; text-decoration-thickness: 0.08em; text-underline-offset: 0.18em; }
-    main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 42px; }
+    main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 42px; flex: 1 0 auto; }
     .wf-shell { display: grid; gap: 18px; min-width: 0; }
     .wf-shell > * { min-width: 0; }
     .wf-eyebrow { margin: 0 0 10px; color: #5e675d; font-size: 0.82rem; letter-spacing: 0; font-weight: 700; }
@@ -548,8 +560,6 @@ ${section.html}
     .wf-metadata tr:first-child th, .wf-metadata tr:first-child td { border-top: 0; }
     .wf-metadata th { width: 180px; color: #4f594f; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0; }
     .wf-metadata td { overflow-wrap: anywhere; }
-    .wf-knop-link { display: inline-block; margin-left: 0.34rem; font-size: 0.72em; line-height: 1; text-decoration: none; vertical-align: super; opacity: 0.72; }
-    .wf-knop-link:hover, .wf-knop-link:focus { opacity: 1; text-decoration: none; }
     .wf-child-identifiers { display: flex; flex-wrap: wrap; gap: 5px; align-items: baseline; }
     .wf-child-identifier { display: inline-block; padding: 0.08rem 0.36rem; border: 1px solid #cdd8cf; border-radius: 2px; background: #eef3ef; text-decoration: none; white-space: nowrap; }
     .wf-child-identifier:hover, .wf-child-identifier:focus { background: #e0ebe4; border-color: #b8c8bc; }
@@ -557,12 +567,11 @@ ${section.html}
     .wf-child-identifiers-more > summary { display: inline-block; padding: 0.08rem 0.36rem; border: 1px solid #cdd8cf; border-radius: 2px; background: #eef3ef; color: #1f5f85; cursor: pointer; line-height: inherit; }
     .wf-child-identifiers-more > summary::-webkit-details-marker { display: none; }
     .wf-child-identifiers-more > summary::marker { content: ""; }
-    .wf-child-identifiers-more[open] > summary { display: none; }
     .wf-term { cursor: help; border-bottom: 1px dotted currentColor; }
     .wf-date-tip { position: relative; display: inline-block; }
     .wf-date-tip::after { content: attr(data-tooltip); position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); opacity: 0; pointer-events: none; background: rgba(27, 32, 27, 0.94); color: #fff; border-radius: 5px; padding: 5px 7px; font-size: 0.78rem; white-space: nowrap; transition: opacity 120ms ease; }
     .wf-date-tip:hover::after, .wf-date-tip:focus::after { opacity: 1; }
-    .wf-section, .wf-source { margin-top: 24px; border-top: 1px solid #cdd2ca; padding-top: 18px; min-width: 0; }
+    .wf-section, .wf-source { margin-top: 24px; min-width: 0; }
     h2 { margin: 0 0 12px; font-size: 1rem; line-height: 1.25; letter-spacing: 0; color: #2f382f; }
     ul { margin: 0; padding-left: 1.2rem; }
     li { margin: 0.45rem 0; line-height: 1.45; }
@@ -588,7 +597,7 @@ ${section.html}
     pre { margin: 0; width: 100%; max-width: 100%; max-height: 64vh; overflow: auto; border-top: 1px solid #d7dcd4; background: #0d1117; color: #e6edf3; padding: 16px; font-size: 0.86rem; line-height: 1.55; tab-size: 2; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
     pre code { display: block; min-width: 0; background: transparent; color: inherit; border-radius: 0; padding: 0; white-space: inherit; overflow-wrap: inherit; word-break: inherit; }
     pre code span { overflow-wrap: inherit; word-break: inherit; }
-    .wf-generated { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 8px 0 32px; text-align: center; color: rgba(49, 57, 49, 0.42); font-size: 0.78rem; }
+    .wf-generated { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 8px 0 32px; text-align: center; color: rgba(49, 57, 49, 0.42); font-size: 0.78rem; flex: 0 0 auto; }
     .wf-generated a { color: inherit; font-weight: 700; }
   </style>
   <script>
@@ -692,21 +701,16 @@ function renderMetadataRow(
   return `${indent}<tr><th scope="row">${label}</th><td>${value}</td></tr>`;
 }
 
-function toCanonicalIriMetadataRow(
-  canonical: string,
+function toKnopMetadataRow(
   meshRootHref: string,
+  meshLabel: string,
   resourcePath: string,
 ): ResourcePageMetadataRow {
-  const knopHref = toMeshResourceHref(
-    meshRootHref,
-    toKnopResourcePath(resourcePath),
-  );
+  const knopResourcePath = toKnopResourcePath(resourcePath);
   return {
-    label: "Canonical IRI",
-    value: canonical,
-    html: `<span>${escapeHtml(canonical)}</span><a class="wf-knop-link" href="${
-      escapeHtml(knopHref)
-    }" title="Knop" aria-label="Knop">🪢</a>`,
+    label: "Knop",
+    href: toMeshResourceHref(meshRootHref, knopResourcePath),
+    value: toDisplayDesignatorPath(knopResourcePath, meshLabel),
   };
 }
 
@@ -778,9 +782,9 @@ function toChildIdentifierMetadataRows(
     value: childIdentifiers.map((identifier) => identifier.label).join(
       ", ",
     ),
-    html: `<span class="wf-child-identifiers">${
+    html: `<div class="wf-child-identifiers">${
       visibleIdentifiers.map(renderIdentifier).join("")
-    }${hiddenIdentifiersHtml}</span>`,
+    }${hiddenIdentifiersHtml}</div>`,
   }];
 }
 
@@ -1238,6 +1242,7 @@ function extractRdfFacts(
     DCTERMS_DESCRIPTION_IRI,
   ) ?? findFirstLiteralObject(quads, canonical, RDFS_COMMENT_IRI) ??
     findFirstLiteralObject(quads, canonical, SKOS_DEFINITION_IRI);
+  const note = findFirstLiteralObject(quads, canonical, SKOS_NOTE_IRI);
   const classes = new Map<string, ResourcePageRdfClass>();
 
   for (const quad of quads) {
@@ -1257,6 +1262,7 @@ function extractRdfFacts(
   return {
     ...(title ? { title } : {}),
     ...(description ? { description } : {}),
+    ...(note ? { note } : {}),
     classes: [...classes.values()].sort((left, right) =>
       left.label.localeCompare(right.label)
     ),

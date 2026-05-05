@@ -195,7 +195,10 @@ Deno.test("weave generate succeeds as a black-box CLI run", async () => {
 
   assert(output.success, stderr);
   assert(stdout.includes("Generated 1 designator path"), stdout);
-  await Deno.stat(join(workspaceRoot, "alice/bio/index.html"));
+  const page = await Deno.readTextFile(
+    join(workspaceRoot, "alice/bio/index.html"),
+  );
+  assert(!page.includes("Semantic Flow metadata"), page);
   await assertRejects(
     () =>
       Deno.stat(
@@ -208,6 +211,35 @@ Deno.test("weave generate succeeds as a black-box CLI run", async () => {
       join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
     ),
     meshInventoryBefore,
+  );
+});
+
+Deno.test("weave generate can include Semantic Flow metadata", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-generate-semantic-flow-metadata-",
+  );
+  await materializeMeshAliceBioBranch("10-alice-bio-updated", workspaceRoot);
+
+  const output = await runCliCommand([
+    "generate",
+    "--include-semantic-flow-metadata",
+    "--target",
+    "designatorPath=alice/bio",
+  ], workspaceRoot);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Generated 1 designator path"), stdout);
+  const page = await Deno.readTextFile(
+    join(workspaceRoot, "alice/bio/index.html"),
+  );
+  assert(page.includes("<summary>Semantic Flow metadata</summary>"), page);
+  assert(
+    page.includes(
+      '<tr><th scope="row">Knop</th><td><a href="/mesh-alice-bio/alice/bio/_knop">alice/bio/_knop</a></td></tr>',
+    ),
+    page,
   );
 });
 

@@ -1447,12 +1447,8 @@ Deno.test("executeWeave materializes sidecar extracted ontology and SHACL terms"
     join(workspaceRoot, "docs/ontology/CharacterShape/index.html"),
   );
   assertStringIncludes(characterShapePage, "sh:NodeShape");
-  assertStringIncludes(characterShapePage, "Pinned source file");
-  assertStringIncludes(
-    characterShapePage,
-    "shacl/_history001/_s0001/fantasy-rules-shacl-ttl/fantasy-rules-shacl.ttl",
-  );
-  assertStringIncludes(characterShapePage, "fant:");
+  assertFalse(characterShapePage.includes("Pinned source file"));
+  assertFalse(characterShapePage.includes("Semantic Flow metadata"));
   assertStringIncludes(characterShapePage, "CharacterShape");
 });
 
@@ -1502,10 +1498,8 @@ Deno.test("executeGenerate lists every sidecar payload history with current hist
     join(workspaceRoot, "docs/ontology/index.html"),
   );
   assertFalse(ontologyPage.includes("Associated Knop"));
-  assertStringIncludes(
-    ontologyPage,
-    '<a class="wf-knop-link" href="/mesh-sidecar-fantasy-rules/ontology/_knop" title="Knop" aria-label="Knop">🪢</a>',
-  );
+  assertFalse(ontologyPage.includes("wf-knop-link"));
+  assertFalse(ontologyPage.includes("Semantic Flow metadata"));
   assertStringIncludes(ontologyPage, "Child Identifiers");
   assertStringIncludes(
     ontologyPage,
@@ -1672,6 +1666,44 @@ Deno.test("executeGenerate preserves the sidecar first-release artifact contract
     assertStringIncludes(manifestationPage, "Historical manifestation file");
     assertStringIncludes(manifestationPage, artifact.pageNeedle);
   }
+});
+
+Deno.test("executeGenerate includes Semantic Flow metadata only when requested", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-generate-semantic-flow-metadata-",
+  );
+  await materializeMeshSidecarFantasyRulesBranch(
+    "15-first-release-woven",
+    workspaceRoot,
+  );
+
+  await executeGenerate({
+    meshRoot: join(workspaceRoot, "docs"),
+    request: { targets: [{ designatorPath: "ontology" }] },
+    now: () => new Date("2026-05-04T00:00:00.000Z"),
+  });
+  const defaultPage = await Deno.readTextFile(
+    join(workspaceRoot, "docs/ontology/index.html"),
+  );
+  assertFalse(defaultPage.includes("Semantic Flow metadata"));
+
+  await executeGenerate({
+    meshRoot: join(workspaceRoot, "docs"),
+    request: { targets: [{ designatorPath: "ontology" }] },
+    now: () => new Date("2026-05-04T00:00:00.000Z"),
+    includeSemanticFlowMetadata: true,
+  });
+  const pageWithMetadata = await Deno.readTextFile(
+    join(workspaceRoot, "docs/ontology/index.html"),
+  );
+  assertStringIncludes(
+    pageWithMetadata,
+    "<summary>Semantic Flow metadata</summary>",
+  );
+  assertStringIncludes(
+    pageWithMetadata,
+    '<tr><th scope="row">Knop</th><td><a href="/mesh-sidecar-fantasy-rules/ontology/_knop">ontology/_knop</a></td></tr>',
+  );
 });
 
 Deno.test("executeGenerate renders current Knop support artifact source panels", async () => {

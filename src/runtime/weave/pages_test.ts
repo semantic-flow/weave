@@ -10,6 +10,7 @@ Deno.test("renderResourcePage renders identifier pages with working file links",
       designatorPath: "alice/bio",
       workingLocalRelativePath: "alice-bio.ttl",
     },
+    { includeSemanticFlowMetadata: true },
   );
 
   assertStringIncludes(html, "<title>mesh-alice-bio bio</title>");
@@ -30,13 +31,31 @@ Deno.test("renderResourcePage renders identifier pages with working file links",
   assertFalse(
     html.includes(`<details class="wf-semantic-flow-metadata" open>`),
   );
+  assertFalse(html.includes("wf-knop-link"));
+  assertFalse(html.includes("🪢"));
+  assertFalse(html.includes("Associated Knop"));
   assertStringIncludes(
     html,
-    '<a class="wf-knop-link" href="/mesh-alice-bio/alice/bio/_knop" title="Knop" aria-label="Knop">🪢</a>',
+    '<tr><th scope="row">Knop</th><td><a href="/mesh-alice-bio/alice/bio/_knop">alice/bio/_knop</a></td></tr>',
   );
-  assertFalse(html.includes("Associated Knop"));
   assertStringIncludes(html, 'href="/mesh-alice-bio/alice-bio.ttl"');
   assertStringIncludes(html, 'href="/mesh-alice-bio/alice/bio/_knop"');
+});
+
+Deno.test("renderResourcePage omits Semantic Flow metadata by default", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "identifier",
+      path: "alice/bio/index.html",
+      designatorPath: "alice/bio",
+      workingLocalRelativePath: "alice-bio.ttl",
+    },
+  );
+
+  assertFalse(html.includes(`<summary>Semantic Flow metadata</summary>`));
+  assertFalse(html.includes('<tr><th scope="row">Knop</th>'));
+  assertFalse(html.includes('<tr><th scope="row">Working File</th>'));
 });
 
 Deno.test("renderResourcePage renders identifier extraction source metadata", async () => {
@@ -52,6 +71,7 @@ Deno.test("renderResourcePage renders identifier extraction source metadata", as
           "https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Current",
       },
     },
+    { includeSemanticFlowMetadata: true },
   );
 
   assertStringIncludes(
@@ -77,6 +97,7 @@ Deno.test("renderResourcePage renders nested identifier fallback titles locally"
       designatorPath: "alice/page-main",
       workingLocalRelativePath: "alice-page-main.md",
     },
+    { includeSemanticFlowMetadata: true },
   );
 
   assertStringIncludes(html, "<title>mesh-alice-bio page-main</title>");
@@ -95,6 +116,7 @@ Deno.test("renderResourcePage renders the root identifier with the mesh label ti
       designatorPath: "",
       workingLocalRelativePath: "root.ttl",
     },
+    { includeSemanticFlowMetadata: true },
   );
 
   assertStringIncludes(html, "<title>mesh-alice-bio</title>");
@@ -124,6 +146,12 @@ Deno.test("renderResourcePage renders the root identifier with the mesh label ti
     html,
     `history.replaceState(null, "", canonicalUrl.pathname);`,
   );
+  assertStringIncludes(
+    html,
+    "body { margin: 0; min-height: 100vh; display: flex; flex-direction: column;",
+  );
+  assertStringIncludes(html, "main { width: min(1120px, calc(100% - 32px));");
+  assertStringIncludes(html, "flex: 1 0 auto;");
   assertStringIncludes(html, 'href="/mesh-alice-bio/root.ttl"');
 });
 
@@ -144,7 +172,7 @@ Deno.test("renderResourcePage renders child identifier pills", async () => {
   assertStringIncludes(html, "Child Identifiers");
   assertStringIncludes(
     html,
-    '<span class="wf-child-identifiers"><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/AbilityScore">AbilityScore</a></nobr><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/Character">Character</a></nobr></span>',
+    '<div class="wf-child-identifiers"><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/AbilityScore">AbilityScore</a></nobr><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/Character">Character</a></nobr></div>',
   );
 });
 
@@ -171,6 +199,7 @@ Deno.test("renderResourcePage collapses child identifier overflow", async () => 
   );
   assertStringIncludes(html, ">Child21</a>");
   assertStringIncludes(html, ">Child23</a>");
+  assertFalse(html.includes(".wf-child-identifiers-more[open] > summary"));
 });
 
 Deno.test("renderResourcePage renders current ReferenceCatalog pages with fragment anchors", async () => {
@@ -413,6 +442,7 @@ Deno.test("renderResourcePage does not link extra-mesh local source paths", asyn
         contents: "<ontology> a <Ontology> .",
       }],
     },
+    { includeSemanticFlowMetadata: true },
   );
 
   assertStringIncludes(
@@ -459,10 +489,12 @@ Deno.test("renderResourcePage renders RDF description, classes, and histories", 
         sourcePath: "../ontology/fantasy-rules-ontology.ttl",
         contents: `@prefix dcterms: <http://purl.org/dc/terms/> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
 
 <ontology> a owl:Ontology ;
   dcterms:title "Fantasy Rules Ontology" ;
-  dcterms:description "A small ontology fixture." .
+  dcterms:description "A small ontology fixture." ;
+  skos:note "Use this ontology fixture for ResourcePage rendering tests." .
 `,
       }],
     },
@@ -472,7 +504,16 @@ Deno.test("renderResourcePage renders RDF description, classes, and histories", 
   assertStringIncludes(html, "A small ontology fixture.");
   assertStringIncludes(
     html,
+    '<tr><th scope="row">Note</th><td><span>Use this ontology fixture for ResourcePage rendering tests.</span></td></tr>',
+  );
+  assertStringIncludes(
+    html,
     '<p class="wf-classes">a <a href="http://www.w3.org/2002/07/owl#Ontology">owl:Ontology</a></p>',
+  );
+  assertFalse(
+    html.includes(
+      ".wf-section, .wf-source { margin-top: 24px; border-top:",
+    ),
   );
   assertStringIncludes(html, "<summary>History</summary>");
   assertStringIncludes(html, "sflo:ArtifactHistory");

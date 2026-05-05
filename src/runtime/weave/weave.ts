@@ -111,6 +111,7 @@ export interface ExecuteGenerateOptions {
   meshRoot: string;
   request?: GenerateRequest;
   now?: () => Date;
+  includeSemanticFlowMetadata?: boolean;
 }
 
 export interface ExecuteWeaveOptions {
@@ -298,6 +299,7 @@ export async function executeGenerate(
     selectedDesignatorPaths,
     targets.length === 0,
     resolveGeneratedAt(options.now),
+    options.includeSemanticFlowMetadata ?? false,
   );
   const writeResult = await writeFilesUpsert(meshRoot, pageFiles);
 
@@ -1409,6 +1411,7 @@ async function collectGeneratedPageFiles(
   selectedDesignatorPaths: readonly string[],
   includeAllMeshPages: boolean,
   generatedAt: Date,
+  includeSemanticFlowMetadata: boolean,
 ): Promise<readonly PlannedFile[]> {
   const pageModels: ResourcePageModel[] = [];
   const pagePaths = new Set<string>();
@@ -1582,6 +1585,7 @@ async function collectGeneratedPageFiles(
 
   return await renderResourcePages(meshState.meshBase, pageModels, {
     generatedAt,
+    includeSemanticFlowMetadata,
   });
 }
 

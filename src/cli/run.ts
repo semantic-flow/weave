@@ -257,10 +257,15 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           TARGET_OPTION_DESCRIPTION,
           { collect: true },
         )
+        .option(
+          "--include-semantic-flow-metadata",
+          "Include the generated Semantic Flow metadata section on ResourcePages.",
+        )
         .action(async (
           options: {
             meshRoot: string;
             target?: string[];
+            includeSemanticFlowMetadata?: boolean;
           },
         ) => {
           const meshRoot = resolve(options.meshRoot);
@@ -273,12 +278,16 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             meshRoot,
             workspaceRoot,
             targets,
+            includeSemanticFlowMetadata:
+              options.includeSemanticFlowMetadata === true,
             localMode: true,
           });
 
           const result = await executeGenerate({
             meshRoot,
             request: targets.length > 0 ? { targets } : undefined,
+            includeSemanticFlowMetadata:
+              options.includeSemanticFlowMetadata === true,
           });
           console.log(describeGenerateResult(result));
           for (const path of result.createdPaths) {
