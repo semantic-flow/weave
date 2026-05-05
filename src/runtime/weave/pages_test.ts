@@ -20,6 +20,10 @@ Deno.test("renderResourcePage renders identifier pages with working file links",
   );
   assertStringIncludes(
     html,
+    `<summary>Semantic Flow Metadata</summary>`,
+  );
+  assertStringIncludes(
+    html,
     '<a class="wf-knop-link" href="/mesh-alice-bio/alice/bio/_knop" title="Knop" aria-label="Knop">🪢</a>',
   );
   assertFalse(html.includes("Associated Knop"));
@@ -42,6 +46,10 @@ Deno.test("renderResourcePage renders identifier extraction source metadata", as
     },
   );
 
+  assertStringIncludes(
+    html,
+    `<summary>Semantic Flow Metadata</summary>`,
+  );
   assertStringIncludes(
     html,
     '<tr><th scope="row">Extraction Source</th><td><a href="/mesh-sidecar-fantasy-rules/ontology">ontology</a></td></tr>',
@@ -377,6 +385,10 @@ Deno.test("renderResourcePage does not link extra-mesh local source paths", asyn
   assertStringIncludes(
     html,
     'href="/mesh-sidecar-fantasy-rules/ontology/_knop"',
+  );
+  assertStringIncludes(
+    html,
+    `<summary>Semantic Flow Metadata</summary>`,
   );
   assertStringIncludes(
     html,

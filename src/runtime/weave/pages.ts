@@ -31,6 +31,7 @@ interface ResourcePageRenderInput {
   summary?: string;
   rdfClasses: readonly ResourcePageRdfClass[];
   metadataRows: readonly ResourcePageMetadataRow[];
+  semanticFlowMetadataRows: readonly ResourcePageMetadataRow[];
   historyGroups: readonly ResourcePageHistoryGroupModel[];
   sections: readonly ResourcePageSection[];
   rawSourcePanels: readonly ResourcePageRawSourcePanelModel[];
@@ -275,6 +276,12 @@ function toDefaultResourcePageRenderInput(
       rdfClasses: rdfFacts.classes,
       metadataRows: [
         toCanonicalIriMetadataRow(canonical, meshRootHref, resourcePath),
+        ...toChildIdentifierMetadataRows(
+          meshRootHref,
+          page.childIdentifiers ?? [],
+        ),
+      ],
+      semanticFlowMetadataRows: [
         ...(page.workingLocalRelativePath
           ? [{
             label: "Working File",
@@ -286,10 +293,6 @@ function toDefaultResourcePageRenderInput(
           meshRootHref,
           meshLabel,
           page.extractionSource,
-        ),
-        ...toChildIdentifierMetadataRows(
-          meshRootHref,
-          page.childIdentifiers ?? [],
         ),
       ],
       historyGroups: page.historyGroups ?? [],
@@ -351,6 +354,7 @@ function toDefaultResourcePageRenderInput(
         ),
       ],
       metadataRows: [{ label: "Canonical IRI", value: canonical }],
+      semanticFlowMetadataRows: [],
       historyGroups: page.historyGroups ?? [],
       sections: [{
         title: "Current Links",
@@ -417,6 +421,7 @@ function toDefaultResourcePageRenderInput(
           page.childIdentifiers ?? [],
         ),
       ],
+      semanticFlowMetadataRows: [],
       historyGroups: [],
       sections: artifactSections,
       rawSourcePanels: [],
@@ -453,6 +458,7 @@ function toDefaultResourcePageRenderInput(
         page.childIdentifiers ?? [],
       ),
     ],
+    semanticFlowMetadataRows: [],
     historyGroups: page.historyGroups ?? [],
     sections: extractFragmentSections(
       canonical,
@@ -498,14 +504,10 @@ async function renderDefaultResourcePage(
       )
     }</p>\n`
     : "";
-  const metadata = input.metadataRows.length > 0
-    ? `        <table class="wf-metadata">
-          <tbody>
-${input.metadataRows.map((row) => renderMetadataRow(row)).join("\n")}
-          </tbody>
-        </table>
-`
-    : "";
+  const metadata = renderMetadataTable(input.metadataRows, 8);
+  const semanticFlowMetadataSection = renderSemanticFlowMetadataSection(
+    input.semanticFlowMetadataRows,
+  );
   const historySection = renderHistorySection(input);
   const sections = input.sections.map((section) => {
     const idAttribute = section.id ? ` id="${escapeHtml(section.id)}"` : "";
@@ -602,7 +604,9 @@ ${breadcrumbs}
         <h1>${escapeHtml(input.title)}</h1>
 ${classes}${summary}${metadata}
       </header>
-${historySection}${sections ? `${sections}\n` : ""}${rawSections}
+${semanticFlowMetadataSection}${historySection}${
+    sections ? `${sections}\n` : ""
+  }${rawSections}
     </article>
   </main>
   <footer class="wf-generated">
@@ -637,7 +641,41 @@ ${
         </nav>`;
 }
 
-function renderMetadataRow(row: ResourcePageMetadataRow): string {
+function renderMetadataTable(
+  rows: readonly ResourcePageMetadataRow[],
+  indentSize: number,
+): string {
+  if (rows.length === 0) {
+    return "";
+  }
+
+  const indent = " ".repeat(indentSize);
+  const bodyIndent = `${indent}  `;
+  return `${indent}<table class="wf-metadata">
+${bodyIndent}<tbody>
+${rows.map((row) => renderMetadataRow(row, bodyIndent)).join("\n")}
+${bodyIndent}</tbody>
+${indent}</table>
+`;
+}
+
+function renderSemanticFlowMetadataSection(
+  rows: readonly ResourcePageMetadataRow[],
+): string {
+  if (rows.length === 0) {
+    return "";
+  }
+
+  return `      <details class="wf-semantic-flow-metadata" open>
+        <summary>Semantic Flow Metadata</summary>
+${renderMetadataTable(rows, 8)}      </details>
+`;
+}
+
+function renderMetadataRow(
+  row: ResourcePageMetadataRow,
+  indent: string,
+): string {
   const label = row.tooltip
     ? renderTooltipLabel(row.label, row.tooltip)
     : escapeHtml(row.label);
@@ -646,7 +684,7 @@ function renderMetadataRow(row: ResourcePageMetadataRow): string {
     : row.href
     ? `<a href="${escapeHtml(row.href)}">${escapeHtml(row.value)}</a>`
     : `<span>${escapeHtml(row.value)}</span>`;
-  return `            <tr><th scope="row">${label}</th><td>${value}</td></tr>`;
+  return `${indent}<tr><th scope="row">${label}</th><td>${value}</td></tr>`;
 }
 
 function toCanonicalIriMetadataRow(
