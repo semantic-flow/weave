@@ -48,7 +48,7 @@ Deno.test("renderResourcePage renders identifier extraction source metadata", as
   );
   assertStringIncludes(
     html,
-    '<tr><th scope="row">Extraction Source Mode</th><td><a href="https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Current">sfc:ArtifactResolutionMode/Current</a></td></tr>',
+    '<tr><th scope="row">Extraction Source Mode</th><td><a href="https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Current">sflo:ArtifactResolutionMode/Current</a></td></tr>',
   );
 });
 
@@ -282,6 +282,7 @@ Deno.test("renderResourcePage renders escaped raw RDF panels and raw file links"
       kind: "identifier",
       path: "alice/bio/index.html",
       designatorPath: "alice/bio",
+      workingLocalRelativePath: "alice-bio.ttl",
       rawSourcePanels: [{
         label: "Current working file",
         sourcePath: "alice-bio.ttl",
@@ -354,7 +355,7 @@ Deno.test("renderResourcePage renders inventory fragment sections for Extraction
     html,
     'href="/mesh-alice-bio/alice/bio/_history001/_s0002"',
   );
-  assertStringIncludes(html, "sfc:ArtifactResolutionMode/Pinned");
+  assertStringIncludes(html, "sflo:ArtifactResolutionMode/Pinned");
 });
 
 Deno.test("renderResourcePage does not link extra-mesh local source paths", async () => {
@@ -564,10 +565,15 @@ fant:CharacterShape a sh:NodeShape ;
     html,
     '<p class="wf-classes">a <a href="http://www.w3.org/ns/shacl#NodeShape">sh:NodeShape</a></p>',
   );
-  assertStringIncludes(html, "Pinned source file");
-  assertStringIncludes(
-    html,
-    'href="/mesh-sidecar-fantasy-rules/shacl/_history001/_s0001/fantasy-rules-shacl-ttl/fantasy-rules-shacl.ttl"',
+  assertFalse(
+    html.includes("Pinned source file"),
+    "extracted identifier pages should use source RDF for facts without embedding the full source file panel.",
+  );
+  assertFalse(
+    html.includes(
+      'href="/mesh-sidecar-fantasy-rules/shacl/_history001/_s0001/fantasy-rules-shacl-ttl/fantasy-rules-shacl.ttl"',
+    ),
+    "extracted identifier pages should not display raw source file links.",
   );
 });
 

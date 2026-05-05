@@ -105,14 +105,20 @@ const SFC_HAS_TARGET_ARTIFACT_IRI =
   "https://semantic-flow.github.io/ontology/core/hasTargetArtifact";
 const WEAVE_REPOSITORY_URL = "https://github.com/semantic-flow/weave/";
 const SOURCE_THEME = "github-dark-default";
+const SEMANTIC_FLOW_LEGACY_NAMESPACE =
+  "https://semantic-flow.github.io/semantic-flow-ontology/";
+const SEMANTIC_FLOW_CORE_NAMESPACE =
+  "https://semantic-flow.github.io/ontology/core/";
+const SEMANTIC_FLOW_CONFIG_NAMESPACE =
+  "https://semantic-flow.github.io/ontology/config/";
 const COMMON_RDF_PREFIXES: readonly [namespace: string, prefix: string][] = [
   ["http://www.w3.org/2002/07/owl#", "owl"],
   ["http://www.w3.org/ns/shacl#", "sh"],
   ["http://www.w3.org/2000/01/rdf-schema#", "rdfs"],
   ["http://www.w3.org/1999/02/22-rdf-syntax-ns#", "rdf"],
-  ["https://semantic-flow.github.io/semantic-flow-ontology/", "sflo"],
-  ["https://semantic-flow.github.io/ontology/core/", "sfc"],
-  ["https://semantic-flow.github.io/ontology/config/", "sfcfg"],
+  [SEMANTIC_FLOW_CORE_NAMESPACE, "sflo"],
+  [SEMANTIC_FLOW_LEGACY_NAMESPACE, "sflo"],
+  [SEMANTIC_FLOW_CONFIG_NAMESPACE, "sfcfg"],
 ];
 
 const defaultResourcePageTheme: ResourcePageTheme = {
@@ -236,7 +242,11 @@ function toDefaultResourcePageRenderInput(
   const generatedAtIso = generatedAt.toISOString();
   const generatedAtDisplay = formatGeneratedAtDisplay(generatedAt);
   if (page.kind === "identifier") {
-    const rdfFacts = extractRdfFacts(canonical, page.rawSourcePanels ?? []);
+    const sourcePanelsForFacts = page.rawSourcePanels ?? [];
+    const rawSourcePanelsForDisplay = page.workingLocalRelativePath
+      ? sourcePanelsForFacts
+      : [];
+    const rdfFacts = extractRdfFacts(canonical, sourcePanelsForFacts);
     const workingFileHref = page.workingLocalRelativePath
       ? toPublicSourceHref(meshRootHref, page.workingLocalRelativePath)
       : undefined;
@@ -284,7 +294,7 @@ function toDefaultResourcePageRenderInput(
       ],
       historyGroups: page.historyGroups ?? [],
       sections: [],
-      rawSourcePanels: page.rawSourcePanels ?? [],
+      rawSourcePanels: rawSourcePanelsForDisplay,
     };
   }
 
@@ -1325,11 +1335,21 @@ function collectPrefixMap(
       continue;
     }
     for (const [namespace, prefix] of parseDeclaredPrefixes(panel.contents)) {
-      prefixByNamespace.set(namespace, prefix);
+      prefixByNamespace.set(namespace, canonicalRdfPrefix(namespace, prefix));
     }
   }
 
   return prefixByNamespace;
+}
+
+function canonicalRdfPrefix(namespace: string, declaredPrefix: string): string {
+  if (namespace === SEMANTIC_FLOW_CORE_NAMESPACE) {
+    return "sflo";
+  }
+  if (namespace === SEMANTIC_FLOW_CONFIG_NAMESPACE) {
+    return "sfcfg";
+  }
+  return declaredPrefix;
 }
 
 function parseDeclaredPrefixes(turtle: string): readonly [string, string][] {
