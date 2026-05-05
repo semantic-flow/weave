@@ -23,6 +23,7 @@ import {
   type ReferenceCatalogWorkingArtifact,
   type ResourcePageChildIdentifierModel,
   type ResourcePageDefinitionWorkingArtifact,
+  type ResourcePageExtractionSourceModel,
   type ResourcePageHistoryGroupModel,
   type ResourcePageModel,
   type ResourcePageRawSourcePanelModel,
@@ -176,6 +177,7 @@ type TextFileOverlay = Map<string, string>;
 interface GenerateDesignatorContext {
   designatorPath: string;
   payloadWorkingLocalRelativePath?: string;
+  extractionSource?: ResourcePageExtractionSourceModel;
   governedArtifacts: readonly KnopArtifactLinkModel[];
   supportingArtifacts: readonly KnopArtifactLinkModel[];
   pagePaths: readonly string[];
@@ -1478,6 +1480,7 @@ async function collectGeneratedPageFiles(
           designatorPath: publicContext.designatorPath,
           workingLocalRelativePath:
             publicContext.payloadWorkingLocalRelativePath,
+          extractionSource: publicContext.extractionSource,
           childIdentifiers: childIdentifiersByResourcePath.get(
             resourcePath,
           ),
@@ -1800,6 +1803,21 @@ async function loadGenerateDesignatorContexts(
       designatorPath,
       payloadWorkingLocalRelativePath: payloadArtifact
         ?.workingLocalRelativePath,
+      ...(extractionSource
+        ? {
+          extractionSource: {
+            sourceArtifactPath: extractionSource.sourceArtifactPath,
+            ...(extractionSource.requestedTargetStatePath
+              ? {
+                requestedTargetStatePath:
+                  extractionSource.requestedTargetStatePath,
+              }
+              : {}),
+            artifactResolutionModeIri:
+              extractionSource.artifactResolutionModeIri,
+          },
+        }
+        : {}),
       ...artifactLinks,
       customIdentifierPage,
       historyGroupsByResourcePath: collectHistoryGroupsByResourcePath(

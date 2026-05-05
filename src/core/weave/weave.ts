@@ -152,6 +152,7 @@ export interface IdentifierResourcePageModel {
   path: string;
   designatorPath: string;
   workingLocalRelativePath?: string;
+  extractionSource?: ResourcePageExtractionSourceModel;
   childIdentifiers?: readonly ResourcePageChildIdentifierModel[];
   historyGroups?: readonly ResourcePageHistoryGroupModel[];
   rawSourcePanels?: readonly ResourcePageRawSourcePanelModel[];
@@ -218,6 +219,12 @@ export interface ResourcePageRawSourcePanelModel {
   sourcePath: string;
   contents?: string;
   omittedByteLength?: number;
+}
+
+export interface ResourcePageExtractionSourceModel {
+  sourceArtifactPath: string;
+  requestedTargetStatePath?: string;
+  artifactResolutionModeIri: string;
 }
 
 export interface ResourcePageChildIdentifierModel {

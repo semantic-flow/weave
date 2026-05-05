@@ -1,5 +1,6 @@
 import type {
   ResourcePageChildIdentifierModel,
+  ResourcePageExtractionSourceModel,
   ResourcePageHistoryGroupModel,
   ResourcePageModel,
   ResourcePageRawSourcePanelModel,
@@ -271,6 +272,11 @@ function toDefaultResourcePageRenderInput(
             value: page.workingLocalRelativePath,
           }]
           : []),
+        ...toExtractionSourceMetadataRows(
+          meshRootHref,
+          meshLabel,
+          page.extractionSource,
+        ),
         ...toChildIdentifierMetadataRows(
           meshRootHref,
           page.childIdentifiers ?? [],
@@ -649,6 +655,50 @@ function toCanonicalIriMetadataRow(
       escapeHtml(knopHref)
     }" title="Knop" aria-label="Knop">🪢</a>`,
   };
+}
+
+function toExtractionSourceMetadataRows(
+  meshRootHref: string,
+  meshLabel: string,
+  extractionSource?: ResourcePageExtractionSourceModel,
+): readonly ResourcePageMetadataRow[] {
+  if (!extractionSource) {
+    return [];
+  }
+
+  const rows: ResourcePageMetadataRow[] = [{
+    label: "Extraction Source",
+    href: toMeshResourceHref(meshRootHref, extractionSource.sourceArtifactPath),
+    value: toDisplayDesignatorPath(
+      extractionSource.sourceArtifactPath,
+      meshLabel,
+    ),
+  }];
+
+  if (extractionSource.requestedTargetStatePath) {
+    rows.push({
+      label: "Extraction Source State",
+      href: toMeshResourceHref(
+        meshRootHref,
+        extractionSource.requestedTargetStatePath,
+      ),
+      value: toDisplayDesignatorPath(
+        extractionSource.requestedTargetStatePath,
+        meshLabel,
+      ),
+    });
+  }
+
+  rows.push({
+    label: "Extraction Source Mode",
+    href: extractionSource.artifactResolutionModeIri,
+    value: compactRdfIri(
+      extractionSource.artifactResolutionModeIri,
+      new Map(COMMON_RDF_PREFIXES),
+    ),
+  });
+
+  return rows;
 }
 
 function toChildIdentifierMetadataRows(

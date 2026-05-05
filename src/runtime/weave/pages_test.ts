@@ -27,6 +27,31 @@ Deno.test("renderResourcePage renders identifier pages with working file links",
   assertStringIncludes(html, 'href="/mesh-alice-bio/alice/bio/_knop"');
 });
 
+Deno.test("renderResourcePage renders identifier extraction source metadata", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "identifier",
+      path: "ontology/AbilityScore/index.html",
+      designatorPath: "ontology/AbilityScore",
+      extractionSource: {
+        sourceArtifactPath: "ontology",
+        artifactResolutionModeIri:
+          "https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Current",
+      },
+    },
+  );
+
+  assertStringIncludes(
+    html,
+    '<tr><th scope="row">Extraction Source</th><td><a href="/mesh-sidecar-fantasy-rules/ontology">ontology</a></td></tr>',
+  );
+  assertStringIncludes(
+    html,
+    '<tr><th scope="row">Extraction Source Mode</th><td><a href="https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Current">sfc:ArtifactResolutionMode/Current</a></td></tr>',
+  );
+});
+
 Deno.test("renderResourcePage renders nested identifier fallback titles locally", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",
