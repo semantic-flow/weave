@@ -17,6 +17,13 @@ import {
 } from "./weave.ts";
 import { readMeshAliceBioBranchFile } from "../../../tests/support/mesh_alice_bio_fixture.ts";
 
+function withAliceReferenceExtensionManifestation(contents: string): string {
+  return contents.replaceAll(
+    "alice/_knop/_references/_history001/_s0001/references-ttl",
+    "alice/_knop/_references/_history001/_s0001/ttl",
+  );
+}
+
 const firstWeaveMeshInventoryTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
 @prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
@@ -601,7 +608,7 @@ Deno.test("planWeave renders the first alice bio payload weave slice", () => {
     plan.createdFiles.map((file) => file.path),
     [
       "_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl",
-      "alice/bio/_history001/_s0001/alice-bio-ttl/alice-bio.ttl",
+      "alice/bio/_history001/_s0001/ttl/alice-bio.ttl",
       "alice/bio/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
       "alice/bio/_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
     ],
@@ -645,7 +652,7 @@ Deno.test("planWeave renders a later first payload weave slice against a carried
     plan.createdFiles.map((file) => file.path),
     [
       "_mesh/_inventory/_history001/_s0005/inventory-ttl/inventory.ttl",
-      "alice/page-main/_history001/_s0001/alice-page-main-md/alice-page-main.md",
+      "alice/page-main/_history001/_s0001/md/alice-page-main.md",
       "alice/page-main/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
       "alice/page-main/_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
     ],
@@ -763,7 +770,7 @@ Deno.test("planWeave applies requested payload history and state naming on the f
     plan.createdFiles.map((file) => file.path),
     [
       "_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl",
-      "alice/bio/releases/v0.0.1/alice-bio-ttl/alice-bio.ttl",
+      "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
       "alice/bio/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
       "alice/bio/_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
     ],
@@ -926,7 +933,7 @@ Deno.test("planWeave renders the first alice reference-catalog weave slice", () 
     plan.createdFiles.map((file) => file.path),
     [
       "alice/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
-      "alice/_knop/_references/_history001/_s0001/references-ttl/references.ttl",
+      "alice/_knop/_references/_history001/_s0001/ttl/references.ttl",
     ],
   );
   assertEquals(plan.createdPages[2], {
@@ -1055,7 +1062,7 @@ Deno.test("planWeave preserves the current ReferenceCatalog working file path", 
     plan.createdFiles.map((file) => file.path),
     [
       "alice/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
-      "alice/_knop/_references/_history001/_s0001/reference-links-v1-ttl/reference-links-v1.ttl",
+      "alice/_knop/_references/_history001/_s0001/ttl/reference-links-v1.ttl",
     ],
   );
   assertStringIncludes(
@@ -1064,14 +1071,13 @@ Deno.test("planWeave preserves the current ReferenceCatalog working file path", 
   );
   assertStringIncludes(
     plan.updatedFiles[0]?.contents ?? "",
-    "sflo:locatedFileForState <alice/_knop/_references/_history001/_s0001/reference-links-v1-ttl/reference-links-v1.ttl> ;",
+    "sflo:locatedFileForState <alice/_knop/_references/_history001/_s0001/ttl/reference-links-v1.ttl> ;",
   );
   assertEquals(
     plan.createdPages[5],
     {
       kind: "simple",
-      path:
-        "alice/_knop/_references/_history001/_s0001/reference-links-v1-ttl/index.html",
+      path: "alice/_knop/_references/_history001/_s0001/ttl/index.html",
       description:
         "Resource page for the Turtle manifestation of the first alice ReferenceCatalog historical state.",
     },
@@ -1164,7 +1170,7 @@ Deno.test("planWeave supports the first reference-catalog weave slice for non-al
   ]);
   assertEquals(
     plan.createdFiles[1]?.path,
-    "carol/_knop/_references/_history001/_s0001/references-ttl/references.ttl",
+    "carol/_knop/_references/_history001/_s0001/ttl/references.ttl",
   );
 });
 
@@ -1202,13 +1208,13 @@ Deno.test("planWeave renders the second alice bio payload weave slice", () => {
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
-      "alice/bio/_history001/_s0002/alice-bio-ttl/alice-bio.ttl",
+      "alice/bio/_history001/_s0002/ttl/alice-bio.ttl",
       "alice/bio/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
     ],
   );
   assertEquals(plan.createdPages.map((page) => page.path), [
     "alice/bio/_history001/_s0002/index.html",
-    "alice/bio/_history001/_s0002/alice-bio-ttl/index.html",
+    "alice/bio/_history001/_s0002/ttl/index.html",
     "alice/bio/_knop/_inventory/_history001/_s0002/index.html",
     "alice/bio/_knop/_inventory/_history001/_s0002/inventory-ttl/index.html",
   ]);
@@ -1769,9 +1775,11 @@ Deno.test("planWeave renders the first page-definition weave slice", async () =>
     await compareRdfContent({
       left: new TextEncoder().encode(plan.updatedFiles[0]?.contents ?? ""),
       right: new TextEncoder().encode(
-        await readMeshAliceBioBranchFile(
-          "15-alice-page-customized-woven",
-          "alice/_knop/_inventory/inventory.ttl",
+        withAliceReferenceExtensionManifestation(
+          await readMeshAliceBioBranchFile(
+            "15-alice-page-customized-woven",
+            "alice/_knop/_inventory/inventory.ttl",
+          ),
         ),
       ),
       path: "alice/_knop/_inventory/inventory.ttl",

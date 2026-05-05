@@ -3933,19 +3933,19 @@ ${renderResourcePageLocatedFileBlock(`${statePath}/page-ttl/index.html`)}`;
 
 <${knopPath}/_references/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <${knopPath}/_references/_history001/_s0001/references-ttl> ;
-  sflo:locatedFileForState <${knopPath}/_references/_history001/_s0001/references-ttl/references.ttl> ;
+  sflo:hasManifestation <${knopPath}/_references/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <${knopPath}/_references/_history001/_s0001/ttl/references.ttl> ;
   sflo:hasResourcePage <${knopPath}/_references/_history001/_s0001/index.html> .
 
-<${knopPath}/_references/_history001/_s0001/references-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${knopPath}/_references/_history001/_s0001/references-ttl/references.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_references/_history001/_s0001/references-ttl/index.html> .`
+<${knopPath}/_references/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <${knopPath}/_references/_history001/_s0001/ttl/references.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_references/_history001/_s0001/ttl/index.html> .`
     : "";
   const referenceCatalogLocatedFileBlock = hasReferenceCatalog
     ? `\n\n<${referenceCatalogPath}/references.ttl> a sflo:LocatedFile, sflo:RdfDocument .`
     : "";
   const referenceCatalogHistoricalLocatedFileBlock = hasReferenceCatalog
-    ? `\n\n<${knopPath}/_references/_history001/_s0001/references-ttl/references.ttl> a sflo:LocatedFile, sflo:RdfDocument .`
+    ? `\n\n<${knopPath}/_references/_history001/_s0001/ttl/references.ttl> a sflo:LocatedFile, sflo:RdfDocument .`
     : "";
   const referenceCatalogResourcePageBlocks = hasReferenceCatalog
     ? `\n\n<${referenceCatalogPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
@@ -3954,7 +3954,7 @@ ${renderResourcePageLocatedFileBlock(`${statePath}/page-ttl/index.html`)}`;
 
 <${referenceCatalogPath}/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<${knopPath}/_references/_history001/_s0001/references-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .`
+<${knopPath}/_references/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .`
     : "";
 
   return `@base <${meshBase}> .
@@ -6636,7 +6636,11 @@ function toArtifactManifestationPath(
 }
 
 function toManifestationSegment(workingLocalRelativePath: string): string {
-  return toFileName(workingLocalRelativePath).replaceAll(".", "-");
+  const fileName = toFileName(workingLocalRelativePath);
+  const extensionIndex = fileName.lastIndexOf(".");
+  return extensionIndex > 0 && extensionIndex < fileName.length - 1
+    ? fileName.slice(extensionIndex + 1)
+    : fileName.replaceAll(".", "-");
 }
 
 function resolveCurrentPayloadManifestationPathFromInventory(

@@ -1,4 +1,9 @@
-import { assertEquals, assertFalse, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertFalse,
+  assertStringIncludes,
+} from "@std/assert";
 import { renderResourcePage } from "./pages.ts";
 
 Deno.test("renderResourcePage renders identifier pages with working file links", async () => {
@@ -56,6 +61,34 @@ Deno.test("renderResourcePage omits Semantic Flow metadata by default", async ()
   assertFalse(html.includes(`<summary>Semantic Flow metadata</summary>`));
   assertFalse(html.includes('<tr><th scope="row">Knop</th>'));
   assertFalse(html.includes('<tr><th scope="row">Working File</th>'));
+});
+
+Deno.test("renderResourcePage renders breadcrumbs above the masthead rule with optional mesh favicon", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "identifier",
+      path: "alice/bio/index.html",
+      designatorPath: "alice/bio",
+    },
+    { meshFaviconPath: "favicon.ico" },
+  );
+
+  const breadcrumbIndex = html.indexOf(
+    '<nav class="wf-eyebrow wf-breadcrumbs" aria-label="Breadcrumb">',
+  );
+  const heroIndex = html.indexOf('<div class="wf-hero">');
+  assert(breadcrumbIndex >= 0);
+  assert(heroIndex >= 0);
+  assert(breadcrumbIndex < heroIndex);
+  assertStringIncludes(
+    html,
+    '<link rel="icon" href="/mesh-alice-bio/favicon.ico">',
+  );
+  assertStringIncludes(
+    html,
+    '<img class="wf-mesh-favicon" src="/mesh-alice-bio/favicon.ico" alt="">',
+  );
 });
 
 Deno.test("renderResourcePage renders identifier extraction source metadata", async () => {
@@ -487,14 +520,18 @@ Deno.test("renderResourcePage renders RDF description, classes, and histories", 
       rawSourcePanels: [{
         label: "Current working file",
         sourcePath: "../ontology/fantasy-rules-ontology.ttl",
-        contents: `@prefix dcterms: <http://purl.org/dc/terms/> .
+        contents:
+          `@prefix fant: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix skos: <http://www.w3.org/2004/02/skos/core#> .
 
 <ontology> a owl:Ontology ;
   dcterms:title "Fantasy Rules Ontology" ;
   dcterms:description "A small ontology fixture." ;
-  skos:note "Use this ontology fixture for ResourcePage rendering tests." .
+  skos:note "Use this ontology fixture for ResourcePage rendering tests." ;
+  skos:broader fant:RulesDocument ;
+  skos:narrower fant:AbilityScore, fant:Character .
 `,
       }],
     },
@@ -508,6 +545,14 @@ Deno.test("renderResourcePage renders RDF description, classes, and histories", 
   );
   assertStringIncludes(
     html,
+    '<tr><th scope="row">Broader</th><td><a href="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/RulesDocument">fant:RulesDocument</a></td></tr>',
+  );
+  assertStringIncludes(
+    html,
+    '<tr><th scope="row">Narrower</th><td><a href="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/AbilityScore">fant:AbilityScore</a>, <a href="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/Character">fant:Character</a></td></tr>',
+  );
+  assertStringIncludes(
+    html,
     '<p class="wf-classes">a <a href="http://www.w3.org/2002/07/owl#Ontology">owl:Ontology</a></p>',
   );
   assertFalse(
@@ -516,10 +561,10 @@ Deno.test("renderResourcePage renders RDF description, classes, and histories", 
     ),
   );
   assertStringIncludes(html, "<summary>History</summary>");
-  assertStringIncludes(html, "sflo:ArtifactHistory");
-  assertStringIncludes(html, "sflo:HistoricalState");
-  assertStringIncludes(html, "sflo:ArtifactManifestation");
-  assertStringIncludes(html, "sflo:LocatedFile");
+  assertFalse(html.includes("sflo:ArtifactHistory"));
+  assertFalse(html.includes("sflo:HistoricalState"));
+  assertFalse(html.includes("sflo:ArtifactManifestation"));
+  assertFalse(html.includes("sflo:LocatedFile"));
   assertStringIncludes(
     html,
     'href="/mesh-sidecar-fantasy-rules/ontology/_history001/_s0001"',
@@ -532,6 +577,34 @@ Deno.test("renderResourcePage renders RDF description, classes, and histories", 
     html,
     'href="/mesh-sidecar-fantasy-rules/ontology/_history001/_s0001/fantasy-rules-ontology-ttl/fantasy-rules-ontology.ttl"',
   );
+});
+
+Deno.test("renderResourcePage can include Semantic Flow classes in history cake", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "identifier",
+      path: "ontology/index.html",
+      designatorPath: "ontology",
+      historyGroups: [{
+        label: "Artifact history",
+        path: "ontology/_history001",
+        states: [{
+          path: "ontology/_history001/_s0001",
+          manifestationPath:
+            "ontology/_history001/_s0001/fantasy-rules-ontology-ttl",
+          locatedFilePath:
+            "ontology/_history001/_s0001/fantasy-rules-ontology-ttl/fantasy-rules-ontology.ttl",
+        }],
+      }],
+    },
+    { includeSemanticFlowMetadata: true },
+  );
+
+  assertStringIncludes(html, "sflo:ArtifactHistory");
+  assertStringIncludes(html, "sflo:HistoricalState");
+  assertStringIncludes(html, "sflo:ArtifactManifestation");
+  assertStringIncludes(html, "sflo:LocatedFile");
 });
 
 Deno.test("renderResourcePage truncates long history group lists", async () => {
@@ -688,6 +761,7 @@ Deno.test("renderResourcePage scopes history component sections to the current l
       description: "Generated resource page.",
       historyGroups: [historyGroup],
     },
+    { includeSemanticFlowMetadata: true },
   );
   const stateHtml = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
@@ -697,6 +771,7 @@ Deno.test("renderResourcePage scopes history component sections to the current l
       description: "Generated resource page.",
       historyGroups: [historyGroup],
     },
+    { includeSemanticFlowMetadata: true },
   );
   const manifestationHtml = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
@@ -706,6 +781,7 @@ Deno.test("renderResourcePage scopes history component sections to the current l
       description: "Generated resource page.",
       historyGroups: [historyGroup],
     },
+    { includeSemanticFlowMetadata: true },
   );
 
   assertStringIncludes(historyHtml, "<h1>_history001</h1>");

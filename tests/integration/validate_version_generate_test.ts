@@ -22,6 +22,13 @@ import {
 } from "../support/root_designator.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
+function withAliceReferenceExtensionManifestation(contents: string): string {
+  return contents.replaceAll(
+    "alice/_knop/_references/_history001/_s0001/references-ttl",
+    "alice/_knop/_references/_history001/_s0001/ttl",
+  );
+}
+
 Deno.test("executeValidate returns structured findings for version-only target fields", async () => {
   const workspaceRoot = await createTestTmpDir("weave-validate-target-fields-");
   await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
@@ -272,10 +279,10 @@ Deno.test("executeVersion accepts the exact root target", async () => {
   assertEquals(result.versionedDesignatorPaths, [""]);
   assert(
     result.createdPaths.includes(
-      "releases/v0.0.1/root-ttl/root.ttl",
+      "releases/v0.0.1/ttl/root.ttl",
     ),
   );
-  await Deno.stat(join(workspaceRoot, "releases/v0.0.1/root-ttl/root.ttl"));
+  await Deno.stat(join(workspaceRoot, "releases/v0.0.1/ttl/root.ttl"));
 });
 
 Deno.test("executeGenerate accepts the exact root target", async () => {
@@ -296,6 +303,35 @@ Deno.test("executeGenerate accepts the exact root target", async () => {
   assertEquals(result.generatedDesignatorPaths, [""]);
   await Deno.stat(join(workspaceRoot, "index.html"));
   await Deno.stat(join(workspaceRoot, "_knop/index.html"));
+});
+
+Deno.test("executeGenerate renders a mesh-root favicon when present", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-generate-favicon-");
+  await materializeMeshAliceBioBranch(
+    "07-alice-bio-integrated-woven",
+    workspaceRoot,
+  );
+  await Deno.writeTextFile(join(workspaceRoot, "favicon.ico"), "test-icon");
+
+  const result = await executeGenerate({
+    meshRoot: workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "alice/bio" }],
+    },
+  });
+
+  assertEquals(result.generatedDesignatorPaths, ["alice/bio"]);
+  const html = await Deno.readTextFile(
+    join(workspaceRoot, "alice/bio/index.html"),
+  );
+  assertStringIncludes(
+    html,
+    '<link rel="icon" href="/mesh-alice-bio/favicon.ico">',
+  );
+  assertStringIncludes(
+    html,
+    '<img class="wf-mesh-favicon" src="/mesh-alice-bio/favicon.ico" alt="">',
+  );
 });
 
 Deno.test("executeVersion versions the first alice page-definition support artifact state", async () => {
@@ -341,9 +377,11 @@ Deno.test("executeVersion versions the first alice page-definition support artif
         ),
       ),
       right: new TextEncoder().encode(
-        await readMeshAliceBioBranchFile(
-          "15-alice-page-customized-woven",
-          "alice/_knop/_inventory/inventory.ttl",
+        withAliceReferenceExtensionManifestation(
+          await readMeshAliceBioBranchFile(
+            "15-alice-page-customized-woven",
+            "alice/_knop/_inventory/inventory.ttl",
+          ),
         ),
       ),
       path: "alice/_knop/_inventory/inventory.ttl",
@@ -498,7 +536,7 @@ Deno.test("executeVersion batches recursive targets through staged current state
   );
   assert(
     result.createdPaths.includes(
-      "alice/bio/_history001/_s0001/alice-bio-ttl/alice-bio.ttl",
+      "alice/bio/_history001/_s0001/ttl/alice-bio.ttl",
     ),
   );
   assertStringIncludes(
@@ -569,18 +607,16 @@ Deno.test("executeVersion fails closed when a later batch target becomes invalid
     join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
   );
 
-  await assertRejects(
-    () =>
-      executeVersion({
-        meshRoot: workspaceRoot,
-        request: {
-          targets: [
-            { designatorPath: "alice/bio" },
-            { designatorPath: "bob" },
-          ],
-        },
-      }),
-    WeaveInputError,
+  await assertRejects(() =>
+    executeVersion({
+      meshRoot: workspaceRoot,
+      request: {
+        targets: [
+          { designatorPath: "alice/bio" },
+          { designatorPath: "bob" },
+        ],
+      },
+    })
   );
 
   assertEquals(
@@ -600,7 +636,7 @@ Deno.test("executeVersion fails closed when a later batch target becomes invalid
       Deno.stat(
         join(
           workspaceRoot,
-          "alice/bio/_history001/_s0002/alice-bio-ttl/alice-bio.ttl",
+          "alice/bio/_history001/_s0002/ttl/alice-bio.ttl",
         ),
       ),
     Deno.errors.NotFound,

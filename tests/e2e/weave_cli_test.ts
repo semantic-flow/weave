@@ -28,6 +28,48 @@ const cliEntrypoint = fromFileUrl(
   new URL("../../src/main.ts", import.meta.url),
 );
 
+type PathReplacement = readonly [from: string, to: string];
+
+const firstAliceBioDefaultManifestation: readonly PathReplacement[] = [[
+  "alice/bio/_history001/_s0001/alice-bio-ttl",
+  "alice/bio/_history001/_s0001/ttl",
+]];
+
+const secondAliceBioDefaultManifestation: readonly PathReplacement[] = [[
+  "alice/bio/_history001/_s0002/alice-bio-ttl",
+  "alice/bio/_history001/_s0002/ttl",
+]];
+
+const aliceReferenceDefaultManifestation: readonly PathReplacement[] = [[
+  "alice/_knop/_references/_history001/_s0001/references-ttl",
+  "alice/_knop/_references/_history001/_s0001/ttl",
+]];
+
+const gunaarDefaultManifestation: readonly PathReplacement[] = [[
+  "docs/examples/gunaar/_history001/_s0001/gunaar-ttl",
+  "docs/examples/gunaar/_history001/_s0001/ttl",
+], [
+  "examples/gunaar/_history001/_s0001/gunaar-ttl",
+  "examples/gunaar/_history001/_s0001/ttl",
+]];
+
+function replaceFixturePaths(
+  contents: string,
+  replacements: readonly PathReplacement[],
+): string {
+  return replacements.reduce(
+    (updated, [from, to]) => updated.replaceAll(from, to),
+    contents,
+  );
+}
+
+function replaceFixturePathList(
+  paths: readonly string[],
+  replacements: readonly PathReplacement[],
+): string[] {
+  return paths.map((path) => replaceFixturePaths(path, replacements)).sort();
+}
+
 Deno.test("weave matches the manifest-scoped alice knop-created-woven fixture as a black-box CLI run", async () => {
   await assertWeaveTransitionMatchesManifest({
     manifestName: "05-alice-knop-created-woven.jsonld",
@@ -269,6 +311,7 @@ Deno.test("weave matches the manifest-scoped alice bio integrated-woven fixture 
   await assertWeaveTransitionMatchesManifest({
     manifestName: "07-alice-bio-integrated-woven.jsonld",
     expectedStdoutFragment: "Wove 1 designator path",
+    fixturePathReplacements: firstAliceBioDefaultManifestation,
   });
 });
 
@@ -277,6 +320,7 @@ Deno.test("weave accepts an exact --target spec as a black-box CLI run", async (
     manifestName: "07-alice-bio-integrated-woven.jsonld",
     expectedStdoutFragment: "Wove 1 designator path",
     cliArgs: ["--target", "designatorPath=alice/bio"],
+    fixturePathReplacements: firstAliceBioDefaultManifestation,
   });
 });
 
@@ -298,7 +342,7 @@ Deno.test("weave accepts an exact root --target spec as a black-box CLI run", as
   assert(output.success, stderr);
   assert(stdout.includes("Wove 1 designator path"), stdout);
   await Deno.stat(join(workspaceRoot, "index.html"));
-  await Deno.stat(join(workspaceRoot, "_history001/_s0001/root-ttl/root.ttl"));
+  await Deno.stat(join(workspaceRoot, "_history001/_s0001/ttl/root.ttl"));
 });
 
 Deno.test("weave accepts a recursive --target spec as a black-box CLI run", async () => {
@@ -306,6 +350,7 @@ Deno.test("weave accepts a recursive --target spec as a black-box CLI run", asyn
     manifestName: "07-alice-bio-integrated-woven.jsonld",
     expectedStdoutFragment: "Wove 1 designator path",
     cliArgs: ["--target", "designatorPath=alice,recursive=true"],
+    fixturePathReplacements: firstAliceBioDefaultManifestation,
   });
 });
 
@@ -448,6 +493,7 @@ Deno.test("weave matches the manifest-scoped alice bio referenced-woven fixture 
   await assertWeaveTransitionMatchesManifest({
     manifestName: "09-alice-bio-referenced-woven.jsonld",
     expectedStdoutFragment: "Wove 1 designator path",
+    fixturePathReplacements: aliceReferenceDefaultManifestation,
   });
 });
 
@@ -455,6 +501,7 @@ Deno.test("weave matches the manifest-scoped alice bio v2 woven fixture as a bla
   await assertWeaveTransitionMatchesManifest({
     manifestName: "11-alice-bio-v2-woven.jsonld",
     expectedStdoutFragment: "Wove 1 designator path",
+    fixturePathReplacements: secondAliceBioDefaultManifestation,
   });
 });
 
@@ -502,15 +549,19 @@ Deno.test("weave matches the manifest-scoped sidecar root Knop woven fixture", a
   assert(stdout.includes("Wove 2 designator path"), stdout);
   assertEquals(
     await listRelativeFiles(workspaceRoot, ".weave/"),
-    await listMeshSidecarFantasyRulesBranchFiles(transitionCase.toRef!),
+    replaceFixturePathList(
+      await listMeshSidecarFantasyRulesBranchFiles(transitionCase.toRef!),
+      gunaarDefaultManifestation,
+    ),
   );
 
   const fileExpectations = getManifestFileExpectations(transitionCase);
   for (const fileExpectation of fileExpectations) {
-    const path = fileExpectation.path;
-    if (!path) {
+    const fixturePath = fileExpectation.path;
+    if (!fixturePath) {
       continue;
     }
+    const path = replaceFixturePaths(fixturePath, gunaarDefaultManifestation);
 
     const compareMode = fileExpectation.compareMode;
 
@@ -521,9 +572,12 @@ Deno.test("weave matches the manifest-scoped sidecar root Knop woven fixture", a
 
     const actualBytes = await Deno.readFile(join(workspaceRoot, path));
     const expectedBytes = new TextEncoder().encode(
-      await readMeshSidecarFantasyRulesBranchFile(
-        transitionCase.toRef!,
-        path,
+      replaceFixturePaths(
+        await readMeshSidecarFantasyRulesBranchFile(
+          transitionCase.toRef!,
+          fixturePath,
+        ),
+        gunaarDefaultManifestation,
       ),
     );
 
@@ -535,6 +589,7 @@ Deno.test("weave matches the manifest-scoped sidecar root Knop woven fixture", a
           path,
         }),
         true,
+        path,
       );
       continue;
     }
@@ -590,15 +645,19 @@ Deno.test("weave matches the manifest-scoped sidecar Gunaar dataset woven fixtur
   assert(stdout.includes("Wove 1 designator path"), stdout);
   assertEquals(
     await listRelativeFiles(workspaceRoot, ".weave/"),
-    await listMeshSidecarFantasyRulesBranchFiles(transitionCase.toRef!),
+    replaceFixturePathList(
+      await listMeshSidecarFantasyRulesBranchFiles(transitionCase.toRef!),
+      gunaarDefaultManifestation,
+    ),
   );
 
   const fileExpectations = getManifestFileExpectations(transitionCase);
   for (const fileExpectation of fileExpectations) {
-    const path = fileExpectation.path;
-    if (!path) {
+    const fixturePath = fileExpectation.path;
+    if (!fixturePath) {
       continue;
     }
+    const path = replaceFixturePaths(fixturePath, gunaarDefaultManifestation);
 
     const compareMode = fileExpectation.compareMode;
 
@@ -609,9 +668,12 @@ Deno.test("weave matches the manifest-scoped sidecar Gunaar dataset woven fixtur
 
     const actualBytes = await Deno.readFile(join(workspaceRoot, path));
     const expectedBytes = new TextEncoder().encode(
-      await readMeshSidecarFantasyRulesBranchFile(
-        transitionCase.toRef!,
-        path,
+      replaceFixturePaths(
+        await readMeshSidecarFantasyRulesBranchFile(
+          transitionCase.toRef!,
+          fixturePath,
+        ),
+        gunaarDefaultManifestation,
       ),
     );
 
@@ -623,6 +685,7 @@ Deno.test("weave matches the manifest-scoped sidecar Gunaar dataset woven fixtur
           path,
         }),
         true,
+        path,
       );
       continue;
     }
@@ -699,6 +762,7 @@ async function assertWeaveTransitionMatchesManifest(
     expectedStdoutFragment: string;
     compareWorkspaceTree?: boolean;
     cliArgs?: readonly string[];
+    fixturePathReplacements?: readonly PathReplacement[];
   },
 ): Promise<void> {
   const manifestPath = resolveMeshAliceBioConformanceManifestPath(
@@ -720,20 +784,25 @@ async function assertWeaveTransitionMatchesManifest(
 
   assert(output.success, stderr);
   assert(stdout.includes(options.expectedStdoutFragment), stdout);
+  const fixturePathReplacements = options.fixturePathReplacements ?? [];
 
   if (options.compareWorkspaceTree !== false) {
     assertEquals(
       await listRelativeFiles(workspaceRoot, ".weave/"),
-      await listMeshAliceBioBranchFiles(transitionCase.toRef!),
+      replaceFixturePathList(
+        await listMeshAliceBioBranchFiles(transitionCase.toRef!),
+        fixturePathReplacements,
+      ),
     );
   }
 
   const fileExpectations = getManifestFileExpectations(transitionCase);
   for (const fileExpectation of fileExpectations) {
-    const path = fileExpectation.path;
-    if (!path) {
+    const fixturePath = fileExpectation.path;
+    if (!fixturePath) {
       continue;
     }
+    const path = replaceFixturePaths(fixturePath, fixturePathReplacements);
 
     const compareMode = fileExpectation.compareMode;
 
@@ -744,7 +813,10 @@ async function assertWeaveTransitionMatchesManifest(
 
     const actualBytes = await Deno.readFile(join(workspaceRoot, path));
     const expectedBytes = new TextEncoder().encode(
-      await readMeshAliceBioBranchFile(transitionCase.toRef!, path),
+      replaceFixturePaths(
+        await readMeshAliceBioBranchFile(transitionCase.toRef!, fixturePath),
+        fixturePathReplacements,
+      ),
     );
 
     if (compareMode === "rdfCanonical") {

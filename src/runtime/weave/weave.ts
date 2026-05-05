@@ -1583,10 +1583,26 @@ async function collectGeneratedPageFiles(
     }
   }
 
+  const meshFaviconPath = await resolveMeshFaviconPath(workspaceRoot);
   return await renderResourcePages(meshState.meshBase, pageModels, {
     generatedAt,
     includeSemanticFlowMetadata,
+    meshFaviconPath,
   });
+}
+
+async function resolveMeshFaviconPath(
+  meshRoot: string,
+): Promise<string | undefined> {
+  try {
+    const stat = await Deno.stat(join(meshRoot, "favicon.ico"));
+    return stat.isFile ? "favicon.ico" : undefined;
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return undefined;
+    }
+    throw error;
+  }
 }
 
 function collectChildIdentifiersByResourcePath(
@@ -3003,13 +3019,20 @@ function toPayloadHistoricalSnapshotPath(
   workingLocalRelativePath: string,
 ): string {
   const fileName = toFileName(workingLocalRelativePath);
-  const manifestationSegment = fileName.replaceAll(".", "-");
+  const manifestationSegment = toDefaultManifestationSegment(fileName);
   return `${historyStatePath}/${manifestationSegment}/${fileName}`;
 }
 
 function toFileName(path: string): string {
   const segments = path.split("/");
   return segments[segments.length - 1]!;
+}
+
+function toDefaultManifestationSegment(fileName: string): string {
+  const extensionIndex = fileName.lastIndexOf(".");
+  return extensionIndex > 0 && extensionIndex < fileName.length - 1
+    ? fileName.slice(extensionIndex + 1)
+    : fileName.replaceAll(".", "-");
 }
 
 async function writeFiles(

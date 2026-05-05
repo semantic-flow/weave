@@ -26,6 +26,7 @@ interface ResourcePageRenderInput {
   canonical: string;
   generatedAtIso: string;
   generatedAtDisplay: string;
+  meshFaviconHref?: string;
   title: string;
   breadcrumbs: readonly ResourcePageBreadcrumb[];
   summary?: string;
@@ -61,7 +62,14 @@ interface ResourcePageRdfFacts {
   title?: string;
   description?: string;
   note?: string;
+  broader: readonly ResourcePageRdfIriLink[];
+  narrower: readonly ResourcePageRdfIriLink[];
   classes: readonly ResourcePageRdfClass[];
+}
+
+interface ResourcePageRdfIriLink {
+  label: string;
+  href: string;
 }
 
 interface ResourcePageRdfClass {
@@ -79,7 +87,9 @@ const DCTERMS_TITLE_IRI = "http://purl.org/dc/terms/title";
 const FOAF_NAME_IRI = "http://xmlns.com/foaf/0.1/name";
 const RDFS_COMMENT_IRI = "http://www.w3.org/2000/01/rdf-schema#comment";
 const RDFS_LABEL_IRI = "http://www.w3.org/2000/01/rdf-schema#label";
+const SKOS_BROADER_IRI = "http://www.w3.org/2004/02/skos/core#broader";
 const SKOS_DEFINITION_IRI = "http://www.w3.org/2004/02/skos/core#definition";
+const SKOS_NARROWER_IRI = "http://www.w3.org/2004/02/skos/core#narrower";
 const SKOS_NOTE_IRI = "http://www.w3.org/2004/02/skos/core#note";
 const SKOS_PREF_LABEL_IRI = "http://www.w3.org/2004/02/skos/core#prefLabel";
 const SCHEMA_CHARACTER_NAME_IRIS = [
@@ -132,6 +142,7 @@ const defaultResourcePageTheme: ResourcePageTheme = {
 export interface ResourcePageRenderOptions {
   generatedAt?: Date;
   includeSemanticFlowMetadata?: boolean;
+  meshFaviconPath?: string;
 }
 
 export async function renderResourcePages(
@@ -157,6 +168,9 @@ export async function renderResourcePage(
   const meshLabel = deriveMeshLabel(meshBase);
   const displayResourcePath = toDisplayDesignatorPath(resourcePath, meshLabel);
   const meshRootHref = toMeshRootHref(meshBase);
+  const meshFaviconHref = options.meshFaviconPath
+    ? toMeshResourceHref(meshRootHref, options.meshFaviconPath)
+    : undefined;
   const escapedCanonical = escapeHtml(canonical);
 
   if (page.kind !== "customIdentifier") {
@@ -171,6 +185,7 @@ export async function renderResourcePage(
         canonical,
         options.generatedAt ?? new Date(),
         options.includeSemanticFlowMetadata ?? false,
+        meshFaviconHref,
       ),
     );
   }
@@ -245,6 +260,7 @@ function toDefaultResourcePageRenderInput(
   canonical: string,
   generatedAt: Date,
   includeSemanticFlowMetadata: boolean,
+  meshFaviconHref: string | undefined,
 ): ResourcePageRenderInput {
   const generatedAtIso = generatedAt.toISOString();
   const generatedAtDisplay = formatGeneratedAtDisplay(generatedAt);
@@ -268,6 +284,7 @@ function toDefaultResourcePageRenderInput(
       canonical,
       generatedAtIso,
       generatedAtDisplay,
+      meshFaviconHref,
       title: rdfFacts.title ??
         toDefaultResourcePageTitle(
           page.designatorPath,
@@ -283,6 +300,8 @@ function toDefaultResourcePageRenderInput(
       metadataRows: [
         { label: "Canonical IRI", value: canonical },
         ...(rdfFacts.note ? [{ label: "Note", value: rdfFacts.note }] : []),
+        ...toRdfIriLinkMetadataRows("Broader", rdfFacts.broader),
+        ...toRdfIriLinkMetadataRows("Narrower", rdfFacts.narrower),
         ...toChildIdentifierMetadataRows(
           meshRootHref,
           page.childIdentifiers ?? [],
@@ -343,6 +362,7 @@ function toDefaultResourcePageRenderInput(
       canonical,
       generatedAtIso,
       generatedAtDisplay,
+      meshFaviconHref,
       title: rdfFacts.title ?? toLastPathSegment(page.catalogPath),
       breadcrumbs: toResourcePageBreadcrumbs(
         meshLabel,
@@ -408,6 +428,7 @@ function toDefaultResourcePageRenderInput(
       canonical,
       generatedAtIso,
       generatedAtDisplay,
+      meshFaviconHref,
       title: toLastPathSegment(toKnopResourcePath(page.designatorPath)),
       breadcrumbs: toResourcePageBreadcrumbs(
         meshLabel,
@@ -451,6 +472,7 @@ function toDefaultResourcePageRenderInput(
     canonical,
     generatedAtIso,
     generatedAtDisplay,
+    meshFaviconHref,
     title: rdfFacts.title ??
       toDefaultResourcePageTitle(resourcePath, meshLabel),
     breadcrumbs: toResourcePageBreadcrumbs(
@@ -506,6 +528,9 @@ async function renderDefaultResourcePage(
   const rawSections = input.rawSourcePanels.length > 0
     ? `\n${await renderRawSourcePanels(input)}`
     : "";
+  const faviconLink = input.meshFaviconHref
+    ? `  <link rel="icon" href="${escapeHtml(input.meshFaviconHref)}">\n`
+    : "";
   const summary = input.summary
     ? `        <p class="wf-summary">${escapeHtml(input.summary)}</p>\n`
     : "";
@@ -529,6 +554,7 @@ ${section.html}
     </section>`;
   }).join("\n");
   const breadcrumbs = renderBreadcrumbs(input);
+  const meshFavicon = renderMeshFavicon(input);
 
   return `<!doctype html>
 <html lang="en">
@@ -539,7 +565,7 @@ ${section.html}
     escapeHtml(toHtmlDocumentTitle(input.meshLabel, input.title))
   }</title>
   <link rel="canonical" href="${escapeHtml(input.canonical)}">
-  <style>
+${faviconLink}  <style>
     :root { min-height: 100%; color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f6f7f4; color: #20231f; }
     * { box-sizing: border-box; }
     body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: linear-gradient(180deg, #f6f7f4 0%, #ebece7 100%); }
@@ -547,9 +573,12 @@ ${section.html}
     main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 42px; flex: 1 0 auto; }
     .wf-shell { display: grid; gap: 18px; min-width: 0; }
     .wf-shell > * { min-width: 0; }
-    .wf-eyebrow { margin: 0 0 10px; color: #5e675d; font-size: 0.82rem; letter-spacing: 0; font-weight: 700; }
+    .wf-masthead { min-width: 0; }
+    .wf-page-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 4px; min-width: 0; }
+    .wf-eyebrow { margin: 0; color: #5e675d; font-size: 0.82rem; line-height: 1.2; letter-spacing: 0; font-weight: 700; }
     .wf-breadcrumbs { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
     .wf-breadcrumbs a { color: inherit; text-decoration-color: rgba(94, 103, 93, 0.45); }
+    .wf-mesh-favicon { flex: 0 0 auto; width: 32px; height: 32px; object-fit: contain; }
     .wf-hero { border-top: 5px solid #435247; padding: 26px 0 12px; }
     h1 { margin: 0; overflow-wrap: anywhere; font-size: clamp(1.7rem, 4vw, 2.7rem); line-height: 1.04; letter-spacing: 0; }
     .wf-classes { margin: 8px 0 0; color: #687167; font-style: italic; }
@@ -613,10 +642,15 @@ ${section.html}
 <body>
   <main>
     <article class="wf-shell">
-      <header class="wf-hero">
+      <header class="wf-masthead">
+        <div class="wf-page-header">
 ${breadcrumbs}
+${meshFavicon}
+        </div>
+        <div class="wf-hero">
         <h1>${escapeHtml(input.title)}</h1>
 ${classes}${summary}${metadata}
+        </div>
       </header>
 ${historySection}${
     sections ? `${sections}\n` : ""
@@ -637,10 +671,10 @@ ${historySection}${
 
 function renderBreadcrumbs(input: ResourcePageRenderInput): string {
   if (input.breadcrumbs.length === 0) {
-    return `        <p class="wf-eyebrow">${escapeHtml(input.meshLabel)}</p>`;
+    return `          <p class="wf-eyebrow">${escapeHtml(input.meshLabel)}</p>`;
   }
 
-  return `        <nav class="wf-eyebrow wf-breadcrumbs" aria-label="Breadcrumb">
+  return `          <nav class="wf-eyebrow wf-breadcrumbs" aria-label="Breadcrumb">
 ${
     input.breadcrumbs.map((breadcrumb, index) => {
       const separator = index === 0
@@ -652,7 +686,17 @@ ${
         : `${separator}<span aria-current="page">${label}</span>`;
     }).join("")
   }
-        </nav>`;
+          </nav>`;
+}
+
+function renderMeshFavicon(input: ResourcePageRenderInput): string {
+  if (!input.meshFaviconHref) {
+    return "";
+  }
+
+  return `          <img class="wf-mesh-favicon" src="${
+    escapeHtml(input.meshFaviconHref)
+  }" alt="">`;
 }
 
 function renderMetadataTable(
@@ -788,6 +832,23 @@ function toChildIdentifierMetadataRows(
   }];
 }
 
+function toRdfIriLinkMetadataRows(
+  label: string,
+  links: readonly ResourcePageRdfIriLink[],
+): readonly ResourcePageMetadataRow[] {
+  if (links.length === 0) {
+    return [];
+  }
+
+  return [{
+    label,
+    value: links.map((link) => link.label).join(", "),
+    html: links.map((link) =>
+      `<a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>`
+    ).join(", "),
+  }];
+}
+
 function renderRdfClassLink(className: ResourcePageRdfClass): string {
   return `<a href="${escapeHtml(className.iri)}">${
     escapeHtml(className.label)
@@ -906,9 +967,9 @@ function renderHistoryGroups(input: ResourcePageRenderInput): string {
           <details class="wf-history-node wf-history-node--history" open>
             <summary class="wf-history-node-header"><a href="${
       escapeHtml(historyHref)
-    }">${
-      escapeHtml(group.path)
-    }</a> <span class="wf-history-class">sflo:ArtifactHistory</span></summary>
+    }">${escapeHtml(group.path)}</a>${
+      renderHistoryClassAnnotation(input, "sflo:ArtifactHistory")
+    }</summary>
 ${states}
           </details>
         </div>`;
@@ -975,9 +1036,9 @@ function renderHistoryState(
   return `            <details class="wf-history-node wf-history-node--state" open>
               <summary class="wf-history-node-header"><a href="${
     escapeHtml(stateHref)
-  }">${
-    escapeHtml(toLastPathSegment(state.path))
-  }</a> <span class="wf-history-class">sflo:HistoricalState</span></summary>
+  }">${escapeHtml(toLastPathSegment(state.path))}</a>${
+    renderHistoryClassAnnotation(input, "sflo:HistoricalState")
+  }</summary>
 ${child}
             </details>`;
 }
@@ -998,9 +1059,9 @@ function renderHistoryManifestation(
   return `              <details class="wf-history-node wf-history-node--manifestation" open>
                 <summary class="wf-history-node-header"><a href="${
     escapeHtml(manifestationHref)
-  }">${
-    escapeHtml(toLastPathSegment(manifestationPath))
-  }</a> <span class="wf-history-class">sflo:ArtifactManifestation</span></summary>
+  }">${escapeHtml(toLastPathSegment(manifestationPath))}</a>${
+    renderHistoryClassAnnotation(input, "sflo:ArtifactManifestation")
+  }</summary>
 ${locatedFile}
               </details>`;
 }
@@ -1019,10 +1080,19 @@ function renderHistoryLocatedFile(
   return `${spaces}<div class="wf-history-node wf-history-node--file">
 ${spaces}  <div class="wf-history-node-header"><a href="${
     escapeHtml(locatedFileHref)
-  }" class="wf-history-file-iri">${
-    escapeHtml(locatedFileIri)
-  }</a> <span class="wf-history-class">sflo:LocatedFile</span></div>
+  }" class="wf-history-file-iri">${escapeHtml(locatedFileIri)}</a>${
+    renderHistoryClassAnnotation(input, "sflo:LocatedFile")
+  }</div>
 ${spaces}</div>`;
+}
+
+function renderHistoryClassAnnotation(
+  input: ResourcePageRenderInput,
+  className: string,
+): string {
+  return input.includeSemanticFlowMetadata
+    ? ` <span class="wf-history-class">${escapeHtml(className)}</span>`
+    : "";
 }
 
 function renderTooltipLabel(label: string, tooltip: string): string {
@@ -1243,6 +1313,12 @@ function extractRdfFacts(
   ) ?? findFirstLiteralObject(quads, canonical, RDFS_COMMENT_IRI) ??
     findFirstLiteralObject(quads, canonical, SKOS_DEFINITION_IRI);
   const note = findFirstLiteralObject(quads, canonical, SKOS_NOTE_IRI);
+  const broader = findNamedNodeObjects(quads, canonical, SKOS_BROADER_IRI)
+    .map((iri) => toRdfIriLink(iri, prefixMap))
+    .sort((left, right) => left.label.localeCompare(right.label));
+  const narrower = findNamedNodeObjects(quads, canonical, SKOS_NARROWER_IRI)
+    .map((iri) => toRdfIriLink(iri, prefixMap))
+    .sort((left, right) => left.label.localeCompare(right.label));
   const classes = new Map<string, ResourcePageRdfClass>();
 
   for (const quad of quads) {
@@ -1263,6 +1339,8 @@ function extractRdfFacts(
     ...(title ? { title } : {}),
     ...(description ? { description } : {}),
     ...(note ? { note } : {}),
+    broader,
+    narrower,
     classes: [...classes.values()].sort((left, right) =>
       left.label.localeCompare(right.label)
     ),
@@ -1470,6 +1548,25 @@ function findFirstNamedNodeObject(
   return undefined;
 }
 
+function findNamedNodeObjects(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+): readonly string[] {
+  const values = new Set<string>();
+  for (const quad of quads) {
+    if (
+      quad.subject.termType === "NamedNode" &&
+      quad.subject.value === subjectIri &&
+      quad.predicate.value === predicateIri &&
+      quad.object.termType === "NamedNode"
+    ) {
+      values.add(quad.object.value);
+    }
+  }
+  return [...values];
+}
+
 function findFirstLiteralObjectFromPredicates(
   quads: readonly Quad[],
   subjectIri: string,
@@ -1505,6 +1602,16 @@ function toMeshPath(meshRootHref: string, iri: string): string | undefined {
   }
   const path = url.pathname.slice(meshRootHref.length);
   return url.hash ? `${path}${url.hash}` : path;
+}
+
+function toRdfIriLink(
+  iri: string,
+  prefixMap: ReadonlyMap<string, string>,
+): ResourcePageRdfIriLink {
+  return {
+    label: compactRdfIri(iri, prefixMap),
+    href: iri,
+  };
 }
 
 function compactRdfIri(
