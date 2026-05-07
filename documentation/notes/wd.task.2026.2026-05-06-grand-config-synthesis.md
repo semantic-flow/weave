@@ -12,7 +12,7 @@ created: 1778128425390
 - Preserve the useful current split between core ontology, config ontology, and implementation/runtime behavior.
 - Reintroduce Knop-local and Knop-inheritable config as separate mesh-managed `DigitalArtifact`s, not just embedded blank-node config.
 - Define config policy vocabulary for history tracking, resource page generation, presentation, naming defaults, and reusable config artifacts without falling back to broad booleans.
-- Clarify the relationship between portable mesh/Knop-authored config and operational/runtime resolved config.
+- Clarify the relationship between portable mesh/Knop-authored config, trusted operational/runtime config, config-resolution config, and derived effective/resolved config.
 - Keep `sflo:nextHistoryOrdinal` and `sflo:nextStateOrdinal` in inventory/history RDF, not in config.
 - Support reusable named config artifacts that can be referenced from many Knops, meshes, submeshes, and external meshes.
 - Define a meta-config / config-resolution layer that controls how config files and reusable config artifacts are discovered, ordered, trusted, merged, cached, and rejected.
@@ -27,11 +27,12 @@ The config line needs a deliberate consolidation pass. The current active config
 The synthesized direction is:
 
 - portable authored config belongs in mesh-managed config artifacts such as `_mesh/_config`, `_knop/_local-config`, and `_knop/_inheritable-config`
-- operational/runtime config can hold the application's active resolved config, including effective policies for many meshes, submeshes, Knops, and artifacts
+- operational/runtime config supplies trusted runtime inputs and gates, such as host access policy and bootstrap resolver policy
+- effective/resolved config is derived output, including the active policies for many meshes, submeshes, Knops, and artifacts
 - reusable config is a first-class `ConfigArtifact` / `DigitalArtifact` with its own IRI, working file, optional history, and resource page policy
 - config attachment and config resolution should use explicit target/reference vocabulary rather than path conventions alone
 - meta-config exists as a small bootstrap layer for config discovery and resolver policy
-- Weave default config externalizes built-in behavior defaults before mesh, Knop, operational, API, or CLI overrides are applied
+- Weave default config externalizes built-in behavior defaults before mesh config, Knop config, operational gates, API overrides, or CLI overrides are applied
 - history tracking and resource page generation should be policy-valued, not booleans
 - controlled policy values should use the flat camelCase enum-instance convention from [[ont.task.2026.2026-05-03-enumeration-type-instances]]
 - artifact history allocator state remains in core inventory/history RDF
@@ -48,7 +49,7 @@ This task should supersede the older "replace local/inheritable config with mesh
 
 [[wd.task.2026.2026-04-08_1735-page-definition-ontology-and-config]] established that page content composition belongs in core, while template/chrome/presentation preferences belong in config. It also established that templates and stylesheets should be first-class artifacts and that the old regex-heavy template mapping machinery should not be copied forward. The page-definition work also keeps `targetLocalRelativePath`, `targetAccessUrl`, `workingLocalRelativePath`, and `workingAccessUrl` out of presentation config and leaves access policy to operational config.
 
-[[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]] established operational config as a first-class runtime concern for CLI, daemon, and other execution surfaces. It distinguishes mesh-carried expectations from machine-local trust policy and uses deny-by-default local/remote access allow rules. This task keeps that split, but broadens the operational config idea to include the application's active resolved behavior config. That resolved config may include history, page generation, presentation, naming, and access policy for many meshes and Knops. It must still be clearly distinguished from portable authored config.
+[[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]] established operational config as a first-class runtime concern for CLI, daemon, and other execution surfaces. It distinguishes mesh-carried expectations from machine-local trust policy and uses deny-by-default local/remote access allow rules. This task keeps that split and adds a separate effective/resolved config concept for the application's derived behavior policy. Resolved config may include history, page generation, presentation, naming, and the trust gates that were applied during resolution, but it is derived output rather than the operational input itself.
 
 [[wd.task.2026.2026-05-05-optional-history-and-slim-support-artifacts-by-default]] established the need for policy-valued history tracking and page-generation control. Payloads keep history by default. `_mesh/_inventory` remains historical because it is the settled mesh-state ledger. `_knop/_inventory` remains historical for now because current weave progression depends on it. Low-value support artifacts such as `_mesh/_meta`, `_knop/_meta`, and probably `_mesh/_config` can default to current-only. The eventual config vocabulary should drive these defaults rather than hard-coded path checks.
 
@@ -63,18 +64,21 @@ The authored portable config layers should be explicit:
 
 `_knop/_local-config` and `_knop/_inheritable-config` should be separate `DigitalArtifact`s because they have different semantics, lifecycle, history policy, and attachment behavior. They might both be current-only by default in many meshes, but they must be capable of independent versioning when a mesh needs auditable config evolution.
 
-### Operational And Resolved Config
+### Operational Config And Effective Config
 
-Operational/runtime config has two related roles:
+Operational/runtime config is a trusted runtime input. It should cover:
 
 - host/runtime trust policy, such as local path and remote URL access
-- active resolved application config, such as the effective history policy or page-generation policy for a particular mesh, submesh, Knop, artifact role, or artifact
+- bootstrap resolver policy, such as which config roots are allowed, whether portable resolver hints are honored, and whether external config references may be followed
+- machine-local, workspace-local, daemon, CLI, or API runtime settings that gate resolution before portable mesh config participates
 
-This is acceptable as long as the distinction is explicit. Authored config is the portable source material. Resolved operational config is what the application actually uses at runtime after discovery, inheritance, reusable config resolution, local overrides, and host trust policy have been applied.
+Effective/resolved config is derived output. It is what the application actually uses for behavior after Weave defaults, operational gates, config-resolution policy, authored mesh config, inherited Knop config, local Knop config, reusable config artifacts, and explicit request overrides have been applied and validated.
 
-`hasEffectiveConfig` should remain non-authoritative when asserted in mesh RDF. A runtime may still maintain an authoritative in-memory or process-local resolved config for the active operation. If resolved config is persisted for diagnostics or daemon state, it should carry enough metadata to make clear that it is derived runtime state, not the source of truth.
+Do not collapse operational config into effective config. Operational config is an input and trust gate. Effective config is a derived result. A runtime may maintain an authoritative in-memory or process-local effective config for the active operation, but if effective config is persisted for diagnostics or daemon state, it should carry enough metadata to make clear that it is derived runtime state, not authored source data.
 
-The active runtime config may cover many scopes:
+`hasEffectiveConfig` should remain non-authoritative when asserted in mesh RDF. It is useful for runtime/debug output, but portable authored mesh config must not become authoritative merely by asserting what its own effective config is.
+
+The active effective config may cover many scopes:
 
 - multiple mesh roots in one daemon process
 - submeshes
@@ -82,7 +86,7 @@ The active runtime config may cover many scopes:
 - artifact roles such as payload, metadata, inventory, config, page definition, reference catalog, and assets
 - specific artifacts
 - page generation and presentation layers
-- access policy layers
+- applied access-policy decisions for diagnostics, without turning effective config into a portable source of trust
 
 ### Weave Default Config
 
@@ -138,6 +142,13 @@ The practical implementation can start with an internal typed default object, bu
 
 Do not move every command option into default config immediately. Some options are operation requests, not configuration. The useful boundary is: if a value describes stable behavior preference or default policy, it belongs in config; if it describes this one operation's explicit target or input bytes, it stays in the request. CLI/API fields can override config at runtime, but should not be the only durable way to express repeatable policy.
 
+Phase 0 should include an inventory of current implicit defaults in code, API defaults, CLI defaults, page planning, history planning, and fixture assumptions. Each default should be classified as one of:
+
+- Weave default config: stable behavior preference or default policy
+- operational config: trusted runtime input or host access gate
+- explicit operation request: one-shot target, input, or command intent
+- derived effective config: resolved output only, not authored input
+
 ### Meta-Config And The Bootstrap Problem
 
 We need config about how config is resolved, but that introduces a bootstrap problem: if ordinary config can decide which config sources are trusted, then untrusted config can grant itself authority.
@@ -175,17 +186,17 @@ The resolver should reason over explicit layers rather than an implicit pile of 
 
 Candidate `ConfigLayerRole` controlled values:
 
-- `BuiltInDefaults`
-- `WeaveDefaults`
-- `CommandOverride`
-- `MachineLocalOperational`
-- `WorkspaceOperational`
-- `MeshLocal`
-- `MeshInheritableDefaults`
-- `KnopInherited`
-- `KnopLocal`
-- `ReusableConfig`
-- `ResolvedRuntime`
+- `configLayerRoleBuiltInDefaults`
+- `configLayerRoleWeaveDefaults`
+- `configLayerRoleCommandOverride`
+- `configLayerRoleMachineLocalOperational`
+- `configLayerRoleWorkspaceOperational`
+- `configLayerRoleMeshLocal`
+- `configLayerRoleMeshInheritableDefaults`
+- `configLayerRoleKnopInherited`
+- `configLayerRoleKnopLocal`
+- `configLayerRoleReusableConfig`
+- `configLayerRoleResolvedRuntime`
 
 The exact order should be a configured `ConfigPrecedenceProfile`, not baked into comments. A default profile can say:
 
@@ -467,7 +478,7 @@ Drop or avoid reviving:
 - Should current-following reusable config references be allowed at all, or should reusable config be pinned by default unless the runtime profile explicitly permits current following?
 - What lock/cache artifact, if any, records the exact config sources used for a weave?
 - Should `LocalConfig` in the active ontology be renamed or specialized so it does not conflict with `KnopLocalConfig`? The current active meaning is machine/user-local config, not Knop-local config.
-- Should the resolved runtime config be modeled as `OperationalConfig`, `ResolvedConfig`, `EffectiveConfig`, or a subclass such as `EffectiveOperationalConfig`?
+- Should derived runtime config be named `ResolvedConfig`, `EffectiveConfig`, or something more specific? It should not be modeled as `OperationalConfig`.
 - Should `ConfigResolutionTarget` be added as a config-specific subclass of `sflo:ArtifactResolutionTarget`, or should config attachment directly reuse `ArtifactResolutionTarget` without a subtype?
 - Does `ConfigFragment` still add enough value once reusable named `ConfigArtifact`s exist?
 - What is the exact precedence order across runtime defaults, machine-local operational config, mesh config, parent inheritable config, Knop local config, command-line request fields, and one-shot overrides?
@@ -490,7 +501,8 @@ Drop or avoid reviving:
 - Keep `_mesh/_inventory` historical by default because it is the settled mesh-state ledger.
 - Keep `_knop/_inventory` historical for now because current weave progression depends on it.
 - Default low-value support artifacts such as `_mesh/_meta`, `_knop/_meta`, and likely `_mesh/_config` toward current-only history policy unless overridden.
-- Treat operational/runtime config as the application's active resolved config layer, not only as path/URL trust policy.
+- Treat operational/runtime config as a trusted runtime input and trust gate, not as the application's effective/resolved config.
+- Treat effective/resolved config as derived runtime output produced from Weave defaults, operational gates, resolver policy, authored config, reusable config artifacts, and explicit request overrides.
 - Add a config-resolution / meta-config layer to control discovery, trust, precedence, merge behavior, reference following, cycle handling, and effective-config caching.
 - Add a Weave default config layer that externalizes stable behavior defaults currently implicit in code or exposed only through API/CLI defaults.
 - Treat Weave default config as an input to effective config resolution, not as the same thing as resolved runtime config.
@@ -517,8 +529,9 @@ Drop or avoid reviving:
 - Add config-resolution vocabulary for layers, layer roles, precedence profiles, merge profiles, reference policy, cycle policy, unknown-term policy, and effective-config cache policy.
 - Define a trusted bootstrap model for resolver configuration.
 - Add Weave default config vocabulary for implementation default history policy, page policy, naming policy, presentation policy, and resolver defaults.
+- Define how Weave default config is represented or emitted so defaults are inspectable independently of TypeScript implementation details.
 - Align all new config controlled values with the flat camelCase enum-instance convention from [[ont.task.2026.2026-05-03-enumeration-type-instances]].
-- Clarify that `hasEffectiveConfig` and resolved config artifacts are derived runtime/debug/application state, not authoritative mesh source data unless explicitly modeled otherwise.
+- Clarify that `hasEffectiveConfig` and resolved config artifacts are derived runtime/debug/application state, not operational input and not authoritative mesh source data unless explicitly modeled otherwise.
 - Clarify the distinction between machine-local operational config and Knop-local portable config.
 - Clarify that portable resolver hints cannot grant host filesystem or network access without operational trust policy.
 - Update the active config ontology to align with current `sflo:DigitalArtifact`, `sflo:Knop`, `sflo:SemanticMesh`, `sflo:ArtifactResolutionTarget`, and `sflo:ResourcePageDefinition` vocabulary.
@@ -533,6 +546,7 @@ Drop or avoid reviving:
 - Add example RDF showing a reusable config artifact referenced through a pinned config-source target.
 - Add example RDF showing current-following config-source resolution.
 - Add example RDF for Weave default config and how it is overridden by mesh, inherited Knop, local Knop, and CLI/API request policy.
+- Add parity tests or diagnostics proving the implementation's internal defaults match the serialized or emitted Weave default config.
 - Add ontology checks or search-based guardrails that reject new slash-style enum individuals in config examples and vocabulary.
 - Add runtime config resolver unit tests for effective policy precedence.
 - Add tests for config-resolution bootstrap behavior: untrusted portable config cannot enable external config references by itself.
@@ -550,6 +564,7 @@ Drop or avoid reviving:
 - Do not move `sflo:nextHistoryOrdinal` or `sflo:nextStateOrdinal` into config.
 - Do not use booleans as the durable policy vocabulary for history tracking or resource page generation.
 - Do not make machine-local trust policy travel silently as portable mesh config.
+- Do not model derived effective/resolved config as `OperationalConfig`.
 - Do not let ordinary portable config decide which untrusted config sources may be loaded.
 - Do not implement a fully general package-manager-style config dependency resolver.
 - Do not revive the old Flow/State config model.
@@ -564,7 +579,9 @@ Drop or avoid reviving:
 
 - [ ] Finish or at least settle the ontology enum-instance naming task enough that config policy values can be minted once, using the flat camelCase convention.
 - [ ] Record the synthesized decisions from the current task and the four source tasks.
-- [ ] Draft compact example RDF for mesh config, Knop local config, Knop inheritable config, reusable config artifacts, and resolved operational config.
+- [ ] Inventory current implicit TypeScript, API, CLI, page planning, history planning, and fixture defaults.
+- [ ] Classify each current default as Weave default config, operational config, explicit operation request, or derived effective config.
+- [ ] Draft compact example RDF for mesh config, Knop local config, Knop inheritable config, reusable config artifacts, operational config, and derived effective/resolved config.
 - [ ] Draft compact example RDF for config-resolution / meta-config, including pinned reusable config and a rejected current-following config source.
 - [ ] Draft compact example RDF for Weave default config.
 - [ ] Decide initial names for policy classes and controlled policy values.

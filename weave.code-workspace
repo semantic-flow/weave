@@ -4,7 +4,7 @@
       "path": "."
     },
     {
-      "path": "dependencies/github.com/semantic-flow/ontology"
+      "path": "dependencies/github.com/semantic-flow/sflo"
     },
     {
       "path": "dependencies/github.com/semantic-flow/weave-dev-archive"

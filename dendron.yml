@@ -138,7 +138,7 @@ publishing:
         payload:
             - weave-dev-archive
             - documentation
-            - ontology
+            - sflo
             - sflo-dendron-notes
             - semantic-flow-framework
             - accord
