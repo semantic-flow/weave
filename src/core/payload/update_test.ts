@@ -39,7 +39,7 @@ Deno.test("planPayloadUpdate rejects an inventory that does not resolve the wove
         meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
         currentKnopInventoryTurtle:
           `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <alice/bio/_knop> a sflo:Knop ;
   sflo:hasKnopInventory <alice/bio/_knop/_inventory> .
@@ -59,7 +59,7 @@ Deno.test("planPayloadUpdate accepts semantically equivalent woven payload inven
     currentKnopInventoryTurtle:
       `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <alice/bio> sflo:currentArtifactHistory <alice/bio/_history001> ;
   sflo:hasWorkingLocatedFile <alice-bio.ttl> ;

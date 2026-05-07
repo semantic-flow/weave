@@ -19,26 +19,28 @@ import {
   resolveAllowedLocalPath,
 } from "../operational/local_path_policy.ts";
 
-const SFC_NAMESPACE = "https://semantic-flow.github.io/ontology/core/";
-const SFC_HAS_PAGE_REGION_IRI = `${SFC_NAMESPACE}hasPageRegion`;
-const SFC_HAS_RESOURCE_PAGE_SOURCE_IRI =
-  `${SFC_NAMESPACE}hasResourcePageSource`;
-const SFC_HAS_TARGET_ARTIFACT_IRI = `${SFC_NAMESPACE}hasTargetArtifact`;
-const SFC_HAS_TARGET_DISTRIBUTION_IRI = `${SFC_NAMESPACE}hasTargetDistribution`;
-const SFC_HAS_TARGET_LOCATED_FILE_IRI = `${SFC_NAMESPACE}hasTargetLocatedFile`;
-const SFC_HAS_REQUESTED_TARGET_HISTORY_IRI =
-  `${SFC_NAMESPACE}hasRequestedTargetHistory`;
-const SFC_HAS_REQUESTED_TARGET_STATE_IRI =
-  `${SFC_NAMESPACE}hasRequestedTargetState`;
-const SFC_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
-  `${SFC_NAMESPACE}hasArtifactResolutionMode`;
-const SFC_HAS_ARTIFACT_RESOLUTION_FALLBACK_POLICY_IRI =
-  `${SFC_NAMESPACE}hasArtifactResolutionFallbackPolicy`;
-const SFC_TARGET_MESH_PATH_IRI = `${SFC_NAMESPACE}targetLocalRelativePath`;
-const SFC_TARGET_ACCESS_URL_IRI = `${SFC_NAMESPACE}targetAccessUrl`;
-const SFC_REGION_KEY_IRI = `${SFC_NAMESPACE}regionKey`;
-const SFC_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
-  `${SFC_NAMESPACE}ArtifactResolutionMode/Current`;
+const SFLO_NAMESPACE = "https://semantic-flow.github.io/sflo/ontology/";
+const SFLO_HAS_PAGE_REGION_IRI = `${SFLO_NAMESPACE}hasPageRegion`;
+const SFLO_HAS_RESOURCE_PAGE_SOURCE_IRI =
+  `${SFLO_NAMESPACE}hasResourcePageSource`;
+const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasTargetArtifact`;
+const SFLO_HAS_TARGET_DISTRIBUTION_IRI =
+  `${SFLO_NAMESPACE}hasTargetDistribution`;
+const SFLO_HAS_TARGET_LOCATED_FILE_IRI =
+  `${SFLO_NAMESPACE}hasTargetLocatedFile`;
+const SFLO_HAS_REQUESTED_TARGET_HISTORY_IRI =
+  `${SFLO_NAMESPACE}hasRequestedTargetHistory`;
+const SFLO_HAS_REQUESTED_TARGET_STATE_IRI =
+  `${SFLO_NAMESPACE}hasRequestedTargetState`;
+const SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
+  `${SFLO_NAMESPACE}hasArtifactResolutionMode`;
+const SFLO_HAS_ARTIFACT_RESOLUTION_FALLBACK_POLICY_IRI =
+  `${SFLO_NAMESPACE}hasArtifactResolutionFallbackPolicy`;
+const SFLO_TARGET_MESH_PATH_IRI = `${SFLO_NAMESPACE}targetLocalRelativePath`;
+const SFLO_TARGET_ACCESS_URL_IRI = `${SFLO_NAMESPACE}targetAccessUrl`;
+const SFLO_REGION_KEY_IRI = `${SFLO_NAMESPACE}regionKey`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
+  `${SFLO_NAMESPACE}ArtifactResolutionMode/Current`;
 const PAGE_DEFINITION_ARTIFACT_SUFFIX = "/_knop/_page";
 const ROOT_PAGE_DEFINITION_ARTIFACT_PATH = "_knop/_page";
 const ROOT_REFERENCE_CATALOG_PATH = "_knop/_references";
@@ -154,7 +156,7 @@ export async function loadActiveCustomIdentifierPage(
   const regionSubjects = collectNamedNodeObjects(
     quads,
     definitionIri,
-    SFC_HAS_PAGE_REGION_IRI,
+    SFLO_HAS_PAGE_REGION_IRI,
   );
 
   if (regionSubjects.length === 0) {
@@ -170,7 +172,7 @@ export async function loadActiveCustomIdentifierPage(
       const key = requireUniqueLiteral(
         quads,
         regionSubject,
-        SFC_REGION_KEY_IRI,
+        SFLO_REGION_KEY_IRI,
         `ResourcePageDefinition region ${regionSubject} is missing regionKey for ${
           formatDesignatorPathForDisplay(designatorPath)
         }.`,
@@ -178,7 +180,7 @@ export async function loadActiveCustomIdentifierPage(
       const sourceSubject = requireUniqueNamedNode(
         quads,
         regionSubject,
-        SFC_HAS_RESOURCE_PAGE_SOURCE_IRI,
+        SFLO_HAS_RESOURCE_PAGE_SOURCE_IRI,
         `ResourcePageDefinition region ${key} is missing its ResourcePageSource for ${
           formatDesignatorPathForDisplay(designatorPath)
         }.`,
@@ -186,47 +188,47 @@ export async function loadActiveCustomIdentifierPage(
       const targetArtifact = collectNamedNodeObjects(
         quads,
         sourceSubject,
-        SFC_HAS_TARGET_ARTIFACT_IRI,
+        SFLO_HAS_TARGET_ARTIFACT_IRI,
       );
       const requestedTargetHistories = collectNamedNodeObjects(
         quads,
         sourceSubject,
-        SFC_HAS_REQUESTED_TARGET_HISTORY_IRI,
+        SFLO_HAS_REQUESTED_TARGET_HISTORY_IRI,
       );
       const requestedTargetStates = collectNamedNodeObjects(
         quads,
         sourceSubject,
-        SFC_HAS_REQUESTED_TARGET_STATE_IRI,
+        SFLO_HAS_REQUESTED_TARGET_STATE_IRI,
       );
       const artifactResolutionModes = collectNamedNodeObjects(
         quads,
         sourceSubject,
-        SFC_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
+        SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
       );
       const artifactResolutionFallbackPolicies = collectNamedNodeObjects(
         quads,
         sourceSubject,
-        SFC_HAS_ARTIFACT_RESOLUTION_FALLBACK_POLICY_IRI,
+        SFLO_HAS_ARTIFACT_RESOLUTION_FALLBACK_POLICY_IRI,
       );
       const targetDistribution = collectNamedNodeObjects(
         quads,
         sourceSubject,
-        SFC_HAS_TARGET_DISTRIBUTION_IRI,
+        SFLO_HAS_TARGET_DISTRIBUTION_IRI,
       );
       const targetLocatedFile = collectNamedNodeObjects(
         quads,
         sourceSubject,
-        SFC_HAS_TARGET_LOCATED_FILE_IRI,
+        SFLO_HAS_TARGET_LOCATED_FILE_IRI,
       );
       const targetLocalRelativePaths = collectLiteralObjects(
         quads,
         sourceSubject,
-        SFC_TARGET_MESH_PATH_IRI,
+        SFLO_TARGET_MESH_PATH_IRI,
       );
       const targetAccessUrls = collectLiteralObjects(
         quads,
         sourceSubject,
-        SFC_TARGET_ACCESS_URL_IRI,
+        SFLO_TARGET_ACCESS_URL_IRI,
       );
 
       if (
@@ -326,7 +328,7 @@ export async function loadActiveCustomIdentifierPage(
       }
       if (
         resolutionMode !== undefined &&
-        resolutionMode !== SFC_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI
+        resolutionMode !== SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI
       ) {
         throw new ResourcePageDefinitionResolutionError(
           `ResourcePageDefinition region ${key} for ${

@@ -8,7 +8,7 @@ import type { PlannedFile } from "../planned_file.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const SFLO_NAMESPACE =
-  "https://semantic-flow.github.io/semantic-flow-ontology/";
+  "https://semantic-flow.github.io/sflo/ontology/";
 
 export interface PayloadUpdateRequest {
   designatorPath: string;

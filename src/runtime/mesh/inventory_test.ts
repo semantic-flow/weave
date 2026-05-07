@@ -16,7 +16,7 @@ Deno.test("listKnopDesignatorPaths accepts semantically equivalent mesh inventor
     listKnopDesignatorPaths(
       MESH_BASE,
       `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
 <alice/bio/_knop> rdf:type sflo:Knop .
@@ -35,7 +35,7 @@ Deno.test("listKnopDesignatorPaths includes the root designator when the root Kn
     listKnopDesignatorPaths(
       MESH_BASE,
       `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
 <_knop> rdf:type sflo:Knop .
@@ -52,7 +52,7 @@ Deno.test("resolvePayloadArtifactInventoryState accepts semantically equivalent 
     resolvePayloadArtifactInventoryState(
       MESH_BASE,
       `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
 <alice/bio/_history001> sflo:latestHistoricalState <alice/bio/_history001/_s0002> ;
@@ -83,7 +83,7 @@ Deno.test("resolvePayloadArtifactInventoryState resolves latest payload snapshot
     resolvePayloadArtifactInventoryState(
       MESH_BASE,
       `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
 <alice/bio/_history001> sflo:latestHistoricalState <alice/bio/_history001/_s0002> ;
@@ -119,7 +119,7 @@ Deno.test("resolvePayloadArtifactInventoryState tracks a missing ArtifactHistory
     resolvePayloadArtifactInventoryState(
       MESH_BASE,
       `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
 <alice/bio> sflo:currentArtifactHistory <alice/bio/_history001> ;
@@ -148,7 +148,7 @@ Deno.test("resolveReferenceCatalogInventoryState accepts semantically equivalent
     resolveReferenceCatalogInventoryState(
       MESH_BASE,
       `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
 <alice/_knop/_references> rdf:type sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;
@@ -174,12 +174,12 @@ Deno.test("resolveReferenceTargetDesignatorPath accepts semantically equivalent 
     resolveReferenceTargetDesignatorPath(
       MESH_BASE,
       `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
 <alice/_knop/_references#reference001> rdf:type sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
-  sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Supplemental> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Supplemental> ;
   sflo:referenceTarget <alice/bio> ;
   sflo:referenceTargetState <alice/bio/_history001/_s0002> .
 `,
@@ -201,12 +201,12 @@ Deno.test("resolveReferenceTargetLinkState returns the pinned target state", () 
     resolveReferenceTargetLinkState(
       MESH_BASE,
       `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
 <alice/_knop/_references#reference001> rdf:type sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
-  sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Supplemental> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Supplemental> ;
   sflo:referenceTarget <alice/bio> ;
   sflo:referenceTargetState <alice/bio/_history001/_s0002> .
 `,
@@ -231,12 +231,12 @@ Deno.test("tryResolveReferenceTargetLinkState returns undefined for unpinned lin
     tryResolveReferenceTargetLinkState(
       MESH_BASE,
       `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
 <alice/_knop/_references#reference001> rdf:type sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
-  sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Supplemental> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Supplemental> ;
   sflo:referenceTarget <alice/bio> .
 `,
       "alice",
@@ -257,14 +257,14 @@ Deno.test("resolveReferenceTargetDesignatorPath ignores unrelated catalog fragme
     resolveReferenceTargetDesignatorPath(
       MESH_BASE,
       `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
 <alice/_knop/_references#note> sflo:referenceTarget <carol/bio> .
 
 <alice/_knop/_references#reference001> rdf:type sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
-  sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Supplemental> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Supplemental> ;
   sflo:referenceTarget <alice/bio> ;
   sflo:referenceTargetState <alice/bio/_history001/_s0002> .
 `,
@@ -287,7 +287,7 @@ Deno.test("resolvePayloadArtifactInventoryState rejects working file IRIs with q
       resolvePayloadArtifactInventoryState(
         MESH_BASE,
         `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
 <alice/bio/_history001> rdf:type sflo:ArtifactHistory .
@@ -311,7 +311,7 @@ Deno.test("resolvePayloadArtifactInventoryState rejects working file IRIs with q
       resolvePayloadArtifactInventoryState(
         MESH_BASE,
         `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
 <alice/bio/_history001> rdf:type sflo:ArtifactHistory .
@@ -337,7 +337,7 @@ Deno.test("resolvePayloadArtifactInventoryState accepts workingLocalRelativePath
     resolvePayloadArtifactInventoryState(
       MESH_BASE,
       `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
 <alice/bio/_history001> rdf:type sflo:ArtifactHistory .
@@ -368,7 +368,7 @@ Deno.test("resolvePayloadArtifactInventoryState rejects inconsistent workingLoca
       resolvePayloadArtifactInventoryState(
         MESH_BASE,
         `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
 <alice/bio/_history001> rdf:type sflo:ArtifactHistory .
@@ -395,7 +395,7 @@ Deno.test("resolvePayloadArtifactInventoryState accepts extra-mesh workingLocalR
     resolvePayloadArtifactInventoryState(
       MESH_BASE,
       `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
 <alice/bio/_history001> rdf:type sflo:ArtifactHistory .
@@ -425,7 +425,7 @@ Deno.test("resolveReferenceCatalogInventoryState accepts workingLocalRelativePat
     resolveReferenceCatalogInventoryState(
       MESH_BASE,
       `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
 <alice/_knop/_references> rdf:type sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;
@@ -451,18 +451,17 @@ Deno.test("resolveResourcePageDefinitionInventoryState accepts workingLocalRelat
     resolveResourcePageDefinitionInventoryState(
       MESH_BASE,
       `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
-@prefix sfc: <https://semantic-flow.github.io/ontology/core/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
 <alice/_knop> rdf:type sflo:Knop ;
-  sfc:hasResourcePageDefinition <alice/_knop/_page> ;
-  sfc:hasKnopAssetBundle <alice/_knop/_assets> .
+  sflo:hasResourcePageDefinition <alice/_knop/_page> ;
+  sflo:hasKnopAssetBundle <alice/_knop/_assets> .
 
-<alice/_knop/_page> rdf:type sfc:ResourcePageDefinition, sflo:DigitalArtifact, sflo:RdfDocument ;
+<alice/_knop/_page> rdf:type sflo:ResourcePageDefinition, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:workingLocalRelativePath "alice/_knop/_page/page.ttl" .
 
-<alice/_knop/_assets> rdf:type sfc:KnopAssetBundle .
+<alice/_knop/_assets> rdf:type sflo:KnopAssetBundle .
 `,
       "alice",
       {

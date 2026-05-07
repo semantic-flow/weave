@@ -73,18 +73,17 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
       join(workspaceRoot, "bob/_knop/_inventory/inventory.ttl"),
     ),
     `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
-@prefix sfc: <https://semantic-flow.github.io/ontology/core/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <bob/_knop> a sflo:Knop ;
   sflo:hasKnopMetadata <bob/_knop/_meta> ;
   sflo:hasKnopInventory <bob/_knop/_inventory> ;
-  sfc:hasExtractionSource <bob/_knop/_inventory#extraction-source> ;
+  sflo:hasExtractionSource <bob/_knop/_inventory#extraction-source> ;
   sflo:hasWorkingKnopInventoryFile <bob/_knop/_inventory/inventory.ttl> .
 
-<bob/_knop/_inventory#extraction-source> a sfc:ExtractionSource ;
-  sfc:hasTargetArtifact <alice/bio> ;
-  sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Current> .
+<bob/_knop/_inventory#extraction-source> a sflo:ExtractionSource ;
+  sflo:hasTargetArtifact <alice/bio> ;
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/ArtifactResolutionMode/Current> .
 
 <bob/_knop/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <bob/_knop/_meta/meta.ttl> .
@@ -299,7 +298,7 @@ Deno.test("executeExtract extracts selected sidecar ontology and SHACL terms wit
         workspaceRoot,
         "docs/ontology/CharacterShape/_knop/_inventory/inventory.ttl",
       ),
-    )).includes("sfc:hasTargetArtifact <shacl>"),
+    )).includes("sflo:hasTargetArtifact <shacl>"),
     true,
   );
 
@@ -371,7 +370,7 @@ Deno.test("executeSetExtractionSource replaces an existing pinned source binding
     false,
   );
   assertEquals(
-    inventoryTurtle.match(/sfc:hasExtractionSource/g)?.length,
+    inventoryTurtle.match(/sflo:hasExtractionSource/g)?.length,
     1,
   );
 });
@@ -383,7 +382,7 @@ Deno.test("executeExtract wraps invalid mesh metadata as ExtractRuntimeError", a
   await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
   await Deno.writeTextFile(
     join(workspaceRoot, "_mesh/_meta/meta.ttl"),
-    `@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+    `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <_mesh> sflo:meshBase "https://semantic-flow.github.io/mesh-alice-bio/" .
 `,

@@ -7,7 +7,7 @@ import {
 
 const wovenKnopInventory =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <alice/_knop> a sflo:Knop ;
@@ -93,7 +93,7 @@ const wovenKnopInventory =
 
 const unwovenKnopInventory =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <bob/_knop> a sflo:Knop ;
   sflo:hasKnopMetadata <bob/_knop/_meta> ;
@@ -130,7 +130,7 @@ Deno.test("planKnopAddReference renders first reference catalog support artifact
   );
   assertEquals(
     plan.referenceRoleIri,
-    "https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Canonical",
+    "https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Canonical",
   );
   assertEquals(
     plan.createdFiles.map((file) => file.path),
@@ -168,7 +168,7 @@ Deno.test("planKnopAddReference supports unwoven knop inventory input", () => {
   assertEquals(
     plan.updatedFiles[0]?.contents ?? "",
     `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <bob/_knop> a sflo:Knop ;
   sflo:hasKnopMetadata <bob/_knop/_meta> ;
@@ -194,7 +194,7 @@ Deno.test("planKnopAddReference supports unwoven knop inventory input", () => {
   );
   assertStringIncludes(
     plan.createdFiles[0]?.contents ?? "",
-    "sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Supplemental> ;",
+    "sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Supplemental> ;",
   );
 });
 
@@ -209,11 +209,11 @@ Deno.test("planKnopAddReference normalizes referenceRole tokens case-insensitive
 
   assertEquals(
     plan.referenceRoleIri,
-    "https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Supplemental",
+    "https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Supplemental",
   );
   assertStringIncludes(
     plan.createdFiles[0]?.contents ?? "",
-    "sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Supplemental> ;",
+    "sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Supplemental> ;",
   );
 });
 
@@ -308,8 +308,8 @@ Deno.test("planKnopAddReference rejects an already-registered reference catalog"
 
 function withRdfPrefix(turtle: string): string {
   return turtle.includes("@prefix rdf:") ? turtle : turtle.replace(
-    "@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .",
+    "@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .",
     `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .`,
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .`,
   );
 }

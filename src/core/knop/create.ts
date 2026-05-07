@@ -11,7 +11,7 @@ const XSD_ANY_URI_IRI = "http://www.w3.org/2001/XMLSchema#anyURI";
 const XSD_NON_NEGATIVE_INTEGER_IRI =
   "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
 const SFLO_NAMESPACE =
-  "https://semantic-flow.github.io/semantic-flow-ontology/";
+  "https://semantic-flow.github.io/sflo/ontology/";
 const SFLO_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}ArtifactHistory`;
 const SFLO_ARTIFACT_MANIFESTATION_IRI =
   `${SFLO_NAMESPACE}ArtifactManifestation`;
@@ -150,7 +150,7 @@ function renderKnopMetadataTurtle(
 ): string {
   const knopPath = toKnopPath(designatorPath);
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <${knopPath}> a sflo:Knop ;
   sflo:designatorPath "${designatorPath}" ;
@@ -163,7 +163,7 @@ function renderKnopInventoryTurtle(
   knopPath: string,
 ): string {
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <${knopPath}> a sflo:Knop ;
   sflo:hasKnopMetadata <${knopPath}/_meta> ;
@@ -696,7 +696,7 @@ function renderFirstKnopCreatedMeshInventoryTurtle(
   const knopInventoryPath = `${knopPath}/_inventory/inventory.ttl`;
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh> a sflo:SemanticMesh ;

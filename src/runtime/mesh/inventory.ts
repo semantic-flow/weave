@@ -6,20 +6,18 @@ import {
 } from "../../core/designator_segments.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
-const SFC_NAMESPACE = "https://semantic-flow.github.io/ontology/core/";
-const SFLO_NAMESPACE =
-  "https://semantic-flow.github.io/semantic-flow-ontology/";
-const SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
-  `${SFC_NAMESPACE}ArtifactResolutionMode/Pinned`;
-const SFC_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
-  `${SFC_NAMESPACE}ArtifactResolutionMode/Current`;
-const SFC_EXTRACTION_SOURCE_IRI = `${SFC_NAMESPACE}ExtractionSource`;
-const SFC_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
-  `${SFC_NAMESPACE}hasArtifactResolutionMode`;
-const SFC_HAS_EXTRACTION_SOURCE_IRI = `${SFC_NAMESPACE}hasExtractionSource`;
-const SFC_HAS_REQUESTED_TARGET_STATE_IRI =
-  `${SFC_NAMESPACE}hasRequestedTargetState`;
-const SFC_HAS_TARGET_ARTIFACT_IRI = `${SFC_NAMESPACE}hasTargetArtifact`;
+const SFLO_NAMESPACE = "https://semantic-flow.github.io/sflo/ontology/";
+const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
+  `${SFLO_NAMESPACE}ArtifactResolutionMode/Pinned`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
+  `${SFLO_NAMESPACE}ArtifactResolutionMode/Current`;
+const SFLO_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}ExtractionSource`;
+const SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
+  `${SFLO_NAMESPACE}hasArtifactResolutionMode`;
+const SFLO_HAS_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}hasExtractionSource`;
+const SFLO_HAS_REQUESTED_TARGET_STATE_IRI =
+  `${SFLO_NAMESPACE}hasRequestedTargetState`;
+const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasTargetArtifact`;
 const SFLO_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}ArtifactHistory`;
 const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
   `${SFLO_NAMESPACE}currentArtifactHistory`;
@@ -38,9 +36,9 @@ const SFLO_REFERENCE_LINK_FOR_IRI = `${SFLO_NAMESPACE}referenceLinkFor`;
 const SFLO_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}ReferenceLink`;
 const SFLO_REFERENCE_TARGET_IRI = `${SFLO_NAMESPACE}referenceTarget`;
 const SFLO_REFERENCE_TARGET_STATE_IRI = `${SFLO_NAMESPACE}referenceTargetState`;
-const SFC_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFC_NAMESPACE}hasKnopAssetBundle`;
-const SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI =
-  `${SFC_NAMESPACE}hasResourcePageDefinition`;
+const SFLO_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFLO_NAMESPACE}hasKnopAssetBundle`;
+const SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI =
+  `${SFLO_NAMESPACE}hasResourcePageDefinition`;
 
 export interface PayloadArtifactInventoryState {
   workingLocalRelativePath: string;
@@ -257,7 +255,7 @@ export function resolveExtractionSourceInventoryState(
     !hasNamedNodeObject(
       quads,
       knopIri,
-      SFC_HAS_EXTRACTION_SOURCE_IRI,
+      SFLO_HAS_EXTRACTION_SOURCE_IRI,
       extractionSourceIri,
     )
   ) {
@@ -269,7 +267,7 @@ export function resolveExtractionSourceInventoryState(
       quads,
       extractionSourceIri,
       RDF_TYPE_IRI,
-      SFC_EXTRACTION_SOURCE_IRI,
+      SFLO_EXTRACTION_SOURCE_IRI,
     )
   ) {
     throw new Error(messages.missingExtractionSourceMessage);
@@ -279,7 +277,7 @@ export function resolveExtractionSourceInventoryState(
     quads,
     meshBase,
     extractionSourceIri,
-    SFC_HAS_TARGET_ARTIFACT_IRI,
+    SFLO_HAS_TARGET_ARTIFACT_IRI,
     messages.missingTargetArtifactMessage,
   );
   if (!sourceArtifactPath) {
@@ -290,24 +288,24 @@ export function resolveExtractionSourceInventoryState(
     quads,
     meshBase,
     extractionSourceIri,
-    SFC_HAS_REQUESTED_TARGET_STATE_IRI,
+    SFLO_HAS_REQUESTED_TARGET_STATE_IRI,
     messages.missingRequestedTargetStateMessage,
   );
 
   const artifactResolutionModeIri = resolveOptionalUniqueNamedNodeIri(
     quads,
     extractionSourceIri,
-    SFC_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
+    SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
     messages.unsupportedResolutionModeMessage,
-  ) ?? SFC_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI;
+  ) ?? SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI;
   if (
-    artifactResolutionModeIri !== SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI &&
-    artifactResolutionModeIri !== SFC_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI
+    artifactResolutionModeIri !== SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI &&
+    artifactResolutionModeIri !== SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI
   ) {
     throw new Error(messages.unsupportedResolutionModeMessage);
   }
   if (
-    artifactResolutionModeIri === SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI &&
+    artifactResolutionModeIri === SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI &&
     !requestedTargetStatePath
   ) {
     throw new Error(messages.missingRequestedTargetStateMessage);
@@ -339,7 +337,7 @@ export function resolveResourcePageDefinitionInventoryState(
     quads,
     meshBase,
     knopIri,
-    SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI,
+    SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI,
     messages.parseErrorMessage,
   );
 
@@ -383,7 +381,7 @@ export function resolveResourcePageDefinitionInventoryState(
     quads,
     meshBase,
     knopIri,
-    SFC_HAS_KNOP_ASSET_BUNDLE_IRI,
+    SFLO_HAS_KNOP_ASSET_BUNDLE_IRI,
     messages.parseErrorMessage,
   );
 

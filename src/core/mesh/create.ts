@@ -85,7 +85,7 @@ function normalizeMeshBase(meshBase: string): string {
 
 function renderMeshMetadataTurtle(meshBase: string): string {
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh> a sflo:SemanticMesh ;
@@ -104,7 +104,7 @@ function renderMeshInventoryTurtle(
 ): string {
   if (!hasMeshConfig) {
     return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh> a sflo:SemanticMesh ;
@@ -125,7 +125,7 @@ function renderMeshInventoryTurtle(
   }
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 

@@ -113,24 +113,22 @@ const SCHEMA_NAME_IRIS = [
 const HISTORY_TRUNCATION_THRESHOLD = 10;
 const HISTORY_TRUNCATION_HEAD_COUNT = 2;
 const HISTORY_TRUNCATION_TAIL_COUNT = 7;
-const SFC_EXTRACTION_SOURCE_IRI =
-  "https://semantic-flow.github.io/ontology/core/ExtractionSource";
-const SFC_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
-  "https://semantic-flow.github.io/ontology/core/hasArtifactResolutionMode";
-const SFC_HAS_REQUESTED_TARGET_STATE_IRI =
-  "https://semantic-flow.github.io/ontology/core/hasRequestedTargetState";
+const SFLO_EXTRACTION_SOURCE_IRI =
+  "https://semantic-flow.github.io/sflo/ontology/ExtractionSource";
+const SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
+  "https://semantic-flow.github.io/sflo/ontology/hasArtifactResolutionMode";
+const SFLO_HAS_REQUESTED_TARGET_STATE_IRI =
+  "https://semantic-flow.github.io/sflo/ontology/hasRequestedTargetState";
 
 type TruncatedHistoryItem<T> =
   | { kind: "item"; value: T }
   | { kind: "gap"; omittedCount: number };
-const SFC_HAS_TARGET_ARTIFACT_IRI =
-  "https://semantic-flow.github.io/ontology/core/hasTargetArtifact";
+const SFLO_HAS_TARGET_ARTIFACT_IRI =
+  "https://semantic-flow.github.io/sflo/ontology/hasTargetArtifact";
 const WEAVE_REPOSITORY_URL = "https://github.com/semantic-flow/weave/";
 const SOURCE_THEME = "github-dark-default";
-const SEMANTIC_FLOW_LEGACY_NAMESPACE =
-  "https://semantic-flow.github.io/semantic-flow-ontology/";
-const SEMANTIC_FLOW_CORE_NAMESPACE =
-  "https://semantic-flow.github.io/ontology/core/";
+const SEMANTIC_FLOW_NAMESPACE =
+  "https://semantic-flow.github.io/sflo/ontology/";
 const SEMANTIC_FLOW_CONFIG_NAMESPACE =
   "https://semantic-flow.github.io/ontology/config/";
 const COMMON_RDF_PREFIXES: readonly [namespace: string, prefix: string][] = [
@@ -138,8 +136,7 @@ const COMMON_RDF_PREFIXES: readonly [namespace: string, prefix: string][] = [
   ["http://www.w3.org/ns/shacl#", "sh"],
   ["http://www.w3.org/2000/01/rdf-schema#", "rdfs"],
   ["http://www.w3.org/1999/02/22-rdf-syntax-ns#", "rdf"],
-  [SEMANTIC_FLOW_CORE_NAMESPACE, "sflo"],
-  [SEMANTIC_FLOW_LEGACY_NAMESPACE, "sflo"],
+  [SEMANTIC_FLOW_NAMESPACE, "sflo"],
   [SEMANTIC_FLOW_CONFIG_NAMESPACE, "sfcfg"],
 ];
 
@@ -386,11 +383,11 @@ function toDefaultResourcePageRenderInput(
       rdfClasses: [
         rdfClass(
           "sflo:ReferenceCatalog",
-          "https://semantic-flow.github.io/semantic-flow-ontology/ReferenceCatalog",
+          "https://semantic-flow.github.io/sflo/ontology/ReferenceCatalog",
         ),
         rdfClass(
           "sflo:RdfDocument",
-          "https://semantic-flow.github.io/semantic-flow-ontology/RdfDocument",
+          "https://semantic-flow.github.io/sflo/ontology/RdfDocument",
         ),
       ],
       metadataRows: [{ label: "Canonical IRI", value: canonical }],
@@ -453,7 +450,7 @@ function toDefaultResourcePageRenderInput(
       rdfClasses: [
         rdfClass(
           "sflo:Knop",
-          "https://semantic-flow.github.io/semantic-flow-ontology/Knop",
+          "https://semantic-flow.github.io/sflo/ontology/Knop",
         ),
       ],
       metadataRows: [
@@ -1482,7 +1479,7 @@ function extractFragmentSections(
       quad.subject.value.startsWith(`${canonical}#`) &&
       quad.predicate.value === RDF_TYPE_IRI &&
       quad.object.termType === "NamedNode" &&
-      quad.object.value === SFC_EXTRACTION_SOURCE_IRI
+      quad.object.value === SFLO_EXTRACTION_SOURCE_IRI
     ) {
       subjects.add(quad.subject.value);
     }
@@ -1493,17 +1490,17 @@ function extractFragmentSections(
     const targetArtifactIri = findFirstNamedNodeObject(
       quads,
       subjectIri,
-      SFC_HAS_TARGET_ARTIFACT_IRI,
+      SFLO_HAS_TARGET_ARTIFACT_IRI,
     );
     const requestedTargetStateIri = findFirstNamedNodeObject(
       quads,
       subjectIri,
-      SFC_HAS_REQUESTED_TARGET_STATE_IRI,
+      SFLO_HAS_REQUESTED_TARGET_STATE_IRI,
     );
     const artifactResolutionModeIri = findFirstNamedNodeObject(
       quads,
       subjectIri,
-      SFC_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
+      SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
     );
     const rows = [
       targetArtifactIri
@@ -1593,7 +1590,7 @@ function collectPrefixMap(
 }
 
 function canonicalRdfPrefix(namespace: string, declaredPrefix: string): string {
-  if (namespace === SEMANTIC_FLOW_CORE_NAMESPACE) {
+  if (namespace === SEMANTIC_FLOW_NAMESPACE) {
     return "sflo";
   }
   if (namespace === SEMANTIC_FLOW_CONFIG_NAMESPACE) {
@@ -1765,25 +1762,25 @@ function classifyResourcePage(
   if (resourcePath === "_mesh") {
     return rdfClass(
       "sflo:SemanticMesh",
-      "https://semantic-flow.github.io/semantic-flow-ontology/SemanticMesh",
+      "https://semantic-flow.github.io/sflo/ontology/SemanticMesh",
     );
   }
   if (resourcePath.endsWith("/_knop")) {
     return rdfClass(
       "sflo:Knop",
-      "https://semantic-flow.github.io/semantic-flow-ontology/Knop",
+      "https://semantic-flow.github.io/sflo/ontology/Knop",
     );
   }
   if (resourcePath.endsWith("/_meta")) {
     return rdfClass(
       "sflo:RdfDocument",
-      "https://semantic-flow.github.io/semantic-flow-ontology/RdfDocument",
+      "https://semantic-flow.github.io/sflo/ontology/RdfDocument",
     );
   }
   if (resourcePath.endsWith("/_inventory")) {
     return rdfClass(
       "sflo:RdfDocument",
-      "https://semantic-flow.github.io/semantic-flow-ontology/RdfDocument",
+      "https://semantic-flow.github.io/sflo/ontology/RdfDocument",
     );
   }
   if (resourcePath.endsWith("/_config")) {
@@ -1799,7 +1796,7 @@ function classifyResourcePage(
   ) {
     return rdfClass(
       "sflo:ArtifactManifestation",
-      "https://semantic-flow.github.io/semantic-flow-ontology/ArtifactManifestation",
+      "https://semantic-flow.github.io/sflo/ontology/ArtifactManifestation",
     );
   }
   if (
@@ -1809,7 +1806,7 @@ function classifyResourcePage(
   ) {
     return rdfClass(
       "sflo:HistoricalState",
-      "https://semantic-flow.github.io/semantic-flow-ontology/HistoricalState",
+      "https://semantic-flow.github.io/sflo/ontology/HistoricalState",
     );
   }
   if (
@@ -1818,12 +1815,12 @@ function classifyResourcePage(
   ) {
     return rdfClass(
       "sflo:ArtifactHistory",
-      "https://semantic-flow.github.io/semantic-flow-ontology/ArtifactHistory",
+      "https://semantic-flow.github.io/sflo/ontology/ArtifactHistory",
     );
   }
   return rdfClass(
     "sflo:DigitalArtifact",
-    "https://semantic-flow.github.io/semantic-flow-ontology/DigitalArtifact",
+    "https://semantic-flow.github.io/sflo/ontology/DigitalArtifact",
   );
 }
 

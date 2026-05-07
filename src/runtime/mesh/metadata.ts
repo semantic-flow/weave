@@ -4,7 +4,7 @@ import type { Quad } from "n3";
 
 const MESH_METADATA_RELATIVE_PATH = "_mesh/_meta/meta.ttl";
 const SFLO_MESH_BASE_IRI =
-  "https://semantic-flow.github.io/semantic-flow-ontology/meshBase";
+  "https://semantic-flow.github.io/sflo/ontology/meshBase";
 const XSD_ANYURI_IRI = "http://www.w3.org/2001/XMLSchema#anyURI";
 const MESH_BASE_ERROR_MESSAGE =
   "Could not resolve meshBase from _mesh/_meta/meta.ttl";

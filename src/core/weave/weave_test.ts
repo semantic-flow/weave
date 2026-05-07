@@ -26,7 +26,7 @@ function withAliceReferenceExtensionManifestation(contents: string): string {
 
 const firstWeaveMeshInventoryTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh> a sflo:SemanticMesh ;
@@ -56,7 +56,7 @@ const firstWeaveMeshInventoryTurtle =
 
 const sidecarMeshCreatedInventoryTurtle =
   `@base <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
@@ -84,7 +84,7 @@ const sidecarMeshCreatedInventoryTurtle =
 
 const firstWeaveKnopMetadataTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <alice/_knop> a sflo:Knop ;
   sflo:designatorPath "alice" ;
@@ -93,7 +93,7 @@ const firstWeaveKnopMetadataTurtle =
 
 const rootSourcePreExtractMeshInventoryTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh> a sflo:SemanticMesh ;
@@ -141,7 +141,7 @@ const rootSourcePersonPayloadTurtle =
 
 const firstWeaveKnopInventoryTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <alice/_knop> a sflo:Knop ;
   sflo:hasKnopMetadata <alice/_knop/_meta> ;
@@ -155,7 +155,7 @@ Deno.test("planMeshSupportResourcePages adds current support ResourcePages inclu
     currentMeshInventoryTurtle: sidecarMeshCreatedInventoryTurtle,
     currentMeshMetadataTurtle:
       `@base <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <_mesh> a sflo:SemanticMesh .
 `,
@@ -204,7 +204,7 @@ Deno.test("planMeshSupportResourcePages adds current support ResourcePages inclu
 
 const firstPayloadWeaveMeshInventoryTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
@@ -231,7 +231,7 @@ const firstPayloadWeaveMeshInventoryTurtle =
 
 const firstPayloadWeaveKnopMetadataTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <alice/bio/_knop> a sflo:Knop ;
   sflo:designatorPath "alice/bio" ;
@@ -240,7 +240,7 @@ const firstPayloadWeaveKnopMetadataTurtle =
 
 const firstPayloadWeaveKnopInventoryTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <alice/bio/_knop> a sflo:Knop ;
   sflo:hasKnopMetadata <alice/bio/_knop/_meta> ;
@@ -254,7 +254,7 @@ const firstPayloadWeaveKnopInventoryTurtle =
 
 const laterFirstPayloadWeaveMeshInventoryTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh> a sflo:SemanticMesh ;
@@ -378,7 +378,7 @@ const laterFirstPayloadWeaveMeshInventoryTurtle =
 
 const laterFirstPayloadWeaveKnopMetadataTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <alice/page-main/_knop> a sflo:Knop ;
   sflo:designatorPath "alice/page-main" ;
@@ -387,7 +387,7 @@ const laterFirstPayloadWeaveKnopMetadataTurtle =
 
 const laterFirstPayloadWeaveKnopInventoryTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <alice/page-main/_knop> a sflo:Knop ;
   sflo:hasKnopMetadata <alice/page-main/_knop/_meta> ;
@@ -413,7 +413,7 @@ const laterFirstPayloadWeaveKnopInventoryTurtle =
 
 const firstReferenceCatalogWeaveMeshInventoryTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
@@ -444,7 +444,7 @@ const firstReferenceCatalogWeaveMeshInventoryTurtle =
 
 const firstReferenceCatalogWeaveKnopInventoryTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <alice/_knop> a sflo:Knop ;
@@ -474,19 +474,19 @@ const firstReferenceCatalogWeaveKnopInventoryTurtle =
 
 const firstReferenceCatalogWeaveReferenceCatalogTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <alice> sflo:hasReferenceLink <alice/_knop/_references#reference001> .
 
 <alice/_knop/_references#reference001> a sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
-  sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Canonical> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Canonical> ;
   sflo:referenceTarget <alice/bio> .
 `;
 
 const secondPayloadWeaveKnopInventoryTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <alice/bio/_knop> a sflo:Knop ;
@@ -1003,13 +1003,13 @@ Deno.test("planWeave accepts semantically equivalent first reference-catalog wea
   ).replace(
     `<alice/_knop/_references#reference001> a sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
-  sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Canonical> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Canonical> ;
   sflo:referenceTarget <alice/bio> .
 `,
     `<alice/_knop/_references#reference001>
   sflo:referenceTarget <alice/bio> ;
   rdf:type sflo:ReferenceLink ;
-  sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Canonical> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Canonical> ;
   sflo:referenceLinkFor <alice> .
 `,
   );
@@ -1490,8 +1490,8 @@ Deno.test("planWeave accepts semantically equivalent extracted bob ExtractionSou
   input.weaveableKnops[0]!.currentKnopInventoryTurtle = withRdfPrefix(
     input.weaveableKnops[0]!.currentKnopInventoryTurtle,
   ).replace(
-    " a sfc:ExtractionSource ;",
-    " rdf:type sfc:ExtractionSource ;",
+    " a sflo:ExtractionSource ;",
+    " rdf:type sflo:ExtractionSource ;",
   );
 
   const plan = planWeave(input);
@@ -1536,7 +1536,7 @@ Deno.test("planWeave rejects extracted bob weave inputs without a pinned source 
   const input = await createExtractedBobWeaveInput();
   input.weaveableKnops[0]!.currentKnopInventoryTurtle = input
     .weaveableKnops[0]!.currentKnopInventoryTurtle.replace(
-      "  sfc:hasRequestedTargetState <alice/bio/_history001/_s0002> ;\n",
+      "  sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> ;\n",
       "",
     );
 
@@ -1551,8 +1551,8 @@ Deno.test("planWeave rejects extracted bob weave inputs when the source payload 
   const input = await createExtractedBobWeaveInput();
   input.weaveableKnops[0]!.currentKnopInventoryTurtle = input
     .weaveableKnops[0]!.currentKnopInventoryTurtle.replace(
-      "sfc:hasTargetArtifact <alice/bio> ;",
-      "sfc:hasTargetArtifact <carol/bio> ;",
+      "sflo:hasTargetArtifact <alice/bio> ;",
+      "sflo:hasTargetArtifact <carol/bio> ;",
     );
 
   assertThrows(
@@ -1688,7 +1688,7 @@ Deno.test("planWeave rejects extracted bob inventory without typed ExtractionSou
   const input = await createExtractedBobWeaveInput();
   input.weaveableKnops[0]!.currentKnopInventoryTurtle = input
     .weaveableKnops[0]!.currentKnopInventoryTurtle.replace(
-      "<bob/_knop/_inventory#extraction-source> a sfc:ExtractionSource ;\n",
+      "<bob/_knop/_inventory#extraction-source> a sflo:ExtractionSource ;\n",
       "",
     );
 
@@ -1807,27 +1807,26 @@ Deno.test("planWeave generalizes the first page-definition weave slice for earli
   )
     .replace(
       `  sflo:hasWorkingKnopInventoryFile <bob/_knop/_inventory/inventory.ttl> ;\n  sflo:hasResourcePage <bob/_knop/index.html> .\n`,
-      `  sflo:hasWorkingKnopInventoryFile <bob/_knop/_inventory/inventory.ttl> ;\n  sflo:hasResourcePage <bob/_knop/index.html> ;\n  sfc:hasResourcePageDefinition <bob/_knop/_page> .\n`,
+      `  sflo:hasWorkingKnopInventoryFile <bob/_knop/_inventory/inventory.ttl> ;\n  sflo:hasResourcePage <bob/_knop/index.html> ;\n  sflo:hasResourcePageDefinition <bob/_knop/_page> .\n`,
     )
     .replace(
       `<bob/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .\n`,
-      `<bob/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .\n\n<bob/_knop/_page> a sfc:ResourcePageDefinition, sflo:DigitalArtifact, sflo:RdfDocument ;\n  sflo:hasWorkingLocatedFile <bob/_knop/_page/page.ttl> .\n\n<bob/_knop/_page/page.ttl> a sflo:LocatedFile, sflo:RdfDocument .\n`,
+      `<bob/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .\n\n<bob/_knop/_page> a sflo:ResourcePageDefinition, sflo:DigitalArtifact, sflo:RdfDocument ;\n  sflo:hasWorkingLocatedFile <bob/_knop/_page/page.ttl> .\n\n<bob/_knop/_page/page.ttl> a sflo:LocatedFile, sflo:RdfDocument .\n`,
     );
   const pageDefinitionTurtle =
     `@base <https://semantic-flow.github.io/mesh-alice-bio/bob/_knop/_page> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
-@prefix sfc: <https://semantic-flow.github.io/ontology/core/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
-<> a sfc:ResourcePageDefinition, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sfc:hasPageRegion <#main-region> .
+<> a sflo:ResourcePageDefinition, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasPageRegion <#main-region> .
 
-<#main-region> a sfc:ResourcePageRegion ;
-  sfc:regionKey "main" ;
-  sfc:hasResourcePageSource <#main-source> .
+<#main-region> a sflo:ResourcePageRegion ;
+  sflo:regionKey "main" ;
+  sflo:hasResourcePageSource <#main-source> .
 
-<#main-source> a sfc:ResourcePageSource ;
-  sfc:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/bob/page-main> ;
-  sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Current> .
+<#main-source> a sflo:ResourcePageSource ;
+  sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/bob/page-main> ;
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/ArtifactResolutionMode/Current> .
 `;
   const plan = planWeave({
     request: {
@@ -1890,11 +1889,11 @@ Deno.test("planWeave renders a later page-definition weave revision", async () =
       "alice/_knop/_page/page.ttl",
     )
   ).replace(
-    `<#main-source> a sfc:ResourcePageSource ;
-  sfc:targetLocalRelativePath "alice/alice.md" .`,
-    `<#main-source> a sfc:ResourcePageSource ;
-  sfc:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/page-main> ;
-  sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Current> .`,
+    `<#main-source> a sflo:ResourcePageSource ;
+  sflo:targetLocalRelativePath "alice/alice.md" .`,
+    `<#main-source> a sflo:ResourcePageSource ;
+  sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/page-main> ;
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/ArtifactResolutionMode/Current> .`,
   );
   const latestHistoricalSnapshotTurtle = await readMeshAliceBioBranchFile(
     "17-alice-page-main-integrated-woven",
@@ -2058,8 +2057,8 @@ async function createExtractedBobWeaveInput(): Promise<PlanWeaveInput> {
 
 function withRdfPrefix(turtle: string): string {
   return turtle.includes("@prefix rdf:") ? turtle : turtle.replace(
-    "@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .",
+    "@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .",
     `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .`,
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .`,
   );
 }

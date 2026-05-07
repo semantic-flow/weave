@@ -353,7 +353,7 @@ Deno.test("executeWeave batches recursive targets through validate, version, and
     workspaceRoot,
     "alice/bio",
     `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <alice/bio/_knop> a sflo:Knop ;
   sflo:hasKnopMetadata <alice/bio/_knop/_meta> ;
@@ -803,7 +803,7 @@ Deno.test("executeWeave resolves current artifact-backed page sources through ha
     workspaceRoot,
     "alice/source",
     `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <alice/source/_knop> a sflo:Knop ;
   sflo:hasKnopMetadata <alice/source/_knop/_meta> ;
@@ -818,9 +818,9 @@ Deno.test("executeWeave resolves current artifact-backed page sources through ha
   );
   await replaceAliceSidebarPageSource(
     workspaceRoot,
-    `<#sidebar-source> a sfc:ResourcePageSource ;
-  sfc:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> ;
-  sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Current> .`,
+    `<#sidebar-source> a sflo:ResourcePageSource ;
+  sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> ;
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/ArtifactResolutionMode/Current> .`,
   );
 
   const result = await executeWeave({
@@ -851,11 +851,11 @@ Deno.test("executeWeave versions a later page-definition revision that repoints 
   );
   await replaceFileText(
     join(workspaceRoot, "alice/_knop/_page/page.ttl"),
-    `<#main-source> a sfc:ResourcePageSource ;
-  sfc:targetLocalRelativePath "alice/alice.md" .`,
-    `<#main-source> a sfc:ResourcePageSource ;
-  sfc:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/page-main> ;
-  sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Current> .`,
+    `<#main-source> a sflo:ResourcePageSource ;
+  sflo:targetLocalRelativePath "alice/alice.md" .`,
+    `<#main-source> a sflo:ResourcePageSource ;
+  sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/page-main> ;
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/ArtifactResolutionMode/Current> .`,
   );
 
   const result = await executeWeave({
@@ -978,7 +978,7 @@ Deno.test("executeWeave resolves artifact-backed page sources through workingLoc
     workspaceRoot,
     "alice/source",
     `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <alice/source/_knop> a sflo:Knop ;
   sflo:hasKnopMetadata <alice/source/_knop/_meta> ;
@@ -993,8 +993,8 @@ Deno.test("executeWeave resolves artifact-backed page sources through workingLoc
   );
   await replaceAliceSidebarPageSource(
     workspaceRoot,
-    `<#sidebar-source> a sfc:ResourcePageSource ;
-  sfc:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> .`,
+    `<#sidebar-source> a sflo:ResourcePageSource ;
+  sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> .`,
   );
 
   const result = await executeWeave({
@@ -1031,7 +1031,7 @@ Deno.test("executeWeave fails closed when artifact-backed page sources request p
     workspaceRoot,
     "alice/source",
     `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <alice/source/_knop> a sflo:Knop ;
   sflo:hasKnopMetadata <alice/source/_knop/_meta> ;
@@ -1046,9 +1046,9 @@ Deno.test("executeWeave fails closed when artifact-backed page sources request p
   );
   await replaceAliceSidebarPageSource(
     workspaceRoot,
-    `<#sidebar-source> a sfc:ResourcePageSource ;
-  sfc:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> ;
-  sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Pinned> .`,
+    `<#sidebar-source> a sflo:ResourcePageSource ;
+  sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> ;
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/ArtifactResolutionMode/Pinned> .`,
   );
 
   await assertRejects(
@@ -1134,8 +1134,8 @@ Deno.test("executeWeave fails closed when targetLocalRelativePath escapes the me
   );
   await replaceAliceSidebarPageSource(
     workspaceRoot,
-    `<#sidebar-source> a sfc:ResourcePageSource ;
-  sfc:targetLocalRelativePath "../documentation/sidebar.md" .`,
+    `<#sidebar-source> a sflo:ResourcePageSource ;
+  sflo:targetLocalRelativePath "../documentation/sidebar.md" .`,
   );
 
   await assertRejects(
@@ -1182,8 +1182,8 @@ Deno.test("executeWeave allows repo-adjacent targetLocalRelativePath values when
   );
   await replaceAliceSidebarPageSource(
     workspaceRoot,
-    `<#sidebar-source> a sfc:ResourcePageSource ;
-  sfc:targetLocalRelativePath "../documentation/sidebar.md" .`,
+    `<#sidebar-source> a sflo:ResourcePageSource ;
+  sflo:targetLocalRelativePath "../documentation/sidebar.md" .`,
   );
 
   const result = await executeWeave({
@@ -1595,7 +1595,7 @@ Deno.test("executeGenerate lists every sidecar payload history with current hist
   );
   assertStringIncludes(
     releaseHistoryPage,
-    '<a href="https://semantic-flow.github.io/semantic-flow-ontology/ArtifactHistory">sflo:ArtifactHistory</a>',
+    '<a href="https://semantic-flow.github.io/sflo/ontology/ArtifactHistory">sflo:ArtifactHistory</a>',
   );
   assertStringIncludes(
     releaseHistoryPage,
@@ -1707,7 +1707,7 @@ Deno.test("executeWeave ignores settled Knops before loading missing working art
     workspaceRoot,
     "bob/bio",
     `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <bob/bio/_knop> a sflo:Knop ;
   sflo:hasKnopMetadata <bob/bio/_knop/_meta> ;
@@ -1739,7 +1739,7 @@ Deno.test("executeWeave ignores non-requested weave candidates before loading wo
     workspaceRoot,
     "bob/bio",
     `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <bob/bio/_knop> a sflo:Knop ;
   sflo:hasKnopMetadata <bob/bio/_knop/_meta> ;
@@ -1825,7 +1825,7 @@ async function writeSupplementalKnopSurface(
   await Deno.writeTextFile(
     join(knopPath, "_meta/meta.ttl"),
     `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <${designatorPath}/_knop> a sflo:Knop ;
   sflo:designatorPath "${designatorPath}" ;
@@ -1858,8 +1858,8 @@ async function addArtifactBackedPageSource(
 }
 
 const ALICE_SIDEBAR_TARGET_MESH_PATH_SOURCE =
-  `<#sidebar-source> a sfc:ResourcePageSource ;
-  sfc:targetLocalRelativePath "mesh-content/sidebar.md" .`;
+  `<#sidebar-source> a sflo:ResourcePageSource ;
+  sflo:targetLocalRelativePath "mesh-content/sidebar.md" .`;
 
 async function replaceAliceSidebarPageSource(
   workspaceRoot: string,

@@ -25,26 +25,24 @@ import {
 } from "./html.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
-const SFC_NAMESPACE = "https://semantic-flow.github.io/ontology/core/";
+const SFLO_NAMESPACE = "https://semantic-flow.github.io/sflo/ontology/";
 const XSD_NON_NEGATIVE_INTEGER_IRI =
   "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
-const SFLO_NAMESPACE =
-  "https://semantic-flow.github.io/semantic-flow-ontology/";
-const SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
-  `${SFC_NAMESPACE}ArtifactResolutionMode/Pinned`;
-const SFC_EXTRACTION_SOURCE_IRI = `${SFC_NAMESPACE}ExtractionSource`;
-const SFC_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
-  `${SFC_NAMESPACE}hasArtifactResolutionMode`;
-const SFC_HAS_EXTRACTION_SOURCE_IRI = `${SFC_NAMESPACE}hasExtractionSource`;
-const SFC_HAS_REQUESTED_TARGET_STATE_IRI =
-  `${SFC_NAMESPACE}hasRequestedTargetState`;
-const SFC_HAS_TARGET_ARTIFACT_IRI = `${SFC_NAMESPACE}hasTargetArtifact`;
-const SFC_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFC_NAMESPACE}hasKnopAssetBundle`;
-const SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI =
-  `${SFC_NAMESPACE}hasResourcePageDefinition`;
-const SFC_KNOP_ASSET_BUNDLE_IRI = `${SFC_NAMESPACE}KnopAssetBundle`;
-const SFC_RESOURCE_PAGE_DEFINITION_IRI =
-  `${SFC_NAMESPACE}ResourcePageDefinition`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
+  `${SFLO_NAMESPACE}ArtifactResolutionMode/Pinned`;
+const SFLO_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}ExtractionSource`;
+const SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
+  `${SFLO_NAMESPACE}hasArtifactResolutionMode`;
+const SFLO_HAS_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}hasExtractionSource`;
+const SFLO_HAS_REQUESTED_TARGET_STATE_IRI =
+  `${SFLO_NAMESPACE}hasRequestedTargetState`;
+const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasTargetArtifact`;
+const SFLO_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFLO_NAMESPACE}hasKnopAssetBundle`;
+const SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI =
+  `${SFLO_NAMESPACE}hasResourcePageDefinition`;
+const SFLO_KNOP_ASSET_BUNDLE_IRI = `${SFLO_NAMESPACE}KnopAssetBundle`;
+const SFLO_RESOURCE_PAGE_DEFINITION_IRI =
+  `${SFLO_NAMESPACE}ResourcePageDefinition`;
 const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
   `${SFLO_NAMESPACE}currentArtifactHistory`;
 const SFLO_DESIGNATOR_PATH_IRI = `${SFLO_NAMESPACE}designatorPath`;
@@ -867,7 +865,7 @@ export function detectPendingWeaveSlice(
     quads,
     meshBase,
     knopPath,
-    SFC_HAS_EXTRACTION_SOURCE_IRI,
+    SFLO_HAS_EXTRACTION_SOURCE_IRI,
     `${knopPath}/_inventory#extraction-source`,
   );
   const referenceCatalogRelationship = hasNamedNodeFact(
@@ -888,7 +886,7 @@ export function detectPendingWeaveSlice(
     quads,
     meshBase,
     knopPath,
-    SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI,
+    SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI,
     pageDefinitionPath,
   );
   const knopInventoryHasHistory = hasNamedNodeFact(
@@ -1699,7 +1697,7 @@ function resolveCurrentKnopInventoryProgressionForPageDefinitionWeave(
     [knopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
     [knopPath, SFLO_HAS_KNOP_METADATA_IRI, `${knopPath}/_meta`],
     [knopPath, SFLO_HAS_KNOP_INVENTORY_IRI, `${knopPath}/_inventory`],
-    [knopPath, SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI, pageDefinitionPath],
+    [knopPath, SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI, pageDefinitionPath],
     [
       knopPath,
       SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI,
@@ -1708,7 +1706,7 @@ function resolveCurrentKnopInventoryProgressionForPageDefinitionWeave(
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_KNOP_INVENTORY_IRI],
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
-    [pageDefinitionPath, RDF_TYPE_IRI, SFC_RESOURCE_PAGE_DEFINITION_IRI],
+    [pageDefinitionPath, RDF_TYPE_IRI, SFLO_RESOURCE_PAGE_DEFINITION_IRI],
     [pageDefinitionPath, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
     [pageDefinitionPath, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
   ]);
@@ -1809,13 +1807,13 @@ function resolveCurrentKnopInventoryProgressionForPageDefinitionWeave(
     assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
       [
         knopPath,
-        SFC_HAS_KNOP_ASSET_BUNDLE_IRI,
+        SFLO_HAS_KNOP_ASSET_BUNDLE_IRI,
         pageDefinitionArtifact.assetBundlePath,
       ],
       [
         pageDefinitionArtifact.assetBundlePath,
         RDF_TYPE_IRI,
-        SFC_KNOP_ASSET_BUNDLE_IRI,
+        SFLO_KNOP_ASSET_BUNDLE_IRI,
       ],
     ]);
   }
@@ -2175,7 +2173,7 @@ function assertCurrentKnopInventoryShapeForFirstExtractedKnopWeave(
     [knopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
     [knopPath, SFLO_HAS_KNOP_METADATA_IRI, `${knopPath}/_meta`],
     [knopPath, SFLO_HAS_KNOP_INVENTORY_IRI, `${knopPath}/_inventory`],
-    [knopPath, SFC_HAS_EXTRACTION_SOURCE_IRI, extractionSourcePath],
+    [knopPath, SFLO_HAS_EXTRACTION_SOURCE_IRI, extractionSourcePath],
     [
       knopPath,
       SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI,
@@ -2187,16 +2185,16 @@ function assertCurrentKnopInventoryShapeForFirstExtractedKnopWeave(
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_KNOP_INVENTORY_IRI],
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
-    [extractionSourcePath, RDF_TYPE_IRI, SFC_EXTRACTION_SOURCE_IRI],
+    [extractionSourcePath, RDF_TYPE_IRI, SFLO_EXTRACTION_SOURCE_IRI],
     [
       extractionSourcePath,
-      SFC_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
-      SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI,
+      SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
+      SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI,
     ],
-    [extractionSourcePath, SFC_HAS_TARGET_ARTIFACT_IRI, sourceDesignatorPath],
+    [extractionSourcePath, SFLO_HAS_TARGET_ARTIFACT_IRI, sourceDesignatorPath],
     [
       extractionSourcePath,
-      SFC_HAS_REQUESTED_TARGET_STATE_IRI,
+      SFLO_HAS_REQUESTED_TARGET_STATE_IRI,
       sourceStatePath,
     ],
   ]);
@@ -2390,7 +2388,7 @@ function assertCurrentKnopInventoryShapeForFirstPageDefinitionWeave(
     [knopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
     [knopPath, SFLO_HAS_KNOP_METADATA_IRI, `${knopPath}/_meta`],
     [knopPath, SFLO_HAS_KNOP_INVENTORY_IRI, `${knopPath}/_inventory`],
-    [knopPath, SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI, `${knopPath}/_page`],
+    [knopPath, SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI, `${knopPath}/_page`],
     [
       knopPath,
       SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI,
@@ -2404,7 +2402,7 @@ function assertCurrentKnopInventoryShapeForFirstPageDefinitionWeave(
       SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
       `${knopPath}/_inventory/_history001`,
     ],
-    [`${knopPath}/_page`, RDF_TYPE_IRI, SFC_RESOURCE_PAGE_DEFINITION_IRI],
+    [`${knopPath}/_page`, RDF_TYPE_IRI, SFLO_RESOURCE_PAGE_DEFINITION_IRI],
     [`${knopPath}/_page`, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
     [`${knopPath}/_page`, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
   ]);
@@ -2461,13 +2459,13 @@ function assertCurrentKnopInventoryShapeForFirstPageDefinitionWeave(
     assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
       [
         knopPath,
-        SFC_HAS_KNOP_ASSET_BUNDLE_IRI,
+        SFLO_HAS_KNOP_ASSET_BUNDLE_IRI,
         pageDefinitionArtifact.assetBundlePath,
       ],
       [
         pageDefinitionArtifact.assetBundlePath,
         RDF_TYPE_IRI,
-        SFC_KNOP_ASSET_BUNDLE_IRI,
+        SFLO_KNOP_ASSET_BUNDLE_IRI,
       ],
     ]);
   }
@@ -2495,7 +2493,7 @@ function assertCurrentKnopInventoryShapeForSubsequentPageDefinitionWeave(
     [knopPath, SFLO_HAS_KNOP_METADATA_IRI, `${knopPath}/_meta`],
     [knopPath, SFLO_HAS_KNOP_INVENTORY_IRI, `${knopPath}/_inventory`],
     [knopPath, SFLO_HAS_REFERENCE_CATALOG_IRI, `${knopPath}/_references`],
-    [knopPath, SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI, `${knopPath}/_page`],
+    [knopPath, SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI, `${knopPath}/_page`],
     [
       `${knopPath}/_inventory`,
       SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
@@ -2564,13 +2562,13 @@ function assertCurrentKnopInventoryShapeForSubsequentPageDefinitionWeave(
     assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
       [
         knopPath,
-        SFC_HAS_KNOP_ASSET_BUNDLE_IRI,
+        SFLO_HAS_KNOP_ASSET_BUNDLE_IRI,
         pageDefinitionArtifact.assetBundlePath,
       ],
       [
         pageDefinitionArtifact.assetBundlePath,
         RDF_TYPE_IRI,
-        SFC_KNOP_ASSET_BUNDLE_IRI,
+        SFLO_KNOP_ASSET_BUNDLE_IRI,
       ],
     ]);
   }
@@ -2986,7 +2984,7 @@ function renderFirstKnopWovenKnopInventoryTurtle(
   const knopPath = toKnopPath(designatorPath);
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <${knopPath}> a sflo:Knop ;
@@ -3205,7 +3203,7 @@ function renderLegacyFirstKnopWovenMeshInventoryTurtle(
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh> a sflo:SemanticMesh ;
@@ -3337,7 +3335,7 @@ function renderLegacyFirstPayloadWovenMeshInventoryTurtle(
   );
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh> a sflo:SemanticMesh ;
@@ -3508,7 +3506,7 @@ function renderFirstPayloadWovenKnopInventoryTurtle(
   );
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <${knopPath}> a sflo:Knop ;
@@ -3649,7 +3647,7 @@ function renderFirstReferenceCatalogWovenKnopInventoryTurtle(
   );
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <${knopPath}> a sflo:Knop ;
@@ -3812,10 +3810,10 @@ function renderSubsequentPageDefinitionWovenKnopInventoryTurtle(
     : "";
   const assetBundleLines = assetBundlePath
     ? ` ;
-  <${SFC_HAS_KNOP_ASSET_BUNDLE_IRI}> <${assetBundlePath}>`
+  <${SFLO_HAS_KNOP_ASSET_BUNDLE_IRI}> <${assetBundlePath}>`
     : "";
   const assetBundleBlock = assetBundlePath
-    ? `<${assetBundlePath}> a <${SFC_KNOP_ASSET_BUNDLE_IRI}> .\n\n`
+    ? `<${assetBundlePath}> a <${SFLO_KNOP_ASSET_BUNDLE_IRI}> .\n\n`
     : "";
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
     workingLocalRelativePath,
@@ -3958,7 +3956,7 @@ ${renderResourcePageLocatedFileBlock(`${statePath}/page-ttl/index.html`)}`;
     : "";
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <${knopPath}> a sflo:Knop ;
@@ -3967,7 +3965,7 @@ ${renderResourcePageLocatedFileBlock(`${statePath}/page-ttl/index.html`)}`;
   sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> ;
 ${referenceCatalogLines}
   sflo:hasResourcePage <${knopPath}/index.html> ;
-  <${SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI}> <${pageDefinitionPath}>${assetBundleLines} .
+  <${SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI}> <${pageDefinitionPath}>${assetBundleLines} .
 
 <${knopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <${knopPath}/_meta/_history001> ;
@@ -4001,7 +3999,7 @@ ${referenceCatalogLines}
   sflo:hasResourcePage <${knopPath}/_inventory/index.html> .
 ${referenceCatalogArtifactBlock}
 
-<${pageDefinitionPath}> a <${SFC_RESOURCE_PAGE_DEFINITION_IRI}>, sflo:DigitalArtifact, sflo:RdfDocument ;
+<${pageDefinitionPath}> a <${SFLO_RESOURCE_PAGE_DEFINITION_IRI}>, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <${progression.historyPath}> ;
   sflo:currentArtifactHistory <${progression.historyPath}> ;
   sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
@@ -4266,7 +4264,7 @@ function renderMultiHistoryPayloadWovenKnopInventoryTurtle(
     );
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <${knopPath}> a sflo:Knop ;
@@ -4409,7 +4407,7 @@ function renderSecondPayloadWovenKnopInventoryTurtle(
   );
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <${knopPath}> a sflo:Knop ;
@@ -5060,21 +5058,20 @@ function renderFirstExtractedKnopWovenKnopInventoryTurtle(
   const knopPath = toKnopPath(designatorPath);
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
-@prefix sfc: <https://semantic-flow.github.io/ontology/core/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <${knopPath}> a sflo:Knop ;
   sflo:hasKnopMetadata <${knopPath}/_meta> ;
   sflo:hasKnopInventory <${knopPath}/_inventory> ;
-  sfc:hasExtractionSource <${knopPath}/_inventory#extraction-source> ;
+  sflo:hasExtractionSource <${knopPath}/_inventory#extraction-source> ;
   sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> ;
   sflo:hasResourcePage <${knopPath}/index.html> .
 
-<${knopPath}/_inventory#extraction-source> a sfc:ExtractionSource ;
-  sfc:hasTargetArtifact <${sourceDesignatorPath}> ;
-  sfc:hasRequestedTargetState <${sourceStatePath}> ;
-  sfc:hasArtifactResolutionMode <${SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI}> .
+<${knopPath}/_inventory#extraction-source> a sflo:ExtractionSource ;
+  sflo:hasTargetArtifact <${sourceDesignatorPath}> ;
+  sflo:hasRequestedTargetState <${sourceStatePath}> ;
+  sflo:hasArtifactResolutionMode <${SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI}> .
 
 <${knopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <${knopPath}/_meta/_history001> ;

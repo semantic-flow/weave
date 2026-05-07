@@ -180,18 +180,17 @@ Deno.test("weave extract accepts the root designator path as a black-box CLI run
       join(workspaceRoot, "_knop/_inventory/inventory.ttl"),
     ),
     `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
-@prefix sfc: <https://semantic-flow.github.io/ontology/core/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <_knop> a sflo:Knop ;
   sflo:hasKnopMetadata <_knop/_meta> ;
   sflo:hasKnopInventory <_knop/_inventory> ;
-  sfc:hasExtractionSource <_knop/_inventory#extraction-source> ;
+  sflo:hasExtractionSource <_knop/_inventory#extraction-source> ;
   sflo:hasWorkingKnopInventoryFile <_knop/_inventory/inventory.ttl> .
 
-<_knop/_inventory#extraction-source> a sfc:ExtractionSource ;
-  sfc:hasTargetArtifact <alice/bio> ;
-  sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Current> .
+<_knop/_inventory#extraction-source> a sflo:ExtractionSource ;
+  sflo:hasTargetArtifact <alice/bio> ;
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/ArtifactResolutionMode/Current> .
 
 <_knop/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <_knop/_meta/meta.ttl> .
@@ -246,18 +245,17 @@ Deno.test("weave extract supports docs-rooted sidecar meshes with an explicit so
       ),
     ),
     `@base <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
-@prefix sfc: <https://semantic-flow.github.io/ontology/core/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <ontology/CharacterShape/_knop> a sflo:Knop ;
   sflo:hasKnopMetadata <ontology/CharacterShape/_knop/_meta> ;
   sflo:hasKnopInventory <ontology/CharacterShape/_knop/_inventory> ;
-  sfc:hasExtractionSource <ontology/CharacterShape/_knop/_inventory#extraction-source> ;
+  sflo:hasExtractionSource <ontology/CharacterShape/_knop/_inventory#extraction-source> ;
   sflo:hasWorkingKnopInventoryFile <ontology/CharacterShape/_knop/_inventory/inventory.ttl> .
 
-<ontology/CharacterShape/_knop/_inventory#extraction-source> a sfc:ExtractionSource ;
-  sfc:hasTargetArtifact <shacl> ;
-  sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Current> .
+<ontology/CharacterShape/_knop/_inventory#extraction-source> a sflo:ExtractionSource ;
+  sflo:hasTargetArtifact <shacl> ;
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/ArtifactResolutionMode/Current> .
 
 <ontology/CharacterShape/_knop/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <ontology/CharacterShape/_knop/_meta/meta.ttl> .

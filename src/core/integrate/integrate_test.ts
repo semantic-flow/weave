@@ -202,7 +202,7 @@ function encode(value: string): Uint8Array {
 
 function withRdfPrefix(turtle: string): string {
   return turtle.replace(
-    "@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .\n",
-    "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .\n",
+    "@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .\n",
+    "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .\n",
   );
 }

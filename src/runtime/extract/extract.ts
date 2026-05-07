@@ -29,17 +29,15 @@ import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
 
-const SFLO_NAMESPACE =
-  "https://semantic-flow.github.io/semantic-flow-ontology/";
+const SFLO_NAMESPACE = "https://semantic-flow.github.io/sflo/ontology/";
 const SFLO_HAS_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}hasLocatedFile`;
 const SFLO_HAS_MANIFESTATION_IRI = `${SFLO_NAMESPACE}hasManifestation`;
 const SFLO_LOCATED_FILE_FOR_STATE_IRI = `${SFLO_NAMESPACE}locatedFileForState`;
-const SFC_NAMESPACE = "https://semantic-flow.github.io/ontology/core/";
-const SFC_HAS_EXTRACTION_SOURCE_IRI = `${SFC_NAMESPACE}hasExtractionSource`;
-const SFC_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
-  `${SFC_NAMESPACE}ArtifactResolutionMode/Current`;
-const SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
-  `${SFC_NAMESPACE}ArtifactResolutionMode/Pinned`;
+const SFLO_HAS_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}hasExtractionSource`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
+  `${SFLO_NAMESPACE}ArtifactResolutionMode/Current`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
+  `${SFLO_NAMESPACE}ArtifactResolutionMode/Pinned`;
 
 export interface LocalExtractRequest {
   designatorPath: string;
@@ -1350,7 +1348,7 @@ function hasExtractionSourceBinding(
   return quads.some((quad) =>
     quad.subject.termType === "NamedNode" &&
     quad.subject.value === knopIri &&
-    quad.predicate.value === SFC_HAS_EXTRACTION_SOURCE_IRI &&
+    quad.predicate.value === SFLO_HAS_EXTRACTION_SOURCE_IRI &&
     quad.object.termType === "NamedNode" &&
     quad.object.value === extractionSourceIri
   );
@@ -1372,12 +1370,12 @@ function replaceExtractionSourceBinding(
   }/_inventory#extraction-source`;
   const escapedExtractionSourcePath = escapeRegExp(extractionSourcePath);
   const extractionSourceBlockPattern = new RegExp(
-    `<${escapedExtractionSourcePath}> a sfc:ExtractionSource ;\\n` +
-      `(?:  sfc:hasTargetArtifact <[^>]+> ;\\n)` +
-      `(?:  sfc:hasRequestedTargetState <[^>]+> ;\\n)?` +
-      `(?:  sfc:hasArtifactResolutionMode <[^>]+> \\.|` +
-      `  sfc:hasArtifactResolutionMode <[^>]+> ;\\n` +
-      `  sfc:hasRequestedTargetState <[^>]+> \\.)`,
+    `<${escapedExtractionSourcePath}> a sflo:ExtractionSource ;\\n` +
+      `(?:  sflo:hasTargetArtifact <[^>]+> ;\\n)` +
+      `(?:  sflo:hasRequestedTargetState <[^>]+> ;\\n)?` +
+      `(?:  sflo:hasArtifactResolutionMode <[^>]+> \\.|` +
+      `  sflo:hasArtifactResolutionMode <[^>]+> ;\\n` +
+      `  sflo:hasRequestedTargetState <[^>]+> \\.)`,
   );
   const replacement = renderExtractionSourceBlock(
     extractionSourcePath,
@@ -1396,15 +1394,15 @@ function renderExtractionSourceBlock(
   sourcePayload: ExtractSourcePayload,
 ): string {
   if (sourcePayload.sourceResolutionMode === "pinned") {
-    return `<${extractionSourcePath}> a sfc:ExtractionSource ;
-  sfc:hasTargetArtifact <${sourcePayload.designatorPath}> ;
-  sfc:hasRequestedTargetState <${sourcePayload.sourceStatePath}> ;
-  sfc:hasArtifactResolutionMode <${SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI}> .`;
+    return `<${extractionSourcePath}> a sflo:ExtractionSource ;
+  sflo:hasTargetArtifact <${sourcePayload.designatorPath}> ;
+  sflo:hasRequestedTargetState <${sourcePayload.sourceStatePath}> ;
+  sflo:hasArtifactResolutionMode <${SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI}> .`;
   }
 
-  return `<${extractionSourcePath}> a sfc:ExtractionSource ;
-  sfc:hasTargetArtifact <${sourcePayload.designatorPath}> ;
-  sfc:hasArtifactResolutionMode <${SFC_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI}> .`;
+  return `<${extractionSourcePath}> a sflo:ExtractionSource ;
+  sflo:hasTargetArtifact <${sourcePayload.designatorPath}> ;
+  sflo:hasArtifactResolutionMode <${SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI}> .`;
 }
 
 function escapeRegExp(value: string): string {

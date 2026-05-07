@@ -101,7 +101,7 @@ Deno.test("renderResourcePage renders identifier extraction source metadata", as
       extractionSource: {
         sourceArtifactPath: "ontology",
         artifactResolutionModeIri:
-          "https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Current",
+          "https://semantic-flow.github.io/sflo/ontology/ArtifactResolutionMode/Current",
       },
     },
     { includeSemanticFlowMetadata: true },
@@ -117,7 +117,7 @@ Deno.test("renderResourcePage renders identifier extraction source metadata", as
   );
   assertStringIncludes(
     html,
-    '<tr><th scope="row">Extraction Source Mode</th><td><a href="https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Current">sflo:ArtifactResolutionMode/Current</a></td></tr>',
+    '<tr><th scope="row">Extraction Source Mode</th><td><a href="https://semantic-flow.github.io/sflo/ontology/ArtifactResolutionMode/Current">sflo:ArtifactResolutionMode/Current</a></td></tr>',
   );
 });
 
@@ -492,12 +492,12 @@ Deno.test("renderResourcePage renders inventory fragment sections for Extraction
         label: "Current KnopInventory file",
         sourcePath: "bob/_knop/_inventory/inventory.ttl",
         contents: `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sfc: <https://semantic-flow.github.io/ontology/core/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
-<bob/_knop/_inventory#extraction-source> a sfc:ExtractionSource ;
-  sfc:hasTargetArtifact <alice/bio> ;
-  sfc:hasRequestedTargetState <alice/bio/_history001/_s0002> ;
-  sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Pinned> .
+<bob/_knop/_inventory#extraction-source> a sflo:ExtractionSource ;
+  sflo:hasTargetArtifact <alice/bio> ;
+  sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> ;
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/ArtifactResolutionMode/Pinned> .
 `,
       }],
     },

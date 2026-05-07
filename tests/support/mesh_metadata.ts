@@ -12,7 +12,7 @@ export async function writeEquivalentMeshMetadata(
     join(workspaceRoot, "_mesh/_meta/meta.ttl"),
     `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${meshBase}> .
 
 <_mesh> sflo:hasWorkingMeshInventoryFile <_mesh/_inventory/inventory.ttl> ;

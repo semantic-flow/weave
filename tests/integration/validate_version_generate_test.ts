@@ -501,7 +501,7 @@ Deno.test("executeVersion batches recursive targets through staged current state
     workspaceRoot,
     "alice/bio",
     `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <alice/bio/_knop> a sflo:Knop ;
   sflo:hasKnopMetadata <alice/bio/_knop/_meta> ;
@@ -748,7 +748,7 @@ async function writeSupplementalKnopSurface(
   await Deno.writeTextFile(
     join(knopPath, "_meta/meta.ttl"),
     `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <${designatorPath}/_knop> a sflo:Knop ;
   sflo:designatorPath "${designatorPath}" ;

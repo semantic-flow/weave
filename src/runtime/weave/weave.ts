@@ -65,9 +65,7 @@ import {
 } from "./page_definition.ts";
 import { renderResourcePages } from "./pages.ts";
 
-const SFLO_NAMESPACE =
-  "https://semantic-flow.github.io/semantic-flow-ontology/";
-const SFC_NAMESPACE = "https://semantic-flow.github.io/ontology/core/";
+const SFLO_NAMESPACE = "https://semantic-flow.github.io/sflo/ontology/";
 const SFLO_HAS_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}hasResourcePage`;
 const SFLO_HAS_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}hasArtifactHistory`;
 const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
@@ -87,13 +85,13 @@ const SFLO_HAS_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}hasReferenceCatalog`;
 const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
   `${SFLO_NAMESPACE}hasWorkingLocatedFile`;
 const SFLO_WORKING_FILE_PATH_IRI = `${SFLO_NAMESPACE}workingLocalRelativePath`;
-const SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI =
-  `${SFC_NAMESPACE}hasResourcePageDefinition`;
-const SFC_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFC_NAMESPACE}hasKnopAssetBundle`;
-const SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
-  `${SFC_NAMESPACE}ArtifactResolutionMode/Pinned`;
-const SFC_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
-  `${SFC_NAMESPACE}ArtifactResolutionMode/Current`;
+const SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI =
+  `${SFLO_NAMESPACE}hasResourcePageDefinition`;
+const SFLO_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFLO_NAMESPACE}hasKnopAssetBundle`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
+  `${SFLO_NAMESPACE}ArtifactResolutionMode/Pinned`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
+  `${SFLO_NAMESPACE}ArtifactResolutionMode/Current`;
 const DCTERMS_TITLE_IRI = "http://purl.org/dc/terms/title";
 const RDFS_LABEL_IRI = "http://www.w3.org/2000/01/rdf-schema#label";
 
@@ -1132,7 +1130,7 @@ async function loadReferenceTargetSourcePayloadArtifact(
     );
   }
   const isPinned = extractionSource.artifactResolutionModeIri ===
-    SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI;
+    SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI;
   const selectedHistoricalStatePath = isPinned
     ? extractionSource.requestedTargetStatePath
     : sourcePayloadArtifact.latestHistoricalStatePath;
@@ -1985,8 +1983,8 @@ function collectKnopArtifactLinks(
         [SFLO_HAS_KNOP_METADATA_IRI, "KnopMetadata"],
         [SFLO_HAS_KNOP_INVENTORY_IRI, "KnopInventory"],
         [SFLO_HAS_REFERENCE_CATALOG_IRI, "ReferenceCatalog"],
-        [SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI, "ResourcePageDefinition"],
-        [SFC_HAS_KNOP_ASSET_BUNDLE_IRI, "KnopAssetBundle"],
+        [SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI, "ResourcePageDefinition"],
+        [SFLO_HAS_KNOP_ASSET_BUNDLE_IRI, "KnopAssetBundle"],
       ],
     ),
   };
@@ -2298,7 +2296,7 @@ async function addExtractionSourceRawSourcePanels(
     return;
   }
 
-  if (artifactResolutionModeIri === SFC_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI) {
+  if (artifactResolutionModeIri === SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI) {
     try {
       addRawSourcePanel(
         rawSourcePanels,

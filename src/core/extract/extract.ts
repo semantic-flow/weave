@@ -12,13 +12,11 @@ const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const XSD_ANY_URI_IRI = "http://www.w3.org/2001/XMLSchema#anyURI";
 const XSD_NON_NEGATIVE_INTEGER_IRI =
   "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
-const SFC_NAMESPACE = "https://semantic-flow.github.io/ontology/core/";
-const SFLO_NAMESPACE =
-  "https://semantic-flow.github.io/semantic-flow-ontology/";
-const SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
-  `${SFC_NAMESPACE}ArtifactResolutionMode/Pinned`;
-const SFC_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
-  `${SFC_NAMESPACE}ArtifactResolutionMode/Current`;
+const SFLO_NAMESPACE = "https://semantic-flow.github.io/sflo/ontology/";
+const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
+  `${SFLO_NAMESPACE}ArtifactResolutionMode/Pinned`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
+  `${SFLO_NAMESPACE}ArtifactResolutionMode/Current`;
 const SFLO_DIGITAL_ARTIFACT_IRI = `${SFLO_NAMESPACE}DigitalArtifact`;
 const SFLO_HAS_KNOP_IRI = `${SFLO_NAMESPACE}hasKnop`;
 const SFLO_HAS_MESH_INVENTORY_IRI = `${SFLO_NAMESPACE}hasMeshInventory`;
@@ -407,7 +405,7 @@ function renderLegacyExtractMeshInventoryTurtle(
   ]);
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh> a sflo:SemanticMesh ;
@@ -669,23 +667,22 @@ function renderExtractKnopInventoryTurtle(
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const extractionSourceFacts = sourceResolutionMode === "pinned"
-    ? `  sfc:hasTargetArtifact <${sourceDesignatorPath}> ;
-  sfc:hasRequestedTargetState <${sourceStatePath}> ;
-  sfc:hasArtifactResolutionMode <${SFC_ARTIFACT_RESOLUTION_MODE_PINNED_IRI}> .`
-    : `  sfc:hasTargetArtifact <${sourceDesignatorPath}> ;
-  sfc:hasArtifactResolutionMode <${SFC_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI}> .`;
+    ? `  sflo:hasTargetArtifact <${sourceDesignatorPath}> ;
+  sflo:hasRequestedTargetState <${sourceStatePath}> ;
+  sflo:hasArtifactResolutionMode <${SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI}> .`
+    : `  sflo:hasTargetArtifact <${sourceDesignatorPath}> ;
+  sflo:hasArtifactResolutionMode <${SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI}> .`;
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
-@prefix sfc: <https://semantic-flow.github.io/ontology/core/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <${knopPath}> a sflo:Knop ;
   sflo:hasKnopMetadata <${knopPath}/_meta> ;
   sflo:hasKnopInventory <${knopPath}/_inventory> ;
-  sfc:hasExtractionSource <${knopPath}/_inventory#extraction-source> ;
+  sflo:hasExtractionSource <${knopPath}/_inventory#extraction-source> ;
   sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> .
 
-<${knopPath}/_inventory#extraction-source> a sfc:ExtractionSource ;
+<${knopPath}/_inventory#extraction-source> a sflo:ExtractionSource ;
 ${extractionSourceFacts}
 
 <${knopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
@@ -707,7 +704,7 @@ function renderExtractKnopMetadataTurtle(
   const knopPath = toKnopPath(designatorPath);
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <${knopPath}> a sflo:Knop ;
   sflo:designatorPath "${designatorPath}" ;

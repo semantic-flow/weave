@@ -5,7 +5,7 @@ import { KnopCreateInputError } from "../knop/create.ts";
 
 const rootSourcePreExtractMeshInventoryTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh> a sflo:SemanticMesh ;
@@ -86,7 +86,7 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
   // to a historical state in the rendered KnopInventory file.
   assertStringIncludes(
     plan.createdFiles[1]?.contents ?? "",
-    "sfc:hasRequestedTargetState <alice/bio/_history001/_s0002> ;",
+    "sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> ;",
   );
   assertEquals(
     plan.updatedFiles[0]?.contents ?? "",
@@ -163,8 +163,8 @@ Deno.test("planExtract accepts a root source payload when the root and source kn
   );
   assertStringIncludes(
     plan.createdFiles[1]?.contents ?? "",
-    `sfc:hasTargetArtifact <> ;
-  sfc:hasRequestedTargetState <_history001/_s0001> ;`,
+    `sflo:hasTargetArtifact <> ;
+  sflo:hasRequestedTargetState <_history001/_s0001> ;`,
   );
 });
 
@@ -251,9 +251,9 @@ Deno.test("planExtract accepts a semantically equivalent source payload LocatedF
 
 function withRdfPrefix(turtle: string): string {
   return turtle.includes("@prefix rdf:") ? turtle : turtle.replace(
-    "@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .",
+    "@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .",
     `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .`,
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .`,
   );
 }
 

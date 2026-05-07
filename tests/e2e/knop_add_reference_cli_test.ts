@@ -154,13 +154,13 @@ Deno.test("weave knop add-reference accepts the root reference target as a black
       join(workspaceRoot, "alice/_knop/_references/references.ttl"),
     ),
     `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <alice> sflo:hasReferenceLink <alice/_knop/_references#reference001> .
 
 <alice/_knop/_references#reference001> a sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
-  sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Supplemental> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Supplemental> ;
   sflo:referenceTarget <> .
 `,
   );
