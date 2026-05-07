@@ -59,7 +59,7 @@ This task should define the modern operational-config direction for runtime reso
 
 ### What the old `sflo-host` line is good for
 
-The old host ontology at `dependencies/github.com/semantic-flow/ontology/old/sflo-host-ontology.jsonld` still contains two useful ideas:
+The old host ontology at `dependencies/github.com/semantic-flow/sflo/old/sflo-host-ontology.jsonld` still contains two useful ideas:
 
 - application/runtime policy is a real configuration concern, not a detail to bury in core ontology comments or implementation code
 - local mesh path registration and validation can belong to host/runtime config rather than to portable mesh RDF
@@ -213,7 +213,7 @@ For example, it would be reasonable for the CLI to accept an explicit config fil
 
 ### Relationship to the current config ontology
 
-The modern config ontology at `dependencies/github.com/semantic-flow/ontology/semantic-flow-config-ontology.ttl` already provides a generic `Config` / `ConfigArtifact` model. That suggests a likely direction:
+The modern config ontology at `dependencies/github.com/semantic-flow/sflo/semantic-flow-config-ontology.ttl` already provides a generic `Config` / `ConfigArtifact` model. That suggests a likely direction:
 
 - keep generic config attachment in the config ontology line
 - define `OperationalConfig` in that line for now rather than splitting immediately into a separate host/operational ontology
@@ -335,7 +335,7 @@ That lets `1545` stay focused on page-definition behavior instead of turning int
 
 ### Phase 0: Review And Narrow The Problem
 
-- [x] Review `dependencies/github.com/semantic-flow/ontology/old/sflo-host-ontology.jsonld` and explicitly separate reusable ideas from daemon-service baggage.
+- [x] Review `dependencies/github.com/semantic-flow/sflo/old/sflo-host-ontology.jsonld` and explicitly separate reusable ideas from daemon-service baggage.
 - [x] Review the current config ontology line and decide whether operational/runtime-resolution config belongs there or in a narrow companion ontology.
 - [x] Cross-link this task from [[wd.task.2026.2026-04-08_1545-resource-page-definition-and-sources]] and roadmap items that currently point at operational-config questions without a dedicated home.
 

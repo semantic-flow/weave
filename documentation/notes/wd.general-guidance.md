@@ -20,13 +20,13 @@ see [[wd.testing]]
 
 ## Dependencies
 
-- This project depends heavily on the Semantic Flow ontologies, which can be embedded for convenience at `dependencies/github.com/semantic-flow/ontology`
+- This project depends heavily on the Semantic Flow ontologies, which can be embedded for convenience at `dependencies/github.com/semantic-flow/sflo`
 
 ## Working Rules
 
 - the ontology is key!
   - review at least the [[ont.summary.core]] 
-  - the entire core ontology is at `dependencies/github.com/semantic-flow/ontology/semantic-flow-core-ontology.ttl`
+  - the entire core ontology is at `dependencies/github.com/semantic-flow/sflo/semantic-flow-core-ontology.ttl`
 - Documentation must be continuously verified and updated, especially:
   - this file [[wd.general-guidance]]
   - [[wd.codebase-overview]]

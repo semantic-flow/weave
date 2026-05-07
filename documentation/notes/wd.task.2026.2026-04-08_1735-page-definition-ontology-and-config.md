@@ -45,7 +45,7 @@ But we should not copy the older model directly:
 - monolithic mapping-set objects have weak merge algebra
 - path literals with implicit or serialization-dependent base semantics are a trap
 
-### Proposed keep/defer/reject list from `dependencies/github.com/semantic-flow/ontology/old/sflo-config-ontology.jsonld`
+### Proposed keep/defer/reject list from `dependencies/github.com/semantic-flow/sflo/old/sflo-config-ontology.jsonld`
 
 #### Keep
 
@@ -186,7 +186,7 @@ Naming pushback:
 - the allowed-directories policy that decides whether `targetLocalRelativePath` or `workingLocalRelativePath` may use `../` outside the mesh root
 - the network-use policy that decides whether `targetAccessUrl` may be followed at all, and under which origin/scheme constraints
 - the network-use policy that decides whether `workingAccessUrl` may be followed at all, and under which origin/scheme constraints
-- the concrete host/runtime config vocabulary for that policy; previous `sflo-host` work in `dependencies/github.com/semantic-flow/ontology/old/sflo-host-ontology.jsonld` is relevant precedent, but the active follow-on is now [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]]
+- the concrete host/runtime config vocabulary for that policy; previous `sflo-host` work in `dependencies/github.com/semantic-flow/sflo/old/sflo-host-ontology.jsonld` is relevant precedent, but the active follow-on is now [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]]
 - runtime-computed breadcrumb, navigation, and search inputs
 - template-specific slot wiring and render-context assembly
 

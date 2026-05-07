@@ -2,13 +2,13 @@
 id: 0fq7qy19dmg9vqypoktfuax
 title: 2026 05 06 Grand Config Synthesis
 desc: ''
-updated: 1778128649410
+updated: 1778134118907
 created: 1778128425390
 ---
 
 ## Goals
 
-- Consolidate the current config-related design threads into one task that can guide an overhaul of `dependencies/github.com/semantic-flow/ontology/semantic-flow-config-ontology.ttl`.
+- Consolidate the current config-related design threads into one task that can guide an overhaul of `dependencies/github.com/semantic-flow/sflo/semantic-flow-config-ontology.ttl`.
 - Preserve the useful current split between core ontology, config ontology, and implementation/runtime behavior.
 - Reintroduce Knop-local and Knop-inheritable config as separate mesh-managed `DigitalArtifact`s, not just embedded blank-node config.
 - Define config policy vocabulary for history tracking, resource page generation, presentation, naming defaults, and reusable config artifacts without falling back to broad booleans.
@@ -588,7 +588,7 @@ Drop or avoid reviving:
 
 ### Phase 1: Config Ontology Overhaul
 
-- [ ] Update `dependencies/github.com/semantic-flow/ontology/semantic-flow-config-ontology.ttl` with Knop local/inheritable config classes and attachment properties.
+- [ ] Update `dependencies/github.com/semantic-flow/sflo/semantic-flow-config-ontology.ttl` with Knop local/inheritable config classes and attachment properties.
 - [ ] Add or refine reusable config-source resolution vocabulary, preferably by reusing or subclassing `sflo:ArtifactResolutionTarget`.
 - [ ] Add config-resolution / meta-config classes for layers, layer roles, precedence, merge behavior, reference policy, cycle policy, unknown-term policy, and cache policy.
 - [ ] Add Weave default config class and properties for default policies currently implicit in code/API/CLI defaults.

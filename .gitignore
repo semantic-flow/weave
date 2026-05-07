@@ -10,7 +10,6 @@ seeds
 .next
 pods/service-connections
 dependencies/**
-dependencies/github.com/semantic-flow/ontology
 .backup
 
 # Next
