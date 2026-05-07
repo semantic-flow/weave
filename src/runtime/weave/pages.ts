@@ -82,10 +82,18 @@ interface ResourcePageTheme {
 }
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+const RDF_PROPERTY_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#Property";
 const DCTERMS_DESCRIPTION_IRI = "http://purl.org/dc/terms/description";
 const DCTERMS_TITLE_IRI = "http://purl.org/dc/terms/title";
 const FOAF_NAME_IRI = "http://xmlns.com/foaf/0.1/name";
+const OWL_ANNOTATION_PROPERTY_IRI =
+  "http://www.w3.org/2002/07/owl#AnnotationProperty";
+const OWL_CLASS_IRI = "http://www.w3.org/2002/07/owl#Class";
+const OWL_DATATYPE_PROPERTY_IRI =
+  "http://www.w3.org/2002/07/owl#DatatypeProperty";
+const OWL_OBJECT_PROPERTY_IRI = "http://www.w3.org/2002/07/owl#ObjectProperty";
 const RDFS_COMMENT_IRI = "http://www.w3.org/2000/01/rdf-schema#comment";
+const RDFS_DATATYPE_IRI = "http://www.w3.org/2000/01/rdf-schema#Datatype";
 const RDFS_LABEL_IRI = "http://www.w3.org/2000/01/rdf-schema#label";
 const SKOS_BROADER_IRI = "http://www.w3.org/2004/02/skos/core#broader";
 const SKOS_DEFINITION_IRI = "http://www.w3.org/2004/02/skos/core#definition";
@@ -303,8 +311,11 @@ function toDefaultResourcePageRenderInput(
         ...toRdfIriLinkMetadataRows("Broader", rdfFacts.broader),
         ...toRdfIriLinkMetadataRows("Narrower", rdfFacts.narrower),
         ...toChildIdentifierMetadataRows(
+          meshBase,
           meshRootHref,
+          canonical,
           page.childIdentifiers ?? [],
+          sourcePanelsForFacts,
         ),
       ],
       includeSemanticFlowMetadata,
@@ -448,8 +459,11 @@ function toDefaultResourcePageRenderInput(
       metadataRows: [
         { label: "Canonical IRI", value: canonical },
         ...toChildIdentifierMetadataRows(
+          meshBase,
           meshRootHref,
+          canonical,
           page.childIdentifiers ?? [],
+          [],
         ),
       ],
       includeSemanticFlowMetadata,
@@ -487,8 +501,11 @@ function toDefaultResourcePageRenderInput(
     metadataRows: [
       { label: "Canonical IRI", value: canonical },
       ...toChildIdentifierMetadataRows(
+        meshBase,
         meshRootHref,
+        canonical,
         page.childIdentifiers ?? [],
+        page.rawSourcePanels ?? [],
       ),
     ],
     includeSemanticFlowMetadata,
@@ -570,7 +587,7 @@ ${faviconLink}  <style>
     * { box-sizing: border-box; }
     body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: linear-gradient(180deg, #f6f7f4 0%, #ebece7 100%); }
     a { color: #1f5f85; text-decoration-thickness: 0.08em; text-underline-offset: 0.18em; }
-    main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 42px; flex: 1 0 auto; }
+    main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 24px 0 42px; flex: 1 0 auto; }
     .wf-shell { display: grid; gap: 18px; min-width: 0; }
     .wf-shell > * { min-width: 0; }
     .wf-masthead { min-width: 0; }
@@ -803,12 +820,113 @@ function toExtractionSourceMetadataRows(
 }
 
 function toChildIdentifierMetadataRows(
+  meshBase: string,
   meshRootHref: string,
+  canonical: string,
   childIdentifiers: readonly ResourcePageChildIdentifierModel[],
+  rawSourcePanels: readonly ResourcePageRawSourcePanelModel[],
 ): readonly ResourcePageMetadataRow[] {
   if (childIdentifiers.length === 0) {
     return [];
   }
+  const typesByChildIri = collectChildIdentifierTypes(
+    canonical,
+    meshBase,
+    childIdentifiers,
+    rawSourcePanels,
+  );
+  const categories: {
+    label: string;
+    identifiers: ResourcePageChildIdentifierModel[];
+  }[] = [
+    { label: "Child Classes", identifiers: [] },
+    { label: "Child Object Properties", identifiers: [] },
+    { label: "Child Datatype Properties", identifiers: [] },
+    { label: "Child Annotation Properties", identifiers: [] },
+    { label: "Child Properties", identifiers: [] },
+    { label: "Child Datatypes", identifiers: [] },
+    { label: "Child Individuals", identifiers: [] },
+  ];
+
+  for (const identifier of childIdentifiers) {
+    const childIri = toCanonicalResourceIri(meshBase, identifier.path);
+    const types = typesByChildIri.get(childIri) ?? new Set<string>();
+    const categoryIndex = toChildIdentifierCategoryIndex(types);
+    categories[categoryIndex]?.identifiers.push(identifier);
+  }
+
+  return categories.flatMap((category) =>
+    category.identifiers.length > 0
+      ? [toChildIdentifierMetadataRow(
+        meshRootHref,
+        category.label,
+        category.identifiers,
+      )]
+      : []
+  );
+}
+
+function collectChildIdentifierTypes(
+  canonical: string,
+  meshBase: string,
+  childIdentifiers: readonly ResourcePageChildIdentifierModel[],
+  rawSourcePanels: readonly ResourcePageRawSourcePanelModel[],
+): ReadonlyMap<string, ReadonlySet<string>> {
+  const childIris = new Set(
+    childIdentifiers.map((identifier) =>
+      toCanonicalResourceIri(meshBase, identifier.path)
+    ),
+  );
+  const typesByChildIri = new Map<string, Set<string>>();
+  const quads = rawSourcePanels.flatMap((panel) =>
+    panel.contents ? parseRdfPanel(canonical, panel.contents) : []
+  );
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.predicate.value !== RDF_TYPE_IRI ||
+      quad.object.termType !== "NamedNode" ||
+      !childIris.has(quad.subject.value)
+    ) {
+      continue;
+    }
+
+    const types = typesByChildIri.get(quad.subject.value) ?? new Set<string>();
+    types.add(quad.object.value);
+    typesByChildIri.set(quad.subject.value, types);
+  }
+
+  return typesByChildIri;
+}
+
+function toChildIdentifierCategoryIndex(types: ReadonlySet<string>): number {
+  if (types.has(OWL_CLASS_IRI)) {
+    return 0;
+  }
+  if (types.has(OWL_OBJECT_PROPERTY_IRI)) {
+    return 1;
+  }
+  if (types.has(OWL_DATATYPE_PROPERTY_IRI)) {
+    return 2;
+  }
+  if (types.has(OWL_ANNOTATION_PROPERTY_IRI)) {
+    return 3;
+  }
+  if (types.has(RDF_PROPERTY_IRI)) {
+    return 4;
+  }
+  if (types.has(RDFS_DATATYPE_IRI)) {
+    return 5;
+  }
+  return 6;
+}
+
+function toChildIdentifierMetadataRow(
+  meshRootHref: string,
+  label: string,
+  childIdentifiers: readonly ResourcePageChildIdentifierModel[],
+): ResourcePageMetadataRow {
   const visibleIdentifiers = childIdentifiers.slice(0, 20);
   const hiddenIdentifiers = childIdentifiers.slice(20);
   const renderIdentifier = (identifier: ResourcePageChildIdentifierModel) =>
@@ -821,15 +939,13 @@ function toChildIdentifierMetadataRows(
     }</details>`
     : "";
 
-  return [{
-    label: "Child Identifiers",
-    value: childIdentifiers.map((identifier) => identifier.label).join(
-      ", ",
-    ),
+  return {
+    label,
+    value: childIdentifiers.map((identifier) => identifier.label).join(", "),
     html: `<div class="wf-child-identifiers">${
       visibleIdentifiers.map(renderIdentifier).join("")
     }${hiddenIdentifiersHtml}</div>`,
-  }];
+  };
 }
 
 function toRdfIriLinkMetadataRows(

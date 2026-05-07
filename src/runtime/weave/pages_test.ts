@@ -188,7 +188,7 @@ Deno.test("renderResourcePage renders the root identifier with the mesh label ti
   assertStringIncludes(html, 'href="/mesh-alice-bio/root.ttl"');
 });
 
-Deno.test("renderResourcePage renders child identifier pills", async () => {
+Deno.test("renderResourcePage renders typed child identifier rows", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
     {
@@ -197,15 +197,70 @@ Deno.test("renderResourcePage renders child identifier pills", async () => {
       designatorPath: "ontology",
       childIdentifiers: [
         { label: "AbilityScore", path: "ontology/AbilityScore" },
+        { label: "AlignmentValue", path: "ontology/AlignmentValue" },
         { label: "Character", path: "ontology/Character" },
+        { label: "displayName", path: "ontology/displayName" },
+        { label: "hasScore", path: "ontology/hasScore" },
+        { label: "label", path: "ontology/label" },
+        { label: "scoreValue", path: "ontology/scoreValue" },
+        { label: "Slug", path: "ontology/Slug" },
       ],
+      rawSourcePanels: [{
+        label: "Current working file",
+        sourcePath: "ontology/fantasy-rules-ontology.ttl",
+        contents:
+          `@base <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+<ontology/AbilityScore> a owl:Class .
+<ontology/hasScore> a owl:ObjectProperty .
+<ontology/scoreValue> a owl:DatatypeProperty .
+<ontology/displayName> a owl:AnnotationProperty .
+<ontology/label> a rdf:Property .
+<ontology/Slug> a rdfs:Datatype .
+<ontology/Character> a owl:NamedIndividual .
+`,
+      }],
     },
   );
 
-  assertStringIncludes(html, "Child Identifiers");
+  assertStringIncludes(html, "Child Classes");
+  assertStringIncludes(html, "Child Object Properties");
+  assertStringIncludes(html, "Child Datatype Properties");
+  assertStringIncludes(html, "Child Annotation Properties");
+  assertStringIncludes(html, "Child Properties");
+  assertStringIncludes(html, "Child Datatypes");
+  assertStringIncludes(html, "Child Individuals");
+  assertFalse(html.includes("Child Identifiers"));
   assertStringIncludes(
     html,
-    '<div class="wf-child-identifiers"><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/AbilityScore">AbilityScore</a></nobr><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/Character">Character</a></nobr></div>',
+    '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/AbilityScore">AbilityScore</a></nobr>',
+  );
+  assertStringIncludes(
+    html,
+    '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/hasScore">hasScore</a></nobr>',
+  );
+  assertStringIncludes(
+    html,
+    '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/scoreValue">scoreValue</a></nobr>',
+  );
+  assertStringIncludes(
+    html,
+    '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/displayName">displayName</a></nobr>',
+  );
+  assertStringIncludes(
+    html,
+    '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/label">label</a></nobr>',
+  );
+  assertStringIncludes(
+    html,
+    '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/Slug">Slug</a></nobr>',
+  );
+  assertStringIncludes(
+    html,
+    '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/AlignmentValue">AlignmentValue</a></nobr>',
   );
 });
 
@@ -224,7 +279,7 @@ Deno.test("renderResourcePage collapses child identifier overflow", async () => 
     },
   );
 
-  assertStringIncludes(html, "Child Identifiers");
+  assertStringIncludes(html, "Child Individuals");
   assertStringIncludes(html, ">Child20</a>");
   assertStringIncludes(
     html,
@@ -367,7 +422,7 @@ Deno.test("renderResourcePage renders Knop pages with local titles", async () =>
     'href="/mesh-sidecar-fantasy-rules/ontology"',
   );
   assertStringIncludes(html, '<span aria-current="page">_knop</span>');
-  assertStringIncludes(html, "Child Identifiers");
+  assertStringIncludes(html, "Child Individuals");
   assertStringIncludes(
     html,
     '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/_knop/_inventory">_inventory</a></nobr>',

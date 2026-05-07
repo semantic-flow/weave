@@ -2,9 +2,12 @@
 id: 5d7q7j0ra3tybq1dn6e1zha
 title: Todo
 desc: ''
-updated: 1775608847554
+updated: 1777997719953
 created: 1774046031081
 ---
+
+- for extra-root linked files, they should get copied into the mesh
+- for supporting DigitalArtifacts, allow "thin" mode: just working file, no histories
 
 ## Backlog
 
