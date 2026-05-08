@@ -15,8 +15,9 @@ created: 1778128425390
 - Clarify the relationship between portable mesh/Knop-authored config, trusted operational/runtime config, config-resolution config, and derived effective/resolved config.
 - Keep `sflo:nextHistoryOrdinal` and `sflo:nextStateOrdinal` in inventory/history RDF, not in config.
 - Support reusable named config artifacts that can be referenced from many Knops, meshes, submeshes, and external meshes.
-- Define a meta-config / config-resolution layer that controls how config files and reusable config artifacts are discovered, ordered, trusted, merged, cached, and rejected.
-- Externalize Weave's built-in/default behavior choices as an explicit "Weave default config" layer so defaults currently implicit in code or surfaced only through API/CLI options become inspectable and overrideable.
+- Define `ConfigResolutionConfig` as the config-resolution layer that controls how config files and reusable config artifacts are discovered, ordered, trusted, merged, cached, and rejected.
+- Externalize Weave's built-in/default behavior choices as a default `ApplicationConfig` TTL file in the Weave repo so defaults currently implicit in code or surfaced only through API/CLI options become inspectable and overrideable.
+- Move mutable progression facts out of inventory and into `_mesh/_meta` / `_knop/_meta`, with a future option to split them into a more specific working-state artifact if `_meta` becomes semantically overloaded.
 - Treat [[ont.task.2026.2026-05-03-enumeration-type-instances]] as a prerequisite for the config ontology overhaul so the many config policy values are introduced as flat camelCase individuals rather than new slash-style enum IRIs.
 - Fold the actionable decisions from [[ont.task.2026.2026-03-23-config-modernization]], [[wd.task.2026.2026-04-08_1735-page-definition-ontology-and-config]], [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]], and [[wd.task.2026.2026-05-05-optional-history-and-slim-support-artifacts-by-default]] into a coherent next task.
 
@@ -31,8 +32,8 @@ The synthesized direction is:
 - effective/resolved config is derived output, including the active policies for many meshes, submeshes, Knops, and artifacts
 - reusable config is a first-class `ConfigArtifact` / `DigitalArtifact` with its own IRI, working file, optional history, and resource page policy
 - config attachment and config resolution should use explicit target/reference vocabulary rather than path conventions alone
-- meta-config exists as a small bootstrap layer for config discovery and resolver policy
-- Weave default config externalizes built-in behavior defaults before mesh config, Knop config, operational gates, API overrides, or CLI overrides are applied
+- `ConfigResolutionConfig` exists as a small bootstrap layer for config discovery and resolver policy
+- default `ApplicationConfig` externalizes built-in behavior defaults before mesh config, Knop config, operational gates, API overrides, or CLI overrides are applied
 - history tracking and resource page generation should be policy-valued, not booleans
 - controlled policy values should use the flat camelCase enum-instance convention from [[ont.task.2026.2026-05-03-enumeration-type-instances]]
 - artifact history allocator state remains in core inventory/history RDF
@@ -51,7 +52,7 @@ This task should supersede the older "replace local/inheritable config with mesh
 
 [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]] established operational config as a first-class runtime concern for CLI, daemon, and other execution surfaces. It distinguishes mesh-carried expectations from machine-local trust policy and uses deny-by-default local/remote access allow rules. This task keeps that split and adds a separate effective/resolved config concept for the application's derived behavior policy. Resolved config may include history, page generation, presentation, naming, and the trust gates that were applied during resolution, but it is derived output rather than the operational input itself.
 
-[[wd.task.2026.2026-05-05-optional-history-and-slim-support-artifacts-by-default]] established the need for policy-valued history tracking and page-generation control. Payloads keep history by default. `_mesh/_inventory` remains historical because it is the settled mesh-state ledger. `_knop/_inventory` remains historical for now because current weave progression depends on it. Low-value support artifacts such as `_mesh/_meta`, `_knop/_meta`, and probably `_mesh/_config` can default to current-only. The eventual config vocabulary should drive these defaults rather than hard-coded path checks.
+[[wd.task.2026.2026-05-05-optional-history-and-slim-support-artifacts-by-default]] established the need for policy-valued history tracking and page-generation control. Payloads keep history by default. Low-value support artifacts should default to current-only. The current Weave planner still reads `_mesh/_inventory` and `_knop/_inventory` history/progression facts to decide the next weave, so the first cleanup should not remove inventory history until those reads are moved. That is a short-term code dependency, not the target model. The longer direction is to move mutable current/progression facts into `_mesh/_meta` and `_knop/_meta`, then make inventory history slim, current-only, delta/checkpoint based, or metadata-only by default. Historical page regeneration should be driven by explicit page/render manifests, pinned source states, output durability, checkpoints, or source-state bundles rather than stale mutable current pointers in old inventory snapshots.
 
 ### Authored Config Layers
 
@@ -88,19 +89,21 @@ The active effective config may cover many scopes:
 - page generation and presentation layers
 - applied access-policy decisions for diagnostics, without turning effective config into a portable source of trust
 
-### Weave Default Config
+### Default ApplicationConfig
 
-Weave needs a default config layer: an explicit representation of choices that are currently implicit in TypeScript defaults, CLI defaults, API request defaults, renderer defaults, planner defaults, and fixture-shaped assumptions.
+Weave needs a default `ApplicationConfig` layer: an explicit representation of choices that are currently implicit in TypeScript defaults, CLI defaults, API request defaults, renderer defaults, planner defaults, and fixture-shaped assumptions.
 
 This layer should answer: "What would Weave do if no mesh, Knop, artifact, runtime, API, or CLI override said otherwise?"
 
-Candidate name: `WeaveDefaultConfig`. Other acceptable names are `ApplicationDefaultConfig` or `ImplementationDefaultConfig`, but `WeaveDefaultConfig` is honest that this is the reference implementation's default behavior, not necessarily a universal Semantic Flow mandate.
+Use `ApplicationConfig` for the default application behavior layer. The concrete Weave default should be a TTL file in the Weave repo, because it is an implementation profile that must stay in lockstep with Weave tests and code. Runtime code may embed or bundle the parsed defaults for packaging, but the source of truth should be inspectable RDF, not a private TypeScript object.
 
-The Weave default config should include defaults such as:
+Some defaults are platform-level Semantic Flow expectations rather than Weave-only choices. Those should live in the sflo/framework layer as shared profiles or specs if they are meant to be consistent across implementations. Weave can then import or mirror that platform profile and add implementation-specific defaults.
 
+The default ApplicationConfig should include defaults such as:
+
+- default history policy is current-only unless an artifact role or artifact-specific policy says otherwise
 - payload artifacts are versioned by default
-- `_mesh/_inventory` history is required by default
-- `_knop/_inventory` history is versioned by default for current Weave progression
+- `_mesh/_inventory` and `_knop/_inventory` keep versioned/slim history only as a transitional Weave implementation default until mutable progression facts move into `_meta`
 - `_mesh/_meta`, `_knop/_meta`, and ordinary config support artifacts may be current-only by default
 - current payload resource pages are generated by default
 - support artifact history pages may be suppressed by default when their history policy is current-only
@@ -110,16 +113,17 @@ The Weave default config should include defaults such as:
 - page renderer/presentation defaults when no `ResourcePagePresentationConfig` is present
 - default config resolution profile, including fail-closed behavior for unknown terms and config cycles
 
-This is not the same as resolved runtime config. The Weave default config is an input layer. Resolved runtime config is the result after Weave defaults, operational resolver policy, mesh config, inherited Knop config, local Knop config, reusable config artifacts, API request fields, and CLI overrides have been applied and validated.
+This is not the same as resolved runtime config. The default ApplicationConfig is an input layer. Resolved runtime config is the result after application defaults, operational resolver policy, mesh config, inherited Knop config, local Knop config, reusable config artifacts, API request fields, and CLI overrides have been applied and validated.
 
-This is also not the same as portable mesh config. A mesh may override or narrow Weave defaults, but the defaults themselves should be inspectable independently of any mesh. For testing, the default config should be loadable as a fixture or embedded RDF artifact so test expectations can point at a declared default instead of reverse-engineering behavior from code.
+This is also not the same as portable mesh config. A mesh may override or narrow application defaults, but the defaults themselves should be inspectable independently of any mesh. For testing, the default config should be loadable as a fixture or embedded RDF artifact so test expectations can point at a declared default instead of reverse-engineering behavior from code.
 
-The practical implementation can start with an internal typed default object, but the contract should be shaped as if it can be serialized as RDF:
+The practical implementation should keep a TTL file as the source of truth and then parse, validate, or generate an internal typed object from it:
 
 ```turtle
 @prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
 
-<> a sfcfg:WeaveDefaultConfig ;
+<> a sfcfg:ApplicationConfig ;
+  sfcfg:hasDefaultHistoryTrackingPolicy sfcfg:historyTrackingPolicyCurrentOnly ;
   sfcfg:hasHistoryTrackingDefault [
     a sfcfg:ArtifactRolePolicy ;
     sfcfg:hasArtifactRole sfcfg:artifactRolePayload ;
@@ -144,7 +148,7 @@ Do not move every command option into default config immediately. Some options a
 
 Phase 0 should include an inventory of current implicit defaults in code, API defaults, CLI defaults, page planning, history planning, and fixture assumptions. Each default should be classified as one of:
 
-- Weave default config: stable behavior preference or default policy
+- default ApplicationConfig: stable behavior preference or default policy
 - operational config: trusted runtime input or host access gate
 - explicit operation request: one-shot target, input, or command intent
 - derived effective config: resolved output only, not authored input
