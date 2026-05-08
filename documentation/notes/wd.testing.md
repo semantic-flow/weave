@@ -100,6 +100,8 @@ Preferred placement:
 - `tests/support/` for harnesses, fake services, temp-repo builders, HTTP helpers, and assertion utilities
 - `tests/fixtures/` for reusable fixture trees, manifests, and other durable test inputs
 
+Temp workspaces created with `createTestTmpDir()` are registered with the test harness and cleaned after each test when tests are run through `deno task test` or `deno task test:coverage`. Set `WEAVE_KEEP_TEST_TMP=1` when running those tasks to preserve temp workspaces for debugging a failing test.
+
 ## TDD Workflow
 
 When possible, the default loop should be:

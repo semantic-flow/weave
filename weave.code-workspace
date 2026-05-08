@@ -25,6 +25,16 @@
   "settings": {
     "pasteImage.path": "${currentFileDir}/assets/images",
     "pasteImage.prefix": "/",
+    "files.watcherExclude": {
+      "**/.test-tmp/**": true,
+      "**/coverage/**": true,
+      "**/coverage/html/**": true
+    },
+    "search.exclude": {
+      "**/.test-tmp/**": true,
+      "**/coverage/**": true,
+      "**/coverage/html/**": true
+    },
     "markdown-preview-enhanced.enableWikiLinkSyntax": true,
     "markdown-preview-enhanced.wikiLinkFileExtension": ".md"
   },
