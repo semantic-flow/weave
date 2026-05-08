@@ -101,7 +101,7 @@ Deno.test("renderResourcePage renders identifier extraction source metadata", as
       extractionSource: {
         sourceArtifactPath: "ontology",
         artifactResolutionModeIri:
-          "https://semantic-flow.github.io/sflo/ontology/ArtifactResolutionMode/Current",
+          "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current",
       },
     },
     { includeSemanticFlowMetadata: true },
@@ -117,7 +117,7 @@ Deno.test("renderResourcePage renders identifier extraction source metadata", as
   );
   assertStringIncludes(
     html,
-    '<tr><th scope="row">Extraction Source Mode</th><td><a href="https://semantic-flow.github.io/sflo/ontology/ArtifactResolutionMode/Current">sflo:ArtifactResolutionMode/Current</a></td></tr>',
+    '<tr><th scope="row">Extraction Source Mode</th><td><a href="https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current">sflo:artifactResolutionMode_current</a></td></tr>',
   );
 });
 
@@ -497,7 +497,7 @@ Deno.test("renderResourcePage renders inventory fragment sections for Extraction
 <bob/_knop/_inventory#extraction-source> a sflo:ExtractionSource ;
   sflo:hasTargetArtifact <alice/bio> ;
   sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/ArtifactResolutionMode/Pinned> .
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_pinned> .
 `,
       }],
     },
@@ -513,7 +513,7 @@ Deno.test("renderResourcePage renders inventory fragment sections for Extraction
     html,
     'href="/mesh-alice-bio/alice/bio/_history001/_s0002"',
   );
-  assertStringIncludes(html, "sflo:ArtifactResolutionMode/Pinned");
+  assertStringIncludes(html, "sflo:artifactResolutionMode_pinned");
 });
 
 Deno.test("renderResourcePage does not link extra-mesh local source paths", async () => {

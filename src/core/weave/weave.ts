@@ -32,7 +32,7 @@ const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const XSD_NON_NEGATIVE_INTEGER_IRI =
   "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
 const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
-  `${SFLO_NAMESPACE}ArtifactResolutionMode/Pinned`;
+  `${SFLO_NAMESPACE}artifactResolutionMode_pinned`;
 const SFLO_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}ExtractionSource`;
 const SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
   `${SFLO_NAMESPACE}hasArtifactResolutionMode`;
@@ -6881,6 +6881,9 @@ function toLastPathSegment(path: string): string {
 }
 
 function toReferenceRoleLabel(referenceRoleIri: string): string {
-  const segments = referenceRoleIri.split("/");
-  return (segments[segments.length - 1] ?? referenceRoleIri).toLowerCase();
+  const localName = toLastPathSegment(referenceRoleIri);
+  const referenceRolePrefix = "referenceRole_";
+  return localName.startsWith(referenceRolePrefix)
+    ? localName.slice(referenceRolePrefix.length)
+    : localName.toLowerCase();
 }

@@ -8,9 +8,9 @@ import { SFLO_NAMESPACE } from "../../core/rdf/namespaces.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
-  `${SFLO_NAMESPACE}ArtifactResolutionMode/Pinned`;
+  `${SFLO_NAMESPACE}artifactResolutionMode_pinned`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
-  `${SFLO_NAMESPACE}ArtifactResolutionMode/Current`;
+  `${SFLO_NAMESPACE}artifactResolutionMode_current`;
 const SFLO_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}ExtractionSource`;
 const SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
   `${SFLO_NAMESPACE}hasArtifactResolutionMode`;

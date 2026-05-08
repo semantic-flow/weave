@@ -49,9 +49,9 @@ const SFLO_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}ResourcePage`;
 const SFLO_STATE_ORDINAL_IRI = `${SFLO_NAMESPACE}stateOrdinal`;
 
 const referenceRoleIriByToken = {
-  canonical: `${SFLO_NAMESPACE}ReferenceRole/Canonical`,
-  supplemental: `${SFLO_NAMESPACE}ReferenceRole/Supplemental`,
-  deprecated: `${SFLO_NAMESPACE}ReferenceRole/Deprecated`,
+  canonical: `${SFLO_NAMESPACE}referenceRole_canonical`,
+  supplemental: `${SFLO_NAMESPACE}referenceRole_supplemental`,
+  deprecated: `${SFLO_NAMESPACE}referenceRole_deprecated`,
 } as const;
 
 type ReferenceRoleToken = keyof typeof referenceRoleIriByToken;

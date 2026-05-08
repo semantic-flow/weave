@@ -78,7 +78,7 @@ Deno.test("weave extract matches the manifest-scoped bob extracted fixture as a 
     if (path === "bob/_knop/_inventory/inventory.ttl") {
       assert(
         (await Deno.readTextFile(join(workspaceRoot, path))).includes(
-          "ArtifactResolutionMode/Current",
+          "artifactResolutionMode_current",
         ),
       );
       continue;
@@ -190,7 +190,7 @@ Deno.test("weave extract accepts the root designator path as a black-box CLI run
 
 <_knop/_inventory#extraction-source> a sflo:ExtractionSource ;
   sflo:hasTargetArtifact <alice/bio> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/ArtifactResolutionMode/Current> .
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> .
 
 <_knop/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <_knop/_meta/meta.ttl> .
@@ -255,7 +255,7 @@ Deno.test("weave extract supports docs-rooted sidecar meshes with an explicit so
 
 <ontology/CharacterShape/_knop/_inventory#extraction-source> a sflo:ExtractionSource ;
   sflo:hasTargetArtifact <shacl> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/ArtifactResolutionMode/Current> .
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> .
 
 <ontology/CharacterShape/_knop/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <ontology/CharacterShape/_knop/_meta/meta.ttl> .

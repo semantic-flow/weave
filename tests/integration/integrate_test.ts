@@ -222,9 +222,9 @@ Deno.test("executeIntegrate allows repo-adjacent local sources when repo policy 
   sfcfg:workspaceRootRelativeToMeshRoot "../" ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/meshRootPathBase> ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/localPathBase_meshRoot> ;
     sfcfg:pathPrefix "../documentation/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/workingLocalRelativePathLocatorKind>
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/localPathLocatorKind_workingLocalRelativePath>
   ] .
 `,
   );
@@ -334,7 +334,7 @@ Deno.test("executeIntegrate can add a constrained repo-adjacent source directory
   );
   assertStringIncludes(
     config,
-    "sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/workingLocalRelativePathLocatorKind>",
+    "sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/localPathLocatorKind_workingLocalRelativePath>",
   );
 });
 

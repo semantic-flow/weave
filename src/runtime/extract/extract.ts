@@ -35,9 +35,9 @@ const SFLO_HAS_MANIFESTATION_IRI = `${SFLO_NAMESPACE}hasManifestation`;
 const SFLO_LOCATED_FILE_FOR_STATE_IRI = `${SFLO_NAMESPACE}locatedFileForState`;
 const SFLO_HAS_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}hasExtractionSource`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
-  `${SFLO_NAMESPACE}ArtifactResolutionMode/Current`;
+  `${SFLO_NAMESPACE}artifactResolutionMode_current`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
-  `${SFLO_NAMESPACE}ArtifactResolutionMode/Pinned`;
+  `${SFLO_NAMESPACE}artifactResolutionMode_pinned`;
 
 export interface LocalExtractRequest {
   designatorPath: string;

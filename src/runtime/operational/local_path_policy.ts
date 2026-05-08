@@ -15,13 +15,16 @@ const HAS_LOCAL_PATH_BASE_IRI = `${SFCFG_NAMESPACE}hasLocalPathBase`;
 const HAS_LOCAL_PATH_LOCATOR_KIND_IRI =
   `${SFCFG_NAMESPACE}hasLocalPathLocatorKind`;
 const PATH_PREFIX_IRI = `${SFCFG_NAMESPACE}pathPrefix`;
-const LOCAL_PATH_BASE_MESH_ROOT_IRI = `${SFCFG_NAMESPACE}meshRootPathBase`;
-const LOCAL_PATH_BASE_USER_HOME_IRI = `${SFCFG_NAMESPACE}userHomePathBase`;
-const LOCAL_PATH_BASE_ABSOLUTE_PATH_IRI = `${SFCFG_NAMESPACE}absolutePathBase`;
+const LOCAL_PATH_BASE_MESH_ROOT_IRI =
+  `${SFCFG_NAMESPACE}localPathBase_meshRoot`;
+const LOCAL_PATH_BASE_USER_HOME_IRI =
+  `${SFCFG_NAMESPACE}localPathBase_userHome`;
+const LOCAL_PATH_BASE_ABSOLUTE_PATH_IRI =
+  `${SFCFG_NAMESPACE}localPathBase_absolutePath`;
 const WORKING_LOCAL_RELATIVE_PATH_LOCATOR_KIND_IRI =
-  `${SFCFG_NAMESPACE}workingLocalRelativePathLocatorKind`;
+  `${SFCFG_NAMESPACE}localPathLocatorKind_workingLocalRelativePath`;
 const TARGET_LOCAL_RELATIVE_PATH_LOCATOR_KIND_IRI =
-  `${SFCFG_NAMESPACE}targetLocalRelativePathLocatorKind`;
+  `${SFCFG_NAMESPACE}localPathLocatorKind_targetLocalRelativePath`;
 const WORKSPACE_ROOT_RELATIVE_TO_MESH_ROOT_IRI =
   `${SFCFG_NAMESPACE}workspaceRootRelativeToMeshRoot`;
 const MESH_CONFIG_PATH = "_mesh/_config/config.ttl";

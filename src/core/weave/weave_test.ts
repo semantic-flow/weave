@@ -480,7 +480,7 @@ const firstReferenceCatalogWeaveReferenceCatalogTurtle =
 
 <alice/_knop/_references#reference001> a sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
-  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Canonical> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_canonical> ;
   sflo:referenceTarget <alice/bio> .
 `;
 
@@ -1003,13 +1003,13 @@ Deno.test("planWeave accepts semantically equivalent first reference-catalog wea
   ).replace(
     `<alice/_knop/_references#reference001> a sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
-  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Canonical> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_canonical> ;
   sflo:referenceTarget <alice/bio> .
 `,
     `<alice/_knop/_references#reference001>
   sflo:referenceTarget <alice/bio> ;
   rdf:type sflo:ReferenceLink ;
-  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Canonical> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_canonical> ;
   sflo:referenceLinkFor <alice> .
 `,
   );
@@ -1826,7 +1826,7 @@ Deno.test("planWeave generalizes the first page-definition weave slice for earli
 
 <#main-source> a sflo:ResourcePageSource ;
   sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/bob/page-main> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/ArtifactResolutionMode/Current> .
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> .
 `;
   const plan = planWeave({
     request: {
@@ -1893,7 +1893,7 @@ Deno.test("planWeave renders a later page-definition weave revision", async () =
   sflo:targetLocalRelativePath "alice/alice.md" .`,
     `<#main-source> a sflo:ResourcePageSource ;
   sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/page-main> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/ArtifactResolutionMode/Current> .`,
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> .`,
   );
   const latestHistoricalSnapshotTurtle = await readMeshAliceBioBranchFile(
     "17-alice-page-main-integrated-woven",

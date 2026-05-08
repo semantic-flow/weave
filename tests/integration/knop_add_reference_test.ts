@@ -43,7 +43,7 @@ Deno.test("executeKnopAddReference matches the settled alice-bio referenced fixt
   );
   assertEquals(
     result.referenceRoleIri,
-    "https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Canonical",
+    "https://semantic-flow.github.io/sflo/ontology/referenceRole_canonical",
   );
   assertEquals(result.createdPaths, ["alice/_knop/_references/references.ttl"]);
   assertEquals(result.updatedPaths, ["alice/_knop/_inventory/inventory.ttl"]);
@@ -119,7 +119,7 @@ Deno.test("executeKnopAddReference accepts the root as a reference target", asyn
 
 <alice/_knop/_references#reference001> a sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
-  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Supplemental> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_supplemental> ;
   sflo:referenceTarget <> .
 `,
   );

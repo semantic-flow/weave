@@ -89,9 +89,9 @@ const SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI =
   `${SFLO_NAMESPACE}hasResourcePageDefinition`;
 const SFLO_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFLO_NAMESPACE}hasKnopAssetBundle`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
-  `${SFLO_NAMESPACE}ArtifactResolutionMode/Pinned`;
+  `${SFLO_NAMESPACE}artifactResolutionMode_pinned`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
-  `${SFLO_NAMESPACE}ArtifactResolutionMode/Current`;
+  `${SFLO_NAMESPACE}artifactResolutionMode_current`;
 const DCTERMS_TITLE_IRI = "http://purl.org/dc/terms/title";
 const RDFS_LABEL_IRI = "http://www.w3.org/2000/01/rdf-schema#label";
 

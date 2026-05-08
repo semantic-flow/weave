@@ -130,7 +130,7 @@ Deno.test("planKnopAddReference renders first reference catalog support artifact
   );
   assertEquals(
     plan.referenceRoleIri,
-    "https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Canonical",
+    "https://semantic-flow.github.io/sflo/ontology/referenceRole_canonical",
   );
   assertEquals(
     plan.createdFiles.map((file) => file.path),
@@ -194,7 +194,7 @@ Deno.test("planKnopAddReference supports unwoven knop inventory input", () => {
   );
   assertStringIncludes(
     plan.createdFiles[0]?.contents ?? "",
-    "sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Supplemental> ;",
+    "sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_supplemental> ;",
   );
 });
 
@@ -209,11 +209,11 @@ Deno.test("planKnopAddReference normalizes referenceRole tokens case-insensitive
 
   assertEquals(
     plan.referenceRoleIri,
-    "https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Supplemental",
+    "https://semantic-flow.github.io/sflo/ontology/referenceRole_supplemental",
   );
   assertStringIncludes(
     plan.createdFiles[0]?.contents ?? "",
-    "sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Supplemental> ;",
+    "sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_supplemental> ;",
   );
 });
 

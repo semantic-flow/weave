@@ -22,9 +22,9 @@ Deno.test("loadOperationalLocalPathPolicy discovers mesh-owned config in a non-w
   sfcfg:workspaceRootRelativeToMeshRoot "../" ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/meshRootPathBase> ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/localPathBase_meshRoot> ;
     sfcfg:pathPrefix "../documentation/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/targetLocalRelativePathLocatorKind>
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/localPathLocatorKind_targetLocalRelativePath>
   ] .
 `,
   );
@@ -77,9 +77,9 @@ Deno.test("loadOperationalLocalPathPolicy rejects mesh config that grants arbitr
 <> a sfcfg:MeshConfig ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/meshRootPathBase> ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/localPathBase_meshRoot> ;
     sfcfg:pathPrefix "../../" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/workingLocalRelativePathLocatorKind>
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/localPathLocatorKind_workingLocalRelativePath>
   ] .
 `,
   );
@@ -106,9 +106,9 @@ Deno.test("loadOperationalLocalPathPolicy applies machine-local absolute path ru
 <> a sfcfg:LocalConfig ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/absolutePathBase> ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/localPathBase_absolutePath> ;
     sfcfg:pathPrefix "${sharedRoot}/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/workingLocalRelativePathLocatorKind>
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/localPathLocatorKind_workingLocalRelativePath>
   ] .
 `,
   );

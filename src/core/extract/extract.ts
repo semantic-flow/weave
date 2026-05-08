@@ -17,9 +17,9 @@ const XSD_ANY_URI_IRI = "http://www.w3.org/2001/XMLSchema#anyURI";
 const XSD_NON_NEGATIVE_INTEGER_IRI =
   "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
 const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
-  `${SFLO_NAMESPACE}ArtifactResolutionMode/Pinned`;
+  `${SFLO_NAMESPACE}artifactResolutionMode_pinned`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
-  `${SFLO_NAMESPACE}ArtifactResolutionMode/Current`;
+  `${SFLO_NAMESPACE}artifactResolutionMode_current`;
 const SFLO_DIGITAL_ARTIFACT_IRI = `${SFLO_NAMESPACE}DigitalArtifact`;
 const SFLO_HAS_KNOP_IRI = `${SFLO_NAMESPACE}hasKnop`;
 const SFLO_HAS_MESH_INVENTORY_IRI = `${SFLO_NAMESPACE}hasMeshInventory`;

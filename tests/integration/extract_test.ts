@@ -83,7 +83,7 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
 
 <bob/_knop/_inventory#extraction-source> a sflo:ExtractionSource ;
   sflo:hasTargetArtifact <alice/bio> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/ArtifactResolutionMode/Current> .
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> .
 
 <bob/_knop/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <bob/_knop/_meta/meta.ttl> .
@@ -289,7 +289,7 @@ Deno.test("executeExtract extracts selected sidecar ontology and SHACL terms wit
         workspaceRoot,
         "docs/ontology/AbilityScore/_knop/_inventory/inventory.ttl",
       ),
-    )).includes("ArtifactResolutionMode/Current"),
+    )).includes("artifactResolutionMode_current"),
     true,
   );
   assertEquals(
@@ -362,7 +362,7 @@ Deno.test("executeSetExtractionSource replaces an existing pinned source binding
     join(workspaceRoot, "bob/_knop/_inventory/inventory.ttl"),
   );
   assertEquals(
-    inventoryTurtle.includes("ArtifactResolutionMode/Current"),
+    inventoryTurtle.includes("artifactResolutionMode_current"),
     true,
   );
   assertEquals(

@@ -179,7 +179,7 @@ Deno.test("resolveReferenceTargetDesignatorPath accepts semantically equivalent 
 
 <alice/_knop/_references#reference001> rdf:type sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
-  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Supplemental> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_supplemental> ;
   sflo:referenceTarget <alice/bio> ;
   sflo:referenceTargetState <alice/bio/_history001/_s0002> .
 `,
@@ -206,7 +206,7 @@ Deno.test("resolveReferenceTargetLinkState returns the pinned target state", () 
 
 <alice/_knop/_references#reference001> rdf:type sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
-  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Supplemental> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_supplemental> ;
   sflo:referenceTarget <alice/bio> ;
   sflo:referenceTargetState <alice/bio/_history001/_s0002> .
 `,
@@ -236,7 +236,7 @@ Deno.test("tryResolveReferenceTargetLinkState returns undefined for unpinned lin
 
 <alice/_knop/_references#reference001> rdf:type sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
-  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Supplemental> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_supplemental> ;
   sflo:referenceTarget <alice/bio> .
 `,
       "alice",
@@ -264,7 +264,7 @@ Deno.test("resolveReferenceTargetDesignatorPath ignores unrelated catalog fragme
 
 <alice/_knop/_references#reference001> rdf:type sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
-  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Supplemental> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_supplemental> ;
   sflo:referenceTarget <alice/bio> ;
   sflo:referenceTargetState <alice/bio/_history001/_s0002> .
 `,
