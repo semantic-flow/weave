@@ -1,26 +1,29 @@
 import { isAbsolute, join, relative, resolve, toFileUrl } from "@std/path";
 import * as pathPosix from "@std/path/posix";
 import { Parser, type Quad, type Term } from "n3";
+import {
+  SFCFG_NAMESPACE,
+  SFCFG_TURTLE_PREFIX_DECLARATION,
+} from "../../core/rdf/namespaces.ts";
 
-const CONFIG_NAMESPACE = "https://semantic-flow.github.io/ontology/config/";
-const OPERATIONAL_CONFIG_IRI = `${CONFIG_NAMESPACE}OperationalConfig`;
-const MESH_CONFIG_IRI = `${CONFIG_NAMESPACE}MeshConfig`;
-const LOCAL_CONFIG_IRI = `${CONFIG_NAMESPACE}LocalConfig`;
+const OPERATIONAL_CONFIG_IRI = `${SFCFG_NAMESPACE}OperationalConfig`;
+const MESH_CONFIG_IRI = `${SFCFG_NAMESPACE}MeshConfig`;
+const LOCAL_CONFIG_IRI = `${SFCFG_NAMESPACE}LocalConfig`;
 const HAS_LOCAL_PATH_ACCESS_RULE_IRI =
-  `${CONFIG_NAMESPACE}hasLocalPathAccessRule`;
-const HAS_LOCAL_PATH_BASE_IRI = `${CONFIG_NAMESPACE}hasLocalPathBase`;
+  `${SFCFG_NAMESPACE}hasLocalPathAccessRule`;
+const HAS_LOCAL_PATH_BASE_IRI = `${SFCFG_NAMESPACE}hasLocalPathBase`;
 const HAS_LOCAL_PATH_LOCATOR_KIND_IRI =
-  `${CONFIG_NAMESPACE}hasLocalPathLocatorKind`;
-const PATH_PREFIX_IRI = `${CONFIG_NAMESPACE}pathPrefix`;
-const LOCAL_PATH_BASE_MESH_ROOT_IRI = `${CONFIG_NAMESPACE}meshRootPathBase`;
-const LOCAL_PATH_BASE_USER_HOME_IRI = `${CONFIG_NAMESPACE}userHomePathBase`;
-const LOCAL_PATH_BASE_ABSOLUTE_PATH_IRI = `${CONFIG_NAMESPACE}absolutePathBase`;
+  `${SFCFG_NAMESPACE}hasLocalPathLocatorKind`;
+const PATH_PREFIX_IRI = `${SFCFG_NAMESPACE}pathPrefix`;
+const LOCAL_PATH_BASE_MESH_ROOT_IRI = `${SFCFG_NAMESPACE}meshRootPathBase`;
+const LOCAL_PATH_BASE_USER_HOME_IRI = `${SFCFG_NAMESPACE}userHomePathBase`;
+const LOCAL_PATH_BASE_ABSOLUTE_PATH_IRI = `${SFCFG_NAMESPACE}absolutePathBase`;
 const WORKING_LOCAL_RELATIVE_PATH_LOCATOR_KIND_IRI =
-  `${CONFIG_NAMESPACE}workingLocalRelativePathLocatorKind`;
+  `${SFCFG_NAMESPACE}workingLocalRelativePathLocatorKind`;
 const TARGET_LOCAL_RELATIVE_PATH_LOCATOR_KIND_IRI =
-  `${CONFIG_NAMESPACE}targetLocalRelativePathLocatorKind`;
+  `${SFCFG_NAMESPACE}targetLocalRelativePathLocatorKind`;
 const WORKSPACE_ROOT_RELATIVE_TO_MESH_ROOT_IRI =
-  `${CONFIG_NAMESPACE}workspaceRootRelativeToMeshRoot`;
+  `${SFCFG_NAMESPACE}workspaceRootRelativeToMeshRoot`;
 const MESH_CONFIG_PATH = "_mesh/_config/config.ttl";
 const LOCAL_ACCESS_FILE_NAME = ".sf-local-access.ttl";
 
@@ -303,7 +306,7 @@ function renderMeshConfigTurtle(
   ]`);
   }
 
-  return `@prefix sfcfg: <${CONFIG_NAMESPACE}> .
+  return `${SFCFG_TURTLE_PREFIX_DECLARATION}
 
 <> ${statements.join(" ;\n")} .
 `;

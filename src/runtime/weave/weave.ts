@@ -64,8 +64,8 @@ import {
   ResourcePageDefinitionResolutionError,
 } from "./page_definition.ts";
 import { renderResourcePages } from "./pages.ts";
+import { SFLO_NAMESPACE } from "../../core/rdf/namespaces.ts";
 
-const SFLO_NAMESPACE = "https://semantic-flow.github.io/sflo/ontology/";
 const SFLO_HAS_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}hasResourcePage`;
 const SFLO_HAS_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}hasArtifactHistory`;
 const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =

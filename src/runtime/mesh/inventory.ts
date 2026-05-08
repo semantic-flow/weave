@@ -4,9 +4,9 @@ import {
   toKnopPath,
   toReferenceCatalogPath,
 } from "../../core/designator_segments.ts";
+import { SFLO_NAMESPACE } from "../../core/rdf/namespaces.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
-const SFLO_NAMESPACE = "https://semantic-flow.github.io/sflo/ontology/";
 const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
   `${SFLO_NAMESPACE}ArtifactResolutionMode/Pinned`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =

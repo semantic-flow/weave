@@ -23,9 +23,12 @@ import {
   toRelativeHref,
   toResourcePath,
 } from "./html.ts";
+import {
+  SFLO_NAMESPACE,
+  SFLO_TURTLE_PREFIX_DECLARATION,
+} from "../rdf/namespaces.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
-const SFLO_NAMESPACE = "https://semantic-flow.github.io/sflo/ontology/";
 const XSD_NON_NEGATIVE_INTEGER_IRI =
   "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
 const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
@@ -2984,7 +2987,7 @@ function renderFirstKnopWovenKnopInventoryTurtle(
   const knopPath = toKnopPath(designatorPath);
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <${knopPath}> a sflo:Knop ;
@@ -3203,7 +3206,7 @@ function renderLegacyFirstKnopWovenMeshInventoryTurtle(
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh> a sflo:SemanticMesh ;
@@ -3335,7 +3338,7 @@ function renderLegacyFirstPayloadWovenMeshInventoryTurtle(
   );
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh> a sflo:SemanticMesh ;
@@ -3506,7 +3509,7 @@ function renderFirstPayloadWovenKnopInventoryTurtle(
   );
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <${knopPath}> a sflo:Knop ;
@@ -3647,7 +3650,7 @@ function renderFirstReferenceCatalogWovenKnopInventoryTurtle(
   );
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <${knopPath}> a sflo:Knop ;
@@ -3956,7 +3959,7 @@ ${renderResourcePageLocatedFileBlock(`${statePath}/page-ttl/index.html`)}`;
     : "";
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <${knopPath}> a sflo:Knop ;
@@ -4264,7 +4267,7 @@ function renderMultiHistoryPayloadWovenKnopInventoryTurtle(
     );
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <${knopPath}> a sflo:Knop ;
@@ -4407,7 +4410,7 @@ function renderSecondPayloadWovenKnopInventoryTurtle(
   );
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <${knopPath}> a sflo:Knop ;
@@ -5058,7 +5061,7 @@ function renderFirstExtractedKnopWovenKnopInventoryTurtle(
   const knopPath = toKnopPath(designatorPath);
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <${knopPath}> a sflo:Knop ;

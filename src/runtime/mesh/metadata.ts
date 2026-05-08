@@ -1,10 +1,10 @@
 import { join } from "@std/path";
 import { Parser } from "n3";
 import type { Quad } from "n3";
+import { SFLO_NAMESPACE } from "../../core/rdf/namespaces.ts";
 
 const MESH_METADATA_RELATIVE_PATH = "_mesh/_meta/meta.ttl";
-const SFLO_MESH_BASE_IRI =
-  "https://semantic-flow.github.io/sflo/ontology/meshBase";
+const SFLO_MESH_BASE_IRI = `${SFLO_NAMESPACE}meshBase`;
 const XSD_ANYURI_IRI = "http://www.w3.org/2001/XMLSchema#anyURI";
 const MESH_BASE_ERROR_MESSAGE =
   "Could not resolve meshBase from _mesh/_meta/meta.ttl";

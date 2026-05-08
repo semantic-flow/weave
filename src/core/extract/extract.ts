@@ -7,12 +7,15 @@ import {
 } from "../designator_segments.ts";
 import { KnopCreateInputError } from "../knop/create.ts";
 import type { PlannedFile } from "../planned_file.ts";
+import {
+  SFLO_NAMESPACE,
+  SFLO_TURTLE_PREFIX_DECLARATION,
+} from "../rdf/namespaces.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const XSD_ANY_URI_IRI = "http://www.w3.org/2001/XMLSchema#anyURI";
 const XSD_NON_NEGATIVE_INTEGER_IRI =
   "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
-const SFLO_NAMESPACE = "https://semantic-flow.github.io/sflo/ontology/";
 const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
   `${SFLO_NAMESPACE}ArtifactResolutionMode/Pinned`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
@@ -405,7 +408,7 @@ function renderLegacyExtractMeshInventoryTurtle(
   ]);
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh> a sflo:SemanticMesh ;
@@ -674,7 +677,7 @@ function renderExtractKnopInventoryTurtle(
   sflo:hasArtifactResolutionMode <${SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI}> .`;
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}> a sflo:Knop ;
   sflo:hasKnopMetadata <${knopPath}/_meta> ;
@@ -704,7 +707,7 @@ function renderExtractKnopMetadataTurtle(
   const knopPath = toKnopPath(designatorPath);
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}> a sflo:Knop ;
   sflo:designatorPath "${designatorPath}" ;

@@ -6,12 +6,14 @@ import {
   toKnopPath,
   toReferenceCatalogPath,
 } from "../designator_segments.ts";
+import {
+  SFLO_NAMESPACE,
+  SFLO_TURTLE_PREFIX_DECLARATION,
+} from "../rdf/namespaces.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const XSD_NON_NEGATIVE_INTEGER_IRI =
   "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
-const SFLO_NAMESPACE =
-  "https://semantic-flow.github.io/sflo/ontology/";
 const SFLO_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}ArtifactHistory`;
 const SFLO_ARTIFACT_MANIFESTATION_IRI =
   `${SFLO_NAMESPACE}ArtifactManifestation`;
@@ -47,12 +49,9 @@ const SFLO_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}ResourcePage`;
 const SFLO_STATE_ORDINAL_IRI = `${SFLO_NAMESPACE}stateOrdinal`;
 
 const referenceRoleIriByToken = {
-  canonical:
-    "https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Canonical",
-  supplemental:
-    "https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Supplemental",
-  deprecated:
-    "https://semantic-flow.github.io/sflo/ontology/ReferenceRole/Deprecated",
+  canonical: `${SFLO_NAMESPACE}ReferenceRole/Canonical`,
+  supplemental: `${SFLO_NAMESPACE}ReferenceRole/Supplemental`,
+  deprecated: `${SFLO_NAMESPACE}ReferenceRole/Deprecated`,
 } as const;
 
 type ReferenceRoleToken = keyof typeof referenceRoleIriByToken;
@@ -201,7 +200,7 @@ function renderReferencesTurtle(
   const referenceCatalogPath = toReferenceCatalogPath(designatorPath);
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${designatorPath}> sflo:hasReferenceLink <${referenceCatalogPath}#reference001> .
 
@@ -666,7 +665,7 @@ function renderUnwovenKnopInventoryWithReferenceCatalog(
   knopPath: string,
 ): string {
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}> a sflo:Knop ;
   sflo:hasKnopMetadata <${knopPath}/_meta> ;
@@ -696,7 +695,7 @@ function renderWovenKnopInventoryWithReferenceCatalog(
   knopPath: string,
 ): string {
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <${knopPath}> a sflo:Knop ;

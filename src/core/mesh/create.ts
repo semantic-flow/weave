@@ -1,4 +1,8 @@
 import type { PlannedFile } from "../planned_file.ts";
+import {
+  SFCFG_TURTLE_PREFIX_DECLARATION,
+  SFLO_TURTLE_PREFIX_DECLARATION,
+} from "../rdf/namespaces.ts";
 
 export interface MeshCreateRequest {
   meshBase: string;
@@ -85,7 +89,7 @@ function normalizeMeshBase(meshBase: string): string {
 
 function renderMeshMetadataTurtle(meshBase: string): string {
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh> a sflo:SemanticMesh ;
@@ -104,7 +108,7 @@ function renderMeshInventoryTurtle(
 ): string {
   if (!hasMeshConfig) {
     return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh> a sflo:SemanticMesh ;
@@ -125,8 +129,8 @@ function renderMeshInventoryTurtle(
   }
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
-@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
+${SFCFG_TURTLE_PREFIX_DECLARATION}
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh> a sflo:SemanticMesh ;
@@ -155,7 +159,7 @@ function renderMeshInventoryTurtle(
 function renderMeshConfigTurtle(
   workspaceRootRelativeToMeshRoot: string,
 ): string {
-  return `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+  return `${SFCFG_TURTLE_PREFIX_DECLARATION}
 
 <> a sfcfg:MeshConfig ;
   sfcfg:workspaceRootRelativeToMeshRoot "${workspaceRootRelativeToMeshRoot}" .

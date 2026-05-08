@@ -18,8 +18,8 @@ import {
   type OperationalLocalPathPolicy,
   resolveAllowedLocalPath,
 } from "../operational/local_path_policy.ts";
+import { SFLO_NAMESPACE } from "../../core/rdf/namespaces.ts";
 
-const SFLO_NAMESPACE = "https://semantic-flow.github.io/sflo/ontology/";
 const SFLO_HAS_PAGE_REGION_IRI = `${SFLO_NAMESPACE}hasPageRegion`;
 const SFLO_HAS_RESOURCE_PAGE_SOURCE_IRI =
   `${SFLO_NAMESPACE}hasResourcePageSource`;

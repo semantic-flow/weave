@@ -5,11 +5,9 @@ import {
   toKnopPath,
 } from "../designator_segments.ts";
 import type { PlannedFile } from "../planned_file.ts";
+import { SFLO_NAMESPACE } from "../rdf/namespaces.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
-const SFLO_NAMESPACE =
-  "https://semantic-flow.github.io/sflo/ontology/";
-
 export interface PayloadUpdateRequest {
   designatorPath: string;
   workingLocalRelativePath: string;
