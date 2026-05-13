@@ -18,6 +18,11 @@ const HAS_RESOURCE_PAGE_GENERATION_DEFAULT_IRI =
   `${SFCFG_NAMESPACE}hasResourcePageGenerationDefault`;
 const HAS_RESOURCE_PAGE_GENERATION_POLICY_IRI =
   `${SFCFG_NAMESPACE}hasResourcePageGenerationPolicy`;
+const HAS_HISTORY_NAMING_POLICY_IRI =
+  `${SFCFG_NAMESPACE}hasHistoryNamingPolicy`;
+const HAS_STATE_NAMING_POLICY_IRI = `${SFCFG_NAMESPACE}hasStateNamingPolicy`;
+const HAS_MANIFESTATION_NAMING_POLICY_IRI =
+  `${SFCFG_NAMESPACE}hasManifestationNamingPolicy`;
 const HAS_UNKNOWN_CONFIG_TERM_POLICY_IRI =
   `${SFCFG_NAMESPACE}hasUnknownConfigTermPolicy`;
 const HAS_CONFIG_CYCLE_POLICY_IRI = `${SFCFG_NAMESPACE}hasConfigCyclePolicy`;
@@ -70,6 +75,25 @@ const RESOURCE_PAGE_GENERATION_POLICY_VALUES = {
   [`${SFCFG_NAMESPACE}resourcePageGenerationPolicy_suppress`]: "suppress",
   [`${SFCFG_NAMESPACE}resourcePageGenerationPolicy_defer`]: "defer",
   [`${SFCFG_NAMESPACE}resourcePageGenerationPolicy_onRequest`]: "onRequest",
+} as const;
+
+const HISTORY_NAMING_POLICY_VALUES = {
+  [`${SFCFG_NAMESPACE}historyNamingPolicy_ordinal`]: "ordinal",
+  [`${SFCFG_NAMESPACE}historyNamingPolicy_named`]: "named",
+} as const;
+
+const STATE_NAMING_POLICY_VALUES = {
+  [`${SFCFG_NAMESPACE}stateNamingPolicy_ordinal`]: "ordinal",
+  [`${SFCFG_NAMESPACE}stateNamingPolicy_semver`]: "semver",
+  [`${SFCFG_NAMESPACE}stateNamingPolicy_date`]: "date",
+} as const;
+
+const MANIFESTATION_NAMING_POLICY_VALUES = {
+  [`${SFCFG_NAMESPACE}manifestationNamingPolicy_filenameDerived`]:
+    "filenameDerived",
+  [`${SFCFG_NAMESPACE}manifestationNamingPolicy_contentKindDerived`]:
+    "contentKindDerived",
+  [`${SFCFG_NAMESPACE}manifestationNamingPolicy_ordinal`]: "ordinal",
 } as const;
 
 const UNKNOWN_CONFIG_TERM_POLICY_VALUES = {
@@ -138,6 +162,11 @@ export type HistoryTrackingPolicy = ValueOf<
 export type ResourcePageGenerationPolicy = ValueOf<
   typeof RESOURCE_PAGE_GENERATION_POLICY_VALUES
 >;
+type HistoryNamingPolicy = ValueOf<typeof HISTORY_NAMING_POLICY_VALUES>;
+type StateNamingPolicy = ValueOf<typeof STATE_NAMING_POLICY_VALUES>;
+type ManifestationNamingPolicy = ValueOf<
+  typeof MANIFESTATION_NAMING_POLICY_VALUES
+>;
 export type UnknownConfigTermPolicy = ValueOf<
   typeof UNKNOWN_CONFIG_TERM_POLICY_VALUES
 >;
@@ -161,6 +190,12 @@ type ValueOf<T> = T[keyof T];
 export interface ArtifactRoleEffectivePolicy {
   historyTrackingPolicy: HistoryTrackingPolicy;
   resourcePageGenerationPolicy: ResourcePageGenerationPolicy;
+}
+
+export interface DefaultNamingPolicies {
+  historyNamingPolicy: HistoryNamingPolicy;
+  stateNamingPolicy: StateNamingPolicy;
+  manifestationNamingPolicy: ManifestationNamingPolicy;
 }
 
 export interface ConfigLayerProfile {
@@ -198,6 +233,7 @@ export class EffectiveConfigError extends Error {
 export class EffectiveConfig {
   readonly sources: EffectiveConfigSources;
   readonly configResolution: DefaultConfigResolutionProfile;
+  readonly namingPolicies: DefaultNamingPolicies;
   readonly #defaultHistoryTrackingPolicy: HistoryTrackingPolicy;
   readonly #historyTrackingByRole: ReadonlyMap<
     ArtifactRole,
@@ -219,6 +255,7 @@ export class EffectiveConfig {
         ArtifactRole,
         ResourcePageGenerationPolicy
       >;
+      namingPolicies: DefaultNamingPolicies;
       configResolution: DefaultConfigResolutionProfile;
     },
   ) {
@@ -228,6 +265,7 @@ export class EffectiveConfig {
     this.#defaultResourcePageGenerationPolicy =
       input.defaultResourcePageGenerationPolicy;
     this.#resourcePageGenerationByRole = input.resourcePageGenerationByRole;
+    this.namingPolicies = input.namingPolicies;
     this.configResolution = input.configResolution;
   }
 
@@ -334,6 +372,29 @@ export function parseWeaveDefaultEffectiveConfig(
       RESOURCE_PAGE_GENERATION_POLICY_VALUES,
       sources.applicationSource,
     ),
+    namingPolicies: {
+      historyNamingPolicy: requireSingleNamedValue(
+        applicationQuads,
+        applicationSubject,
+        HAS_HISTORY_NAMING_POLICY_IRI,
+        HISTORY_NAMING_POLICY_VALUES,
+        sources.applicationSource,
+      ),
+      stateNamingPolicy: requireSingleNamedValue(
+        applicationQuads,
+        applicationSubject,
+        HAS_STATE_NAMING_POLICY_IRI,
+        STATE_NAMING_POLICY_VALUES,
+        sources.applicationSource,
+      ),
+      manifestationNamingPolicy: requireSingleNamedValue(
+        applicationQuads,
+        applicationSubject,
+        HAS_MANIFESTATION_NAMING_POLICY_IRI,
+        MANIFESTATION_NAMING_POLICY_VALUES,
+        sources.applicationSource,
+      ),
+    },
     configResolution: parseConfigResolutionProfile(
       configResolutionQuads,
       sources.configResolutionSource,

@@ -32,6 +32,7 @@ import {
   type VersionRequest,
   type WeaveableKnopCandidate,
   WeaveInputError,
+  type WeaveNamingPolicies,
   type WeaveRequest,
   type WeaveSlice,
   type WeaveSupportHistoryPolicies,
@@ -552,6 +553,7 @@ async function prepareVersionExecution(
   const supportHistoryPolicies = supportHistoryPoliciesFromEffectiveConfig(
     effectiveConfig,
   );
+  const namingPolicies = namingPoliciesFromEffectiveConfig(effectiveConfig);
   const allDesignatorPaths = listKnopDesignatorPaths(
     meshState.meshBase,
     meshState.currentMeshInventoryTurtle,
@@ -642,6 +644,7 @@ async function prepareVersionExecution(
       currentMeshInventoryTurtle: stagedMeshState.currentMeshInventoryTurtle,
       weaveableKnops: [nextCandidate],
       supportHistoryPolicies,
+      namingPolicies,
     });
 
     for (const file of nextPlan.createdFiles) {
@@ -717,6 +720,17 @@ function supportHistoryPoliciesFromEffectiveConfig(
       .historyTrackingPolicyForArtifactRole(
         "resourcePageDefinition",
       ),
+  };
+}
+
+function namingPoliciesFromEffectiveConfig(
+  effectiveConfig: EffectiveConfig,
+): WeaveNamingPolicies {
+  return {
+    historyNamingPolicy: effectiveConfig.namingPolicies.historyNamingPolicy,
+    stateNamingPolicy: effectiveConfig.namingPolicies.stateNamingPolicy,
+    manifestationNamingPolicy: effectiveConfig.namingPolicies
+      .manifestationNamingPolicy,
   };
 }
 

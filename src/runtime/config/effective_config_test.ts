@@ -96,6 +96,16 @@ Deno.test("loadWeaveDefaultEffectiveConfig parses config-resolution defaults", a
   );
 });
 
+Deno.test("loadWeaveDefaultEffectiveConfig parses naming defaults", async () => {
+  const config = await loadWeaveDefaultEffectiveConfig();
+
+  assertEquals(config.namingPolicies, {
+    historyNamingPolicy: "ordinal",
+    stateNamingPolicy: "ordinal",
+    manifestationNamingPolicy: "filenameDerived",
+  });
+});
+
 Deno.test("parseWeaveDefaultEffectiveConfig rejects unknown policy values", () => {
   assertThrows(
     () =>
@@ -105,6 +115,26 @@ Deno.test("parseWeaveDefaultEffectiveConfig rejects unknown policy values", () =
 <> a sfcfg:ApplicationConfig ;
   sfcfg:hasDefaultHistoryTrackingPolicy sfcfg:historyTrackingPolicy_surprise ;
   sfcfg:hasDefaultResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_generate .
+`,
+        VALID_CONFIG_RESOLUTION_TURTLE,
+      ),
+    EffectiveConfigError,
+    "Unsupported",
+  );
+});
+
+Deno.test("parseWeaveDefaultEffectiveConfig rejects unknown naming policy values", () => {
+  assertThrows(
+    () =>
+      parseWeaveDefaultEffectiveConfig(
+        `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+
+<> a sfcfg:ApplicationConfig ;
+  sfcfg:hasDefaultHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly ;
+  sfcfg:hasDefaultResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_generate ;
+  sfcfg:hasHistoryNamingPolicy sfcfg:historyNamingPolicy_ordinal ;
+  sfcfg:hasStateNamingPolicy sfcfg:stateNamingPolicy_surprise ;
+  sfcfg:hasManifestationNamingPolicy sfcfg:manifestationNamingPolicy_filenameDerived .
 `,
         VALID_CONFIG_RESOLUTION_TURTLE,
       ),

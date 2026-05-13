@@ -24,6 +24,12 @@ import {
   toResourcePath,
 } from "./html.ts";
 import {
+  type HistoryNamingPolicy,
+  type ManifestationNamingPolicy,
+  type StateNamingPolicy,
+  type WeaveNamingPolicies,
+} from "./naming_policy.ts";
+import {
   SFLO_NAMESPACE,
   SFLO_TURTLE_PREFIX_DECLARATION,
 } from "../rdf/namespaces.ts";
@@ -37,6 +43,12 @@ import type { VersionPlan } from "./version_plan.ts";
 
 export { WeaveInputError } from "./errors.ts";
 export { planMeshSupportResourcePages } from "./mesh_support_pages.ts";
+export type {
+  HistoryNamingPolicy,
+  ManifestationNamingPolicy,
+  StateNamingPolicy,
+  WeaveNamingPolicies,
+} from "./naming_policy.ts";
 export type {
   MeshSupportHistoryPolicies,
   SupportArtifactHistoryPolicy,
@@ -268,6 +280,7 @@ export interface PlanWeaveInput {
   currentMeshInventoryTurtle: string;
   weaveableKnops: readonly WeaveableKnopCandidate[];
   supportHistoryPolicies?: WeaveSupportHistoryPolicies;
+  namingPolicies?: WeaveNamingPolicies;
 }
 
 export interface WeavePlan {
@@ -378,6 +391,7 @@ export function planWeave(input: PlanWeaveInput): WeavePlan {
         candidate,
         target,
         input.supportHistoryPolicies,
+        input.namingPolicies,
       );
     case "firstExtractedKnopWeave":
       return planFirstExtractedKnopWeave(
@@ -402,6 +416,7 @@ export function planWeave(input: PlanWeaveInput): WeavePlan {
         meshBase,
         candidate,
         target,
+        input.namingPolicies,
       );
     default:
       throw new WeaveInputError(
@@ -811,6 +826,7 @@ function planFirstPayloadWeave(
   candidate: WeaveableKnopCandidate,
   target?: NormalizedVersionTargetSpec,
   supportHistoryPolicies?: WeaveSupportHistoryPolicies,
+  namingPolicies?: WeaveNamingPolicies,
 ): WeavePlan {
   const payloadArtifact = candidate.payloadArtifact!;
   assertCurrentKnopInventoryWithoutHistory(
@@ -837,6 +853,7 @@ function planFirstPayloadWeave(
     designatorPath,
     payloadArtifact.workingLocalRelativePath,
     target,
+    namingPolicies,
   );
   const payloadSnapshotPath = `${payloadLayout.nextManifestationPath}/${
     toFileName(payloadArtifact.workingLocalRelativePath)
@@ -1289,6 +1306,7 @@ function planSecondPayloadWeave(
   meshBase: string,
   candidate: WeaveableKnopCandidate,
   target?: NormalizedVersionTargetSpec,
+  namingPolicies?: WeaveNamingPolicies,
 ): WeavePlan {
   const payloadArtifact = candidate.payloadArtifact!;
   const designatorPath = candidate.designatorPath;
@@ -1299,6 +1317,7 @@ function planSecondPayloadWeave(
     payloadArtifact,
     candidate.currentKnopInventoryTurtle,
     target,
+    namingPolicies,
   );
   assertCurrentKnopInventoryShapeForSecondPayloadWeave(
     meshBase,
@@ -6202,16 +6221,26 @@ function resolveFirstPayloadVersionLayout(
   designatorPath: string,
   workingLocalRelativePath: string,
   target?: NormalizedVersionTargetSpec,
+  namingPolicies?: WeaveNamingPolicies,
 ): PayloadVersionLayout {
+  assertRequestedStateSegmentSatisfiesPolicy(
+    target?.stateSegment,
+    namingPolicies?.stateNamingPolicy,
+  );
   const historyPath = appendMeshPath(
     designatorPath,
-    target?.historySegment ?? "_history001",
+    target?.historySegment ??
+      defaultHistorySegment(namingPolicies?.historyNamingPolicy),
   );
-  const nextStatePath = `${historyPath}/${target?.stateSegment ?? "_s0001"}`;
+  const nextStatePath = `${historyPath}/${
+    target?.stateSegment ??
+      defaultStateSegment(namingPolicies?.stateNamingPolicy)
+  }`;
   const nextManifestationPath = toPayloadManifestationPath(
     nextStatePath,
     workingLocalRelativePath,
     target?.manifestationSegment,
+    namingPolicies?.manifestationNamingPolicy,
   );
 
   return {
@@ -6227,7 +6256,12 @@ function resolveSecondPayloadVersionLayout(
   payloadArtifact: PayloadWorkingArtifact,
   currentKnopInventoryTurtle: string,
   target?: NormalizedVersionTargetSpec,
+  namingPolicies?: WeaveNamingPolicies,
 ): PayloadVersionLayout {
+  assertRequestedStateSegmentSatisfiesPolicy(
+    target?.stateSegment,
+    namingPolicies?.stateNamingPolicy,
+  );
   const currentHistoryPath = requirePayloadHistoryPath(
     designatorPath,
     payloadArtifact,
@@ -6250,11 +6284,15 @@ function resolveSecondPayloadVersionLayout(
 
   const historyExists = hasSubject(quads, meshBase, historyPath);
   if (!historyExists) {
-    const nextStatePath = `${historyPath}/${target?.stateSegment ?? "_s0001"}`;
+    const nextStatePath = `${historyPath}/${
+      target?.stateSegment ??
+        defaultStateSegment(namingPolicies?.stateNamingPolicy)
+    }`;
     const nextManifestationPath = toPayloadManifestationPath(
       nextStatePath,
       payloadArtifact.workingLocalRelativePath,
       target?.manifestationSegment,
+      namingPolicies?.manifestationNamingPolicy,
     );
     return {
       historyPath,
@@ -6291,6 +6329,9 @@ function resolveSecondPayloadVersionLayout(
       }.`,
     );
   }
+  if (target?.stateSegment === undefined) {
+    assertAutoStateSegmentSupported(namingPolicies?.stateNamingPolicy);
+  }
   const nextStatePath = target?.stateSegment
     ? `${historyPath}/${target.stateSegment}`
     : resolveNextOrdinalStatePathFromHistory(
@@ -6317,6 +6358,7 @@ function resolveSecondPayloadVersionLayout(
     nextStatePath,
     payloadArtifact.workingLocalRelativePath,
     target?.manifestationSegment,
+    namingPolicies?.manifestationNamingPolicy,
   );
 
   return {
@@ -6373,11 +6415,13 @@ function toPayloadManifestationPath(
   payloadStatePath: string,
   workingLocalRelativePath: string,
   manifestationSegment?: string,
+  manifestationNamingPolicy?: ManifestationNamingPolicy,
 ): string {
   return toArtifactManifestationPath(
     payloadStatePath,
     workingLocalRelativePath,
     manifestationSegment,
+    manifestationNamingPolicy,
   );
 }
 
@@ -6385,10 +6429,97 @@ function toArtifactManifestationPath(
   historyStatePath: string,
   workingLocalRelativePath: string,
   manifestationSegment?: string,
+  manifestationNamingPolicy?: ManifestationNamingPolicy,
 ): string {
   return `${historyStatePath}/${
-    manifestationSegment ?? toManifestationSegment(workingLocalRelativePath)
+    manifestationSegment ??
+      defaultManifestationSegment(
+        workingLocalRelativePath,
+        manifestationNamingPolicy,
+      )
   }`;
+}
+
+function defaultHistorySegment(
+  historyNamingPolicy: HistoryNamingPolicy = "ordinal",
+): string {
+  switch (historyNamingPolicy) {
+    case "ordinal":
+      return "_history001";
+    case "named":
+      throw new WeaveInputError(
+        "historyNamingPolicy named requires an explicit historySegment.",
+      );
+  }
+}
+
+function defaultStateSegment(
+  stateNamingPolicy: StateNamingPolicy = "ordinal",
+): string {
+  switch (stateNamingPolicy) {
+    case "ordinal":
+      return "_s0001";
+    case "semver":
+    case "date":
+      throw new WeaveInputError(
+        `stateNamingPolicy ${stateNamingPolicy} requires an explicit stateSegment.`,
+      );
+  }
+}
+
+function assertAutoStateSegmentSupported(
+  stateNamingPolicy: StateNamingPolicy = "ordinal",
+): void {
+  switch (stateNamingPolicy) {
+    case "ordinal":
+      return;
+    case "semver":
+    case "date":
+      throw new WeaveInputError(
+        `stateNamingPolicy ${stateNamingPolicy} requires an explicit stateSegment.`,
+      );
+  }
+}
+
+function assertRequestedStateSegmentSatisfiesPolicy(
+  stateSegment: string | undefined,
+  stateNamingPolicy: StateNamingPolicy = "ordinal",
+): void {
+  if (stateSegment === undefined) {
+    return;
+  }
+
+  switch (stateNamingPolicy) {
+    case "ordinal":
+      return;
+    case "semver":
+      if (/^v\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(stateSegment)) {
+        return;
+      }
+      throw new WeaveInputError(
+        `stateSegment ${stateSegment} does not satisfy stateNamingPolicy semver.`,
+      );
+    case "date":
+      if (/^\d{4}-\d{2}-\d{2}$/.test(stateSegment)) {
+        return;
+      }
+      throw new WeaveInputError(
+        `stateSegment ${stateSegment} does not satisfy stateNamingPolicy date.`,
+      );
+  }
+}
+
+function defaultManifestationSegment(
+  workingLocalRelativePath: string,
+  manifestationNamingPolicy: ManifestationNamingPolicy = "filenameDerived",
+): string {
+  switch (manifestationNamingPolicy) {
+    case "filenameDerived":
+    case "contentKindDerived":
+      return toManifestationSegment(workingLocalRelativePath);
+    case "ordinal":
+      return "_m0001";
+  }
 }
 
 function toManifestationSegment(workingLocalRelativePath: string): string {

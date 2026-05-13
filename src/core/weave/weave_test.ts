@@ -741,6 +741,178 @@ Deno.test("planWeave applies current-only KnopMetadata policy on the first paylo
   );
 });
 
+Deno.test("planWeave applies configured ordinal naming policies on the first payload weave slice", () => {
+  const plan = planWeave({
+    request: {
+      targets: [{ designatorPath: "alice/bio" }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: firstPayloadWeaveMeshInventoryTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice/bio",
+      currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+      currentKnopInventoryTurtle: firstPayloadWeaveKnopInventoryTurtle,
+      payloadArtifact: {
+        workingLocalRelativePath: "alice-bio.ttl",
+        currentPayloadTurtle:
+          `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix schema: <https://schema.org/> .
+
+<alice> a schema:Person .
+`,
+      },
+    }],
+    namingPolicies: {
+      historyNamingPolicy: "ordinal",
+      stateNamingPolicy: "ordinal",
+      manifestationNamingPolicy: "filenameDerived",
+    },
+  });
+
+  assert(
+    plan.createdFiles.some((file) =>
+      file.path === "alice/bio/_history001/_s0001/ttl/alice-bio.ttl"
+    ),
+  );
+  assertStringIncludes(
+    plan.updatedFiles[1]?.contents ?? "",
+    "sflo:currentArtifactHistory <alice/bio/_history001> ;",
+  );
+});
+
+Deno.test("planWeave applies explicit target segments under non-ordinal naming policies on the first payload weave slice", () => {
+  const plan = planWeave({
+    request: {
+      targets: [{
+        designatorPath: "alice/bio",
+        historySegment: "releases",
+        stateSegment: "v0.0.1",
+      }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: firstPayloadWeaveMeshInventoryTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice/bio",
+      currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+      currentKnopInventoryTurtle: firstPayloadWeaveKnopInventoryTurtle,
+      payloadArtifact: {
+        workingLocalRelativePath: "alice-bio.ttl",
+        currentPayloadTurtle:
+          `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix schema: <https://schema.org/> .
+
+<alice> a schema:Person .
+`,
+      },
+    }],
+    namingPolicies: {
+      historyNamingPolicy: "named",
+      stateNamingPolicy: "semver",
+      manifestationNamingPolicy: "ordinal",
+    },
+  });
+
+  assert(
+    plan.createdFiles.some((file) =>
+      file.path === "alice/bio/releases/v0.0.1/_m0001/alice-bio.ttl"
+    ),
+  );
+  assertStringIncludes(
+    plan.updatedFiles[1]?.contents ?? "",
+    "sflo:currentArtifactHistory <alice/bio/releases> ;",
+  );
+  assertStringIncludes(
+    plan.updatedFiles[1]?.contents ?? "",
+    "sflo:hasManifestation <alice/bio/releases/v0.0.1/_m0001> ;",
+  );
+});
+
+Deno.test("planWeave requires explicit history segments for named history naming", () => {
+  assertThrows(
+    () =>
+      planWeave({
+        request: {
+          targets: [{ designatorPath: "alice/bio" }],
+        },
+        meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+        currentMeshInventoryTurtle: firstPayloadWeaveMeshInventoryTurtle,
+        weaveableKnops: [{
+          designatorPath: "alice/bio",
+          currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+          currentKnopInventoryTurtle: firstPayloadWeaveKnopInventoryTurtle,
+          payloadArtifact: {
+            workingLocalRelativePath: "alice-bio.ttl",
+            currentPayloadTurtle: "<alice> a <https://schema.org/Person> .\n",
+          },
+        }],
+        namingPolicies: {
+          historyNamingPolicy: "named",
+        },
+      }),
+    WeaveInputError,
+    "historyNamingPolicy named requires an explicit historySegment",
+  );
+});
+
+Deno.test("planWeave requires explicit state segments for non-ordinal state naming", () => {
+  assertThrows(
+    () =>
+      planWeave({
+        request: {
+          targets: [{ designatorPath: "alice/bio" }],
+        },
+        meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+        currentMeshInventoryTurtle: firstPayloadWeaveMeshInventoryTurtle,
+        weaveableKnops: [{
+          designatorPath: "alice/bio",
+          currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+          currentKnopInventoryTurtle: firstPayloadWeaveKnopInventoryTurtle,
+          payloadArtifact: {
+            workingLocalRelativePath: "alice-bio.ttl",
+            currentPayloadTurtle: "<alice> a <https://schema.org/Person> .\n",
+          },
+        }],
+        namingPolicies: {
+          stateNamingPolicy: "semver",
+        },
+      }),
+    WeaveInputError,
+    "stateNamingPolicy semver requires an explicit stateSegment",
+  );
+});
+
+Deno.test("planWeave rejects explicit state segments that violate semver naming policy", () => {
+  assertThrows(
+    () =>
+      planWeave({
+        request: {
+          targets: [{
+            designatorPath: "alice/bio",
+            historySegment: "releases",
+            stateSegment: "release-candidate",
+          }],
+        },
+        meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+        currentMeshInventoryTurtle: firstPayloadWeaveMeshInventoryTurtle,
+        weaveableKnops: [{
+          designatorPath: "alice/bio",
+          currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+          currentKnopInventoryTurtle: firstPayloadWeaveKnopInventoryTurtle,
+          payloadArtifact: {
+            workingLocalRelativePath: "alice-bio.ttl",
+            currentPayloadTurtle: "<alice> a <https://schema.org/Person> .\n",
+          },
+        }],
+        namingPolicies: {
+          historyNamingPolicy: "named",
+          stateNamingPolicy: "semver",
+        },
+      }),
+    WeaveInputError,
+    "stateSegment release-candidate does not satisfy stateNamingPolicy semver",
+  );
+});
+
 Deno.test("planWeave renders a later first payload weave slice against a carried mesh inventory", () => {
   const plan = planWeave({
     request: {
@@ -1337,6 +1509,82 @@ Deno.test("planWeave renders the second alice bio payload weave slice", () => {
   assertStringIncludes(
     plan.updatedFiles[0]?.contents ?? "",
     "sflo:latestHistoricalState <alice/bio/_knop/_inventory/_history001/_s0002> ;",
+  );
+});
+
+Deno.test("planWeave applies configured manifestation naming on the second payload weave slice", () => {
+  const plan = planWeave({
+    request: {
+      targets: [{
+        designatorPath: "alice/bio",
+        stateSegment: "_s0002",
+      }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: firstReferenceCatalogWeaveMeshInventoryTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice/bio",
+      currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+      currentKnopInventoryTurtle: secondPayloadWeaveKnopInventoryTurtle,
+      payloadArtifact: {
+        workingLocalRelativePath: "alice-bio.ttl",
+        currentArtifactHistoryPath: "alice/bio/_history001",
+        currentPayloadTurtle:
+          `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix schema: <https://schema.org/> .
+
+<alice> a schema:Person .
+<alice/bio> dcterms:creator <alice> .
+`,
+        latestHistoricalStatePath: "alice/bio/_history001/_s0001",
+      },
+    }],
+    namingPolicies: {
+      manifestationNamingPolicy: "ordinal",
+    },
+  });
+
+  assertEquals(
+    plan.createdFiles.map((file) => file.path),
+    [
+      "alice/bio/_history001/_s0002/_m0001/alice-bio.ttl",
+      "alice/bio/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+    ],
+  );
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    "sflo:hasManifestation <alice/bio/_history001/_s0002/_m0001> ;",
+  );
+});
+
+Deno.test("planWeave requires explicit state segments for non-ordinal state naming on the second payload weave slice", () => {
+  assertThrows(
+    () =>
+      planWeave({
+        request: {
+          targets: [{ designatorPath: "alice/bio" }],
+        },
+        meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+        currentMeshInventoryTurtle:
+          firstReferenceCatalogWeaveMeshInventoryTurtle,
+        weaveableKnops: [{
+          designatorPath: "alice/bio",
+          currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+          currentKnopInventoryTurtle: secondPayloadWeaveKnopInventoryTurtle,
+          payloadArtifact: {
+            workingLocalRelativePath: "alice-bio.ttl",
+            currentArtifactHistoryPath: "alice/bio/_history001",
+            currentPayloadTurtle: "<alice> a <https://schema.org/Person> .\n",
+            latestHistoricalStatePath: "alice/bio/_history001/_s0001",
+          },
+        }],
+        namingPolicies: {
+          stateNamingPolicy: "date",
+        },
+      }),
+    WeaveInputError,
+    "stateNamingPolicy date requires an explicit stateSegment",
   );
 });
 
