@@ -479,6 +479,8 @@ Digest lifecycle should distinguish authoring from verification:
 
 The current CLI/API surface only exposes one concrete resolution-target maintenance flow: extraction source creation and update through `weave extract --source`, `weave extract --source-state`, and `weave set extraction-source`. There is not yet a generic command for authoring config-source resolution targets. The config implementation should define that surface rather than assuming operators will hand-edit RDF forever, but the complete operator-facing command set can follow after the first fixture-visible config pass. A future surface could be shaped like `weave config source add|set|pin|unpin|remove`, with options for target artifact, target state, located file or URL, current versus pinned mode, fallback policy, and optional `--expected-digest`; when omitted, the digest should be computed from resolved bytes during the trusted authoring operation.
 
+First-pass config-source target management should use the existing `sflo:ArtifactResolutionTarget` contract directly. `weave config source add` creates a new target attached through the requested role-specific property such as `sfcfg:hasMeshConfigSource`, `sfcfg:hasKnopLocalConfigSource`, or `sfcfg:hasKnopInheritableConfigSource`. `set` replaces the attachment for that role/scope, `pin` converts an existing current-following target to a pinned target by recording the resolved state and expected digest, `unpin` removes the requested state and expected digest only when trusted resolver policy allows current-following config, and `remove` deletes the attachment while leaving the reusable `ConfigArtifact` itself untouched. Authoring commands must resolve paths relative to the declaring config file unless an explicit base is modeled, must reject external/current-following targets unless trusted operational config allows them, and must fail when a policy-required digest cannot be computed or explicitly supplied.
+
 ### Config Resolution Logs And Caches
 
 Runtime logs should remain append-only JSONL, but each record should be shaped as single-line compact JSON-LD rather than plain uncontextualized JSON. The standards-compliant baseline is to put a compact `@context` IRI on each line, not an inline context object. That keeps every line independently parseable as JSON-LD while avoiding a large repeated context. If the repeated context IRI still becomes annoying, Weave may define a non-standard "Weave JSON-LD Lines" profile where the log stream has a sibling context or manifest file and each JSON line carries compact terms plus a context/profile identifier. General JSON-LD consumers would need a small preprocessing step that injects the context before expansion; tools that require standalone JSON-LD records should use the repeated context-IRI form.
@@ -900,8 +902,8 @@ Use this section for items that are real, but should not block the first config 
 - [x] Update `dependencies/github.com/semantic-flow/sflo/semantic-flow-config-ontology.ttl` with Knop local/inheritable config attachment properties and layer-role values.
 - [x] Add or refine reusable config-source resolution vocabulary by directly reusing `sflo:ArtifactResolutionTarget`.
 - [x] Add content digest vocabulary for `LocatedFile`, `ArtifactManifestation`, and `ArtifactResolutionTarget`.
-- [ ] Add SHACL expectations for content digest use.
-- [ ] Define generic config-source target management API/CLI behavior, including add, set, pin, unpin, remove, and expected-digest handling.
+- [x] Add SHACL expectations for content digest use.
+- [x] Define generic config-source target management API/CLI behavior, including add, set, pin, unpin, remove, and expected-digest handling.
 - [x] Add config-resolution / meta-config classes for layers, layer roles, precedence, merge behavior, reference policy, cycle policy, unknown-term policy, and cache policy.
 - [x] Add Weave default profile properties and examples for default policies currently implicit in code/API/CLI defaults, without minting a `WeaveDefaultConfig` class.
 - [x] Add `KnopConfig` only if it helps validation, and keep Knop local/inheritable behavior on attachment properties and layer roles.
@@ -927,7 +929,7 @@ Use this section for items that are real, but should not block the first config 
 - [ ] Define inheritance traversal rules for Knop hierarchy and submesh boundaries, including default accept/propagate behavior and explicit stop/block/self-inclusive propagation policies.
 - [ ] Define validation rules for config policies, naming hints, reusable config targets, and unknown terms.
 - [ ] Define digest validation rules for external, pinned, and `LocatedFile`-based config sources.
-- [ ] Define when config-source target commands compute, persist, recompute, or require expected content digests.
+- [x] Define when config-source target commands compute, persist, recompute, or require expected content digests.
 - [ ] Define cycle detection, maximum config reference depth, and cache/lock semantics for resolved config.
 - [ ] Define stand-alone CLI re-resolution behavior versus service-backed watcher/cache behavior.
 - [ ] Define the `config.resolution.*` log event schema, JSON-LD context strategy, cache key shape, and watcher/fingerprint invalidation model.

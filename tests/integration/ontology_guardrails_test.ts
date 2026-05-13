@@ -8,6 +8,7 @@ const SFCFG_NAMESPACE = "https://semantic-flow.github.io/ontology/config/";
 
 const RDF_FILES = [
   "dependencies/github.com/semantic-flow/sflo/semantic-flow-core-ontology.ttl",
+  "dependencies/github.com/semantic-flow/sflo/semantic-flow-core-shacl.ttl",
   "dependencies/github.com/semantic-flow/sflo/semantic-flow-config-ontology.ttl",
   "dependencies/github.com/semantic-flow/sflo/semantic-flow-job-ontology.ttl",
   "dependencies/github.com/semantic-flow/sflo/semantic-flow-prov-ontology.ttl",
