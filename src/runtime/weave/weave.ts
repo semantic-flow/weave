@@ -653,6 +653,7 @@ async function prepareVersionExecution(
       request: target ? { targets: [{ ...target.source }] } : {},
       meshBase: stagedMeshState.meshBase,
       currentMeshInventoryTurtle: stagedMeshState.currentMeshInventoryTurtle,
+      currentMeshMetadataTurtle: stagedMeshState.currentMeshMetadataTurtle,
       weaveableKnops: [nextCandidate],
       supportHistoryPolicies,
       namingPolicies,

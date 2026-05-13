@@ -221,7 +221,7 @@ The safe order is:
 - Current-only support artifacts are valid DigitalArtifacts when they have current working-file facts and resource-page facts but no `sflo:hasArtifactHistory`, `sflo:currentArtifactHistory`, `sflo:nextHistoryOrdinal`, `ArtifactHistory`, `HistoricalState`, or manifestation snapshot for that support artifact itself.
 - For artifacts whose history is disabled, Weave should not emit history/state/manifestation resource pages or `sflo:hasResourcePage` facts for those omitted historical resources.
 - Payload artifact history behavior is unchanged.
-- `_mesh/_inventory` and `_knop/_inventory` history behavior is transitional. The mesh support ResourcePage catch-up path can already honor current-only mesh inventory policy, but the full weave planner still has inventory-history dependencies.
+- `_mesh/_inventory` and `_knop/_inventory` history behavior is transitional. The mesh support ResourcePage catch-up path can already honor current-only mesh inventory policy, and the first Knop/payload/extracted weave planners now read MeshInventory current/latest/next progression from `_mesh/_meta`; broader inventory and Knop-inventory current-only behavior still waits on the remaining progression seams.
 - Future page regeneration contracts should prefer explicit generation manifests/checkpoints that pin concrete source states over full copied inventory snapshots.
 - Future inventory contracts should distinguish public map facts from mutable current/progression facts.
 - No CLI flag or request-field contract is introduced in the quick fix. Default behavior comes from Weave's checked-in default config profile as that profile becomes wired into runtime paths.
@@ -259,8 +259,10 @@ The safe order is:
 - [x] Refactor mesh-support page planning so `_mesh/_meta` and `_mesh/_inventory` can keep current pages without creating support history when default policy says current-only.
 - [x] Keep `_mesh/_config` versioned in mesh-support page planning unless an explicit future policy overrides it.
 - [x] Refactor first Knop and first payload weave renderers so `_knop/_meta` remains current-only by default.
-- [x] Keep `_mesh/_inventory` and `_knop/_inventory` history rendering unchanged.
+- [x] Move the first MeshInventory current/latest/next progression reads and writes from `_mesh/_inventory` into `_mesh/_meta` for first Knop, first payload, and first extracted-Knop weave planning while keeping stable MeshInventory history/state membership in inventory.
+- [x] Keep `_knop/_inventory` history rendering unchanged until a Knop-local progression seam exists.
 - [ ] Audit generated page models and hand-rendered pages so current support pages do not link to omitted support histories.
-- [ ] Update focused core and integration tests for the new default output shape.
+- [x] Update focused core tests for the first `_mesh/_meta` MeshInventory progression seam, including hinted named state minting and later ordinal advancement after a named latest state.
+- [ ] Update focused integration tests for the new default output shape after fixture regeneration removes legacy ontology IRI assumptions.
 - [ ] Run the relevant Deno validation tasks after code changes, at minimum `deno task test` and `deno task lint` for a broad renderer/planner change.
 - [ ] Leave clear TODOs for later config-driven policy and resource-page generation policy.

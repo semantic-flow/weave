@@ -1179,7 +1179,8 @@ Use this section for items that are real, but should not block the first config 
 - [x] Wire configured naming policies into payload versioning without bypassing current RDF validation.
 - [x] Decide that `_meta` progression uses split artifact/history facts plus optional next-segment hints, with explicit or hinted names controlling minted paths while ordinals keep counting monotonically.
 - [x] Record that API/CLI needs set and clear operations for durable next-segment hints without rewinding ordinal counters.
-- [ ] Add concrete default-segment and next-segment hint vocabulary/runtime behavior if we still want hints beyond explicit command target segments.
+- [x] Implement the first `_mesh/_meta` MeshInventory progression seam for first Knop, first payload, and first extracted-Knop weave planning: read current/latest/next progression plus optional `sfcfg:hasNextStateSegmentHint` from `_mesh/_meta`, mint hinted names before ordinal fallback, advance the ordinal monotonically, clear consumed hints, and keep inventory history blocks focused on stable state membership.
+- [ ] Complete concrete default-segment and next-segment hint runtime behavior beyond this first MeshInventory state seam, including history hints, Knop-local progression, and API/CLI set/clear commands.
 - [x] Wire resource-page generation policy into runtime page materialization separately from history policy.
 - [x] Omit `sflo:hasResourcePage` facts from versioned RDF when resource-page policy suppresses or defers a page.
 - [x] Keep ResourcePage policy ownership on stable history/state membership facts rather than mutable current/latest pointers.
