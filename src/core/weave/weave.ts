@@ -30,6 +30,12 @@ import {
   type WeaveNamingPolicies,
 } from "./naming_policy.ts";
 import {
+  filterResourcePageFactsFromPlannedFiles,
+  hasResourcePageGenerationPolicyOverrides,
+  listGeneratedResourcePagePaths,
+  type WeaveResourcePageGenerationPolicies,
+} from "./resource_page_policy.ts";
+import {
   SFLO_NAMESPACE,
   SFLO_TURTLE_PREFIX_DECLARATION,
 } from "../rdf/namespaces.ts";
@@ -49,6 +55,10 @@ export type {
   StateNamingPolicy,
   WeaveNamingPolicies,
 } from "./naming_policy.ts";
+export type {
+  WeaveResourcePageGenerationPolicies,
+  WeaveResourcePageGenerationPolicy,
+} from "./resource_page_policy.ts";
 export type {
   MeshSupportHistoryPolicies,
   SupportArtifactHistoryPolicy,
@@ -281,6 +291,7 @@ export interface PlanWeaveInput {
   weaveableKnops: readonly WeaveableKnopCandidate[];
   supportHistoryPolicies?: WeaveSupportHistoryPolicies;
   namingPolicies?: WeaveNamingPolicies;
+  resourcePageGenerationPolicies?: WeaveResourcePageGenerationPolicies;
 }
 
 export interface WeavePlan {
@@ -376,53 +387,60 @@ export function planWeave(input: PlanWeaveInput): WeavePlan {
   const slice = classifyWeaveSlice(meshBase, candidate, target);
   assertPayloadNamingSupportedForSlice(slice, designatorPath, target);
 
-  switch (slice) {
-    case "firstKnopWeave":
-      return planFirstKnopWeave(
-        meshBase,
-        input.currentMeshInventoryTurtle,
-        candidate,
-        input.supportHistoryPolicies,
-      );
-    case "firstPayloadWeave":
-      return planFirstPayloadWeave(
-        meshBase,
-        input.currentMeshInventoryTurtle,
-        candidate,
-        target,
-        input.supportHistoryPolicies,
-        input.namingPolicies,
-      );
-    case "firstExtractedKnopWeave":
-      return planFirstExtractedKnopWeave(
-        meshBase,
-        input.currentMeshInventoryTurtle,
-        candidate,
-      );
-    case "firstReferenceCatalogWeave":
-      return planFirstReferenceCatalogWeave(
-        meshBase,
-        input.currentMeshInventoryTurtle,
-        candidate,
-      );
-    case "pageDefinitionWeave":
-      return planPageDefinitionWeave(
-        meshBase,
-        input.currentMeshInventoryTurtle,
-        candidate,
-      );
-    case "secondPayloadWeave":
-      return planSecondPayloadWeave(
-        meshBase,
-        candidate,
-        target,
-        input.namingPolicies,
-      );
-    default:
-      throw new WeaveInputError(
-        `No supported local weave slice was found for ${designatorPath}.`,
-      );
-  }
+  const plan = (() => {
+    switch (slice) {
+      case "firstKnopWeave":
+        return planFirstKnopWeave(
+          meshBase,
+          input.currentMeshInventoryTurtle,
+          candidate,
+          input.supportHistoryPolicies,
+        );
+      case "firstPayloadWeave":
+        return planFirstPayloadWeave(
+          meshBase,
+          input.currentMeshInventoryTurtle,
+          candidate,
+          target,
+          input.supportHistoryPolicies,
+          input.namingPolicies,
+        );
+      case "firstExtractedKnopWeave":
+        return planFirstExtractedKnopWeave(
+          meshBase,
+          input.currentMeshInventoryTurtle,
+          candidate,
+        );
+      case "firstReferenceCatalogWeave":
+        return planFirstReferenceCatalogWeave(
+          meshBase,
+          input.currentMeshInventoryTurtle,
+          candidate,
+        );
+      case "pageDefinitionWeave":
+        return planPageDefinitionWeave(
+          meshBase,
+          input.currentMeshInventoryTurtle,
+          candidate,
+        );
+      case "secondPayloadWeave":
+        return planSecondPayloadWeave(
+          meshBase,
+          candidate,
+          target,
+          input.namingPolicies,
+        );
+      default:
+        throw new WeaveInputError(
+          `No supported local weave slice was found for ${designatorPath}.`,
+        );
+    }
+  })();
+
+  return applyResourcePageGenerationPolicies(plan, {
+    policies: input.resourcePageGenerationPolicies,
+    explicitRequest: requestedTargets.length > 0,
+  });
 }
 
 export function planVersion(input: PlanWeaveInput): VersionPlan {
@@ -439,6 +457,54 @@ export function planVersion(input: PlanWeaveInput): VersionPlan {
     versionedDesignatorPaths: plan.wovenDesignatorPaths,
     createdFiles,
     updatedFiles,
+  };
+}
+
+function applyResourcePageGenerationPolicies(
+  plan: WeavePlan,
+  options: {
+    policies?: WeaveResourcePageGenerationPolicies;
+    explicitRequest?: boolean;
+  },
+): WeavePlan {
+  if (!hasResourcePageGenerationPolicyOverrides(options.policies)) {
+    return plan;
+  }
+
+  const createdFiles = filterResourcePageFactsFromPlannedFiles(
+    plan.meshBase,
+    plan.createdFiles,
+    options.policies,
+    options.explicitRequest ?? false,
+  );
+  const updatedFiles = filterResourcePageFactsFromPlannedFiles(
+    plan.meshBase,
+    plan.updatedFiles,
+    options.policies,
+    options.explicitRequest ?? false,
+  );
+  const generatedPagePaths = new Set(
+    [...createdFiles, ...updatedFiles].flatMap((file) =>
+      file.path.endsWith("inventory.ttl")
+        ? listGeneratedResourcePagePaths({
+          meshBase: plan.meshBase,
+          inventoryTurtle: file.contents,
+          parseErrorMessage:
+            `Could not parse ${file.path} while filtering planned ResourcePages.`,
+          policies: options.policies,
+          explicitRequest: options.explicitRequest ?? false,
+        })
+        : []
+    ),
+  );
+
+  return {
+    ...plan,
+    createdFiles,
+    updatedFiles,
+    createdPages: plan.createdPages.filter((page) =>
+      generatedPagePaths.has(page.path)
+    ),
   };
 }
 

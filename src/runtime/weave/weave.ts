@@ -34,6 +34,7 @@ import {
   WeaveInputError,
   type WeaveNamingPolicies,
   type WeaveRequest,
+  type WeaveResourcePageGenerationPolicies,
   type WeaveSlice,
   type WeaveSupportHistoryPolicies,
 } from "../../core/weave/weave.ts";
@@ -561,6 +562,8 @@ async function prepareVersionExecution(
     effectiveConfig,
   );
   const namingPolicies = namingPoliciesFromEffectiveConfig(effectiveConfig);
+  const resourcePageGenerationPolicies =
+    resourcePageGenerationPoliciesFromEffectiveConfig(effectiveConfig);
   const allDesignatorPaths = listKnopDesignatorPaths(
     meshState.meshBase,
     meshState.currentMeshInventoryTurtle,
@@ -605,6 +608,7 @@ async function prepareVersionExecution(
           currentMeshMetadataTurtle: meshState.currentMeshMetadataTurtle,
           currentMeshConfigTurtle: meshState.currentMeshConfigTurtle,
           supportHistoryPolicies,
+          resourcePageGenerationPolicies,
         }),
       };
     }
@@ -652,6 +656,7 @@ async function prepareVersionExecution(
       weaveableKnops: [nextCandidate],
       supportHistoryPolicies,
       namingPolicies,
+      resourcePageGenerationPolicies,
     });
 
     for (const file of nextPlan.createdFiles) {
@@ -738,6 +743,39 @@ function namingPoliciesFromEffectiveConfig(
     stateNamingPolicy: effectiveConfig.namingPolicies.stateNamingPolicy,
     manifestationNamingPolicy: effectiveConfig.namingPolicies
       .manifestationNamingPolicy,
+  };
+}
+
+function resourcePageGenerationPoliciesFromEffectiveConfig(
+  effectiveConfig: EffectiveConfig,
+): WeaveResourcePageGenerationPolicies {
+  return {
+    payload: effectiveConfig.resourcePageGenerationPolicyForArtifactRole(
+      "payload",
+    ),
+    meshInventory: effectiveConfig.resourcePageGenerationPolicyForArtifactRole(
+      "meshInventory",
+    ),
+    knopInventory: effectiveConfig.resourcePageGenerationPolicyForArtifactRole(
+      "knopInventory",
+    ),
+    meshMetadata: effectiveConfig.resourcePageGenerationPolicyForArtifactRole(
+      "meshMetadata",
+    ),
+    knopMetadata: effectiveConfig.resourcePageGenerationPolicyForArtifactRole(
+      "knopMetadata",
+    ),
+    config: effectiveConfig.resourcePageGenerationPolicyForArtifactRole(
+      "config",
+    ),
+    referenceCatalog: effectiveConfig
+      .resourcePageGenerationPolicyForArtifactRole(
+        "referenceCatalog",
+      ),
+    resourcePageDefinition: effectiveConfig
+      .resourcePageGenerationPolicyForArtifactRole(
+        "resourcePageDefinition",
+      ),
   };
 }
 

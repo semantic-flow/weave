@@ -219,6 +219,47 @@ Deno.test("planMeshSupportResourcePages adds current support ResourcePages inclu
   );
 });
 
+Deno.test("planMeshSupportResourcePages omits suppressed support ResourcePage facts", () => {
+  const plan = planMeshSupportResourcePages({
+    meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    currentMeshInventoryTurtle: sidecarMeshCreatedInventoryTurtle,
+    currentMeshMetadataTurtle:
+      `@base <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<_mesh> a sflo:SemanticMesh .
+`,
+    currentMeshConfigTurtle:
+      `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+
+<> a sfcfg:MeshConfig .
+`,
+    supportHistoryPolicies: {
+      meshMetadata: "currentOnly",
+      meshInventory: "currentOnly",
+      config: "versioned",
+    },
+    resourcePageGenerationPolicies: {
+      config: "suppress",
+    },
+  });
+
+  const inventory = plan.updatedFiles[0]?.contents ?? "";
+  assertFalse(inventory.includes("_mesh/_config/index.html"));
+  assertFalse(inventory.includes("_mesh/_config/_history001/index.html"));
+  assertFalse(
+    inventory.includes("_mesh/_config/_history001/_s0001/index.html"),
+  );
+  assertStringIncludes(
+    inventory,
+    "sflo:hasWorkingLocatedFile <_mesh/_config/config.ttl> ;\n  sflo:hasArtifactHistory <_mesh/_config/_history001> ;",
+  );
+  assertStringIncludes(
+    inventory,
+    "<_mesh/_config/_history001/_s0001/config-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;",
+  );
+});
+
 const firstPayloadWeaveMeshInventoryTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
@@ -737,6 +778,59 @@ Deno.test("planWeave applies current-only KnopMetadata policy on the first paylo
   assertFalse(
     plan.createdPages.some((page) =>
       page.path.startsWith("alice/bio/_knop/_meta/_history001")
+    ),
+  );
+});
+
+Deno.test("planWeave omits payload ResourcePage facts when payload pages are suppressed", () => {
+  const plan = planWeave({
+    request: {
+      targets: [{ designatorPath: "alice/bio" }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: firstPayloadWeaveMeshInventoryTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice/bio",
+      currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+      currentKnopInventoryTurtle: firstPayloadWeaveKnopInventoryTurtle,
+      payloadArtifact: {
+        workingLocalRelativePath: "alice-bio.ttl",
+        currentPayloadTurtle:
+          `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix schema: <https://schema.org/> .
+
+<alice> a schema:Person .
+`,
+      },
+    }],
+    resourcePageGenerationPolicies: {
+      payload: "suppress",
+    },
+  });
+
+  const meshInventory = plan.updatedFiles[0]?.contents ?? "";
+  const knopInventory = plan.updatedFiles[1]?.contents ?? "";
+
+  assertFalse(meshInventory.includes("alice/bio/index.html"));
+  assertFalse(knopInventory.includes("alice/bio/index.html"));
+  assertFalse(knopInventory.includes("alice/bio/_history001/index.html"));
+  assertFalse(
+    knopInventory.includes("alice/bio/_history001/_s0001/index.html"),
+  );
+  assertFalse(
+    knopInventory.includes("alice/bio/_history001/_s0001/ttl/index.html"),
+  );
+  assertStringIncludes(knopInventory, "alice/bio/_knop/index.html");
+  assertStringIncludes(knopInventory, "alice/bio/_knop/_inventory/index.html");
+  assertFalse(
+    plan.createdPages.some((page) =>
+      page.path === "alice/bio/index.html" ||
+      page.path.startsWith("alice/bio/_history001")
+    ),
+  );
+  assert(
+    plan.createdPages.some((page) =>
+      page.path === "alice/bio/_knop/index.html"
     ),
   );
 });

@@ -7,6 +7,10 @@ import {
   shouldMaterializeSupportHistory as shouldMaterializeSupportHistoryPolicy,
   type SupportArtifactHistoryPolicy,
 } from "./support_history_policy.ts";
+import {
+  filterResourcePageFactsFromPlannedFiles,
+  type WeaveResourcePageGenerationPolicies,
+} from "./resource_page_policy.ts";
 import type { VersionPlan } from "./version_plan.ts";
 
 const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
@@ -19,6 +23,7 @@ export interface PlanMeshSupportResourcePagesInput {
   currentMeshMetadataTurtle: string;
   currentMeshConfigTurtle?: string;
   supportHistoryPolicies?: MeshSupportHistoryPolicies;
+  resourcePageGenerationPolicies?: WeaveResourcePageGenerationPolicies;
 }
 
 export type {
@@ -65,14 +70,17 @@ export function planMeshSupportResourcePages(
   );
 
   if (needsInitialSupportHistory) {
-    return planInitialMeshSupportResourcePageWeave({
-      meshBase,
-      currentMeshInventoryTurtle,
-      currentMeshMetadataTurtle: input.currentMeshMetadataTurtle,
-      currentMeshConfigTurtle: input.currentMeshConfigTurtle,
-      hasConfig: hasSubject(quads, meshBase, "_mesh/_config"),
-      supportHistoryPolicies: input.supportHistoryPolicies,
-    });
+    return applyResourcePageGenerationPolicies(
+      planInitialMeshSupportResourcePageWeave({
+        meshBase,
+        currentMeshInventoryTurtle,
+        currentMeshMetadataTurtle: input.currentMeshMetadataTurtle,
+        currentMeshConfigTurtle: input.currentMeshConfigTurtle,
+        hasConfig: hasSubject(quads, meshBase, "_mesh/_config"),
+        supportHistoryPolicies: input.supportHistoryPolicies,
+      }),
+      input.resourcePageGenerationPolicies,
+    );
   }
 
   const existingPagePaths = new Set(
@@ -90,12 +98,19 @@ export function planMeshSupportResourcePages(
   );
 
   if (existingPagePaths.size === supportResources.length) {
-    return {
-      meshBase,
-      versionedDesignatorPaths: [],
-      createdFiles: [],
-      updatedFiles: [],
-    };
+    return applyResourcePageGenerationPolicies(
+      {
+        meshBase,
+        versionedDesignatorPaths: [],
+        createdFiles: [],
+        updatedFiles: [{
+          path: "_mesh/_inventory/inventory.ttl",
+          contents: currentMeshInventoryTurtle,
+        }],
+      },
+      input.resourcePageGenerationPolicies,
+      { omitUnchangedUpdates: true },
+    );
   }
 
   let blocks = normalizeMeshInventoryHeader(
@@ -123,7 +138,7 @@ export function planMeshSupportResourcePages(
     );
   }
 
-  return {
+  return applyResourcePageGenerationPolicies({
     meshBase,
     versionedDesignatorPaths: [],
     createdFiles: [],
@@ -131,6 +146,31 @@ export function planMeshSupportResourcePages(
       path: "_mesh/_inventory/inventory.ttl",
       contents: `${blocks.join("\n\n")}\n`,
     }],
+  }, input.resourcePageGenerationPolicies);
+}
+
+function applyResourcePageGenerationPolicies(
+  plan: VersionPlan,
+  policies?: WeaveResourcePageGenerationPolicies,
+  options: { omitUnchangedUpdates?: boolean } = {},
+): VersionPlan {
+  const updatedFiles = filterResourcePageFactsFromPlannedFiles(
+    plan.meshBase,
+    plan.updatedFiles,
+    policies,
+  );
+  return {
+    ...plan,
+    createdFiles: filterResourcePageFactsFromPlannedFiles(
+      plan.meshBase,
+      plan.createdFiles,
+      policies,
+    ),
+    updatedFiles: options.omitUnchangedUpdates
+      ? updatedFiles.filter((file, index) =>
+        file.contents !== plan.updatedFiles[index]?.contents
+      )
+      : updatedFiles,
   };
 }
 
