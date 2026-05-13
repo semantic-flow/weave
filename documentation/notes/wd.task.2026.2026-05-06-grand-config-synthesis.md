@@ -1049,6 +1049,7 @@ Use this section for items that are real, but should not block the first config 
 - Add policy-valued ResourcePage regeneration config modes for config-at-the-time, current presentation config, current full config, and hybrid historical-semantic/current-presentation regeneration.
 - Add config naming-default and naming-hint vocabulary that is separate from core ordinal allocator state.
 - Add operation-request override policy vocabulary for warning/applying, rejecting conflicts, or requiring explicit acknowledgement when request fields conflict with resolved config.
+- Define API/CLI affordances for setting and clearing durable next history/state segment hints without rewinding ordinal allocator counters.
 - Add config attachment and config-source resolution vocabulary for reusable named config artifacts.
 - Add content digest vocabulary for byte-bearing resources and expected resolved targets, at least `hasContentDigest` and `expectsContentDigest`.
 - Define digest lifecycle for target creation, pinning, repinning, user-supplied expected digests, and weave-time verification.
@@ -1177,6 +1178,7 @@ Use this section for items that are real, but should not block the first config 
 - [x] Wire history policy into the first slim-support-artifact bridge slice from [[wd.task.2026.2026-05-05-optional-history-and-slim-support-artifacts-by-default]]: `_knop/_meta` is current-only in first Knop and first payload weave planning, while payload and inventory histories remain unchanged.
 - [x] Wire configured naming policies into payload versioning without bypassing current RDF validation.
 - [x] Decide that `_meta` progression uses split artifact/history facts plus optional next-segment hints, with explicit or hinted names controlling minted paths while ordinals keep counting monotonically.
+- [x] Record that API/CLI needs set and clear operations for durable next-segment hints without rewinding ordinal counters.
 - [ ] Add concrete default-segment and next-segment hint vocabulary/runtime behavior if we still want hints beyond explicit command target segments.
 - [x] Wire resource-page generation policy into runtime page materialization separately from history policy.
 - [x] Omit `sflo:hasResourcePage` facts from versioned RDF when resource-page policy suppresses or defers a page.

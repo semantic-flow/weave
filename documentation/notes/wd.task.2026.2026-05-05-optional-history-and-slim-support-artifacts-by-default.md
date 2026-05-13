@@ -133,6 +133,8 @@ Use the split progression shape:
 
 Segment hints are candidate names for the next minted history or state. They are not a substitute for the ordinal counters. When an operation supplies an explicit segment, that explicit segment controls the actual minted path. When no operation segment is supplied, a segment hint controls the minted path if present. Otherwise, Weave derives the anonymous ordinal segment from `sflo:nextHistoryOrdinal` or `sflo:nextStateOrdinal`. The ordinal counter always keeps counting monotonically even when a named segment is used, so a later anonymous state does not reuse an ordinal that was skipped by a named state.
 
+The API and CLI need explicit set and clear operations for these next-segment hints. Setting a hint should validate it as a legal unused path segment for the targeted artifact/history and persist it in the relevant `_meta` progression record. Clearing a hint should remove only the hint, not rewind or recalculate the ordinal counter. Operation-supplied segments remain one-shot request values; set/clear hint commands are the durable way to prepare or remove the next default name before a future weave.
+
 Current code audit:
 
 - `sflo:currentArtifactHistory` is read from current inventory by runtime artifact resolvers and version planning to choose the active history for payloads, ReferenceCatalogs, ResourcePageDefinitions, mesh support artifacts, and Knop support artifacts. It is a current selector, not historical evidence. Target home: `_mesh/_meta` or `_knop/_meta` for support artifacts and a future artifact working-state/progression record for payload/config-like governed artifacts.
