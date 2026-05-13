@@ -1,0 +1,45 @@
+@base <https://semantic-flow.github.io/weave/defaults/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<config-resolution> a sfcfg:ConfigResolutionConfig, sfcfg:ConfigArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sfcfg:hasUnknownConfigTermPolicy sfcfg:unknownConfigTermPolicy_reject ;
+  sfcfg:hasConfigCyclePolicy sfcfg:configCyclePolicy_reject ;
+  sfcfg:hasConfigReferencePolicy sfcfg:configReferencePolicy_pinnedOnly ;
+  sfcfg:hasResolvedConfigCachePolicy sfcfg:resolvedConfigCachePolicy_cacheForProcess ;
+  sfcfg:hasPortableResolverHintPolicy sfcfg:portableResolverHintPolicy_honorWithinTrustedBoundary ;
+  sfcfg:maxConfigReferenceDepth "8"^^xsd:nonNegativeInteger ;
+  sfcfg:hasConfigLayer [
+    a sfcfg:ConfigLayer ;
+    sfcfg:hasConfigLayerRole sfcfg:configLayerRole_builtInDefaults ;
+    sfcfg:layerOrder "10"^^xsd:nonNegativeInteger
+  ], [
+    a sfcfg:ConfigLayer ;
+    sfcfg:hasConfigLayerRole sfcfg:configLayerRole_weaveDefaults ;
+    sfcfg:layerOrder "20"^^xsd:nonNegativeInteger
+  ], [
+    a sfcfg:ConfigLayer ;
+    sfcfg:hasConfigLayerRole sfcfg:configLayerRole_machineLocalOperational ;
+    sfcfg:layerOrder "30"^^xsd:nonNegativeInteger
+  ], [
+    a sfcfg:ConfigLayer ;
+    sfcfg:hasConfigLayerRole sfcfg:configLayerRole_workspaceOperational ;
+    sfcfg:layerOrder "40"^^xsd:nonNegativeInteger
+  ], [
+    a sfcfg:ConfigLayer ;
+    sfcfg:hasConfigLayerRole sfcfg:configLayerRole_meshLocal ;
+    sfcfg:layerOrder "50"^^xsd:nonNegativeInteger
+  ], [
+    a sfcfg:ConfigLayer ;
+    sfcfg:hasConfigLayerRole sfcfg:configLayerRole_knopInherited ;
+    sfcfg:layerOrder "60"^^xsd:nonNegativeInteger
+  ], [
+    a sfcfg:ConfigLayer ;
+    sfcfg:hasConfigLayerRole sfcfg:configLayerRole_knopLocal ;
+    sfcfg:layerOrder "70"^^xsd:nonNegativeInteger
+  ], [
+    a sfcfg:ConfigLayer ;
+    sfcfg:hasConfigLayerRole sfcfg:configLayerRole_commandOverride ;
+    sfcfg:layerOrder "90"^^xsd:nonNegativeInteger
+  ] .

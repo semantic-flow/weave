@@ -727,9 +727,11 @@ Use this section for items that are real, but should not block the first config 
 ## Decisions
 
 - Name the config-resolution/meta-config class `ConfigResolutionConfig`.
+- Use `https://semantic-flow.github.io/sflo/ontology/` as the canonical `sflo` namespace/CURIE base. The config ontology should not import core terms through the older `https://semantic-flow.github.io/ontology/core/` alias.
 - Do not define `WeaveDefaultConfig` as a class. Treat the concrete Weave default as a named profile artifact or bundle whose contents are instances of broader config classes such as `ApplicationConfig`, `ConfigResolutionConfig`, and `ConfigArtifact`.
 - Let the Weave default profile include or point to a default `ConfigResolutionConfig`; this is trusted application baseline config, not portable mesh authority over resolver trust.
 - Put canonical Weave default profile artifacts in a Weave-owned defaults mesh separate from the `sflo` ontology mesh.
+- Put the first Weave defaults source RDF directly under top-level `defaults/`; it can be integrated into a sidecar mesh with Weave commands when that packaging flow is ready.
 - Runtime code may embed parsed Weave defaults and a diagnostic command may emit them, but the inspectable source of truth should be RDF artifacts in the Weave defaults mesh.
 - Model authored config layer semantics primarily through attachment properties, `ConfigLayerRole` values, and resolution context rather than disjoint classes for every layer.
 - Define config layer ordering vocabulary and resolver safety invariants in the ontology, but keep concrete layer order and numeric precedence in Weave/default or implementation profile artifacts.
@@ -745,6 +747,7 @@ Use this section for items that are real, but should not block the first config 
 - Treat mesh-root-local and workspace-local operational config as project-local policy that can describe local config and local layout inside the runtime-approved boundary, but cannot grant access outside that boundary or enable remote/external config loading without higher-trust operational policy.
 - Model CLI operation as either stand-alone or service-backed. Stand-alone invocations re-resolve config from trusted defaults, operational inputs, mesh files, and requested scopes every time; service-backed invocations may reuse watcher-maintained scoped `ResolvedConfig` caches across invocations.
 - Rename or specialize the active ontology's machine/user-local `LocalConfig` meaning as host-local operational config, with candidate name `HostLocalOperationalConfig`, and keep it under `OperationalConfig`.
+- Replace `LocalConfig` outright with `HostLocalOperationalConfig`; do not add compatibility aliases for this pre-v1 vocabulary.
 - Use `KnopConfig` only as an optional portable scope marker for config attached to a Knop; Knop-local and Knop-inheritable semantics should come from attachment properties and `ConfigLayerRole` values.
 - Treat inheritable config as an attachment/layer role that may be used at mesh scope or Knop scope rather than as a single layer-specific class.
 - Implement minimal inherited config propagation controls in the first config pass, before fixture ladder regeneration, so fixture outputs encode the explicit accept/propagate/block semantics instead of a temporary implicit traversal rule.
@@ -753,6 +756,7 @@ Use this section for items that are real, but should not block the first config 
 - Reintroduce `_knop/_local-config` and `_knop/_inheritable-config` as separate Knop support artifacts.
 - Treat `_knop/_local-config` and `_knop/_inheritable-config` as `DigitalArtifact` / `RdfDocument` config artifacts that may be independently versioned.
 - Keep `sflo:nextHistoryOrdinal` and `sflo:nextStateOrdinal` in inventory/history RDF, not in config.
+- Put digest terms such as `sflo:hasContentDigest` and `sflo:expectsContentDigest` in the core ontology because they apply to byte-bearing core resources and artifact-resolution targets, not just config.
 - Use policy-valued vocabulary for history tracking and resource page generation rather than booleans.
 - Allow config to provide naming defaults and hints such as default history segment, default state segment, state naming policy, and next state segment hint.
 - Require weave/version operations to validate config-provided naming hints against current artifact/history RDF before using them.
@@ -796,6 +800,7 @@ Use this section for items that are real, but should not block the first config 
 - Do not revive regex-heavy template mappings as the first resource-page presentation selection model.
 - Revise the active `semantic-flow-config-ontology.ttl` in place rather than copying the old JSON-LD ontology forward.
 - Complete the enum-style individual naming pass before minting new config policy individuals; all new config controlled values should use flat underscore-separated IRIs such as `sfcfg:historyTrackingPolicy_currentOnly`, not slash-style or unseparated flat camelCase IRIs.
+- Tackle fixture ladder generation after the Phase 1 config ontology/default-profile pass so regenerated examples and test data absorb enum and config vocabulary changes together.
 
 ## Contract Changes
 
@@ -880,35 +885,36 @@ Use this section for items that are real, but should not block the first config 
 
 ### Phase 0: Synthesis And Examples
 
-- [ ] Finish or at least settle the ontology enum-instance naming task enough that config policy values can be minted once, using the flat underscore-separated convention.
-- [ ] Record the synthesized decisions from the current task and the four source tasks.
+- [x] Finish or at least settle the ontology enum-instance naming task enough that config policy values can be minted once, using the flat underscore-separated convention.
+- [x] Record the synthesized decisions from the current task and the four source tasks.
 - [ ] Inventory current implicit TypeScript, API, CLI, page planning, history planning, and fixture defaults.
 - [ ] Classify each current default as Weave default profile config, operational config, explicit operation request, or derived effective config.
 - [ ] Draft compact example RDF for mesh config, Knop local config, Knop inheritable config, reusable config artifacts, operational config, and derived `ResolvedConfig`.
 - [ ] Draft compact example RDF for config-resolution / meta-config, including pinned reusable config and a rejected current-following config source.
-- [ ] Draft compact example RDF for the Weave default profile mesh.
+- [x] Draft compact example RDF for the Weave default profile mesh.
 - [ ] Classify draft examples as normative sflo examples, Semantic Flow Framework scenario examples, or Weave developer-note implementation examples.
-- [ ] Decide initial names for policy classes and controlled policy values.
+- [x] Decide initial names for policy classes and controlled policy values.
 
 ### Phase 1: Config Ontology Overhaul
 
-- [ ] Update `dependencies/github.com/semantic-flow/sflo/semantic-flow-config-ontology.ttl` with Knop local/inheritable config attachment properties and layer-role values.
-- [ ] Add or refine reusable config-source resolution vocabulary by directly reusing `sflo:ArtifactResolutionTarget`.
-- [ ] Add content digest vocabulary and SHACL expectations for `LocatedFile`, `ArtifactManifestation`, and `ArtifactResolutionTarget`.
+- [x] Update `dependencies/github.com/semantic-flow/sflo/semantic-flow-config-ontology.ttl` with Knop local/inheritable config attachment properties and layer-role values.
+- [x] Add or refine reusable config-source resolution vocabulary by directly reusing `sflo:ArtifactResolutionTarget`.
+- [x] Add content digest vocabulary for `LocatedFile`, `ArtifactManifestation`, and `ArtifactResolutionTarget`.
+- [ ] Add SHACL expectations for content digest use.
 - [ ] Define generic config-source target management API/CLI behavior, including add, set, pin, unpin, remove, and expected-digest handling.
-- [ ] Add config-resolution / meta-config classes for layers, layer roles, precedence, merge behavior, reference policy, cycle policy, unknown-term policy, and cache policy.
-- [ ] Add Weave default profile properties and examples for default policies currently implicit in code/API/CLI defaults, without minting a `WeaveDefaultConfig` class.
-- [ ] Add `KnopConfig` only if it helps validation, and keep Knop local/inheritable behavior on attachment properties and layer roles.
-- [ ] Add mesh-level and Knop-level inheritable config attachment vocabulary.
-- [ ] Add minimal inherited config propagation-control vocabulary for accepting, stopping, blocking, and self-including inherited config.
-- [ ] Add policy-valued history tracking and resource page generation vocabulary.
-- [ ] Add ResourcePage regeneration config policy vocabulary and render/provenance manifest vocabulary.
-- [ ] Add naming-default and naming-hint vocabulary without moving ordinal allocator state into config.
-- [ ] Add operation-request override policy vocabulary for segment defaults, hints, strict policies, and explicit override acknowledgements.
-- [ ] Add `ResolvedConfig` vocabulary and comments that distinguish derived resolver output from authored source config and operation-specific effective config.
-- [ ] Rename or specialize machine/user-local `LocalConfig` as host-local operational config, with candidate name `HostLocalOperationalConfig`.
-- [ ] Remove or avoid `ConfigFragment` and document when inline `Config` data versus `ConfigArtifact` should be used.
-- [ ] Update ontology comments to reject old booleans and regex mappings as first-pass contracts.
+- [x] Add config-resolution / meta-config classes for layers, layer roles, precedence, merge behavior, reference policy, cycle policy, unknown-term policy, and cache policy.
+- [x] Add Weave default profile properties and examples for default policies currently implicit in code/API/CLI defaults, without minting a `WeaveDefaultConfig` class.
+- [x] Add `KnopConfig` only if it helps validation, and keep Knop local/inheritable behavior on attachment properties and layer roles.
+- [x] Add mesh-level and Knop-level inheritable config attachment vocabulary.
+- [x] Add minimal inherited config propagation-control vocabulary for accepting, stopping, blocking, and self-including inherited config.
+- [x] Add policy-valued history tracking and resource page generation vocabulary.
+- [x] Add ResourcePage regeneration config policy vocabulary and render/provenance manifest vocabulary.
+- [x] Add naming-default and naming-hint vocabulary without moving ordinal allocator state into config.
+- [x] Add operation-request override policy vocabulary for segment defaults, hints, strict policies, and explicit override acknowledgements.
+- [x] Add `ResolvedConfig` vocabulary and comments that distinguish derived resolver output from authored source config and operation-specific effective config.
+- [x] Rename or specialize machine/user-local `LocalConfig` as host-local operational config, with candidate name `HostLocalOperationalConfig`.
+- [x] Remove or avoid `ConfigFragment` and document when inline `Config` data versus `ConfigArtifact` should be used.
+- [x] Update ontology comments to reject old booleans and regex mappings as first-pass contracts.
 
 ### Phase 2: Weave Config Discovery And Resolution Design
 

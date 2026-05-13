@@ -103,7 +103,7 @@ Deno.test("loadOperationalLocalPathPolicy applies machine-local absolute path ru
     join(homeRoot, ".sf-local-access.ttl"),
     `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
 
-<> a sfcfg:LocalConfig ;
+<> a sfcfg:HostLocalOperationalConfig ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
     sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/localPathBase_absolutePath> ;

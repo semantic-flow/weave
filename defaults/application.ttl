@@ -1,0 +1,46 @@
+@base <https://semantic-flow.github.io/weave/defaults/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+
+<application> a sfcfg:ApplicationConfig, sfcfg:ConfigArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sfcfg:hasConfigResolutionConfig <config-resolution> ;
+  sfcfg:hasDefaultHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly ;
+  sfcfg:hasHistoryTrackingDefault [
+    a sfcfg:ArtifactRolePolicy ;
+    sfcfg:hasArtifactRole sfcfg:artifactRole_payload ;
+    sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_versioned
+  ], [
+    a sfcfg:ArtifactRolePolicy ;
+    sfcfg:hasArtifactRole sfcfg:artifactRole_config ;
+    sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_versioned
+  ], [
+    a sfcfg:ArtifactRolePolicy ;
+    sfcfg:hasArtifactRole sfcfg:artifactRole_meshInventory ;
+    sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_required
+  ], [
+    a sfcfg:ArtifactRolePolicy ;
+    sfcfg:hasArtifactRole sfcfg:artifactRole_knopInventory ;
+    sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_slimHistory
+  ], [
+    a sfcfg:ArtifactRolePolicy ;
+    sfcfg:hasArtifactRole sfcfg:artifactRole_runtimeMeta ;
+    sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly
+  ] ;
+  sfcfg:hasDefaultResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_suppress ;
+  sfcfg:hasResourcePageGenerationDefault [
+    a sfcfg:ArtifactRolePolicy ;
+    sfcfg:hasArtifactRole sfcfg:artifactRole_payload ;
+    sfcfg:hasResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_generate
+  ], [
+    a sfcfg:ArtifactRolePolicy ;
+    sfcfg:hasArtifactRole sfcfg:artifactRole_meshInventory ;
+    sfcfg:hasResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_generate
+  ], [
+    a sfcfg:ArtifactRolePolicy ;
+    sfcfg:hasArtifactRole sfcfg:artifactRole_config ;
+    sfcfg:hasResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_suppress
+  ] ;
+  sfcfg:hasResourcePageRegenerationConfigPolicy sfcfg:resourcePageRegenerationConfigPolicy_configAtTheTime ;
+  sfcfg:hasHistoryNamingPolicy sfcfg:historyNamingPolicy_ordinal ;
+  sfcfg:hasStateNamingPolicy sfcfg:stateNamingPolicy_ordinal ;
+  sfcfg:hasManifestationNamingPolicy sfcfg:manifestationNamingPolicy_filenameDerived .

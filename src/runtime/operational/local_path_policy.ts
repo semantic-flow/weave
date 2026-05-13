@@ -8,7 +8,8 @@ import {
 
 const OPERATIONAL_CONFIG_IRI = `${SFCFG_NAMESPACE}OperationalConfig`;
 const MESH_CONFIG_IRI = `${SFCFG_NAMESPACE}MeshConfig`;
-const LOCAL_CONFIG_IRI = `${SFCFG_NAMESPACE}LocalConfig`;
+const HOST_LOCAL_OPERATIONAL_CONFIG_IRI =
+  `${SFCFG_NAMESPACE}HostLocalOperationalConfig`;
 const HAS_LOCAL_PATH_ACCESS_RULE_IRI =
   `${SFCFG_NAMESPACE}hasLocalPathAccessRule`;
 const HAS_LOCAL_PATH_BASE_IRI = `${SFCFG_NAMESPACE}hasLocalPathBase`;
@@ -374,7 +375,7 @@ function collectOperationalConfigSubjects(
     if (
       quad.object.value !== OPERATIONAL_CONFIG_IRI &&
       quad.object.value !== MESH_CONFIG_IRI &&
-      quad.object.value !== LOCAL_CONFIG_IRI
+      quad.object.value !== HOST_LOCAL_OPERATIONAL_CONFIG_IRI
     ) {
       continue;
     }
