@@ -115,7 +115,23 @@ Candidate facts to move to `_mesh/_meta`, `_knop/_meta`, or a future explicit wo
 - current progression facts for support artifacts
 - possibly current working-file pointers, if those are better treated as current working state than public map data
 
-`_meta` is a reasonable first landing place because it is small and already support-oriented. The long-term ontology should decide whether these are truly metadata facts or whether Weave needs a more specific working-state/progression artifact. Either way, the design should avoid requiring a full inventory snapshot whenever only a small mutable pointer changes.
+`_meta` is the first landing place because it is small and already support-oriented. It should hold current/progression facts, not the whole history. Stable membership stays in inventory/history; `_meta` says where Weave should continue from.
+
+Use the split progression shape:
+
+```ttl
+<_mesh/_inventory>
+  sflo:currentArtifactHistory <_mesh/_inventory/_history001> ;
+  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
+  sfcfg:hasNextHistorySegmentHint "_history002" .
+
+<_mesh/_inventory/_history001>
+  sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0007> ;
+  sflo:nextStateOrdinal "8"^^xsd:nonNegativeInteger ;
+  sfcfg:hasNextStateSegmentHint "_s0008" .
+```
+
+Segment hints are candidate names for the next minted history or state. They are not a substitute for the ordinal counters. When an operation supplies an explicit segment, that explicit segment controls the actual minted path. When no operation segment is supplied, a segment hint controls the minted path if present. Otherwise, Weave derives the anonymous ordinal segment from `sflo:nextHistoryOrdinal` or `sflo:nextStateOrdinal`. The ordinal counter always keeps counting monotonically even when a named segment is used, so a later anonymous state does not reuse an ordinal that was skipped by a named state.
 
 Current code audit:
 

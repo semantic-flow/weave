@@ -1176,6 +1176,7 @@ Use this section for items that are real, but should not block the first config 
 - [x] Wire the first support-artifact history-policy slice into mesh support ResourcePage catch-up: `_mesh/_meta` and `_mesh/_inventory` use current-only history by default while `_mesh/_config` remains versioned.
 - [x] Wire history policy into the first slim-support-artifact bridge slice from [[wd.task.2026.2026-05-05-optional-history-and-slim-support-artifacts-by-default]]: `_knop/_meta` is current-only in first Knop and first payload weave planning, while payload and inventory histories remain unchanged.
 - [x] Wire configured naming policies into payload versioning without bypassing current RDF validation.
+- [x] Decide that `_meta` progression uses split artifact/history facts plus optional next-segment hints, with explicit or hinted names controlling minted paths while ordinals keep counting monotonically.
 - [ ] Add concrete default-segment and next-segment hint vocabulary/runtime behavior if we still want hints beyond explicit command target segments.
 - [x] Wire resource-page generation policy into runtime page materialization separately from history policy.
 - [x] Omit `sflo:hasResourcePage` facts from versioned RDF when resource-page policy suppresses or defers a page.
