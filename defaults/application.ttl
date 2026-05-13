@@ -16,11 +16,11 @@
   ], [
     a sfcfg:ArtifactRolePolicy ;
     sfcfg:hasArtifactRole sfcfg:artifactRole_meshInventory ;
-    sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_required
+    sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly
   ], [
     a sfcfg:ArtifactRolePolicy ;
     sfcfg:hasArtifactRole sfcfg:artifactRole_knopInventory ;
-    sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_slimHistory
+    sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly
   ], [
     a sfcfg:ArtifactRolePolicy ;
     sfcfg:hasArtifactRole sfcfg:artifactRole_runtimeMeta ;
