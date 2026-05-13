@@ -13,6 +13,7 @@ created: 1773673181726
   mesh create, knop create, integrate, payload update, version, validate, generate, extract, weave
   request/result types shared by all callers
   shared designator normalization now treats `/` as a CLI-only root sentinel and `""` as the internal root designator path, including root-aware target selection and support-artifact path derivation
+  `core/weave` has started splitting focused planners out of the large façade module; mesh support ResourcePage catch-up planning now lives in `mesh_support_pages.ts`, while `weave.ts` keeps the public re-export surface for existing runtime, CLI, and test imports
   current carried slices: `mesh create` request validation/support-artifact rendering, `knop create` planning over an existing mesh inventory, the first narrow `integrate` planning slice for `05-alice-knop-created-woven` -> `06-alice-bio-integrated`, the first narrow `knop add-reference` planning slice for `07-alice-bio-integrated-woven` -> `08-alice-bio-referenced`, the first narrow `payload.update` planning slice for `09-alice-bio-referenced-woven` -> `10-alice-bio-updated`, `extract` planning for both Alice Bio `11-alice-bio-v2-woven` -> `12-bob-extracted` and Fantasy Rules sidecar `07-shacl-integrated-woven` -> `08-ontology-and-shacl-terms-extracted`, and carried `weave` planning slices through Alice Bio `13-bob-extracted-woven` plus Fantasy Rules sidecar `15-first-release-woven`
 
 ### runtime
