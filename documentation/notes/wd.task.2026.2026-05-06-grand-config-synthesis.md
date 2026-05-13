@@ -1174,7 +1174,7 @@ Use this section for items that are real, but should not block the first config 
 - [x] Implement an internal effective-config model that can answer history policy and resource-page policy for a target artifact role.
 - [x] Implement minimal inherited config propagation controls before fixture ladder regeneration, covering normal propagation, accept-but-stop, block inherited config, and descendant-only versus self-inclusive offers.
 - [x] Wire the first support-artifact history-policy slice into mesh support ResourcePage catch-up: `_mesh/_meta` and `_mesh/_inventory` use current-only history by default while `_mesh/_config` remains versioned.
-- [ ] Wire history policy into the slim-support-artifact work from [[wd.task.2026.2026-05-05-optional-history-and-slim-support-artifacts-by-default]].
+- [x] Wire history policy into the first slim-support-artifact bridge slice from [[wd.task.2026.2026-05-05-optional-history-and-slim-support-artifacts-by-default]]: `_knop/_meta` is current-only in first Knop and first payload weave planning, while payload and inventory histories remain unchanged.
 - [ ] Wire naming defaults and hints into payload versioning without bypassing current RDF validation.
 - [ ] Wire resource-page generation policy into page planning separately from history policy.
 - [ ] Wire historical ResourcePage regeneration to select config-at-the-time, current presentation config, current full config, or hybrid regeneration policy.

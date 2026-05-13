@@ -2,6 +2,11 @@ import { Parser } from "n3";
 import type { Quad } from "n3";
 import { SFLO_NAMESPACE } from "../rdf/namespaces.ts";
 import { WeaveInputError } from "./errors.ts";
+import {
+  type MeshSupportHistoryPolicies,
+  shouldMaterializeSupportHistory as shouldMaterializeSupportHistoryPolicy,
+  type SupportArtifactHistoryPolicy,
+} from "./support_history_policy.ts";
 import type { VersionPlan } from "./version_plan.ts";
 
 const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
@@ -16,19 +21,10 @@ export interface PlanMeshSupportResourcePagesInput {
   supportHistoryPolicies?: MeshSupportHistoryPolicies;
 }
 
-export type SupportArtifactHistoryPolicy =
-  | "versioned"
-  | "currentOnly"
-  | "required"
-  | "slimHistory"
-  | "checkpointOnly"
-  | "metadataOnly";
-
-export interface MeshSupportHistoryPolicies {
-  meshMetadata?: SupportArtifactHistoryPolicy;
-  meshInventory?: SupportArtifactHistoryPolicy;
-  config?: SupportArtifactHistoryPolicy;
-}
+export type {
+  MeshSupportHistoryPolicies,
+  SupportArtifactHistoryPolicy,
+} from "./support_history_policy.ts";
 
 interface MeshSupportResource {
   path: string;
@@ -209,8 +205,7 @@ function resolveMeshSupportHistoryPolicies(
 function shouldMaterializeSupportHistory(
   resource: MeshSupportResource,
 ): boolean {
-  return resource.historyPolicy !== undefined &&
-    resource.historyPolicy !== "currentOnly";
+  return shouldMaterializeSupportHistoryPolicy(resource.historyPolicy);
 }
 
 function planInitialMeshSupportResourcePageWeave(input: {

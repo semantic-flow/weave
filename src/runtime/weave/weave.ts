@@ -17,7 +17,6 @@ import {
   detectPendingWeaveSlice,
   type GenerateRequest,
   type KnopArtifactLinkModel,
-  type MeshSupportHistoryPolicies,
   type PayloadWorkingArtifact,
   planMeshSupportResourcePages,
   planVersion,
@@ -35,6 +34,7 @@ import {
   WeaveInputError,
   type WeaveRequest,
   type WeaveSlice,
+  type WeaveSupportHistoryPolicies,
 } from "../../core/weave/weave.ts";
 import {
   listKnopDesignatorPaths,
@@ -548,6 +548,10 @@ async function prepareVersionExecution(
 ): Promise<PreparedVersionExecution> {
   await ensureWorkspaceRootExists(workspaceRoot);
   const meshState = await loadMeshState(workspaceRoot);
+  const effectiveConfig = await loadWeaveDefaultEffectiveConfig();
+  const supportHistoryPolicies = supportHistoryPoliciesFromEffectiveConfig(
+    effectiveConfig,
+  );
   const allDesignatorPaths = listKnopDesignatorPaths(
     meshState.meshBase,
     meshState.currentMeshInventoryTurtle,
@@ -584,7 +588,6 @@ async function prepareVersionExecution(
 
   if (initialWeaveableKnops.length === 0) {
     if (targets.length === 0) {
-      const effectiveConfig = await loadWeaveDefaultEffectiveConfig();
       return {
         meshState,
         plan: planMeshSupportResourcePages({
@@ -592,9 +595,7 @@ async function prepareVersionExecution(
           currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
           currentMeshMetadataTurtle: meshState.currentMeshMetadataTurtle,
           currentMeshConfigTurtle: meshState.currentMeshConfigTurtle,
-          supportHistoryPolicies: meshSupportHistoryPoliciesFromEffectiveConfig(
-            effectiveConfig,
-          ),
+          supportHistoryPolicies,
         }),
       };
     }
@@ -640,6 +641,7 @@ async function prepareVersionExecution(
       meshBase: stagedMeshState.meshBase,
       currentMeshInventoryTurtle: stagedMeshState.currentMeshInventoryTurtle,
       weaveableKnops: [nextCandidate],
+      supportHistoryPolicies,
     });
 
     for (const file of nextPlan.createdFiles) {
@@ -691,9 +693,9 @@ async function prepareVersionExecution(
   };
 }
 
-function meshSupportHistoryPoliciesFromEffectiveConfig(
+function supportHistoryPoliciesFromEffectiveConfig(
   effectiveConfig: EffectiveConfig,
-): MeshSupportHistoryPolicies {
+): WeaveSupportHistoryPolicies {
   return {
     meshMetadata: effectiveConfig.historyTrackingPolicyForArtifactRole(
       "meshMetadata",
@@ -702,6 +704,19 @@ function meshSupportHistoryPoliciesFromEffectiveConfig(
       "meshInventory",
     ),
     config: effectiveConfig.historyTrackingPolicyForArtifactRole("config"),
+    knopMetadata: effectiveConfig.historyTrackingPolicyForArtifactRole(
+      "knopMetadata",
+    ),
+    knopInventory: effectiveConfig.historyTrackingPolicyForArtifactRole(
+      "knopInventory",
+    ),
+    referenceCatalog: effectiveConfig.historyTrackingPolicyForArtifactRole(
+      "referenceCatalog",
+    ),
+    resourcePageDefinition: effectiveConfig
+      .historyTrackingPolicyForArtifactRole(
+        "resourcePageDefinition",
+      ),
   };
 }
 
