@@ -10,12 +10,8 @@ const RDF_TYPE_IRI = `${RDF_NAMESPACE}type`;
 const SFCFG_APPLICATION_CONFIG_IRI = `${SFCFG_NAMESPACE}ApplicationConfig`;
 const SFCFG_CONFIG_ARTIFACT_IRI = `${SFCFG_NAMESPACE}ConfigArtifact`;
 const SFCFG_MESH_CONFIG_IRI = `${SFCFG_NAMESPACE}MeshConfig`;
-const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
-  `${SFLO_NAMESPACE}currentArtifactHistory`;
 const SFLO_HAS_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}hasArtifactHistory`;
 const SFLO_HAS_HISTORICAL_STATE_IRI = `${SFLO_NAMESPACE}hasHistoricalState`;
-const SFLO_LATEST_HISTORICAL_STATE_IRI =
-  `${SFLO_NAMESPACE}latestHistoricalState`;
 const SFLO_HAS_MANIFESTATION_IRI = `${SFLO_NAMESPACE}hasManifestation`;
 const SFLO_HAS_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}hasResourcePage`;
 const SFLO_KNOP_INVENTORY_IRI = `${SFLO_NAMESPACE}KnopInventory`;
@@ -395,13 +391,11 @@ function artifactRoleForType(typeIri: string): WeaveArtifactRole | undefined {
 }
 
 function isArtifactHistoryPredicate(predicateIri: string): boolean {
-  return predicateIri === SFLO_HAS_ARTIFACT_HISTORY_IRI ||
-    predicateIri === SFLO_CURRENT_ARTIFACT_HISTORY_IRI;
+  return predicateIri === SFLO_HAS_ARTIFACT_HISTORY_IRI;
 }
 
 function isHistoricalStatePredicate(predicateIri: string): boolean {
-  return predicateIri === SFLO_HAS_HISTORICAL_STATE_IRI ||
-    predicateIri === SFLO_LATEST_HISTORICAL_STATE_IRI;
+  return predicateIri === SFLO_HAS_HISTORICAL_STATE_IRI;
 }
 
 function isResourcePagePath(path: string): boolean {

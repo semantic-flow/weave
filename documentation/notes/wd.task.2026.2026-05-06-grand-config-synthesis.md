@@ -1179,6 +1179,7 @@ Use this section for items that are real, but should not block the first config 
 - [ ] Add concrete default-segment and next-segment hint vocabulary/runtime behavior if we still want hints beyond explicit command target segments.
 - [x] Wire resource-page generation policy into runtime page materialization separately from history policy.
 - [x] Omit `sflo:hasResourcePage` facts from versioned RDF when resource-page policy suppresses or defers a page.
+- [x] Keep ResourcePage policy ownership on stable history/state membership facts rather than mutable current/latest pointers.
 - [x] Parse and validate the default `ResourcePageRegenerationConfigPolicy` into effective runtime config.
 - [ ] Wire historical ResourcePage regeneration to select config-at-the-time, current presentation config, current full config, or hybrid regeneration policy.
 - [ ] Keep path/URL trust policy integration aligned with [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
