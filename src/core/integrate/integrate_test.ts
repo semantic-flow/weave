@@ -1,11 +1,13 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import { IntegrateInputError, planIntegrate } from "./integrate.ts";
 import { readMeshAliceBioBranchFile } from "../../../tests/support/mesh_alice_bio_fixture.ts";
+import { readMeshSidecarFantasyRulesBranchFile } from "../../../tests/support/mesh_sidecar_fantasy_rules_fixture.ts";
+import { compareRdfContent } from "../../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 
 Deno.test("planIntegrate renders first payload integration artifacts", async () => {
   const plan = planIntegrate({
     designatorPath: "alice/bio",
-    workingFilePath: "alice-bio.ttl",
+    workingLocalRelativePath: "alice-bio.ttl",
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: await readMeshAliceBioBranchFile(
       "05-alice-knop-created-woven",
@@ -21,7 +23,7 @@ Deno.test("planIntegrate renders first payload integration artifacts", async () 
     plan.knopIri,
     "https://semantic-flow.github.io/mesh-alice-bio/alice/bio/_knop",
   );
-  assertEquals(plan.workingFilePath, "alice-bio.ttl");
+  assertEquals(plan.workingLocalRelativePath, "alice-bio.ttl");
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
@@ -48,11 +50,17 @@ Deno.test("planIntegrate renders first payload integration artifacts", async () 
     ),
   );
   assertEquals(
-    plan.updatedFiles[0]?.contents,
-    await readMeshAliceBioBranchFile(
-      "06-alice-bio-integrated",
-      "_mesh/_inventory/inventory.ttl",
-    ),
+    await compareRdfContent({
+      left: encode(plan.updatedFiles[0]?.contents ?? ""),
+      right: encode(
+        await readMeshAliceBioBranchFile(
+          "06-alice-bio-integrated",
+          "_mesh/_inventory/inventory.ttl",
+        ),
+      ),
+      path: "_mesh/_inventory/inventory.ttl",
+    }),
+    true,
   );
 });
 
@@ -66,7 +74,7 @@ Deno.test("planIntegrate rejects absolute working file paths", async () => {
     () =>
       planIntegrate({
         designatorPath: "alice/bio",
-        workingFilePath: "/tmp/alice-bio.ttl",
+        workingLocalRelativePath: "/tmp/alice-bio.ttl",
         meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
         currentMeshInventoryTurtle,
       }),
@@ -76,7 +84,7 @@ Deno.test("planIntegrate rejects absolute working file paths", async () => {
 });
 
 Deno.test(
-  "planIntegrate accepts extra-mesh workingFilePath values and renders them as literals",
+  "planIntegrate accepts extra-mesh workingLocalRelativePath values and renders them as literals",
   async () => {
     const currentMeshInventoryTurtle = await readMeshAliceBioBranchFile(
       "05-alice-knop-created-woven",
@@ -85,15 +93,18 @@ Deno.test(
 
     const plan = planIntegrate({
       designatorPath: "alice/bio",
-      workingFilePath: "../documentation/alice-bio.ttl",
+      workingLocalRelativePath: "../documentation/alice-bio.ttl",
       meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
       currentMeshInventoryTurtle,
     });
 
-    assertEquals(plan.workingFilePath, "../documentation/alice-bio.ttl");
+    assertEquals(
+      plan.workingLocalRelativePath,
+      "../documentation/alice-bio.ttl",
+    );
     assertEquals(
       plan.createdFiles[1]?.contents.includes(
-        'sflo:workingFilePath "../documentation/alice-bio.ttl" .',
+        'sflo:workingLocalRelativePath "../documentation/alice-bio.ttl" .',
       ),
       true,
     );
@@ -105,7 +116,7 @@ Deno.test(
     );
     assertEquals(
       plan.updatedFiles[0]?.contents.includes(
-        'sflo:workingFilePath "../documentation/alice-bio.ttl" .',
+        'sflo:workingLocalRelativePath "../documentation/alice-bio.ttl" .',
       ),
       true,
     );
@@ -132,24 +143,66 @@ Deno.test(
 
     const plan = planIntegrate({
       designatorPath: "alice/bio",
-      workingFilePath: "alice-bio.ttl",
+      workingLocalRelativePath: "alice-bio.ttl",
       meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
       currentMeshInventoryTurtle,
     });
 
     assertEquals(
-      plan.updatedFiles[0]?.contents,
-      await readMeshAliceBioBranchFile(
-        "06-alice-bio-integrated",
-        "_mesh/_inventory/inventory.ttl",
-      ),
+      await compareRdfContent({
+        left: encode(plan.updatedFiles[0]?.contents ?? ""),
+        right: encode(
+          await readMeshAliceBioBranchFile(
+            "06-alice-bio-integrated",
+            "_mesh/_inventory/inventory.ttl",
+          ),
+        ),
+        path: "_mesh/_inventory/inventory.ttl",
+      }),
+      true,
     );
   },
 );
 
+Deno.test("planIntegrate accepts a carried mesh inventory with a root Knop", async () => {
+  const plan = planIntegrate({
+    designatorPath: "examples/gunaar",
+    workingLocalRelativePath: "../examples/gunaar.ttl",
+    meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    currentMeshInventoryTurtle: await readMeshSidecarFantasyRulesBranchFile(
+      "10-root-knop",
+      "docs/_mesh/_inventory/inventory.ttl",
+    ),
+  });
+
+  assertEquals(
+    plan.createdFiles.map((file) => file.path),
+    [
+      "examples/gunaar/_knop/_meta/meta.ttl",
+      "examples/gunaar/_knop/_inventory/inventory.ttl",
+    ],
+  );
+  assertEquals(
+    plan.updatedFiles[0]?.contents.includes(
+      "<_mesh> sflo:hasKnop <examples/gunaar/_knop> .",
+    ),
+    true,
+  );
+  assertEquals(
+    plan.updatedFiles[0]?.contents.includes(
+      'sflo:workingLocalRelativePath "../examples/gunaar.ttl" .',
+    ),
+    true,
+  );
+});
+
+function encode(value: string): Uint8Array {
+  return new TextEncoder().encode(value);
+}
+
 function withRdfPrefix(turtle: string): string {
   return turtle.replace(
-    "@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .\n",
-    "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .\n",
+    "@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .\n",
+    "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .\n",
   );
 }

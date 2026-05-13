@@ -1,4 +1,4 @@
-import { dirname, join } from "@std/path";
+import { dirname, join, relative } from "@std/path";
 import { Parser, type Quad } from "n3";
 import {
   formatDesignatorPathForDisplay,
@@ -16,11 +16,17 @@ import {
 import {
   detectPendingWeaveSlice,
   type GenerateRequest,
+  type KnopArtifactLinkModel,
   type PayloadWorkingArtifact,
+  planMeshSupportResourcePages,
   planVersion,
   type ReferenceCatalogWorkingArtifact,
+  type ResourcePageChildIdentifierModel,
   type ResourcePageDefinitionWorkingArtifact,
+  type ResourcePageExtractionSourceModel,
+  type ResourcePageHistoryGroupModel,
   type ResourcePageModel,
+  type ResourcePageRawSourcePanelModel,
   type ValidateRequest,
   type VersionPlan,
   type VersionRequest,
@@ -31,10 +37,11 @@ import {
 } from "../../core/weave/weave.ts";
 import {
   listKnopDesignatorPaths,
+  resolveExtractionSourceInventoryState,
   resolvePayloadArtifactInventoryState,
   resolveReferenceCatalogInventoryState,
-  resolveReferenceTargetDesignatorPath,
   resolveResourcePageDefinitionInventoryState,
+  tryResolveReferenceTargetLinkState,
 } from "../mesh/inventory.ts";
 import {
   loadOperationalLocalPathPolicy,
@@ -57,31 +64,60 @@ import {
   ResourcePageDefinitionResolutionError,
 } from "./page_definition.ts";
 import { renderResourcePages } from "./pages.ts";
+import { SFLO_NAMESPACE } from "../../core/rdf/namespaces.ts";
 
-const SFLO_NAMESPACE =
-  "https://semantic-flow.github.io/semantic-flow-ontology/";
 const SFLO_HAS_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}hasResourcePage`;
+const SFLO_HAS_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}hasArtifactHistory`;
+const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
+  `${SFLO_NAMESPACE}currentArtifactHistory`;
+const SFLO_HAS_HISTORICAL_STATE_IRI = `${SFLO_NAMESPACE}hasHistoricalState`;
+const SFLO_LATEST_HISTORICAL_STATE_IRI =
+  `${SFLO_NAMESPACE}latestHistoricalState`;
+const SFLO_HAS_MANIFESTATION_IRI = `${SFLO_NAMESPACE}hasManifestation`;
+const SFLO_HAS_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}hasLocatedFile`;
+const SFLO_LOCATED_FILE_FOR_STATE_IRI = `${SFLO_NAMESPACE}locatedFileForState`;
+const SFLO_HISTORY_ORDINAL_IRI = `${SFLO_NAMESPACE}historyOrdinal`;
+const SFLO_STATE_ORDINAL_IRI = `${SFLO_NAMESPACE}stateOrdinal`;
+const SFLO_HAS_KNOP_METADATA_IRI = `${SFLO_NAMESPACE}hasKnopMetadata`;
+const SFLO_HAS_KNOP_INVENTORY_IRI = `${SFLO_NAMESPACE}hasKnopInventory`;
+const SFLO_HAS_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasPayloadArtifact`;
+const SFLO_HAS_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}hasReferenceCatalog`;
+const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
+  `${SFLO_NAMESPACE}hasWorkingLocatedFile`;
+const SFLO_WORKING_FILE_PATH_IRI = `${SFLO_NAMESPACE}workingLocalRelativePath`;
+const SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI =
+  `${SFLO_NAMESPACE}hasResourcePageDefinition`;
+const SFLO_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFLO_NAMESPACE}hasKnopAssetBundle`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
+  `${SFLO_NAMESPACE}artifactResolutionMode_pinned`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
+  `${SFLO_NAMESPACE}artifactResolutionMode_current`;
+const DCTERMS_TITLE_IRI = "http://purl.org/dc/terms/title";
+const RDFS_LABEL_IRI = "http://www.w3.org/2000/01/rdf-schema#label";
 
 export interface ExecuteValidateOptions {
-  workspaceRoot: string;
+  meshRoot: string;
   request?: ValidateRequest;
 }
 
 export interface ExecuteVersionOptions {
-  workspaceRoot: string;
+  meshRoot: string;
   request?: VersionRequest;
 }
 
 export interface ExecuteGenerateOptions {
-  workspaceRoot: string;
+  meshRoot: string;
   request?: GenerateRequest;
+  now?: () => Date;
+  includeSemanticFlowMetadata?: boolean;
 }
 
 export interface ExecuteWeaveOptions {
-  workspaceRoot: string;
+  meshRoot: string;
   request?: WeaveRequest;
   operationalLogger?: StructuredLogger;
   auditLogger?: AuditLogger;
+  now?: () => Date;
 }
 
 export interface ValidateFinding {
@@ -125,7 +161,9 @@ export class WeaveRuntimeError extends Error {
 
 interface MeshState {
   meshBase: string;
+  currentMeshMetadataTurtle: string;
   currentMeshInventoryTurtle: string;
+  currentMeshConfigTurtle?: string;
 }
 
 interface PreparedVersionExecution {
@@ -137,22 +175,36 @@ type TextFileOverlay = Map<string, string>;
 
 interface GenerateDesignatorContext {
   designatorPath: string;
-  payloadWorkingFilePath?: string;
+  payloadWorkingLocalRelativePath?: string;
+  extractionSource?: ResourcePageExtractionSourceModel;
+  governedArtifacts: readonly KnopArtifactLinkModel[];
+  supportingArtifacts: readonly KnopArtifactLinkModel[];
   pagePaths: readonly string[];
   customIdentifierPage?: CustomIdentifierPageModelInput;
+  historyGroupsByResourcePath: ReadonlyMap<
+    string,
+    readonly ResourcePageHistoryGroupModel[]
+  >;
   pageDescriptions: ReadonlyMap<string, string>;
+  rawSourcePanels: ReadonlyMap<
+    string,
+    readonly ResourcePageRawSourcePanelModel[]
+  >;
 }
+
+const RAW_SOURCE_INLINE_BYTE_LIMIT = 1024 * 1024;
 
 export async function executeValidate(
   options: ExecuteValidateOptions,
 ): Promise<ValidateResult> {
   try {
     const targets = normalizeValidateRequest(options.request);
+    const meshRoot = resolveExecutionMeshRoot(options);
     const localPathPolicy = await loadOperationalLocalPathPolicy(
-      options.workspaceRoot,
+      meshRoot,
     );
     const prepared = await prepareVersionExecution(
-      options.workspaceRoot,
+      meshRoot,
       toNormalizedVersionTargets(targets),
       localPathPolicy,
     );
@@ -186,31 +238,36 @@ export async function executeVersion(
   options: ExecuteVersionOptions,
 ): Promise<VersionResult> {
   const targets = normalizeVersionRequest(options.request);
+  const meshRoot = resolveExecutionMeshRoot(options);
   const localPathPolicy = await loadOperationalLocalPathPolicy(
-    options.workspaceRoot,
+    meshRoot,
   );
   const prepared = await prepareVersionExecution(
-    options.workspaceRoot,
+    meshRoot,
     targets,
     localPathPolicy,
   );
-  assertUpdatedTargetsExist(options.workspaceRoot, prepared.plan.updatedFiles);
+  assertUpdatedTargetsExist(meshRoot, prepared.plan.updatedFiles);
   await assertCreateTargetsDoNotExist(
-    options.workspaceRoot,
+    meshRoot,
     prepared.plan.createdFiles,
   );
   validateRdfFiles([
     ...prepared.plan.createdFiles,
     ...prepared.plan.updatedFiles,
   ]);
-  await writeFiles(options.workspaceRoot, prepared.plan.createdFiles, true);
-  await writeFiles(options.workspaceRoot, prepared.plan.updatedFiles, false);
+  await writeFiles(meshRoot, prepared.plan.createdFiles, true);
+  await writeFiles(meshRoot, prepared.plan.updatedFiles, false);
 
   return {
     meshBase: prepared.meshState.meshBase,
     versionedDesignatorPaths: prepared.plan.versionedDesignatorPaths,
-    createdPaths: prepared.plan.createdFiles.map((file) => file.path),
-    updatedPaths: prepared.plan.updatedFiles.map((file) => file.path),
+    createdPaths: prepared.plan.createdFiles.map((file) =>
+      toWorkspaceRelativePath(localPathPolicy, file.path)
+    ),
+    updatedPaths: prepared.plan.updatedFiles.map((file) =>
+      toWorkspaceRelativePath(localPathPolicy, file.path)
+    ),
   };
 }
 
@@ -218,11 +275,12 @@ export async function executeGenerate(
   options: ExecuteGenerateOptions,
 ): Promise<GenerateResult> {
   const targets = normalizeGenerateRequest(options.request);
-  await ensureWorkspaceRootExists(options.workspaceRoot);
+  const meshRoot = resolveExecutionMeshRoot(options);
+  await ensureWorkspaceRootExists(meshRoot);
   const localPathPolicy = await loadOperationalLocalPathPolicy(
-    options.workspaceRoot,
+    meshRoot,
   );
-  const meshState = await loadMeshState(options.workspaceRoot);
+  const meshState = await loadMeshState(meshRoot);
   const allDesignatorPaths = listKnopDesignatorPaths(
     meshState.meshBase,
     meshState.currentMeshInventoryTurtle,
@@ -233,19 +291,25 @@ export async function executeGenerate(
     targets,
   );
   const pageFiles = await collectGeneratedPageFiles(
-    options.workspaceRoot,
+    meshRoot,
     localPathPolicy,
     meshState,
     selectedDesignatorPaths,
     targets.length === 0,
+    resolveGeneratedAt(options.now),
+    options.includeSemanticFlowMetadata ?? false,
   );
-  const writeResult = await writeFilesUpsert(options.workspaceRoot, pageFiles);
+  const writeResult = await writeFilesUpsert(meshRoot, pageFiles);
 
   return {
     meshBase: meshState.meshBase,
     generatedDesignatorPaths: selectedDesignatorPaths,
-    createdPaths: writeResult.createdPaths,
-    updatedPaths: writeResult.updatedPaths,
+    createdPaths: writeResult.createdPaths.map((path) =>
+      toWorkspaceRelativePath(localPathPolicy, path)
+    ),
+    updatedPaths: writeResult.updatedPaths.map((path) =>
+      toWorkspaceRelativePath(localPathPolicy, path)
+    ),
   };
 }
 
@@ -253,7 +317,9 @@ export async function executeWeave(
   options: ExecuteWeaveOptions,
 ): Promise<WeaveResult> {
   const { operationalLogger, auditLogger } = resolveLoggers(options);
-  const workspaceRoot = options.workspaceRoot;
+  const meshRoot = resolveExecutionMeshRoot(options);
+  const initialPolicy = await loadOperationalLocalPathPolicy(meshRoot);
+  const workspaceRoot = initialPolicy.workspaceRoot;
   let wovenDesignatorPaths: readonly string[] = [];
 
   await operationalLogger.info("weave.started", "Starting local weave", {
@@ -266,23 +332,22 @@ export async function executeWeave(
   });
 
   try {
-    const validation = await executeValidate({
-      workspaceRoot,
-      request: toSharedTargetRequest(options.request),
-    });
-    if (validation.findings.length > 0) {
-      throw new WeaveInputError(validation.findings[0]!.message);
-    }
+    await validateVersionRequestForWeave(
+      meshRoot,
+      options.request,
+      initialPolicy,
+    );
 
     const versionResult = await executeVersion({
-      workspaceRoot,
+      meshRoot,
       request: options.request,
     });
     wovenDesignatorPaths = versionResult.versionedDesignatorPaths;
 
     const generateResult = await executeGenerate({
-      workspaceRoot,
+      meshRoot,
       request: toSharedTargetRequest(options.request),
+      now: options.now,
     });
 
     const result: WeaveResult = {
@@ -331,6 +396,30 @@ export async function executeWeave(
       throw error;
     }
     throw new WeaveRuntimeError(message);
+  }
+}
+
+async function validateVersionRequestForWeave(
+  meshRoot: string,
+  request: WeaveRequest | undefined,
+  localPathPolicy: OperationalLocalPathPolicy,
+): Promise<void> {
+  try {
+    const targets = normalizeVersionRequest(request);
+    const prepared = await prepareVersionExecution(
+      meshRoot,
+      targets,
+      localPathPolicy,
+    );
+    validateRdfFiles([
+      ...prepared.plan.createdFiles,
+      ...prepared.plan.updatedFiles,
+    ]);
+  } catch (error) {
+    if (error instanceof WeaveRuntimeError) {
+      throw new WeaveInputError(error.message);
+    }
+    throw error;
   }
 }
 
@@ -480,6 +569,7 @@ async function prepareVersionExecution(
     meshState.meshBase,
     meshState.currentMeshInventoryTurtle,
     requestedDesignatorPaths,
+    targetByDesignatorPath,
     overlay,
   );
   assertRequestedTargetsAreWeaveable(
@@ -488,10 +578,19 @@ async function prepareVersionExecution(
   );
 
   if (initialWeaveableKnops.length === 0) {
+    if (targets.length === 0) {
+      return {
+        meshState,
+        plan: planMeshSupportResourcePages({
+          meshBase: meshState.meshBase,
+          currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
+          currentMeshMetadataTurtle: meshState.currentMeshMetadataTurtle,
+          currentMeshConfigTurtle: meshState.currentMeshConfigTurtle,
+        }),
+      };
+    }
     throw new WeaveInputError(
-      targets.length === 0
-        ? "No weave candidates were found."
-        : "Requested targets did not match any weave candidates.",
+      "Requested targets did not match any weave candidates.",
     );
   }
 
@@ -512,6 +611,7 @@ async function prepareVersionExecution(
       stagedMeshState.meshBase,
       stagedMeshState.currentMeshInventoryTurtle,
       remainingDesignatorPaths,
+      targetByDesignatorPath,
       overlay,
     );
 
@@ -633,6 +733,30 @@ function toNormalizedVersionTargets(
   }));
 }
 
+function resolveExecutionMeshRoot(
+  options:
+    | ExecuteValidateOptions
+    | ExecuteVersionOptions
+    | ExecuteGenerateOptions
+    | ExecuteWeaveOptions,
+): string {
+  if (options.meshRoot.trim().length === 0) {
+    throw new WeaveRuntimeError("mesh root is required");
+  }
+  return options.meshRoot;
+}
+
+function toWorkspaceRelativePath(
+  policy: OperationalLocalPathPolicy,
+  meshRelativePath: string,
+): string {
+  const path = relative(
+    policy.workspaceRoot,
+    join(policy.meshRoot, meshRelativePath),
+  ).replaceAll("\\", "/");
+  return path.length === 0 ? "." : path;
+}
+
 function resolveSelectedDesignatorPaths(
   allDesignatorPaths: readonly string[],
   targets:
@@ -675,14 +799,18 @@ async function loadMeshState(
     workspaceRoot,
     "_mesh/_inventory/inventory.ttl",
   );
+  const meshConfigPath = join(workspaceRoot, "_mesh/_config/config.ttl");
   let meshMetadataTurtle: string;
   let currentMeshInventoryTurtle: string;
+  let currentMeshConfigTurtle: string | undefined;
 
   try {
-    [meshMetadataTurtle, currentMeshInventoryTurtle] = await Promise.all([
-      readTextFileWithOverlay(meshMetadataPath, overlay),
-      readTextFileWithOverlay(meshInventoryPath, overlay),
-    ]);
+    [meshMetadataTurtle, currentMeshInventoryTurtle, currentMeshConfigTurtle] =
+      await Promise.all([
+        readTextFileWithOverlay(meshMetadataPath, overlay),
+        readTextFileWithOverlay(meshInventoryPath, overlay),
+        readOptionalTextFileWithOverlay(meshConfigPath, overlay),
+      ]);
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new WeaveRuntimeError(
@@ -709,7 +837,11 @@ async function loadMeshState(
 
   return {
     meshBase,
+    currentMeshMetadataTurtle: meshMetadataTurtle,
     currentMeshInventoryTurtle,
+    ...(currentMeshConfigTurtle !== undefined
+      ? { currentMeshConfigTurtle }
+      : {}),
   };
 }
 
@@ -719,6 +851,10 @@ async function loadWeaveableKnopCandidates(
   meshBase: string,
   currentMeshInventoryTurtle: string,
   requestedDesignatorPaths: readonly string[],
+  targetByDesignatorPath: ReadonlyMap<
+    string,
+    NormalizedVersionTargetSpec | undefined
+  >,
   overlay?: ReadonlyMap<string, string>,
 ): Promise<readonly WeaveableKnopCandidate[]> {
   const designatorPaths = listKnopDesignatorPaths(
@@ -765,6 +901,7 @@ async function loadWeaveableKnopCandidates(
       meshBase,
       designatorPath,
       currentKnopInventoryTurtle,
+      targetByDesignatorPath.get(designatorPath),
     );
 
     if (!slice) {
@@ -785,10 +922,7 @@ async function loadWeaveableKnopCandidates(
       );
     }
 
-    if (
-      slice === "firstReferenceCatalogWeave" ||
-      slice === "firstExtractedKnopWeave"
-    ) {
+    if (slice === "firstReferenceCatalogWeave") {
       candidate.referenceCatalogArtifact =
         await loadReferenceCatalogWorkingArtifact(
           workspaceRoot,
@@ -818,12 +952,18 @@ async function loadWeaveableKnopCandidates(
           localPathPolicy,
           meshBase,
           designatorPath,
-          candidate.referenceCatalogArtifact,
+          currentKnopInventoryTurtle,
           overlay,
         );
     }
 
-    if (!isWeaveableKnopCandidate(candidate, slice)) {
+    if (
+      !isWeaveableKnopCandidate(
+        candidate,
+        slice,
+        targetByDesignatorPath.get(designatorPath),
+      )
+    ) {
       continue;
     }
 
@@ -857,7 +997,7 @@ async function loadPayloadWorkingArtifact(
   if (!payloadArtifact) {
     return undefined;
   }
-  const workingFilePath = payloadArtifact.workingFilePath;
+  const workingLocalRelativePath = payloadArtifact.workingLocalRelativePath;
   const currentArtifactHistoryPath = payloadArtifact.currentArtifactHistoryPath;
   const latestHistoricalStatePath = payloadArtifact.currentArtifactHistoryExists
     ? payloadArtifact.latestHistoricalStatePath
@@ -866,7 +1006,7 @@ async function loadPayloadWorkingArtifact(
     ? payloadArtifact.latestHistoricalSnapshotPath ??
       toPayloadHistoricalSnapshotPath(
         latestHistoricalStatePath,
-        workingFilePath,
+        workingLocalRelativePath,
       )
     : undefined;
   const latestHistoricalSnapshotLocalPath = latestHistoricalSnapshotPath
@@ -879,20 +1019,20 @@ async function loadPayloadWorkingArtifact(
     currentPayloadTurtle = await readTextFileWithOverlay(
       resolveAllowedLocalPath(
         localPathPolicy,
-        "workingFilePath",
-        workingFilePath,
+        "workingLocalRelativePath",
+        workingLocalRelativePath,
       ),
       overlay,
     );
   } catch (error) {
     if (error instanceof LocalPathAccessError) {
       throw new WeaveRuntimeError(
-        `Working payload file for ${designatorPath} is outside the allowed local-path boundary: ${workingFilePath}`,
+        `Working payload file for ${designatorPath} is outside the allowed local-path boundary: ${workingLocalRelativePath}`,
       );
     }
     if (error instanceof Deno.errors.NotFound) {
       throw new WeaveRuntimeError(
-        `Workspace is missing the working payload file for ${designatorPath}: ${workingFilePath}`,
+        `Workspace is missing the working payload file for ${designatorPath}: ${workingLocalRelativePath}`,
       );
     }
     throw error;
@@ -915,7 +1055,7 @@ async function loadPayloadWorkingArtifact(
   }
 
   return {
-    workingFilePath,
+    workingLocalRelativePath,
     currentPayloadTurtle,
     currentArtifactHistoryPath,
     ...(latestHistoricalSnapshotPath ? { latestHistoricalSnapshotPath } : {}),
@@ -929,26 +1069,31 @@ async function loadReferenceTargetSourcePayloadArtifact(
   localPathPolicy: OperationalLocalPathPolicy,
   meshBase: string,
   designatorPath: string,
-  referenceCatalogArtifact: ReferenceCatalogWorkingArtifact | undefined,
+  currentKnopInventoryTurtle: string,
   overlay?: ReadonlyMap<string, string>,
 ): Promise<WeaveableKnopCandidate["referenceTargetSourcePayloadArtifact"]> {
-  if (!referenceCatalogArtifact) {
-    return undefined;
-  }
-
-  const sourceDesignatorPath = resolveReferenceTargetDesignatorPath(
+  const extractionSource = resolveExtractionSourceInventoryState(
     meshBase,
-    referenceCatalogArtifact.currentReferenceCatalogTurtle,
+    currentKnopInventoryTurtle,
     designatorPath,
     {
       parseErrorMessage:
-        `Could not parse the current ReferenceCatalog while resolving the extracted weave source for ${designatorPath}.`,
-      missingReferenceLinkMessage:
-        `Could not resolve the current extracted ReferenceCatalog link for ${designatorPath}.`,
-      missingReferenceTargetMessage:
-        `Could not resolve the current extracted ReferenceCatalog target for ${designatorPath}.`,
+        `Could not parse the current Knop inventory while resolving the extracted weave source for ${designatorPath}.`,
+      missingExtractionSourceMessage:
+        `Could not resolve the current extracted source binding for ${designatorPath}.`,
+      missingTargetArtifactMessage:
+        `Could not resolve the current extracted source target for ${designatorPath}.`,
+      missingRequestedTargetStateMessage:
+        `Could not resolve the current extracted source target state for ${designatorPath}.`,
+      unsupportedResolutionModeMessage:
+        `Unsupported ExtractionSource resolution mode for ${designatorPath}.`,
     },
   );
+  if (!extractionSource) {
+    return undefined;
+  }
+
+  const sourceDesignatorPath = extractionSource.sourceArtifactPath;
   const sourceKnopInventoryPath = join(
     workspaceRoot,
     `${toKnopPath(sourceDesignatorPath)}/_inventory/inventory.ttl`,
@@ -984,12 +1129,47 @@ async function loadReferenceTargetSourcePayloadArtifact(
       `Extracted weave source for ${designatorPath} is missing a woven current payload history: ${sourceDesignatorPath}`,
     );
   }
+  const isPinned = extractionSource.artifactResolutionModeIri ===
+    SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI;
+  const selectedHistoricalStatePath = isPinned
+    ? extractionSource.requestedTargetStatePath
+    : sourcePayloadArtifact.latestHistoricalStatePath;
+  if (!selectedHistoricalStatePath) {
+    throw new WeaveRuntimeError(
+      `Extracted weave source for ${designatorPath} is missing a pinned target state.`,
+    );
+  }
+  const selectedHistoricalSnapshotPath =
+    sourcePayloadArtifact.latestHistoricalStatePath ===
+        selectedHistoricalStatePath &&
+      sourcePayloadArtifact.latestHistoricalSnapshotPath
+      ? sourcePayloadArtifact.latestHistoricalSnapshotPath
+      : toPayloadHistoricalSnapshotPath(
+        selectedHistoricalStatePath,
+        sourcePayloadArtifact.workingLocalRelativePath,
+      );
+  let selectedHistoricalSnapshotTurtle: string | undefined;
+  try {
+    selectedHistoricalSnapshotTurtle = await readTextFileWithOverlay(
+      join(workspaceRoot, selectedHistoricalSnapshotPath),
+      overlay,
+    );
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      throw new WeaveRuntimeError(
+        `Workspace is missing the extracted source payload snapshot for ${designatorPath}: ${selectedHistoricalSnapshotPath}`,
+      );
+    }
+    throw error;
+  }
 
   return {
     designatorPath: sourceDesignatorPath,
-    workingFilePath: sourcePayloadArtifact.workingFilePath,
+    workingLocalRelativePath: sourcePayloadArtifact.workingLocalRelativePath,
     currentPayloadTurtle: sourcePayloadArtifact.currentPayloadTurtle,
-    latestHistoricalStatePath: sourcePayloadArtifact.latestHistoricalStatePath,
+    latestHistoricalSnapshotPath: selectedHistoricalSnapshotPath,
+    latestHistoricalSnapshotTurtle: selectedHistoricalSnapshotTurtle,
+    latestHistoricalStatePath: selectedHistoricalStatePath,
   };
 }
 
@@ -1015,15 +1195,15 @@ async function loadReferenceCatalogWorkingArtifact(
   if (!referenceCatalog) {
     return undefined;
   }
-  const workingFilePath = referenceCatalog.workingFilePath;
+  const workingLocalRelativePath = referenceCatalog.workingLocalRelativePath;
   try {
     return {
-      workingFilePath,
+      workingLocalRelativePath,
       currentReferenceCatalogTurtle: await readTextFileWithOverlay(
         resolveAllowedLocalPath(
           localPathPolicy,
-          "workingFilePath",
-          workingFilePath,
+          "workingLocalRelativePath",
+          workingLocalRelativePath,
         ),
         overlay,
       ),
@@ -1031,12 +1211,12 @@ async function loadReferenceCatalogWorkingArtifact(
   } catch (error) {
     if (error instanceof LocalPathAccessError) {
       throw new WeaveRuntimeError(
-        `Working ReferenceCatalog file for ${designatorPath} is outside the allowed local-path boundary: ${workingFilePath}`,
+        `Working ReferenceCatalog file for ${designatorPath} is outside the allowed local-path boundary: ${workingLocalRelativePath}`,
       );
     }
     if (error instanceof Deno.errors.NotFound) {
       throw new WeaveRuntimeError(
-        `Workspace is missing the working ReferenceCatalog file for ${designatorPath}: ${workingFilePath}`,
+        `Workspace is missing the working ReferenceCatalog file for ${designatorPath}: ${workingLocalRelativePath}`,
       );
     }
     throw error;
@@ -1080,10 +1260,10 @@ async function loadResourcePageDefinitionArtifact(
 function isWeaveableKnopCandidate(
   candidate: WeaveableKnopCandidate,
   slice: WeaveSlice,
+  target?: NormalizedVersionTargetSpec,
 ): boolean {
   if (slice === "firstExtractedKnopWeave") {
-    return candidate.referenceCatalogArtifact !== undefined &&
-      candidate.referenceTargetSourcePayloadArtifact !== undefined;
+    return candidate.referenceTargetSourcePayloadArtifact !== undefined;
   }
 
   if (slice === "firstReferenceCatalogWeave") {
@@ -1113,12 +1293,23 @@ function isWeaveableKnopCandidate(
 
   if (slice === "secondPayloadWeave") {
     return candidate.payloadArtifact !== undefined &&
-      candidate.payloadArtifact.latestHistoricalSnapshotTurtle !== undefined &&
-      candidate.payloadArtifact.currentPayloadTurtle !==
-        candidate.payloadArtifact.latestHistoricalSnapshotTurtle;
+      (hasPayloadVersionNamingTarget(target) ||
+        (candidate.payloadArtifact.latestHistoricalSnapshotTurtle !==
+            undefined &&
+          candidate.payloadArtifact.currentPayloadTurtle !==
+            candidate.payloadArtifact.latestHistoricalSnapshotTurtle));
   }
 
   return slice === "firstKnopWeave";
+}
+
+function hasPayloadVersionNamingTarget(
+  target?: NormalizedVersionTargetSpec,
+): boolean {
+  return target !== undefined &&
+    (target.historySegment !== undefined ||
+      target.stateSegment !== undefined ||
+      target.manifestationSegment !== undefined);
 }
 
 function assertUpdatedTargetsExist(
@@ -1179,6 +1370,20 @@ async function readTextFileWithOverlay(
   return await Deno.readTextFile(path);
 }
 
+async function readOptionalTextFileWithOverlay(
+  path: string,
+  overlay?: ReadonlyMap<string, string>,
+): Promise<string | undefined> {
+  try {
+    return await readTextFileWithOverlay(path, overlay);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return undefined;
+    }
+    throw error;
+  }
+}
+
 function validateRdfFiles(files: readonly PlannedFile[]): void {
   const parser = new Parser();
 
@@ -1203,6 +1408,8 @@ async function collectGeneratedPageFiles(
   meshState: MeshState,
   selectedDesignatorPaths: readonly string[],
   includeAllMeshPages: boolean,
+  generatedAt: Date,
+  includeSemanticFlowMetadata: boolean,
 ): Promise<readonly PlannedFile[]> {
   const pageModels: ResourcePageModel[] = [];
   const pagePaths = new Set<string>();
@@ -1219,14 +1426,31 @@ async function collectGeneratedPageFiles(
       context,
     ]),
   );
+  const knopResourcePaths = new Map(
+    designatorContexts.map((context) => [
+      toKnopPath(context.designatorPath),
+      context,
+    ]),
+  );
+  const meshRawSourcePanels = await collectMeshSupportRawSourcePanels(
+    workspaceRoot,
+    meshState,
+  );
+  const meshHistoryGroups = collectHistoryGroupsByResourcePath(
+    meshState.meshBase,
+    meshState.currentMeshInventoryTurtle,
+    "Could not parse the current MeshInventory while collecting ResourcePage histories.",
+  );
+  const allPagePaths = listResourcePagePaths(
+    meshState.meshBase,
+    meshState.currentMeshInventoryTurtle,
+    "Could not parse the current MeshInventory while collecting ResourcePages.",
+  );
+  const childIdentifiersByResourcePath = collectChildIdentifiersByResourcePath(
+    allPagePaths,
+  );
 
-  for (
-    const pagePath of listResourcePagePaths(
-      meshState.meshBase,
-      meshState.currentMeshInventoryTurtle,
-      "Could not parse the current MeshInventory while collecting ResourcePages.",
-    )
-  ) {
+  for (const pagePath of allPagePaths) {
     if (
       !includeAllMeshPages &&
       !pagePath.startsWith("_mesh/") &&
@@ -1239,6 +1463,7 @@ async function collectGeneratedPageFiles(
     }
 
     const publicContext = publicIdentifierPaths.get(pagePath);
+    const resourcePath = toResourcePath(pagePath);
     if (publicContext) {
       if (publicContext.customIdentifierPage) {
         pageModels.push({
@@ -1254,14 +1479,55 @@ async function collectGeneratedPageFiles(
           kind: "identifier",
           path: pagePath,
           designatorPath: publicContext.designatorPath,
-          workingFilePath: publicContext.payloadWorkingFilePath,
+          workingLocalRelativePath:
+            publicContext.payloadWorkingLocalRelativePath,
+          extractionSource: publicContext.extractionSource,
+          childIdentifiers: childIdentifiersByResourcePath.get(
+            resourcePath,
+          ),
+          historyGroups: publicContext.historyGroupsByResourcePath.get(
+            resourcePath,
+          ),
+          rawSourcePanels: publicContext.rawSourcePanels.get(pagePath),
         });
       }
+    } else if (knopResourcePaths.has(resourcePath)) {
+      const knopContext = knopResourcePaths.get(resourcePath)!;
+      pageModels.push({
+        kind: "knop",
+        path: pagePath,
+        designatorPath: knopContext.designatorPath,
+        ownerTitle: resolveKnopOwnerTitle(meshState.meshBase, knopContext),
+        governedArtifacts: knopContext.governedArtifacts,
+        supportingArtifacts: knopContext.supportingArtifacts,
+        childIdentifiers: toKnopChildIdentifiers(
+          knopContext.supportingArtifacts,
+          childIdentifiersByResourcePath.get(resourcePath),
+        ),
+      });
     } else {
+      const rawSourcePanels = meshRawSourcePanels.get(pagePath) ??
+        findRawSourcePanelsForPage(pagePath, designatorContexts);
+      const historyGroups = meshHistoryGroups.get(resourcePath) ??
+        findHistoryGroupsForResource(resourcePath, designatorContexts);
       pageModels.push({
         kind: "simple",
         path: pagePath,
-        description: `Generated resource page for ${toResourcePath(pagePath)}.`,
+        description: describeSemanticFlowResource(
+          meshState.meshBase,
+          resourcePath,
+          rawSourcePanels ??
+            findOwnerRawSourcePanelsForArtifactHistory(
+              resourcePath,
+              meshRawSourcePanels,
+              designatorContexts,
+            ),
+        ),
+        childIdentifiers: childIdentifiersByResourcePath.get(
+          resourcePath,
+        ),
+        historyGroups,
+        rawSourcePanels,
       });
     }
     pagePaths.add(pagePath);
@@ -1273,17 +1539,156 @@ async function collectGeneratedPageFiles(
         continue;
       }
 
+      const resourcePath = toResourcePath(pagePath);
+      const rawSourcePanels = context.rawSourcePanels.get(pagePath);
       pageModels.push({
-        kind: "simple",
-        path: pagePath,
-        description: context.pageDescriptions.get(pagePath) ??
-          `Generated resource page for ${toResourcePath(pagePath)}.`,
+        ...(resourcePath === toKnopPath(context.designatorPath)
+          ? {
+            kind: "knop" as const,
+            path: pagePath,
+            designatorPath: context.designatorPath,
+            ownerTitle: resolveKnopOwnerTitle(meshState.meshBase, context),
+            governedArtifacts: context.governedArtifacts,
+            supportingArtifacts: context.supportingArtifacts,
+            childIdentifiers: toKnopChildIdentifiers(
+              context.supportingArtifacts,
+              childIdentifiersByResourcePath.get(resourcePath),
+            ),
+          }
+          : {
+            kind: "simple" as const,
+            path: pagePath,
+            description: context.pageDescriptions.get(pagePath) ??
+              describeSemanticFlowResource(
+                meshState.meshBase,
+                resourcePath,
+                rawSourcePanels ??
+                  findOwnerRawSourcePanelsForArtifactHistoryInContext(
+                    resourcePath,
+                    context,
+                  ),
+              ),
+            childIdentifiers: childIdentifiersByResourcePath.get(
+              resourcePath,
+            ),
+            historyGroups: context.historyGroupsByResourcePath.get(
+              resourcePath,
+            ),
+            rawSourcePanels,
+          }),
       });
       pagePaths.add(pagePath);
     }
   }
 
-  return renderResourcePages(meshState.meshBase, pageModels);
+  const meshFaviconPath = await resolveMeshFaviconPath(workspaceRoot);
+  return await renderResourcePages(meshState.meshBase, pageModels, {
+    generatedAt,
+    includeSemanticFlowMetadata,
+    meshFaviconPath,
+  });
+}
+
+async function resolveMeshFaviconPath(
+  meshRoot: string,
+): Promise<string | undefined> {
+  try {
+    const stat = await Deno.stat(join(meshRoot, "favicon.ico"));
+    return stat.isFile ? "favicon.ico" : undefined;
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return undefined;
+    }
+    throw error;
+  }
+}
+
+function collectChildIdentifiersByResourcePath(
+  pagePaths: readonly string[],
+): ReadonlyMap<string, readonly ResourcePageChildIdentifierModel[]> {
+  const resourcePaths = pagePaths.map((pagePath) => toResourcePath(pagePath));
+  const childIdentifiersByResourcePath = new Map<
+    string,
+    ResourcePageChildIdentifierModel[]
+  >();
+
+  for (const childPath of resourcePaths) {
+    if (!isChildIdentifierResourcePath(childPath)) {
+      continue;
+    }
+    const parentPath = toParentResourcePath(childPath);
+    const childIdentifiers = childIdentifiersByResourcePath.get(parentPath) ??
+      [];
+    childIdentifiers.push({
+      label: toLastPathSegment(childPath),
+      path: childPath,
+    });
+    childIdentifiersByResourcePath.set(parentPath, childIdentifiers);
+  }
+
+  for (const childIdentifiers of childIdentifiersByResourcePath.values()) {
+    childIdentifiers.sort((left, right) =>
+      left.label.localeCompare(right.label, "en", { sensitivity: "base" })
+    );
+  }
+
+  return childIdentifiersByResourcePath;
+}
+
+function toKnopChildIdentifiers(
+  supportingArtifacts: readonly KnopArtifactLinkModel[],
+  discoveredChildren: readonly ResourcePageChildIdentifierModel[] = [],
+): readonly ResourcePageChildIdentifierModel[] {
+  const childByPath = new Map<string, ResourcePageChildIdentifierModel>();
+  for (const child of discoveredChildren) {
+    childByPath.set(child.path, child);
+  }
+  for (const artifact of supportingArtifacts) {
+    childByPath.set(artifact.path, {
+      label: toLastPathSegment(artifact.path),
+      path: artifact.path,
+    });
+  }
+
+  return Array.from(childByPath.values()).sort((left, right) =>
+    left.label.localeCompare(right.label, "en", { sensitivity: "base" })
+  );
+}
+
+function resolveKnopOwnerTitle(
+  meshBase: string,
+  context: GenerateDesignatorContext,
+): string | undefined {
+  const ownerPagePath = toDesignatorResourcePagePath(context.designatorPath);
+  const rawSourcePanels = context.rawSourcePanels.get(ownerPagePath);
+  return rawSourcePanels
+    ? extractResourceTitle(meshBase, context.designatorPath, rawSourcePanels)
+    : undefined;
+}
+
+function isChildIdentifierResourcePath(resourcePath: string): boolean {
+  if (resourcePath.length === 0) {
+    return false;
+  }
+  const parentPath = toParentResourcePath(resourcePath);
+  if (parentPath === "_knop" || parentPath.endsWith("/_knop")) {
+    return true;
+  }
+
+  return !resourcePath.split("/").some((segment) => segment.startsWith("_"));
+}
+
+function toParentResourcePath(resourcePath: string): string {
+  const lastSlash = resourcePath.lastIndexOf("/");
+  return lastSlash === -1 ? "" : resourcePath.slice(0, lastSlash);
+}
+
+function resolveGeneratedAt(now?: () => Date): Date {
+  if (now) {
+    return now();
+  }
+  const generatedAt = Deno.env.get("WEAVE_GENERATED_AT");
+  return generatedAt ? new Date(generatedAt) : new Date();
 }
 
 async function loadGenerateDesignatorContexts(
@@ -1322,6 +1727,24 @@ async function loadGenerateDesignatorContexts(
       },
     );
     const pageDescriptions = new Map<string, string>();
+    const rawSourcePanels = new Map<
+      string,
+      readonly ResourcePageRawSourcePanelModel[]
+    >();
+    const artifactLinks = collectKnopArtifactLinks(
+      meshState.meshBase,
+      currentKnopInventoryTurtle,
+      designatorPath,
+    );
+    addRawSourcePanel(
+      rawSourcePanels,
+      `${toKnopPath(designatorPath)}/_inventory/index.html`,
+      {
+        label: "Current KnopInventory file",
+        sourcePath: `${toKnopPath(designatorPath)}/_inventory/inventory.ttl`,
+        contents: currentKnopInventoryTurtle,
+      },
+    );
     const resourcePageDefinitionState =
       resolveResourcePageDefinitionInventoryState(
         meshState.meshBase,
@@ -1334,7 +1757,36 @@ async function loadGenerateDesignatorContexts(
             `Could not resolve the working ResourcePageDefinition file for ${designatorPath}.`,
         },
       );
+    const referenceCatalogArtifact = await loadReferenceCatalogWorkingArtifact(
+      workspaceRoot,
+      localPathPolicy,
+      meshState.meshBase,
+      designatorPath,
+      currentKnopInventoryTurtle,
+    );
+    const extractionSource = resolveExtractionSourceInventoryState(
+      meshState.meshBase,
+      currentKnopInventoryTurtle,
+      designatorPath,
+      {
+        parseErrorMessage:
+          `Could not parse the current Knop inventory while resolving page source facts for ${designatorPath}.`,
+        missingExtractionSourceMessage:
+          `Could not resolve the current extracted source binding for ${designatorPath}.`,
+        missingTargetArtifactMessage:
+          `Could not resolve the current extracted source target for ${designatorPath}.`,
+        missingRequestedTargetStateMessage:
+          `Could not resolve the current extracted source target state for ${designatorPath}.`,
+        unsupportedResolutionModeMessage:
+          `Unsupported ExtractionSource resolution mode for ${designatorPath}.`,
+      },
+    );
     let customIdentifierPage: CustomIdentifierPageModelInput | undefined;
+    const pagePaths = listResourcePagePaths(
+      meshState.meshBase,
+      currentKnopInventoryTurtle,
+      `Could not parse the current Knop inventory while collecting ResourcePages for ${designatorPath}.`,
+    );
 
     try {
       const resourcePageDefinitionArtifact =
@@ -1367,18 +1819,575 @@ async function loadGenerateDesignatorContexts(
 
     contexts.push({
       designatorPath,
-      payloadWorkingFilePath: payloadArtifact?.workingFilePath,
+      payloadWorkingLocalRelativePath: payloadArtifact
+        ?.workingLocalRelativePath,
+      ...(extractionSource
+        ? {
+          extractionSource: {
+            sourceArtifactPath: extractionSource.sourceArtifactPath,
+            ...(extractionSource.requestedTargetStatePath
+              ? {
+                requestedTargetStatePath:
+                  extractionSource.requestedTargetStatePath,
+              }
+              : {}),
+            artifactResolutionModeIri:
+              extractionSource.artifactResolutionModeIri,
+          },
+        }
+        : {}),
+      ...artifactLinks,
       customIdentifierPage,
-      pageDescriptions,
-      pagePaths: listResourcePagePaths(
+      historyGroupsByResourcePath: collectHistoryGroupsByResourcePath(
         meshState.meshBase,
         currentKnopInventoryTurtle,
-        `Could not parse the current Knop inventory while collecting ResourcePages for ${designatorPath}.`,
+        `Could not parse the current Knop inventory while collecting ResourcePage histories for ${designatorPath}.`,
       ),
+      pageDescriptions,
+      rawSourcePanels,
+      pagePaths,
     });
+
+    if (payloadArtifact) {
+      await addPayloadRawSourcePanels(
+        rawSourcePanels,
+        workspaceRoot,
+        localPathPolicy,
+        designatorPath,
+        payloadArtifact,
+      );
+    } else if (extractionSource) {
+      await addExtractionSourceRawSourcePanels(
+        rawSourcePanels,
+        workspaceRoot,
+        localPathPolicy,
+        meshState.meshBase,
+        designatorPath,
+        extractionSource.sourceArtifactPath,
+        extractionSource.requestedTargetStatePath,
+        extractionSource.artifactResolutionModeIri,
+      );
+    } else if (referenceCatalogArtifact) {
+      await addReferenceTargetSourceRawSourcePanels(
+        rawSourcePanels,
+        workspaceRoot,
+        localPathPolicy,
+        meshState.meshBase,
+        designatorPath,
+        referenceCatalogArtifact,
+      );
+    }
+    await addSupportArtifactRawSourcePanels(
+      rawSourcePanels,
+      localPathPolicy,
+      meshState.meshBase,
+      currentKnopInventoryTurtle,
+      designatorPath,
+      artifactLinks.supportingArtifacts,
+    );
   }
 
   return contexts;
+}
+
+async function collectMeshSupportRawSourcePanels(
+  workspaceRoot: string,
+  meshState: MeshState,
+): Promise<ReadonlyMap<string, readonly ResourcePageRawSourcePanelModel[]>> {
+  const rawSourcePanels = new Map<
+    string,
+    readonly ResourcePageRawSourcePanelModel[]
+  >();
+
+  addRawSourcePanel(rawSourcePanels, "_mesh/_inventory/index.html", {
+    label: "Current MeshInventory file",
+    sourcePath: "_mesh/_inventory/inventory.ttl",
+    contents: meshState.currentMeshInventoryTurtle,
+  });
+
+  for (
+    const support of [
+      {
+        pagePath: "_mesh/_meta/index.html",
+        sourcePath: "_mesh/_meta/meta.ttl",
+        label: "Current MeshMetadata file",
+      },
+      {
+        pagePath: "_mesh/_config/index.html",
+        sourcePath: "_mesh/_config/config.ttl",
+        label: "Current MeshConfig file",
+      },
+    ]
+  ) {
+    try {
+      addRawSourcePanel(
+        rawSourcePanels,
+        support.pagePath,
+        await readRawSourcePanel(
+          join(workspaceRoot, support.sourcePath),
+          support.sourcePath,
+          support.label,
+        ),
+      );
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  return rawSourcePanels;
+}
+
+function findRawSourcePanelsForPage(
+  pagePath: string,
+  contexts: readonly GenerateDesignatorContext[],
+): readonly ResourcePageRawSourcePanelModel[] | undefined {
+  for (const context of contexts) {
+    const panels = context.rawSourcePanels.get(pagePath);
+    if (panels) {
+      return panels;
+    }
+  }
+  return undefined;
+}
+
+function collectKnopArtifactLinks(
+  meshBase: string,
+  currentKnopInventoryTurtle: string,
+  designatorPath: string,
+): {
+  governedArtifacts: readonly KnopArtifactLinkModel[];
+  supportingArtifacts: readonly KnopArtifactLinkModel[];
+} {
+  const quads = parseInventoryQuads(
+    meshBase,
+    currentKnopInventoryTurtle,
+    `Could not parse the current Knop inventory while collecting Knop artifacts for ${designatorPath}.`,
+  );
+  const knopIri = new URL(toKnopPath(designatorPath), meshBase).href;
+
+  return {
+    governedArtifacts: collectKnopArtifactLinksForPredicates(
+      meshBase,
+      quads,
+      knopIri,
+      [[SFLO_HAS_PAYLOAD_ARTIFACT_IRI, "PayloadArtifact"]],
+    ),
+    supportingArtifacts: collectKnopArtifactLinksForPredicates(
+      meshBase,
+      quads,
+      knopIri,
+      [
+        [SFLO_HAS_KNOP_METADATA_IRI, "KnopMetadata"],
+        [SFLO_HAS_KNOP_INVENTORY_IRI, "KnopInventory"],
+        [SFLO_HAS_REFERENCE_CATALOG_IRI, "ReferenceCatalog"],
+        [SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI, "ResourcePageDefinition"],
+        [SFLO_HAS_KNOP_ASSET_BUNDLE_IRI, "KnopAssetBundle"],
+      ],
+    ),
+  };
+}
+
+function collectKnopArtifactLinksForPredicates(
+  meshBase: string,
+  quads: readonly Quad[],
+  knopIri: string,
+  predicates: readonly (readonly [predicateIri: string, label: string])[],
+): readonly KnopArtifactLinkModel[] {
+  const links: KnopArtifactLinkModel[] = [];
+  const seen = new Set<string>();
+
+  for (const [predicateIri, label] of predicates) {
+    for (const quad of quads) {
+      if (
+        quad.subject.termType !== "NamedNode" ||
+        quad.subject.value !== knopIri ||
+        quad.predicate.value !== predicateIri ||
+        quad.object.termType !== "NamedNode"
+      ) {
+        continue;
+      }
+
+      const path = toMeshPath(meshBase, quad.object.value);
+      if (!path || seen.has(path)) {
+        continue;
+      }
+
+      links.push({ label, path });
+      seen.add(path);
+    }
+  }
+
+  return links;
+}
+
+async function addSupportArtifactRawSourcePanels(
+  rawSourcePanels: Map<string, readonly ResourcePageRawSourcePanelModel[]>,
+  localPathPolicy: OperationalLocalPathPolicy,
+  meshBase: string,
+  currentKnopInventoryTurtle: string,
+  designatorPath: string,
+  supportArtifacts: readonly KnopArtifactLinkModel[],
+): Promise<void> {
+  const quads = parseInventoryQuads(
+    meshBase,
+    currentKnopInventoryTurtle,
+    `Could not parse the current Knop inventory while collecting support artifact source panels for ${designatorPath}.`,
+  );
+
+  for (const artifact of supportArtifacts) {
+    const pagePath = toDesignatorResourcePagePath(artifact.path);
+    if (rawSourcePanels.has(pagePath)) {
+      continue;
+    }
+
+    const workingLocalRelativePath = resolveArtifactWorkingLocalRelativePath(
+      quads,
+      meshBase,
+      artifact.path,
+    );
+    if (!workingLocalRelativePath) {
+      continue;
+    }
+
+    try {
+      addRawSourcePanel(
+        rawSourcePanels,
+        pagePath,
+        await readRawSourcePanel(
+          resolveAllowedLocalPath(
+            localPathPolicy,
+            "workingLocalRelativePath",
+            workingLocalRelativePath,
+          ),
+          workingLocalRelativePath,
+          `Current ${artifact.label} file`,
+        ),
+      );
+    } catch (error) {
+      if (
+        error instanceof Deno.errors.NotFound ||
+        error instanceof LocalPathAccessError
+      ) {
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
+function findHistoryGroupsForResource(
+  resourcePath: string,
+  contexts: readonly GenerateDesignatorContext[],
+): readonly ResourcePageHistoryGroupModel[] | undefined {
+  for (const context of contexts) {
+    const historyGroups = context.historyGroupsByResourcePath.get(
+      resourcePath,
+    );
+    if (historyGroups) {
+      return historyGroups;
+    }
+  }
+  return undefined;
+}
+
+async function addPayloadRawSourcePanels(
+  rawSourcePanels: Map<string, readonly ResourcePageRawSourcePanelModel[]>,
+  workspaceRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
+  designatorPath: string,
+  payloadArtifact: {
+    workingLocalRelativePath: string;
+    latestHistoricalStatePath?: string;
+    latestHistoricalSnapshotPath?: string;
+  },
+): Promise<void> {
+  try {
+    const currentPanel = await readRawSourcePanel(
+      resolveAllowedLocalPath(
+        localPathPolicy,
+        "workingLocalRelativePath",
+        payloadArtifact.workingLocalRelativePath,
+      ),
+      payloadArtifact.workingLocalRelativePath,
+      "Current working file",
+    );
+    addRawSourcePanel(
+      rawSourcePanels,
+      toDesignatorResourcePagePath(designatorPath),
+      currentPanel,
+    );
+  } catch (error) {
+    if (
+      error instanceof Deno.errors.NotFound ||
+      error instanceof LocalPathAccessError
+    ) {
+      return;
+    }
+    throw error;
+  }
+
+  if (!payloadArtifact.latestHistoricalStatePath) {
+    return;
+  }
+
+  const snapshotPath = payloadArtifact.latestHistoricalSnapshotPath ??
+    toPayloadHistoricalSnapshotPath(
+      payloadArtifact.latestHistoricalStatePath,
+      payloadArtifact.workingLocalRelativePath,
+    );
+  const snapshotAbsolutePath = join(workspaceRoot, snapshotPath);
+
+  try {
+    const historicalPanel = await readRawSourcePanel(
+      snapshotAbsolutePath,
+      snapshotPath,
+      "Historical manifestation file",
+    );
+    addRawSourcePanel(
+      rawSourcePanels,
+      `${dirname(snapshotPath)}/index.html`,
+      historicalPanel,
+    );
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return;
+    }
+    throw error;
+  }
+}
+
+async function addReferenceTargetSourceRawSourcePanels(
+  rawSourcePanels: Map<string, readonly ResourcePageRawSourcePanelModel[]>,
+  workspaceRoot: string,
+  _localPathPolicy: OperationalLocalPathPolicy,
+  meshBase: string,
+  designatorPath: string,
+  referenceCatalogArtifact: ReferenceCatalogWorkingArtifact,
+): Promise<void> {
+  const referenceTargetLinkState = tryResolveReferenceTargetLinkState(
+    meshBase,
+    referenceCatalogArtifact.currentReferenceCatalogTurtle,
+    designatorPath,
+    {
+      parseErrorMessage:
+        `Could not parse the current ReferenceCatalog while resolving page source facts for ${designatorPath}.`,
+      missingReferenceLinkMessage:
+        `Could not resolve the current extracted ReferenceCatalog link for ${designatorPath}.`,
+      missingReferenceTargetMessage:
+        `Could not resolve the current extracted ReferenceCatalog target for ${designatorPath}.`,
+    },
+  );
+  if (!referenceTargetLinkState) {
+    return;
+  }
+  const sourceKnopInventoryPath = join(
+    workspaceRoot,
+    `${
+      toKnopPath(referenceTargetLinkState.referenceTargetPath)
+    }/_inventory/inventory.ttl`,
+  );
+  let sourceKnopInventoryTurtle: string;
+
+  try {
+    sourceKnopInventoryTurtle = await Deno.readTextFile(
+      sourceKnopInventoryPath,
+    );
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      throw new WeaveRuntimeError(
+        `Workspace is missing the page source payload inventory for ${designatorPath}: ${
+          toKnopPath(referenceTargetLinkState.referenceTargetPath)
+        }/_inventory/inventory.ttl`,
+      );
+    }
+    throw error;
+  }
+
+  const sourcePayloadArtifact = resolvePayloadArtifactInventoryState(
+    meshBase,
+    sourceKnopInventoryTurtle,
+    referenceTargetLinkState.referenceTargetPath,
+    {
+      parseErrorMessage:
+        `Could not parse the source Knop inventory while resolving page source facts for ${designatorPath}.`,
+      missingWorkingFileMessage:
+        `Could not resolve the source working payload file for ${designatorPath}.`,
+    },
+  );
+  if (!sourcePayloadArtifact) {
+    return;
+  }
+
+  const snapshotPath = sourcePayloadArtifact.latestHistoricalStatePath ===
+        referenceTargetLinkState.referenceTargetStatePath &&
+      sourcePayloadArtifact.latestHistoricalSnapshotPath
+    ? sourcePayloadArtifact.latestHistoricalSnapshotPath
+    : toPayloadHistoricalSnapshotPath(
+      referenceTargetLinkState.referenceTargetStatePath,
+      sourcePayloadArtifact.workingLocalRelativePath,
+    );
+
+  try {
+    addRawSourcePanel(
+      rawSourcePanels,
+      toDesignatorResourcePagePath(designatorPath),
+      await readRawSourcePanel(
+        join(workspaceRoot, snapshotPath),
+        snapshotPath,
+        "Pinned source file",
+      ),
+    );
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      throw new WeaveRuntimeError(
+        `Workspace is missing the pinned page source file for ${designatorPath}: ${snapshotPath}`,
+      );
+    }
+    throw error;
+  }
+}
+
+async function addExtractionSourceRawSourcePanels(
+  rawSourcePanels: Map<string, readonly ResourcePageRawSourcePanelModel[]>,
+  workspaceRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
+  meshBase: string,
+  designatorPath: string,
+  sourceArtifactPath: string,
+  requestedTargetStatePath: string | undefined,
+  artifactResolutionModeIri: string,
+): Promise<void> {
+  const sourceKnopInventoryPath = join(
+    workspaceRoot,
+    `${toKnopPath(sourceArtifactPath)}/_inventory/inventory.ttl`,
+  );
+  let sourceKnopInventoryTurtle: string;
+
+  try {
+    sourceKnopInventoryTurtle = await Deno.readTextFile(
+      sourceKnopInventoryPath,
+    );
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      throw new WeaveRuntimeError(
+        `Workspace is missing the page source payload inventory for ${designatorPath}: ${
+          toKnopPath(sourceArtifactPath)
+        }/_inventory/inventory.ttl`,
+      );
+    }
+    throw error;
+  }
+
+  const sourcePayloadArtifact = resolvePayloadArtifactInventoryState(
+    meshBase,
+    sourceKnopInventoryTurtle,
+    sourceArtifactPath,
+    {
+      parseErrorMessage:
+        `Could not parse the source Knop inventory while resolving page source facts for ${designatorPath}.`,
+      missingWorkingFileMessage:
+        `Could not resolve the source working payload file for ${designatorPath}.`,
+    },
+  );
+  if (!sourcePayloadArtifact) {
+    return;
+  }
+
+  if (artifactResolutionModeIri === SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI) {
+    try {
+      addRawSourcePanel(
+        rawSourcePanels,
+        toDesignatorResourcePagePath(designatorPath),
+        await readRawSourcePanel(
+          resolveAllowedLocalPath(
+            localPathPolicy,
+            "workingLocalRelativePath",
+            sourcePayloadArtifact.workingLocalRelativePath,
+          ),
+          sourcePayloadArtifact.workingLocalRelativePath,
+          "Current source file",
+        ),
+      );
+    } catch (error) {
+      if (
+        error instanceof Deno.errors.NotFound ||
+        error instanceof LocalPathAccessError
+      ) {
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (!requestedTargetStatePath) {
+    throw new WeaveRuntimeError(
+      `Extracted page source for ${designatorPath} is missing a pinned target state.`,
+    );
+  }
+
+  const snapshotPath = sourcePayloadArtifact.latestHistoricalStatePath ===
+        requestedTargetStatePath &&
+      sourcePayloadArtifact.latestHistoricalSnapshotPath
+    ? sourcePayloadArtifact.latestHistoricalSnapshotPath
+    : toPayloadHistoricalSnapshotPath(
+      requestedTargetStatePath,
+      sourcePayloadArtifact.workingLocalRelativePath,
+    );
+
+  try {
+    addRawSourcePanel(
+      rawSourcePanels,
+      toDesignatorResourcePagePath(designatorPath),
+      await readRawSourcePanel(
+        join(workspaceRoot, snapshotPath),
+        snapshotPath,
+        "Pinned source file",
+      ),
+    );
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      throw new WeaveRuntimeError(
+        `Workspace is missing the pinned page source file for ${designatorPath}: ${snapshotPath}`,
+      );
+    }
+    throw error;
+  }
+}
+
+async function readRawSourcePanel(
+  absolutePath: string,
+  sourcePath: string,
+  label: string,
+): Promise<ResourcePageRawSourcePanelModel> {
+  const info = await Deno.stat(absolutePath);
+  if (info.size > RAW_SOURCE_INLINE_BYTE_LIMIT) {
+    return {
+      label,
+      sourcePath,
+      omittedByteLength: info.size,
+    };
+  }
+
+  return {
+    label,
+    sourcePath,
+    contents: await Deno.readTextFile(absolutePath),
+  };
+}
+
+function addRawSourcePanel(
+  rawSourcePanels: Map<string, readonly ResourcePageRawSourcePanelModel[]>,
+  pagePath: string,
+  panel: ResourcePageRawSourcePanelModel,
+): void {
+  rawSourcePanels.set(pagePath, [
+    ...(rawSourcePanels.get(pagePath) ?? []),
+    panel,
+  ]);
 }
 
 function listResourcePagePaths(
@@ -1415,6 +2424,564 @@ function listResourcePagePaths(
   return [...paths].sort((left, right) => left.localeCompare(right));
 }
 
+function describeSemanticFlowResource(
+  meshBase: string,
+  resourcePath: string,
+  ownerRawSourcePanels?: readonly ResourcePageRawSourcePanelModel[],
+): string {
+  const displayPath = resourcePath.length === 0 ? "/" : resourcePath;
+  if (isArtifactManifestationPath(resourcePath)) {
+    const statePath = dirname(resourcePath);
+    return `Artifact manifestation for the ${
+      toLastPathSegment(statePath)
+    } historical state`;
+  }
+  if (isHistoricalStatePath(resourcePath)) {
+    const historyPath = dirname(resourcePath);
+    return `Historical state for the ${
+      toLastPathSegment(historyPath)
+    } artifact history`;
+  }
+  if (isArtifactHistoryPath(resourcePath)) {
+    const ownerResourcePath = dirname(resourcePath);
+    const ownerTitle = ownerRawSourcePanels
+      ? extractResourceTitle(
+        meshBase,
+        ownerResourcePath,
+        ownerRawSourcePanels,
+      )
+      : undefined;
+    return `Artifact history for ${
+      ownerTitle ?? formatOwnerResourcePath(ownerResourcePath)
+    }`;
+  }
+  if (resourcePath === "_mesh") {
+    return "Semantic Mesh.";
+  }
+  if (resourcePath.endsWith("/_knop") || resourcePath === "_knop") {
+    return `Semantic Flow bundle of supporting data for ${
+      formatOwnerResourcePath(dirname(resourcePath))
+    }.`;
+  }
+  if (resourcePath.endsWith("/_meta")) {
+    if (resourcePath === "_mesh/_meta") {
+      return "Metadata for this Semantic Mesh";
+    }
+    return `Knop metadata for ${
+      formatOwnerResourcePath(dirname(dirname(resourcePath)))
+    }`;
+  }
+  if (resourcePath.endsWith("/_inventory")) {
+    if (resourcePath === "_mesh/_inventory") {
+      return "Inventory for this Semantic Mesh";
+    }
+    return `Inventory for ${formatOwnerResourcePath(dirname(resourcePath))}`;
+  }
+  if (resourcePath.endsWith("/_config")) {
+    return "Configuration for this Semantic Mesh";
+  }
+  return `Semantic Flow resource ${displayPath}`;
+}
+
+function findOwnerRawSourcePanelsForArtifactHistory(
+  resourcePath: string,
+  meshRawSourcePanels: ReadonlyMap<
+    string,
+    readonly ResourcePageRawSourcePanelModel[]
+  >,
+  designatorContexts: readonly GenerateDesignatorContext[],
+): readonly ResourcePageRawSourcePanelModel[] | undefined {
+  if (!isArtifactHistoryPath(resourcePath)) {
+    return undefined;
+  }
+  const ownerPagePath = toDesignatorResourcePagePath(dirname(resourcePath));
+  return meshRawSourcePanels.get(ownerPagePath) ??
+    findRawSourcePanelsForPage(ownerPagePath, designatorContexts);
+}
+
+function findOwnerRawSourcePanelsForArtifactHistoryInContext(
+  resourcePath: string,
+  context: GenerateDesignatorContext,
+): readonly ResourcePageRawSourcePanelModel[] | undefined {
+  if (!isArtifactHistoryPath(resourcePath)) {
+    return undefined;
+  }
+  return context.rawSourcePanels.get(
+    toDesignatorResourcePagePath(dirname(resourcePath)),
+  );
+}
+
+function extractResourceTitle(
+  meshBase: string,
+  resourcePath: string,
+  rawSourcePanels: readonly ResourcePageRawSourcePanelModel[],
+): string | undefined {
+  const canonical = new URL(resourcePath, meshBase).href;
+  const quads = rawSourcePanels.flatMap((panel) =>
+    panel.contents ? parseRawSourcePanel(canonical, panel.contents) : []
+  );
+
+  return findFirstLiteralObject(quads, canonical, DCTERMS_TITLE_IRI) ??
+    findFirstLiteralObject(quads, canonical, RDFS_LABEL_IRI);
+}
+
+function parseRawSourcePanel(
+  canonical: string,
+  turtle: string,
+): readonly Quad[] {
+  try {
+    return new Parser({ baseIRI: canonical }).parse(turtle);
+  } catch {
+    return [];
+  }
+}
+
+function findFirstLiteralObject(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+): string | undefined {
+  for (const quad of quads) {
+    if (
+      quad.subject.termType === "NamedNode" &&
+      quad.subject.value === subjectIri &&
+      quad.predicate.value === predicateIri &&
+      quad.object.termType === "Literal"
+    ) {
+      return quad.object.value;
+    }
+  }
+  return undefined;
+}
+
+function formatOwnerResourcePath(resourcePath: string): string {
+  if (resourcePath === "." || resourcePath.length === 0) {
+    return "/";
+  }
+  return resourcePath;
+}
+
+function toLastPathSegment(path: string): string {
+  const segments = path.split("/").filter((segment) => segment.length > 0);
+  return segments[segments.length - 1] ?? "/";
+}
+
+function isArtifactHistoryPath(resourcePath: string): boolean {
+  return /(^|\/)_history[0-9]+$/.test(resourcePath);
+}
+
+function isHistoricalStatePath(resourcePath: string): boolean {
+  return /(^|\/)_history[0-9]+\/_s[0-9]+$/.test(resourcePath);
+}
+
+function isArtifactManifestationPath(resourcePath: string): boolean {
+  return /(^|\/)_history[0-9]+\/_s[0-9]+\/[^/]+$/.test(resourcePath);
+}
+
+function collectHistoryGroupsByResourcePath(
+  meshBase: string,
+  inventoryTurtle: string,
+  parseErrorMessage: string,
+): ReadonlyMap<string, readonly ResourcePageHistoryGroupModel[]> {
+  const quads = parseInventoryQuads(
+    meshBase,
+    inventoryTurtle,
+    parseErrorMessage,
+  );
+  const groupsByResourcePath = new Map<
+    string,
+    ResolvedResourcePageHistoryGroupModel[]
+  >();
+  const historyGroupByPath = new Map<
+    string,
+    ResolvedResourcePageHistoryGroupModel
+  >();
+  const currentHistoryByArtifactPath = new Map<string, string>();
+  const resolveHistoryGroup = (historyPath: string) => {
+    const cached = historyGroupByPath.get(historyPath);
+    if (cached) {
+      return cached;
+    }
+    const historyGroup = resolveArtifactHistoryGroup(
+      meshBase,
+      quads,
+      historyPath,
+    );
+    historyGroupByPath.set(historyPath, historyGroup);
+    return historyGroup;
+  };
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      (quad.predicate.value !== SFLO_HAS_ARTIFACT_HISTORY_IRI &&
+        quad.predicate.value !== SFLO_CURRENT_ARTIFACT_HISTORY_IRI) ||
+      quad.object.termType !== "NamedNode"
+    ) {
+      continue;
+    }
+
+    const artifactPath = toMeshPath(meshBase, quad.subject.value);
+    const historyPath = toMeshPath(meshBase, quad.object.value);
+    if (artifactPath === undefined || historyPath === undefined) {
+      continue;
+    }
+
+    if (quad.predicate.value === SFLO_CURRENT_ARTIFACT_HISTORY_IRI) {
+      currentHistoryByArtifactPath.set(artifactPath, historyPath);
+    }
+    addHistoryGroup(
+      groupsByResourcePath,
+      artifactPath,
+      resolveHistoryGroup(historyPath),
+    );
+  }
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.predicate.value !== SFLO_HAS_HISTORICAL_STATE_IRI ||
+      quad.object.termType !== "NamedNode"
+    ) {
+      continue;
+    }
+
+    const historyPath = toMeshPath(meshBase, quad.subject.value);
+    if (historyPath === undefined) {
+      continue;
+    }
+
+    addHistoryGroup(
+      groupsByResourcePath,
+      historyPath,
+      resolveHistoryGroup(historyPath),
+    );
+  }
+
+  for (const historyGroups of [...groupsByResourcePath.values()]) {
+    for (const historyGroup of historyGroups) {
+      for (const state of historyGroup.states) {
+        addHistoryGroup(groupsByResourcePath, state.path, historyGroup);
+        if (state.manifestationPath) {
+          addHistoryGroup(
+            groupsByResourcePath,
+            state.manifestationPath,
+            historyGroup,
+          );
+        }
+      }
+    }
+  }
+
+  for (const [resourcePath, historyGroups] of groupsByResourcePath) {
+    groupsByResourcePath.set(
+      resourcePath,
+      sortHistoryGroupsByRecency(
+        historyGroups,
+        currentHistoryByArtifactPath.get(resourcePath),
+      ),
+    );
+  }
+
+  return groupsByResourcePath;
+}
+
+interface ResolvedResourcePageHistoryGroupModel
+  extends ResourcePageHistoryGroupModel {
+  historyOrdinal?: number;
+  latestStatePath?: string;
+  latestStateOrdinal?: number;
+}
+
+function addHistoryGroup(
+  groupsByResourcePath: Map<string, ResolvedResourcePageHistoryGroupModel[]>,
+  resourcePath: string,
+  historyGroup: ResolvedResourcePageHistoryGroupModel,
+): void {
+  const existingGroups = groupsByResourcePath.get(resourcePath) ?? [];
+  if (existingGroups.some((group) => group.path === historyGroup.path)) {
+    return;
+  }
+  groupsByResourcePath.set(resourcePath, [...existingGroups, historyGroup]);
+}
+
+function sortHistoryGroupsByRecency(
+  historyGroups: readonly ResolvedResourcePageHistoryGroupModel[],
+  currentHistoryPath?: string,
+): ResolvedResourcePageHistoryGroupModel[] {
+  return [...historyGroups].sort((left, right) =>
+    compareHistoryGroupRecency(left, right, currentHistoryPath)
+  );
+}
+
+function compareHistoryGroupRecency(
+  left: ResolvedResourcePageHistoryGroupModel,
+  right: ResolvedResourcePageHistoryGroupModel,
+  currentHistoryPath?: string,
+): number {
+  if (left.path === currentHistoryPath && right.path !== currentHistoryPath) {
+    return -1;
+  }
+  if (right.path === currentHistoryPath && left.path !== currentHistoryPath) {
+    return 1;
+  }
+  if (
+    left.historyOrdinal !== undefined &&
+    right.historyOrdinal !== undefined &&
+    left.historyOrdinal !== right.historyOrdinal
+  ) {
+    return right.historyOrdinal - left.historyOrdinal;
+  }
+  if (
+    left.latestStateOrdinal !== undefined &&
+    right.latestStateOrdinal !== undefined &&
+    left.latestStateOrdinal !== right.latestStateOrdinal
+  ) {
+    return right.latestStateOrdinal - left.latestStateOrdinal;
+  }
+  return 0;
+}
+
+function resolveArtifactHistoryGroup(
+  meshBase: string,
+  quads: readonly Quad[],
+  historyPath: string,
+): ResolvedResourcePageHistoryGroupModel {
+  const historyIri = new URL(historyPath, meshBase).href;
+  const statePaths = new Set<string>();
+  const historyOrdinal = resolveOptionalNonNegativeIntegerLiteral(
+    quads,
+    historyIri,
+    SFLO_HISTORY_ORDINAL_IRI,
+  );
+  const assertedLatestStatePath = resolveFirstMeshPathObject(
+    meshBase,
+    quads,
+    historyIri,
+    SFLO_LATEST_HISTORICAL_STATE_IRI,
+  );
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType === "NamedNode" &&
+      quad.subject.value === historyIri &&
+      quad.predicate.value === SFLO_HAS_HISTORICAL_STATE_IRI &&
+      quad.object.termType === "NamedNode"
+    ) {
+      const statePath = toMeshPath(meshBase, quad.object.value);
+      if (statePath) {
+        statePaths.add(statePath);
+      }
+    }
+  }
+
+  const sortedStatePaths = [...statePaths].sort((left, right) =>
+    left.localeCompare(right)
+  );
+  const latestStatePath = assertedLatestStatePath ??
+    sortedStatePaths[sortedStatePaths.length - 1];
+  const latestStateOrdinal = latestStatePath
+    ? resolveOptionalNonNegativeIntegerLiteral(
+      quads,
+      new URL(latestStatePath, meshBase).href,
+      SFLO_STATE_ORDINAL_IRI,
+    )
+    : undefined;
+
+  return {
+    label: "Artifact history",
+    path: historyPath,
+    ...(historyOrdinal === undefined ? {} : { historyOrdinal }),
+    ...(latestStatePath === undefined ? {} : { latestStatePath }),
+    ...(latestStateOrdinal === undefined ? {} : { latestStateOrdinal }),
+    states: sortedStatePaths.map((statePath) =>
+      resolveHistoricalStateModel(meshBase, quads, statePath)
+    ),
+  };
+}
+
+function resolveHistoricalStateModel(
+  meshBase: string,
+  quads: readonly Quad[],
+  statePath: string,
+): {
+  path: string;
+  manifestationPath?: string;
+  locatedFilePath?: string;
+} {
+  const stateIri = new URL(statePath, meshBase).href;
+  const shortcutLocatedFilePath = resolveFirstMeshPathObject(
+    meshBase,
+    quads,
+    stateIri,
+    SFLO_LOCATED_FILE_FOR_STATE_IRI,
+  );
+  const manifestationPath = resolveFirstMeshPathObject(
+    meshBase,
+    quads,
+    stateIri,
+    SFLO_HAS_MANIFESTATION_IRI,
+  );
+  const manifestationLocatedFilePath = manifestationPath
+    ? resolveFirstMeshPathObject(
+      meshBase,
+      quads,
+      new URL(manifestationPath, meshBase).href,
+      SFLO_HAS_LOCATED_FILE_IRI,
+    )
+    : undefined;
+
+  return {
+    path: statePath,
+    ...(manifestationPath ? { manifestationPath } : {}),
+    ...((shortcutLocatedFilePath ?? manifestationLocatedFilePath)
+      ? {
+        locatedFilePath: shortcutLocatedFilePath ??
+          manifestationLocatedFilePath,
+      }
+      : {}),
+  };
+}
+
+function resolveFirstMeshPathObject(
+  meshBase: string,
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+): string | undefined {
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.subject.value !== subjectIri ||
+      quad.predicate.value !== predicateIri ||
+      quad.object.termType !== "NamedNode"
+    ) {
+      continue;
+    }
+
+    const meshPath = toMeshPath(meshBase, quad.object.value);
+    if (meshPath) {
+      return meshPath;
+    }
+  }
+  return undefined;
+}
+
+function resolveOptionalNonNegativeIntegerLiteral(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+): number | undefined {
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.subject.value !== subjectIri ||
+      quad.predicate.value !== predicateIri ||
+      quad.object.termType !== "Literal"
+    ) {
+      continue;
+    }
+
+    const value = quad.object.value;
+    if (/^[0-9]+$/.test(value)) {
+      return Number(value);
+    }
+  }
+  return undefined;
+}
+
+function resolveArtifactWorkingLocalRelativePath(
+  quads: readonly Quad[],
+  meshBase: string,
+  artifactPath: string,
+): string | undefined {
+  const artifactIri = new URL(artifactPath, meshBase).href;
+  const literalValue = resolveOptionalUniqueLiteralObject(
+    quads,
+    artifactIri,
+    SFLO_WORKING_FILE_PATH_IRI,
+  );
+  const locatedFileValue = resolveOptionalUniqueNamedNodeMeshPath(
+    quads,
+    meshBase,
+    artifactIri,
+    SFLO_HAS_WORKING_LOCATED_FILE_IRI,
+  );
+
+  if (
+    literalValue !== undefined &&
+    locatedFileValue !== undefined &&
+    literalValue !== locatedFileValue
+  ) {
+    return undefined;
+  }
+
+  return literalValue ?? locatedFileValue;
+}
+
+function resolveOptionalUniqueLiteralObject(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+): string | undefined {
+  const values = new Set<string>();
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.subject.value !== subjectIri ||
+      quad.predicate.value !== predicateIri ||
+      quad.object.termType !== "Literal"
+    ) {
+      continue;
+    }
+
+    values.add(quad.object.value);
+  }
+
+  return values.size === 1 ? values.values().next().value! : undefined;
+}
+
+function resolveOptionalUniqueNamedNodeMeshPath(
+  quads: readonly Quad[],
+  meshBase: string,
+  subjectIri: string,
+  predicateIri: string,
+): string | undefined {
+  const values = new Set<string>();
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.subject.value !== subjectIri ||
+      quad.predicate.value !== predicateIri ||
+      quad.object.termType !== "NamedNode"
+    ) {
+      continue;
+    }
+
+    const meshPath = toMeshPath(meshBase, quad.object.value);
+    if (meshPath !== undefined) {
+      values.add(meshPath);
+    }
+  }
+
+  return values.size === 1 ? values.values().next().value! : undefined;
+}
+
+function toMeshPath(meshBase: string, iri: string): string | undefined {
+  const meshUrl = new URL(meshBase);
+  const iriUrl = new URL(iri);
+  if (iriUrl.origin !== meshUrl.origin) {
+    return undefined;
+  }
+  const basePath = meshUrl.pathname.endsWith("/")
+    ? meshUrl.pathname
+    : `${meshUrl.pathname}/`;
+  if (!iriUrl.pathname.startsWith(basePath)) {
+    return undefined;
+  }
+  return decodeURIComponent(iriUrl.pathname.slice(basePath.length));
+}
+
 function parseInventoryQuads(
   meshBase: string,
   inventoryTurtle: string,
@@ -1447,16 +3014,23 @@ function toResourcePath(pagePath: string): string {
 
 function toPayloadHistoricalSnapshotPath(
   historyStatePath: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
 ): string {
-  const fileName = toFileName(workingFilePath);
-  const manifestationSegment = fileName.replaceAll(".", "-");
+  const fileName = toFileName(workingLocalRelativePath);
+  const manifestationSegment = toDefaultManifestationSegment(fileName);
   return `${historyStatePath}/${manifestationSegment}/${fileName}`;
 }
 
 function toFileName(path: string): string {
   const segments = path.split("/");
   return segments[segments.length - 1]!;
+}
+
+function toDefaultManifestationSegment(fileName: string): string {
+  const extensionIndex = fileName.lastIndexOf(".");
+  return extensionIndex > 0 && extensionIndex < fileName.length - 1
+    ? fileName.slice(extensionIndex + 1)
+    : fileName.replaceAll(".", "-");
 }
 
 async function writeFiles(

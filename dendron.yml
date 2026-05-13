@@ -39,11 +39,11 @@ workspace:
               type: git
               url: git@github.com:semantic-flow/sflo-dendron-notes.git
           name: sflo-dendron-notes
-        - fsPath: dependencies/github.com/semantic-flow/ontology
+        - fsPath: dependencies/github.com/semantic-flow/sflo
           remote:
               type: git
-              url: git@github.com:semantic-flow/ontology.git
-          name: ontology
+              url: git@github.com:semantic-flow/sflo.git
+          name: sflo
           selfContained: true
         - fsPath: dependencies/github.com/semantic-flow/weave-dev-archive
           remote:
@@ -98,7 +98,7 @@ workspace:
     enableAutoFoldFrontmatter: false
     enableEditorDecorations: true
     maxPreviewsCached: 10
-    maxNoteLength: 204800
+    maxNoteLength: 404800
     enableFullHierarchyNoteTitle: false
 preview:
     enableFMTitle: true
@@ -138,7 +138,7 @@ publishing:
         payload:
             - weave-dev-archive
             - documentation
-            - ontology
+            - sflo
             - sflo-dendron-notes
             - semantic-flow-framework
             - accord

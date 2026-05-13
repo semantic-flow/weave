@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertRejects } from "@std/assert";
-import { join, relative } from "@std/path";
+import { join, relative, toFileUrl } from "@std/path";
 import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import {
   getManifestFileExpectations,
@@ -12,12 +12,19 @@ import {
   resolveMeshAliceBioConformanceManifestPath,
 } from "../support/mesh_alice_bio_fixture.ts";
 import {
+  listMeshSidecarFantasyRulesBranchFiles,
+  materializeMeshSidecarFantasyRulesBranch,
+  readMeshSidecarFantasyRulesBranchFile,
+  resolveMeshSidecarFantasyRulesConformanceManifestPath,
+} from "../support/mesh_sidecar_fantasy_rules_fixture.ts";
+import {
   ROOT_PAYLOAD_TURTLE,
   ROOT_WORKING_FILE_PATH,
 } from "../support/root_designator.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 const repoRoot = new URL("../../", import.meta.url);
+const cliPath = new URL("src/main.ts", repoRoot).pathname;
 
 Deno.test("weave integrate matches the manifest-scoped alice-bio integrated fixture as a black-box CLI run", async () => {
   const manifestPath = resolveMeshAliceBioConformanceManifestPath(
@@ -37,15 +44,13 @@ Deno.test("weave integrate matches the manifest-scoped alice-bio integrated fixt
       "--allow-read",
       "--allow-write",
       "--allow-env",
-      "src/main.ts",
+      cliPath,
       "integrate",
       "alice-bio.ttl",
       "--designator-path",
       "alice/bio",
-      "--workspace",
-      workspaceRoot,
     ],
-    cwd: new URL(".", repoRoot),
+    cwd: toFileUrl(`${workspaceRoot}/`),
     stdout: "piped",
     stderr: "piped",
   });
@@ -130,16 +135,14 @@ Deno.test("weave integrate rejects conflicting designator paths before logging o
       "--allow-read",
       "--allow-write",
       "--allow-env",
-      "src/main.ts",
+      cliPath,
       "integrate",
       "alice-bio.ttl",
       "alice/bio",
       "--designator-path",
       "bob/bio",
-      "--workspace",
-      workspaceRoot,
     ],
-    cwd: new URL(".", repoRoot),
+    cwd: toFileUrl(`${workspaceRoot}/`),
     stdout: "piped",
     stderr: "piped",
   });
@@ -177,15 +180,13 @@ Deno.test("weave integrate accepts the root designator path as a black-box CLI r
       "--allow-read",
       "--allow-write",
       "--allow-env",
-      "src/main.ts",
+      cliPath,
       "integrate",
       ROOT_WORKING_FILE_PATH,
       "--designator-path",
       "/",
-      "--workspace",
-      workspaceRoot,
     ],
-    cwd: new URL(".", repoRoot),
+    cwd: toFileUrl(`${workspaceRoot}/`),
     stdout: "piped",
     stderr: "piped",
   });
@@ -199,7 +200,7 @@ Deno.test("weave integrate accepts the root designator path as a black-box CLI r
   await Deno.stat(join(workspaceRoot, "_knop/_inventory/inventory.ttl"));
 });
 
-Deno.test("weave integrate allows repo-adjacent local sources when repo policy permits them as a black-box CLI run", async () => {
+Deno.test("weave integrate grants and uses a repo-adjacent source directory as a black-box CLI run", async () => {
   const tempRepoRoot = await createTestTmpDir("weave-e2e-integrate-policy-");
   const workspaceRoot = join(tempRepoRoot, "mesh");
   await materializeMeshAliceBioBranch(
@@ -207,17 +208,13 @@ Deno.test("weave integrate allows repo-adjacent local sources when repo policy p
     workspaceRoot,
   );
   await Deno.mkdir(join(tempRepoRoot, "documentation"), { recursive: true });
+  await Deno.mkdir(join(workspaceRoot, "_mesh/_config"), { recursive: true });
   await Deno.writeTextFile(
-    join(tempRepoRoot, ".sf-repo-access.ttl"),
+    join(workspaceRoot, "_mesh/_config/config.ttl"),
     `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
 
-<> a sfcfg:RepoOperationalConfig ;
-  sfcfg:hasLocalPathAccessRule [
-    a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/LocalPathBase/MeshRoot> ;
-    sfcfg:pathPrefix "../documentation/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/LocalPathLocatorKind/WorkingFilePath>
-  ] .
+<> a sfcfg:MeshConfig ;
+  sfcfg:workspaceRootRelativeToMeshRoot "../" .
 `,
   );
   await Deno.writeTextFile(
@@ -234,15 +231,17 @@ Deno.test("weave integrate allows repo-adjacent local sources when repo policy p
       "--allow-read",
       "--allow-write",
       "--allow-env",
-      "src/main.ts",
+      cliPath,
       "integrate",
-      "../documentation/alice-bio.ttl",
+      "documentation/alice-bio.ttl",
       "--designator-path",
       "alice/bio",
-      "--workspace",
-      workspaceRoot,
+      "--mesh-root",
+      "mesh",
+      "--grant-source-directory",
+      "documentation",
     ],
-    cwd: new URL(".", repoRoot),
+    cwd: toFileUrl(`${tempRepoRoot}/`),
     stdout: "piped",
     stderr: "piped",
   });
@@ -252,12 +251,20 @@ Deno.test("weave integrate allows repo-adjacent local sources when repo policy p
 
   assert(output.success, stderr);
   assert(stdout.includes("Integrated"), stdout);
+  assert(stdout.includes("mesh/_mesh/_config/config.ttl"), stdout);
+  const config = await Deno.readTextFile(
+    join(workspaceRoot, "_mesh/_config/config.ttl"),
+  );
+  assert(
+    config.includes('sfcfg:pathPrefix "../documentation/"'),
+    config,
+  );
   const createdInventory = await Deno.readTextFile(
     join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
   );
   assert(
     createdInventory.includes(
-      'sflo:workingFilePath "../documentation/alice-bio.ttl" .',
+      'sflo:workingLocalRelativePath "../documentation/alice-bio.ttl" .',
     ),
     createdInventory,
   );
@@ -267,6 +274,112 @@ Deno.test("weave integrate allows repo-adjacent local sources when repo policy p
     ),
     false,
   );
+});
+
+Deno.test("weave integrate matches the manifest-scoped sidecar Gunaar dataset fixture", async () => {
+  const manifestPath = resolveMeshSidecarFantasyRulesConformanceManifestPath(
+    "12-gunaar-example-dataset.jsonld",
+  );
+  const transitionCase = await readSingleTransitionCase(manifestPath);
+  assertEquals(transitionCase.operationId, "integrate");
+  assertEquals(transitionCase.fromRef, "11-root-knop-woven");
+  assertEquals(transitionCase.toRef, "12-gunaar-example-dataset");
+  assertEquals(transitionCase.targetDesignatorPath, "examples/gunaar");
+
+  const workspaceRoot = await createTestTmpDir("weave-e2e-integrate-gunaar-");
+  await materializeMeshSidecarFantasyRulesBranch(
+    transitionCase.fromRef!,
+    workspaceRoot,
+  );
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      cliPath,
+      "integrate",
+      "examples/gunaar.ttl",
+      "examples/gunaar",
+      "--mesh-root",
+      "docs",
+      "--grant-source-directory",
+      "examples",
+    ],
+    cwd: toFileUrl(`${workspaceRoot}/`),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Integrated"), stdout);
+
+  assertEquals(
+    await listRelativeFiles(workspaceRoot, ".weave/"),
+    await listMeshSidecarFantasyRulesBranchFiles(transitionCase.toRef!),
+  );
+
+  const fileExpectations = getManifestFileExpectations(transitionCase);
+  for (const fileExpectation of fileExpectations) {
+    const path = fileExpectation.path;
+    if (!path) {
+      continue;
+    }
+
+    if (fileExpectation.changeType === "absent") {
+      await assertPathAbsent(join(workspaceRoot, path));
+      continue;
+    }
+
+    const compareMode = fileExpectation.compareMode;
+
+    if (compareMode === undefined) {
+      await Deno.stat(join(workspaceRoot, path));
+      continue;
+    }
+
+    const actualBytes = await Deno.readFile(join(workspaceRoot, path));
+    const expectedBytes = new TextEncoder().encode(
+      await readMeshSidecarFantasyRulesBranchFile(
+        transitionCase.toRef!,
+        path,
+      ),
+    );
+
+    if (compareMode === "rdfCanonical") {
+      assertEquals(
+        await compareRdfContent({
+          left: actualBytes,
+          right: expectedBytes,
+          path,
+        }),
+        true,
+      );
+      continue;
+    }
+
+    if (compareMode === "text") {
+      assertEquals(
+        new TextDecoder().decode(actualBytes),
+        new TextDecoder().decode(expectedBytes),
+      );
+      continue;
+    }
+
+    if (compareMode === "bytes") {
+      assertEquals(actualBytes, expectedBytes);
+      continue;
+    }
+
+    throw new Error(`Unsupported compare mode ${compareMode} for ${path}`);
+  }
+
+  await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
+  await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
 });
 
 Deno.test("weave integrate requires a designator path before logging or execution", async () => {
@@ -284,13 +397,11 @@ Deno.test("weave integrate requires a designator path before logging or executio
       "--allow-read",
       "--allow-write",
       "--allow-env",
-      "src/main.ts",
+      cliPath,
       "integrate",
       "alice-bio.ttl",
-      "--workspace",
-      workspaceRoot,
     ],
-    cwd: new URL(".", repoRoot),
+    cwd: toFileUrl(`${workspaceRoot}/`),
     stdout: "piped",
     stderr: "piped",
   });

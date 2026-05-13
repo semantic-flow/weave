@@ -4,17 +4,22 @@ import {
   normalizeSafeDesignatorPath,
   toDesignatorResourcePagePath,
   toKnopPath,
-  toReferenceCatalogPath,
 } from "../designator_segments.ts";
 import { KnopCreateInputError } from "../knop/create.ts";
 import type { PlannedFile } from "../planned_file.ts";
+import {
+  SFLO_NAMESPACE,
+  SFLO_TURTLE_PREFIX_DECLARATION,
+} from "../rdf/namespaces.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const XSD_ANY_URI_IRI = "http://www.w3.org/2001/XMLSchema#anyURI";
 const XSD_NON_NEGATIVE_INTEGER_IRI =
   "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
-const SFLO_NAMESPACE =
-  "https://semantic-flow.github.io/semantic-flow-ontology/";
+const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
+  `${SFLO_NAMESPACE}artifactResolutionMode_pinned`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
+  `${SFLO_NAMESPACE}artifactResolutionMode_current`;
 const SFLO_DIGITAL_ARTIFACT_IRI = `${SFLO_NAMESPACE}DigitalArtifact`;
 const SFLO_HAS_KNOP_IRI = `${SFLO_NAMESPACE}hasKnop`;
 const SFLO_HAS_MESH_INVENTORY_IRI = `${SFLO_NAMESPACE}hasMeshInventory`;
@@ -34,8 +39,8 @@ const SFLO_NEXT_STATE_ORDINAL_IRI = `${SFLO_NAMESPACE}nextStateOrdinal`;
 const SFLO_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}PayloadArtifact`;
 const SFLO_RDF_DOCUMENT_IRI = `${SFLO_NAMESPACE}RdfDocument`;
 const SFLO_SEMANTIC_MESH_IRI = `${SFLO_NAMESPACE}SemanticMesh`;
-const SUPPLEMENTAL_REFERENCE_ROLE_IRI =
-  `${SFLO_NAMESPACE}ReferenceRole/Supplemental`;
+const SFLO_WORKING_LOCAL_RELATIVE_PATH_IRI =
+  `${SFLO_NAMESPACE}workingLocalRelativePath`;
 
 export interface ExtractRequest {
   designatorPath: string;
@@ -44,21 +49,21 @@ export interface ExtractRequest {
 export interface ResolvedExtractRequest extends ExtractRequest {
   meshBase: string;
   currentMeshInventoryTurtle: string;
-  referenceTargetDesignatorPath: string;
-  referenceTargetStatePath: string;
-  referenceTargetWorkingFilePath: string;
+  sourceDesignatorPath: string;
+  sourceStatePath?: string;
+  sourceResolutionMode?: "current" | "pinned";
+  sourceWorkingLocalRelativePath: string;
 }
 
 export interface ExtractPlan {
   meshBase: string;
   designatorPath: string;
-  referenceCatalogIri: string;
-  referenceLinkIri: string;
-  referenceRoleIri: string;
-  referenceTargetIri: string;
-  referenceTargetDesignatorPath: string;
-  referenceTargetStateIri: string;
-  referenceTargetStatePath: string;
+  extractionSourceIri: string;
+  sourceArtifactIri: string;
+  sourceDesignatorPath: string;
+  sourceStateIri?: string;
+  sourceStatePath?: string;
+  sourceResolutionMode: "current" | "pinned";
   createdFiles: readonly PlannedFile[];
   updatedFiles: readonly PlannedFile[];
 }
@@ -76,41 +81,55 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
     request.designatorPath,
     "designatorPath",
   );
-  const referenceTargetDesignatorPath = normalizeDesignatorPath(
-    request.referenceTargetDesignatorPath,
-    "referenceTargetDesignatorPath",
+  const sourceDesignatorPath = normalizeDesignatorPath(
+    request.sourceDesignatorPath,
+    "sourceDesignatorPath",
   );
-  const referenceTargetStatePath = normalizeRelativeIriPath(
-    request.referenceTargetStatePath,
-    "referenceTargetStatePath",
-  );
-  const referenceTargetWorkingFilePath = normalizeWorkingFilePath(
-    request.referenceTargetWorkingFilePath,
+  const sourceResolutionMode = request.sourceResolutionMode === undefined
+    ? request.sourceStatePath === undefined ? "current" : "pinned"
+    : normalizeSourceResolutionMode(request.sourceResolutionMode);
+  const sourceStatePath = request.sourceStatePath === undefined
+    ? undefined
+    : normalizeRelativeIriPath(
+      request.sourceStatePath,
+      "sourceStatePath",
+    );
+  if (sourceResolutionMode === "pinned" && sourceStatePath === undefined) {
+    throw new ExtractInputError(
+      "sourceStatePath is required for pinned extraction",
+    );
+  }
+  if (sourceResolutionMode === "current" && sourceStatePath !== undefined) {
+    throw new ExtractInputError(
+      "sourceStatePath is only valid for pinned extraction",
+    );
+  }
+  const sourceWorkingLocalRelativePath = normalizeWorkingLocalRelativePath(
+    request.sourceWorkingLocalRelativePath,
   );
 
   try {
     const knopPath = toKnopPath(designatorPath);
-    const referenceCatalogPath = toReferenceCatalogPath(designatorPath);
     const updatedMeshInventoryTurtle = renderExtractMeshInventoryTurtle(
       meshBase,
       request.currentMeshInventoryTurtle,
       designatorPath,
-      referenceTargetDesignatorPath,
-      referenceTargetWorkingFilePath,
+      sourceDesignatorPath,
+      sourceWorkingLocalRelativePath,
     );
 
     return {
       meshBase,
       designatorPath,
-      referenceCatalogIri: new URL(referenceCatalogPath, meshBase).href,
-      referenceLinkIri:
-        new URL(`${referenceCatalogPath}#reference001`, meshBase)
-          .href,
-      referenceRoleIri: SUPPLEMENTAL_REFERENCE_ROLE_IRI,
-      referenceTargetIri: new URL(referenceTargetDesignatorPath, meshBase).href,
-      referenceTargetDesignatorPath,
-      referenceTargetStateIri: new URL(referenceTargetStatePath, meshBase).href,
-      referenceTargetStatePath,
+      extractionSourceIri:
+        new URL(`${knopPath}/_inventory#extraction-source`, meshBase).href,
+      sourceArtifactIri: new URL(sourceDesignatorPath, meshBase).href,
+      sourceDesignatorPath,
+      ...(sourceStatePath
+        ? { sourceStateIri: new URL(sourceStatePath, meshBase).href }
+        : {}),
+      sourceStatePath,
+      sourceResolutionMode,
       createdFiles: [
         {
           path: `${knopPath}/_meta/meta.ttl`,
@@ -124,16 +143,9 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
           contents: renderExtractKnopInventoryTurtle(
             meshBase,
             designatorPath,
-          ),
-        },
-        {
-          path: `${referenceCatalogPath}/references.ttl`,
-          contents: renderExtractReferenceCatalogTurtle(
-            meshBase,
-            designatorPath,
-            referenceTargetDesignatorPath,
-            SUPPLEMENTAL_REFERENCE_ROLE_IRI,
-            referenceTargetStatePath,
+            sourceDesignatorPath,
+            sourceResolutionMode,
+            sourceStatePath,
           ),
         },
       ],
@@ -148,6 +160,15 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
     }
     throw error;
   }
+}
+
+function normalizeSourceResolutionMode(
+  sourceResolutionMode: string,
+): "current" | "pinned" {
+  if (sourceResolutionMode === "current" || sourceResolutionMode === "pinned") {
+    return sourceResolutionMode;
+  }
+  throw new ExtractInputError("sourceResolutionMode must be current or pinned");
 }
 
 function normalizeMeshBase(meshBase: string): string {
@@ -187,18 +208,21 @@ function normalizeDesignatorPath(
   );
 }
 
-function normalizeWorkingFilePath(workingFilePath: string): string {
-  return normalizeValidatedPath(workingFilePath, {
-    fieldName: "referenceTargetWorkingFilePath",
+function normalizeWorkingLocalRelativePath(
+  workingLocalRelativePath: string,
+): string {
+  return normalizeValidatedPath(workingLocalRelativePath, {
+    fieldName: "sourceWorkingLocalRelativePath",
     rejectWhitespace: true,
     slashMessage:
-      "referenceTargetWorkingFilePath must be a mesh-relative file path",
+      "sourceWorkingLocalRelativePath must be a mesh-relative file path",
     unsupportedCharactersMessage:
-      "referenceTargetWorkingFilePath contains unsupported path characters",
+      "sourceWorkingLocalRelativePath contains unsupported path characters",
     emptySegmentsMessage:
-      "referenceTargetWorkingFilePath must not contain empty path segments",
+      "sourceWorkingLocalRelativePath must not contain empty path segments",
     dotSegmentsMessage:
-      "referenceTargetWorkingFilePath must be a mesh-relative file path",
+      "sourceWorkingLocalRelativePath contains unsupported path segments",
+    allowParentSegments: true,
   });
 }
 
@@ -212,6 +236,7 @@ function normalizeRelativeIriPath(value: string, fieldName: string): string {
     emptySegmentsMessage: `${fieldName} must not contain empty path segments`,
     dotSegmentsMessage:
       `${fieldName} must not contain '.' or '..' path segments`,
+    allowParentSegments: false,
   });
 }
 
@@ -224,6 +249,7 @@ function normalizeValidatedPath(
     unsupportedCharactersMessage: string;
     emptySegmentsMessage: string;
     dotSegmentsMessage: string;
+    allowParentSegments: boolean;
   },
 ): string {
   const trimmed = value.trim();
@@ -244,7 +270,11 @@ function normalizeValidatedPath(
   if (segments.some((segment) => segment.length === 0)) {
     throw new ExtractInputError(options.emptySegmentsMessage);
   }
-  if (segments.some((segment) => segment === "." || segment === "..")) {
+  if (
+    segments.some((segment) =>
+      segment === "." || (!options.allowParentSegments && segment === "..")
+    )
+  ) {
     throw new ExtractInputError(options.dotSegmentsMessage);
   }
 
@@ -256,14 +286,68 @@ function renderExtractMeshInventoryTurtle(
   currentMeshInventoryTurtle: string,
   designatorPath: string,
   sourcePayloadDesignatorPath: string,
-  sourceWorkingFilePath: string,
+  sourceWorkingLocalRelativePath: string,
+): string {
+  assertMeshInventorySupportsExtract(
+    meshBase,
+    currentMeshInventoryTurtle,
+    designatorPath,
+    sourcePayloadDesignatorPath,
+    sourceWorkingLocalRelativePath,
+  );
+
+  if (
+    hasLegacyCarriedExtractMeshInventoryShape(
+      meshBase,
+      currentMeshInventoryTurtle,
+      sourcePayloadDesignatorPath,
+    )
+  ) {
+    return renderLegacyExtractMeshInventoryTurtle(
+      meshBase,
+      currentMeshInventoryTurtle,
+      designatorPath,
+      sourcePayloadDesignatorPath,
+      sourceWorkingLocalRelativePath,
+    );
+  }
+
+  return appendExtractMeshInventoryTurtle(
+    currentMeshInventoryTurtle,
+    designatorPath,
+  );
+}
+
+function appendExtractMeshInventoryTurtle(
+  currentMeshInventoryTurtle: string,
+  designatorPath: string,
+): string {
+  const knopPath = toKnopPath(designatorPath);
+
+  return `${currentMeshInventoryTurtle.trimEnd()}
+
+<_mesh> sflo:hasKnop <${knopPath}> .
+
+<${knopPath}> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> .
+
+<${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+`;
+}
+
+function renderLegacyExtractMeshInventoryTurtle(
+  meshBase: string,
+  currentMeshInventoryTurtle: string,
+  designatorPath: string,
+  sourcePayloadDesignatorPath: string,
+  sourceWorkingLocalRelativePath: string,
 ): string {
   assertCurrentMeshInventoryShapeForExtract(
     meshBase,
     currentMeshInventoryTurtle,
     designatorPath,
     sourcePayloadDesignatorPath,
-    sourceWorkingFilePath,
+    sourceWorkingLocalRelativePath,
   );
 
   const rootDesignatorPath = toRootDesignatorPath(sourcePayloadDesignatorPath);
@@ -301,7 +385,7 @@ function renderExtractMeshInventoryTurtle(
     `${rootKnopPath}/_inventory/inventory.ttl`,
     `${sourceKnopPath}/_inventory/inventory.ttl`,
     `${knopPath}/_inventory/inventory.ttl`,
-    sourceWorkingFilePath,
+    sourceWorkingLocalRelativePath,
   ]);
   const resourcePageDeclarations = renderResourcePageDeclarations([
     "_mesh/index.html",
@@ -324,7 +408,7 @@ function renderExtractMeshInventoryTurtle(
   ]);
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh> a sflo:SemanticMesh ;
@@ -337,7 +421,7 @@ ${meshKnopLines}
 ${rootDesignatorBlock}${rootKnopBlock}
 
 <${sourcePayloadDesignatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <${sourceWorkingFilePath}> ;
+  sflo:hasWorkingLocatedFile <${sourceWorkingLocalRelativePath}> ;
   sflo:hasResourcePage <${sourcePayloadPagePath}> .
 
 ${sourceKnopBlock}<${knopPath}> a sflo:Knop ;
@@ -421,6 +505,140 @@ ${resourcePageDeclarations}
 `;
 }
 
+function assertMeshInventorySupportsExtract(
+  meshBase: string,
+  currentMeshInventoryTurtle: string,
+  designatorPath: string,
+  sourcePayloadDesignatorPath: string,
+  sourceWorkingLocalRelativePath: string,
+): void {
+  const knopPath = toKnopPath(designatorPath);
+  const sourceKnopPath = toKnopPath(sourcePayloadDesignatorPath);
+  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
+  const errorMessage =
+    `current mesh inventory has an unsupported extract shape for ${designatorPath}`;
+  const quads = parseMeshInventoryQuads(
+    meshBase,
+    currentMeshInventoryTurtle,
+    errorMessage,
+  );
+
+  if (
+    hasNamedNodeFact(
+      quads,
+      meshBase,
+      knopPath,
+      RDF_TYPE_IRI,
+      SFLO_KNOP_IRI,
+    ) ||
+    hasNamedNodeFact(
+      quads,
+      meshBase,
+      "_mesh",
+      SFLO_HAS_KNOP_IRI,
+      knopPath,
+    )
+  ) {
+    throw new KnopCreateInputError(
+      `mesh inventory already registers knop: ${knopPath}`,
+    );
+  }
+
+  if (
+    hasNamedNodeFact(
+      quads,
+      meshBase,
+      designatorPath,
+      SFLO_HAS_RESOURCE_PAGE_IRI,
+      designatorPagePath,
+    )
+  ) {
+    throw new ExtractInputError(
+      `Mesh inventory already exposes current woven pages for ${designatorPath}.`,
+    );
+  }
+
+  assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
+    ["_mesh", RDF_TYPE_IRI, SFLO_SEMANTIC_MESH_IRI],
+    ["_mesh", SFLO_HAS_MESH_METADATA_IRI, "_mesh/_meta"],
+    ["_mesh", SFLO_HAS_MESH_INVENTORY_IRI, "_mesh/_inventory"],
+    ["_mesh", SFLO_HAS_KNOP_IRI, sourceKnopPath],
+    [sourceKnopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
+    [
+      sourceKnopPath,
+      SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI,
+      `${sourceKnopPath}/_inventory/inventory.ttl`,
+    ],
+    [sourcePayloadDesignatorPath, RDF_TYPE_IRI, SFLO_PAYLOAD_ARTIFACT_IRI],
+    [sourcePayloadDesignatorPath, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
+    [sourcePayloadDesignatorPath, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
+    ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_MESH_INVENTORY_IRI],
+    ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
+    ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
+  ]);
+  assertHasLiteralFacts(quads, meshBase, errorMessage, [
+    ["_mesh", SFLO_MESH_BASE_IRI, meshBase, XSD_ANY_URI_IRI],
+  ]);
+
+  if (
+    !hasNamedNodeFact(
+      quads,
+      meshBase,
+      sourcePayloadDesignatorPath,
+      SFLO_HAS_WORKING_LOCATED_FILE_IRI,
+      sourceWorkingLocalRelativePath,
+    ) &&
+    !hasLiteralValueFact(
+      quads,
+      meshBase,
+      sourcePayloadDesignatorPath,
+      SFLO_WORKING_LOCAL_RELATIVE_PATH_IRI,
+      sourceWorkingLocalRelativePath,
+    )
+  ) {
+    throw new ExtractInputError(errorMessage);
+  }
+}
+
+function hasLegacyCarriedExtractMeshInventoryShape(
+  meshBase: string,
+  currentMeshInventoryTurtle: string,
+  sourcePayloadDesignatorPath: string,
+): boolean {
+  const errorMessage = "current mesh inventory is not the legacy extract shape";
+  let quads: Quad[];
+  try {
+    quads = parseMeshInventoryQuads(
+      meshBase,
+      currentMeshInventoryTurtle,
+      errorMessage,
+    );
+  } catch {
+    return false;
+  }
+
+  const rootDesignatorPath = toRootDesignatorPath(sourcePayloadDesignatorPath);
+  const rootKnopPath = toKnopPath(rootDesignatorPath);
+  const sourceKnopPath = toKnopPath(sourcePayloadDesignatorPath);
+  const meshKnopPaths = listNamedNodeObjectPaths(
+    quads,
+    meshBase,
+    "_mesh",
+    SFLO_HAS_KNOP_IRI,
+  );
+  const expectedMeshKnopPaths = [...new Set([rootKnopPath, sourceKnopPath])];
+  const payloadArtifactPaths = listTypedSubjectPaths(
+    quads,
+    meshBase,
+    SFLO_PAYLOAD_ARTIFACT_IRI,
+  );
+
+  return payloadArtifactPaths.length === 1 &&
+    payloadArtifactPaths[0] === sourcePayloadDesignatorPath &&
+    meshKnopPaths.length === expectedMeshKnopPaths.length &&
+    expectedMeshKnopPaths.every((path) => meshKnopPaths.includes(path));
+}
+
 function uniquePaths(paths: readonly string[]): string[] {
   return [...new Set(paths)];
 }
@@ -446,17 +664,29 @@ function renderResourcePageDeclarations(paths: readonly string[]): string {
 function renderExtractKnopInventoryTurtle(
   meshBase: string,
   designatorPath: string,
+  sourceDesignatorPath: string,
+  sourceResolutionMode: "current" | "pinned",
+  sourceStatePath?: string,
 ): string {
   const knopPath = toKnopPath(designatorPath);
+  const extractionSourceFacts = sourceResolutionMode === "pinned"
+    ? `  sflo:hasTargetArtifact <${sourceDesignatorPath}> ;
+  sflo:hasRequestedTargetState <${sourceStatePath}> ;
+  sflo:hasArtifactResolutionMode <${SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI}> .`
+    : `  sflo:hasTargetArtifact <${sourceDesignatorPath}> ;
+  sflo:hasArtifactResolutionMode <${SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI}> .`;
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}> a sflo:Knop ;
   sflo:hasKnopMetadata <${knopPath}/_meta> ;
   sflo:hasKnopInventory <${knopPath}/_inventory> ;
-  sflo:hasReferenceCatalog <${knopPath}/_references> ;
+  sflo:hasExtractionSource <${knopPath}/_inventory#extraction-source> ;
   sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> .
+
+<${knopPath}/_inventory#extraction-source> a sflo:ExtractionSource ;
+${extractionSourceFacts}
 
 <${knopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <${knopPath}/_meta/meta.ttl> .
@@ -464,14 +694,9 @@ function renderExtractKnopInventoryTurtle(
 <${knopPath}/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <${knopPath}/_inventory/inventory.ttl> .
 
-<${knopPath}/_references> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <${knopPath}/_references/references.ttl> .
-
 <${knopPath}/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<${knopPath}/_references/references.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 `;
 }
 
@@ -482,33 +707,11 @@ function renderExtractKnopMetadataTurtle(
   const knopPath = toKnopPath(designatorPath);
 
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}> a sflo:Knop ;
   sflo:designatorPath "${designatorPath}" ;
   sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> .
-`;
-}
-
-function renderExtractReferenceCatalogTurtle(
-  meshBase: string,
-  designatorPath: string,
-  referenceTargetDesignatorPath: string,
-  referenceRoleIri: string,
-  referenceTargetStatePath: string,
-): string {
-  const referenceCatalogPath = toReferenceCatalogPath(designatorPath);
-
-  return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
-
-<${designatorPath}> sflo:hasReferenceLink <${referenceCatalogPath}#reference001> .
-
-<${referenceCatalogPath}#reference001> a sflo:ReferenceLink ;
-  sflo:referenceLinkFor <${designatorPath}> ;
-  sflo:hasReferenceRole <${referenceRoleIri}> ;
-  sflo:referenceTarget <${referenceTargetDesignatorPath}> ;
-  sflo:referenceTargetState <${referenceTargetStatePath}> .
 `;
 }
 
@@ -517,7 +720,7 @@ function assertCurrentMeshInventoryShapeForExtract(
   currentMeshInventoryTurtle: string,
   designatorPath: string,
   sourcePayloadDesignatorPath: string,
-  sourceWorkingFilePath: string,
+  sourceWorkingLocalRelativePath: string,
 ): void {
   const rootDesignatorPath = toRootDesignatorPath(sourcePayloadDesignatorPath);
   const rootKnopPath = toKnopPath(rootDesignatorPath);
@@ -622,7 +825,7 @@ function assertCurrentMeshInventoryShapeForExtract(
     [
       sourcePayloadDesignatorPath,
       SFLO_HAS_WORKING_LOCATED_FILE_IRI,
-      sourceWorkingFilePath,
+      sourceWorkingLocalRelativePath,
     ],
     [
       sourcePayloadDesignatorPath,
@@ -648,8 +851,8 @@ function assertCurrentMeshInventoryShapeForExtract(
       SFLO_LATEST_HISTORICAL_STATE_IRI,
       "_mesh/_inventory/_history001/_s0003",
     ],
-    [sourceWorkingFilePath, RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
-    [sourceWorkingFilePath, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
+    [sourceWorkingLocalRelativePath, RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
+    [sourceWorkingLocalRelativePath, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
   ]);
   assertHasLiteralFacts(quads, meshBase, errorMessage, [
     ["_mesh", SFLO_MESH_BASE_IRI, meshBase, XSD_ANY_URI_IRI],
@@ -741,6 +944,24 @@ function hasLiteralFact(
     quad.object.termType === "Literal" &&
     quad.object.value === literalValue &&
     quad.object.datatype.value === datatypeIri
+  );
+}
+
+function hasLiteralValueFact(
+  quads: readonly Quad[],
+  meshBase: string,
+  subjectValue: string,
+  predicateIri: string,
+  literalValue: string,
+): boolean {
+  const subjectIri = new URL(subjectValue, meshBase).href;
+
+  return quads.some((quad) =>
+    quad.subject.termType === "NamedNode" &&
+    quad.subject.value === subjectIri &&
+    quad.predicate.value === predicateIri &&
+    quad.object.termType === "Literal" &&
+    quad.object.value === literalValue
   );
 }
 

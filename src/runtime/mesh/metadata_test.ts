@@ -10,7 +10,7 @@ Deno.test("resolveMeshBaseFromMetadataTurtle accepts semantically equivalent mes
     resolveMeshBaseFromMetadataTurtle(
       `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <https://semantic-flow.github.io/mesh-alice-bio/> .
 
 <_mesh> sflo:hasWorkingMeshInventoryFile <_mesh/_inventory/inventory.ttl> ;
@@ -26,7 +26,7 @@ Deno.test("resolveMeshBaseFromMetadataTurtle rejects mesh metadata without exact
   assertThrows(
     () =>
       resolveMeshBaseFromMetadataTurtle(
-        `@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+        `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <_mesh> sflo:meshBase "https://example.org/" .
 `,
@@ -38,7 +38,7 @@ Deno.test("resolveMeshBaseFromMetadataTurtle rejects mesh metadata without exact
   assertThrows(
     () =>
       resolveMeshBaseFromMetadataTurtle(
-        `@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+        `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh> sflo:meshBase "https://example.org/a/"^^xsd:anyURI, "https://example.org/b/"^^xsd:anyURI .
@@ -58,7 +58,7 @@ Deno.test("loadWorkspaceMeshBase reads mesh metadata from the workspace surface"
     await Deno.mkdir(`${workspaceRoot}/_mesh/_meta`, { recursive: true });
     await Deno.writeTextFile(
       `${workspaceRoot}/_mesh/_meta/meta.ttl`,
-      `@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+      `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh> sflo:meshBase "https://semantic-flow.github.io/mesh-alice-bio/"^^xsd:anyURI .

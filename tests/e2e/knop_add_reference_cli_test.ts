@@ -42,7 +42,7 @@ Deno.test("weave knop add-reference matches the manifest-scoped alice-bio refere
       "alice/bio",
       "--reference-role",
       "canonical",
-      "--workspace",
+      "--mesh-root",
       workspaceRoot,
     ],
     cwd: new URL(".", repoRoot),
@@ -136,7 +136,7 @@ Deno.test("weave knop add-reference accepts the root reference target as a black
       "/",
       "--reference-role",
       "supplemental",
-      "--workspace",
+      "--mesh-root",
       workspaceRoot,
     ],
     cwd: new URL(".", repoRoot),
@@ -154,13 +154,13 @@ Deno.test("weave knop add-reference accepts the root reference target as a black
       join(workspaceRoot, "alice/_knop/_references/references.ttl"),
     ),
     `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <alice> sflo:hasReferenceLink <alice/_knop/_references#reference001> .
 
 <alice/_knop/_references#reference001> a sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
-  sflo:hasReferenceRole <https://semantic-flow.github.io/semantic-flow-ontology/ReferenceRole/Supplemental> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_supplemental> ;
   sflo:referenceTarget <> .
 `,
   );
@@ -189,7 +189,7 @@ Deno.test("weave knop add-reference rejects a whitespace-only positional designa
       "alice/bio",
       "--reference-role",
       "canonical",
-      "--workspace",
+      "--mesh-root",
       workspaceRoot,
     ],
     cwd: new URL(".", repoRoot),

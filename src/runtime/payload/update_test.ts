@@ -8,7 +8,7 @@ Deno.test("describePayloadUpdateResult uses singular file grammar", () => {
       designatorPath: "alice/bio",
       payloadArtifactIri:
         "https://semantic-flow.github.io/mesh-alice-bio/alice/bio",
-      workingFilePath: "alice-bio.ttl",
+      workingLocalRelativePath: "alice-bio.ttl",
       updatedPaths: ["alice-bio.ttl"],
     }),
     "Updated payload https://semantic-flow.github.io/mesh-alice-bio/alice/bio by replacing working file alice-bio.ttl (updated 1 file).",
@@ -22,7 +22,7 @@ Deno.test("describePayloadUpdateResult uses plural file grammar", () => {
       designatorPath: "alice/bio",
       payloadArtifactIri:
         "https://semantic-flow.github.io/mesh-alice-bio/alice/bio",
-      workingFilePath: "alice-bio.ttl",
+      workingLocalRelativePath: "alice-bio.ttl",
       updatedPaths: ["alice-bio.ttl", "alice-bio-2.ttl"],
     }),
     "Updated payload https://semantic-flow.github.io/mesh-alice-bio/alice/bio by replacing working file alice-bio.ttl (updated 2 files).",

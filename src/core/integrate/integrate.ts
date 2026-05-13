@@ -6,59 +6,33 @@ import {
   normalizeSafeDesignatorPath,
   toKnopPath,
 } from "../designator_segments.ts";
+import {
+  SFLO_NAMESPACE,
+  SFLO_TURTLE_PREFIX_DECLARATION,
+} from "../rdf/namespaces.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const XSD_ANY_URI_IRI = "http://www.w3.org/2001/XMLSchema#anyURI";
-const XSD_NON_NEGATIVE_INTEGER_IRI =
-  "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
-const SFLO_NAMESPACE =
-  "https://semantic-flow.github.io/semantic-flow-ontology/";
-const SFLO_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}ArtifactHistory`;
-const SFLO_ARTIFACT_MANIFESTATION_IRI =
-  `${SFLO_NAMESPACE}ArtifactManifestation`;
-const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
-  `${SFLO_NAMESPACE}currentArtifactHistory`;
 const SFLO_DIGITAL_ARTIFACT_IRI = `${SFLO_NAMESPACE}DigitalArtifact`;
-const SFLO_HAS_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}hasArtifactHistory`;
-const SFLO_HAS_HISTORICAL_STATE_IRI = `${SFLO_NAMESPACE}hasHistoricalState`;
 const SFLO_HAS_KNOP_IRI = `${SFLO_NAMESPACE}hasKnop`;
-const SFLO_HAS_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}hasLocatedFile`;
-const SFLO_HAS_MANIFESTATION_IRI = `${SFLO_NAMESPACE}hasManifestation`;
 const SFLO_HAS_MESH_INVENTORY_IRI = `${SFLO_NAMESPACE}hasMeshInventory`;
 const SFLO_HAS_MESH_METADATA_IRI = `${SFLO_NAMESPACE}hasMeshMetadata`;
-const SFLO_HAS_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}hasResourcePage`;
-const SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI =
-  `${SFLO_NAMESPACE}hasWorkingKnopInventoryFile`;
 const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
   `${SFLO_NAMESPACE}hasWorkingLocatedFile`;
-const SFLO_HISTORICAL_STATE_IRI = `${SFLO_NAMESPACE}HistoricalState`;
-const SFLO_HISTORY_ORDINAL_IRI = `${SFLO_NAMESPACE}historyOrdinal`;
 const SFLO_KNOP_IRI = `${SFLO_NAMESPACE}Knop`;
-const SFLO_LATEST_HISTORICAL_STATE_IRI =
-  `${SFLO_NAMESPACE}latestHistoricalState`;
-const SFLO_LOCATED_FILE_FOR_STATE_IRI = `${SFLO_NAMESPACE}locatedFileForState`;
 const SFLO_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}LocatedFile`;
 const SFLO_MESH_BASE_IRI = `${SFLO_NAMESPACE}meshBase`;
 const SFLO_MESH_INVENTORY_IRI = `${SFLO_NAMESPACE}MeshInventory`;
 const SFLO_MESH_METADATA_IRI = `${SFLO_NAMESPACE}MeshMetadata`;
-const SFLO_NEXT_HISTORY_ORDINAL_IRI = `${SFLO_NAMESPACE}nextHistoryOrdinal`;
-const SFLO_NEXT_STATE_ORDINAL_IRI = `${SFLO_NAMESPACE}nextStateOrdinal`;
 const SFLO_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}PayloadArtifact`;
-const SFLO_PREVIOUS_HISTORICAL_STATE_IRI =
-  `${SFLO_NAMESPACE}previousHistoricalState`;
 const SFLO_RDF_DOCUMENT_IRI = `${SFLO_NAMESPACE}RdfDocument`;
-const SFLO_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}ResourcePage`;
 const SFLO_SEMANTIC_MESH_IRI = `${SFLO_NAMESPACE}SemanticMesh`;
-const SFLO_STATE_ORDINAL_IRI = `${SFLO_NAMESPACE}stateOrdinal`;
-
-interface CurrentIntegrateMeshState {
-  existingDesignatorPath: string;
-  existingKnopPath: string;
-}
+const SFLO_WORKING_LOCAL_RELATIVE_PATH_IRI =
+  `${SFLO_NAMESPACE}workingLocalRelativePath`;
 
 export interface IntegrateRequest {
   designatorPath: string;
-  workingFilePath: string;
+  workingLocalRelativePath: string;
 }
 
 export interface ResolvedIntegrateRequest extends IntegrateRequest {
@@ -71,7 +45,7 @@ export interface IntegratePlan {
   designatorPath: string;
   payloadArtifactIri: string;
   knopIri: string;
-  workingFilePath: string;
+  workingLocalRelativePath: string;
   createdFiles: readonly PlannedFile[];
   updatedFiles: readonly PlannedFile[];
 }
@@ -88,14 +62,16 @@ export function planIntegrate(
 ): IntegratePlan {
   const meshBase = normalizeMeshBase(request.meshBase);
   const designatorPath = normalizeDesignatorPath(request.designatorPath);
-  const workingFilePath = normalizeWorkingFilePath(request.workingFilePath);
+  const workingLocalRelativePath = normalizeWorkingLocalRelativePath(
+    request.workingLocalRelativePath,
+  );
   const knopPath = toKnopPath(designatorPath);
   const knopInventoryPath = `${knopPath}/_inventory/inventory.ttl`;
   const updatedMeshInventoryTurtle = renderUpdatedMeshInventoryTurtle(
     meshBase,
     request.currentMeshInventoryTurtle,
     designatorPath,
-    workingFilePath,
+    workingLocalRelativePath,
   );
 
   return {
@@ -103,7 +79,7 @@ export function planIntegrate(
     designatorPath,
     payloadArtifactIri: new URL(designatorPath, meshBase).href,
     knopIri: new URL(knopPath, meshBase).href,
-    workingFilePath,
+    workingLocalRelativePath,
     createdFiles: [
       {
         path: `${knopPath}/_meta/meta.ttl`,
@@ -114,7 +90,7 @@ export function planIntegrate(
         contents: renderKnopInventoryTurtle(
           meshBase,
           designatorPath,
-          workingFilePath,
+          workingLocalRelativePath,
         ),
       },
     ],
@@ -161,17 +137,19 @@ function normalizeDesignatorPath(designatorPath: string): string {
   );
 }
 
-function normalizeWorkingFilePath(workingFilePath: string): string {
-  const trimmed = workingFilePath.trim();
+function normalizeWorkingLocalRelativePath(
+  workingLocalRelativePath: string,
+): string {
+  const trimmed = workingLocalRelativePath.trim();
   if (trimmed.length === 0) {
-    throw new IntegrateInputError("workingFilePath is required");
+    throw new IntegrateInputError("workingLocalRelativePath is required");
   }
   if (
     trimmed.startsWith("/") || trimmed.endsWith("/") ||
     /^[A-Za-z]:/.test(trimmed)
   ) {
     throw new IntegrateInputError(
-      "workingFilePath must be a relative file path",
+      "workingLocalRelativePath must be a relative file path",
     );
   }
   if (
@@ -179,40 +157,49 @@ function normalizeWorkingFilePath(workingFilePath: string): string {
     /\s/.test(trimmed)
   ) {
     throw new IntegrateInputError(
-      "workingFilePath contains unsupported path characters",
+      "workingLocalRelativePath contains unsupported path characters",
     );
   }
 
   const normalized = pathPosix.normalize(trimmed);
   if (normalized === "." || normalized === "..") {
     throw new IntegrateInputError(
-      "workingFilePath must be a relative file path",
+      "workingLocalRelativePath must be a relative file path",
     );
   }
 
   const segments = normalized.split("/");
   if (segments.some((segment) => segment.length === 0)) {
     throw new IntegrateInputError(
-      "workingFilePath must not contain empty path segments",
+      "workingLocalRelativePath must not contain empty path segments",
     );
   }
 
   return normalized;
 }
 
-function usesMeshLocalWorkingLocatedFile(workingFilePath: string): boolean {
-  return !normalizeWorkingFilePath(workingFilePath).startsWith("../");
+function usesMeshLocalWorkingLocatedFile(
+  workingLocalRelativePath: string,
+): boolean {
+  return !normalizeWorkingLocalRelativePath(workingLocalRelativePath)
+    .startsWith("../");
 }
 
-function renderCurrentWorkingFileLocator(workingFilePath: string): string {
-  return usesMeshLocalWorkingLocatedFile(workingFilePath)
-    ? `sflo:hasWorkingLocatedFile <${workingFilePath}> .`
-    : `sflo:workingFilePath ${JSON.stringify(workingFilePath)} .`;
+function renderCurrentWorkingFileLocator(
+  workingLocalRelativePath: string,
+): string {
+  return usesMeshLocalWorkingLocatedFile(workingLocalRelativePath)
+    ? `sflo:hasWorkingLocatedFile <${workingLocalRelativePath}> .`
+    : `sflo:workingLocalRelativePath ${
+      JSON.stringify(workingLocalRelativePath)
+    } .`;
 }
 
-function renderCurrentWorkingFileDeclaration(workingFilePath: string): string {
-  return usesMeshLocalWorkingLocatedFile(workingFilePath)
-    ? `<${workingFilePath}> a sflo:LocatedFile, sflo:RdfDocument .`
+function renderCurrentWorkingFileDeclaration(
+  workingLocalRelativePath: string,
+): string {
+  return usesMeshLocalWorkingLocatedFile(workingLocalRelativePath)
+    ? `<${workingLocalRelativePath}> a sflo:LocatedFile, sflo:RdfDocument .`
     : "";
 }
 
@@ -222,7 +209,7 @@ function renderKnopMetadataTurtle(
 ): string {
   const knopPath = toKnopPath(designatorPath);
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}> a sflo:Knop ;
   sflo:designatorPath "${designatorPath}" ;
@@ -233,17 +220,17 @@ function renderKnopMetadataTurtle(
 function renderKnopInventoryTurtle(
   meshBase: string,
   designatorPath: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
-    workingFilePath,
+    workingLocalRelativePath,
   );
   const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
-    workingFilePath,
+    workingLocalRelativePath,
   );
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}> a sflo:Knop ;
   sflo:hasKnopMetadata <${knopPath}/_meta> ;
@@ -272,29 +259,28 @@ function renderUpdatedMeshInventoryTurtle(
   meshBase: string,
   currentMeshInventoryTurtle: string,
   designatorPath: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
 ): string {
-  const currentState = resolveCurrentIntegrateMeshState(
+  assertCanIntegrateIntoCurrentMeshInventory(
     meshBase,
     currentMeshInventoryTurtle,
     designatorPath,
-    workingFilePath,
+    workingLocalRelativePath,
   );
 
-  return renderFirstPayloadIntegratedMeshInventoryTurtle(
-    meshBase,
-    currentState,
+  return renderIntegratedMeshInventoryTurtle(
+    currentMeshInventoryTurtle,
     designatorPath,
-    workingFilePath,
+    workingLocalRelativePath,
   );
 }
 
-function resolveCurrentIntegrateMeshState(
+function assertCanIntegrateIntoCurrentMeshInventory(
   meshBase: string,
   currentMeshInventoryTurtle: string,
   designatorPath: string,
-  workingFilePath: string,
-): CurrentIntegrateMeshState {
+  workingLocalRelativePath: string,
+): void {
   const knopPath = toKnopPath(designatorPath);
   const errorMessage =
     `current mesh inventory has an unsupported carried shape for integrate: ${designatorPath}`;
@@ -328,9 +314,6 @@ function resolveCurrentIntegrateMeshState(
       `mesh inventory already registers payload artifact: ${designatorPath}`,
     );
   }
-  if (payloadArtifactPaths.length > 0) {
-    throw new IntegrateInputError(errorMessage);
-  }
 
   const meshKnopPaths = listNamedNodeObjectPaths(
     quads,
@@ -344,31 +327,19 @@ function resolveCurrentIntegrateMeshState(
       `mesh inventory already registers knop: ${knopPath}`,
     );
   }
-  if (meshKnopPaths.length !== 1 || typedKnopPaths.length !== 1) {
+  if (!haveSameMembers(meshKnopPaths, typedKnopPaths)) {
     throw new IntegrateInputError(errorMessage);
   }
 
-  const existingKnopPath = meshKnopPaths[0]!;
-  if (typedKnopPaths[0] !== existingKnopPath) {
-    throw new IntegrateInputError(errorMessage);
-  }
-
-  const existingDesignatorPath = fromKnopPath(existingKnopPath);
-  if (existingDesignatorPath === undefined) {
+  if (meshKnopPaths.some((path) => fromKnopPath(path) === undefined)) {
     throw new IntegrateInputError(errorMessage);
   }
 
   if (
-    hasNamedNodeFact(
-      quads,
-      meshBase,
-      workingFilePath,
-      RDF_TYPE_IRI,
-      SFLO_LOCATED_FILE_IRI,
-    )
+    isWorkingFileAlreadyRegistered(quads, meshBase, workingLocalRelativePath)
   ) {
     throw new IntegrateInputError(
-      `mesh inventory already registers working file: ${workingFilePath}`,
+      `mesh inventory already registers working file: ${workingLocalRelativePath}`,
     );
   }
 
@@ -376,452 +347,49 @@ function resolveCurrentIntegrateMeshState(
     ["_mesh", RDF_TYPE_IRI, SFLO_SEMANTIC_MESH_IRI],
     ["_mesh", SFLO_HAS_MESH_METADATA_IRI, "_mesh/_meta"],
     ["_mesh", SFLO_HAS_MESH_INVENTORY_IRI, "_mesh/_inventory"],
-    ["_mesh", SFLO_HAS_KNOP_IRI, existingKnopPath],
-    ["_mesh", SFLO_HAS_RESOURCE_PAGE_IRI, "_mesh/index.html"],
-    [
-      existingDesignatorPath,
-      SFLO_HAS_RESOURCE_PAGE_IRI,
-      `${existingDesignatorPath}/index.html`,
-    ],
-    [existingKnopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
-    [
-      existingKnopPath,
-      SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI,
-      `${existingKnopPath}/_inventory/inventory.ttl`,
-    ],
-    [
-      existingKnopPath,
-      SFLO_HAS_RESOURCE_PAGE_IRI,
-      `${existingKnopPath}/index.html`,
-    ],
     ["_mesh/_meta", RDF_TYPE_IRI, SFLO_MESH_METADATA_IRI],
     ["_mesh/_meta", RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
     ["_mesh/_meta", RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
-    ["_mesh/_meta", SFLO_HAS_ARTIFACT_HISTORY_IRI, "_mesh/_meta/_history001"],
-    [
-      "_mesh/_meta",
-      SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
-      "_mesh/_meta/_history001",
-    ],
     ["_mesh/_meta", SFLO_HAS_WORKING_LOCATED_FILE_IRI, "_mesh/_meta/meta.ttl"],
-    ["_mesh/_meta", SFLO_HAS_RESOURCE_PAGE_IRI, "_mesh/_meta/index.html"],
-    ["_mesh/_meta/_history001", RDF_TYPE_IRI, SFLO_ARTIFACT_HISTORY_IRI],
-    [
-      "_mesh/_meta/_history001",
-      SFLO_HAS_HISTORICAL_STATE_IRI,
-      "_mesh/_meta/_history001/_s0001",
-    ],
-    [
-      "_mesh/_meta/_history001",
-      SFLO_LATEST_HISTORICAL_STATE_IRI,
-      "_mesh/_meta/_history001/_s0001",
-    ],
-    [
-      "_mesh/_meta/_history001",
-      SFLO_HAS_RESOURCE_PAGE_IRI,
-      "_mesh/_meta/_history001/index.html",
-    ],
-    ["_mesh/_meta/_history001/_s0001", RDF_TYPE_IRI, SFLO_HISTORICAL_STATE_IRI],
-    [
-      "_mesh/_meta/_history001/_s0001",
-      SFLO_HAS_MANIFESTATION_IRI,
-      "_mesh/_meta/_history001/_s0001/meta-ttl",
-    ],
-    [
-      "_mesh/_meta/_history001/_s0001",
-      SFLO_LOCATED_FILE_FOR_STATE_IRI,
-      "_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl",
-    ],
-    [
-      "_mesh/_meta/_history001/_s0001",
-      SFLO_HAS_RESOURCE_PAGE_IRI,
-      "_mesh/_meta/_history001/_s0001/index.html",
-    ],
-    [
-      "_mesh/_meta/_history001/_s0001/meta-ttl",
-      RDF_TYPE_IRI,
-      SFLO_ARTIFACT_MANIFESTATION_IRI,
-    ],
-    [
-      "_mesh/_meta/_history001/_s0001/meta-ttl",
-      RDF_TYPE_IRI,
-      SFLO_RDF_DOCUMENT_IRI,
-    ],
-    [
-      "_mesh/_meta/_history001/_s0001/meta-ttl",
-      SFLO_HAS_LOCATED_FILE_IRI,
-      "_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl",
-    ],
-    [
-      "_mesh/_meta/_history001/_s0001/meta-ttl",
-      SFLO_HAS_RESOURCE_PAGE_IRI,
-      "_mesh/_meta/_history001/_s0001/meta-ttl/index.html",
-    ],
     ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_MESH_INVENTORY_IRI],
     ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
     ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
     [
       "_mesh/_inventory",
-      SFLO_HAS_ARTIFACT_HISTORY_IRI,
-      "_mesh/_inventory/_history001",
-    ],
-    [
-      "_mesh/_inventory",
-      SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
-      "_mesh/_inventory/_history001",
-    ],
-    [
-      "_mesh/_inventory",
       SFLO_HAS_WORKING_LOCATED_FILE_IRI,
       "_mesh/_inventory/inventory.ttl",
-    ],
-    [
-      "_mesh/_inventory",
-      SFLO_HAS_RESOURCE_PAGE_IRI,
-      "_mesh/_inventory/index.html",
-    ],
-    ["_mesh/_inventory/_history001", RDF_TYPE_IRI, SFLO_ARTIFACT_HISTORY_IRI],
-    [
-      "_mesh/_inventory/_history001",
-      SFLO_HAS_HISTORICAL_STATE_IRI,
-      "_mesh/_inventory/_history001/_s0001",
-    ],
-    [
-      "_mesh/_inventory/_history001",
-      SFLO_HAS_HISTORICAL_STATE_IRI,
-      "_mesh/_inventory/_history001/_s0002",
-    ],
-    [
-      "_mesh/_inventory/_history001",
-      SFLO_LATEST_HISTORICAL_STATE_IRI,
-      "_mesh/_inventory/_history001/_s0002",
-    ],
-    [
-      "_mesh/_inventory/_history001",
-      SFLO_HAS_RESOURCE_PAGE_IRI,
-      "_mesh/_inventory/_history001/index.html",
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0001",
-      RDF_TYPE_IRI,
-      SFLO_HISTORICAL_STATE_IRI,
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0001",
-      SFLO_HAS_MANIFESTATION_IRI,
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl",
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0001",
-      SFLO_LOCATED_FILE_FOR_STATE_IRI,
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0001",
-      SFLO_HAS_RESOURCE_PAGE_IRI,
-      "_mesh/_inventory/_history001/_s0001/index.html",
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl",
-      RDF_TYPE_IRI,
-      SFLO_ARTIFACT_MANIFESTATION_IRI,
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl",
-      RDF_TYPE_IRI,
-      SFLO_RDF_DOCUMENT_IRI,
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl",
-      SFLO_HAS_LOCATED_FILE_IRI,
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl",
-      SFLO_HAS_RESOURCE_PAGE_IRI,
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html",
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0002",
-      RDF_TYPE_IRI,
-      SFLO_HISTORICAL_STATE_IRI,
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0002",
-      SFLO_PREVIOUS_HISTORICAL_STATE_IRI,
-      "_mesh/_inventory/_history001/_s0001",
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0002",
-      SFLO_HAS_MANIFESTATION_IRI,
-      "_mesh/_inventory/_history001/_s0002/inventory-ttl",
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0002",
-      SFLO_LOCATED_FILE_FOR_STATE_IRI,
-      "_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0002",
-      SFLO_HAS_RESOURCE_PAGE_IRI,
-      "_mesh/_inventory/_history001/_s0002/index.html",
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0002/inventory-ttl",
-      RDF_TYPE_IRI,
-      SFLO_ARTIFACT_MANIFESTATION_IRI,
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0002/inventory-ttl",
-      RDF_TYPE_IRI,
-      SFLO_RDF_DOCUMENT_IRI,
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0002/inventory-ttl",
-      SFLO_HAS_LOCATED_FILE_IRI,
-      "_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0002/inventory-ttl",
-      SFLO_HAS_RESOURCE_PAGE_IRI,
-      "_mesh/_inventory/_history001/_s0002/inventory-ttl/index.html",
     ],
     ["_mesh/_meta/meta.ttl", RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
     ["_mesh/_meta/meta.ttl", RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
     ["_mesh/_inventory/inventory.ttl", RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
     ["_mesh/_inventory/inventory.ttl", RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
-    [
-      "_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl",
-      RDF_TYPE_IRI,
-      SFLO_LOCATED_FILE_IRI,
-    ],
-    [
-      "_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl",
-      RDF_TYPE_IRI,
-      SFLO_RDF_DOCUMENT_IRI,
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
-      RDF_TYPE_IRI,
-      SFLO_LOCATED_FILE_IRI,
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
-      RDF_TYPE_IRI,
-      SFLO_RDF_DOCUMENT_IRI,
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
-      RDF_TYPE_IRI,
-      SFLO_LOCATED_FILE_IRI,
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
-      RDF_TYPE_IRI,
-      SFLO_RDF_DOCUMENT_IRI,
-    ],
-    [
-      `${existingKnopPath}/_inventory/inventory.ttl`,
-      RDF_TYPE_IRI,
-      SFLO_LOCATED_FILE_IRI,
-    ],
-    [
-      `${existingKnopPath}/_inventory/inventory.ttl`,
-      RDF_TYPE_IRI,
-      SFLO_RDF_DOCUMENT_IRI,
-    ],
-    ["_mesh/index.html", RDF_TYPE_IRI, SFLO_RESOURCE_PAGE_IRI],
-    ["_mesh/index.html", RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
-    [
-      `${existingDesignatorPath}/index.html`,
-      RDF_TYPE_IRI,
-      SFLO_RESOURCE_PAGE_IRI,
-    ],
-    [
-      `${existingDesignatorPath}/index.html`,
-      RDF_TYPE_IRI,
-      SFLO_LOCATED_FILE_IRI,
-    ],
-    [`${existingKnopPath}/index.html`, RDF_TYPE_IRI, SFLO_RESOURCE_PAGE_IRI],
-    [`${existingKnopPath}/index.html`, RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
-    ["_mesh/_meta/index.html", RDF_TYPE_IRI, SFLO_RESOURCE_PAGE_IRI],
-    ["_mesh/_meta/index.html", RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
-    [
-      "_mesh/_meta/_history001/index.html",
-      RDF_TYPE_IRI,
-      SFLO_RESOURCE_PAGE_IRI,
-    ],
-    ["_mesh/_meta/_history001/index.html", RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
-    [
-      "_mesh/_meta/_history001/_s0001/index.html",
-      RDF_TYPE_IRI,
-      SFLO_RESOURCE_PAGE_IRI,
-    ],
-    [
-      "_mesh/_meta/_history001/_s0001/index.html",
-      RDF_TYPE_IRI,
-      SFLO_LOCATED_FILE_IRI,
-    ],
-    [
-      "_mesh/_meta/_history001/_s0001/meta-ttl/index.html",
-      RDF_TYPE_IRI,
-      SFLO_RESOURCE_PAGE_IRI,
-    ],
-    [
-      "_mesh/_meta/_history001/_s0001/meta-ttl/index.html",
-      RDF_TYPE_IRI,
-      SFLO_LOCATED_FILE_IRI,
-    ],
-    ["_mesh/_inventory/index.html", RDF_TYPE_IRI, SFLO_RESOURCE_PAGE_IRI],
-    ["_mesh/_inventory/index.html", RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
-    [
-      "_mesh/_inventory/_history001/index.html",
-      RDF_TYPE_IRI,
-      SFLO_RESOURCE_PAGE_IRI,
-    ],
-    [
-      "_mesh/_inventory/_history001/index.html",
-      RDF_TYPE_IRI,
-      SFLO_LOCATED_FILE_IRI,
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0001/index.html",
-      RDF_TYPE_IRI,
-      SFLO_RESOURCE_PAGE_IRI,
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0001/index.html",
-      RDF_TYPE_IRI,
-      SFLO_LOCATED_FILE_IRI,
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html",
-      RDF_TYPE_IRI,
-      SFLO_RESOURCE_PAGE_IRI,
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html",
-      RDF_TYPE_IRI,
-      SFLO_LOCATED_FILE_IRI,
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0002/index.html",
-      RDF_TYPE_IRI,
-      SFLO_RESOURCE_PAGE_IRI,
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0002/index.html",
-      RDF_TYPE_IRI,
-      SFLO_LOCATED_FILE_IRI,
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0002/inventory-ttl/index.html",
-      RDF_TYPE_IRI,
-      SFLO_RESOURCE_PAGE_IRI,
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0002/inventory-ttl/index.html",
-      RDF_TYPE_IRI,
-      SFLO_LOCATED_FILE_IRI,
-    ],
   ]);
   assertHasLiteralFacts(quads, meshBase, errorMessage, [
     ["_mesh", SFLO_MESH_BASE_IRI, meshBase, XSD_ANY_URI_IRI],
-    [
-      "_mesh/_meta",
-      SFLO_NEXT_HISTORY_ORDINAL_IRI,
-      "2",
-      XSD_NON_NEGATIVE_INTEGER_IRI,
-    ],
-    [
-      "_mesh/_meta/_history001",
-      SFLO_HISTORY_ORDINAL_IRI,
-      "1",
-      XSD_NON_NEGATIVE_INTEGER_IRI,
-    ],
-    [
-      "_mesh/_meta/_history001",
-      SFLO_NEXT_STATE_ORDINAL_IRI,
-      "2",
-      XSD_NON_NEGATIVE_INTEGER_IRI,
-    ],
-    [
-      "_mesh/_meta/_history001/_s0001",
-      SFLO_STATE_ORDINAL_IRI,
-      "1",
-      XSD_NON_NEGATIVE_INTEGER_IRI,
-    ],
-    [
-      "_mesh/_inventory",
-      SFLO_NEXT_HISTORY_ORDINAL_IRI,
-      "2",
-      XSD_NON_NEGATIVE_INTEGER_IRI,
-    ],
-    [
-      "_mesh/_inventory/_history001",
-      SFLO_HISTORY_ORDINAL_IRI,
-      "1",
-      XSD_NON_NEGATIVE_INTEGER_IRI,
-    ],
-    [
-      "_mesh/_inventory/_history001",
-      SFLO_NEXT_STATE_ORDINAL_IRI,
-      "3",
-      XSD_NON_NEGATIVE_INTEGER_IRI,
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0001",
-      SFLO_STATE_ORDINAL_IRI,
-      "1",
-      XSD_NON_NEGATIVE_INTEGER_IRI,
-    ],
-    [
-      "_mesh/_inventory/_history001/_s0002",
-      SFLO_STATE_ORDINAL_IRI,
-      "2",
-      XSD_NON_NEGATIVE_INTEGER_IRI,
-    ],
   ]);
-
-  return {
-    existingDesignatorPath,
-    existingKnopPath,
-  };
 }
 
-function renderFirstPayloadIntegratedMeshInventoryTurtle(
-  meshBase: string,
-  currentState: CurrentIntegrateMeshState,
+function renderIntegratedMeshInventoryTurtle(
+  currentMeshInventoryTurtle: string,
   designatorPath: string,
-  workingFilePath: string,
+  workingLocalRelativePath: string,
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const knopInventoryPath = `${knopPath}/_inventory/inventory.ttl`;
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
-    workingFilePath,
+    workingLocalRelativePath,
   );
   const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
-    workingFilePath,
+    workingLocalRelativePath,
   );
+  const currentWorkingFileDeclarationBlock =
+    currentWorkingFileDeclaration.length > 0
+      ? `\n${currentWorkingFileDeclaration}\n`
+      : "\n";
 
-  return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+  return `${currentMeshInventoryTurtle.trimEnd()}
 
-<_mesh> a sflo:SemanticMesh ;
-  sflo:meshBase "${meshBase}"^^xsd:anyURI ;
-  sflo:hasMeshMetadata <_mesh/_meta> ;
-  sflo:hasMeshInventory <_mesh/_inventory> ;
-  sflo:hasKnop <${currentState.existingKnopPath}> ;
-  sflo:hasKnop <${knopPath}> ;
-  sflo:hasResourcePage <_mesh/index.html> .
-
-<${currentState.existingDesignatorPath}>
-  sflo:hasResourcePage <${currentState.existingDesignatorPath}/index.html> .
-
-<${currentState.existingKnopPath}> a sflo:Knop ;
-  sflo:hasWorkingKnopInventoryFile <${currentState.existingKnopPath}/_inventory/inventory.ttl> ;
-  sflo:hasResourcePage <${currentState.existingKnopPath}/index.html> .
+<_mesh> sflo:hasKnop <${knopPath}> .
 
 <${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
   ${currentWorkingFileLocator}
@@ -829,108 +397,8 @@ function renderFirstPayloadIntegratedMeshInventoryTurtle(
 <${knopPath}> a sflo:Knop ;
   sflo:hasWorkingKnopInventoryFile <${knopInventoryPath}> .
 
-<_mesh/_meta> a sflo:MeshMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasArtifactHistory <_mesh/_meta/_history001> ;
-  sflo:currentArtifactHistory <_mesh/_meta/_history001> ;
-  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasWorkingLocatedFile <_mesh/_meta/meta.ttl> ;
-  sflo:hasResourcePage <_mesh/_meta/index.html> .
-
-<_mesh/_meta/_history001> a sflo:ArtifactHistory ;
-  sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasHistoricalState <_mesh/_meta/_history001/_s0001> ;
-  sflo:latestHistoricalState <_mesh/_meta/_history001/_s0001> ;
-  sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasResourcePage <_mesh/_meta/_history001/index.html> .
-
-<_mesh/_meta/_history001/_s0001> a sflo:HistoricalState ;
-  sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <_mesh/_meta/_history001/_s0001/meta-ttl> ;
-  sflo:locatedFileForState <_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
-  sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/index.html> .
-
-<_mesh/_meta/_history001/_s0001/meta-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
-  sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/meta-ttl/index.html> .
-
-<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasArtifactHistory <_mesh/_inventory/_history001> ;
-  sflo:currentArtifactHistory <_mesh/_inventory/_history001> ;
-  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/index.html> .
-
-<_mesh/_inventory/_history001> a sflo:ArtifactHistory ;
-  sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0001> ;
-  sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0002> ;
-  sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0002> ;
-  sflo:nextStateOrdinal "3"^^xsd:nonNegativeInteger ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/index.html> .
-
-<_mesh/_inventory/_history001/_s0001> a sflo:HistoricalState ;
-  sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0001/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/index.html> .
-
-<_mesh/_inventory/_history001/_s0001/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html> .
-
-<_mesh/_inventory/_history001/_s0002> a sflo:HistoricalState ;
-  sflo:stateOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:previousHistoricalState <_mesh/_inventory/_history001/_s0001> ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0002/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/index.html> .
-
-<_mesh/_inventory/_history001/_s0002/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/inventory-ttl/index.html> .
-
-<_mesh/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<_mesh/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<${currentState.existingKnopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
 <${knopInventoryPath}> a sflo:LocatedFile, sflo:RdfDocument .
-
-${currentWorkingFileDeclaration}
-
-<_mesh/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${currentState.existingDesignatorPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<${currentState.existingKnopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_meta/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_meta/_history001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_meta/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_meta/_history001/_s0001/meta-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/_history001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/_history001/_s0002/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/_history001/_s0002/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-`;
+${currentWorkingFileDeclarationBlock}`;
 }
 
 function assertHasNamedNodeFacts(
@@ -974,6 +442,36 @@ function assertHasLiteralFacts(
       throw new IntegrateInputError(errorMessage);
     }
   }
+}
+
+function haveSameMembers(
+  left: readonly string[],
+  right: readonly string[],
+): boolean {
+  return left.length === right.length &&
+    left.every((value) => right.includes(value));
+}
+
+function isWorkingFileAlreadyRegistered(
+  quads: readonly Quad[],
+  meshBase: string,
+  workingLocalRelativePath: string,
+): boolean {
+  if (usesMeshLocalWorkingLocatedFile(workingLocalRelativePath)) {
+    return hasNamedNodeFact(
+      quads,
+      meshBase,
+      workingLocalRelativePath,
+      RDF_TYPE_IRI,
+      SFLO_LOCATED_FILE_IRI,
+    );
+  }
+
+  return quads.some((quad) =>
+    quad.predicate.value === SFLO_WORKING_LOCAL_RELATIVE_PATH_IRI &&
+    quad.object.termType === "Literal" &&
+    quad.object.value === workingLocalRelativePath
+  );
 }
 
 function hasNamedNodeFact(
@@ -1079,6 +577,9 @@ function toRelativeMeshPath(
 }
 
 function fromKnopPath(knopPath: string): string | undefined {
+  if (knopPath === "_knop") {
+    return "";
+  }
   return knopPath.endsWith("/_knop")
     ? knopPath.slice(0, -"/_knop".length)
     : undefined;

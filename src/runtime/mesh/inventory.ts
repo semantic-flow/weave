@@ -4,11 +4,20 @@ import {
   toKnopPath,
   toReferenceCatalogPath,
 } from "../../core/designator_segments.ts";
+import { SFLO_NAMESPACE } from "../../core/rdf/namespaces.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
-const SFC_NAMESPACE = "https://semantic-flow.github.io/ontology/core/";
-const SFLO_NAMESPACE =
-  "https://semantic-flow.github.io/semantic-flow-ontology/";
+const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
+  `${SFLO_NAMESPACE}artifactResolutionMode_pinned`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
+  `${SFLO_NAMESPACE}artifactResolutionMode_current`;
+const SFLO_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}ExtractionSource`;
+const SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
+  `${SFLO_NAMESPACE}hasArtifactResolutionMode`;
+const SFLO_HAS_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}hasExtractionSource`;
+const SFLO_HAS_REQUESTED_TARGET_STATE_IRI =
+  `${SFLO_NAMESPACE}hasRequestedTargetState`;
+const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasTargetArtifact`;
 const SFLO_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}ArtifactHistory`;
 const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
   `${SFLO_NAMESPACE}currentArtifactHistory`;
@@ -18,7 +27,7 @@ const SFLO_HAS_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasPayloadArtifact`;
 const SFLO_HAS_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}hasReferenceCatalog`;
 const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
   `${SFLO_NAMESPACE}hasWorkingLocatedFile`;
-const SFLO_WORKING_FILE_PATH_IRI = `${SFLO_NAMESPACE}workingFilePath`;
+const SFLO_WORKING_FILE_PATH_IRI = `${SFLO_NAMESPACE}workingLocalRelativePath`;
 const SFLO_KNOP_IRI = `${SFLO_NAMESPACE}Knop`;
 const SFLO_LATEST_HISTORICAL_STATE_IRI =
   `${SFLO_NAMESPACE}latestHistoricalState`;
@@ -27,12 +36,12 @@ const SFLO_REFERENCE_LINK_FOR_IRI = `${SFLO_NAMESPACE}referenceLinkFor`;
 const SFLO_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}ReferenceLink`;
 const SFLO_REFERENCE_TARGET_IRI = `${SFLO_NAMESPACE}referenceTarget`;
 const SFLO_REFERENCE_TARGET_STATE_IRI = `${SFLO_NAMESPACE}referenceTargetState`;
-const SFC_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFC_NAMESPACE}hasKnopAssetBundle`;
-const SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI =
-  `${SFC_NAMESPACE}hasResourcePageDefinition`;
+const SFLO_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFLO_NAMESPACE}hasKnopAssetBundle`;
+const SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI =
+  `${SFLO_NAMESPACE}hasResourcePageDefinition`;
 
 export interface PayloadArtifactInventoryState {
-  workingFilePath: string;
+  workingLocalRelativePath: string;
   currentArtifactHistoryPath?: string;
   currentArtifactHistoryExists: boolean;
   latestHistoricalStatePath?: string;
@@ -40,12 +49,23 @@ export interface PayloadArtifactInventoryState {
 }
 
 export interface ReferenceCatalogInventoryState {
-  workingFilePath: string;
+  workingLocalRelativePath: string;
+}
+
+export interface ReferenceTargetLinkState {
+  referenceTargetPath: string;
+  referenceTargetStatePath: string;
+}
+
+export interface ExtractionSourceInventoryState {
+  sourceArtifactPath: string;
+  requestedTargetStatePath?: string;
+  artifactResolutionModeIri: string;
 }
 
 export interface ResourcePageDefinitionInventoryState {
   artifactPath: string;
-  workingFilePath: string;
+  workingLocalRelativePath: string;
   currentArtifactHistoryPath?: string;
   currentArtifactHistoryExists: boolean;
   latestHistoricalStatePath?: string;
@@ -118,7 +138,7 @@ export function resolvePayloadArtifactInventoryState(
     return undefined;
   }
 
-  const workingFilePath = requireWorkingFilePath(
+  const workingLocalRelativePath = requireWorkingLocalRelativePath(
     quads,
     meshBase,
     payloadArtifactIri,
@@ -159,7 +179,7 @@ export function resolvePayloadArtifactInventoryState(
     : undefined;
 
   return {
-    workingFilePath,
+    workingLocalRelativePath,
     currentArtifactHistoryPath,
     currentArtifactHistoryExists,
     latestHistoricalStatePath,
@@ -199,12 +219,102 @@ export function resolveReferenceCatalogInventoryState(
   }
 
   return {
-    workingFilePath: requireWorkingFilePath(
+    workingLocalRelativePath: requireWorkingLocalRelativePath(
       quads,
       meshBase,
       referenceCatalogIri,
       messages.missingWorkingFileMessage,
     ),
+  };
+}
+
+export function resolveExtractionSourceInventoryState(
+  meshBase: string,
+  inventoryTurtle: string,
+  designatorPath: string,
+  messages: {
+    parseErrorMessage: string;
+    missingExtractionSourceMessage: string;
+    missingTargetArtifactMessage: string;
+    missingRequestedTargetStateMessage: string;
+    unsupportedResolutionModeMessage: string;
+  },
+): ExtractionSourceInventoryState | undefined {
+  const quads = parseInventoryQuads(
+    meshBase,
+    inventoryTurtle,
+    messages.parseErrorMessage,
+  );
+  const knopIri = toMeshIri(meshBase, toKnopPath(designatorPath));
+  const extractionSourceIri = new URL(
+    `${toKnopPath(designatorPath)}/_inventory#extraction-source`,
+    meshBase,
+  ).href;
+
+  if (
+    !hasNamedNodeObject(
+      quads,
+      knopIri,
+      SFLO_HAS_EXTRACTION_SOURCE_IRI,
+      extractionSourceIri,
+    )
+  ) {
+    return undefined;
+  }
+
+  if (
+    !hasNamedNodeObject(
+      quads,
+      extractionSourceIri,
+      RDF_TYPE_IRI,
+      SFLO_EXTRACTION_SOURCE_IRI,
+    )
+  ) {
+    throw new Error(messages.missingExtractionSourceMessage);
+  }
+
+  const sourceArtifactPath = resolveOptionalUniqueNamedNodePath(
+    quads,
+    meshBase,
+    extractionSourceIri,
+    SFLO_HAS_TARGET_ARTIFACT_IRI,
+    messages.missingTargetArtifactMessage,
+  );
+  if (!sourceArtifactPath) {
+    throw new Error(messages.missingTargetArtifactMessage);
+  }
+
+  const requestedTargetStatePath = resolveOptionalUniqueNamedNodePath(
+    quads,
+    meshBase,
+    extractionSourceIri,
+    SFLO_HAS_REQUESTED_TARGET_STATE_IRI,
+    messages.missingRequestedTargetStateMessage,
+  );
+
+  const artifactResolutionModeIri = resolveOptionalUniqueNamedNodeIri(
+    quads,
+    extractionSourceIri,
+    SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
+    messages.unsupportedResolutionModeMessage,
+  ) ?? SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI;
+  if (
+    artifactResolutionModeIri !== SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI &&
+    artifactResolutionModeIri !== SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI
+  ) {
+    throw new Error(messages.unsupportedResolutionModeMessage);
+  }
+  if (
+    artifactResolutionModeIri === SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI &&
+    !requestedTargetStatePath
+  ) {
+    throw new Error(messages.missingRequestedTargetStateMessage);
+  }
+
+  return {
+    sourceArtifactPath,
+    ...(requestedTargetStatePath ? { requestedTargetStatePath } : {}),
+    artifactResolutionModeIri,
   };
 }
 
@@ -227,7 +337,7 @@ export function resolveResourcePageDefinitionInventoryState(
     quads,
     meshBase,
     knopIri,
-    SFC_HAS_RESOURCE_PAGE_DEFINITION_IRI,
+    SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI,
     messages.parseErrorMessage,
   );
 
@@ -236,7 +346,7 @@ export function resolveResourcePageDefinitionInventoryState(
   }
 
   const artifactIri = toMeshIri(meshBase, artifactPath);
-  const workingFilePath = requireWorkingFilePath(
+  const workingLocalRelativePath = requireWorkingLocalRelativePath(
     quads,
     meshBase,
     artifactIri,
@@ -271,13 +381,13 @@ export function resolveResourcePageDefinitionInventoryState(
     quads,
     meshBase,
     knopIri,
-    SFC_HAS_KNOP_ASSET_BUNDLE_IRI,
+    SFLO_HAS_KNOP_ASSET_BUNDLE_IRI,
     messages.parseErrorMessage,
   );
 
   return {
     artifactPath,
-    workingFilePath,
+    workingLocalRelativePath,
     currentArtifactHistoryPath,
     currentArtifactHistoryExists,
     latestHistoricalStatePath,
@@ -295,6 +405,47 @@ export function resolveReferenceTargetDesignatorPath(
     missingReferenceTargetMessage: string;
   },
 ): string {
+  return resolveReferenceTargetLinkState(
+    meshBase,
+    referenceCatalogTurtle,
+    designatorPath,
+    messages,
+  ).referenceTargetPath;
+}
+
+export function resolveReferenceTargetLinkState(
+  meshBase: string,
+  referenceCatalogTurtle: string,
+  designatorPath: string,
+  messages: {
+    parseErrorMessage: string;
+    missingReferenceLinkMessage: string;
+    missingReferenceTargetMessage: string;
+  },
+): ReferenceTargetLinkState {
+  const referenceTargetLinkState = tryResolveReferenceTargetLinkState(
+    meshBase,
+    referenceCatalogTurtle,
+    designatorPath,
+    messages,
+  );
+  if (!referenceTargetLinkState) {
+    throw new Error(messages.missingReferenceLinkMessage);
+  }
+
+  return referenceTargetLinkState;
+}
+
+export function tryResolveReferenceTargetLinkState(
+  meshBase: string,
+  referenceCatalogTurtle: string,
+  designatorPath: string,
+  messages: {
+    parseErrorMessage: string;
+    missingReferenceLinkMessage: string;
+    missingReferenceTargetMessage: string;
+  },
+): ReferenceTargetLinkState | undefined {
   const quads = parseInventoryQuads(
     meshBase,
     referenceCatalogTurtle,
@@ -351,10 +502,11 @@ export function resolveReferenceTargetDesignatorPath(
   }
 
   if (linkSubjects.size === 0) {
-    throw new Error(messages.missingReferenceLinkMessage);
+    return undefined;
   }
 
   const referenceTargetPaths = new Set<string>();
+  const referenceTargetStatePaths = new Set<string>();
   for (const quad of quads) {
     if (
       quad.subject.termType !== "NamedNode" ||
@@ -374,11 +526,30 @@ export function resolveReferenceTargetDesignatorPath(
     );
   }
 
+  for (const subjectIri of linkSubjects) {
+    const referenceTargetStatePath = resolveOptionalUniqueNamedNodePath(
+      quads,
+      meshBase,
+      subjectIri,
+      SFLO_REFERENCE_TARGET_STATE_IRI,
+      messages.missingReferenceLinkMessage,
+    );
+    if (referenceTargetStatePath) {
+      referenceTargetStatePaths.add(referenceTargetStatePath);
+    }
+  }
+
   if (referenceTargetPaths.size !== 1) {
     throw new Error(messages.missingReferenceTargetMessage);
   }
+  if (referenceTargetStatePaths.size !== 1) {
+    throw new Error(messages.missingReferenceLinkMessage);
+  }
 
-  return referenceTargetPaths.values().next().value!;
+  return {
+    referenceTargetPath: referenceTargetPaths.values().next().value!,
+    referenceTargetStatePath: referenceTargetStatePaths.values().next().value!,
+  };
 }
 
 function parseInventoryQuads(
@@ -408,19 +579,20 @@ function hasNamedNodeObject(
   );
 }
 
-function requireWorkingFilePath(
+function requireWorkingLocalRelativePath(
   quads: readonly Quad[],
   meshBase: string,
   subjectIri: string,
   errorMessage: string,
 ): string {
-  const literalWorkingFilePath = resolveOptionalUniqueLiteralWorkingFilePath(
-    quads,
-    subjectIri,
-    SFLO_WORKING_FILE_PATH_IRI,
-    errorMessage,
-  );
-  const locatedWorkingFilePath = resolveOptionalUniqueNamedNodePath(
+  const literalWorkingLocalRelativePath =
+    resolveOptionalUniqueLiteralWorkingLocalRelativePath(
+      quads,
+      subjectIri,
+      SFLO_WORKING_FILE_PATH_IRI,
+      errorMessage,
+    );
+  const locatedWorkingLocalRelativePath = resolveOptionalUniqueNamedNodePath(
     quads,
     meshBase,
     subjectIri,
@@ -429,18 +601,18 @@ function requireWorkingFilePath(
   );
 
   if (
-    literalWorkingFilePath !== undefined &&
-    locatedWorkingFilePath !== undefined &&
-    literalWorkingFilePath !== locatedWorkingFilePath
+    literalWorkingLocalRelativePath !== undefined &&
+    locatedWorkingLocalRelativePath !== undefined &&
+    literalWorkingLocalRelativePath !== locatedWorkingLocalRelativePath
   ) {
     throw new Error(errorMessage);
   }
 
-  if (literalWorkingFilePath !== undefined) {
-    return literalWorkingFilePath;
+  if (literalWorkingLocalRelativePath !== undefined) {
+    return literalWorkingLocalRelativePath;
   }
-  if (locatedWorkingFilePath !== undefined) {
-    return locatedWorkingFilePath;
+  if (locatedWorkingLocalRelativePath !== undefined) {
+    return locatedWorkingLocalRelativePath;
   }
 
   throw new Error(errorMessage);
@@ -466,6 +638,37 @@ function resolveOptionalUniqueNamedNodePath(
     }
 
     values.add(requireMeshPath(meshBase, quad.object.value, errorMessage));
+  }
+
+  if (values.size === 0) {
+    return undefined;
+  }
+  if (values.size !== 1) {
+    throw new Error(errorMessage);
+  }
+
+  return values.values().next().value!;
+}
+
+function resolveOptionalUniqueNamedNodeIri(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+  errorMessage: string,
+): string | undefined {
+  const values = new Set<string>();
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.subject.value !== subjectIri ||
+      quad.predicate.value !== predicateIri ||
+      quad.object.termType !== "NamedNode"
+    ) {
+      continue;
+    }
+
+    values.add(quad.object.value);
   }
 
   if (values.size === 0) {
@@ -520,7 +723,7 @@ function resolveOptionalHistoricalStateLocatedFilePath(
   return shortcutLocatedFilePath ?? manifestationLocatedFilePath;
 }
 
-function resolveOptionalUniqueLiteralWorkingFilePath(
+function resolveOptionalUniqueLiteralWorkingLocalRelativePath(
   quads: readonly Quad[],
   subjectIri: string,
   predicateIri: string,
@@ -538,7 +741,9 @@ function resolveOptionalUniqueLiteralWorkingFilePath(
       continue;
     }
 
-    values.add(normalizeWorkingFilePath(quad.object.value, errorMessage));
+    values.add(
+      normalizeWorkingLocalRelativePath(quad.object.value, errorMessage),
+    );
   }
 
   if (values.size === 0) {
@@ -551,7 +756,7 @@ function resolveOptionalUniqueLiteralWorkingFilePath(
   return values.values().next().value!;
 }
 
-function normalizeWorkingFilePath(
+function normalizeWorkingLocalRelativePath(
   value: string,
   errorMessage: string,
 ): string {

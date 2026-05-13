@@ -1,7 +1,13 @@
 import type { PlannedFile } from "../planned_file.ts";
+import {
+  SFCFG_TURTLE_PREFIX_DECLARATION,
+  SFLO_TURTLE_PREFIX_DECLARATION,
+} from "../rdf/namespaces.ts";
 
 export interface MeshCreateRequest {
   meshBase: string;
+  includeNoJekyll?: boolean;
+  workspaceRootRelativeToMeshRoot?: string;
 }
 
 export interface MeshCreatePlan {
@@ -20,6 +26,10 @@ export class MeshCreateInputError extends Error {
 export function planMeshCreate(request: MeshCreateRequest): MeshCreatePlan {
   const meshBase = normalizeMeshBase(request.meshBase);
   const meshIri = new URL("_mesh", meshBase).href;
+  const includeNoJekyll = request.includeNoJekyll ??
+    shouldIncludeNoJekyll(meshBase);
+  const workspaceRootRelativeToMeshRoot =
+    request.workspaceRootRelativeToMeshRoot;
 
   return {
     meshBase,
@@ -31,10 +41,25 @@ export function planMeshCreate(request: MeshCreateRequest): MeshCreatePlan {
       },
       {
         path: "_mesh/_inventory/inventory.ttl",
-        contents: renderMeshInventoryTurtle(meshBase),
+        contents: renderMeshInventoryTurtle(
+          meshBase,
+          workspaceRootRelativeToMeshRoot !== undefined,
+        ),
       },
+      ...(workspaceRootRelativeToMeshRoot === undefined ? [] : [{
+        path: "_mesh/_config/config.ttl",
+        contents: renderMeshConfigTurtle(
+          workspaceRootRelativeToMeshRoot,
+        ),
+      }]),
+      ...(includeNoJekyll ? [{ path: ".nojekyll", contents: "" }] : []),
     ],
   };
+}
+
+function shouldIncludeNoJekyll(meshBase: string): boolean {
+  const url = new URL(meshBase);
+  return url.hostname === "github.io" || url.hostname.endsWith(".github.io");
 }
 
 function normalizeMeshBase(meshBase: string): string {
@@ -64,7 +89,7 @@ function normalizeMeshBase(meshBase: string): string {
 
 function renderMeshMetadataTurtle(meshBase: string): string {
   return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh> a sflo:SemanticMesh ;
@@ -77,9 +102,13 @@ function renderMeshMetadataTurtle(meshBase: string): string {
 `;
 }
 
-function renderMeshInventoryTurtle(meshBase: string): string {
-  return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/semantic-flow-ontology/> .
+function renderMeshInventoryTurtle(
+  meshBase: string,
+  hasMeshConfig: boolean,
+): string {
+  if (!hasMeshConfig) {
+    return `@base <${meshBase}> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh> a sflo:SemanticMesh ;
@@ -96,5 +125,43 @@ function renderMeshInventoryTurtle(meshBase: string): string {
 <_mesh/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <_mesh/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+`;
+  }
+
+  return `@base <${meshBase}> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
+${SFCFG_TURTLE_PREFIX_DECLARATION}
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<_mesh> a sflo:SemanticMesh ;
+  sflo:meshBase "${meshBase}"^^xsd:anyURI ;
+  sflo:hasMeshMetadata <_mesh/_meta> ;
+  sflo:hasMeshInventory <_mesh/_inventory> ;
+  sfcfg:hasConfig <_mesh/_config> .
+
+<_mesh/_meta> a sflo:MeshMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <_mesh/_meta/meta.ttl> .
+
+<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> .
+
+<_mesh/_config> a sfcfg:MeshConfig, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <_mesh/_config/config.ttl> .
+
+<_mesh/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<_mesh/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<_mesh/_config/config.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+`;
+}
+
+function renderMeshConfigTurtle(
+  workspaceRootRelativeToMeshRoot: string,
+): string {
+  return `${SFCFG_TURTLE_PREFIX_DECLARATION}
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:workspaceRootRelativeToMeshRoot "${workspaceRootRelativeToMeshRoot}" .
 `;
 }

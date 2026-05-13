@@ -1,6 +1,6 @@
 import { Command } from "@cliffy/command";
-import { Input } from "@cliffy/prompt";
-import { join, resolve } from "@std/path";
+import { Confirm, Input } from "@cliffy/prompt";
+import { isAbsolute, join, relative, resolve } from "@std/path";
 import { ExtractInputError } from "../core/extract/extract.ts";
 import { IntegrateInputError } from "../core/integrate/integrate.ts";
 import { KnopAddReferenceInputError } from "../core/knop/add_reference.ts";
@@ -12,9 +12,17 @@ import type { TargetSpec, VersionTargetSpec } from "../core/targeting.ts";
 import { WeaveInputError } from "../core/weave/weave.ts";
 import { createRuntimeLoggers } from "../runtime/logging/factory.ts";
 import {
+  describeExtractAllTermsResult,
   describeExtractResult,
+  describeSetExtractionSourceAllTermsResult,
+  describeSetExtractionSourceResult,
   executeExtract,
+  executeExtractAllTerms,
+  executeSetExtractionSource,
+  executeSetExtractionSourceAllTerms,
   ExtractRuntimeError,
+  previewExtractAllTerms,
+  previewSetExtractionSourceAllTerms,
 } from "../runtime/extract/extract.ts";
 import {
   describeIntegrateResult,
@@ -52,9 +60,10 @@ import {
   executeWeave,
   WeaveRuntimeError,
 } from "../runtime/weave/weave.ts";
+import { loadOperationalLocalPathPolicy } from "../runtime/operational/local_path_policy.ts";
 
 const TARGET_OPTION_DESCRIPTION =
-  "Target spec as comma-separated key=value fields. Supported keys: designatorPath, recursive.";
+  "Target spec as comma-separated key=value fields. Supported keys: designatorPath, recursive. Versioning commands also accept historySegment, stateSegment, and manifestationSegment.";
 
 export async function runWeaveCli(args: string[]): Promise<number> {
   let exitCode = 0;
@@ -63,8 +72,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
     .name("weave")
     .description("Filesystem-oriented Semantic Flow tooling.")
     .option(
-      "--workspace <workspace:string>",
-      "Workspace root to update for the default weave action.",
+      "--mesh-root <meshRoot:string>",
+      "Mesh root to weave. Defaults to the current directory.",
       { default: "." },
     )
     .option(
@@ -86,14 +95,15 @@ export async function runWeaveCli(args: string[]): Promise<number> {
     )
     .action(async (
       options: {
-        workspace: string;
+        meshRoot: string;
         target?: string[];
         payloadHistorySegment?: string;
         payloadStateSegment?: string;
         payloadManifestationSegment?: string;
       },
     ) => {
-      const workspaceRoot = resolve(options.workspace);
+      const meshRoot = resolve(options.meshRoot);
+      const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
       const targets = resolveVersionTargetSpecs(options, "weave");
       const logDir = join(workspaceRoot, ".weave", "logs");
       const { operationalLogger, auditLogger } = createRuntimeLoggers({
@@ -101,13 +111,14 @@ export async function runWeaveCli(args: string[]): Promise<number> {
       });
 
       await auditLogger.command("weave", {
+        meshRoot,
         workspaceRoot,
         targets,
         localMode: true,
       });
 
       const result = await executeWeave({
-        workspaceRoot,
+        meshRoot,
         request: targets.length > 0 ? { targets } : undefined,
         operationalLogger,
         auditLogger,
@@ -125,8 +136,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
       new Command()
         .description("Validate the current local state for targeted resources.")
         .option(
-          "--workspace <workspace:string>",
-          "Workspace root to validate.",
+          "--mesh-root <meshRoot:string>",
+          "Mesh root to validate. Defaults to the current directory.",
           { default: "." },
         )
         .option(
@@ -136,23 +147,25 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         )
         .action(async (
           options: {
-            workspace: string;
+            meshRoot: string;
             target?: string[];
           },
         ) => {
-          const workspaceRoot = resolve(options.workspace);
+          const meshRoot = resolve(options.meshRoot);
+          const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
           const targets = resolveSharedTargetSpecs(options, "validate");
           const logDir = join(workspaceRoot, ".weave", "logs");
           const { auditLogger } = createRuntimeLoggers({ logDir });
 
           await auditLogger.command("validate", {
+            meshRoot,
             workspaceRoot,
             targets,
             localMode: true,
           });
 
           const result = await executeValidate({
-            workspaceRoot,
+            meshRoot,
             request: targets.length > 0 ? { targets } : undefined,
           });
           if (result.findings.length > 0) {
@@ -172,8 +185,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           "Version the current targeted resources without page generation.",
         )
         .option(
-          "--workspace <workspace:string>",
-          "Workspace root to update.",
+          "--mesh-root <meshRoot:string>",
+          "Mesh root to version. Defaults to the current directory.",
           { default: "." },
         )
         .option(
@@ -195,26 +208,28 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         )
         .action(async (
           options: {
-            workspace: string;
+            meshRoot: string;
             target?: string[];
             payloadHistorySegment?: string;
             payloadStateSegment?: string;
             payloadManifestationSegment?: string;
           },
         ) => {
-          const workspaceRoot = resolve(options.workspace);
+          const meshRoot = resolve(options.meshRoot);
+          const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
           const targets = resolveVersionTargetSpecs(options, "version");
           const logDir = join(workspaceRoot, ".weave", "logs");
           const { auditLogger } = createRuntimeLoggers({ logDir });
 
           await auditLogger.command("version", {
+            meshRoot,
             workspaceRoot,
             targets,
             localMode: true,
           });
 
           const result = await executeVersion({
-            workspaceRoot,
+            meshRoot,
             request: targets.length > 0 ? { targets } : undefined,
           });
           console.log(describeVersionResult(result));
@@ -233,8 +248,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           "Render current ResourcePages from the settled local workspace state.",
         )
         .option(
-          "--workspace <workspace:string>",
-          "Workspace root to update.",
+          "--mesh-root <meshRoot:string>",
+          "Mesh root for page generation. Defaults to the current directory.",
           { default: "." },
         )
         .option(
@@ -242,26 +257,37 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           TARGET_OPTION_DESCRIPTION,
           { collect: true },
         )
+        .option(
+          "--include-semantic-flow-metadata",
+          "Include the generated Semantic Flow metadata section on ResourcePages.",
+        )
         .action(async (
           options: {
-            workspace: string;
+            meshRoot: string;
             target?: string[];
+            includeSemanticFlowMetadata?: boolean;
           },
         ) => {
-          const workspaceRoot = resolve(options.workspace);
+          const meshRoot = resolve(options.meshRoot);
+          const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
           const targets = resolveSharedTargetSpecs(options, "generate");
           const logDir = join(workspaceRoot, ".weave", "logs");
           const { auditLogger } = createRuntimeLoggers({ logDir });
 
           await auditLogger.command("generate", {
+            meshRoot,
             workspaceRoot,
             targets,
+            includeSemanticFlowMetadata:
+              options.includeSemanticFlowMetadata === true,
             localMode: true,
           });
 
           const result = await executeGenerate({
-            workspaceRoot,
+            meshRoot,
             request: targets.length > 0 ? { targets } : undefined,
+            includeSemanticFlowMetadata:
+              options.includeSemanticFlowMetadata === true,
           });
           console.log(describeGenerateResult(result));
           for (const path of result.createdPaths) {
@@ -279,35 +305,149 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         .description(
           "Create a minimal Knop-managed surface for a local resource referenced inside a woven payload artifact.",
         )
-        .arguments("<designatorPath:string>")
+        .arguments("[designatorPath:string]")
         .option(
-          "--workspace <workspace:string>",
-          "Workspace root to update.",
+          "--all-terms",
+          "Extract all new mesh-scoped named terms from the selected RDF source artifact.",
+        )
+        .option(
+          "--mesh-root <meshRoot:string>",
+          "Mesh root to update. Defaults to the current directory.",
           { default: "." },
         )
-        .action(async (options, designatorPath) => {
+        .option(
+          "--source <sourceDesignatorPath:string>",
+          "Explicit current-tracking woven payload designator to extract from when target mention resolution would be ambiguous.",
+        )
+        .option(
+          "--source-state <sourceStatePath:string>",
+          "Historical source state to pin the extraction source to.",
+        )
+        .option(
+          "--accept-preview",
+          "Accept the all-terms preview without an interactive prompt.",
+        )
+        .action(async (
+          options: {
+            meshRoot: string;
+            source?: string;
+            sourceState?: string;
+            allTerms?: boolean;
+            acceptPreview?: boolean;
+          },
+          designatorPath?: string,
+        ) => {
+          const meshRoot = resolve(options.meshRoot);
+          const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
+          const logDir = join(workspaceRoot, ".weave", "logs");
+          const { operationalLogger, auditLogger } = createRuntimeLoggers({
+            logDir,
+          });
+
+          if (options.allTerms) {
+            if (
+              typeof designatorPath === "string" &&
+              designatorPath.trim().length > 0
+            ) {
+              throw new ExtractInputError(
+                "extract --all-terms does not accept a positional designatorPath",
+              );
+            }
+            assertMutuallyExclusiveSourceOptions(
+              options.source,
+              options.sourceState,
+              "extract --all-terms",
+            );
+            if (!options.source && !options.sourceState) {
+              throw new ExtractInputError(
+                "extract --all-terms requires --source or --source-state",
+              );
+            }
+            const preview = await previewExtractAllTerms({
+              meshRoot,
+              request: {
+                ...(options.source
+                  ? { sourceDesignatorPath: options.source }
+                  : {}),
+                ...(options.sourceState
+                  ? { sourceStatePath: options.sourceState }
+                  : {}),
+              },
+            });
+            printExtractAllTermsPreview(preview.extractedDesignatorPaths);
+            if (!options.acceptPreview) {
+              const confirmed = await Confirm.prompt({
+                message: "Create all listed identifiers?",
+                default: false,
+              });
+              if (!confirmed) {
+                console.log("All-terms extract cancelled.");
+                return;
+              }
+            }
+
+            await auditLogger.command("extract.allTerms", {
+              meshRoot,
+              workspaceRoot,
+              sourceDesignatorPath: options.source,
+              sourceStatePath: options.sourceState,
+              localMode: true,
+            });
+
+            const result = await executeExtractAllTerms({
+              meshRoot,
+              request: {
+                ...(options.source
+                  ? { sourceDesignatorPath: options.source }
+                  : {}),
+                ...(options.sourceState
+                  ? { sourceStatePath: options.sourceState }
+                  : {}),
+              },
+              operationalLogger,
+              auditLogger,
+            });
+            console.log(describeExtractAllTermsResult(result));
+            for (const path of result.createdPaths) {
+              console.log(path);
+            }
+            for (const path of result.updatedPaths) {
+              console.log(path);
+            }
+            return;
+          }
+
           const normalizedDesignatorPath = resolveCliArgumentDesignatorPath(
             designatorPath,
             "extract requires a positional designatorPath",
             "extract designatorPath",
             (message) => new ExtractInputError(message),
           );
-          const workspaceRoot = resolve(options.workspace);
-          const logDir = join(workspaceRoot, ".weave", "logs");
-          const { operationalLogger, auditLogger } = createRuntimeLoggers({
-            logDir,
-          });
+          assertMutuallyExclusiveSourceOptions(
+            options.source,
+            options.sourceState,
+            "extract",
+          );
 
           await auditLogger.command("extract", {
+            meshRoot,
             workspaceRoot,
             designatorPath: normalizedDesignatorPath,
+            sourceDesignatorPath: options.source,
+            sourceStatePath: options.sourceState,
             localMode: true,
           });
 
           const result = await executeExtract({
-            workspaceRoot,
+            meshRoot,
             request: {
               designatorPath: normalizedDesignatorPath,
+              ...(options.source
+                ? { sourceDesignatorPath: options.source }
+                : {}),
+              ...(options.sourceState
+                ? { sourceStatePath: options.sourceState }
+                : {}),
             },
             operationalLogger,
             auditLogger,
@@ -322,6 +462,157 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         }),
     )
     .command(
+      "set",
+      new Command()
+        .description("Update local Weave resource settings.")
+        .command(
+          "extraction-source",
+          new Command()
+            .description(
+              "Replace the extraction-source contract for an existing extracted Knop.",
+            )
+            .arguments("[designatorPath:string]")
+            .option(
+              "--all-terms",
+              "Update all existing extracted terms discovered in the selected RDF source artifact.",
+            )
+            .option(
+              "--mesh-root <meshRoot:string>",
+              "Mesh root to update. Defaults to the current directory.",
+              { default: "." },
+            )
+            .option(
+              "--source <sourceDesignatorPath:string>",
+              "Current-tracking woven payload designator to use as the extraction source.",
+            )
+            .option(
+              "--source-state <sourceStatePath:string>",
+              "Historical source state to pin the extraction source to.",
+            )
+            .option(
+              "--accept-preview",
+              "Accept the all-terms preview without an interactive prompt.",
+            )
+            .action(async (
+              options: {
+                meshRoot: string;
+                source?: string;
+                sourceState?: string;
+                allTerms?: boolean;
+                acceptPreview?: boolean;
+              },
+              designatorPath?: string,
+            ) => {
+              const meshRoot = resolve(options.meshRoot);
+              const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
+              const logDir = join(workspaceRoot, ".weave", "logs");
+              const { operationalLogger, auditLogger } = createRuntimeLoggers({
+                logDir,
+              });
+              assertMutuallyExclusiveSourceOptions(
+                options.source,
+                options.sourceState,
+                "set extraction-source",
+              );
+              if (!options.source && !options.sourceState) {
+                throw new ExtractInputError(
+                  "set extraction-source requires --source or --source-state",
+                );
+              }
+
+              if (options.allTerms) {
+                if (
+                  typeof designatorPath === "string" &&
+                  designatorPath.trim().length > 0
+                ) {
+                  throw new ExtractInputError(
+                    "set extraction-source --all-terms does not accept a positional designatorPath",
+                  );
+                }
+                const request = {
+                  ...(options.source
+                    ? { sourceDesignatorPath: options.source }
+                    : {}),
+                  ...(options.sourceState
+                    ? { sourceStatePath: options.sourceState }
+                    : {}),
+                };
+                const preview = await previewSetExtractionSourceAllTerms({
+                  meshRoot,
+                  request,
+                });
+                printSetExtractionSourceAllTermsPreview(
+                  preview.updatedDesignatorPaths,
+                );
+                if (!options.acceptPreview) {
+                  const confirmed = await Confirm.prompt({
+                    message: "Update all listed extraction sources?",
+                    default: false,
+                  });
+                  if (!confirmed) {
+                    console.log(
+                      "All-terms extraction-source update cancelled.",
+                    );
+                    return;
+                  }
+                }
+
+                await auditLogger.command("set.extractionSource.allTerms", {
+                  meshRoot,
+                  workspaceRoot,
+                  sourceDesignatorPath: options.source,
+                  sourceStatePath: options.sourceState,
+                  localMode: true,
+                });
+                const result = await executeSetExtractionSourceAllTerms({
+                  meshRoot,
+                  request,
+                  operationalLogger,
+                  auditLogger,
+                });
+                console.log(describeSetExtractionSourceAllTermsResult(result));
+                for (const path of result.updatedPaths) {
+                  console.log(path);
+                }
+                return;
+              }
+
+              const normalizedDesignatorPath = resolveCliArgumentDesignatorPath(
+                designatorPath,
+                "set extraction-source requires a positional designatorPath",
+                "set extraction-source designatorPath",
+                (message) => new ExtractInputError(message),
+              );
+              await auditLogger.command("set.extractionSource", {
+                meshRoot,
+                workspaceRoot,
+                designatorPath: normalizedDesignatorPath,
+                sourceDesignatorPath: options.source,
+                sourceStatePath: options.sourceState,
+                localMode: true,
+              });
+              const result = await executeSetExtractionSource({
+                meshRoot,
+                request: {
+                  designatorPath: normalizedDesignatorPath,
+                  ...(options.source
+                    ? { sourceDesignatorPath: options.source }
+                    : {}),
+                  ...(options.sourceState
+                    ? { sourceStatePath: options.sourceState }
+                    : {}),
+                },
+                operationalLogger,
+                auditLogger,
+              });
+              console.log(describeSetExtractionSourceResult(result));
+              for (const path of result.updatedPaths) {
+                console.log(path);
+              }
+            }),
+        ),
+    )
+    .command(
       "integrate",
       new Command()
         .description(
@@ -333,30 +624,39 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           "Designator path to assign to the integrated payload artifact.",
         )
         .option(
-          "--workspace <workspace:string>",
-          "Workspace root to update.",
+          "--mesh-root <meshRoot:string>",
+          "Mesh root to update. Defaults to the current directory.",
           { default: "." },
         )
+        .option(
+          "--grant-source-directory <path:string>",
+          "Add a mesh config workingLocalRelativePath grant for this source directory.",
+        )
         .action(async (options, source, designatorPathArg) => {
-          const workspaceRoot = resolve(options.workspace);
           const designatorPath = resolveIntegrateDesignatorPath(
             options,
             designatorPathArg,
           );
+          const meshRoot = resolve(options.meshRoot);
+          const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
           const logDir = join(workspaceRoot, ".weave", "logs");
           const { operationalLogger, auditLogger } = createRuntimeLoggers({
             logDir,
           });
 
           await auditLogger.command("integrate", {
+            meshRoot,
             workspaceRoot,
             designatorPath,
             source,
+            grantSourceDirectory: options.grantSourceDirectory,
             localMode: true,
           });
 
           const result = await executeIntegrate({
-            workspaceRoot,
+            meshRoot,
+            sourceBaseDirectory: Deno.cwd(),
+            sourceAccessDirectory: options.grantSourceDirectory,
             request: {
               designatorPath,
               source,
@@ -389,12 +689,13 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               "Designator path of the existing payload artifact to update.",
             )
             .option(
-              "--workspace <workspace:string>",
-              "Workspace root to update.",
+              "--mesh-root <meshRoot:string>",
+              "Mesh root to update. Defaults to the current directory.",
               { default: "." },
             )
             .action(async (options, source, designatorPathArg) => {
-              const workspaceRoot = resolve(options.workspace);
+              const meshRoot = resolve(options.meshRoot);
+              const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
               const designatorPath = resolvePayloadUpdateDesignatorPath(
                 options,
                 designatorPathArg,
@@ -405,6 +706,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               });
 
               await auditLogger.command("payload.update", {
+                meshRoot,
                 workspaceRoot,
                 designatorPath,
                 source,
@@ -412,7 +714,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               });
 
               const result = await executePayloadUpdate({
-                workspaceRoot,
+                workspaceRoot: meshRoot,
                 request: {
                   designatorPath,
                   source,
@@ -447,11 +749,23 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               { default: "." },
             )
             .option(
+              "--mesh-root <meshRoot:string>",
+              "Mesh root path. Relative values are resolved from the current directory and must stay inside the workspace.",
+            )
+            .option(
+              "--no-nojekyll",
+              "Do not create a GitHub Pages .nojekyll publishing guard.",
+            )
+            .option(
               "--interactive",
               "Prompt for meshBase when it was not provided on the command line.",
             )
             .action(async (options) => {
               const workspaceRoot = resolve(options.workspace);
+              const meshRoot = normalizeCliMeshRoot(
+                workspaceRoot,
+                options.meshRoot,
+              );
               const meshBase = await resolveMeshBaseOption(options);
               const logDir = join(workspaceRoot, ".weave", "logs");
               const { operationalLogger, auditLogger } = createRuntimeLoggers({
@@ -460,12 +774,19 @@ export async function runWeaveCli(args: string[]): Promise<number> {
 
               await auditLogger.command("mesh.create", {
                 workspaceRoot,
+                meshRoot,
                 localMode: true,
               });
 
               const result = await executeMeshCreate({
                 workspaceRoot,
-                request: { meshBase },
+                meshRoot,
+                request: {
+                  meshBase,
+                  includeNoJekyll: options.nojekyll === false
+                    ? false
+                    : undefined,
+                },
                 operationalLogger,
                 auditLogger,
               });
@@ -496,8 +817,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               "ReferenceRole token to assign to the created ReferenceLink.",
             )
             .option(
-              "--workspace <workspace:string>",
-              "Workspace root to update.",
+              "--mesh-root <meshRoot:string>",
+              "Mesh root to update. Defaults to the current directory.",
               { default: "." },
             )
             .action(async (options, designatorPath) => {
@@ -507,7 +828,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 "knop add-reference designatorPath",
                 (message) => new KnopAddReferenceInputError(message),
               );
-              const workspaceRoot = resolve(options.workspace);
+              const meshRoot = resolve(options.meshRoot);
+              const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
               const referenceTargetDesignatorPath =
                 resolveCliOptionDesignatorPath(
                   options.referenceTargetDesignatorPath,
@@ -526,6 +848,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               });
 
               await auditLogger.command("knop.addReference", {
+                meshRoot,
                 workspaceRoot,
                 designatorPath: normalizedDesignatorPath,
                 referenceTargetDesignatorPath,
@@ -534,7 +857,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               });
 
               const result = await executeKnopAddReference({
-                workspaceRoot,
+                workspaceRoot: meshRoot,
                 request: {
                   designatorPath: normalizedDesignatorPath,
                   referenceTargetDesignatorPath,
@@ -560,8 +883,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             )
             .arguments("<designatorPath:string>")
             .option(
-              "--workspace <workspace:string>",
-              "Workspace root to update.",
+              "--mesh-root <meshRoot:string>",
+              "Mesh root to update. Defaults to the current directory.",
               { default: "." },
             )
             .action(async (options, designatorPath) => {
@@ -571,20 +894,22 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 "knop create designatorPath",
                 (message) => new KnopCreateInputError(message),
               );
-              const workspaceRoot = resolve(options.workspace);
+              const meshRoot = resolve(options.meshRoot);
+              const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
               const logDir = join(workspaceRoot, ".weave", "logs");
               const { operationalLogger, auditLogger } = createRuntimeLoggers({
                 logDir,
               });
 
               await auditLogger.command("knop.create", {
+                meshRoot,
                 workspaceRoot,
                 designatorPath: normalizedDesignatorPath,
                 localMode: true,
               });
 
               const result = await executeKnopCreate({
-                workspaceRoot,
+                workspaceRoot: meshRoot,
                 request: { designatorPath: normalizedDesignatorPath },
                 operationalLogger,
                 auditLogger,
@@ -613,6 +938,34 @@ export async function runWeaveCli(args: string[]): Promise<number> {
   return exitCode;
 }
 
+function normalizeCliMeshRoot(
+  workspaceRoot: string,
+  meshRoot: string | undefined,
+): string {
+  if (meshRoot === undefined) {
+    return ".";
+  }
+
+  const absoluteMeshRoot = resolve(meshRoot);
+  const relation = relative(workspaceRoot, absoluteMeshRoot).replaceAll(
+    "\\",
+    "/",
+  );
+  if (relation.length === 0) {
+    return ".";
+  }
+  if (relation.startsWith("../") || relation === ".." || isAbsolute(relation)) {
+    throw new Error(
+      `mesh root must stay inside the workspace root: ${meshRoot}`,
+    );
+  }
+  return relation;
+}
+
+async function inferCliWorkspaceRoot(meshRoot: string): Promise<string> {
+  return (await loadOperationalLocalPathPolicy(meshRoot)).workspaceRoot;
+}
+
 async function resolveMeshBaseOption(
   options: { meshBase?: string; interactive?: boolean },
 ): Promise<string> {
@@ -634,6 +987,28 @@ async function resolveMeshBaseOption(
       return value.trim().length > 0 || "meshBase is required";
     },
   });
+}
+
+function printExtractAllTermsPreview(
+  designatorPaths: readonly string[],
+): void {
+  console.log(
+    `All-terms extract will create ${designatorPaths.length} identifiers:`,
+  );
+  for (const designatorPath of designatorPaths) {
+    console.log(`- ${designatorPath}`);
+  }
+}
+
+function printSetExtractionSourceAllTermsPreview(
+  designatorPaths: readonly string[],
+): void {
+  console.log(
+    `All-terms extraction-source update will update ${designatorPaths.length} identifiers:`,
+  );
+  for (const designatorPath of designatorPaths) {
+    console.log(`- ${designatorPath}`);
+  }
 }
 
 function resolveIntegrateDesignatorPath(
@@ -705,7 +1080,7 @@ function resolveSharedTargetSpecs(
   }
 
   return values.map((value, index) =>
-    parseTargetSpec(value, index, commandName)
+    parseTargetSpec(value, index, commandName, false)
   );
 }
 
@@ -718,18 +1093,44 @@ function resolveVersionTargetSpecs(
   },
   commandName: string,
 ): readonly VersionTargetSpec[] {
-  const targets = resolveSharedTargetSpecs(options, commandName);
+  const values = options.target;
+  const targets =
+    values?.map((value, index) =>
+      parseTargetSpec(value, index, commandName, true)
+    ) ?? [];
   if (targets.length === 0) {
+    const payloadHistorySegment = resolveOptionalWeavePayloadSegment(
+      options.payloadHistorySegment,
+      `${commandName} --payload-history-segment`,
+    );
+    const payloadStateSegment = resolveOptionalWeavePayloadSegment(
+      options.payloadStateSegment,
+      `${commandName} --payload-state-segment`,
+    );
+    const payloadManifestationSegment = resolveOptionalWeavePayloadSegment(
+      options.payloadManifestationSegment,
+      `${commandName} --payload-manifestation-segment`,
+    );
+
     if (
-      options.payloadHistorySegment !== undefined ||
-      options.payloadStateSegment !== undefined ||
-      options.payloadManifestationSegment !== undefined
+      payloadHistorySegment === undefined &&
+      payloadStateSegment === undefined &&
+      payloadManifestationSegment === undefined
     ) {
-      throw new WeaveInputError(
-        "Payload version naming requires exactly one --target.",
-      );
+      return [];
     }
-    return [];
+
+    return [{
+      designatorPath: "",
+      recursive: true,
+      ...(payloadHistorySegment
+        ? { historySegment: payloadHistorySegment }
+        : {}),
+      ...(payloadStateSegment ? { stateSegment: payloadStateSegment } : {}),
+      ...(payloadManifestationSegment
+        ? { manifestationSegment: payloadManifestationSegment }
+        : {}),
+    }];
   }
   const payloadHistorySegment = resolveOptionalWeavePayloadSegment(
     options.payloadHistorySegment,
@@ -744,34 +1145,40 @@ function resolveVersionTargetSpecs(
     `${commandName} --payload-manifestation-segment`,
   );
 
-  if (
-    payloadHistorySegment === undefined &&
-    payloadStateSegment === undefined &&
-    payloadManifestationSegment === undefined
-  ) {
-    return targets;
-  }
-  if (targets.length !== 1) {
-    throw new WeaveInputError(
-      "Payload version naming requires exactly one --target.",
-    );
-  }
-
-  return [{
-    ...targets[0]!,
-    ...(payloadHistorySegment ? { historySegment: payloadHistorySegment } : {}),
-    ...(payloadStateSegment ? { stateSegment: payloadStateSegment } : {}),
-    ...(payloadManifestationSegment
-      ? { manifestationSegment: payloadManifestationSegment }
-      : {}),
-  }];
+  return targets.map((target) => ({
+    ...target,
+    ...(target.historySegment !== undefined ||
+        payloadHistorySegment === undefined
+      ? {}
+      : { historySegment: payloadHistorySegment }),
+    ...(target.stateSegment !== undefined || payloadStateSegment === undefined
+      ? {}
+      : { stateSegment: payloadStateSegment }),
+    ...(target.manifestationSegment !== undefined ||
+        payloadManifestationSegment === undefined
+      ? {}
+      : { manifestationSegment: payloadManifestationSegment }),
+  }));
 }
 
 function parseTargetSpec(
   value: string,
   index: number,
   commandName: string,
-): TargetSpec {
+  allowVersionFields: false,
+): TargetSpec;
+function parseTargetSpec(
+  value: string,
+  index: number,
+  commandName: string,
+  allowVersionFields: true,
+): VersionTargetSpec;
+function parseTargetSpec(
+  value: string,
+  index: number,
+  commandName: string,
+  allowVersionFields: boolean,
+): TargetSpec | VersionTargetSpec {
   const fieldName = `${commandName} --target[${index}]`;
   const trimmed = value.trim();
   if (trimmed.length === 0) {
@@ -794,13 +1201,14 @@ function parseTargetSpec(
       );
     }
 
-    const key = entry.slice(0, separatorIndex).trim();
+    const rawKey = entry.slice(0, separatorIndex).trim();
+    const key = normalizeTargetSpecKey(rawKey, allowVersionFields);
     const rawFieldValue = entry.slice(separatorIndex + 1).trim();
     if (rawFieldValue.length === 0) {
-      throw new WeaveInputError(`${fieldName}.${key} is required`);
+      throw new WeaveInputError(`${fieldName}.${rawKey} is required`);
     }
-    if (key !== "designatorPath" && key !== "recursive") {
-      throw new WeaveInputError(`${fieldName}.${key} is not supported`);
+    if (key === undefined) {
+      throw new WeaveInputError(`${fieldName}.${rawKey} is not supported`);
     }
     if (Object.hasOwn(record, key)) {
       throw new WeaveInputError(`${fieldName} contains duplicate key: ${key}`);
@@ -823,18 +1231,50 @@ function parseTargetSpec(
     }
   }
 
-  if (record.recursive === undefined) {
-    return { designatorPath };
-  }
-  if (record.recursive !== "true" && record.recursive !== "false") {
+  const recursive = record.recursive;
+  if (
+    recursive !== undefined && recursive !== "true" && recursive !== "false"
+  ) {
     throw new WeaveInputError(
       `${fieldName}.recursive must be true or false`,
     );
   }
 
-  return record.recursive === "true"
-    ? { designatorPath, recursive: true }
-    : { designatorPath };
+  return {
+    designatorPath,
+    ...(recursive === "true" ? { recursive: true } : {}),
+    ...(record.historySegment ? { historySegment: record.historySegment } : {}),
+    ...(record.stateSegment ? { stateSegment: record.stateSegment } : {}),
+    ...(record.manifestationSegment
+      ? { manifestationSegment: record.manifestationSegment }
+      : {}),
+  };
+}
+
+function normalizeTargetSpecKey(
+  key: string,
+  allowVersionFields: boolean,
+): string | undefined {
+  if (key === "designatorPath" || key === "recursive") {
+    return key;
+  }
+  if (!allowVersionFields) {
+    return undefined;
+  }
+
+  switch (key) {
+    case "historySegment":
+    case "payloadHistorySegment":
+      return "historySegment";
+    case "stateSegment":
+    case "payloadStateSegment":
+      return "stateSegment";
+    case "manifestationSegment":
+    case "payloadManifestationSegment":
+      return "manifestationSegment";
+    default:
+      return undefined;
+  }
 }
 
 function resolveOptionalWeavePayloadSegment(
@@ -899,6 +1339,18 @@ function resolveRequiredArgumentValue(
     errorMessage,
     createError,
   );
+}
+
+function assertMutuallyExclusiveSourceOptions(
+  sourceDesignatorPath: string | undefined,
+  sourceStatePath: string | undefined,
+  commandName: string,
+): void {
+  if (sourceDesignatorPath && sourceStatePath) {
+    throw new ExtractInputError(
+      `${commandName} requires either --source or --source-state, not both`,
+    );
+  }
 }
 
 function resolveCliArgumentDesignatorPath(

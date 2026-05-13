@@ -17,6 +17,7 @@ import {
   resolveMeshBaseFromMetadataTurtle,
 } from "../mesh/metadata.ts";
 import {
+  ensureMeshConfigWorkingDirectoryAccessRule,
   loadOperationalLocalPathPolicy,
   LocalPathAccessError,
   type OperationalLocalPathPolicy,
@@ -32,7 +33,9 @@ export interface LocalIntegrateRequest {
 }
 
 export interface ExecuteIntegrateOptions {
-  workspaceRoot: string;
+  meshRoot: string;
+  sourceBaseDirectory?: string;
+  sourceAccessDirectory?: string;
   request: LocalIntegrateRequest;
   operationalLogger?: StructuredLogger;
   auditLogger?: AuditLogger;
@@ -43,7 +46,7 @@ export interface IntegrateResult {
   designatorPath: string;
   payloadArtifactIri: string;
   knopIri: string;
-  workingFilePath: string;
+  workingLocalRelativePath: string;
   createdPaths: readonly string[];
   updatedPaths: readonly string[];
 }
@@ -59,11 +62,15 @@ export async function executeIntegrate(
   options: ExecuteIntegrateOptions,
 ): Promise<IntegrateResult> {
   const { operationalLogger, auditLogger } = resolveLoggers(options);
-  const workspaceRoot = options.workspaceRoot;
+  const meshRoot = options.meshRoot;
   const designatorPath = options.request.designatorPath;
   const source = options.request.source;
   let plan: IntegratePlan | undefined;
-  let workingFilePath: string | undefined;
+  let workingLocalRelativePath: string | undefined;
+  let meshConfigUpdated = false;
+  let localPathPolicy = await loadOperationalLocalPathPolicy(meshRoot);
+  const workspaceRoot = localPathPolicy.workspaceRoot;
+  const sourceBaseDirectory = options.sourceBaseDirectory ?? meshRoot;
 
   await operationalLogger.info(
     "integrate.started",
@@ -85,26 +92,36 @@ export async function executeIntegrate(
   );
 
   try {
-    await ensureWorkspaceRootExists(workspaceRoot);
-    const localPathPolicy = await loadOperationalLocalPathPolicy(workspaceRoot);
+    await ensureMeshRootExists(meshRoot);
+    if (options.sourceAccessDirectory !== undefined) {
+      meshConfigUpdated = await grantSourceDirectoryAccess({
+        sourceBaseDirectory,
+        meshRoot,
+        localPathPolicy,
+        source,
+        sourceAccessDirectory: options.sourceAccessDirectory,
+      });
+      localPathPolicy = await loadOperationalLocalPathPolicy(meshRoot);
+    }
     const resolvedSource = await resolveLocalSource(
-      workspaceRoot,
+      sourceBaseDirectory,
+      meshRoot,
       localPathPolicy,
       source,
     );
-    workingFilePath = resolvedSource.workingFilePath;
-    const meshState = await loadCurrentMeshState(workspaceRoot);
+    workingLocalRelativePath = resolvedSource.workingLocalRelativePath;
+    const meshState = await loadCurrentMeshState(meshRoot);
     plan = planIntegrate({
       meshBase: meshState.meshBase,
       currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
       designatorPath,
-      workingFilePath,
+      workingLocalRelativePath,
     });
-    assertUpdatedTargetsExist(workspaceRoot, plan);
-    await assertCreateTargetsDoNotExist(workspaceRoot, plan);
+    assertUpdatedTargetsExist(meshRoot, plan);
+    await assertCreateTargetsDoNotExist(meshRoot, plan);
     validateRdfPlan(plan);
-    await writeCreatedFiles(workspaceRoot, plan);
-    await writeUpdatedFiles(workspaceRoot, plan);
+    await writeCreatedFiles(meshRoot, plan);
+    await writeUpdatedFiles(meshRoot, plan);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await operationalLogger.error(
@@ -114,7 +131,7 @@ export async function executeIntegrate(
         workspaceRoot,
         designatorPath,
         source,
-        workingFilePath,
+        workingLocalRelativePath,
         payloadArtifactIri: plan?.payloadArtifactIri,
         knopIri: plan?.knopIri,
         error: message,
@@ -127,7 +144,7 @@ export async function executeIntegrate(
         workspaceRoot,
         designatorPath,
         source,
-        workingFilePath,
+        workingLocalRelativePath,
         payloadArtifactIri: plan?.payloadArtifactIri,
         knopIri: plan?.knopIri,
         error: message,
@@ -148,9 +165,18 @@ export async function executeIntegrate(
     designatorPath: plan.designatorPath,
     payloadArtifactIri: plan.payloadArtifactIri,
     knopIri: plan.knopIri,
-    workingFilePath: plan.workingFilePath,
-    createdPaths: plan.createdFiles.map((file) => file.path),
-    updatedPaths: plan.updatedFiles.map((file) => file.path),
+    workingLocalRelativePath: plan.workingLocalRelativePath,
+    createdPaths: plan.createdFiles.map((file) =>
+      toWorkspaceRelativePath(localPathPolicy, file.path)
+    ),
+    updatedPaths: [
+      ...plan.updatedFiles.map((file) =>
+        toWorkspaceRelativePath(localPathPolicy, file.path)
+      ),
+      ...(meshConfigUpdated
+        ? [toWorkspaceRelativePath(localPathPolicy, "_mesh/_config/config.ttl")]
+        : []),
+    ],
   };
 
   await operationalLogger.info(
@@ -161,7 +187,7 @@ export async function executeIntegrate(
       designatorPath: result.designatorPath,
       payloadArtifactIri: result.payloadArtifactIri,
       knopIri: result.knopIri,
-      workingFilePath: result.workingFilePath,
+      workingLocalRelativePath: result.workingLocalRelativePath,
       createdPaths: result.createdPaths,
       updatedPaths: result.updatedPaths,
     },
@@ -174,7 +200,7 @@ export async function executeIntegrate(
       designatorPath: result.designatorPath,
       payloadArtifactIri: result.payloadArtifactIri,
       knopIri: result.knopIri,
-      workingFilePath: result.workingFilePath,
+      workingLocalRelativePath: result.workingLocalRelativePath,
       createdPaths: result.createdPaths,
       updatedPaths: result.updatedPaths,
     },
@@ -184,7 +210,7 @@ export async function executeIntegrate(
 }
 
 export function describeIntegrateResult(result: IntegrateResult): string {
-  return `Integrated ${result.workingFilePath} as ${result.payloadArtifactIri} and created ${result.createdPaths.length} support artifacts while updating ${result.updatedPaths.length} mesh artifact.`;
+  return `Integrated ${result.workingLocalRelativePath} as ${result.payloadArtifactIri} and created ${result.createdPaths.length} support artifacts while updating ${result.updatedPaths.length} mesh artifact.`;
 }
 
 function resolveLoggers(
@@ -196,14 +222,14 @@ function resolveLoggers(
   return resolveRuntimeLoggers(options);
 }
 
-async function ensureWorkspaceRootExists(workspaceRoot: string): Promise<void> {
+async function ensureMeshRootExists(meshRoot: string): Promise<void> {
   let stat: Deno.FileInfo;
   try {
-    stat = await Deno.stat(workspaceRoot);
+    stat = await Deno.stat(meshRoot);
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new IntegrateRuntimeError(
-        `Workspace root does not exist: ${workspaceRoot}`,
+        `Mesh root does not exist: ${meshRoot}`,
       );
     }
     throw error;
@@ -211,16 +237,17 @@ async function ensureWorkspaceRootExists(workspaceRoot: string): Promise<void> {
 
   if (!stat.isDirectory) {
     throw new IntegrateRuntimeError(
-      `Workspace root is not a directory: ${workspaceRoot}`,
+      `Mesh root is not a directory: ${meshRoot}`,
     );
   }
 }
 
 async function resolveLocalSource(
-  workspaceRoot: string,
+  sourceBaseDirectory: string,
+  meshRoot: string,
   localPathPolicy: OperationalLocalPathPolicy,
   source: string,
-): Promise<{ absoluteSourcePath: string; workingFilePath: string }> {
+): Promise<{ absoluteSourcePath: string; workingLocalRelativePath: string }> {
   const trimmed = source.trim();
   if (trimmed.length === 0) {
     throw new IntegrateRuntimeError(
@@ -228,7 +255,7 @@ async function resolveLocalSource(
     );
   }
 
-  const absoluteSourcePath = resolveSourcePath(workspaceRoot, trimmed);
+  const absoluteSourcePath = resolveSourcePath(sourceBaseDirectory, trimmed);
   let stat: Deno.FileInfo;
   try {
     stat = await Deno.stat(absoluteSourcePath);
@@ -247,9 +274,11 @@ async function resolveLocalSource(
     );
   }
 
-  const workingFilePath = relative(workspaceRoot, absoluteSourcePath)
+  const workingLocalRelativePath = relative(meshRoot, absoluteSourcePath)
     .replaceAll("\\", "/");
-  if (workingFilePath.length === 0 || workingFilePath === "..") {
+  if (
+    workingLocalRelativePath.length === 0 || workingLocalRelativePath === ".."
+  ) {
     throw new IntegrateRuntimeError(
       `integrate source is not a file: ${trimmed}`,
     );
@@ -257,8 +286,8 @@ async function resolveLocalSource(
   try {
     const allowedSourcePath = resolveAllowedLocalPath(
       localPathPolicy,
-      "workingFilePath",
-      workingFilePath,
+      "workingLocalRelativePath",
+      workingLocalRelativePath,
     );
     if (resolve(allowedSourcePath) !== resolve(absoluteSourcePath)) {
       throw new IntegrateRuntimeError(
@@ -268,7 +297,13 @@ async function resolveLocalSource(
   } catch (error) {
     if (error instanceof LocalPathAccessError) {
       throw new IntegrateRuntimeError(
-        `integrate source is outside the allowed local-path boundary: ${trimmed}`,
+        `integrate source is outside the allowed local-path boundary: ${trimmed}${
+          renderLocalPathAccessSuggestion(
+            sourceBaseDirectory,
+            localPathPolicy,
+            absoluteSourcePath,
+          )
+        }`,
       );
     }
     throw error;
@@ -276,11 +311,74 @@ async function resolveLocalSource(
 
   return {
     absoluteSourcePath,
-    workingFilePath,
+    workingLocalRelativePath,
   };
 }
 
-function resolveSourcePath(workspaceRoot: string, source: string): string {
+async function grantSourceDirectoryAccess(
+  options: {
+    sourceBaseDirectory: string;
+    meshRoot: string;
+    localPathPolicy: OperationalLocalPathPolicy;
+    source: string;
+    sourceAccessDirectory: string;
+  },
+): Promise<boolean> {
+  const absoluteSourcePath = resolveSourcePath(
+    options.sourceBaseDirectory,
+    options.source.trim(),
+  );
+  const absoluteAccessDirectory = resolveSourcePath(
+    options.sourceBaseDirectory,
+    options.sourceAccessDirectory.trim(),
+  );
+  let stat: Deno.FileInfo;
+  try {
+    stat = await Deno.stat(absoluteAccessDirectory);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      throw new IntegrateRuntimeError(
+        `source access directory does not exist: ${options.sourceAccessDirectory}`,
+      );
+    }
+    throw error;
+  }
+  if (!stat.isDirectory) {
+    throw new IntegrateRuntimeError(
+      `source access directory is not a directory: ${options.sourceAccessDirectory}`,
+    );
+  }
+  if (!isWithinRoot(absoluteSourcePath, absoluteAccessDirectory)) {
+    throw new IntegrateRuntimeError(
+      `source access directory does not contain integrate source: ${options.sourceAccessDirectory}`,
+    );
+  }
+  if (
+    !isWithinRoot(
+      absoluteAccessDirectory,
+      options.localPathPolicy.workspaceRoot,
+    )
+  ) {
+    throw new IntegrateRuntimeError(
+      `source access directory is outside the inferred workspace root: ${options.sourceAccessDirectory}`,
+    );
+  }
+  if (isWithinRoot(absoluteAccessDirectory, options.meshRoot)) {
+    return false;
+  }
+
+  const pathPrefix = relative(options.meshRoot, absoluteAccessDirectory)
+    .replaceAll("\\", "/");
+  return await ensureMeshConfigWorkingDirectoryAccessRule(
+    options.localPathPolicy,
+    pathPrefix,
+  );
+}
+
+function resolveSourcePath(
+  sourceBaseDirectory: string,
+  source: string,
+): string {
   const parsedUrl = tryParseUrl(source);
   if (parsedUrl) {
     if (parsedUrl.protocol !== "file:") {
@@ -291,7 +389,50 @@ function resolveSourcePath(workspaceRoot: string, source: string): string {
     return resolve(fromFileUrl(parsedUrl));
   }
 
-  return isAbsolute(source) ? resolve(source) : resolve(workspaceRoot, source);
+  return isAbsolute(source)
+    ? resolve(source)
+    : resolve(sourceBaseDirectory, source);
+}
+
+function renderLocalPathAccessSuggestion(
+  sourceBaseDirectory: string,
+  localPathPolicy: OperationalLocalPathPolicy,
+  absoluteSourcePath: string,
+): string {
+  const sourceDirectory = dirname(absoluteSourcePath);
+  if (
+    isWithinRoot(sourceDirectory, localPathPolicy.workspaceRoot) &&
+    !isWithinRoot(sourceDirectory, localPathPolicy.meshRoot) &&
+    localPathPolicy.meshConfigPath !== undefined
+  ) {
+    const relativeSourceDirectory = relative(
+      sourceBaseDirectory,
+      sourceDirectory,
+    ).replaceAll("\\", "/");
+    const suggestedDirectory = relativeSourceDirectory.length === 0
+      ? "."
+      : relativeSourceDirectory;
+    return `; run again with --grant-source-directory ${suggestedDirectory} to add a constrained mesh config grant for that source directory`;
+  }
+
+  return "; add an explicit local path access rule before integrating extra-workspace sources";
+}
+
+function toWorkspaceRelativePath(
+  policy: OperationalLocalPathPolicy,
+  meshRelativePath: string,
+): string {
+  const path = relative(
+    policy.workspaceRoot,
+    join(policy.meshRoot, meshRelativePath),
+  ).replaceAll("\\", "/");
+  return path.length === 0 ? "." : path;
+}
+
+function isWithinRoot(candidatePath: string, rootPath: string): boolean {
+  const relation = relative(resolve(rootPath), resolve(candidatePath));
+  return relation.length === 0 ||
+    (!relation.startsWith("..") && !isAbsolute(relation));
 }
 
 function tryParseUrl(value: string): URL | undefined {
