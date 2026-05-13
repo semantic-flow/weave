@@ -1167,7 +1167,7 @@ Use this section for items that are real, but should not block the first config 
 
 ### Phase 3: Runtime Implementation Slices
 
-- [ ] Implement an internal effective-config model that can answer history policy and resource-page policy for a target artifact role.
+- [x] Implement an internal effective-config model that can answer history policy and resource-page policy for a target artifact role.
 - [ ] Implement minimal inherited config propagation controls before fixture ladder regeneration, covering normal propagation, accept-but-stop, block inherited config, and descendant-only versus self-inclusive offers.
 - [ ] Wire history policy into the slim-support-artifact work from [[wd.task.2026.2026-05-05-optional-history-and-slim-support-artifacts-by-default]].
 - [ ] Wire naming defaults and hints into payload versioning without bypassing current RDF validation.
