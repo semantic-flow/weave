@@ -145,6 +145,7 @@ The generator should be intentionally concrete at first. It does not need to inf
 - [ ] Extend the generator through the full Alice Bio ladder.
 - [ ] Update or add documentation for the Alice Bio regeneration workflow.
 - [ ] Extend the generator to Sidecar Fantasy Rules.
+- [ ] Update Accord manifests, fixture-backed Weave tests, and conformance expectations after generated branches are rerung for the combined enum/config changes.
 - [ ] Record the expected workflow for large ontology/config churn: update manifests, run generator, inspect generated branch diffs, run fixture tests, commit/push branch updates intentionally.
 - [x] Update [[wd.task.2026.2026-05-06-grand-config-synthesis]] to reference this task as the intended fixture regeneration path before the config-driven fixture rebuild.
 - [ ] Update [[wd.decision-log]] with the decision to treat fixture branches as disposable generated outputs once the implementation path is accepted.

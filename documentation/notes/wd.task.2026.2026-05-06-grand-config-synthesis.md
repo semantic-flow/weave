@@ -936,12 +936,14 @@ Use this section for items that are real, but should not block the first config 
 - [ ] Wire resource-page generation policy into page planning separately from history policy.
 - [ ] Wire historical ResourcePage regeneration to select config-at-the-time, current presentation config, current full config, or hybrid regeneration policy.
 - [ ] Keep path/URL trust policy integration aligned with [[wd.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]].
+- [ ] Update non-fixture unit and integration tests alongside each runtime slice so parser, resolver, naming, history-policy, and page-policy expectations move with the implementation.
 
 ### Phase 4: Validation And Documentation
 
 - [ ] Add ontology examples and tests for the revised vocabulary.
 - [ ] Update or reference Semantic Flow Framework examples such as `mesh-sidecar-fantasy-rules` and `mesh-alice-bio` after the ontology examples settle.
 - [ ] Add Weave unit and integration tests for config resolution and policy application.
+- [ ] After fixture-ladder regeneration, update fixture-backed Weave tests, Accord manifests, and conformance expectations for the combined enum/config vocabulary changes.
 - [ ] Update related task notes and roadmap references to point at this grand synthesis task as the config umbrella.
 - [ ] Update [[wd.codebase-overview]] when the resolver becomes a standard runtime seam.
 - [ ] Update user-facing docs only after the CLI/runtime behavior is implemented.
