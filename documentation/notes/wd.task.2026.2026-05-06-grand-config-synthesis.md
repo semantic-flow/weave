@@ -874,6 +874,8 @@ Suppressed pages should omit `sflo:hasResourcePage`. Do not leave an unfulfilled
 
 The default should preserve dereferenceability for artifacts by generating current ResourcePages. Slim support artifacts should still be able to suppress or defer noisy current or historical pages by explicit policy.
 
+First-pass suppression granularity can be coarse. The resolver should support the default generate/suppress/defer/on-request policy at least at the default, artifact-role, and named-artifact/config-source level. It does not need to block on separate suppression controls for every generated page surface, such as Knop identifier pages, arbitrary IRI/term pages, `ArtifactHistory` pages, `HistoricalState` pages, and `ArtifactManifestation` pages. For the first runtime slice, it is acceptable for those pages to follow the owning artifact's page policy or the current implementation's bundled page-generation behavior. More precise page-kind policy can be added after the resolver exists and after fixture regeneration shows where the broad policy is too blunt.
+
 ### Config Ontology Overhaul Scope
 
 The active `semantic-flow-config-ontology.ttl` should be revised rather than replaced blindly.
@@ -943,6 +945,7 @@ Use this section for items that are real, but should not block the first config 
 - Persistent diagnostic cache storage beyond source-fingerprint-safe cache keys and log records.
 - Complete `weave config source add|set|pin|unpin|remove` authoring surface, if the first pass can use compact RDF examples or a smaller internal API.
 - Rich render/provenance manifests for all historical ResourcePage regeneration modes.
+- Fine-grained page-kind suppression controls for Knop/IRI pages, `ArtifactHistory`, `HistoricalState`, and `ArtifactManifestation` pages beyond the first-pass default/role/artifact-level ResourcePage policy.
 - Scheduled or automatic historical ResourcePage backfill.
 - Package-manager-style config dependency resolution across external meshes.
 - Publishing and governance workflow for the future `sflo` sidecar mesh.
