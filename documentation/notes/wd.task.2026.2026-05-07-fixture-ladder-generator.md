@@ -63,24 +63,24 @@ If intermediate states become useful for documentation or demos, the generator c
 
 ### Relationship To Config Synthesis
 
-The config synthesis will probably invalidate most existing fixture outputs. It will introduce explicit Weave defaults, config artifacts, local/inheritable Knop config, changed support-artifact history policy, and likely updated generated pages/manifests. That is exactly the sort of change a generator should absorb.
+The config synthesis will probably invalidate most existing fixture outputs. It will introduce explicit Weave defaults, config artifacts, local/inheritable Knop config, inherited propagation controls, changed support-artifact history policy, and likely updated generated pages/manifests. That is exactly the sort of change a generator should absorb.
 
-The generator should be designed before the full config-driven fixture rerung. Otherwise we will spend the config migration doing another manual ladder repair and then still need the generator afterward.
+The generator should be designed alongside the next config pass and used before repairing fixture repos. Otherwise we will spend the config migration doing another manual ladder repair and then still need the generator afterward.
 
-That does not mean the generator has to be perfect before config synthesis begins. The minimum useful version is a deterministic replay tool for one fixture repo, probably Alice Bio, with clear dry-run/status output and validation hooks. Once that exists, config synthesis can use it while the generator matures.
+That does not mean the generator has to be perfect before config synthesis begins. The minimum useful version is a deterministic replay tool for one fixture repo, probably Alice Bio, with clear dry-run/status output and validation hooks. Config design can proceed concurrently, but fixture repo repair should wait until the enum and config vocabulary changes can be regenerated together.
 
 ### Relationship To Enumeration Migration
 
 The enum-instance migration in [[ont.task.2026.2026-05-03-enumeration-type-instances]] should not be blocked on a finished fixture generator. The enum task is ontology-level vocabulary cleanup and should settle before the config ontology mints many new controlled values.
 
-However, the enum task should avoid doing a full manual fixture rerung if this generator can be started quickly. A pragmatic order is:
+Fixture regeneration for enum fallout is deferred until after the next config pass. A pragmatic order is:
 
 1. Settle the enum naming convention and update ontology/code references.
-2. Build the first narrow fixture generator or at least enough replay scripting to regenerate affected branches.
-3. Rerung fixtures for enum fallout using the generator/replay path.
-4. Proceed into config synthesis with the generator available for the larger fixture rebuild.
+2. Take the next config synthesis pass using the settled flat underscore-separated enum naming convention, including the minimal inherited config propagation controls that affect fixture output.
+3. Build or refine the fixture generator concurrently enough to replay affected branches.
+4. Rerung fixtures once for the combined enum and config fallout using the generator/replay path.
 
-If enum work is blocked by fixture branch repair, implement the narrow generator first. If enum ontology/code changes can be validated without full fixture branch refresh, do those changes first and let fixture regeneration happen through this task immediately after.
+If config work exposes fixture-generator requirements, fold those requirements back into this task instead of doing one-off manual ladder repair.
 
 ### Initial Scope
 
@@ -146,5 +146,5 @@ The generator should be intentionally concrete at first. It does not need to inf
 - [ ] Update or add documentation for the Alice Bio regeneration workflow.
 - [ ] Extend the generator to Sidecar Fantasy Rules.
 - [ ] Record the expected workflow for large ontology/config churn: update manifests, run generator, inspect generated branch diffs, run fixture tests, commit/push branch updates intentionally.
-- [ ] Update [[wd.task.2026.2026-05-06-grand-config-synthesis]] to reference this task as the intended fixture regeneration path before the config-driven fixture rebuild.
+- [x] Update [[wd.task.2026.2026-05-06-grand-config-synthesis]] to reference this task as the intended fixture regeneration path before the config-driven fixture rebuild.
 - [ ] Update [[wd.decision-log]] with the decision to treat fixture branches as disposable generated outputs once the implementation path is accepted.
