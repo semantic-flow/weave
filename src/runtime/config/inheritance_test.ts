@@ -4,6 +4,35 @@ import {
   resolveKnopInheritedConfigSources,
 } from "./inheritance.ts";
 
+Deno.test("resolveKnopInheritedConfigSources includes mesh inheritable config before ancestor Knop offers", () => {
+  assertEquals(
+    resolveKnopInheritedConfigSources({
+      meshInheritableSources: ["mesh-knop-defaults"],
+      knopScopePath: [
+        {
+          scopeKey: "alice",
+          inheritableSources: ["alice-defaults"],
+        },
+        {
+          scopeKey: "alice/bio",
+        },
+      ],
+    }),
+    [
+      {
+        source: "mesh-knop-defaults",
+        offeredByScopeKey: "_mesh",
+        projection: "meshInherited",
+      },
+      {
+        source: "alice-defaults",
+        offeredByScopeKey: "alice",
+        projection: "ancestorInherited",
+      },
+    ],
+  );
+});
+
 Deno.test("resolveKnopInheritedConfigSources propagates ancestor offers by default", () => {
   assertEquals(
     resolveKnopInheritedConfigSources([
@@ -28,6 +57,56 @@ Deno.test("resolveKnopInheritedConfigSources propagates ancestor offers by defau
       {
         source: "bio-defaults",
         offeredByScopeKey: "alice/bio",
+        projection: "ancestorInherited",
+      },
+    ],
+  );
+});
+
+Deno.test("resolveKnopInheritedConfigSources stops mesh inheritable config at acceptDoNotPropagate scopes", () => {
+  assertEquals(
+    resolveKnopInheritedConfigSources({
+      meshInheritableSources: ["mesh-knop-defaults"],
+      knopScopePath: [
+        {
+          scopeKey: "alice",
+          inboundPolicy: "acceptDoNotPropagate",
+          inheritableSources: ["alice-defaults"],
+        },
+        {
+          scopeKey: "alice/bio",
+        },
+      ],
+    }),
+    [
+      {
+        source: "alice-defaults",
+        offeredByScopeKey: "alice",
+        projection: "ancestorInherited",
+      },
+    ],
+  );
+});
+
+Deno.test("resolveKnopInheritedConfigSources blocks mesh inheritable config at blockInherited scopes", () => {
+  assertEquals(
+    resolveKnopInheritedConfigSources({
+      meshInheritableSources: ["mesh-knop-defaults"],
+      knopScopePath: [
+        {
+          scopeKey: "alice",
+          inboundPolicy: "blockInherited",
+          inheritableSources: ["alice-defaults"],
+        },
+        {
+          scopeKey: "alice/bio",
+        },
+      ],
+    }),
+    [
+      {
+        source: "alice-defaults",
+        offeredByScopeKey: "alice",
         projection: "ancestorInherited",
       },
     ],
@@ -86,6 +165,26 @@ Deno.test("resolveKnopInheritedConfigSources blocks inherited config at blockInh
   );
 });
 
+Deno.test("resolveKnopInheritedConfigSources applies mesh inheritable config to the root Knop", () => {
+  assertEquals(
+    resolveKnopInheritedConfigSources({
+      meshInheritableSources: ["mesh-knop-defaults"],
+      knopScopePath: [
+        {
+          scopeKey: "",
+        },
+      ],
+    }),
+    [
+      {
+        source: "mesh-knop-defaults",
+        offeredByScopeKey: "_mesh",
+        projection: "meshInherited",
+      },
+    ],
+  );
+});
+
 Deno.test("resolveKnopInheritedConfigSources keeps descendant-only offers off the authored scope", () => {
   assertEquals(
     resolveKnopInheritedConfigSources([
@@ -131,5 +230,34 @@ Deno.test("resolveKnopInheritedConfigSources rejects invalid scope paths", () =>
       ]),
     ConfigInheritanceError,
     "Duplicate config inheritance scope key",
+  );
+  assertThrows(
+    () =>
+      resolveKnopInheritedConfigSources({
+        meshScopeKey: "alice",
+        meshInheritableSources: ["mesh-knop-defaults"],
+        knopScopePath: [{ scopeKey: "alice" }],
+      }),
+    ConfigInheritanceError,
+    "Duplicate config inheritance scope key",
+  );
+  assertThrows(
+    () =>
+      resolveKnopInheritedConfigSources({
+        meshScopeKey: "",
+        meshInheritableSources: ["mesh-knop-defaults"],
+        knopScopePath: [{ scopeKey: "alice" }],
+      }),
+    ConfigInheritanceError,
+    "mesh scope key must not be empty",
+  );
+  assertThrows(
+    () =>
+      resolveKnopInheritedConfigSources([
+        { scopeKey: "alice" },
+        { scopeKey: "   " },
+      ]),
+    ConfigInheritanceError,
+    "scope keys must not be blank",
   );
 });

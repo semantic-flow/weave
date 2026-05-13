@@ -164,15 +164,18 @@ Deno.test("planMeshSupportResourcePages adds current support ResourcePages inclu
 
 <> a sfcfg:MeshConfig .
 `,
+    supportHistoryPolicies: {
+      meshMetadata: "currentOnly",
+      meshInventory: "currentOnly",
+      config: "versioned",
+    },
   });
 
   assertEquals(plan.versionedDesignatorPaths, []);
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
-      "_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl",
       "_mesh/_config/_history001/_s0001/config-ttl/config.ttl",
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
     ],
   );
   assertEquals(
@@ -190,11 +193,25 @@ Deno.test("planMeshSupportResourcePages adds current support ResourcePages inclu
   );
   assertStringIncludes(
     inventory,
-    "<_mesh/_config/index.html> a sflo:ResourcePage, sflo:LocatedFile .",
+    "sflo:hasWorkingLocatedFile <_mesh/_meta/meta.ttl> ;\n  sflo:hasResourcePage <_mesh/_meta/index.html> .",
   );
   assertStringIncludes(
     inventory,
-    "sflo:currentArtifactHistory <_mesh/_inventory/_history001> ;",
+    "sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> ;\n  sflo:hasResourcePage <_mesh/_inventory/index.html> .",
+  );
+  assertStringIncludes(
+    inventory,
+    "<_mesh/_config/index.html> a sflo:ResourcePage, sflo:LocatedFile .",
+  );
+  assertFalse(
+    inventory.includes(
+      "sflo:currentArtifactHistory <_mesh/_inventory/_history001>",
+    ),
+  );
+  assertFalse(
+    inventory.includes(
+      "sflo:currentArtifactHistory <_mesh/_meta/_history001>",
+    ),
   );
   assertStringIncludes(
     inventory,

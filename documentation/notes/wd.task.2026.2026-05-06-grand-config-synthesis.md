@@ -27,7 +27,7 @@ The config line needs a deliberate consolidation pass. The current active config
 
 The synthesized direction is:
 
-- portable authored config belongs in mesh-managed config artifacts such as `_mesh/_config`, `_knop/_local-config`, and `_knop/_inheritable-config`
+- portable authored config belongs in mesh-managed config artifacts such as `_mesh/_config`, `_mesh/_knop-inheritable-config`, `_knop/_local-config`, and `_knop/_inheritable-config`
 - operational/runtime config supplies trusted runtime inputs and gates, such as host access policy and bootstrap resolver policy
 - `ResolvedConfig` is derived resolver output, while effective config is the operation-specific runtime policy object derived from it
 - reusable config is a first-class `ConfigArtifact` / `DigitalArtifact` with its own IRI, working file, optional history, and resource page policy
@@ -59,7 +59,7 @@ This task should supersede the older "replace local/inheritable config with mesh
 The authored portable config layers should be explicit:
 
 - `_mesh/_config`: mesh-level config for the mesh surface and defaults that apply across the mesh
-- mesh-level inheritable config: defaults the mesh offers to Knops, submeshes, or descendant scopes inside the mesh boundary
+- `_mesh/_knop-inheritable-config`: mesh-level defaults the mesh offers into Knop inheritance inside the mesh boundary
 - `_knop/_local-config`: local config for the Knop, its resource page, and artifacts governed at that Knop
 - `_knop/_inheritable-config`: defaults the Knop offers to descendant Knops and subtrees
 - reusable named config artifacts: ordinary named `ConfigArtifact` resources that may live anywhere in a mesh, such as `alice/alices-favorite-sf-config-setting`, and may be referenced by mesh, Knop, local, or inheritable config
@@ -70,7 +70,7 @@ Do not model every authored config layer as a disjoint class. A config artifact 
 
 `KnopConfig` is a useful optional scope marker for a portable config artifact attached to a Knop. That is separate from the active ontology's machine/user-local `LocalConfig` meaning, which should be renamed or specialized toward host-local operational config. Knop-local versus Knop-inheritable behavior should be expressed by attachment properties or layer roles.
 
-Inheritable config should be an attachment/layer role rather than a single class. A mesh can attach inheritable defaults for scopes inside the mesh, and a Knop can attach inheritable defaults for descendant Knops. The source artifact may still just be a `ConfigArtifact`, optionally also a `MeshConfig` or `KnopConfig` when that marker helps validation.
+Inheritable config should be an attachment/layer role rather than a single class. A mesh can attach inheritable defaults for Knop scopes inside the mesh through the canonical support artifact `_mesh/_knop-inheritable-config`, and a Knop can attach inheritable defaults for descendant Knops. The source artifact may still just be a `ConfigArtifact`, optionally also a `MeshConfig` or `KnopConfig` when that marker helps validation.
 
 ### Operational Config And Effective Config
 
@@ -532,15 +532,15 @@ Mesh config and mesh-inheritable config source attachments:
   ] ;
   sfcfg:hasMeshInheritableConfigSource [
     a sflo:ArtifactResolutionTarget ;
-    sflo:hasTargetArtifact <_mesh/shared-config/knop-defaults> ;
+    sflo:hasTargetArtifact <_mesh/_knop-inheritable-config> ;
     sflo:hasArtifactResolutionMode sflo:artifactResolutionMode_pinned ;
-    sflo:hasRequestedTargetState <_mesh/shared-config/knop-defaults/_history001/_s0003> ;
+    sflo:hasRequestedTargetState <_mesh/_knop-inheritable-config/_history001/_s0003> ;
     sflo:expectsContentDigest "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   ] .
 
 <_mesh/_config> a sfcfg:MeshConfig, sfcfg:ConfigArtifact, sflo:DigitalArtifact, sflo:RdfDocument .
 
-<_mesh/shared-config/knop-defaults> a sfcfg:KnopConfig, sfcfg:ConfigArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+<_mesh/_knop-inheritable-config> a sfcfg:MeshConfig, sfcfg:ConfigArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
   sfcfg:hasDefaultResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_generate .
 ```
 
@@ -664,6 +664,8 @@ Discovery and layer order:
 - Apply request/command overrides last for the current operation only, then validate the resulting effective operation config against hard invariants and current artifact/history RDF.
 - Reusable config is not a single global layer. It is merged where the source is referenced: a reusable config imported from mesh config behaves as mesh config, while the same reusable config imported from Knop-local config behaves as Knop-local config.
 
+Mesh-local config remains a normal mesh-scoped behavior layer in that order. It is not walked through Knop inheritance controls. Mesh-inheritable config is the mesh-scope offer that enters the inherited Knop stream and can then be stopped or blocked by Knop inheritance policy.
+
 Property-family merge rules:
 
 - Trust gates merge by intersection/deny-by-default. A lower-trust source may narrow access but cannot widen it.
@@ -683,7 +685,7 @@ Segment override behavior:
 Inheritance traversal:
 
 - For a target Knop, collect mesh-inheritable config, then walk ancestor Knops from root to parent and collect each ancestor's inheritable offers that are still propagating.
-- Default inbound inheritance is `configInheritancePolicy_acceptAndPropagate` inside one mesh boundary. `acceptDoNotPropagate` applies inherited config to the current scope but stops it from reaching descendants. `blockInherited` rejects inherited config for the current scope and descendants.
+- Default inbound inheritance is `configInheritancePolicy_acceptAndPropagate` inside one mesh boundary. `acceptDoNotPropagate` applies incoming inherited config to the current scope but stops it from reaching descendants. `blockInherited` rejects incoming inherited config for the current scope and descendants.
 - Default outbound Knop-inheritable config is `offerDescendantsOnly`. `offerSelfAndDescendants` projects the offer into the authored Knop as well, but Knop-local config for that same Knop still wins for nearest-scope behavior defaults.
 - Submesh boundaries stop inheritance unless an explicit config source crosses the boundary and trusted operational policy allows that source to be read.
 
@@ -805,7 +807,7 @@ Generic `hasConfig` remains useful, but the public model should include role-spe
 Inheritance should be scoped and explicit:
 
 - mesh-level config supplies mesh defaults
-- mesh-level inheritable config supplies defaults for Knops, submeshes, or descendant scopes inside the mesh boundary
+- `_mesh/_knop-inheritable-config` supplies defaults into Knop inheritance inside the mesh boundary
 - a parent Knop's inheritable config supplies defaults for descendants
 - a Knop's local config overrides inherited defaults for that Knop
 - reusable config artifacts may be imported/referenced into either layer
@@ -813,13 +815,15 @@ Inheritance should be scoped and explicit:
 
 By default, a Knop's inheritable config should be an offer to descendants, not an implicit local override for the Knop itself. If a Knop also needs the policy locally, attach the same config artifact through its local config role or use a policy that explicitly makes inheritance self-inclusive.
 
+The mesh-local versus mesh-inheritable distinction is not about whether mesh config participates in resolution. Both participate. Mesh-local config is applied as a mesh-scoped layer, while mesh-inheritable config is projected into Knop scopes as inherited input before ancestor Knop offers. Knop inheritance stop/block controls apply to that inherited stream, not to all mesh-scoped policy.
+
 Implement a minimal inherited-config propagation control in the first config pass, before fixture ladder regeneration. The fixture ladders will otherwise encode a propagation model implicitly, and we would pay the rerung cost twice when the explicit control lands.
 
 Do not revive the full old "configuration firewall" machinery yet. The first-pass control should be policy-valued and scoped:
 
 - default normal Knop inheritance accepts inherited config and propagates it to descendants inside the current mesh boundary
 - a scope can accept inherited config locally but stop propagation to descendants
-- a scope can block inherited config entirely for itself and descendants
+- a scope can block incoming inherited config entirely for itself and descendants
 - a scope can make its own inheritable config descendant-only or explicitly self-inclusive
 - submesh boundary behavior should be explicit rather than accidentally inherited through path traversal
 
@@ -836,7 +840,7 @@ Options:
 - checkpointed or metadata-only config histories preserve fingerprints and selected snapshots without recording every minor edit as a full public surface
 - versioned config with explicit suppressed ResourcePages records history without making every config state dereferenceable or visible in the generated site
 
-The preferred default is: all portable authored config artifacts are versioned by default and their current ResourcePages are generated by default. They remain suppressible or deferrable by explicit policy. That includes `_mesh/_config`, mesh-level inheritable config, `_knop/_local-config`, `_knop/_inheritable-config`, reusable named config artifacts, page presentation config, template artifacts, and stylesheet artifacts when they are modeled as mesh artifacts. The reason is reproducibility and dereferenceability: historical ResourcePage regeneration, diagnostics, and audits need to know which config was in force when a state was created or when a page was rendered, and current config artifacts should remain inspectable unless a mesh deliberately hides or defers them.
+The preferred default is: all portable authored config artifacts are versioned by default and their current ResourcePages are generated by default. They remain suppressible or deferrable by explicit policy. That includes `_mesh/_config`, `_mesh/_knop-inheritable-config`, `_knop/_local-config`, `_knop/_inheritable-config`, reusable named config artifacts, page presentation config, template artifacts, and stylesheet artifacts when they are modeled as mesh artifacts. The reason is reproducibility and dereferenceability: historical ResourcePage regeneration, diagnostics, and audits need to know which config was in force when a state was created or when a page was rendered, and current config artifacts should remain inspectable unless a mesh deliberately hides or defers them.
 
 This does not mean every operational or derived config file participates in mesh history. Machine-local operational config, daemon state, runtime logs, `ResolvedConfig` caches, and config-resolution diagnostics stay outside normal mesh history unless explicitly represented or integrated as mesh `DigitalArtifact`s.
 
@@ -995,7 +999,7 @@ Use this section for items that are real, but should not block the first config 
 - Let explicit CLI/API segment arguments override config defaults and hints for one operation, with a warning when they differ from a resolved hint.
 - Fail closed when a CLI/API segment argument violates a hard invariant, trust gate, or non-overrideable policy. For strict but overrideable policies, require an explicit operation override acknowledgement plus resolver policy allowing that class of override.
 - Keep payload artifacts historical by default.
-- Version portable authored config artifacts by default, including mesh config, mesh inheritable config, Knop local config, Knop inheritable config, reusable named config artifacts, and presentation/template/style config artifacts when they are represented as mesh artifacts.
+- Version portable authored config artifacts by default, including mesh config, `_mesh/_knop-inheritable-config`, Knop local config, Knop inheritable config, reusable named config artifacts, and presentation/template/style config artifacts when they are represented as mesh artifacts.
 - Allow explicit suppression or deferral of ResourcePages for config support artifacts when they are not useful to publish; versioning config history does not require generating a visible page for every config state when policy says otherwise.
 - Do not keep `_mesh/_inventory` or `_knop/_inventory` history by default; inventory defaults to current-only unless a mesh explicitly opts in.
 - Treat current runtime reads of inventory history/progression facts as transitional implementation debt to remove before applying the current-only inventory default to fixture-backed behavior.
@@ -1069,7 +1073,7 @@ Use this section for items that are real, but should not block the first config 
 ## Testing
 
 - Ontology validation should cover the revised config ontology and examples.
-- Add example RDF for `_mesh/_config`, `_knop/_local-config`, `_knop/_inheritable-config`, and a reusable named config artifact.
+- Add example RDF for `_mesh/_config`, `_mesh/_knop-inheritable-config`, `_knop/_local-config`, `_knop/_inheritable-config`, and a reusable named config artifact.
 - Add example RDF showing a Knop inheriting defaults from a parent and overriding them locally.
 - Add example RDF and resolver tests for inherited config propagation controls: default accept/propagate, accept-but-stop, block inherited config, descendant-only inheritable config, and explicitly self-inclusive inheritable config.
 - Add example RDF showing a reusable config artifact referenced through a pinned config-source target.
@@ -1153,7 +1157,7 @@ Use this section for items that are real, but should not block the first config 
 - [x] Define the trusted bootstrap resolver profile and which sources can supply it.
 - [x] Define which portable resolver hints are legal and which are capped by trusted bootstrap policy.
 - [x] Define the Weave-owned defaults mesh, where Weave default profile artifacts are loaded from, and how they can be inspected in tests and diagnostics.
-- [x] Define config discovery order for `_mesh/_config`, `_knop/_local-config`, `_knop/_inheritable-config`, reusable config artifacts, machine-local operational config, and command-line overrides.
+- [x] Define config discovery order for `_mesh/_config`, `_mesh/_knop-inheritable-config`, `_knop/_local-config`, `_knop/_inheritable-config`, reusable config artifacts, machine-local operational config, and command-line overrides.
 - [x] Define property-family merge and precedence rules for trust gates, safety caps, scoped behavior defaults, required invariants, operation request fields, additive values, and reusable config attachment points.
 - [x] Define warning and failure behavior for CLI/API segment arguments that override hints, satisfy strict policies, or conflict with overrideable versus non-overrideable policies.
 - [x] Define inheritance traversal rules for Knop hierarchy and submesh boundaries, including default accept/propagate behavior and explicit stop/block/self-inclusive propagation policies.
@@ -1169,6 +1173,7 @@ Use this section for items that are real, but should not block the first config 
 
 - [x] Implement an internal effective-config model that can answer history policy and resource-page policy for a target artifact role.
 - [x] Implement minimal inherited config propagation controls before fixture ladder regeneration, covering normal propagation, accept-but-stop, block inherited config, and descendant-only versus self-inclusive offers.
+- [x] Wire the first support-artifact history-policy slice into mesh support ResourcePage catch-up: `_mesh/_meta` and `_mesh/_inventory` use current-only history by default while `_mesh/_config` remains versioned.
 - [ ] Wire history policy into the slim-support-artifact work from [[wd.task.2026.2026-05-05-optional-history-and-slim-support-artifacts-by-default]].
 - [ ] Wire naming defaults and hints into payload versioning without bypassing current RDF validation.
 - [ ] Wire resource-page generation policy into page planning separately from history policy.

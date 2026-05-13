@@ -17,6 +17,7 @@ import {
   detectPendingWeaveSlice,
   type GenerateRequest,
   type KnopArtifactLinkModel,
+  type MeshSupportHistoryPolicies,
   type PayloadWorkingArtifact,
   planMeshSupportResourcePages,
   planVersion,
@@ -65,6 +66,10 @@ import {
 } from "./page_definition.ts";
 import { renderResourcePages } from "./pages.ts";
 import { SFLO_NAMESPACE } from "../../core/rdf/namespaces.ts";
+import {
+  type EffectiveConfig,
+  loadWeaveDefaultEffectiveConfig,
+} from "../config/effective_config.ts";
 
 const SFLO_HAS_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}hasResourcePage`;
 const SFLO_HAS_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}hasArtifactHistory`;
@@ -579,6 +584,7 @@ async function prepareVersionExecution(
 
   if (initialWeaveableKnops.length === 0) {
     if (targets.length === 0) {
+      const effectiveConfig = await loadWeaveDefaultEffectiveConfig();
       return {
         meshState,
         plan: planMeshSupportResourcePages({
@@ -586,6 +592,9 @@ async function prepareVersionExecution(
           currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
           currentMeshMetadataTurtle: meshState.currentMeshMetadataTurtle,
           currentMeshConfigTurtle: meshState.currentMeshConfigTurtle,
+          supportHistoryPolicies: meshSupportHistoryPoliciesFromEffectiveConfig(
+            effectiveConfig,
+          ),
         }),
       };
     }
@@ -679,6 +688,20 @@ async function prepareVersionExecution(
   return {
     meshState,
     plan,
+  };
+}
+
+function meshSupportHistoryPoliciesFromEffectiveConfig(
+  effectiveConfig: EffectiveConfig,
+): MeshSupportHistoryPolicies {
+  return {
+    meshMetadata: effectiveConfig.historyTrackingPolicyForArtifactRole(
+      "meshMetadata",
+    ),
+    meshInventory: effectiveConfig.historyTrackingPolicyForArtifactRole(
+      "meshInventory",
+    ),
+    config: effectiveConfig.historyTrackingPolicyForArtifactRole("config"),
   };
 }
 

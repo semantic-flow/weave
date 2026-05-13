@@ -37,6 +37,13 @@ Deno.test("loadWeaveDefaultEffectiveConfig resolves default artifact-role polici
     },
   );
   assertEquals(
+    config.artifactRolePolicy("meshMetadata"),
+    {
+      historyTrackingPolicy: "currentOnly",
+      resourcePageGenerationPolicy: "generate",
+    },
+  );
+  assertEquals(
     config.artifactRolePolicy("runtimeMeta"),
     {
       historyTrackingPolicy: "currentOnly",

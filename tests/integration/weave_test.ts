@@ -87,16 +87,8 @@ Deno.test("executeWeave materializes current support ResourcePages for a docs-ro
       "docs/_mesh/_config/_history001/index.html",
       "docs/_mesh/_config/_history001/_s0001/index.html",
       "docs/_mesh/_config/_history001/_s0001/config-ttl/index.html",
-      "docs/_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
       "docs/_mesh/_inventory/index.html",
-      "docs/_mesh/_inventory/_history001/index.html",
-      "docs/_mesh/_inventory/_history001/_s0001/index.html",
-      "docs/_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html",
-      "docs/_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl",
       "docs/_mesh/_meta/index.html",
-      "docs/_mesh/_meta/_history001/index.html",
-      "docs/_mesh/_meta/_history001/_s0001/index.html",
-      "docs/_mesh/_meta/_history001/_s0001/meta-ttl/index.html",
       "docs/_mesh/index.html",
     ].sort(),
   );
@@ -111,6 +103,24 @@ Deno.test("executeWeave materializes current support ResourcePages for a docs-ro
   assertStringIncludes(
     inventory,
     "sflo:hasWorkingLocatedFile <_mesh/_config/config.ttl> ;\n  sflo:hasResourcePage <_mesh/_config/index.html> ;\n  sflo:hasArtifactHistory <_mesh/_config/_history001> ;",
+  );
+  assertStringIncludes(
+    inventory,
+    "sflo:hasWorkingLocatedFile <_mesh/_meta/meta.ttl> ;\n  sflo:hasResourcePage <_mesh/_meta/index.html> .",
+  );
+  assertStringIncludes(
+    inventory,
+    "sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> ;\n  sflo:hasResourcePage <_mesh/_inventory/index.html> .",
+  );
+  assertFalse(
+    inventory.includes(
+      "sflo:currentArtifactHistory <_mesh/_inventory/_history001>",
+    ),
+  );
+  assertFalse(
+    inventory.includes(
+      "sflo:currentArtifactHistory <_mesh/_meta/_history001>",
+    ),
   );
   const configPage = await Deno.readTextFile(
     join(workspaceRoot, "docs/_mesh/_config/index.html"),

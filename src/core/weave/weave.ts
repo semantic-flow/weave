@@ -102,6 +102,21 @@ export interface PlanMeshSupportResourcePagesInput {
   currentMeshInventoryTurtle: string;
   currentMeshMetadataTurtle: string;
   currentMeshConfigTurtle?: string;
+  supportHistoryPolicies?: MeshSupportHistoryPolicies;
+}
+
+export type SupportArtifactHistoryPolicy =
+  | "versioned"
+  | "currentOnly"
+  | "required"
+  | "slimHistory"
+  | "checkpointOnly"
+  | "metadataOnly";
+
+export interface MeshSupportHistoryPolicies {
+  meshMetadata?: SupportArtifactHistoryPolicy;
+  meshInventory?: SupportArtifactHistoryPolicy;
+  config?: SupportArtifactHistoryPolicy;
 }
 
 export interface PayloadWorkingArtifact {
@@ -316,6 +331,18 @@ interface PageDefinitionWeaveProgression {
   nextSnapshotPath: string;
 }
 
+interface MeshSupportResource {
+  path: string;
+  pagePath: string;
+  description: string;
+  historyPolicy?: SupportArtifactHistoryPolicy;
+  historyPath?: string;
+  statePath?: string;
+  manifestationPath?: string;
+  snapshotPath?: string;
+  currentTurtle?: string;
+}
+
 export type WeaveSlice =
   | "firstKnopWeave"
   | "firstPayloadWeave"
@@ -438,50 +465,30 @@ export function planMeshSupportResourcePages(
     currentMeshInventoryTurtle,
     "Could not parse the current MeshInventory while planning mesh support ResourcePages.",
   );
-  const supportResources = [
-    {
-      path: "_mesh",
-      pagePath: "_mesh/index.html",
-      description: "Resource page for the SemanticMesh.",
-    },
-    {
-      path: "_mesh/_meta",
-      pagePath: "_mesh/_meta/index.html",
-      description: "Resource page for the current MeshMetadata artifact.",
-    },
-    {
-      path: "_mesh/_inventory",
-      pagePath: "_mesh/_inventory/index.html",
-      description: "Resource page for the current MeshInventory artifact.",
-    },
-    ...(hasSubject(quads, meshBase, "_mesh/_config")
-      ? [{
-        path: "_mesh/_config",
-        pagePath: "_mesh/_config/index.html",
-        description: "Resource page for the current MeshConfig artifact.",
-        historyPath: "_mesh/_config/_history001",
-        statePath: "_mesh/_config/_history001/_s0001",
-        manifestationPath: "_mesh/_config/_history001/_s0001/config-ttl",
-        snapshotPath: "_mesh/_config/_history001/_s0001/config-ttl/config.ttl",
-        currentTurtle: input.currentMeshConfigTurtle,
-      }]
-      : []),
-  ];
-  const hasCurrentMeshInventoryHistory = hasNamedNodeFact(
-    quads,
-    meshBase,
-    "_mesh/_inventory",
-    SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
-    "_mesh/_inventory/_history001",
+  const supportResources = buildMeshSupportResources(input, quads, meshBase);
+  const versionedSupportResources = supportResources.filter(
+    shouldMaterializeSupportHistory,
+  );
+  const needsInitialSupportHistory = versionedSupportResources.some((
+    resource,
+  ) =>
+    !hasNamedNodeFact(
+      quads,
+      meshBase,
+      resource.path,
+      SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
+      resource.historyPath!,
+    )
   );
 
-  if (!hasCurrentMeshInventoryHistory) {
+  if (needsInitialSupportHistory) {
     return planInitialMeshSupportResourcePageWeave({
       meshBase,
       currentMeshInventoryTurtle,
       currentMeshMetadataTurtle: input.currentMeshMetadataTurtle,
       currentMeshConfigTurtle: input.currentMeshConfigTurtle,
       hasConfig: hasSubject(quads, meshBase, "_mesh/_config"),
+      supportHistoryPolicies: input.supportHistoryPolicies,
     });
   }
 
@@ -544,17 +551,30 @@ export function planMeshSupportResourcePages(
   };
 }
 
-function planInitialMeshSupportResourcePageWeave(input: {
-  meshBase: string;
-  currentMeshInventoryTurtle: string;
-  currentMeshMetadataTurtle: string;
-  currentMeshConfigTurtle?: string;
-  hasConfig: boolean;
-}): VersionPlan {
-  const supportResources = [
+function buildMeshSupportResources(
+  input: {
+    currentMeshMetadataTurtle: string;
+    currentMeshConfigTurtle?: string;
+    supportHistoryPolicies?: MeshSupportHistoryPolicies;
+  },
+  quads: readonly Quad[],
+  meshBase: string,
+): readonly MeshSupportResource[] {
+  const historyPolicies = resolveMeshSupportHistoryPolicies(
+    input.supportHistoryPolicies,
+  );
+
+  return [
+    {
+      path: "_mesh",
+      pagePath: "_mesh/index.html",
+      description: "Resource page for the SemanticMesh.",
+    },
     {
       path: "_mesh/_meta",
       pagePath: "_mesh/_meta/index.html",
+      description: "Resource page for the current MeshMetadata artifact.",
+      historyPolicy: historyPolicies.meshMetadata,
       historyPath: "_mesh/_meta/_history001",
       statePath: "_mesh/_meta/_history001/_s0001",
       manifestationPath: "_mesh/_meta/_history001/_s0001/meta-ttl",
@@ -564,6 +584,76 @@ function planInitialMeshSupportResourcePageWeave(input: {
     {
       path: "_mesh/_inventory",
       pagePath: "_mesh/_inventory/index.html",
+      description: "Resource page for the current MeshInventory artifact.",
+      historyPolicy: historyPolicies.meshInventory,
+      historyPath: "_mesh/_inventory/_history001",
+      statePath: "_mesh/_inventory/_history001/_s0001",
+      manifestationPath: "_mesh/_inventory/_history001/_s0001/inventory-ttl",
+      snapshotPath:
+        "_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      currentTurtle: "",
+    },
+    ...(hasSubject(quads, meshBase, "_mesh/_config")
+      ? [{
+        path: "_mesh/_config",
+        pagePath: "_mesh/_config/index.html",
+        description: "Resource page for the current MeshConfig artifact.",
+        historyPolicy: historyPolicies.config,
+        historyPath: "_mesh/_config/_history001",
+        statePath: "_mesh/_config/_history001/_s0001",
+        manifestationPath: "_mesh/_config/_history001/_s0001/config-ttl",
+        snapshotPath: "_mesh/_config/_history001/_s0001/config-ttl/config.ttl",
+        currentTurtle: input.currentMeshConfigTurtle,
+      }]
+      : []),
+  ];
+}
+
+function resolveMeshSupportHistoryPolicies(
+  policies?: MeshSupportHistoryPolicies,
+): Required<MeshSupportHistoryPolicies> {
+  return {
+    meshMetadata: policies?.meshMetadata ?? "versioned",
+    meshInventory: policies?.meshInventory ?? "versioned",
+    config: policies?.config ?? "versioned",
+  };
+}
+
+function shouldMaterializeSupportHistory(
+  resource: MeshSupportResource,
+): boolean {
+  return resource.historyPolicy !== undefined &&
+    resource.historyPolicy !== "currentOnly";
+}
+
+function planInitialMeshSupportResourcePageWeave(input: {
+  meshBase: string;
+  currentMeshInventoryTurtle: string;
+  currentMeshMetadataTurtle: string;
+  currentMeshConfigTurtle?: string;
+  hasConfig: boolean;
+  supportHistoryPolicies?: MeshSupportHistoryPolicies;
+}): VersionPlan {
+  const historyPolicies = resolveMeshSupportHistoryPolicies(
+    input.supportHistoryPolicies,
+  );
+  const supportResources: readonly MeshSupportResource[] = [
+    {
+      path: "_mesh/_meta",
+      pagePath: "_mesh/_meta/index.html",
+      description: "Resource page for the current MeshMetadata artifact.",
+      historyPolicy: historyPolicies.meshMetadata,
+      historyPath: "_mesh/_meta/_history001",
+      statePath: "_mesh/_meta/_history001/_s0001",
+      manifestationPath: "_mesh/_meta/_history001/_s0001/meta-ttl",
+      snapshotPath: "_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl",
+      currentTurtle: input.currentMeshMetadataTurtle,
+    },
+    {
+      path: "_mesh/_inventory",
+      pagePath: "_mesh/_inventory/index.html",
+      description: "Resource page for the current MeshInventory artifact.",
+      historyPolicy: historyPolicies.meshInventory,
       historyPath: "_mesh/_inventory/_history001",
       statePath: "_mesh/_inventory/_history001/_s0001",
       manifestationPath: "_mesh/_inventory/_history001/_s0001/inventory-ttl",
@@ -575,6 +665,8 @@ function planInitialMeshSupportResourcePageWeave(input: {
       ? [{
         path: "_mesh/_config",
         pagePath: "_mesh/_config/index.html",
+        description: "Resource page for the current MeshConfig artifact.",
+        historyPolicy: historyPolicies.config,
         historyPath: "_mesh/_config/_history001",
         statePath: "_mesh/_config/_history001/_s0001",
         manifestationPath: "_mesh/_config/_history001/_s0001/config-ttl",
@@ -617,53 +709,19 @@ function planInitialMeshSupportResourcePageWeave(input: {
   );
 
   for (const support of supportResources) {
+    const currentBlock = appendResourcePageFactToBlock(
+      nextBlocks[findSubjectBlockIndex(nextBlocks, support.path)]!,
+      support.pagePath,
+    );
     nextBlocks = replaceSubjectBlock(
       nextBlocks,
       support.path,
-      appendInitialSupportHistoryFactsToBlock(
-        appendResourcePageFactToBlock(
-          nextBlocks[findSubjectBlockIndex(nextBlocks, support.path)]!,
-          support.pagePath,
-        ),
-        support.historyPath,
-      ),
-    );
-    nextBlocks = upsertSubjectBlockAfter(
-      nextBlocks,
-      support.path,
-      support.historyPath,
-      renderInitialSupportHistoryBlock(support.historyPath, support.statePath),
-    );
-    nextBlocks = upsertSubjectBlockAfter(
-      nextBlocks,
-      support.historyPath,
-      support.statePath,
-      renderInitialSupportStateBlock(
-        support.statePath,
-        support.manifestationPath,
-        support.snapshotPath,
-      ),
-    );
-    nextBlocks = upsertSubjectBlockAfter(
-      nextBlocks,
-      support.statePath,
-      support.manifestationPath,
-      renderInitialSupportManifestationBlock(
-        support.manifestationPath,
-        support.snapshotPath,
-      ),
-    );
-    nextBlocks = upsertSubjectBlockAfter(
-      nextBlocks,
-      `${support.path}/${
-        support.path === "_mesh/_inventory"
-          ? "inventory.ttl"
-          : support.path === "_mesh/_meta"
-          ? "meta.ttl"
-          : "config.ttl"
-      }`,
-      support.snapshotPath,
-      renderLocatedFileBlock(support.snapshotPath),
+      shouldMaterializeSupportHistory(support)
+        ? appendInitialSupportHistoryFactsToBlock(
+          currentBlock,
+          support.historyPath!,
+        )
+        : currentBlock,
     );
     nextBlocks = upsertSubjectBlockAfter(
       nextBlocks,
@@ -671,50 +729,110 @@ function planInitialMeshSupportResourcePageWeave(input: {
       support.pagePath,
       renderResourcePageLocatedFileBlock(support.pagePath),
     );
+
+    if (!shouldMaterializeSupportHistory(support)) {
+      continue;
+    }
+
+    nextBlocks = upsertSubjectBlockAfter(
+      nextBlocks,
+      support.path,
+      support.historyPath!,
+      renderInitialSupportHistoryBlock(
+        support.historyPath!,
+        support.statePath!,
+      ),
+    );
+    nextBlocks = upsertSubjectBlockAfter(
+      nextBlocks,
+      support.historyPath!,
+      support.statePath!,
+      renderInitialSupportStateBlock(
+        support.statePath!,
+        support.manifestationPath!,
+        support.snapshotPath!,
+      ),
+    );
+    nextBlocks = upsertSubjectBlockAfter(
+      nextBlocks,
+      support.statePath!,
+      support.manifestationPath!,
+      renderInitialSupportManifestationBlock(
+        support.manifestationPath!,
+        support.snapshotPath!,
+      ),
+    );
+    nextBlocks = upsertSubjectBlockAfter(
+      nextBlocks,
+      currentSupportWorkingFilePath(support),
+      support.snapshotPath!,
+      renderLocatedFileBlock(support.snapshotPath!),
+    );
     nextBlocks = upsertSubjectBlockAfter(
       nextBlocks,
       support.pagePath,
-      `${support.historyPath}/index.html`,
-      renderResourcePageLocatedFileBlock(`${support.historyPath}/index.html`),
+      `${support.historyPath!}/index.html`,
+      renderResourcePageLocatedFileBlock(`${support.historyPath!}/index.html`),
     );
     nextBlocks = upsertSubjectBlockAfter(
       nextBlocks,
-      `${support.historyPath}/index.html`,
-      `${support.statePath}/index.html`,
-      renderResourcePageLocatedFileBlock(`${support.statePath}/index.html`),
+      `${support.historyPath!}/index.html`,
+      `${support.statePath!}/index.html`,
+      renderResourcePageLocatedFileBlock(`${support.statePath!}/index.html`),
     );
     nextBlocks = upsertSubjectBlockAfter(
       nextBlocks,
-      `${support.statePath}/index.html`,
-      `${support.manifestationPath}/index.html`,
+      `${support.statePath!}/index.html`,
+      `${support.manifestationPath!}/index.html`,
       renderResourcePageLocatedFileBlock(
-        `${support.manifestationPath}/index.html`,
+        `${support.manifestationPath!}/index.html`,
       ),
     );
   }
 
   const updatedInventoryTurtle = `${nextBlocks.join("\n\n")}\n`;
+  const versionedSupportResources = supportResources.filter(
+    shouldMaterializeSupportHistory,
+  );
+  const versionedInventory = versionedSupportResources.find((support) =>
+    support.path === "_mesh/_inventory"
+  );
 
   return {
     meshBase: input.meshBase,
     versionedDesignatorPaths: [],
     createdFiles: [
-      ...supportResources
+      ...versionedSupportResources
         .filter((support) => support.path !== "_mesh/_inventory")
         .map((support) => ({
-          path: support.snapshotPath,
+          path: support.snapshotPath!,
           contents: support.currentTurtle!,
         })),
-      {
-        path: "_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      ...(versionedInventory === undefined ? [] : [{
+        path: versionedInventory.snapshotPath!,
         contents: updatedInventoryTurtle,
-      },
+      }]),
     ],
     updatedFiles: [{
       path: "_mesh/_inventory/inventory.ttl",
       contents: updatedInventoryTurtle,
     }],
   };
+}
+
+function currentSupportWorkingFilePath(support: MeshSupportResource): string {
+  switch (support.path) {
+    case "_mesh/_inventory":
+      return "_mesh/_inventory/inventory.ttl";
+    case "_mesh/_meta":
+      return "_mesh/_meta/meta.ttl";
+    case "_mesh/_config":
+      return "_mesh/_config/config.ttl";
+    default:
+      throw new WeaveInputError(
+        `Unsupported mesh support resource <${support.path}>.`,
+      );
+  }
 }
 
 function normalizeMeshBase(meshBase: string): string {
