@@ -106,6 +106,15 @@ Deno.test("loadWeaveDefaultEffectiveConfig parses naming defaults", async () => 
   });
 });
 
+Deno.test("loadWeaveDefaultEffectiveConfig parses ResourcePage regeneration policy", async () => {
+  const config = await loadWeaveDefaultEffectiveConfig();
+
+  assertEquals(
+    config.resourcePageRegenerationConfigPolicy,
+    "configAtTheTime",
+  );
+});
+
 Deno.test("parseWeaveDefaultEffectiveConfig rejects unknown policy values", () => {
   assertThrows(
     () =>
@@ -132,8 +141,30 @@ Deno.test("parseWeaveDefaultEffectiveConfig rejects unknown naming policy values
 <> a sfcfg:ApplicationConfig ;
   sfcfg:hasDefaultHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly ;
   sfcfg:hasDefaultResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_generate ;
+  sfcfg:hasResourcePageRegenerationConfigPolicy sfcfg:resourcePageRegenerationConfigPolicy_configAtTheTime ;
   sfcfg:hasHistoryNamingPolicy sfcfg:historyNamingPolicy_ordinal ;
   sfcfg:hasStateNamingPolicy sfcfg:stateNamingPolicy_surprise ;
+  sfcfg:hasManifestationNamingPolicy sfcfg:manifestationNamingPolicy_filenameDerived .
+`,
+        VALID_CONFIG_RESOLUTION_TURTLE,
+      ),
+    EffectiveConfigError,
+    "Unsupported",
+  );
+});
+
+Deno.test("parseWeaveDefaultEffectiveConfig rejects unknown ResourcePage regeneration policy values", () => {
+  assertThrows(
+    () =>
+      parseWeaveDefaultEffectiveConfig(
+        `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+
+<> a sfcfg:ApplicationConfig ;
+  sfcfg:hasDefaultHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly ;
+  sfcfg:hasDefaultResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_generate ;
+  sfcfg:hasResourcePageRegenerationConfigPolicy sfcfg:resourcePageRegenerationConfigPolicy_surprise ;
+  sfcfg:hasHistoryNamingPolicy sfcfg:historyNamingPolicy_ordinal ;
+  sfcfg:hasStateNamingPolicy sfcfg:stateNamingPolicy_ordinal ;
   sfcfg:hasManifestationNamingPolicy sfcfg:manifestationNamingPolicy_filenameDerived .
 `,
         VALID_CONFIG_RESOLUTION_TURTLE,

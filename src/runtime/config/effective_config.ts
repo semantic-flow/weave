@@ -18,6 +18,8 @@ const HAS_RESOURCE_PAGE_GENERATION_DEFAULT_IRI =
   `${SFCFG_NAMESPACE}hasResourcePageGenerationDefault`;
 const HAS_RESOURCE_PAGE_GENERATION_POLICY_IRI =
   `${SFCFG_NAMESPACE}hasResourcePageGenerationPolicy`;
+const HAS_RESOURCE_PAGE_REGENERATION_CONFIG_POLICY_IRI =
+  `${SFCFG_NAMESPACE}hasResourcePageRegenerationConfigPolicy`;
 const HAS_HISTORY_NAMING_POLICY_IRI =
   `${SFCFG_NAMESPACE}hasHistoryNamingPolicy`;
 const HAS_STATE_NAMING_POLICY_IRI = `${SFCFG_NAMESPACE}hasStateNamingPolicy`;
@@ -75,6 +77,17 @@ const RESOURCE_PAGE_GENERATION_POLICY_VALUES = {
   [`${SFCFG_NAMESPACE}resourcePageGenerationPolicy_suppress`]: "suppress",
   [`${SFCFG_NAMESPACE}resourcePageGenerationPolicy_defer`]: "defer",
   [`${SFCFG_NAMESPACE}resourcePageGenerationPolicy_onRequest`]: "onRequest",
+} as const;
+
+const RESOURCE_PAGE_REGENERATION_CONFIG_POLICY_VALUES = {
+  [`${SFCFG_NAMESPACE}resourcePageRegenerationConfigPolicy_configAtTheTime`]:
+    "configAtTheTime",
+  [`${SFCFG_NAMESPACE}resourcePageRegenerationConfigPolicy_currentPresentation`]:
+    "currentPresentation",
+  [`${SFCFG_NAMESPACE}resourcePageRegenerationConfigPolicy_currentFullConfig`]:
+    "currentFullConfig",
+  [`${SFCFG_NAMESPACE}resourcePageRegenerationConfigPolicy_historicalSemanticsCurrentPresentation`]:
+    "historicalSemanticsCurrentPresentation",
 } as const;
 
 const HISTORY_NAMING_POLICY_VALUES = {
@@ -162,6 +175,9 @@ export type HistoryTrackingPolicy = ValueOf<
 export type ResourcePageGenerationPolicy = ValueOf<
   typeof RESOURCE_PAGE_GENERATION_POLICY_VALUES
 >;
+export type ResourcePageRegenerationConfigPolicy = ValueOf<
+  typeof RESOURCE_PAGE_REGENERATION_CONFIG_POLICY_VALUES
+>;
 type HistoryNamingPolicy = ValueOf<typeof HISTORY_NAMING_POLICY_VALUES>;
 type StateNamingPolicy = ValueOf<typeof STATE_NAMING_POLICY_VALUES>;
 type ManifestationNamingPolicy = ValueOf<
@@ -234,6 +250,8 @@ export class EffectiveConfig {
   readonly sources: EffectiveConfigSources;
   readonly configResolution: DefaultConfigResolutionProfile;
   readonly namingPolicies: DefaultNamingPolicies;
+  readonly resourcePageRegenerationConfigPolicy:
+    ResourcePageRegenerationConfigPolicy;
   readonly #defaultHistoryTrackingPolicy: HistoryTrackingPolicy;
   readonly #historyTrackingByRole: ReadonlyMap<
     ArtifactRole,
@@ -255,6 +273,8 @@ export class EffectiveConfig {
         ArtifactRole,
         ResourcePageGenerationPolicy
       >;
+      resourcePageRegenerationConfigPolicy:
+        ResourcePageRegenerationConfigPolicy;
       namingPolicies: DefaultNamingPolicies;
       configResolution: DefaultConfigResolutionProfile;
     },
@@ -265,6 +285,8 @@ export class EffectiveConfig {
     this.#defaultResourcePageGenerationPolicy =
       input.defaultResourcePageGenerationPolicy;
     this.#resourcePageGenerationByRole = input.resourcePageGenerationByRole;
+    this.resourcePageRegenerationConfigPolicy =
+      input.resourcePageRegenerationConfigPolicy;
     this.namingPolicies = input.namingPolicies;
     this.configResolution = input.configResolution;
   }
@@ -370,6 +392,13 @@ export function parseWeaveDefaultEffectiveConfig(
       HAS_RESOURCE_PAGE_GENERATION_DEFAULT_IRI,
       HAS_RESOURCE_PAGE_GENERATION_POLICY_IRI,
       RESOURCE_PAGE_GENERATION_POLICY_VALUES,
+      sources.applicationSource,
+    ),
+    resourcePageRegenerationConfigPolicy: requireSingleNamedValue(
+      applicationQuads,
+      applicationSubject,
+      HAS_RESOURCE_PAGE_REGENERATION_CONFIG_POLICY_IRI,
+      RESOURCE_PAGE_REGENERATION_CONFIG_POLICY_VALUES,
       sources.applicationSource,
     ),
     namingPolicies: {
