@@ -78,6 +78,31 @@ Right now `_mesh/_inventory` is the durable mesh-level snapshot because the impl
 
 That is different from preserving payload history. Payload historical states are user-facing resources. Mutable pointers to the latest payload state are working state.
 
+### Page-generation manifest contract
+
+Historical ResourcePage regeneration should be driven by a render/provenance manifest, checkpoint, or equivalent source-state bundle. The manifest is derived runtime evidence, not authored portable config. It can be stored outside the mesh by default, bundled with fixture manifests for tests, or deliberately promoted into a mesh artifact when a project wants auditable page-render provenance.
+
+The minimal manifest contract should record:
+
+- the generated page path and the resource IRI/path that page represented
+- page kind, at least current artifact/resource, `ArtifactHistory`, `HistoricalState`, and `ArtifactManifestation`
+- generated timestamp, renderer identifier/version, and Weave version or renderer implementation digest
+- selected `ResourcePageRegenerationConfigPolicy` mode
+- source artifact states used for semantic content, including payload/source state, inventory state, reference catalog state, extraction-source target state, and any other required source snapshots
+- presentation inputs, including ResourcePageDefinition, template, stylesheet, presentation config, and built-in renderer/theme identifiers or digests
+- relevant `ResolvedConfig` digest plus the config-source fingerprints or pinned states needed to explain that resolved config
+- output digest for the generated HTML file
+- warnings for missing optional inputs and failures for missing required inputs
+
+The regeneration modes from [[wd.task.2026.2026-05-06-grand-config-synthesis]] need different required inputs:
+
+- `configAtTheTime` requires enough manifest data to recover the page definition, template/stylesheet/presentation config, relevant resolved config, renderer identity, and semantic source snapshots from the original render. If those required inputs are missing, regeneration should warn and fail that page rather than silently rendering with current defaults.
+- `currentPresentation` uses historical semantic/source snapshots but current page-definition/template/stylesheet/presentation config. It still requires pinned historical content/source inputs.
+- `currentFullConfig` uses current config wherever compatible with the historical source state. It is useful for administrative rebuilds but should be labeled less faithful because config drift can change output.
+- `historicalSemanticsCurrentPresentation` preserves historical source-resolution/semantic config while applying current layout/chrome config.
+
+The manifest should never rely on an old inventory's mutable `sflo:latestHistoricalState`, `sflo:currentArtifactHistory`, `sflo:nextStateOrdinal`, or `sflo:nextHistoryOrdinal` facts as unqualified truth. If an old value matters, the manifest should name the concrete state or digest that was used. That lets `_mesh/_inventory` and `_knop/_inventory` move toward current-only or checkpoint-style behavior without making historical page regeneration guess from stale "current" pointers.
+
 ### Move mutable progression facts out of inventory
 
 Inventory should not be the hot path for every mutable allocator/current pointer if it is also the potentially huge public mesh map.
@@ -91,6 +116,17 @@ Candidate facts to move to `_mesh/_meta`, `_knop/_meta`, or a future explicit wo
 - possibly current working-file pointers, if those are better treated as current working state than public map data
 
 `_meta` is a reasonable first landing place because it is small and already support-oriented. The long-term ontology should decide whether these are truly metadata facts or whether Weave needs a more specific working-state/progression artifact. Either way, the design should avoid requiring a full inventory snapshot whenever only a small mutable pointer changes.
+
+Current code audit:
+
+- `sflo:currentArtifactHistory` is read from current inventory by runtime artifact resolvers and version planning to choose the active history for payloads, ReferenceCatalogs, ResourcePageDefinitions, mesh support artifacts, and Knop support artifacts. It is a current selector, not historical evidence. Target home: `_mesh/_meta` or `_knop/_meta` for support artifacts and a future artifact working-state/progression record for payload/config-like governed artifacts.
+- `sflo:latestHistoricalState` is read from the current active history to choose source bytes, validate named-state progression, and plan the next historical state. It is also used by ResourcePage policy code only as a convenient ownership edge; that policy can use stable `sflo:hasHistoricalState` ownership instead. Target home: same progression record as `currentArtifactHistory`.
+- `sflo:nextHistoryOrdinal` and `sflo:nextStateOrdinal` are allocator state. They are not source facts for historical reconstruction and should move out first once each planner has a stable current/progression source outside inventory. Target home: `_mesh/_meta`, `_knop/_meta`, or a dedicated working-state artifact.
+- `sflo:hasWorkingLocatedFile` and `sflo:workingLocalRelativePath` are current source locators used by runtime loaders and page raw-source panels. Mesh-local public located files may remain useful public map facts, but extra-mesh `workingLocalRelativePath` literals are operational/trust-gated current inputs rather than durable historical facts. Target home: current artifact working state, with historical manifests pinning the actual state/manifestation used for old pages.
+- `sflo:hasArtifactHistory`, `sflo:hasHistoricalState`, `sflo:hasManifestation`, historical `sflo:hasLocatedFile`, and truthful `sflo:hasResourcePage` facts should remain inventory/history facts because they describe durable resource membership and generated/public surfaces rather than mutable "current" pointers.
+- Extraction-source bindings and reference-target bindings need a separate pass: pinned source-state bindings are durable page-generation inputs, while current-following bindings are mutable resolution instructions and should be captured in render manifests when they influence historical pages.
+
+The immediate implementation consequence is modest: do not make `_mesh/_inventory` or `_knop/_inventory` fully current-only in broad fixture output until version planning can read current selectors and allocator state from `_meta` or a working-state artifact. But the audit removes the mystery: the blockers are current selectors, allocator counters, and current working locators, not the stable history/state membership facts.
 
 ### Artifact classes by default policy
 
@@ -142,10 +178,10 @@ The safe order is:
 
 - Should historical generated pages be reproducible from mesh state, or is the generated HTML/file output itself the durable historical artifact?
 - Can `ResourcePageDefinition` and `ReferenceCatalog` become current-only by default, or do they need history whenever their facts influence historical page output?
-- Which mutable current/progression facts should move from inventory into `_mesh/_meta`, `_knop/_meta`, or a dedicated working-state artifact?
+- Should mutable current/progression facts live directly in `_mesh/_meta` / `_knop/_meta`, or should Weave introduce a more explicit working-state/progression artifact?
 - Is `_knop/_inventory` conceptually required to have history, or is that only a current implementation dependency that should be replaced by a more explicit Knop progression model?
 - Can `_mesh/_inventory` become current-only by default once historical page regeneration is driven by manifests/checkpoints rather than full inventory snapshots?
-- What should a page-generation manifest record: source artifact states, page definition state, reference catalog state, renderer version, config/effective policy, output path, checksums, or full source snapshots?
+- Which page-generation manifest fields should be mandatory for each page kind, and when should Weave store a full source snapshot instead of only state/digest references?
 - Can `_mesh/_config` history ever be safely suppressed for tiny/local-only meshes, or is versioned config always the safer default?
 - How should the first resolver surface scoped overrides for default history policy without letting portable config weaken trusted runtime invariants?
 - Where should inheritable history policy live in practice: `_mesh/_knop-inheritable-config`, `_knop/_inheritable-config`, artifact-local config, operational config, or some combination?
@@ -200,8 +236,8 @@ The safe order is:
 - [x] Introduce an internal support-history policy seam that can answer whether a candidate artifact role should create history by default for mesh support ResourcePage catch-up.
 - [x] Generalize the support-history policy seam beyond mesh support ResourcePage catch-up.
 - [x] Classify at least `_mesh/_meta`, `_mesh/_config`, `_mesh/_knop-inheritable-config`, `_knop/_meta`, `_mesh/_inventory`, `_knop/_inventory`, payload artifacts, `ResourcePageDefinition`, and `ReferenceCatalog`.
-- [ ] Audit mutable current/progression facts currently stored in `_mesh/_inventory` and `_knop/_inventory`, and classify which should move to `_mesh/_meta`, `_knop/_meta`, or a future working-state artifact.
-- [ ] Sketch a page-generation manifest/checkpoint contract for historical page regeneration that pins source artifact states instead of relying on old inventory current pointers.
+- [x] Audit mutable current/progression facts currently stored in `_mesh/_inventory` and `_knop/_inventory`, and classify which should move to `_mesh/_meta`, `_knop/_meta`, or a future working-state artifact.
+- [x] Sketch a page-generation manifest/checkpoint contract for historical page regeneration that pins source artifact states instead of relying on old inventory current pointers.
 - [x] Refactor mesh-support page planning so `_mesh/_meta` and `_mesh/_inventory` can keep current pages without creating support history when default policy says current-only.
 - [x] Keep `_mesh/_config` versioned in mesh-support page planning unless an explicit future policy overrides it.
 - [x] Refactor first Knop and first payload weave renderers so `_knop/_meta` remains current-only by default.
