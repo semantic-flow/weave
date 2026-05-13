@@ -71,8 +71,12 @@ import {
   type EffectiveConfig,
   loadWeaveDefaultEffectiveConfig,
 } from "../config/effective_config.ts";
+import {
+  listGeneratedResourcePagePaths,
+  type ListGeneratedResourcePagePathsInput,
+  ResourcePagePolicyError,
+} from "./resource_page_policy.ts";
 
-const SFLO_HAS_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}hasResourcePage`;
 const SFLO_HAS_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}hasArtifactHistory`;
 const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
   `${SFLO_NAMESPACE}currentArtifactHistory`;
@@ -287,6 +291,7 @@ export async function executeGenerate(
     meshRoot,
   );
   const meshState = await loadMeshState(meshRoot);
+  const effectiveConfig = await loadWeaveDefaultEffectiveConfig();
   const allDesignatorPaths = listKnopDesignatorPaths(
     meshState.meshBase,
     meshState.currentMeshInventoryTurtle,
@@ -302,6 +307,8 @@ export async function executeGenerate(
     meshState,
     selectedDesignatorPaths,
     targets.length === 0,
+    targets.length > 0,
+    effectiveConfig,
     resolveGeneratedAt(options.now),
     options.includeSemanticFlowMetadata ?? false,
   );
@@ -1460,6 +1467,8 @@ async function collectGeneratedPageFiles(
   meshState: MeshState,
   selectedDesignatorPaths: readonly string[],
   includeAllMeshPages: boolean,
+  hasExplicitGenerateTargets: boolean,
+  effectiveConfig: EffectiveConfig,
   generatedAt: Date,
   includeSemanticFlowMetadata: boolean,
 ): Promise<readonly PlannedFile[]> {
@@ -1471,6 +1480,8 @@ async function collectGeneratedPageFiles(
     localPathPolicy,
     meshState,
     selectedDesignatorPaths,
+    effectiveConfig,
+    hasExplicitGenerateTargets,
   );
   const publicIdentifierPaths = new Map(
     designatorContexts.map((context) => [
@@ -1493,10 +1504,15 @@ async function collectGeneratedPageFiles(
     meshState.currentMeshInventoryTurtle,
     "Could not parse the current MeshInventory while collecting ResourcePage histories.",
   );
-  const allPagePaths = listResourcePagePaths(
-    meshState.meshBase,
-    meshState.currentMeshInventoryTurtle,
-    "Could not parse the current MeshInventory while collecting ResourcePages.",
+  const allPagePaths = listRuntimeGeneratedResourcePagePaths(
+    {
+      meshBase: meshState.meshBase,
+      inventoryTurtle: meshState.currentMeshInventoryTurtle,
+      parseErrorMessage:
+        "Could not parse the current MeshInventory while collecting ResourcePages.",
+      config: effectiveConfig,
+      explicitRequest: hasExplicitGenerateTargets,
+    },
   );
   const childIdentifiersByResourcePath = collectChildIdentifiersByResourcePath(
     allPagePaths,
@@ -1641,6 +1657,19 @@ async function collectGeneratedPageFiles(
   });
 }
 
+function listRuntimeGeneratedResourcePagePaths(
+  input: ListGeneratedResourcePagePathsInput,
+): readonly string[] {
+  try {
+    return listGeneratedResourcePagePaths(input);
+  } catch (error) {
+    if (error instanceof ResourcePagePolicyError) {
+      throw new WeaveRuntimeError(error.message);
+    }
+    throw error;
+  }
+}
+
 async function resolveMeshFaviconPath(
   meshRoot: string,
 ): Promise<string | undefined> {
@@ -1748,6 +1777,8 @@ async function loadGenerateDesignatorContexts(
   localPathPolicy: OperationalLocalPathPolicy,
   meshState: MeshState,
   designatorPaths: readonly string[],
+  effectiveConfig: EffectiveConfig,
+  hasExplicitGenerateTargets: boolean,
 ): Promise<readonly GenerateDesignatorContext[]> {
   const contexts: GenerateDesignatorContext[] = [];
 
@@ -1834,11 +1865,14 @@ async function loadGenerateDesignatorContexts(
       },
     );
     let customIdentifierPage: CustomIdentifierPageModelInput | undefined;
-    const pagePaths = listResourcePagePaths(
-      meshState.meshBase,
-      currentKnopInventoryTurtle,
-      `Could not parse the current Knop inventory while collecting ResourcePages for ${designatorPath}.`,
-    );
+    const pagePaths = listRuntimeGeneratedResourcePagePaths({
+      meshBase: meshState.meshBase,
+      inventoryTurtle: currentKnopInventoryTurtle,
+      parseErrorMessage:
+        `Could not parse the current Knop inventory while collecting ResourcePages for ${designatorPath}.`,
+      config: effectiveConfig,
+      explicitRequest: hasExplicitGenerateTargets,
+    });
 
     try {
       const resourcePageDefinitionArtifact =
@@ -2442,40 +2476,6 @@ function addRawSourcePanel(
   ]);
 }
 
-function listResourcePagePaths(
-  meshBase: string,
-  inventoryTurtle: string,
-  parseErrorMessage: string,
-): readonly string[] {
-  const quads = parseInventoryQuads(
-    meshBase,
-    inventoryTurtle,
-    parseErrorMessage,
-  );
-  const paths = new Set<string>();
-
-  for (const quad of quads) {
-    if (
-      quad.predicate.value !== SFLO_HAS_RESOURCE_PAGE_IRI ||
-      quad.object.termType !== "NamedNode"
-    ) {
-      continue;
-    }
-
-    const pagePath = tryToMeshPath(meshBase, quad.object.value);
-    if (pagePath === undefined) {
-      continue;
-    }
-    if (pagePath !== "index.html" && !pagePath.endsWith("/index.html")) {
-      continue;
-    }
-
-    paths.add(pagePath);
-  }
-
-  return [...paths].sort((left, right) => left.localeCompare(right));
-}
-
 function describeSemanticFlowResource(
   meshBase: string,
   resourcePath: string,
@@ -3044,15 +3044,6 @@ function parseInventoryQuads(
   } catch {
     throw new WeaveRuntimeError(parseErrorMessage);
   }
-}
-
-function tryToMeshPath(meshBase: string, iri: string): string | undefined {
-  if (!iri.startsWith(meshBase)) {
-    return undefined;
-  }
-
-  const suffix = iri.slice(meshBase.length);
-  return suffix.length === 0 ? undefined : suffix;
 }
 
 function toResourcePath(pagePath: string): string {
