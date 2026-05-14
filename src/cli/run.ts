@@ -765,6 +765,30 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               "Do not create a GitHub Pages .nojekyll publishing guard.",
             )
             .option(
+              "--source-path <sourcePath:string>",
+              "Repository-relative source path to materialize into the publication mesh.",
+            )
+            .option(
+              "--target-path <targetPath:string>",
+              "Publication-root relative target path for the materialized source. Defaults to --source-path.",
+            )
+            .option(
+              "--designator-path <designatorPath:string>",
+              "Designator path for the materialized source artifact.",
+            )
+            .option(
+              "--source-repository-url <sourceRepositoryUrl:string>",
+              "Durable repository URL to record for the materialized source locator.",
+            )
+            .option(
+              "--source-ref <sourceRepositoryRef:string>",
+              "Durable repository ref to record for the materialized source locator.",
+            )
+            .option(
+              "--source-commit <sourceRepositoryCommit:string>",
+              "Optional resolved commit to record for the materialized source locator.",
+            )
+            .option(
               "--interactive",
               "Prompt for missing branch-published deployment inputs.",
             )
@@ -774,6 +798,12 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 publishRoot?: string;
                 meshBase?: string;
                 nojekyll?: boolean;
+                sourcePath?: string;
+                targetPath?: string;
+                designatorPath?: string;
+                sourceRepositoryUrl?: string;
+                sourceRef?: string;
+                sourceCommit?: string;
                 interactive?: boolean;
               },
             ) => {
@@ -813,6 +843,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                   includeNoJekyll: options.nojekyll === false
                     ? false
                     : undefined,
+                  ...(resolveGHPagesSourceBindingOption(options) ?? {}),
                 },
                 operationalLogger,
                 auditLogger,
@@ -820,6 +851,14 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               console.log(describeGHPagesDeployBootstrapResult(result));
               for (const path of result.createdPaths) {
                 console.log(path);
+              }
+              if (result.materializedSource) {
+                for (const path of result.materializedSource.createdPaths) {
+                  console.log(path);
+                }
+                for (const path of result.materializedSource.updatedPaths) {
+                  console.log(path);
+                }
               }
             }),
         ),
@@ -1120,6 +1159,84 @@ async function resolvePublishRootOption(
     },
   });
   return resolve(value);
+}
+
+function resolveGHPagesSourceBindingOption(
+  options: {
+    sourcePath?: string;
+    targetPath?: string;
+    designatorPath?: string;
+    sourceRepositoryUrl?: string;
+    sourceRef?: string;
+    sourceCommit?: string;
+  },
+):
+  | {
+    source: {
+      sourcePath: string;
+      designatorPath: string;
+      targetPath?: string;
+      sourceRepositoryUrl: string;
+      sourceRepositoryRef: string;
+      sourceRepositoryCommit?: string;
+    };
+  }
+  | undefined {
+  const hasSourceBindingOption = [
+    options.sourcePath,
+    options.targetPath,
+    options.designatorPath,
+    options.sourceRepositoryUrl,
+    options.sourceRef,
+    options.sourceCommit,
+  ].some((value) => value !== undefined);
+
+  if (!hasSourceBindingOption) {
+    return undefined;
+  }
+
+  return {
+    source: {
+      sourcePath: resolveRequiredOptionValue(
+        options.sourcePath,
+        "deploy gh-pages materialization requires --source-path",
+        (message) => new GHPagesDeployInputError(message),
+      ),
+      designatorPath: resolveRequiredOptionValue(
+        options.designatorPath,
+        "deploy gh-pages materialization requires --designator-path",
+        (message) => new GHPagesDeployInputError(message),
+      ),
+      ...(options.targetPath
+        ? {
+          targetPath: resolveRequiredOptionValue(
+            options.targetPath,
+            "deploy gh-pages --target-path is required",
+            (message) => new GHPagesDeployInputError(message),
+          ),
+        }
+        : {}),
+      sourceRepositoryUrl: resolveRequiredOptionValue(
+        options.sourceRepositoryUrl,
+        "deploy gh-pages materialization requires --source-repository-url",
+        (message) => new GHPagesDeployInputError(message),
+      ),
+      sourceRepositoryRef: resolveRequiredOptionValue(
+        options.sourceRef,
+        "deploy gh-pages materialization requires --source-ref",
+        (message) => new GHPagesDeployInputError(message),
+      ),
+      ...(options.sourceCommit
+        ? {
+          sourceRepositoryCommit: resolveRequiredOptionValue(
+            options.sourceCommit,
+            "deploy gh-pages --source-commit is required",
+            (message) => new GHPagesDeployInputError(message),
+          ),
+        }
+        : {}),
+    },
+  };
 }
 
 function printExtractAllTermsPreview(

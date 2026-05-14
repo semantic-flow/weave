@@ -74,6 +74,143 @@ Deno.test("executeGHPagesDeployBootstrap keeps source clean and bootstraps publi
   assert(!config.includes("../"), config);
 });
 
+Deno.test("executeGHPagesDeployBootstrap materializes repository source without local path leakage", async () => {
+  const tempRoot = await createTestTmpDir("weave-deploy-gh-pages-source-");
+  const sourceRoot = join(tempRoot, "source");
+  const publishRoot = join(tempRoot, "gh-pages");
+  const sourcePath = "ontology/fantasy-rules-ontology.ttl";
+  const sourceV1 = `@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix fantasy: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
+
+<> a owl:Ontology .
+fantasy:Rule a owl:Class .
+`;
+  const sourceV2 = `@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix fantasy: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
+
+<> a owl:Ontology .
+fantasy:RuleSystem a owl:Class .
+`;
+  await Deno.mkdir(join(sourceRoot, "ontology"), { recursive: true });
+  await Deno.mkdir(publishRoot, { recursive: true });
+  await Deno.writeTextFile(join(sourceRoot, sourcePath), sourceV1);
+
+  const firstResult = await executeGHPagesDeployBootstrap({
+    sourceRoot,
+    publishRoot,
+    request: {
+      meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+      source: {
+        sourcePath,
+        designatorPath: "ontology",
+        sourceRepositoryUrl:
+          "https://github.com/semantic-flow/mesh-sidecar-fantasy-rules.git",
+        sourceRepositoryRef: "main",
+        sourceRepositoryCommit: "abc123",
+      },
+    },
+  });
+  const firstMaterialized = firstResult.materializedSource;
+  assert(firstMaterialized);
+  assert(firstMaterialized.createdPaths.includes(sourcePath));
+  assert(firstMaterialized.createdPaths.includes("ontology/index.html"));
+  assertEquals(
+    await Deno.readTextFile(join(publishRoot, sourcePath)),
+    sourceV1,
+  );
+
+  const firstDigest = await sha256Digest(sourceV1);
+  const firstConfig = await Deno.readTextFile(
+    join(publishRoot, "_mesh/_config/config.ttl"),
+  );
+  const firstInventory = await Deno.readTextFile(
+    join(publishRoot, "ontology/_knop/_inventory/inventory.ttl"),
+  );
+  assert(firstConfig.includes("sflo:RepositorySourceLocator"), firstConfig);
+  assert(firstConfig.includes("sflo:hasTargetRepositorySource"), firstConfig);
+  assert(firstConfig.includes('sflo:sourceRepositoryRef "main"'), firstConfig);
+  assert(
+    firstConfig.includes('sflo:sourceRepositoryCommit "abc123"'),
+    firstConfig,
+  );
+  assert(
+    firstConfig.includes(`sflo:sourceRepositoryPath "${sourcePath}"`),
+    firstConfig,
+  );
+  assert(firstConfig.includes(`sflo:hasContentDigest "${firstDigest}"`));
+  assert(
+    firstInventory.includes(`sflo:hasWorkingLocatedFile <${sourcePath}>`),
+    firstInventory,
+  );
+  assertNoLocalPathLeak(firstConfig, sourceRoot, publishRoot);
+  assertNoLocalPathLeak(firstInventory, sourceRoot, publishRoot);
+  assert(!firstConfig.includes("workingLocalRelativePath"), firstConfig);
+  assert(!firstInventory.includes("workingLocalRelativePath"), firstInventory);
+  assertEquals(await listRelativeFiles(sourceRoot, ".weave/"), [sourcePath]);
+
+  const secondResult = await executeGHPagesDeployBootstrap({
+    sourceRoot,
+    publishRoot,
+    request: {
+      meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+      source: {
+        sourcePath,
+        designatorPath: "ontology",
+        sourceRepositoryUrl:
+          "https://github.com/semantic-flow/mesh-sidecar-fantasy-rules.git",
+        sourceRepositoryRef: "main",
+        sourceRepositoryCommit: "abc123",
+      },
+    },
+  });
+  assert(secondResult.materializedSource);
+  assertEquals(secondResult.materializedSource.createdPaths, []);
+  assertEquals(secondResult.materializedSource.updatedPaths, []);
+  assertEquals(secondResult.updatedPaths, []);
+
+  await Deno.writeTextFile(join(sourceRoot, sourcePath), sourceV2);
+  const thirdResult = await executeGHPagesDeployBootstrap({
+    sourceRoot,
+    publishRoot,
+    request: {
+      meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+      source: {
+        sourcePath,
+        designatorPath: "ontology",
+        sourceRepositoryUrl:
+          "https://github.com/semantic-flow/mesh-sidecar-fantasy-rules.git",
+        sourceRepositoryRef: "main",
+        sourceRepositoryCommit: "def456",
+      },
+    },
+  });
+  const thirdMaterialized = thirdResult.materializedSource;
+  assert(thirdMaterialized);
+  assert(thirdMaterialized.updatedPaths.includes(sourcePath));
+  assert(thirdMaterialized.updatedPaths.includes("_mesh/_config/config.ttl"));
+  assertEquals(
+    await Deno.readTextFile(join(publishRoot, sourcePath)),
+    sourceV2,
+  );
+
+  const secondDigest = await sha256Digest(sourceV2);
+  const updatedConfig = await Deno.readTextFile(
+    join(publishRoot, "_mesh/_config/config.ttl"),
+  );
+  const updatedInventory = await Deno.readTextFile(
+    join(publishRoot, "ontology/_knop/_inventory/inventory.ttl"),
+  );
+  assert(
+    updatedConfig.includes('sflo:sourceRepositoryCommit "def456"'),
+    updatedConfig,
+  );
+  assert(updatedConfig.includes(`sflo:hasContentDigest "${secondDigest}"`));
+  assert(!updatedConfig.includes(firstDigest), updatedConfig);
+  assertNoLocalPathLeak(updatedConfig, sourceRoot, publishRoot);
+  assertNoLocalPathLeak(updatedInventory, sourceRoot, publishRoot);
+  assertEquals(await listRelativeFiles(sourceRoot, ".weave/"), [sourcePath]);
+});
+
 Deno.test("executeGHPagesDeployBootstrap rejects overlapping roots", async () => {
   const tempRoot = await createTestTmpDir("weave-deploy-gh-pages-overlap-");
   const sourceRoot = join(tempRoot, "source");
@@ -93,6 +230,25 @@ Deno.test("executeGHPagesDeployBootstrap rejects overlapping roots", async () =>
     "source root and publication root must be different",
   );
 });
+
+function assertNoLocalPathLeak(
+  contents: string,
+  sourceRoot: string,
+  publishRoot: string,
+): void {
+  assert(!contents.includes(sourceRoot), contents);
+  assert(!contents.includes(publishRoot), contents);
+  assert(!contents.includes("../"), contents);
+}
+
+async function sha256Digest(contents: string): Promise<string> {
+  const bytes = new TextEncoder().encode(contents);
+  const digest = await crypto.subtle.digest("SHA-256", new Uint8Array(bytes));
+  const hex = [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return `sha256:${hex}`;
+}
 
 async function listRelativeFiles(
   root: string,

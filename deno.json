@@ -29,7 +29,8 @@
   },
   "exclude": [
     ".test-tmp/**",
-    "documentation/notes/**"
+    "documentation/notes/**",
+    "**/*.md"
   ],
   "fmt": {
     "proseWrap": "preserve",

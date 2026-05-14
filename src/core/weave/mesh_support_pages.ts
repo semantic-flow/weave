@@ -16,6 +16,8 @@ import type { VersionPlan } from "./version_plan.ts";
 const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
   `${SFLO_NAMESPACE}currentArtifactHistory`;
 const SFLO_HAS_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}hasResourcePage`;
+const XSD_TURTLE_PREFIX_DECLARATION =
+  "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .";
 
 export interface PlanMeshSupportResourcePagesInput {
   meshBase: string;
@@ -419,6 +421,12 @@ function planInitialMeshSupportResourcePageWeave(input: {
   const versionedInventory = versionedSupportResources.find((support) =>
     support.path === "_mesh/_inventory"
   );
+  const updatedMeshMetadataTurtle = versionedInventory === undefined
+    ? input.currentMeshMetadataTurtle
+    : renderInitialMeshMetadataWithMeshInventoryProgression(
+      input.currentMeshMetadataTurtle,
+      versionedInventory,
+    );
 
   return {
     meshBase: input.meshBase,
@@ -428,18 +436,64 @@ function planInitialMeshSupportResourcePageWeave(input: {
         .filter((support) => support.path !== "_mesh/_inventory")
         .map((support) => ({
           path: support.snapshotPath!,
-          contents: support.currentTurtle!,
+          contents: support.path === "_mesh/_meta"
+            ? updatedMeshMetadataTurtle
+            : support.currentTurtle!,
         })),
       ...(versionedInventory === undefined ? [] : [{
         path: versionedInventory.snapshotPath!,
         contents: updatedInventoryTurtle,
       }]),
     ],
-    updatedFiles: [{
-      path: "_mesh/_inventory/inventory.ttl",
-      contents: updatedInventoryTurtle,
-    }],
+    updatedFiles: [
+      ...(versionedInventory === undefined ? [] : [{
+        path: "_mesh/_meta/meta.ttl",
+        contents: updatedMeshMetadataTurtle,
+      }]),
+      {
+        path: "_mesh/_inventory/inventory.ttl",
+        contents: updatedInventoryTurtle,
+      },
+    ],
   };
+}
+
+function renderInitialMeshMetadataWithMeshInventoryProgression(
+  currentMeshMetadataTurtle: string,
+  versionedInventory: MeshSupportResource,
+): string {
+  const metadataWithPrefixes = ensureXsdPrefix(currentMeshMetadataTurtle);
+  let blocks = splitTurtleBlocks(metadataWithPrefixes);
+  blocks = upsertSubjectBlockAfter(
+    blocks,
+    "_mesh",
+    "_mesh/_inventory",
+    renderInitialMeshInventoryMetaProgressionBlock(versionedInventory),
+  );
+  blocks = upsertSubjectBlockAfter(
+    blocks,
+    "_mesh/_inventory",
+    versionedInventory.historyPath!,
+    renderInitialMeshInventoryHistoryMetaProgressionBlock(versionedInventory),
+  );
+
+  return `${blocks.join("\n\n")}\n`;
+}
+
+function renderInitialMeshInventoryMetaProgressionBlock(
+  versionedInventory: MeshSupportResource,
+): string {
+  return `<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:currentArtifactHistory <${versionedInventory.historyPath!}> ;
+  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger .`;
+}
+
+function renderInitialMeshInventoryHistoryMetaProgressionBlock(
+  versionedInventory: MeshSupportResource,
+): string {
+  return `<${versionedInventory.historyPath!}> a sflo:ArtifactHistory ;
+  sflo:latestHistoricalState <${versionedInventory.statePath!}> ;
+  sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger .`;
 }
 
 function currentSupportWorkingFilePath(support: MeshSupportResource): string {
@@ -544,6 +598,31 @@ function normalizeMeshInventoryHeader(blocks: string[]): string[] {
     ),
     ...rest,
   ];
+}
+
+function ensureXsdPrefix(turtle: string): string {
+  if (turtle.includes(XSD_TURTLE_PREFIX_DECLARATION)) {
+    return turtle;
+  }
+
+  const lines = turtle.split("\n");
+  const prefixInsertIndex = lines.findLastIndex((line) =>
+    line.trimStart().startsWith("@prefix ")
+  );
+  if (prefixInsertIndex >= 0) {
+    lines.splice(prefixInsertIndex + 1, 0, XSD_TURTLE_PREFIX_DECLARATION);
+    return lines.join("\n");
+  }
+
+  const baseInsertIndex = lines.findIndex((line) =>
+    line.trimStart().startsWith("@base ")
+  );
+  if (baseInsertIndex >= 0) {
+    lines.splice(baseInsertIndex + 1, 0, XSD_TURTLE_PREFIX_DECLARATION);
+    return lines.join("\n");
+  }
+
+  return `${XSD_TURTLE_PREFIX_DECLARATION}\n${turtle}`;
 }
 
 function replaceSubjectBlock(

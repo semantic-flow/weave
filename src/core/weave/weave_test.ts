@@ -255,6 +255,51 @@ Deno.test("planMeshSupportResourcePages adds current support ResourcePages inclu
   );
 });
 
+Deno.test("planMeshSupportResourcePages records initial mesh inventory progression in metadata", () => {
+  const plan = planMeshSupportResourcePages({
+    meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    currentMeshInventoryTurtle: sidecarMeshCreatedInventoryTurtle,
+    currentMeshMetadataTurtle:
+      `@base <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<_mesh> a sflo:SemanticMesh .
+`,
+    currentMeshConfigTurtle:
+      `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+
+<> a sfcfg:MeshConfig .
+`,
+    supportHistoryPolicies: {
+      meshMetadata: "versioned",
+      meshInventory: "versioned",
+      config: "versioned",
+    },
+  });
+
+  assertEquals(
+    plan.updatedFiles.map((file) => file.path),
+    ["_mesh/_meta/meta.ttl", "_mesh/_inventory/inventory.ttl"],
+  );
+  const updatedMetadata =
+    plan.updatedFiles.find((file) => file.path === "_mesh/_meta/meta.ttl")
+      ?.contents ?? "";
+  assertStringIncludes(
+    updatedMetadata,
+    "sflo:currentArtifactHistory <_mesh/_inventory/_history001> ;",
+  );
+  assertStringIncludes(
+    updatedMetadata,
+    "sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0001> ;",
+  );
+  assertStringIncludes(
+    plan.createdFiles.find((file) =>
+      file.path === "_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl"
+    )?.contents ?? "",
+    "sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0001> ;",
+  );
+});
+
 Deno.test("planMeshSupportResourcePages omits suppressed support ResourcePage facts", () => {
   const plan = planMeshSupportResourcePages({
     meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",

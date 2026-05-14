@@ -920,13 +920,19 @@ function planFirstPayloadWeave(
     candidate.currentKnopInventoryTurtle,
     toKnopPath(candidate.designatorPath),
   );
-  const meshInventoryProgression =
-    resolveCurrentMeshInventoryProgressionForFirstPayloadWeave(
+  const meshInventoryHistoryPolicy = supportHistoryPolicies?.meshInventory ??
+    "versioned";
+  const versionMeshInventory = shouldMaterializeSupportHistory(
+    meshInventoryHistoryPolicy,
+  );
+  const meshInventoryProgression = versionMeshInventory
+    ? resolveCurrentMeshInventoryProgressionForFirstPayloadWeave(
       meshBase,
       currentMeshInventoryTurtle,
       currentMeshMetadataTurtle,
       candidate.designatorPath,
-    );
+    )
+    : undefined;
   assertCurrentPayloadArtifactShape(
     meshBase,
     candidate.currentKnopInventoryTurtle,
@@ -957,22 +963,30 @@ function planFirstPayloadWeave(
     payloadArtifact.workingLocalRelativePath,
     { knopMetadataHistoryPolicy },
   );
+  const wovenMeshInventoryTurtle = meshInventoryProgression === undefined
+    ? renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle(
+      currentMeshInventoryTurtle,
+      meshBase,
+      designatorPath,
+      payloadArtifact.workingLocalRelativePath,
+    )
+    : renderFirstPayloadWovenMeshInventoryTurtle(
+      currentMeshInventoryTurtle,
+      meshBase,
+      designatorPath,
+      payloadArtifact.workingLocalRelativePath,
+      meshInventoryProgression,
+    );
 
   return {
     meshBase,
     wovenDesignatorPaths: [designatorPath],
     createdFiles: [
-      {
+      ...(meshInventoryProgression === undefined ? [] : [{
         path:
           `${meshInventoryProgression.nextStatePath}/inventory-ttl/inventory.ttl`,
-        contents: renderFirstPayloadWovenMeshInventoryTurtle(
-          currentMeshInventoryTurtle,
-          meshBase,
-          designatorPath,
-          payloadArtifact.workingLocalRelativePath,
-          meshInventoryProgression,
-        ),
-      },
+        contents: wovenMeshInventoryTurtle,
+      }]),
       {
         path: payloadSnapshotPath,
         contents: payloadArtifact.currentPayloadTurtle,
@@ -992,25 +1006,19 @@ function planFirstPayloadWeave(
     updatedFiles: [
       {
         path: "_mesh/_inventory/inventory.ttl",
-        contents: renderFirstPayloadWovenMeshInventoryTurtle(
-          currentMeshInventoryTurtle,
-          meshBase,
-          designatorPath,
-          payloadArtifact.workingLocalRelativePath,
-          meshInventoryProgression,
-        ),
+        contents: wovenMeshInventoryTurtle,
       },
       {
         path: `${knopPath}/_inventory/inventory.ttl`,
         contents: wovenKnopInventoryTurtle,
       },
-      {
+      ...(meshInventoryProgression === undefined ? [] : [{
         path: "_mesh/_meta/meta.ttl",
         contents: renderMeshMetadataWithMeshInventoryProgression(
           currentMeshMetadataTurtle,
           meshInventoryProgression,
         ),
-      },
+      }]),
     ],
     createdPages: buildFirstPayloadWeavePages(
       designatorPath,

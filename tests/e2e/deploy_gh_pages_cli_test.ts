@@ -64,6 +64,66 @@ Deno.test("weave deploy gh-pages bootstraps a publication root as a black-box CL
   assert(secondStdout.includes("already bootstrapped"), secondStdout);
 });
 
+Deno.test("weave deploy gh-pages materializes one repository source from CLI flags", async () => {
+  const tempRoot = await createTestTmpDir("weave-e2e-deploy-gh-pages-source-");
+  const sourceRoot = join(tempRoot, "source");
+  const publishRoot = join(tempRoot, "gh-pages");
+  const sourcePath = "ontology/fantasy-rules-ontology.ttl";
+  const source = `@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix fantasy: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
+
+<> a owl:Ontology .
+fantasy:Rule a owl:Class .
+`;
+  await Deno.mkdir(join(sourceRoot, "ontology"), { recursive: true });
+  await Deno.mkdir(publishRoot, { recursive: true });
+  await Deno.writeTextFile(join(sourceRoot, sourcePath), source);
+
+  const output = await runCli([
+    "deploy",
+    "gh-pages",
+    "--source-root",
+    sourceRoot,
+    "--publish-root",
+    publishRoot,
+    "--mesh-base",
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    "--source-path",
+    sourcePath,
+    "--designator-path",
+    "ontology",
+    "--source-repository-url",
+    "https://github.com/semantic-flow/mesh-sidecar-fantasy-rules.git",
+    "--source-ref",
+    "main",
+    "--source-commit",
+    "abc123",
+  ]);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(
+    stdout.includes(
+      `Materialized ${sourcePath} as ontology.`,
+    ),
+    stdout,
+  );
+  assert(stdout.includes("ontology/index.html"), stdout);
+  assertEquals(await Deno.readTextFile(join(publishRoot, sourcePath)), source);
+  assertEquals(await listRelativeFiles(sourceRoot, ".weave/"), [sourcePath]);
+
+  const config = await Deno.readTextFile(
+    join(publishRoot, "_mesh/_config/config.ttl"),
+  );
+  assert(config.includes("sflo:RepositorySourceLocator"), config);
+  assert(config.includes('sflo:sourceRepositoryRef "main"'), config);
+  assert(config.includes('sflo:sourceRepositoryCommit "abc123"'), config);
+  assert(!config.includes(sourceRoot), config);
+  assert(!config.includes(publishRoot), config);
+  assert(!config.includes("../"), config);
+});
+
 Deno.test("weave deploy gh-pages fails closed without a non-interactive publish root", async () => {
   const tempRoot = await createTestTmpDir(
     "weave-e2e-deploy-gh-pages-missing-root-",
