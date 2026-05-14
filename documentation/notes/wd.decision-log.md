@@ -290,3 +290,19 @@ created: 1773630801215
 - Why:
   - An explicit `/` sentinel is clearer and safer than overloading an omitted or blank designator-path value to mean root.
   - Normalizing root once at the CLI boundary keeps target resolution, path derivation, and user-facing display coherent across commands.
+
+### 2026-05-14: Branch-Published Fantasy Rules Fixture
+
+- Decision: Treat Fantasy Rules as the branch-published ontology fixture for the next rerung, with authored ontology/source files on the source branch and all generated mesh output on the publication branch.
+- References: [[wd.task.2026.2026-05-13_1655-support-gh-pages-branch-based-deployments]], [[wd.task.2026.2026-05-07-fixture-ladder-generator]]
+- Why:
+  - This proves the clean-source-branch story that motivated branch-published meshes: no generated `_mesh`, config, pages, histories, or local sibling paths need to live on the source branch.
+  - The older `docs/` sidecar topology remains valid, but it no longer needs to be the primary Fantasy Rules fixture once branch-published deployment is available.
+
+### 2026-05-14: Fixture Branches Are Generated Outputs
+
+- Decision: Treat fixture branch ladders as disposable generated golden outputs produced from ordered scenario definitions plus Accord manifests, rather than hand-maintained source material.
+- References: [[wd.task.2026.2026-05-07-fixture-ladder-generator]]
+- Why:
+  - Current fixture branches carry stale namespace and progression shapes, and pre-v1 Weave should regenerate them against the current contract rather than add compatibility shims.
+  - Broad fixture rerungs should be intentional, reviewable generated-output passes with branch writes behind an explicit flag.

@@ -13,7 +13,7 @@ created: 1778716598190
 - Support ontology and software repositories that want dereferenceable Semantic Flow pages without checking generated mesh support artifacts into their normal source branch.
 - Keep the public URL shape stable: branch-based publication should still publish canonical mesh IRIs such as `https://example.github.io/repo/term`, not branch-flavored IRIs.
 - Preserve Weave's fail-closed local path behavior while adding an intentional workflow for reading source files from one checkout/worktree and writing mesh output into another.
-- Decide whether the Fantasy Rules fixture should move from a `docs/` sidecar example to a `gh-pages` branch example once fixture branches become regenerated outputs.
+- Record the decision that Fantasy Rules becomes the branch-published ontology fixture once fixture branches are regenerated.
 - Keep branch deployment separate from full fixture ladder generation unless an implementation detail genuinely belongs to both.
 
 ## Summary
@@ -273,15 +273,15 @@ The workflow should still support an explicit rebuild mode for disaster recovery
 
 ### Fixture Implications
 
-The Fantasy Rules fixture currently demonstrates a `docs/` sidecar mesh. If we keep only two fixture repos, it may be more useful for Fantasy Rules to demonstrate branch-published ontology delivery instead, because Alice Bio already exercises a whole-repo reference mesh and branch-published deployment is the more urgent ontology case.
+The current Fantasy Rules fixture branch ladder demonstrates a `docs/` sidecar mesh. For the next generated ladder, Fantasy Rules should demonstrate branch-published ontology delivery because Alice Bio already exercises a whole-repo reference mesh and branch-published deployment is the more urgent ontology case.
 
-This does not mean the `docs/` sidecar pattern goes away. It means the fixture corpus may have better coverage if:
+This does not mean the `docs/` sidecar pattern goes away. It means the fixture corpus has better coverage if:
 
 - Alice Bio remains the whole-repo/reference mesh fixture
 - Fantasy Rules becomes the branch-published ontology fixture
 - docs-rooted sidecar behavior is covered by focused tests or a smaller fixture rather than by the main long ladder
 
-If we make that change, [[wd.task.2026.2026-05-07-fixture-ladder-generator]] should record the new fixture topology before rerunging branches.
+[[wd.task.2026.2026-05-07-fixture-ladder-generator]] records this topology before rerunging branches.
 
 Accord now honors `ignorePaths` in whole-tree transition completeness checks. That is useful for branch-generated fixtures: manifests can assert that no unexpected source or publication tree paths changed while still ignoring intentional local-only assets, fixture setup material, or other declared non-contract paths. Branch-published manifests should use this for source-branch cleanliness and publication-branch completeness, and should rely on Accord's conflict checks to reject manifests that both ignore and explicitly expect the same path.
 
@@ -335,6 +335,7 @@ This should eventually support CI permissions that are narrower than a blanket t
 - Stale output validation: branch-published deploy rejects known stale local/publication clutter such as `.weave`, `.sf-local-access.ttl`, and old `docs/_mesh` sidecar output, then scans generated RDF support files for local source/publication root paths or parent-directory traversal before reporting success.
 - Rebuild mode: rebuild-from-scratch should exist, but only as a separate guarded task after incremental update behavior is proven. Track it in [[wd.task.2026.2026-05-14_1105-guarded-branch-published-rebuild]] rather than bundling it into the first branch-published deploy path.
 - Fixture placement: prefer converting Fantasy Rules to the branch-published ontology fixture if we keep only two main fixture repos. If that creates too much churn during fixture ladder regeneration, create focused temporary-git integration coverage first and defer the fixture move through [[wd.task.2026.2026-05-07-fixture-ladder-generator]].
+- Fixture placement decision: Fantasy Rules is the branch-published ontology fixture for the next rerung. The existing `docs/` sidecar pattern remains valid, but Fantasy Rules no longer needs to preserve that topology as its primary durable example.
 - Fixture regeneration timing: rewrite the Semantic Flow Framework Fantasy Rules spec/example and build focused branch-published proof coverage before rerunging fixture branches. Build fixture-generator machinery early enough to avoid manual repair, but defer full branch-ladder regeneration until the topology and vocabulary are stable.
 - Git automation boundary: Weave owns safe local planning, dirty-state checks, generation, validation, and explicit optional local commit creation. Worktree discovery/creation remains a future guarded slice. Push policy and CI credentials should remain explicit operator/CI concerns, with documented snippets rather than hidden automation. If Weave creates a local publication commit, the CLI warns that the operator or CI still needs to push it before the site updates.
 - Vocabulary timing: the durable design needs core ontology vocabulary for repo/ref/path/digest source locators early, preferably before the first branch-published materialization slice. The proof slice can still take local source roots from runtime/deploy request data, but the RDF shape for persisted source provenance should already be the core locator shape rather than a throwaway branch-deploy special case.
@@ -358,7 +359,7 @@ This should eventually support CI permissions that are narrower than a blanket t
 - Default branch-published deployment should update the existing publication branch incrementally rather than overwrite it from scratch.
 - Branch-published deployment should follow default current-only MeshInventory, KnopMetadata, and KnopInventory behavior unless the operator/config explicitly requests versioned support history.
 - Keep write and git behavior explicit; branch publication should be dry-run or local-only until the operator opts into local commit creation, and push remains outside the first commit-support slice.
-- Preserve the existing `docs/` sidecar pattern as valid even if the Fantasy Rules fixture moves to branch-published publication.
+- Preserve the existing `docs/` sidecar pattern as valid even though the Fantasy Rules fixture moves to branch-published publication.
 
 ## Contract Changes
 
@@ -369,7 +370,7 @@ This should eventually support CI permissions that are narrower than a blanket t
 - Runtime/deploy config may need to distinguish host-local source checkout access from durable mesh-carried source provenance.
 - CLI/API surface may gain a deploy command or profile that accepts source root, publication root/branch, mesh base, and safe local write/commit flags.
 - Interactive CLI execution should prompt for a missing publication worktree path; CI and other non-interactive execution should fail closed unless the path is supplied.
-- Fixture expectations may change if the Fantasy Rules fixture stops using `docs/` and becomes the branch-published ontology fixture.
+- Fixture expectations will change because the Fantasy Rules fixture stops using `docs/` sidecar output as its primary topology and becomes the branch-published ontology fixture.
 - The Semantic Flow Framework Fantasy Rules example/spec should be rewritten around the branch-published ontology shape before the fixture ladder is rerung.
 - Full fixture branch regeneration should be a later generated-output pass, not a prerequisite for the first branch-published implementation slice.
 
@@ -386,7 +387,7 @@ This should eventually support CI permissions that are narrower than a blanket t
 - Add CLI coverage proving omitted publication root prompts interactively and fails closed in non-interactive mode.
 - Verify generation preserves `.nojekyll` and configured `CNAME`, removes stale generated files only when requested, and refuses dirty publication worktrees by default.
 - Add fixture or focused coverage for a branch-published ontology source where authored source stays off the publication branch.
-- If Fantasy Rules moves to branch-published output, update its Accord manifests and fixture helper assumptions through [[wd.task.2026.2026-05-07-fixture-ladder-generator]], using whole-tree completeness checks plus `ignorePaths` for intentional non-contract paths.
+- Because Fantasy Rules moves to branch-published output, update its Accord manifests and fixture helper assumptions through [[wd.task.2026.2026-05-07-fixture-ladder-generator]], using whole-tree completeness checks plus `ignorePaths` for intentional non-contract paths.
 - Rewrite the Semantic Flow Framework Fantasy Rules example/spec so the conformance story names source-branch authored ontology files, publication-branch mesh output, and repository-source locator provenance.
 - Run `deno task lint` after significant implementation changes.
 
@@ -426,7 +427,7 @@ This should eventually support CI permissions that are narrower than a blanket t
 - [x] Implement incremental publication-branch updates as the default behavior.
 - [d] Add a guarded rebuild-from-scratch mode only after incremental updates are proven; deferred to [[wd.task.2026.2026-05-14_1105-guarded-branch-published-rebuild]].
 - [x] Add explicit local commit support after local generation is proven, and print a CLI reminder that the publication branch still needs to be pushed for GitHub Pages to update.
-- [ ] Decide whether to convert the Fantasy Rules fixture from `docs/` sidecar to branch-published output before the next fixture rerung.
+- [x] Decide whether to convert the Fantasy Rules fixture from `docs/` sidecar to branch-published output before the next fixture rerung.
 - [x] Rewrite the Semantic Flow Framework Fantasy Rules example/spec for branch-published ontology delivery before rerunging fixture branches.
 - [x] Update [[wd.task.2026.2026-05-07-fixture-ladder-generator]] if the fixture topology changes.
-- [ ] Update [[wd.decision-log]] once the topology and path-provenance decisions are accepted.
+- [x] Update [[wd.decision-log]] once the topology and path-provenance decisions are accepted.

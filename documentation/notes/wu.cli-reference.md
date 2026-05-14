@@ -182,6 +182,56 @@ weave mesh create --mesh-base 'https://semantic-flow.github.io/my-mesh/' --no-no
 weave mesh create --interactive
 ```
 
+### `weave deploy gh-pages`
+
+Creates or updates a branch-published GitHub Pages mesh in a publication worktree. Use this when authored source files stay in a normal source checkout and generated mesh output lives in a separate publication branch checkout such as `gh-pages`.
+
+The command reads source bytes from `--source-root`, writes generated mesh output to `--publish-root`, and keeps host-local checkout paths out of the published RDF. `--source-root` defaults to the current directory. `--publish-root` is required in noninteractive runs; interactive runs can prompt for it.
+
+Dry-run prints the planned writes, preserved files, validation checks, and git operations without mutating the publication worktree:
+
+```sh
+weave deploy gh-pages \
+  --dry-run \
+  --source-root . \
+  --publish-root ../my-repo-gh-pages \
+  --mesh-base 'https://example.github.io/my-repo/'
+```
+
+Materialize one repository source file into the publication mesh:
+
+```sh
+weave deploy gh-pages \
+  --source-root . \
+  --publish-root ../my-repo-gh-pages \
+  --mesh-base 'https://example.github.io/my-repo/' \
+  --source-path ontology/fantasy-rules-ontology.ttl \
+  --designator-path ontology \
+  --source-repository-url 'https://github.com/example/my-repo.git' \
+  --source-ref main
+```
+
+Create a local publication commit after a successful deploy:
+
+```sh
+weave deploy gh-pages \
+  --source-root . \
+  --publish-root ../my-repo-gh-pages \
+  --mesh-base 'https://example.github.io/my-repo/' \
+  --commit \
+  --commit-message 'Publish mesh'
+```
+
+Constraints:
+
+- `--publish-root` must be a distinct publication worktree, not the source checkout or a directory inside it
+- publication git worktrees must be clean by default before Weave writes
+- `--allow-dirty-publish-root` is available for local experimentation, but cannot be combined with `--commit`
+- `--commit` creates a local commit only when the publication worktree has changes
+- Weave does not push; after a local commit, push the publication branch yourself for GitHub Pages to update
+- `--commit-message` requires `--commit`
+- `--source-commit` records an exact source commit in the source locator when supplied, but it should name bytes that the commit actually represents
+
 ### `weave integrate`
 
 Integrates a local source file into a designator path as a payload artifact, including policy-approved extra-mesh local sources.

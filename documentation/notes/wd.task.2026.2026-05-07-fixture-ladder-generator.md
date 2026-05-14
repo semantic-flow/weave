@@ -67,16 +67,16 @@ If intermediate states become useful for documentation or demos, the generator c
 
 ### Relationship To Branch-Published Meshes
 
-[[wd.task.2026.2026-05-13_1655-support-gh-pages-branch-based-deployments]] may change the Sidecar Fantasy Rules fixture from a `docs/` sidecar mesh into a branch-published ontology fixture. That affects the fixture-generator order.
+[[wd.task.2026.2026-05-13_1655-support-gh-pages-branch-based-deployments]] changes the Sidecar Fantasy Rules fixture from a `docs/` sidecar mesh into a branch-published ontology fixture. That affects the fixture-generator order.
 
-Do not finish a full regeneration of the current Fantasy Rules `docs/` sidecar ladder immediately before replacing it with branch-published output. The better order is:
+Do not finish a full regeneration of the current Fantasy Rules `docs/` sidecar ladder before replacing it with branch-published output. The better order is:
 
 - rewrite the Semantic Flow Framework Fantasy Rules spec/example around the branch-published ontology shape
 - prove branch-published clean-source behavior with focused temporary-git integration coverage
 - build enough generator support to replay the chosen topology without manual branch repair
 - rerung fixture branches later, in one intentional generated-output pass after the branch-published topology, repository-source locator vocabulary, and near-term config/ontology churn have settled
 
-This still means fixture-generator work is early. It does not mean fixture branch regeneration is first. The distinction matters: build the tool before doing broad fixture repair, but defer the expensive branch rerung until we know which topology it should generate.
+This still means fixture-generator work is early. It does not mean fixture branch regeneration is first. The distinction matters: build the tool before doing broad fixture repair, but defer the expensive branch rerung until the generator is ready to produce the branch-published topology.
 
 ### Relationship To Config Synthesis
 
@@ -203,6 +203,7 @@ The first scenario-definition format should therefore support both `command` ste
 - Do not add compatibility handling for old fixture namespaces or inventory-owned progression facts; stale fixtures should be regenerated against the current contract.
 - Record exact replay commands for command-backed transitions.
 - Record explicit source provenance for manually created, copied, fetched, or derived files. A fixture branch is not repeatable if the source of hand-authored bytes only exists in a prior conversation.
+- Regenerate Fantasy Rules as the branch-published ontology fixture rather than preserving the old `docs/` sidecar topology.
 
 ## Contract Changes
 
@@ -247,9 +248,9 @@ The first scenario-definition format should therefore support both `command` ste
 - [ ] Add branch update support behind an explicit write flag so dry runs remain the default while the tool is being proven.
 - [ ] Extend the generator through the full Alice Bio ladder.
 - [ ] Update or add documentation for the Alice Bio regeneration workflow.
-- [ ] Extend the generator to Sidecar Fantasy Rules.
+- [ ] Extend the generator to Sidecar Fantasy Rules as a branch-published ontology fixture.
 - [x] Before extending Sidecar Fantasy Rules generation, confirm whether its durable spec/example has moved from `docs` sidecar to branch-published ontology output.
 - [ ] Update Accord manifests, fixture-backed Weave tests, and conformance expectations after generated branches are rerung for the combined enum/config changes.
 - [ ] Record the expected workflow for large ontology/config churn: update manifests, run generator, inspect generated branch diffs, run fixture tests, commit/push branch updates intentionally.
 - [x] Update [[wd.task.2026.2026-05-06-grand-config-synthesis]] to reference this task as the intended fixture regeneration path before the config-driven fixture rebuild.
-- [ ] Update [[wd.decision-log]] with the decision to treat fixture branches as disposable generated outputs once the implementation path is accepted.
+- [x] Update [[wd.decision-log]] with the decision to treat fixture branches as disposable generated outputs once the implementation path is accepted.
