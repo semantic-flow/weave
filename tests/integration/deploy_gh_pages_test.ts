@@ -142,6 +142,30 @@ fantasy:RuleSystem a owl:Class .
     firstInventory.includes(`sflo:hasWorkingLocatedFile <${sourcePath}>`),
     firstInventory,
   );
+  assert(
+    !firstInventory.includes("_mesh/_inventory/_history001"),
+    firstInventory,
+  );
+  assert(
+    !firstInventory.includes("ontology/_knop/_meta/_history001"),
+    firstInventory,
+  );
+  assert(
+    !firstInventory.includes("ontology/_knop/_inventory/_history001"),
+    firstInventory,
+  );
+  await assertRejects(
+    () => Deno.stat(join(publishRoot, "_mesh/_inventory/_history001")),
+    Deno.errors.NotFound,
+  );
+  await assertRejects(
+    () => Deno.stat(join(publishRoot, "ontology/_knop/_meta/_history001")),
+    Deno.errors.NotFound,
+  );
+  await assertRejects(
+    () => Deno.stat(join(publishRoot, "ontology/_knop/_inventory/_history001")),
+    Deno.errors.NotFound,
+  );
   assertNoLocalPathLeak(firstConfig, sourceRoot, publishRoot);
   assertNoLocalPathLeak(firstInventory, sourceRoot, publishRoot);
   assert(!firstConfig.includes("workingLocalRelativePath"), firstConfig);
@@ -206,9 +230,164 @@ fantasy:RuleSystem a owl:Class .
   );
   assert(updatedConfig.includes(`sflo:hasContentDigest "${secondDigest}"`));
   assert(!updatedConfig.includes(firstDigest), updatedConfig);
+  assert(
+    !updatedInventory.includes("_mesh/_inventory/_history001"),
+    updatedInventory,
+  );
+  assert(
+    !updatedInventory.includes("ontology/_knop/_meta/_history001"),
+    updatedInventory,
+  );
+  assert(
+    !updatedInventory.includes("ontology/_knop/_inventory/_history001"),
+    updatedInventory,
+  );
+  await assertRejects(
+    () => Deno.stat(join(publishRoot, "_mesh/_inventory/_history001")),
+    Deno.errors.NotFound,
+  );
+  await assertRejects(
+    () => Deno.stat(join(publishRoot, "ontology/_knop/_meta/_history001")),
+    Deno.errors.NotFound,
+  );
+  await assertRejects(
+    () => Deno.stat(join(publishRoot, "ontology/_knop/_inventory/_history001")),
+    Deno.errors.NotFound,
+  );
   assertNoLocalPathLeak(updatedConfig, sourceRoot, publishRoot);
   assertNoLocalPathLeak(updatedInventory, sourceRoot, publishRoot);
   assertEquals(await listRelativeFiles(sourceRoot, ".weave/"), [sourcePath]);
+});
+
+Deno.test("executeGHPagesDeployBootstrap materializes from a source branch into a gh-pages worktree", async () => {
+  const tempRoot = await createTestTmpDir("weave-deploy-gh-pages-git-");
+  const sourceRoot = join(tempRoot, "fantasy-rules");
+  const publishRoot = join(tempRoot, "fantasy-rules-gh-pages");
+  const sourcePath = "ontology/fantasy-rules-ontology.ttl";
+  const sourceV1 = `@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix fantasy: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
+
+<> a owl:Ontology .
+fantasy:Rule a owl:Class .
+`;
+  const sourceV2 = `@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix fantasy: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
+
+<> a owl:Ontology .
+fantasy:RuleSystem a owl:Class .
+`;
+
+  await Deno.mkdir(join(sourceRoot, "ontology"), { recursive: true });
+  await runGit(sourceRoot, ["init"]);
+  await runGit(sourceRoot, ["checkout", "-b", "main"]);
+  await runGit(sourceRoot, ["config", "user.email", "weave@example.invalid"]);
+  await runGit(sourceRoot, ["config", "user.name", "Weave Test"]);
+  await Deno.writeTextFile(join(sourceRoot, sourcePath), sourceV1);
+  await runGit(sourceRoot, ["add", sourcePath]);
+  await runGit(sourceRoot, ["commit", "-m", "source v1"]);
+  const sourceCommitV1 = await gitOutput(sourceRoot, ["rev-parse", "HEAD"]);
+
+  await runGit(sourceRoot, [
+    "worktree",
+    "add",
+    "--detach",
+    publishRoot,
+    "HEAD",
+  ]);
+  await runGit(publishRoot, ["checkout", "--orphan", "gh-pages"]);
+  await runGit(publishRoot, ["rm", "-rf", "."]);
+  await runGit(publishRoot, [
+    "config",
+    "user.email",
+    "weave@example.invalid",
+  ]);
+  await runGit(publishRoot, ["config", "user.name", "Weave Test"]);
+
+  await executeGHPagesDeployBootstrap({
+    sourceRoot,
+    publishRoot,
+    request: {
+      meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+      source: {
+        sourcePath,
+        designatorPath: "ontology",
+        sourceRepositoryUrl:
+          "https://github.com/semantic-flow/mesh-sidecar-fantasy-rules.git",
+        sourceRepositoryRef: "main",
+        sourceRepositoryCommit: sourceCommitV1,
+      },
+    },
+  });
+
+  assertEquals(await gitOutput(sourceRoot, ["status", "--short"]), "");
+  await assertPathMissing(join(sourceRoot, "_mesh"));
+  await assertPathMissing(join(sourceRoot, ".weave"));
+  await assertPathMissing(join(sourceRoot, "docs"));
+  const initialPublishStatus = await gitOutput(publishRoot, [
+    "status",
+    "--short",
+  ]);
+  assert(initialPublishStatus.includes("?? _mesh/"), initialPublishStatus);
+  assert(initialPublishStatus.includes("?? ontology/"), initialPublishStatus);
+
+  await runGit(publishRoot, ["add", "-A"]);
+  await runGit(publishRoot, ["commit", "-m", "publish v1"]);
+  assertEquals(await gitOutput(publishRoot, ["status", "--short"]), "");
+
+  await Deno.writeTextFile(join(sourceRoot, sourcePath), sourceV2);
+  await runGit(sourceRoot, ["add", sourcePath]);
+  await runGit(sourceRoot, ["commit", "-m", "source v2"]);
+  const sourceCommitV2 = await gitOutput(sourceRoot, ["rev-parse", "HEAD"]);
+
+  await executeGHPagesDeployBootstrap({
+    sourceRoot,
+    publishRoot,
+    request: {
+      meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+      source: {
+        sourcePath,
+        designatorPath: "ontology",
+        sourceRepositoryUrl:
+          "https://github.com/semantic-flow/mesh-sidecar-fantasy-rules.git",
+        sourceRepositoryRef: "main",
+        sourceRepositoryCommit: sourceCommitV2,
+      },
+    },
+  });
+
+  assertEquals(await gitOutput(sourceRoot, ["status", "--short"]), "");
+  const updatedPublishStatus = await gitOutput(publishRoot, [
+    "status",
+    "--short",
+  ]);
+  assert(
+    updatedPublishStatus.includes("_mesh/_config/config.ttl"),
+    updatedPublishStatus,
+  );
+  assert(
+    updatedPublishStatus.includes(sourcePath),
+    updatedPublishStatus,
+  );
+
+  const updatedConfig = await Deno.readTextFile(
+    join(publishRoot, "_mesh/_config/config.ttl"),
+  );
+  const updatedInventory = await Deno.readTextFile(
+    join(publishRoot, "ontology/_knop/_inventory/inventory.ttl"),
+  );
+  assert(
+    updatedConfig.includes(`sflo:sourceRepositoryCommit "${sourceCommitV2}"`),
+    updatedConfig,
+  );
+  assertNoLocalPathLeak(updatedConfig, sourceRoot, publishRoot);
+  assertNoLocalPathLeak(updatedInventory, sourceRoot, publishRoot);
+  assert(
+    !updatedInventory.includes("ontology/_knop/_inventory/_history001"),
+    updatedInventory,
+  );
+  await assertPathMissing(
+    join(publishRoot, "ontology/_knop/_inventory/_history001"),
+  );
 });
 
 Deno.test("executeGHPagesDeployBootstrap rejects overlapping roots", async () => {
@@ -248,6 +427,45 @@ async function sha256Digest(contents: string): Promise<string> {
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
   return `sha256:${hex}`;
+}
+
+async function assertPathMissing(path: string): Promise<void> {
+  await assertRejects(
+    () => Deno.stat(path),
+    Deno.errors.NotFound,
+  );
+}
+
+async function runGit(cwd: string, args: readonly string[]): Promise<void> {
+  const output = await new Deno.Command("git", {
+    cwd,
+    args: [...args],
+  }).output();
+  if (!output.success) {
+    throw new Error(
+      `git ${args.join(" ")} failed:\n${
+        new TextDecoder().decode(output.stderr)
+      }`,
+    );
+  }
+}
+
+async function gitOutput(
+  cwd: string,
+  args: readonly string[],
+): Promise<string> {
+  const output = await new Deno.Command("git", {
+    cwd,
+    args: [...args],
+  }).output();
+  if (!output.success) {
+    throw new Error(
+      `git ${args.join(" ")} failed:\n${
+        new TextDecoder().decode(output.stderr)
+      }`,
+    );
+  }
+  return new TextDecoder().decode(output.stdout).trim();
 }
 
 async function listRelativeFiles(

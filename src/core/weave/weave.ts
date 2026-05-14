@@ -438,6 +438,7 @@ export function planWeave(input: PlanWeaveInput): WeavePlan {
           meshBase,
           candidate,
           target,
+          input.supportHistoryPolicies,
           input.namingPolicies,
         );
       default:
@@ -737,13 +738,6 @@ export function detectPendingWeaveSlice(
         errorMessage,
       ),
     ) &&
-    hasNamedNodeFact(
-      quads,
-      meshBase,
-      `${knopPath}/_inventory/_history001`,
-      SFLO_LATEST_HISTORICAL_STATE_IRI,
-      `${knopPath}/_inventory/_history001/_s0001`,
-    ) &&
     hasLiteralFact(
       quads,
       meshBase,
@@ -752,13 +746,21 @@ export function detectPendingWeaveSlice(
       "2",
       XSD_NON_NEGATIVE_INTEGER_IRI,
     ) &&
-    !hasNamedNodeFact(
-      quads,
-      meshBase,
-      `${knopPath}/_inventory/_history001`,
-      SFLO_HAS_HISTORICAL_STATE_IRI,
-      `${knopPath}/_inventory/_history001/_s0002`,
-    )
+    (!knopInventoryHasHistory ||
+      (hasNamedNodeFact(
+        quads,
+        meshBase,
+        `${knopPath}/_inventory/_history001`,
+        SFLO_LATEST_HISTORICAL_STATE_IRI,
+        `${knopPath}/_inventory/_history001/_s0001`,
+      ) &&
+        !hasNamedNodeFact(
+          quads,
+          meshBase,
+          `${knopPath}/_inventory/_history001`,
+          SFLO_HAS_HISTORICAL_STATE_IRI,
+          `${knopPath}/_inventory/_history001/_s0002`,
+        )))
   ) {
     return "secondPayloadWeave";
   }
@@ -956,19 +958,23 @@ function planFirstPayloadWeave(
   const versionKnopMetadata = shouldMaterializeSupportHistory(
     knopMetadataHistoryPolicy,
   );
+  const knopInventoryHistoryPolicy = supportHistoryPolicies?.knopInventory ??
+    "versioned";
+  const versionKnopInventory = shouldMaterializeSupportHistory(
+    knopInventoryHistoryPolicy,
+  );
   const wovenKnopInventoryTurtle = renderFirstPayloadWovenKnopInventoryTurtle(
     meshBase,
     designatorPath,
     payloadLayout,
     payloadArtifact.workingLocalRelativePath,
-    { knopMetadataHistoryPolicy },
+    { knopMetadataHistoryPolicy, knopInventoryHistoryPolicy },
   );
   const wovenMeshInventoryTurtle = meshInventoryProgression === undefined
     ? renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle(
       currentMeshInventoryTurtle,
       meshBase,
       designatorPath,
-      payloadArtifact.workingLocalRelativePath,
     )
     : renderFirstPayloadWovenMeshInventoryTurtle(
       currentMeshInventoryTurtle,
@@ -997,11 +1003,13 @@ function planFirstPayloadWeave(
           contents: candidate.currentKnopMetadataTurtle,
         }]
         : []),
-      {
-        path:
-          `${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl`,
-        contents: wovenKnopInventoryTurtle,
-      },
+      ...(versionKnopInventory
+        ? [{
+          path:
+            `${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl`,
+          contents: wovenKnopInventoryTurtle,
+        }]
+        : []),
     ],
     updatedFiles: [
       {
@@ -1025,7 +1033,7 @@ function planFirstPayloadWeave(
       payloadLayout,
       payloadArtifact.workingLocalRelativePath,
       meshInventoryProgression,
-      { knopMetadataHistoryPolicy },
+      { knopMetadataHistoryPolicy, knopInventoryHistoryPolicy },
     ),
   };
 }
@@ -1417,6 +1425,7 @@ function planSecondPayloadWeave(
   meshBase: string,
   candidate: WeaveableKnopCandidate,
   target?: NormalizedVersionTargetSpec,
+  supportHistoryPolicies?: WeaveSupportHistoryPolicies,
   namingPolicies?: WeaveNamingPolicies,
 ): WeavePlan {
   const payloadArtifact = candidate.payloadArtifact!;
@@ -1436,11 +1445,27 @@ function planSecondPayloadWeave(
     designatorPath,
     payloadArtifact,
     payloadLayout.nextStatePath,
+    { knopInventoryHistoryPolicy: supportHistoryPolicies?.knopInventory },
   );
 
   const payloadSnapshotPath = `${payloadLayout.nextManifestationPath}/${
     toFileName(payloadArtifact.workingLocalRelativePath)
   }`;
+  const knopMetadataHistoryPolicy = supportHistoryPolicies?.knopMetadata ??
+    "versioned";
+  const knopInventoryHistoryPolicy = supportHistoryPolicies?.knopInventory ??
+    "versioned";
+  const versionKnopInventory = shouldMaterializeSupportHistory(
+    knopInventoryHistoryPolicy,
+  );
+  const wovenKnopInventoryTurtle = renderSecondPayloadWovenKnopInventoryTurtle(
+    meshBase,
+    designatorPath,
+    payloadLayout,
+    payloadArtifact.workingLocalRelativePath,
+    candidate.currentKnopInventoryTurtle,
+    { knopMetadataHistoryPolicy, knopInventoryHistoryPolicy },
+  );
 
   return {
     meshBase,
@@ -1450,33 +1475,24 @@ function planSecondPayloadWeave(
         path: payloadSnapshotPath,
         contents: payloadArtifact.currentPayloadTurtle,
       },
-      {
-        path:
-          `${knopPath}/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl`,
-        contents: renderSecondPayloadWovenKnopInventoryTurtle(
-          meshBase,
-          designatorPath,
-          payloadLayout,
-          payloadArtifact.workingLocalRelativePath,
-          candidate.currentKnopInventoryTurtle,
-        ),
-      },
+      ...(versionKnopInventory
+        ? [{
+          path:
+            `${knopPath}/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl`,
+          contents: wovenKnopInventoryTurtle,
+        }]
+        : []),
     ],
     updatedFiles: [
       {
         path: `${knopPath}/_inventory/inventory.ttl`,
-        contents: renderSecondPayloadWovenKnopInventoryTurtle(
-          meshBase,
-          designatorPath,
-          payloadLayout,
-          payloadArtifact.workingLocalRelativePath,
-          candidate.currentKnopInventoryTurtle,
-        ),
+        contents: wovenKnopInventoryTurtle,
       },
     ],
     createdPages: buildSecondPayloadWeavePages(
       designatorPath,
       payloadLayout,
+      { knopInventoryHistoryPolicy },
     ),
   };
 }
@@ -2542,6 +2558,7 @@ function assertCurrentKnopInventoryShapeForSecondPayloadWeave(
   designatorPath: string,
   payloadArtifact: PayloadWorkingArtifact,
   nextPayloadStatePath: string,
+  options?: { knopInventoryHistoryPolicy?: SupportArtifactHistoryPolicy },
 ): void {
   const knopPath = toKnopPath(designatorPath);
   const payloadHistoryPath = requirePayloadHistoryPath(
@@ -2560,8 +2577,11 @@ function assertCurrentKnopInventoryShapeForSecondPayloadWeave(
     currentKnopInventoryTurtle,
     errorMessage,
   );
+  const versionKnopInventory = shouldMaterializeSupportHistory(
+    options?.knopInventoryHistoryPolicy ?? "versioned",
+  );
 
-  assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
+  const expectedFacts: [string, string, string][] = [
     [knopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
     [knopPath, SFLO_HAS_PAYLOAD_ARTIFACT_IRI, designatorPath],
     [designatorPath, RDF_TYPE_IRI, SFLO_PAYLOAD_ARTIFACT_IRI],
@@ -2580,17 +2600,22 @@ function assertCurrentKnopInventoryShapeForSecondPayloadWeave(
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_KNOP_INVENTORY_IRI],
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
-    [
-      `${knopPath}/_inventory`,
-      SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
-      `${knopPath}/_inventory/_history001`,
-    ],
-    [
-      `${knopPath}/_inventory/_history001`,
-      SFLO_LATEST_HISTORICAL_STATE_IRI,
-      `${knopPath}/_inventory/_history001/_s0001`,
-    ],
-  ]);
+  ];
+  if (versionKnopInventory) {
+    expectedFacts.push(
+      [
+        `${knopPath}/_inventory`,
+        SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
+        `${knopPath}/_inventory/_history001`,
+      ],
+      [
+        `${knopPath}/_inventory/_history001`,
+        SFLO_LATEST_HISTORICAL_STATE_IRI,
+        `${knopPath}/_inventory/_history001/_s0001`,
+      ],
+    );
+  }
+  assertHasNamedNodeFacts(quads, meshBase, errorMessage, expectedFacts);
   assertHasCurrentWorkingFileLocator(
     quads,
     meshBase,
@@ -2621,7 +2646,14 @@ function assertCurrentKnopInventoryShapeForSecondPayloadWeave(
       payloadHistoryPath,
       SFLO_HAS_HISTORICAL_STATE_IRI,
       nextPayloadStatePath,
-    ) ||
+    )
+  ) {
+    throw new WeaveInputError(
+      `Payload artifact already has a second explicit historical state for ${designatorPath}.`,
+    );
+  }
+  if (
+    versionKnopInventory &&
     hasNamedNodeFact(
       quads,
       meshBase,
@@ -2631,7 +2663,7 @@ function assertCurrentKnopInventoryShapeForSecondPayloadWeave(
     )
   ) {
     throw new WeaveInputError(
-      `Payload artifact already has a second explicit historical state for ${designatorPath}.`,
+      `KnopInventory already has a second explicit historical state for ${designatorPath}.`,
     );
   }
 }
@@ -3089,6 +3121,113 @@ function omitInitialKnopMetadataHistory(
     );
 }
 
+function omitKnopInventoryHistory(turtle: string, knopPath: string): string {
+  const historyPath = `${knopPath}/_inventory/_history001`;
+  let output = turtle.replace(
+    `  sflo:hasArtifactHistory <${historyPath}> ;
+  sflo:currentArtifactHistory <${historyPath}> ;
+  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
+`,
+    "",
+  );
+
+  output = output
+    .replace(
+      `<${historyPath}> a sflo:ArtifactHistory ;
+  sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
+  sflo:hasHistoricalState <${historyPath}/_s0001> ;
+  sflo:latestHistoricalState <${historyPath}/_s0001> ;
+  sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger ;
+  sflo:hasResourcePage <${historyPath}/index.html> .
+
+`,
+      "",
+    )
+    .replace(
+      `<${historyPath}> a sflo:ArtifactHistory ;
+  sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
+  sflo:hasHistoricalState <${historyPath}/_s0001> ;
+  sflo:hasHistoricalState <${historyPath}/_s0002> ;
+  sflo:latestHistoricalState <${historyPath}/_s0002> ;
+  sflo:nextStateOrdinal "3"^^xsd:nonNegativeInteger ;
+  sflo:hasResourcePage <${historyPath}/index.html> .
+
+`,
+      "",
+    );
+
+  for (const stateOrdinal of [1, 2]) {
+    const stateSegment = toStateSegment(stateOrdinal);
+    const statePath = `${historyPath}/${stateSegment}`;
+    const manifestationPath = `${statePath}/inventory-ttl`;
+    const locatedFilePath = `${manifestationPath}/inventory.ttl`;
+    const previousStatePredicate = stateOrdinal === 1
+      ? ""
+      : `  sflo:previousHistoricalState <${historyPath}/_s0001> ;
+`;
+    output = output
+      .replace(
+        `<${statePath}> a sflo:HistoricalState ;
+  sflo:stateOrdinal "${stateOrdinal}"^^xsd:nonNegativeInteger ;
+${previousStatePredicate}  sflo:hasManifestation <${manifestationPath}> ;
+  sflo:locatedFileForState <${locatedFilePath}> ;
+  sflo:hasResourcePage <${statePath}/index.html> .
+
+`,
+        "",
+      )
+      .replace(
+        `<${manifestationPath}> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <${locatedFilePath}> ;
+  sflo:hasResourcePage <${manifestationPath}/index.html> .
+
+`,
+        "",
+      )
+      .replace(
+        `<${locatedFilePath}> a sflo:LocatedFile, sflo:RdfDocument .
+
+`,
+        "",
+      )
+      .replace(
+        `<${statePath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+`,
+        "",
+      )
+      .replace(
+        `<${statePath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+`,
+        "",
+      )
+      .replace(
+        `<${manifestationPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+`,
+        "",
+      )
+      .replace(
+        `<${manifestationPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+`,
+        "",
+      );
+  }
+
+  return output
+    .replace(
+      `<${historyPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+`,
+      "",
+    )
+    .replace(
+      `<${historyPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+`,
+      "",
+    );
+}
+
 function renderFirstPayloadWovenMeshInventoryTurtle(
   currentMeshInventoryTurtle: string,
   meshBase: string,
@@ -3219,6 +3358,68 @@ function renderFirstPayloadWovenMeshInventoryTurtle(
   );
 
   return `${blocks.join("\n\n")}\n`;
+}
+
+function renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle(
+  currentMeshInventoryTurtle: string,
+  meshBase: string,
+  designatorPath: string,
+): string {
+  const knopPath = toKnopPath(designatorPath);
+  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
+  const quads = parseWeaveShapeQuads(
+    meshBase,
+    currentMeshInventoryTurtle,
+    `Could not parse current MeshInventory while weaving ${designatorPath}.`,
+  );
+  const additions: string[] = [];
+
+  if (
+    !hasNamedNodeFact(
+      quads,
+      meshBase,
+      "_mesh",
+      SFLO_HAS_KNOP_IRI,
+      knopPath,
+    )
+  ) {
+    additions.push(`<_mesh> sflo:hasKnop <${knopPath}> .`);
+  }
+  if (
+    !hasNamedNodeFact(
+      quads,
+      meshBase,
+      designatorPath,
+      SFLO_HAS_RESOURCE_PAGE_IRI,
+      designatorPagePath,
+    )
+  ) {
+    additions.push(
+      `<${designatorPath}> sflo:hasResourcePage <${designatorPagePath}> .`,
+    );
+  }
+  if (
+    !hasNamedNodeFact(
+      quads,
+      meshBase,
+      knopPath,
+      SFLO_HAS_RESOURCE_PAGE_IRI,
+      `${knopPath}/index.html`,
+    )
+  ) {
+    additions.push(
+      `<${knopPath}> sflo:hasResourcePage <${knopPath}/index.html> .`,
+    );
+  }
+
+  additions.push(
+    renderResourcePageLocatedFileBlock(designatorPagePath),
+    renderResourcePageLocatedFileBlock(`${knopPath}/index.html`),
+  );
+
+  return `${currentMeshInventoryTurtle.trimEnd()}\n\n${
+    additions.join("\n\n")
+  }\n`;
 }
 
 function renderLegacyFirstKnopWovenMeshInventoryTurtle(
@@ -3518,7 +3719,10 @@ function renderFirstPayloadWovenKnopInventoryTurtle(
   designatorPath: string,
   payloadLayout: PayloadVersionLayout,
   workingLocalRelativePath: string,
-  options?: { knopMetadataHistoryPolicy?: SupportArtifactHistoryPolicy },
+  options?: {
+    knopMetadataHistoryPolicy?: SupportArtifactHistoryPolicy;
+    knopInventoryHistoryPolicy?: SupportArtifactHistoryPolicy;
+  },
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
@@ -3533,6 +3737,9 @@ function renderFirstPayloadWovenKnopInventoryTurtle(
   );
   const shouldVersionKnopMetadata = shouldMaterializeSupportHistory(
     options?.knopMetadataHistoryPolicy ?? "versioned",
+  );
+  const shouldVersionKnopInventory = shouldMaterializeSupportHistory(
+    options?.knopInventoryHistoryPolicy ?? "versioned",
   );
 
   const turtle = `@base <${meshBase}> .
@@ -3657,9 +3864,14 @@ ${currentWorkingFileDeclaration}
 <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 `;
 
-  return shouldVersionKnopMetadata
-    ? turtle
-    : omitInitialKnopMetadataHistory(turtle, knopPath);
+  let output = turtle;
+  if (!shouldVersionKnopMetadata) {
+    output = omitInitialKnopMetadataHistory(output, knopPath);
+  }
+  if (!shouldVersionKnopInventory) {
+    output = omitKnopInventoryHistory(output, knopPath);
+  }
+  return output;
 }
 
 function renderFirstReferenceCatalogWovenKnopInventoryTurtle(
@@ -4408,7 +4620,31 @@ function renderSecondPayloadWovenKnopInventoryTurtle(
   payloadLayout: PayloadVersionLayout,
   workingLocalRelativePath: string,
   currentKnopInventoryTurtle: string,
+  options?: {
+    knopMetadataHistoryPolicy?: SupportArtifactHistoryPolicy;
+    knopInventoryHistoryPolicy?: SupportArtifactHistoryPolicy;
+  },
 ): string {
+  const applySupportHistoryPolicies = (turtle: string): string => {
+    const knopPath = toKnopPath(designatorPath);
+    let output = turtle;
+    if (
+      !shouldMaterializeSupportHistory(
+        options?.knopMetadataHistoryPolicy ?? "versioned",
+      )
+    ) {
+      output = omitInitialKnopMetadataHistory(output, knopPath);
+    }
+    if (
+      !shouldMaterializeSupportHistory(
+        options?.knopInventoryHistoryPolicy ?? "versioned",
+      )
+    ) {
+      output = omitKnopInventoryHistory(output, knopPath);
+    }
+    return output;
+  };
+
   if (
     payloadLayout.isNewHistory ||
     countArtifactHistoryPaths(
@@ -4417,12 +4653,14 @@ function renderSecondPayloadWovenKnopInventoryTurtle(
         designatorPath,
       ) > 1
   ) {
-    return renderMultiHistoryPayloadWovenKnopInventoryTurtle(
-      meshBase,
-      designatorPath,
-      payloadLayout,
-      workingLocalRelativePath,
-      currentKnopInventoryTurtle,
+    return applySupportHistoryPolicies(
+      renderMultiHistoryPayloadWovenKnopInventoryTurtle(
+        meshBase,
+        designatorPath,
+        payloadLayout,
+        workingLocalRelativePath,
+        currentKnopInventoryTurtle,
+      ),
     );
   }
 
@@ -4440,7 +4678,7 @@ function renderSecondPayloadWovenKnopInventoryTurtle(
     workingLocalRelativePath,
   );
 
-  return `@base <${meshBase}> .
+  return applySupportHistoryPolicies(`@base <${meshBase}> .
 ${SFLO_TURTLE_PREFIX_DECLARATION}
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
@@ -4596,7 +4834,7 @@ ${currentWorkingFileDeclaration}
 <${knopPath}/_inventory/_history001/_s0002/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <${knopPath}/_inventory/_history001/_s0002/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-`;
+`);
 }
 
 function renderFirstExtractedKnopWovenMeshInventoryTurtle(
@@ -6274,25 +6512,20 @@ function buildFirstPayloadWeavePages(
   designatorPath: string,
   payloadLayout: PayloadVersionLayout,
   workingLocalRelativePath: string,
-  meshInventoryProgression: MeshInventoryProgression,
-  options?: { knopMetadataHistoryPolicy?: SupportArtifactHistoryPolicy },
+  meshInventoryProgression: MeshInventoryProgression | undefined,
+  options?: {
+    knopMetadataHistoryPolicy?: SupportArtifactHistoryPolicy;
+    knopInventoryHistoryPolicy?: SupportArtifactHistoryPolicy;
+  },
 ): readonly ResourcePageModel[] {
   const knopPath = toKnopPath(designatorPath);
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
   const displayDesignatorPath = formatDesignatorPathForDisplay(designatorPath);
-  const meshInventoryStateOrdinalLabel = toOrdinalLabel(
-    meshInventoryProgression.nextStateOrdinal,
-  );
 
   const pages: readonly ResourcePageModel[] = [
-    simplePage(
-      `${meshInventoryProgression.nextStatePath}/index.html`,
-      `Resource page for the ${meshInventoryStateOrdinalLabel} MeshInventory historical state.`,
-    ),
-    simplePage(
-      `${meshInventoryProgression.nextStatePath}/inventory-ttl/index.html`,
-      `Resource page for the Turtle manifestation of the ${meshInventoryStateOrdinalLabel} MeshInventory historical state.`,
-    ),
+    ...(meshInventoryProgression === undefined
+      ? []
+      : buildMeshInventoryProgressionPages(meshInventoryProgression)),
     identifierPage(
       designatorPagePath,
       designatorPath,
@@ -6347,11 +6580,40 @@ function buildFirstPayloadWeavePages(
       `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} KnopInventory historical state.`,
     ),
   ];
-  return shouldMaterializeSupportHistory(
+  let outputPages = pages;
+  if (
+    !shouldMaterializeSupportHistory(
       options?.knopMetadataHistoryPolicy ?? "versioned",
     )
-    ? pages
-    : omitInitialKnopMetadataHistoryPages(pages, knopPath);
+  ) {
+    outputPages = omitInitialKnopMetadataHistoryPages(outputPages, knopPath);
+  }
+  if (
+    !shouldMaterializeSupportHistory(
+      options?.knopInventoryHistoryPolicy ?? "versioned",
+    )
+  ) {
+    outputPages = omitInitialKnopInventoryHistoryPages(outputPages, knopPath);
+  }
+  return outputPages;
+}
+
+function buildMeshInventoryProgressionPages(
+  meshInventoryProgression: MeshInventoryProgression,
+): readonly ResourcePageModel[] {
+  const meshInventoryStateOrdinalLabel = toOrdinalLabel(
+    meshInventoryProgression.nextStateOrdinal,
+  );
+  return [
+    simplePage(
+      `${meshInventoryProgression.nextStatePath}/index.html`,
+      `Resource page for the ${meshInventoryStateOrdinalLabel} MeshInventory historical state.`,
+    ),
+    simplePage(
+      `${meshInventoryProgression.nextStatePath}/inventory-ttl/index.html`,
+      `Resource page for the Turtle manifestation of the ${meshInventoryStateOrdinalLabel} MeshInventory historical state.`,
+    ),
+  ];
 }
 
 function omitInitialKnopMetadataHistoryPages(
@@ -6362,6 +6624,17 @@ function omitInitialKnopMetadataHistoryPages(
   return pages.filter((page) =>
     page.path !== `${metadataHistoryPagePrefix}/index.html` &&
     !page.path.startsWith(`${metadataHistoryPagePrefix}/_s0001/`)
+  );
+}
+
+function omitInitialKnopInventoryHistoryPages(
+  pages: readonly ResourcePageModel[],
+  knopPath: string,
+): readonly ResourcePageModel[] {
+  const inventoryHistoryPagePrefix = `${knopPath}/_inventory/_history001`;
+  return pages.filter((page) =>
+    page.path !== `${inventoryHistoryPagePrefix}/index.html` &&
+    !page.path.startsWith(`${inventoryHistoryPagePrefix}/_s0001/`)
   );
 }
 
@@ -6458,10 +6731,11 @@ function buildSubsequentPageDefinitionWeavePages(
 function buildSecondPayloadWeavePages(
   designatorPath: string,
   payloadLayout: PayloadVersionLayout,
+  options?: { knopInventoryHistoryPolicy?: SupportArtifactHistoryPolicy },
 ): readonly ResourcePageModel[] {
   const knopPath = toKnopPath(designatorPath);
   const displayDesignatorPath = formatDesignatorPathForDisplay(designatorPath);
-  return [
+  const pages: readonly ResourcePageModel[] = [
     simplePage(
       `${payloadLayout.nextStatePath}/index.html`,
       `Resource page for the second historical state of the ${displayDesignatorPath} payload artifact.`,
@@ -6479,6 +6753,22 @@ function buildSecondPayloadWeavePages(
       `Resource page for the Turtle manifestation of the second ${displayDesignatorPath} KnopInventory historical state.`,
     ),
   ];
+  return shouldMaterializeSupportHistory(
+      options?.knopInventoryHistoryPolicy ?? "versioned",
+    )
+    ? pages
+    : omitSecondPayloadKnopInventoryHistoryPages(pages, knopPath);
+}
+
+function omitSecondPayloadKnopInventoryHistoryPages(
+  pages: readonly ResourcePageModel[],
+  knopPath: string,
+): readonly ResourcePageModel[] {
+  const inventoryStatePagePrefix = `${knopPath}/_inventory/_history001/_s0002`;
+  return pages.filter((page) =>
+    page.path !== `${inventoryStatePagePrefix}/index.html` &&
+    !page.path.startsWith(`${inventoryStatePagePrefix}/`)
+  );
 }
 
 function resolveFirstPayloadVersionLayout(

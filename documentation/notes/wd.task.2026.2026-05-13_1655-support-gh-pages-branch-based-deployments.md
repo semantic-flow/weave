@@ -241,6 +241,8 @@ This should eventually support CI permissions that are narrower than a blanket t
 - Preserved files: normal incremental deployment should preserve unknown non-generated files by default, and always preserve or recreate configured publication control files such as `.nojekyll` and `CNAME`. Reset/rebuild mode needs an explicit preserved-file policy and should refuse a dirty publication worktree unless forced.
 - Command composition: the deploy command should orchestrate existing mesh create, integrate/version/weave/generate seams rather than invent a parallel generator. It can expose a higher-level workflow because the branch-published operator experience is different, but the internal semantic operations should remain recognizable and testable.
 - No semantic payload change: if the source branch changes but resolved source bytes or semantic output do not change, Weave should validate, report no publication diff, and skip commit/push by default. Provenance-only updates, such as recording a new source commit for identical bytes, should be explicit policy rather than accidental churn.
+- Default history policy: the branch-published proof path should float with the current default effective config. In particular, it must not create `_mesh/_inventory`, `_knop/_meta`, or `_knop/_inventory` history merely to preserve old fixture-ladder shapes. Legacy/versioned inventory shapes belong behind explicit non-default policy and can remain covered by Alice Bio or other compatibility fixtures.
+- Default-history proof: the focused branch-published materialization slice now keeps MeshInventory, KnopMetadata, and KnopInventory current-only under runtime defaults while preserving the old explicit/versioned core shape when non-default policies are supplied.
 - Rebuild mode: rebuild-from-scratch should exist, but only after incremental update behavior is proven. It should be a separate loud mode or guarded flag, not the default deploy path.
 - Fixture placement: prefer converting Fantasy Rules to the branch-published ontology fixture if we keep only two main fixture repos. If that creates too much churn during fixture ladder regeneration, create focused temporary-git integration coverage first and defer the fixture move through [[wd.task.2026.2026-05-07-fixture-ladder-generator]].
 - Fixture regeneration timing: rewrite the Semantic Flow Framework Fantasy Rules spec/example and build focused branch-published proof coverage before rerunging fixture branches. Build fixture-generator machinery early enough to avoid manual repair, but defer full branch-ladder regeneration until the topology and vocabulary are stable.
@@ -261,6 +263,7 @@ This should eventually support CI permissions that are narrower than a blanket t
 - The interactive CLI should prompt for the publication worktree path when it is omitted; non-interactive runs should require `--publish-root` or a deploy profile value.
 - Branch-published deployment uses a deploy context with a source root and a publication root; it does not redefine the general workspace model. The publication root is the active mesh workspace, while the source root is a trusted operation input.
 - Default branch-published deployment should update the existing publication branch incrementally rather than overwrite it from scratch.
+- Branch-published deployment should follow default current-only MeshInventory, KnopMetadata, and KnopInventory behavior unless the operator/config explicitly requests versioned support history.
 - Keep write/push behavior explicit; branch publication should be dry-run or local-only until the operator opts into committing/pushing.
 - Preserve the existing `docs/` sidecar pattern as valid even if the Fantasy Rules fixture moves to branch-published publication.
 
@@ -305,7 +308,7 @@ This should eventually support CI permissions that are narrower than a blanket t
 
 ## Implementation Plan
 
-- [ ] Confirm terminology and update [[wu.repository-options]] with a branch-published topology section.
+- [x] Confirm terminology and update [[wu.repository-options]] with a branch-published topology section.
 - [x] Add initial core `sflo` repository-source locator vocabulary for durable repo/ref/path/digest provenance.
 - [ ] Confirm first implementation source-binding scope: command/profile-scoped local resolution is allowed for the proof slice, but any persisted binding needs target-neutral repo/ref/path/digest rather than `workingLocalRelativePath`.
 - [ ] Define the minimum source binding shape for repo/ref/path/digest inputs, including when raw URLs are acceptable.
@@ -321,8 +324,9 @@ This should eventually support CI permissions that are narrower than a blanket t
 - [x] Create the first branch-published Fantasy Rules source-only proof ref and Accord manifest (`bp-01-source-only`) in the existing fixture repo/SFF conformance area.
 - [x] Implement local-only branch-published publication-root bootstrap through `weave deploy gh-pages`.
 - [x] Add focused bootstrap tests proving the source root stays free of `_mesh`/`.weave`, publication root carries `_mesh` plus config, public config has no sibling path leakage, and a second bootstrap run is a no-op.
-- [ ] Implement local-only branch-published generation for one simple ontology source in a temporary git repo.
-- [ ] Prove the first clean-source-branch slice: source branch contains only authored source, publication branch carries all `_mesh` and generated state, public RDF has no sibling path leakage, and a rerun updates incrementally.
+- [x] Implement local-only branch-published materialization/generation for one simple ontology source from command-scoped source and publication roots.
+- [x] Prove the first clean-source-branch slice in focused tests: source root contains only authored source, publication root carries `_mesh` and generated state, public RDF has no sibling path leakage, reruns are incremental, and default MeshInventory, KnopMetadata, and KnopInventory support histories remain current-only.
+- [x] Add local integration coverage using an actual temporary git repo with source and `gh-pages` worktrees.
 - [x] Update [[wd.task.2026.2026-05-07-fixture-ladder-generator]] to make fixture-generator work early but full fixture branch rerunging later, after branch-published topology and vocabulary are stable.
 - [ ] Add `.nojekyll` and optional `CNAME` preservation behavior.
 - [ ] Add validation that generated public mesh output does not include stale source-branch clutter or developer-specific sibling checkout paths.

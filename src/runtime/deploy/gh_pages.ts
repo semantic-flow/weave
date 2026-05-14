@@ -373,21 +373,11 @@ async function materializeSourceBinding(
   const createdPaths: string[] = [];
   const updatedPaths: string[] = [];
   const wovenPaths: string[] = [];
-  const meshSupportHistoryExists = await pathExists(
-    join(options.publishRoot, "_mesh/_inventory/_history001"),
+  const meshSupportPagesExist = await pathExists(
+    join(options.publishRoot, "_mesh/index.html"),
   );
 
-  if (!meshSupportHistoryExists) {
-    const supportWeaveResult = await executeWeave({
-      meshRoot: options.publishRoot,
-      request: {},
-      operationalLogger: options.operationalLogger,
-      auditLogger: options.auditLogger,
-    });
-    createdPaths.push(...supportWeaveResult.createdPaths);
-    updatedPaths.push(...supportWeaveResult.updatedPaths);
-    wovenPaths.push(...supportWeaveResult.wovenDesignatorPaths);
-  } else if (configUpdated) {
+  if (!meshSupportPagesExist) {
     const supportWeaveResult = await executeWeave({
       meshRoot: options.publishRoot,
       request: {},

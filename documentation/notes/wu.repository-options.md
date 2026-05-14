@@ -25,3 +25,15 @@ This should usually be the default for repos that are not primarily meshes: soft
 Sidecar meshes fit the practical rule that mesh paths should be relatively stable. Most project source trees are allowed to move around as the project evolves; the public mesh should not have to churn every time the authoring layout changes. In a sidecar layout, working payload files can remain in project-appropriate source locations while the mesh keeps stable public identifiers, generated resource pages, and historical snapshots under a publishable root such as `docs/`.
 
 This also limits accidental publication. A whole-repo mesh tends to make the whole repo feel like the public page surface, while a sidecar mesh keeps the public mesh boundary explicit.
+
+## Branch-published semantic mesh:
+
+Use this when the authored source branch should stay clean, but the project still wants stable dereferenceable mesh pages from a publication branch such as `gh-pages`.
+
+A branch-published mesh is sidecar-like in purpose: the public mesh is a generated projection of the source repository rather than the main authoring layout. The difference is operational. Instead of storing generated `_mesh/`, histories, inventories, and pages in a `docs/` directory on the source branch, the generated mesh lives in a separate publication branch.
+
+This is a strong fit for ontology and vocabulary repositories where maintainers want the normal branch to contain only source artifacts such as Turtle, SHACL, Markdown, or examples, while GitHub Pages serves the generated Semantic Flow surface from a dedicated branch.
+
+Branch-published meshes should record durable source provenance, such as repository, ref, source path, and content digest. They should not record one contributor's local sibling checkout path as public RDF. Local paths belong to the deploy operation that reads the source checkout and writes the publication checkout; the published mesh should describe the source material, not the workstation layout.
+
+Choose this option when generated mesh state would be too noisy for the source branch, when review of generated publication output can happen on the publication branch, and when the project can tolerate a slightly more explicit deploy workflow.
