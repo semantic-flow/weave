@@ -423,7 +423,7 @@ This should eventually support CI permissions that are narrower than a blanket t
 - [x] Update [[wd.task.2026.2026-05-07-fixture-ladder-generator]] to make fixture-generator work early but full fixture branch rerunging later, after branch-published topology and vocabulary are stable.
 - [x] Add `.nojekyll` and optional `CNAME` preservation behavior.
 - [x] Add validation that generated public mesh output does not include stale source-branch clutter or developer-specific sibling checkout paths.
-- [ ] Implement incremental publication-branch updates as the default behavior.
+- [x] Implement incremental publication-branch updates as the default behavior.
 - [ ] Add a guarded rebuild-from-scratch mode only after incremental updates are proven.
 - [ ] Add explicit commit/push flags after local generation is proven.
 - [ ] Decide whether to convert the Fantasy Rules fixture from `docs/` sidecar to branch-published output before the next fixture rerung.

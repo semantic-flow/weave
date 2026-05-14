@@ -374,6 +374,128 @@ fantasy:RuleSystem a owl:Class .
   assertEquals(await listRelativeFiles(sourceRoot, ".weave/"), [sourcePath]);
 });
 
+Deno.test("executeGHPagesDeployBootstrap updates publication roots incrementally by default", async () => {
+  const tempRoot = await createTestTmpDir(
+    "weave-deploy-gh-pages-incremental-",
+  );
+  const sourceRoot = join(tempRoot, "source");
+  const publishRoot = join(tempRoot, "gh-pages");
+  const sourcePath = "ontology/fantasy-rules-ontology.ttl";
+  const sourceV1 = `@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix fantasy: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
+
+<> a owl:Ontology .
+fantasy:Rule a owl:Class .
+`;
+  const sourceV2 = `@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix fantasy: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
+
+<> a owl:Ontology .
+fantasy:RuleSystem a owl:Class .
+`;
+
+  await Deno.mkdir(join(sourceRoot, "ontology"), { recursive: true });
+  await Deno.mkdir(publishRoot, { recursive: true });
+  await Deno.writeTextFile(join(sourceRoot, sourcePath), sourceV1);
+  await Deno.writeTextFile(join(publishRoot, "manual.txt"), "keep me\n");
+  await Deno.writeTextFile(join(publishRoot, "CNAME"), "rules.example.test\n");
+  await runGit(publishRoot, ["init"]);
+  await runGit(publishRoot, ["config", "user.email", "weave@example.invalid"]);
+  await runGit(publishRoot, ["config", "user.name", "Weave Test"]);
+  await runGit(publishRoot, ["add", "-A"]);
+  await runGit(publishRoot, ["commit", "-m", "initial publication controls"]);
+
+  await executeGHPagesDeployBootstrap({
+    sourceRoot,
+    publishRoot,
+    request: {
+      meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+      source: {
+        sourcePath,
+        designatorPath: "ontology",
+        sourceRepositoryUrl:
+          "https://github.com/semantic-flow/mesh-sidecar-fantasy-rules.git",
+        sourceRepositoryRef: "main",
+        sourceRepositoryCommit: "source-v1",
+      },
+    },
+  });
+  const firstFiles = await listRelativeFiles(publishRoot, ".git/");
+  const firstMeshMetadata = await Deno.readTextFile(
+    join(publishRoot, "_mesh/_meta/meta.ttl"),
+  );
+  const firstDigest = await sha256Digest(sourceV1);
+
+  await runGit(publishRoot, ["add", "-A"]);
+  await runGit(publishRoot, ["commit", "-m", "publish v1"]);
+  await Deno.writeTextFile(join(sourceRoot, sourcePath), sourceV2);
+
+  const secondResult = await executeGHPagesDeployBootstrap({
+    sourceRoot,
+    publishRoot,
+    request: {
+      meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+      source: {
+        sourcePath,
+        designatorPath: "ontology",
+        sourceRepositoryUrl:
+          "https://github.com/semantic-flow/mesh-sidecar-fantasy-rules.git",
+        sourceRepositoryRef: "main",
+        sourceRepositoryCommit: "source-v2",
+      },
+    },
+  });
+  const secondMaterialized = secondResult.materializedSource;
+  assert(secondMaterialized);
+
+  assertEquals(secondResult.createdPaths, []);
+  assert(
+    secondMaterialized.createdPaths.every((path) =>
+      path.startsWith("ontology/_history001/_s0002/")
+    ),
+    secondMaterialized.createdPaths.join("\n"),
+  );
+  assert(secondMaterialized.updatedPaths.includes(sourcePath));
+  assert(secondMaterialized.updatedPaths.includes("_mesh/_config/config.ttl"));
+  const secondFiles = await listRelativeFiles(publishRoot, ".git/");
+  for (const path of firstFiles) {
+    assert(secondFiles.includes(path), `missing preserved path: ${path}`);
+  }
+  assertEquals(
+    await Deno.readTextFile(join(publishRoot, "manual.txt")),
+    "keep me\n",
+  );
+  assertEquals(
+    await Deno.readTextFile(join(publishRoot, "CNAME")),
+    "rules.example.test\n",
+  );
+  assertEquals(
+    await Deno.readTextFile(join(publishRoot, "_mesh/_meta/meta.ttl")),
+    firstMeshMetadata,
+  );
+
+  const updatedConfig = await Deno.readTextFile(
+    join(publishRoot, "_mesh/_config/config.ttl"),
+  );
+  const updatedDigest = await sha256Digest(sourceV2);
+  assert(updatedConfig.includes('sflo:sourceRepositoryCommit "source-v2"'));
+  assert(updatedConfig.includes(`sflo:hasContentDigest "${updatedDigest}"`));
+  assert(!updatedConfig.includes(firstDigest), updatedConfig);
+
+  const status = await gitOutput(publishRoot, ["status", "--short"]);
+  const statusLines = status.split("\n").filter((line) => line.length > 0);
+  assert(
+    statusLines.every((line) =>
+      !line.startsWith(" D") && !line.startsWith("D ")
+    ),
+    status,
+  );
+  assertEquals(
+    statusLines.filter((line) => line.startsWith("??")),
+    ["?? ontology/_history001/_s0002/"],
+  );
+});
+
 Deno.test("executeGHPagesDeployBootstrap keeps cross-worktree source access command-scoped", async () => {
   const tempRoot = await createTestTmpDir("weave-deploy-gh-pages-policy-");
   const sourceRoot = join(tempRoot, "source");
