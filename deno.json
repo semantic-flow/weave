@@ -5,6 +5,7 @@
     "bump:version": "deno run --allow-read --allow-write scripts/bump-version.ts",
     "build:binaries": "deno run --allow-read --allow-write --allow-run=deno scripts/build-binaries.ts",
     "package:binaries": "deno run --allow-read --allow-write scripts/package-binaries.ts",
+    "assemble:npm-packages": "deno run --allow-read --allow-write scripts/assemble-npm-packages.ts",
     "fmt": "deno fmt deno.json scripts src tests",
     "fmt:check": "deno fmt --check deno.json scripts src tests",
     "lint": "deno lint scripts src tests",
