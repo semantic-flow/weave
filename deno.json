@@ -1,10 +1,12 @@
 {
+  "version": "0.1.0",
   "tasks": {
     "dev:root": "deno run --allow-read --allow-write --allow-env src/main.ts",
-    "fmt": "deno fmt deno.json src tests",
-    "fmt:check": "deno fmt --check deno.json src tests",
-    "lint": "deno lint src tests",
-    "check": "deno check src/**/*.ts tests/**/*.ts",
+    "bump:version": "deno run --allow-read --allow-write scripts/bump-version.ts",
+    "fmt": "deno fmt deno.json scripts src tests",
+    "fmt:check": "deno fmt --check deno.json scripts src tests",
+    "lint": "deno lint scripts src tests",
+    "check": "deno check scripts/**/*.ts src/**/*.ts tests/**/*.ts",
     "test": "WEAVE_GENERATED_AT=2026-05-03T00:00:00.000Z deno test --preload=tests/support/test_tmp_harness.ts --allow-read --allow-write --allow-run=git,deno --allow-env src tests",
     "test:coverage": "WEAVE_GENERATED_AT=2026-05-03T00:00:00.000Z deno test --preload=tests/support/test_tmp_harness.ts --allow-read --allow-write --allow-run=git,deno --allow-env --coverage=coverage src tests",
     "coverage:lcov": "deno coverage --lcov --output=coverage/lcov.info --exclude='^file:.*/dependencies/' --exclude='^file:.*/tests/' coverage",

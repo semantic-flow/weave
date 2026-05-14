@@ -22,6 +22,7 @@ import {
   integrateRootPayload,
 } from "../support/root_designator.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
+import { WEAVE_VERSION } from "../../src/version.ts";
 
 const repoRoot = new URL("../../", import.meta.url);
 const cliEntrypoint = fromFileUrl(
@@ -69,6 +70,15 @@ function replaceFixturePathList(
 ): string[] {
   return paths.map((path) => replaceFixturePaths(path, replacements)).sort();
 }
+
+Deno.test("weave --version reports the root package version", async () => {
+  const output = await runCliCommand(["--version"]);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assertEquals(stdout.trim(), `weave ${WEAVE_VERSION}`);
+});
 
 Deno.test("weave matches the manifest-scoped alice knop-created-woven fixture as a black-box CLI run", async () => {
   await assertWeaveTransitionMatchesManifest({

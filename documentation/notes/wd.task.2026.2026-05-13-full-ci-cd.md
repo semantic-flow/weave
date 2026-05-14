@@ -41,10 +41,29 @@ Weave currently has:
 - no package build scripts
 - no npm package assembly or publishing
 - no binary archive/checksum generation
-- no `weave --version`
-- no durable Weave version metadata
+- root `deno.json` version metadata and `weave --version`
 
 That is enough for `v0.0.2`, especially as a deliberate checkpoint with known CI debt, but not enough for a release that users can install.
+
+### Current Release-Gate Inventory
+
+Local validation after the first version-plumbing slice shows:
+
+- `deno task fmt:check` passes.
+- `deno task lint` passes.
+- `deno task check` passes.
+- focused `weave --version` e2e coverage passes.
+- `deno task test` fails with broad fixture-backed drift: 186 passed, 145 failed.
+
+The failures are not caused by version metadata. They cluster around the known pre-release fixture and contract drift:
+
+- stale `https://semantic-flow.github.io/semantic-flow-ontology/` expectations versus the canonical `https://semantic-flow.github.io/sflo/ontology/` namespace
+- stale enum/value shapes such as old reference-role IRIs versus flat namespace-local values
+- stale config ontology IRIs such as `https://semantic-flow.github.io/ontology/config/meshRootPathBase`
+- stale carried mesh and Knop inventory shapes after current config/progression changes
+- fixture-backed CLI and integration tests reading old branch-ladder states that need regeneration through [[wd.task.2026.2026-05-07-fixture-ladder-generator]]
+
+That means the release pipeline can continue to add packaging infrastructure, but `v0.1.0` cannot be treated as releasable until the ordinary `deno task test` gate is repaired or the remaining failures are intentionally split into documented, non-release-blocking debt. Given the failure pattern, the main blocker is not the release tooling itself; it is the fixture/config regeneration path.
 
 ### Kato Release Pattern To Adapt
 
@@ -331,13 +350,13 @@ The runbook should include:
 ## Implementation Plan
 
 - [ ] Confirm npm package names, release artifact names, and supported platform matrix.
-- [ ] Inventory current `deno task ci` failures and decide which are release-pipeline blockers versus separate product/test debt.
+- [x] Inventory current `deno task ci` failures and decide which are release-pipeline blockers versus separate product/test debt.
 - [ ] Restore the ordinary `deno task ci` quality gate before treating `v0.1.0` as releasable.
-- [ ] Add canonical version metadata to root `deno.json`.
-- [ ] Add runtime version-reporting support and expose `weave --version`.
-- [ ] Add `scripts/bump-version.ts` and root `deno task bump:version`.
-- [ ] Make the bump script create or verify `documentation/notes/release-notes.v<version>.md`.
-- [ ] Add tests for version metadata and bump behavior.
+- [x] Add canonical version metadata to root `deno.json`.
+- [x] Add runtime version-reporting support and expose `weave --version`.
+- [x] Add `scripts/bump-version.ts` and root `deno task bump:version`.
+- [x] Make the bump script create or verify `documentation/notes/release-notes.v<version>.md`.
+- [x] Add tests for version metadata and bump behavior.
 - [ ] Add `scripts/build-binaries.ts` and root `deno task build:binaries`.
 - [ ] Add `scripts/package-binaries.ts` and root `deno task package:binaries`.
 - [ ] Add bundle metadata, archive naming, and `.sha256` generation.
@@ -352,7 +371,7 @@ The runbook should include:
 - [ ] Add npm install smoke tests to the release workflow.
 - [ ] Add optional npm dry-run/publish and GitHub draft/publish jobs to the release workflow.
 - [ ] Ensure GitHub Release creation strips Dendron frontmatter and uploads archives plus checksums.
-- [ ] Update `documentation/notes/release-notes.v0.1.0.md` convention or stub.
+- [x] Update `documentation/notes/release-notes.v0.1.0.md` convention or stub.
 - [ ] Update [[dev.release-runbook]] to make the release workflow the primary path.
 - [ ] Run `deno task ci`.
 - [ ] Run a release rehearsal with npm dry-run and draft GitHub Release before publishing `v0.1.0`.

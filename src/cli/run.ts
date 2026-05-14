@@ -61,6 +61,7 @@ import {
   WeaveRuntimeError,
 } from "../runtime/weave/weave.ts";
 import { loadOperationalLocalPathPolicy } from "../runtime/operational/local_path_policy.ts";
+import { WEAVE_VERSION } from "../version.ts";
 
 const TARGET_OPTION_DESCRIPTION =
   "Target spec as comma-separated key=value fields. Supported keys: designatorPath, recursive. Versioning commands also accept historySegment, stateSegment, and manifestationSegment.";
@@ -70,6 +71,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
 
   const command = new Command()
     .name("weave")
+    .version(WEAVE_VERSION)
     .description("Filesystem-oriented Semantic Flow tooling.")
     .option(
       "--mesh-root <meshRoot:string>",
