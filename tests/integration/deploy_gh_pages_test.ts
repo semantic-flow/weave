@@ -74,6 +74,58 @@ Deno.test("executeGHPagesDeployBootstrap keeps source clean and bootstraps publi
   assert(!config.includes("../"), config);
 });
 
+Deno.test("executeGHPagesDeployBootstrap preserves publication controls", async () => {
+  const tempRoot = await createTestTmpDir(
+    "weave-deploy-gh-pages-controls-",
+  );
+  const sourceRoot = join(tempRoot, "source");
+  const publishRoot = join(tempRoot, "gh-pages");
+  await Deno.mkdir(sourceRoot, { recursive: true });
+  await Deno.mkdir(publishRoot, { recursive: true });
+  await Deno.writeTextFile(join(publishRoot, "CNAME"), "rules.example.test\n");
+
+  const firstResult = await executeGHPagesDeployBootstrap({
+    sourceRoot,
+    publishRoot,
+    request: {
+      meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    },
+  });
+  assert(firstResult.createdPaths.includes(".nojekyll"));
+  assert(!firstResult.createdPaths.includes("CNAME"));
+  assertEquals(
+    await Deno.readTextFile(join(publishRoot, "CNAME")),
+    "rules.example.test\n",
+  );
+
+  await Deno.remove(join(publishRoot, ".nojekyll"));
+  const secondResult = await executeGHPagesDeployBootstrap({
+    sourceRoot,
+    publishRoot,
+    request: {
+      meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+      cname: "rules.example.test",
+    },
+  });
+  assertEquals(secondResult.createdPaths, [".nojekyll"]);
+  assertEquals(secondResult.updatedPaths, []);
+
+  const thirdResult = await executeGHPagesDeployBootstrap({
+    sourceRoot,
+    publishRoot,
+    request: {
+      meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+      cname: "docs.example.test",
+    },
+  });
+  assertEquals(thirdResult.createdPaths, []);
+  assertEquals(thirdResult.updatedPaths, ["CNAME"]);
+  assertEquals(
+    await Deno.readTextFile(join(publishRoot, "CNAME")),
+    "docs.example.test\n",
+  );
+});
+
 Deno.test("executeGHPagesDeployBootstrap materializes repository source without local path leakage", async () => {
   const tempRoot = await createTestTmpDir("weave-deploy-gh-pages-source-");
   const sourceRoot = join(tempRoot, "source");
@@ -387,6 +439,48 @@ fantasy:RuleSystem a owl:Class .
   );
   await assertPathMissing(
     join(publishRoot, "ontology/_knop/_inventory/_history001"),
+  );
+});
+
+Deno.test("executeGHPagesDeployBootstrap rejects dirty publication worktrees by default", async () => {
+  const tempRoot = await createTestTmpDir("weave-deploy-gh-pages-dirty-");
+  const sourceRoot = join(tempRoot, "source");
+  const publishRoot = join(tempRoot, "gh-pages");
+  await Deno.mkdir(sourceRoot, { recursive: true });
+  await Deno.mkdir(publishRoot, { recursive: true });
+  await runGit(publishRoot, ["init"]);
+  await runGit(publishRoot, ["config", "user.email", "weave@example.invalid"]);
+  await runGit(publishRoot, ["config", "user.name", "Weave Test"]);
+  await runGit(publishRoot, ["commit", "--allow-empty", "-m", "initial"]);
+  await Deno.writeTextFile(join(publishRoot, "manual.txt"), "keep me\n");
+
+  await assertRejects(
+    () =>
+      executeGHPagesDeployBootstrap({
+        sourceRoot,
+        publishRoot,
+        request: {
+          meshBase:
+            "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+        },
+      }),
+    GHPagesDeployInputError,
+    "publication root has uncommitted or untracked changes",
+  );
+
+  const result = await executeGHPagesDeployBootstrap({
+    sourceRoot,
+    publishRoot,
+    allowDirtyPublicationRoot: true,
+    request: {
+      meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    },
+  });
+
+  assert(result.createdPaths.includes("_mesh/_config/config.ttl"));
+  assertEquals(
+    await Deno.readTextFile(join(publishRoot, "manual.txt")),
+    "keep me\n",
   );
 });
 

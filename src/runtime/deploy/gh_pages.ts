@@ -22,6 +22,7 @@ import { executeWeave } from "../weave/weave.ts";
 export interface GHPagesDeployBootstrapRequest {
   meshBase: string;
   includeNoJekyll?: boolean;
+  cname?: string;
   source?: GHPagesDeploySourceBindingRequest;
 }
 
@@ -38,6 +39,7 @@ export interface ExecuteGHPagesDeployBootstrapOptions {
   sourceRoot: string;
   publishRoot: string;
   request: GHPagesDeployBootstrapRequest;
+  allowDirtyPublicationRoot?: boolean;
   operationalLogger?: StructuredLogger;
   auditLogger?: AuditLogger;
 }
@@ -112,12 +114,19 @@ export async function executeGHPagesDeployBootstrap(
     await assertDirectoryRoot(sourceRoot, "Source root");
     await assertDirectoryRoot(publishRoot, "Publication root");
     assertDistinctWorktreeRoots(sourceRoot, publishRoot);
+    if (options.allowDirtyPublicationRoot !== true) {
+      await assertCleanPublicationWorktree(publishRoot);
+    }
 
     const meshCreateResult = await ensurePublicationMeshBootstrap({
       publishRoot,
       request: options.request,
       operationalLogger,
       auditLogger,
+    });
+    const publicationControlsResult = await ensurePublicationControls({
+      publishRoot,
+      request: options.request,
     });
     const materializedSource = options.request.source === undefined
       ? undefined
@@ -134,8 +143,14 @@ export async function executeGHPagesDeployBootstrap(
       publishRoot,
       meshBase: meshCreateResult.meshBase,
       meshIri: meshCreateResult.meshIri,
-      createdPaths: meshCreateResult.createdPaths,
-      updatedPaths: materializedSource?.updatedPaths ?? [],
+      createdPaths: uniqueSortedPaths([
+        ...meshCreateResult.createdPaths,
+        ...publicationControlsResult.createdPaths,
+      ]),
+      updatedPaths: uniqueSortedPaths([
+        ...publicationControlsResult.updatedPaths,
+        ...(materializedSource?.updatedPaths ?? []),
+      ]),
       ...(materializedSource ? { materializedSource } : {}),
     };
 
@@ -296,6 +311,96 @@ async function tryResolveExistingPublicationMesh(
     meshIri: new URL("_mesh", meshBase).href,
     createdPaths: [],
   };
+}
+
+async function ensurePublicationControls(
+  options: {
+    publishRoot: string;
+    request: GHPagesDeployBootstrapRequest;
+  },
+): Promise<
+  { createdPaths: readonly string[]; updatedPaths: readonly string[] }
+> {
+  const createdPaths: string[] = [];
+  const updatedPaths: string[] = [];
+
+  if (options.request.includeNoJekyll !== false) {
+    const noJekyllResult = await ensureTextFile({
+      publishRoot: options.publishRoot,
+      path: ".nojekyll",
+      contents: "",
+    });
+    appendFileWriteResult(noJekyllResult, createdPaths, updatedPaths);
+  }
+
+  if (options.request.cname !== undefined) {
+    const cname = normalizeCname(options.request.cname);
+    const cnameResult = await ensureTextFile({
+      publishRoot: options.publishRoot,
+      path: "CNAME",
+      contents: `${cname}\n`,
+    });
+    appendFileWriteResult(cnameResult, createdPaths, updatedPaths);
+  }
+
+  return {
+    createdPaths: uniqueSortedPaths(createdPaths),
+    updatedPaths: uniqueSortedPaths(updatedPaths),
+  };
+}
+
+function appendFileWriteResult(
+  result: FileWriteResult,
+  createdPaths: string[],
+  updatedPaths: string[],
+): void {
+  if (result.kind === "created") {
+    createdPaths.push(result.path);
+  } else if (result.kind === "updated") {
+    updatedPaths.push(result.path);
+  }
+}
+
+type FileWriteResult =
+  | { kind: "created"; path: string }
+  | { kind: "updated"; path: string }
+  | { kind: "unchanged"; path: string };
+
+async function ensureTextFile(
+  options: {
+    publishRoot: string;
+    path: string;
+    contents: string;
+  },
+): Promise<FileWriteResult> {
+  const absolutePath = join(options.publishRoot, options.path);
+  try {
+    const currentContents = await Deno.readTextFile(absolutePath);
+    if (currentContents === options.contents) {
+      return { kind: "unchanged", path: options.path };
+    }
+    await Deno.writeTextFile(absolutePath, options.contents);
+    return { kind: "updated", path: options.path };
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) {
+      throw error;
+    }
+  }
+
+  await Deno.mkdir(dirname(absolutePath), { recursive: true });
+  await Deno.writeTextFile(absolutePath, options.contents, { createNew: true });
+  return { kind: "created", path: options.path };
+}
+
+function normalizeCname(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    throw new GHPagesDeployInputError("cname must not be empty");
+  }
+  if (/[\r\n]/.test(trimmed)) {
+    throw new GHPagesDeployInputError("cname must be a single host name");
+  }
+  return trimmed;
 }
 
 function normalizeMeshBase(meshBase: string): string {
@@ -738,6 +843,70 @@ async function assertDirectoryRoot(
     throw new GHPagesDeployRuntimeError(
       `${label} is not a directory: ${root}`,
     );
+  }
+}
+
+async function assertCleanPublicationWorktree(
+  publishRoot: string,
+): Promise<void> {
+  const isWorktreeRoot = await isGitWorktreeRoot(publishRoot);
+  if (!isWorktreeRoot) {
+    return;
+  }
+
+  const status = await runGitInspection(publishRoot, [
+    "status",
+    "--porcelain=v1",
+    "--untracked-files=all",
+  ]);
+  if (!status.success) {
+    throw new GHPagesDeployRuntimeError(
+      `Could not inspect publication root git status: ${status.stderr.trim()}`,
+    );
+  }
+  if (status.stdout.trim().length === 0) {
+    return;
+  }
+
+  throw new GHPagesDeployInputError(
+    `publication root has uncommitted or untracked changes; commit, stash, or clean the publication worktree before deploying, or explicitly allow a dirty publication root`,
+  );
+}
+
+async function isGitWorktreeRoot(root: string): Promise<boolean> {
+  const result = await runGitInspection(root, [
+    "rev-parse",
+    "--show-toplevel",
+  ]);
+  if (!result.success) {
+    return false;
+  }
+  return resolve(result.stdout.trim()) === resolve(root);
+}
+
+async function runGitInspection(
+  cwd: string,
+  args: readonly string[],
+): Promise<{ success: boolean; stdout: string; stderr: string }> {
+  try {
+    const output = await new Deno.Command("git", {
+      cwd,
+      args: [...args],
+    }).output();
+    return {
+      success: output.success,
+      stdout: new TextDecoder().decode(output.stdout),
+      stderr: new TextDecoder().decode(output.stderr),
+    };
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return {
+        success: false,
+        stdout: "",
+        stderr: "git executable was not found",
+      };
+    }
+    throw error;
   }
 }
 

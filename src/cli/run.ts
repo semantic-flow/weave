@@ -765,6 +765,14 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               "Do not create a GitHub Pages .nojekyll publishing guard.",
             )
             .option(
+              "--cname <cname:string>",
+              "Create or update the publication branch CNAME file.",
+            )
+            .option(
+              "--allow-dirty-publish-root",
+              "Allow deployment even when the publication worktree has uncommitted changes.",
+            )
+            .option(
               "--source-path <sourcePath:string>",
               "Repository-relative source path to materialize into the publication mesh.",
             )
@@ -798,6 +806,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 publishRoot?: string;
                 meshBase?: string;
                 nojekyll?: boolean;
+                cname?: string;
+                allowDirtyPublishRoot?: boolean;
                 sourcePath?: string;
                 targetPath?: string;
                 designatorPath?: string;
@@ -823,10 +833,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 "deploy gh-pages",
                 "an interactive terminal",
               );
-              const logDir = join(publishRoot, ".weave", "logs");
-              const { operationalLogger, auditLogger } = createRuntimeLoggers({
-                logDir,
-              });
+              const { operationalLogger, auditLogger } = createRuntimeLoggers();
 
               await auditLogger.command("deploy.ghPages", {
                 sourceRoot,
@@ -843,8 +850,13 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                   includeNoJekyll: options.nojekyll === false
                     ? false
                     : undefined,
+                  ...(options.cname !== undefined
+                    ? { cname: options.cname }
+                    : {}),
                   ...(resolveGHPagesSourceBindingOption(options) ?? {}),
                 },
+                allowDirtyPublicationRoot:
+                  options.allowDirtyPublishRoot === true,
                 operationalLogger,
                 auditLogger,
               });

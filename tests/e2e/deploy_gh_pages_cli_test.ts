@@ -64,6 +64,37 @@ Deno.test("weave deploy gh-pages bootstraps a publication root as a black-box CL
   assert(secondStdout.includes("already bootstrapped"), secondStdout);
 });
 
+Deno.test("weave deploy gh-pages updates a clean publication worktree without local log clutter", async () => {
+  const tempRoot = await createTestTmpDir("weave-e2e-deploy-gh-pages-git-");
+  const sourceRoot = join(tempRoot, "source");
+  const publishRoot = join(tempRoot, "gh-pages");
+  await Deno.mkdir(sourceRoot, { recursive: true });
+  await Deno.mkdir(publishRoot, { recursive: true });
+  await runGit(publishRoot, ["init"]);
+  await runGit(publishRoot, ["config", "user.email", "weave@example.invalid"]);
+  await runGit(publishRoot, ["config", "user.name", "Weave Test"]);
+  await runGit(publishRoot, ["commit", "--allow-empty", "-m", "initial"]);
+
+  const output = await runCli([
+    "deploy",
+    "gh-pages",
+    "--source-root",
+    sourceRoot,
+    "--publish-root",
+    publishRoot,
+    "--mesh-base",
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+  ]);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("_mesh/_config/config.ttl"), stdout);
+  const status = await gitOutput(publishRoot, ["status", "--short"]);
+  assert(status.includes("?? _mesh/"), status);
+  assert(!status.includes(".weave/"), status);
+});
+
 Deno.test("weave deploy gh-pages materializes one repository source from CLI flags", async () => {
   const tempRoot = await createTestTmpDir("weave-e2e-deploy-gh-pages-source-");
   const sourceRoot = join(tempRoot, "source");
@@ -155,6 +186,7 @@ function runCli(
       "run",
       "--allow-read",
       "--allow-write",
+      "--allow-run=git",
       "--allow-env",
       cliPath,
       ...args,
@@ -165,6 +197,38 @@ function runCli(
     stderr: "piped",
   });
   return command.output();
+}
+
+async function runGit(cwd: string, args: readonly string[]): Promise<void> {
+  const output = await new Deno.Command("git", {
+    cwd,
+    args: [...args],
+  }).output();
+  if (!output.success) {
+    throw new Error(
+      `git ${args.join(" ")} failed:\n${
+        new TextDecoder().decode(output.stderr)
+      }`,
+    );
+  }
+}
+
+async function gitOutput(
+  cwd: string,
+  args: readonly string[],
+): Promise<string> {
+  const output = await new Deno.Command("git", {
+    cwd,
+    args: [...args],
+  }).output();
+  if (!output.success) {
+    throw new Error(
+      `git ${args.join(" ")} failed:\n${
+        new TextDecoder().decode(output.stderr)
+      }`,
+    );
+  }
+  return new TextDecoder().decode(output.stdout).trim();
 }
 
 async function listRelativeFiles(
