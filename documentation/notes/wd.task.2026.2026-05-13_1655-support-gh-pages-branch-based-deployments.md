@@ -70,7 +70,7 @@ The locator should not be payload-specific. The same general source locator idea
 
 Raw URLs may be enough for some remote inputs, especially when the URL is immutable and digest-pinned. GitHub raw URLs are not a complete replacement for a branch/ref/path locator, though. A raw branch URL is mutable, loses some repository/ref/path structure unless we parse GitHub-specific URL conventions, and is awkward for private repos, local worktrees, and CI checkouts. A git-oriented locator can still render or resolve through a raw URL when that is useful, but the durable source binding should be able to say "repo + ref + path + digest" directly.
 
-The first implementation should probably avoid minting a broad new locator ontology until the branch-generation workflow exposes the minimum shape. Still, we should not hard-code sibling paths into generated public artifacts as though that were a durable source reference.
+The first implementation should use the initial core repository-source locator vocabulary for the durable RDF shape, even while local source resolution remains command/profile-scoped. We should not hard-code sibling paths into generated public artifacts as though that were a durable source reference.
 
 ### Ontology Shape
 
@@ -79,6 +79,37 @@ The existing target-relator pattern is close to what branch-published meshes nee
 Repo/ref/path/digest support should extend that pattern rather than introduce a payload-only side channel. The missing piece is a durable source locator that can name a version-control repository, a ref or commit, a path inside that ref, and an expected digest. That locator should be usable from any target relator that needs source bytes, including config materialization, payload integration, page-source Markdown, and assets.
 
 The shape probably belongs in core `sflo` if it describes durable source provenance and target byte identity. Operational trust rules for fetching or reading those sources should remain in config/runtime policy, not in the core source locator itself.
+
+### Source Binding Contract
+
+A branch-published source binding has two deliberately separate halves:
+
+- operation-local resolution: deploy receives a trusted local `sourceRoot` plus repository-relative `sourcePath` from CLI flags, a deploy profile, CI checkout layout, or host-local runtime state. This local root may be a sibling git worktree, but it is command-scoped input to the deploy operation, not durable mesh config.
+- durable publication binding: `_mesh/_config/config.ttl` records the target and source identity using `ArtifactResolutionTarget` plus `RepositorySourceLocator` vocabulary. The durable facts are target designator, target publication-relative path, expected digest, source repository URL, source ref, optional source commit, source repository-relative path, and content digest.
+
+The publication branch should not persist any of the following merely because a deploy read from a sibling source checkout:
+
+- `sfcfg:workspaceRootRelativeToMeshRoot` that expands the publication workspace to include the source checkout
+- `sfcfg:hasLocalPathAccessRule` granting access back to the source checkout
+- `sflo:workingLocalRelativePath` pointing at `../source/...` or another host-local layout
+- absolute local paths, file URLs, or other machine-specific checkout locations
+
+Host-local grants such as `.sf-local-access.ttl` remain valid for lower-level operations that intentionally resolve extra-mesh `workingLocalRelativePath` values, but branch-published deploy should not require or mint such grants for its normal `sourceRoot` path. Deploy materializes source bytes into a publication-root relative target path first, then integrates/weaves from that publication-local copy. The durable config records provenance and byte identity, not the operator's checkout topology.
+
+The minimum durable source binding shape for the first implementation is:
+
+- `ArtifactResolutionTarget` for the binding relator
+- `sflo:hasTargetArtifact` for the designator being materialized
+- `sflo:targetLocalRelativePath` for the publication-root relative target path
+- `sflo:expectsContentDigest` for the target bytes Weave expects to publish
+- `sflo:hasTargetRepositorySource` pointing to a `RepositorySourceLocator`
+- `sflo:sourceRepositoryUrl` for the durable repository identity or equivalent repository access URL
+- `sflo:sourceRepositoryRef` for the symbolic or explicit ref used as source provenance
+- `sflo:sourceRepositoryCommit` when an exact commit is known and honestly describes the materialized bytes
+- `sflo:sourceRepositoryPath` for the repository-relative source path
+- `sflo:hasContentDigest` for the source bytes that were actually materialized
+
+Raw URLs are acceptable as access/rendering hints, or as the repository/source URL for non-git immutable resources that are digest-pinned. For git-hosted source material, URL-only bindings are too lossy as the primary durable identity because branch raw URLs are mutable and do not clearly preserve repository/ref/path structure. A GitHub raw commit URL can be useful, but the structured repo/ref-or-commit/path/digest locator should remain the canonical binding when the source is in git.
 
 ### Clean Source Branch
 
@@ -103,7 +134,7 @@ API and CLI inputs can provide everything needed for first bootstrap if they are
 The publication-branch bootstrap can be small. It needs:
 
 - source checkout root or source repository URL
-- source ref or commit when the operator wants an explicit pin; otherwise Weave can infer the source repository default branch `HEAD` for initial provenance
+- source ref or commit when the operator wants an explicit pin; otherwise Weave can infer only clean, inspectable git facts such as the checked-out branch and exact `HEAD` commit
 - publication checkout root or publication branch name
 - mesh base IRI, either supplied explicitly or inferred from GitHub remote metadata when the default project-site URL is appropriate
 - publication controls such as branch-create policy, `.nojekyll`, optional `CNAME`, commit/push policy, and preserved-file policy
@@ -121,6 +152,24 @@ weave deploy gh-pages --bootstrap-profile publish.weave.json
 The profile does not have to live in the source repository. It can be provided from outside the repo, from CI configuration, or from an operator's local working directory. If the goal is a completely clean source branch, the bootstrap profile should be treated as an operational input that seeds durable config into the publication branch, not as a file Weave requires on the source branch.
 
 In this task, "publication root" means the local checkout/worktree directory where Weave writes the published mesh. GitHub Pages branch publishing currently serves either the selected branch root or that branch's `/docs` folder. For a `gh-pages` branch deployment, Weave should default to the branch root as both the publication source folder and mesh root, while leaving room for an explicit `/docs` override if a user deliberately chooses that Pages setting.
+
+### Inference Rules
+
+Inference should be conservative, inspectable, and visible in dry-run output. Weave should infer only values it can derive from the supplied source/publication roots without network magic or ambiguous repository conventions. Any inferred value should be overrideable by CLI flag or deploy profile, and host-local paths must never be persisted as durable mesh facts.
+
+Publication worktree location is not inferred. In non-interactive runs, deploy requires `--publish-root` or a deploy profile value. In interactive runs, Weave may offer a conventional sibling default such as `../<repo>-gh-pages`, but the operator must accept or edit that path before Weave uses it.
+
+Publication source folder defaults to the branch root for `gh-pages` branch publishing. A future explicit override can support repositories configured to serve `/docs` from the publication branch, but the first branch-published surface should treat publication root as the mesh root and generated Pages source.
+
+Source repository URL can be inferred from the source checkout only when git metadata is available and one durable remote is unambiguous. Prefer `origin` when present; otherwise accept a single configured remote. If there are multiple plausible remotes, no remote, or a local-only remote that is not a durable publication identity, require `--source-repository-url` or a profile value.
+
+Source repository ref can be inferred from a git source checkout when `git symbolic-ref --short HEAD` returns a branch name. Detached `HEAD` should not silently become a symbolic source ref; in that case Weave should require an explicit source ref or use an explicit commit-like ref only when the operator/profile asks for that behavior. Tags, full refs, and commit SHAs supplied by the operator should be preserved rather than rewritten.
+
+Source repository commit can be inferred with `git rev-parse HEAD` only when the source checkout is clean enough for the commit to honestly describe the source bytes being materialized. If the source checkout has uncommitted changes that affect materialized inputs, Weave should either omit `sourceRepositoryCommit` and rely on the digest, or require an explicit override that makes the provenance policy visible. Recording `HEAD` as the source commit for dirty working-tree bytes would be misleading.
+
+Mesh base can be inferred only for clear GitHub Pages project-site cases, such as an unambiguous GitHub remote for `owner/repo` plus the default project-site base `https://<owner>.github.io/<repo>/`. Custom domains, user/organization sites, enterprise GitHub hosts, non-GitHub remotes, and multiple remotes should require `--mesh-base` or a profile value until richer Pages metadata support exists.
+
+Publication branch name may default to `gh-pages` for worktree creation/planning, but the public mesh base must not include or expose the branch name. Commit and push behavior should never be inferred from branch names or remotes; it remains explicit operator or CI policy.
 
 ### Command Shape
 
@@ -182,6 +231,31 @@ The workflow should handle:
 - preserving intentionally carried files such as `CNAME`, `.nojekyll`, or deployment metadata
 
 We should be very conservative about deletes. A publication branch reset is acceptable only behind an explicit flag and after preserving or re-creating known publication control files.
+
+### Local Generation Workflow
+
+The local workflow should be split into phases that make the branch boundary visible:
+
+1. Resolve deploy inputs from CLI flags, deploy profile, CI environment, or prompts. Required roots are the source checkout root and publication root. The mesh base and source binding facts may be explicit or inferred only under the conservative rules above.
+2. Inspect the source checkout. Confirm it exists, is distinct from the publication root, and contains each requested repository-relative source path. If source repository URL, ref, or commit are inferred, record whether they came from git remote metadata, symbolic `HEAD`, or exact `HEAD` commit. Dirty source checkouts are allowed for local byte materialization, but they should prevent silently recording `HEAD` as the source commit for changed bytes.
+3. Resolve the publication worktree. If `--publish-root` names an existing directory, use that directory after root-overlap and dirty-worktree checks. If a future profile/flag asks Weave to create the worktree, require an explicit branch/create policy before running `git worktree add`; do not switch the source checkout in-place.
+4. Inspect publication state before writing. Reject dirty publication git worktrees by default, reject partial branch-published mesh bootstrap state, reject stale local/publication clutter such as `.weave`, `.sf-local-access.ttl`, or old `docs/_mesh`, and report preserved non-generated files. Dry-run should perform the same checks before simulating writes in a temporary copy.
+5. Bootstrap or reuse the publication mesh. If no `_mesh/_meta`, `_mesh/_inventory`, and `_mesh/_config` bootstrap exists, create the minimal mesh shell in the publication root. If all exist, reuse them only when the requested mesh base matches. If only some exist, fail closed rather than guessing how to repair them.
+6. Materialize source bindings. For each binding, read bytes from `sourceRoot/sourcePath`, compute the digest, copy/update the publication-root relative target path, upsert the `RepositorySourceLocator` block in publication config, and run existing integrate/payload-update/weave operations from the publication-local target bytes. This keeps normal generation inside the publication workspace after the initial command-scoped read.
+7. Validate generated publication output. Scan generated RDF for source/publication root paths and parent traversal, preserve publication controls such as `.nojekyll` and configured `CNAME`, and report created, updated, preserved, and woven paths. Later Accord checks can sit after this phase for fixture or CI acceptance.
+8. Leave git publication actions explicit. The current local write path stops after validated file writes. Future commit support may stage and commit only when requested, and future push support must be a separate explicit operator/CI policy.
+
+The guardrails are intentionally stricter than a generic static-site build:
+
+- never infer or persist the local publication worktree path
+- never broaden the publication mesh workspace to include the sibling source checkout
+- never create source-branch `_mesh`, `.weave`, `docs`, or `.sf-local-access.ttl` state as part of branch-published deploy
+- never create, reset, or force-update a publication branch without an explicit branch policy flag or profile setting
+- never delete unknown publication files during normal incremental deploy
+- never record an exact source commit for bytes that are not actually represented by that commit
+- never let commit/push happen as a side effect of a command whose surface only promised local generation
+
+The first implementation already covers the local-write subset of this workflow. Worktree creation, source-ref/mesh-base inference, commit creation, push, and rebuild-from-scratch should be added as separate guarded slices rather than folded into the basic materialization path.
 
 ### Workspace Model
 
@@ -245,10 +319,11 @@ This should eventually support CI permissions that are narrower than a blanket t
 - Core versus config: repo/ref/path/digest identity belongs in core `sflo` as reusable source locator vocabulary that composes with `ArtifactResolutionTarget`; this vocabulary should land early, if not first, so the branch-published proof slice does not grow around temporary path-shaped RDF. Operational policy for resolving that locator, deciding whether network or local git access is allowed, and mapping it to a local checkout belongs in config/runtime policy.
 - Clean source branch: `_mesh/_config/config.ttl` on the publication branch should be enough to support a source branch with no Semantic Flow or Weave files. This is the point of the topology. The source branch may still opt into carrying a bootstrap profile or authored config later, but that must not be required.
 - Bootstrap surface: keep explicit flags for the first narrow CLI slice, but design the API around a structured request and make a deploy profile the pleasant path before target bindings become numerous. A completely clean source branch means the profile can live outside the source repo and seed durable config into the publication branch.
-- Inference defaults: infer only values that are conventional and inspectable. Source ref can default to the checked-out source `HEAD`; mesh base can be inferred from GitHub remote/project Pages metadata when unambiguous; `gh-pages` should default to branch-root publication. The publication worktree path should be prompted for interactively or required non-interactively, not silently guessed.
+- Inference defaults: infer only values that are conventional and inspectable. Source repository URL can come from an unambiguous durable git remote, source ref can come from a symbolic checked-out branch, source commit can come from `HEAD` only when it honestly describes the materialized bytes, mesh base can come from GitHub remote/project Pages metadata when unambiguous, and `gh-pages` should default to branch-root publication. The publication worktree path should be prompted for interactively or required non-interactively, not silently guessed.
 - Bootstrap versus materialization: model publication-branch bootstrap and first materialization as separate phases. One CLI command may perform both when target bindings are supplied, but the planner and tests should prove the phases independently.
 - Host-local paths: allow CLI flags, deploy profile values, CI environment/request data, and higher-trust local config to supply source and publication roots. Do not write those roots, or grants derived from their sibling relationship, into the public `gh-pages` branch.
 - Cross-worktree access: cross-worktree source access should be host-local and command-scoped for the first implementation. A publication branch may carry durable source provenance and project-local expectations, but it should not grant itself arbitrary sibling checkout access.
+- Local generation workflow: resolve/inspect source and publication roots, reject unsafe publication state, bootstrap or reuse the publication mesh, materialize source bindings into publication-local target files, validate output, and stop before git commit/push unless explicit future flags request those actions.
 - Durable source binding model: use git repository/ref/path/digest as the default durable model, with raw URLs as optional access/rendering forms. URL-first bindings are too lossy for private repos, local worktrees, branch/ref semantics, and digest-pinned replay.
 - Preserved files: normal incremental deployment should preserve unknown non-generated files by default, and always preserve or recreate configured publication control files such as `.nojekyll` and `CNAME`. Reset/rebuild mode needs an explicit preserved-file policy and should refuse a dirty publication worktree unless forced.
 - Command composition: the deploy command should orchestrate existing mesh create, integrate/version/weave/generate seams rather than invent a parallel generator. It can expose a higher-level workflow because the branch-published operator experience is different, but the internal semantic operations should remain recognizable and testable.
@@ -274,7 +349,10 @@ This should eventually support CI permissions that are narrower than a blanket t
 - Do not encode developer-specific sibling checkout paths as durable public mesh facts.
 - The design should allow the normal source branch to remain free of Semantic Flow and Weave files; durable mesh config may live on the publication branch.
 - API/CLI bootstrap inputs may provide everything needed to create the first publication branch and seed its durable mesh config.
-- Source ref, mesh base, and publication source folder may be inferred for common GitHub project-site cases, while remaining explicit/overrideable.
+- Source repository URL, source ref, source commit, mesh base, and publication source folder may be inferred only when local git/Pages conventions make them unambiguous and honest, while remaining explicit/overrideable.
+- Branch-published source bindings separate operation-local `sourceRoot` resolution from durable repo/ref/path/digest publication facts; deploy must not persist sibling worktree paths or local path grants as source provenance.
+- Raw URLs are secondary access/rendering hints for git-hosted source material; the canonical durable binding for git sources is structured repository/ref-or-commit/path/digest provenance.
+- Branch-published local generation should use git worktrees rather than in-place branch switching, reject dirty or partial publication state by default, and reserve branch creation, rebuild, commit, and push for explicit guarded flags or profile settings.
 - The interactive CLI should prompt for the publication worktree path when it is omitted; non-interactive runs should require `--publish-root` or a deploy profile value.
 - Branch-published deployment uses a deploy context with a source root and a publication root; it does not redefine the general workspace model. The publication root is the active mesh workspace, while the source root is a trusted operation input.
 - Default branch-published deployment should update the existing publication branch incrementally rather than overwrite it from scratch.
@@ -325,15 +403,15 @@ This should eventually support CI permissions that are narrower than a blanket t
 
 - [x] Confirm terminology and update [[wu.repository-options]] with a branch-published topology section.
 - [x] Add initial core `sflo` repository-source locator vocabulary for durable repo/ref/path/digest provenance.
-- [ ] Confirm first implementation source-binding scope: command/profile-scoped local resolution is allowed for the proof slice, but any persisted binding needs target-neutral repo/ref/path/digest rather than `workingLocalRelativePath`.
-- [ ] Define the minimum source binding shape for repo/ref/path/digest inputs, including when raw URLs are acceptable.
+- [x] Confirm first implementation source-binding scope: command/profile-scoped local resolution is allowed for the proof slice, but any persisted binding needs target-neutral repo/ref/path/digest rather than `workingLocalRelativePath`.
+- [x] Define the minimum source binding shape for repo/ref/path/digest inputs, including when raw URLs are acceptable.
 - [x] Draft the core ontology change for a repo/ref/path/digest locator that composes with `ArtifactResolutionTarget`.
 - [x] Define bootstrap API/CLI inputs for creating the first publication branch from a clean source branch.
 - [x] Split publication-branch bootstrap from first materialization in the deploy model, even if one CLI command can perform both.
-- [ ] Define inference rules and override flags for source ref, mesh base, and publication source folder.
+- [x] Define inference rules and override flags for source ref, mesh base, and publication source folder.
 - [x] Add interactive prompting for missing publication worktree path and non-interactive fail-closed behavior when no path/profile is supplied.
 - [x] Define the branch deploy context as source root plus publication root without broadening the general workspace model.
-- [ ] Draft the local generation workflow for source checkout plus publication worktree, including dirty-worktree and branch initialization guardrails.
+- [x] Draft the local generation workflow for source checkout plus publication worktree, including dirty-worktree and branch initialization guardrails.
 - [x] Add a dry-run planner for the branch-published workflow that prints source root, publication root, mesh base, generated paths, preserved files, and git operations that would run.
 - [x] Add path-policy tests for cross-worktree source access and host-local grants.
 - [x] Create the first branch-published Fantasy Rules source-only proof ref and Accord manifest (`bp-01-source-only`) in the existing fixture repo/SFF conformance area.
