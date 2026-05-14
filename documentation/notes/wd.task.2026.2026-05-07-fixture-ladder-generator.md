@@ -12,7 +12,7 @@ created: 1778219880393
 - Treat fixture repository branches as disposable golden outputs that can be regenerated after ontology, config, planner, renderer, or manifest changes.
 - Keep Accord transition manifests as the durable behavior contract, while fixture branches remain convenient test and inspection material.
 - Support the existing Alice Bio and Sidecar Fantasy Rules fixture repositories without forcing a generalized scenario engine in the first pass.
-- Make rerunging from an early branch boring: run one command, replay transitions in order, validate each step, and report drift.
+- Make rerunning from an early branch boring: run one command, replay transitions in order, validate each step, and report drift.
 - Preserve the ability for tests to compare Weave output against settled fixture refs.
 - Keep GitHub Pages publication focused on the final SemanticSite unless a specific task needs intermediate states.
 - Coordinate the generator with the enum-instance migration in [[ont.task.2026.2026-05-03-enumeration-type-instances]] and the config synthesis in [[wd.task.2026.2026-05-06-grand-config-synthesis]].
@@ -69,6 +69,8 @@ The generator should be designed alongside the next config pass and used before 
 
 That does not mean the generator has to be perfect before config synthesis begins. The minimum useful version is a deterministic replay tool for one fixture repo, probably Alice Bio, with clear dry-run/status output and validation hooks. Config design can proceed concurrently, but fixture repo repair should wait until the enum and config vocabulary changes can be regenerated together.
 
+The immediate reason to start now is concrete: the current broad weave tests still read fixture branches that carry the old `https://semantic-flow.github.io/semantic-flow-ontology/` namespace and inventory-owned mutable progression facts. Current code is moving toward the canonical `https://semantic-flow.github.io/sflo/ontology/` namespace and the `_mesh/_meta` MeshInventory progression seam from [[wd.task.2026.2026-05-06-grand-config-synthesis]]. We do not want backward-compatibility shims for pre-v1 fixture shapes; the generator should make it cheap to regenerate the expected branches cleanly instead.
+
 ### Relationship To Enumeration Migration
 
 The enum-instance migration in [[ont.task.2026.2026-05-03-enumeration-type-instances]] should not be blocked on a finished fixture generator. The enum task is ontology-level vocabulary cleanup and should settle before the config ontology mints many new controlled values.
@@ -88,15 +90,89 @@ Start with Alice Bio because it has the longest ladder and exercises mesh create
 
 The generator should be intentionally concrete at first. It does not need to infer operations from arbitrary manifests. It can have explicit transition definitions that name the command to run, the source branch, the target branch, the manifest, and any path replacements or known comparison exclusions already used by tests.
 
+The first useful implementation should not try to repair every fixture branch in one leap. It should first inventory the existing ladder and produce a dry-run plan whose transition definitions are explicit enough to review. Then implement one real Alice Bio transition in a temporary checkout, validate it, and only after that add write-branch support behind an explicit flag. This keeps branch updates from becoming accidental while still making generated output the intended end state.
+
+### Inventory Snapshot
+
+The current Accord conformance manifests already identify each transition's `operationId`, `fromRef`, `toRef`, target designator path or paths, and file/RDF expectations. They do not record the exact replay command, command working directory, prompt policy, source-file setup, or manual source provenance needed to reproduce the transition without archive/context memory.
+
+Alice Bio currently has manifests for `01-source-only` through `25-root-page-customized-woven`:
+
+- `01-source-only`: seed source-only fixture state from `00-blank-slate`.
+- `02-mesh-created`: `mesh.create` from `01-source-only`.
+- `03-mesh-created-woven`: top-level `weave` from `02-mesh-created`.
+- `04-alice-knop-created`: `knop.create alice`.
+- `05-alice-knop-created-woven`: top-level `weave`.
+- `06-alice-bio-integrated`: `integrate alice-bio.ttl --designator-path alice/bio`.
+- `07-alice-bio-integrated-woven`: top-level `weave`.
+- `08-alice-bio-referenced`: `knop.addReference alice` with target `alice/bio` and role `canonical`.
+- `09-alice-bio-referenced-woven`: top-level `weave`.
+- `10-alice-bio-updated`: `payload.update alice/bio` from the v2 source bytes.
+- `11-alice-bio-v2-woven`: top-level `weave` targeted at `alice/bio`.
+- `12-bob-extracted`: `extract bob`.
+- `13-bob-extracted-woven`: top-level `weave` targeted at `bob`.
+- `14-alice-page-customized`: `resourcePage.define alice`; currently a hand-authored fixture operation, not a first-class replay command.
+- `15-alice-page-customized-woven`: top-level `weave` targeted at `alice`.
+- `16-alice-page-main-integrated`: `integrate alice/page-main`.
+- `17-alice-page-main-integrated-woven`: top-level `weave` targeted at `alice/page-main`.
+- `18-alice-page-artifact-source`: `resourcePage.define alice`; currently a hand-authored fixture operation that repoints the page definition to the governed artifact.
+- `19-alice-page-artifact-source-woven`: top-level `weave` targeted at `alice`.
+- `20-bob-page-imported-source`: `import bob`; currently a carried fixture shape ahead of a first-class `import` command.
+- `21-bob-page-imported-source-woven`: top-level `weave` targeted at `bob`.
+- `22-root-knop-created`: `knop.create /`.
+- `23-root-knop-created-woven`: top-level `weave` targeted at `/`.
+- `24-root-page-customized`: `resourcePage.define /`; currently a hand-authored fixture operation.
+- `25-root-page-customized-woven`: top-level `weave` targeted at `/`.
+
+Sidecar Fantasy Rules currently has manifests for `02-sidecar-mesh-created` through `15-first-release-woven`; `01-source-only` is a prerequisite source branch but does not currently have a matching conformance manifest in the framework examples tree:
+
+- `02-sidecar-mesh-created`: `mesh.create` with workspace root `.` and mesh root `docs`.
+- `03-sidecar-mesh-created-woven`: top-level `weave --mesh-root docs`.
+- `04-ontology-integrated`: `integrate` the adjacent ontology source into the docs-rooted mesh.
+- `05-ontology-integrated-woven`: top-level `weave --mesh-root docs`.
+- `06-shacl-integrated`: `integrate` the adjacent SHACL source into the docs-rooted mesh.
+- `07-shacl-integrated-woven`: top-level `weave --mesh-root docs`.
+- `08-ontology-and-shacl-terms-extracted`: `extract --all-terms --accept-preview` or equivalent term extraction from the integrated sources.
+- `09-ontology-and-shacl-terms-extracted-woven`: top-level `weave --mesh-root docs`.
+- `10-root-knop`: `knop.create` for `/` and `examples`.
+- `11-root-knop-woven`: top-level `weave --mesh-root docs` with both root and examples targets.
+- `12-gunaar-example-dataset`: `integrate examples/gunaar.ttl examples/gunaar --mesh-root docs --grant-source-directory examples`.
+- `13-gunaar-example-dataset-woven`: top-level `weave --mesh-root docs --target designatorPath=examples/gunaar`.
+- `14-first-release`: `source.update`; currently a hand-authored fixture operation that prepares release metadata in authored ontology and SHACL source files.
+- `15-first-release-woven`: two explicit named-release top-level `weave --mesh-root docs` operations, one for `ontology` and one for `shacl`, using `--payload-history-segment releases`, `--payload-state-segment v0.0.1`, and `--payload-manifestation-segment ttl`.
+
+Existing e2e tests provide partial command templates for several transitions, and the CLI runtime writes command audit events under `.weave/logs/security-audit.jsonl`. Those logs are useful runtime evidence, but they are not the durable replay contract. The scenario definition should record the intended command before execution, and tests can still assert that the command emits operational/audit logs while replaying.
+
+### Command And Source Provenance
+
+Each generated transition should record enough provenance to reproduce the fixture state without relying on chat archives, task-note archaeology, or human memory:
+
+- command provenance: executable, argv, command working directory, relevant environment overrides, prompt/confirmation policy, and whether the operation is expected to write runtime logs.
+- materialization provenance: source fixture repo, source ref, target ref, mesh root, workspace root, files copied into the temporary workspace before running the command, and any path replacements used only for comparison.
+- manual-source provenance: for non-command transitions, the source of each created or replaced file, whether it is inline fixture-authored content, a copied file from an earlier branch, an external URL, or content derived from a specific task note.
+- remote-source provenance: URL, fetch mode, expected media type when relevant, and a content digest or checked-in source fixture so reruns are deterministic even if the remote changes.
+- validation provenance: manifest path, full-tree comparison mode, manifest-scoped comparison mode, expected guardrails, and expected generated-output invariants.
+
+This matters immediately for the hand-authored or command-incomplete rungs:
+
+- `14-alice-page-customized`, `18-alice-page-artifact-source`, and `24-root-page-customized` create or replace page-definition, Markdown, CSS, sidebar, and inventory files without a first-class `resourcePage.define` command. The generator can initially replay these as declared file operations, but the source for each authored file must be explicit.
+- `20-bob-page-imported-source` uses the outside-origin Markdown URL recorded in [[wd.task.2026.2026-04-13_1245-bob-import-boundary-for-page-source]]: `https://raw.githubusercontent.com/djradon/public-notes/refs/heads/main/user.bob-newhart.md`. The generator should not refetch a moving branch URL blindly during deterministic replay; it should either pin a digest, use checked-in fixture source bytes, or both.
+- `14-first-release` in Sidecar Fantasy Rules prepares release metadata in authored ontology and SHACL source files, while `15-first-release-woven` materializes the release histories. The scenario should preserve that split and record the two named-release weave commands explicitly.
+
+The first scenario-definition format should therefore support both `command` steps and `fileOperation` steps. A `fileOperation` step is not a weaker contract; it must be more explicit about where bytes came from because no CLI command currently carries that provenance for us.
+
 ## Open Issues
 
 - Should scenario definitions live as TypeScript in Weave, as data files in Weave, or beside Accord manifests in the Semantic Flow Framework examples tree?
 - Should generated fixture branch commits be one commit per rung, or should the generator only update branch tips without caring about branch-local history?
 - Should the generator force-update branches by default, or require an explicit `--force` / `--write-branches` flag after a dry run?
 - How should the generator handle intentionally hand-authored source-only branches such as `01-source-only`?
+- Should transition command/provenance stay only in Weave's scenario definitions for the first pass, or should Accord manifests grow portable replay metadata after the shape settles?
 - Should manifest validation compare full tree contents, manifest-scoped expectations only, or both depending on transition type?
 - How much should generated HTML be normalized before comparison, especially as renderer behavior changes?
 - Should final SemanticSite publication be handled by this generator later or by a separate release/publish task?
+- Should the first generator command live under `tests/fixtures`, `tools/fixtures`, or a Deno task entry point such as `deno task fixture:ladder`?
+- Should the generator validate canonical namespace and progression-location invariants before branch writes, or should those stay in separate ontology/fixture tests?
 
 ## Decisions
 
@@ -107,13 +183,18 @@ The generator should be intentionally concrete at first. It does not need to inf
 - Publish only the final SemanticSite by default; intermediate Pages publication is out of scope for the first pass.
 - Do not rename completed task notes or fixture branches as part of this task unless explicitly requested.
 - Do not build a fully generic fixture scenario engine in the first pass.
+- Do not add compatibility handling for old fixture namespaces or inventory-owned progression facts; stale fixtures should be regenerated against the current contract.
+- Record exact replay commands for command-backed transitions.
+- Record explicit source provenance for manually created, copied, fetched, or derived files. A fixture branch is not repeatable if the source of hand-authored bytes only exists in a prior conversation.
 
 ## Contract Changes
 
 - No immediate external Semantic Flow API contract changes.
 - Weave's internal fixture maintenance contract changes: generated fixture branches are no longer treated as hand-maintained source material.
 - Test fixtures may gain a declared scenario/replay contract that names transition order, expected source refs, expected target refs, commands, and manifests.
+- Scenario/replay contracts should also name manual file operations and remote or inline source provenance for transitions that are not yet backed by a first-class Weave command.
 - Future fixture branch diffs should be reviewed as generated outputs from a declared replay, not as standalone authored examples.
+- Generated fixture outputs should use the canonical `sflo` namespace and the current `_mesh/_meta` progression contract rather than preserving old fixture shapes.
 
 ## Testing
 
@@ -121,6 +202,7 @@ The generator should be intentionally concrete at first. It does not need to inf
 - Add dry-run tests for command planning so transition order, source branch, target branch, manifest path, and command arguments are validated without mutating fixture repos.
 - Add at least one integration-style test that regenerates a small temporary fixture ladder from a minimal scenario.
 - Use existing e2e and integration fixture comparisons as the main acceptance check after branch regeneration.
+- Add a guardrail or validation step for generated fixture output that catches old `semantic-flow-ontology` namespace usage and stale inventory-owned MeshInventory progression facts before branch refs are updated.
 - Run `deno task lint` after significant implementation changes, per repo guidance.
 - For actual fixture rerunging, run the relevant Accord manifest checks and the affected Weave fixture tests before accepting generated branches.
 
@@ -136,11 +218,13 @@ The generator should be intentionally concrete at first. It does not need to inf
 
 ## Implementation Plan
 
-- [ ] Inventory the current Alice Bio and Sidecar Fantasy Rules branch ladders, manifest names, transition commands, and existing test expectations.
+- [x] Inventory the current Alice Bio and Sidecar Fantasy Rules branch ladders, manifest names, transition commands, and existing test expectations.
+- [ ] Inventory the currently failing fixture-backed tests and classify each failure as stale fixture namespace, stale progression location, page-definition shape drift, manifest drift, or implementation regression.
 - [ ] Decide the first scenario-definition format, favoring a simple TypeScript definition unless a data file is clearly better.
-- [ ] Implement a dry-run planner that prints transition order, source branch, target branch, manifest path, command, and expected validation steps.
+- [ ] Implement a dry-run planner that prints transition order, source branch, target branch, manifest path, command or file operation, source provenance, and expected validation steps.
 - [ ] Implement local materialization for a source branch into a temporary workspace using the existing fixture helper behavior as a reference.
 - [ ] Implement execution for the first Alice Bio transition that runs the intended Weave command and validates the result against its Accord manifest.
+- [ ] Add generated-output guardrails for canonical `sflo` namespace and current `_mesh/_meta` MeshInventory progression shape before any branch write.
 - [ ] Add branch update support behind an explicit write flag so dry runs remain the default while the tool is being proven.
 - [ ] Extend the generator through the full Alice Bio ladder.
 - [ ] Update or add documentation for the Alice Bio regeneration workflow.
