@@ -154,7 +154,7 @@ Deno.test("packageBinaries rejects stale bundle metadata", async () => {
         platformLabels: ["linux-x64"],
       }),
     Error,
-    "Bundle metadata does not match",
+    "Bundle metadata field version does not match",
   );
 });
 

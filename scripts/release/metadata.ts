@@ -129,6 +129,40 @@ export function createBinaryBundleMetadata(
   };
 }
 
+export async function readBinaryBundleMetadata(
+  path: string,
+): Promise<BinaryBundleMetadata> {
+  return JSON.parse(await Deno.readTextFile(path)) as BinaryBundleMetadata;
+}
+
+export function assertBinaryBundleMetadata(
+  actual: BinaryBundleMetadata,
+  expected: BinaryBundleMetadata,
+  path: string,
+): void {
+  const fields: readonly (keyof BinaryBundleMetadata)[] = [
+    "packageName",
+    "wrapperPackageName",
+    "version",
+    "platform",
+    "os",
+    "cpu",
+    "denoTarget",
+    "executableName",
+    "bundleDirectoryName",
+    "archiveName",
+    "checksumName",
+  ];
+
+  for (const field of fields) {
+    if (actual[field] !== expected[field]) {
+      throw new Error(
+        `Bundle metadata field ${field} does not match expected release metadata: ${path}`,
+      );
+    }
+  }
+}
+
 export function getReleasePlatform(
   label: string,
 ): ReleasePlatform | undefined {

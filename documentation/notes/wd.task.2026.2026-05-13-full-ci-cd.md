@@ -41,7 +41,8 @@ Weave currently has:
 - no release workflow
 - `deno task build:binaries` for native binary compilation and per-platform bundle metadata
 - `deno task package:binaries` for Deno-native `.tar.gz`/`.zip` archive generation and `.sha256` checksum files
-- no npm package assembly or publishing
+- `deno task assemble:npm-packages` for local npm wrapper/platform package directory assembly
+- no npm install smoke-test or publishing scripts
 - root `deno.json` version metadata and `weave --version`
 
 That is enough for `v0.0.2`, especially as a deliberate checkpoint with known CI debt, but not enough for a release that users can install.
@@ -56,6 +57,7 @@ Local validation after the first version-plumbing slice shows:
 - focused `weave --version` e2e coverage passes.
 - focused release metadata and build-script argument tests pass.
 - focused binary packaging helper tests pass.
+- focused npm package assembly tests pass.
 - `deno task test` fails with broad fixture-backed drift: 186 passed, 145 failed.
 
 The failures are not caused by version metadata. They cluster around the known pre-release fixture and contract drift:
@@ -197,6 +199,8 @@ The platform packages should:
 - contain the packaged native binary for exactly one platform
 - be marked with appropriate `os` and `cpu` constraints
 - avoid lifecycle scripts when practical; prefer static bin dispatch from the wrapper
+
+The third implementation slice adds `scripts/assemble-npm-packages.ts`, `deno task assemble:npm-packages`, npm package metadata helpers, a Node bin dispatcher for the wrapper package, platform packages with `os` and `cpu` constraints, copied native binaries, license/readme files, and tests for metadata, optional dependencies, bin dispatch contents, platform constraints, executable modes, and stale bundle metadata rejection. This is local package-directory assembly; npm install smoke tests and publish behavior remain separate slices.
 
 The publish script should support:
 
@@ -370,11 +374,12 @@ The runbook should include:
 - [x] Add bundle metadata, archive naming, and `.sha256` generation.
 - [x] Add tests for bundle metadata and packaging helpers.
 - [x] Add tests for release platform metadata, archive naming, and build-script arguments.
-- [ ] Add `scripts/assemble-npm-packages.ts` and root `deno task assemble:npm-packages`.
-- [ ] Add npm wrapper package and platform package generation.
+- [x] Add `scripts/assemble-npm-packages.ts` and root `deno task assemble:npm-packages`.
+- [x] Add npm wrapper package and platform package generation.
 - [ ] Add `scripts/smoke-npm-install.ts` and root `deno task smoke:npm-install`.
 - [ ] Add `scripts/publish-npm-packages.ts` and root `deno task publish:npm-packages`.
-- [ ] Add tests for npm package assembly and smoke-test setup.
+- [x] Add tests for npm package assembly.
+- [ ] Add tests for npm package smoke-test setup.
 - [ ] Add `.github/workflows/release-manual.yml`.
 - [ ] Add native binary smoke tests to the release workflow.
 - [ ] Add npm install smoke tests to the release workflow.

@@ -1,46 +1,46 @@
 import { fromFileUrl, join } from "@std/path";
 import {
-  type ArchiveEntry,
-  createTarGzArchive,
-  createZipArchive,
-  renderChecksumFile,
-  sha256Hex,
-} from "./release/archive.ts";
+  createPlatformPackageJson,
+  createWrapperPackageJson,
+  npmPackagePath,
+  renderPlatformReadme,
+  renderWrapperBinScript,
+  renderWrapperReadme,
+} from "./release/npm.ts";
 import {
   assertBinaryBundleMetadata,
-  type BinaryBundleMetadata,
   createBinaryBundleMetadata,
+  NPM_WRAPPER_PACKAGE_NAME,
   readBinaryBundleMetadata,
   readRootVersionFrom,
   type ReleasePlatform,
   selectReleasePlatforms,
 } from "./release/metadata.ts";
 
-export interface PackageBinariesOptions {
+export interface AssembleNpmPackagesOptions {
   root: string;
   buildDir: string;
   outDir: string;
   platformLabels: string[];
 }
 
-export interface PackageBinaryResult {
-  platform: string;
-  archivePath: string;
-  checksumPath: string;
-  checksum: string;
+export interface AssembleNpmPackagesResult {
+  wrapperPackageDir: string;
+  platformPackageDirs: string[];
 }
 
 const defaultRoot = fromFileUrl(new URL("..", import.meta.url));
 const defaultBuildDir = "dist/binaries";
-const defaultOutDir = "dist/release";
-const textEncoder = new TextEncoder();
+const defaultOutDir = "dist/npm";
 
 if (import.meta.main) {
   try {
-    const results = await packageBinaries(parsePackageBinariesArgs(Deno.args));
-    for (const result of results) {
-      console.log(`Packaged ${result.platform}: ${result.archivePath}`);
-      console.log(`Checksum: ${result.checksumPath}`);
+    const result = await assembleNpmPackages(
+      parseAssembleNpmPackagesArgs(Deno.args),
+    );
+    console.log(`Assembled wrapper package: ${result.wrapperPackageDir}`);
+    for (const packageDir of result.platformPackageDirs) {
+      console.log(`Assembled platform package: ${packageDir}`);
     }
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
@@ -48,9 +48,9 @@ if (import.meta.main) {
   }
 }
 
-export function parsePackageBinariesArgs(
+export function parseAssembleNpmPackagesArgs(
   args: readonly string[],
-): PackageBinariesOptions {
+): AssembleNpmPackagesOptions {
   let root = defaultRoot;
   let buildDir = defaultBuildDir;
   let outDir = defaultOutDir;
@@ -103,27 +103,32 @@ export function parsePackageBinariesArgs(
           );
           break;
         }
-        throw new Error(`Unsupported package:binaries argument: ${arg}`);
+        throw new Error(`Unsupported assemble:npm-packages argument: ${arg}`);
     }
   }
 
   return { root, buildDir, outDir, platformLabels };
 }
 
-export async function packageBinaries(
-  options: PackageBinariesOptions,
-): Promise<PackageBinaryResult[]> {
+export async function assembleNpmPackages(
+  options: AssembleNpmPackagesOptions,
+): Promise<AssembleNpmPackagesResult> {
   const version = await readRootVersionFrom(options.root);
   const platforms = selectReleasePlatforms(options.platformLabels);
   const buildDir = resolveRootPath(options.root, options.buildDir);
   const outDir = resolveRootPath(options.root, options.outDir);
 
-  await Deno.mkdir(outDir, { recursive: true });
+  const wrapperPackageDir = await writeWrapperPackage({
+    outDir,
+    platforms,
+    root: options.root,
+    version,
+  });
+  const platformPackageDirs: string[] = [];
 
-  const results: PackageBinaryResult[] = [];
   for (const platform of platforms) {
-    results.push(
-      await packagePlatformBinary({
+    platformPackageDirs.push(
+      await writePlatformPackage({
         buildDir,
         outDir,
         platform,
@@ -132,102 +137,91 @@ export async function packageBinaries(
       }),
     );
   }
-  return results;
+
+  return { wrapperPackageDir, platformPackageDirs };
 }
 
-async function packagePlatformBinary(options: {
+async function writeWrapperPackage(options: {
+  outDir: string;
+  platforms: readonly ReleasePlatform[];
+  root: string;
+  version: string;
+}): Promise<string> {
+  const packageDir = npmPackagePath(options.outDir, NPM_WRAPPER_PACKAGE_NAME);
+  await Deno.mkdir(join(packageDir, "bin"), { recursive: true });
+  await writeJsonFile(
+    join(packageDir, "package.json"),
+    createWrapperPackageJson(options.version, options.platforms),
+  );
+  const binPath = join(packageDir, "bin", "weave.js");
+  await Deno.writeTextFile(
+    binPath,
+    renderWrapperBinScript(options.platforms),
+  );
+  await chmodExecutable(binPath);
+  await Deno.writeTextFile(
+    join(packageDir, "README.md"),
+    renderWrapperReadme(options.version),
+  );
+  await copyLicenseIfPresent(options.root, packageDir);
+  return packageDir;
+}
+
+async function writePlatformPackage(options: {
   buildDir: string;
   outDir: string;
   platform: ReleasePlatform;
   root: string;
   version: string;
-}): Promise<PackageBinaryResult> {
+}): Promise<string> {
   const platformBuildDir = join(options.buildDir, options.platform.label);
+  const metadataPath = join(platformBuildDir, "bundle-metadata.json");
+  const metadata = await readBinaryBundleMetadata(metadataPath);
   const expectedMetadata = createBinaryBundleMetadata(
     options.version,
     options.platform,
   );
-  const metadataPath = join(platformBuildDir, "bundle-metadata.json");
-  const metadata = await readBinaryBundleMetadata(metadataPath);
   assertBinaryBundleMetadata(metadata, expectedMetadata, metadataPath);
 
-  const entries = await createArchiveEntries({
-    metadata,
-    platformBuildDir,
-    root: options.root,
-  });
-  const archiveBytes = options.platform.archiveExtension === ".zip"
-    ? createZipArchive(entries)
-    : await createTarGzArchive(entries);
-  const archivePath = join(options.outDir, metadata.archiveName);
-  const checksum = await sha256Hex(archiveBytes);
-  const checksumPath = join(options.outDir, metadata.checksumName);
-
-  await Deno.writeFile(archivePath, archiveBytes);
-  await Deno.writeTextFile(
-    checksumPath,
-    renderChecksumFile(checksum, metadata.archiveName),
+  const packageDir = npmPackagePath(options.outDir, metadata.packageName);
+  await Deno.mkdir(join(packageDir, "bin"), { recursive: true });
+  await writeJsonFile(
+    join(packageDir, "package.json"),
+    createPlatformPackageJson(metadata),
   );
+  await Deno.copyFile(metadataPath, join(packageDir, "bundle-metadata.json"));
+  await Deno.writeTextFile(
+    join(packageDir, "README.md"),
+    renderPlatformReadme(metadata),
+  );
+  await copyLicenseIfPresent(options.root, packageDir);
 
-  return {
-    platform: options.platform.label,
-    archivePath,
-    checksumPath,
-    checksum,
-  };
+  const sourceBinaryPath = join(platformBuildDir, metadata.executableName);
+  const targetBinaryPath = join(packageDir, "bin", metadata.executableName);
+  await Deno.copyFile(sourceBinaryPath, targetBinaryPath);
+  await chmodExecutable(targetBinaryPath);
+
+  return packageDir;
 }
 
-async function createArchiveEntries(options: {
-  metadata: BinaryBundleMetadata;
-  platformBuildDir: string;
-  root: string;
-}): Promise<ArchiveEntry[]> {
-  const bundlePrefix = options.metadata.bundleDirectoryName;
-  const binaryPath = join(
-    options.platformBuildDir,
-    options.metadata.executableName,
-  );
-  const metadataPath = join(options.platformBuildDir, "bundle-metadata.json");
-  const licensePath = join(options.root, "LICENSE");
-
-  const entries: ArchiveEntry[] = [
-    {
-      name: `${bundlePrefix}/${options.metadata.executableName}`,
-      data: await Deno.readFile(binaryPath),
-      executable: true,
-    },
-    {
-      name: `${bundlePrefix}/bundle-metadata.json`,
-      data: await Deno.readFile(metadataPath),
-    },
-    {
-      name: `${bundlePrefix}/README.md`,
-      data: textEncoder.encode(renderArchiveReadme(options.metadata)),
-    },
-  ];
-
+async function copyLicenseIfPresent(root: string, packageDir: string) {
   try {
-    entries.push({
-      name: `${bundlePrefix}/LICENSE`,
-      data: await Deno.readFile(licensePath),
-    });
+    await Deno.copyFile(join(root, "LICENSE"), join(packageDir, "LICENSE"));
   } catch (error) {
     if (!(error instanceof Deno.errors.NotFound)) {
       throw error;
     }
   }
-
-  return entries;
 }
 
-function renderArchiveReadme(metadata: BinaryBundleMetadata): string {
-  const runPrefix = metadata.os === "win32" ? "" : "./";
-  return `# Weave ${metadata.version} ${metadata.platform}
+async function writeJsonFile(path: string, value: unknown): Promise<void> {
+  await Deno.writeTextFile(path, `${JSON.stringify(value, null, 2)}\n`);
+}
 
-This archive contains the \`${metadata.executableName}\` CLI for ${metadata.platform}.
-
-Run \`${runPrefix}${metadata.executableName} --version\` after extracting on a matching platform.
-`;
+async function chmodExecutable(path: string): Promise<void> {
+  if (Deno.build.os !== "windows") {
+    await Deno.chmod(path, 0o755);
+  }
 }
 
 function resolveRootPath(root: string, path: string): string {
