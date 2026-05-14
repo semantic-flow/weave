@@ -713,6 +713,96 @@ fantasy:RuleSystem a owl:Class .
   );
 });
 
+Deno.test("executeGHPagesDeployBootstrap creates explicit local publication commits", async () => {
+  const tempRoot = await createTestTmpDir("weave-deploy-gh-pages-commit-");
+  const sourceRoot = join(tempRoot, "source");
+  const publishRoot = join(tempRoot, "gh-pages");
+  await Deno.mkdir(sourceRoot, { recursive: true });
+  await Deno.mkdir(publishRoot, { recursive: true });
+  await runGit(publishRoot, ["init"]);
+  await runGit(publishRoot, ["config", "user.email", "weave@example.invalid"]);
+  await runGit(publishRoot, ["config", "user.name", "Weave Test"]);
+  await runGit(publishRoot, ["commit", "--allow-empty", "-m", "initial"]);
+
+  const firstResult = await executeGHPagesDeployBootstrap({
+    sourceRoot,
+    publishRoot,
+    request: {
+      meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    },
+    commit: {
+      message: "publish mesh",
+    },
+  });
+
+  assert(firstResult.localCommit?.status === "created");
+  assertEquals(firstResult.localCommit.message, "publish mesh");
+  assert(
+    firstResult.localCommit.pushReminder.includes(
+      "Push the publication branch",
+    ),
+    firstResult.localCommit.pushReminder,
+  );
+  assertEquals(await gitOutput(publishRoot, ["status", "--short"]), "");
+  assertEquals(
+    await gitOutput(publishRoot, ["log", "-1", "--pretty=%s"]),
+    "publish mesh",
+  );
+  const committedHead = await gitOutput(publishRoot, ["rev-parse", "HEAD"]);
+
+  const secondResult = await executeGHPagesDeployBootstrap({
+    sourceRoot,
+    publishRoot,
+    request: {
+      meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    },
+    commit: {
+      message: "publish mesh again",
+    },
+  });
+
+  assert(secondResult.localCommit?.status === "skipped");
+  assertEquals(
+    secondResult.localCommit.reason,
+    "publication worktree has no changes",
+  );
+  assertEquals(await gitOutput(publishRoot, ["status", "--short"]), "");
+  assertEquals(
+    await gitOutput(publishRoot, ["rev-parse", "HEAD"]),
+    committedHead,
+  );
+});
+
+Deno.test("executeGHPagesDeployBootstrap rejects local commits with dirty-root mode", async () => {
+  const tempRoot = await createTestTmpDir(
+    "weave-deploy-gh-pages-commit-dirty-",
+  );
+  const sourceRoot = join(tempRoot, "source");
+  const publishRoot = join(tempRoot, "gh-pages");
+  await Deno.mkdir(sourceRoot, { recursive: true });
+  await Deno.mkdir(publishRoot, { recursive: true });
+  await runGit(publishRoot, ["init"]);
+  await runGit(publishRoot, ["config", "user.email", "weave@example.invalid"]);
+  await runGit(publishRoot, ["config", "user.name", "Weave Test"]);
+  await runGit(publishRoot, ["commit", "--allow-empty", "-m", "initial"]);
+
+  await assertRejects(
+    () =>
+      executeGHPagesDeployBootstrap({
+        sourceRoot,
+        publishRoot,
+        allowDirtyPublicationRoot: true,
+        request: {
+          meshBase:
+            "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+        },
+        commit: {},
+      }),
+    GHPagesDeployInputError,
+    "--commit cannot be combined with --allow-dirty-publish-root",
+  );
+});
+
 Deno.test("executeGHPagesDeployBootstrap rejects dirty publication worktrees by default", async () => {
   const tempRoot = await createTestTmpDir("weave-deploy-gh-pages-dirty-");
   const sourceRoot = join(tempRoot, "source");

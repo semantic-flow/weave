@@ -40,6 +40,7 @@ export interface ExecuteGHPagesDeployBootstrapOptions {
   publishRoot: string;
   request: GHPagesDeployBootstrapRequest;
   allowDirtyPublicationRoot?: boolean;
+  commit?: GHPagesDeployCommitRequest;
   operationalLogger?: StructuredLogger;
   auditLogger?: AuditLogger;
 }
@@ -49,6 +50,11 @@ export interface PlanGHPagesDeployBootstrapOptions {
   publishRoot: string;
   request: GHPagesDeployBootstrapRequest;
   allowDirtyPublicationRoot?: boolean;
+  commit?: GHPagesDeployCommitRequest;
+}
+
+export interface GHPagesDeployCommitRequest {
+  message?: string;
 }
 
 export interface GHPagesDeployBootstrapResult {
@@ -59,6 +65,7 @@ export interface GHPagesDeployBootstrapResult {
   createdPaths: readonly string[];
   updatedPaths: readonly string[];
   materializedSource?: GHPagesDeployMaterializedSourceResult;
+  localCommit?: GHPagesDeployLocalCommitResult;
 }
 
 export interface GHPagesDeployBootstrapPlan {
@@ -83,6 +90,19 @@ export interface GHPagesDeployMaterializedSourceResult {
   updatedPaths: readonly string[];
   wovenPaths: readonly string[];
 }
+
+export type GHPagesDeployLocalCommitResult =
+  | {
+    status: "created";
+    commit: string;
+    message: string;
+    pushReminder: string;
+  }
+  | {
+    status: "skipped";
+    message: string;
+    reason: string;
+  };
 
 export class GHPagesDeployInputError extends Error {
   constructor(message: string) {
@@ -113,6 +133,13 @@ export async function planGHPagesDeployBootstrap(
   await assertDirectoryRoot(sourceRoot, "Source root");
   await assertDirectoryRoot(publishRoot, "Publication root");
   assertDistinctWorktreeRoots(sourceRoot, publishRoot);
+  if (options.commit !== undefined) {
+    await assertLocalCommitRequestIsSafe({
+      publishRoot,
+      allowDirtyPublicationRoot: options.allowDirtyPublicationRoot === true,
+      request: options.commit,
+    });
+  }
   if (options.allowDirtyPublicationRoot !== true) {
     await assertCleanPublicationWorktree(publishRoot);
   }
@@ -152,6 +179,7 @@ export async function planGHPagesDeployBootstrap(
       gitOperations: await describePlanGitOperations(
         publishRoot,
         options.allowDirtyPublicationRoot === true,
+        options.commit,
       ),
       ...(simulatedResult.materializedSource
         ? { materializedSource: simulatedResult.materializedSource }
@@ -198,6 +226,13 @@ export async function executeGHPagesDeployBootstrap(
     await assertDirectoryRoot(sourceRoot, "Source root");
     await assertDirectoryRoot(publishRoot, "Publication root");
     assertDistinctWorktreeRoots(sourceRoot, publishRoot);
+    if (options.commit !== undefined) {
+      await assertLocalCommitRequestIsSafe({
+        publishRoot,
+        allowDirtyPublicationRoot: options.allowDirtyPublicationRoot === true,
+        request: options.commit,
+      });
+    }
     if (options.allowDirtyPublicationRoot !== true) {
       await assertCleanPublicationWorktree(publishRoot);
     }
@@ -242,6 +277,15 @@ export async function executeGHPagesDeployBootstrap(
       sourceRoot,
       publishRoot,
     });
+    const localCommit = options.commit === undefined
+      ? undefined
+      : await createLocalPublicationCommit({
+        publishRoot,
+        request: options.commit,
+      });
+    if (localCommit !== undefined) {
+      result.localCommit = localCommit;
+    }
 
     await operationalLogger.info(
       "deploy.ghPages.bootstrap.succeeded",
@@ -254,6 +298,7 @@ export async function executeGHPagesDeployBootstrap(
         createdPaths: result.createdPaths,
         updatedPaths: result.updatedPaths,
         materializedSource,
+        localCommit,
       },
     );
     await auditLogger.record(
@@ -266,6 +311,7 @@ export async function executeGHPagesDeployBootstrap(
         createdPaths: result.createdPaths,
         updatedPaths: result.updatedPaths,
         materializedSource,
+        localCommit,
       },
     );
 
@@ -309,6 +355,9 @@ export function describeGHPagesDeployBootstrapResult(
   const materialized = result.materializedSource === undefined
     ? ""
     : ` Materialized ${result.materializedSource.sourcePath} as ${result.materializedSource.designatorPath}.`;
+  const localCommit = result.localCommit === undefined
+    ? ""
+    : ` ${describeGHPagesDeployLocalCommitResult(result.localCommit)}`;
   const materializedCreatedPathCount =
     result.materializedSource?.createdPaths.length ?? 0;
   const materializedUpdatedPathCount =
@@ -318,12 +367,23 @@ export function describeGHPagesDeployBootstrapResult(
     result.createdPaths.length === 0 && result.updatedPaths.length === 0 &&
     materializedCreatedPathCount === 0 && materializedUpdatedPathCount === 0
   ) {
-    return `Branch-published GitHub Pages mesh already bootstrapped for ${result.meshIri}.`;
+    return `Branch-published GitHub Pages mesh already bootstrapped for ${result.meshIri}.${localCommit}`;
   }
 
   return `${
     describeMeshCreateResult(result)
-  } Branch-published GitHub Pages mesh bootstrapped in publication root.${materialized}`;
+  } Branch-published GitHub Pages mesh bootstrapped in publication root.${materialized}${localCommit}`;
+}
+
+export function describeGHPagesDeployLocalCommitResult(
+  result: GHPagesDeployLocalCommitResult,
+): string {
+  if (result.status === "skipped") {
+    return `No local publication commit created: ${result.reason}.`;
+  }
+
+  const shortCommit = result.commit.slice(0, 12);
+  return `Created local publication commit ${shortCommit}. ${result.pushReminder}`;
 }
 
 export function describeGHPagesDeployBootstrapPlan(
@@ -376,6 +436,9 @@ const PUBLICATION_MESH_BOOTSTRAP_PATHS = [
   "_mesh/_inventory/inventory.ttl",
   "_mesh/_config/config.ttl",
 ] as const;
+const DEFAULT_PUBLICATION_COMMIT_MESSAGE = "Publish branch-published mesh";
+const PUBLICATION_PUSH_REMINDER =
+  "Push the publication branch for GitHub Pages to update.";
 
 async function ensurePublicationMeshBootstrap(
   options: {
@@ -1094,6 +1157,75 @@ async function assertCleanPublicationWorktree(
   );
 }
 
+async function assertLocalCommitRequestIsSafe(
+  options: {
+    publishRoot: string;
+    allowDirtyPublicationRoot: boolean;
+    request: GHPagesDeployCommitRequest;
+  },
+): Promise<void> {
+  normalizePublicationCommitMessage(options.request);
+  if (options.allowDirtyPublicationRoot) {
+    throw new GHPagesDeployInputError(
+      "local publication commits require the default clean publication worktree check; --commit cannot be combined with --allow-dirty-publish-root",
+    );
+  }
+  if (!(await isGitWorktreeRoot(options.publishRoot))) {
+    throw new GHPagesDeployInputError(
+      "local publication commits require publishRoot to be a git worktree root",
+    );
+  }
+}
+
+async function createLocalPublicationCommit(
+  options: {
+    publishRoot: string;
+    request: GHPagesDeployCommitRequest;
+  },
+): Promise<GHPagesDeployLocalCommitResult> {
+  const message = normalizePublicationCommitMessage(options.request);
+  const status = await runGitMutation(options.publishRoot, [
+    "status",
+    "--porcelain=v1",
+    "--untracked-files=all",
+  ]);
+  if (status.trim().length === 0) {
+    return {
+      status: "skipped",
+      message,
+      reason: "publication worktree has no changes",
+    };
+  }
+
+  await runGitMutation(options.publishRoot, ["add", "-A", "--", "."]);
+  await runGitMutation(options.publishRoot, [
+    "commit",
+    "-m",
+    message,
+  ]);
+  const commitSha = await runGitMutation(options.publishRoot, [
+    "rev-parse",
+    "HEAD",
+  ]);
+
+  return {
+    status: "created",
+    commit: commitSha.trim(),
+    message,
+    pushReminder: PUBLICATION_PUSH_REMINDER,
+  };
+}
+
+function normalizePublicationCommitMessage(
+  request: GHPagesDeployCommitRequest,
+): string {
+  const message = request.message?.trim() ?? DEFAULT_PUBLICATION_COMMIT_MESSAGE;
+  if (message.length === 0) {
+    throw new GHPagesDeployInputError("commit message must not be empty");
+  }
+  return message;
+}
+
 const STALE_PUBLICATION_OUTPUT_PATHS = [
   ".weave",
   ".sf-local-access.ttl",
@@ -1165,19 +1297,38 @@ function describePlanValidationChecks(
 async function describePlanGitOperations(
   publishRoot: string,
   allowDirtyPublicationRoot: boolean,
+  commit?: GHPagesDeployCommitRequest,
 ): Promise<readonly string[]> {
+  const commitMessage = commit === undefined
+    ? undefined
+    : normalizePublicationCommitMessage(commit);
   if (!(await isGitWorktreeRoot(publishRoot))) {
-    return [
-      "no git worktree detected at the publication root; deploy will not commit or push",
-    ];
+    return commitMessage === undefined
+      ? [
+        "no git worktree detected at the publication root; deploy will not commit or push",
+      ]
+      : [
+        "no git worktree detected at the publication root; requested local commit would fail",
+        "deploy will not push",
+      ];
   }
 
-  return [
+  const operations = [
     allowDirtyPublicationRoot
       ? "skip dirty publication worktree enforcement because dirty roots were explicitly allowed"
       : "inspect publication worktree status before writing",
-    "write publication files only; deploy will not commit or push until explicit commit/push flags exist",
   ];
+  if (commitMessage === undefined) {
+    operations.push(
+      "write publication files only; deploy will not commit or push until explicit commit flags are used",
+    );
+  } else {
+    operations.push(
+      `write publication files and create a local commit when the publication diff is non-empty: ${commitMessage}`,
+      "deploy will not push; push the publication branch for GitHub Pages to update",
+    );
+  }
+  return operations;
 }
 
 function shouldValidateGeneratedRdfPath(path: string): boolean {
@@ -1253,6 +1404,20 @@ async function runGitInspection(
     }
     throw error;
   }
+}
+
+async function runGitMutation(
+  cwd: string,
+  args: readonly string[],
+): Promise<string> {
+  const result = await runGitInspection(cwd, args);
+  if (!result.success) {
+    const stderr = result.stderr.trim();
+    throw new GHPagesDeployRuntimeError(
+      `git ${args.join(" ")} failed${stderr.length > 0 ? `: ${stderr}` : ""}`,
+    );
+  }
+  return result.stdout;
 }
 
 function assertDistinctWorktreeRoots(

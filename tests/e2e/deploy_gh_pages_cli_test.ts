@@ -95,6 +95,50 @@ Deno.test("weave deploy gh-pages updates a clean publication worktree without lo
   assert(!status.includes(".weave/"), status);
 });
 
+Deno.test("weave deploy gh-pages --commit creates a local publication commit", async () => {
+  const tempRoot = await createTestTmpDir(
+    "weave-e2e-deploy-gh-pages-commit-",
+  );
+  const sourceRoot = join(tempRoot, "source");
+  const publishRoot = join(tempRoot, "gh-pages");
+  await Deno.mkdir(sourceRoot, { recursive: true });
+  await Deno.mkdir(publishRoot, { recursive: true });
+  await runGit(publishRoot, ["init"]);
+  await runGit(publishRoot, ["config", "user.email", "weave@example.invalid"]);
+  await runGit(publishRoot, ["config", "user.name", "Weave Test"]);
+  await runGit(publishRoot, ["commit", "--allow-empty", "-m", "initial"]);
+
+  const output = await runCli([
+    "deploy",
+    "gh-pages",
+    "--source-root",
+    sourceRoot,
+    "--publish-root",
+    publishRoot,
+    "--mesh-base",
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    "--commit",
+    "--commit-message",
+    "publish mesh",
+  ]);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Created local publication commit"), stdout);
+  assert(
+    stdout.includes(
+      "Push the publication branch for GitHub Pages to update.",
+    ),
+    stdout,
+  );
+  assertEquals(await gitOutput(publishRoot, ["status", "--short"]), "");
+  assertEquals(
+    await gitOutput(publishRoot, ["log", "-1", "--pretty=%s"]),
+    "publish mesh",
+  );
+});
+
 Deno.test("weave deploy gh-pages --dry-run prints a plan without writing publication files", async () => {
   const tempRoot = await createTestTmpDir(
     "weave-e2e-deploy-gh-pages-dry-run-",

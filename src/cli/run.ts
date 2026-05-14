@@ -779,6 +779,14 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               "Print the branch-published deploy plan without writing publication files.",
             )
             .option(
+              "--commit",
+              "Create a local publication commit after successful generation when the publication diff is non-empty.",
+            )
+            .option(
+              "--commit-message <commitMessage:string>",
+              "Commit message to use with --commit.",
+            )
+            .option(
               "--source-path <sourcePath:string>",
               "Repository-relative source path to materialize into the publication mesh.",
             )
@@ -815,6 +823,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 cname?: string;
                 allowDirtyPublishRoot?: boolean;
                 dryRun?: boolean;
+                commit?: boolean;
+                commitMessage?: string;
                 sourcePath?: string;
                 targetPath?: string;
                 designatorPath?: string;
@@ -850,6 +860,10 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               };
               const allowDirtyPublicationRoot =
                 options.allowDirtyPublishRoot === true;
+              const commit = resolveGHPagesCommitOption({
+                commit: options.commit,
+                commitMessage: options.commitMessage,
+              });
 
               if (options.dryRun === true) {
                 const plan = await planGHPagesDeployBootstrap({
@@ -857,6 +871,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                   publishRoot,
                   request,
                   allowDirtyPublicationRoot,
+                  commit,
                 });
                 console.log(describeGHPagesDeployBootstrapPlan(plan));
                 return;
@@ -869,6 +884,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 publishRoot,
                 meshBase,
                 localMode: true,
+                localCommit: commit !== undefined,
               });
 
               const result = await executeGHPagesDeployBootstrap({
@@ -876,6 +892,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 publishRoot,
                 request,
                 allowDirtyPublicationRoot,
+                commit,
                 operationalLogger,
                 auditLogger,
               });
@@ -1190,6 +1207,26 @@ async function resolvePublishRootOption(
     },
   });
   return resolve(value);
+}
+
+function resolveGHPagesCommitOption(
+  options: {
+    commit?: boolean;
+    commitMessage?: string;
+  },
+): { message?: string } | undefined {
+  if (options.commit !== true) {
+    if (options.commitMessage !== undefined) {
+      throw new GHPagesDeployInputError(
+        "deploy gh-pages --commit-message requires --commit",
+      );
+    }
+    return undefined;
+  }
+
+  return options.commitMessage === undefined ? {} : {
+    message: options.commitMessage,
+  };
 }
 
 function resolveGHPagesSourceBindingOption(
