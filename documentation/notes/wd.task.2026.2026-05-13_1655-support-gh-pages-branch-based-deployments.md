@@ -152,6 +152,18 @@ If the publication worktree location is not supplied, the interactive CLI should
 
 The prompt should be for the local publication worktree path, not for the public base IRI. The mesh base can still be inferred from GitHub remote metadata when that inference is enabled, but a host filesystem path is too consequential to infer and persist without explicit operator confirmation.
 
+### Dry-Run Surface
+
+The first deploy workflow surface is local-only and inspectable:
+
+```bash
+weave deploy gh-pages --dry-run --source-root . --publish-root ../repo-gh-pages --mesh-base https://example.github.io/repo/
+```
+
+Dry-run performs the same input validation as the write path, including source/publication root checks, dirty publication worktree enforcement unless explicitly skipped, stale output rejection, and generated-RDF local-path leakage checks. It then simulates the deploy in an isolated temporary copy of the publication root so the reported path set comes from the same mesh create, source materialization, integrate, payload update, and weave operations that the real deploy would use.
+
+The human-facing plan should print the source root, publication root, mesh base, mesh IRI, paths that would be created, paths that would be updated, existing files that would be preserved unchanged, materialized source provenance including digest when a source binding is supplied, validation checks, and git operations. For the first slice, git operations are intentionally limited to worktree inspection; Weave writes local files but does not commit or push until explicit commit/push flags are added.
+
 ### Git Worktree Model
 
 The likely implementation path is to use git worktrees rather than checking out branches in-place:
@@ -322,7 +334,7 @@ This should eventually support CI permissions that are narrower than a blanket t
 - [x] Add interactive prompting for missing publication worktree path and non-interactive fail-closed behavior when no path/profile is supplied.
 - [x] Define the branch deploy context as source root plus publication root without broadening the general workspace model.
 - [ ] Draft the local generation workflow for source checkout plus publication worktree, including dirty-worktree and branch initialization guardrails.
-- [ ] Add a dry-run planner for the branch-published workflow that prints source root, publication root, mesh base, generated paths, preserved files, and git operations that would run.
+- [x] Add a dry-run planner for the branch-published workflow that prints source root, publication root, mesh base, generated paths, preserved files, and git operations that would run.
 - [ ] Add path-policy tests for cross-worktree source access and host-local grants.
 - [x] Create the first branch-published Fantasy Rules source-only proof ref and Accord manifest (`bp-01-source-only`) in the existing fixture repo/SFF conformance area.
 - [x] Implement local-only branch-published publication-root bootstrap through `weave deploy gh-pages`.

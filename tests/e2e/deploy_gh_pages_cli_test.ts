@@ -95,6 +95,66 @@ Deno.test("weave deploy gh-pages updates a clean publication worktree without lo
   assert(!status.includes(".weave/"), status);
 });
 
+Deno.test("weave deploy gh-pages --dry-run prints a plan without writing publication files", async () => {
+  const tempRoot = await createTestTmpDir(
+    "weave-e2e-deploy-gh-pages-dry-run-",
+  );
+  const sourceRoot = join(tempRoot, "source");
+  const publishRoot = join(tempRoot, "gh-pages");
+  const sourcePath = "ontology/fantasy-rules-ontology.ttl";
+  const source = `@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix fantasy: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
+
+<> a owl:Ontology .
+fantasy:Rule a owl:Class .
+`;
+
+  await Deno.mkdir(join(sourceRoot, "ontology"), { recursive: true });
+  await Deno.mkdir(publishRoot, { recursive: true });
+  await Deno.writeTextFile(join(sourceRoot, sourcePath), source);
+  await Deno.writeTextFile(join(publishRoot, "manual.txt"), "keep me\n");
+
+  const output = await runCli([
+    "deploy",
+    "gh-pages",
+    "--dry-run",
+    "--source-root",
+    sourceRoot,
+    "--publish-root",
+    publishRoot,
+    "--mesh-base",
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    "--source-path",
+    sourcePath,
+    "--designator-path",
+    "ontology",
+    "--source-repository-url",
+    "https://github.com/semantic-flow/mesh-sidecar-fantasy-rules.git",
+    "--source-ref",
+    "main",
+  ]);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(
+    stdout.includes("Dry run: branch-published GitHub Pages deploy"),
+    stdout,
+  );
+  assert(stdout.includes("Source root:"), stdout);
+  assert(stdout.includes("Publication root:"), stdout);
+  assert(stdout.includes("Created paths:"), stdout);
+  assert(stdout.includes("_mesh/_config/config.ttl"), stdout);
+  assert(stdout.includes(sourcePath), stdout);
+  assert(stdout.includes("Preserved paths:"), stdout);
+  assert(stdout.includes("manual.txt"), stdout);
+  assert(stdout.includes("Git operations:"), stdout);
+  assert(stdout.includes("will not commit or push"), stdout);
+  assertEquals(await listRelativeFiles(publishRoot, ".weave/"), [
+    "manual.txt",
+  ]);
+});
+
 Deno.test("weave deploy gh-pages materializes one repository source from CLI flags", async () => {
   const tempRoot = await createTestTmpDir("weave-e2e-deploy-gh-pages-source-");
   const sourceRoot = join(tempRoot, "source");

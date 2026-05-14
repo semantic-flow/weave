@@ -1,9 +1,11 @@
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import { join, relative } from "@std/path";
 import {
+  describeGHPagesDeployBootstrapPlan,
   executeGHPagesDeployBootstrap,
   GHPagesDeployInputError,
   GHPagesDeployRuntimeError,
+  planGHPagesDeployBootstrap,
 } from "../../src/runtime/deploy/gh_pages.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
@@ -125,6 +127,61 @@ Deno.test("executeGHPagesDeployBootstrap preserves publication controls", async 
     await Deno.readTextFile(join(publishRoot, "CNAME")),
     "docs.example.test\n",
   );
+});
+
+Deno.test("planGHPagesDeployBootstrap reports dry-run changes without writing", async () => {
+  const tempRoot = await createTestTmpDir("weave-deploy-gh-pages-plan-");
+  const sourceRoot = join(tempRoot, "source");
+  const publishRoot = join(tempRoot, "gh-pages");
+  const sourcePath = "ontology/fantasy-rules-ontology.ttl";
+  const source = `@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix fantasy: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
+
+<> a owl:Ontology .
+fantasy:Rule a owl:Class .
+`;
+
+  await Deno.mkdir(join(sourceRoot, "ontology"), { recursive: true });
+  await Deno.mkdir(publishRoot, { recursive: true });
+  await Deno.writeTextFile(join(sourceRoot, sourcePath), source);
+  await Deno.writeTextFile(join(publishRoot, "CNAME"), "rules.example.test\n");
+  await Deno.writeTextFile(join(publishRoot, "manual.txt"), "keep me\n");
+
+  const plan = await planGHPagesDeployBootstrap({
+    sourceRoot,
+    publishRoot,
+    request: {
+      meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+      source: {
+        sourcePath,
+        designatorPath: "ontology",
+        sourceRepositoryUrl:
+          "https://github.com/semantic-flow/mesh-sidecar-fantasy-rules.git",
+        sourceRepositoryRef: "main",
+        sourceRepositoryCommit: "abc123",
+      },
+    },
+  });
+
+  assert(plan.createdPaths.includes(".nojekyll"));
+  assert(plan.createdPaths.includes("_mesh/_config/config.ttl"));
+  assert(plan.createdPaths.includes(sourcePath));
+  assert(plan.createdPaths.includes("ontology/index.html"));
+  assert(plan.preservedPaths.includes("CNAME"));
+  assert(plan.preservedPaths.includes("manual.txt"));
+  assert(plan.materializedSource);
+  assertEquals(plan.materializedSource.digest, await sha256Digest(source));
+  assertEquals(
+    await listRelativeFiles(publishRoot, ".weave/"),
+    ["CNAME", "manual.txt"],
+  );
+
+  const description = describeGHPagesDeployBootstrapPlan(plan);
+  assert(description.includes("Dry run: branch-published GitHub Pages deploy"));
+  assert(description.includes("Created paths:"));
+  assert(description.includes("Preserved paths:"));
+  assert(description.includes("Git operations:"));
+  assert(description.includes("will not commit or push"), description);
 });
 
 Deno.test("executeGHPagesDeployBootstrap materializes repository source without local path leakage", async () => {

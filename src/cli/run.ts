@@ -12,10 +12,12 @@ import type { TargetSpec, VersionTargetSpec } from "../core/targeting.ts";
 import { WeaveInputError } from "../core/weave/weave.ts";
 import { createRuntimeLoggers } from "../runtime/logging/factory.ts";
 import {
+  describeGHPagesDeployBootstrapPlan,
   describeGHPagesDeployBootstrapResult,
   executeGHPagesDeployBootstrap,
   GHPagesDeployInputError,
   GHPagesDeployRuntimeError,
+  planGHPagesDeployBootstrap,
 } from "../runtime/deploy/gh_pages.ts";
 import {
   describeExtractAllTermsResult,
@@ -773,6 +775,10 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               "Allow deployment even when the publication worktree has uncommitted changes.",
             )
             .option(
+              "--dry-run",
+              "Print the branch-published deploy plan without writing publication files.",
+            )
+            .option(
               "--source-path <sourcePath:string>",
               "Repository-relative source path to materialize into the publication mesh.",
             )
@@ -808,6 +814,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 nojekyll?: boolean;
                 cname?: string;
                 allowDirtyPublishRoot?: boolean;
+                dryRun?: boolean;
                 sourcePath?: string;
                 targetPath?: string;
                 designatorPath?: string;
@@ -833,6 +840,28 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 "deploy gh-pages",
                 "an interactive terminal",
               );
+              const request = {
+                meshBase,
+                includeNoJekyll: options.nojekyll === false ? false : undefined,
+                ...(options.cname !== undefined
+                  ? { cname: options.cname }
+                  : {}),
+                ...(resolveGHPagesSourceBindingOption(options) ?? {}),
+              };
+              const allowDirtyPublicationRoot =
+                options.allowDirtyPublishRoot === true;
+
+              if (options.dryRun === true) {
+                const plan = await planGHPagesDeployBootstrap({
+                  sourceRoot,
+                  publishRoot,
+                  request,
+                  allowDirtyPublicationRoot,
+                });
+                console.log(describeGHPagesDeployBootstrapPlan(plan));
+                return;
+              }
+
               const { operationalLogger, auditLogger } = createRuntimeLoggers();
 
               await auditLogger.command("deploy.ghPages", {
@@ -845,18 +874,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               const result = await executeGHPagesDeployBootstrap({
                 sourceRoot,
                 publishRoot,
-                request: {
-                  meshBase,
-                  includeNoJekyll: options.nojekyll === false
-                    ? false
-                    : undefined,
-                  ...(options.cname !== undefined
-                    ? { cname: options.cname }
-                    : {}),
-                  ...(resolveGHPagesSourceBindingOption(options) ?? {}),
-                },
-                allowDirtyPublicationRoot:
-                  options.allowDirtyPublishRoot === true,
+                request,
+                allowDirtyPublicationRoot,
                 operationalLogger,
                 auditLogger,
               });

@@ -44,6 +44,13 @@ export interface ExecuteGHPagesDeployBootstrapOptions {
   auditLogger?: AuditLogger;
 }
 
+export interface PlanGHPagesDeployBootstrapOptions {
+  sourceRoot: string;
+  publishRoot: string;
+  request: GHPagesDeployBootstrapRequest;
+  allowDirtyPublicationRoot?: boolean;
+}
+
 export interface GHPagesDeployBootstrapResult {
   sourceRoot: string;
   publishRoot: string;
@@ -51,6 +58,19 @@ export interface GHPagesDeployBootstrapResult {
   meshIri: string;
   createdPaths: readonly string[];
   updatedPaths: readonly string[];
+  materializedSource?: GHPagesDeployMaterializedSourceResult;
+}
+
+export interface GHPagesDeployBootstrapPlan {
+  sourceRoot: string;
+  publishRoot: string;
+  meshBase: string;
+  meshIri: string;
+  createdPaths: readonly string[];
+  updatedPaths: readonly string[];
+  preservedPaths: readonly string[];
+  validationChecks: readonly string[];
+  gitOperations: readonly string[];
   materializedSource?: GHPagesDeployMaterializedSourceResult;
 }
 
@@ -75,6 +95,70 @@ export class GHPagesDeployRuntimeError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "GHPagesDeployRuntimeError";
+  }
+}
+
+export async function planGHPagesDeployBootstrap(
+  options: PlanGHPagesDeployBootstrapOptions,
+): Promise<GHPagesDeployBootstrapPlan> {
+  const sourceRoot = resolveRequiredRootPath(
+    options.sourceRoot,
+    "sourceRoot",
+  );
+  const publishRoot = resolveRequiredRootPath(
+    options.publishRoot,
+    "publishRoot",
+  );
+
+  await assertDirectoryRoot(sourceRoot, "Source root");
+  await assertDirectoryRoot(publishRoot, "Publication root");
+  assertDistinctWorktreeRoots(sourceRoot, publishRoot);
+  if (options.allowDirtyPublicationRoot !== true) {
+    await assertCleanPublicationWorktree(publishRoot);
+  }
+  await assertNoStalePublicationOutput(publishRoot);
+  await validateGeneratedPublicationOutput({ sourceRoot, publishRoot });
+
+  const temporaryPublishRoot = await Deno.makeTempDir({
+    prefix: "weave-gh-pages-dry-run-",
+  });
+  try {
+    await copyPublicationTreeForDryRun(publishRoot, temporaryPublishRoot);
+    const beforeSnapshot = await readPublicationFileSnapshot(
+      temporaryPublishRoot,
+    );
+    const simulatedResult = await executeGHPagesDeployBootstrap({
+      sourceRoot,
+      publishRoot: temporaryPublishRoot,
+      request: options.request,
+      allowDirtyPublicationRoot: true,
+    });
+    const afterSnapshot = await readPublicationFileSnapshot(
+      temporaryPublishRoot,
+    );
+    const diff = diffPublicationSnapshots(beforeSnapshot, afterSnapshot);
+
+    return {
+      sourceRoot,
+      publishRoot,
+      meshBase: simulatedResult.meshBase,
+      meshIri: simulatedResult.meshIri,
+      createdPaths: diff.createdPaths,
+      updatedPaths: diff.updatedPaths,
+      preservedPaths: diff.preservedPaths,
+      validationChecks: describePlanValidationChecks(
+        options.allowDirtyPublicationRoot === true,
+      ),
+      gitOperations: await describePlanGitOperations(
+        publishRoot,
+        options.allowDirtyPublicationRoot === true,
+      ),
+      ...(simulatedResult.materializedSource
+        ? { materializedSource: simulatedResult.materializedSource }
+        : {}),
+    };
+  } finally {
+    await removeTemporaryPublicationRoot(temporaryPublishRoot);
   }
 }
 
@@ -240,6 +324,51 @@ export function describeGHPagesDeployBootstrapResult(
   return `${
     describeMeshCreateResult(result)
   } Branch-published GitHub Pages mesh bootstrapped in publication root.${materialized}`;
+}
+
+export function describeGHPagesDeployBootstrapPlan(
+  plan: GHPagesDeployBootstrapPlan,
+): string {
+  const lines = [
+    "Dry run: branch-published GitHub Pages deploy",
+    `Source root: ${plan.sourceRoot}`,
+    `Publication root: ${plan.publishRoot}`,
+    `Mesh base: ${plan.meshBase}`,
+    `Mesh IRI: ${plan.meshIri}`,
+  ];
+
+  appendPlanSection(lines, "Created paths", plan.createdPaths);
+  appendPlanSection(lines, "Updated paths", plan.updatedPaths);
+  appendPlanSection(lines, "Preserved paths", plan.preservedPaths);
+
+  if (plan.materializedSource) {
+    lines.push("Materialized source:");
+    lines.push(`- source path: ${plan.materializedSource.sourcePath}`);
+    lines.push(`- target path: ${plan.materializedSource.targetPath}`);
+    lines.push(
+      `- designator path: ${plan.materializedSource.designatorPath}`,
+    );
+    lines.push(`- digest: ${plan.materializedSource.digest}`);
+  }
+
+  appendPlanSection(lines, "Validation checks", plan.validationChecks);
+  appendPlanSection(lines, "Git operations", plan.gitOperations);
+  return lines.join("\n");
+}
+
+function appendPlanSection(
+  lines: string[],
+  title: string,
+  values: readonly string[],
+): void {
+  lines.push(`${title}:`);
+  if (values.length === 0) {
+    lines.push("- (none)");
+    return;
+  }
+  for (const value of values) {
+    lines.push(`- ${value}`);
+  }
 }
 
 const PUBLICATION_MESH_BOOTSTRAP_PATHS = [
@@ -695,6 +824,93 @@ function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
   return left.every((value, index) => value === right[index]);
 }
 
+async function copyPublicationTreeForDryRun(
+  fromRoot: string,
+  toRoot: string,
+): Promise<void> {
+  let entries: Deno.DirEntry[];
+  try {
+    entries = [];
+    for await (const entry of Deno.readDir(fromRoot)) {
+      entries.push(entry);
+    }
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return;
+    }
+    throw error;
+  }
+
+  for (const entry of entries) {
+    if (entry.name === ".git") {
+      continue;
+    }
+
+    const fromPath = join(fromRoot, entry.name);
+    const toPath = join(toRoot, entry.name);
+    if (entry.isDirectory) {
+      await Deno.mkdir(toPath, { recursive: true });
+      await copyPublicationTreeForDryRun(fromPath, toPath);
+      continue;
+    }
+    if (entry.isFile || entry.isSymlink) {
+      await Deno.mkdir(dirname(toPath), { recursive: true });
+      await Deno.copyFile(fromPath, toPath);
+    }
+  }
+}
+
+async function removeTemporaryPublicationRoot(path: string): Promise<void> {
+  try {
+    await Deno.remove(path, { recursive: true });
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) {
+      throw error;
+    }
+  }
+}
+
+async function readPublicationFileSnapshot(
+  root: string,
+): Promise<Map<string, Uint8Array>> {
+  const snapshot = new Map<string, Uint8Array>();
+  for await (const absolutePath of walkPublicationFiles(root)) {
+    const relativePath = relative(root, absolutePath).replaceAll("\\", "/");
+    snapshot.set(relativePath, await Deno.readFile(absolutePath));
+  }
+  return snapshot;
+}
+
+function diffPublicationSnapshots(
+  before: ReadonlyMap<string, Uint8Array>,
+  after: ReadonlyMap<string, Uint8Array>,
+): {
+  createdPaths: readonly string[];
+  updatedPaths: readonly string[];
+  preservedPaths: readonly string[];
+} {
+  const createdPaths: string[] = [];
+  const updatedPaths: string[] = [];
+  const preservedPaths: string[] = [];
+
+  for (const [path, nextBytes] of after) {
+    const previousBytes = before.get(path);
+    if (previousBytes === undefined) {
+      createdPaths.push(path);
+    } else if (bytesEqual(previousBytes, nextBytes)) {
+      preservedPaths.push(path);
+    } else {
+      updatedPaths.push(path);
+    }
+  }
+
+  return {
+    createdPaths: uniqueSortedPaths(createdPaths),
+    updatedPaths: uniqueSortedPaths(updatedPaths),
+    preservedPaths: uniqueSortedPaths(preservedPaths),
+  };
+}
+
 async function pathExists(path: string): Promise<boolean> {
   try {
     await Deno.stat(path);
@@ -930,6 +1146,40 @@ async function validateGeneratedPublicationOutput(
   }
 }
 
+function describePlanValidationChecks(
+  allowDirtyPublicationRoot: boolean,
+): readonly string[] {
+  return [
+    "source root exists and is a directory",
+    "publication root exists and is a directory",
+    "source and publication roots are distinct",
+    allowDirtyPublicationRoot
+      ? "dirty publication worktree enforcement is explicitly skipped"
+      : "publication git worktree is clean before generation",
+    "known stale branch-published output paths are absent",
+    "existing generated RDF contains no local source/publication root paths or parent-directory traversal",
+    "planned writes were simulated in an isolated temporary publication root",
+  ];
+}
+
+async function describePlanGitOperations(
+  publishRoot: string,
+  allowDirtyPublicationRoot: boolean,
+): Promise<readonly string[]> {
+  if (!(await isGitWorktreeRoot(publishRoot))) {
+    return [
+      "no git worktree detected at the publication root; deploy will not commit or push",
+    ];
+  }
+
+  return [
+    allowDirtyPublicationRoot
+      ? "skip dirty publication worktree enforcement because dirty roots were explicitly allowed"
+      : "inspect publication worktree status before writing",
+    "write publication files only; deploy will not commit or push until explicit commit/push flags exist",
+  ];
+}
+
 function shouldValidateGeneratedRdfPath(path: string): boolean {
   if (!path.endsWith(".ttl")) {
     return false;
@@ -953,11 +1203,12 @@ async function* walkPublicationFiles(root: string): AsyncGenerator<string> {
 
   entries.sort((left, right) => left.name.localeCompare(right.name));
   for (const entry of entries) {
+    if (entry.name === ".git") {
+      continue;
+    }
+
     const path = join(root, entry.name);
     if (entry.isDirectory) {
-      if (entry.name === ".git") {
-        continue;
-      }
       yield* walkPublicationFiles(path);
       continue;
     }
