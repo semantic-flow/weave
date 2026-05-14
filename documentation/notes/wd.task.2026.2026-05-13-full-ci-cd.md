@@ -40,8 +40,8 @@ Weave currently has:
 - `documentation/notes/release-notes.v0.1.0.md` as the first full-release stub
 - no release workflow
 - `deno task build:binaries` for native binary compilation and per-platform bundle metadata
+- `deno task package:binaries` for Deno-native `.tar.gz`/`.zip` archive generation and `.sha256` checksum files
 - no npm package assembly or publishing
-- no binary archive/checksum generation
 - root `deno.json` version metadata and `weave --version`
 
 That is enough for `v0.0.2`, especially as a deliberate checkpoint with known CI debt, but not enough for a release that users can install.
@@ -55,6 +55,7 @@ Local validation after the first version-plumbing slice shows:
 - `deno task check` passes.
 - focused `weave --version` e2e coverage passes.
 - focused release metadata and build-script argument tests pass.
+- focused binary packaging helper tests pass.
 - `deno task test` fails with broad fixture-backed drift: 186 passed, 145 failed.
 
 The failures are not caused by version metadata. They cluster around the known pre-release fixture and contract drift:
@@ -159,7 +160,7 @@ The build script should:
 - compile with explicit broad CLI permissions for the first pass: read, write, env, and run for `git`/`deno`
 - fail if invoked from a dirty or mismatched version state when release mode requires strictness
 
-The first implementation slice adds `scripts/build-binaries.ts`, `deno task build:binaries`, a shared release metadata module, and tests for the platform matrix, archive names, npm package names, and build-script arguments. Archive and checksum generation remains in `scripts/package-binaries.ts`; the build script writes `bundle-metadata.json` beside each platform executable so packaging can consume a stable contract.
+The first implementation slice adds `scripts/build-binaries.ts`, `deno task build:binaries`, a shared release metadata module, and tests for the platform matrix, archive names, npm package names, and build-script arguments. The build script writes `bundle-metadata.json` beside each platform executable so packaging can consume a stable contract.
 
 Add `scripts/package-binaries.ts` to turn build outputs into platform bundles. Each bundle should include:
 
@@ -171,6 +172,8 @@ Add `scripts/package-binaries.ts` to turn build outputs into platform bundles. E
 - `.sha256` checksum
 
 The package script should produce `.tar.gz` for Unix platforms and `.zip` for Windows.
+
+The second implementation slice adds `scripts/package-binaries.ts`, `deno task package:binaries`, Deno-native archive writers, SHA-256 checksum generation, archive-local install notes, license inclusion when `LICENSE` is present, and validation that build-time `bundle-metadata.json` still matches the canonical root version and platform metadata. Generated release outputs default under `dist/`, which is ignored.
 
 ### npm Integration
 
@@ -363,9 +366,9 @@ The runbook should include:
 - [x] Make the bump script create or verify `documentation/notes/release-notes.v<version>.md`.
 - [x] Add tests for version metadata and bump behavior.
 - [x] Add `scripts/build-binaries.ts` and root `deno task build:binaries`.
-- [ ] Add `scripts/package-binaries.ts` and root `deno task package:binaries`.
-- [ ] Add bundle metadata, archive naming, and `.sha256` generation.
-- [ ] Add tests for bundle metadata and packaging helpers.
+- [x] Add `scripts/package-binaries.ts` and root `deno task package:binaries`.
+- [x] Add bundle metadata, archive naming, and `.sha256` generation.
+- [x] Add tests for bundle metadata and packaging helpers.
 - [x] Add tests for release platform metadata, archive naming, and build-script arguments.
 - [ ] Add `scripts/assemble-npm-packages.ts` and root `deno task assemble:npm-packages`.
 - [ ] Add npm wrapper package and platform package generation.
@@ -378,7 +381,7 @@ The runbook should include:
 - [ ] Add optional npm dry-run/publish and GitHub draft/publish jobs to the release workflow.
 - [ ] Ensure GitHub Release creation strips Dendron frontmatter and uploads archives plus checksums.
 - [x] Update `documentation/notes/release-notes.v0.1.0.md` convention or stub.
-- [x] Update [[dev.release-runbook]] for the current version/binary-build state.
+- [x] Update [[dev.release-runbook]] for the current version/binary-build and package state.
 - [ ] Update [[dev.release-runbook]] again after the release workflow becomes the primary path.
 - [ ] Run `deno task ci`.
 - [ ] Run a release rehearsal with npm dry-run and draft GitHub Release before publishing `v0.1.0`.

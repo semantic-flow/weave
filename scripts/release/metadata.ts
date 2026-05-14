@@ -1,4 +1,5 @@
 import denoConfig from "../../deno.json" with { type: "json" };
+import { join } from "@std/path";
 
 export type ReleasePlatformLabel =
   | "linux-x64"
@@ -25,6 +26,7 @@ export interface BinaryBundleMetadata {
   cpu: ReleasePlatform["cpu"];
   denoTarget: string;
   executableName: ReleasePlatform["executableName"];
+  bundleDirectoryName: string;
   archiveName: string;
   checksumName: string;
 }
@@ -71,20 +73,34 @@ export const RELEASE_PLATFORMS: readonly ReleasePlatform[] = [
 ] as const;
 
 export function readRootVersion(): string {
-  const version = denoConfig.version;
-  if (typeof version !== "string" || !isSupportedVersion(version)) {
-    throw new Error(
-      "root deno.json must declare a semver-compatible string version",
-    );
+  return requireSupportedVersion(denoConfig.version);
+}
+
+export async function readRootVersionFrom(root: string): Promise<string> {
+  const denoConfigPath = join(root, "deno.json");
+  const config = JSON.parse(
+    await Deno.readTextFile(denoConfigPath),
+  ) as { version?: unknown };
+  return requireSupportedVersion(config.version);
+}
+
+export function createBundleDirectoryName(
+  version: string,
+  platform: ReleasePlatform,
+): string {
+  if (!isSupportedVersion(version)) {
+    throw new Error(`Unsupported release version: ${version}`);
   }
-  return version;
+  return `weave-v${version}-${platform.label}`;
 }
 
 export function createArchiveName(
   version: string,
   platform: ReleasePlatform,
 ): string {
-  return `weave-v${version}-${platform.label}${platform.archiveExtension}`;
+  return `${
+    createBundleDirectoryName(version, platform)
+  }${platform.archiveExtension}`;
 }
 
 export function createBinaryBundleMetadata(
@@ -95,7 +111,8 @@ export function createBinaryBundleMetadata(
     throw new Error(`Unsupported release version: ${version}`);
   }
 
-  const archiveName = createArchiveName(version, platform);
+  const bundleDirectoryName = createBundleDirectoryName(version, platform);
+  const archiveName = `${bundleDirectoryName}${platform.archiveExtension}`;
 
   return {
     packageName: platform.npmPackageName,
@@ -106,6 +123,7 @@ export function createBinaryBundleMetadata(
     cpu: platform.cpu,
     denoTarget: platform.denoTarget,
     executableName: platform.executableName,
+    bundleDirectoryName,
     archiveName,
     checksumName: `${archiveName}.sha256`,
   };
@@ -143,6 +161,15 @@ export function selectReleasePlatforms(
 
     return platform;
   });
+}
+
+function requireSupportedVersion(value: unknown): string {
+  if (typeof value !== "string" || !isSupportedVersion(value)) {
+    throw new Error(
+      "root deno.json must declare a semver-compatible string version",
+    );
+  }
+  return value;
 }
 
 function isSupportedVersion(value: string): boolean {

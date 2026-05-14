@@ -47,6 +47,7 @@ Deno.test("release metadata derives archive and checksum names from the root ver
     cpu: "x64",
     denoTarget: "x86_64-pc-windows-msvc",
     executableName: "weave.exe",
+    bundleDirectoryName: "weave-v0.1.0-windows-x64",
     archiveName: "weave-v0.1.0-windows-x64.zip",
     checksumName: "weave-v0.1.0-windows-x64.zip.sha256",
   });
