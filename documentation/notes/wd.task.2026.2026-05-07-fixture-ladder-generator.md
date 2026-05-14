@@ -196,6 +196,7 @@ The first scenario-definition format should therefore support both `command` ste
 - The fixture generator is a Weave developer-tooling task, not part of the portable Semantic Flow ontology work.
 - Fixture branch ladders should become disposable generated outputs.
 - Accord manifests and ordered transition definitions are the durable contract.
+- Use a concrete TypeScript scenario definition for the first generator pass. Move to data files or Accord-adjacent replay metadata only after the replay shape has been exercised.
 - Keep the existing fixture branch comparison tests for now; update their assumptions only where needed to support generated refs.
 - Publish only the final SemanticSite by default; intermediate Pages publication is out of scope for the first pass.
 - Do not rename completed task notes or fixture branches as part of this task unless explicitly requested.
@@ -239,9 +240,9 @@ The first scenario-definition format should therefore support both `command` ste
 
 - [x] Inventory the current Alice Bio and Sidecar Fantasy Rules branch ladders, manifest names, transition commands, and existing test expectations.
 - [x] Add the first branch-published Fantasy Rules source-only proof manifest before fixture branch rerunging.
-- [ ] Inventory the currently failing fixture-backed tests and classify each failure as stale fixture namespace, stale progression location, page-definition shape drift, manifest drift, or implementation regression.
-- [ ] Decide the first scenario-definition format, favoring a simple TypeScript definition unless a data file is clearly better.
-- [ ] Implement a dry-run planner that prints transition order, source branch, target branch, manifest path, command or file operation, source provenance, and expected validation steps.
+- [d] Inventory the currently failing fixture-backed tests and classify each failure as stale fixture namespace, stale progression location, page-definition shape drift, manifest drift, or implementation regression. Deferred until the planner/executor exists; the dominant fixture failures are already known stale output shapes.
+- [x] Decide the first scenario-definition format, favoring a simple TypeScript definition unless a data file is clearly better.
+- [x] Implement a dry-run planner that prints transition order, source branch, target branch, manifest path, command or file operation, source provenance, and expected validation steps.
 - [ ] Implement local materialization for a source branch into a temporary workspace using the existing fixture helper behavior as a reference.
 - [ ] Implement execution for the first Alice Bio transition that runs the intended Weave command and validates the result against its Accord manifest.
 - [ ] Add generated-output guardrails for canonical `sflo` namespace and current `_mesh/_meta` MeshInventory progression shape before any branch write.

@@ -8,6 +8,7 @@
     "assemble:npm-packages": "deno run --allow-read --allow-write scripts/assemble-npm-packages.ts",
     "smoke:npm-install": "deno run --allow-read --allow-write --allow-run --allow-env scripts/smoke-npm-install.ts",
     "publish:npm-packages": "deno run --allow-read --allow-write --allow-run --allow-env scripts/publish-npm-packages.ts",
+    "fixture:ladder": "deno run --allow-read scripts/fixture-ladder.ts",
     "fmt": "deno fmt deno.json scripts src tests",
     "fmt:check": "deno fmt --check deno.json scripts src tests",
     "lint": "deno lint scripts src tests",
