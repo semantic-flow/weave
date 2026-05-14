@@ -335,7 +335,7 @@ This should eventually support CI permissions that are narrower than a blanket t
 - [x] Define the branch deploy context as source root plus publication root without broadening the general workspace model.
 - [ ] Draft the local generation workflow for source checkout plus publication worktree, including dirty-worktree and branch initialization guardrails.
 - [x] Add a dry-run planner for the branch-published workflow that prints source root, publication root, mesh base, generated paths, preserved files, and git operations that would run.
-- [ ] Add path-policy tests for cross-worktree source access and host-local grants.
+- [x] Add path-policy tests for cross-worktree source access and host-local grants.
 - [x] Create the first branch-published Fantasy Rules source-only proof ref and Accord manifest (`bp-01-source-only`) in the existing fixture repo/SFF conformance area.
 - [x] Implement local-only branch-published publication-root bootstrap through `weave deploy gh-pages`.
 - [x] Add focused bootstrap tests proving the source root stays free of `_mesh`/`.weave`, publication root carries `_mesh` plus config, public config has no sibling path leakage, and a second bootstrap run is a no-op.

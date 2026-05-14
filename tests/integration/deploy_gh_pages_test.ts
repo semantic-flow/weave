@@ -1,4 +1,4 @@
-import { assert, assertEquals, assertRejects } from "@std/assert";
+import { assert, assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { join, relative } from "@std/path";
 import {
   describeGHPagesDeployBootstrapPlan,
@@ -7,6 +7,11 @@ import {
   GHPagesDeployRuntimeError,
   planGHPagesDeployBootstrap,
 } from "../../src/runtime/deploy/gh_pages.ts";
+import {
+  loadOperationalLocalPathPolicy,
+  LocalPathAccessError,
+  resolveAllowedLocalPath,
+} from "../../src/runtime/operational/local_path_policy.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 Deno.test("executeGHPagesDeployBootstrap keeps source clean and bootstraps publication root", async () => {
@@ -367,6 +372,92 @@ fantasy:RuleSystem a owl:Class .
   assertNoLocalPathLeak(updatedConfig, sourceRoot, publishRoot);
   assertNoLocalPathLeak(updatedInventory, sourceRoot, publishRoot);
   assertEquals(await listRelativeFiles(sourceRoot, ".weave/"), [sourcePath]);
+});
+
+Deno.test("executeGHPagesDeployBootstrap keeps cross-worktree source access command-scoped", async () => {
+  const tempRoot = await createTestTmpDir("weave-deploy-gh-pages-policy-");
+  const sourceRoot = join(tempRoot, "source");
+  const publishRoot = join(tempRoot, "gh-pages");
+  const sourcePath = "ontology/fantasy-rules-ontology.ttl";
+  const source = `@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix fantasy: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
+
+<> a owl:Ontology .
+fantasy:Rule a owl:Class .
+`;
+
+  await Deno.mkdir(join(sourceRoot, "ontology"), { recursive: true });
+  await Deno.mkdir(publishRoot, { recursive: true });
+  await Deno.writeTextFile(join(sourceRoot, sourcePath), source);
+
+  await executeGHPagesDeployBootstrap({
+    sourceRoot,
+    publishRoot,
+    request: {
+      meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+      source: {
+        sourcePath,
+        designatorPath: "ontology",
+        sourceRepositoryUrl:
+          "https://github.com/semantic-flow/mesh-sidecar-fantasy-rules.git",
+        sourceRepositoryRef: "main",
+      },
+    },
+  });
+
+  const policy = await loadOperationalLocalPathPolicy(publishRoot);
+  const relativeSourcePath = relative(
+    publishRoot,
+    join(sourceRoot, sourcePath),
+  ).replaceAll("\\", "/");
+  const config = await Deno.readTextFile(
+    join(publishRoot, "_mesh/_config/config.ttl"),
+  );
+
+  assertEquals(policy.workspaceRoot, publishRoot);
+  assertEquals(policy.rules.length, 0);
+  assert(!config.includes("workspaceRootRelativeToMeshRoot"), config);
+  assert(!config.includes("hasLocalPathAccessRule"), config);
+  assert(!config.includes("workingLocalRelativePath"), config);
+  assertThrows(
+    () =>
+      resolveAllowedLocalPath(
+        policy,
+        "workingLocalRelativePath",
+        relativeSourcePath,
+      ),
+    LocalPathAccessError,
+    "outside the mesh root",
+  );
+});
+
+Deno.test("executeGHPagesDeployBootstrap rejects source paths that escape the source root", async () => {
+  const tempRoot = await createTestTmpDir("weave-deploy-gh-pages-path-escape-");
+  const sourceRoot = join(tempRoot, "source");
+  const publishRoot = join(tempRoot, "gh-pages");
+  await Deno.mkdir(sourceRoot, { recursive: true });
+  await Deno.mkdir(publishRoot, { recursive: true });
+
+  await assertRejects(
+    () =>
+      executeGHPagesDeployBootstrap({
+        sourceRoot,
+        publishRoot,
+        request: {
+          meshBase:
+            "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+          source: {
+            sourcePath: "../outside.ttl",
+            designatorPath: "ontology",
+            sourceRepositoryUrl:
+              "https://github.com/semantic-flow/mesh-sidecar-fantasy-rules.git",
+            sourceRepositoryRef: "main",
+          },
+        },
+      }),
+    GHPagesDeployInputError,
+    "sourcePath must stay inside the repository root",
+  );
 });
 
 Deno.test("executeGHPagesDeployBootstrap materializes from a source branch into a gh-pages worktree", async () => {

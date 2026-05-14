@@ -137,3 +137,66 @@ Deno.test("loadOperationalLocalPathPolicy applies machine-local absolute path ru
     }
   }
 });
+
+Deno.test("resolveAllowedLocalPath requires a host-local grant for sibling worktree access", async () => {
+  const tempRoot = await Deno.makeTempDir({
+    prefix: "weave-local-path-sibling-",
+  });
+  const sourceRoot = join(tempRoot, "source");
+  const publishRoot = join(tempRoot, "gh-pages");
+  const homeRoot = join(tempRoot, "home");
+  await Deno.mkdir(join(sourceRoot, "ontology"), { recursive: true });
+  await Deno.mkdir(publishRoot, { recursive: true });
+  await Deno.mkdir(homeRoot, { recursive: true });
+  await Deno.writeTextFile(
+    join(sourceRoot, "ontology/fantasy-rules-ontology.ttl"),
+    "# source branch file\n",
+  );
+
+  const relativeSourcePath = "../source/ontology/fantasy-rules-ontology.ttl";
+  const previousHome = Deno.env.get("HOME");
+  Deno.env.set("HOME", homeRoot);
+  try {
+    const deniedPolicy = await loadOperationalLocalPathPolicy(publishRoot);
+    assertThrows(
+      () =>
+        resolveAllowedLocalPath(
+          deniedPolicy,
+          "workingLocalRelativePath",
+          relativeSourcePath,
+        ),
+      LocalPathAccessError,
+      "outside the mesh root",
+    );
+
+    await Deno.writeTextFile(
+      join(homeRoot, ".sf-local-access.ttl"),
+      `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+
+<> a sfcfg:HostLocalOperationalConfig ;
+  sfcfg:hasLocalPathAccessRule [
+    a sfcfg:LocalPathAccessRule ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/localPathBase_absolutePath> ;
+    sfcfg:pathPrefix "${sourceRoot}/" ;
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/localPathLocatorKind_workingLocalRelativePath>
+  ] .
+`,
+    );
+
+    const grantedPolicy = await loadOperationalLocalPathPolicy(publishRoot);
+    assertEquals(
+      resolveAllowedLocalPath(
+        grantedPolicy,
+        "workingLocalRelativePath",
+        relativeSourcePath,
+      ),
+      join(sourceRoot, "ontology/fantasy-rules-ontology.ttl"),
+    );
+  } finally {
+    if (previousHome === undefined) {
+      Deno.env.delete("HOME");
+    } else {
+      Deno.env.set("HOME", previousHome);
+    }
+  }
+});
