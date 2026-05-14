@@ -55,6 +55,8 @@ The intended source layers are:
 
 The first implementation can encode the scenario definition in TypeScript if that keeps the tool simple. A later pass can move it to JSON, JSON-LD, YAML, or an Accord-adjacent manifest if the shape stabilizes.
 
+The replay-command and source-provenance shape should be coordinated with Accord rather than treated as a permanent Weave-only scenario format. See [[ac.task.2026.2026-05-14-generalized-replay-and-provenance]]. Weave can still build temporary adapters for execution, but the durable metadata vocabulary should belong to Accord if it is going to be reusable outside branch-laddered fixtures.
+
 ### Publication
 
 We do not need every intermediate branch to publish through GitHub Pages at the same time. The fixture repos mainly demonstrate a mesh. Publishing the final SemanticSite is enough by default.
