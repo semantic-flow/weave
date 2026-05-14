@@ -57,6 +57,8 @@ The first implementation can encode the scenario definition in TypeScript if tha
 
 The replay-command and source-provenance shape should be coordinated with Accord rather than treated as a permanent Weave-only scenario format. See [[ac.task.2026.2026-05-14-generalized-replay-and-provenance]]. Weave can still build temporary adapters for execution, but the durable metadata vocabulary should belong to Accord if it is going to be reusable outside branch-laddered fixtures.
 
+Accord now honors `ignorePaths` in whole-tree transition completeness checks. The fixture generator should take advantage of that instead of maintaining a separate ad hoc tree-diff allowlist. Generated checks should fail on unexpected non-ignored path changes, should reject invalid ignore patterns through Accord validation/checking, and should avoid manifests that both ignore and explicitly expect the same path.
+
 ### Publication
 
 We do not need every intermediate branch to publish through GitHub Pages at the same time. The fixture repos mainly demonstrate a mesh. Publishing the final SemanticSite is enough by default.
@@ -217,6 +219,7 @@ The first scenario-definition format should therefore support both `command` ste
 - Add dry-run tests for command planning so transition order, source branch, target branch, manifest path, and command arguments are validated without mutating fixture repos.
 - Add at least one integration-style test that regenerates a small temporary fixture ladder from a minimal scenario.
 - Use existing e2e and integration fixture comparisons as the main acceptance check after branch regeneration.
+- Use Accord whole-tree completeness checks and `ignorePaths` for generated fixture comparison rather than maintaining a second path-diff policy in Weave.
 - Add a guardrail or validation step for generated fixture output that catches old `semantic-flow-ontology` namespace usage and stale inventory-owned MeshInventory progression facts before branch refs are updated.
 - Run `deno task lint` after significant implementation changes, per repo guidance.
 - For actual fixture rerunging, run the relevant Accord manifest checks and the affected Weave fixture tests before accepting generated branches.
@@ -234,6 +237,7 @@ The first scenario-definition format should therefore support both `command` ste
 ## Implementation Plan
 
 - [x] Inventory the current Alice Bio and Sidecar Fantasy Rules branch ladders, manifest names, transition commands, and existing test expectations.
+- [x] Add the first branch-published Fantasy Rules source-only proof manifest before fixture branch rerunging.
 - [ ] Inventory the currently failing fixture-backed tests and classify each failure as stale fixture namespace, stale progression location, page-definition shape drift, manifest drift, or implementation regression.
 - [ ] Decide the first scenario-definition format, favoring a simple TypeScript definition unless a data file is clearly better.
 - [ ] Implement a dry-run planner that prints transition order, source branch, target branch, manifest path, command or file operation, source provenance, and expected validation steps.
@@ -244,7 +248,7 @@ The first scenario-definition format should therefore support both `command` ste
 - [ ] Extend the generator through the full Alice Bio ladder.
 - [ ] Update or add documentation for the Alice Bio regeneration workflow.
 - [ ] Extend the generator to Sidecar Fantasy Rules.
-- [ ] Before extending Sidecar Fantasy Rules generation, confirm whether its durable spec/example has moved from `docs` sidecar to branch-published ontology output.
+- [x] Before extending Sidecar Fantasy Rules generation, confirm whether its durable spec/example has moved from `docs` sidecar to branch-published ontology output.
 - [ ] Update Accord manifests, fixture-backed Weave tests, and conformance expectations after generated branches are rerung for the combined enum/config changes.
 - [ ] Record the expected workflow for large ontology/config churn: update manifests, run generator, inspect generated branch diffs, run fixture tests, commit/push branch updates intentionally.
 - [x] Update [[wd.task.2026.2026-05-06-grand-config-synthesis]] to reference this task as the intended fixture regeneration path before the config-driven fixture rebuild.

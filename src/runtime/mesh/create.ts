@@ -12,9 +12,12 @@ export interface ExecuteMeshCreateOptions {
   workspaceRoot: string;
   meshRoot?: string;
   request: MeshCreateRequest;
+  existingFilePolicy?: MeshCreateExistingFilePolicy;
   operationalLogger?: StructuredLogger;
   auditLogger?: AuditLogger;
 }
+
+export type MeshCreateExistingFilePolicy = "reject" | "reuseMatching";
 
 export interface MeshCreateResult {
   meshBase: string;
@@ -41,6 +44,7 @@ export async function executeMeshCreate(
   };
   const plan = planMeshCreate(planRequest);
   const meshRootAbsolutePath = join(workspaceRoot, meshRoot);
+  const existingFilePolicy = options.existingFilePolicy ?? "reject";
 
   await operationalLogger.info(
     "mesh.create.started",
@@ -64,8 +68,47 @@ export async function executeMeshCreate(
 
   try {
     await ensureWorkspaceRootExists(workspaceRoot);
-    await assertTargetsDoNotExist(meshRootAbsolutePath, plan);
-    await writePlannedFiles(meshRootAbsolutePath, plan);
+    const existingPaths = await classifyExistingTargets(
+      meshRootAbsolutePath,
+      plan,
+      existingFilePolicy,
+    );
+    const createdFiles = await writePlannedFiles(
+      meshRootAbsolutePath,
+      plan,
+      existingPaths,
+    );
+    const result: MeshCreateResult = {
+      meshBase: plan.meshBase,
+      meshIri: plan.meshIri,
+      createdPaths: createdFiles.map((file) =>
+        toWorkspaceRelativePath(meshRoot, file.path)
+      ),
+    };
+
+    await operationalLogger.info(
+      "mesh.create.succeeded",
+      "Local mesh create succeeded",
+      {
+        workspaceRoot,
+        meshRoot,
+        meshBase: result.meshBase,
+        meshIri: result.meshIri,
+        createdPaths: result.createdPaths,
+      },
+    );
+    await auditLogger.record(
+      "mesh.create.succeeded",
+      "Local mesh create succeeded",
+      {
+        workspaceRoot,
+        meshRoot,
+        meshBase: result.meshBase,
+        createdPaths: result.createdPaths,
+      },
+    );
+
+    return result;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await operationalLogger.error(
@@ -94,38 +137,6 @@ export async function executeMeshCreate(
     }
     throw new MeshCreateRuntimeError(message);
   }
-
-  const result: MeshCreateResult = {
-    meshBase: plan.meshBase,
-    meshIri: plan.meshIri,
-    createdPaths: plan.files.map((file) =>
-      toWorkspaceRelativePath(meshRoot, file.path)
-    ),
-  };
-
-  await operationalLogger.info(
-    "mesh.create.succeeded",
-    "Local mesh create succeeded",
-    {
-      workspaceRoot,
-      meshRoot,
-      meshBase: result.meshBase,
-      meshIri: result.meshIri,
-      createdPaths: result.createdPaths,
-    },
-  );
-  await auditLogger.record(
-    "mesh.create.succeeded",
-    "Local mesh create succeeded",
-    {
-      workspaceRoot,
-      meshRoot,
-      meshBase: result.meshBase,
-      createdPaths: result.createdPaths,
-    },
-  );
-
-  return result;
 }
 
 function normalizeMeshRoot(meshRoot: string | undefined): string {
@@ -198,16 +209,29 @@ async function ensureWorkspaceRootExists(workspaceRoot: string): Promise<void> {
   }
 }
 
-async function assertTargetsDoNotExist(
+async function classifyExistingTargets(
   meshRootAbsolutePath: string,
   plan: MeshCreatePlan,
-): Promise<void> {
+  existingFilePolicy: MeshCreateExistingFilePolicy,
+): Promise<ReadonlySet<string>> {
+  const existingPaths = new Set<string>();
+
   for (const file of plan.files) {
     try {
-      await Deno.stat(join(meshRootAbsolutePath, file.path));
-      throw new MeshCreateRuntimeError(
-        `mesh create target already exists: ${file.path}`,
+      const existingContents = await Deno.readTextFile(
+        join(meshRootAbsolutePath, file.path),
       );
+      if (existingFilePolicy === "reject") {
+        throw new MeshCreateRuntimeError(
+          `mesh create target already exists: ${file.path}`,
+        );
+      }
+      if (existingContents !== file.contents) {
+        throw new MeshCreateRuntimeError(
+          `mesh create target already exists with different contents: ${file.path}`,
+        );
+      }
+      existingPaths.add(file.path);
     } catch (error) {
       if (error instanceof Deno.errors.NotFound) {
         continue;
@@ -215,15 +239,26 @@ async function assertTargetsDoNotExist(
       throw error;
     }
   }
+
+  return existingPaths;
 }
 
 async function writePlannedFiles(
   meshRootAbsolutePath: string,
   plan: MeshCreatePlan,
-): Promise<void> {
+  existingPaths: ReadonlySet<string>,
+): Promise<readonly MeshCreatePlan["files"][number][]> {
+  const createdFiles: MeshCreatePlan["files"][number][] = [];
+
   for (const file of plan.files) {
+    if (existingPaths.has(file.path)) {
+      continue;
+    }
     const absolutePath = join(meshRootAbsolutePath, file.path);
     await Deno.mkdir(dirname(absolutePath), { recursive: true });
     await Deno.writeTextFile(absolutePath, file.contents, { createNew: true });
+    createdFiles.push(file);
   }
+
+  return createdFiles;
 }

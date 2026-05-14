@@ -1,6 +1,6 @@
 import { Command } from "@cliffy/command";
 import { Confirm, Input } from "@cliffy/prompt";
-import { isAbsolute, join, relative, resolve } from "@std/path";
+import { basename, isAbsolute, join, relative, resolve } from "@std/path";
 import { ExtractInputError } from "../core/extract/extract.ts";
 import { IntegrateInputError } from "../core/integrate/integrate.ts";
 import { KnopAddReferenceInputError } from "../core/knop/add_reference.ts";
@@ -11,6 +11,12 @@ import { normalizeCliDesignatorPath } from "../core/designator_segments.ts";
 import type { TargetSpec, VersionTargetSpec } from "../core/targeting.ts";
 import { WeaveInputError } from "../core/weave/weave.ts";
 import { createRuntimeLoggers } from "../runtime/logging/factory.ts";
+import {
+  describeGHPagesDeployBootstrapResult,
+  executeGHPagesDeployBootstrap,
+  GHPagesDeployInputError,
+  GHPagesDeployRuntimeError,
+} from "../runtime/deploy/gh_pages.ts";
 import {
   describeExtractAllTermsResult,
   describeExtractResult,
@@ -732,6 +738,93 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         ),
     )
     .command(
+      "deploy",
+      new Command()
+        .description("Deployment operations.")
+        .command(
+          "gh-pages",
+          new Command()
+            .description(
+              "Bootstrap a branch-published GitHub Pages mesh in a publication worktree.",
+            )
+            .option(
+              "--source-root <sourceRoot:string>",
+              "Source checkout root to read during branch-published deployment.",
+              { default: "." },
+            )
+            .option(
+              "--publish-root <publishRoot:string>",
+              "Publication branch worktree root to update.",
+            )
+            .option(
+              "--mesh-base <meshBase:string>",
+              "Canonical base IRI for Semantic Flow identifiers in the published mesh.",
+            )
+            .option(
+              "--no-nojekyll",
+              "Do not create a GitHub Pages .nojekyll publishing guard.",
+            )
+            .option(
+              "--interactive",
+              "Prompt for missing branch-published deployment inputs.",
+            )
+            .action(async (
+              options: {
+                sourceRoot: string;
+                publishRoot?: string;
+                meshBase?: string;
+                nojekyll?: boolean;
+                interactive?: boolean;
+              },
+            ) => {
+              const sourceRoot = resolve(options.sourceRoot);
+              const promptForMissingInputs = options.interactive === true ||
+                Deno.stdin.isTerminal();
+              const publishRoot = await resolvePublishRootOption({
+                sourceRoot,
+                publishRoot: options.publishRoot,
+                interactive: promptForMissingInputs,
+              });
+              const meshBase = await resolveMeshBaseOption(
+                {
+                  meshBase: options.meshBase,
+                  interactive: promptForMissingInputs,
+                },
+                "deploy gh-pages",
+                "an interactive terminal",
+              );
+              const logDir = join(publishRoot, ".weave", "logs");
+              const { operationalLogger, auditLogger } = createRuntimeLoggers({
+                logDir,
+              });
+
+              await auditLogger.command("deploy.ghPages", {
+                sourceRoot,
+                publishRoot,
+                meshBase,
+                localMode: true,
+              });
+
+              const result = await executeGHPagesDeployBootstrap({
+                sourceRoot,
+                publishRoot,
+                request: {
+                  meshBase,
+                  includeNoJekyll: options.nojekyll === false
+                    ? false
+                    : undefined,
+                },
+                operationalLogger,
+                auditLogger,
+              });
+              console.log(describeGHPagesDeployBootstrapResult(result));
+              for (const path of result.createdPaths) {
+                console.log(path);
+              }
+            }),
+        ),
+    )
+    .command(
       "mesh",
       new Command()
         .description("Mesh operations.")
@@ -970,6 +1063,8 @@ async function inferCliWorkspaceRoot(meshRoot: string): Promise<string> {
 
 async function resolveMeshBaseOption(
   options: { meshBase?: string; interactive?: boolean },
+  commandName = "mesh create",
+  interactiveHint = "--interactive",
 ): Promise<string> {
   if (
     typeof options.meshBase === "string" && options.meshBase.trim().length > 0
@@ -979,7 +1074,7 @@ async function resolveMeshBaseOption(
 
   if (!options.interactive) {
     throw new MeshCreateInputError(
-      "mesh create requires --mesh-base or --interactive",
+      `${commandName} requires --mesh-base or ${interactiveHint}`,
     );
   }
 
@@ -989,6 +1084,42 @@ async function resolveMeshBaseOption(
       return value.trim().length > 0 || "meshBase is required";
     },
   });
+}
+
+async function resolvePublishRootOption(
+  options: {
+    sourceRoot: string;
+    publishRoot?: string;
+    interactive?: boolean;
+  },
+): Promise<string> {
+  if (
+    typeof options.publishRoot === "string" &&
+    options.publishRoot.trim().length > 0
+  ) {
+    return resolve(options.publishRoot);
+  }
+
+  if (!options.interactive) {
+    throw new GHPagesDeployInputError(
+      "deploy gh-pages requires --publish-root, a deploy profile value, or an interactive terminal",
+    );
+  }
+
+  const defaultPublishRoot = resolve(
+    options.sourceRoot,
+    "..",
+    `${basename(options.sourceRoot)}-gh-pages`,
+  );
+
+  const value = await Input.prompt({
+    message: "Publication worktree path",
+    default: defaultPublishRoot,
+    validate(value) {
+      return value.trim().length > 0 || "publishRoot is required";
+    },
+  });
+  return resolve(value);
 }
 
 function printExtractAllTermsPreview(
@@ -1309,7 +1440,9 @@ function getCliErrorMessage(error: unknown): string {
     error instanceof KnopCreateInputError ||
     error instanceof KnopCreateRuntimeError ||
     error instanceof MeshCreateInputError ||
-    error instanceof MeshCreateRuntimeError
+    error instanceof MeshCreateRuntimeError ||
+    error instanceof GHPagesDeployInputError ||
+    error instanceof GHPagesDeployRuntimeError
   ) {
     return error.message;
   }

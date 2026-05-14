@@ -72,6 +72,35 @@ Deno.test("planMeshCreate renders sidecar mesh config when requested", () => {
   );
 });
 
+Deno.test("planMeshCreate renders an empty mesh config when requested", () => {
+  const plan = planMeshCreate({
+    meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    includeMeshConfig: true,
+  });
+
+  assertEquals(
+    plan.files.map((file) => file.path),
+    [
+      "_mesh/_meta/meta.ttl",
+      "_mesh/_inventory/inventory.ttl",
+      "_mesh/_config/config.ttl",
+      ".nojekyll",
+    ],
+  );
+  assertEquals(
+    plan.files.find((file) => file.path === "_mesh/_config/config.ttl")
+      ?.contents,
+    `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+
+<> a sfcfg:MeshConfig .
+`,
+  );
+  assertStringIncludes(
+    plan.files[1]?.contents ?? "",
+    "<_mesh/_config> a sfcfg:MeshConfig, sflo:DigitalArtifact, sflo:RdfDocument ;",
+  );
+});
+
 Deno.test("planMeshCreate does not add .nojekyll for non-GitHub Pages mesh bases", () => {
   const plan = planMeshCreate({
     meshBase: "https://example.org/",
