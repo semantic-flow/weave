@@ -1,4 +1,5 @@
-import { join, relative, resolve } from "@std/path";
+import { dirname, isAbsolute, join, relative, resolve } from "@std/path";
+import * as pathPosix from "@std/path/posix";
 
 export type FixtureScenarioId = "alice-bio";
 export type FixturePlanFormat = "text" | "json";
@@ -7,6 +8,8 @@ export interface FixtureLadderOptions {
   root: string;
   scenario: FixtureScenarioId;
   format: FixturePlanFormat;
+  materializeTransitionId?: string;
+  workspaceRoot?: string;
 }
 
 export interface FixtureLadderPlan {
@@ -16,6 +19,26 @@ export interface FixtureLadderPlan {
   manifestRoot: string;
   transitions: readonly FixtureTransitionPlan[];
   writesBranches: false;
+}
+
+export interface MaterializeFixtureTransitionOptions {
+  root: string;
+  scenario: FixtureScenarioId;
+  transitionId: string;
+  workspaceRoot?: string;
+}
+
+export interface FixtureMaterializationResult {
+  scenario: FixtureScenarioId;
+  transitionId: string;
+  fromRef: string;
+  toRef: string;
+  operationId: string;
+  fixtureRepoPath: string;
+  workspaceRoot: string;
+  materializedPaths: readonly string[];
+  writesBranches: false;
+  nextAction: FixtureTransitionAction;
 }
 
 export interface FixtureLadderScenario {
@@ -393,12 +416,26 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
 if (import.meta.main) {
   try {
     const options = parseFixtureLadderArgs(Deno.args);
-    const plan = planFixtureLadder(options);
-    console.log(
-      options.format === "json"
-        ? JSON.stringify(plan, null, 2)
-        : renderFixtureLadderPlan(plan),
-    );
+    if (options.materializeTransitionId !== undefined) {
+      const result = await materializeFixtureTransitionSource({
+        root: options.root,
+        scenario: options.scenario,
+        transitionId: options.materializeTransitionId,
+        workspaceRoot: options.workspaceRoot,
+      });
+      console.log(
+        options.format === "json"
+          ? JSON.stringify(result, null, 2)
+          : renderFixtureMaterializationResult(result),
+      );
+    } else {
+      const plan = planFixtureLadder(options);
+      console.log(
+        options.format === "json"
+          ? JSON.stringify(plan, null, 2)
+          : renderFixtureLadderPlan(plan),
+      );
+    }
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     Deno.exit(1);
@@ -411,6 +448,8 @@ export function parseFixtureLadderArgs(
   let root = Deno.cwd();
   let scenario: FixtureScenarioId = "alice-bio";
   let format: FixturePlanFormat = "text";
+  let materializeTransitionId: string | undefined;
+  let workspaceRoot: string | undefined;
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
@@ -432,6 +471,17 @@ export function parseFixtureLadderArgs(
         format = parsePlanFormat(
           requireArgumentValue(args[index], "--format"),
         );
+        break;
+      case "--materialize":
+        index += 1;
+        materializeTransitionId = requireArgumentValue(
+          args[index],
+          "--materialize",
+        );
+        break;
+      case "--workspace-root":
+        index += 1;
+        workspaceRoot = requireArgumentValue(args[index], "--workspace-root");
         break;
       case "--json":
         format = "json";
@@ -456,14 +506,40 @@ export function parseFixtureLadderArgs(
           );
           break;
         }
+        if (arg.startsWith("--materialize=")) {
+          materializeTransitionId = requireArgumentValue(
+            arg.slice("--materialize=".length),
+            "--materialize",
+          );
+          break;
+        }
+        if (arg.startsWith("--workspace-root=")) {
+          workspaceRoot = requireArgumentValue(
+            arg.slice("--workspace-root=".length),
+            "--workspace-root",
+          );
+          break;
+        }
         throw new Error(`Unsupported fixture:ladder argument: ${arg}`);
     }
+  }
+
+  if (
+    workspaceRoot !== undefined && materializeTransitionId === undefined
+  ) {
+    throw new Error("fixture:ladder --workspace-root requires --materialize");
   }
 
   return {
     root: resolve(root),
     scenario,
     format,
+    ...(materializeTransitionId !== undefined
+      ? { materializeTransitionId }
+      : {}),
+    ...(workspaceRoot !== undefined
+      ? { workspaceRoot: resolve(workspaceRoot) }
+      : {}),
   };
 }
 
@@ -534,6 +610,79 @@ export function renderFixtureLadderPlan(plan: FixtureLadderPlan): string {
     }
   }
 
+  return lines.join("\n");
+}
+
+export async function materializeFixtureTransitionSource(
+  options: MaterializeFixtureTransitionOptions,
+): Promise<FixtureMaterializationResult> {
+  const plan = planFixtureLadder({
+    root: options.root,
+    scenario: options.scenario,
+    format: "text",
+  });
+  const transition = plan.transitions.find((candidate) =>
+    candidate.id === options.transitionId
+  );
+  if (transition === undefined) {
+    throw new Error(
+      `Unknown ${plan.scenario.label} transition: ${options.transitionId}`,
+    );
+  }
+
+  const workspaceRoot = options.workspaceRoot === undefined
+    ? await Deno.makeTempDir({ prefix: "weave-fixture-ladder-" })
+    : resolve(options.workspaceRoot);
+  await ensureEmptyWorkspaceRoot(workspaceRoot);
+
+  const resolvedRef = await resolveGitCommitish(
+    plan.fixtureRepoPath,
+    transition.fromRef,
+  );
+  const materializedPaths = await materializeGitTree({
+    repoPath: plan.fixtureRepoPath,
+    ref: resolvedRef,
+    workspaceRoot,
+  });
+
+  return {
+    scenario: plan.scenario.id,
+    transitionId: transition.id,
+    fromRef: transition.fromRef,
+    toRef: transition.toRef,
+    operationId: transition.operationId,
+    fixtureRepoPath: plan.fixtureRepoPath,
+    workspaceRoot,
+    materializedPaths,
+    writesBranches: false,
+    nextAction: transition.action,
+  };
+}
+
+export function renderFixtureMaterializationResult(
+  result: FixtureMaterializationResult,
+): string {
+  const lines = [
+    `Fixture source materialized: ${result.scenario}`,
+    `Transition: ${result.transitionId}`,
+    `Source ref: ${result.fromRef}`,
+    `Target ref: ${result.toRef}`,
+    `Workspace root: ${result.workspaceRoot}`,
+    "Branch writes: disabled",
+    `Files materialized: ${result.materializedPaths.length}`,
+  ];
+  for (const path of result.materializedPaths) {
+    lines.push(`- ${path}`);
+  }
+  if (result.nextAction.kind === "command") {
+    lines.push(
+      `Next command: ${
+        [result.nextAction.executable, ...result.nextAction.argv].join(" ")
+      }`,
+    );
+  } else {
+    lines.push(`Next file operation: ${result.nextAction.description}`);
+  }
   return lines.join("\n");
 }
 
@@ -619,4 +768,138 @@ function parsePlanFormat(value: string): FixturePlanFormat {
     return value;
   }
   throw new Error(`Unsupported fixture plan format: ${value}`);
+}
+
+async function ensureEmptyWorkspaceRoot(path: string): Promise<void> {
+  try {
+    const stat = await Deno.stat(path);
+    if (!stat.isDirectory) {
+      throw new Error(`workspace root is not a directory: ${path}`);
+    }
+    for await (const _entry of Deno.readDir(path)) {
+      throw new Error(
+        `workspace root must be empty before materialization: ${path}`,
+      );
+    }
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      await Deno.mkdir(path, { recursive: true });
+      return;
+    }
+    throw error;
+  }
+}
+
+async function resolveGitCommitish(
+  repoPath: string,
+  ref: string,
+): Promise<string> {
+  const candidates = [ref, `origin/${ref}`];
+  for (const candidate of candidates) {
+    const result = await runGit(repoPath, [
+      "rev-parse",
+      "--verify",
+      "--quiet",
+      `${candidate}^{commit}`,
+    ]);
+    if (result.success) {
+      return candidate;
+    }
+  }
+  throw new Error(
+    `Failed to resolve fixture ref ${ref} in ${repoPath}; checked ${
+      candidates.join(", ")
+    }.`,
+  );
+}
+
+async function materializeGitTree(options: {
+  repoPath: string;
+  ref: string;
+  workspaceRoot: string;
+}): Promise<string[]> {
+  const listResult = await runGit(options.repoPath, [
+    "ls-tree",
+    "-r",
+    "--name-only",
+    "-z",
+    options.ref,
+  ]);
+  if (!listResult.success) {
+    throw new Error(
+      `Failed to list fixture files for ${options.ref}: ${listResult.stderr.trim()}`,
+    );
+  }
+
+  const paths = listResult.stdout.split("\0").filter((path) => path.length > 0);
+  for (const path of paths) {
+    const safePath = normalizeGitTreePath(path);
+    const absolutePath = join(options.workspaceRoot, safePath);
+    await Deno.mkdir(dirname(absolutePath), { recursive: true });
+    const fileResult = await runGitBytes(options.repoPath, [
+      "show",
+      `${options.ref}:${safePath}`,
+    ]);
+    if (!fileResult.success) {
+      throw new Error(
+        `Failed to read fixture file ${options.ref}:${safePath}: ${fileResult.stderr.trim()}`,
+      );
+    }
+    await Deno.writeFile(absolutePath, fileResult.stdout);
+  }
+
+  return paths.map(normalizeGitTreePath).sort((left, right) =>
+    left.localeCompare(right)
+  );
+}
+
+function normalizeGitTreePath(path: string): string {
+  if (path.includes("\\") || isAbsolute(path) || /^[A-Za-z]:/.test(path)) {
+    throw new Error(`Unsafe git tree path: ${path}`);
+  }
+  const normalized = pathPosix.normalize(path);
+  if (
+    normalized === "." || normalized === ".." || normalized.startsWith("../")
+  ) {
+    throw new Error(`Unsafe git tree path: ${path}`);
+  }
+  return normalized;
+}
+
+async function runGit(
+  cwd: string,
+  args: readonly string[],
+): Promise<{ success: boolean; stdout: string; stderr: string }> {
+  const result = await runGitBytes(cwd, args);
+  return {
+    success: result.success,
+    stdout: new TextDecoder().decode(result.stdout),
+    stderr: result.stderr,
+  };
+}
+
+async function runGitBytes(
+  cwd: string,
+  args: readonly string[],
+): Promise<{ success: boolean; stdout: Uint8Array; stderr: string }> {
+  try {
+    const output = await new Deno.Command("git", {
+      cwd,
+      args: [...args],
+    }).output();
+    return {
+      success: output.success,
+      stdout: output.stdout,
+      stderr: new TextDecoder().decode(output.stderr),
+    };
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return {
+        success: false,
+        stdout: new Uint8Array(),
+        stderr: "git executable was not found",
+      };
+    }
+    throw error;
+  }
 }

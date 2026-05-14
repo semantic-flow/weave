@@ -243,7 +243,7 @@ The first scenario-definition format should therefore support both `command` ste
 - [d] Inventory the currently failing fixture-backed tests and classify each failure as stale fixture namespace, stale progression location, page-definition shape drift, manifest drift, or implementation regression. Deferred until the planner/executor exists; the dominant fixture failures are already known stale output shapes.
 - [x] Decide the first scenario-definition format, favoring a simple TypeScript definition unless a data file is clearly better.
 - [x] Implement a dry-run planner that prints transition order, source branch, target branch, manifest path, command or file operation, source provenance, and expected validation steps.
-- [ ] Implement local materialization for a source branch into a temporary workspace using the existing fixture helper behavior as a reference.
+- [x] Implement local materialization for a source branch into a temporary workspace using the existing fixture helper behavior as a reference.
 - [ ] Implement execution for the first Alice Bio transition that runs the intended Weave command and validates the result against its Accord manifest.
 - [ ] Add generated-output guardrails for canonical `sflo` namespace and current `_mesh/_meta` MeshInventory progression shape before any branch write.
 - [ ] Add branch update support behind an explicit write flag so dry runs remain the default while the tool is being proven.
