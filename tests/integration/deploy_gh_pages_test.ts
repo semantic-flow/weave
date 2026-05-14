@@ -3,6 +3,7 @@ import { join, relative } from "@std/path";
 import {
   executeGHPagesDeployBootstrap,
   GHPagesDeployInputError,
+  GHPagesDeployRuntimeError,
 } from "../../src/runtime/deploy/gh_pages.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
@@ -484,6 +485,74 @@ Deno.test("executeGHPagesDeployBootstrap rejects dirty publication worktrees by 
   );
 });
 
+Deno.test("executeGHPagesDeployBootstrap rejects stale publication clutter", async () => {
+  const stalePaths = [".weave/logs/operational.jsonl", "docs/_mesh/index.html"];
+
+  for (const stalePath of stalePaths) {
+    const tempRoot = await createTestTmpDir("weave-deploy-gh-pages-stale-");
+    const sourceRoot = join(tempRoot, "source");
+    const publishRoot = join(tempRoot, "gh-pages");
+    await Deno.mkdir(sourceRoot, { recursive: true });
+    await Deno.mkdir(join(publishRoot, relativeDirname(stalePath)), {
+      recursive: true,
+    });
+    await Deno.writeTextFile(join(publishRoot, stalePath), "stale\n");
+
+    await assertRejects(
+      () =>
+        executeGHPagesDeployBootstrap({
+          sourceRoot,
+          publishRoot,
+          request: {
+            meshBase:
+              "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+          },
+        }),
+      GHPagesDeployRuntimeError,
+      "stale branch-published output or local operational state",
+    );
+  }
+});
+
+Deno.test("executeGHPagesDeployBootstrap rejects local path leakage in generated RDF", async () => {
+  const tempRoot = await createTestTmpDir("weave-deploy-gh-pages-leak-");
+  const sourceRoot = join(tempRoot, "source");
+  const publishRoot = join(tempRoot, "gh-pages");
+  await Deno.mkdir(sourceRoot, { recursive: true });
+  await Deno.mkdir(publishRoot, { recursive: true });
+
+  await executeGHPagesDeployBootstrap({
+    sourceRoot,
+    publishRoot,
+    request: {
+      meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    },
+  });
+  const configPath = join(publishRoot, "_mesh/_config/config.ttl");
+  await Deno.writeTextFile(
+    configPath,
+    `${await Deno.readTextFile(configPath)}
+<#leak> <https://semantic-flow.github.io/sflo/ontology/sourceRepositoryPath> "${
+      sourceRoot.replaceAll("\\", "\\\\")
+    }/ontology/source.ttl" .
+`,
+  );
+
+  await assertRejects(
+    () =>
+      executeGHPagesDeployBootstrap({
+        sourceRoot,
+        publishRoot,
+        request: {
+          meshBase:
+            "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+        },
+      }),
+    GHPagesDeployRuntimeError,
+    "contains a local source root path",
+  );
+});
+
 Deno.test("executeGHPagesDeployBootstrap rejects overlapping roots", async () => {
   const tempRoot = await createTestTmpDir("weave-deploy-gh-pages-overlap-");
   const sourceRoot = join(tempRoot, "source");
@@ -528,6 +597,11 @@ async function assertPathMissing(path: string): Promise<void> {
     () => Deno.stat(path),
     Deno.errors.NotFound,
   );
+}
+
+function relativeDirname(path: string): string {
+  const index = path.lastIndexOf("/");
+  return index === -1 ? "." : path.slice(0, index);
 }
 
 async function runGit(cwd: string, args: readonly string[]): Promise<void> {

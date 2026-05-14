@@ -117,6 +117,7 @@ export async function executeGHPagesDeployBootstrap(
     if (options.allowDirtyPublicationRoot !== true) {
       await assertCleanPublicationWorktree(publishRoot);
     }
+    await assertNoStalePublicationOutput(publishRoot);
 
     const meshCreateResult = await ensurePublicationMeshBootstrap({
       publishRoot,
@@ -153,6 +154,10 @@ export async function executeGHPagesDeployBootstrap(
       ]),
       ...(materializedSource ? { materializedSource } : {}),
     };
+    await validateGeneratedPublicationOutput({
+      sourceRoot,
+      publishRoot,
+    });
 
     await operationalLogger.info(
       "deploy.ghPages.bootstrap.succeeded",
@@ -871,6 +876,95 @@ async function assertCleanPublicationWorktree(
   throw new GHPagesDeployInputError(
     `publication root has uncommitted or untracked changes; commit, stash, or clean the publication worktree before deploying, or explicitly allow a dirty publication root`,
   );
+}
+
+const STALE_PUBLICATION_OUTPUT_PATHS = [
+  ".weave",
+  ".sf-local-access.ttl",
+  "docs/_mesh",
+] as const;
+
+async function assertNoStalePublicationOutput(
+  publishRoot: string,
+): Promise<void> {
+  for (const path of STALE_PUBLICATION_OUTPUT_PATHS) {
+    if (await pathExists(join(publishRoot, path))) {
+      throw new GHPagesDeployRuntimeError(
+        `Publication root contains stale branch-published output or local operational state at ${path}; remove it or use an explicit rebuild flow before deploying.`,
+      );
+    }
+  }
+}
+
+async function validateGeneratedPublicationOutput(
+  options: {
+    sourceRoot: string;
+    publishRoot: string;
+  },
+): Promise<void> {
+  const forbiddenNeedles = [
+    { label: "source root", value: options.sourceRoot },
+    { label: "publication root", value: options.publishRoot },
+  ];
+
+  for await (const absolutePath of walkPublicationFiles(options.publishRoot)) {
+    const relativePath = relative(options.publishRoot, absolutePath)
+      .replaceAll("\\", "/");
+    if (!shouldValidateGeneratedRdfPath(relativePath)) {
+      continue;
+    }
+
+    const contents = await Deno.readTextFile(absolutePath);
+    for (const needle of forbiddenNeedles) {
+      if (contents.includes(needle.value)) {
+        throw new GHPagesDeployRuntimeError(
+          `Generated publication RDF ${relativePath} contains a local ${needle.label} path.`,
+        );
+      }
+    }
+    if (contents.includes("../")) {
+      throw new GHPagesDeployRuntimeError(
+        `Generated publication RDF ${relativePath} contains parent-directory traversal.`,
+      );
+    }
+  }
+}
+
+function shouldValidateGeneratedRdfPath(path: string): boolean {
+  if (!path.endsWith(".ttl")) {
+    return false;
+  }
+  return path.startsWith("_mesh/") || path.includes("/_knop/");
+}
+
+async function* walkPublicationFiles(root: string): AsyncGenerator<string> {
+  let entries: Deno.DirEntry[];
+  try {
+    entries = [];
+    for await (const entry of Deno.readDir(root)) {
+      entries.push(entry);
+    }
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return;
+    }
+    throw error;
+  }
+
+  entries.sort((left, right) => left.name.localeCompare(right.name));
+  for (const entry of entries) {
+    const path = join(root, entry.name);
+    if (entry.isDirectory) {
+      if (entry.name === ".git") {
+        continue;
+      }
+      yield* walkPublicationFiles(path);
+      continue;
+    }
+    if (entry.isFile) {
+      yield path;
+    }
+  }
 }
 
 async function isGitWorktreeRoot(root: string): Promise<boolean> {

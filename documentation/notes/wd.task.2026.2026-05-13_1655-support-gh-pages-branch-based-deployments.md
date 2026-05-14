@@ -245,6 +245,7 @@ This should eventually support CI permissions that are narrower than a blanket t
 - Default-history proof: the focused branch-published materialization slice now keeps MeshInventory, KnopMetadata, and KnopInventory current-only under runtime defaults while preserving the old explicit/versioned core shape when non-default policies are supplied.
 - Dirty publication roots: branch-published deploy now refuses a dirty publication git worktree root by default. Operators can explicitly opt into dirty-root deployment for local experimentation, but the default path requires committed/stashed/clean publication state before Weave writes generated output.
 - Publication controls: branch-published deploy preserves unknown files by leaving them alone, recreates `.nojekyll` when GitHub Pages protection is enabled, and can create or update a configured `CNAME` without persisting local checkout paths.
+- Stale output validation: branch-published deploy rejects known stale local/publication clutter such as `.weave`, `.sf-local-access.ttl`, and old `docs/_mesh` sidecar output, then scans generated RDF support files for local source/publication root paths or parent-directory traversal before reporting success.
 - Rebuild mode: rebuild-from-scratch should exist, but only after incremental update behavior is proven. It should be a separate loud mode or guarded flag, not the default deploy path.
 - Fixture placement: prefer converting Fantasy Rules to the branch-published ontology fixture if we keep only two main fixture repos. If that creates too much churn during fixture ladder regeneration, create focused temporary-git integration coverage first and defer the fixture move through [[wd.task.2026.2026-05-07-fixture-ladder-generator]].
 - Fixture regeneration timing: rewrite the Semantic Flow Framework Fantasy Rules spec/example and build focused branch-published proof coverage before rerunging fixture branches. Build fixture-generator machinery early enough to avoid manual repair, but defer full branch-ladder regeneration until the topology and vocabulary are stable.
@@ -331,7 +332,7 @@ This should eventually support CI permissions that are narrower than a blanket t
 - [x] Add local integration coverage using an actual temporary git repo with source and `gh-pages` worktrees.
 - [x] Update [[wd.task.2026.2026-05-07-fixture-ladder-generator]] to make fixture-generator work early but full fixture branch rerunging later, after branch-published topology and vocabulary are stable.
 - [x] Add `.nojekyll` and optional `CNAME` preservation behavior.
-- [ ] Add validation that generated public mesh output does not include stale source-branch clutter or developer-specific sibling checkout paths.
+- [x] Add validation that generated public mesh output does not include stale source-branch clutter or developer-specific sibling checkout paths.
 - [ ] Implement incremental publication-branch updates as the default behavior.
 - [ ] Add a guarded rebuild-from-scratch mode only after incremental updates are proven.
 - [ ] Add explicit commit/push flags after local generation is proven.
