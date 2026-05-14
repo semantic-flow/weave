@@ -148,6 +148,10 @@ The profile-driven shape is nicer long term, but the first slice can be explicit
 
 The command should default to dry-run or no-push behavior until the branch state is inspectable. Creating or force-updating a publication branch should require an explicit flag.
 
+If the publication worktree location is not supplied, the interactive CLI should prompt for it rather than silently guessing a sibling path. It may offer a conventional default such as `../<repo>-gh-pages`, but the operator needs to accept or edit that value before Weave creates or uses the worktree. In non-interactive mode, CI, or when stdin is not a TTY, an omitted publication root should fail with a clear message that points to `--publish-root` or a deploy profile value.
+
+The prompt should be for the local publication worktree path, not for the public base IRI. The mesh base can still be inferred from GitHub remote metadata when that inference is enabled, but a host filesystem path is too consequential to infer and persist without explicit operator confirmation.
+
 ### Git Worktree Model
 
 The likely implementation path is to use git worktrees rather than checking out branches in-place:
@@ -166,6 +170,14 @@ The workflow should handle:
 - preserving intentionally carried files such as `CNAME`, `.nojekyll`, or deployment metadata
 
 We should be very conservative about deletes. A publication branch reset is acceptable only behind an explicit flag and after preserving or re-creating known publication control files.
+
+### Workspace Model
+
+Branch-published deployment should not broaden the existing workspace concept so that one workspace casually spans both sibling worktrees. That is exactly the move that would make `../source-repo/...` feel natural in persisted RDF, and that is the shape we are trying to avoid.
+
+For the first implementation, treat the publication root as the active mesh root and publication workspace. It owns `_mesh/`, `_mesh/_config/config.ttl`, generated pages, histories, inventories, validation output, and any publication-branch-local runtime state. Treat the source checkout as a trusted operation input root supplied by CLI, deploy profile, CI layout, or machine-local operational config. The deploy operation can create an in-memory resolver binding from durable source locator facts to that local source root, but the local sibling path must not become a durable mesh fact.
+
+This means branch publication introduces a deploy context with at least two local roots: source root and publication root. That is not the same as redefining every Weave workspace as multi-root. If later daemon or multi-mesh work needs a general multi-root workspace model, it should be designed there; this task only needs enough context to keep clean source branches and fail-closed local access compatible.
 
 ### Incremental Publication
 
@@ -186,6 +198,8 @@ This does not mean the `docs/` sidecar pattern goes away. It means the fixture c
 If we make that change, [[wd.task.2026.2026-05-07-fixture-ladder-generator]] should record the new fixture topology before rerunging branches.
 
 Accord can now carry replay metadata and `ignorePaths`, which is useful for `.assets` and other source material. However, current `accord check` behavior described in the Accord user guide still says `ignorePaths` is loaded for downstream tooling and future whole-tree checks, not applied by the current path-scoped checker. For branch-generated fixtures, `.assets` should therefore be handled explicitly by the generator/replay workflow and by future Accord whole-tree checks, not assumed to be invisible to every current check.
+
+The ordering should be: settle the Semantic Flow Framework Fantasy Rules branch-published spec/example first, prove the branch-published clean-source behavior in a focused temporary-git integration slice, and build enough fixture-generator support to replay the chosen topology. Do not spend a full regeneration pass on the current `docs/` sidecar ladder immediately before replacing that ladder. The actual fixture branch rerung should happen later, once the branch-published topology, repository-source locator RDF, and near-term config/ontology churn are all stable enough to regenerate in one intentional pass.
 
 ### GitHub Pages Details
 
@@ -212,34 +226,40 @@ The branch-published workflow should be scriptable in GitHub Actions:
 
 This should eventually support CI permissions that are narrower than a blanket token with arbitrary write access. The task can start locally, but the design should not preclude a safe Action later.
 
-## Open Issues
+## Open Issues And Working Answers
 
-- What should we call this topology in user docs: `branch-published mesh`, `gh-pages mesh`, `publication branch mesh`, or a kind of sidecar mesh?
-- Should branch-published targets keep using `workingLocalRelativePath`, or do we need a target-neutral source-repository locator before this is clean enough for ontology repos?
-- Which parts of repo/ref/path/digest belong in core `sflo`, and which operational fetch/read policy belongs in config?
-- Should `_mesh/_config/config.ttl` on the publication branch be enough to support source branches with no Semantic Flow or Weave files at all?
-- Should the CLI accept all bootstrap inputs as flags, or should a structured bootstrap/profile file become the primary bootstrap surface?
-- Which bootstrap values should be inferred by default: source ref from default-branch `HEAD`, mesh base from GitHub remote/project Pages URL, and publication source folder from `gh-pages` root?
-- Should first materialization be a separate command from publication-branch bootstrap, or should one command support both phases depending on whether target bindings are provided?
-- Should host-local source/publish checkout paths live only in `.sf-local-access.ttl`, in a new deploy profile file, in CLI flags, or in some combination?
-- Should Weave ever write host-local path grants into the `gh-pages` branch, or should cross-worktree source access always be host-local and command-scoped?
-- Should source bindings use git repository/ref/path/digest as the durable model, with raw URLs as an optional resolution form, or should URL-first bindings be the default?
-- How should generated publication branches preserve files such as `CNAME`, `.nojekyll`, and other GitHub Pages control files during reset/regeneration?
-- Should branch-published generation use one command that integrates, versions, and generates pages, or should it compose existing `mesh create`, `integrate`, `weave`, and future generator commands?
-- How should the workflow behave when the source branch changes but the published mesh has no semantic payload change?
-- Should rebuild-from-scratch exist as a separate command/mode from the normal incremental update path?
-- Should branch-published fixture output live in the existing Fantasy Rules fixture repo, or should we create a third fixture repo that is deliberately branch-published?
-- How much git automation belongs in Weave versus in documented CI/runbook snippets?
-- Does this task need ontology/config vocabulary changes, or can the first implementation stay in Weave runtime/deploy config with minimal RDF surface change?
+- Topology name: use `branch-published mesh` in user docs. `gh-pages mesh` is too GitHub-specific, `publication branch mesh` is accurate but clunky, and calling it only a sidecar mesh hides the important operational difference. The docs can describe it as a sidecar-like publication topology implemented through a publication branch.
+- Source locators: branch-published targets should not use `workingLocalRelativePath` as their durable source provenance. The first implementation may use command/profile-scoped source-root resolution to read local files, but any persisted source binding should use core `sflo` repository-source locator vocabulary such as `RepositorySourceLocator`, `hasTargetRepositorySource`, `sourceRepositoryUrl`, `sourceRepositoryRef`, `sourceRepositoryCommit`, `sourceRepositoryPath`, and `hasContentDigest` / `expectsContentDigest`.
+- Core versus config: repo/ref/path/digest identity belongs in core `sflo` as reusable source locator vocabulary that composes with `ArtifactResolutionTarget`; this vocabulary should land early, if not first, so the branch-published proof slice does not grow around temporary path-shaped RDF. Operational policy for resolving that locator, deciding whether network or local git access is allowed, and mapping it to a local checkout belongs in config/runtime policy.
+- Clean source branch: `_mesh/_config/config.ttl` on the publication branch should be enough to support a source branch with no Semantic Flow or Weave files. This is the point of the topology. The source branch may still opt into carrying a bootstrap profile or authored config later, but that must not be required.
+- Bootstrap surface: keep explicit flags for the first narrow CLI slice, but design the API around a structured request and make a deploy profile the pleasant path before target bindings become numerous. A completely clean source branch means the profile can live outside the source repo and seed durable config into the publication branch.
+- Inference defaults: infer only values that are conventional and inspectable. Source ref can default to the checked-out source `HEAD`; mesh base can be inferred from GitHub remote/project Pages metadata when unambiguous; `gh-pages` should default to branch-root publication. The publication worktree path should be prompted for interactively or required non-interactively, not silently guessed.
+- Bootstrap versus materialization: model publication-branch bootstrap and first materialization as separate phases. One CLI command may perform both when target bindings are supplied, but the planner and tests should prove the phases independently.
+- Host-local paths: allow CLI flags, deploy profile values, CI environment/request data, and higher-trust local config to supply source and publication roots. Do not write those roots, or grants derived from their sibling relationship, into the public `gh-pages` branch.
+- Cross-worktree access: cross-worktree source access should be host-local and command-scoped for the first implementation. A publication branch may carry durable source provenance and project-local expectations, but it should not grant itself arbitrary sibling checkout access.
+- Durable source binding model: use git repository/ref/path/digest as the default durable model, with raw URLs as optional access/rendering forms. URL-first bindings are too lossy for private repos, local worktrees, branch/ref semantics, and digest-pinned replay.
+- Preserved files: normal incremental deployment should preserve unknown non-generated files by default, and always preserve or recreate configured publication control files such as `.nojekyll` and `CNAME`. Reset/rebuild mode needs an explicit preserved-file policy and should refuse a dirty publication worktree unless forced.
+- Command composition: the deploy command should orchestrate existing mesh create, integrate/version/weave/generate seams rather than invent a parallel generator. It can expose a higher-level workflow because the branch-published operator experience is different, but the internal semantic operations should remain recognizable and testable.
+- No semantic payload change: if the source branch changes but resolved source bytes or semantic output do not change, Weave should validate, report no publication diff, and skip commit/push by default. Provenance-only updates, such as recording a new source commit for identical bytes, should be explicit policy rather than accidental churn.
+- Rebuild mode: rebuild-from-scratch should exist, but only after incremental update behavior is proven. It should be a separate loud mode or guarded flag, not the default deploy path.
+- Fixture placement: prefer converting Fantasy Rules to the branch-published ontology fixture if we keep only two main fixture repos. If that creates too much churn during fixture ladder regeneration, create focused temporary-git integration coverage first and defer the fixture move through [[wd.task.2026.2026-05-07-fixture-ladder-generator]].
+- Fixture regeneration timing: rewrite the Semantic Flow Framework Fantasy Rules spec/example and build focused branch-published proof coverage before rerunging fixture branches. Build fixture-generator machinery early enough to avoid manual repair, but defer full branch-ladder regeneration until the topology and vocabulary are stable.
+- Git automation boundary: Weave should own safe local planning, worktree discovery/creation, dirty-state checks, generation, validation, and optional commit creation. Push policy and CI credentials should remain explicit operator/CI concerns, with documented snippets rather than hidden automation.
+- Vocabulary timing: the durable design needs core ontology vocabulary for repo/ref/path/digest source locators early, preferably before the first branch-published materialization slice. The proof slice can still take local source roots from runtime/deploy request data, but the RDF shape for persisted source provenance should already be the core locator shape rather than a throwaway branch-deploy special case.
+- Workspace concept: do not re-address the general workspace model for this task. Define a branch deploy context with source root plus publication root, keep the publication root as the active mesh workspace, and treat the source root as a trusted operation input. Re-open the broader workspace concept only if daemon, multi-mesh, or long-lived multi-root use cases demand it.
+- First implementation acceptance slice: prove the clean-source-branch story before adding fancy publishing automation. The source branch should contain only ontology/source files, the `gh-pages` branch should carry all `_mesh`, config, generated pages, histories, and inventories, no local sibling paths should appear in public RDF or generated config, and a second run should update incrementally.
 
 ## Decisions
 
 - Branch-based publication is a first-class repository topology, not merely an accidental use of `--mesh-root` with a sibling path.
+- User-facing docs should call the topology `branch-published mesh`.
 - The public mesh base IRI must not include or expose the publication branch name.
 - Do not encode developer-specific sibling checkout paths as durable public mesh facts.
 - The design should allow the normal source branch to remain free of Semantic Flow and Weave files; durable mesh config may live on the publication branch.
 - API/CLI bootstrap inputs may provide everything needed to create the first publication branch and seed its durable mesh config.
 - Source ref, mesh base, and publication source folder may be inferred for common GitHub project-site cases, while remaining explicit/overrideable.
+- The interactive CLI should prompt for the publication worktree path when it is omitted; non-interactive runs should require `--publish-root` or a deploy profile value.
+- Branch-published deployment uses a deploy context with a source root and a publication root; it does not redefine the general workspace model. The publication root is the active mesh workspace, while the source root is a trusted operation input.
 - Default branch-published deployment should update the existing publication branch incrementally rather than overwrite it from scratch.
 - Keep write/push behavior explicit; branch publication should be dry-run or local-only until the operator opts into committing/pushing.
 - Preserve the existing `docs/` sidecar pattern as valid even if the Fantasy Rules fixture moves to branch-published publication.
@@ -249,10 +269,13 @@ This should eventually support CI permissions that are narrower than a blanket t
 - Weave should gain a documented branch-published mesh workflow for source repos that publish generated mesh output from a dedicated branch.
 - User-facing repository topology docs should describe whole-repo, directory sidecar, and branch-published options.
 - Branch-published source bindings should be target-neutral rather than payload-only, so config inputs, payload bytes, page sources, and assets can use the same addressing model.
-- Core ontology likely needs a repo/ref/path/digest source locator that extends the existing target-relator pattern.
+- Core ontology includes initial repo/ref/path/digest source locator vocabulary that extends the existing target-relator pattern.
 - Runtime/deploy config may need to distinguish host-local source checkout access from durable mesh-carried source provenance.
 - CLI/API surface may gain a deploy command or profile that accepts source root, publication root/branch, mesh base, and safe write/push flags.
+- Interactive CLI execution should prompt for a missing publication worktree path; CI and other non-interactive execution should fail closed unless the path is supplied.
 - Fixture expectations may change if the Fantasy Rules fixture stops using `docs/` and becomes the branch-published ontology fixture.
+- The Semantic Flow Framework Fantasy Rules example/spec should be rewritten around the branch-published ontology shape before the fixture ladder is rerung.
+- Full fixture branch regeneration should be a later generated-output pass, not a prerequisite for the first branch-published implementation slice.
 
 ## Testing
 
@@ -264,9 +287,11 @@ This should eventually support CI permissions that are narrower than a blanket t
 - Add tests for bootstrap inference: omitted source ref uses default-branch `HEAD`, GitHub remote metadata can infer the default mesh base, and `gh-pages` defaults to branch-root publication.
 - Add tests proving normal deployment updates an existing publication branch incrementally, while rebuild/reset behavior requires an explicit guarded flag.
 - Add local integration coverage using a temporary git repo with a source branch and a `gh-pages` worktree.
+- Add CLI coverage proving omitted publication root prompts interactively and fails closed in non-interactive mode.
 - Verify generation preserves `.nojekyll` and configured `CNAME`, removes stale generated files only when requested, and refuses dirty publication worktrees by default.
 - Add fixture or focused coverage for a branch-published ontology source where authored source stays off the publication branch.
 - If Fantasy Rules moves to branch-published output, update its Accord manifests and fixture helper assumptions through [[wd.task.2026.2026-05-07-fixture-ladder-generator]].
+- Rewrite the Semantic Flow Framework Fantasy Rules example/spec so the conformance story names source-branch authored ontology files, publication-branch mesh output, and repository-source locator provenance.
 - Run `deno task lint` after significant implementation changes.
 
 ## Non-Goals
@@ -281,21 +306,27 @@ This should eventually support CI permissions that are narrower than a blanket t
 ## Implementation Plan
 
 - [ ] Confirm terminology and update [[wu.repository-options]] with a branch-published topology section.
-- [ ] Decide whether the first implementation can use command/profile-scoped source-root resolution or needs new target-neutral source-repository locator vocabulary.
+- [x] Add initial core `sflo` repository-source locator vocabulary for durable repo/ref/path/digest provenance.
+- [ ] Confirm first implementation source-binding scope: command/profile-scoped local resolution is allowed for the proof slice, but any persisted binding needs target-neutral repo/ref/path/digest rather than `workingLocalRelativePath`.
 - [ ] Define the minimum source binding shape for repo/ref/path/digest inputs, including when raw URLs are acceptable.
-- [ ] Draft the core ontology change for a repo/ref/path/digest locator that composes with `ArtifactResolutionTarget`.
+- [x] Draft the core ontology change for a repo/ref/path/digest locator that composes with `ArtifactResolutionTarget`.
 - [ ] Define bootstrap API/CLI inputs for creating the first publication branch from a clean source branch.
 - [ ] Split publication-branch bootstrap from first materialization in the deploy model, even if one CLI command can perform both.
 - [ ] Define inference rules and override flags for source ref, mesh base, and publication source folder.
+- [ ] Add interactive prompting for missing publication worktree path and non-interactive fail-closed behavior when no path/profile is supplied.
+- [ ] Define the branch deploy context as source root plus publication root without broadening the general workspace model.
 - [ ] Draft the local generation workflow for source checkout plus publication worktree, including dirty-worktree and branch initialization guardrails.
 - [ ] Add a dry-run planner for the branch-published workflow that prints source root, publication root, mesh base, generated paths, preserved files, and git operations that would run.
 - [ ] Add path-policy tests for cross-worktree source access and host-local grants.
 - [ ] Implement local-only branch-published generation for one simple ontology source in a temporary git repo.
+- [ ] Prove the first clean-source-branch slice: source branch contains only authored source, publication branch carries all `_mesh` and generated state, public RDF has no sibling path leakage, and a rerun updates incrementally.
+- [ ] Update [[wd.task.2026.2026-05-07-fixture-ladder-generator]] to make fixture-generator work early but full fixture branch rerunging later, after branch-published topology and vocabulary are stable.
 - [ ] Add `.nojekyll` and optional `CNAME` preservation behavior.
 - [ ] Add validation that generated public mesh output does not include stale source-branch clutter or developer-specific sibling checkout paths.
 - [ ] Implement incremental publication-branch updates as the default behavior.
 - [ ] Add a guarded rebuild-from-scratch mode only after incremental updates are proven.
 - [ ] Add explicit commit/push flags after local generation is proven.
 - [ ] Decide whether to convert the Fantasy Rules fixture from `docs/` sidecar to branch-published output before the next fixture rerung.
+- [ ] Rewrite the Semantic Flow Framework Fantasy Rules example/spec for branch-published ontology delivery before rerunging fixture branches.
 - [ ] Update [[wd.task.2026.2026-05-07-fixture-ladder-generator]] if the fixture topology changes.
 - [ ] Update [[wd.decision-log]] once the topology and path-provenance decisions are accepted.

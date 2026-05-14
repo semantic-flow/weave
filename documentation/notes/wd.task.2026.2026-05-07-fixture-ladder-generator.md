@@ -63,6 +63,19 @@ We do not need every intermediate branch to publish through GitHub Pages at the 
 
 If intermediate states become useful for documentation or demos, the generator can later copy selected rung outputs into a single Pages deployment tree such as `/alice-bio/07-alice-bio-integrated-woven/`. That should be a separate publishing enhancement, not part of the first generator.
 
+### Relationship To Branch-Published Meshes
+
+[[wd.task.2026.2026-05-13_1655-support-gh-pages-branch-based-deployments]] may change the Sidecar Fantasy Rules fixture from a `docs/` sidecar mesh into a branch-published ontology fixture. That affects the fixture-generator order.
+
+Do not finish a full regeneration of the current Fantasy Rules `docs/` sidecar ladder immediately before replacing it with branch-published output. The better order is:
+
+- rewrite the Semantic Flow Framework Fantasy Rules spec/example around the branch-published ontology shape
+- prove branch-published clean-source behavior with focused temporary-git integration coverage
+- build enough generator support to replay the chosen topology without manual branch repair
+- rerung fixture branches later, in one intentional generated-output pass after the branch-published topology, repository-source locator vocabulary, and near-term config/ontology churn have settled
+
+This still means fixture-generator work is early. It does not mean fixture branch regeneration is first. The distinction matters: build the tool before doing broad fixture repair, but defer the expensive branch rerung until we know which topology it should generate.
+
 ### Relationship To Config Synthesis
 
 The config synthesis will probably invalidate most existing fixture outputs. It will introduce explicit Weave defaults, config artifacts, local/inheritable Knop config, inherited propagation controls, changed support-artifact history policy, and likely updated generated pages/manifests. That is exactly the sort of change a generator should absorb.
@@ -231,6 +244,7 @@ The first scenario-definition format should therefore support both `command` ste
 - [ ] Extend the generator through the full Alice Bio ladder.
 - [ ] Update or add documentation for the Alice Bio regeneration workflow.
 - [ ] Extend the generator to Sidecar Fantasy Rules.
+- [ ] Before extending Sidecar Fantasy Rules generation, confirm whether its durable spec/example has moved from `docs` sidecar to branch-published ontology output.
 - [ ] Update Accord manifests, fixture-backed Weave tests, and conformance expectations after generated branches are rerung for the combined enum/config changes.
 - [ ] Record the expected workflow for large ontology/config churn: update manifests, run generator, inspect generated branch diffs, run fixture tests, commit/push branch updates intentionally.
 - [x] Update [[wd.task.2026.2026-05-06-grand-config-synthesis]] to reference this task as the intended fixture regeneration path before the config-driven fixture rebuild.
