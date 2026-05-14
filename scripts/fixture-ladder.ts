@@ -1,5 +1,52 @@
 import { dirname, isAbsolute, join, relative, resolve } from "@std/path";
 import * as pathPosix from "@std/path/posix";
+import {
+  compareBytes,
+} from "../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_bytes.ts";
+import {
+  compareRdfContent,
+  RdfCompareError,
+} from "../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
+import {
+  compareTextContents,
+  TextDecodeError,
+} from "../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_text.ts";
+import {
+  evaluatePresenceExpectation,
+} from "../dependencies/github.com/spectacular-voyage/accord/src/checker/file_expectations.ts";
+import type {
+  FileChangeType,
+} from "../dependencies/github.com/spectacular-voyage/accord/src/checker/file_expectations.ts";
+import {
+  runAskAssertion,
+  SparqlAskError,
+} from "../dependencies/github.com/spectacular-voyage/accord/src/checker/sparql.ts";
+import {
+  readManifestSource,
+} from "../dependencies/github.com/spectacular-voyage/accord/src/manifest/load_jsonld.ts";
+import type {
+  FileExpectation,
+  RdfExpectation,
+  SparqlAskAssertion,
+  TransitionCase,
+} from "../dependencies/github.com/spectacular-voyage/accord/src/manifest/model.ts";
+import {
+  selectTransitionCase,
+} from "../dependencies/github.com/spectacular-voyage/accord/src/manifest/select_case.ts";
+import {
+  CHECK_CODES,
+} from "../dependencies/github.com/spectacular-voyage/accord/src/report/codes.ts";
+import {
+  countCheckStatuses,
+  deriveReportStatus,
+} from "../dependencies/github.com/spectacular-voyage/accord/src/report/json_report.ts";
+import type {
+  CheckRecord,
+  JsonReport,
+} from "../dependencies/github.com/spectacular-voyage/accord/src/report/json_report.ts";
+import {
+  renderTextReport,
+} from "../dependencies/github.com/spectacular-voyage/accord/src/report/text_report.ts";
 
 export type FixtureScenarioId = "alice-bio";
 export type FixturePlanFormat = "text" | "json";
@@ -9,6 +56,7 @@ export interface FixtureLadderOptions {
   scenario: FixtureScenarioId;
   format: FixturePlanFormat;
   materializeTransitionId?: string;
+  executeTransitionId?: string;
   workspaceRoot?: string;
 }
 
@@ -28,6 +76,13 @@ export interface MaterializeFixtureTransitionOptions {
   workspaceRoot?: string;
 }
 
+export interface ExecuteFixtureTransitionOptions {
+  root: string;
+  scenario: FixtureScenarioId;
+  transitionId: string;
+  workspaceRoot?: string;
+}
+
 export interface FixtureMaterializationResult {
   scenario: FixtureScenarioId;
   transitionId: string;
@@ -35,10 +90,35 @@ export interface FixtureMaterializationResult {
   toRef: string;
   operationId: string;
   fixtureRepoPath: string;
+  manifestPath: string;
   workspaceRoot: string;
   materializedPaths: readonly string[];
   writesBranches: false;
   nextAction: FixtureTransitionAction;
+}
+
+export interface FixtureCommandExecutionResult {
+  command: readonly string[];
+  cwd: string;
+  success: boolean;
+  code: number;
+  stdout: string;
+  stderr: string;
+}
+
+export interface FixtureExecutionResult {
+  scenario: FixtureScenarioId;
+  transitionId: string;
+  fromRef: string;
+  toRef: string;
+  operationId: string;
+  fixtureRepoPath: string;
+  manifestPath: string;
+  workspaceRoot: string;
+  materializedPaths: readonly string[];
+  command: FixtureCommandExecutionResult;
+  validation: JsonReport;
+  writesBranches: false;
 }
 
 export interface FixtureLadderScenario {
@@ -116,6 +196,19 @@ const ALICE_BIO_MANIFEST_ROOT_RELATIVE_PATH = join(
   "alice-bio",
   "conformance",
 );
+const FIXTURE_GENERATED_AT = "2026-05-03T00:00:00.000Z";
+const CANONICAL_SFLO_NAMESPACE =
+  "https://semantic-flow.github.io/sflo/ontology/";
+const OLD_SFLO_NAMESPACE =
+  "https://semantic-flow.github.io/semantic-flow-ontology/";
+const MESH_INVENTORY_HISTORY_PREFIX = "_mesh/_inventory/_history";
+const RDF_OUTPUT_EXTENSIONS = [
+  ".ttl",
+  ".jsonld",
+  ".nt",
+  ".nq",
+  ".trig",
+] as const;
 
 export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
   id: "alice-bio",
@@ -416,7 +509,22 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
 if (import.meta.main) {
   try {
     const options = parseFixtureLadderArgs(Deno.args);
-    if (options.materializeTransitionId !== undefined) {
+    if (options.executeTransitionId !== undefined) {
+      const result = await executeFixtureTransition({
+        root: options.root,
+        scenario: options.scenario,
+        transitionId: options.executeTransitionId,
+        workspaceRoot: options.workspaceRoot,
+      });
+      console.log(
+        options.format === "json"
+          ? JSON.stringify(result, null, 2)
+          : renderFixtureExecutionResult(result),
+      );
+      if (!result.command.success || result.validation.status !== "pass") {
+        Deno.exit(1);
+      }
+    } else if (options.materializeTransitionId !== undefined) {
       const result = await materializeFixtureTransitionSource({
         root: options.root,
         scenario: options.scenario,
@@ -449,6 +557,7 @@ export function parseFixtureLadderArgs(
   let scenario: FixtureScenarioId = "alice-bio";
   let format: FixturePlanFormat = "text";
   let materializeTransitionId: string | undefined;
+  let executeTransitionId: string | undefined;
   let workspaceRoot: string | undefined;
 
   for (let index = 0; index < args.length; index += 1) {
@@ -478,6 +587,10 @@ export function parseFixtureLadderArgs(
           args[index],
           "--materialize",
         );
+        break;
+      case "--execute":
+        index += 1;
+        executeTransitionId = requireArgumentValue(args[index], "--execute");
         break;
       case "--workspace-root":
         index += 1;
@@ -513,6 +626,13 @@ export function parseFixtureLadderArgs(
           );
           break;
         }
+        if (arg.startsWith("--execute=")) {
+          executeTransitionId = requireArgumentValue(
+            arg.slice("--execute=".length),
+            "--execute",
+          );
+          break;
+        }
         if (arg.startsWith("--workspace-root=")) {
           workspaceRoot = requireArgumentValue(
             arg.slice("--workspace-root=".length),
@@ -525,9 +645,20 @@ export function parseFixtureLadderArgs(
   }
 
   if (
-    workspaceRoot !== undefined && materializeTransitionId === undefined
+    materializeTransitionId !== undefined && executeTransitionId !== undefined
   ) {
-    throw new Error("fixture:ladder --workspace-root requires --materialize");
+    throw new Error(
+      "fixture:ladder accepts only one of --materialize or --execute",
+    );
+  }
+
+  if (
+    workspaceRoot !== undefined && materializeTransitionId === undefined &&
+    executeTransitionId === undefined
+  ) {
+    throw new Error(
+      "fixture:ladder --workspace-root requires --materialize or --execute",
+    );
   }
 
   return {
@@ -537,6 +668,7 @@ export function parseFixtureLadderArgs(
     ...(materializeTransitionId !== undefined
       ? { materializeTransitionId }
       : {}),
+    ...(executeTransitionId !== undefined ? { executeTransitionId } : {}),
     ...(workspaceRoot !== undefined
       ? { workspaceRoot: resolve(workspaceRoot) }
       : {}),
@@ -621,14 +753,7 @@ export async function materializeFixtureTransitionSource(
     scenario: options.scenario,
     format: "text",
   });
-  const transition = plan.transitions.find((candidate) =>
-    candidate.id === options.transitionId
-  );
-  if (transition === undefined) {
-    throw new Error(
-      `Unknown ${plan.scenario.label} transition: ${options.transitionId}`,
-    );
-  }
+  const transition = findFixtureTransitionPlan(plan, options.transitionId);
 
   const workspaceRoot = options.workspaceRoot === undefined
     ? await Deno.makeTempDir({ prefix: "weave-fixture-ladder-" })
@@ -652,10 +777,57 @@ export async function materializeFixtureTransitionSource(
     toRef: transition.toRef,
     operationId: transition.operationId,
     fixtureRepoPath: plan.fixtureRepoPath,
+    manifestPath: transition.manifestPath,
     workspaceRoot,
     materializedPaths,
     writesBranches: false,
     nextAction: transition.action,
+  };
+}
+
+export async function executeFixtureTransition(
+  options: ExecuteFixtureTransitionOptions,
+): Promise<FixtureExecutionResult> {
+  const plan = planFixtureLadder({
+    root: options.root,
+    scenario: options.scenario,
+    format: "text",
+  });
+  const transition = findFixtureTransitionPlan(plan, options.transitionId);
+
+  if (transition.action.kind !== "command") {
+    throw new Error(
+      `fixture:ladder can only execute command transitions; ${transition.id} is a file operation.`,
+    );
+  }
+
+  const materialization = await materializeFixtureTransitionSource(options);
+  const command = await runFixtureCommand({
+    root: plan.root,
+    workspaceRoot: materialization.workspaceRoot,
+    action: transition.action,
+  });
+  const validation = await validateFixtureTransitionWorkspace({
+    fixtureRepoPath: plan.fixtureRepoPath,
+    manifestPath: transition.manifestPath,
+    workspaceRoot: materialization.workspaceRoot,
+    fallbackFromRef: transition.fromRef,
+    fallbackToRef: transition.toRef,
+  });
+
+  return {
+    scenario: materialization.scenario,
+    transitionId: materialization.transitionId,
+    fromRef: materialization.fromRef,
+    toRef: materialization.toRef,
+    operationId: materialization.operationId,
+    fixtureRepoPath: materialization.fixtureRepoPath,
+    manifestPath: materialization.manifestPath,
+    workspaceRoot: materialization.workspaceRoot,
+    materializedPaths: materialization.materializedPaths,
+    command,
+    validation,
+    writesBranches: false,
   };
 }
 
@@ -686,11 +858,56 @@ export function renderFixtureMaterializationResult(
   return lines.join("\n");
 }
 
+export function renderFixtureExecutionResult(
+  result: FixtureExecutionResult,
+): string {
+  const lines = [
+    `Fixture transition executed: ${result.scenario}`,
+    `Transition: ${result.transitionId}`,
+    `Source ref: ${result.fromRef}`,
+    `Target ref: ${result.toRef}`,
+    `Workspace root: ${result.workspaceRoot}`,
+    "Branch writes: disabled",
+    `Command: ${result.command.command.join(" ")}`,
+    `Command cwd: ${result.command.cwd}`,
+    `Command exit code: ${result.command.code}`,
+  ];
+
+  if (result.command.stdout.trim().length > 0) {
+    lines.push("Command stdout:");
+    lines.push(result.command.stdout.trimEnd());
+  }
+
+  if (result.command.stderr.trim().length > 0) {
+    lines.push("Command stderr:");
+    lines.push(result.command.stderr.trimEnd());
+  }
+
+  lines.push("Validation:");
+  lines.push(renderTextReport(result.validation));
+  return lines.join("\n");
+}
+
 function resolveFixtureScenario(id: FixtureScenarioId): FixtureLadderScenario {
   switch (id) {
     case "alice-bio":
       return ALICE_BIO_FIXTURE_SCENARIO;
   }
+}
+
+function findFixtureTransitionPlan(
+  plan: FixtureLadderPlan,
+  transitionId: string,
+): FixtureTransitionPlan {
+  const transition = plan.transitions.find((candidate) =>
+    candidate.id === transitionId
+  );
+  if (transition === undefined) {
+    throw new Error(
+      `Unknown ${plan.scenario.label} transition: ${transitionId}`,
+    );
+  }
+  return transition;
 }
 
 function commandTransition(
@@ -747,6 +964,566 @@ function defaultValidation(): FixtureTransitionValidation {
     comparison: "manifestScoped",
     guardrails: CANONICAL_OUTPUT_GUARDRAILS,
   };
+}
+
+async function runFixtureCommand(options: {
+  root: string;
+  workspaceRoot: string;
+  action: FixtureCommandAction;
+}): Promise<FixtureCommandExecutionResult> {
+  if (options.action.executable !== "weave") {
+    throw new Error(
+      `Unsupported fixture command executable: ${options.action.executable}`,
+    );
+  }
+
+  const command = [
+    "deno",
+    "run",
+    "--allow-read",
+    "--allow-write",
+    "--allow-env",
+    join(options.root, "src/main.ts"),
+    ...options.action.argv,
+  ];
+  const output = await new Deno.Command("deno", {
+    cwd: options.workspaceRoot,
+    args: command.slice(1),
+    env: {
+      WEAVE_GENERATED_AT: FIXTURE_GENERATED_AT,
+    },
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+
+  return {
+    command,
+    cwd: options.workspaceRoot,
+    success: output.success,
+    code: output.code,
+    stdout: new TextDecoder().decode(output.stdout),
+    stderr: new TextDecoder().decode(output.stderr),
+  };
+}
+
+async function validateFixtureTransitionWorkspace(options: {
+  fixtureRepoPath: string;
+  manifestPath: string;
+  workspaceRoot: string;
+  fallbackFromRef: string;
+  fallbackToRef: string;
+}): Promise<JsonReport> {
+  const manifest = await readManifestSource(options.manifestPath);
+  const transitionCase = selectTransitionCase(manifest.document);
+  const fromRef = transitionCase.fromRef ?? options.fallbackFromRef;
+  const toRef = transitionCase.toRef ?? options.fallbackToRef;
+  const resolvedFromRef = await resolveGitCommitish(
+    options.fixtureRepoPath,
+    fromRef,
+  );
+  const resolvedToRef = await resolveGitCommitish(
+    options.fixtureRepoPath,
+    toRef,
+  );
+  const fileExpectations = transitionCase.hasFileExpectation ?? [];
+  const actualBytesByPath = new Map<string, Uint8Array | undefined>();
+  const checks: CheckRecord[] = [];
+
+  for (const fileExpectation of fileExpectations) {
+    checks.push(
+      ...await evaluateWorkspaceFileExpectation({
+        fixtureRepoPath: options.fixtureRepoPath,
+        fromRef: resolvedFromRef,
+        toRef: resolvedToRef,
+        workspaceRoot: options.workspaceRoot,
+        transitionCase,
+        fileExpectation,
+        actualBytesByPath,
+      }),
+    );
+  }
+
+  checks.push(
+    ...await evaluateWorkspaceRdfExpectations({
+      workspaceRoot: options.workspaceRoot,
+      transitionCase,
+      fileExpectations,
+      actualBytesByPath,
+    }),
+  );
+  checks.push(
+    ...await evaluateGeneratedOutputGuardrails(options.workspaceRoot),
+  );
+
+  const summary = countCheckStatuses(checks);
+  return {
+    manifestPath: options.manifestPath,
+    caseId: transitionCase.resolvedId ?? transitionCase.id ?? "(anonymous)",
+    fixtureRepoPath: options.fixtureRepoPath,
+    status: deriveReportStatus(checks),
+    summary,
+    checks,
+  };
+}
+
+async function evaluateWorkspaceFileExpectation(options: {
+  fixtureRepoPath: string;
+  fromRef: string;
+  toRef: string;
+  workspaceRoot: string;
+  transitionCase: TransitionCase;
+  fileExpectation: FileExpectation;
+  actualBytesByPath: Map<string, Uint8Array | undefined>;
+}): Promise<CheckRecord[]> {
+  const path = options.fileExpectation.path;
+  const changeType = options.fileExpectation.changeType as
+    | FileChangeType
+    | undefined;
+  const compareMode = options.fileExpectation.compareMode;
+
+  if (path === undefined || changeType === undefined) {
+    return [{
+      kind: "file_presence",
+      status: "error",
+      code: CHECK_CODES.FILE_PRESENCE_MISMATCH,
+      message: "File expectation is missing path or changeType.",
+      path,
+    }];
+  }
+
+  const safePath = normalizeGitTreePath(path);
+  const fromBytes = await readGitBlobIfExists(
+    options.fixtureRepoPath,
+    options.fromRef,
+    safePath,
+  );
+  const expectedBytes = await readGitBlobIfExists(
+    options.fixtureRepoPath,
+    options.toRef,
+    safePath,
+  );
+  const actualBytes = await readWorkspaceFileIfExists(
+    options.workspaceRoot,
+    safePath,
+  );
+  options.actualBytesByPath.set(safePath, actualBytes);
+
+  const checks: CheckRecord[] = [
+    filePresenceRecord({
+      path: safePath,
+      changeType,
+      fromExists: fromBytes !== undefined,
+      actualExists: actualBytes !== undefined,
+    }),
+  ];
+
+  if (actualBytes === undefined || expectedBytes === undefined) {
+    if (actualBytes !== undefined && expectedBytes === undefined) {
+      checks.push({
+        kind: compareMode === "rdfCanonical" ? "rdf_compare" : "file_compare",
+        status: "fail",
+        code: compareMode === "rdfCanonical"
+          ? CHECK_CODES.RDF_GRAPH_MISMATCH
+          : CHECK_CODES.FILE_CONTENT_MISMATCH,
+        message:
+          `Expected fixture ref ${options.toRef} to contain ${safePath} for ${compareMode} comparison.`,
+        path: safePath,
+      });
+    }
+    return checks;
+  }
+
+  if (compareMode === "bytes") {
+    checks.push(fileCompareRecord({
+      path: safePath,
+      compareMode,
+      contentsEqual: compareBytes(actualBytes, expectedBytes),
+    }));
+    return checks;
+  }
+
+  if (compareMode === "text") {
+    try {
+      checks.push(fileCompareRecord({
+        path: safePath,
+        compareMode,
+        contentsEqual: compareTextContents(actualBytes, expectedBytes),
+      }));
+    } catch (error) {
+      if (error instanceof TextDecodeError) {
+        checks.push({
+          kind: "file_compare",
+          status: "error",
+          code: CHECK_CODES.TEXT_DECODE_ERROR,
+          message: error.message,
+          path: safePath,
+        });
+        return checks;
+      }
+      throw error;
+    }
+    return checks;
+  }
+
+  if (compareMode === "rdfCanonical") {
+    const rdfExpectation = resolveTargetRdfExpectation(
+      options.fileExpectation,
+      options.transitionCase.hasRdfExpectation ?? [],
+    );
+    try {
+      const contentsEqual = await compareRdfContent({
+        left: actualBytes,
+        right: expectedBytes,
+        path: safePath,
+        ignorePredicates: rdfExpectation?.ignorePredicate,
+      });
+      checks.push({
+        kind: "rdf_compare",
+        status: contentsEqual ? "pass" : "fail",
+        code: contentsEqual
+          ? CHECK_CODES.RDF_GRAPH_OK
+          : CHECK_CODES.RDF_GRAPH_MISMATCH,
+        message:
+          `Expected workspace contents to match ${options.toRef} under rdfCanonical comparison.`,
+        path: safePath,
+      });
+    } catch (error) {
+      if (error instanceof RdfCompareError) {
+        checks.push({
+          kind: "rdf_compare",
+          status: "error",
+          code: error.code,
+          message: error.message,
+          path: safePath,
+        });
+        return checks;
+      }
+      throw error;
+    }
+    return checks;
+  }
+
+  if (compareMode !== undefined) {
+    checks.push({
+      kind: "file_compare",
+      status: "error",
+      code: CHECK_CODES.FILE_CONTENT_MISMATCH,
+      message: `Unsupported compare mode for file expectation: ${compareMode}`,
+      path: safePath,
+    });
+  }
+
+  return checks;
+}
+
+async function evaluateWorkspaceRdfExpectations(options: {
+  workspaceRoot: string;
+  transitionCase: TransitionCase;
+  fileExpectations: readonly FileExpectation[];
+  actualBytesByPath: Map<string, Uint8Array | undefined>;
+}): Promise<CheckRecord[]> {
+  const checks: CheckRecord[] = [];
+
+  for (const rdfExpectation of options.transitionCase.hasRdfExpectation ?? []) {
+    const fileExpectation = resolveTargetFileExpectation(
+      rdfExpectation,
+      options.fileExpectations,
+    );
+    const path = fileExpectation?.path;
+    if (
+      fileExpectation === undefined || path === undefined ||
+      fileExpectation.compareMode !== "rdfCanonical"
+    ) {
+      continue;
+    }
+
+    const safePath = normalizeGitTreePath(path);
+    const actualBytes = options.actualBytesByPath.get(safePath) ??
+      await readWorkspaceFileIfExists(options.workspaceRoot, safePath);
+    if (actualBytes === undefined) {
+      continue;
+    }
+
+    for (const askAssertion of rdfExpectation.hasAskAssertion ?? []) {
+      checks.push(
+        await evaluateWorkspaceSparqlAskAssertion({
+          path: safePath,
+          actualBytes,
+          askAssertion,
+        }),
+      );
+    }
+  }
+
+  return checks;
+}
+
+async function evaluateWorkspaceSparqlAskAssertion(options: {
+  path: string;
+  actualBytes: Uint8Array;
+  askAssertion: SparqlAskAssertion;
+}): Promise<CheckRecord> {
+  const assertionId = options.askAssertion.id ??
+    options.askAssertion.resolvedId;
+
+  if (
+    typeof options.askAssertion.query !== "string" ||
+    options.askAssertion.query === ""
+  ) {
+    return {
+      kind: "sparql_ask",
+      status: "error",
+      code: CHECK_CODES.SPARQL_QUERY_ERROR,
+      message: "SPARQL ASK assertion is missing a query string.",
+      path: options.path,
+      assertionId,
+    };
+  }
+
+  if (typeof options.askAssertion.expectedBoolean !== "boolean") {
+    return {
+      kind: "sparql_ask",
+      status: "error",
+      code: CHECK_CODES.SPARQL_QUERY_ERROR,
+      message: "SPARQL ASK assertion is missing expectedBoolean.",
+      path: options.path,
+      assertionId,
+    };
+  }
+
+  try {
+    const actual = await runAskAssertion({
+      dataset: options.actualBytes,
+      path: options.path,
+      query: options.askAssertion.query,
+    });
+    const passed = actual === options.askAssertion.expectedBoolean;
+    return {
+      kind: "sparql_ask",
+      status: passed ? "pass" : "fail",
+      code: passed
+        ? CHECK_CODES.SPARQL_ASK_OK
+        : CHECK_CODES.SPARQL_ASK_MISMATCH,
+      message: passed
+        ? "SPARQL ASK result matched expectedBoolean."
+        : `Expected SPARQL ASK to return ${options.askAssertion.expectedBoolean}, but it returned ${actual}.`,
+      path: options.path,
+      assertionId,
+    };
+  } catch (error) {
+    if (error instanceof RdfCompareError || error instanceof SparqlAskError) {
+      return {
+        kind: "sparql_ask",
+        status: "error",
+        code: error.code,
+        message: error.message,
+        path: options.path,
+        assertionId,
+      };
+    }
+    throw error;
+  }
+}
+
+export async function evaluateGeneratedOutputGuardrails(
+  workspaceRoot: string,
+): Promise<CheckRecord[]> {
+  const paths = await listWorkspaceFiles(workspaceRoot);
+  return [
+    await evaluateCanonicalNamespaceGuardrail(workspaceRoot, paths),
+    await evaluateInventoryOwnedProgressionGuardrail(workspaceRoot),
+    await evaluateMeshInventoryMetadataProgressionGuardrail(
+      workspaceRoot,
+      paths,
+    ),
+  ];
+}
+
+async function evaluateCanonicalNamespaceGuardrail(
+  workspaceRoot: string,
+  paths: readonly string[],
+): Promise<CheckRecord> {
+  for (const path of paths.filter(isRdfOutputPath)) {
+    const contents = await Deno.readTextFile(join(workspaceRoot, path));
+    if (contents.includes(OLD_SFLO_NAMESPACE)) {
+      return guardrailRecord({
+        passed: false,
+        path,
+        message:
+          `Generated RDF must use ${CANONICAL_SFLO_NAMESPACE}; found retired namespace ${OLD_SFLO_NAMESPACE}.`,
+      });
+    }
+  }
+
+  return guardrailRecord({
+    passed: true,
+    message:
+      `Generated RDF uses the canonical sflo namespace ${CANONICAL_SFLO_NAMESPACE}.`,
+  });
+}
+
+async function evaluateInventoryOwnedProgressionGuardrail(
+  workspaceRoot: string,
+): Promise<CheckRecord> {
+  const inventory = await readWorkspaceTextFileIfExists(
+    workspaceRoot,
+    "_mesh/_inventory/inventory.ttl",
+  );
+  if (inventory === undefined) {
+    return guardrailRecord({
+      passed: true,
+      path: "_mesh/_inventory/inventory.ttl",
+      message:
+        "MeshInventory current file is absent; no inventory-owned progression facts found.",
+    });
+  }
+
+  const passed = findStaleInventoryProgressionBlock(inventory) === undefined;
+
+  return guardrailRecord({
+    passed,
+    path: "_mesh/_inventory/inventory.ttl",
+    message: passed
+      ? "MeshInventory progression facts are not owned by _mesh/_inventory/inventory.ttl."
+      : "Stale MeshInventory progression facts found in _mesh/_inventory/inventory.ttl; they belong in _mesh/_meta/meta.ttl.",
+  });
+}
+
+function findStaleInventoryProgressionBlock(
+  inventory: string,
+): string | undefined {
+  const progressionPredicates = [
+    "hasArtifactHistory",
+    "currentArtifactHistory",
+    "nextHistoryOrdinal",
+    "latestHistoricalState",
+    "nextStateOrdinal",
+  ] as const;
+
+  return inventory.split(/\n\s*\n/).find((block) => {
+    const trimmed = block.trimStart();
+    if (
+      !trimmed.startsWith("<_mesh/_inventory>") &&
+      !trimmed.startsWith("<_mesh/_inventory/_history")
+    ) {
+      return false;
+    }
+
+    return progressionPredicates.some((predicate) =>
+      block.includes(`sflo:${predicate}`) ||
+      block.includes(`<${CANONICAL_SFLO_NAMESPACE}${predicate}>`)
+    );
+  });
+}
+
+async function evaluateMeshInventoryMetadataProgressionGuardrail(
+  workspaceRoot: string,
+  paths: readonly string[],
+): Promise<CheckRecord> {
+  const hasMeshInventoryHistoryOutput = paths.some((path) =>
+    path.startsWith(`${MESH_INVENTORY_HISTORY_PREFIX}`)
+  );
+  if (!hasMeshInventoryHistoryOutput) {
+    return guardrailRecord({
+      passed: true,
+      path: "_mesh/_meta/meta.ttl",
+      message:
+        "No MeshInventory history output is present; metadata progression facts are not required.",
+    });
+  }
+
+  const metadata = await readWorkspaceTextFileIfExists(
+    workspaceRoot,
+    "_mesh/_meta/meta.ttl",
+  );
+  const passed = metadata !== undefined &&
+    metadata.includes(
+      "sflo:currentArtifactHistory <_mesh/_inventory/_history",
+    ) &&
+    metadata.includes("sflo:latestHistoricalState <_mesh/_inventory/_history");
+
+  return guardrailRecord({
+    passed,
+    path: "_mesh/_meta/meta.ttl",
+    message: passed
+      ? "MeshInventory progression facts are anchored in _mesh/_meta/meta.ttl."
+      : "MeshInventory history output exists, but _mesh/_meta/meta.ttl does not anchor current/latest MeshInventory progression.",
+  });
+}
+
+function guardrailRecord(options: {
+  passed: boolean;
+  message: string;
+  path?: string;
+}): CheckRecord {
+  return {
+    kind: "setup",
+    status: options.passed ? "pass" : "fail",
+    code: options.passed
+      ? CHECK_CODES.FILE_CONTENT_OK
+      : CHECK_CODES.FILE_CONTENT_MISMATCH,
+    message: options.message,
+    path: options.path,
+  };
+}
+
+function filePresenceRecord(options: {
+  path: string;
+  changeType: FileChangeType;
+  fromExists: boolean;
+  actualExists: boolean;
+}): CheckRecord {
+  const presence = evaluatePresenceExpectation(
+    options.changeType,
+    options.fromExists,
+    options.actualExists,
+  );
+  return {
+    kind: "file_presence",
+    status: presence.passed ? "pass" : "fail",
+    code: presence.passed
+      ? CHECK_CODES.FILE_PRESENCE_OK
+      : CHECK_CODES.FILE_PRESENCE_MISMATCH,
+    message: presence.reason,
+    path: options.path,
+  };
+}
+
+function fileCompareRecord(options: {
+  path: string;
+  compareMode: string;
+  contentsEqual: boolean;
+}): CheckRecord {
+  return {
+    kind: "file_compare",
+    status: options.contentsEqual ? "pass" : "fail",
+    code: options.contentsEqual
+      ? CHECK_CODES.FILE_CONTENT_OK
+      : CHECK_CODES.FILE_CONTENT_MISMATCH,
+    message:
+      `Expected workspace contents to match toRef under ${options.compareMode} comparison.`,
+    path: options.path,
+  };
+}
+
+function resolveTargetFileExpectation(
+  rdfExpectation: RdfExpectation,
+  fileExpectations: readonly FileExpectation[],
+): FileExpectation | undefined {
+  const target = rdfExpectation.targetsFileExpectation;
+  return fileExpectations.find((candidate) =>
+    candidate.id === target || candidate.resolvedId === target
+  );
+}
+
+function resolveTargetRdfExpectation(
+  fileExpectation: FileExpectation,
+  rdfExpectations: readonly RdfExpectation[],
+): RdfExpectation | undefined {
+  return rdfExpectations.find((candidate) =>
+    candidate.targetsFileExpectation === fileExpectation.id ||
+    candidate.targetsFileExpectation === fileExpectation.resolvedId
+  );
 }
 
 function requireArgumentValue(value: string | undefined, name: string): string {
@@ -851,6 +1628,69 @@ async function materializeGitTree(options: {
   return paths.map(normalizeGitTreePath).sort((left, right) =>
     left.localeCompare(right)
   );
+}
+
+async function readGitBlobIfExists(
+  repoPath: string,
+  ref: string,
+  path: string,
+): Promise<Uint8Array | undefined> {
+  const result = await runGitBytes(repoPath, ["show", `${ref}:${path}`]);
+  return result.success ? result.stdout : undefined;
+}
+
+async function readWorkspaceFileIfExists(
+  workspaceRoot: string,
+  path: string,
+): Promise<Uint8Array | undefined> {
+  try {
+    return await Deno.readFile(join(workspaceRoot, normalizeGitTreePath(path)));
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return undefined;
+    }
+    throw error;
+  }
+}
+
+async function readWorkspaceTextFileIfExists(
+  workspaceRoot: string,
+  path: string,
+): Promise<string | undefined> {
+  const bytes = await readWorkspaceFileIfExists(workspaceRoot, path);
+  return bytes === undefined ? undefined : new TextDecoder().decode(bytes);
+}
+
+async function listWorkspaceFiles(
+  workspaceRoot: string,
+  basePath = ".",
+): Promise<string[]> {
+  const directory = basePath === "."
+    ? workspaceRoot
+    : join(workspaceRoot, basePath);
+  const paths: string[] = [];
+
+  for await (const entry of Deno.readDir(directory)) {
+    if (entry.name === ".git" || entry.name === ".weave") {
+      continue;
+    }
+
+    const childPath = basePath === "."
+      ? entry.name
+      : pathPosix.join(basePath, entry.name);
+
+    if (entry.isDirectory) {
+      paths.push(...await listWorkspaceFiles(workspaceRoot, childPath));
+    } else if (entry.isFile) {
+      paths.push(normalizeGitTreePath(childPath));
+    }
+  }
+
+  return paths.sort((left, right) => left.localeCompare(right));
+}
+
+function isRdfOutputPath(path: string): boolean {
+  return RDF_OUTPUT_EXTENSIONS.some((extension) => path.endsWith(extension));
 }
 
 function normalizeGitTreePath(path: string): string {
