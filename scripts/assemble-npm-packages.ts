@@ -2,7 +2,11 @@ import { fromFileUrl, join } from "@std/path";
 import {
   createPlatformPackageJson,
   createWrapperPackageJson,
+  NPM_COMMAND_NAME,
+  NPM_PACKAGES_METADATA_FILENAME,
   npmPackagePath,
+  type NpmPackagesMetadata,
+  type NpmPlatformPackageMetadata,
   renderPlatformReadme,
   renderWrapperBinScript,
   renderWrapperReadme,
@@ -27,6 +31,7 @@ export interface AssembleNpmPackagesOptions {
 export interface AssembleNpmPackagesResult {
   wrapperPackageDir: string;
   platformPackageDirs: string[];
+  packagesMetadataPath: string;
 }
 
 const defaultRoot = fromFileUrl(new URL("..", import.meta.url));
@@ -124,10 +129,10 @@ export async function assembleNpmPackages(
     root: options.root,
     version,
   });
-  const platformPackageDirs: string[] = [];
+  const platformResults: PlatformPackageAssemblyResult[] = [];
 
   for (const platform of platforms) {
-    platformPackageDirs.push(
+    platformResults.push(
       await writePlatformPackage({
         buildDir,
         outDir,
@@ -138,7 +143,19 @@ export async function assembleNpmPackages(
     );
   }
 
-  return { wrapperPackageDir, platformPackageDirs };
+  const packagesMetadataPath = join(outDir, NPM_PACKAGES_METADATA_FILENAME);
+  const packagesMetadata = createNpmPackagesMetadata({
+    platformPackages: platformResults.map((result) => result.publishMetadata),
+    version,
+    wrapperPackageDir,
+  });
+  await writeJsonFile(packagesMetadataPath, packagesMetadata);
+
+  return {
+    wrapperPackageDir,
+    platformPackageDirs: platformResults.map((result) => result.packageDir),
+    packagesMetadataPath,
+  };
 }
 
 async function writeWrapperPackage(options: {
@@ -167,13 +184,34 @@ async function writeWrapperPackage(options: {
   return packageDir;
 }
 
+interface PlatformPackageAssemblyResult {
+  packageDir: string;
+  publishMetadata: NpmPlatformPackageMetadata;
+}
+
+function createNpmPackagesMetadata(options: {
+  platformPackages: NpmPlatformPackageMetadata[];
+  version: string;
+  wrapperPackageDir: string;
+}): NpmPackagesMetadata {
+  return {
+    createdAt: new Date().toISOString(),
+    version: options.version,
+    wrapperPackageName: NPM_WRAPPER_PACKAGE_NAME,
+    wrapperPackageDir: options.wrapperPackageDir,
+    wrapperPackageJsonPath: join(options.wrapperPackageDir, "package.json"),
+    commandName: NPM_COMMAND_NAME,
+    platformPackages: options.platformPackages,
+  };
+}
+
 async function writePlatformPackage(options: {
   buildDir: string;
   outDir: string;
   platform: ReleasePlatform;
   root: string;
   version: string;
-}): Promise<string> {
+}): Promise<PlatformPackageAssemblyResult> {
   const platformBuildDir = join(options.buildDir, options.platform.label);
   const metadataPath = join(platformBuildDir, "bundle-metadata.json");
   const metadata = await readBinaryBundleMetadata(metadataPath);
@@ -201,7 +239,20 @@ async function writePlatformPackage(options: {
   await Deno.copyFile(sourceBinaryPath, targetBinaryPath);
   await chmodExecutable(targetBinaryPath);
 
-  return packageDir;
+  return {
+    packageDir,
+    publishMetadata: {
+      packageName: metadata.packageName,
+      platform: metadata.platform,
+      packageDir,
+      packageJsonPath: join(packageDir, "package.json"),
+      os: metadata.os,
+      cpu: metadata.cpu,
+      executableName: metadata.executableName,
+      executablePath: targetBinaryPath,
+      bundleMetadataPath: join(packageDir, "bundle-metadata.json"),
+    },
+  };
 }
 
 async function copyLicenseIfPresent(root: string, packageDir: string) {

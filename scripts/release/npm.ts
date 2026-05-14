@@ -5,17 +5,57 @@ import {
   type ReleasePlatform,
 } from "./metadata.ts";
 
+export const NPM_PACKAGES_METADATA_FILENAME = "npm-packages-metadata.json";
+export const NPM_COMMAND_NAME = "weave";
+export const NPM_REPOSITORY_URL =
+  "git+https://github.com/semantic-flow/weave.git";
+export const NPM_BUGS_URL = "https://github.com/semantic-flow/weave/issues";
+export const NPM_HOMEPAGE_URL = "https://github.com/semantic-flow/weave#readme";
+
 export interface NpmPackageJson {
   name: string;
   version: string;
   description: string;
   license: "Apache-2.0";
+  homepage: string;
+  repository: {
+    type: "git";
+    url: string;
+  };
+  bugs: {
+    url: string;
+  };
+  publishConfig?: {
+    access: "public";
+  };
   files: string[];
   bin?: Record<string, string>;
   os?: string[];
   cpu?: string[];
   optionalDependencies?: Record<string, string>;
   engines?: Record<string, string>;
+}
+
+export interface NpmPlatformPackageMetadata {
+  packageName: string;
+  platform: string;
+  packageDir: string;
+  packageJsonPath: string;
+  os: string;
+  cpu: string;
+  executableName: string;
+  executablePath: string;
+  bundleMetadataPath: string;
+}
+
+export interface NpmPackagesMetadata {
+  createdAt: string;
+  version: string;
+  wrapperPackageName: string;
+  wrapperPackageDir: string;
+  wrapperPackageJsonPath: string;
+  commandName: string;
+  platformPackages: NpmPlatformPackageMetadata[];
 }
 
 export function npmPackagePath(outDir: string, packageName: string): string {
@@ -39,8 +79,17 @@ export function createWrapperPackageJson(
     version,
     description: "Semantic Flow Weave CLI.",
     license: "Apache-2.0",
+    homepage: NPM_HOMEPAGE_URL,
+    repository: {
+      type: "git",
+      url: NPM_REPOSITORY_URL,
+    },
+    bugs: {
+      url: NPM_BUGS_URL,
+    },
+    publishConfig: packagePublishConfig(NPM_WRAPPER_PACKAGE_NAME),
     bin: {
-      weave: "bin/weave.js",
+      [NPM_COMMAND_NAME]: "bin/weave.js",
     },
     files: [
       "bin/",
@@ -62,6 +111,15 @@ export function createPlatformPackageJson(
     version: metadata.version,
     description: `Native Weave CLI binary for ${metadata.platform}.`,
     license: "Apache-2.0",
+    homepage: NPM_HOMEPAGE_URL,
+    repository: {
+      type: "git",
+      url: NPM_REPOSITORY_URL,
+    },
+    bugs: {
+      url: NPM_BUGS_URL,
+    },
+    publishConfig: packagePublishConfig(metadata.packageName),
     os: [metadata.os],
     cpu: [metadata.cpu],
     files: [
@@ -155,4 +213,16 @@ export function renderPlatformReadme(metadata: BinaryBundleMetadata): string {
 
 This package contains the native Weave CLI binary for ${metadata.platform}.
 `;
+}
+
+export async function readNpmPackagesMetadata(
+  path: string,
+): Promise<NpmPackagesMetadata> {
+  return JSON.parse(await Deno.readTextFile(path)) as NpmPackagesMetadata;
+}
+
+function packagePublishConfig(
+  packageName: string,
+): { access: "public" } | undefined {
+  return packageName.startsWith("@") ? { access: "public" } : undefined;
 }

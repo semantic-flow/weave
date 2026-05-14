@@ -6,6 +6,7 @@
     "build:binaries": "deno run --allow-read --allow-write --allow-run=deno scripts/build-binaries.ts",
     "package:binaries": "deno run --allow-read --allow-write scripts/package-binaries.ts",
     "assemble:npm-packages": "deno run --allow-read --allow-write scripts/assemble-npm-packages.ts",
+    "smoke:npm-install": "deno run --allow-read --allow-write --allow-run --allow-env scripts/smoke-npm-install.ts",
     "fmt": "deno fmt deno.json scripts src tests",
     "fmt:check": "deno fmt --check deno.json scripts src tests",
     "lint": "deno lint scripts src tests",

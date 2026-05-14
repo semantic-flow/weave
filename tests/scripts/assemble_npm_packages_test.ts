@@ -63,6 +63,10 @@ Deno.test("assembleNpmPackages creates wrapper and platform package directories"
     result.wrapperPackageDir,
     join(outDir, "@semantic-flow", "weave"),
   );
+  assertEquals(
+    result.packagesMetadataPath,
+    join(outDir, "npm-packages-metadata.json"),
+  );
   assertEquals(result.platformPackageDirs, [
     join(outDir, "@semantic-flow", "weave-linux-x64"),
     join(outDir, "@semantic-flow", "weave-windows-x64"),
@@ -74,6 +78,14 @@ Deno.test("assembleNpmPackages creates wrapper and platform package directories"
   assertEquals(wrapperPackageJson.name, "@semantic-flow/weave");
   assertEquals(wrapperPackageJson.version, "0.1.0");
   assertEquals(wrapperPackageJson.license, "Apache-2.0");
+  assertEquals(wrapperPackageJson.publishConfig, { access: "public" });
+  assertEquals(wrapperPackageJson.repository, {
+    type: "git",
+    url: "git+https://github.com/semantic-flow/weave.git",
+  });
+  assertEquals(wrapperPackageJson.bugs, {
+    url: "https://github.com/semantic-flow/weave/issues",
+  });
   assertEquals(wrapperPackageJson.bin, { weave: "bin/weave.js" });
   assertEquals(wrapperPackageJson.optionalDependencies, {
     "@semantic-flow/weave-linux-x64": "0.1.0",
@@ -98,6 +110,7 @@ Deno.test("assembleNpmPackages creates wrapper and platform package directories"
   );
   assertEquals(linuxPackageJson.name, "@semantic-flow/weave-linux-x64");
   assertEquals(linuxPackageJson.version, "0.1.0");
+  assertEquals(linuxPackageJson.publishConfig, { access: "public" });
   assertEquals(linuxPackageJson.os, ["linux"]);
   assertEquals(linuxPackageJson.cpu, ["x64"]);
   assertEquals(linuxPackageJson.bin, undefined);
@@ -110,6 +123,35 @@ Deno.test("assembleNpmPackages creates wrapper and platform package directories"
   assertStringIncludes(
     await Deno.readTextFile(join(linuxPackageDir, "README.md")),
     "native Weave CLI binary for linux-x64",
+  );
+
+  const packagesMetadata = await readJson(result.packagesMetadataPath);
+  assertEquals(packagesMetadata.version, "0.1.0");
+  assertEquals(packagesMetadata.wrapperPackageName, "@semantic-flow/weave");
+  assertEquals(packagesMetadata.wrapperPackageDir, result.wrapperPackageDir);
+  assertEquals(packagesMetadata.commandName, "weave");
+  assertEquals(
+    (packagesMetadata.platformPackages as Array<Record<string, unknown>>).map((
+      entry,
+    ) => entry.packageName),
+    [
+      "@semantic-flow/weave-linux-x64",
+      "@semantic-flow/weave-windows-x64",
+    ],
+  );
+  assertEquals(
+    (packagesMetadata.platformPackages as Array<Record<string, unknown>>)[0],
+    {
+      packageName: "@semantic-flow/weave-linux-x64",
+      platform: "linux-x64",
+      packageDir: linuxPackageDir,
+      packageJsonPath: join(linuxPackageDir, "package.json"),
+      os: "linux",
+      cpu: "x64",
+      executableName: "weave",
+      executablePath: join(linuxPackageDir, "bin", "weave"),
+      bundleMetadataPath: join(linuxPackageDir, "bundle-metadata.json"),
+    },
   );
 });
 

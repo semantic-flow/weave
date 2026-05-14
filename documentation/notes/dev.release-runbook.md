@@ -10,7 +10,7 @@ created: 1778685955558
 
 Current developer-facing release process for Weave.
 
-Weave is moving from the `v0.0.2` source-checkpoint release model toward the first packaged `v0.1.0` release. This runbook documents the current transitional state: Weave now has durable root version metadata, `weave --version`, a bump task, release-note stubs, native binary builds, binary archive/checksum packaging, and local npm package assembly, but it does not yet have npm install smoke tests, npm publishing, or the manual GitHub Actions release workflow.
+Weave is moving from the `v0.0.2` source-checkpoint release model toward the first packaged `v0.1.0` release. This runbook documents the current transitional state: Weave now has durable root version metadata, `weave --version`, a bump task, release-note stubs, native binary builds, binary archive/checksum packaging, local npm package assembly, and local npm install smoke tests, but it does not yet have npm publishing or the manual GitHub Actions release workflow.
 
 ## Current Model
 
@@ -20,11 +20,12 @@ Weave is moving from the `v0.0.2` source-checkpoint release model toward the fir
 - Release notes live at `documentation/notes/release-notes.v<version>.md`.
 - `deno task build:binaries` compiles native `weave` binaries and writes per-platform `bundle-metadata.json`.
 - `deno task package:binaries` turns built platform directories into `.tar.gz` or `.zip` archives plus `.sha256` files.
-- `deno task assemble:npm-packages` creates the npm wrapper package and selected platform packages from built platform directories.
+- `deno task assemble:npm-packages` creates the npm wrapper package and selected platform packages from built platform directories, including package `publishConfig` metadata and an aggregate `npm-packages-metadata.json` manifest.
+- `deno task smoke:npm-install` reads `npm-packages-metadata.json`, runs `npm pack`, installs the wrapper and host platform package tarballs into a temporary project, and verifies `weave --version`.
 - GitHub Actions CI and `deno task ci` are the intended quality gates, but the current full test suite still has known fixture/config drift tracked in [[wd.task.2026.2026-05-13-full-ci-cd]] and [[wd.task.2026.2026-05-07-fixture-ladder-generator]].
 - There is no automated release workflow yet. Create any GitHub Release manually or with `gh release create`.
-- There is no npm package installation smoke-test or publication step yet.
-- npm assembly is local package-directory assembly only, so do not claim published npm packages until smoke and publish scripts land.
+- There is no npm package publication step yet.
+- npm assembly and install smoke are local only, so do not claim published npm packages until publish scripts land.
 
 ## Pre-Release
 
@@ -45,7 +46,7 @@ Use `--patch`, `--minor`, or `--major` instead when advancing from an existing r
 deno task fmt:check
 deno task lint
 deno task check
-deno test --allow-read --allow-write tests/scripts/bump_version_test.ts tests/scripts/release_metadata_test.ts tests/scripts/package_binaries_test.ts tests/scripts/assemble_npm_packages_test.ts src/version_test.ts
+deno test --allow-read --allow-write tests/scripts/bump_version_test.ts tests/scripts/release_metadata_test.ts tests/scripts/package_binaries_test.ts tests/scripts/assemble_npm_packages_test.ts tests/scripts/smoke_npm_install_test.ts src/version_test.ts
 deno test --allow-read --allow-write --allow-run=deno --allow-env tests/e2e/weave_cli_test.ts --filter "weave --version reports"
 ```
 
@@ -63,8 +64,8 @@ If `deno task ci` still fails with the known fixture/config drift, record that e
 deno task build:binaries -- --platform linux-x64 --out-dir /tmp/weave-binaries
 deno task package:binaries -- --platform linux-x64 --build-dir /tmp/weave-binaries --out-dir /tmp/weave-release
 deno task assemble:npm-packages -- --platform linux-x64 --build-dir /tmp/weave-binaries --out-dir /tmp/weave-npm/node_modules
+deno task smoke:npm-install -- --input-dir /tmp/weave-npm/node_modules --work-dir /tmp/weave-npm-smoke
 /tmp/weave-binaries/linux-x64/weave --version
-node /tmp/weave-npm/node_modules/@semantic-flow/weave/bin/weave.js --version
 ls /tmp/weave-release
 ```
 
@@ -86,6 +87,7 @@ release: prepare v0.1.0 packaging groundwork
 - add release-note bump tooling
 - add native binary build and packaging scripts
 - add local npm package assembly
+- add local npm install smoke testing
 ```
 
 10. Push the branch. Prefer a green GitHub CI run before tagging, but if this is an explicit checkpoint exception, make sure the release notes do not claim green validation.
@@ -94,7 +96,7 @@ release: prepare v0.1.0 packaging groundwork
 
 Use a reviewed commit on `main`. Green CI is preferred; for a deliberate checkpoint exception, the GitHub Release notes must say that the quality gate is known follow-up work.
 
-Until npm smoke/publish scripts and `release-manual.yml` exist, releases are still manually created GitHub Releases. Binary archives from `package:binaries` may be uploaded manually only after building and packaging every supported platform and confirming matching checksum files. npm package directories from `assemble:npm-packages` are build outputs, not published packages.
+Until npm publish scripts and `release-manual.yml` exist, releases are still manually created GitHub Releases. Binary archives from `package:binaries` may be uploaded manually only after building and packaging every supported platform and confirming matching checksum files. npm package directories from `assemble:npm-packages`, `npm-packages-metadata.json`, and smoke tarballs from `smoke:npm-install` are build outputs, not published packages.
 
 Create and push the tag:
 
@@ -121,7 +123,7 @@ gh release create v0.1.0 --title v0.1.0 --draft --notes-file /tmp/weave-release-
 - Confirm the GitHub Release exists and points at the intended commit.
 - Confirm the release body matches `documentation/notes/release-notes.v<version>.md` after frontmatter removal.
 - Confirm any uploaded binary archives have matching `.sha256` files and match the release notes.
-- Confirm no npm package publication is expected until smoke and publish scripts land.
+- Confirm no npm package publication is expected until publish scripts land.
 - If another clone needs the new tag, run:
 
 ```bash
@@ -132,7 +134,7 @@ git fetch --tags origin
 
 - Weave does not yet have a release workflow like Kato's `Release Manual`.
 - Weave can compile and package native binaries locally, but the cross-platform release workflow is not automated yet.
-- Weave can assemble local npm package directories, but does not yet smoke-test installation or publish npm/JSR packages.
+- Weave can assemble and smoke-test local npm package directories, but does not yet publish npm/JSR packages.
 - `deno task test` is not yet green because fixture-backed expectations need regeneration.
 - Release notes are Dendron notes, so any GitHub Release body must omit frontmatter.
 
@@ -140,7 +142,6 @@ git fetch --tags origin
 
 Before treating `v0.1.0` as a distributable product release, finish the remaining release-workflow pieces tracked in [[wd.task.2026.2026-05-13-full-ci-cd]]:
 
-- add npm install smoke tests
 - add optional npm publish support
 - add `.github/workflows/release-manual.yml`
 - make the manual workflow the primary release path
