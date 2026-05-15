@@ -405,7 +405,7 @@ function isResourcePagePath(path: string): boolean {
 function isInventoryTurtlePath(path: string): boolean {
   return path === "_mesh/_inventory/inventory.ttl" ||
     path.endsWith("/_inventory/inventory.ttl") ||
-    path.endsWith("/inventory-ttl/inventory.ttl");
+    path.endsWith("/ttl/inventory.ttl");
 }
 
 function removeResourcePagePaths(

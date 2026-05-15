@@ -60,7 +60,7 @@ const aliceReferenceDefaultManifestation: readonly (readonly [
   string,
   string,
 ])[] = [[
-  "alice/_knop/_references/_history001/_s0001/references-ttl",
+  "alice/_knop/_references/_history001/_s0001/ttl",
   "alice/_knop/_references/_history001/_s0001/ttl",
 ]];
 
@@ -82,11 +82,11 @@ Deno.test("executeWeave materializes current support ResourcePages for a docs-ro
   assertEquals(
     [...result.createdPaths].sort(),
     [
-      "docs/_mesh/_config/_history001/_s0001/config-ttl/config.ttl",
+      "docs/_mesh/_config/_history001/_s0001/ttl/config.ttl",
       "docs/_mesh/_config/index.html",
       "docs/_mesh/_config/_history001/index.html",
       "docs/_mesh/_config/_history001/_s0001/index.html",
-      "docs/_mesh/_config/_history001/_s0001/config-ttl/index.html",
+      "docs/_mesh/_config/_history001/_s0001/ttl/index.html",
       "docs/_mesh/_inventory/index.html",
       "docs/_mesh/_meta/index.html",
       "docs/_mesh/index.html",
@@ -237,12 +237,12 @@ Deno.test("executeWeave supports a later first root Knop weave against a carried
   assertEquals(result.wovenDesignatorPaths, [""]);
   assert(
     result.createdPaths.includes(
-      "_mesh/_inventory/_history001/_s0006/inventory-ttl/inventory.ttl",
+      "_mesh/_inventory/_history001/_s0006/ttl/inventory.ttl",
     ),
   );
   assert(
     result.createdPaths.includes(
-      "_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      "_knop/_inventory/_history001/_s0001/ttl/inventory.ttl",
     ),
   );
   assert(result.updatedPaths.includes("_mesh/_inventory/inventory.ttl"));
@@ -675,13 +675,13 @@ Deno.test("executeWeave matches the settled alice bio referenced-woven fixture",
     await Deno.readTextFile(
       join(
         workspaceRoot,
-        "alice/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+        "alice/_knop/_inventory/_history001/_s0002/ttl/inventory.ttl",
       ),
     ),
     replaceFixturePaths(
       await readMeshAliceBioBranchFile(
         "09-alice-bio-referenced-woven",
-        "alice/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+        "alice/_knop/_inventory/_history001/_s0002/ttl/inventory.ttl",
       ),
       aliceReferenceDefaultManifestation,
     ),
@@ -735,12 +735,12 @@ Deno.test("executeWeave matches the settled alice page-customized-woven fixture"
   assertEquals(result.wovenDesignatorPaths, ["alice"]);
   assert(
     result.createdPaths.includes(
-      "alice/_knop/_page/_history001/_s0001/page-ttl/page.ttl",
+      "alice/_knop/_page/_history001/_s0001/ttl/page.ttl",
     ),
   );
   assert(
     result.createdPaths.includes(
-      "alice/_knop/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl",
+      "alice/_knop/_inventory/_history001/_s0003/ttl/inventory.ttl",
     ),
   );
   assert(result.updatedPaths.includes("alice/_knop/_inventory/inventory.ttl"));
@@ -877,10 +877,10 @@ Deno.test("executeWeave versions a later page-definition revision that repoints 
 
   assertEquals(result.wovenDesignatorPaths, ["alice"]);
   assert(result.createdPaths.includes(
-    "alice/_knop/_page/_history001/_s0002/page-ttl/page.ttl",
+    "alice/_knop/_page/_history001/_s0002/ttl/page.ttl",
   ));
   assert(result.createdPaths.includes(
-    "alice/_knop/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl",
+    "alice/_knop/_inventory/_history001/_s0004/ttl/inventory.ttl",
   ));
   assert(result.updatedPaths.includes("alice/_knop/_inventory/inventory.ttl"));
   assertStringIncludes(
@@ -916,10 +916,10 @@ Deno.test("executeWeave versions the first root page-definition revision", async
 
   assertEquals(result.wovenDesignatorPaths, [""]);
   assert(result.createdPaths.includes(
-    "_knop/_page/_history001/_s0001/page-ttl/page.ttl",
+    "_knop/_page/_history001/_s0001/ttl/page.ttl",
   ));
   assert(result.createdPaths.includes(
-    "_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+    "_knop/_inventory/_history001/_s0002/ttl/inventory.ttl",
   ));
   assert(result.updatedPaths.includes("_knop/_inventory/inventory.ttl"));
   assertStringIncludes(
@@ -1289,7 +1289,7 @@ Deno.test("executeWeave materializes the second alice bio payload weave slice", 
   );
   assert(
     result.createdPaths.includes(
-      "alice/bio/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+      "alice/bio/_knop/_inventory/_history001/_s0002/ttl/inventory.ttl",
     ),
   );
   assert(
@@ -1322,7 +1322,7 @@ Deno.test("executeWeave materializes the second alice bio payload weave slice", 
     await Deno.readTextFile(
       join(
         workspaceRoot,
-        "alice/bio/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+        "alice/bio/_knop/_inventory/_history001/_s0002/ttl/inventory.ttl",
       ),
     ),
     await Deno.readTextFile(
@@ -1347,7 +1347,7 @@ Deno.test("executeWeave materializes the second alice bio payload weave slice", 
   await Deno.stat(
     join(
       workspaceRoot,
-      "alice/bio/_knop/_inventory/_history001/_s0002/inventory-ttl/index.html",
+      "alice/bio/_knop/_inventory/_history001/_s0002/ttl/index.html",
     ),
   );
   assertEquals(
@@ -1377,12 +1377,12 @@ Deno.test("executeWeave materializes the extracted bob woven slice", async () =>
   assert(result.updatedPaths.includes("bob/_knop/_inventory/inventory.ttl"));
   assert(
     result.createdPaths.includes(
-      "_mesh/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl",
+      "_mesh/_inventory/_history001/_s0004/ttl/inventory.ttl",
     ),
   );
   assert(
     result.createdPaths.includes(
-      "bob/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
+      "bob/_knop/_meta/_history001/_s0001/ttl/meta.ttl",
     ),
   );
   assertEquals(
@@ -1407,12 +1407,12 @@ Deno.test("executeWeave materializes the extracted bob woven slice", async () =>
     await Deno.readTextFile(
       join(
         workspaceRoot,
-        "bob/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
+        "bob/_knop/_meta/_history001/_s0001/ttl/meta.ttl",
       ),
     ),
     await readMeshAliceBioBranchFile(
       "13-bob-extracted-woven",
-      "bob/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
+      "bob/_knop/_meta/_history001/_s0001/ttl/meta.ttl",
     ),
   );
   await Deno.stat(
@@ -1461,7 +1461,7 @@ Deno.test("executeWeave materializes sidecar extracted ontology and SHACL terms"
   ]);
   assert(
     result.createdPaths.includes(
-      "docs/_mesh/_inventory/_history001/_s0008/inventory-ttl/inventory.ttl",
+      "docs/_mesh/_inventory/_history001/_s0008/ttl/inventory.ttl",
     ),
   );
   assert(
@@ -1687,14 +1687,14 @@ Deno.test("executeWeave fails closed when a created weave target already exists"
   await Deno.mkdir(
     join(
       workspaceRoot,
-      "alice/_knop/_meta/_history001/_s0001/meta-ttl",
+      "alice/_knop/_meta/_history001/_s0001/ttl",
     ),
     { recursive: true },
   );
   await Deno.writeTextFile(
     join(
       workspaceRoot,
-      "alice/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
+      "alice/_knop/_meta/_history001/_s0001/ttl/meta.ttl",
     ),
     "existing\n",
   );

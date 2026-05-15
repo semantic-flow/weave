@@ -74,6 +74,8 @@ const XSD_NON_NEGATIVE_INTEGER_IRI =
   "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
 const SFCFG_HAS_NEXT_STATE_SEGMENT_HINT_IRI =
   `${SFCFG_NAMESPACE}hasNextStateSegmentHint`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
+  `${SFLO_NAMESPACE}artifactResolutionMode_current`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
   `${SFLO_NAMESPACE}artifactResolutionMode_pinned`;
 const SFLO_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}ExtractionSource`;
@@ -425,6 +427,7 @@ export function planWeave(input: PlanWeaveInput): WeavePlan {
         return planFirstReferenceCatalogWeave(
           meshBase,
           input.currentMeshInventoryTurtle,
+          input.currentMeshMetadataTurtle,
           candidate,
         );
       case "pageDefinitionWeave":
@@ -856,8 +859,7 @@ function planFirstKnopWeave(
     wovenDesignatorPaths: [designatorPath],
     createdFiles: [
       {
-        path:
-          `${meshInventoryProgression.nextStatePath}/inventory-ttl/inventory.ttl`,
+        path: `${meshInventoryProgression.nextStatePath}/ttl/inventory.ttl`,
         contents: renderFirstKnopWovenMeshInventoryTurtle(
           currentMeshInventoryTurtle,
           meshBase,
@@ -867,13 +869,12 @@ function planFirstKnopWeave(
       },
       ...(versionKnopMetadata
         ? [{
-          path: `${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl`,
+          path: `${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl`,
           contents: candidate.currentKnopMetadataTurtle,
         }]
         : []),
       {
-        path:
-          `${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl`,
+        path: `${knopPath}/_inventory/_history001/_s0001/ttl/inventory.ttl`,
         contents: wovenKnopInventoryTurtle,
       },
     ],
@@ -989,8 +990,7 @@ function planFirstPayloadWeave(
     wovenDesignatorPaths: [designatorPath],
     createdFiles: [
       ...(meshInventoryProgression === undefined ? [] : [{
-        path:
-          `${meshInventoryProgression.nextStatePath}/inventory-ttl/inventory.ttl`,
+        path: `${meshInventoryProgression.nextStatePath}/ttl/inventory.ttl`,
         contents: wovenMeshInventoryTurtle,
       }]),
       {
@@ -999,14 +999,13 @@ function planFirstPayloadWeave(
       },
       ...(versionKnopMetadata
         ? [{
-          path: `${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl`,
+          path: `${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl`,
           contents: candidate.currentKnopMetadataTurtle,
         }]
         : []),
       ...(versionKnopInventory
         ? [{
-          path:
-            `${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl`,
+          path: `${knopPath}/_inventory/_history001/_s0001/ttl/inventory.ttl`,
           contents: wovenKnopInventoryTurtle,
         }]
         : []),
@@ -1065,6 +1064,7 @@ function planFirstExtractedKnopWeave(
   assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
     meshBase,
     currentMeshInventoryTurtle,
+    meshInventoryProgression,
     designatorPath,
     referenceTargetSourcePayloadArtifact.designatorPath,
     referenceTargetSourcePayloadArtifact.workingLocalRelativePath,
@@ -1104,17 +1104,15 @@ function planFirstExtractedKnopWeave(
     wovenDesignatorPaths: [designatorPath],
     createdFiles: [
       {
-        path:
-          `${meshInventoryProgression.nextStatePath}/inventory-ttl/inventory.ttl`,
+        path: `${meshInventoryProgression.nextStatePath}/ttl/inventory.ttl`,
         contents: wovenMeshInventoryTurtle,
       },
       {
-        path: `${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl`,
+        path: `${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl`,
         contents: candidate.currentKnopMetadataTurtle,
       },
       {
-        path:
-          `${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl`,
+        path: `${knopPath}/_inventory/_history001/_s0001/ttl/inventory.ttl`,
         contents: wovenKnopInventoryTurtle,
       },
       {
@@ -1208,7 +1206,7 @@ function planFirstExtractedKnopWeave(
         } MeshInventory historical state.`,
       ),
       simplePage(
-        `${meshInventoryProgression.nextStatePath}/inventory-ttl/index.html`,
+        `${meshInventoryProgression.nextStatePath}/ttl/index.html`,
         `Resource page for the Turtle manifestation of the ${
           toOrdinalLabel(meshInventoryProgression.nextStateOrdinal)
         } MeshInventory historical state.`,
@@ -1226,7 +1224,7 @@ function planFirstExtractedKnopWeave(
         `Resource page for the first ${displayDesignatorPath} KnopMetadata historical state.`,
       ),
       simplePage(
-        `${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html`,
+        `${knopPath}/_meta/_history001/_s0001/ttl/index.html`,
         `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} KnopMetadata historical state.`,
       ),
       simplePage(
@@ -1238,7 +1236,7 @@ function planFirstExtractedKnopWeave(
         `Resource page for the first ${displayDesignatorPath} KnopInventory historical state.`,
       ),
       simplePage(
-        `${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html`,
+        `${knopPath}/_inventory/_history001/_s0001/ttl/index.html`,
         `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} KnopInventory historical state.`,
       ),
     ],
@@ -1248,6 +1246,7 @@ function planFirstExtractedKnopWeave(
 function planFirstReferenceCatalogWeave(
   meshBase: string,
   currentMeshInventoryTurtle: string,
+  currentMeshMetadataTurtle: string | undefined,
   candidate: WeaveableKnopCandidate,
 ): WeavePlan {
   const referenceCatalogArtifact = candidate.referenceCatalogArtifact!;
@@ -1255,6 +1254,7 @@ function planFirstReferenceCatalogWeave(
   assertCurrentMeshInventoryShapeForFirstReferenceCatalogWeave(
     meshBase,
     currentMeshInventoryTurtle,
+    currentMeshMetadataTurtle,
     designatorPath,
   );
   assertCurrentKnopInventoryShapeForFirstReferenceCatalogWeave(
@@ -1284,8 +1284,7 @@ function planFirstReferenceCatalogWeave(
     wovenDesignatorPaths: [designatorPath],
     createdFiles: [
       {
-        path:
-          `${knopPath}/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl`,
+        path: `${knopPath}/_inventory/_history001/_s0002/ttl/inventory.ttl`,
         contents: renderFirstReferenceCatalogWovenKnopInventoryTurtle(
           meshBase,
           designatorPath,
@@ -1381,8 +1380,7 @@ function planPageDefinitionWeave(
         contents: pageDefinitionArtifact.currentPageDefinitionTurtle,
       },
       {
-        path:
-          `${knopInventoryProgression.nextStatePath}/inventory-ttl/inventory.ttl`,
+        path: `${knopInventoryProgression.nextStatePath}/ttl/inventory.ttl`,
         contents: renderedKnopInventory,
       },
     ],
@@ -1477,8 +1475,7 @@ function planSecondPayloadWeave(
       },
       ...(versionKnopInventory
         ? [{
-          path:
-            `${knopPath}/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl`,
+          path: `${knopPath}/_inventory/_history001/_s0002/ttl/inventory.ttl`,
           contents: wovenKnopInventoryTurtle,
         }]
         : []),
@@ -1519,8 +1516,8 @@ function resolvePageDefinitionWeaveProgression(
       latestStateOrdinal: 0,
       nextStatePath: `${historyPath}/_s0001`,
       nextStateOrdinal: 1,
-      nextManifestationPath: `${historyPath}/_s0001/page-ttl`,
-      nextSnapshotPath: `${historyPath}/_s0001/page-ttl/page.ttl`,
+      nextManifestationPath: `${historyPath}/_s0001/ttl`,
+      nextSnapshotPath: `${historyPath}/_s0001/ttl/page.ttl`,
     };
   }
 
@@ -1544,8 +1541,8 @@ function resolvePageDefinitionWeaveProgression(
     latestStateOrdinal,
     nextStatePath,
     nextStateOrdinal,
-    nextManifestationPath: `${nextStatePath}/page-ttl`,
-    nextSnapshotPath: `${nextStatePath}/page-ttl/page.ttl`,
+    nextManifestationPath: `${nextStatePath}/ttl`,
+    nextSnapshotPath: `${nextStatePath}/ttl/page.ttl`,
   };
 }
 
@@ -1695,7 +1692,7 @@ function resolveCurrentKnopInventoryProgressionForPageDefinitionWeave(
     historyPath,
     latestStatePath,
     latestStateOrdinal,
-    latestManifestationPath: `${latestStatePath}/inventory-ttl`,
+    latestManifestationPath: `${latestStatePath}/ttl`,
     nextStatePath: `${historyPath}/${toStateSegment(nextStateOrdinal)}`,
     nextStateOrdinal,
   };
@@ -1820,7 +1817,7 @@ function resolveMeshInventoryProgressionFromMetadata(
     nextHistoryOrdinal,
     latestStatePath,
     latestStateOrdinal,
-    latestManifestationPath: `${latestStatePath}/inventory-ttl`,
+    latestManifestationPath: `${latestStatePath}/ttl`,
     nextStatePath,
     nextStateOrdinal,
   };
@@ -1871,12 +1868,12 @@ function resolveCurrentMeshInventoryProgressionForFirstPayloadWeave(
       latestManifestationIri,
       "the latest MeshInventory historical-state manifestation",
     )
-    : `${progression.latestStatePath}/inventory-ttl`;
+    : `${progression.latestStatePath}/ttl`;
   if (
     toHistoryPathFromStatePath(progression.latestStatePath) !==
       progression.historyPath ||
     latestManifestationPath !==
-      `${progression.latestStatePath}/inventory-ttl` ||
+      `${progression.latestStatePath}/ttl` ||
     (!latestManifestationIri && progression.latestStateOrdinal !== 2)
   ) {
     throw new WeaveInputError(errorMessage);
@@ -1903,6 +1900,7 @@ function resolveCurrentMeshInventoryProgressionForFirstPayloadWeave(
 function assertCurrentMeshInventoryShapeForFirstReferenceCatalogWeave(
   meshBase: string,
   currentMeshInventoryTurtle: string,
+  currentMeshMetadataTurtle: string | undefined,
   designatorPath: string,
 ): void {
   const knopPath = toKnopPath(designatorPath);
@@ -1914,35 +1912,42 @@ function assertCurrentMeshInventoryShapeForFirstReferenceCatalogWeave(
     errorMessage,
   );
 
+  const progression = resolveMeshInventoryProgressionFromMetadata(
+    meshBase,
+    currentMeshMetadataTurtle,
+    errorMessage,
+  );
+  if (
+    progression.historyPath !== "_mesh/_inventory/_history001" ||
+    toHistoryPathFromStatePath(progression.latestStatePath) !==
+      progression.historyPath ||
+    progression.nextStateOrdinal !== progression.latestStateOrdinal + 1
+  ) {
+    throw new WeaveInputError(errorMessage);
+  }
+
   assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
     ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_MESH_INVENTORY_IRI],
     ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
     ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
     [
       "_mesh/_inventory",
-      SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
-      "_mesh/_inventory/_history001",
+      SFLO_HAS_ARTIFACT_HISTORY_IRI,
+      progression.historyPath,
     ],
     [
-      "_mesh/_inventory/_history001",
-      SFLO_LATEST_HISTORICAL_STATE_IRI,
-      "_mesh/_inventory/_history001/_s0003",
+      progression.historyPath,
+      SFLO_HAS_HISTORICAL_STATE_IRI,
+      progression.latestStatePath,
     ],
     [knopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
-  ]);
-  assertHasLiteralFacts(quads, meshBase, errorMessage, [
-    [
-      "_mesh/_inventory/_history001",
-      SFLO_NEXT_STATE_ORDINAL_IRI,
-      "4",
-      XSD_NON_NEGATIVE_INTEGER_IRI,
-    ],
   ]);
 }
 
 function assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
   meshBase: string,
   currentMeshInventoryTurtle: string,
+  meshInventoryProgression: MeshInventoryProgression,
   designatorPath: string,
   sourcePayloadDesignatorPath: string,
   sourceWorkingLocalRelativePath: string,
@@ -1969,8 +1974,13 @@ function assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
     ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
     [
       "_mesh/_inventory",
-      SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
-      "_mesh/_inventory/_history001",
+      SFLO_HAS_ARTIFACT_HISTORY_IRI,
+      meshInventoryProgression.historyPath,
+    ],
+    [
+      meshInventoryProgression.historyPath,
+      SFLO_HAS_HISTORICAL_STATE_IRI,
+      meshInventoryProgression.latestStatePath,
     ],
     [sourcePayloadDesignatorPath, RDF_TYPE_IRI, SFLO_PAYLOAD_ARTIFACT_IRI],
     [sourcePayloadDesignatorPath, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
@@ -2004,32 +2014,12 @@ function assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
     ],
     [knopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
   ]);
-  const historyIri = toAbsoluteIri(meshBase, "_mesh/_inventory/_history001");
-  const latestStateIri = requireSingleNamedNodeObject(
-    quads,
-    historyIri,
-    SFLO_LATEST_HISTORICAL_STATE_IRI,
-    errorMessage,
-  );
-  const latestStatePath = toMeshRelativePath(
-    meshBase,
-    latestStateIri,
-    "the latest MeshInventory historical state",
-  );
-  const latestStateOrdinal = parseStateOrdinalFromPath(
-    latestStatePath,
-    errorMessage,
-  );
-  const nextStateOrdinal = requireSingleNonNegativeIntegerLiteral(
-    quads,
-    historyIri,
-    SFLO_NEXT_STATE_ORDINAL_IRI,
-    errorMessage,
-  );
   if (
-    toHistoryPathFromStatePath(latestStatePath) !==
-      "_mesh/_inventory/_history001" ||
-    nextStateOrdinal !== latestStateOrdinal + 1
+    meshInventoryProgression.historyPath !== "_mesh/_inventory/_history001" ||
+    toHistoryPathFromStatePath(meshInventoryProgression.latestStatePath) !==
+      meshInventoryProgression.historyPath ||
+    meshInventoryProgression.nextStateOrdinal !==
+      meshInventoryProgression.latestStateOrdinal + 1
   ) {
     throw new WeaveInputError(errorMessage);
   }
@@ -2097,18 +2087,35 @@ function assertCurrentKnopInventoryShapeForFirstExtractedKnopWeave(
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
     [extractionSourcePath, RDF_TYPE_IRI, SFLO_EXTRACTION_SOURCE_IRI],
-    [
+    [extractionSourcePath, SFLO_HAS_TARGET_ARTIFACT_IRI, sourceDesignatorPath],
+  ]);
+  if (
+    !hasNamedNodeFact(
+      quads,
+      meshBase,
       extractionSourcePath,
       SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
-      SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI,
-    ],
-    [extractionSourcePath, SFLO_HAS_TARGET_ARTIFACT_IRI, sourceDesignatorPath],
-    [
-      extractionSourcePath,
-      SFLO_HAS_REQUESTED_TARGET_STATE_IRI,
-      sourceStatePath,
-    ],
-  ]);
+      SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI,
+    ) &&
+    !(
+      hasNamedNodeFact(
+        quads,
+        meshBase,
+        extractionSourcePath,
+        SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
+        SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI,
+      ) &&
+      hasNamedNodeFact(
+        quads,
+        meshBase,
+        extractionSourcePath,
+        SFLO_HAS_REQUESTED_TARGET_STATE_IRI,
+        sourceStatePath,
+      )
+    )
+  ) {
+    throw new WeaveInputError(errorMessage);
+  }
   assertHasCurrentWorkingFileLocator(
     quads,
     meshBase,
@@ -2804,7 +2811,7 @@ function renderFirstKnopWovenMeshInventoryTurtle(
     meshInventoryProgression.latestManifestationPath;
   const nextStatePath = meshInventoryProgression.nextStatePath;
   const nextStateOrdinal = meshInventoryProgression.nextStateOrdinal;
-  const nextManifestationPath = `${nextStatePath}/inventory-ttl`;
+  const nextManifestationPath = `${nextStatePath}/ttl`;
   const initialBlocks = normalizeMeshInventoryHeader(
     splitTurtleBlocks(currentMeshInventoryTurtle),
   );
@@ -2998,13 +3005,13 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}/_meta/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <${knopPath}/_meta/_history001/_s0001/meta-ttl> ;
-  sflo:locatedFileForState <${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
+  sflo:hasManifestation <${knopPath}/_meta/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> ;
   sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/index.html> .
 
-<${knopPath}/_meta/_history001/_s0001/meta-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html> .
+<${knopPath}/_meta/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/ttl/index.html> .
 
 <${knopPath}/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <${knopPath}/_inventory/_history001> ;
@@ -3022,21 +3029,21 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}/_inventory/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <${knopPath}/_inventory/_history001/_s0001/inventory-ttl> ;
-  sflo:locatedFileForState <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <${knopPath}/_inventory/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <${knopPath}/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
   sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0001/index.html> .
 
-<${knopPath}/_inventory/_history001/_s0001/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html> .
+<${knopPath}/_inventory/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <${knopPath}/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0001/ttl/index.html> .
 
 <${knopPath}/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<${knopPath}/_inventory/_history001/_s0001/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${knopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -3046,7 +3053,7 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}/_meta/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${knopPath}/_meta/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <${knopPath}/_inventory/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -3054,7 +3061,7 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}/_inventory/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${knopPath}/_inventory/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 `;
 
   return shouldVersionKnopMetadata
@@ -3088,23 +3095,23 @@ function omitInitialKnopMetadataHistory(
     .replace(
       `<${knopPath}/_meta/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <${knopPath}/_meta/_history001/_s0001/meta-ttl> ;
-  sflo:locatedFileForState <${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
+  sflo:hasManifestation <${knopPath}/_meta/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> ;
   sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/index.html> .
 
 `,
       "",
     )
     .replace(
-      `<${knopPath}/_meta/_history001/_s0001/meta-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html> .
+      `<${knopPath}/_meta/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/ttl/index.html> .
 
 `,
       "",
     )
     .replace(
-      `<${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+      `<${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 `,
       "",
@@ -3114,7 +3121,7 @@ function omitInitialKnopMetadataHistory(
 
 <${knopPath}/_meta/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${knopPath}/_meta/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 `,
       "",
@@ -3159,7 +3166,7 @@ function omitKnopInventoryHistory(turtle: string, knopPath: string): string {
   for (const stateOrdinal of [1, 2]) {
     const stateSegment = toStateSegment(stateOrdinal);
     const statePath = `${historyPath}/${stateSegment}`;
-    const manifestationPath = `${statePath}/inventory-ttl`;
+    const manifestationPath = `${statePath}/ttl`;
     const locatedFilePath = `${manifestationPath}/inventory.ttl`;
     const previousStatePredicate = stateOrdinal === 1
       ? ""
@@ -3242,7 +3249,7 @@ function renderFirstPayloadWovenMeshInventoryTurtle(
   const rootPagePath = toDesignatorResourcePagePath(rootDesignatorPath);
   const historyPath = meshInventoryProgression.historyPath;
   const nextStatePath = meshInventoryProgression.nextStatePath;
-  const nextStateManifestationPath = `${nextStatePath}/inventory-ttl`;
+  const nextStateManifestationPath = `${nextStatePath}/ttl`;
   const initialBlocks = normalizeMeshInventoryHeader(
     splitTurtleBlocks(currentMeshInventoryTurtle),
   );
@@ -3463,13 +3470,13 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <_mesh/_meta/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <_mesh/_meta/_history001/_s0001/meta-ttl> ;
-  sflo:locatedFileForState <_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
+  sflo:hasManifestation <_mesh/_meta/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <_mesh/_meta/_history001/_s0001/ttl/meta.ttl> ;
   sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/index.html> .
 
-<_mesh/_meta/_history001/_s0001/meta-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
-  sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/meta-ttl/index.html> .
+<_mesh/_meta/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_meta/_history001/_s0001/ttl/meta.ttl> ;
+  sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/ttl/index.html> .
 
 <_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <_mesh/_inventory/_history001> ;
@@ -3488,34 +3495,34 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <_mesh/_inventory/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0001/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <_mesh/_inventory/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/index.html> .
 
-<_mesh/_inventory/_history001/_s0001/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html> .
+<_mesh/_inventory/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/ttl/index.html> .
 
 <_mesh/_inventory/_history001/_s0002> a sflo:HistoricalState ;
   sflo:stateOrdinal "2"^^xsd:nonNegativeInteger ;
   sflo:previousHistoricalState <_mesh/_inventory/_history001/_s0001> ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0002/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <_mesh/_inventory/_history001/_s0002/ttl> ;
+  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/index.html> .
 
-<_mesh/_inventory/_history001/_s0002/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/inventory-ttl/index.html> .
+<_mesh/_inventory/_history001/_s0002/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/ttl/index.html> .
 
 <_mesh/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <_mesh/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<_mesh/_meta/_history001/_s0001/ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
@@ -3531,7 +3538,7 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <_mesh/_meta/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<_mesh/_meta/_history001/_s0001/meta-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<_mesh/_meta/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <_mesh/_inventory/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -3539,11 +3546,11 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <_mesh/_inventory/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<_mesh/_inventory/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <_mesh/_inventory/_history001/_s0002/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<_mesh/_inventory/_history001/_s0002/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<_mesh/_inventory/_history001/_s0002/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 `;
 }
 
@@ -3604,13 +3611,13 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <_mesh/_meta/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <_mesh/_meta/_history001/_s0001/meta-ttl> ;
-  sflo:locatedFileForState <_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
+  sflo:hasManifestation <_mesh/_meta/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <_mesh/_meta/_history001/_s0001/ttl/meta.ttl> ;
   sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/index.html> .
 
-<_mesh/_meta/_history001/_s0001/meta-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
-  sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/meta-ttl/index.html> .
+<_mesh/_meta/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_meta/_history001/_s0001/ttl/meta.ttl> ;
+  sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/ttl/index.html> .
 
 <_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <_mesh/_inventory/_history001> ;
@@ -3630,47 +3637,47 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <_mesh/_inventory/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0001/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <_mesh/_inventory/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/index.html> .
 
-<_mesh/_inventory/_history001/_s0001/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html> .
+<_mesh/_inventory/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/ttl/index.html> .
 
 <_mesh/_inventory/_history001/_s0002> a sflo:HistoricalState ;
   sflo:stateOrdinal "2"^^xsd:nonNegativeInteger ;
   sflo:previousHistoricalState <_mesh/_inventory/_history001/_s0001> ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0002/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <_mesh/_inventory/_history001/_s0002/ttl> ;
+  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/index.html> .
 
-<_mesh/_inventory/_history001/_s0002/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/inventory-ttl/index.html> .
+<_mesh/_inventory/_history001/_s0002/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/ttl/index.html> .
 
 <_mesh/_inventory/_history001/_s0003> a sflo:HistoricalState ;
   sflo:stateOrdinal "3"^^xsd:nonNegativeInteger ;
   sflo:previousHistoricalState <_mesh/_inventory/_history001/_s0002> ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0003/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <_mesh/_inventory/_history001/_s0003/ttl> ;
+  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/index.html> .
 
-<_mesh/_inventory/_history001/_s0003/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/inventory-ttl/index.html> .
+<_mesh/_inventory/_history001/_s0003/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/ttl/index.html> .
 
 <_mesh/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <_mesh/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<_mesh/_meta/_history001/_s0001/ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <alice/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
@@ -3694,7 +3701,7 @@ ${currentWorkingFileDeclaration}
 
 <_mesh/_meta/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<_mesh/_meta/_history001/_s0001/meta-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<_mesh/_meta/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <_mesh/_inventory/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -3702,15 +3709,15 @@ ${currentWorkingFileDeclaration}
 
 <_mesh/_inventory/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<_mesh/_inventory/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <_mesh/_inventory/_history001/_s0002/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<_mesh/_inventory/_history001/_s0002/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<_mesh/_inventory/_history001/_s0002/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <_mesh/_inventory/_history001/_s0003/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<_mesh/_inventory/_history001/_s0003/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<_mesh/_inventory/_history001/_s0003/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 `;
 }
 
@@ -3793,13 +3800,13 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}/_meta/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <${knopPath}/_meta/_history001/_s0001/meta-ttl> ;
-  sflo:locatedFileForState <${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
+  sflo:hasManifestation <${knopPath}/_meta/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> ;
   sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/index.html> .
 
-<${knopPath}/_meta/_history001/_s0001/meta-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html> .
+<${knopPath}/_meta/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/ttl/index.html> .
 
 <${knopPath}/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <${knopPath}/_inventory/_history001> ;
@@ -3817,13 +3824,13 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}/_inventory/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <${knopPath}/_inventory/_history001/_s0001/inventory-ttl> ;
-  sflo:locatedFileForState <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <${knopPath}/_inventory/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <${knopPath}/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
   sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0001/index.html> .
 
-<${knopPath}/_inventory/_history001/_s0001/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html> .
+<${knopPath}/_inventory/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <${knopPath}/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0001/ttl/index.html> .
 
 <${knopPath}/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
@@ -3833,9 +3840,9 @@ ${currentWorkingFileDeclaration}
 
 <${payloadSnapshotPath}> a sflo:LocatedFile, sflo:RdfDocument .
 
-<${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<${knopPath}/_inventory/_history001/_s0001/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${designatorPagePath}> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -3853,7 +3860,7 @@ ${currentWorkingFileDeclaration}
 
 <${knopPath}/_meta/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${knopPath}/_meta/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <${knopPath}/_inventory/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -3861,7 +3868,7 @@ ${currentWorkingFileDeclaration}
 
 <${knopPath}/_inventory/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${knopPath}/_inventory/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 `;
 
   let output = turtle;
@@ -3919,13 +3926,13 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}/_meta/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <${knopPath}/_meta/_history001/_s0001/meta-ttl> ;
-  sflo:locatedFileForState <${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
+  sflo:hasManifestation <${knopPath}/_meta/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> ;
   sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/index.html> .
 
-<${knopPath}/_meta/_history001/_s0001/meta-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html> .
+<${knopPath}/_meta/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/ttl/index.html> .
 
 <${knopPath}/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <${knopPath}/_inventory/_history001> ;
@@ -3951,24 +3958,24 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}/_inventory/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <${knopPath}/_inventory/_history001/_s0001/inventory-ttl> ;
-  sflo:locatedFileForState <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <${knopPath}/_inventory/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <${knopPath}/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
   sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0001/index.html> .
 
-<${knopPath}/_inventory/_history001/_s0001/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html> .
+<${knopPath}/_inventory/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <${knopPath}/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0001/ttl/index.html> .
 
 <${knopPath}/_inventory/_history001/_s0002> a sflo:HistoricalState ;
   sflo:stateOrdinal "2"^^xsd:nonNegativeInteger ;
   sflo:previousHistoricalState <${knopPath}/_inventory/_history001/_s0001> ;
-  sflo:hasManifestation <${knopPath}/_inventory/_history001/_s0002/inventory-ttl> ;
-  sflo:locatedFileForState <${knopPath}/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <${knopPath}/_inventory/_history001/_s0002/ttl> ;
+  sflo:locatedFileForState <${knopPath}/_inventory/_history001/_s0002/ttl/inventory.ttl> ;
   sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0002/index.html> .
 
-<${knopPath}/_inventory/_history001/_s0002/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${knopPath}/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0002/inventory-ttl/index.html> .
+<${knopPath}/_inventory/_history001/_s0002/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <${knopPath}/_inventory/_history001/_s0002/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0002/ttl/index.html> .
 
 <${referenceCatalogPath}/_history001> a sflo:ArtifactHistory ;
   sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
@@ -3997,11 +4004,11 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 ${currentWorkingFileDeclaration}
 
-<${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<${knopPath}/_inventory/_history001/_s0001/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<${knopPath}/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<${knopPath}/_inventory/_history001/_s0002/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${referenceCatalogManifestationPath}/${
     toFileName(workingLocalRelativePath)
@@ -4015,7 +4022,7 @@ ${currentWorkingFileDeclaration}
 
 <${knopPath}/_meta/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${knopPath}/_meta/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <${knopPath}/_inventory/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -4023,11 +4030,11 @@ ${currentWorkingFileDeclaration}
 
 <${knopPath}/_inventory/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${knopPath}/_inventory/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <${knopPath}/_inventory/_history001/_s0002/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<${knopPath}/_inventory/_history001/_s0002/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${knopPath}/_inventory/_history001/_s0002/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <${referenceCatalogPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -4121,7 +4128,7 @@ function renderSubsequentPageDefinitionWovenKnopInventoryTurtle(
       renderLocatedFileBlock(
         `${knopInventoryProgression.historyPath}/${
           toStateSegment(index + 1)
-        }/inventory-ttl/inventory.ttl`,
+        }/ttl/inventory.ttl`,
       ),
   ).join("\n\n");
   const knopInventoryResourcePageBlocks = Array.from(
@@ -4132,16 +4139,14 @@ function renderSubsequentPageDefinitionWovenKnopInventoryTurtle(
       }`;
       return `${renderResourcePageLocatedFileBlock(`${statePath}/index.html`)}
 
-${renderResourcePageLocatedFileBlock(`${statePath}/inventory-ttl/index.html`)}`;
+${renderResourcePageLocatedFileBlock(`${statePath}/ttl/index.html`)}`;
     },
   ).join("\n\n");
   const pageDefinitionLocatedFileBlocks = Array.from(
     { length: progression.nextStateOrdinal },
     (_, index) =>
       renderLocatedFileBlock(
-        `${progression.historyPath}/${
-          toStateSegment(index + 1)
-        }/page-ttl/page.ttl`,
+        `${progression.historyPath}/${toStateSegment(index + 1)}/ttl/page.ttl`,
       ),
   ).join("\n\n");
   const pageDefinitionResourcePageBlocks = Array.from(
@@ -4152,7 +4157,7 @@ ${renderResourcePageLocatedFileBlock(`${statePath}/inventory-ttl/index.html`)}`;
       }`;
       return `${renderResourcePageLocatedFileBlock(`${statePath}/index.html`)}
 
-${renderResourcePageLocatedFileBlock(`${statePath}/page-ttl/index.html`)}`;
+${renderResourcePageLocatedFileBlock(`${statePath}/ttl/index.html`)}`;
     },
   ).join("\n\n");
   const referenceCatalogArtifactBlock = hasReferenceCatalog
@@ -4229,13 +4234,13 @@ ${referenceCatalogLines}
 
 <${knopPath}/_meta/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <${knopPath}/_meta/_history001/_s0001/meta-ttl> ;
-  sflo:locatedFileForState <${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
+  sflo:hasManifestation <${knopPath}/_meta/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> ;
   sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/index.html> .
 
-<${knopPath}/_meta/_history001/_s0001/meta-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html> .
+<${knopPath}/_meta/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/ttl/index.html> .
 
 <${knopPath}/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <${knopInventoryProgression.historyPath}> ;
@@ -4299,7 +4304,7 @@ ${referenceCatalogLocatedFileBlock}
 
 ${currentWorkingFileDeclaration}
 
-<${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 ${knopInventoryLocatedFileBlocks}
 ${referenceCatalogHistoricalLocatedFileBlock}
@@ -4314,7 +4319,7 @@ ${pageDefinitionLocatedFileBlocks}
 
 <${knopPath}/_meta/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${knopPath}/_meta/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <${knopPath}/_inventory/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -4342,17 +4347,17 @@ ${
     previousStatePath
       ? `  sflo:previousHistoricalState <${previousStatePath}> ;\n`
       : ""
-  }  sflo:hasManifestation <${statePath}/page-ttl> ;
-  sflo:locatedFileForState <${statePath}/page-ttl/page.ttl> ;
+  }  sflo:hasManifestation <${statePath}/ttl> ;
+  sflo:locatedFileForState <${statePath}/ttl/page.ttl> ;
   sflo:hasResourcePage <${statePath}/index.html> .`;
 }
 
 function renderPageDefinitionStateManifestationBlock(
   statePath: string,
 ): string {
-  return `<${statePath}/page-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${statePath}/page-ttl/page.ttl> ;
-  sflo:hasResourcePage <${statePath}/page-ttl/index.html> .`;
+  return `<${statePath}/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <${statePath}/ttl/page.ttl> ;
+  sflo:hasResourcePage <${statePath}/ttl/index.html> .`;
 }
 
 interface RenderedArtifactHistoryModel {
@@ -4423,7 +4428,7 @@ function renderMultiHistoryPayloadWovenKnopInventoryTurtle(
     knopInventoryPath,
     errorMessage,
     {
-      manifestationSegment: "inventory-ttl",
+      manifestationSegment: "ttl",
       fileName: "inventory.ttl",
     },
   );
@@ -4444,9 +4449,8 @@ function renderMultiHistoryPayloadWovenKnopInventoryTurtle(
   upsertRenderedArtifactHistoryState(knopInventoryHistories, {
     historyPath: knopInventoryHistory.path,
     statePath: nextKnopInventoryStatePath,
-    manifestationPath: `${nextKnopInventoryStatePath}/inventory-ttl`,
-    locatedFilePath:
-      `${nextKnopInventoryStatePath}/inventory-ttl/inventory.ttl`,
+    manifestationPath: `${nextKnopInventoryStatePath}/ttl`,
+    locatedFilePath: `${nextKnopInventoryStatePath}/ttl/inventory.ttl`,
     previousStatePath: previousKnopInventoryStatePath,
     stateOrdinal: knopInventoryHistory.nextStateOrdinal,
   });
@@ -4557,13 +4561,13 @@ ${payloadManifestationBlocks}
 
 <${knopPath}/_meta/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <${knopPath}/_meta/_history001/_s0001/meta-ttl> ;
-  sflo:locatedFileForState <${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
+  sflo:hasManifestation <${knopPath}/_meta/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> ;
   sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/index.html> .
 
-<${knopPath}/_meta/_history001/_s0001/meta-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html> .
+<${knopPath}/_meta/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/ttl/index.html> .
 
 <${knopInventoryPath}> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <${knopInventoryHistory.path}> ;
@@ -4588,7 +4592,7 @@ ${knopInventoryManifestationBlocks}
 
 ${currentWorkingFileDeclaration}
 
-<${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 ${payloadLocatedFileBlocks}
 
@@ -4606,7 +4610,7 @@ ${payloadResourcePageBlocks}
 
 <${knopPath}/_meta/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${knopPath}/_meta/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <${knopPath}/_inventory/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -4741,13 +4745,13 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}/_meta/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <${knopPath}/_meta/_history001/_s0001/meta-ttl> ;
-  sflo:locatedFileForState <${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
+  sflo:hasManifestation <${knopPath}/_meta/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> ;
   sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/index.html> .
 
-<${knopPath}/_meta/_history001/_s0001/meta-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html> .
+<${knopPath}/_meta/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/ttl/index.html> .
 
 <${knopPath}/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <${knopPath}/_inventory/_history001> ;
@@ -4766,24 +4770,24 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}/_inventory/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <${knopPath}/_inventory/_history001/_s0001/inventory-ttl> ;
-  sflo:locatedFileForState <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <${knopPath}/_inventory/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <${knopPath}/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
   sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0001/index.html> .
 
-<${knopPath}/_inventory/_history001/_s0001/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html> .
+<${knopPath}/_inventory/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <${knopPath}/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0001/ttl/index.html> .
 
 <${knopPath}/_inventory/_history001/_s0002> a sflo:HistoricalState ;
   sflo:stateOrdinal "2"^^xsd:nonNegativeInteger ;
   sflo:previousHistoricalState <${knopPath}/_inventory/_history001/_s0001> ;
-  sflo:hasManifestation <${knopPath}/_inventory/_history001/_s0002/inventory-ttl> ;
-  sflo:locatedFileForState <${knopPath}/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <${knopPath}/_inventory/_history001/_s0002/ttl> ;
+  sflo:locatedFileForState <${knopPath}/_inventory/_history001/_s0002/ttl/inventory.ttl> ;
   sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0002/index.html> .
 
-<${knopPath}/_inventory/_history001/_s0002/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${knopPath}/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0002/inventory-ttl/index.html> .
+<${knopPath}/_inventory/_history001/_s0002/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <${knopPath}/_inventory/_history001/_s0002/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0002/ttl/index.html> .
 
 <${knopPath}/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
@@ -4795,11 +4799,11 @@ ${currentWorkingFileDeclaration}
 
 <${payloadStateTwoManifestationPath}/${payloadFileName}> a sflo:LocatedFile, sflo:RdfDocument .
 
-<${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<${knopPath}/_inventory/_history001/_s0001/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<${knopPath}/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<${knopPath}/_inventory/_history001/_s0002/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${designatorPagePath}> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -4821,7 +4825,7 @@ ${currentWorkingFileDeclaration}
 
 <${knopPath}/_meta/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${knopPath}/_meta/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <${knopPath}/_inventory/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -4829,11 +4833,11 @@ ${currentWorkingFileDeclaration}
 
 <${knopPath}/_inventory/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${knopPath}/_inventory/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <${knopPath}/_inventory/_history001/_s0002/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<${knopPath}/_inventory/_history001/_s0002/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${knopPath}/_inventory/_history001/_s0002/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 `);
 }
 
@@ -4849,7 +4853,7 @@ function renderFirstExtractedKnopWovenMeshInventoryTurtle(
   const rootPagePath = toDesignatorResourcePagePath(rootDesignatorPath);
   const historyPath = "_mesh/_inventory/_history001";
   const stateFourPath = `${historyPath}/_s0004`;
-  const stateFourManifestationPath = `${stateFourPath}/inventory-ttl`;
+  const stateFourManifestationPath = `${stateFourPath}/ttl`;
   let blocks = normalizeMeshInventoryHeader(
     splitTurtleBlocks(currentMeshInventoryTurtle),
   );
@@ -4872,7 +4876,7 @@ function renderFirstExtractedKnopWovenMeshInventoryTurtle(
   );
   blocks = upsertSubjectBlockAfter(
     blocks,
-    `${historyPath}/_s0003/inventory-ttl`,
+    `${historyPath}/_s0003/ttl`,
     stateFourPath,
     renderMeshInventoryStateFourBlock(),
   );
@@ -4884,7 +4888,7 @@ function renderFirstExtractedKnopWovenMeshInventoryTurtle(
   );
   blocks = upsertSubjectBlockAfter(
     blocks,
-    `${historyPath}/_s0003/inventory-ttl/inventory.ttl`,
+    `${historyPath}/_s0003/ttl/inventory.ttl`,
     `${stateFourManifestationPath}/inventory.ttl`,
     renderLocatedFileBlock(`${stateFourManifestationPath}/inventory.ttl`),
   );
@@ -4902,7 +4906,7 @@ function renderFirstExtractedKnopWovenMeshInventoryTurtle(
   );
   blocks = upsertSubjectBlockAfter(
     blocks,
-    `${historyPath}/_s0003/inventory-ttl/index.html`,
+    `${historyPath}/_s0003/ttl/index.html`,
     `${stateFourPath}/index.html`,
     renderResourcePageLocatedFileBlock(`${stateFourPath}/index.html`),
   );
@@ -4931,7 +4935,7 @@ function renderGenericFirstExtractedKnopWovenMeshInventoryTurtle(
     meshInventoryProgression.latestManifestationPath;
   const nextStatePath = meshInventoryProgression.nextStatePath;
   const nextStateOrdinal = meshInventoryProgression.nextStateOrdinal;
-  const nextManifestationPath = `${nextStatePath}/inventory-ttl`;
+  const nextManifestationPath = `${nextStatePath}/ttl`;
   let blocks = normalizeMeshInventoryHeader(
     splitTurtleBlocks(currentMeshInventoryTurtle),
   );
@@ -5115,15 +5119,15 @@ ${
     previousStatePath
       ? `  sflo:previousHistoricalState <${previousStatePath}> ;\n`
       : ""
-  }  sflo:hasManifestation <${statePath}/inventory-ttl> ;
-  sflo:locatedFileForState <${statePath}/inventory-ttl/inventory.ttl> ;
+  }  sflo:hasManifestation <${statePath}/ttl> ;
+  sflo:locatedFileForState <${statePath}/ttl/inventory.ttl> ;
   sflo:hasResourcePage <${statePath}/index.html> .`;
 }
 
 function renderMeshInventoryStateManifestationBlock(statePath: string): string {
-  return `<${statePath}/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${statePath}/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <${statePath}/inventory-ttl/index.html> .`;
+  return `<${statePath}/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <${statePath}/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <${statePath}/ttl/index.html> .`;
 }
 
 function renderMeshInventoryHistoryWithFourthStateBlock(): string {
@@ -5142,15 +5146,15 @@ function renderMeshInventoryStateFourBlock(): string {
   return `<_mesh/_inventory/_history001/_s0004> a sflo:HistoricalState ;
   sflo:stateOrdinal "4"^^xsd:nonNegativeInteger ;
   sflo:previousHistoricalState <_mesh/_inventory/_history001/_s0003> ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0004/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <_mesh/_inventory/_history001/_s0004/ttl> ;
+  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0004/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0004/index.html> .`;
 }
 
 function renderMeshInventoryStateFourManifestationBlock(): string {
-  return `<_mesh/_inventory/_history001/_s0004/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0004/inventory-ttl/index.html> .`;
+  return `<_mesh/_inventory/_history001/_s0004/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0004/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0004/ttl/index.html> .`;
 }
 
 function renderLocatedFileBlock(path: string): string {
@@ -5317,13 +5321,13 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}/_meta/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <${knopPath}/_meta/_history001/_s0001/meta-ttl> ;
-  sflo:locatedFileForState <${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
+  sflo:hasManifestation <${knopPath}/_meta/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> ;
   sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/index.html> .
 
-<${knopPath}/_meta/_history001/_s0001/meta-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html> .
+<${knopPath}/_meta/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/ttl/index.html> .
 
 <${knopPath}/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <${knopPath}/_inventory/_history001> ;
@@ -5341,21 +5345,21 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}/_inventory/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <${knopPath}/_inventory/_history001/_s0001/inventory-ttl> ;
-  sflo:locatedFileForState <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <${knopPath}/_inventory/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <${knopPath}/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
   sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0001/index.html> .
 
-<${knopPath}/_inventory/_history001/_s0001/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html> .
+<${knopPath}/_inventory/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <${knopPath}/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0001/ttl/index.html> .
 
 <${knopPath}/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<${knopPath}/_meta/_history001/_s0001/meta-ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<${knopPath}/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<${knopPath}/_inventory/_history001/_s0001/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${knopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -5365,7 +5369,7 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}/_meta/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${knopPath}/_meta/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <${knopPath}/_inventory/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -5373,7 +5377,7 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}/_inventory/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${knopPath}/_inventory/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 `;
 }
 
@@ -6460,7 +6464,7 @@ function buildFirstKnopWeavePages(
       `Resource page for the ${meshInventoryStateOrdinalLabel} MeshInventory historical state.`,
     ),
     simplePage(
-      `${meshInventoryProgression.nextStatePath}/inventory-ttl/index.html`,
+      `${meshInventoryProgression.nextStatePath}/ttl/index.html`,
       `Resource page for the Turtle manifestation of the ${meshInventoryStateOrdinalLabel} MeshInventory historical state.`,
     ),
     identifierPage(designatorPagePath, designatorPath),
@@ -6481,7 +6485,7 @@ function buildFirstKnopWeavePages(
       `Resource page for the first ${displayDesignatorPath} KnopMetadata historical state.`,
     ),
     simplePage(
-      `${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html`,
+      `${knopPath}/_meta/_history001/_s0001/ttl/index.html`,
       `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} KnopMetadata historical state.`,
     ),
     simplePage(
@@ -6497,7 +6501,7 @@ function buildFirstKnopWeavePages(
       `Resource page for the first ${displayDesignatorPath} KnopInventory historical state.`,
     ),
     simplePage(
-      `${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html`,
+      `${knopPath}/_inventory/_history001/_s0001/ttl/index.html`,
       `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} KnopInventory historical state.`,
     ),
   ];
@@ -6560,7 +6564,7 @@ function buildFirstPayloadWeavePages(
       `Resource page for the first ${displayDesignatorPath} KnopMetadata historical state.`,
     ),
     simplePage(
-      `${knopPath}/_meta/_history001/_s0001/meta-ttl/index.html`,
+      `${knopPath}/_meta/_history001/_s0001/ttl/index.html`,
       `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} KnopMetadata historical state.`,
     ),
     simplePage(
@@ -6576,7 +6580,7 @@ function buildFirstPayloadWeavePages(
       `Resource page for the first ${displayDesignatorPath} KnopInventory historical state.`,
     ),
     simplePage(
-      `${knopPath}/_inventory/_history001/_s0001/inventory-ttl/index.html`,
+      `${knopPath}/_inventory/_history001/_s0001/ttl/index.html`,
       `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} KnopInventory historical state.`,
     ),
   ];
@@ -6610,7 +6614,7 @@ function buildMeshInventoryProgressionPages(
       `Resource page for the ${meshInventoryStateOrdinalLabel} MeshInventory historical state.`,
     ),
     simplePage(
-      `${meshInventoryProgression.nextStatePath}/inventory-ttl/index.html`,
+      `${meshInventoryProgression.nextStatePath}/ttl/index.html`,
       `Resource page for the Turtle manifestation of the ${meshInventoryStateOrdinalLabel} MeshInventory historical state.`,
     ),
   ];
@@ -6657,7 +6661,7 @@ function buildFirstReferenceCatalogWeavePages(
       `Resource page for the second ${displayDesignatorPath} KnopInventory historical state.`,
     ),
     simplePage(
-      `${knopPath}/_inventory/_history001/_s0002/inventory-ttl/index.html`,
+      `${knopPath}/_inventory/_history001/_s0002/ttl/index.html`,
       `Resource page for the Turtle manifestation of the second ${displayDesignatorPath} KnopInventory historical state.`,
     ),
     referenceCatalogPage(
@@ -6700,7 +6704,7 @@ function buildSubsequentPageDefinitionWeavePages(
       } ${displayDesignatorPath} KnopInventory historical state.`,
     ),
     simplePage(
-      `${knopInventoryProgression.nextStatePath}/inventory-ttl/index.html`,
+      `${knopInventoryProgression.nextStatePath}/ttl/index.html`,
       `Resource page for the Turtle manifestation of the ${
         toOrdinalLabel(knopInventoryProgression.nextStateOrdinal)
       } ${displayDesignatorPath} KnopInventory historical state.`,
@@ -6749,7 +6753,7 @@ function buildSecondPayloadWeavePages(
       `Resource page for the second historical state of the ${displayDesignatorPath} KnopInventory artifact.`,
     ),
     simplePage(
-      `${knopPath}/_inventory/_history001/_s0002/inventory-ttl/index.html`,
+      `${knopPath}/_inventory/_history001/_s0002/ttl/index.html`,
       `Resource page for the Turtle manifestation of the second ${displayDesignatorPath} KnopInventory historical state.`,
     ),
   ];

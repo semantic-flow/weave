@@ -137,8 +137,8 @@ Deno.test(
         "<alice/_knop> rdf:type sflo:Knop ;",
       )
       .replace(
-        "<_mesh/_inventory/_history001/_s0002/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;",
-        "<_mesh/_inventory/_history001/_s0002/inventory-ttl> rdf:type sflo:RdfDocument, sflo:ArtifactManifestation ;",
+        "<_mesh/_inventory/_history001/_s0002/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;",
+        "<_mesh/_inventory/_history001/_s0002/ttl> rdf:type sflo:RdfDocument, sflo:ArtifactManifestation ;",
       );
 
     const plan = planIntegrate({

@@ -202,8 +202,8 @@ function buildMeshSupportResources(
       historyPolicy: historyPolicies.meshMetadata,
       historyPath: "_mesh/_meta/_history001",
       statePath: "_mesh/_meta/_history001/_s0001",
-      manifestationPath: "_mesh/_meta/_history001/_s0001/meta-ttl",
-      snapshotPath: "_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl",
+      manifestationPath: "_mesh/_meta/_history001/_s0001/ttl",
+      snapshotPath: "_mesh/_meta/_history001/_s0001/ttl/meta.ttl",
       currentTurtle: input.currentMeshMetadataTurtle,
     },
     {
@@ -213,9 +213,8 @@ function buildMeshSupportResources(
       historyPolicy: historyPolicies.meshInventory,
       historyPath: "_mesh/_inventory/_history001",
       statePath: "_mesh/_inventory/_history001/_s0001",
-      manifestationPath: "_mesh/_inventory/_history001/_s0001/inventory-ttl",
-      snapshotPath:
-        "_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      manifestationPath: "_mesh/_inventory/_history001/_s0001/ttl",
+      snapshotPath: "_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl",
       currentTurtle: "",
     },
     ...(hasSubject(quads, meshBase, "_mesh/_config")
@@ -226,8 +225,8 @@ function buildMeshSupportResources(
         historyPolicy: historyPolicies.config,
         historyPath: "_mesh/_config/_history001",
         statePath: "_mesh/_config/_history001/_s0001",
-        manifestationPath: "_mesh/_config/_history001/_s0001/config-ttl",
-        snapshotPath: "_mesh/_config/_history001/_s0001/config-ttl/config.ttl",
+        manifestationPath: "_mesh/_config/_history001/_s0001/ttl",
+        snapshotPath: "_mesh/_config/_history001/_s0001/ttl/config.ttl",
         currentTurtle: input.currentMeshConfigTurtle,
       }]
       : []),
@@ -269,8 +268,8 @@ function planInitialMeshSupportResourcePageWeave(input: {
       historyPolicy: historyPolicies.meshMetadata,
       historyPath: "_mesh/_meta/_history001",
       statePath: "_mesh/_meta/_history001/_s0001",
-      manifestationPath: "_mesh/_meta/_history001/_s0001/meta-ttl",
-      snapshotPath: "_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl",
+      manifestationPath: "_mesh/_meta/_history001/_s0001/ttl",
+      snapshotPath: "_mesh/_meta/_history001/_s0001/ttl/meta.ttl",
       currentTurtle: input.currentMeshMetadataTurtle,
     },
     {
@@ -280,9 +279,8 @@ function planInitialMeshSupportResourcePageWeave(input: {
       historyPolicy: historyPolicies.meshInventory,
       historyPath: "_mesh/_inventory/_history001",
       statePath: "_mesh/_inventory/_history001/_s0001",
-      manifestationPath: "_mesh/_inventory/_history001/_s0001/inventory-ttl",
-      snapshotPath:
-        "_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      manifestationPath: "_mesh/_inventory/_history001/_s0001/ttl",
+      snapshotPath: "_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl",
       currentTurtle: "",
     },
     ...(input.hasConfig
@@ -293,8 +291,8 @@ function planInitialMeshSupportResourcePageWeave(input: {
         historyPolicy: historyPolicies.config,
         historyPath: "_mesh/_config/_history001",
         statePath: "_mesh/_config/_history001/_s0001",
-        manifestationPath: "_mesh/_config/_history001/_s0001/config-ttl",
-        snapshotPath: "_mesh/_config/_history001/_s0001/config-ttl/config.ttl",
+        manifestationPath: "_mesh/_config/_history001/_s0001/ttl",
+        snapshotPath: "_mesh/_config/_history001/_s0001/ttl/config.ttl",
         currentTurtle: input.currentMeshConfigTurtle,
       }]
       : []),

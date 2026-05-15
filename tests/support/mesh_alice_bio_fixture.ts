@@ -53,7 +53,10 @@ async function resolveMeshAliceBioGitRef(ref: string): Promise<string> {
 async function resolveMeshAliceBioGitRefUncached(
   ref: string,
 ): Promise<string> {
-  const candidates = [ref, `origin/${ref}`];
+  const prefixedRef = ref.startsWith("a.") ? ref : `a.${ref}`;
+  const candidates = ref.startsWith("a.")
+    ? [ref, `origin/${ref}`]
+    : [prefixedRef, ref, `origin/${prefixedRef}`, `origin/${ref}`];
 
   for (const candidate of candidates) {
     const command = new Deno.Command("git", {

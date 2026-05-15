@@ -69,7 +69,10 @@ import {
 import { renderResourcePages } from "./pages.ts";
 import { SFLO_NAMESPACE } from "../../core/rdf/namespaces.ts";
 import {
+  type ArtifactRole,
   type EffectiveConfig,
+  EffectiveConfig as EffectiveConfigValue,
+  type HistoryTrackingPolicy,
   loadWeaveDefaultEffectiveConfig,
 } from "../config/effective_config.ts";
 import {
@@ -114,6 +117,7 @@ export interface ExecuteValidateOptions {
 export interface ExecuteVersionOptions {
   meshRoot: string;
   request?: VersionRequest;
+  historyTrackingPolicyOverride?: HistoryTrackingPolicy;
 }
 
 export interface ExecuteGenerateOptions {
@@ -121,6 +125,7 @@ export interface ExecuteGenerateOptions {
   request?: GenerateRequest;
   now?: () => Date;
   includeSemanticFlowMetadata?: boolean;
+  historyTrackingPolicyOverride?: HistoryTrackingPolicy;
 }
 
 export interface ExecuteWeaveOptions {
@@ -129,6 +134,7 @@ export interface ExecuteWeaveOptions {
   operationalLogger?: StructuredLogger;
   auditLogger?: AuditLogger;
   now?: () => Date;
+  historyTrackingPolicyOverride?: HistoryTrackingPolicy;
 }
 
 export interface ValidateFinding {
@@ -204,6 +210,19 @@ interface GenerateDesignatorContext {
 }
 
 const RAW_SOURCE_INLINE_BYTE_LIMIT = 1024 * 1024;
+const ALL_ARTIFACT_ROLES: readonly ArtifactRole[] = [
+  "payload",
+  "meshInventory",
+  "knopInventory",
+  "meshMetadata",
+  "knopMetadata",
+  "config",
+  "referenceCatalog",
+  "resourcePageDefinition",
+  "resourcePageTemplate",
+  "resourcePageStylesheet",
+  "runtimeMeta",
+];
 
 export async function executeValidate(
   options: ExecuteValidateOptions,
@@ -218,6 +237,7 @@ export async function executeValidate(
       meshRoot,
       toNormalizedVersionTargets(targets),
       localPathPolicy,
+      undefined,
     );
     validateRdfFiles([
       ...prepared.plan.createdFiles,
@@ -257,6 +277,7 @@ export async function executeVersion(
     meshRoot,
     targets,
     localPathPolicy,
+    options.historyTrackingPolicyOverride,
   );
   assertUpdatedTargetsExist(meshRoot, prepared.plan.updatedFiles);
   await assertCreateTargetsDoNotExist(
@@ -292,7 +313,9 @@ export async function executeGenerate(
     meshRoot,
   );
   const meshState = await loadMeshState(meshRoot);
-  const effectiveConfig = await loadWeaveDefaultEffectiveConfig();
+  const effectiveConfig = await loadEffectiveConfigForExecution(
+    options.historyTrackingPolicyOverride,
+  );
   const allDesignatorPaths = listKnopDesignatorPaths(
     meshState.meshBase,
     meshState.currentMeshInventoryTurtle,
@@ -350,11 +373,13 @@ export async function executeWeave(
       meshRoot,
       options.request,
       initialPolicy,
+      options.historyTrackingPolicyOverride,
     );
 
     const versionResult = await executeVersion({
       meshRoot,
       request: options.request,
+      historyTrackingPolicyOverride: options.historyTrackingPolicyOverride,
     });
     wovenDesignatorPaths = versionResult.versionedDesignatorPaths;
 
@@ -362,6 +387,7 @@ export async function executeWeave(
       meshRoot,
       request: toSharedTargetRequest(options.request),
       now: options.now,
+      historyTrackingPolicyOverride: options.historyTrackingPolicyOverride,
     });
 
     const result: WeaveResult = {
@@ -417,6 +443,7 @@ async function validateVersionRequestForWeave(
   meshRoot: string,
   request: WeaveRequest | undefined,
   localPathPolicy: OperationalLocalPathPolicy,
+  historyTrackingPolicyOverride?: HistoryTrackingPolicy,
 ): Promise<void> {
   try {
     const targets = normalizeVersionRequest(request);
@@ -424,6 +451,7 @@ async function validateVersionRequestForWeave(
       meshRoot,
       targets,
       localPathPolicy,
+      historyTrackingPolicyOverride,
     );
     validateRdfFiles([
       ...prepared.plan.createdFiles,
@@ -470,6 +498,37 @@ function resolveLoggers(
   auditLogger: AuditLogger;
 } {
   return resolveRuntimeLoggers(options);
+}
+
+async function loadEffectiveConfigForExecution(
+  historyTrackingPolicyOverride?: HistoryTrackingPolicy,
+): Promise<EffectiveConfig> {
+  const effectiveConfig = await loadWeaveDefaultEffectiveConfig();
+  if (historyTrackingPolicyOverride === undefined) {
+    return effectiveConfig;
+  }
+
+  return new EffectiveConfigValue({
+    sources: effectiveConfig.sources,
+    configResolution: effectiveConfig.configResolution,
+    namingPolicies: effectiveConfig.namingPolicies,
+    resourcePageRegenerationConfigPolicy: effectiveConfig
+      .resourcePageRegenerationConfigPolicy,
+    defaultHistoryTrackingPolicy: historyTrackingPolicyOverride,
+    historyTrackingByRole: new Map(
+      ALL_ARTIFACT_ROLES.map((role) => [
+        role,
+        historyTrackingPolicyOverride,
+      ]),
+    ),
+    defaultResourcePageGenerationPolicy: "generate",
+    resourcePageGenerationByRole: new Map(
+      ALL_ARTIFACT_ROLES.map((role) => [
+        role,
+        effectiveConfig.resourcePageGenerationPolicyForArtifactRole(role),
+      ]),
+    ),
+  });
 }
 
 function normalizeValidateRequest(
@@ -554,10 +613,13 @@ async function prepareVersionExecution(
   workspaceRoot: string,
   targets: readonly NormalizedVersionTargetSpec[],
   localPathPolicy: OperationalLocalPathPolicy,
+  historyTrackingPolicyOverride?: HistoryTrackingPolicy,
 ): Promise<PreparedVersionExecution> {
   await ensureWorkspaceRootExists(workspaceRoot);
   const meshState = await loadMeshState(workspaceRoot);
-  const effectiveConfig = await loadWeaveDefaultEffectiveConfig();
+  const effectiveConfig = await loadEffectiveConfigForExecution(
+    historyTrackingPolicyOverride,
+  );
   const supportHistoryPolicies = supportHistoryPoliciesFromEffectiveConfig(
     effectiveConfig,
   );

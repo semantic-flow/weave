@@ -69,10 +69,19 @@ import {
   WeaveRuntimeError,
 } from "../runtime/weave/weave.ts";
 import { loadOperationalLocalPathPolicy } from "../runtime/operational/local_path_policy.ts";
+import type { HistoryTrackingPolicy } from "../runtime/config/effective_config.ts";
 import { WEAVE_VERSION } from "../version.ts";
 
 const TARGET_OPTION_DESCRIPTION =
   "Target spec as comma-separated key=value fields. Supported keys: designatorPath, recursive. Versioning commands also accept historySegment, stateSegment, and manifestationSegment.";
+const HISTORY_TRACKING_POLICY_VALUES = [
+  "versioned",
+  "currentOnly",
+  "required",
+  "slimHistory",
+  "checkpointOnly",
+  "metadataOnly",
+] as const satisfies readonly HistoryTrackingPolicy[];
 
 export async function runWeaveCli(args: string[]): Promise<number> {
   let exitCode = 0;
@@ -103,6 +112,10 @@ export async function runWeaveCli(args: string[]): Promise<number> {
       "--payload-manifestation-segment <segment:string>",
       "Payload manifestation segment name to pass only to version for a single targeted payload weave.",
     )
+    .option(
+      "--history-tracking-policy <policy:string>",
+      "Override the history tracking policy for all artifact roles during this command.",
+    )
     .action(async (
       options: {
         meshRoot: string;
@@ -110,11 +123,15 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         payloadHistorySegment?: string;
         payloadStateSegment?: string;
         payloadManifestationSegment?: string;
+        historyTrackingPolicy?: string;
       },
     ) => {
       const meshRoot = resolve(options.meshRoot);
       const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
       const targets = resolveVersionTargetSpecs(options, "weave");
+      const historyTrackingPolicyOverride = resolveHistoryTrackingPolicyOption(
+        options.historyTrackingPolicy,
+      );
       const logDir = join(workspaceRoot, ".weave", "logs");
       const { operationalLogger, auditLogger } = createRuntimeLoggers({
         logDir,
@@ -124,6 +141,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         meshRoot,
         workspaceRoot,
         targets,
+        historyTrackingPolicyOverride,
         localMode: true,
       });
 
@@ -132,6 +150,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         request: targets.length > 0 ? { targets } : undefined,
         operationalLogger,
         auditLogger,
+        historyTrackingPolicyOverride,
       });
       console.log(describeWeaveResult(result));
       for (const path of result.createdPaths) {
@@ -216,6 +235,10 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           "--payload-manifestation-segment <segment:string>",
           "Payload manifestation segment name for a single targeted payload version.",
         )
+        .option(
+          "--history-tracking-policy <policy:string>",
+          "Override the history tracking policy for all artifact roles during this command.",
+        )
         .action(async (
           options: {
             meshRoot: string;
@@ -223,11 +246,14 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             payloadHistorySegment?: string;
             payloadStateSegment?: string;
             payloadManifestationSegment?: string;
+            historyTrackingPolicy?: string;
           },
         ) => {
           const meshRoot = resolve(options.meshRoot);
           const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
           const targets = resolveVersionTargetSpecs(options, "version");
+          const historyTrackingPolicyOverride =
+            resolveHistoryTrackingPolicyOption(options.historyTrackingPolicy);
           const logDir = join(workspaceRoot, ".weave", "logs");
           const { auditLogger } = createRuntimeLoggers({ logDir });
 
@@ -235,12 +261,14 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             meshRoot,
             workspaceRoot,
             targets,
+            historyTrackingPolicyOverride,
             localMode: true,
           });
 
           const result = await executeVersion({
             meshRoot,
             request: targets.length > 0 ? { targets } : undefined,
+            historyTrackingPolicyOverride,
           });
           console.log(describeVersionResult(result));
           for (const path of result.createdPaths) {
@@ -271,16 +299,23 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           "--include-semantic-flow-metadata",
           "Include the generated Semantic Flow metadata section on ResourcePages.",
         )
+        .option(
+          "--history-tracking-policy <policy:string>",
+          "Override the history tracking policy for all artifact roles during this command.",
+        )
         .action(async (
           options: {
             meshRoot: string;
             target?: string[];
             includeSemanticFlowMetadata?: boolean;
+            historyTrackingPolicy?: string;
           },
         ) => {
           const meshRoot = resolve(options.meshRoot);
           const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
           const targets = resolveSharedTargetSpecs(options, "generate");
+          const historyTrackingPolicyOverride =
+            resolveHistoryTrackingPolicyOption(options.historyTrackingPolicy);
           const logDir = join(workspaceRoot, ".weave", "logs");
           const { auditLogger } = createRuntimeLoggers({ logDir });
 
@@ -290,6 +325,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             targets,
             includeSemanticFlowMetadata:
               options.includeSemanticFlowMetadata === true,
+            historyTrackingPolicyOverride,
             localMode: true,
           });
 
@@ -298,6 +334,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             request: targets.length > 0 ? { targets } : undefined,
             includeSemanticFlowMetadata:
               options.includeSemanticFlowMetadata === true,
+            historyTrackingPolicyOverride,
           });
           console.log(describeGenerateResult(result));
           for (const path of result.createdPaths) {
@@ -1146,6 +1183,26 @@ function normalizeCliMeshRoot(
 
 async function inferCliWorkspaceRoot(meshRoot: string): Promise<string> {
   return (await loadOperationalLocalPathPolicy(meshRoot)).workspaceRoot;
+}
+
+function resolveHistoryTrackingPolicyOption(
+  value: string | undefined,
+): HistoryTrackingPolicy | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (
+    HISTORY_TRACKING_POLICY_VALUES.includes(
+      value as HistoryTrackingPolicy,
+    )
+  ) {
+    return value as HistoryTrackingPolicy;
+  }
+
+  throw new WeaveInputError(
+    `Unsupported history tracking policy: ${value}`,
+  );
 }
 
 async function resolveMeshBaseOption(

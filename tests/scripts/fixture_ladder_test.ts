@@ -99,8 +99,8 @@ Deno.test("parseFixtureLadderArgs rejects unsupported scenarios and formats", ()
   );
 });
 
-Deno.test("planFixtureLadder exposes the Alice Bio dry-run transition plan", () => {
-  const plan = planFixtureLadder({
+Deno.test("planFixtureLadder exposes the Alice Bio dry-run transition plan", async () => {
+  const plan = await planFixtureLadder({
     root: repoRoot,
     scenario: "alice-bio",
     format: "text",
@@ -137,7 +137,10 @@ Deno.test("planFixtureLadder exposes the Alice Bio dry-run transition plan", () 
   assertEquals(firstWeave?.operationId, "weave");
   assertEquals(firstWeave?.action.kind, "command");
   if (firstWeave?.action.kind === "command") {
-    assertEquals(firstWeave.action.argv, []);
+    assertEquals(firstWeave.action.argv, [
+      "--history-tracking-policy",
+      "versioned",
+    ]);
   }
 
   const pageCustomized = plan.transitions[13];
@@ -172,7 +175,7 @@ Deno.test("planFixtureLadder exposes the Alice Bio dry-run transition plan", () 
 });
 
 Deno.test("planFixtureLadder names existing Alice Bio Accord manifests", async () => {
-  const plan = planFixtureLadder({
+  const plan = await planFixtureLadder({
     root: repoRoot,
     scenario: "alice-bio",
     format: "text",
@@ -184,7 +187,7 @@ Deno.test("planFixtureLadder names existing Alice Bio Accord manifests", async (
 });
 
 Deno.test("Alice Bio asset-backed transitions point at checked-in deterministic assets", async () => {
-  const plan = planFixtureLadder({
+  const plan = await planFixtureLadder({
     root: repoRoot,
     scenario: "alice-bio",
     format: "text",
@@ -233,8 +236,8 @@ Deno.test("Alice Bio asset-backed transitions point at checked-in deterministic 
   }
 });
 
-Deno.test("renderFixtureLadderPlan prints reviewable command and validation details", () => {
-  const plan = planFixtureLadder({
+Deno.test("renderFixtureLadderPlan prints reviewable command and validation details", async () => {
+  const plan = await planFixtureLadder({
     root: repoRoot,
     scenario: "alice-bio",
     format: "text",
@@ -253,7 +256,10 @@ Deno.test("renderFixtureLadderPlan prints reviewable command and validation deta
     rendered,
     "command: weave mesh create --workspace . --mesh-base https://semantic-flow.github.io/mesh-alice-bio/",
   );
-  assertStringIncludes(rendered, "command: weave\n");
+  assertStringIncludes(
+    rendered,
+    "command: weave --history-tracking-policy versioned",
+  );
   assertStringIncludes(
     rendered,
     "file operation: Apply the hand-authored Alice page definition",
@@ -805,6 +811,27 @@ async function setupSourceOnlyFileOperationFixture(options: {
             operationId: "mesh.create",
             fromRef: "a.01-source-only",
             toRef: "a.02-mesh-created",
+            hasReplayProfile: {
+              type: "ReplayProfile",
+              workspaceRoot: ".",
+              hasCommandInvocation: {
+                type: "CommandInvocation",
+                executable: "weave",
+                argv: [
+                  "mesh",
+                  "create",
+                  "--workspace",
+                  ".",
+                  "--mesh-base",
+                  "https://semantic-flow.github.io/mesh-alice-bio/",
+                ],
+                workingDirectory: "workspace",
+                promptPolicy: "nonInteractive",
+                expectedExitCode: 0,
+                expectsOperationalLogs: true,
+                expectsAuditLogs: true,
+              },
+            },
             hasFileExpectation: [
               {
                 id: "#mesh-meta",

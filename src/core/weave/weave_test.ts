@@ -19,7 +19,7 @@ import { readMeshAliceBioBranchFile } from "../../../tests/support/mesh_alice_bi
 
 function withAliceReferenceExtensionManifestation(contents: string): string {
   return contents.replaceAll(
-    "alice/_knop/_references/_history001/_s0001/references-ttl",
+    "alice/_knop/_references/_history001/_s0001/ttl",
     "alice/_knop/_references/_history001/_s0001/ttl",
   );
 }
@@ -211,7 +211,7 @@ Deno.test("planMeshSupportResourcePages adds current support ResourcePages inclu
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
-      "_mesh/_config/_history001/_s0001/config-ttl/config.ttl",
+      "_mesh/_config/_history001/_s0001/ttl/config.ttl",
     ],
   );
   assertEquals(
@@ -251,7 +251,7 @@ Deno.test("planMeshSupportResourcePages adds current support ResourcePages inclu
   );
   assertStringIncludes(
     inventory,
-    "<_mesh/_config/_history001/_s0001/config-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;",
+    "<_mesh/_config/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;",
   );
 });
 
@@ -294,7 +294,7 @@ Deno.test("planMeshSupportResourcePages records initial mesh inventory progressi
   );
   assertStringIncludes(
     plan.createdFiles.find((file) =>
-      file.path === "_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl"
+      file.path === "_mesh/_meta/_history001/_s0001/ttl/meta.ttl"
     )?.contents ?? "",
     "sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0001> ;",
   );
@@ -337,7 +337,7 @@ Deno.test("planMeshSupportResourcePages omits suppressed support ResourcePage fa
   );
   assertStringIncludes(
     inventory,
-    "<_mesh/_config/_history001/_s0001/config-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;",
+    "<_mesh/_config/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;",
   );
 });
 
@@ -442,56 +442,56 @@ const laterFirstPayloadWeaveMeshInventoryTurtle =
 
 <_mesh/_inventory/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0001/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <_mesh/_inventory/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/index.html> .
 
-<_mesh/_inventory/_history001/_s0001/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html> .
+<_mesh/_inventory/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/ttl/index.html> .
 
 <_mesh/_inventory/_history001/_s0002> a sflo:HistoricalState ;
   sflo:stateOrdinal "2"^^xsd:nonNegativeInteger ;
   sflo:previousHistoricalState <_mesh/_inventory/_history001/_s0001> ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0002/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <_mesh/_inventory/_history001/_s0002/ttl> ;
+  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/index.html> .
 
-<_mesh/_inventory/_history001/_s0002/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/inventory-ttl/index.html> .
+<_mesh/_inventory/_history001/_s0002/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/ttl/index.html> .
 
 <_mesh/_inventory/_history001/_s0003> a sflo:HistoricalState ;
   sflo:stateOrdinal "3"^^xsd:nonNegativeInteger ;
   sflo:previousHistoricalState <_mesh/_inventory/_history001/_s0002> ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0003/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <_mesh/_inventory/_history001/_s0003/ttl> ;
+  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/index.html> .
 
-<_mesh/_inventory/_history001/_s0003/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/inventory-ttl/index.html> .
+<_mesh/_inventory/_history001/_s0003/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/ttl/index.html> .
 
 <_mesh/_inventory/_history001/_s0004> a sflo:HistoricalState ;
   sflo:stateOrdinal "4"^^xsd:nonNegativeInteger ;
   sflo:previousHistoricalState <_mesh/_inventory/_history001/_s0003> ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0004/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <_mesh/_inventory/_history001/_s0004/ttl> ;
+  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0004/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0004/index.html> .
 
-<_mesh/_inventory/_history001/_s0004/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0004/inventory-ttl/index.html> .
+<_mesh/_inventory/_history001/_s0004/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0004/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0004/ttl/index.html> .
 
 <_mesh/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<_mesh/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<_mesh/_inventory/_history001/_s0004/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <alice/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -505,19 +505,19 @@ const laterFirstPayloadWeaveMeshInventoryTurtle =
 
 <_mesh/_inventory/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<_mesh/_inventory/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <_mesh/_inventory/_history001/_s0002/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<_mesh/_inventory/_history001/_s0002/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<_mesh/_inventory/_history001/_s0002/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <_mesh/_inventory/_history001/_s0003/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<_mesh/_inventory/_history001/_s0003/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<_mesh/_inventory/_history001/_s0003/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <_mesh/_inventory/_history001/_s0004/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<_mesh/_inventory/_history001/_s0004/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<_mesh/_inventory/_history001/_s0004/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 `;
 
 const laterFirstPayloadWeaveMeshMetadataTurtle = meshMetadataProgressionTurtle(
@@ -592,6 +592,12 @@ const firstReferenceCatalogWeaveMeshInventoryTurtle =
   sflo:hasWorkingKnopInventoryFile <alice/bio/_knop/_inventory/inventory.ttl> .
 `;
 
+const firstReferenceCatalogWeaveMeshMetadataTurtle =
+  meshMetadataProgressionTurtle(
+    "_mesh/_inventory/_history001/_s0003",
+    4,
+  );
+
 const firstReferenceCatalogWeaveKnopInventoryTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
@@ -663,12 +669,12 @@ const secondPayloadWeaveKnopInventoryTurtle =
 <alice/bio/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
   sflo:hasManifestation <alice/bio/_history001/_s0001/alice-bio-ttl> ;
-  sflo:locatedFileForState <alice/bio/_history001/_s0001/alice-bio-ttl/alice-bio.ttl> ;
+  sflo:locatedFileForState <alice/bio/_history001/_s0001/ttl/alice-bio.ttl> ;
   sflo:hasResourcePage <alice/bio/_history001/_s0001/index.html> .
 
 <alice/bio/_history001/_s0001/alice-bio-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <alice/bio/_history001/_s0001/alice-bio-ttl/alice-bio.ttl> ;
-  sflo:hasResourcePage <alice/bio/_history001/_s0001/alice-bio-ttl/index.html> .
+  sflo:hasLocatedFile <alice/bio/_history001/_s0001/ttl/alice-bio.ttl> ;
+  sflo:hasResourcePage <alice/bio/_history001/_s0001/ttl/index.html> .
 
 <alice/bio/_knop/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <alice/bio/_knop/_inventory/_history001> ;
@@ -707,9 +713,9 @@ Deno.test("planWeave renders the first alice knop-created-woven slice", () => {
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
-      "_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
-      "alice/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
-      "alice/_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      "_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl",
+      "alice/_knop/_meta/_history001/_s0001/ttl/meta.ttl",
+      "alice/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl",
     ],
   );
   assertEquals(plan.createdPages[2], {
@@ -747,8 +753,8 @@ Deno.test("planWeave applies current-only KnopMetadata policy on the first Knop 
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
-      "_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
-      "alice/_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      "_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl",
+      "alice/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl",
     ],
   );
   const knopInventory = plan.updatedFiles[1]?.contents ?? "";
@@ -803,10 +809,10 @@ Deno.test("planWeave renders the first alice bio payload weave slice", () => {
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
-      "_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl",
+      "_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl",
       "alice/bio/_history001/_s0001/ttl/alice-bio.ttl",
-      "alice/bio/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
-      "alice/bio/_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      "alice/bio/_knop/_meta/_history001/_s0001/ttl/meta.ttl",
+      "alice/bio/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl",
     ],
   );
   assertEquals(plan.createdPages[2], {
@@ -855,9 +861,9 @@ Deno.test("planWeave applies current-only KnopMetadata policy on the first paylo
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
-      "_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl",
+      "_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl",
       "alice/bio/_history001/_s0001/ttl/alice-bio.ttl",
-      "alice/bio/_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      "alice/bio/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl",
     ],
   );
   const knopInventory = plan.updatedFiles[1]?.contents ?? "";
@@ -1134,10 +1140,10 @@ Deno.test("planWeave renders a later first payload weave slice against a carried
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
-      "_mesh/_inventory/_history001/release-candidate/inventory-ttl/inventory.ttl",
+      "_mesh/_inventory/_history001/release-candidate/ttl/inventory.ttl",
       "alice/page-main/_history001/_s0001/md/alice-page-main.md",
-      "alice/page-main/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
-      "alice/page-main/_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      "alice/page-main/_knop/_meta/_history001/_s0001/ttl/meta.ttl",
+      "alice/page-main/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl",
     ],
   );
   assertEquals(plan.createdPages[0], {
@@ -1258,7 +1264,7 @@ Deno.test("planWeave advances ordinal MeshInventory progression after a named la
 
   assertEquals(
     plan.createdFiles[0]?.path,
-    "_mesh/_inventory/_history001/_s0006/inventory-ttl/inventory.ttl",
+    "_mesh/_inventory/_history001/_s0006/ttl/inventory.ttl",
   );
   assertStringIncludes(
     plan.updatedFiles[2]?.contents ?? "",
@@ -1301,9 +1307,9 @@ Deno.test("planWeave supports a later first root Knop weave against a carried me
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
-      "_mesh/_inventory/_history001/_s0006/inventory-ttl/inventory.ttl",
-      "_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
-      "_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      "_mesh/_inventory/_history001/_s0006/ttl/inventory.ttl",
+      "_knop/_meta/_history001/_s0001/ttl/meta.ttl",
+      "_knop/_inventory/_history001/_s0001/ttl/inventory.ttl",
     ],
   );
   assertEquals(plan.createdPages[0], {
@@ -1362,10 +1368,10 @@ Deno.test("planWeave applies requested payload history and state naming on the f
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
-      "_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl",
+      "_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl",
       "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
-      "alice/bio/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
-      "alice/bio/_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      "alice/bio/_knop/_meta/_history001/_s0001/ttl/meta.ttl",
+      "alice/bio/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl",
     ],
   );
   assertStringIncludes(
@@ -1509,6 +1515,7 @@ Deno.test("planWeave renders the first alice reference-catalog weave slice", () 
     request: {},
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: firstReferenceCatalogWeaveMeshInventoryTurtle,
+    currentMeshMetadataTurtle: firstReferenceCatalogWeaveMeshMetadataTurtle,
     weaveableKnops: [{
       designatorPath: "alice",
       currentKnopMetadataTurtle: firstWeaveKnopMetadataTurtle,
@@ -1528,7 +1535,7 @@ Deno.test("planWeave renders the first alice reference-catalog weave slice", () 
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
-      "alice/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+      "alice/_knop/_inventory/_history001/_s0002/ttl/inventory.ttl",
       "alice/_knop/_references/_history001/_s0001/ttl/references.ttl",
     ],
   );
@@ -1614,6 +1621,7 @@ Deno.test("planWeave accepts semantically equivalent first reference-catalog wea
     request: {},
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: equivalentMeshInventoryTurtle,
+    currentMeshMetadataTurtle: firstReferenceCatalogWeaveMeshMetadataTurtle,
     weaveableKnops: [{
       designatorPath: "alice",
       currentKnopMetadataTurtle: equivalentKnopMetadataTurtle,
@@ -1638,6 +1646,7 @@ Deno.test("planWeave preserves the current ReferenceCatalog working file path", 
     request: {},
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: firstReferenceCatalogWeaveMeshInventoryTurtle,
+    currentMeshMetadataTurtle: firstReferenceCatalogWeaveMeshMetadataTurtle,
     weaveableKnops: [{
       designatorPath: "alice",
       currentKnopMetadataTurtle: firstWeaveKnopMetadataTurtle,
@@ -1657,7 +1666,7 @@ Deno.test("planWeave preserves the current ReferenceCatalog working file path", 
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
-      "alice/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+      "alice/_knop/_inventory/_history001/_s0002/ttl/inventory.ttl",
       "alice/_knop/_references/_history001/_s0001/ttl/reference-links-v1.ttl",
     ],
   );
@@ -1695,6 +1704,7 @@ Deno.test("planWeave supports the first reference-catalog weave slice for non-al
         "<alice/bio/_knop>",
         "<carol/bio/_knop>",
       ),
+    currentMeshMetadataTurtle: firstReferenceCatalogWeaveMeshMetadataTurtle,
     weaveableKnops: [{
       designatorPath: "carol",
       currentKnopMetadataTurtle: firstWeaveKnopMetadataTurtle
@@ -1805,14 +1815,14 @@ Deno.test("planWeave renders the second alice bio payload weave slice", () => {
     plan.createdFiles.map((file) => file.path),
     [
       "alice/bio/_history001/_s0002/ttl/alice-bio.ttl",
-      "alice/bio/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+      "alice/bio/_knop/_inventory/_history001/_s0002/ttl/inventory.ttl",
     ],
   );
   assertEquals(plan.createdPages.map((page) => page.path), [
     "alice/bio/_history001/_s0002/index.html",
     "alice/bio/_history001/_s0002/ttl/index.html",
     "alice/bio/_knop/_inventory/_history001/_s0002/index.html",
-    "alice/bio/_knop/_inventory/_history001/_s0002/inventory-ttl/index.html",
+    "alice/bio/_knop/_inventory/_history001/_s0002/ttl/index.html",
   ]);
   assertStringIncludes(
     plan.updatedFiles[0]?.contents ?? "",
@@ -1861,7 +1871,7 @@ Deno.test("planWeave applies configured manifestation naming on the second paylo
     plan.createdFiles.map((file) => file.path),
     [
       "alice/bio/_history001/_s0002/_m0001/alice-bio.ttl",
-      "alice/bio/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+      "alice/bio/_knop/_inventory/_history001/_s0002/ttl/inventory.ttl",
     ],
   );
   assertStringIncludes(
@@ -1942,14 +1952,14 @@ Deno.test("planWeave applies requested payload naming on the second payload weav
     plan.createdFiles.map((file) => file.path),
     [
       "alice/bio/releases/v0.0.2/ttl/alice-bio.ttl",
-      "alice/bio/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+      "alice/bio/_knop/_inventory/_history001/_s0002/ttl/inventory.ttl",
     ],
   );
   assertEquals(plan.createdPages.map((page) => page.path), [
     "alice/bio/releases/v0.0.2/index.html",
     "alice/bio/releases/v0.0.2/ttl/index.html",
     "alice/bio/_knop/_inventory/_history001/_s0002/index.html",
-    "alice/bio/_knop/_inventory/_history001/_s0002/inventory-ttl/index.html",
+    "alice/bio/_knop/_inventory/_history001/_s0002/ttl/index.html",
   ]);
   assertStringIncludes(
     plan.updatedFiles[0]?.contents ?? "",
@@ -2140,6 +2150,7 @@ Deno.test("planWeave renders the extracted bob woven slice", async () => {
     "bob/_knop/_inventory/inventory.ttl",
     "_mesh/_inventory/_history001/index.html",
     "alice/index.html",
+    "_mesh/_meta/meta.ttl",
   ]);
   assertEquals(
     plan.createdPages.some((page) =>
@@ -2204,18 +2215,16 @@ Deno.test("planWeave accepts a semantically equivalent extracted bob Knop block"
   );
 });
 
-Deno.test("planWeave rejects extracted bob weave inputs without a pinned source historical state", async () => {
+Deno.test("planWeave pins current-mode extracted bob sources during weave", async () => {
   const input = await createExtractedBobWeaveInput();
-  input.weaveableKnops[0]!.currentKnopInventoryTurtle = input
-    .weaveableKnops[0]!.currentKnopInventoryTurtle.replace(
-      "  sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> ;\n",
-      "",
-    );
 
-  assertThrows(
-    () => planWeave(input),
-    WeaveInputError,
-    "settled extracted-knop inventory shape",
+  const plan = planWeave(input);
+
+  assertStringIncludes(
+    plan.updatedFiles[1]?.contents ?? "",
+    `sflo:hasTargetArtifact <alice/bio> ;
+  sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> ;
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_pinned> .`,
   );
 });
 
@@ -2236,6 +2245,11 @@ Deno.test("planWeave rejects extracted bob weave inputs when the source payload 
 
 Deno.test("planWeave rejects extracted bob weave inputs when the source payload state does not match", async () => {
   const input = await createExtractedBobWeaveInput();
+  input.weaveableKnops[0]!.currentKnopInventoryTurtle =
+    withPinnedExtractedSourceState(
+      input.weaveableKnops[0]!.currentKnopInventoryTurtle,
+      "alice/bio/_history001/_s0002",
+    );
   input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact = {
     ...input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact!,
     latestHistoricalStatePath: "alice/bio/_history001/_s0001",
@@ -2320,14 +2334,14 @@ Deno.test("planWeave preserves unrelated mesh inventory blocks during extracted 
   sflo:hasResourcePage <carol/_knop/index.html> .`,
     )
     .replace(
-      `<bob/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+      `<alice-bio.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<alice-bio.ttl> a sflo:LocatedFile, sflo:RdfDocument .`,
-      `<bob/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<_mesh> sflo:hasKnop <bob/_knop> .`,
+      `<alice-bio.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <carol/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<alice-bio.ttl> a sflo:LocatedFile, sflo:RdfDocument .`,
+<_mesh> sflo:hasKnop <bob/_knop> .`,
     )
     .replace(
       `<alice/bio/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .
@@ -2443,8 +2457,8 @@ Deno.test("planWeave renders the first page-definition weave slice", async () =>
     "alice/_knop/_inventory/inventory.ttl",
   ]);
   assertEquals(plan.createdFiles.map((file) => file.path), [
-    "alice/_knop/_page/_history001/_s0001/page-ttl/page.ttl",
-    "alice/_knop/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl",
+    "alice/_knop/_page/_history001/_s0001/ttl/page.ttl",
+    "alice/_knop/_inventory/_history001/_s0003/ttl/inventory.ttl",
   ]);
   assertEquals(plan.createdFiles[0]?.contents, pageDefinitionTurtle);
   assertEquals(
@@ -2465,11 +2479,11 @@ Deno.test("planWeave renders the first page-definition weave slice", async () =>
   assertEquals(plan.createdPages.map((page) => page.path), [
     "alice/index.html",
     "alice/_knop/_inventory/_history001/_s0003/index.html",
-    "alice/_knop/_inventory/_history001/_s0003/inventory-ttl/index.html",
+    "alice/_knop/_inventory/_history001/_s0003/ttl/index.html",
     "alice/_knop/_page/index.html",
     "alice/_knop/_page/_history001/index.html",
     "alice/_knop/_page/_history001/_s0001/index.html",
-    "alice/_knop/_page/_history001/_s0001/page-ttl/index.html",
+    "alice/_knop/_page/_history001/_s0001/ttl/index.html",
   ]);
 });
 
@@ -2534,8 +2548,8 @@ Deno.test("planWeave generalizes the first page-definition weave slice for earli
     "bob/_knop/_inventory/inventory.ttl",
   ]);
   assertEquals(plan.createdFiles.map((file) => file.path), [
-    "bob/_knop/_page/_history001/_s0001/page-ttl/page.ttl",
-    "bob/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+    "bob/_knop/_page/_history001/_s0001/ttl/page.ttl",
+    "bob/_knop/_inventory/_history001/_s0002/ttl/inventory.ttl",
   ]);
   assertStringIncludes(
     plan.updatedFiles[0]?.contents ?? "",
@@ -2549,11 +2563,11 @@ Deno.test("planWeave generalizes the first page-definition weave slice for earli
   assertEquals(plan.createdPages.map((page) => page.path), [
     "bob/index.html",
     "bob/_knop/_inventory/_history001/_s0002/index.html",
-    "bob/_knop/_inventory/_history001/_s0002/inventory-ttl/index.html",
+    "bob/_knop/_inventory/_history001/_s0002/ttl/index.html",
     "bob/_knop/_page/index.html",
     "bob/_knop/_page/_history001/index.html",
     "bob/_knop/_page/_history001/_s0001/index.html",
-    "bob/_knop/_page/_history001/_s0001/page-ttl/index.html",
+    "bob/_knop/_page/_history001/_s0001/ttl/index.html",
   ]);
 });
 
@@ -2573,7 +2587,7 @@ Deno.test("planWeave renders a later page-definition weave revision", async () =
   );
   const latestHistoricalSnapshotTurtle = await readMeshAliceBioBranchFile(
     "17-alice-page-main-integrated-woven",
-    "alice/_knop/_page/_history001/_s0001/page-ttl/page.ttl",
+    "alice/_knop/_page/_history001/_s0001/ttl/page.ttl",
   );
   const plan = planWeave({
     request: {
@@ -2612,8 +2626,8 @@ Deno.test("planWeave renders a later page-definition weave revision", async () =
     "alice/_knop/_inventory/inventory.ttl",
   ]);
   assertEquals(plan.createdFiles.map((file) => file.path), [
-    "alice/_knop/_page/_history001/_s0002/page-ttl/page.ttl",
-    "alice/_knop/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl",
+    "alice/_knop/_page/_history001/_s0002/ttl/page.ttl",
+    "alice/_knop/_inventory/_history001/_s0004/ttl/inventory.ttl",
   ]);
   assertEquals(plan.createdFiles[0]?.contents, currentPageDefinitionTurtle);
   assertStringIncludes(
@@ -2627,11 +2641,11 @@ Deno.test("planWeave renders a later page-definition weave revision", async () =
   assertEquals(plan.createdPages.map((page) => page.path), [
     "alice/index.html",
     "alice/_knop/_inventory/_history001/_s0004/index.html",
-    "alice/_knop/_inventory/_history001/_s0004/inventory-ttl/index.html",
+    "alice/_knop/_inventory/_history001/_s0004/ttl/index.html",
     "alice/_knop/_page/index.html",
     "alice/_knop/_page/_history001/index.html",
     "alice/_knop/_page/_history001/_s0002/index.html",
-    "alice/_knop/_page/_history001/_s0002/page-ttl/index.html",
+    "alice/_knop/_page/_history001/_s0002/ttl/index.html",
   ]);
 });
 
@@ -2675,8 +2689,8 @@ Deno.test("planWeave renders a root page-definition weave without requiring a re
     "_knop/_inventory/inventory.ttl",
   ]);
   assertEquals(plan.createdFiles.map((file) => file.path), [
-    "_knop/_page/_history001/_s0001/page-ttl/page.ttl",
-    "_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+    "_knop/_page/_history001/_s0001/ttl/page.ttl",
+    "_knop/_inventory/_history001/_s0002/ttl/inventory.ttl",
   ]);
   assertEquals(plan.createdFiles[0]?.contents, currentPageDefinitionTurtle);
   assertStringIncludes(
@@ -2690,11 +2704,11 @@ Deno.test("planWeave renders a root page-definition weave without requiring a re
   assertEquals(plan.createdPages.map((page) => page.path), [
     "index.html",
     "_knop/_inventory/_history001/_s0002/index.html",
-    "_knop/_inventory/_history001/_s0002/inventory-ttl/index.html",
+    "_knop/_inventory/_history001/_s0002/ttl/index.html",
     "_knop/_page/index.html",
     "_knop/_page/_history001/index.html",
     "_knop/_page/_history001/_s0001/index.html",
-    "_knop/_page/_history001/_s0001/page-ttl/index.html",
+    "_knop/_page/_history001/_s0001/ttl/index.html",
   ]);
 });
 
@@ -2733,6 +2747,19 @@ async function createExtractedBobWeaveInput(): Promise<PlanWeaveInput> {
       },
     }],
   };
+}
+
+function withPinnedExtractedSourceState(
+  turtle: string,
+  sourceStatePath: string,
+): string {
+  return turtle.replace(
+    `  sflo:hasTargetArtifact <alice/bio> ;
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> .`,
+    `  sflo:hasTargetArtifact <alice/bio> ;
+  sflo:hasRequestedTargetState <${sourceStatePath}> ;
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_pinned> .`,
+  );
 }
 
 function withRdfPrefix(turtle: string): string {

@@ -42,7 +42,7 @@ const secondAliceBioDefaultManifestation: readonly PathReplacement[] = [[
 ]];
 
 const aliceReferenceDefaultManifestation: readonly PathReplacement[] = [[
-  "alice/_knop/_references/_history001/_s0001/references-ttl",
+  "alice/_knop/_references/_history001/_s0001/ttl",
   "alice/_knop/_references/_history001/_s0001/ttl",
 ]];
 

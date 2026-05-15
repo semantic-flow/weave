@@ -65,7 +65,7 @@ export interface KnopCreatePlan {
 }
 
 interface ResolvedKnopCreateMeshInventoryShape {
-  kind: "legacy" | "carried";
+  kind: "legacy" | "working" | "carried";
   existingKnopPaths: readonly string[];
 }
 
@@ -252,13 +252,29 @@ function resolveCurrentMeshInventoryShapeForKnopCreate(
   );
 
   if (!hasAnyKnopFacts && existingKnopPaths.length === 0) {
-    assertHasLegacyCurrentMeshInventoryShapeForKnopCreate(
+    try {
+      assertHasLegacyCurrentMeshInventoryShapeForKnopCreate(
+        quads,
+        meshBase,
+        errorMessage,
+      );
+      return {
+        kind: "legacy",
+        existingKnopPaths,
+      };
+    } catch (error) {
+      if (!(error instanceof KnopCreateInputError)) {
+        throw error;
+      }
+    }
+
+    assertHasWorkingCurrentMeshInventoryShapeForKnopCreate(
       quads,
       meshBase,
       errorMessage,
     );
     return {
-      kind: "legacy",
+      kind: "working",
       existingKnopPaths,
     };
   }
@@ -273,6 +289,50 @@ function resolveCurrentMeshInventoryShapeForKnopCreate(
     kind: "carried",
     existingKnopPaths,
   };
+}
+
+function assertHasWorkingCurrentMeshInventoryShapeForKnopCreate(
+  quads: readonly Quad[],
+  meshBase: string,
+  errorMessage: string,
+): void {
+  assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
+    ["_mesh", RDF_TYPE_IRI, SFLO_SEMANTIC_MESH_IRI],
+    ["_mesh", SFLO_HAS_MESH_METADATA_IRI, "_mesh/_meta"],
+    ["_mesh", SFLO_HAS_MESH_INVENTORY_IRI, "_mesh/_inventory"],
+    ["_mesh", SFLO_HAS_RESOURCE_PAGE_IRI, "_mesh/index.html"],
+    ["_mesh/_meta", RDF_TYPE_IRI, SFLO_MESH_METADATA_IRI],
+    ["_mesh/_meta", RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
+    ["_mesh/_meta", RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
+    ["_mesh/_meta", SFLO_HAS_WORKING_LOCATED_FILE_IRI, "_mesh/_meta/meta.ttl"],
+    ["_mesh/_meta", SFLO_HAS_RESOURCE_PAGE_IRI, "_mesh/_meta/index.html"],
+    ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_MESH_INVENTORY_IRI],
+    ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
+    ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
+    [
+      "_mesh/_inventory",
+      SFLO_HAS_WORKING_LOCATED_FILE_IRI,
+      "_mesh/_inventory/inventory.ttl",
+    ],
+    [
+      "_mesh/_inventory",
+      SFLO_HAS_RESOURCE_PAGE_IRI,
+      "_mesh/_inventory/index.html",
+    ],
+    ["_mesh/_meta/meta.ttl", RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
+    ["_mesh/_meta/meta.ttl", RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
+    ["_mesh/_inventory/inventory.ttl", RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
+    ["_mesh/_inventory/inventory.ttl", RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
+    ["_mesh/index.html", RDF_TYPE_IRI, SFLO_RESOURCE_PAGE_IRI],
+    ["_mesh/index.html", RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
+    ["_mesh/_meta/index.html", RDF_TYPE_IRI, SFLO_RESOURCE_PAGE_IRI],
+    ["_mesh/_meta/index.html", RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
+    ["_mesh/_inventory/index.html", RDF_TYPE_IRI, SFLO_RESOURCE_PAGE_IRI],
+    ["_mesh/_inventory/index.html", RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
+  ]);
+  assertHasLiteralFacts(quads, meshBase, errorMessage, [
+    ["_mesh", SFLO_MESH_BASE_IRI, meshBase, XSD_ANY_URI_IRI],
+  ]);
 }
 
 function assertHasLegacyCurrentMeshInventoryShapeForKnopCreate(
@@ -316,12 +376,12 @@ function assertHasLegacyCurrentMeshInventoryShapeForKnopCreate(
     [
       "_mesh/_meta/_history001/_s0001",
       SFLO_HAS_MANIFESTATION_IRI,
-      "_mesh/_meta/_history001/_s0001/meta-ttl",
+      "_mesh/_meta/_history001/_s0001/ttl",
     ],
     [
       "_mesh/_meta/_history001/_s0001",
       SFLO_LOCATED_FILE_FOR_STATE_IRI,
-      "_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl",
+      "_mesh/_meta/_history001/_s0001/ttl/meta.ttl",
     ],
     [
       "_mesh/_meta/_history001/_s0001",
@@ -329,24 +389,24 @@ function assertHasLegacyCurrentMeshInventoryShapeForKnopCreate(
       "_mesh/_meta/_history001/_s0001/index.html",
     ],
     [
-      "_mesh/_meta/_history001/_s0001/meta-ttl",
+      "_mesh/_meta/_history001/_s0001/ttl",
       RDF_TYPE_IRI,
       SFLO_ARTIFACT_MANIFESTATION_IRI,
     ],
     [
-      "_mesh/_meta/_history001/_s0001/meta-ttl",
+      "_mesh/_meta/_history001/_s0001/ttl",
       RDF_TYPE_IRI,
       SFLO_RDF_DOCUMENT_IRI,
     ],
     [
-      "_mesh/_meta/_history001/_s0001/meta-ttl",
+      "_mesh/_meta/_history001/_s0001/ttl",
       SFLO_HAS_LOCATED_FILE_IRI,
-      "_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl",
+      "_mesh/_meta/_history001/_s0001/ttl/meta.ttl",
     ],
     [
-      "_mesh/_meta/_history001/_s0001/meta-ttl",
+      "_mesh/_meta/_history001/_s0001/ttl",
       SFLO_HAS_RESOURCE_PAGE_IRI,
-      "_mesh/_meta/_history001/_s0001/meta-ttl/index.html",
+      "_mesh/_meta/_history001/_s0001/ttl/index.html",
     ],
     ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_MESH_INVENTORY_IRI],
     ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
@@ -395,12 +455,12 @@ function assertHasLegacyCurrentMeshInventoryShapeForKnopCreate(
     [
       "_mesh/_inventory/_history001/_s0001",
       SFLO_HAS_MANIFESTATION_IRI,
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl",
+      "_mesh/_inventory/_history001/_s0001/ttl",
     ],
     [
       "_mesh/_inventory/_history001/_s0001",
       SFLO_LOCATED_FILE_FOR_STATE_IRI,
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      "_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl",
     ],
     [
       "_mesh/_inventory/_history001/_s0001",
@@ -408,46 +468,46 @@ function assertHasLegacyCurrentMeshInventoryShapeForKnopCreate(
       "_mesh/_inventory/_history001/_s0001/index.html",
     ],
     [
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl",
+      "_mesh/_inventory/_history001/_s0001/ttl",
       RDF_TYPE_IRI,
       SFLO_ARTIFACT_MANIFESTATION_IRI,
     ],
     [
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl",
+      "_mesh/_inventory/_history001/_s0001/ttl",
       RDF_TYPE_IRI,
       SFLO_RDF_DOCUMENT_IRI,
     ],
     [
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl",
+      "_mesh/_inventory/_history001/_s0001/ttl",
       SFLO_HAS_LOCATED_FILE_IRI,
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      "_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl",
     ],
     [
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl",
+      "_mesh/_inventory/_history001/_s0001/ttl",
       SFLO_HAS_RESOURCE_PAGE_IRI,
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html",
+      "_mesh/_inventory/_history001/_s0001/ttl/index.html",
     ],
     ["_mesh/_meta/meta.ttl", RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
     ["_mesh/_meta/meta.ttl", RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
     ["_mesh/_inventory/inventory.ttl", RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
     ["_mesh/_inventory/inventory.ttl", RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
     [
-      "_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl",
+      "_mesh/_meta/_history001/_s0001/ttl/meta.ttl",
       RDF_TYPE_IRI,
       SFLO_LOCATED_FILE_IRI,
     ],
     [
-      "_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl",
+      "_mesh/_meta/_history001/_s0001/ttl/meta.ttl",
       RDF_TYPE_IRI,
       SFLO_RDF_DOCUMENT_IRI,
     ],
     [
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      "_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl",
       RDF_TYPE_IRI,
       SFLO_LOCATED_FILE_IRI,
     ],
     [
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      "_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl",
       RDF_TYPE_IRI,
       SFLO_RDF_DOCUMENT_IRI,
     ],
@@ -472,12 +532,12 @@ function assertHasLegacyCurrentMeshInventoryShapeForKnopCreate(
       SFLO_LOCATED_FILE_IRI,
     ],
     [
-      "_mesh/_meta/_history001/_s0001/meta-ttl/index.html",
+      "_mesh/_meta/_history001/_s0001/ttl/index.html",
       RDF_TYPE_IRI,
       SFLO_RESOURCE_PAGE_IRI,
     ],
     [
-      "_mesh/_meta/_history001/_s0001/meta-ttl/index.html",
+      "_mesh/_meta/_history001/_s0001/ttl/index.html",
       RDF_TYPE_IRI,
       SFLO_LOCATED_FILE_IRI,
     ],
@@ -504,12 +564,12 @@ function assertHasLegacyCurrentMeshInventoryShapeForKnopCreate(
       SFLO_LOCATED_FILE_IRI,
     ],
     [
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html",
+      "_mesh/_inventory/_history001/_s0001/ttl/index.html",
       RDF_TYPE_IRI,
       SFLO_RESOURCE_PAGE_IRI,
     ],
     [
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html",
+      "_mesh/_inventory/_history001/_s0001/ttl/index.html",
       RDF_TYPE_IRI,
       SFLO_LOCATED_FILE_IRI,
     ],
@@ -665,6 +725,7 @@ function renderLaterKnopCreatedMeshInventoryTurtle(
   const blocks = normalizeMeshInventoryHeader(
     splitTurtleBlocks(currentMeshInventoryTurtle),
   );
+  const anchorKnopPath = existingKnopPaths.at(-1) ?? "_mesh";
   const knopPaths = [...existingKnopPaths];
   if (!knopPaths.includes(knopPath)) {
     knopPaths.unshift(knopPath);
@@ -677,7 +738,7 @@ function renderLaterKnopCreatedMeshInventoryTurtle(
   );
   nextBlocks = upsertSubjectBlockAfter(
     nextBlocks,
-    knopPaths.at(-1) ?? "_mesh",
+    anchorKnopPath,
     knopPath,
     renderMeshKnopBlockWithoutResourcePage(knopPath),
   );
@@ -727,13 +788,13 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <_mesh/_meta/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <_mesh/_meta/_history001/_s0001/meta-ttl> ;
-  sflo:locatedFileForState <_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
+  sflo:hasManifestation <_mesh/_meta/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <_mesh/_meta/_history001/_s0001/ttl/meta.ttl> ;
   sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/index.html> .
 
-<_mesh/_meta/_history001/_s0001/meta-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
-  sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/meta-ttl/index.html> .
+<_mesh/_meta/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_meta/_history001/_s0001/ttl/meta.ttl> ;
+  sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/ttl/index.html> .
 
 <_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <_mesh/_inventory/_history001> ;
@@ -751,21 +812,21 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <_mesh/_inventory/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0001/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <_mesh/_inventory/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/index.html> .
 
-<_mesh/_inventory/_history001/_s0001/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html> .
+<_mesh/_inventory/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/ttl/index.html> .
 
 <_mesh/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <_mesh/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<_mesh/_meta/_history001/_s0001/ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${knopInventoryPath}> a sflo:LocatedFile, sflo:RdfDocument .
 
@@ -777,7 +838,7 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <_mesh/_meta/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<_mesh/_meta/_history001/_s0001/meta-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<_mesh/_meta/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <_mesh/_inventory/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -785,7 +846,7 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <_mesh/_inventory/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<_mesh/_inventory/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 `;
 }
 

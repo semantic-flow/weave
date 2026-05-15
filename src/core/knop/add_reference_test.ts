@@ -32,13 +32,13 @@ const wovenKnopInventory =
 
 <alice/_knop/_meta/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <alice/_knop/_meta/_history001/_s0001/meta-ttl> ;
-  sflo:locatedFileForState <alice/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
+  sflo:hasManifestation <alice/_knop/_meta/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <alice/_knop/_meta/_history001/_s0001/ttl/meta.ttl> ;
   sflo:hasResourcePage <alice/_knop/_meta/_history001/_s0001/index.html> .
 
-<alice/_knop/_meta/_history001/_s0001/meta-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <alice/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
-  sflo:hasResourcePage <alice/_knop/_meta/_history001/_s0001/meta-ttl/index.html> .
+<alice/_knop/_meta/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <alice/_knop/_meta/_history001/_s0001/ttl/meta.ttl> ;
+  sflo:hasResourcePage <alice/_knop/_meta/_history001/_s0001/ttl/index.html> .
 
 <alice/_knop/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <alice/_knop/_inventory/_history001> ;
@@ -56,21 +56,21 @@ const wovenKnopInventory =
 
 <alice/_knop/_inventory/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <alice/_knop/_inventory/_history001/_s0001/inventory-ttl> ;
-  sflo:locatedFileForState <alice/_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <alice/_knop/_inventory/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <alice/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
   sflo:hasResourcePage <alice/_knop/_inventory/_history001/_s0001/index.html> .
 
-<alice/_knop/_inventory/_history001/_s0001/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <alice/_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <alice/_knop/_inventory/_history001/_s0001/inventory-ttl/index.html> .
+<alice/_knop/_inventory/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <alice/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <alice/_knop/_inventory/_history001/_s0001/ttl/index.html> .
 
 <alice/_knop/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <alice/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<alice/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<alice/_knop/_meta/_history001/_s0001/ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<alice/_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<alice/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <alice/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -80,7 +80,7 @@ const wovenKnopInventory =
 
 <alice/_knop/_meta/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<alice/_knop/_meta/_history001/_s0001/meta-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<alice/_knop/_meta/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <alice/_knop/_inventory/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -88,7 +88,7 @@ const wovenKnopInventory =
 
 <alice/_knop/_inventory/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<alice/_knop/_inventory/_history001/_s0001/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<alice/_knop/_inventory/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 `;
 
 const unwovenKnopInventory =

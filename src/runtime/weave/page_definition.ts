@@ -386,7 +386,7 @@ function parsePageDefinitionQuads(
 }
 
 function toPageDefinitionHistoricalSnapshotPath(statePath: string): string {
-  return `${statePath}/page-ttl/page.ttl`;
+  return `${statePath}/ttl/page.ttl`;
 }
 
 function collectNamedNodeObjects(

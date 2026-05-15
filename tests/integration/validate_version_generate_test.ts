@@ -24,7 +24,7 @@ import { createTestTmpDir } from "../support/test_tmp.ts";
 
 function withAliceReferenceExtensionManifestation(contents: string): string {
   return contents.replaceAll(
-    "alice/_knop/_references/_history001/_s0001/references-ttl",
+    "alice/_knop/_references/_history001/_s0001/ttl",
     "alice/_knop/_references/_history001/_s0001/ttl",
   );
 }
@@ -231,7 +231,7 @@ Deno.test("executeVersion rejects mixed requested targets when some are not curr
       Deno.stat(
         join(
           workspaceRoot,
-          "alice/bio/_history001/_s0001/alice-bio-ttl/alice-bio.ttl",
+          "alice/bio/_history001/_s0001/ttl/alice-bio.ttl",
         ),
       ),
     Deno.errors.NotFound,
@@ -353,12 +353,12 @@ Deno.test("executeVersion versions the first alice page-definition support artif
   assertEquals(result.versionedDesignatorPaths, ["alice"]);
   assert(
     result.createdPaths.includes(
-      "alice/_knop/_page/_history001/_s0001/page-ttl/page.ttl",
+      "alice/_knop/_page/_history001/_s0001/ttl/page.ttl",
     ),
   );
   assert(
     result.createdPaths.includes(
-      "alice/_knop/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl",
+      "alice/_knop/_inventory/_history001/_s0003/ttl/inventory.ttl",
     ),
   );
   assert(result.updatedPaths.includes("alice/_knop/_inventory/inventory.ttl"));
@@ -392,7 +392,7 @@ Deno.test("executeVersion versions the first alice page-definition support artif
     await Deno.readTextFile(
       join(
         workspaceRoot,
-        "alice/_knop/_page/_history001/_s0001/page-ttl/page.ttl",
+        "alice/_knop/_page/_history001/_s0001/ttl/page.ttl",
       ),
     ),
     await readMeshAliceBioBranchFile(
@@ -531,7 +531,7 @@ Deno.test("executeVersion batches recursive targets through staged current state
   );
   assert(
     result.createdPaths.includes(
-      "_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl",
+      "_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl",
     ),
   );
   assert(

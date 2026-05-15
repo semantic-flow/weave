@@ -95,8 +95,8 @@ Deno.test(
         "<_mesh/_inventory> rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:MeshInventory ;",
       )
       .replace(
-        "<_mesh/_meta/_history001/_s0001/meta-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;",
-        "<_mesh/_meta/_history001/_s0001/meta-ttl> rdf:type sflo:RdfDocument, sflo:ArtifactManifestation ;",
+        "<_mesh/_meta/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;",
+        "<_mesh/_meta/_history001/_s0001/ttl> rdf:type sflo:RdfDocument, sflo:ArtifactManifestation ;",
       );
 
     const plan = planKnopCreate({

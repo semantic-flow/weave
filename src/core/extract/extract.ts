@@ -86,7 +86,7 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
     "sourceDesignatorPath",
   );
   const sourceResolutionMode = request.sourceResolutionMode === undefined
-    ? request.sourceStatePath === undefined ? "current" : "pinned"
+    ? "current"
     : normalizeSourceResolutionMode(request.sourceResolutionMode);
   const sourceStatePath = request.sourceStatePath === undefined
     ? undefined
@@ -97,11 +97,6 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
   if (sourceResolutionMode === "pinned" && sourceStatePath === undefined) {
     throw new ExtractInputError(
       "sourceStatePath is required for pinned extraction",
-    );
-  }
-  if (sourceResolutionMode === "current" && sourceStatePath !== undefined) {
-    throw new ExtractInputError(
-      "sourceStatePath is only valid for pinned extraction",
     );
   }
   const sourceWorkingLocalRelativePath = normalizeWorkingLocalRelativePath(
@@ -378,10 +373,10 @@ function renderLegacyExtractMeshInventoryTurtle(
   const locatedFileDeclarations = renderLocatedFileDeclarations([
     "_mesh/_meta/meta.ttl",
     "_mesh/_inventory/inventory.ttl",
-    "_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl",
-    "_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
-    "_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
-    "_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl",
+    "_mesh/_meta/_history001/_s0001/ttl/meta.ttl",
+    "_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl",
+    "_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl",
+    "_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl",
     `${rootKnopPath}/_inventory/inventory.ttl`,
     `${sourceKnopPath}/_inventory/inventory.ttl`,
     `${knopPath}/_inventory/inventory.ttl`,
@@ -396,15 +391,15 @@ function renderLegacyExtractMeshInventoryTurtle(
     "_mesh/_meta/index.html",
     "_mesh/_meta/_history001/index.html",
     "_mesh/_meta/_history001/_s0001/index.html",
-    "_mesh/_meta/_history001/_s0001/meta-ttl/index.html",
+    "_mesh/_meta/_history001/_s0001/ttl/index.html",
     "_mesh/_inventory/index.html",
     "_mesh/_inventory/_history001/index.html",
     "_mesh/_inventory/_history001/_s0001/index.html",
-    "_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html",
+    "_mesh/_inventory/_history001/_s0001/ttl/index.html",
     "_mesh/_inventory/_history001/_s0002/index.html",
-    "_mesh/_inventory/_history001/_s0002/inventory-ttl/index.html",
+    "_mesh/_inventory/_history001/_s0002/ttl/index.html",
     "_mesh/_inventory/_history001/_s0003/index.html",
-    "_mesh/_inventory/_history001/_s0003/inventory-ttl/index.html",
+    "_mesh/_inventory/_history001/_s0003/ttl/index.html",
   ]);
 
   return `@base <${meshBase}> .
@@ -443,13 +438,13 @@ ${sourceKnopBlock}<${knopPath}> a sflo:Knop ;
 
 <_mesh/_meta/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <_mesh/_meta/_history001/_s0001/meta-ttl> ;
-  sflo:locatedFileForState <_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
+  sflo:hasManifestation <_mesh/_meta/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <_mesh/_meta/_history001/_s0001/ttl/meta.ttl> ;
   sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/index.html> .
 
-<_mesh/_meta/_history001/_s0001/meta-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
-  sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/meta-ttl/index.html> .
+<_mesh/_meta/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_meta/_history001/_s0001/ttl/meta.ttl> ;
+  sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/ttl/index.html> .
 
 <_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <_mesh/_inventory/_history001> ;
@@ -469,35 +464,35 @@ ${sourceKnopBlock}<${knopPath}> a sflo:Knop ;
 
 <_mesh/_inventory/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0001/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <_mesh/_inventory/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/index.html> .
 
-<_mesh/_inventory/_history001/_s0001/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html> .
+<_mesh/_inventory/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/ttl/index.html> .
 
 <_mesh/_inventory/_history001/_s0002> a sflo:HistoricalState ;
   sflo:stateOrdinal "2"^^xsd:nonNegativeInteger ;
   sflo:previousHistoricalState <_mesh/_inventory/_history001/_s0001> ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0002/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <_mesh/_inventory/_history001/_s0002/ttl> ;
+  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/index.html> .
 
-<_mesh/_inventory/_history001/_s0002/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/inventory-ttl/index.html> .
+<_mesh/_inventory/_history001/_s0002/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/ttl/index.html> .
 
 <_mesh/_inventory/_history001/_s0003> a sflo:HistoricalState ;
   sflo:stateOrdinal "3"^^xsd:nonNegativeInteger ;
   sflo:previousHistoricalState <_mesh/_inventory/_history001/_s0002> ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0003/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <_mesh/_inventory/_history001/_s0003/ttl> ;
+  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/index.html> .
 
-<_mesh/_inventory/_history001/_s0003/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/inventory-ttl/index.html> .
+<_mesh/_inventory/_history001/_s0003/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/ttl/index.html> .
 
 ${locatedFileDeclarations}
 
@@ -636,7 +631,22 @@ function hasLegacyCarriedExtractMeshInventoryShape(
   return payloadArtifactPaths.length === 1 &&
     payloadArtifactPaths[0] === sourcePayloadDesignatorPath &&
     meshKnopPaths.length === expectedMeshKnopPaths.length &&
-    expectedMeshKnopPaths.every((path) => meshKnopPaths.includes(path));
+    expectedMeshKnopPaths.every((path) => meshKnopPaths.includes(path)) &&
+    hasNamedNodeFact(
+      quads,
+      meshBase,
+      "_mesh/_inventory/_history001",
+      SFLO_LATEST_HISTORICAL_STATE_IRI,
+      "_mesh/_inventory/_history001/_s0003",
+    ) &&
+    hasLiteralFact(
+      quads,
+      meshBase,
+      "_mesh/_inventory/_history001",
+      SFLO_NEXT_STATE_ORDINAL_IRI,
+      "4",
+      XSD_NON_NEGATIVE_INTEGER_IRI,
+    );
 }
 
 function uniquePaths(paths: readonly string[]): string[] {

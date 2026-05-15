@@ -184,7 +184,7 @@ The first scenario-definition format should therefore support both `command` ste
 - Should scenario definitions live as TypeScript in Weave, as data files in Weave, or beside Accord manifests in the Semantic Flow Framework examples tree?
 - Should generated fixture branch commits be one commit per rung, or should the generator only update branch tips without caring about branch-local history?
 - How should the generator handle intentionally hand-authored source-only branches such as `01-source-only`?
-- Should transition command/provenance stay only in Weave's scenario definitions for the first pass, or should Accord manifests grow portable replay metadata after the shape settles?
+- How much of the temporary Alice Bio TypeScript scenario can move into Accord manifest replay metadata before a separate scenario index is needed?
 - Should manifest validation compare full tree contents, manifest-scoped expectations only, or both depending on transition type?
 - How much should generated HTML be normalized before comparison, especially as renderer behavior changes?
 - Should final SemanticSite publication be handled by this generator later or by a separate release/publish task?
@@ -201,13 +201,14 @@ The first scenario-definition format should therefore support both `command` ste
 - Deterministic `.assets` source bytes live in the fixture repo and feed source-only, command-input, and file-operation transitions; they are authored inputs, not golden output snapshots.
 - `a.00-blank-slate` is the Alice Bio replay base/control rung for `.assets` and other excluded repo-control files.
 - For whole-mesh and sidecar fixture repos, `main` should ultimately be the reviewed final generated mesh state. Branch-published mesh fixtures are the exception because `main` is source/control by design.
-- Use a concrete TypeScript scenario definition for the first generator pass. Move to data files or Accord-adjacent replay metadata only after the replay shape has been exercised.
+- Use a concrete TypeScript scenario definition for ordering and current file-operation glue in the first generator pass. Replay commands and deterministic command-input source bytes belong in Accord manifests.
 - Keep the existing fixture branch comparison tests for now; update their assumptions only where needed to support generated refs.
 - Publish only the final SemanticSite by default; intermediate Pages publication is out of scope for the first pass.
 - Do not rename completed task notes or fixture branches as part of this task unless explicitly requested.
 - Do not build a fully generic fixture scenario engine in the first pass.
 - Do not add compatibility handling for old fixture namespaces or inventory-owned progression facts; stale fixtures should be regenerated against the current contract.
 - Record exact replay commands for command-backed transitions.
+- Hydrate command-backed transition execution from Accord `hasReplayProfile.hasCommandInvocation`; do not keep mesh-specific CLI argv in the generator code.
 - Regeneration execution updates local fixture branch tips by default after command success and generated-output guardrails pass; use `--dry-run` for rehearsal without a branch update.
 - Stale manifest or previous-branch comparison drift should be reported during regeneration, but should not block a local branch update once command execution and generated-output guardrails have passed.
 - The generator does not push fixture branches. After a local branch update, the CLI should tell the operator to push intentionally if the regenerated fixture should leave the checkout.
@@ -258,6 +259,7 @@ The first scenario-definition format should therefore support both `command` ste
 - [x] Add deterministic fixture-repo `.assets` handling for Alice Bio source-only, command-input, and page/file-operation transitions.
 - [x] Prefix the new Alice Bio regeneration branch ladder with `a.` so generated rungs can coexist with the old branch ladder while the replay model settles.
 - [x] Clean the Alice Bio replay base down to `.assets` and repository notes, then branch it as `a.00-blank-slate`.
+- [x] Move Alice Bio command replay argv and command-input materialization metadata into Accord manifests, and hydrate command execution from those manifests.
 - [ ] Extend the generator through the full Alice Bio ladder.
 - [ ] Update or add documentation for the Alice Bio regeneration workflow.
 - [ ] Extend the generator to Sidecar Fantasy Rules as a branch-published ontology fixture.

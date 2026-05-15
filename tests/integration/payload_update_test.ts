@@ -49,12 +49,12 @@ Deno.test("executePayloadUpdate matches the settled alice-bio updated fixture", 
     await Deno.readTextFile(
       join(
         workspaceRoot,
-        "alice/bio/_history001/_s0001/alice-bio-ttl/alice-bio.ttl",
+        "alice/bio/_history001/_s0001/ttl/alice-bio.ttl",
       ),
     ),
     await readMeshAliceBioBranchFile(
       "10-alice-bio-updated",
-      "alice/bio/_history001/_s0001/alice-bio-ttl/alice-bio.ttl",
+      "alice/bio/_history001/_s0001/ttl/alice-bio.ttl",
     ),
   );
   assertEquals(

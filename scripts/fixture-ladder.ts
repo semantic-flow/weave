@@ -25,8 +25,12 @@ import {
   readManifestSource,
 } from "../dependencies/github.com/spectacular-voyage/accord/src/manifest/load_jsonld.ts";
 import type {
+  CommandInvocation,
   FileExpectation,
+  InputMaterialization,
   RdfExpectation,
+  ReplayProfile,
+  SourceProvenance,
   SparqlAskAssertion,
   TransitionCase,
 } from "../dependencies/github.com/spectacular-voyage/accord/src/manifest/model.ts";
@@ -350,130 +354,72 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
         },
       ],
     }),
-    commandTransition(2, "02-mesh-created", "01-source-only", "mesh.create", [
-      "mesh",
-      "create",
-      "--workspace",
-      ".",
-      "--mesh-base",
-      "https://semantic-flow.github.io/mesh-alice-bio/",
-    ]),
+    commandTransition(2, "02-mesh-created", "01-source-only", "mesh.create"),
     commandTransition(
       3,
       "03-mesh-created-woven",
       "02-mesh-created",
       "weave",
-      [],
     ),
     commandTransition(
       4,
       "04-alice-knop-created",
       "03-mesh-created-woven",
       "knop.create",
-      [
-        "knop",
-        "create",
-        "alice",
-      ],
     ),
     commandTransition(
       5,
       "05-alice-knop-created-woven",
       "04-alice-knop-created",
       "weave",
-      [],
     ),
     commandTransition(
       6,
       "06-alice-bio-integrated",
       "05-alice-knop-created-woven",
       "integrate",
-      [
-        "integrate",
-        "alice-bio.ttl",
-        "--designator-path",
-        "alice/bio",
-      ],
     ),
     commandTransition(
       7,
       "07-alice-bio-integrated-woven",
       "06-alice-bio-integrated",
       "weave",
-      [],
     ),
     commandTransition(
       8,
       "08-alice-bio-referenced",
       "07-alice-bio-integrated-woven",
       "knop.addReference",
-      [
-        "knop",
-        "add-reference",
-        "alice",
-        "--reference-target-designator-path",
-        "alice/bio",
-        "--reference-role",
-        "Canonical",
-      ],
     ),
     commandTransition(
       9,
       "09-alice-bio-referenced-woven",
       "08-alice-bio-referenced",
       "weave",
-      [],
     ),
     commandTransition(
       10,
       "10-alice-bio-updated",
       "09-alice-bio-referenced-woven",
       "payload.update",
-      [
-        "payload",
-        "update",
-        "alice-bio-v2.ttl",
-        "alice/bio",
-      ],
-      {
-        inputs: [
-          {
-            path: "alice-bio-v2.ttl",
-            provenance:
-              "fixture-authored Alice Bio v2 RDF copied from the Alice Bio main branch source bytes",
-          },
-        ],
-      },
     ),
     commandTransition(
       11,
       "11-alice-bio-v2-woven",
       "10-alice-bio-updated",
       "weave",
-      [
-        "--target",
-        "designatorPath=alice/bio",
-      ],
     ),
     commandTransition(
       12,
       "12-bob-extracted",
       "11-alice-bio-v2-woven",
       "extract",
-      [
-        "extract",
-        "bob",
-      ],
     ),
     commandTransition(
       13,
       "13-bob-extracted-woven",
       "12-bob-extracted",
       "weave",
-      [
-        "--target",
-        "designatorPath=bob",
-      ],
     ),
     fileTransition(14, "14-alice-page-customized", "13-bob-extracted-woven", {
       description:
@@ -515,41 +461,18 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
       "15-alice-page-customized-woven",
       "14-alice-page-customized",
       "weave",
-      [
-        "--target",
-        "designatorPath=alice",
-      ],
     ),
     commandTransition(
       16,
       "16-alice-page-main-integrated",
       "15-alice-page-customized-woven",
       "integrate",
-      [
-        "integrate",
-        "alice-page-main.md",
-        "--designator-path",
-        "alice/page-main",
-      ],
-      {
-        inputs: [
-          {
-            path: "alice-page-main.md",
-            provenance:
-              "fixture-authored Alice page-main Markdown copied from the Alice Bio main branch source bytes",
-          },
-        ],
-      },
     ),
     commandTransition(
       17,
       "17-alice-page-main-integrated-woven",
       "16-alice-page-main-integrated",
       "weave",
-      [
-        "--target",
-        "designatorPath=alice/page-main",
-      ],
     ),
     fileTransition(
       18,
@@ -573,10 +496,6 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
       "19-alice-page-artifact-source-woven",
       "18-alice-page-artifact-source",
       "weave",
-      [
-        "--target",
-        "designatorPath=alice",
-      ],
     ),
     fileTransition(
       20,
@@ -613,31 +532,18 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
       "21-bob-page-imported-source-woven",
       "20-bob-page-imported-source",
       "weave",
-      [
-        "--target",
-        "designatorPath=bob",
-      ],
     ),
     commandTransition(
       22,
       "22-root-knop-created",
       "21-bob-page-imported-source-woven",
       "knop.create",
-      [
-        "knop",
-        "create",
-        "/",
-      ],
     ),
     commandTransition(
       23,
       "23-root-knop-created-woven",
       "22-root-knop-created",
       "weave",
-      [
-        "--target",
-        "designatorPath=/",
-      ],
     ),
     fileTransition(
       24,
@@ -685,10 +591,6 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
       "25-root-page-customized-woven",
       "24-root-page-customized",
       "weave",
-      [
-        "--target",
-        "designatorPath=/",
-      ],
     ),
   ],
 };
@@ -728,7 +630,7 @@ if (import.meta.main) {
           : renderFixtureMaterializationResult(result),
       );
     } else {
-      const plan = planFixtureLadder(options);
+      const plan = await planFixtureLadder(options);
       console.log(
         options.format === "json"
           ? JSON.stringify(plan, null, 2)
@@ -871,9 +773,9 @@ export function parseFixtureLadderArgs(
   };
 }
 
-export function planFixtureLadder(
+export async function planFixtureLadder(
   options: FixtureLadderOptions,
-): FixtureLadderPlan {
+): Promise<FixtureLadderPlan> {
   const scenario = resolveFixtureScenario(options.scenario);
   const root = resolve(options.root);
   const manifestRoot = join(root, scenario.manifestRootRelativePath);
@@ -883,16 +785,22 @@ export function planFixtureLadder(
       join(scenario.fixtureRepoRelativePath, FIXTURE_ASSET_ROOT_BASENAME),
   );
 
+  const transitions = await Promise.all(
+    scenario.transitions.map((transition) =>
+      hydrateFixtureTransitionPlan({
+        transition,
+        manifestPath: join(manifestRoot, transition.manifestName),
+      })
+    ),
+  );
+
   return {
     scenario,
     root,
     fixtureRepoPath: join(root, scenario.fixtureRepoRelativePath),
     manifestRoot,
     assetRoot,
-    transitions: scenario.transitions.map((transition) => ({
-      ...transition,
-      manifestPath: join(manifestRoot, transition.manifestName),
-    })),
+    transitions,
     writesBranches: false,
   };
 }
@@ -967,7 +875,7 @@ export function renderFixtureLadderPlan(plan: FixtureLadderPlan): string {
 export async function materializeFixtureTransitionSource(
   options: MaterializeFixtureTransitionOptions,
 ): Promise<FixtureMaterializationResult> {
-  const plan = planFixtureLadder({
+  const plan = await planFixtureLadder({
     root: options.root,
     scenario: options.scenario,
     format: "text",
@@ -1012,7 +920,7 @@ export async function materializeFixtureTransitionSource(
 export async function executeFixtureTransition(
   options: ExecuteFixtureTransitionOptions,
 ): Promise<FixtureExecutionResult> {
-  const plan = planFixtureLadder({
+  const plan = await planFixtureLadder({
     root: options.root,
     scenario: options.scenario,
     format: "text",
@@ -1200,14 +1108,188 @@ function findFixtureTransitionPlan(
   return transition;
 }
 
+async function hydrateFixtureTransitionPlan(options: {
+  transition: FixtureTransitionDefinition;
+  manifestPath: string;
+}): Promise<FixtureTransitionPlan> {
+  const base = {
+    ...options.transition,
+    manifestPath: options.manifestPath,
+  };
+
+  if (options.transition.action.kind !== "command") {
+    return base;
+  }
+
+  if (!await pathExists(options.manifestPath)) {
+    return base;
+  }
+
+  const manifest = await readManifestSource(options.manifestPath);
+  const transitionCase = selectTransitionCase(manifest.document);
+  return {
+    ...base,
+    operationId: transitionCase.operationId ?? options.transition.operationId,
+    action: hydrateCommandActionFromReplayProfile({
+      transitionId: options.transition.id,
+      manifestPath: options.manifestPath,
+      replayProfile: transitionCase.hasReplayProfile,
+    }),
+  };
+}
+
+function hydrateCommandActionFromReplayProfile(options: {
+  transitionId: string;
+  manifestPath: string;
+  replayProfile?: ReplayProfile;
+}): FixtureCommandAction {
+  const replayProfile = options.replayProfile;
+  if (replayProfile === undefined) {
+    throw new Error(
+      `Manifest ${options.manifestPath} is missing hasReplayProfile for command transition ${options.transitionId}`,
+    );
+  }
+
+  const invocation = replayProfile.hasCommandInvocation;
+  if (invocation === undefined) {
+    throw new Error(
+      `Manifest ${options.manifestPath} is missing hasReplayProfile.hasCommandInvocation for command transition ${options.transitionId}`,
+    );
+  }
+
+  validateReplayProfile(options.transitionId, replayProfile);
+  validateCommandInvocation(options.transitionId, invocation);
+
+  return {
+    kind: "command",
+    executable: "weave",
+    argv: invocation.argv ?? [],
+    inputs: resolveReplayInputMaterializations(
+      options.transitionId,
+      replayProfile?.hasInputMaterialization ?? [],
+    ),
+    cwd: "workspace",
+    promptPolicy: "nonInteractive",
+    expectedRuntimeLogs: invocation.expectsOperationalLogs === true ||
+      invocation.expectsAuditLogs === true,
+  };
+}
+
+function validateReplayProfile(
+  transitionId: string,
+  replayProfile: ReplayProfile,
+): void {
+  if (
+    replayProfile.workspaceRoot !== undefined &&
+    replayProfile.workspaceRoot !== "."
+  ) {
+    throw new Error(
+      `Unsupported replay workspaceRoot for ${transitionId}: ${replayProfile.workspaceRoot}`,
+    );
+  }
+
+  if (replayProfile.meshRoot !== undefined && replayProfile.meshRoot !== ".") {
+    throw new Error(
+      `Unsupported replay meshRoot for ${transitionId}: ${replayProfile.meshRoot}`,
+    );
+  }
+}
+
+function validateCommandInvocation(
+  transitionId: string,
+  invocation: CommandInvocation,
+): void {
+  if (invocation.executable !== "weave") {
+    throw new Error(
+      `Unsupported replay executable for ${transitionId}: ${invocation.executable}`,
+    );
+  }
+
+  if (
+    invocation.workingDirectory !== undefined &&
+    invocation.workingDirectory !== "workspace"
+  ) {
+    throw new Error(
+      `Unsupported replay workingDirectory for ${transitionId}: ${invocation.workingDirectory}`,
+    );
+  }
+
+  if (
+    invocation.promptPolicy !== undefined &&
+    invocation.promptPolicy !== "nonInteractive"
+  ) {
+    throw new Error(
+      `Unsupported replay promptPolicy for ${transitionId}: ${invocation.promptPolicy}`,
+    );
+  }
+
+  if (
+    invocation.expectedExitCode !== undefined &&
+    invocation.expectedExitCode !== 0
+  ) {
+    throw new Error(
+      `Unsupported replay expectedExitCode for ${transitionId}: ${invocation.expectedExitCode}`,
+    );
+  }
+
+  if ((invocation.hasEnvironmentOverride ?? []).length > 0) {
+    throw new Error(
+      `Unsupported replay environment overrides for ${transitionId}`,
+    );
+  }
+}
+
+function resolveReplayInputMaterializations(
+  transitionId: string,
+  materializations: readonly InputMaterialization[],
+): FixtureFileOperationSource[] {
+  return materializations.map((materialization) => {
+    if (materialization.targetPath === undefined) {
+      throw new Error(
+        `Replay input materialization for ${transitionId} is missing targetPath`,
+      );
+    }
+
+    const targetPath = normalizeGitTreePath(materialization.targetPath);
+    const provenance = materialization.hasSourceProvenance;
+    const assetPath = provenance?.sourcePath === undefined
+      ? pathPosix.join(transitionId, targetPath)
+      : normalizeGitTreePath(provenance.sourcePath);
+
+    return {
+      path: targetPath,
+      assetPath,
+      provenance: describeSourceProvenance(provenance),
+    };
+  });
+}
+
+function describeSourceProvenance(provenance?: SourceProvenance): string {
+  return provenance?.derivationNote ??
+    provenance?.sourceUrl ??
+    provenance?.sourceRef ??
+    provenance?.sourceKind ??
+    "manifest-declared fixture input";
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await Deno.stat(path);
+    return true;
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return false;
+    }
+    throw error;
+  }
+}
+
 function commandTransition(
   index: number,
   id: string,
   fromRef: string,
   operationId: string,
-  argv: readonly string[],
   options: {
-    inputs?: readonly FixtureFileOperationSourceInput[];
     branchPrefix?: string;
   } = {},
 ): FixtureTransitionDefinition {
@@ -1222,8 +1304,8 @@ function commandTransition(
     action: {
       kind: "command",
       executable: "weave",
-      argv,
-      inputs: resolveFixtureAssetSources(id, options.inputs ?? []),
+      argv: [],
+      inputs: [],
       cwd: "workspace",
       promptPolicy: "nonInteractive",
       expectedRuntimeLogs: true,
@@ -1661,9 +1743,15 @@ async function writeWorkspaceTreeToFixtureRepo(options: {
   const indexFile = await Deno.makeTempFile({
     prefix: "weave-fixture-index-",
   });
+  const excludesFile = await Deno.makeTempFile({
+    prefix: "weave-fixture-excludes-",
+  });
+  await Deno.writeTextFile(excludesFile, ".git/\n.weave/\n");
   const gitDir = join(options.fixtureRepoPath, ".git");
   const env = { GIT_INDEX_FILE: indexFile };
   const gitArgs = [
+    "-c",
+    `core.excludesFile=${excludesFile}`,
     "--git-dir",
     gitDir,
     "--work-tree",
@@ -1682,8 +1770,6 @@ async function writeWorkspaceTreeToFixtureRepo(options: {
       "-A",
       "--",
       ".",
-      ":(exclude).git",
-      ":(exclude).weave",
     ], env);
     const result = await runGit(options.fixtureRepoPath, [
       ...gitArgs,
@@ -1697,6 +1783,7 @@ async function writeWorkspaceTreeToFixtureRepo(options: {
     return result.stdout.trim();
   } finally {
     await Deno.remove(indexFile).catch(() => {});
+    await Deno.remove(excludesFile).catch(() => {});
   }
 }
 
@@ -2107,15 +2194,24 @@ async function evaluateInventoryOwnedProgressionGuardrail(
     });
   }
 
-  const passed = findStaleInventoryProgressionBlock(inventory) === undefined;
+  const hasInventoryOwnedProgression =
+    findStaleInventoryProgressionBlock(inventory) !== undefined;
+  const metadata = await readWorkspaceTextFileIfExists(
+    workspaceRoot,
+    "_mesh/_meta/meta.ttl",
+  );
+  const passed = !hasInventoryOwnedProgression ||
+    hasMeshInventoryMetadataProgressionAnchor(metadata);
 
   return guardrailRecord({
     assertionId: "generated-output.guardrail.inventoryOwnedProgression",
     passed,
     path: "_mesh/_inventory/inventory.ttl",
-    message: passed
+    message: !hasInventoryOwnedProgression
       ? "MeshInventory progression facts are not owned by _mesh/_inventory/inventory.ttl."
-      : "Stale MeshInventory progression facts found in _mesh/_inventory/inventory.ttl; they belong in _mesh/_meta/meta.ttl.",
+      : passed
+      ? "MeshInventory progression facts are anchored in _mesh/_meta/meta.ttl."
+      : "Stale MeshInventory progression facts found in _mesh/_inventory/inventory.ttl without a matching _mesh/_meta/meta.ttl anchor.",
   });
 }
 
@@ -2168,11 +2264,7 @@ async function evaluateMeshInventoryMetadataProgressionGuardrail(
     workspaceRoot,
     "_mesh/_meta/meta.ttl",
   );
-  const passed = metadata !== undefined &&
-    metadata.includes(
-      "sflo:currentArtifactHistory <_mesh/_inventory/_history",
-    ) &&
-    metadata.includes("sflo:latestHistoricalState <_mesh/_inventory/_history");
+  const passed = hasMeshInventoryMetadataProgressionAnchor(metadata);
 
   return guardrailRecord({
     assertionId: "generated-output.guardrail.meshInventoryMetadataProgression",
@@ -2182,6 +2274,16 @@ async function evaluateMeshInventoryMetadataProgressionGuardrail(
       ? "MeshInventory progression facts are anchored in _mesh/_meta/meta.ttl."
       : "MeshInventory history output exists, but _mesh/_meta/meta.ttl does not anchor current/latest MeshInventory progression.",
   });
+}
+
+function hasMeshInventoryMetadataProgressionAnchor(
+  metadata: string | undefined,
+): boolean {
+  return metadata !== undefined &&
+    metadata.includes(
+      "sflo:currentArtifactHistory <_mesh/_inventory/_history",
+    ) &&
+    metadata.includes("sflo:latestHistoricalState <_mesh/_inventory/_history");
 }
 
 function guardrailRecord(options: {
