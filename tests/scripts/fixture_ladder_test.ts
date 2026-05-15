@@ -530,7 +530,7 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
   );
   assertEquals(plan.scenario.branchPrefix, "a.");
   assertStringIncludes(plan.assetRoot, "mesh-branch-fantasy-rules/.assets");
-  assertEquals(plan.transitions.length, 4);
+  assertEquals(plan.transitions.length, 6);
   assertEquals(plan.transitions[0]?.id, "01-source-only");
   assertEquals(plan.transitions[0]?.fromRef, "a.00-blank-slate");
   assertEquals(plan.transitions[0]?.toRef, "a.01-source-only");
@@ -644,6 +644,79 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
       "{sourceRef}",
       "--source-commit",
       "{sourceCommit}",
+    ]);
+  }
+  assertEquals(
+    plan.transitions[4]?.id,
+    "05-ontology-and-shacl-terms-extracted",
+  );
+  assertEquals(plan.transitions[4]?.fromRef, "a.04-shacl-integrated-woven");
+  assertEquals(
+    plan.transitions[4]?.toRef,
+    "a.05-ontology-and-shacl-terms-extracted",
+  );
+  assertEquals(plan.transitions[4]?.operationId, "extract");
+  assertEquals(plan.transitions[4]?.action.kind, "branchPublication");
+  if (plan.transitions[4]?.action.kind === "branchPublication") {
+    assertEquals(plan.transitions[4].action.sourceRef, "a.01-source-only");
+    assertEquals(
+      plan.transitions[4].action.publicationFromRef,
+      "a.04-shacl-integrated-woven",
+    );
+    assertEquals(plan.transitions[4].action.publicationBranch, "gh-pages");
+    assertEquals(plan.transitions[4].action.invocations.length, 5);
+    assertEquals(plan.transitions[4].action.invocations[0]?.argv, [
+      "extract",
+      "ontology/AbilityScore",
+      "--mesh-root",
+      "{publicationRoot}",
+      "--source",
+      "ontology",
+    ]);
+    assertEquals(plan.transitions[4].action.invocations[4]?.argv, [
+      "extract",
+      "ontology/CharacterShape",
+      "--mesh-root",
+      "{publicationRoot}",
+      "--source",
+      "shacl",
+    ]);
+  }
+  assertEquals(
+    plan.transitions[5]?.id,
+    "06-ontology-and-shacl-terms-extracted-woven",
+  );
+  assertEquals(
+    plan.transitions[5]?.fromRef,
+    "a.05-ontology-and-shacl-terms-extracted",
+  );
+  assertEquals(
+    plan.transitions[5]?.toRef,
+    "a.06-ontology-and-shacl-terms-extracted-woven",
+  );
+  assertEquals(plan.transitions[5]?.operationId, "weave");
+  assertEquals(plan.transitions[5]?.action.kind, "branchPublication");
+  if (plan.transitions[5]?.action.kind === "branchPublication") {
+    assertEquals(plan.transitions[5].action.sourceRef, "a.01-source-only");
+    assertEquals(
+      plan.transitions[5].action.publicationFromRef,
+      "a.05-ontology-and-shacl-terms-extracted",
+    );
+    assertEquals(plan.transitions[5].action.publicationBranch, "gh-pages");
+    assertEquals(plan.transitions[5].action.invocations.length, 1);
+    assertEquals(plan.transitions[5].action.invocations[0]?.argv, [
+      "--mesh-root",
+      "{publicationRoot}",
+      "--target",
+      "designatorPath=ontology/AbilityScore",
+      "--target",
+      "designatorPath=ontology/Alignment",
+      "--target",
+      "designatorPath=ontology/Character",
+      "--target",
+      "designatorPath=ontology/PlayerCharacter",
+      "--target",
+      "designatorPath=ontology/CharacterShape",
     ]);
   }
 

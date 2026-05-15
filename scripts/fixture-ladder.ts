@@ -986,6 +986,30 @@ export const BRANCH_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
         publicationBranch: "gh-pages",
       },
     ),
+    branchPublicationTransition(
+      5,
+      "05-ontology-and-shacl-terms-extracted",
+      "01-source-only",
+      {
+        description:
+          "Extract selected ontology and SHACL terms in the branch-published GitHub Pages root without weaving their pages yet.",
+        publicationFromRef: "04-shacl-integrated-woven",
+        publicationBranch: "gh-pages",
+      },
+      "extract",
+    ),
+    branchPublicationTransition(
+      6,
+      "06-ontology-and-shacl-terms-extracted-woven",
+      "01-source-only",
+      {
+        description:
+          "Weave selected extracted ontology and SHACL term ResourcePages in the branch-published GitHub Pages root.",
+        publicationFromRef: "05-ontology-and-shacl-terms-extracted",
+        publicationBranch: "gh-pages",
+      },
+      "weave",
+    ),
   ],
 };
 

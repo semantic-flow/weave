@@ -24,7 +24,7 @@ This fixture should be similar enough to Sidecar Fantasy Rules to reuse the onto
 
 The first implementation can remain concrete and fixture-oriented. The important thing is to model source state and publication state separately. A single sidecar branch can represent both authored source and generated mesh output; a branch-published rung is more honestly a tuple of source ref plus publication ref.
 
-The first source-lane slice is in place: `a.00-blank-slate` points at the control state with README/control files plus deterministic `.assets`, `a.01-source-only` is generated from the fixture ladder tool, and `mesh-branch-fantasy-rules:main` has been fast-forwarded to that clean source-only state. The first publication-lane slice is also in place: `a.02-publication-bootstrapped-woven` is generated from `a.01-source-only`, validates against the branch-published Accord manifest, and `gh-pages` has been fast-forwarded to the same publication commit. Repository source materialization is now covered through `a.04-shacl-integrated-woven`: `a.03` materializes/integrates/weaves the ontology source, `a.04` does the same for SHACL, and both publication checkpoints record source ref, resolved source commit, repository-relative path, digest, and public target artifact IRIs in per-Knop `_sources` registries.
+The first source-lane slice is in place: `a.00-blank-slate` points at the control state with README/control files plus deterministic `.assets`, `a.01-source-only` is generated from the fixture ladder tool, and `mesh-branch-fantasy-rules:main` has been fast-forwarded to that clean source-only state. The first publication-lane slice is also in place: `a.02-publication-bootstrapped-woven` is generated from `a.01-source-only`, validates against the branch-published Accord manifest, and `gh-pages` has been fast-forwarded to the same publication commit. Repository source materialization is now covered through `a.04-shacl-integrated-woven`: `a.03` materializes/integrates/weaves the ontology source, `a.04` does the same for SHACL, and both publication checkpoints record source ref, resolved source commit, repository-relative path, digest, and public target artifact IRIs in per-Knop `_sources` registries. Selected term extraction/weaving is now covered through `a.06-ontology-and-shacl-terms-extracted-woven`: `a.05` extracts selected ontology and SHACL terms directly in the publication root, and `a.06` weaves those term Knops while pinning their extraction sources to the observed ontology/SHACL states.
 
 ## Discussion
 
@@ -172,7 +172,7 @@ The source branch and publication branch should agree on public identifiers. The
 - [x] Extend `scripts/fixture-ladder.ts` with branch-published publication-lane execution that can plan separate source and publication materialization roots.
 - [x] Regenerate the first publication bootstrap rung and validate no source checkout files were written.
 - [x] Regenerate ontology and SHACL materialization/integration/weave rungs using branch-published Knop source registry metadata.
-- [ ] Add extraction/weave rungs for selected ontology and SHACL terms.
+- [x] Add extraction/weave rungs for selected ontology and SHACL terms.
 - [ ] Add root/examples/Gunaar dataset rungs.
 - [ ] Add first-release source update and named-release weave rungs.
 - [ ] Add final all-remaining-terms extraction and broad weave rungs.
