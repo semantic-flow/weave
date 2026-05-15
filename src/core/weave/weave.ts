@@ -788,6 +788,19 @@ export function detectPendingWeaveSlice(
     return "secondPayloadWeave";
   }
 
+  if (
+    !knopInventoryHasHistory &&
+    hasNamedNodeFact(
+      quads,
+      meshBase,
+      knopPath,
+      SFLO_HAS_RESOURCE_PAGE_IRI,
+      `${knopPath}/index.html`,
+    )
+  ) {
+    return undefined;
+  }
+
   if (!knopInventoryHasHistory) {
     return "firstKnopWeave";
   }

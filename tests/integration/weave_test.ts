@@ -6,6 +6,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { join } from "@std/path";
+import { Parser, type Quad, type Term } from "n3";
 import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import { WeaveInputError } from "../../src/core/weave/weave.ts";
 import { executeKnopCreate } from "../../src/runtime/knop/create.ts";
@@ -43,6 +44,34 @@ function replaceFixturePaths(
   );
 }
 
+function meshScopedSourceTermPathsFromQuads(quads: readonly Quad[]): string[] {
+  const paths = new Set<string>();
+  for (const quad of quads) {
+    for (const term of [quad.subject, quad.predicate, quad.object]) {
+      const path = meshScopedSourceTermPath(term);
+      if (path !== undefined) {
+        paths.add(path);
+      }
+    }
+  }
+  return [...paths].sort();
+}
+
+function meshScopedSourceTermPath(term: Term): string | undefined {
+  if (
+    term.termType !== "NamedNode" ||
+    !term.value.startsWith(sidecarFantasyRulesBase)
+  ) {
+    return undefined;
+  }
+
+  const path = term.value.slice(sidecarFantasyRulesBase.length);
+  if (path.length === 0 || path.endsWith(".ttl")) {
+    return undefined;
+  }
+  return path;
+}
+
 const firstAliceBioDefaultManifestation: readonly (readonly [
   string,
   string,
@@ -66,6 +95,15 @@ const aliceReferenceDefaultManifestation: readonly (readonly [
   "alice/_knop/_references/_history001/_s0001/ttl",
   "alice/_knop/_references/_history001/_s0001/ttl",
 ]];
+
+const sidecarFantasyRulesBase =
+  "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/";
+
+const sidecarFantasyRulesSourcePaths = [
+  "ontology/fantasy-rules-ontology.ttl",
+  "shacl/fantasy-rules-shacl.ttl",
+  "examples/gunaar.ttl",
+] as const;
 
 async function executeWeave(options: ExecuteWeaveOptions) {
   if (
@@ -1534,6 +1572,46 @@ Deno.test("executeWeave materializes sidecar extracted ontology and SHACL terms"
   assertFalse(characterShapePage.includes("Pinned source file"));
   assertFalse(characterShapePage.includes("Semantic Flow metadata"));
   assertStringIncludes(characterShapePage, "CharacterShape");
+});
+
+Deno.test("sidecar final ladder branch has ResourcePages for every source term IRI", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-sidecar-all-terms-pages-",
+  );
+  await materializeMeshSidecarFantasyRulesBranch(
+    "17-all-remaining-terms-woven",
+    workspaceRoot,
+  );
+
+  const termPaths = new Set<string>();
+  for (const sourcePath of sidecarFantasyRulesSourcePaths) {
+    const turtle = await Deno.readTextFile(join(workspaceRoot, sourcePath));
+    for (
+      const path of meshScopedSourceTermPathsFromQuads(
+        new Parser({ baseIRI: sidecarFantasyRulesBase }).parse(turtle),
+      )
+    ) {
+      termPaths.add(path);
+    }
+  }
+
+  const sortedTermPaths = [...termPaths].sort();
+  assertEquals(sortedTermPaths.length, 71);
+
+  const missingPages: string[] = [];
+  for (const termPath of sortedTermPaths) {
+    try {
+      await Deno.stat(join(workspaceRoot, "docs", termPath, "index.html"));
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) {
+        missingPages.push(termPath);
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  assertEquals(missingPages, []);
 });
 
 Deno.test("executeWeave fails closed when bob's woven source payload has no current history", async () => {

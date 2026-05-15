@@ -140,7 +140,7 @@ Alice Bio currently has manifests for `01-source-only` through `25-root-page-cus
 - `24-root-page-customized`: `resourcePage.define /`; currently a hand-authored fixture operation.
 - `25-root-page-customized-woven`: top-level `weave` targeted at `/`.
 
-Sidecar Fantasy Rules currently has manifests for `01-source-only` through `15-first-release-woven`. `01-source-only` is now the source-seeding transition from the `a.00-blank-slate` control branch into the authored ontology, SHACL, example data, and attribution files:
+Sidecar Fantasy Rules currently has manifests for `01-source-only` through `17-all-remaining-terms-woven`. `01-source-only` is now the source-seeding transition from the `a.00-blank-slate` control branch into the authored ontology, SHACL, example data, and attribution files:
 
 - `01-source-only`: fixture file operation that seeds `NOTICE.md`, `ontology/fantasy-rules-ontology.ttl`, `shacl/fantasy-rules-shacl.ttl`, and `examples/gunaar.ttl` from deterministic `.assets` bytes in the fixture repo.
 - `02-sidecar-mesh-created`: `mesh.create` with workspace root `.` and mesh root `docs`.
@@ -156,7 +156,9 @@ Sidecar Fantasy Rules currently has manifests for `01-source-only` through `15-f
 - `12-gunaar-example-dataset`: `integrate examples/gunaar.ttl examples/gunaar --mesh-root docs --grant-source-directory examples`.
 - `13-gunaar-example-dataset-woven`: top-level `weave --mesh-root docs --target designatorPath=examples/gunaar`.
 - `14-first-release`: `source.update`; currently a hand-authored fixture operation that prepares release metadata in authored ontology and SHACL source files.
-- `15-first-release-woven`: two explicit named-release top-level `weave --mesh-root docs` operations, one for `ontology` and one for `shacl`, using `--payload-history-segment releases`, `--payload-state-segment v0.0.1`, and `--payload-manifestation-segment ttl`.
+- `15-first-release-woven`: two explicit named-release top-level `weave --mesh-root docs` operations, one for `ontology` and one for `shacl`, using `--payload-history-segment releases`, `--payload-state-segment v0.0.2`, and `--payload-manifestation-segment ttl`.
+- `16-all-remaining-terms-extracted`: three `extract --all-terms --accept-preview --mesh-root docs` operations sourced from `ontology`, `shacl`, and `examples/gunaar`, adding Knop-managed surfaces for the remaining mesh-scoped ontology, SHACL, and example term IRIs.
+- `17-all-remaining-terms-woven`: broad `weave --mesh-root docs`, relying on weave candidate detection to skip already-settled current-only support Knops while versioning the newly extracted terms and refreshing ResourcePages.
 
 Existing e2e tests provide partial command templates for several transitions, and the CLI runtime writes command audit events under `.weave/logs/security-audit.jsonl`. Those logs are useful runtime evidence, but they are not the durable replay contract. The scenario definition should record the intended command before execution, and tests can still assert that the command emits operational/audit logs while replaying.
 
@@ -216,6 +218,7 @@ The first scenario-definition format should therefore support both `command` ste
 - Extraction provenance should resolve as deeply as the source evidence allows: source artifact first, then history/state when present, then manifestation, located file, and digest. If a source artifact cannot provide history/state evidence, provenance should still record concrete observed bytes through located-file/digest evidence, with timestamp fallback reserved for cases where byte evidence cannot be made durable.
 - Use `sflo:hasObservedSourceLocatedFile` only for source evidence that is modeled as a mesh `LocatedFile` resource. Use the datatype property `sflo:observedSourceLocalRelativePath` for local checkout paths, especially sidecar source paths outside the mesh root, and pair it with `sflo:observedSourceDigest` when bytes are observed.
 - Accord `ReplayProfile` may declare `hasCommandSequence` for one transition that is replayed by several ordered Weave invocations. The fixture generator should execute those invocations in order and treat the sequence as one rung operation.
+- Current-only support artifacts can be settled without versioned support histories. Broad weave candidate detection should not reinterpret a current-only KnopInventory with existing ResourcePage facts as a new first-weave candidate, while still allowing payload versioning and explicit history-naming requests through the existing target API.
 
 ## Contract Changes
 
@@ -282,6 +285,8 @@ The first scenario-definition format should therefore support both `command` ste
 - [x] Keep Sidecar Fantasy Rules support artifacts slim/current-only during root Knop creation, extracted-term weaving, and release-history weaving; do not expect generated `_knop/_inventory` support history snapshots for those sidecar rungs.
 - [x] Add temporary `a.` prefix resolution to the Sidecar Fantasy Rules fixture test helper, matching Alice Bio until a scenario master manifest owns the prefix.
 - [x] Confirm Alice Bio's current-mode extraction provenance is not the sidecar local-path mistake: `alice-bio.ttl` is modeled as an in-mesh `LocatedFile`, while sidecar source files outside `docs/` use `sflo:observedSourceLocalRelativePath` plus `sflo:observedSourceDigest`.
+- [x] Add Sidecar Fantasy Rules `16-all-remaining-terms-extracted` and `17-all-remaining-terms-woven`, regenerate and push both `a.` refs, and cover the final branch with an integration test that every mesh-scoped non-file source IRI has a ResourcePage.
+- [x] Fix broad weave candidate detection so settled current-only support Knops with existing ResourcePages are skipped instead of being retried as first-weave candidates.
 - [ ] Add branch-published Fantasy Rules fixture coverage in a separate repository after the sidecar ladder is replayable and green.
 - [ ] Update Accord manifests, fixture-backed Weave tests, and conformance expectations after generated branches are rerung for the combined enum/config changes.
 - [ ] Record the expected workflow for large ontology/config churn: update manifests, run generator, inspect generated branch diffs, run fixture tests, commit/push branch updates intentionally.

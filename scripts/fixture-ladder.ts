@@ -813,6 +813,24 @@ export const SIDECAR_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
         branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
       },
     ),
+    commandTransition(
+      16,
+      "16-all-remaining-terms-extracted",
+      "15-first-release-woven",
+      "extract",
+      {
+        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+      },
+    ),
+    commandTransition(
+      17,
+      "17-all-remaining-terms-woven",
+      "16-all-remaining-terms-extracted",
+      "weave",
+      {
+        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+      },
+    ),
   ],
 };
 

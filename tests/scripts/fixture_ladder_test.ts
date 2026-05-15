@@ -213,7 +213,7 @@ Deno.test("planFixtureLadder exposes the Sidecar Fantasy Rules transition sequen
   );
   assertEquals(plan.scenario.branchPrefix, "a.");
   assertStringIncludes(plan.assetRoot, "mesh-sidecar-fantasy-rules/.assets");
-  assertEquals(plan.transitions.length, 15);
+  assertEquals(plan.transitions.length, 17);
   assertEquals(plan.transitions[0]?.id, "01-source-only");
   assertEquals(plan.transitions[0]?.fromRef, "a.00-blank-slate");
   assertEquals(plan.transitions[0]?.toRef, "a.01-source-only");
@@ -437,6 +437,51 @@ Deno.test("planFixtureLadder exposes the Sidecar Fantasy Rules transition sequen
       "designatorPath=ontology",
       "--target",
       "designatorPath=shacl",
+    ]);
+  }
+
+  assertEquals(plan.transitions[15]?.id, "16-all-remaining-terms-extracted");
+  assertEquals(plan.transitions[15]?.fromRef, "a.15-first-release-woven");
+  assertEquals(
+    plan.transitions[15]?.toRef,
+    "a.16-all-remaining-terms-extracted",
+  );
+  assertEquals(plan.transitions[15]?.operationId, "extract");
+  assertEquals(plan.transitions[15]?.action.kind, "command");
+  if (plan.transitions[15]?.action.kind === "command") {
+    assertEquals(plan.transitions[15].action.invocations?.length, 3);
+    assertEquals(plan.transitions[15].action.argv, [
+      "extract",
+      "--all-terms",
+      "--accept-preview",
+      "--source",
+      "ontology",
+      "--mesh-root",
+      "docs",
+    ]);
+    assertEquals(plan.transitions[15].action.invocations?.[2]?.argv, [
+      "extract",
+      "--all-terms",
+      "--accept-preview",
+      "--source",
+      "examples/gunaar",
+      "--mesh-root",
+      "docs",
+    ]);
+  }
+
+  assertEquals(plan.transitions[16]?.id, "17-all-remaining-terms-woven");
+  assertEquals(
+    plan.transitions[16]?.fromRef,
+    "a.16-all-remaining-terms-extracted",
+  );
+  assertEquals(plan.transitions[16]?.toRef, "a.17-all-remaining-terms-woven");
+  assertEquals(plan.transitions[16]?.operationId, "weave");
+  assertEquals(plan.transitions[16]?.action.kind, "command");
+  if (plan.transitions[16]?.action.kind === "command") {
+    assertEquals(plan.transitions[16].action.argv, [
+      "--mesh-root",
+      "docs",
     ]);
   }
 

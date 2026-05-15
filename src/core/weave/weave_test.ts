@@ -2062,6 +2062,54 @@ Deno.test("detectPendingWeaveSlice supports custom payload history and state nam
   );
 });
 
+Deno.test("detectPendingWeaveSlice ignores current-only settled Knops with ResourcePages", () => {
+  const currentOnlySettledKnopInventoryTurtle =
+    `@base <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<ontology/_knop> a sflo:Knop ;
+  sflo:hasKnopMetadata <ontology/_knop/_meta> ;
+  sflo:hasKnopInventory <ontology/_knop/_inventory> ;
+  sflo:hasWorkingKnopInventoryFile <ontology/_knop/_inventory/inventory.ttl> ;
+  sflo:hasPayloadArtifact <ontology> ;
+  sflo:hasResourcePage <ontology/_knop/index.html> .
+
+<ontology> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasArtifactHistory <ontology/releases> ;
+  sflo:currentArtifactHistory <ontology/releases> ;
+  sflo:workingLocalRelativePath "../ontology/fantasy-rules-ontology.ttl" ;
+  sflo:hasResourcePage <ontology/index.html> .
+
+<ontology/releases> a sflo:ArtifactHistory ;
+  sflo:latestHistoricalState <ontology/releases/v0.0.2> ;
+  sflo:nextStateOrdinal "1"^^xsd:nonNegativeInteger ;
+  sflo:hasResourcePage <ontology/releases/index.html> .
+
+<ontology/releases/v0.0.2> a sflo:HistoricalState ;
+  sflo:hasManifestation <ontology/releases/v0.0.2/ttl> ;
+  sflo:locatedFileForState <ontology/releases/v0.0.2/ttl/fantasy-rules-ontology.ttl> ;
+  sflo:hasResourcePage <ontology/releases/v0.0.2/index.html> .
+
+<ontology/_knop/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <ontology/_knop/_meta/meta.ttl> ;
+  sflo:hasResourcePage <ontology/_knop/_meta/index.html> .
+
+<ontology/_knop/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <ontology/_knop/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <ontology/_knop/_inventory/index.html> .
+`;
+
+  assertEquals(
+    detectPendingWeaveSlice(
+      "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+      "ontology",
+      currentOnlySettledKnopInventoryTurtle,
+    ),
+    undefined,
+  );
+});
+
 Deno.test("planWeave can start a requested payload history after another history exists", () => {
   const currentKnopInventoryTurtle = secondPayloadWeaveKnopInventoryTurtle
     .replaceAll(
