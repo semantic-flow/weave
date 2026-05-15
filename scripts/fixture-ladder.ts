@@ -57,6 +57,7 @@ export interface FixtureLadderOptions {
   format: FixturePlanFormat;
   materializeTransitionId?: string;
   executeTransitionId?: string;
+  dryRun?: boolean;
   workspaceRoot?: string;
 }
 
@@ -81,6 +82,7 @@ export interface ExecuteFixtureTransitionOptions {
   scenario: FixtureScenarioId;
   transitionId: string;
   workspaceRoot?: string;
+  dryRun?: boolean;
 }
 
 export interface FixtureMaterializationResult {
@@ -118,8 +120,46 @@ export interface FixtureExecutionResult {
   materializedPaths: readonly string[];
   command: FixtureCommandExecutionResult;
   validation: JsonReport;
-  writesBranches: false;
+  writesBranches: boolean;
+  branchUpdate: FixtureBranchUpdateResult;
 }
+
+export interface UpdateFixtureBranchOptions {
+  fixtureRepoPath: string;
+  workspaceRoot: string;
+  targetRef: string;
+  message: string;
+}
+
+export type FixtureBranchUpdateResult =
+  | {
+    dryRun: true;
+    updated: false;
+    targetRef: string;
+    branchRef: string;
+    localOnly: true;
+    reason: string;
+  }
+  | {
+    dryRun: false;
+    updated: false;
+    targetRef: string;
+    branchRef: string;
+    localOnly: true;
+    reason: string;
+  }
+  | {
+    dryRun: false;
+    updated: true;
+    targetRef: string;
+    branchRef: string;
+    localOnly: true;
+    commitSha: string;
+    treeSha: string;
+    parentRef?: string;
+    parentSha?: string;
+    pushed: false;
+  };
 
 export interface FixtureLadderScenario {
   id: FixtureScenarioId;
@@ -515,13 +555,17 @@ if (import.meta.main) {
         scenario: options.scenario,
         transitionId: options.executeTransitionId,
         workspaceRoot: options.workspaceRoot,
+        dryRun: options.dryRun ?? false,
       });
       console.log(
         options.format === "json"
           ? JSON.stringify(result, null, 2)
           : renderFixtureExecutionResult(result),
       );
-      if (!result.command.success || result.validation.status !== "pass") {
+      if (
+        !result.command.success ||
+        (!result.branchUpdate.updated && result.validation.status !== "pass")
+      ) {
         Deno.exit(1);
       }
     } else if (options.materializeTransitionId !== undefined) {
@@ -558,6 +602,7 @@ export function parseFixtureLadderArgs(
   let format: FixturePlanFormat = "text";
   let materializeTransitionId: string | undefined;
   let executeTransitionId: string | undefined;
+  let dryRun = false;
   let workspaceRoot: string | undefined;
 
   for (let index = 0; index < args.length; index += 1) {
@@ -598,6 +643,9 @@ export function parseFixtureLadderArgs(
         break;
       case "--json":
         format = "json";
+        break;
+      case "--dry-run":
+        dryRun = true;
         break;
       default:
         if (arg.startsWith("--root=")) {
@@ -665,6 +713,7 @@ export function parseFixtureLadderArgs(
     root: resolve(root),
     scenario,
     format,
+    ...(dryRun ? { dryRun } : {}),
     ...(materializeTransitionId !== undefined
       ? { materializeTransitionId }
       : {}),
@@ -814,6 +863,15 @@ export async function executeFixtureTransition(
     fallbackFromRef: transition.fromRef,
     fallbackToRef: transition.toRef,
   });
+  const branchUpdate = await maybeUpdateFixtureBranch({
+    fixtureRepoPath: plan.fixtureRepoPath,
+    workspaceRoot: materialization.workspaceRoot,
+    targetRef: transition.toRef,
+    dryRun: options.dryRun ?? false,
+    command,
+    validation,
+    message: `Regenerate fixture branch ${transition.toRef}`,
+  });
 
   return {
     scenario: materialization.scenario,
@@ -827,7 +885,8 @@ export async function executeFixtureTransition(
     materializedPaths: materialization.materializedPaths,
     command,
     validation,
-    writesBranches: false,
+    writesBranches: branchUpdate.updated,
+    branchUpdate,
   };
 }
 
@@ -867,7 +926,7 @@ export function renderFixtureExecutionResult(
     `Source ref: ${result.fromRef}`,
     `Target ref: ${result.toRef}`,
     `Workspace root: ${result.workspaceRoot}`,
-    "Branch writes: disabled",
+    `Branch writes: ${result.branchUpdate.updated ? "enabled" : "disabled"}`,
     `Command: ${result.command.command.join(" ")}`,
     `Command cwd: ${result.command.cwd}`,
     `Command exit code: ${result.command.code}`,
@@ -885,6 +944,17 @@ export function renderFixtureExecutionResult(
 
   lines.push("Validation:");
   lines.push(renderTextReport(result.validation));
+  lines.push("Branch update:");
+  if (result.branchUpdate.updated) {
+    lines.push(
+      `updated ${result.branchUpdate.branchRef} to ${result.branchUpdate.commitSha}`,
+    );
+    lines.push(
+      `Push ${result.branchUpdate.targetRef} from ${result.fixtureRepoPath} separately for the regenerated fixture to leave this checkout.`,
+    );
+  } else {
+    lines.push(`skipped: ${result.branchUpdate.reason}`);
+  }
   return lines.join("\n");
 }
 
@@ -1004,6 +1074,176 @@ async function runFixtureCommand(options: {
     stdout: new TextDecoder().decode(output.stdout),
     stderr: new TextDecoder().decode(output.stderr),
   };
+}
+
+async function maybeUpdateFixtureBranch(options: {
+  fixtureRepoPath: string;
+  workspaceRoot: string;
+  targetRef: string;
+  dryRun: boolean;
+  command: FixtureCommandExecutionResult;
+  validation: JsonReport;
+  message: string;
+}): Promise<FixtureBranchUpdateResult> {
+  const branchRef = toLocalBranchRef(options.targetRef);
+
+  if (options.dryRun) {
+    return {
+      dryRun: true,
+      updated: false,
+      targetRef: options.targetRef,
+      branchRef,
+      localOnly: true,
+      reason: "dry run requested",
+    };
+  }
+
+  if (!options.command.success) {
+    return {
+      dryRun: false,
+      updated: false,
+      targetRef: options.targetRef,
+      branchRef,
+      localOnly: true,
+      reason: "command failed",
+    };
+  }
+
+  const failingGuardrail = options.validation.checks.find((check) =>
+    check.kind === "setup" && check.status !== "pass"
+  );
+  if (failingGuardrail !== undefined) {
+    return {
+      dryRun: false,
+      updated: false,
+      targetRef: options.targetRef,
+      branchRef,
+      localOnly: true,
+      reason: `generated-output guardrail failed: ${failingGuardrail.message}`,
+    };
+  }
+
+  return await updateFixtureBranchFromWorkspace({
+    fixtureRepoPath: options.fixtureRepoPath,
+    workspaceRoot: options.workspaceRoot,
+    targetRef: options.targetRef,
+    message: options.message,
+  });
+}
+
+export async function updateFixtureBranchFromWorkspace(
+  options: UpdateFixtureBranchOptions,
+): Promise<FixtureBranchUpdateResult> {
+  const branchRef = toLocalBranchRef(options.targetRef);
+  await assertValidBranchName(options.fixtureRepoPath, options.targetRef);
+
+  const parentSha = await resolveGitCommitishIfExists(
+    options.fixtureRepoPath,
+    options.targetRef,
+  );
+  const treeSha = await writeWorkspaceTreeToFixtureRepo({
+    fixtureRepoPath: options.fixtureRepoPath,
+    workspaceRoot: options.workspaceRoot,
+  });
+  const commitArgs = [
+    "commit-tree",
+    treeSha,
+    ...(parentSha === undefined ? [] : ["-p", parentSha]),
+    "-m",
+    options.message,
+  ];
+  const commitResult = await runGit(options.fixtureRepoPath, commitArgs, {
+    env: gitAuthorEnv(),
+  });
+  if (!commitResult.success) {
+    throw new Error(
+      `Failed to create fixture branch commit: ${commitResult.stderr.trim()}`,
+    );
+  }
+
+  const commitSha = commitResult.stdout.trim();
+  const updateResult = await runGit(options.fixtureRepoPath, [
+    "update-ref",
+    branchRef,
+    commitSha,
+  ]);
+  if (!updateResult.success) {
+    throw new Error(
+      `Failed to update ${branchRef}: ${updateResult.stderr.trim()}`,
+    );
+  }
+
+  return {
+    dryRun: false,
+    updated: true,
+    targetRef: options.targetRef,
+    branchRef,
+    localOnly: true,
+    commitSha,
+    treeSha,
+    ...(parentSha === undefined ? {} : {
+      parentRef: options.targetRef,
+      parentSha,
+    }),
+    pushed: false,
+  };
+}
+
+async function writeWorkspaceTreeToFixtureRepo(options: {
+  fixtureRepoPath: string;
+  workspaceRoot: string;
+}): Promise<string> {
+  const indexFile = await Deno.makeTempFile({
+    prefix: "weave-fixture-index-",
+  });
+  const gitDir = join(options.fixtureRepoPath, ".git");
+  const env = { GIT_INDEX_FILE: indexFile };
+  const gitArgs = [
+    "--git-dir",
+    gitDir,
+    "--work-tree",
+    options.workspaceRoot,
+  ];
+
+  try {
+    await runRequiredGit(options.fixtureRepoPath, [
+      ...gitArgs,
+      "read-tree",
+      "--empty",
+    ], env);
+    await runRequiredGit(options.fixtureRepoPath, [
+      ...gitArgs,
+      "add",
+      "-A",
+      "--",
+      ".",
+      ":(exclude).git",
+      ":(exclude).weave",
+    ], env);
+    const result = await runGit(options.fixtureRepoPath, [
+      ...gitArgs,
+      "write-tree",
+    ], { env });
+    if (!result.success) {
+      throw new Error(
+        `Failed to write generated fixture tree: ${result.stderr.trim()}`,
+      );
+    }
+    return result.stdout.trim();
+  } finally {
+    await Deno.remove(indexFile).catch(() => {});
+  }
+}
+
+async function runRequiredGit(
+  cwd: string,
+  args: readonly string[],
+  env?: Record<string, string>,
+): Promise<void> {
+  const result = await runGit(cwd, args, { env });
+  if (!result.success) {
+    throw new Error(`git ${args.join(" ")} failed: ${result.stderr.trim()}`);
+  }
 }
 
 async function validateFixtureTransitionWorkspace(options: {
@@ -1590,6 +1830,52 @@ async function resolveGitCommitish(
   );
 }
 
+async function resolveGitCommitishIfExists(
+  repoPath: string,
+  ref: string,
+): Promise<string | undefined> {
+  const candidates = [ref, `origin/${ref}`];
+  for (const candidate of candidates) {
+    const result = await runGit(repoPath, [
+      "rev-parse",
+      "--verify",
+      "--quiet",
+      `${candidate}^{commit}`,
+    ]);
+    if (result.success) {
+      return result.stdout.trim();
+    }
+  }
+  return undefined;
+}
+
+async function assertValidBranchName(
+  repoPath: string,
+  branchName: string,
+): Promise<void> {
+  const result = await runGit(repoPath, [
+    "check-ref-format",
+    "--branch",
+    branchName,
+  ]);
+  if (!result.success) {
+    throw new Error(`Invalid fixture branch name: ${branchName}`);
+  }
+}
+
+function toLocalBranchRef(branchName: string): string {
+  return `refs/heads/${branchName}`;
+}
+
+function gitAuthorEnv(): Record<string, string> {
+  return {
+    GIT_AUTHOR_NAME: "Weave fixture ladder",
+    GIT_AUTHOR_EMAIL: "weave-fixture-ladder@example.invalid",
+    GIT_COMMITTER_NAME: "Weave fixture ladder",
+    GIT_COMMITTER_EMAIL: "weave-fixture-ladder@example.invalid",
+  };
+}
+
 async function materializeGitTree(options: {
   repoPath: string;
   ref: string;
@@ -1709,8 +1995,9 @@ function normalizeGitTreePath(path: string): string {
 async function runGit(
   cwd: string,
   args: readonly string[],
+  options: { env?: Record<string, string> } = {},
 ): Promise<{ success: boolean; stdout: string; stderr: string }> {
-  const result = await runGitBytes(cwd, args);
+  const result = await runGitBytes(cwd, args, options);
   return {
     success: result.success,
     stdout: new TextDecoder().decode(result.stdout),
@@ -1721,11 +2008,13 @@ async function runGit(
 async function runGitBytes(
   cwd: string,
   args: readonly string[],
+  options: { env?: Record<string, string> } = {},
 ): Promise<{ success: boolean; stdout: Uint8Array; stderr: string }> {
   try {
     const output = await new Deno.Command("git", {
       cwd,
       args: [...args],
+      env: options.env,
     }).output();
     return {
       success: output.success,

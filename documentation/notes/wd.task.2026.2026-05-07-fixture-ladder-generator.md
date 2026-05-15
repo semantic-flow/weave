@@ -107,7 +107,7 @@ Start with Alice Bio because it has the longest ladder and exercises mesh create
 
 The generator should be intentionally concrete at first. It does not need to infer operations from arbitrary manifests. It can have explicit transition definitions that name the command to run, the source branch, the target branch, the manifest, and any path replacements or known comparison exclusions already used by tests.
 
-The first useful implementation should not try to repair every fixture branch in one leap. It should first inventory the existing ladder and produce a dry-run plan whose transition definitions are explicit enough to review. Then implement one real Alice Bio transition in a temporary checkout, validate it, and only after that add write-branch support behind an explicit flag. This keeps branch updates from becoming accidental while still making generated output the intended end state.
+The first useful implementation should not try to repair every fixture branch in one leap. It should first inventory the existing ladder and produce a reviewable plan whose transition definitions are explicit enough to review. Then implement one real Alice Bio transition in a temporary checkout, validate it, and only after that add branch update support. Regeneration commands write local fixture branch tips by default; `--dry-run` is the explicit escape hatch for command/validation rehearsal without branch updates. Plain planning remains non-mutating.
 
 ### Inventory Snapshot
 
@@ -182,7 +182,6 @@ The first scenario-definition format should therefore support both `command` ste
 
 - Should scenario definitions live as TypeScript in Weave, as data files in Weave, or beside Accord manifests in the Semantic Flow Framework examples tree?
 - Should generated fixture branch commits be one commit per rung, or should the generator only update branch tips without caring about branch-local history?
-- Should the generator force-update branches by default, or require an explicit `--force` / `--write-branches` flag after a dry run?
 - How should the generator handle intentionally hand-authored source-only branches such as `01-source-only`?
 - Should transition command/provenance stay only in Weave's scenario definitions for the first pass, or should Accord manifests grow portable replay metadata after the shape settles?
 - Should manifest validation compare full tree contents, manifest-scoped expectations only, or both depending on transition type?
@@ -203,6 +202,9 @@ The first scenario-definition format should therefore support both `command` ste
 - Do not build a fully generic fixture scenario engine in the first pass.
 - Do not add compatibility handling for old fixture namespaces or inventory-owned progression facts; stale fixtures should be regenerated against the current contract.
 - Record exact replay commands for command-backed transitions.
+- Regeneration execution updates local fixture branch tips by default after command success and generated-output guardrails pass; use `--dry-run` for rehearsal without a branch update.
+- Stale manifest or previous-branch comparison drift should be reported during regeneration, but should not block a local branch update once command execution and generated-output guardrails have passed.
+- The generator does not push fixture branches. After a local branch update, the CLI should tell the operator to push intentionally if the regenerated fixture should leave the checkout.
 - Record explicit source provenance for manually created, copied, fetched, or derived files. A fixture branch is not repeatable if the source of hand-authored bytes only exists in a prior conversation.
 - Regenerate Fantasy Rules as the branch-published ontology fixture rather than preserving the old `docs/` sidecar topology.
 
@@ -246,7 +248,7 @@ The first scenario-definition format should therefore support both `command` ste
 - [x] Implement local materialization for a source branch into a temporary workspace using the existing fixture helper behavior as a reference.
 - [x] Implement execution for the first Alice Bio transition that runs the intended Weave command and validates the result against its Accord manifest.
 - [x] Add generated-output guardrails for canonical `sflo` namespace and current `_mesh/_meta` MeshInventory progression shape before any branch write.
-- [ ] Add branch update support behind an explicit write flag so dry runs remain the default while the tool is being proven.
+- [x] Add branch update support for command-backed regeneration, with `--dry-run` as the explicit non-writing mode and no push support.
 - [ ] Extend the generator through the full Alice Bio ladder.
 - [ ] Update or add documentation for the Alice Bio regeneration workflow.
 - [ ] Extend the generator to Sidecar Fantasy Rules as a branch-published ontology fixture.

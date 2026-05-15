@@ -15,6 +15,7 @@ import {
   renderFixtureExecutionResult,
   renderFixtureLadderPlan,
   renderFixtureMaterializationResult,
+  updateFixtureBranchFromWorkspace,
 } from "../../scripts/fixture-ladder.ts";
 
 const repoRoot = new URL("../../", import.meta.url).pathname;
@@ -46,6 +47,7 @@ Deno.test("parseFixtureLadderArgs accepts dry-run planner options", () => {
     parseFixtureLadderArgs([
       "--root=/tmp/weave",
       "--execute=02-mesh-created",
+      "--dry-run",
       "--workspace-root=/tmp/weave-workspace",
     ]),
     {
@@ -53,6 +55,7 @@ Deno.test("parseFixtureLadderArgs accepts dry-run planner options", () => {
       scenario: "alice-bio",
       format: "text",
       executeTransitionId: "02-mesh-created",
+      dryRun: true,
       workspaceRoot: "/tmp/weave-workspace",
     },
   );
@@ -271,9 +274,16 @@ Deno.test("executeFixtureTransition runs the first command and validates the wor
     scenario: "alice-bio",
     transitionId: "02-mesh-created",
     workspaceRoot,
+    dryRun: true,
   });
 
   assertEquals(result.transitionId, "02-mesh-created");
+  assertEquals(result.writesBranches, false);
+  assertEquals(result.branchUpdate.updated, false);
+  if (result.branchUpdate.updated) {
+    throw new Error("dry-run execution should not update a branch");
+  }
+  assertEquals(result.branchUpdate.reason, "dry run requested");
   assertEquals(result.command.success, true, result.command.stderr);
   assertStringIncludes(
     result.command.stdout,
@@ -330,6 +340,7 @@ Deno.test("renderFixtureExecutionResult prints command and validation status", a
     scenario: "alice-bio",
     transitionId: "02-mesh-created",
     workspaceRoot,
+    dryRun: true,
   });
 
   const rendered = renderFixtureExecutionResult(result);
@@ -341,6 +352,67 @@ Deno.test("renderFixtureExecutionResult prints command and validation status", a
   );
   assertStringIncludes(rendered, "Validation:");
   assertStringIncludes(rendered, "status:");
+  assertStringIncludes(rendered, "Branch update:");
+  assertStringIncludes(rendered, "skipped: dry run requested");
+});
+
+Deno.test("updateFixtureBranchFromWorkspace writes generated output to a local fixture branch", async () => {
+  const fixtureRepoPath = await Deno.makeTempDir({
+    prefix: "weave-fixture-ladder-repo-",
+  });
+  const workspaceRoot = await Deno.makeTempDir({
+    prefix: "weave-fixture-ladder-branch-workspace-",
+  });
+  await initTestGitRepo(fixtureRepoPath);
+  await Deno.writeTextFile(`${fixtureRepoPath}/alice-bio.ttl`, "old\n");
+  await runTestGit(fixtureRepoPath, ["add", "."]);
+  await runTestGit(fixtureRepoPath, [
+    "-c",
+    "user.name=Test",
+    "-c",
+    "user.email=test@example.invalid",
+    "commit",
+    "-m",
+    "seed fixture",
+  ]);
+  await runTestGit(fixtureRepoPath, ["branch", "02-mesh-created"]);
+
+  await Deno.writeTextFile(`${workspaceRoot}/alice-bio.ttl`, "new\n");
+  await Deno.mkdir(`${workspaceRoot}/_mesh/_meta`, { recursive: true });
+  await Deno.writeTextFile(
+    `${workspaceRoot}/_mesh/_meta/meta.ttl`,
+    "@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .\n",
+  );
+  await Deno.mkdir(`${workspaceRoot}/.weave/logs`, { recursive: true });
+  await Deno.writeTextFile(`${workspaceRoot}/.weave/logs/audit.jsonl`, "{}\n");
+
+  const result = await updateFixtureBranchFromWorkspace({
+    fixtureRepoPath,
+    workspaceRoot,
+    targetRef: "02-mesh-created",
+    message: "regenerate test branch",
+  });
+
+  assertEquals(result.updated, true);
+  if (!result.updated) {
+    throw new Error("expected branch update to write a commit");
+  }
+  assertEquals(result.branchRef, "refs/heads/02-mesh-created");
+  assertEquals(result.pushed, false);
+  assertEquals(
+    await gitOutput(fixtureRepoPath, [
+      "show",
+      "02-mesh-created:alice-bio.ttl",
+    ]),
+    "new\n",
+  );
+  assertEquals(
+    await gitSucceeds(fixtureRepoPath, [
+      "show",
+      "02-mesh-created:.weave/logs/audit.jsonl",
+    ]),
+    false,
+  );
 });
 
 Deno.test("evaluateGeneratedOutputGuardrails catches stale namespace and inventory-owned progression", async () => {
@@ -389,3 +461,50 @@ Deno.test("evaluateGeneratedOutputGuardrails catches stale namespace and invento
     ),
   );
 });
+
+async function initTestGitRepo(repoPath: string): Promise<void> {
+  await runTestGit(repoPath, ["init"]);
+}
+
+async function gitOutput(
+  cwd: string,
+  args: readonly string[],
+): Promise<string> {
+  const output = await runTestGit(cwd, args);
+  return new TextDecoder().decode(output.stdout);
+}
+
+async function gitSucceeds(
+  cwd: string,
+  args: readonly string[],
+): Promise<boolean> {
+  const output = await new Deno.Command("git", {
+    cwd,
+    args: [...args],
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  return output.success;
+}
+
+async function runTestGit(
+  cwd: string,
+  args: readonly string[],
+): Promise<Deno.CommandOutput> {
+  const output = await new Deno.Command("git", {
+    cwd,
+    args: [...args],
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+
+  if (!output.success) {
+    throw new Error(
+      `git ${args.join(" ")} failed: ${
+        new TextDecoder().decode(output.stderr)
+      }`,
+    );
+  }
+
+  return output;
+}
