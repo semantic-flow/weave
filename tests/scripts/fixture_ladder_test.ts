@@ -530,7 +530,7 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
   );
   assertEquals(plan.scenario.branchPrefix, "a.");
   assertStringIncludes(plan.assetRoot, "mesh-branch-fantasy-rules/.assets");
-  assertEquals(plan.transitions.length, 9);
+  assertEquals(plan.transitions.length, 11);
   assertEquals(plan.transitions[0]?.id, "01-source-only");
   assertEquals(plan.transitions[0]?.fromRef, "a.00-blank-slate");
   assertEquals(plan.transitions[0]?.toRef, "a.01-source-only");
@@ -809,6 +809,89 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
       "{sourceCommit}",
     ]);
   }
+  assertEquals(plan.transitions[9]?.id, "10-first-release-source");
+  assertEquals(plan.transitions[9]?.fromRef, "a.01-source-only");
+  assertEquals(plan.transitions[9]?.toRef, "a.10-first-release-source");
+  assertEquals(plan.transitions[9]?.operationId, "source.update");
+  assertEquals(plan.transitions[9]?.action.kind, "fileOperation");
+  if (plan.transitions[9]?.action.kind === "fileOperation") {
+    assertEquals(
+      plan.transitions[9].action.sources.map((source) => source.assetPath),
+      [
+        "14-first-release/ontology/fantasy-rules-ontology.ttl",
+        "14-first-release/shacl/fantasy-rules-shacl.ttl",
+        "14-first-release/examples/gunaar.ttl",
+      ],
+    );
+  }
+  assertEquals(plan.transitions[10]?.id, "11-first-release-woven");
+  assertEquals(
+    plan.transitions[10]?.fromRef,
+    "a.09-gunaar-example-dataset-woven",
+  );
+  assertEquals(plan.transitions[10]?.toRef, "a.11-first-release-woven");
+  assertEquals(plan.transitions[10]?.operationId, "weave");
+  assertEquals(plan.transitions[10]?.action.kind, "branchPublication");
+  if (plan.transitions[10]?.action.kind === "branchPublication") {
+    assertEquals(
+      plan.transitions[10].action.sourceRef,
+      "a.10-first-release-source",
+    );
+    assertEquals(
+      plan.transitions[10].action.publicationFromRef,
+      "a.09-gunaar-example-dataset-woven",
+    );
+    assertEquals(plan.transitions[10].action.invocations.length, 8);
+    assertEquals(plan.transitions[10].action.invocations[0]?.argv, [
+      "payload",
+      "update",
+      "{sourceRoot}/ontology/fantasy-rules-ontology.ttl",
+      "--designator-path",
+      "ontology",
+      "--mesh-root",
+      "{publicationRoot}",
+    ]);
+    assertEquals(plan.transitions[10].action.invocations[1]?.argv, [
+      "deploy",
+      "gh-pages",
+      "--source-root",
+      "{sourceRoot}",
+      "--publish-root",
+      "{publicationRoot}",
+      "--mesh-base",
+      "https://semantic-flow.github.io/mesh-branch-fantasy-rules/",
+      "--source-path",
+      "ontology/fantasy-rules-ontology.ttl",
+      "--designator-path",
+      "ontology",
+      "--source-repository-url",
+      "https://github.com/semantic-flow/mesh-branch-fantasy-rules.git",
+      "--source-ref",
+      "{sourceRef}",
+      "--source-commit",
+      "{sourceCommit}",
+    ]);
+    assertEquals(plan.transitions[10].action.invocations[6]?.argv, [
+      "--mesh-root",
+      "{publicationRoot}",
+      "--payload-history-segment",
+      "releases",
+      "--payload-state-segment",
+      "v0.0.2",
+      "--payload-manifestation-segment",
+      "ttl",
+      "--target",
+      "designatorPath=ontology",
+      "--target",
+      "designatorPath=shacl",
+    ]);
+    assertEquals(plan.transitions[10].action.invocations[7]?.argv, [
+      "--mesh-root",
+      "{publicationRoot}",
+      "--target",
+      "designatorPath=examples/gunaar",
+    ]);
+  }
 
   for (const transition of plan.transitions) {
     await Deno.stat(transition.manifestPath);
@@ -896,6 +979,9 @@ Deno.test("Branch-Published Fantasy Rules source-only transition points at check
     "01-source-only/examples/gunaar.ttl",
     "01-source-only/ontology/fantasy-rules-ontology.ttl",
     "01-source-only/shacl/fantasy-rules-shacl.ttl",
+    "14-first-release/examples/gunaar.ttl",
+    "14-first-release/ontology/fantasy-rules-ontology.ttl",
+    "14-first-release/shacl/fantasy-rules-shacl.ttl",
   ]);
 
   for (const assetPath of assetPaths) {

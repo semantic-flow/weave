@@ -1045,6 +1045,51 @@ export const BRANCH_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
         publicationBranch: "gh-pages",
       },
     ),
+    fileTransition(
+      10,
+      "10-first-release-source",
+      "01-source-only",
+      {
+        description:
+          "Replace authored first-release source bytes from deterministic assets on the clean source lane.",
+        sources: [
+          {
+            path: "ontology/fantasy-rules-ontology.ttl",
+            assetPath: "14-first-release/ontology/fantasy-rules-ontology.ttl",
+            provenance:
+              "fixture-authored ontology release source copied from deterministic branch fixture assets",
+          },
+          {
+            path: "shacl/fantasy-rules-shacl.ttl",
+            assetPath: "14-first-release/shacl/fantasy-rules-shacl.ttl",
+            provenance:
+              "fixture-authored SHACL release source copied from deterministic branch fixture assets",
+          },
+          {
+            path: "examples/gunaar.ttl",
+            assetPath: "14-first-release/examples/gunaar.ttl",
+            provenance:
+              "fixture-authored Gunaar release example source copied from deterministic branch fixture assets",
+          },
+        ],
+      },
+      "source.update",
+      {
+        branchPrefix: BRANCH_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+      },
+    ),
+    branchPublicationTransition(
+      11,
+      "11-first-release-woven",
+      "10-first-release-source",
+      {
+        description:
+          "Update branch-published source bindings from the first-release source ref and weave named ontology and SHACL release states.",
+        publicationFromRef: "09-gunaar-example-dataset-woven",
+        publicationBranch: "gh-pages",
+      },
+      "weave",
+    ),
   ],
 };
 
@@ -2424,6 +2469,9 @@ async function runBranchPublicationCommandInvocation(options: {
     stdout: "piped",
     stderr: "piped",
   }).output();
+  if (output.success) {
+    await removeEphemeralRuntimeLogs(options.publicationWorkspaceRoot);
+  }
 
   return {
     command,
@@ -2433,6 +2481,18 @@ async function runBranchPublicationCommandInvocation(options: {
     stdout: new TextDecoder().decode(output.stdout),
     stderr: new TextDecoder().decode(output.stderr),
   };
+}
+
+async function removeEphemeralRuntimeLogs(
+  workspaceRoot: string,
+): Promise<void> {
+  try {
+    await Deno.remove(join(workspaceRoot, ".weave"), { recursive: true });
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) {
+      throw error;
+    }
+  }
 }
 
 function substituteBranchPublicationArg(options: {
