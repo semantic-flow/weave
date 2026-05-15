@@ -149,7 +149,7 @@ Sidecar Fantasy Rules currently has manifests for `01-source-only` through `15-f
 - `05-ontology-integrated-woven`: top-level `weave --mesh-root docs`.
 - `06-shacl-integrated`: `integrate` the adjacent SHACL source into the docs-rooted mesh.
 - `07-shacl-integrated-woven`: top-level `weave --mesh-root docs`.
-- `08-ontology-and-shacl-terms-extracted`: `extract --all-terms --accept-preview` or equivalent term extraction from the integrated sources.
+- `08-ontology-and-shacl-terms-extracted`: five explicit `extract` commands for `ontology/AbilityScore`, `ontology/Alignment`, `ontology/Character`, `ontology/PlayerCharacter`, and `ontology/CharacterShape`, preserving the split between ontology-sourced and SHACL-sourced extraction.
 - `09-ontology-and-shacl-terms-extracted-woven`: top-level `weave --mesh-root docs`.
 - `10-root-knop`: `knop.create` for `/` and `examples`.
 - `11-root-knop-woven`: top-level `weave --mesh-root docs` with both root and examples targets.
@@ -196,9 +196,9 @@ The first scenario-definition format should therefore support both `command` ste
 - Fixture branch ladders should become disposable generated outputs.
 - Accord manifests and ordered transition definitions are the durable contract.
 - Rungs must be replayed sequentially from the previous rung; skipping directly to a later rung is only a diagnostic/materialization convenience, not the regeneration model.
-- New Alice Bio regeneration branches use the `a.` prefix while this replay shape stabilizes.
+- New Alice Bio and Sidecar Fantasy Rules regeneration branches use the `a.` prefix while this replay shape stabilizes.
 - Deterministic `.assets` source bytes live in the fixture repo and feed source-only, command-input, and file-operation transitions; they are authored inputs, not golden output snapshots.
-- `a.00-blank-slate` is the Alice Bio replay base/control rung for `.assets` and other excluded repo-control files.
+- `a.00-blank-slate` is the replay base/control rung for `.assets` and other excluded repo-control files.
 - For whole-mesh and sidecar fixture repos, `main` should ultimately be the reviewed final generated mesh state. Branch-published mesh fixtures are the exception because `main` is source/control by design.
 - Use a concrete TypeScript scenario definition for ordering and current file-operation glue in the first generator pass. Replay commands and deterministic command-input source bytes belong in Accord manifests.
 - Keep the existing fixture branch comparison tests for now; update their assumptions only where needed to support generated refs.
@@ -210,10 +210,11 @@ The first scenario-definition format should therefore support both `command` ste
 - Hydrate command-backed transition execution from Accord `hasReplayProfile.hasCommandInvocation`; do not keep mesh-specific CLI argv in the generator code.
 - Regeneration execution updates local fixture branch tips by default after command success and generated-output guardrails pass; use `--dry-run` for rehearsal without a branch update.
 - Stale manifest or previous-branch comparison drift should be reported during regeneration, but should not block a local branch update once command execution and generated-output guardrails have passed.
-- The generator does not push fixture branches. After a local branch update, the CLI should tell the operator to push intentionally if the regenerated fixture should leave the checkout.
+- The generator does not push fixture branches automatically. After a local branch update, the CLI should tell the operator to push intentionally if the regenerated fixture should leave the checkout; manual pushes are part of the reviewed regeneration workflow.
 - Record explicit source provenance for manually created, copied, fetched, or derived files. A fixture branch is not repeatable if the source of hand-authored bytes only exists in a prior conversation.
 - Regenerate `mesh-sidecar-fantasy-rules` as a docs-rooted sidecar mesh; use a separate future `mesh-branch-fantasy-rules` repository for branch-published Fantasy Rules coverage.
 - Extraction provenance should resolve as deeply as the source evidence allows: source artifact first, then history/state when present, then manifestation, located file, and digest. If a source artifact cannot provide history/state evidence, provenance should still record concrete observed bytes through located-file/digest evidence, with timestamp fallback reserved for cases where byte evidence cannot be made durable.
+- Accord `ReplayProfile` may declare `hasCommandSequence` for one transition that is replayed by several ordered Weave invocations. The fixture generator should execute those invocations in order and treat the sequence as one rung operation.
 
 ## Contract Changes
 
@@ -263,7 +264,7 @@ The first scenario-definition format should therefore support both `command` ste
 - [x] Extend the generator through the full Alice Bio ladder, including source-only, command-backed, file-operation, import-source, and root-page transitions through `a.25-root-page-customized-woven`.
 - [x] Push the generated Alice Bio `a.00` through `a.25` fixture refs after local validation.
 - [ ] Update or add documentation for the Alice Bio regeneration workflow.
-- [ ] Extend the generator beyond Sidecar Fantasy Rules source-only into the command-backed docs-rooted sidecar fixture ladder using the `a.` branch prefix for the next replay family.
+- [x] Extend the generator beyond Sidecar Fantasy Rules source-only into the command-backed docs-rooted sidecar fixture ladder using the `a.` branch prefix for the next replay family.
 - [x] Decide that `mesh-sidecar-fantasy-rules` stays a docs-rooted sidecar fixture; branch-published Fantasy Rules coverage belongs in a separate future `mesh-branch-fantasy-rules` repository.
 - [x] Create the Sidecar Fantasy Rules `a.00-blank-slate` control branch with deterministic `.assets` bytes selected from `origin/01-source-only` and `origin/15-first-release-woven`.
 - [x] Add the Sidecar Fantasy Rules `01-source-only` manifest, teach the ladder generator about the `sidecar-fantasy-rules` scenario, and regenerate local branch `a.01-source-only` from `a.00-blank-slate`.
@@ -271,6 +272,9 @@ The first scenario-definition format should therefore support both `command` ste
 - [x] Add the Sidecar Fantasy Rules `02-sidecar-mesh-created` replay profile, regenerate local branch `a.02-sidecar-mesh-created`, and update its manifest assertions for the canonical `sflo` namespace.
 - [x] Add the Sidecar Fantasy Rules `03-sidecar-mesh-created-woven` replay profile, regenerate local branch `a.03-sidecar-mesh-created-woven`, and update its manifest for the slim support-history behavior and extension-only `ttl` manifestation segment.
 - [x] Add the Sidecar Fantasy Rules `04-ontology-integrated` replay profile, regenerate local branch `a.04-ontology-integrated`, and update its manifest for current config enum IRIs and canonical `sflo` assertions.
+- [x] Add and validate Sidecar Fantasy Rules `05-ontology-integrated-woven`, `06-shacl-integrated`, and `07-shacl-integrated-woven` replay profiles, regenerate their `a.` branches, and update their manifests for current support-history behavior.
+- [x] Add Accord and generator support for manifest-declared command sequences, then use it to replay and validate Sidecar Fantasy Rules `08-ontology-and-shacl-terms-extracted`.
+- [x] Push the generated Sidecar Fantasy Rules `a.00` through `a.08` fixture refs after local validation.
 - [ ] Add branch-published Fantasy Rules fixture coverage in a separate repository after the sidecar ladder is replayable and green.
 - [ ] Update Accord manifests, fixture-backed Weave tests, and conformance expectations after generated branches are rerung for the combined enum/config changes.
 - [ ] Record the expected workflow for large ontology/config churn: update manifests, run generator, inspect generated branch diffs, run fixture tests, commit/push branch updates intentionally.

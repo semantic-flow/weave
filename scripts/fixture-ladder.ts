@@ -108,6 +108,16 @@ export interface FixtureMaterializationResult {
 export interface FixtureCommandExecutionResult {
   kind: "command";
   command: readonly string[];
+  commands?: readonly FixtureCommandInvocationExecutionResult[];
+  cwd: string;
+  success: boolean;
+  code: number;
+  stdout: string;
+  stderr: string;
+}
+
+export interface FixtureCommandInvocationExecutionResult {
+  command: readonly string[];
   cwd: string;
   success: boolean;
   code: number;
@@ -247,6 +257,16 @@ export type FixtureTransitionAction =
 
 export interface FixtureCommandAction {
   kind: "command";
+  executable: "weave";
+  argv: readonly string[];
+  inputs: readonly FixtureFileOperationSource[];
+  cwd: "workspace";
+  promptPolicy: "nonInteractive";
+  expectedRuntimeLogs: boolean;
+  invocations?: readonly FixtureCommandInvocationAction[];
+}
+
+export interface FixtureCommandInvocationAction {
   executable: "weave";
   argv: readonly string[];
   inputs: readonly FixtureFileOperationSource[];
@@ -686,6 +706,42 @@ export const SIDECAR_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
         branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
       },
     ),
+    commandTransition(
+      5,
+      "05-ontology-integrated-woven",
+      "04-ontology-integrated",
+      "weave",
+      {
+        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+      },
+    ),
+    commandTransition(
+      6,
+      "06-shacl-integrated",
+      "05-ontology-integrated-woven",
+      "integrate",
+      {
+        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+      },
+    ),
+    commandTransition(
+      7,
+      "07-shacl-integrated-woven",
+      "06-shacl-integrated",
+      "weave",
+      {
+        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+      },
+    ),
+    commandTransition(
+      8,
+      "08-ontology-and-shacl-terms-extracted",
+      "07-shacl-integrated-woven",
+      "extract",
+      {
+        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+      },
+    ),
   ],
 };
 
@@ -920,14 +976,20 @@ export function renderFixtureLadderPlan(plan: FixtureLadderPlan): string {
       `   manifest: ${relative(plan.root, transition.manifestPath)}`,
     );
     if (transition.action.kind === "command") {
-      lines.push(
-        `   command: ${
-          [
-            transition.action.executable,
-            ...transition.action.argv,
-          ].join(" ")
-        }`,
-      );
+      const invocations = commandActionInvocations(transition.action);
+      for (const [index, invocation] of invocations.entries()) {
+        const label = invocations.length > 1
+          ? `   command ${index + 1}:`
+          : "   command:";
+        lines.push(
+          `${label} ${
+            [
+              invocation.executable,
+              ...invocation.argv,
+            ].join(" ")
+          }`,
+        );
+      }
       lines.push(`   cwd: ${transition.action.cwd}`);
       lines.push(`   prompts: ${transition.action.promptPolicy}`);
       lines.push(
@@ -1103,9 +1165,12 @@ export function renderFixtureMaterializationResult(
     lines.push(`- ${path}`);
   }
   if (result.nextAction.kind === "command") {
+    const invocations = commandActionInvocations(result.nextAction);
     lines.push(
-      `Next command: ${
-        [result.nextAction.executable, ...result.nextAction.argv].join(" ")
+      `${invocations.length > 1 ? "Next commands" : "Next command"}: ${
+        invocations.map((invocation) =>
+          [invocation.executable, ...invocation.argv].join(" ")
+        ).join(" && ")
       }`,
     );
   } else {
@@ -1128,7 +1193,23 @@ export function renderFixtureExecutionResult(
   ];
 
   if (result.actionKind === "command") {
-    lines.push(`Command: ${result.command.command.join(" ")}`);
+    const commands = result.command.commands ?? [{
+      command: result.command.command,
+      cwd: result.command.cwd,
+      success: result.command.success,
+      code: result.command.code,
+      stdout: result.command.stdout,
+      stderr: result.command.stderr,
+    }];
+    if (commands.length === 1) {
+      lines.push(`Command: ${result.command.command.join(" ")}`);
+    } else {
+      lines.push(`Commands: ${commands.length}`);
+      for (const [index, command] of commands.entries()) {
+        lines.push(`Command ${index + 1}: ${command.command.join(" ")}`);
+        lines.push(`Command ${index + 1} exit code: ${command.code}`);
+      }
+    }
     lines.push(`Command cwd: ${result.command.cwd}`);
     lines.push(`Command exit code: ${result.command.code}`);
 
@@ -1246,28 +1327,61 @@ function hydrateCommandActionFromReplayProfile(options: {
     );
   }
 
-  const invocation = replayProfile.hasCommandInvocation;
-  if (invocation === undefined) {
+  const invocations = replayProfile.hasCommandSequence?.length
+    ? replayProfile.hasCommandSequence
+    : replayProfile.hasCommandInvocation === undefined
+    ? []
+    : [replayProfile.hasCommandInvocation];
+  if (invocations.length === 0) {
     throw new Error(
-      `Manifest ${options.manifestPath} is missing hasReplayProfile.hasCommandInvocation for command transition ${options.transitionId}`,
+      `Manifest ${options.manifestPath} is missing hasReplayProfile.hasCommandInvocation or hasCommandSequence for command transition ${options.transitionId}`,
     );
   }
 
   validateReplayProfile(options.transitionId, replayProfile);
-  validateCommandInvocation(options.transitionId, invocation);
+  for (const invocation of invocations) {
+    validateCommandInvocation(options.transitionId, invocation);
+  }
+
+  const hydratedInvocations = invocations.map((invocation) =>
+    hydrateCommandInvocationAction({
+      transitionId: options.transitionId,
+      replayProfile,
+      invocation,
+    })
+  );
+  const firstInvocation = hydratedInvocations[0];
+  if (firstInvocation === undefined) {
+    throw new Error(
+      `Manifest ${options.manifestPath} has an empty command sequence for ${options.transitionId}`,
+    );
+  }
 
   return {
     kind: "command",
+    ...firstInvocation,
+    ...(hydratedInvocations.length > 1
+      ? { invocations: hydratedInvocations }
+      : {}),
+  };
+}
+
+function hydrateCommandInvocationAction(options: {
+  transitionId: string;
+  replayProfile: ReplayProfile;
+  invocation: CommandInvocation;
+}): FixtureCommandInvocationAction {
+  return {
     executable: "weave",
-    argv: invocation.argv ?? [],
+    argv: options.invocation.argv ?? [],
     inputs: resolveReplayInputMaterializations(
       options.transitionId,
-      replayProfile?.hasInputMaterialization ?? [],
+      options.replayProfile.hasInputMaterialization ?? [],
     ),
     cwd: "workspace",
     promptPolicy: "nonInteractive",
-    expectedRuntimeLogs: invocation.expectsOperationalLogs === true ||
-      invocation.expectsAuditLogs === true,
+    expectedRuntimeLogs: options.invocation.expectsOperationalLogs === true ||
+      options.invocation.expectsAuditLogs === true,
   };
 }
 
@@ -1501,15 +1615,44 @@ function defaultValidation(): FixtureTransitionValidation {
   };
 }
 
+function commandActionInvocations(
+  action: FixtureCommandAction,
+): readonly FixtureCommandInvocationAction[] {
+  return action.invocations ?? [action];
+}
+
 async function runFixtureCommand(options: {
   assetRoot: string;
   root: string;
   workspaceRoot: string;
   action: FixtureCommandAction;
 }): Promise<FixtureCommandExecutionResult> {
-  if (options.action.executable !== "weave") {
+  const invocations = commandActionInvocations(options.action);
+  const results: FixtureCommandInvocationExecutionResult[] = [];
+
+  for (const invocation of invocations) {
+    const result = await runFixtureCommandInvocation({
+      ...options,
+      invocation,
+    });
+    results.push(result);
+    if (!result.success) {
+      return summarizeFixtureCommandResults(results);
+    }
+  }
+
+  return summarizeFixtureCommandResults(results);
+}
+
+async function runFixtureCommandInvocation(options: {
+  assetRoot: string;
+  root: string;
+  workspaceRoot: string;
+  invocation: FixtureCommandInvocationAction;
+}): Promise<FixtureCommandInvocationExecutionResult> {
+  if (options.invocation.executable !== "weave") {
     throw new Error(
-      `Unsupported fixture command executable: ${options.action.executable}`,
+      `Unsupported fixture command executable: ${options.invocation.executable}`,
     );
   }
 
@@ -1520,16 +1663,15 @@ async function runFixtureCommand(options: {
     "--allow-write",
     "--allow-env",
     join(options.root, "src/main.ts"),
-    ...options.action.argv,
+    ...options.invocation.argv,
   ];
   const stagedInputs = await stageFixtureAssetSources({
     assetRoot: options.assetRoot,
     workspaceRoot: options.workspaceRoot,
-    sources: options.action.inputs,
+    sources: options.invocation.inputs,
   });
   if (stagedInputs.missingAssets.length > 0) {
     return {
-      kind: "command",
       command,
       cwd: options.workspaceRoot,
       success: false,
@@ -1554,13 +1696,33 @@ async function runFixtureCommand(options: {
   }).output();
 
   return {
-    kind: "command",
     command,
     cwd: options.workspaceRoot,
     success: output.success,
     code: output.code,
     stdout: new TextDecoder().decode(output.stdout),
     stderr: new TextDecoder().decode(output.stderr),
+  };
+}
+
+function summarizeFixtureCommandResults(
+  results: readonly FixtureCommandInvocationExecutionResult[],
+): FixtureCommandExecutionResult {
+  const first = results[0];
+  const last = results.at(-1);
+  if (first === undefined || last === undefined) {
+    throw new Error("Fixture command action must contain at least one command");
+  }
+
+  return {
+    kind: "command",
+    command: first.command,
+    commands: results,
+    cwd: first.cwd,
+    success: results.every((result) => result.success),
+    code: last.code,
+    stdout: results.map((result) => result.stdout).join(""),
+    stderr: results.map((result) => result.stderr).join(""),
   };
 }
 

@@ -199,7 +199,7 @@ Deno.test("planFixtureLadder names existing Alice Bio Accord manifests", async (
   }
 });
 
-Deno.test("planFixtureLadder exposes the Sidecar Fantasy Rules source-only transition", async () => {
+Deno.test("planFixtureLadder exposes the Sidecar Fantasy Rules transition sequence", async () => {
   const plan = await planFixtureLadder({
     root: repoRoot,
     scenario: "sidecar-fantasy-rules",
@@ -213,7 +213,7 @@ Deno.test("planFixtureLadder exposes the Sidecar Fantasy Rules source-only trans
   );
   assertEquals(plan.scenario.branchPrefix, "a.");
   assertStringIncludes(plan.assetRoot, "mesh-sidecar-fantasy-rules/.assets");
-  assertEquals(plan.transitions.length, 4);
+  assertEquals(plan.transitions.length, 8);
   assertEquals(plan.transitions[0]?.id, "01-source-only");
   assertEquals(plan.transitions[0]?.fromRef, "a.00-blank-slate");
   assertEquals(plan.transitions[0]?.toRef, "a.01-source-only");
@@ -281,10 +281,87 @@ Deno.test("planFixtureLadder exposes the Sidecar Fantasy Rules source-only trans
     ]);
   }
 
-  await Deno.stat(plan.transitions[0]!.manifestPath);
-  await Deno.stat(plan.transitions[1]!.manifestPath);
-  await Deno.stat(plan.transitions[2]!.manifestPath);
-  await Deno.stat(plan.transitions[3]!.manifestPath);
+  assertEquals(plan.transitions[4]?.id, "05-ontology-integrated-woven");
+  assertEquals(plan.transitions[4]?.fromRef, "a.04-ontology-integrated");
+  assertEquals(plan.transitions[4]?.toRef, "a.05-ontology-integrated-woven");
+  assertEquals(plan.transitions[4]?.operationId, "weave");
+  assertEquals(plan.transitions[4]?.action.kind, "command");
+  if (plan.transitions[4]?.action.kind === "command") {
+    assertEquals(plan.transitions[4].action.argv, [
+      "--mesh-root",
+      "docs",
+    ]);
+  }
+
+  assertEquals(plan.transitions[5]?.id, "06-shacl-integrated");
+  assertEquals(
+    plan.transitions[5]?.fromRef,
+    "a.05-ontology-integrated-woven",
+  );
+  assertEquals(plan.transitions[5]?.toRef, "a.06-shacl-integrated");
+  assertEquals(plan.transitions[5]?.operationId, "integrate");
+  assertEquals(plan.transitions[5]?.action.kind, "command");
+  if (plan.transitions[5]?.action.kind === "command") {
+    assertEquals(plan.transitions[5].action.argv, [
+      "integrate",
+      "./shacl/fantasy-rules-shacl.ttl",
+      "shacl",
+      "--mesh-root",
+      "docs",
+      "--grant-source-directory",
+      "shacl",
+    ]);
+  }
+
+  assertEquals(plan.transitions[6]?.id, "07-shacl-integrated-woven");
+  assertEquals(plan.transitions[6]?.fromRef, "a.06-shacl-integrated");
+  assertEquals(plan.transitions[6]?.toRef, "a.07-shacl-integrated-woven");
+  assertEquals(plan.transitions[6]?.operationId, "weave");
+  assertEquals(plan.transitions[6]?.action.kind, "command");
+  if (plan.transitions[6]?.action.kind === "command") {
+    assertEquals(plan.transitions[6].action.argv, [
+      "--mesh-root",
+      "docs",
+    ]);
+  }
+
+  assertEquals(
+    plan.transitions[7]?.id,
+    "08-ontology-and-shacl-terms-extracted",
+  );
+  assertEquals(
+    plan.transitions[7]?.fromRef,
+    "a.07-shacl-integrated-woven",
+  );
+  assertEquals(
+    plan.transitions[7]?.toRef,
+    "a.08-ontology-and-shacl-terms-extracted",
+  );
+  assertEquals(plan.transitions[7]?.operationId, "extract");
+  assertEquals(plan.transitions[7]?.action.kind, "command");
+  if (plan.transitions[7]?.action.kind === "command") {
+    assertEquals(plan.transitions[7].action.invocations?.length, 5);
+    assertEquals(plan.transitions[7].action.argv, [
+      "extract",
+      "ontology/AbilityScore",
+      "--mesh-root",
+      "docs",
+      "--source",
+      "ontology",
+    ]);
+    assertEquals(plan.transitions[7].action.invocations?.[4]?.argv, [
+      "extract",
+      "ontology/CharacterShape",
+      "--mesh-root",
+      "docs",
+      "--source",
+      "shacl",
+    ]);
+  }
+
+  for (const transition of plan.transitions) {
+    await Deno.stat(transition.manifestPath);
+  }
 });
 
 Deno.test("Alice Bio asset-backed transitions point at checked-in deterministic assets", async () => {
