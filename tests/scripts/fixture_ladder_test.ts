@@ -19,8 +19,21 @@ import {
   SIDECAR_FANTASY_RULES_FIXTURE_SCENARIO,
   updateFixtureBranchFromWorkspace,
 } from "../../scripts/fixture-ladder.ts";
+import type { FixtureLadderPlan } from "../../scripts/fixture-ladder.ts";
 
 const repoRoot = new URL("../../", import.meta.url).pathname;
+
+function fixtureAssetPathsForPlan(plan: FixtureLadderPlan): string[] {
+  return plan.transitions.flatMap((transition) => {
+    if (transition.action.kind === "command") {
+      return transition.action.inputs.map((input) => input.assetPath);
+    }
+    if (transition.action.kind === "fileOperation") {
+      return transition.action.sources.map((source) => source.assetPath);
+    }
+    return [];
+  }).sort();
+}
 
 Deno.test("parseFixtureLadderArgs accepts dry-run planner options", () => {
   assertEquals(
@@ -517,7 +530,7 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
   );
   assertEquals(plan.scenario.branchPrefix, "a.");
   assertStringIncludes(plan.assetRoot, "mesh-branch-fantasy-rules/.assets");
-  assertEquals(plan.transitions.length, 1);
+  assertEquals(plan.transitions.length, 2);
   assertEquals(plan.transitions[0]?.id, "01-source-only");
   assertEquals(plan.transitions[0]?.fromRef, "a.00-blank-slate");
   assertEquals(plan.transitions[0]?.toRef, "a.01-source-only");
@@ -534,6 +547,34 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
       ],
     );
   }
+  assertEquals(plan.transitions[1]?.id, "02-publication-bootstrapped-woven");
+  assertEquals(plan.transitions[1]?.fromRef, "a.01-source-only");
+  assertEquals(
+    plan.transitions[1]?.toRef,
+    "a.02-publication-bootstrapped-woven",
+  );
+  assertEquals(plan.transitions[1]?.operationId, "deploy.ghPages");
+  assertEquals(plan.transitions[1]?.action.kind, "branchPublication");
+  if (plan.transitions[1]?.action.kind === "branchPublication") {
+    assertEquals(plan.transitions[1].action.sourceRef, "a.01-source-only");
+    assertEquals(plan.transitions[1].action.publicationFromRef, undefined);
+    assertEquals(plan.transitions[1].action.publicationBranch, "gh-pages");
+    assertEquals(plan.transitions[1].action.invocations.length, 2);
+    assertEquals(plan.transitions[1].action.invocations[0]?.argv, [
+      "deploy",
+      "gh-pages",
+      "--source-root",
+      "{sourceRoot}",
+      "--publish-root",
+      "{publicationRoot}",
+      "--mesh-base",
+      "https://semantic-flow.github.io/mesh-branch-fantasy-rules/",
+    ]);
+    assertEquals(plan.transitions[1].action.invocations[1]?.argv, [
+      "--mesh-root",
+      "{publicationRoot}",
+    ]);
+  }
 
   for (const transition of plan.transitions) {
     await Deno.stat(transition.manifestPath);
@@ -546,11 +587,7 @@ Deno.test("Alice Bio asset-backed transitions point at checked-in deterministic 
     scenario: "alice-bio",
     format: "text",
   });
-  const assetPaths = plan.transitions.flatMap((transition) =>
-    transition.action.kind === "command"
-      ? transition.action.inputs.map((input) => input.assetPath)
-      : transition.action.sources.map((source) => source.assetPath)
-  ).sort();
+  const assetPaths = fixtureAssetPathsForPlan(plan);
 
   assertEquals(assetPaths, [
     "01-source-only/alice-bio.ttl",
@@ -596,11 +633,7 @@ Deno.test("Sidecar Fantasy Rules source-only transition points at checked-in det
     scenario: "sidecar-fantasy-rules",
     format: "text",
   });
-  const assetPaths = plan.transitions.flatMap((transition) =>
-    transition.action.kind === "command"
-      ? transition.action.inputs.map((input) => input.assetPath)
-      : transition.action.sources.map((source) => source.assetPath)
-  ).sort();
+  const assetPaths = fixtureAssetPathsForPlan(plan);
 
   assertEquals(assetPaths, [
     "01-source-only/NOTICE.md",
@@ -622,11 +655,7 @@ Deno.test("Branch-Published Fantasy Rules source-only transition points at check
     scenario: "branch-fantasy-rules",
     format: "text",
   });
-  const assetPaths = plan.transitions.flatMap((transition) =>
-    transition.action.kind === "command"
-      ? transition.action.inputs.map((input) => input.assetPath)
-      : transition.action.sources.map((source) => source.assetPath)
-  ).sort();
+  const assetPaths = fixtureAssetPathsForPlan(plan);
 
   assertEquals(assetPaths, [
     "01-source-only/NOTICE.md",
@@ -939,7 +968,7 @@ Deno.test("renderFixtureExecutionResult prints command and validation status", a
   assertStringIncludes(rendered, "Transition: 02-mesh-created");
   assertStringIncludes(
     rendered,
-    "Command: deno run --allow-read --allow-write --allow-env",
+    "Command: deno run --allow-read --allow-write --allow-run=git --allow-env",
   );
   assertStringIncludes(rendered, "Validation:");
   assertStringIncludes(rendered, "status:");

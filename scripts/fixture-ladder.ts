@@ -149,9 +149,23 @@ export interface FixtureFileOperationExecutionResult {
   missingAssets: readonly FixtureFileOperationMissingAsset[];
 }
 
+export interface FixtureBranchPublicationExecutionResult {
+  kind: "branchPublication";
+  description: string;
+  success: boolean;
+  code: number;
+  sourceWorkspaceRoot: string;
+  publicationWorkspaceRoot: string;
+  publicationBranch: string;
+  commands: readonly FixtureCommandInvocationExecutionResult[];
+  stdout: string;
+  stderr: string;
+}
+
 export type FixtureTransitionOperationResult =
   | FixtureCommandExecutionResult
-  | FixtureFileOperationExecutionResult;
+  | FixtureFileOperationExecutionResult
+  | FixtureBranchPublicationExecutionResult;
 
 interface FixtureExecutionBase {
   scenario: FixtureScenarioId;
@@ -172,7 +186,8 @@ interface FixtureExecutionBase {
 
 export type FixtureExecutionResult =
   | FixtureCommandTransitionExecutionResult
-  | FixtureFileOperationTransitionExecutionResult;
+  | FixtureFileOperationTransitionExecutionResult
+  | FixtureBranchPublicationTransitionExecutionResult;
 
 export interface FixtureCommandTransitionExecutionResult
   extends FixtureExecutionBase {
@@ -189,6 +204,29 @@ export interface FixtureFileOperationTransitionExecutionResult
   command?: undefined;
   fileOperation: FixtureFileOperationExecutionResult;
 }
+
+export interface FixtureBranchPublicationTransitionExecutionResult
+  extends FixtureExecutionBase {
+  actionKind: "branchPublication";
+  operation: FixtureBranchPublicationExecutionResult;
+  command?: undefined;
+  fileOperation?: undefined;
+  branchPublication: FixtureBranchPublicationExecutionResult;
+  publicationBranchUpdate: FixturePublicationBranchUpdateResult;
+}
+
+export type FixturePublicationBranchUpdateResult =
+  | {
+    updated: false;
+    branch: string;
+    reason: string;
+  }
+  | {
+    updated: true;
+    branch: string;
+    branchRef: string;
+    commitSha: string;
+  };
 
 export interface UpdateFixtureBranchOptions {
   fixtureRepoPath: string;
@@ -256,7 +294,8 @@ export interface FixtureTransitionPlan extends FixtureTransitionDefinition {
 
 export type FixtureTransitionAction =
   | FixtureCommandAction
-  | FixtureFileOperationAction;
+  | FixtureFileOperationAction
+  | FixtureBranchPublicationAction;
 
 export interface FixtureCommandAction {
   kind: "command";
@@ -283,6 +322,23 @@ export interface FixtureFileOperationAction {
   description: string;
   sources: readonly FixtureFileOperationSource[];
   inventoryPatches: readonly FixtureInventoryPatch[];
+}
+
+export interface FixtureBranchPublicationAction {
+  kind: "branchPublication";
+  description: string;
+  sourceRef: string;
+  publicationFromRef?: string;
+  publicationBranch: string;
+  invocations: readonly FixtureBranchPublicationCommandInvocation[];
+}
+
+export interface FixtureBranchPublicationCommandInvocation {
+  executable: "weave";
+  argv: readonly string[];
+  cwd: "workspace";
+  promptPolicy: "nonInteractive";
+  expectedRuntimeLogs: boolean;
 }
 
 export interface FixtureFileOperationSource {
@@ -898,6 +954,16 @@ export const BRANCH_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
         branchPrefix: BRANCH_FANTASY_RULES_LADDER_BRANCH_PREFIX,
       },
     ),
+    branchPublicationTransition(
+      2,
+      "02-publication-bootstrapped-woven",
+      "01-source-only",
+      {
+        description:
+          "Bootstrap the branch-published GitHub Pages publication root and weave its support pages.",
+        publicationBranch: "gh-pages",
+      },
+    ),
   ],
 };
 
@@ -1158,7 +1224,7 @@ export function renderFixtureLadderPlan(plan: FixtureLadderPlan): string {
           } (${input.provenance})`,
         );
       }
-    } else {
+    } else if (transition.action.kind === "fileOperation") {
       lines.push(`   file operation: ${transition.action.description}`);
       for (const source of transition.action.sources) {
         lines.push(
@@ -1170,6 +1236,28 @@ export function renderFixtureLadderPlan(plan: FixtureLadderPlan): string {
       for (const patch of transition.action.inventoryPatches) {
         lines.push(
           `   inventory patch: ${patch.inventoryPath} registers ${patch.pageDefinitionPath} (${patch.provenance})`,
+        );
+      }
+    } else {
+      lines.push(`   branch publication: ${transition.action.description}`);
+      lines.push(`   source ref: ${transition.action.sourceRef}`);
+      lines.push(
+        `   publication from ref: ${
+          transition.action.publicationFromRef ?? "(empty publication root)"
+        }`,
+      );
+      lines.push(
+        `   publication branch: ${transition.action.publicationBranch}`,
+      );
+      for (
+        const [index, invocation] of transition.action.invocations
+          .entries()
+      ) {
+        const label = transition.action.invocations.length > 1
+          ? `   command ${index + 1}:`
+          : "   command:";
+        lines.push(
+          `${label} ${[invocation.executable, ...invocation.argv].join(" ")}`,
         );
       }
     }
@@ -1239,6 +1327,15 @@ export async function executeFixtureTransition(
   });
   const transition = findFixtureTransitionPlan(plan, options.transitionId);
 
+  if (transition.action.kind === "branchPublication") {
+    return await executeBranchPublicationTransition({
+      options,
+      plan,
+      transition,
+      action: transition.action,
+    });
+  }
+
   const materialization = await materializeFixtureTransitionSource(options);
   const operation = transition.action.kind === "command"
     ? await runFixtureCommand({
@@ -1247,11 +1344,13 @@ export async function executeFixtureTransition(
       workspaceRoot: materialization.workspaceRoot,
       action: transition.action,
     })
-    : await applyFixtureFileOperation({
+    : transition.action.kind === "fileOperation"
+    ? await applyFixtureFileOperation({
       assetRoot: plan.assetRoot,
       workspaceRoot: materialization.workspaceRoot,
       action: transition.action,
-    });
+    })
+    : unreachableAction(transition.action);
   const validation = await validateFixtureTransitionWorkspace({
     fixtureRepoPath: plan.fixtureRepoPath,
     manifestPath: transition.manifestPath,
@@ -1304,6 +1403,68 @@ export async function executeFixtureTransition(
   };
 }
 
+async function executeBranchPublicationTransition(options: {
+  options: ExecuteFixtureTransitionOptions;
+  plan: FixtureLadderPlan;
+  transition: FixtureTransitionPlan;
+  action: FixtureBranchPublicationAction;
+}): Promise<FixtureBranchPublicationTransitionExecutionResult> {
+  const materialization = await materializeBranchPublicationWorkspaces({
+    plan: options.plan,
+    transition: options.transition,
+    action: options.action,
+    workspaceRoot: options.options.workspaceRoot,
+  });
+  const operation = await runBranchPublicationCommands({
+    root: options.plan.root,
+    sourceWorkspaceRoot: materialization.sourceWorkspaceRoot,
+    publicationWorkspaceRoot: materialization.publicationWorkspaceRoot,
+    action: options.action,
+  });
+  const validation = await validateFixtureTransitionWorkspace({
+    fixtureRepoPath: options.plan.fixtureRepoPath,
+    manifestPath: options.transition.manifestPath,
+    workspaceRoot: materialization.publicationWorkspaceRoot,
+    fallbackFromRef: options.transition.fromRef,
+    fallbackToRef: options.transition.toRef,
+  });
+  const branchUpdate = await maybeUpdateFixtureBranch({
+    fixtureRepoPath: options.plan.fixtureRepoPath,
+    workspaceRoot: materialization.publicationWorkspaceRoot,
+    targetRef: options.transition.toRef,
+    parentRef: options.action.publicationFromRef,
+    dryRun: options.options.dryRun ?? false,
+    operation,
+    validation,
+    message: `Regenerate fixture branch ${options.transition.toRef}`,
+  });
+  const publicationBranchUpdate = await maybeFastForwardPublicationBranch({
+    fixtureRepoPath: options.plan.fixtureRepoPath,
+    publicationBranch: options.action.publicationBranch,
+    branchUpdate,
+  });
+
+  return {
+    scenario: options.plan.scenario.id,
+    transitionId: options.transition.id,
+    fromRef: options.transition.fromRef,
+    toRef: options.transition.toRef,
+    operationId: options.transition.operationId,
+    fixtureRepoPath: options.plan.fixtureRepoPath,
+    manifestPath: options.transition.manifestPath,
+    assetRoot: options.plan.assetRoot,
+    workspaceRoot: materialization.publicationWorkspaceRoot,
+    materializedPaths: materialization.publicationMaterializedPaths,
+    operation,
+    validation,
+    writesBranches: branchUpdate.updated,
+    branchUpdate,
+    actionKind: "branchPublication",
+    branchPublication: operation,
+    publicationBranchUpdate,
+  };
+}
+
 export function renderFixtureMaterializationResult(
   result: FixtureMaterializationResult,
 ): string {
@@ -1329,8 +1490,10 @@ export function renderFixtureMaterializationResult(
         ).join(" && ")
       }`,
     );
-  } else {
+  } else if (result.nextAction.kind === "fileOperation") {
     lines.push(`Next file operation: ${result.nextAction.description}`);
+  } else {
+    lines.push(`Next branch publication: ${result.nextAction.description}`);
   }
   return lines.join("\n");
 }
@@ -1378,7 +1541,7 @@ export function renderFixtureExecutionResult(
       lines.push("Command stderr:");
       lines.push(result.command.stderr.trimEnd());
     }
-  } else {
+  } else if (result.actionKind === "fileOperation") {
     lines.push(`File operation: ${result.fileOperation.description}`);
     lines.push(`File operation success: ${result.fileOperation.success}`);
     lines.push(`Files applied: ${result.fileOperation.files.length}`);
@@ -1399,6 +1562,35 @@ export function renderFixtureExecutionResult(
         );
       }
     }
+  } else {
+    lines.push(
+      `Branch publication: ${result.branchPublication.description}`,
+    );
+    lines.push(
+      `Source workspace: ${result.branchPublication.sourceWorkspaceRoot}`,
+    );
+    lines.push(
+      `Publication workspace: ${result.branchPublication.publicationWorkspaceRoot}`,
+    );
+    lines.push(
+      `Publication branch: ${result.branchPublication.publicationBranch}`,
+    );
+    lines.push(`Commands: ${result.branchPublication.commands.length}`);
+    for (
+      const [index, command] of result.branchPublication.commands
+        .entries()
+    ) {
+      lines.push(`Command ${index + 1}: ${command.command.join(" ")}`);
+      lines.push(`Command ${index + 1} exit code: ${command.code}`);
+    }
+    if (result.branchPublication.stdout.trim().length > 0) {
+      lines.push("Command stdout:");
+      lines.push(result.branchPublication.stdout.trimEnd());
+    }
+    if (result.branchPublication.stderr.trim().length > 0) {
+      lines.push("Command stderr:");
+      lines.push(result.branchPublication.stderr.trimEnd());
+    }
   }
 
   lines.push("Validation:");
@@ -1413,6 +1605,16 @@ export function renderFixtureExecutionResult(
     );
   } else {
     lines.push(`skipped: ${result.branchUpdate.reason}`);
+  }
+  if (result.actionKind === "branchPublication") {
+    lines.push("Publication branch update:");
+    if (result.publicationBranchUpdate.updated) {
+      lines.push(
+        `fast-forwarded ${result.publicationBranchUpdate.branchRef} to ${result.publicationBranchUpdate.commitSha}`,
+      );
+    } else {
+      lines.push(`skipped: ${result.publicationBranchUpdate.reason}`);
+    }
   }
   return lines.join("\n");
 }
@@ -1452,7 +1654,7 @@ async function hydrateFixtureTransitionPlan(options: {
     manifestPath: options.manifestPath,
   };
 
-  if (options.transition.action.kind !== "command") {
+  if (options.transition.action.kind === "fileOperation") {
     return base;
   }
 
@@ -1462,6 +1664,19 @@ async function hydrateFixtureTransitionPlan(options: {
 
   const manifest = await readManifestSource(options.manifestPath);
   const transitionCase = selectTransitionCase(manifest.document);
+  if (options.transition.action.kind === "branchPublication") {
+    return {
+      ...base,
+      operationId: transitionCase.operationId ?? options.transition.operationId,
+      action: hydrateBranchPublicationActionFromReplayProfile({
+        action: options.transition.action,
+        transitionId: options.transition.id,
+        manifestPath: options.manifestPath,
+        replayProfile: transitionCase.hasReplayProfile,
+      }),
+    };
+  }
+
   return {
     ...base,
     operationId: transitionCase.operationId ?? options.transition.operationId,
@@ -1473,11 +1688,11 @@ async function hydrateFixtureTransitionPlan(options: {
   };
 }
 
-function hydrateCommandActionFromReplayProfile(options: {
+function replayProfileCommandInvocations(options: {
   transitionId: string;
   manifestPath: string;
   replayProfile?: ReplayProfile;
-}): FixtureCommandAction {
+}): readonly CommandInvocation[] {
   const replayProfile = options.replayProfile;
   if (replayProfile === undefined) {
     throw new Error(
@@ -1501,10 +1716,21 @@ function hydrateCommandActionFromReplayProfile(options: {
     validateCommandInvocation(options.transitionId, invocation);
   }
 
+  return invocations;
+}
+
+function hydrateCommandActionFromReplayProfile(options: {
+  transitionId: string;
+  manifestPath: string;
+  replayProfile?: ReplayProfile;
+}): FixtureCommandAction {
+  const replayProfile = options.replayProfile;
+  const invocations = replayProfileCommandInvocations(options);
+
   const hydratedInvocations = invocations.map((invocation) =>
     hydrateCommandInvocationAction({
       transitionId: options.transitionId,
-      replayProfile,
+      replayProfile: replayProfile!,
       invocation,
     })
   );
@@ -1521,6 +1747,27 @@ function hydrateCommandActionFromReplayProfile(options: {
     ...(hydratedInvocations.length > 1
       ? { invocations: hydratedInvocations }
       : {}),
+  };
+}
+
+function hydrateBranchPublicationActionFromReplayProfile(options: {
+  action: FixtureBranchPublicationAction;
+  transitionId: string;
+  manifestPath: string;
+  replayProfile?: ReplayProfile;
+}): FixtureBranchPublicationAction {
+  const invocations = replayProfileCommandInvocations(options);
+
+  return {
+    ...options.action,
+    invocations: invocations.map((invocation) => ({
+      executable: "weave",
+      argv: invocation.argv ?? [],
+      cwd: "workspace",
+      promptPolicy: "nonInteractive",
+      expectedRuntimeLogs: invocation.expectsOperationalLogs === true ||
+        invocation.expectsAuditLogs === true,
+    })),
   };
 }
 
@@ -1721,6 +1968,56 @@ function fileTransition(
   };
 }
 
+function branchPublicationTransition(
+  index: number,
+  id: string,
+  sourceFromRef: string,
+  action: {
+    description: string;
+    publicationFromRef?: string;
+    publicationBranch: string;
+    invocations?: readonly {
+      argv: readonly string[];
+    }[];
+  },
+  operationId = "deploy.ghPages",
+  options: {
+    branchPrefix?: string;
+  } = {},
+): FixtureTransitionDefinition {
+  const branchPrefix = options.branchPrefix ??
+    BRANCH_FANTASY_RULES_LADDER_BRANCH_PREFIX;
+  const sourceRef = toLadderBranchRef(branchPrefix, sourceFromRef);
+  return {
+    index,
+    id,
+    fromRef: sourceRef,
+    toRef: toLadderBranchRef(branchPrefix, id),
+    manifestName: `${id}.jsonld`,
+    operationId,
+    action: {
+      kind: "branchPublication",
+      description: action.description,
+      sourceRef,
+      ...(action.publicationFromRef === undefined ? {} : {
+        publicationFromRef: toLadderBranchRef(
+          branchPrefix,
+          action.publicationFromRef,
+        ),
+      }),
+      publicationBranch: action.publicationBranch,
+      invocations: (action.invocations ?? []).map((invocation) => ({
+        executable: "weave",
+        argv: invocation.argv,
+        cwd: "workspace",
+        promptPolicy: "nonInteractive",
+        expectedRuntimeLogs: true,
+      })),
+    },
+    validation: defaultValidation(),
+  };
+}
+
 function resolveFixtureAssetSources(
   transitionId: string,
   sources: readonly FixtureFileOperationSourceInput[],
@@ -1779,6 +2076,10 @@ function commandActionInvocations(
   return action.invocations ?? [action];
 }
 
+function unreachableAction(action: never): never {
+  throw new Error(`Unsupported fixture action: ${JSON.stringify(action)}`);
+}
+
 async function runFixtureCommand(options: {
   assetRoot: string;
   root: string;
@@ -1819,6 +2120,7 @@ async function runFixtureCommandInvocation(options: {
     "run",
     "--allow-read",
     "--allow-write",
+    "--allow-run=git",
     "--allow-env",
     join(options.root, "src/main.ts"),
     ...options.invocation.argv,
@@ -1882,6 +2184,173 @@ function summarizeFixtureCommandResults(
     stdout: results.map((result) => result.stdout).join(""),
     stderr: results.map((result) => result.stderr).join(""),
   };
+}
+
+async function materializeBranchPublicationWorkspaces(options: {
+  plan: FixtureLadderPlan;
+  transition: FixtureTransitionPlan;
+  action: FixtureBranchPublicationAction;
+  workspaceRoot?: string;
+}): Promise<{
+  workspaceRoot: string;
+  sourceWorkspaceRoot: string;
+  publicationWorkspaceRoot: string;
+  sourceMaterializedPaths: readonly string[];
+  publicationMaterializedPaths: readonly string[];
+}> {
+  const workspaceRoot = options.workspaceRoot === undefined
+    ? await Deno.makeTempDir({ prefix: "weave-fixture-ladder-" })
+    : resolve(options.workspaceRoot);
+  await ensureEmptyWorkspaceRoot(workspaceRoot);
+
+  const sourceWorkspaceRoot = join(workspaceRoot, "source");
+  const publicationWorkspaceRoot = join(workspaceRoot, "publication");
+  await Deno.mkdir(sourceWorkspaceRoot, { recursive: true });
+  await Deno.mkdir(publicationWorkspaceRoot, { recursive: true });
+
+  const resolvedSourceRef = await resolveGitCommitishIfExists(
+    options.plan.fixtureRepoPath,
+    options.action.sourceRef,
+  );
+  if (resolvedSourceRef === undefined) {
+    throw unresolvedFixtureRefError(
+      options.plan.fixtureRepoPath,
+      options.action.sourceRef,
+    );
+  }
+  const sourceMaterializedPaths = await materializeGitTree({
+    repoPath: options.plan.fixtureRepoPath,
+    ref: resolvedSourceRef,
+    workspaceRoot: sourceWorkspaceRoot,
+  });
+
+  const publicationFromRef = options.action.publicationFromRef;
+  const publicationMaterializedPaths = publicationFromRef === undefined
+    ? []
+    : await materializePublicationRef({
+      fixtureRepoPath: options.plan.fixtureRepoPath,
+      publicationFromRef,
+      publicationWorkspaceRoot,
+    });
+
+  return {
+    workspaceRoot,
+    sourceWorkspaceRoot,
+    publicationWorkspaceRoot,
+    sourceMaterializedPaths,
+    publicationMaterializedPaths,
+  };
+}
+
+async function materializePublicationRef(options: {
+  fixtureRepoPath: string;
+  publicationFromRef: string;
+  publicationWorkspaceRoot: string;
+}): Promise<readonly string[]> {
+  const resolvedPublicationRef = await resolveGitCommitishIfExists(
+    options.fixtureRepoPath,
+    options.publicationFromRef,
+  );
+  if (resolvedPublicationRef === undefined) {
+    throw unresolvedFixtureRefError(
+      options.fixtureRepoPath,
+      options.publicationFromRef,
+    );
+  }
+  return await materializeGitTree({
+    repoPath: options.fixtureRepoPath,
+    ref: resolvedPublicationRef,
+    workspaceRoot: options.publicationWorkspaceRoot,
+  });
+}
+
+async function runBranchPublicationCommands(options: {
+  root: string;
+  sourceWorkspaceRoot: string;
+  publicationWorkspaceRoot: string;
+  action: FixtureBranchPublicationAction;
+}): Promise<FixtureBranchPublicationExecutionResult> {
+  const results: FixtureCommandInvocationExecutionResult[] = [];
+
+  for (const invocation of options.action.invocations) {
+    const result = await runBranchPublicationCommandInvocation({
+      root: options.root,
+      sourceWorkspaceRoot: options.sourceWorkspaceRoot,
+      publicationWorkspaceRoot: options.publicationWorkspaceRoot,
+      invocation,
+    });
+    results.push(result);
+    if (!result.success) {
+      break;
+    }
+  }
+
+  const last = results.at(-1);
+  return {
+    kind: "branchPublication",
+    description: options.action.description,
+    success: results.every((result) => result.success),
+    code: last?.code ?? 1,
+    sourceWorkspaceRoot: options.sourceWorkspaceRoot,
+    publicationWorkspaceRoot: options.publicationWorkspaceRoot,
+    publicationBranch: options.action.publicationBranch,
+    commands: results,
+    stdout: results.map((result) => result.stdout).join(""),
+    stderr: results.map((result) => result.stderr).join(""),
+  };
+}
+
+async function runBranchPublicationCommandInvocation(options: {
+  root: string;
+  sourceWorkspaceRoot: string;
+  publicationWorkspaceRoot: string;
+  invocation: FixtureBranchPublicationCommandInvocation;
+}): Promise<FixtureCommandInvocationExecutionResult> {
+  const commandCwd = dirname(options.sourceWorkspaceRoot);
+  const command = [
+    "deno",
+    "run",
+    "--allow-read",
+    "--allow-write",
+    "--allow-run=git",
+    "--allow-env",
+    join(options.root, "src/main.ts"),
+    ...options.invocation.argv.map((arg) =>
+      substituteBranchPublicationArg({
+        arg,
+        sourceWorkspaceRoot: options.sourceWorkspaceRoot,
+        publicationWorkspaceRoot: options.publicationWorkspaceRoot,
+      })
+    ),
+  ];
+  const output = await new Deno.Command("deno", {
+    cwd: commandCwd,
+    args: command.slice(1),
+    env: {
+      WEAVE_GENERATED_AT: FIXTURE_GENERATED_AT,
+    },
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+
+  return {
+    command,
+    cwd: commandCwd,
+    success: output.success,
+    code: output.code,
+    stdout: new TextDecoder().decode(output.stdout),
+    stderr: new TextDecoder().decode(output.stderr),
+  };
+}
+
+function substituteBranchPublicationArg(options: {
+  arg: string;
+  sourceWorkspaceRoot: string;
+  publicationWorkspaceRoot: string;
+}): string {
+  return options.arg
+    .replaceAll("{sourceRoot}", options.sourceWorkspaceRoot)
+    .replaceAll("{publicationRoot}", options.publicationWorkspaceRoot);
 }
 
 async function applyFixtureFileOperation(options: {
@@ -2098,6 +2567,61 @@ async function maybeUpdateFixtureBranch(options: {
     parentRef: options.parentRef,
     message: options.message,
   });
+}
+
+async function maybeFastForwardPublicationBranch(options: {
+  fixtureRepoPath: string;
+  publicationBranch: string;
+  branchUpdate: FixtureBranchUpdateResult;
+}): Promise<FixturePublicationBranchUpdateResult> {
+  if (!options.branchUpdate.updated) {
+    return {
+      updated: false,
+      branch: options.publicationBranch,
+      reason: "fixture checkpoint branch was not updated",
+    };
+  }
+
+  await assertValidBranchName(
+    options.fixtureRepoPath,
+    options.publicationBranch,
+  );
+  const branchRef = toLocalBranchRef(options.publicationBranch);
+  const currentSha = await resolveGitCommitishIfExists(
+    options.fixtureRepoPath,
+    options.publicationBranch,
+  );
+  if (currentSha !== undefined) {
+    const ancestor = await runGit(options.fixtureRepoPath, [
+      "merge-base",
+      "--is-ancestor",
+      currentSha,
+      options.branchUpdate.commitSha,
+    ]);
+    if (!ancestor.success) {
+      throw new Error(
+        `Refusing to move ${options.publicationBranch}; current ${currentSha} is not an ancestor of ${options.branchUpdate.commitSha}`,
+      );
+    }
+  }
+
+  const updateResult = await runGit(options.fixtureRepoPath, [
+    "update-ref",
+    branchRef,
+    options.branchUpdate.commitSha,
+  ]);
+  if (!updateResult.success) {
+    throw new Error(
+      `Failed to update ${branchRef}: ${updateResult.stderr.trim()}`,
+    );
+  }
+
+  return {
+    updated: true,
+    branch: options.publicationBranch,
+    branchRef,
+    commitSha: options.branchUpdate.commitSha,
+  };
 }
 
 export async function updateFixtureBranchFromWorkspace(
