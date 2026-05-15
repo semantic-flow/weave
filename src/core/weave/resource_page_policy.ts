@@ -483,6 +483,5 @@ function tryToMeshPath(meshBase: string, iri: string): string | undefined {
     return undefined;
   }
 
-  const suffix = iri.slice(meshBase.length);
-  return suffix.length === 0 ? undefined : suffix;
+  return iri.slice(meshBase.length);
 }

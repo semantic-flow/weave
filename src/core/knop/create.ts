@@ -643,11 +643,6 @@ function assertHasCarriedCurrentMeshInventoryShapeForKnopCreate(
     ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
     [
       "_mesh/_inventory",
-      SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
-      "_mesh/_inventory/_history001",
-    ],
-    [
-      "_mesh/_inventory",
       SFLO_HAS_WORKING_LOCATED_FILE_IRI,
       "_mesh/_inventory/inventory.ttl",
     ],
@@ -677,42 +672,76 @@ function assertHasCarriedCurrentMeshInventoryShapeForKnopCreate(
     }
   }
 
-  const latestStatePath = requireSingleNamedNodePath(
+  const latestStatePath = resolveSingleNamedNodePath(
     quads,
     meshBase,
     "_mesh/_inventory/_history001",
     SFLO_LATEST_HISTORICAL_STATE_IRI,
     errorMessage,
   );
-  const latestStateOrdinal = parseStateOrdinalFromPath(
-    latestStatePath,
-    errorMessage,
-  );
-  const nextStateOrdinal = requireSingleNonNegativeIntegerLiteral(
+  const nextStateOrdinal = resolveSingleNonNegativeIntegerLiteral(
     quads,
     meshBase,
     "_mesh/_inventory/_history001",
     SFLO_NEXT_STATE_ORDINAL_IRI,
     errorMessage,
   );
-  if (
-    toHistoryPathFromStatePath(latestStatePath) !==
-      "_mesh/_inventory/_history001" ||
-    nextStateOrdinal !== latestStateOrdinal + 1
-  ) {
+  if (latestStatePath !== undefined || nextStateOrdinal !== undefined) {
+    if (latestStatePath === undefined || nextStateOrdinal === undefined) {
+      throw new KnopCreateInputError(errorMessage);
+    }
+
+    const latestStateOrdinal = parseStateOrdinalFromPath(
+      latestStatePath,
+      errorMessage,
+    );
+    if (
+      toHistoryPathFromStatePath(latestStatePath) !==
+        "_mesh/_inventory/_history001" ||
+      nextStateOrdinal !== latestStateOrdinal + 1
+    ) {
+      throw new KnopCreateInputError(errorMessage);
+    }
+
+    if (
+      !hasNamedNodeFact(
+        quads,
+        meshBase,
+        latestStatePath,
+        RDF_TYPE_IRI,
+        SFLO_HISTORICAL_STATE_IRI,
+      )
+    ) {
+      throw new KnopCreateInputError(errorMessage);
+    }
+    return;
+  }
+
+  const historicalStatePaths = listNamedNodeObjectPaths(
+    quads,
+    meshBase,
+    "_mesh/_inventory/_history001",
+    SFLO_HAS_HISTORICAL_STATE_IRI,
+  );
+  if (historicalStatePaths.length === 0) {
     throw new KnopCreateInputError(errorMessage);
   }
 
-  if (
-    !hasNamedNodeFact(
-      quads,
-      meshBase,
-      latestStatePath,
-      RDF_TYPE_IRI,
-      SFLO_HISTORICAL_STATE_IRI,
-    )
-  ) {
-    throw new KnopCreateInputError(errorMessage);
+  for (const historicalStatePath of historicalStatePaths) {
+    parseStateOrdinalFromPath(historicalStatePath, errorMessage);
+    if (
+      toHistoryPathFromStatePath(historicalStatePath) !==
+        "_mesh/_inventory/_history001" ||
+      !hasNamedNodeFact(
+        quads,
+        meshBase,
+        historicalStatePath,
+        RDF_TYPE_IRI,
+        SFLO_HISTORICAL_STATE_IRI,
+      )
+    ) {
+      throw new KnopCreateInputError(errorMessage);
+    }
   }
 }
 
@@ -1073,34 +1102,44 @@ function listTypedSubjectPaths(
   return [...paths];
 }
 
-function requireSingleNamedNodePath(
+function listNamedNodeObjectPaths(
   quads: readonly Quad[],
   meshBase: string,
   subjectValue: string,
   predicateIri: string,
-  errorMessage: string,
-): string {
-  const objectIri = requireSingleNamedNodeObject(
-    quads,
-    meshBase,
-    subjectValue,
-    predicateIri,
-    errorMessage,
-  );
-  const path = toRelativeMeshPath(meshBase, objectIri);
-  if (path === undefined) {
-    throw new KnopCreateInputError(errorMessage);
+): string[] {
+  const subjectIri = new URL(subjectValue, meshBase).href;
+  const paths = new Set<string>();
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.subject.value !== subjectIri ||
+      quad.predicate.value !== predicateIri ||
+      quad.object.termType !== "NamedNode"
+    ) {
+      continue;
+    }
+
+    const path = toRelativeMeshPath(meshBase, quad.object.value);
+    if (path === undefined) {
+      throw new KnopCreateInputError(
+        `current mesh inventory references an out-of-mesh path for ${subjectValue}`,
+      );
+    }
+    paths.add(path);
   }
-  return path;
+
+  return [...paths];
 }
 
-function requireSingleNamedNodeObject(
+function resolveSingleNamedNodePath(
   quads: readonly Quad[],
   meshBase: string,
   subjectValue: string,
   predicateIri: string,
   errorMessage: string,
-): string {
+): string | undefined {
   const subjectIri = new URL(subjectValue, meshBase).href;
   const matches = quads.filter((quad) =>
     quad.subject.termType === "NamedNode" &&
@@ -1108,20 +1147,27 @@ function requireSingleNamedNodeObject(
     quad.predicate.value === predicateIri &&
     quad.object.termType === "NamedNode"
   );
+  if (matches.length === 0) {
+    return undefined;
+  }
   if (matches.length !== 1) {
     throw new KnopCreateInputError(errorMessage);
   }
 
-  return matches[0]!.object.value;
+  const path = toRelativeMeshPath(meshBase, matches[0]!.object.value);
+  if (path === undefined) {
+    throw new KnopCreateInputError(errorMessage);
+  }
+  return path;
 }
 
-function requireSingleNonNegativeIntegerLiteral(
+function resolveSingleNonNegativeIntegerLiteral(
   quads: readonly Quad[],
   meshBase: string,
   subjectValue: string,
   predicateIri: string,
   errorMessage: string,
-): number {
+): number | undefined {
   const subjectIri = new URL(subjectValue, meshBase).href;
   const matches = quads.filter((quad) =>
     quad.subject.termType === "NamedNode" &&
@@ -1130,6 +1176,9 @@ function requireSingleNonNegativeIntegerLiteral(
     quad.object.termType === "Literal" &&
     quad.object.datatype.value === XSD_NON_NEGATIVE_INTEGER_IRI
   );
+  if (matches.length === 0) {
+    return undefined;
+  }
   if (matches.length !== 1) {
     throw new KnopCreateInputError(errorMessage);
   }

@@ -140,7 +140,7 @@ Deno.test(
     );
     assertStringIncludes(
       plan.updatedFiles[0]?.contents ?? "",
-      "sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0005> ;",
+      "sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0005> ;",
     );
     assertStringIncludes(
       plan.updatedFiles[0]?.contents ?? "",

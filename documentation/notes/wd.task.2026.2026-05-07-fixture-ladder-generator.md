@@ -261,7 +261,8 @@ The first scenario-definition format should therefore support both `command` ste
 - [x] Prefix the new Alice Bio regeneration branch ladder with `a.` so generated rungs can coexist with the old branch ladder while the replay model settles.
 - [x] Clean the Alice Bio replay base down to `.assets` and repository notes, then branch it as `a.00-blank-slate`.
 - [x] Move Alice Bio command replay argv and command-input materialization metadata into Accord manifests, and hydrate command execution from those manifests.
-- [ ] Extend the generator through the full Alice Bio ladder.
+- [x] Extend the generator through the full Alice Bio ladder, including source-only, command-backed, file-operation, import-source, and root-page transitions through `a.25-root-page-customized-woven`.
+- [x] Push the generated Alice Bio `a.00` through `a.25` fixture refs after local validation.
 - [ ] Update or add documentation for the Alice Bio regeneration workflow.
 - [ ] Extend the generator to Sidecar Fantasy Rules as a branch-published ontology fixture.
 - [x] Before extending Sidecar Fantasy Rules generation, confirm whether its durable spec/example has moved from `docs` sidecar to branch-published ontology output.

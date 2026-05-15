@@ -253,7 +253,7 @@ Deno.test("executeWeave supports a later first root Knop weave against a carried
     await Deno.readTextFile(
       join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
     ),
-    "sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0006> ;",
+    "sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0006> ;",
   );
   assertStringIncludes(
     await Deno.readTextFile(
