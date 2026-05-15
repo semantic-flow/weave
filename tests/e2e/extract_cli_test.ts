@@ -210,7 +210,7 @@ Deno.test("weave extract accepts the root designator path as a black-box CLI run
 Deno.test("weave extract supports docs-rooted sidecar meshes with an explicit source selector", async () => {
   const workspaceRoot = await createTestTmpDir("weave-e2e-extract-sidecar-");
   await materializeMeshSidecarFantasyRulesBranch(
-    "07-shacl-integrated-woven",
+    "a.07-shacl-integrated-woven",
     workspaceRoot,
   );
 
@@ -257,7 +257,9 @@ Deno.test("weave extract supports docs-rooted sidecar meshes with an explicit so
 
 <ontology/CharacterShape/_knop/_inventory#extraction-source> a sflo:ExtractionSource ;
   sflo:hasTargetArtifact <shacl> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> .
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> ;
+  sflo:observedSourceLocalRelativePath "../shacl/fantasy-rules-shacl.ttl" ;
+  sflo:observedSourceDigest "sha256:349f1ad30fb4b2f20cc9c9e5f6febae09c6adb2148bc6b62c81905c9da9cc011" .
 
 <ontology/CharacterShape/_knop/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <ontology/CharacterShape/_knop/_meta/meta.ttl> .

@@ -72,6 +72,7 @@ Deno.test("resolvePayloadArtifactInventoryState accepts semantically equivalent 
     ),
     {
       workingLocalRelativePath: "alice-bio.ttl",
+      workingLocatedFilePath: "alice-bio.ttl",
       currentArtifactHistoryPath: "alice/bio/_history001",
       currentArtifactHistoryExists: true,
       latestHistoricalStatePath: "alice/bio/_history001/_s0002",
@@ -106,6 +107,7 @@ Deno.test("resolvePayloadArtifactInventoryState resolves latest payload snapshot
     ),
     {
       workingLocalRelativePath: "alice-bio.ttl",
+      workingLocatedFilePath: "alice-bio.ttl",
       currentArtifactHistoryPath: "alice/bio/_history001",
       currentArtifactHistoryExists: true,
       latestHistoricalStatePath: "alice/bio/_history001/_s0002",
@@ -137,6 +139,7 @@ Deno.test("resolvePayloadArtifactInventoryState tracks a missing ArtifactHistory
     ),
     {
       workingLocalRelativePath: "alice-bio.ttl",
+      workingLocatedFilePath: "alice-bio.ttl",
       currentArtifactHistoryPath: "alice/bio/_history001",
       currentArtifactHistoryExists: false,
       latestHistoricalStatePath: undefined,
@@ -161,6 +164,7 @@ Deno.test("resolveExtractionSourceInventoryState returns observed source evidenc
   sflo:hasObservedSourceState <alice/bio/_history001/_s0002> ;
   sflo:hasObservedSourceManifestation <alice/bio/_history001/_s0002/ttl> ;
   sflo:hasObservedSourceLocatedFile <alice/bio/_history001/_s0002/ttl/alice-bio.ttl> ;
+  sflo:observedSourceLocalRelativePath "../alice-bio.ttl" ;
   sflo:observedSourceDigest "sha256:abc123" .
 `,
       "bob",
@@ -181,6 +185,7 @@ Deno.test("resolveExtractionSourceInventoryState returns observed source evidenc
       observedSourceManifestationPath: "alice/bio/_history001/_s0002/ttl",
       observedSourceLocatedFilePath:
         "alice/bio/_history001/_s0002/ttl/alice-bio.ttl",
+      observedSourceLocalRelativePath: "../alice-bio.ttl",
       observedSourceDigest: "sha256:abc123",
     },
   );

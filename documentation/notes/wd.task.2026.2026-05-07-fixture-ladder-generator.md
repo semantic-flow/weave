@@ -214,6 +214,7 @@ The first scenario-definition format should therefore support both `command` ste
 - Record explicit source provenance for manually created, copied, fetched, or derived files. A fixture branch is not repeatable if the source of hand-authored bytes only exists in a prior conversation.
 - Regenerate `mesh-sidecar-fantasy-rules` as a docs-rooted sidecar mesh; use a separate future `mesh-branch-fantasy-rules` repository for branch-published Fantasy Rules coverage.
 - Extraction provenance should resolve as deeply as the source evidence allows: source artifact first, then history/state when present, then manifestation, located file, and digest. If a source artifact cannot provide history/state evidence, provenance should still record concrete observed bytes through located-file/digest evidence, with timestamp fallback reserved for cases where byte evidence cannot be made durable.
+- Use `sflo:hasObservedSourceLocatedFile` only for source evidence that is modeled as a mesh `LocatedFile` resource. Use the datatype property `sflo:observedSourceLocalRelativePath` for local checkout paths, especially sidecar source paths outside the mesh root, and pair it with `sflo:observedSourceDigest` when bytes are observed.
 - Accord `ReplayProfile` may declare `hasCommandSequence` for one transition that is replayed by several ordered Weave invocations. The fixture generator should execute those invocations in order and treat the sequence as one rung operation.
 
 ## Contract Changes

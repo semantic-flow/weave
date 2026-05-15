@@ -943,7 +943,11 @@ async function loadExtractSourcePayloadCandidate(
     sourceResolutionMode: "current",
     sourceStatePath: undefined,
     sourceEvidence: {
-      sourceLocatedFilePath: payloadArtifact.workingLocalRelativePath,
+      ...(payloadArtifact.workingLocatedFilePath
+        ? { sourceLocatedFilePath: payloadArtifact.workingLocatedFilePath }
+        : {
+          sourceLocalRelativePath: payloadArtifact.workingLocalRelativePath,
+        }),
       sourceDigest: await sha256Digest(currentPayloadTurtle),
     },
     sourcePayloadTurtle: currentPayloadTurtle,
@@ -1458,6 +1462,12 @@ function toExtractionSourceEvidenceFacts(
     facts.push([
       "sflo:hasObservedSourceLocatedFile",
       `<${sourceEvidence.sourceLocatedFilePath}>`,
+    ]);
+  }
+  if (sourceEvidence.sourceLocalRelativePath !== undefined) {
+    facts.push([
+      "sflo:observedSourceLocalRelativePath",
+      `"${escapeTurtleString(sourceEvidence.sourceLocalRelativePath)}"`,
     ]);
   }
   if (sourceEvidence.sourceDigest !== undefined) {

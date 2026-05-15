@@ -171,6 +171,7 @@ export interface ExtractionSourceEvidenceModel {
   sourceStatePath?: string;
   sourceManifestationPath?: string;
   sourceLocatedFilePath?: string;
+  sourceLocalRelativePath?: string;
   sourceDigest?: string;
   observedAt?: string;
 }
@@ -5439,6 +5440,12 @@ function toExtractionSourceEvidenceFacts(
     facts.push([
       "sflo:hasObservedSourceLocatedFile",
       `<${sourceEvidence.sourceLocatedFilePath}>`,
+    ]);
+  }
+  if (sourceEvidence.sourceLocalRelativePath !== undefined) {
+    facts.push([
+      "sflo:observedSourceLocalRelativePath",
+      `"${escapeTurtleString(sourceEvidence.sourceLocalRelativePath)}"`,
     ]);
   }
   if (sourceEvidence.sourceDigest !== undefined) {

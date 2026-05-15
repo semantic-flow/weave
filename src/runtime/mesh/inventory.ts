@@ -20,6 +20,8 @@ const SFLO_HAS_REQUESTED_TARGET_STATE_IRI =
 const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasTargetArtifact`;
 const SFLO_HAS_OBSERVED_SOURCE_LOCATED_FILE_IRI =
   `${SFLO_NAMESPACE}hasObservedSourceLocatedFile`;
+const SFLO_OBSERVED_SOURCE_LOCAL_RELATIVE_PATH_IRI =
+  `${SFLO_NAMESPACE}observedSourceLocalRelativePath`;
 const SFLO_HAS_OBSERVED_SOURCE_MANIFESTATION_IRI =
   `${SFLO_NAMESPACE}hasObservedSourceManifestation`;
 const SFLO_HAS_OBSERVED_SOURCE_STATE_IRI =
@@ -50,6 +52,7 @@ const SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI =
 
 export interface PayloadArtifactInventoryState {
   workingLocalRelativePath: string;
+  workingLocatedFilePath?: string;
   currentArtifactHistoryPath?: string;
   currentArtifactHistoryExists: boolean;
   latestHistoricalStatePath?: string;
@@ -72,6 +75,7 @@ export interface ExtractionSourceInventoryState {
   observedSourceStatePath?: string;
   observedSourceManifestationPath?: string;
   observedSourceLocatedFilePath?: string;
+  observedSourceLocalRelativePath?: string;
   observedSourceDigest?: string;
   observedAt?: string;
 }
@@ -157,6 +161,13 @@ export function resolvePayloadArtifactInventoryState(
     payloadArtifactIri,
     messages.missingWorkingFileMessage,
   );
+  const workingLocatedFilePath = resolveOptionalUniqueNamedNodePath(
+    quads,
+    meshBase,
+    payloadArtifactIri,
+    SFLO_HAS_WORKING_LOCATED_FILE_IRI,
+    messages.parseErrorMessage,
+  );
   const currentArtifactHistoryPath = resolveOptionalUniqueNamedNodePath(
     quads,
     meshBase,
@@ -193,6 +204,7 @@ export function resolvePayloadArtifactInventoryState(
 
   return {
     workingLocalRelativePath,
+    ...(workingLocatedFilePath ? { workingLocatedFilePath } : {}),
     currentArtifactHistoryPath,
     currentArtifactHistoryExists,
     latestHistoricalStatePath,
@@ -369,6 +381,12 @@ function resolveExtractionSourceEvidenceState(
     SFLO_HAS_OBSERVED_SOURCE_LOCATED_FILE_IRI,
     errorMessage,
   );
+  const observedSourceLocalRelativePath = resolveOptionalUniqueLiteral(
+    quads,
+    extractionSourceIri,
+    SFLO_OBSERVED_SOURCE_LOCAL_RELATIVE_PATH_IRI,
+    errorMessage,
+  );
   const observedSourceDigest = resolveOptionalUniqueLiteral(
     quads,
     extractionSourceIri,
@@ -388,6 +406,9 @@ function resolveExtractionSourceEvidenceState(
       ? { observedSourceManifestationPath }
       : {}),
     ...(observedSourceLocatedFilePath ? { observedSourceLocatedFilePath } : {}),
+    ...(observedSourceLocalRelativePath
+      ? { observedSourceLocalRelativePath }
+      : {}),
     ...(observedSourceDigest ? { observedSourceDigest } : {}),
     ...(observedAt ? { observedAt } : {}),
   };

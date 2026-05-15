@@ -60,6 +60,7 @@ export interface ExtractionSourceEvidence {
   sourceStatePath?: string;
   sourceManifestationPath?: string;
   sourceLocatedFilePath?: string;
+  sourceLocalRelativePath?: string;
   sourceDigest?: string;
   observedAt?: string;
 }
@@ -202,8 +203,14 @@ function normalizeExtractionSourceEvidence(
     );
   }
   if (sourceEvidence.sourceLocatedFilePath !== undefined) {
-    normalized.sourceLocatedFilePath = normalizeWorkingLocalRelativePath(
+    normalized.sourceLocatedFilePath = normalizeRelativeIriPath(
       sourceEvidence.sourceLocatedFilePath,
+      "sourceEvidence.sourceLocatedFilePath",
+    );
+  }
+  if (sourceEvidence.sourceLocalRelativePath !== undefined) {
+    normalized.sourceLocalRelativePath = normalizeWorkingLocalRelativePath(
+      sourceEvidence.sourceLocalRelativePath,
     );
   }
   if (sourceEvidence.sourceDigest !== undefined) {
@@ -826,6 +833,12 @@ function toExtractionSourceEvidenceFacts(
     facts.push([
       "sflo:hasObservedSourceLocatedFile",
       `<${sourceEvidence.sourceLocatedFilePath}>`,
+    ]);
+  }
+  if (sourceEvidence.sourceLocalRelativePath !== undefined) {
+    facts.push([
+      "sflo:observedSourceLocalRelativePath",
+      `"${escapeTurtleString(sourceEvidence.sourceLocalRelativePath)}"`,
     ]);
   }
   if (sourceEvidence.sourceDigest !== undefined) {

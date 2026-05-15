@@ -235,7 +235,7 @@ Deno.test("executeExtract extracts selected sidecar ontology and SHACL terms wit
   const workspaceRoot = await createTestTmpDir("weave-extract-sidecar-terms-");
   const meshRoot = join(workspaceRoot, "docs");
   await materializeMeshSidecarFantasyRulesBranch(
-    "07-shacl-integrated-woven",
+    "a.07-shacl-integrated-woven",
     workspaceRoot,
   );
 
@@ -279,7 +279,7 @@ Deno.test("executeExtract extracts selected sidecar ontology and SHACL terms wit
     assertEquals(
       await Deno.readTextFile(join(workspaceRoot, path)),
       await readMeshSidecarFantasyRulesBranchFile(
-        "08-ontology-and-shacl-terms-extracted",
+        "a.08-ontology-and-shacl-terms-extracted",
         path,
       ),
       path,
@@ -323,7 +323,7 @@ Deno.test("executeExtract fails closed for ambiguous sidecar term sources withou
     "weave-extract-sidecar-ambiguous-",
   );
   await materializeMeshSidecarFantasyRulesBranch(
-    "07-shacl-integrated-woven",
+    "a.07-shacl-integrated-woven",
     workspaceRoot,
   );
 
