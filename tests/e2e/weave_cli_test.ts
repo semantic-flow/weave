@@ -8,6 +8,7 @@ import {
 import {
   listMeshAliceBioBranchFiles,
   materializeMeshAliceBioBranch,
+  MESH_ALICE_BIO_HISTORY_TRACKING_POLICY,
   readMeshAliceBioBranchFile,
   resolveMeshAliceBioConformanceManifestPath,
 } from "../support/mesh_alice_bio_fixture.ts";
@@ -787,6 +788,8 @@ async function assertWeaveTransitionMatchesManifest(
   await materializeMeshAliceBioBranch(transitionCase.fromRef!, workspaceRoot);
 
   const output = await runCliCommand([
+    "--history-tracking-policy",
+    MESH_ALICE_BIO_HISTORY_TRACKING_POLICY,
     ...(options.cliArgs ?? []),
   ], workspaceRoot);
   const stdout = new TextDecoder().decode(output.stdout);

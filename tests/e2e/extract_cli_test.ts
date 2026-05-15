@@ -190,7 +190,9 @@ Deno.test("weave extract accepts the root designator path as a black-box CLI run
 
 <_knop/_inventory#extraction-source> a sflo:ExtractionSource ;
   sflo:hasTargetArtifact <alice/bio> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> .
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> ;
+  sflo:hasObservedSourceLocatedFile <alice-bio-root.ttl> ;
+  sflo:observedSourceDigest "sha256:b1a7a70dd0f77e16544d0194b12e1bc9993d21470dfba3633bb8ae113834917d" .
 
 <_knop/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <_knop/_meta/meta.ttl> .

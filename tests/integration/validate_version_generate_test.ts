@@ -10,10 +10,13 @@ import { WeaveInputError } from "../../src/core/weave/weave.ts";
 import {
   executeGenerate,
   executeValidate,
-  executeVersion,
+  executeVersion as executeRuntimeVersion,
+  type ExecuteVersionOptions,
 } from "../../src/runtime/weave/weave.ts";
 import {
+  isMeshAliceBioMeshRoot,
   materializeMeshAliceBioBranch,
+  MESH_ALICE_BIO_HISTORY_TRACKING_POLICY,
   readMeshAliceBioBranchFile,
 } from "../support/mesh_alice_bio_fixture.ts";
 import {
@@ -27,6 +30,20 @@ function withAliceReferenceExtensionManifestation(contents: string): string {
     "alice/_knop/_references/_history001/_s0001/ttl",
     "alice/_knop/_references/_history001/_s0001/ttl",
   );
+}
+
+async function executeVersion(options: ExecuteVersionOptions) {
+  if (
+    options.historyTrackingPolicyOverride !== undefined ||
+    !(await isMeshAliceBioMeshRoot(options.meshRoot))
+  ) {
+    return await executeRuntimeVersion(options);
+  }
+
+  return await executeRuntimeVersion({
+    ...options,
+    historyTrackingPolicyOverride: MESH_ALICE_BIO_HISTORY_TRACKING_POLICY,
+  });
 }
 
 Deno.test("executeValidate returns structured findings for version-only target fields", async () => {
@@ -550,8 +567,7 @@ Deno.test("executeVersion batches recursive targets through staged current state
     await Deno.readTextFile(
       join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
     ),
-    `sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0003> ;
-  sflo:nextStateOrdinal "4"^^xsd:nonNegativeInteger ;`,
+    `sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0003> ;`,
   );
   assertStringIncludes(
     await Deno.readTextFile(
@@ -595,8 +611,8 @@ Deno.test("executeVersion fails closed when a later batch target becomes invalid
         "bob/_knop/_inventory/inventory.ttl",
       )
     ).replace(
-      "alice/bio/_history001/_s0002",
-      "alice/bio/_history001/_s0001",
+      "<bob/_knop/_inventory#extraction-source> a sflo:ExtractionSource ;",
+      "<bob/_knop/_inventory#extraction-source> a sflo:UnknownExtractionSource ;",
     ),
   );
 

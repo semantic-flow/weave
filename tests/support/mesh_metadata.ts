@@ -1,7 +1,7 @@
 import { join } from "@std/path";
+export { MESH_ALICE_BIO_BASE } from "./mesh_alice_bio_fixture.ts";
 
-export const MESH_ALICE_BIO_BASE =
-  "https://semantic-flow.github.io/mesh-alice-bio/";
+import { MESH_ALICE_BIO_BASE } from "./mesh_alice_bio_fixture.ts";
 
 export async function writeEquivalentMeshMetadata(
   workspaceRoot: string,
@@ -15,9 +15,19 @@ export async function writeEquivalentMeshMetadata(
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${meshBase}> .
 
-<_mesh> sflo:hasWorkingMeshInventoryFile <_mesh/_inventory/inventory.ttl> ;
-  rdf:type sflo:SemanticMesh ;
-  sflo:meshBase "${meshBase}"^^xsd:anyURI .
+<_mesh/_inventory> sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
+  rdf:type sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:currentArtifactHistory <_mesh/_inventory/_history001> .
+
+<_mesh> sflo:hasMeshInventory <_mesh/_inventory> ;
+  sflo:meshBase "${meshBase}"^^xsd:anyURI ;
+  rdf:type sflo:SemanticMesh .
+
+<_mesh/_meta> rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:MeshMetadata .
+
+<_mesh/_inventory/_history001> sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger ;
+  rdf:type sflo:ArtifactHistory ;
+  sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0001> .
 `,
   );
 }

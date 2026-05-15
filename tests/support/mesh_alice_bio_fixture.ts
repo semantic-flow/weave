@@ -17,8 +17,29 @@ const frameworkRepoPath = join(
 );
 const resolvedRefCache = new Map<string, Promise<string>>();
 
+// Temporary Alice fixture-ladder settings until the replay prefix and policy
+// move into an Accord/scenario master manifest.
+export const MESH_ALICE_BIO_LADDER_BRANCH_PREFIX = "a.";
+export const MESH_ALICE_BIO_HISTORY_TRACKING_POLICY = "versioned";
+export const MESH_ALICE_BIO_BASE =
+  "https://semantic-flow.github.io/mesh-alice-bio/";
+
 export function resolveMeshAliceBioFixtureRepoPath(): string {
   return fixtureRepoPath;
+}
+
+export async function isMeshAliceBioMeshRoot(
+  meshRoot: string,
+): Promise<boolean> {
+  try {
+    return (await Deno.readTextFile(join(meshRoot, "_mesh/_meta/meta.ttl")))
+      .includes(MESH_ALICE_BIO_BASE);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return false;
+    }
+    throw error;
+  }
 }
 
 export function resolveMeshAliceBioConformanceManifestPath(
@@ -53,8 +74,10 @@ async function resolveMeshAliceBioGitRef(ref: string): Promise<string> {
 async function resolveMeshAliceBioGitRefUncached(
   ref: string,
 ): Promise<string> {
-  const prefixedRef = ref.startsWith("a.") ? ref : `a.${ref}`;
-  const candidates = ref.startsWith("a.")
+  const prefixedRef = ref.startsWith(MESH_ALICE_BIO_LADDER_BRANCH_PREFIX)
+    ? ref
+    : `${MESH_ALICE_BIO_LADDER_BRANCH_PREFIX}${ref}`;
+  const candidates = ref.startsWith(MESH_ALICE_BIO_LADDER_BRANCH_PREFIX)
     ? [ref, `origin/${ref}`]
     : [prefixedRef, ref, `origin/${prefixedRef}`, `origin/${ref}`];
 

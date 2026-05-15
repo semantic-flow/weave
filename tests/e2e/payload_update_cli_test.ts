@@ -29,10 +29,7 @@ Deno.test("weave payload update matches the manifest-scoped alice-bio updated fi
   const workspaceRoot = await createTestTmpDir("weave-e2e-payload-update-");
   await materializeMeshAliceBioBranch(transitionCase.fromRef!, workspaceRoot);
 
-  const sourceRoot = await createTestTmpDir(
-    "weave-e2e-payload-update-source-",
-  );
-  const sourcePath = join(sourceRoot, "alice-bio-v2.ttl");
+  const sourcePath = join(workspaceRoot, "alice-bio-v2.ttl");
   await Deno.writeTextFile(
     sourcePath,
     await readMeshAliceBioBranchFile(transitionCase.toRef!, "alice-bio.ttl"),

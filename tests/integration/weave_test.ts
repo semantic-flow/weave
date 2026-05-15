@@ -12,11 +12,14 @@ import { executeKnopCreate } from "../../src/runtime/knop/create.ts";
 import { executeMeshCreate } from "../../src/runtime/mesh/create.ts";
 import {
   executeGenerate,
-  executeWeave,
+  executeWeave as executeRuntimeWeave,
+  type ExecuteWeaveOptions,
   WeaveRuntimeError,
 } from "../../src/runtime/weave/weave.ts";
 import {
+  isMeshAliceBioMeshRoot,
   materializeMeshAliceBioBranch,
+  MESH_ALICE_BIO_HISTORY_TRACKING_POLICY,
   readMeshAliceBioBranchFile,
 } from "../support/mesh_alice_bio_fixture.ts";
 import {
@@ -63,6 +66,20 @@ const aliceReferenceDefaultManifestation: readonly (readonly [
   "alice/_knop/_references/_history001/_s0001/ttl",
   "alice/_knop/_references/_history001/_s0001/ttl",
 ]];
+
+async function executeWeave(options: ExecuteWeaveOptions) {
+  if (
+    options.historyTrackingPolicyOverride !== undefined ||
+    !(await isMeshAliceBioMeshRoot(options.meshRoot))
+  ) {
+    return await executeRuntimeWeave(options);
+  }
+
+  return await executeRuntimeWeave({
+    ...options,
+    historyTrackingPolicyOverride: MESH_ALICE_BIO_HISTORY_TRACKING_POLICY,
+  });
+}
 
 Deno.test("executeWeave materializes current support ResourcePages for a docs-rooted sidecar mesh", async () => {
   const workspaceRoot = await createTestTmpDir("weave-weave-sidecar-support-");
@@ -395,8 +412,7 @@ Deno.test("executeWeave batches recursive targets through validate, version, and
     await Deno.readTextFile(
       join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
     ),
-    `sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0003> ;
-  sflo:nextStateOrdinal "4"^^xsd:nonNegativeInteger ;`,
+    `sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0003> ;`,
   );
   assertStringIncludes(
     await Deno.readTextFile(
@@ -1110,9 +1126,10 @@ Deno.test("executeWeave resolves page definitions from workingLocalRelativePath 
     "14-alice-page-customized",
     workspaceRoot,
   );
-  await replaceFileText(
-    join(workspaceRoot, "alice/_knop/_inventory/inventory.ttl"),
-    `sflo:hasWorkingLocatedFile <alice/_knop/_page/page.ttl> .`,
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/_knop/_inventory/inventory.ttl"),
+    ),
     `sflo:workingLocalRelativePath "alice/_knop/_page/page.ttl" .`,
   );
 
