@@ -39,6 +39,9 @@ const rootSourcePreExtractMeshInventoryTurtle =
 `;
 
 Deno.test("planExtract renders the first non-woven bob extraction artifacts", async () => {
+  const sourceDigest = await sha256Digest(
+    await readMeshAliceBioBranchFile("11-alice-bio-v2-woven", "alice-bio.ttl"),
+  );
   const plan = planExtract({
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: await readMeshAliceBioBranchFile(
@@ -48,6 +51,10 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
     designatorPath: "bob",
     sourceDesignatorPath: "alice/bio",
     sourceStatePath: "alice/bio/_history001/_s0002",
+    sourceEvidence: {
+      sourceLocatedFilePath: "alice-bio.ttl",
+      sourceDigest,
+    },
     sourceWorkingLocalRelativePath: "alice-bio.ttl",
   });
 
@@ -91,7 +98,12 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
   );
   assertStringIncludes(
     plan.createdFiles[1]?.contents ?? "",
-    "sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> .",
+    "sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> ;",
+  );
+  assertStringIncludes(
+    plan.createdFiles[1]?.contents ?? "",
+    `sflo:hasObservedSourceLocatedFile <alice-bio.ttl> ;
+  sflo:observedSourceDigest "${sourceDigest}" .`,
   );
   assertFalse(
     (plan.createdFiles[1]?.contents ?? "").includes(
@@ -238,6 +250,9 @@ Deno.test("planExtract preserves the original knop-planning error as the cause",
 });
 
 Deno.test("planExtract accepts a semantically equivalent source payload LocatedFile block", async () => {
+  const sourceDigest = await sha256Digest(
+    await readMeshAliceBioBranchFile("11-alice-bio-v2-woven", "alice-bio.ttl"),
+  );
   const currentMeshInventoryTurtle = withRdfPrefix(
     await readMeshAliceBioBranchFile(
       "11-alice-bio-v2-woven",
@@ -254,6 +269,10 @@ Deno.test("planExtract accepts a semantically equivalent source payload LocatedF
     designatorPath: "bob",
     sourceDesignatorPath: "alice/bio",
     sourceStatePath: "alice/bio/_history001/_s0002",
+    sourceEvidence: {
+      sourceLocatedFilePath: "alice-bio.ttl",
+      sourceDigest,
+    },
     sourceWorkingLocalRelativePath: "alice-bio.ttl",
   });
 
@@ -286,4 +305,21 @@ function countOccurrences(haystack: string, needle: string): number {
 
 function encode(value: string): Uint8Array {
   return new TextEncoder().encode(value);
+}
+
+async function sha256Digest(contents: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    toArrayBuffer(encode(contents)),
+  );
+  const hex = [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return `sha256:${hex}`;
+}
+
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  return buffer;
 }

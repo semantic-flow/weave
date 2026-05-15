@@ -164,6 +164,15 @@ export interface ReferenceTargetSourcePayloadArtifact {
   latestHistoricalSnapshotPath?: string;
   latestHistoricalSnapshotTurtle?: string;
   latestHistoricalStatePath: string;
+  sourceEvidence?: ExtractionSourceEvidenceModel;
+}
+
+export interface ExtractionSourceEvidenceModel {
+  sourceStatePath?: string;
+  sourceManifestationPath?: string;
+  sourceLocatedFilePath?: string;
+  sourceDigest?: string;
+  observedAt?: string;
 }
 
 export interface ResourcePageDefinitionWorkingArtifact {
@@ -1097,6 +1106,7 @@ function planFirstExtractedKnopWeave(
       designatorPath,
       referenceTargetSourcePayloadArtifact.designatorPath,
       referenceTargetSourcePayloadArtifact.latestHistoricalStatePath,
+      referenceTargetSourcePayloadArtifact.sourceEvidence,
     );
 
   return {
@@ -5286,8 +5296,14 @@ function renderFirstExtractedKnopWovenKnopInventoryTurtle(
   designatorPath: string,
   sourceDesignatorPath: string,
   sourceStatePath: string,
+  sourceEvidence?: ExtractionSourceEvidenceModel,
 ): string {
   const knopPath = toKnopPath(designatorPath);
+  const extractionSourceFacts = renderPinnedExtractionSourceFacts(
+    sourceDesignatorPath,
+    sourceStatePath,
+    sourceEvidence,
+  );
 
   return `@base <${meshBase}> .
 ${SFLO_TURTLE_PREFIX_DECLARATION}
@@ -5301,9 +5317,7 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
   sflo:hasResourcePage <${knopPath}/index.html> .
 
 <${knopPath}/_inventory#extraction-source> a sflo:ExtractionSource ;
-  sflo:hasTargetArtifact <${sourceDesignatorPath}> ;
-  sflo:hasRequestedTargetState <${sourceStatePath}> ;
-  sflo:hasArtifactResolutionMode <${SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI}> .
+${extractionSourceFacts}
 
 <${knopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <${knopPath}/_meta/_history001> ;
@@ -5379,6 +5393,72 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}/_inventory/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 `;
+}
+
+function renderPinnedExtractionSourceFacts(
+  sourceDesignatorPath: string,
+  sourceStatePath: string,
+  sourceEvidence: ExtractionSourceEvidenceModel | undefined,
+): string {
+  const facts: [string, string][] = [
+    ["sflo:hasTargetArtifact", `<${sourceDesignatorPath}>`],
+    ["sflo:hasRequestedTargetState", `<${sourceStatePath}>`],
+    [
+      "sflo:hasArtifactResolutionMode",
+      `<${SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI}>`,
+    ],
+    ...toExtractionSourceEvidenceFacts(sourceEvidence),
+  ];
+
+  return facts.map(([predicate, object], index) =>
+    `  ${predicate} ${object}${index === facts.length - 1 ? " ." : " ;"}`
+  ).join("\n");
+}
+
+function toExtractionSourceEvidenceFacts(
+  sourceEvidence: ExtractionSourceEvidenceModel | undefined,
+): [string, string][] {
+  if (!sourceEvidence) {
+    return [];
+  }
+
+  const facts: [string, string][] = [];
+  if (sourceEvidence.sourceStatePath !== undefined) {
+    facts.push([
+      "sflo:hasObservedSourceState",
+      `<${sourceEvidence.sourceStatePath}>`,
+    ]);
+  }
+  if (sourceEvidence.sourceManifestationPath !== undefined) {
+    facts.push([
+      "sflo:hasObservedSourceManifestation",
+      `<${sourceEvidence.sourceManifestationPath}>`,
+    ]);
+  }
+  if (sourceEvidence.sourceLocatedFilePath !== undefined) {
+    facts.push([
+      "sflo:hasObservedSourceLocatedFile",
+      `<${sourceEvidence.sourceLocatedFilePath}>`,
+    ]);
+  }
+  if (sourceEvidence.sourceDigest !== undefined) {
+    facts.push([
+      "sflo:observedSourceDigest",
+      `"${escapeTurtleString(sourceEvidence.sourceDigest)}"`,
+    ]);
+  }
+  if (sourceEvidence.observedAt !== undefined) {
+    facts.push([
+      "sflo:observedAt",
+      `"${escapeTurtleString(sourceEvidence.observedAt)}"`,
+    ]);
+  }
+
+  return facts;
+}
+
+function escapeTurtleString(value: string): string {
+  return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
 }
 
 function renderArtifactHistoryIndexPage(

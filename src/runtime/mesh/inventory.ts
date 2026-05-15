@@ -18,6 +18,14 @@ const SFLO_HAS_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}hasExtractionSource`;
 const SFLO_HAS_REQUESTED_TARGET_STATE_IRI =
   `${SFLO_NAMESPACE}hasRequestedTargetState`;
 const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasTargetArtifact`;
+const SFLO_HAS_OBSERVED_SOURCE_LOCATED_FILE_IRI =
+  `${SFLO_NAMESPACE}hasObservedSourceLocatedFile`;
+const SFLO_HAS_OBSERVED_SOURCE_MANIFESTATION_IRI =
+  `${SFLO_NAMESPACE}hasObservedSourceManifestation`;
+const SFLO_HAS_OBSERVED_SOURCE_STATE_IRI =
+  `${SFLO_NAMESPACE}hasObservedSourceState`;
+const SFLO_OBSERVED_SOURCE_DIGEST_IRI = `${SFLO_NAMESPACE}observedSourceDigest`;
+const SFLO_OBSERVED_AT_IRI = `${SFLO_NAMESPACE}observedAt`;
 const SFLO_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}ArtifactHistory`;
 const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
   `${SFLO_NAMESPACE}currentArtifactHistory`;
@@ -61,6 +69,11 @@ export interface ExtractionSourceInventoryState {
   sourceArtifactPath: string;
   requestedTargetStatePath?: string;
   artifactResolutionModeIri: string;
+  observedSourceStatePath?: string;
+  observedSourceManifestationPath?: string;
+  observedSourceLocatedFilePath?: string;
+  observedSourceDigest?: string;
+  observedAt?: string;
 }
 
 export interface ResourcePageDefinitionInventoryState {
@@ -315,6 +328,68 @@ export function resolveExtractionSourceInventoryState(
     sourceArtifactPath,
     ...(requestedTargetStatePath ? { requestedTargetStatePath } : {}),
     artifactResolutionModeIri,
+    ...resolveExtractionSourceEvidenceState(
+      quads,
+      meshBase,
+      extractionSourceIri,
+      messages.parseErrorMessage,
+    ),
+  };
+}
+
+function resolveExtractionSourceEvidenceState(
+  quads: readonly Quad[],
+  meshBase: string,
+  extractionSourceIri: string,
+  errorMessage: string,
+): Omit<
+  ExtractionSourceInventoryState,
+  | "sourceArtifactPath"
+  | "requestedTargetStatePath"
+  | "artifactResolutionModeIri"
+> {
+  const observedSourceStatePath = resolveOptionalUniqueNamedNodePath(
+    quads,
+    meshBase,
+    extractionSourceIri,
+    SFLO_HAS_OBSERVED_SOURCE_STATE_IRI,
+    errorMessage,
+  );
+  const observedSourceManifestationPath = resolveOptionalUniqueNamedNodePath(
+    quads,
+    meshBase,
+    extractionSourceIri,
+    SFLO_HAS_OBSERVED_SOURCE_MANIFESTATION_IRI,
+    errorMessage,
+  );
+  const observedSourceLocatedFilePath = resolveOptionalUniqueNamedNodePath(
+    quads,
+    meshBase,
+    extractionSourceIri,
+    SFLO_HAS_OBSERVED_SOURCE_LOCATED_FILE_IRI,
+    errorMessage,
+  );
+  const observedSourceDigest = resolveOptionalUniqueLiteral(
+    quads,
+    extractionSourceIri,
+    SFLO_OBSERVED_SOURCE_DIGEST_IRI,
+    errorMessage,
+  );
+  const observedAt = resolveOptionalUniqueLiteral(
+    quads,
+    extractionSourceIri,
+    SFLO_OBSERVED_AT_IRI,
+    errorMessage,
+  );
+
+  return {
+    ...(observedSourceStatePath ? { observedSourceStatePath } : {}),
+    ...(observedSourceManifestationPath
+      ? { observedSourceManifestationPath }
+      : {}),
+    ...(observedSourceLocatedFilePath ? { observedSourceLocatedFilePath } : {}),
+    ...(observedSourceDigest ? { observedSourceDigest } : {}),
+    ...(observedAt ? { observedAt } : {}),
   };
 }
 
@@ -664,6 +739,37 @@ function resolveOptionalUniqueNamedNodeIri(
       quad.subject.value !== subjectIri ||
       quad.predicate.value !== predicateIri ||
       quad.object.termType !== "NamedNode"
+    ) {
+      continue;
+    }
+
+    values.add(quad.object.value);
+  }
+
+  if (values.size === 0) {
+    return undefined;
+  }
+  if (values.size !== 1) {
+    throw new Error(errorMessage);
+  }
+
+  return values.values().next().value!;
+}
+
+function resolveOptionalUniqueLiteral(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+  errorMessage: string,
+): string | undefined {
+  const values = new Set<string>();
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.subject.value !== subjectIri ||
+      quad.predicate.value !== predicateIri ||
+      quad.object.termType !== "Literal"
     ) {
       continue;
     }

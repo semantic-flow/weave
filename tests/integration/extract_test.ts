@@ -83,7 +83,9 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
 
 <bob/_knop/_inventory#extraction-source> a sflo:ExtractionSource ;
   sflo:hasTargetArtifact <alice/bio> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> .
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> ;
+  sflo:hasObservedSourceLocatedFile <alice-bio.ttl> ;
+  sflo:observedSourceDigest "sha256:37c15e56644d785a550522d7700eccd9465704f18cf4b4e55616db8b8824ea33" .
 
 <bob/_knop/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <bob/_knop/_meta/meta.ttl> .

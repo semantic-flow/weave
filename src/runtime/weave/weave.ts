@@ -1330,6 +1330,16 @@ async function loadReferenceTargetSourcePayloadArtifact(
     latestHistoricalSnapshotPath: selectedHistoricalSnapshotPath,
     latestHistoricalSnapshotTurtle: selectedHistoricalSnapshotTurtle,
     latestHistoricalStatePath: selectedHistoricalStatePath,
+    sourceEvidence: {
+      sourceStatePath: selectedHistoricalStatePath,
+      sourceManifestationPath: dirname(selectedHistoricalSnapshotPath)
+        .replaceAll(
+          "\\",
+          "/",
+        ),
+      sourceLocatedFilePath: selectedHistoricalSnapshotPath,
+      sourceDigest: await sha256Digest(selectedHistoricalSnapshotTurtle),
+    },
   };
 }
 
@@ -3175,6 +3185,15 @@ function toDefaultManifestationSegment(fileName: string): string {
   return extensionIndex > 0 && extensionIndex < fileName.length - 1
     ? fileName.slice(extensionIndex + 1)
     : fileName.replaceAll(".", "-");
+}
+
+async function sha256Digest(contents: string): Promise<string> {
+  const bytes = new TextEncoder().encode(contents);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const hex = [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return `sha256:${hex}`;
 }
 
 async function writeFiles(

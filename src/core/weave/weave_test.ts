@@ -2219,12 +2219,18 @@ Deno.test("planWeave pins current-mode extracted bob sources during weave", asyn
   const input = await createExtractedBobWeaveInput();
 
   const plan = planWeave(input);
+  const sourceDigest = input.weaveableKnops[0]!
+    .referenceTargetSourcePayloadArtifact!.sourceEvidence!.sourceDigest!;
 
   assertStringIncludes(
     plan.updatedFiles[1]?.contents ?? "",
     `sflo:hasTargetArtifact <alice/bio> ;
   sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_pinned> .`,
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_pinned> ;
+  sflo:hasObservedSourceState <alice/bio/_history001/_s0002> ;
+  sflo:hasObservedSourceManifestation <alice/bio/_history001/_s0002/ttl> ;
+  sflo:hasObservedSourceLocatedFile <alice/bio/_history001/_s0002/ttl/alice-bio.ttl> ;
+  sflo:observedSourceDigest "${sourceDigest}" .`,
   );
 });
 
@@ -2713,6 +2719,12 @@ Deno.test("planWeave renders a root page-definition weave without requiring a re
 });
 
 async function createExtractedBobWeaveInput(): Promise<PlanWeaveInput> {
+  const latestHistoricalSnapshotPath =
+    "alice/bio/_history001/_s0002/ttl/alice-bio.ttl";
+  const latestHistoricalSnapshotTurtle = await readMeshAliceBioBranchFile(
+    "12-bob-extracted",
+    latestHistoricalSnapshotPath,
+  );
   return {
     request: {
       targets: [{ designatorPath: "bob" }],
@@ -2743,7 +2755,15 @@ async function createExtractedBobWeaveInput(): Promise<PlanWeaveInput> {
           "12-bob-extracted",
           "alice-bio.ttl",
         ),
+        latestHistoricalSnapshotPath,
+        latestHistoricalSnapshotTurtle,
         latestHistoricalStatePath: "alice/bio/_history001/_s0002",
+        sourceEvidence: {
+          sourceStatePath: "alice/bio/_history001/_s0002",
+          sourceManifestationPath: "alice/bio/_history001/_s0002/ttl",
+          sourceLocatedFilePath: latestHistoricalSnapshotPath,
+          sourceDigest: await sha256Digest(latestHistoricalSnapshotTurtle),
+        },
       },
     }],
   };
@@ -2754,8 +2774,7 @@ function withPinnedExtractedSourceState(
   sourceStatePath: string,
 ): string {
   return turtle.replace(
-    `  sflo:hasTargetArtifact <alice/bio> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> .`,
+    / {2}sflo:hasTargetArtifact <alice\/bio> ;\n(?: {2}sflo:[^\n]+(?: ;|\.)\n?)+/,
     `  sflo:hasTargetArtifact <alice/bio> ;
   sflo:hasRequestedTargetState <${sourceStatePath}> ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_pinned> .`,
@@ -2768,4 +2787,13 @@ function withRdfPrefix(turtle: string): string {
     `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .`,
   );
+}
+
+async function sha256Digest(contents: string): Promise<string> {
+  const bytes = new TextEncoder().encode(contents);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const hex = [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return `sha256:${hex}`;
 }

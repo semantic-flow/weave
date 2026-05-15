@@ -7,6 +7,7 @@ import {
 } from "../../core/designator_segments.ts";
 import {
   ExtractInputError,
+  type ExtractionSourceEvidence,
   type ExtractPlan,
   planExtract,
 } from "../../core/extract/extract.ts";
@@ -127,9 +128,10 @@ interface ExtractSourcePayload {
   workingLocalRelativePath: string;
   sourceResolutionMode: "current" | "pinned";
   sourceStatePath?: string;
+  sourceEvidence?: ExtractionSourceEvidence;
   sourcePayloadTurtle: string;
   currentKnopInventoryTurtle: string;
-  latestHistoricalStatePath: string;
+  latestHistoricalStatePath?: string;
 }
 
 interface StagedFileMutation {
@@ -207,6 +209,9 @@ export async function executeExtract(
       designatorPath: normalizedDesignatorPath,
       sourceDesignatorPath: sourcePayload.designatorPath,
       sourceResolutionMode: sourcePayload.sourceResolutionMode,
+      ...(sourcePayload.sourceEvidence
+        ? { sourceEvidence: sourcePayload.sourceEvidence }
+        : {}),
       ...(sourcePayload.sourceStatePath
         ? { sourceStatePath: sourcePayload.sourceStatePath }
         : {}),
@@ -329,6 +334,9 @@ export async function executeExtractAllTerms(
         designatorPath,
         sourceDesignatorPath: sourcePayload.designatorPath,
         sourceResolutionMode: sourcePayload.sourceResolutionMode,
+        ...(sourcePayload.sourceEvidence
+          ? { sourceEvidence: sourcePayload.sourceEvidence }
+          : {}),
         ...(sourcePayload.sourceStatePath
           ? { sourceStatePath: sourcePayload.sourceStatePath }
           : {}),
@@ -923,20 +931,6 @@ async function loadExtractSourcePayloadCandidate(
   if (!payloadArtifact) {
     return undefined;
   }
-  if (!payloadArtifact.currentArtifactHistoryPath) {
-    return undefined;
-  }
-  if (!payloadArtifact.currentArtifactHistoryExists) {
-    throw new ExtractRuntimeError(
-      `Could not resolve the current payload history block for ${designatorPath}.`,
-    );
-  }
-  if (!payloadArtifact.latestHistoricalStatePath) {
-    throw new ExtractRuntimeError(
-      `Could not resolve the latest payload historical state for ${designatorPath}.`,
-    );
-  }
-
   const currentPayloadTurtle = await readPayloadWorkingFile(
     localPathPolicy,
     designatorPath,
@@ -948,9 +942,15 @@ async function loadExtractSourcePayloadCandidate(
     workingLocalRelativePath: payloadArtifact.workingLocalRelativePath,
     sourceResolutionMode: "current",
     sourceStatePath: undefined,
+    sourceEvidence: {
+      sourceLocatedFilePath: payloadArtifact.workingLocalRelativePath,
+      sourceDigest: await sha256Digest(currentPayloadTurtle),
+    },
     sourcePayloadTurtle: currentPayloadTurtle,
     currentKnopInventoryTurtle,
-    latestHistoricalStatePath: payloadArtifact.latestHistoricalStatePath,
+    latestHistoricalStatePath: payloadArtifact.currentArtifactHistoryExists
+      ? payloadArtifact.latestHistoricalStatePath
+      : undefined,
   };
 }
 
@@ -1011,6 +1011,15 @@ async function resolvePinnedExtractSourcePayloadByState(
     ...candidate,
     sourceResolutionMode: "pinned",
     sourceStatePath: normalizedSourceStatePath,
+    sourceEvidence: {
+      sourceStatePath: normalizedSourceStatePath,
+      sourceManifestationPath: dirname(historicalSnapshotPath).replaceAll(
+        "\\",
+        "/",
+      ),
+      sourceLocatedFilePath: historicalSnapshotPath,
+      sourceDigest: await sha256Digest(sourcePayloadTurtle),
+    },
     sourcePayloadTurtle,
   };
 }
@@ -1125,6 +1134,15 @@ async function readPayloadWorkingFile(
     }
     throw error;
   }
+}
+
+async function sha256Digest(contents: string): Promise<string> {
+  const bytes = new TextEncoder().encode(contents);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const hex = [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return `sha256:${hex}`;
 }
 
 function toWorkspaceRelativePath(
@@ -1371,11 +1389,7 @@ function replaceExtractionSourceBinding(
   const escapedExtractionSourcePath = escapeRegExp(extractionSourcePath);
   const extractionSourceBlockPattern = new RegExp(
     `<${escapedExtractionSourcePath}> a sflo:ExtractionSource ;\\n` +
-      `(?:  sflo:hasTargetArtifact <[^>]+> ;\\n)` +
-      `(?:  sflo:hasRequestedTargetState <[^>]+> ;\\n)?` +
-      `(?:  sflo:hasArtifactResolutionMode <[^>]+> \\.|` +
-      `  sflo:hasArtifactResolutionMode <[^>]+> ;\\n` +
-      `  sflo:hasRequestedTargetState <[^>]+> \\.)`,
+      `(?:  sflo:[^\\n]+(?: ;|\\.)\\n?)+`,
   );
   const replacement = renderExtractionSourceBlock(
     extractionSourcePath,
@@ -1393,16 +1407,77 @@ function renderExtractionSourceBlock(
   extractionSourcePath: string,
   sourcePayload: ExtractSourcePayload,
 ): string {
+  const facts: [string, string][] = [
+    ["sflo:hasTargetArtifact", `<${sourcePayload.designatorPath}>`],
+  ];
   if (sourcePayload.sourceResolutionMode === "pinned") {
-    return `<${extractionSourcePath}> a sflo:ExtractionSource ;
-  sflo:hasTargetArtifact <${sourcePayload.designatorPath}> ;
-  sflo:hasRequestedTargetState <${sourcePayload.sourceStatePath}> ;
-  sflo:hasArtifactResolutionMode <${SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI}> .`;
+    facts.push([
+      "sflo:hasRequestedTargetState",
+      `<${sourcePayload.sourceStatePath}>`,
+    ]);
   }
+  facts.push([
+    "sflo:hasArtifactResolutionMode",
+    `<${
+      sourcePayload.sourceResolutionMode === "pinned"
+        ? SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI
+        : SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI
+    }>`,
+  ]);
+  facts.push(...toExtractionSourceEvidenceFacts(sourcePayload.sourceEvidence));
 
   return `<${extractionSourcePath}> a sflo:ExtractionSource ;
-  sflo:hasTargetArtifact <${sourcePayload.designatorPath}> ;
-  sflo:hasArtifactResolutionMode <${SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI}> .`;
+${
+    facts.map(([predicate, object], index) =>
+      `  ${predicate} ${object}${index === facts.length - 1 ? " ." : " ;"}`
+    ).join("\n")
+  }`;
+}
+
+function toExtractionSourceEvidenceFacts(
+  sourceEvidence: ExtractionSourceEvidence | undefined,
+): [string, string][] {
+  if (!sourceEvidence) {
+    return [];
+  }
+
+  const facts: [string, string][] = [];
+  if (sourceEvidence.sourceStatePath !== undefined) {
+    facts.push([
+      "sflo:hasObservedSourceState",
+      `<${sourceEvidence.sourceStatePath}>`,
+    ]);
+  }
+  if (sourceEvidence.sourceManifestationPath !== undefined) {
+    facts.push([
+      "sflo:hasObservedSourceManifestation",
+      `<${sourceEvidence.sourceManifestationPath}>`,
+    ]);
+  }
+  if (sourceEvidence.sourceLocatedFilePath !== undefined) {
+    facts.push([
+      "sflo:hasObservedSourceLocatedFile",
+      `<${sourceEvidence.sourceLocatedFilePath}>`,
+    ]);
+  }
+  if (sourceEvidence.sourceDigest !== undefined) {
+    facts.push([
+      "sflo:observedSourceDigest",
+      `"${escapeTurtleString(sourceEvidence.sourceDigest)}"`,
+    ]);
+  }
+  if (sourceEvidence.observedAt !== undefined) {
+    facts.push([
+      "sflo:observedAt",
+      `"${escapeTurtleString(sourceEvidence.observedAt)}"`,
+    ]);
+  }
+
+  return facts;
+}
+
+function escapeTurtleString(value: string): string {
+  return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
 }
 
 function escapeRegExp(value: string): string {

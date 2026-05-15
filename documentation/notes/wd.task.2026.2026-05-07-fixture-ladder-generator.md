@@ -214,6 +214,7 @@ The first scenario-definition format should therefore support both `command` ste
 - The generator does not push fixture branches. After a local branch update, the CLI should tell the operator to push intentionally if the regenerated fixture should leave the checkout.
 - Record explicit source provenance for manually created, copied, fetched, or derived files. A fixture branch is not repeatable if the source of hand-authored bytes only exists in a prior conversation.
 - Regenerate Fantasy Rules as the branch-published ontology fixture rather than preserving the old `docs/` sidecar topology.
+- Extraction provenance should resolve as deeply as the source evidence allows: source artifact first, then history/state when present, then manifestation, located file, and digest. If a source artifact cannot provide history/state evidence, provenance should still record concrete observed bytes through located-file/digest evidence, with timestamp fallback reserved for cases where byte evidence cannot be made durable.
 
 ## Contract Changes
 

@@ -52,7 +52,16 @@ export interface ResolvedExtractRequest extends ExtractRequest {
   sourceDesignatorPath: string;
   sourceStatePath?: string;
   sourceResolutionMode?: "current" | "pinned";
+  sourceEvidence?: ExtractionSourceEvidence;
   sourceWorkingLocalRelativePath: string;
+}
+
+export interface ExtractionSourceEvidence {
+  sourceStatePath?: string;
+  sourceManifestationPath?: string;
+  sourceLocatedFilePath?: string;
+  sourceDigest?: string;
+  observedAt?: string;
 }
 
 export interface ExtractPlan {
@@ -64,6 +73,7 @@ export interface ExtractPlan {
   sourceStateIri?: string;
   sourceStatePath?: string;
   sourceResolutionMode: "current" | "pinned";
+  sourceEvidence?: ExtractionSourceEvidence;
   createdFiles: readonly PlannedFile[];
   updatedFiles: readonly PlannedFile[];
 }
@@ -99,6 +109,9 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
       "sourceStatePath is required for pinned extraction",
     );
   }
+  const sourceEvidence = normalizeExtractionSourceEvidence(
+    request.sourceEvidence,
+  );
   const sourceWorkingLocalRelativePath = normalizeWorkingLocalRelativePath(
     request.sourceWorkingLocalRelativePath,
   );
@@ -125,6 +138,7 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
         : {}),
       sourceStatePath,
       sourceResolutionMode,
+      ...(sourceEvidence ? { sourceEvidence } : {}),
       createdFiles: [
         {
           path: `${knopPath}/_meta/meta.ttl`,
@@ -141,6 +155,7 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
             sourceDesignatorPath,
             sourceResolutionMode,
             sourceStatePath,
+            sourceEvidence,
           ),
         },
       ],
@@ -164,6 +179,55 @@ function normalizeSourceResolutionMode(
     return sourceResolutionMode;
   }
   throw new ExtractInputError("sourceResolutionMode must be current or pinned");
+}
+
+function normalizeExtractionSourceEvidence(
+  sourceEvidence: ExtractionSourceEvidence | undefined,
+): ExtractionSourceEvidence | undefined {
+  if (sourceEvidence === undefined) {
+    return undefined;
+  }
+
+  const normalized: ExtractionSourceEvidence = {};
+  if (sourceEvidence.sourceStatePath !== undefined) {
+    normalized.sourceStatePath = normalizeRelativeIriPath(
+      sourceEvidence.sourceStatePath,
+      "sourceEvidence.sourceStatePath",
+    );
+  }
+  if (sourceEvidence.sourceManifestationPath !== undefined) {
+    normalized.sourceManifestationPath = normalizeRelativeIriPath(
+      sourceEvidence.sourceManifestationPath,
+      "sourceEvidence.sourceManifestationPath",
+    );
+  }
+  if (sourceEvidence.sourceLocatedFilePath !== undefined) {
+    normalized.sourceLocatedFilePath = normalizeWorkingLocalRelativePath(
+      sourceEvidence.sourceLocatedFilePath,
+    );
+  }
+  if (sourceEvidence.sourceDigest !== undefined) {
+    normalized.sourceDigest = normalizeNonEmptyLiteral(
+      sourceEvidence.sourceDigest,
+      "sourceEvidence.sourceDigest",
+    );
+  }
+  if (sourceEvidence.observedAt !== undefined) {
+    normalized.observedAt = normalizeNonEmptyLiteral(
+      sourceEvidence.observedAt,
+      "sourceEvidence.observedAt",
+    );
+  }
+
+  return Object.keys(normalized).length === 0 ? undefined : normalized;
+}
+
+function normalizeNonEmptyLiteral(value: string, fieldName: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    throw new ExtractInputError(`${fieldName} must not be empty`);
+  }
+  return trimmed;
 }
 
 function normalizeMeshBase(meshBase: string): string {
@@ -677,14 +741,15 @@ function renderExtractKnopInventoryTurtle(
   sourceDesignatorPath: string,
   sourceResolutionMode: "current" | "pinned",
   sourceStatePath?: string,
+  sourceEvidence?: ExtractionSourceEvidence,
 ): string {
   const knopPath = toKnopPath(designatorPath);
-  const extractionSourceFacts = sourceResolutionMode === "pinned"
-    ? `  sflo:hasTargetArtifact <${sourceDesignatorPath}> ;
-  sflo:hasRequestedTargetState <${sourceStatePath}> ;
-  sflo:hasArtifactResolutionMode <${SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI}> .`
-    : `  sflo:hasTargetArtifact <${sourceDesignatorPath}> ;
-  sflo:hasArtifactResolutionMode <${SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI}> .`;
+  const extractionSourceFacts = renderExtractionSourceFacts(
+    sourceDesignatorPath,
+    sourceResolutionMode,
+    sourceStatePath,
+    sourceEvidence,
+  );
 
   return `@base <${meshBase}> .
 ${SFLO_TURTLE_PREFIX_DECLARATION}
@@ -708,6 +773,79 @@ ${extractionSourceFacts}
 
 <${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 `;
+}
+
+function renderExtractionSourceFacts(
+  sourceDesignatorPath: string,
+  sourceResolutionMode: "current" | "pinned",
+  sourceStatePath: string | undefined,
+  sourceEvidence: ExtractionSourceEvidence | undefined,
+): string {
+  const facts: [string, string][] = [
+    ["sflo:hasTargetArtifact", `<${sourceDesignatorPath}>`],
+  ];
+  if (sourceResolutionMode === "pinned") {
+    facts.push(["sflo:hasRequestedTargetState", `<${sourceStatePath}>`]);
+  }
+  facts.push([
+    "sflo:hasArtifactResolutionMode",
+    `<${
+      sourceResolutionMode === "pinned"
+        ? SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI
+        : SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI
+    }>`,
+  ]);
+  facts.push(...toExtractionSourceEvidenceFacts(sourceEvidence));
+
+  return facts.map(([predicate, object], index) =>
+    `  ${predicate} ${object}${index === facts.length - 1 ? " ." : " ;"}`
+  ).join("\n");
+}
+
+function toExtractionSourceEvidenceFacts(
+  sourceEvidence: ExtractionSourceEvidence | undefined,
+): [string, string][] {
+  if (!sourceEvidence) {
+    return [];
+  }
+
+  const facts: [string, string][] = [];
+  if (sourceEvidence.sourceStatePath !== undefined) {
+    facts.push([
+      "sflo:hasObservedSourceState",
+      `<${sourceEvidence.sourceStatePath}>`,
+    ]);
+  }
+  if (sourceEvidence.sourceManifestationPath !== undefined) {
+    facts.push([
+      "sflo:hasObservedSourceManifestation",
+      `<${sourceEvidence.sourceManifestationPath}>`,
+    ]);
+  }
+  if (sourceEvidence.sourceLocatedFilePath !== undefined) {
+    facts.push([
+      "sflo:hasObservedSourceLocatedFile",
+      `<${sourceEvidence.sourceLocatedFilePath}>`,
+    ]);
+  }
+  if (sourceEvidence.sourceDigest !== undefined) {
+    facts.push([
+      "sflo:observedSourceDigest",
+      `"${escapeTurtleString(sourceEvidence.sourceDigest)}"`,
+    ]);
+  }
+  if (sourceEvidence.observedAt !== undefined) {
+    facts.push([
+      "sflo:observedAt",
+      `"${escapeTurtleString(sourceEvidence.observedAt)}"`,
+    ]);
+  }
+
+  return facts;
+}
+
+function escapeTurtleString(value: string): string {
+  return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
 }
 
 function renderExtractKnopMetadataTurtle(

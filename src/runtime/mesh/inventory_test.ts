@@ -1,6 +1,7 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import {
   listKnopDesignatorPaths,
+  resolveExtractionSourceInventoryState,
   resolvePayloadArtifactInventoryState,
   resolveReferenceCatalogInventoryState,
   resolveReferenceTargetDesignatorPath,
@@ -139,6 +140,48 @@ Deno.test("resolvePayloadArtifactInventoryState tracks a missing ArtifactHistory
       currentArtifactHistoryPath: "alice/bio/_history001",
       currentArtifactHistoryExists: false,
       latestHistoricalStatePath: undefined,
+    },
+  );
+});
+
+Deno.test("resolveExtractionSourceInventoryState returns observed source evidence", () => {
+  assertEquals(
+    resolveExtractionSourceInventoryState(
+      MESH_BASE,
+      `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@base <${MESH_BASE}> .
+
+<bob/_knop> a sflo:Knop ;
+  sflo:hasExtractionSource <bob/_knop/_inventory#extraction-source> .
+
+<bob/_knop/_inventory#extraction-source> a sflo:ExtractionSource ;
+  sflo:hasTargetArtifact <alice/bio> ;
+  sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> ;
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_pinned> ;
+  sflo:hasObservedSourceState <alice/bio/_history001/_s0002> ;
+  sflo:hasObservedSourceManifestation <alice/bio/_history001/_s0002/ttl> ;
+  sflo:hasObservedSourceLocatedFile <alice/bio/_history001/_s0002/ttl/alice-bio.ttl> ;
+  sflo:observedSourceDigest "sha256:abc123" .
+`,
+      "bob",
+      {
+        parseErrorMessage: "Could not parse Knop inventory",
+        missingExtractionSourceMessage: "Missing ExtractionSource",
+        missingTargetArtifactMessage: "Missing target artifact",
+        missingRequestedTargetStateMessage: "Missing requested target state",
+        unsupportedResolutionModeMessage: "Unsupported resolution mode",
+      },
+    ),
+    {
+      sourceArtifactPath: "alice/bio",
+      requestedTargetStatePath: "alice/bio/_history001/_s0002",
+      artifactResolutionModeIri:
+        "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_pinned",
+      observedSourceStatePath: "alice/bio/_history001/_s0002",
+      observedSourceManifestationPath: "alice/bio/_history001/_s0002/ttl",
+      observedSourceLocatedFilePath:
+        "alice/bio/_history001/_s0002/ttl/alice-bio.ttl",
+      observedSourceDigest: "sha256:abc123",
     },
   );
 });
