@@ -659,6 +659,33 @@ export const SIDECAR_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
         branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
       },
     ),
+    commandTransition(
+      2,
+      "02-sidecar-mesh-created",
+      "01-source-only",
+      "mesh.create",
+      {
+        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+      },
+    ),
+    commandTransition(
+      3,
+      "03-sidecar-mesh-created-woven",
+      "02-sidecar-mesh-created",
+      "weave",
+      {
+        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+      },
+    ),
+    commandTransition(
+      4,
+      "04-ontology-integrated",
+      "03-sidecar-mesh-created-woven",
+      "integrate",
+      {
+        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+      },
+    ),
   ],
 };
 

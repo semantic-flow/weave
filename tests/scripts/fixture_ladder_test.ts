@@ -213,7 +213,7 @@ Deno.test("planFixtureLadder exposes the Sidecar Fantasy Rules source-only trans
   );
   assertEquals(plan.scenario.branchPrefix, "a.");
   assertStringIncludes(plan.assetRoot, "mesh-sidecar-fantasy-rules/.assets");
-  assertEquals(plan.transitions.length, 1);
+  assertEquals(plan.transitions.length, 4);
   assertEquals(plan.transitions[0]?.id, "01-source-only");
   assertEquals(plan.transitions[0]?.fromRef, "a.00-blank-slate");
   assertEquals(plan.transitions[0]?.toRef, "a.01-source-only");
@@ -231,7 +231,60 @@ Deno.test("planFixtureLadder exposes the Sidecar Fantasy Rules source-only trans
     );
   }
 
+  assertEquals(plan.transitions[1]?.id, "02-sidecar-mesh-created");
+  assertEquals(plan.transitions[1]?.fromRef, "a.01-source-only");
+  assertEquals(plan.transitions[1]?.toRef, "a.02-sidecar-mesh-created");
+  assertEquals(plan.transitions[1]?.operationId, "mesh.create");
+  assertEquals(plan.transitions[1]?.action.kind, "command");
+  if (plan.transitions[1]?.action.kind === "command") {
+    assertEquals(plan.transitions[1].action.argv, [
+      "mesh",
+      "create",
+      "--workspace",
+      ".",
+      "--mesh-root",
+      "docs",
+      "--mesh-base",
+      "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    ]);
+  }
+
+  assertEquals(plan.transitions[2]?.id, "03-sidecar-mesh-created-woven");
+  assertEquals(plan.transitions[2]?.fromRef, "a.02-sidecar-mesh-created");
+  assertEquals(plan.transitions[2]?.toRef, "a.03-sidecar-mesh-created-woven");
+  assertEquals(plan.transitions[2]?.operationId, "weave");
+  assertEquals(plan.transitions[2]?.action.kind, "command");
+  if (plan.transitions[2]?.action.kind === "command") {
+    assertEquals(plan.transitions[2].action.argv, [
+      "--mesh-root",
+      "docs",
+    ]);
+  }
+
+  assertEquals(plan.transitions[3]?.id, "04-ontology-integrated");
+  assertEquals(
+    plan.transitions[3]?.fromRef,
+    "a.03-sidecar-mesh-created-woven",
+  );
+  assertEquals(plan.transitions[3]?.toRef, "a.04-ontology-integrated");
+  assertEquals(plan.transitions[3]?.operationId, "integrate");
+  assertEquals(plan.transitions[3]?.action.kind, "command");
+  if (plan.transitions[3]?.action.kind === "command") {
+    assertEquals(plan.transitions[3].action.argv, [
+      "integrate",
+      "./ontology/fantasy-rules-ontology.ttl",
+      "ontology",
+      "--mesh-root",
+      "docs",
+      "--grant-source-directory",
+      "ontology",
+    ]);
+  }
+
   await Deno.stat(plan.transitions[0]!.manifestPath);
+  await Deno.stat(plan.transitions[1]!.manifestPath);
+  await Deno.stat(plan.transitions[2]!.manifestPath);
+  await Deno.stat(plan.transitions[3]!.manifestPath);
 });
 
 Deno.test("Alice Bio asset-backed transitions point at checked-in deterministic assets", async () => {

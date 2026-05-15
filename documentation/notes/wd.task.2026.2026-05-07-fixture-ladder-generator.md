@@ -268,6 +268,9 @@ The first scenario-definition format should therefore support both `command` ste
 - [x] Create the Sidecar Fantasy Rules `a.00-blank-slate` control branch with deterministic `.assets` bytes selected from `origin/01-source-only` and `origin/15-first-release-woven`.
 - [x] Add the Sidecar Fantasy Rules `01-source-only` manifest, teach the ladder generator about the `sidecar-fantasy-rules` scenario, and regenerate local branch `a.01-source-only` from `a.00-blank-slate`.
 - [x] Generalize generated-output guardrails so sidecar mesh roots such as `docs/_mesh` are checked for stale MeshInventory progression ownership, not only root `_mesh` output.
+- [x] Add the Sidecar Fantasy Rules `02-sidecar-mesh-created` replay profile, regenerate local branch `a.02-sidecar-mesh-created`, and update its manifest assertions for the canonical `sflo` namespace.
+- [x] Add the Sidecar Fantasy Rules `03-sidecar-mesh-created-woven` replay profile, regenerate local branch `a.03-sidecar-mesh-created-woven`, and update its manifest for the slim support-history behavior and extension-only `ttl` manifestation segment.
+- [x] Add the Sidecar Fantasy Rules `04-ontology-integrated` replay profile, regenerate local branch `a.04-ontology-integrated`, and update its manifest for current config enum IRIs and canonical `sflo` assertions.
 - [ ] Add branch-published Fantasy Rules fixture coverage in a separate repository after the sidecar ladder is replayable and green.
 - [ ] Update Accord manifests, fixture-backed Weave tests, and conformance expectations after generated branches are rerung for the combined enum/config changes.
 - [ ] Record the expected workflow for large ontology/config churn: update manifests, run generator, inspect generated branch diffs, run fixture tests, commit/push branch updates intentionally.
