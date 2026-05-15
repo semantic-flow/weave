@@ -199,6 +199,8 @@ The first scenario-definition format should therefore support both `command` ste
 - Rungs must be replayed sequentially from the previous rung; skipping directly to a later rung is only a diagnostic/materialization convenience, not the regeneration model.
 - New Alice Bio regeneration branches use the `a.` prefix while this replay shape stabilizes.
 - Deterministic `.assets` source bytes live in the fixture repo and feed source-only, command-input, and file-operation transitions; they are authored inputs, not golden output snapshots.
+- `a.00-blank-slate` is the Alice Bio replay base/control rung for `.assets` and other excluded repo-control files.
+- For whole-mesh and sidecar fixture repos, `main` should ultimately be the reviewed final generated mesh state. Branch-published mesh fixtures are the exception because `main` is source/control by design.
 - Use a concrete TypeScript scenario definition for the first generator pass. Move to data files or Accord-adjacent replay metadata only after the replay shape has been exercised.
 - Keep the existing fixture branch comparison tests for now; update their assumptions only where needed to support generated refs.
 - Publish only the final SemanticSite by default; intermediate Pages publication is out of scope for the first pass.
@@ -255,6 +257,7 @@ The first scenario-definition format should therefore support both `command` ste
 - [x] Add branch update support for command-backed regeneration, with `--dry-run` as the explicit non-writing mode and no push support.
 - [x] Add deterministic fixture-repo `.assets` handling for Alice Bio source-only, command-input, and page/file-operation transitions.
 - [x] Prefix the new Alice Bio regeneration branch ladder with `a.` so generated rungs can coexist with the old branch ladder while the replay model settles.
+- [x] Clean the Alice Bio replay base down to `.assets` and repository notes, then branch it as `a.00-blank-slate`.
 - [ ] Extend the generator through the full Alice Bio ladder.
 - [ ] Update or add documentation for the Alice Bio regeneration workflow.
 - [ ] Extend the generator to Sidecar Fantasy Rules as a branch-published ontology fixture.

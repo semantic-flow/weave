@@ -177,6 +177,7 @@ export interface UpdateFixtureBranchOptions {
   fixtureRepoPath: string;
   workspaceRoot: string;
   targetRef: string;
+  parentRef?: string;
   message: string;
 }
 
@@ -226,7 +227,6 @@ export interface FixtureTransitionDefinition {
   id: string;
   fromRef: string;
   toRef: string;
-  allowMissingFromRefAsEmpty?: boolean;
   manifestName: string;
   operationId: string;
   action: FixtureTransitionAction;
@@ -342,7 +342,6 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
   transitions: [
     fileTransition(1, "01-source-only", "00-blank-slate", {
       description: "Seed the source-only Alice Bio fixture branch.",
-      allowMissingFromRefAsEmpty: true,
       sources: [
         {
           path: "alice-bio.ttl",
@@ -918,9 +917,6 @@ export function renderFixtureLadderPlan(plan: FixtureLadderPlan): string {
     lines.push(
       `   manifest: ${relative(plan.root, transition.manifestPath)}`,
     );
-    if (transition.allowMissingFromRefAsEmpty === true) {
-      lines.push("   missing source ref: materialize an empty workspace");
-    }
     if (transition.action.kind === "command") {
       lines.push(
         `   command: ${
@@ -987,19 +983,15 @@ export async function materializeFixtureTransitionSource(
     plan.fixtureRepoPath,
     transition.fromRef,
   );
-  if (
-    resolvedRef === undefined && transition.allowMissingFromRefAsEmpty !== true
-  ) {
+  if (resolvedRef === undefined) {
     throw unresolvedFixtureRefError(plan.fixtureRepoPath, transition.fromRef);
   }
 
-  const materializedPaths = resolvedRef === undefined
-    ? []
-    : await materializeGitTree({
-      repoPath: plan.fixtureRepoPath,
-      ref: resolvedRef,
-      workspaceRoot,
-    });
+  const materializedPaths = await materializeGitTree({
+    repoPath: plan.fixtureRepoPath,
+    ref: resolvedRef,
+    workspaceRoot,
+  });
 
   return {
     scenario: plan.scenario.id,
@@ -1051,6 +1043,7 @@ export async function executeFixtureTransition(
     fixtureRepoPath: plan.fixtureRepoPath,
     workspaceRoot: materialization.workspaceRoot,
     targetRef: transition.toRef,
+    parentRef: transition.fromRef,
     dryRun: options.dryRun ?? false,
     operation,
     validation,
@@ -1245,7 +1238,6 @@ function fileTransition(
   fromRef: string,
   action: {
     description: string;
-    allowMissingFromRefAsEmpty?: boolean;
     sources: readonly FixtureFileOperationSourceInput[];
     inventoryPatches?:
       readonly FixtureResourcePageDefinitionInventoryPatchInput[];
@@ -1258,9 +1250,6 @@ function fileTransition(
     id,
     fromRef: toLadderBranchRef(branchPrefix, fromRef),
     toRef: toLadderBranchRef(branchPrefix, id),
-    ...(action.allowMissingFromRefAsEmpty
-      ? { allowMissingFromRefAsEmpty: true }
-      : {}),
     manifestName: `${id}.jsonld`,
     operationId,
     action: {
@@ -1553,6 +1542,7 @@ async function maybeUpdateFixtureBranch(options: {
   fixtureRepoPath: string;
   workspaceRoot: string;
   targetRef: string;
+  parentRef?: string;
   dryRun: boolean;
   operation: FixtureTransitionOperationResult;
   validation: JsonReport;
@@ -1600,6 +1590,7 @@ async function maybeUpdateFixtureBranch(options: {
     fixtureRepoPath: options.fixtureRepoPath,
     workspaceRoot: options.workspaceRoot,
     targetRef: options.targetRef,
+    parentRef: options.parentRef,
     message: options.message,
   });
 }
@@ -1610,9 +1601,10 @@ export async function updateFixtureBranchFromWorkspace(
   const branchRef = toLocalBranchRef(options.targetRef);
   await assertValidBranchName(options.fixtureRepoPath, options.targetRef);
 
+  const resolvedParentRef = options.parentRef ?? options.targetRef;
   const parentSha = await resolveGitCommitishIfExists(
     options.fixtureRepoPath,
-    options.targetRef,
+    resolvedParentRef,
   );
   const treeSha = await writeWorkspaceTreeToFixtureRepo({
     fixtureRepoPath: options.fixtureRepoPath,
@@ -1655,7 +1647,7 @@ export async function updateFixtureBranchFromWorkspace(
     commitSha,
     treeSha,
     ...(parentSha === undefined ? {} : {
-      parentRef: options.targetRef,
+      parentRef: resolvedParentRef,
       parentSha,
     }),
     pushed: false,

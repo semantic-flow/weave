@@ -116,7 +116,6 @@ Deno.test("planFixtureLadder exposes the Alice Bio dry-run transition plan", () 
   assertEquals(plan.transitions.length, 25);
   assertEquals(plan.transitions[0]?.id, "01-source-only");
   assertEquals(plan.transitions[0]?.fromRef, "a.00-blank-slate");
-  assertEquals(plan.transitions[0]?.allowMissingFromRefAsEmpty, true);
   assertEquals(plan.transitions[24]?.id, "25-root-page-customized-woven");
   assertEquals(plan.transitions[24]?.fromRef, "a.24-root-page-customized");
 
@@ -249,10 +248,6 @@ Deno.test("renderFixtureLadderPlan prints reviewable command and validation deta
   assertStringIncludes(
     rendered,
     "2. 02-mesh-created: a.01-source-only -> a.02-mesh-created",
-  );
-  assertStringIncludes(
-    rendered,
-    "missing source ref: materialize an empty workspace",
   );
   assertStringIncludes(
     rendered,
@@ -453,7 +448,6 @@ Deno.test("executeFixtureTransition reports toRef drift without blocking branch 
   const { root, workspaceRoot, fixtureRepoPath } =
     await setupSourceOnlyFileOperationFixture({
       createTargetRef: false,
-      createBlankRef: false,
     });
 
   const result = await executeFixtureTransition({
@@ -472,12 +466,6 @@ Deno.test("executeFixtureTransition reports toRef drift without blocking branch 
   assert(
     result.validation.checks.some((check) =>
       check.code === "git_ref_unresolved" &&
-      check.message.includes("fromRef a.00-blank-slate")
-    ),
-  );
-  assert(
-    result.validation.checks.some((check) =>
-      check.code === "git_ref_unresolved" &&
       check.message.includes("toRef a.01-source-only")
     ),
   );
@@ -485,6 +473,7 @@ Deno.test("executeFixtureTransition reports toRef drift without blocking branch 
   if (!result.branchUpdate.updated) {
     throw new Error("expected drifted toRef to allow a branch update");
   }
+  assertEquals(result.branchUpdate.parentRef, "a.00-blank-slate");
   assertEquals(
     await gitOutput(fixtureRepoPath, [
       "show",
@@ -631,7 +620,6 @@ Deno.test("evaluateGeneratedOutputGuardrails catches stale namespace and invento
 });
 
 async function setupSourceOnlyFileOperationFixture(options: {
-  createBlankRef?: boolean;
   createTargetRef: boolean;
   createMeshCreatedRef?: boolean;
   createDummyCli?: boolean;
@@ -666,7 +654,20 @@ async function setupSourceOnlyFileOperationFixture(options: {
   await Deno.mkdir(`${assetRoot}/01-source-only`, {
     recursive: true,
   });
+  await Deno.writeTextFile(
+    `${assetRoot}/01-source-only/alice-bio.ttl`,
+    "fixture source\n",
+  );
+  await Deno.writeTextFile(
+    `${fixtureRepoPath}/README.md`,
+    "# fixture control\n",
+  );
+  await Deno.writeTextFile(
+    `${fixtureRepoPath}/.gitignore`,
+    ".weave/\n",
+  );
   await initTestGitRepo(fixtureRepoPath);
+  await runTestGit(fixtureRepoPath, ["add", "."]);
   await runTestGit(fixtureRepoPath, [
     "-c",
     "user.name=Test",
@@ -677,9 +678,7 @@ async function setupSourceOnlyFileOperationFixture(options: {
     "-m",
     "blank fixture",
   ]);
-  if (options.createBlankRef ?? true) {
-    await runTestGit(fixtureRepoPath, ["branch", "a.00-blank-slate"]);
-  }
+  await runTestGit(fixtureRepoPath, ["branch", "a.00-blank-slate"]);
   if (options.createTargetRef) {
     await Deno.writeTextFile(
       `${fixtureRepoPath}/alice-bio.ttl`,
@@ -829,11 +828,6 @@ async function setupSourceOnlyFileOperationFixture(options: {
       2,
     ),
   );
-  await Deno.writeTextFile(
-    `${assetRoot}/01-source-only/alice-bio.ttl`,
-    "fixture source\n",
-  );
-
   return { root, workspaceRoot, fixtureRepoPath };
 }
 
