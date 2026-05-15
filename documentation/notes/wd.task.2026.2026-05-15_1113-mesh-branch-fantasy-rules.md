@@ -24,6 +24,8 @@ This fixture should be similar enough to Sidecar Fantasy Rules to reuse the onto
 
 The first implementation can remain concrete and fixture-oriented. The important thing is to model source state and publication state separately. A single sidecar branch can represent both authored source and generated mesh output; a branch-published rung is more honestly a tuple of source ref plus publication ref.
 
+The first source-lane slice is in place: `mesh-branch-fantasy-rules:main` carries README/control files plus deterministic `.assets`, `a.source.00-blank-slate` points at that control state, and `a.source.01-source-only` is generated from the fixture ladder tool. The publication lane is intentionally still next; it should exercise `weave deploy gh-pages` and keep generated rungs on the publication branch rather than merging them into `main`.
+
 ## Discussion
 
 ### Relationship To Sidecar Fantasy Rules
@@ -111,6 +113,7 @@ The source branch and publication branch should agree on public identifiers. The
 
 - `mesh-sidecar-fantasy-rules` remains the docs-rooted sidecar fixture. `mesh-branch-fantasy-rules` is the separate branch-published fixture.
 - Use the `a.` prefix again for this replay family until a scenario/spec master file owns the prefix.
+- Use `a.source.` for source-lane refs in the first branch-published slice. Publication output should stay on `gh-pages` with commit markers or tags once the comparison path is settled, rather than creating sidecar-style publication branches for every rung.
 - Treat branch-published rung state as source ref plus publication ref, even if the first implementation stores the source side as deterministic `.assets` rather than as paired source branches.
 - Keep `main` clean in the branch-published fixture repo. Do not merge generated publication output to `main`; the branch-published analog of "merge final rung" is fast-forwarding the publication branch, such as `gh-pages`, to the final generated publication state.
 - Reuse Sidecar Fantasy Rules source assets, but mint branch fixture IRIs with the `mesh-branch-fantasy-rules` base.
@@ -143,13 +146,16 @@ The source branch and publication branch should agree on public identifiers. The
 ## Implementation Plan
 
 - [x] Confirm Sidecar Fantasy Rules `a.00` through `a.17` refs are pushed and `main` is fast-forwarded to `a.17-all-remaining-terms-woven`.
-- [ ] Inspect or clone `mesh-branch-fantasy-rules` and record its current branch/remotes/worktree state.
-- [ ] Choose the first branch naming scheme for source-state and publication-state rungs, preserving the `a.` replay-family prefix.
-- [ ] Seed the clean source branch from Sidecar Fantasy Rules deterministic assets, changing the mesh base and repository identity to `mesh-branch-fantasy-rules`.
-- [ ] Add deterministic `.assets` bytes for initial source files and first-release source updates.
-- [ ] Add initial `semantic-flow-framework/examples/branch-fantasy-rules/conformance/` manifests for source seed, publication bootstrap, and first source materialization.
-- [ ] Extend `scripts/fixture-ladder.ts` with a `branch-fantasy-rules` scenario that can plan separate source and publication materialization roots.
-- [ ] Add dry-run planner tests for the branch-published scenario before executing generated branches.
+- [x] Inspect or clone `mesh-branch-fantasy-rules` and record its current branch/remotes/worktree state.
+- [x] Choose the first branch naming scheme for source-state and publication-state rungs, preserving the `a.` replay-family prefix.
+- [x] Seed the clean source branch from Sidecar Fantasy Rules deterministic assets, changing the mesh base and repository identity to `mesh-branch-fantasy-rules`.
+- [x] Add deterministic `.assets` bytes for initial source files and first-release source updates.
+- [x] Add the first `semantic-flow-framework/examples/branch-fantasy-rules/conformance/` manifest for the source seed transition.
+- [ ] Add branch-published conformance manifests for publication bootstrap and first source materialization.
+- [x] Extend `scripts/fixture-ladder.ts` with a `branch-fantasy-rules` source-lane scenario.
+- [x] Add dry-run planner tests for the branch-published source-lane scenario before executing generated branches.
+- [x] Generate, validate, and push `a.source.01-source-only` from `a.source.00-blank-slate`.
+- [ ] Extend `scripts/fixture-ladder.ts` with branch-published publication-lane execution that can plan separate source and publication materialization roots.
 - [ ] Regenerate the first publication bootstrap rung and validate no source checkout files were written.
 - [ ] Regenerate ontology and SHACL materialization/integration/weave rungs using branch-published repository source locator metadata.
 - [ ] Add extraction/weave rungs for selected ontology and SHACL terms.

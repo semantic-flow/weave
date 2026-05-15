@@ -52,7 +52,10 @@ import {
   renderTextReport,
 } from "../dependencies/github.com/spectacular-voyage/accord/src/report/text_report.ts";
 
-export type FixtureScenarioId = "alice-bio" | "sidecar-fantasy-rules";
+export type FixtureScenarioId =
+  | "alice-bio"
+  | "sidecar-fantasy-rules"
+  | "branch-fantasy-rules";
 export type FixturePlanFormat = "text" | "json";
 
 export interface FixtureLadderOptions {
@@ -327,6 +330,8 @@ const FIXTURE_ASSET_ROOT_BASENAME = ".assets";
 const LADDER_BRANCH_PREFIX = "a.";
 const ALICE_BIO_LADDER_BRANCH_PREFIX = LADDER_BRANCH_PREFIX;
 const SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX = LADDER_BRANCH_PREFIX;
+const BRANCH_FANTASY_RULES_SOURCE_BRANCH_PREFIX =
+  `${LADDER_BRANCH_PREFIX}source.`;
 
 const ALICE_BIO_FIXTURE_REPO = "github.com/semantic-flow/mesh-alice-bio";
 const ALICE_BIO_FIXTURE_REPO_RELATIVE_PATH = join(
@@ -359,6 +364,23 @@ const SIDECAR_FANTASY_RULES_MANIFEST_ROOT_RELATIVE_PATH = join(
   "semantic-flow-framework",
   "examples",
   "sidecar-fantasy-rules",
+  "conformance",
+);
+const BRANCH_FANTASY_RULES_FIXTURE_REPO =
+  "github.com/semantic-flow/mesh-branch-fantasy-rules";
+const BRANCH_FANTASY_RULES_FIXTURE_REPO_RELATIVE_PATH = join(
+  "dependencies",
+  "github.com",
+  "semantic-flow",
+  "mesh-branch-fantasy-rules",
+);
+const BRANCH_FANTASY_RULES_MANIFEST_ROOT_RELATIVE_PATH = join(
+  "dependencies",
+  "github.com",
+  "semantic-flow",
+  "semantic-flow-framework",
+  "examples",
+  "branch-fantasy-rules",
   "conformance",
 );
 const FIXTURE_GENERATED_AT = "2026-05-03T00:00:00.000Z";
@@ -829,6 +851,52 @@ export const SIDECAR_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
       "weave",
       {
         branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+      },
+    ),
+  ],
+};
+
+export const BRANCH_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
+  id: "branch-fantasy-rules",
+  label: "Branch-Published Fantasy Rules",
+  fixtureRepo: BRANCH_FANTASY_RULES_FIXTURE_REPO,
+  fixtureRepoRelativePath: BRANCH_FANTASY_RULES_FIXTURE_REPO_RELATIVE_PATH,
+  manifestRootRelativePath: BRANCH_FANTASY_RULES_MANIFEST_ROOT_RELATIVE_PATH,
+  branchPrefix: BRANCH_FANTASY_RULES_SOURCE_BRANCH_PREFIX,
+  transitions: [
+    fileTransition(
+      1,
+      "01-source-only",
+      "00-blank-slate",
+      {
+        description:
+          "Seed the clean authored source files for the branch-published Fantasy Rules fixture.",
+        sources: [
+          {
+            path: "NOTICE.md",
+            provenance:
+              "fixture-authored NOTICE text adapted from the Sidecar Fantasy Rules source-only branch",
+          },
+          {
+            path: "ontology/fantasy-rules-ontology.ttl",
+            provenance:
+              "fixture-authored ontology RDF adapted from the Sidecar Fantasy Rules source-only branch with the branch fixture base IRI",
+          },
+          {
+            path: "shacl/fantasy-rules-shacl.ttl",
+            provenance:
+              "fixture-authored SHACL RDF adapted from the Sidecar Fantasy Rules source-only branch with the branch fixture base IRI",
+          },
+          {
+            path: "examples/gunaar.ttl",
+            provenance:
+              "fixture-authored example RDF adapted from the Sidecar Fantasy Rules source-only branch with the branch fixture base IRI",
+          },
+        ],
+      },
+      "fixture.seedSourceOnly",
+      {
+        branchPrefix: BRANCH_FANTASY_RULES_SOURCE_BRANCH_PREFIX,
       },
     ),
   ],
@@ -1356,6 +1424,8 @@ function resolveFixtureScenario(id: FixtureScenarioId): FixtureLadderScenario {
       return ALICE_BIO_FIXTURE_SCENARIO;
     case "sidecar-fantasy-rules":
       return SIDECAR_FANTASY_RULES_FIXTURE_SCENARIO;
+    case "branch-fantasy-rules":
+      return BRANCH_FANTASY_RULES_FIXTURE_SCENARIO;
   }
 }
 
@@ -2813,7 +2883,10 @@ function requireArgumentValue(value: string | undefined, name: string): string {
 }
 
 function parseScenarioId(value: string): FixtureScenarioId {
-  if (value === "alice-bio" || value === "sidecar-fantasy-rules") {
+  if (
+    value === "alice-bio" || value === "sidecar-fantasy-rules" ||
+    value === "branch-fantasy-rules"
+  ) {
     return value;
   }
   throw new Error(`Unsupported fixture scenario: ${value}`);

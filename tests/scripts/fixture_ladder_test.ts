@@ -7,6 +7,7 @@ import {
 } from "@std/assert";
 import {
   ALICE_BIO_FIXTURE_SCENARIO,
+  BRANCH_FANTASY_RULES_FIXTURE_SCENARIO,
   evaluateGeneratedOutputGuardrails,
   executeFixtureTransition,
   materializeFixtureTransitionSource,
@@ -78,6 +79,18 @@ Deno.test("parseFixtureLadderArgs accepts dry-run planner options", () => {
     {
       root: "/tmp/weave",
       scenario: "sidecar-fantasy-rules",
+      format: "text",
+    },
+  );
+
+  assertEquals(
+    parseFixtureLadderArgs([
+      "--root=/tmp/weave",
+      "--scenario=branch-fantasy-rules",
+    ]),
+    {
+      root: "/tmp/weave",
+      scenario: "branch-fantasy-rules",
       format: "text",
     },
   );
@@ -490,6 +503,43 @@ Deno.test("planFixtureLadder exposes the Sidecar Fantasy Rules transition sequen
   }
 });
 
+Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source transition", async () => {
+  const plan = await planFixtureLadder({
+    root: repoRoot,
+    scenario: "branch-fantasy-rules",
+    format: "text",
+  });
+
+  assertEquals(plan.writesBranches, false);
+  assertEquals(
+    plan.scenario.fixtureRepo,
+    "github.com/semantic-flow/mesh-branch-fantasy-rules",
+  );
+  assertEquals(plan.scenario.branchPrefix, "a.source.");
+  assertStringIncludes(plan.assetRoot, "mesh-branch-fantasy-rules/.assets");
+  assertEquals(plan.transitions.length, 1);
+  assertEquals(plan.transitions[0]?.id, "01-source-only");
+  assertEquals(plan.transitions[0]?.fromRef, "a.source.00-blank-slate");
+  assertEquals(plan.transitions[0]?.toRef, "a.source.01-source-only");
+  assertEquals(plan.transitions[0]?.operationId, "fixture.seedSourceOnly");
+  assertEquals(plan.transitions[0]?.action.kind, "fileOperation");
+  if (plan.transitions[0]?.action.kind === "fileOperation") {
+    assertEquals(
+      plan.transitions[0].action.sources.map((source) => source.path),
+      [
+        "NOTICE.md",
+        "ontology/fantasy-rules-ontology.ttl",
+        "shacl/fantasy-rules-shacl.ttl",
+        "examples/gunaar.ttl",
+      ],
+    );
+  }
+
+  for (const transition of plan.transitions) {
+    await Deno.stat(transition.manifestPath);
+  }
+});
+
 Deno.test("Alice Bio asset-backed transitions point at checked-in deterministic assets", async () => {
   const plan = await planFixtureLadder({
     root: repoRoot,
@@ -566,6 +616,30 @@ Deno.test("Sidecar Fantasy Rules source-only transition points at checked-in det
   }
 });
 
+Deno.test("Branch-Published Fantasy Rules source-only transition points at checked-in deterministic assets", async () => {
+  const plan = await planFixtureLadder({
+    root: repoRoot,
+    scenario: "branch-fantasy-rules",
+    format: "text",
+  });
+  const assetPaths = plan.transitions.flatMap((transition) =>
+    transition.action.kind === "command"
+      ? transition.action.inputs.map((input) => input.assetPath)
+      : transition.action.sources.map((source) => source.assetPath)
+  ).sort();
+
+  assertEquals(assetPaths, [
+    "01-source-only/NOTICE.md",
+    "01-source-only/examples/gunaar.ttl",
+    "01-source-only/ontology/fantasy-rules-ontology.ttl",
+    "01-source-only/shacl/fantasy-rules-shacl.ttl",
+  ]);
+
+  for (const assetPath of assetPaths) {
+    await Deno.stat(`${plan.assetRoot}/${assetPath}`);
+  }
+});
+
 Deno.test("renderFixtureLadderPlan prints reviewable command and validation details", async () => {
   const plan = await planFixtureLadder({
     root: repoRoot,
@@ -628,6 +702,18 @@ Deno.test("Sidecar Fantasy Rules fixture scenario has sequential transition inde
     ),
     Array.from(
       { length: SIDECAR_FANTASY_RULES_FIXTURE_SCENARIO.transitions.length },
+      (_, index) => index + 1,
+    ),
+  );
+});
+
+Deno.test("Branch-Published Fantasy Rules fixture scenario has sequential transition indexes", () => {
+  assertEquals(
+    BRANCH_FANTASY_RULES_FIXTURE_SCENARIO.transitions.map((transition) =>
+      transition.index
+    ),
+    Array.from(
+      { length: BRANCH_FANTASY_RULES_FIXTURE_SCENARIO.transitions.length },
       (_, index) => index + 1,
     ),
   );
