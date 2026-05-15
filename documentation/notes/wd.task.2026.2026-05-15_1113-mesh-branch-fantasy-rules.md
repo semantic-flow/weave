@@ -24,7 +24,7 @@ This fixture should be similar enough to Sidecar Fantasy Rules to reuse the onto
 
 The first implementation can remain concrete and fixture-oriented. The important thing is to model source state and publication state separately. A single sidecar branch can represent both authored source and generated mesh output; a branch-published rung is more honestly a tuple of source ref plus publication ref.
 
-The first source-lane slice is in place: `mesh-branch-fantasy-rules:main` carries README/control files plus deterministic `.assets`, `a.source.00-blank-slate` points at that control state, and `a.source.01-source-only` is generated from the fixture ladder tool. The publication lane is intentionally still next; it should exercise `weave deploy gh-pages` and keep generated rungs on the publication branch rather than merging them into `main`.
+The first source-lane slice is in place: `a.source.00-blank-slate` points at the control state with README/control files plus deterministic `.assets`, `a.source.01-source-only` is generated from the fixture ladder tool, and `mesh-branch-fantasy-rules:main` has been fast-forwarded to that clean source-only state. The publication lane is intentionally still next; it should exercise `weave deploy gh-pages` and keep generated rungs on the publication branch rather than merging them into `main`.
 
 ## Discussion
 
@@ -44,15 +44,18 @@ The branch-published repo should not carry generated `docs/` output on `main`. `
 
 The `a.` prefix remains the replay-family prefix for this version of the fixture ladder. It corresponds roughly to the current ontology/Weave fixture contract family and lets us regenerate without colliding with older or experimental refs.
 
-Branch-published fixtures need an explicit answer for source-state refs and publication-state refs. The sidecar ladder's simple `a.00` through `a.17` sequence may not be enough because source updates and publication updates do not happen in the same tree. The first design should prefer clarity over cleverness:
+Branch-published fixtures need an explicit answer for source-state refs and publication-state refs. The sidecar ladder's simple `a.00` through `a.17` sequence is not enough because source updates and publication updates do not happen in the same tree. The first design should prefer clarity over cleverness:
 
 - source refs identify the clean authored repository state used as input for a rung
-- publication refs identify generated publication worktree state after the rung
-- final source state can be merged or fast-forwarded to `main`
+- publication checkpoints identify generated publication worktree state after the rung
+- source refs use `a.source.*`
+- publication checkpoints use a single `a.woven.*` family for generated publish states
+- publication output is produced sequentially on `gh-pages`; Accord should compare the relevant commits/checkpoints, not assume every publication rung is an independently checked-out branch
+- `main` remains a clean source branch, similar to the `a.source.01-source-only` state
 - final publication state can be fast-forwarded to `gh-pages`
 - generated rung refs should all start with `a.` until a scenario master manifest owns the prefix
 
-An acceptable first cut may use one publication branch family plus deterministic `.assets` source materialization, but only if the scenario definition still records the source state used for each rung. We should not leave future readers guessing which source bytes produced a publication branch.
+An acceptable first cut may use deterministic `.assets` source materialization for source rungs, but the scenario definition still needs to record the source state used for each publication step. We should not leave future readers guessing which source bytes produced a publication commit.
 
 ### Candidate Ladder
 
@@ -101,22 +104,25 @@ The source branch and publication branch should agree on public identifiers. The
 
 ## Open Issues
 
-- Exact rung branch naming for two-tree state: use paired refs like `a.source.01-*` and `a.publish.01-*`, or keep a single publication rung family and record source refs/assets in the scenario?
-- Should final publication output be fast-forwarded to `gh-pages`, while `main` remains clean source, or should the fixture also keep a named final publication rung as the only Pages candidate until review?
-- Does `weave deploy gh-pages` need multi-source/profile input before this fixture is pleasant, or can the first ladder invoke it once per source binding?
-- Should branch-published conformance manifests live under `semantic-flow-framework/examples/branch-fantasy-rules/conformance/`, parallel to `sidecar-fantasy-rules`?
-- How should source commits be recorded when replay source bytes are assembled from `.assets` rather than from an already-committed source branch state?
-- Do extraction and ordinary weave operations run directly in the publication worktree after deploy materializes sources, or should deploy grow enough orchestration to cover those steps?
-- Which publication controls should the fixture exercise in the first pass: `.nojekyll`, `CNAME`, preserved manual files, or all three?
+- What concrete ref type should publication checkpoints use: lightweight tags, local branch refs, or raw commit SHAs recorded in manifests?
+- When should multi-source/profile deploy input be added? The first rungs can use repeated single-source deploy invocations, but later rungs should add profile coverage if the one-source command surface becomes noisy.
+- How should Accord represent commit-to-commit fixture comparisons for a publication branch whose rungs all live on `gh-pages`?
+- How much fixture-specific publication commit metadata should live in Accord manifests versus a future scenario master file?
 
 ## Decisions
 
 - `mesh-sidecar-fantasy-rules` remains the docs-rooted sidecar fixture. `mesh-branch-fantasy-rules` is the separate branch-published fixture.
 - Use the `a.` prefix again for this replay family until a scenario/spec master file owns the prefix.
-- Use `a.source.` for source-lane refs in the first branch-published slice. Publication output should stay on `gh-pages` with commit markers or tags once the comparison path is settled, rather than creating sidecar-style publication branches for every rung.
+- Use `a.source.` for source-lane refs in the first branch-published slice.
+- Use one publication checkpoint family, tentatively `a.woven.*`, for publish-state checkpoints. Publication output itself should move sequentially on `gh-pages` rather than using paired side branches for every source/publish state.
 - Treat branch-published rung state as source ref plus publication ref, even if the first implementation stores the source side as deterministic `.assets` rather than as paired source branches.
-- Keep `main` clean in the branch-published fixture repo. Do not merge generated publication output to `main`; the branch-published analog of "merge final rung" is fast-forwarding the publication branch, such as `gh-pages`, to the final generated publication state.
+- Keep `main` clean in the branch-published fixture repo, similar to `a.source.01-source-only`. Do not merge generated publication output to `main`; the branch-published analog of "merge final rung" is fast-forwarding the publication branch, such as `gh-pages`, to the final generated publication state.
 - Reuse Sidecar Fantasy Rules source assets, but mint branch fixture IRIs with the `mesh-branch-fantasy-rules` base.
+- The initial source assembly from `.assets` does not need additional provenance modeling beyond the fixture assets existing as deterministic replay inputs.
+- Start branch-published publication rungs without multi-source/profile deploy input; add that later when it improves coverage or reduces command noise.
+- Store branch-published conformance manifests in `semantic-flow-framework/examples/branch-fantasy-rules/conformance/`, parallel to the sidecar fixture manifests.
+- After deploy materializes source bytes into the publication worktree, ordinary extraction and weave operations can run directly in that publication worktree.
+- Exercise `.nojekyll` in the fixture. Do not add `CNAME` for this fixture because there is no custom DNS alias; `CNAME` behavior can stay covered by deploy-focused tests.
 - Do not record host-local source or publication checkout paths in generated public RDF. Durable provenance should be repository/ref/path/digest-shaped.
 - Preserve the existing no-push posture in Weave commands. Fixture branch pushes can remain explicit git operations during fixture maintenance.
 
@@ -125,7 +131,7 @@ The source branch and publication branch should agree on public identifiers. The
 - No immediate external Semantic Flow contract change is required just to create the fixture.
 - The fixture-ladder generator may gain a branch-published scenario shape with separate source and publication materialization roots.
 - Branch-published conformance manifests may need to describe both source-state inputs and publication-state outputs for one transition.
-- Deploy/replay manifests may need first-class multi-source command/profile metadata if repeated single-source CLI invocations become too awkward.
+- Deploy/replay manifests may need first-class multi-source command/profile metadata later if repeated single-source CLI invocations become too awkward.
 
 ## Testing
 
