@@ -66,6 +66,7 @@ export interface FixtureLadderPlan {
   root: string;
   fixtureRepoPath: string;
   manifestRoot: string;
+  assetRoot: string;
   transitions: readonly FixtureTransitionPlan[];
   writesBranches: false;
 }
@@ -93,6 +94,7 @@ export interface FixtureMaterializationResult {
   operationId: string;
   fixtureRepoPath: string;
   manifestPath: string;
+  assetRoot: string;
   workspaceRoot: string;
   materializedPaths: readonly string[];
   writesBranches: false;
@@ -100,6 +102,7 @@ export interface FixtureMaterializationResult {
 }
 
 export interface FixtureCommandExecutionResult {
+  kind: "command";
   command: readonly string[];
   cwd: string;
   success: boolean;
@@ -108,7 +111,32 @@ export interface FixtureCommandExecutionResult {
   stderr: string;
 }
 
-export interface FixtureExecutionResult {
+export interface FixtureFileOperationAppliedFile {
+  path: string;
+  assetPath: string;
+  provenance: string;
+  bytes: number;
+}
+
+export interface FixtureFileOperationMissingAsset {
+  path: string;
+  assetPath: string;
+  absolutePath: string;
+}
+
+export interface FixtureFileOperationExecutionResult {
+  kind: "fileOperation";
+  description: string;
+  success: boolean;
+  files: readonly FixtureFileOperationAppliedFile[];
+  missingAssets: readonly FixtureFileOperationMissingAsset[];
+}
+
+export type FixtureTransitionOperationResult =
+  | FixtureCommandExecutionResult
+  | FixtureFileOperationExecutionResult;
+
+interface FixtureExecutionBase {
   scenario: FixtureScenarioId;
   transitionId: string;
   fromRef: string;
@@ -116,12 +144,33 @@ export interface FixtureExecutionResult {
   operationId: string;
   fixtureRepoPath: string;
   manifestPath: string;
+  assetRoot: string;
   workspaceRoot: string;
   materializedPaths: readonly string[];
-  command: FixtureCommandExecutionResult;
+  operation: FixtureTransitionOperationResult;
   validation: JsonReport;
   writesBranches: boolean;
   branchUpdate: FixtureBranchUpdateResult;
+}
+
+export type FixtureExecutionResult =
+  | FixtureCommandTransitionExecutionResult
+  | FixtureFileOperationTransitionExecutionResult;
+
+export interface FixtureCommandTransitionExecutionResult
+  extends FixtureExecutionBase {
+  actionKind: "command";
+  operation: FixtureCommandExecutionResult;
+  command: FixtureCommandExecutionResult;
+  fileOperation?: undefined;
+}
+
+export interface FixtureFileOperationTransitionExecutionResult
+  extends FixtureExecutionBase {
+  actionKind: "fileOperation";
+  operation: FixtureFileOperationExecutionResult;
+  command?: undefined;
+  fileOperation: FixtureFileOperationExecutionResult;
 }
 
 export interface UpdateFixtureBranchOptions {
@@ -167,6 +216,8 @@ export interface FixtureLadderScenario {
   fixtureRepo: string;
   fixtureRepoRelativePath: string;
   manifestRootRelativePath: string;
+  assetRootRelativePath?: string;
+  branchPrefix: string;
   transitions: readonly FixtureTransitionDefinition[];
 }
 
@@ -175,6 +226,7 @@ export interface FixtureTransitionDefinition {
   id: string;
   fromRef: string;
   toRef: string;
+  allowMissingFromRefAsEmpty?: boolean;
   manifestName: string;
   operationId: string;
   action: FixtureTransitionAction;
@@ -193,6 +245,7 @@ export interface FixtureCommandAction {
   kind: "command";
   executable: "weave";
   argv: readonly string[];
+  inputs: readonly FixtureFileOperationSource[];
   cwd: "workspace";
   promptPolicy: "nonInteractive";
   expectedRuntimeLogs: boolean;
@@ -202,10 +255,37 @@ export interface FixtureFileOperationAction {
   kind: "fileOperation";
   description: string;
   sources: readonly FixtureFileOperationSource[];
+  inventoryPatches: readonly FixtureInventoryPatch[];
 }
 
 export interface FixtureFileOperationSource {
   path: string;
+  assetPath: string;
+  provenance: string;
+}
+
+interface FixtureFileOperationSourceInput {
+  path: string;
+  assetPath?: string;
+  provenance: string;
+}
+
+export type FixtureInventoryPatch = FixtureResourcePageDefinitionInventoryPatch;
+
+export interface FixtureResourcePageDefinitionInventoryPatch {
+  kind: "resourcePageDefinition";
+  inventoryPath: string;
+  knopPath: string;
+  pageDefinitionPath: string;
+  pageDefinitionFilePath: string;
+  assetBundlePath?: string;
+  provenance: string;
+}
+
+interface FixtureResourcePageDefinitionInventoryPatchInput {
+  kind: "resourcePageDefinition";
+  designatorPath: string;
+  hasAssetBundle?: boolean;
   provenance: string;
 }
 
@@ -219,6 +299,8 @@ const CANONICAL_OUTPUT_GUARDRAILS = [
   "generated RDF uses the canonical sflo namespace",
   "generated MeshInventory progression lives on _mesh/_meta",
 ] as const;
+const FIXTURE_ASSET_ROOT_BASENAME = ".assets";
+const ALICE_BIO_LADDER_BRANCH_PREFIX = "a.";
 
 const ALICE_BIO_FIXTURE_REPO = "github.com/semantic-flow/mesh-alice-bio";
 const ALICE_BIO_FIXTURE_REPO_RELATIVE_PATH = join(
@@ -256,9 +338,11 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
   fixtureRepo: ALICE_BIO_FIXTURE_REPO,
   fixtureRepoRelativePath: ALICE_BIO_FIXTURE_REPO_RELATIVE_PATH,
   manifestRootRelativePath: ALICE_BIO_MANIFEST_ROOT_RELATIVE_PATH,
+  branchPrefix: ALICE_BIO_LADDER_BRANCH_PREFIX,
   transitions: [
     fileTransition(1, "01-source-only", "00-blank-slate", {
       description: "Seed the source-only Alice Bio fixture branch.",
+      allowMissingFromRefAsEmpty: true,
       sources: [
         {
           path: "alice-bio.ttl",
@@ -352,6 +436,15 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
         "alice-bio-v2.ttl",
         "alice/bio",
       ],
+      {
+        inputs: [
+          {
+            path: "alice-bio-v2.ttl",
+            provenance:
+              "fixture-authored Alice Bio v2 RDF copied from the Alice Bio main branch source bytes",
+          },
+        ],
+      },
     ),
     commandTransition(
       11,
@@ -390,12 +483,31 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
         {
           path: "alice/_knop/_page/page.ttl",
           provenance:
-            "fixture-authored page definition copied from the existing Alice customized fixture",
+            "fixture-authored canonical page definition adapted from the Alice Bio main branch page bytes",
         },
         {
-          path: "alice/page.md",
+          path: "alice/alice.md",
           provenance:
-            "fixture-authored Markdown copied from the existing Alice customized fixture",
+            "fixture-authored Markdown copied from the Alice Bio main branch source bytes",
+        },
+        {
+          path: "mesh-content/sidebar.md",
+          provenance:
+            "fixture-authored sidebar Markdown copied from the Alice Bio main branch source bytes",
+        },
+        {
+          path: "alice/_knop/_assets/alice.css",
+          provenance:
+            "fixture-authored stylesheet copied from the Alice Bio main branch source bytes",
+        },
+      ],
+      inventoryPatches: [
+        {
+          kind: "resourcePageDefinition",
+          designatorPath: "alice",
+          hasAssetBundle: true,
+          provenance:
+            "register Alice's ResourcePageDefinition and KnopAssetBundle against the current generated Alice KnopInventory",
         },
       ],
     }, "resourcePage.define"),
@@ -416,10 +528,19 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
       "integrate",
       [
         "integrate",
-        "alice/page-main.md",
+        "alice-page-main.md",
         "--designator-path",
         "alice/page-main",
       ],
+      {
+        inputs: [
+          {
+            path: "alice-page-main.md",
+            provenance:
+              "fixture-authored Alice page-main Markdown copied from the Alice Bio main branch source bytes",
+          },
+        ],
+      },
     ),
     commandTransition(
       17,
@@ -442,7 +563,7 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
           {
             path: "alice/_knop/_page/page.ttl",
             provenance:
-              "fixture-authored page definition copied from the existing page-artifact-source fixture",
+              "fixture-authored canonical page definition adapted from the Alice Bio main branch artifact-backed page bytes",
           },
         ],
       },
@@ -467,14 +588,22 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
           "Import Bob page Markdown from the pinned outside-origin source fixture.",
         sources: [
           {
-            path: "bob/page.md",
+            path: "bob-page-main.md",
             provenance:
-              "outside-origin Markdown from https://raw.githubusercontent.com/djradon/public-notes/refs/heads/main/user.bob-newhart.md; replay must use checked-in bytes or a digest-pinned copy",
+              "checked-in bytes copied from the Alice Bio main branch's imported Markdown source; original outside-origin URL was https://raw.githubusercontent.com/djradon/public-notes/refs/heads/main/user.bob-newhart.md",
           },
           {
             path: "bob/_knop/_page/page.ttl",
             provenance:
-              "fixture-authored page definition copied from the existing Bob imported-source fixture",
+              "fixture-authored canonical page definition adapted from the Alice Bio main branch Bob page bytes",
+          },
+        ],
+        inventoryPatches: [
+          {
+            kind: "resourcePageDefinition",
+            designatorPath: "bob",
+            provenance:
+              "register Bob's ResourcePageDefinition against the current generated Bob KnopInventory",
           },
         ],
       },
@@ -522,12 +651,31 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
           {
             path: "_knop/_page/page.ttl",
             provenance:
-              "fixture-authored root page definition copied from the existing root customized fixture",
+              "fixture-authored canonical page definition adapted from the Alice Bio main branch root page bytes",
           },
           {
-            path: "index.md",
+            path: "home.md",
             provenance:
-              "fixture-authored root Markdown copied from the existing root customized fixture",
+              "fixture-authored root Markdown copied from the Alice Bio main branch source bytes",
+          },
+          {
+            path: "mesh-content/root-sidebar.md",
+            provenance:
+              "fixture-authored root sidebar Markdown copied from the Alice Bio main branch source bytes",
+          },
+          {
+            path: "_knop/_assets/site.css",
+            provenance:
+              "fixture-authored root stylesheet copied from the Alice Bio main branch source bytes",
+          },
+        ],
+        inventoryPatches: [
+          {
+            kind: "resourcePageDefinition",
+            designatorPath: "",
+            hasAssetBundle: true,
+            provenance:
+              "register the root ResourcePageDefinition and KnopAssetBundle against the current generated root KnopInventory",
           },
         ],
       },
@@ -563,7 +711,7 @@ if (import.meta.main) {
           : renderFixtureExecutionResult(result),
       );
       if (
-        !result.command.success ||
+        !result.operation.success ||
         (!result.branchUpdate.updated && result.validation.status !== "pass")
       ) {
         Deno.exit(1);
@@ -730,12 +878,18 @@ export function planFixtureLadder(
   const scenario = resolveFixtureScenario(options.scenario);
   const root = resolve(options.root);
   const manifestRoot = join(root, scenario.manifestRootRelativePath);
+  const assetRoot = join(
+    root,
+    scenario.assetRootRelativePath ??
+      join(scenario.fixtureRepoRelativePath, FIXTURE_ASSET_ROOT_BASENAME),
+  );
 
   return {
     scenario,
     root,
     fixtureRepoPath: join(root, scenario.fixtureRepoRelativePath),
     manifestRoot,
+    assetRoot,
     transitions: scenario.transitions.map((transition) => ({
       ...transition,
       manifestPath: join(manifestRoot, transition.manifestName),
@@ -750,6 +904,7 @@ export function renderFixtureLadderPlan(plan: FixtureLadderPlan): string {
     `Fixture repository: ${plan.scenario.fixtureRepo}`,
     `Fixture repository path: ${plan.fixtureRepoPath}`,
     `Manifest root: ${plan.manifestRoot}`,
+    `Asset root: ${plan.assetRoot}`,
     "Branch writes: disabled",
     `Transitions: ${plan.transitions.length}`,
   ];
@@ -763,6 +918,9 @@ export function renderFixtureLadderPlan(plan: FixtureLadderPlan): string {
     lines.push(
       `   manifest: ${relative(plan.root, transition.manifestPath)}`,
     );
+    if (transition.allowMissingFromRefAsEmpty === true) {
+      lines.push("   missing source ref: materialize an empty workspace");
+    }
     if (transition.action.kind === "command") {
       lines.push(
         `   command: ${
@@ -777,10 +935,26 @@ export function renderFixtureLadderPlan(plan: FixtureLadderPlan): string {
       lines.push(
         `   runtime logs: ${transition.action.expectedRuntimeLogs}`,
       );
+      for (const input of transition.action.inputs) {
+        lines.push(
+          `   input: ${input.path} <= ${
+            formatFixtureAssetPath(input)
+          } (${input.provenance})`,
+        );
+      }
     } else {
       lines.push(`   file operation: ${transition.action.description}`);
       for (const source of transition.action.sources) {
-        lines.push(`   source: ${source.path} (${source.provenance})`);
+        lines.push(
+          `   source: ${source.path} <= ${
+            formatFixtureAssetPath(source)
+          } (${source.provenance})`,
+        );
+      }
+      for (const patch of transition.action.inventoryPatches) {
+        lines.push(
+          `   inventory patch: ${patch.inventoryPath} registers ${patch.pageDefinitionPath} (${patch.provenance})`,
+        );
       }
     }
     lines.push(
@@ -809,15 +983,23 @@ export async function materializeFixtureTransitionSource(
     : resolve(options.workspaceRoot);
   await ensureEmptyWorkspaceRoot(workspaceRoot);
 
-  const resolvedRef = await resolveGitCommitish(
+  const resolvedRef = await resolveGitCommitishIfExists(
     plan.fixtureRepoPath,
     transition.fromRef,
   );
-  const materializedPaths = await materializeGitTree({
-    repoPath: plan.fixtureRepoPath,
-    ref: resolvedRef,
-    workspaceRoot,
-  });
+  if (
+    resolvedRef === undefined && transition.allowMissingFromRefAsEmpty !== true
+  ) {
+    throw unresolvedFixtureRefError(plan.fixtureRepoPath, transition.fromRef);
+  }
+
+  const materializedPaths = resolvedRef === undefined
+    ? []
+    : await materializeGitTree({
+      repoPath: plan.fixtureRepoPath,
+      ref: resolvedRef,
+      workspaceRoot,
+    });
 
   return {
     scenario: plan.scenario.id,
@@ -827,6 +1009,7 @@ export async function materializeFixtureTransitionSource(
     operationId: transition.operationId,
     fixtureRepoPath: plan.fixtureRepoPath,
     manifestPath: transition.manifestPath,
+    assetRoot: plan.assetRoot,
     workspaceRoot,
     materializedPaths,
     writesBranches: false,
@@ -844,18 +1027,19 @@ export async function executeFixtureTransition(
   });
   const transition = findFixtureTransitionPlan(plan, options.transitionId);
 
-  if (transition.action.kind !== "command") {
-    throw new Error(
-      `fixture:ladder can only execute command transitions; ${transition.id} is a file operation.`,
-    );
-  }
-
   const materialization = await materializeFixtureTransitionSource(options);
-  const command = await runFixtureCommand({
-    root: plan.root,
-    workspaceRoot: materialization.workspaceRoot,
-    action: transition.action,
-  });
+  const operation = transition.action.kind === "command"
+    ? await runFixtureCommand({
+      assetRoot: plan.assetRoot,
+      root: plan.root,
+      workspaceRoot: materialization.workspaceRoot,
+      action: transition.action,
+    })
+    : await applyFixtureFileOperation({
+      assetRoot: plan.assetRoot,
+      workspaceRoot: materialization.workspaceRoot,
+      action: transition.action,
+    });
   const validation = await validateFixtureTransitionWorkspace({
     fixtureRepoPath: plan.fixtureRepoPath,
     manifestPath: transition.manifestPath,
@@ -868,12 +1052,12 @@ export async function executeFixtureTransition(
     workspaceRoot: materialization.workspaceRoot,
     targetRef: transition.toRef,
     dryRun: options.dryRun ?? false,
-    command,
+    operation,
     validation,
     message: `Regenerate fixture branch ${transition.toRef}`,
   });
 
-  return {
+  const base = {
     scenario: materialization.scenario,
     transitionId: materialization.transitionId,
     fromRef: materialization.fromRef,
@@ -881,12 +1065,29 @@ export async function executeFixtureTransition(
     operationId: materialization.operationId,
     fixtureRepoPath: materialization.fixtureRepoPath,
     manifestPath: materialization.manifestPath,
+    assetRoot: materialization.assetRoot,
     workspaceRoot: materialization.workspaceRoot,
     materializedPaths: materialization.materializedPaths,
-    command,
+    operation,
     validation,
     writesBranches: branchUpdate.updated,
     branchUpdate,
+  };
+
+  if (operation.kind === "command") {
+    return {
+      ...base,
+      actionKind: "command",
+      operation,
+      command: operation,
+    };
+  }
+
+  return {
+    ...base,
+    actionKind: "fileOperation",
+    operation,
+    fileOperation: operation,
   };
 }
 
@@ -898,6 +1099,7 @@ export function renderFixtureMaterializationResult(
     `Transition: ${result.transitionId}`,
     `Source ref: ${result.fromRef}`,
     `Target ref: ${result.toRef}`,
+    `Asset root: ${result.assetRoot}`,
     `Workspace root: ${result.workspaceRoot}`,
     "Branch writes: disabled",
     `Files materialized: ${result.materializedPaths.length}`,
@@ -925,21 +1127,46 @@ export function renderFixtureExecutionResult(
     `Transition: ${result.transitionId}`,
     `Source ref: ${result.fromRef}`,
     `Target ref: ${result.toRef}`,
+    `Asset root: ${result.assetRoot}`,
     `Workspace root: ${result.workspaceRoot}`,
     `Branch writes: ${result.branchUpdate.updated ? "enabled" : "disabled"}`,
-    `Command: ${result.command.command.join(" ")}`,
-    `Command cwd: ${result.command.cwd}`,
-    `Command exit code: ${result.command.code}`,
   ];
 
-  if (result.command.stdout.trim().length > 0) {
-    lines.push("Command stdout:");
-    lines.push(result.command.stdout.trimEnd());
-  }
+  if (result.actionKind === "command") {
+    lines.push(`Command: ${result.command.command.join(" ")}`);
+    lines.push(`Command cwd: ${result.command.cwd}`);
+    lines.push(`Command exit code: ${result.command.code}`);
 
-  if (result.command.stderr.trim().length > 0) {
-    lines.push("Command stderr:");
-    lines.push(result.command.stderr.trimEnd());
+    if (result.command.stdout.trim().length > 0) {
+      lines.push("Command stdout:");
+      lines.push(result.command.stdout.trimEnd());
+    }
+
+    if (result.command.stderr.trim().length > 0) {
+      lines.push("Command stderr:");
+      lines.push(result.command.stderr.trimEnd());
+    }
+  } else {
+    lines.push(`File operation: ${result.fileOperation.description}`);
+    lines.push(`File operation success: ${result.fileOperation.success}`);
+    lines.push(`Files applied: ${result.fileOperation.files.length}`);
+    for (const file of result.fileOperation.files) {
+      lines.push(
+        `- ${file.path} <= ${
+          formatFixtureAssetPath(file)
+        } (${file.bytes} bytes)`,
+      );
+    }
+    if (result.fileOperation.missingAssets.length > 0) {
+      lines.push("Missing assets:");
+      for (const missing of result.fileOperation.missingAssets) {
+        lines.push(
+          `- ${missing.path} <= ${
+            formatFixtureAssetPath(missing)
+          } (${missing.absolutePath})`,
+        );
+      }
+    }
   }
 
   lines.push("Validation:");
@@ -986,18 +1213,24 @@ function commandTransition(
   fromRef: string,
   operationId: string,
   argv: readonly string[],
+  options: {
+    inputs?: readonly FixtureFileOperationSourceInput[];
+    branchPrefix?: string;
+  } = {},
 ): FixtureTransitionDefinition {
+  const branchPrefix = options.branchPrefix ?? ALICE_BIO_LADDER_BRANCH_PREFIX;
   return {
     index,
     id,
-    fromRef,
-    toRef: id,
+    fromRef: toLadderBranchRef(branchPrefix, fromRef),
+    toRef: toLadderBranchRef(branchPrefix, id),
     manifestName: `${id}.jsonld`,
     operationId,
     action: {
       kind: "command",
       executable: "weave",
       argv,
+      inputs: resolveFixtureAssetSources(id, options.inputs ?? []),
       cwd: "workspace",
       promptPolicy: "nonInteractive",
       expectedRuntimeLogs: true,
@@ -1010,22 +1243,80 @@ function fileTransition(
   index: number,
   id: string,
   fromRef: string,
-  action: Omit<FixtureFileOperationAction, "kind">,
+  action: {
+    description: string;
+    allowMissingFromRefAsEmpty?: boolean;
+    sources: readonly FixtureFileOperationSourceInput[];
+    inventoryPatches?:
+      readonly FixtureResourcePageDefinitionInventoryPatchInput[];
+  },
   operationId = "fixture.fileOperation",
 ): FixtureTransitionDefinition {
+  const branchPrefix = ALICE_BIO_LADDER_BRANCH_PREFIX;
   return {
     index,
     id,
-    fromRef,
-    toRef: id,
+    fromRef: toLadderBranchRef(branchPrefix, fromRef),
+    toRef: toLadderBranchRef(branchPrefix, id),
+    ...(action.allowMissingFromRefAsEmpty
+      ? { allowMissingFromRefAsEmpty: true }
+      : {}),
     manifestName: `${id}.jsonld`,
     operationId,
     action: {
       kind: "fileOperation",
-      ...action,
+      description: action.description,
+      sources: resolveFixtureAssetSources(id, action.sources),
+      inventoryPatches: (action.inventoryPatches ?? []).map(
+        resolveResourcePageDefinitionInventoryPatch,
+      ),
     },
     validation: defaultValidation(),
   };
+}
+
+function resolveFixtureAssetSources(
+  transitionId: string,
+  sources: readonly FixtureFileOperationSourceInput[],
+): FixtureFileOperationSource[] {
+  return sources.map((source) => ({
+    path: source.path,
+    assetPath: source.assetPath ??
+      pathPosix.join(transitionId, normalizeGitTreePath(source.path)),
+    provenance: source.provenance,
+  }));
+}
+
+function resolveResourcePageDefinitionInventoryPatch(
+  input: FixtureResourcePageDefinitionInventoryPatchInput,
+): FixtureResourcePageDefinitionInventoryPatch {
+  const knopPath = toKnopPath(input.designatorPath);
+  const pageDefinitionPath = pathPosix.join(knopPath, "_page");
+  return {
+    kind: "resourcePageDefinition",
+    inventoryPath: pathPosix.join(knopPath, "_inventory/inventory.ttl"),
+    knopPath,
+    pageDefinitionPath,
+    pageDefinitionFilePath: pathPosix.join(pageDefinitionPath, "page.ttl"),
+    ...(input.hasAssetBundle
+      ? { assetBundlePath: pathPosix.join(knopPath, "_assets") }
+      : {}),
+    provenance: input.provenance,
+  };
+}
+
+function toKnopPath(designatorPath: string): string {
+  return designatorPath.length === 0
+    ? "_knop"
+    : pathPosix.join(normalizeGitTreePath(designatorPath), "_knop");
+}
+
+function toLadderBranchRef(branchPrefix: string, rungId: string): string {
+  return `${branchPrefix}${rungId}`;
+}
+
+function formatFixtureAssetPath(options: { assetPath: string }): string {
+  return pathPosix.join(FIXTURE_ASSET_ROOT_BASENAME, options.assetPath);
 }
 
 function defaultValidation(): FixtureTransitionValidation {
@@ -1037,6 +1328,7 @@ function defaultValidation(): FixtureTransitionValidation {
 }
 
 async function runFixtureCommand(options: {
+  assetRoot: string;
   root: string;
   workspaceRoot: string;
   action: FixtureCommandAction;
@@ -1056,6 +1348,27 @@ async function runFixtureCommand(options: {
     join(options.root, "src/main.ts"),
     ...options.action.argv,
   ];
+  const stagedInputs = await stageFixtureAssetSources({
+    assetRoot: options.assetRoot,
+    workspaceRoot: options.workspaceRoot,
+    sources: options.action.inputs,
+  });
+  if (stagedInputs.missingAssets.length > 0) {
+    return {
+      kind: "command",
+      command,
+      cwd: options.workspaceRoot,
+      success: false,
+      code: 1,
+      stdout: "",
+      stderr: stagedInputs.missingAssets.map((missing) =>
+        `Missing fixture command input ${missing.path} from ${
+          formatFixtureAssetPath(missing)
+        } (${missing.absolutePath})`
+      ).join("\n"),
+    };
+  }
+
   const output = await new Deno.Command("deno", {
     cwd: options.workspaceRoot,
     args: command.slice(1),
@@ -1067,6 +1380,7 @@ async function runFixtureCommand(options: {
   }).output();
 
   return {
+    kind: "command",
     command,
     cwd: options.workspaceRoot,
     success: output.success,
@@ -1076,12 +1390,171 @@ async function runFixtureCommand(options: {
   };
 }
 
+async function applyFixtureFileOperation(options: {
+  assetRoot: string;
+  workspaceRoot: string;
+  action: FixtureFileOperationAction;
+}): Promise<FixtureFileOperationExecutionResult> {
+  const stagedSources = await stageFixtureAssetSources({
+    assetRoot: options.assetRoot,
+    workspaceRoot: options.workspaceRoot,
+    sources: options.action.sources,
+  });
+  if (stagedSources.missingAssets.length > 0) {
+    return {
+      kind: "fileOperation",
+      description: options.action.description,
+      success: false,
+      files: [],
+      missingAssets: stagedSources.missingAssets,
+    };
+  }
+
+  for (const patch of options.action.inventoryPatches) {
+    await applyFixtureInventoryPatch({
+      workspaceRoot: options.workspaceRoot,
+      patch,
+    });
+  }
+
+  return {
+    kind: "fileOperation",
+    description: options.action.description,
+    success: true,
+    files: stagedSources.files,
+    missingAssets: [],
+  };
+}
+
+async function stageFixtureAssetSources(options: {
+  assetRoot: string;
+  workspaceRoot: string;
+  sources: readonly FixtureFileOperationSource[];
+}): Promise<{
+  files: FixtureFileOperationAppliedFile[];
+  missingAssets: FixtureFileOperationMissingAsset[];
+}> {
+  const pendingFiles: Array<
+    FixtureFileOperationAppliedFile & {
+      absoluteTargetPath: string;
+      contents: Uint8Array;
+    }
+  > = [];
+  const missingAssets: FixtureFileOperationMissingAsset[] = [];
+  const seenTargets = new Set<string>();
+
+  for (const source of options.sources) {
+    const targetPath = normalizeGitTreePath(source.path);
+    const assetPath = normalizeGitTreePath(source.assetPath);
+    if (seenTargets.has(targetPath)) {
+      throw new Error(
+        `Duplicate fixture file-operation target path: ${targetPath}`,
+      );
+    }
+    seenTargets.add(targetPath);
+
+    const absoluteAssetPath = join(options.assetRoot, assetPath);
+    const absoluteTargetPath = join(options.workspaceRoot, targetPath);
+    try {
+      const contents = await Deno.readFile(absoluteAssetPath);
+      pendingFiles.push({
+        path: targetPath,
+        assetPath,
+        provenance: source.provenance,
+        bytes: contents.byteLength,
+        absoluteTargetPath,
+        contents,
+      });
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) {
+        missingAssets.push({
+          path: targetPath,
+          assetPath,
+          absolutePath: absoluteAssetPath,
+        });
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  if (missingAssets.length > 0) {
+    return {
+      files: [],
+      missingAssets,
+    };
+  }
+
+  for (const file of pendingFiles) {
+    await Deno.mkdir(dirname(file.absoluteTargetPath), { recursive: true });
+    await Deno.writeFile(file.absoluteTargetPath, file.contents);
+  }
+
+  return {
+    files: pendingFiles.map((
+      { absoluteTargetPath: _absoluteTargetPath, contents: _contents, ...file },
+    ) => file),
+    missingAssets,
+  };
+}
+
+async function applyFixtureInventoryPatch(options: {
+  workspaceRoot: string;
+  patch: FixtureInventoryPatch;
+}): Promise<void> {
+  switch (options.patch.kind) {
+    case "resourcePageDefinition":
+      await applyResourcePageDefinitionInventoryPatch(options);
+      return;
+  }
+}
+
+async function applyResourcePageDefinitionInventoryPatch(options: {
+  workspaceRoot: string;
+  patch: FixtureResourcePageDefinitionInventoryPatch;
+}): Promise<void> {
+  const inventoryPath = normalizeGitTreePath(options.patch.inventoryPath);
+  const absoluteInventoryPath = join(options.workspaceRoot, inventoryPath);
+  const existing = await Deno.readTextFile(absoluteInventoryPath);
+  if (
+    existing.includes(
+      `sflo:hasResourcePageDefinition <${options.patch.pageDefinitionPath}>`,
+    ) &&
+    existing.includes(`<${options.patch.pageDefinitionPath}>`)
+  ) {
+    return;
+  }
+
+  const block = renderResourcePageDefinitionInventoryPatch(options.patch);
+  await Deno.writeTextFile(
+    absoluteInventoryPath,
+    `${existing.trimEnd()}\n\n${block}\n`,
+  );
+}
+
+function renderResourcePageDefinitionInventoryPatch(
+  patch: FixtureResourcePageDefinitionInventoryPatch,
+): string {
+  const assetBundleLink = patch.assetBundlePath === undefined ? "" : ` ;
+  sflo:hasKnopAssetBundle <${patch.assetBundlePath}>`;
+  const assetBundleBlock = patch.assetBundlePath === undefined
+    ? ""
+    : `\n\n<${patch.assetBundlePath}> a sflo:KnopAssetBundle .`;
+
+  return `<${patch.knopPath}> sflo:hasResourcePageDefinition <${patch.pageDefinitionPath}>${assetBundleLink} .
+
+<${patch.pageDefinitionPath}> a sflo:ResourcePageDefinition, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:workingLocalRelativePath "${patch.pageDefinitionFilePath}" .
+
+<${patch.pageDefinitionFilePath}> a sflo:LocatedFile, sflo:RdfDocument .${assetBundleBlock}`;
+}
+
 async function maybeUpdateFixtureBranch(options: {
   fixtureRepoPath: string;
   workspaceRoot: string;
   targetRef: string;
   dryRun: boolean;
-  command: FixtureCommandExecutionResult;
+  operation: FixtureTransitionOperationResult;
   validation: JsonReport;
   message: string;
 }): Promise<FixtureBranchUpdateResult> {
@@ -1098,19 +1571,19 @@ async function maybeUpdateFixtureBranch(options: {
     };
   }
 
-  if (!options.command.success) {
+  if (!options.operation.success) {
     return {
       dryRun: false,
       updated: false,
       targetRef: options.targetRef,
       branchRef,
       localOnly: true,
-      reason: "command failed",
+      reason: `${options.operation.kind} failed`,
     };
   }
 
-  const failingGuardrail = options.validation.checks.find((check) =>
-    check.kind === "setup" && check.status !== "pass"
+  const failingGuardrail = findFailingGeneratedOutputGuardrail(
+    options.validation,
   );
   if (failingGuardrail !== undefined) {
     return {
@@ -1255,19 +1728,34 @@ async function validateFixtureTransitionWorkspace(options: {
 }): Promise<JsonReport> {
   const manifest = await readManifestSource(options.manifestPath);
   const transitionCase = selectTransitionCase(manifest.document);
-  const fromRef = transitionCase.fromRef ?? options.fallbackFromRef;
-  const toRef = transitionCase.toRef ?? options.fallbackToRef;
-  const resolvedFromRef = await resolveGitCommitish(
-    options.fixtureRepoPath,
-    fromRef,
-  );
-  const resolvedToRef = await resolveGitCommitish(
-    options.fixtureRepoPath,
-    toRef,
-  );
+  const fromRef = options.fallbackFromRef;
+  const toRef = options.fallbackToRef;
   const fileExpectations = transitionCase.hasFileExpectation ?? [];
   const actualBytesByPath = new Map<string, Uint8Array | undefined>();
   const checks: CheckRecord[] = [];
+  const resolvedFromRef = await resolveGitCommitishIfExists(
+    options.fixtureRepoPath,
+    fromRef,
+  );
+  const resolvedToRef = await resolveGitCommitishIfExists(
+    options.fixtureRepoPath,
+    toRef,
+  );
+
+  if (resolvedFromRef === undefined) {
+    checks.push(gitRefUnresolvedRecord({
+      ref: fromRef,
+      role: "fromRef",
+      fixtureRepoPath: options.fixtureRepoPath,
+    }));
+  }
+  if (resolvedToRef === undefined) {
+    checks.push(gitRefUnresolvedRecord({
+      ref: toRef,
+      role: "toRef",
+      fixtureRepoPath: options.fixtureRepoPath,
+    }));
+  }
 
   for (const fileExpectation of fileExpectations) {
     checks.push(
@@ -1275,6 +1763,7 @@ async function validateFixtureTransitionWorkspace(options: {
         fixtureRepoPath: options.fixtureRepoPath,
         fromRef: resolvedFromRef,
         toRef: resolvedToRef,
+        expectedRefLabel: toRef,
         workspaceRoot: options.workspaceRoot,
         transitionCase,
         fileExpectation,
@@ -1308,8 +1797,9 @@ async function validateFixtureTransitionWorkspace(options: {
 
 async function evaluateWorkspaceFileExpectation(options: {
   fixtureRepoPath: string;
-  fromRef: string;
-  toRef: string;
+  fromRef: string | undefined;
+  toRef: string | undefined;
+  expectedRefLabel: string;
   workspaceRoot: string;
   transitionCase: TransitionCase;
   fileExpectation: FileExpectation;
@@ -1332,16 +1822,20 @@ async function evaluateWorkspaceFileExpectation(options: {
   }
 
   const safePath = normalizeGitTreePath(path);
-  const fromBytes = await readGitBlobIfExists(
-    options.fixtureRepoPath,
-    options.fromRef,
-    safePath,
-  );
-  const expectedBytes = await readGitBlobIfExists(
-    options.fixtureRepoPath,
-    options.toRef,
-    safePath,
-  );
+  const fromBytes = options.fromRef === undefined
+    ? undefined
+    : await readGitBlobIfExists(
+      options.fixtureRepoPath,
+      options.fromRef,
+      safePath,
+    );
+  const expectedBytes = options.toRef === undefined
+    ? undefined
+    : await readGitBlobIfExists(
+      options.fixtureRepoPath,
+      options.toRef,
+      safePath,
+    );
   const actualBytes = await readWorkspaceFileIfExists(
     options.workspaceRoot,
     safePath,
@@ -1366,7 +1860,7 @@ async function evaluateWorkspaceFileExpectation(options: {
           ? CHECK_CODES.RDF_GRAPH_MISMATCH
           : CHECK_CODES.FILE_CONTENT_MISMATCH,
         message:
-          `Expected fixture ref ${options.toRef} to contain ${safePath} for ${compareMode} comparison.`,
+          `Expected fixture ref ${options.expectedRefLabel} to contain ${safePath} for ${compareMode} comparison.`,
         path: safePath,
       });
     }
@@ -1424,7 +1918,7 @@ async function evaluateWorkspaceFileExpectation(options: {
           ? CHECK_CODES.RDF_GRAPH_OK
           : CHECK_CODES.RDF_GRAPH_MISMATCH,
         message:
-          `Expected workspace contents to match ${options.toRef} under rdfCanonical comparison.`,
+          `Expected workspace contents to match ${options.expectedRefLabel} under rdfCanonical comparison.`,
         path: safePath,
       });
     } catch (error) {
@@ -1587,6 +2081,7 @@ async function evaluateCanonicalNamespaceGuardrail(
     const contents = await Deno.readTextFile(join(workspaceRoot, path));
     if (contents.includes(OLD_SFLO_NAMESPACE)) {
       return guardrailRecord({
+        assertionId: "generated-output.guardrail.canonicalNamespace",
         passed: false,
         path,
         message:
@@ -1596,6 +2091,7 @@ async function evaluateCanonicalNamespaceGuardrail(
   }
 
   return guardrailRecord({
+    assertionId: "generated-output.guardrail.canonicalNamespace",
     passed: true,
     message:
       `Generated RDF uses the canonical sflo namespace ${CANONICAL_SFLO_NAMESPACE}.`,
@@ -1611,6 +2107,7 @@ async function evaluateInventoryOwnedProgressionGuardrail(
   );
   if (inventory === undefined) {
     return guardrailRecord({
+      assertionId: "generated-output.guardrail.inventoryOwnedProgression",
       passed: true,
       path: "_mesh/_inventory/inventory.ttl",
       message:
@@ -1621,6 +2118,7 @@ async function evaluateInventoryOwnedProgressionGuardrail(
   const passed = findStaleInventoryProgressionBlock(inventory) === undefined;
 
   return guardrailRecord({
+    assertionId: "generated-output.guardrail.inventoryOwnedProgression",
     passed,
     path: "_mesh/_inventory/inventory.ttl",
     message: passed
@@ -1665,6 +2163,8 @@ async function evaluateMeshInventoryMetadataProgressionGuardrail(
   );
   if (!hasMeshInventoryHistoryOutput) {
     return guardrailRecord({
+      assertionId:
+        "generated-output.guardrail.meshInventoryMetadataProgression",
       passed: true,
       path: "_mesh/_meta/meta.ttl",
       message:
@@ -1683,6 +2183,7 @@ async function evaluateMeshInventoryMetadataProgressionGuardrail(
     metadata.includes("sflo:latestHistoricalState <_mesh/_inventory/_history");
 
   return guardrailRecord({
+    assertionId: "generated-output.guardrail.meshInventoryMetadataProgression",
     passed,
     path: "_mesh/_meta/meta.ttl",
     message: passed
@@ -1692,6 +2193,7 @@ async function evaluateMeshInventoryMetadataProgressionGuardrail(
 }
 
 function guardrailRecord(options: {
+  assertionId: string;
   passed: boolean;
   message: string;
   path?: string;
@@ -1704,7 +2206,32 @@ function guardrailRecord(options: {
       : CHECK_CODES.FILE_CONTENT_MISMATCH,
     message: options.message,
     path: options.path,
+    assertionId: options.assertionId,
   };
+}
+
+function gitRefUnresolvedRecord(options: {
+  ref: string;
+  role: "fromRef" | "toRef";
+  fixtureRepoPath: string;
+}): CheckRecord {
+  return {
+    kind: "setup",
+    status: "fail",
+    code: CHECK_CODES.GIT_REF_UNRESOLVED,
+    message:
+      `Could not resolve manifest ${options.role} ${options.ref} in ${options.fixtureRepoPath}; reporting fixture drift without blocking generated-output guardrails.`,
+  };
+}
+
+function findFailingGeneratedOutputGuardrail(
+  validation: JsonReport,
+): CheckRecord | undefined {
+  return validation.checks.find((check) =>
+    check.kind === "setup" &&
+    check.status !== "pass" &&
+    check.assertionId?.startsWith("generated-output.guardrail.") === true
+  );
 }
 
 function filePresenceRecord(options: {
@@ -1807,34 +2334,11 @@ async function ensureEmptyWorkspaceRoot(path: string): Promise<void> {
   }
 }
 
-async function resolveGitCommitish(
-  repoPath: string,
-  ref: string,
-): Promise<string> {
-  const candidates = [ref, `origin/${ref}`];
-  for (const candidate of candidates) {
-    const result = await runGit(repoPath, [
-      "rev-parse",
-      "--verify",
-      "--quiet",
-      `${candidate}^{commit}`,
-    ]);
-    if (result.success) {
-      return candidate;
-    }
-  }
-  throw new Error(
-    `Failed to resolve fixture ref ${ref} in ${repoPath}; checked ${
-      candidates.join(", ")
-    }.`,
-  );
-}
-
 async function resolveGitCommitishIfExists(
   repoPath: string,
   ref: string,
 ): Promise<string | undefined> {
-  const candidates = [ref, `origin/${ref}`];
+  const candidates = fixtureRefCandidates(ref);
   for (const candidate of candidates) {
     const result = await runGit(repoPath, [
       "rev-parse",
@@ -1847,6 +2351,18 @@ async function resolveGitCommitishIfExists(
     }
   }
   return undefined;
+}
+
+function fixtureRefCandidates(ref: string): string[] {
+  return [ref, `origin/${ref}`];
+}
+
+function unresolvedFixtureRefError(repoPath: string, ref: string): Error {
+  return new Error(
+    `Failed to resolve fixture ref ${ref} in ${repoPath}; checked ${
+      fixtureRefCandidates(ref).join(", ")
+    }.`,
+  );
 }
 
 async function assertValidBranchName(

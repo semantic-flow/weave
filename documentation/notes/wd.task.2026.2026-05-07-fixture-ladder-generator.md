@@ -9,7 +9,7 @@ created: 1778219880393
 ## Goals
 
 - Replace hand-carried fixture branch ladders with a reproducible fixture-ladder generation workflow.
-- Treat fixture repository branches as disposable golden outputs that can be regenerated after ontology, config, planner, renderer, or manifest changes.
+- Treat fixture repository branches as disposable generated rungs that can be replayed after ontology, config, planner, renderer, or manifest changes.
 - Keep Accord transition manifests as the durable behavior contract, while fixture branches remain convenient test and inspection material.
 - Support the existing Alice Bio and Sidecar Fantasy Rules fixture repositories without forcing a generalized scenario engine in the first pass.
 - Make rerunning from an early branch boring: run one command, replay transitions in order, validate each step, and report drift.
@@ -21,7 +21,7 @@ created: 1778219880393
 
 The current fixture repositories use numbered branch ladders such as Alice Bio's `00-blank-slate` through `25-root-page-customized-woven` and Sidecar Fantasy Rules' `00-blank-slate` through `15-first-release-woven`. Those ladders are useful because they make each operation transition inspectable and give tests stable refs to compare against. They are also expensive: when an early rung changes, every later rung must be recreated, and the recreation process currently depends too much on human/agent memory.
 
-The better model is to keep the ladder shape but change ownership. The durable source should be the transition journal and Accord manifests. The branch ladder should be generated output. A fixture generator should materialize a fixture repo from a known starting point, run each declared transition with the current Weave CLI/runtime, validate the result against the matching Accord manifest, and update the branch ref for that rung.
+The better model is to keep the ladder shape but change ownership. The durable source should be the transition journal, Accord manifests, and checked-in source assets. The branch ladder should be replayed output. A fixture generator should materialize a fixture repo from a known starting point, run each declared transition with the current Weave CLI/runtime, validate the result against the matching Accord manifest, and update the branch ref for that rung.
 
 This task belongs in Weave because the generator orchestrates Weave commands, integrates with Weave tests, and manages local fixture repositories under `dependencies/github.com/semantic-flow/`. The portable transition manifests can remain in the Semantic Flow Framework examples tree where they already live.
 
@@ -33,16 +33,16 @@ Weave tests currently read fixture branch contents from helper modules such as `
 
 That structure is basically right for tests. The weak part is fixture maintenance. Branches are being used both as acceptance snapshots and as authored historical examples. The first use is valuable. The second is where the maintenance cost comes from.
 
-### Disposable Golden Outputs
+### Generated Evolutionary Rungs
 
-For this task, "disposable golden output" means:
+For this task, a generated rung means:
 
 - a fixture branch may be force-updated during an intentional regeneration
 - a branch's contents are not independently authored once the transition source and manifest are settled
 - review should focus on manifest changes, generator changes, and the generated diff, not on preserving branch commit history
 - if an early rung changes, later rungs should be regenerated from the new state instead of patched manually
 
-This does not make the fixtures less important. It makes their provenance clearer. The generated branch state is still the black-box expected output for tests. It is just no longer the source of truth for how to produce that state.
+This does not make the fixtures less important. It makes their provenance clearer. A rung is evidence produced by replaying the previous rung plus declared transition inputs; it is not a standalone golden source. Tests may still compare against branch refs, but the branch ref is downstream of the replay contract.
 
 ### Source Of Truth
 
@@ -50,8 +50,9 @@ The intended source layers are:
 
 - fixture scenario definition: ordered list of transitions, branch names, commands, source refs, destination refs, and manifest names
 - Accord manifests: durable per-transition expected behavior and file expectations
+- deterministic fixture-repo `.assets` bytes: source files staged into the workspace before command-backed transitions or applied by declared file operations
 - Weave implementation: current operation behavior
-- fixture repo branches: generated expected outputs used by tests and local inspection
+- fixture repo branches: generated rung outputs used by tests and local inspection
 
 The first implementation can encode the scenario definition in TypeScript if that keeps the tool simple. A later pass can move it to JSON, JSON-LD, YAML, or an Accord-adjacent manifest if the shape stabilizes.
 
@@ -107,7 +108,7 @@ Start with Alice Bio because it has the longest ladder and exercises mesh create
 
 The generator should be intentionally concrete at first. It does not need to infer operations from arbitrary manifests. It can have explicit transition definitions that name the command to run, the source branch, the target branch, the manifest, and any path replacements or known comparison exclusions already used by tests.
 
-The first useful implementation should not try to repair every fixture branch in one leap. It should first inventory the existing ladder and produce a reviewable plan whose transition definitions are explicit enough to review. Then implement one real Alice Bio transition in a temporary checkout, validate it, and only after that add branch update support. Regeneration commands write local fixture branch tips by default; `--dry-run` is the explicit escape hatch for command/validation rehearsal without branch updates. Plain planning remains non-mutating.
+The first useful implementation should not try to repair every fixture branch in one leap. It should first inventory the existing ladder and produce a reviewable plan whose transition definitions are explicit enough to review. Then implement one real Alice Bio transition in a temporary checkout, validate it, and only after that add branch update support. Regeneration commands write local fixture branch tips by default; `--dry-run` is the explicit escape hatch for command/validation rehearsal without branch updates. Plain planning remains non-mutating. New Alice Bio replay branches use the `a.` prefix, starting with `a.00-blank-slate`, so the regenerated evolutionary chain can coexist with older unprefixed fixture branches while the shape settles.
 
 ### Inventory Snapshot
 
@@ -195,6 +196,9 @@ The first scenario-definition format should therefore support both `command` ste
 - The fixture generator is a Weave developer-tooling task, not part of the portable Semantic Flow ontology work.
 - Fixture branch ladders should become disposable generated outputs.
 - Accord manifests and ordered transition definitions are the durable contract.
+- Rungs must be replayed sequentially from the previous rung; skipping directly to a later rung is only a diagnostic/materialization convenience, not the regeneration model.
+- New Alice Bio regeneration branches use the `a.` prefix while this replay shape stabilizes.
+- Deterministic `.assets` source bytes live in the fixture repo and feed source-only, command-input, and file-operation transitions; they are authored inputs, not golden output snapshots.
 - Use a concrete TypeScript scenario definition for the first generator pass. Move to data files or Accord-adjacent replay metadata only after the replay shape has been exercised.
 - Keep the existing fixture branch comparison tests for now; update their assumptions only where needed to support generated refs.
 - Publish only the final SemanticSite by default; intermediate Pages publication is out of scope for the first pass.
@@ -214,7 +218,7 @@ The first scenario-definition format should therefore support both `command` ste
 - Weave's internal fixture maintenance contract changes: generated fixture branches are no longer treated as hand-maintained source material.
 - Test fixtures may gain a declared scenario/replay contract that names transition order, expected source refs, expected target refs, commands, and manifests.
 - Scenario/replay contracts should also name manual file operations and remote or inline source provenance for transitions that are not yet backed by a first-class Weave command.
-- Future fixture branch diffs should be reviewed as generated outputs from a declared replay, not as standalone authored examples.
+- Future fixture branch diffs should be reviewed as generated outputs from a declared replay, not as standalone authored examples or golden sources.
 - Generated fixture outputs should use the canonical `sflo` namespace and the current `_mesh/_meta` progression contract rather than preserving old fixture shapes.
 
 ## Testing
@@ -249,6 +253,8 @@ The first scenario-definition format should therefore support both `command` ste
 - [x] Implement execution for the first Alice Bio transition that runs the intended Weave command and validates the result against its Accord manifest.
 - [x] Add generated-output guardrails for canonical `sflo` namespace and current `_mesh/_meta` MeshInventory progression shape before any branch write.
 - [x] Add branch update support for command-backed regeneration, with `--dry-run` as the explicit non-writing mode and no push support.
+- [x] Add deterministic fixture-repo `.assets` handling for Alice Bio source-only, command-input, and page/file-operation transitions.
+- [x] Prefix the new Alice Bio regeneration branch ladder with `a.` so generated rungs can coexist with the old branch ladder while the replay model settles.
 - [ ] Extend the generator through the full Alice Bio ladder.
 - [ ] Update or add documentation for the Alice Bio regeneration workflow.
 - [ ] Extend the generator to Sidecar Fantasy Rules as a branch-published ontology fixture.
