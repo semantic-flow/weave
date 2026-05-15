@@ -1010,6 +1010,41 @@ export const BRANCH_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
       },
       "weave",
     ),
+    branchPublicationTransition(
+      7,
+      "07-root-and-examples-knops",
+      "01-source-only",
+      {
+        description:
+          "Create root and examples collection Knops in the branch-published GitHub Pages root without weaving their pages yet.",
+        publicationFromRef: "06-ontology-and-shacl-terms-extracted-woven",
+        publicationBranch: "gh-pages",
+      },
+      "knop.create",
+    ),
+    branchPublicationTransition(
+      8,
+      "08-root-and-examples-knops-woven",
+      "01-source-only",
+      {
+        description:
+          "Weave root and examples collection Knop ResourcePages in the branch-published GitHub Pages root.",
+        publicationFromRef: "07-root-and-examples-knops",
+        publicationBranch: "gh-pages",
+      },
+      "weave",
+    ),
+    branchPublicationTransition(
+      9,
+      "09-gunaar-example-dataset-woven",
+      "01-source-only",
+      {
+        description:
+          "Materialize the Gunaar example dataset from the clean source ref into the branch-published GitHub Pages root and weave its ResourcePages.",
+        publicationFromRef: "08-root-and-examples-knops-woven",
+        publicationBranch: "gh-pages",
+      },
+    ),
   ],
 };
 

@@ -530,7 +530,7 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
   );
   assertEquals(plan.scenario.branchPrefix, "a.");
   assertStringIncludes(plan.assetRoot, "mesh-branch-fantasy-rules/.assets");
-  assertEquals(plan.transitions.length, 6);
+  assertEquals(plan.transitions.length, 9);
   assertEquals(plan.transitions[0]?.id, "01-source-only");
   assertEquals(plan.transitions[0]?.fromRef, "a.00-blank-slate");
   assertEquals(plan.transitions[0]?.toRef, "a.01-source-only");
@@ -717,6 +717,96 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
       "designatorPath=ontology/PlayerCharacter",
       "--target",
       "designatorPath=ontology/CharacterShape",
+    ]);
+  }
+  assertEquals(plan.transitions[6]?.id, "07-root-and-examples-knops");
+  assertEquals(
+    plan.transitions[6]?.fromRef,
+    "a.06-ontology-and-shacl-terms-extracted-woven",
+  );
+  assertEquals(plan.transitions[6]?.toRef, "a.07-root-and-examples-knops");
+  assertEquals(plan.transitions[6]?.operationId, "knop.create");
+  assertEquals(plan.transitions[6]?.action.kind, "branchPublication");
+  if (plan.transitions[6]?.action.kind === "branchPublication") {
+    assertEquals(plan.transitions[6].action.sourceRef, "a.01-source-only");
+    assertEquals(
+      plan.transitions[6].action.publicationFromRef,
+      "a.06-ontology-and-shacl-terms-extracted-woven",
+    );
+    assertEquals(plan.transitions[6].action.invocations.length, 2);
+    assertEquals(plan.transitions[6].action.invocations[0]?.argv, [
+      "knop",
+      "create",
+      "/",
+      "--mesh-root",
+      "{publicationRoot}",
+    ]);
+    assertEquals(plan.transitions[6].action.invocations[1]?.argv, [
+      "knop",
+      "create",
+      "examples",
+      "--mesh-root",
+      "{publicationRoot}",
+    ]);
+  }
+  assertEquals(plan.transitions[7]?.id, "08-root-and-examples-knops-woven");
+  assertEquals(plan.transitions[7]?.fromRef, "a.07-root-and-examples-knops");
+  assertEquals(
+    plan.transitions[7]?.toRef,
+    "a.08-root-and-examples-knops-woven",
+  );
+  assertEquals(plan.transitions[7]?.operationId, "weave");
+  assertEquals(plan.transitions[7]?.action.kind, "branchPublication");
+  if (plan.transitions[7]?.action.kind === "branchPublication") {
+    assertEquals(plan.transitions[7].action.sourceRef, "a.01-source-only");
+    assertEquals(
+      plan.transitions[7].action.publicationFromRef,
+      "a.07-root-and-examples-knops",
+    );
+    assertEquals(plan.transitions[7].action.invocations.length, 1);
+    assertEquals(plan.transitions[7].action.invocations[0]?.argv, [
+      "--mesh-root",
+      "{publicationRoot}",
+      "--target",
+      "designatorPath=/",
+      "--target",
+      "designatorPath=examples",
+    ]);
+  }
+  assertEquals(plan.transitions[8]?.id, "09-gunaar-example-dataset-woven");
+  assertEquals(
+    plan.transitions[8]?.fromRef,
+    "a.08-root-and-examples-knops-woven",
+  );
+  assertEquals(plan.transitions[8]?.toRef, "a.09-gunaar-example-dataset-woven");
+  assertEquals(plan.transitions[8]?.operationId, "deploy.ghPages");
+  assertEquals(plan.transitions[8]?.action.kind, "branchPublication");
+  if (plan.transitions[8]?.action.kind === "branchPublication") {
+    assertEquals(plan.transitions[8].action.sourceRef, "a.01-source-only");
+    assertEquals(
+      plan.transitions[8].action.publicationFromRef,
+      "a.08-root-and-examples-knops-woven",
+    );
+    assertEquals(plan.transitions[8].action.invocations.length, 1);
+    assertEquals(plan.transitions[8].action.invocations[0]?.argv, [
+      "deploy",
+      "gh-pages",
+      "--source-root",
+      "{sourceRoot}",
+      "--publish-root",
+      "{publicationRoot}",
+      "--mesh-base",
+      "https://semantic-flow.github.io/mesh-branch-fantasy-rules/",
+      "--source-path",
+      "examples/gunaar.ttl",
+      "--designator-path",
+      "examples/gunaar",
+      "--source-repository-url",
+      "https://github.com/semantic-flow/mesh-branch-fantasy-rules.git",
+      "--source-ref",
+      "{sourceRef}",
+      "--source-commit",
+      "{sourceCommit}",
     ]);
   }
 
