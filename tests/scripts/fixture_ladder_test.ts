@@ -515,12 +515,12 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
     plan.scenario.fixtureRepo,
     "github.com/semantic-flow/mesh-branch-fantasy-rules",
   );
-  assertEquals(plan.scenario.branchPrefix, "a.source.");
+  assertEquals(plan.scenario.branchPrefix, "a.");
   assertStringIncludes(plan.assetRoot, "mesh-branch-fantasy-rules/.assets");
   assertEquals(plan.transitions.length, 1);
   assertEquals(plan.transitions[0]?.id, "01-source-only");
-  assertEquals(plan.transitions[0]?.fromRef, "a.source.00-blank-slate");
-  assertEquals(plan.transitions[0]?.toRef, "a.source.01-source-only");
+  assertEquals(plan.transitions[0]?.fromRef, "a.00-blank-slate");
+  assertEquals(plan.transitions[0]?.toRef, "a.01-source-only");
   assertEquals(plan.transitions[0]?.operationId, "fixture.seedSourceOnly");
   assertEquals(plan.transitions[0]?.action.kind, "fileOperation");
   if (plan.transitions[0]?.action.kind === "fileOperation") {

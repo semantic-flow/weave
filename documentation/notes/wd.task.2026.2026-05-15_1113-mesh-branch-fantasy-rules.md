@@ -24,7 +24,7 @@ This fixture should be similar enough to Sidecar Fantasy Rules to reuse the onto
 
 The first implementation can remain concrete and fixture-oriented. The important thing is to model source state and publication state separately. A single sidecar branch can represent both authored source and generated mesh output; a branch-published rung is more honestly a tuple of source ref plus publication ref.
 
-The first source-lane slice is in place: `a.source.00-blank-slate` points at the control state with README/control files plus deterministic `.assets`, `a.source.01-source-only` is generated from the fixture ladder tool, and `mesh-branch-fantasy-rules:main` has been fast-forwarded to that clean source-only state. The publication lane is intentionally still next; it should exercise `weave deploy gh-pages` and keep generated rungs on the publication branch rather than merging them into `main`.
+The first source-lane slice is in place: `a.00-blank-slate` points at the control state with README/control files plus deterministic `.assets`, `a.01-source-only` is generated from the fixture ladder tool, and `mesh-branch-fantasy-rules:main` has been fast-forwarded to that clean source-only state. The publication lane is intentionally still next; it should exercise `weave deploy gh-pages`, fast-forward `gh-pages` after each accepted publication rung, and mark those same commits with numeric `a.*-woven` checkpoint refs.
 
 ## Discussion
 
@@ -48,10 +48,12 @@ Branch-published fixtures need an explicit answer for source-state refs and publ
 
 - source refs identify the clean authored repository state used as input for a rung
 - publication checkpoints identify generated publication worktree state after the rung
-- source refs use `a.source.*`
-- publication checkpoints use a single `a.woven.*` family for generated publish states
-- publication output is produced sequentially on `gh-pages`; Accord should compare the relevant commits/checkpoints, not assume every publication rung is an independently checked-out branch
-- `main` remains a clean source branch, similar to the `a.source.01-source-only` state
+- source refs and publication checkpoints share one numeric `a.*` ladder so refs alpha-sort in rung order
+- source states use ordinary numeric names such as `a.00-blank-slate` and `a.01-source-only`
+- publication checkpoints use numeric `*-woven` names such as `a.02-publication-bootstrapped-woven`
+- publication output is produced sequentially on `gh-pages`; after each generated publication rung is accepted, `gh-pages` should fast-forward to that same commit while the matching numeric `a.*-woven` ref marks the checkpoint
+- Accord should compare the relevant commits/checkpoints, not assume every publication rung is an independently checked-out branch
+- `main` remains a clean source branch, similar to the `a.01-source-only` state
 - final publication state can be fast-forwarded to `gh-pages`
 - generated rung refs should all start with `a.` until a scenario master manifest owns the prefix
 
@@ -104,7 +106,8 @@ The source branch and publication branch should agree on public identifiers. The
 
 ## Open Issues
 
-- What concrete ref type should publication checkpoints use: lightweight tags, local branch refs, or raw commit SHAs recorded in manifests?
+- Should the old experimental `a.source.*` refs be deleted after the numeric `a.*` refs are pushed?
+- What concrete ref type should publication checkpoints use for long-term comparison: lightweight tags, local branch refs, or raw commit SHAs recorded in manifests? The immediate fixture path uses numeric branch refs.
 - When should multi-source/profile deploy input be added? The first rungs can use repeated single-source deploy invocations, but later rungs should add profile coverage if the one-source command surface becomes noisy.
 - How should Accord represent commit-to-commit fixture comparisons for a publication branch whose rungs all live on `gh-pages`?
 - How much fixture-specific publication commit metadata should live in Accord manifests versus a future scenario master file?
@@ -113,8 +116,9 @@ The source branch and publication branch should agree on public identifiers. The
 
 - `mesh-sidecar-fantasy-rules` remains the docs-rooted sidecar fixture. `mesh-branch-fantasy-rules` is the separate branch-published fixture.
 - Use the `a.` prefix again for this replay family until a scenario/spec master file owns the prefix.
-- Use `a.source.` for source-lane refs in the first branch-published slice.
-- Use one publication checkpoint family, tentatively `a.woven.*`, for publish-state checkpoints. Publication output itself should move sequentially on `gh-pages` rather than using paired side branches for every source/publish state.
+- Use one numeric `a.*` ladder for both source states and publication checkpoints so refs alpha-sort in rung order.
+- Source states use names like `a.00-blank-slate` and `a.01-source-only`; publication checkpoints use names like `a.02-publication-bootstrapped-woven`.
+- Publication output itself should move sequentially on `gh-pages`; each accepted numeric `a.*-woven` publication checkpoint should also fast-forward `gh-pages` to the same commit.
 - Treat branch-published rung state as source ref plus publication ref, even if the first implementation stores the source side as deterministic `.assets` rather than as paired source branches.
 - Keep `main` clean in the branch-published fixture repo, similar to `a.source.01-source-only`. Do not merge generated publication output to `main`; the branch-published analog of "merge final rung" is fast-forwarding the publication branch, such as `gh-pages`, to the final generated publication state.
 - Reuse Sidecar Fantasy Rules source assets, but mint branch fixture IRIs with the `mesh-branch-fantasy-rules` base.
@@ -160,7 +164,7 @@ The source branch and publication branch should agree on public identifiers. The
 - [ ] Add branch-published conformance manifests for publication bootstrap and first source materialization.
 - [x] Extend `scripts/fixture-ladder.ts` with a `branch-fantasy-rules` source-lane scenario.
 - [x] Add dry-run planner tests for the branch-published source-lane scenario before executing generated branches.
-- [x] Generate, validate, and push `a.source.01-source-only` from `a.source.00-blank-slate`.
+- [x] Generate, validate, and push `a.01-source-only` from `a.00-blank-slate`.
 - [ ] Extend `scripts/fixture-ladder.ts` with branch-published publication-lane execution that can plan separate source and publication materialization roots.
 - [ ] Regenerate the first publication bootstrap rung and validate no source checkout files were written.
 - [ ] Regenerate ontology and SHACL materialization/integration/weave rungs using branch-published repository source locator metadata.
