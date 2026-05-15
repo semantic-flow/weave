@@ -52,7 +52,7 @@ import {
   renderTextReport,
 } from "../dependencies/github.com/spectacular-voyage/accord/src/report/text_report.ts";
 
-export type FixtureScenarioId = "alice-bio";
+export type FixtureScenarioId = "alice-bio" | "sidecar-fantasy-rules";
 export type FixturePlanFormat = "text" | "json";
 
 export interface FixtureLadderOptions {
@@ -304,7 +304,9 @@ const CANONICAL_OUTPUT_GUARDRAILS = [
   "generated MeshInventory progression lives on _mesh/_meta",
 ] as const;
 const FIXTURE_ASSET_ROOT_BASENAME = ".assets";
-const ALICE_BIO_LADDER_BRANCH_PREFIX = "a.";
+const LADDER_BRANCH_PREFIX = "a.";
+const ALICE_BIO_LADDER_BRANCH_PREFIX = LADDER_BRANCH_PREFIX;
+const SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX = LADDER_BRANCH_PREFIX;
 
 const ALICE_BIO_FIXTURE_REPO = "github.com/semantic-flow/mesh-alice-bio";
 const ALICE_BIO_FIXTURE_REPO_RELATIVE_PATH = join(
@@ -322,12 +324,31 @@ const ALICE_BIO_MANIFEST_ROOT_RELATIVE_PATH = join(
   "alice-bio",
   "conformance",
 );
+const SIDECAR_FANTASY_RULES_FIXTURE_REPO =
+  "github.com/semantic-flow/mesh-sidecar-fantasy-rules";
+const SIDECAR_FANTASY_RULES_FIXTURE_REPO_RELATIVE_PATH = join(
+  "dependencies",
+  "github.com",
+  "semantic-flow",
+  "mesh-sidecar-fantasy-rules",
+);
+const SIDECAR_FANTASY_RULES_MANIFEST_ROOT_RELATIVE_PATH = join(
+  "dependencies",
+  "github.com",
+  "semantic-flow",
+  "semantic-flow-framework",
+  "examples",
+  "sidecar-fantasy-rules",
+  "conformance",
+);
 const FIXTURE_GENERATED_AT = "2026-05-03T00:00:00.000Z";
 const CANONICAL_SFLO_NAMESPACE =
   "https://semantic-flow.github.io/sflo/ontology/";
 const OLD_SFLO_NAMESPACE =
   "https://semantic-flow.github.io/semantic-flow-ontology/";
 const MESH_INVENTORY_HISTORY_PREFIX = "_mesh/_inventory/_history";
+const MESH_INVENTORY_FILE_PATH = "_mesh/_inventory/inventory.ttl";
+const MESH_METADATA_FILE_PATH = "_mesh/_meta/meta.ttl";
 const RDF_OUTPUT_EXTENSIONS = [
   ".ttl",
   ".jsonld",
@@ -591,6 +612,52 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
       "25-root-page-customized-woven",
       "24-root-page-customized",
       "weave",
+    ),
+  ],
+};
+
+export const SIDECAR_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
+  id: "sidecar-fantasy-rules",
+  label: "Sidecar Fantasy Rules",
+  fixtureRepo: SIDECAR_FANTASY_RULES_FIXTURE_REPO,
+  fixtureRepoRelativePath: SIDECAR_FANTASY_RULES_FIXTURE_REPO_RELATIVE_PATH,
+  manifestRootRelativePath: SIDECAR_FANTASY_RULES_MANIFEST_ROOT_RELATIVE_PATH,
+  branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+  transitions: [
+    fileTransition(
+      1,
+      "01-source-only",
+      "00-blank-slate",
+      {
+        description:
+          "Seed the authored source files for the docs-rooted Sidecar Fantasy Rules fixture branch.",
+        sources: [
+          {
+            path: "NOTICE.md",
+            provenance:
+              "fixture-authored NOTICE text carried from the existing Sidecar Fantasy Rules source-only branch",
+          },
+          {
+            path: "ontology/fantasy-rules-ontology.ttl",
+            provenance:
+              "fixture-authored ontology RDF carried from the existing Sidecar Fantasy Rules source-only branch",
+          },
+          {
+            path: "shacl/fantasy-rules-shacl.ttl",
+            provenance:
+              "fixture-authored SHACL RDF carried from the existing Sidecar Fantasy Rules source-only branch",
+          },
+          {
+            path: "examples/gunaar.ttl",
+            provenance:
+              "fixture-authored example RDF carried from the existing Sidecar Fantasy Rules source-only branch",
+          },
+        ],
+      },
+      "fixture.seedSourceOnly",
+      {
+        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+      },
     ),
   ],
 };
@@ -1090,6 +1157,8 @@ function resolveFixtureScenario(id: FixtureScenarioId): FixtureLadderScenario {
   switch (id) {
     case "alice-bio":
       return ALICE_BIO_FIXTURE_SCENARIO;
+    case "sidecar-fantasy-rules":
+      return SIDECAR_FANTASY_RULES_FIXTURE_SCENARIO;
   }
 }
 
@@ -1189,9 +1258,13 @@ function validateReplayProfile(
   }
 
   if (replayProfile.meshRoot !== undefined && replayProfile.meshRoot !== ".") {
-    throw new Error(
-      `Unsupported replay meshRoot for ${transitionId}: ${replayProfile.meshRoot}`,
-    );
+    try {
+      normalizeGitTreePath(replayProfile.meshRoot);
+    } catch {
+      throw new Error(
+        `Unsupported replay meshRoot for ${transitionId}: ${replayProfile.meshRoot}`,
+      );
+    }
   }
 }
 
@@ -1325,8 +1398,11 @@ function fileTransition(
       readonly FixtureResourcePageDefinitionInventoryPatchInput[];
   },
   operationId = "fixture.fileOperation",
+  options: {
+    branchPrefix?: string;
+  } = {},
 ): FixtureTransitionDefinition {
-  const branchPrefix = ALICE_BIO_LADDER_BRANCH_PREFIX;
+  const branchPrefix = options.branchPrefix ?? ALICE_BIO_LADDER_BRANCH_PREFIX;
   return {
     index,
     id,
@@ -2142,14 +2218,34 @@ export async function evaluateGeneratedOutputGuardrails(
   workspaceRoot: string,
 ): Promise<CheckRecord[]> {
   const paths = await listWorkspaceFiles(workspaceRoot);
-  return [
-    await evaluateCanonicalNamespaceGuardrail(workspaceRoot, paths),
-    await evaluateInventoryOwnedProgressionGuardrail(workspaceRoot),
-    await evaluateMeshInventoryMetadataProgressionGuardrail(
+  const meshSupportRoots = findMeshSupportRoots(paths);
+  const progressionRoots = meshSupportRoots.length === 0
+    ? [""]
+    : meshSupportRoots;
+  const checks = [
+    await evaluateCanonicalNamespaceGuardrail(
       workspaceRoot,
       paths,
     ),
   ];
+
+  for (const meshSupportRoot of progressionRoots) {
+    checks.push(
+      await evaluateInventoryOwnedProgressionGuardrail(
+        workspaceRoot,
+        meshSupportRoot,
+      ),
+    );
+    checks.push(
+      await evaluateMeshInventoryMetadataProgressionGuardrail(
+        workspaceRoot,
+        paths,
+        meshSupportRoot,
+      ),
+    );
+  }
+
+  return checks;
 }
 
 async function evaluateCanonicalNamespaceGuardrail(
@@ -2179,26 +2275,35 @@ async function evaluateCanonicalNamespaceGuardrail(
 
 async function evaluateInventoryOwnedProgressionGuardrail(
   workspaceRoot: string,
+  meshSupportRoot: string,
 ): Promise<CheckRecord> {
+  const inventoryPath = meshSupportPath(
+    meshSupportRoot,
+    MESH_INVENTORY_FILE_PATH,
+  );
   const inventory = await readWorkspaceTextFileIfExists(
     workspaceRoot,
-    "_mesh/_inventory/inventory.ttl",
+    inventoryPath,
   );
   if (inventory === undefined) {
     return guardrailRecord({
       assertionId: "generated-output.guardrail.inventoryOwnedProgression",
       passed: true,
-      path: "_mesh/_inventory/inventory.ttl",
+      path: inventoryPath,
       message:
-        "MeshInventory current file is absent; no inventory-owned progression facts found.",
+        "MeshInventory current file is absent at this mesh root; no inventory-owned progression facts found.",
     });
   }
 
   const hasInventoryOwnedProgression =
     findStaleInventoryProgressionBlock(inventory) !== undefined;
+  const metadataPath = meshSupportPath(
+    meshSupportRoot,
+    MESH_METADATA_FILE_PATH,
+  );
   const metadata = await readWorkspaceTextFileIfExists(
     workspaceRoot,
-    "_mesh/_meta/meta.ttl",
+    metadataPath,
   );
   const passed = !hasInventoryOwnedProgression ||
     hasMeshInventoryMetadataProgressionAnchor(metadata);
@@ -2206,12 +2311,12 @@ async function evaluateInventoryOwnedProgressionGuardrail(
   return guardrailRecord({
     assertionId: "generated-output.guardrail.inventoryOwnedProgression",
     passed,
-    path: "_mesh/_inventory/inventory.ttl",
+    path: inventoryPath,
     message: !hasInventoryOwnedProgression
       ? "MeshInventory progression facts are not owned by _mesh/_inventory/inventory.ttl."
       : passed
-      ? "MeshInventory progression facts are anchored in _mesh/_meta/meta.ttl."
-      : "Stale MeshInventory progression facts found in _mesh/_inventory/inventory.ttl without a matching _mesh/_meta/meta.ttl anchor.",
+      ? `MeshInventory progression facts are anchored in ${metadataPath}.`
+      : `Stale MeshInventory progression facts found in ${inventoryPath} without a matching ${metadataPath} anchor.`,
   });
 }
 
@@ -2245,16 +2350,25 @@ function findStaleInventoryProgressionBlock(
 async function evaluateMeshInventoryMetadataProgressionGuardrail(
   workspaceRoot: string,
   paths: readonly string[],
+  meshSupportRoot: string,
 ): Promise<CheckRecord> {
+  const historyPrefix = meshSupportPath(
+    meshSupportRoot,
+    MESH_INVENTORY_HISTORY_PREFIX,
+  );
   const hasMeshInventoryHistoryOutput = paths.some((path) =>
-    path.startsWith(`${MESH_INVENTORY_HISTORY_PREFIX}`)
+    path.startsWith(historyPrefix)
+  );
+  const metadataPath = meshSupportPath(
+    meshSupportRoot,
+    MESH_METADATA_FILE_PATH,
   );
   if (!hasMeshInventoryHistoryOutput) {
     return guardrailRecord({
       assertionId:
         "generated-output.guardrail.meshInventoryMetadataProgression",
       passed: true,
-      path: "_mesh/_meta/meta.ttl",
+      path: metadataPath,
       message:
         "No MeshInventory history output is present; metadata progression facts are not required.",
     });
@@ -2262,17 +2376,17 @@ async function evaluateMeshInventoryMetadataProgressionGuardrail(
 
   const metadata = await readWorkspaceTextFileIfExists(
     workspaceRoot,
-    "_mesh/_meta/meta.ttl",
+    metadataPath,
   );
   const passed = hasMeshInventoryMetadataProgressionAnchor(metadata);
 
   return guardrailRecord({
     assertionId: "generated-output.guardrail.meshInventoryMetadataProgression",
     passed,
-    path: "_mesh/_meta/meta.ttl",
+    path: metadataPath,
     message: passed
-      ? "MeshInventory progression facts are anchored in _mesh/_meta/meta.ttl."
-      : "MeshInventory history output exists, but _mesh/_meta/meta.ttl does not anchor current/latest MeshInventory progression.",
+      ? `MeshInventory progression facts are anchored in ${metadataPath}.`
+      : `MeshInventory history output exists, but ${metadataPath} does not anchor current/latest MeshInventory progression.`,
   });
 }
 
@@ -2302,6 +2416,32 @@ function guardrailRecord(options: {
     path: options.path,
     assertionId: options.assertionId,
   };
+}
+
+function findMeshSupportRoots(paths: readonly string[]): string[] {
+  const roots = new Set<string>();
+  const rootMarker = "_mesh/";
+  const nestedMarker = "/_mesh/";
+
+  for (const path of paths) {
+    if (path.startsWith(rootMarker)) {
+      roots.add("");
+      continue;
+    }
+
+    const markerIndex = path.indexOf(nestedMarker);
+    if (markerIndex >= 0) {
+      roots.add(path.slice(0, markerIndex));
+    }
+  }
+
+  return [...roots].sort((left, right) => left.localeCompare(right));
+}
+
+function meshSupportPath(meshSupportRoot: string, path: string): string {
+  return meshSupportRoot.length === 0
+    ? path
+    : pathPosix.join(meshSupportRoot, path);
 }
 
 function gitRefUnresolvedRecord(options: {
@@ -2395,7 +2535,7 @@ function requireArgumentValue(value: string | undefined, name: string): string {
 }
 
 function parseScenarioId(value: string): FixtureScenarioId {
-  if (value === "alice-bio") {
+  if (value === "alice-bio" || value === "sidecar-fantasy-rules") {
     return value;
   }
   throw new Error(`Unsupported fixture scenario: ${value}`);

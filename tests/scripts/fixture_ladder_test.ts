@@ -15,6 +15,7 @@ import {
   renderFixtureExecutionResult,
   renderFixtureLadderPlan,
   renderFixtureMaterializationResult,
+  SIDECAR_FANTASY_RULES_FIXTURE_SCENARIO,
   updateFixtureBranchFromWorkspace,
 } from "../../scripts/fixture-ladder.ts";
 
@@ -66,6 +67,18 @@ Deno.test("parseFixtureLadderArgs accepts dry-run planner options", () => {
       root: "/tmp/weave",
       scenario: "alice-bio",
       format: "json",
+    },
+  );
+
+  assertEquals(
+    parseFixtureLadderArgs([
+      "--root=/tmp/weave",
+      "--scenario=sidecar-fantasy-rules",
+    ]),
+    {
+      root: "/tmp/weave",
+      scenario: "sidecar-fantasy-rules",
+      format: "text",
     },
   );
 });
@@ -186,6 +199,41 @@ Deno.test("planFixtureLadder names existing Alice Bio Accord manifests", async (
   }
 });
 
+Deno.test("planFixtureLadder exposes the Sidecar Fantasy Rules source-only transition", async () => {
+  const plan = await planFixtureLadder({
+    root: repoRoot,
+    scenario: "sidecar-fantasy-rules",
+    format: "text",
+  });
+
+  assertEquals(plan.writesBranches, false);
+  assertEquals(
+    plan.scenario.fixtureRepo,
+    "github.com/semantic-flow/mesh-sidecar-fantasy-rules",
+  );
+  assertEquals(plan.scenario.branchPrefix, "a.");
+  assertStringIncludes(plan.assetRoot, "mesh-sidecar-fantasy-rules/.assets");
+  assertEquals(plan.transitions.length, 1);
+  assertEquals(plan.transitions[0]?.id, "01-source-only");
+  assertEquals(plan.transitions[0]?.fromRef, "a.00-blank-slate");
+  assertEquals(plan.transitions[0]?.toRef, "a.01-source-only");
+  assertEquals(plan.transitions[0]?.operationId, "fixture.seedSourceOnly");
+  assertEquals(plan.transitions[0]?.action.kind, "fileOperation");
+  if (plan.transitions[0]?.action.kind === "fileOperation") {
+    assertEquals(
+      plan.transitions[0].action.sources.map((source) => source.path),
+      [
+        "NOTICE.md",
+        "ontology/fantasy-rules-ontology.ttl",
+        "shacl/fantasy-rules-shacl.ttl",
+        "examples/gunaar.ttl",
+      ],
+    );
+  }
+
+  await Deno.stat(plan.transitions[0]!.manifestPath);
+});
+
 Deno.test("Alice Bio asset-backed transitions point at checked-in deterministic assets", async () => {
   const plan = await planFixtureLadder({
     root: repoRoot,
@@ -233,6 +281,30 @@ Deno.test("Alice Bio asset-backed transitions point at checked-in deterministic 
       ),
       false,
     );
+  }
+});
+
+Deno.test("Sidecar Fantasy Rules source-only transition points at checked-in deterministic assets", async () => {
+  const plan = await planFixtureLadder({
+    root: repoRoot,
+    scenario: "sidecar-fantasy-rules",
+    format: "text",
+  });
+  const assetPaths = plan.transitions.flatMap((transition) =>
+    transition.action.kind === "command"
+      ? transition.action.inputs.map((input) => input.assetPath)
+      : transition.action.sources.map((source) => source.assetPath)
+  ).sort();
+
+  assertEquals(assetPaths, [
+    "01-source-only/NOTICE.md",
+    "01-source-only/examples/gunaar.ttl",
+    "01-source-only/ontology/fantasy-rules-ontology.ttl",
+    "01-source-only/shacl/fantasy-rules-shacl.ttl",
+  ]);
+
+  for (const assetPath of assetPaths) {
+    await Deno.stat(`${plan.assetRoot}/${assetPath}`);
   }
 });
 
@@ -288,6 +360,18 @@ Deno.test("Alice Bio fixture scenario has sequential transition indexes", () => 
       transition.index
     ),
     Array.from({ length: 25 }, (_, index) => index + 1),
+  );
+});
+
+Deno.test("Sidecar Fantasy Rules fixture scenario has sequential transition indexes", () => {
+  assertEquals(
+    SIDECAR_FANTASY_RULES_FIXTURE_SCENARIO.transitions.map((transition) =>
+      transition.index
+    ),
+    Array.from(
+      { length: SIDECAR_FANTASY_RULES_FIXTURE_SCENARIO.transitions.length },
+      (_, index) => index + 1,
+    ),
   );
 });
 
@@ -621,6 +705,47 @@ Deno.test("evaluateGeneratedOutputGuardrails catches stale namespace and invento
     checks.some((check) =>
       check.status === "fail" &&
       check.message.includes("_mesh/_meta/meta.ttl does not anchor")
+    ),
+  );
+});
+
+Deno.test("evaluateGeneratedOutputGuardrails catches sidecar mesh inventory-owned progression", async () => {
+  const workspaceRoot = await Deno.makeTempDir({
+    prefix: "weave-fixture-ladder-sidecar-guardrail-",
+  });
+  await Deno.mkdir(
+    `${workspaceRoot}/docs/_mesh/_inventory/_history001/_s0001`,
+    { recursive: true },
+  );
+  await Deno.writeTextFile(
+    `${workspaceRoot}/docs/_mesh/_inventory/inventory.ttl`,
+    `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<_mesh/_inventory> a sflo:MeshInventory ;
+  sflo:currentArtifactHistory <_mesh/_inventory/_history001> .
+`,
+  );
+  await Deno.writeTextFile(
+    `${workspaceRoot}/docs/_mesh/_inventory/_history001/_s0001/inventory.ttl`,
+    `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<_mesh/_inventory/_history001/_s0001> a sflo:HistoricalState .
+`,
+  );
+
+  const checks = await evaluateGeneratedOutputGuardrails(workspaceRoot);
+
+  assert(
+    checks.some((check) =>
+      check.status === "fail" &&
+      check.path === "docs/_mesh/_inventory/inventory.ttl" &&
+      check.message.includes("docs/_mesh/_meta/meta.ttl")
+    ),
+  );
+  assert(
+    checks.some((check) =>
+      check.status === "fail" &&
+      check.path === "docs/_mesh/_meta/meta.ttl"
     ),
   );
 });

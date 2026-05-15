@@ -68,16 +68,14 @@ If intermediate states become useful for documentation or demos, the generator c
 
 ### Relationship To Branch-Published Meshes
 
-[[wd.task.2026.2026-05-13_1655-support-gh-pages-branch-based-deployments]] changes the Sidecar Fantasy Rules fixture from a `docs/` sidecar mesh into a branch-published ontology fixture. That affects the fixture-generator order.
+[[wd.task.2026.2026-05-13_1655-support-gh-pages-branch-based-deployments]] should not replace the existing `mesh-sidecar-fantasy-rules` fixture. Contrary to an earlier direction, `mesh-sidecar-fantasy-rules` remains the durable docs-rooted sidecar mesh example, with source files at the repository root and generated mesh output under `docs/`.
 
-Do not finish a full regeneration of the current Fantasy Rules `docs/` sidecar ladder before replacing it with branch-published output. The better order is:
+Branch-published Fantasy Rules coverage should move to a separate fixture repository, tentatively `mesh-branch-fantasy-rules`, so the two repository topologies stay explicit:
 
-- rewrite the Semantic Flow Framework Fantasy Rules spec/example around the branch-published ontology shape
-- prove branch-published clean-source behavior with focused temporary-git integration coverage
-- build enough generator support to replay the chosen topology without manual branch repair
-- rerung fixture branches later, in one intentional generated-output pass after the branch-published topology, repository-source locator vocabulary, and near-term config/ontology churn have settled
+- `mesh-sidecar-fantasy-rules`: source root and repository root are the same checkout; mesh root is `docs/`; source files remain outside the mesh root.
+- `mesh-branch-fantasy-rules`: source/control branch and publication branch exercise branch-published delivery without disturbing the sidecar fixture contract.
 
-This still means fixture-generator work is early. It does not mean fixture branch regeneration is first. The distinction matters: build the tool before doing broad fixture repair, but defer the expensive branch rerung until the generator is ready to produce the branch-published topology.
+This means the fixture generator should rerung Sidecar Fantasy Rules in its existing docs-rooted shape before adding the branch-published Fantasy fixture. The branch-published repo can reuse lessons from the sidecar replay, but it should not be forced into the same ladder or branch namespace.
 
 ### Relationship To Config Synthesis
 
@@ -142,8 +140,9 @@ Alice Bio currently has manifests for `01-source-only` through `25-root-page-cus
 - `24-root-page-customized`: `resourcePage.define /`; currently a hand-authored fixture operation.
 - `25-root-page-customized-woven`: top-level `weave` targeted at `/`.
 
-Sidecar Fantasy Rules currently has manifests for `02-sidecar-mesh-created` through `15-first-release-woven`; `01-source-only` is a prerequisite source branch but does not currently have a matching conformance manifest in the framework examples tree:
+Sidecar Fantasy Rules currently has manifests for `01-source-only` through `15-first-release-woven`. `01-source-only` is now the source-seeding transition from the `a.00-blank-slate` control branch into the authored ontology, SHACL, example data, and attribution files:
 
+- `01-source-only`: fixture file operation that seeds `NOTICE.md`, `ontology/fantasy-rules-ontology.ttl`, `shacl/fantasy-rules-shacl.ttl`, and `examples/gunaar.ttl` from deterministic `.assets` bytes in the fixture repo.
 - `02-sidecar-mesh-created`: `mesh.create` with workspace root `.` and mesh root `docs`.
 - `03-sidecar-mesh-created-woven`: top-level `weave --mesh-root docs`.
 - `04-ontology-integrated`: `integrate` the adjacent ontology source into the docs-rooted mesh.
@@ -213,7 +212,7 @@ The first scenario-definition format should therefore support both `command` ste
 - Stale manifest or previous-branch comparison drift should be reported during regeneration, but should not block a local branch update once command execution and generated-output guardrails have passed.
 - The generator does not push fixture branches. After a local branch update, the CLI should tell the operator to push intentionally if the regenerated fixture should leave the checkout.
 - Record explicit source provenance for manually created, copied, fetched, or derived files. A fixture branch is not repeatable if the source of hand-authored bytes only exists in a prior conversation.
-- Regenerate Fantasy Rules as the branch-published ontology fixture rather than preserving the old `docs/` sidecar topology.
+- Regenerate `mesh-sidecar-fantasy-rules` as a docs-rooted sidecar mesh; use a separate future `mesh-branch-fantasy-rules` repository for branch-published Fantasy Rules coverage.
 - Extraction provenance should resolve as deeply as the source evidence allows: source artifact first, then history/state when present, then manifestation, located file, and digest. If a source artifact cannot provide history/state evidence, provenance should still record concrete observed bytes through located-file/digest evidence, with timestamp fallback reserved for cases where byte evidence cannot be made durable.
 
 ## Contract Changes
@@ -264,8 +263,12 @@ The first scenario-definition format should therefore support both `command` ste
 - [x] Extend the generator through the full Alice Bio ladder, including source-only, command-backed, file-operation, import-source, and root-page transitions through `a.25-root-page-customized-woven`.
 - [x] Push the generated Alice Bio `a.00` through `a.25` fixture refs after local validation.
 - [ ] Update or add documentation for the Alice Bio regeneration workflow.
-- [ ] Extend the generator to Sidecar Fantasy Rules as a branch-published ontology fixture.
-- [x] Before extending Sidecar Fantasy Rules generation, confirm whether its durable spec/example has moved from `docs` sidecar to branch-published ontology output.
+- [ ] Extend the generator beyond Sidecar Fantasy Rules source-only into the command-backed docs-rooted sidecar fixture ladder using the `a.` branch prefix for the next replay family.
+- [x] Decide that `mesh-sidecar-fantasy-rules` stays a docs-rooted sidecar fixture; branch-published Fantasy Rules coverage belongs in a separate future `mesh-branch-fantasy-rules` repository.
+- [x] Create the Sidecar Fantasy Rules `a.00-blank-slate` control branch with deterministic `.assets` bytes selected from `origin/01-source-only` and `origin/15-first-release-woven`.
+- [x] Add the Sidecar Fantasy Rules `01-source-only` manifest, teach the ladder generator about the `sidecar-fantasy-rules` scenario, and regenerate local branch `a.01-source-only` from `a.00-blank-slate`.
+- [x] Generalize generated-output guardrails so sidecar mesh roots such as `docs/_mesh` are checked for stale MeshInventory progression ownership, not only root `_mesh` output.
+- [ ] Add branch-published Fantasy Rules fixture coverage in a separate repository after the sidecar ladder is replayable and green.
 - [ ] Update Accord manifests, fixture-backed Weave tests, and conformance expectations after generated branches are rerung for the combined enum/config changes.
 - [ ] Record the expected workflow for large ontology/config churn: update manifests, run generator, inspect generated branch diffs, run fixture tests, commit/push branch updates intentionally.
 - [x] Update [[wd.task.2026.2026-05-06-grand-config-synthesis]] to reference this task as the intended fixture regeneration path before the config-driven fixture rebuild.
