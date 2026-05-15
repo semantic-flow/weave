@@ -662,16 +662,6 @@ async function materializeSourceBinding(
   const absoluteTargetPath = join(options.publishRoot, targetPath);
   const sourceBytes = await readSourceFile(absoluteSourcePath, sourcePath);
   const digest = await toSha256Digest(sourceBytes);
-  const configUpdated = await upsertRepositorySourceLocator({
-    publishRoot: options.publishRoot,
-    sourcePath,
-    targetPath,
-    designatorPath,
-    sourceRepositoryUrl,
-    sourceRepositoryRef,
-    sourceRepositoryCommit,
-    digest,
-  });
   const createdPaths: string[] = [];
   const updatedPaths: string[] = [];
   const wovenPaths: string[] = [];
@@ -734,10 +724,6 @@ async function materializeSourceBinding(
     payloadNeedsWeave = true;
   }
 
-  if (configUpdated) {
-    updatedPaths.push("_mesh/_config/config.ttl");
-  }
-
   if (payloadNeedsWeave) {
     const weaveResult = await executeWeave({
       meshRoot: options.publishRoot,
@@ -750,6 +736,36 @@ async function materializeSourceBinding(
     createdPaths.push(...weaveResult.createdPaths);
     updatedPaths.push(...weaveResult.updatedPaths);
     wovenPaths.push(...weaveResult.wovenDesignatorPaths);
+  }
+
+  const sourceRegistryResult = await upsertKnopSourceRegistry({
+    publishRoot: options.publishRoot,
+    sourcePath,
+    targetPath,
+    designatorPath,
+    sourceRepositoryUrl,
+    sourceRepositoryRef,
+    sourceRepositoryCommit,
+    digest,
+  });
+  appendFileWriteResult(
+    sourceRegistryResult.inventory,
+    createdPaths,
+    updatedPaths,
+  );
+  appendFileWriteResult(
+    sourceRegistryResult.sources,
+    createdPaths,
+    updatedPaths,
+  );
+
+  if (
+    await removeLegacyRepositorySourceLocatorBlock({
+      publishRoot: options.publishRoot,
+      designatorPath,
+    })
+  ) {
+    updatedPaths.push("_mesh/_config/config.ttl");
   }
 
   return {
@@ -997,7 +1013,7 @@ async function toSha256Digest(bytes: Uint8Array): Promise<string> {
   return `sha256:${hex}`;
 }
 
-async function upsertRepositorySourceLocator(
+async function upsertKnopSourceRegistry(
   options: {
     publishRoot: string;
     sourcePath: string;
@@ -1008,52 +1024,166 @@ async function upsertRepositorySourceLocator(
     sourceRepositoryCommit?: string;
     digest: string;
   },
-): Promise<boolean> {
-  const configPath = join(options.publishRoot, "_mesh/_config/config.ttl");
-  const currentConfig = await Deno.readTextFile(configPath);
-  const sourceBindingBlock = renderRepositorySourceLocatorBlock(options);
+): Promise<{ inventory: FileWriteResult; sources: FileWriteResult }> {
+  const knopPath = toKnopPath(options.designatorPath);
+  const sourceRegistryPath = `${knopPath}/_sources`;
+  const sourcesFilePath = `${sourceRegistryPath}/sources.ttl`;
+  const inventoryPath = `${knopPath}/_inventory/inventory.ttl`;
   const bindingKey = sourceBindingKey(options.designatorPath);
-  const blockPattern = new RegExp(
-    `\\n?# weave:branch-source-binding ${
-      escapeRegExp(bindingKey)
-    }\\n[\\s\\S]*?\\n# weave:end-branch-source-binding ${
-      escapeRegExp(bindingKey)
-    }\\n?`,
+  const meshBase = resolveMeshBaseFromMetadataTurtle(
+    await Deno.readTextFile(join(options.publishRoot, "_mesh/_meta/meta.ttl")),
   );
-  const configWithPrefixes = ensureSourceLocatorPrefixes(currentConfig);
-  const nextConfig = blockPattern.test(configWithPrefixes)
-    ? configWithPrefixes.replace(blockPattern, `\n${sourceBindingBlock}\n`)
-    : `${configWithPrefixes.trimEnd()}\n\n${sourceBindingBlock}\n`;
+  const sources = await ensureTextFile({
+    publishRoot: options.publishRoot,
+    path: sourcesFilePath,
+    contents: renderKnopSourceRegistryTurtle({
+      ...options,
+      meshBase,
+      sourceRegistryPath,
+      sourcesFilePath,
+      bindingKey,
+    }),
+  });
+  const inventory = await upsertKnopSourceRegistryInventory({
+    publishRoot: options.publishRoot,
+    path: inventoryPath,
+    knopPath,
+    sourceRegistryPath,
+    sourcesFilePath,
+  });
 
-  if (nextConfig === currentConfig) {
-    return false;
-  }
-
-  validateTurtle(configPath, nextConfig);
-  await Deno.writeTextFile(configPath, nextConfig);
-  return true;
+  return { inventory, sources };
 }
 
-function renderRepositorySourceLocatorBlock(
+async function upsertKnopSourceRegistryInventory(
+  options: {
+    publishRoot: string;
+    path: string;
+    knopPath: string;
+    sourceRegistryPath: string;
+    sourcesFilePath: string;
+  },
+): Promise<FileWriteResult> {
+  const absolutePath = join(options.publishRoot, options.path);
+  const currentInventory = await Deno.readTextFile(absolutePath);
+  const nextInventory = renderKnopInventoryWithSourceRegistry(
+    currentInventory,
+    options,
+  );
+
+  if (nextInventory === currentInventory) {
+    return { kind: "unchanged", path: options.path };
+  }
+
+  validateTurtle(options.path, nextInventory);
+  await Deno.writeTextFile(absolutePath, nextInventory);
+  return { kind: "updated", path: options.path };
+}
+
+function renderKnopInventoryWithSourceRegistry(
+  inventory: string,
+  options: {
+    knopPath: string;
+    sourceRegistryPath: string;
+    sourcesFilePath: string;
+  },
+): string {
+  const inventoryWithPrefix = ensureSfloPrefix(inventory);
+  const blocks = splitTurtleBlocks(inventoryWithPrefix);
+  const nextBlocks = blocks
+    .map((block) =>
+      getSubjectPathFromTurtleBlock(block) === options.knopPath
+        ? renderKnopBlockWithSourceRegistry(block, options.sourceRegistryPath)
+        : block
+    )
+    .filter((block) => {
+      const subjectPath = getSubjectPathFromTurtleBlock(block);
+      return subjectPath !== options.sourceRegistryPath &&
+        subjectPath !== options.sourcesFilePath;
+    });
+  const inventorySubject = `${options.knopPath}/_inventory`;
+  const insertIndex = nextBlocks.findIndex((block) =>
+    getSubjectPathFromTurtleBlock(block) === inventorySubject
+  );
+  if (insertIndex < 0) {
+    throw new GHPagesDeployRuntimeError(
+      `Could not find KnopInventory block <${inventorySubject}> while updating source registry`,
+    );
+  }
+
+  nextBlocks.splice(
+    insertIndex + 1,
+    0,
+    renderKnopSourceRegistryInventoryBlock(options),
+  );
+  return `${nextBlocks.join("\n\n").trimEnd()}\n`;
+}
+
+function renderKnopBlockWithSourceRegistry(
+  block: string,
+  sourceRegistryPath: string,
+): string {
+  const sourceRegistryLine =
+    `  sflo:hasKnopSourceRegistry <${sourceRegistryPath}> ;`;
+  if (block.includes(sourceRegistryLine)) {
+    return block;
+  }
+  const workingInventoryLine = "  sflo:hasWorkingKnopInventoryFile ";
+  if (!block.includes(workingInventoryLine)) {
+    throw new GHPagesDeployRuntimeError(
+      "Could not find hasWorkingKnopInventoryFile while updating source registry",
+    );
+  }
+  return block.replace(
+    workingInventoryLine,
+    `${sourceRegistryLine}\n${workingInventoryLine}`,
+  );
+}
+
+function renderKnopSourceRegistryInventoryBlock(
+  options: {
+    sourceRegistryPath: string;
+    sourcesFilePath: string;
+  },
+): string {
+  return `<${options.sourceRegistryPath}> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${options.sourcesFilePath}> .
+
+<${options.sourcesFilePath}> a sflo:LocatedFile, sflo:RdfDocument .`;
+}
+
+function renderKnopSourceRegistryTurtle(
   options: {
     sourcePath: string;
     targetPath: string;
     designatorPath: string;
+    meshBase: string;
+    sourceRegistryPath: string;
+    sourcesFilePath: string;
+    bindingKey: string;
     sourceRepositoryUrl: string;
     sourceRepositoryRef: string;
     sourceRepositoryCommit?: string;
     digest: string;
   },
 ): string {
-  const bindingKey = sourceBindingKey(options.designatorPath);
+  const bindingPath = `${options.sourceRegistryPath}#${options.bindingKey}`;
+  const targetArtifactIri = new URL(options.designatorPath, options.meshBase)
+    .href;
   const commitFact = options.sourceRepositoryCommit === undefined
     ? ""
     : `    sflo:sourceRepositoryCommit ${
       JSON.stringify(options.sourceRepositoryCommit)
     } ;\n`;
-  return `# weave:branch-source-binding ${bindingKey}
-<#${bindingKey}> a sflo:ArtifactResolutionTarget ;
-  sflo:hasTargetArtifact <${options.designatorPath}> ;
+  return `@base <${options.meshBase}> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
+
+<${options.sourceRegistryPath}> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${options.sourcesFilePath}> ;
+  sflo:hasSourceBinding <${bindingPath}> .
+
+<${bindingPath}> a sflo:ArtifactResolutionTarget ;
+  sflo:hasTargetArtifact <${targetArtifactIri}> ;
   sflo:targetLocalRelativePath ${JSON.stringify(options.targetPath)} ;
   sflo:expectsContentDigest ${JSON.stringify(options.digest)} ;
   sflo:hasTargetRepositorySource [
@@ -1065,7 +1195,42 @@ ${commitFact}    sflo:sourceRepositoryPath ${
   } ;
     sflo:hasContentDigest ${JSON.stringify(options.digest)}
   ] .
-# weave:end-branch-source-binding ${bindingKey}`;
+
+<${options.sourcesFilePath}> a sflo:LocatedFile, sflo:RdfDocument .
+`;
+}
+
+async function removeLegacyRepositorySourceLocatorBlock(
+  options: { publishRoot: string; designatorPath: string },
+): Promise<boolean> {
+  const configPath = join(options.publishRoot, "_mesh/_config/config.ttl");
+  let currentConfig: string;
+  try {
+    currentConfig = await Deno.readTextFile(configPath);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return false;
+    }
+    throw error;
+  }
+
+  const bindingKey = sourceBindingKey(options.designatorPath);
+  const blockPattern = new RegExp(
+    `\\n?# weave:branch-source-binding ${
+      escapeRegExp(bindingKey)
+    }\\n[\\s\\S]*?\\n# weave:end-branch-source-binding ${
+      escapeRegExp(bindingKey)
+    }\\n?`,
+  );
+  const nextConfig = `${currentConfig.replace(blockPattern, "\n").trimEnd()}\n`;
+
+  if (nextConfig === currentConfig) {
+    return false;
+  }
+
+  validateTurtle(configPath, nextConfig);
+  await Deno.writeTextFile(configPath, nextConfig);
+  return true;
 }
 
 function sourceBindingKey(designatorPath: string): string {
@@ -1073,21 +1238,30 @@ function sourceBindingKey(designatorPath: string): string {
   return `branch-source-${raw.replaceAll(/[^A-Za-z0-9_-]+/g, "-")}`;
 }
 
-function ensureSourceLocatorPrefixes(config: string): string {
-  if (config.includes(SFLO_TURTLE_PREFIX_DECLARATION)) {
-    return config;
+function ensureSfloPrefix(turtle: string): string {
+  if (turtle.includes(SFLO_TURTLE_PREFIX_DECLARATION)) {
+    return turtle;
   }
 
-  const lines = config.split("\n");
+  const lines = turtle.split("\n");
   const prefixInsertIndex = lines.findLastIndex((line) =>
     line.trimStart().startsWith("@prefix ")
   );
   if (prefixInsertIndex < 0) {
-    return `${SFLO_TURTLE_PREFIX_DECLARATION}\n${config}`;
+    return `${SFLO_TURTLE_PREFIX_DECLARATION}\n${turtle}`;
   }
 
   lines.splice(prefixInsertIndex + 1, 0, SFLO_TURTLE_PREFIX_DECLARATION);
   return lines.join("\n");
+}
+
+function splitTurtleBlocks(turtle: string): string[] {
+  return turtle.trimEnd().split(/\n{2,}/);
+}
+
+function getSubjectPathFromTurtleBlock(block: string): string | undefined {
+  const match = block.match(/^<([^>]*)>/);
+  return match?.[1];
 }
 
 function validateTurtle(path: string, turtle: string): void {

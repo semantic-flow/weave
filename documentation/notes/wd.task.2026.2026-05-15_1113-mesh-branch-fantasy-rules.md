@@ -24,7 +24,7 @@ This fixture should be similar enough to Sidecar Fantasy Rules to reuse the onto
 
 The first implementation can remain concrete and fixture-oriented. The important thing is to model source state and publication state separately. A single sidecar branch can represent both authored source and generated mesh output; a branch-published rung is more honestly a tuple of source ref plus publication ref.
 
-The first source-lane slice is in place: `a.00-blank-slate` points at the control state with README/control files plus deterministic `.assets`, `a.01-source-only` is generated from the fixture ladder tool, and `mesh-branch-fantasy-rules:main` has been fast-forwarded to that clean source-only state. The first publication-lane slice is also in place: `a.02-publication-bootstrapped-woven` is generated from `a.01-source-only`, validates against the branch-published Accord manifest, and `gh-pages` has been fast-forwarded to the same publication commit.
+The first source-lane slice is in place: `a.00-blank-slate` points at the control state with README/control files plus deterministic `.assets`, `a.01-source-only` is generated from the fixture ladder tool, and `mesh-branch-fantasy-rules:main` has been fast-forwarded to that clean source-only state. The first publication-lane slice is also in place: `a.02-publication-bootstrapped-woven` is generated from `a.01-source-only`, validates against the branch-published Accord manifest, and `gh-pages` has been fast-forwarded to the same publication commit. Repository source materialization is now covered through `a.04-shacl-integrated-woven`: `a.03` materializes/integrates/weaves the ontology source, `a.04` does the same for SHACL, and both publication checkpoints record source ref, resolved source commit, repository-relative path, digest, and public target artifact IRIs in per-Knop `_sources` registries.
 
 ## Discussion
 
@@ -81,6 +81,8 @@ The branch-published ladder should start smaller than the sidecar ladder if the 
 
 This does not have to preserve every Sidecar rung number exactly. Coverage matters more than numerology, but the progression should remain organic and inspectable.
 
+The current `deploy gh-pages` source-binding operation materializes, integrates, and weaves a bound source in one publication-root operation. The branch-published fixture therefore uses one woven publication checkpoint for each source binding rather than manufacturing a non-woven intermediate rung that the command surface does not actually produce.
+
 ### What This Should Prove
 
 The fixture should prove the branch-published promises from [[wd.task.2026.2026-05-13_1655-support-gh-pages-branch-based-deployments]]:
@@ -129,6 +131,7 @@ The source branch and publication branch should agree on public identifiers. The
 - Do not record host-local source or publication checkout paths in generated public RDF. Durable provenance should be repository/ref/path/digest-shaped.
 - Preserve the existing no-push posture in Weave commands. Fixture branch pushes can remain explicit git operations during fixture maintenance.
 - Delete the old experimental `a.source.*` refs now that the numeric `a.*` source/publication ladder is pushed.
+- Repository source bindings should live beside the target Knop as `_knop/_sources/sources.ttl`, with the KnopInventory linking the source registry via `sflo:hasKnopSourceRegistry`. `_mesh/_config/config.ttl` should stay operational config rather than carrying source provenance for included artifacts.
 
 ## Contract Changes
 
@@ -162,13 +165,13 @@ The source branch and publication branch should agree on public identifiers. The
 - [x] Add deterministic `.assets` bytes for initial source files and first-release source updates.
 - [x] Add the first `semantic-flow-framework/examples/branch-fantasy-rules/conformance/` manifest for the source seed transition.
 - [x] Add the branch-published conformance manifest for publication bootstrap.
-- [ ] Add branch-published conformance manifests for first source materialization.
+- [x] Add branch-published conformance manifests for first source materialization.
 - [x] Extend `scripts/fixture-ladder.ts` with a `branch-fantasy-rules` source-lane scenario.
 - [x] Add dry-run planner tests for the branch-published source-lane scenario before executing generated branches.
 - [x] Generate, validate, and push `a.01-source-only` from `a.00-blank-slate`.
 - [x] Extend `scripts/fixture-ladder.ts` with branch-published publication-lane execution that can plan separate source and publication materialization roots.
 - [x] Regenerate the first publication bootstrap rung and validate no source checkout files were written.
-- [ ] Regenerate ontology and SHACL materialization/integration/weave rungs using branch-published repository source locator metadata.
+- [x] Regenerate ontology and SHACL materialization/integration/weave rungs using branch-published Knop source registry metadata.
 - [ ] Add extraction/weave rungs for selected ontology and SHACL terms.
 - [ ] Add root/examples/Gunaar dataset rungs.
 - [ ] Add first-release source update and named-release weave rungs.

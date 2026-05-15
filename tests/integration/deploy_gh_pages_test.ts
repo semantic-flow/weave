@@ -241,18 +241,43 @@ fantasy:RuleSystem a owl:Class .
   const firstInventory = await Deno.readTextFile(
     join(publishRoot, "ontology/_knop/_inventory/inventory.ttl"),
   );
-  assert(firstConfig.includes("sflo:RepositorySourceLocator"), firstConfig);
-  assert(firstConfig.includes("sflo:hasTargetRepositorySource"), firstConfig);
-  assert(firstConfig.includes('sflo:sourceRepositoryRef "main"'), firstConfig);
+  const firstSources = await Deno.readTextFile(
+    join(publishRoot, "ontology/_knop/_sources/sources.ttl"),
+  );
+  assert(!firstConfig.includes("sflo:RepositorySourceLocator"), firstConfig);
+  assert(!firstConfig.includes("sflo:hasTargetRepositorySource"), firstConfig);
   assert(
-    firstConfig.includes('sflo:sourceRepositoryCommit "abc123"'),
-    firstConfig,
+    firstSources.includes(
+      "<ontology/_knop/_sources#branch-source-ontology>",
+    ),
+    firstSources,
   );
   assert(
-    firstConfig.includes(`sflo:sourceRepositoryPath "${sourcePath}"`),
-    firstConfig,
+    firstSources.includes(
+      "sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology>",
+    ),
+    firstSources,
   );
-  assert(firstConfig.includes(`sflo:hasContentDigest "${firstDigest}"`));
+  assert(!firstSources.includes("sflo:hasTargetArtifact <ontology>"));
+  assert(
+    firstSources.includes('sflo:sourceRepositoryRef "main"'),
+    firstSources,
+  );
+  assert(
+    firstSources.includes('sflo:sourceRepositoryCommit "abc123"'),
+    firstSources,
+  );
+  assert(
+    firstSources.includes(`sflo:sourceRepositoryPath "${sourcePath}"`),
+    firstSources,
+  );
+  assert(firstSources.includes(`sflo:hasContentDigest "${firstDigest}"`));
+  assert(
+    firstInventory.includes(
+      "sflo:hasKnopSourceRegistry <ontology/_knop/_sources>",
+    ),
+    firstInventory,
+  );
   assert(
     firstInventory.includes(`sflo:hasWorkingLocatedFile <${sourcePath}>`),
     firstInventory,
@@ -283,8 +308,10 @@ fantasy:RuleSystem a owl:Class .
   );
   assertNoLocalPathLeak(firstConfig, sourceRoot, publishRoot);
   assertNoLocalPathLeak(firstInventory, sourceRoot, publishRoot);
+  assertNoLocalPathLeak(firstSources, sourceRoot, publishRoot);
   assert(!firstConfig.includes("workingLocalRelativePath"), firstConfig);
   assert(!firstInventory.includes("workingLocalRelativePath"), firstInventory);
+  assert(!firstSources.includes("workingLocalRelativePath"), firstSources);
   assertEquals(await listRelativeFiles(sourceRoot, ".weave/"), [sourcePath]);
 
   const secondResult = await executeGHPagesDeployBootstrap({
@@ -326,25 +353,29 @@ fantasy:RuleSystem a owl:Class .
   const thirdMaterialized = thirdResult.materializedSource;
   assert(thirdMaterialized);
   assert(thirdMaterialized.updatedPaths.includes(sourcePath));
-  assert(thirdMaterialized.updatedPaths.includes("_mesh/_config/config.ttl"));
+  assert(
+    thirdMaterialized.updatedPaths.includes(
+      "ontology/_knop/_sources/sources.ttl",
+    ),
+  );
   assertEquals(
     await Deno.readTextFile(join(publishRoot, sourcePath)),
     sourceV2,
   );
 
   const secondDigest = await sha256Digest(sourceV2);
-  const updatedConfig = await Deno.readTextFile(
-    join(publishRoot, "_mesh/_config/config.ttl"),
+  const updatedSources = await Deno.readTextFile(
+    join(publishRoot, "ontology/_knop/_sources/sources.ttl"),
   );
   const updatedInventory = await Deno.readTextFile(
     join(publishRoot, "ontology/_knop/_inventory/inventory.ttl"),
   );
   assert(
-    updatedConfig.includes('sflo:sourceRepositoryCommit "def456"'),
-    updatedConfig,
+    updatedSources.includes('sflo:sourceRepositoryCommit "def456"'),
+    updatedSources,
   );
-  assert(updatedConfig.includes(`sflo:hasContentDigest "${secondDigest}"`));
-  assert(!updatedConfig.includes(firstDigest), updatedConfig);
+  assert(updatedSources.includes(`sflo:hasContentDigest "${secondDigest}"`));
+  assert(!updatedSources.includes(firstDigest), updatedSources);
   assert(
     !updatedInventory.includes("_mesh/_inventory/_history001"),
     updatedInventory,
@@ -369,7 +400,7 @@ fantasy:RuleSystem a owl:Class .
     () => Deno.stat(join(publishRoot, "ontology/_knop/_inventory/_history001")),
     Deno.errors.NotFound,
   );
-  assertNoLocalPathLeak(updatedConfig, sourceRoot, publishRoot);
+  assertNoLocalPathLeak(updatedSources, sourceRoot, publishRoot);
   assertNoLocalPathLeak(updatedInventory, sourceRoot, publishRoot);
   assertEquals(await listRelativeFiles(sourceRoot, ".weave/"), [sourcePath]);
 });
@@ -456,7 +487,11 @@ fantasy:RuleSystem a owl:Class .
     secondMaterialized.createdPaths.join("\n"),
   );
   assert(secondMaterialized.updatedPaths.includes(sourcePath));
-  assert(secondMaterialized.updatedPaths.includes("_mesh/_config/config.ttl"));
+  assert(
+    secondMaterialized.updatedPaths.includes(
+      "ontology/_knop/_sources/sources.ttl",
+    ),
+  );
   const secondFiles = await listRelativeFiles(publishRoot, ".git/");
   for (const path of firstFiles) {
     assert(secondFiles.includes(path), `missing preserved path: ${path}`);
@@ -474,13 +509,13 @@ fantasy:RuleSystem a owl:Class .
     firstMeshMetadata,
   );
 
-  const updatedConfig = await Deno.readTextFile(
-    join(publishRoot, "_mesh/_config/config.ttl"),
+  const updatedSources = await Deno.readTextFile(
+    join(publishRoot, "ontology/_knop/_sources/sources.ttl"),
   );
   const updatedDigest = await sha256Digest(sourceV2);
-  assert(updatedConfig.includes('sflo:sourceRepositoryCommit "source-v2"'));
-  assert(updatedConfig.includes(`sflo:hasContentDigest "${updatedDigest}"`));
-  assert(!updatedConfig.includes(firstDigest), updatedConfig);
+  assert(updatedSources.includes('sflo:sourceRepositoryCommit "source-v2"'));
+  assert(updatedSources.includes(`sflo:hasContentDigest "${updatedDigest}"`));
+  assert(!updatedSources.includes(firstDigest), updatedSources);
 
   const status = await gitOutput(publishRoot, ["status", "--short"]);
   const statusLines = status.split("\n").filter((line) => line.length > 0);
@@ -684,7 +719,7 @@ fantasy:RuleSystem a owl:Class .
     "--short",
   ]);
   assert(
-    updatedPublishStatus.includes("_mesh/_config/config.ttl"),
+    updatedPublishStatus.includes("ontology/_knop/_sources/sources.ttl"),
     updatedPublishStatus,
   );
   assert(
@@ -692,17 +727,17 @@ fantasy:RuleSystem a owl:Class .
     updatedPublishStatus,
   );
 
-  const updatedConfig = await Deno.readTextFile(
-    join(publishRoot, "_mesh/_config/config.ttl"),
+  const updatedSources = await Deno.readTextFile(
+    join(publishRoot, "ontology/_knop/_sources/sources.ttl"),
   );
   const updatedInventory = await Deno.readTextFile(
     join(publishRoot, "ontology/_knop/_inventory/inventory.ttl"),
   );
   assert(
-    updatedConfig.includes(`sflo:sourceRepositoryCommit "${sourceCommitV2}"`),
-    updatedConfig,
+    updatedSources.includes(`sflo:sourceRepositoryCommit "${sourceCommitV2}"`),
+    updatedSources,
   );
-  assertNoLocalPathLeak(updatedConfig, sourceRoot, publishRoot);
+  assertNoLocalPathLeak(updatedSources, sourceRoot, publishRoot);
   assertNoLocalPathLeak(updatedInventory, sourceRoot, publishRoot);
   assert(
     !updatedInventory.includes("ontology/_knop/_inventory/_history001"),

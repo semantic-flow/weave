@@ -251,12 +251,31 @@ fantasy:Rule a owl:Class .
   const config = await Deno.readTextFile(
     join(publishRoot, "_mesh/_config/config.ttl"),
   );
-  assert(config.includes("sflo:RepositorySourceLocator"), config);
-  assert(config.includes('sflo:sourceRepositoryRef "main"'), config);
-  assert(config.includes('sflo:sourceRepositoryCommit "abc123"'), config);
+  const sources = await Deno.readTextFile(
+    join(publishRoot, "ontology/_knop/_sources/sources.ttl"),
+  );
+  assert(!config.includes("sflo:RepositorySourceLocator"), config);
+  assert(
+    sources.includes(
+      "<ontology/_knop/_sources#branch-source-ontology>",
+    ),
+    sources,
+  );
+  assert(
+    sources.includes(
+      "sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology>",
+    ),
+    sources,
+  );
+  assert(!sources.includes("sflo:hasTargetArtifact <ontology>"));
+  assert(sources.includes('sflo:sourceRepositoryRef "main"'), sources);
+  assert(sources.includes('sflo:sourceRepositoryCommit "abc123"'), sources);
   assert(!config.includes(sourceRoot), config);
   assert(!config.includes(publishRoot), config);
   assert(!config.includes("../"), config);
+  assert(!sources.includes(sourceRoot), sources);
+  assert(!sources.includes(publishRoot), sources);
+  assert(!sources.includes("../"), sources);
 });
 
 Deno.test("weave deploy gh-pages fails closed without a non-interactive publish root", async () => {

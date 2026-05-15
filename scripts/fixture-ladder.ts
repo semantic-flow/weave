@@ -964,6 +964,28 @@ export const BRANCH_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
         publicationBranch: "gh-pages",
       },
     ),
+    branchPublicationTransition(
+      3,
+      "03-ontology-integrated-woven",
+      "01-source-only",
+      {
+        description:
+          "Materialize the ontology source into the branch-published GitHub Pages root and weave its ResourcePages.",
+        publicationFromRef: "02-publication-bootstrapped-woven",
+        publicationBranch: "gh-pages",
+      },
+    ),
+    branchPublicationTransition(
+      4,
+      "04-shacl-integrated-woven",
+      "01-source-only",
+      {
+        description:
+          "Materialize the SHACL source into the branch-published GitHub Pages root and weave its ResourcePages.",
+        publicationFromRef: "03-ontology-integrated-woven",
+        publicationBranch: "gh-pages",
+      },
+    ),
   ],
 };
 
@@ -1418,6 +1440,8 @@ async function executeBranchPublicationTransition(options: {
   const operation = await runBranchPublicationCommands({
     root: options.plan.root,
     sourceWorkspaceRoot: materialization.sourceWorkspaceRoot,
+    sourceRef: options.action.sourceRef,
+    sourceCommit: materialization.sourceCommit,
     publicationWorkspaceRoot: materialization.publicationWorkspaceRoot,
     action: options.action,
   });
@@ -1425,7 +1449,8 @@ async function executeBranchPublicationTransition(options: {
     fixtureRepoPath: options.plan.fixtureRepoPath,
     manifestPath: options.transition.manifestPath,
     workspaceRoot: materialization.publicationWorkspaceRoot,
-    fallbackFromRef: options.transition.fromRef,
+    fallbackFromRef: options.action.publicationFromRef ??
+      options.transition.fromRef,
     fallbackToRef: options.transition.toRef,
   });
   const branchUpdate = await maybeUpdateFixtureBranch({
@@ -1988,10 +2013,13 @@ function branchPublicationTransition(
   const branchPrefix = options.branchPrefix ??
     BRANCH_FANTASY_RULES_LADDER_BRANCH_PREFIX;
   const sourceRef = toLadderBranchRef(branchPrefix, sourceFromRef);
+  const publicationFromRef = action.publicationFromRef === undefined
+    ? undefined
+    : toLadderBranchRef(branchPrefix, action.publicationFromRef);
   return {
     index,
     id,
-    fromRef: sourceRef,
+    fromRef: publicationFromRef ?? sourceRef,
     toRef: toLadderBranchRef(branchPrefix, id),
     manifestName: `${id}.jsonld`,
     operationId,
@@ -1999,12 +2027,7 @@ function branchPublicationTransition(
       kind: "branchPublication",
       description: action.description,
       sourceRef,
-      ...(action.publicationFromRef === undefined ? {} : {
-        publicationFromRef: toLadderBranchRef(
-          branchPrefix,
-          action.publicationFromRef,
-        ),
-      }),
+      ...(publicationFromRef === undefined ? {} : { publicationFromRef }),
       publicationBranch: action.publicationBranch,
       invocations: (action.invocations ?? []).map((invocation) => ({
         executable: "weave",
@@ -2194,6 +2217,7 @@ async function materializeBranchPublicationWorkspaces(options: {
 }): Promise<{
   workspaceRoot: string;
   sourceWorkspaceRoot: string;
+  sourceCommit: string;
   publicationWorkspaceRoot: string;
   sourceMaterializedPaths: readonly string[];
   publicationMaterializedPaths: readonly string[];
@@ -2236,6 +2260,7 @@ async function materializeBranchPublicationWorkspaces(options: {
   return {
     workspaceRoot,
     sourceWorkspaceRoot,
+    sourceCommit: resolvedSourceRef,
     publicationWorkspaceRoot,
     sourceMaterializedPaths,
     publicationMaterializedPaths,
@@ -2267,6 +2292,8 @@ async function materializePublicationRef(options: {
 async function runBranchPublicationCommands(options: {
   root: string;
   sourceWorkspaceRoot: string;
+  sourceRef: string;
+  sourceCommit: string;
   publicationWorkspaceRoot: string;
   action: FixtureBranchPublicationAction;
 }): Promise<FixtureBranchPublicationExecutionResult> {
@@ -2276,6 +2303,8 @@ async function runBranchPublicationCommands(options: {
     const result = await runBranchPublicationCommandInvocation({
       root: options.root,
       sourceWorkspaceRoot: options.sourceWorkspaceRoot,
+      sourceRef: options.sourceRef,
+      sourceCommit: options.sourceCommit,
       publicationWorkspaceRoot: options.publicationWorkspaceRoot,
       invocation,
     });
@@ -2303,6 +2332,8 @@ async function runBranchPublicationCommands(options: {
 async function runBranchPublicationCommandInvocation(options: {
   root: string;
   sourceWorkspaceRoot: string;
+  sourceRef: string;
+  sourceCommit: string;
   publicationWorkspaceRoot: string;
   invocation: FixtureBranchPublicationCommandInvocation;
 }): Promise<FixtureCommandInvocationExecutionResult> {
@@ -2319,6 +2350,8 @@ async function runBranchPublicationCommandInvocation(options: {
       substituteBranchPublicationArg({
         arg,
         sourceWorkspaceRoot: options.sourceWorkspaceRoot,
+        sourceRef: options.sourceRef,
+        sourceCommit: options.sourceCommit,
         publicationWorkspaceRoot: options.publicationWorkspaceRoot,
       })
     ),
@@ -2346,10 +2379,14 @@ async function runBranchPublicationCommandInvocation(options: {
 function substituteBranchPublicationArg(options: {
   arg: string;
   sourceWorkspaceRoot: string;
+  sourceRef: string;
+  sourceCommit: string;
   publicationWorkspaceRoot: string;
 }): string {
   return options.arg
     .replaceAll("{sourceRoot}", options.sourceWorkspaceRoot)
+    .replaceAll("{sourceRef}", options.sourceRef)
+    .replaceAll("{sourceCommit}", options.sourceCommit)
     .replaceAll("{publicationRoot}", options.publicationWorkspaceRoot);
 }
 

@@ -530,7 +530,7 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
   );
   assertEquals(plan.scenario.branchPrefix, "a.");
   assertStringIncludes(plan.assetRoot, "mesh-branch-fantasy-rules/.assets");
-  assertEquals(plan.transitions.length, 2);
+  assertEquals(plan.transitions.length, 4);
   assertEquals(plan.transitions[0]?.id, "01-source-only");
   assertEquals(plan.transitions[0]?.fromRef, "a.00-blank-slate");
   assertEquals(plan.transitions[0]?.toRef, "a.01-source-only");
@@ -573,6 +573,77 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
     assertEquals(plan.transitions[1].action.invocations[1]?.argv, [
       "--mesh-root",
       "{publicationRoot}",
+    ]);
+  }
+  assertEquals(plan.transitions[2]?.id, "03-ontology-integrated-woven");
+  assertEquals(
+    plan.transitions[2]?.fromRef,
+    "a.02-publication-bootstrapped-woven",
+  );
+  assertEquals(plan.transitions[2]?.toRef, "a.03-ontology-integrated-woven");
+  assertEquals(plan.transitions[2]?.operationId, "deploy.ghPages");
+  assertEquals(plan.transitions[2]?.action.kind, "branchPublication");
+  if (plan.transitions[2]?.action.kind === "branchPublication") {
+    assertEquals(plan.transitions[2].action.sourceRef, "a.01-source-only");
+    assertEquals(
+      plan.transitions[2].action.publicationFromRef,
+      "a.02-publication-bootstrapped-woven",
+    );
+    assertEquals(plan.transitions[2].action.publicationBranch, "gh-pages");
+    assertEquals(plan.transitions[2].action.invocations.length, 1);
+    assertEquals(plan.transitions[2].action.invocations[0]?.argv, [
+      "deploy",
+      "gh-pages",
+      "--source-root",
+      "{sourceRoot}",
+      "--publish-root",
+      "{publicationRoot}",
+      "--mesh-base",
+      "https://semantic-flow.github.io/mesh-branch-fantasy-rules/",
+      "--source-path",
+      "ontology/fantasy-rules-ontology.ttl",
+      "--designator-path",
+      "ontology",
+      "--source-repository-url",
+      "https://github.com/semantic-flow/mesh-branch-fantasy-rules.git",
+      "--source-ref",
+      "{sourceRef}",
+      "--source-commit",
+      "{sourceCommit}",
+    ]);
+  }
+  assertEquals(plan.transitions[3]?.id, "04-shacl-integrated-woven");
+  assertEquals(plan.transitions[3]?.fromRef, "a.03-ontology-integrated-woven");
+  assertEquals(plan.transitions[3]?.toRef, "a.04-shacl-integrated-woven");
+  assertEquals(plan.transitions[3]?.operationId, "deploy.ghPages");
+  assertEquals(plan.transitions[3]?.action.kind, "branchPublication");
+  if (plan.transitions[3]?.action.kind === "branchPublication") {
+    assertEquals(plan.transitions[3].action.sourceRef, "a.01-source-only");
+    assertEquals(
+      plan.transitions[3].action.publicationFromRef,
+      "a.03-ontology-integrated-woven",
+    );
+    assertEquals(plan.transitions[3].action.publicationBranch, "gh-pages");
+    assertEquals(plan.transitions[3].action.invocations.length, 1);
+    assertEquals(plan.transitions[3].action.invocations[0]?.argv, [
+      "deploy",
+      "gh-pages",
+      "--source-root",
+      "{sourceRoot}",
+      "--publish-root",
+      "{publicationRoot}",
+      "--mesh-base",
+      "https://semantic-flow.github.io/mesh-branch-fantasy-rules/",
+      "--source-path",
+      "shacl/fantasy-rules-shacl.ttl",
+      "--designator-path",
+      "shacl",
+      "--source-repository-url",
+      "https://github.com/semantic-flow/mesh-branch-fantasy-rules.git",
+      "--source-ref",
+      "{sourceRef}",
+      "--source-commit",
+      "{sourceCommit}",
     ]);
   }
 
