@@ -213,7 +213,7 @@ Deno.test("planFixtureLadder exposes the Sidecar Fantasy Rules transition sequen
   );
   assertEquals(plan.scenario.branchPrefix, "a.");
   assertStringIncludes(plan.assetRoot, "mesh-sidecar-fantasy-rules/.assets");
-  assertEquals(plan.transitions.length, 8);
+  assertEquals(plan.transitions.length, 15);
   assertEquals(plan.transitions[0]?.id, "01-source-only");
   assertEquals(plan.transitions[0]?.fromRef, "a.00-blank-slate");
   assertEquals(plan.transitions[0]?.toRef, "a.01-source-only");
@@ -359,6 +359,87 @@ Deno.test("planFixtureLadder exposes the Sidecar Fantasy Rules transition sequen
     ]);
   }
 
+  assertEquals(
+    plan.transitions[8]?.id,
+    "09-ontology-and-shacl-terms-extracted-woven",
+  );
+  assertEquals(
+    plan.transitions[8]?.fromRef,
+    "a.08-ontology-and-shacl-terms-extracted",
+  );
+  assertEquals(
+    plan.transitions[8]?.toRef,
+    "a.09-ontology-and-shacl-terms-extracted-woven",
+  );
+  assertEquals(plan.transitions[8]?.operationId, "weave");
+  assertEquals(plan.transitions[8]?.action.kind, "command");
+  if (plan.transitions[8]?.action.kind === "command") {
+    assertEquals(plan.transitions[8].action.argv, [
+      "--mesh-root",
+      "docs",
+      "--target",
+      "designatorPath=ontology/AbilityScore",
+      "--target",
+      "designatorPath=ontology/Alignment",
+      "--target",
+      "designatorPath=ontology/Character",
+      "--target",
+      "designatorPath=ontology/PlayerCharacter",
+      "--target",
+      "designatorPath=ontology/CharacterShape",
+    ]);
+  }
+
+  assertEquals(plan.transitions[9]?.id, "10-root-knop");
+  assertEquals(
+    plan.transitions[9]?.fromRef,
+    "a.09-ontology-and-shacl-terms-extracted-woven",
+  );
+  assertEquals(plan.transitions[9]?.toRef, "a.10-root-knop");
+  assertEquals(plan.transitions[9]?.operationId, "knop.create");
+  assertEquals(plan.transitions[9]?.action.kind, "command");
+  if (plan.transitions[9]?.action.kind === "command") {
+    assertEquals(plan.transitions[9].action.invocations?.length, 2);
+    assertEquals(plan.transitions[9].action.argv, [
+      "knop",
+      "create",
+      "/",
+      "--mesh-root",
+      "docs",
+    ]);
+  }
+
+  assertEquals(plan.transitions[13]?.id, "14-first-release");
+  assertEquals(
+    plan.transitions[13]?.fromRef,
+    "a.13-gunaar-example-dataset-woven",
+  );
+  assertEquals(plan.transitions[13]?.toRef, "a.14-first-release");
+  assertEquals(plan.transitions[13]?.operationId, "source.update");
+  assertEquals(plan.transitions[13]?.action.kind, "fileOperation");
+
+  assertEquals(plan.transitions[14]?.id, "15-first-release-woven");
+  assertEquals(plan.transitions[14]?.fromRef, "a.14-first-release");
+  assertEquals(plan.transitions[14]?.toRef, "a.15-first-release-woven");
+  assertEquals(plan.transitions[14]?.operationId, "weave");
+  assertEquals(plan.transitions[14]?.action.kind, "command");
+  if (plan.transitions[14]?.action.kind === "command") {
+    assertEquals(plan.transitions[14].action.argv, [
+      "--mesh-root",
+      "docs",
+      "--payload-history-segment",
+      "releases",
+      "--payload-state-segment",
+      "v0.0.2",
+      "--payload-manifestation-segment",
+      "ttl",
+      "--target",
+      "designatorPath=ontology",
+      "--target",
+      "designatorPath=shacl",
+    ]);
+  }
+
   for (const transition of plan.transitions) {
     await Deno.stat(transition.manifestPath);
   }
@@ -431,6 +512,8 @@ Deno.test("Sidecar Fantasy Rules source-only transition points at checked-in det
     "01-source-only/examples/gunaar.ttl",
     "01-source-only/ontology/fantasy-rules-ontology.ttl",
     "01-source-only/shacl/fantasy-rules-shacl.ttl",
+    "14-first-release/ontology/fantasy-rules-ontology.ttl",
+    "14-first-release/shacl/fantasy-rules-shacl.ttl",
   ]);
 
   for (const assetPath of assetPaths) {

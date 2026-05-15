@@ -1,6 +1,7 @@
 import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
 import { KnopCreateInputError, planKnopCreate } from "./create.ts";
 import { readMeshAliceBioBranchFile } from "../../../tests/support/mesh_alice_bio_fixture.ts";
+import { readMeshSidecarFantasyRulesBranchFile } from "../../../tests/support/mesh_sidecar_fantasy_rules_fixture.ts";
 
 Deno.test("planKnopCreate renders first knop support artifacts", async () => {
   const plan = planKnopCreate({
@@ -145,6 +146,40 @@ Deno.test(
     assertStringIncludes(
       plan.updatedFiles[0]?.contents ?? "",
       "<_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .",
+    );
+  },
+);
+
+Deno.test(
+  "planKnopCreate supports creating a later root Knop with current-only MeshInventory",
+  async () => {
+    const plan = planKnopCreate({
+      meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+      designatorPath: "",
+      currentMeshInventoryTurtle: await readMeshSidecarFantasyRulesBranchFile(
+        "a.09-ontology-and-shacl-terms-extracted-woven",
+        "docs/_mesh/_inventory/inventory.ttl",
+      ),
+    });
+
+    assertEquals(
+      plan.createdFiles.map((file) => file.path),
+      [
+        "_knop/_meta/meta.ttl",
+        "_knop/_inventory/inventory.ttl",
+      ],
+    );
+    assertStringIncludes(
+      plan.updatedFiles[0]?.contents ?? "",
+      "sflo:hasKnop <_knop> ;",
+    );
+    assertStringIncludes(
+      plan.updatedFiles[0]?.contents ?? "",
+      "<_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .",
+    );
+    assertEquals(
+      plan.updatedFiles[0]?.contents.includes("_mesh/_inventory/_history001"),
+      false,
     );
   },
 );

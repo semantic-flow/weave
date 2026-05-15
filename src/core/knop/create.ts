@@ -651,7 +651,6 @@ function assertHasCarriedCurrentMeshInventoryShapeForKnopCreate(
       SFLO_HAS_RESOURCE_PAGE_IRI,
       "_mesh/_inventory/index.html",
     ],
-    ["_mesh/_inventory/_history001", RDF_TYPE_IRI, SFLO_ARTIFACT_HISTORY_IRI],
   ]);
 
   if (existingKnopPaths.length === 0) {
@@ -672,6 +671,20 @@ function assertHasCarriedCurrentMeshInventoryShapeForKnopCreate(
     }
   }
 
+  const hasInventoryHistoryBlock = hasNamedNodeFact(
+    quads,
+    meshBase,
+    "_mesh/_inventory/_history001",
+    RDF_TYPE_IRI,
+    SFLO_ARTIFACT_HISTORY_IRI,
+  );
+  const hasInventoryHistoryLink = hasNamedNodeFact(
+    quads,
+    meshBase,
+    "_mesh/_inventory",
+    SFLO_HAS_ARTIFACT_HISTORY_IRI,
+    "_mesh/_inventory/_history001",
+  );
   const latestStatePath = resolveSingleNamedNodePath(
     quads,
     meshBase,
@@ -687,6 +700,9 @@ function assertHasCarriedCurrentMeshInventoryShapeForKnopCreate(
     errorMessage,
   );
   if (latestStatePath !== undefined || nextStateOrdinal !== undefined) {
+    if (!hasInventoryHistoryBlock || !hasInventoryHistoryLink) {
+      throw new KnopCreateInputError(errorMessage);
+    }
     if (latestStatePath === undefined || nextStateOrdinal === undefined) {
       throw new KnopCreateInputError(errorMessage);
     }
@@ -723,6 +739,21 @@ function assertHasCarriedCurrentMeshInventoryShapeForKnopCreate(
     "_mesh/_inventory/_history001",
     SFLO_HAS_HISTORICAL_STATE_IRI,
   );
+  if (
+    latestStatePath === undefined &&
+    nextStateOrdinal === undefined &&
+    historicalStatePaths.length === 0
+  ) {
+    if (hasInventoryHistoryBlock || hasInventoryHistoryLink) {
+      throw new KnopCreateInputError(errorMessage);
+    }
+    return;
+  }
+
+  if (!hasInventoryHistoryBlock || !hasInventoryHistoryLink) {
+    throw new KnopCreateInputError(errorMessage);
+  }
+
   if (historicalStatePaths.length === 0) {
     throw new KnopCreateInputError(errorMessage);
   }

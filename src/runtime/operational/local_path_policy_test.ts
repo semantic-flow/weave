@@ -45,6 +45,40 @@ Deno.test("loadOperationalLocalPathPolicy discovers mesh-owned config in a non-w
   );
 });
 
+Deno.test("loadOperationalLocalPathPolicy accepts legacy local path config aliases", async () => {
+  const tempRoot = await Deno.makeTempDir({
+    prefix: "weave-local-path-policy-legacy-",
+  });
+  const repoRoot = join(tempRoot, "repo");
+  const meshRoot = join(repoRoot, "docs");
+  await Deno.mkdir(join(meshRoot, "_mesh/_config"), { recursive: true });
+  await Deno.writeTextFile(
+    join(meshRoot, "_mesh/_config/config.ttl"),
+    `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:workspaceRootRelativeToMeshRoot "../" ;
+  sfcfg:hasLocalPathAccessRule [
+    a sfcfg:LocalPathAccessRule ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/meshRootPathBase> ;
+    sfcfg:pathPrefix "../ontology/" ;
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/workingLocalRelativePathLocatorKind>
+  ] .
+`,
+  );
+
+  const policy = await loadOperationalLocalPathPolicy(meshRoot);
+
+  assertEquals(
+    resolveAllowedLocalPath(
+      policy,
+      "workingLocalRelativePath",
+      "../ontology/fantasy-rules-ontology.ttl",
+    ),
+    resolve(repoRoot, "ontology/fantasy-rules-ontology.ttl"),
+  );
+});
+
 Deno.test("resolveAllowedLocalPath denies extra-mesh paths when no config matches", async () => {
   const tempRoot = await Deno.makeTempDir({ prefix: "weave-local-path-deny-" });
   const meshRoot = join(tempRoot, "mesh");

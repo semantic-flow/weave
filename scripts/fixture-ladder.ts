@@ -742,6 +742,77 @@ export const SIDECAR_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
         branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
       },
     ),
+    commandTransition(
+      9,
+      "09-ontology-and-shacl-terms-extracted-woven",
+      "08-ontology-and-shacl-terms-extracted",
+      "weave",
+      {
+        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+      },
+    ),
+    commandTransition(
+      10,
+      "10-root-knop",
+      "09-ontology-and-shacl-terms-extracted-woven",
+      "knop.create",
+      {
+        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+      },
+    ),
+    commandTransition(11, "11-root-knop-woven", "10-root-knop", "weave", {
+      branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+    }),
+    commandTransition(
+      12,
+      "12-gunaar-example-dataset",
+      "11-root-knop-woven",
+      "integrate",
+      {
+        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+      },
+    ),
+    commandTransition(
+      13,
+      "13-gunaar-example-dataset-woven",
+      "12-gunaar-example-dataset",
+      "weave",
+      {
+        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+      },
+    ),
+    fileTransition(
+      14,
+      "14-first-release",
+      "13-gunaar-example-dataset-woven",
+      {
+        description:
+          "Replace authored first-release source bytes from deterministic assets.",
+        sources: [
+          {
+            path: "ontology/fantasy-rules-ontology.ttl",
+            provenance:
+              "fixture-authored ontology release source copied from the Sidecar Fantasy Rules main branch",
+          },
+          {
+            path: "shacl/fantasy-rules-shacl.ttl",
+            provenance:
+              "fixture-authored SHACL release source copied from the Sidecar Fantasy Rules main branch",
+          },
+        ],
+      },
+      "source.update",
+      { branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX },
+    ),
+    commandTransition(
+      15,
+      "15-first-release-woven",
+      "14-first-release",
+      "weave",
+      {
+        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+      },
+    ),
   ],
 };
 

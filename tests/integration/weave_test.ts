@@ -1451,7 +1451,7 @@ Deno.test("executeWeave materializes sidecar extracted ontology and SHACL terms"
     "weave-weave-sidecar-extracted-terms-",
   );
   await materializeMeshSidecarFantasyRulesBranch(
-    "08-ontology-and-shacl-terms-extracted",
+    "a.08-ontology-and-shacl-terms-extracted",
     workspaceRoot,
   );
 
@@ -1478,7 +1478,12 @@ Deno.test("executeWeave materializes sidecar extracted ontology and SHACL terms"
   ]);
   assert(
     result.createdPaths.includes(
-      "docs/_mesh/_inventory/_history001/_s0008/ttl/inventory.ttl",
+      "docs/ontology/CharacterShape/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl",
+    ),
+  );
+  assertFalse(
+    result.createdPaths.some((path) =>
+      path.startsWith("docs/_mesh/_inventory/_history001/")
     ),
   );
   assert(
@@ -1493,7 +1498,7 @@ Deno.test("executeWeave materializes sidecar extracted ontology and SHACL terms"
       ),
       right: new TextEncoder().encode(
         await readMeshSidecarFantasyRulesBranchFile(
-          "09-ontology-and-shacl-terms-extracted-woven",
+          "a.09-ontology-and-shacl-terms-extracted-woven",
           "docs/_mesh/_inventory/inventory.ttl",
         ),
       ),
@@ -1513,7 +1518,7 @@ Deno.test("executeWeave materializes sidecar extracted ontology and SHACL terms"
       ),
       right: new TextEncoder().encode(
         await readMeshSidecarFantasyRulesBranchFile(
-          "09-ontology-and-shacl-terms-extracted-woven",
+          "a.09-ontology-and-shacl-terms-extracted-woven",
           "docs/ontology/CharacterShape/_knop/_inventory/inventory.ttl",
         ),
       ),

@@ -276,6 +276,12 @@ The first scenario-definition format should therefore support both `command` ste
 - [x] Add and validate Sidecar Fantasy Rules `05-ontology-integrated-woven`, `06-shacl-integrated`, and `07-shacl-integrated-woven` replay profiles, regenerate their `a.` branches, and update their manifests for current support-history behavior.
 - [x] Add Accord and generator support for manifest-declared command sequences, then use it to replay and validate Sidecar Fantasy Rules `08-ontology-and-shacl-terms-extracted`.
 - [x] Push the generated Sidecar Fantasy Rules `a.00` through `a.08` fixture refs after local validation.
+- [x] Regenerate and push Sidecar Fantasy Rules `a.09-ontology-and-shacl-terms-extracted-woven` with pinned extraction evidence that records observed source state, manifestation, located file, and digest after weave.
+- [x] Add Sidecar Fantasy Rules replay profiles and generator transitions for `10-root-knop` through `15-first-release-woven`, including deterministic `.assets` handling for the first-release authored source update.
+- [x] Regenerate, validate, and push Sidecar Fantasy Rules `a.10-root-knop` through `a.15-first-release-woven`.
+- [x] Keep Sidecar Fantasy Rules support artifacts slim/current-only during root Knop creation, extracted-term weaving, and release-history weaving; do not expect generated `_knop/_inventory` support history snapshots for those sidecar rungs.
+- [x] Add temporary `a.` prefix resolution to the Sidecar Fantasy Rules fixture test helper, matching Alice Bio until a scenario master manifest owns the prefix.
+- [x] Confirm Alice Bio's current-mode extraction provenance is not the sidecar local-path mistake: `alice-bio.ttl` is modeled as an in-mesh `LocatedFile`, while sidecar source files outside `docs/` use `sflo:observedSourceLocalRelativePath` plus `sflo:observedSourceDigest`.
 - [ ] Add branch-published Fantasy Rules fixture coverage in a separate repository after the sidecar ladder is replayable and green.
 - [ ] Update Accord manifests, fixture-backed Weave tests, and conformance expectations after generated branches are rerung for the combined enum/config changes.
 - [ ] Record the expected workflow for large ontology/config churn: update manifests, run generator, inspect generated branch diffs, run fixture tests, commit/push branch updates intentionally.

@@ -17,6 +17,10 @@ const frameworkRepoPath = join(
 );
 const resolvedRefCache = new Map<string, Promise<string>>();
 
+// Temporary Sidecar Fantasy Rules fixture-ladder setting until the replay
+// prefix moves into an Accord/scenario master manifest.
+export const MESH_SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX = "a.";
+
 export function resolveMeshSidecarFantasyRulesFixtureRepoPath(): string {
   return fixtureRepoPath;
 }
@@ -55,7 +59,16 @@ async function resolveMeshSidecarFantasyRulesGitRef(
 async function resolveMeshSidecarFantasyRulesGitRefUncached(
   ref: string,
 ): Promise<string> {
-  const candidates = [ref, `origin/${ref}`];
+  const prefixedRef = ref.startsWith(
+      MESH_SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+    )
+    ? ref
+    : `${MESH_SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX}${ref}`;
+  const candidates = ref.startsWith(
+      MESH_SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+    )
+    ? [ref, `origin/${ref}`]
+    : [prefixedRef, ref, `origin/${prefixedRef}`, `origin/${ref}`];
 
   for (const candidate of candidates) {
     const command = new Deno.Command("git", {
