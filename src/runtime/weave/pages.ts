@@ -607,9 +607,11 @@ ${faviconLink}  <style>
     .wf-child-identifiers { display: flex; flex-wrap: wrap; gap: 5px; align-items: baseline; min-width: 0; max-width: 100%; }
     .wf-child-identifier { display: inline-block; padding: 0.08rem 0.36rem; border: 1px solid #cdd8cf; border-radius: 2px; background: #eef3ef; text-decoration: none; white-space: nowrap; }
     .wf-child-identifier:hover, .wf-child-identifier:focus { background: #e0ebe4; border-color: #b8c8bc; }
-    .wf-child-identifiers-more { display: inline-flex; flex-wrap: wrap; gap: 5px; align-items: baseline; max-width: 100%; min-width: 0; border: 0; border-radius: 0; background: transparent; }
-    .wf-child-identifiers-more[open] { flex: 1 1 100%; }
+    .wf-child-identifiers-more { display: inline-block; max-width: 100%; min-width: 0; border: 0; border-radius: 0; background: transparent; }
+    .wf-child-identifiers-more[open] { flex: 1 1 100%; width: 100%; }
     .wf-child-identifiers-more > summary { flex: 0 0 auto; display: inline-block; padding: 0.08rem 0.36rem; border: 1px solid #cdd8cf; border-radius: 2px; background: #eef3ef; color: #1f5f85; cursor: pointer; line-height: inherit; }
+    .wf-child-identifiers-more[open] > summary { margin-bottom: 5px; }
+    .wf-child-identifiers-overflow { display: flex; flex-wrap: wrap; gap: 5px; align-items: baseline; min-width: 0; max-width: 100%; }
     .wf-child-identifiers-more > summary::-webkit-details-marker { display: none; }
     .wf-child-identifiers-more > summary::marker { content: ""; }
     .wf-term { cursor: help; border-bottom: 1px dotted currentColor; }
@@ -851,7 +853,7 @@ function toChildIdentifierMetadataRows(
   for (const identifier of childIdentifiers) {
     const childIri = toCanonicalResourceIri(meshBase, identifier.path);
     const types = typesByChildIri.get(childIri) ?? new Set<string>();
-    const categoryIndex = toChildIdentifierCategoryIndex(identifier, types);
+    const categoryIndex = toChildIdentifierCategoryIndex(types);
     categories[categoryIndex]?.identifiers.push(identifier);
   }
 
@@ -878,6 +880,13 @@ function collectChildIdentifierTypes(
     ),
   );
   const typesByChildIri = new Map<string, Set<string>>();
+  for (const identifier of childIdentifiers) {
+    if (!identifier.rdfTypes || identifier.rdfTypes.length === 0) {
+      continue;
+    }
+    const childIri = toCanonicalResourceIri(meshBase, identifier.path);
+    typesByChildIri.set(childIri, new Set(identifier.rdfTypes));
+  }
   const quads = rawSourcePanels.flatMap((panel) =>
     panel.contents ? parseRdfPanel(canonical, panel.contents) : []
   );
@@ -900,10 +909,7 @@ function collectChildIdentifierTypes(
   return typesByChildIri;
 }
 
-function toChildIdentifierCategoryIndex(
-  identifier: ResourcePageChildIdentifierModel,
-  types: ReadonlySet<string>,
-): number {
+function toChildIdentifierCategoryIndex(types: ReadonlySet<string>): number {
   if (isExplicitShaclShape(types)) {
     return 7;
   }
@@ -925,9 +931,6 @@ function toChildIdentifierCategoryIndex(
   if (types.has(RDFS_DATATYPE_IRI)) {
     return 5;
   }
-  if (types.size === 0 && isLikelyShaclShapeIdentifier(identifier)) {
-    return 7;
-  }
   return 6;
 }
 
@@ -935,13 +938,6 @@ function isExplicitShaclShape(types: ReadonlySet<string>): boolean {
   return types.has(SHACL_NODE_SHAPE_IRI) ||
     types.has(SHACL_PROPERTY_SHAPE_IRI) ||
     types.has(SHACL_SHAPE_IRI);
-}
-
-function isLikelyShaclShapeIdentifier(
-  identifier: ResourcePageChildIdentifierModel,
-): boolean {
-  return identifier.label.endsWith("Shape") ||
-    toLastPathSegment(identifier.path).endsWith("Shape");
 }
 
 function toChildIdentifierMetadataRow(
@@ -956,9 +952,9 @@ function toChildIdentifierMetadataRow(
       escapeHtml(toMeshResourceHref(meshRootHref, identifier.path))
     }">${escapeHtml(identifier.label)}</a></nobr>`;
   const hiddenIdentifiersHtml = hiddenIdentifiers.length > 0
-    ? `<details class="wf-child-identifiers-more"><summary title="Show ${hiddenIdentifiers.length} more child identifiers">...</summary>${
+    ? `<details class="wf-child-identifiers-more"><summary title="Show ${hiddenIdentifiers.length} more child identifiers">...</summary><div class="wf-child-identifiers-overflow">${
       hiddenIdentifiers.map(renderIdentifier).join("")
-    }</details>`
+    }</div></details>`
     : "";
 
   return {

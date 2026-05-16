@@ -276,7 +276,7 @@ Deno.test("renderResourcePage renders typed child identifier rows", async () => 
   );
 });
 
-Deno.test("renderResourcePage separates shape-suffixed child identifiers without local SHACL facts", async () => {
+Deno.test("renderResourcePage separates SHACL child identifiers from RDF type hints only", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
     {
@@ -286,6 +286,11 @@ Deno.test("renderResourcePage separates shape-suffixed child identifiers without
       childIdentifiers: [
         { label: "barbarian", path: "ontology/barbarian" },
         { label: "CharacterShape", path: "ontology/CharacterShape" },
+        {
+          label: "BarbarianPrimaryAbilityChoice",
+          path: "ontology/BarbarianPrimaryAbilityChoice",
+          rdfTypes: ["http://www.w3.org/ns/shacl#NodeShape"],
+        },
       ],
     },
   );
@@ -298,7 +303,11 @@ Deno.test("renderResourcePage separates shape-suffixed child identifiers without
   );
   assertStringIncludes(
     html,
-    '<tr><th scope="row">SHACL Shapes</th><td><div class="wf-child-identifiers"><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/CharacterShape">CharacterShape</a></nobr></div></td></tr>',
+    '<tr><th scope="row">Child Individuals</th><td><div class="wf-child-identifiers"><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/barbarian">barbarian</a></nobr><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/CharacterShape">CharacterShape</a></nobr></div></td></tr>',
+  );
+  assertStringIncludes(
+    html,
+    '<tr><th scope="row">SHACL Shapes</th><td><div class="wf-child-identifiers"><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/BarbarianPrimaryAbilityChoice">BarbarianPrimaryAbilityChoice</a></nobr></div></td></tr>',
   );
 });
 
@@ -321,7 +330,7 @@ Deno.test("renderResourcePage collapses child identifier overflow", async () => 
   assertStringIncludes(html, ">Child20</a>");
   assertStringIncludes(
     html,
-    '<details class="wf-child-identifiers-more"><summary title="Show 3 more child identifiers">...</summary>',
+    '<details class="wf-child-identifiers-more"><summary title="Show 3 more child identifiers">...</summary><div class="wf-child-identifiers-overflow">',
   );
   assertStringIncludes(
     html,
@@ -329,11 +338,18 @@ Deno.test("renderResourcePage collapses child identifier overflow", async () => 
   );
   assertStringIncludes(
     html,
-    ".wf-child-identifiers-more[open] { flex: 1 1 100%; }",
+    ".wf-child-identifiers-more[open] { flex: 1 1 100%; width: 100%; }",
+  );
+  assertStringIncludes(
+    html,
+    ".wf-child-identifiers-overflow { display: flex; flex-wrap: wrap;",
+  );
+  assertStringIncludes(
+    html,
+    ".wf-child-identifiers-more[open] > summary { margin-bottom: 5px; }",
   );
   assertStringIncludes(html, ">Child21</a>");
   assertStringIncludes(html, ">Child23</a>");
-  assertFalse(html.includes(".wf-child-identifiers-more[open] > summary"));
 });
 
 Deno.test("renderResourcePage renders current ReferenceCatalog pages with fragment anchors", async () => {

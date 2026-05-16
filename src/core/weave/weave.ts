@@ -283,6 +283,7 @@ export interface ResourcePageExtractionSourceModel {
 export interface ResourcePageChildIdentifierModel {
   label: string;
   path: string;
+  rdfTypes?: readonly string[];
 }
 
 export interface ResourcePageHistoryStateModel {

@@ -106,6 +106,7 @@ const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
   `${SFLO_NAMESPACE}artifactResolutionMode_pinned`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
   `${SFLO_NAMESPACE}artifactResolutionMode_current`;
+const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const DCTERMS_TITLE_IRI = "http://purl.org/dc/terms/title";
 const RDFS_LABEL_IRI = "http://www.w3.org/2000/01/rdf-schema#label";
 
@@ -1625,8 +1626,13 @@ async function collectGeneratedPageFiles(
       explicitRequest: hasExplicitGenerateTargets,
     },
   );
+  const childRdfTypesByResourcePath = collectDesignatorRdfTypesByResourcePath(
+    meshState.meshBase,
+    designatorContexts,
+  );
   const childIdentifiersByResourcePath = collectChildIdentifiersByResourcePath(
     allPagePaths,
+    childRdfTypesByResourcePath,
   );
 
   for (const pagePath of allPagePaths) {
@@ -1797,6 +1803,7 @@ async function resolveMeshFaviconPath(
 
 function collectChildIdentifiersByResourcePath(
   pagePaths: readonly string[],
+  rdfTypesByResourcePath: ReadonlyMap<string, readonly string[]> = new Map(),
 ): ReadonlyMap<string, readonly ResourcePageChildIdentifierModel[]> {
   const resourcePaths = pagePaths.map((pagePath) => toResourcePath(pagePath));
   const childIdentifiersByResourcePath = new Map<
@@ -1811,9 +1818,11 @@ function collectChildIdentifiersByResourcePath(
     const parentPath = toParentResourcePath(childPath);
     const childIdentifiers = childIdentifiersByResourcePath.get(parentPath) ??
       [];
+    const rdfTypes = rdfTypesByResourcePath.get(childPath);
     childIdentifiers.push({
       label: toLastPathSegment(childPath),
       path: childPath,
+      ...(rdfTypes && rdfTypes.length > 0 ? { rdfTypes } : {}),
     });
     childIdentifiersByResourcePath.set(parentPath, childIdentifiers);
   }
@@ -1825,6 +1834,31 @@ function collectChildIdentifiersByResourcePath(
   }
 
   return childIdentifiersByResourcePath;
+}
+
+function collectDesignatorRdfTypesByResourcePath(
+  meshBase: string,
+  contexts: readonly GenerateDesignatorContext[],
+): ReadonlyMap<string, readonly string[]> {
+  const typesByResourcePath = new Map<string, readonly string[]>();
+
+  for (const context of contexts) {
+    const pagePath = toDesignatorResourcePagePath(context.designatorPath);
+    const panels = context.rawSourcePanels.get(pagePath);
+    if (!panels) {
+      continue;
+    }
+    const types = extractResourceRdfTypes(
+      meshBase,
+      context.designatorPath,
+      panels,
+    );
+    if (types.length > 0) {
+      typesByResourcePath.set(context.designatorPath, types);
+    }
+  }
+
+  return typesByResourcePath;
 }
 
 function toKnopChildIdentifiers(
@@ -2686,6 +2720,31 @@ function extractResourceTitle(
 
   return findFirstLiteralObject(quads, canonical, DCTERMS_TITLE_IRI) ??
     findFirstLiteralObject(quads, canonical, RDFS_LABEL_IRI);
+}
+
+function extractResourceRdfTypes(
+  meshBase: string,
+  resourcePath: string,
+  rawSourcePanels: readonly ResourcePageRawSourcePanelModel[],
+): readonly string[] {
+  const canonical = new URL(resourcePath, meshBase).href;
+  const quads = rawSourcePanels.flatMap((panel) =>
+    panel.contents ? parseRawSourcePanel(canonical, panel.contents) : []
+  );
+  const types = new Set<string>();
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType === "NamedNode" &&
+      quad.subject.value === canonical &&
+      quad.predicate.value === RDF_TYPE_IRI &&
+      quad.object.termType === "NamedNode"
+    ) {
+      types.add(quad.object.value);
+    }
+  }
+
+  return [...types].sort();
 }
 
 function parseRawSourcePanel(
