@@ -23,6 +23,22 @@ Deno.test("active ontology and defaults RDF parses as Turtle", async () => {
   }
 });
 
+Deno.test("active ontology and defaults RDF avoids duplicate triples", async () => {
+  for (const relativePath of RDF_FILES) {
+    const quads = await parseRepoTurtle(relativePath);
+    const seen = new Set<string>();
+
+    for (const quad of quads) {
+      const key = quadTerms(quad).map(termKey).join(" ");
+      assertFalse(
+        seen.has(key),
+        `${relativePath} repeats RDF triple ${key}`,
+      );
+      seen.add(key);
+    }
+  }
+});
+
 Deno.test("config ontology uses the canonical sflo namespace", async () => {
   const configOntology = await readRepoFile(
     "dependencies/github.com/semantic-flow/sflo/semantic-flow-config-ontology.ttl",
@@ -118,4 +134,17 @@ async function readRepoFile(relativePath: string): Promise<string> {
 
 function quadTerms(quad: Quad): readonly Term[] {
   return [quad.subject, quad.predicate, quad.object, quad.graph];
+}
+
+function termKey(term: Term): string {
+  if (term.termType === "Literal") {
+    return [
+      "Literal",
+      JSON.stringify(term.value),
+      term.datatype.value,
+      term.language,
+    ].join("|");
+  }
+
+  return `${term.termType}|${term.value}`;
 }
