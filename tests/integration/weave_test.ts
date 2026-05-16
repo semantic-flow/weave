@@ -1484,6 +1484,36 @@ Deno.test("executeWeave materializes the extracted bob woven slice", async () =>
   );
 });
 
+Deno.test("executeWeave fails closed when source registry path escapes the mesh root", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-source-registry-path-deny-",
+  );
+  await materializeMeshAliceBioBranch("12-bob-extracted", workspaceRoot);
+  const inventoryPath = join(
+    workspaceRoot,
+    "bob/_knop/_inventory/inventory.ttl",
+  );
+  await Deno.writeTextFile(
+    inventoryPath,
+    (await Deno.readTextFile(inventoryPath)).replace(
+      "sflo:hasWorkingLocatedFile <bob/_knop/_sources/sources.ttl> .",
+      'sflo:workingLocalRelativePath "../sources.ttl" .',
+    ),
+  );
+
+  await assertRejects(
+    () =>
+      executeWeave({
+        meshRoot: workspaceRoot,
+        request: {
+          targets: [{ designatorPath: "bob" }],
+        },
+      }),
+    WeaveInputError,
+    "source registry file for bob is outside the allowed local-path boundary",
+  );
+});
+
 Deno.test("executeWeave materializes sidecar extracted ontology and SHACL terms", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-weave-sidecar-extracted-terms-",

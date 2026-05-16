@@ -1,4 +1,4 @@
-import { fromFileUrl, join } from "@std/path";
+import { fromFileUrl, isAbsolute, join } from "@std/path";
 import { readRootVersionFrom } from "./release/metadata.ts";
 import {
   NPM_PACKAGES_METADATA_FILENAME,
@@ -50,7 +50,7 @@ export function parseSmokeNpmInstallArgs(
 
     switch (arg) {
       case "--":
-        break;
+        return { root, inputDir, workDir, npmBin };
       case "--root":
         index += 1;
         root = requireArgumentValue(args[index], "--root");
@@ -338,7 +338,7 @@ async function resetDirectory(path: string): Promise<void> {
 }
 
 function resolveRootPath(root: string, path: string): string {
-  if (path.startsWith("/")) {
+  if (isAbsolute(path)) {
     return path;
   }
   return join(root, path);

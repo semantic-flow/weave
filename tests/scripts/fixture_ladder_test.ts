@@ -20,6 +20,7 @@ import {
   updateFixtureBranchFromWorkspace,
 } from "../../scripts/fixture-ladder.ts";
 import type { FixtureLadderPlan } from "../../scripts/fixture-ladder.ts";
+import { readMeshBranchFantasyRulesBranchFile } from "../support/mesh_branch_fantasy_rules_fixture.ts";
 
 const repoRoot = new URL("../../", import.meta.url).pathname;
 
@@ -1132,7 +1133,7 @@ Deno.test("Branch-Published Fantasy Rules source-only transition points at check
   ]);
 
   for (const assetPath of assetPaths) {
-    await Deno.stat(`${plan.assetRoot}/${assetPath}`);
+    await readMeshBranchFantasyRulesBranchFile("main", `.assets/${assetPath}`);
   }
 });
 

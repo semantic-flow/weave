@@ -597,7 +597,27 @@ function normalizeCname(value: string): string {
   if (/[\r\n]/.test(trimmed)) {
     throw new GHPagesDeployInputError("cname must be a single host name");
   }
+  if (!isBareHostname(trimmed)) {
+    throw new GHPagesDeployInputError("cname must be a valid bare hostname");
+  }
   return trimmed;
+}
+
+function isBareHostname(value: string): boolean {
+  if (
+    value.length > 253 ||
+    value.includes("://") ||
+    value.includes("/") ||
+    /:\d/.test(value) ||
+    /\s/.test(value)
+  ) {
+    return false;
+  }
+
+  const labels = value.split(".");
+  return labels.every((label) =>
+    /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label)
+  );
 }
 
 function normalizeMeshBase(meshBase: string): string {

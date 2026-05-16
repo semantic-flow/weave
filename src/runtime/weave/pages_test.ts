@@ -811,6 +811,7 @@ Deno.test("renderResourcePage renders properties from subject triples", async ()
 fant:AbilityScore a owl:Class ;
   rdfs:label "Ability Score" ;
   rdfs:seeAlso "https://example.org/rules/ability-score"^^xsd:anyURI ;
+  rdfs:isDefinedBy "urn:rules:ability-score"^^xsd:anyURI ;
   fant:relatedAbility fant:Strength ;
   fant:hasConstraint [
     a fant:ScoreConstraint ;
@@ -833,6 +834,10 @@ fant:AbilityScore a owl:Class ;
   assertStringIncludes(
     html,
     '<th scope="row"><span class="wf-term" title="http://www.w3.org/2000/01/rdf-schema#seeAlso">rdfs:seeAlso</span></th><td><a href="https://example.org/rules/ability-score">https://example.org/rules/ability-score</a></td>',
+  );
+  assertStringIncludes(
+    html,
+    '<th scope="row"><span class="wf-term" title="http://www.w3.org/2000/01/rdf-schema#isDefinedBy">rdfs:isDefinedBy</span></th><td><a href="urn:rules:ability-score">urn:rules:ability-score</a></td>',
   );
   assertStringIncludes(
     html,

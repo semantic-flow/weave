@@ -134,6 +134,41 @@ Deno.test("executeGHPagesDeployBootstrap preserves publication controls", async 
   );
 });
 
+Deno.test("executeGHPagesDeployBootstrap rejects invalid CNAME values", async () => {
+  const tempRoot = await createTestTmpDir(
+    "weave-deploy-gh-pages-cname-",
+  );
+  const sourceRoot = join(tempRoot, "source");
+  const publishRoot = join(tempRoot, "gh-pages");
+  await Deno.mkdir(sourceRoot, { recursive: true });
+  await Deno.mkdir(publishRoot, { recursive: true });
+
+  for (
+    const cname of [
+      "https://docs.example.test",
+      "docs.example.test/path",
+      "docs.example.test:443",
+      "docs_example.test",
+      "-docs.example.test",
+    ]
+  ) {
+    await assertRejects(
+      () =>
+        executeGHPagesDeployBootstrap({
+          sourceRoot,
+          publishRoot,
+          request: {
+            meshBase:
+              "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+            cname,
+          },
+        }),
+      GHPagesDeployInputError,
+      "cname must be a valid bare hostname",
+    );
+  }
+});
+
 Deno.test("planGHPagesDeployBootstrap reports dry-run changes without writing", async () => {
   const tempRoot = await createTestTmpDir("weave-deploy-gh-pages-plan-");
   const sourceRoot = join(tempRoot, "source");

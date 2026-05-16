@@ -5662,7 +5662,26 @@ function toExtractionSourceEvidenceFacts(
 }
 
 function escapeTurtleString(value: string): string {
-  return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
+  return value.replace(/[\b\t\n\f\r"\\]/g, (character) => {
+    switch (character) {
+      case "\b":
+        return "\\b";
+      case "\t":
+        return "\\t";
+      case "\n":
+        return "\\n";
+      case "\f":
+        return "\\f";
+      case "\r":
+        return "\\r";
+      case '"':
+        return '\\"';
+      case "\\":
+        return "\\\\";
+      default:
+        return character;
+    }
+  });
 }
 
 function renderArtifactHistoryIndexPage(

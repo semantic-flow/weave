@@ -25,13 +25,6 @@ import {
 } from "../support/root_designator.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
-function withAliceReferenceExtensionManifestation(contents: string): string {
-  return contents.replaceAll(
-    "alice/_knop/_references/_history001/_s0001/ttl",
-    "alice/_knop/_references/_history001/_s0001/ttl",
-  );
-}
-
 async function executeVersion(options: ExecuteVersionOptions) {
   if (
     options.historyTrackingPolicyOverride !== undefined ||
@@ -394,11 +387,9 @@ Deno.test("executeVersion versions the first alice page-definition support artif
         ),
       ),
       right: new TextEncoder().encode(
-        withAliceReferenceExtensionManifestation(
-          await readMeshAliceBioBranchFile(
-            "15-alice-page-customized-woven",
-            "alice/_knop/_inventory/inventory.ttl",
-          ),
+        await readMeshAliceBioBranchFile(
+          "15-alice-page-customized-woven",
+          "alice/_knop/_inventory/inventory.ttl",
         ),
       ),
       path: "alice/_knop/_inventory/inventory.ttl",

@@ -34,7 +34,7 @@ Weave currently has:
 - root `deno.json` tasks for `fmt`, `lint`, `check`, `test`, `test:coverage`, `coverage:lcov`, and `ci`
 - GitHub Actions CI on pull requests and pushes to `main`
 - Codecov upload from coverage
-- Deno 2.7.12 in CI
+- Deno 2.7.14 in CI
 - a release runbook in [[dev.release-runbook]] that now documents the transitional `v0.1.0` path
 - `documentation/notes/release-notes.v0.0.2.md` as the first release-notes note
 - `documentation/notes/release-notes.v0.1.0.md` as the first full-release stub
@@ -62,9 +62,9 @@ Earlier local validation after the first version-plumbing slice showed broad fix
 - focused npm package assembly tests pass.
 - focused npm install smoke setup tests pass.
 - focused npm publish ordering and argument tests pass.
-- `deno task ci` passes locally with 422 tests when fixture dependency checkouts are on the refs expected by the tests.
+- `deno task ci` passes locally with 422 tests; branch-published fixture assertions read explicit Git refs rather than relying on the dependency checkout branch.
 
-The remaining local caveat is fixture checkout state, not ordinary release code drift. The branch-published Fantasy Rules dependency checkout is often left on `gh-pages` for preview, and that branch intentionally does not carry deterministic `.assets`. The fixture-ladder asset-existence test expects the same checkout to be on `main` or another source-bearing ref. Running the full local gate with `mesh-branch-fantasy-rules` temporarily on `main`, then restoring `gh-pages` for preview, produced a clean `deno task ci` run.
+The branch-published Fantasy Rules dependency checkout is often left on `gh-pages` for preview, and that branch intentionally does not carry deterministic `.assets`. That should not affect fixture meaning: generated mesh assertions read generated refs, and the fixture-ladder source-asset contract reads `.assets` from the source-bearing `main` ref.
 
 The old failures were not caused by version metadata. They clustered around pre-release fixture and contract drift that has now mostly been repaired:
 
@@ -323,7 +323,7 @@ The runbook should include:
 - Keep release notes as Dendron notes and strip frontmatter for GitHub Release bodies.
 - Update [[dev.release-runbook]] as part of this task, after the actual scripts/workflow behavior is known.
 - Use `NPM_TOKEN` through `NODE_AUTH_TOKEN` plus npm provenance for the first publish workflow, matching the current Kato pattern. npm trusted publishing can replace or supplement this later if the package settings are configured for it.
-- Pin release workflow Deno setup to `2.7.12`, matching ordinary CI, until we intentionally choose a floating `v2.x` release lane.
+- Pin release workflow Deno setup to `2.7.14`, matching ordinary CI, until we intentionally choose a floating `v2.x` release lane.
 - Make the manual workflow default to no npm publish and no GitHub Release mutation. Rehearsal is an explicit npm dry-run plus draft GitHub Release run; publication is a later explicit rerun.
 - Use native GitHub-hosted runners for all supported package platforms, with `macos-15-intel` for macOS x64 and `macos-latest` for macOS arm64.
 

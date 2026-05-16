@@ -1741,10 +1741,33 @@ function toMeshPath(
 }
 
 function escapeTurtleString(value: string): string {
-  return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
+  return value.replace(/[\b\t\n\f\r"\\]/g, (character) => {
+    switch (character) {
+      case "\b":
+        return "\\b";
+      case "\t":
+        return "\\t";
+      case "\n":
+        return "\\n";
+      case "\f":
+        return "\\f";
+      case "\r":
+        return "\\r";
+      case '"':
+        return '\\"';
+      case "\\":
+        return "\\\\";
+      default:
+        return character;
+    }
+  });
 }
 
 function splitTurtleBlocks(turtle: string): string[] {
+  // This intentionally treats blank lines as block boundaries for generated
+  // extraction-source snippets. It is not Turtle-aware and will not preserve
+  // blank lines inside multiline string literals; use a parser before widening
+  // this to arbitrary Turtle input.
   return turtle.trim().split(/\n\s*\n/g);
 }
 

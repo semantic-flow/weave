@@ -94,6 +94,12 @@ export function parseBumpVersionArgs(
 export async function bumpVersion(
   options: BumpVersionOptions,
 ): Promise<BumpVersionResult> {
+  if ((options.increment === undefined) === (options.version === undefined)) {
+    throw new Error(
+      "Either version or increment must be provided, but not both",
+    );
+  }
+
   const denoConfigPath = join(options.root, "deno.json");
   const denoConfig = JSON.parse(
     await Deno.readTextFile(denoConfigPath),

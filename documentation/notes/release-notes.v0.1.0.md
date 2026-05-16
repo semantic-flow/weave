@@ -58,7 +58,7 @@ This release is still early: the daemon and web surfaces are not packaged as sup
 ## Known Limitations
 
 - The supported packaged surface is the local `weave` CLI. Daemon and web surfaces remain scaffolded/deferred.
-- The branch-published fixture repo is often left on `gh-pages` for local preview. The fixture-ladder asset-existence test expects that dependency checkout to be on the asset-bearing source branch, such as `main`, when running the full local test gate.
+- The branch-published fixture repo is often left on `gh-pages` for local preview. Tests should remain meaningful there: generated mesh assertions read generated refs, while deterministic source-asset checks read the asset-bearing source ref.
 - Historical ResourcePage regeneration policy is parsed into effective config, but the full config-at-the-time/current/hybrid regeneration behavior remains follow-up work.
 - Durable next history/state segment hint APIs are not part of this release. Friendly histories and states are available through explicit `historySegment`, `stateSegment`, and `manifestationSegment` request fields.
 - npm publication requires npm organization/package access and a valid publish token or trusted publishing setup.

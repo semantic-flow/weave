@@ -1,4 +1,4 @@
-import { fromFileUrl, join } from "@std/path";
+import { fromFileUrl, isAbsolute, join } from "@std/path";
 import {
   createBinaryBundleMetadata,
   readRootVersion,
@@ -136,7 +136,7 @@ async function buildPlatformBinary(options: {
 }
 
 function resolveRepoPath(repoRoot: string, path: string): string {
-  if (path.startsWith("/")) {
+  if (isAbsolute(path)) {
     return path;
   }
   return join(repoRoot, path);

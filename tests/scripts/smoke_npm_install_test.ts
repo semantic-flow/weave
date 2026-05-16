@@ -11,7 +11,6 @@ import {
 Deno.test("parseSmokeNpmInstallArgs supports root, input, work, and npm overrides", () => {
   assertEquals(
     parseSmokeNpmInstallArgs([
-      "--",
       "--root",
       "/tmp/weave",
       "--input-dir=dist/npm",
@@ -19,6 +18,9 @@ Deno.test("parseSmokeNpmInstallArgs supports root, input, work, and npm override
       "/tmp/smoke",
       "--npm-bin",
       "/usr/bin/npm",
+      "--",
+      "--root",
+      "/ignored",
     ]),
     {
       root: "/tmp/weave",

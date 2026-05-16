@@ -54,6 +54,7 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
     sourceEvidence: {
       sourceLocatedFilePath: "alice-bio.ttl",
       sourceDigest,
+      observedAt: "2026-05-16T12:00:00Z\nmanual review",
     },
     sourceWorkingLocalRelativePath: "alice-bio.ttl",
   });
@@ -102,7 +103,11 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
   assertStringIncludes(
     plan.createdFiles[2]?.contents ?? "",
     `sflo:hasObservedSourceLocatedFile <alice-bio.ttl> ;
-  sflo:observedSourceDigest "${sourceDigest}" .`,
+  sflo:observedSourceDigest "${sourceDigest}" ;`,
+  );
+  assertStringIncludes(
+    plan.createdFiles[2]?.contents ?? "",
+    'sflo:observedAt "2026-05-16T12:00:00Z\\nmanual review" .',
   );
   assertFalse(
     (plan.createdFiles[2]?.contents ?? "").includes(

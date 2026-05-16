@@ -537,6 +537,20 @@ export function resolveResourcePageDefinitionInventoryState(
   };
 }
 
+export function resolveHistoricalStateLocatedFilePath(
+  meshBase: string,
+  inventoryTurtle: string,
+  statePath: string,
+  parseErrorMessage: string,
+): string | undefined {
+  return resolveOptionalHistoricalStateLocatedFilePath(
+    parseInventoryQuads(meshBase, inventoryTurtle, parseErrorMessage),
+    meshBase,
+    statePath,
+    parseErrorMessage,
+  );
+}
+
 export function resolveReferenceTargetDesignatorPath(
   meshBase: string,
   referenceCatalogTurtle: string,

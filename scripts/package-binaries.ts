@@ -1,4 +1,4 @@
-import { fromFileUrl, join } from "@std/path";
+import { fromFileUrl, isAbsolute, join } from "@std/path";
 import {
   type ArchiveEntry,
   createTarGzArchive,
@@ -231,7 +231,7 @@ Run \`${runPrefix}${metadata.executableName} --version\` after extracting on a m
 }
 
 function resolveRootPath(root: string, path: string): string {
-  if (path.startsWith("/")) {
+  if (isAbsolute(path)) {
     return path;
   }
   return join(root, path);

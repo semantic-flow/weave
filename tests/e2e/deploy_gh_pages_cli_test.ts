@@ -1,9 +1,9 @@
 import { assert, assertEquals } from "@std/assert";
-import { join, relative } from "@std/path";
+import { fromFileUrl, join, relative } from "@std/path";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 const repoRoot = new URL("../../", import.meta.url);
-const cliPath = new URL("src/main.ts", repoRoot).pathname;
+const cliPath = fromFileUrl(new URL("src/main.ts", repoRoot));
 
 Deno.test("weave deploy gh-pages bootstraps a publication root as a black-box CLI run", async () => {
   const tempRoot = await createTestTmpDir("weave-e2e-deploy-gh-pages-");
@@ -62,6 +62,25 @@ Deno.test("weave deploy gh-pages bootstraps a publication root as a black-box CL
 
   assert(secondOutput.success, secondStderr);
   assert(secondStdout.includes("already bootstrapped"), secondStdout);
+
+  await Deno.writeTextFile(join(publishRoot, "CNAME"), "old.example.test\n");
+  const thirdOutput = await runCli([
+    "deploy",
+    "gh-pages",
+    "--source-root",
+    sourceRoot,
+    "--publish-root",
+    publishRoot,
+    "--mesh-base",
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    "--cname",
+    "docs.example.test",
+  ]);
+  const thirdStdout = new TextDecoder().decode(thirdOutput.stdout);
+  const thirdStderr = new TextDecoder().decode(thirdOutput.stderr);
+
+  assert(thirdOutput.success, thirdStderr);
+  assert(thirdStdout.includes("CNAME"), thirdStdout);
 });
 
 Deno.test("weave deploy gh-pages updates a clean publication worktree without local log clutter", async () => {
@@ -244,7 +263,7 @@ fantasy:Rule a owl:Class .
     ),
     stdout,
   );
-  assert(stdout.includes("ontology/index.html"), stdout);
+  assert(stdout.includes("ontology/_knop/_inventory/inventory.ttl"), stdout);
   assertEquals(await Deno.readTextFile(join(publishRoot, sourcePath)), source);
   assertEquals(await listRelativeFiles(sourceRoot, ".weave/"), [sourcePath]);
 

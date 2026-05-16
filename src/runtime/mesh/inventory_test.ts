@@ -2,6 +2,7 @@ import { assertEquals, assertThrows } from "@std/assert";
 import {
   listKnopDesignatorPaths,
   resolveExtractionSourceInventoryState,
+  resolveHistoricalStateLocatedFilePath,
   resolveKnopSourceRegistryInventoryState,
   resolvePayloadArtifactInventoryState,
   resolveReferenceCatalogInventoryState,
@@ -115,6 +116,26 @@ Deno.test("resolvePayloadArtifactInventoryState resolves latest payload snapshot
       latestHistoricalSnapshotPath:
         "alice/bio/_history001/_s0002/ttl/alice-bio.ttl",
     },
+  );
+});
+
+Deno.test("resolveHistoricalStateLocatedFilePath resolves non-latest snapshot paths", () => {
+  const inventoryTurtle =
+    `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@base <${MESH_BASE}> .
+
+<alice/bio/_history001/_s0001> sflo:hasManifestation <alice/bio/_history001/_s0001/jsonld> .
+<alice/bio/_history001/_s0001/jsonld> sflo:hasLocatedFile <alice/bio/_history001/_s0001/jsonld/alice.jsonld> .
+`;
+
+  assertEquals(
+    resolveHistoricalStateLocatedFilePath(
+      MESH_BASE,
+      inventoryTurtle,
+      "alice/bio/_history001/_s0001",
+      "Could not parse Knop inventory",
+    ),
+    "alice/bio/_history001/_s0001/jsonld/alice.jsonld",
   );
 });
 

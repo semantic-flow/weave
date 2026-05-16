@@ -1,4 +1,4 @@
-import { fromFileUrl, join } from "@std/path";
+import { fromFileUrl, isAbsolute, join } from "@std/path";
 import {
   createPlatformPackageJson,
   createWrapperPackageJson,
@@ -276,7 +276,7 @@ async function chmodExecutable(path: string): Promise<void> {
 }
 
 function resolveRootPath(root: string, path: string): string {
-  if (path.startsWith("/")) {
+  if (isAbsolute(path)) {
     return path;
   }
   return join(root, path);

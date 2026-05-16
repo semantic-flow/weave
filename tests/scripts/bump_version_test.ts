@@ -34,6 +34,21 @@ Deno.test("parseBumpVersionArgs rejects missing or ambiguous bump modes", () => 
   );
 });
 
+Deno.test("bumpVersion rejects missing or ambiguous bump modes", async () => {
+  const root = await createReleaseRoot("0.1.0");
+
+  await assertRejects(
+    () => bumpVersion({ root }),
+    Error,
+    "Either version or increment must be provided, but not both",
+  );
+  await assertRejects(
+    () => bumpVersion({ root, version: "0.2.0", increment: "minor" }),
+    Error,
+    "Either version or increment must be provided, but not both",
+  );
+});
+
 Deno.test("bumpVersion applies patch, minor, and major increments", async () => {
   const patchRoot = await createReleaseRoot("0.1.0");
   const patch = await bumpVersion({

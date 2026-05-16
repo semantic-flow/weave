@@ -24,7 +24,7 @@ Weave is moving from the `v0.0.2` source-checkpoint release model toward the fir
 - `deno task smoke:npm-install` reads `npm-packages-metadata.json`, runs `npm pack`, installs the wrapper and host platform package tarballs into a temporary project, and verifies `weave --version`.
 - `deno task publish:npm-packages` reads `npm-packages-metadata.json` and publishes platform packages before the wrapper package, with dry-run, dist-tag, and provenance options.
 - `.github/workflows/release-manual.yml` is the primary release path for packaged releases. It builds native binaries on native Linux, Windows, macOS x64, and macOS arm64 runners; packages release archives/checksums; assembles npm packages; smoke-tests npm installation on native runners; optionally dry-runs or publishes npm packages; and optionally drafts or publishes the GitHub Release.
-- GitHub Actions CI and `deno task ci` are the intended quality gates. During local development, remember that fixture tests may depend on sibling fixture checkout state; for example, the branch-published Fantasy Rules asset test expects the `mesh-branch-fantasy-rules` dependency checkout to expose `.assets`, which means using `main` or another source-bearing ref rather than the preview-oriented `gh-pages` checkout.
+- GitHub Actions CI and `deno task ci` are the intended quality gates. Fixture tests that inspect branch-published generated output read explicit Git refs; deterministic source assets are also checked from source-bearing refs so local preview checkouts such as `gh-pages` do not change the test meaning.
 - The manual release workflow defaults to no npm publication and no GitHub Release mutation. Rehearsal and publication both require explicit workflow inputs.
 
 ## Pre-Release
@@ -170,7 +170,7 @@ git fetch --tags origin
 - The `Release Manual` workflow exists, but still needs a real rehearsal run on GitHub Actions before it should be considered battle-tested.
 - The workflow uses `macos-15-intel` for macOS x64 and `macos-latest` for macOS arm64. If GitHub-hosted runner labels change, update the workflow before release.
 - The workflow uses `NPM_TOKEN` plus npm provenance for real package publication. Confirm npm organization settings before first publish.
-- Local fixture tests can fail if dependency fixture checkouts are left on preview/publication branches that do not carry deterministic `.assets`. Switch the relevant fixture checkout back to its source-bearing branch before treating the failure as release code drift.
+- Local fixture tests should be ref-based rather than checkout-state-based. If a fixture test fails only when a sibling fixture checkout is on a preview/publication branch, treat that as a test coupling bug before treating it as release code drift.
 - Release notes are Dendron notes, so any GitHub Release body must omit frontmatter.
 
 ## Future Release Workflow

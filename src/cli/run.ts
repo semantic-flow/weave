@@ -940,11 +940,11 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               for (const path of result.createdPaths) {
                 console.log(path);
               }
+              for (const path of result.updatedPaths) {
+                console.log(path);
+              }
               if (result.materializedSource) {
                 for (const path of result.materializedSource.createdPaths) {
-                  console.log(path);
-                }
-                for (const path of result.materializedSource.updatedPaths) {
                   console.log(path);
                 }
               }

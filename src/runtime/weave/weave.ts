@@ -44,6 +44,7 @@ import {
 import {
   listKnopDesignatorPaths,
   resolveExtractionSourceInventoryState,
+  resolveHistoricalStateLocatedFilePath,
   resolveKnopSourceRegistryInventoryState,
   resolvePayloadArtifactInventoryState,
   resolveReferenceCatalogInventoryState,
@@ -1255,7 +1256,7 @@ async function loadReferenceTargetSourcePayloadArtifact(
   overlay?: ReadonlyMap<string, string>,
 ): Promise<WeaveableKnopCandidate["referenceTargetSourcePayloadArtifact"]> {
   const sourceRegistryArtifact = await loadKnopSourceRegistryArtifact(
-    workspaceRoot,
+    localPathPolicy,
     meshBase,
     designatorPath,
     currentKnopInventoryTurtle,
@@ -1329,15 +1330,19 @@ async function loadReferenceTargetSourcePayloadArtifact(
       `Extracted weave source for ${designatorPath} is missing a pinned target state.`,
     );
   }
-  const selectedHistoricalSnapshotPath =
-    sourcePayloadArtifact.latestHistoricalStatePath ===
+  const selectedHistoricalSnapshotPath = resolveHistoricalStateLocatedFilePath(
+    meshBase,
+    sourceKnopInventoryTurtle,
+    selectedHistoricalStatePath,
+    `Could not parse the source Knop inventory while resolving the extracted source payload snapshot for ${designatorPath}.`,
+  ) ?? (sourcePayloadArtifact.latestHistoricalStatePath ===
         selectedHistoricalStatePath &&
       sourcePayloadArtifact.latestHistoricalSnapshotPath
-      ? sourcePayloadArtifact.latestHistoricalSnapshotPath
-      : toPayloadHistoricalSnapshotPath(
-        selectedHistoricalStatePath,
-        sourcePayloadArtifact.workingLocalRelativePath,
-      );
+    ? sourcePayloadArtifact.latestHistoricalSnapshotPath
+    : toPayloadHistoricalSnapshotPath(
+      selectedHistoricalStatePath,
+      sourcePayloadArtifact.workingLocalRelativePath,
+    ));
   let selectedHistoricalSnapshotTurtle: string | undefined;
   try {
     selectedHistoricalSnapshotTurtle = await readTextFileWithOverlay(
@@ -1381,7 +1386,7 @@ async function loadReferenceTargetSourcePayloadArtifact(
 }
 
 async function loadKnopSourceRegistryArtifact(
-  workspaceRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
   meshBase: string,
   designatorPath: string,
   currentKnopInventoryTurtle: string,
@@ -1406,10 +1411,21 @@ async function loadKnopSourceRegistryArtifact(
     return undefined;
   }
 
-  const sourceRegistryPath = join(
-    workspaceRoot,
-    sourceRegistryState.workingLocalRelativePath,
-  );
+  let sourceRegistryPath: string;
+  try {
+    sourceRegistryPath = resolveAllowedLocalPath(
+      localPathPolicy,
+      "workingLocalRelativePath",
+      sourceRegistryState.workingLocalRelativePath,
+    );
+  } catch (error) {
+    if (error instanceof LocalPathAccessError) {
+      throw new WeaveRuntimeError(
+        `Working Knop source registry file for ${designatorPath} is outside the allowed local-path boundary: ${sourceRegistryState.workingLocalRelativePath}`,
+      );
+    }
+    throw error;
+  }
   try {
     return {
       workingLocalRelativePath: sourceRegistryState.workingLocalRelativePath,
@@ -2109,7 +2125,7 @@ async function loadGenerateDesignatorContexts(
       )
       : [];
     const sourceRegistryArtifact = await loadKnopSourceRegistryArtifact(
-      workspaceRoot,
+      localPathPolicy,
       meshState.meshBase,
       designatorPath,
       currentKnopInventoryTurtle,

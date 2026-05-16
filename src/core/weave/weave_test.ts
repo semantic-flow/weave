@@ -17,13 +17,6 @@ import {
 } from "./weave.ts";
 import { readMeshAliceBioBranchFile } from "../../../tests/support/mesh_alice_bio_fixture.ts";
 
-function withAliceReferenceExtensionManifestation(contents: string): string {
-  return contents.replaceAll(
-    "alice/_knop/_references/_history001/_s0001/ttl",
-    "alice/_knop/_references/_history001/_s0001/ttl",
-  );
-}
-
 function meshMetadataProgressionTurtle(
   latestStatePath: string,
   nextStateOrdinal: number,
@@ -2655,11 +2648,9 @@ Deno.test("planWeave renders the first page-definition weave slice", async () =>
     await compareRdfContent({
       left: new TextEncoder().encode(plan.updatedFiles[0]?.contents ?? ""),
       right: new TextEncoder().encode(
-        withAliceReferenceExtensionManifestation(
-          await readMeshAliceBioBranchFile(
-            "15-alice-page-customized-woven",
-            "alice/_knop/_inventory/inventory.ttl",
-          ),
+        await readMeshAliceBioBranchFile(
+          "15-alice-page-customized-woven",
+          "alice/_knop/_inventory/inventory.ttl",
         ),
       ),
       path: "alice/_knop/_inventory/inventory.ttl",

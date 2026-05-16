@@ -2002,8 +2002,8 @@ function toPropertyObjectHref(term: Quad["object"]): string | undefined {
   if (term.termType !== "Literal") {
     return undefined;
   }
-  if (term.datatype.value !== XSD_ANY_URI_IRI && !isUrlLiteral(term.value)) {
-    return undefined;
+  if (term.datatype.value === XSD_ANY_URI_IRI) {
+    return term.value;
   }
   return isUrlLiteral(term.value) ? term.value : undefined;
 }
@@ -2391,10 +2391,12 @@ function classifyResourcePage(
       `${SFCFG_NAMESPACE}MeshConfig`,
     );
   }
-  if (
-    classifyHistoryComponentResourcePage(resourcePath, historyGroups)
-  ) {
-    return classifyHistoryComponentResourcePage(resourcePath, historyGroups)!;
+  const historyComponentClass = classifyHistoryComponentResourcePage(
+    resourcePath,
+    historyGroups,
+  );
+  if (historyComponentClass) {
+    return historyComponentClass;
   }
   return rdfClass(
     "sflo:DigitalArtifact",
