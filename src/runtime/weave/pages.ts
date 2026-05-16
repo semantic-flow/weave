@@ -51,6 +51,7 @@ interface ResourcePageMetadataRow {
   href?: string;
   value: string;
   html?: string;
+  rowClass?: string;
   tooltip?: string;
 }
 
@@ -609,6 +610,7 @@ ${faviconLink}  <style>
     .wf-metadata tr:first-child th, .wf-metadata tr:first-child td { border-top: 0; }
     .wf-metadata th { width: 180px; color: #4f594f; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0; }
     .wf-metadata td { min-width: 0; overflow-wrap: anywhere; }
+    .wf-metadata tr.wf-source-metadata-row th, .wf-metadata tr.wf-source-metadata-row td { vertical-align: middle; }
     .wf-child-identifiers { display: flex; flex-wrap: wrap; gap: 5px; align-items: baseline; min-width: 0; max-width: 100%; }
     .wf-child-identifier { display: inline-block; padding: 0.08rem 0.36rem; border: 1px solid #cdd8cf; border-radius: 2px; background: #eef3ef; text-decoration: none; white-space: nowrap; }
     .wf-child-identifier:hover, .wf-child-identifier:focus { background: #e0ebe4; border-color: #b8c8bc; }
@@ -769,12 +771,13 @@ function renderMetadataRow(
   const label = row.tooltip
     ? renderTooltipLabel(row.label, row.tooltip)
     : escapeHtml(row.label);
+  const rowClass = row.rowClass ? ` class="${escapeHtml(row.rowClass)}"` : "";
   const value = row.html
     ? row.html
     : row.href
     ? `<a href="${escapeHtml(row.href)}">${escapeHtml(row.value)}</a>`
     : `<span>${escapeHtml(row.value)}</span>`;
-  return `${indent}<tr><th scope="row">${label}</th><td>${value}</td></tr>`;
+  return `${indent}<tr${rowClass}><th scope="row">${label}</th><td>${value}</td></tr>`;
 }
 
 function toKnopMetadataRow(
@@ -865,6 +868,7 @@ function toExtractionSourceSummaryMetadataRows(
   return [{
     label: "Source",
     value: sourceLabel,
+    rowClass: "wf-source-metadata-row",
     html:
       `<div class="wf-source-summary"><span class="wf-source-chain">${sourceHtml}${versionHtml}</span></div>`,
   }];
