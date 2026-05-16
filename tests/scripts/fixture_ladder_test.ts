@@ -530,7 +530,7 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
   );
   assertEquals(plan.scenario.branchPrefix, "a.");
   assertStringIncludes(plan.assetRoot, "mesh-branch-fantasy-rules/.assets");
-  assertEquals(plan.transitions.length, 13);
+  assertEquals(plan.transitions.length, 15);
   assertEquals(plan.transitions[0]?.id, "01-source-only");
   assertEquals(plan.transitions[0]?.fromRef, "a.00-blank-slate");
   assertEquals(plan.transitions[0]?.toRef, "a.01-source-only");
@@ -951,6 +951,90 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
     );
     assertEquals(plan.transitions[12].action.invocations.length, 1);
     assertEquals(plan.transitions[12].action.invocations[0]?.argv, [
+      "--mesh-root",
+      "{publicationRoot}",
+    ]);
+  }
+  assertEquals(plan.transitions[13]?.id, "14-extracted-term-references");
+  assertEquals(
+    plan.transitions[13]?.fromRef,
+    "a.13-all-remaining-terms-woven",
+  );
+  assertEquals(
+    plan.transitions[13]?.toRef,
+    "a.14-extracted-term-references",
+  );
+  assertEquals(plan.transitions[13]?.operationId, "knop.addReference");
+  assertEquals(plan.transitions[13]?.action.kind, "branchPublication");
+  if (plan.transitions[13]?.action.kind === "branchPublication") {
+    assertEquals(
+      plan.transitions[13].action.sourceRef,
+      "a.10-first-release-source",
+    );
+    assertEquals(
+      plan.transitions[13].action.publicationFromRef,
+      "a.13-all-remaining-terms-woven",
+    );
+    assertEquals(plan.transitions[13].action.invocations.length, 3);
+    assertEquals(plan.transitions[13].action.invocations[0]?.argv, [
+      "knop",
+      "add-reference",
+      "ontology/Ability",
+      "--reference-target-designator-path",
+      "ontology",
+      "--reference-role",
+      "Canonical",
+      "--mesh-root",
+      "{publicationRoot}",
+    ]);
+    assertEquals(plan.transitions[13].action.invocations[1]?.argv, [
+      "knop",
+      "add-reference",
+      "ontology/CharacterShape",
+      "--reference-target-designator-path",
+      "shacl",
+      "--reference-role",
+      "Canonical",
+      "--mesh-root",
+      "{publicationRoot}",
+    ]);
+    assertEquals(plan.transitions[13].action.invocations[2]?.argv, [
+      "knop",
+      "add-reference",
+      "examples/gunaar/ability-score/strength",
+      "--reference-target-designator-path",
+      "examples/gunaar",
+      "--reference-role",
+      "Canonical",
+      "--mesh-root",
+      "{publicationRoot}",
+    ]);
+  }
+  assertEquals(
+    plan.transitions[14]?.id,
+    "15-extracted-term-references-woven",
+  );
+  assertEquals(
+    plan.transitions[14]?.fromRef,
+    "a.14-extracted-term-references",
+  );
+  assertEquals(
+    plan.transitions[14]?.toRef,
+    "a.15-extracted-term-references-woven",
+  );
+  assertEquals(plan.transitions[14]?.operationId, "weave");
+  assertEquals(plan.transitions[14]?.action.kind, "branchPublication");
+  if (plan.transitions[14]?.action.kind === "branchPublication") {
+    assertEquals(
+      plan.transitions[14].action.sourceRef,
+      "a.10-first-release-source",
+    );
+    assertEquals(
+      plan.transitions[14].action.publicationFromRef,
+      "a.14-extracted-term-references",
+    );
+    assertEquals(plan.transitions[14].action.invocations.length, 1);
+    assertEquals(plan.transitions[14].action.invocations[0]?.argv, [
       "--mesh-root",
       "{publicationRoot}",
     ]);

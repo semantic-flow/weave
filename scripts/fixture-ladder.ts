@@ -1114,6 +1114,30 @@ export const BRANCH_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
       },
       "weave",
     ),
+    branchPublicationTransition(
+      14,
+      "14-extracted-term-references",
+      "10-first-release-source",
+      {
+        description:
+          "Add curated canonical ReferenceLinks from representative extracted terms to their current source artifacts.",
+        publicationFromRef: "13-all-remaining-terms-woven",
+        publicationBranch: "gh-pages",
+      },
+      "knop.addReference",
+    ),
+    branchPublicationTransition(
+      15,
+      "15-extracted-term-references-woven",
+      "10-first-release-source",
+      {
+        description:
+          "Weave the extracted term ReferenceCatalogs and refresh their ResourcePages.",
+        publicationFromRef: "14-extracted-term-references",
+        publicationBranch: "gh-pages",
+      },
+      "weave",
+    ),
   ],
 };
 

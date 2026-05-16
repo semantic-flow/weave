@@ -1808,7 +1808,6 @@ function resolveCurrentMeshInventoryProgressionForFirstKnopWeave(
   ) {
     throw new WeaveInputError(errorMessage);
   }
-
   assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
     [
       "_mesh/_inventory",
@@ -1988,13 +1987,35 @@ function assertCurrentMeshInventoryShapeForFirstReferenceCatalogWeave(
     errorMessage,
   );
 
+  assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
+    ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_MESH_INVENTORY_IRI],
+    ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
+    ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
+    [knopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
+  ]);
+
+  const historyIri = requireOptionalNamedNodeObject(
+    quads,
+    toAbsoluteIri(meshBase, "_mesh/_inventory"),
+    SFLO_HAS_ARTIFACT_HISTORY_IRI,
+    errorMessage,
+  );
+  if (historyIri === undefined) {
+    return;
+  }
+
   const progression = resolveMeshInventoryProgressionFromMetadata(
     meshBase,
     currentMeshMetadataTurtle,
     errorMessage,
   );
+  const historyPath = toMeshRelativePath(
+    meshBase,
+    historyIri,
+    "the current MeshInventory history",
+  );
   if (
-    progression.historyPath !== "_mesh/_inventory/_history001" ||
+    progression.historyPath !== historyPath ||
     toHistoryPathFromStatePath(progression.latestStatePath) !==
       progression.historyPath ||
     progression.nextStateOrdinal !== progression.latestStateOrdinal + 1
@@ -2003,9 +2024,6 @@ function assertCurrentMeshInventoryShapeForFirstReferenceCatalogWeave(
   }
 
   assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
-    ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_MESH_INVENTORY_IRI],
-    ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
-    ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
     [
       "_mesh/_inventory",
       SFLO_HAS_ARTIFACT_HISTORY_IRI,
@@ -2016,7 +2034,6 @@ function assertCurrentMeshInventoryShapeForFirstReferenceCatalogWeave(
       SFLO_HAS_HISTORICAL_STATE_IRI,
       progression.latestStatePath,
     ],
-    [knopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
   ]);
 }
 

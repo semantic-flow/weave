@@ -81,11 +81,11 @@ Deno.test("branch Fantasy Rules final publication links repository source proven
     const registryPath = `${binding.designatorPath}/_knop/_sources`;
     const sourcesFilePath = `${registryPath}/sources.ttl`;
     const inventory = await readMeshBranchFantasyRulesBranchFile(
-      "13-all-remaining-terms-woven",
+      "15-extracted-term-references-woven",
       `${binding.designatorPath}/_knop/_inventory/inventory.ttl`,
     );
     const sources = await readMeshBranchFantasyRulesBranchFile(
-      "13-all-remaining-terms-woven",
+      "15-extracted-term-references-woven",
       sourcesFilePath,
     );
 
@@ -143,7 +143,7 @@ Deno.test("branch Fantasy Rules final publication has ResourcePages for every so
     "weave-branch-all-terms-pages-",
   );
   await materializeMeshBranchFantasyRulesBranch(
-    "13-all-remaining-terms-woven",
+    "15-extracted-term-references-woven",
     workspaceRoot,
   );
 
@@ -188,6 +188,53 @@ Deno.test("branch Fantasy Rules final publication has ResourcePages for every so
   }
 
   assertEquals(missingPages, []);
+});
+
+Deno.test("branch Fantasy Rules final publication has current canonical references for representative extracted terms", async () => {
+  const references = [
+    {
+      subjectPath: "ontology/Ability",
+      targetPath: "ontology",
+    },
+    {
+      subjectPath: "ontology/CharacterShape",
+      targetPath: "shacl",
+    },
+    {
+      subjectPath: "examples/gunaar/ability-score/strength",
+      targetPath: "examples/gunaar",
+    },
+  ] as const;
+
+  for (const reference of references) {
+    const referenceCatalogPath = `${reference.subjectPath}/_knop/_references`;
+    const referencesTurtle = await readMeshBranchFantasyRulesBranchFile(
+      "15-extracted-term-references-woven",
+      `${referenceCatalogPath}/references.ttl`,
+    );
+    assertStringIncludes(
+      referencesTurtle,
+      `<${reference.subjectPath}> sflo:hasReferenceLink <${referenceCatalogPath}#reference001> .`,
+    );
+    assertStringIncludes(
+      referencesTurtle,
+      `sflo:referenceLinkFor <${reference.subjectPath}>`,
+    );
+    assertStringIncludes(
+      referencesTurtle,
+      "sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_canonical>",
+    );
+    assertStringIncludes(
+      referencesTurtle,
+      `sflo:referenceTarget <${reference.targetPath}>`,
+    );
+    assertFalse(referencesTurtle.includes("sflo:referenceTargetState"));
+
+    await readMeshBranchFantasyRulesBranchFile(
+      "15-extracted-term-references-woven",
+      `${referenceCatalogPath}/index.html`,
+    );
+  }
 });
 
 function meshScopedSourceTermPathsFromQuads(quads: readonly Quad[]): string[] {
