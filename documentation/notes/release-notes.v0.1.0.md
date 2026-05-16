@@ -2,7 +2,7 @@
 id: 42f757dc89584d51810974bb8dede8a0
 title: 'release notes v0.1.0'
 desc: ''
-updated: 1778730578767
+updated: 1778975437247
 created: 1778730578767
 ---
 
@@ -61,11 +61,4 @@ This release is still early: the daemon and web surfaces are not packaged as sup
 - The branch-published fixture repo is often left on `gh-pages` for local preview. Tests should remain meaningful there: generated mesh assertions read generated refs, while deterministic source-asset checks read the asset-bearing source ref.
 - Historical ResourcePage regeneration policy is parsed into effective config, but the full config-at-the-time/current/hybrid regeneration behavior remains follow-up work.
 - Durable next history/state segment hint APIs are not part of this release. Friendly histories and states are available through explicit `historySegment`, `stateSegment`, and `manifestationSegment` request fields.
-- npm publication requires npm organization/package access and a valid publish token or trusted publishing setup.
 
-## Next
-
-- Rehearse the manual release workflow on GitHub Actions.
-- Confirm npm scope ownership and publish credentials.
-- Use `v0.1.0` to build a real branch-published ontology such as URPX and feed any release-blocking ergonomics back into focused follow-up tasks.
-- Continue config work on durable next-segment hints, historical ResourcePage regeneration, and fuller config-source resolution only where real fixture or ontology publication pressure demands it.
