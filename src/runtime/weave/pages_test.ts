@@ -847,10 +847,12 @@ fant:AbilityScore a owl:Class ;
   assertStringIncludes(html, "<summary>Blank Nodes</summary>");
   assertStringIncludes(
     html,
-    '<th scope="row"><span class="wf-term" title="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/hasConstraint">fant:hasConstraint</span></th><td><pre class="wf-blank-node-code"><code>_:',
+    '<th scope="row"><span class="wf-term" title="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/hasConstraint">fant:hasConstraint</span></th><td><pre class="wf-blank-node-code"><code>  ',
   );
+  assertFalse(html.includes("_:"));
   assertStringIncludes(html, "fant:ScoreConstraint");
   assertStringIncludes(html, "fant:minScore &quot;1&quot;^^xsd:integer");
+  assertStringIncludes(html, "fant:reason [");
   assertStringIncludes(html, "minimum score");
 });
 

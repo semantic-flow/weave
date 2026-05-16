@@ -1857,7 +1857,32 @@ function appendBlankNodeCodeBlock(
   }
   visited.add(blankNodeId);
 
-  const subjectQuads = quads
+  const subjectQuads = findBlankNodeSubjectQuads(
+    blankNodeId,
+    quads,
+    prefixMap,
+  );
+  for (const [index, quad] of subjectQuads.entries()) {
+    const terminator = index === subjectQuads.length - 1 ? "." : ";";
+    appendPredicateObjectLines(
+      lines,
+      compactRdfIri(quad.predicate.value, prefixMap),
+      quad.object,
+      terminator,
+      "  ",
+      quads,
+      prefixMap,
+      visited,
+    );
+  }
+}
+
+function findBlankNodeSubjectQuads(
+  blankNodeId: string,
+  quads: readonly Quad[],
+  prefixMap: ReadonlyMap<string, string>,
+): readonly Quad[] {
+  return quads
     .filter((quad) =>
       quad.subject.termType === "BlankNode" &&
       quad.subject.value === blankNodeId
@@ -1870,43 +1895,58 @@ function appendBlankNodeCodeBlock(
         formatRdfTerm(right.object, prefixMap),
       )
     );
-  const subjectLabel = `_:${blankNodeId}`;
+}
 
-  if (subjectQuads.length === 0) {
-    lines.push(`${subjectLabel} .`);
+function appendPredicateObjectLines(
+  lines: string[],
+  predicateLabel: string,
+  object: Quad["object"],
+  terminator: string,
+  indent: string,
+  quads: readonly Quad[],
+  prefixMap: ReadonlyMap<string, string>,
+  visited: Set<string>,
+): void {
+  if (object.termType !== "BlankNode") {
+    lines.push(
+      `${indent}${predicateLabel} ${
+        formatRdfTerm(object, prefixMap)
+      }${terminator}`,
+    );
     return;
   }
 
-  lines.push(subjectLabel);
+  if (visited.has(object.value)) {
+    lines.push(`${indent}${predicateLabel} [ ... ]${terminator}`);
+    return;
+  }
+
+  visited.add(object.value);
+  const subjectQuads = findBlankNodeSubjectQuads(
+    object.value,
+    quads,
+    prefixMap,
+  );
+  if (subjectQuads.length === 0) {
+    lines.push(`${indent}${predicateLabel} []${terminator}`);
+    return;
+  }
+
+  lines.push(`${indent}${predicateLabel} [`);
   for (const [index, quad] of subjectQuads.entries()) {
-    const terminator = index === subjectQuads.length - 1 ? "." : ";";
-    lines.push(
-      `  ${compactRdfIri(quad.predicate.value, prefixMap)} ${
-        formatRdfTerm(quad.object, prefixMap)
-      }${terminator}`,
+    const nestedTerminator = index === subjectQuads.length - 1 ? "" : ";";
+    appendPredicateObjectLines(
+      lines,
+      compactRdfIri(quad.predicate.value, prefixMap),
+      quad.object,
+      nestedTerminator,
+      `${indent}  `,
+      quads,
+      prefixMap,
+      visited,
     );
   }
-
-  const nestedBlankNodeIds = subjectQuads
-    .map((quad) => quad.object)
-    .filter((term): term is Extract<Term, { termType: "BlankNode" }> =>
-      term.termType === "BlankNode"
-    )
-    .map((term) => term.value)
-    .filter((value, index, values) => values.indexOf(value) === index);
-
-  for (const nestedBlankNodeId of nestedBlankNodeIds) {
-    if (!visited.has(nestedBlankNodeId)) {
-      lines.push("");
-      appendBlankNodeCodeBlock(
-        nestedBlankNodeId,
-        quads,
-        prefixMap,
-        lines,
-        visited,
-      );
-    }
-  }
+  lines.push(`${indent}]${terminator}`);
 }
 
 function formatRdfTerm(
@@ -1917,7 +1957,7 @@ function formatRdfTerm(
     return compactRdfIri(term.value, prefixMap);
   }
   if (term.termType === "BlankNode") {
-    return `_:${term.value}`;
+    return "[]";
   }
   if (term.termType === "Literal") {
     return formatRdfLiteral(term, prefixMap);
