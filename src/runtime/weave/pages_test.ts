@@ -114,7 +114,7 @@ Deno.test("renderResourcePage renders identifier extraction source metadata", as
   );
   assertStringIncludes(
     html,
-    '<tr><th scope="row">Source</th><td><div class="wf-source-summary"><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology">ontology</a></div></td></tr>',
+    '<tr><th scope="row">Source</th><td><div class="wf-source-summary"><span class="wf-source-chain"><a class="wf-source-root" href="/mesh-sidecar-fantasy-rules/ontology">ontology</a></span></div></td></tr>',
   );
   assertStringIncludes(
     html,
@@ -145,7 +145,7 @@ Deno.test("renderResourcePage includes pinned source state in extraction source 
   assertFalse(html.includes(`<summary>Semantic Flow metadata</summary>`));
   assertStringIncludes(
     html,
-    '<tr><th scope="row">Source</th><td><div class="wf-source-summary"><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology">ontology</a><span class="wf-source-detail">state <a href="/mesh-sidecar-fantasy-rules/ontology/releases/v0.0.2">ontology/releases/v0.0.2</a></span></div></td></tr>',
+    '<tr><th scope="row">Source</th><td><div class="wf-source-summary"><span class="wf-source-chain"><a class="wf-source-root" href="/mesh-sidecar-fantasy-rules/ontology">ontology</a><span class="wf-source-version-chain"><a class="wf-source-version-history" href="/mesh-sidecar-fantasy-rules/ontology/releases">releases</a><a class="wf-source-version" href="/mesh-sidecar-fantasy-rules/ontology/releases/v0.0.2">v0.0.2</a></span></span></div></td></tr>',
   );
 });
 

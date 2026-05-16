@@ -620,7 +620,13 @@ ${faviconLink}  <style>
     .wf-child-identifiers-more > summary::-webkit-details-marker { display: none; }
     .wf-child-identifiers-more > summary::marker { content: ""; }
     .wf-source-summary { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; min-width: 0; }
-    .wf-source-detail { color: #5e675d; font-size: 0.92rem; }
+    .wf-source-chain { display: inline-flex; flex-wrap: wrap; align-items: stretch; max-width: 100%; border: 1px solid #c3d1c7; border-radius: 4px; background: #eef3ef; overflow: hidden; }
+    .wf-source-chain a { display: inline-flex; align-items: center; max-width: 100%; min-width: 0; padding: 0.16rem 0.48rem; text-decoration: none; white-space: nowrap; }
+    .wf-source-root { font-weight: 750; }
+    .wf-source-version-chain { display: inline-flex; align-items: stretch; max-width: 100%; min-width: 0; border-left: 1px solid #c3d1c7; background: #e2ebe5; }
+    .wf-source-version-chain a + a { border-left: 1px solid #c3d1c7; }
+    .wf-source-version { background: #f8fbf8; }
+    .wf-source-chain a:hover, .wf-source-chain a:focus { background: #dce8e0; }
     .wf-term { cursor: help; border-bottom: 1px dotted currentColor; }
     .wf-date-tip { position: relative; display: inline-block; }
     .wf-date-tip::after { content: attr(data-tooltip); position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); opacity: 0; pointer-events: none; background: rgba(27, 32, 27, 0.94); color: #fff; border-radius: 5px; padding: 5px 7px; font-size: 0.78rem; white-space: nowrap; transition: opacity 120ms ease; }
@@ -844,32 +850,72 @@ function toExtractionSourceSummaryMetadataRows(
     extractionSource.sourceArtifactPath,
     meshLabel,
   );
-  const sourceHtml = `<a class="wf-child-identifier" href="${
+  const sourceHtml = `<a class="wf-source-root" href="${
     escapeHtml(sourceHref)
   }">${escapeHtml(sourceLabel)}</a>`;
-  const stateHtml = extractionSource.requestedTargetStatePath
-    ? `<span class="wf-source-detail">state <a href="${
-      escapeHtml(
-        toMeshResourceHref(
-          meshRootHref,
-          extractionSource.requestedTargetStatePath,
-        ),
-      )
-    }">${
-      escapeHtml(
-        toDisplayDesignatorPath(
-          extractionSource.requestedTargetStatePath,
-          meshLabel,
-        ),
-      )
-    }</a></span>`
+  const versionHtml = extractionSource.requestedTargetStatePath
+    ? renderExtractionSourceVersionChain(
+      meshRootHref,
+      extractionSource.sourceArtifactPath,
+      extractionSource.requestedTargetStatePath,
+    )
     : "";
 
   return [{
     label: "Source",
     value: sourceLabel,
-    html: `<div class="wf-source-summary">${sourceHtml}${stateHtml}</div>`,
+    html:
+      `<div class="wf-source-summary"><span class="wf-source-chain">${sourceHtml}${versionHtml}</span></div>`,
   }];
+}
+
+function renderExtractionSourceVersionChain(
+  meshRootHref: string,
+  sourceArtifactPath: string,
+  requestedTargetStatePath: string,
+): string {
+  const stateHref = toMeshResourceHref(meshRootHref, requestedTargetStatePath);
+  const statePath = toExtractionSourceStatePath(
+    sourceArtifactPath,
+    requestedTargetStatePath,
+  );
+  const historyHtml = statePath.historyPath
+    ? `<a class="wf-source-version-history" href="${
+      escapeHtml(toMeshResourceHref(meshRootHref, statePath.historyPath))
+    }">${escapeHtml(statePath.historyLabel)}</a>`
+    : "";
+
+  return `<span class="wf-source-version-chain">${historyHtml}<a class="wf-source-version" href="${
+    escapeHtml(stateHref)
+  }">${escapeHtml(statePath.stateLabel)}</a></span>`;
+}
+
+function toExtractionSourceStatePath(
+  sourceArtifactPath: string,
+  requestedTargetStatePath: string,
+): {
+  historyLabel: string;
+  historyPath?: string;
+  stateLabel: string;
+} {
+  const sourcePrefix = `${sourceArtifactPath}/`;
+  const isSourceRelative = requestedTargetStatePath.startsWith(sourcePrefix);
+  const stateSegments = isSourceRelative
+    ? requestedTargetStatePath.slice(sourcePrefix.length).split("/")
+    : requestedTargetStatePath.split("/");
+  const stateLabel = stateSegments.at(-1) ?? requestedTargetStatePath;
+  const historySegments = stateSegments.slice(0, -1);
+  const historyPath = historySegments.length === 0
+    ? undefined
+    : isSourceRelative
+    ? `${sourceArtifactPath}/${historySegments.join("/")}`
+    : historySegments.join("/");
+
+  return {
+    historyLabel: historySegments.join("/"),
+    ...(historyPath ? { historyPath } : {}),
+    stateLabel,
+  };
 }
 
 function toChildIdentifierMetadataRows(
