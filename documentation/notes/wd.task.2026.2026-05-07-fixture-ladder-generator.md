@@ -287,7 +287,8 @@ The first scenario-definition format should therefore support both `command` ste
 - [x] Confirm Alice Bio's current-mode extraction provenance is not the sidecar local-path mistake: `alice-bio.ttl` is modeled as an in-mesh `LocatedFile`, while sidecar source files outside `docs/` use `sflo:observedSourceLocalRelativePath` plus `sflo:observedSourceDigest`.
 - [x] Add Sidecar Fantasy Rules `16-all-remaining-terms-extracted` and `17-all-remaining-terms-woven`, regenerate and push both `a.` refs, and cover the final branch with an integration test that every mesh-scoped non-file source IRI has a ResourcePage.
 - [x] Fix broad weave candidate detection so settled current-only support Knops with existing ResourcePages are skipped instead of being retried as first-weave candidates.
-- [ ] Add branch-published Fantasy Rules fixture coverage in a separate repository after the sidecar ladder is replayable and green.
+- [x] Add branch-published Fantasy Rules fixture coverage in a separate repository after the sidecar ladder is replayable and green.
+- [x] Regenerate and push Branch Fantasy Rules `a.05` through `a.15`, Sidecar Fantasy Rules `a.08` through `a.17`, and Alice Bio `a.12` through `a.25` after extraction-source provenance settled in `_knop/_sources` and ResourcePage generation learned to preserve ancestor history roles on exact-target release-state pages.
 - [ ] Update Accord manifests, fixture-backed Weave tests, and conformance expectations after generated branches are rerung for the combined enum/config changes.
 - [ ] Record the expected workflow for large ontology/config churn: update manifests, run generator, inspect generated branch diffs, run fixture tests, commit/push branch updates intentionally.
 - [x] Update [[wd.task.2026.2026-05-06-grand-config-synthesis]] to reference this task as the intended fixture regeneration path before the config-driven fixture rebuild.
