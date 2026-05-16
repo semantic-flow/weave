@@ -4,6 +4,7 @@ import type {
   ResourcePageHistoryGroupModel,
   ResourcePageModel,
   ResourcePageRawSourcePanelModel,
+  ResourcePageReferenceLinkModel,
 } from "../../core/weave/weave.ts";
 import { Parser, type Quad } from "n3";
 import { codeToHtml } from "shiki";
@@ -40,6 +41,8 @@ interface ResourcePageRenderInput {
   rdfClasses: readonly ResourcePageRdfClass[];
   metadataRows: readonly ResourcePageMetadataRow[];
   childrenRows: readonly ResourcePageMetadataRow[];
+  propertyRows: readonly ResourcePagePropertyRow[];
+  referenceGroups: readonly ResourcePageReferenceGroup[];
   includeSemanticFlowMetadata: boolean;
   semanticFlowMetadataRows: readonly ResourcePageMetadataRow[];
   historyGroups: readonly ResourcePageHistoryGroupModel[];
@@ -54,6 +57,23 @@ interface ResourcePageMetadataRow {
   html?: string;
   rowClass?: string;
   tooltip?: string;
+}
+
+interface ResourcePagePropertyRow {
+  predicateLabel: string;
+  predicateHref: string;
+  value: string;
+  valueHref?: string;
+}
+
+interface ResourcePageReferenceGroup {
+  label: string;
+  links: readonly ResourcePageReferenceTargetLink[];
+}
+
+interface ResourcePageReferenceTargetLink {
+  href: string;
+  label: string;
 }
 
 interface ResourcePageBreadcrumb {
@@ -112,6 +132,7 @@ const SKOS_PREF_LABEL_IRI = "http://www.w3.org/2004/02/skos/core#prefLabel";
 const SHACL_NODE_SHAPE_IRI = "http://www.w3.org/ns/shacl#NodeShape";
 const SHACL_PROPERTY_SHAPE_IRI = "http://www.w3.org/ns/shacl#PropertyShape";
 const SHACL_SHAPE_IRI = "http://www.w3.org/ns/shacl#Shape";
+const XSD_ANY_URI_IRI = "http://www.w3.org/2001/XMLSchema#anyURI";
 const SCHEMA_CHARACTER_NAME_IRIS = [
   "https://schema.org/characterName",
   "http://schema.org/characterName",
@@ -142,6 +163,7 @@ const RDF_DESCRIPTION_PREDICATE_IRIS = [
   RDFS_COMMENT_IRI,
   SKOS_DEFINITION_IRI,
 ] as const;
+const REFERENCE_ROLE_ORDER = ["canonical", "supplemental", "deprecated"];
 
 const defaultResourcePageTheme: ResourcePageTheme = {
   render: renderDefaultResourcePage,
@@ -323,6 +345,8 @@ function toDefaultResourcePageRenderInput(
         page.childIdentifiers ?? [],
         sourcePanelsForFacts,
       ),
+      propertyRows: extractPropertyRows(canonical, sourcePanelsForFacts),
+      referenceGroups: toReferenceGroups(page.references ?? []),
       includeSemanticFlowMetadata,
       semanticFlowMetadataRows: [
         toKnopMetadataRow(meshRootHref, meshLabel, resourcePath),
@@ -400,6 +424,8 @@ function toDefaultResourcePageRenderInput(
       ],
       metadataRows: [{ label: "Canonical IRI", value: canonical }],
       childrenRows: [],
+      propertyRows: extractPropertyRows(canonical, page.rawSourcePanels ?? []),
+      referenceGroups: [],
       includeSemanticFlowMetadata,
       semanticFlowMetadataRows: [],
       historyGroups: page.historyGroups ?? [],
@@ -472,6 +498,8 @@ function toDefaultResourcePageRenderInput(
         page.childIdentifiers ?? [],
         [],
       ),
+      propertyRows: [],
+      referenceGroups: [],
       includeSemanticFlowMetadata,
       semanticFlowMetadataRows: [],
       historyGroups: [],
@@ -514,6 +542,8 @@ function toDefaultResourcePageRenderInput(
       page.childIdentifiers ?? [],
       page.rawSourcePanels ?? [],
     ),
+    propertyRows: extractPropertyRows(canonical, page.rawSourcePanels ?? []),
+    referenceGroups: [],
     includeSemanticFlowMetadata,
     semanticFlowMetadataRows: [],
     historyGroups: page.historyGroups ?? [],
@@ -566,6 +596,8 @@ async function renderDefaultResourcePage(
     : "";
   const metadata = renderMetadataTable(input.metadataRows, 8);
   const childrenSection = renderChildrenSection(input.childrenRows);
+  const propertiesSection = renderPropertiesSection(input.propertyRows);
+  const referencesSection = renderReferencesSection(input.referenceGroups);
   const semanticFlowMetadataSection = input.includeSemanticFlowMetadata
     ? renderSemanticFlowMetadataSection(input.semanticFlowMetadataRows)
     : "";
@@ -648,6 +680,12 @@ ${faviconLink}  <style>
     summary { cursor: pointer; padding: 12px 14px; font-weight: 750; }
     .wf-children { padding-bottom: 12px; }
     .wf-children .wf-metadata { margin-top: 0; border-bottom: 0; }
+    .wf-properties { padding-bottom: 12px; }
+    .wf-properties .wf-metadata { margin-top: 0; border-bottom: 0; }
+    .wf-references { padding-bottom: 12px; }
+    .wf-reference-groups { display: grid; gap: 8px; padding: 0 14px 4px; }
+    .wf-reference-group { background: #f8faf7; border-color: #d5dbd3; }
+    .wf-reference-group ul { padding: 0 14px 12px 1.6rem; }
     .wf-history { padding-bottom: 12px; }
     .wf-history-tree { display: grid; gap: 10px; padding: 0 14px 4px; }
     .wf-history-node { border: 1px solid #d5dbd3; border-radius: 8px; padding: 10px; }
@@ -691,7 +729,7 @@ ${meshFavicon}
 ${classes}${summary}${metadata}
         </div>
       </header>
-${childrenSection}${historySection}${
+${childrenSection}${propertiesSection}${referencesSection}${historySection}${
     sections ? `${sections}\n` : ""
   }${rawSections}${semanticFlowMetadataSection}
     </article>
@@ -780,6 +818,67 @@ function renderChildrenSection(
       <details class="wf-children" open>
         <summary>Children</summary>
 ${renderMetadataTable(rows, 8)}      </details>
+    </section>
+`;
+}
+
+function renderPropertiesSection(
+  rows: readonly ResourcePagePropertyRow[],
+): string {
+  if (rows.length === 0) {
+    return "";
+  }
+
+  const metadataRows = rows.map((row) => ({
+    label: row.predicateLabel,
+    tooltip: row.predicateHref,
+    value: row.value,
+    ...(row.valueHref
+      ? {
+        html: `<a href="${escapeHtml(row.valueHref)}">${
+          escapeHtml(row.value)
+        }</a>`,
+      }
+      : {}),
+  }));
+
+  return `    <section class="wf-section">
+      <details class="wf-properties">
+        <summary>Properties</summary>
+${renderMetadataTable(metadataRows, 8)}      </details>
+    </section>
+`;
+}
+
+function renderReferencesSection(
+  groups: readonly ResourcePageReferenceGroup[],
+): string {
+  if (groups.length === 0) {
+    return "";
+  }
+
+  const renderedGroups = groups.map((group) =>
+    `        <details class="wf-reference-group" open>
+          <summary>${escapeHtml(group.label)}</summary>
+          <ul>
+${
+      group.links.map((link) =>
+        `            <li><a href="${escapeHtml(link.href)}">${
+          escapeHtml(link.label)
+        }</a></li>`
+      ).join("\n")
+    }
+          </ul>
+        </details>`
+  ).join("\n");
+
+  return `    <section class="wf-section">
+      <details class="wf-references">
+        <summary>References</summary>
+        <div class="wf-reference-groups">
+${renderedGroups}
+        </div>
+      </details>
     </section>
 `;
 }
@@ -1603,6 +1702,128 @@ function extractRdfFacts(
       left.label.localeCompare(right.label)
     ),
   };
+}
+
+function extractPropertyRows(
+  canonical: string,
+  rawSourcePanels: readonly ResourcePageRawSourcePanelModel[],
+): readonly ResourcePagePropertyRow[] {
+  const prefixMap = collectPrefixMap(rawSourcePanels);
+  const quads = rawSourcePanels.flatMap((panel) =>
+    panel.contents ? parseRdfPanel(canonical, panel.contents) : []
+  );
+  const rows = new Map<string, ResourcePagePropertyRow>();
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.subject.value !== canonical
+    ) {
+      continue;
+    }
+
+    const predicateLabel = compactRdfIri(quad.predicate.value, prefixMap);
+    const value = toPropertyObjectDisplayValue(quad.object, prefixMap);
+    const valueHref = toPropertyObjectHref(quad.object);
+    const row = {
+      predicateLabel,
+      predicateHref: quad.predicate.value,
+      value,
+      ...(valueHref ? { valueHref } : {}),
+    };
+    rows.set(
+      `${quad.predicate.value}\u0000${value}\u0000${valueHref ?? ""}`,
+      row,
+    );
+  }
+
+  return [...rows.values()].sort((left, right) =>
+    left.predicateLabel.localeCompare(right.predicateLabel) ||
+    left.value.localeCompare(right.value)
+  );
+}
+
+function toPropertyObjectDisplayValue(
+  term: Quad["object"],
+  prefixMap: ReadonlyMap<string, string>,
+): string {
+  if (term.termType === "NamedNode") {
+    return compactRdfIri(term.value, prefixMap);
+  }
+  if (term.termType === "BlankNode") {
+    return `_:${term.value}`;
+  }
+  if (term.termType === "Literal") {
+    return term.value;
+  }
+  return term.value;
+}
+
+function toPropertyObjectHref(term: Quad["object"]): string | undefined {
+  if (term.termType === "NamedNode") {
+    return term.value;
+  }
+  if (term.termType !== "Literal") {
+    return undefined;
+  }
+  if (term.datatype.value !== XSD_ANY_URI_IRI && !isUrlLiteral(term.value)) {
+    return undefined;
+  }
+  return isUrlLiteral(term.value) ? term.value : undefined;
+}
+
+function isUrlLiteral(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function toReferenceGroups(
+  references: readonly ResourcePageReferenceLinkModel[],
+): readonly ResourcePageReferenceGroup[] {
+  const linksByRole = new Map<
+    string,
+    Map<string, ResourcePageReferenceTargetLink>
+  >();
+
+  for (const reference of references) {
+    const roleLabel = reference.roleLabel.trim() || "other";
+    const normalizedRole = roleLabel.toLowerCase();
+    const links = linksByRole.get(normalizedRole) ?? new Map();
+
+    for (const target of reference.targets) {
+      links.set(target.href, {
+        href: target.href,
+        label: target.label,
+      });
+    }
+
+    linksByRole.set(normalizedRole, links);
+  }
+
+  return [...linksByRole].sort(([left], [right]) => {
+    const leftIndex = REFERENCE_ROLE_ORDER.indexOf(left);
+    const rightIndex = REFERENCE_ROLE_ORDER.indexOf(right);
+    if (leftIndex !== -1 || rightIndex !== -1) {
+      return (leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex) -
+        (rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex);
+    }
+    return left.localeCompare(right);
+  }).map(([roleLabel, links]) => ({
+    label: toTitleCase(roleLabel),
+    links: [...links.values()].sort((left, right) =>
+      left.label.localeCompare(right.label)
+    ),
+  })).filter((group) => group.links.length > 0);
+}
+
+function toTitleCase(value: string): string {
+  return value.length === 0
+    ? value
+    : `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`;
 }
 
 function extractFragmentSections(

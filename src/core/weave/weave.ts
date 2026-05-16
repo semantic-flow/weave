@@ -210,6 +210,7 @@ export interface IdentifierResourcePageModel {
   designatorPath: string;
   workingLocalRelativePath?: string;
   extractionSource?: ResourcePageExtractionSourceModel;
+  references?: readonly ResourcePageReferenceLinkModel[];
   childIdentifiers?: readonly ResourcePageChildIdentifierModel[];
   historyGroups?: readonly ResourcePageHistoryGroupModel[];
   rawSourcePanels?: readonly ResourcePageRawSourcePanelModel[];
@@ -288,6 +289,16 @@ export interface ResourcePageChildIdentifierModel {
   label: string;
   path: string;
   rdfTypes?: readonly string[];
+}
+
+export interface ResourcePageReferenceTargetModel {
+  href: string;
+  label: string;
+}
+
+export interface ResourcePageReferenceLinkModel {
+  roleLabel: string;
+  targets: readonly ResourcePageReferenceTargetModel[];
 }
 
 export interface ResourcePageHistoryStateModel {

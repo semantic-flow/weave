@@ -4,6 +4,7 @@ import {
   formatDesignatorPathForDisplay,
   toDesignatorResourcePagePath,
   toKnopPath,
+  toReferenceCatalogPath,
 } from "../../core/designator_segments.ts";
 import type { PlannedFile } from "../../core/planned_file.ts";
 import {
@@ -27,6 +28,8 @@ import {
   type ResourcePageHistoryGroupModel,
   type ResourcePageModel,
   type ResourcePageRawSourcePanelModel,
+  type ResourcePageReferenceLinkModel,
+  type ResourcePageReferenceTargetModel,
   type ValidateRequest,
   type VersionPlan,
   type VersionRequest,
@@ -45,7 +48,6 @@ import {
   resolvePayloadArtifactInventoryState,
   resolveReferenceCatalogInventoryState,
   resolveResourcePageDefinitionInventoryState,
-  tryResolveReferenceTargetLinkState,
 } from "../mesh/inventory.ts";
 import {
   loadOperationalLocalPathPolicy,
@@ -97,10 +99,19 @@ const SFLO_HAS_KNOP_METADATA_IRI = `${SFLO_NAMESPACE}hasKnopMetadata`;
 const SFLO_HAS_KNOP_INVENTORY_IRI = `${SFLO_NAMESPACE}hasKnopInventory`;
 const SFLO_HAS_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasPayloadArtifact`;
 const SFLO_HAS_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}hasReferenceCatalog`;
+const SFLO_HAS_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}hasReferenceLink`;
+const SFLO_HAS_REFERENCE_ROLE_IRI = `${SFLO_NAMESPACE}hasReferenceRole`;
 const SFLO_HAS_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}hasExtractionSource`;
 const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
   `${SFLO_NAMESPACE}hasWorkingLocatedFile`;
 const SFLO_WORKING_FILE_PATH_IRI = `${SFLO_NAMESPACE}workingLocalRelativePath`;
+const SFLO_REFERENCE_LINK_FOR_IRI = `${SFLO_NAMESPACE}referenceLinkFor`;
+const SFLO_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}ReferenceLink`;
+const SFLO_REFERENCE_ROLE_CANONICAL_IRI =
+  `${SFLO_NAMESPACE}referenceRole_canonical`;
+const SFLO_REFERENCE_TARGET_IRI = `${SFLO_NAMESPACE}referenceTarget`;
+const SFLO_REFERENCE_TARGET_STATE_IRI = `${SFLO_NAMESPACE}referenceTargetState`;
+const SFLO_REFERENCE_URI_LITERAL_IRI = `${SFLO_NAMESPACE}referenceUriLiteral`;
 const SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI =
   `${SFLO_NAMESPACE}hasResourcePageDefinition`;
 const SFLO_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFLO_NAMESPACE}hasKnopAssetBundle`;
@@ -197,6 +208,7 @@ interface GenerateDesignatorContext {
   designatorPath: string;
   payloadWorkingLocalRelativePath?: string;
   extractionSource?: ResourcePageExtractionSourceModel;
+  references: readonly ResourcePageReferenceLinkModel[];
   governedArtifacts: readonly KnopArtifactLinkModel[];
   supportingArtifacts: readonly KnopArtifactLinkModel[];
   pagePaths: readonly string[];
@@ -210,6 +222,13 @@ interface GenerateDesignatorContext {
     string,
     readonly ResourcePageRawSourcePanelModel[]
   >;
+}
+
+interface ParsedResourceReferenceLink {
+  roleIris: readonly string[];
+  model: ResourcePageReferenceLinkModel;
+  referenceTargetPaths: readonly string[];
+  referenceTargetStatePaths: readonly string[];
 }
 
 const RAW_SOURCE_INLINE_BYTE_LIMIT = 1024 * 1024;
@@ -1736,6 +1755,7 @@ async function collectGeneratedPageFiles(
           workingLocalRelativePath:
             publicContext.payloadWorkingLocalRelativePath,
           extractionSource: publicContext.extractionSource,
+          references: publicContext.references,
           childIdentifiers: childIdentifiersByResourcePath.get(
             resourcePath,
           ),
@@ -2061,6 +2081,13 @@ async function loadGenerateDesignatorContexts(
       designatorPath,
       currentKnopInventoryTurtle,
     );
+    const referenceLinks = referenceCatalogArtifact
+      ? extractResourceReferenceLinks(
+        meshState.meshBase,
+        designatorPath,
+        referenceCatalogArtifact.currentReferenceCatalogTurtle,
+      )
+      : [];
     const sourceRegistryArtifact = await loadKnopSourceRegistryArtifact(
       workspaceRoot,
       meshState.meshBase,
@@ -2143,6 +2170,7 @@ async function loadGenerateDesignatorContexts(
           },
         }
         : {}),
+      references: referenceLinks.map((link) => link.model),
       ...artifactLinks,
       customIdentifierPage,
       historyGroupsByResourcePath: collectHistoryGroupsByResourcePath(
@@ -2181,7 +2209,7 @@ async function loadGenerateDesignatorContexts(
         localPathPolicy,
         meshState.meshBase,
         designatorPath,
-        referenceCatalogArtifact,
+        referenceLinks,
       );
     }
     await addSupportArtifactRawSourcePanels(
@@ -2295,6 +2323,205 @@ function collectKnopArtifactLinks(
       ],
     ),
   };
+}
+
+function extractResourceReferenceLinks(
+  meshBase: string,
+  designatorPath: string,
+  referenceCatalogTurtle: string,
+): readonly ParsedResourceReferenceLink[] {
+  const quads = parseInventoryQuads(
+    meshBase,
+    referenceCatalogTurtle,
+    `Could not parse the current ReferenceCatalog while collecting references for ${designatorPath}.`,
+  );
+  const referenceCatalogIri = new URL(
+    toReferenceCatalogPath(designatorPath),
+    meshBase,
+  ).href;
+  const linkSubjectPrefix = `${referenceCatalogIri}#`;
+  const designatorIri = new URL(designatorPath, meshBase).href;
+  const linkSubjects = new Set<string>();
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      !quad.subject.value.startsWith(linkSubjectPrefix)
+    ) {
+      continue;
+    }
+
+    const subjectIri = quad.subject.value;
+    if (
+      hasNamedNodeObject(
+        quads,
+        subjectIri,
+        RDF_TYPE_IRI,
+        SFLO_REFERENCE_LINK_IRI,
+      ) &&
+      hasNamedNodeObject(
+        quads,
+        subjectIri,
+        SFLO_REFERENCE_LINK_FOR_IRI,
+        designatorIri,
+      ) &&
+      hasNamedNodeObject(
+        quads,
+        designatorIri,
+        SFLO_HAS_REFERENCE_LINK_IRI,
+        subjectIri,
+      )
+    ) {
+      linkSubjects.add(subjectIri);
+    }
+  }
+
+  const links: ParsedResourceReferenceLink[] = [];
+  for (const subjectIri of [...linkSubjects].sort()) {
+    const roleIris = findNamedNodeObjects(
+      quads,
+      subjectIri,
+      SFLO_HAS_REFERENCE_ROLE_IRI,
+    );
+    const referenceTargetIris = findNamedNodeObjects(
+      quads,
+      subjectIri,
+      SFLO_REFERENCE_TARGET_IRI,
+    );
+    const referenceTargetStateIris = findNamedNodeObjects(
+      quads,
+      subjectIri,
+      SFLO_REFERENCE_TARGET_STATE_IRI,
+    );
+    const uriLiteralTargets = findLiteralObjects(
+      quads,
+      subjectIri,
+      SFLO_REFERENCE_URI_LITERAL_IRI,
+    );
+    const targets = toResourcePageReferenceTargets([
+      ...referenceTargetIris,
+      ...referenceTargetStateIris,
+      ...uriLiteralTargets,
+    ]);
+
+    if (roleIris.length === 0 || targets.length === 0) {
+      continue;
+    }
+
+    const referenceTargetPaths = referenceTargetIris.flatMap((iri) => {
+      const meshPath = toMeshPath(meshBase, iri);
+      return meshPath === undefined ? [] : [meshPath];
+    });
+    const referenceTargetStatePaths = referenceTargetStateIris.flatMap(
+      (iri) => {
+        const meshPath = toMeshPath(meshBase, iri);
+        return meshPath === undefined ? [] : [meshPath];
+      },
+    );
+
+    for (const roleIri of roleIris) {
+      links.push({
+        roleIris: [roleIri],
+        model: {
+          roleLabel: toReferenceRoleLabel(roleIri),
+          targets,
+        },
+        referenceTargetPaths,
+        referenceTargetStatePaths,
+      });
+    }
+  }
+
+  return links;
+}
+
+function toResourcePageReferenceTargets(
+  values: readonly string[],
+): readonly ResourcePageReferenceTargetModel[] {
+  const targets = new Map<string, ResourcePageReferenceTargetModel>();
+
+  for (const value of values) {
+    targets.set(value, {
+      href: value,
+      label: value,
+    });
+  }
+
+  return [...targets.values()].sort((left, right) =>
+    left.label.localeCompare(right.label)
+  );
+}
+
+function hasNamedNodeObject(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+  objectIri: string,
+): boolean {
+  return quads.some((quad) =>
+    quad.subject.termType === "NamedNode" &&
+    quad.subject.value === subjectIri &&
+    quad.predicate.value === predicateIri &&
+    quad.object.termType === "NamedNode" &&
+    quad.object.value === objectIri
+  );
+}
+
+function findNamedNodeObjects(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+): readonly string[] {
+  const values = new Set<string>();
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType === "NamedNode" &&
+      quad.subject.value === subjectIri &&
+      quad.predicate.value === predicateIri &&
+      quad.object.termType === "NamedNode"
+    ) {
+      values.add(quad.object.value);
+    }
+  }
+
+  return [...values].sort();
+}
+
+function findLiteralObjects(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+): readonly string[] {
+  const values = new Set<string>();
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType === "NamedNode" &&
+      quad.subject.value === subjectIri &&
+      quad.predicate.value === predicateIri &&
+      quad.object.termType === "Literal"
+    ) {
+      values.add(quad.object.value);
+    }
+  }
+
+  return [...values].sort();
+}
+
+function toReferenceRoleLabel(referenceRoleIri: string): string {
+  const localName = toLastIriSegment(referenceRoleIri);
+  const referenceRolePrefix = "referenceRole_";
+  return localName.startsWith(referenceRolePrefix)
+    ? localName.slice(referenceRolePrefix.length)
+    : localName;
+}
+
+function toLastIriSegment(iri: string): string {
+  const hashIndex = iri.lastIndexOf("#");
+  const slashIndex = iri.lastIndexOf("/");
+  const index = Math.max(hashIndex, slashIndex);
+  return index === -1 ? iri : iri.slice(index + 1);
 }
 
 function collectKnopArtifactLinksForPredicates(
@@ -2469,32 +2696,52 @@ async function addPayloadRawSourcePanels(
 async function addReferenceTargetSourceRawSourcePanels(
   rawSourcePanels: Map<string, readonly ResourcePageRawSourcePanelModel[]>,
   workspaceRoot: string,
-  _localPathPolicy: OperationalLocalPathPolicy,
+  localPathPolicy: OperationalLocalPathPolicy,
   meshBase: string,
   designatorPath: string,
-  referenceCatalogArtifact: ReferenceCatalogWorkingArtifact,
+  referenceLinks: readonly ParsedResourceReferenceLink[],
 ): Promise<void> {
-  const referenceTargetLinkState = tryResolveReferenceTargetLinkState(
-    meshBase,
-    referenceCatalogArtifact.currentReferenceCatalogTurtle,
-    designatorPath,
-    {
-      parseErrorMessage:
-        `Could not parse the current ReferenceCatalog while resolving page source facts for ${designatorPath}.`,
-      missingReferenceLinkMessage:
-        `Could not resolve the current extracted ReferenceCatalog link for ${designatorPath}.`,
-      missingReferenceTargetMessage:
-        `Could not resolve the current extracted ReferenceCatalog target for ${designatorPath}.`,
-    },
-  );
-  if (!referenceTargetLinkState) {
-    return;
+  const seen = new Set<string>();
+
+  for (const link of referenceLinks) {
+    if (!link.roleIris.includes(SFLO_REFERENCE_ROLE_CANONICAL_IRI)) {
+      continue;
+    }
+
+    for (const referenceTargetPath of link.referenceTargetPaths) {
+      const key = `${referenceTargetPath}\u0000${
+        link.referenceTargetStatePaths.join("\u0000")
+      }`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+
+      await addCanonicalReferenceSourceRawSourcePanel(
+        rawSourcePanels,
+        workspaceRoot,
+        localPathPolicy,
+        meshBase,
+        designatorPath,
+        referenceTargetPath,
+        link.referenceTargetStatePaths[0],
+      );
+    }
   }
+}
+
+async function addCanonicalReferenceSourceRawSourcePanel(
+  rawSourcePanels: Map<string, readonly ResourcePageRawSourcePanelModel[]>,
+  workspaceRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
+  meshBase: string,
+  designatorPath: string,
+  referenceTargetPath: string,
+  referenceTargetStatePath: string | undefined,
+): Promise<void> {
   const sourceKnopInventoryPath = join(
     workspaceRoot,
-    `${
-      toKnopPath(referenceTargetLinkState.referenceTargetPath)
-    }/_inventory/inventory.ttl`,
+    `${toKnopPath(referenceTargetPath)}/_inventory/inventory.ttl`,
   );
   let sourceKnopInventoryTurtle: string;
 
@@ -2504,11 +2751,7 @@ async function addReferenceTargetSourceRawSourcePanels(
     );
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
-      throw new WeaveRuntimeError(
-        `Workspace is missing the page source payload inventory for ${designatorPath}: ${
-          toKnopPath(referenceTargetLinkState.referenceTargetPath)
-        }/_inventory/inventory.ttl`,
-      );
+      return;
     }
     throw error;
   }
@@ -2516,24 +2759,51 @@ async function addReferenceTargetSourceRawSourcePanels(
   const sourcePayloadArtifact = resolvePayloadArtifactInventoryState(
     meshBase,
     sourceKnopInventoryTurtle,
-    referenceTargetLinkState.referenceTargetPath,
+    referenceTargetPath,
     {
       parseErrorMessage:
-        `Could not parse the source Knop inventory while resolving page source facts for ${designatorPath}.`,
+        `Could not parse the canonical reference target Knop inventory while resolving page source facts for ${designatorPath}.`,
       missingWorkingFileMessage:
-        `Could not resolve the source working payload file for ${designatorPath}.`,
+        `Could not resolve the canonical reference target working payload file for ${designatorPath}.`,
     },
   );
   if (!sourcePayloadArtifact) {
     return;
   }
 
+  if (!referenceTargetStatePath) {
+    try {
+      addRawSourcePanel(
+        rawSourcePanels,
+        toDesignatorResourcePagePath(designatorPath),
+        await readRawSourcePanel(
+          resolveAllowedLocalPath(
+            localPathPolicy,
+            "workingLocalRelativePath",
+            sourcePayloadArtifact.workingLocalRelativePath,
+          ),
+          sourcePayloadArtifact.workingLocalRelativePath,
+          "Current canonical reference source file",
+        ),
+      );
+    } catch (error) {
+      if (
+        error instanceof Deno.errors.NotFound ||
+        error instanceof LocalPathAccessError
+      ) {
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
   const snapshotPath = sourcePayloadArtifact.latestHistoricalStatePath ===
-        referenceTargetLinkState.referenceTargetStatePath &&
+        referenceTargetStatePath &&
       sourcePayloadArtifact.latestHistoricalSnapshotPath
     ? sourcePayloadArtifact.latestHistoricalSnapshotPath
     : toPayloadHistoricalSnapshotPath(
-      referenceTargetLinkState.referenceTargetStatePath,
+      referenceTargetStatePath,
       sourcePayloadArtifact.workingLocalRelativePath,
     );
 
@@ -2544,14 +2814,12 @@ async function addReferenceTargetSourceRawSourcePanels(
       await readRawSourcePanel(
         join(workspaceRoot, snapshotPath),
         snapshotPath,
-        "Pinned source file",
+        "Pinned canonical reference source file",
       ),
     );
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
-      throw new WeaveRuntimeError(
-        `Workspace is missing the pinned page source file for ${designatorPath}: ${snapshotPath}`,
-      );
+      return;
     }
     throw error;
   }

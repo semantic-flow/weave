@@ -1717,6 +1717,33 @@ Deno.test("executeGenerate lists every sidecar payload history with current hist
   );
 });
 
+Deno.test("executeGenerate renders managed references and canonical source properties", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-generate-identifier-references-",
+  );
+  await materializeMeshAliceBioBranch(
+    "09-alice-bio-referenced-woven",
+    workspaceRoot,
+  );
+
+  const result = await executeGenerate({
+    meshRoot: workspaceRoot,
+    request: { targets: [{ designatorPath: "alice" }] },
+    now: () => new Date("2026-05-04T00:00:00.000Z"),
+  });
+
+  assertEquals(result.generatedDesignatorPaths, ["alice"]);
+  const page = await Deno.readTextFile(join(workspaceRoot, "alice/index.html"));
+  assertStringIncludes(page, '<details class="wf-references">');
+  assertStringIncludes(page, "<summary>Canonical</summary>");
+  assertStringIncludes(
+    page,
+    '<li><a href="https://semantic-flow.github.io/mesh-alice-bio/alice/bio">https://semantic-flow.github.io/mesh-alice-bio/alice/bio</a></li>',
+  );
+  assertStringIncludes(page, '<details class="wf-properties">');
+  assertStringIncludes(page, "<summary>Properties</summary>");
+});
+
 Deno.test("executeGenerate includes Semantic Flow metadata only when requested", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-generate-semantic-flow-metadata-",

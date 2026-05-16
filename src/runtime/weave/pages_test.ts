@@ -792,6 +792,104 @@ fant:AbilityScore a owl:Class ;
   );
 });
 
+Deno.test("renderResourcePage renders properties from subject triples", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "identifier",
+      path: "ontology/AbilityScore/index.html",
+      designatorPath: "ontology/AbilityScore",
+      rawSourcePanels: [{
+        label: "Current source file",
+        sourcePath: "../ontology/fantasy-rules-ontology.ttl",
+        contents:
+          `@prefix fant: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+fant:AbilityScore a owl:Class ;
+  rdfs:label "Ability Score" ;
+  rdfs:seeAlso "https://example.org/rules/ability-score"^^xsd:anyURI ;
+  fant:relatedAbility fant:Strength .
+`,
+      }],
+    },
+  );
+
+  assertStringIncludes(html, '<details class="wf-properties">');
+  assertStringIncludes(html, "<summary>Properties</summary>");
+  assertStringIncludes(
+    html,
+    '<th scope="row"><span class="wf-term" title="http://www.w3.org/1999/02/22-rdf-syntax-ns#type">rdf:type</span></th><td><a href="http://www.w3.org/2002/07/owl#Class">owl:Class</a></td>',
+  );
+  assertStringIncludes(
+    html,
+    '<th scope="row"><span class="wf-term" title="http://www.w3.org/2000/01/rdf-schema#seeAlso">rdfs:seeAlso</span></th><td><a href="https://example.org/rules/ability-score">https://example.org/rules/ability-score</a></td>',
+  );
+  assertStringIncludes(
+    html,
+    '<th scope="row"><span class="wf-term" title="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/relatedAbility">fant:relatedAbility</span></th><td><a href="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/Strength">fant:Strength</a></td>',
+  );
+});
+
+Deno.test("renderResourcePage renders grouped reference panels", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-branch-fantasy-rules/",
+    {
+      kind: "identifier",
+      path: "ontology/Ability/index.html",
+      designatorPath: "ontology/Ability",
+      references: [
+        {
+          roleLabel: "supplemental",
+          targets: [{
+            href: "https://example.org/srd/ability",
+            label: "https://example.org/srd/ability",
+          }],
+        },
+        {
+          roleLabel: "canonical",
+          targets: [{
+            href:
+              "https://semantic-flow.github.io/mesh-branch-fantasy-rules/ontology",
+            label:
+              "https://semantic-flow.github.io/mesh-branch-fantasy-rules/ontology",
+          }],
+        },
+        {
+          roleLabel: "deprecated",
+          targets: [{
+            href: "https://example.org/old/ability",
+            label: "https://example.org/old/ability",
+          }],
+        },
+      ],
+    },
+  );
+
+  assertStringIncludes(html, '<details class="wf-references">');
+  assertStringIncludes(html, "<summary>References</summary>");
+  assertStringIncludes(
+    html,
+    "<summary>Canonical</summary>",
+  );
+  assertStringIncludes(
+    html,
+    '<li><a href="https://semantic-flow.github.io/mesh-branch-fantasy-rules/ontology">https://semantic-flow.github.io/mesh-branch-fantasy-rules/ontology</a></li>',
+  );
+  assert(
+    html.indexOf("<summary>Canonical</summary>") <
+      html.indexOf("<summary>Supplemental</summary>"),
+    "expected canonical references before supplemental references",
+  );
+  assert(
+    html.indexOf("<summary>Supplemental</summary>") <
+      html.indexOf("<summary>Deprecated</summary>"),
+    "expected supplemental references before deprecated references",
+  );
+});
+
 Deno.test("renderResourcePage can include Semantic Flow classes in history cake", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
