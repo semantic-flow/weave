@@ -61,6 +61,7 @@ Deno.test("renderResourcePage omits Semantic Flow metadata by default", async ()
   assertFalse(html.includes(`<summary>Semantic Flow metadata</summary>`));
   assertFalse(html.includes('<tr><th scope="row">Knop</th>'));
   assertFalse(html.includes('<tr><th scope="row">Working File</th>'));
+  assertFalse(html.includes('<tr><th scope="row">Source</th>'));
 });
 
 Deno.test("renderResourcePage renders breadcrumbs above the masthead rule with optional mesh favicon", async () => {
@@ -113,11 +114,38 @@ Deno.test("renderResourcePage renders identifier extraction source metadata", as
   );
   assertStringIncludes(
     html,
+    '<tr><th scope="row">Source</th><td><div class="wf-source-summary"><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology">ontology</a></div></td></tr>',
+  );
+  assertStringIncludes(
+    html,
     '<tr><th scope="row">Extraction Source</th><td><a href="/mesh-sidecar-fantasy-rules/ontology">ontology</a></td></tr>',
   );
   assertStringIncludes(
     html,
     '<tr><th scope="row">Extraction Source Mode</th><td><a href="https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current">sflo:artifactResolutionMode_current</a></td></tr>',
+  );
+});
+
+Deno.test("renderResourcePage includes pinned source state in extraction source summary", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "identifier",
+      path: "ontology/AbilityScore/index.html",
+      designatorPath: "ontology/AbilityScore",
+      extractionSource: {
+        sourceArtifactPath: "ontology",
+        requestedTargetStatePath: "ontology/releases/v0.0.2",
+        artifactResolutionModeIri:
+          "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_state",
+      },
+    },
+  );
+
+  assertFalse(html.includes(`<summary>Semantic Flow metadata</summary>`));
+  assertStringIncludes(
+    html,
+    '<tr><th scope="row">Source</th><td><div class="wf-source-summary"><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology">ontology</a><span class="wf-source-detail">state <a href="/mesh-sidecar-fantasy-rules/ontology/releases/v0.0.2">ontology/releases/v0.0.2</a></span></div></td></tr>',
   );
 });
 

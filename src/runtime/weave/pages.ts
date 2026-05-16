@@ -315,6 +315,11 @@ function toDefaultResourcePageRenderInput(
           page.childIdentifiers ?? [],
           sourcePanelsForFacts,
         ),
+        ...toExtractionSourceSummaryMetadataRows(
+          meshRootHref,
+          meshLabel,
+          page.extractionSource,
+        ),
       ],
       includeSemanticFlowMetadata,
       semanticFlowMetadataRows: [
@@ -614,6 +619,8 @@ ${faviconLink}  <style>
     .wf-child-identifiers-overflow { display: flex; flex-wrap: wrap; gap: 5px; align-items: baseline; min-width: 0; max-width: 100%; }
     .wf-child-identifiers-more > summary::-webkit-details-marker { display: none; }
     .wf-child-identifiers-more > summary::marker { content: ""; }
+    .wf-source-summary { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; min-width: 0; }
+    .wf-source-detail { color: #5e675d; font-size: 0.92rem; }
     .wf-term { cursor: help; border-bottom: 1px dotted currentColor; }
     .wf-date-tip { position: relative; display: inline-block; }
     .wf-date-tip::after { content: attr(data-tooltip); position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); opacity: 0; pointer-events: none; background: rgba(27, 32, 27, 0.94); color: #fff; border-radius: 5px; padding: 5px 7px; font-size: 0.78rem; white-space: nowrap; transition: opacity 120ms ease; }
@@ -818,6 +825,51 @@ function toExtractionSourceMetadataRows(
   });
 
   return rows;
+}
+
+function toExtractionSourceSummaryMetadataRows(
+  meshRootHref: string,
+  meshLabel: string,
+  extractionSource?: ResourcePageExtractionSourceModel,
+): readonly ResourcePageMetadataRow[] {
+  if (!extractionSource) {
+    return [];
+  }
+
+  const sourceHref = toMeshResourceHref(
+    meshRootHref,
+    extractionSource.sourceArtifactPath,
+  );
+  const sourceLabel = toDisplayDesignatorPath(
+    extractionSource.sourceArtifactPath,
+    meshLabel,
+  );
+  const sourceHtml = `<a class="wf-child-identifier" href="${
+    escapeHtml(sourceHref)
+  }">${escapeHtml(sourceLabel)}</a>`;
+  const stateHtml = extractionSource.requestedTargetStatePath
+    ? `<span class="wf-source-detail">state <a href="${
+      escapeHtml(
+        toMeshResourceHref(
+          meshRootHref,
+          extractionSource.requestedTargetStatePath,
+        ),
+      )
+    }">${
+      escapeHtml(
+        toDisplayDesignatorPath(
+          extractionSource.requestedTargetStatePath,
+          meshLabel,
+        ),
+      )
+    }</a></span>`
+    : "";
+
+  return [{
+    label: "Source",
+    value: sourceLabel,
+    html: `<div class="wf-source-summary">${sourceHtml}${stateHtml}</div>`,
+  }];
 }
 
 function toChildIdentifierMetadataRows(
