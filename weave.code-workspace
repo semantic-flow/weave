@@ -16,6 +16,9 @@
       "path": "dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules"
     },
     {
+      "path": "dependencies/github.com/semantic-flow/mesh-branch-fantasy-rules"
+    },
+    {
       "path": "dependencies/github.com/semantic-flow/mesh-alice-bio"
     },
     {
