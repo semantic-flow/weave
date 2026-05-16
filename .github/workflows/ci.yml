@@ -60,18 +60,23 @@ jobs:
       - name: Generate coverage artifacts
         run: deno task coverage:lcov
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+      - name: Upload lcov artifact
+        uses: actions/upload-artifact@v7
         with:
-          disable_search: true
-          fail_ci_if_error: false
+          name: coverage-lcov
+          path: coverage/lcov.info
+          if-no-files-found: error
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v6
+        with:
           files: coverage/lcov.info
+          fail_ci_if_error: true
           use_oidc: true
-          verbose: true
 
       - name: Upload coverage artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: coverage
           path: coverage/
