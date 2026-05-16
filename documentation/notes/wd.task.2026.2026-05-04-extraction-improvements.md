@@ -110,7 +110,7 @@ This task is related to but distinct from forced unchanged state creation. The s
 - Generated resource pages for extracted terms must read source-derived RDF facts using the recorded `ExtractionSource` resolution mode from the Knop's linked source registry.
 - Current-tracking generated pages use the source artifact's current latest state at generation time.
 - Pinned generated pages use the recorded `sfc:hasRequestedTargetState`.
-- Existing inventory-rooted `Pinned` extraction-source records remain valid as a compatibility shape.
+- Inventory-rooted extraction-source records are obsolete; stale fixture refs should be regenerated to the `_sources` registry shape rather than carried as a compatibility mode.
 
 ## Testing
 

@@ -148,17 +148,27 @@ Deno.test("resolvePayloadArtifactInventoryState tracks a missing ArtifactHistory
   );
 });
 
-Deno.test("resolveExtractionSourceInventoryState returns observed source evidence", () => {
-  assertEquals(
-    resolveExtractionSourceInventoryState(
-      MESH_BASE,
-      `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+Deno.test("resolveExtractionSourceInventoryState returns source registry observed source evidence", () => {
+  const inventoryTurtle =
+    `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
 <bob/_knop> a sflo:Knop ;
-  sflo:hasExtractionSource <bob/_knop/_inventory#extraction-source> .
+  sflo:hasKnopSourceRegistry <bob/_knop/_sources> ;
+  sflo:hasExtractionSource <bob/_knop/_sources#extraction-source> .
 
-<bob/_knop/_inventory#extraction-source> a sflo:ExtractionSource ;
+<bob/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <bob/_knop/_sources/sources.ttl> .
+`;
+  const sourcesTurtle =
+    `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@base <${MESH_BASE}> .
+
+<bob/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <bob/_knop/_sources/sources.ttl> ;
+  sflo:hasSourceBinding <bob/_knop/_sources#extraction-source> .
+
+<bob/_knop/_sources#extraction-source> a sflo:ExtractionSource ;
   sflo:hasTargetArtifact <alice/bio> ;
   sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_pinned> ;
@@ -167,7 +177,12 @@ Deno.test("resolveExtractionSourceInventoryState returns observed source evidenc
   sflo:hasObservedSourceLocatedFile <alice/bio/_history001/_s0002/ttl/alice-bio.ttl> ;
   sflo:observedSourceLocalRelativePath "../alice-bio.ttl" ;
   sflo:observedSourceDigest "sha256:abc123" .
-`,
+`;
+
+  assertEquals(
+    resolveExtractionSourceInventoryState(
+      MESH_BASE,
+      inventoryTurtle,
       "bob",
       {
         parseErrorMessage: "Could not parse Knop inventory",
@@ -176,6 +191,7 @@ Deno.test("resolveExtractionSourceInventoryState returns observed source evidenc
         missingRequestedTargetStateMessage: "Missing requested target state",
         unsupportedResolutionModeMessage: "Unsupported resolution mode",
       },
+      sourcesTurtle,
     ),
     {
       sourceArtifactPath: "alice/bio",

@@ -285,7 +285,6 @@ export function resolveExtractionSourceInventoryState(
       sourceRegistryTurtle,
       messages.parseErrorMessage,
     );
-  const quads = [...inventoryQuads, ...sourceRegistryQuads];
   const knopIri = toMeshIri(meshBase, toKnopPath(designatorPath));
   const extractionSourceIri = resolveOptionalUniqueNamedNodeIri(
     inventoryQuads,
@@ -299,7 +298,7 @@ export function resolveExtractionSourceInventoryState(
 
   if (
     !hasNamedNodeObject(
-      quads,
+      sourceRegistryQuads,
       extractionSourceIri,
       RDF_TYPE_IRI,
       SFLO_EXTRACTION_SOURCE_IRI,
@@ -309,7 +308,7 @@ export function resolveExtractionSourceInventoryState(
   }
 
   const sourceArtifactPath = resolveOptionalUniqueNamedNodePath(
-    quads,
+    sourceRegistryQuads,
     meshBase,
     extractionSourceIri,
     SFLO_HAS_TARGET_ARTIFACT_IRI,
@@ -320,7 +319,7 @@ export function resolveExtractionSourceInventoryState(
   }
 
   const requestedTargetStatePath = resolveOptionalUniqueNamedNodePath(
-    quads,
+    sourceRegistryQuads,
     meshBase,
     extractionSourceIri,
     SFLO_HAS_REQUESTED_TARGET_STATE_IRI,
@@ -328,7 +327,7 @@ export function resolveExtractionSourceInventoryState(
   );
 
   const artifactResolutionModeIri = resolveOptionalUniqueNamedNodeIri(
-    quads,
+    sourceRegistryQuads,
     extractionSourceIri,
     SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
     messages.unsupportedResolutionModeMessage,
@@ -351,7 +350,7 @@ export function resolveExtractionSourceInventoryState(
     ...(requestedTargetStatePath ? { requestedTargetStatePath } : {}),
     artifactResolutionModeIri,
     ...resolveExtractionSourceEvidenceState(
-      quads,
+      sourceRegistryQuads,
       meshBase,
       extractionSourceIri,
       messages.parseErrorMessage,

@@ -611,20 +611,20 @@ Deno.test("renderResourcePage renders escaped raw RDF panels and raw file links"
   );
 });
 
-Deno.test("renderResourcePage renders inventory fragment sections for ExtractionSource", async () => {
+Deno.test("renderResourcePage renders source registry fragment sections for ExtractionSource", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
       kind: "simple",
-      path: "bob/_knop/_inventory/index.html",
+      path: "bob/_knop/_sources/index.html",
       description: "Generated resource page.",
       rawSourcePanels: [{
-        label: "Current KnopInventory file",
-        sourcePath: "bob/_knop/_inventory/inventory.ttl",
+        label: "Current KnopSourceRegistry file",
+        sourcePath: "bob/_knop/_sources/sources.ttl",
         contents: `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
-<bob/_knop/_inventory#extraction-source> a sflo:ExtractionSource ;
+<bob/_knop/_sources#extraction-source> a sflo:ExtractionSource ;
   sflo:hasTargetArtifact <alice/bio> ;
   sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_pinned> .
@@ -811,7 +811,14 @@ Deno.test("renderResourcePage renders properties from subject triples", async ()
 fant:AbilityScore a owl:Class ;
   rdfs:label "Ability Score" ;
   rdfs:seeAlso "https://example.org/rules/ability-score"^^xsd:anyURI ;
-  fant:relatedAbility fant:Strength .
+  fant:relatedAbility fant:Strength ;
+  fant:hasConstraint [
+    a fant:ScoreConstraint ;
+    fant:minScore 1 ;
+    fant:reason [
+      rdfs:label "minimum score"
+    ]
+  ] .
 `,
       }],
     },
@@ -831,6 +838,20 @@ fant:AbilityScore a owl:Class ;
     html,
     '<th scope="row"><span class="wf-term" title="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/relatedAbility">fant:relatedAbility</span></th><td><a href="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/Strength">fant:Strength</a></td>',
   );
+  const propertiesSection = html.match(
+    /<details class="wf-properties">[\s\S]*?<\/details>/,
+  )?.[0] ?? "";
+  assertFalse(propertiesSection.includes("fant:hasConstraint"));
+  assertFalse(propertiesSection.includes("_:"));
+  assertStringIncludes(html, '<details class="wf-blank-nodes">');
+  assertStringIncludes(html, "<summary>Blank Nodes</summary>");
+  assertStringIncludes(
+    html,
+    '<th scope="row"><span class="wf-term" title="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/hasConstraint">fant:hasConstraint</span></th><td><pre class="wf-blank-node-code"><code>_:',
+  );
+  assertStringIncludes(html, "fant:ScoreConstraint");
+  assertStringIncludes(html, "fant:minScore &quot;1&quot;^^xsd:integer");
+  assertStringIncludes(html, "minimum score");
 });
 
 Deno.test("renderResourcePage renders grouped reference panels", async () => {

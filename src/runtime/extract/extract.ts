@@ -3,6 +3,7 @@ import { Parser, type Quad } from "n3";
 import {
   formatDesignatorPathForDisplay,
   normalizeSafeDesignatorPath,
+  RESERVED_DESIGNATOR_SEGMENTS,
   toKnopPath,
 } from "../../core/designator_segments.ts";
 import {
@@ -547,7 +548,6 @@ export async function executeSetExtractionSource(
   const updateTarget = await resolveExtractionSourceUpdateTarget(
     meshRoot,
     meshState.meshBase,
-    inventoryPath,
     currentInventoryTurtle,
     designatorPath,
   );
@@ -651,7 +651,6 @@ async function planSetExtractionSourceAllTerms(
     const updateTarget = await resolveExtractionSourceUpdateTarget(
       meshRoot,
       meshState.meshBase,
-      inventoryPath,
       currentInventoryTurtle,
       designatorPath,
     );
@@ -1319,6 +1318,10 @@ function discoverAllTermDesignatorPaths(
         skippedSupport.add(rawDesignatorPath);
         continue;
       }
+      if (hasReservedSupportSegment(rawDesignatorPath)) {
+        skippedSupport.add(rawDesignatorPath);
+        continue;
+      }
       const designatorPath = normalizeDiscoveredDesignatorPath(
         rawDesignatorPath,
         iri,
@@ -1345,6 +1348,12 @@ function discoverAllTermDesignatorPaths(
       left.localeCompare(right)
     ),
   };
+}
+
+function hasReservedSupportSegment(path: string): boolean {
+  return path.split("/").some((segment) =>
+    RESERVED_DESIGNATOR_SEGMENTS.has(segment)
+  );
 }
 
 function collectGeneratedResourcePathsFromTurtle(
@@ -1489,7 +1498,6 @@ function hasExtractionSourceBinding(
 async function resolveExtractionSourceUpdateTarget(
   meshRoot: string,
   meshBase: string,
-  inventoryPath: string,
   inventoryTurtle: string,
   designatorPath: string,
 ): Promise<{ path: string; turtle: string; extractionSourcePath: string }> {
@@ -1515,21 +1523,6 @@ async function resolveExtractionSourceUpdateTarget(
     extractionSourceIri,
     `Existing ExtractionSource binding is outside the current mesh for ${designatorPath}.`,
   );
-  if (
-    hasNamedNodeFact(
-      inventoryQuads,
-      extractionSourceIri,
-      "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-      SFLO_EXTRACTION_SOURCE_IRI,
-    )
-  ) {
-    return {
-      path: inventoryPath,
-      turtle: inventoryTurtle,
-      extractionSourcePath,
-    };
-  }
-
   const sourceRegistryIri = requireOptionalNamedNodeObject(
     inventoryQuads,
     knopIri,

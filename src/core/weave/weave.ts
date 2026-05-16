@@ -705,12 +705,6 @@ export function detectPendingWeaveSlice(
     knopPath,
     SFLO_HAS_EXTRACTION_SOURCE_IRI,
     `${knopPath}/_sources#extraction-source`,
-  ) || hasNamedNodeFact(
-    quads,
-    meshBase,
-    knopPath,
-    SFLO_HAS_EXTRACTION_SOURCE_IRI,
-    `${knopPath}/_inventory#extraction-source`,
   );
   const referenceCatalogRelationship = hasNamedNodeFact(
     quads,
@@ -1149,8 +1143,6 @@ function planFirstExtractedKnopWeave(
     meshBase,
     candidate.currentKnopInventoryTurtle,
     designatorPath,
-    referenceTargetSourcePayloadArtifact.designatorPath,
-    referenceTargetSourcePayloadArtifact.latestHistoricalStatePath,
   );
   if (referenceTargetSourcePayloadArtifact.currentSourceRegistryTurtle) {
     assertCurrentSourceRegistryShapeForFirstExtractedKnopWeave(
@@ -2205,14 +2197,11 @@ function assertCurrentKnopInventoryShapeForFirstExtractedKnopWeave(
   meshBase: string,
   currentKnopInventoryTurtle: string,
   designatorPath: string,
-  sourceDesignatorPath: string,
-  sourceStatePath: string,
 ): void {
   const knopPath = toKnopPath(designatorPath);
   const sourceRegistryPath = `${knopPath}/_sources`;
   const sourcesFilePath = `${sourceRegistryPath}/sources.ttl`;
   const extractionSourcePath = `${sourceRegistryPath}#extraction-source`;
-  const legacyExtractionSourcePath = `${knopPath}/_inventory#extraction-source`;
   const errorMessage =
     `The current local weave slice only supports the settled extracted-knop inventory shape for ${designatorPath}.`;
   const quads = parseWeaveShapeQuads(
@@ -2236,90 +2225,17 @@ function assertCurrentKnopInventoryShapeForFirstExtractedKnopWeave(
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_KNOP_INVENTORY_IRI],
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
-  ]);
-  if (
-    !hasNamedNodeFact(
-      quads,
-      meshBase,
-      knopPath,
-      SFLO_HAS_EXTRACTION_SOURCE_IRI,
-      extractionSourcePath,
-    ) &&
-    !hasNamedNodeFact(
-      quads,
-      meshBase,
-      knopPath,
-      SFLO_HAS_EXTRACTION_SOURCE_IRI,
-      legacyExtractionSourcePath,
-    )
-  ) {
-    throw new WeaveInputError(errorMessage);
-  }
-  if (
-    hasNamedNodeFact(
-      quads,
-      meshBase,
-      knopPath,
-      SFLO_HAS_KNOP_SOURCE_REGISTRY_IRI,
+    [knopPath, SFLO_HAS_KNOP_SOURCE_REGISTRY_IRI, sourceRegistryPath],
+    [knopPath, SFLO_HAS_EXTRACTION_SOURCE_IRI, extractionSourcePath],
+    [sourceRegistryPath, RDF_TYPE_IRI, SFLO_KNOP_SOURCE_REGISTRY_IRI],
+    [
       sourceRegistryPath,
-    )
-  ) {
-    assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
-      [sourceRegistryPath, RDF_TYPE_IRI, SFLO_KNOP_SOURCE_REGISTRY_IRI],
-      [
-        sourceRegistryPath,
-        SFLO_HAS_WORKING_LOCATED_FILE_IRI,
-        sourcesFilePath,
-      ],
-      [sourcesFilePath, RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
-      [sourcesFilePath, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
-    ]);
-  } else if (
-    hasNamedNodeFact(
-      quads,
-      meshBase,
-      legacyExtractionSourcePath,
-      RDF_TYPE_IRI,
-      SFLO_EXTRACTION_SOURCE_IRI,
-    )
-  ) {
-    assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
-      [
-        legacyExtractionSourcePath,
-        SFLO_HAS_TARGET_ARTIFACT_IRI,
-        sourceDesignatorPath,
-      ],
-    ]);
-    if (
-      !hasNamedNodeFact(
-        quads,
-        meshBase,
-        legacyExtractionSourcePath,
-        SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
-        SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI,
-      ) &&
-      !(
-        hasNamedNodeFact(
-          quads,
-          meshBase,
-          legacyExtractionSourcePath,
-          SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
-          SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI,
-        ) &&
-        hasNamedNodeFact(
-          quads,
-          meshBase,
-          legacyExtractionSourcePath,
-          SFLO_HAS_REQUESTED_TARGET_STATE_IRI,
-          sourceStatePath,
-        )
-      )
-    ) {
-      throw new WeaveInputError(errorMessage);
-    }
-  } else {
-    throw new WeaveInputError(errorMessage);
-  }
+      SFLO_HAS_WORKING_LOCATED_FILE_IRI,
+      sourcesFilePath,
+    ],
+    [sourcesFilePath, RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
+    [sourcesFilePath, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
+  ]);
   assertHasCurrentWorkingFileLocator(
     quads,
     meshBase,

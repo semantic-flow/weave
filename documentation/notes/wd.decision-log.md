@@ -232,7 +232,7 @@ created: 1773630801215
 - Why:
   - Extraction source binding is part of the extracted identifier surface's provenance and resolution contract, not a user-authored or cataloged reference about the resource.
   - Fragment IRIs let the inventory page preserve dereferenceability for the extraction source relator without adding an otherwise empty `_references` support artifact.
-- Status: Superseded by [[#2026-05-16 Extraction Source Details Live In Knop Source Registries]]. The compatibility reader still accepts this inventory-rooted shape.
+- Status: Superseded by [[#2026-05-16 Extraction Source Details Live In Knop Source Registries]]. The runtime no longer preserves a compatibility reader for this inventory-rooted shape; stale fixture refs should be regenerated.
 
 ### 2026-05-16: Extraction Source Details Live In Knop Source Registries
 

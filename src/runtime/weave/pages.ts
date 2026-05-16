@@ -6,7 +6,7 @@ import type {
   ResourcePageRawSourcePanelModel,
   ResourcePageReferenceLinkModel,
 } from "../../core/weave/weave.ts";
-import { Parser, type Quad } from "n3";
+import { Parser, type Quad, type Term } from "n3";
 import { codeToHtml } from "shiki";
 import { formatDesignatorPathForDisplay } from "../../core/designator_segments.ts";
 import type { PlannedFile } from "../../core/planned_file.ts";
@@ -42,6 +42,7 @@ interface ResourcePageRenderInput {
   metadataRows: readonly ResourcePageMetadataRow[];
   childrenRows: readonly ResourcePageMetadataRow[];
   propertyRows: readonly ResourcePagePropertyRow[];
+  blankNodeRows: readonly ResourcePageBlankNodeRow[];
   referenceGroups: readonly ResourcePageReferenceGroup[];
   includeSemanticFlowMetadata: boolean;
   semanticFlowMetadataRows: readonly ResourcePageMetadataRow[];
@@ -64,6 +65,12 @@ interface ResourcePagePropertyRow {
   predicateHref: string;
   value: string;
   valueHref?: string;
+}
+
+interface ResourcePageBlankNodeRow {
+  predicateLabel: string;
+  predicateHref: string;
+  code: string;
 }
 
 interface ResourcePageReferenceGroup {
@@ -133,6 +140,7 @@ const SHACL_NODE_SHAPE_IRI = "http://www.w3.org/ns/shacl#NodeShape";
 const SHACL_PROPERTY_SHAPE_IRI = "http://www.w3.org/ns/shacl#PropertyShape";
 const SHACL_SHAPE_IRI = "http://www.w3.org/ns/shacl#Shape";
 const XSD_ANY_URI_IRI = "http://www.w3.org/2001/XMLSchema#anyURI";
+const XSD_STRING_IRI = "http://www.w3.org/2001/XMLSchema#string";
 const SCHEMA_CHARACTER_NAME_IRIS = [
   "https://schema.org/characterName",
   "http://schema.org/characterName",
@@ -354,6 +362,7 @@ function toDefaultResourcePageRenderInput(
         sourcePanelsForFacts,
       ),
       propertyRows: extractPropertyRows(canonical, sourcePanelsForFacts),
+      blankNodeRows: extractBlankNodeRows(canonical, sourcePanelsForFacts),
       referenceGroups: toReferenceGroups(page.references ?? []),
       includeSemanticFlowMetadata,
       semanticFlowMetadataRows: [
@@ -433,6 +442,10 @@ function toDefaultResourcePageRenderInput(
       metadataRows: [{ label: "Canonical IRI", value: canonical }],
       childrenRows: [],
       propertyRows: extractPropertyRows(canonical, page.rawSourcePanels ?? []),
+      blankNodeRows: extractBlankNodeRows(
+        canonical,
+        page.rawSourcePanels ?? [],
+      ),
       referenceGroups: [],
       includeSemanticFlowMetadata,
       semanticFlowMetadataRows: [],
@@ -507,6 +520,7 @@ function toDefaultResourcePageRenderInput(
         [],
       ),
       propertyRows: [],
+      blankNodeRows: [],
       referenceGroups: [],
       includeSemanticFlowMetadata,
       semanticFlowMetadataRows: [],
@@ -551,6 +565,7 @@ function toDefaultResourcePageRenderInput(
       page.rawSourcePanels ?? [],
     ),
     propertyRows: extractPropertyRows(canonical, page.rawSourcePanels ?? []),
+    blankNodeRows: extractBlankNodeRows(canonical, page.rawSourcePanels ?? []),
     referenceGroups: [],
     includeSemanticFlowMetadata,
     semanticFlowMetadataRows: [],
@@ -605,6 +620,7 @@ async function renderDefaultResourcePage(
   const metadata = renderMetadataTable(input.metadataRows, 8);
   const childrenSection = renderChildrenSection(input.childrenRows);
   const propertiesSection = renderPropertiesSection(input.propertyRows);
+  const blankNodesSection = renderBlankNodesSection(input.blankNodeRows);
   const referencesSection = renderReferencesSection(input.referenceGroups);
   const semanticFlowMetadataSection = input.includeSemanticFlowMetadata
     ? renderSemanticFlowMetadataSection(input.semanticFlowMetadataRows)
@@ -690,6 +706,9 @@ ${faviconLink}  <style>
     .wf-children .wf-metadata { margin-top: 0; border-bottom: 0; }
     .wf-properties { padding-bottom: 12px; }
     .wf-properties .wf-metadata { margin-top: 0; border-bottom: 0; }
+    .wf-blank-nodes { padding-bottom: 12px; }
+    .wf-blank-nodes .wf-metadata { margin-top: 0; border-bottom: 0; }
+    .wf-blank-node-code { max-height: 24rem; padding: 12px; border: 1px solid #d7dcd4; border-radius: 6px; font-size: 0.82rem; }
     .wf-references { padding-bottom: 12px; }
     .wf-reference-groups { display: grid; gap: 8px; padding: 0 14px 4px; }
     .wf-reference-group { background: #f8faf7; border-color: #d5dbd3; }
@@ -737,7 +756,7 @@ ${meshFavicon}
 ${classes}${summary}${metadata}
         </div>
       </header>
-${childrenSection}${propertiesSection}${referencesSection}${historySection}${
+${childrenSection}${propertiesSection}${blankNodesSection}${referencesSection}${historySection}${
     sections ? `${sections}\n` : ""
   }${rawSections}${semanticFlowMetadataSection}
     </article>
@@ -853,6 +872,30 @@ function renderPropertiesSection(
   return `    <section class="wf-section">
       <details class="wf-properties">
         <summary>Properties</summary>
+${renderMetadataTable(metadataRows, 8)}      </details>
+    </section>
+`;
+}
+
+function renderBlankNodesSection(
+  rows: readonly ResourcePageBlankNodeRow[],
+): string {
+  if (rows.length === 0) {
+    return "";
+  }
+
+  const metadataRows = rows.map((row) => ({
+    label: row.predicateLabel,
+    tooltip: row.predicateHref,
+    value: row.code,
+    html: `<pre class="wf-blank-node-code"><code>${
+      escapeHtml(row.code)
+    }</code></pre>`,
+  }));
+
+  return `    <section class="wf-section">
+      <details class="wf-blank-nodes">
+        <summary>Blank Nodes</summary>
 ${renderMetadataTable(metadataRows, 8)}      </details>
     </section>
 `;
@@ -1726,6 +1769,9 @@ function extractPropertyRows(
     ) {
       continue;
     }
+    if (quad.object.termType === "BlankNode") {
+      continue;
+    }
 
     const predicateLabel = compactRdfIri(quad.predicate.value, prefixMap);
     const value = toPropertyObjectDisplayValue(quad.object, prefixMap);
@@ -1746,6 +1792,151 @@ function extractPropertyRows(
     left.predicateLabel.localeCompare(right.predicateLabel) ||
     left.value.localeCompare(right.value)
   );
+}
+
+function extractBlankNodeRows(
+  canonical: string,
+  rawSourcePanels: readonly ResourcePageRawSourcePanelModel[],
+): readonly ResourcePageBlankNodeRow[] {
+  const prefixMap = collectPrefixMap(rawSourcePanels);
+  const rows = new Map<string, ResourcePageBlankNodeRow>();
+
+  for (const panel of rawSourcePanels) {
+    if (!panel.contents) {
+      continue;
+    }
+
+    const quads = parseRdfPanel(canonical, panel.contents);
+    for (const quad of quads) {
+      if (
+        quad.subject.termType !== "NamedNode" ||
+        quad.subject.value !== canonical ||
+        quad.object.termType !== "BlankNode"
+      ) {
+        continue;
+      }
+
+      const predicateLabel = compactRdfIri(quad.predicate.value, prefixMap);
+      const code = renderBlankNodeCode(quad.object.value, quads, prefixMap);
+      rows.set(
+        `${panel.sourcePath}\u0000${quad.predicate.value}\u0000${quad.object.value}`,
+        {
+          predicateLabel,
+          predicateHref: quad.predicate.value,
+          code,
+        },
+      );
+    }
+  }
+
+  return [...rows.values()].sort((left, right) =>
+    left.predicateLabel.localeCompare(right.predicateLabel) ||
+    left.code.localeCompare(right.code)
+  );
+}
+
+function renderBlankNodeCode(
+  blankNodeId: string,
+  quads: readonly Quad[],
+  prefixMap: ReadonlyMap<string, string>,
+): string {
+  const lines: string[] = [];
+  appendBlankNodeCodeBlock(blankNodeId, quads, prefixMap, lines, new Set());
+  return lines.join("\n");
+}
+
+function appendBlankNodeCodeBlock(
+  blankNodeId: string,
+  quads: readonly Quad[],
+  prefixMap: ReadonlyMap<string, string>,
+  lines: string[],
+  visited: Set<string>,
+): void {
+  if (visited.has(blankNodeId)) {
+    return;
+  }
+  visited.add(blankNodeId);
+
+  const subjectQuads = quads
+    .filter((quad) =>
+      quad.subject.termType === "BlankNode" &&
+      quad.subject.value === blankNodeId
+    )
+    .sort((left, right) =>
+      compactRdfIri(left.predicate.value, prefixMap).localeCompare(
+        compactRdfIri(right.predicate.value, prefixMap),
+      ) ||
+      formatRdfTerm(left.object, prefixMap).localeCompare(
+        formatRdfTerm(right.object, prefixMap),
+      )
+    );
+  const subjectLabel = `_:${blankNodeId}`;
+
+  if (subjectQuads.length === 0) {
+    lines.push(`${subjectLabel} .`);
+    return;
+  }
+
+  lines.push(subjectLabel);
+  for (const [index, quad] of subjectQuads.entries()) {
+    const terminator = index === subjectQuads.length - 1 ? "." : ";";
+    lines.push(
+      `  ${compactRdfIri(quad.predicate.value, prefixMap)} ${
+        formatRdfTerm(quad.object, prefixMap)
+      }${terminator}`,
+    );
+  }
+
+  const nestedBlankNodeIds = subjectQuads
+    .map((quad) => quad.object)
+    .filter((term): term is Extract<Term, { termType: "BlankNode" }> =>
+      term.termType === "BlankNode"
+    )
+    .map((term) => term.value)
+    .filter((value, index, values) => values.indexOf(value) === index);
+
+  for (const nestedBlankNodeId of nestedBlankNodeIds) {
+    if (!visited.has(nestedBlankNodeId)) {
+      lines.push("");
+      appendBlankNodeCodeBlock(
+        nestedBlankNodeId,
+        quads,
+        prefixMap,
+        lines,
+        visited,
+      );
+    }
+  }
+}
+
+function formatRdfTerm(
+  term: Term,
+  prefixMap: ReadonlyMap<string, string>,
+): string {
+  if (term.termType === "NamedNode") {
+    return compactRdfIri(term.value, prefixMap);
+  }
+  if (term.termType === "BlankNode") {
+    return `_:${term.value}`;
+  }
+  if (term.termType === "Literal") {
+    return formatRdfLiteral(term, prefixMap);
+  }
+  return term.value;
+}
+
+function formatRdfLiteral(
+  term: Extract<Term, { termType: "Literal" }>,
+  prefixMap: ReadonlyMap<string, string>,
+): string {
+  const value = JSON.stringify(term.value);
+  if (term.language) {
+    return `${value}@${term.language}`;
+  }
+  if (term.datatype.value !== XSD_STRING_IRI) {
+    return `${value}^^${compactRdfIri(term.datatype.value, prefixMap)}`;
+  }
+  return value;
 }
 
 function toPropertyObjectDisplayValue(

@@ -605,14 +605,18 @@ Deno.test("executeVersion fails closed when a later batch target becomes invalid
   await writeSupplementalKnopSurface(
     workspaceRoot,
     "bob",
+    await readMeshAliceBioBranchFile(
+      "12-bob-extracted",
+      "bob/_knop/_inventory/inventory.ttl",
+    ),
     (
       await readMeshAliceBioBranchFile(
         "12-bob-extracted",
-        "bob/_knop/_inventory/inventory.ttl",
+        "bob/_knop/_sources/sources.ttl",
       )
     ).replace(
-      "<bob/_knop/_inventory#extraction-source> a sflo:ExtractionSource ;",
-      "<bob/_knop/_inventory#extraction-source> a sflo:UnknownExtractionSource ;",
+      "<bob/_knop/_sources#extraction-source> a sflo:ExtractionSource ;",
+      "<bob/_knop/_sources#extraction-source> a sflo:UnknownExtractionSource ;",
     ),
   );
 
@@ -756,11 +760,15 @@ async function writeSupplementalKnopSurface(
   workspaceRoot: string,
   designatorPath: string,
   inventoryTurtle: string,
+  sourcesTurtle?: string,
 ): Promise<void> {
   const knopPath = join(workspaceRoot, `${designatorPath}/_knop`);
   await Deno.mkdir(join(knopPath, "_meta"), { recursive: true });
   await Deno.mkdir(join(knopPath, "_inventory"), { recursive: true });
   await Deno.mkdir(join(knopPath, "_references"), { recursive: true });
+  if (sourcesTurtle !== undefined) {
+    await Deno.mkdir(join(knopPath, "_sources"), { recursive: true });
+  }
   await Deno.writeTextFile(
     join(knopPath, "_meta/meta.ttl"),
     `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
@@ -775,4 +783,10 @@ async function writeSupplementalKnopSurface(
     join(knopPath, "_inventory/inventory.ttl"),
     inventoryTurtle,
   );
+  if (sourcesTurtle !== undefined) {
+    await Deno.writeTextFile(
+      join(knopPath, "_sources/sources.ttl"),
+      sourcesTurtle,
+    );
+  }
 }
