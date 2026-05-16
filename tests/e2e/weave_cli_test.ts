@@ -8,6 +8,7 @@ import {
 import {
   listMeshAliceBioBranchFiles,
   materializeMeshAliceBioBranch,
+  MESH_ALICE_BIO_HISTORY_TRACKING_POLICY,
   readMeshAliceBioBranchFile,
   resolveMeshAliceBioConformanceManifestPath,
 } from "../support/mesh_alice_bio_fixture.ts";
@@ -22,6 +23,7 @@ import {
   integrateRootPayload,
 } from "../support/root_designator.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
+import { WEAVE_VERSION } from "../../src/version.ts";
 
 const repoRoot = new URL("../../", import.meta.url);
 const cliEntrypoint = fromFileUrl(
@@ -41,7 +43,7 @@ const secondAliceBioDefaultManifestation: readonly PathReplacement[] = [[
 ]];
 
 const aliceReferenceDefaultManifestation: readonly PathReplacement[] = [[
-  "alice/_knop/_references/_history001/_s0001/references-ttl",
+  "alice/_knop/_references/_history001/_s0001/ttl",
   "alice/_knop/_references/_history001/_s0001/ttl",
 ]];
 
@@ -69,6 +71,15 @@ function replaceFixturePathList(
 ): string[] {
   return paths.map((path) => replaceFixturePaths(path, replacements)).sort();
 }
+
+Deno.test("weave --version reports the root package version", async () => {
+  const output = await runCliCommand(["--version"]);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assertEquals(stdout.trim(), `weave ${WEAVE_VERSION}`);
+});
 
 Deno.test("weave matches the manifest-scoped alice knop-created-woven fixture as a black-box CLI run", async () => {
   await assertWeaveTransitionMatchesManifest({
@@ -777,6 +788,8 @@ async function assertWeaveTransitionMatchesManifest(
   await materializeMeshAliceBioBranch(transitionCase.fromRef!, workspaceRoot);
 
   const output = await runCliCommand([
+    "--history-tracking-policy",
+    MESH_ALICE_BIO_HISTORY_TRACKING_POLICY,
     ...(options.cliArgs ?? []),
   ], workspaceRoot);
   const stdout = new TextDecoder().decode(output.stdout);

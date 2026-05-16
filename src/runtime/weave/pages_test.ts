@@ -61,6 +61,7 @@ Deno.test("renderResourcePage omits Semantic Flow metadata by default", async ()
   assertFalse(html.includes(`<summary>Semantic Flow metadata</summary>`));
   assertFalse(html.includes('<tr><th scope="row">Knop</th>'));
   assertFalse(html.includes('<tr><th scope="row">Working File</th>'));
+  assertFalse(html.includes('<tr><th scope="row">Source</th>'));
 });
 
 Deno.test("renderResourcePage renders breadcrumbs above the masthead rule with optional mesh favicon", async () => {
@@ -113,11 +114,38 @@ Deno.test("renderResourcePage renders identifier extraction source metadata", as
   );
   assertStringIncludes(
     html,
+    '<tr class="wf-source-metadata-row"><th scope="row">Source</th><td><div class="wf-source-summary"><span class="wf-source-chain"><a class="wf-source-root" href="/mesh-sidecar-fantasy-rules/ontology">ontology</a></span></div></td></tr>',
+  );
+  assertStringIncludes(
+    html,
     '<tr><th scope="row">Extraction Source</th><td><a href="/mesh-sidecar-fantasy-rules/ontology">ontology</a></td></tr>',
   );
   assertStringIncludes(
     html,
     '<tr><th scope="row">Extraction Source Mode</th><td><a href="https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current">sflo:artifactResolutionMode_current</a></td></tr>',
+  );
+});
+
+Deno.test("renderResourcePage includes pinned source state in extraction source summary", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "identifier",
+      path: "ontology/AbilityScore/index.html",
+      designatorPath: "ontology/AbilityScore",
+      extractionSource: {
+        sourceArtifactPath: "ontology",
+        requestedTargetStatePath: "ontology/releases/v0.0.2",
+        artifactResolutionModeIri:
+          "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_state",
+      },
+    },
+  );
+
+  assertFalse(html.includes(`<summary>Semantic Flow metadata</summary>`));
+  assertStringIncludes(
+    html,
+    '<tr class="wf-source-metadata-row"><th scope="row">Source</th><td><div class="wf-source-summary"><span class="wf-source-chain"><a class="wf-source-root" href="/mesh-sidecar-fantasy-rules/ontology">ontology</a><span class="wf-source-version-chain"><a class="wf-source-version-history" href="/mesh-sidecar-fantasy-rules/ontology/releases">releases</a><a class="wf-source-version" href="/mesh-sidecar-fantasy-rules/ontology/releases/v0.0.2">v0.0.2</a></span></span></div></td></tr>',
   );
 });
 
@@ -197,9 +225,12 @@ Deno.test("renderResourcePage renders typed child identifier rows", async () => 
       designatorPath: "ontology",
       childIdentifiers: [
         { label: "AbilityScore", path: "ontology/AbilityScore" },
+        { label: "AbilityScoreShape", path: "ontology/AbilityScoreShape" },
         { label: "AlignmentValue", path: "ontology/AlignmentValue" },
         { label: "Character", path: "ontology/Character" },
+        { label: "CharacterPathShape", path: "ontology/CharacterPathShape" },
         { label: "displayName", path: "ontology/displayName" },
+        { label: "GenericShape", path: "ontology/GenericShape" },
         { label: "hasScore", path: "ontology/hasScore" },
         { label: "label", path: "ontology/label" },
         { label: "scoreValue", path: "ontology/scoreValue" },
@@ -213,8 +244,12 @@ Deno.test("renderResourcePage renders typed child identifier rows", async () => 
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
 
 <ontology/AbilityScore> a owl:Class .
+<ontology/AbilityScoreShape> a sh:NodeShape .
+<ontology/CharacterPathShape> a sh:PropertyShape .
+<ontology/GenericShape> a sh:Shape .
 <ontology/hasScore> a owl:ObjectProperty .
 <ontology/scoreValue> a owl:DatatypeProperty .
 <ontology/displayName> a owl:AnnotationProperty .
@@ -226,17 +261,55 @@ Deno.test("renderResourcePage renders typed child identifier rows", async () => 
     },
   );
 
-  assertStringIncludes(html, "Child Classes");
-  assertStringIncludes(html, "Child Object Properties");
-  assertStringIncludes(html, "Child Datatype Properties");
-  assertStringIncludes(html, "Child Annotation Properties");
-  assertStringIncludes(html, "Child Properties");
-  assertStringIncludes(html, "Child Datatypes");
-  assertStringIncludes(html, "Child Individuals");
+  assertStringIncludes(html, '<details class="wf-children" open>');
+  assertStringIncludes(html, "<summary>Children</summary>");
+  assertStringIncludes(html, '<th scope="row">Classes</th>');
+  assertStringIncludes(html, '<th scope="row">Object Properties</th>');
+  assertStringIncludes(html, '<th scope="row">Datatype Properties</th>');
+  assertStringIncludes(html, '<th scope="row">Annotation Properties</th>');
+  assertStringIncludes(html, '<th scope="row">Properties</th>');
+  assertStringIncludes(html, '<th scope="row">Datatypes</th>');
+  assertStringIncludes(html, '<th scope="row">Individuals</th>');
+  assertStringIncludes(html, '<th scope="row">Node Shapes</th>');
+  assertStringIncludes(html, '<th scope="row">Property Shapes</th>');
+  assertStringIncludes(html, '<th scope="row">Shapes</th>');
   assertFalse(html.includes("Child Identifiers"));
+  assertFalse(html.includes('<th scope="row">Child Classes</th>'));
+  assert(
+    html.indexOf("<summary>Children</summary>") <
+      html.indexOf('<th scope="row">Classes</th>'),
+    "expected child rows under the Children section",
+  );
+  assert(
+    html.indexOf('<th scope="row">Individuals</th>') <
+      html.indexOf('<th scope="row">Node Shapes</th>'),
+    "expected Node Shapes after Individuals",
+  );
+  assert(
+    html.indexOf('<th scope="row">Node Shapes</th>') <
+      html.indexOf('<th scope="row">Property Shapes</th>'),
+    "expected Property Shapes after Node Shapes",
+  );
+  assert(
+    html.indexOf('<th scope="row">Property Shapes</th>') <
+      html.indexOf('<th scope="row">Shapes</th>'),
+    "expected Shapes after Property Shapes",
+  );
   assertStringIncludes(
     html,
     '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/AbilityScore">AbilityScore</a></nobr>',
+  );
+  assertStringIncludes(
+    html,
+    '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/AbilityScoreShape">AbilityScoreShape</a></nobr>',
+  );
+  assertStringIncludes(
+    html,
+    '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/CharacterPathShape">CharacterPathShape</a></nobr>',
+  );
+  assertStringIncludes(
+    html,
+    '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/GenericShape">GenericShape</a></nobr>',
   );
   assertStringIncludes(
     html,
@@ -264,6 +337,44 @@ Deno.test("renderResourcePage renders typed child identifier rows", async () => 
   );
 });
 
+Deno.test("renderResourcePage separates SHACL child identifiers from RDF type hints only", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "identifier",
+      path: "ontology/index.html",
+      designatorPath: "ontology",
+      childIdentifiers: [
+        { label: "barbarian", path: "ontology/barbarian" },
+        { label: "CharacterShape", path: "ontology/CharacterShape" },
+        {
+          label: "BarbarianPrimaryAbilityChoice",
+          path: "ontology/BarbarianPrimaryAbilityChoice",
+          rdfTypes: ["http://www.w3.org/ns/shacl#NodeShape"],
+        },
+      ],
+    },
+  );
+
+  assertStringIncludes(html, '<details class="wf-children" open>');
+  assertStringIncludes(html, "<summary>Children</summary>");
+  assertStringIncludes(html, '<th scope="row">Individuals</th>');
+  assertStringIncludes(html, '<th scope="row">Node Shapes</th>');
+  assert(
+    html.indexOf('<th scope="row">Individuals</th>') <
+      html.indexOf('<th scope="row">Node Shapes</th>'),
+    "expected Node Shapes after Individuals",
+  );
+  assertStringIncludes(
+    html,
+    '<tr><th scope="row">Individuals</th><td><div class="wf-child-identifiers"><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/barbarian">barbarian</a></nobr><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/CharacterShape">CharacterShape</a></nobr></div></td></tr>',
+  );
+  assertStringIncludes(
+    html,
+    '<tr><th scope="row">Node Shapes</th><td><div class="wf-child-identifiers"><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/BarbarianPrimaryAbilityChoice">BarbarianPrimaryAbilityChoice</a></nobr></div></td></tr>',
+  );
+});
+
 Deno.test("renderResourcePage collapses child identifier overflow", async () => {
   const childIdentifiers = Array.from({ length: 23 }, (_, index) => {
     const label = `Child${String(index + 1).padStart(2, "0")}`;
@@ -279,15 +390,32 @@ Deno.test("renderResourcePage collapses child identifier overflow", async () => 
     },
   );
 
-  assertStringIncludes(html, "Child Individuals");
+  assertStringIncludes(html, '<details class="wf-children" open>');
+  assertStringIncludes(html, "<summary>Children</summary>");
+  assertStringIncludes(html, '<th scope="row">Individuals</th>');
   assertStringIncludes(html, ">Child20</a>");
   assertStringIncludes(
     html,
-    '<details class="wf-child-identifiers-more"><summary title="Show 3 more child identifiers">...</summary>',
+    '<details class="wf-child-identifiers-more"><summary title="Show 3 more child identifiers">...</summary><div class="wf-child-identifiers-overflow">',
+  );
+  assertStringIncludes(
+    html,
+    ".wf-metadata { width: 100%; margin-top: 24px; border-collapse: collapse; table-layout: fixed;",
+  );
+  assertStringIncludes(
+    html,
+    ".wf-child-identifiers-more[open] { flex: 1 1 100%; width: 100%; }",
+  );
+  assertStringIncludes(
+    html,
+    ".wf-child-identifiers-overflow { display: flex; flex-wrap: wrap;",
+  );
+  assertStringIncludes(
+    html,
+    ".wf-child-identifiers-more[open] > summary { margin-bottom: 5px; }",
   );
   assertStringIncludes(html, ">Child21</a>");
   assertStringIncludes(html, ">Child23</a>");
-  assertFalse(html.includes(".wf-child-identifiers-more[open] > summary"));
 });
 
 Deno.test("renderResourcePage renders current ReferenceCatalog pages with fragment anchors", async () => {
@@ -422,7 +550,9 @@ Deno.test("renderResourcePage renders Knop pages with local titles", async () =>
     'href="/mesh-sidecar-fantasy-rules/ontology"',
   );
   assertStringIncludes(html, '<span aria-current="page">_knop</span>');
-  assertStringIncludes(html, "Child Individuals");
+  assertStringIncludes(html, '<details class="wf-children" open>');
+  assertStringIncludes(html, "<summary>Children</summary>");
+  assertStringIncludes(html, '<th scope="row">Individuals</th>');
   assertStringIncludes(
     html,
     '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/_knop/_inventory">_inventory</a></nobr>',
@@ -481,20 +611,20 @@ Deno.test("renderResourcePage renders escaped raw RDF panels and raw file links"
   );
 });
 
-Deno.test("renderResourcePage renders inventory fragment sections for ExtractionSource", async () => {
+Deno.test("renderResourcePage renders source registry fragment sections for ExtractionSource", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
       kind: "simple",
-      path: "bob/_knop/_inventory/index.html",
+      path: "bob/_knop/_sources/index.html",
       description: "Generated resource page.",
       rawSourcePanels: [{
-        label: "Current KnopInventory file",
-        sourcePath: "bob/_knop/_inventory/inventory.ttl",
+        label: "Current KnopSourceRegistry file",
+        sourcePath: "bob/_knop/_sources/sources.ttl",
         contents: `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
-<bob/_knop/_inventory#extraction-source> a sflo:ExtractionSource ;
+<bob/_knop/_sources#extraction-source> a sflo:ExtractionSource ;
   sflo:hasTargetArtifact <alice/bio> ;
   sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_pinned> .
@@ -631,6 +761,160 @@ Deno.test("renderResourcePage renders RDF description, classes, and histories", 
   assertStringIncludes(
     html,
     'href="/mesh-sidecar-fantasy-rules/ontology/_history001/_s0001/fantasy-rules-ontology-ttl/fantasy-rules-ontology.ttl"',
+  );
+});
+
+Deno.test("renderResourcePage falls back to skos definition for summaries", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "identifier",
+      path: "ontology/AbilityScore/index.html",
+      designatorPath: "ontology/AbilityScore",
+      rawSourcePanels: [{
+        label: "Current source file",
+        sourcePath: "../ontology/fantasy-rules-ontology.ttl",
+        contents:
+          `@prefix fant: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+fant:AbilityScore a owl:Class ;
+  skos:definition "A numeric character capability used by the rules." .
+`,
+      }],
+    },
+  );
+
+  assertStringIncludes(
+    html,
+    '<p class="wf-summary">A numeric character capability used by the rules.</p>',
+  );
+});
+
+Deno.test("renderResourcePage renders properties from subject triples", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "identifier",
+      path: "ontology/AbilityScore/index.html",
+      designatorPath: "ontology/AbilityScore",
+      rawSourcePanels: [{
+        label: "Current source file",
+        sourcePath: "../ontology/fantasy-rules-ontology.ttl",
+        contents:
+          `@prefix fant: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+fant:AbilityScore a owl:Class ;
+  rdfs:label "Ability Score" ;
+  rdfs:seeAlso "https://example.org/rules/ability-score"^^xsd:anyURI ;
+  rdfs:isDefinedBy "urn:rules:ability-score"^^xsd:anyURI ;
+  fant:relatedAbility fant:Strength ;
+  fant:hasConstraint [
+    a fant:ScoreConstraint ;
+    fant:minScore 1 ;
+    fant:reason [
+      rdfs:label "minimum score"
+    ]
+  ] .
+`,
+      }],
+    },
+  );
+
+  assertStringIncludes(html, '<details class="wf-properties">');
+  assertStringIncludes(html, "<summary>Properties</summary>");
+  assertStringIncludes(
+    html,
+    '<th scope="row"><span class="wf-term" title="http://www.w3.org/1999/02/22-rdf-syntax-ns#type">rdf:type</span></th><td><a href="http://www.w3.org/2002/07/owl#Class">owl:Class</a></td>',
+  );
+  assertStringIncludes(
+    html,
+    '<th scope="row"><span class="wf-term" title="http://www.w3.org/2000/01/rdf-schema#seeAlso">rdfs:seeAlso</span></th><td><a href="https://example.org/rules/ability-score">https://example.org/rules/ability-score</a></td>',
+  );
+  assertStringIncludes(
+    html,
+    '<th scope="row"><span class="wf-term" title="http://www.w3.org/2000/01/rdf-schema#isDefinedBy">rdfs:isDefinedBy</span></th><td><a href="urn:rules:ability-score">urn:rules:ability-score</a></td>',
+  );
+  assertStringIncludes(
+    html,
+    '<th scope="row"><span class="wf-term" title="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/relatedAbility">fant:relatedAbility</span></th><td><a href="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/Strength">fant:Strength</a></td>',
+  );
+  const propertiesSection = html.match(
+    /<details class="wf-properties">[\s\S]*?<\/details>/,
+  )?.[0] ?? "";
+  assertFalse(propertiesSection.includes("fant:hasConstraint"));
+  assertFalse(propertiesSection.includes("_:"));
+  assertStringIncludes(html, '<details class="wf-blank-nodes">');
+  assertStringIncludes(html, "<summary>Blank Nodes</summary>");
+  assertStringIncludes(
+    html,
+    '<th scope="row"><span class="wf-term" title="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/hasConstraint">fant:hasConstraint</span></th><td><pre class="wf-blank-node-code"><code>  ',
+  );
+  assertFalse(html.includes("_:"));
+  assertStringIncludes(html, "fant:ScoreConstraint");
+  assertStringIncludes(html, "fant:minScore &quot;1&quot;^^xsd:integer");
+  assertStringIncludes(html, "fant:reason [");
+  assertStringIncludes(html, "minimum score");
+});
+
+Deno.test("renderResourcePage renders grouped reference panels", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-branch-fantasy-rules/",
+    {
+      kind: "identifier",
+      path: "ontology/Ability/index.html",
+      designatorPath: "ontology/Ability",
+      references: [
+        {
+          roleLabel: "supplemental",
+          targets: [{
+            href: "https://example.org/srd/ability",
+            label: "https://example.org/srd/ability",
+          }],
+        },
+        {
+          roleLabel: "canonical",
+          targets: [{
+            href:
+              "https://semantic-flow.github.io/mesh-branch-fantasy-rules/ontology",
+            label:
+              "https://semantic-flow.github.io/mesh-branch-fantasy-rules/ontology",
+          }],
+        },
+        {
+          roleLabel: "deprecated",
+          targets: [{
+            href: "https://example.org/old/ability",
+            label: "https://example.org/old/ability",
+          }],
+        },
+      ],
+    },
+  );
+
+  assertStringIncludes(html, '<details class="wf-references">');
+  assertStringIncludes(html, "<summary>References</summary>");
+  assertStringIncludes(
+    html,
+    "<summary>Canonical</summary>",
+  );
+  assertStringIncludes(
+    html,
+    '<li><a href="https://semantic-flow.github.io/mesh-branch-fantasy-rules/ontology">https://semantic-flow.github.io/mesh-branch-fantasy-rules/ontology</a></li>',
+  );
+  assert(
+    html.indexOf("<summary>Canonical</summary>") <
+      html.indexOf("<summary>Supplemental</summary>"),
+    "expected canonical references before supplemental references",
+  );
+  assert(
+    html.indexOf("<summary>Supplemental</summary>") <
+      html.indexOf("<summary>Deprecated</summary>"),
+    "expected supplemental references before deprecated references",
   );
 });
 
@@ -862,6 +1146,56 @@ Deno.test("renderResourcePage scopes history component sections to the current l
   assertStringIncludes(manifestationHtml, "<summary>Located Files</summary>");
   assertStringIncludes(manifestationHtml, "sflo:LocatedFile");
   assertEquals(manifestationHtml.includes("sflo:ArtifactManifestation"), true);
+});
+
+Deno.test("renderResourcePage recognizes named release historical states", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-branch-fantasy-rules/",
+    {
+      kind: "simple",
+      path: "ontology/releases/v0.0.2/index.html",
+      description: "Generated resource page.",
+      historyGroups: [{
+        label: "Artifact history",
+        path: "ontology/releases",
+        states: [{
+          path: "ontology/releases/v0.0.2",
+          manifestationPath: "ontology/releases/v0.0.2/ttl",
+          locatedFilePath:
+            "ontology/releases/v0.0.2/ttl/fantasy-rules-ontology.ttl",
+        }],
+      }],
+    },
+  );
+
+  assertStringIncludes(
+    html,
+    '<p class="wf-classes">a <a href="https://semantic-flow.github.io/sflo/ontology/HistoricalState">sflo:HistoricalState</a></p>',
+  );
+  assertStringIncludes(html, "<summary>Manifestations</summary>");
+  assertStringIncludes(
+    html,
+    '<a href="/mesh-branch-fantasy-rules/ontology/releases/v0.0.2/ttl">ttl</a>',
+  );
+  assertFalse(html.includes("<summary>Historical States</summary>"));
+});
+
+Deno.test("renderResourcePage does not infer history resource classes from paths", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "simple",
+      path: "ontology/_history001/_s0001/index.html",
+      description: "Generated resource page.",
+    },
+  );
+
+  assertStringIncludes(
+    html,
+    '<p class="wf-classes">a <a href="https://semantic-flow.github.io/sflo/ontology/DigitalArtifact">sflo:DigitalArtifact</a></p>',
+  );
+  assertFalse(html.includes("sflo:HistoricalState"));
+  assertFalse(html.includes("<summary>Manifestations</summary>"));
 });
 
 Deno.test("renderResourcePage renders Knop artifact links without history cake", async () => {

@@ -2,6 +2,7 @@ node_modules
 .test-tmp
 .weave
 coverage/
+dist/
 
 # Dendron
 .dendron.*

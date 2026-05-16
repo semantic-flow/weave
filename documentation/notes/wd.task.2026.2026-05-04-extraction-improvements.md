@@ -25,7 +25,7 @@ The improved model is:
 - `Pinned` source resolution is explicit and requires a historical source state.
 - `extract` creates missing extracted identifier surfaces and skips already-created surfaces in batch mode.
 - a dedicated `set extraction-source` command updates the source-resolution contract for an existing extracted Knop.
-- generated pages resolve source-derived RDF facts through the extracted Knop's inventory-carried `sfc:ExtractionSource`, using current or pinned semantics as recorded there.
+- generated pages resolve source-derived RDF facts through the extracted Knop's linked source registry and its `sfc:ExtractionSource`, using current or pinned semantics as recorded there.
 
 This task should update the CLI, runtime extraction planning, generated page source loading, tests, and user-facing docs. It should also create the behavior needed before the Fantasy Rules sidecar `17-version-bump-woven` rung can prove existing extracted term pages update after the ontology or SHACL source advances to `v0.0.2`.
 
@@ -33,7 +33,7 @@ This task should update the CLI, runtime extraction planning, generated page sou
 
 The important distinction is between extraction as creation and extraction-source management as later maintenance.
 
-`weave extract` is allowed to skip existing extracted Knops. That is sensible for `--all-terms`, where the operator wants to mint missing term surfaces from a source RDF graph without rewriting every already-governed identifier. But skipping existing Knops means `extract --all-terms` cannot be the only operation that changes an already extracted term from a pinned source to a current-tracking source. That change should be a deliberate update to the Knop inventory's source-resolution contract.
+`weave extract` is allowed to skip existing extracted Knops. That is sensible for `--all-terms`, where the operator wants to mint missing term surfaces from a source RDF graph without rewriting every already-governed identifier. But skipping existing Knops means `extract --all-terms` cannot be the only operation that changes an already extracted term from a pinned source to a current-tracking source. That change should be a deliberate update to the Knop source registry's source-resolution contract.
 
 The CLI should avoid vague confirmation flags. `--yes` does not say what is being accepted. For all-terms extraction, the operator is accepting the previewed list of identifiers to create, so the noninteractive flag should be `--accept-preview`. Because Weave is pre-v1, this task can remove or replace `--yes` rather than preserving it as a compatibility alias unless a short transition proves necessary.
 
@@ -89,7 +89,7 @@ This task is related to but distinct from forced unchanged state creation. The s
 - Add `weave set extraction-source` as the dedicated command for changing an existing extracted Knop's source-resolution contract.
 - `weave set extraction-source --all-terms` should update every already extracted term discovered in the selected source graph after preview acceptance. The project has release history, so an operator can revert if a broad migration is wrong.
 - Treat it as an error when `weave extract --source-state <state>` or `weave set extraction-source --source-state <state>` selects a pinned historical state that does not mention the target term.
-- Enforce one primary extraction source per extracted Knop inventory. SHACL should express this as `sh:maxCount 1` for `sfc:hasExtractionSource` where the shape applies.
+- Enforce one primary extraction source per extracted Knop. SHACL should express this as `sh:maxCount 1` for `sfc:hasExtractionSource` where the shape applies, while the extraction-source details live in the Knop's `_sources` registry.
 - Rename all-terms noninteractive confirmation from `--yes` to `--accept-preview`.
 - Remove `--source-designator-path` immediately instead of keeping it as a deprecated alias for `--source`.
 - Remove `--yes` immediately instead of keeping it as a deprecated alias for `--accept-preview`.
@@ -107,10 +107,10 @@ This task is related to but distinct from forced unchanged state creation. The s
 - `weave set extraction-source <targetDesignatorPath> --source-state <historicalStatePath>` replaces the existing extracted Knop's source binding with a pinned source binding.
 - `weave set extraction-source --all-terms --source <sourceDesignatorPath> --accept-preview` previews and updates existing extracted terms discovered in the selected source graph to current-tracking source resolution.
 - `weave set extraction-source --all-terms --source-state <historicalStatePath> --accept-preview` previews and updates existing extracted terms discovered in the selected source graph to pinned source resolution.
-- Generated resource pages for extracted terms must read source-derived RDF facts using the recorded `ExtractionSource` resolution mode.
+- Generated resource pages for extracted terms must read source-derived RDF facts using the recorded `ExtractionSource` resolution mode from the Knop's linked source registry.
 - Current-tracking generated pages use the source artifact's current latest state at generation time.
 - Pinned generated pages use the recorded `sfc:hasRequestedTargetState`.
-- Existing `Pinned` inventories remain valid.
+- Inventory-rooted extraction-source records are obsolete; stale fixture refs should be regenerated to the `_sources` registry shape rather than carried as a compatibility mode.
 
 ## Testing
 
@@ -126,7 +126,7 @@ This task is related to but distinct from forced unchanged state creation. The s
 - Add runtime and CLI tests for `weave set extraction-source <target> --source <source>`.
 - Add runtime and CLI tests for `weave set extraction-source <target> --source-state <state>`.
 - Add tests proving `weave set extraction-source` replaces the existing binding rather than appending a second `sfc:hasExtractionSource`.
-- Add SHACL or ontology validation coverage for at-most-one `sfc:hasExtractionSource` where that shape is maintained in this repository or the ontology dependency.
+- Add SHACL or ontology validation coverage for at-most-one `sfc:hasExtractionSource` where that shape is maintained in this repository or the ontology dependency, plus source-registry validation for the owned source binding.
 - Update sidecar integration coverage so the `16/17` version-bump pair can migrate existing extracted terms to current source resolution and then verify refreshed extracted pages.
 
 ## Non-Goals
@@ -141,7 +141,7 @@ This task is related to but distinct from forced unchanged state creation. The s
 
 ## Implementation Plan
 
-- [ ] Update this task note and related sidecar/all-terms notes with the settled extraction-source resolution contract.
+- [x] Update this task note and related sidecar/all-terms notes with the settled extraction-source resolution contract.
 - [x] Update [[wu.cli-reference]] with `--source`, `--source-state`, `--accept-preview`, and `weave set extraction-source`.
 - [ ] Update the relevant Semantic Flow behavior spec, likely [[sf.spec.2026-04-05-extract-behavior]], for current and pinned source-resolution semantics.
 - [x] Extend extraction planning so `ExtractionSource` can be rendered in current or pinned mode.
@@ -150,7 +150,7 @@ This task is related to but distinct from forced unchanged state creation. The s
 - [x] Update generated page source loading so current-mode extraction sources resolve the source artifact's current latest state at generation time.
 - [x] Add `weave set extraction-source` runtime support for one target.
 - [x] Add `weave set extraction-source --all-terms` runtime support for batch migration/update.
-- [ ] Add or update SHACL constraints so an extracted Knop inventory has at most one `sfc:hasExtractionSource`.
+- [x] Add or update SHACL constraints so an extracted Knop has at most one `sfc:hasExtractionSource` and extraction-source details are accepted in `_sources`.
 - [x] Update unit, integration, and e2e tests for the new contract.
 - [x] Decide whether to retrofit existing Fantasy Rules `08/09` rungs or keep them pinned and migrate in `16/17`.
 - [x] Update [[wd.decision-log]] once behavior is implemented and the fixture policy is settled.

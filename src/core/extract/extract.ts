@@ -52,7 +52,17 @@ export interface ResolvedExtractRequest extends ExtractRequest {
   sourceDesignatorPath: string;
   sourceStatePath?: string;
   sourceResolutionMode?: "current" | "pinned";
+  sourceEvidence?: ExtractionSourceEvidence;
   sourceWorkingLocalRelativePath: string;
+}
+
+export interface ExtractionSourceEvidence {
+  sourceStatePath?: string;
+  sourceManifestationPath?: string;
+  sourceLocatedFilePath?: string;
+  sourceLocalRelativePath?: string;
+  sourceDigest?: string;
+  observedAt?: string;
 }
 
 export interface ExtractPlan {
@@ -64,6 +74,7 @@ export interface ExtractPlan {
   sourceStateIri?: string;
   sourceStatePath?: string;
   sourceResolutionMode: "current" | "pinned";
+  sourceEvidence?: ExtractionSourceEvidence;
   createdFiles: readonly PlannedFile[];
   updatedFiles: readonly PlannedFile[];
 }
@@ -86,7 +97,7 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
     "sourceDesignatorPath",
   );
   const sourceResolutionMode = request.sourceResolutionMode === undefined
-    ? request.sourceStatePath === undefined ? "current" : "pinned"
+    ? "current"
     : normalizeSourceResolutionMode(request.sourceResolutionMode);
   const sourceStatePath = request.sourceStatePath === undefined
     ? undefined
@@ -99,11 +110,9 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
       "sourceStatePath is required for pinned extraction",
     );
   }
-  if (sourceResolutionMode === "current" && sourceStatePath !== undefined) {
-    throw new ExtractInputError(
-      "sourceStatePath is only valid for pinned extraction",
-    );
-  }
+  const sourceEvidence = normalizeExtractionSourceEvidence(
+    request.sourceEvidence,
+  );
   const sourceWorkingLocalRelativePath = normalizeWorkingLocalRelativePath(
     request.sourceWorkingLocalRelativePath,
   );
@@ -122,7 +131,7 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
       meshBase,
       designatorPath,
       extractionSourceIri:
-        new URL(`${knopPath}/_inventory#extraction-source`, meshBase).href,
+        new URL(`${knopPath}/_sources#extraction-source`, meshBase).href,
       sourceArtifactIri: new URL(sourceDesignatorPath, meshBase).href,
       sourceDesignatorPath,
       ...(sourceStatePath
@@ -130,6 +139,7 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
         : {}),
       sourceStatePath,
       sourceResolutionMode,
+      ...(sourceEvidence ? { sourceEvidence } : {}),
       createdFiles: [
         {
           path: `${knopPath}/_meta/meta.ttl`,
@@ -143,9 +153,17 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
           contents: renderExtractKnopInventoryTurtle(
             meshBase,
             designatorPath,
+          ),
+        },
+        {
+          path: `${knopPath}/_sources/sources.ttl`,
+          contents: renderExtractKnopSourcesTurtle(
+            meshBase,
+            designatorPath,
             sourceDesignatorPath,
             sourceResolutionMode,
             sourceStatePath,
+            sourceEvidence,
           ),
         },
       ],
@@ -169,6 +187,61 @@ function normalizeSourceResolutionMode(
     return sourceResolutionMode;
   }
   throw new ExtractInputError("sourceResolutionMode must be current or pinned");
+}
+
+function normalizeExtractionSourceEvidence(
+  sourceEvidence: ExtractionSourceEvidence | undefined,
+): ExtractionSourceEvidence | undefined {
+  if (sourceEvidence === undefined) {
+    return undefined;
+  }
+
+  const normalized: ExtractionSourceEvidence = {};
+  if (sourceEvidence.sourceStatePath !== undefined) {
+    normalized.sourceStatePath = normalizeRelativeIriPath(
+      sourceEvidence.sourceStatePath,
+      "sourceEvidence.sourceStatePath",
+    );
+  }
+  if (sourceEvidence.sourceManifestationPath !== undefined) {
+    normalized.sourceManifestationPath = normalizeRelativeIriPath(
+      sourceEvidence.sourceManifestationPath,
+      "sourceEvidence.sourceManifestationPath",
+    );
+  }
+  if (sourceEvidence.sourceLocatedFilePath !== undefined) {
+    normalized.sourceLocatedFilePath = normalizeRelativeIriPath(
+      sourceEvidence.sourceLocatedFilePath,
+      "sourceEvidence.sourceLocatedFilePath",
+    );
+  }
+  if (sourceEvidence.sourceLocalRelativePath !== undefined) {
+    normalized.sourceLocalRelativePath = normalizeWorkingLocalRelativePath(
+      sourceEvidence.sourceLocalRelativePath,
+    );
+  }
+  if (sourceEvidence.sourceDigest !== undefined) {
+    normalized.sourceDigest = normalizeNonEmptyLiteral(
+      sourceEvidence.sourceDigest,
+      "sourceEvidence.sourceDigest",
+    );
+  }
+  if (sourceEvidence.observedAt !== undefined) {
+    normalized.observedAt = normalizeNonEmptyLiteral(
+      sourceEvidence.observedAt,
+      "sourceEvidence.observedAt",
+    );
+  }
+
+  return Object.keys(normalized).length === 0 ? undefined : normalized;
+}
+
+function normalizeNonEmptyLiteral(value: string, fieldName: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    throw new ExtractInputError(`${fieldName} must not be empty`);
+  }
+  return trimmed;
 }
 
 function normalizeMeshBase(meshBase: string): string {
@@ -378,10 +451,10 @@ function renderLegacyExtractMeshInventoryTurtle(
   const locatedFileDeclarations = renderLocatedFileDeclarations([
     "_mesh/_meta/meta.ttl",
     "_mesh/_inventory/inventory.ttl",
-    "_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl",
-    "_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
-    "_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
-    "_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl",
+    "_mesh/_meta/_history001/_s0001/ttl/meta.ttl",
+    "_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl",
+    "_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl",
+    "_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl",
     `${rootKnopPath}/_inventory/inventory.ttl`,
     `${sourceKnopPath}/_inventory/inventory.ttl`,
     `${knopPath}/_inventory/inventory.ttl`,
@@ -396,15 +469,15 @@ function renderLegacyExtractMeshInventoryTurtle(
     "_mesh/_meta/index.html",
     "_mesh/_meta/_history001/index.html",
     "_mesh/_meta/_history001/_s0001/index.html",
-    "_mesh/_meta/_history001/_s0001/meta-ttl/index.html",
+    "_mesh/_meta/_history001/_s0001/ttl/index.html",
     "_mesh/_inventory/index.html",
     "_mesh/_inventory/_history001/index.html",
     "_mesh/_inventory/_history001/_s0001/index.html",
-    "_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html",
+    "_mesh/_inventory/_history001/_s0001/ttl/index.html",
     "_mesh/_inventory/_history001/_s0002/index.html",
-    "_mesh/_inventory/_history001/_s0002/inventory-ttl/index.html",
+    "_mesh/_inventory/_history001/_s0002/ttl/index.html",
     "_mesh/_inventory/_history001/_s0003/index.html",
-    "_mesh/_inventory/_history001/_s0003/inventory-ttl/index.html",
+    "_mesh/_inventory/_history001/_s0003/ttl/index.html",
   ]);
 
   return `@base <${meshBase}> .
@@ -443,13 +516,13 @@ ${sourceKnopBlock}<${knopPath}> a sflo:Knop ;
 
 <_mesh/_meta/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <_mesh/_meta/_history001/_s0001/meta-ttl> ;
-  sflo:locatedFileForState <_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
+  sflo:hasManifestation <_mesh/_meta/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <_mesh/_meta/_history001/_s0001/ttl/meta.ttl> ;
   sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/index.html> .
 
-<_mesh/_meta/_history001/_s0001/meta-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
-  sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/meta-ttl/index.html> .
+<_mesh/_meta/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_meta/_history001/_s0001/ttl/meta.ttl> ;
+  sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/ttl/index.html> .
 
 <_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <_mesh/_inventory/_history001> ;
@@ -469,35 +542,35 @@ ${sourceKnopBlock}<${knopPath}> a sflo:Knop ;
 
 <_mesh/_inventory/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0001/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <_mesh/_inventory/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/index.html> .
 
-<_mesh/_inventory/_history001/_s0001/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html> .
+<_mesh/_inventory/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/ttl/index.html> .
 
 <_mesh/_inventory/_history001/_s0002> a sflo:HistoricalState ;
   sflo:stateOrdinal "2"^^xsd:nonNegativeInteger ;
   sflo:previousHistoricalState <_mesh/_inventory/_history001/_s0001> ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0002/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <_mesh/_inventory/_history001/_s0002/ttl> ;
+  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/index.html> .
 
-<_mesh/_inventory/_history001/_s0002/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/inventory-ttl/index.html> .
+<_mesh/_inventory/_history001/_s0002/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/ttl/index.html> .
 
 <_mesh/_inventory/_history001/_s0003> a sflo:HistoricalState ;
   sflo:stateOrdinal "3"^^xsd:nonNegativeInteger ;
   sflo:previousHistoricalState <_mesh/_inventory/_history001/_s0002> ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0003/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <_mesh/_inventory/_history001/_s0003/ttl> ;
+  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/index.html> .
 
-<_mesh/_inventory/_history001/_s0003/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/inventory-ttl/index.html> .
+<_mesh/_inventory/_history001/_s0003/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/ttl/index.html> .
 
 ${locatedFileDeclarations}
 
@@ -636,7 +709,22 @@ function hasLegacyCarriedExtractMeshInventoryShape(
   return payloadArtifactPaths.length === 1 &&
     payloadArtifactPaths[0] === sourcePayloadDesignatorPath &&
     meshKnopPaths.length === expectedMeshKnopPaths.length &&
-    expectedMeshKnopPaths.every((path) => meshKnopPaths.includes(path));
+    expectedMeshKnopPaths.every((path) => meshKnopPaths.includes(path)) &&
+    hasNamedNodeFact(
+      quads,
+      meshBase,
+      "_mesh/_inventory/_history001",
+      SFLO_LATEST_HISTORICAL_STATE_IRI,
+      "_mesh/_inventory/_history001/_s0003",
+    ) &&
+    hasLiteralFact(
+      quads,
+      meshBase,
+      "_mesh/_inventory/_history001",
+      SFLO_NEXT_STATE_ORDINAL_IRI,
+      "4",
+      XSD_NON_NEGATIVE_INTEGER_IRI,
+    );
 }
 
 function uniquePaths(paths: readonly string[]): string[] {
@@ -664,17 +752,11 @@ function renderResourcePageDeclarations(paths: readonly string[]): string {
 function renderExtractKnopInventoryTurtle(
   meshBase: string,
   designatorPath: string,
-  sourceDesignatorPath: string,
-  sourceResolutionMode: "current" | "pinned",
-  sourceStatePath?: string,
 ): string {
   const knopPath = toKnopPath(designatorPath);
-  const extractionSourceFacts = sourceResolutionMode === "pinned"
-    ? `  sflo:hasTargetArtifact <${sourceDesignatorPath}> ;
-  sflo:hasRequestedTargetState <${sourceStatePath}> ;
-  sflo:hasArtifactResolutionMode <${SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI}> .`
-    : `  sflo:hasTargetArtifact <${sourceDesignatorPath}> ;
-  sflo:hasArtifactResolutionMode <${SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI}> .`;
+  const sourceRegistryPath = `${knopPath}/_sources`;
+  const sourcesFilePath = `${sourceRegistryPath}/sources.ttl`;
+  const extractionSourcePath = `${sourceRegistryPath}#extraction-source`;
 
   return `@base <${meshBase}> .
 ${SFLO_TURTLE_PREFIX_DECLARATION}
@@ -682,11 +764,9 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 <${knopPath}> a sflo:Knop ;
   sflo:hasKnopMetadata <${knopPath}/_meta> ;
   sflo:hasKnopInventory <${knopPath}/_inventory> ;
-  sflo:hasExtractionSource <${knopPath}/_inventory#extraction-source> ;
+  sflo:hasKnopSourceRegistry <${sourceRegistryPath}> ;
+  sflo:hasExtractionSource <${extractionSourcePath}> ;
   sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> .
-
-<${knopPath}/_inventory#extraction-source> a sflo:ExtractionSource ;
-${extractionSourceFacts}
 
 <${knopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <${knopPath}/_meta/meta.ttl> .
@@ -694,10 +774,145 @@ ${extractionSourceFacts}
 <${knopPath}/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <${knopPath}/_inventory/inventory.ttl> .
 
+<${sourceRegistryPath}> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${sourcesFilePath}> .
+
 <${knopPath}/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<${sourcesFilePath}> a sflo:LocatedFile, sflo:RdfDocument .
 `;
+}
+
+function renderExtractKnopSourcesTurtle(
+  meshBase: string,
+  designatorPath: string,
+  sourceDesignatorPath: string,
+  sourceResolutionMode: "current" | "pinned",
+  sourceStatePath?: string,
+  sourceEvidence?: ExtractionSourceEvidence,
+): string {
+  const sourceRegistryPath = `${toKnopPath(designatorPath)}/_sources`;
+  const sourcesFilePath = `${sourceRegistryPath}/sources.ttl`;
+  const extractionSourcePath = `${sourceRegistryPath}#extraction-source`;
+  const extractionSourceFacts = renderExtractionSourceFacts(
+    sourceDesignatorPath,
+    sourceResolutionMode,
+    sourceStatePath,
+    sourceEvidence,
+  );
+
+  return `@base <${meshBase}> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
+
+<${sourceRegistryPath}> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${sourcesFilePath}> ;
+  sflo:hasSourceBinding <${extractionSourcePath}> .
+
+<${extractionSourcePath}> a sflo:ExtractionSource ;
+${extractionSourceFacts}
+
+<${sourcesFilePath}> a sflo:LocatedFile, sflo:RdfDocument .
+`;
+}
+
+function renderExtractionSourceFacts(
+  sourceDesignatorPath: string,
+  sourceResolutionMode: "current" | "pinned",
+  sourceStatePath: string | undefined,
+  sourceEvidence: ExtractionSourceEvidence | undefined,
+): string {
+  const facts: [string, string][] = [
+    ["sflo:hasTargetArtifact", `<${sourceDesignatorPath}>`],
+  ];
+  if (sourceResolutionMode === "pinned") {
+    facts.push(["sflo:hasRequestedTargetState", `<${sourceStatePath}>`]);
+  }
+  facts.push([
+    "sflo:hasArtifactResolutionMode",
+    `<${
+      sourceResolutionMode === "pinned"
+        ? SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI
+        : SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI
+    }>`,
+  ]);
+  facts.push(...toExtractionSourceEvidenceFacts(sourceEvidence));
+
+  return facts.map(([predicate, object], index) =>
+    `  ${predicate} ${object}${index === facts.length - 1 ? " ." : " ;"}`
+  ).join("\n");
+}
+
+function toExtractionSourceEvidenceFacts(
+  sourceEvidence: ExtractionSourceEvidence | undefined,
+): [string, string][] {
+  if (!sourceEvidence) {
+    return [];
+  }
+
+  const facts: [string, string][] = [];
+  if (sourceEvidence.sourceStatePath !== undefined) {
+    facts.push([
+      "sflo:hasObservedSourceState",
+      `<${sourceEvidence.sourceStatePath}>`,
+    ]);
+  }
+  if (sourceEvidence.sourceManifestationPath !== undefined) {
+    facts.push([
+      "sflo:hasObservedSourceManifestation",
+      `<${sourceEvidence.sourceManifestationPath}>`,
+    ]);
+  }
+  if (sourceEvidence.sourceLocatedFilePath !== undefined) {
+    facts.push([
+      "sflo:hasObservedSourceLocatedFile",
+      `<${sourceEvidence.sourceLocatedFilePath}>`,
+    ]);
+  }
+  if (sourceEvidence.sourceLocalRelativePath !== undefined) {
+    facts.push([
+      "sflo:observedSourceLocalRelativePath",
+      `"${escapeTurtleString(sourceEvidence.sourceLocalRelativePath)}"`,
+    ]);
+  }
+  if (sourceEvidence.sourceDigest !== undefined) {
+    facts.push([
+      "sflo:observedSourceDigest",
+      `"${escapeTurtleString(sourceEvidence.sourceDigest)}"`,
+    ]);
+  }
+  if (sourceEvidence.observedAt !== undefined) {
+    facts.push([
+      "sflo:observedAt",
+      `"${escapeTurtleString(sourceEvidence.observedAt)}"`,
+    ]);
+  }
+
+  return facts;
+}
+
+function escapeTurtleString(value: string): string {
+  return value.replace(/[\b\t\n\f\r"\\]/g, (character) => {
+    switch (character) {
+      case "\b":
+        return "\\b";
+      case "\t":
+        return "\\t";
+      case "\n":
+        return "\\n";
+      case "\f":
+        return "\\f";
+      case "\r":
+        return "\\r";
+      case '"':
+        return '\\"';
+      case "\\":
+        return "\\\\";
+      default:
+        return character;
+    }
+  });
 }
 
 function renderExtractKnopMetadataTurtle(

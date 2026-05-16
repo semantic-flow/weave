@@ -52,10 +52,17 @@ The failure mode appears when MeshInventory contains more than the one exact fix
 
 That is a reasonable pre-weave state. The mesh inventory has registered two Knops and two payload artifacts; neither payload has a history yet. The user intent is clear: version both first payloads and produce pages. The current planner instead behaves as though first-payload weave can only ever occur against one settled branch shape.
 
-After working around that first-payload limitation, the URPX run also showed a stale extracted-Knop assertion. For an extracted term such as `ontology/A`, `docs/ontology/A/_knop/_inventory/inventory.ttl` can legitimately contain:
+After working around that first-payload limitation, the URPX run also showed a stale extracted-Knop assertion. For an extracted term such as `ontology/A`, `docs/ontology/A/_knop/_inventory/inventory.ttl` can legitimately link a source registry:
 
 ```turtle
-<ontology/A/_knop/_inventory#extraction-source> a sfc:ExtractionSource ;
+<ontology/A/_knop> sfc:hasExtractionSource <ontology/A/_knop/_sources#extraction-source> ;
+  sfc:hasKnopSourceRegistry <ontology/A/_knop/_sources> .
+```
+
+and `docs/ontology/A/_knop/_sources/sources.ttl` can carry:
+
+```turtle
+<ontology/A/_knop/_sources#extraction-source> a sfc:ExtractionSource ;
   sfc:hasTargetArtifact <ontology> ;
   sfc:hasArtifactResolutionMode <https://semantic-flow.github.io/ontology/core/ArtifactResolutionMode/Current> .
 ```

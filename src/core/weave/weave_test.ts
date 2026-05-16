@@ -17,11 +17,35 @@ import {
 } from "./weave.ts";
 import { readMeshAliceBioBranchFile } from "../../../tests/support/mesh_alice_bio_fixture.ts";
 
-function withAliceReferenceExtensionManifestation(contents: string): string {
-  return contents.replaceAll(
-    "alice/_knop/_references/_history001/_s0001/references-ttl",
-    "alice/_knop/_references/_history001/_s0001/ttl",
+function meshMetadataProgressionTurtle(
+  latestStatePath: string,
+  nextStateOrdinal: number,
+  nextStateSegmentHint?: string,
+): string {
+  const historyPath = latestStatePath.slice(
+    0,
+    latestStatePath.lastIndexOf("/"),
   );
+  const hint = nextStateSegmentHint === undefined ? "" : ` ;
+  sfcfg:hasNextStateSegmentHint "${nextStateSegmentHint}"`;
+
+  return `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<_mesh> a sflo:SemanticMesh ;
+  sflo:meshBase "https://semantic-flow.github.io/mesh-alice-bio/"^^xsd:anyURI ;
+  sflo:hasMeshInventory <_mesh/_inventory> .
+
+<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:currentArtifactHistory <${historyPath}> ;
+  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger .
+
+<${historyPath}> a sflo:ArtifactHistory ;
+  sflo:latestHistoricalState <${latestStatePath}> ;
+  sflo:nextStateOrdinal "${nextStateOrdinal}"^^xsd:nonNegativeInteger${hint} .
+`;
 }
 
 const firstWeaveMeshInventoryTurtle =
@@ -53,6 +77,11 @@ const firstWeaveMeshInventoryTurtle =
   sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/index.html> .
 `;
+
+const firstWeaveMeshMetadataTurtle = meshMetadataProgressionTurtle(
+  "_mesh/_inventory/_history001/_s0001",
+  2,
+);
 
 const sidecarMeshCreatedInventoryTurtle =
   `@base <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/> .
@@ -164,15 +193,18 @@ Deno.test("planMeshSupportResourcePages adds current support ResourcePages inclu
 
 <> a sfcfg:MeshConfig .
 `,
+    supportHistoryPolicies: {
+      meshMetadata: "currentOnly",
+      meshInventory: "currentOnly",
+      config: "versioned",
+    },
   });
 
   assertEquals(plan.versionedDesignatorPaths, []);
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
-      "_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl",
-      "_mesh/_config/_history001/_s0001/config-ttl/config.ttl",
-      "_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      "_mesh/_config/_history001/_s0001/ttl/config.ttl",
     ],
   );
   assertEquals(
@@ -190,15 +222,115 @@ Deno.test("planMeshSupportResourcePages adds current support ResourcePages inclu
   );
   assertStringIncludes(
     inventory,
-    "<_mesh/_config/index.html> a sflo:ResourcePage, sflo:LocatedFile .",
+    "sflo:hasWorkingLocatedFile <_mesh/_meta/meta.ttl> ;\n  sflo:hasResourcePage <_mesh/_meta/index.html> .",
   );
   assertStringIncludes(
     inventory,
+    "sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> ;\n  sflo:hasResourcePage <_mesh/_inventory/index.html> .",
+  );
+  assertStringIncludes(
+    inventory,
+    "<_mesh/_config/index.html> a sflo:ResourcePage, sflo:LocatedFile .",
+  );
+  assertFalse(
+    inventory.includes(
+      "sflo:currentArtifactHistory <_mesh/_inventory/_history001>",
+    ),
+  );
+  assertFalse(
+    inventory.includes(
+      "sflo:currentArtifactHistory <_mesh/_meta/_history001>",
+    ),
+  );
+  assertStringIncludes(
+    inventory,
+    "<_mesh/_config/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;",
+  );
+});
+
+Deno.test("planMeshSupportResourcePages records initial mesh inventory progression in metadata", () => {
+  const plan = planMeshSupportResourcePages({
+    meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    currentMeshInventoryTurtle: sidecarMeshCreatedInventoryTurtle,
+    currentMeshMetadataTurtle:
+      `@base <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<_mesh> a sflo:SemanticMesh .
+`,
+    currentMeshConfigTurtle:
+      `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+
+<> a sfcfg:MeshConfig .
+`,
+    supportHistoryPolicies: {
+      meshMetadata: "versioned",
+      meshInventory: "versioned",
+      config: "versioned",
+    },
+  });
+
+  assertEquals(
+    plan.updatedFiles.map((file) => file.path),
+    ["_mesh/_meta/meta.ttl", "_mesh/_inventory/inventory.ttl"],
+  );
+  const updatedMetadata =
+    plan.updatedFiles.find((file) => file.path === "_mesh/_meta/meta.ttl")
+      ?.contents ?? "";
+  assertStringIncludes(
+    updatedMetadata,
     "sflo:currentArtifactHistory <_mesh/_inventory/_history001> ;",
   );
   assertStringIncludes(
+    updatedMetadata,
+    "sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0001> ;",
+  );
+  assertStringIncludes(
+    plan.createdFiles.find((file) =>
+      file.path === "_mesh/_meta/_history001/_s0001/ttl/meta.ttl"
+    )?.contents ?? "",
+    "sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0001> ;",
+  );
+});
+
+Deno.test("planMeshSupportResourcePages omits suppressed support ResourcePage facts", () => {
+  const plan = planMeshSupportResourcePages({
+    meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    currentMeshInventoryTurtle: sidecarMeshCreatedInventoryTurtle,
+    currentMeshMetadataTurtle:
+      `@base <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<_mesh> a sflo:SemanticMesh .
+`,
+    currentMeshConfigTurtle:
+      `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+
+<> a sfcfg:MeshConfig .
+`,
+    supportHistoryPolicies: {
+      meshMetadata: "currentOnly",
+      meshInventory: "currentOnly",
+      config: "versioned",
+    },
+    resourcePageGenerationPolicies: {
+      config: "suppress",
+    },
+  });
+
+  const inventory = plan.updatedFiles[0]?.contents ?? "";
+  assertFalse(inventory.includes("_mesh/_config/index.html"));
+  assertFalse(inventory.includes("_mesh/_config/_history001/index.html"));
+  assertFalse(
+    inventory.includes("_mesh/_config/_history001/_s0001/index.html"),
+  );
+  assertStringIncludes(
     inventory,
-    "<_mesh/_config/_history001/_s0001/config-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;",
+    "sflo:hasWorkingLocatedFile <_mesh/_config/config.ttl> ;\n  sflo:hasArtifactHistory <_mesh/_config/_history001> ;",
+  );
+  assertStringIncludes(
+    inventory,
+    "<_mesh/_config/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;",
   );
 });
 
@@ -228,6 +360,11 @@ const firstPayloadWeaveMeshInventoryTurtle =
 <alice/bio/_knop> a sflo:Knop ;
   sflo:hasWorkingKnopInventoryFile <alice/bio/_knop/_inventory/inventory.ttl> .
 `;
+
+const firstPayloadWeaveMeshMetadataTurtle = meshMetadataProgressionTurtle(
+  "_mesh/_inventory/_history001/_s0002",
+  3,
+);
 
 const firstPayloadWeaveKnopMetadataTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
@@ -298,56 +435,56 @@ const laterFirstPayloadWeaveMeshInventoryTurtle =
 
 <_mesh/_inventory/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0001/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <_mesh/_inventory/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/index.html> .
 
-<_mesh/_inventory/_history001/_s0001/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html> .
+<_mesh/_inventory/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/ttl/index.html> .
 
 <_mesh/_inventory/_history001/_s0002> a sflo:HistoricalState ;
   sflo:stateOrdinal "2"^^xsd:nonNegativeInteger ;
   sflo:previousHistoricalState <_mesh/_inventory/_history001/_s0001> ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0002/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <_mesh/_inventory/_history001/_s0002/ttl> ;
+  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/index.html> .
 
-<_mesh/_inventory/_history001/_s0002/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/inventory-ttl/index.html> .
+<_mesh/_inventory/_history001/_s0002/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/ttl/index.html> .
 
 <_mesh/_inventory/_history001/_s0003> a sflo:HistoricalState ;
   sflo:stateOrdinal "3"^^xsd:nonNegativeInteger ;
   sflo:previousHistoricalState <_mesh/_inventory/_history001/_s0002> ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0003/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <_mesh/_inventory/_history001/_s0003/ttl> ;
+  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/index.html> .
 
-<_mesh/_inventory/_history001/_s0003/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/inventory-ttl/index.html> .
+<_mesh/_inventory/_history001/_s0003/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/ttl/index.html> .
 
 <_mesh/_inventory/_history001/_s0004> a sflo:HistoricalState ;
   sflo:stateOrdinal "4"^^xsd:nonNegativeInteger ;
   sflo:previousHistoricalState <_mesh/_inventory/_history001/_s0003> ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0004/inventory-ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <_mesh/_inventory/_history001/_s0004/ttl> ;
+  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0004/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0004/index.html> .
 
-<_mesh/_inventory/_history001/_s0004/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0004/inventory-ttl/index.html> .
+<_mesh/_inventory/_history001/_s0004/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0004/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0004/ttl/index.html> .
 
 <_mesh/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<_mesh/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<_mesh/_inventory/_history001/_s0004/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <alice/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -361,20 +498,26 @@ const laterFirstPayloadWeaveMeshInventoryTurtle =
 
 <_mesh/_inventory/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<_mesh/_inventory/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <_mesh/_inventory/_history001/_s0002/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<_mesh/_inventory/_history001/_s0002/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<_mesh/_inventory/_history001/_s0002/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <_mesh/_inventory/_history001/_s0003/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<_mesh/_inventory/_history001/_s0003/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<_mesh/_inventory/_history001/_s0003/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <_mesh/_inventory/_history001/_s0004/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<_mesh/_inventory/_history001/_s0004/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<_mesh/_inventory/_history001/_s0004/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 `;
+
+const laterFirstPayloadWeaveMeshMetadataTurtle = meshMetadataProgressionTurtle(
+  "_mesh/_inventory/_history001/_s0004",
+  5,
+  "release-candidate",
+);
 
 const laterFirstPayloadWeaveKnopMetadataTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
@@ -441,6 +584,12 @@ const firstReferenceCatalogWeaveMeshInventoryTurtle =
 <alice/bio/_knop> a sflo:Knop ;
   sflo:hasWorkingKnopInventoryFile <alice/bio/_knop/_inventory/inventory.ttl> .
 `;
+
+const firstReferenceCatalogWeaveMeshMetadataTurtle =
+  meshMetadataProgressionTurtle(
+    "_mesh/_inventory/_history001/_s0003",
+    4,
+  );
 
 const firstReferenceCatalogWeaveKnopInventoryTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
@@ -513,12 +662,12 @@ const secondPayloadWeaveKnopInventoryTurtle =
 <alice/bio/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
   sflo:hasManifestation <alice/bio/_history001/_s0001/alice-bio-ttl> ;
-  sflo:locatedFileForState <alice/bio/_history001/_s0001/alice-bio-ttl/alice-bio.ttl> ;
+  sflo:locatedFileForState <alice/bio/_history001/_s0001/ttl/alice-bio.ttl> ;
   sflo:hasResourcePage <alice/bio/_history001/_s0001/index.html> .
 
 <alice/bio/_history001/_s0001/alice-bio-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <alice/bio/_history001/_s0001/alice-bio-ttl/alice-bio.ttl> ;
-  sflo:hasResourcePage <alice/bio/_history001/_s0001/alice-bio-ttl/index.html> .
+  sflo:hasLocatedFile <alice/bio/_history001/_s0001/ttl/alice-bio.ttl> ;
+  sflo:hasResourcePage <alice/bio/_history001/_s0001/ttl/index.html> .
 
 <alice/bio/_knop/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <alice/bio/_knop/_inventory/_history001> ;
@@ -540,6 +689,7 @@ Deno.test("planWeave renders the first alice knop-created-woven slice", () => {
     request: {},
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: firstWeaveMeshInventoryTurtle,
+    currentMeshMetadataTurtle: firstWeaveMeshMetadataTurtle,
     weaveableKnops: [{
       designatorPath: "alice",
       currentKnopMetadataTurtle: firstWeaveKnopMetadataTurtle,
@@ -551,13 +701,14 @@ Deno.test("planWeave renders the first alice knop-created-woven slice", () => {
   assertEquals(plan.updatedFiles.map((file) => file.path), [
     "_mesh/_inventory/inventory.ttl",
     "alice/_knop/_inventory/inventory.ttl",
+    "_mesh/_meta/meta.ttl",
   ]);
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
-      "_mesh/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
-      "alice/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
-      "alice/_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      "_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl",
+      "alice/_knop/_meta/_history001/_s0001/ttl/meta.ttl",
+      "alice/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl",
     ],
   );
   assertEquals(plan.createdPages[2], {
@@ -576,6 +727,86 @@ Deno.test("planWeave renders the first alice knop-created-woven slice", () => {
   );
 });
 
+Deno.test("planWeave applies current-only KnopMetadata policy on the first Knop weave slice", () => {
+  const plan = planWeave({
+    request: {},
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: firstWeaveMeshInventoryTurtle,
+    currentMeshMetadataTurtle: firstWeaveMeshMetadataTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice",
+      currentKnopMetadataTurtle: firstWeaveKnopMetadataTurtle,
+      currentKnopInventoryTurtle: firstWeaveKnopInventoryTurtle,
+    }],
+    supportHistoryPolicies: {
+      knopMetadata: "currentOnly",
+    },
+  });
+
+  assertEquals(
+    plan.createdFiles.map((file) => file.path),
+    [
+      "_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl",
+      "alice/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl",
+    ],
+  );
+  const knopInventory = plan.updatedFiles[1]?.contents ?? "";
+  assertStringIncludes(
+    knopInventory,
+    "sflo:hasWorkingLocatedFile <alice/_knop/_meta/meta.ttl> ;\n  sflo:hasResourcePage <alice/_knop/_meta/index.html> .",
+  );
+  assertFalse(knopInventory.includes("alice/_knop/_meta/_history001"));
+  assertStringIncludes(knopInventory, "alice/_knop/_inventory/_history001");
+  assert(
+    plan.createdPages.some((page) =>
+      page.path === "alice/_knop/_meta/index.html"
+    ),
+  );
+  assertFalse(
+    plan.createdPages.some((page) =>
+      page.path.startsWith("alice/_knop/_meta/_history001")
+    ),
+  );
+});
+
+Deno.test("planWeave applies current-only MeshInventory policy on the first Knop weave slice", () => {
+  const plan = planWeave({
+    request: {},
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: firstWeaveMeshInventoryTurtle,
+    currentMeshMetadataTurtle: firstWeaveMeshMetadataTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice",
+      currentKnopMetadataTurtle: firstWeaveKnopMetadataTurtle,
+      currentKnopInventoryTurtle: firstWeaveKnopInventoryTurtle,
+    }],
+    supportHistoryPolicies: {
+      meshInventory: "currentOnly",
+    },
+  });
+
+  assertEquals(plan.updatedFiles.map((file) => file.path), [
+    "_mesh/_inventory/inventory.ttl",
+    "alice/_knop/_inventory/inventory.ttl",
+  ]);
+  assertEquals(
+    plan.createdFiles.map((file) => file.path),
+    [
+      "alice/_knop/_meta/_history001/_s0001/ttl/meta.ttl",
+      "alice/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl",
+    ],
+  );
+  assertFalse(
+    plan.createdPages.some((page) =>
+      page.path.startsWith("_mesh/_inventory/_history001/")
+    ),
+  );
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    "<alice> sflo:hasResourcePage <alice/index.html> .",
+  );
+});
+
 Deno.test("planWeave renders the first alice bio payload weave slice", () => {
   const plan = planWeave({
     request: {
@@ -583,6 +814,7 @@ Deno.test("planWeave renders the first alice bio payload weave slice", () => {
     },
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: firstPayloadWeaveMeshInventoryTurtle,
+    currentMeshMetadataTurtle: firstPayloadWeaveMeshMetadataTurtle,
     weaveableKnops: [{
       designatorPath: "alice/bio",
       currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
@@ -603,14 +835,15 @@ Deno.test("planWeave renders the first alice bio payload weave slice", () => {
   assertEquals(plan.updatedFiles.map((file) => file.path), [
     "_mesh/_inventory/inventory.ttl",
     "alice/bio/_knop/_inventory/inventory.ttl",
+    "_mesh/_meta/meta.ttl",
   ]);
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
-      "_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl",
+      "_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl",
       "alice/bio/_history001/_s0001/ttl/alice-bio.ttl",
-      "alice/bio/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
-      "alice/bio/_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      "alice/bio/_knop/_meta/_history001/_s0001/ttl/meta.ttl",
+      "alice/bio/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl",
     ],
   );
   assertEquals(plan.createdPages[2], {
@@ -629,6 +862,292 @@ Deno.test("planWeave renders the first alice bio payload weave slice", () => {
   );
 });
 
+Deno.test("planWeave applies current-only KnopMetadata policy on the first payload weave slice", () => {
+  const plan = planWeave({
+    request: {
+      targets: [{ designatorPath: "alice/bio" }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: firstPayloadWeaveMeshInventoryTurtle,
+    currentMeshMetadataTurtle: firstPayloadWeaveMeshMetadataTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice/bio",
+      currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+      currentKnopInventoryTurtle: firstPayloadWeaveKnopInventoryTurtle,
+      payloadArtifact: {
+        workingLocalRelativePath: "alice-bio.ttl",
+        currentPayloadTurtle:
+          `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix schema: <https://schema.org/> .
+
+<alice> a schema:Person .
+`,
+      },
+    }],
+    supportHistoryPolicies: {
+      knopMetadata: "currentOnly",
+    },
+  });
+
+  assertEquals(
+    plan.createdFiles.map((file) => file.path),
+    [
+      "_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl",
+      "alice/bio/_history001/_s0001/ttl/alice-bio.ttl",
+      "alice/bio/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl",
+    ],
+  );
+  const knopInventory = plan.updatedFiles[1]?.contents ?? "";
+  assertStringIncludes(
+    knopInventory,
+    "sflo:hasWorkingLocatedFile <alice/bio/_knop/_meta/meta.ttl> ;\n  sflo:hasResourcePage <alice/bio/_knop/_meta/index.html> .",
+  );
+  assertFalse(knopInventory.includes("alice/bio/_knop/_meta/_history001"));
+  assertStringIncludes(knopInventory, "alice/bio/_history001");
+  assertStringIncludes(knopInventory, "alice/bio/_knop/_inventory/_history001");
+  assert(
+    plan.createdPages.some((page) =>
+      page.path === "alice/bio/_knop/_meta/index.html"
+    ),
+  );
+  assertFalse(
+    plan.createdPages.some((page) =>
+      page.path.startsWith("alice/bio/_knop/_meta/_history001")
+    ),
+  );
+});
+
+Deno.test("planWeave omits payload ResourcePage facts when payload pages are suppressed", () => {
+  const plan = planWeave({
+    request: {
+      targets: [{ designatorPath: "alice/bio" }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: firstPayloadWeaveMeshInventoryTurtle,
+    currentMeshMetadataTurtle: firstPayloadWeaveMeshMetadataTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice/bio",
+      currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+      currentKnopInventoryTurtle: firstPayloadWeaveKnopInventoryTurtle,
+      payloadArtifact: {
+        workingLocalRelativePath: "alice-bio.ttl",
+        currentPayloadTurtle:
+          `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix schema: <https://schema.org/> .
+
+<alice> a schema:Person .
+`,
+      },
+    }],
+    resourcePageGenerationPolicies: {
+      payload: "suppress",
+    },
+  });
+
+  const meshInventory = plan.updatedFiles[0]?.contents ?? "";
+  const knopInventory = plan.updatedFiles[1]?.contents ?? "";
+
+  assertFalse(meshInventory.includes("alice/bio/index.html"));
+  assertFalse(knopInventory.includes("alice/bio/index.html"));
+  assertFalse(knopInventory.includes("alice/bio/_history001/index.html"));
+  assertFalse(
+    knopInventory.includes("alice/bio/_history001/_s0001/index.html"),
+  );
+  assertFalse(
+    knopInventory.includes("alice/bio/_history001/_s0001/ttl/index.html"),
+  );
+  assertStringIncludes(knopInventory, "alice/bio/_knop/index.html");
+  assertStringIncludes(knopInventory, "alice/bio/_knop/_inventory/index.html");
+  assertFalse(
+    plan.createdPages.some((page) =>
+      page.path === "alice/bio/index.html" ||
+      page.path.startsWith("alice/bio/_history001")
+    ),
+  );
+  assert(
+    plan.createdPages.some((page) =>
+      page.path === "alice/bio/_knop/index.html"
+    ),
+  );
+});
+
+Deno.test("planWeave applies configured ordinal naming policies on the first payload weave slice", () => {
+  const plan = planWeave({
+    request: {
+      targets: [{ designatorPath: "alice/bio" }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: firstPayloadWeaveMeshInventoryTurtle,
+    currentMeshMetadataTurtle: firstPayloadWeaveMeshMetadataTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice/bio",
+      currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+      currentKnopInventoryTurtle: firstPayloadWeaveKnopInventoryTurtle,
+      payloadArtifact: {
+        workingLocalRelativePath: "alice-bio.ttl",
+        currentPayloadTurtle:
+          `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix schema: <https://schema.org/> .
+
+<alice> a schema:Person .
+`,
+      },
+    }],
+    namingPolicies: {
+      historyNamingPolicy: "ordinal",
+      stateNamingPolicy: "ordinal",
+      manifestationNamingPolicy: "filenameDerived",
+    },
+  });
+
+  assert(
+    plan.createdFiles.some((file) =>
+      file.path === "alice/bio/_history001/_s0001/ttl/alice-bio.ttl"
+    ),
+  );
+  assertStringIncludes(
+    plan.updatedFiles[1]?.contents ?? "",
+    "sflo:currentArtifactHistory <alice/bio/_history001> ;",
+  );
+});
+
+Deno.test("planWeave applies explicit target segments under non-ordinal naming policies on the first payload weave slice", () => {
+  const plan = planWeave({
+    request: {
+      targets: [{
+        designatorPath: "alice/bio",
+        historySegment: "releases",
+        stateSegment: "v0.0.1",
+      }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: firstPayloadWeaveMeshInventoryTurtle,
+    currentMeshMetadataTurtle: firstPayloadWeaveMeshMetadataTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice/bio",
+      currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+      currentKnopInventoryTurtle: firstPayloadWeaveKnopInventoryTurtle,
+      payloadArtifact: {
+        workingLocalRelativePath: "alice-bio.ttl",
+        currentPayloadTurtle:
+          `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix schema: <https://schema.org/> .
+
+<alice> a schema:Person .
+`,
+      },
+    }],
+    namingPolicies: {
+      historyNamingPolicy: "named",
+      stateNamingPolicy: "semver",
+      manifestationNamingPolicy: "ordinal",
+    },
+  });
+
+  assert(
+    plan.createdFiles.some((file) =>
+      file.path === "alice/bio/releases/v0.0.1/_m0001/alice-bio.ttl"
+    ),
+  );
+  assertStringIncludes(
+    plan.updatedFiles[1]?.contents ?? "",
+    "sflo:currentArtifactHistory <alice/bio/releases> ;",
+  );
+  assertStringIncludes(
+    plan.updatedFiles[1]?.contents ?? "",
+    "sflo:hasManifestation <alice/bio/releases/v0.0.1/_m0001> ;",
+  );
+});
+
+Deno.test("planWeave requires explicit history segments for named history naming", () => {
+  assertThrows(
+    () =>
+      planWeave({
+        request: {
+          targets: [{ designatorPath: "alice/bio" }],
+        },
+        meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+        currentMeshInventoryTurtle: firstPayloadWeaveMeshInventoryTurtle,
+        currentMeshMetadataTurtle: firstPayloadWeaveMeshMetadataTurtle,
+        weaveableKnops: [{
+          designatorPath: "alice/bio",
+          currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+          currentKnopInventoryTurtle: firstPayloadWeaveKnopInventoryTurtle,
+          payloadArtifact: {
+            workingLocalRelativePath: "alice-bio.ttl",
+            currentPayloadTurtle: "<alice> a <https://schema.org/Person> .\n",
+          },
+        }],
+        namingPolicies: {
+          historyNamingPolicy: "named",
+        },
+      }),
+    WeaveInputError,
+    "historyNamingPolicy named requires an explicit historySegment",
+  );
+});
+
+Deno.test("planWeave requires explicit state segments for non-ordinal state naming", () => {
+  assertThrows(
+    () =>
+      planWeave({
+        request: {
+          targets: [{ designatorPath: "alice/bio" }],
+        },
+        meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+        currentMeshInventoryTurtle: firstPayloadWeaveMeshInventoryTurtle,
+        currentMeshMetadataTurtle: firstPayloadWeaveMeshMetadataTurtle,
+        weaveableKnops: [{
+          designatorPath: "alice/bio",
+          currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+          currentKnopInventoryTurtle: firstPayloadWeaveKnopInventoryTurtle,
+          payloadArtifact: {
+            workingLocalRelativePath: "alice-bio.ttl",
+            currentPayloadTurtle: "<alice> a <https://schema.org/Person> .\n",
+          },
+        }],
+        namingPolicies: {
+          stateNamingPolicy: "semver",
+        },
+      }),
+    WeaveInputError,
+    "stateNamingPolicy semver requires an explicit stateSegment",
+  );
+});
+
+Deno.test("planWeave rejects explicit state segments that violate semver naming policy", () => {
+  assertThrows(
+    () =>
+      planWeave({
+        request: {
+          targets: [{
+            designatorPath: "alice/bio",
+            historySegment: "releases",
+            stateSegment: "release-candidate",
+          }],
+        },
+        meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+        currentMeshInventoryTurtle: firstPayloadWeaveMeshInventoryTurtle,
+        currentMeshMetadataTurtle: firstPayloadWeaveMeshMetadataTurtle,
+        weaveableKnops: [{
+          designatorPath: "alice/bio",
+          currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+          currentKnopInventoryTurtle: firstPayloadWeaveKnopInventoryTurtle,
+          payloadArtifact: {
+            workingLocalRelativePath: "alice-bio.ttl",
+            currentPayloadTurtle: "<alice> a <https://schema.org/Person> .\n",
+          },
+        }],
+        namingPolicies: {
+          historyNamingPolicy: "named",
+          stateNamingPolicy: "semver",
+        },
+      }),
+    WeaveInputError,
+    "stateSegment release-candidate does not satisfy stateNamingPolicy semver",
+  );
+});
+
 Deno.test("planWeave renders a later first payload weave slice against a carried mesh inventory", () => {
   const plan = planWeave({
     request: {
@@ -636,6 +1155,7 @@ Deno.test("planWeave renders a later first payload weave slice against a carried
     },
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: laterFirstPayloadWeaveMeshInventoryTurtle,
+    currentMeshMetadataTurtle: laterFirstPayloadWeaveMeshMetadataTurtle,
     weaveableKnops: [{
       designatorPath: "alice/page-main",
       currentKnopMetadataTurtle: laterFirstPayloadWeaveKnopMetadataTurtle,
@@ -651,15 +1171,15 @@ Deno.test("planWeave renders a later first payload weave slice against a carried
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
-      "_mesh/_inventory/_history001/_s0005/inventory-ttl/inventory.ttl",
+      "_mesh/_inventory/_history001/release-candidate/ttl/inventory.ttl",
       "alice/page-main/_history001/_s0001/md/alice-page-main.md",
-      "alice/page-main/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
-      "alice/page-main/_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      "alice/page-main/_knop/_meta/_history001/_s0001/ttl/meta.ttl",
+      "alice/page-main/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl",
     ],
   );
   assertEquals(plan.createdPages[0], {
     kind: "simple",
-    path: "_mesh/_inventory/_history001/_s0005/index.html",
+    path: "_mesh/_inventory/_history001/release-candidate/index.html",
     description: "Resource page for the fifth MeshInventory historical state.",
   });
   assertEquals(plan.createdPages[2], {
@@ -670,15 +1190,120 @@ Deno.test("planWeave renders a later first payload weave slice against a carried
   });
   assertStringIncludes(
     plan.updatedFiles[0]?.contents ?? "",
-    `sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0005> ;`,
+    `sflo:hasHistoricalState <_mesh/_inventory/_history001/release-candidate> ;`,
+  );
+  assertFalse(
+    (plan.updatedFiles[0]?.contents ?? "").includes(
+      "sflo:latestHistoricalState <_mesh/_inventory/_history001/release-candidate>",
+    ),
+  );
+  assertFalse(
+    (plan.updatedFiles[0]?.contents ?? "").includes(
+      "sflo:currentArtifactHistory <_mesh/_inventory/_history001>",
+    ),
+  );
+  assertFalse(
+    (plan.updatedFiles[0]?.contents ?? "").includes(
+      `<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasArtifactHistory <_mesh/_inventory/_history001> ;
+  sflo:nextHistoryOrdinal`,
+    ),
   );
   assertStringIncludes(
-    plan.updatedFiles[0]?.contents ?? "",
-    `sflo:nextStateOrdinal "6"^^xsd:nonNegativeInteger ;`,
+    plan.updatedFiles[2]?.contents ?? "",
+    `sflo:latestHistoricalState <_mesh/_inventory/_history001/release-candidate> ;`,
+  );
+  assertStringIncludes(
+    plan.updatedFiles[2]?.contents ?? "",
+    `sflo:nextStateOrdinal "6"^^xsd:nonNegativeInteger .`,
+  );
+  assertFalse(
+    (plan.updatedFiles[2]?.contents ?? "").includes(
+      "sfcfg:hasNextStateSegmentHint",
+    ),
   );
   assertStringIncludes(
     plan.updatedFiles[1]?.contents ?? "",
     "sflo:currentArtifactHistory <alice/page-main/_history001> ;",
+  );
+});
+
+Deno.test("planWeave advances ordinal MeshInventory progression after a named latest state", () => {
+  const hintedPlan = planWeave({
+    request: {
+      targets: [{ designatorPath: "alice/page-main" }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: laterFirstPayloadWeaveMeshInventoryTurtle,
+    currentMeshMetadataTurtle: laterFirstPayloadWeaveMeshMetadataTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice/page-main",
+      currentKnopMetadataTurtle: laterFirstPayloadWeaveKnopMetadataTurtle,
+      currentKnopInventoryTurtle: laterFirstPayloadWeaveKnopInventoryTurtle,
+      payloadArtifact: {
+        workingLocalRelativePath: "alice-page-main.md",
+        currentPayloadTurtle: "# Alice\n\nGoverned page main content.\n",
+      },
+    }],
+  });
+  const carriedMeshInventory = hintedPlan.updatedFiles.find((file) =>
+    file.path === "_mesh/_inventory/inventory.ttl"
+  )!.contents
+    .replace(
+      "  sflo:hasKnop <alice/page-main/_knop> ;\n  sflo:hasResourcePage <_mesh/index.html> .",
+      "  sflo:hasKnop <alice/page-main/_knop> ;\n  sflo:hasKnop <carol/_knop> ;\n  sflo:hasResourcePage <_mesh/index.html> .",
+    )
+    .replace(
+      "<alice>\n  sflo:hasResourcePage <alice/index.html> .",
+      `<alice>
+  sflo:hasResourcePage <alice/index.html> .
+
+<carol/_knop> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <carol/_knop/_inventory/inventory.ttl> .`,
+    );
+  const currentMeshMetadataTurtle =
+    hintedPlan.updatedFiles.find((file) =>
+      file.path === "_mesh/_meta/meta.ttl"
+    )!.contents;
+
+  const plan = planWeave({
+    request: {
+      targets: [{ designatorPath: "carol" }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: carriedMeshInventory,
+    currentMeshMetadataTurtle,
+    weaveableKnops: [{
+      designatorPath: "carol",
+      currentKnopMetadataTurtle: firstWeaveKnopMetadataTurtle
+        .replaceAll("<alice/_knop>", "<carol/_knop>")
+        .replace('sflo:designatorPath "alice"', 'sflo:designatorPath "carol"')
+        .replaceAll(
+          "<alice/_knop/_inventory/inventory.ttl>",
+          "<carol/_knop/_inventory/inventory.ttl>",
+        ),
+      currentKnopInventoryTurtle: firstWeaveKnopInventoryTurtle
+        .replaceAll("<alice/_knop>", "<carol/_knop>")
+        .replaceAll("<alice/_knop/_meta>", "<carol/_knop/_meta>")
+        .replaceAll("<alice/_knop/_inventory>", "<carol/_knop/_inventory>")
+        .replaceAll(
+          "<alice/_knop/_inventory/inventory.ttl>",
+          "<carol/_knop/_inventory/inventory.ttl>",
+        ),
+    }],
+  });
+
+  assertEquals(
+    plan.createdFiles[0]?.path,
+    "_mesh/_inventory/_history001/_s0006/ttl/inventory.ttl",
+  );
+  assertStringIncludes(
+    plan.updatedFiles[2]?.contents ?? "",
+    "sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0006> ;",
+  );
+  assertStringIncludes(
+    plan.updatedFiles[2]?.contents ?? "",
+    `sflo:nextStateOrdinal "7"^^xsd:nonNegativeInteger .`,
   );
 });
 
@@ -698,6 +1323,10 @@ Deno.test("planWeave supports a later first root Knop weave against a carried me
     },
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: createPlan.updatedFiles[0]!.contents,
+    currentMeshMetadataTurtle: meshMetadataProgressionTurtle(
+      "_mesh/_inventory/_history001/_s0005",
+      6,
+    ),
     weaveableKnops: [{
       designatorPath: "",
       currentKnopMetadataTurtle: createPlan.createdFiles[0]!.contents,
@@ -709,9 +1338,9 @@ Deno.test("planWeave supports a later first root Knop weave against a carried me
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
-      "_mesh/_inventory/_history001/_s0006/inventory-ttl/inventory.ttl",
-      "_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
-      "_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      "_mesh/_inventory/_history001/_s0006/ttl/inventory.ttl",
+      "_knop/_meta/_history001/_s0001/ttl/meta.ttl",
+      "_knop/_inventory/_history001/_s0001/ttl/inventory.ttl",
     ],
   );
   assertEquals(plan.createdPages[0], {
@@ -726,7 +1355,7 @@ Deno.test("planWeave supports a later first root Knop weave against a carried me
     workingLocalRelativePath: undefined,
   });
   assertStringIncludes(
-    plan.updatedFiles[0]?.contents ?? "",
+    plan.updatedFiles[2]?.contents ?? "",
     "sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0006> ;",
   );
   assertStringIncludes(
@@ -750,6 +1379,7 @@ Deno.test("planWeave applies requested payload history and state naming on the f
     },
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: firstPayloadWeaveMeshInventoryTurtle,
+    currentMeshMetadataTurtle: firstPayloadWeaveMeshMetadataTurtle,
     weaveableKnops: [{
       designatorPath: "alice/bio",
       currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
@@ -769,10 +1399,10 @@ Deno.test("planWeave applies requested payload history and state naming on the f
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
-      "_mesh/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl",
+      "_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl",
       "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
-      "alice/bio/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
-      "alice/bio/_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      "alice/bio/_knop/_meta/_history001/_s0001/ttl/meta.ttl",
+      "alice/bio/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl",
     ],
   );
   assertStringIncludes(
@@ -805,6 +1435,7 @@ Deno.test("planWeave applies requested payload manifestation naming on the first
     },
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: firstPayloadWeaveMeshInventoryTurtle,
+    currentMeshMetadataTurtle: firstPayloadWeaveMeshMetadataTurtle,
     weaveableKnops: [{
       designatorPath: "alice/bio",
       currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
@@ -885,6 +1516,7 @@ Deno.test("planWeave accepts semantically equivalent first payload weave Turtle"
     },
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: equivalentMeshInventoryTurtle,
+    currentMeshMetadataTurtle: firstPayloadWeaveMeshMetadataTurtle,
     weaveableKnops: [{
       designatorPath: "alice/bio",
       currentKnopMetadataTurtle: equivalentKnopMetadataTurtle,
@@ -905,6 +1537,7 @@ Deno.test("planWeave accepts semantically equivalent first payload weave Turtle"
   assertEquals(plan.updatedFiles.map((file) => file.path), [
     "_mesh/_inventory/inventory.ttl",
     "alice/bio/_knop/_inventory/inventory.ttl",
+    "_mesh/_meta/meta.ttl",
   ]);
 });
 
@@ -913,6 +1546,7 @@ Deno.test("planWeave renders the first alice reference-catalog weave slice", () 
     request: {},
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: firstReferenceCatalogWeaveMeshInventoryTurtle,
+    currentMeshMetadataTurtle: firstReferenceCatalogWeaveMeshMetadataTurtle,
     weaveableKnops: [{
       designatorPath: "alice",
       currentKnopMetadataTurtle: firstWeaveKnopMetadataTurtle,
@@ -932,7 +1566,7 @@ Deno.test("planWeave renders the first alice reference-catalog weave slice", () 
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
-      "alice/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+      "alice/_knop/_inventory/_history001/_s0002/ttl/inventory.ttl",
       "alice/_knop/_references/_history001/_s0001/ttl/references.ttl",
     ],
   );
@@ -1018,6 +1652,7 @@ Deno.test("planWeave accepts semantically equivalent first reference-catalog wea
     request: {},
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: equivalentMeshInventoryTurtle,
+    currentMeshMetadataTurtle: firstReferenceCatalogWeaveMeshMetadataTurtle,
     weaveableKnops: [{
       designatorPath: "alice",
       currentKnopMetadataTurtle: equivalentKnopMetadataTurtle,
@@ -1042,6 +1677,7 @@ Deno.test("planWeave preserves the current ReferenceCatalog working file path", 
     request: {},
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: firstReferenceCatalogWeaveMeshInventoryTurtle,
+    currentMeshMetadataTurtle: firstReferenceCatalogWeaveMeshMetadataTurtle,
     weaveableKnops: [{
       designatorPath: "alice",
       currentKnopMetadataTurtle: firstWeaveKnopMetadataTurtle,
@@ -1061,7 +1697,7 @@ Deno.test("planWeave preserves the current ReferenceCatalog working file path", 
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
-      "alice/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+      "alice/_knop/_inventory/_history001/_s0002/ttl/inventory.ttl",
       "alice/_knop/_references/_history001/_s0001/ttl/reference-links-v1.ttl",
     ],
   );
@@ -1099,6 +1735,7 @@ Deno.test("planWeave supports the first reference-catalog weave slice for non-al
         "<alice/bio/_knop>",
         "<carol/bio/_knop>",
       ),
+    currentMeshMetadataTurtle: firstReferenceCatalogWeaveMeshMetadataTurtle,
     weaveableKnops: [{
       designatorPath: "carol",
       currentKnopMetadataTurtle: firstWeaveKnopMetadataTurtle
@@ -1209,14 +1846,14 @@ Deno.test("planWeave renders the second alice bio payload weave slice", () => {
     plan.createdFiles.map((file) => file.path),
     [
       "alice/bio/_history001/_s0002/ttl/alice-bio.ttl",
-      "alice/bio/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+      "alice/bio/_knop/_inventory/_history001/_s0002/ttl/inventory.ttl",
     ],
   );
   assertEquals(plan.createdPages.map((page) => page.path), [
     "alice/bio/_history001/_s0002/index.html",
     "alice/bio/_history001/_s0002/ttl/index.html",
     "alice/bio/_knop/_inventory/_history001/_s0002/index.html",
-    "alice/bio/_knop/_inventory/_history001/_s0002/inventory-ttl/index.html",
+    "alice/bio/_knop/_inventory/_history001/_s0002/ttl/index.html",
   ]);
   assertStringIncludes(
     plan.updatedFiles[0]?.contents ?? "",
@@ -1225,6 +1862,82 @@ Deno.test("planWeave renders the second alice bio payload weave slice", () => {
   assertStringIncludes(
     plan.updatedFiles[0]?.contents ?? "",
     "sflo:latestHistoricalState <alice/bio/_knop/_inventory/_history001/_s0002> ;",
+  );
+});
+
+Deno.test("planWeave applies configured manifestation naming on the second payload weave slice", () => {
+  const plan = planWeave({
+    request: {
+      targets: [{
+        designatorPath: "alice/bio",
+        stateSegment: "_s0002",
+      }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: firstReferenceCatalogWeaveMeshInventoryTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice/bio",
+      currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+      currentKnopInventoryTurtle: secondPayloadWeaveKnopInventoryTurtle,
+      payloadArtifact: {
+        workingLocalRelativePath: "alice-bio.ttl",
+        currentArtifactHistoryPath: "alice/bio/_history001",
+        currentPayloadTurtle:
+          `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix schema: <https://schema.org/> .
+
+<alice> a schema:Person .
+<alice/bio> dcterms:creator <alice> .
+`,
+        latestHistoricalStatePath: "alice/bio/_history001/_s0001",
+      },
+    }],
+    namingPolicies: {
+      manifestationNamingPolicy: "ordinal",
+    },
+  });
+
+  assertEquals(
+    plan.createdFiles.map((file) => file.path),
+    [
+      "alice/bio/_history001/_s0002/_m0001/alice-bio.ttl",
+      "alice/bio/_knop/_inventory/_history001/_s0002/ttl/inventory.ttl",
+    ],
+  );
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    "sflo:hasManifestation <alice/bio/_history001/_s0002/_m0001> ;",
+  );
+});
+
+Deno.test("planWeave requires explicit state segments for non-ordinal state naming on the second payload weave slice", () => {
+  assertThrows(
+    () =>
+      planWeave({
+        request: {
+          targets: [{ designatorPath: "alice/bio" }],
+        },
+        meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+        currentMeshInventoryTurtle:
+          firstReferenceCatalogWeaveMeshInventoryTurtle,
+        weaveableKnops: [{
+          designatorPath: "alice/bio",
+          currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+          currentKnopInventoryTurtle: secondPayloadWeaveKnopInventoryTurtle,
+          payloadArtifact: {
+            workingLocalRelativePath: "alice-bio.ttl",
+            currentArtifactHistoryPath: "alice/bio/_history001",
+            currentPayloadTurtle: "<alice> a <https://schema.org/Person> .\n",
+            latestHistoricalStatePath: "alice/bio/_history001/_s0001",
+          },
+        }],
+        namingPolicies: {
+          stateNamingPolicy: "date",
+        },
+      }),
+    WeaveInputError,
+    "stateNamingPolicy date requires an explicit stateSegment",
   );
 });
 
@@ -1270,14 +1983,14 @@ Deno.test("planWeave applies requested payload naming on the second payload weav
     plan.createdFiles.map((file) => file.path),
     [
       "alice/bio/releases/v0.0.2/ttl/alice-bio.ttl",
-      "alice/bio/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+      "alice/bio/_knop/_inventory/_history001/_s0002/ttl/inventory.ttl",
     ],
   );
   assertEquals(plan.createdPages.map((page) => page.path), [
     "alice/bio/releases/v0.0.2/index.html",
     "alice/bio/releases/v0.0.2/ttl/index.html",
     "alice/bio/_knop/_inventory/_history001/_s0002/index.html",
-    "alice/bio/_knop/_inventory/_history001/_s0002/inventory-ttl/index.html",
+    "alice/bio/_knop/_inventory/_history001/_s0002/ttl/index.html",
   ]);
   assertStringIncludes(
     plan.updatedFiles[0]?.contents ?? "",
@@ -1339,6 +2052,54 @@ Deno.test("detectPendingWeaveSlice supports custom payload history and state nam
       customNamedKnopInventoryTurtle,
     ),
     "secondPayloadWeave",
+  );
+});
+
+Deno.test("detectPendingWeaveSlice ignores current-only settled Knops with ResourcePages", () => {
+  const currentOnlySettledKnopInventoryTurtle =
+    `@base <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<ontology/_knop> a sflo:Knop ;
+  sflo:hasKnopMetadata <ontology/_knop/_meta> ;
+  sflo:hasKnopInventory <ontology/_knop/_inventory> ;
+  sflo:hasWorkingKnopInventoryFile <ontology/_knop/_inventory/inventory.ttl> ;
+  sflo:hasPayloadArtifact <ontology> ;
+  sflo:hasResourcePage <ontology/_knop/index.html> .
+
+<ontology> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasArtifactHistory <ontology/releases> ;
+  sflo:currentArtifactHistory <ontology/releases> ;
+  sflo:workingLocalRelativePath "../ontology/fantasy-rules-ontology.ttl" ;
+  sflo:hasResourcePage <ontology/index.html> .
+
+<ontology/releases> a sflo:ArtifactHistory ;
+  sflo:latestHistoricalState <ontology/releases/v0.0.2> ;
+  sflo:nextStateOrdinal "1"^^xsd:nonNegativeInteger ;
+  sflo:hasResourcePage <ontology/releases/index.html> .
+
+<ontology/releases/v0.0.2> a sflo:HistoricalState ;
+  sflo:hasManifestation <ontology/releases/v0.0.2/ttl> ;
+  sflo:locatedFileForState <ontology/releases/v0.0.2/ttl/fantasy-rules-ontology.ttl> ;
+  sflo:hasResourcePage <ontology/releases/v0.0.2/index.html> .
+
+<ontology/_knop/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <ontology/_knop/_meta/meta.ttl> ;
+  sflo:hasResourcePage <ontology/_knop/_meta/index.html> .
+
+<ontology/_knop/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <ontology/_knop/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <ontology/_knop/_inventory/index.html> .
+`;
+
+  assertEquals(
+    detectPendingWeaveSlice(
+      "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+      "ontology",
+      currentOnlySettledKnopInventoryTurtle,
+    ),
+    undefined,
   );
 });
 
@@ -1418,6 +2179,91 @@ Deno.test("planWeave can start a requested payload history after another history
   );
 });
 
+Deno.test("planWeave can start a requested payload history with current-only KnopInventory policy", () => {
+  const historyPath = "alice/bio/_knop/_inventory/_history001";
+  const versionedKnopInventoryTurtle = secondPayloadWeaveKnopInventoryTurtle
+    .replaceAll(
+      "alice/bio/_history001/_s0001",
+      "alice/bio/releases/v0.0.1",
+    )
+    .replaceAll("alice/bio/_history001", "alice/bio/releases");
+  const currentKnopInventoryTurtle = versionedKnopInventoryTurtle
+    .replace(
+      `  sflo:hasArtifactHistory <${historyPath}> ;
+  sflo:currentArtifactHistory <${historyPath}> ;
+  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
+`,
+      "",
+    )
+    .replace(
+      `
+<${historyPath}> a sflo:ArtifactHistory ;
+  sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
+  sflo:hasHistoricalState <${historyPath}/_s0001> ;
+  sflo:latestHistoricalState <${historyPath}/_s0001> ;
+  sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger ;
+  sflo:hasResourcePage <${historyPath}/index.html> .
+`,
+      "",
+    );
+
+  const plan = planWeave({
+    request: {
+      targets: [{
+        designatorPath: "alice/bio",
+        historySegment: "archive",
+        stateSegment: "v0.0.1",
+        manifestationSegment: "ttl",
+      }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: firstReferenceCatalogWeaveMeshInventoryTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice/bio",
+      currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+      currentKnopInventoryTurtle,
+      payloadArtifact: {
+        workingLocalRelativePath: "alice-bio.ttl",
+        currentArtifactHistoryPath: "alice/bio/releases",
+        currentPayloadTurtle:
+          `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix schema: <https://schema.org/> .
+
+<alice> a schema:Person .
+<alice/bio> dcterms:creator <alice> .
+`,
+        latestHistoricalStatePath: "alice/bio/releases/v0.0.1",
+      },
+    }],
+    supportHistoryPolicies: {
+      knopInventory: "currentOnly",
+    },
+  });
+
+  assertEquals(
+    plan.createdFiles.map((file) => file.path),
+    ["alice/bio/archive/v0.0.1/ttl/alice-bio.ttl"],
+  );
+  assertEquals(plan.createdPages.map((page) => page.path), [
+    "alice/bio/archive/v0.0.1/index.html",
+    "alice/bio/archive/v0.0.1/ttl/index.html",
+  ]);
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    "sflo:hasArtifactHistory <alice/bio/archive> ;\n  sflo:hasArtifactHistory <alice/bio/releases> ;",
+  );
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    "sflo:hasWorkingLocatedFile <alice/bio/_knop/_inventory/inventory.ttl> ;",
+  );
+  assertFalse(
+    (plan.updatedFiles[0]?.contents ?? "").includes(
+      "alice/bio/_knop/_inventory/_history001",
+    ),
+  );
+});
+
 Deno.test("planWeave rejects implicit ordinal advancement after a named payload state", () => {
   const currentKnopInventoryTurtle = secondPayloadWeaveKnopInventoryTurtle
     .replaceAll(
@@ -1466,8 +2312,10 @@ Deno.test("planWeave renders the extracted bob woven slice", async () => {
   assertEquals(plan.updatedFiles.map((file) => file.path), [
     "_mesh/_inventory/inventory.ttl",
     "bob/_knop/_inventory/inventory.ttl",
+    "bob/_knop/_sources/sources.ttl",
     "_mesh/_inventory/_history001/index.html",
     "alice/index.html",
+    "_mesh/_meta/meta.ttl",
   ]);
   assertEquals(
     plan.createdPages.some((page) =>
@@ -1480,19 +2328,21 @@ Deno.test("planWeave renders the extracted bob woven slice", async () => {
     "<bob>\n  sflo:hasResourcePage <bob/index.html> .",
   );
   assertStringIncludes(
-    plan.updatedFiles[3]?.contents ?? "",
+    plan.updatedFiles[4]?.contents ?? "",
     '<td><a href="../bob">bob</a></td>',
   );
 });
 
 Deno.test("planWeave accepts semantically equivalent extracted bob ExtractionSource Turtle", async () => {
   const input = await createExtractedBobWeaveInput();
-  input.weaveableKnops[0]!.currentKnopInventoryTurtle = withRdfPrefix(
-    input.weaveableKnops[0]!.currentKnopInventoryTurtle,
-  ).replace(
-    " a sflo:ExtractionSource ;",
-    " rdf:type sflo:ExtractionSource ;",
-  );
+  input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact!
+    .currentSourceRegistryTurtle = withRdfPrefix(
+      input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact!
+        .currentSourceRegistryTurtle!,
+    ).replace(
+      " a sflo:ExtractionSource ;",
+      " rdf:type sflo:ExtractionSource ;",
+    );
 
   const plan = planWeave(input);
 
@@ -1532,38 +2382,50 @@ Deno.test("planWeave accepts a semantically equivalent extracted bob Knop block"
   );
 });
 
-Deno.test("planWeave rejects extracted bob weave inputs without a pinned source historical state", async () => {
+Deno.test("planWeave pins current-mode extracted bob sources during weave", async () => {
   const input = await createExtractedBobWeaveInput();
-  input.weaveableKnops[0]!.currentKnopInventoryTurtle = input
-    .weaveableKnops[0]!.currentKnopInventoryTurtle.replace(
-      "  sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> ;\n",
-      "",
-    );
 
-  assertThrows(
-    () => planWeave(input),
-    WeaveInputError,
-    "settled extracted-knop inventory shape",
+  const plan = planWeave(input);
+  const sourceDigest = input.weaveableKnops[0]!
+    .referenceTargetSourcePayloadArtifact!.sourceEvidence!.sourceDigest!;
+
+  assertStringIncludes(
+    plan.updatedFiles[2]?.contents ?? "",
+    `sflo:hasTargetArtifact <alice/bio> ;
+  sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> ;
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_pinned> ;
+  sflo:hasObservedSourceState <alice/bio/_history001/_s0002> ;
+  sflo:hasObservedSourceManifestation <alice/bio/_history001/_s0002/ttl> ;
+  sflo:hasObservedSourceLocatedFile <alice/bio/_history001/_s0002/ttl/alice-bio.ttl> ;
+  sflo:observedSourceDigest "${sourceDigest}" .`,
   );
 });
 
 Deno.test("planWeave rejects extracted bob weave inputs when the source payload path does not match", async () => {
   const input = await createExtractedBobWeaveInput();
-  input.weaveableKnops[0]!.currentKnopInventoryTurtle = input
-    .weaveableKnops[0]!.currentKnopInventoryTurtle.replace(
-      "sflo:hasTargetArtifact <alice/bio> ;",
-      "sflo:hasTargetArtifact <carol/bio> ;",
-    );
+  input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact!
+    .currentSourceRegistryTurtle = input.weaveableKnops[0]!
+      .referenceTargetSourcePayloadArtifact!.currentSourceRegistryTurtle!
+      .replace(
+        "sflo:hasTargetArtifact <alice/bio> ;",
+        "sflo:hasTargetArtifact <carol/bio> ;",
+      );
 
   assertThrows(
     () => planWeave(input),
     WeaveInputError,
-    "settled extracted-knop inventory shape",
+    "settled extracted-knop source registry shape",
   );
 });
 
 Deno.test("planWeave rejects extracted bob weave inputs when the source payload state does not match", async () => {
   const input = await createExtractedBobWeaveInput();
+  input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact!
+    .currentSourceRegistryTurtle = withPinnedExtractedSourceState(
+      input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact!
+        .currentSourceRegistryTurtle!,
+      "alice/bio/_history001/_s0002",
+    );
   input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact = {
     ...input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact!,
     latestHistoricalStatePath: "alice/bio/_history001/_s0001",
@@ -1572,7 +2434,7 @@ Deno.test("planWeave rejects extracted bob weave inputs when the source payload 
   assertThrows(
     () => planWeave(input),
     WeaveInputError,
-    "settled extracted-knop inventory shape",
+    "settled extracted-knop source registry shape",
   );
 });
 
@@ -1595,6 +2457,10 @@ Deno.test("planWeave accepts extracted weave inputs sourced from the root payloa
     },
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: extractPlan.updatedFiles[0]!.contents,
+    currentMeshMetadataTurtle: meshMetadataProgressionTurtle(
+      "_mesh/_inventory/_history001/_s0003",
+      4,
+    ),
     weaveableKnops: [{
       designatorPath: "alice/bio",
       currentKnopMetadataTurtle: createdFileByPath.get(
@@ -1607,6 +2473,11 @@ Deno.test("planWeave accepts extracted weave inputs sourced from the root payloa
         designatorPath: "",
         workingLocalRelativePath: "root-person.ttl",
         currentPayloadTurtle: rootSourcePersonPayloadTurtle,
+        sourceRegistryWorkingLocalRelativePath:
+          "alice/bio/_knop/_sources/sources.ttl",
+        currentSourceRegistryTurtle: createdFileByPath.get(
+          "alice/bio/_knop/_sources/sources.ttl",
+        )!,
         latestHistoricalStatePath: "_history001/_s0001",
       },
     }],
@@ -1644,14 +2515,14 @@ Deno.test("planWeave preserves unrelated mesh inventory blocks during extracted 
   sflo:hasResourcePage <carol/_knop/index.html> .`,
     )
     .replace(
-      `<bob/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+      `<alice-bio.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<alice-bio.ttl> a sflo:LocatedFile, sflo:RdfDocument .`,
-      `<bob/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<_mesh> sflo:hasKnop <bob/_knop> .`,
+      `<alice-bio.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <carol/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<alice-bio.ttl> a sflo:LocatedFile, sflo:RdfDocument .`,
+<_mesh> sflo:hasKnop <bob/_knop> .`,
     )
     .replace(
       `<alice/bio/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .
@@ -1686,16 +2557,18 @@ Deno.test("planWeave preserves unrelated mesh inventory blocks during extracted 
 
 Deno.test("planWeave rejects extracted bob inventory without typed ExtractionSource", async () => {
   const input = await createExtractedBobWeaveInput();
-  input.weaveableKnops[0]!.currentKnopInventoryTurtle = input
-    .weaveableKnops[0]!.currentKnopInventoryTurtle.replace(
-      "<bob/_knop/_inventory#extraction-source> a sflo:ExtractionSource ;\n",
-      "",
-    );
+  input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact!
+    .currentSourceRegistryTurtle = input.weaveableKnops[0]!
+      .referenceTargetSourcePayloadArtifact!.currentSourceRegistryTurtle!
+      .replace(
+        "<bob/_knop/_sources#extraction-source> a sflo:ExtractionSource ;\n",
+        "",
+      );
 
   assertThrows(
     () => planWeave(input),
     WeaveInputError,
-    "settled first-history KnopInventory shape",
+    "settled extracted-knop source registry shape",
   );
 });
 
@@ -1767,19 +2640,17 @@ Deno.test("planWeave renders the first page-definition weave slice", async () =>
     "alice/_knop/_inventory/inventory.ttl",
   ]);
   assertEquals(plan.createdFiles.map((file) => file.path), [
-    "alice/_knop/_page/_history001/_s0001/page-ttl/page.ttl",
-    "alice/_knop/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl",
+    "alice/_knop/_page/_history001/_s0001/ttl/page.ttl",
+    "alice/_knop/_inventory/_history001/_s0003/ttl/inventory.ttl",
   ]);
   assertEquals(plan.createdFiles[0]?.contents, pageDefinitionTurtle);
   assertEquals(
     await compareRdfContent({
       left: new TextEncoder().encode(plan.updatedFiles[0]?.contents ?? ""),
       right: new TextEncoder().encode(
-        withAliceReferenceExtensionManifestation(
-          await readMeshAliceBioBranchFile(
-            "15-alice-page-customized-woven",
-            "alice/_knop/_inventory/inventory.ttl",
-          ),
+        await readMeshAliceBioBranchFile(
+          "15-alice-page-customized-woven",
+          "alice/_knop/_inventory/inventory.ttl",
         ),
       ),
       path: "alice/_knop/_inventory/inventory.ttl",
@@ -1789,11 +2660,11 @@ Deno.test("planWeave renders the first page-definition weave slice", async () =>
   assertEquals(plan.createdPages.map((page) => page.path), [
     "alice/index.html",
     "alice/_knop/_inventory/_history001/_s0003/index.html",
-    "alice/_knop/_inventory/_history001/_s0003/inventory-ttl/index.html",
+    "alice/_knop/_inventory/_history001/_s0003/ttl/index.html",
     "alice/_knop/_page/index.html",
     "alice/_knop/_page/_history001/index.html",
     "alice/_knop/_page/_history001/_s0001/index.html",
-    "alice/_knop/_page/_history001/_s0001/page-ttl/index.html",
+    "alice/_knop/_page/_history001/_s0001/ttl/index.html",
   ]);
 });
 
@@ -1858,8 +2729,8 @@ Deno.test("planWeave generalizes the first page-definition weave slice for earli
     "bob/_knop/_inventory/inventory.ttl",
   ]);
   assertEquals(plan.createdFiles.map((file) => file.path), [
-    "bob/_knop/_page/_history001/_s0001/page-ttl/page.ttl",
-    "bob/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+    "bob/_knop/_page/_history001/_s0001/ttl/page.ttl",
+    "bob/_knop/_inventory/_history001/_s0002/ttl/inventory.ttl",
   ]);
   assertStringIncludes(
     plan.updatedFiles[0]?.contents ?? "",
@@ -1873,11 +2744,11 @@ Deno.test("planWeave generalizes the first page-definition weave slice for earli
   assertEquals(plan.createdPages.map((page) => page.path), [
     "bob/index.html",
     "bob/_knop/_inventory/_history001/_s0002/index.html",
-    "bob/_knop/_inventory/_history001/_s0002/inventory-ttl/index.html",
+    "bob/_knop/_inventory/_history001/_s0002/ttl/index.html",
     "bob/_knop/_page/index.html",
     "bob/_knop/_page/_history001/index.html",
     "bob/_knop/_page/_history001/_s0001/index.html",
-    "bob/_knop/_page/_history001/_s0001/page-ttl/index.html",
+    "bob/_knop/_page/_history001/_s0001/ttl/index.html",
   ]);
 });
 
@@ -1897,7 +2768,7 @@ Deno.test("planWeave renders a later page-definition weave revision", async () =
   );
   const latestHistoricalSnapshotTurtle = await readMeshAliceBioBranchFile(
     "17-alice-page-main-integrated-woven",
-    "alice/_knop/_page/_history001/_s0001/page-ttl/page.ttl",
+    "alice/_knop/_page/_history001/_s0001/ttl/page.ttl",
   );
   const plan = planWeave({
     request: {
@@ -1936,8 +2807,8 @@ Deno.test("planWeave renders a later page-definition weave revision", async () =
     "alice/_knop/_inventory/inventory.ttl",
   ]);
   assertEquals(plan.createdFiles.map((file) => file.path), [
-    "alice/_knop/_page/_history001/_s0002/page-ttl/page.ttl",
-    "alice/_knop/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl",
+    "alice/_knop/_page/_history001/_s0002/ttl/page.ttl",
+    "alice/_knop/_inventory/_history001/_s0004/ttl/inventory.ttl",
   ]);
   assertEquals(plan.createdFiles[0]?.contents, currentPageDefinitionTurtle);
   assertStringIncludes(
@@ -1951,11 +2822,11 @@ Deno.test("planWeave renders a later page-definition weave revision", async () =
   assertEquals(plan.createdPages.map((page) => page.path), [
     "alice/index.html",
     "alice/_knop/_inventory/_history001/_s0004/index.html",
-    "alice/_knop/_inventory/_history001/_s0004/inventory-ttl/index.html",
+    "alice/_knop/_inventory/_history001/_s0004/ttl/index.html",
     "alice/_knop/_page/index.html",
     "alice/_knop/_page/_history001/index.html",
     "alice/_knop/_page/_history001/_s0002/index.html",
-    "alice/_knop/_page/_history001/_s0002/page-ttl/index.html",
+    "alice/_knop/_page/_history001/_s0002/ttl/index.html",
   ]);
 });
 
@@ -1999,8 +2870,8 @@ Deno.test("planWeave renders a root page-definition weave without requiring a re
     "_knop/_inventory/inventory.ttl",
   ]);
   assertEquals(plan.createdFiles.map((file) => file.path), [
-    "_knop/_page/_history001/_s0001/page-ttl/page.ttl",
-    "_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+    "_knop/_page/_history001/_s0001/ttl/page.ttl",
+    "_knop/_inventory/_history001/_s0002/ttl/inventory.ttl",
   ]);
   assertEquals(plan.createdFiles[0]?.contents, currentPageDefinitionTurtle);
   assertStringIncludes(
@@ -2014,34 +2885,58 @@ Deno.test("planWeave renders a root page-definition weave without requiring a re
   assertEquals(plan.createdPages.map((page) => page.path), [
     "index.html",
     "_knop/_inventory/_history001/_s0002/index.html",
-    "_knop/_inventory/_history001/_s0002/inventory-ttl/index.html",
+    "_knop/_inventory/_history001/_s0002/ttl/index.html",
     "_knop/_page/index.html",
     "_knop/_page/_history001/index.html",
     "_knop/_page/_history001/_s0001/index.html",
-    "_knop/_page/_history001/_s0001/page-ttl/index.html",
+    "_knop/_page/_history001/_s0001/ttl/index.html",
   ]);
 });
 
 async function createExtractedBobWeaveInput(): Promise<PlanWeaveInput> {
+  const latestHistoricalSnapshotPath =
+    "alice/bio/_history001/_s0002/ttl/alice-bio.ttl";
+  const latestHistoricalSnapshotTurtle = await readMeshAliceBioBranchFile(
+    "11-alice-bio-v2-woven",
+    latestHistoricalSnapshotPath,
+  );
+  const sourceDigest = await sha256Digest(latestHistoricalSnapshotTurtle);
+  const extractPlan = planExtract({
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: await readMeshAliceBioBranchFile(
+      "11-alice-bio-v2-woven",
+      "_mesh/_inventory/inventory.ttl",
+    ),
+    designatorPath: "bob",
+    sourceDesignatorPath: "alice/bio",
+    sourceStatePath: "alice/bio/_history001/_s0002",
+    sourceEvidence: {
+      sourceLocatedFilePath: "alice-bio.ttl",
+      sourceDigest,
+    },
+    sourceWorkingLocalRelativePath: "alice-bio.ttl",
+  });
+  const createdFileByPath = new Map(
+    extractPlan.createdFiles.map((file) => [file.path, file.contents]),
+  );
   return {
     request: {
       targets: [{ designatorPath: "bob" }],
     },
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
-    currentMeshInventoryTurtle: await readMeshAliceBioBranchFile(
-      "12-bob-extracted",
-      "_mesh/_inventory/inventory.ttl",
+    currentMeshInventoryTurtle: extractPlan.updatedFiles[0]!.contents,
+    currentMeshMetadataTurtle: meshMetadataProgressionTurtle(
+      "_mesh/_inventory/_history001/_s0003",
+      4,
     ),
     weaveableKnops: [{
       designatorPath: "bob",
-      currentKnopMetadataTurtle: await readMeshAliceBioBranchFile(
-        "12-bob-extracted",
+      currentKnopMetadataTurtle: createdFileByPath.get(
         "bob/_knop/_meta/meta.ttl",
-      ),
-      currentKnopInventoryTurtle: await readMeshAliceBioBranchFile(
-        "12-bob-extracted",
+      )!,
+      currentKnopInventoryTurtle: createdFileByPath.get(
         "bob/_knop/_inventory/inventory.ttl",
-      ),
+      )!,
       referenceTargetSourcePayloadArtifact: {
         designatorPath: "alice/bio",
         workingLocalRelativePath: "alice-bio.ttl",
@@ -2049,10 +2944,35 @@ async function createExtractedBobWeaveInput(): Promise<PlanWeaveInput> {
           "12-bob-extracted",
           "alice-bio.ttl",
         ),
+        sourceRegistryWorkingLocalRelativePath:
+          "bob/_knop/_sources/sources.ttl",
+        currentSourceRegistryTurtle: createdFileByPath.get(
+          "bob/_knop/_sources/sources.ttl",
+        )!,
+        latestHistoricalSnapshotPath,
+        latestHistoricalSnapshotTurtle,
         latestHistoricalStatePath: "alice/bio/_history001/_s0002",
+        sourceEvidence: {
+          sourceStatePath: "alice/bio/_history001/_s0002",
+          sourceManifestationPath: "alice/bio/_history001/_s0002/ttl",
+          sourceLocatedFilePath: latestHistoricalSnapshotPath,
+          sourceDigest,
+        },
       },
     }],
   };
+}
+
+function withPinnedExtractedSourceState(
+  turtle: string,
+  sourceStatePath: string,
+): string {
+  return turtle.replace(
+    / {2}sflo:hasTargetArtifact <alice\/bio> ;\n(?: {2}sflo:[^\n]+(?: ;|\.)\n?)+/,
+    `  sflo:hasTargetArtifact <alice/bio> ;
+  sflo:hasRequestedTargetState <${sourceStatePath}> ;
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_pinned> .`,
+  );
 }
 
 function withRdfPrefix(turtle: string): string {
@@ -2061,4 +2981,13 @@ function withRdfPrefix(turtle: string): string {
     `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .`,
   );
+}
+
+async function sha256Digest(contents: string): Promise<string> {
+  const bytes = new TextEncoder().encode(contents);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const hex = [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return `sha256:${hex}`;
 }

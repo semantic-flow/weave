@@ -74,6 +74,44 @@ Deno.test("executeMeshCreate fails closed when mesh support artifacts already ex
   );
 });
 
+Deno.test("executeMeshCreate can reuse matching bootstrap artifacts", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-mesh-create-existing-matching-",
+  );
+  const request = {
+    meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    includeMeshConfig: true,
+  };
+
+  const firstResult = await executeMeshCreate({
+    workspaceRoot,
+    request,
+  });
+  const secondResult = await executeMeshCreate({
+    workspaceRoot,
+    request,
+    existingFilePolicy: "reuseMatching",
+  });
+
+  assertEquals(
+    [...firstResult.createdPaths].sort(),
+    [
+      ".nojekyll",
+      "_mesh/_config/config.ttl",
+      "_mesh/_inventory/inventory.ttl",
+      "_mesh/_meta/meta.ttl",
+    ],
+  );
+  assertEquals(secondResult.createdPaths, []);
+  assertEquals(
+    await Deno.readTextFile(join(workspaceRoot, "_mesh/_config/config.ttl")),
+    `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+
+<> a sfcfg:MeshConfig .
+`,
+  );
+});
+
 Deno.test("executeMeshCreate can create a docs-rooted sidecar mesh", async () => {
   const workspaceRoot = await createTestTmpDir("weave-mesh-create-sidecar-");
   await Deno.mkdir(join(workspaceRoot, "ontology"), { recursive: true });

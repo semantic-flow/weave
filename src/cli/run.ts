@@ -1,6 +1,6 @@
 import { Command } from "@cliffy/command";
 import { Confirm, Input } from "@cliffy/prompt";
-import { isAbsolute, join, relative, resolve } from "@std/path";
+import { basename, isAbsolute, join, relative, resolve } from "@std/path";
 import { ExtractInputError } from "../core/extract/extract.ts";
 import { IntegrateInputError } from "../core/integrate/integrate.ts";
 import { KnopAddReferenceInputError } from "../core/knop/add_reference.ts";
@@ -11,6 +11,14 @@ import { normalizeCliDesignatorPath } from "../core/designator_segments.ts";
 import type { TargetSpec, VersionTargetSpec } from "../core/targeting.ts";
 import { WeaveInputError } from "../core/weave/weave.ts";
 import { createRuntimeLoggers } from "../runtime/logging/factory.ts";
+import {
+  describeGHPagesDeployBootstrapPlan,
+  describeGHPagesDeployBootstrapResult,
+  executeGHPagesDeployBootstrap,
+  GHPagesDeployInputError,
+  GHPagesDeployRuntimeError,
+  planGHPagesDeployBootstrap,
+} from "../runtime/deploy/gh_pages.ts";
 import {
   describeExtractAllTermsResult,
   describeExtractResult,
@@ -61,15 +69,27 @@ import {
   WeaveRuntimeError,
 } from "../runtime/weave/weave.ts";
 import { loadOperationalLocalPathPolicy } from "../runtime/operational/local_path_policy.ts";
+import type { HistoryTrackingPolicy } from "../runtime/config/effective_config.ts";
+import { WEAVE_VERSION } from "../version.ts";
 
 const TARGET_OPTION_DESCRIPTION =
   "Target spec as comma-separated key=value fields. Supported keys: designatorPath, recursive. Versioning commands also accept historySegment, stateSegment, and manifestationSegment.";
+const HISTORY_TRACKING_POLICY_VALUES = [
+  "versioned",
+  "currentOnly",
+  "required",
+  "slimHistory",
+  "checkpointOnly",
+  "metadataOnly",
+] as const satisfies readonly HistoryTrackingPolicy[];
+const CLI_LOG_DIR_ENV_VAR = "WEAVE_LOG_DIR";
 
 export async function runWeaveCli(args: string[]): Promise<number> {
   let exitCode = 0;
 
   const command = new Command()
     .name("weave")
+    .version(WEAVE_VERSION)
     .description("Filesystem-oriented Semantic Flow tooling.")
     .option(
       "--mesh-root <meshRoot:string>",
@@ -93,6 +113,10 @@ export async function runWeaveCli(args: string[]): Promise<number> {
       "--payload-manifestation-segment <segment:string>",
       "Payload manifestation segment name to pass only to version for a single targeted payload weave.",
     )
+    .option(
+      "--history-tracking-policy <policy:string>",
+      "Override the history tracking policy for all artifact roles during this command.",
+    )
     .action(async (
       options: {
         meshRoot: string;
@@ -100,12 +124,16 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         payloadHistorySegment?: string;
         payloadStateSegment?: string;
         payloadManifestationSegment?: string;
+        historyTrackingPolicy?: string;
       },
     ) => {
       const meshRoot = resolve(options.meshRoot);
       const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
       const targets = resolveVersionTargetSpecs(options, "weave");
-      const logDir = join(workspaceRoot, ".weave", "logs");
+      const historyTrackingPolicyOverride = resolveHistoryTrackingPolicyOption(
+        options.historyTrackingPolicy,
+      );
+      const logDir = resolveCliLogDir(workspaceRoot);
       const { operationalLogger, auditLogger } = createRuntimeLoggers({
         logDir,
       });
@@ -114,6 +142,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         meshRoot,
         workspaceRoot,
         targets,
+        historyTrackingPolicyOverride,
         localMode: true,
       });
 
@@ -122,6 +151,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         request: targets.length > 0 ? { targets } : undefined,
         operationalLogger,
         auditLogger,
+        historyTrackingPolicyOverride,
       });
       console.log(describeWeaveResult(result));
       for (const path of result.createdPaths) {
@@ -154,7 +184,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           const meshRoot = resolve(options.meshRoot);
           const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
           const targets = resolveSharedTargetSpecs(options, "validate");
-          const logDir = join(workspaceRoot, ".weave", "logs");
+          const logDir = resolveCliLogDir(workspaceRoot);
           const { auditLogger } = createRuntimeLoggers({ logDir });
 
           await auditLogger.command("validate", {
@@ -206,6 +236,10 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           "--payload-manifestation-segment <segment:string>",
           "Payload manifestation segment name for a single targeted payload version.",
         )
+        .option(
+          "--history-tracking-policy <policy:string>",
+          "Override the history tracking policy for all artifact roles during this command.",
+        )
         .action(async (
           options: {
             meshRoot: string;
@@ -213,24 +247,29 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             payloadHistorySegment?: string;
             payloadStateSegment?: string;
             payloadManifestationSegment?: string;
+            historyTrackingPolicy?: string;
           },
         ) => {
           const meshRoot = resolve(options.meshRoot);
           const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
           const targets = resolveVersionTargetSpecs(options, "version");
-          const logDir = join(workspaceRoot, ".weave", "logs");
+          const historyTrackingPolicyOverride =
+            resolveHistoryTrackingPolicyOption(options.historyTrackingPolicy);
+          const logDir = resolveCliLogDir(workspaceRoot);
           const { auditLogger } = createRuntimeLoggers({ logDir });
 
           await auditLogger.command("version", {
             meshRoot,
             workspaceRoot,
             targets,
+            historyTrackingPolicyOverride,
             localMode: true,
           });
 
           const result = await executeVersion({
             meshRoot,
             request: targets.length > 0 ? { targets } : undefined,
+            historyTrackingPolicyOverride,
           });
           console.log(describeVersionResult(result));
           for (const path of result.createdPaths) {
@@ -261,17 +300,24 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           "--include-semantic-flow-metadata",
           "Include the generated Semantic Flow metadata section on ResourcePages.",
         )
+        .option(
+          "--history-tracking-policy <policy:string>",
+          "Override the history tracking policy for all artifact roles during this command.",
+        )
         .action(async (
           options: {
             meshRoot: string;
             target?: string[];
             includeSemanticFlowMetadata?: boolean;
+            historyTrackingPolicy?: string;
           },
         ) => {
           const meshRoot = resolve(options.meshRoot);
           const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
           const targets = resolveSharedTargetSpecs(options, "generate");
-          const logDir = join(workspaceRoot, ".weave", "logs");
+          const historyTrackingPolicyOverride =
+            resolveHistoryTrackingPolicyOption(options.historyTrackingPolicy);
+          const logDir = resolveCliLogDir(workspaceRoot);
           const { auditLogger } = createRuntimeLoggers({ logDir });
 
           await auditLogger.command("generate", {
@@ -280,6 +326,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             targets,
             includeSemanticFlowMetadata:
               options.includeSemanticFlowMetadata === true,
+            historyTrackingPolicyOverride,
             localMode: true,
           });
 
@@ -288,6 +335,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             request: targets.length > 0 ? { targets } : undefined,
             includeSemanticFlowMetadata:
               options.includeSemanticFlowMetadata === true,
+            historyTrackingPolicyOverride,
           });
           console.log(describeGenerateResult(result));
           for (const path of result.createdPaths) {
@@ -339,7 +387,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         ) => {
           const meshRoot = resolve(options.meshRoot);
           const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
-          const logDir = join(workspaceRoot, ".weave", "logs");
+          const logDir = resolveCliLogDir(workspaceRoot);
           const { operationalLogger, auditLogger } = createRuntimeLoggers({
             logDir,
           });
@@ -505,7 +553,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             ) => {
               const meshRoot = resolve(options.meshRoot);
               const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
-              const logDir = join(workspaceRoot, ".weave", "logs");
+              const logDir = resolveCliLogDir(workspaceRoot);
               const { operationalLogger, auditLogger } = createRuntimeLoggers({
                 logDir,
               });
@@ -639,7 +687,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           );
           const meshRoot = resolve(options.meshRoot);
           const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
-          const logDir = join(workspaceRoot, ".weave", "logs");
+          const logDir = resolveCliLogDir(workspaceRoot);
           const { operationalLogger, auditLogger } = createRuntimeLoggers({
             logDir,
           });
@@ -700,7 +748,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 options,
                 designatorPathArg,
               );
-              const logDir = join(workspaceRoot, ".weave", "logs");
+              const logDir = resolveCliLogDir(workspaceRoot);
               const { operationalLogger, auditLogger } = createRuntimeLoggers({
                 logDir,
               });
@@ -725,6 +773,180 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               console.log(describePayloadUpdateResult(result));
               for (const path of result.updatedPaths) {
                 console.log(path);
+              }
+            }),
+        ),
+    )
+    .command(
+      "deploy",
+      new Command()
+        .description("Deployment operations.")
+        .command(
+          "gh-pages",
+          new Command()
+            .description(
+              "Bootstrap a branch-published GitHub Pages mesh in a publication worktree.",
+            )
+            .option(
+              "--source-root <sourceRoot:string>",
+              "Source checkout root to read during branch-published deployment.",
+              { default: "." },
+            )
+            .option(
+              "--publish-root <publishRoot:string>",
+              "Publication branch worktree root to update.",
+            )
+            .option(
+              "--mesh-base <meshBase:string>",
+              "Canonical base IRI for Semantic Flow identifiers in the published mesh.",
+            )
+            .option(
+              "--no-nojekyll",
+              "Do not create a GitHub Pages .nojekyll publishing guard.",
+            )
+            .option(
+              "--cname <cname:string>",
+              "Create or update the publication branch CNAME file.",
+            )
+            .option(
+              "--allow-dirty-publish-root",
+              "Allow deployment even when the publication worktree has uncommitted changes.",
+            )
+            .option(
+              "--dry-run",
+              "Print the branch-published deploy plan without writing publication files.",
+            )
+            .option(
+              "--commit",
+              "Create a local publication commit after successful generation when the publication diff is non-empty.",
+            )
+            .option(
+              "--commit-message <commitMessage:string>",
+              "Commit message to use with --commit.",
+            )
+            .option(
+              "--source-path <sourcePath:string>",
+              "Repository-relative source path to materialize into the publication mesh.",
+            )
+            .option(
+              "--target-path <targetPath:string>",
+              "Publication-root relative target path for the materialized source. Defaults to --source-path.",
+            )
+            .option(
+              "--designator-path <designatorPath:string>",
+              "Designator path for the materialized source artifact.",
+            )
+            .option(
+              "--source-repository-url <sourceRepositoryUrl:string>",
+              "Durable repository URL to record for the materialized source locator.",
+            )
+            .option(
+              "--source-ref <sourceRepositoryRef:string>",
+              "Durable repository ref to record for the materialized source locator.",
+            )
+            .option(
+              "--source-commit <sourceRepositoryCommit:string>",
+              "Optional resolved commit to record for the materialized source locator.",
+            )
+            .option(
+              "--interactive",
+              "Prompt for missing branch-published deployment inputs.",
+            )
+            .action(async (
+              options: {
+                sourceRoot: string;
+                publishRoot?: string;
+                meshBase?: string;
+                nojekyll?: boolean;
+                cname?: string;
+                allowDirtyPublishRoot?: boolean;
+                dryRun?: boolean;
+                commit?: boolean;
+                commitMessage?: string;
+                sourcePath?: string;
+                targetPath?: string;
+                designatorPath?: string;
+                sourceRepositoryUrl?: string;
+                sourceRef?: string;
+                sourceCommit?: string;
+                interactive?: boolean;
+              },
+            ) => {
+              const sourceRoot = resolve(options.sourceRoot);
+              const promptForMissingInputs = options.interactive === true ||
+                Deno.stdin.isTerminal();
+              const publishRoot = await resolvePublishRootOption({
+                sourceRoot,
+                publishRoot: options.publishRoot,
+                interactive: promptForMissingInputs,
+              });
+              const meshBase = await resolveMeshBaseOption(
+                {
+                  meshBase: options.meshBase,
+                  interactive: promptForMissingInputs,
+                },
+                "deploy gh-pages",
+                "an interactive terminal",
+              );
+              const request = {
+                meshBase,
+                includeNoJekyll: options.nojekyll === false ? false : undefined,
+                ...(options.cname !== undefined
+                  ? { cname: options.cname }
+                  : {}),
+                ...(resolveGHPagesSourceBindingOption(options) ?? {}),
+              };
+              const allowDirtyPublicationRoot =
+                options.allowDirtyPublishRoot === true;
+              const commit = resolveGHPagesCommitOption({
+                commit: options.commit,
+                commitMessage: options.commitMessage,
+              });
+
+              if (options.dryRun === true) {
+                const plan = await planGHPagesDeployBootstrap({
+                  sourceRoot,
+                  publishRoot,
+                  request,
+                  allowDirtyPublicationRoot,
+                  commit,
+                });
+                console.log(describeGHPagesDeployBootstrapPlan(plan));
+                return;
+              }
+
+              const { operationalLogger, auditLogger } = createRuntimeLoggers({
+                logDir: resolveOptionalCliLogDir(),
+              });
+
+              await auditLogger.command("deploy.ghPages", {
+                sourceRoot,
+                publishRoot,
+                meshBase,
+                localMode: true,
+                localCommit: commit !== undefined,
+              });
+
+              const result = await executeGHPagesDeployBootstrap({
+                sourceRoot,
+                publishRoot,
+                request,
+                allowDirtyPublicationRoot,
+                commit,
+                operationalLogger,
+                auditLogger,
+              });
+              console.log(describeGHPagesDeployBootstrapResult(result));
+              for (const path of result.createdPaths) {
+                console.log(path);
+              }
+              for (const path of result.updatedPaths) {
+                console.log(path);
+              }
+              if (result.materializedSource) {
+                for (const path of result.materializedSource.createdPaths) {
+                  console.log(path);
+                }
               }
             }),
         ),
@@ -767,7 +989,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 options.meshRoot,
               );
               const meshBase = await resolveMeshBaseOption(options);
-              const logDir = join(workspaceRoot, ".weave", "logs");
+              const logDir = resolveCliLogDir(workspaceRoot);
               const { operationalLogger, auditLogger } = createRuntimeLoggers({
                 logDir,
               });
@@ -842,7 +1064,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 "knop add-reference requires --reference-role",
                 (message) => new KnopAddReferenceInputError(message),
               );
-              const logDir = join(workspaceRoot, ".weave", "logs");
+              const logDir = resolveCliLogDir(workspaceRoot);
               const { operationalLogger, auditLogger } = createRuntimeLoggers({
                 logDir,
               });
@@ -896,7 +1118,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               );
               const meshRoot = resolve(options.meshRoot);
               const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
-              const logDir = join(workspaceRoot, ".weave", "logs");
+              const logDir = resolveCliLogDir(workspaceRoot);
               const { operationalLogger, auditLogger } = createRuntimeLoggers({
                 logDir,
               });
@@ -966,8 +1188,46 @@ async function inferCliWorkspaceRoot(meshRoot: string): Promise<string> {
   return (await loadOperationalLocalPathPolicy(meshRoot)).workspaceRoot;
 }
 
+function resolveCliLogDir(workspaceRoot: string): string {
+  return resolveOptionalCliLogDir() ?? join(workspaceRoot, ".weave", "logs");
+}
+
+function resolveOptionalCliLogDir(): string | undefined {
+  let value: string | undefined;
+  try {
+    value = Deno.env.get(CLI_LOG_DIR_ENV_VAR);
+  } catch {
+    return undefined;
+  }
+
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length > 0 ? resolve(trimmed) : undefined;
+}
+
+function resolveHistoryTrackingPolicyOption(
+  value: string | undefined,
+): HistoryTrackingPolicy | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (
+    HISTORY_TRACKING_POLICY_VALUES.includes(
+      value as HistoryTrackingPolicy,
+    )
+  ) {
+    return value as HistoryTrackingPolicy;
+  }
+
+  throw new WeaveInputError(
+    `Unsupported history tracking policy: ${value}`,
+  );
+}
+
 async function resolveMeshBaseOption(
   options: { meshBase?: string; interactive?: boolean },
+  commandName = "mesh create",
+  interactiveHint = "--interactive",
 ): Promise<string> {
   if (
     typeof options.meshBase === "string" && options.meshBase.trim().length > 0
@@ -977,7 +1237,7 @@ async function resolveMeshBaseOption(
 
   if (!options.interactive) {
     throw new MeshCreateInputError(
-      "mesh create requires --mesh-base or --interactive",
+      `${commandName} requires --mesh-base or ${interactiveHint}`,
     );
   }
 
@@ -987,6 +1247,140 @@ async function resolveMeshBaseOption(
       return value.trim().length > 0 || "meshBase is required";
     },
   });
+}
+
+async function resolvePublishRootOption(
+  options: {
+    sourceRoot: string;
+    publishRoot?: string;
+    interactive?: boolean;
+  },
+): Promise<string> {
+  if (
+    typeof options.publishRoot === "string" &&
+    options.publishRoot.trim().length > 0
+  ) {
+    return resolve(options.publishRoot);
+  }
+
+  if (!options.interactive) {
+    throw new GHPagesDeployInputError(
+      "deploy gh-pages requires --publish-root, a deploy profile value, or an interactive terminal",
+    );
+  }
+
+  const defaultPublishRoot = resolve(
+    options.sourceRoot,
+    "..",
+    `${basename(options.sourceRoot)}-gh-pages`,
+  );
+
+  const value = await Input.prompt({
+    message: "Publication worktree path",
+    default: defaultPublishRoot,
+    validate(value) {
+      return value.trim().length > 0 || "publishRoot is required";
+    },
+  });
+  return resolve(value);
+}
+
+function resolveGHPagesCommitOption(
+  options: {
+    commit?: boolean;
+    commitMessage?: string;
+  },
+): { message?: string } | undefined {
+  if (options.commit !== true) {
+    if (options.commitMessage !== undefined) {
+      throw new GHPagesDeployInputError(
+        "deploy gh-pages --commit-message requires --commit",
+      );
+    }
+    return undefined;
+  }
+
+  return options.commitMessage === undefined ? {} : {
+    message: options.commitMessage,
+  };
+}
+
+function resolveGHPagesSourceBindingOption(
+  options: {
+    sourcePath?: string;
+    targetPath?: string;
+    designatorPath?: string;
+    sourceRepositoryUrl?: string;
+    sourceRef?: string;
+    sourceCommit?: string;
+  },
+):
+  | {
+    source: {
+      sourcePath: string;
+      designatorPath: string;
+      targetPath?: string;
+      sourceRepositoryUrl: string;
+      sourceRepositoryRef: string;
+      sourceRepositoryCommit?: string;
+    };
+  }
+  | undefined {
+  const hasSourceBindingOption = [
+    options.sourcePath,
+    options.targetPath,
+    options.designatorPath,
+    options.sourceRepositoryUrl,
+    options.sourceRef,
+    options.sourceCommit,
+  ].some((value) => value !== undefined);
+
+  if (!hasSourceBindingOption) {
+    return undefined;
+  }
+
+  return {
+    source: {
+      sourcePath: resolveRequiredOptionValue(
+        options.sourcePath,
+        "deploy gh-pages materialization requires --source-path",
+        (message) => new GHPagesDeployInputError(message),
+      ),
+      designatorPath: resolveRequiredOptionValue(
+        options.designatorPath,
+        "deploy gh-pages materialization requires --designator-path",
+        (message) => new GHPagesDeployInputError(message),
+      ),
+      ...(options.targetPath
+        ? {
+          targetPath: resolveRequiredOptionValue(
+            options.targetPath,
+            "deploy gh-pages --target-path is required",
+            (message) => new GHPagesDeployInputError(message),
+          ),
+        }
+        : {}),
+      sourceRepositoryUrl: resolveRequiredOptionValue(
+        options.sourceRepositoryUrl,
+        "deploy gh-pages materialization requires --source-repository-url",
+        (message) => new GHPagesDeployInputError(message),
+      ),
+      sourceRepositoryRef: resolveRequiredOptionValue(
+        options.sourceRef,
+        "deploy gh-pages materialization requires --source-ref",
+        (message) => new GHPagesDeployInputError(message),
+      ),
+      ...(options.sourceCommit
+        ? {
+          sourceRepositoryCommit: resolveRequiredOptionValue(
+            options.sourceCommit,
+            "deploy gh-pages --source-commit is required",
+            (message) => new GHPagesDeployInputError(message),
+          ),
+        }
+        : {}),
+    },
+  };
 }
 
 function printExtractAllTermsPreview(
@@ -1307,7 +1701,9 @@ function getCliErrorMessage(error: unknown): string {
     error instanceof KnopCreateInputError ||
     error instanceof KnopCreateRuntimeError ||
     error instanceof MeshCreateInputError ||
-    error instanceof MeshCreateRuntimeError
+    error instanceof MeshCreateRuntimeError ||
+    error instanceof GHPagesDeployInputError ||
+    error instanceof GHPagesDeployRuntimeError
   ) {
     return error.message;
   }

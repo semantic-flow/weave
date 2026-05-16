@@ -1,4 +1,10 @@
-import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
+import {
+  assertEquals,
+  assertFalse,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
+import { compareRdfContent } from "../../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import { readMeshAliceBioBranchFile } from "../../../tests/support/mesh_alice_bio_fixture.ts";
 import { ExtractInputError, planExtract } from "./extract.ts";
 import { KnopCreateInputError } from "../knop/create.ts";
@@ -33,6 +39,9 @@ const rootSourcePreExtractMeshInventoryTurtle =
 `;
 
 Deno.test("planExtract renders the first non-woven bob extraction artifacts", async () => {
+  const sourceDigest = await sha256Digest(
+    await readMeshAliceBioBranchFile("11-alice-bio-v2-woven", "alice-bio.ttl"),
+  );
   const plan = planExtract({
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: await readMeshAliceBioBranchFile(
@@ -42,12 +51,17 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
     designatorPath: "bob",
     sourceDesignatorPath: "alice/bio",
     sourceStatePath: "alice/bio/_history001/_s0002",
+    sourceEvidence: {
+      sourceLocatedFilePath: "alice-bio.ttl",
+      sourceDigest,
+      observedAt: "2026-05-16T12:00:00Z\nmanual review",
+    },
     sourceWorkingLocalRelativePath: "alice-bio.ttl",
   });
 
   assertEquals(
     plan.extractionSourceIri,
-    "https://semantic-flow.github.io/mesh-alice-bio/bob/_knop/_inventory#extraction-source",
+    "https://semantic-flow.github.io/mesh-alice-bio/bob/_knop/_sources#extraction-source",
   );
   assertEquals(
     plan.sourceArtifactIri,
@@ -57,11 +71,13 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
     plan.sourceStateIri,
     "https://semantic-flow.github.io/mesh-alice-bio/alice/bio/_history001/_s0002",
   );
+  assertEquals(plan.sourceResolutionMode, "current");
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
       "bob/_knop/_meta/meta.ttl",
       "bob/_knop/_inventory/inventory.ttl",
+      "bob/_knop/_sources/sources.ttl",
     ],
   );
   assertEquals(
@@ -75,25 +91,41 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
       "bob/_knop/_meta/meta.ttl",
     ),
   );
-  assertEquals(
-    plan.createdFiles[1]?.contents ?? "",
-    await readMeshAliceBioBranchFile(
-      "12-bob-extracted",
-      "bob/_knop/_inventory/inventory.ttl",
-    ),
-  );
-  // Keep this explicit so future extract changes still pin the source binding
-  // to a historical state in the rendered KnopInventory file.
   assertStringIncludes(
     plan.createdFiles[1]?.contents ?? "",
-    "sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> ;",
+    `sflo:hasKnopSourceRegistry <bob/_knop/_sources> ;
+  sflo:hasExtractionSource <bob/_knop/_sources#extraction-source> ;`,
+  );
+  assertStringIncludes(
+    plan.createdFiles[2]?.contents ?? "",
+    "sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> ;",
+  );
+  assertStringIncludes(
+    plan.createdFiles[2]?.contents ?? "",
+    `sflo:hasObservedSourceLocatedFile <alice-bio.ttl> ;
+  sflo:observedSourceDigest "${sourceDigest}" ;`,
+  );
+  assertStringIncludes(
+    plan.createdFiles[2]?.contents ?? "",
+    'sflo:observedAt "2026-05-16T12:00:00Z\\nmanual review" .',
+  );
+  assertFalse(
+    (plan.createdFiles[2]?.contents ?? "").includes(
+      "sflo:hasRequestedTargetState",
+    ),
   );
   assertEquals(
-    plan.updatedFiles[0]?.contents ?? "",
-    await readMeshAliceBioBranchFile(
-      "12-bob-extracted",
-      "_mesh/_inventory/inventory.ttl",
-    ),
+    await compareRdfContent({
+      left: encode(plan.updatedFiles[0]?.contents ?? ""),
+      right: encode(
+        await readMeshAliceBioBranchFile(
+          "12-bob-extracted",
+          "_mesh/_inventory/inventory.ttl",
+        ),
+      ),
+      path: "_mesh/_inventory/inventory.ttl",
+    }),
+    true,
   );
 });
 
@@ -103,6 +135,7 @@ Deno.test("planExtract accepts a root source payload when the root and source kn
     currentMeshInventoryTurtle: rootSourcePreExtractMeshInventoryTurtle,
     designatorPath: "alice/bio",
     sourceDesignatorPath: "",
+    sourceResolutionMode: "pinned",
     sourceStatePath: "_history001/_s0001",
     sourceWorkingLocalRelativePath: "root-person.ttl",
   });
@@ -112,6 +145,7 @@ Deno.test("planExtract accepts a root source payload when the root and source kn
     [
       "alice/bio/_knop/_meta/meta.ttl",
       "alice/bio/_knop/_inventory/inventory.ttl",
+      "alice/bio/_knop/_sources/sources.ttl",
     ],
   );
   assertStringIncludes(
@@ -162,7 +196,7 @@ Deno.test("planExtract accepts a root source payload when the root and source kn
     1,
   );
   assertStringIncludes(
-    plan.createdFiles[1]?.contents ?? "",
+    plan.createdFiles[2]?.contents ?? "",
     `sflo:hasTargetArtifact <> ;
   sflo:hasRequestedTargetState <_history001/_s0001> ;`,
   );
@@ -221,6 +255,9 @@ Deno.test("planExtract preserves the original knop-planning error as the cause",
 });
 
 Deno.test("planExtract accepts a semantically equivalent source payload LocatedFile block", async () => {
+  const sourceDigest = await sha256Digest(
+    await readMeshAliceBioBranchFile("11-alice-bio-v2-woven", "alice-bio.ttl"),
+  );
   const currentMeshInventoryTurtle = withRdfPrefix(
     await readMeshAliceBioBranchFile(
       "11-alice-bio-v2-woven",
@@ -237,15 +274,25 @@ Deno.test("planExtract accepts a semantically equivalent source payload LocatedF
     designatorPath: "bob",
     sourceDesignatorPath: "alice/bio",
     sourceStatePath: "alice/bio/_history001/_s0002",
+    sourceEvidence: {
+      sourceLocatedFilePath: "alice-bio.ttl",
+      sourceDigest,
+    },
     sourceWorkingLocalRelativePath: "alice-bio.ttl",
   });
 
   assertEquals(
-    plan.updatedFiles[0]?.contents ?? "",
-    await readMeshAliceBioBranchFile(
-      "12-bob-extracted",
-      "_mesh/_inventory/inventory.ttl",
-    ),
+    await compareRdfContent({
+      left: encode(plan.updatedFiles[0]?.contents ?? ""),
+      right: encode(
+        await readMeshAliceBioBranchFile(
+          "12-bob-extracted",
+          "_mesh/_inventory/inventory.ttl",
+        ),
+      ),
+      path: "_mesh/_inventory/inventory.ttl",
+    }),
+    true,
   );
 });
 
@@ -259,4 +306,25 @@ function withRdfPrefix(turtle: string): string {
 
 function countOccurrences(haystack: string, needle: string): number {
   return haystack.split(needle).length - 1;
+}
+
+function encode(value: string): Uint8Array {
+  return new TextEncoder().encode(value);
+}
+
+async function sha256Digest(contents: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    toArrayBuffer(encode(contents)),
+  );
+  const hex = [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return `sha256:${hex}`;
+}
+
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  return buffer;
 }

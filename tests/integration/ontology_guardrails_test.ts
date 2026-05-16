@@ -8,6 +8,7 @@ const SFCFG_NAMESPACE = "https://semantic-flow.github.io/ontology/config/";
 
 const RDF_FILES = [
   "dependencies/github.com/semantic-flow/sflo/semantic-flow-core-ontology.ttl",
+  "dependencies/github.com/semantic-flow/sflo/semantic-flow-core-shacl.ttl",
   "dependencies/github.com/semantic-flow/sflo/semantic-flow-config-ontology.ttl",
   "dependencies/github.com/semantic-flow/sflo/semantic-flow-job-ontology.ttl",
   "dependencies/github.com/semantic-flow/sflo/semantic-flow-prov-ontology.ttl",
@@ -19,6 +20,22 @@ Deno.test("active ontology and defaults RDF parses as Turtle", async () => {
   for (const relativePath of RDF_FILES) {
     const quads = await parseRepoTurtle(relativePath);
     assert(quads.length > 0, `${relativePath} should contain RDF triples`);
+  }
+});
+
+Deno.test("active ontology and defaults RDF avoids duplicate triples", async () => {
+  for (const relativePath of RDF_FILES) {
+    const quads = await parseRepoTurtle(relativePath);
+    const seen = new Set<string>();
+
+    for (const quad of quads) {
+      const key = quadTerms(quad).map(termKey).join(" ");
+      assertFalse(
+        seen.has(key),
+        `${relativePath} repeats RDF triple ${key}`,
+      );
+      seen.add(key);
+    }
   }
 });
 
@@ -117,4 +134,17 @@ async function readRepoFile(relativePath: string): Promise<string> {
 
 function quadTerms(quad: Quad): readonly Term[] {
   return [quad.subject, quad.predicate, quad.object, quad.graph];
+}
+
+function termKey(term: Term): string {
+  if (term.termType === "Literal") {
+    return [
+      "Literal",
+      JSON.stringify(term.value),
+      term.datatype.value,
+      term.language,
+    ].join("|");
+  }
+
+  return `${term.termType}|${term.value}`;
 }

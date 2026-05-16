@@ -1,12 +1,16 @@
 @base <https://semantic-flow.github.io/weave/defaults/> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <config-resolution> a sfcfg:ConfigResolutionConfig, sfcfg:ConfigArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sfcfg:hasConfigPrecedenceProfile <config-precedence/default> ;
+  sfcfg:hasConfigMergeProfile <config-merge/default> ;
   sfcfg:hasUnknownConfigTermPolicy sfcfg:unknownConfigTermPolicy_reject ;
   sfcfg:hasConfigCyclePolicy sfcfg:configCyclePolicy_reject ;
   sfcfg:hasConfigReferencePolicy sfcfg:configReferencePolicy_pinnedOnly ;
+  sfcfg:hasOperationRequestOverridePolicy sfcfg:operationRequestOverridePolicy_warnAndApply ;
   sfcfg:hasResolvedConfigCachePolicy sfcfg:resolvedConfigCachePolicy_cacheForProcess ;
   sfcfg:hasPortableResolverHintPolicy sfcfg:portableResolverHintPolicy_honorWithinTrustedBoundary ;
   sfcfg:maxConfigReferenceDepth "8"^^xsd:nonNegativeInteger ;
@@ -32,14 +36,34 @@
     sfcfg:layerOrder "50"^^xsd:nonNegativeInteger
   ], [
     a sfcfg:ConfigLayer ;
+    sfcfg:hasConfigLayerRole sfcfg:configLayerRole_meshInheritable ;
+    sfcfg:layerOrder "55"^^xsd:nonNegativeInteger
+  ], [
+    a sfcfg:ConfigLayer ;
     sfcfg:hasConfigLayerRole sfcfg:configLayerRole_knopInherited ;
     sfcfg:layerOrder "60"^^xsd:nonNegativeInteger
+  ], [
+    a sfcfg:ConfigLayer ;
+    sfcfg:hasConfigLayerRole sfcfg:configLayerRole_reusableConfig ;
+    sfcfg:layerOrder "65"^^xsd:nonNegativeInteger ;
+    rdfs:comment "Provenance role for reusable config sources. Merge happens at the attachment point that referenced the reusable config, not as one universal global layer."
   ], [
     a sfcfg:ConfigLayer ;
     sfcfg:hasConfigLayerRole sfcfg:configLayerRole_knopLocal ;
     sfcfg:layerOrder "70"^^xsd:nonNegativeInteger
   ], [
     a sfcfg:ConfigLayer ;
+    sfcfg:hasConfigLayerRole sfcfg:configLayerRole_knopInheritable ;
+    sfcfg:layerOrder "75"^^xsd:nonNegativeInteger ;
+    rdfs:comment "Authored outbound offer role for Knop inheritable config. It is projected into descendant scopes as Knop inherited config unless propagation policy stops it."
+  ], [
+    a sfcfg:ConfigLayer ;
     sfcfg:hasConfigLayerRole sfcfg:configLayerRole_commandOverride ;
     sfcfg:layerOrder "90"^^xsd:nonNegativeInteger
   ] .
+
+<config-precedence/default> a sfcfg:ConfigPrecedenceProfile ;
+  rdfs:label "Weave default config precedence profile" .
+
+<config-merge/default> a sfcfg:ConfigMergeProfile ;
+  rdfs:label "Weave default config merge profile" .

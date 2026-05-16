@@ -7,6 +7,7 @@ import {
 export interface MeshCreateRequest {
   meshBase: string;
   includeNoJekyll?: boolean;
+  includeMeshConfig?: boolean;
   workspaceRootRelativeToMeshRoot?: string;
 }
 
@@ -30,6 +31,8 @@ export function planMeshCreate(request: MeshCreateRequest): MeshCreatePlan {
     shouldIncludeNoJekyll(meshBase);
   const workspaceRootRelativeToMeshRoot =
     request.workspaceRootRelativeToMeshRoot;
+  const includeMeshConfig = request.includeMeshConfig === true ||
+    workspaceRootRelativeToMeshRoot !== undefined;
 
   return {
     meshBase,
@@ -43,15 +46,17 @@ export function planMeshCreate(request: MeshCreateRequest): MeshCreatePlan {
         path: "_mesh/_inventory/inventory.ttl",
         contents: renderMeshInventoryTurtle(
           meshBase,
-          workspaceRootRelativeToMeshRoot !== undefined,
+          includeMeshConfig,
         ),
       },
-      ...(workspaceRootRelativeToMeshRoot === undefined ? [] : [{
-        path: "_mesh/_config/config.ttl",
-        contents: renderMeshConfigTurtle(
-          workspaceRootRelativeToMeshRoot,
-        ),
-      }]),
+      ...(includeMeshConfig
+        ? [{
+          path: "_mesh/_config/config.ttl",
+          contents: renderMeshConfigTurtle(
+            workspaceRootRelativeToMeshRoot,
+          ),
+        }]
+        : []),
       ...(includeNoJekyll ? [{ path: ".nojekyll", contents: "" }] : []),
     ],
   };
@@ -157,8 +162,15 @@ ${SFCFG_TURTLE_PREFIX_DECLARATION}
 }
 
 function renderMeshConfigTurtle(
-  workspaceRootRelativeToMeshRoot: string,
+  workspaceRootRelativeToMeshRoot: string | undefined,
 ): string {
+  if (workspaceRootRelativeToMeshRoot === undefined) {
+    return `${SFCFG_TURTLE_PREFIX_DECLARATION}
+
+<> a sfcfg:MeshConfig .
+`;
+  }
+
   return `${SFCFG_TURTLE_PREFIX_DECLARATION}
 
 <> a sfcfg:MeshConfig ;

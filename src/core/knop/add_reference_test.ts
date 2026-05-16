@@ -32,13 +32,13 @@ const wovenKnopInventory =
 
 <alice/_knop/_meta/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <alice/_knop/_meta/_history001/_s0001/meta-ttl> ;
-  sflo:locatedFileForState <alice/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
+  sflo:hasManifestation <alice/_knop/_meta/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <alice/_knop/_meta/_history001/_s0001/ttl/meta.ttl> ;
   sflo:hasResourcePage <alice/_knop/_meta/_history001/_s0001/index.html> .
 
-<alice/_knop/_meta/_history001/_s0001/meta-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <alice/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl> ;
-  sflo:hasResourcePage <alice/_knop/_meta/_history001/_s0001/meta-ttl/index.html> .
+<alice/_knop/_meta/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <alice/_knop/_meta/_history001/_s0001/ttl/meta.ttl> ;
+  sflo:hasResourcePage <alice/_knop/_meta/_history001/_s0001/ttl/index.html> .
 
 <alice/_knop/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <alice/_knop/_inventory/_history001> ;
@@ -56,21 +56,21 @@ const wovenKnopInventory =
 
 <alice/_knop/_inventory/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <alice/_knop/_inventory/_history001/_s0001/inventory-ttl> ;
-  sflo:locatedFileForState <alice/_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
+  sflo:hasManifestation <alice/_knop/_inventory/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <alice/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
   sflo:hasResourcePage <alice/_knop/_inventory/_history001/_s0001/index.html> .
 
-<alice/_knop/_inventory/_history001/_s0001/inventory-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <alice/_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> ;
-  sflo:hasResourcePage <alice/_knop/_inventory/_history001/_s0001/inventory-ttl/index.html> .
+<alice/_knop/_inventory/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:hasLocatedFile <alice/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
+  sflo:hasResourcePage <alice/_knop/_inventory/_history001/_s0001/ttl/index.html> .
 
 <alice/_knop/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <alice/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<alice/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<alice/_knop/_meta/_history001/_s0001/ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<alice/_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<alice/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <alice/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -80,7 +80,7 @@ const wovenKnopInventory =
 
 <alice/_knop/_meta/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<alice/_knop/_meta/_history001/_s0001/meta-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<alice/_knop/_meta/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <alice/_knop/_inventory/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -88,7 +88,7 @@ const wovenKnopInventory =
 
 <alice/_knop/_inventory/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<alice/_knop/_inventory/_history001/_s0001/inventory-ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<alice/_knop/_inventory/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 `;
 
 const unwovenKnopInventory =
@@ -109,6 +109,33 @@ const unwovenKnopInventory =
 <bob/_knop/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <bob/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+`;
+
+const extractedKnopInventory =
+  `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<bob/_knop> a sflo:Knop ;
+  sflo:hasKnopMetadata <bob/_knop/_meta> ;
+  sflo:hasKnopInventory <bob/_knop/_inventory> ;
+  sflo:hasKnopSourceRegistry <bob/_knop/_sources> ;
+  sflo:hasExtractionSource <bob/_knop/_sources#extraction-source> ;
+  sflo:hasWorkingKnopInventoryFile <bob/_knop/_inventory/inventory.ttl> .
+
+<bob/_knop/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <bob/_knop/_meta/meta.ttl> .
+
+<bob/_knop/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <bob/_knop/_inventory/inventory.ttl> .
+
+<bob/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <bob/_knop/_sources/sources.ttl> .
+
+<bob/_knop/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<bob/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<bob/_knop/_sources/sources.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 `;
 
 Deno.test("planKnopAddReference renders first reference catalog support artifacts", async () => {
@@ -195,6 +222,34 @@ Deno.test("planKnopAddReference supports unwoven knop inventory input", () => {
   assertStringIncludes(
     plan.createdFiles[0]?.contents ?? "",
     "sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_supplemental> ;",
+  );
+});
+
+Deno.test("planKnopAddReference preserves extracted source registry facts", () => {
+  const plan = planKnopAddReference({
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    designatorPath: "bob",
+    referenceTargetDesignatorPath: "alice/bio",
+    referenceRole: "canonical",
+    currentKnopInventoryTurtle: extractedKnopInventory,
+  });
+  const updatedInventory = plan.updatedFiles[0]?.contents ?? "";
+
+  assertStringIncludes(
+    updatedInventory,
+    "sflo:hasKnopSourceRegistry <bob/_knop/_sources> ;",
+  );
+  assertStringIncludes(
+    updatedInventory,
+    "sflo:hasExtractionSource <bob/_knop/_sources#extraction-source> ;",
+  );
+  assertStringIncludes(
+    updatedInventory,
+    "<bob/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;",
+  );
+  assertStringIncludes(
+    updatedInventory,
+    "<bob/_knop/_sources/sources.ttl> a sflo:LocatedFile, sflo:RdfDocument .",
   );
 });
 

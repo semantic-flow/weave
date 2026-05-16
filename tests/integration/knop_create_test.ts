@@ -175,6 +175,6 @@ Deno.test("executeKnopCreate supports the root Knop in a later carried mesh stat
     await Deno.readTextFile(
       join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
     ),
-    "sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0005> ;",
+    "sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0005> ;",
   );
 });

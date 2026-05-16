@@ -1,6 +1,9 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import {
   listKnopDesignatorPaths,
+  resolveExtractionSourceInventoryState,
+  resolveHistoricalStateLocatedFilePath,
+  resolveKnopSourceRegistryInventoryState,
   resolvePayloadArtifactInventoryState,
   resolveReferenceCatalogInventoryState,
   resolveReferenceTargetDesignatorPath,
@@ -71,6 +74,7 @@ Deno.test("resolvePayloadArtifactInventoryState accepts semantically equivalent 
     ),
     {
       workingLocalRelativePath: "alice-bio.ttl",
+      workingLocatedFilePath: "alice-bio.ttl",
       currentArtifactHistoryPath: "alice/bio/_history001",
       currentArtifactHistoryExists: true,
       latestHistoricalStatePath: "alice/bio/_history001/_s0002",
@@ -105,12 +109,33 @@ Deno.test("resolvePayloadArtifactInventoryState resolves latest payload snapshot
     ),
     {
       workingLocalRelativePath: "alice-bio.ttl",
+      workingLocatedFilePath: "alice-bio.ttl",
       currentArtifactHistoryPath: "alice/bio/_history001",
       currentArtifactHistoryExists: true,
       latestHistoricalStatePath: "alice/bio/_history001/_s0002",
       latestHistoricalSnapshotPath:
         "alice/bio/_history001/_s0002/ttl/alice-bio.ttl",
     },
+  );
+});
+
+Deno.test("resolveHistoricalStateLocatedFilePath resolves non-latest snapshot paths", () => {
+  const inventoryTurtle =
+    `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@base <${MESH_BASE}> .
+
+<alice/bio/_history001/_s0001> sflo:hasManifestation <alice/bio/_history001/_s0001/jsonld> .
+<alice/bio/_history001/_s0001/jsonld> sflo:hasLocatedFile <alice/bio/_history001/_s0001/jsonld/alice.jsonld> .
+`;
+
+  assertEquals(
+    resolveHistoricalStateLocatedFilePath(
+      MESH_BASE,
+      inventoryTurtle,
+      "alice/bio/_history001/_s0001",
+      "Could not parse Knop inventory",
+    ),
+    "alice/bio/_history001/_s0001/jsonld/alice.jsonld",
   );
 });
 
@@ -136,9 +161,133 @@ Deno.test("resolvePayloadArtifactInventoryState tracks a missing ArtifactHistory
     ),
     {
       workingLocalRelativePath: "alice-bio.ttl",
+      workingLocatedFilePath: "alice-bio.ttl",
       currentArtifactHistoryPath: "alice/bio/_history001",
       currentArtifactHistoryExists: false,
       latestHistoricalStatePath: undefined,
+    },
+  );
+});
+
+Deno.test("resolveExtractionSourceInventoryState returns source registry observed source evidence", () => {
+  const inventoryTurtle =
+    `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@base <${MESH_BASE}> .
+
+<bob/_knop> a sflo:Knop ;
+  sflo:hasKnopSourceRegistry <bob/_knop/_sources> ;
+  sflo:hasExtractionSource <bob/_knop/_sources#extraction-source> .
+
+<bob/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <bob/_knop/_sources/sources.ttl> .
+`;
+  const sourcesTurtle =
+    `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@base <${MESH_BASE}> .
+
+<bob/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <bob/_knop/_sources/sources.ttl> ;
+  sflo:hasSourceBinding <bob/_knop/_sources#extraction-source> .
+
+<bob/_knop/_sources#extraction-source> a sflo:ExtractionSource ;
+  sflo:hasTargetArtifact <alice/bio> ;
+  sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> ;
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_pinned> ;
+  sflo:hasObservedSourceState <alice/bio/_history001/_s0002> ;
+  sflo:hasObservedSourceManifestation <alice/bio/_history001/_s0002/ttl> ;
+  sflo:hasObservedSourceLocatedFile <alice/bio/_history001/_s0002/ttl/alice-bio.ttl> ;
+  sflo:observedSourceLocalRelativePath "../alice-bio.ttl" ;
+  sflo:observedSourceDigest "sha256:abc123" .
+`;
+
+  assertEquals(
+    resolveExtractionSourceInventoryState(
+      MESH_BASE,
+      inventoryTurtle,
+      "bob",
+      {
+        parseErrorMessage: "Could not parse Knop inventory",
+        missingExtractionSourceMessage: "Missing ExtractionSource",
+        missingTargetArtifactMessage: "Missing target artifact",
+        missingRequestedTargetStateMessage: "Missing requested target state",
+        unsupportedResolutionModeMessage: "Unsupported resolution mode",
+      },
+      sourcesTurtle,
+    ),
+    {
+      sourceArtifactPath: "alice/bio",
+      requestedTargetStatePath: "alice/bio/_history001/_s0002",
+      artifactResolutionModeIri:
+        "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_pinned",
+      observedSourceStatePath: "alice/bio/_history001/_s0002",
+      observedSourceManifestationPath: "alice/bio/_history001/_s0002/ttl",
+      observedSourceLocatedFilePath:
+        "alice/bio/_history001/_s0002/ttl/alice-bio.ttl",
+      observedSourceLocalRelativePath: "../alice-bio.ttl",
+      observedSourceDigest: "sha256:abc123",
+    },
+  );
+});
+
+Deno.test("resolveExtractionSourceInventoryState reads source registry extraction bindings", () => {
+  const inventoryTurtle =
+    `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@base <${MESH_BASE}> .
+
+<bob/_knop> a sflo:Knop ;
+  sflo:hasKnopSourceRegistry <bob/_knop/_sources> ;
+  sflo:hasExtractionSource <bob/_knop/_sources#extraction-source> .
+
+<bob/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <bob/_knop/_sources/sources.ttl> .
+`;
+  const sourcesTurtle =
+    `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@base <${MESH_BASE}> .
+
+<bob/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <bob/_knop/_sources/sources.ttl> ;
+  sflo:hasSourceBinding <bob/_knop/_sources#extraction-source> .
+
+<bob/_knop/_sources#extraction-source> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> sflo:ExtractionSource ;
+  sflo:hasTargetArtifact <alice/bio> ;
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> .
+`;
+
+  assertEquals(
+    resolveKnopSourceRegistryInventoryState(
+      MESH_BASE,
+      inventoryTurtle,
+      "bob",
+      {
+        parseErrorMessage: "Could not parse Knop inventory",
+        missingSourceRegistryMessage: "Missing source registry",
+        missingWorkingFileMessage: "Missing source registry working file",
+      },
+    ),
+    {
+      sourceRegistryPath: "bob/_knop/_sources",
+      workingLocalRelativePath: "bob/_knop/_sources/sources.ttl",
+    },
+  );
+  assertEquals(
+    resolveExtractionSourceInventoryState(
+      MESH_BASE,
+      inventoryTurtle,
+      "bob",
+      {
+        parseErrorMessage: "Could not parse Knop inventory",
+        missingExtractionSourceMessage: "Missing ExtractionSource",
+        missingTargetArtifactMessage: "Missing target artifact",
+        missingRequestedTargetStateMessage: "Missing requested target state",
+        unsupportedResolutionModeMessage: "Unsupported resolution mode",
+      },
+      sourcesTurtle,
+    ),
+    {
+      sourceArtifactPath: "alice/bio",
+      artifactResolutionModeIri:
+        "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current",
     },
   );
 });

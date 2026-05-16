@@ -3,10 +3,12 @@ import { Parser, type Quad } from "n3";
 import {
   formatDesignatorPathForDisplay,
   normalizeSafeDesignatorPath,
+  RESERVED_DESIGNATOR_SEGMENTS,
   toKnopPath,
 } from "../../core/designator_segments.ts";
 import {
   ExtractInputError,
+  type ExtractionSourceEvidence,
   type ExtractPlan,
   planExtract,
 } from "../../core/extract/extract.ts";
@@ -28,16 +30,69 @@ import {
 import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
-import { SFLO_NAMESPACE } from "../../core/rdf/namespaces.ts";
+import {
+  RDF_NAMESPACE,
+  SFCFG_NAMESPACE,
+  SFLO_NAMESPACE,
+} from "../../core/rdf/namespaces.ts";
 
+const RDF_TYPE_IRI = `${RDF_NAMESPACE}type`;
+const SFCFG_MESH_CONFIG_IRI = `${SFCFG_NAMESPACE}MeshConfig`;
+const SFLO_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}ArtifactHistory`;
+const SFLO_ARTIFACT_MANIFESTATION_IRI =
+  `${SFLO_NAMESPACE}ArtifactManifestation`;
 const SFLO_HAS_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}hasLocatedFile`;
 const SFLO_HAS_MANIFESTATION_IRI = `${SFLO_NAMESPACE}hasManifestation`;
 const SFLO_LOCATED_FILE_FOR_STATE_IRI = `${SFLO_NAMESPACE}locatedFileForState`;
+const SFLO_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}ExtractionSource`;
 const SFLO_HAS_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}hasExtractionSource`;
+const SFLO_HAS_KNOP_SOURCE_REGISTRY_IRI =
+  `${SFLO_NAMESPACE}hasKnopSourceRegistry`;
+const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
+  `${SFLO_NAMESPACE}hasWorkingLocatedFile`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
   `${SFLO_NAMESPACE}artifactResolutionMode_current`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
   `${SFLO_NAMESPACE}artifactResolutionMode_pinned`;
+const SFLO_HISTORICAL_STATE_IRI = `${SFLO_NAMESPACE}HistoricalState`;
+const SFLO_KNOP_IRI = `${SFLO_NAMESPACE}Knop`;
+const SFLO_KNOP_ASSET_BUNDLE_IRI = `${SFLO_NAMESPACE}KnopAssetBundle`;
+const SFLO_KNOP_INVENTORY_IRI = `${SFLO_NAMESPACE}KnopInventory`;
+const SFLO_KNOP_METADATA_IRI = `${SFLO_NAMESPACE}KnopMetadata`;
+const SFLO_KNOP_SOURCE_REGISTRY_IRI = `${SFLO_NAMESPACE}KnopSourceRegistry`;
+const SFLO_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}LocatedFile`;
+const SFLO_MESH_INVENTORY_IRI = `${SFLO_NAMESPACE}MeshInventory`;
+const SFLO_MESH_METADATA_IRI = `${SFLO_NAMESPACE}MeshMetadata`;
+const SFLO_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}ReferenceCatalog`;
+const SFLO_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}ReferenceLink`;
+const SFLO_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}ResourcePage`;
+const SFLO_RESOURCE_PAGE_DEFINITION_IRI =
+  `${SFLO_NAMESPACE}ResourcePageDefinition`;
+const SFLO_RESOURCE_PAGE_REGION_IRI = `${SFLO_NAMESPACE}ResourcePageRegion`;
+const SFLO_RESOURCE_PAGE_SOURCE_IRI = `${SFLO_NAMESPACE}ResourcePageSource`;
+const SFLO_SEMANTIC_MESH_IRI = `${SFLO_NAMESPACE}SemanticMesh`;
+const GENERATED_RESOURCE_CLASS_IRIS: ReadonlySet<string> = new Set([
+  SFCFG_MESH_CONFIG_IRI,
+  SFLO_ARTIFACT_HISTORY_IRI,
+  SFLO_ARTIFACT_MANIFESTATION_IRI,
+  SFLO_EXTRACTION_SOURCE_IRI,
+  SFLO_HISTORICAL_STATE_IRI,
+  SFLO_KNOP_IRI,
+  SFLO_KNOP_ASSET_BUNDLE_IRI,
+  SFLO_KNOP_INVENTORY_IRI,
+  SFLO_KNOP_METADATA_IRI,
+  SFLO_KNOP_SOURCE_REGISTRY_IRI,
+  SFLO_LOCATED_FILE_IRI,
+  SFLO_MESH_INVENTORY_IRI,
+  SFLO_MESH_METADATA_IRI,
+  SFLO_REFERENCE_CATALOG_IRI,
+  SFLO_REFERENCE_LINK_IRI,
+  SFLO_RESOURCE_PAGE_IRI,
+  SFLO_RESOURCE_PAGE_DEFINITION_IRI,
+  SFLO_RESOURCE_PAGE_REGION_IRI,
+  SFLO_RESOURCE_PAGE_SOURCE_IRI,
+  SFLO_SEMANTIC_MESH_IRI,
+]);
 
 export interface LocalExtractRequest {
   designatorPath: string;
@@ -127,9 +182,10 @@ interface ExtractSourcePayload {
   workingLocalRelativePath: string;
   sourceResolutionMode: "current" | "pinned";
   sourceStatePath?: string;
+  sourceEvidence?: ExtractionSourceEvidence;
   sourcePayloadTurtle: string;
   currentKnopInventoryTurtle: string;
-  latestHistoricalStatePath: string;
+  latestHistoricalStatePath?: string;
 }
 
 interface StagedFileMutation {
@@ -207,6 +263,9 @@ export async function executeExtract(
       designatorPath: normalizedDesignatorPath,
       sourceDesignatorPath: sourcePayload.designatorPath,
       sourceResolutionMode: sourcePayload.sourceResolutionMode,
+      ...(sourcePayload.sourceEvidence
+        ? { sourceEvidence: sourcePayload.sourceEvidence }
+        : {}),
       ...(sourcePayload.sourceStatePath
         ? { sourceStatePath: sourcePayload.sourceStatePath }
         : {}),
@@ -318,6 +377,7 @@ export async function executeExtractAllTerms(
       sourceDesignatorPath: sourcePayload.designatorPath,
       currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
       currentPayloadTurtle: sourcePayload.sourcePayloadTurtle,
+      sourceKnopInventoryTurtle: sourcePayload.currentKnopInventoryTurtle,
     });
     const plans: ExtractPlan[] = [];
     let currentMeshInventoryTurtle = meshState.currentMeshInventoryTurtle;
@@ -329,6 +389,9 @@ export async function executeExtractAllTerms(
         designatorPath,
         sourceDesignatorPath: sourcePayload.designatorPath,
         sourceResolutionMode: sourcePayload.sourceResolutionMode,
+        ...(sourcePayload.sourceEvidence
+          ? { sourceEvidence: sourcePayload.sourceEvidence }
+          : {}),
         ...(sourcePayload.sourceStatePath
           ? { sourceStatePath: sourcePayload.sourceStatePath }
           : {}),
@@ -428,6 +491,7 @@ export async function previewExtractAllTerms(
     sourceDesignatorPath: sourcePayload.designatorPath,
     currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
     currentPayloadTurtle: sourcePayload.sourcePayloadTurtle,
+    sourceKnopInventoryTurtle: sourcePayload.currentKnopInventoryTurtle,
   });
 
   return {
@@ -481,17 +545,22 @@ export async function executeSetExtractionSource(
     inventoryPath,
     designatorPath,
   );
-  const updatedInventoryTurtle = replaceExtractionSourceBinding(
+  const updateTarget = await resolveExtractionSourceUpdateTarget(
+    meshRoot,
     meshState.meshBase,
     currentInventoryTurtle,
     designatorPath,
+  );
+  const updatedTurtle = replaceExtractionSourceBinding(
+    updateTarget.turtle,
+    updateTarget.extractionSourcePath,
     sourcePayload,
   );
   const mutation: PlannedMutation = {
     createdFiles: [],
     updatedFiles: [{
-      path: inventoryPath,
-      contents: updatedInventoryTurtle,
+      path: updateTarget.path,
+      contents: updatedTurtle,
     }],
   };
 
@@ -554,6 +623,7 @@ async function planSetExtractionSourceAllTerms(
     sourceDesignatorPath: sourcePayload.designatorPath,
     currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
     currentPayloadTurtle: sourcePayload.sourcePayloadTurtle,
+    sourceKnopInventoryTurtle: sourcePayload.currentKnopInventoryTurtle,
   });
   const updatedFiles: PlannedFile[] = [];
   const updatedDesignatorPaths: string[] = [];
@@ -578,12 +648,17 @@ async function planSetExtractionSourceAllTerms(
       skippedDesignatorPaths.push(designatorPath);
       continue;
     }
+    const updateTarget = await resolveExtractionSourceUpdateTarget(
+      meshRoot,
+      meshState.meshBase,
+      currentInventoryTurtle,
+      designatorPath,
+    );
     updatedFiles.push({
-      path: inventoryPath,
+      path: updateTarget.path,
       contents: replaceExtractionSourceBinding(
-        meshState.meshBase,
-        currentInventoryTurtle,
-        designatorPath,
+        updateTarget.turtle,
+        updateTarget.extractionSourcePath,
         sourcePayload,
       ),
     });
@@ -923,20 +998,6 @@ async function loadExtractSourcePayloadCandidate(
   if (!payloadArtifact) {
     return undefined;
   }
-  if (!payloadArtifact.currentArtifactHistoryPath) {
-    return undefined;
-  }
-  if (!payloadArtifact.currentArtifactHistoryExists) {
-    throw new ExtractRuntimeError(
-      `Could not resolve the current payload history block for ${designatorPath}.`,
-    );
-  }
-  if (!payloadArtifact.latestHistoricalStatePath) {
-    throw new ExtractRuntimeError(
-      `Could not resolve the latest payload historical state for ${designatorPath}.`,
-    );
-  }
-
   const currentPayloadTurtle = await readPayloadWorkingFile(
     localPathPolicy,
     designatorPath,
@@ -948,9 +1009,19 @@ async function loadExtractSourcePayloadCandidate(
     workingLocalRelativePath: payloadArtifact.workingLocalRelativePath,
     sourceResolutionMode: "current",
     sourceStatePath: undefined,
+    sourceEvidence: {
+      ...(payloadArtifact.workingLocatedFilePath
+        ? { sourceLocatedFilePath: payloadArtifact.workingLocatedFilePath }
+        : {
+          sourceLocalRelativePath: payloadArtifact.workingLocalRelativePath,
+        }),
+      sourceDigest: await sha256Digest(currentPayloadTurtle),
+    },
     sourcePayloadTurtle: currentPayloadTurtle,
     currentKnopInventoryTurtle,
-    latestHistoricalStatePath: payloadArtifact.latestHistoricalStatePath,
+    latestHistoricalStatePath: payloadArtifact.currentArtifactHistoryExists
+      ? payloadArtifact.latestHistoricalStatePath
+      : undefined,
   };
 }
 
@@ -1011,6 +1082,15 @@ async function resolvePinnedExtractSourcePayloadByState(
     ...candidate,
     sourceResolutionMode: "pinned",
     sourceStatePath: normalizedSourceStatePath,
+    sourceEvidence: {
+      sourceStatePath: normalizedSourceStatePath,
+      sourceManifestationPath: dirname(historicalSnapshotPath).replaceAll(
+        "\\",
+        "/",
+      ),
+      sourceLocatedFilePath: historicalSnapshotPath,
+      sourceDigest: await sha256Digest(sourcePayloadTurtle),
+    },
     sourcePayloadTurtle,
   };
 }
@@ -1127,6 +1207,15 @@ async function readPayloadWorkingFile(
   }
 }
 
+async function sha256Digest(contents: string): Promise<string> {
+  const bytes = new TextEncoder().encode(contents);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const hex = [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return `sha256:${hex}`;
+}
+
 function toWorkspaceRelativePath(
   policy: OperationalLocalPathPolicy,
   meshRelativePath: string,
@@ -1168,6 +1257,7 @@ function discoverAllTermDesignatorPaths(
     sourceDesignatorPath: string;
     currentMeshInventoryTurtle: string;
     currentPayloadTurtle: string;
+    sourceKnopInventoryTurtle: string;
   },
 ): {
   discoveredDesignatorPaths: readonly string[];
@@ -1180,6 +1270,19 @@ function discoverAllTermDesignatorPaths(
       options.meshBase,
       options.currentMeshInventoryTurtle,
       "Could not parse the current MeshInventory while resolving existing extracted terms.",
+    ),
+  );
+  const generatedResourcePaths = collectGeneratedResourcePathsFromTurtle(
+    options.meshBase,
+    options.currentMeshInventoryTurtle,
+    "Could not parse the current MeshInventory while resolving generated resources for all-terms extraction.",
+  );
+  addAll(
+    generatedResourcePaths,
+    collectGeneratedResourcePathsFromTurtle(
+      options.meshBase,
+      options.sourceKnopInventoryTurtle,
+      `Could not parse the current Knop inventory while discovering generated resources for ${options.sourceDesignatorPath}.`,
     ),
   );
   const discovered = new Set<string>();
@@ -1197,6 +1300,11 @@ function discoverAllTermDesignatorPaths(
     );
   }
 
+  addAll(
+    generatedResourcePaths,
+    collectGeneratedResourcePathsFromQuads(options.meshBase, quads),
+  );
+
   for (const quad of quads) {
     for (const iri of listQuadNamedNodeIris(quad)) {
       const rawDesignatorPath = toMeshScopedRawDesignatorPath(
@@ -1206,7 +1314,11 @@ function discoverAllTermDesignatorPaths(
       if (rawDesignatorPath === undefined) {
         continue;
       }
-      if (isSupportOrGeneratedArtifactPath(rawDesignatorPath)) {
+      if (generatedResourcePaths.has(rawDesignatorPath)) {
+        skippedSupport.add(rawDesignatorPath);
+        continue;
+      }
+      if (hasReservedSupportSegment(rawDesignatorPath)) {
         skippedSupport.add(rawDesignatorPath);
         continue;
       }
@@ -1236,6 +1348,54 @@ function discoverAllTermDesignatorPaths(
       left.localeCompare(right)
     ),
   };
+}
+
+function hasReservedSupportSegment(path: string): boolean {
+  return path.split("/").some((segment) =>
+    RESERVED_DESIGNATOR_SEGMENTS.has(segment)
+  );
+}
+
+function collectGeneratedResourcePathsFromTurtle(
+  meshBase: string,
+  turtle: string,
+  errorMessage: string,
+): Set<string> {
+  let quads: Quad[];
+  try {
+    quads = new Parser({ baseIRI: meshBase }).parse(turtle);
+  } catch {
+    throw new ExtractRuntimeError(errorMessage);
+  }
+  return collectGeneratedResourcePathsFromQuads(meshBase, quads);
+}
+
+function collectGeneratedResourcePathsFromQuads(
+  meshBase: string,
+  quads: readonly Quad[],
+): Set<string> {
+  const paths = new Set<string>();
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.predicate.value !== RDF_TYPE_IRI ||
+      quad.object.termType !== "NamedNode" ||
+      !GENERATED_RESOURCE_CLASS_IRIS.has(quad.object.value)
+    ) {
+      continue;
+    }
+    const path = toMeshScopedRawDesignatorPath(meshBase, quad.subject.value);
+    if (path !== undefined) {
+      paths.add(path);
+    }
+  }
+  return paths;
+}
+
+function addAll<T>(target: Set<T>, source: Iterable<T>): void {
+  for (const item of source) {
+    target.add(item);
+  }
 }
 
 function listQuadNamedNodeIris(quad: Quad): readonly string[] {
@@ -1274,17 +1434,6 @@ function normalizeDiscoveredDesignatorPath(
     }
     throw error;
   }
-}
-
-function isSupportOrGeneratedArtifactPath(designatorPath: string): boolean {
-  if (designatorPath.length === 0) {
-    return false;
-  }
-  const segments = designatorPath.split("/");
-  return segments.some((segment) => segment.startsWith("_")) ||
-    designatorPath.endsWith("/index.html") ||
-    designatorPath === "index.html" ||
-    designatorPath.endsWith(".ttl");
 }
 
 function combineExtractPlans(plans: readonly ExtractPlan[]): PlannedMutation {
@@ -1332,81 +1481,299 @@ function hasExtractionSourceBinding(
   inventoryTurtle: string,
   designatorPath: string,
 ): boolean {
-  let quads: Quad[];
-  try {
-    quads = new Parser({ baseIRI: meshBase }).parse(inventoryTurtle);
-  } catch {
-    throw new ExtractRuntimeError(
-      `Could not parse existing extracted Knop inventory for ${designatorPath}.`,
-    );
-  }
-  const knopIri = new URL(toKnopPath(designatorPath), meshBase).href;
-  const extractionSourceIri = new URL(
-    `${toKnopPath(designatorPath)}/_inventory#extraction-source`,
+  const quads = parseExtractionSourceQuads(
     meshBase,
-  ).href;
+    inventoryTurtle,
+    `Could not parse existing extracted Knop inventory for ${designatorPath}.`,
+  );
+  const knopIri = new URL(toKnopPath(designatorPath), meshBase).href;
   return quads.some((quad) =>
     quad.subject.termType === "NamedNode" &&
     quad.subject.value === knopIri &&
     quad.predicate.value === SFLO_HAS_EXTRACTION_SOURCE_IRI &&
-    quad.object.termType === "NamedNode" &&
-    quad.object.value === extractionSourceIri
+    quad.object.termType === "NamedNode"
   );
 }
 
-function replaceExtractionSourceBinding(
+async function resolveExtractionSourceUpdateTarget(
+  meshRoot: string,
   meshBase: string,
   inventoryTurtle: string,
   designatorPath: string,
-  sourcePayload: ExtractSourcePayload,
-): string {
-  if (!hasExtractionSourceBinding(meshBase, inventoryTurtle, designatorPath)) {
+): Promise<{ path: string; turtle: string; extractionSourcePath: string }> {
+  const inventoryQuads = parseExtractionSourceQuads(
+    meshBase,
+    inventoryTurtle,
+    `Could not parse existing extracted Knop inventory for ${designatorPath}.`,
+  );
+  const knopIri = new URL(toKnopPath(designatorPath), meshBase).href;
+  const extractionSourceIri = requireOptionalNamedNodeObject(
+    inventoryQuads,
+    knopIri,
+    SFLO_HAS_EXTRACTION_SOURCE_IRI,
+    `Could not resolve existing ExtractionSource binding for ${designatorPath}.`,
+  );
+  if (extractionSourceIri === undefined) {
     throw new ExtractRuntimeError(
       `Existing Knop is not an extracted Knop: ${designatorPath}`,
     );
   }
-  const extractionSourcePath = `${
-    toKnopPath(designatorPath)
-  }/_inventory#extraction-source`;
-  const escapedExtractionSourcePath = escapeRegExp(extractionSourcePath);
-  const extractionSourceBlockPattern = new RegExp(
-    `<${escapedExtractionSourcePath}> a sflo:ExtractionSource ;\\n` +
-      `(?:  sflo:hasTargetArtifact <[^>]+> ;\\n)` +
-      `(?:  sflo:hasRequestedTargetState <[^>]+> ;\\n)?` +
-      `(?:  sflo:hasArtifactResolutionMode <[^>]+> \\.|` +
-      `  sflo:hasArtifactResolutionMode <[^>]+> ;\\n` +
-      `  sflo:hasRequestedTargetState <[^>]+> \\.)`,
+  const extractionSourcePath = toMeshPath(
+    meshBase,
+    extractionSourceIri,
+    `Existing ExtractionSource binding is outside the current mesh for ${designatorPath}.`,
   );
+  const sourceRegistryIri = requireOptionalNamedNodeObject(
+    inventoryQuads,
+    knopIri,
+    SFLO_HAS_KNOP_SOURCE_REGISTRY_IRI,
+    `Could not resolve existing source registry for ${designatorPath}.`,
+  );
+  if (sourceRegistryIri === undefined) {
+    throw new ExtractRuntimeError(
+      `Could not find ExtractionSource details for ${designatorPath}.`,
+    );
+  }
+  const sourceRegistryFileIri = requireOptionalNamedNodeObject(
+    inventoryQuads,
+    sourceRegistryIri,
+    SFLO_HAS_WORKING_LOCATED_FILE_IRI,
+    `Could not resolve existing source registry working file for ${designatorPath}.`,
+  );
+  if (sourceRegistryFileIri === undefined) {
+    throw new ExtractRuntimeError(
+      `Could not resolve existing source registry working file for ${designatorPath}.`,
+    );
+  }
+  const sourceRegistryFilePath = toMeshPath(
+    meshBase,
+    sourceRegistryFileIri,
+    `Existing source registry working file is outside the current mesh for ${designatorPath}.`,
+  );
+  const sourceRegistryTurtle = await Deno.readTextFile(
+    join(meshRoot, sourceRegistryFilePath),
+  );
+  const sourceRegistryQuads = parseExtractionSourceQuads(
+    meshBase,
+    sourceRegistryTurtle,
+    `Could not parse existing Knop source registry for ${designatorPath}.`,
+  );
+  if (
+    !hasNamedNodeFact(
+      sourceRegistryQuads,
+      extractionSourceIri,
+      "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      SFLO_EXTRACTION_SOURCE_IRI,
+    )
+  ) {
+    throw new ExtractRuntimeError(
+      `Could not find ExtractionSource details for ${designatorPath}.`,
+    );
+  }
+
+  return {
+    path: sourceRegistryFilePath,
+    turtle: sourceRegistryTurtle,
+    extractionSourcePath,
+  };
+}
+
+function replaceExtractionSourceBinding(
+  turtle: string,
+  extractionSourcePath: string,
+  sourcePayload: ExtractSourcePayload,
+): string {
   const replacement = renderExtractionSourceBlock(
     extractionSourcePath,
     sourcePayload,
   );
-  if (!extractionSourceBlockPattern.test(inventoryTurtle)) {
+  const blocks = splitTurtleBlocks(turtle);
+  const blockIndex = blocks.findIndex((block) =>
+    getSubjectPathFromBlock(block) === extractionSourcePath
+  );
+  if (blockIndex === -1) {
     throw new ExtractRuntimeError(
-      `Could not replace existing ExtractionSource block for ${designatorPath}.`,
+      "Could not replace existing ExtractionSource block.",
     );
   }
-  return inventoryTurtle.replace(extractionSourceBlockPattern, replacement);
+  blocks[blockIndex] = replacement;
+  return `${blocks.join("\n\n")}\n`;
 }
 
 function renderExtractionSourceBlock(
   extractionSourcePath: string,
   sourcePayload: ExtractSourcePayload,
 ): string {
+  const facts: [string, string][] = [
+    ["sflo:hasTargetArtifact", `<${sourcePayload.designatorPath}>`],
+  ];
   if (sourcePayload.sourceResolutionMode === "pinned") {
-    return `<${extractionSourcePath}> a sflo:ExtractionSource ;
-  sflo:hasTargetArtifact <${sourcePayload.designatorPath}> ;
-  sflo:hasRequestedTargetState <${sourcePayload.sourceStatePath}> ;
-  sflo:hasArtifactResolutionMode <${SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI}> .`;
+    facts.push([
+      "sflo:hasRequestedTargetState",
+      `<${sourcePayload.sourceStatePath}>`,
+    ]);
   }
+  facts.push([
+    "sflo:hasArtifactResolutionMode",
+    `<${
+      sourcePayload.sourceResolutionMode === "pinned"
+        ? SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI
+        : SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI
+    }>`,
+  ]);
+  facts.push(...toExtractionSourceEvidenceFacts(sourcePayload.sourceEvidence));
 
   return `<${extractionSourcePath}> a sflo:ExtractionSource ;
-  sflo:hasTargetArtifact <${sourcePayload.designatorPath}> ;
-  sflo:hasArtifactResolutionMode <${SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI}> .`;
+${
+    facts.map(([predicate, object], index) =>
+      `  ${predicate} ${object}${index === facts.length - 1 ? " ." : " ;"}`
+    ).join("\n")
+  }`;
 }
 
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function toExtractionSourceEvidenceFacts(
+  sourceEvidence: ExtractionSourceEvidence | undefined,
+): [string, string][] {
+  if (!sourceEvidence) {
+    return [];
+  }
+
+  const facts: [string, string][] = [];
+  if (sourceEvidence.sourceStatePath !== undefined) {
+    facts.push([
+      "sflo:hasObservedSourceState",
+      `<${sourceEvidence.sourceStatePath}>`,
+    ]);
+  }
+  if (sourceEvidence.sourceManifestationPath !== undefined) {
+    facts.push([
+      "sflo:hasObservedSourceManifestation",
+      `<${sourceEvidence.sourceManifestationPath}>`,
+    ]);
+  }
+  if (sourceEvidence.sourceLocatedFilePath !== undefined) {
+    facts.push([
+      "sflo:hasObservedSourceLocatedFile",
+      `<${sourceEvidence.sourceLocatedFilePath}>`,
+    ]);
+  }
+  if (sourceEvidence.sourceLocalRelativePath !== undefined) {
+    facts.push([
+      "sflo:observedSourceLocalRelativePath",
+      `"${escapeTurtleString(sourceEvidence.sourceLocalRelativePath)}"`,
+    ]);
+  }
+  if (sourceEvidence.sourceDigest !== undefined) {
+    facts.push([
+      "sflo:observedSourceDigest",
+      `"${escapeTurtleString(sourceEvidence.sourceDigest)}"`,
+    ]);
+  }
+  if (sourceEvidence.observedAt !== undefined) {
+    facts.push([
+      "sflo:observedAt",
+      `"${escapeTurtleString(sourceEvidence.observedAt)}"`,
+    ]);
+  }
+
+  return facts;
+}
+
+function parseExtractionSourceQuads(
+  meshBase: string,
+  turtle: string,
+  errorMessage: string,
+): Quad[] {
+  try {
+    return new Parser({ baseIRI: meshBase }).parse(turtle);
+  } catch {
+    throw new ExtractRuntimeError(errorMessage);
+  }
+}
+
+function requireOptionalNamedNodeObject(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+  errorMessage: string,
+): string | undefined {
+  const values = quads.flatMap((quad) =>
+    quad.subject.termType === "NamedNode" &&
+      quad.subject.value === subjectIri &&
+      quad.predicate.value === predicateIri &&
+      quad.object.termType === "NamedNode"
+      ? [quad.object.value]
+      : []
+  );
+
+  if (values.length > 1) {
+    throw new ExtractRuntimeError(errorMessage);
+  }
+
+  return values[0];
+}
+
+function hasNamedNodeFact(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+  objectIri: string,
+): boolean {
+  return quads.some((quad) =>
+    quad.subject.termType === "NamedNode" &&
+    quad.subject.value === subjectIri &&
+    quad.predicate.value === predicateIri &&
+    quad.object.termType === "NamedNode" &&
+    quad.object.value === objectIri
+  );
+}
+
+function toMeshPath(
+  meshBase: string,
+  iri: string,
+  errorMessage: string,
+): string {
+  if (!iri.startsWith(meshBase)) {
+    throw new ExtractRuntimeError(errorMessage);
+  }
+
+  return iri.slice(meshBase.length);
+}
+
+function escapeTurtleString(value: string): string {
+  return value.replace(/[\b\t\n\f\r"\\]/g, (character) => {
+    switch (character) {
+      case "\b":
+        return "\\b";
+      case "\t":
+        return "\\t";
+      case "\n":
+        return "\\n";
+      case "\f":
+        return "\\f";
+      case "\r":
+        return "\\r";
+      case '"':
+        return '\\"';
+      case "\\":
+        return "\\\\";
+      default:
+        return character;
+    }
+  });
+}
+
+function splitTurtleBlocks(turtle: string): string[] {
+  // This intentionally treats blank lines as block boundaries for generated
+  // extraction-source snippets. It is not Turtle-aware and will not preserve
+  // blank lines inside multiline string literals; use a parser before widening
+  // this to arbitrary Turtle input.
+  return turtle.trim().split(/\n\s*\n/g);
+}
+
+function getSubjectPathFromBlock(block: string): string | undefined {
+  const match = block.match(/^<([^>]+)>/);
+  return match?.[1];
 }
 
 async function assertUpdatedTargetsExist(

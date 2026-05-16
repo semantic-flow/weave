@@ -34,17 +34,47 @@ Weave currently has:
 - root `deno.json` tasks for `fmt`, `lint`, `check`, `test`, `test:coverage`, `coverage:lcov`, and `ci`
 - GitHub Actions CI on pull requests and pushes to `main`
 - Codecov upload from coverage
-- Deno 2.7.12 in CI
-- a source-checkpoint release runbook in [[dev.release-runbook]]
+- Deno 2.7.14 in CI
+- a release runbook in [[dev.release-runbook]] that now documents the transitional `v0.1.0` path
 - `documentation/notes/release-notes.v0.0.2.md` as the first release-notes note
+- `documentation/notes/release-notes.v0.1.0.md` as the first full-release stub
 - no release workflow
-- no package build scripts
-- no npm package assembly or publishing
-- no binary archive/checksum generation
-- no `weave --version`
-- no durable Weave version metadata
+- `deno task build:binaries` for native binary compilation and per-platform bundle metadata
+- `deno task package:binaries` for Deno-native `.tar.gz`/`.zip` archive generation and `.sha256` checksum files
+- `deno task assemble:npm-packages` for local npm wrapper/platform package directory assembly and `npm-packages-metadata.json` generation
+- `deno task smoke:npm-install` for local `npm pack`, temp-project install, and installed `weave --version` smoke testing
+- `deno task publish:npm-packages` for ordered npm dry-run/publish execution from assembled package directories
+- `.github/workflows/release-manual.yml` for manual native binary builds, archive packaging, npm package assembly, native npm smoke testing, optional npm dry-run/publish, and optional GitHub Release draft/publish handling
+- root `deno.json` version metadata and `weave --version`
 
 That is enough for `v0.0.2`, especially as a deliberate checkpoint with known CI debt, but not enough for a release that users can install.
+
+### Current Release-Gate Inventory
+
+Earlier local validation after the first version-plumbing slice showed broad fixture-backed drift. After the fixture ladder regeneration, source-registry cleanup, ResourcePage/property work, release tooling slices, and ontology/config guardrails, the release gate is now much closer to the target:
+
+- `deno task fmt:check` passes.
+- `deno task lint` passes.
+- `deno task check` passes.
+- focused `weave --version` e2e coverage passes.
+- focused release metadata and build-script argument tests pass.
+- focused binary packaging helper tests pass.
+- focused npm package assembly tests pass.
+- focused npm install smoke setup tests pass.
+- focused npm publish ordering and argument tests pass.
+- `deno task ci` passes locally with 422 tests; branch-published fixture assertions read explicit Git refs rather than relying on the dependency checkout branch.
+
+The branch-published Fantasy Rules dependency checkout is often left on `gh-pages` for preview, and that branch intentionally does not carry deterministic `.assets`. That should not affect fixture meaning: generated mesh assertions read generated refs, and the fixture-ladder source-asset contract reads `.assets` from the source-bearing `main` ref.
+
+The old failures were not caused by version metadata. They clustered around pre-release fixture and contract drift that has now mostly been repaired:
+
+- stale `https://semantic-flow.github.io/semantic-flow-ontology/` expectations versus the canonical `https://semantic-flow.github.io/sflo/ontology/` namespace
+- stale enum/value shapes such as old reference-role IRIs versus flat namespace-local values
+- stale config ontology IRIs such as `https://semantic-flow.github.io/ontology/config/meshRootPathBase`
+- stale carried mesh and Knop inventory shapes after current config/progression changes
+- fixture-backed CLI and integration tests reading old branch-ladder states that need regeneration through [[wa.completed.2026.2026-05-07-fixture-ladder-generator]]
+
+That means the release pipeline can now move from infrastructure-building to release rehearsal. The main remaining release blockers are authored release notes, a manual workflow rehearsal on GitHub Actions, and confirmation of npm scope/package access before any real publish.
 
 ### Kato Release Pattern To Adapt
 
@@ -135,8 +165,10 @@ The build script should:
 - read the canonical release version
 - build into a supplied output directory
 - produce platform-native executable names, including `.exe` on Windows
-- include only permissions needed by the CLI, or explicitly document why `-A` is temporarily required
+- compile with explicit broad CLI permissions for the first pass: read, write, env, and run for `git`/`deno`
 - fail if invoked from a dirty or mismatched version state when release mode requires strictness
+
+The first implementation slice adds `scripts/build-binaries.ts`, `deno task build:binaries`, a shared release metadata module, and tests for the platform matrix, archive names, npm package names, and build-script arguments. The build script writes `bundle-metadata.json` beside each platform executable so packaging can consume a stable contract.
 
 Add `scripts/package-binaries.ts` to turn build outputs into platform bundles. Each bundle should include:
 
@@ -148,6 +180,8 @@ Add `scripts/package-binaries.ts` to turn build outputs into platform bundles. E
 - `.sha256` checksum
 
 The package script should produce `.tar.gz` for Unix platforms and `.zip` for Windows.
+
+The second implementation slice adds `scripts/package-binaries.ts`, `deno task package:binaries`, Deno-native archive writers, SHA-256 checksum generation, archive-local install notes, license inclusion when `LICENSE` is present, and validation that build-time `bundle-metadata.json` still matches the canonical root version and platform metadata. Generated release outputs default under `dist/`, which is ignored.
 
 ### npm Integration
 
@@ -172,6 +206,12 @@ The platform packages should:
 - be marked with appropriate `os` and `cpu` constraints
 - avoid lifecycle scripts when practical; prefer static bin dispatch from the wrapper
 
+The third implementation slice adds `scripts/assemble-npm-packages.ts`, `deno task assemble:npm-packages`, npm package metadata helpers, a Node bin dispatcher for the wrapper package, platform packages with `os` and `cpu` constraints, copied native binaries, license/readme files, and tests for metadata, optional dependencies, bin dispatch contents, platform constraints, executable modes, and stale bundle metadata rejection. Follow-up publish metadata work adds scoped package `publishConfig`, repository/homepage/bugs metadata, and an aggregate `npm-packages-metadata.json` manifest for smoke/publish/workflow consumers. This is local package-directory assembly; publish behavior remains a separate slice.
+
+The fourth implementation slice adds `scripts/smoke-npm-install.ts`, `deno task smoke:npm-install`, host platform package selection from `npm-packages-metadata.json`, `npm pack` for the wrapper and host platform package, temporary project install from local tarballs, installed `weave --version` verification, and tests for CLI argument parsing, Node platform naming, host platform matching, and npm bin shim path handling. This intentionally verifies the wrapper/platform package resolution path without introducing publish behavior yet.
+
+The fifth implementation slice adds `scripts/publish-npm-packages.ts`, `deno task publish:npm-packages`, ordered platform-before-wrapper publication, downloaded artifact path resolution, executable mode restoration after artifact download, npm dry-run/publish argument construction, and tests for the publish ordering and rehearsal/publish flags.
+
 The publish script should support:
 
 - dry-run mode
@@ -195,7 +235,7 @@ The workflow should have jobs similar to:
 - `publish-npm-packages`: optional dry-run or publish
 - `manage-github-release`: optional draft or published GitHub Release with binary archives and checksum assets
 
-The release workflow should derive the release tag from bundled release metadata, not from a free-form workflow input. That reduces accidental tag/package mismatch.
+The release workflow derives the release tag from downloaded `bundle-metadata.json` files, not from a free-form workflow input. That reduces accidental tag/package mismatch.
 
 The workflow should support a rehearsal pass:
 
@@ -261,12 +301,8 @@ The runbook should include:
 
 ## Open Issues
 
-- Confirm the npm package scope and names. Proposed names are `@semantic-flow/weave` and platform packages under the same scope.
-- Decide whether npm publishing uses `NPM_TOKEN`, npm trusted publishing, or both. Kato currently uses `NPM_TOKEN` plus provenance from GitHub Actions.
-- Decide whether `deno.json` can be imported safely for runtime version reporting in compiled binaries, or whether a generated TypeScript version module is cleaner.
-- Decide whether `deno compile` permissions can be narrowed for `weave` in `v0.1.0`, or whether the first binary uses broad permissions with a documented follow-up.
-- Decide whether to pin an exact Deno version for release builds or use `v2.x` as Kato does.
-- Decide whether `v0.1.0` should publish a draft GitHub Release first by default, or whether the first workflow run can publish directly after a dry-run rehearsal.
+- Confirm whether the implemented npm package scope and names need any change before publish. The current metadata default is `@semantic-flow/weave` plus platform packages under the same scope.
+- Decide whether `deno compile` permissions should be narrowed before `v0.1.0` publish, or whether explicit broad CLI permissions are acceptable for the first packaged release.
 - Decide whether release artifacts should include SBOM or provenance metadata beyond npm provenance and SHA-256 checksums.
 - Decide whether fixture-ladder regeneration must be complete before `v0.1.0`, or whether `v0.1.0` can be a full pipeline release with known fixture-generator work still pending.
 
@@ -276,14 +312,20 @@ The runbook should include:
 - Keep `v0.0.2` as a source-checkpoint release and do not retrofit it into the full pipeline.
 - Use root `deno.json` as the preferred authored version source unless implementation proves that impractical.
 - Add `deno task bump:version` so humans do not hand-edit release version metadata and release-note stubs.
+- Import root `deno.json` for runtime version reporting and release metadata; generated version modules are not needed yet.
 - Ship a native `weave` binary for `v0.1.0`.
 - Do not ship separate daemon or web binaries until those surfaces are real release targets.
 - Use GitHub Release archives plus `.sha256` checksum files as binary distribution artifacts.
 - Use npm wrapper/platform packages as the first package-manager integration.
+- Start with `@semantic-flow/weave` as the wrapper package name and `@semantic-flow/weave-<platform>` as the platform package naming convention.
 - Model the release workflow on Kato's manual release workflow with rehearsal and publish modes.
 - Keep full release packaging in a manual workflow rather than adding automatic publish-on-tag behavior for the first pass.
 - Keep release notes as Dendron notes and strip frontmatter for GitHub Release bodies.
 - Update [[dev.release-runbook]] as part of this task, after the actual scripts/workflow behavior is known.
+- Use `NPM_TOKEN` through `NODE_AUTH_TOKEN` plus npm provenance for the first publish workflow, matching the current Kato pattern. npm trusted publishing can replace or supplement this later if the package settings are configured for it.
+- Pin release workflow Deno setup to `2.7.14`, matching ordinary CI, until we intentionally choose a floating `v2.x` release lane.
+- Make the manual workflow default to no npm publish and no GitHub Release mutation. Rehearsal is an explicit npm dry-run plus draft GitHub Release run; publication is a later explicit rerun.
+- Use native GitHub-hosted runners for all supported package platforms, with `macos-15-intel` for macOS x64 and `macos-latest` for macOS arm64.
 
 ## Contract Changes
 
@@ -330,29 +372,34 @@ The runbook should include:
 
 ## Implementation Plan
 
-- [ ] Confirm npm package names, release artifact names, and supported platform matrix.
-- [ ] Inventory current `deno task ci` failures and decide which are release-pipeline blockers versus separate product/test debt.
+- [x] Confirm npm package names, release artifact names, and supported platform matrix as implementation defaults.
+- [x] Inventory current `deno task ci` failures and decide which are release-pipeline blockers versus separate product/test debt.
 - [ ] Restore the ordinary `deno task ci` quality gate before treating `v0.1.0` as releasable.
-- [ ] Add canonical version metadata to root `deno.json`.
-- [ ] Add runtime version-reporting support and expose `weave --version`.
-- [ ] Add `scripts/bump-version.ts` and root `deno task bump:version`.
-- [ ] Make the bump script create or verify `documentation/notes/release-notes.v<version>.md`.
-- [ ] Add tests for version metadata and bump behavior.
-- [ ] Add `scripts/build-binaries.ts` and root `deno task build:binaries`.
-- [ ] Add `scripts/package-binaries.ts` and root `deno task package:binaries`.
-- [ ] Add bundle metadata, archive naming, and `.sha256` generation.
-- [ ] Add tests for bundle metadata and packaging helpers.
-- [ ] Add `scripts/assemble-npm-packages.ts` and root `deno task assemble:npm-packages`.
-- [ ] Add npm wrapper package and platform package generation.
-- [ ] Add `scripts/smoke-npm-install.ts` and root `deno task smoke:npm-install`.
-- [ ] Add `scripts/publish-npm-packages.ts` and root `deno task publish:npm-packages`.
-- [ ] Add tests for npm package assembly and smoke-test setup.
-- [ ] Add `.github/workflows/release-manual.yml`.
-- [ ] Add native binary smoke tests to the release workflow.
-- [ ] Add npm install smoke tests to the release workflow.
-- [ ] Add optional npm dry-run/publish and GitHub draft/publish jobs to the release workflow.
-- [ ] Ensure GitHub Release creation strips Dendron frontmatter and uploads archives plus checksums.
-- [ ] Update `documentation/notes/release-notes.v0.1.0.md` convention or stub.
-- [ ] Update [[dev.release-runbook]] to make the release workflow the primary path.
+- [x] Add canonical version metadata to root `deno.json`.
+- [x] Add runtime version-reporting support and expose `weave --version`.
+- [x] Add `scripts/bump-version.ts` and root `deno task bump:version`.
+- [x] Make the bump script create or verify `documentation/notes/release-notes.v<version>.md`.
+- [x] Add tests for version metadata and bump behavior.
+- [x] Add `scripts/build-binaries.ts` and root `deno task build:binaries`.
+- [x] Add `scripts/package-binaries.ts` and root `deno task package:binaries`.
+- [x] Add bundle metadata, archive naming, and `.sha256` generation.
+- [x] Add tests for bundle metadata and packaging helpers.
+- [x] Add tests for release platform metadata, archive naming, and build-script arguments.
+- [x] Add `scripts/assemble-npm-packages.ts` and root `deno task assemble:npm-packages`.
+- [x] Add npm wrapper package and platform package generation.
+- [x] Add npm package publish metadata and aggregate package manifest generation.
+- [x] Add `scripts/smoke-npm-install.ts` and root `deno task smoke:npm-install`.
+- [x] Add `scripts/publish-npm-packages.ts` and root `deno task publish:npm-packages`.
+- [x] Add tests for npm package assembly.
+- [x] Add tests for npm package smoke-test setup.
+- [x] Add tests for npm publish ordering and dry-run/provenance arguments.
+- [x] Add `.github/workflows/release-manual.yml`.
+- [x] Add native binary smoke tests to the release workflow.
+- [x] Add npm install smoke tests to the release workflow.
+- [x] Add optional npm dry-run/publish and GitHub draft/publish jobs to the release workflow.
+- [x] Ensure GitHub Release creation strips Dendron frontmatter and uploads archives plus checksums.
+- [x] Update `documentation/notes/release-notes.v0.1.0.md` convention or stub.
+- [x] Update [[dev.release-runbook]] for the current version/binary-build and package state.
+- [x] Update [[dev.release-runbook]] again after the release workflow becomes the primary path.
 - [ ] Run `deno task ci`.
 - [ ] Run a release rehearsal with npm dry-run and draft GitHub Release before publishing `v0.1.0`.

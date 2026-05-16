@@ -6,17 +6,21 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { join } from "@std/path";
+import { Parser, type Quad, type Term } from "n3";
 import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import { WeaveInputError } from "../../src/core/weave/weave.ts";
 import { executeKnopCreate } from "../../src/runtime/knop/create.ts";
 import { executeMeshCreate } from "../../src/runtime/mesh/create.ts";
 import {
   executeGenerate,
-  executeWeave,
+  executeWeave as executeRuntimeWeave,
+  type ExecuteWeaveOptions,
   WeaveRuntimeError,
 } from "../../src/runtime/weave/weave.ts";
 import {
+  isMeshAliceBioMeshRoot,
   materializeMeshAliceBioBranch,
+  MESH_ALICE_BIO_HISTORY_TRACKING_POLICY,
   readMeshAliceBioBranchFile,
 } from "../support/mesh_alice_bio_fixture.ts";
 import {
@@ -40,6 +44,34 @@ function replaceFixturePaths(
   );
 }
 
+function meshScopedSourceTermPathsFromQuads(quads: readonly Quad[]): string[] {
+  const paths = new Set<string>();
+  for (const quad of quads) {
+    for (const term of [quad.subject, quad.predicate, quad.object]) {
+      const path = meshScopedSourceTermPath(term);
+      if (path !== undefined) {
+        paths.add(path);
+      }
+    }
+  }
+  return [...paths].sort();
+}
+
+function meshScopedSourceTermPath(term: Term): string | undefined {
+  if (
+    term.termType !== "NamedNode" ||
+    !term.value.startsWith(sidecarFantasyRulesBase)
+  ) {
+    return undefined;
+  }
+
+  const path = term.value.slice(sidecarFantasyRulesBase.length);
+  if (path.length === 0 || path.endsWith(".ttl")) {
+    return undefined;
+  }
+  return path;
+}
+
 const firstAliceBioDefaultManifestation: readonly (readonly [
   string,
   string,
@@ -60,9 +92,32 @@ const aliceReferenceDefaultManifestation: readonly (readonly [
   string,
   string,
 ])[] = [[
-  "alice/_knop/_references/_history001/_s0001/references-ttl",
+  "alice/_knop/_references/_history001/_s0001/ttl",
   "alice/_knop/_references/_history001/_s0001/ttl",
 ]];
+
+const sidecarFantasyRulesBase =
+  "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/";
+
+const sidecarFantasyRulesSourcePaths = [
+  "ontology/fantasy-rules-ontology.ttl",
+  "shacl/fantasy-rules-shacl.ttl",
+  "examples/gunaar.ttl",
+] as const;
+
+async function executeWeave(options: ExecuteWeaveOptions) {
+  if (
+    options.historyTrackingPolicyOverride !== undefined ||
+    !(await isMeshAliceBioMeshRoot(options.meshRoot))
+  ) {
+    return await executeRuntimeWeave(options);
+  }
+
+  return await executeRuntimeWeave({
+    ...options,
+    historyTrackingPolicyOverride: MESH_ALICE_BIO_HISTORY_TRACKING_POLICY,
+  });
+}
 
 Deno.test("executeWeave materializes current support ResourcePages for a docs-rooted sidecar mesh", async () => {
   const workspaceRoot = await createTestTmpDir("weave-weave-sidecar-support-");
@@ -82,21 +137,13 @@ Deno.test("executeWeave materializes current support ResourcePages for a docs-ro
   assertEquals(
     [...result.createdPaths].sort(),
     [
-      "docs/_mesh/_config/_history001/_s0001/config-ttl/config.ttl",
+      "docs/_mesh/_config/_history001/_s0001/ttl/config.ttl",
       "docs/_mesh/_config/index.html",
       "docs/_mesh/_config/_history001/index.html",
       "docs/_mesh/_config/_history001/_s0001/index.html",
-      "docs/_mesh/_config/_history001/_s0001/config-ttl/index.html",
-      "docs/_mesh/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      "docs/_mesh/_config/_history001/_s0001/ttl/index.html",
       "docs/_mesh/_inventory/index.html",
-      "docs/_mesh/_inventory/_history001/index.html",
-      "docs/_mesh/_inventory/_history001/_s0001/index.html",
-      "docs/_mesh/_inventory/_history001/_s0001/inventory-ttl/index.html",
-      "docs/_mesh/_meta/_history001/_s0001/meta-ttl/meta.ttl",
       "docs/_mesh/_meta/index.html",
-      "docs/_mesh/_meta/_history001/index.html",
-      "docs/_mesh/_meta/_history001/_s0001/index.html",
-      "docs/_mesh/_meta/_history001/_s0001/meta-ttl/index.html",
       "docs/_mesh/index.html",
     ].sort(),
   );
@@ -111,6 +158,24 @@ Deno.test("executeWeave materializes current support ResourcePages for a docs-ro
   assertStringIncludes(
     inventory,
     "sflo:hasWorkingLocatedFile <_mesh/_config/config.ttl> ;\n  sflo:hasResourcePage <_mesh/_config/index.html> ;\n  sflo:hasArtifactHistory <_mesh/_config/_history001> ;",
+  );
+  assertStringIncludes(
+    inventory,
+    "sflo:hasWorkingLocatedFile <_mesh/_meta/meta.ttl> ;\n  sflo:hasResourcePage <_mesh/_meta/index.html> .",
+  );
+  assertStringIncludes(
+    inventory,
+    "sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> ;\n  sflo:hasResourcePage <_mesh/_inventory/index.html> .",
+  );
+  assertFalse(
+    inventory.includes(
+      "sflo:currentArtifactHistory <_mesh/_inventory/_history001>",
+    ),
+  );
+  assertFalse(
+    inventory.includes(
+      "sflo:currentArtifactHistory <_mesh/_meta/_history001>",
+    ),
   );
   const configPage = await Deno.readTextFile(
     join(workspaceRoot, "docs/_mesh/_config/index.html"),
@@ -227,12 +292,12 @@ Deno.test("executeWeave supports a later first root Knop weave against a carried
   assertEquals(result.wovenDesignatorPaths, [""]);
   assert(
     result.createdPaths.includes(
-      "_mesh/_inventory/_history001/_s0006/inventory-ttl/inventory.ttl",
+      "_mesh/_inventory/_history001/_s0006/ttl/inventory.ttl",
     ),
   );
   assert(
     result.createdPaths.includes(
-      "_knop/_inventory/_history001/_s0001/inventory-ttl/inventory.ttl",
+      "_knop/_inventory/_history001/_s0001/ttl/inventory.ttl",
     ),
   );
   assert(result.updatedPaths.includes("_mesh/_inventory/inventory.ttl"));
@@ -243,7 +308,7 @@ Deno.test("executeWeave supports a later first root Knop weave against a carried
     await Deno.readTextFile(
       join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
     ),
-    "sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0006> ;",
+    "sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0006> ;",
   );
   assertStringIncludes(
     await Deno.readTextFile(
@@ -385,8 +450,7 @@ Deno.test("executeWeave batches recursive targets through validate, version, and
     await Deno.readTextFile(
       join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
     ),
-    `sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0003> ;
-  sflo:nextStateOrdinal "4"^^xsd:nonNegativeInteger ;`,
+    `sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0003> ;`,
   );
   assertStringIncludes(
     await Deno.readTextFile(
@@ -665,13 +729,13 @@ Deno.test("executeWeave matches the settled alice bio referenced-woven fixture",
     await Deno.readTextFile(
       join(
         workspaceRoot,
-        "alice/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+        "alice/_knop/_inventory/_history001/_s0002/ttl/inventory.ttl",
       ),
     ),
     replaceFixturePaths(
       await readMeshAliceBioBranchFile(
         "09-alice-bio-referenced-woven",
-        "alice/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+        "alice/_knop/_inventory/_history001/_s0002/ttl/inventory.ttl",
       ),
       aliceReferenceDefaultManifestation,
     ),
@@ -725,12 +789,12 @@ Deno.test("executeWeave matches the settled alice page-customized-woven fixture"
   assertEquals(result.wovenDesignatorPaths, ["alice"]);
   assert(
     result.createdPaths.includes(
-      "alice/_knop/_page/_history001/_s0001/page-ttl/page.ttl",
+      "alice/_knop/_page/_history001/_s0001/ttl/page.ttl",
     ),
   );
   assert(
     result.createdPaths.includes(
-      "alice/_knop/_inventory/_history001/_s0003/inventory-ttl/inventory.ttl",
+      "alice/_knop/_inventory/_history001/_s0003/ttl/inventory.ttl",
     ),
   );
   assert(result.updatedPaths.includes("alice/_knop/_inventory/inventory.ttl"));
@@ -867,10 +931,10 @@ Deno.test("executeWeave versions a later page-definition revision that repoints 
 
   assertEquals(result.wovenDesignatorPaths, ["alice"]);
   assert(result.createdPaths.includes(
-    "alice/_knop/_page/_history001/_s0002/page-ttl/page.ttl",
+    "alice/_knop/_page/_history001/_s0002/ttl/page.ttl",
   ));
   assert(result.createdPaths.includes(
-    "alice/_knop/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl",
+    "alice/_knop/_inventory/_history001/_s0004/ttl/inventory.ttl",
   ));
   assert(result.updatedPaths.includes("alice/_knop/_inventory/inventory.ttl"));
   assertStringIncludes(
@@ -906,10 +970,10 @@ Deno.test("executeWeave versions the first root page-definition revision", async
 
   assertEquals(result.wovenDesignatorPaths, [""]);
   assert(result.createdPaths.includes(
-    "_knop/_page/_history001/_s0001/page-ttl/page.ttl",
+    "_knop/_page/_history001/_s0001/ttl/page.ttl",
   ));
   assert(result.createdPaths.includes(
-    "_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+    "_knop/_inventory/_history001/_s0002/ttl/inventory.ttl",
   ));
   assert(result.updatedPaths.includes("_knop/_inventory/inventory.ttl"));
   assertStringIncludes(
@@ -1100,9 +1164,10 @@ Deno.test("executeWeave resolves page definitions from workingLocalRelativePath 
     "14-alice-page-customized",
     workspaceRoot,
   );
-  await replaceFileText(
-    join(workspaceRoot, "alice/_knop/_inventory/inventory.ttl"),
-    `sflo:hasWorkingLocatedFile <alice/_knop/_page/page.ttl> .`,
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/_knop/_inventory/inventory.ttl"),
+    ),
     `sflo:workingLocalRelativePath "alice/_knop/_page/page.ttl" .`,
   );
 
@@ -1279,7 +1344,7 @@ Deno.test("executeWeave materializes the second alice bio payload weave slice", 
   );
   assert(
     result.createdPaths.includes(
-      "alice/bio/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+      "alice/bio/_knop/_inventory/_history001/_s0002/ttl/inventory.ttl",
     ),
   );
   assert(
@@ -1312,7 +1377,7 @@ Deno.test("executeWeave materializes the second alice bio payload weave slice", 
     await Deno.readTextFile(
       join(
         workspaceRoot,
-        "alice/bio/_knop/_inventory/_history001/_s0002/inventory-ttl/inventory.ttl",
+        "alice/bio/_knop/_inventory/_history001/_s0002/ttl/inventory.ttl",
       ),
     ),
     await Deno.readTextFile(
@@ -1337,7 +1402,7 @@ Deno.test("executeWeave materializes the second alice bio payload weave slice", 
   await Deno.stat(
     join(
       workspaceRoot,
-      "alice/bio/_knop/_inventory/_history001/_s0002/inventory-ttl/index.html",
+      "alice/bio/_knop/_inventory/_history001/_s0002/ttl/index.html",
     ),
   );
   assertEquals(
@@ -1367,12 +1432,12 @@ Deno.test("executeWeave materializes the extracted bob woven slice", async () =>
   assert(result.updatedPaths.includes("bob/_knop/_inventory/inventory.ttl"));
   assert(
     result.createdPaths.includes(
-      "_mesh/_inventory/_history001/_s0004/inventory-ttl/inventory.ttl",
+      "_mesh/_inventory/_history001/_s0004/ttl/inventory.ttl",
     ),
   );
   assert(
     result.createdPaths.includes(
-      "bob/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
+      "bob/_knop/_meta/_history001/_s0001/ttl/meta.ttl",
     ),
   );
   assertEquals(
@@ -1397,12 +1462,12 @@ Deno.test("executeWeave materializes the extracted bob woven slice", async () =>
     await Deno.readTextFile(
       join(
         workspaceRoot,
-        "bob/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
+        "bob/_knop/_meta/_history001/_s0001/ttl/meta.ttl",
       ),
     ),
     await readMeshAliceBioBranchFile(
       "13-bob-extracted-woven",
-      "bob/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
+      "bob/_knop/_meta/_history001/_s0001/ttl/meta.ttl",
     ),
   );
   await Deno.stat(
@@ -1419,12 +1484,42 @@ Deno.test("executeWeave materializes the extracted bob woven slice", async () =>
   );
 });
 
+Deno.test("executeWeave fails closed when source registry path escapes the mesh root", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-source-registry-path-deny-",
+  );
+  await materializeMeshAliceBioBranch("12-bob-extracted", workspaceRoot);
+  const inventoryPath = join(
+    workspaceRoot,
+    "bob/_knop/_inventory/inventory.ttl",
+  );
+  await Deno.writeTextFile(
+    inventoryPath,
+    (await Deno.readTextFile(inventoryPath)).replace(
+      "sflo:hasWorkingLocatedFile <bob/_knop/_sources/sources.ttl> .",
+      'sflo:workingLocalRelativePath "../sources.ttl" .',
+    ),
+  );
+
+  await assertRejects(
+    () =>
+      executeWeave({
+        meshRoot: workspaceRoot,
+        request: {
+          targets: [{ designatorPath: "bob" }],
+        },
+      }),
+    WeaveInputError,
+    "source registry file for bob is outside the allowed local-path boundary",
+  );
+});
+
 Deno.test("executeWeave materializes sidecar extracted ontology and SHACL terms", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-weave-sidecar-extracted-terms-",
   );
   await materializeMeshSidecarFantasyRulesBranch(
-    "08-ontology-and-shacl-terms-extracted",
+    "a.08-ontology-and-shacl-terms-extracted",
     workspaceRoot,
   );
 
@@ -1451,7 +1546,12 @@ Deno.test("executeWeave materializes sidecar extracted ontology and SHACL terms"
   ]);
   assert(
     result.createdPaths.includes(
-      "docs/_mesh/_inventory/_history001/_s0008/inventory-ttl/inventory.ttl",
+      "docs/ontology/CharacterShape/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl",
+    ),
+  );
+  assertFalse(
+    result.createdPaths.some((path) =>
+      path.startsWith("docs/_mesh/_inventory/_history001/")
     ),
   );
   assert(
@@ -1466,7 +1566,7 @@ Deno.test("executeWeave materializes sidecar extracted ontology and SHACL terms"
       ),
       right: new TextEncoder().encode(
         await readMeshSidecarFantasyRulesBranchFile(
-          "09-ontology-and-shacl-terms-extracted-woven",
+          "a.09-ontology-and-shacl-terms-extracted-woven",
           "docs/_mesh/_inventory/inventory.ttl",
         ),
       ),
@@ -1486,7 +1586,7 @@ Deno.test("executeWeave materializes sidecar extracted ontology and SHACL terms"
       ),
       right: new TextEncoder().encode(
         await readMeshSidecarFantasyRulesBranchFile(
-          "09-ontology-and-shacl-terms-extracted-woven",
+          "a.09-ontology-and-shacl-terms-extracted-woven",
           "docs/ontology/CharacterShape/_knop/_inventory/inventory.ttl",
         ),
       ),
@@ -1502,6 +1602,46 @@ Deno.test("executeWeave materializes sidecar extracted ontology and SHACL terms"
   assertFalse(characterShapePage.includes("Pinned source file"));
   assertFalse(characterShapePage.includes("Semantic Flow metadata"));
   assertStringIncludes(characterShapePage, "CharacterShape");
+});
+
+Deno.test("sidecar final ladder branch has ResourcePages for every source term IRI", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-sidecar-all-terms-pages-",
+  );
+  await materializeMeshSidecarFantasyRulesBranch(
+    "17-all-remaining-terms-woven",
+    workspaceRoot,
+  );
+
+  const termPaths = new Set<string>();
+  for (const sourcePath of sidecarFantasyRulesSourcePaths) {
+    const turtle = await Deno.readTextFile(join(workspaceRoot, sourcePath));
+    for (
+      const path of meshScopedSourceTermPathsFromQuads(
+        new Parser({ baseIRI: sidecarFantasyRulesBase }).parse(turtle),
+      )
+    ) {
+      termPaths.add(path);
+    }
+  }
+
+  const sortedTermPaths = [...termPaths].sort();
+  assertEquals(sortedTermPaths.length, 71);
+
+  const missingPages: string[] = [];
+  for (const termPath of sortedTermPaths) {
+    try {
+      await Deno.stat(join(workspaceRoot, "docs", termPath, "index.html"));
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) {
+        missingPages.push(termPath);
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  assertEquals(missingPages, []);
 });
 
 Deno.test("executeWeave fails closed when bob's woven source payload has no current history", async () => {
@@ -1552,7 +1692,9 @@ Deno.test("executeGenerate lists every sidecar payload history with current hist
   assertFalse(ontologyPage.includes("Associated Knop"));
   assertFalse(ontologyPage.includes("wf-knop-link"));
   assertFalse(ontologyPage.includes("Semantic Flow metadata"));
-  assertStringIncludes(ontologyPage, "Child Classes");
+  assertStringIncludes(ontologyPage, '<details class="wf-children" open>');
+  assertStringIncludes(ontologyPage, "<summary>Children</summary>");
+  assertStringIncludes(ontologyPage, '<th scope="row">Classes</th>');
   assertStringIncludes(
     ontologyPage,
     '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/AbilityScore">AbilityScore</a></nobr>',
@@ -1568,7 +1710,9 @@ Deno.test("executeGenerate lists every sidecar payload history with current hist
     ontologyKnopPage,
     "Semantic Flow bundle of supporting data for Fantasy Rules Ontology.",
   );
-  assertStringIncludes(ontologyKnopPage, "Child Individuals");
+  assertStringIncludes(ontologyKnopPage, '<details class="wf-children" open>');
+  assertStringIncludes(ontologyKnopPage, "<summary>Children</summary>");
+  assertStringIncludes(ontologyKnopPage, '<th scope="row">Individuals</th>');
   assertStringIncludes(
     ontologyKnopPage,
     '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/_knop/_inventory">_inventory</a></nobr>',
@@ -1601,6 +1745,48 @@ Deno.test("executeGenerate lists every sidecar payload history with current hist
     releaseHistoryPage,
     "<summary>Historical States</summary>",
   );
+  const releaseStatePage = await Deno.readTextFile(
+    join(workspaceRoot, "docs/ontology/releases/v0.0.2/index.html"),
+  );
+  assertStringIncludes(
+    releaseStatePage,
+    '<p class="wf-classes">a <a href="https://semantic-flow.github.io/sflo/ontology/HistoricalState">sflo:HistoricalState</a></p>',
+  );
+  assertStringIncludes(
+    releaseStatePage,
+    "<summary>Manifestations</summary>",
+  );
+  assertStringIncludes(
+    releaseStatePage,
+    'href="/mesh-sidecar-fantasy-rules/ontology/releases/v0.0.2/ttl"',
+  );
+});
+
+Deno.test("executeGenerate renders managed references and canonical source properties", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-generate-identifier-references-",
+  );
+  await materializeMeshAliceBioBranch(
+    "09-alice-bio-referenced-woven",
+    workspaceRoot,
+  );
+
+  const result = await executeGenerate({
+    meshRoot: workspaceRoot,
+    request: { targets: [{ designatorPath: "alice" }] },
+    now: () => new Date("2026-05-04T00:00:00.000Z"),
+  });
+
+  assertEquals(result.generatedDesignatorPaths, ["alice"]);
+  const page = await Deno.readTextFile(join(workspaceRoot, "alice/index.html"));
+  assertStringIncludes(page, '<details class="wf-references">');
+  assertStringIncludes(page, "<summary>Canonical</summary>");
+  assertStringIncludes(
+    page,
+    '<li><a href="https://semantic-flow.github.io/mesh-alice-bio/alice/bio">https://semantic-flow.github.io/mesh-alice-bio/alice/bio</a></li>',
+  );
+  assertStringIncludes(page, '<details class="wf-properties">');
+  assertStringIncludes(page, "<summary>Properties</summary>");
 });
 
 Deno.test("executeGenerate includes Semantic Flow metadata only when requested", async () => {
@@ -1677,14 +1863,14 @@ Deno.test("executeWeave fails closed when a created weave target already exists"
   await Deno.mkdir(
     join(
       workspaceRoot,
-      "alice/_knop/_meta/_history001/_s0001/meta-ttl",
+      "alice/_knop/_meta/_history001/_s0001/ttl",
     ),
     { recursive: true },
   );
   await Deno.writeTextFile(
     join(
       workspaceRoot,
-      "alice/_knop/_meta/_history001/_s0001/meta-ttl/meta.ttl",
+      "alice/_knop/_meta/_history001/_s0001/ttl/meta.ttl",
     ),
     "existing\n",
   );
