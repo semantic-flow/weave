@@ -1740,7 +1740,7 @@ async function collectGeneratedPageFiles(
     if (publicContext) {
       const historyGroups = publicContext.historyGroupsByResourcePath.get(
         resourcePath,
-      );
+      ) ?? findHistoryGroupsForResource(resourcePath, designatorContexts);
       if (isHistoryComponentResource(resourcePath, historyGroups ?? [])) {
         pageModels.push({
           kind: "simple",
@@ -2137,6 +2137,12 @@ async function loadGenerateDesignatorContexts(
       currentKnopInventoryTurtle,
       `Could not parse the current Knop inventory while collecting ResourcePage histories for ${designatorPath}.`,
     );
+    const ancestorHistoryGroupsByResourcePath =
+      await collectAncestorHistoryGroupsByResourcePath(
+        workspaceRoot,
+        meshState.meshBase,
+        designatorPath,
+      );
     const sourceHistoryGroupsByResourcePath = extractionSource
       ? await collectExtractionSourceHistoryGroupsByResourcePath(
         workspaceRoot,
@@ -2208,6 +2214,7 @@ async function loadGenerateDesignatorContexts(
       customIdentifierPage,
       historyGroupsByResourcePath: mergeHistoryGroupsByResourcePath(
         ownHistoryGroupsByResourcePath,
+        ancestorHistoryGroupsByResourcePath,
         sourceHistoryGroupsByResourcePath,
       ),
       pageDescriptions,
@@ -2386,6 +2393,59 @@ async function collectExtractionSourceHistoryGroupsByResourcePath(
     }
     throw error;
   }
+}
+
+async function collectAncestorHistoryGroupsByResourcePath(
+  workspaceRoot: string,
+  meshBase: string,
+  designatorPath: string,
+): Promise<
+  ReadonlyMap<string, readonly ResourcePageHistoryGroupModel[]>
+> {
+  const maps: ReadonlyMap<
+    string,
+    readonly ResourcePageHistoryGroupModel[]
+  >[] = [];
+
+  for (const ancestorPath of listAncestorDesignatorPaths(designatorPath)) {
+    const ancestorKnopInventoryPath = join(
+      workspaceRoot,
+      `${toKnopPath(ancestorPath)}/_inventory/inventory.ttl`,
+    );
+
+    try {
+      const historyGroupsByResourcePath = collectHistoryGroupsByResourcePath(
+        meshBase,
+        await Deno.readTextFile(ancestorKnopInventoryPath),
+        `Could not parse the ancestor Knop inventory while collecting ResourcePage histories for ${designatorPath}.`,
+      );
+      if (historyGroupsByResourcePath.has(designatorPath)) {
+        maps.push(historyGroupsByResourcePath);
+      }
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  return mergeHistoryGroupsByResourcePath(...maps);
+}
+
+function listAncestorDesignatorPaths(
+  designatorPath: string,
+): readonly string[] {
+  const segments = designatorPath.split("/").filter((segment) =>
+    segment.length > 0
+  );
+  const ancestors: string[] = [];
+
+  for (let index = segments.length - 1; index > 0; index -= 1) {
+    ancestors.push(segments.slice(0, index).join("/"));
+  }
+
+  return ancestors;
 }
 
 function mergeHistoryGroupsByResourcePath(
