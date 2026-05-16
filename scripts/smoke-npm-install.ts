@@ -50,7 +50,7 @@ export function parseSmokeNpmInstallArgs(
 
     switch (arg) {
       case "--":
-        return { root, inputDir, workDir, npmBin };
+        break;
       case "--root":
         index += 1;
         root = requireArgumentValue(args[index], "--root");

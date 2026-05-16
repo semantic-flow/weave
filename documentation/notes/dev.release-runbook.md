@@ -122,6 +122,10 @@ The workflow strips Dendron frontmatter from `documentation/notes/release-notes.
 
 The npm publish job publishes platform packages before the wrapper package. Real publish runs use `--provenance` and `NODE_AUTH_TOKEN` from the `NPM_TOKEN` secret. Confirm the npm package scope, package ownership, and token/trusted-publishing settings before the first real publish.
 
+### Troubleshooting
+
+If the npm install smoke jobs fail while reading `dist/npm/npm-packages-metadata.json`, the smoke script is not using the downloaded package artifact path. The workflow should pass `--input-dir .test-tmp/downloaded-npm-packages`, and the script must tolerate the leading `--` separator from `deno task smoke:npm-install -- ...`. If the log already shows `.test-tmp/downloaded-npm-packages/npm-packages-metadata.json`, inspect the `weave-npm-packages` artifact instead: it should contain `npm-packages-metadata.json` at the artifact root plus `@semantic-flow/weave*` package directories.
+
 ### Manual Fallback
 
 Use the script-by-script path only for local debugging or emergency release repair. Build and package every supported platform before claiming a full release.

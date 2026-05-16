@@ -28,16 +28,9 @@
     "rdf-canonize": "npm:rdf-canonize@5.0.0",
     "shiki": "npm:shiki@4.0.2"
   },
-  "exclude": [
-    ".test-tmp/**",
-    "documentation/notes/**",
-    "**/*.md"
-  ],
+  "exclude": [".test-tmp/**", "documentation/notes/**", "**/*.md"],
   "fmt": {
     "proseWrap": "preserve",
-    "exclude": [
-      "documentation/notes/**",
-      "**/*.md"
-    ]
+    "exclude": ["documentation/notes/**", "**/*.md"]
   }
 }
