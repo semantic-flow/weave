@@ -183,6 +183,7 @@ Deno.test("executeExtractAllTerms extracts only new named mesh terms and skips s
     join(workspaceRoot, "alice-bio.ttl"),
     `@base <${MESH_ALICE_BIO_BASE}> .
 @prefix schema: <https://schema.org/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <alice/bio> schema:about <bob>, <carol>, <bob/_knop>, <_mesh>, <bob/index.html>, <bob/source.ttl> ;
   schema:mentions [
@@ -191,6 +192,10 @@ Deno.test("executeExtractAllTerms extracts only new named mesh terms and skips s
 
 <alice> schema:name "Alice" .
 <carol> schema:name "Carol" .
+<bob/_knop> a sflo:Knop .
+<_mesh> a sflo:SemanticMesh .
+<bob/index.html> a sflo:ResourcePage .
+<bob/source.ttl> a sflo:LocatedFile .
 `,
   );
 

@@ -22,20 +22,10 @@ const LOCAL_PATH_BASE_USER_HOME_IRI =
   `${SFCFG_NAMESPACE}localPathBase_userHome`;
 const LOCAL_PATH_BASE_ABSOLUTE_PATH_IRI =
   `${SFCFG_NAMESPACE}localPathBase_absolutePath`;
-const LEGACY_LOCAL_PATH_BASE_MESH_ROOT_IRI =
-  `${SFCFG_NAMESPACE}meshRootPathBase`;
-const LEGACY_LOCAL_PATH_BASE_USER_HOME_IRI =
-  `${SFCFG_NAMESPACE}userHomePathBase`;
-const LEGACY_LOCAL_PATH_BASE_ABSOLUTE_PATH_IRI =
-  `${SFCFG_NAMESPACE}absolutePathBase`;
 const WORKING_LOCAL_RELATIVE_PATH_LOCATOR_KIND_IRI =
   `${SFCFG_NAMESPACE}localPathLocatorKind_workingLocalRelativePath`;
 const TARGET_LOCAL_RELATIVE_PATH_LOCATOR_KIND_IRI =
   `${SFCFG_NAMESPACE}localPathLocatorKind_targetLocalRelativePath`;
-const LEGACY_WORKING_LOCAL_RELATIVE_PATH_LOCATOR_KIND_IRI =
-  `${SFCFG_NAMESPACE}workingLocalRelativePathLocatorKind`;
-const LEGACY_TARGET_LOCAL_RELATIVE_PATH_LOCATOR_KIND_IRI =
-  `${SFCFG_NAMESPACE}targetLocalRelativePathLocatorKind`;
 const WORKSPACE_ROOT_RELATIVE_TO_MESH_ROOT_IRI =
   `${SFCFG_NAMESPACE}workspaceRootRelativeToMeshRoot`;
 const MESH_CONFIG_PATH = "_mesh/_config/config.ttl";
@@ -461,13 +451,10 @@ function assertMeshConfigDoesNotGrantArbitraryHostTraversal(
 function parseLocalPathBase(value: string, sourcePath: string): LocalPathBase {
   switch (value) {
     case LOCAL_PATH_BASE_MESH_ROOT_IRI:
-    case LEGACY_LOCAL_PATH_BASE_MESH_ROOT_IRI:
       return "meshRoot";
     case LOCAL_PATH_BASE_USER_HOME_IRI:
-    case LEGACY_LOCAL_PATH_BASE_USER_HOME_IRI:
       return "userHome";
     case LOCAL_PATH_BASE_ABSOLUTE_PATH_IRI:
-    case LEGACY_LOCAL_PATH_BASE_ABSOLUTE_PATH_IRI:
       return "absolutePath";
     default:
       throw new OperationalConfigError(
@@ -495,10 +482,8 @@ function parseLocalPathLocatorKind(
 ): LocalPathLocatorKind {
   switch (value) {
     case WORKING_LOCAL_RELATIVE_PATH_LOCATOR_KIND_IRI:
-    case LEGACY_WORKING_LOCAL_RELATIVE_PATH_LOCATOR_KIND_IRI:
       return "workingLocalRelativePath";
     case TARGET_LOCAL_RELATIVE_PATH_LOCATOR_KIND_IRI:
-    case LEGACY_TARGET_LOCAL_RELATIVE_PATH_LOCATOR_KIND_IRI:
       return "targetLocalRelativePath";
     default:
       throw new OperationalConfigError(

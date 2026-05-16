@@ -300,6 +300,10 @@ function toDefaultResourcePageRenderInput(
       ? sourcePanelsForFacts
       : [];
     const rdfFacts = extractRdfFacts(canonical, sourcePanelsForFacts);
+    const historyClass = classifyHistoryComponentResourcePage(
+      resourcePath,
+      page.historyGroups ?? [],
+    );
     const workingFileHref = page.workingLocalRelativePath
       ? toPublicSourceHref(meshRootHref, page.workingLocalRelativePath)
       : undefined;
@@ -326,7 +330,11 @@ function toDefaultResourcePageRenderInput(
         resourcePath,
       ),
       summary: rdfFacts.description,
-      rdfClasses: rdfFacts.classes,
+      rdfClasses: rdfFacts.classes.length > 0
+        ? rdfFacts.classes
+        : historyClass
+        ? [historyClass]
+        : [],
       metadataRows: [
         { label: "Canonical IRI", value: canonical },
         ...(rdfFacts.note ? [{ label: "Note", value: rdfFacts.note }] : []),
@@ -1275,16 +1283,13 @@ function toHistorySectionTitle(input: ResourcePageRenderInput): string {
 }
 
 function isArtifactHistoryResource(input: ResourcePageRenderInput): boolean {
-  return input.historyGroups.some((group) =>
-    group.path === input.resourcePath
-  ) ||
-    isArtifactHistoryResourcePath(input.resourcePath);
+  return input.historyGroups.some((group) => group.path === input.resourcePath);
 }
 
 function isHistoricalStateResource(input: ResourcePageRenderInput): boolean {
   return input.historyGroups.some((group) =>
     group.states.some((state) => state.path === input.resourcePath)
-  ) || isHistoricalStateResourcePath(input.resourcePath);
+  );
 }
 
 function isArtifactManifestationResource(
@@ -1292,7 +1297,7 @@ function isArtifactManifestationResource(
 ): boolean {
   return input.historyGroups.some((group) =>
     group.states.some((state) => state.manifestationPath === input.resourcePath)
-  ) || isArtifactManifestationResourcePath(input.resourcePath);
+  );
 }
 
 function renderHistoryGroups(input: ResourcePageRenderInput): string {
@@ -2156,9 +2161,24 @@ function classifyResourcePage(
     );
   }
   if (
+    classifyHistoryComponentResourcePage(resourcePath, historyGroups)
+  ) {
+    return classifyHistoryComponentResourcePage(resourcePath, historyGroups)!;
+  }
+  return rdfClass(
+    "sflo:DigitalArtifact",
+    `${SFLO_NAMESPACE}DigitalArtifact`,
+  );
+}
+
+function classifyHistoryComponentResourcePage(
+  resourcePath: string,
+  historyGroups: readonly ResourcePageHistoryGroupModel[] = [],
+): ResourcePageRdfClass | undefined {
+  if (
     historyGroups.some((group) =>
       group.states.some((state) => state.manifestationPath === resourcePath)
-    ) || isArtifactManifestationResourcePath(resourcePath)
+    )
   ) {
     return rdfClass(
       "sflo:ArtifactManifestation",
@@ -2168,40 +2188,20 @@ function classifyResourcePage(
   if (
     historyGroups.some((group) =>
       group.states.some((state) => state.path === resourcePath)
-    ) || isHistoricalStateResourcePath(resourcePath)
+    )
   ) {
     return rdfClass(
       "sflo:HistoricalState",
       `${SFLO_NAMESPACE}HistoricalState`,
     );
   }
-  if (
-    historyGroups.some((group) => group.path === resourcePath) ||
-    isArtifactHistoryResourcePath(resourcePath)
-  ) {
+  if (historyGroups.some((group) => group.path === resourcePath)) {
     return rdfClass(
       "sflo:ArtifactHistory",
       `${SFLO_NAMESPACE}ArtifactHistory`,
     );
   }
-  return rdfClass(
-    "sflo:DigitalArtifact",
-    `${SFLO_NAMESPACE}DigitalArtifact`,
-  );
-}
-
-function isArtifactHistoryResourcePath(resourcePath: string): boolean {
-  return /(^|\/)_history[0-9]+/.test(resourcePath) &&
-    !isHistoricalStateResourcePath(resourcePath) &&
-    !isArtifactManifestationResourcePath(resourcePath);
-}
-
-function isHistoricalStateResourcePath(resourcePath: string): boolean {
-  return /(^|\/)_history[0-9]+\/_s[0-9]+$/.test(resourcePath);
-}
-
-function isArtifactManifestationResourcePath(resourcePath: string): boolean {
-  return /(^|\/)_history[0-9]+\/_s[0-9]+\/[^/]+$/.test(resourcePath);
+  return undefined;
 }
 
 function assertNeverResourcePage(page: never): never {

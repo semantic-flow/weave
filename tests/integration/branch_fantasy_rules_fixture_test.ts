@@ -2,10 +2,13 @@ import {
   assert,
   assertEquals,
   assertFalse,
+  assertRejects,
   assertStringIncludes,
 } from "@std/assert";
 import { join } from "@std/path";
 import { Parser, type Quad, type Term } from "n3";
+import { executeExtractAllTerms } from "../../src/runtime/extract/extract.ts";
+import { executeGenerate } from "../../src/runtime/weave/weave.ts";
 import { readSingleTransitionCase } from "../support/accord_manifest.ts";
 import {
   listMeshBranchFantasyRulesBranchFiles,
@@ -235,6 +238,72 @@ Deno.test("branch Fantasy Rules final publication has current canonical referenc
       `${referenceCatalogPath}/index.html`,
     );
   }
+});
+
+Deno.test("branch Fantasy Rules generated extracted release state uses source inventory history role", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "branch-fantasy-rules-release-state-page-",
+  );
+  await materializeMeshBranchFantasyRulesBranch(
+    "15-extracted-term-references-woven",
+    workspaceRoot,
+  );
+
+  const result = await executeGenerate({
+    meshRoot: workspaceRoot,
+    request: { targets: [{ designatorPath: "ontology/releases/v0.0.2" }] },
+    now: () => new Date("2026-05-16T00:00:00.000Z"),
+  });
+
+  assertEquals(result.generatedDesignatorPaths, [
+    "ontology/releases/v0.0.2",
+  ]);
+  const releaseStatePage = await Deno.readTextFile(
+    join(workspaceRoot, "ontology/releases/v0.0.2/index.html"),
+  );
+
+  assertStringIncludes(
+    releaseStatePage,
+    '<p class="wf-classes">a <a href="https://semantic-flow.github.io/sflo/ontology/HistoricalState">sflo:HistoricalState</a></p>',
+  );
+  assertStringIncludes(releaseStatePage, "<summary>Manifestations</summary>");
+  assertStringIncludes(
+    releaseStatePage,
+    'href="/mesh-branch-fantasy-rules/ontology/releases/v0.0.2/ttl"',
+  );
+  assertFalse(releaseStatePage.includes('<th scope="row">Source</th>'));
+});
+
+Deno.test("branch Fantasy Rules all-terms extract skips source artifact support resources", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "branch-fantasy-rules-all-terms-support-skip-",
+  );
+  await materializeMeshBranchFantasyRulesBranch(
+    "11-first-release-woven",
+    workspaceRoot,
+  );
+
+  const result = await executeExtractAllTerms({
+    meshRoot: workspaceRoot,
+    request: { sourceDesignatorPath: "ontology" },
+  });
+
+  assertFalse(
+    result.extractedDesignatorPaths.includes("ontology/releases/v0.0.2"),
+  );
+  assertStringIncludes(
+    result.skippedSupportDesignatorPaths.join("\n"),
+    "ontology/releases/v0.0.2",
+  );
+  assertFalse(
+    result.createdPaths.some((path) =>
+      path.startsWith("ontology/releases/v0.0.2/_knop/")
+    ),
+  );
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, "ontology/releases/v0.0.2/_knop")),
+    Deno.errors.NotFound,
+  );
 });
 
 function meshScopedSourceTermPathsFromQuads(quads: readonly Quad[]): string[] {

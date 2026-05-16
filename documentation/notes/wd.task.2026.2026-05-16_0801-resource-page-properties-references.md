@@ -28,6 +28,10 @@ The References panel should use managed `ReferenceLink` data from the resource's
 - [x] Keep this as a task note because the change spans model, runtime data collection, page rendering, and tests.
 - [x] Interpret the requested "subject value" table column as the object value for triples whose subject is the ResourcePage referent.
 - [x] Properties and References use closed outer panels by default; References opens its non-empty role subpanels once expanded.
+- [x] Recognize history/resource-page component roles from inventory-derived history groups rather than path string patterns.
+- [x] Include extraction-source target artifact history groups when an extracted identifier denotes a source artifact history component.
+- [x] Render inventory history components as history/resource pages rather than extracted identifier pages, even if a Knop context also exists.
+- [x] Skip all-terms extraction of generated/support resources from RDF class membership, not path string shape.
 
 ## Contract Changes
 
@@ -37,6 +41,10 @@ The References panel should use managed `ReferenceLink` data from the resource's
 
 - [x] Add focused ResourcePage renderer tests for Properties and References panels.
 - [x] Run targeted tests, type checks, lint, and formatting checks.
+- [x] Add regression coverage for named release-state pages rendering as `sflo:HistoricalState` with a Manifestations panel.
+- [x] Add regression coverage that path-shaped history names are not classified without inventory history data.
+- [x] Add branch Fantasy Rules coverage for extracted release-state pages using source artifact inventory history roles.
+- [x] Add branch Fantasy Rules coverage that all-terms extraction does not create Knops for source artifact support resources.
 
 ## Non-Goals
 

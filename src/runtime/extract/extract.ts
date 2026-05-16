@@ -29,8 +29,17 @@ import {
 import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
-import { SFLO_NAMESPACE } from "../../core/rdf/namespaces.ts";
+import {
+  RDF_NAMESPACE,
+  SFCFG_NAMESPACE,
+  SFLO_NAMESPACE,
+} from "../../core/rdf/namespaces.ts";
 
+const RDF_TYPE_IRI = `${RDF_NAMESPACE}type`;
+const SFCFG_MESH_CONFIG_IRI = `${SFCFG_NAMESPACE}MeshConfig`;
+const SFLO_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}ArtifactHistory`;
+const SFLO_ARTIFACT_MANIFESTATION_IRI =
+  `${SFLO_NAMESPACE}ArtifactManifestation`;
 const SFLO_HAS_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}hasLocatedFile`;
 const SFLO_HAS_MANIFESTATION_IRI = `${SFLO_NAMESPACE}hasManifestation`;
 const SFLO_LOCATED_FILE_FOR_STATE_IRI = `${SFLO_NAMESPACE}locatedFileForState`;
@@ -44,6 +53,45 @@ const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
   `${SFLO_NAMESPACE}artifactResolutionMode_current`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
   `${SFLO_NAMESPACE}artifactResolutionMode_pinned`;
+const SFLO_HISTORICAL_STATE_IRI = `${SFLO_NAMESPACE}HistoricalState`;
+const SFLO_KNOP_IRI = `${SFLO_NAMESPACE}Knop`;
+const SFLO_KNOP_ASSET_BUNDLE_IRI = `${SFLO_NAMESPACE}KnopAssetBundle`;
+const SFLO_KNOP_INVENTORY_IRI = `${SFLO_NAMESPACE}KnopInventory`;
+const SFLO_KNOP_METADATA_IRI = `${SFLO_NAMESPACE}KnopMetadata`;
+const SFLO_KNOP_SOURCE_REGISTRY_IRI = `${SFLO_NAMESPACE}KnopSourceRegistry`;
+const SFLO_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}LocatedFile`;
+const SFLO_MESH_INVENTORY_IRI = `${SFLO_NAMESPACE}MeshInventory`;
+const SFLO_MESH_METADATA_IRI = `${SFLO_NAMESPACE}MeshMetadata`;
+const SFLO_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}ReferenceCatalog`;
+const SFLO_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}ReferenceLink`;
+const SFLO_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}ResourcePage`;
+const SFLO_RESOURCE_PAGE_DEFINITION_IRI =
+  `${SFLO_NAMESPACE}ResourcePageDefinition`;
+const SFLO_RESOURCE_PAGE_REGION_IRI = `${SFLO_NAMESPACE}ResourcePageRegion`;
+const SFLO_RESOURCE_PAGE_SOURCE_IRI = `${SFLO_NAMESPACE}ResourcePageSource`;
+const SFLO_SEMANTIC_MESH_IRI = `${SFLO_NAMESPACE}SemanticMesh`;
+const GENERATED_RESOURCE_CLASS_IRIS: ReadonlySet<string> = new Set([
+  SFCFG_MESH_CONFIG_IRI,
+  SFLO_ARTIFACT_HISTORY_IRI,
+  SFLO_ARTIFACT_MANIFESTATION_IRI,
+  SFLO_EXTRACTION_SOURCE_IRI,
+  SFLO_HISTORICAL_STATE_IRI,
+  SFLO_KNOP_IRI,
+  SFLO_KNOP_ASSET_BUNDLE_IRI,
+  SFLO_KNOP_INVENTORY_IRI,
+  SFLO_KNOP_METADATA_IRI,
+  SFLO_KNOP_SOURCE_REGISTRY_IRI,
+  SFLO_LOCATED_FILE_IRI,
+  SFLO_MESH_INVENTORY_IRI,
+  SFLO_MESH_METADATA_IRI,
+  SFLO_REFERENCE_CATALOG_IRI,
+  SFLO_REFERENCE_LINK_IRI,
+  SFLO_RESOURCE_PAGE_IRI,
+  SFLO_RESOURCE_PAGE_DEFINITION_IRI,
+  SFLO_RESOURCE_PAGE_REGION_IRI,
+  SFLO_RESOURCE_PAGE_SOURCE_IRI,
+  SFLO_SEMANTIC_MESH_IRI,
+]);
 
 export interface LocalExtractRequest {
   designatorPath: string;
@@ -328,6 +376,7 @@ export async function executeExtractAllTerms(
       sourceDesignatorPath: sourcePayload.designatorPath,
       currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
       currentPayloadTurtle: sourcePayload.sourcePayloadTurtle,
+      sourceKnopInventoryTurtle: sourcePayload.currentKnopInventoryTurtle,
     });
     const plans: ExtractPlan[] = [];
     let currentMeshInventoryTurtle = meshState.currentMeshInventoryTurtle;
@@ -441,6 +490,7 @@ export async function previewExtractAllTerms(
     sourceDesignatorPath: sourcePayload.designatorPath,
     currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
     currentPayloadTurtle: sourcePayload.sourcePayloadTurtle,
+    sourceKnopInventoryTurtle: sourcePayload.currentKnopInventoryTurtle,
   });
 
   return {
@@ -573,6 +623,7 @@ async function planSetExtractionSourceAllTerms(
     sourceDesignatorPath: sourcePayload.designatorPath,
     currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
     currentPayloadTurtle: sourcePayload.sourcePayloadTurtle,
+    sourceKnopInventoryTurtle: sourcePayload.currentKnopInventoryTurtle,
   });
   const updatedFiles: PlannedFile[] = [];
   const updatedDesignatorPaths: string[] = [];
@@ -1207,6 +1258,7 @@ function discoverAllTermDesignatorPaths(
     sourceDesignatorPath: string;
     currentMeshInventoryTurtle: string;
     currentPayloadTurtle: string;
+    sourceKnopInventoryTurtle: string;
   },
 ): {
   discoveredDesignatorPaths: readonly string[];
@@ -1219,6 +1271,19 @@ function discoverAllTermDesignatorPaths(
       options.meshBase,
       options.currentMeshInventoryTurtle,
       "Could not parse the current MeshInventory while resolving existing extracted terms.",
+    ),
+  );
+  const generatedResourcePaths = collectGeneratedResourcePathsFromTurtle(
+    options.meshBase,
+    options.currentMeshInventoryTurtle,
+    "Could not parse the current MeshInventory while resolving generated resources for all-terms extraction.",
+  );
+  addAll(
+    generatedResourcePaths,
+    collectGeneratedResourcePathsFromTurtle(
+      options.meshBase,
+      options.sourceKnopInventoryTurtle,
+      `Could not parse the current Knop inventory while discovering generated resources for ${options.sourceDesignatorPath}.`,
     ),
   );
   const discovered = new Set<string>();
@@ -1236,6 +1301,11 @@ function discoverAllTermDesignatorPaths(
     );
   }
 
+  addAll(
+    generatedResourcePaths,
+    collectGeneratedResourcePathsFromQuads(options.meshBase, quads),
+  );
+
   for (const quad of quads) {
     for (const iri of listQuadNamedNodeIris(quad)) {
       const rawDesignatorPath = toMeshScopedRawDesignatorPath(
@@ -1245,7 +1315,7 @@ function discoverAllTermDesignatorPaths(
       if (rawDesignatorPath === undefined) {
         continue;
       }
-      if (isSupportOrGeneratedArtifactPath(rawDesignatorPath)) {
+      if (generatedResourcePaths.has(rawDesignatorPath)) {
         skippedSupport.add(rawDesignatorPath);
         continue;
       }
@@ -1275,6 +1345,48 @@ function discoverAllTermDesignatorPaths(
       left.localeCompare(right)
     ),
   };
+}
+
+function collectGeneratedResourcePathsFromTurtle(
+  meshBase: string,
+  turtle: string,
+  errorMessage: string,
+): Set<string> {
+  let quads: Quad[];
+  try {
+    quads = new Parser({ baseIRI: meshBase }).parse(turtle);
+  } catch {
+    throw new ExtractRuntimeError(errorMessage);
+  }
+  return collectGeneratedResourcePathsFromQuads(meshBase, quads);
+}
+
+function collectGeneratedResourcePathsFromQuads(
+  meshBase: string,
+  quads: readonly Quad[],
+): Set<string> {
+  const paths = new Set<string>();
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.predicate.value !== RDF_TYPE_IRI ||
+      quad.object.termType !== "NamedNode" ||
+      !GENERATED_RESOURCE_CLASS_IRIS.has(quad.object.value)
+    ) {
+      continue;
+    }
+    const path = toMeshScopedRawDesignatorPath(meshBase, quad.subject.value);
+    if (path !== undefined) {
+      paths.add(path);
+    }
+  }
+  return paths;
+}
+
+function addAll<T>(target: Set<T>, source: Iterable<T>): void {
+  for (const item of source) {
+    target.add(item);
+  }
 }
 
 function listQuadNamedNodeIris(quad: Quad): readonly string[] {
@@ -1313,17 +1425,6 @@ function normalizeDiscoveredDesignatorPath(
     }
     throw error;
   }
-}
-
-function isSupportOrGeneratedArtifactPath(designatorPath: string): boolean {
-  if (designatorPath.length === 0) {
-    return false;
-  }
-  const segments = designatorPath.split("/");
-  return segments.some((segment) => segment.startsWith("_")) ||
-    designatorPath.endsWith("/index.html") ||
-    designatorPath === "index.html" ||
-    designatorPath.endsWith(".ttl");
 }
 
 function combineExtractPlans(plans: readonly ExtractPlan[]): PlannedMutation {

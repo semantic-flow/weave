@@ -1738,7 +1738,24 @@ async function collectGeneratedPageFiles(
     const publicContext = publicIdentifierPaths.get(pagePath);
     const resourcePath = toResourcePath(pagePath);
     if (publicContext) {
-      if (publicContext.customIdentifierPage) {
+      const historyGroups = publicContext.historyGroupsByResourcePath.get(
+        resourcePath,
+      );
+      if (isHistoryComponentResource(resourcePath, historyGroups ?? [])) {
+        pageModels.push({
+          kind: "simple",
+          path: pagePath,
+          description: describeSemanticFlowResource(
+            meshState.meshBase,
+            resourcePath,
+            historyGroups ?? [],
+          ),
+          childIdentifiers: childIdentifiersByResourcePath.get(
+            resourcePath,
+          ),
+          historyGroups,
+        });
+      } else if (publicContext.customIdentifierPage) {
         pageModels.push({
           kind: "customIdentifier",
           path: pagePath,
@@ -1759,9 +1776,7 @@ async function collectGeneratedPageFiles(
           childIdentifiers: childIdentifiersByResourcePath.get(
             resourcePath,
           ),
-          historyGroups: publicContext.historyGroupsByResourcePath.get(
-            resourcePath,
-          ),
+          historyGroups,
           rawSourcePanels: publicContext.rawSourcePanels.get(pagePath),
         });
       }
@@ -1790,9 +1805,11 @@ async function collectGeneratedPageFiles(
         description: describeSemanticFlowResource(
           meshState.meshBase,
           resourcePath,
+          historyGroups ?? [],
           rawSourcePanels ??
             findOwnerRawSourcePanelsForArtifactHistory(
               resourcePath,
+              historyGroups ?? [],
               meshRawSourcePanels,
               designatorContexts,
             ),
@@ -1815,6 +1832,9 @@ async function collectGeneratedPageFiles(
 
       const resourcePath = toResourcePath(pagePath);
       const rawSourcePanels = context.rawSourcePanels.get(pagePath);
+      const historyGroups = context.historyGroupsByResourcePath.get(
+        resourcePath,
+      );
       pageModels.push({
         ...(resourcePath === toKnopPath(context.designatorPath)
           ? {
@@ -1836,18 +1856,18 @@ async function collectGeneratedPageFiles(
               describeSemanticFlowResource(
                 meshState.meshBase,
                 resourcePath,
+                historyGroups ?? [],
                 rawSourcePanels ??
                   findOwnerRawSourcePanelsForArtifactHistoryInContext(
                     resourcePath,
+                    historyGroups ?? [],
                     context,
                   ),
               ),
             childIdentifiers: childIdentifiersByResourcePath.get(
               resourcePath,
             ),
-            historyGroups: context.historyGroupsByResourcePath.get(
-              resourcePath,
-            ),
+            historyGroups,
             rawSourcePanels,
           }),
       });
@@ -2112,6 +2132,19 @@ async function loadGenerateDesignatorContexts(
       },
       sourceRegistryArtifact?.turtle,
     );
+    const ownHistoryGroupsByResourcePath = collectHistoryGroupsByResourcePath(
+      meshState.meshBase,
+      currentKnopInventoryTurtle,
+      `Could not parse the current Knop inventory while collecting ResourcePage histories for ${designatorPath}.`,
+    );
+    const sourceHistoryGroupsByResourcePath = extractionSource
+      ? await collectExtractionSourceHistoryGroupsByResourcePath(
+        workspaceRoot,
+        meshState.meshBase,
+        designatorPath,
+        extractionSource.sourceArtifactPath,
+      )
+      : new Map<string, readonly ResourcePageHistoryGroupModel[]>();
     let customIdentifierPage: CustomIdentifierPageModelInput | undefined;
     const pagePaths = listRuntimeGeneratedResourcePagePaths({
       meshBase: meshState.meshBase,
@@ -2173,10 +2206,9 @@ async function loadGenerateDesignatorContexts(
       references: referenceLinks.map((link) => link.model),
       ...artifactLinks,
       customIdentifierPage,
-      historyGroupsByResourcePath: collectHistoryGroupsByResourcePath(
-        meshState.meshBase,
-        currentKnopInventoryTurtle,
-        `Could not parse the current Knop inventory while collecting ResourcePage histories for ${designatorPath}.`,
+      historyGroupsByResourcePath: mergeHistoryGroupsByResourcePath(
+        ownHistoryGroupsByResourcePath,
+        sourceHistoryGroupsByResourcePath,
       ),
       pageDescriptions,
       rawSourcePanels,
@@ -2323,6 +2355,62 @@ function collectKnopArtifactLinks(
       ],
     ),
   };
+}
+
+async function collectExtractionSourceHistoryGroupsByResourcePath(
+  workspaceRoot: string,
+  meshBase: string,
+  designatorPath: string,
+  sourceArtifactPath: string,
+): Promise<
+  ReadonlyMap<string, readonly ResourcePageHistoryGroupModel[]>
+> {
+  const sourceKnopInventoryPath = join(
+    workspaceRoot,
+    `${toKnopPath(sourceArtifactPath)}/_inventory/inventory.ttl`,
+  );
+
+  try {
+    return collectHistoryGroupsByResourcePath(
+      meshBase,
+      await Deno.readTextFile(sourceKnopInventoryPath),
+      `Could not parse the source Knop inventory while collecting ResourcePage histories for ${designatorPath}.`,
+    );
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      throw new WeaveRuntimeError(
+        `Workspace is missing the page source payload inventory for ${designatorPath}: ${
+          toKnopPath(sourceArtifactPath)
+        }/_inventory/inventory.ttl`,
+      );
+    }
+    throw error;
+  }
+}
+
+function mergeHistoryGroupsByResourcePath(
+  ...maps: readonly ReadonlyMap<
+    string,
+    readonly ResourcePageHistoryGroupModel[]
+  >[]
+): ReadonlyMap<string, readonly ResourcePageHistoryGroupModel[]> {
+  const merged = new Map<string, ResourcePageHistoryGroupModel[]>();
+
+  for (const map of maps) {
+    for (const [resourcePath, groups] of map) {
+      const existing = merged.get(resourcePath) ?? [];
+      const existingPaths = new Set(existing.map((group) => group.path));
+      for (const group of groups) {
+        if (!existingPaths.has(group.path)) {
+          existing.push(group);
+          existingPaths.add(group.path);
+        }
+      }
+      merged.set(resourcePath, existing);
+    }
+  }
+
+  return merged;
 }
 
 function extractResourceReferenceLinks(
@@ -2968,22 +3056,26 @@ function addRawSourcePanel(
 function describeSemanticFlowResource(
   meshBase: string,
   resourcePath: string,
+  historyGroups: readonly ResourcePageHistoryGroupModel[],
   ownerRawSourcePanels?: readonly ResourcePageRawSourcePanelModel[],
 ): string {
   const displayPath = resourcePath.length === 0 ? "/" : resourcePath;
-  if (isArtifactManifestationPath(resourcePath)) {
-    const statePath = dirname(resourcePath);
+  const manifestationState = findHistoryStateForManifestation(
+    resourcePath,
+    historyGroups,
+  );
+  if (manifestationState) {
     return `Artifact manifestation for the ${
-      toLastPathSegment(statePath)
+      toLastPathSegment(manifestationState.path)
     } historical state`;
   }
-  if (isHistoricalStatePath(resourcePath)) {
-    const historyPath = dirname(resourcePath);
+  const stateHistory = findHistoryForState(resourcePath, historyGroups);
+  if (stateHistory) {
     return `Historical state for the ${
-      toLastPathSegment(historyPath)
+      toLastPathSegment(stateHistory.path)
     } artifact history`;
   }
-  if (isArtifactHistoryPath(resourcePath)) {
+  if (historyGroups.some((group) => group.path === resourcePath)) {
     const ownerResourcePath = dirname(resourcePath);
     const ownerTitle = ownerRawSourcePanels
       ? extractResourceTitle(
@@ -3024,15 +3116,54 @@ function describeSemanticFlowResource(
   return `Semantic Flow resource ${displayPath}`;
 }
 
+function findHistoryStateForManifestation(
+  resourcePath: string,
+  historyGroups: readonly ResourcePageHistoryGroupModel[],
+): ResourcePageHistoryGroupModel["states"][number] | undefined {
+  for (const group of historyGroups) {
+    const state = group.states.find((candidate) =>
+      candidate.manifestationPath === resourcePath
+    );
+    if (state) {
+      return state;
+    }
+  }
+  return undefined;
+}
+
+function findHistoryForState(
+  resourcePath: string,
+  historyGroups: readonly ResourcePageHistoryGroupModel[],
+): ResourcePageHistoryGroupModel | undefined {
+  return historyGroups.find((group) =>
+    group.states.some((state) => state.path === resourcePath)
+  );
+}
+
+function isHistoryComponentResource(
+  resourcePath: string,
+  historyGroups: readonly ResourcePageHistoryGroupModel[],
+): boolean {
+  return historyGroups.some((group) =>
+    group.path === resourcePath ||
+    group.states.some((state) =>
+      state.path === resourcePath ||
+      state.manifestationPath === resourcePath ||
+      state.locatedFilePath === resourcePath
+    )
+  );
+}
+
 function findOwnerRawSourcePanelsForArtifactHistory(
   resourcePath: string,
+  historyGroups: readonly ResourcePageHistoryGroupModel[],
   meshRawSourcePanels: ReadonlyMap<
     string,
     readonly ResourcePageRawSourcePanelModel[]
   >,
   designatorContexts: readonly GenerateDesignatorContext[],
 ): readonly ResourcePageRawSourcePanelModel[] | undefined {
-  if (!isArtifactHistoryPath(resourcePath)) {
+  if (!historyGroups.some((group) => group.path === resourcePath)) {
     return undefined;
   }
   const ownerPagePath = toDesignatorResourcePagePath(dirname(resourcePath));
@@ -3042,9 +3173,10 @@ function findOwnerRawSourcePanelsForArtifactHistory(
 
 function findOwnerRawSourcePanelsForArtifactHistoryInContext(
   resourcePath: string,
+  historyGroups: readonly ResourcePageHistoryGroupModel[],
   context: GenerateDesignatorContext,
 ): readonly ResourcePageRawSourcePanelModel[] | undefined {
-  if (!isArtifactHistoryPath(resourcePath)) {
+  if (!historyGroups.some((group) => group.path === resourcePath)) {
     return undefined;
   }
   return context.rawSourcePanels.get(
@@ -3130,18 +3262,6 @@ function formatOwnerResourcePath(resourcePath: string): string {
 function toLastPathSegment(path: string): string {
   const segments = path.split("/").filter((segment) => segment.length > 0);
   return segments[segments.length - 1] ?? "/";
-}
-
-function isArtifactHistoryPath(resourcePath: string): boolean {
-  return /(^|\/)_history[0-9]+$/.test(resourcePath);
-}
-
-function isHistoricalStatePath(resourcePath: string): boolean {
-  return /(^|\/)_history[0-9]+\/_s[0-9]+$/.test(resourcePath);
-}
-
-function isArtifactManifestationPath(resourcePath: string): boolean {
-  return /(^|\/)_history[0-9]+\/_s[0-9]+\/[^/]+$/.test(resourcePath);
 }
 
 function collectHistoryGroupsByResourcePath(

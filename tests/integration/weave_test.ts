@@ -1715,6 +1715,21 @@ Deno.test("executeGenerate lists every sidecar payload history with current hist
     releaseHistoryPage,
     "<summary>Historical States</summary>",
   );
+  const releaseStatePage = await Deno.readTextFile(
+    join(workspaceRoot, "docs/ontology/releases/v0.0.2/index.html"),
+  );
+  assertStringIncludes(
+    releaseStatePage,
+    '<p class="wf-classes">a <a href="https://semantic-flow.github.io/sflo/ontology/HistoricalState">sflo:HistoricalState</a></p>',
+  );
+  assertStringIncludes(
+    releaseStatePage,
+    "<summary>Manifestations</summary>",
+  );
+  assertStringIncludes(
+    releaseStatePage,
+    'href="/mesh-sidecar-fantasy-rules/ontology/releases/v0.0.2/ttl"',
+  );
 });
 
 Deno.test("executeGenerate renders managed references and canonical source properties", async () => {

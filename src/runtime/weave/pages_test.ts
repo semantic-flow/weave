@@ -1120,6 +1120,56 @@ Deno.test("renderResourcePage scopes history component sections to the current l
   assertEquals(manifestationHtml.includes("sflo:ArtifactManifestation"), true);
 });
 
+Deno.test("renderResourcePage recognizes named release historical states", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-branch-fantasy-rules/",
+    {
+      kind: "simple",
+      path: "ontology/releases/v0.0.2/index.html",
+      description: "Generated resource page.",
+      historyGroups: [{
+        label: "Artifact history",
+        path: "ontology/releases",
+        states: [{
+          path: "ontology/releases/v0.0.2",
+          manifestationPath: "ontology/releases/v0.0.2/ttl",
+          locatedFilePath:
+            "ontology/releases/v0.0.2/ttl/fantasy-rules-ontology.ttl",
+        }],
+      }],
+    },
+  );
+
+  assertStringIncludes(
+    html,
+    '<p class="wf-classes">a <a href="https://semantic-flow.github.io/sflo/ontology/HistoricalState">sflo:HistoricalState</a></p>',
+  );
+  assertStringIncludes(html, "<summary>Manifestations</summary>");
+  assertStringIncludes(
+    html,
+    '<a href="/mesh-branch-fantasy-rules/ontology/releases/v0.0.2/ttl">ttl</a>',
+  );
+  assertFalse(html.includes("<summary>Historical States</summary>"));
+});
+
+Deno.test("renderResourcePage does not infer history resource classes from paths", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "simple",
+      path: "ontology/_history001/_s0001/index.html",
+      description: "Generated resource page.",
+    },
+  );
+
+  assertStringIncludes(
+    html,
+    '<p class="wf-classes">a <a href="https://semantic-flow.github.io/sflo/ontology/DigitalArtifact">sflo:DigitalArtifact</a></p>',
+  );
+  assertFalse(html.includes("sflo:HistoricalState"));
+  assertFalse(html.includes("<summary>Manifestations</summary>"));
+});
+
 Deno.test("renderResourcePage renders Knop artifact links without history cake", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",
