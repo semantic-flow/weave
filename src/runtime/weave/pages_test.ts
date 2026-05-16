@@ -197,6 +197,7 @@ Deno.test("renderResourcePage renders typed child identifier rows", async () => 
       designatorPath: "ontology",
       childIdentifiers: [
         { label: "AbilityScore", path: "ontology/AbilityScore" },
+        { label: "AbilityScoreShape", path: "ontology/AbilityScoreShape" },
         { label: "AlignmentValue", path: "ontology/AlignmentValue" },
         { label: "Character", path: "ontology/Character" },
         { label: "displayName", path: "ontology/displayName" },
@@ -213,8 +214,10 @@ Deno.test("renderResourcePage renders typed child identifier rows", async () => 
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
 
 <ontology/AbilityScore> a owl:Class .
+<ontology/AbilityScoreShape> a sh:NodeShape .
 <ontology/hasScore> a owl:ObjectProperty .
 <ontology/scoreValue> a owl:DatatypeProperty .
 <ontology/displayName> a owl:AnnotationProperty .
@@ -233,10 +236,19 @@ Deno.test("renderResourcePage renders typed child identifier rows", async () => 
   assertStringIncludes(html, "Child Properties");
   assertStringIncludes(html, "Child Datatypes");
   assertStringIncludes(html, "Child Individuals");
+  assertStringIncludes(html, "SHACL Shapes");
   assertFalse(html.includes("Child Identifiers"));
+  assert(
+    html.indexOf("Child Individuals") < html.indexOf("SHACL Shapes"),
+    "expected SHACL Shapes after Child Individuals",
+  );
   assertStringIncludes(
     html,
     '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/AbilityScore">AbilityScore</a></nobr>',
+  );
+  assertStringIncludes(
+    html,
+    '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/AbilityScoreShape">AbilityScoreShape</a></nobr>',
   );
   assertStringIncludes(
     html,
@@ -264,6 +276,32 @@ Deno.test("renderResourcePage renders typed child identifier rows", async () => 
   );
 });
 
+Deno.test("renderResourcePage separates shape-suffixed child identifiers without local SHACL facts", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "identifier",
+      path: "ontology/index.html",
+      designatorPath: "ontology",
+      childIdentifiers: [
+        { label: "barbarian", path: "ontology/barbarian" },
+        { label: "CharacterShape", path: "ontology/CharacterShape" },
+      ],
+    },
+  );
+
+  assertStringIncludes(html, "Child Individuals");
+  assertStringIncludes(html, "SHACL Shapes");
+  assert(
+    html.indexOf("Child Individuals") < html.indexOf("SHACL Shapes"),
+    "expected SHACL Shapes after Child Individuals",
+  );
+  assertStringIncludes(
+    html,
+    '<tr><th scope="row">SHACL Shapes</th><td><div class="wf-child-identifiers"><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/CharacterShape">CharacterShape</a></nobr></div></td></tr>',
+  );
+});
+
 Deno.test("renderResourcePage collapses child identifier overflow", async () => {
   const childIdentifiers = Array.from({ length: 23 }, (_, index) => {
     const label = `Child${String(index + 1).padStart(2, "0")}`;
@@ -284,6 +322,14 @@ Deno.test("renderResourcePage collapses child identifier overflow", async () => 
   assertStringIncludes(
     html,
     '<details class="wf-child-identifiers-more"><summary title="Show 3 more child identifiers">...</summary>',
+  );
+  assertStringIncludes(
+    html,
+    ".wf-metadata { width: 100%; margin-top: 24px; border-collapse: collapse; table-layout: fixed;",
+  );
+  assertStringIncludes(
+    html,
+    ".wf-child-identifiers-more[open] { flex: 1 1 100%; }",
   );
   assertStringIncludes(html, ">Child21</a>");
   assertStringIncludes(html, ">Child23</a>");
@@ -631,6 +677,34 @@ Deno.test("renderResourcePage renders RDF description, classes, and histories", 
   assertStringIncludes(
     html,
     'href="/mesh-sidecar-fantasy-rules/ontology/_history001/_s0001/fantasy-rules-ontology-ttl/fantasy-rules-ontology.ttl"',
+  );
+});
+
+Deno.test("renderResourcePage falls back to skos definition for summaries", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "identifier",
+      path: "ontology/AbilityScore/index.html",
+      designatorPath: "ontology/AbilityScore",
+      rawSourcePanels: [{
+        label: "Current source file",
+        sourcePath: "../ontology/fantasy-rules-ontology.ttl",
+        contents:
+          `@prefix fant: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+fant:AbilityScore a owl:Class ;
+  skos:definition "A numeric character capability used by the rules." .
+`,
+      }],
+    },
+  );
+
+  assertStringIncludes(
+    html,
+    '<p class="wf-summary">A numeric character capability used by the rules.</p>',
   );
 });
 

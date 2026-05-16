@@ -107,6 +107,9 @@ const SKOS_DEFINITION_IRI = "http://www.w3.org/2004/02/skos/core#definition";
 const SKOS_NARROWER_IRI = "http://www.w3.org/2004/02/skos/core#narrower";
 const SKOS_NOTE_IRI = "http://www.w3.org/2004/02/skos/core#note";
 const SKOS_PREF_LABEL_IRI = "http://www.w3.org/2004/02/skos/core#prefLabel";
+const SHACL_NODE_SHAPE_IRI = "http://www.w3.org/ns/shacl#NodeShape";
+const SHACL_PROPERTY_SHAPE_IRI = "http://www.w3.org/ns/shacl#PropertyShape";
+const SHACL_SHAPE_IRI = "http://www.w3.org/ns/shacl#Shape";
 const SCHEMA_CHARACTER_NAME_IRIS = [
   "https://schema.org/characterName",
   "http://schema.org/characterName",
@@ -132,6 +135,11 @@ type TruncatedHistoryItem<T> =
 const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasTargetArtifact`;
 const WEAVE_REPOSITORY_URL = "https://github.com/semantic-flow/weave/";
 const SOURCE_THEME = "github-dark-default";
+const RDF_DESCRIPTION_PREDICATE_IRIS = [
+  DCTERMS_DESCRIPTION_IRI,
+  RDFS_COMMENT_IRI,
+  SKOS_DEFINITION_IRI,
+] as const;
 
 const defaultResourcePageTheme: ResourcePageTheme = {
   render: renderDefaultResourcePage,
@@ -591,16 +599,17 @@ ${faviconLink}  <style>
     .wf-classes { margin: 8px 0 0; color: #687167; font-style: italic; }
     .wf-classes a { color: inherit; text-decoration: underline; text-decoration-color: rgba(104, 113, 103, 0.34); text-decoration-thickness: 0.06em; text-underline-offset: 0.18em; }
     .wf-summary { max-width: 820px; margin: 14px 0 0; color: #3f463f; font-size: 1.05rem; line-height: 1.6; }
-    .wf-metadata { width: 100%; margin-top: 24px; border-collapse: collapse; border-top: 1px solid #cdd2ca; border-bottom: 1px solid #cdd2ca; }
+    .wf-metadata { width: 100%; margin-top: 24px; border-collapse: collapse; table-layout: fixed; border-top: 1px solid #cdd2ca; border-bottom: 1px solid #cdd2ca; }
     .wf-metadata th, .wf-metadata td { padding: 10px 12px; border-top: 1px solid #e0e4dd; text-align: left; vertical-align: top; }
     .wf-metadata tr:first-child th, .wf-metadata tr:first-child td { border-top: 0; }
     .wf-metadata th { width: 180px; color: #4f594f; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0; }
-    .wf-metadata td { overflow-wrap: anywhere; }
-    .wf-child-identifiers { display: flex; flex-wrap: wrap; gap: 5px; align-items: baseline; }
+    .wf-metadata td { min-width: 0; overflow-wrap: anywhere; }
+    .wf-child-identifiers { display: flex; flex-wrap: wrap; gap: 5px; align-items: baseline; min-width: 0; max-width: 100%; }
     .wf-child-identifier { display: inline-block; padding: 0.08rem 0.36rem; border: 1px solid #cdd8cf; border-radius: 2px; background: #eef3ef; text-decoration: none; white-space: nowrap; }
     .wf-child-identifier:hover, .wf-child-identifier:focus { background: #e0ebe4; border-color: #b8c8bc; }
-    .wf-child-identifiers-more { display: contents; }
-    .wf-child-identifiers-more > summary { display: inline-block; padding: 0.08rem 0.36rem; border: 1px solid #cdd8cf; border-radius: 2px; background: #eef3ef; color: #1f5f85; cursor: pointer; line-height: inherit; }
+    .wf-child-identifiers-more { display: inline-flex; flex-wrap: wrap; gap: 5px; align-items: baseline; max-width: 100%; min-width: 0; border: 0; border-radius: 0; background: transparent; }
+    .wf-child-identifiers-more[open] { flex: 1 1 100%; }
+    .wf-child-identifiers-more > summary { flex: 0 0 auto; display: inline-block; padding: 0.08rem 0.36rem; border: 1px solid #cdd8cf; border-radius: 2px; background: #eef3ef; color: #1f5f85; cursor: pointer; line-height: inherit; }
     .wf-child-identifiers-more > summary::-webkit-details-marker { display: none; }
     .wf-child-identifiers-more > summary::marker { content: ""; }
     .wf-term { cursor: help; border-bottom: 1px dotted currentColor; }
@@ -836,12 +845,13 @@ function toChildIdentifierMetadataRows(
     { label: "Child Properties", identifiers: [] },
     { label: "Child Datatypes", identifiers: [] },
     { label: "Child Individuals", identifiers: [] },
+    { label: "SHACL Shapes", identifiers: [] },
   ];
 
   for (const identifier of childIdentifiers) {
     const childIri = toCanonicalResourceIri(meshBase, identifier.path);
     const types = typesByChildIri.get(childIri) ?? new Set<string>();
-    const categoryIndex = toChildIdentifierCategoryIndex(types);
+    const categoryIndex = toChildIdentifierCategoryIndex(identifier, types);
     categories[categoryIndex]?.identifiers.push(identifier);
   }
 
@@ -890,7 +900,13 @@ function collectChildIdentifierTypes(
   return typesByChildIri;
 }
 
-function toChildIdentifierCategoryIndex(types: ReadonlySet<string>): number {
+function toChildIdentifierCategoryIndex(
+  identifier: ResourcePageChildIdentifierModel,
+  types: ReadonlySet<string>,
+): number {
+  if (isExplicitShaclShape(types)) {
+    return 7;
+  }
   if (types.has(OWL_CLASS_IRI)) {
     return 0;
   }
@@ -909,7 +925,23 @@ function toChildIdentifierCategoryIndex(types: ReadonlySet<string>): number {
   if (types.has(RDFS_DATATYPE_IRI)) {
     return 5;
   }
+  if (types.size === 0 && isLikelyShaclShapeIdentifier(identifier)) {
+    return 7;
+  }
   return 6;
+}
+
+function isExplicitShaclShape(types: ReadonlySet<string>): boolean {
+  return types.has(SHACL_NODE_SHAPE_IRI) ||
+    types.has(SHACL_PROPERTY_SHAPE_IRI) ||
+    types.has(SHACL_SHAPE_IRI);
+}
+
+function isLikelyShaclShapeIdentifier(
+  identifier: ResourcePageChildIdentifierModel,
+): boolean {
+  return identifier.label.endsWith("Shape") ||
+    toLastPathSegment(identifier.path).endsWith("Shape");
 }
 
 function toChildIdentifierMetadataRow(
@@ -1412,12 +1444,11 @@ function extractRdfFacts(
     findFirstLiteralObject(quads, canonical, RDFS_LABEL_IRI) ??
     findFirstLiteralObject(quads, canonical, SKOS_PREF_LABEL_IRI) ??
     findFirstLiteralObject(quads, canonical, FOAF_NAME_IRI);
-  const description = findFirstLiteralObject(
+  const description = findFirstLiteralObjectFromPredicates(
     quads,
     canonical,
-    DCTERMS_DESCRIPTION_IRI,
-  ) ?? findFirstLiteralObject(quads, canonical, RDFS_COMMENT_IRI) ??
-    findFirstLiteralObject(quads, canonical, SKOS_DEFINITION_IRI);
+    RDF_DESCRIPTION_PREDICATE_IRIS,
+  );
   const note = findFirstLiteralObject(quads, canonical, SKOS_NOTE_IRI);
   const broader = findNamedNodeObjects(quads, canonical, SKOS_BROADER_IRI)
     .map((iri) => toRdfIriLink(iri, prefixMap))
