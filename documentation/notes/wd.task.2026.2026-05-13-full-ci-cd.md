@@ -51,7 +51,7 @@ That is enough for `v0.0.2`, especially as a deliberate checkpoint with known CI
 
 ### Current Release-Gate Inventory
 
-Local validation after the first version-plumbing slice shows:
+Earlier local validation after the first version-plumbing slice showed broad fixture-backed drift. After the fixture ladder regeneration, source-registry cleanup, ResourcePage/property work, release tooling slices, and ontology/config guardrails, the release gate is now much closer to the target:
 
 - `deno task fmt:check` passes.
 - `deno task lint` passes.
@@ -62,9 +62,11 @@ Local validation after the first version-plumbing slice shows:
 - focused npm package assembly tests pass.
 - focused npm install smoke setup tests pass.
 - focused npm publish ordering and argument tests pass.
-- `deno task test` fails with broad fixture-backed drift: 186 passed, 145 failed.
+- `deno task ci` passes locally with 422 tests when fixture dependency checkouts are on the refs expected by the tests.
 
-The failures are not caused by version metadata. They cluster around the known pre-release fixture and contract drift:
+The remaining local caveat is fixture checkout state, not ordinary release code drift. The branch-published Fantasy Rules dependency checkout is often left on `gh-pages` for preview, and that branch intentionally does not carry deterministic `.assets`. The fixture-ladder asset-existence test expects the same checkout to be on `main` or another source-bearing ref. Running the full local gate with `mesh-branch-fantasy-rules` temporarily on `main`, then restoring `gh-pages` for preview, produced a clean `deno task ci` run.
+
+The old failures were not caused by version metadata. They clustered around pre-release fixture and contract drift that has now mostly been repaired:
 
 - stale `https://semantic-flow.github.io/semantic-flow-ontology/` expectations versus the canonical `https://semantic-flow.github.io/sflo/ontology/` namespace
 - stale enum/value shapes such as old reference-role IRIs versus flat namespace-local values
@@ -72,7 +74,7 @@ The failures are not caused by version metadata. They cluster around the known p
 - stale carried mesh and Knop inventory shapes after current config/progression changes
 - fixture-backed CLI and integration tests reading old branch-ladder states that need regeneration through [[wa.completed.2026.2026-05-07-fixture-ladder-generator]]
 
-That means the release pipeline can continue to add packaging infrastructure, but `v0.1.0` cannot be treated as releasable until the ordinary `deno task test` gate is repaired or the remaining failures are intentionally split into documented, non-release-blocking debt. Given the failure pattern, the main blocker is not the release tooling itself; it is the fixture/config regeneration path.
+That means the release pipeline can now move from infrastructure-building to release rehearsal. The main remaining release blockers are authored release notes, a manual workflow rehearsal on GitHub Actions, and confirmation of npm scope/package access before any real publish.
 
 ### Kato Release Pattern To Adapt
 

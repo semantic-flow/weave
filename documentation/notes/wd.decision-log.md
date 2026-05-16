@@ -203,7 +203,7 @@ created: 1773630801215
 ### 2026-05-04: Sidecar Term Extraction Uses Explicit Source Selection
 
 - Decision: Extend local `extract` for the Fantasy Rules sidecar `07-shacl-integrated-woven` -> `08-ontology-and-shacl-terms-extracted` transition by supporting docs-rooted `--mesh-root` execution, explicit `--source-designator-path` selection for ambiguous multi-payload term mentions, and append-only mesh-inventory updates for new term Knops.
-- References: [[wd.task.2026.2026-05-03-term-extraction]], [[wd.task.2026.2026-05-02-fantasy-rules-sidecar]], [[sf.spec.2026-04-05-extract-behavior]]
+- References: [[wd.task.2026.2026-05-03-term-extraction]], [[wa.completed.2026.2026-05-02-fantasy-rules-sidecar]], [[sf.spec.2026-04-05-extract-behavior]]
 - Why:
   - Ontology terms such as `ontology/AbilityScore` are legitimately mentioned by both the ontology and SHACL payloads, so fail-closed inference still needs an explicit source selector for the intended extraction source.
   - The sidecar mesh inventory already carries ontology, SHACL, config, and support artifacts; reconstructing a single-payload Bob-shaped inventory would be the wrong abstraction. Appending only the new term Knop facts preserves unrelated mesh state while keeping `08` non-woven.
@@ -220,7 +220,7 @@ created: 1773630801215
 ### 2026-05-04: Sidecar Extracted-Term Weave Uses Pinned Source States
 
 - Decision: Extend local `weave` for the Fantasy Rules sidecar `08-ontology-and-shacl-terms-extracted` -> `09-ontology-and-shacl-terms-extracted-woven` transition so extracted term Knops can be woven in a recursive multi-target batch, generated term pages read source RDF from pinned `sfc:ExtractionSource` states, and term path anchoring follows the term namespace rather than the source artifact designator.
-- References: [[wd.task.2026.2026-05-03-term-extraction]], [[wd.task.2026.2026-05-02-fantasy-rules-sidecar]], [[sf.spec.2026-04-03-weave-behavior]]
+- References: [[wd.task.2026.2026-05-03-term-extraction]], [[wa.completed.2026.2026-05-02-fantasy-rules-sidecar]], [[sf.spec.2026-04-03-weave-behavior]]
 - Why:
   - `ontology/CharacterShape` is intentionally sourced from the `shacl` artifact while remaining an `ontology/...` term. The authored SHACL Turtle uses the `fant:` prefix for that ontology namespace, so path-prefix inference would pick the wrong source.
   - Multiple extracted terms advance MeshInventory one state per term while preserving the previously woven sidecar mesh state.
@@ -246,7 +246,7 @@ created: 1773630801215
 ### 2026-05-04: Named Release Histories Do Not Consume Ordinal Counters
 
 - Decision: Let payload weave start an explicitly named ArtifactHistory such as `releases` on an already versioned payload artifact, while leaving `sflo:nextHistoryOrdinal` unchanged as the next auto `_historyNNN` counter. Semver-style HistoricalState names such as `v0.0.1` are explicitly requested and do not receive `sflo:stateOrdinal`; the named history still carries `sflo:nextStateOrdinal`, but later auto-versioning fails closed after a named state unless the caller supplies the next `stateSegment` or explicitly requests an ordinal fallback segment.
-- References: [[wd.task.2026.2026-05-02-fantasy-rules-sidecar]]
+- References: [[wa.completed.2026.2026-05-02-fantasy-rules-sidecar]]
 - Why:
   - Named histories and ordinal histories are different naming policies. Creating `releases` should not make a future omitted history become `_history003` when `_history002` has never existed.
   - Weave does not yet have a semver increment policy or interactive release prompt, so `nextStateOrdinal` remains an ordinal fallback counter, not a semver successor.
@@ -255,7 +255,7 @@ created: 1773630801215
 ### 2026-05-04: Extraction Sources Default To Current Resolution
 
 - Decision: Make `Current` the default `sfc:ExtractionSource` resolution for newly extracted terms, keep pinned resolution explicit through `--source-state`, replace `--source-designator-path` with `--source`, replace `--yes` with `--accept-preview`, and add `weave set extraction-source` as the maintenance command for changing an existing extracted Knop's source-resolution contract.
-- References: [[wd.task.2026.2026-05-04-extraction-improvements]], [[wd.task.2026.2026-05-02-fantasy-rules-sidecar]], [[wu.cli-reference]]
+- References: [[wd.task.2026.2026-05-04-extraction-improvements]], [[wa.completed.2026.2026-05-02-fantasy-rules-sidecar]], [[wu.cli-reference]]
 - Why:
   - Ontology and SHACL term pages should normally refresh from the source artifact's current state after a release advances; pinning is still available when reproducibility against a historical source state is the intended contract.
   - `extract --all-terms` remains a creation operation that skips existing Knops, so migrating already-created term surfaces needs an explicit update command.
