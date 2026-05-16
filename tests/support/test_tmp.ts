@@ -144,3 +144,7 @@ function isDenoTestDefinitionLike(
 function isTestFn(value: unknown): value is TestFn {
   return typeof value === "function";
 }
+
+// Install on import so direct `deno test <file>` and IDE test runners clean up
+// tests that use `createTestTmpDir`, even when they bypass the task preload.
+installTestTmpCleanup();

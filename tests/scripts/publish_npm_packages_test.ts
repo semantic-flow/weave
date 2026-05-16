@@ -7,6 +7,7 @@ import {
   resolvedPublicationOrder,
 } from "../../scripts/publish-npm-packages.ts";
 import type { NpmPackagesMetadata } from "../../scripts/release/npm.ts";
+import { createTestTmpDir } from "../support/test_tmp.ts";
 
 Deno.test("parsePublishNpmPackagesArgs supports input, npm, tag, dry-run, and provenance", () => {
   assertEquals(
@@ -75,12 +76,7 @@ Deno.test("publicationOrder publishes platform packages before the wrapper", () 
 });
 
 Deno.test("resolvedPublicationOrder falls back to downloaded npm package paths", async () => {
-  const root = join(
-    Deno.cwd(),
-    ".test-tmp",
-    "publish-npm-packages",
-    crypto.randomUUID(),
-  );
+  const root = await createTestTmpDir("publish-npm-packages-");
   await Deno.mkdir(join(root, "@semantic-flow", "weave"), {
     recursive: true,
   });
