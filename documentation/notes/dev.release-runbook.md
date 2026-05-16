@@ -124,7 +124,7 @@ The npm publish job publishes platform packages before the wrapper package. Real
 
 ### Troubleshooting
 
-If the npm install smoke jobs fail while reading `dist/npm/npm-packages-metadata.json`, the smoke script is not using the downloaded package artifact path. The workflow should pass `--input-dir .test-tmp/downloaded-npm-packages`, and the script must tolerate the leading `--` separator from `deno task smoke:npm-install -- ...`. If the log already shows `.test-tmp/downloaded-npm-packages/npm-packages-metadata.json`, inspect the `weave-npm-packages` artifact instead: it should contain `npm-packages-metadata.json` at the artifact root plus `@semantic-flow/weave*` package directories.
+If the npm install smoke jobs fail while reading `dist/npm/npm-packages-metadata.json`, the smoke script is not using the downloaded package artifact path. The workflow should pass `--input-dir .test-tmp/downloaded-npm-packages`, and the script must tolerate the leading `--` separator from `deno task smoke:npm-install -- ...`. If the log already shows `.test-tmp/downloaded-npm-packages/npm-packages-metadata.json`, inspect the `weave-npm-packages` artifact instead: it should contain `npm-packages-metadata.json` at the artifact root plus `@semantic-flow/weave*` package directories. If the expected and actual version strings look identical but the actual version is colored in the GitHub log, the installed command emitted ANSI color codes; compare against decolorized output and print escaped raw output in the failure message.
 
 ### Manual Fallback
 

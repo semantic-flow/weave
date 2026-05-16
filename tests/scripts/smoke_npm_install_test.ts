@@ -1,6 +1,7 @@
 import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
 import { join } from "@std/path";
 import {
+  comparableCommandOutput,
   currentNodeArch,
   currentNodePlatform,
   hostNpmPlatformPackage,
@@ -116,5 +117,12 @@ Deno.test("localProjectCommandPath uses npm bin shim conventions", () => {
   assertEquals(
     localProjectCommandPath("/tmp/project", "weave", "linux"),
     join("/tmp/project", "node_modules", ".bin", "weave"),
+  );
+});
+
+Deno.test("comparableCommandOutput strips ANSI color before comparison", () => {
+  assertEquals(
+    comparableCommandOutput("weave \x1b[34m0.1.0\x1b[39m\n"),
+    "weave 0.1.0",
   );
 });

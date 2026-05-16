@@ -158,9 +158,12 @@ export async function smokeNpmInstall(
     stdout: "piped",
   });
   const expectedVersionOutput = `${packagesMetadata.commandName} ${version}`;
-  if (versionOutput.trim() !== expectedVersionOutput) {
+  const comparableVersionOutput = comparableCommandOutput(versionOutput);
+  if (comparableVersionOutput !== expectedVersionOutput) {
     throw new Error(
-      `Expected npm-installed ${packagesMetadata.commandName} --version to print ${expectedVersionOutput}, got ${versionOutput.trim()}`,
+      `Expected npm-installed ${packagesMetadata.commandName} --version to print ${
+        JSON.stringify(expectedVersionOutput)
+      }, got ${JSON.stringify(versionOutput.trim())}`,
     );
   }
 
@@ -213,6 +216,18 @@ export function localProjectCommandPath(
     "node_modules",
     ".bin",
     os === "windows" ? `${command}.cmd` : command,
+  );
+}
+
+export function comparableCommandOutput(output: string): string {
+  return stripAnsi(output).trim();
+}
+
+function stripAnsi(value: string): string {
+  return value.replace(
+    // deno-lint-ignore no-control-regex -- ANSI escapes are control sequences.
+    /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g,
+    "",
   );
 }
 
