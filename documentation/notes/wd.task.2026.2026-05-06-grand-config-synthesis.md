@@ -927,7 +927,7 @@ Drop or avoid reviving:
 
 ## Sequencing
 
-The next-step sequencing is still good: implement the grand config synthesis next, while keeping [[wd.task.2026.2026-05-07-fixture-ladder-generator]] close enough that we do not hand-repair generated branches during the migration.
+The next-step sequencing is still good: implement the grand config synthesis next, while keeping [[wa.completed.2026.2026-05-07-fixture-ladder-generator]] close enough that we do not hand-repair generated branches during the migration.
 
 Recommended order:
 

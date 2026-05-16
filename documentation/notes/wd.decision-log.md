@@ -237,7 +237,7 @@ created: 1773630801215
 ### 2026-05-16: Extraction Source Details Live In Knop Source Registries
 
 - Decision: Keep `sflo:hasExtractionSource` on the extracted Knop inventory as the compact pointer, but store the `sfc:ExtractionSource` details in `D/_knop/_sources/sources.ttl` at `D/_knop/_sources#extraction-source`. The Knop inventory links that supporting artifact with `sflo:hasKnopSourceRegistry`.
-- References: [[wd.task.2026.2026-05-04-extraction-improvements]], [[wd.task.2026.2026-05-15_1113-mesh-branch-fantasy-rules]], [[ont.decision-log]]
+- References: [[wd.task.2026.2026-05-04-extraction-improvements]], [[wa.completed.2026.2026-05-15_1113-mesh-branch-fantasy-rules]], [[ont.decision-log]]
 - Why:
   - Extraction provenance is source information, so `_sources` is a better support-artifact home than `_inventory` once Knops can have a general source registry.
   - Keeping the Knop-level `sflo:hasExtractionSource` pointer preserves the simple runtime lookup and lets SHACL constrain one primary extraction source without making inventory carry the relator details.
@@ -304,7 +304,7 @@ created: 1773630801215
 ### 2026-05-14: Branch-Published Fantasy Rules Fixture
 
 - Decision: Treat Fantasy Rules as the branch-published ontology fixture for the next rerung, with authored ontology/source files on the source branch and all generated mesh output on the publication branch.
-- References: [[wd.task.2026.2026-05-13_1655-support-gh-pages-branch-based-deployments]], [[wd.task.2026.2026-05-07-fixture-ladder-generator]]
+- References: [[wd.task.2026.2026-05-13_1655-support-gh-pages-branch-based-deployments]], [[wa.completed.2026.2026-05-07-fixture-ladder-generator]]
 - Why:
   - This proves the clean-source-branch story that motivated branch-published meshes: no generated `_mesh`, config, pages, histories, or local sibling paths need to live on the source branch.
   - The older `docs/` sidecar topology remains valid, but it no longer needs to be the primary Fantasy Rules fixture once branch-published deployment is available.
@@ -312,7 +312,7 @@ created: 1773630801215
 ### 2026-05-14: Fixture Branches Are Generated Outputs
 
 - Decision: Treat fixture branch ladders as disposable generated golden outputs produced from ordered scenario definitions plus Accord manifests, rather than hand-maintained source material.
-- References: [[wd.task.2026.2026-05-07-fixture-ladder-generator]]
+- References: [[wa.completed.2026.2026-05-07-fixture-ladder-generator]]
 - Why:
   - Current fixture branches carry stale namespace and progression shapes, and pre-v1 Weave should regenerate them against the current contract rather than add compatibility shims.
   - Broad fixture rerungs should be intentional, reviewable generated-output passes with branch writes behind an explicit flag.

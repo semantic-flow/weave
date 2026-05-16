@@ -281,7 +281,7 @@ This does not mean the `docs/` sidecar pattern goes away. It means the fixture c
 - Fantasy Rules becomes the branch-published ontology fixture
 - docs-rooted sidecar behavior is covered by focused tests or a smaller fixture rather than by the main long ladder
 
-[[wd.task.2026.2026-05-07-fixture-ladder-generator]] records this topology before rerunging branches.
+[[wa.completed.2026.2026-05-07-fixture-ladder-generator]] records this topology before rerunging branches.
 
 Accord now honors `ignorePaths` in whole-tree transition completeness checks. That is useful for branch-generated fixtures: manifests can assert that no unexpected source or publication tree paths changed while still ignoring intentional local-only assets, fixture setup material, or other declared non-contract paths. Branch-published manifests should use this for source-branch cleanliness and publication-branch completeness, and should rely on Accord's conflict checks to reject manifests that both ignore and explicitly expect the same path.
 
@@ -334,7 +334,7 @@ This should eventually support CI permissions that are narrower than a blanket t
 - Publication controls: branch-published deploy preserves unknown files by leaving them alone, recreates `.nojekyll` when GitHub Pages protection is enabled, and can create or update a configured `CNAME` without persisting local checkout paths.
 - Stale output validation: branch-published deploy rejects known stale local/publication clutter such as `.weave`, `.sf-local-access.ttl`, and old `docs/_mesh` sidecar output, then scans generated RDF support files for local source/publication root paths or parent-directory traversal before reporting success.
 - Rebuild mode: rebuild-from-scratch should exist, but only as a separate guarded task after incremental update behavior is proven. Track it in [[wd.task.2026.2026-05-14_1105-guarded-branch-published-rebuild]] rather than bundling it into the first branch-published deploy path.
-- Fixture placement: prefer converting Fantasy Rules to the branch-published ontology fixture if we keep only two main fixture repos. If that creates too much churn during fixture ladder regeneration, create focused temporary-git integration coverage first and defer the fixture move through [[wd.task.2026.2026-05-07-fixture-ladder-generator]].
+- Fixture placement: prefer converting Fantasy Rules to the branch-published ontology fixture if we keep only two main fixture repos. If that creates too much churn during fixture ladder regeneration, create focused temporary-git integration coverage first and defer the fixture move through [[wa.completed.2026.2026-05-07-fixture-ladder-generator]].
 - Fixture placement decision: Fantasy Rules is the branch-published ontology fixture for the next rerung. The existing `docs/` sidecar pattern remains valid, but Fantasy Rules no longer needs to preserve that topology as its primary durable example.
 - Fixture regeneration timing: rewrite the Semantic Flow Framework Fantasy Rules spec/example and build focused branch-published proof coverage before rerunging fixture branches. Build fixture-generator machinery early enough to avoid manual repair, but defer full branch-ladder regeneration until the topology and vocabulary are stable.
 - Git automation boundary: Weave owns safe local planning, dirty-state checks, generation, validation, and explicit optional local commit creation. Worktree discovery/creation remains a future guarded slice. Push policy and CI credentials should remain explicit operator/CI concerns, with documented snippets rather than hidden automation. If Weave creates a local publication commit, the CLI warns that the operator or CI still needs to push it before the site updates.
@@ -387,7 +387,7 @@ This should eventually support CI permissions that are narrower than a blanket t
 - Add CLI coverage proving omitted publication root prompts interactively and fails closed in non-interactive mode.
 - Verify generation preserves `.nojekyll` and configured `CNAME`, removes stale generated files only when requested, and refuses dirty publication worktrees by default.
 - Add fixture or focused coverage for a branch-published ontology source where authored source stays off the publication branch.
-- Because Fantasy Rules moves to branch-published output, update its Accord manifests and fixture helper assumptions through [[wd.task.2026.2026-05-07-fixture-ladder-generator]], using whole-tree completeness checks plus `ignorePaths` for intentional non-contract paths.
+- Because Fantasy Rules moves to branch-published output, update its Accord manifests and fixture helper assumptions through [[wa.completed.2026.2026-05-07-fixture-ladder-generator]], using whole-tree completeness checks plus `ignorePaths` for intentional non-contract paths.
 - Rewrite the Semantic Flow Framework Fantasy Rules example/spec so the conformance story names source-branch authored ontology files, publication-branch mesh output, and repository-source locator provenance.
 - Run `deno task lint` after significant implementation changes.
 
@@ -421,7 +421,7 @@ This should eventually support CI permissions that are narrower than a blanket t
 - [x] Implement local-only branch-published materialization/generation for one simple ontology source from command-scoped source and publication roots.
 - [x] Prove the first clean-source-branch slice in focused tests: source root contains only authored source, publication root carries `_mesh` and generated state, public RDF has no sibling path leakage, reruns are incremental, and default MeshInventory, KnopMetadata, and KnopInventory support histories remain current-only.
 - [x] Add local integration coverage using an actual temporary git repo with source and `gh-pages` worktrees.
-- [x] Update [[wd.task.2026.2026-05-07-fixture-ladder-generator]] to make fixture-generator work early but full fixture branch rerunging later, after branch-published topology and vocabulary are stable.
+- [x] Update [[wa.completed.2026.2026-05-07-fixture-ladder-generator]] to make fixture-generator work early but full fixture branch rerunging later, after branch-published topology and vocabulary are stable.
 - [x] Add `.nojekyll` and optional `CNAME` preservation behavior.
 - [x] Add validation that generated public mesh output does not include stale source-branch clutter or developer-specific sibling checkout paths.
 - [x] Implement incremental publication-branch updates as the default behavior.
@@ -429,5 +429,5 @@ This should eventually support CI permissions that are narrower than a blanket t
 - [x] Add explicit local commit support after local generation is proven, and print a CLI reminder that the publication branch still needs to be pushed for GitHub Pages to update.
 - [x] Decide whether to convert the Fantasy Rules fixture from `docs/` sidecar to branch-published output before the next fixture rerung.
 - [x] Rewrite the Semantic Flow Framework Fantasy Rules example/spec for branch-published ontology delivery before rerunging fixture branches.
-- [x] Update [[wd.task.2026.2026-05-07-fixture-ladder-generator]] if the fixture topology changes.
+- [x] Update [[wa.completed.2026.2026-05-07-fixture-ladder-generator]] if the fixture topology changes.
 - [x] Update [[wd.decision-log]] once the topology and path-provenance decisions are accepted.

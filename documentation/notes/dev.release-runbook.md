@@ -24,7 +24,7 @@ Weave is moving from the `v0.0.2` source-checkpoint release model toward the fir
 - `deno task smoke:npm-install` reads `npm-packages-metadata.json`, runs `npm pack`, installs the wrapper and host platform package tarballs into a temporary project, and verifies `weave --version`.
 - `deno task publish:npm-packages` reads `npm-packages-metadata.json` and publishes platform packages before the wrapper package, with dry-run, dist-tag, and provenance options.
 - `.github/workflows/release-manual.yml` is the primary release path for packaged releases. It builds native binaries on native Linux, Windows, macOS x64, and macOS arm64 runners; packages release archives/checksums; assembles npm packages; smoke-tests npm installation on native runners; optionally dry-runs or publishes npm packages; and optionally drafts or publishes the GitHub Release.
-- GitHub Actions CI and `deno task ci` are the intended quality gates, but the current full test suite still has known fixture/config drift tracked in [[wd.task.2026.2026-05-13-full-ci-cd]] and [[wd.task.2026.2026-05-07-fixture-ladder-generator]].
+- GitHub Actions CI and `deno task ci` are the intended quality gates, but the current full test suite still has known fixture/config drift tracked in [[wd.task.2026.2026-05-13-full-ci-cd]] and [[wa.completed.2026.2026-05-07-fixture-ladder-generator]].
 - The manual release workflow defaults to no npm publication and no GitHub Release mutation. Rehearsal and publication both require explicit workflow inputs.
 
 ## Pre-Release

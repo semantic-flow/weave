@@ -70,7 +70,7 @@ The failures are not caused by version metadata. They cluster around the known p
 - stale enum/value shapes such as old reference-role IRIs versus flat namespace-local values
 - stale config ontology IRIs such as `https://semantic-flow.github.io/ontology/config/meshRootPathBase`
 - stale carried mesh and Knop inventory shapes after current config/progression changes
-- fixture-backed CLI and integration tests reading old branch-ladder states that need regeneration through [[wd.task.2026.2026-05-07-fixture-ladder-generator]]
+- fixture-backed CLI and integration tests reading old branch-ladder states that need regeneration through [[wa.completed.2026.2026-05-07-fixture-ladder-generator]]
 
 That means the release pipeline can continue to add packaging infrastructure, but `v0.1.0` cannot be treated as releasable until the ordinary `deno task test` gate is repaired or the remaining failures are intentionally split into documented, non-release-blocking debt. Given the failure pattern, the main blocker is not the release tooling itself; it is the fixture/config regeneration path.
 
