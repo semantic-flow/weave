@@ -188,6 +188,8 @@ Creates or updates a branch-published GitHub Pages mesh in a publication worktre
 
 The command reads source bytes from `--source-root`, writes generated mesh output to `--publish-root`, and keeps host-local checkout paths out of the published RDF. `--source-root` defaults to the current directory. `--publish-root` is required in noninteractive runs; interactive runs can prompt for it.
 
+Repository source bindings are recorded beside the target Knop rather than in `_mesh/_config/config.ttl`. When a deploy materializes a source file, Weave writes a source registry at `_knop/_sources/sources.ttl`, links it from the Knop inventory with `sflo:hasKnopSourceRegistry`, and records the repository URL, source ref, resolved commit, repository-relative path, and content digest. This keeps publication output portable without preserving a developer's checkout path.
+
 Dry-run prints the planned writes, preserved files, validation checks, and git operations without mutating the publication worktree:
 
 ```sh
@@ -232,6 +234,8 @@ Constraints:
 - `--commit-message` requires `--commit`
 - `--source-commit` records an exact source commit in the source locator when supplied, but it should name bytes that the commit actually represents
 
+For local preview or regeneration runs, set `WEAVE_LOG_DIR` to a temporary directory such as `/tmp/weave-logs` when you want runtime logs kept outside a publication checkout.
+
 ### `weave integrate`
 
 Integrates a local source file into a designator path as a payload artifact, including policy-approved extra-mesh local sources.
@@ -267,7 +271,7 @@ weave extract <targetDesignatorPath> [--mesh-root <meshRoot>] [--source <sourceD
 weave extract --all-terms (--source <sourceDesignatorPath> | --source-state <historicalStatePath>) [--mesh-root <meshRoot>] [--accept-preview]
 ```
 
-`<targetDesignatorPath>` is the resource or term surface to create. `--source <sourceDesignatorPath>` selects the already woven payload artifact that describes that target and records a current-tracking `sfc:ExtractionSource` in the Knop's `_sources` registry. `--source-state <historicalStatePath>` pins the extraction source to a historical source state and resolves the owning source artifact from mesh inventory.
+`<targetDesignatorPath>` is the resource or term surface to create. `--source <sourceDesignatorPath>` selects the already woven payload artifact that describes that target and records a current-tracking `sflo:ExtractionSource` in the Knop's `_sources` registry. `--source-state <historicalStatePath>` pins the extraction source to a historical source state and resolves the owning source artifact from mesh inventory.
 
 `--source` and `--source-state` are mutually exclusive. If neither is supplied for single-target extraction, Weave resolves the unique current woven payload artifact that mentions the target. `--all-terms` requires an explicit `--source` or `--source-state`, previews the identifiers that will be created, and asks for confirmation before writing; `--accept-preview` accepts that preview for noninteractive runs. Existing Knops, blank nodes, support artifact paths, and generated page/file artifact paths are skipped.
 
@@ -300,7 +304,7 @@ weave set extraction-source <targetDesignatorPath> [--mesh-root <meshRoot>] (--s
 weave set extraction-source --all-terms [--mesh-root <meshRoot>] (--source <sourceDesignatorPath> | --source-state <historicalStatePath>) [--accept-preview]
 ```
 
-`--source` records a current-tracking source binding. `--source-state` records a pinned source binding and fails if the historical source bytes do not mention the target term. The command replaces the existing source-registry `sfc:ExtractionSource` details; it does not append a second primary extraction source.
+`--source` records a current-tracking source binding. `--source-state` records a pinned source binding and fails if the historical source bytes do not mention the target term. The command replaces the existing source-registry `sflo:ExtractionSource` details; it does not append a second primary extraction source.
 
 The `--all-terms` form discovers named mesh-scoped terms from the selected source graph, previews the existing extracted terms that will be updated, and updates all listed terms after confirmation or `--accept-preview`.
 

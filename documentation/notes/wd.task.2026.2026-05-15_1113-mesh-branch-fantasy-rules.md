@@ -184,5 +184,5 @@ The source branch and publication branch should agree on public identifiers. The
 - [x] Fast-forward the publication branch, `gh-pages`, to the latest generated publication rung after review; keep `main` clean source. The temporary preview worktrees were removed, and the dependency checkout now usually sits clean on `gh-pages` for local preview.
 - [x] Add final fixture-backed integration coverage for source-cleanliness, publication provenance, and all-term ResourcePage completeness.
 - [x] Regenerate and push branch-published `a.05` through `a.15` after moving extraction-source provenance to `_knop/_sources`, adding current-mode representative references, and fixing exact-target ResourcePage generation so release-state pages preserve ancestor history roles.
-- [ ] Update [[wu.cli-reference]], [[sf.api]] / [[sf.api.examples]], [[ont.summary.core]] (with the new sources supporting artifact) and the mesh-branch-fantasy-rules README.
+- [x] Update [[wu.cli-reference]], [[sf.api]] / [[sf.api.examples]], [[ont.summary.core]] (with the new sources supporting artifact) and the mesh-branch-fantasy-rules README.
 - [ ] Revisit [[ont.task.2026.2026-03-24-integration-support]] after the `_sources` supporting artifact has settled, especially whether source registries should remain the durable model or move again.
