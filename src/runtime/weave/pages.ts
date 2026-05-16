@@ -39,6 +39,7 @@ interface ResourcePageRenderInput {
   summary?: string;
   rdfClasses: readonly ResourcePageRdfClass[];
   metadataRows: readonly ResourcePageMetadataRow[];
+  childrenRows: readonly ResourcePageMetadataRow[];
   includeSemanticFlowMetadata: boolean;
   semanticFlowMetadataRows: readonly ResourcePageMetadataRow[];
   historyGroups: readonly ResourcePageHistoryGroupModel[];
@@ -309,19 +310,19 @@ function toDefaultResourcePageRenderInput(
         ...(rdfFacts.note ? [{ label: "Note", value: rdfFacts.note }] : []),
         ...toRdfIriLinkMetadataRows("Broader", rdfFacts.broader),
         ...toRdfIriLinkMetadataRows("Narrower", rdfFacts.narrower),
-        ...toChildIdentifierMetadataRows(
-          meshBase,
-          meshRootHref,
-          canonical,
-          page.childIdentifiers ?? [],
-          sourcePanelsForFacts,
-        ),
         ...toExtractionSourceSummaryMetadataRows(
           meshRootHref,
           meshLabel,
           page.extractionSource,
         ),
       ],
+      childrenRows: toChildIdentifierMetadataRows(
+        meshBase,
+        meshRootHref,
+        canonical,
+        page.childIdentifiers ?? [],
+        sourcePanelsForFacts,
+      ),
       includeSemanticFlowMetadata,
       semanticFlowMetadataRows: [
         toKnopMetadataRow(meshRootHref, meshLabel, resourcePath),
@@ -398,6 +399,7 @@ function toDefaultResourcePageRenderInput(
         ),
       ],
       metadataRows: [{ label: "Canonical IRI", value: canonical }],
+      childrenRows: [],
       includeSemanticFlowMetadata,
       semanticFlowMetadataRows: [],
       historyGroups: page.historyGroups ?? [],
@@ -462,14 +464,14 @@ function toDefaultResourcePageRenderInput(
       ],
       metadataRows: [
         { label: "Canonical IRI", value: canonical },
-        ...toChildIdentifierMetadataRows(
-          meshBase,
-          meshRootHref,
-          canonical,
-          page.childIdentifiers ?? [],
-          [],
-        ),
       ],
+      childrenRows: toChildIdentifierMetadataRows(
+        meshBase,
+        meshRootHref,
+        canonical,
+        page.childIdentifiers ?? [],
+        [],
+      ),
       includeSemanticFlowMetadata,
       semanticFlowMetadataRows: [],
       historyGroups: [],
@@ -504,14 +506,14 @@ function toDefaultResourcePageRenderInput(
       : [classifyResourcePage(resourcePath, page.historyGroups ?? [])],
     metadataRows: [
       { label: "Canonical IRI", value: canonical },
-      ...toChildIdentifierMetadataRows(
-        meshBase,
-        meshRootHref,
-        canonical,
-        page.childIdentifiers ?? [],
-        page.rawSourcePanels ?? [],
-      ),
     ],
+    childrenRows: toChildIdentifierMetadataRows(
+      meshBase,
+      meshRootHref,
+      canonical,
+      page.childIdentifiers ?? [],
+      page.rawSourcePanels ?? [],
+    ),
     includeSemanticFlowMetadata,
     semanticFlowMetadataRows: [],
     historyGroups: page.historyGroups ?? [],
@@ -563,6 +565,7 @@ async function renderDefaultResourcePage(
     }</p>\n`
     : "";
   const metadata = renderMetadataTable(input.metadataRows, 8);
+  const childrenSection = renderChildrenSection(input.childrenRows);
   const semanticFlowMetadataSection = input.includeSemanticFlowMetadata
     ? renderSemanticFlowMetadataSection(input.semanticFlowMetadataRows)
     : "";
@@ -643,6 +646,8 @@ ${faviconLink}  <style>
     details { border: 1px solid #c9cec7; border-radius: 8px; background: #fff; min-width: 0; }
     details + details { margin-top: 12px; }
     summary { cursor: pointer; padding: 12px 14px; font-weight: 750; }
+    .wf-children { padding-bottom: 12px; }
+    .wf-children .wf-metadata { margin-top: 0; border-bottom: 0; }
     .wf-history { padding-bottom: 12px; }
     .wf-history-tree { display: grid; gap: 10px; padding: 0 14px 4px; }
     .wf-history-node { border: 1px solid #d5dbd3; border-radius: 8px; padding: 10px; }
@@ -686,7 +691,7 @@ ${meshFavicon}
 ${classes}${summary}${metadata}
         </div>
       </header>
-${historySection}${
+${childrenSection}${historySection}${
     sections ? `${sections}\n` : ""
   }${rawSections}${semanticFlowMetadataSection}
     </article>
@@ -761,6 +766,21 @@ function renderSemanticFlowMetadataSection(
   return `      <details class="wf-semantic-flow-metadata">
         <summary>Semantic Flow metadata</summary>
 ${renderMetadataTable(rows, 8)}      </details>
+`;
+}
+
+function renderChildrenSection(
+  rows: readonly ResourcePageMetadataRow[],
+): string {
+  if (rows.length === 0) {
+    return "";
+  }
+
+  return `    <section class="wf-section">
+      <details class="wf-children" open>
+        <summary>Children</summary>
+${renderMetadataTable(rows, 8)}      </details>
+    </section>
 `;
 }
 
@@ -943,14 +963,16 @@ function toChildIdentifierMetadataRows(
     label: string;
     identifiers: ResourcePageChildIdentifierModel[];
   }[] = [
-    { label: "Child Classes", identifiers: [] },
-    { label: "Child Object Properties", identifiers: [] },
-    { label: "Child Datatype Properties", identifiers: [] },
-    { label: "Child Annotation Properties", identifiers: [] },
-    { label: "Child Properties", identifiers: [] },
-    { label: "Child Datatypes", identifiers: [] },
-    { label: "Child Individuals", identifiers: [] },
-    { label: "SHACL Shapes", identifiers: [] },
+    { label: "Classes", identifiers: [] },
+    { label: "Object Properties", identifiers: [] },
+    { label: "Datatype Properties", identifiers: [] },
+    { label: "Annotation Properties", identifiers: [] },
+    { label: "Properties", identifiers: [] },
+    { label: "Datatypes", identifiers: [] },
+    { label: "Individuals", identifiers: [] },
+    { label: "Node Shapes", identifiers: [] },
+    { label: "Property Shapes", identifiers: [] },
+    { label: "Shapes", identifiers: [] },
   ];
 
   for (const identifier of childIdentifiers) {
@@ -1013,8 +1035,14 @@ function collectChildIdentifierTypes(
 }
 
 function toChildIdentifierCategoryIndex(types: ReadonlySet<string>): number {
-  if (isExplicitShaclShape(types)) {
+  if (types.has(SHACL_NODE_SHAPE_IRI)) {
     return 7;
+  }
+  if (types.has(SHACL_PROPERTY_SHAPE_IRI)) {
+    return 8;
+  }
+  if (types.has(SHACL_SHAPE_IRI)) {
+    return 9;
   }
   if (types.has(OWL_CLASS_IRI)) {
     return 0;
@@ -1035,12 +1063,6 @@ function toChildIdentifierCategoryIndex(types: ReadonlySet<string>): number {
     return 5;
   }
   return 6;
-}
-
-function isExplicitShaclShape(types: ReadonlySet<string>): boolean {
-  return types.has(SHACL_NODE_SHAPE_IRI) ||
-    types.has(SHACL_PROPERTY_SHAPE_IRI) ||
-    types.has(SHACL_SHAPE_IRI);
 }
 
 function toChildIdentifierMetadataRow(

@@ -1662,7 +1662,9 @@ Deno.test("executeGenerate lists every sidecar payload history with current hist
   assertFalse(ontologyPage.includes("Associated Knop"));
   assertFalse(ontologyPage.includes("wf-knop-link"));
   assertFalse(ontologyPage.includes("Semantic Flow metadata"));
-  assertStringIncludes(ontologyPage, "Child Classes");
+  assertStringIncludes(ontologyPage, '<details class="wf-children" open>');
+  assertStringIncludes(ontologyPage, "<summary>Children</summary>");
+  assertStringIncludes(ontologyPage, '<th scope="row">Classes</th>');
   assertStringIncludes(
     ontologyPage,
     '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/AbilityScore">AbilityScore</a></nobr>',
@@ -1678,7 +1680,9 @@ Deno.test("executeGenerate lists every sidecar payload history with current hist
     ontologyKnopPage,
     "Semantic Flow bundle of supporting data for Fantasy Rules Ontology.",
   );
-  assertStringIncludes(ontologyKnopPage, "Child Individuals");
+  assertStringIncludes(ontologyKnopPage, '<details class="wf-children" open>');
+  assertStringIncludes(ontologyKnopPage, "<summary>Children</summary>");
+  assertStringIncludes(ontologyKnopPage, '<th scope="row">Individuals</th>');
   assertStringIncludes(
     ontologyKnopPage,
     '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/_knop/_inventory">_inventory</a></nobr>',

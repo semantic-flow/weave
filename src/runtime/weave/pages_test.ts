@@ -228,7 +228,9 @@ Deno.test("renderResourcePage renders typed child identifier rows", async () => 
         { label: "AbilityScoreShape", path: "ontology/AbilityScoreShape" },
         { label: "AlignmentValue", path: "ontology/AlignmentValue" },
         { label: "Character", path: "ontology/Character" },
+        { label: "CharacterPathShape", path: "ontology/CharacterPathShape" },
         { label: "displayName", path: "ontology/displayName" },
+        { label: "GenericShape", path: "ontology/GenericShape" },
         { label: "hasScore", path: "ontology/hasScore" },
         { label: "label", path: "ontology/label" },
         { label: "scoreValue", path: "ontology/scoreValue" },
@@ -246,6 +248,8 @@ Deno.test("renderResourcePage renders typed child identifier rows", async () => 
 
 <ontology/AbilityScore> a owl:Class .
 <ontology/AbilityScoreShape> a sh:NodeShape .
+<ontology/CharacterPathShape> a sh:PropertyShape .
+<ontology/GenericShape> a sh:Shape .
 <ontology/hasScore> a owl:ObjectProperty .
 <ontology/scoreValue> a owl:DatatypeProperty .
 <ontology/displayName> a owl:AnnotationProperty .
@@ -257,18 +261,39 @@ Deno.test("renderResourcePage renders typed child identifier rows", async () => 
     },
   );
 
-  assertStringIncludes(html, "Child Classes");
-  assertStringIncludes(html, "Child Object Properties");
-  assertStringIncludes(html, "Child Datatype Properties");
-  assertStringIncludes(html, "Child Annotation Properties");
-  assertStringIncludes(html, "Child Properties");
-  assertStringIncludes(html, "Child Datatypes");
-  assertStringIncludes(html, "Child Individuals");
-  assertStringIncludes(html, "SHACL Shapes");
+  assertStringIncludes(html, '<details class="wf-children" open>');
+  assertStringIncludes(html, "<summary>Children</summary>");
+  assertStringIncludes(html, '<th scope="row">Classes</th>');
+  assertStringIncludes(html, '<th scope="row">Object Properties</th>');
+  assertStringIncludes(html, '<th scope="row">Datatype Properties</th>');
+  assertStringIncludes(html, '<th scope="row">Annotation Properties</th>');
+  assertStringIncludes(html, '<th scope="row">Properties</th>');
+  assertStringIncludes(html, '<th scope="row">Datatypes</th>');
+  assertStringIncludes(html, '<th scope="row">Individuals</th>');
+  assertStringIncludes(html, '<th scope="row">Node Shapes</th>');
+  assertStringIncludes(html, '<th scope="row">Property Shapes</th>');
+  assertStringIncludes(html, '<th scope="row">Shapes</th>');
   assertFalse(html.includes("Child Identifiers"));
+  assertFalse(html.includes('<th scope="row">Child Classes</th>'));
   assert(
-    html.indexOf("Child Individuals") < html.indexOf("SHACL Shapes"),
-    "expected SHACL Shapes after Child Individuals",
+    html.indexOf("<summary>Children</summary>") <
+      html.indexOf('<th scope="row">Classes</th>'),
+    "expected child rows under the Children section",
+  );
+  assert(
+    html.indexOf('<th scope="row">Individuals</th>') <
+      html.indexOf('<th scope="row">Node Shapes</th>'),
+    "expected Node Shapes after Individuals",
+  );
+  assert(
+    html.indexOf('<th scope="row">Node Shapes</th>') <
+      html.indexOf('<th scope="row">Property Shapes</th>'),
+    "expected Property Shapes after Node Shapes",
+  );
+  assert(
+    html.indexOf('<th scope="row">Property Shapes</th>') <
+      html.indexOf('<th scope="row">Shapes</th>'),
+    "expected Shapes after Property Shapes",
   );
   assertStringIncludes(
     html,
@@ -277,6 +302,14 @@ Deno.test("renderResourcePage renders typed child identifier rows", async () => 
   assertStringIncludes(
     html,
     '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/AbilityScoreShape">AbilityScoreShape</a></nobr>',
+  );
+  assertStringIncludes(
+    html,
+    '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/CharacterPathShape">CharacterPathShape</a></nobr>',
+  );
+  assertStringIncludes(
+    html,
+    '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/GenericShape">GenericShape</a></nobr>',
   );
   assertStringIncludes(
     html,
@@ -323,19 +356,22 @@ Deno.test("renderResourcePage separates SHACL child identifiers from RDF type hi
     },
   );
 
-  assertStringIncludes(html, "Child Individuals");
-  assertStringIncludes(html, "SHACL Shapes");
+  assertStringIncludes(html, '<details class="wf-children" open>');
+  assertStringIncludes(html, "<summary>Children</summary>");
+  assertStringIncludes(html, '<th scope="row">Individuals</th>');
+  assertStringIncludes(html, '<th scope="row">Node Shapes</th>');
   assert(
-    html.indexOf("Child Individuals") < html.indexOf("SHACL Shapes"),
-    "expected SHACL Shapes after Child Individuals",
+    html.indexOf('<th scope="row">Individuals</th>') <
+      html.indexOf('<th scope="row">Node Shapes</th>'),
+    "expected Node Shapes after Individuals",
   );
   assertStringIncludes(
     html,
-    '<tr><th scope="row">Child Individuals</th><td><div class="wf-child-identifiers"><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/barbarian">barbarian</a></nobr><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/CharacterShape">CharacterShape</a></nobr></div></td></tr>',
+    '<tr><th scope="row">Individuals</th><td><div class="wf-child-identifiers"><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/barbarian">barbarian</a></nobr><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/CharacterShape">CharacterShape</a></nobr></div></td></tr>',
   );
   assertStringIncludes(
     html,
-    '<tr><th scope="row">SHACL Shapes</th><td><div class="wf-child-identifiers"><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/BarbarianPrimaryAbilityChoice">BarbarianPrimaryAbilityChoice</a></nobr></div></td></tr>',
+    '<tr><th scope="row">Node Shapes</th><td><div class="wf-child-identifiers"><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/BarbarianPrimaryAbilityChoice">BarbarianPrimaryAbilityChoice</a></nobr></div></td></tr>',
   );
 });
 
@@ -354,7 +390,9 @@ Deno.test("renderResourcePage collapses child identifier overflow", async () => 
     },
   );
 
-  assertStringIncludes(html, "Child Individuals");
+  assertStringIncludes(html, '<details class="wf-children" open>');
+  assertStringIncludes(html, "<summary>Children</summary>");
+  assertStringIncludes(html, '<th scope="row">Individuals</th>');
   assertStringIncludes(html, ">Child20</a>");
   assertStringIncludes(
     html,
@@ -512,7 +550,9 @@ Deno.test("renderResourcePage renders Knop pages with local titles", async () =>
     'href="/mesh-sidecar-fantasy-rules/ontology"',
   );
   assertStringIncludes(html, '<span aria-current="page">_knop</span>');
-  assertStringIncludes(html, "Child Individuals");
+  assertStringIncludes(html, '<details class="wf-children" open>');
+  assertStringIncludes(html, "<summary>Children</summary>");
+  assertStringIncludes(html, '<th scope="row">Individuals</th>');
   assertStringIncludes(
     html,
     '<nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/_knop/_inventory">_inventory</a></nobr>',
