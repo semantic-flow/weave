@@ -178,6 +178,6 @@ The source branch and publication branch should agree on public identifiers. The
 - [x] Add final all-remaining-terms extraction and broad weave rungs.
 - [x] Push generated branch-published fixture refs intentionally after validation.
 - [x] Fast-forward the publication branch, probably `gh-pages`, to the final generated publication rung after review; keep `main` clean source.
-- [ ] Add final fixture-backed integration coverage for source-cleanliness, publication provenance, and all-term ResourcePage completeness.
+- [x] Add final fixture-backed integration coverage for source-cleanliness, publication provenance, and all-term ResourcePage completeness.
 - [ ] Update [[wu.cli-reference]], [[sf.api]] / [[sf.api.examples]], [[ont.summary.core]] (with the new sources supporting artifact) and the mesh-branch-fantasy-rules README.
 - [ ] Revisit [[ont.task.2026.2026-03-24-integration-support]] after the `_sources` supporting artifact has settled, especially whether source registries should remain the durable model or move again.

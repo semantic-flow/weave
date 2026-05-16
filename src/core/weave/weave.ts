@@ -101,6 +101,8 @@ const SFLO_HAS_KNOP_IRI = `${SFLO_NAMESPACE}hasKnop`;
 const SFLO_HAS_HISTORICAL_STATE_IRI = `${SFLO_NAMESPACE}hasHistoricalState`;
 const SFLO_HAS_KNOP_INVENTORY_IRI = `${SFLO_NAMESPACE}hasKnopInventory`;
 const SFLO_HAS_KNOP_METADATA_IRI = `${SFLO_NAMESPACE}hasKnopMetadata`;
+const SFLO_HAS_KNOP_SOURCE_REGISTRY_IRI =
+  `${SFLO_NAMESPACE}hasKnopSourceRegistry`;
 const SFLO_HAS_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasPayloadArtifact`;
 const SFLO_HAS_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}hasReferenceCatalog`;
 const SFLO_HAS_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}hasReferenceLink`;
@@ -114,6 +116,7 @@ const SFLO_WORKING_FILE_PATH_IRI = `${SFLO_NAMESPACE}workingLocalRelativePath`;
 const SFLO_KNOP_IRI = `${SFLO_NAMESPACE}Knop`;
 const SFLO_KNOP_INVENTORY_IRI = `${SFLO_NAMESPACE}KnopInventory`;
 const SFLO_KNOP_METADATA_IRI = `${SFLO_NAMESPACE}KnopMetadata`;
+const SFLO_KNOP_SOURCE_REGISTRY_IRI = `${SFLO_NAMESPACE}KnopSourceRegistry`;
 const SFLO_LATEST_HISTORICAL_STATE_IRI =
   `${SFLO_NAMESPACE}latestHistoricalState`;
 const SFLO_MESH_INVENTORY_IRI = `${SFLO_NAMESPACE}MeshInventory`;
@@ -878,11 +881,17 @@ function planFirstKnopWeave(
   const versionKnopMetadata = shouldMaterializeSupportHistory(
     knopMetadataHistoryPolicy,
   );
-  const wovenKnopInventoryTurtle = renderFirstKnopWovenKnopInventoryTurtle(
-    meshBase,
-    designatorPath,
-    { knopMetadataHistoryPolicy },
-  );
+  const wovenKnopInventoryTurtle =
+    renderKnopInventoryWithPreservedSourceRegistry({
+      meshBase,
+      currentKnopInventoryTurtle: candidate.currentKnopInventoryTurtle,
+      renderedKnopInventoryTurtle: renderFirstKnopWovenKnopInventoryTurtle(
+        meshBase,
+        designatorPath,
+        { knopMetadataHistoryPolicy },
+      ),
+      knopPath,
+    });
   const wovenMeshInventoryTurtle = meshInventoryProgression === undefined
     ? renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle(
       currentMeshInventoryTurtle,
@@ -996,13 +1005,19 @@ function planFirstPayloadWeave(
   const versionKnopInventory = shouldMaterializeSupportHistory(
     knopInventoryHistoryPolicy,
   );
-  const wovenKnopInventoryTurtle = renderFirstPayloadWovenKnopInventoryTurtle(
-    meshBase,
-    designatorPath,
-    payloadLayout,
-    payloadArtifact.workingLocalRelativePath,
-    { knopMetadataHistoryPolicy, knopInventoryHistoryPolicy },
-  );
+  const wovenKnopInventoryTurtle =
+    renderKnopInventoryWithPreservedSourceRegistry({
+      meshBase,
+      currentKnopInventoryTurtle: candidate.currentKnopInventoryTurtle,
+      renderedKnopInventoryTurtle: renderFirstPayloadWovenKnopInventoryTurtle(
+        meshBase,
+        designatorPath,
+        payloadLayout,
+        payloadArtifact.workingLocalRelativePath,
+        { knopMetadataHistoryPolicy, knopInventoryHistoryPolicy },
+      ),
+      knopPath,
+    });
   const wovenMeshInventoryTurtle = meshInventoryProgression === undefined
     ? renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle(
       currentMeshInventoryTurtle,
@@ -1137,13 +1152,19 @@ function planFirstExtractedKnopWeave(
       meshInventoryProgression,
     );
   const wovenKnopInventoryTurtle =
-    renderFirstExtractedKnopWovenKnopInventoryTurtle(
+    renderKnopInventoryWithPreservedSourceRegistry({
       meshBase,
-      designatorPath,
-      referenceTargetSourcePayloadArtifact.designatorPath,
-      referenceTargetSourcePayloadArtifact.latestHistoricalStatePath,
-      referenceTargetSourcePayloadArtifact.sourceEvidence,
-    );
+      currentKnopInventoryTurtle: candidate.currentKnopInventoryTurtle,
+      renderedKnopInventoryTurtle:
+        renderFirstExtractedKnopWovenKnopInventoryTurtle(
+          meshBase,
+          designatorPath,
+          referenceTargetSourcePayloadArtifact.designatorPath,
+          referenceTargetSourcePayloadArtifact.latestHistoricalStatePath,
+          referenceTargetSourcePayloadArtifact.sourceEvidence,
+        ),
+      knopPath,
+    });
 
   return {
     meshBase,
@@ -1504,14 +1525,20 @@ function planSecondPayloadWeave(
   const versionKnopInventory = shouldMaterializeSupportHistory(
     knopInventoryHistoryPolicy,
   );
-  const wovenKnopInventoryTurtle = renderSecondPayloadWovenKnopInventoryTurtle(
-    meshBase,
-    designatorPath,
-    payloadLayout,
-    payloadArtifact.workingLocalRelativePath,
-    candidate.currentKnopInventoryTurtle,
-    { knopMetadataHistoryPolicy, knopInventoryHistoryPolicy },
-  );
+  const wovenKnopInventoryTurtle =
+    renderKnopInventoryWithPreservedSourceRegistry({
+      meshBase,
+      currentKnopInventoryTurtle: candidate.currentKnopInventoryTurtle,
+      renderedKnopInventoryTurtle: renderSecondPayloadWovenKnopInventoryTurtle(
+        meshBase,
+        designatorPath,
+        payloadLayout,
+        payloadArtifact.workingLocalRelativePath,
+        candidate.currentKnopInventoryTurtle,
+        { knopMetadataHistoryPolicy, knopInventoryHistoryPolicy },
+      ),
+      knopPath,
+    });
 
   return {
     meshBase,
@@ -6267,6 +6294,132 @@ function renderRenderedHistoryResourcePageBlocks(
       `<${state.manifestationPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .`,
     ]),
   ]).join("\n\n");
+}
+
+interface CurrentKnopSourceRegistry {
+  sourceRegistryPath: string;
+  sourcesFilePath: string;
+}
+
+function renderKnopInventoryWithPreservedSourceRegistry(options: {
+  meshBase: string;
+  currentKnopInventoryTurtle: string;
+  renderedKnopInventoryTurtle: string;
+  knopPath: string;
+}): string {
+  const sourceRegistry = resolveCurrentKnopSourceRegistry(options);
+  if (sourceRegistry === undefined) {
+    return options.renderedKnopInventoryTurtle;
+  }
+
+  let blocks = splitTurtleBlocks(options.renderedKnopInventoryTurtle);
+  const knopBlockIndex = findSubjectBlockIndex(blocks, options.knopPath);
+  if (knopBlockIndex === -1) {
+    throw new WeaveInputError(
+      `Rendered KnopInventory did not contain Knop block <${options.knopPath}> while preserving source registry.`,
+    );
+  }
+
+  blocks = replaceSubjectBlock(
+    blocks,
+    options.knopPath,
+    renderKnopBlockWithSourceRegistry(
+      blocks[knopBlockIndex]!,
+      sourceRegistry.sourceRegistryPath,
+    ),
+  );
+  blocks = upsertSubjectBlockAfter(
+    blocks,
+    `${options.knopPath}/_inventory`,
+    sourceRegistry.sourceRegistryPath,
+    renderSubjectPredicateBlock(
+      sourceRegistry.sourceRegistryPath,
+      "sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument",
+      [
+        `sflo:hasWorkingLocatedFile <${sourceRegistry.sourcesFilePath}>`,
+      ],
+    ),
+  );
+  blocks = upsertSubjectBlockAfter(
+    blocks,
+    sourceRegistry.sourceRegistryPath,
+    sourceRegistry.sourcesFilePath,
+    renderLocatedFileBlock(sourceRegistry.sourcesFilePath),
+  );
+
+  return `${blocks.join("\n\n")}\n`;
+}
+
+function resolveCurrentKnopSourceRegistry(options: {
+  meshBase: string;
+  currentKnopInventoryTurtle: string;
+  knopPath: string;
+}): CurrentKnopSourceRegistry | undefined {
+  const errorMessage =
+    `Could not resolve Knop source registry from the current KnopInventory for ${options.knopPath}.`;
+  const quads = parseWeaveShapeQuads(
+    options.meshBase,
+    options.currentKnopInventoryTurtle,
+    errorMessage,
+  );
+  const sourceRegistryPath = resolveOptionalNamedNodePath(
+    quads,
+    options.meshBase,
+    options.knopPath,
+    SFLO_HAS_KNOP_SOURCE_REGISTRY_IRI,
+    errorMessage,
+  );
+  if (sourceRegistryPath === undefined) {
+    return undefined;
+  }
+
+  if (
+    !hasNamedNodeFact(
+      quads,
+      options.meshBase,
+      sourceRegistryPath,
+      RDF_TYPE_IRI,
+      SFLO_KNOP_SOURCE_REGISTRY_IRI,
+    )
+  ) {
+    throw new WeaveInputError(errorMessage);
+  }
+
+  const sourcesFilePath = resolveOptionalNamedNodePath(
+    quads,
+    options.meshBase,
+    sourceRegistryPath,
+    SFLO_HAS_WORKING_LOCATED_FILE_IRI,
+    errorMessage,
+  );
+  if (sourcesFilePath === undefined) {
+    throw new WeaveInputError(errorMessage);
+  }
+
+  return { sourceRegistryPath, sourcesFilePath };
+}
+
+function renderKnopBlockWithSourceRegistry(
+  block: string,
+  sourceRegistryPath: string,
+): string {
+  const sourceRegistryLine =
+    `  sflo:hasKnopSourceRegistry <${sourceRegistryPath}> ;`;
+  if (block.includes(sourceRegistryLine)) {
+    return block;
+  }
+
+  const workingInventoryLine = "  sflo:hasWorkingKnopInventoryFile ";
+  if (!block.includes(workingInventoryLine)) {
+    throw new WeaveInputError(
+      "Could not find hasWorkingKnopInventoryFile while preserving source registry.",
+    );
+  }
+
+  return block.replace(
+    workingInventoryLine,
+    `${sourceRegistryLine}\n${workingInventoryLine}`,
+  );
 }
 
 function renderSubjectPredicateBlock(
