@@ -530,7 +530,7 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
   );
   assertEquals(plan.scenario.branchPrefix, "a.");
   assertStringIncludes(plan.assetRoot, "mesh-branch-fantasy-rules/.assets");
-  assertEquals(plan.transitions.length, 11);
+  assertEquals(plan.transitions.length, 13);
   assertEquals(plan.transitions[0]?.id, "01-source-only");
   assertEquals(plan.transitions[0]?.fromRef, "a.00-blank-slate");
   assertEquals(plan.transitions[0]?.toRef, "a.01-source-only");
@@ -890,6 +890,69 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
       "{publicationRoot}",
       "--target",
       "designatorPath=examples/gunaar",
+    ]);
+  }
+  assertEquals(
+    plan.transitions[11]?.id,
+    "12-all-remaining-terms-extracted",
+  );
+  assertEquals(plan.transitions[11]?.fromRef, "a.11-first-release-woven");
+  assertEquals(
+    plan.transitions[11]?.toRef,
+    "a.12-all-remaining-terms-extracted",
+  );
+  assertEquals(plan.transitions[11]?.operationId, "extract");
+  assertEquals(plan.transitions[11]?.action.kind, "branchPublication");
+  if (plan.transitions[11]?.action.kind === "branchPublication") {
+    assertEquals(
+      plan.transitions[11].action.sourceRef,
+      "a.10-first-release-source",
+    );
+    assertEquals(
+      plan.transitions[11].action.publicationFromRef,
+      "a.11-first-release-woven",
+    );
+    assertEquals(plan.transitions[11].action.invocations.length, 3);
+    assertEquals(plan.transitions[11].action.invocations[0]?.argv, [
+      "extract",
+      "--all-terms",
+      "--accept-preview",
+      "--source",
+      "ontology",
+      "--mesh-root",
+      "{publicationRoot}",
+    ]);
+    assertEquals(plan.transitions[11].action.invocations[2]?.argv, [
+      "extract",
+      "--all-terms",
+      "--accept-preview",
+      "--source",
+      "examples/gunaar",
+      "--mesh-root",
+      "{publicationRoot}",
+    ]);
+  }
+  assertEquals(plan.transitions[12]?.id, "13-all-remaining-terms-woven");
+  assertEquals(
+    plan.transitions[12]?.fromRef,
+    "a.12-all-remaining-terms-extracted",
+  );
+  assertEquals(plan.transitions[12]?.toRef, "a.13-all-remaining-terms-woven");
+  assertEquals(plan.transitions[12]?.operationId, "weave");
+  assertEquals(plan.transitions[12]?.action.kind, "branchPublication");
+  if (plan.transitions[12]?.action.kind === "branchPublication") {
+    assertEquals(
+      plan.transitions[12].action.sourceRef,
+      "a.10-first-release-source",
+    );
+    assertEquals(
+      plan.transitions[12].action.publicationFromRef,
+      "a.12-all-remaining-terms-extracted",
+    );
+    assertEquals(plan.transitions[12].action.invocations.length, 1);
+    assertEquals(plan.transitions[12].action.invocations[0]?.argv, [
+      "--mesh-root",
+      "{publicationRoot}",
     ]);
   }
 

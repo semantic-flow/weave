@@ -1090,6 +1090,30 @@ export const BRANCH_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
       },
       "weave",
     ),
+    branchPublicationTransition(
+      12,
+      "12-all-remaining-terms-extracted",
+      "10-first-release-source",
+      {
+        description:
+          "Extract every remaining mesh-scoped IRI from the current ontology, SHACL, and Gunaar source artifacts in the branch-published publication root.",
+        publicationFromRef: "11-first-release-woven",
+        publicationBranch: "gh-pages",
+      },
+      "extract",
+    ),
+    branchPublicationTransition(
+      13,
+      "13-all-remaining-terms-woven",
+      "10-first-release-source",
+      {
+        description:
+          "Run a broad publication-root weave so every mesh-scoped source term has a generated ResourcePage.",
+        publicationFromRef: "12-all-remaining-terms-extracted",
+        publicationBranch: "gh-pages",
+      },
+      "weave",
+    ),
   ],
 };
 
@@ -2442,6 +2466,7 @@ async function runBranchPublicationCommandInvocation(options: {
   invocation: FixtureBranchPublicationCommandInvocation;
 }): Promise<FixtureCommandInvocationExecutionResult> {
   const commandCwd = dirname(options.sourceWorkspaceRoot);
+  const logDir = join(commandCwd, "runtime-logs");
   const command = [
     "deno",
     "run",
@@ -2465,13 +2490,11 @@ async function runBranchPublicationCommandInvocation(options: {
     args: command.slice(1),
     env: {
       WEAVE_GENERATED_AT: FIXTURE_GENERATED_AT,
+      WEAVE_LOG_DIR: logDir,
     },
     stdout: "piped",
     stderr: "piped",
   }).output();
-  if (output.success) {
-    await removeEphemeralRuntimeLogs(options.publicationWorkspaceRoot);
-  }
 
   return {
     command,
@@ -2481,18 +2504,6 @@ async function runBranchPublicationCommandInvocation(options: {
     stdout: new TextDecoder().decode(output.stdout),
     stderr: new TextDecoder().decode(output.stderr),
   };
-}
-
-async function removeEphemeralRuntimeLogs(
-  workspaceRoot: string,
-): Promise<void> {
-  try {
-    await Deno.remove(join(workspaceRoot, ".weave"), { recursive: true });
-  } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) {
-      throw error;
-    }
-  }
 }
 
 function substituteBranchPublicationArg(options: {

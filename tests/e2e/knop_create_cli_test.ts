@@ -152,6 +152,43 @@ Deno.test("weave knop create accepts the root designator path as a black-box CLI
   await Deno.stat(join(workspaceRoot, "_knop/_inventory/inventory.ttl"));
 });
 
+Deno.test("weave CLI honors WEAVE_LOG_DIR for runtime logs", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-knop-create-log-");
+  const logRoot = await createTestTmpDir("weave-e2e-log-root-");
+  await materializeMeshAliceBioBranch("03-mesh-created-woven", workspaceRoot);
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      "knop",
+      "create",
+      "alice",
+      "--mesh-root",
+      workspaceRoot,
+    ],
+    cwd: new URL(".", repoRoot),
+    env: {
+      WEAVE_LOG_DIR: logRoot,
+    },
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  await Deno.stat(join(logRoot, "operational.jsonl"));
+  await Deno.stat(join(logRoot, "security-audit.jsonl"));
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl")),
+    Deno.errors.NotFound,
+  );
+});
+
 Deno.test("weave knop create matches the manifest-scoped sidecar root and examples Knop fixture", async () => {
   const manifestPath = resolveMeshSidecarFantasyRulesConformanceManifestPath(
     "10-root-knop.jsonld",

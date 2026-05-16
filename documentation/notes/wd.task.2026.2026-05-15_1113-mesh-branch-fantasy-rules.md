@@ -2,7 +2,7 @@
 id: bj99pvhgszcuiztsjap7cvb
 title: 2026 05 15_1113 Mesh Branch Fantasy Rules
 desc: ''
-updated: 1778869594608
+updated: 1778902615030
 created: 1778868835253
 ---
 
@@ -24,7 +24,7 @@ This fixture should be similar enough to Sidecar Fantasy Rules to reuse the onto
 
 The first implementation can remain concrete and fixture-oriented. The important thing is to model source state and publication state separately. A single sidecar branch can represent both authored source and generated mesh output; a branch-published rung is more honestly a tuple of source ref plus publication ref.
 
-The first source-lane slice is in place: `a.00-blank-slate` points at the control state with README/control files plus deterministic `.assets`, `a.01-source-only` is generated from the fixture ladder tool, and `mesh-branch-fantasy-rules:main` has been fast-forwarded to that clean source-only state. The first publication-lane slice is also in place: `a.02-publication-bootstrapped-woven` is generated from `a.01-source-only`, validates against the branch-published Accord manifest, and `gh-pages` has been fast-forwarded to the same publication commit. Repository source materialization is now covered through `a.04-shacl-integrated-woven`: `a.03` materializes/integrates/weaves the ontology source, `a.04` does the same for SHACL, and both publication checkpoints record source ref, resolved source commit, repository-relative path, digest, and public target artifact IRIs in per-Knop `_sources` registries. Selected term extraction/weaving is now covered through `a.06-ontology-and-shacl-terms-extracted-woven`: `a.05` extracts selected ontology and SHACL terms directly in the publication root, and `a.06` weaves those term Knops while pinning their extraction sources to the observed ontology/SHACL states. Root/examples/Gunaar coverage now runs through `a.09-gunaar-example-dataset-woven`: `a.07` creates root and examples collection Knops, `a.08` weaves them, and `a.09` materializes the Gunaar example dataset from the clean source ref with per-Knop repository source provenance. First-release coverage now runs through `a.11-first-release-woven`: `a.10` updates the clean source lane from deterministic first-release assets, and `a.11` updates publication working bytes from that source ref, refreshes per-Knop source registries for ontology, SHACL, and Gunaar, weaves named ontology/SHACL release states, and weaves the updated Gunaar payload as the next ordinal state.
+The first source-lane slice is in place: `a.00-blank-slate` points at the control state with README/control files plus deterministic `.assets`, `a.01-source-only` is generated from the fixture ladder tool, and `mesh-branch-fantasy-rules:main` has been fast-forwarded to that clean source-only state. The first publication-lane slice is also in place: `a.02-publication-bootstrapped-woven` is generated from `a.01-source-only`, validates against the branch-published Accord manifest, and `gh-pages` has been fast-forwarded to the same publication commit. Repository source materialization is now covered through `a.04-shacl-integrated-woven`: `a.03` materializes/integrates/weaves the ontology source, `a.04` does the same for SHACL, and both publication checkpoints record source ref, resolved source commit, repository-relative path, digest, and public target artifact IRIs in per-Knop `_sources` registries. Selected term extraction/weaving is now covered through `a.06-ontology-and-shacl-terms-extracted-woven`: `a.05` extracts selected ontology and SHACL terms directly in the publication root, and `a.06` weaves those term Knops while pinning their extraction sources to the observed ontology/SHACL states. Root/examples/Gunaar coverage now runs through `a.09-gunaar-example-dataset-woven`: `a.07` creates root and examples collection Knops, `a.08` weaves them, and `a.09` materializes the Gunaar example dataset from the clean source ref with per-Knop repository source provenance. First-release coverage now runs through `a.11-first-release-woven`: `a.10` updates the clean source lane from deterministic first-release assets, and `a.11` updates publication working bytes from that source ref, refreshes per-Knop source registries for ontology, SHACL, and Gunaar, weaves named ontology/SHACL release states, and weaves the updated Gunaar payload as the next ordinal state. Final ResourcePage coverage now runs through `a.13-all-remaining-terms-woven`: `a.12` extracts every remaining mesh-scoped IRI from the ontology, SHACL, and Gunaar sources, and `a.13` performs a broad publication-root weave that generated ResourcePages for all extracted terms.
 
 ## Discussion
 
@@ -175,7 +175,9 @@ The source branch and publication branch should agree on public identifiers. The
 - [x] Add extraction/weave rungs for selected ontology and SHACL terms.
 - [x] Add root/examples/Gunaar dataset rungs.
 - [x] Add first-release source update and named-release weave rungs.
-- [ ] Add final all-remaining-terms extraction and broad weave rungs.
-- [ ] Push generated branch-published fixture refs intentionally after validation.
-- [ ] Fast-forward the publication branch, probably `gh-pages`, to the final generated publication rung after review; keep `main` clean source.
+- [x] Add final all-remaining-terms extraction and broad weave rungs.
+- [x] Push generated branch-published fixture refs intentionally after validation.
+- [x] Fast-forward the publication branch, probably `gh-pages`, to the final generated publication rung after review; keep `main` clean source.
 - [ ] Add final fixture-backed integration coverage for source-cleanliness, publication provenance, and all-term ResourcePage completeness.
+- [ ] Update [[wu.cli-reference]], [[sf.api]] / [[sf.api.examples]], [[ont.summary.core]] (with the new sources supporting artifact) and the mesh-branch-fantasy-rules README.
+- [ ] Revisit [[ont.task.2026.2026-03-24-integration-support]] after the `_sources` supporting artifact has settled, especially whether source registries should remain the durable model or move again.
