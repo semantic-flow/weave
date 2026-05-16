@@ -190,7 +190,7 @@ created: 1773630801215
 - References: [[wa.completed.2026.2026-04-05_1004-extract-bob]], [[sf.spec.2026-04-05-extract-behavior]]
 - Why:
   - The carried `12` fixture proves a narrow current-surface extraction boundary, not a generic source-selection or graph-rewrite API.
-  - Pinning Bob's inventory-carried `sfc:ExtractionSource` to the source payload artifact's latest historical state preserves the non-woven semantic step while keeping broader payload splitting and Bob weaving out of scope.
+  - Pinning Bob's extraction-source contract to the source payload artifact's latest historical state preserves the non-woven semantic step while keeping broader payload splitting and Bob weaving out of scope.
 
 ### 2026-04-06: Fifth Local weave Slice Targets Bob 12 -> 13
 
@@ -219,7 +219,7 @@ created: 1773630801215
 
 ### 2026-05-04: Sidecar Extracted-Term Weave Uses Pinned Source States
 
-- Decision: Extend local `weave` for the Fantasy Rules sidecar `08-ontology-and-shacl-terms-extracted` -> `09-ontology-and-shacl-terms-extracted-woven` transition so extracted term Knops can be woven in a recursive multi-target batch, generated term pages read source RDF from pinned inventory `sfc:ExtractionSource` states, and term path anchoring follows the term namespace rather than the source artifact designator.
+- Decision: Extend local `weave` for the Fantasy Rules sidecar `08-ontology-and-shacl-terms-extracted` -> `09-ontology-and-shacl-terms-extracted-woven` transition so extracted term Knops can be woven in a recursive multi-target batch, generated term pages read source RDF from pinned `sfc:ExtractionSource` states, and term path anchoring follows the term namespace rather than the source artifact designator.
 - References: [[wd.task.2026.2026-05-03-term-extraction]], [[wd.task.2026.2026-05-02-fantasy-rules-sidecar]], [[sf.spec.2026-04-03-weave-behavior]]
 - Why:
   - `ontology/CharacterShape` is intentionally sourced from the `shacl` artifact while remaining an `ontology/...` term. The authored SHACL Turtle uses the `fant:` prefix for that ontology namespace, so path-prefix inference would pick the wrong source.
@@ -232,6 +232,16 @@ created: 1773630801215
 - Why:
   - Extraction source binding is part of the extracted identifier surface's provenance and resolution contract, not a user-authored or cataloged reference about the resource.
   - Fragment IRIs let the inventory page preserve dereferenceability for the extraction source relator without adding an otherwise empty `_references` support artifact.
+- Status: Superseded by [[#2026-05-16 Extraction Source Details Live In Knop Source Registries]]. The compatibility reader still accepts this inventory-rooted shape.
+
+### 2026-05-16: Extraction Source Details Live In Knop Source Registries
+
+- Decision: Keep `sflo:hasExtractionSource` on the extracted Knop inventory as the compact pointer, but store the `sfc:ExtractionSource` details in `D/_knop/_sources/sources.ttl` at `D/_knop/_sources#extraction-source`. The Knop inventory links that supporting artifact with `sflo:hasKnopSourceRegistry`.
+- References: [[wd.task.2026.2026-05-04-extraction-improvements]], [[wd.task.2026.2026-05-15_1113-mesh-branch-fantasy-rules]], [[ont.decision-log]]
+- Why:
+  - Extraction provenance is source information, so `_sources` is a better support-artifact home than `_inventory` once Knops can have a general source registry.
+  - Keeping the Knop-level `sflo:hasExtractionSource` pointer preserves the simple runtime lookup and lets SHACL constrain one primary extraction source without making inventory carry the relator details.
+  - The source registry can grow to include repository payload sources and extraction/term sources without bloating MeshConfig or conflating operational config with provenance.
 
 ### 2026-05-04: Named Release Histories Do Not Consume Ordinal Counters
 

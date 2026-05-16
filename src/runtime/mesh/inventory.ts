@@ -15,6 +15,8 @@ const SFLO_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}ExtractionSource`;
 const SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
   `${SFLO_NAMESPACE}hasArtifactResolutionMode`;
 const SFLO_HAS_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}hasExtractionSource`;
+const SFLO_HAS_KNOP_SOURCE_REGISTRY_IRI =
+  `${SFLO_NAMESPACE}hasKnopSourceRegistry`;
 const SFLO_HAS_REQUESTED_TARGET_STATE_IRI =
   `${SFLO_NAMESPACE}hasRequestedTargetState`;
 const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasTargetArtifact`;
@@ -78,6 +80,11 @@ export interface ExtractionSourceInventoryState {
   observedSourceLocalRelativePath?: string;
   observedSourceDigest?: string;
   observedAt?: string;
+}
+
+export interface KnopSourceRegistryInventoryState {
+  sourceRegistryPath: string;
+  workingLocalRelativePath: string;
 }
 
 export interface ResourcePageDefinitionInventoryState {
@@ -264,26 +271,29 @@ export function resolveExtractionSourceInventoryState(
     missingRequestedTargetStateMessage: string;
     unsupportedResolutionModeMessage: string;
   },
+  sourceRegistryTurtle?: string,
 ): ExtractionSourceInventoryState | undefined {
-  const quads = parseInventoryQuads(
+  const inventoryQuads = parseInventoryQuads(
     meshBase,
     inventoryTurtle,
     messages.parseErrorMessage,
   );
+  const sourceRegistryQuads = sourceRegistryTurtle === undefined
+    ? []
+    : parseInventoryQuads(
+      meshBase,
+      sourceRegistryTurtle,
+      messages.parseErrorMessage,
+    );
+  const quads = [...inventoryQuads, ...sourceRegistryQuads];
   const knopIri = toMeshIri(meshBase, toKnopPath(designatorPath));
-  const extractionSourceIri = new URL(
-    `${toKnopPath(designatorPath)}/_inventory#extraction-source`,
-    meshBase,
-  ).href;
-
-  if (
-    !hasNamedNodeObject(
-      quads,
-      knopIri,
-      SFLO_HAS_EXTRACTION_SOURCE_IRI,
-      extractionSourceIri,
-    )
-  ) {
+  const extractionSourceIri = resolveOptionalUniqueNamedNodeIri(
+    inventoryQuads,
+    knopIri,
+    SFLO_HAS_EXTRACTION_SOURCE_IRI,
+    messages.missingExtractionSourceMessage,
+  );
+  if (extractionSourceIri === undefined) {
     return undefined;
   }
 
@@ -347,6 +357,43 @@ export function resolveExtractionSourceInventoryState(
       messages.parseErrorMessage,
     ),
   };
+}
+
+export function resolveKnopSourceRegistryInventoryState(
+  meshBase: string,
+  inventoryTurtle: string,
+  designatorPath: string,
+  messages: {
+    parseErrorMessage: string;
+    missingSourceRegistryMessage: string;
+    missingWorkingFileMessage: string;
+  },
+): KnopSourceRegistryInventoryState | undefined {
+  const quads = parseInventoryQuads(
+    meshBase,
+    inventoryTurtle,
+    messages.parseErrorMessage,
+  );
+  const knopIri = toMeshIri(meshBase, toKnopPath(designatorPath));
+  const sourceRegistryPath = resolveOptionalUniqueNamedNodePath(
+    quads,
+    meshBase,
+    knopIri,
+    SFLO_HAS_KNOP_SOURCE_REGISTRY_IRI,
+    messages.missingSourceRegistryMessage,
+  );
+  if (sourceRegistryPath === undefined) {
+    return undefined;
+  }
+
+  const workingLocalRelativePath = requireWorkingLocalRelativePath(
+    quads,
+    meshBase,
+    toMeshIri(meshBase, sourceRegistryPath),
+    messages.missingWorkingFileMessage,
+  );
+
+  return { sourceRegistryPath, workingLocalRelativePath };
 }
 
 function resolveExtractionSourceEvidenceState(

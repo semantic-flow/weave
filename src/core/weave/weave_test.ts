@@ -2319,6 +2319,7 @@ Deno.test("planWeave renders the extracted bob woven slice", async () => {
   assertEquals(plan.updatedFiles.map((file) => file.path), [
     "_mesh/_inventory/inventory.ttl",
     "bob/_knop/_inventory/inventory.ttl",
+    "bob/_knop/_sources/sources.ttl",
     "_mesh/_inventory/_history001/index.html",
     "alice/index.html",
     "_mesh/_meta/meta.ttl",
@@ -2334,19 +2335,21 @@ Deno.test("planWeave renders the extracted bob woven slice", async () => {
     "<bob>\n  sflo:hasResourcePage <bob/index.html> .",
   );
   assertStringIncludes(
-    plan.updatedFiles[3]?.contents ?? "",
+    plan.updatedFiles[4]?.contents ?? "",
     '<td><a href="../bob">bob</a></td>',
   );
 });
 
 Deno.test("planWeave accepts semantically equivalent extracted bob ExtractionSource Turtle", async () => {
   const input = await createExtractedBobWeaveInput();
-  input.weaveableKnops[0]!.currentKnopInventoryTurtle = withRdfPrefix(
-    input.weaveableKnops[0]!.currentKnopInventoryTurtle,
-  ).replace(
-    " a sflo:ExtractionSource ;",
-    " rdf:type sflo:ExtractionSource ;",
-  );
+  input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact!
+    .currentSourceRegistryTurtle = withRdfPrefix(
+      input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact!
+        .currentSourceRegistryTurtle!,
+    ).replace(
+      " a sflo:ExtractionSource ;",
+      " rdf:type sflo:ExtractionSource ;",
+    );
 
   const plan = planWeave(input);
 
@@ -2394,7 +2397,7 @@ Deno.test("planWeave pins current-mode extracted bob sources during weave", asyn
     .referenceTargetSourcePayloadArtifact!.sourceEvidence!.sourceDigest!;
 
   assertStringIncludes(
-    plan.updatedFiles[1]?.contents ?? "",
+    plan.updatedFiles[2]?.contents ?? "",
     `sflo:hasTargetArtifact <alice/bio> ;
   sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_pinned> ;
@@ -2407,24 +2410,27 @@ Deno.test("planWeave pins current-mode extracted bob sources during weave", asyn
 
 Deno.test("planWeave rejects extracted bob weave inputs when the source payload path does not match", async () => {
   const input = await createExtractedBobWeaveInput();
-  input.weaveableKnops[0]!.currentKnopInventoryTurtle = input
-    .weaveableKnops[0]!.currentKnopInventoryTurtle.replace(
-      "sflo:hasTargetArtifact <alice/bio> ;",
-      "sflo:hasTargetArtifact <carol/bio> ;",
-    );
+  input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact!
+    .currentSourceRegistryTurtle = input.weaveableKnops[0]!
+      .referenceTargetSourcePayloadArtifact!.currentSourceRegistryTurtle!
+      .replace(
+        "sflo:hasTargetArtifact <alice/bio> ;",
+        "sflo:hasTargetArtifact <carol/bio> ;",
+      );
 
   assertThrows(
     () => planWeave(input),
     WeaveInputError,
-    "settled extracted-knop inventory shape",
+    "settled extracted-knop source registry shape",
   );
 });
 
 Deno.test("planWeave rejects extracted bob weave inputs when the source payload state does not match", async () => {
   const input = await createExtractedBobWeaveInput();
-  input.weaveableKnops[0]!.currentKnopInventoryTurtle =
-    withPinnedExtractedSourceState(
-      input.weaveableKnops[0]!.currentKnopInventoryTurtle,
+  input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact!
+    .currentSourceRegistryTurtle = withPinnedExtractedSourceState(
+      input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact!
+        .currentSourceRegistryTurtle!,
       "alice/bio/_history001/_s0002",
     );
   input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact = {
@@ -2435,7 +2441,7 @@ Deno.test("planWeave rejects extracted bob weave inputs when the source payload 
   assertThrows(
     () => planWeave(input),
     WeaveInputError,
-    "settled extracted-knop inventory shape",
+    "settled extracted-knop source registry shape",
   );
 });
 
@@ -2474,6 +2480,11 @@ Deno.test("planWeave accepts extracted weave inputs sourced from the root payloa
         designatorPath: "",
         workingLocalRelativePath: "root-person.ttl",
         currentPayloadTurtle: rootSourcePersonPayloadTurtle,
+        sourceRegistryWorkingLocalRelativePath:
+          "alice/bio/_knop/_sources/sources.ttl",
+        currentSourceRegistryTurtle: createdFileByPath.get(
+          "alice/bio/_knop/_sources/sources.ttl",
+        )!,
         latestHistoricalStatePath: "_history001/_s0001",
       },
     }],
@@ -2553,16 +2564,18 @@ Deno.test("planWeave preserves unrelated mesh inventory blocks during extracted 
 
 Deno.test("planWeave rejects extracted bob inventory without typed ExtractionSource", async () => {
   const input = await createExtractedBobWeaveInput();
-  input.weaveableKnops[0]!.currentKnopInventoryTurtle = input
-    .weaveableKnops[0]!.currentKnopInventoryTurtle.replace(
-      "<bob/_knop/_inventory#extraction-source> a sflo:ExtractionSource ;\n",
-      "",
-    );
+  input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact!
+    .currentSourceRegistryTurtle = input.weaveableKnops[0]!
+      .referenceTargetSourcePayloadArtifact!.currentSourceRegistryTurtle!
+      .replace(
+        "<bob/_knop/_sources#extraction-source> a sflo:ExtractionSource ;\n",
+        "",
+      );
 
   assertThrows(
     () => planWeave(input),
     WeaveInputError,
-    "settled first-history KnopInventory shape",
+    "settled extracted-knop source registry shape",
   );
 });
 
@@ -2893,32 +2906,46 @@ async function createExtractedBobWeaveInput(): Promise<PlanWeaveInput> {
   const latestHistoricalSnapshotPath =
     "alice/bio/_history001/_s0002/ttl/alice-bio.ttl";
   const latestHistoricalSnapshotTurtle = await readMeshAliceBioBranchFile(
-    "12-bob-extracted",
+    "11-alice-bio-v2-woven",
     latestHistoricalSnapshotPath,
+  );
+  const sourceDigest = await sha256Digest(latestHistoricalSnapshotTurtle);
+  const extractPlan = planExtract({
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: await readMeshAliceBioBranchFile(
+      "11-alice-bio-v2-woven",
+      "_mesh/_inventory/inventory.ttl",
+    ),
+    designatorPath: "bob",
+    sourceDesignatorPath: "alice/bio",
+    sourceStatePath: "alice/bio/_history001/_s0002",
+    sourceEvidence: {
+      sourceLocatedFilePath: "alice-bio.ttl",
+      sourceDigest,
+    },
+    sourceWorkingLocalRelativePath: "alice-bio.ttl",
+  });
+  const createdFileByPath = new Map(
+    extractPlan.createdFiles.map((file) => [file.path, file.contents]),
   );
   return {
     request: {
       targets: [{ designatorPath: "bob" }],
     },
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
-    currentMeshInventoryTurtle: await readMeshAliceBioBranchFile(
-      "12-bob-extracted",
-      "_mesh/_inventory/inventory.ttl",
-    ),
+    currentMeshInventoryTurtle: extractPlan.updatedFiles[0]!.contents,
     currentMeshMetadataTurtle: meshMetadataProgressionTurtle(
       "_mesh/_inventory/_history001/_s0003",
       4,
     ),
     weaveableKnops: [{
       designatorPath: "bob",
-      currentKnopMetadataTurtle: await readMeshAliceBioBranchFile(
-        "12-bob-extracted",
+      currentKnopMetadataTurtle: createdFileByPath.get(
         "bob/_knop/_meta/meta.ttl",
-      ),
-      currentKnopInventoryTurtle: await readMeshAliceBioBranchFile(
-        "12-bob-extracted",
+      )!,
+      currentKnopInventoryTurtle: createdFileByPath.get(
         "bob/_knop/_inventory/inventory.ttl",
-      ),
+      )!,
       referenceTargetSourcePayloadArtifact: {
         designatorPath: "alice/bio",
         workingLocalRelativePath: "alice-bio.ttl",
@@ -2926,6 +2953,11 @@ async function createExtractedBobWeaveInput(): Promise<PlanWeaveInput> {
           "12-bob-extracted",
           "alice-bio.ttl",
         ),
+        sourceRegistryWorkingLocalRelativePath:
+          "bob/_knop/_sources/sources.ttl",
+        currentSourceRegistryTurtle: createdFileByPath.get(
+          "bob/_knop/_sources/sources.ttl",
+        )!,
         latestHistoricalSnapshotPath,
         latestHistoricalSnapshotTurtle,
         latestHistoricalStatePath: "alice/bio/_history001/_s0002",
@@ -2933,7 +2965,7 @@ async function createExtractedBobWeaveInput(): Promise<PlanWeaveInput> {
           sourceStatePath: "alice/bio/_history001/_s0002",
           sourceManifestationPath: "alice/bio/_history001/_s0002/ttl",
           sourceLocatedFilePath: latestHistoricalSnapshotPath,
-          sourceDigest: await sha256Digest(latestHistoricalSnapshotTurtle),
+          sourceDigest,
         },
       },
     }],

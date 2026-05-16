@@ -35,7 +35,7 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
   assertEquals(result.sourceDesignatorPath, "alice/bio");
   assertEquals(
     result.extractionSourceIri,
-    "https://semantic-flow.github.io/mesh-alice-bio/bob/_knop/_inventory#extraction-source",
+    "https://semantic-flow.github.io/mesh-alice-bio/bob/_knop/_sources#extraction-source",
   );
   assertEquals(
     result.sourceArtifactIri,
@@ -48,6 +48,7 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
     [
       "bob/_knop/_inventory/inventory.ttl",
       "bob/_knop/_meta/meta.ttl",
+      "bob/_knop/_sources/sources.ttl",
     ],
   );
   assertEquals(result.updatedPaths, ["_mesh/_inventory/inventory.ttl"]);
@@ -78,14 +79,9 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
 <bob/_knop> a sflo:Knop ;
   sflo:hasKnopMetadata <bob/_knop/_meta> ;
   sflo:hasKnopInventory <bob/_knop/_inventory> ;
-  sflo:hasExtractionSource <bob/_knop/_inventory#extraction-source> ;
+  sflo:hasKnopSourceRegistry <bob/_knop/_sources> ;
+  sflo:hasExtractionSource <bob/_knop/_sources#extraction-source> ;
   sflo:hasWorkingKnopInventoryFile <bob/_knop/_inventory/inventory.ttl> .
-
-<bob/_knop/_inventory#extraction-source> a sflo:ExtractionSource ;
-  sflo:hasTargetArtifact <alice/bio> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> ;
-  sflo:hasObservedSourceLocatedFile <alice-bio.ttl> ;
-  sflo:observedSourceDigest "sha256:37c15e56644d785a550522d7700eccd9465704f18cf4b4e55616db8b8824ea33" .
 
 <bob/_knop/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <bob/_knop/_meta/meta.ttl> .
@@ -93,9 +89,34 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
 <bob/_knop/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasWorkingLocatedFile <bob/_knop/_inventory/inventory.ttl> .
 
+<bob/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <bob/_knop/_sources/sources.ttl> .
+
 <bob/_knop/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <bob/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<bob/_knop/_sources/sources.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+`,
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "bob/_knop/_sources/sources.ttl"),
+    ),
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<bob/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <bob/_knop/_sources/sources.ttl> ;
+  sflo:hasSourceBinding <bob/_knop/_sources#extraction-source> .
+
+<bob/_knop/_sources#extraction-source> a sflo:ExtractionSource ;
+  sflo:hasTargetArtifact <alice/bio> ;
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> ;
+  sflo:hasObservedSourceLocatedFile <alice-bio.ttl> ;
+  sflo:observedSourceDigest "sha256:37c15e56644d785a550522d7700eccd9465704f18cf4b4e55616db8b8824ea33" .
+
+<bob/_knop/_sources/sources.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 `,
   );
 
@@ -191,8 +212,10 @@ Deno.test("executeExtractAllTerms extracts only new named mesh terms and skips s
     [
       "bob/_knop/_inventory/inventory.ttl",
       "bob/_knop/_meta/meta.ttl",
+      "bob/_knop/_sources/sources.ttl",
       "carol/_knop/_inventory/inventory.ttl",
       "carol/_knop/_meta/meta.ttl",
+      "carol/_knop/_sources/sources.ttl",
     ],
   );
   assertEquals(result.updatedPaths, ["_mesh/_inventory/inventory.ttl"]);
@@ -258,6 +281,7 @@ Deno.test("executeExtract extracts selected sidecar ontology and SHACL terms wit
       [
         `docs/${designatorPath}/_knop/_inventory/inventory.ttl`,
         `docs/${designatorPath}/_knop/_meta/meta.ttl`,
+        `docs/${designatorPath}/_knop/_sources/sources.ttl`,
       ],
     );
     assertEquals(result.updatedPaths, ["docs/_mesh/_inventory/inventory.ttl"]);
@@ -289,7 +313,7 @@ Deno.test("executeExtract extracts selected sidecar ontology and SHACL terms wit
     (await Deno.readTextFile(
       join(
         workspaceRoot,
-        "docs/ontology/AbilityScore/_knop/_inventory/inventory.ttl",
+        "docs/ontology/AbilityScore/_knop/_sources/sources.ttl",
       ),
     )).includes("artifactResolutionMode_current"),
     true,
@@ -298,7 +322,7 @@ Deno.test("executeExtract extracts selected sidecar ontology and SHACL terms wit
     (await Deno.readTextFile(
       join(
         workspaceRoot,
-        "docs/ontology/CharacterShape/_knop/_inventory/inventory.ttl",
+        "docs/ontology/CharacterShape/_knop/_sources/sources.ttl",
       ),
     )).includes("sflo:hasTargetArtifact <shacl>"),
     true,
@@ -349,6 +373,14 @@ Deno.test("executeSetExtractionSource replaces an existing pinned source binding
       sourceStatePath: "alice/bio/_history001/_s0002",
     },
   });
+  const sourcesPath = join(workspaceRoot, "bob/_knop/_sources/sources.ttl");
+  await Deno.writeTextFile(
+    sourcesPath,
+    (await Deno.readTextFile(sourcesPath)).replace(
+      " a sflo:ExtractionSource ;",
+      " <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> sflo:ExtractionSource ;",
+    ),
+  );
 
   const result = await executeSetExtractionSource({
     workspaceRoot,
@@ -359,16 +391,17 @@ Deno.test("executeSetExtractionSource replaces an existing pinned source binding
   });
 
   assertEquals(result.sourceResolutionMode, "current");
-  assertEquals(result.updatedPaths, ["bob/_knop/_inventory/inventory.ttl"]);
+  assertEquals(result.updatedPaths, ["bob/_knop/_sources/sources.ttl"]);
+  const sourcesTurtle = await Deno.readTextFile(sourcesPath);
   const inventoryTurtle = await Deno.readTextFile(
     join(workspaceRoot, "bob/_knop/_inventory/inventory.ttl"),
   );
   assertEquals(
-    inventoryTurtle.includes("artifactResolutionMode_current"),
+    sourcesTurtle.includes("artifactResolutionMode_current"),
     true,
   );
   assertEquals(
-    inventoryTurtle.includes("hasRequestedTargetState"),
+    sourcesTurtle.includes("hasRequestedTargetState"),
     false,
   );
   assertEquals(

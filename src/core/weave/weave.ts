@@ -108,6 +108,7 @@ const SFLO_HAS_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}hasReferenceCatalog`;
 const SFLO_HAS_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}hasReferenceLink`;
 const SFLO_HAS_REFERENCE_ROLE_IRI = `${SFLO_NAMESPACE}hasReferenceRole`;
 const SFLO_HAS_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}hasResourcePage`;
+const SFLO_HAS_SOURCE_BINDING_IRI = `${SFLO_NAMESPACE}hasSourceBinding`;
 const SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI =
   `${SFLO_NAMESPACE}hasWorkingKnopInventoryFile`;
 const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
@@ -119,6 +120,7 @@ const SFLO_KNOP_METADATA_IRI = `${SFLO_NAMESPACE}KnopMetadata`;
 const SFLO_KNOP_SOURCE_REGISTRY_IRI = `${SFLO_NAMESPACE}KnopSourceRegistry`;
 const SFLO_LATEST_HISTORICAL_STATE_IRI =
   `${SFLO_NAMESPACE}latestHistoricalState`;
+const SFLO_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}LocatedFile`;
 const SFLO_MESH_INVENTORY_IRI = `${SFLO_NAMESPACE}MeshInventory`;
 const SFLO_NEXT_HISTORY_ORDINAL_IRI = `${SFLO_NAMESPACE}nextHistoryOrdinal`;
 const SFLO_NEXT_STATE_ORDINAL_IRI = `${SFLO_NAMESPACE}nextStateOrdinal`;
@@ -164,6 +166,8 @@ export interface ReferenceTargetSourcePayloadArtifact {
   designatorPath: string;
   workingLocalRelativePath: string;
   currentPayloadTurtle: string;
+  sourceRegistryWorkingLocalRelativePath?: string;
+  currentSourceRegistryTurtle?: string;
   latestHistoricalSnapshotPath?: string;
   latestHistoricalSnapshotTurtle?: string;
   latestHistoricalStatePath: string;
@@ -689,6 +693,12 @@ export function detectPendingWeaveSlice(
     meshBase,
     knopPath,
     SFLO_HAS_EXTRACTION_SOURCE_IRI,
+    `${knopPath}/_sources#extraction-source`,
+  ) || hasNamedNodeFact(
+    quads,
+    meshBase,
+    knopPath,
+    SFLO_HAS_EXTRACTION_SOURCE_IRI,
     `${knopPath}/_inventory#extraction-source`,
   );
   const referenceCatalogRelationship = hasNamedNodeFact(
@@ -1131,6 +1141,15 @@ function planFirstExtractedKnopWeave(
     referenceTargetSourcePayloadArtifact.designatorPath,
     referenceTargetSourcePayloadArtifact.latestHistoricalStatePath,
   );
+  if (referenceTargetSourcePayloadArtifact.currentSourceRegistryTurtle) {
+    assertCurrentSourceRegistryShapeForFirstExtractedKnopWeave(
+      meshBase,
+      referenceTargetSourcePayloadArtifact.currentSourceRegistryTurtle,
+      designatorPath,
+      referenceTargetSourcePayloadArtifact.designatorPath,
+      referenceTargetSourcePayloadArtifact.latestHistoricalStatePath,
+    );
+  }
   assertReferenceTargetSourcePayloadShapeForFirstExtractedKnopWeave(
     referenceTargetSourcePayloadArtifact,
   );
@@ -1160,12 +1179,24 @@ function planFirstExtractedKnopWeave(
         renderFirstExtractedKnopWovenKnopInventoryTurtle(
           meshBase,
           designatorPath,
+        ),
+      knopPath,
+    });
+  const pinnedSourceRegistryTurtle =
+    referenceTargetSourcePayloadArtifact.currentSourceRegistryTurtle &&
+      referenceTargetSourcePayloadArtifact
+        .sourceRegistryWorkingLocalRelativePath
+      ? replaceExtractionSourceBlock(
+        referenceTargetSourcePayloadArtifact.currentSourceRegistryTurtle,
+        `${knopPath}/_sources#extraction-source`,
+        renderPinnedExtractionSourceBlock(
+          `${knopPath}/_sources#extraction-source`,
           referenceTargetSourcePayloadArtifact.designatorPath,
           referenceTargetSourcePayloadArtifact.latestHistoricalStatePath,
           referenceTargetSourcePayloadArtifact.sourceEvidence,
         ),
-      knopPath,
-    });
+      )
+      : undefined;
 
   return {
     meshBase,
@@ -1230,6 +1261,11 @@ function planFirstExtractedKnopWeave(
         path: `${knopPath}/_inventory/inventory.ttl`,
         contents: wovenKnopInventoryTurtle,
       },
+      ...(pinnedSourceRegistryTurtle === undefined ? [] : [{
+        path: referenceTargetSourcePayloadArtifact
+          .sourceRegistryWorkingLocalRelativePath!,
+        contents: pinnedSourceRegistryTurtle,
+      }]),
       ...(meshInventoryProgression === undefined ? [] : [{
         path: "_mesh/_inventory/_history001/index.html",
         contents: renderArtifactHistoryIndexPage(meshBase, {
@@ -1348,6 +1384,18 @@ function planFirstReferenceCatalogWeave(
     designatorPath,
     referenceCatalogPath,
   );
+  const wovenKnopInventoryTurtle =
+    renderKnopInventoryWithPreservedSourceRegistry({
+      meshBase,
+      currentKnopInventoryTurtle: candidate.currentKnopInventoryTurtle,
+      renderedKnopInventoryTurtle:
+        renderFirstReferenceCatalogWovenKnopInventoryTurtle(
+          meshBase,
+          designatorPath,
+          referenceCatalogWorkingLocalRelativePath,
+        ),
+      knopPath,
+    });
 
   return {
     meshBase,
@@ -1355,11 +1403,7 @@ function planFirstReferenceCatalogWeave(
     createdFiles: [
       {
         path: `${knopPath}/_inventory/_history001/_s0002/ttl/inventory.ttl`,
-        contents: renderFirstReferenceCatalogWovenKnopInventoryTurtle(
-          meshBase,
-          designatorPath,
-          referenceCatalogWorkingLocalRelativePath,
-        ),
+        contents: wovenKnopInventoryTurtle,
       },
       {
         path: `${referenceCatalogManifestationPath}/${
@@ -1371,11 +1415,7 @@ function planFirstReferenceCatalogWeave(
     updatedFiles: [
       {
         path: `${knopPath}/_inventory/inventory.ttl`,
-        contents: renderFirstReferenceCatalogWovenKnopInventoryTurtle(
-          meshBase,
-          designatorPath,
-          referenceCatalogWorkingLocalRelativePath,
-        ),
+        contents: wovenKnopInventoryTurtle,
       },
     ],
     createdPages: buildFirstReferenceCatalogWeavePages(
@@ -2158,7 +2198,10 @@ function assertCurrentKnopInventoryShapeForFirstExtractedKnopWeave(
   sourceStatePath: string,
 ): void {
   const knopPath = toKnopPath(designatorPath);
-  const extractionSourcePath = `${knopPath}/_inventory#extraction-source`;
+  const sourceRegistryPath = `${knopPath}/_sources`;
+  const sourcesFilePath = `${sourceRegistryPath}/sources.ttl`;
+  const extractionSourcePath = `${sourceRegistryPath}#extraction-source`;
+  const legacyExtractionSourcePath = `${knopPath}/_inventory#extraction-source`;
   const errorMessage =
     `The current local weave slice only supports the settled extracted-knop inventory shape for ${designatorPath}.`;
   const quads = parseWeaveShapeQuads(
@@ -2171,7 +2214,6 @@ function assertCurrentKnopInventoryShapeForFirstExtractedKnopWeave(
     [knopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
     [knopPath, SFLO_HAS_KNOP_METADATA_IRI, `${knopPath}/_meta`],
     [knopPath, SFLO_HAS_KNOP_INVENTORY_IRI, `${knopPath}/_inventory`],
-    [knopPath, SFLO_HAS_EXTRACTION_SOURCE_IRI, extractionSourcePath],
     [
       knopPath,
       SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI,
@@ -2183,6 +2225,132 @@ function assertCurrentKnopInventoryShapeForFirstExtractedKnopWeave(
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_KNOP_INVENTORY_IRI],
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
+  ]);
+  if (
+    !hasNamedNodeFact(
+      quads,
+      meshBase,
+      knopPath,
+      SFLO_HAS_EXTRACTION_SOURCE_IRI,
+      extractionSourcePath,
+    ) &&
+    !hasNamedNodeFact(
+      quads,
+      meshBase,
+      knopPath,
+      SFLO_HAS_EXTRACTION_SOURCE_IRI,
+      legacyExtractionSourcePath,
+    )
+  ) {
+    throw new WeaveInputError(errorMessage);
+  }
+  if (
+    hasNamedNodeFact(
+      quads,
+      meshBase,
+      knopPath,
+      SFLO_HAS_KNOP_SOURCE_REGISTRY_IRI,
+      sourceRegistryPath,
+    )
+  ) {
+    assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
+      [sourceRegistryPath, RDF_TYPE_IRI, SFLO_KNOP_SOURCE_REGISTRY_IRI],
+      [
+        sourceRegistryPath,
+        SFLO_HAS_WORKING_LOCATED_FILE_IRI,
+        sourcesFilePath,
+      ],
+      [sourcesFilePath, RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
+      [sourcesFilePath, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
+    ]);
+  } else if (
+    hasNamedNodeFact(
+      quads,
+      meshBase,
+      legacyExtractionSourcePath,
+      RDF_TYPE_IRI,
+      SFLO_EXTRACTION_SOURCE_IRI,
+    )
+  ) {
+    assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
+      [
+        legacyExtractionSourcePath,
+        SFLO_HAS_TARGET_ARTIFACT_IRI,
+        sourceDesignatorPath,
+      ],
+    ]);
+    if (
+      !hasNamedNodeFact(
+        quads,
+        meshBase,
+        legacyExtractionSourcePath,
+        SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
+        SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI,
+      ) &&
+      !(
+        hasNamedNodeFact(
+          quads,
+          meshBase,
+          legacyExtractionSourcePath,
+          SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
+          SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI,
+        ) &&
+        hasNamedNodeFact(
+          quads,
+          meshBase,
+          legacyExtractionSourcePath,
+          SFLO_HAS_REQUESTED_TARGET_STATE_IRI,
+          sourceStatePath,
+        )
+      )
+    ) {
+      throw new WeaveInputError(errorMessage);
+    }
+  } else {
+    throw new WeaveInputError(errorMessage);
+  }
+  assertHasCurrentWorkingFileLocator(
+    quads,
+    meshBase,
+    errorMessage,
+    `${knopPath}/_meta`,
+    `${knopPath}/_meta/meta.ttl`,
+  );
+  assertHasCurrentWorkingFileLocator(
+    quads,
+    meshBase,
+    errorMessage,
+    `${knopPath}/_inventory`,
+    `${knopPath}/_inventory/inventory.ttl`,
+  );
+
+  if (hasPredicateFact(quads, SFLO_HAS_ARTIFACT_HISTORY_IRI)) {
+    throw new WeaveInputError(
+      `Extracted KnopInventory already has explicit woven history for ${designatorPath}.`,
+    );
+  }
+}
+
+function assertCurrentSourceRegistryShapeForFirstExtractedKnopWeave(
+  meshBase: string,
+  currentSourceRegistryTurtle: string,
+  designatorPath: string,
+  sourceDesignatorPath: string,
+  sourceStatePath: string,
+): void {
+  const sourceRegistryPath = `${toKnopPath(designatorPath)}/_sources`;
+  const extractionSourcePath = `${sourceRegistryPath}#extraction-source`;
+  const errorMessage =
+    `The current local weave slice only supports the settled extracted-knop source registry shape for ${designatorPath}.`;
+  const quads = parseWeaveShapeQuads(
+    meshBase,
+    currentSourceRegistryTurtle,
+    errorMessage,
+  );
+
+  assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
+    [sourceRegistryPath, RDF_TYPE_IRI, SFLO_KNOP_SOURCE_REGISTRY_IRI],
+    [sourceRegistryPath, SFLO_HAS_SOURCE_BINDING_IRI, extractionSourcePath],
     [extractionSourcePath, RDF_TYPE_IRI, SFLO_EXTRACTION_SOURCE_IRI],
     [extractionSourcePath, SFLO_HAS_TARGET_ARTIFACT_IRI, sourceDesignatorPath],
   ]);
@@ -2212,26 +2380,6 @@ function assertCurrentKnopInventoryShapeForFirstExtractedKnopWeave(
     )
   ) {
     throw new WeaveInputError(errorMessage);
-  }
-  assertHasCurrentWorkingFileLocator(
-    quads,
-    meshBase,
-    errorMessage,
-    `${knopPath}/_meta`,
-    `${knopPath}/_meta/meta.ttl`,
-  );
-  assertHasCurrentWorkingFileLocator(
-    quads,
-    meshBase,
-    errorMessage,
-    `${knopPath}/_inventory`,
-    `${knopPath}/_inventory/inventory.ttl`,
-  );
-
-  if (hasPredicateFact(quads, SFLO_HAS_ARTIFACT_HISTORY_IRI)) {
-    throw new WeaveInputError(
-      `Extracted KnopInventory already has explicit woven history for ${designatorPath}.`,
-    );
   }
 }
 
@@ -5397,16 +5545,11 @@ function getSubjectPathFromBlock(block: string): string | undefined {
 function renderFirstExtractedKnopWovenKnopInventoryTurtle(
   meshBase: string,
   designatorPath: string,
-  sourceDesignatorPath: string,
-  sourceStatePath: string,
-  sourceEvidence?: ExtractionSourceEvidenceModel,
 ): string {
   const knopPath = toKnopPath(designatorPath);
-  const extractionSourceFacts = renderPinnedExtractionSourceFacts(
-    sourceDesignatorPath,
-    sourceStatePath,
-    sourceEvidence,
-  );
+  const sourceRegistryPath = `${knopPath}/_sources`;
+  const sourcesFilePath = `${sourceRegistryPath}/sources.ttl`;
+  const extractionSourcePath = `${sourceRegistryPath}#extraction-source`;
 
   return `@base <${meshBase}> .
 ${SFLO_TURTLE_PREFIX_DECLARATION}
@@ -5415,12 +5558,10 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 <${knopPath}> a sflo:Knop ;
   sflo:hasKnopMetadata <${knopPath}/_meta> ;
   sflo:hasKnopInventory <${knopPath}/_inventory> ;
-  sflo:hasExtractionSource <${knopPath}/_inventory#extraction-source> ;
+  sflo:hasKnopSourceRegistry <${sourceRegistryPath}> ;
+  sflo:hasExtractionSource <${extractionSourcePath}> ;
   sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> ;
   sflo:hasResourcePage <${knopPath}/index.html> .
-
-<${knopPath}/_inventory#extraction-source> a sflo:ExtractionSource ;
-${extractionSourceFacts}
 
 <${knopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <${knopPath}/_meta/_history001> ;
@@ -5453,6 +5594,9 @@ ${extractionSourceFacts}
   sflo:hasWorkingLocatedFile <${knopPath}/_inventory/inventory.ttl> ;
   sflo:hasResourcePage <${knopPath}/_inventory/index.html> .
 
+<${sourceRegistryPath}> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${sourcesFilePath}> .
+
 <${knopPath}/_inventory/_history001> a sflo:ArtifactHistory ;
   sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
   sflo:hasHistoricalState <${knopPath}/_inventory/_history001/_s0001> ;
@@ -5473,6 +5617,8 @@ ${extractionSourceFacts}
 <${knopPath}/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<${sourcesFilePath}> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
@@ -5498,7 +5644,26 @@ ${extractionSourceFacts}
 `;
 }
 
-function renderPinnedExtractionSourceFacts(
+function replaceExtractionSourceBlock(
+  turtle: string,
+  extractionSourcePath: string,
+  replacementBlock: string,
+): string {
+  const blocks = splitTurtleBlocks(turtle);
+  const blockIndex = findSubjectBlockIndex(blocks, extractionSourcePath);
+  if (blockIndex === -1) {
+    throw new WeaveInputError(
+      `Could not replace existing ExtractionSource block <${extractionSourcePath}>.`,
+    );
+  }
+
+  const nextBlocks = [...blocks];
+  nextBlocks[blockIndex] = replacementBlock;
+  return `${nextBlocks.join("\n\n")}\n`;
+}
+
+function renderPinnedExtractionSourceBlock(
+  extractionSourcePath: string,
   sourceDesignatorPath: string,
   sourceStatePath: string,
   sourceEvidence: ExtractionSourceEvidenceModel | undefined,
@@ -5513,9 +5678,12 @@ function renderPinnedExtractionSourceFacts(
     ...toExtractionSourceEvidenceFacts(sourceEvidence),
   ];
 
-  return facts.map(([predicate, object], index) =>
-    `  ${predicate} ${object}${index === facts.length - 1 ? " ." : " ;"}`
-  ).join("\n");
+  return `<${extractionSourcePath}> a sflo:ExtractionSource ;
+${
+    facts.map(([predicate, object], index) =>
+      `  ${predicate} ${object}${index === facts.length - 1 ? " ." : " ;"}`
+    ).join("\n")
+  }`;
 }
 
 function toExtractionSourceEvidenceFacts(
@@ -6317,6 +6485,7 @@ function renderRenderedHistoryResourcePageBlocks(
 interface CurrentKnopSourceRegistry {
   sourceRegistryPath: string;
   sourcesFilePath: string;
+  extractionSourcePath?: string;
 }
 
 function renderKnopInventoryWithPreservedSourceRegistry(options: {
@@ -6341,9 +6510,10 @@ function renderKnopInventoryWithPreservedSourceRegistry(options: {
   blocks = replaceSubjectBlock(
     blocks,
     options.knopPath,
-    renderKnopBlockWithSourceRegistry(
+    renderKnopBlockWithSourceFacts(
       blocks[knopBlockIndex]!,
       sourceRegistry.sourceRegistryPath,
+      sourceRegistry.extractionSourcePath,
     ),
   );
   blocks = upsertSubjectBlockAfter(
@@ -6390,6 +6560,17 @@ function resolveCurrentKnopSourceRegistry(options: {
   if (sourceRegistryPath === undefined) {
     return undefined;
   }
+  const extractionSourceIri = requireOptionalNamedNodeObject(
+    quads,
+    toAbsoluteIri(options.meshBase, options.knopPath),
+    SFLO_HAS_EXTRACTION_SOURCE_IRI,
+    errorMessage,
+  );
+  const extractionSourcePath = extractionSourceIri === undefined
+    ? undefined
+    : extractionSourceIri.startsWith(options.meshBase)
+    ? extractionSourceIri.slice(options.meshBase.length)
+    : extractionSourceIri;
 
   if (
     !hasNamedNodeFact(
@@ -6414,16 +6595,21 @@ function resolveCurrentKnopSourceRegistry(options: {
     throw new WeaveInputError(errorMessage);
   }
 
-  return { sourceRegistryPath, sourcesFilePath };
+  return { sourceRegistryPath, sourcesFilePath, extractionSourcePath };
 }
 
-function renderKnopBlockWithSourceRegistry(
+function renderKnopBlockWithSourceFacts(
   block: string,
   sourceRegistryPath: string,
+  extractionSourcePath: string | undefined,
 ): string {
-  const sourceRegistryLine =
-    `  sflo:hasKnopSourceRegistry <${sourceRegistryPath}> ;`;
-  if (block.includes(sourceRegistryLine)) {
+  const carriedLines = [
+    `  sflo:hasKnopSourceRegistry <${sourceRegistryPath}> ;`,
+    ...(extractionSourcePath === undefined ? [] : [
+      `  sflo:hasExtractionSource <${extractionSourcePath}> ;`,
+    ]),
+  ].filter((line) => !block.includes(line));
+  if (carriedLines.length === 0) {
     return block;
   }
 
@@ -6436,7 +6622,7 @@ function renderKnopBlockWithSourceRegistry(
 
   return block.replace(
     workingInventoryLine,
-    `${sourceRegistryLine}\n${workingInventoryLine}`,
+    `${carriedLines.join("\n")}\n${workingInventoryLine}`,
   );
 }
 

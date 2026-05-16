@@ -131,7 +131,7 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
       meshBase,
       designatorPath,
       extractionSourceIri:
-        new URL(`${knopPath}/_inventory#extraction-source`, meshBase).href,
+        new URL(`${knopPath}/_sources#extraction-source`, meshBase).href,
       sourceArtifactIri: new URL(sourceDesignatorPath, meshBase).href,
       sourceDesignatorPath,
       ...(sourceStatePath
@@ -151,6 +151,13 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
         {
           path: `${knopPath}/_inventory/inventory.ttl`,
           contents: renderExtractKnopInventoryTurtle(
+            meshBase,
+            designatorPath,
+          ),
+        },
+        {
+          path: `${knopPath}/_sources/sources.ttl`,
+          contents: renderExtractKnopSourcesTurtle(
             meshBase,
             designatorPath,
             sourceDesignatorPath,
@@ -745,12 +752,50 @@ function renderResourcePageDeclarations(paths: readonly string[]): string {
 function renderExtractKnopInventoryTurtle(
   meshBase: string,
   designatorPath: string,
+): string {
+  const knopPath = toKnopPath(designatorPath);
+  const sourceRegistryPath = `${knopPath}/_sources`;
+  const sourcesFilePath = `${sourceRegistryPath}/sources.ttl`;
+  const extractionSourcePath = `${sourceRegistryPath}#extraction-source`;
+
+  return `@base <${meshBase}> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
+
+<${knopPath}> a sflo:Knop ;
+  sflo:hasKnopMetadata <${knopPath}/_meta> ;
+  sflo:hasKnopInventory <${knopPath}/_inventory> ;
+  sflo:hasKnopSourceRegistry <${sourceRegistryPath}> ;
+  sflo:hasExtractionSource <${extractionSourcePath}> ;
+  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> .
+
+<${knopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${knopPath}/_meta/meta.ttl> .
+
+<${knopPath}/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${knopPath}/_inventory/inventory.ttl> .
+
+<${sourceRegistryPath}> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${sourcesFilePath}> .
+
+<${knopPath}/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<${sourcesFilePath}> a sflo:LocatedFile, sflo:RdfDocument .
+`;
+}
+
+function renderExtractKnopSourcesTurtle(
+  meshBase: string,
+  designatorPath: string,
   sourceDesignatorPath: string,
   sourceResolutionMode: "current" | "pinned",
   sourceStatePath?: string,
   sourceEvidence?: ExtractionSourceEvidence,
 ): string {
-  const knopPath = toKnopPath(designatorPath);
+  const sourceRegistryPath = `${toKnopPath(designatorPath)}/_sources`;
+  const sourcesFilePath = `${sourceRegistryPath}/sources.ttl`;
+  const extractionSourcePath = `${sourceRegistryPath}#extraction-source`;
   const extractionSourceFacts = renderExtractionSourceFacts(
     sourceDesignatorPath,
     sourceResolutionMode,
@@ -761,24 +806,14 @@ function renderExtractKnopInventoryTurtle(
   return `@base <${meshBase}> .
 ${SFLO_TURTLE_PREFIX_DECLARATION}
 
-<${knopPath}> a sflo:Knop ;
-  sflo:hasKnopMetadata <${knopPath}/_meta> ;
-  sflo:hasKnopInventory <${knopPath}/_inventory> ;
-  sflo:hasExtractionSource <${knopPath}/_inventory#extraction-source> ;
-  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> .
+<${sourceRegistryPath}> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${sourcesFilePath}> ;
+  sflo:hasSourceBinding <${extractionSourcePath}> .
 
-<${knopPath}/_inventory#extraction-source> a sflo:ExtractionSource ;
+<${extractionSourcePath}> a sflo:ExtractionSource ;
 ${extractionSourceFacts}
 
-<${knopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <${knopPath}/_meta/meta.ttl> .
-
-<${knopPath}/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <${knopPath}/_inventory/inventory.ttl> .
-
-<${knopPath}/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<${sourcesFilePath}> a sflo:LocatedFile, sflo:RdfDocument .
 `;
 }
 

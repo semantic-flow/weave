@@ -60,7 +60,7 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
 
   assertEquals(
     plan.extractionSourceIri,
-    "https://semantic-flow.github.io/mesh-alice-bio/bob/_knop/_inventory#extraction-source",
+    "https://semantic-flow.github.io/mesh-alice-bio/bob/_knop/_sources#extraction-source",
   );
   assertEquals(
     plan.sourceArtifactIri,
@@ -76,6 +76,7 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
     [
       "bob/_knop/_meta/meta.ttl",
       "bob/_knop/_inventory/inventory.ttl",
+      "bob/_knop/_sources/sources.ttl",
     ],
   );
   assertEquals(
@@ -89,24 +90,22 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
       "bob/_knop/_meta/meta.ttl",
     ),
   );
-  assertEquals(
-    plan.createdFiles[1]?.contents ?? "",
-    await readMeshAliceBioBranchFile(
-      "12-bob-extracted",
-      "bob/_knop/_inventory/inventory.ttl",
-    ),
-  );
   assertStringIncludes(
     plan.createdFiles[1]?.contents ?? "",
+    `sflo:hasKnopSourceRegistry <bob/_knop/_sources> ;
+  sflo:hasExtractionSource <bob/_knop/_sources#extraction-source> ;`,
+  );
+  assertStringIncludes(
+    plan.createdFiles[2]?.contents ?? "",
     "sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> ;",
   );
   assertStringIncludes(
-    plan.createdFiles[1]?.contents ?? "",
+    plan.createdFiles[2]?.contents ?? "",
     `sflo:hasObservedSourceLocatedFile <alice-bio.ttl> ;
   sflo:observedSourceDigest "${sourceDigest}" .`,
   );
   assertFalse(
-    (plan.createdFiles[1]?.contents ?? "").includes(
+    (plan.createdFiles[2]?.contents ?? "").includes(
       "sflo:hasRequestedTargetState",
     ),
   );
@@ -141,6 +140,7 @@ Deno.test("planExtract accepts a root source payload when the root and source kn
     [
       "alice/bio/_knop/_meta/meta.ttl",
       "alice/bio/_knop/_inventory/inventory.ttl",
+      "alice/bio/_knop/_sources/sources.ttl",
     ],
   );
   assertStringIncludes(
@@ -191,7 +191,7 @@ Deno.test("planExtract accepts a root source payload when the root and source kn
     1,
   );
   assertStringIncludes(
-    plan.createdFiles[1]?.contents ?? "",
+    plan.createdFiles[2]?.contents ?? "",
     `sflo:hasTargetArtifact <> ;
   sflo:hasRequestedTargetState <_history001/_s0001> ;`,
   );

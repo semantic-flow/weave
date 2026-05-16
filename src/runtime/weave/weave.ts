@@ -41,6 +41,7 @@ import {
 import {
   listKnopDesignatorPaths,
   resolveExtractionSourceInventoryState,
+  resolveKnopSourceRegistryInventoryState,
   resolvePayloadArtifactInventoryState,
   resolveReferenceCatalogInventoryState,
   resolveResourcePageDefinitionInventoryState,
@@ -96,6 +97,7 @@ const SFLO_HAS_KNOP_METADATA_IRI = `${SFLO_NAMESPACE}hasKnopMetadata`;
 const SFLO_HAS_KNOP_INVENTORY_IRI = `${SFLO_NAMESPACE}hasKnopInventory`;
 const SFLO_HAS_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasPayloadArtifact`;
 const SFLO_HAS_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}hasReferenceCatalog`;
+const SFLO_HAS_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}hasExtractionSource`;
 const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
   `${SFLO_NAMESPACE}hasWorkingLocatedFile`;
 const SFLO_WORKING_FILE_PATH_IRI = `${SFLO_NAMESPACE}workingLocalRelativePath`;
@@ -1233,6 +1235,13 @@ async function loadReferenceTargetSourcePayloadArtifact(
   currentKnopInventoryTurtle: string,
   overlay?: ReadonlyMap<string, string>,
 ): Promise<WeaveableKnopCandidate["referenceTargetSourcePayloadArtifact"]> {
+  const sourceRegistryArtifact = await loadKnopSourceRegistryArtifact(
+    workspaceRoot,
+    meshBase,
+    designatorPath,
+    currentKnopInventoryTurtle,
+    overlay,
+  );
   const extractionSource = resolveExtractionSourceInventoryState(
     meshBase,
     currentKnopInventoryTurtle,
@@ -1249,6 +1258,7 @@ async function loadReferenceTargetSourcePayloadArtifact(
       unsupportedResolutionModeMessage:
         `Unsupported ExtractionSource resolution mode for ${designatorPath}.`,
     },
+    sourceRegistryArtifact?.turtle,
   );
   if (!extractionSource) {
     return undefined;
@@ -1328,6 +1338,13 @@ async function loadReferenceTargetSourcePayloadArtifact(
     designatorPath: sourceDesignatorPath,
     workingLocalRelativePath: sourcePayloadArtifact.workingLocalRelativePath,
     currentPayloadTurtle: sourcePayloadArtifact.currentPayloadTurtle,
+    ...(sourceRegistryArtifact
+      ? {
+        sourceRegistryWorkingLocalRelativePath:
+          sourceRegistryArtifact.workingLocalRelativePath,
+        currentSourceRegistryTurtle: sourceRegistryArtifact.turtle,
+      }
+      : {}),
     latestHistoricalSnapshotPath: selectedHistoricalSnapshotPath,
     latestHistoricalSnapshotTurtle: selectedHistoricalSnapshotTurtle,
     latestHistoricalStatePath: selectedHistoricalStatePath,
@@ -1342,6 +1359,58 @@ async function loadReferenceTargetSourcePayloadArtifact(
       sourceDigest: await sha256Digest(selectedHistoricalSnapshotTurtle),
     },
   };
+}
+
+async function loadKnopSourceRegistryArtifact(
+  workspaceRoot: string,
+  meshBase: string,
+  designatorPath: string,
+  currentKnopInventoryTurtle: string,
+  overlay?: ReadonlyMap<string, string>,
+): Promise<
+  { workingLocalRelativePath: string; turtle: string } | undefined
+> {
+  const sourceRegistryState = resolveKnopSourceRegistryInventoryState(
+    meshBase,
+    currentKnopInventoryTurtle,
+    designatorPath,
+    {
+      parseErrorMessage:
+        `Could not parse the current Knop inventory while resolving source registry facts for ${designatorPath}.`,
+      missingSourceRegistryMessage:
+        `Could not resolve the current Knop source registry for ${designatorPath}.`,
+      missingWorkingFileMessage:
+        `Could not resolve the current Knop source registry working file for ${designatorPath}.`,
+    },
+  );
+  if (sourceRegistryState === undefined) {
+    return undefined;
+  }
+
+  const sourceRegistryPath = join(
+    workspaceRoot,
+    sourceRegistryState.workingLocalRelativePath,
+  );
+  try {
+    return {
+      workingLocalRelativePath: sourceRegistryState.workingLocalRelativePath,
+      turtle: await readTextFileWithOverlay(sourceRegistryPath, overlay),
+    };
+  } catch (error) {
+    if (
+      error instanceof Deno.errors.NotFound &&
+      !currentKnopInventoryTurtle.includes("hasExtractionSource") &&
+      !currentKnopInventoryTurtle.includes(SFLO_HAS_EXTRACTION_SOURCE_IRI)
+    ) {
+      return undefined;
+    }
+    if (error instanceof Deno.errors.NotFound) {
+      throw new WeaveRuntimeError(
+        `Workspace is missing the Knop source registry for ${designatorPath}: ${sourceRegistryState.workingLocalRelativePath}`,
+      );
+    }
+    throw error;
+  }
 }
 
 async function loadReferenceCatalogWorkingArtifact(
@@ -1992,6 +2061,12 @@ async function loadGenerateDesignatorContexts(
       designatorPath,
       currentKnopInventoryTurtle,
     );
+    const sourceRegistryArtifact = await loadKnopSourceRegistryArtifact(
+      workspaceRoot,
+      meshState.meshBase,
+      designatorPath,
+      currentKnopInventoryTurtle,
+    );
     const extractionSource = resolveExtractionSourceInventoryState(
       meshState.meshBase,
       currentKnopInventoryTurtle,
@@ -2008,6 +2083,7 @@ async function loadGenerateDesignatorContexts(
         unsupportedResolutionModeMessage:
           `Unsupported ExtractionSource resolution mode for ${designatorPath}.`,
       },
+      sourceRegistryArtifact?.turtle,
     );
     let customIdentifierPage: CustomIdentifierPageModelInput | undefined;
     const pagePaths = listRuntimeGeneratedResourcePagePaths({

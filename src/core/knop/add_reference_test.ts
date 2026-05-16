@@ -111,6 +111,33 @@ const unwovenKnopInventory =
 <bob/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 `;
 
+const extractedKnopInventory =
+  `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<bob/_knop> a sflo:Knop ;
+  sflo:hasKnopMetadata <bob/_knop/_meta> ;
+  sflo:hasKnopInventory <bob/_knop/_inventory> ;
+  sflo:hasKnopSourceRegistry <bob/_knop/_sources> ;
+  sflo:hasExtractionSource <bob/_knop/_sources#extraction-source> ;
+  sflo:hasWorkingKnopInventoryFile <bob/_knop/_inventory/inventory.ttl> .
+
+<bob/_knop/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <bob/_knop/_meta/meta.ttl> .
+
+<bob/_knop/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <bob/_knop/_inventory/inventory.ttl> .
+
+<bob/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <bob/_knop/_sources/sources.ttl> .
+
+<bob/_knop/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<bob/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<bob/_knop/_sources/sources.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+`;
+
 Deno.test("planKnopAddReference renders first reference catalog support artifacts", async () => {
   const plan = planKnopAddReference({
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
@@ -195,6 +222,34 @@ Deno.test("planKnopAddReference supports unwoven knop inventory input", () => {
   assertStringIncludes(
     plan.createdFiles[0]?.contents ?? "",
     "sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_supplemental> ;",
+  );
+});
+
+Deno.test("planKnopAddReference preserves extracted source registry facts", () => {
+  const plan = planKnopAddReference({
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    designatorPath: "bob",
+    referenceTargetDesignatorPath: "alice/bio",
+    referenceRole: "canonical",
+    currentKnopInventoryTurtle: extractedKnopInventory,
+  });
+  const updatedInventory = plan.updatedFiles[0]?.contents ?? "";
+
+  assertStringIncludes(
+    updatedInventory,
+    "sflo:hasKnopSourceRegistry <bob/_knop/_sources> ;",
+  );
+  assertStringIncludes(
+    updatedInventory,
+    "sflo:hasExtractionSource <bob/_knop/_sources#extraction-source> ;",
+  );
+  assertStringIncludes(
+    updatedInventory,
+    "<bob/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;",
+  );
+  assertStringIncludes(
+    updatedInventory,
+    "<bob/_knop/_sources/sources.ttl> a sflo:LocatedFile, sflo:RdfDocument .",
   );
 });
 

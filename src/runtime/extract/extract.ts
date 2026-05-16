@@ -34,7 +34,12 @@ import { SFLO_NAMESPACE } from "../../core/rdf/namespaces.ts";
 const SFLO_HAS_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}hasLocatedFile`;
 const SFLO_HAS_MANIFESTATION_IRI = `${SFLO_NAMESPACE}hasManifestation`;
 const SFLO_LOCATED_FILE_FOR_STATE_IRI = `${SFLO_NAMESPACE}locatedFileForState`;
+const SFLO_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}ExtractionSource`;
 const SFLO_HAS_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}hasExtractionSource`;
+const SFLO_HAS_KNOP_SOURCE_REGISTRY_IRI =
+  `${SFLO_NAMESPACE}hasKnopSourceRegistry`;
+const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
+  `${SFLO_NAMESPACE}hasWorkingLocatedFile`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
   `${SFLO_NAMESPACE}artifactResolutionMode_current`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
@@ -489,17 +494,23 @@ export async function executeSetExtractionSource(
     inventoryPath,
     designatorPath,
   );
-  const updatedInventoryTurtle = replaceExtractionSourceBinding(
+  const updateTarget = await resolveExtractionSourceUpdateTarget(
+    meshRoot,
     meshState.meshBase,
+    inventoryPath,
     currentInventoryTurtle,
     designatorPath,
+  );
+  const updatedTurtle = replaceExtractionSourceBinding(
+    updateTarget.turtle,
+    updateTarget.extractionSourcePath,
     sourcePayload,
   );
   const mutation: PlannedMutation = {
     createdFiles: [],
     updatedFiles: [{
-      path: inventoryPath,
-      contents: updatedInventoryTurtle,
+      path: updateTarget.path,
+      contents: updatedTurtle,
     }],
   };
 
@@ -586,12 +597,18 @@ async function planSetExtractionSourceAllTerms(
       skippedDesignatorPaths.push(designatorPath);
       continue;
     }
+    const updateTarget = await resolveExtractionSourceUpdateTarget(
+      meshRoot,
+      meshState.meshBase,
+      inventoryPath,
+      currentInventoryTurtle,
+      designatorPath,
+    );
     updatedFiles.push({
-      path: inventoryPath,
+      path: updateTarget.path,
       contents: replaceExtractionSourceBinding(
-        meshState.meshBase,
-        currentInventoryTurtle,
-        designatorPath,
+        updateTarget.turtle,
+        updateTarget.extractionSourcePath,
         sourcePayload,
       ),
     });
@@ -1354,57 +1371,139 @@ function hasExtractionSourceBinding(
   inventoryTurtle: string,
   designatorPath: string,
 ): boolean {
-  let quads: Quad[];
-  try {
-    quads = new Parser({ baseIRI: meshBase }).parse(inventoryTurtle);
-  } catch {
-    throw new ExtractRuntimeError(
-      `Could not parse existing extracted Knop inventory for ${designatorPath}.`,
-    );
-  }
-  const knopIri = new URL(toKnopPath(designatorPath), meshBase).href;
-  const extractionSourceIri = new URL(
-    `${toKnopPath(designatorPath)}/_inventory#extraction-source`,
+  const quads = parseExtractionSourceQuads(
     meshBase,
-  ).href;
+    inventoryTurtle,
+    `Could not parse existing extracted Knop inventory for ${designatorPath}.`,
+  );
+  const knopIri = new URL(toKnopPath(designatorPath), meshBase).href;
   return quads.some((quad) =>
     quad.subject.termType === "NamedNode" &&
     quad.subject.value === knopIri &&
     quad.predicate.value === SFLO_HAS_EXTRACTION_SOURCE_IRI &&
-    quad.object.termType === "NamedNode" &&
-    quad.object.value === extractionSourceIri
+    quad.object.termType === "NamedNode"
   );
 }
 
-function replaceExtractionSourceBinding(
+async function resolveExtractionSourceUpdateTarget(
+  meshRoot: string,
   meshBase: string,
+  inventoryPath: string,
   inventoryTurtle: string,
   designatorPath: string,
-  sourcePayload: ExtractSourcePayload,
-): string {
-  if (!hasExtractionSourceBinding(meshBase, inventoryTurtle, designatorPath)) {
+): Promise<{ path: string; turtle: string; extractionSourcePath: string }> {
+  const inventoryQuads = parseExtractionSourceQuads(
+    meshBase,
+    inventoryTurtle,
+    `Could not parse existing extracted Knop inventory for ${designatorPath}.`,
+  );
+  const knopIri = new URL(toKnopPath(designatorPath), meshBase).href;
+  const extractionSourceIri = requireOptionalNamedNodeObject(
+    inventoryQuads,
+    knopIri,
+    SFLO_HAS_EXTRACTION_SOURCE_IRI,
+    `Could not resolve existing ExtractionSource binding for ${designatorPath}.`,
+  );
+  if (extractionSourceIri === undefined) {
     throw new ExtractRuntimeError(
       `Existing Knop is not an extracted Knop: ${designatorPath}`,
     );
   }
-  const extractionSourcePath = `${
-    toKnopPath(designatorPath)
-  }/_inventory#extraction-source`;
-  const escapedExtractionSourcePath = escapeRegExp(extractionSourcePath);
-  const extractionSourceBlockPattern = new RegExp(
-    `<${escapedExtractionSourcePath}> a sflo:ExtractionSource ;\\n` +
-      `(?:  sflo:[^\\n]+(?: ;|\\.)\\n?)+`,
+  const extractionSourcePath = toMeshPath(
+    meshBase,
+    extractionSourceIri,
+    `Existing ExtractionSource binding is outside the current mesh for ${designatorPath}.`,
   );
+  if (
+    hasNamedNodeFact(
+      inventoryQuads,
+      extractionSourceIri,
+      "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      SFLO_EXTRACTION_SOURCE_IRI,
+    )
+  ) {
+    return {
+      path: inventoryPath,
+      turtle: inventoryTurtle,
+      extractionSourcePath,
+    };
+  }
+
+  const sourceRegistryIri = requireOptionalNamedNodeObject(
+    inventoryQuads,
+    knopIri,
+    SFLO_HAS_KNOP_SOURCE_REGISTRY_IRI,
+    `Could not resolve existing source registry for ${designatorPath}.`,
+  );
+  if (sourceRegistryIri === undefined) {
+    throw new ExtractRuntimeError(
+      `Could not find ExtractionSource details for ${designatorPath}.`,
+    );
+  }
+  const sourceRegistryFileIri = requireOptionalNamedNodeObject(
+    inventoryQuads,
+    sourceRegistryIri,
+    SFLO_HAS_WORKING_LOCATED_FILE_IRI,
+    `Could not resolve existing source registry working file for ${designatorPath}.`,
+  );
+  if (sourceRegistryFileIri === undefined) {
+    throw new ExtractRuntimeError(
+      `Could not resolve existing source registry working file for ${designatorPath}.`,
+    );
+  }
+  const sourceRegistryFilePath = toMeshPath(
+    meshBase,
+    sourceRegistryFileIri,
+    `Existing source registry working file is outside the current mesh for ${designatorPath}.`,
+  );
+  const sourceRegistryTurtle = await Deno.readTextFile(
+    join(meshRoot, sourceRegistryFilePath),
+  );
+  const sourceRegistryQuads = parseExtractionSourceQuads(
+    meshBase,
+    sourceRegistryTurtle,
+    `Could not parse existing Knop source registry for ${designatorPath}.`,
+  );
+  if (
+    !hasNamedNodeFact(
+      sourceRegistryQuads,
+      extractionSourceIri,
+      "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      SFLO_EXTRACTION_SOURCE_IRI,
+    )
+  ) {
+    throw new ExtractRuntimeError(
+      `Could not find ExtractionSource details for ${designatorPath}.`,
+    );
+  }
+
+  return {
+    path: sourceRegistryFilePath,
+    turtle: sourceRegistryTurtle,
+    extractionSourcePath,
+  };
+}
+
+function replaceExtractionSourceBinding(
+  turtle: string,
+  extractionSourcePath: string,
+  sourcePayload: ExtractSourcePayload,
+): string {
   const replacement = renderExtractionSourceBlock(
     extractionSourcePath,
     sourcePayload,
   );
-  if (!extractionSourceBlockPattern.test(inventoryTurtle)) {
+  const blocks = splitTurtleBlocks(turtle);
+  const blockIndex = blocks.findIndex((block) =>
+    getSubjectPathFromBlock(block) === extractionSourcePath
+  );
+  if (blockIndex === -1) {
     throw new ExtractRuntimeError(
-      `Could not replace existing ExtractionSource block for ${designatorPath}.`,
+      "Could not replace existing ExtractionSource block.",
     );
   }
-  return inventoryTurtle.replace(extractionSourceBlockPattern, replacement);
+  blocks[blockIndex] = replacement;
+  return `${blocks.join("\n\n")}\n`;
 }
 
 function renderExtractionSourceBlock(
@@ -1486,12 +1585,78 @@ function toExtractionSourceEvidenceFacts(
   return facts;
 }
 
+function parseExtractionSourceQuads(
+  meshBase: string,
+  turtle: string,
+  errorMessage: string,
+): Quad[] {
+  try {
+    return new Parser({ baseIRI: meshBase }).parse(turtle);
+  } catch {
+    throw new ExtractRuntimeError(errorMessage);
+  }
+}
+
+function requireOptionalNamedNodeObject(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+  errorMessage: string,
+): string | undefined {
+  const values = quads.flatMap((quad) =>
+    quad.subject.termType === "NamedNode" &&
+      quad.subject.value === subjectIri &&
+      quad.predicate.value === predicateIri &&
+      quad.object.termType === "NamedNode"
+      ? [quad.object.value]
+      : []
+  );
+
+  if (values.length > 1) {
+    throw new ExtractRuntimeError(errorMessage);
+  }
+
+  return values[0];
+}
+
+function hasNamedNodeFact(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+  objectIri: string,
+): boolean {
+  return quads.some((quad) =>
+    quad.subject.termType === "NamedNode" &&
+    quad.subject.value === subjectIri &&
+    quad.predicate.value === predicateIri &&
+    quad.object.termType === "NamedNode" &&
+    quad.object.value === objectIri
+  );
+}
+
+function toMeshPath(
+  meshBase: string,
+  iri: string,
+  errorMessage: string,
+): string {
+  if (!iri.startsWith(meshBase)) {
+    throw new ExtractRuntimeError(errorMessage);
+  }
+
+  return iri.slice(meshBase.length);
+}
+
 function escapeTurtleString(value: string): string {
   return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
 }
 
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function splitTurtleBlocks(turtle: string): string[] {
+  return turtle.trim().split(/\n\s*\n/g);
+}
+
+function getSubjectPathFromBlock(block: string): string | undefined {
+  const match = block.match(/^<([^>]+)>/);
+  return match?.[1];
 }
 
 async function assertUpdatedTargetsExist(
