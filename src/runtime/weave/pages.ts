@@ -620,13 +620,14 @@ ${faviconLink}  <style>
     .wf-child-identifiers-more > summary::-webkit-details-marker { display: none; }
     .wf-child-identifiers-more > summary::marker { content: ""; }
     .wf-source-summary { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; min-width: 0; }
-    .wf-source-chain { display: inline-flex; flex-wrap: wrap; align-items: stretch; max-width: 100%; border: 1px solid #c3d1c7; border-radius: 4px; background: #eef3ef; overflow: hidden; }
-    .wf-source-chain a { display: inline-flex; align-items: center; max-width: 100%; min-width: 0; padding: 0.16rem 0.48rem; text-decoration: none; white-space: nowrap; }
+    .wf-source-chain { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.28rem; max-width: 100%; padding: 0.16rem 0.22rem 0.16rem 0.5rem; border: 1px solid #c3d1c7; border-radius: 5px; background: #eef3ef; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.48); }
+    .wf-source-chain a { display: inline-flex; align-items: center; max-width: 100%; min-width: 0; text-decoration: none; white-space: nowrap; border-radius: 3px; }
     .wf-source-root { font-weight: 750; }
-    .wf-source-version-chain { display: inline-flex; align-items: stretch; max-width: 100%; min-width: 0; border-left: 1px solid #c3d1c7; background: #e2ebe5; }
-    .wf-source-version-chain a + a { border-left: 1px solid #c3d1c7; }
-    .wf-source-version { background: #f8fbf8; }
-    .wf-source-chain a:hover, .wf-source-chain a:focus { background: #dce8e0; }
+    .wf-source-version-chain { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.22rem; max-width: 100%; min-width: 0; padding: 0.12rem 0.14rem 0.12rem 0.38rem; border: 1px solid #bfd0c4; border-radius: 4px; background: #dfe9e3; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.36); }
+    .wf-source-version-history { font-weight: 650; }
+    .wf-source-version { padding: 0.06rem 0.34rem; border: 1px solid #bdcec3; background: #f8fbf8; font-weight: 650; }
+    .wf-source-chain a:hover, .wf-source-chain a:focus { background: #d2e0d7; outline: 0; }
+    .wf-source-version:hover, .wf-source-version:focus { background: #edf5ef; }
     .wf-term { cursor: help; border-bottom: 1px dotted currentColor; }
     .wf-date-tip { position: relative; display: inline-block; }
     .wf-date-tip::after { content: attr(data-tooltip); position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); opacity: 0; pointer-events: none; background: rgba(27, 32, 27, 0.94); color: #fff; border-radius: 5px; padding: 5px 7px; font-size: 0.78rem; white-space: nowrap; transition: opacity 120ms ease; }
