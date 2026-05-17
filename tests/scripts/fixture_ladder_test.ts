@@ -554,7 +554,7 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
     plan.transitions[1]?.toRef,
     "a.02-publication-bootstrapped-woven",
   );
-  assertEquals(plan.transitions[1]?.operationId, "deploy.ghPages");
+  assertEquals(plan.transitions[1]?.operationId, "prepare.ghPages");
   assertEquals(plan.transitions[1]?.action.kind, "branchPublication");
   if (plan.transitions[1]?.action.kind === "branchPublication") {
     assertEquals(plan.transitions[1].action.sourceRef, "a.01-source-only");
@@ -562,7 +562,7 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
     assertEquals(plan.transitions[1].action.publicationBranch, "gh-pages");
     assertEquals(plan.transitions[1].action.invocations.length, 2);
     assertEquals(plan.transitions[1].action.invocations[0]?.argv, [
-      "deploy",
+      "prepare",
       "gh-pages",
       "--source-root",
       "{sourceRoot}",
@@ -582,7 +582,7 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
     "a.02-publication-bootstrapped-woven",
   );
   assertEquals(plan.transitions[2]?.toRef, "a.03-ontology-integrated-woven");
-  assertEquals(plan.transitions[2]?.operationId, "deploy.ghPages");
+  assertEquals(plan.transitions[2]?.operationId, "prepare.ghPages");
   assertEquals(plan.transitions[2]?.action.kind, "branchPublication");
   if (plan.transitions[2]?.action.kind === "branchPublication") {
     assertEquals(plan.transitions[2].action.sourceRef, "a.01-source-only");
@@ -593,7 +593,7 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
     assertEquals(plan.transitions[2].action.publicationBranch, "gh-pages");
     assertEquals(plan.transitions[2].action.invocations.length, 1);
     assertEquals(plan.transitions[2].action.invocations[0]?.argv, [
-      "deploy",
+      "prepare",
       "gh-pages",
       "--source-root",
       "{sourceRoot}",
@@ -616,7 +616,7 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
   assertEquals(plan.transitions[3]?.id, "04-shacl-integrated-woven");
   assertEquals(plan.transitions[3]?.fromRef, "a.03-ontology-integrated-woven");
   assertEquals(plan.transitions[3]?.toRef, "a.04-shacl-integrated-woven");
-  assertEquals(plan.transitions[3]?.operationId, "deploy.ghPages");
+  assertEquals(plan.transitions[3]?.operationId, "prepare.ghPages");
   assertEquals(plan.transitions[3]?.action.kind, "branchPublication");
   if (plan.transitions[3]?.action.kind === "branchPublication") {
     assertEquals(plan.transitions[3].action.sourceRef, "a.01-source-only");
@@ -627,7 +627,7 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
     assertEquals(plan.transitions[3].action.publicationBranch, "gh-pages");
     assertEquals(plan.transitions[3].action.invocations.length, 1);
     assertEquals(plan.transitions[3].action.invocations[0]?.argv, [
-      "deploy",
+      "prepare",
       "gh-pages",
       "--source-root",
       "{sourceRoot}",
@@ -780,7 +780,7 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
     "a.08-root-and-examples-knops-woven",
   );
   assertEquals(plan.transitions[8]?.toRef, "a.09-gunaar-example-dataset-woven");
-  assertEquals(plan.transitions[8]?.operationId, "deploy.ghPages");
+  assertEquals(plan.transitions[8]?.operationId, "prepare.ghPages");
   assertEquals(plan.transitions[8]?.action.kind, "branchPublication");
   if (plan.transitions[8]?.action.kind === "branchPublication") {
     assertEquals(plan.transitions[8].action.sourceRef, "a.01-source-only");
@@ -790,7 +790,7 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
     );
     assertEquals(plan.transitions[8].action.invocations.length, 1);
     assertEquals(plan.transitions[8].action.invocations[0]?.argv, [
-      "deploy",
+      "prepare",
       "gh-pages",
       "--source-root",
       "{sourceRoot}",
@@ -853,7 +853,7 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
       "{publicationRoot}",
     ]);
     assertEquals(plan.transitions[10].action.invocations[1]?.argv, [
-      "deploy",
+      "prepare",
       "gh-pages",
       "--source-root",
       "{sourceRoot}",

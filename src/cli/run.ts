@@ -818,18 +818,18 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         ),
     )
     .command(
-      "deploy",
+      "prepare",
       new Command()
-        .description("Deployment operations.")
+        .description("Publication preparation operations.")
         .command(
           "gh-pages",
           new Command()
             .description(
-              "Bootstrap a branch-published GitHub Pages mesh in a publication worktree.",
+              "Prepare a branch-published GitHub Pages mesh in a publication worktree.",
             )
             .option(
               "--source-root <sourceRoot:string>",
-              "Source checkout root to read during branch-published deployment.",
+              "Source checkout root to read during branch-published preparation.",
               { default: "." },
             )
             .option(
@@ -850,11 +850,11 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             )
             .option(
               "--allow-dirty-publish-root",
-              "Allow deployment even when the publication worktree has uncommitted changes.",
+              "Allow preparation even when the publication worktree has uncommitted changes.",
             )
             .option(
               "--dry-run",
-              "Print the branch-published deploy plan without writing publication files.",
+              "Print the branch-published preparation plan without writing publication files.",
             )
             .option(
               "--commit",
@@ -890,7 +890,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             )
             .option(
               "--interactive",
-              "Prompt for missing branch-published deployment inputs.",
+              "Prompt for missing branch-published preparation inputs.",
             )
             .action(async (
               options: {
@@ -925,7 +925,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                   meshBase: options.meshBase,
                   interactive: promptForMissingInputs,
                 },
-                "deploy gh-pages",
+                "prepare gh-pages",
                 "an interactive terminal",
               );
               const request = {
@@ -959,7 +959,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 logDir: resolveOptionalCliLogDir(),
               });
 
-              await auditLogger.command("deploy.ghPages", {
+              await auditLogger.command("prepare.ghPages", {
                 sourceRoot,
                 publishRoot,
                 meshBase,
@@ -1305,7 +1305,7 @@ async function resolvePublishRootOption(
 
   if (!options.interactive) {
     throw new GHPagesDeployInputError(
-      "deploy gh-pages requires --publish-root, a deploy profile value, or an interactive terminal",
+      "prepare gh-pages requires --publish-root or an interactive terminal",
     );
   }
 
@@ -1334,7 +1334,7 @@ function resolveGHPagesCommitOption(
   if (options.commit !== true) {
     if (options.commitMessage !== undefined) {
       throw new GHPagesDeployInputError(
-        "deploy gh-pages --commit-message requires --commit",
+        "prepare gh-pages --commit-message requires --commit",
       );
     }
     return undefined;
@@ -1383,38 +1383,38 @@ function resolveGHPagesSourceBindingOption(
     source: {
       sourcePath: resolveRequiredOptionValue(
         options.sourcePath,
-        "deploy gh-pages materialization requires --source-path",
+        "prepare gh-pages materialization requires --source-path",
         (message) => new GHPagesDeployInputError(message),
       ),
       designatorPath: resolveRequiredOptionValue(
         options.designatorPath,
-        "deploy gh-pages materialization requires --designator-path",
+        "prepare gh-pages materialization requires --designator-path",
         (message) => new GHPagesDeployInputError(message),
       ),
       ...(options.targetPath
         ? {
           targetPath: resolveRequiredOptionValue(
             options.targetPath,
-            "deploy gh-pages --target-path is required",
+            "prepare gh-pages --target-path is required",
             (message) => new GHPagesDeployInputError(message),
           ),
         }
         : {}),
       sourceRepositoryUrl: resolveRequiredOptionValue(
         options.sourceRepositoryUrl,
-        "deploy gh-pages materialization requires --source-repository-url",
+        "prepare gh-pages materialization requires --source-repository-url",
         (message) => new GHPagesDeployInputError(message),
       ),
       sourceRepositoryRef: resolveRequiredOptionValue(
         options.sourceRef,
-        "deploy gh-pages materialization requires --source-ref",
+        "prepare gh-pages materialization requires --source-ref",
         (message) => new GHPagesDeployInputError(message),
       ),
       ...(options.sourceCommit
         ? {
           sourceRepositoryCommit: resolveRequiredOptionValue(
             options.sourceCommit,
-            "deploy gh-pages --source-commit is required",
+            "prepare gh-pages --source-commit is required",
             (message) => new GHPagesDeployInputError(message),
           ),
         }

@@ -5,7 +5,7 @@ import { createTestTmpDir } from "../support/test_tmp.ts";
 const repoRoot = new URL("../../", import.meta.url);
 const cliPath = fromFileUrl(new URL("src/main.ts", repoRoot));
 
-Deno.test("weave deploy gh-pages bootstraps a publication root as a black-box CLI run", async () => {
+Deno.test("weave prepare gh-pages prepares a publication root as a black-box CLI run", async () => {
   const tempRoot = await createTestTmpDir("weave-e2e-deploy-gh-pages-");
   const sourceRoot = join(tempRoot, "source");
   const publishRoot = join(tempRoot, "gh-pages");
@@ -17,7 +17,7 @@ Deno.test("weave deploy gh-pages bootstraps a publication root as a black-box CL
   );
 
   const firstOutput = await runCli([
-    "deploy",
+    "prepare",
     "gh-pages",
     "--source-root",
     sourceRoot,
@@ -51,7 +51,7 @@ Deno.test("weave deploy gh-pages bootstraps a publication root as a black-box CL
   );
 
   const secondOutput = await runCli([
-    "deploy",
+    "prepare",
     "gh-pages",
     "--source-root",
     sourceRoot,
@@ -64,11 +64,11 @@ Deno.test("weave deploy gh-pages bootstraps a publication root as a black-box CL
   const secondStderr = new TextDecoder().decode(secondOutput.stderr);
 
   assert(secondOutput.success, secondStderr);
-  assert(secondStdout.includes("already bootstrapped"), secondStdout);
+  assert(secondStdout.includes("already prepared"), secondStdout);
 
   await Deno.writeTextFile(join(publishRoot, "CNAME"), "old.example.test\n");
   const thirdOutput = await runCli([
-    "deploy",
+    "prepare",
     "gh-pages",
     "--source-root",
     sourceRoot,
@@ -86,7 +86,7 @@ Deno.test("weave deploy gh-pages bootstraps a publication root as a black-box CL
   assert(thirdStdout.includes("CNAME"), thirdStdout);
 });
 
-Deno.test("weave deploy gh-pages updates a clean publication worktree without local log clutter", async () => {
+Deno.test("weave prepare gh-pages updates a clean publication worktree without local log clutter", async () => {
   const tempRoot = await createTestTmpDir("weave-e2e-deploy-gh-pages-git-");
   const sourceRoot = join(tempRoot, "source");
   const publishRoot = join(tempRoot, "gh-pages");
@@ -98,7 +98,7 @@ Deno.test("weave deploy gh-pages updates a clean publication worktree without lo
   await runGit(publishRoot, ["commit", "--allow-empty", "-m", "initial"]);
 
   const output = await runCli([
-    "deploy",
+    "prepare",
     "gh-pages",
     "--source-root",
     sourceRoot,
@@ -118,7 +118,7 @@ Deno.test("weave deploy gh-pages updates a clean publication worktree without lo
   assert(!status.includes(".weave/"), status);
 });
 
-Deno.test("weave deploy gh-pages --commit creates a local publication commit", async () => {
+Deno.test("weave prepare gh-pages --commit creates a local publication commit", async () => {
   const tempRoot = await createTestTmpDir(
     "weave-e2e-deploy-gh-pages-commit-",
   );
@@ -132,7 +132,7 @@ Deno.test("weave deploy gh-pages --commit creates a local publication commit", a
   await runGit(publishRoot, ["commit", "--allow-empty", "-m", "initial"]);
 
   const output = await runCli([
-    "deploy",
+    "prepare",
     "gh-pages",
     "--source-root",
     sourceRoot,
@@ -162,7 +162,7 @@ Deno.test("weave deploy gh-pages --commit creates a local publication commit", a
   );
 });
 
-Deno.test("weave deploy gh-pages --dry-run prints a plan without writing publication files", async () => {
+Deno.test("weave prepare gh-pages --dry-run prints a plan without writing publication files", async () => {
   const tempRoot = await createTestTmpDir(
     "weave-e2e-deploy-gh-pages-dry-run-",
   );
@@ -182,7 +182,7 @@ fantasy:Rule a owl:Class .
   await Deno.writeTextFile(join(publishRoot, "manual.txt"), "keep me\n");
 
   const output = await runCli([
-    "deploy",
+    "prepare",
     "gh-pages",
     "--dry-run",
     "--source-root",
@@ -205,7 +205,7 @@ fantasy:Rule a owl:Class .
 
   assert(output.success, stderr);
   assert(
-    stdout.includes("Dry run: branch-published GitHub Pages deploy"),
+    stdout.includes("Dry run: branch-published GitHub Pages preparation"),
     stdout,
   );
   assert(stdout.includes("Source root:"), stdout);
@@ -222,7 +222,7 @@ fantasy:Rule a owl:Class .
   ]);
 });
 
-Deno.test("weave deploy gh-pages materializes one repository source from CLI flags", async () => {
+Deno.test("weave prepare gh-pages materializes one repository source from CLI flags", async () => {
   const tempRoot = await createTestTmpDir("weave-e2e-deploy-gh-pages-source-");
   const sourceRoot = join(tempRoot, "source");
   const publishRoot = join(tempRoot, "gh-pages");
@@ -238,7 +238,7 @@ fantasy:Rule a owl:Class .
   await Deno.writeTextFile(join(sourceRoot, sourcePath), source);
 
   const output = await runCli([
-    "deploy",
+    "prepare",
     "gh-pages",
     "--source-root",
     sourceRoot,
@@ -298,7 +298,7 @@ fantasy:Rule a owl:Class .
   assert(!sources.includes("../"), sources);
 });
 
-Deno.test("weave deploy gh-pages fails closed without a non-interactive publish root", async () => {
+Deno.test("weave prepare gh-pages fails closed without a non-interactive publish root", async () => {
   const tempRoot = await createTestTmpDir(
     "weave-e2e-deploy-gh-pages-missing-root-",
   );
@@ -306,7 +306,7 @@ Deno.test("weave deploy gh-pages fails closed without a non-interactive publish 
   await Deno.mkdir(sourceRoot, { recursive: true });
 
   const output = await runCli([
-    "deploy",
+    "prepare",
     "gh-pages",
     "--source-root",
     sourceRoot,
@@ -317,7 +317,7 @@ Deno.test("weave deploy gh-pages fails closed without a non-interactive publish 
   const stderr = new TextDecoder().decode(output.stderr);
 
   assert(!output.success, stdout);
-  assert(stderr.includes("deploy gh-pages requires --publish-root"), stderr);
+  assert(stderr.includes("prepare gh-pages requires --publish-root"), stderr);
 });
 
 function runCli(

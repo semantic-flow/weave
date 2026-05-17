@@ -235,7 +235,9 @@ fantasy:Rule a owl:Class .
   );
 
   const description = describeGHPagesDeployBootstrapPlan(plan);
-  assert(description.includes("Dry run: branch-published GitHub Pages deploy"));
+  assert(
+    description.includes("Dry run: branch-published GitHub Pages preparation"),
+  );
   assert(description.includes("Created paths:"));
   assert(description.includes("Preserved paths:"));
   assert(description.includes("Git operations:"));

@@ -204,8 +204,8 @@ export async function executeGHPagesDeployBootstrap(
   );
 
   await operationalLogger.info(
-    "deploy.ghPages.bootstrap.started",
-    "Starting branch-published GitHub Pages bootstrap",
+    "prepare.ghPages.bootstrap.started",
+    "Starting branch-published GitHub Pages preparation",
     {
       sourceRoot,
       publishRoot,
@@ -213,8 +213,8 @@ export async function executeGHPagesDeployBootstrap(
     },
   );
   await auditLogger.record(
-    "deploy.ghPages.bootstrap.started",
-    "Branch-published GitHub Pages bootstrap started",
+    "prepare.ghPages.bootstrap.started",
+    "Branch-published GitHub Pages preparation started",
     {
       sourceRoot,
       publishRoot,
@@ -288,8 +288,8 @@ export async function executeGHPagesDeployBootstrap(
     }
 
     await operationalLogger.info(
-      "deploy.ghPages.bootstrap.succeeded",
-      "Branch-published GitHub Pages bootstrap succeeded",
+      "prepare.ghPages.bootstrap.succeeded",
+      "Branch-published GitHub Pages preparation succeeded",
       {
         sourceRoot,
         publishRoot,
@@ -302,8 +302,8 @@ export async function executeGHPagesDeployBootstrap(
       },
     );
     await auditLogger.record(
-      "deploy.ghPages.bootstrap.succeeded",
-      "Branch-published GitHub Pages bootstrap succeeded",
+      "prepare.ghPages.bootstrap.succeeded",
+      "Branch-published GitHub Pages preparation succeeded",
       {
         sourceRoot,
         publishRoot,
@@ -319,8 +319,8 @@ export async function executeGHPagesDeployBootstrap(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await operationalLogger.error(
-      "deploy.ghPages.bootstrap.failed",
-      "Branch-published GitHub Pages bootstrap failed",
+      "prepare.ghPages.bootstrap.failed",
+      "Branch-published GitHub Pages preparation failed",
       {
         sourceRoot,
         publishRoot,
@@ -329,8 +329,8 @@ export async function executeGHPagesDeployBootstrap(
       },
     );
     await auditLogger.record(
-      "deploy.ghPages.bootstrap.failed",
-      "Branch-published GitHub Pages bootstrap failed",
+      "prepare.ghPages.bootstrap.failed",
+      "Branch-published GitHub Pages preparation failed",
       {
         sourceRoot,
         publishRoot,
@@ -367,12 +367,12 @@ export function describeGHPagesDeployBootstrapResult(
     result.createdPaths.length === 0 && result.updatedPaths.length === 0 &&
     materializedCreatedPathCount === 0 && materializedUpdatedPathCount === 0
   ) {
-    return `Branch-published GitHub Pages mesh already bootstrapped for ${result.meshIri}.${localCommit}`;
+    return `Branch-published GitHub Pages mesh already prepared for ${result.meshIri}.${localCommit}`;
   }
 
   return `${
     describeMeshCreateResult(result)
-  } Branch-published GitHub Pages mesh bootstrapped in publication root.${materialized}${localCommit}`;
+  } Branch-published GitHub Pages mesh prepared in publication root.${materialized}${localCommit}`;
 }
 
 export function describeGHPagesDeployLocalCommitResult(
@@ -390,7 +390,7 @@ export function describeGHPagesDeployBootstrapPlan(
   plan: GHPagesDeployBootstrapPlan,
 ): string {
   const lines = [
-    "Dry run: branch-published GitHub Pages deploy",
+    "Dry run: branch-published GitHub Pages preparation",
     `Source root: ${plan.sourceRoot}`,
     `Publication root: ${plan.publishRoot}`,
     `Mesh base: ${plan.meshBase}`,
@@ -1364,7 +1364,7 @@ async function assertCleanPublicationWorktree(
   }
 
   throw new GHPagesDeployInputError(
-    `publication root has uncommitted or untracked changes; commit, stash, or clean the publication worktree before deploying, or explicitly allow a dirty publication root`,
+    `publication root has uncommitted or untracked changes; commit, stash, or clean the publication worktree before preparing, or explicitly allow a dirty publication root`,
   );
 }
 
@@ -1449,7 +1449,7 @@ async function assertNoStalePublicationOutput(
   for (const path of STALE_PUBLICATION_OUTPUT_PATHS) {
     if (await pathExists(join(publishRoot, path))) {
       throw new GHPagesDeployRuntimeError(
-        `Publication root contains stale branch-published output or local operational state at ${path}; remove it or use an explicit rebuild flow before deploying.`,
+        `Publication root contains stale branch-published output or local operational state at ${path}; remove it or use an explicit rebuild flow before preparing.`,
       );
     }
   }
@@ -1516,11 +1516,11 @@ async function describePlanGitOperations(
   if (!(await isGitWorktreeRoot(publishRoot))) {
     return commitMessage === undefined
       ? [
-        "no git worktree detected at the publication root; deploy will not commit or push",
+        "no git worktree detected at the publication root; prepare will not commit or push",
       ]
       : [
         "no git worktree detected at the publication root; requested local commit would fail",
-        "deploy will not push",
+        "prepare will not push",
       ];
   }
 
@@ -1531,12 +1531,12 @@ async function describePlanGitOperations(
   ];
   if (commitMessage === undefined) {
     operations.push(
-      "write publication files only; deploy will not commit or push until explicit commit flags are used",
+      "write publication files only; prepare will not commit or push until explicit commit flags are used",
     );
   } else {
     operations.push(
       `write publication files and create a local commit when the publication diff is non-empty: ${commitMessage}`,
-      "deploy will not push; push the publication branch for GitHub Pages to update",
+      "prepare will not push; push the publication branch for GitHub Pages to update",
     );
   }
   return operations;
@@ -1637,17 +1637,17 @@ function assertDistinctWorktreeRoots(
 ): void {
   if (sourceRoot === publishRoot) {
     throw new GHPagesDeployInputError(
-      "source root and publication root must be different for branch-published deployment",
+      "source root and publication root must be different for branch-published preparation",
     );
   }
   if (isWithinRoot(publishRoot, sourceRoot)) {
     throw new GHPagesDeployInputError(
-      "publication root must not be inside the source root for branch-published deployment",
+      "publication root must not be inside the source root for branch-published preparation",
     );
   }
   if (isWithinRoot(sourceRoot, publishRoot)) {
     throw new GHPagesDeployInputError(
-      "source root must not be inside the publication root for branch-published deployment",
+      "source root must not be inside the publication root for branch-published preparation",
     );
   }
 }

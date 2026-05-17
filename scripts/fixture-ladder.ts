@@ -2157,7 +2157,7 @@ function branchPublicationTransition(
       argv: readonly string[];
     }[];
   },
-  operationId = "deploy.ghPages",
+  operationId = "prepare.ghPages",
   options: {
     branchPrefix?: string;
   } = {},

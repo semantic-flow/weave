@@ -182,7 +182,7 @@ weave mesh create --mesh-base 'https://semantic-flow.github.io/my-mesh/' --no-no
 weave mesh create --interactive
 ```
 
-### `weave deploy gh-pages`
+### `weave prepare gh-pages`
 
 Creates or updates a branch-published GitHub Pages mesh in a publication worktree. Use this when authored source files stay in a normal source checkout and generated mesh output lives in a separate publication branch checkout such as `gh-pages`.
 
@@ -190,12 +190,12 @@ The command reads source bytes from `--source-root`, writes generated mesh outpu
 
 Root publication meshes do not need `_mesh/_config/config.ttl`; for this command the publication worktree root is also the mesh root. If a mesh config already exists, Weave preserves it and still validates generated RDF for local path leakage.
 
-Repository source bindings are recorded beside the target Knop rather than in `_mesh/_config/config.ttl`. When a deploy materializes a source file, Weave writes a source registry at `_knop/_sources/sources.ttl`, links it from the Knop inventory with `sflo:hasKnopSourceRegistry`, and records the repository URL, source ref, resolved commit, repository-relative path, and content digest. This keeps publication output portable without preserving a developer's checkout path.
+Repository source bindings are recorded beside the target Knop rather than in `_mesh/_config/config.ttl`. When preparation materializes a source file, Weave writes a source registry at `_knop/_sources/sources.ttl`, links it from the Knop inventory with `sflo:hasKnopSourceRegistry`, and records the repository URL, source ref, resolved commit, repository-relative path, and content digest. This keeps publication output portable without preserving a developer's checkout path.
 
 Dry-run prints the planned writes, preserved files, validation checks, and git operations without mutating the publication worktree:
 
 ```sh
-weave deploy gh-pages \
+weave prepare gh-pages \
   --dry-run \
   --source-root . \
   --publish-root ../my-repo-gh-pages \
@@ -205,7 +205,7 @@ weave deploy gh-pages \
 Materialize one repository source file into the publication mesh:
 
 ```sh
-weave deploy gh-pages \
+weave prepare gh-pages \
   --source-root . \
   --publish-root ../my-repo-gh-pages \
   --mesh-base 'https://example.github.io/my-repo/' \
@@ -215,10 +215,10 @@ weave deploy gh-pages \
   --source-ref main
 ```
 
-Create a local publication commit after a successful deploy:
+Create a local publication commit after successful preparation:
 
 ```sh
-weave deploy gh-pages \
+weave prepare gh-pages \
   --source-root . \
   --publish-root ../my-repo-gh-pages \
   --mesh-base 'https://example.github.io/my-repo/' \
