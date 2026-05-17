@@ -905,19 +905,23 @@ fant:AbilityScore a owl:Class ;
   assertStringIncludes(html, "<summary>Properties</summary>");
   assertStringIncludes(
     html,
-    '<th scope="row"><span class="wf-term" title="http://www.w3.org/1999/02/22-rdf-syntax-ns#type">rdf:type</span></th><td><a href="http://www.w3.org/2002/07/owl#Class">owl:Class</a></td>',
+    '<th scope="row"><a class="wf-term wf-term-link" href="http://www.w3.org/1999/02/22-rdf-syntax-ns#type" title="http://www.w3.org/1999/02/22-rdf-syntax-ns#type">rdf:type</a></th><td><a href="http://www.w3.org/2002/07/owl#Class">owl:Class</a></td>',
   );
   assertStringIncludes(
     html,
-    '<th scope="row"><span class="wf-term" title="http://www.w3.org/2000/01/rdf-schema#seeAlso">rdfs:seeAlso</span></th><td><a href="https://example.org/rules/ability-score">https://example.org/rules/ability-score</a></td>',
+    '<th scope="row"><a class="wf-term wf-term-link" href="http://www.w3.org/2000/01/rdf-schema#seeAlso" title="http://www.w3.org/2000/01/rdf-schema#seeAlso">rdfs:seeAlso</a></th><td><a href="https://example.org/rules/ability-score">https://example.org/rules/ability-score</a></td>',
   );
   assertStringIncludes(
     html,
-    '<th scope="row"><span class="wf-term" title="http://www.w3.org/2000/01/rdf-schema#isDefinedBy">rdfs:isDefinedBy</span></th><td><a href="urn:rules:ability-score">urn:rules:ability-score</a></td>',
+    '<th scope="row"><a class="wf-term wf-term-link" href="http://www.w3.org/2000/01/rdf-schema#isDefinedBy" title="http://www.w3.org/2000/01/rdf-schema#isDefinedBy">rdfs:isDefinedBy</a></th><td><a href="urn:rules:ability-score">urn:rules:ability-score</a></td>',
   );
   assertStringIncludes(
     html,
-    '<th scope="row"><span class="wf-term" title="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/relatedAbility">fant:relatedAbility</span></th><td><a href="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/Strength">fant:Strength</a></td>',
+    '<th scope="row"><a class="wf-term wf-term-link" href="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/relatedAbility" title="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/relatedAbility">fant:relatedAbility</a></th><td><a href="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/Strength">fant:Strength</a></td>',
+  );
+  assertStringIncludes(
+    html,
+    ".wf-term-link { color: inherit; border-bottom: 0; text-decoration: underline; text-decoration-color: rgba(79, 89, 79, 0.35);",
   );
   const propertiesSection = html.match(
     /<details class="wf-properties" open>[\s\S]*?<\/details>/,
@@ -928,7 +932,7 @@ fant:AbilityScore a owl:Class ;
   assertStringIncludes(html, "<summary>Blank Nodes</summary>");
   assertStringIncludes(
     html,
-    '<th scope="row"><span class="wf-term" title="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/hasConstraint">fant:hasConstraint</span></th><td><pre class="wf-blank-node-code"><code>  ',
+    '<th scope="row"><a class="wf-term wf-term-link" href="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/hasConstraint" title="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/hasConstraint">fant:hasConstraint</a></th><td><pre class="wf-blank-node-code"><code>  ',
   );
   assertFalse(html.includes("_:"));
   assertStringIncludes(html, "fant:ScoreConstraint");

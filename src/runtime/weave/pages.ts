@@ -53,6 +53,7 @@ interface ResourcePageRenderInput {
 
 interface ResourcePageMetadataRow {
   label: string;
+  labelHref?: string;
   href?: string;
   value: string;
   html?: string;
@@ -691,6 +692,8 @@ ${faviconLink}  <style>
     .wf-source-chain a:hover, .wf-source-chain a:focus { background: #d2e0d7; outline: 0; }
     .wf-source-version:hover, .wf-source-version:focus { background: #edf5ef; }
     .wf-term { cursor: help; border-bottom: 1px dotted currentColor; }
+    .wf-term-link { color: inherit; border-bottom: 0; text-decoration: underline; text-decoration-color: rgba(79, 89, 79, 0.35); text-decoration-thickness: 0.06em; text-underline-offset: 0.18em; }
+    .wf-term-link:hover, .wf-term-link:focus { text-decoration-color: currentColor; }
     .wf-date-tip { position: relative; display: inline-block; }
     .wf-date-tip::after { content: attr(data-tooltip); position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); opacity: 0; pointer-events: none; background: rgba(27, 32, 27, 0.94); color: #fff; border-radius: 5px; padding: 5px 7px; font-size: 0.78rem; white-space: nowrap; transition: opacity 120ms ease; }
     .wf-date-tip:hover::after, .wf-date-tip:focus::after { opacity: 1; }
@@ -859,6 +862,7 @@ function renderPropertiesSection(
 
   const metadataRows = rows.map((row) => ({
     label: row.predicateLabel,
+    labelHref: row.predicateHref,
     tooltip: row.predicateHref,
     value: row.value,
     ...(row.valueHref
@@ -887,6 +891,7 @@ function renderBlankNodesSection(
 
   const metadataRows = rows.map((row) => ({
     label: row.predicateLabel,
+    labelHref: row.predicateHref,
     tooltip: row.predicateHref,
     value: row.code,
     html: `<pre class="wf-blank-node-code"><code>${
@@ -940,7 +945,7 @@ function renderMetadataRow(
   indent: string,
 ): string {
   const label = row.tooltip
-    ? renderTooltipLabel(row.label, row.tooltip)
+    ? renderTooltipLabel(row.label, row.tooltip, row.labelHref)
     : escapeHtml(row.label);
   const rowClass = row.rowClass ? ` class="${escapeHtml(row.rowClass)}"` : "";
   const value = row.html
@@ -1502,10 +1507,18 @@ function renderHistoryClassAnnotation(
     : "";
 }
 
-function renderTooltipLabel(label: string, tooltip: string): string {
-  return `<span class="wf-term" title="${escapeHtml(tooltip)}">${
-    escapeHtml(label)
-  }</span>`;
+function renderTooltipLabel(
+  label: string,
+  tooltip: string,
+  href?: string,
+): string {
+  const escapedLabel = escapeHtml(label);
+  const escapedTooltip = escapeHtml(tooltip);
+  return href
+    ? `<a class="wf-term wf-term-link" href="${
+      escapeHtml(href)
+    }" title="${escapedTooltip}">${escapedLabel}</a>`
+    : `<span class="wf-term" title="${escapedTooltip}">${escapedLabel}</span>`;
 }
 
 function toLastPathSegment(path: string): string {
