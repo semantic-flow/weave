@@ -246,7 +246,7 @@ created: 1773630801215
 ### 2026-05-16: Extraction Source Details Live In Knop Source Registries
 
 - Decision: Keep `sflo:hasExtractionSource` on the extracted Knop inventory as the compact pointer, but store the `sfc:ExtractionSource` details in `D/_knop/_sources/sources.ttl` at `D/_knop/_sources#extraction-source`. The Knop inventory links that supporting artifact with `sflo:hasKnopSourceRegistry`.
-- References: [[wd.task.2026.2026-05-04-extraction-improvements]], [[wa.completed.2026.2026-05-15_1113-mesh-branch-fantasy-rules]], [[ont.decision-log]]
+- References: [[wa.task.2026.2026-05-04-extraction-improvements]], [[wa.completed.2026.2026-05-15_1113-mesh-branch-fantasy-rules]], [[ont.decision-log]]
 - Why:
   - Extraction provenance is source information, so `_sources` is a better support-artifact home than `_inventory` once Knops can have a general source registry.
   - Keeping the Knop-level `sflo:hasExtractionSource` pointer preserves the simple runtime lookup and lets SHACL constrain one primary extraction source without making inventory carry the relator details.
@@ -264,7 +264,7 @@ created: 1773630801215
 ### 2026-05-04: Extraction Sources Default To Current Resolution
 
 - Decision: Make `Current` the default `sfc:ExtractionSource` resolution for newly extracted terms, keep pinned resolution explicit through `--source-state`, replace `--source-designator-path` with `--source`, replace `--yes` with `--accept-preview`, and add `weave set extraction-source` as the maintenance command for changing an existing extracted Knop's source-resolution contract.
-- References: [[wd.task.2026.2026-05-04-extraction-improvements]], [[wa.completed.2026.2026-05-02-fantasy-rules-sidecar]], [[wu.cli-reference]]
+- References: [[wa.task.2026.2026-05-04-extraction-improvements]], [[wa.completed.2026.2026-05-02-fantasy-rules-sidecar]], [[wu.cli-reference]]
 - Why:
   - Ontology and SHACL term pages should normally refresh from the source artifact's current state after a release advances; pinning is still available when reproducibility against a historical source state is the intended contract.
   - `extract --all-terms` remains a creation operation that skips existing Knops, so migrating already-created term surfaces needs an explicit update command.
@@ -313,7 +313,7 @@ created: 1773630801215
 ### 2026-05-14: Branch-Published Fantasy Rules Fixture
 
 - Decision: Treat Fantasy Rules as the branch-published ontology fixture for the next rerung, with authored ontology/source files on the source branch and all generated mesh output on the publication branch.
-- References: [[wd.task.2026.2026-05-13_1655-support-gh-pages-branch-based-deployments]], [[wa.completed.2026.2026-05-07-fixture-ladder-generator]]
+- References: [[wa.task.2026.2026-05-13_1655-support-gh-pages-branch-based-deployments]], [[wa.completed.2026.2026-05-07-fixture-ladder-generator]]
 - Why:
   - This proves the clean-source-branch story that motivated branch-published meshes: no generated `_mesh`, config, pages, histories, or local sibling paths need to live on the source branch.
   - The older `docs/` sidecar topology remains valid, but it no longer needs to be the primary Fantasy Rules fixture once branch-published deployment is available.

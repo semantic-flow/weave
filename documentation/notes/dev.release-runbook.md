@@ -179,7 +179,7 @@ git fetch --tags origin
 
 ## Future Release Workflow
 
-Before treating `v0.1.0` as a distributable product release, finish the remaining release-workflow pieces tracked in [[wd.task.2026.2026-05-13-full-ci-cd]]:
+Before treating `v0.1.0` as a distributable product release, finish the remaining release-workflow pieces tracked in [[wa.task.2026.2026-05-13-full-ci-cd]]:
 
 - run the manual workflow in rehearsal mode for materially changed release tooling
 - inspect the generated archives/checksums and draft release before publication
