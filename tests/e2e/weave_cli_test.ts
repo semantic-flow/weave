@@ -88,6 +88,57 @@ Deno.test("weave matches the manifest-scoped alice knop-created-woven fixture as
   });
 });
 
+Deno.test("weave reports progress by default and --silent suppresses progress", async () => {
+  const verboseWorkspaceRoot = await createTestTmpDir(
+    "weave-e2e-progress-",
+  );
+  await materializeMeshAliceBioBranch(
+    "06-alice-bio-integrated",
+    verboseWorkspaceRoot,
+  );
+
+  const verboseOutput = await runCliCommand([
+    "--target",
+    "designatorPath=alice/bio",
+  ], verboseWorkspaceRoot);
+  const verboseStdout = new TextDecoder().decode(verboseOutput.stdout);
+  const verboseStderr = new TextDecoder().decode(verboseOutput.stderr);
+
+  assert(verboseOutput.success, verboseStderr);
+  assert(
+    verboseStdout.includes("[100%] Wove 1/1: alice/bio"),
+    verboseStdout,
+  );
+  assertEquals(
+    [...verboseStdout.matchAll(/\[100%\] Wove 1\/1: alice\/bio/g)].length,
+    1,
+  );
+  assert(verboseStdout.includes("Wove 1 designator path"), verboseStdout);
+
+  const silentWorkspaceRoot = await createTestTmpDir(
+    "weave-e2e-progress-silent-",
+  );
+  await materializeMeshAliceBioBranch(
+    "06-alice-bio-integrated",
+    silentWorkspaceRoot,
+  );
+
+  const silentOutput = await runCliCommand([
+    "--silent",
+    "--target",
+    "designatorPath=alice/bio",
+  ], silentWorkspaceRoot);
+  const silentStdout = new TextDecoder().decode(silentOutput.stdout);
+  const silentStderr = new TextDecoder().decode(silentOutput.stderr);
+
+  assert(silentOutput.success, silentStderr);
+  assert(
+    !silentStdout.includes("[100%] Wove 1/1: alice/bio"),
+    silentStdout,
+  );
+  assert(silentStdout.includes("Wove 1 designator path"), silentStdout);
+});
+
 Deno.test("weave validate succeeds as a black-box CLI run", async () => {
   const workspaceRoot = await createTestTmpDir("weave-e2e-validate-");
   await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);

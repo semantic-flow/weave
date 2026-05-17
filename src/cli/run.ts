@@ -66,6 +66,7 @@ import {
   executeValidate,
   executeVersion,
   executeWeave,
+  type WeaveProgressEvent,
   WeaveRuntimeError,
 } from "../runtime/weave/weave.ts";
 import { loadOperationalLocalPathPolicy } from "../runtime/operational/local_path_policy.ts";
@@ -117,6 +118,10 @@ export async function runWeaveCli(args: string[]): Promise<number> {
       "--history-tracking-policy <policy:string>",
       "Override the history tracking policy for all artifact roles during this command.",
     )
+    .option(
+      "--silent",
+      "Suppress progress updates for long-running weave operations.",
+    )
     .action(async (
       options: {
         meshRoot: string;
@@ -125,6 +130,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         payloadStateSegment?: string;
         payloadManifestationSegment?: string;
         historyTrackingPolicy?: string;
+        silent?: boolean;
       },
     ) => {
       const meshRoot = resolve(options.meshRoot);
@@ -152,6 +158,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         operationalLogger,
         auditLogger,
         historyTrackingPolicyOverride,
+        onProgress: options.silent ? undefined : printWeaveProgress,
       });
       console.log(describeWeaveResult(result));
       for (const path of result.createdPaths) {
@@ -1774,6 +1781,15 @@ function resolveOptionalWeavePayloadSegment(
     value,
     `${fieldName} is required`,
     (message) => new WeaveInputError(message),
+  );
+}
+
+function printWeaveProgress(event: WeaveProgressEvent): void {
+  const designatorPath = event.designatorPath.length === 0
+    ? "/"
+    : event.designatorPath;
+  console.log(
+    `[${event.percent}%] Wove ${event.completed}/${event.total}: ${designatorPath}`,
   );
 }
 

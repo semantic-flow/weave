@@ -366,6 +366,44 @@ Deno.test("renderResourcePage renders typed child identifier rows", async () => 
   );
 });
 
+Deno.test("renderResourcePage groups RDFS classes with child classes", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/sflo/",
+    {
+      kind: "identifier",
+      path: "ontology/index.html",
+      designatorPath: "ontology",
+      childIdentifiers: [
+        { label: "ArtifactHistory", path: "ontology/ArtifactHistory" },
+        {
+          label: "artifactResolutionFallbackPolicy_exactOnly",
+          path: "ontology/artifactResolutionFallbackPolicy_exactOnly",
+        },
+      ],
+      rawSourcePanels: [{
+        label: "Current working file",
+        sourcePath: "semantic-flow-core-ontology.ttl",
+        contents: `@base <https://semantic-flow.github.io/sflo/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+<ontology/ArtifactHistory> a rdfs:Class .
+<ontology/artifactResolutionFallbackPolicy_exactOnly> a <ontology/ArtifactResolutionFallbackPolicy> .
+`,
+      }],
+    },
+  );
+
+  assertStringIncludes(html, '<details class="wf-children" open>');
+  assertStringIncludes(
+    html,
+    '<tr><th scope="row">Classes</th><td><div class="wf-child-identifiers"><nobr><a class="wf-child-identifier" href="/sflo/ontology/ArtifactHistory">ArtifactHistory</a></nobr></div></td></tr>',
+  );
+  assertStringIncludes(
+    html,
+    '<tr><th scope="row">Individuals</th><td><div class="wf-child-identifiers"><nobr><a class="wf-child-identifier" href="/sflo/ontology/artifactResolutionFallbackPolicy_exactOnly">artifactResolutionFallbackPolicy_exactOnly</a></nobr></div></td></tr>',
+  );
+});
+
 Deno.test("renderResourcePage separates SHACL child identifiers from RDF type hints only", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",

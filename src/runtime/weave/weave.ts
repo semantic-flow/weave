@@ -135,6 +135,7 @@ export interface ExecuteVersionOptions {
   meshRoot: string;
   request?: VersionRequest;
   historyTrackingPolicyOverride?: HistoryTrackingPolicy;
+  onProgress?: WeaveProgressHandler;
 }
 
 export interface ExecuteGenerateOptions {
@@ -152,7 +153,17 @@ export interface ExecuteWeaveOptions {
   auditLogger?: AuditLogger;
   now?: () => Date;
   historyTrackingPolicyOverride?: HistoryTrackingPolicy;
+  onProgress?: WeaveProgressHandler;
 }
+
+export interface WeaveProgressEvent {
+  designatorPath: string;
+  completed: number;
+  total: number;
+  percent: number;
+}
+
+export type WeaveProgressHandler = (event: WeaveProgressEvent) => void;
 
 export interface ValidateFinding {
   severity: "error";
@@ -303,16 +314,27 @@ export async function executeVersion(
     targets,
     localPathPolicy,
     options.historyTrackingPolicyOverride,
+    options.onProgress,
   );
+  return await writePreparedVersion(meshRoot, localPathPolicy, prepared, {
+    validateRdf: true,
+  });
+}
+
+async function writePreparedVersion(
+  meshRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
+  prepared: PreparedVersionExecution,
+  options: { validateRdf: boolean },
+): Promise<VersionResult> {
   assertUpdatedTargetsExist(meshRoot, prepared.plan.updatedFiles);
   await assertCreateTargetsDoNotExist(
     meshRoot,
     prepared.plan.createdFiles,
   );
-  validateRdfFiles([
-    ...prepared.plan.createdFiles,
-    ...prepared.plan.updatedFiles,
-  ]);
+  if (options.validateRdf) {
+    validateVersionPlanRdf(prepared.plan);
+  }
   await writeFiles(meshRoot, prepared.plan.createdFiles, true);
   await writeFiles(meshRoot, prepared.plan.updatedFiles, false);
 
@@ -326,6 +348,13 @@ export async function executeVersion(
       toWorkspaceRelativePath(localPathPolicy, file.path)
     ),
   };
+}
+
+function validateVersionPlanRdf(plan: VersionPlan): void {
+  validateRdfFiles([
+    ...plan.createdFiles,
+    ...plan.updatedFiles,
+  ]);
 }
 
 export async function executeGenerate(
@@ -396,18 +425,30 @@ export async function executeWeave(
   });
 
   try {
-    await validateVersionRequestForWeave(
-      meshRoot,
-      options.request,
-      initialPolicy,
-      options.historyTrackingPolicyOverride,
-    );
+    const targets = normalizeVersionRequest(options.request);
+    let preparedVersion: PreparedVersionExecution;
+    try {
+      preparedVersion = await prepareVersionExecution(
+        meshRoot,
+        targets,
+        initialPolicy,
+        options.historyTrackingPolicyOverride,
+        options.onProgress,
+      );
+      validateVersionPlanRdf(preparedVersion.plan);
+    } catch (error) {
+      if (error instanceof WeaveRuntimeError) {
+        throw new WeaveInputError(error.message);
+      }
+      throw error;
+    }
 
-    const versionResult = await executeVersion({
+    const versionResult = await writePreparedVersion(
       meshRoot,
-      request: options.request,
-      historyTrackingPolicyOverride: options.historyTrackingPolicyOverride,
-    });
+      initialPolicy,
+      preparedVersion,
+      { validateRdf: false },
+    );
     wovenDesignatorPaths = versionResult.versionedDesignatorPaths;
 
     const generateResult = await executeGenerate({
@@ -463,32 +504,6 @@ export async function executeWeave(
       throw error;
     }
     throw new WeaveRuntimeError(message);
-  }
-}
-
-async function validateVersionRequestForWeave(
-  meshRoot: string,
-  request: WeaveRequest | undefined,
-  localPathPolicy: OperationalLocalPathPolicy,
-  historyTrackingPolicyOverride?: HistoryTrackingPolicy,
-): Promise<void> {
-  try {
-    const targets = normalizeVersionRequest(request);
-    const prepared = await prepareVersionExecution(
-      meshRoot,
-      targets,
-      localPathPolicy,
-      historyTrackingPolicyOverride,
-    );
-    validateRdfFiles([
-      ...prepared.plan.createdFiles,
-      ...prepared.plan.updatedFiles,
-    ]);
-  } catch (error) {
-    if (error instanceof WeaveRuntimeError) {
-      throw new WeaveInputError(error.message);
-    }
-    throw error;
   }
 }
 
@@ -673,6 +688,7 @@ async function prepareVersionExecution(
   targets: readonly NormalizedVersionTargetSpec[],
   localPathPolicy: OperationalLocalPathPolicy,
   historyTrackingPolicyOverride?: HistoryTrackingPolicy,
+  onProgress?: WeaveProgressHandler,
 ): Promise<PreparedVersionExecution> {
   await ensureWorkspaceRootExists(workspaceRoot);
   const meshState = await loadMeshState(workspaceRoot);
@@ -815,6 +831,14 @@ async function prepareVersionExecution(
       );
     }
     remainingDesignatorPaths.splice(completedIndex, 1);
+
+    const completed = versionedDesignatorPaths.length;
+    onProgress?.({
+      designatorPath: completedPath,
+      completed,
+      total: initialWeaveableKnops.length,
+      percent: Math.round((completed / initialWeaveableKnops.length) * 100),
+    });
   }
 
   const plan: VersionPlan = {

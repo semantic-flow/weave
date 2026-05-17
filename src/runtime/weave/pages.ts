@@ -129,6 +129,7 @@ const OWL_DATATYPE_PROPERTY_IRI =
   "http://www.w3.org/2002/07/owl#DatatypeProperty";
 const OWL_OBJECT_PROPERTY_IRI = "http://www.w3.org/2002/07/owl#ObjectProperty";
 const RDFS_COMMENT_IRI = "http://www.w3.org/2000/01/rdf-schema#comment";
+const RDFS_CLASS_IRI = "http://www.w3.org/2000/01/rdf-schema#Class";
 const RDFS_DATATYPE_IRI = "http://www.w3.org/2000/01/rdf-schema#Datatype";
 const RDFS_LABEL_IRI = "http://www.w3.org/2000/01/rdf-schema#label";
 const SKOS_BROADER_IRI = "http://www.w3.org/2004/02/skos/core#broader";
@@ -1194,7 +1195,7 @@ function toChildIdentifierCategoryIndex(types: ReadonlySet<string>): number {
   if (types.has(SHACL_SHAPE_IRI)) {
     return 9;
   }
-  if (types.has(OWL_CLASS_IRI)) {
+  if (types.has(OWL_CLASS_IRI) || types.has(RDFS_CLASS_IRI)) {
     return 0;
   }
   if (types.has(OWL_OBJECT_PROPERTY_IRI)) {
