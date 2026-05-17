@@ -94,7 +94,7 @@ Deno.test("resolvePayloadArtifactInventoryState resolves latest payload snapshot
   rdf:type sflo:ArtifactHistory .
 <alice/bio/_history001/_s0002> sflo:hasManifestation <alice/bio/_history001/_s0002/ttl> ;
   sflo:locatedFileForState <alice/bio/_history001/_s0002/ttl/alice-bio.ttl> .
-<alice/bio/_history001/_s0002/ttl> sflo:hasLocatedFile <alice/bio/_history001/_s0002/ttl/alice-bio.ttl> .
+<alice/bio/_history001/_s0002/ttl> sflo:locatedFileForManifestation <alice/bio/_history001/_s0002/ttl/alice-bio.ttl> .
 <alice/bio> sflo:hasWorkingLocatedFile <alice-bio.ttl> ;
   rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:PayloadArtifact ;
   sflo:currentArtifactHistory <alice/bio/_history001> .
@@ -125,7 +125,7 @@ Deno.test("resolveHistoricalStateLocatedFilePath resolves non-latest snapshot pa
 @base <${MESH_BASE}> .
 
 <alice/bio/_history001/_s0001> sflo:hasManifestation <alice/bio/_history001/_s0001/jsonld> .
-<alice/bio/_history001/_s0001/jsonld> sflo:hasLocatedFile <alice/bio/_history001/_s0001/jsonld/alice.jsonld> .
+<alice/bio/_history001/_s0001/jsonld> sflo:locatedFileForManifestation <alice/bio/_history001/_s0001/jsonld/alice.jsonld> .
 `;
 
   assertEquals(

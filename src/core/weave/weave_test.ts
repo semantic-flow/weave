@@ -440,7 +440,7 @@ const laterFirstPayloadWeaveMeshInventoryTurtle =
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/index.html> .
 
 <_mesh/_inventory/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
+  sflo:locatedFileForManifestation <_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/ttl/index.html> .
 
 <_mesh/_inventory/_history001/_s0002> a sflo:HistoricalState ;
@@ -451,7 +451,7 @@ const laterFirstPayloadWeaveMeshInventoryTurtle =
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/index.html> .
 
 <_mesh/_inventory/_history001/_s0002/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl> ;
+  sflo:locatedFileForManifestation <_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/ttl/index.html> .
 
 <_mesh/_inventory/_history001/_s0003> a sflo:HistoricalState ;
@@ -462,7 +462,7 @@ const laterFirstPayloadWeaveMeshInventoryTurtle =
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/index.html> .
 
 <_mesh/_inventory/_history001/_s0003/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl> ;
+  sflo:locatedFileForManifestation <_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/ttl/index.html> .
 
 <_mesh/_inventory/_history001/_s0004> a sflo:HistoricalState ;
@@ -473,7 +473,7 @@ const laterFirstPayloadWeaveMeshInventoryTurtle =
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0004/index.html> .
 
 <_mesh/_inventory/_history001/_s0004/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0004/ttl/inventory.ttl> ;
+  sflo:locatedFileForManifestation <_mesh/_inventory/_history001/_s0004/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0004/ttl/index.html> .
 
 <_mesh/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
@@ -666,7 +666,7 @@ const secondPayloadWeaveKnopInventoryTurtle =
   sflo:hasResourcePage <alice/bio/_history001/_s0001/index.html> .
 
 <alice/bio/_history001/_s0001/alice-bio-ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <alice/bio/_history001/_s0001/ttl/alice-bio.ttl> ;
+  sflo:locatedFileForManifestation <alice/bio/_history001/_s0001/ttl/alice-bio.ttl> ;
   sflo:hasResourcePage <alice/bio/_history001/_s0001/ttl/index.html> .
 
 <alice/bio/_knop/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;

@@ -749,6 +749,6 @@ function renderInitialSupportManifestationBlock(
   snapshotPath: string,
 ): string {
   return `<${manifestationPath}> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${snapshotPath}> ;
+  sflo:locatedFileForManifestation <${snapshotPath}> ;
   sflo:hasResourcePage <${manifestationPath}/index.html> .`;
 }

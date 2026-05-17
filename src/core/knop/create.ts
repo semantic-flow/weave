@@ -23,7 +23,8 @@ const SFLO_DIGITAL_ARTIFACT_IRI = `${SFLO_NAMESPACE}DigitalArtifact`;
 const SFLO_HAS_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}hasArtifactHistory`;
 const SFLO_HAS_HISTORICAL_STATE_IRI = `${SFLO_NAMESPACE}hasHistoricalState`;
 const SFLO_HAS_KNOP_IRI = `${SFLO_NAMESPACE}hasKnop`;
-const SFLO_HAS_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}hasLocatedFile`;
+const SFLO_LOCATED_FILE_FOR_MANIFESTATION_IRI =
+  `${SFLO_NAMESPACE}locatedFileForManifestation`;
 const SFLO_HAS_MANIFESTATION_IRI = `${SFLO_NAMESPACE}hasManifestation`;
 const SFLO_HAS_MESH_INVENTORY_IRI = `${SFLO_NAMESPACE}hasMeshInventory`;
 const SFLO_HAS_MESH_METADATA_IRI = `${SFLO_NAMESPACE}hasMeshMetadata`;
@@ -400,7 +401,7 @@ function assertHasLegacyCurrentMeshInventoryShapeForKnopCreate(
     ],
     [
       "_mesh/_meta/_history001/_s0001/ttl",
-      SFLO_HAS_LOCATED_FILE_IRI,
+      SFLO_LOCATED_FILE_FOR_MANIFESTATION_IRI,
       "_mesh/_meta/_history001/_s0001/ttl/meta.ttl",
     ],
     [
@@ -479,7 +480,7 @@ function assertHasLegacyCurrentMeshInventoryShapeForKnopCreate(
     ],
     [
       "_mesh/_inventory/_history001/_s0001/ttl",
-      SFLO_HAS_LOCATED_FILE_IRI,
+      SFLO_LOCATED_FILE_FOR_MANIFESTATION_IRI,
       "_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl",
     ],
     [
@@ -853,7 +854,7 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
   sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/index.html> .
 
 <_mesh/_meta/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_meta/_history001/_s0001/ttl/meta.ttl> ;
+  sflo:locatedFileForManifestation <_mesh/_meta/_history001/_s0001/ttl/meta.ttl> ;
   sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/ttl/index.html> .
 
 <_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
@@ -877,7 +878,7 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/index.html> .
 
 <_mesh/_inventory/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
+  sflo:locatedFileForManifestation <_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/ttl/index.html> .
 
 <_mesh/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
