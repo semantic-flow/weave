@@ -1,4 +1,4 @@
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertRejects } from "@std/assert";
 import { fromFileUrl, join, relative } from "@std/path";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
@@ -30,8 +30,8 @@ Deno.test("weave deploy gh-pages bootstraps a publication root as a black-box CL
   const firstStderr = new TextDecoder().decode(firstOutput.stderr);
 
   assert(firstOutput.success, firstStderr);
-  assert(firstStdout.includes("Created 4 mesh support artifacts"), firstStdout);
-  assert(firstStdout.includes("_mesh/_config/config.ttl"), firstStdout);
+  assert(firstStdout.includes("Created 3 mesh support artifacts"), firstStdout);
+  assert(!firstStdout.includes("_mesh/_config/config.ttl"), firstStdout);
   assert(firstStdout.includes(".nojekyll"), firstStdout);
   assertEquals(
     await listRelativeFiles(sourceRoot, ".weave/"),
@@ -41,10 +41,13 @@ Deno.test("weave deploy gh-pages bootstraps a publication root as a black-box CL
     await listRelativeFiles(publishRoot, ".weave/"),
     [
       ".nojekyll",
-      "_mesh/_config/config.ttl",
       "_mesh/_inventory/inventory.ttl",
       "_mesh/_meta/meta.ttl",
     ],
+  );
+  await assertRejects(
+    () => Deno.stat(join(publishRoot, "_mesh/_config/config.ttl")),
+    Deno.errors.NotFound,
   );
 
   const secondOutput = await runCli([
@@ -108,7 +111,8 @@ Deno.test("weave deploy gh-pages updates a clean publication worktree without lo
   const stderr = new TextDecoder().decode(output.stderr);
 
   assert(output.success, stderr);
-  assert(stdout.includes("_mesh/_config/config.ttl"), stdout);
+  assert(stdout.includes("_mesh/_inventory/inventory.ttl"), stdout);
+  assert(!stdout.includes("_mesh/_config/config.ttl"), stdout);
   const status = await gitOutput(publishRoot, ["status", "--short"]);
   assert(status.includes("?? _mesh/"), status);
   assert(!status.includes(".weave/"), status);
@@ -207,7 +211,7 @@ fantasy:Rule a owl:Class .
   assert(stdout.includes("Source root:"), stdout);
   assert(stdout.includes("Publication root:"), stdout);
   assert(stdout.includes("Created paths:"), stdout);
-  assert(stdout.includes("_mesh/_config/config.ttl"), stdout);
+  assert(!stdout.includes("_mesh/_config/config.ttl"), stdout);
   assert(stdout.includes(sourcePath), stdout);
   assert(stdout.includes("Preserved paths:"), stdout);
   assert(stdout.includes("manual.txt"), stdout);
@@ -267,13 +271,13 @@ fantasy:Rule a owl:Class .
   assertEquals(await Deno.readTextFile(join(publishRoot, sourcePath)), source);
   assertEquals(await listRelativeFiles(sourceRoot, ".weave/"), [sourcePath]);
 
-  const config = await Deno.readTextFile(
-    join(publishRoot, "_mesh/_config/config.ttl"),
-  );
   const sources = await Deno.readTextFile(
     join(publishRoot, "ontology/_knop/_sources/sources.ttl"),
   );
-  assert(!config.includes("sflo:RepositorySourceLocator"), config);
+  await assertRejects(
+    () => Deno.stat(join(publishRoot, "_mesh/_config/config.ttl")),
+    Deno.errors.NotFound,
+  );
   assert(
     sources.includes(
       "<ontology/_knop/_sources#branch-source-ontology>",
@@ -289,9 +293,6 @@ fantasy:Rule a owl:Class .
   assert(!sources.includes("sflo:hasTargetArtifact <ontology>"));
   assert(sources.includes('sflo:sourceRepositoryRef "main"'), sources);
   assert(sources.includes('sflo:sourceRepositoryCommit "abc123"'), sources);
-  assert(!config.includes(sourceRoot), config);
-  assert(!config.includes(publishRoot), config);
-  assert(!config.includes("../"), config);
   assert(!sources.includes(sourceRoot), sources);
   assert(!sources.includes(publishRoot), sources);
   assert(!sources.includes("../"), sources);

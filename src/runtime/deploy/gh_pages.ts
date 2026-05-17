@@ -431,9 +431,11 @@ function appendPlanSection(
   }
 }
 
-const PUBLICATION_MESH_BOOTSTRAP_PATHS = [
+const PUBLICATION_MESH_REQUIRED_BOOTSTRAP_PATHS = [
   "_mesh/_meta/meta.ttl",
   "_mesh/_inventory/inventory.ttl",
+] as const;
+const PUBLICATION_MESH_OPTIONAL_BOOTSTRAP_PATHS = [
   "_mesh/_config/config.ttl",
 ] as const;
 const DEFAULT_PUBLICATION_COMMIT_MESSAGE = "Publish branch-published mesh";
@@ -460,7 +462,6 @@ async function ensurePublicationMeshBootstrap(
     workspaceRoot: options.publishRoot,
     request: {
       meshBase: options.request.meshBase,
-      includeMeshConfig: true,
       includeNoJekyll: options.request.includeNoJekyll,
     },
     existingFilePolicy: "reuseMatching",
@@ -473,17 +474,33 @@ async function tryResolveExistingPublicationMesh(
   publishRoot: string,
   requestedMeshBase: string,
 ): Promise<MeshCreateResult | undefined> {
-  const existingEntries = await Promise.all(
-    PUBLICATION_MESH_BOOTSTRAP_PATHS.map(async (path) => ({
+  const requiredEntries = await Promise.all(
+    PUBLICATION_MESH_REQUIRED_BOOTSTRAP_PATHS.map(async (path) => ({
       path,
       exists: await pathExists(join(publishRoot, path)),
     })),
   );
-  if (existingEntries.every((entry) => !entry.exists)) {
+  const optionalEntries = await Promise.all(
+    PUBLICATION_MESH_OPTIONAL_BOOTSTRAP_PATHS.map(async (path) => ({
+      path,
+      exists: await pathExists(join(publishRoot, path)),
+    })),
+  );
+  if (requiredEntries.every((entry) => !entry.exists)) {
+    if (optionalEntries.some((entry) => entry.exists)) {
+      const missingPaths = requiredEntries
+        .filter((entry) => !entry.exists)
+        .map((entry) => entry.path);
+      throw new GHPagesDeployRuntimeError(
+        `Publication root contains a partial branch-published mesh bootstrap; missing ${
+          missingPaths.join(", ")
+        }`,
+      );
+    }
     return undefined;
   }
-  if (existingEntries.some((entry) => !entry.exists)) {
-    const missingPaths = existingEntries
+  if (requiredEntries.some((entry) => !entry.exists)) {
+    const missingPaths = requiredEntries
       .filter((entry) => !entry.exists)
       .map((entry) => entry.path);
     throw new GHPagesDeployRuntimeError(

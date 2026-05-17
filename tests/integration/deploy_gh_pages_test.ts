@@ -12,6 +12,7 @@ import {
   LocalPathAccessError,
   resolveAllowedLocalPath,
 } from "../../src/runtime/operational/local_path_policy.ts";
+import { executeMeshCreate } from "../../src/runtime/mesh/create.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 Deno.test("executeGHPagesDeployBootstrap keeps source clean and bootstraps publication root", async () => {
@@ -56,7 +57,6 @@ Deno.test("executeGHPagesDeployBootstrap keeps source clean and bootstraps publi
     [...firstResult.createdPaths].sort(),
     [
       ".nojekyll",
-      "_mesh/_config/config.ttl",
       "_mesh/_inventory/inventory.ttl",
       "_mesh/_meta/meta.ttl",
     ],
@@ -66,20 +66,38 @@ Deno.test("executeGHPagesDeployBootstrap keeps source clean and bootstraps publi
     await listRelativeFiles(publishRoot, ".weave/"),
     [
       ".nojekyll",
-      "_mesh/_config/config.ttl",
       "_mesh/_inventory/inventory.ttl",
       "_mesh/_meta/meta.ttl",
     ],
   );
 
-  const config = await Deno.readTextFile(
-    join(publishRoot, "_mesh/_config/config.ttl"),
+  await assertPathMissing(join(publishRoot, "_mesh/_config/config.ttl"));
+});
+
+Deno.test("executeGHPagesDeployBootstrap accepts ordinary mesh bootstrap without config", async () => {
+  const tempRoot = await createTestTmpDir(
+    "weave-deploy-gh-pages-ordinary-bootstrap-",
   );
-  assert(config.includes("<> a sfcfg:MeshConfig ."), config);
-  assert(!config.includes("workspaceRootRelativeToMeshRoot"), config);
-  assert(!config.includes(sourceRoot), config);
-  assert(!config.includes(publishRoot), config);
-  assert(!config.includes("../"), config);
+  const sourceRoot = join(tempRoot, "source");
+  const publishRoot = join(tempRoot, "gh-pages");
+  const meshBase =
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/";
+  await Deno.mkdir(sourceRoot, { recursive: true });
+  await Deno.mkdir(publishRoot, { recursive: true });
+
+  await executeMeshCreate({
+    workspaceRoot: publishRoot,
+    request: { meshBase },
+  });
+
+  const result = await executeGHPagesDeployBootstrap({
+    sourceRoot,
+    publishRoot,
+    request: { meshBase },
+  });
+
+  assertEquals(result.createdPaths, []);
+  await assertPathMissing(join(publishRoot, "_mesh/_config/config.ttl"));
 });
 
 Deno.test("executeGHPagesDeployBootstrap preserves publication controls", async () => {
@@ -204,7 +222,7 @@ fantasy:Rule a owl:Class .
   });
 
   assert(plan.createdPaths.includes(".nojekyll"));
-  assert(plan.createdPaths.includes("_mesh/_config/config.ttl"));
+  assert(!plan.createdPaths.includes("_mesh/_config/config.ttl"));
   assert(plan.createdPaths.includes(sourcePath));
   assert(plan.createdPaths.includes("ontology/index.html"));
   assert(plan.preservedPaths.includes("CNAME"));
@@ -270,17 +288,13 @@ fantasy:RuleSystem a owl:Class .
   );
 
   const firstDigest = await sha256Digest(sourceV1);
-  const firstConfig = await Deno.readTextFile(
-    join(publishRoot, "_mesh/_config/config.ttl"),
-  );
   const firstInventory = await Deno.readTextFile(
     join(publishRoot, "ontology/_knop/_inventory/inventory.ttl"),
   );
   const firstSources = await Deno.readTextFile(
     join(publishRoot, "ontology/_knop/_sources/sources.ttl"),
   );
-  assert(!firstConfig.includes("sflo:RepositorySourceLocator"), firstConfig);
-  assert(!firstConfig.includes("sflo:hasTargetRepositorySource"), firstConfig);
+  await assertPathMissing(join(publishRoot, "_mesh/_config/config.ttl"));
   assert(
     firstSources.includes(
       "<ontology/_knop/_sources#branch-source-ontology>",
@@ -341,10 +355,8 @@ fantasy:RuleSystem a owl:Class .
     () => Deno.stat(join(publishRoot, "ontology/_knop/_inventory/_history001")),
     Deno.errors.NotFound,
   );
-  assertNoLocalPathLeak(firstConfig, sourceRoot, publishRoot);
   assertNoLocalPathLeak(firstInventory, sourceRoot, publishRoot);
   assertNoLocalPathLeak(firstSources, sourceRoot, publishRoot);
-  assert(!firstConfig.includes("workingLocalRelativePath"), firstConfig);
   assert(!firstInventory.includes("workingLocalRelativePath"), firstInventory);
   assert(!firstSources.includes("workingLocalRelativePath"), firstSources);
   assertEquals(await listRelativeFiles(sourceRoot, ".weave/"), [sourcePath]);
@@ -602,15 +614,11 @@ fantasy:Rule a owl:Class .
     publishRoot,
     join(sourceRoot, sourcePath),
   ).replaceAll("\\", "/");
-  const config = await Deno.readTextFile(
-    join(publishRoot, "_mesh/_config/config.ttl"),
-  );
 
   assertEquals(policy.workspaceRoot, publishRoot);
+  assertEquals(policy.meshConfigPath, undefined);
   assertEquals(policy.rules.length, 0);
-  assert(!config.includes("workspaceRootRelativeToMeshRoot"), config);
-  assert(!config.includes("hasLocalPathAccessRule"), config);
-  assert(!config.includes("workingLocalRelativePath"), config);
+  await assertPathMissing(join(publishRoot, "_mesh/_config/config.ttl"));
   assertThrows(
     () =>
       resolveAllowedLocalPath(
@@ -908,7 +916,8 @@ Deno.test("executeGHPagesDeployBootstrap rejects dirty publication worktrees by 
     },
   });
 
-  assert(result.createdPaths.includes("_mesh/_config/config.ttl"));
+  assert(result.createdPaths.includes("_mesh/_inventory/inventory.ttl"));
+  assert(!result.createdPaths.includes("_mesh/_config/config.ttl"));
   assertEquals(
     await Deno.readTextFile(join(publishRoot, "manual.txt")),
     "keep me\n",
@@ -958,7 +967,7 @@ Deno.test("executeGHPagesDeployBootstrap rejects local path leakage in generated
       meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
     },
   });
-  const configPath = join(publishRoot, "_mesh/_config/config.ttl");
+  const configPath = join(publishRoot, "_mesh/_inventory/inventory.ttl");
   await Deno.writeTextFile(
     configPath,
     `${await Deno.readTextFile(configPath)}

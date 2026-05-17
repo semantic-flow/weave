@@ -188,6 +188,8 @@ Creates or updates a branch-published GitHub Pages mesh in a publication worktre
 
 The command reads source bytes from `--source-root`, writes generated mesh output to `--publish-root`, and keeps host-local checkout paths out of the published RDF. `--source-root` defaults to the current directory. `--publish-root` is required in noninteractive runs; interactive runs can prompt for it.
 
+Root publication meshes do not need `_mesh/_config/config.ttl`; for this command the publication worktree root is also the mesh root. If a mesh config already exists, Weave preserves it and still validates generated RDF for local path leakage.
+
 Repository source bindings are recorded beside the target Knop rather than in `_mesh/_config/config.ttl`. When a deploy materializes a source file, Weave writes a source registry at `_knop/_sources/sources.ttl`, links it from the Knop inventory with `sflo:hasKnopSourceRegistry`, and records the repository URL, source ref, resolved commit, repository-relative path, and content digest. This keeps publication output portable without preserving a developer's checkout path.
 
 Dry-run prints the planned writes, preserved files, validation checks, and git operations without mutating the publication worktree:
