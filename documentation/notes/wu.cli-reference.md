@@ -268,12 +268,14 @@ Current syntax:
 
 ```sh
 weave extract <targetDesignatorPath> [--mesh-root <meshRoot>] [--source <sourceDesignatorPath> | --source-state <historicalStatePath>]
-weave extract --all-terms (--source <sourceDesignatorPath> | --source-state <historicalStatePath>) [--mesh-root <meshRoot>] [--accept-preview]
+weave extract --all-terms (--source <sourceDesignatorPath> | --source-state <historicalStatePath>) [--mesh-root <meshRoot>] [--accept-preview] [--add-source-references --reference-role <referenceRole>]
 ```
 
 `<targetDesignatorPath>` is the resource or term surface to create. `--source <sourceDesignatorPath>` selects the already woven payload artifact that describes that target and records a current-tracking `sflo:ExtractionSource` in the Knop's `_sources` registry. `--source-state <historicalStatePath>` pins the extraction source to a historical source state and resolves the owning source artifact from mesh inventory.
 
 `--source` and `--source-state` are mutually exclusive. If neither is supplied for single-target extraction, Weave resolves the unique current woven payload artifact that mentions the target. `--all-terms` requires an explicit `--source` or `--source-state`, previews the identifiers that will be created, and asks for confirmation before writing; `--accept-preview` accepts that preview for noninteractive runs. Existing Knops, blank nodes, support artifact paths, and generated page/file artifact paths are skipped.
+
+`--add-source-references` is valid only with `--all-terms` and creates a `ReferenceCatalog` / `ReferenceLink` for each newly extracted term. `--reference-role <referenceRole>` is required with `--add-source-references`. The reference target is the selected source artifact; when extraction uses `--source-state`, the reference also carries `sflo:referenceTargetState` for that historical source state. Existing terms are not backfilled by this option.
 
 ```sh
 weave extract bob
@@ -281,6 +283,7 @@ weave extract /
 weave extract ontology/CharacterShape --mesh-root docs --source shacl
 weave extract ontology/AbilityScore --mesh-root docs --source-state ontology/releases/v0.0.1
 weave extract --all-terms --mesh-root docs --source shacl --accept-preview
+weave extract --all-terms --mesh-root docs --source ontology --add-source-references --reference-role canonical --accept-preview
 ```
 
 For example, the current Fantasy Rules sidecar term slice is represented as explicit single-target extractions:

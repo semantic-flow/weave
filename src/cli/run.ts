@@ -375,6 +375,14 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           "--accept-preview",
           "Accept the all-terms preview without an interactive prompt.",
         )
+        .option(
+          "--add-source-references",
+          "Create source ReferenceLinks for terms newly extracted by --all-terms.",
+        )
+        .option(
+          "--reference-role <referenceRole:string>",
+          "ReferenceRole token to assign when --add-source-references is supplied.",
+        )
         .action(async (
           options: {
             meshRoot: string;
@@ -382,6 +390,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             sourceState?: string;
             allTerms?: boolean;
             acceptPreview?: boolean;
+            addSourceReferences?: boolean;
+            referenceRole?: string;
           },
           designatorPath?: string,
         ) => {
@@ -411,6 +421,16 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 "extract --all-terms requires --source or --source-state",
               );
             }
+            if (options.addSourceReferences && !options.referenceRole) {
+              throw new ExtractInputError(
+                "extract --all-terms --add-source-references requires --reference-role",
+              );
+            }
+            if (!options.addSourceReferences && options.referenceRole) {
+              throw new ExtractInputError(
+                "extract --all-terms --reference-role requires --add-source-references",
+              );
+            }
             const preview = await previewExtractAllTerms({
               meshRoot,
               request: {
@@ -419,6 +439,12 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                   : {}),
                 ...(options.sourceState
                   ? { sourceStatePath: options.sourceState }
+                  : {}),
+                ...(options.addSourceReferences
+                  ? {
+                    addSourceReferences: true,
+                    referenceRole: options.referenceRole,
+                  }
                   : {}),
               },
             });
@@ -439,6 +465,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               workspaceRoot,
               sourceDesignatorPath: options.source,
               sourceStatePath: options.sourceState,
+              addSourceReferences: options.addSourceReferences,
+              referenceRole: options.referenceRole,
               localMode: true,
             });
 
@@ -450,6 +478,12 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                   : {}),
                 ...(options.sourceState
                   ? { sourceStatePath: options.sourceState }
+                  : {}),
+                ...(options.addSourceReferences
+                  ? {
+                    addSourceReferences: true,
+                    referenceRole: options.referenceRole,
+                  }
                   : {}),
               },
               operationalLogger,
@@ -463,6 +497,12 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               console.log(path);
             }
             return;
+          }
+
+          if (options.addSourceReferences || options.referenceRole) {
+            throw new ExtractInputError(
+              "extract source-reference options require --all-terms",
+            );
           }
 
           const normalizedDesignatorPath = resolveCliArgumentDesignatorPath(

@@ -367,6 +367,74 @@ Deno.test("weave extract --all-terms previews and creates new terms with --accep
   await Deno.stat(join(workspaceRoot, "carol/_knop/_meta/meta.ttl"));
 });
 
+Deno.test("weave extract --all-terms creates source references with explicit role", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-extract-all-terms-references-",
+  );
+  await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
+  await Deno.writeTextFile(
+    join(workspaceRoot, "alice-bio.ttl"),
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix schema: <https://schema.org/> .
+
+<alice/bio> schema:about <dave> .
+<dave> schema:name "Dave" .
+`,
+  );
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      "extract",
+      "--all-terms",
+      "--accept-preview",
+      "--source",
+      "alice/bio",
+      "--add-source-references",
+      "--reference-role",
+      "canonical",
+      "--mesh-root",
+      workspaceRoot,
+    ],
+    cwd: new URL(".", repoRoot),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(
+    stdout.includes("All-terms extract will create 1 identifiers"),
+    stdout,
+  );
+  assert(stdout.includes("- dave"), stdout);
+  assert(
+    stdout.includes(
+      "Created source references for 1 newly extracted terms.",
+    ),
+    stdout,
+  );
+  const referencesTurtle = await Deno.readTextFile(
+    join(workspaceRoot, "dave/_knop/_references/references.ttl"),
+  );
+  assert(
+    referencesTurtle.includes(
+      "sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_canonical> ;",
+    ),
+    referencesTurtle,
+  );
+  assert(
+    referencesTurtle.includes("sflo:referenceTarget <alice/bio> ."),
+    referencesTurtle,
+  );
+});
+
 Deno.test("weave extract --all-terms requires an explicit source selector", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-e2e-extract-all-terms-source-",

@@ -60,21 +60,22 @@ All-terms discovery currently considers named nodes from subject, predicate, and
 
 ### Idempotence
 
-The command should be safe to rerun. If a reference catalog/link already exists for the same extracted term, target, and role, rerun should avoid creating a duplicate reference. If the first implementation only adds references for newly extracted terms, it should say so clearly in result output; a later backfill mode can handle previously extracted terms that are missing source references.
+The command should be safe to rerun. This first slice adds references only for terms newly extracted during the invocation, so a rerun after the terms already exist creates no additional reference catalogs. A later backfill mode can handle previously extracted terms that are missing source references.
 
 ## Open Issues
 
-- Should `--add-source-references` add references only for terms newly created during this invocation, or also backfill missing references for already-managed terms discovered in the same source?
-- Should there be a pinned reference mode that uses `sflo:referenceTargetState` when extraction uses `--source-state`, or is extraction-source provenance enough for now?
+- Resolved: `--add-source-references` adds references only for terms newly created during this invocation.
+- Resolved: when extraction uses `--source-state`, source references also carry `sflo:referenceTargetState` for that selected historical state.
 
 ## Decisions
 
 - Add explicit `--add-source-references` and `--reference-role canonical` support to `extract --all-terms`.
 - Keep source-reference creation opt-in for now.
 - Require `--reference-role` when `--add-source-references` is supplied rather than silently defaulting to `canonical`.
-- Use current broad source-artifact references with no `sflo:referenceTargetState` in the first slice.
+- Use broad source-artifact references for current `--source` extraction, and add `sflo:referenceTargetState` when extraction explicitly selects `--source-state`.
 - Reuse the existing `ReferenceCatalog` / `ReferenceLink` shape and `knop add-reference` planning semantics.
 - Follow existing all-terms discovery scope across subject, predicate, and object named nodes.
+- Do not backfill missing source references for existing terms in this slice.
 
 ## Contract Changes
 
@@ -83,11 +84,13 @@ The command should be safe to rerun. If a reference catalog/link already exists 
 - Runtime: `LocalExtractAllTermsRequest` gains optional source-reference fields.
 - Runtime result should report reference-created paths separately or include them in created/updated paths while making the summary clear.
 - Existing all-terms extraction without `--add-source-references` should keep its current behavior.
+- `--reference-role` without `--add-source-references` is rejected for `extract --all-terms`.
 
 ## Testing
 
 - Add runtime integration coverage proving `executeExtractAllTerms` with source references creates one reference catalog per newly extracted term.
-- Assert each reference uses `sflo:referenceRole_canonical`, `sflo:referenceTarget <sourceDesignatorPath>`, and no `sflo:referenceTargetState` for the first slice.
+- Assert each current-source reference uses `sflo:referenceRole_canonical`, `sflo:referenceTarget <sourceDesignatorPath>`, and no `sflo:referenceTargetState`.
+- Assert source-state extraction references include `sflo:referenceTargetState`.
 - Assert rerunning the command does not duplicate references.
 - Add CLI e2e coverage for `weave extract --all-terms --source ... --add-source-references --reference-role canonical --accept-preview`.
 - Keep existing tests for all-terms extraction without source references passing unchanged.
@@ -102,11 +105,11 @@ The command should be safe to rerun. If a reference catalog/link already exists 
 
 ## Implementation Plan
 
-- [ ] Add request/result fields for all-terms source-reference creation.
-- [ ] Thread `--add-source-references` and `--reference-role` through the `extract --all-terms` CLI path.
-- [ ] Reuse or factor reference planning so all-terms extraction can create the same reference catalog artifacts as `knop add-reference`.
-- [ ] Ensure created references target the selected source designator path and use the requested reference role.
-- [ ] Make reruns avoid duplicate references.
-- [ ] Add focused runtime tests.
-- [ ] Add CLI e2e coverage.
-- [ ] Run focused tests, then `deno task check` and `deno task lint`.
+- [x] Add request/result fields for all-terms source-reference creation.
+- [x] Thread `--add-source-references` and `--reference-role` through the `extract --all-terms` CLI path.
+- [x] Reuse or factor reference planning so all-terms extraction can create the same reference catalog artifacts as `knop add-reference`.
+- [x] Ensure created references target the selected source designator path and use the requested reference role.
+- [x] Make reruns avoid duplicate references.
+- [x] Add focused runtime tests.
+- [x] Add CLI e2e coverage.
+- [x] Run focused tests, then `deno task check` and `deno task lint`.

@@ -20,6 +20,15 @@ created: 1773630801215
 
 ## Decisions
 
+### 2026-05-16: All-Terms Source References Are Opt-In And Creation-Scoped
+
+- Decision: Add `extract --all-terms --add-source-references --reference-role <role>` as an opt-in source-reference creation mode, create ReferenceCatalog/ReferenceLink support only for terms newly extracted in that invocation, and pin the ReferenceLink with `sflo:referenceTargetState` when extraction explicitly uses `--source-state`.
+- References: [[wd.task.2026.2026-05-16_1748-add-source-references]], [[wu.cli-reference]]
+- Why:
+  - Ontology publication needs curated canonical references from generated term surfaces back to their governing source artifacts, but silent reference creation remains too strong for arbitrary RDF payload extraction.
+  - Keeping the first bulk mode creation-scoped preserves the existing all-terms semantics that skip existing Knops and leaves reference backfill as a deliberate maintenance command.
+  - Pinned extraction should produce pinned source references so the human-facing reference graph and the extraction provenance agree about the selected source state.
+
 ### 2026-04-03: Deno-First Weave Runtime
 
 - Decision: Use Deno as the primary Weave runtime and stop treating RDF-tool viability on Deno as an open prerequisite for bootstrap work.

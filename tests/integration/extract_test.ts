@@ -1,4 +1,9 @@
-import { assertEquals, assertRejects } from "@std/assert";
+import {
+  assertEquals,
+  assertFalse,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
 import {
   executeExtract,
@@ -229,6 +234,136 @@ Deno.test("executeExtractAllTerms extracts only new named mesh terms and skips s
   await assertRejects(
     () => Deno.stat(join(workspaceRoot, "bob/_knop/_knop/_meta/meta.ttl")),
     Deno.errors.NotFound,
+  );
+});
+
+Deno.test("executeExtractAllTerms creates source references only for newly extracted terms", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-extract-all-terms-references-",
+  );
+  await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
+  await Deno.writeTextFile(
+    join(workspaceRoot, "alice-bio.ttl"),
+    `@base <${MESH_ALICE_BIO_BASE}> .
+@prefix schema: <https://schema.org/> .
+
+<alice/bio> schema:about <bob>, <carol> .
+<carol> schema:name "Carol" .
+`,
+  );
+
+  const result = await executeExtractAllTerms({
+    workspaceRoot,
+    request: {
+      sourceDesignatorPath: "alice/bio",
+      addSourceReferences: true,
+      referenceRole: "canonical",
+    },
+  });
+
+  assertEquals(result.extractedDesignatorPaths, ["bob", "carol"]);
+  assertEquals(result.sourceReferencesRequested, true);
+  assertEquals(result.sourceReferencedDesignatorPaths, ["bob", "carol"]);
+  assertEquals(
+    result.sourceReferenceRoleIri,
+    "https://semantic-flow.github.io/sflo/ontology/referenceRole_canonical",
+  );
+  assertEquals(
+    [...result.sourceReferenceCreatedPaths].sort(),
+    [
+      "bob/_knop/_references/references.ttl",
+      "carol/_knop/_references/references.ttl",
+    ],
+  );
+  assertEquals(
+    [...result.createdPaths].sort(),
+    [
+      "bob/_knop/_inventory/inventory.ttl",
+      "bob/_knop/_meta/meta.ttl",
+      "bob/_knop/_references/references.ttl",
+      "bob/_knop/_sources/sources.ttl",
+      "carol/_knop/_inventory/inventory.ttl",
+      "carol/_knop/_meta/meta.ttl",
+      "carol/_knop/_references/references.ttl",
+      "carol/_knop/_sources/sources.ttl",
+    ],
+  );
+  assertEquals(result.updatedPaths, ["_mesh/_inventory/inventory.ttl"]);
+
+  const bobReferencesPath = join(
+    workspaceRoot,
+    "bob/_knop/_references/references.ttl",
+  );
+  const bobReferencesTurtle = await Deno.readTextFile(bobReferencesPath);
+  assertStringIncludes(
+    bobReferencesTurtle,
+    "<bob> sflo:hasReferenceLink <bob/_knop/_references#reference001> .",
+  );
+  assertStringIncludes(
+    bobReferencesTurtle,
+    "sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_canonical> ;",
+  );
+  assertStringIncludes(
+    bobReferencesTurtle,
+    "sflo:referenceTarget <alice/bio> .",
+  );
+  assertFalse(bobReferencesTurtle.includes("sflo:referenceTargetState"));
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "bob/_knop/_inventory/inventory.ttl"),
+    ),
+    "sflo:hasReferenceCatalog <bob/_knop/_references> ;",
+  );
+
+  const rerunResult = await executeExtractAllTerms({
+    workspaceRoot,
+    request: {
+      sourceDesignatorPath: "alice/bio",
+      addSourceReferences: true,
+      referenceRole: "canonical",
+    },
+  });
+
+  assertEquals(rerunResult.extractedDesignatorPaths, []);
+  assertEquals(rerunResult.sourceReferencedDesignatorPaths, []);
+  assertEquals(rerunResult.sourceReferenceCreatedPaths, []);
+  assertEquals(rerunResult.createdPaths, []);
+  assertEquals(rerunResult.updatedPaths, []);
+  assertEquals(
+    await Deno.readTextFile(bobReferencesPath),
+    bobReferencesTurtle,
+  );
+});
+
+Deno.test("executeExtractAllTerms pins source references when extracting from a source state", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-extract-all-terms-pinned-references-",
+  );
+  await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
+
+  const result = await executeExtractAllTerms({
+    workspaceRoot,
+    request: {
+      sourceStatePath: "alice/bio/_history001/_s0002",
+      addSourceReferences: true,
+      referenceRole: "canonical",
+    },
+  });
+
+  assertEquals(result.sourceResolutionMode, "pinned");
+  assertEquals(result.sourceDesignatorPath, "alice/bio");
+  assertEquals(result.extractedDesignatorPaths, ["bob"]);
+  assertEquals(
+    result.sourceReferenceTargetStateIri,
+    "https://semantic-flow.github.io/mesh-alice-bio/alice/bio/_history001/_s0002",
+  );
+
+  const referencesTurtle = await Deno.readTextFile(
+    join(workspaceRoot, "bob/_knop/_references/references.ttl"),
+  );
+  assertStringIncludes(
+    referencesTurtle,
+    "sflo:referenceTarget <alice/bio> ;\n  sflo:referenceTargetState <alice/bio/_history001/_s0002> .",
   );
 });
 

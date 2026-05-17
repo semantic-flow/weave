@@ -63,6 +63,7 @@ type ReferenceRoleToken = keyof typeof referenceRoleIriByToken;
 export interface KnopAddReferenceRequest {
   designatorPath: string;
   referenceTargetDesignatorPath: string;
+  referenceTargetStatePath?: string;
   referenceRole: string;
 }
 
@@ -76,10 +77,12 @@ export interface KnopAddReferencePlan {
   meshBase: string;
   designatorPath: string;
   referenceTargetDesignatorPath: string;
+  referenceTargetStatePath?: string;
   referenceCatalogIri: string;
   referenceLinkIri: string;
   referenceRoleIri: string;
   referenceTargetIri: string;
+  referenceTargetStateIri?: string;
   createdFiles: readonly PlannedFile[];
   updatedFiles: readonly PlannedFile[];
 }
@@ -112,8 +115,14 @@ export function planKnopAddReference(
     request.referenceTargetDesignatorPath,
     "referenceTargetDesignatorPath",
   );
-  const referenceRoleToken = normalizeReferenceRole(request.referenceRole);
-  const referenceRoleIri = referenceRoleIriByToken[referenceRoleToken];
+  const referenceTargetStatePath = request.referenceTargetStatePath ===
+      undefined
+    ? undefined
+    : normalizeRelativeIriPath(
+      request.referenceTargetStatePath,
+      "referenceTargetStatePath",
+    );
+  const referenceRoleIri = resolveReferenceRoleIri(request.referenceRole);
   const knopPath = toKnopPath(designatorPath);
   const referenceCatalogPath = `${knopPath}/_references`;
   const referenceLinkPath = `${referenceCatalogPath}#reference001`;
@@ -122,10 +131,17 @@ export function planKnopAddReference(
     meshBase,
     designatorPath,
     referenceTargetDesignatorPath,
+    ...(referenceTargetStatePath ? { referenceTargetStatePath } : {}),
     referenceCatalogIri: new URL(referenceCatalogPath, meshBase).href,
     referenceLinkIri: new URL(referenceLinkPath, meshBase).href,
     referenceRoleIri,
     referenceTargetIri: new URL(referenceTargetDesignatorPath, meshBase).href,
+    ...(referenceTargetStatePath
+      ? {
+        referenceTargetStateIri: new URL(referenceTargetStatePath, meshBase)
+          .href,
+      }
+      : {}),
     createdFiles: [
       {
         path: `${referenceCatalogPath}/references.ttl`,
@@ -133,6 +149,7 @@ export function planKnopAddReference(
           meshBase,
           designatorPath,
           referenceTargetDesignatorPath,
+          referenceTargetStatePath,
           referenceRoleIri,
         ),
       },
@@ -187,6 +204,43 @@ function normalizeDesignatorPath(
   );
 }
 
+function normalizeRelativeIriPath(value: string, fieldName: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    throw new KnopAddReferenceInputError(`${fieldName} is required`);
+  }
+  if (trimmed.startsWith("/") || trimmed.endsWith("/")) {
+    throw new KnopAddReferenceInputError(
+      `${fieldName} must not start or end with '/'`,
+    );
+  }
+  if (
+    trimmed.includes("\\") || trimmed.includes("?") || trimmed.includes("#")
+  ) {
+    throw new KnopAddReferenceInputError(
+      `${fieldName} contains unsupported path characters`,
+    );
+  }
+
+  const segments = trimmed.split("/");
+  if (segments.some((segment) => segment.length === 0)) {
+    throw new KnopAddReferenceInputError(
+      `${fieldName} must not contain empty path segments`,
+    );
+  }
+  if (segments.some((segment) => segment === "." || segment === "..")) {
+    throw new KnopAddReferenceInputError(
+      `${fieldName} must not contain '.' or '..' path segments`,
+    );
+  }
+
+  return trimmed;
+}
+
+export function resolveReferenceRoleIri(referenceRole: string): string {
+  return referenceRoleIriByToken[normalizeReferenceRole(referenceRole)];
+}
+
 function normalizeReferenceRole(referenceRole: string): ReferenceRoleToken {
   const normalized = referenceRole.trim().toLowerCase();
   if (normalized.length === 0) {
@@ -206,9 +260,14 @@ function renderReferencesTurtle(
   meshBase: string,
   designatorPath: string,
   referenceTargetDesignatorPath: string,
+  referenceTargetStatePath: string | undefined,
   referenceRoleIri: string,
 ): string {
   const referenceCatalogPath = toReferenceCatalogPath(designatorPath);
+  const referenceTargetFacts = referenceTargetStatePath
+    ? `  sflo:referenceTarget <${referenceTargetDesignatorPath}> ;
+  sflo:referenceTargetState <${referenceTargetStatePath}> .`
+    : `  sflo:referenceTarget <${referenceTargetDesignatorPath}> .`;
 
   return `@base <${meshBase}> .
 ${SFLO_TURTLE_PREFIX_DECLARATION}
@@ -218,7 +277,7 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 <${referenceCatalogPath}#reference001> a sflo:ReferenceLink ;
   sflo:referenceLinkFor <${designatorPath}> ;
   sflo:hasReferenceRole <${referenceRoleIri}> ;
-  sflo:referenceTarget <${referenceTargetDesignatorPath}> .
+${referenceTargetFacts}
 `;
 }
 

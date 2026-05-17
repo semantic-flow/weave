@@ -12,6 +12,12 @@ import {
   type ExtractPlan,
   planExtract,
 } from "../../core/extract/extract.ts";
+import {
+  KnopAddReferenceInputError,
+  type KnopAddReferencePlan,
+  planKnopAddReference,
+  resolveReferenceRoleIri,
+} from "../../core/knop/add_reference.ts";
 import type { PlannedFile } from "../../core/planned_file.ts";
 import {
   listKnopDesignatorPaths,
@@ -103,6 +109,8 @@ export interface LocalExtractRequest {
 export interface LocalExtractAllTermsRequest {
   sourceDesignatorPath?: string;
   sourceStatePath?: string;
+  addSourceReferences?: boolean;
+  referenceRole?: string;
 }
 
 export interface LocalSetExtractionSourceRequest {
@@ -146,6 +154,11 @@ export interface ExtractAllTermsResult {
   extractedDesignatorPaths: readonly string[];
   skippedExistingDesignatorPaths: readonly string[];
   skippedSupportDesignatorPaths: readonly string[];
+  sourceReferencesRequested: boolean;
+  sourceReferencedDesignatorPaths: readonly string[];
+  sourceReferenceRoleIri?: string;
+  sourceReferenceTargetStateIri?: string;
+  sourceReferenceCreatedPaths: readonly string[];
   createdPaths: readonly string[];
   updatedPaths: readonly string[];
 }
@@ -203,6 +216,12 @@ interface StagedPlanMutation {
 interface PlannedMutation {
   createdFiles: readonly PlannedFile[];
   updatedFiles: readonly PlannedFile[];
+}
+
+interface AllTermsSourceReferenceOptions {
+  addSourceReferences: boolean;
+  referenceRole?: string;
+  referenceRoleIri?: string;
 }
 
 export async function executeExtract(
@@ -338,6 +357,9 @@ export async function executeExtractAllTerms(
   const workspaceRoot = localPathPolicy.workspaceRoot;
   const sourceDesignatorPath = options.request.sourceDesignatorPath;
   const sourceStatePath = options.request.sourceStatePath;
+  const sourceReferenceOptions = resolveAllTermsSourceReferenceOptions(
+    options.request,
+  );
   let plannedMutation: PlannedMutation | undefined;
 
   await operationalLogger.info(
@@ -348,6 +370,8 @@ export async function executeExtractAllTerms(
       workspaceRoot,
       sourceSelector: sourceDesignatorPath ?? sourceStatePath,
       sourceStatePath,
+      addSourceReferences: sourceReferenceOptions.addSourceReferences,
+      referenceRole: sourceReferenceOptions.referenceRole,
     },
   );
   await auditLogger.record(
@@ -358,6 +382,8 @@ export async function executeExtractAllTerms(
       workspaceRoot,
       sourceDesignatorPath,
       sourceStatePath,
+      addSourceReferences: sourceReferenceOptions.addSourceReferences,
+      referenceRole: sourceReferenceOptions.referenceRole,
     },
   );
 
@@ -380,6 +406,7 @@ export async function executeExtractAllTerms(
       sourceKnopInventoryTurtle: sourcePayload.currentKnopInventoryTurtle,
     });
     const plans: ExtractPlan[] = [];
+    const referencePlans: KnopAddReferencePlan[] = [];
     let currentMeshInventoryTurtle = meshState.currentMeshInventoryTurtle;
 
     for (const designatorPath of discovery.extractedDesignatorPaths) {
@@ -398,12 +425,23 @@ export async function executeExtractAllTerms(
         sourceWorkingLocalRelativePath: sourcePayload.workingLocalRelativePath,
       });
       plans.push(plan);
+      if (sourceReferenceOptions.addSourceReferences) {
+        referencePlans.push(
+          planSourceReferenceForNewlyExtractedTerm({
+            meshBase: meshState.meshBase,
+            extractPlan: plan,
+            sourceDesignatorPath: sourcePayload.designatorPath,
+            sourceStatePath: sourcePayload.sourceStatePath,
+            referenceRole: sourceReferenceOptions.referenceRole!,
+          }),
+        );
+      }
       currentMeshInventoryTurtle = plan.updatedFiles.find((file) =>
         file.path === "_mesh/_inventory/inventory.ttl"
       )?.contents ?? currentMeshInventoryTurtle;
     }
 
-    plannedMutation = combineExtractPlans(plans);
+    plannedMutation = combineExtractPlans(plans, referencePlans);
     await assertUpdatedTargetsExist(meshRoot, plannedMutation);
     await assertCreateTargetsDoNotExist(meshRoot, plannedMutation);
     validateRdfFiles([
@@ -426,6 +464,27 @@ export async function executeExtractAllTerms(
       extractedDesignatorPaths: discovery.extractedDesignatorPaths,
       skippedExistingDesignatorPaths: discovery.skippedExistingDesignatorPaths,
       skippedSupportDesignatorPaths: discovery.skippedSupportDesignatorPaths,
+      sourceReferencesRequested: sourceReferenceOptions.addSourceReferences,
+      sourceReferencedDesignatorPaths: referencePlans.map((plan) =>
+        plan.designatorPath
+      ),
+      ...(sourceReferenceOptions.referenceRoleIri
+        ? { sourceReferenceRoleIri: sourceReferenceOptions.referenceRoleIri }
+        : {}),
+      ...(sourceReferenceOptions.addSourceReferences &&
+          sourcePayload.sourceStatePath
+        ? {
+          sourceReferenceTargetStateIri: new URL(
+            sourcePayload.sourceStatePath,
+            meshState.meshBase,
+          ).href,
+        }
+        : {}),
+      sourceReferenceCreatedPaths: referencePlans.flatMap((plan) =>
+        plan.createdFiles.map((file) =>
+          toWorkspaceRelativePath(localPathPolicy, file.path)
+        )
+      ),
       createdPaths: plannedMutation.createdFiles.map((file) =>
         toWorkspaceRelativePath(localPathPolicy, file.path)
       ),
@@ -476,6 +535,9 @@ export async function previewExtractAllTerms(
     throw new ExtractRuntimeError("meshRoot is required");
   }
   const localPathPolicy = await loadOperationalLocalPathPolicy(meshRoot);
+  const sourceReferenceOptions = resolveAllTermsSourceReferenceOptions(
+    options.request,
+  );
   await ensureMeshRootExists(meshRoot);
   const meshState = await loadMeshState(meshRoot);
   const sourcePayload = await resolveSelectedExtractSourcePayload(
@@ -507,6 +569,21 @@ export async function previewExtractAllTerms(
     extractedDesignatorPaths: discovery.extractedDesignatorPaths,
     skippedExistingDesignatorPaths: discovery.skippedExistingDesignatorPaths,
     skippedSupportDesignatorPaths: discovery.skippedSupportDesignatorPaths,
+    sourceReferencesRequested: sourceReferenceOptions.addSourceReferences,
+    sourceReferencedDesignatorPaths: [],
+    ...(sourceReferenceOptions.referenceRoleIri
+      ? { sourceReferenceRoleIri: sourceReferenceOptions.referenceRoleIri }
+      : {}),
+    ...(sourceReferenceOptions.addSourceReferences &&
+        sourcePayload.sourceStatePath
+      ? {
+        sourceReferenceTargetStateIri: new URL(
+          sourcePayload.sourceStatePath,
+          meshState.meshBase,
+        ).href,
+      }
+      : {}),
+    sourceReferenceCreatedPaths: [],
     createdPaths: [],
     updatedPaths: [],
   };
@@ -714,9 +791,15 @@ export function describeSetExtractionSourceAllTermsResult(
 export function describeExtractAllTermsResult(
   result: ExtractAllTermsResult,
 ): string {
-  return `Extracted ${result.extractedDesignatorPaths.length} new terms from ${
-    formatDesignatorPathForDisplay(result.sourceDesignatorPath)
-  }, skipped ${result.skippedExistingDesignatorPaths.length} existing terms and ${result.skippedSupportDesignatorPaths.length} support artifacts.`;
+  const summary =
+    `Extracted ${result.extractedDesignatorPaths.length} new terms from ${
+      formatDesignatorPathForDisplay(result.sourceDesignatorPath)
+    }, skipped ${result.skippedExistingDesignatorPaths.length} existing terms and ${result.skippedSupportDesignatorPaths.length} support artifacts.`;
+  if (!result.sourceReferencesRequested) {
+    return summary;
+  }
+
+  return `${summary} Created source references for ${result.sourceReferencedDesignatorPaths.length} newly extracted terms.`;
 }
 
 function resolveLoggers(
@@ -1436,7 +1519,50 @@ function normalizeDiscoveredDesignatorPath(
   }
 }
 
-function combineExtractPlans(plans: readonly ExtractPlan[]): PlannedMutation {
+function planSourceReferenceForNewlyExtractedTerm(
+  options: {
+    meshBase: string;
+    extractPlan: ExtractPlan;
+    sourceDesignatorPath: string;
+    sourceStatePath?: string;
+    referenceRole: string;
+  },
+): KnopAddReferencePlan {
+  const inventoryPath = `${
+    toKnopPath(options.extractPlan.designatorPath)
+  }/_inventory/inventory.ttl`;
+  const currentKnopInventory = options.extractPlan.createdFiles.find((file) =>
+    file.path === inventoryPath
+  );
+  if (!currentKnopInventory) {
+    throw new ExtractRuntimeError(
+      `All-terms extract did not create an inventory for ${options.extractPlan.designatorPath}.`,
+    );
+  }
+
+  try {
+    return planKnopAddReference({
+      meshBase: options.meshBase,
+      currentKnopInventoryTurtle: currentKnopInventory.contents,
+      designatorPath: options.extractPlan.designatorPath,
+      referenceTargetDesignatorPath: options.sourceDesignatorPath,
+      ...(options.sourceStatePath
+        ? { referenceTargetStatePath: options.sourceStatePath }
+        : {}),
+      referenceRole: options.referenceRole,
+    });
+  } catch (error) {
+    if (error instanceof KnopAddReferenceInputError) {
+      throw new ExtractRuntimeError(error.message);
+    }
+    throw error;
+  }
+}
+
+function combineExtractPlans(
+  plans: readonly ExtractPlan[],
+  referencePlans: readonly KnopAddReferencePlan[] = [],
+): PlannedMutation {
   if (plans.length === 0) {
     return {
       createdFiles: [],
@@ -1453,10 +1579,58 @@ function combineExtractPlans(plans: readonly ExtractPlan[]): PlannedMutation {
     );
   }
 
+  const createdFiles = plans.flatMap((plan) => [...plan.createdFiles]);
+  const updatedFiles: PlannedFile[] = [latestMeshInventory];
+  for (const referencePlan of referencePlans) {
+    createdFiles.push(...referencePlan.createdFiles);
+    for (const updatedFile of referencePlan.updatedFiles) {
+      const createdFileIndex = createdFiles.findIndex((file) =>
+        file.path === updatedFile.path
+      );
+      if (createdFileIndex === -1) {
+        updatedFiles.push(updatedFile);
+        continue;
+      }
+      createdFiles[createdFileIndex] = updatedFile;
+    }
+  }
+
   return {
-    createdFiles: plans.flatMap((plan) => [...plan.createdFiles]),
-    updatedFiles: [latestMeshInventory],
+    createdFiles,
+    updatedFiles,
   };
+}
+
+function resolveAllTermsSourceReferenceOptions(
+  request: LocalExtractAllTermsRequest,
+): AllTermsSourceReferenceOptions {
+  if (!request.addSourceReferences) {
+    if (request.referenceRole !== undefined) {
+      throw new ExtractRuntimeError(
+        "extract --all-terms --reference-role requires --add-source-references",
+      );
+    }
+    return { addSourceReferences: false };
+  }
+
+  if (request.referenceRole === undefined) {
+    throw new ExtractRuntimeError(
+      "extract --all-terms --add-source-references requires --reference-role",
+    );
+  }
+
+  try {
+    return {
+      addSourceReferences: true,
+      referenceRole: request.referenceRole,
+      referenceRoleIri: resolveReferenceRoleIri(request.referenceRole),
+    };
+  } catch (error) {
+    if (error instanceof KnopAddReferenceInputError) {
+      throw new ExtractRuntimeError(error.message);
+    }
+    throw error;
+  }
 }
 
 async function readExistingKnopInventory(
@@ -2143,6 +2317,11 @@ async function logExtractAllTermsSucceededBestEffort(
         extractedDesignatorPaths: result.extractedDesignatorPaths,
         skippedExistingDesignatorPaths: result.skippedExistingDesignatorPaths,
         skippedSupportDesignatorPaths: result.skippedSupportDesignatorPaths,
+        sourceReferencesRequested: result.sourceReferencesRequested,
+        sourceReferencedDesignatorPaths: result.sourceReferencedDesignatorPaths,
+        sourceReferenceRoleIri: result.sourceReferenceRoleIri,
+        sourceReferenceTargetStateIri: result.sourceReferenceTargetStateIri,
+        sourceReferenceCreatedPaths: result.sourceReferenceCreatedPaths,
         createdPaths: result.createdPaths,
         updatedPaths: result.updatedPaths,
       },
@@ -2163,6 +2342,11 @@ async function logExtractAllTermsSucceededBestEffort(
         extractedDesignatorPaths: result.extractedDesignatorPaths,
         skippedExistingDesignatorPaths: result.skippedExistingDesignatorPaths,
         skippedSupportDesignatorPaths: result.skippedSupportDesignatorPaths,
+        sourceReferencesRequested: result.sourceReferencesRequested,
+        sourceReferencedDesignatorPaths: result.sourceReferencedDesignatorPaths,
+        sourceReferenceRoleIri: result.sourceReferenceRoleIri,
+        sourceReferenceTargetStateIri: result.sourceReferenceTargetStateIri,
+        sourceReferenceCreatedPaths: result.sourceReferenceCreatedPaths,
         createdPaths: result.createdPaths,
         updatedPaths: result.updatedPaths,
       },

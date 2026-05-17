@@ -19,6 +19,7 @@ import type { StructuredLogger } from "../logging/logger.ts";
 export interface LocalKnopAddReferenceRequest {
   designatorPath: string;
   referenceTargetDesignatorPath: string;
+  referenceTargetStatePath?: string;
   referenceRole: string;
 }
 
@@ -33,10 +34,12 @@ export interface KnopAddReferenceResult {
   meshBase: string;
   designatorPath: string;
   referenceTargetDesignatorPath: string;
+  referenceTargetStatePath?: string;
   referenceCatalogIri: string;
   referenceLinkIri: string;
   referenceRoleIri: string;
   referenceTargetIri: string;
+  referenceTargetStateIri?: string;
   createdPaths: readonly string[];
   updatedPaths: readonly string[];
 }
@@ -68,6 +71,7 @@ export async function executeKnopAddReference(
   const designatorPath = options.request.designatorPath;
   const referenceTargetDesignatorPath =
     options.request.referenceTargetDesignatorPath;
+  const referenceTargetStatePath = options.request.referenceTargetStatePath;
   const referenceRole = options.request.referenceRole;
   let plan: KnopAddReferencePlan | undefined;
 
@@ -78,6 +82,7 @@ export async function executeKnopAddReference(
       workspaceRoot,
       designatorPath,
       referenceTargetDesignatorPath,
+      referenceTargetStatePath,
       referenceRole,
     },
   );
@@ -88,6 +93,7 @@ export async function executeKnopAddReference(
       workspaceRoot,
       designatorPath,
       referenceTargetDesignatorPath,
+      referenceTargetStatePath,
       referenceRole,
     },
   );
@@ -114,6 +120,9 @@ export async function executeKnopAddReference(
       currentKnopInventoryTurtle,
       designatorPath: normalizedDesignatorPath,
       referenceTargetDesignatorPath: normalizedReferenceTargetDesignatorPath,
+      ...(referenceTargetStatePath !== undefined
+        ? { referenceTargetStatePath }
+        : {}),
       referenceRole,
     });
 
@@ -138,6 +147,7 @@ export async function executeKnopAddReference(
       workspaceRoot,
       designatorPath,
       referenceTargetDesignatorPath,
+      referenceTargetStatePath,
       referenceRole,
       plan,
       message,
@@ -150,10 +160,16 @@ export async function executeKnopAddReference(
     meshBase: plan.meshBase,
     designatorPath: plan.designatorPath,
     referenceTargetDesignatorPath: plan.referenceTargetDesignatorPath,
+    ...(plan.referenceTargetStatePath
+      ? { referenceTargetStatePath: plan.referenceTargetStatePath }
+      : {}),
     referenceCatalogIri: plan.referenceCatalogIri,
     referenceLinkIri: plan.referenceLinkIri,
     referenceRoleIri: plan.referenceRoleIri,
     referenceTargetIri: plan.referenceTargetIri,
+    ...(plan.referenceTargetStateIri
+      ? { referenceTargetStateIri: plan.referenceTargetStateIri }
+      : {}),
     createdPaths: plan.createdFiles.map((file) => file.path),
     updatedPaths: plan.updatedFiles.map((file) => file.path),
   };
@@ -548,6 +564,7 @@ async function logKnopAddReferenceFailedBestEffort(
   workspaceRoot: string,
   designatorPath: string,
   referenceTargetDesignatorPath: string,
+  referenceTargetStatePath: string | undefined,
   referenceRole: string,
   plan: KnopAddReferencePlan | undefined,
   errorMessage: string,
@@ -556,6 +573,7 @@ async function logKnopAddReferenceFailedBestEffort(
     workspaceRoot,
     designatorPath,
     referenceTargetDesignatorPath,
+    referenceTargetStatePath,
     referenceRole,
     referenceCatalogIri: plan?.referenceCatalogIri,
     referenceLinkIri: plan?.referenceLinkIri,
@@ -593,10 +611,12 @@ async function logKnopAddReferenceSucceededBestEffort(
     workspaceRoot,
     designatorPath: result.designatorPath,
     referenceTargetDesignatorPath: result.referenceTargetDesignatorPath,
+    referenceTargetStatePath: result.referenceTargetStatePath,
     referenceCatalogIri: result.referenceCatalogIri,
     referenceLinkIri: result.referenceLinkIri,
     referenceRoleIri: result.referenceRoleIri,
     referenceTargetIri: result.referenceTargetIri,
+    referenceTargetStateIri: result.referenceTargetStateIri,
     createdPaths: result.createdPaths,
     updatedPaths: result.updatedPaths,
   };

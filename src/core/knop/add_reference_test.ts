@@ -183,6 +183,26 @@ Deno.test("planKnopAddReference renders first reference catalog support artifact
   );
 });
 
+Deno.test("planKnopAddReference can pin a reference target state", () => {
+  const plan = planKnopAddReference({
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    designatorPath: "alice",
+    referenceTargetDesignatorPath: "alice/bio",
+    referenceTargetStatePath: "alice/bio/_history001/_s0002",
+    referenceRole: "canonical",
+    currentKnopInventoryTurtle: wovenKnopInventory,
+  });
+
+  assertEquals(
+    plan.referenceTargetStateIri,
+    "https://semantic-flow.github.io/mesh-alice-bio/alice/bio/_history001/_s0002",
+  );
+  assertStringIncludes(
+    plan.createdFiles[0]?.contents ?? "",
+    "sflo:referenceTarget <alice/bio> ;\n  sflo:referenceTargetState <alice/bio/_history001/_s0002> .",
+  );
+});
+
 Deno.test("planKnopAddReference supports unwoven knop inventory input", () => {
   const plan = planKnopAddReference({
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
