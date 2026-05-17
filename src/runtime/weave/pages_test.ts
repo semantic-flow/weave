@@ -433,7 +433,7 @@ Deno.test("renderResourcePage collapses child identifier overflow", async () => 
   );
   assertStringIncludes(
     html,
-    ".wf-metadata th { width: 180px; color: #4f594f; font-size: 0.82rem; line-height: 1.35; text-transform: uppercase; letter-spacing: 0; overflow-wrap: anywhere; word-break: break-word; }",
+    ".wf-metadata th { width: 180px; color: #4f594f; font-size: 0.78rem; line-height: 1.35; text-transform: uppercase; letter-spacing: 0; overflow-wrap: anywhere; word-break: break-word; }",
   );
   assertStringIncludes(
     html,
