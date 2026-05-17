@@ -193,6 +193,12 @@ fantasy:Rule a owl:Class .
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
     "--source-path",
     sourcePath,
+    "--payload-history-segment",
+    "release",
+    "--payload-state-segment",
+    "v0.1.0",
+    "--payload-manifestation-segment",
+    "ttl",
     "--designator-path",
     "ontology",
     "--source-repository-url",
@@ -248,6 +254,12 @@ fantasy:Rule a owl:Class .
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
     "--source-path",
     sourcePath,
+    "--payload-history-segment",
+    "release",
+    "--payload-state-segment",
+    "v0.1.0",
+    "--payload-manifestation-segment",
+    "ttl",
     "--designator-path",
     "ontology",
     "--source-repository-url",
@@ -268,6 +280,12 @@ fantasy:Rule a owl:Class .
     stdout,
   );
   assert(stdout.includes("ontology/_knop/_inventory/inventory.ttl"), stdout);
+  assert(
+    stdout.includes(
+      "ontology/release/v0.1.0/ttl/fantasy-rules-ontology.ttl",
+    ),
+    stdout,
+  );
   assertEquals(await Deno.readTextFile(join(publishRoot, sourcePath)), source);
   assertEquals(await listRelativeFiles(sourceRoot, ".weave/"), [sourcePath]);
 

@@ -9,6 +9,7 @@ import { join } from "@std/path";
 import { Parser, type Quad, type Term } from "n3";
 import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import { WeaveInputError } from "../../src/core/weave/weave.ts";
+import { executeIntegrate } from "../../src/runtime/integrate/integrate.ts";
 import { executeKnopCreate } from "../../src/runtime/knop/create.ts";
 import { executeMeshCreate } from "../../src/runtime/mesh/create.ts";
 import {
@@ -188,6 +189,65 @@ Deno.test("executeWeave materializes current support ResourcePages for a docs-ro
   assertStringIncludes(
     configPage,
     'href="/mesh-sidecar-fantasy-rules/_mesh/_config/_history001/_s0001"',
+  );
+});
+
+Deno.test("executeWeave refreshes ancestor ResourcePages when a child designator is woven", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-refresh-ancestor-pages-",
+  );
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await integrateRootPayload(workspaceRoot, {
+    contents: `@base <${MESH_ALICE_BIO_BASE}> .
+@prefix schema: <https://schema.org/> .
+
+<${MESH_ALICE_BIO_BASE.slice(0, -1)}> a schema:Dataset ;
+  schema:name "Mesh Root" ;
+  schema:description "The root welcome page." .
+`,
+  });
+  await executeWeave({
+    meshRoot: workspaceRoot,
+    request: { targets: [{ designatorPath: "" }] },
+  });
+
+  await Deno.writeTextFile(
+    join(workspaceRoot, "ontology.ttl"),
+    `@base <${MESH_ALICE_BIO_BASE}> .
+@prefix schema: <https://schema.org/> .
+
+<ontology> a schema:Dataset ;
+  schema:name "Ontology" .
+`,
+  );
+  await executeIntegrate({
+    meshRoot: workspaceRoot,
+    request: {
+      designatorPath: "ontology",
+      source: "ontology.ttl",
+    },
+  });
+
+  const result = await executeWeave({
+    meshRoot: workspaceRoot,
+    request: { targets: [{ designatorPath: "ontology" }] },
+  });
+
+  assert(
+    result.updatedPaths.includes("index.html"),
+    "expected root ResourcePage to be refreshed",
+  );
+  const rootPage = await Deno.readTextFile(join(workspaceRoot, "index.html"));
+  assertStringIncludes(rootPage, "<h1>Mesh Root</h1>");
+  assertStringIncludes(rootPage, "The root welcome page.");
+  assertStringIncludes(rootPage, '<details class="wf-children" open>');
+  assertStringIncludes(rootPage, "<summary>Children</summary>");
+  assertStringIncludes(
+    rootPage,
+    '<nobr><a class="wf-child-identifier" href="/mesh-alice-bio/ontology">ontology</a></nobr>',
   );
 });
 
@@ -675,7 +735,7 @@ Deno.test("executeWeave fails closed before broad auto-advancement of named payl
   );
 });
 
-Deno.test("executeWeave forwards targets to generate and leaves unrelated pages untouched", async () => {
+Deno.test("executeWeave forwards targets to generate and refreshes ancestor pages", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-weave-targeted-generate-",
   );
@@ -694,9 +754,13 @@ Deno.test("executeWeave forwards targets to generate and leaves unrelated pages 
   });
 
   assertEquals(result.wovenDesignatorPaths, ["alice/bio"]);
-  assertEquals(
-    await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
-    "<html>sentinel</html>\n",
+  const alicePage = await Deno.readTextFile(
+    join(workspaceRoot, "alice/index.html"),
+  );
+  assertStringIncludes(alicePage, '<details class="wf-children" open>');
+  assertStringIncludes(
+    alicePage,
+    '<nobr><a class="wf-child-identifier" href="/mesh-alice-bio/alice/bio">bio</a></nobr>',
   );
   await Deno.stat(join(workspaceRoot, "alice/bio/index.html"));
 });
@@ -1785,7 +1849,7 @@ Deno.test("executeGenerate renders managed references and canonical source prope
     page,
     '<li><a href="https://semantic-flow.github.io/mesh-alice-bio/alice/bio">https://semantic-flow.github.io/mesh-alice-bio/alice/bio</a></li>',
   );
-  assertStringIncludes(page, '<details class="wf-properties">');
+  assertStringIncludes(page, '<details class="wf-properties" open>');
   assertStringIncludes(page, "<summary>Properties</summary>");
 });
 

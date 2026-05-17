@@ -454,6 +454,71 @@ fantasy:RuleSystem a owl:Class .
   assertEquals(await listRelativeFiles(sourceRoot, ".weave/"), [sourcePath]);
 });
 
+Deno.test("executeGHPagesDeployBootstrap applies requested payload naming to materialized source", async () => {
+  const tempRoot = await createTestTmpDir(
+    "weave-deploy-gh-pages-source-naming-",
+  );
+  const sourceRoot = join(tempRoot, "source");
+  const publishRoot = join(tempRoot, "gh-pages");
+  const sourcePath = "ontology/fantasy-rules-ontology.ttl";
+  const source = `@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix fantasy: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
+
+<> a owl:Ontology .
+fantasy:Rule a owl:Class .
+`;
+
+  await Deno.mkdir(join(sourceRoot, "ontology"), { recursive: true });
+  await Deno.mkdir(publishRoot, { recursive: true });
+  await Deno.writeTextFile(join(sourceRoot, sourcePath), source);
+
+  const result = await executeGHPagesDeployBootstrap({
+    sourceRoot,
+    publishRoot,
+    request: {
+      meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+      source: {
+        sourcePath,
+        designatorPath: "ontology",
+        historySegment: "release",
+        stateSegment: "v0.1.0",
+        manifestationSegment: "ttl",
+        sourceRepositoryUrl:
+          "https://github.com/semantic-flow/mesh-sidecar-fantasy-rules.git",
+        sourceRepositoryRef: "main",
+      },
+    },
+  });
+
+  const materialized = result.materializedSource;
+  assert(materialized);
+  assert(
+    materialized.createdPaths.includes(
+      "ontology/release/v0.1.0/ttl/fantasy-rules-ontology.ttl",
+    ),
+    materialized.createdPaths.join("\n"),
+  );
+  assert(
+    !materialized.createdPaths.some((path) =>
+      path.startsWith("ontology/_history001/")
+    ),
+    materialized.createdPaths.join("\n"),
+  );
+
+  const inventory = await Deno.readTextFile(
+    join(publishRoot, "ontology/_knop/_inventory/inventory.ttl"),
+  );
+  assert(inventory.includes("sflo:hasArtifactHistory <ontology/release>"));
+  assert(
+    inventory.includes("sflo:hasHistoricalState <ontology/release/v0.1.0>"),
+  );
+  assert(
+    inventory.includes(
+      "sflo:locatedFileForManifestation <ontology/release/v0.1.0/ttl/fantasy-rules-ontology.ttl>",
+    ),
+  );
+});
+
 Deno.test("executeGHPagesDeployBootstrap updates publication roots incrementally by default", async () => {
   const tempRoot = await createTestTmpDir(
     "weave-deploy-gh-pages-incremental-",

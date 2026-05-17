@@ -13,6 +13,7 @@ import {
   normalizeTargetSpecs,
   normalizeVersionTargetSpecs,
   resolveTargetSelections,
+  type TargetSpec,
 } from "../../core/targeting.ts";
 import {
   detectPendingWeaveSlice,
@@ -362,6 +363,8 @@ export async function executeGenerate(
   );
   const writeResult = await writeFilesUpsert(meshRoot, pageFiles);
 
+  // Ancestor pages include display-only child lists, so a targeted weave can
+  // need to refresh them even though versioning remains scoped to the target.
   return {
     meshBase: meshState.meshBase,
     generatedDesignatorPaths: selectedDesignatorPaths,
@@ -607,11 +610,43 @@ function toSharedTargetRequest(
   );
 
   return {
-    targets: normalizedTargets.map((target) => ({
-      designatorPath: target.designatorPath,
-      ...(target.recursive ? { recursive: true } : {}),
-    })),
+    targets: uniqueGenerateTargets(normalizedTargets.flatMap((target) => [
+      ...toAncestorGenerateTargets(target.designatorPath),
+      {
+        designatorPath: target.designatorPath,
+        ...(target.recursive ? { recursive: true } : {}),
+      },
+    ])),
   };
+}
+
+function toAncestorGenerateTargets(
+  designatorPath: string,
+): readonly TargetSpec[] {
+  if (designatorPath.length === 0) {
+    return [];
+  }
+
+  const segments = designatorPath.split("/");
+  const ancestors: TargetSpec[] = [{ designatorPath: "" }];
+  for (let index = 1; index < segments.length; index += 1) {
+    ancestors.push({ designatorPath: segments.slice(0, index).join("/") });
+  }
+  return ancestors;
+}
+
+function uniqueGenerateTargets(
+  targets: readonly TargetSpec[],
+): readonly TargetSpec[] {
+  const targetByPath = new Map<string, TargetSpec>();
+  for (const target of targets) {
+    const existing = targetByPath.get(target.designatorPath);
+    targetByPath.set(target.designatorPath, {
+      designatorPath: target.designatorPath,
+      ...((existing?.recursive || target.recursive) ? { recursive: true } : {}),
+    });
+  }
+  return [...targetByPath.values()];
 }
 
 function assertSupportedRequestKeys(

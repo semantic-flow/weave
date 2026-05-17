@@ -6,6 +6,10 @@ import {
   toKnopPath,
 } from "../../core/designator_segments.ts";
 import { SFLO_TURTLE_PREFIX_DECLARATION } from "../../core/rdf/namespaces.ts";
+import {
+  normalizeVersionTargetSpecs,
+  type VersionTargetSpec,
+} from "../../core/targeting.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
 import { resolveRuntimeLoggers } from "../logging/factory.ts";
@@ -30,6 +34,9 @@ export interface GHPagesDeploySourceBindingRequest {
   sourcePath: string;
   designatorPath: string;
   targetPath?: string;
+  historySegment?: string;
+  stateSegment?: string;
+  manifestationSegment?: string;
   sourceRepositoryUrl: string;
   sourceRepositoryRef: string;
   sourceRepositoryCommit?: string;
@@ -695,6 +702,10 @@ async function materializeSourceBinding(
   );
   const sourceRepositoryCommit = options.request.sourceRepositoryCommit
     ?.trim() || undefined;
+  const versionTarget = resolveMaterializedSourceVersionTarget({
+    designatorPath,
+    request: options.request,
+  });
   const absoluteSourcePath = join(options.sourceRoot, sourcePath);
   const absoluteTargetPath = join(options.publishRoot, targetPath);
   const sourceBytes = await readSourceFile(absoluteSourcePath, sourcePath);
@@ -765,7 +776,7 @@ async function materializeSourceBinding(
     const weaveResult = await executeWeave({
       meshRoot: options.publishRoot,
       request: {
-        targets: [{ designatorPath }],
+        targets: [versionTarget],
       },
       operationalLogger: options.operationalLogger,
       auditLogger: options.auditLogger,
@@ -814,6 +825,31 @@ async function materializeSourceBinding(
     updatedPaths: uniqueSortedPaths(updatedPaths),
     wovenPaths: uniqueSortedPaths(wovenPaths),
   };
+}
+
+function resolveMaterializedSourceVersionTarget(
+  options: {
+    designatorPath: string;
+    request: GHPagesDeploySourceBindingRequest;
+  },
+): VersionTargetSpec {
+  const targets = normalizeVersionTargetSpecs(
+    [{
+      designatorPath: options.designatorPath,
+      ...(options.request.historySegment !== undefined
+        ? { historySegment: options.request.historySegment }
+        : {}),
+      ...(options.request.stateSegment !== undefined
+        ? { stateSegment: options.request.stateSegment }
+        : {}),
+      ...(options.request.manifestationSegment !== undefined
+        ? { manifestationSegment: options.request.manifestationSegment }
+        : {}),
+    }],
+    "prepare gh-pages source target",
+    (message) => new GHPagesDeployInputError(message),
+  );
+  return targets[0]!.source;
 }
 
 function resolveRequiredRootPath(value: string, name: string): string {

@@ -216,6 +216,35 @@ Deno.test("renderResourcePage renders the root identifier with the mesh label ti
   assertStringIncludes(html, 'href="/mesh-alice-bio/root.ttl"');
 });
 
+Deno.test("renderResourcePage extracts root facts from the slashless root IRI", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "identifier",
+      path: "index.html",
+      designatorPath: "",
+      workingLocalRelativePath: "root.ttl",
+      rawSourcePanels: [{
+        label: "Current working file",
+        sourcePath: "root.ttl",
+        contents: `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+
+<https://semantic-flow.github.io/mesh-alice-bio> dcterms:title "Mesh Root" ;
+  dcterms:description "The root welcome page." .
+`,
+      }],
+    },
+  );
+
+  assertStringIncludes(html, "<title>mesh-alice-bio Mesh Root</title>");
+  assertStringIncludes(html, "<h1>Mesh Root</h1>");
+  assertStringIncludes(
+    html,
+    '<p class="wf-summary">The root welcome page.</p>',
+  );
+});
+
 Deno.test("renderResourcePage renders typed child identifier rows", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
@@ -401,6 +430,10 @@ Deno.test("renderResourcePage collapses child identifier overflow", async () => 
   assertStringIncludes(
     html,
     ".wf-metadata { width: 100%; margin-top: 24px; border-collapse: collapse; table-layout: fixed;",
+  );
+  assertStringIncludes(
+    html,
+    ".wf-metadata th { width: 180px; color: #4f594f; font-size: 0.82rem; line-height: 1.35; text-transform: uppercase; letter-spacing: 0; overflow-wrap: anywhere; word-break: break-word; }",
   );
   assertStringIncludes(
     html,
@@ -746,6 +779,11 @@ Deno.test("renderResourcePage renders RDF description, classes, and histories", 
     ),
   );
   assertStringIncludes(html, "<summary>History</summary>");
+  assert(
+    html.indexOf("<summary>Current working file</summary>") <
+      html.indexOf("<summary>History</summary>"),
+    "expected history after raw source panels",
+  );
   assertFalse(html.includes("sflo:ArtifactHistory"));
   assertFalse(html.includes("sflo:HistoricalState"));
   assertFalse(html.includes("sflo:ArtifactManifestation"));
@@ -825,7 +863,7 @@ fant:AbilityScore a owl:Class ;
     },
   );
 
-  assertStringIncludes(html, '<details class="wf-properties">');
+  assertStringIncludes(html, '<details class="wf-properties" open>');
   assertStringIncludes(html, "<summary>Properties</summary>");
   assertStringIncludes(
     html,
@@ -844,7 +882,7 @@ fant:AbilityScore a owl:Class ;
     '<th scope="row"><span class="wf-term" title="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/relatedAbility">fant:relatedAbility</span></th><td><a href="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/Strength">fant:Strength</a></td>',
   );
   const propertiesSection = html.match(
-    /<details class="wf-properties">[\s\S]*?<\/details>/,
+    /<details class="wf-properties" open>[\s\S]*?<\/details>/,
   )?.[0] ?? "";
   assertFalse(propertiesSection.includes("fant:hasConstraint"));
   assertFalse(propertiesSection.includes("_:"));

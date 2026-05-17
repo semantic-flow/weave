@@ -211,6 +211,9 @@ weave prepare gh-pages \
   --mesh-base 'https://example.github.io/my-repo/' \
   --source-path ontology/fantasy-rules-ontology.ttl \
   --designator-path ontology \
+  --payload-history-segment release \
+  --payload-state-segment v0.1.0 \
+  --payload-manifestation-segment ttl \
   --source-repository-url 'https://github.com/example/my-repo.git' \
   --source-ref main
 ```

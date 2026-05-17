@@ -667,7 +667,7 @@ ${faviconLink}  <style>
     .wf-metadata { width: 100%; margin-top: 24px; border-collapse: collapse; table-layout: fixed; border-top: 1px solid #cdd2ca; border-bottom: 1px solid #cdd2ca; }
     .wf-metadata th, .wf-metadata td { padding: 10px 12px; border-top: 1px solid #e0e4dd; text-align: left; vertical-align: top; }
     .wf-metadata tr:first-child th, .wf-metadata tr:first-child td { border-top: 0; }
-    .wf-metadata th { width: 180px; color: #4f594f; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0; }
+    .wf-metadata th { width: 180px; color: #4f594f; font-size: 0.82rem; line-height: 1.35; text-transform: uppercase; letter-spacing: 0; overflow-wrap: anywhere; word-break: break-word; }
     .wf-metadata td { min-width: 0; overflow-wrap: anywhere; }
     .wf-metadata tr.wf-source-metadata-row th, .wf-metadata tr.wf-source-metadata-row td { vertical-align: middle; }
     .wf-child-identifiers { display: flex; flex-wrap: wrap; gap: 5px; align-items: baseline; min-width: 0; max-width: 100%; }
@@ -756,9 +756,9 @@ ${meshFavicon}
 ${classes}${summary}${metadata}
         </div>
       </header>
-${childrenSection}${propertiesSection}${blankNodesSection}${referencesSection}${historySection}${
+${childrenSection}${propertiesSection}${blankNodesSection}${referencesSection}${
     sections ? `${sections}\n` : ""
-  }${rawSections}${semanticFlowMetadataSection}
+  }${rawSections}${historySection}${semanticFlowMetadataSection}
     </article>
   </main>
   <footer class="wf-generated">
@@ -870,7 +870,7 @@ function renderPropertiesSection(
   }));
 
   return `    <section class="wf-section">
-      <details class="wf-properties">
+      <details class="wf-properties" open>
         <summary>Properties</summary>
 ${renderMetadataTable(metadataRows, 8)}      </details>
     </section>

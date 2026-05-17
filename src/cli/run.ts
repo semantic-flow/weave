@@ -873,6 +873,18 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               "Publication-root relative target path for the materialized source. Defaults to --source-path.",
             )
             .option(
+              "--payload-history-segment <segment:string>",
+              "Payload history segment for the materialized source artifact.",
+            )
+            .option(
+              "--payload-state-segment <segment:string>",
+              "Payload state segment for the materialized source artifact.",
+            )
+            .option(
+              "--payload-manifestation-segment <segment:string>",
+              "Payload manifestation segment for the materialized source artifact.",
+            )
+            .option(
               "--designator-path <designatorPath:string>",
               "Designator path for the materialized source artifact.",
             )
@@ -905,6 +917,9 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 commitMessage?: string;
                 sourcePath?: string;
                 targetPath?: string;
+                payloadHistorySegment?: string;
+                payloadStateSegment?: string;
+                payloadManifestationSegment?: string;
                 designatorPath?: string;
                 sourceRepositoryUrl?: string;
                 sourceRef?: string;
@@ -1349,6 +1364,9 @@ function resolveGHPagesSourceBindingOption(
   options: {
     sourcePath?: string;
     targetPath?: string;
+    payloadHistorySegment?: string;
+    payloadStateSegment?: string;
+    payloadManifestationSegment?: string;
     designatorPath?: string;
     sourceRepositoryUrl?: string;
     sourceRef?: string;
@@ -1360,6 +1378,9 @@ function resolveGHPagesSourceBindingOption(
       sourcePath: string;
       designatorPath: string;
       targetPath?: string;
+      historySegment?: string;
+      stateSegment?: string;
+      manifestationSegment?: string;
       sourceRepositoryUrl: string;
       sourceRepositoryRef: string;
       sourceRepositoryCommit?: string;
@@ -1369,6 +1390,9 @@ function resolveGHPagesSourceBindingOption(
   const hasSourceBindingOption = [
     options.sourcePath,
     options.targetPath,
+    options.payloadHistorySegment,
+    options.payloadStateSegment,
+    options.payloadManifestationSegment,
     options.designatorPath,
     options.sourceRepositoryUrl,
     options.sourceRef,
@@ -1396,6 +1420,33 @@ function resolveGHPagesSourceBindingOption(
           targetPath: resolveRequiredOptionValue(
             options.targetPath,
             "prepare gh-pages --target-path is required",
+            (message) => new GHPagesDeployInputError(message),
+          ),
+        }
+        : {}),
+      ...(options.payloadHistorySegment
+        ? {
+          historySegment: resolveRequiredOptionValue(
+            options.payloadHistorySegment,
+            "prepare gh-pages --payload-history-segment is required",
+            (message) => new GHPagesDeployInputError(message),
+          ),
+        }
+        : {}),
+      ...(options.payloadStateSegment
+        ? {
+          stateSegment: resolveRequiredOptionValue(
+            options.payloadStateSegment,
+            "prepare gh-pages --payload-state-segment is required",
+            (message) => new GHPagesDeployInputError(message),
+          ),
+        }
+        : {}),
+      ...(options.payloadManifestationSegment
+        ? {
+          manifestationSegment: resolveRequiredOptionValue(
+            options.payloadManifestationSegment,
+            "prepare gh-pages --payload-manifestation-segment is required",
             (message) => new GHPagesDeployInputError(message),
           ),
         }
