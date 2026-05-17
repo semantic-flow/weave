@@ -22,7 +22,7 @@ Weave is moving from the `v0.0.2` source-checkpoint release model toward the fir
 - `deno task package:binaries` turns built platform directories into `.tar.gz` or `.zip` archives plus `.sha256` files.
 - `deno task assemble:npm-packages` creates the npm wrapper package and selected platform packages from built platform directories, including package `publishConfig` metadata and an aggregate `npm-packages-metadata.json` manifest.
 - `deno task smoke:npm-install` reads `npm-packages-metadata.json`, runs `npm pack`, installs the wrapper and host platform package tarballs into a temporary project, and verifies `weave --version`.
-- `deno task publish:npm-packages` reads `npm-packages-metadata.json` and publishes platform packages before the wrapper package, with dry-run, dist-tag, and provenance options.
+- `deno task publish:npm-packages` reads `npm-packages-metadata.json` and publishes platform packages before the wrapper package, with dry-run and dist-tag options for the normal trusted-publishing path.
 - `.github/workflows/release-manual.yml` is the primary release path for packaged releases. It builds native binaries on native Linux, Windows, macOS x64, and macOS arm64 runners; packages release archives/checksums; assembles npm packages; smoke-tests npm installation on native runners; optionally dry-runs or publishes npm packages; and optionally drafts or publishes the GitHub Release.
 - GitHub Actions CI and `deno task ci` are the intended quality gates. Fixture tests that inspect branch-published generated output read explicit Git refs; deterministic source assets are also checked from source-bearing refs so local preview checkouts such as `gh-pages` do not change the test meaning.
 - The manual release workflow defaults to no npm publication and no GitHub Release mutation. Rehearsal and publication both require explicit workflow inputs.
@@ -120,7 +120,7 @@ The workflow derives the release tag from downloaded bundle metadata. Do not add
 
 The workflow strips Dendron frontmatter from `documentation/notes/release-notes.v<version>.md` and fails if the stripped body is empty. The workflow creates or updates the GitHub Release, uploads `.tar.gz`/`.zip` archives and `.sha256` files, and sets the release target to the workflow commit.
 
-The npm publish job publishes platform packages before the wrapper package. Real publish runs use `--provenance` and `NODE_AUTH_TOKEN` from the `NPM_TOKEN` secret. Confirm the npm package scope, package ownership, and token/trusted-publishing settings before the first real publish.
+The npm publish job publishes platform packages before the wrapper package. Real publish runs use npm trusted publishing through GitHub Actions OIDC; each npm package must trust the `semantic-flow/weave` repository and the `release-manual.yml` workflow. npm generates provenance automatically for trusted public-package publishes, so the workflow does not pass `NODE_AUTH_TOKEN` or `--provenance` in the normal path.
 
 ### Troubleshooting
 
@@ -171,9 +171,9 @@ git fetch --tags origin
 
 ## Current Caveats
 
-- The `Release Manual` workflow exists, but still needs a real rehearsal run on GitHub Actions before it should be considered battle-tested.
+- The `Release Manual` workflow has been rehearsed on GitHub Actions for the `v0.1.0` packaging path, but release runner labels and npm trusted-publishing settings should still be checked before each publish.
 - The workflow uses `macos-15-intel` for macOS x64 and `macos-latest` for macOS arm64. If GitHub-hosted runner labels change, update the workflow before release.
-- The workflow uses `NPM_TOKEN` plus npm provenance for real package publication. Confirm npm organization settings before first publish.
+- The workflow expects npm trusted publishing to be configured for the wrapper package and every platform package. Token-based publishing with `--provenance` remains a manual fallback only.
 - Local fixture tests should be ref-based rather than checkout-state-based. If a fixture test fails only when a sibling fixture checkout is on a preview/publication branch, treat that as a test coupling bug before treating it as release code drift.
 - Release notes are Dendron notes, so any GitHub Release body must omit frontmatter.
 
@@ -181,9 +181,9 @@ git fetch --tags origin
 
 Before treating `v0.1.0` as a distributable product release, finish the remaining release-workflow pieces tracked in [[wd.task.2026.2026-05-13-full-ci-cd]]:
 
-- run the manual workflow in rehearsal mode
-- inspect the generated archives/checksums and draft release
+- run the manual workflow in rehearsal mode for materially changed release tooling
+- inspect the generated archives/checksums and draft release before publication
 - decide whether the known fixture/config test failures block `v0.1.0`
-- publish only after npm scope ownership and registry credentials are confirmed
+- publish only after npm scope ownership and trusted-publishing settings are confirmed for every package
 
-Until the rehearsal run is reviewed, keep releases explicit and boring: reviewed commit, authored version, release notes, manual workflow rehearsal, no false CI claims, and no real npm publish without registry confirmation.
+Keep releases explicit and boring: reviewed commit, authored version, release notes, manual workflow rehearsal when release tooling changed, no false CI claims, and no real npm publish without registry confirmation.
