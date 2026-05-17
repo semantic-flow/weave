@@ -11,6 +11,7 @@ import {
   executeSetExtractionSource,
   ExtractRuntimeError,
 } from "../../src/runtime/extract/extract.ts";
+import { executeWeave } from "../../src/runtime/weave/weave.ts";
 import {
   materializeMeshAliceBioBranch,
   readMeshAliceBioBranchFile,
@@ -400,6 +401,28 @@ Deno.test("executeExtractAllTerms creates source references only for newly extra
       join(workspaceRoot, "bob/_knop/_inventory/inventory.ttl"),
     ),
     "sflo:hasReferenceCatalog <bob/_knop/_references> ;",
+  );
+
+  await executeWeave({
+    meshRoot: workspaceRoot,
+    request: { targets: [{ designatorPath: "bob" }] },
+    now: () => new Date("2026-05-04T00:00:00.000Z"),
+  });
+
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "bob/_knop/_inventory/inventory.ttl"),
+    ),
+    "sflo:hasReferenceCatalog <bob/_knop/_references> ;",
+  );
+  const bobPageHtml = await Deno.readTextFile(
+    join(workspaceRoot, "bob/index.html"),
+  );
+  assertStringIncludes(bobPageHtml, '<details class="wf-references">');
+  assertStringIncludes(bobPageHtml, "<summary>Canonical</summary>");
+  assertStringIncludes(
+    bobPageHtml,
+    '<li><a href="https://semantic-flow.github.io/mesh-alice-bio/alice/bio">https://semantic-flow.github.io/mesh-alice-bio/alice/bio</a></li>',
   );
 
   const rerunResult = await executeExtractAllTerms({

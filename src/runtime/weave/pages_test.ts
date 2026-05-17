@@ -114,7 +114,15 @@ Deno.test("renderResourcePage renders identifier extraction source metadata", as
   );
   assertStringIncludes(
     html,
-    '<tr class="wf-source-metadata-row"><th scope="row">Source</th><td><div class="wf-source-summary"><span class="wf-source-chain"><a class="wf-source-root" href="/mesh-sidecar-fantasy-rules/ontology">ontology</a></span></div></td></tr>',
+    '<tr class="wf-source-metadata-row"><th scope="row">Source</th><td colspan="3"><div class="wf-source-summary"><span class="wf-source-chain"><a class="wf-source-root" href="/mesh-sidecar-fantasy-rules/ontology">ontology</a></span></div></td></tr>',
+  );
+  assertStringIncludes(
+    html,
+    '<table class="wf-metadata wf-hero-metadata">',
+  );
+  assertStringIncludes(
+    html,
+    '<tr><th scope="row">Canonical IRI</th><td colspan="3"><span>https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/AbilityScore</span></td></tr>',
   );
   assertStringIncludes(
     html,
@@ -145,7 +153,7 @@ Deno.test("renderResourcePage includes pinned source state in extraction source 
   assertFalse(html.includes(`<summary>Semantic Flow metadata</summary>`));
   assertStringIncludes(
     html,
-    '<tr class="wf-source-metadata-row"><th scope="row">Source</th><td><div class="wf-source-summary"><span class="wf-source-chain"><a class="wf-source-root" href="/mesh-sidecar-fantasy-rules/ontology">ontology</a><span class="wf-source-version-chain"><a class="wf-source-version-history" href="/mesh-sidecar-fantasy-rules/ontology/releases">releases</a><a class="wf-source-version" href="/mesh-sidecar-fantasy-rules/ontology/releases/v0.0.2">v0.0.2</a></span></span></div></td></tr>',
+    '<tr class="wf-source-metadata-row"><th scope="row">Source</th><td colspan="3"><div class="wf-source-summary"><span class="wf-source-chain"><a class="wf-source-root" href="/mesh-sidecar-fantasy-rules/ontology">ontology</a><span class="wf-source-version-chain"><a class="wf-source-version-history" href="/mesh-sidecar-fantasy-rules/ontology/releases">releases</a><a class="wf-source-version" href="/mesh-sidecar-fantasy-rules/ontology/releases/v0.0.2">v0.0.2</a></span></span></div></td></tr>',
   );
 });
 
@@ -797,15 +805,15 @@ Deno.test("renderResourcePage renders RDF description, classes, and histories", 
   assertStringIncludes(html, "A small ontology fixture.");
   assertStringIncludes(
     html,
-    '<tr><th scope="row">Note</th><td><span>Use this ontology fixture for ResourcePage rendering tests.</span></td></tr>',
+    '<tr><th scope="row">Note</th><td colspan="3"><span>Use this ontology fixture for ResourcePage rendering tests.</span></td></tr>',
   );
   assertStringIncludes(
     html,
-    '<tr><th scope="row">Broader</th><td><a href="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/RulesDocument">fant:RulesDocument</a></td></tr>',
+    '<tr><th scope="row">Broader</th><td colspan="3"><a href="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/RulesDocument">fant:RulesDocument</a></td></tr>',
   );
   assertStringIncludes(
     html,
-    '<tr><th scope="row">Narrower</th><td><a href="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/AbilityScore">fant:AbilityScore</a>, <a href="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/Character">fant:Character</a></td></tr>',
+    '<tr><th scope="row">Narrower</th><td colspan="3"><a href="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/AbilityScore">fant:AbilityScore</a>, <a href="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/Character">fant:Character</a></td></tr>',
   );
   assertStringIncludes(
     html,
@@ -922,6 +930,10 @@ fant:AbilityScore a owl:Class ;
   assertStringIncludes(
     html,
     ".wf-term-link { color: inherit; border-bottom: 0; text-decoration: underline; text-decoration-color: rgba(79, 89, 79, 0.35);",
+  );
+  assertStringIncludes(
+    html,
+    ".wf-properties .wf-metadata th, .wf-blank-nodes .wf-metadata th { text-transform: none; }",
   );
   const propertiesSection = html.match(
     /<details class="wf-properties" open>[\s\S]*?<\/details>/,

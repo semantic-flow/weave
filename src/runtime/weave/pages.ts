@@ -619,7 +619,7 @@ async function renderDefaultResourcePage(
       )
     }</p>\n`
     : "";
-  const metadata = renderMetadataTable(input.metadataRows, 8);
+  const metadata = renderHeroMetadataTable(input.metadataRows, 8);
   const childrenSection = renderChildrenSection(input.childrenRows);
   const propertiesSection = renderPropertiesSection(input.propertyRows);
   const blankNodesSection = renderBlankNodesSection(input.blankNodeRows);
@@ -652,7 +652,7 @@ ${faviconLink}  <style>
     * { box-sizing: border-box; }
     body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: linear-gradient(180deg, #f6f7f4 0%, #ebece7 100%); }
     a { color: #1f5f85; text-decoration-thickness: 0.08em; text-underline-offset: 0.18em; }
-    main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 24px 0 42px; flex: 1 0 auto; }
+    main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 16px 0 42px; flex: 1 0 auto; }
     .wf-shell { display: grid; gap: 18px; min-width: 0; }
     .wf-shell > * { min-width: 0; }
     .wf-masthead { min-width: 0; }
@@ -671,7 +671,7 @@ ${faviconLink}  <style>
     .wf-metadata tr:first-child th, .wf-metadata tr:first-child td { border-top: 0; }
     .wf-metadata th { width: 180px; color: #4f594f; font-size: 0.78rem; line-height: 1.35; text-transform: uppercase; letter-spacing: 0; overflow-wrap: anywhere; word-break: break-word; }
     .wf-metadata td { min-width: 0; overflow-wrap: anywhere; }
-    .wf-metadata tr.wf-source-metadata-row th, .wf-metadata tr.wf-source-metadata-row td { vertical-align: middle; }
+    .wf-hero-metadata col.wf-metadata-key { width: 180px; }
     .wf-child-identifiers { display: flex; flex-wrap: wrap; gap: 5px; align-items: baseline; min-width: 0; max-width: 100%; }
     .wf-child-identifier { display: inline-block; padding: 0.08rem 0.36rem; border: 1px solid #cdd8cf; border-radius: 2px; background: #eef3ef; text-decoration: none; white-space: nowrap; }
     .wf-child-identifier:hover, .wf-child-identifier:focus { background: #e0ebe4; border-color: #b8c8bc; }
@@ -710,6 +710,7 @@ ${faviconLink}  <style>
     .wf-children .wf-metadata { margin-top: 0; border-bottom: 0; }
     .wf-properties { padding-bottom: 12px; }
     .wf-properties .wf-metadata { margin-top: 0; border-bottom: 0; }
+    .wf-properties .wf-metadata th, .wf-blank-nodes .wf-metadata th { text-transform: none; }
     .wf-blank-nodes { padding-bottom: 12px; }
     .wf-blank-nodes .wf-metadata { margin-top: 0; border-bottom: 0; }
     .wf-blank-node-code { max-height: 24rem; padding: 12px; border: 1px solid #d7dcd4; border-radius: 6px; font-size: 0.82rem; }
@@ -820,6 +821,30 @@ function renderMetadataTable(
   return `${indent}<table class="wf-metadata">
 ${bodyIndent}<tbody>
 ${rows.map((row) => renderMetadataRow(row, bodyIndent)).join("\n")}
+${bodyIndent}</tbody>
+${indent}</table>
+`;
+}
+
+function renderHeroMetadataTable(
+  rows: readonly ResourcePageMetadataRow[],
+  indentSize: number,
+): string {
+  if (rows.length === 0) {
+    return "";
+  }
+
+  const indent = " ".repeat(indentSize);
+  const bodyIndent = `${indent}  `;
+  return `${indent}<table class="wf-metadata wf-hero-metadata">
+${bodyIndent}<colgroup>
+${bodyIndent}  <col class="wf-metadata-key">
+${bodyIndent}  <col>
+${bodyIndent}  <col class="wf-metadata-key">
+${bodyIndent}  <col>
+${bodyIndent}</colgroup>
+${bodyIndent}<tbody>
+${rows.map((row) => renderHeroMetadataRow(row, bodyIndent)).join("\n")}
 ${bodyIndent}</tbody>
 ${indent}</table>
 `;
@@ -944,16 +969,38 @@ function renderMetadataRow(
   row: ResourcePageMetadataRow,
   indent: string,
 ): string {
+  return `${indent}<tr${renderMetadataRowClass(row)}><th scope="row">${
+    renderMetadataLabel(row)
+  }</th><td>${renderMetadataValue(row)}</td></tr>`;
+}
+
+function renderHeroMetadataRow(
+  row: ResourcePageMetadataRow,
+  indent: string,
+): string {
+  return `${indent}<tr${renderMetadataRowClass(row)}><th scope="row">${
+    renderMetadataLabel(row)
+  }</th><td colspan="3">${renderMetadataValue(row)}</td></tr>`;
+}
+
+function renderMetadataLabel(row: ResourcePageMetadataRow): string {
   const label = row.tooltip
     ? renderTooltipLabel(row.label, row.tooltip, row.labelHref)
     : escapeHtml(row.label);
-  const rowClass = row.rowClass ? ` class="${escapeHtml(row.rowClass)}"` : "";
+  return label;
+}
+
+function renderMetadataValue(row: ResourcePageMetadataRow): string {
   const value = row.html
     ? row.html
     : row.href
     ? `<a href="${escapeHtml(row.href)}">${escapeHtml(row.value)}</a>`
     : `<span>${escapeHtml(row.value)}</span>`;
-  return `${indent}<tr${rowClass}><th scope="row">${label}</th><td>${value}</td></tr>`;
+  return value;
+}
+
+function renderMetadataRowClass(row: ResourcePageMetadataRow): string {
+  return row.rowClass ? ` class="${escapeHtml(row.rowClass)}"` : "";
 }
 
 function toKnopMetadataRow(
