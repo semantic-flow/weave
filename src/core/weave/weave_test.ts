@@ -31,7 +31,7 @@ function meshMetadataProgressionTurtle(
 
   return `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
-@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh> a sflo:SemanticMesh ;
@@ -86,7 +86,7 @@ const firstWeaveMeshMetadataTurtle = meshMetadataProgressionTurtle(
 const sidecarMeshCreatedInventoryTurtle =
   `@base <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
-@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <_mesh> a sflo:SemanticMesh ;
@@ -189,7 +189,7 @@ Deno.test("planMeshSupportResourcePages adds current support ResourcePages inclu
 <_mesh> a sflo:SemanticMesh .
 `,
     currentMeshConfigTurtle:
-      `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+      `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:MeshConfig .
 `,
@@ -259,7 +259,7 @@ Deno.test("planMeshSupportResourcePages records initial mesh inventory progressi
 <_mesh> a sflo:SemanticMesh .
 `,
     currentMeshConfigTurtle:
-      `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+      `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:MeshConfig .
 `,
@@ -304,7 +304,7 @@ Deno.test("planMeshSupportResourcePages omits suppressed support ResourcePage fa
 <_mesh> a sflo:SemanticMesh .
 `,
     currentMeshConfigTurtle:
-      `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+      `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:MeshConfig .
 `,

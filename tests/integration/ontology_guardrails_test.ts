@@ -4,7 +4,7 @@ import { Parser, type Quad, type Term } from "n3";
 
 const REPO_ROOT = fromFileUrl(new URL("../../", import.meta.url));
 const SFLO_NAMESPACE = "https://semantic-flow.github.io/sflo/ontology/";
-const SFCFG_NAMESPACE = "https://semantic-flow.github.io/ontology/config/";
+const SFCFG_NAMESPACE = "https://semantic-flow.github.io/sflo/config/";
 
 const RDF_FILES = [
   "dependencies/github.com/semantic-flow/sflo/semantic-flow-core-ontology.ttl",
@@ -52,11 +52,21 @@ Deno.test("config ontology uses the canonical sflo namespace", async () => {
     configOntology.includes("https://semantic-flow.github.io/ontology/core/"),
     "config ontology should not use the old core namespace alias",
   );
-  assertFalse(
+  assert(
     configOntology.includes(
-      "@base <https://semantic-flow.github.io/ontology/config> .",
+      "@base <https://semantic-flow.github.io/sflo/config/> .",
     ),
-    "config ontology @base should keep the trailing slash required by sfcfg terms",
+    "config ontology @base should use the trailing slash required by sfcfg terms",
+  );
+  assert(
+    configOntology.includes(
+      "<https://semantic-flow.github.io/sflo/config> a owl:Ontology",
+    ),
+    "config ontology should use the slashless config resource as the ontology IRI",
+  );
+  assertFalse(
+    configOntology.includes("https://semantic-flow.github.io/ontology/config"),
+    "config ontology should not use the old standalone config namespace",
   );
 });
 

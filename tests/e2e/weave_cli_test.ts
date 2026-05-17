@@ -889,7 +889,7 @@ async function writeSidecarMeshConfig(meshRoot: string): Promise<void> {
   await Deno.mkdir(join(meshRoot, "_mesh/_config"), { recursive: true });
   await Deno.writeTextFile(
     join(meshRoot, "_mesh/_config/config.ttl"),
-    `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:MeshConfig ;
   sfcfg:workspaceRootRelativeToMeshRoot "../" .

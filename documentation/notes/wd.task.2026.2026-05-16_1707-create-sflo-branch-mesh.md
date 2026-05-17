@@ -101,14 +101,14 @@ Avoid putting bootstrap config on `main` unless the source repo deliberately wan
 
 ## `/ontology` Review
 
-Some `/ontology` strings are expected because `https://semantic-flow.github.io/sflo/ontology/...` is the current ontology namespace under the `sflo` site. The cleanup candidates are the older standalone `https://semantic-flow.github.io/ontology/...` and `https://github.com/semantic-flow/ontology/...` references:
+Some `/ontology` strings are expected because `https://semantic-flow.github.io/sflo/ontology/...` is the current core ontology namespace under the `sflo` site. The cleanup candidates are the older standalone `https://semantic-flow.github.io/ontology/...` and `https://github.com/semantic-flow/ontology/...` references:
 
-- `semantic-flow-config-ontology.ttl` is still based at `https://semantic-flow.github.io/ontology/config/` and publishes config release/download IRIs under `/ontology/config/...`; the current preferred target is `https://semantic-flow.github.io/sflo/config`.
+- `semantic-flow-config-ontology.ttl` has moved to the slashless ontology IRI `https://semantic-flow.github.io/sflo/config` with term namespace `https://semantic-flow.github.io/sflo/config/`.
 - `semantic-flow-core-ontology.ttl` uses the `sflo` ontology IRI, but `vann:preferredNamespaceUri` still says `https://semantic-flow.github.io/ontology/core/`, and `owl:versionIRI` / one `dcat:downloadURL` still point at `github.com/semantic-flow/ontology`.
 - `semantic-flow-core-shacl.ttl` uses the `sflo` ontology IRI, but `owl:versionIRI` and one `dcat:downloadURL` still point at `github.com/semantic-flow/ontology`.
 - `semantic-flow-prov-ontology.ttl` and `semantic-flow-job-ontology.ttl` are still on the standalone `/ontology/prov` and `/ontology/job` bases, but those are outside the initial core/config/SHACL slice.
 
-The config ontology base is the main first-slice risk. If Weave extracts mesh-scoped terms by checking whether IRIs start with `https://semantic-flow.github.io/sflo/`, config terms under `https://semantic-flow.github.io/ontology/config/` will behave like external terms rather than first-class `sflo` mesh identifiers. That points toward moving the config namespace to `https://semantic-flow.github.io/sflo/config` before this dogfood run.
+The config namespace now sits under the `sflo` mesh base, so ordinary mesh-scoped extraction can treat config terms such as `https://semantic-flow.github.io/sflo/config/Config` as first-class identifiers with designator paths under `config/...`.
 
 ## Decisions
 

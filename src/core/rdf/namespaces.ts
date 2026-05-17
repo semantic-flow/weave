@@ -14,8 +14,7 @@ export const XSD_NAMESPACE = "http://www.w3.org/2001/XMLSchema#";
 export const SFLO_PREFIX = "sflo";
 export const SFLO_NAMESPACE = "https://semantic-flow.github.io/sflo/ontology/";
 export const SFCFG_PREFIX = "sfcfg";
-export const SFCFG_NAMESPACE =
-  "https://semantic-flow.github.io/ontology/config/";
+export const SFCFG_NAMESPACE = "https://semantic-flow.github.io/sflo/config/";
 
 export const SFLO_TURTLE_PREFIX_DECLARATION = turtlePrefixDeclaration(
   SFLO_PREFIX,

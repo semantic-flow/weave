@@ -90,7 +90,7 @@ Deno.test("planMeshCreate renders an empty mesh config when requested", () => {
   assertEquals(
     plan.files.find((file) => file.path === "_mesh/_config/config.ttl")
       ?.contents,
-    `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:MeshConfig .
 `,

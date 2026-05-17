@@ -16,15 +16,15 @@ Deno.test("loadOperationalLocalPathPolicy discovers mesh-owned config in a non-w
   await Deno.mkdir(join(meshRoot, "_mesh/_config"), { recursive: true });
   await Deno.writeTextFile(
     join(meshRoot, "_mesh/_config/config.ttl"),
-    `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:MeshConfig ;
   sfcfg:workspaceRootRelativeToMeshRoot "../" ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/localPathBase_meshRoot> ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_meshRoot> ;
     sfcfg:pathPrefix "../documentation/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/localPathLocatorKind_targetLocalRelativePath>
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_targetLocalRelativePath>
   ] .
 `,
   );
@@ -72,14 +72,14 @@ Deno.test("loadOperationalLocalPathPolicy rejects mesh config that grants arbitr
   await Deno.mkdir(join(meshRoot, "_mesh/_config"), { recursive: true });
   await Deno.writeTextFile(
     join(meshRoot, "_mesh/_config/config.ttl"),
-    `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:MeshConfig ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/localPathBase_meshRoot> ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_meshRoot> ;
     sfcfg:pathPrefix "../../" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/localPathLocatorKind_workingLocalRelativePath>
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
   ] .
 `,
   );
@@ -101,14 +101,14 @@ Deno.test("loadOperationalLocalPathPolicy applies machine-local absolute path ru
   await Deno.mkdir(homeRoot, { recursive: true });
   await Deno.writeTextFile(
     join(homeRoot, ".sf-local-access.ttl"),
-    `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:HostLocalOperationalConfig ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/localPathBase_absolutePath> ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_absolutePath> ;
     sfcfg:pathPrefix "${sharedRoot}/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/localPathLocatorKind_workingLocalRelativePath>
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
   ] .
 `,
   );
@@ -171,14 +171,14 @@ Deno.test("resolveAllowedLocalPath requires a host-local grant for sibling workt
 
     await Deno.writeTextFile(
       join(homeRoot, ".sf-local-access.ttl"),
-      `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+      `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:HostLocalOperationalConfig ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/localPathBase_absolutePath> ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_absolutePath> ;
     sfcfg:pathPrefix "${sourceRoot}/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/localPathLocatorKind_workingLocalRelativePath>
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
   ] .
 `,
     );

@@ -16,6 +16,9 @@ const frameworkRepoPath = join(
   "semantic-flow-framework",
 );
 const resolvedRefCache = new Map<string, Promise<string>>();
+const LEGACY_SFCFG_NAMESPACE =
+  "https://semantic-flow.github.io/ontology/config/";
+const CURRENT_SFCFG_NAMESPACE = "https://semantic-flow.github.io/sflo/config/";
 
 // Temporary Sidecar Fantasy Rules fixture-ladder setting until the replay
 // prefix moves into an Accord/scenario master manifest.
@@ -111,7 +114,7 @@ export async function readMeshSidecarFantasyRulesBranchFile(
     const message = new TextDecoder().decode(output.stderr).trim();
     throw new Error(`Failed to read fixture file ${ref}:${path}: ${message}`);
   }
-  return new TextDecoder().decode(output.stdout);
+  return normalizeFixtureNamespaces(new TextDecoder().decode(output.stdout));
 }
 
 export async function listMeshSidecarFantasyRulesBranchFiles(
@@ -151,4 +154,8 @@ export async function materializeMeshSidecarFantasyRulesBranch(
   }
 
   return paths;
+}
+
+function normalizeFixtureNamespaces(contents: string): string {
+  return contents.replaceAll(LEGACY_SFCFG_NAMESPACE, CURRENT_SFCFG_NAMESPACE);
 }

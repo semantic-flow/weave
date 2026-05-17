@@ -1019,15 +1019,15 @@ Deno.test("executeWeave resolves artifact-backed page sources through workingLoc
   await Deno.mkdir(join(workspaceRoot, "_mesh/_config"), { recursive: true });
   await Deno.writeTextFile(
     join(workspaceRoot, "_mesh/_config/config.ttl"),
-    `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:MeshConfig ;
   sfcfg:workspaceRootRelativeToMeshRoot "../" ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/localPathBase_meshRoot> ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_meshRoot> ;
     sfcfg:pathPrefix "../documentation/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/localPathLocatorKind_workingLocalRelativePath>
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
   ] .
 `,
   );
@@ -1229,15 +1229,15 @@ Deno.test("executeWeave allows repo-adjacent targetLocalRelativePath values when
   await Deno.mkdir(join(workspaceRoot, "_mesh/_config"), { recursive: true });
   await Deno.writeTextFile(
     join(workspaceRoot, "_mesh/_config/config.ttl"),
-    `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:MeshConfig ;
   sfcfg:workspaceRootRelativeToMeshRoot "../" ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/localPathBase_meshRoot> ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_meshRoot> ;
     sfcfg:pathPrefix "../documentation/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/localPathLocatorKind_targetLocalRelativePath>
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_targetLocalRelativePath>
   ] .
 `,
   );
@@ -1273,15 +1273,15 @@ Deno.test("executeWeave allows repo-adjacent workingLocalRelativePath values whe
   await Deno.mkdir(join(workspaceRoot, "_mesh/_config"), { recursive: true });
   await Deno.writeTextFile(
     join(workspaceRoot, "_mesh/_config/config.ttl"),
-    `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:MeshConfig ;
   sfcfg:workspaceRootRelativeToMeshRoot "../" ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/localPathBase_meshRoot> ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_meshRoot> ;
     sfcfg:pathPrefix "../documentation/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/localPathLocatorKind_workingLocalRelativePath>
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
   ] .
 `,
   );

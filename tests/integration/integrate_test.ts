@@ -176,7 +176,7 @@ Deno.test("executeIntegrate suggests a source directory grant for adjacent works
   await Deno.mkdir(join(workspaceRoot, "_mesh/_config"), { recursive: true });
   await Deno.writeTextFile(
     join(workspaceRoot, "_mesh/_config/config.ttl"),
-    `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:MeshConfig ;
   sfcfg:workspaceRootRelativeToMeshRoot "../" .
@@ -216,15 +216,15 @@ Deno.test("executeIntegrate allows repo-adjacent local sources when repo policy 
   await Deno.mkdir(join(workspaceRoot, "_mesh/_config"), { recursive: true });
   await Deno.writeTextFile(
     join(workspaceRoot, "_mesh/_config/config.ttl"),
-    `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:MeshConfig ;
   sfcfg:workspaceRootRelativeToMeshRoot "../" ;
   sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/ontology/config/localPathBase_meshRoot> ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_meshRoot> ;
     sfcfg:pathPrefix "../documentation/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/localPathLocatorKind_workingLocalRelativePath>
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
   ] .
 `,
   );
@@ -290,7 +290,7 @@ Deno.test("executeIntegrate can add a constrained repo-adjacent source directory
   await Deno.mkdir(join(workspaceRoot, "_mesh/_config"), { recursive: true });
   await Deno.writeTextFile(
     join(workspaceRoot, "_mesh/_config/config.ttl"),
-    `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:MeshConfig ;
   sfcfg:workspaceRootRelativeToMeshRoot "../" .
@@ -334,7 +334,7 @@ Deno.test("executeIntegrate can add a constrained repo-adjacent source directory
   );
   assertStringIncludes(
     config,
-    "sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/ontology/config/localPathLocatorKind_workingLocalRelativePath>",
+    "sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>",
   );
 });
 

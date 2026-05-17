@@ -119,7 +119,7 @@ Deno.test("parseWeaveDefaultEffectiveConfig rejects unknown policy values", () =
   assertThrows(
     () =>
       parseWeaveDefaultEffectiveConfig(
-        `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+        `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:ApplicationConfig ;
   sfcfg:hasDefaultHistoryTrackingPolicy sfcfg:historyTrackingPolicy_surprise ;
@@ -136,7 +136,7 @@ Deno.test("parseWeaveDefaultEffectiveConfig rejects unknown naming policy values
   assertThrows(
     () =>
       parseWeaveDefaultEffectiveConfig(
-        `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+        `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:ApplicationConfig ;
   sfcfg:hasDefaultHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly ;
@@ -157,7 +157,7 @@ Deno.test("parseWeaveDefaultEffectiveConfig rejects unknown ResourcePage regener
   assertThrows(
     () =>
       parseWeaveDefaultEffectiveConfig(
-        `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+        `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:ApplicationConfig ;
   sfcfg:hasDefaultHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly ;
@@ -178,7 +178,7 @@ Deno.test("parseWeaveDefaultEffectiveConfig rejects duplicate role policies", ()
   assertThrows(
     () =>
       parseWeaveDefaultEffectiveConfig(
-        `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+        `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:ApplicationConfig ;
   sfcfg:hasDefaultHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly ;
@@ -201,7 +201,7 @@ Deno.test("parseWeaveDefaultEffectiveConfig rejects duplicate role policies", ()
 });
 
 const VALID_CONFIG_RESOLUTION_TURTLE =
-  `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+  `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <> a sfcfg:ConfigResolutionConfig ;

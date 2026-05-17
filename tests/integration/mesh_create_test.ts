@@ -105,7 +105,7 @@ Deno.test("executeMeshCreate can reuse matching bootstrap artifacts", async () =
   assertEquals(secondResult.createdPaths, []);
   assertEquals(
     await Deno.readTextFile(join(workspaceRoot, "_mesh/_config/config.ttl")),
-    `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:MeshConfig .
 `,
@@ -147,7 +147,7 @@ Deno.test("executeMeshCreate can create a docs-rooted sidecar mesh", async () =>
   );
   assertEquals(
     config,
-    `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:MeshConfig ;
   sfcfg:workspaceRootRelativeToMeshRoot "../" .

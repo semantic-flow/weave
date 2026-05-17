@@ -1,6 +1,6 @@
 @base <https://semantic-flow.github.io/weave/defaults/> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
-@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <application> a sfcfg:ApplicationConfig, sfcfg:ConfigArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
   sfcfg:hasConfigResolutionConfig <config-resolution> ;

@@ -211,7 +211,7 @@ Deno.test("weave integrate grants and uses a repo-adjacent source directory as a
   await Deno.mkdir(join(workspaceRoot, "_mesh/_config"), { recursive: true });
   await Deno.writeTextFile(
     join(workspaceRoot, "_mesh/_config/config.ttl"),
-    `@prefix sfcfg: <https://semantic-flow.github.io/ontology/config/> .
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:MeshConfig ;
   sfcfg:workspaceRootRelativeToMeshRoot "../" .
