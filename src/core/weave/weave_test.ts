@@ -2333,6 +2333,61 @@ Deno.test("planWeave renders the extracted bob woven slice", async () => {
   );
 });
 
+Deno.test("planWeave applies current-only support history policies on extracted Knop weave", async () => {
+  const input = await createExtractedBobWeaveInput();
+  input.supportHistoryPolicies = {
+    meshInventory: "currentOnly",
+    knopMetadata: "currentOnly",
+    knopInventory: "currentOnly",
+  };
+
+  const plan = planWeave(input);
+  const createdPaths = plan.createdFiles.map((file) => file.path);
+
+  assertFalse(
+    createdPaths.some((path) =>
+      path.startsWith("_mesh/_inventory/_history001/")
+    ),
+  );
+  assertFalse(
+    createdPaths.some((path) =>
+      path.startsWith("bob/_knop/_meta/_history001/")
+    ),
+  );
+  assertFalse(
+    createdPaths.some((path) =>
+      path.startsWith("bob/_knop/_inventory/_history001/")
+    ),
+  );
+  assertFalse(
+    plan.createdPages.some((page) =>
+      page.path.startsWith("bob/_knop/_meta/_history001/")
+    ),
+  );
+  assertFalse(
+    plan.createdPages.some((page) =>
+      page.path.startsWith("bob/_knop/_inventory/_history001/")
+    ),
+  );
+
+  const knopInventory =
+    plan.updatedFiles.find((file) =>
+      file.path === "bob/_knop/_inventory/inventory.ttl"
+    )?.contents ?? "";
+  assertStringIncludes(
+    knopInventory,
+    `sflo:hasWorkingLocatedFile <bob/_knop/_meta/meta.ttl> ;
+  sflo:hasResourcePage <bob/_knop/_meta/index.html> .`,
+  );
+  assertStringIncludes(
+    knopInventory,
+    `sflo:hasWorkingLocatedFile <bob/_knop/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <bob/_knop/_inventory/index.html> .`,
+  );
+  assertFalse(knopInventory.includes("bob/_knop/_meta/_history001"));
+  assertFalse(knopInventory.includes("bob/_knop/_inventory/_history001"));
+});
+
 Deno.test("planWeave accepts semantically equivalent extracted bob ExtractionSource Turtle", async () => {
   const input = await createExtractedBobWeaveInput();
   input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact!

@@ -1608,9 +1608,16 @@ Deno.test("executeWeave materializes sidecar extracted ontology and SHACL terms"
     "ontology/CharacterShape",
     "ontology/PlayerCharacter",
   ]);
-  assert(
-    result.createdPaths.includes(
-      "docs/ontology/CharacterShape/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl",
+  assertFalse(
+    result.createdPaths.some((path) =>
+      path.startsWith(
+        "docs/ontology/CharacterShape/_knop/_inventory/_history001/",
+      )
+    ),
+  );
+  assertFalse(
+    result.createdPaths.some((path) =>
+      path.startsWith("docs/ontology/CharacterShape/_knop/_meta/_history001/")
     ),
   );
   assertFalse(
@@ -1638,25 +1645,32 @@ Deno.test("executeWeave materializes sidecar extracted ontology and SHACL terms"
     }),
     true,
   );
-  assertEquals(
-    await compareRdfContent({
-      left: new TextEncoder().encode(
-        await Deno.readTextFile(
-          join(
-            workspaceRoot,
-            "docs/ontology/CharacterShape/_knop/_inventory/inventory.ttl",
-          ),
-        ),
-      ),
-      right: new TextEncoder().encode(
-        await readMeshSidecarFantasyRulesBranchFile(
-          "a.09-ontology-and-shacl-terms-extracted-woven",
-          "docs/ontology/CharacterShape/_knop/_inventory/inventory.ttl",
-        ),
-      ),
-      path: "docs/ontology/CharacterShape/_knop/_inventory/inventory.ttl",
-    }),
-    true,
+
+  const characterShapeInventory = await Deno.readTextFile(
+    join(
+      workspaceRoot,
+      "docs/ontology/CharacterShape/_knop/_inventory/inventory.ttl",
+    ),
+  );
+  assertStringIncludes(
+    characterShapeInventory,
+    `sflo:hasWorkingLocatedFile <ontology/CharacterShape/_knop/_meta/meta.ttl> ;
+  sflo:hasResourcePage <ontology/CharacterShape/_knop/_meta/index.html> .`,
+  );
+  assertStringIncludes(
+    characterShapeInventory,
+    `sflo:hasWorkingLocatedFile <ontology/CharacterShape/_knop/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <ontology/CharacterShape/_knop/_inventory/index.html> .`,
+  );
+  assertFalse(
+    characterShapeInventory.includes(
+      "ontology/CharacterShape/_knop/_meta/_history001",
+    ),
+  );
+  assertFalse(
+    characterShapeInventory.includes(
+      "ontology/CharacterShape/_knop/_inventory/_history001",
+    ),
   );
 
   const characterShapePage = await Deno.readTextFile(

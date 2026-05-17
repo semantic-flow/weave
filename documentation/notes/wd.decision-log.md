@@ -20,6 +20,14 @@ created: 1773630801215
 
 ## Decisions
 
+### 2026-05-17: Keep KnopInventory Current-Only Default Explicit
+
+- Decision: Keep the explicit `sfcfg:artifactRole_knopInventory` `currentOnly` default in `defaults/application.ttl` even though it currently matches the global default.
+- References: [[wd.task.2026.2026-05-17_1239-fix-extracted-support-history-defaults]], [[wa.task.2026.2026-05-16_1707-create-sflo-branch-mesh]]
+- Why:
+  - Knop inventory is operational support, not payload history, so the role-level default is meaningful documentation of intended behavior.
+  - If the global default changes later, Knop inventory should not silently become versioned without a deliberate config decision.
+
 ### 2026-05-16: All-Terms Source References Are Opt-In And Creation-Scoped
 
 - Decision: Add `extract --all-terms --add-source-references --reference-role <role>` as an opt-in source-reference creation mode, create ReferenceCatalog/ReferenceLink support only for terms newly extracted in that invocation, and pin the ReferenceLink with `sflo:referenceTargetState` when extraction explicitly uses `--source-state`.

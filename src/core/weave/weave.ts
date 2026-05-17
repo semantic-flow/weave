@@ -1130,6 +1130,16 @@ function planFirstExtractedKnopWeave(
       referenceTargetSourcePayloadArtifact.currentPayloadTurtle;
   const useAliceBioLegacyPages = designatorPath === "bob" &&
     referenceTargetSourcePayloadArtifact.designatorPath === "alice/bio";
+  const knopMetadataHistoryPolicy = supportHistoryPolicies?.knopMetadata ??
+    "versioned";
+  const versionKnopMetadata = shouldMaterializeSupportHistory(
+    knopMetadataHistoryPolicy,
+  );
+  const knopInventoryHistoryPolicy = supportHistoryPolicies?.knopInventory ??
+    "versioned";
+  const versionKnopInventory = shouldMaterializeSupportHistory(
+    knopInventoryHistoryPolicy,
+  );
 
   assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
     meshBase,
@@ -1182,6 +1192,7 @@ function planFirstExtractedKnopWeave(
         renderFirstExtractedKnopWovenKnopInventoryTurtle(
           meshBase,
           designatorPath,
+          { knopMetadataHistoryPolicy, knopInventoryHistoryPolicy },
         ),
       knopPath,
     });
@@ -1209,14 +1220,18 @@ function planFirstExtractedKnopWeave(
         path: `${meshInventoryProgression.nextStatePath}/ttl/inventory.ttl`,
         contents: wovenMeshInventoryTurtle,
       }]),
-      {
-        path: `${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl`,
-        contents: candidate.currentKnopMetadataTurtle,
-      },
-      {
-        path: `${knopPath}/_inventory/_history001/_s0001/ttl/inventory.ttl`,
-        contents: wovenKnopInventoryTurtle,
-      },
+      ...(versionKnopMetadata
+        ? [{
+          path: `${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl`,
+          contents: candidate.currentKnopMetadataTurtle,
+        }]
+        : []),
+      ...(versionKnopInventory
+        ? [{
+          path: `${knopPath}/_inventory/_history001/_s0001/ttl/inventory.ttl`,
+          contents: wovenKnopInventoryTurtle,
+        }]
+        : []),
       {
         path: toDesignatorResourcePagePath(designatorPath),
         contents: useAliceBioLegacyPages
@@ -1232,28 +1247,32 @@ function planFirstExtractedKnopWeave(
           )
           : renderGenericExtractedIdentifierPage(meshBase, designatorPath),
       },
-      {
-        path: `${knopPath}/_meta/_history001/index.html`,
-        contents: renderArtifactHistoryIndexPage(meshBase, {
-          pagePath: `${knopPath}/_meta/_history001/index.html`,
-          description:
-            `Resource page for the current explicit history of the ${displayDesignatorPath} KnopMetadata artifact.`,
-          artifactLabel: "KnopMetadata artifact",
-          workingLocalRelativePath: `${knopPath}/_meta/meta.ttl`,
-          states: [{ segment: "_s0001", latest: true }],
-        }),
-      },
-      {
-        path: `${knopPath}/_inventory/_history001/index.html`,
-        contents: renderArtifactHistoryIndexPage(meshBase, {
-          pagePath: `${knopPath}/_inventory/_history001/index.html`,
-          description:
-            `Resource page for the current explicit history of the ${displayDesignatorPath} KnopInventory artifact.`,
-          artifactLabel: "KnopInventory artifact",
-          workingLocalRelativePath: `${knopPath}/_inventory/inventory.ttl`,
-          states: [{ segment: "_s0001", latest: true }],
-        }),
-      },
+      ...(versionKnopMetadata
+        ? [{
+          path: `${knopPath}/_meta/_history001/index.html`,
+          contents: renderArtifactHistoryIndexPage(meshBase, {
+            pagePath: `${knopPath}/_meta/_history001/index.html`,
+            description:
+              `Resource page for the current explicit history of the ${displayDesignatorPath} KnopMetadata artifact.`,
+            artifactLabel: "KnopMetadata artifact",
+            workingLocalRelativePath: `${knopPath}/_meta/meta.ttl`,
+            states: [{ segment: "_s0001", latest: true }],
+          }),
+        }]
+        : []),
+      ...(versionKnopInventory
+        ? [{
+          path: `${knopPath}/_inventory/_history001/index.html`,
+          contents: renderArtifactHistoryIndexPage(meshBase, {
+            pagePath: `${knopPath}/_inventory/_history001/index.html`,
+            description:
+              `Resource page for the current explicit history of the ${displayDesignatorPath} KnopInventory artifact.`,
+            artifactLabel: "KnopInventory artifact",
+            workingLocalRelativePath: `${knopPath}/_inventory/inventory.ttl`,
+            states: [{ segment: "_s0001", latest: true }],
+          }),
+        }]
+        : []),
     ],
     updatedFiles: [
       {
@@ -1328,26 +1347,34 @@ function planFirstExtractedKnopWeave(
         `${knopPath}/_meta/index.html`,
         `Resource page for the ${displayDesignatorPath} KnopMetadata artifact.`,
       ),
-      simplePage(
-        `${knopPath}/_meta/_history001/_s0001/index.html`,
-        `Resource page for the first ${displayDesignatorPath} KnopMetadata historical state.`,
-      ),
-      simplePage(
-        `${knopPath}/_meta/_history001/_s0001/ttl/index.html`,
-        `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} KnopMetadata historical state.`,
-      ),
+      ...(versionKnopMetadata
+        ? [
+          simplePage(
+            `${knopPath}/_meta/_history001/_s0001/index.html`,
+            `Resource page for the first ${displayDesignatorPath} KnopMetadata historical state.`,
+          ),
+          simplePage(
+            `${knopPath}/_meta/_history001/_s0001/ttl/index.html`,
+            `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} KnopMetadata historical state.`,
+          ),
+        ]
+        : []),
       simplePage(
         `${knopPath}/_inventory/index.html`,
         `Resource page for the ${displayDesignatorPath} KnopInventory artifact.`,
       ),
-      simplePage(
-        `${knopPath}/_inventory/_history001/_s0001/index.html`,
-        `Resource page for the first ${displayDesignatorPath} KnopInventory historical state.`,
-      ),
-      simplePage(
-        `${knopPath}/_inventory/_history001/_s0001/ttl/index.html`,
-        `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} KnopInventory historical state.`,
-      ),
+      ...(versionKnopInventory
+        ? [
+          simplePage(
+            `${knopPath}/_inventory/_history001/_s0001/index.html`,
+            `Resource page for the first ${displayDesignatorPath} KnopInventory historical state.`,
+          ),
+          simplePage(
+            `${knopPath}/_inventory/_history001/_s0001/ttl/index.html`,
+            `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} KnopInventory historical state.`,
+          ),
+        ]
+        : []),
     ],
   };
 }
@@ -5472,13 +5499,23 @@ function getSubjectPathFromBlock(block: string): string | undefined {
 function renderFirstExtractedKnopWovenKnopInventoryTurtle(
   meshBase: string,
   designatorPath: string,
+  options?: {
+    knopMetadataHistoryPolicy?: SupportArtifactHistoryPolicy;
+    knopInventoryHistoryPolicy?: SupportArtifactHistoryPolicy;
+  },
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const sourceRegistryPath = `${knopPath}/_sources`;
   const sourcesFilePath = `${sourceRegistryPath}/sources.ttl`;
   const extractionSourcePath = `${sourceRegistryPath}#extraction-source`;
+  const shouldVersionKnopMetadata = shouldMaterializeSupportHistory(
+    options?.knopMetadataHistoryPolicy ?? "versioned",
+  );
+  const shouldVersionKnopInventory = shouldMaterializeSupportHistory(
+    options?.knopInventoryHistoryPolicy ?? "versioned",
+  );
 
-  return `@base <${meshBase}> .
+  const turtle = `@base <${meshBase}> .
 ${SFLO_TURTLE_PREFIX_DECLARATION}
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
@@ -5569,6 +5606,15 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}/_inventory/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 `;
+
+  let output = turtle;
+  if (!shouldVersionKnopMetadata) {
+    output = omitInitialKnopMetadataHistory(output, knopPath);
+  }
+  if (!shouldVersionKnopInventory) {
+    output = omitKnopInventoryHistory(output, knopPath);
+  }
+  return output;
 }
 
 function replaceExtractionSourceBlock(
