@@ -2,7 +2,7 @@
 id: zcfvz4v7wxljtye9263tchs
 title: CLI Reference
 desc: ''
-updated: 1775629411758
+updated: 1779079397831
 created: 1775629411758
 ---
 
@@ -186,13 +186,15 @@ weave mesh create --interactive
 
 Creates or updates a branch-published GitHub Pages mesh in a publication worktree. Use this when authored source files stay in a normal source checkout and generated mesh output lives in a separate publication branch checkout such as `gh-pages`.
 
-The command reads source bytes from `--source-root`, writes generated mesh output to `--publish-root`, and keeps host-local checkout paths out of the published RDF. `--source-root` defaults to the current directory. `--publish-root` is required in noninteractive runs; interactive runs can prompt for it.
+The essential shape is a detached publication root, not the branch name itself: the command reads source bytes from `--source-root`, writes generated mesh output to `--publish-root`, and keeps host-local checkout paths out of the published RDF. Branch-published `gh-pages` worktrees are the current supported publication target. A docs-rooted sidecar mesh that lives on the source branch usually uses ordinary `weave mesh create`, `weave integrate`, and `weave` commands with `--mesh-root docs`; use `prepare gh-pages` when the publication root is a separate generated checkout/root that should carry repository source bindings instead of source-checkout local paths.
+
+`--source-root` defaults to the current directory. `--publish-root` is required in noninteractive runs; interactive runs can prompt for it.
 
 Root publication meshes do not need `_mesh/_config/config.ttl`; for this command the publication worktree root is also the mesh root. If a mesh config already exists, Weave preserves it and still validates generated RDF for local path leakage.
 
 Repository source bindings are recorded beside the target Knop rather than in `_mesh/_config/config.ttl`. When preparation materializes a source file, Weave writes a source registry at `_knop/_sources/sources.ttl`, links it from the Knop inventory with `sflo:hasKnopSourceRegistry`, and records the repository URL, source ref, resolved commit, repository-relative path, and content digest. This keeps publication output portable without preserving a developer's checkout path.
 
-Dry-run prints the planned writes, preserved files, validation checks, and git operations without mutating the publication worktree:
+Dry-run prints the planned writes, preserved files, validation checks, and git operations without mutating the publication worktree. If both created and updated paths are empty, rerunning `prepare gh-pages` with the same inputs would make no publication file changes:
 
 ```sh
 weave prepare gh-pages \
@@ -211,7 +213,7 @@ weave prepare gh-pages \
   --mesh-base 'https://example.github.io/my-repo/' \
   --source-path ontology/fantasy-rules-ontology.ttl \
   --designator-path ontology \
-  --payload-history-segment release \
+  --payload-history-segment releases \
   --payload-state-segment v0.1.0 \
   --payload-manifestation-segment ttl \
   --source-repository-url 'https://github.com/example/my-repo.git' \

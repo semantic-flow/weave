@@ -403,6 +403,9 @@ export function describeGHPagesDeployBootstrapPlan(
     `Mesh base: ${plan.meshBase}`,
     `Mesh IRI: ${plan.meshIri}`,
   ];
+  if (plan.createdPaths.length === 0 && plan.updatedPaths.length === 0) {
+    lines.push("No publication file changes would be made.");
+  }
 
   appendPlanSection(lines, "Created paths", plan.createdPaths);
   appendPlanSection(lines, "Updated paths", plan.updatedPaths);

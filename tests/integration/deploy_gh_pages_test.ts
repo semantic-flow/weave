@@ -383,6 +383,32 @@ fantasy:RuleSystem a owl:Class .
   assertEquals(secondResult.materializedSource.updatedPaths, []);
   assertEquals(secondResult.updatedPaths, []);
 
+  const settledPlan = await planGHPagesDeployBootstrap({
+    sourceRoot,
+    publishRoot,
+    request: {
+      meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+      source: {
+        sourcePath,
+        designatorPath: "ontology",
+        sourceRepositoryUrl:
+          "https://github.com/semantic-flow/mesh-sidecar-fantasy-rules.git",
+        sourceRepositoryRef: "main",
+        sourceRepositoryCommit: "abc123",
+      },
+    },
+  });
+  assertEquals(settledPlan.createdPaths, []);
+  assertEquals(settledPlan.updatedPaths, []);
+  assert(settledPlan.materializedSource);
+  assertEquals(settledPlan.materializedSource.createdPaths, []);
+  assertEquals(settledPlan.materializedSource.updatedPaths, []);
+  assert(
+    describeGHPagesDeployBootstrapPlan(settledPlan).includes(
+      "No publication file changes would be made.",
+    ),
+  );
+
   await Deno.writeTextFile(join(sourceRoot, sourcePath), sourceV2);
   const thirdResult = await executeGHPagesDeployBootstrap({
     sourceRoot,
