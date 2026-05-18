@@ -876,6 +876,64 @@ fant:AbilityScore a owl:Class ;
   );
 });
 
+Deno.test("renderResourcePage falls back to labels for summaries only", async () => {
+  const preferredLabelHtml = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "identifier",
+      path: "ontology/AbilityScore/index.html",
+      designatorPath: "ontology/AbilityScore",
+      rawSourcePanels: [{
+        label: "Current source file",
+        sourcePath: "../ontology/fantasy-rules-ontology.ttl",
+        contents:
+          `@prefix fant: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+fant:AbilityScore a owl:Class ;
+  skos:prefLabel "Ability score preferred label" ;
+  rdfs:label "Ability Score" .
+`,
+      }],
+    },
+  );
+
+  assertStringIncludes(preferredLabelHtml, "<h1>AbilityScore</h1>");
+  assertStringIncludes(
+    preferredLabelHtml,
+    '<p class="wf-summary">Ability score preferred label</p>',
+  );
+
+  const labelHtml = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+    {
+      kind: "identifier",
+      path: "ontology/AbilityScore/index.html",
+      designatorPath: "ontology/AbilityScore",
+      rawSourcePanels: [{
+        label: "Current source file",
+        sourcePath: "../ontology/fantasy-rules-ontology.ttl",
+        contents:
+          `@prefix fant: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+fant:AbilityScore a owl:Class ;
+  rdfs:label "Ability Score" .
+`,
+      }],
+    },
+  );
+
+  assertStringIncludes(labelHtml, "<h1>AbilityScore</h1>");
+  assertStringIncludes(
+    labelHtml,
+    '<p class="wf-summary">Ability Score</p>',
+  );
+});
+
 Deno.test("renderResourcePage renders properties from subject triples", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",

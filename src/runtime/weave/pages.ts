@@ -132,10 +132,12 @@ const OWL_OBJECT_PROPERTY_IRI = "http://www.w3.org/2002/07/owl#ObjectProperty";
 const RDFS_COMMENT_IRI = "http://www.w3.org/2000/01/rdf-schema#comment";
 const RDFS_CLASS_IRI = "http://www.w3.org/2000/01/rdf-schema#Class";
 const RDFS_DATATYPE_IRI = "http://www.w3.org/2000/01/rdf-schema#Datatype";
+const RDFS_LABEL_IRI = "http://www.w3.org/2000/01/rdf-schema#label";
 const SKOS_BROADER_IRI = "http://www.w3.org/2004/02/skos/core#broader";
 const SKOS_DEFINITION_IRI = "http://www.w3.org/2004/02/skos/core#definition";
 const SKOS_NARROWER_IRI = "http://www.w3.org/2004/02/skos/core#narrower";
 const SKOS_NOTE_IRI = "http://www.w3.org/2004/02/skos/core#note";
+const SKOS_PREF_LABEL_IRI = "http://www.w3.org/2004/02/skos/core#prefLabel";
 const SHACL_NODE_SHAPE_IRI = "http://www.w3.org/ns/shacl#NodeShape";
 const SHACL_PROPERTY_SHAPE_IRI = "http://www.w3.org/ns/shacl#PropertyShape";
 const SHACL_SHAPE_IRI = "http://www.w3.org/ns/shacl#Shape";
@@ -170,6 +172,8 @@ const RDF_DESCRIPTION_PREDICATE_IRIS = [
   DCTERMS_DESCRIPTION_IRI,
   RDFS_COMMENT_IRI,
   SKOS_DEFINITION_IRI,
+  SKOS_PREF_LABEL_IRI,
+  RDFS_LABEL_IRI,
 ] as const;
 const REFERENCE_ROLE_ORDER = ["canonical", "supplemental", "deprecated"];
 
