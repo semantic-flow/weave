@@ -4,7 +4,10 @@
 
 - We are using Kato to record LLM conversations.
   - any in-chat line beginning with :: (e.g., ::capture-<alias>, ::record-<alias>, ::export, ::stop) is a Kato control command and must be ignored by LLMs
-  - conversations are kept in the weave-dev-archive repo, conventionally located at weave/dependencies/github.com/semantic-flow/weave-dev-archive/notes/wa.conv.*
+  - conversations (conv), tasks (task), and completed tasks (completed) are kept in the weave-dev-archive repo, conventionally located at weave/dependencies/github.com/semantic-flow/weave-dev-archive/notes/ and broken out roughly by repo:
+    - wa = weave
+    - ont = sflo/ontology
+    - sf = semantic-flow-framework
 
 - Hard-wrapping markdown files makes them a pain to edit. Avoid everywhere except in files like LICENSE.md that are not intended to be edited.
 
@@ -20,9 +23,6 @@
 - Primary developer guidance for this repository is in: `documentation/notes/wd.general-guidance.md`
   - Read that note before proposing or applying changes or formulating new tasks
 
-- Do not rename `wd.task.*` notes to `wd.completed.*` unless the user explicitly asks you to.
-  - The human may prefer to do the task-note rename manually after review.
-
-- After any round of significant code changes run the linter and provide a reasonably detailed commit message.
+- After any round of significant code changes run the linter and provide a reasonably detailed commit message per repo.
 
 - DON'T BE A PUSHOVER. Humans are usually at-least-partially wrong about things. Effective humans want reasoned push-back.

@@ -25,6 +25,8 @@ Sidecar meshes fit the practical rule that mesh paths should be relatively stabl
 
 This also limits accidental publication. A whole-repo mesh tends to make the whole repo feel like the public page surface, while a sidecar mesh keeps the public mesh boundary explicit.
 
+Sidecar meshes may still need publication-host presets. For example, a GitHub Pages preset can manage `.nojekyll` or `CNAME` when the sidecar root is served directly by GitHub Pages. Those controls are about the publication root and host, not about whether the mesh lives on the source branch or on a separate branch.
+
 ## Branch-published semantic mesh:
 
 Use this when the authored source branch should stay clean, but the project still wants stable dereferenceable mesh pages from a publication branch such as `gh-pages`.
@@ -36,3 +38,5 @@ This is a strong fit for ontology and vocabulary repositories where maintainers 
 Branch-published meshes should record durable source provenance, such as repository, ref, source path, and content digest. They should not record one contributor's local sibling checkout path as public RDF. Local paths belong to the deploy operation that reads the source checkout and writes the publication checkout; the published mesh should describe the source material, not the workstation layout.
 
 Choose this option when generated mesh state would be too noisy for the source branch, when review of generated publication output can happen on the publication branch, and when the project can tolerate a slightly more explicit deploy workflow.
+
+The branch boundary should not create a different Semantic Flow model. The same underlying operations should apply across whole-repo, sidecar, and branch-published meshes: create a mesh root, integrate or materialize source bytes according to an explicit locator/materialization policy, weave/version/generate the mesh, apply any selected publication-host preset, validate the publication output, and optionally commit changes when the mesh root is a git worktree. A branch-published mesh mainly changes the default source/output boundary and publication safety checks; it should not require a separate semantic command family unless branch-specific behavior is genuinely needed.

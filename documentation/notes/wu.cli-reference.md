@@ -24,6 +24,42 @@ Use `weave --help` or `weave <command> --help` to inspect the live CLI.
 
 If no `--target` flags are provided, those commands operate on all applicable weave candidates in the mesh.
 
+## Workflow Shapes
+
+There are two current ways to build a publication mesh.
+
+For an in-place mesh, including a docs-rooted sidecar mesh that lives on the source branch, use the primitive commands:
+
+```sh
+weave mesh create --workspace . --mesh-root docs --mesh-base 'https://example.github.io/project/'
+weave integrate ./ontology/example.ttl ontology --mesh-root docs --grant-source-directory ontology
+weave --mesh-root docs --target 'designatorPath=ontology,historySegment=releases,stateSegment=v0.1.0,manifestationSegment=ttl'
+```
+
+This keeps the source checkout and mesh root in the same working tree. Extra-mesh source paths are represented through `workingLocalRelativePath` and require local path policy such as `--grant-source-directory`.
+
+For a detached publication root, such as a generated `gh-pages` worktree, use `weave prepare gh-pages`:
+
+```sh
+weave prepare gh-pages \
+  --source-root . \
+  --publish-root ../project-gh-pages \
+  --mesh-base 'https://example.github.io/project/' \
+  --source-path ontology/example.ttl \
+  --designator-path ontology \
+  --payload-history-segment releases \
+  --payload-state-segment v0.1.0 \
+  --payload-manifestation-segment ttl \
+  --source-repository-url 'https://github.com/example/project.git' \
+  --source-ref v0.1.0
+```
+
+`prepare gh-pages` is an orchestration command over a detached root: it ensures the publication mesh exists, keeps publication controls such as `.nojekyll` in place, materializes a repository source file when requested, integrates or updates the payload, runs the needed weave work for that payload, records repository source provenance in `_knop/_sources/sources.ttl`, validates against local path leakage, and optionally creates a local publication commit.
+
+Today `prepare gh-pages` accepts at most one `--source-path` per invocation. For a release with three published payload artifacts, run it three times, once per payload. Repeating the same invocation is safe: it is intended to be idempotent, and `--dry-run` reports whether any publication file changes would be made. A future manifest or batch form should make multi-payload release preparation one command.
+
+Do not add an unconditional top-level `weave` after every `prepare gh-pages` run just to be safe. `prepare gh-pages` already runs the needed weave work for its own materialized payload. Run a separate `weave --mesh-root <publishRoot>` only after operations that create additional un-woven candidates, such as extracting new term identifiers.
+
 ## Target syntax
 
 `--target` uses a comma-separated `key=value` form.
@@ -193,6 +229,8 @@ The essential shape is a detached publication root, not the branch name itself: 
 Root publication meshes do not need `_mesh/_config/config.ttl`; for this command the publication worktree root is also the mesh root. If a mesh config already exists, Weave preserves it and still validates generated RDF for local path leakage.
 
 Repository source bindings are recorded beside the target Knop rather than in `_mesh/_config/config.ttl`. When preparation materializes a source file, Weave writes a source registry at `_knop/_sources/sources.ttl`, links it from the Knop inventory with `sflo:hasKnopSourceRegistry`, and records the repository URL, source ref, resolved commit, repository-relative path, and content digest. This keeps publication output portable without preserving a developer's checkout path.
+
+With no `--source-path`, `prepare gh-pages` only prepares the publication root: mesh bootstrap, `.nojekyll` / `CNAME`, validation, and optional local commit. With `--source-path`, it also materializes exactly one source payload and weaves that payload target when needed.
 
 Dry-run prints the planned writes, preserved files, validation checks, and git operations without mutating the publication worktree. If both created and updated paths are empty, rerunning `prepare gh-pages` with the same inputs would make no publication file changes:
 
