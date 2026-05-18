@@ -124,7 +124,6 @@ const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
   `${SFLO_NAMESPACE}artifactResolutionMode_current`;
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const DCTERMS_TITLE_IRI = "http://purl.org/dc/terms/title";
-const RDFS_LABEL_IRI = "http://www.w3.org/2000/01/rdf-schema#label";
 
 export interface ExecuteValidateOptions {
   meshRoot: string;
@@ -3330,8 +3329,7 @@ function extractResourceTitle(
     panel.contents ? parseRawSourcePanel(canonical, panel.contents) : []
   );
 
-  return findFirstLiteralObject(quads, canonical, DCTERMS_TITLE_IRI) ??
-    findFirstLiteralObject(quads, canonical, RDFS_LABEL_IRI);
+  return findFirstLiteralObject(quads, canonical, DCTERMS_TITLE_IRI);
 }
 
 function extractResourceRdfTypes(

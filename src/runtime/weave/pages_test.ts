@@ -890,10 +890,12 @@ Deno.test("renderResourcePage renders properties from subject triples", async ()
           `@prefix fant: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 fant:AbilityScore a owl:Class ;
   rdfs:label "Ability Score" ;
+  skos:prefLabel "Ability score preferred label" ;
   rdfs:seeAlso "https://example.org/rules/ability-score"^^xsd:anyURI ;
   rdfs:isDefinedBy "urn:rules:ability-score"^^xsd:anyURI ;
   fant:relatedAbility fant:Strength ;
@@ -909,11 +911,20 @@ fant:AbilityScore a owl:Class ;
     },
   );
 
+  assertStringIncludes(html, "<h1>AbilityScore</h1>");
   assertStringIncludes(html, '<details class="wf-properties" open>');
   assertStringIncludes(html, "<summary>Properties</summary>");
   assertStringIncludes(
     html,
     '<th scope="row"><a class="wf-term wf-term-link" href="http://www.w3.org/1999/02/22-rdf-syntax-ns#type" title="http://www.w3.org/1999/02/22-rdf-syntax-ns#type">rdf:type</a></th><td><a href="http://www.w3.org/2002/07/owl#Class">owl:Class</a></td>',
+  );
+  assertStringIncludes(
+    html,
+    '<th scope="row"><a class="wf-term wf-term-link" href="http://www.w3.org/2000/01/rdf-schema#label" title="http://www.w3.org/2000/01/rdf-schema#label">rdfs:label</a></th><td><span>Ability Score</span></td>',
+  );
+  assertStringIncludes(
+    html,
+    '<th scope="row"><a class="wf-term wf-term-link" href="http://www.w3.org/2004/02/skos/core#prefLabel" title="http://www.w3.org/2004/02/skos/core#prefLabel">skos:prefLabel</a></th><td><span>Ability score preferred label</span></td>',
   );
   assertStringIncludes(
     html,
@@ -1154,7 +1165,7 @@ fant:CharacterShape a sh:NodeShape ;
     },
   );
 
-  assertStringIncludes(html, "<h1>Character shape</h1>");
+  assertStringIncludes(html, "<h1>CharacterShape</h1>");
   assertStringIncludes(html, "Validates character data.");
   assertStringIncludes(
     html,
