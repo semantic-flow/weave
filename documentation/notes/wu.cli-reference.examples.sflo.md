@@ -12,7 +12,7 @@ This note records the command sequence used while dogfooding Weave against the S
 
 This note is a dogfooding command sequence rather than the final CI runbook. The old `weave prepare gh-pages` wrapper has been removed, and branch-published source binding now uses ordinary `integrate`, `weave`, `generate`, `validate`, publication-profile, and CI/CD operations.
 
-The source checkout stays on `main`. The publication checkout is an unborn or disposable `gh-pages` worktree. The ontology and SHACL payload artifacts use `releases` as the artifact-history segment and `v0.1.0` as the state segment.
+The development source checkout may stay on `main`, but the source checkout used by this replay must match the release ref whose repository provenance is recorded. The commands below create or reuse a disposable detached source worktree for `v0.1.0`. The publication checkout is an unborn or disposable `gh-pages` worktree. The ontology and SHACL payload artifacts use `releases` as the artifact-history segment and `v0.1.0` as the state segment.
 
 The root welcome page can use the primitive commands below because it is authored directly in the publication root. The ontology, config ontology, and SHACL payloads are integrated from the SFLO source checkout with repository-backed source evidence; they are not copied implicitly by `weave`.
 
@@ -23,41 +23,52 @@ Use variables so the command sequence is replayable from the Weave checkout with
 ```sh
 export WEAVE_ROOT=/home/djradon/hub/semantic-flow/weave
 export WEAVE_CLI="$WEAVE_ROOT/src/main.ts"
-export SFLO_SRC="$WEAVE_ROOT/dependencies/github.com/semantic-flow/sflo"
+export SFLO_REPO="$WEAVE_ROOT/dependencies/github.com/semantic-flow/sflo"
+export SFLO_SRC="$WEAVE_ROOT/dependencies/github.com/semantic-flow/sflo-v0.1.0-source"
 export SFLO_PUB="$WEAVE_ROOT/dependencies/github.com/semantic-flow/sflo-gh-pages"
 export SFLO_SOURCE_REPO='https://github.com/semantic-flow/sflo.git'
 export SFLO_SOURCE_REF='v0.1.0'
-export SFLO_SOURCE_COMMIT="$(git -C "$SFLO_SRC" rev-parse "$SFLO_SOURCE_REF^{commit}")"
+export SFLO_SOURCE_COMMIT="$(git -C "$SFLO_REPO" rev-parse "$SFLO_SOURCE_REF^{commit}")"
 export WEAVE_LOG_DIR=/tmp/weave-logs
 
 mkdir -p "$WEAVE_LOG_DIR"
 cd "$WEAVE_ROOT"
 ```
 
-## Step 2: Reset The Disposable Publication Worktree
-
-This clears generated publication output while preserving `welcome.ttl`. Use this only when the `gh-pages` worktree has no committed publication history you need to keep.
+Create or reset the release source worktree. This keeps the editable source checkout on `main` while ensuring `integrate` reads the same bytes identified by `SFLO_SOURCE_REF` and `SFLO_SOURCE_COMMIT`.
 
 ```sh
-tmp_welcome="$(mktemp)"
-cp "$SFLO_PUB/welcome.ttl" "$tmp_welcome"
+git -C "$SFLO_REPO" fetch --tags
 
+if [ -e "$SFLO_SRC/.git" ]; then
+  git -C "$SFLO_SRC" checkout --detach "$SFLO_SOURCE_COMMIT"
+else
+  git -C "$SFLO_REPO" worktree add --detach "$SFLO_SRC" "$SFLO_SOURCE_COMMIT"
+fi
+
+git -C "$SFLO_SRC" diff --quiet
+test "$(git -C "$SFLO_SRC" rev-parse HEAD)" = "$SFLO_SOURCE_COMMIT"
+```
+
+## Step 2: Reset The Disposable Publication Worktree
+
+This clears generated publication output. Use this only when the `gh-pages` worktree has no committed publication history you need to keep. `welcome.ttl` is recreated in Step 4.
+
+```sh
 find "$SFLO_PUB" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-
-cp "$tmp_welcome" "$SFLO_PUB/welcome.ttl"
-rm "$tmp_welcome"
 
 git -C "$SFLO_PUB" status --short --branch
 ```
 
 ## Step 3: Create The Publication Mesh
 
-Create the branch-published mesh support artifacts at the publication root. Root publication meshes do not need `_mesh/_config/config.ttl`.
+Create the branch-published mesh support artifacts at the publication root. The explicit GitHub Pages publication profile creates `.nojekyll` and persists the resolved profile in `_mesh/_config/config.ttl`.
 
 ```sh
 deno run -A "$WEAVE_CLI" mesh create \
   --workspace "$SFLO_PUB" \
-  --mesh-base 'https://semantic-flow.github.io/sflo/'
+  --mesh-base 'https://semantic-flow.github.io/sflo/' \
+  --publication-profile github-pages
 ```
 
 ## Step 4: Integrate The Root Welcome Page
@@ -150,7 +161,7 @@ deno run -A "$WEAVE_CLI" version \
 
 ## Step 8: Extract Terms From The Source Artifacts
 
-Run all-terms extraction after the source artifacts have been woven. These commands create first-class term identifiers for mesh-scoped named nodes discovered in subject, predicate, or object position, skip generated support/file resources such as `sflo:LocatedFile`s, and create canonical source references for terms newly extracted in that invocation. Existing extracted terms are skipped, so this does not backfill references from a later source if a term was already extracted from an earlier source. If source references need to be repaired or regenerated, reset the disposable publication worktree and replay the sequence from the beginning rather than rerunning extraction over already-created terms.
+Run all-terms extraction after the source artifacts have been versioned. These commands create first-class term identifiers for mesh-scoped named nodes discovered in subject, predicate, or object position, skip generated support/file resources such as `sflo:LocatedFile`s, and create canonical source references for terms newly extracted in that invocation. Existing extracted terms are skipped, so this does not backfill references from a later source if a term was already extracted from an earlier source. If source references need to be repaired or regenerated, reset the disposable publication worktree and replay the sequence from the beginning rather than rerunning extraction over already-created terms.
 
 ```sh
 deno run -A "$WEAVE_CLI" extract --all-terms \
@@ -175,16 +186,26 @@ deno run -A "$WEAVE_CLI" extract --all-terms \
   --accept-preview
 ```
 
-## Step 9: Weave The Extracted Terms
+## Step 9: Validate And Weave The Extracted Terms
 
-Run an untargeted weave after extraction so every pending extracted term Knop and its support surfaces become part of the current publication mesh. This advances the generated publication side without changing the source checkout.
+Run whole-mesh validation as a preflight after extraction, while the pending extracted term Knops still have not been woven into current generated pages. Then run an untargeted weave so every pending extracted term Knop and its support surfaces become part of the current publication mesh. This advances the generated publication side without changing the source checkout.
 
 ```sh
+deno run -A "$WEAVE_CLI" validate mesh \
+  --mesh-root "$SFLO_PUB"
+
 deno run -A "$WEAVE_CLI" \
   --mesh-root "$SFLO_PUB"
 ```
 
 ## Step 10: Inspect The Generated Publication Worktree
+
+Run publication validation after page generation. Publication validation checks the selected host preset, so the GitHub Pages profile should require `.nojekyll`.
+
+```sh
+deno run -A "$WEAVE_CLI" validate publication \
+  --mesh-root "$SFLO_PUB"
+```
 
 Confirm the root welcome page uses `main/_s0001`, and the ontology and SHACL payloads use `releases/v0.1.0/ttl`.
 
