@@ -10,6 +10,8 @@ import { Parser } from "n3";
 import {
   IntegrateInputError,
   type IntegratePlan,
+  type IntegrateRepositorySource,
+  type IntegrateSourceBinding,
   planIntegrate,
 } from "../../core/integrate/integrate.ts";
 import {
@@ -30,6 +32,16 @@ import type { StructuredLogger } from "../logging/logger.ts";
 export interface LocalIntegrateRequest {
   designatorPath: string;
   source: string;
+  sourceBinding?: LocalIntegrateSourceBindingRequest;
+}
+
+export interface LocalIntegrateSourceBindingRequest {
+  bindingId?: string;
+  sourceRepositoryUrl: string;
+  sourceRepositoryRef: string;
+  sourceRepositoryCommit?: string;
+  sourceRepositoryPath: string;
+  sourceDigest?: string;
 }
 
 export interface ExecuteIntegrateOptions {
@@ -47,6 +59,7 @@ export interface IntegrateResult {
   payloadArtifactIri: string;
   knopIri: string;
   workingLocalRelativePath: string;
+  sourceBindingIri?: string;
   createdPaths: readonly string[];
   updatedPaths: readonly string[];
 }
@@ -110,12 +123,17 @@ export async function executeIntegrate(
       source,
     );
     workingLocalRelativePath = resolvedSource.workingLocalRelativePath;
+    const sourceBinding = await resolveSourceBinding(
+      options.request.sourceBinding,
+      resolvedSource.absoluteSourcePath,
+    );
     const meshState = await loadCurrentMeshState(meshRoot);
     plan = planIntegrate({
       meshBase: meshState.meshBase,
       currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
       designatorPath,
       workingLocalRelativePath,
+      ...(sourceBinding ? { sourceBinding } : {}),
     });
     assertUpdatedTargetsExist(meshRoot, plan);
     await assertCreateTargetsDoNotExist(meshRoot, plan);
@@ -166,6 +184,9 @@ export async function executeIntegrate(
     payloadArtifactIri: plan.payloadArtifactIri,
     knopIri: plan.knopIri,
     workingLocalRelativePath: plan.workingLocalRelativePath,
+    ...(plan.sourceBindingIri
+      ? { sourceBindingIri: plan.sourceBindingIri }
+      : {}),
     createdPaths: plan.createdFiles.map((file) =>
       toWorkspaceRelativePath(localPathPolicy, file.path)
     ),
@@ -188,6 +209,7 @@ export async function executeIntegrate(
       payloadArtifactIri: result.payloadArtifactIri,
       knopIri: result.knopIri,
       workingLocalRelativePath: result.workingLocalRelativePath,
+      sourceBindingIri: result.sourceBindingIri,
       createdPaths: result.createdPaths,
       updatedPaths: result.updatedPaths,
     },
@@ -201,6 +223,7 @@ export async function executeIntegrate(
       payloadArtifactIri: result.payloadArtifactIri,
       knopIri: result.knopIri,
       workingLocalRelativePath: result.workingLocalRelativePath,
+      sourceBindingIri: result.sourceBindingIri,
       createdPaths: result.createdPaths,
       updatedPaths: result.updatedPaths,
     },
@@ -313,6 +336,44 @@ async function resolveLocalSource(
     absoluteSourcePath,
     workingLocalRelativePath,
   };
+}
+
+async function resolveSourceBinding(
+  request: LocalIntegrateSourceBindingRequest | undefined,
+  absoluteSourcePath: string,
+): Promise<IntegrateSourceBinding | undefined> {
+  if (request === undefined) {
+    return undefined;
+  }
+
+  const sourceDigest = request.sourceDigest ?? await sha256FileDigest(
+    absoluteSourcePath,
+  );
+  const repositorySource: IntegrateRepositorySource = {
+    repositoryUrl: request.sourceRepositoryUrl,
+    repositoryRef: request.sourceRepositoryRef,
+    ...(request.sourceRepositoryCommit
+      ? { repositoryCommit: request.sourceRepositoryCommit }
+      : {}),
+    repositoryPath: request.sourceRepositoryPath,
+    contentDigest: sourceDigest,
+  };
+
+  return {
+    ...(request.bindingId ? { bindingId: request.bindingId } : {}),
+    repositorySource,
+    expectedContentDigest: sourceDigest,
+    artifactResolutionMode: "working",
+  };
+}
+
+async function sha256FileDigest(absoluteSourcePath: string): Promise<string> {
+  const bytes = await Deno.readFile(absoluteSourcePath);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const hex = [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return `sha256:${hex}`;
 }
 
 async function grantSourceDirectoryAccess(

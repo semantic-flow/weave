@@ -159,7 +159,7 @@ weave validate --target 'designatorPath=alice/bio'
 weave validate --target 'designatorPath=alice,recursive=true'
 ```
 
-`weave validate mesh` is the default scope and validates the mesh state. When a publication profile is configured, mesh validation includes the retained publication checks. `weave validate publication` runs only publication-readiness checks, such as the GitHub Pages `.nojekyll` preset check when the mesh config selects `github-pages`.
+`weave validate mesh` is the default scope and validates the mesh state. When a publication profile is configured, mesh validation includes the retained publication checks. `weave validate publication` runs only publication-readiness checks, currently conservative host-local path leakage checks plus the GitHub Pages `.nojekyll` preset check when the mesh config selects `github-pages`.
 
 ### `weave version`
 
@@ -241,6 +241,7 @@ Integrates a local source file into a designator path as a payload artifact, inc
 weave integrate ./alice-bio.ttl alice/bio
 weave integrate ./alice-bio.ttl --designator-path alice/bio
 weave integrate ./ontology/fantasy-rules-ontology.ttl ontology --mesh-root docs --grant-source-directory ontology
+weave integrate ./ontology/fantasy-rules-ontology.ttl ontology --mesh-root docs --grant-source-directory ontology --source-repository-url https://github.com/example/source.git --source-repository-ref main --source-repository-path ontology/fantasy-rules-ontology.ttl
 weave integrate ./root.ttl --designator-path /
 ```
 
@@ -251,11 +252,15 @@ Constraints:
 - `--mesh-root <path>` selects the mesh root and defaults to the current directory
 - relative source paths are resolved from the command working directory
 - `--grant-source-directory <path>` adds a mesh-carried `workingLocalRelativePath` grant for that source directory before resolving the source
+- `--source-repository-url`, `--source-repository-ref`, and `--source-repository-path` record repository-backed source provenance in the Knop source registry without fetching or copying source bytes
+- `--source-repository-commit` records immutable commit evidence when known
+- `--source-digest <digest>` records caller-provided byte evidence; if omitted when repository source metadata is supplied, Weave records a computed `sha256:` digest for the local source bytes it observed
+- `--source-binding-id <id>` sets the source-registry fragment id; otherwise Weave uses `payload-source`
 - the current local CLI slice accepts local filesystem paths or `file:` URLs
 - sources inside the mesh root are accepted directly
 - extra-mesh local sources are accepted only when operational policy allows the resulting relative `workingLocalRelativePath`
 - denied adjacent workspace sources report the matching `--grant-source-directory` suggestion when Weave can infer one
-- remote-source integration is still a broader semantic/API direction, not part of the current CLI contract
+- remote fetching remains outside the current CLI contract; repository metadata names provenance and expected bytes, not network access
 
 ### `weave extract`
 

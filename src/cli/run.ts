@@ -32,6 +32,7 @@ import {
   describeIntegrateResult,
   executeIntegrate,
   IntegrateRuntimeError,
+  type LocalIntegrateSourceBindingRequest,
 } from "../runtime/integrate/integrate.ts";
 import {
   describeKnopAddReferenceResult,
@@ -861,11 +862,36 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           "--grant-source-directory <path:string>",
           "Add a mesh config workingLocalRelativePath grant for this source directory.",
         )
+        .option(
+          "--source-binding-id <id:string>",
+          "Fragment id for the source binding in the Knop source registry.",
+        )
+        .option(
+          "--source-repository-url <url:string>",
+          "Repository URL to record for the integrated source bytes.",
+        )
+        .option(
+          "--source-repository-ref <ref:string>",
+          "Repository ref to record for the integrated source bytes.",
+        )
+        .option(
+          "--source-repository-commit <commit:string>",
+          "Resolved repository commit to record for deterministic source provenance.",
+        )
+        .option(
+          "--source-repository-path <path:string>",
+          "Repository-relative source path to record for the integrated source bytes.",
+        )
+        .option(
+          "--source-digest <digest:string>",
+          "Digest to record for the integrated source bytes. Defaults to a computed sha256 digest when repository source metadata is supplied.",
+        )
         .action(async (options, source, designatorPathArg) => {
           const designatorPath = resolveIntegrateDesignatorPath(
             options,
             designatorPathArg,
           );
+          const sourceBinding = resolveIntegrateSourceBindingOptions(options);
           const meshRoot = resolve(options.meshRoot);
           const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
           const logDir = resolveCliLogDir(workspaceRoot);
@@ -879,6 +905,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             designatorPath,
             source,
             grantSourceDirectory: options.grantSourceDirectory,
+            sourceBinding,
             localMode: true,
           });
 
@@ -889,6 +916,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             request: {
               designatorPath,
               source,
+              ...(sourceBinding ? { sourceBinding } : {}),
             },
             operationalLogger,
             auditLogger,
@@ -1327,6 +1355,49 @@ function resolveIntegrateDesignatorPath(
       "integrate requires a designator path as [designatorPath] or --designator-path",
     createError: (message) => new IntegrateInputError(message),
   });
+}
+
+function resolveIntegrateSourceBindingOptions(
+  options: {
+    sourceBindingId?: string;
+    sourceRepositoryUrl?: string;
+    sourceRepositoryRef?: string;
+    sourceRepositoryCommit?: string;
+    sourceRepositoryPath?: string;
+    sourceDigest?: string;
+  },
+): LocalIntegrateSourceBindingRequest | undefined {
+  const provided = [
+    options.sourceBindingId,
+    options.sourceRepositoryUrl,
+    options.sourceRepositoryRef,
+    options.sourceRepositoryCommit,
+    options.sourceRepositoryPath,
+    options.sourceDigest,
+  ].some((value) => value !== undefined);
+  if (!provided) {
+    return undefined;
+  }
+  if (
+    !options.sourceRepositoryUrl ||
+    !options.sourceRepositoryRef ||
+    !options.sourceRepositoryPath
+  ) {
+    throw new IntegrateInputError(
+      "repository-backed integrate source bindings require --source-repository-url, --source-repository-ref, and --source-repository-path",
+    );
+  }
+
+  return {
+    ...(options.sourceBindingId ? { bindingId: options.sourceBindingId } : {}),
+    sourceRepositoryUrl: options.sourceRepositoryUrl,
+    sourceRepositoryRef: options.sourceRepositoryRef,
+    ...(options.sourceRepositoryCommit
+      ? { sourceRepositoryCommit: options.sourceRepositoryCommit }
+      : {}),
+    sourceRepositoryPath: options.sourceRepositoryPath,
+    ...(options.sourceDigest ? { sourceDigest: options.sourceDigest } : {}),
+  };
 }
 
 function resolvePayloadUpdateDesignatorPath(

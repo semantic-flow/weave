@@ -11,8 +11,8 @@ import {
   executeGenerate,
   executeValidate,
   executeVersion as executeRuntimeVersion,
-  executeWeave,
   type ExecuteVersionOptions,
+  executeWeave,
 } from "../../src/runtime/weave/weave.ts";
 import { executeMeshCreate } from "../../src/runtime/mesh/create.ts";
 import {
@@ -302,6 +302,45 @@ Deno.test("executeValidate publication checks GitHub Pages .nojekyll", async () 
     message:
       "GitHub Pages publication profile requires .nojekyll at the mesh root.",
   }]);
+});
+
+Deno.test("executeValidate publication reports host-local path leakage", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-validate-publication-leakage-",
+  );
+  await executeMeshCreate({
+    workspaceRoot,
+    request: {
+      meshBase: "https://example.org/mesh/",
+      publicationProfile: "none",
+    },
+  });
+  await Deno.writeTextFile(
+    join(workspaceRoot, "leaky.html"),
+    `<a href="file://${workspaceRoot}/private.ttl">local</a>`,
+  );
+  await Deno.writeTextFile(
+    join(workspaceRoot, "leaky.ttl"),
+    `<> <https://example.org/path> "${workspaceRoot}/private.ttl" .`,
+  );
+
+  const result = await executeValidate({
+    meshRoot: workspaceRoot,
+    scope: "publication",
+  });
+
+  assertEquals(result.scope, "publication");
+  assertEquals(result.findings, [
+    {
+      severity: "error",
+      message: "Publication file leaky.html contains a host-local file URL.",
+    },
+    {
+      severity: "error",
+      message:
+        "Publication file leaky.ttl contains an absolute host-local path.",
+    },
+  ]);
 });
 
 Deno.test("executeValidate mesh includes configured publication checks", async () => {

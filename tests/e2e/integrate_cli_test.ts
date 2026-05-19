@@ -1,4 +1,9 @@
-import { assert, assertEquals, assertRejects } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
 import { join, relative, toFileUrl } from "@std/path";
 import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import {
@@ -276,6 +281,111 @@ Deno.test("weave integrate grants and uses a repo-adjacent source directory as a
   );
 });
 
+Deno.test("weave integrate records repository-backed source provenance as a black-box CLI run", async () => {
+  const tempRepoRoot = await createTestTmpDir("weave-e2e-integrate-source-");
+  const workspaceRoot = join(tempRepoRoot, "mesh");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await Deno.mkdir(join(tempRepoRoot, "documentation"), { recursive: true });
+  await Deno.mkdir(join(workspaceRoot, "_mesh/_config"), { recursive: true });
+  await Deno.writeTextFile(
+    join(workspaceRoot, "_mesh/_config/config.ttl"),
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:workspaceRootRelativeToMeshRoot "../" .
+`,
+  );
+  const sourceBytes = new TextEncoder().encode(
+    await readMeshAliceBioBranchFile(
+      "05-alice-knop-created-woven",
+      "alice-bio.ttl",
+    ),
+  );
+  await Deno.writeFile(
+    join(tempRepoRoot, "documentation/alice-bio.ttl"),
+    sourceBytes,
+  );
+  const expectedDigest = await sha256Digest(sourceBytes);
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      cliPath,
+      "integrate",
+      "documentation/alice-bio.ttl",
+      "--designator-path",
+      "alice/bio",
+      "--mesh-root",
+      "mesh",
+      "--grant-source-directory",
+      "documentation",
+      "--source-binding-id",
+      "branch-source-alice-bio",
+      "--source-repository-url",
+      "https://github.com/semantic-flow/mesh-alice-bio.git",
+      "--source-repository-ref",
+      "main",
+      "--source-repository-commit",
+      "abc123",
+      "--source-repository-path",
+      "documentation/alice-bio.ttl",
+    ],
+    cwd: toFileUrl(`${tempRepoRoot}/`),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assertStringIncludes(stdout, "mesh/alice/bio/_knop/_sources/sources.ttl");
+  const inventory = await Deno.readTextFile(
+    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+  );
+  assertStringIncludes(
+    inventory,
+    "sflo:hasKnopSourceRegistry <alice/bio/_knop/_sources> ;",
+  );
+
+  const sources = await Deno.readTextFile(
+    join(workspaceRoot, "alice/bio/_knop/_sources/sources.ttl"),
+  );
+  assertStringIncludes(
+    sources,
+    "<alice/bio/_knop/_sources#branch-source-alice-bio> a sflo:ArtifactResolutionTarget ;",
+  );
+  assertStringIncludes(
+    sources,
+    'sflo:targetLocalRelativePath "../documentation/alice-bio.ttl" ;',
+  );
+  assertStringIncludes(
+    sources,
+    "sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> ;",
+  );
+  assertStringIncludes(
+    sources,
+    `sflo:expectsContentDigest "${expectedDigest}" ;`,
+  );
+  assertStringIncludes(
+    sources,
+    'sflo:sourceRepositoryUrl "https://github.com/semantic-flow/mesh-alice-bio.git" ;',
+  );
+  assertStringIncludes(sources, 'sflo:sourceRepositoryRef "main" ;');
+  assertStringIncludes(sources, 'sflo:sourceRepositoryCommit "abc123" ;');
+  assertStringIncludes(
+    sources,
+    'sflo:sourceRepositoryPath "documentation/alice-bio.ttl" ;',
+  );
+  assertStringIncludes(sources, `sflo:hasContentDigest "${expectedDigest}"`);
+});
+
 Deno.test("weave integrate matches the manifest-scoped sidecar Gunaar dataset fixture", async () => {
   const manifestPath = resolveMeshSidecarFantasyRulesConformanceManifestPath(
     "12-gunaar-example-dataset.jsonld",
@@ -459,4 +569,12 @@ async function assertPathAbsent(path: string): Promise<void> {
     () => Deno.stat(path),
     Deno.errors.NotFound,
   );
+}
+
+async function sha256Digest(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const hex = [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return `sha256:${hex}`;
 }
