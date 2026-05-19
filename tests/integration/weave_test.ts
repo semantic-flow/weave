@@ -1143,9 +1143,9 @@ Deno.test("executeWeave resolves artifact-backed page sources through workingLoc
   );
 });
 
-Deno.test("executeWeave fails closed when artifact-backed page sources request pinned resolution", async () => {
+Deno.test("executeWeave fails closed when artifact-backed page sources request latest-state resolution", async () => {
   const workspaceRoot = await createTestTmpDir(
-    "weave-weave-page-definition-artifact-pinned-",
+    "weave-weave-page-definition-artifact-latest-state-",
   );
   await materializeMeshAliceBioBranch(
     "14-alice-page-customized",
@@ -1176,7 +1176,7 @@ Deno.test("executeWeave fails closed when artifact-backed page sources request p
     workspaceRoot,
     `<#sidebar-source> a sflo:ResourcePageSource ;
   sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_pinned> .`,
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_latestState> .`,
   );
 
   await assertRejects(
@@ -1677,7 +1677,7 @@ Deno.test("executeWeave materializes sidecar extracted ontology and SHACL terms"
     join(workspaceRoot, "docs/ontology/CharacterShape/index.html"),
   );
   assertStringIncludes(characterShapePage, "sh:NodeShape");
-  assertFalse(characterShapePage.includes("Pinned source file"));
+  assertFalse(characterShapePage.includes("Exact source file"));
   assertFalse(characterShapePage.includes("Semantic Flow metadata"));
   assertStringIncludes(characterShapePage, "CharacterShape");
 });

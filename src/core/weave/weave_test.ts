@@ -2437,7 +2437,7 @@ Deno.test("planWeave accepts a semantically equivalent extracted bob Knop block"
   );
 });
 
-Deno.test("planWeave pins current-mode extracted bob sources during weave", async () => {
+Deno.test("planWeave records exact extracted bob source state during weave", async () => {
   const input = await createExtractedBobWeaveInput();
 
   const plan = planWeave(input);
@@ -2448,7 +2448,6 @@ Deno.test("planWeave pins current-mode extracted bob sources during weave", asyn
     plan.updatedFiles[2]?.contents ?? "",
     `sflo:hasTargetArtifact <alice/bio> ;
   sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_pinned> ;
   sflo:hasObservedSourceState <alice/bio/_history001/_s0002> ;
   sflo:hasObservedSourceManifestation <alice/bio/_history001/_s0002/ttl> ;
   sflo:hasObservedSourceLocatedFile <alice/bio/_history001/_s0002/ttl/alice-bio.ttl> ;
@@ -2476,7 +2475,7 @@ Deno.test("planWeave rejects extracted bob weave inputs when the source payload 
 Deno.test("planWeave rejects extracted bob weave inputs when the source payload state does not match", async () => {
   const input = await createExtractedBobWeaveInput();
   input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact!
-    .currentSourceRegistryTurtle = withPinnedExtractedSourceState(
+    .currentSourceRegistryTurtle = withExactExtractedSourceState(
       input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact!
         .currentSourceRegistryTurtle!,
       "alice/bio/_history001/_s0002",
@@ -3018,15 +3017,14 @@ async function createExtractedBobWeaveInput(): Promise<PlanWeaveInput> {
   };
 }
 
-function withPinnedExtractedSourceState(
+function withExactExtractedSourceState(
   turtle: string,
   sourceStatePath: string,
 ): string {
   return turtle.replace(
     / {2}sflo:hasTargetArtifact <alice\/bio> ;\n(?: {2}sflo:[^\n]+(?: ;|\.)\n?)+/,
     `  sflo:hasTargetArtifact <alice/bio> ;
-  sflo:hasRequestedTargetState <${sourceStatePath}> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_pinned> .`,
+  sflo:hasRequestedTargetState <${sourceStatePath}> .`,
   );
 }
 

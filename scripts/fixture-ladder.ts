@@ -1120,7 +1120,7 @@ export const BRANCH_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
       "10-first-release-source",
       {
         description:
-          "Add curated canonical ReferenceLinks from representative extracted terms to their current source artifacts.",
+          "Add curated canonical ReferenceLinks from representative extracted terms to their working source artifacts.",
         publicationFromRef: "13-all-remaining-terms-woven",
         publicationBranch: "gh-pages",
       },

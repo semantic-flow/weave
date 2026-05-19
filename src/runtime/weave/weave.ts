@@ -119,10 +119,6 @@ const SFLO_REFERENCE_URI_LITERAL_IRI = `${SFLO_NAMESPACE}referenceUriLiteral`;
 const SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI =
   `${SFLO_NAMESPACE}hasResourcePageDefinition`;
 const SFLO_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFLO_NAMESPACE}hasKnopAssetBundle`;
-const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
-  `${SFLO_NAMESPACE}artifactResolutionMode_pinned`;
-const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
-  `${SFLO_NAMESPACE}artifactResolutionMode_current`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI =
   `${SFLO_NAMESPACE}artifactResolutionMode_working`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_LATEST_STATE_IRI =
@@ -1451,14 +1447,12 @@ async function loadReferenceTargetSourcePayloadArtifact(
       `Extracted weave source for ${designatorPath} is missing a woven current payload history: ${sourceDesignatorPath}`,
     );
   }
-  const isPinned = extractionSource.artifactResolutionModeIri ===
-    SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI;
-  const selectedHistoricalStatePath = isPinned
-    ? extractionSource.requestedTargetStatePath
-    : sourcePayloadArtifact.latestHistoricalStatePath;
+  const selectedHistoricalStatePath =
+    extractionSource.requestedTargetStatePath ??
+      sourcePayloadArtifact.latestHistoricalStatePath;
   if (!selectedHistoricalStatePath) {
     throw new WeaveRuntimeError(
-      `Extracted weave source for ${designatorPath} is missing a pinned target state.`,
+      `Extracted weave source for ${designatorPath} is missing an exact or latest source state.`,
     );
   }
   const selectedHistoricalSnapshotPath = resolveHistoricalStateLocatedFilePath(
@@ -2351,8 +2345,12 @@ async function loadGenerateDesignatorContexts(
                   extractionSource.requestedTargetStatePath,
               }
               : {}),
-            artifactResolutionModeIri:
-              extractionSource.artifactResolutionModeIri,
+            ...(extractionSource.artifactResolutionModeIri
+              ? {
+                artifactResolutionModeIri:
+                  extractionSource.artifactResolutionModeIri,
+              }
+              : {}),
           },
         }
         : {}),
@@ -3109,7 +3107,7 @@ async function addCanonicalReferenceSourceRawSourcePanel(
       await readRawSourcePanel(
         join(workspaceRoot, snapshotPath),
         snapshotPath,
-        "Pinned canonical reference source file",
+        "Exact canonical reference source file",
       ),
     );
   } catch (error) {
@@ -3128,7 +3126,7 @@ async function addExtractionSourceRawSourcePanels(
   designatorPath: string,
   sourceArtifactPath: string,
   requestedTargetStatePath: string | undefined,
-  artifactResolutionModeIri: string,
+  artifactResolutionModeIri: string | undefined,
 ): Promise<void> {
   const sourceKnopInventoryPath = join(
     workspaceRoot,
@@ -3166,10 +3164,7 @@ async function addExtractionSourceRawSourcePanels(
     return;
   }
 
-  if (
-    artifactResolutionModeIri === SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI ||
-    artifactResolutionModeIri === SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI
-  ) {
+  if (artifactResolutionModeIri === SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI) {
     try {
       addRawSourcePanel(
         rawSourcePanels,
@@ -3203,7 +3198,7 @@ async function addExtractionSourceRawSourcePanels(
   }
   if (!requestedTargetStatePath) {
     throw new WeaveRuntimeError(
-      `Extracted page source for ${designatorPath} is missing a pinned target state.`,
+      `Extracted page source for ${designatorPath} is missing an exact target state.`,
     );
   }
 
@@ -3223,13 +3218,13 @@ async function addExtractionSourceRawSourcePanels(
       await readRawSourcePanel(
         join(workspaceRoot, snapshotPath),
         snapshotPath,
-        "Pinned source file",
+        "Exact source file",
       ),
     );
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new WeaveRuntimeError(
-        `Workspace is missing the pinned page source file for ${designatorPath}: ${snapshotPath}`,
+        `Workspace is missing the exact page source file for ${designatorPath}: ${snapshotPath}`,
       );
     }
     throw error;

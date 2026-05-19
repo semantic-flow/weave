@@ -445,9 +445,9 @@ Deno.test("executeExtractAllTerms creates source references only for newly extra
   );
 });
 
-Deno.test("executeExtractAllTerms pins source references when extracting from a source state", async () => {
+Deno.test("executeExtractAllTerms records exact source references when extracting from a source state", async () => {
   const workspaceRoot = await createTestTmpDir(
-    "weave-extract-all-terms-pinned-references-",
+    "weave-extract-all-terms-exact-references-",
   );
   await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
 
@@ -460,7 +460,7 @@ Deno.test("executeExtractAllTerms pins source references when extracting from a 
     },
   });
 
-  assertEquals(result.sourceResolutionMode, "pinned");
+  assertEquals(result.sourceResolutionMode, "exact");
   assertEquals(result.sourceDesignatorPath, "alice/bio");
   assertEquals(result.extractedDesignatorPaths, ["bob"]);
   assertEquals(
@@ -612,7 +612,7 @@ Deno.test("executeExtract fails closed for ambiguous sidecar term sources withou
   );
 });
 
-Deno.test("executeSetExtractionSource replaces an existing pinned source binding with working", async () => {
+Deno.test("executeSetExtractionSource replaces an existing exact source binding with working", async () => {
   const workspaceRoot = await createTestTmpDir("weave-set-extraction-source-");
   await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
 

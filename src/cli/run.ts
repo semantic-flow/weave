@@ -392,11 +392,11 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         )
         .option(
           "--source <sourceDesignatorPath:string>",
-          "Explicit current-tracking woven payload designator to extract from when target mention resolution would be ambiguous.",
+          "Explicit working-source woven payload designator to extract from when target mention resolution would be ambiguous.",
         )
         .option(
           "--source-state <sourceStatePath:string>",
-          "Historical source state to pin the extraction source to.",
+          "Exact historical source state to use as the extraction source.",
         )
         .option(
           "--accept-preview",

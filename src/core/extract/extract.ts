@@ -16,8 +16,6 @@ const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const XSD_ANY_URI_IRI = "http://www.w3.org/2001/XMLSchema#anyURI";
 const XSD_NON_NEGATIVE_INTEGER_IRI =
   "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
-const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
-  `${SFLO_NAMESPACE}artifactResolutionMode_pinned`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI =
   `${SFLO_NAMESPACE}artifactResolutionMode_working`;
 const SFLO_DIGITAL_ARTIFACT_IRI = `${SFLO_NAMESPACE}DigitalArtifact`;
@@ -51,7 +49,7 @@ export interface ResolvedExtractRequest extends ExtractRequest {
   currentMeshInventoryTurtle: string;
   sourceDesignatorPath: string;
   sourceStatePath?: string;
-  sourceResolutionMode?: "working" | "current" | "pinned";
+  sourceResolutionMode?: "working" | "exact";
   sourceEvidence?: ExtractionSourceEvidence;
   sourceWorkingLocalRelativePath: string;
 }
@@ -73,7 +71,7 @@ export interface ExtractPlan {
   sourceDesignatorPath: string;
   sourceStateIri?: string;
   sourceStatePath?: string;
-  sourceResolutionMode: "working" | "pinned";
+  sourceResolutionMode: "working" | "exact";
   sourceEvidence?: ExtractionSourceEvidence;
   createdFiles: readonly PlannedFile[];
   updatedFiles: readonly PlannedFile[];
@@ -96,18 +94,23 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
     request.sourceDesignatorPath,
     "sourceDesignatorPath",
   );
-  const sourceResolutionMode = request.sourceResolutionMode === undefined
-    ? "working"
-    : normalizeSourceResolutionMode(request.sourceResolutionMode);
   const sourceStatePath = request.sourceStatePath === undefined
     ? undefined
     : normalizeRelativeIriPath(
       request.sourceStatePath,
       "sourceStatePath",
     );
-  if (sourceResolutionMode === "pinned" && sourceStatePath === undefined) {
+  const sourceResolutionMode = request.sourceResolutionMode === undefined
+    ? (sourceStatePath === undefined ? "working" : "exact")
+    : normalizeSourceResolutionMode(request.sourceResolutionMode);
+  if (sourceResolutionMode === "exact" && sourceStatePath === undefined) {
     throw new ExtractInputError(
-      "sourceStatePath is required for pinned extraction",
+      "sourceStatePath is required for exact extraction",
+    );
+  }
+  if (sourceResolutionMode === "working" && sourceStatePath !== undefined) {
+    throw new ExtractInputError(
+      "sourceStatePath requires exact source resolution",
     );
   }
   const sourceEvidence = normalizeExtractionSourceEvidence(
@@ -182,14 +185,11 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
 
 function normalizeSourceResolutionMode(
   sourceResolutionMode: string,
-): "working" | "pinned" {
-  if (sourceResolutionMode === "working" || sourceResolutionMode === "pinned") {
+): "working" | "exact" {
+  if (sourceResolutionMode === "working" || sourceResolutionMode === "exact") {
     return sourceResolutionMode;
   }
-  if (sourceResolutionMode === "current") {
-    return "working";
-  }
-  throw new ExtractInputError("sourceResolutionMode must be working or pinned");
+  throw new ExtractInputError("sourceResolutionMode must be working or exact");
 }
 
 function normalizeExtractionSourceEvidence(
@@ -792,7 +792,7 @@ function renderExtractKnopSourcesTurtle(
   meshBase: string,
   designatorPath: string,
   sourceDesignatorPath: string,
-  sourceResolutionMode: "working" | "pinned",
+  sourceResolutionMode: "working" | "exact",
   sourceStatePath?: string,
   sourceEvidence?: ExtractionSourceEvidence,
 ): string {
@@ -822,24 +822,22 @@ ${extractionSourceFacts}
 
 function renderExtractionSourceFacts(
   sourceDesignatorPath: string,
-  sourceResolutionMode: "working" | "pinned",
+  sourceResolutionMode: "working" | "exact",
   sourceStatePath: string | undefined,
   sourceEvidence: ExtractionSourceEvidence | undefined,
 ): string {
   const facts: [string, string][] = [
     ["sflo:hasTargetArtifact", `<${sourceDesignatorPath}>`],
   ];
-  if (sourceResolutionMode === "pinned") {
+  if (sourceResolutionMode === "exact") {
     facts.push(["sflo:hasRequestedTargetState", `<${sourceStatePath}>`]);
   }
-  facts.push([
-    "sflo:hasArtifactResolutionMode",
-    `<${
-      sourceResolutionMode === "pinned"
-        ? SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI
-        : SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI
-    }>`,
-  ]);
+  if (sourceResolutionMode === "working") {
+    facts.push([
+      "sflo:hasArtifactResolutionMode",
+      `<${SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI}>`,
+    ]);
+  }
   facts.push(...toExtractionSourceEvidenceFacts(sourceEvidence));
 
   return facts.map(([predicate, object], index) =>

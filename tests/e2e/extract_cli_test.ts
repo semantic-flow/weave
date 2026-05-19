@@ -83,19 +83,9 @@ Deno.test("weave extract matches the manifest-scoped bob extracted fixture as a 
       );
       continue;
     }
-
     const actualBytes = await Deno.readFile(join(workspaceRoot, path));
-    const expectedText = await readMeshAliceBioBranchFile(
-      transitionCase.toRef!,
-      path,
-    );
     const expectedBytes = new TextEncoder().encode(
-      path.endsWith("_sources/sources.ttl")
-        ? expectedText.replaceAll(
-          "artifactResolutionMode_current",
-          "artifactResolutionMode_working",
-        )
-        : expectedText,
+      await readMeshAliceBioBranchFile(transitionCase.toRef!, path),
     );
 
     if (compareMode === "rdfCanonical") {

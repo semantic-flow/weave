@@ -409,7 +409,7 @@ function toDefaultResourcePageRenderInput(
       );
 
       return stateHref
-        ? `        <li id="${escapedFragment}"><code>#${escapedFragment}</code>: ${escapedRoleLabel} reference target <a href="${escapedTargetHref}">${escapedTargetPath}</a>, pinned to <a href="${escapedStateHref}">${escapedStateHref}</a>.</li>`
+        ? `        <li id="${escapedFragment}"><code>#${escapedFragment}</code>: ${escapedRoleLabel} reference target <a href="${escapedTargetHref}">${escapedTargetPath}</a>, exact state <a href="${escapedStateHref}">${escapedStateHref}</a>.</li>`
         : `        <li id="${escapedFragment}"><code>#${escapedFragment}</code>: ${escapedRoleLabel} reference target <code>${escapedTargetPath}</code>.</li>`;
     }).join("\n");
 
@@ -1050,14 +1050,16 @@ function toExtractionSourceMetadataRows(
     });
   }
 
-  rows.push({
-    label: "Extraction Source Mode",
-    href: extractionSource.artifactResolutionModeIri,
-    value: compactRdfIri(
-      extractionSource.artifactResolutionModeIri,
-      new Map(COMMON_RDF_PREFIXES),
-    ),
-  });
+  if (extractionSource.artifactResolutionModeIri) {
+    rows.push({
+      label: "Extraction Source Mode",
+      href: extractionSource.artifactResolutionModeIri,
+      value: compactRdfIri(
+        extractionSource.artifactResolutionModeIri,
+        new Map(COMMON_RDF_PREFIXES),
+      ),
+    });
+  }
 
   return rows;
 }

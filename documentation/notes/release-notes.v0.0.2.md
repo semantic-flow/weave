@@ -16,7 +16,7 @@ This release publishes the `v0.0.2` Git tag and GitHub Release as the release ar
 
 - Local CLI/runtime flows cover the carried Alice Bio ladder through the Bob extraction weave and the Sidecar Fantasy Rules ladder through the first named release weave.
 - `weave`, `weave validate`, `weave version`, and `weave generate` share the local runtime seams for target selection, version planning, and page generation.
-- `weave extract` supports explicit current or pinned source selection with `--source` and `--source-state`.
+- `weave extract` supports explicit working or exact source selection with `--source` and `--source-state`.
 - `weave set extraction-source` updates existing extracted Knops so source-following behavior can be changed without recreating term surfaces.
 - Recursive batch target handling and root designator support are in place, including CLI `/` normalization to the internal root designator.
 - ResourcePage rendering includes the recent extraction-source and metadata presentation refinements, with Semantic Flow metadata opt-in rather than always shown.

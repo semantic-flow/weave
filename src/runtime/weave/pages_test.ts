@@ -134,7 +134,7 @@ Deno.test("renderResourcePage renders identifier extraction source metadata", as
   );
 });
 
-Deno.test("renderResourcePage includes pinned source state in extraction source summary", async () => {
+Deno.test("renderResourcePage includes exact source state in extraction source summary", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
     {
@@ -144,8 +144,6 @@ Deno.test("renderResourcePage includes pinned source state in extraction source 
       extractionSource: {
         sourceArtifactPath: "ontology",
         requestedTargetStatePath: "ontology/releases/v0.0.2",
-        artifactResolutionModeIri:
-          "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_state",
       },
     },
   );
@@ -546,7 +544,7 @@ Deno.test("renderResourcePage escapes dynamic ReferenceCatalog HTML fragments", 
   assertStringIncludes(html, "alice/bio?x=&lt;y&gt;&amp;z=&quot;1&quot;");
 });
 
-Deno.test("renderResourcePage renders extracted ReferenceCatalog pages pinned to a historical state", async () => {
+Deno.test("renderResourcePage renders extracted ReferenceCatalog pages with exact historical states", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
@@ -573,7 +571,7 @@ Deno.test("renderResourcePage renders extracted ReferenceCatalog pages pinned to
   );
 });
 
-Deno.test("renderResourcePage renders pinned root ReferenceCatalog targets as slashless root links with mesh labels", async () => {
+Deno.test("renderResourcePage renders exact root ReferenceCatalog targets as slashless root links with mesh labels", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
@@ -705,8 +703,7 @@ Deno.test("renderResourcePage renders source registry fragment sections for Extr
 
 <bob/_knop/_sources#extraction-source> a sflo:ExtractionSource ;
   sflo:hasTargetArtifact <alice/bio> ;
-  sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_pinned> .
+  sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> .
 `,
       }],
     },
@@ -722,7 +719,7 @@ Deno.test("renderResourcePage renders source registry fragment sections for Extr
     html,
     'href="/mesh-alice-bio/alice/bio/_history001/_s0002"',
   );
-  assertStringIncludes(html, "sflo:artifactResolutionMode_pinned");
+  assertFalse(html.includes("hasArtifactResolutionMode"));
 });
 
 Deno.test("renderResourcePage does not link extra-mesh local source paths", async () => {
@@ -1206,7 +1203,7 @@ Deno.test("renderResourcePage renders term facts from a different source artifac
       path: "ontology/CharacterShape/index.html",
       designatorPath: "ontology/CharacterShape",
       rawSourcePanels: [{
-        label: "Pinned source file",
+        label: "Exact source file",
         sourcePath:
           "shacl/_history001/_s0001/fantasy-rules-shacl-ttl/fantasy-rules-shacl.ttl",
         contents:
@@ -1230,7 +1227,7 @@ fant:CharacterShape a sh:NodeShape ;
     '<p class="wf-classes">a <a href="http://www.w3.org/ns/shacl#NodeShape">sh:NodeShape</a></p>',
   );
   assertFalse(
-    html.includes("Pinned source file"),
+    html.includes("Exact source file"),
     "extracted identifier pages should use source RDF for facts without embedding the full source file panel.",
   );
   assertFalse(

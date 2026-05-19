@@ -245,7 +245,7 @@ weave extract <targetDesignatorPath> [--mesh-root <meshRoot>] [--source <sourceD
 weave extract --all-terms (--source <sourceDesignatorPath> | --source-state <historicalStatePath>) [--mesh-root <meshRoot>] [--accept-preview] [--add-source-references --reference-role <referenceRole>]
 ```
 
-`<targetDesignatorPath>` is the resource or term surface to create. `--source <sourceDesignatorPath>` selects the already woven payload artifact that describes that target and records a current-tracking `sflo:ExtractionSource` in the Knop's `_sources` registry. `--source-state <historicalStatePath>` pins the extraction source to a historical source state and resolves the owning source artifact from mesh inventory.
+`<targetDesignatorPath>` is the resource or term surface to create. `--source <sourceDesignatorPath>` selects the already woven payload artifact that describes that target and records a working-source `sflo:ExtractionSource` in the Knop's `_sources` registry. `--source-state <historicalStatePath>` records an exact historical source state and resolves the owning source artifact from mesh inventory.
 
 `--source` and `--source-state` are mutually exclusive. If neither is supplied for single-target extraction, Weave resolves the unique current woven payload artifact that mentions the target. `--all-terms` requires an explicit `--source` or `--source-state`, previews the identifiers that will be created, and asks for confirmation before writing; `--accept-preview` accepts that preview for noninteractive runs. Existing Knops, blank nodes, support artifact paths, and generated page/file artifact paths are skipped.
 
@@ -272,7 +272,7 @@ weave extract ontology/CharacterShape --mesh-root docs --source shacl
 
 ### `weave set extraction-source`
 
-Replaces the extraction-source contract for an existing extracted Knop. This is the maintenance operation for migrating already-created extracted term surfaces between current-tracking and pinned source resolution.
+Replaces the extraction-source contract for an existing extracted Knop. This is the maintenance operation for migrating already-created extracted term surfaces between working-source and exact source resolution.
 
 Current syntax:
 
@@ -281,7 +281,7 @@ weave set extraction-source <targetDesignatorPath> [--mesh-root <meshRoot>] (--s
 weave set extraction-source --all-terms [--mesh-root <meshRoot>] (--source <sourceDesignatorPath> | --source-state <historicalStatePath>) [--accept-preview]
 ```
 
-`--source` records a current-tracking source binding. `--source-state` records a pinned source binding and fails if the historical source bytes do not mention the target term. The command replaces the existing source-registry `sflo:ExtractionSource` details; it does not append a second primary extraction source.
+`--source` records a working-source binding. `--source-state` records an exact source-state binding and fails if the historical source bytes do not mention the target term. The command replaces the existing source-registry `sflo:ExtractionSource` details; it does not append a second primary extraction source.
 
 The `--all-terms` form discovers named mesh-scoped terms from the selected source graph, previews the existing extracted terms that will be updated, and updates all listed terms after confirmation or `--accept-preview`.
 

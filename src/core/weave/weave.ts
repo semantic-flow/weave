@@ -74,12 +74,8 @@ const XSD_NON_NEGATIVE_INTEGER_IRI =
   "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
 const SFCFG_HAS_NEXT_STATE_SEGMENT_HINT_IRI =
   `${SFCFG_NAMESPACE}hasNextStateSegmentHint`;
-const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
-  `${SFLO_NAMESPACE}artifactResolutionMode_current`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI =
   `${SFLO_NAMESPACE}artifactResolutionMode_working`;
-const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
-  `${SFLO_NAMESPACE}artifactResolutionMode_pinned`;
 const SFLO_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}ExtractionSource`;
 const SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
   `${SFLO_NAMESPACE}hasArtifactResolutionMode`;
@@ -284,7 +280,7 @@ export interface ResourcePageRawSourcePanelModel {
 export interface ResourcePageExtractionSourceModel {
   sourceArtifactPath: string;
   requestedTargetStatePath?: string;
-  artifactResolutionModeIri: string;
+  artifactResolutionModeIri?: string;
 }
 
 export interface ResourcePageChildIdentifierModel {
@@ -1198,14 +1194,14 @@ function planFirstExtractedKnopWeave(
         ),
       knopPath,
     });
-  const pinnedSourceRegistryTurtle =
+  const exactSourceRegistryTurtle =
     referenceTargetSourcePayloadArtifact.currentSourceRegistryTurtle &&
       referenceTargetSourcePayloadArtifact
         .sourceRegistryWorkingLocalRelativePath
       ? replaceExtractionSourceBlock(
         referenceTargetSourcePayloadArtifact.currentSourceRegistryTurtle,
         `${knopPath}/_sources#extraction-source`,
-        renderPinnedExtractionSourceBlock(
+        renderExactExtractionSourceBlock(
           `${knopPath}/_sources#extraction-source`,
           referenceTargetSourcePayloadArtifact.designatorPath,
           referenceTargetSourcePayloadArtifact.latestHistoricalStatePath,
@@ -1285,10 +1281,10 @@ function planFirstExtractedKnopWeave(
         path: `${knopPath}/_inventory/inventory.ttl`,
         contents: wovenKnopInventoryTurtle,
       },
-      ...(pinnedSourceRegistryTurtle === undefined ? [] : [{
+      ...(exactSourceRegistryTurtle === undefined ? [] : [{
         path: referenceTargetSourcePayloadArtifact
           .sourceRegistryWorkingLocalRelativePath!,
-        contents: pinnedSourceRegistryTurtle,
+        contents: exactSourceRegistryTurtle,
       }]),
       ...(meshInventoryProgression === undefined ? [] : [{
         path: "_mesh/_inventory/_history001/index.html",
@@ -1460,7 +1456,7 @@ function planFirstReferenceCatalogWeave(
 
 function planPageDefinitionWeave(
   meshBase: string,
-  _currentMeshInventoryTurtle: string,
+  _meshInventoryTurtle: string,
   candidate: WeaveableKnopCandidate,
 ): WeavePlan {
   const pageDefinitionArtifact = candidate.resourcePageDefinitionArtifact!;
@@ -2316,27 +2312,15 @@ function assertCurrentSourceRegistryShapeForFirstExtractedKnopWeave(
     extractionSourcePath,
     SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
     SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI,
-  ) || hasNamedNodeFact(
-    quads,
-    meshBase,
-    extractionSourcePath,
-    SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
-    SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI,
   );
-  const hasPinnedExactMode = hasNamedNodeFact(
-    quads,
-    meshBase,
-    extractionSourcePath,
-    SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
-    SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI,
-  ) && hasNamedNodeFact(
+  const hasExactTargetState = hasNamedNodeFact(
     quads,
     meshBase,
     extractionSourcePath,
     SFLO_HAS_REQUESTED_TARGET_STATE_IRI,
     sourceStatePath,
   );
-  if (!hasWorkingResolutionMode && !hasPinnedExactMode) {
+  if (!hasWorkingResolutionMode && !hasExactTargetState) {
     throw new WeaveInputError(errorMessage);
   }
 }
@@ -5639,7 +5623,7 @@ function replaceExtractionSourceBlock(
   return `${nextBlocks.join("\n\n")}\n`;
 }
 
-function renderPinnedExtractionSourceBlock(
+function renderExactExtractionSourceBlock(
   extractionSourcePath: string,
   sourceDesignatorPath: string,
   sourceStatePath: string,
@@ -5648,10 +5632,6 @@ function renderPinnedExtractionSourceBlock(
   const facts: [string, string][] = [
     ["sflo:hasTargetArtifact", `<${sourceDesignatorPath}>`],
     ["sflo:hasRequestedTargetState", `<${sourceStatePath}>`],
-    [
-      "sflo:hasArtifactResolutionMode",
-      `<${SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI}>`,
-    ],
     ...toExtractionSourceEvidenceFacts(sourceEvidence),
   ];
 

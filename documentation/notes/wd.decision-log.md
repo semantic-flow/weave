@@ -30,12 +30,12 @@ created: 1773630801215
 
 ### 2026-05-16: All-Terms Source References Are Opt-In And Creation-Scoped
 
-- Decision: Add `extract --all-terms --add-source-references --reference-role <role>` as an opt-in source-reference creation mode, create ReferenceCatalog/ReferenceLink support only for terms newly extracted in that invocation, and pin the ReferenceLink with `sflo:referenceTargetState` when extraction explicitly uses `--source-state`.
+- Decision: Add `extract --all-terms --add-source-references --reference-role <role>` as an opt-in source-reference creation mode, create ReferenceCatalog/ReferenceLink support only for terms newly extracted in that invocation, and make the ReferenceLink exact with `sflo:referenceTargetState` when extraction explicitly uses `--source-state`.
 - References: [[wd.task.2026.2026-05-16_1748-add-source-references]], [[wu.cli-reference]]
 - Why:
   - Ontology publication needs curated canonical references from generated term surfaces back to their governing source artifacts, but silent reference creation remains too strong for arbitrary RDF payload extraction.
   - Keeping the first bulk mode creation-scoped preserves the existing all-terms semantics that skip existing Knops and leaves reference backfill as a deliberate maintenance command.
-  - Pinned extraction should produce pinned source references so the human-facing reference graph and the extraction provenance agree about the selected source state.
+  - Exact-state extraction should produce exact-state source references so the human-facing reference graph and the extraction provenance agree about the selected source state.
 
 ### 2026-04-03: Deno-First Weave Runtime
 
@@ -234,9 +234,9 @@ created: 1773630801215
   - Existing identifier surfaces are already governed by their Knops, so the batch operation should be additive over missing terms rather than trying to refresh or overwrite existing surfaces.
   - Semantic Flow support artifacts and generated page/file artifacts are implementation surfaces, not public term surfaces to mint just because a payload graph references their IRIs.
 
-### 2026-05-04: Sidecar Extracted-Term Weave Uses Pinned Source States
+### 2026-05-04: Sidecar Extracted-Term Weave Uses Exact Source States
 
-- Decision: Extend local `weave` for the Fantasy Rules sidecar `08-ontology-and-shacl-terms-extracted` -> `09-ontology-and-shacl-terms-extracted-woven` transition so extracted term Knops can be woven in a recursive multi-target batch, generated term pages read source RDF from pinned `sfc:ExtractionSource` states, and term path anchoring follows the term namespace rather than the source artifact designator.
+- Decision: Extend local `weave` for the Fantasy Rules sidecar `08-ontology-and-shacl-terms-extracted` -> `09-ontology-and-shacl-terms-extracted-woven` transition so extracted term Knops can be woven in a recursive multi-target batch, generated term pages read source RDF from exact `sfc:ExtractionSource` states, and term path anchoring follows the term namespace rather than the source artifact designator.
 - References: [[wd.task.2026.2026-05-03-term-extraction]], [[wa.completed.2026.2026-05-02-fantasy-rules-sidecar]], [[sf.spec.2026-04-03-weave-behavior]]
 - Why:
   - `ontology/CharacterShape` is intentionally sourced from the `shacl` artifact while remaining an `ontology/...` term. The authored SHACL Turtle uses the `fant:` prefix for that ontology namespace, so path-prefix inference would pick the wrong source.
@@ -269,12 +269,12 @@ created: 1773630801215
   - Weave does not yet have a semver increment policy or interactive release prompt, so `nextStateOrdinal` remains an ordinal fallback counter, not a semver successor.
   - A broad whole-mesh weave should be allowed to provide common payload version segment defaults, while still failing before writes if any included named-state payload lacks an explicit successor segment.
 
-### 2026-05-04: Extraction Sources Default To Current Resolution
+### 2026-05-04: Extraction Sources Default To Working Resolution
 
-- Decision: Make `Current` the default `sfc:ExtractionSource` resolution for newly extracted terms, keep pinned resolution explicit through `--source-state`, replace `--source-designator-path` with `--source`, replace `--yes` with `--accept-preview`, and add `weave set extraction-source` as the maintenance command for changing an existing extracted Knop's source-resolution contract.
+- Decision: Make working-byte resolution the default `sfc:ExtractionSource` behavior for newly extracted terms, keep exact state resolution explicit through `--source-state`, replace `--source-designator-path` with `--source`, replace `--yes` with `--accept-preview`, and add `weave set extraction-source` as the maintenance command for changing an existing extracted Knop's source-resolution contract.
 - References: [[wa.task.2026.2026-05-04-extraction-improvements]], [[wa.completed.2026.2026-05-02-fantasy-rules-sidecar]], [[wu.cli-reference]]
 - Why:
-  - Ontology and SHACL term pages should normally refresh from the source artifact's current state after a release advances; pinning is still available when reproducibility against a historical source state is the intended contract.
+  - Ontology and SHACL term pages should normally refresh from the source artifact's latest settled state after a release advances; exact state resolution is still available when reproducibility against a historical source state is the intended contract.
   - `extract --all-terms` remains a creation operation that skips existing Knops, so migrating already-created term surfaces needs an explicit update command.
   - The pre-v1 CLI should use flags that name the accepted action and source-resolution mode directly instead of carrying vague or legacy aliases.
 

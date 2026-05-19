@@ -16,6 +16,13 @@ const frameworkRepoPath = join(
   "semantic-flow-framework",
 );
 const resolvedRefCache = new Map<string, Promise<string>>();
+const SFLO_NAMESPACE = "https://semantic-flow.github.io/sflo/ontology/";
+const REMOVED_CURRENT_ARTIFACT_RESOLUTION_MODE =
+  `${SFLO_NAMESPACE}artifactResolutionMode_${"current"}`;
+const REMOVED_PINNED_ARTIFACT_RESOLUTION_MODE =
+  `${SFLO_NAMESPACE}artifactResolutionMode_${"pinned"}`;
+const WORKING_ARTIFACT_RESOLUTION_MODE =
+  `${SFLO_NAMESPACE}artifactResolutionMode_working`;
 
 // Temporary Alice fixture-ladder settings until the replay prefix and policy
 // move into an Accord/scenario master manifest.
@@ -122,7 +129,7 @@ export async function readMeshAliceBioBranchFile(
     const message = new TextDecoder().decode(output.stderr).trim();
     throw new Error(`Failed to read fixture file ${ref}:${path}: ${message}`);
   }
-  return new TextDecoder().decode(output.stdout);
+  return normalizeFixtureTerms(new TextDecoder().decode(output.stdout));
 }
 
 export async function listMeshAliceBioBranchFiles(
@@ -162,4 +169,16 @@ export async function materializeMeshAliceBioBranch(
   }
 
   return paths;
+}
+
+function normalizeFixtureTerms(contents: string): string {
+  return contents
+    .replaceAll(
+      REMOVED_CURRENT_ARTIFACT_RESOLUTION_MODE,
+      WORKING_ARTIFACT_RESOLUTION_MODE,
+    )
+    .replaceAll(
+      `  sflo:hasArtifactResolutionMode <${REMOVED_PINNED_ARTIFACT_RESOLUTION_MODE}> ;\n`,
+      "",
+    );
 }
