@@ -66,7 +66,10 @@ Deno.test("weave prepare gh-pages prepares a publication root as a black-box CLI
   assert(secondOutput.success, secondStderr);
   assert(secondStdout.includes("already prepared"), secondStdout);
 
-  await Deno.writeTextFile(join(publishRoot, "CNAME"), "old.example.test\n");
+  await Deno.writeTextFile(
+    join(publishRoot, "host-control.txt"),
+    "custom host metadata\n",
+  );
   const thirdOutput = await runCli([
     "prepare",
     "gh-pages",
@@ -76,14 +79,16 @@ Deno.test("weave prepare gh-pages prepares a publication root as a black-box CLI
     publishRoot,
     "--mesh-base",
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
-    "--cname",
-    "docs.example.test",
   ]);
   const thirdStdout = new TextDecoder().decode(thirdOutput.stdout);
   const thirdStderr = new TextDecoder().decode(thirdOutput.stderr);
 
   assert(thirdOutput.success, thirdStderr);
-  assert(thirdStdout.includes("CNAME"), thirdStdout);
+  assert(thirdStdout.includes("already prepared"), thirdStdout);
+  assertEquals(
+    await Deno.readTextFile(join(publishRoot, "host-control.txt")),
+    "custom host metadata\n",
+  );
 });
 
 Deno.test("weave prepare gh-pages updates a clean publication worktree without local log clutter", async () => {

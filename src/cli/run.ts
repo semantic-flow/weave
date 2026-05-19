@@ -852,10 +852,6 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               "Do not create a GitHub Pages .nojekyll publishing guard.",
             )
             .option(
-              "--cname <cname:string>",
-              "Create or update the publication branch CNAME file.",
-            )
-            .option(
               "--allow-dirty-publish-root",
               "Allow preparation even when the publication worktree has uncommitted changes.",
             )
@@ -917,7 +913,6 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 publishRoot?: string;
                 meshBase?: string;
                 nojekyll?: boolean;
-                cname?: string;
                 allowDirtyPublishRoot?: boolean;
                 dryRun?: boolean;
                 commit?: boolean;
@@ -953,9 +948,6 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               const request = {
                 meshBase,
                 includeNoJekyll: options.nojekyll === false ? false : undefined,
-                ...(options.cname !== undefined
-                  ? { cname: options.cname }
-                  : {}),
                 ...(resolveGHPagesSourceBindingOption(options) ?? {}),
               };
               const allowDirtyPublicationRoot =

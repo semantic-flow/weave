@@ -26,7 +26,6 @@ import { executeWeave } from "../weave/weave.ts";
 export interface GHPagesDeployBootstrapRequest {
   meshBase: string;
   includeNoJekyll?: boolean;
-  cname?: string;
   source?: GHPagesDeploySourceBindingRequest;
 }
 
@@ -557,16 +556,6 @@ async function ensurePublicationControls(
     appendFileWriteResult(noJekyllResult, createdPaths, updatedPaths);
   }
 
-  if (options.request.cname !== undefined) {
-    const cname = normalizeCname(options.request.cname);
-    const cnameResult = await ensureTextFile({
-      publishRoot: options.publishRoot,
-      path: "CNAME",
-      contents: `${cname}\n`,
-    });
-    appendFileWriteResult(cnameResult, createdPaths, updatedPaths);
-  }
-
   return {
     createdPaths: uniqueSortedPaths(createdPaths),
     updatedPaths: uniqueSortedPaths(updatedPaths),
@@ -614,37 +603,6 @@ async function ensureTextFile(
   await Deno.mkdir(dirname(absolutePath), { recursive: true });
   await Deno.writeTextFile(absolutePath, options.contents, { createNew: true });
   return { kind: "created", path: options.path };
-}
-
-function normalizeCname(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    throw new GHPagesDeployInputError("cname must not be empty");
-  }
-  if (/[\r\n]/.test(trimmed)) {
-    throw new GHPagesDeployInputError("cname must be a single host name");
-  }
-  if (!isBareHostname(trimmed)) {
-    throw new GHPagesDeployInputError("cname must be a valid bare hostname");
-  }
-  return trimmed;
-}
-
-function isBareHostname(value: string): boolean {
-  if (
-    value.length > 253 ||
-    value.includes("://") ||
-    value.includes("/") ||
-    /:\d/.test(value) ||
-    /\s/.test(value)
-  ) {
-    return false;
-  }
-
-  const labels = value.split(".");
-  return labels.every((label) =>
-    /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label)
-  );
 }
 
 function normalizeMeshBase(meshBase: string): string {

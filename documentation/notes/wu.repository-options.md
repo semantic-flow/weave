@@ -25,7 +25,7 @@ Sidecar meshes fit the practical rule that mesh paths should be relatively stabl
 
 This also limits accidental publication. A whole-repo mesh tends to make the whole repo feel like the public page surface, while a sidecar mesh keeps the public mesh boundary explicit.
 
-Sidecar meshes may still need publication-host presets. For example, a GitHub Pages preset can manage `.nojekyll` or `CNAME` when the sidecar root is served directly by GitHub Pages. Those controls are about the publication root and host, not about whether the mesh lives on the source branch or on a separate branch.
+Sidecar meshes may still need publication-host presets. For example, a GitHub Pages preset can manage `.nojekyll` when the sidecar root is served directly by GitHub Pages. That control is about the publication root and host, not about whether the mesh lives on the source branch or on a separate branch.
 
 ## Branch-published semantic mesh:
 

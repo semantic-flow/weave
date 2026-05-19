@@ -230,7 +230,7 @@ Root publication meshes do not need `_mesh/_config/config.ttl`; for this command
 
 Repository source bindings are recorded beside the target Knop rather than in `_mesh/_config/config.ttl`. When preparation materializes a source file, Weave writes a source registry at `_knop/_sources/sources.ttl`, links it from the Knop inventory with `sflo:hasKnopSourceRegistry`, and records the repository URL, source ref, resolved commit, repository-relative path, and content digest. This keeps publication output portable without preserving a developer's checkout path.
 
-With no `--source-path`, `prepare gh-pages` only prepares the publication root: mesh bootstrap, `.nojekyll` / `CNAME`, validation, and optional local commit. With `--source-path`, it also materializes exactly one source payload and weaves that payload target when needed.
+With no `--source-path`, `prepare gh-pages` only prepares the publication root: mesh bootstrap, `.nojekyll`, validation, and optional local commit. With `--source-path`, it also materializes exactly one source payload and weaves that payload target when needed.
 
 Dry-run prints the planned writes, preserved files, validation checks, and git operations without mutating the publication worktree. If both created and updated paths are empty, rerunning `prepare gh-pages` with the same inputs would make no publication file changes:
 

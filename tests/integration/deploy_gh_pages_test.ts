@@ -100,7 +100,7 @@ Deno.test("executeGHPagesDeployBootstrap accepts ordinary mesh bootstrap without
   await assertPathMissing(join(publishRoot, "_mesh/_config/config.ttl"));
 });
 
-Deno.test("executeGHPagesDeployBootstrap preserves publication controls", async () => {
+Deno.test("executeGHPagesDeployBootstrap preserves manually managed host files", async () => {
   const tempRoot = await createTestTmpDir(
     "weave-deploy-gh-pages-controls-",
   );
@@ -108,7 +108,10 @@ Deno.test("executeGHPagesDeployBootstrap preserves publication controls", async 
   const publishRoot = join(tempRoot, "gh-pages");
   await Deno.mkdir(sourceRoot, { recursive: true });
   await Deno.mkdir(publishRoot, { recursive: true });
-  await Deno.writeTextFile(join(publishRoot, "CNAME"), "rules.example.test\n");
+  await Deno.writeTextFile(
+    join(publishRoot, "host-control.txt"),
+    "custom host metadata\n",
+  );
 
   const firstResult = await executeGHPagesDeployBootstrap({
     sourceRoot,
@@ -118,10 +121,10 @@ Deno.test("executeGHPagesDeployBootstrap preserves publication controls", async 
     },
   });
   assert(firstResult.createdPaths.includes(".nojekyll"));
-  assert(!firstResult.createdPaths.includes("CNAME"));
+  assert(!firstResult.createdPaths.includes("host-control.txt"));
   assertEquals(
-    await Deno.readTextFile(join(publishRoot, "CNAME")),
-    "rules.example.test\n",
+    await Deno.readTextFile(join(publishRoot, "host-control.txt")),
+    "custom host metadata\n",
   );
 
   await Deno.remove(join(publishRoot, ".nojekyll"));
@@ -130,61 +133,14 @@ Deno.test("executeGHPagesDeployBootstrap preserves publication controls", async 
     publishRoot,
     request: {
       meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
-      cname: "rules.example.test",
     },
   });
   assertEquals(secondResult.createdPaths, [".nojekyll"]);
   assertEquals(secondResult.updatedPaths, []);
-
-  const thirdResult = await executeGHPagesDeployBootstrap({
-    sourceRoot,
-    publishRoot,
-    request: {
-      meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
-      cname: "docs.example.test",
-    },
-  });
-  assertEquals(thirdResult.createdPaths, []);
-  assertEquals(thirdResult.updatedPaths, ["CNAME"]);
   assertEquals(
-    await Deno.readTextFile(join(publishRoot, "CNAME")),
-    "docs.example.test\n",
+    await Deno.readTextFile(join(publishRoot, "host-control.txt")),
+    "custom host metadata\n",
   );
-});
-
-Deno.test("executeGHPagesDeployBootstrap rejects invalid CNAME values", async () => {
-  const tempRoot = await createTestTmpDir(
-    "weave-deploy-gh-pages-cname-",
-  );
-  const sourceRoot = join(tempRoot, "source");
-  const publishRoot = join(tempRoot, "gh-pages");
-  await Deno.mkdir(sourceRoot, { recursive: true });
-  await Deno.mkdir(publishRoot, { recursive: true });
-
-  for (
-    const cname of [
-      "https://docs.example.test",
-      "docs.example.test/path",
-      "docs.example.test:443",
-      "docs_example.test",
-      "-docs.example.test",
-    ]
-  ) {
-    await assertRejects(
-      () =>
-        executeGHPagesDeployBootstrap({
-          sourceRoot,
-          publishRoot,
-          request: {
-            meshBase:
-              "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
-            cname,
-          },
-        }),
-      GHPagesDeployInputError,
-      "cname must be a valid bare hostname",
-    );
-  }
 });
 
 Deno.test("planGHPagesDeployBootstrap reports dry-run changes without writing", async () => {
@@ -202,7 +158,10 @@ fantasy:Rule a owl:Class .
   await Deno.mkdir(join(sourceRoot, "ontology"), { recursive: true });
   await Deno.mkdir(publishRoot, { recursive: true });
   await Deno.writeTextFile(join(sourceRoot, sourcePath), source);
-  await Deno.writeTextFile(join(publishRoot, "CNAME"), "rules.example.test\n");
+  await Deno.writeTextFile(
+    join(publishRoot, "host-control.txt"),
+    "custom host metadata\n",
+  );
   await Deno.writeTextFile(join(publishRoot, "manual.txt"), "keep me\n");
 
   const plan = await planGHPagesDeployBootstrap({
@@ -225,13 +184,13 @@ fantasy:Rule a owl:Class .
   assert(!plan.createdPaths.includes("_mesh/_config/config.ttl"));
   assert(plan.createdPaths.includes(sourcePath));
   assert(plan.createdPaths.includes("ontology/index.html"));
-  assert(plan.preservedPaths.includes("CNAME"));
+  assert(plan.preservedPaths.includes("host-control.txt"));
   assert(plan.preservedPaths.includes("manual.txt"));
   assert(plan.materializedSource);
   assertEquals(plan.materializedSource.digest, await sha256Digest(source));
   assertEquals(
     await listRelativeFiles(publishRoot, ".weave/"),
-    ["CNAME", "manual.txt"],
+    ["host-control.txt", "manual.txt"],
   );
 
   const description = describeGHPagesDeployBootstrapPlan(plan);
@@ -569,7 +528,10 @@ fantasy:RuleSystem a owl:Class .
   await Deno.mkdir(publishRoot, { recursive: true });
   await Deno.writeTextFile(join(sourceRoot, sourcePath), sourceV1);
   await Deno.writeTextFile(join(publishRoot, "manual.txt"), "keep me\n");
-  await Deno.writeTextFile(join(publishRoot, "CNAME"), "rules.example.test\n");
+  await Deno.writeTextFile(
+    join(publishRoot, "host-control.txt"),
+    "custom host metadata\n",
+  );
   await runGit(publishRoot, ["init"]);
   await runGit(publishRoot, ["config", "user.email", "weave@example.invalid"]);
   await runGit(publishRoot, ["config", "user.name", "Weave Test"]);
@@ -641,8 +603,8 @@ fantasy:RuleSystem a owl:Class .
     "keep me\n",
   );
   assertEquals(
-    await Deno.readTextFile(join(publishRoot, "CNAME")),
-    "rules.example.test\n",
+    await Deno.readTextFile(join(publishRoot, "host-control.txt")),
+    "custom host metadata\n",
   );
   assertEquals(
     await Deno.readTextFile(join(publishRoot, "_mesh/_meta/meta.ttl")),
