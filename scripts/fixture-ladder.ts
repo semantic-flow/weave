@@ -970,7 +970,7 @@ export const BRANCH_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
       "01-source-only",
       {
         description:
-          "Materialize the ontology source into the branch-published GitHub Pages root and weave its ResourcePages.",
+          "Bind the ontology source lane into the branch-published GitHub Pages root and weave its ResourcePages.",
         publicationFromRef: "02-publication-bootstrapped-woven",
         publicationBranch: "gh-pages",
       },
@@ -981,7 +981,7 @@ export const BRANCH_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
       "01-source-only",
       {
         description:
-          "Materialize the SHACL source into the branch-published GitHub Pages root and weave its ResourcePages.",
+          "Bind the SHACL source lane into the branch-published GitHub Pages root and weave its ResourcePages.",
         publicationFromRef: "03-ontology-integrated-woven",
         publicationBranch: "gh-pages",
       },
@@ -1040,7 +1040,7 @@ export const BRANCH_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
       "01-source-only",
       {
         description:
-          "Materialize the Gunaar example dataset from the clean source ref into the branch-published GitHub Pages root and weave its ResourcePages.",
+          "Bind the Gunaar example dataset from the clean source ref into the branch-published GitHub Pages root and weave its ResourcePages.",
         publicationFromRef: "08-root-and-examples-knops-woven",
         publicationBranch: "gh-pages",
       },
@@ -2157,7 +2157,7 @@ function branchPublicationTransition(
       argv: readonly string[];
     }[];
   },
-  operationId = "prepare.ghPages",
+  operationId = "publication.sequence",
   options: {
     branchPrefix?: string;
   } = {},
