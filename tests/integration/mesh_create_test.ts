@@ -18,6 +18,7 @@ Deno.test("executeMeshCreate matches the settled alice-bio mesh-created fixture"
     workspaceRoot,
     request: {
       meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+      includeNoJekyll: true,
     },
   });
 
@@ -81,6 +82,7 @@ Deno.test("executeMeshCreate can reuse matching bootstrap artifacts", async () =
   const request = {
     meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
     includeMeshConfig: true,
+    includeNoJekyll: true,
   };
 
   const firstResult = await executeMeshCreate({
@@ -125,6 +127,7 @@ Deno.test("executeMeshCreate can create a docs-rooted sidecar mesh", async () =>
     meshRoot: "docs",
     request: {
       meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+      publicationProfile: "githubPages",
     },
   });
 
@@ -150,7 +153,8 @@ Deno.test("executeMeshCreate can create a docs-rooted sidecar mesh", async () =>
     `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:MeshConfig ;
-  sfcfg:workspaceRootRelativeToMeshRoot "../" .
+  sfcfg:workspaceRootRelativeToMeshRoot "../" ;
+  sfcfg:hasPublicationProfile sfcfg:publicationProfile_githubPages .
 `,
   );
   await Deno.stat(join(workspaceRoot, "docs/_mesh/_meta/meta.ttl"));

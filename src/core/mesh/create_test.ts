@@ -15,7 +15,6 @@ Deno.test("planMeshCreate renders first mesh support artifacts", () => {
     [
       "_mesh/_meta/meta.ttl",
       "_mesh/_inventory/inventory.ttl",
-      ".nojekyll",
     ],
   );
   assertStringIncludes(
@@ -28,10 +27,10 @@ Deno.test("planMeshCreate renders first mesh support artifacts", () => {
   );
 });
 
-Deno.test("planMeshCreate skips .nojekyll when explicitly disabled", () => {
+Deno.test("planMeshCreate applies an explicit GitHub Pages publication profile", () => {
   const plan = planMeshCreate({
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
-    includeNoJekyll: false,
+    publicationProfile: "githubPages",
   });
 
   assertEquals(
@@ -39,6 +38,70 @@ Deno.test("planMeshCreate skips .nojekyll when explicitly disabled", () => {
     [
       "_mesh/_meta/meta.ttl",
       "_mesh/_inventory/inventory.ttl",
+      "_mesh/_config/config.ttl",
+      ".nojekyll",
+    ],
+  );
+  assertEquals(plan.publicationProfile, "githubPages");
+  assertStringIncludes(
+    plan.files.find((file) => file.path === "_mesh/_config/config.ttl")
+      ?.contents ?? "",
+    "sfcfg:hasPublicationProfile sfcfg:publicationProfile_githubPages",
+  );
+});
+
+Deno.test("planMeshCreate resolves auto publication profile from GitHub Pages mesh base", () => {
+  const plan = planMeshCreate({
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    publicationProfile: "auto",
+  });
+
+  assertEquals(plan.publicationProfile, "githubPages");
+  assertEquals(
+    plan.files.map((file) => file.path),
+    [
+      "_mesh/_meta/meta.ttl",
+      "_mesh/_inventory/inventory.ttl",
+      "_mesh/_config/config.ttl",
+      ".nojekyll",
+    ],
+  );
+});
+
+Deno.test("planMeshCreate resolves auto publication profile to none for ordinary hosts", () => {
+  const plan = planMeshCreate({
+    meshBase: "https://example.org/",
+    publicationProfile: "auto",
+  });
+
+  assertEquals(plan.publicationProfile, "none");
+  assertEquals(
+    plan.files.map((file) => file.path),
+    [
+      "_mesh/_meta/meta.ttl",
+      "_mesh/_inventory/inventory.ttl",
+      "_mesh/_config/config.ttl",
+    ],
+  );
+  assertStringIncludes(
+    plan.files.find((file) => file.path === "_mesh/_config/config.ttl")
+      ?.contents ?? "",
+    "sfcfg:hasPublicationProfile sfcfg:publicationProfile_none",
+  );
+});
+
+Deno.test("planMeshCreate can still create a legacy explicit .nojekyll file", () => {
+  const plan = planMeshCreate({
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    includeNoJekyll: true,
+  });
+
+  assertEquals(
+    plan.files.map((file) => file.path),
+    [
+      "_mesh/_meta/meta.ttl",
+      "_mesh/_inventory/inventory.ttl",
+      ".nojekyll",
     ],
   );
 });
@@ -55,7 +118,6 @@ Deno.test("planMeshCreate renders sidecar mesh config when requested", () => {
       "_mesh/_meta/meta.ttl",
       "_mesh/_inventory/inventory.ttl",
       "_mesh/_config/config.ttl",
-      ".nojekyll",
     ],
   );
   const config =
@@ -84,7 +146,6 @@ Deno.test("planMeshCreate renders an empty mesh config when requested", () => {
       "_mesh/_meta/meta.ttl",
       "_mesh/_inventory/inventory.ttl",
       "_mesh/_config/config.ttl",
-      ".nojekyll",
     ],
   );
   assertEquals(

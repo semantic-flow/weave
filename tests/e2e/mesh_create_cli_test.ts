@@ -14,7 +14,7 @@ import { createTestTmpDir } from "../support/test_tmp.ts";
 const repoRoot = new URL("../../", import.meta.url);
 const cliPath = new URL("src/main.ts", repoRoot).pathname;
 
-Deno.test("weave mesh create matches the manifest-scoped alice-bio fixture as a black-box CLI run", async () => {
+Deno.test("weave mesh create can apply a GitHub Pages publication profile as a black-box CLI run", async () => {
   const manifestPath = resolveMeshAliceBioConformanceManifestPath(
     "02-mesh-created.jsonld",
   );
@@ -42,6 +42,8 @@ Deno.test("weave mesh create matches the manifest-scoped alice-bio fixture as a 
       workspaceRoot,
       "--mesh-base",
       "https://semantic-flow.github.io/mesh-alice-bio/",
+      "--publication-profile",
+      "github-pages",
     ],
     cwd: new URL(".", repoRoot),
     stdout: "piped",
@@ -52,13 +54,17 @@ Deno.test("weave mesh create matches the manifest-scoped alice-bio fixture as a 
   const stderr = new TextDecoder().decode(output.stderr);
 
   assert(output.success, stderr);
-  assert(stdout.includes("Created 3 mesh support artifacts"), stdout);
+  assert(stdout.includes("Created 4 mesh support artifacts"), stdout);
 
   const fileExpectations = getManifestFileExpectations(transitionCase);
-  const expectedPaths = fileExpectations
+  const manifestPaths = fileExpectations
     .map((expectation) => expectation.path)
     .filter((path): path is string => typeof path === "string")
     .sort();
+  const expectedPaths = [
+    ...manifestPaths,
+    "_mesh/_config/config.ttl",
+  ].sort();
 
   assertEquals(
     await listRelativeFiles(workspaceRoot, ".weave/"),
@@ -75,6 +81,17 @@ Deno.test("weave mesh create matches the manifest-scoped alice-bio fixture as a 
 
     if (compareMode === undefined) {
       await Deno.stat(join(workspaceRoot, path));
+      continue;
+    }
+
+    if (path === "_mesh/_inventory/inventory.ttl") {
+      const inventory = await Deno.readTextFile(join(workspaceRoot, path));
+      assert(
+        inventory.includes(
+          "<_mesh/_config> a sfcfg:MeshConfig, sflo:DigitalArtifact, sflo:RdfDocument ;",
+        ),
+        inventory,
+      );
       continue;
     }
 
@@ -110,6 +127,15 @@ Deno.test("weave mesh create matches the manifest-scoped alice-bio fixture as a 
 
     throw new Error(`Unsupported compare mode ${compareMode} for ${path}`);
   }
+  const config = await Deno.readTextFile(
+    join(workspaceRoot, "_mesh/_config/config.ttl"),
+  );
+  assert(
+    config.includes(
+      "sfcfg:hasPublicationProfile sfcfg:publicationProfile_githubPages",
+    ),
+    config,
+  );
 
   await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
   await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
@@ -138,6 +164,8 @@ Deno.test("weave mesh create supports a docs-rooted sidecar mesh as a black-box 
       "docs",
       "--mesh-base",
       "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+      "--publication-profile",
+      "github-pages",
     ],
     cwd: toFileUrl(`${workspaceRoot}/`),
     stdout: "piped",
@@ -159,7 +187,13 @@ Deno.test("weave mesh create supports a docs-rooted sidecar mesh as a black-box 
   );
   assert(config.includes("<> a sfcfg:MeshConfig ;"), config);
   assert(
-    config.includes('sfcfg:workspaceRootRelativeToMeshRoot "../" .'),
+    config.includes('sfcfg:workspaceRootRelativeToMeshRoot "../"'),
+    config,
+  );
+  assert(
+    config.includes(
+      "sfcfg:hasPublicationProfile sfcfg:publicationProfile_githubPages",
+    ),
     config,
   );
   assert(!config.includes("sfcfg:hasLocalPathAccessRule"), config);
@@ -215,9 +249,9 @@ Deno.test("weave mesh create rejects mesh roots outside the workspace as a black
   assertEquals(await listRelativeFiles(workspaceRoot, ".weave/"), []);
 });
 
-Deno.test("weave mesh create can skip .nojekyll as a black-box CLI run", async () => {
+Deno.test("weave mesh create can persist a none publication profile as a black-box CLI run", async () => {
   const workspaceRoot = await createTestTmpDir(
-    "weave-e2e-mesh-create-no-nojekyll-",
+    "weave-e2e-mesh-create-profile-none-",
   );
 
   const command = new Deno.Command("deno", {
@@ -233,7 +267,8 @@ Deno.test("weave mesh create can skip .nojekyll as a black-box CLI run", async (
       workspaceRoot,
       "--mesh-base",
       "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
-      "--no-nojekyll",
+      "--publication-profile",
+      "none",
     ],
     cwd: new URL(".", repoRoot),
     stdout: "piped",
@@ -244,13 +279,23 @@ Deno.test("weave mesh create can skip .nojekyll as a black-box CLI run", async (
   const stderr = new TextDecoder().decode(output.stderr);
 
   assert(output.success, stderr);
-  assert(stdout.includes("Created 2 mesh support artifacts"), stdout);
+  assert(stdout.includes("Created 3 mesh support artifacts"), stdout);
   assertEquals(
     await listRelativeFiles(workspaceRoot, ".weave/"),
     [
+      "_mesh/_config/config.ttl",
       "_mesh/_inventory/inventory.ttl",
       "_mesh/_meta/meta.ttl",
     ],
+  );
+  const config = await Deno.readTextFile(
+    join(workspaceRoot, "_mesh/_config/config.ttl"),
+  );
+  assert(
+    config.includes(
+      "sfcfg:hasPublicationProfile sfcfg:publicationProfile_none",
+    ),
+    config,
   );
 });
 

@@ -5,7 +5,10 @@ import { ExtractInputError } from "../core/extract/extract.ts";
 import { IntegrateInputError } from "../core/integrate/integrate.ts";
 import { KnopAddReferenceInputError } from "../core/knop/add_reference.ts";
 import { KnopCreateInputError } from "../core/knop/create.ts";
-import { MeshCreateInputError } from "../core/mesh/create.ts";
+import {
+  MeshCreateInputError,
+  type PublicationProfileRequest,
+} from "../core/mesh/create.ts";
 import { PayloadUpdateInputError } from "../core/payload/update.ts";
 import { normalizeCliDesignatorPath } from "../core/designator_segments.ts";
 import type { TargetSpec, VersionTargetSpec } from "../core/targeting.ts";
@@ -840,8 +843,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               "Mesh root path. Relative values are resolved from the current directory and must stay inside the workspace.",
             )
             .option(
-              "--no-nojekyll",
-              "Do not create a GitHub Pages .nojekyll publishing guard.",
+              "--publication-profile <profile:string>",
+              "Publication profile to apply at mesh creation: auto, none, or github-pages.",
             )
             .option(
               "--interactive",
@@ -870,9 +873,9 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 meshRoot,
                 request: {
                   meshBase,
-                  includeNoJekyll: options.nojekyll === false
-                    ? false
-                    : undefined,
+                  publicationProfile: resolvePublicationProfileOption(
+                    options.publicationProfile,
+                  ),
                 },
                 operationalLogger,
                 auditLogger,
@@ -1087,6 +1090,28 @@ function resolveHistoryTrackingPolicyOption(
   throw new WeaveInputError(
     `Unsupported history tracking policy: ${value}`,
   );
+}
+
+function resolvePublicationProfileOption(
+  value: string | undefined,
+): PublicationProfileRequest | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  switch (value.trim()) {
+    case "auto":
+      return "auto";
+    case "none":
+      return "none";
+    case "github-pages":
+    case "githubPages":
+      return "githubPages";
+    default:
+      throw new MeshCreateInputError(
+        `Unsupported publication profile: ${value}`,
+      );
+  }
 }
 
 async function resolveMeshBaseOption(

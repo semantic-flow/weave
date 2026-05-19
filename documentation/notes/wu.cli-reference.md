@@ -196,9 +196,12 @@ When `--mesh-root` names a child path such as `docs`, Weave creates the mesh und
 weave mesh create --mesh-base 'https://example.org/'
 weave mesh create --workspace ./my-mesh --mesh-base 'https://example.org/'
 weave mesh create --workspace . --mesh-root docs --mesh-base 'https://example.org/my-project/'
-weave mesh create --mesh-base 'https://semantic-flow.github.io/my-mesh/' --no-nojekyll
+weave mesh create --mesh-base 'https://semantic-flow.github.io/my-mesh/' --publication-profile github-pages
+weave mesh create --mesh-base 'https://example.org/my-mesh/' --publication-profile auto
 weave mesh create --interactive
 ```
+
+`--publication-profile` is explicit host setup. Use `github-pages` to create and persist the GitHub Pages profile, currently `.nojekyll`; use `none` to persist that no static-host profile is selected; use `auto` to infer GitHub Pages only from a `github.io` mesh base and otherwise persist `none`.
 
 ### `weave integrate`
 

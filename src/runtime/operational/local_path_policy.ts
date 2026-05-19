@@ -12,6 +12,7 @@ const HOST_LOCAL_OPERATIONAL_CONFIG_IRI =
   `${SFCFG_NAMESPACE}HostLocalOperationalConfig`;
 const HAS_LOCAL_PATH_ACCESS_RULE_IRI =
   `${SFCFG_NAMESPACE}hasLocalPathAccessRule`;
+const HAS_PUBLICATION_PROFILE_IRI = `${SFCFG_NAMESPACE}hasPublicationProfile`;
 const HAS_LOCAL_PATH_BASE_IRI = `${SFCFG_NAMESPACE}hasLocalPathBase`;
 const HAS_LOCAL_PATH_LOCATOR_KIND_IRI =
   `${SFCFG_NAMESPACE}hasLocalPathLocatorKind`;
@@ -107,6 +108,10 @@ export async function ensureMeshConfigWorkingDirectoryAccessRule(
     quads,
     policy.meshConfigPath,
   )[0];
+  const publicationProfileIri = collectPublicationProfileValues(
+    quads,
+    policy.meshConfigPath,
+  )[0];
   const meshRules: LocalPathAccessRule[] = policy.rules
     .filter((rule) => rule.source === "mesh")
     .map((rule) => ({ ...rule }));
@@ -120,7 +125,11 @@ export async function ensureMeshConfigWorkingDirectoryAccessRule(
 
   await Deno.writeTextFile(
     policy.meshConfigPath,
-    renderMeshConfigTurtle(workspaceRootRelativeToMeshRoot, meshRules),
+    renderMeshConfigTurtle(
+      workspaceRootRelativeToMeshRoot,
+      publicationProfileIri,
+      meshRules,
+    ),
   );
   return true;
 }
@@ -254,6 +263,28 @@ function collectWorkspaceRootValues(
   return values;
 }
 
+function collectPublicationProfileValues(
+  quads: readonly Quad[],
+  meshConfigPath: string,
+): readonly string[] {
+  const configSubjects = new Set(collectOperationalConfigSubjects(quads));
+  const values = quads
+    .filter((quad) =>
+      configSubjects.has(toTermKey(quad.subject)) &&
+      quad.predicate.value === HAS_PUBLICATION_PROFILE_IRI &&
+      quad.object.termType === "NamedNode"
+    )
+    .map((quad) => quad.object.value.trim());
+
+  if (values.length > 1) {
+    throw new OperationalConfigError(
+      `Expected at most one ${HAS_PUBLICATION_PROFILE_IRI} value in ${meshConfigPath}`,
+    );
+  }
+
+  return values;
+}
+
 async function loadLocalPathRules(
   configPath: string,
   source: LocalPathRuleSource,
@@ -287,6 +318,7 @@ async function loadLocalPathRules(
 
 function renderMeshConfigTurtle(
   workspaceRootRelativeToMeshRoot: string | undefined,
+  publicationProfileIri: string | undefined,
   rules: readonly LocalPathAccessRule[],
 ): string {
   const statements: string[] = ["a sfcfg:MeshConfig"];
@@ -295,6 +327,11 @@ function renderMeshConfigTurtle(
       `  sfcfg:workspaceRootRelativeToMeshRoot ${
         JSON.stringify(workspaceRootRelativeToMeshRoot)
       }`,
+    );
+  }
+  if (publicationProfileIri !== undefined) {
+    statements.push(
+      `  sfcfg:hasPublicationProfile <${publicationProfileIri}>`,
     );
   }
   for (const rule of rules) {

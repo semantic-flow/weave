@@ -87,7 +87,7 @@ Deno.test("executeGHPagesDeployBootstrap accepts ordinary mesh bootstrap without
 
   await executeMeshCreate({
     workspaceRoot: publishRoot,
-    request: { meshBase },
+    request: { meshBase, includeNoJekyll: true },
   });
 
   const result = await executeGHPagesDeployBootstrap({

@@ -1,6 +1,7 @@
 import { assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { join, resolve } from "@std/path";
 import {
+  ensureMeshConfigWorkingDirectoryAccessRule,
   loadOperationalLocalPathPolicy,
   LocalPathAccessError,
   OperationalConfigError,
@@ -43,6 +44,37 @@ Deno.test("loadOperationalLocalPathPolicy discovers mesh-owned config in a non-w
     ),
     resolve(repoRoot, "documentation/sidebar.md"),
   );
+});
+
+Deno.test("ensureMeshConfigWorkingDirectoryAccessRule preserves publication profile", async () => {
+  const tempRoot = await Deno.makeTempDir({
+    prefix: "weave-local-path-policy-profile-",
+  });
+  const repoRoot = join(tempRoot, "repo");
+  const meshRoot = join(repoRoot, "docs");
+  const configPath = join(meshRoot, "_mesh/_config/config.ttl");
+  await Deno.mkdir(join(meshRoot, "_mesh/_config"), { recursive: true });
+  await Deno.writeTextFile(
+    configPath,
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:workspaceRootRelativeToMeshRoot "../" ;
+  sfcfg:hasPublicationProfile sfcfg:publicationProfile_githubPages .
+`,
+  );
+
+  const policy = await loadOperationalLocalPathPolicy(meshRoot);
+  await ensureMeshConfigWorkingDirectoryAccessRule(policy, "../ontology/");
+
+  const config = await Deno.readTextFile(configPath);
+  assertEquals(
+    config.includes(
+      "sfcfg:hasPublicationProfile <https://semantic-flow.github.io/sflo/config/publicationProfile_githubPages>",
+    ),
+    true,
+  );
+  assertEquals(config.includes("sfcfg:hasLocalPathAccessRule"), true);
 });
 
 Deno.test("resolveAllowedLocalPath denies extra-mesh paths when no config matches", async () => {
