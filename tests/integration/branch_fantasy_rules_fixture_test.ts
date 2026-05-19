@@ -13,6 +13,7 @@ import { readSingleTransitionCase } from "../support/accord_manifest.ts";
 import {
   listMeshBranchFantasyRulesBranchFiles,
   materializeMeshBranchFantasyRulesBranch,
+  materializeMeshBranchFantasyRulesPublicationWorkspace,
   MESH_BRANCH_FANTASY_RULES_BASE,
   meshBranchFantasyRulesSourcePaths,
   readMeshBranchFantasyRulesBranchFile,
@@ -144,10 +145,11 @@ Deno.test("branch Fantasy Rules final publication has ResourcePages for every so
   const workspaceRoot = await createTestTmpDir(
     "weave-branch-all-terms-pages-",
   );
-  await materializeMeshBranchFantasyRulesBranch(
-    "15-extracted-term-references-woven",
-    workspaceRoot,
-  );
+  const { publicationRoot, sourceRoot } =
+    await materializeMeshBranchFantasyRulesPublicationWorkspace(
+      "15-extracted-term-references-woven",
+      workspaceRoot,
+    );
 
   const transitionCase = await readSingleTransitionCase(
     resolveMeshBranchFantasyRulesConformanceManifestPath(
@@ -159,7 +161,7 @@ Deno.test("branch Fantasy Rules final publication has ResourcePages for every so
 
   const termPaths = new Set<string>();
   for (const sourcePath of meshBranchFantasyRulesSourcePaths) {
-    const turtle = await Deno.readTextFile(join(workspaceRoot, sourcePath));
+    const turtle = await Deno.readTextFile(join(sourceRoot, sourcePath));
     for (
       const path of meshScopedSourceTermPathsFromQuads(
         new Parser({ baseIRI: MESH_BRANCH_FANTASY_RULES_BASE }).parse(turtle),
@@ -179,7 +181,7 @@ Deno.test("branch Fantasy Rules final publication has ResourcePages for every so
   const missingPages: string[] = [];
   for (const termPath of sortedTermPaths) {
     try {
-      await Deno.stat(join(workspaceRoot, termPath, "index.html"));
+      await Deno.stat(join(publicationRoot, termPath, "index.html"));
     } catch (error) {
       if (error instanceof Deno.errors.NotFound) {
         missingPages.push(termPath);
@@ -277,13 +279,14 @@ Deno.test("branch Fantasy Rules all-terms extract skips source artifact support 
   const workspaceRoot = await createTestTmpDir(
     "branch-fantasy-rules-all-terms-support-skip-",
   );
-  await materializeMeshBranchFantasyRulesBranch(
-    "11-first-release-woven",
-    workspaceRoot,
-  );
+  const { publicationRoot } =
+    await materializeMeshBranchFantasyRulesPublicationWorkspace(
+      "11-first-release-woven",
+      workspaceRoot,
+    );
 
   const result = await executeExtractAllTerms({
-    meshRoot: workspaceRoot,
+    meshRoot: publicationRoot,
     request: { sourceDesignatorPath: "ontology" },
   });
 
@@ -300,7 +303,7 @@ Deno.test("branch Fantasy Rules all-terms extract skips source artifact support 
     ),
   );
   await assertRejects(
-    () => Deno.stat(join(workspaceRoot, "ontology/releases/v0.0.2/_knop")),
+    () => Deno.stat(join(publicationRoot, "ontology/releases/v0.0.2/_knop")),
     Deno.errors.NotFound,
   );
 });

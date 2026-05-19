@@ -86,7 +86,7 @@ async function resolveMeshAliceBioGitRefUncached(
     : `${MESH_ALICE_BIO_LADDER_BRANCH_PREFIX}${ref}`;
   const candidates = ref.startsWith(MESH_ALICE_BIO_LADDER_BRANCH_PREFIX)
     ? [ref, `origin/${ref}`]
-    : [prefixedRef, ref, `origin/${prefixedRef}`, `origin/${ref}`];
+    : [prefixedRef, `origin/${prefixedRef}`];
 
   for (const candidate of candidates) {
     const command = new Deno.Command("git", {

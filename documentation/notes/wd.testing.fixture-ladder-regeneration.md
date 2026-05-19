@@ -20,6 +20,8 @@ The current live fixture ladders are:
 - `dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules`
 - `dependencies/github.com/semantic-flow/mesh-branch-fantasy-rules`
 
+The live ladder refs use the `a.*` branch series. Older unprefixed branch series are historical fixtures; do not regenerate or chase them during a live ladder rerung unless a task explicitly asks for that archival series.
+
 The transition manifests and example specs live in the Semantic Flow Framework checkout:
 
 - `dependencies/github.com/semantic-flow/semantic-flow-framework`
@@ -70,6 +72,8 @@ for repo in mesh-alice-bio mesh-sidecar-fantasy-rules mesh-branch-fantasy-rules;
   git -C "dependencies/github.com/semantic-flow/$repo" status --short --branch
 done
 ```
+
+Keep fixture working trees on ordinary source branches such as `main` during regeneration. In particular, `mesh-branch-fantasy-rules` may have a local `gh-pages` branch that is a publication output and does not carry `.assets`; running the ladder from that checkout can fail before the transition logic is reached.
 
 Because the resolver checks local `a.*` branches before `origin/a.*`, stale local rung branches can shadow the remote fixture baseline. Before a whole-ladder rerung, decide whether the current local rungs are intentional input or whether you want to clean them out and rebuild from remote refs.
 
@@ -129,7 +133,7 @@ If that review is clean, remove the local rung branches:
 ```sh
 for repo in mesh-alice-bio mesh-sidecar-fantasy-rules mesh-branch-fantasy-rules; do
   repo_path="dependencies/github.com/semantic-flow/$repo"
-  for branch in $(git -C "$repo_path" branch --format='%(refname:short)' 'a.*'); do
+  for branch in $(git -C "$repo_path" branch --list --format='%(refname:short)' 'a.*'); do
     git -C "$repo_path" branch -D "$branch"
   done
 done
@@ -142,6 +146,8 @@ Do not clean `gh-pages` as part of rung cleanup. For branch-published fixtures, 
 Run a full dry run first. This catches command failures, validation failures, missing assets, missing refs, and generated-output guardrail failures without moving fixture refs.
 
 Because `--dry-run` does not update local `a.*` branches, it does not fully simulate cumulative rung-to-rung propagation. Treat it as a transition smoke test. The execute pass is the step that actually rebuilds the ladder chain.
+
+When the remote target branch is already known stale, a dry-run can complete the operation and still report comparison failures against that stale `toRef`. In that case, separate "the command ran and generated plausible output" from "the output matches the old remote checkpoint." Command failures, missing assets, validation failures against the generated workspace, and generated-output guardrail failures are stop signs; stale target comparisons are the drift you are about to replace.
 
 ```sh
 for scenario in alice-bio sidecar-fantasy-rules branch-fantasy-rules; do
@@ -182,6 +188,8 @@ done
 Each successful transition writes a local commit object into the fixture repository and updates a local branch such as `a.05-alice-knop-created-woven`. For branch-published transitions, the script may also fast-forward the local publication branch, such as `gh-pages`, after updating the checkpoint branch.
 
 The branch-published ladder is not strictly a single source-lane chain: `10-first-release-source` starts from `a.01-source-only`, while later publication transitions continue from publication refs. Use the plan order from the script rather than inventing an order by sorting branch names.
+
+If a branch-published rerung intentionally rewrites the publication ladder from an earlier checkpoint, local `gh-pages` may not be an ancestor of the regenerated publication commit. Inspect the divergence. If the regenerated publication branch is correct, move local `gh-pages` deliberately to the regenerated publication checkpoint and plan a `--force-with-lease` push for `gh-pages` after review.
 
 ## Review
 
@@ -232,7 +240,7 @@ For a full rerung, generate a reviewable push plan first:
 for repo in mesh-alice-bio mesh-sidecar-fantasy-rules mesh-branch-fantasy-rules; do
   repo_path="dependencies/github.com/semantic-flow/$repo"
   echo "## $repo"
-  for branch in $(git -C "$repo_path" branch --format='%(refname:short)' 'a.*'); do
+  for branch in $(git -C "$repo_path" branch --list --format='%(refname:short)' 'a.*'); do
     if git -C "$repo_path" rev-parse --verify --quiet "origin/$branch" >/dev/null; then
       if [ -n "$(git -C "$repo_path" log --oneline "origin/$branch..$branch")" ]; then
         echo "git -C $repo_path push origin $branch"
@@ -244,10 +252,16 @@ for repo in mesh-alice-bio mesh-sidecar-fantasy-rules mesh-branch-fantasy-rules;
 done
 ```
 
-After reviewing the printed commands, run only the intended pushes. For `mesh-branch-fantasy-rules`, also push `gh-pages` if the branch-published publication branch was intentionally fast-forwarded:
+After reviewing the printed commands, run only the intended pushes. For `mesh-branch-fantasy-rules`, also push `gh-pages` if the branch-published publication branch was intentionally updated. Use a normal push when it is a fast-forward:
 
 ```sh
 git -C dependencies/github.com/semantic-flow/mesh-branch-fantasy-rules push origin gh-pages
+```
+
+Use `--force-with-lease` only after confirming the rerung intentionally rewrote publication history:
+
+```sh
+git -C dependencies/github.com/semantic-flow/mesh-branch-fantasy-rules push --force-with-lease origin gh-pages
 ```
 
 ## Final Checks
@@ -272,7 +286,8 @@ Then rerun or recheck the GitHub PR CI. GitHub CI should now resolve all fixture
 - Local tests pass but GitHub CI fails against older bytes: a local `a.*` branch may be shadowing a stale remote branch. Push the intended regenerated rung branches or clean local rungs and reproduce from `origin/a.*`.
 - Generated-output guardrail failure: the transition may have produced structurally suspicious output; inspect the guardrail before forcing a branch update.
 - `workspace root must be empty before materialization`: delete the debug workspace or choose a new path.
-- Branch-published rerung refuses to move `gh-pages`: the current publication branch is not an ancestor of the regenerated publication commit; inspect before rebasing, resetting, or force-pushing.
+- Branch-published rerung refuses to move `gh-pages`: the current publication branch is not an ancestor of the regenerated publication commit; inspect before rebasing, resetting, or force-pushing with lease.
+- Branch-published materialization cannot find `.assets`: the fixture checkout is probably on `gh-pages`; switch that repo back to `main` and rerun.
 - Replay tries to run removed commands such as `weave prepare gh-pages`: the manifest is stale. Replace first-time source publication with `integrate` plus `weave`. For an already-integrated external source with a stable working locator, do not re-integrate or update the binding; materialize the intended source checkout and weave/version from the existing working locator. Use a future source-binding update only when the locator or source policy itself is changing.
 
 ## Commit Messages

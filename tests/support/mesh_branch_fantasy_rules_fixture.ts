@@ -188,6 +188,18 @@ export async function materializeMeshBranchFantasyRulesBranch(
   return paths;
 }
 
+export async function materializeMeshBranchFantasyRulesPublicationWorkspace(
+  ref: string,
+  targetDir: string,
+  sourceRef = "10-first-release-source",
+): Promise<{ publicationRoot: string; sourceRoot: string }> {
+  const publicationRoot = join(targetDir, "publication");
+  const sourceRoot = join(targetDir, "source");
+  await materializeMeshBranchFantasyRulesBranch(ref, publicationRoot);
+  await materializeMeshBranchFantasyRulesBranch(sourceRef, sourceRoot);
+  return { publicationRoot, sourceRoot };
+}
+
 function normalizeFixtureNamespaces(contents: string): string {
   return contents
     .replaceAll(LEGACY_SFCFG_NAMESPACE, CURRENT_SFCFG_NAMESPACE)

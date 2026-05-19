@@ -36,6 +36,10 @@ function fixtureAssetPathsForPlan(plan: FixtureLadderPlan): string[] {
   }).sort();
 }
 
+function targetSpecsFromArgv(argv: readonly string[]): string[] {
+  return argv.filter((arg) => arg.startsWith("designatorPath="));
+}
+
 Deno.test("parseFixtureLadderArgs accepts dry-run planner options", () => {
   assertEquals(
     parseFixtureLadderArgs([
@@ -510,10 +514,18 @@ Deno.test("planFixtureLadder exposes the Sidecar Fantasy Rules transition sequen
   assertEquals(plan.transitions[16]?.operationId, "weave");
   assertEquals(plan.transitions[16]?.action.kind, "command");
   if (plan.transitions[16]?.action.kind === "command") {
-    assertEquals(plan.transitions[16].action.argv, [
+    const argv = plan.transitions[16].action.argv;
+    assertEquals(argv.slice(0, 2), [
       "--mesh-root",
       "docs",
     ]);
+    const targetSpecs = targetSpecsFromArgv(argv);
+    assertEquals(targetSpecs.length, 61);
+    assert(targetSpecs.includes(
+      "designatorPath=examples/gunaar/ability-score/strength",
+    ));
+    assert(targetSpecs.includes("designatorPath=ontology/Ability"));
+    assert(targetSpecs.includes("designatorPath=ontology/wizard"));
   }
 
   for (const transition of plan.transitions) {
@@ -913,10 +925,21 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
       "a.12-all-remaining-terms-extracted",
     );
     assertEquals(plan.transitions[12].action.invocations.length, 1);
-    assertEquals(plan.transitions[12].action.invocations[0]?.argv, [
+    const argv = plan.transitions[12].action.invocations[0]?.argv ?? [];
+    assertEquals(argv.slice(0, 2), [
       "--mesh-root",
       "{publicationRoot}",
     ]);
+    const targetSpecs = targetSpecsFromArgv(argv);
+    assertEquals(targetSpecs.length, 62);
+    assert(targetSpecs.includes(
+      "designatorPath=examples/gunaar/alignment-history/2016-10-30T03-14-00-04-00",
+    ));
+    assert(targetSpecs.includes(
+      "designatorPath=examples/gunaar/ability-score/strength",
+    ));
+    assert(targetSpecs.includes("designatorPath=ontology/Ability"));
+    assert(targetSpecs.includes("designatorPath=ontology/wizard"));
   }
   assertEquals(plan.transitions[13]?.id, "14-extracted-term-references");
   assertEquals(
@@ -1000,6 +1023,12 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
     assertEquals(plan.transitions[14].action.invocations[0]?.argv, [
       "--mesh-root",
       "{publicationRoot}",
+      "--target",
+      "designatorPath=examples/gunaar/ability-score/strength",
+      "--target",
+      "designatorPath=ontology/Ability",
+      "--target",
+      "designatorPath=ontology/CharacterShape",
     ]);
   }
 

@@ -658,7 +658,7 @@ Deno.test("weave integrate matches the manifest-scoped sidecar Gunaar dataset fi
   const extraWorkingSourceBindingPath =
     "docs/examples/gunaar/_knop/_sources/sources.ttl";
   assertEquals(
-    actualFiles.filter((path) => path !== extraWorkingSourceBindingPath),
+    actualFiles,
     await listMeshSidecarFantasyRulesBranchFiles(transitionCase.toRef!),
   );
   assert(

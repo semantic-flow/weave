@@ -61,14 +61,10 @@ Deno.test("weave mesh create can apply a GitHub Pages publication profile as a b
     .map((expectation) => expectation.path)
     .filter((path): path is string => typeof path === "string")
     .sort();
-  const expectedPaths = [
-    ...manifestPaths,
-    "_mesh/_config/config.ttl",
-  ].sort();
 
   assertEquals(
     await listRelativeFiles(workspaceRoot, ".weave/"),
-    expectedPaths,
+    manifestPaths,
   );
 
   for (const fileExpectation of fileExpectations) {

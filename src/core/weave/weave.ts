@@ -458,6 +458,7 @@ export function planWeave(input: PlanWeaveInput): WeavePlan {
           input.currentMeshInventoryTurtle,
           input.currentMeshMetadataTurtle,
           candidate,
+          input.supportHistoryPolicies,
         );
       case "pageDefinitionWeave":
         return planPageDefinitionWeave(
@@ -724,6 +725,13 @@ export function detectPendingWeaveSlice(
     SFLO_HAS_ARTIFACT_HISTORY_IRI,
     `${referenceCatalogPath}/_history001`,
   );
+  const referenceCatalogHasResourcePage = hasNamedNodeFact(
+    quads,
+    meshBase,
+    referenceCatalogPath,
+    SFLO_HAS_RESOURCE_PAGE_IRI,
+    `${referenceCatalogPath}/index.html`,
+  );
   const pageDefinitionRelationship = hasNamedNodeFact(
     quads,
     meshBase,
@@ -738,17 +746,33 @@ export function detectPendingWeaveSlice(
     SFLO_HAS_ARTIFACT_HISTORY_IRI,
     `${knopPath}/_inventory/_history001`,
   );
-
-  if (extractionSourceRelationship && !knopInventoryHasHistory) {
-    return "firstExtractedKnopWeave";
-  }
+  const knopInventoryHasCurrentResourcePages = hasNamedNodeFact(
+    quads,
+    meshBase,
+    knopPath,
+    SFLO_HAS_RESOURCE_PAGE_IRI,
+    `${knopPath}/index.html`,
+  ) && hasNamedNodeFact(
+    quads,
+    meshBase,
+    `${knopPath}/_inventory`,
+    SFLO_HAS_RESOURCE_PAGE_IRI,
+    `${knopPath}/_inventory/index.html`,
+  );
+  const knopInventoryIsWoven = knopInventoryHasHistory ||
+    knopInventoryHasCurrentResourcePages;
 
   if (
     referenceCatalogRelationship &&
-    knopInventoryHasHistory &&
-    !referenceCatalogHasHistory
+    knopInventoryIsWoven &&
+    !referenceCatalogHasHistory &&
+    !referenceCatalogHasResourcePage
   ) {
     return "firstReferenceCatalogWeave";
+  }
+
+  if (extractionSourceRelationship && !knopInventoryIsWoven) {
+    return "firstExtractedKnopWeave";
   }
 
   if (pageDefinitionRelationship && knopInventoryHasHistory) {
@@ -856,6 +880,25 @@ function hasPayloadVersionNamingTarget(
     (target.historySegment !== undefined ||
       target.stateSegment !== undefined ||
       target.manifestationSegment !== undefined);
+}
+
+function currentKnopInventoryHasVersionedHistory(
+  meshBase: string,
+  currentKnopInventoryTurtle: string,
+  knopPath: string,
+): boolean {
+  const quads = parseWeaveShapeQuads(
+    meshBase,
+    currentKnopInventoryTurtle,
+    `Could not parse the current KnopInventory while checking support history for ${knopPath}.`,
+  );
+  return hasNamedNodeFact(
+    quads,
+    meshBase,
+    `${knopPath}/_inventory`,
+    SFLO_HAS_ARTIFACT_HISTORY_IRI,
+    `${knopPath}/_inventory/_history001`,
+  );
 }
 
 function assertPayloadNamingSupportedForSlice(
@@ -1409,9 +1452,19 @@ function planFirstReferenceCatalogWeave(
   currentMeshInventoryTurtle: string,
   currentMeshMetadataTurtle: string | undefined,
   candidate: WeaveableKnopCandidate,
+  supportHistoryPolicies?: WeaveSupportHistoryPolicies,
 ): WeavePlan {
   const referenceCatalogArtifact = candidate.referenceCatalogArtifact!;
   const designatorPath = candidate.designatorPath;
+  const knopPath = toKnopPath(designatorPath);
+  const versionKnopInventory = currentKnopInventoryHasVersionedHistory(
+    meshBase,
+    candidate.currentKnopInventoryTurtle,
+    knopPath,
+  );
+  const versionReferenceCatalog = shouldMaterializeSupportHistory(
+    supportHistoryPolicies?.referenceCatalog ?? "versioned",
+  ) && versionKnopInventory;
   assertCurrentMeshInventoryShapeForFirstReferenceCatalogWeave(
     meshBase,
     currentMeshInventoryTurtle,
@@ -1423,9 +1476,9 @@ function planFirstReferenceCatalogWeave(
     candidate.currentKnopInventoryTurtle,
     candidate.designatorPath,
     referenceCatalogArtifact.workingLocalRelativePath,
+    { versionKnopInventory },
   );
 
-  const knopPath = toKnopPath(designatorPath);
   const referenceCatalogPath = `${knopPath}/_references`;
   const referenceCatalogWorkingLocalRelativePath = referenceCatalogArtifact
     .workingLocalRelativePath;
@@ -1439,8 +1492,8 @@ function planFirstReferenceCatalogWeave(
     designatorPath,
     referenceCatalogPath,
   );
-  const wovenKnopInventoryTurtle =
-    renderKnopInventoryWithPreservedSupportArtifacts({
+  const wovenKnopInventoryTurtle = versionReferenceCatalog
+    ? renderKnopInventoryWithPreservedSupportArtifacts({
       meshBase,
       currentKnopInventoryTurtle: candidate.currentKnopInventoryTurtle,
       renderedKnopInventoryTurtle:
@@ -1450,34 +1503,47 @@ function planFirstReferenceCatalogWeave(
           referenceCatalogWorkingLocalRelativePath,
         ),
       knopPath,
-    });
+    })
+    : renderCurrentOnlyReferenceCatalogWovenKnopInventoryTurtle(
+      meshBase,
+      candidate.currentKnopInventoryTurtle,
+      designatorPath,
+      referenceCatalogWorkingLocalRelativePath,
+    );
 
   return {
     meshBase,
     wovenDesignatorPaths: [designatorPath],
-    createdFiles: [
-      {
-        path: `${knopPath}/_inventory/_history001/_s0002/ttl/inventory.ttl`,
-        contents: wovenKnopInventoryTurtle,
-      },
-      {
-        path: `${referenceCatalogManifestationPath}/${
-          toFileName(referenceCatalogWorkingLocalRelativePath)
-        }`,
-        contents: referenceCatalogArtifact.currentReferenceCatalogTurtle,
-      },
-    ],
+    createdFiles: versionReferenceCatalog
+      ? [
+        {
+          path: `${knopPath}/_inventory/_history001/_s0002/ttl/inventory.ttl`,
+          contents: wovenKnopInventoryTurtle,
+        },
+        {
+          path: `${referenceCatalogManifestationPath}/${
+            toFileName(referenceCatalogWorkingLocalRelativePath)
+          }`,
+          contents: referenceCatalogArtifact.currentReferenceCatalogTurtle,
+        },
+      ]
+      : [],
     updatedFiles: [
       {
         path: `${knopPath}/_inventory/inventory.ttl`,
         contents: wovenKnopInventoryTurtle,
       },
     ],
-    createdPages: buildFirstReferenceCatalogWeavePages(
-      designatorPath,
-      referenceCatalogWorkingLocalRelativePath,
-      referenceCatalogLinks,
-    ),
+    createdPages: versionReferenceCatalog
+      ? buildFirstReferenceCatalogWeavePages(
+        designatorPath,
+        referenceCatalogWorkingLocalRelativePath,
+        referenceCatalogLinks,
+      )
+      : buildCurrentOnlyReferenceCatalogWeavePages(
+        designatorPath,
+        referenceCatalogLinks,
+      ),
   };
 }
 
@@ -2724,9 +2790,11 @@ function assertCurrentKnopInventoryShapeForFirstReferenceCatalogWeave(
   currentKnopInventoryTurtle: string,
   designatorPath: string,
   workingLocalRelativePath: string,
+  options?: { versionKnopInventory?: boolean },
 ): void {
   const knopPath = toKnopPath(designatorPath);
   const referenceCatalogPath = `${knopPath}/_references`;
+  const versionKnopInventory = options?.versionKnopInventory ?? true;
   const errorMessage =
     `The current local weave slice only supports the settled first ReferenceCatalog weave shape for ${designatorPath}.`;
   const quads = parseWeaveShapeQuads(
@@ -2741,16 +2809,6 @@ function assertCurrentKnopInventoryShapeForFirstReferenceCatalogWeave(
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_KNOP_INVENTORY_IRI],
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
     [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
-    [
-      `${knopPath}/_inventory`,
-      SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
-      `${knopPath}/_inventory/_history001`,
-    ],
-    [
-      `${knopPath}/_inventory/_history001`,
-      SFLO_LATEST_HISTORICAL_STATE_IRI,
-      `${knopPath}/_inventory/_history001/_s0001`,
-    ],
     [referenceCatalogPath, RDF_TYPE_IRI, SFLO_REFERENCE_CATALOG_IRI],
     [referenceCatalogPath, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
     [referenceCatalogPath, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
@@ -2762,14 +2820,38 @@ function assertCurrentKnopInventoryShapeForFirstReferenceCatalogWeave(
     referenceCatalogPath,
     workingLocalRelativePath,
   );
-  assertHasLiteralFacts(quads, meshBase, errorMessage, [
-    [
-      `${knopPath}/_inventory/_history001`,
-      SFLO_NEXT_STATE_ORDINAL_IRI,
-      "2",
-      XSD_NON_NEGATIVE_INTEGER_IRI,
-    ],
-  ]);
+
+  if (versionKnopInventory) {
+    assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
+      [
+        `${knopPath}/_inventory`,
+        SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
+        `${knopPath}/_inventory/_history001`,
+      ],
+      [
+        `${knopPath}/_inventory/_history001`,
+        SFLO_LATEST_HISTORICAL_STATE_IRI,
+        `${knopPath}/_inventory/_history001/_s0001`,
+      ],
+    ]);
+    assertHasLiteralFacts(quads, meshBase, errorMessage, [
+      [
+        `${knopPath}/_inventory/_history001`,
+        SFLO_NEXT_STATE_ORDINAL_IRI,
+        "2",
+        XSD_NON_NEGATIVE_INTEGER_IRI,
+      ],
+    ]);
+  } else {
+    assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
+      [knopPath, SFLO_HAS_RESOURCE_PAGE_IRI, `${knopPath}/index.html`],
+      [
+        `${knopPath}/_inventory`,
+        SFLO_HAS_RESOURCE_PAGE_IRI,
+        `${knopPath}/_inventory/index.html`,
+      ],
+    ]);
+  }
 
   if (
     hasNamedNodeFact(
@@ -2782,6 +2864,19 @@ function assertCurrentKnopInventoryShapeForFirstReferenceCatalogWeave(
   ) {
     throw new WeaveInputError(
       `ReferenceCatalog already has explicit history for ${designatorPath}.`,
+    );
+  }
+  if (
+    hasNamedNodeFact(
+      quads,
+      meshBase,
+      referenceCatalogPath,
+      SFLO_HAS_RESOURCE_PAGE_IRI,
+      `${referenceCatalogPath}/index.html`,
+    )
+  ) {
+    throw new WeaveInputError(
+      `ReferenceCatalog already has a ResourcePage for ${designatorPath}.`,
     );
   }
 }
@@ -4271,6 +4366,69 @@ ${currentWorkingFileDeclaration}
 
 <${referenceCatalogManifestationPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 `;
+}
+
+function renderCurrentOnlyReferenceCatalogWovenKnopInventoryTurtle(
+  _meshBase: string,
+  currentKnopInventoryTurtle: string,
+  designatorPath: string,
+  workingLocalRelativePath: string,
+): string {
+  const referenceCatalogPath = toReferenceCatalogPath(designatorPath);
+  const referenceCatalogPagePath = `${referenceCatalogPath}/index.html`;
+  const blocks = splitTurtleBlocks(currentKnopInventoryTurtle);
+  const currentReferenceCatalogBlockIndex = findSubjectBlockIndex(
+    blocks,
+    referenceCatalogPath,
+  );
+  if (currentReferenceCatalogBlockIndex === -1) {
+    throw new WeaveInputError(
+      `Current KnopInventory did not contain ReferenceCatalog block <${referenceCatalogPath}>.`,
+    );
+  }
+
+  const currentReferenceCatalogBlock =
+    blocks[currentReferenceCatalogBlockIndex]!;
+  if (
+    !currentReferenceCatalogBlock.includes(`<${workingLocalRelativePath}>`) &&
+    !currentReferenceCatalogBlock.includes(`"${workingLocalRelativePath}"`)
+  ) {
+    throw new WeaveInputError(
+      `Current ReferenceCatalog block did not carry the expected working file for ${designatorPath}.`,
+    );
+  }
+
+  const blocksWithReferencePage = replaceSubjectBlock(
+    blocks,
+    referenceCatalogPath,
+    appendPredicateToSubjectBlock(
+      currentReferenceCatalogBlock,
+      `sflo:hasResourcePage <${referenceCatalogPagePath}>`,
+    ),
+  );
+  const finalBlocks = upsertSubjectBlockAfter(
+    blocksWithReferencePage,
+    referenceCatalogPath,
+    referenceCatalogPagePath,
+    renderResourcePageLocatedFileBlock(referenceCatalogPagePath),
+  );
+
+  return `${finalBlocks.join("\n\n")}\n`;
+}
+
+function appendPredicateToSubjectBlock(
+  block: string,
+  predicateLine: string,
+): string {
+  if (block.includes(predicateLine)) {
+    return block;
+  }
+  if (!block.endsWith(" .")) {
+    throw new WeaveInputError(
+      "Could not append predicate to Turtle subject block.",
+    );
+  }
+  return `${block.slice(0, -2)} ;\n  ${predicateLine} .`;
 }
 
 function renderSubsequentPageDefinitionWovenKnopInventoryTurtle(
@@ -7367,6 +7525,22 @@ function buildFirstReferenceCatalogWeavePages(
     simplePage(
       `${referenceCatalogManifestationPath}/index.html`,
       `Resource page for the Turtle manifestation of the first ${displayDesignatorPath} ReferenceCatalog historical state.`,
+    ),
+  ];
+}
+
+function buildCurrentOnlyReferenceCatalogWeavePages(
+  designatorPath: string,
+  currentLinks: readonly ReferenceCatalogCurrentLinkModel[],
+): readonly ResourcePageModel[] {
+  const referenceCatalogPath = toReferenceCatalogPath(designatorPath);
+
+  return [
+    referenceCatalogPage(
+      `${referenceCatalogPath}/index.html`,
+      referenceCatalogPath,
+      designatorPath,
+      currentLinks,
     ),
   ];
 }

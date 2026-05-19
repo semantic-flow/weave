@@ -1665,6 +1665,75 @@ Deno.test("planWeave renders the first alice reference-catalog weave slice", () 
   );
 });
 
+Deno.test("planWeave supports current-only first reference-catalog weave", () => {
+  const currentOnlyReferenceCatalogWeaveKnopInventoryTurtle =
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<alice/_knop> a sflo:Knop ;
+  sflo:hasKnopMetadata <alice/_knop/_meta> ;
+  sflo:hasKnopInventory <alice/_knop/_inventory> ;
+  sflo:hasWorkingKnopInventoryFile <alice/_knop/_inventory/inventory.ttl> ;
+  sflo:hasReferenceCatalog <alice/_knop/_references> ;
+  sflo:hasResourcePage <alice/_knop/index.html> .
+
+<alice/_knop/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <alice/_knop/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <alice/_knop/_inventory/index.html> .
+
+<alice/_knop/_references> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <alice/_knop/_references/references.ttl> .
+
+<alice/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<alice/_knop/_references/references.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<alice/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<alice/_knop/_inventory/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+`;
+
+  const plan = planWeave({
+    request: {},
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: firstReferenceCatalogWeaveMeshInventoryTurtle,
+    currentMeshMetadataTurtle: firstReferenceCatalogWeaveMeshMetadataTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice",
+      currentKnopMetadataTurtle: firstWeaveKnopMetadataTurtle,
+      currentKnopInventoryTurtle:
+        currentOnlyReferenceCatalogWeaveKnopInventoryTurtle,
+      referenceCatalogArtifact: {
+        workingLocalRelativePath: "alice/_knop/_references/references.ttl",
+        currentReferenceCatalogTurtle:
+          firstReferenceCatalogWeaveReferenceCatalogTurtle,
+      },
+    }],
+    supportHistoryPolicies: {
+      knopInventory: "currentOnly",
+      referenceCatalog: "currentOnly",
+    },
+  });
+
+  assertEquals(plan.wovenDesignatorPaths, ["alice"]);
+  assertEquals(plan.createdFiles, []);
+  assertEquals(plan.updatedFiles.map((file) => file.path), [
+    "alice/_knop/_inventory/inventory.ttl",
+  ]);
+  assertEquals(plan.createdPages.map((page) => page.path), [
+    "alice/_knop/_references/index.html",
+  ]);
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    "sflo:hasResourcePage <alice/_knop/_references/index.html>",
+  );
+  assertFalse(
+    (plan.updatedFiles[0]?.contents ?? "").includes(
+      "alice/_knop/_references/_history001",
+    ),
+  );
+});
+
 Deno.test("planWeave accepts semantically equivalent first reference-catalog weave Turtle", () => {
   const equivalentMeshInventoryTurtle = withRdfPrefix(
     firstReferenceCatalogWeaveMeshInventoryTurtle,
