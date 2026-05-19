@@ -41,16 +41,40 @@ const SFLO_TARGET_ACCESS_URL_IRI = `${SFLO_NAMESPACE}targetAccessUrl`;
 const SFLO_REGION_KEY_IRI = `${SFLO_NAMESPACE}regionKey`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI =
   `${SFLO_NAMESPACE}artifactResolutionMode_working`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_LATEST_STATE_IRI =
+  `${SFLO_NAMESPACE}artifactResolutionMode_latestState`;
+const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+const SFLO_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}ArtifactHistory`;
+const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
+  `${SFLO_NAMESPACE}currentArtifactHistory`;
+const SFLO_HAS_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}hasArtifactHistory`;
+const SFLO_HAS_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasPayloadArtifact`;
+const SFLO_LATEST_HISTORICAL_STATE_IRI =
+  `${SFLO_NAMESPACE}latestHistoricalState`;
+const SFLO_LOCATED_FILE_FOR_STATE_IRI = `${SFLO_NAMESPACE}locatedFileForState`;
 const PAGE_DEFINITION_ARTIFACT_SUFFIX = "/_knop/_page";
 const ROOT_PAGE_DEFINITION_ARTIFACT_PATH = "_knop/_page";
 const ROOT_REFERENCE_CATALOG_PATH = "_knop/_references";
 const REFERENCE_CATALOG_SUFFIX = "/_knop/_references";
 
-interface ArtifactSourceCurrentState {
+interface ArtifactSourceTarget {
   kind: "payload" | "referenceCatalog" | "resourcePageDefinition";
   designatorPath: string;
   artifactPath: string;
+}
+
+interface ArtifactSourceCurrentState extends ArtifactSourceTarget {
   workingLocalRelativePath: string;
+}
+
+interface ArtifactSourceInventory {
+  target: ArtifactSourceTarget;
+  targetKnopInventoryTurtle: string;
+}
+
+interface ArtifactSourceLatestState {
+  statePath: string;
+  snapshotPath: string;
 }
 
 export interface CustomIdentifierRegionModel {
@@ -314,26 +338,58 @@ export async function loadActiveCustomIdentifierPage(
           formatDesignatorPathForDisplay(designatorPath)
         } declares multiple artifact resolution modes.`,
       );
+      const requestedTargetHistory = requireOptionalSingleNamedNodeTarget(
+        requestedTargetHistories,
+        `ResourcePageDefinition region ${key} for ${
+          formatDesignatorPathForDisplay(designatorPath)
+        } declares multiple requested target histories.`,
+      );
 
       if (
-        requestedTargetHistories.length > 0 ||
         requestedTargetStates.length > 0 ||
         artifactResolutionFallbackPolicies.length > 0
       ) {
         throw new ResourcePageDefinitionResolutionError(
           `ResourcePageDefinition region ${key} for ${
             formatDesignatorPathForDisplay(designatorPath)
-          } requests exact/history/fallback artifact resolution that this first artifact-backed page-source slice does not support yet.`,
+          } requests exact/fallback artifact resolution that this first artifact-backed page-source slice does not support yet.`,
+        );
+      }
+      if (resolutionMode === SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI) {
+        if (requestedTargetHistory !== undefined) {
+          throw new ResourcePageDefinitionResolutionError(
+            `ResourcePageDefinition region ${key} for ${
+              formatDesignatorPathForDisplay(designatorPath)
+            } requests Working artifact resolution with a requested target history, which is contradictory.`,
+          );
+        }
+        return await loadCurrentArtifactSourceRegion(
+          meshRoot,
+          localPathPolicy,
+          meshBase,
+          designatorPath,
+          key,
+          targetArtifactIri,
         );
       }
       if (
-        resolutionMode !== undefined &&
-        resolutionMode !== SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI
+        resolutionMode === SFLO_ARTIFACT_RESOLUTION_MODE_LATEST_STATE_IRI ||
+        requestedTargetHistory !== undefined
       ) {
+        return await loadLatestStateArtifactSourceRegion(
+          meshRoot,
+          meshBase,
+          designatorPath,
+          key,
+          targetArtifactIri,
+          requestedTargetHistory,
+        );
+      }
+      if (resolutionMode !== undefined) {
         throw new ResourcePageDefinitionResolutionError(
           `ResourcePageDefinition region ${key} for ${
             formatDesignatorPathForDisplay(designatorPath)
-          } requests a non-Working artifact resolution mode that this first artifact-backed page-source slice does not support yet.`,
+          } requests an unsupported artifact resolution mode: ${resolutionMode}.`,
         );
       }
 
@@ -546,12 +602,20 @@ async function loadCurrentArtifactSourceRegion(
   regionKey: string,
   targetArtifactIri: string,
 ): Promise<CustomIdentifierRegionModel> {
-  const currentState = await resolveArtifactSourceCurrentState(
-    meshRoot,
+  const { target, targetKnopInventoryTurtle } =
+    await loadArtifactSourceInventory(
+      meshRoot,
+      meshBase,
+      ownerDesignatorPath,
+      regionKey,
+      targetArtifactIri,
+    );
+  const currentState = resolveArtifactSourceCurrentState(
     meshBase,
+    targetKnopInventoryTurtle,
+    target,
     ownerDesignatorPath,
     regionKey,
-    targetArtifactIri,
   );
 
   return {
@@ -571,13 +635,51 @@ async function loadCurrentArtifactSourceRegion(
   };
 }
 
-async function resolveArtifactSourceCurrentState(
+async function loadLatestStateArtifactSourceRegion(
   meshRoot: string,
   meshBase: string,
   ownerDesignatorPath: string,
   regionKey: string,
   targetArtifactIri: string,
-): Promise<ArtifactSourceCurrentState> {
+  requestedTargetHistoryIri: string | undefined,
+): Promise<CustomIdentifierRegionModel> {
+  const { target, targetKnopInventoryTurtle } =
+    await loadArtifactSourceInventory(
+      meshRoot,
+      meshBase,
+      ownerDesignatorPath,
+      regionKey,
+      targetArtifactIri,
+    );
+  const latestState = resolveArtifactSourceLatestState(
+    meshBase,
+    targetKnopInventoryTurtle,
+    target,
+    ownerDesignatorPath,
+    regionKey,
+    requestedTargetHistoryIri,
+  );
+
+  return {
+    key: regionKey,
+    sourcePath: latestState.snapshotPath,
+    markdown: await readMeshSourceText(
+      meshRoot,
+      latestState.snapshotPath,
+      `ResourcePageDefinition region ${regionKey} for ${
+        formatDesignatorPathForDisplay(ownerDesignatorPath)
+      } points at governed artifact ${target.artifactPath}, whose latest settled source file is missing: ${latestState.snapshotPath}`,
+    ),
+  };
+}
+
+async function loadArtifactSourceInventory(
+  meshRoot: string,
+  meshBase: string,
+  ownerDesignatorPath: string,
+  regionKey: string,
+  targetArtifactIri: string,
+): Promise<ArtifactSourceInventory> {
   const targetArtifactPath = requireMeshPathFromTargetArtifact(
     meshBase,
     targetArtifactIri,
@@ -617,6 +719,19 @@ async function resolveArtifactSourceCurrentState(
     throw error;
   }
 
+  return {
+    target: targetKind,
+    targetKnopInventoryTurtle,
+  };
+}
+
+function resolveArtifactSourceCurrentState(
+  meshBase: string,
+  targetKnopInventoryTurtle: string,
+  targetKind: ArtifactSourceTarget,
+  ownerDesignatorPath: string,
+  regionKey: string,
+): ArtifactSourceCurrentState {
   const workingLocalRelativePath =
     resolveArtifactSourceWorkingLocalRelativePath(
       meshBase,
@@ -630,6 +745,188 @@ async function resolveArtifactSourceCurrentState(
     ...targetKind,
     workingLocalRelativePath,
   };
+}
+
+function resolveArtifactSourceLatestState(
+  meshBase: string,
+  targetKnopInventoryTurtle: string,
+  target: ArtifactSourceTarget,
+  ownerDesignatorPath: string,
+  regionKey: string,
+  requestedTargetHistoryIri: string | undefined,
+): ArtifactSourceLatestState {
+  if (target.kind !== "payload") {
+    throw new ResourcePageDefinitionResolutionError(
+      `ResourcePageDefinition region ${regionKey} for ${
+        formatDesignatorPathForDisplay(ownerDesignatorPath)
+      } requests latest-state resolution for ${target.artifactPath}, but this implementation slice supports latest-state page sources for payload artifacts only.`,
+    );
+  }
+
+  const parseErrorMessage =
+    `Could not parse the current Knop inventory while resolving latest-state page-source artifact ${target.artifactPath} for ${
+      formatDesignatorPathForDisplay(ownerDesignatorPath)
+    }.`;
+  const quads = parseTargetKnopInventoryQuads(
+    meshBase,
+    targetKnopInventoryTurtle,
+    parseErrorMessage,
+  );
+  const targetArtifactIri = new URL(target.artifactPath, meshBase).href;
+  const targetKnopIri = new URL(toKnopPath(target.designatorPath), meshBase)
+    .href;
+
+  if (
+    !hasNamedNodeObject(
+      quads,
+      targetKnopIri,
+      SFLO_HAS_PAYLOAD_ARTIFACT_IRI,
+      targetArtifactIri,
+    )
+  ) {
+    throw new ResourcePageDefinitionResolutionError(
+      `ResourcePageDefinition region ${regionKey} for ${
+        formatDesignatorPathForDisplay(ownerDesignatorPath)
+      } targets ${target.artifactPath}, but that payload artifact is not registered in its owning Knop inventory.`,
+    );
+  }
+
+  const historyIri = requestedTargetHistoryIri ??
+    resolveRequiredNamedNodeObject(
+      quads,
+      targetArtifactIri,
+      SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
+      `ResourcePageDefinition region ${regionKey} for ${
+        formatDesignatorPathForDisplay(ownerDesignatorPath)
+      } requests latest-state resolution for ${target.artifactPath}, but that artifact has no currentArtifactHistory.`,
+    );
+  const historyPath = requireMeshPathFromTargetArtifact(
+    meshBase,
+    historyIri,
+    `ResourcePageDefinition region ${regionKey} for ${
+      formatDesignatorPathForDisplay(ownerDesignatorPath)
+    } requests latest-state resolution outside the mesh: ${historyIri}.`,
+  );
+
+  if (
+    !hasNamedNodeObject(
+      quads,
+      targetArtifactIri,
+      SFLO_HAS_ARTIFACT_HISTORY_IRI,
+      historyIri,
+    ) &&
+    !hasNamedNodeObject(
+      quads,
+      targetArtifactIri,
+      SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
+      historyIri,
+    )
+  ) {
+    throw new ResourcePageDefinitionResolutionError(
+      `ResourcePageDefinition region ${regionKey} for ${
+        formatDesignatorPathForDisplay(ownerDesignatorPath)
+      } requests latest-state resolution for ${target.artifactPath}, but ${historyPath} is not a history of that artifact.`,
+    );
+  }
+  if (
+    !hasNamedNodeObject(
+      quads,
+      historyIri,
+      RDF_TYPE_IRI,
+      SFLO_ARTIFACT_HISTORY_IRI,
+    )
+  ) {
+    throw new ResourcePageDefinitionResolutionError(
+      `ResourcePageDefinition region ${regionKey} for ${
+        formatDesignatorPathForDisplay(ownerDesignatorPath)
+      } requests latest-state resolution for ${target.artifactPath}, but ${historyPath} is not declared as an ArtifactHistory.`,
+    );
+  }
+
+  const stateIri = resolveRequiredNamedNodeObject(
+    quads,
+    historyIri,
+    SFLO_LATEST_HISTORICAL_STATE_IRI,
+    `ResourcePageDefinition region ${regionKey} for ${
+      formatDesignatorPathForDisplay(ownerDesignatorPath)
+    } requests latest-state resolution for ${target.artifactPath}, but ${historyPath} has no latestHistoricalState.`,
+  );
+  const statePath = requireMeshPathFromTargetArtifact(
+    meshBase,
+    stateIri,
+    `ResourcePageDefinition region ${regionKey} for ${
+      formatDesignatorPathForDisplay(ownerDesignatorPath)
+    } resolved latest-state source ${stateIri} outside the mesh.`,
+  );
+  if (!statePath.startsWith(`${historyPath}/`)) {
+    throw new ResourcePageDefinitionResolutionError(
+      `ResourcePageDefinition region ${regionKey} for ${
+        formatDesignatorPathForDisplay(ownerDesignatorPath)
+      } resolved latest state ${statePath} outside requested history ${historyPath}.`,
+    );
+  }
+
+  const locatedFileIri = resolveOptionalNamedNodeObject(
+    quads,
+    stateIri,
+    SFLO_LOCATED_FILE_FOR_STATE_IRI,
+    parseErrorMessage,
+  );
+  const snapshotPath = locatedFileIri
+    ? requireMeshPathFromTargetArtifact(
+      meshBase,
+      locatedFileIri,
+      `ResourcePageDefinition region ${regionKey} for ${
+        formatDesignatorPathForDisplay(ownerDesignatorPath)
+      } resolved latest-state located file ${locatedFileIri} outside the mesh.`,
+    )
+    : resolveDefaultPayloadHistoricalSnapshotPath(
+      meshBase,
+      targetKnopInventoryTurtle,
+      target,
+      ownerDesignatorPath,
+      regionKey,
+      parseErrorMessage,
+      statePath,
+    );
+
+  return { statePath, snapshotPath };
+}
+
+function resolveDefaultPayloadHistoricalSnapshotPath(
+  meshBase: string,
+  targetKnopInventoryTurtle: string,
+  target: ArtifactSourceTarget,
+  ownerDesignatorPath: string,
+  regionKey: string,
+  parseErrorMessage: string,
+  statePath: string,
+): string {
+  const missingWorkingFileMessage =
+    `Could not derive the default latest-state snapshot path because page-source artifact ${target.artifactPath} used by region ${regionKey} of ${
+      formatDesignatorPathForDisplay(ownerDesignatorPath)
+    } has no working file name. Add sflo:locatedFileForState to the resolved HistoricalState or declare the payload artifact working file.`;
+  const inventoryState = resolvePayloadArtifactInventoryState(
+    meshBase,
+    targetKnopInventoryTurtle,
+    target.designatorPath,
+    {
+      parseErrorMessage,
+      missingWorkingFileMessage,
+    },
+  );
+  if (!inventoryState) {
+    throw new ResourcePageDefinitionResolutionError(
+      `ResourcePageDefinition region ${regionKey} for ${
+        formatDesignatorPathForDisplay(ownerDesignatorPath)
+      } targets ${target.artifactPath}, but that payload artifact is not registered in its owning Knop inventory.`,
+    );
+  }
+
+  return toPayloadHistoricalSnapshotPath(
+    statePath,
+    inventoryState.workingLocalRelativePath,
+  );
 }
 
 function resolveArtifactSourceWorkingLocalRelativePath(
@@ -728,7 +1025,7 @@ function requireMeshPathFromTargetArtifact(
 function describeSupportedTargetArtifact(
   artifactPath: string,
   errorMessage: string,
-): Omit<ArtifactSourceCurrentState, "workingLocalRelativePath"> {
+): ArtifactSourceTarget {
   if (
     artifactPath === ROOT_REFERENCE_CATALOG_PATH ||
     artifactPath.endsWith(REFERENCE_CATALOG_SUFFIX)
@@ -795,6 +1092,100 @@ async function readAllowedSourceText(
     }
     throw error;
   }
+}
+
+async function readMeshSourceText(
+  meshRoot: string,
+  sourcePath: string,
+  missingErrorMessage: string,
+): Promise<string> {
+  try {
+    return await Deno.readTextFile(join(meshRoot, sourcePath));
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      throw new ResourcePageDefinitionResolutionError(missingErrorMessage);
+    }
+    throw error;
+  }
+}
+
+function parseTargetKnopInventoryQuads(
+  meshBase: string,
+  turtle: string,
+  errorMessage: string,
+): readonly Quad[] {
+  try {
+    return new Parser({ baseIRI: meshBase }).parse(turtle);
+  } catch {
+    throw new ResourcePageDefinitionResolutionError(errorMessage);
+  }
+}
+
+function resolveRequiredNamedNodeObject(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+  errorMessage: string,
+): string {
+  const value = resolveOptionalNamedNodeObject(
+    quads,
+    subjectIri,
+    predicateIri,
+    errorMessage,
+  );
+  if (value === undefined) {
+    throw new ResourcePageDefinitionResolutionError(errorMessage);
+  }
+  return value;
+}
+
+function resolveOptionalNamedNodeObject(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+  errorMessage: string,
+): string | undefined {
+  const values = collectNamedNodeObjects(quads, subjectIri, predicateIri);
+  if (values.length > 1) {
+    throw new ResourcePageDefinitionResolutionError(errorMessage);
+  }
+  return values[0];
+}
+
+function hasNamedNodeObject(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+  objectIri: string,
+): boolean {
+  return quads.some((quad) =>
+    quad.subject.termType === "NamedNode" &&
+    quad.subject.value === subjectIri &&
+    quad.predicate.value === predicateIri &&
+    quad.object.termType === "NamedNode" &&
+    quad.object.value === objectIri
+  );
+}
+
+function toPayloadHistoricalSnapshotPath(
+  historyStatePath: string,
+  workingLocalRelativePath: string,
+): string {
+  const fileName = toFileName(workingLocalRelativePath);
+  const manifestationSegment = toDefaultManifestationSegment(fileName);
+  return `${historyStatePath}/${manifestationSegment}/${fileName}`;
+}
+
+function toFileName(path: string): string {
+  const segments = path.split("/");
+  return segments[segments.length - 1]!;
+}
+
+function toDefaultManifestationSegment(fileName: string): string {
+  const extensionIndex = fileName.lastIndexOf(".");
+  return extensionIndex > 0 && extensionIndex < fileName.length - 1
+    ? fileName.slice(extensionIndex + 1)
+    : fileName.replaceAll(".", "-");
 }
 
 async function listStylesheetPaths(

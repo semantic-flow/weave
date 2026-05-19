@@ -1143,7 +1143,7 @@ Deno.test("executeWeave resolves artifact-backed page sources through workingLoc
   );
 });
 
-Deno.test("executeWeave fails closed when artifact-backed page sources request latest-state resolution", async () => {
+Deno.test("executeWeave resolves artifact-backed page sources through latest-state resolution", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-weave-page-definition-artifact-latest-state-",
   );
@@ -1153,7 +1153,169 @@ Deno.test("executeWeave fails closed when artifact-backed page sources request l
   );
   await Deno.writeTextFile(
     join(workspaceRoot, "artifact-sidebar.md"),
-    "Artifact-backed sidebar\n",
+    "Draft artifact-backed sidebar\n",
+  );
+  await Deno.mkdir(
+    join(workspaceRoot, "alice/source/_history001/_s0001/md"),
+    { recursive: true },
+  );
+  await Deno.writeTextFile(
+    join(
+      workspaceRoot,
+      "alice/source/_history001/_s0001/md/artifact-sidebar.md",
+    ),
+    `Settled artifact-backed sidebar
+
+- from latest settled state
+`,
+  );
+  await addArtifactBackedPageSource(
+    workspaceRoot,
+    "alice/source",
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<alice/source/_knop> a sflo:Knop ;
+  sflo:hasKnopMetadata <alice/source/_knop/_meta> ;
+  sflo:hasKnopInventory <alice/source/_knop/_inventory> ;
+  sflo:hasWorkingKnopInventoryFile <alice/source/_knop/_inventory/inventory.ttl> ;
+  sflo:hasPayloadArtifact <alice/source> .
+
+<alice/source> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:currentArtifactHistory <alice/source/_history001> ;
+  sflo:hasArtifactHistory <alice/source/_history001> ;
+  sflo:hasWorkingLocatedFile <artifact-sidebar.md> .
+
+<alice/source/_history001> a sflo:ArtifactHistory ;
+  sflo:latestHistoricalState <alice/source/_history001/_s0001> .
+
+<alice/source/_history001/_s0001> a sflo:HistoricalState ;
+  sflo:locatedFileForState <alice/source/_history001/_s0001/md/artifact-sidebar.md> .
+`,
+    "artifact-sidebar.md",
+  );
+  await replaceAliceSidebarPageSource(
+    workspaceRoot,
+    `<#sidebar-source> a sflo:ResourcePageSource ;
+  sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> ;
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_latestState> .`,
+  );
+
+  const result = await executeWeave({
+    meshRoot: workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "alice" }],
+    },
+  });
+  const page = await Deno.readTextFile(join(workspaceRoot, "alice/index.html"));
+
+  assertEquals(result.wovenDesignatorPaths, ["alice"]);
+  assertStringIncludes(page, "Settled artifact-backed sidebar");
+  assertStringIncludes(page, "from latest settled state");
+  assertFalse(page.includes("Draft artifact-backed sidebar"));
+});
+
+Deno.test("executeWeave resolves requested target histories as latest settled state", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-page-definition-artifact-requested-history-",
+  );
+  await materializeMeshAliceBioBranch(
+    "14-alice-page-customized",
+    workspaceRoot,
+  );
+  await Deno.writeTextFile(
+    join(workspaceRoot, "artifact-sidebar.md"),
+    "Draft artifact-backed sidebar\n",
+  );
+  await Deno.mkdir(
+    join(workspaceRoot, "alice/source/_history001/_s0001/md"),
+    { recursive: true },
+  );
+  await Deno.mkdir(
+    join(workspaceRoot, "alice/source/_history002/_s0002/md"),
+    { recursive: true },
+  );
+  await Deno.writeTextFile(
+    join(
+      workspaceRoot,
+      "alice/source/_history001/_s0001/md/artifact-sidebar.md",
+    ),
+    "Current-history settled sidebar\n",
+  );
+  await Deno.writeTextFile(
+    join(
+      workspaceRoot,
+      "alice/source/_history002/_s0002/md/artifact-sidebar.md",
+    ),
+    `Requested-history settled sidebar
+
+- from bounded history
+`,
+  );
+  await addArtifactBackedPageSource(
+    workspaceRoot,
+    "alice/source",
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<alice/source/_knop> a sflo:Knop ;
+  sflo:hasKnopMetadata <alice/source/_knop/_meta> ;
+  sflo:hasKnopInventory <alice/source/_knop/_inventory> ;
+  sflo:hasWorkingKnopInventoryFile <alice/source/_knop/_inventory/inventory.ttl> ;
+  sflo:hasPayloadArtifact <alice/source> .
+
+<alice/source> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:currentArtifactHistory <alice/source/_history001> ;
+  sflo:hasArtifactHistory <alice/source/_history001>, <alice/source/_history002> ;
+  sflo:hasWorkingLocatedFile <artifact-sidebar.md> .
+
+<alice/source/_history001> a sflo:ArtifactHistory ;
+  sflo:latestHistoricalState <alice/source/_history001/_s0001> .
+
+<alice/source/_history001/_s0001> a sflo:HistoricalState ;
+  sflo:locatedFileForState <alice/source/_history001/_s0001/md/artifact-sidebar.md> .
+
+<alice/source/_history002> a sflo:ArtifactHistory ;
+  sflo:latestHistoricalState <alice/source/_history002/_s0002> .
+
+<alice/source/_history002/_s0002> a sflo:HistoricalState ;
+  sflo:locatedFileForState <alice/source/_history002/_s0002/md/artifact-sidebar.md> .
+`,
+    "artifact-sidebar.md",
+  );
+  await replaceAliceSidebarPageSource(
+    workspaceRoot,
+    `<#sidebar-source> a sflo:ResourcePageSource ;
+  sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> ;
+  sflo:hasRequestedTargetHistory <https://semantic-flow.github.io/mesh-alice-bio/alice/source/_history002> .`,
+  );
+
+  const result = await executeWeave({
+    meshRoot: workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "alice" }],
+    },
+  });
+  const page = await Deno.readTextFile(join(workspaceRoot, "alice/index.html"));
+
+  assertEquals(result.wovenDesignatorPaths, ["alice"]);
+  assertStringIncludes(page, "Requested-history settled sidebar");
+  assertStringIncludes(page, "from bounded history");
+  assertFalse(page.includes("Current-history settled sidebar"));
+  assertFalse(page.includes("Draft artifact-backed sidebar"));
+});
+
+Deno.test("executeWeave fails closed when latest-state page sources have no settled history", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-page-definition-artifact-latest-state-missing-",
+  );
+  await materializeMeshAliceBioBranch(
+    "14-alice-page-customized",
+    workspaceRoot,
+  );
+  await Deno.writeTextFile(
+    join(workspaceRoot, "artifact-sidebar.md"),
+    "Draft artifact-backed sidebar\n",
   );
   await addArtifactBackedPageSource(
     workspaceRoot,
@@ -1188,7 +1350,7 @@ Deno.test("executeWeave fails closed when artifact-backed page sources request l
         },
       }),
     WeaveRuntimeError,
-    "non-Working artifact resolution mode",
+    "has no currentArtifactHistory",
   );
 });
 
