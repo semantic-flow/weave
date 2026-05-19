@@ -111,6 +111,36 @@ Deno.test("planSetPayloadNextStateIntent accepts duplicate identical current his
   assertEquals(plan.currentArtifactHistoryPath, "alice/bio/releases");
 });
 
+Deno.test("planSetPayloadNextStateIntent rejects dot-segment current history paths", () => {
+  for (
+    const currentArtifactHistoryPath of [
+      "alice/bio/",
+      "alice/bio/%2e",
+      "alice/bio/%2e%2e",
+      "alice/bio/%252e",
+      "alice/bio/%252e%252e",
+    ]
+  ) {
+    const currentKnopInventoryTurtle = firstPayloadInventory.replace(
+      "sflo:hasWorkingLocatedFile <alice-bio.ttl> .",
+      `sflo:currentArtifactHistory <${currentArtifactHistoryPath}> ;
+  sflo:hasWorkingLocatedFile <alice-bio.ttl> .`,
+    );
+
+    assertThrows(
+      () =>
+        planSetPayloadNextStateIntent({
+          meshBase,
+          designatorPath: "alice/bio",
+          stateSegment: "v0.1.0",
+          currentKnopInventoryTurtle,
+        }),
+      PayloadVersionIntentInputError,
+      "outside the payload designator path",
+    );
+  }
+});
+
 Deno.test("planSetPayloadHistoryIntent rejects non-payload Knops", () => {
   assertThrows(
     () =>

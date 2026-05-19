@@ -40,7 +40,7 @@ This keeps the source checkout and mesh root in the same working tree. Extra-mes
 
 For a detached publication root, such as a generated `gh-pages` worktree, use the same mesh operations against the publication root instead of a special branch-publishing command. Create or open the mesh in the publication checkout, integrate each payload source with an explicit source policy, then run `weave`, `weave generate`, or `weave validate` for the intended publication step. The removed `weave prepare gh-pages` wrapper should not be used in new automation.
 
-Detached publication roots are still being refactored toward the same source-binding model as sidecar meshes. The important rule is that `weave` itself does not fetch repositories, copy source files into the publication root, apply host presets, or commit/push git refs; those are explicit setup, integration/import, profile, and CI/CD concerns.
+For detached publication roots and other extra-mesh source files, `integrate` records a working-only source binding automatically. The important rule is that `weave` itself does not fetch repositories, copy source files into the publication root, apply host presets, or commit/push git refs; those are explicit setup, integration/import, profile, and CI/CD concerns.
 
 ## Target syntax
 
@@ -252,10 +252,11 @@ Constraints:
 - `--mesh-root <path>` selects the mesh root and defaults to the current directory
 - relative source paths are resolved from the command working directory
 - `--grant-source-directory <path>` adds an operational `workingLocalRelativePath` grant for that source directory before resolving the source; workspace-contained sources are recorded in mesh config, while separate checkout sources are recorded in the host-local `~/.sf-local-access.ttl`
+- when the approved source path is outside the mesh root, `integrate` creates a Knop source registry automatically with the internal `payload-source` binding id, `targetLocalRelativePath`, and `artifactResolutionMode_working`
+- automatically created floating working-source bindings do not record repository ref, commit, path, digest evidence, or `expectsContentDigest`
 - `--source-repository-url`, `--source-repository-ref`, and `--source-repository-path` record repository-backed source provenance in the Knop source registry without fetching or copying source bytes
 - `--source-repository-commit` records immutable commit evidence when known
 - `--source-digest <digest>` records caller-provided byte evidence; if omitted when repository source metadata is supplied, Weave records a computed `sha256:` digest for the local source bytes it observed
-- `--source-binding-id <id>` sets the source-registry fragment id; otherwise Weave uses `payload-source`
 - the current local CLI slice accepts local filesystem paths or `file:` URLs
 - sources inside the mesh root are accepted directly
 - extra-mesh local sources are accepted only when operational policy allows the resulting relative `workingLocalRelativePath`

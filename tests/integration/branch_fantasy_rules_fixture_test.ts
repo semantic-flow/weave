@@ -16,9 +16,7 @@ import {
   MESH_BRANCH_FANTASY_RULES_BASE,
   meshBranchFantasyRulesSourcePaths,
   readMeshBranchFantasyRulesBranchFile,
-  resolveMeshBranchFantasyRulesCommit,
   resolveMeshBranchFantasyRulesConformanceManifestPath,
-  resolveMeshBranchFantasyRulesFixtureRepoPath,
 } from "../support/mesh_branch_fantasy_rules_fixture.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
@@ -41,18 +39,18 @@ const branchSourceOnlyExpectedPaths = [
 const branchSourceBindings = [
   {
     designatorPath: "ontology",
-    sourcePath: "ontology/fantasy-rules-ontology.ttl",
-    bindingKey: "branch-source-ontology",
+    sourcePath: "../source/ontology/fantasy-rules-ontology.ttl",
+    manifestName: "03-ontology-integrated-woven.jsonld",
   },
   {
     designatorPath: "shacl",
-    sourcePath: "shacl/fantasy-rules-shacl.ttl",
-    bindingKey: "branch-source-shacl",
+    sourcePath: "../source/shacl/fantasy-rules-shacl.ttl",
+    manifestName: "04-shacl-integrated-woven.jsonld",
   },
   {
     designatorPath: "examples/gunaar",
-    sourcePath: "examples/gunaar.ttl",
-    bindingKey: "branch-source-examples-gunaar",
+    sourcePath: "../source/examples/gunaar.ttl",
+    manifestName: "09-gunaar-example-dataset-woven.jsonld",
   },
 ] as const;
 
@@ -75,69 +73,70 @@ Deno.test("branch Fantasy Rules source lane remains source-only", async () => {
   );
 });
 
-Deno.test("branch Fantasy Rules final publication links repository source provenance from Knop inventories", async () => {
-  const sourceRef = "a.10-first-release-source";
-  const sourceCommit = await resolveMeshBranchFantasyRulesCommit(sourceRef);
-  const fixtureRepoPath = resolveMeshBranchFantasyRulesFixtureRepoPath();
-
+Deno.test("branch Fantasy Rules manifests use working-only source bindings for branch-published sources", async () => {
   for (const binding of branchSourceBindings) {
     const registryPath = `${binding.designatorPath}/_knop/_sources`;
-    const sourcesFilePath = `${registryPath}/sources.ttl`;
-    const inventory = await readMeshBranchFantasyRulesBranchFile(
-      "15-extracted-term-references-woven",
-      `${binding.designatorPath}/_knop/_inventory/inventory.ttl`,
+    const manifestPath = resolveMeshBranchFantasyRulesConformanceManifestPath(
+      binding.manifestName,
     );
-    const sources = await readMeshBranchFantasyRulesBranchFile(
-      "15-extracted-term-references-woven",
-      sourcesFilePath,
+    const manifestText = await Deno.readTextFile(manifestPath);
+    const transitionCase = await readSingleTransitionCase(manifestPath);
+    const invocations = transitionCase.hasReplayProfile?.hasCommandSequence ??
+      [];
+    const integrateInvocation = invocations[0];
+
+    assertEquals(
+      integrateInvocation?.argv?.includes("--source-binding-id"),
+      false,
+    );
+    assertEquals(
+      integrateInvocation?.argv?.some((arg) =>
+        arg.startsWith("--source-repository")
+      ),
+      false,
     );
 
     assertStringIncludes(
-      inventory,
-      `sflo:hasKnopSourceRegistry <${registryPath}>`,
+      manifestText,
+      `${registryPath}#payload-source`,
     );
     assertStringIncludes(
-      inventory,
-      `<${registryPath}> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument`,
+      manifestText,
+      `<${MESH_BRANCH_FANTASY_RULES_BASE}${registryPath}#payload-source> a <https://semantic-flow.github.io/sflo/ontology/ArtifactResolutionTarget>`,
     );
     assertStringIncludes(
-      inventory,
-      `<${sourcesFilePath}> a sflo:LocatedFile, sflo:RdfDocument .`,
-    );
-
-    assertStringIncludes(
-      sources,
-      `<${registryPath}#${binding.bindingKey}> a sflo:ArtifactResolutionTarget`,
-    );
-    assertStringIncludes(
-      sources,
-      `sflo:hasTargetArtifact <${
+      manifestText,
+      `<https://semantic-flow.github.io/sflo/ontology/hasTargetArtifact> <${
         new URL(binding.designatorPath, MESH_BRANCH_FANTASY_RULES_BASE).href
       }>`,
     );
     assertStringIncludes(
-      sources,
-      `sflo:targetLocalRelativePath "${binding.sourcePath}"`,
+      manifestText,
+      `<https://semantic-flow.github.io/sflo/ontology/targetLocalRelativePath> \\"${binding.sourcePath}\\"`,
     );
-    assertStringIncludes(
-      sources,
-      'sflo:sourceRepositoryUrl "https://github.com/semantic-flow/mesh-branch-fantasy-rules.git"',
+    assertStringIncludes(manifestText, "FILTER NOT EXISTS");
+    assertFalse(manifestText.includes("branch-source-"), manifestText);
+    assertFalse(manifestText.includes("sourceRepositoryUrl"), manifestText);
+    assertFalse(manifestText.includes("sourceRepositoryRef"), manifestText);
+    assertFalse(manifestText.includes("sourceRepositoryCommit"), manifestText);
+    assertFalse(manifestText.includes("sourceRepositoryPath"), manifestText);
+  }
+
+  const firstRelease = await readSingleTransitionCase(
+    resolveMeshBranchFantasyRulesConformanceManifestPath(
+      "11-first-release-woven.jsonld",
+    ),
+  );
+  const releaseInvocations =
+    firstRelease.hasReplayProfile?.hasCommandSequence ?? [];
+  assertEquals(releaseInvocations.length, 2);
+  for (const invocation of releaseInvocations) {
+    assertFalse(invocation.argv?.includes("payload"));
+    assertFalse(invocation.argv?.includes("prepare"));
+    assertEquals(
+      invocation.argv?.some((arg) => arg.startsWith("--source-repository")),
+      false,
     );
-    assertStringIncludes(
-      sources,
-      `sflo:sourceRepositoryRef "${sourceRef}"`,
-    );
-    assertStringIncludes(
-      sources,
-      `sflo:sourceRepositoryCommit "${sourceCommit}"`,
-    );
-    assertStringIncludes(
-      sources,
-      `sflo:sourceRepositoryPath "${binding.sourcePath}"`,
-    );
-    assertStringIncludes(sources, 'sflo:expectsContentDigest "sha256:');
-    assertStringIncludes(sources, 'sflo:hasContentDigest "sha256:');
-    assertFalse(sources.includes(fixtureRepoPath), sources);
   }
 });
 

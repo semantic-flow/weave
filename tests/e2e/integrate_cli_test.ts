@@ -96,13 +96,13 @@ Deno.test("weave integrate matches the manifest-scoped alice-bio integrated fixt
     );
 
     if (compareMode === "rdfCanonical") {
-      assertEquals(
+      assert(
         await compareRdfContent({
           left: actualBytes,
           right: expectedBytes,
           path,
         }),
-        true,
+        path,
       );
       continue;
     }
@@ -279,6 +279,20 @@ Deno.test("weave integrate grants and uses a repo-adjacent source directory as a
     ),
     false,
   );
+
+  const sources = await Deno.readTextFile(
+    join(workspaceRoot, "alice/bio/_knop/_sources/sources.ttl"),
+  );
+  assertStringIncludes(
+    sources,
+    "<alice/bio/_knop/_sources#payload-source> a sflo:ArtifactResolutionTarget ;",
+  );
+  assertStringIncludes(
+    sources,
+    'sflo:targetLocalRelativePath "../documentation/alice-bio.ttl" ;',
+  );
+  assertEquals(sources.includes("sflo:expectsContentDigest"), false);
+  assertEquals(sources.includes("sflo:hasTargetRepositorySource"), false);
 });
 
 Deno.test("weave integrate records repository-backed source provenance as a black-box CLI run", async () => {
@@ -325,8 +339,6 @@ Deno.test("weave integrate records repository-backed source provenance as a blac
       "mesh",
       "--grant-source-directory",
       "documentation",
-      "--source-binding-id",
-      "branch-source-alice-bio",
       "--source-repository-url",
       "https://github.com/semantic-flow/mesh-alice-bio.git",
       "--source-repository-ref",
@@ -359,7 +371,7 @@ Deno.test("weave integrate records repository-backed source provenance as a blac
   );
   assertStringIncludes(
     sources,
-    "<alice/bio/_knop/_sources#branch-source-alice-bio> a sflo:ArtifactResolutionTarget ;",
+    "<alice/bio/_knop/_sources#payload-source> a sflo:ArtifactResolutionTarget ;",
   );
   assertStringIncludes(
     sources,
@@ -384,6 +396,68 @@ Deno.test("weave integrate records repository-backed source provenance as a blac
     'sflo:sourceRepositoryPath "documentation/alice-bio.ttl" ;',
   );
   assertStringIncludes(sources, `sflo:hasContentDigest "${expectedDigest}"`);
+});
+
+Deno.test("weave integrate rejects partial repository-backed source metadata before execution", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-integrate-partial-source-metadata-",
+  );
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      cliPath,
+      "integrate",
+      "missing.ttl",
+      "alice/bio",
+      "--source-repository-url",
+      "https://github.com/semantic-flow/mesh-alice-bio.git",
+    ],
+    cwd: toFileUrl(`${workspaceRoot}/`),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assertEquals(output.success, false);
+  assertStringIncludes(
+    stderr,
+    "repository-backed integrate source bindings require --source-repository-url, --source-repository-ref, and --source-repository-path",
+  );
+});
+
+Deno.test("weave integrate rejects source digest evidence without repository metadata", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-integrate-digest-without-repo-",
+  );
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      cliPath,
+      "integrate",
+      "missing.ttl",
+      "alice/bio",
+      "--source-digest",
+      "sha256:not-checked",
+    ],
+    cwd: toFileUrl(`${workspaceRoot}/`),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assertEquals(output.success, false);
+  assertStringIncludes(
+    stderr,
+    "integrate source digest requires repository-backed source metadata",
+  );
 });
 
 Deno.test("weave integrate can grant a separate source checkout through host-local policy", async () => {
@@ -420,12 +494,6 @@ Deno.test("weave integrate can grant a separate source checkout through host-loc
       "publication",
       "--grant-source-directory",
       "source",
-      "--source-repository-url",
-      "https://github.com/semantic-flow/mesh-alice-bio.git",
-      "--source-repository-ref",
-      "main",
-      "--source-repository-path",
-      "alice-bio.ttl",
     ],
     cwd: toFileUrl(`${tempRoot}/`),
     env: {
@@ -467,8 +535,11 @@ Deno.test("weave integrate can grant a separate source checkout through host-loc
   );
   assertStringIncludes(
     sources,
-    'sflo:sourceRepositoryUrl "https://github.com/semantic-flow/mesh-alice-bio.git" ;',
+    "<alice/bio/_knop/_sources#payload-source> a sflo:ArtifactResolutionTarget ;",
   );
+  assertEquals(sources.includes("sflo:expectsContentDigest"), false);
+  assertEquals(sources.includes("sflo:hasTargetRepositorySource"), false);
+  assertEquals(sources.includes("sflo:sourceRepository"), false);
 });
 
 Deno.test("weave integrate grants the workspace root through host-local policy", async () => {
@@ -583,9 +654,18 @@ Deno.test("weave integrate matches the manifest-scoped sidecar Gunaar dataset fi
   assert(output.success, stderr);
   assert(stdout.includes("Integrated"), stdout);
 
+  const actualFiles = await listRelativeFiles(workspaceRoot, ".weave/");
+  const extraWorkingSourceBindingPath =
+    "docs/examples/gunaar/_knop/_sources/sources.ttl";
   assertEquals(
-    await listRelativeFiles(workspaceRoot, ".weave/"),
+    actualFiles.filter((path) => path !== extraWorkingSourceBindingPath),
     await listMeshSidecarFantasyRulesBranchFiles(transitionCase.toRef!),
+  );
+  assert(
+    actualFiles.includes(extraWorkingSourceBindingPath),
+    actualFiles.join(
+      "\n",
+    ),
   );
 
   const fileExpectations = getManifestFileExpectations(transitionCase);
@@ -607,6 +687,15 @@ Deno.test("weave integrate matches the manifest-scoped sidecar Gunaar dataset fi
       continue;
     }
 
+    if (path === "docs/examples/gunaar/_knop/_inventory/inventory.ttl") {
+      const inventory = await Deno.readTextFile(join(workspaceRoot, path));
+      assertStringIncludes(
+        inventory,
+        "sflo:hasKnopSourceRegistry <examples/gunaar/_knop/_sources> ;",
+      );
+      continue;
+    }
+
     const actualBytes = await Deno.readFile(join(workspaceRoot, path));
     const expectedBytes = new TextEncoder().encode(
       await readMeshSidecarFantasyRulesBranchFile(
@@ -616,13 +705,13 @@ Deno.test("weave integrate matches the manifest-scoped sidecar Gunaar dataset fi
     );
 
     if (compareMode === "rdfCanonical") {
-      assertEquals(
+      assert(
         await compareRdfContent({
           left: actualBytes,
           right: expectedBytes,
           path,
         }),
-        true,
+        path,
       );
       continue;
     }
@@ -642,6 +731,20 @@ Deno.test("weave integrate matches the manifest-scoped sidecar Gunaar dataset fi
 
     throw new Error(`Unsupported compare mode ${compareMode} for ${path}`);
   }
+
+  const sources = await Deno.readTextFile(
+    join(workspaceRoot, extraWorkingSourceBindingPath),
+  );
+  assertStringIncludes(
+    sources,
+    "<examples/gunaar/_knop/_sources#payload-source> a sflo:ArtifactResolutionTarget ;",
+  );
+  assertStringIncludes(
+    sources,
+    'sflo:targetLocalRelativePath "../examples/gunaar.ttl" ;',
+  );
+  assertEquals(sources.includes("sflo:expectsContentDigest"), false);
+  assertEquals(sources.includes("sflo:hasTargetRepositorySource"), false);
 
   await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
   await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));

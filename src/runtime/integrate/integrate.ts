@@ -37,11 +37,10 @@ export interface LocalIntegrateRequest {
 }
 
 export interface LocalIntegrateSourceBindingRequest {
-  bindingId?: string;
-  sourceRepositoryUrl: string;
-  sourceRepositoryRef: string;
+  sourceRepositoryUrl?: string;
+  sourceRepositoryRef?: string;
   sourceRepositoryCommit?: string;
-  sourceRepositoryPath: string;
+  sourceRepositoryPath?: string;
   sourceDigest?: string;
 }
 
@@ -127,10 +126,14 @@ export async function executeIntegrate(
       source,
     );
     workingLocalRelativePath = resolvedSource.workingLocalRelativePath;
-    const sourceBinding = await resolveSourceBinding(
+    const requestedSourceBinding = await resolveSourceBinding(
       options.request.sourceBinding,
       resolvedSource.absoluteSourcePath,
     );
+    const sourceBinding = requestedSourceBinding ??
+      resolveImplicitWorkingSourceBinding(
+        resolvedSource.workingLocalRelativePath,
+      );
     const meshState = await loadCurrentMeshState(meshRoot);
     plan = planIntegrate({
       meshBase: meshState.meshBase,
@@ -350,6 +353,31 @@ async function resolveSourceBinding(
     return undefined;
   }
 
+  const hasRepositoryUrl = request.sourceRepositoryUrl !== undefined;
+  const hasRepositoryRef = request.sourceRepositoryRef !== undefined;
+  const hasRepositoryPath = request.sourceRepositoryPath !== undefined;
+  const hasRepositoryMetadata = hasRepositoryUrl || hasRepositoryRef ||
+    hasRepositoryPath || request.sourceRepositoryCommit !== undefined;
+  const hasRepositoryLocator = hasRepositoryUrl && hasRepositoryRef &&
+    hasRepositoryPath;
+  if (
+    hasRepositoryMetadata && !hasRepositoryLocator
+  ) {
+    throw new IntegrateRuntimeError(
+      "repository-backed integrate source bindings require --source-repository-url, --source-repository-ref, and --source-repository-path",
+    );
+  }
+  if (request.sourceDigest !== undefined && !hasRepositoryMetadata) {
+    throw new IntegrateRuntimeError(
+      "integrate source digest requires repository-backed source metadata",
+    );
+  }
+  if (!hasRepositoryMetadata) {
+    return {
+      artifactResolutionMode: "working",
+    };
+  }
+
   const sourceDigest = await sha256FileDigest(absoluteSourcePath);
   if (
     request.sourceDigest !== undefined &&
@@ -360,21 +388,28 @@ async function resolveSourceBinding(
     );
   }
   const repositorySource: IntegrateRepositorySource = {
-    repositoryUrl: request.sourceRepositoryUrl,
-    repositoryRef: request.sourceRepositoryRef,
+    repositoryUrl: request.sourceRepositoryUrl!,
+    repositoryRef: request.sourceRepositoryRef!,
     ...(request.sourceRepositoryCommit
       ? { repositoryCommit: request.sourceRepositoryCommit }
       : {}),
-    repositoryPath: request.sourceRepositoryPath,
+    repositoryPath: request.sourceRepositoryPath!,
     contentDigest: sourceDigest,
   };
 
   return {
-    ...(request.bindingId ? { bindingId: request.bindingId } : {}),
     repositorySource,
     expectedContentDigest: sourceDigest,
     artifactResolutionMode: "working",
   };
+}
+
+function resolveImplicitWorkingSourceBinding(
+  workingLocalRelativePath: string,
+): IntegrateSourceBinding | undefined {
+  return workingLocalRelativePath.startsWith("../")
+    ? { artifactResolutionMode: "working" }
+    : undefined;
 }
 
 async function sha256FileDigest(absoluteSourcePath: string): Promise<string> {

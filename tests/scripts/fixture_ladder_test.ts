@@ -606,16 +606,6 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
       "{publicationRoot}",
       "--grant-source-directory",
       "{sourceRoot}",
-      "--source-binding-id",
-      "branch-source-ontology",
-      "--source-repository-url",
-      "https://github.com/semantic-flow/mesh-branch-fantasy-rules.git",
-      "--source-repository-ref",
-      "{sourceRef}",
-      "--source-repository-commit",
-      "{sourceCommit}",
-      "--source-repository-path",
-      "ontology/fantasy-rules-ontology.ttl",
     ]);
     assertEquals(plan.transitions[2].action.invocations[1]?.argv, [
       "--mesh-root",
@@ -645,16 +635,6 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
       "{publicationRoot}",
       "--grant-source-directory",
       "{sourceRoot}",
-      "--source-binding-id",
-      "branch-source-shacl",
-      "--source-repository-url",
-      "https://github.com/semantic-flow/mesh-branch-fantasy-rules.git",
-      "--source-repository-ref",
-      "{sourceRef}",
-      "--source-repository-commit",
-      "{sourceCommit}",
-      "--source-repository-path",
-      "shacl/fantasy-rules-shacl.ttl",
     ]);
     assertEquals(plan.transitions[3].action.invocations[1]?.argv, [
       "--mesh-root",
@@ -813,16 +793,6 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
       "{publicationRoot}",
       "--grant-source-directory",
       "{sourceRoot}",
-      "--source-binding-id",
-      "branch-source-examples-gunaar",
-      "--source-repository-url",
-      "https://github.com/semantic-flow/mesh-branch-fantasy-rules.git",
-      "--source-repository-ref",
-      "{sourceRef}",
-      "--source-repository-commit",
-      "{sourceCommit}",
-      "--source-repository-path",
-      "examples/gunaar.ttl",
     ]);
     assertEquals(plan.transitions[8].action.invocations[1]?.argv, [
       "--mesh-root",
@@ -863,37 +833,8 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
       plan.transitions[10].action.publicationFromRef,
       "a.09-gunaar-example-dataset-woven",
     );
-    assertEquals(plan.transitions[10].action.invocations.length, 8);
+    assertEquals(plan.transitions[10].action.invocations.length, 2);
     assertEquals(plan.transitions[10].action.invocations[0]?.argv, [
-      "payload",
-      "update",
-      "{sourceRoot}/ontology/fantasy-rules-ontology.ttl",
-      "--designator-path",
-      "ontology",
-      "--mesh-root",
-      "{publicationRoot}",
-    ]);
-    assertEquals(plan.transitions[10].action.invocations[1]?.argv, [
-      "prepare",
-      "gh-pages",
-      "--source-root",
-      "{sourceRoot}",
-      "--publish-root",
-      "{publicationRoot}",
-      "--mesh-base",
-      "https://semantic-flow.github.io/mesh-branch-fantasy-rules/",
-      "--source-path",
-      "ontology/fantasy-rules-ontology.ttl",
-      "--designator-path",
-      "ontology",
-      "--source-repository-url",
-      "https://github.com/semantic-flow/mesh-branch-fantasy-rules.git",
-      "--source-ref",
-      "{sourceRef}",
-      "--source-commit",
-      "{sourceCommit}",
-    ]);
-    assertEquals(plan.transitions[10].action.invocations[6]?.argv, [
       "--mesh-root",
       "{publicationRoot}",
       "--payload-history-segment",
@@ -907,7 +848,7 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
       "--target",
       "designatorPath=shacl",
     ]);
-    assertEquals(plan.transitions[10].action.invocations[7]?.argv, [
+    assertEquals(plan.transitions[10].action.invocations[1]?.argv, [
       "--mesh-root",
       "{publicationRoot}",
       "--target",

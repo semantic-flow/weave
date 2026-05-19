@@ -123,6 +123,54 @@ Deno.test(
   },
 );
 
+Deno.test("planIntegrate records working-only source bindings with the internal id", async () => {
+  const currentMeshInventoryTurtle = await readMeshAliceBioBranchFile(
+    "05-alice-knop-created-woven",
+    "_mesh/_inventory/inventory.ttl",
+  );
+
+  const plan = planIntegrate({
+    designatorPath: "alice/bio",
+    workingLocalRelativePath: "../source/alice-bio.ttl",
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle,
+    sourceBinding: {
+      artifactResolutionMode: "working",
+    },
+  });
+
+  assertEquals(
+    plan.sourceBindingIri,
+    "https://semantic-flow.github.io/mesh-alice-bio/alice/bio/_knop/_sources#payload-source",
+  );
+  assertEquals(
+    plan.createdFiles.map((file) => file.path),
+    [
+      "alice/bio/_knop/_meta/meta.ttl",
+      "alice/bio/_knop/_inventory/inventory.ttl",
+      "alice/bio/_knop/_sources/sources.ttl",
+    ],
+  );
+
+  const sources = plan.createdFiles[2]?.contents ?? "";
+  assertStringIncludes(
+    sources,
+    "<alice/bio/_knop/_sources#payload-source> a sflo:ArtifactResolutionTarget ;",
+  );
+  assertStringIncludes(
+    sources,
+    'sflo:targetLocalRelativePath "../source/alice-bio.ttl" ;',
+  );
+  assertStringIncludes(
+    sources,
+    "sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> .",
+  );
+  assertEquals(sources.includes("sflo:expectsContentDigest"), false);
+  assertEquals(sources.includes("sflo:hasTargetRepositorySource"), false);
+  assertEquals(sources.includes("sflo:sourceRepository"), false);
+  assertEquals(sources.includes("sflo:hasContentDigest"), false);
+});
+
 Deno.test("planIntegrate records repository-backed source bindings", async () => {
   const currentMeshInventoryTurtle = await readMeshAliceBioBranchFile(
     "05-alice-knop-created-woven",

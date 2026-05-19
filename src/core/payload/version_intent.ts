@@ -437,11 +437,35 @@ function toMeshRelativePath(meshBase: string, iri: string): string {
 }
 
 function isDirectChildPath(parentPath: string, childPath: string): boolean {
-  if (parentPath.length === 0) {
-    return !childPath.includes("/");
+  const childSegment = parentPath.length === 0
+    ? childPath
+    : childPath.startsWith(`${parentPath}/`)
+    ? childPath.slice(parentPath.length + 1)
+    : undefined;
+
+  if (childSegment === undefined || childSegment.includes("/")) {
+    return false;
   }
-  return childPath.startsWith(`${parentPath}/`) &&
-    !childPath.slice(parentPath.length + 1).includes("/");
+
+  let decodedChildSegment: string;
+  try {
+    decodedChildSegment = decodeURIComponent(childSegment);
+  } catch {
+    return false;
+  }
+
+  if (
+    decodedChildSegment.length === 0 ||
+    decodedChildSegment === "." ||
+    decodedChildSegment === ".."
+  ) {
+    return false;
+  }
+
+  if (parentPath.length === 0) {
+    return true;
+  }
+  return childPath.startsWith(`${parentPath}/`);
 }
 
 function escapeRegExp(value: string): string {

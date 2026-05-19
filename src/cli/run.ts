@@ -863,16 +863,12 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           "Add an operational workingLocalRelativePath grant for this source directory.",
         )
         .option(
-          "--source-binding-id <id:string>",
-          "Fragment id for the repository-backed source binding in the Knop source registry. Supplying any source-binding option also requires --source-repository-url, --source-repository-ref, and --source-repository-path.",
-        )
-        .option(
           "--source-repository-url <url:string>",
-          "Repository URL to record for the integrated source bytes. Required when any source-binding option is supplied.",
+          "Repository URL to record for the integrated source bytes. Requires --source-repository-ref and --source-repository-path.",
         )
         .option(
           "--source-repository-ref <ref:string>",
-          "Repository ref to record for the integrated source bytes. Required when any source-binding option is supplied.",
+          "Repository ref to record for the integrated source bytes. Requires --source-repository-url and --source-repository-path.",
         )
         .option(
           "--source-repository-commit <commit:string>",
@@ -880,11 +876,11 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         )
         .option(
           "--source-repository-path <path:string>",
-          "Repository-relative source path to record for the integrated source bytes. Required when any source-binding option is supplied.",
+          "Repository-relative source path to record for the integrated source bytes. Requires --source-repository-url and --source-repository-ref.",
         )
         .option(
           "--source-digest <digest:string>",
-          "Expected digest for the integrated source bytes. Requires repository metadata; when omitted, repository-backed source bindings record the computed sha256 digest.",
+          "Expected digest for repository-backed integrated source bytes. Requires repository metadata.",
         )
         .action(async (options, source, designatorPathArg) => {
           const designatorPath = resolveIntegrateDesignatorPath(
@@ -1359,7 +1355,6 @@ function resolveIntegrateDesignatorPath(
 
 function resolveIntegrateSourceBindingOptions(
   options: {
-    sourceBindingId?: string;
     sourceRepositoryUrl?: string;
     sourceRepositoryRef?: string;
     sourceRepositoryCommit?: string;
@@ -1368,7 +1363,6 @@ function resolveIntegrateSourceBindingOptions(
   },
 ): LocalIntegrateSourceBindingRequest | undefined {
   const provided = [
-    options.sourceBindingId,
     options.sourceRepositoryUrl,
     options.sourceRepositoryRef,
     options.sourceRepositoryCommit,
@@ -1377,6 +1371,16 @@ function resolveIntegrateSourceBindingOptions(
   ].some((value) => value !== undefined);
   if (!provided) {
     return undefined;
+  }
+  const repositoryMetadataProvided =
+    options.sourceRepositoryUrl !== undefined ||
+    options.sourceRepositoryRef !== undefined ||
+    options.sourceRepositoryCommit !== undefined ||
+    options.sourceRepositoryPath !== undefined;
+  if (options.sourceDigest !== undefined && !repositoryMetadataProvided) {
+    throw new IntegrateInputError(
+      "integrate source digest requires repository-backed source metadata",
+    );
   }
   if (
     !options.sourceRepositoryUrl ||
@@ -1389,7 +1393,6 @@ function resolveIntegrateSourceBindingOptions(
   }
 
   return {
-    ...(options.sourceBindingId ? { bindingId: options.sourceBindingId } : {}),
     sourceRepositoryUrl: options.sourceRepositoryUrl,
     sourceRepositoryRef: options.sourceRepositoryRef,
     ...(options.sourceRepositoryCommit
