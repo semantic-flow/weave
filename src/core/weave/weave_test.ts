@@ -2179,7 +2179,7 @@ Deno.test("planWeave can start a requested payload history after another history
   );
 });
 
-Deno.test("planWeave can start a requested payload history with current-only KnopInventory policy", () => {
+Deno.test("planWeave can start a requested payload history with working-only KnopInventory policy", () => {
   const historyPath = "alice/bio/_knop/_inventory/_history001";
   const versionedKnopInventoryTurtle = secondPayloadWeaveKnopInventoryTurtle
     .replaceAll(
@@ -2752,7 +2752,7 @@ Deno.test("planWeave generalizes the first page-definition weave slice for earli
 
 <#main-source> a sflo:ResourcePageSource ;
   sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/bob/page-main> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> .
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> .
 `;
   const plan = planWeave({
     request: {
@@ -2819,7 +2819,7 @@ Deno.test("planWeave renders a later page-definition weave revision", async () =
   sflo:targetLocalRelativePath "alice/alice.md" .`,
     `<#main-source> a sflo:ResourcePageSource ;
   sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/page-main> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> .`,
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> .`,
   );
   const latestHistoricalSnapshotTurtle = await readMeshAliceBioBranchFile(
     "17-alice-page-main-integrated-woven",

@@ -948,7 +948,7 @@ Deno.test("executeWeave resolves current artifact-backed page sources through ha
     workspaceRoot,
     `<#sidebar-source> a sflo:ResourcePageSource ;
   sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> .`,
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> .`,
   );
 
   const result = await executeWeave({
@@ -983,7 +983,7 @@ Deno.test("executeWeave versions a later page-definition revision that repoints 
   sflo:targetLocalRelativePath "alice/alice.md" .`,
     `<#main-source> a sflo:ResourcePageSource ;
   sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/page-main> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> .`,
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> .`,
   );
 
   const result = await executeWeave({
@@ -1188,7 +1188,7 @@ Deno.test("executeWeave fails closed when artifact-backed page sources request p
         },
       }),
     WeaveRuntimeError,
-    "non-Current artifact resolution mode",
+    "non-Working artifact resolution mode",
   );
 });
 
@@ -1748,7 +1748,7 @@ Deno.test("executeWeave fails closed when bob's woven source payload has no curr
   );
 });
 
-Deno.test("executeGenerate lists every sidecar payload history with current history first", async () => {
+Deno.test("executeGenerate lists every sidecar payload history with working history first", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-generate-sidecar-release-histories-",
   );

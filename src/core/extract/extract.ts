@@ -18,8 +18,8 @@ const XSD_NON_NEGATIVE_INTEGER_IRI =
   "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
 const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
   `${SFLO_NAMESPACE}artifactResolutionMode_pinned`;
-const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
-  `${SFLO_NAMESPACE}artifactResolutionMode_current`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI =
+  `${SFLO_NAMESPACE}artifactResolutionMode_working`;
 const SFLO_DIGITAL_ARTIFACT_IRI = `${SFLO_NAMESPACE}DigitalArtifact`;
 const SFLO_HAS_KNOP_IRI = `${SFLO_NAMESPACE}hasKnop`;
 const SFLO_HAS_MESH_INVENTORY_IRI = `${SFLO_NAMESPACE}hasMeshInventory`;
@@ -51,7 +51,7 @@ export interface ResolvedExtractRequest extends ExtractRequest {
   currentMeshInventoryTurtle: string;
   sourceDesignatorPath: string;
   sourceStatePath?: string;
-  sourceResolutionMode?: "current" | "pinned";
+  sourceResolutionMode?: "working" | "current" | "pinned";
   sourceEvidence?: ExtractionSourceEvidence;
   sourceWorkingLocalRelativePath: string;
 }
@@ -73,7 +73,7 @@ export interface ExtractPlan {
   sourceDesignatorPath: string;
   sourceStateIri?: string;
   sourceStatePath?: string;
-  sourceResolutionMode: "current" | "pinned";
+  sourceResolutionMode: "working" | "pinned";
   sourceEvidence?: ExtractionSourceEvidence;
   createdFiles: readonly PlannedFile[];
   updatedFiles: readonly PlannedFile[];
@@ -97,7 +97,7 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
     "sourceDesignatorPath",
   );
   const sourceResolutionMode = request.sourceResolutionMode === undefined
-    ? "current"
+    ? "working"
     : normalizeSourceResolutionMode(request.sourceResolutionMode);
   const sourceStatePath = request.sourceStatePath === undefined
     ? undefined
@@ -182,11 +182,14 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
 
 function normalizeSourceResolutionMode(
   sourceResolutionMode: string,
-): "current" | "pinned" {
-  if (sourceResolutionMode === "current" || sourceResolutionMode === "pinned") {
+): "working" | "pinned" {
+  if (sourceResolutionMode === "working" || sourceResolutionMode === "pinned") {
     return sourceResolutionMode;
   }
-  throw new ExtractInputError("sourceResolutionMode must be current or pinned");
+  if (sourceResolutionMode === "current") {
+    return "working";
+  }
+  throw new ExtractInputError("sourceResolutionMode must be working or pinned");
 }
 
 function normalizeExtractionSourceEvidence(
@@ -789,7 +792,7 @@ function renderExtractKnopSourcesTurtle(
   meshBase: string,
   designatorPath: string,
   sourceDesignatorPath: string,
-  sourceResolutionMode: "current" | "pinned",
+  sourceResolutionMode: "working" | "pinned",
   sourceStatePath?: string,
   sourceEvidence?: ExtractionSourceEvidence,
 ): string {
@@ -819,7 +822,7 @@ ${extractionSourceFacts}
 
 function renderExtractionSourceFacts(
   sourceDesignatorPath: string,
-  sourceResolutionMode: "current" | "pinned",
+  sourceResolutionMode: "working" | "pinned",
   sourceStatePath: string | undefined,
   sourceEvidence: ExtractionSourceEvidence | undefined,
 ): string {
@@ -834,7 +837,7 @@ function renderExtractionSourceFacts(
     `<${
       sourceResolutionMode === "pinned"
         ? SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI
-        : SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI
+        : SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI
     }>`,
   ]);
   facts.push(...toExtractionSourceEvidenceFacts(sourceEvidence));

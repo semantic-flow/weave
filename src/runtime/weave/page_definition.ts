@@ -41,6 +41,8 @@ const SFLO_TARGET_ACCESS_URL_IRI = `${SFLO_NAMESPACE}targetAccessUrl`;
 const SFLO_REGION_KEY_IRI = `${SFLO_NAMESPACE}regionKey`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
   `${SFLO_NAMESPACE}artifactResolutionMode_current`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI =
+  `${SFLO_NAMESPACE}artifactResolutionMode_working`;
 const PAGE_DEFINITION_ARTIFACT_SUFFIX = "/_knop/_page";
 const ROOT_PAGE_DEFINITION_ARTIFACT_PATH = "_knop/_page";
 const ROOT_REFERENCE_CATALOG_PATH = "_knop/_references";
@@ -328,12 +330,13 @@ export async function loadActiveCustomIdentifierPage(
       }
       if (
         resolutionMode !== undefined &&
-        resolutionMode !== SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI
+        resolutionMode !== SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI &&
+        resolutionMode !== SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI
       ) {
         throw new ResourcePageDefinitionResolutionError(
           `ResourcePageDefinition region ${key} for ${
             formatDesignatorPathForDisplay(designatorPath)
-          } requests a non-Current artifact resolution mode that this first artifact-backed page-source slice does not support yet.`,
+          } requests a non-Working artifact resolution mode that this first artifact-backed page-source slice does not support yet.`,
         );
       }
 

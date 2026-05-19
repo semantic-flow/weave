@@ -251,7 +251,7 @@ Deno.test("resolveExtractionSourceInventoryState reads source registry extractio
 
 <bob/_knop/_sources#extraction-source> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> sflo:ExtractionSource ;
   sflo:hasTargetArtifact <alice/bio> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> .
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> .
 `;
 
   assertEquals(
@@ -287,7 +287,7 @@ Deno.test("resolveExtractionSourceInventoryState reads source registry extractio
     {
       sourceArtifactPath: "alice/bio",
       artifactResolutionModeIri:
-        "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current",
+        "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working",
     },
   );
 });

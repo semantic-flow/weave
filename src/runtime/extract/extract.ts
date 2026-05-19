@@ -57,8 +57,8 @@ const SFLO_HAS_KNOP_SOURCE_REGISTRY_IRI =
   `${SFLO_NAMESPACE}hasKnopSourceRegistry`;
 const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
   `${SFLO_NAMESPACE}hasWorkingLocatedFile`;
-const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
-  `${SFLO_NAMESPACE}artifactResolutionMode_current`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI =
+  `${SFLO_NAMESPACE}artifactResolutionMode_working`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
   `${SFLO_NAMESPACE}artifactResolutionMode_pinned`;
 const SFLO_HISTORICAL_STATE_IRI = `${SFLO_NAMESPACE}HistoricalState`;
@@ -140,7 +140,7 @@ export interface ExtractResult {
   sourceArtifactIri: string;
   sourceDesignatorPath: string;
   sourceStateIri?: string;
-  sourceResolutionMode: "current" | "pinned";
+  sourceResolutionMode: "working" | "pinned";
   createdPaths: readonly string[];
   updatedPaths: readonly string[];
 }
@@ -150,7 +150,7 @@ export interface ExtractAllTermsResult {
   sourceDesignatorPath: string;
   sourceArtifactIri: string;
   sourceStateIri?: string;
-  sourceResolutionMode: "current" | "pinned";
+  sourceResolutionMode: "working" | "pinned";
   discoveredDesignatorPaths: readonly string[];
   extractedDesignatorPaths: readonly string[];
   skippedExistingDesignatorPaths: readonly string[];
@@ -169,7 +169,7 @@ export interface SetExtractionSourceResult {
   designatorPath: string;
   sourceDesignatorPath: string;
   sourceStateIri?: string;
-  sourceResolutionMode: "current" | "pinned";
+  sourceResolutionMode: "working" | "pinned";
   updatedPaths: readonly string[];
 }
 
@@ -177,7 +177,7 @@ export interface SetExtractionSourceAllTermsResult {
   meshBase: string;
   sourceDesignatorPath: string;
   sourceStateIri?: string;
-  sourceResolutionMode: "current" | "pinned";
+  sourceResolutionMode: "working" | "pinned";
   discoveredDesignatorPaths: readonly string[];
   updatedDesignatorPaths: readonly string[];
   skippedDesignatorPaths: readonly string[];
@@ -194,7 +194,7 @@ export class ExtractRuntimeError extends Error {
 interface ExtractSourcePayload {
   designatorPath: string;
   workingLocalRelativePath: string;
-  sourceResolutionMode: "current" | "pinned";
+  sourceResolutionMode: "working" | "pinned";
   sourceStatePath?: string;
   sourceEvidence?: ExtractionSourceEvidence;
   sourcePayloadTurtle: string;
@@ -1091,7 +1091,7 @@ async function loadExtractSourcePayloadCandidate(
   return {
     designatorPath,
     workingLocalRelativePath: payloadArtifact.workingLocalRelativePath,
-    sourceResolutionMode: "current",
+    sourceResolutionMode: "working",
     sourceStatePath: undefined,
     sourceEvidence: {
       ...(payloadArtifact.workingLocatedFilePath
@@ -1793,7 +1793,7 @@ function renderExtractionSourceBlock(
     `<${
       sourcePayload.sourceResolutionMode === "pinned"
         ? SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI
-        : SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI
+        : SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI
     }>`,
   ]);
   facts.push(...toExtractionSourceEvidenceFacts(sourcePayload.sourceEvidence));

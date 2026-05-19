@@ -123,6 +123,10 @@ const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
   `${SFLO_NAMESPACE}artifactResolutionMode_pinned`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
   `${SFLO_NAMESPACE}artifactResolutionMode_current`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI =
+  `${SFLO_NAMESPACE}artifactResolutionMode_working`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_LATEST_STATE_IRI =
+  `${SFLO_NAMESPACE}artifactResolutionMode_latestState`;
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const DCTERMS_TITLE_IRI = "http://purl.org/dc/terms/title";
 
@@ -3162,7 +3166,10 @@ async function addExtractionSourceRawSourcePanels(
     return;
   }
 
-  if (artifactResolutionModeIri === SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI) {
+  if (
+    artifactResolutionModeIri === SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI ||
+    artifactResolutionModeIri === SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI
+  ) {
     try {
       addRawSourcePanel(
         rawSourcePanels,
@@ -3174,7 +3181,7 @@ async function addExtractionSourceRawSourcePanels(
             sourcePayloadArtifact.workingLocalRelativePath,
           ),
           sourcePayloadArtifact.workingLocalRelativePath,
-          "Current source file",
+          "Working source file",
         ),
       );
     } catch (error) {
@@ -3189,6 +3196,11 @@ async function addExtractionSourceRawSourcePanels(
     return;
   }
 
+  if (
+    artifactResolutionModeIri === SFLO_ARTIFACT_RESOLUTION_MODE_LATEST_STATE_IRI
+  ) {
+    requestedTargetStatePath = sourcePayloadArtifact.latestHistoricalStatePath;
+  }
   if (!requestedTargetStatePath) {
     throw new WeaveRuntimeError(
       `Extracted page source for ${designatorPath} is missing a pinned target state.`,

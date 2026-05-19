@@ -71,7 +71,7 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
     plan.sourceStateIri,
     "https://semantic-flow.github.io/mesh-alice-bio/alice/bio/_history001/_s0002",
   );
-  assertEquals(plan.sourceResolutionMode, "current");
+  assertEquals(plan.sourceResolutionMode, "working");
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
@@ -98,7 +98,7 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
   );
   assertStringIncludes(
     plan.createdFiles[2]?.contents ?? "",
-    "sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> ;",
+    "sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> ;",
   );
   assertStringIncludes(
     plan.createdFiles[2]?.contents ?? "",

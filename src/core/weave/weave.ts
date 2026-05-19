@@ -76,6 +76,8 @@ const SFCFG_HAS_NEXT_STATE_SEGMENT_HINT_IRI =
   `${SFCFG_NAMESPACE}hasNextStateSegmentHint`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
   `${SFLO_NAMESPACE}artifactResolutionMode_current`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI =
+  `${SFLO_NAMESPACE}artifactResolutionMode_working`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
   `${SFLO_NAMESPACE}artifactResolutionMode_pinned`;
 const SFLO_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}ExtractionSource`;
@@ -2308,31 +2310,33 @@ function assertCurrentSourceRegistryShapeForFirstExtractedKnopWeave(
     [extractionSourcePath, RDF_TYPE_IRI, SFLO_EXTRACTION_SOURCE_IRI],
     [extractionSourcePath, SFLO_HAS_TARGET_ARTIFACT_IRI, sourceDesignatorPath],
   ]);
-  if (
-    !hasNamedNodeFact(
-      quads,
-      meshBase,
-      extractionSourcePath,
-      SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
-      SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI,
-    ) &&
-    !(
-      hasNamedNodeFact(
-        quads,
-        meshBase,
-        extractionSourcePath,
-        SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
-        SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI,
-      ) &&
-      hasNamedNodeFact(
-        quads,
-        meshBase,
-        extractionSourcePath,
-        SFLO_HAS_REQUESTED_TARGET_STATE_IRI,
-        sourceStatePath,
-      )
-    )
-  ) {
+  const hasWorkingResolutionMode = hasNamedNodeFact(
+    quads,
+    meshBase,
+    extractionSourcePath,
+    SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
+    SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI,
+  ) || hasNamedNodeFact(
+    quads,
+    meshBase,
+    extractionSourcePath,
+    SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
+    SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI,
+  );
+  const hasPinnedExactMode = hasNamedNodeFact(
+    quads,
+    meshBase,
+    extractionSourcePath,
+    SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
+    SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI,
+  ) && hasNamedNodeFact(
+    quads,
+    meshBase,
+    extractionSourcePath,
+    SFLO_HAS_REQUESTED_TARGET_STATE_IRI,
+    sourceStatePath,
+  );
+  if (!hasWorkingResolutionMode && !hasPinnedExactMode) {
     throw new WeaveInputError(errorMessage);
   }
 }

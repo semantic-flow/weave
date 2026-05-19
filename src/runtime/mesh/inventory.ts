@@ -11,6 +11,10 @@ const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
   `${SFLO_NAMESPACE}artifactResolutionMode_pinned`;
 const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
   `${SFLO_NAMESPACE}artifactResolutionMode_current`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI =
+  `${SFLO_NAMESPACE}artifactResolutionMode_working`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_LATEST_STATE_IRI =
+  `${SFLO_NAMESPACE}artifactResolutionMode_latestState`;
 const SFLO_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}ExtractionSource`;
 const SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
   `${SFLO_NAMESPACE}hasArtifactResolutionMode`;
@@ -332,10 +336,14 @@ export function resolveExtractionSourceInventoryState(
     extractionSourceIri,
     SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
     messages.unsupportedResolutionModeMessage,
-  ) ?? SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI;
+  ) ?? (requestedTargetStatePath
+    ? SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI
+    : SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI);
   if (
     artifactResolutionModeIri !== SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI &&
-    artifactResolutionModeIri !== SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI
+    artifactResolutionModeIri !== SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI &&
+    artifactResolutionModeIri !== SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI &&
+    artifactResolutionModeIri !== SFLO_ARTIFACT_RESOLUTION_MODE_LATEST_STATE_IRI
   ) {
     throw new Error(messages.unsupportedResolutionModeMessage);
   }

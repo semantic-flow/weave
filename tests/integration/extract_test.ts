@@ -48,7 +48,7 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
     "https://semantic-flow.github.io/mesh-alice-bio/alice/bio",
   );
   assertEquals(result.sourceStateIri, undefined);
-  assertEquals(result.sourceResolutionMode, "current");
+  assertEquals(result.sourceResolutionMode, "working");
   assertEquals(
     [...result.createdPaths].sort(),
     [
@@ -118,7 +118,7 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
 
 <bob/_knop/_sources#extraction-source> a sflo:ExtractionSource ;
   sflo:hasTargetArtifact <alice/bio> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> ;
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> ;
   sflo:hasObservedSourceLocatedFile <alice-bio.ttl> ;
   sflo:observedSourceDigest "sha256:37c15e56644d785a550522d7700eccd9465704f18cf4b4e55616db8b8824ea33" .
 
@@ -565,7 +565,7 @@ Deno.test("executeExtract extracts selected sidecar ontology and SHACL terms wit
         workspaceRoot,
         "docs/ontology/AbilityScore/_knop/_sources/sources.ttl",
       ),
-    )).includes("artifactResolutionMode_current"),
+    )).includes("artifactResolutionMode_working"),
     true,
   );
   assertEquals(
@@ -612,7 +612,7 @@ Deno.test("executeExtract fails closed for ambiguous sidecar term sources withou
   );
 });
 
-Deno.test("executeSetExtractionSource replaces an existing pinned source binding with current", async () => {
+Deno.test("executeSetExtractionSource replaces an existing pinned source binding with working", async () => {
   const workspaceRoot = await createTestTmpDir("weave-set-extraction-source-");
   await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
 
@@ -640,14 +640,14 @@ Deno.test("executeSetExtractionSource replaces an existing pinned source binding
     },
   });
 
-  assertEquals(result.sourceResolutionMode, "current");
+  assertEquals(result.sourceResolutionMode, "working");
   assertEquals(result.updatedPaths, ["bob/_knop/_sources/sources.ttl"]);
   const sourcesTurtle = await Deno.readTextFile(sourcesPath);
   const inventoryTurtle = await Deno.readTextFile(
     join(workspaceRoot, "bob/_knop/_inventory/inventory.ttl"),
   );
   assertEquals(
-    sourcesTurtle.includes("artifactResolutionMode_current"),
+    sourcesTurtle.includes("artifactResolutionMode_working"),
     true,
   );
   assertEquals(

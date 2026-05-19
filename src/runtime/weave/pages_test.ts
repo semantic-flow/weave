@@ -102,7 +102,7 @@ Deno.test("renderResourcePage renders identifier extraction source metadata", as
       extractionSource: {
         sourceArtifactPath: "ontology",
         artifactResolutionModeIri:
-          "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current",
+          "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working",
       },
     },
     { includeSemanticFlowMetadata: true },
@@ -130,7 +130,7 @@ Deno.test("renderResourcePage renders identifier extraction source metadata", as
   );
   assertStringIncludes(
     html,
-    '<tr><th scope="row">Extraction Source Mode</th><td><a href="https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current">sflo:artifactResolutionMode_current</a></td></tr>',
+    '<tr><th scope="row">Extraction Source Mode</th><td><a href="https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working">sflo:artifactResolutionMode_working</a></td></tr>',
   );
 });
 
@@ -856,7 +856,7 @@ Deno.test("renderResourcePage falls back to skos definition for summaries", asyn
       path: "ontology/AbilityScore/index.html",
       designatorPath: "ontology/AbilityScore",
       rawSourcePanels: [{
-        label: "Current source file",
+        label: "Working source file",
         sourcePath: "../ontology/fantasy-rules-ontology.ttl",
         contents:
           `@prefix fant: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
@@ -884,7 +884,7 @@ Deno.test("renderResourcePage falls back to labels for summaries only", async ()
       path: "ontology/AbilityScore/index.html",
       designatorPath: "ontology/AbilityScore",
       rawSourcePanels: [{
-        label: "Current source file",
+        label: "Working source file",
         sourcePath: "../ontology/fantasy-rules-ontology.ttl",
         contents:
           `@prefix fant: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
@@ -913,7 +913,7 @@ fant:AbilityScore a owl:Class ;
       path: "ontology/AbilityScore/index.html",
       designatorPath: "ontology/AbilityScore",
       rawSourcePanels: [{
-        label: "Current source file",
+        label: "Working source file",
         sourcePath: "../ontology/fantasy-rules-ontology.ttl",
         contents:
           `@prefix fant: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
@@ -942,7 +942,7 @@ Deno.test("renderResourcePage renders properties from subject triples", async ()
       path: "ontology/AbilityScore/index.html",
       designatorPath: "ontology/AbilityScore",
       rawSourcePanels: [{
-        label: "Current source file",
+        label: "Working source file",
         sourcePath: "../ontology/fantasy-rules-ontology.ttl",
         contents:
           `@prefix fant: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
