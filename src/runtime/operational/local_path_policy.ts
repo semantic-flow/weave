@@ -1,4 +1,11 @@
-import { isAbsolute, join, relative, resolve, toFileUrl } from "@std/path";
+import {
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+  toFileUrl,
+} from "@std/path";
 import * as pathPosix from "@std/path/posix";
 import { Parser, type Quad, type Term } from "n3";
 import {
@@ -132,6 +139,60 @@ export async function ensureMeshConfigWorkingDirectoryAccessRule(
     ),
   );
   return true;
+}
+
+export interface HostLocalWorkingDirectoryAccessRuleResult {
+  updated: boolean;
+  configPath: string;
+}
+
+export async function ensureHostLocalWorkingDirectoryAccessRule(
+  policy: OperationalLocalPathPolicy,
+  absolutePathPrefix: string,
+): Promise<HostLocalWorkingDirectoryAccessRuleResult> {
+  const homeDirectory = resolveHomeDirectory();
+  if (!homeDirectory) {
+    throw new OperationalConfigError(
+      `Cannot add a host-local access rule without ${LOCAL_ACCESS_FILE_NAME}; HOME or USERPROFILE is not set`,
+    );
+  }
+
+  const localConfigPath = policy.localConfigPath ??
+    join(homeDirectory, LOCAL_ACCESS_FILE_NAME);
+  const normalizedPathPrefix = normalizeRulePathPrefix(
+    absolutePathPrefix,
+    "absolutePath",
+    localConfigPath,
+  );
+
+  if (
+    policy.rules.some((rule) =>
+      rule.source === "local" &&
+      rule.base === "absolutePath" &&
+      rule.pathPrefix === normalizedPathPrefix &&
+      rule.locatorKinds.includes("workingLocalRelativePath")
+    )
+  ) {
+    return { updated: false, configPath: localConfigPath };
+  }
+
+  const localRules: LocalPathAccessRule[] = policy.rules
+    .filter((rule) => rule.source === "local")
+    .map((rule) => ({ ...rule }));
+  localRules.push({
+    base: "absolutePath",
+    locatorKinds: ["workingLocalRelativePath"],
+    pathPrefix: normalizedPathPrefix,
+    source: "local",
+    sourcePath: localConfigPath,
+  });
+
+  await Deno.mkdir(dirname(localConfigPath), { recursive: true });
+  await Deno.writeTextFile(
+    localConfigPath,
+    renderHostLocalConfigTurtle(localRules),
+  );
+  return { updated: true, configPath: localConfigPath };
 }
 
 export async function loadOperationalLocalPathPolicy(
@@ -334,6 +395,29 @@ function renderMeshConfigTurtle(
       `  sfcfg:hasPublicationProfile <${publicationProfileIri}>`,
     );
   }
+  for (const rule of rules) {
+    statements.push(`  sfcfg:hasLocalPathAccessRule [
+    a sfcfg:LocalPathAccessRule ;
+    sfcfg:hasLocalPathBase <${renderLocalPathBaseIri(rule.base)}> ;
+    sfcfg:pathPrefix ${JSON.stringify(renderPathPrefix(rule.pathPrefix))} ;
+    ${
+      rule.locatorKinds.map((kind) =>
+        `sfcfg:hasLocalPathLocatorKind <${renderLocalPathLocatorKindIri(kind)}>`
+      ).join(" ;\n    ")
+    }
+  ]`);
+  }
+
+  return `${SFCFG_TURTLE_PREFIX_DECLARATION}
+
+<> ${statements.join(" ;\n")} .
+`;
+}
+
+function renderHostLocalConfigTurtle(
+  rules: readonly LocalPathAccessRule[],
+): string {
+  const statements: string[] = ["a sfcfg:HostLocalOperationalConfig"];
   for (const rule of rules) {
     statements.push(`  sfcfg:hasLocalPathAccessRule [
     a sfcfg:LocalPathAccessRule ;

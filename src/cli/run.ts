@@ -860,7 +860,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         )
         .option(
           "--grant-source-directory <path:string>",
-          "Add a mesh config workingLocalRelativePath grant for this source directory.",
+          "Add an operational workingLocalRelativePath grant for this source directory.",
         )
         .option(
           "--source-binding-id <id:string>",

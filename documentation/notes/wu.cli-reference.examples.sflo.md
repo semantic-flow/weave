@@ -10,11 +10,11 @@ created: 1779030765340
 
 This note records the command sequence used while dogfooding Weave against the SFLO ontology repository and a branch-published `gh-pages` mesh. The examples assume a Weave checkout with dependency-local sibling checkouts for the SFLO source repository and the SFLO publication worktree.
 
-This note is temporarily not a complete replayable release script. The old `weave prepare gh-pages` wrapper has been removed, and branch-published source binding is being refactored into ordinary `integrate`, `weave`, `generate`, `validate`, publication-profile, and CI/CD operations.
+This note is a dogfooding command sequence rather than the final CI runbook. The old `weave prepare gh-pages` wrapper has been removed, and branch-published source binding now uses ordinary `integrate`, `weave`, `generate`, `validate`, publication-profile, and CI/CD operations.
 
 The source checkout stays on `main`. The publication checkout is an unborn or disposable `gh-pages` worktree. The ontology and SHACL payload artifacts use `releases` as the artifact-history segment and `v0.1.0` as the state segment.
 
-The root welcome page can still use the primitive commands below because it is authored directly in the publication root. The ontology, config ontology, and SHACL payloads should be integrated from the SFLO source checkout with repository-backed source evidence once that CLI/API surface lands; they should not be copied implicitly by `weave`.
+The root welcome page can use the primitive commands below because it is authored directly in the publication root. The ontology, config ontology, and SHACL payloads are integrated from the SFLO source checkout with repository-backed source evidence; they are not copied implicitly by `weave`.
 
 ## Step 1: Set Shell Variables
 
@@ -26,7 +26,8 @@ export WEAVE_CLI="$WEAVE_ROOT/src/main.ts"
 export SFLO_SRC="$WEAVE_ROOT/dependencies/github.com/semantic-flow/sflo"
 export SFLO_PUB="$WEAVE_ROOT/dependencies/github.com/semantic-flow/sflo-gh-pages"
 export SFLO_SOURCE_REPO='https://github.com/semantic-flow/sflo.git'
-export SFLO_SOURCE_COMMIT="$(git -C "$SFLO_SRC" rev-parse v0.1.0^{commit})"
+export SFLO_SOURCE_REF='v0.1.0'
+export SFLO_SOURCE_COMMIT="$(git -C "$SFLO_SRC" rev-parse "$SFLO_SOURCE_REF^{commit}")"
 export WEAVE_LOG_DIR=/tmp/weave-logs
 
 mkdir -p "$WEAVE_LOG_DIR"
@@ -88,21 +89,66 @@ deno run -A "$WEAVE_CLI" \
   --target 'designatorPath=/,historySegment=main'
 ```
 
-## Step 6: Pending Source Integrations
+## Step 6: Integrate SFLO Source Payloads
 
-The branch-published SFLO release needs three source-lane payload integrations from `$SFLO_SRC` into `$SFLO_PUB`:
+The branch-published SFLO release uses source-lane payload integrations from `$SFLO_SRC` into `$SFLO_PUB`. `integrate` leaves the source bytes in the source checkout, records repository source provenance in each Knop source registry, and uses `~/.sf-local-access.ttl` for the host-local read grant when `$SFLO_SRC` is outside the publication mesh workspace.
 
-- `semantic-flow-core-ontology.ttl` -> `ontology`
-- `semantic-flow-config-ontology.ttl` -> `config`
-- `semantic-flow-core-shacl.ttl` -> `ontology/shacl`
+Use the release tag as the source ref; do not record `main` for release-versioned bytes.
 
-Before publication, the source ontology metadata should consistently describe `v0.1.0`, and `owl:versionIRI` should point at raw bytes for the matching release tag. The version/HistoricalState resource can use `schema:contentUrl` for the preferred mesh-served Turtle URL and `sflo:hasManifestation` for the lightweight manifestation node whose `dcat:downloadURL` is the same mesh-served Turtle URL. The generated inventory carries the richer `ArtifactManifestation`, `LocatedFile`, and `locatedFileForManifestation` graph. Commit and tag the SFLO source first, then use the tag as the source ref; do not record `main` for release-versioned bytes.
+```sh
+deno run -A "$WEAVE_CLI" integrate "$SFLO_SRC/semantic-flow-core-ontology.ttl" ontology \
+  --mesh-root "$SFLO_PUB" \
+  --grant-source-directory "$SFLO_SRC" \
+  --source-binding-id sflo-source-ontology \
+  --source-repository-url "$SFLO_SOURCE_REPO" \
+  --source-repository-ref "$SFLO_SOURCE_REF" \
+  --source-repository-commit "$SFLO_SOURCE_COMMIT" \
+  --source-repository-path semantic-flow-core-ontology.ttl
 
-The replacement command shape should bind repository URL, ref, resolved commit, repository-relative path, requested history/state/manifestation segments, and resolution policy without treating branch publication as a special operation. Until that integrate surface exists, this example stops before source-payload release publication.
+deno run -A "$WEAVE_CLI" integrate "$SFLO_SRC/semantic-flow-config-ontology.ttl" config \
+  --mesh-root "$SFLO_PUB" \
+  --grant-source-directory "$SFLO_SRC" \
+  --source-binding-id sflo-source-config \
+  --source-repository-url "$SFLO_SOURCE_REPO" \
+  --source-repository-ref "$SFLO_SOURCE_REF" \
+  --source-repository-commit "$SFLO_SOURCE_COMMIT" \
+  --source-repository-path semantic-flow-config-ontology.ttl
 
-## Step 7: Extract Terms From The Source Artifacts
+deno run -A "$WEAVE_CLI" integrate "$SFLO_SRC/semantic-flow-core-shacl.ttl" ontology/shacl \
+  --mesh-root "$SFLO_PUB" \
+  --grant-source-directory "$SFLO_SRC" \
+  --source-binding-id sflo-source-shacl \
+  --source-repository-url "$SFLO_SOURCE_REPO" \
+  --source-repository-ref "$SFLO_SOURCE_REF" \
+  --source-repository-commit "$SFLO_SOURCE_COMMIT" \
+  --source-repository-path semantic-flow-core-shacl.ttl
+```
 
-These remaining commands show the post-source-integration shape. Do not run them until the three source artifacts above have been integrated and woven.
+Before publication, the source ontology metadata should consistently describe `v0.1.0`, and `owl:versionIRI` should point at raw bytes for the matching release tag. The version/HistoricalState resource can use `schema:contentUrl` for the preferred mesh-served Turtle URL and `sflo:hasManifestation` for the lightweight manifestation node whose `dcat:downloadURL` is the same mesh-served Turtle URL. The generated inventory carries the richer `ArtifactManifestation`, `LocatedFile`, and `locatedFileForManifestation` graph.
+
+## Step 7: Version The Source Payloads
+
+Set the release history and state intent, then explicitly version the three payloads. `weave version` creates historical states; `weave generate` later renders pages from the resulting mesh state.
+
+```sh
+deno run -A "$WEAVE_CLI" set history ontology releases --mesh-root "$SFLO_PUB"
+deno run -A "$WEAVE_CLI" set next-state ontology v0.1.0 --mesh-root "$SFLO_PUB"
+
+deno run -A "$WEAVE_CLI" set history config releases --mesh-root "$SFLO_PUB"
+deno run -A "$WEAVE_CLI" set next-state config v0.1.0 --mesh-root "$SFLO_PUB"
+
+deno run -A "$WEAVE_CLI" set history ontology/shacl releases --mesh-root "$SFLO_PUB"
+deno run -A "$WEAVE_CLI" set next-state ontology/shacl v0.1.0 --mesh-root "$SFLO_PUB"
+
+deno run -A "$WEAVE_CLI" version \
+  --mesh-root "$SFLO_PUB" \
+  --payload-manifestation-segment ttl \
+  --target 'designatorPath=ontology' \
+  --target 'designatorPath=config' \
+  --target 'designatorPath=ontology/shacl'
+```
+
+## Step 8: Extract Terms From The Source Artifacts
 
 Run all-terms extraction after the source artifacts have been woven. These commands create first-class term identifiers for mesh-scoped named nodes discovered in subject, predicate, or object position, skip generated support/file resources such as `sflo:LocatedFile`s, and create canonical source references for terms newly extracted in that invocation. Existing extracted terms are skipped, so this does not backfill references from a later source if a term was already extracted from an earlier source. If source references need to be repaired or regenerated, reset the disposable publication worktree and replay the sequence from the beginning rather than rerunning extraction over already-created terms.
 
@@ -129,7 +175,7 @@ deno run -A "$WEAVE_CLI" extract --all-terms \
   --accept-preview
 ```
 
-## Step 8: Weave The Extracted Terms
+## Step 9: Weave The Extracted Terms
 
 Run an untargeted weave after extraction so every pending extracted term Knop and its support surfaces become part of the current publication mesh. This advances the generated publication side without changing the source checkout.
 
@@ -138,7 +184,7 @@ deno run -A "$WEAVE_CLI" \
   --mesh-root "$SFLO_PUB"
 ```
 
-## Step 9: Inspect The Generated Publication Worktree
+## Step 10: Inspect The Generated Publication Worktree
 
 Confirm the root welcome page uses `main/_s0001`, and the ontology and SHACL payloads use `releases/v0.1.0/ttl`.
 

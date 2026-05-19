@@ -1980,8 +1980,14 @@ Deno.test("executeWeave ignores settled Knops before loading missing working art
   sflo:hasPayloadArtifact <bob/bio> .
 
 <bob/bio> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:currentArtifactHistory <bob/bio/_history001> ;
   sflo:hasArtifactHistory <bob/bio/_history001> ;
   sflo:hasWorkingLocatedFile <missing-bob-bio.ttl> .
+
+<bob/bio/_history001> a sflo:ArtifactHistory ;
+  sflo:latestHistoricalState <bob/bio/_history001/_s0001> .
+
+<bob/bio/_history001/_s0001> a sflo:HistoricalState .
 
 <bob/bio/_knop/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <bob/bio/_knop/_inventory/_history001> .
