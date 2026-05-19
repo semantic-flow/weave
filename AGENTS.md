@@ -14,13 +14,11 @@
 - /README.md is for a general introduction for users unfamiliar with the application, so keep it free of development specifics
 
 - each repo has a dendron vault where documentation, specs, and similar markdown files are kept
-  - Dendron vaults use wikilinks-style links (i.e., no path, no'.md' extension) and a standardized YAML frontmatter
-
-  -`documentation/notes/wd.task.*.md`: Do not rename `*.task.*` notes to `*.completed.*` unless the user explicitly asks you to. If a user asks for that rename and it changes wikilinks, update the affected references.
+  - Dendron vaults use wikilinks-style links (i.e., no path, no '.md' extension) and a standardized YAML frontmatter
   - Do not rename `*.task.*` notes to `*.completed.*` unless the user explicitly asks you to. If a user asks for that rename and it changes wikilinks, update the affected references.
-  - in all markdown-based tasks and specs and other documentation, "internal" (to weave/documentation/notes, or any of the related repos' dendron vaults, e.g. ontology/notes) links should use Dendron/wikilnks style!
+  - in all markdown-based tasks and specs and other documentation, "internal" (to weave/documentation/notes, or any of the related repos' dendron vaults, e.g. ontology/notes) links should use Dendron/wikilinks style!
   - you do not need to update the "updated" field in Dendron notes; Dendron does that automatically
-  - Keep any developer-targeting notes in `documentation/notes/wd.*`
+  - Keep durable developer-targeting notes in `documentation/notes/wd.*`
   - `documentation/notes/wu.*` is for user-facing documentation
   - release notes (`documentation/notes/release-notes.*`) and other cross-cutting items can be held at the top level.
 

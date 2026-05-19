@@ -93,6 +93,24 @@ Deno.test("planSetPayloadNextStateIntent replaces an existing next-state hint", 
   );
 });
 
+Deno.test("planSetPayloadNextStateIntent accepts duplicate identical current history facts", () => {
+  const currentKnopInventoryTurtle = firstPayloadInventory.replace(
+    "sflo:hasWorkingLocatedFile <alice-bio.ttl> .",
+    `sflo:currentArtifactHistory <alice/bio/releases> ;
+  sflo:currentArtifactHistory <alice/bio/releases> ;
+  sflo:hasWorkingLocatedFile <alice-bio.ttl> .`,
+  );
+
+  const plan = planSetPayloadNextStateIntent({
+    meshBase,
+    designatorPath: "alice/bio",
+    stateSegment: "v0.1.0",
+    currentKnopInventoryTurtle,
+  });
+
+  assertEquals(plan.currentArtifactHistoryPath, "alice/bio/releases");
+});
+
 Deno.test("planSetPayloadHistoryIntent rejects non-payload Knops", () => {
   assertThrows(
     () =>

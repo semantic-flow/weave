@@ -51,6 +51,14 @@ Useful options:
 
 The script intentionally does not push fixture branches. Its successful output says which branch was updated and reminds you to push that branch separately.
 
+## Rung Dependency Model
+
+A fixture ladder is an ordered chain of branch refs. Most transitions read the previous rung's `toRef` as their next `fromRef`, so regeneration is usually a whole-ladder operation: an early ontology, inventory, ResourcePage, source-registry, or publication behavior change needs to be carried through every later rung.
+
+The runner's plan order is the source of truth. Do not regenerate by alphabetically sorting branch names. This matters most in `branch-fantasy-rules`, where the source lane and publication lane diverge: `10-first-release-source` starts from `a.01-source-only`, while later publication transitions continue from publication refs.
+
+Local rung branches are also part of the chain. During a whole-ladder execution, transition N updates a local `a.*` branch, and transition N+1 should read that freshly regenerated local branch. Targeted regeneration is still possible, but use it only when the changed behavior is isolated to a late transition and all earlier `fromRef` branches are intentionally kept as-is.
+
 ## Preflight
 
 Start from a clean Weave checkout and clean fixture checkouts. Regeneration moves fixture refs, so unrelated fixture work should be committed, stashed, or moved out of the way first.
@@ -62,6 +70,8 @@ for repo in mesh-alice-bio mesh-sidecar-fantasy-rules mesh-branch-fantasy-rules;
   git -C "dependencies/github.com/semantic-flow/$repo" status --short --branch
 done
 ```
+
+Because the resolver checks local `a.*` branches before `origin/a.*`, stale local rung branches can shadow the remote fixture baseline. Before a whole-ladder rerung, decide whether the current local rungs are intentional input or whether you want to clean them out and rebuild from remote refs.
 
 Fetch the latest fixture refs before comparing local and remote state:
 
@@ -88,9 +98,50 @@ for scenario in alice-bio sidecar-fantasy-rules branch-fantasy-rules; do
 done
 ```
 
+## Clean Local Rung Branches
+
+For a whole-ladder rerung, the least surprising starting point is usually "remote baseline, then rebuild locally in plan order." After fetching, remove local `a.*` checkpoint branches if they are stale, experimental, or left over from a previous partial rerung. This only removes local branch names; it does not delete remote fixture branches.
+
+First make sure no fixture repo is currently checked out on a rung branch:
+
+```sh
+for repo in mesh-alice-bio mesh-sidecar-fantasy-rules mesh-branch-fantasy-rules; do
+  repo_path="dependencies/github.com/semantic-flow/$repo"
+  current="$(git -C "$repo_path" branch --show-current)"
+  case "$current" in
+    a.*) echo "$repo is on rung branch $current; switch to a non-rung branch before cleanup" ;;
+  esac
+done
+```
+
+Then inspect unpushed local rung commits before deleting branch refs:
+
+```sh
+for repo in mesh-alice-bio mesh-sidecar-fantasy-rules mesh-branch-fantasy-rules; do
+  repo_path="dependencies/github.com/semantic-flow/$repo"
+  echo "## $repo"
+  git -C "$repo_path" log --oneline --decorate --branches='a.*' --not --remotes=origin --max-count=50
+done
+```
+
+If that review is clean, remove the local rung branches:
+
+```sh
+for repo in mesh-alice-bio mesh-sidecar-fantasy-rules mesh-branch-fantasy-rules; do
+  repo_path="dependencies/github.com/semantic-flow/$repo"
+  for branch in $(git -C "$repo_path" branch --format='%(refname:short)' 'a.*'); do
+    git -C "$repo_path" branch -D "$branch"
+  done
+done
+```
+
+Do not clean `gh-pages` as part of rung cleanup. For branch-published fixtures, treat `gh-pages` as a publication branch and review or reset it deliberately when needed.
+
 ## Dry Run
 
 Run a full dry run first. This catches command failures, validation failures, missing assets, missing refs, and generated-output guardrail failures without moving fixture refs.
+
+Because `--dry-run` does not update local `a.*` branches, it does not fully simulate cumulative rung-to-rung propagation. Treat it as a transition smoke test. The execute pass is the step that actually rebuilds the ladder chain.
 
 ```sh
 for scenario in alice-bio sidecar-fantasy-rules branch-fantasy-rules; do
@@ -116,7 +167,7 @@ Then run the printed command manually from the printed workspace. When the fix i
 
 ## Execute
 
-After the dry run passes, execute each scenario in plan order without `--dry-run`.
+After the dry run passes, execute each scenario in plan order without `--dry-run`. Whole-ladder execution is the normal regeneration path: each updated local rung becomes available to the later transitions that depend on it.
 
 ```sh
 for scenario in alice-bio sidecar-fantasy-rules branch-fantasy-rules; do
@@ -218,6 +269,7 @@ Then rerun or recheck the GitHub PR CI. GitHub CI should now resolve all fixture
 
 - `Failed to resolve fixture ref ...`: the fixture repo is missing locally, the workflow did not check it out, the relevant branch was not fetched, or the branch was never pushed.
 - Diffs show old vocabulary such as `sflo:hasLocatedFile` while local output uses new vocabulary such as `sflo:locatedFileForManifestation`: local fixture branches were regenerated but remote fixture branches are stale.
+- Local tests pass but GitHub CI fails against older bytes: a local `a.*` branch may be shadowing a stale remote branch. Push the intended regenerated rung branches or clean local rungs and reproduce from `origin/a.*`.
 - Generated-output guardrail failure: the transition may have produced structurally suspicious output; inspect the guardrail before forcing a branch update.
 - `workspace root must be empty before materialization`: delete the debug workspace or choose a new path.
 - Branch-published rerung refuses to move `gh-pages`: the current publication branch is not an ancestor of the regenerated publication commit; inspect before rebasing, resetting, or force-pushing.

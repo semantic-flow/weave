@@ -864,27 +864,27 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         )
         .option(
           "--source-binding-id <id:string>",
-          "Fragment id for the source binding in the Knop source registry.",
+          "Fragment id for the repository-backed source binding in the Knop source registry. Supplying any source-binding option also requires --source-repository-url, --source-repository-ref, and --source-repository-path.",
         )
         .option(
           "--source-repository-url <url:string>",
-          "Repository URL to record for the integrated source bytes.",
+          "Repository URL to record for the integrated source bytes. Required when any source-binding option is supplied.",
         )
         .option(
           "--source-repository-ref <ref:string>",
-          "Repository ref to record for the integrated source bytes.",
+          "Repository ref to record for the integrated source bytes. Required when any source-binding option is supplied.",
         )
         .option(
           "--source-repository-commit <commit:string>",
-          "Resolved repository commit to record for deterministic source provenance.",
+          "Resolved repository commit to record for deterministic source provenance. Requires --source-repository-url, --source-repository-ref, and --source-repository-path.",
         )
         .option(
           "--source-repository-path <path:string>",
-          "Repository-relative source path to record for the integrated source bytes.",
+          "Repository-relative source path to record for the integrated source bytes. Required when any source-binding option is supplied.",
         )
         .option(
           "--source-digest <digest:string>",
-          "Digest to record for the integrated source bytes. Defaults to a computed sha256 digest when repository source metadata is supplied.",
+          "Expected digest for the integrated source bytes. Requires repository metadata; when omitted, repository-backed source bindings record the computed sha256 digest.",
         )
         .action(async (options, source, designatorPathArg) => {
           const designatorPath = resolveIntegrateDesignatorPath(

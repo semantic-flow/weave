@@ -2444,7 +2444,14 @@ function assertCurrentKnopInventoryWithoutHistory(
     `Could not parse the current KnopInventory while checking current history state for ${knopPath}.`,
   );
 
-  if (hasPredicateFact(quads, SFLO_HAS_ARTIFACT_HISTORY_IRI)) {
+  if (
+    hasSubjectPredicateFact(
+      quads,
+      meshBase,
+      `${knopPath}/_inventory`,
+      SFLO_HAS_ARTIFACT_HISTORY_IRI,
+    )
+  ) {
     throw new WeaveInputError(
       `KnopInventory already has explicit history for ${knopPath}.`,
     );
@@ -2492,8 +2499,11 @@ function assertCurrentPayloadArtifactShape(
     SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
     errorMessage,
   );
+  const hasExistingDeclaredHistory = existingHistoryPaths.some((path) =>
+    isDeclaredArtifactHistory(quads, meshBase, path)
+  );
   if (
-    existingHistoryPaths.length > 0 ||
+    hasExistingDeclaredHistory ||
     (currentHistoryPath !== undefined &&
       isDeclaredArtifactHistory(quads, meshBase, currentHistoryPath))
   ) {
@@ -6225,6 +6235,20 @@ function hasPredicateFact(
   return quads.some((quad) => quad.predicate.value === predicateIri);
 }
 
+function hasSubjectPredicateFact(
+  quads: readonly Quad[],
+  meshBase: string,
+  subjectValue: string,
+  predicateIri: string,
+): boolean {
+  const subjectIri = toAbsoluteIri(meshBase, subjectValue);
+  return quads.some((quad) =>
+    quad.subject.termType === "NamedNode" &&
+    quad.subject.value === subjectIri &&
+    quad.predicate.value === predicateIri
+  );
+}
+
 function countArtifactHistoryPaths(
   meshBase: string,
   currentKnopInventoryTurtle: string,
@@ -6702,13 +6726,21 @@ function resolveCurrentKnopReferenceCatalog(options: {
     throw new WeaveInputError(errorMessage);
   }
 
-  const referencesFilePath = resolveOptionalNamedNodePath(
+  const referencesLocatedFilePath = resolveOptionalNamedNodePath(
     quads,
     options.meshBase,
     referenceCatalogPath,
     SFLO_HAS_WORKING_LOCATED_FILE_IRI,
     errorMessage,
   );
+  const referencesFilePath = referencesLocatedFilePath ??
+    resolveOptionalLiteralObject(
+      quads,
+      options.meshBase,
+      referenceCatalogPath,
+      SFLO_WORKING_FILE_PATH_IRI,
+      errorMessage,
+    );
   if (referencesFilePath === undefined) {
     throw new WeaveInputError(errorMessage);
   }
@@ -6882,6 +6914,33 @@ function requireOptionalNamedNodeObject(
   }
 
   return values[0];
+}
+
+function resolveOptionalLiteralObject(
+  quads: readonly Quad[],
+  meshBase: string,
+  subjectValue: string,
+  predicateIri: string,
+  errorMessage: string,
+): string | undefined {
+  const subjectIri = toAbsoluteIri(meshBase, subjectValue);
+  const values = new Set<string>();
+  for (const quad of quads) {
+    if (
+      quad.subject.termType === "NamedNode" &&
+      quad.subject.value === subjectIri &&
+      quad.predicate.value === predicateIri &&
+      quad.object.termType === "Literal"
+    ) {
+      values.add(quad.object.value);
+    }
+  }
+
+  if (values.size > 1) {
+    throw new WeaveInputError(errorMessage);
+  }
+
+  return values.values().next().value;
 }
 
 function resolveOptionalSegmentHint(

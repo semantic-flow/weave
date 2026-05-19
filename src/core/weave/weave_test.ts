@@ -1069,6 +1069,7 @@ Deno.test("planWeave consumes payload history and next-state intent on the first
     .replace(
       "sflo:hasWorkingLocatedFile <alice-bio.ttl> .",
       `sflo:currentArtifactHistory <alice/bio/releases> ;
+  sflo:hasArtifactHistory <alice/bio/releases> ;
   sflo:hasWorkingLocatedFile <alice-bio.ttl> .
 
 <alice/bio/releases> sfcfg:hasNextStateSegmentHint "v0.1.0" .`,
@@ -1758,6 +1759,10 @@ Deno.test("planWeave preserves the current ReferenceCatalog working file path", 
         .replaceAll(
           "alice/_knop/_references/references.ttl",
           workingLocalRelativePath,
+        )
+        .replace(
+          `sflo:hasWorkingLocatedFile <${workingLocalRelativePath}> .`,
+          `sflo:workingLocalRelativePath "${workingLocalRelativePath}" .`,
         ),
       referenceCatalogArtifact: {
         workingLocalRelativePath,

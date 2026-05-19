@@ -134,6 +134,34 @@ Deno.test("executeIntegrate supports the root designator path", async () => {
   );
 });
 
+Deno.test("executeIntegrate rejects a repository source digest mismatch", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-integrate-digest-");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+
+  await assertRejects(
+    () =>
+      executeIntegrate({
+        meshRoot: workspaceRoot,
+        request: {
+          designatorPath: "alice/bio",
+          source: "alice-bio.ttl",
+          sourceBinding: {
+            sourceRepositoryUrl:
+              "https://github.com/semantic-flow/mesh-alice-bio.git",
+            sourceRepositoryRef: "main",
+            sourceRepositoryPath: "alice-bio.ttl",
+            sourceDigest: "sha256:not-the-current-file",
+          },
+        },
+      }),
+    IntegrateRuntimeError,
+    "integrate source digest mismatch",
+  );
+});
+
 Deno.test("executeIntegrate fails closed when source is outside the allowed local boundary", async () => {
   const workspaceRoot = await createTestTmpDir("weave-integrate-workspace-");
   await materializeMeshAliceBioBranch(

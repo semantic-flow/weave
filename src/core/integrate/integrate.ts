@@ -10,6 +10,7 @@ import {
   SFLO_NAMESPACE,
   SFLO_TURTLE_PREFIX_DECLARATION,
 } from "../rdf/namespaces.ts";
+import { escapeTurtleString } from "../rdf/turtle.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const XSD_ANY_URI_IRI = "http://www.w3.org/2001/XMLSchema#anyURI";
@@ -537,29 +538,6 @@ function renderRepositorySourceBlankNode(
   return `[
 ${lines.join("\n")}
   ]`;
-}
-
-function escapeTurtleString(value: string): string {
-  return value.replace(/[\b\t\n\f\r"\\]/g, (character) => {
-    switch (character) {
-      case "\b":
-        return "\\b";
-      case "\t":
-        return "\\t";
-      case "\n":
-        return "\\n";
-      case "\f":
-        return "\\f";
-      case "\r":
-        return "\\r";
-      case '"':
-        return '\\"';
-      case "\\":
-        return "\\\\";
-      default:
-        return character;
-    }
-  });
 }
 
 function renderUpdatedMeshInventoryTurtle(

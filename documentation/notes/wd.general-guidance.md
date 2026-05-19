@@ -42,7 +42,7 @@ see [[wd.testing]]
 
 ## Task notes
 
-Before starting substantial code changes, a task note should be written and refined. Task notes live in `dependencies/github.com/semantic-flow/weave-dev-archive/notes` with a filename like `wa.task.2026.2026-MM-DD_HHmm-task-slug.md` and the template lives in [[template.task]]. Actionable "To-Do" items should be pre-pended with markdown checkboxes (`[ ]`) to track completion (`[x]`), cancellation (`[c]`), or deferment (`[d]`).
+Before starting substantial code changes, a task note should be written and refined. Kato/workflow task notes live in `dependencies/github.com/semantic-flow/weave-dev-archive/notes` with a filename like `wa.task.2026.2026-MM-DD_HHmm-task-slug.md`, and the template lives in [[template.task]]. Durable developer guidance that should remain part of the Weave documentation vault belongs in `documentation/notes/wd.*`. Actionable "To-Do" items should be pre-pended with markdown checkboxes (`[ ]`) to track completion (`[x]`), cancellation (`[c]`), or deferment (`[d]`).
 
 Before a task is closed, [[wd.decision-log]] can be updated with important decisions made.
 

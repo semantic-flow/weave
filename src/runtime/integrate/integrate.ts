@@ -350,9 +350,15 @@ async function resolveSourceBinding(
     return undefined;
   }
 
-  const sourceDigest = request.sourceDigest ?? await sha256FileDigest(
-    absoluteSourcePath,
-  );
+  const sourceDigest = await sha256FileDigest(absoluteSourcePath);
+  if (
+    request.sourceDigest !== undefined &&
+    request.sourceDigest !== sourceDigest
+  ) {
+    throw new IntegrateRuntimeError(
+      `integrate source digest mismatch: expected ${request.sourceDigest}, computed ${sourceDigest}`,
+    );
+  }
   const repositorySource: IntegrateRepositorySource = {
     repositoryUrl: request.sourceRepositoryUrl,
     repositoryRef: request.sourceRepositoryRef,
@@ -431,7 +437,10 @@ async function grantSourceDirectoryAccess(
     isWithinRoot(
       absoluteAccessDirectory,
       options.localPathPolicy.workspaceRoot,
-    )
+    ) &&
+    resolve(absoluteAccessDirectory) !==
+      resolve(options.localPathPolicy.workspaceRoot) &&
+    pathPrefix !== ".."
   ) {
     const updated = await ensureMeshConfigWorkingDirectoryAccessRule(
       options.localPathPolicy,

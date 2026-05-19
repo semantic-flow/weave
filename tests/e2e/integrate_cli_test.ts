@@ -439,7 +439,7 @@ Deno.test("weave integrate can grant a separate source checkout through host-loc
   const stderr = new TextDecoder().decode(output.stderr);
 
   assert(output.success, stderr);
-  assertStringIncludes(stdout, join(homeRoot, ".sf-local-access.ttl"));
+  assertStringIncludes(stdout, ".sf-local-access.ttl");
 
   const localAccess = await Deno.readTextFile(
     join(homeRoot, ".sf-local-access.ttl"),
@@ -468,6 +468,76 @@ Deno.test("weave integrate can grant a separate source checkout through host-loc
   assertStringIncludes(
     sources,
     'sflo:sourceRepositoryUrl "https://github.com/semantic-flow/mesh-alice-bio.git" ;',
+  );
+});
+
+Deno.test("weave integrate grants the workspace root through host-local policy", async () => {
+  const tempRepoRoot = await createTestTmpDir(
+    "weave-e2e-integrate-workspace-grant-",
+  );
+  const workspaceRoot = join(tempRepoRoot, "mesh");
+  const homeRoot = join(tempRepoRoot, "home");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await Deno.mkdir(join(tempRepoRoot, "documentation"), { recursive: true });
+  await Deno.mkdir(join(homeRoot), { recursive: true });
+  await Deno.mkdir(join(workspaceRoot, "_mesh/_config"), { recursive: true });
+  await Deno.writeTextFile(
+    join(workspaceRoot, "_mesh/_config/config.ttl"),
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:workspaceRootRelativeToMeshRoot "../" .
+`,
+  );
+  await Deno.writeTextFile(
+    join(tempRepoRoot, "documentation/alice-bio.ttl"),
+    await readMeshAliceBioBranchFile(
+      "05-alice-knop-created-woven",
+      "alice-bio.ttl",
+    ),
+  );
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      cliPath,
+      "integrate",
+      "documentation/alice-bio.ttl",
+      "--designator-path",
+      "alice/bio",
+      "--mesh-root",
+      "mesh",
+      "--grant-source-directory",
+      ".",
+    ],
+    cwd: toFileUrl(`${tempRepoRoot}/`),
+    env: {
+      HOME: homeRoot,
+    },
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assertStringIncludes(stdout, ".sf-local-access.ttl");
+  assertStringIncludes(
+    await Deno.readTextFile(join(homeRoot, ".sf-local-access.ttl")),
+    `sfcfg:pathPrefix "${tempRepoRoot}/"`,
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+    ),
+    'sflo:workingLocalRelativePath "../documentation/alice-bio.ttl" .',
   );
 });
 

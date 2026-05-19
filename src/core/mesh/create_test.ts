@@ -66,6 +66,11 @@ Deno.test("planMeshCreate resolves auto publication profile from GitHub Pages me
       ".nojekyll",
     ],
   );
+  assertStringIncludes(
+    plan.files.find((file) => file.path === "_mesh/_config/config.ttl")
+      ?.contents ?? "",
+    "sfcfg:hasPublicationProfile sfcfg:publicationProfile_githubPages",
+  );
 });
 
 Deno.test("planMeshCreate resolves auto publication profile to none for ordinary hosts", () => {

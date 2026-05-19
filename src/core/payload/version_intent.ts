@@ -249,13 +249,17 @@ function resolveCurrentArtifactHistoryPath(
   designatorPath: string,
 ): string | undefined {
   const subjectIri = toAbsoluteIri(meshBase, designatorPath);
-  const values = quads.flatMap((quad) =>
-    quad.subject.termType === "NamedNode" &&
-      quad.subject.value === subjectIri &&
-      quad.predicate.value === SFLO_CURRENT_ARTIFACT_HISTORY_IRI &&
-      quad.object.termType === "NamedNode"
-      ? [toMeshRelativePath(meshBase, quad.object.value)]
-      : []
+  const values = Array.from(
+    new Set(
+      quads.flatMap((quad) =>
+        quad.subject.termType === "NamedNode" &&
+          quad.subject.value === subjectIri &&
+          quad.predicate.value === SFLO_CURRENT_ARTIFACT_HISTORY_IRI &&
+          quad.object.termType === "NamedNode"
+          ? [toMeshRelativePath(meshBase, quad.object.value)]
+          : []
+      ),
+    ),
   );
 
   if (values.length > 1) {
