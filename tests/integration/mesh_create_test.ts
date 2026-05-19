@@ -7,7 +7,7 @@ import {
 import { readMeshAliceBioBranchFile } from "../support/mesh_alice_bio_fixture.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
-Deno.test("executeMeshCreate matches the settled alice-bio mesh-created fixture", async () => {
+Deno.test("executeMeshCreate creates core mesh support artifacts without a host preset", async () => {
   const workspaceRoot = await createTestTmpDir("weave-mesh-create-");
   await Deno.writeTextFile(
     join(workspaceRoot, "alice-bio.ttl"),
@@ -18,7 +18,6 @@ Deno.test("executeMeshCreate matches the settled alice-bio mesh-created fixture"
     workspaceRoot,
     request: {
       meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
-      includeNoJekyll: true,
     },
   });
 
@@ -29,7 +28,6 @@ Deno.test("executeMeshCreate matches the settled alice-bio mesh-created fixture"
   assertEquals(
     [...result.createdPaths].sort(),
     [
-      ".nojekyll",
       "_mesh/_inventory/inventory.ttl",
       "_mesh/_meta/meta.ttl",
     ],
@@ -51,7 +49,10 @@ Deno.test("executeMeshCreate matches the settled alice-bio mesh-created fixture"
       "_mesh/_inventory/inventory.ttl",
     ),
   );
-  assertEquals(await Deno.readTextFile(join(workspaceRoot, ".nojekyll")), "");
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, ".nojekyll")),
+    Deno.errors.NotFound,
+  );
 });
 
 Deno.test("executeMeshCreate fails closed when mesh support artifacts already exist", async () => {
@@ -81,8 +82,7 @@ Deno.test("executeMeshCreate can reuse matching bootstrap artifacts", async () =
   );
   const request = {
     meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
-    includeMeshConfig: true,
-    includeNoJekyll: true,
+    publicationProfile: "githubPages" as const,
   };
 
   const firstResult = await executeMeshCreate({
@@ -109,7 +109,8 @@ Deno.test("executeMeshCreate can reuse matching bootstrap artifacts", async () =
     await Deno.readTextFile(join(workspaceRoot, "_mesh/_config/config.ttl")),
     `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
-<> a sfcfg:MeshConfig .
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPublicationProfile sfcfg:publicationProfile_githubPages .
 `,
   );
 });

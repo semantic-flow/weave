@@ -3,17 +3,22 @@ import {
   SFCFG_TURTLE_PREFIX_DECLARATION,
   SFLO_TURTLE_PREFIX_DECLARATION,
 } from "../rdf/namespaces.ts";
+import {
+  planPublicationPresetFiles,
+  type PublicationProfile,
+  type PublicationProfileRequest,
+  renderPublicationProfileTurtleTerm,
+  resolvePublicationProfile,
+} from "./publication_preset.ts";
+
+export type { PublicationProfile, PublicationProfileRequest };
 
 export interface MeshCreateRequest {
   meshBase: string;
   publicationProfile?: PublicationProfileRequest;
-  includeNoJekyll?: boolean;
   includeMeshConfig?: boolean;
   workspaceRootRelativeToMeshRoot?: string;
 }
-
-export type PublicationProfile = "none" | "githubPages";
-export type PublicationProfileRequest = PublicationProfile | "auto";
 
 export interface MeshCreatePlan {
   meshBase: string;
@@ -35,10 +40,6 @@ export function planMeshCreate(request: MeshCreateRequest): MeshCreatePlan {
   const publicationProfile = resolvePublicationProfile(
     meshBase,
     request.publicationProfile,
-  );
-  const includeNoJekyll = resolveIncludeNoJekyll(
-    request.includeNoJekyll,
-    publicationProfile,
   );
   const workspaceRootRelativeToMeshRoot =
     request.workspaceRootRelativeToMeshRoot;
@@ -71,42 +72,9 @@ export function planMeshCreate(request: MeshCreateRequest): MeshCreatePlan {
           ),
         }]
         : []),
-      ...(includeNoJekyll ? [{ path: ".nojekyll", contents: "" }] : []),
+      ...planPublicationPresetFiles(publicationProfile),
     ],
   };
-}
-
-function resolvePublicationProfile(
-  meshBase: string,
-  requestProfile: PublicationProfileRequest | undefined,
-): PublicationProfile | undefined {
-  if (requestProfile === undefined) {
-    return undefined;
-  }
-  if (requestProfile === "auto") {
-    return isGitHubPagesMeshBase(meshBase) ? "githubPages" : "none";
-  }
-  return requestProfile;
-}
-
-function resolveIncludeNoJekyll(
-  includeNoJekyll: boolean | undefined,
-  publicationProfile: PublicationProfile | undefined,
-): boolean {
-  if (includeNoJekyll !== undefined && publicationProfile !== undefined) {
-    throw new MeshCreateInputError(
-      "includeNoJekyll and publicationProfile must not both be provided",
-    );
-  }
-  if (includeNoJekyll !== undefined) {
-    return includeNoJekyll;
-  }
-  return publicationProfile === "githubPages";
-}
-
-function isGitHubPagesMeshBase(meshBase: string): boolean {
-  const url = new URL(meshBase);
-  return url.hostname === "github.io" || url.hostname.endsWith(".github.io");
 }
 
 function normalizeMeshBase(meshBase: string): string {
@@ -227,15 +195,4 @@ function renderMeshConfigTurtle(
 
 <> ${statements.join(" ;\n")} .
 `;
-}
-
-function renderPublicationProfileTurtleTerm(
-  publicationProfile: PublicationProfile,
-): string {
-  switch (publicationProfile) {
-    case "none":
-      return "sfcfg:publicationProfile_none";
-    case "githubPages":
-      return "sfcfg:publicationProfile_githubPages";
-  }
 }

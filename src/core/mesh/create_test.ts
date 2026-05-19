@@ -90,22 +90,6 @@ Deno.test("planMeshCreate resolves auto publication profile to none for ordinary
   );
 });
 
-Deno.test("planMeshCreate can still create a legacy explicit .nojekyll file", () => {
-  const plan = planMeshCreate({
-    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
-    includeNoJekyll: true,
-  });
-
-  assertEquals(
-    plan.files.map((file) => file.path),
-    [
-      "_mesh/_meta/meta.ttl",
-      "_mesh/_inventory/inventory.ttl",
-      ".nojekyll",
-    ],
-  );
-});
-
 Deno.test("planMeshCreate renders sidecar mesh config when requested", () => {
   const plan = planMeshCreate({
     meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
