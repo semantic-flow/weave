@@ -26,7 +26,7 @@ If no `--target` flags are provided, those commands operate on all applicable we
 
 ## Workflow Shapes
 
-There are two current ways to build a publication mesh.
+There are two common ways to build a publication mesh.
 
 For an in-place mesh, including a docs-rooted sidecar mesh that lives on the source branch, use the primitive commands:
 
@@ -38,27 +38,9 @@ weave --mesh-root docs --target 'designatorPath=ontology,historySegment=releases
 
 This keeps the source checkout and mesh root in the same working tree. Extra-mesh source paths are represented through `workingLocalRelativePath` and require local path policy such as `--grant-source-directory`.
 
-For a detached publication root, such as a generated `gh-pages` worktree, use `weave prepare gh-pages`:
+For a detached publication root, such as a generated `gh-pages` worktree, use the same mesh operations against the publication root instead of a special branch-publishing command. Create or open the mesh in the publication checkout, integrate each payload source with an explicit source policy, then run `weave`, `weave generate`, or `weave validate` for the intended publication step. The removed `weave prepare gh-pages` wrapper should not be used in new automation.
 
-```sh
-weave prepare gh-pages \
-  --source-root . \
-  --publish-root ../project-gh-pages \
-  --mesh-base 'https://example.github.io/project/' \
-  --source-path ontology/example.ttl \
-  --designator-path ontology \
-  --payload-history-segment releases \
-  --payload-state-segment v0.1.0 \
-  --payload-manifestation-segment ttl \
-  --source-repository-url 'https://github.com/example/project.git' \
-  --source-ref v0.1.0
-```
-
-`prepare gh-pages` is an orchestration command over a detached root: it ensures the publication mesh exists, keeps publication controls such as `.nojekyll` in place, materializes a repository source file when requested, integrates or updates the payload, runs the needed weave work for that payload, records repository source provenance in `_knop/_sources/sources.ttl`, validates against local path leakage, and optionally creates a local publication commit.
-
-Today `prepare gh-pages` accepts at most one `--source-path` per invocation. For a release with three published payload artifacts, run it three times, once per payload. Repeating the same invocation is safe: it is intended to be idempotent, and `--dry-run` reports whether any publication file changes would be made. A future manifest or batch form should make multi-payload release preparation one command.
-
-Do not add an unconditional top-level `weave` after every `prepare gh-pages` run just to be safe. `prepare gh-pages` already runs the needed weave work for its own materialized payload. Run a separate `weave --mesh-root <publishRoot>` only after operations that create additional un-woven candidates, such as extracting new term identifiers.
+Detached publication roots are still being refactored toward the same source-binding model as sidecar meshes. The important rule is that `weave` itself does not fetch repositories, copy source files into the publication root, apply host presets, or commit/push git refs; those are explicit setup, integration/import, profile, and CI/CD concerns.
 
 ## Target syntax
 
@@ -217,69 +199,6 @@ weave mesh create --workspace . --mesh-root docs --mesh-base 'https://example.or
 weave mesh create --mesh-base 'https://semantic-flow.github.io/my-mesh/' --no-nojekyll
 weave mesh create --interactive
 ```
-
-### `weave prepare gh-pages`
-
-Creates or updates a branch-published GitHub Pages mesh in a publication worktree. Use this when authored source files stay in a normal source checkout and generated mesh output lives in a separate publication branch checkout such as `gh-pages`.
-
-The essential shape is a detached publication root, not the branch name itself: the command reads source bytes from `--source-root`, writes generated mesh output to `--publish-root`, and keeps host-local checkout paths out of the published RDF. Branch-published `gh-pages` worktrees are the current supported publication target. A docs-rooted sidecar mesh that lives on the source branch usually uses ordinary `weave mesh create`, `weave integrate`, and `weave` commands with `--mesh-root docs`; use `prepare gh-pages` when the publication root is a separate generated checkout/root that should carry repository source bindings instead of source-checkout local paths.
-
-`--source-root` defaults to the current directory. `--publish-root` is required in noninteractive runs; interactive runs can prompt for it.
-
-Root publication meshes do not need `_mesh/_config/config.ttl`; for this command the publication worktree root is also the mesh root. If a mesh config already exists, Weave preserves it and still validates generated RDF for local path leakage.
-
-Repository source bindings are recorded beside the target Knop rather than in `_mesh/_config/config.ttl`. When preparation materializes a source file, Weave writes a source registry at `_knop/_sources/sources.ttl`, links it from the Knop inventory with `sflo:hasKnopSourceRegistry`, and records the repository URL, source ref, resolved commit, repository-relative path, and content digest. This keeps publication output portable without preserving a developer's checkout path.
-
-With no `--source-path`, `prepare gh-pages` only prepares the publication root: mesh bootstrap, `.nojekyll`, validation, and optional local commit. With `--source-path`, it also materializes exactly one source payload and weaves that payload target when needed.
-
-Dry-run prints the planned writes, preserved files, validation checks, and git operations without mutating the publication worktree. If both created and updated paths are empty, rerunning `prepare gh-pages` with the same inputs would make no publication file changes:
-
-```sh
-weave prepare gh-pages \
-  --dry-run \
-  --source-root . \
-  --publish-root ../my-repo-gh-pages \
-  --mesh-base 'https://example.github.io/my-repo/'
-```
-
-Materialize one repository source file into the publication mesh:
-
-```sh
-weave prepare gh-pages \
-  --source-root . \
-  --publish-root ../my-repo-gh-pages \
-  --mesh-base 'https://example.github.io/my-repo/' \
-  --source-path ontology/fantasy-rules-ontology.ttl \
-  --designator-path ontology \
-  --payload-history-segment releases \
-  --payload-state-segment v0.1.0 \
-  --payload-manifestation-segment ttl \
-  --source-repository-url 'https://github.com/example/my-repo.git' \
-  --source-ref main
-```
-
-Create a local publication commit after successful preparation:
-
-```sh
-weave prepare gh-pages \
-  --source-root . \
-  --publish-root ../my-repo-gh-pages \
-  --mesh-base 'https://example.github.io/my-repo/' \
-  --commit \
-  --commit-message 'Publish mesh'
-```
-
-Constraints:
-
-- `--publish-root` must be a distinct publication worktree, not the source checkout or a directory inside it
-- publication git worktrees must be clean by default before Weave writes
-- `--allow-dirty-publish-root` is available for local experimentation, but cannot be combined with `--commit`
-- `--commit` creates a local commit only when the publication worktree has changes
-- Weave does not push; after a local commit, push the publication branch yourself for GitHub Pages to update
-- `--commit-message` requires `--commit`
-- `--source-commit` records an exact source commit in the source locator when supplied, but it should name bytes that the commit actually represents
-
-For local preview or regeneration runs, set `WEAVE_LOG_DIR` to a temporary directory such as `/tmp/weave-logs` when you want runtime logs kept outside a publication checkout.
 
 ### `weave integrate`
 
