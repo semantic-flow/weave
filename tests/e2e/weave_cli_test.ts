@@ -155,6 +155,93 @@ Deno.test("weave validate succeeds as a black-box CLI run", async () => {
   assert(stdout.includes("Validated 1 designator path"), stdout);
 });
 
+Deno.test("weave validate mesh succeeds as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-validate-mesh-");
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const output = await runCliCommand([
+    "validate",
+    "mesh",
+    "--target",
+    "designatorPath=alice/bio",
+  ], workspaceRoot);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Validated 1 designator path"), stdout);
+});
+
+Deno.test("weave validate publication checks the selected host preset", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-validate-publication-",
+  );
+
+  const createOutput = await runCliCommand([
+    "mesh",
+    "create",
+    "--workspace",
+    workspaceRoot,
+    "--mesh-base",
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    "--publication-profile",
+    "github-pages",
+  ]);
+  const createStderr = new TextDecoder().decode(createOutput.stderr);
+  assert(createOutput.success, createStderr);
+
+  const successOutput = await runCliCommand([
+    "validate",
+    "publication",
+    "--mesh-root",
+    workspaceRoot,
+  ]);
+  const successStdout = new TextDecoder().decode(successOutput.stdout);
+  const successStderr = new TextDecoder().decode(successOutput.stderr);
+
+  assert(successOutput.success, successStderr);
+  assert(
+    successStdout.includes("Validated publication surface and found 0 issues"),
+    successStdout,
+  );
+
+  await Deno.remove(join(workspaceRoot, ".nojekyll"));
+  const failureOutput = await runCliCommand([
+    "validate",
+    "publication",
+    "--mesh-root",
+    workspaceRoot,
+  ]);
+  const failureStdout = new TextDecoder().decode(failureOutput.stdout);
+  const failureStderr = new TextDecoder().decode(failureOutput.stderr);
+
+  assert(!failureOutput.success, failureStdout);
+  assert(
+    failureStderr.includes(
+      "GitHub Pages publication profile requires .nojekyll at the mesh root.",
+    ),
+    failureStderr,
+  );
+});
+
+Deno.test("weave supports validation before and after as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-validate-around-");
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const output = await runCliCommand([
+    "--validate-before",
+    "--validate-after",
+    "--silent",
+    "--target",
+    "designatorPath=alice/bio",
+  ], workspaceRoot);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Wove 1 designator path"), stdout);
+});
+
 Deno.test("weave validate accepts the exact root target as a black-box CLI run", async () => {
   const workspaceRoot = await createTestTmpDir("weave-e2e-validate-root-");
   await materializeMeshAliceBioBranch(

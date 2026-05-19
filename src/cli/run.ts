@@ -61,6 +61,7 @@ import {
   executeValidate,
   executeVersion,
   executeWeave,
+  type ValidateScope,
   type WeaveProgressEvent,
   WeaveRuntimeError,
 } from "../runtime/weave/weave.ts";
@@ -117,6 +118,14 @@ export async function runWeaveCli(args: string[]): Promise<number> {
       "--silent",
       "Suppress progress updates for long-running weave operations.",
     )
+    .option(
+      "--validate-before",
+      "Run whole-mesh validation before the weave phases.",
+    )
+    .option(
+      "--validate-after",
+      "Run whole-mesh validation after the weave phases.",
+    )
     .action(async (
       options: {
         meshRoot: string;
@@ -126,6 +135,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         payloadManifestationSegment?: string;
         historyTrackingPolicy?: string;
         silent?: boolean;
+        validateBefore?: boolean;
+        validateAfter?: boolean;
       },
     ) => {
       const meshRoot = resolve(options.meshRoot);
@@ -144,6 +155,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         workspaceRoot,
         targets,
         historyTrackingPolicyOverride,
+        validateBefore: options.validateBefore === true,
+        validateAfter: options.validateAfter === true,
         localMode: true,
       });
 
@@ -154,6 +167,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         auditLogger,
         historyTrackingPolicyOverride,
         onProgress: options.silent ? undefined : printWeaveProgress,
+        validateBefore: options.validateBefore === true,
+        validateAfter: options.validateAfter === true,
       });
       console.log(describeWeaveResult(result));
       for (const path of result.createdPaths) {
@@ -166,7 +181,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
     .command(
       "validate",
       new Command()
-        .description("Validate the current local state for targeted resources.")
+        .description("Validate current mesh or publication state.")
+        .arguments("[scope:string]")
         .option(
           "--mesh-root <meshRoot:string>",
           "Mesh root to validate. Defaults to the current directory.",
@@ -182,16 +198,24 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             meshRoot: string;
             target?: string[];
           },
+          scopeArg?: string,
         ) => {
+          const scope = resolveValidateScope(scopeArg);
           const meshRoot = resolve(options.meshRoot);
           const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
           const targets = resolveSharedTargetSpecs(options, "validate");
+          if (scope === "publication" && targets.length > 0) {
+            throw new WeaveInputError(
+              "weave validate publication does not accept --target",
+            );
+          }
           const logDir = resolveCliLogDir(workspaceRoot);
           const { auditLogger } = createRuntimeLoggers({ logDir });
 
-          await auditLogger.command("validate", {
+          await auditLogger.command(`validate.${scope}`, {
             meshRoot,
             workspaceRoot,
+            scope,
             targets,
             localMode: true,
           });
@@ -199,6 +223,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           const result = await executeValidate({
             meshRoot,
             request: targets.length > 0 ? { targets } : undefined,
+            scope,
           });
           if (result.findings.length > 0) {
             throw new WeaveInputError(
@@ -1090,6 +1115,23 @@ function resolveHistoryTrackingPolicyOption(
   throw new WeaveInputError(
     `Unsupported history tracking policy: ${value}`,
   );
+}
+
+function resolveValidateScope(value: string | undefined): ValidateScope {
+  if (value === undefined) {
+    return "mesh";
+  }
+
+  switch (value.trim()) {
+    case "mesh":
+      return "mesh";
+    case "publication":
+      return "publication";
+    default:
+      throw new WeaveInputError(
+        `Unsupported validate scope: ${value}`,
+      );
+  }
 }
 
 function resolvePublicationProfileOption(

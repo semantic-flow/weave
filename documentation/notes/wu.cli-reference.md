@@ -108,7 +108,10 @@ weave
 weave --mesh-root ./docs
 weave --target 'designatorPath=alice/bio'
 weave --target 'designatorPath=alice,recursive=true'
+weave --validate-before --validate-after
 ```
+
+`--validate-before` and `--validate-after` run whole-mesh validation before or after the normal weave phases.
 
 Payload naming may be passed through to the internal `version` step:
 
@@ -150,9 +153,13 @@ Validates current local weave state without writing files.
 
 ```sh
 weave validate
+weave validate mesh
+weave validate publication
 weave validate --target 'designatorPath=alice/bio'
 weave validate --target 'designatorPath=alice,recursive=true'
 ```
+
+`weave validate mesh` is the default scope and validates the mesh state. When a publication profile is configured, mesh validation includes the retained publication checks. `weave validate publication` runs only publication-readiness checks, such as the GitHub Pages `.nojekyll` preset check when the mesh config selects `github-pages`.
 
 ### `weave version`
 

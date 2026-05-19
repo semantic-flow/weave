@@ -85,6 +85,7 @@ import {
   type ListGeneratedResourcePagePathsInput,
   ResourcePagePolicyError,
 } from "./resource_page_policy.ts";
+import { validatePublicationPreset } from "../publication/presets.ts";
 
 const SFLO_HAS_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}hasArtifactHistory`;
 const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
@@ -128,6 +129,7 @@ const DCTERMS_TITLE_IRI = "http://purl.org/dc/terms/title";
 export interface ExecuteValidateOptions {
   meshRoot: string;
   request?: ValidateRequest;
+  scope?: ValidateScope;
 }
 
 export interface ExecuteVersionOptions {
@@ -153,6 +155,8 @@ export interface ExecuteWeaveOptions {
   now?: () => Date;
   historyTrackingPolicyOverride?: HistoryTrackingPolicy;
   onProgress?: WeaveProgressHandler;
+  validateBefore?: boolean;
+  validateAfter?: boolean;
 }
 
 export interface WeaveProgressEvent {
@@ -163,6 +167,7 @@ export interface WeaveProgressEvent {
 }
 
 export type WeaveProgressHandler = (event: WeaveProgressEvent) => void;
+export type ValidateScope = "mesh" | "publication";
 
 export interface ValidateFinding {
   severity: "error";
@@ -170,6 +175,7 @@ export interface ValidateFinding {
 }
 
 export interface ValidateResult {
+  scope: ValidateScope;
   meshBase?: string;
   validatedDesignatorPaths: readonly string[];
   findings: readonly ValidateFinding[];
@@ -262,7 +268,25 @@ const ALL_ARTIFACT_ROLES: readonly ArtifactRole[] = [
 export async function executeValidate(
   options: ExecuteValidateOptions,
 ): Promise<ValidateResult> {
+  const scope = options.scope ?? "mesh";
   try {
+    if (scope === "publication") {
+      const meshRoot = resolveExecutionMeshRoot(options);
+      await ensureWorkspaceRootExists(meshRoot);
+      const meshState = await loadMeshState(meshRoot);
+      const publicationValidation = await validatePublicationPreset({
+        meshRoot,
+        currentMeshConfigTurtle: meshState.currentMeshConfigTurtle,
+      });
+
+      return {
+        scope,
+        meshBase: meshState.meshBase,
+        validatedDesignatorPaths: [],
+        findings: publicationValidation.findings,
+      };
+    }
+
     const targets = normalizeValidateRequest(options.request);
     const meshRoot = resolveExecutionMeshRoot(options);
     const localPathPolicy = await loadOperationalLocalPathPolicy(
@@ -278,17 +302,23 @@ export async function executeValidate(
       ...prepared.plan.createdFiles,
       ...prepared.plan.updatedFiles,
     ]);
+    const publicationValidation = await validatePublicationPreset({
+      meshRoot,
+      currentMeshConfigTurtle: prepared.meshState.currentMeshConfigTurtle,
+    });
 
     return {
+      scope,
       meshBase: prepared.meshState.meshBase,
       validatedDesignatorPaths: prepared.plan.versionedDesignatorPaths,
-      findings: [],
+      findings: publicationValidation.findings,
     };
   } catch (error) {
     if (
       error instanceof WeaveInputError || error instanceof WeaveRuntimeError
     ) {
       return {
+        scope,
         validatedDesignatorPaths: [],
         findings: [{
           severity: "error",
@@ -424,6 +454,14 @@ export async function executeWeave(
   });
 
   try {
+    if (options.validateBefore) {
+      const validation = await executeValidate({
+        meshRoot,
+        scope: "mesh",
+      });
+      assertValidationPassed(validation, "before weaving");
+    }
+
     const targets = normalizeVersionRequest(options.request);
     let preparedVersion: PreparedVersionExecution;
     try {
@@ -470,6 +508,14 @@ export async function executeWeave(
       ],
     };
 
+    if (options.validateAfter) {
+      const validation = await executeValidate({
+        meshRoot,
+        scope: "mesh",
+      });
+      assertValidationPassed(validation, "after weaving");
+    }
+
     await operationalLogger.info("weave.succeeded", "Local weave succeeded", {
       workspaceRoot,
       wovenDesignatorPaths: result.wovenDesignatorPaths,
@@ -511,6 +557,11 @@ export function describeWeaveResult(result: WeaveResult): string {
 }
 
 export function describeValidateResult(result: ValidateResult): string {
+  if (result.scope === "publication") {
+    const findingLabel = result.findings.length === 1 ? "issue" : "issues";
+    return `Validated publication surface and found ${result.findings.length} ${findingLabel}.`;
+  }
+
   const validatedLabel = result.validatedDesignatorPaths.length === 1
     ? "designator path"
     : "designator paths";
@@ -539,6 +590,23 @@ function resolveLoggers(
   auditLogger: AuditLogger;
 } {
   return resolveRuntimeLoggers(options);
+}
+
+function assertValidationPassed(
+  result: ValidateResult,
+  phaseLabel: string,
+): void {
+  if (result.findings.length === 0) {
+    return;
+  }
+
+  throw new WeaveInputError(
+    `Whole-mesh validation ${phaseLabel} failed:\n${
+      result.findings.map((finding) =>
+        `${finding.severity}: ${finding.message}`
+      ).join("\n")
+    }`,
+  );
 }
 
 async function loadEffectiveConfigForExecution(
