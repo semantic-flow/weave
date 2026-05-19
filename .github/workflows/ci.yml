@@ -30,6 +30,12 @@ jobs:
           repository: semantic-flow/semantic-flow-framework
           path: dependencies/github.com/semantic-flow/semantic-flow-framework
 
+      - name: Check out Semantic Flow Ontologies
+        uses: actions/checkout@v6
+        with:
+          repository: semantic-flow/sflo
+          path: dependencies/github.com/semantic-flow/sflo
+
       - name: Check out Mesh Alice Bio
         uses: actions/checkout@v6
         with:

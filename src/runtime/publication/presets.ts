@@ -137,6 +137,7 @@ async function* walkPublicTextFiles(root: string): AsyncGenerator<string> {
     for await (const entry of Deno.readDir(root)) {
       entries.push(entry);
     }
+    entries.sort((left, right) => left.name.localeCompare(right.name));
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       return;

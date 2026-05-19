@@ -78,7 +78,7 @@ Deno.test("weave --version reports the root package version", async () => {
   const stderr = new TextDecoder().decode(output.stderr);
 
   assert(output.success, stderr);
-  assertEquals(stdout.trim(), `weave ${WEAVE_VERSION}`);
+  assertEquals(stripAnsi(stdout).trim(), `weave ${WEAVE_VERSION}`);
 });
 
 Deno.test("weave matches the manifest-scoped alice knop-created-woven fixture as a black-box CLI run", async () => {
@@ -1085,6 +1085,14 @@ function runCliCommand(
   });
 
   return command.output();
+}
+
+function stripAnsi(value: string): string {
+  return value.replace(
+    // deno-lint-ignore no-control-regex -- ANSI escapes are control sequences.
+    /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g,
+    "",
+  );
 }
 
 async function writeSidecarMeshConfig(meshRoot: string): Promise<void> {
