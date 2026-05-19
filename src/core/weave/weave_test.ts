@@ -1059,6 +1059,79 @@ Deno.test("planWeave applies explicit target segments under non-ordinal naming p
   );
 });
 
+Deno.test("planWeave consumes payload history and next-state intent on the first payload weave slice", () => {
+  const currentKnopInventoryTurtle = firstPayloadWeaveKnopInventoryTurtle
+    .replace(
+      "@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .",
+      `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .`,
+    )
+    .replace(
+      "sflo:hasWorkingLocatedFile <alice-bio.ttl> .",
+      `sflo:currentArtifactHistory <alice/bio/releases> ;
+  sflo:hasWorkingLocatedFile <alice-bio.ttl> .
+
+<alice/bio/releases> sfcfg:hasNextStateSegmentHint "v0.1.0" .`,
+    );
+
+  assertEquals(
+    detectPendingWeaveSlice(
+      "https://semantic-flow.github.io/mesh-alice-bio/",
+      "alice/bio",
+      currentKnopInventoryTurtle,
+    ),
+    "firstPayloadWeave",
+  );
+
+  const plan = planWeave({
+    request: {
+      targets: [{ designatorPath: "alice/bio" }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: firstPayloadWeaveMeshInventoryTurtle,
+    currentMeshMetadataTurtle: firstPayloadWeaveMeshMetadataTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice/bio",
+      currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+      currentKnopInventoryTurtle,
+      payloadArtifact: {
+        workingLocalRelativePath: "alice-bio.ttl",
+        currentArtifactHistoryPath: "alice/bio/releases",
+        currentPayloadTurtle:
+          `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix schema: <https://schema.org/> .
+
+<alice> a schema:Person .
+`,
+      },
+    }],
+    namingPolicies: {
+      historyNamingPolicy: "named",
+      stateNamingPolicy: "semver",
+      manifestationNamingPolicy: "filenameDerived",
+    },
+  });
+
+  assert(
+    plan.createdFiles.some((file) =>
+      file.path === "alice/bio/releases/v0.1.0/ttl/alice-bio.ttl"
+    ),
+  );
+  assertStringIncludes(
+    plan.updatedFiles[1]?.contents ?? "",
+    "sflo:currentArtifactHistory <alice/bio/releases> ;",
+  );
+  assertStringIncludes(
+    plan.updatedFiles[1]?.contents ?? "",
+    "sflo:latestHistoricalState <alice/bio/releases/v0.1.0> ;",
+  );
+  assertFalse(
+    (plan.updatedFiles[1]?.contents ?? "").includes(
+      "sfcfg:hasNextStateSegmentHint",
+    ),
+  );
+});
+
 Deno.test("planWeave requires explicit history segments for named history naming", () => {
   assertThrows(
     () =>
@@ -1999,6 +2072,59 @@ Deno.test("planWeave applies requested payload naming on the second payload weav
   assertStringIncludes(
     plan.updatedFiles[0]?.contents ?? "",
     "sflo:latestHistoricalState <alice/bio/releases/v0.0.2> ;",
+  );
+});
+
+Deno.test("planWeave consumes next-state intent on the selected current history", () => {
+  const currentKnopInventoryTurtle = secondPayloadWeaveKnopInventoryTurtle
+    .replace(
+      "@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .",
+      `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .`,
+    )
+    .replace(
+      'sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger ;',
+      `sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger ;
+  sfcfg:hasNextStateSegmentHint "v0.0.2" ;`,
+    );
+  const plan = planWeave({
+    request: {
+      targets: [{ designatorPath: "alice/bio" }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: firstReferenceCatalogWeaveMeshInventoryTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice/bio",
+      currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+      currentKnopInventoryTurtle,
+      payloadArtifact: {
+        workingLocalRelativePath: "alice-bio.ttl",
+        currentArtifactHistoryPath: "alice/bio/_history001",
+        currentPayloadTurtle:
+          `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix schema: <https://schema.org/> .
+
+<alice> a schema:Person .
+<alice/bio> dcterms:creator <alice> .
+`,
+        latestHistoricalStatePath: "alice/bio/_history001/_s0001",
+      },
+    }],
+  });
+
+  assertEquals(
+    plan.createdFiles[0]?.path,
+    "alice/bio/_history001/v0.0.2/ttl/alice-bio.ttl",
+  );
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    "sflo:latestHistoricalState <alice/bio/_history001/v0.0.2> ;",
+  );
+  assertFalse(
+    (plan.updatedFiles[0]?.contents ?? "").includes(
+      "sfcfg:hasNextStateSegmentHint",
+    ),
   );
 });
 

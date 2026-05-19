@@ -342,6 +342,70 @@ Deno.test("weave applies general payload version fields to included targets", as
   );
 });
 
+Deno.test("weave set history and set next-state steer the next payload version", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-version-intent-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const historyOutput = await runCliCommand([
+    "set",
+    "history",
+    "alice/bio",
+    "releases",
+  ], workspaceRoot);
+  const historyStdout = new TextDecoder().decode(historyOutput.stdout);
+  const historyStderr = new TextDecoder().decode(historyOutput.stderr);
+
+  assert(historyOutput.success, historyStderr);
+  assert(historyStdout.includes("current history to alice/bio/releases"));
+
+  const nextStateOutput = await runCliCommand([
+    "set",
+    "next-state",
+    "alice/bio",
+    "v0.0.1",
+  ], workspaceRoot);
+  const nextStateStdout = new TextDecoder().decode(nextStateOutput.stdout);
+  const nextStateStderr = new TextDecoder().decode(nextStateOutput.stderr);
+
+  assert(nextStateOutput.success, nextStateStderr);
+  assert(nextStateStdout.includes("next state to alice/bio/releases/v0.0.1"));
+
+  const inventoryBeforeVersion = await Deno.readTextFile(
+    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+  );
+  assert(
+    inventoryBeforeVersion.includes(
+      'sfcfg:hasNextStateSegmentHint "v0.0.1"',
+    ),
+  );
+  assert(!inventoryBeforeVersion.includes("sflo:hasHistoricalState"));
+
+  const versionOutput = await runCliCommand([
+    "version",
+    "--target",
+    "designatorPath=alice/bio",
+    "--payload-manifestation-segment",
+    "ttl",
+  ], workspaceRoot);
+  const versionStdout = new TextDecoder().decode(versionOutput.stdout);
+  const versionStderr = new TextDecoder().decode(versionOutput.stderr);
+
+  assert(versionOutput.success, versionStderr);
+  assert(versionStdout.includes("Versioned 1 designator path"), versionStdout);
+  await Deno.stat(
+    join(
+      workspaceRoot,
+      "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
+    ),
+  );
+  const inventoryAfterVersion = await Deno.readTextFile(
+    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+  );
+  assert(!inventoryAfterVersion.includes("sfcfg:hasNextStateSegmentHint"));
+});
+
 Deno.test("weave version accepts the exact root target as a black-box CLI run", async () => {
   const workspaceRoot = await createTestTmpDir("weave-e2e-version-root-");
   await materializeMeshAliceBioBranch(

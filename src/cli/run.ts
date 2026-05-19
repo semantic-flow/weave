@@ -10,6 +10,7 @@ import {
   type PublicationProfileRequest,
 } from "../core/mesh/create.ts";
 import { PayloadUpdateInputError } from "../core/payload/update.ts";
+import { PayloadVersionIntentInputError } from "../core/payload/version_intent.ts";
 import { normalizeCliDesignatorPath } from "../core/designator_segments.ts";
 import type { TargetSpec, VersionTargetSpec } from "../core/targeting.ts";
 import { WeaveInputError } from "../core/weave/weave.ts";
@@ -52,6 +53,13 @@ import {
   executePayloadUpdate,
   PayloadUpdateRuntimeError,
 } from "../runtime/payload/update.ts";
+import {
+  describeSetPayloadHistoryIntentResult,
+  describeSetPayloadNextStateIntentResult,
+  executeSetPayloadHistoryIntent,
+  executeSetPayloadNextStateIntent,
+  PayloadVersionIntentRuntimeError,
+} from "../runtime/payload/version_intent.ts";
 import {
   describeGenerateResult,
   describeValidateResult,
@@ -580,6 +588,112 @@ export async function runWeaveCli(args: string[]): Promise<number> {
       "set",
       new Command()
         .description("Update local Weave resource settings.")
+        .command(
+          "history",
+          new Command()
+            .description(
+              "Set the payload history that the next explicit version should use.",
+            )
+            .arguments("<designatorPath:string> <historySegment:string>")
+            .option(
+              "--mesh-root <meshRoot:string>",
+              "Mesh root to update. Defaults to the current directory.",
+              { default: "." },
+            )
+            .action(async (
+              options: { meshRoot: string },
+              designatorPathArg: string,
+              historySegmentArg: string,
+            ) => {
+              const meshRoot = resolve(options.meshRoot);
+              const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
+              const logDir = resolveCliLogDir(workspaceRoot);
+              const { operationalLogger, auditLogger } = createRuntimeLoggers({
+                logDir,
+              });
+              const designatorPath = resolveCliArgumentDesignatorPath(
+                designatorPathArg,
+                "set history requires a positional designatorPath",
+                "set history designatorPath",
+                (message) => new PayloadVersionIntentRuntimeError(message),
+              );
+              const historySegment = resolveRequiredWeavePayloadSegment(
+                historySegmentArg,
+                "set history historySegment",
+              );
+
+              await auditLogger.command("set.history", {
+                meshRoot,
+                workspaceRoot,
+                designatorPath,
+                historySegment,
+                localMode: true,
+              });
+              const result = await executeSetPayloadHistoryIntent({
+                meshRoot,
+                request: { designatorPath, historySegment },
+                operationalLogger,
+                auditLogger,
+              });
+              console.log(describeSetPayloadHistoryIntentResult(result));
+              for (const path of result.updatedPaths) {
+                console.log(path);
+              }
+            }),
+        )
+        .command(
+          "next-state",
+          new Command()
+            .description(
+              "Set the payload state segment that the next explicit version should use.",
+            )
+            .arguments("<designatorPath:string> <stateSegment:string>")
+            .option(
+              "--mesh-root <meshRoot:string>",
+              "Mesh root to update. Defaults to the current directory.",
+              { default: "." },
+            )
+            .action(async (
+              options: { meshRoot: string },
+              designatorPathArg: string,
+              stateSegmentArg: string,
+            ) => {
+              const meshRoot = resolve(options.meshRoot);
+              const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
+              const logDir = resolveCliLogDir(workspaceRoot);
+              const { operationalLogger, auditLogger } = createRuntimeLoggers({
+                logDir,
+              });
+              const designatorPath = resolveCliArgumentDesignatorPath(
+                designatorPathArg,
+                "set next-state requires a positional designatorPath",
+                "set next-state designatorPath",
+                (message) => new PayloadVersionIntentRuntimeError(message),
+              );
+              const stateSegment = resolveRequiredWeavePayloadSegment(
+                stateSegmentArg,
+                "set next-state stateSegment",
+              );
+
+              await auditLogger.command("set.nextState", {
+                meshRoot,
+                workspaceRoot,
+                designatorPath,
+                stateSegment,
+                localMode: true,
+              });
+              const result = await executeSetPayloadNextStateIntent({
+                meshRoot,
+                request: { designatorPath, stateSegment },
+                operationalLogger,
+                auditLogger,
+              });
+              console.log(describeSetPayloadNextStateIntentResult(result));
+              for (const path of result.updatedPaths) {
+                console.log(path);
+              }
+            }),
+        )
         .command(
           "extraction-source",
           new Command()
@@ -1484,6 +1598,17 @@ function resolveOptionalWeavePayloadSegment(
   );
 }
 
+function resolveRequiredWeavePayloadSegment(
+  value: string,
+  fieldName: string,
+): string {
+  return resolveRequiredOptionValue(
+    value,
+    `${fieldName} is required`,
+    (message) => new PayloadVersionIntentRuntimeError(message),
+  );
+}
+
 function printWeaveProgress(event: WeaveProgressEvent): void {
   const designatorPath = event.designatorPath.length === 0
     ? "/"
@@ -1501,6 +1626,8 @@ function getCliErrorMessage(error: unknown): string {
     error instanceof IntegrateRuntimeError ||
     error instanceof PayloadUpdateInputError ||
     error instanceof PayloadUpdateRuntimeError ||
+    error instanceof PayloadVersionIntentInputError ||
+    error instanceof PayloadVersionIntentRuntimeError ||
     error instanceof KnopAddReferenceInputError ||
     error instanceof KnopAddReferenceRuntimeError ||
     error instanceof WeaveInputError ||

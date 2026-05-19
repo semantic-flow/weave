@@ -181,7 +181,30 @@ weave version \
 Constraints:
 
 - payload version naming can be provided as general `--payload-*` defaults or as per-target fields
+- `weave set history` and `weave set next-state` can persist payload-only defaults for a later `weave version`
 - if a named-state payload history is current, omitted `stateSegment` fails closed instead of silently choosing an ordinal successor
+
+### `weave set history`
+
+Sets the current/default ArtifactHistory for a payload artifact without creating a historical state.
+
+```sh
+weave set history alice/bio releases
+weave set history ontology releases --mesh-root docs
+```
+
+This is payload-only versioning intent. It updates the current Knop inventory so the next explicit versioning operation uses the selected history, but it does not write a payload snapshot, create ResourcePages, or copy source bytes.
+
+### `weave set next-state`
+
+Sets the next state segment for a payload artifact without creating that state.
+
+```sh
+weave set next-state alice/bio v0.1.0
+weave set next-state ontology v0.1.0 --mesh-root docs
+```
+
+The hint is stored on the selected current payload history and is consumed by the next `weave version` or default `weave` versioning phase for that payload. If no current history has been selected yet, Weave uses the default `_history001` history lane.
 
 ### `weave generate`
 

@@ -82,6 +82,7 @@ const SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
 const SFLO_HAS_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}hasExtractionSource`;
 const SFLO_HAS_REQUESTED_TARGET_STATE_IRI =
   `${SFLO_NAMESPACE}hasRequestedTargetState`;
+const SFLO_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}ArtifactHistory`;
 const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasTargetArtifact`;
 const SFLO_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFLO_NAMESPACE}hasKnopAssetBundle`;
 const SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI =
@@ -689,14 +690,19 @@ export function detectPendingWeaveSlice(
     SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
     errorMessage,
   );
-  const payloadAnyHistoryPath = payloadHistoryPath ??
-    resolveOptionalNamedNodePath(
-      quads,
-      meshBase,
-      designatorPath,
-      SFLO_HAS_ARTIFACT_HISTORY_IRI,
-      errorMessage,
-    );
+  const payloadArtifactHistoryPaths = resolveNamedNodeObjectPaths(
+    quads,
+    meshBase,
+    designatorPath,
+    SFLO_HAS_ARTIFACT_HISTORY_IRI,
+    errorMessage,
+  );
+  const payloadHasDeclaredArtifactHistory = [
+    ...(payloadHistoryPath ? [payloadHistoryPath] : []),
+    ...payloadArtifactHistoryPaths,
+  ].some((historyPath) =>
+    isDeclaredArtifactHistory(quads, meshBase, historyPath)
+  );
   const extractionSourceRelationship = hasNamedNodeFact(
     quads,
     meshBase,
@@ -749,8 +755,26 @@ export function detectPendingWeaveSlice(
     return "pageDefinitionWeave";
   }
 
-  if (payloadRelationship && !payloadAnyHistoryPath) {
+  if (payloadRelationship && !payloadHasDeclaredArtifactHistory) {
     return "firstPayloadWeave";
+  }
+
+  if (
+    payloadRelationship &&
+    payloadHistoryPath &&
+    !isDeclaredArtifactHistory(quads, meshBase, payloadHistoryPath) &&
+    payloadHasDeclaredArtifactHistory
+  ) {
+    return "secondPayloadWeave";
+  }
+
+  if (
+    payloadRelationship &&
+    payloadHistoryPath &&
+    isDeclaredArtifactHistory(quads, meshBase, payloadHistoryPath) &&
+    hasNextStateSegmentHint(quads, meshBase, payloadHistoryPath)
+  ) {
+    return "secondPayloadWeave";
   }
 
   if (
@@ -798,7 +822,7 @@ export function detectPendingWeaveSlice(
 
   if (
     payloadRelationship &&
-    payloadAnyHistoryPath &&
+    payloadHasDeclaredArtifactHistory &&
     knopInventoryHasHistory &&
     hasPayloadVersionNamingTarget(target)
   ) {
@@ -1001,8 +1025,11 @@ function planFirstPayloadWeave(
   const designatorPath = candidate.designatorPath;
   const knopPath = toKnopPath(designatorPath);
   const payloadLayout = resolveFirstPayloadVersionLayout(
+    meshBase,
     designatorPath,
     payloadArtifact.workingLocalRelativePath,
+    candidate.currentKnopInventoryTurtle,
+    payloadArtifact.currentArtifactHistoryPath,
     target,
     namingPolicies,
   );
@@ -2451,21 +2478,24 @@ function assertCurrentPayloadArtifactShape(
     workingLocalRelativePath,
   );
 
+  const existingHistoryPaths = resolveNamedNodeObjectPaths(
+    quads,
+    meshBase,
+    designatorPath,
+    SFLO_HAS_ARTIFACT_HISTORY_IRI,
+    errorMessage,
+  );
+  const currentHistoryPath = resolveOptionalNamedNodePath(
+    quads,
+    meshBase,
+    designatorPath,
+    SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
+    errorMessage,
+  );
   if (
-    resolveOptionalNamedNodePath(
-      quads,
-      meshBase,
-      designatorPath,
-      SFLO_HAS_ARTIFACT_HISTORY_IRI,
-      errorMessage,
-    ) ||
-    resolveOptionalNamedNodePath(
-      quads,
-      meshBase,
-      designatorPath,
-      SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
-      errorMessage,
-    )
+    existingHistoryPaths.length > 0 ||
+    (currentHistoryPath !== undefined &&
+      isDeclaredArtifactHistory(quads, meshBase, currentHistoryPath))
   ) {
     throw new WeaveInputError(
       `Payload artifact already has explicit history for ${designatorPath}.`,
@@ -6160,6 +6190,34 @@ function hasLiteralFact(
   );
 }
 
+function isDeclaredArtifactHistory(
+  quads: readonly Quad[],
+  meshBase: string,
+  historyPath: string,
+): boolean {
+  return hasNamedNodeFact(
+    quads,
+    meshBase,
+    historyPath,
+    RDF_TYPE_IRI,
+    SFLO_ARTIFACT_HISTORY_IRI,
+  );
+}
+
+function hasNextStateSegmentHint(
+  quads: readonly Quad[],
+  meshBase: string,
+  historyPath: string,
+): boolean {
+  const subjectIri = toAbsoluteIri(meshBase, historyPath);
+  return quads.some((quad) =>
+    quad.subject.termType === "NamedNode" &&
+    quad.subject.value === subjectIri &&
+    quad.predicate.value === SFCFG_HAS_NEXT_STATE_SEGMENT_HINT_IRI &&
+    quad.object.termType === "Literal"
+  );
+}
+
 function hasPredicateFact(
   quads: readonly Quad[],
   predicateIri: string,
@@ -7345,22 +7403,44 @@ function omitSecondPayloadKnopInventoryHistoryPages(
 }
 
 function resolveFirstPayloadVersionLayout(
+  meshBase: string,
   designatorPath: string,
   workingLocalRelativePath: string,
+  currentKnopInventoryTurtle: string,
+  currentArtifactHistoryPath?: string,
   target?: NormalizedVersionTargetSpec,
   namingPolicies?: WeaveNamingPolicies,
 ): PayloadVersionLayout {
+  const historyPath = target?.historySegment
+    ? appendMeshPath(designatorPath, target.historySegment)
+    : currentArtifactHistoryPath ??
+      appendMeshPath(
+        designatorPath,
+        defaultHistorySegment(namingPolicies?.historyNamingPolicy),
+      );
+  if (!isDirectChildMeshPath(designatorPath, historyPath)) {
+    throw new WeaveInputError(
+      `Current payload history for ${designatorPath} was outside the payload designator path: ${historyPath}`,
+    );
+  }
+  const quads = parseWeaveShapeQuads(
+    meshBase,
+    currentKnopInventoryTurtle,
+    `Could not parse the current KnopInventory while resolving payload history intent for ${designatorPath}.`,
+  );
+  const nextStateSegmentHint = resolveOptionalSegmentHint(
+    quads,
+    toAbsoluteIri(meshBase, historyPath),
+    SFCFG_HAS_NEXT_STATE_SEGMENT_HINT_IRI,
+    `Could not resolve the next payload state intent for ${designatorPath}.`,
+  );
+  const requestedStateSegment = target?.stateSegment ?? nextStateSegmentHint;
   assertRequestedStateSegmentSatisfiesPolicy(
-    target?.stateSegment,
+    requestedStateSegment,
     namingPolicies?.stateNamingPolicy,
   );
-  const historyPath = appendMeshPath(
-    designatorPath,
-    target?.historySegment ??
-      defaultHistorySegment(namingPolicies?.historyNamingPolicy),
-  );
   const nextStatePath = `${historyPath}/${
-    target?.stateSegment ??
+    requestedStateSegment ??
       defaultStateSegment(namingPolicies?.stateNamingPolicy)
   }`;
   const nextManifestationPath = toPayloadManifestationPath(
@@ -7409,10 +7489,21 @@ function resolveSecondPayloadVersionLayout(
     );
   }
 
-  const historyExists = hasSubject(quads, meshBase, historyPath);
+  const historyExists = isDeclaredArtifactHistory(quads, meshBase, historyPath);
+  const nextStateSegmentHint = resolveOptionalSegmentHint(
+    quads,
+    toAbsoluteIri(meshBase, historyPath),
+    SFCFG_HAS_NEXT_STATE_SEGMENT_HINT_IRI,
+    `Could not resolve the next payload state intent for ${designatorPath}.`,
+  );
   if (!historyExists) {
+    const requestedStateSegment = target?.stateSegment ?? nextStateSegmentHint;
+    assertRequestedStateSegmentSatisfiesPolicy(
+      requestedStateSegment,
+      namingPolicies?.stateNamingPolicy,
+    );
     const nextStatePath = `${historyPath}/${
-      target?.stateSegment ??
+      requestedStateSegment ??
         defaultStateSegment(namingPolicies?.stateNamingPolicy)
     }`;
     const nextManifestationPath = toPayloadManifestationPath(
@@ -7446,6 +7537,7 @@ function resolveSecondPayloadVersionLayout(
     );
   if (
     target?.stateSegment === undefined &&
+    nextStateSegmentHint === undefined &&
     parseOptionalStateOrdinalFromPath(currentStatePath) === undefined
   ) {
     throw new WeaveInputError(
@@ -7456,11 +7548,16 @@ function resolveSecondPayloadVersionLayout(
       }.`,
     );
   }
-  if (target?.stateSegment === undefined) {
+  const requestedStateSegment = target?.stateSegment ?? nextStateSegmentHint;
+  assertRequestedStateSegmentSatisfiesPolicy(
+    requestedStateSegment,
+    namingPolicies?.stateNamingPolicy,
+  );
+  if (requestedStateSegment === undefined) {
     assertAutoStateSegmentSupported(namingPolicies?.stateNamingPolicy);
   }
-  const nextStatePath = target?.stateSegment
-    ? `${historyPath}/${target.stateSegment}`
+  const nextStatePath = requestedStateSegment
+    ? `${historyPath}/${requestedStateSegment}`
     : resolveNextOrdinalStatePathFromHistory(
       quads,
       meshBase,
