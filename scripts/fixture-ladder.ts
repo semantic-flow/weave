@@ -2490,7 +2490,9 @@ async function runBranchPublicationCommandInvocation(options: {
   invocation: FixtureBranchPublicationCommandInvocation;
 }): Promise<FixtureCommandInvocationExecutionResult> {
   const commandCwd = dirname(options.sourceWorkspaceRoot);
+  const homeDirectory = join(commandCwd, "home");
   const logDir = join(commandCwd, "runtime-logs");
+  await Deno.mkdir(homeDirectory, { recursive: true });
   const command = [
     "deno",
     "run",
@@ -2513,6 +2515,7 @@ async function runBranchPublicationCommandInvocation(options: {
     cwd: commandCwd,
     args: command.slice(1),
     env: {
+      HOME: homeDirectory,
       WEAVE_GENERATED_AT: FIXTURE_GENERATED_AT,
       WEAVE_LOG_DIR: logDir,
     },

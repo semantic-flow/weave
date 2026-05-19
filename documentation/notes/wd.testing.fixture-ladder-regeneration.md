@@ -273,6 +273,7 @@ Then rerun or recheck the GitHub PR CI. GitHub CI should now resolve all fixture
 - Generated-output guardrail failure: the transition may have produced structurally suspicious output; inspect the guardrail before forcing a branch update.
 - `workspace root must be empty before materialization`: delete the debug workspace or choose a new path.
 - Branch-published rerung refuses to move `gh-pages`: the current publication branch is not an ancestor of the regenerated publication commit; inspect before rebasing, resetting, or force-pushing.
+- Replay tries to run removed commands such as `weave prepare gh-pages`: the manifest is stale. Replace first-time source publication with `integrate` plus `weave`; for an already-integrated external source, add or use an explicit source-binding update/refresh operation rather than pretending the first-time integration can run again.
 
 ## Commit Messages
 

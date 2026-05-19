@@ -170,6 +170,8 @@ Deno.test("planFixtureLadder exposes the Alice Bio dry-run transition plan", asy
       ".",
       "--mesh-base",
       "https://semantic-flow.github.io/mesh-alice-bio/",
+      "--publication-profile",
+      "github-pages",
     ]);
   }
 
@@ -273,6 +275,8 @@ Deno.test("planFixtureLadder exposes the Sidecar Fantasy Rules transition sequen
       "docs",
       "--mesh-base",
       "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+      "--publication-profile",
+      "github-pages",
     ]);
   }
 
@@ -554,7 +558,7 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
     plan.transitions[1]?.toRef,
     "a.02-publication-bootstrapped-woven",
   );
-  assertEquals(plan.transitions[1]?.operationId, "prepare.ghPages");
+  assertEquals(plan.transitions[1]?.operationId, "publication.sequence");
   assertEquals(plan.transitions[1]?.action.kind, "branchPublication");
   if (plan.transitions[1]?.action.kind === "branchPublication") {
     assertEquals(plan.transitions[1].action.sourceRef, "a.01-source-only");
@@ -562,14 +566,16 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
     assertEquals(plan.transitions[1].action.publicationBranch, "gh-pages");
     assertEquals(plan.transitions[1].action.invocations.length, 2);
     assertEquals(plan.transitions[1].action.invocations[0]?.argv, [
-      "prepare",
-      "gh-pages",
-      "--source-root",
-      "{sourceRoot}",
-      "--publish-root",
+      "mesh",
+      "create",
+      "--workspace",
+      ".",
+      "--mesh-root",
       "{publicationRoot}",
       "--mesh-base",
       "https://semantic-flow.github.io/mesh-branch-fantasy-rules/",
+      "--publication-profile",
+      "github-pages",
     ]);
     assertEquals(plan.transitions[1].action.invocations[1]?.argv, [
       "--mesh-root",
@@ -582,7 +588,7 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
     "a.02-publication-bootstrapped-woven",
   );
   assertEquals(plan.transitions[2]?.toRef, "a.03-ontology-integrated-woven");
-  assertEquals(plan.transitions[2]?.operationId, "prepare.ghPages");
+  assertEquals(plan.transitions[2]?.operationId, "publication.sequence");
   assertEquals(plan.transitions[2]?.action.kind, "branchPublication");
   if (plan.transitions[2]?.action.kind === "branchPublication") {
     assertEquals(plan.transitions[2].action.sourceRef, "a.01-source-only");
@@ -591,32 +597,37 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
       "a.02-publication-bootstrapped-woven",
     );
     assertEquals(plan.transitions[2].action.publicationBranch, "gh-pages");
-    assertEquals(plan.transitions[2].action.invocations.length, 1);
+    assertEquals(plan.transitions[2].action.invocations.length, 2);
     assertEquals(plan.transitions[2].action.invocations[0]?.argv, [
-      "prepare",
-      "gh-pages",
-      "--source-root",
-      "{sourceRoot}",
-      "--publish-root",
-      "{publicationRoot}",
-      "--mesh-base",
-      "https://semantic-flow.github.io/mesh-branch-fantasy-rules/",
-      "--source-path",
-      "ontology/fantasy-rules-ontology.ttl",
-      "--designator-path",
+      "integrate",
+      "{sourceRoot}/ontology/fantasy-rules-ontology.ttl",
       "ontology",
+      "--mesh-root",
+      "{publicationRoot}",
+      "--grant-source-directory",
+      "{sourceRoot}",
+      "--source-binding-id",
+      "branch-source-ontology",
       "--source-repository-url",
       "https://github.com/semantic-flow/mesh-branch-fantasy-rules.git",
-      "--source-ref",
+      "--source-repository-ref",
       "{sourceRef}",
-      "--source-commit",
+      "--source-repository-commit",
       "{sourceCommit}",
+      "--source-repository-path",
+      "ontology/fantasy-rules-ontology.ttl",
+    ]);
+    assertEquals(plan.transitions[2].action.invocations[1]?.argv, [
+      "--mesh-root",
+      "{publicationRoot}",
+      "--target",
+      "designatorPath=ontology",
     ]);
   }
   assertEquals(plan.transitions[3]?.id, "04-shacl-integrated-woven");
   assertEquals(plan.transitions[3]?.fromRef, "a.03-ontology-integrated-woven");
   assertEquals(plan.transitions[3]?.toRef, "a.04-shacl-integrated-woven");
-  assertEquals(plan.transitions[3]?.operationId, "prepare.ghPages");
+  assertEquals(plan.transitions[3]?.operationId, "publication.sequence");
   assertEquals(plan.transitions[3]?.action.kind, "branchPublication");
   if (plan.transitions[3]?.action.kind === "branchPublication") {
     assertEquals(plan.transitions[3].action.sourceRef, "a.01-source-only");
@@ -625,26 +636,31 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
       "a.03-ontology-integrated-woven",
     );
     assertEquals(plan.transitions[3].action.publicationBranch, "gh-pages");
-    assertEquals(plan.transitions[3].action.invocations.length, 1);
+    assertEquals(plan.transitions[3].action.invocations.length, 2);
     assertEquals(plan.transitions[3].action.invocations[0]?.argv, [
-      "prepare",
-      "gh-pages",
-      "--source-root",
-      "{sourceRoot}",
-      "--publish-root",
-      "{publicationRoot}",
-      "--mesh-base",
-      "https://semantic-flow.github.io/mesh-branch-fantasy-rules/",
-      "--source-path",
-      "shacl/fantasy-rules-shacl.ttl",
-      "--designator-path",
+      "integrate",
+      "{sourceRoot}/shacl/fantasy-rules-shacl.ttl",
       "shacl",
+      "--mesh-root",
+      "{publicationRoot}",
+      "--grant-source-directory",
+      "{sourceRoot}",
+      "--source-binding-id",
+      "branch-source-shacl",
       "--source-repository-url",
       "https://github.com/semantic-flow/mesh-branch-fantasy-rules.git",
-      "--source-ref",
+      "--source-repository-ref",
       "{sourceRef}",
-      "--source-commit",
+      "--source-repository-commit",
       "{sourceCommit}",
+      "--source-repository-path",
+      "shacl/fantasy-rules-shacl.ttl",
+    ]);
+    assertEquals(plan.transitions[3].action.invocations[1]?.argv, [
+      "--mesh-root",
+      "{publicationRoot}",
+      "--target",
+      "designatorPath=shacl",
     ]);
   }
   assertEquals(
@@ -780,7 +796,7 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
     "a.08-root-and-examples-knops-woven",
   );
   assertEquals(plan.transitions[8]?.toRef, "a.09-gunaar-example-dataset-woven");
-  assertEquals(plan.transitions[8]?.operationId, "prepare.ghPages");
+  assertEquals(plan.transitions[8]?.operationId, "publication.sequence");
   assertEquals(plan.transitions[8]?.action.kind, "branchPublication");
   if (plan.transitions[8]?.action.kind === "branchPublication") {
     assertEquals(plan.transitions[8].action.sourceRef, "a.01-source-only");
@@ -788,26 +804,31 @@ Deno.test("planFixtureLadder exposes the Branch-Published Fantasy Rules source t
       plan.transitions[8].action.publicationFromRef,
       "a.08-root-and-examples-knops-woven",
     );
-    assertEquals(plan.transitions[8].action.invocations.length, 1);
+    assertEquals(plan.transitions[8].action.invocations.length, 2);
     assertEquals(plan.transitions[8].action.invocations[0]?.argv, [
-      "prepare",
-      "gh-pages",
-      "--source-root",
-      "{sourceRoot}",
-      "--publish-root",
-      "{publicationRoot}",
-      "--mesh-base",
-      "https://semantic-flow.github.io/mesh-branch-fantasy-rules/",
-      "--source-path",
-      "examples/gunaar.ttl",
-      "--designator-path",
+      "integrate",
+      "{sourceRoot}/examples/gunaar.ttl",
       "examples/gunaar",
+      "--mesh-root",
+      "{publicationRoot}",
+      "--grant-source-directory",
+      "{sourceRoot}",
+      "--source-binding-id",
+      "branch-source-examples-gunaar",
       "--source-repository-url",
       "https://github.com/semantic-flow/mesh-branch-fantasy-rules.git",
-      "--source-ref",
+      "--source-repository-ref",
       "{sourceRef}",
-      "--source-commit",
+      "--source-repository-commit",
       "{sourceCommit}",
+      "--source-repository-path",
+      "examples/gunaar.ttl",
+    ]);
+    assertEquals(plan.transitions[8].action.invocations[1]?.argv, [
+      "--mesh-root",
+      "{publicationRoot}",
+      "--target",
+      "designatorPath=examples/gunaar",
     ]);
   }
   assertEquals(plan.transitions[9]?.id, "10-first-release-source");
@@ -1155,7 +1176,7 @@ Deno.test("renderFixtureLadderPlan prints reviewable command and validation deta
   );
   assertStringIncludes(
     rendered,
-    "command: weave mesh create --workspace . --mesh-base https://semantic-flow.github.io/mesh-alice-bio/",
+    "command: weave mesh create --workspace . --mesh-base https://semantic-flow.github.io/mesh-alice-bio/ --publication-profile github-pages",
   );
   assertStringIncludes(
     rendered,
@@ -1277,7 +1298,7 @@ Deno.test("renderFixtureMaterializationResult prints workspace and next action",
   assertStringIncludes(rendered, "- alice-bio.ttl");
   assertStringIncludes(
     rendered,
-    "Next command: weave mesh create --workspace . --mesh-base https://semantic-flow.github.io/mesh-alice-bio/",
+    "Next command: weave mesh create --workspace . --mesh-base https://semantic-flow.github.io/mesh-alice-bio/ --publication-profile github-pages",
   );
 });
 
@@ -1700,7 +1721,7 @@ async function setupSourceOnlyFileOperationFixture(options: {
     await Deno.writeTextFile(
       `${root}/src/main.ts`,
       [
-        `if (Deno.args.join(" ") !== "mesh create --workspace . --mesh-base https://semantic-flow.github.io/mesh-alice-bio/") {`,
+        `if (Deno.args.join(" ") !== "mesh create --workspace . --mesh-base https://semantic-flow.github.io/mesh-alice-bio/ --publication-profile github-pages") {`,
         `  console.error(\`unexpected args: \${Deno.args.join(" ")}\`);`,
         `  Deno.exit(2);`,
         `}`,
@@ -1790,6 +1811,8 @@ async function setupSourceOnlyFileOperationFixture(options: {
                   ".",
                   "--mesh-base",
                   "https://semantic-flow.github.io/mesh-alice-bio/",
+                  "--publication-profile",
+                  "github-pages",
                 ],
                 workingDirectory: "workspace",
                 promptPolicy: "nonInteractive",
