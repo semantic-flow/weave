@@ -28,6 +28,8 @@ const SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI =
   `${SFLO_NAMESPACE}hasWorkingKnopInventoryFile`;
 const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
   `${SFLO_NAMESPACE}hasWorkingLocatedFile`;
+const SFLO_HAS_REPOSITORY_SOURCE_FLOATING_LOCATOR_IRI =
+  `${SFLO_NAMESPACE}hasRepositorySourceFloatingLocator`;
 const SFLO_KNOP_IRI = `${SFLO_NAMESPACE}Knop`;
 const SFLO_LATEST_HISTORICAL_STATE_IRI =
   `${SFLO_NAMESPACE}latestHistoricalState`;
@@ -40,6 +42,8 @@ const SFLO_RDF_DOCUMENT_IRI = `${SFLO_NAMESPACE}RdfDocument`;
 const SFLO_SEMANTIC_MESH_IRI = `${SFLO_NAMESPACE}SemanticMesh`;
 const SFLO_WORKING_LOCAL_RELATIVE_PATH_IRI =
   `${SFLO_NAMESPACE}workingLocalRelativePath`;
+const SFLO_SOURCE_REPOSITORY_PATH_FROM_ROOT_IRI =
+  `${SFLO_NAMESPACE}sourceRepositoryPathFromRoot`;
 
 export interface ExtractRequest {
   designatorPath: string;
@@ -671,6 +675,12 @@ function assertMeshInventorySupportsExtract(
       sourcePayloadDesignatorPath,
       SFLO_WORKING_LOCAL_RELATIVE_PATH_IRI,
       sourceWorkingLocalRelativePath,
+    ) &&
+    !hasRepositorySourceFloatingLocatorPathFact(
+      quads,
+      meshBase,
+      sourcePayloadDesignatorPath,
+      sourceWorkingLocalRelativePath,
     )
   ) {
     throw new ExtractInputError(errorMessage);
@@ -1157,6 +1167,43 @@ function hasLiteralValueFact(
     quad.object.termType === "Literal" &&
     quad.object.value === literalValue
   );
+}
+
+function hasRepositorySourceFloatingLocatorPathFact(
+  quads: readonly Quad[],
+  meshBase: string,
+  subjectValue: string,
+  repositoryPathFromRoot: string,
+): boolean {
+  const subjectIri = new URL(subjectValue, meshBase).href;
+  const locatorKeys = new Set<string>();
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType === "NamedNode" &&
+      quad.subject.value === subjectIri &&
+      quad.predicate.value ===
+        SFLO_HAS_REPOSITORY_SOURCE_FLOATING_LOCATOR_IRI &&
+      (quad.object.termType === "NamedNode" ||
+        quad.object.termType === "BlankNode")
+    ) {
+      locatorKeys.add(toRdfTermKey(quad.object));
+    }
+  }
+
+  return quads.some((quad) =>
+    (quad.subject.termType === "NamedNode" ||
+      quad.subject.termType === "BlankNode") &&
+    locatorKeys.has(toRdfTermKey(quad.subject)) &&
+    quad.predicate.value === SFLO_SOURCE_REPOSITORY_PATH_FROM_ROOT_IRI &&
+    quad.object.termType === "Literal" &&
+    normalizeWorkingLocalRelativePath(quad.object.value) ===
+      repositoryPathFromRoot
+  );
+}
+
+function toRdfTermKey(term: { termType: string; value: string }): string {
+  return `${term.termType}:${term.value}`;
 }
 
 function listNamedNodeObjectPaths(

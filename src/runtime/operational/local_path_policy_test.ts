@@ -250,7 +250,7 @@ Deno.test("resolveRepositorySourceFloatingLocalPath resolves allowed repository 
     "remote",
     "add",
     "origin",
-    "https://github.com/semantic-flow/sflo.git",
+    "git@github.com:semantic-flow/sflo.git",
   ]);
   await Deno.writeTextFile(
     join(sourceRoot, "semantic-flow-core-ontology.ttl"),
@@ -276,7 +276,7 @@ Deno.test("resolveRepositorySourceFloatingLocalPath resolves allowed repository 
     const policy = await loadOperationalLocalPathPolicy(publishRoot);
     assertEquals(
       await resolveRepositorySourceFloatingLocalPath(policy, {
-        repositoryUrl: "https://github.com/semantic-flow/sflo",
+        repositoryUrl: "https://github.com/semantic-flow/sflo.git",
         repositoryPathFromRoot: "semantic-flow-core-ontology.ttl",
       }),
       join(sourceRoot, "semantic-flow-core-ontology.ttl"),

@@ -416,7 +416,7 @@ Deno.test("weave integrate records current repository floating source locators a
     "remote",
     "add",
     "origin",
-    "https://github.com/semantic-flow/sflo.git",
+    "git@github.com:semantic-flow/sflo.git",
   ]);
   await Deno.writeTextFile(
     join(sourceRoot, "documentation/alice-bio.ttl"),
@@ -443,6 +443,8 @@ Deno.test("weave integrate records current repository floating source locators a
       "--grant-source-directory",
       "source",
       "--source-repository-current",
+      "--source-repository-url",
+      "https://github.com/semantic-flow/sflo.git",
     ],
     cwd: toFileUrl(`${tempRoot}/`),
     env: {

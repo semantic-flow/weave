@@ -202,6 +202,50 @@ Deno.test("planExtract accepts a root source payload when the root and source kn
   );
 });
 
+Deno.test("planExtract accepts floating repository source payloads in mesh inventory", () => {
+  const plan = planExtract({
+    meshBase: "https://semantic-flow.github.io/sflo/",
+    currentMeshInventoryTurtle: `@base <https://semantic-flow.github.io/sflo/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<_mesh> a sflo:SemanticMesh ;
+  sflo:meshBase "https://semantic-flow.github.io/sflo/"^^xsd:anyURI ;
+  sflo:hasMeshMetadata <_mesh/_meta> ;
+  sflo:hasMeshInventory <_mesh/_inventory> ;
+  sflo:hasKnop <ontology/_knop> .
+
+<ontology> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasRepositorySourceFloatingLocator [
+    a sflo:RepositorySourceFloatingLocator ;
+    sflo:sourceRepositoryUrl "https://github.com/semantic-flow/sflo.git" ;
+    sflo:sourceRepositoryPathFromRoot "semantic-flow-core-ontology.ttl"
+  ] .
+
+<ontology/_knop> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <ontology/_knop/_inventory/inventory.ttl> .
+
+<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument .
+`,
+    designatorPath: "ontology/ArtifactHistory",
+    sourceDesignatorPath: "ontology",
+    sourceWorkingLocalRelativePath: "semantic-flow-core-ontology.ttl",
+  });
+
+  assertEquals(
+    plan.updatedFiles.map((file) => file.path),
+    ["_mesh/_inventory/inventory.ttl"],
+  );
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    "<_mesh> sflo:hasKnop <ontology/ArtifactHistory/_knop> .",
+  );
+  assertStringIncludes(
+    plan.createdFiles[2]?.contents ?? "",
+    "sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> .",
+  );
+});
+
 Deno.test("planExtract rejects the removed current source resolution mode", () => {
   assertThrows(
     () =>

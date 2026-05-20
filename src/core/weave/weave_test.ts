@@ -862,6 +862,78 @@ Deno.test("planWeave renders the first alice bio payload weave slice", () => {
   );
 });
 
+Deno.test("planWeave preserves floating repository payload source locators", () => {
+  const repositorySourceFloatingLocator = {
+    repositoryUrl: "https://github.com/semantic-flow/sflo.git",
+    repositoryPathFromRoot: "alice-bio.ttl",
+  };
+  const floatingLocatorBlock = `sflo:hasRepositorySourceFloatingLocator [
+    a sflo:RepositorySourceFloatingLocator ;
+    sflo:sourceRepositoryUrl "https://github.com/semantic-flow/sflo.git" ;
+    sflo:sourceRepositoryPathFromRoot "alice-bio.ttl"
+  ]`;
+  const currentMeshInventoryTurtle = firstPayloadWeaveMeshInventoryTurtle
+    .replace(
+      "sflo:hasWorkingLocatedFile <alice-bio.ttl>",
+      floatingLocatorBlock,
+    );
+  const currentKnopInventoryTurtle = firstPayloadWeaveKnopInventoryTurtle
+    .replace(
+      "sflo:hasWorkingLocatedFile <alice-bio.ttl>",
+      floatingLocatorBlock,
+    );
+
+  const plan = planWeave({
+    request: {
+      targets: [{ designatorPath: "alice/bio" }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle,
+    currentMeshMetadataTurtle: firstPayloadWeaveMeshMetadataTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice/bio",
+      currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+      currentKnopInventoryTurtle,
+      payloadArtifact: {
+        workingLocalRelativePath: "alice-bio.ttl",
+        repositorySourceFloatingLocator,
+        currentPayloadTurtle:
+          `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix schema: <https://schema.org/> .
+
+<alice> a schema:Person .
+`,
+      },
+    }],
+  });
+
+  const meshInventory =
+    plan.updatedFiles.find((file) =>
+      file.path === "_mesh/_inventory/inventory.ttl"
+    )?.contents ?? "";
+  const knopInventory =
+    plan.updatedFiles.find((file) =>
+      file.path === "alice/bio/_knop/_inventory/inventory.ttl"
+    )?.contents ?? "";
+
+  for (const turtle of [meshInventory, knopInventory]) {
+    assertStringIncludes(
+      turtle,
+      "sflo:hasRepositorySourceFloatingLocator [",
+    );
+    assertStringIncludes(
+      turtle,
+      'sflo:sourceRepositoryUrl "https://github.com/semantic-flow/sflo.git"',
+    );
+    assertStringIncludes(
+      turtle,
+      'sflo:sourceRepositoryPathFromRoot "alice-bio.ttl"',
+    );
+    assertFalse(turtle.includes("sflo:hasWorkingLocatedFile <alice-bio.ttl>"));
+    assertFalse(turtle.includes("<alice-bio.ttl> a sflo:LocatedFile"));
+  }
+});
+
 Deno.test("planWeave applies current-only KnopMetadata policy on the first payload weave slice", () => {
   const plan = planWeave({
     request: {
@@ -2530,6 +2602,26 @@ Deno.test("planWeave renders the extracted bob woven slice", async () => {
   assertStringIncludes(
     plan.updatedFiles[4]?.contents ?? "",
     '<td><a href="../bob">bob</a></td>',
+  );
+});
+
+Deno.test("planWeave accepts extracted terms from floating repository source payloads", async () => {
+  const input = await createExtractedBobWeaveInput();
+  input.currentMeshInventoryTurtle = input.currentMeshInventoryTurtle.replace(
+    "sflo:hasWorkingLocatedFile <alice-bio.ttl> ;",
+    `sflo:hasRepositorySourceFloatingLocator [
+    a sflo:RepositorySourceFloatingLocator ;
+    sflo:sourceRepositoryUrl "https://github.com/semantic-flow/mesh-alice-bio.git" ;
+    sflo:sourceRepositoryPathFromRoot "alice-bio.ttl"
+  ] ;`,
+  );
+
+  const plan = planWeave(input);
+
+  assertEquals(plan.wovenDesignatorPaths, ["bob"]);
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    "sflo:hasRepositorySourceFloatingLocator [",
   );
 });
 

@@ -1375,6 +1375,12 @@ async function loadPayloadWorkingArtifact(
   return {
     workingLocalRelativePath,
     currentPayloadTurtle,
+    ...(payloadArtifact.repositorySourceFloatingLocator
+      ? {
+        repositorySourceFloatingLocator:
+          payloadArtifact.repositorySourceFloatingLocator,
+      }
+      : {}),
     currentArtifactHistoryPath,
     ...(latestHistoricalSnapshotPath ? { latestHistoricalSnapshotPath } : {}),
     latestHistoricalSnapshotTurtle,

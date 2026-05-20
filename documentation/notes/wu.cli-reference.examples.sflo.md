@@ -10,7 +10,7 @@ created: 1779030765340
 
 This note records the command sequence used while dogfooding Weave against the SFLO ontology repository and a branch-published `gh-pages` mesh. The examples assume a Weave checkout with a dependency-local SFLO source repository and a disposable local `gh-pages` worktree such as `/tmp/sflo`.
 
-This note is a dogfooding command sequence rather than the final CI runbook. The old `weave prepare gh-pages` wrapper has been removed, and branch-published source binding now uses ordinary `mesh create`, `integrate`, `set`, `version`, `extract`, `weave`, `generate`, `validate`, publication-profile, and CI/CD operations.
+This note is a dogfooding command sequence rather than the final CI runbook. The old `weave prepare gh-pages` wrapper has been removed, and branch-published source binding now uses ordinary `mesh create`, `integrate`, `set`, `weave`, `extract`, `generate`, `validate`, publication-profile, and CI/CD operations.
 
 This sequence scratch-regenerates the disposable `gh-pages` worktree from the active SFLO source checkout. It intentionally does not preserve earlier local publication history such as the first `v0.1.0` replay; until the first release that needs durable public preservation, fewer extant generated versions are easier to reason about. Once exact source-state import/mapping exists, early versions can be recaptured deliberately.
 
@@ -42,7 +42,7 @@ Preflight the editable source checkout and publication worktree before deleting 
 git -C "$SFLO_REPO" status --short --branch
 git -C "$SFLO_PUB" status --short --branch
 
-(cd "$SFLO_REPO" && deno task release:validate -- --version "$SFLO_RELEASE_VERSION")
+(cd "$SFLO_REPO" && deno task release:validate --version "$SFLO_RELEASE_VERSION")
 ```
 
 ## Step 2: Reset The Disposable Publication Worktree
@@ -103,17 +103,20 @@ Use `--source-repository-current` for this floating working-source replay. The s
 deno run -A "$WEAVE_CLI" integrate "$SFLO_SRC/semantic-flow-core-ontology.ttl" ontology \
   --mesh-root "$SFLO_PUB" \
   --grant-source-directory "$SFLO_SRC" \
-  --source-repository-current
+  --source-repository-current \
+  --source-repository-url 'https://github.com/semantic-flow/sflo.git'
 
 deno run -A "$WEAVE_CLI" integrate "$SFLO_SRC/semantic-flow-config-ontology.ttl" config \
   --mesh-root "$SFLO_PUB" \
   --grant-source-directory "$SFLO_SRC" \
-  --source-repository-current
+  --source-repository-current \
+  --source-repository-url 'https://github.com/semantic-flow/sflo.git'
 
 deno run -A "$WEAVE_CLI" integrate "$SFLO_SRC/semantic-flow-core-shacl.ttl" ontology/shacl \
   --mesh-root "$SFLO_PUB" \
   --grant-source-directory "$SFLO_SRC" \
-  --source-repository-current
+  --source-repository-current \
+  --source-repository-url 'https://github.com/semantic-flow/sflo.git'
 ```
 
 Confirm the source bindings stayed floating and working-only, with no host-local source path leakage:
@@ -139,9 +142,9 @@ fi
 
 Before publication, the source ontology metadata should consistently describe the configured release version, and `owl:versionIRI` should point at raw bytes for the matching eventual release tag. The version/HistoricalState resource can use `schema:contentUrl` for the preferred mesh-served Turtle URL and `sflo:hasManifestation` for the lightweight manifestation node whose `dcat:downloadURL` is the same mesh-served Turtle URL. The generated inventory carries the richer `ArtifactManifestation`, `LocatedFile`, and `locatedFileForManifestation` graph.
 
-## Step 7: Version The Source Payloads
+## Step 7: Weave The Source Payloads
 
-Set the release history and state intent, then explicitly version the three payloads. `weave version` creates historical states; `weave generate` later renders pages from the resulting mesh state.
+Set the release history and state intent, then explicitly weave the three payloads. This targeted top-level weave creates the release states and current publication surfaces for the integrated source payloads; `weave generate` later renders pages from the resulting mesh state.
 
 ```sh
 deno run -A "$WEAVE_CLI" set history ontology releases --mesh-root "$SFLO_PUB"
@@ -153,7 +156,7 @@ deno run -A "$WEAVE_CLI" set next-state config "$SFLO_RELEASE_STATE" --mesh-root
 deno run -A "$WEAVE_CLI" set history ontology/shacl releases --mesh-root "$SFLO_PUB"
 deno run -A "$WEAVE_CLI" set next-state ontology/shacl "$SFLO_RELEASE_STATE" --mesh-root "$SFLO_PUB"
 
-deno run -A "$WEAVE_CLI" version \
+deno run -A "$WEAVE_CLI" \
   --mesh-root "$SFLO_PUB" \
   --payload-manifestation-segment ttl \
   --target 'designatorPath=ontology' \
@@ -163,7 +166,7 @@ deno run -A "$WEAVE_CLI" version \
 
 ## Step 8: Extract Terms From The Source Artifacts
 
-Run all-terms extraction after the source artifacts have been versioned. These commands create first-class term identifiers for mesh-scoped named nodes discovered in subject, predicate, or object position, skip generated support/file resources such as `sflo:LocatedFile`s, and create canonical source references for terms newly extracted in that invocation. Existing extracted terms are skipped, so this does not backfill references from a later source if a term was already extracted from an earlier source. If source references need to be repaired or regenerated, reset the disposable publication worktree and replay the sequence from the beginning rather than rerunning extraction over already-created terms.
+Run all-terms extraction after the source artifacts have been woven into release states. These commands create first-class term identifiers for mesh-scoped named nodes discovered in subject, predicate, or object position, skip generated support/file resources such as `sflo:LocatedFile`s, and create canonical source references for terms newly extracted in that invocation. Existing extracted terms are skipped, so this does not backfill references from a later source if a term was already extracted from an earlier source. If source references need to be repaired or regenerated, reset the disposable publication worktree and replay the sequence from the beginning rather than rerunning extraction over already-created terms.
 
 ```sh
 deno run -A "$WEAVE_CLI" extract --all-terms \
@@ -188,18 +191,18 @@ deno run -A "$WEAVE_CLI" extract --all-terms \
   --accept-preview
 ```
 
-## Step 9: Validate And Weave The Extracted Terms
+## Step 9: Weave And Validate The Extracted Terms
 
-Run whole-mesh validation as a preflight after extraction, while the pending extracted term Knops still have not been woven into current generated pages. Then run an untargeted weave so every pending extracted term Knop and its support surfaces become part of the current publication mesh. This advances the generated publication side without changing the source checkout.
+Run an untargeted weave so every pending extracted term Knop and its support surfaces become part of the current publication mesh. This advances the generated publication side without changing the source checkout. Whole-mesh validation can conceptually be used as a preflight, but on this all-terms replay it currently has to dry-run hundreds of pending extracted-term weaves, so this dogfood sequence validates after the weave and page generation.
 
 ```sh
-deno run -A "$WEAVE_CLI" validate mesh \
-  --mesh-root "$SFLO_PUB"
-
 deno run -A "$WEAVE_CLI" \
   --mesh-root "$SFLO_PUB"
 
 deno run -A "$WEAVE_CLI" generate \
+  --mesh-root "$SFLO_PUB"
+
+deno run -A "$WEAVE_CLI" validate mesh \
   --mesh-root "$SFLO_PUB"
 ```
 

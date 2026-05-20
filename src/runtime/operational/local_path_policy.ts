@@ -431,6 +431,24 @@ function repositoryUrlsMatch(left: string, right: string): boolean {
 
 function normalizeRepositoryUrlForComparison(url: string): string {
   let normalized = url.trim();
+  if (!normalized.includes("://")) {
+    const sshScpMatch = /^([^@]+@)?([^:]+):(.+)$/.exec(normalized);
+    if (sshScpMatch) {
+      normalized = `https://${sshScpMatch[2]}/${sshScpMatch[3]}`;
+    }
+  } else {
+    try {
+      const parsedUrl = new URL(normalized);
+      if (
+        parsedUrl.protocol === "ssh:" &&
+        (parsedUrl.username === "git" || parsedUrl.username.length === 0)
+      ) {
+        normalized = `https://${parsedUrl.host}${parsedUrl.pathname}`;
+      }
+    } catch {
+      // Fall through to lightweight string normalization below.
+    }
+  }
   while (normalized.endsWith("/")) {
     normalized = normalized.slice(0, -1);
   }
