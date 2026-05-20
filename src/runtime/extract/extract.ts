@@ -32,6 +32,7 @@ import {
   LocalPathAccessError,
   type OperationalLocalPathPolicy,
   resolveAllowedLocalPath,
+  resolveRepositorySourceFloatingLocalPath,
 } from "../operational/local_path_policy.ts";
 import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
@@ -1084,6 +1085,7 @@ async function loadExtractSourcePayloadCandidate(
     localPathPolicy,
     designatorPath,
     payloadArtifact.workingLocalRelativePath,
+    payloadArtifact.repositorySourceFloatingLocator,
   );
 
   return {
@@ -1092,7 +1094,9 @@ async function loadExtractSourcePayloadCandidate(
     sourceResolutionMode: "working",
     sourceStatePath: undefined,
     sourceEvidence: {
-      ...(payloadArtifact.workingLocatedFilePath
+      ...(payloadArtifact.repositorySourceFloatingLocator
+        ? {}
+        : payloadArtifact.workingLocatedFilePath
         ? { sourceLocatedFilePath: payloadArtifact.workingLocatedFilePath }
         : {
           sourceLocalRelativePath: payloadArtifact.workingLocalRelativePath,
@@ -1262,14 +1266,23 @@ async function readPayloadWorkingFile(
   localPathPolicy: OperationalLocalPathPolicy,
   designatorPath: string,
   workingLocalRelativePath: string,
+  repositorySourceFloatingLocator?: {
+    repositoryUrl: string;
+    repositoryPathFromRoot: string;
+  },
 ): Promise<string> {
   let absoluteWorkingLocalRelativePath: string;
   try {
-    absoluteWorkingLocalRelativePath = resolveAllowedLocalPath(
-      localPathPolicy,
-      "workingLocalRelativePath",
-      workingLocalRelativePath,
-    );
+    absoluteWorkingLocalRelativePath = repositorySourceFloatingLocator
+      ? await resolveRepositorySourceFloatingLocalPath(
+        localPathPolicy,
+        repositorySourceFloatingLocator,
+      )
+      : resolveAllowedLocalPath(
+        localPathPolicy,
+        "workingLocalRelativePath",
+        workingLocalRelativePath,
+      );
   } catch (error) {
     if (error instanceof LocalPathAccessError) {
       throw new ExtractRuntimeError(error.message);

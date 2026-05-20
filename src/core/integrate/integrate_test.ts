@@ -248,6 +248,80 @@ Deno.test("planIntegrate records repository-backed source bindings", async () =>
   assertStringIncludes(sources, 'sflo:hasContentDigest "sha256:123abc"');
 });
 
+Deno.test("planIntegrate records floating repository source bindings without local source paths", async () => {
+  const currentMeshInventoryTurtle = await readMeshAliceBioBranchFile(
+    "05-alice-knop-created-woven",
+    "_mesh/_inventory/inventory.ttl",
+  );
+
+  const plan = planIntegrate({
+    designatorPath: "alice/bio",
+    workingLocalRelativePath: "../source/alice-bio.ttl",
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle,
+    sourceBinding: {
+      repositorySourceFloatingLocator: {
+        repositoryUrl: "https://github.com/semantic-flow/mesh-alice-bio.git",
+        repositoryPathFromRoot: "alice-bio.ttl",
+      },
+      artifactResolutionMode: "working",
+    },
+  });
+
+  const inventory = plan.createdFiles[1]?.contents ?? "";
+  assertStringIncludes(
+    inventory,
+    "sflo:hasRepositorySourceFloatingLocator [",
+  );
+  assertStringIncludes(
+    inventory,
+    "a sflo:RepositorySourceFloatingLocator ;",
+  );
+  assertStringIncludes(
+    inventory,
+    'sflo:sourceRepositoryUrl "https://github.com/semantic-flow/mesh-alice-bio.git" ;',
+  );
+  assertStringIncludes(
+    inventory,
+    'sflo:sourceRepositoryPathFromRoot "alice-bio.ttl"',
+  );
+  assertEquals(inventory.includes("sflo:workingLocalRelativePath"), false);
+  assertEquals(
+    inventory.includes("sflo:hasWorkingLocatedFile <../source/"),
+    false,
+  );
+
+  const meshInventory = plan.updatedFiles[0]?.contents ?? "";
+  assertStringIncludes(
+    meshInventory,
+    "sflo:hasRepositorySourceFloatingLocator [",
+  );
+  assertEquals(meshInventory.includes("sflo:workingLocalRelativePath"), false);
+  assertEquals(
+    meshInventory.includes("sflo:hasWorkingLocatedFile <../source/"),
+    false,
+  );
+
+  const sources = plan.createdFiles[2]?.contents ?? "";
+  assertStringIncludes(
+    sources,
+    "<alice/bio/_knop/_sources#payload-source> a sflo:ArtifactResolutionTarget ;",
+  );
+  assertStringIncludes(
+    sources,
+    "sflo:hasRepositorySourceFloatingLocator [",
+  );
+  assertStringIncludes(
+    sources,
+    'sflo:sourceRepositoryPathFromRoot "alice-bio.ttl"',
+  );
+  assertEquals(sources.includes("sflo:targetLocalRelativePath"), false);
+  assertEquals(sources.includes("sflo:sourceRepositoryRef"), false);
+  assertEquals(sources.includes("sflo:sourceRepositoryCommit"), false);
+  assertEquals(sources.includes("sflo:hasContentDigest"), false);
+  assertEquals(sources.includes("sflo:expectsContentDigest"), false);
+});
+
 Deno.test(
   "planIntegrate accepts semantically equivalent woven MeshInventory turtle",
   async () => {

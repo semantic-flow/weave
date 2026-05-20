@@ -56,6 +56,7 @@ import {
   LocalPathAccessError,
   type OperationalLocalPathPolicy,
   resolveAllowedLocalPath,
+  resolveRepositorySourceFloatingLocalPath,
 } from "../operational/local_path_policy.ts";
 import {
   MeshMetadataResolutionError,
@@ -1326,12 +1327,19 @@ async function loadPayloadWorkingArtifact(
   let currentPayloadTurtle: string;
   let latestHistoricalSnapshotTurtle: string | undefined;
   try {
+    const absoluteCurrentPayloadPath =
+      payloadArtifact.repositorySourceFloatingLocator
+        ? await resolveRepositorySourceFloatingLocalPath(
+          localPathPolicy,
+          payloadArtifact.repositorySourceFloatingLocator,
+        )
+        : resolveAllowedLocalPath(
+          localPathPolicy,
+          "workingLocalRelativePath",
+          workingLocalRelativePath,
+        );
     currentPayloadTurtle = await readTextFileWithOverlay(
-      resolveAllowedLocalPath(
-        localPathPolicy,
-        "workingLocalRelativePath",
-        workingLocalRelativePath,
-      ),
+      absoluteCurrentPayloadPath,
       overlay,
     );
   } catch (error) {

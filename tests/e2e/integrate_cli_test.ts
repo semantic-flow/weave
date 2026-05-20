@@ -398,6 +398,103 @@ Deno.test("weave integrate records repository-backed source provenance as a blac
   assertStringIncludes(sources, `sflo:hasContentDigest "${expectedDigest}"`);
 });
 
+Deno.test("weave integrate records current repository floating source locators as a black-box CLI run", async () => {
+  const tempRoot = await createTestTmpDir(
+    "weave-e2e-integrate-floating-source-",
+  );
+  const sourceRoot = join(tempRoot, "source");
+  const publicationRoot = join(tempRoot, "publication");
+  const homeRoot = join(tempRoot, "home");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    publicationRoot,
+  );
+  await Deno.mkdir(join(sourceRoot, "documentation"), { recursive: true });
+  await Deno.mkdir(homeRoot, { recursive: true });
+  await runGit(sourceRoot, ["init"]);
+  await runGit(sourceRoot, [
+    "remote",
+    "add",
+    "origin",
+    "https://github.com/semantic-flow/sflo.git",
+  ]);
+  await Deno.writeTextFile(
+    join(sourceRoot, "documentation/alice-bio.ttl"),
+    await readMeshAliceBioBranchFile(
+      "05-alice-knop-created-woven",
+      "alice-bio.ttl",
+    ),
+  );
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "--allow-run=git",
+      cliPath,
+      "integrate",
+      "source/documentation/alice-bio.ttl",
+      "--designator-path",
+      "alice/bio",
+      "--mesh-root",
+      "publication",
+      "--grant-source-directory",
+      "source",
+      "--source-repository-current",
+    ],
+    cwd: toFileUrl(`${tempRoot}/`),
+    env: {
+      HOME: homeRoot,
+    },
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assertStringIncludes(stdout, "alice/bio/_knop/_sources/sources.ttl");
+  const inventory = await Deno.readTextFile(
+    join(publicationRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+  );
+  assertStringIncludes(
+    inventory,
+    "sflo:hasRepositorySourceFloatingLocator [",
+  );
+  assertStringIncludes(
+    inventory,
+    "a sflo:RepositorySourceFloatingLocator ;",
+  );
+  assertStringIncludes(
+    inventory,
+    'sflo:sourceRepositoryUrl "https://github.com/semantic-flow/sflo.git" ;',
+  );
+  assertStringIncludes(
+    inventory,
+    'sflo:sourceRepositoryPathFromRoot "documentation/alice-bio.ttl"',
+  );
+  assertEquals(inventory.includes("sflo:workingLocalRelativePath"), false);
+  assertEquals(
+    inventory.includes("sflo:hasWorkingLocatedFile <../source/"),
+    false,
+  );
+
+  const sources = await Deno.readTextFile(
+    join(publicationRoot, "alice/bio/_knop/_sources/sources.ttl"),
+  );
+  assertStringIncludes(
+    sources,
+    "sflo:hasRepositorySourceFloatingLocator [",
+  );
+  assertEquals(sources.includes("sflo:targetLocalRelativePath"), false);
+  assertEquals(sources.includes("sflo:sourceRepositoryRef"), false);
+  assertEquals(sources.includes("sflo:sourceRepositoryCommit"), false);
+  assertEquals(sources.includes("sflo:hasContentDigest"), false);
+});
+
 Deno.test("weave integrate rejects partial repository-backed source metadata before execution", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-e2e-integrate-partial-source-metadata-",
@@ -835,4 +932,17 @@ async function sha256Digest(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
   return `sha256:${hex}`;
+}
+
+async function runGit(cwd: string, args: readonly string[]): Promise<void> {
+  const command = new Deno.Command("git", {
+    args: [...args],
+    cwd,
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  if (!output.success) {
+    throw new Error(new TextDecoder().decode(output.stderr));
+  }
 }

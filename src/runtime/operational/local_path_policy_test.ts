@@ -7,6 +7,7 @@ import {
   LocalPathAccessError,
   OperationalConfigError,
   resolveAllowedLocalPath,
+  resolveRepositorySourceFloatingLocalPath,
 } from "./local_path_policy.ts";
 
 Deno.test("loadOperationalLocalPathPolicy discovers mesh-owned config in a non-whole-repo mesh", async () => {
@@ -234,6 +235,118 @@ Deno.test("resolveAllowedLocalPath requires a host-local grant for sibling workt
   }
 });
 
+Deno.test("resolveRepositorySourceFloatingLocalPath resolves allowed repository checkout paths", async () => {
+  const tempRoot = await Deno.makeTempDir({
+    prefix: "weave-repo-floating-policy-",
+  });
+  const sourceRoot = join(tempRoot, "source");
+  const publishRoot = join(tempRoot, "gh-pages");
+  const homeRoot = join(tempRoot, "home");
+  await Deno.mkdir(sourceRoot, { recursive: true });
+  await Deno.mkdir(publishRoot, { recursive: true });
+  await Deno.mkdir(homeRoot, { recursive: true });
+  await runGit(sourceRoot, ["init"]);
+  await runGit(sourceRoot, [
+    "remote",
+    "add",
+    "origin",
+    "https://github.com/semantic-flow/sflo.git",
+  ]);
+  await Deno.writeTextFile(
+    join(sourceRoot, "semantic-flow-core-ontology.ttl"),
+    "# source branch file\n",
+  );
+  await Deno.writeTextFile(
+    join(homeRoot, ".sf-local-access.ttl"),
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:HostLocalOperationalConfig ;
+  sfcfg:hasLocalPathAccessRule [
+    a sfcfg:LocalPathAccessRule ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_absolutePath> ;
+    sfcfg:pathPrefix "${sourceRoot}/" ;
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
+  ] .
+`,
+  );
+
+  const previousHome = Deno.env.get("HOME");
+  Deno.env.set("HOME", homeRoot);
+  try {
+    const policy = await loadOperationalLocalPathPolicy(publishRoot);
+    assertEquals(
+      await resolveRepositorySourceFloatingLocalPath(policy, {
+        repositoryUrl: "https://github.com/semantic-flow/sflo",
+        repositoryPathFromRoot: "semantic-flow-core-ontology.ttl",
+      }),
+      join(sourceRoot, "semantic-flow-core-ontology.ttl"),
+    );
+  } finally {
+    if (previousHome === undefined) {
+      Deno.env.delete("HOME");
+    } else {
+      Deno.env.set("HOME", previousHome);
+    }
+  }
+});
+
+Deno.test("resolveRepositorySourceFloatingLocalPath prefers granted source checkout over publication checkout", async () => {
+  const tempRoot = await Deno.makeTempDir({
+    prefix: "weave-repo-floating-policy-same-remote-",
+  });
+  const sourceRoot = join(tempRoot, "source");
+  const publishRoot = join(tempRoot, "gh-pages");
+  const homeRoot = join(tempRoot, "home");
+  await Deno.mkdir(sourceRoot, { recursive: true });
+  await Deno.mkdir(publishRoot, { recursive: true });
+  await Deno.mkdir(homeRoot, { recursive: true });
+  for (const root of [sourceRoot, publishRoot]) {
+    await runGit(root, ["init"]);
+    await runGit(root, [
+      "remote",
+      "add",
+      "origin",
+      "https://github.com/semantic-flow/sflo.git",
+    ]);
+  }
+  await Deno.writeTextFile(
+    join(sourceRoot, "semantic-flow-core-ontology.ttl"),
+    "# source branch file\n",
+  );
+  await Deno.writeTextFile(
+    join(homeRoot, ".sf-local-access.ttl"),
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:HostLocalOperationalConfig ;
+  sfcfg:hasLocalPathAccessRule [
+    a sfcfg:LocalPathAccessRule ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_absolutePath> ;
+    sfcfg:pathPrefix "${sourceRoot}/" ;
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
+  ] .
+`,
+  );
+
+  const previousHome = Deno.env.get("HOME");
+  Deno.env.set("HOME", homeRoot);
+  try {
+    const policy = await loadOperationalLocalPathPolicy(publishRoot);
+    assertEquals(
+      await resolveRepositorySourceFloatingLocalPath(policy, {
+        repositoryUrl: "https://github.com/semantic-flow/sflo.git",
+        repositoryPathFromRoot: "semantic-flow-core-ontology.ttl",
+      }),
+      join(sourceRoot, "semantic-flow-core-ontology.ttl"),
+    );
+  } finally {
+    if (previousHome === undefined) {
+      Deno.env.delete("HOME");
+    } else {
+      Deno.env.set("HOME", previousHome);
+    }
+  }
+});
+
 Deno.test("ensureHostLocalWorkingDirectoryAccessRule creates a machine-local source grant", async () => {
   const tempRoot = await Deno.makeTempDir({
     prefix: "weave-local-path-host-grant-",
@@ -280,3 +393,16 @@ Deno.test("ensureHostLocalWorkingDirectoryAccessRule creates a machine-local sou
     }
   }
 });
+
+async function runGit(cwd: string, args: readonly string[]): Promise<void> {
+  const command = new Deno.Command("git", {
+    args: [...args],
+    cwd,
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  if (!output.success) {
+    throw new Error(new TextDecoder().decode(output.stderr));
+  }
+}

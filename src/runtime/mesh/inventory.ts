@@ -40,6 +40,11 @@ const SFLO_HAS_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasPayloadArtifact`;
 const SFLO_HAS_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}hasReferenceCatalog`;
 const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
   `${SFLO_NAMESPACE}hasWorkingLocatedFile`;
+const SFLO_HAS_REPOSITORY_SOURCE_FLOATING_LOCATOR_IRI =
+  `${SFLO_NAMESPACE}hasRepositorySourceFloatingLocator`;
+const SFLO_SOURCE_REPOSITORY_URL_IRI = `${SFLO_NAMESPACE}sourceRepositoryUrl`;
+const SFLO_SOURCE_REPOSITORY_PATH_FROM_ROOT_IRI =
+  `${SFLO_NAMESPACE}sourceRepositoryPathFromRoot`;
 const SFLO_WORKING_FILE_PATH_IRI = `${SFLO_NAMESPACE}workingLocalRelativePath`;
 const SFLO_KNOP_IRI = `${SFLO_NAMESPACE}Knop`;
 const SFLO_LATEST_HISTORICAL_STATE_IRI =
@@ -56,10 +61,16 @@ const SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI =
 export interface PayloadArtifactInventoryState {
   workingLocalRelativePath: string;
   workingLocatedFilePath?: string;
+  repositorySourceFloatingLocator?: RepositorySourceFloatingLocatorState;
   currentArtifactHistoryPath?: string;
   currentArtifactHistoryExists: boolean;
   latestHistoricalStatePath?: string;
   latestHistoricalSnapshotPath?: string;
+}
+
+export interface RepositorySourceFloatingLocatorState {
+  repositoryUrl: string;
+  repositoryPathFromRoot: string;
 }
 
 export interface ReferenceCatalogInventoryState {
@@ -163,12 +174,20 @@ export function resolvePayloadArtifactInventoryState(
     return undefined;
   }
 
-  const workingLocalRelativePath = requireWorkingLocalRelativePath(
-    quads,
-    meshBase,
-    payloadArtifactIri,
-    messages.missingWorkingFileMessage,
-  );
+  const repositorySourceFloatingLocator =
+    resolveOptionalRepositorySourceFloatingLocator(
+      quads,
+      payloadArtifactIri,
+      messages.parseErrorMessage,
+    );
+  const workingLocalRelativePath = repositorySourceFloatingLocator
+    ?.repositoryPathFromRoot ??
+    requireWorkingLocalRelativePath(
+      quads,
+      meshBase,
+      payloadArtifactIri,
+      messages.missingWorkingFileMessage,
+    );
   const workingLocatedFilePath = resolveOptionalUniqueNamedNodePath(
     quads,
     meshBase,
@@ -213,6 +232,9 @@ export function resolvePayloadArtifactInventoryState(
   return {
     workingLocalRelativePath,
     ...(workingLocatedFilePath ? { workingLocatedFilePath } : {}),
+    ...(repositorySourceFloatingLocator
+      ? { repositorySourceFloatingLocator }
+      : {}),
     currentArtifactHistoryPath,
     currentArtifactHistoryExists,
     latestHistoricalStatePath,
@@ -738,10 +760,9 @@ function requireWorkingLocalRelativePath(
   errorMessage: string,
 ): string {
   const literalWorkingLocalRelativePath =
-    resolveOptionalUniqueLiteralWorkingLocalRelativePath(
+    resolveOptionalWorkingLocalRelativePath(
       quads,
       subjectIri,
-      SFLO_WORKING_FILE_PATH_IRI,
       errorMessage,
     );
   const locatedWorkingLocalRelativePath = resolveOptionalUniqueNamedNodePath(
@@ -768,6 +789,93 @@ function requireWorkingLocalRelativePath(
   }
 
   throw new Error(errorMessage);
+}
+
+function resolveOptionalWorkingLocalRelativePath(
+  quads: readonly Quad[],
+  subjectIri: string,
+  errorMessage: string,
+): string | undefined {
+  return resolveOptionalUniqueLiteralWorkingLocalRelativePath(
+    quads,
+    subjectIri,
+    SFLO_WORKING_FILE_PATH_IRI,
+    errorMessage,
+  );
+}
+
+function resolveOptionalRepositorySourceFloatingLocator(
+  quads: readonly Quad[],
+  subjectIri: string,
+  errorMessage: string,
+): RepositorySourceFloatingLocatorState | undefined {
+  const locatorIri = resolveOptionalUniqueObjectTermKey(
+    quads,
+    subjectIri,
+    SFLO_HAS_REPOSITORY_SOURCE_FLOATING_LOCATOR_IRI,
+    errorMessage,
+  );
+  if (locatorIri === undefined) {
+    return undefined;
+  }
+
+  const repositoryUrl = resolveOptionalUniqueLiteral(
+    quads,
+    locatorIri,
+    SFLO_SOURCE_REPOSITORY_URL_IRI,
+    errorMessage,
+  );
+  const repositoryPathFromRoot =
+    resolveOptionalUniqueLiteralWorkingLocalRelativePath(
+      quads,
+      locatorIri,
+      SFLO_SOURCE_REPOSITORY_PATH_FROM_ROOT_IRI,
+      errorMessage,
+    );
+  if (
+    repositoryUrl === undefined ||
+    repositoryPathFromRoot === undefined ||
+    repositoryPathFromRoot.startsWith("../")
+  ) {
+    throw new Error(errorMessage);
+  }
+
+  return {
+    repositoryUrl,
+    repositoryPathFromRoot,
+  };
+}
+
+function resolveOptionalUniqueObjectTermKey(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+  errorMessage: string,
+): string | undefined {
+  const values = new Set<string>();
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.subject.value !== subjectIri ||
+      quad.predicate.value !== predicateIri ||
+      (quad.object.termType !== "NamedNode" &&
+        quad.object.termType !== "BlankNode")
+    ) {
+      continue;
+    }
+
+    values.add(`${quad.object.termType}:${quad.object.value}`);
+  }
+
+  if (values.size === 0) {
+    return undefined;
+  }
+  if (values.size !== 1) {
+    throw new Error(errorMessage);
+  }
+
+  return values.values().next().value!;
 }
 
 function resolveOptionalUniqueNamedNodePath(
@@ -835,7 +943,7 @@ function resolveOptionalUniqueNamedNodeIri(
 
 function resolveOptionalUniqueLiteral(
   quads: readonly Quad[],
-  subjectIri: string,
+  subjectIriOrKey: string,
   predicateIri: string,
   errorMessage: string,
 ): string | undefined {
@@ -843,8 +951,7 @@ function resolveOptionalUniqueLiteral(
 
   for (const quad of quads) {
     if (
-      quad.subject.termType !== "NamedNode" ||
-      quad.subject.value !== subjectIri ||
+      !matchesSubject(quad.subject, subjectIriOrKey) ||
       quad.predicate.value !== predicateIri ||
       quad.object.termType !== "Literal"
     ) {
@@ -908,7 +1015,7 @@ function resolveOptionalHistoricalStateLocatedFilePath(
 
 function resolveOptionalUniqueLiteralWorkingLocalRelativePath(
   quads: readonly Quad[],
-  subjectIri: string,
+  subjectIriOrKey: string,
   predicateIri: string,
   errorMessage: string,
 ): string | undefined {
@@ -916,8 +1023,7 @@ function resolveOptionalUniqueLiteralWorkingLocalRelativePath(
 
   for (const quad of quads) {
     if (
-      quad.subject.termType !== "NamedNode" ||
-      quad.subject.value !== subjectIri ||
+      !matchesSubject(quad.subject, subjectIriOrKey) ||
       quad.predicate.value !== predicateIri ||
       quad.object.termType !== "Literal"
     ) {
@@ -937,6 +1043,19 @@ function resolveOptionalUniqueLiteralWorkingLocalRelativePath(
   }
 
   return values.values().next().value!;
+}
+
+function matchesSubject(
+  subject: Quad["subject"],
+  subjectIriOrKey: string,
+): boolean {
+  if (
+    subjectIriOrKey.startsWith("NamedNode:") ||
+    subjectIriOrKey.startsWith("BlankNode:")
+  ) {
+    return `${subject.termType}:${subject.value}` === subjectIriOrKey;
+  }
+  return subject.termType === "NamedNode" && subject.value === subjectIriOrKey;
 }
 
 function normalizeWorkingLocalRelativePath(

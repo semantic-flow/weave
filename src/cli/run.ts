@@ -864,7 +864,15 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         )
         .option(
           "--source-repository-url <url:string>",
-          "Repository URL to record for the integrated source bytes. Requires --source-repository-ref and --source-repository-path.",
+          "Repository URL to record for the integrated source bytes. Requires --source-repository-ref and --source-repository-path unless --source-repository-current is set.",
+        )
+        .option(
+          "--source-repository-current",
+          "Record a floating repository source locator using the source file's current checkout.",
+        )
+        .option(
+          "--source-repository-remote <remote:string>",
+          "Remote name used with --source-repository-current when --source-repository-url is not provided. Defaults to origin.",
         )
         .option(
           "--source-repository-ref <ref:string>",
@@ -1355,7 +1363,9 @@ function resolveIntegrateDesignatorPath(
 
 function resolveIntegrateSourceBindingOptions(
   options: {
+    sourceRepositoryCurrent?: boolean;
     sourceRepositoryUrl?: string;
+    sourceRepositoryRemote?: string;
     sourceRepositoryRef?: string;
     sourceRepositoryCommit?: string;
     sourceRepositoryPath?: string;
@@ -1363,7 +1373,9 @@ function resolveIntegrateSourceBindingOptions(
   },
 ): LocalIntegrateSourceBindingRequest | undefined {
   const provided = [
+    options.sourceRepositoryCurrent === true ? "true" : undefined,
     options.sourceRepositoryUrl,
+    options.sourceRepositoryRemote,
     options.sourceRepositoryRef,
     options.sourceRepositoryCommit,
     options.sourceRepositoryPath,
@@ -1374,9 +1386,37 @@ function resolveIntegrateSourceBindingOptions(
   }
   const repositoryMetadataProvided =
     options.sourceRepositoryUrl !== undefined ||
+    options.sourceRepositoryCurrent === true ||
+    options.sourceRepositoryRemote !== undefined ||
     options.sourceRepositoryRef !== undefined ||
     options.sourceRepositoryCommit !== undefined ||
     options.sourceRepositoryPath !== undefined;
+  if (options.sourceRepositoryCurrent === true) {
+    if (
+      options.sourceRepositoryRef !== undefined ||
+      options.sourceRepositoryCommit !== undefined ||
+      options.sourceRepositoryPath !== undefined ||
+      options.sourceDigest !== undefined
+    ) {
+      throw new IntegrateInputError(
+        "floating repository integrate source bindings must not use --source-repository-ref, --source-repository-commit, --source-repository-path, or --source-digest",
+      );
+    }
+    return {
+      sourceRepositoryCurrent: true,
+      ...(options.sourceRepositoryUrl
+        ? { sourceRepositoryUrl: options.sourceRepositoryUrl }
+        : {}),
+      ...(options.sourceRepositoryRemote
+        ? { sourceRepositoryRemote: options.sourceRepositoryRemote }
+        : {}),
+    };
+  }
+  if (options.sourceRepositoryRemote !== undefined) {
+    throw new IntegrateInputError(
+      "--source-repository-remote requires --source-repository-current",
+    );
+  }
   if (options.sourceDigest !== undefined && !repositoryMetadataProvided) {
     throw new IntegrateInputError(
       "integrate source digest requires repository-backed source metadata",

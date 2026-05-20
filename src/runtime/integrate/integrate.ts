@@ -6,11 +6,13 @@ import {
   relative,
   resolve,
 } from "@std/path";
+import * as pathPosix from "@std/path/posix";
 import { Parser } from "n3";
 import {
   IntegrateInputError,
   type IntegratePlan,
   type IntegrateRepositorySource,
+  type IntegrateRepositorySourceFloatingLocator,
   type IntegrateSourceBinding,
   planIntegrate,
 } from "../../core/integrate/integrate.ts";
@@ -37,7 +39,9 @@ export interface LocalIntegrateRequest {
 }
 
 export interface LocalIntegrateSourceBindingRequest {
+  sourceRepositoryCurrent?: boolean;
   sourceRepositoryUrl?: string;
+  sourceRepositoryRemote?: string;
   sourceRepositoryRef?: string;
   sourceRepositoryCommit?: string;
   sourceRepositoryPath?: string;
@@ -354,10 +358,40 @@ async function resolveSourceBinding(
   }
 
   const hasRepositoryUrl = request.sourceRepositoryUrl !== undefined;
+  const hasRepositoryCurrent = request.sourceRepositoryCurrent === true;
+  const hasRepositoryRemote = request.sourceRepositoryRemote !== undefined;
   const hasRepositoryRef = request.sourceRepositoryRef !== undefined;
   const hasRepositoryPath = request.sourceRepositoryPath !== undefined;
   const hasRepositoryMetadata = hasRepositoryUrl || hasRepositoryRef ||
     hasRepositoryPath || request.sourceRepositoryCommit !== undefined;
+  if (hasRepositoryCurrent) {
+    if (
+      hasRepositoryRef || hasRepositoryPath ||
+      request.sourceRepositoryCommit !== undefined ||
+      request.sourceDigest !== undefined
+    ) {
+      throw new IntegrateRuntimeError(
+        "floating repository integrate source bindings must not use --source-repository-ref, --source-repository-commit, --source-repository-path, or --source-digest",
+      );
+    }
+    const repositorySourceFloatingLocator =
+      await resolveRepositorySourceFloatingLocator(
+        absoluteSourcePath,
+        {
+          repositoryUrl: request.sourceRepositoryUrl,
+          repositoryRemote: request.sourceRepositoryRemote,
+        },
+      );
+    return {
+      repositorySourceFloatingLocator,
+      artifactResolutionMode: "working",
+    };
+  }
+  if (hasRepositoryRemote) {
+    throw new IntegrateRuntimeError(
+      "integrate source repository remote requires a floating repository binding",
+    );
+  }
   const hasRepositoryLocator = hasRepositoryUrl && hasRepositoryRef &&
     hasRepositoryPath;
   if (
@@ -402,6 +436,87 @@ async function resolveSourceBinding(
     expectedContentDigest: sourceDigest,
     artifactResolutionMode: "working",
   };
+}
+
+async function resolveRepositorySourceFloatingLocator(
+  absoluteSourcePath: string,
+  options: {
+    repositoryUrl?: string;
+    repositoryRemote?: string;
+  },
+): Promise<IntegrateRepositorySourceFloatingLocator> {
+  const repositoryRoot = await resolveGitRepositoryRoot(absoluteSourcePath);
+  const repositoryUrl = options.repositoryUrl ??
+    await resolveGitRepositoryRemoteUrl(
+      repositoryRoot,
+      options.repositoryRemote ?? "origin",
+    );
+  const repositoryPathFromRoot = pathPosix.normalize(
+    relative(repositoryRoot, absoluteSourcePath).replaceAll("\\", "/"),
+  );
+  if (
+    repositoryPathFromRoot.length === 0 ||
+    repositoryPathFromRoot === "." ||
+    repositoryPathFromRoot === ".." ||
+    repositoryPathFromRoot.startsWith("../")
+  ) {
+    throw new IntegrateRuntimeError(
+      `integrate source is not inside the resolved repository root: ${absoluteSourcePath}`,
+    );
+  }
+  return {
+    repositoryUrl,
+    repositoryPathFromRoot,
+  };
+}
+
+async function resolveGitRepositoryRoot(
+  absoluteSourcePath: string,
+): Promise<string> {
+  const output = await runGit([
+    "-C",
+    dirname(absoluteSourcePath),
+    "rev-parse",
+    "--show-toplevel",
+  ]);
+  return resolve(output);
+}
+
+async function resolveGitRepositoryRemoteUrl(
+  repositoryRoot: string,
+  remoteName: string,
+): Promise<string> {
+  const trimmedRemoteName = remoteName.trim();
+  if (trimmedRemoteName.length === 0) {
+    throw new IntegrateRuntimeError(
+      "source repository remote name must not be empty",
+    );
+  }
+  return await runGit([
+    "-C",
+    repositoryRoot,
+    "remote",
+    "get-url",
+    trimmedRemoteName,
+  ]);
+}
+
+async function runGit(args: readonly string[]): Promise<string> {
+  const command = new Deno.Command("git", {
+    args: [...args],
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  if (!output.success) {
+    const stderr = new TextDecoder().decode(output.stderr).trim();
+    throw new IntegrateRuntimeError(
+      stderr.length > 0
+        ? `git ${args.join(" ")} failed: ${stderr}`
+        : `git ${args.join(" ")} failed`,
+    );
+  }
+  return new TextDecoder().decode(output.stdout).trim();
 }
 
 function resolveImplicitWorkingSourceBinding(

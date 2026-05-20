@@ -8,11 +8,11 @@ created: 1779030765340
 
 ## Purpose
 
-This note records the command sequence used while dogfooding Weave against the SFLO ontology repository and a branch-published `gh-pages` mesh. The examples assume a Weave checkout with a dependency-local SFLO source checkout and a disposable local `gh-pages` worktree such as `/tmp/sflo`.
+This note records the command sequence used while dogfooding Weave against the SFLO ontology repository and a branch-published `gh-pages` mesh. The examples assume a Weave checkout with a dependency-local SFLO source repository and a disposable local `gh-pages` worktree such as `/tmp/sflo`.
 
 This note is a dogfooding command sequence rather than the final CI runbook. The old `weave prepare gh-pages` wrapper has been removed, and branch-published source binding now uses ordinary `mesh create`, `integrate`, `set`, `version`, `extract`, `weave`, `generate`, `validate`, publication-profile, and CI/CD operations.
 
-This sequence scratch-regenerates the disposable `gh-pages` worktree from the currently materialized SFLO source checkout. It intentionally does not preserve earlier local publication history such as the first `v0.1.0` replay; until the first release that needs durable public preservation, fewer extant generated versions are easier to reason about. Once exact source-state import/mapping exists, early versions can be recaptured deliberately.
+This sequence scratch-regenerates the disposable `gh-pages` worktree from the active SFLO source checkout. It intentionally does not preserve earlier local publication history such as the first `v0.1.0` replay; until the first release that needs durable public preservation, fewer extant generated versions are easier to reason about. Once exact source-state import/mapping exists, early versions can be recaptured deliberately.
 
 The source checkout used by this replay should already contain release metadata for the version being published. The ontology, config ontology, and SHACL payload artifacts use `releases` as the artifact-history segment and the configured release state, such as `v0.1.1`, as the state segment.
 
@@ -25,7 +25,8 @@ Use variables so the command sequence is replayable from the Weave checkout with
 ```sh
 export WEAVE_ROOT=/home/djradon/hub/semantic-flow/weave
 export WEAVE_CLI="$WEAVE_ROOT/src/main.ts"
-export SFLO_SRC="$WEAVE_ROOT/dependencies/github.com/semantic-flow/sflo"
+export SFLO_REPO="$WEAVE_ROOT/dependencies/github.com/semantic-flow/sflo"
+export SFLO_SRC="$SFLO_REPO"
 export SFLO_PUB=/tmp/sflo
 export SFLO_RELEASE_VERSION=0.1.1
 export SFLO_RELEASE_STATE="v$SFLO_RELEASE_VERSION"
@@ -35,13 +36,13 @@ mkdir -p "$WEAVE_LOG_DIR"
 cd "$WEAVE_ROOT"
 ```
 
-Preflight the source and publication worktrees before deleting generated publication output. The source release validation is SFLO-owned and checks the active Turtle release metadata, release notes, and release URL expectations.
+Preflight the editable source checkout and publication worktree before deleting generated publication output. The source release validation is SFLO-owned and checks the active Turtle release metadata, release notes, and release URL expectations.
 
 ```sh
-git -C "$SFLO_SRC" status --short --branch
+git -C "$SFLO_REPO" status --short --branch
 git -C "$SFLO_PUB" status --short --branch
 
-(cd "$SFLO_SRC" && deno task release:validate -- --version "$SFLO_RELEASE_VERSION")
+(cd "$SFLO_REPO" && deno task release:validate -- --version "$SFLO_RELEASE_VERSION")
 ```
 
 ## Step 2: Reset The Disposable Publication Worktree
@@ -50,8 +51,6 @@ This clears generated publication output. Use this only when the `gh-pages` work
 
 ```sh
 find "$SFLO_PUB" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-
-git -C "$SFLO_PUB" status --short --branch
 ```
 
 ## Step 3: Create The Publication Mesh
@@ -96,33 +95,44 @@ deno run -A "$WEAVE_CLI" \
 
 ## Step 6: Integrate SFLO Source Payloads
 
-The branch-published SFLO release uses source-lane payload integrations from `$SFLO_SRC` into `$SFLO_PUB`. `integrate` leaves the source bytes in the source checkout, records a working-only source binding in each Knop source registry, and uses `~/.sf-local-access.ttl` for the host-local read grant when `$SFLO_SRC` is outside the publication mesh workspace.
+The branch-published SFLO release uses source-lane payload integrations from `$SFLO_SRC` into `$SFLO_PUB`. `integrate` leaves the source bytes in the source checkout, records a floating repository source locator in each Knop inventory and source registry, and uses `~/.sf-local-access.ttl` for the host-local read grant when `$SFLO_SRC` is outside the publication mesh workspace.
 
-Do not pass repository flags for this floating working-source replay. The source registries should record `sflo:targetLocalRelativePath` and `sflo:artifactResolutionMode_working`, but should not persist repository ref, commit, path, or digest evidence.
+Use `--source-repository-current` for this floating working-source replay. The source registries should record `sflo:hasRepositorySourceFloatingLocator` with `sflo:sourceRepositoryUrl` and `sflo:sourceRepositoryPathFromRoot`, but should not persist repository ref, commit, local checkout path, or digest evidence.
 
 ```sh
 deno run -A "$WEAVE_CLI" integrate "$SFLO_SRC/semantic-flow-core-ontology.ttl" ontology \
   --mesh-root "$SFLO_PUB" \
-  --grant-source-directory "$SFLO_SRC"
+  --grant-source-directory "$SFLO_SRC" \
+  --source-repository-current
 
 deno run -A "$WEAVE_CLI" integrate "$SFLO_SRC/semantic-flow-config-ontology.ttl" config \
   --mesh-root "$SFLO_PUB" \
-  --grant-source-directory "$SFLO_SRC"
+  --grant-source-directory "$SFLO_SRC" \
+  --source-repository-current
 
 deno run -A "$WEAVE_CLI" integrate "$SFLO_SRC/semantic-flow-core-shacl.ttl" ontology/shacl \
   --mesh-root "$SFLO_PUB" \
-  --grant-source-directory "$SFLO_SRC"
+  --grant-source-directory "$SFLO_SRC" \
+  --source-repository-current
 ```
 
-Confirm the source bindings stayed floating and working-only:
+Confirm the source bindings stayed floating and working-only, with no host-local source path leakage:
 
 ```sh
-if rg 'sourceRepository|expectsContentDigest|hasContentDigest' \
+rg 'hasRepositorySourceFloatingLocator|sourceRepositoryPathFromRoot' \
   "$SFLO_PUB"/ontology/_knop/_sources/sources.ttl \
   "$SFLO_PUB"/config/_knop/_sources/sources.ttl \
-  "$SFLO_PUB"/ontology/shacl/_knop/_sources/sources.ttl
+  "$SFLO_PUB"/ontology/shacl/_knop/_sources/sources.ttl >/dev/null
+
+if rg 'targetLocalRelativePath|workingLocalRelativePath|sourceRepositoryRef|sourceRepositoryCommit|expectsContentDigest|hasContentDigest|/home/|/tmp/sflo-source|\\.\\./sflo-source' \
+  "$SFLO_PUB"/ontology/_knop/_sources/sources.ttl \
+  "$SFLO_PUB"/config/_knop/_sources/sources.ttl \
+  "$SFLO_PUB"/ontology/shacl/_knop/_sources/sources.ttl \
+  "$SFLO_PUB"/ontology/_knop/_inventory/inventory.ttl \
+  "$SFLO_PUB"/config/_knop/_inventory/inventory.ttl \
+  "$SFLO_PUB"/ontology/shacl/_knop/_inventory/inventory.ttl
 then
-  echo "Expected floating working source bindings without repository or digest evidence." >&2
+  echo "Expected portable floating repository source bindings without local paths, pinning, or digest evidence." >&2
   exit 1
 fi
 ```

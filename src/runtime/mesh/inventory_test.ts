@@ -82,6 +82,42 @@ Deno.test("resolvePayloadArtifactInventoryState accepts semantically equivalent 
   );
 });
 
+Deno.test("resolvePayloadArtifactInventoryState accepts repository floating payload locators", () => {
+  assertEquals(
+    resolvePayloadArtifactInventoryState(
+      MESH_BASE,
+      `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@base <${MESH_BASE}> .
+
+<alice/bio> rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:PayloadArtifact ;
+  sflo:hasRepositorySourceFloatingLocator [
+    a sflo:RepositorySourceFloatingLocator ;
+    sflo:sourceRepositoryUrl "https://github.com/semantic-flow/sflo.git" ;
+    sflo:sourceRepositoryPathFromRoot "semantic-flow-core-ontology.ttl"
+  ] .
+<alice/bio/_knop> rdf:type sflo:Knop ;
+  sflo:hasPayloadArtifact <alice/bio> .
+`,
+      "alice/bio",
+      {
+        parseErrorMessage: "Could not parse Knop inventory",
+        missingWorkingFileMessage: "Could not resolve working payload file",
+      },
+    ),
+    {
+      workingLocalRelativePath: "semantic-flow-core-ontology.ttl",
+      repositorySourceFloatingLocator: {
+        repositoryUrl: "https://github.com/semantic-flow/sflo.git",
+        repositoryPathFromRoot: "semantic-flow-core-ontology.ttl",
+      },
+      currentArtifactHistoryPath: undefined,
+      currentArtifactHistoryExists: false,
+      latestHistoricalStatePath: undefined,
+    },
+  );
+});
+
 Deno.test("resolvePayloadArtifactInventoryState resolves latest payload snapshot paths from state and manifestation links", () => {
   assertEquals(
     resolvePayloadArtifactInventoryState(

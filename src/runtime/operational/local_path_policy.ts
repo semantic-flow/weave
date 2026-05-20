@@ -62,6 +62,11 @@ export interface OperationalLocalPathPolicy {
   rules: readonly LocalPathAccessRule[];
 }
 
+export interface RepositorySourceFloatingLocatorResolution {
+  repositoryUrl: string;
+  repositoryPathFromRoot: string;
+}
+
 export class OperationalConfigError extends Error {
   constructor(message: string) {
     super(message);
@@ -259,6 +264,180 @@ export function resolveAllowedLocalPath(
   throw new LocalPathAccessError(
     `${locatorKind} resolves outside the mesh root and no operational allow rule matched: ${relativePath}`,
   );
+}
+
+export async function resolveRepositorySourceFloatingLocalPath(
+  policy: OperationalLocalPathPolicy,
+  locator: RepositorySourceFloatingLocatorResolution,
+): Promise<string> {
+  const repositoryPathFromRoot = normalizeRepositoryPathFromRoot(
+    locator.repositoryPathFromRoot,
+  );
+  const candidateRoots = collectRepositorySourceCandidateRoots(policy);
+
+  for (const candidateRoot of candidateRoots) {
+    const repositoryRoot = await tryResolveGitRepositoryRoot(candidateRoot);
+    if (!repositoryRoot) {
+      continue;
+    }
+    const remoteUrls = await listGitRemoteUrls(repositoryRoot);
+    if (
+      !remoteUrls.some((remoteUrl) =>
+        repositoryUrlsMatch(remoteUrl, locator.repositoryUrl)
+      )
+    ) {
+      continue;
+    }
+
+    const localPath = resolvePosixRelativePath(
+      repositoryRoot,
+      repositoryPathFromRoot,
+    );
+    if (!isWithinRoot(localPath, repositoryRoot)) {
+      throw new LocalPathAccessError(
+        `Repository source path escapes the repository root: ${repositoryPathFromRoot}`,
+      );
+    }
+    if (!isWithinRoot(localPath, candidateRoot)) {
+      continue;
+    }
+    if (!await fileExists(localPath)) {
+      continue;
+    }
+    return localPath;
+  }
+
+  throw new LocalPathAccessError(
+    `Repository source locator did not match an allowed local checkout: ${locator.repositoryUrl} ${repositoryPathFromRoot}`,
+  );
+}
+
+function collectRepositorySourceCandidateRoots(
+  policy: OperationalLocalPathPolicy,
+): readonly string[] {
+  const roots = new Set<string>();
+
+  for (const rule of policy.rules) {
+    if (!rule.locatorKinds.includes("workingLocalRelativePath")) {
+      continue;
+    }
+    const root = resolveRuleRoot(policy, rule);
+    if (root) {
+      roots.add(resolve(root));
+    }
+  }
+  roots.add(resolve(policy.meshRoot));
+
+  return [...roots];
+}
+
+function normalizeRepositoryPathFromRoot(pathFromRoot: string): string {
+  const trimmed = pathFromRoot.trim();
+  if (
+    trimmed.length === 0 ||
+    trimmed.startsWith("/") ||
+    trimmed.endsWith("/") ||
+    /^[A-Za-z]:/.test(trimmed) ||
+    trimmed.includes("\\") ||
+    trimmed.includes("?") ||
+    trimmed.includes("#") ||
+    /\s/.test(trimmed)
+  ) {
+    throw new LocalPathAccessError(
+      `Invalid sourceRepositoryPathFromRoot: ${pathFromRoot}`,
+    );
+  }
+
+  const normalized = pathPosix.normalize(trimmed);
+  if (
+    normalized === "." ||
+    normalized === ".." ||
+    normalized.startsWith("../")
+  ) {
+    throw new LocalPathAccessError(
+      `Invalid sourceRepositoryPathFromRoot: ${pathFromRoot}`,
+    );
+  }
+
+  return normalized;
+}
+
+async function tryResolveGitRepositoryRoot(
+  candidateRoot: string,
+): Promise<string | undefined> {
+  const output = await tryRunGit([
+    "-C",
+    candidateRoot,
+    "rev-parse",
+    "--show-toplevel",
+  ]);
+  return output === undefined ? undefined : resolve(output);
+}
+
+async function listGitRemoteUrls(
+  repositoryRoot: string,
+): Promise<readonly string[]> {
+  const remotesOutput = await tryRunGit(["-C", repositoryRoot, "remote"]);
+  if (remotesOutput === undefined || remotesOutput.trim().length === 0) {
+    return [];
+  }
+
+  const urls = new Set<string>();
+  for (const remoteName of remotesOutput.split(/\r?\n/)) {
+    const trimmedRemoteName = remoteName.trim();
+    if (trimmedRemoteName.length === 0) {
+      continue;
+    }
+    const urlsOutput = await tryRunGit([
+      "-C",
+      repositoryRoot,
+      "remote",
+      "get-url",
+      "--all",
+      trimmedRemoteName,
+    ]);
+    if (urlsOutput === undefined) {
+      continue;
+    }
+    for (const url of urlsOutput.split(/\r?\n/)) {
+      const trimmedUrl = url.trim();
+      if (trimmedUrl.length > 0) {
+        urls.add(trimmedUrl);
+      }
+    }
+  }
+
+  return [...urls];
+}
+
+async function tryRunGit(args: readonly string[]): Promise<string | undefined> {
+  const command = new Deno.Command("git", {
+    args: [...args],
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  if (!output.success) {
+    return undefined;
+  }
+  return new TextDecoder().decode(output.stdout).trim();
+}
+
+function repositoryUrlsMatch(left: string, right: string): boolean {
+  return left === right ||
+    normalizeRepositoryUrlForComparison(left) ===
+      normalizeRepositoryUrlForComparison(right);
+}
+
+function normalizeRepositoryUrlForComparison(url: string): string {
+  let normalized = url.trim();
+  while (normalized.endsWith("/")) {
+    normalized = normalized.slice(0, -1);
+  }
+  if (normalized.endsWith(".git")) {
+    normalized = normalized.slice(0, -".git".length);
+  }
+  return normalized;
 }
 
 async function resolveWorkspaceRootFromMeshConfig(

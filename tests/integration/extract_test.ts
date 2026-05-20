@@ -182,6 +182,85 @@ Deno.test("executeExtract accepts semantically equivalent mesh metadata turtle",
   assertEquals(result.sourceDesignatorPath, "alice/bio");
 });
 
+Deno.test("executeExtract omits local path evidence for floating repository source payloads", async () => {
+  const tempRoot = await createTestTmpDir(
+    "weave-extract-floating-repository-source-",
+  );
+  const sourceRoot = join(tempRoot, "source");
+  const workspaceRoot = join(tempRoot, "publication");
+  const homeRoot = join(tempRoot, "home");
+  await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
+  await Deno.mkdir(sourceRoot, { recursive: true });
+  await Deno.mkdir(homeRoot, { recursive: true });
+  await runGit(sourceRoot, ["init"]);
+  await runGit(sourceRoot, [
+    "remote",
+    "add",
+    "origin",
+    "https://github.com/semantic-flow/mesh-alice-bio.git",
+  ]);
+  await Deno.writeTextFile(
+    join(sourceRoot, "alice-bio.ttl"),
+    await readMeshAliceBioBranchFile("11-alice-bio-v2-woven", "alice-bio.ttl"),
+  );
+  await Deno.writeTextFile(
+    join(homeRoot, ".sf-local-access.ttl"),
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:HostLocalOperationalConfig ;
+  sfcfg:hasLocalPathAccessRule [
+    a sfcfg:LocalPathAccessRule ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_absolutePath> ;
+    sfcfg:pathPrefix "${sourceRoot}/" ;
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
+  ] .
+`,
+  );
+
+  const inventoryPath = join(
+    workspaceRoot,
+    "alice/bio/_knop/_inventory/inventory.ttl",
+  );
+  await Deno.writeTextFile(
+    inventoryPath,
+    (await Deno.readTextFile(inventoryPath)).replace(
+      "sflo:hasWorkingLocatedFile <alice-bio.ttl> ;",
+      `sflo:hasRepositorySourceFloatingLocator [
+    a sflo:RepositorySourceFloatingLocator ;
+    sflo:sourceRepositoryUrl "https://github.com/semantic-flow/mesh-alice-bio.git" ;
+    sflo:sourceRepositoryPathFromRoot "alice-bio.ttl"
+  ] ;`,
+    ),
+  );
+
+  const previousHome = Deno.env.get("HOME");
+  Deno.env.set("HOME", homeRoot);
+  try {
+    await executeExtract({
+      workspaceRoot,
+      request: {
+        designatorPath: "bob",
+      },
+    });
+  } finally {
+    if (previousHome === undefined) {
+      Deno.env.delete("HOME");
+    } else {
+      Deno.env.set("HOME", previousHome);
+    }
+  }
+
+  const sourcesTurtle = await Deno.readTextFile(
+    join(workspaceRoot, "bob/_knop/_sources/sources.ttl"),
+  );
+  assertStringIncludes(sourcesTurtle, "sflo:observedSourceDigest");
+  assertFalse(
+    sourcesTurtle.includes("sflo:observedSourceLocalRelativePath"),
+    sourcesTurtle,
+  );
+  assertFalse(sourcesTurtle.includes(sourceRoot), sourcesTurtle);
+});
+
 Deno.test("executeExtractAllTerms extracts only new named mesh terms and skips support artifacts", async () => {
   const workspaceRoot = await createTestTmpDir("weave-extract-all-terms-");
   await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
@@ -237,6 +316,19 @@ Deno.test("executeExtractAllTerms extracts only new named mesh terms and skips s
     Deno.errors.NotFound,
   );
 });
+
+async function runGit(cwd: string, args: readonly string[]): Promise<void> {
+  const command = new Deno.Command("git", {
+    args: [...args],
+    cwd,
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  if (!output.success) {
+    throw new Error(new TextDecoder().decode(output.stderr));
+  }
+}
 
 Deno.test("executeExtractAllTerms skips LocatedFile IRIs reached through file-link predicates", async () => {
   const workspaceRoot = await createTestTmpDir(
