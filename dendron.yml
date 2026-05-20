@@ -22,7 +22,7 @@ commands:
     templateHierarchy: template
 workspace:
     vaults:
-        - fsPath: dependencies/github.com/spectacular-voyage/accord/documentation
+        - fsPath: dependencies/github.com/spectacular-voyage/accord
           remote:
               type: git
               url: git@github.com:spectacular-voyage/accord.git

@@ -6,25 +6,20 @@ const REPO_ROOT = fromFileUrl(new URL("../../", import.meta.url));
 const SFLO_NAMESPACE = "https://semantic-flow.github.io/sflo/ontology/";
 const SFCFG_NAMESPACE = "https://semantic-flow.github.io/sflo/config/";
 
-const RDF_FILES = [
-  "dependencies/github.com/semantic-flow/sflo/semantic-flow-core-ontology.ttl",
-  "dependencies/github.com/semantic-flow/sflo/semantic-flow-core-shacl.ttl",
-  "dependencies/github.com/semantic-flow/sflo/semantic-flow-config-ontology.ttl",
-  "dependencies/github.com/semantic-flow/sflo/semantic-flow-job-ontology.ttl",
-  "dependencies/github.com/semantic-flow/sflo/semantic-flow-prov-ontology.ttl",
+const DEFAULT_RDF_FILES = [
   "defaults/application.ttl",
   "defaults/config-resolution.ttl",
 ] as const;
 
-Deno.test("active ontology and defaults RDF parses as Turtle", async () => {
-  for (const relativePath of RDF_FILES) {
+Deno.test("Weave defaults RDF parses as Turtle", async () => {
+  for (const relativePath of DEFAULT_RDF_FILES) {
     const quads = await parseRepoTurtle(relativePath);
     assert(quads.length > 0, `${relativePath} should contain RDF triples`);
   }
 });
 
-Deno.test("active ontology and defaults RDF avoids duplicate triples", async () => {
-  for (const relativePath of RDF_FILES) {
+Deno.test("Weave defaults RDF avoids duplicate triples", async () => {
+  for (const relativePath of DEFAULT_RDF_FILES) {
     const quads = await parseRepoTurtle(relativePath);
     const seen = new Set<string>();
 
@@ -39,39 +34,31 @@ Deno.test("active ontology and defaults RDF avoids duplicate triples", async () 
   }
 });
 
-Deno.test("config ontology uses the canonical sflo namespace", async () => {
-  const configOntology = await readRepoFile(
-    "dependencies/github.com/semantic-flow/sflo/semantic-flow-config-ontology.ttl",
-  );
+Deno.test("Weave defaults use canonical sflo and sfcfg namespaces", async () => {
+  for (const relativePath of DEFAULT_RDF_FILES) {
+    const contents = await readRepoFile(relativePath);
 
-  assert(
-    configOntology.includes(`@prefix sflo: <${SFLO_NAMESPACE}> .`),
-    "config ontology should import core terms through the canonical sflo namespace",
-  );
-  assertFalse(
-    configOntology.includes("https://semantic-flow.github.io/ontology/core/"),
-    "config ontology should not use the old core namespace alias",
-  );
-  assert(
-    configOntology.includes(
-      "@base <https://semantic-flow.github.io/sflo/config/> .",
-    ),
-    "config ontology @base should use the trailing slash required by sfcfg terms",
-  );
-  assert(
-    configOntology.includes(
-      "<https://semantic-flow.github.io/sflo/config> a owl:Ontology",
-    ),
-    "config ontology should use the slashless config resource as the ontology IRI",
-  );
-  assertFalse(
-    configOntology.includes("https://semantic-flow.github.io/ontology/config"),
-    "config ontology should not use the old standalone config namespace",
-  );
+    assert(
+      contents.includes(`@prefix sflo: <${SFLO_NAMESPACE}> .`),
+      `${relativePath} should import core terms through the canonical sflo namespace`,
+    );
+    assert(
+      contents.includes(`@prefix sfcfg: <${SFCFG_NAMESPACE}> .`),
+      `${relativePath} should import config terms through the canonical sfcfg namespace`,
+    );
+    assertFalse(
+      contents.includes("https://semantic-flow.github.io/ontology/core/"),
+      `${relativePath} should not use the old core namespace alias`,
+    );
+    assertFalse(
+      contents.includes("https://semantic-flow.github.io/ontology/config"),
+      `${relativePath} should not use the old standalone config namespace`,
+    );
+  }
 });
 
-Deno.test("active config terms use flat namespace-local IRIs", async () => {
-  for (const relativePath of RDF_FILES) {
+Deno.test("Weave defaults use flat sfcfg term IRIs", async () => {
+  for (const relativePath of DEFAULT_RDF_FILES) {
     const quads = await parseRepoTurtle(relativePath);
     for (const term of quads.flatMap(quadTerms)) {
       if (term.termType !== "NamedNode") {
@@ -82,10 +69,6 @@ Deno.test("active config terms use flat namespace-local IRIs", async () => {
       }
 
       const localName = term.value.slice(SFCFG_NAMESPACE.length);
-      if (localName.startsWith("releases/")) {
-        continue;
-      }
-
       assertFalse(
         localName.includes("/"),
         `${relativePath} uses slash-shaped sfcfg term ${term.value}`,
@@ -94,18 +77,19 @@ Deno.test("active config terms use flat namespace-local IRIs", async () => {
   }
 });
 
-Deno.test("old config names and boolean policy switches stay retired", async () => {
+Deno.test("retired config fragments stay out of Weave defaults and runtime policy", async () => {
   const checkedFiles = [
-    "dependencies/github.com/semantic-flow/sflo/semantic-flow-config-ontology.ttl",
-    "src/runtime/operational/local_path_policy.ts",
-    "src/runtime/operational/local_path_policy_test.ts",
     "defaults/application.ttl",
     "defaults/config-resolution.ttl",
+    "src/runtime/operational/local_path_policy.ts",
+    "src/runtime/operational/local_path_policy_test.ts",
   ] as const;
   const retiredFragments = [
     "sfcfg:LocalConfig",
     "<LocalConfig>",
     `${SFCFG_NAMESPACE}LocalConfig`,
+    "artifactResolutionMode_current",
+    "artifactResolutionMode_pinned",
     "meshRootPathBase",
     "userHomePathBase",
     "absolutePathBase",
