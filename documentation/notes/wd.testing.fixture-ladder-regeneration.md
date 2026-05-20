@@ -2,7 +2,7 @@
 id: fdpf85wtomsgp6k544lg0kb
 title: Fixture Ladder Regeneration
 desc: ''
-updated: 1779235115411
+updated: 1779235730322
 created: 1779180078954
 ---
 
@@ -309,4 +309,12 @@ weave: document fixture ladder regeneration
 ```
 ## Finally, merge to main
 
-After non-branch ladders have been regenerated, fast-forward main to those final states, so that main always reflects the latest rung.
+After non-branch ladders have been regenerated, move main to those final states, so that main always reflects the latest rung, something like:
+
+git -C dependencies/github.com/semantic-flow/mesh-alice-bio switch main
+git -C dependencies/github.com/semantic-flow/mesh-alice-bio reset --hard a.25-root-page-customized-woven
+git -C dependencies/github.com/semantic-flow/mesh-alice-bio push --force-with-lease origin main
+
+git -C dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules switch main
+git -C dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules reset --hard a.17-all-remaining-terms-woven
+git -C dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules push --force-with-lease origin main
