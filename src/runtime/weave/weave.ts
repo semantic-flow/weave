@@ -58,6 +58,7 @@ import {
   resolveAllowedLocalPath,
   resolveRepositorySourceFloatingLocalPath,
 } from "../operational/local_path_policy.ts";
+import { createRuntimeTiming, type RuntimeTiming } from "../timing.ts";
 import {
   MeshMetadataResolutionError,
   resolveMeshBaseFromMetadataTurtle,
@@ -270,15 +271,31 @@ export async function executeValidate(
   options: ExecuteValidateOptions,
 ): Promise<ValidateResult> {
   const scope = options.scope ?? "mesh";
+  const timing = createRuntimeTiming(`validate.${scope}`);
+  let status = "succeeded";
   try {
     if (scope === "publication") {
       const meshRoot = resolveExecutionMeshRoot(options);
-      await ensureWorkspaceRootExists(meshRoot);
-      const meshState = await loadMeshState(meshRoot);
-      const publicationValidation = await validatePublicationPreset({
-        meshRoot,
-        currentMeshConfigTurtle: meshState.currentMeshConfigTurtle,
-      });
+      await timing.time(
+        "ensureWorkspaceRoot",
+        () => ensureWorkspaceRootExists(meshRoot),
+      );
+      const meshState = await timing.time(
+        "loadMeshState",
+        () => loadMeshState(meshRoot),
+      );
+      const publicationValidation = await timing.time(
+        "validatePublicationPreset",
+        () =>
+          validatePublicationPreset({
+            meshRoot,
+            currentMeshConfigTurtle: meshState.currentMeshConfigTurtle,
+          }),
+      );
+      status = publicationValidation.findings.length > 0
+        ? "findings"
+        : "succeeded";
+      timing.setField("findings", publicationValidation.findings.length);
 
       return {
         scope,
@@ -290,23 +307,41 @@ export async function executeValidate(
 
     const targets = normalizeValidateRequest(options.request);
     const meshRoot = resolveExecutionMeshRoot(options);
-    const localPathPolicy = await loadOperationalLocalPathPolicy(
-      meshRoot,
+    const localPathPolicy = await timing.time(
+      "loadOperationalLocalPathPolicy",
+      () => loadOperationalLocalPathPolicy(meshRoot),
     );
     const prepared = await prepareVersionExecution(
       meshRoot,
       toNormalizedVersionTargets(targets),
       localPathPolicy,
       undefined,
+      undefined,
+      timing,
     );
-    validateRdfFiles([
-      ...prepared.plan.createdFiles,
-      ...prepared.plan.updatedFiles,
-    ]);
-    const publicationValidation = await validatePublicationPreset({
-      meshRoot,
-      currentMeshConfigTurtle: prepared.meshState.currentMeshConfigTurtle,
-    });
+    timing.timeSync("validateRdf", () =>
+      validateRdfFiles([
+        ...prepared.plan.createdFiles,
+        ...prepared.plan.updatedFiles,
+      ]));
+    const publicationValidation = await timing.time(
+      "validatePublicationPreset",
+      () =>
+        validatePublicationPreset({
+          meshRoot,
+          currentMeshConfigTurtle: prepared.meshState.currentMeshConfigTurtle,
+        }),
+    );
+    status = publicationValidation.findings.length > 0
+      ? "findings"
+      : "succeeded";
+    timing.setField(
+      "validatedDesignatorPaths",
+      prepared.plan.versionedDesignatorPaths.length,
+    );
+    timing.setField("createdFiles", prepared.plan.createdFiles.length);
+    timing.setField("updatedFiles", prepared.plan.updatedFiles.length);
+    timing.setField("findings", publicationValidation.findings.length);
 
     return {
       scope,
@@ -318,6 +353,8 @@ export async function executeValidate(
     if (
       error instanceof WeaveInputError || error instanceof WeaveRuntimeError
     ) {
+      status = "failed";
+      timing.setField("findings", 1);
       return {
         scope,
         validatedDesignatorPaths: [],
@@ -328,45 +365,102 @@ export async function executeValidate(
       };
     }
     throw error;
+  } finally {
+    timing.finish({ status });
   }
 }
 
 export async function executeVersion(
   options: ExecuteVersionOptions,
 ): Promise<VersionResult> {
-  const targets = normalizeVersionRequest(options.request);
-  const meshRoot = resolveExecutionMeshRoot(options);
-  const localPathPolicy = await loadOperationalLocalPathPolicy(
-    meshRoot,
-  );
-  const prepared = await prepareVersionExecution(
-    meshRoot,
-    targets,
-    localPathPolicy,
-    options.historyTrackingPolicyOverride,
-    options.onProgress,
-  );
-  return await writePreparedVersion(meshRoot, localPathPolicy, prepared, {
-    validateRdf: true,
-  });
+  const timing = createRuntimeTiming("version");
+  let status = "succeeded";
+  try {
+    const targets = timing.timeSync(
+      "normalizeRequest",
+      () => normalizeVersionRequest(options.request),
+    );
+    const meshRoot = resolveExecutionMeshRoot(options);
+    const localPathPolicy = await timing.time(
+      "loadOperationalLocalPathPolicy",
+      () => loadOperationalLocalPathPolicy(meshRoot),
+    );
+    const prepared = await prepareVersionExecution(
+      meshRoot,
+      targets,
+      localPathPolicy,
+      options.historyTrackingPolicyOverride,
+      options.onProgress,
+      timing,
+    );
+    const result = await writePreparedVersion(
+      meshRoot,
+      localPathPolicy,
+      prepared,
+      {
+        validateRdf: true,
+        timing,
+        phasePrefix: "write",
+      },
+    );
+    timing.setField(
+      "versionedDesignatorPaths",
+      result.versionedDesignatorPaths.length,
+    );
+    timing.setField("createdFiles", result.createdPaths.length);
+    timing.setField("updatedFiles", result.updatedPaths.length);
+    return result;
+  } catch (error) {
+    status = "failed";
+    throw error;
+  } finally {
+    timing.finish({ status });
+  }
 }
 
 async function writePreparedVersion(
   meshRoot: string,
   localPathPolicy: OperationalLocalPathPolicy,
   prepared: PreparedVersionExecution,
-  options: { validateRdf: boolean },
+  options: {
+    validateRdf: boolean;
+    timing?: RuntimeTiming;
+    phasePrefix?: string;
+  },
 ): Promise<VersionResult> {
-  assertUpdatedTargetsExist(meshRoot, prepared.plan.updatedFiles);
-  await assertCreateTargetsDoNotExist(
-    meshRoot,
-    prepared.plan.createdFiles,
+  const phasePrefix = options.phasePrefix ?? "write";
+  const timing = options.timing;
+  timeOptionalSync(
+    timing,
+    `${phasePrefix}.assertUpdatedTargetsExist`,
+    () => assertUpdatedTargetsExist(meshRoot, prepared.plan.updatedFiles),
+  );
+  await timeOptional(
+    timing,
+    `${phasePrefix}.assertCreateTargetsDoNotExist`,
+    () =>
+      assertCreateTargetsDoNotExist(
+        meshRoot,
+        prepared.plan.createdFiles,
+      ),
   );
   if (options.validateRdf) {
-    validateVersionPlanRdf(prepared.plan);
+    timeOptionalSync(
+      timing,
+      `${phasePrefix}.validateRdf`,
+      () => validateVersionPlanRdf(prepared.plan),
+    );
   }
-  await writeFiles(meshRoot, prepared.plan.createdFiles, true);
-  await writeFiles(meshRoot, prepared.plan.updatedFiles, false);
+  await timeOptional(
+    timing,
+    `${phasePrefix}.createdFiles`,
+    () => writeFiles(meshRoot, prepared.plan.createdFiles, true),
+  );
+  await timeOptional(
+    timing,
+    `${phasePrefix}.updatedFiles`,
+    () => writeFiles(meshRoot, prepared.plan.updatedFiles, false),
+  );
 
   return {
     meshBase: prepared.meshState.meshBase,
@@ -390,58 +484,106 @@ function validateVersionPlanRdf(plan: VersionPlan): void {
 export async function executeGenerate(
   options: ExecuteGenerateOptions,
 ): Promise<GenerateResult> {
-  const targets = normalizeGenerateRequest(options.request);
-  const meshRoot = resolveExecutionMeshRoot(options);
-  await ensureWorkspaceRootExists(meshRoot);
-  const localPathPolicy = await loadOperationalLocalPathPolicy(
-    meshRoot,
-  );
-  const meshState = await loadMeshState(meshRoot);
-  const effectiveConfig = await loadEffectiveConfigForExecution(
-    options.historyTrackingPolicyOverride,
-  );
-  const allDesignatorPaths = listKnopDesignatorPaths(
-    meshState.meshBase,
-    meshState.currentMeshInventoryTurtle,
-    "Could not parse the current MeshInventory while resolving generate targets.",
-  );
-  const selectedDesignatorPaths = resolveSelectedDesignatorPaths(
-    allDesignatorPaths,
-    targets,
-  );
-  const pageFiles = await collectGeneratedPageFiles(
-    meshRoot,
-    localPathPolicy,
-    meshState,
-    selectedDesignatorPaths,
-    targets.length === 0,
-    targets.length > 0,
-    effectiveConfig,
-    resolveGeneratedAt(options.now),
-    options.includeSemanticFlowMetadata ?? false,
-  );
-  const writeResult = await writeFilesUpsert(meshRoot, pageFiles);
+  const timing = createRuntimeTiming("generate");
+  let status = "succeeded";
+  try {
+    const targets = timing.timeSync(
+      "normalizeRequest",
+      () => normalizeGenerateRequest(options.request),
+    );
+    const meshRoot = resolveExecutionMeshRoot(options);
+    await timing.time(
+      "ensureWorkspaceRoot",
+      () => ensureWorkspaceRootExists(meshRoot),
+    );
+    const localPathPolicy = await timing.time(
+      "loadOperationalLocalPathPolicy",
+      () => loadOperationalLocalPathPolicy(meshRoot),
+    );
+    const meshState = await timing.time(
+      "loadMeshState",
+      () => loadMeshState(meshRoot),
+    );
+    const effectiveConfig = await timing.time(
+      "loadEffectiveConfig",
+      () =>
+        loadEffectiveConfigForExecution(
+          options.historyTrackingPolicyOverride,
+        ),
+    );
+    const allDesignatorPaths = timing.timeSync(
+      "listDesignatorPaths",
+      () =>
+        listKnopDesignatorPaths(
+          meshState.meshBase,
+          meshState.currentMeshInventoryTurtle,
+          "Could not parse the current MeshInventory while resolving generate targets.",
+        ),
+    );
+    const selectedDesignatorPaths = timing.timeSync(
+      "resolveTargets",
+      () =>
+        resolveSelectedDesignatorPaths(
+          allDesignatorPaths,
+          targets,
+        ),
+    );
+    const pageFiles = await timing.time(
+      "collectGeneratedPageFiles",
+      () =>
+        collectGeneratedPageFiles(
+          meshRoot,
+          localPathPolicy,
+          meshState,
+          selectedDesignatorPaths,
+          targets.length === 0,
+          targets.length > 0,
+          effectiveConfig,
+          resolveGeneratedAt(options.now),
+          options.includeSemanticFlowMetadata ?? false,
+        ),
+    );
+    const writeResult = await timing.time(
+      "writePages",
+      () => writeFilesUpsert(meshRoot, pageFiles),
+    );
 
-  // Ancestor pages include display-only child lists, so a targeted weave can
-  // need to refresh them even though versioning remains scoped to the target.
-  return {
-    meshBase: meshState.meshBase,
-    generatedDesignatorPaths: selectedDesignatorPaths,
-    createdPaths: writeResult.createdPaths.map((path) =>
-      toWorkspaceRelativePath(localPathPolicy, path)
-    ),
-    updatedPaths: writeResult.updatedPaths.map((path) =>
-      toWorkspaceRelativePath(localPathPolicy, path)
-    ),
-  };
+    const result = {
+      meshBase: meshState.meshBase,
+      generatedDesignatorPaths: selectedDesignatorPaths,
+      createdPaths: writeResult.createdPaths.map((path) =>
+        toWorkspaceRelativePath(localPathPolicy, path)
+      ),
+      updatedPaths: writeResult.updatedPaths.map((path) =>
+        toWorkspaceRelativePath(localPathPolicy, path)
+      ),
+    };
+    timing.setField(
+      "generatedDesignatorPaths",
+      result.generatedDesignatorPaths.length,
+    );
+    timing.setField("createdFiles", result.createdPaths.length);
+    timing.setField("updatedFiles", result.updatedPaths.length);
+    return result;
+  } catch (error) {
+    status = "failed";
+    throw error;
+  } finally {
+    timing.finish({ status });
+  }
 }
 
 export async function executeWeave(
   options: ExecuteWeaveOptions,
 ): Promise<WeaveResult> {
+  const timing = createRuntimeTiming("weave");
+  let status = "succeeded";
   const { operationalLogger, auditLogger } = resolveLoggers(options);
   const meshRoot = resolveExecutionMeshRoot(options);
-  const initialPolicy = await loadOperationalLocalPathPolicy(meshRoot);
+  const initialPolicy = await timing.time(
+    "loadOperationalLocalPathPolicy",
+    () => loadOperationalLocalPathPolicy(meshRoot),
+  );
   const workspaceRoot = initialPolicy.workspaceRoot;
   let wovenDesignatorPaths: readonly string[] = [];
 
@@ -456,10 +598,14 @@ export async function executeWeave(
 
   try {
     if (options.validateBefore) {
-      const validation = await executeValidate({
-        meshRoot,
-        scope: "mesh",
-      });
+      const validation = await timing.time(
+        "validateBefore",
+        () =>
+          executeValidate({
+            meshRoot,
+            scope: "mesh",
+          }),
+      );
       assertValidationPassed(validation, "before weaving");
     }
 
@@ -472,8 +618,12 @@ export async function executeWeave(
         initialPolicy,
         options.historyTrackingPolicyOverride,
         options.onProgress,
+        timing,
       );
-      validateVersionPlanRdf(preparedVersion.plan);
+      timing.timeSync(
+        "version.validateRdf",
+        () => validateVersionPlanRdf(preparedVersion.plan),
+      );
     } catch (error) {
       if (error instanceof WeaveRuntimeError) {
         throw new WeaveInputError(error.message);
@@ -485,16 +635,17 @@ export async function executeWeave(
       meshRoot,
       initialPolicy,
       preparedVersion,
-      { validateRdf: false },
+      { validateRdf: false, timing, phasePrefix: "version.write" },
     );
     wovenDesignatorPaths = versionResult.versionedDesignatorPaths;
 
-    const generateResult = await executeGenerate({
-      meshRoot,
-      request: toSharedTargetRequest(options.request),
-      now: options.now,
-      historyTrackingPolicyOverride: options.historyTrackingPolicyOverride,
-    });
+    const generateResult = await timing.time("generate", () =>
+      executeGenerate({
+        meshRoot,
+        request: toSharedTargetRequest(options.request),
+        now: options.now,
+        historyTrackingPolicyOverride: options.historyTrackingPolicyOverride,
+      }));
 
     const result: WeaveResult = {
       meshBase: versionResult.meshBase,
@@ -510,10 +661,14 @@ export async function executeWeave(
     };
 
     if (options.validateAfter) {
-      const validation = await executeValidate({
-        meshRoot,
-        scope: "mesh",
-      });
+      const validation = await timing.time(
+        "validateAfter",
+        () =>
+          executeValidate({
+            meshRoot,
+            scope: "mesh",
+          }),
+      );
       assertValidationPassed(validation, "after weaving");
     }
 
@@ -530,8 +685,15 @@ export async function executeWeave(
       updatedPaths: result.updatedPaths,
     });
 
+    timing.setField(
+      "wovenDesignatorPaths",
+      result.wovenDesignatorPaths.length,
+    );
+    timing.setField("createdFiles", result.createdPaths.length);
+    timing.setField("updatedFiles", result.updatedPaths.length);
     return result;
   } catch (error) {
+    status = "failed";
     const message = error instanceof Error ? error.message : String(error);
     await operationalLogger.error("weave.failed", "Local weave failed", {
       workspaceRoot,
@@ -550,6 +712,8 @@ export async function executeWeave(
       throw error;
     }
     throw new WeaveRuntimeError(message);
+  } finally {
+    timing.finish({ status });
   }
 }
 
@@ -751,17 +915,44 @@ function assertSupportedRequestKeys(
   }
 }
 
+async function timeOptional<T>(
+  timing: RuntimeTiming | undefined,
+  phase: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  return timing ? await timing.time(phase, operation) : await operation();
+}
+
+function timeOptionalSync<T>(
+  timing: RuntimeTiming | undefined,
+  phase: string,
+  operation: () => T,
+): T {
+  return timing ? timing.timeSync(phase, operation) : operation();
+}
+
 async function prepareVersionExecution(
   workspaceRoot: string,
   targets: readonly NormalizedVersionTargetSpec[],
   localPathPolicy: OperationalLocalPathPolicy,
   historyTrackingPolicyOverride?: HistoryTrackingPolicy,
   onProgress?: WeaveProgressHandler,
+  timing?: RuntimeTiming,
 ): Promise<PreparedVersionExecution> {
-  await ensureWorkspaceRootExists(workspaceRoot);
-  const meshState = await loadMeshState(workspaceRoot);
-  const effectiveConfig = await loadEffectiveConfigForExecution(
-    historyTrackingPolicyOverride,
+  await timeOptional(
+    timing,
+    "prepare.ensureWorkspaceRoot",
+    () => ensureWorkspaceRootExists(workspaceRoot),
+  );
+  const meshState = await timeOptional(
+    timing,
+    "prepare.loadMeshState",
+    () => loadMeshState(workspaceRoot),
+  );
+  const effectiveConfig = await timeOptional(
+    timing,
+    "prepare.loadEffectiveConfig",
+    () => loadEffectiveConfigForExecution(historyTrackingPolicyOverride),
   );
   const supportHistoryPolicies = supportHistoryPoliciesFromEffectiveConfig(
     effectiveConfig,
@@ -769,16 +960,29 @@ async function prepareVersionExecution(
   const namingPolicies = namingPoliciesFromEffectiveConfig(effectiveConfig);
   const resourcePageGenerationPolicies =
     resourcePageGenerationPoliciesFromEffectiveConfig(effectiveConfig);
-  const allDesignatorPaths = listKnopDesignatorPaths(
-    meshState.meshBase,
-    meshState.currentMeshInventoryTurtle,
-    "Could not parse the current MeshInventory while resolving weaveable Knop candidates.",
+  const allDesignatorPaths = timeOptionalSync(
+    timing,
+    "prepare.listDesignatorPaths",
+    () =>
+      listKnopDesignatorPaths(
+        meshState.meshBase,
+        meshState.currentMeshInventoryTurtle,
+        "Could not parse the current MeshInventory while resolving weaveable Knop candidates.",
+      ),
   );
-  const resolvedTargets = targets.length === 0 ? [] : resolveTargetSelections(
-    allDesignatorPaths,
-    targets,
-    (message) => new WeaveInputError(message),
+  const resolvedTargets = timeOptionalSync(
+    timing,
+    "prepare.resolveTargets",
+    () =>
+      targets.length === 0 ? [] : resolveTargetSelections(
+        allDesignatorPaths,
+        targets,
+        (message) => new WeaveInputError(message),
+      ),
   );
+  timing?.setField("knownDesignatorPaths", allDesignatorPaths.length);
+  timing?.setField("requestedTargets", targets.length);
+  timing?.setField("resolvedTargets", resolvedTargets.length);
   const requestedDesignatorPaths = resolvedTargets.map((selection) =>
     selection.designatorPath
   );
@@ -789,15 +993,21 @@ async function prepareVersionExecution(
     ]),
   );
   const overlay: TextFileOverlay = new Map();
-  const initialWeaveableKnops = await loadWeaveableKnopCandidates(
-    workspaceRoot,
-    localPathPolicy,
-    meshState.meshBase,
-    meshState.currentMeshInventoryTurtle,
-    requestedDesignatorPaths,
-    targetByDesignatorPath,
-    overlay,
+  const initialWeaveableKnops = await timeOptional(
+    timing,
+    "prepare.loadInitialCandidates",
+    () =>
+      loadWeaveableKnopCandidates(
+        workspaceRoot,
+        localPathPolicy,
+        meshState.meshBase,
+        meshState.currentMeshInventoryTurtle,
+        requestedDesignatorPaths,
+        targetByDesignatorPath,
+        overlay,
+      ),
   );
+  timing?.setField("initialWeaveableKnops", initialWeaveableKnops.length);
   assertRequestedTargetsAreWeaveable(
     targets,
     initialWeaveableKnops,
@@ -832,15 +1042,24 @@ async function prepareVersionExecution(
   const versionedDesignatorPaths: string[] = [];
 
   while (remainingDesignatorPaths.length > 0) {
-    const stagedMeshState = await loadMeshState(workspaceRoot, overlay);
-    const stagedWeaveableKnops = await loadWeaveableKnopCandidates(
-      workspaceRoot,
-      localPathPolicy,
-      stagedMeshState.meshBase,
-      stagedMeshState.currentMeshInventoryTurtle,
-      remainingDesignatorPaths,
-      targetByDesignatorPath,
-      overlay,
+    const stagedMeshState = await timeOptional(
+      timing,
+      "prepare.loop.loadMeshState",
+      () => loadMeshState(workspaceRoot, overlay),
+    );
+    const stagedWeaveableKnops = await timeOptional(
+      timing,
+      "prepare.loop.loadCandidates",
+      () =>
+        loadWeaveableKnopCandidates(
+          workspaceRoot,
+          localPathPolicy,
+          stagedMeshState.meshBase,
+          stagedMeshState.currentMeshInventoryTurtle,
+          remainingDesignatorPaths,
+          targetByDesignatorPath,
+          overlay,
+        ),
     );
 
     if (stagedWeaveableKnops.length === 0) {
@@ -854,16 +1073,22 @@ async function prepareVersionExecution(
     const nextCandidate = stagedWeaveableKnops[0]!;
     const nextDesignatorPath = nextCandidate.designatorPath;
     const target = targetByDesignatorPath.get(nextDesignatorPath);
-    const nextPlan = planVersion({
-      request: target ? { targets: [{ ...target.source }] } : {},
-      meshBase: stagedMeshState.meshBase,
-      currentMeshInventoryTurtle: stagedMeshState.currentMeshInventoryTurtle,
-      currentMeshMetadataTurtle: stagedMeshState.currentMeshMetadataTurtle,
-      weaveableKnops: [nextCandidate],
-      supportHistoryPolicies,
-      namingPolicies,
-      resourcePageGenerationPolicies,
-    });
+    const nextPlan = timeOptionalSync(
+      timing,
+      "prepare.loop.planVersion",
+      () =>
+        planVersion({
+          request: target ? { targets: [{ ...target.source }] } : {},
+          meshBase: stagedMeshState.meshBase,
+          currentMeshInventoryTurtle:
+            stagedMeshState.currentMeshInventoryTurtle,
+          currentMeshMetadataTurtle: stagedMeshState.currentMeshMetadataTurtle,
+          weaveableKnops: [nextCandidate],
+          supportHistoryPolicies,
+          namingPolicies,
+          resourcePageGenerationPolicies,
+        }),
+    );
 
     for (const file of nextPlan.createdFiles) {
       if (createdPaths.has(file.path) || updatedFileByPath.has(file.path)) {

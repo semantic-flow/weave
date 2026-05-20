@@ -139,6 +139,43 @@ Deno.test("weave reports progress by default and --silent suppresses progress", 
   assert(silentStdout.includes("Wove 1 designator path"), silentStdout);
 });
 
+Deno.test("WEAVE_TIMING emits aggregate timings to stderr", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-timing-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const output = await runCliCommand(
+    [
+      "--target",
+      "designatorPath=alice/bio",
+    ],
+    workspaceRoot,
+    { WEAVE_TIMING: "1" },
+  );
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Wove 1 designator path"), stdout);
+  assert(
+    stderr.includes("[timing] weave.prepare.loadMeshState"),
+    stderr,
+  );
+  assert(
+    stderr.includes("[timing] weave.prepare.loop.loadCandidates"),
+    stderr,
+  );
+  assert(
+    stderr.includes("[timing] weave.total"),
+    stderr,
+  );
+  assert(
+    stderr.includes('status="succeeded"'),
+    stderr,
+  );
+});
+
 Deno.test("weave validate succeeds as a black-box CLI run", async () => {
   const workspaceRoot = await createTestTmpDir("weave-e2e-validate-");
   await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
@@ -1069,6 +1106,7 @@ async function assertWeaveTransitionMatchesManifest(
 function runCliCommand(
   args: readonly string[],
   cwd?: string,
+  env?: Record<string, string>,
 ): Promise<Deno.CommandOutput> {
   const command = new Deno.Command("deno", {
     args: [
@@ -1080,6 +1118,7 @@ function runCliCommand(
       ...args,
     ],
     cwd: cwd ? toFileUrl(`${cwd}/`) : new URL(".", repoRoot),
+    env,
     stdout: "piped",
     stderr: "piped",
   });

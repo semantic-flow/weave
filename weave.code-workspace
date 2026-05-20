@@ -1,27 +1,35 @@
 {
   "folders": [
     {
+      "name": "weave",
       "path": "."
     },
     {
+      "name": "sflo",
       "path": "dependencies/github.com/semantic-flow/sflo"
     },
     {
+      "name": "weave-dev-archive",
       "path": "dependencies/github.com/semantic-flow/weave-dev-archive"
     },
     {
+      "name": "semantic-flow-framework",
       "path": "dependencies/github.com/semantic-flow/semantic-flow-framework"
     },
     {
+      "name": "mesh-sidecar-fantasy-rules",
       "path": "dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules"
     },
     {
+      "name": "mesh-branch-fantasy-rules",
       "path": "dependencies/github.com/semantic-flow/mesh-branch-fantasy-rules"
     },
     {
+      "name": "mesh-alice-bio",
       "path": "dependencies/github.com/semantic-flow/mesh-alice-bio"
     },
     {
+      "name": "accord",
       "path": "dependencies/github.com/spectacular-voyage/accord"
     }
   ],
