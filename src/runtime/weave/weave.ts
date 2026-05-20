@@ -13,6 +13,7 @@ import {
   normalizeTargetSpecs,
   normalizeVersionTargetSpecs,
   resolveTargetSelections,
+  type TargetSpec,
 } from "../../core/targeting.ts";
 import {
   detectPendingWeaveSlice,
@@ -84,6 +85,7 @@ import {
   type ListGeneratedResourcePagePathsInput,
   ResourcePagePolicyError,
 } from "./resource_page_policy.ts";
+import { validatePublicationPreset } from "../publication/presets.ts";
 
 const SFLO_HAS_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}hasArtifactHistory`;
 const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
@@ -92,7 +94,8 @@ const SFLO_HAS_HISTORICAL_STATE_IRI = `${SFLO_NAMESPACE}hasHistoricalState`;
 const SFLO_LATEST_HISTORICAL_STATE_IRI =
   `${SFLO_NAMESPACE}latestHistoricalState`;
 const SFLO_HAS_MANIFESTATION_IRI = `${SFLO_NAMESPACE}hasManifestation`;
-const SFLO_HAS_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}hasLocatedFile`;
+const SFLO_LOCATED_FILE_FOR_MANIFESTATION_IRI =
+  `${SFLO_NAMESPACE}locatedFileForManifestation`;
 const SFLO_LOCATED_FILE_FOR_STATE_IRI = `${SFLO_NAMESPACE}locatedFileForState`;
 const SFLO_HISTORY_ORDINAL_IRI = `${SFLO_NAMESPACE}historyOrdinal`;
 const SFLO_STATE_ORDINAL_IRI = `${SFLO_NAMESPACE}stateOrdinal`;
@@ -116,23 +119,24 @@ const SFLO_REFERENCE_URI_LITERAL_IRI = `${SFLO_NAMESPACE}referenceUriLiteral`;
 const SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI =
   `${SFLO_NAMESPACE}hasResourcePageDefinition`;
 const SFLO_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFLO_NAMESPACE}hasKnopAssetBundle`;
-const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
-  `${SFLO_NAMESPACE}artifactResolutionMode_pinned`;
-const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
-  `${SFLO_NAMESPACE}artifactResolutionMode_current`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI =
+  `${SFLO_NAMESPACE}artifactResolutionMode_working`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_LATEST_STATE_IRI =
+  `${SFLO_NAMESPACE}artifactResolutionMode_latestState`;
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const DCTERMS_TITLE_IRI = "http://purl.org/dc/terms/title";
-const RDFS_LABEL_IRI = "http://www.w3.org/2000/01/rdf-schema#label";
 
 export interface ExecuteValidateOptions {
   meshRoot: string;
   request?: ValidateRequest;
+  scope?: ValidateScope;
 }
 
 export interface ExecuteVersionOptions {
   meshRoot: string;
   request?: VersionRequest;
   historyTrackingPolicyOverride?: HistoryTrackingPolicy;
+  onProgress?: WeaveProgressHandler;
 }
 
 export interface ExecuteGenerateOptions {
@@ -150,7 +154,20 @@ export interface ExecuteWeaveOptions {
   auditLogger?: AuditLogger;
   now?: () => Date;
   historyTrackingPolicyOverride?: HistoryTrackingPolicy;
+  onProgress?: WeaveProgressHandler;
+  validateBefore?: boolean;
+  validateAfter?: boolean;
 }
+
+export interface WeaveProgressEvent {
+  designatorPath: string;
+  completed: number;
+  total: number;
+  percent: number;
+}
+
+export type WeaveProgressHandler = (event: WeaveProgressEvent) => void;
+export type ValidateScope = "mesh" | "publication";
 
 export interface ValidateFinding {
   severity: "error";
@@ -158,6 +175,7 @@ export interface ValidateFinding {
 }
 
 export interface ValidateResult {
+  scope: ValidateScope;
   meshBase?: string;
   validatedDesignatorPaths: readonly string[];
   findings: readonly ValidateFinding[];
@@ -250,7 +268,25 @@ const ALL_ARTIFACT_ROLES: readonly ArtifactRole[] = [
 export async function executeValidate(
   options: ExecuteValidateOptions,
 ): Promise<ValidateResult> {
+  const scope = options.scope ?? "mesh";
   try {
+    if (scope === "publication") {
+      const meshRoot = resolveExecutionMeshRoot(options);
+      await ensureWorkspaceRootExists(meshRoot);
+      const meshState = await loadMeshState(meshRoot);
+      const publicationValidation = await validatePublicationPreset({
+        meshRoot,
+        currentMeshConfigTurtle: meshState.currentMeshConfigTurtle,
+      });
+
+      return {
+        scope,
+        meshBase: meshState.meshBase,
+        validatedDesignatorPaths: [],
+        findings: publicationValidation.findings,
+      };
+    }
+
     const targets = normalizeValidateRequest(options.request);
     const meshRoot = resolveExecutionMeshRoot(options);
     const localPathPolicy = await loadOperationalLocalPathPolicy(
@@ -266,17 +302,23 @@ export async function executeValidate(
       ...prepared.plan.createdFiles,
       ...prepared.plan.updatedFiles,
     ]);
+    const publicationValidation = await validatePublicationPreset({
+      meshRoot,
+      currentMeshConfigTurtle: prepared.meshState.currentMeshConfigTurtle,
+    });
 
     return {
+      scope,
       meshBase: prepared.meshState.meshBase,
       validatedDesignatorPaths: prepared.plan.versionedDesignatorPaths,
-      findings: [],
+      findings: publicationValidation.findings,
     };
   } catch (error) {
     if (
       error instanceof WeaveInputError || error instanceof WeaveRuntimeError
     ) {
       return {
+        scope,
         validatedDesignatorPaths: [],
         findings: [{
           severity: "error",
@@ -301,16 +343,27 @@ export async function executeVersion(
     targets,
     localPathPolicy,
     options.historyTrackingPolicyOverride,
+    options.onProgress,
   );
+  return await writePreparedVersion(meshRoot, localPathPolicy, prepared, {
+    validateRdf: true,
+  });
+}
+
+async function writePreparedVersion(
+  meshRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
+  prepared: PreparedVersionExecution,
+  options: { validateRdf: boolean },
+): Promise<VersionResult> {
   assertUpdatedTargetsExist(meshRoot, prepared.plan.updatedFiles);
   await assertCreateTargetsDoNotExist(
     meshRoot,
     prepared.plan.createdFiles,
   );
-  validateRdfFiles([
-    ...prepared.plan.createdFiles,
-    ...prepared.plan.updatedFiles,
-  ]);
+  if (options.validateRdf) {
+    validateVersionPlanRdf(prepared.plan);
+  }
   await writeFiles(meshRoot, prepared.plan.createdFiles, true);
   await writeFiles(meshRoot, prepared.plan.updatedFiles, false);
 
@@ -324,6 +377,13 @@ export async function executeVersion(
       toWorkspaceRelativePath(localPathPolicy, file.path)
     ),
   };
+}
+
+function validateVersionPlanRdf(plan: VersionPlan): void {
+  validateRdfFiles([
+    ...plan.createdFiles,
+    ...plan.updatedFiles,
+  ]);
 }
 
 export async function executeGenerate(
@@ -361,6 +421,8 @@ export async function executeGenerate(
   );
   const writeResult = await writeFilesUpsert(meshRoot, pageFiles);
 
+  // Ancestor pages include display-only child lists, so a targeted weave can
+  // need to refresh them even though versioning remains scoped to the target.
   return {
     meshBase: meshState.meshBase,
     generatedDesignatorPaths: selectedDesignatorPaths,
@@ -392,18 +454,38 @@ export async function executeWeave(
   });
 
   try {
-    await validateVersionRequestForWeave(
-      meshRoot,
-      options.request,
-      initialPolicy,
-      options.historyTrackingPolicyOverride,
-    );
+    if (options.validateBefore) {
+      const validation = await executeValidate({
+        meshRoot,
+        scope: "mesh",
+      });
+      assertValidationPassed(validation, "before weaving");
+    }
 
-    const versionResult = await executeVersion({
+    const targets = normalizeVersionRequest(options.request);
+    let preparedVersion: PreparedVersionExecution;
+    try {
+      preparedVersion = await prepareVersionExecution(
+        meshRoot,
+        targets,
+        initialPolicy,
+        options.historyTrackingPolicyOverride,
+        options.onProgress,
+      );
+      validateVersionPlanRdf(preparedVersion.plan);
+    } catch (error) {
+      if (error instanceof WeaveRuntimeError) {
+        throw new WeaveInputError(error.message);
+      }
+      throw error;
+    }
+
+    const versionResult = await writePreparedVersion(
       meshRoot,
-      request: options.request,
-      historyTrackingPolicyOverride: options.historyTrackingPolicyOverride,
-    });
+      initialPolicy,
+      preparedVersion,
+      { validateRdf: false },
+    );
     wovenDesignatorPaths = versionResult.versionedDesignatorPaths;
 
     const generateResult = await executeGenerate({
@@ -425,6 +507,14 @@ export async function executeWeave(
         ...generateResult.updatedPaths,
       ],
     };
+
+    if (options.validateAfter) {
+      const validation = await executeValidate({
+        meshRoot,
+        scope: "mesh",
+      });
+      assertValidationPassed(validation, "after weaving");
+    }
 
     await operationalLogger.info("weave.succeeded", "Local weave succeeded", {
       workspaceRoot,
@@ -462,37 +552,16 @@ export async function executeWeave(
   }
 }
 
-async function validateVersionRequestForWeave(
-  meshRoot: string,
-  request: WeaveRequest | undefined,
-  localPathPolicy: OperationalLocalPathPolicy,
-  historyTrackingPolicyOverride?: HistoryTrackingPolicy,
-): Promise<void> {
-  try {
-    const targets = normalizeVersionRequest(request);
-    const prepared = await prepareVersionExecution(
-      meshRoot,
-      targets,
-      localPathPolicy,
-      historyTrackingPolicyOverride,
-    );
-    validateRdfFiles([
-      ...prepared.plan.createdFiles,
-      ...prepared.plan.updatedFiles,
-    ]);
-  } catch (error) {
-    if (error instanceof WeaveRuntimeError) {
-      throw new WeaveInputError(error.message);
-    }
-    throw error;
-  }
-}
-
 export function describeWeaveResult(result: WeaveResult): string {
   return `Wove ${result.wovenDesignatorPaths.length} designator path and created ${result.createdPaths.length} files while updating ${result.updatedPaths.length} working artifacts.`;
 }
 
 export function describeValidateResult(result: ValidateResult): string {
+  if (result.scope === "publication") {
+    const findingLabel = result.findings.length === 1 ? "issue" : "issues";
+    return `Validated publication surface and found ${result.findings.length} ${findingLabel}.`;
+  }
+
   const validatedLabel = result.validatedDesignatorPaths.length === 1
     ? "designator path"
     : "designator paths";
@@ -521,6 +590,23 @@ function resolveLoggers(
   auditLogger: AuditLogger;
 } {
   return resolveRuntimeLoggers(options);
+}
+
+function assertValidationPassed(
+  result: ValidateResult,
+  phaseLabel: string,
+): void {
+  if (result.findings.length === 0) {
+    return;
+  }
+
+  throw new WeaveInputError(
+    `Whole-mesh validation ${phaseLabel} failed:\n${
+      result.findings.map((finding) =>
+        `${finding.severity}: ${finding.message}`
+      ).join("\n")
+    }`,
+  );
 }
 
 async function loadEffectiveConfigForExecution(
@@ -606,11 +692,43 @@ function toSharedTargetRequest(
   );
 
   return {
-    targets: normalizedTargets.map((target) => ({
-      designatorPath: target.designatorPath,
-      ...(target.recursive ? { recursive: true } : {}),
-    })),
+    targets: uniqueGenerateTargets(normalizedTargets.flatMap((target) => [
+      ...toAncestorGenerateTargets(target.designatorPath),
+      {
+        designatorPath: target.designatorPath,
+        ...(target.recursive ? { recursive: true } : {}),
+      },
+    ])),
   };
+}
+
+function toAncestorGenerateTargets(
+  designatorPath: string,
+): readonly TargetSpec[] {
+  if (designatorPath.length === 0) {
+    return [];
+  }
+
+  const segments = designatorPath.split("/");
+  const ancestors: TargetSpec[] = [{ designatorPath: "" }];
+  for (let index = 1; index < segments.length; index += 1) {
+    ancestors.push({ designatorPath: segments.slice(0, index).join("/") });
+  }
+  return ancestors;
+}
+
+function uniqueGenerateTargets(
+  targets: readonly TargetSpec[],
+): readonly TargetSpec[] {
+  const targetByPath = new Map<string, TargetSpec>();
+  for (const target of targets) {
+    const existing = targetByPath.get(target.designatorPath);
+    targetByPath.set(target.designatorPath, {
+      designatorPath: target.designatorPath,
+      ...((existing?.recursive || target.recursive) ? { recursive: true } : {}),
+    });
+  }
+  return [...targetByPath.values()];
 }
 
 function assertSupportedRequestKeys(
@@ -637,6 +755,7 @@ async function prepareVersionExecution(
   targets: readonly NormalizedVersionTargetSpec[],
   localPathPolicy: OperationalLocalPathPolicy,
   historyTrackingPolicyOverride?: HistoryTrackingPolicy,
+  onProgress?: WeaveProgressHandler,
 ): Promise<PreparedVersionExecution> {
   await ensureWorkspaceRootExists(workspaceRoot);
   const meshState = await loadMeshState(workspaceRoot);
@@ -779,6 +898,14 @@ async function prepareVersionExecution(
       );
     }
     remainingDesignatorPaths.splice(completedIndex, 1);
+
+    const completed = versionedDesignatorPaths.length;
+    onProgress?.({
+      designatorPath: completedPath,
+      completed,
+      total: initialWeaveableKnops.length,
+      percent: Math.round((completed / initialWeaveableKnops.length) * 100),
+    });
   }
 
   const plan: VersionPlan = {
@@ -1320,14 +1447,12 @@ async function loadReferenceTargetSourcePayloadArtifact(
       `Extracted weave source for ${designatorPath} is missing a woven current payload history: ${sourceDesignatorPath}`,
     );
   }
-  const isPinned = extractionSource.artifactResolutionModeIri ===
-    SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI;
-  const selectedHistoricalStatePath = isPinned
-    ? extractionSource.requestedTargetStatePath
-    : sourcePayloadArtifact.latestHistoricalStatePath;
+  const selectedHistoricalStatePath =
+    extractionSource.requestedTargetStatePath ??
+      sourcePayloadArtifact.latestHistoricalStatePath;
   if (!selectedHistoricalStatePath) {
     throw new WeaveRuntimeError(
-      `Extracted weave source for ${designatorPath} is missing a pinned target state.`,
+      `Extracted weave source for ${designatorPath} is missing an exact or latest source state.`,
     );
   }
   const selectedHistoricalSnapshotPath = resolveHistoricalStateLocatedFilePath(
@@ -2220,8 +2345,12 @@ async function loadGenerateDesignatorContexts(
                   extractionSource.requestedTargetStatePath,
               }
               : {}),
-            artifactResolutionModeIri:
-              extractionSource.artifactResolutionModeIri,
+            ...(extractionSource.artifactResolutionModeIri
+              ? {
+                artifactResolutionModeIri:
+                  extractionSource.artifactResolutionModeIri,
+              }
+              : {}),
           },
         }
         : {}),
@@ -2978,7 +3107,7 @@ async function addCanonicalReferenceSourceRawSourcePanel(
       await readRawSourcePanel(
         join(workspaceRoot, snapshotPath),
         snapshotPath,
-        "Pinned canonical reference source file",
+        "Exact canonical reference source file",
       ),
     );
   } catch (error) {
@@ -2997,7 +3126,7 @@ async function addExtractionSourceRawSourcePanels(
   designatorPath: string,
   sourceArtifactPath: string,
   requestedTargetStatePath: string | undefined,
-  artifactResolutionModeIri: string,
+  artifactResolutionModeIri: string | undefined,
 ): Promise<void> {
   const sourceKnopInventoryPath = join(
     workspaceRoot,
@@ -3035,7 +3164,7 @@ async function addExtractionSourceRawSourcePanels(
     return;
   }
 
-  if (artifactResolutionModeIri === SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI) {
+  if (artifactResolutionModeIri === SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI) {
     try {
       addRawSourcePanel(
         rawSourcePanels,
@@ -3047,7 +3176,7 @@ async function addExtractionSourceRawSourcePanels(
             sourcePayloadArtifact.workingLocalRelativePath,
           ),
           sourcePayloadArtifact.workingLocalRelativePath,
-          "Current source file",
+          "Working source file",
         ),
       );
     } catch (error) {
@@ -3062,9 +3191,14 @@ async function addExtractionSourceRawSourcePanels(
     return;
   }
 
+  if (
+    artifactResolutionModeIri === SFLO_ARTIFACT_RESOLUTION_MODE_LATEST_STATE_IRI
+  ) {
+    requestedTargetStatePath = sourcePayloadArtifact.latestHistoricalStatePath;
+  }
   if (!requestedTargetStatePath) {
     throw new WeaveRuntimeError(
-      `Extracted page source for ${designatorPath} is missing a pinned target state.`,
+      `Extracted page source for ${designatorPath} is missing an exact target state.`,
     );
   }
 
@@ -3084,13 +3218,13 @@ async function addExtractionSourceRawSourcePanels(
       await readRawSourcePanel(
         join(workspaceRoot, snapshotPath),
         snapshotPath,
-        "Pinned source file",
+        "Exact source file",
       ),
     );
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new WeaveRuntimeError(
-        `Workspace is missing the pinned page source file for ${designatorPath}: ${snapshotPath}`,
+        `Workspace is missing the exact page source file for ${designatorPath}: ${snapshotPath}`,
       );
     }
     throw error;
@@ -3270,8 +3404,7 @@ function extractResourceTitle(
     panel.contents ? parseRawSourcePanel(canonical, panel.contents) : []
   );
 
-  return findFirstLiteralObject(quads, canonical, DCTERMS_TITLE_IRI) ??
-    findFirstLiteralObject(quads, canonical, RDFS_LABEL_IRI);
+  return findFirstLiteralObject(quads, canonical, DCTERMS_TITLE_IRI);
 }
 
 function extractResourceRdfTypes(
@@ -3589,7 +3722,7 @@ function resolveHistoricalStateModel(
       meshBase,
       quads,
       new URL(manifestationPath, meshBase).href,
-      SFLO_HAS_LOCATED_FILE_IRI,
+      SFLO_LOCATED_FILE_FOR_MANIFESTATION_IRI,
     )
     : undefined;
 

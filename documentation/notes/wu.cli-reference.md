@@ -2,7 +2,7 @@
 id: zcfvz4v7wxljtye9263tchs
 title: CLI Reference
 desc: ''
-updated: 1775629411758
+updated: 1779079397831
 created: 1775629411758
 ---
 
@@ -23,6 +23,24 @@ Use `weave --help` or `weave <command> --help` to inspect the live CLI.
 `--target <spec>` limits `weave`, `weave validate`, `weave version`, and `weave generate` to specific designator paths.
 
 If no `--target` flags are provided, those commands operate on all applicable weave candidates in the mesh.
+
+## Workflow Shapes
+
+There are two common ways to build a publication mesh.
+
+For an in-place mesh, including a docs-rooted sidecar mesh that lives on the source branch, use the primitive commands:
+
+```sh
+weave mesh create --workspace . --mesh-root docs --mesh-base 'https://example.github.io/project/'
+weave integrate ./ontology/example.ttl ontology --mesh-root docs --grant-source-directory ontology
+weave --mesh-root docs --target 'designatorPath=ontology,historySegment=releases,stateSegment=v0.1.0,manifestationSegment=ttl'
+```
+
+This keeps the source checkout and mesh root in the same working tree. Extra-mesh source paths are represented through `workingLocalRelativePath` and require local path policy such as `--grant-source-directory`.
+
+For a detached publication root, such as a generated `gh-pages` worktree, use the same mesh operations against the publication root instead of a special branch-publishing command. Create or open the mesh in the publication checkout, integrate each payload source with an explicit source policy, then run `weave`, `weave generate`, or `weave validate` for the intended publication step. The removed `weave prepare gh-pages` wrapper should not be used in new automation.
+
+For detached publication roots and other extra-mesh source files, `integrate` records a working-only source binding automatically. The important rule is that `weave` itself does not fetch repositories, copy source files into the publication root, apply host presets, or commit/push git refs; those are explicit setup, integration/import, profile, and CI/CD concerns.
 
 ## Target syntax
 
@@ -90,7 +108,10 @@ weave
 weave --mesh-root ./docs
 weave --target 'designatorPath=alice/bio'
 weave --target 'designatorPath=alice,recursive=true'
+weave --validate-before --validate-after
 ```
+
+`--validate-before` and `--validate-after` run whole-mesh validation before or after the normal weave phases.
 
 Payload naming may be passed through to the internal `version` step:
 
@@ -132,9 +153,13 @@ Validates current local weave state without writing files.
 
 ```sh
 weave validate
+weave validate mesh
+weave validate publication
 weave validate --target 'designatorPath=alice/bio'
 weave validate --target 'designatorPath=alice,recursive=true'
 ```
+
+`weave validate mesh` is the default scope and validates the mesh state. When a publication profile is configured, mesh validation includes the retained publication checks. `weave validate publication` runs only publication-readiness checks, currently conservative host-local path leakage checks plus the GitHub Pages `.nojekyll` preset check when the mesh config selects `github-pages`.
 
 ### `weave version`
 
@@ -156,7 +181,30 @@ weave version \
 Constraints:
 
 - payload version naming can be provided as general `--payload-*` defaults or as per-target fields
+- `weave set history` and `weave set next-state` can persist payload-only defaults for a later `weave version`
 - if a named-state payload history is current, omitted `stateSegment` fails closed instead of silently choosing an ordinal successor
+
+### `weave set history`
+
+Sets the current/default ArtifactHistory for a payload artifact without creating a historical state.
+
+```sh
+weave set history alice/bio releases
+weave set history ontology releases --mesh-root docs
+```
+
+This is payload-only versioning intent. It updates the current Knop inventory so the next explicit versioning operation uses the selected history, but it does not write a payload snapshot, create ResourcePages, or copy source bytes.
+
+### `weave set next-state`
+
+Sets the next state segment for a payload artifact without creating that state.
+
+```sh
+weave set next-state alice/bio v0.1.0
+weave set next-state ontology v0.1.0 --mesh-root docs
+```
+
+The hint is stored on the selected current payload history and is consumed by the next `weave version` or default `weave` versioning phase for that payload. If no current history has been selected yet, Weave uses the default `_history001` history lane.
 
 ### `weave generate`
 
@@ -178,63 +226,12 @@ When `--mesh-root` names a child path such as `docs`, Weave creates the mesh und
 weave mesh create --mesh-base 'https://example.org/'
 weave mesh create --workspace ./my-mesh --mesh-base 'https://example.org/'
 weave mesh create --workspace . --mesh-root docs --mesh-base 'https://example.org/my-project/'
-weave mesh create --mesh-base 'https://semantic-flow.github.io/my-mesh/' --no-nojekyll
+weave mesh create --mesh-base 'https://semantic-flow.github.io/my-mesh/' --publication-profile github-pages
+weave mesh create --mesh-base 'https://example.org/my-mesh/' --publication-profile auto
 weave mesh create --interactive
 ```
 
-### `weave deploy gh-pages`
-
-Creates or updates a branch-published GitHub Pages mesh in a publication worktree. Use this when authored source files stay in a normal source checkout and generated mesh output lives in a separate publication branch checkout such as `gh-pages`.
-
-The command reads source bytes from `--source-root`, writes generated mesh output to `--publish-root`, and keeps host-local checkout paths out of the published RDF. `--source-root` defaults to the current directory. `--publish-root` is required in noninteractive runs; interactive runs can prompt for it.
-
-Repository source bindings are recorded beside the target Knop rather than in `_mesh/_config/config.ttl`. When a deploy materializes a source file, Weave writes a source registry at `_knop/_sources/sources.ttl`, links it from the Knop inventory with `sflo:hasKnopSourceRegistry`, and records the repository URL, source ref, resolved commit, repository-relative path, and content digest. This keeps publication output portable without preserving a developer's checkout path.
-
-Dry-run prints the planned writes, preserved files, validation checks, and git operations without mutating the publication worktree:
-
-```sh
-weave deploy gh-pages \
-  --dry-run \
-  --source-root . \
-  --publish-root ../my-repo-gh-pages \
-  --mesh-base 'https://example.github.io/my-repo/'
-```
-
-Materialize one repository source file into the publication mesh:
-
-```sh
-weave deploy gh-pages \
-  --source-root . \
-  --publish-root ../my-repo-gh-pages \
-  --mesh-base 'https://example.github.io/my-repo/' \
-  --source-path ontology/fantasy-rules-ontology.ttl \
-  --designator-path ontology \
-  --source-repository-url 'https://github.com/example/my-repo.git' \
-  --source-ref main
-```
-
-Create a local publication commit after a successful deploy:
-
-```sh
-weave deploy gh-pages \
-  --source-root . \
-  --publish-root ../my-repo-gh-pages \
-  --mesh-base 'https://example.github.io/my-repo/' \
-  --commit \
-  --commit-message 'Publish mesh'
-```
-
-Constraints:
-
-- `--publish-root` must be a distinct publication worktree, not the source checkout or a directory inside it
-- publication git worktrees must be clean by default before Weave writes
-- `--allow-dirty-publish-root` is available for local experimentation, but cannot be combined with `--commit`
-- `--commit` creates a local commit only when the publication worktree has changes
-- Weave does not push; after a local commit, push the publication branch yourself for GitHub Pages to update
-- `--commit-message` requires `--commit`
-- `--source-commit` records an exact source commit in the source locator when supplied, but it should name bytes that the commit actually represents
-
-For local preview or regeneration runs, set `WEAVE_LOG_DIR` to a temporary directory such as `/tmp/weave-logs` when you want runtime logs kept outside a publication checkout.
+`--publication-profile` is explicit host setup. Use `github-pages` to create and persist the GitHub Pages profile, currently `.nojekyll`; use `none` to persist that no static-host profile is selected; use `auto` to infer GitHub Pages only from a `github.io` mesh base and otherwise persist `none`.
 
 ### `weave integrate`
 
@@ -244,6 +241,7 @@ Integrates a local source file into a designator path as a payload artifact, inc
 weave integrate ./alice-bio.ttl alice/bio
 weave integrate ./alice-bio.ttl --designator-path alice/bio
 weave integrate ./ontology/fantasy-rules-ontology.ttl ontology --mesh-root docs --grant-source-directory ontology
+weave integrate ./ontology/fantasy-rules-ontology.ttl ontology --mesh-root docs --grant-source-directory ontology --source-repository-url https://github.com/example/source.git --source-repository-ref main --source-repository-path ontology/fantasy-rules-ontology.ttl
 weave integrate ./root.ttl --designator-path /
 ```
 
@@ -253,12 +251,17 @@ Constraints:
 - if both are provided, they must match
 - `--mesh-root <path>` selects the mesh root and defaults to the current directory
 - relative source paths are resolved from the command working directory
-- `--grant-source-directory <path>` adds a mesh-carried `workingLocalRelativePath` grant for that source directory before resolving the source
+- `--grant-source-directory <path>` adds an operational `workingLocalRelativePath` grant for that source directory before resolving the source; workspace-contained sources are recorded in mesh config, while separate checkout sources are recorded in the host-local `~/.sf-local-access.ttl`
+- when the approved source path is outside the mesh root, `integrate` creates a Knop source registry automatically with the internal `payload-source` binding id, `targetLocalRelativePath`, and `artifactResolutionMode_working`
+- automatically created floating working-source bindings do not record repository ref, commit, path, digest evidence, or `expectsContentDigest`
+- `--source-repository-url`, `--source-repository-ref`, and `--source-repository-path` record repository-backed source provenance in the Knop source registry without fetching or copying source bytes
+- `--source-repository-commit` records immutable commit evidence when known
+- `--source-digest <digest>` records caller-provided byte evidence; if omitted when repository source metadata is supplied, Weave records a computed `sha256:` digest for the local source bytes it observed
 - the current local CLI slice accepts local filesystem paths or `file:` URLs
 - sources inside the mesh root are accepted directly
 - extra-mesh local sources are accepted only when operational policy allows the resulting relative `workingLocalRelativePath`
 - denied adjacent workspace sources report the matching `--grant-source-directory` suggestion when Weave can infer one
-- remote-source integration is still a broader semantic/API direction, not part of the current CLI contract
+- remote fetching remains outside the current CLI contract; repository metadata names provenance and expected bytes, not network access
 
 ### `weave extract`
 
@@ -271,7 +274,7 @@ weave extract <targetDesignatorPath> [--mesh-root <meshRoot>] [--source <sourceD
 weave extract --all-terms (--source <sourceDesignatorPath> | --source-state <historicalStatePath>) [--mesh-root <meshRoot>] [--accept-preview] [--add-source-references --reference-role <referenceRole>]
 ```
 
-`<targetDesignatorPath>` is the resource or term surface to create. `--source <sourceDesignatorPath>` selects the already woven payload artifact that describes that target and records a current-tracking `sflo:ExtractionSource` in the Knop's `_sources` registry. `--source-state <historicalStatePath>` pins the extraction source to a historical source state and resolves the owning source artifact from mesh inventory.
+`<targetDesignatorPath>` is the resource or term surface to create. `--source <sourceDesignatorPath>` selects the already woven payload artifact that describes that target and records a working-source `sflo:ExtractionSource` in the Knop's `_sources` registry. `--source-state <historicalStatePath>` records an exact historical source state and resolves the owning source artifact from mesh inventory.
 
 `--source` and `--source-state` are mutually exclusive. If neither is supplied for single-target extraction, Weave resolves the unique current woven payload artifact that mentions the target. `--all-terms` requires an explicit `--source` or `--source-state`, previews the identifiers that will be created, and asks for confirmation before writing; `--accept-preview` accepts that preview for noninteractive runs. Existing Knops, blank nodes, support artifact paths, and generated page/file artifact paths are skipped.
 
@@ -298,7 +301,7 @@ weave extract ontology/CharacterShape --mesh-root docs --source shacl
 
 ### `weave set extraction-source`
 
-Replaces the extraction-source contract for an existing extracted Knop. This is the maintenance operation for migrating already-created extracted term surfaces between current-tracking and pinned source resolution.
+Replaces the extraction-source contract for an existing extracted Knop. This is the maintenance operation for migrating already-created extracted term surfaces between working-source and exact source resolution.
 
 Current syntax:
 
@@ -307,7 +310,7 @@ weave set extraction-source <targetDesignatorPath> [--mesh-root <meshRoot>] (--s
 weave set extraction-source --all-terms [--mesh-root <meshRoot>] (--source <sourceDesignatorPath> | --source-state <historicalStatePath>) [--accept-preview]
 ```
 
-`--source` records a current-tracking source binding. `--source-state` records a pinned source binding and fails if the historical source bytes do not mention the target term. The command replaces the existing source-registry `sflo:ExtractionSource` details; it does not append a second primary extraction source.
+`--source` records a working-source binding. `--source-state` records an exact source-state binding and fails if the historical source bytes do not mention the target term. The command replaces the existing source-registry `sflo:ExtractionSource` details; it does not append a second primary extraction source.
 
 The `--all-terms` form discovers named mesh-scoped terms from the selected source graph, previews the existing extracted terms that will be updated, and updates all listed terms after confirmation or `--accept-preview`.
 

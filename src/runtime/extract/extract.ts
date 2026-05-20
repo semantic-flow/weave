@@ -47,7 +47,8 @@ const SFCFG_MESH_CONFIG_IRI = `${SFCFG_NAMESPACE}MeshConfig`;
 const SFLO_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}ArtifactHistory`;
 const SFLO_ARTIFACT_MANIFESTATION_IRI =
   `${SFLO_NAMESPACE}ArtifactManifestation`;
-const SFLO_HAS_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}hasLocatedFile`;
+const SFLO_LOCATED_FILE_FOR_MANIFESTATION_IRI =
+  `${SFLO_NAMESPACE}locatedFileForManifestation`;
 const SFLO_HAS_MANIFESTATION_IRI = `${SFLO_NAMESPACE}hasManifestation`;
 const SFLO_LOCATED_FILE_FOR_STATE_IRI = `${SFLO_NAMESPACE}locatedFileForState`;
 const SFLO_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}ExtractionSource`;
@@ -56,10 +57,8 @@ const SFLO_HAS_KNOP_SOURCE_REGISTRY_IRI =
   `${SFLO_NAMESPACE}hasKnopSourceRegistry`;
 const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
   `${SFLO_NAMESPACE}hasWorkingLocatedFile`;
-const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
-  `${SFLO_NAMESPACE}artifactResolutionMode_current`;
-const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
-  `${SFLO_NAMESPACE}artifactResolutionMode_pinned`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI =
+  `${SFLO_NAMESPACE}artifactResolutionMode_working`;
 const SFLO_HISTORICAL_STATE_IRI = `${SFLO_NAMESPACE}HistoricalState`;
 const SFLO_KNOP_IRI = `${SFLO_NAMESPACE}Knop`;
 const SFLO_KNOP_ASSET_BUNDLE_IRI = `${SFLO_NAMESPACE}KnopAssetBundle`;
@@ -139,7 +138,7 @@ export interface ExtractResult {
   sourceArtifactIri: string;
   sourceDesignatorPath: string;
   sourceStateIri?: string;
-  sourceResolutionMode: "current" | "pinned";
+  sourceResolutionMode: "working" | "exact";
   createdPaths: readonly string[];
   updatedPaths: readonly string[];
 }
@@ -149,7 +148,7 @@ export interface ExtractAllTermsResult {
   sourceDesignatorPath: string;
   sourceArtifactIri: string;
   sourceStateIri?: string;
-  sourceResolutionMode: "current" | "pinned";
+  sourceResolutionMode: "working" | "exact";
   discoveredDesignatorPaths: readonly string[];
   extractedDesignatorPaths: readonly string[];
   skippedExistingDesignatorPaths: readonly string[];
@@ -168,7 +167,7 @@ export interface SetExtractionSourceResult {
   designatorPath: string;
   sourceDesignatorPath: string;
   sourceStateIri?: string;
-  sourceResolutionMode: "current" | "pinned";
+  sourceResolutionMode: "working" | "exact";
   updatedPaths: readonly string[];
 }
 
@@ -176,7 +175,7 @@ export interface SetExtractionSourceAllTermsResult {
   meshBase: string;
   sourceDesignatorPath: string;
   sourceStateIri?: string;
-  sourceResolutionMode: "current" | "pinned";
+  sourceResolutionMode: "working" | "exact";
   discoveredDesignatorPaths: readonly string[];
   updatedDesignatorPaths: readonly string[];
   skippedDesignatorPaths: readonly string[];
@@ -193,7 +192,7 @@ export class ExtractRuntimeError extends Error {
 interface ExtractSourcePayload {
   designatorPath: string;
   workingLocalRelativePath: string;
-  sourceResolutionMode: "current" | "pinned";
+  sourceResolutionMode: "working" | "exact";
   sourceStatePath?: string;
   sourceEvidence?: ExtractionSourceEvidence;
   sourcePayloadTurtle: string;
@@ -902,7 +901,7 @@ async function resolveExtractSourcePayload(
   );
 
   if (sourceStatePath !== undefined) {
-    const selectedCandidate = await resolvePinnedExtractSourcePayloadByState(
+    const selectedCandidate = await resolveExactExtractSourcePayloadByState(
       meshRoot,
       meshBase,
       candidates,
@@ -992,7 +991,7 @@ async function resolveSelectedExtractSourcePayload(
     currentMeshInventoryTurtle,
   );
   if (sourceStatePath !== undefined) {
-    return await resolvePinnedExtractSourcePayloadByState(
+    return await resolveExactExtractSourcePayloadByState(
       meshRoot,
       meshBase,
       candidates,
@@ -1090,7 +1089,7 @@ async function loadExtractSourcePayloadCandidate(
   return {
     designatorPath,
     workingLocalRelativePath: payloadArtifact.workingLocalRelativePath,
-    sourceResolutionMode: "current",
+    sourceResolutionMode: "working",
     sourceStatePath: undefined,
     sourceEvidence: {
       ...(payloadArtifact.workingLocatedFilePath
@@ -1108,7 +1107,7 @@ async function loadExtractSourcePayloadCandidate(
   };
 }
 
-async function resolvePinnedExtractSourcePayloadByState(
+async function resolveExactExtractSourcePayloadByState(
   meshRoot: string,
   meshBase: string,
   candidates: readonly ExtractSourcePayload[],
@@ -1163,7 +1162,7 @@ async function resolvePinnedExtractSourcePayloadByState(
 
   return {
     ...candidate,
-    sourceResolutionMode: "pinned",
+    sourceResolutionMode: "exact",
     sourceStatePath: normalizedSourceStatePath,
     sourceEvidence: {
       sourceStatePath: normalizedSourceStatePath,
@@ -1211,7 +1210,7 @@ function resolveHistoricalStateLocatedFilePath(
       meshBase,
       quads,
       new URL(manifestationPath, meshBase).href,
-      SFLO_HAS_LOCATED_FILE_IRI,
+      SFLO_LOCATED_FILE_FOR_MANIFESTATION_IRI,
       errorMessage,
     )
     : undefined;
@@ -1781,20 +1780,18 @@ function renderExtractionSourceBlock(
   const facts: [string, string][] = [
     ["sflo:hasTargetArtifact", `<${sourcePayload.designatorPath}>`],
   ];
-  if (sourcePayload.sourceResolutionMode === "pinned") {
+  if (sourcePayload.sourceResolutionMode === "exact") {
     facts.push([
       "sflo:hasRequestedTargetState",
       `<${sourcePayload.sourceStatePath}>`,
     ]);
   }
-  facts.push([
-    "sflo:hasArtifactResolutionMode",
-    `<${
-      sourcePayload.sourceResolutionMode === "pinned"
-        ? SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI
-        : SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI
-    }>`,
-  ]);
+  if (sourcePayload.sourceResolutionMode === "working") {
+    facts.push([
+      "sflo:hasArtifactResolutionMode",
+      `<${SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI}>`,
+    ]);
+  }
   facts.push(...toExtractionSourceEvidenceFacts(sourcePayload.sourceEvidence));
 
   return `<${extractionSourcePath}> a sflo:ExtractionSource ;

@@ -18,7 +18,7 @@ This release is still early: the daemon and web surfaces are not packaged as sup
 - Native binary build and archive packaging scripts are in place for Linux x64, Windows x64, macOS x64, and macOS arm64.
 - npm package assembly, local npm-install smoke testing, and ordered npm dry-run/publish scripting are in place for `@semantic-flow/weave` plus platform packages.
 - A manual GitHub Actions release workflow can build native binaries, package archives/checksums, assemble npm packages, smoke-test installs, optionally publish npm packages, and optionally create or update the GitHub Release.
-- Branch-published GitHub Pages mesh generation is covered by the `mesh-branch-fantasy-rules` fixture, including source-clean `main`, generated `gh-pages`, repository source provenance, extraction source registries, all-term ResourcePages, and representative current-mode references.
+- Branch-published GitHub Pages mesh generation is covered by the `mesh-branch-fantasy-rules` fixture, including source-clean `main`, generated `gh-pages`, repository source provenance, extraction source registries, all-term ResourcePages, and representative working/exact source references.
 - ResourcePages now surface source provenance, grouped references, direct RDF properties, source registries, raw RDF panels, history/state views, and branch-published release-state pages more coherently.
 - Config/runtime groundwork now includes policy-valued history/page defaults, Weave default profile RDF, `HostLocalOperationalConfig`, `ConfigResolutionConfig`, `ResolvedConfig`, inherited config propagation primitives, and current-only support-artifact history policy slices.
 
@@ -61,4 +61,3 @@ This release is still early: the daemon and web surfaces are not packaged as sup
 - The branch-published fixture repo is often left on `gh-pages` for local preview. Tests should remain meaningful there: generated mesh assertions read generated refs, while deterministic source-asset checks read the asset-bearing source ref.
 - Historical ResourcePage regeneration policy is parsed into effective config, but the full config-at-the-time/current/hybrid regeneration behavior remains follow-up work.
 - Durable next history/state segment hint APIs are not part of this release. Friendly histories and states are available through explicit `historySegment`, `stateSegment`, and `manifestationSegment` request fields.
-

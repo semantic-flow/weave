@@ -11,15 +11,14 @@ import {
   SFLO_NAMESPACE,
   SFLO_TURTLE_PREFIX_DECLARATION,
 } from "../rdf/namespaces.ts";
+import { escapeTurtleString } from "../rdf/turtle.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const XSD_ANY_URI_IRI = "http://www.w3.org/2001/XMLSchema#anyURI";
 const XSD_NON_NEGATIVE_INTEGER_IRI =
   "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
-const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
-  `${SFLO_NAMESPACE}artifactResolutionMode_pinned`;
-const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
-  `${SFLO_NAMESPACE}artifactResolutionMode_current`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI =
+  `${SFLO_NAMESPACE}artifactResolutionMode_working`;
 const SFLO_DIGITAL_ARTIFACT_IRI = `${SFLO_NAMESPACE}DigitalArtifact`;
 const SFLO_HAS_KNOP_IRI = `${SFLO_NAMESPACE}hasKnop`;
 const SFLO_HAS_MESH_INVENTORY_IRI = `${SFLO_NAMESPACE}hasMeshInventory`;
@@ -51,7 +50,7 @@ export interface ResolvedExtractRequest extends ExtractRequest {
   currentMeshInventoryTurtle: string;
   sourceDesignatorPath: string;
   sourceStatePath?: string;
-  sourceResolutionMode?: "current" | "pinned";
+  sourceResolutionMode?: "working" | "exact";
   sourceEvidence?: ExtractionSourceEvidence;
   sourceWorkingLocalRelativePath: string;
 }
@@ -73,7 +72,7 @@ export interface ExtractPlan {
   sourceDesignatorPath: string;
   sourceStateIri?: string;
   sourceStatePath?: string;
-  sourceResolutionMode: "current" | "pinned";
+  sourceResolutionMode: "working" | "exact";
   sourceEvidence?: ExtractionSourceEvidence;
   createdFiles: readonly PlannedFile[];
   updatedFiles: readonly PlannedFile[];
@@ -96,18 +95,23 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
     request.sourceDesignatorPath,
     "sourceDesignatorPath",
   );
-  const sourceResolutionMode = request.sourceResolutionMode === undefined
-    ? "current"
-    : normalizeSourceResolutionMode(request.sourceResolutionMode);
   const sourceStatePath = request.sourceStatePath === undefined
     ? undefined
     : normalizeRelativeIriPath(
       request.sourceStatePath,
       "sourceStatePath",
     );
-  if (sourceResolutionMode === "pinned" && sourceStatePath === undefined) {
+  const sourceResolutionMode = request.sourceResolutionMode === undefined
+    ? (sourceStatePath === undefined ? "working" : "exact")
+    : normalizeSourceResolutionMode(request.sourceResolutionMode);
+  if (sourceResolutionMode === "exact" && sourceStatePath === undefined) {
     throw new ExtractInputError(
-      "sourceStatePath is required for pinned extraction",
+      "sourceStatePath is required for exact extraction",
+    );
+  }
+  if (sourceResolutionMode === "working" && sourceStatePath !== undefined) {
+    throw new ExtractInputError(
+      "sourceStatePath requires exact source resolution",
     );
   }
   const sourceEvidence = normalizeExtractionSourceEvidence(
@@ -182,11 +186,11 @@ export function planExtract(request: ResolvedExtractRequest): ExtractPlan {
 
 function normalizeSourceResolutionMode(
   sourceResolutionMode: string,
-): "current" | "pinned" {
-  if (sourceResolutionMode === "current" || sourceResolutionMode === "pinned") {
+): "working" | "exact" {
+  if (sourceResolutionMode === "working" || sourceResolutionMode === "exact") {
     return sourceResolutionMode;
   }
-  throw new ExtractInputError("sourceResolutionMode must be current or pinned");
+  throw new ExtractInputError("sourceResolutionMode must be working or exact");
 }
 
 function normalizeExtractionSourceEvidence(
@@ -521,7 +525,7 @@ ${sourceKnopBlock}<${knopPath}> a sflo:Knop ;
   sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/index.html> .
 
 <_mesh/_meta/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_meta/_history001/_s0001/ttl/meta.ttl> ;
+  sflo:locatedFileForManifestation <_mesh/_meta/_history001/_s0001/ttl/meta.ttl> ;
   sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/ttl/index.html> .
 
 <_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
@@ -547,7 +551,7 @@ ${sourceKnopBlock}<${knopPath}> a sflo:Knop ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/index.html> .
 
 <_mesh/_inventory/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
+  sflo:locatedFileForManifestation <_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/ttl/index.html> .
 
 <_mesh/_inventory/_history001/_s0002> a sflo:HistoricalState ;
@@ -558,7 +562,7 @@ ${sourceKnopBlock}<${knopPath}> a sflo:Knop ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/index.html> .
 
 <_mesh/_inventory/_history001/_s0002/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl> ;
+  sflo:locatedFileForManifestation <_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0002/ttl/index.html> .
 
 <_mesh/_inventory/_history001/_s0003> a sflo:HistoricalState ;
@@ -569,7 +573,7 @@ ${sourceKnopBlock}<${knopPath}> a sflo:Knop ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/index.html> .
 
 <_mesh/_inventory/_history001/_s0003/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl> ;
+  sflo:locatedFileForManifestation <_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/_s0003/ttl/index.html> .
 
 ${locatedFileDeclarations}
@@ -789,7 +793,7 @@ function renderExtractKnopSourcesTurtle(
   meshBase: string,
   designatorPath: string,
   sourceDesignatorPath: string,
-  sourceResolutionMode: "current" | "pinned",
+  sourceResolutionMode: "working" | "exact",
   sourceStatePath?: string,
   sourceEvidence?: ExtractionSourceEvidence,
 ): string {
@@ -819,24 +823,22 @@ ${extractionSourceFacts}
 
 function renderExtractionSourceFacts(
   sourceDesignatorPath: string,
-  sourceResolutionMode: "current" | "pinned",
+  sourceResolutionMode: "working" | "exact",
   sourceStatePath: string | undefined,
   sourceEvidence: ExtractionSourceEvidence | undefined,
 ): string {
   const facts: [string, string][] = [
     ["sflo:hasTargetArtifact", `<${sourceDesignatorPath}>`],
   ];
-  if (sourceResolutionMode === "pinned") {
+  if (sourceResolutionMode === "exact") {
     facts.push(["sflo:hasRequestedTargetState", `<${sourceStatePath}>`]);
   }
-  facts.push([
-    "sflo:hasArtifactResolutionMode",
-    `<${
-      sourceResolutionMode === "pinned"
-        ? SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI
-        : SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI
-    }>`,
-  ]);
+  if (sourceResolutionMode === "working") {
+    facts.push([
+      "sflo:hasArtifactResolutionMode",
+      `<${SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI}>`,
+    ]);
+  }
   facts.push(...toExtractionSourceEvidenceFacts(sourceEvidence));
 
   return facts.map(([predicate, object], index) =>
@@ -890,29 +892,6 @@ function toExtractionSourceEvidenceFacts(
   }
 
   return facts;
-}
-
-function escapeTurtleString(value: string): string {
-  return value.replace(/[\b\t\n\f\r"\\]/g, (character) => {
-    switch (character) {
-      case "\b":
-        return "\\b";
-      case "\t":
-        return "\\t";
-      case "\n":
-        return "\\n";
-      case "\f":
-        return "\\f";
-      case "\r":
-        return "\\r";
-      case '"':
-        return '\\"';
-      case "\\":
-        return "\\\\";
-      default:
-        return character;
-    }
-  });
 }
 
 function renderExtractKnopMetadataTurtle(

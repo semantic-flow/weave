@@ -11,6 +11,7 @@ import {
   executeSetExtractionSource,
   ExtractRuntimeError,
 } from "../../src/runtime/extract/extract.ts";
+import { executeWeave } from "../../src/runtime/weave/weave.ts";
 import {
   materializeMeshAliceBioBranch,
   readMeshAliceBioBranchFile,
@@ -47,7 +48,7 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
     "https://semantic-flow.github.io/mesh-alice-bio/alice/bio",
   );
   assertEquals(result.sourceStateIri, undefined);
-  assertEquals(result.sourceResolutionMode, "current");
+  assertEquals(result.sourceResolutionMode, "working");
   assertEquals(
     [...result.createdPaths].sort(),
     [
@@ -117,7 +118,7 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
 
 <bob/_knop/_sources#extraction-source> a sflo:ExtractionSource ;
   sflo:hasTargetArtifact <alice/bio> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> ;
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> ;
   sflo:hasObservedSourceLocatedFile <alice-bio.ttl> ;
   sflo:observedSourceDigest "sha256:37c15e56644d785a550522d7700eccd9465704f18cf4b4e55616db8b8824ea33" .
 
@@ -237,6 +238,93 @@ Deno.test("executeExtractAllTerms extracts only new named mesh terms and skips s
   );
 });
 
+Deno.test("executeExtractAllTerms skips LocatedFile IRIs reached through file-link predicates", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-extract-all-terms-located-files-",
+  );
+  await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
+  await Deno.writeTextFile(
+    join(workspaceRoot, "alice-bio.ttl"),
+    `@base <${MESH_ALICE_BIO_BASE}> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix schema: <https://schema.org/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<alice/bio> schema:about <release>, <release/ttl>, <release/ttl/source.ttl>, <release/ttl/alternate.ttl>, <release/html/index.html> .
+
+<release> schema:name "Release" .
+<release/ttl> dcat:downloadURL <release/ttl/source.ttl> ;
+  schema:contentUrl <release/ttl/alternate.ttl> .
+
+<release/ttl/source.ttl> a sflo:LocatedFile .
+<release/ttl/alternate.ttl> a sflo:LocatedFile .
+<release/html/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+`,
+  );
+
+  const result = await executeExtractAllTerms({
+    workspaceRoot,
+    request: {
+      sourceDesignatorPath: "alice/bio",
+      addSourceReferences: true,
+      referenceRole: "canonical",
+    },
+  });
+
+  assertEquals(result.extractedDesignatorPaths, ["release", "release/ttl"]);
+  assertEquals(result.sourceReferencedDesignatorPaths, [
+    "release",
+    "release/ttl",
+  ]);
+  assertEquals(result.skippedExistingDesignatorPaths, ["alice/bio"]);
+  assertEquals(
+    result.skippedSupportDesignatorPaths,
+    [
+      "release/html/index.html",
+      "release/ttl/alternate.ttl",
+      "release/ttl/source.ttl",
+    ],
+  );
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, "release/ttl/source.ttl/_knop")),
+    Deno.errors.NotFound,
+  );
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, "release/ttl/alternate.ttl/_knop")),
+    Deno.errors.NotFound,
+  );
+});
+
+Deno.test("executeExtractAllTerms skips unsafe LocatedFile IRIs before designator validation", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-extract-all-terms-unsafe-located-file-",
+  );
+  await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
+  await Deno.writeTextFile(
+    join(workspaceRoot, "alice-bio.ttl"),
+    `@base <${MESH_ALICE_BIO_BASE}> .
+@prefix schema: <https://schema.org/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<alice/bio> schema:about <bob>, <bob/source.ttl?rev=1> .
+<bob> schema:name "Bob" .
+<bob/source.ttl?rev=1> a sflo:LocatedFile .
+`,
+  );
+
+  const result = await executeExtractAllTerms({
+    workspaceRoot,
+    request: {
+      sourceDesignatorPath: "alice/bio",
+    },
+  });
+
+  assertEquals(result.extractedDesignatorPaths, ["bob"]);
+  assertEquals(result.skippedSupportDesignatorPaths, [
+    "bob/source.ttl?rev=1",
+  ]);
+});
+
 Deno.test("executeExtractAllTerms creates source references only for newly extracted terms", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-extract-all-terms-references-",
@@ -315,6 +403,28 @@ Deno.test("executeExtractAllTerms creates source references only for newly extra
     "sflo:hasReferenceCatalog <bob/_knop/_references> ;",
   );
 
+  await executeWeave({
+    meshRoot: workspaceRoot,
+    request: { targets: [{ designatorPath: "bob" }] },
+    now: () => new Date("2026-05-04T00:00:00.000Z"),
+  });
+
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "bob/_knop/_inventory/inventory.ttl"),
+    ),
+    "sflo:hasReferenceCatalog <bob/_knop/_references> ;",
+  );
+  const bobPageHtml = await Deno.readTextFile(
+    join(workspaceRoot, "bob/index.html"),
+  );
+  assertStringIncludes(bobPageHtml, '<details class="wf-references">');
+  assertStringIncludes(bobPageHtml, "<summary>Canonical</summary>");
+  assertStringIncludes(
+    bobPageHtml,
+    '<li><a href="https://semantic-flow.github.io/mesh-alice-bio/alice/bio">https://semantic-flow.github.io/mesh-alice-bio/alice/bio</a></li>',
+  );
+
   const rerunResult = await executeExtractAllTerms({
     workspaceRoot,
     request: {
@@ -335,9 +445,9 @@ Deno.test("executeExtractAllTerms creates source references only for newly extra
   );
 });
 
-Deno.test("executeExtractAllTerms pins source references when extracting from a source state", async () => {
+Deno.test("executeExtractAllTerms records exact source references when extracting from a source state", async () => {
   const workspaceRoot = await createTestTmpDir(
-    "weave-extract-all-terms-pinned-references-",
+    "weave-extract-all-terms-exact-references-",
   );
   await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
 
@@ -350,7 +460,7 @@ Deno.test("executeExtractAllTerms pins source references when extracting from a 
     },
   });
 
-  assertEquals(result.sourceResolutionMode, "pinned");
+  assertEquals(result.sourceResolutionMode, "exact");
   assertEquals(result.sourceDesignatorPath, "alice/bio");
   assertEquals(result.extractedDesignatorPaths, ["bob"]);
   assertEquals(
@@ -455,7 +565,7 @@ Deno.test("executeExtract extracts selected sidecar ontology and SHACL terms wit
         workspaceRoot,
         "docs/ontology/AbilityScore/_knop/_sources/sources.ttl",
       ),
-    )).includes("artifactResolutionMode_current"),
+    )).includes("artifactResolutionMode_working"),
     true,
   );
   assertEquals(
@@ -502,7 +612,7 @@ Deno.test("executeExtract fails closed for ambiguous sidecar term sources withou
   );
 });
 
-Deno.test("executeSetExtractionSource replaces an existing pinned source binding with current", async () => {
+Deno.test("executeSetExtractionSource replaces an existing exact source binding with working", async () => {
   const workspaceRoot = await createTestTmpDir("weave-set-extraction-source-");
   await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
 
@@ -530,14 +640,14 @@ Deno.test("executeSetExtractionSource replaces an existing pinned source binding
     },
   });
 
-  assertEquals(result.sourceResolutionMode, "current");
+  assertEquals(result.sourceResolutionMode, "working");
   assertEquals(result.updatedPaths, ["bob/_knop/_sources/sources.ttl"]);
   const sourcesTurtle = await Deno.readTextFile(sourcesPath);
   const inventoryTurtle = await Deno.readTextFile(
     join(workspaceRoot, "bob/_knop/_inventory/inventory.ttl"),
   );
   assertEquals(
-    sourcesTurtle.includes("artifactResolutionMode_current"),
+    sourcesTurtle.includes("artifactResolutionMode_working"),
     true,
   );
   assertEquals(

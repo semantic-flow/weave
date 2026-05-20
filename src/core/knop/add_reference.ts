@@ -25,7 +25,8 @@ const SFLO_HAS_HISTORICAL_STATE_IRI = `${SFLO_NAMESPACE}hasHistoricalState`;
 const SFLO_HAS_KNOP_INVENTORY_IRI = `${SFLO_NAMESPACE}hasKnopInventory`;
 const SFLO_HAS_KNOP_METADATA_IRI = `${SFLO_NAMESPACE}hasKnopMetadata`;
 const SFLO_HAS_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}hasExtractionSource`;
-const SFLO_HAS_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}hasLocatedFile`;
+const SFLO_LOCATED_FILE_FOR_MANIFESTATION_IRI =
+  `${SFLO_NAMESPACE}locatedFileForManifestation`;
 const SFLO_HAS_MANIFESTATION_IRI = `${SFLO_NAMESPACE}hasManifestation`;
 const SFLO_HAS_KNOP_SOURCE_REGISTRY_IRI =
   `${SFLO_NAMESPACE}hasKnopSourceRegistry`;
@@ -94,7 +95,7 @@ export class KnopAddReferenceInputError extends Error {
   }
 }
 
-type KnopInventoryShape = "unwoven" | "woven";
+type KnopInventoryShape = "unwoven" | "currentOnlyWoven" | "woven";
 
 interface CurrentKnopSourceFacts {
   sourceRegistryPath?: string;
@@ -293,6 +294,11 @@ function renderUpdatedKnopInventoryTurtle(
   );
   const rendered = shape === "woven"
     ? renderWovenKnopInventoryWithReferenceCatalog(meshBase, knopPath)
+    : shape === "currentOnlyWoven"
+    ? renderCurrentOnlyWovenKnopInventoryWithReferenceCatalog(
+      meshBase,
+      knopPath,
+    )
     : renderUnwovenKnopInventoryWithReferenceCatalog(meshBase, knopPath);
 
   return renderKnopInventoryWithPreservedSourceFacts({
@@ -595,19 +601,19 @@ function classifyCurrentKnopInventoryShape(
     );
   }
 
-  const hasWovenHistory = hasNamedNodeFact(
+  const hasResourcePages = hasNamedNodeFact(
     quads,
     meshBase,
     knopPath,
     SFLO_HAS_RESOURCE_PAGE_IRI,
     `${knopPath}/index.html`,
+  );
+  const hasVersionedSupportHistory = hasPredicateForSubject(
+    quads,
+    meshBase,
+    `${knopPath}/_meta`,
+    SFLO_HAS_ARTIFACT_HISTORY_IRI,
   ) ||
-    hasPredicateForSubject(
-      quads,
-      meshBase,
-      `${knopPath}/_meta`,
-      SFLO_HAS_ARTIFACT_HISTORY_IRI,
-    ) ||
     hasPredicateForSubject(
       quads,
       meshBase,
@@ -615,7 +621,7 @@ function classifyCurrentKnopInventoryShape(
       SFLO_HAS_ARTIFACT_HISTORY_IRI,
     );
 
-  if (hasWovenHistory) {
+  if (hasVersionedSupportHistory) {
     assertCurrentWovenKnopInventoryShape(
       quads,
       meshBase,
@@ -623,6 +629,16 @@ function classifyCurrentKnopInventoryShape(
       shapeErrorMessage,
     );
     return "woven";
+  }
+
+  if (hasResourcePages) {
+    assertCurrentOnlyWovenKnopInventoryShape(
+      quads,
+      meshBase,
+      knopPath,
+      shapeErrorMessage,
+    );
+    return "currentOnlyWoven";
   }
 
   assertCurrentUnwovenKnopInventoryShape(
@@ -677,6 +693,39 @@ function assertCurrentUnwovenKnopInventoryShape(
       RDF_TYPE_IRI,
       SFLO_RDF_DOCUMENT_IRI,
     ],
+  ]);
+}
+
+function assertCurrentOnlyWovenKnopInventoryShape(
+  quads: readonly Quad[],
+  meshBase: string,
+  knopPath: string,
+  errorMessage: string,
+): void {
+  assertCurrentUnwovenKnopInventoryShape(
+    quads,
+    meshBase,
+    knopPath,
+    errorMessage,
+  );
+  assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
+    [knopPath, SFLO_HAS_RESOURCE_PAGE_IRI, `${knopPath}/index.html`],
+    [
+      `${knopPath}/_meta`,
+      SFLO_HAS_RESOURCE_PAGE_IRI,
+      `${knopPath}/_meta/index.html`,
+    ],
+    [
+      `${knopPath}/_inventory`,
+      SFLO_HAS_RESOURCE_PAGE_IRI,
+      `${knopPath}/_inventory/index.html`,
+    ],
+    [`${knopPath}/index.html`, RDF_TYPE_IRI, SFLO_RESOURCE_PAGE_IRI],
+    [`${knopPath}/index.html`, RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
+    [`${knopPath}/_meta/index.html`, RDF_TYPE_IRI, SFLO_RESOURCE_PAGE_IRI],
+    [`${knopPath}/_meta/index.html`, RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
+    [`${knopPath}/_inventory/index.html`, RDF_TYPE_IRI, SFLO_RESOURCE_PAGE_IRI],
+    [`${knopPath}/_inventory/index.html`, RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
   ]);
 }
 
@@ -772,7 +821,7 @@ function assertCurrentWovenKnopInventoryShape(
     ],
     [
       `${knopPath}/_meta/_history001/_s0001/ttl`,
-      SFLO_HAS_LOCATED_FILE_IRI,
+      SFLO_LOCATED_FILE_FOR_MANIFESTATION_IRI,
       `${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl`,
     ],
     [
@@ -832,7 +881,7 @@ function assertCurrentWovenKnopInventoryShape(
     ],
     [
       `${knopPath}/_inventory/_history001/_s0001/ttl`,
-      SFLO_HAS_LOCATED_FILE_IRI,
+      SFLO_LOCATED_FILE_FOR_MANIFESTATION_IRI,
       `${knopPath}/_inventory/_history001/_s0001/ttl/inventory.ttl`,
     ],
     [
@@ -1009,6 +1058,45 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 `;
 }
 
+function renderCurrentOnlyWovenKnopInventoryWithReferenceCatalog(
+  meshBase: string,
+  knopPath: string,
+): string {
+  return `@base <${meshBase}> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
+
+<${knopPath}> a sflo:Knop ;
+  sflo:hasKnopMetadata <${knopPath}/_meta> ;
+  sflo:hasKnopInventory <${knopPath}/_inventory> ;
+  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> ;
+  sflo:hasReferenceCatalog <${knopPath}/_references> ;
+  sflo:hasResourcePage <${knopPath}/index.html> .
+
+<${knopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${knopPath}/_meta/meta.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_meta/index.html> .
+
+<${knopPath}/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${knopPath}/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_inventory/index.html> .
+
+<${knopPath}/_references> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${knopPath}/_references/references.ttl> .
+
+<${knopPath}/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<${knopPath}/_references/references.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<${knopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<${knopPath}/_meta/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<${knopPath}/_inventory/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+`;
+}
+
 function renderWovenKnopInventoryWithReferenceCatalog(
   meshBase: string,
   knopPath: string,
@@ -1045,7 +1133,7 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
   sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/index.html> .
 
 <${knopPath}/_meta/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> ;
+  sflo:locatedFileForManifestation <${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> ;
   sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/ttl/index.html> .
 
 <${knopPath}/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
@@ -1072,7 +1160,7 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
   sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0001/index.html> .
 
 <${knopPath}/_inventory/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <${knopPath}/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
+  sflo:locatedFileForManifestation <${knopPath}/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
   sflo:hasResourcePage <${knopPath}/_inventory/_history001/_s0001/ttl/index.html> .
 
 <${knopPath}/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .

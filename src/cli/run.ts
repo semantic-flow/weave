@@ -1,24 +1,20 @@
 import { Command } from "@cliffy/command";
 import { Confirm, Input } from "@cliffy/prompt";
-import { basename, isAbsolute, join, relative, resolve } from "@std/path";
+import { isAbsolute, join, relative, resolve } from "@std/path";
 import { ExtractInputError } from "../core/extract/extract.ts";
 import { IntegrateInputError } from "../core/integrate/integrate.ts";
 import { KnopAddReferenceInputError } from "../core/knop/add_reference.ts";
 import { KnopCreateInputError } from "../core/knop/create.ts";
-import { MeshCreateInputError } from "../core/mesh/create.ts";
+import {
+  MeshCreateInputError,
+  type PublicationProfileRequest,
+} from "../core/mesh/create.ts";
 import { PayloadUpdateInputError } from "../core/payload/update.ts";
+import { PayloadVersionIntentInputError } from "../core/payload/version_intent.ts";
 import { normalizeCliDesignatorPath } from "../core/designator_segments.ts";
 import type { TargetSpec, VersionTargetSpec } from "../core/targeting.ts";
 import { WeaveInputError } from "../core/weave/weave.ts";
 import { createRuntimeLoggers } from "../runtime/logging/factory.ts";
-import {
-  describeGHPagesDeployBootstrapPlan,
-  describeGHPagesDeployBootstrapResult,
-  executeGHPagesDeployBootstrap,
-  GHPagesDeployInputError,
-  GHPagesDeployRuntimeError,
-  planGHPagesDeployBootstrap,
-} from "../runtime/deploy/gh_pages.ts";
 import {
   describeExtractAllTermsResult,
   describeExtractResult,
@@ -36,6 +32,7 @@ import {
   describeIntegrateResult,
   executeIntegrate,
   IntegrateRuntimeError,
+  type LocalIntegrateSourceBindingRequest,
 } from "../runtime/integrate/integrate.ts";
 import {
   describeKnopAddReferenceResult,
@@ -58,6 +55,13 @@ import {
   PayloadUpdateRuntimeError,
 } from "../runtime/payload/update.ts";
 import {
+  describeSetPayloadHistoryIntentResult,
+  describeSetPayloadNextStateIntentResult,
+  executeSetPayloadHistoryIntent,
+  executeSetPayloadNextStateIntent,
+  PayloadVersionIntentRuntimeError,
+} from "../runtime/payload/version_intent.ts";
+import {
   describeGenerateResult,
   describeValidateResult,
   describeVersionResult,
@@ -66,6 +70,8 @@ import {
   executeValidate,
   executeVersion,
   executeWeave,
+  type ValidateScope,
+  type WeaveProgressEvent,
   WeaveRuntimeError,
 } from "../runtime/weave/weave.ts";
 import { loadOperationalLocalPathPolicy } from "../runtime/operational/local_path_policy.ts";
@@ -117,6 +123,18 @@ export async function runWeaveCli(args: string[]): Promise<number> {
       "--history-tracking-policy <policy:string>",
       "Override the history tracking policy for all artifact roles during this command.",
     )
+    .option(
+      "--silent",
+      "Suppress progress updates for long-running weave operations.",
+    )
+    .option(
+      "--validate-before",
+      "Run whole-mesh validation before the weave phases.",
+    )
+    .option(
+      "--validate-after",
+      "Run whole-mesh validation after the weave phases.",
+    )
     .action(async (
       options: {
         meshRoot: string;
@@ -125,6 +143,9 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         payloadStateSegment?: string;
         payloadManifestationSegment?: string;
         historyTrackingPolicy?: string;
+        silent?: boolean;
+        validateBefore?: boolean;
+        validateAfter?: boolean;
       },
     ) => {
       const meshRoot = resolve(options.meshRoot);
@@ -143,6 +164,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         workspaceRoot,
         targets,
         historyTrackingPolicyOverride,
+        validateBefore: options.validateBefore === true,
+        validateAfter: options.validateAfter === true,
         localMode: true,
       });
 
@@ -152,6 +175,9 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         operationalLogger,
         auditLogger,
         historyTrackingPolicyOverride,
+        onProgress: options.silent ? undefined : printWeaveProgress,
+        validateBefore: options.validateBefore === true,
+        validateAfter: options.validateAfter === true,
       });
       console.log(describeWeaveResult(result));
       for (const path of result.createdPaths) {
@@ -164,7 +190,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
     .command(
       "validate",
       new Command()
-        .description("Validate the current local state for targeted resources.")
+        .description("Validate current mesh or publication state.")
+        .arguments("[scope:string]")
         .option(
           "--mesh-root <meshRoot:string>",
           "Mesh root to validate. Defaults to the current directory.",
@@ -180,16 +207,24 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             meshRoot: string;
             target?: string[];
           },
+          scopeArg?: string,
         ) => {
+          const scope = resolveValidateScope(scopeArg);
           const meshRoot = resolve(options.meshRoot);
           const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
           const targets = resolveSharedTargetSpecs(options, "validate");
+          if (scope === "publication" && targets.length > 0) {
+            throw new WeaveInputError(
+              "weave validate publication does not accept --target",
+            );
+          }
           const logDir = resolveCliLogDir(workspaceRoot);
           const { auditLogger } = createRuntimeLoggers({ logDir });
 
-          await auditLogger.command("validate", {
+          await auditLogger.command(`validate.${scope}`, {
             meshRoot,
             workspaceRoot,
+            scope,
             targets,
             localMode: true,
           });
@@ -197,6 +232,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           const result = await executeValidate({
             meshRoot,
             request: targets.length > 0 ? { targets } : undefined,
+            scope,
           });
           if (result.findings.length > 0) {
             throw new WeaveInputError(
@@ -365,11 +401,11 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         )
         .option(
           "--source <sourceDesignatorPath:string>",
-          "Explicit current-tracking woven payload designator to extract from when target mention resolution would be ambiguous.",
+          "Explicit working-source woven payload designator to extract from when target mention resolution would be ambiguous.",
         )
         .option(
           "--source-state <sourceStatePath:string>",
-          "Historical source state to pin the extraction source to.",
+          "Exact historical source state to use as the extraction source.",
         )
         .option(
           "--accept-preview",
@@ -554,6 +590,112 @@ export async function runWeaveCli(args: string[]): Promise<number> {
       new Command()
         .description("Update local Weave resource settings.")
         .command(
+          "history",
+          new Command()
+            .description(
+              "Set the payload history that the next explicit version should use.",
+            )
+            .arguments("<designatorPath:string> <historySegment:string>")
+            .option(
+              "--mesh-root <meshRoot:string>",
+              "Mesh root to update. Defaults to the current directory.",
+              { default: "." },
+            )
+            .action(async (
+              options: { meshRoot: string },
+              designatorPathArg: string,
+              historySegmentArg: string,
+            ) => {
+              const meshRoot = resolve(options.meshRoot);
+              const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
+              const logDir = resolveCliLogDir(workspaceRoot);
+              const { operationalLogger, auditLogger } = createRuntimeLoggers({
+                logDir,
+              });
+              const designatorPath = resolveCliArgumentDesignatorPath(
+                designatorPathArg,
+                "set history requires a positional designatorPath",
+                "set history designatorPath",
+                (message) => new PayloadVersionIntentRuntimeError(message),
+              );
+              const historySegment = resolveRequiredWeavePayloadSegment(
+                historySegmentArg,
+                "set history historySegment",
+              );
+
+              await auditLogger.command("set.history", {
+                meshRoot,
+                workspaceRoot,
+                designatorPath,
+                historySegment,
+                localMode: true,
+              });
+              const result = await executeSetPayloadHistoryIntent({
+                meshRoot,
+                request: { designatorPath, historySegment },
+                operationalLogger,
+                auditLogger,
+              });
+              console.log(describeSetPayloadHistoryIntentResult(result));
+              for (const path of result.updatedPaths) {
+                console.log(path);
+              }
+            }),
+        )
+        .command(
+          "next-state",
+          new Command()
+            .description(
+              "Set the payload state segment that the next explicit version should use.",
+            )
+            .arguments("<designatorPath:string> <stateSegment:string>")
+            .option(
+              "--mesh-root <meshRoot:string>",
+              "Mesh root to update. Defaults to the current directory.",
+              { default: "." },
+            )
+            .action(async (
+              options: { meshRoot: string },
+              designatorPathArg: string,
+              stateSegmentArg: string,
+            ) => {
+              const meshRoot = resolve(options.meshRoot);
+              const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
+              const logDir = resolveCliLogDir(workspaceRoot);
+              const { operationalLogger, auditLogger } = createRuntimeLoggers({
+                logDir,
+              });
+              const designatorPath = resolveCliArgumentDesignatorPath(
+                designatorPathArg,
+                "set next-state requires a positional designatorPath",
+                "set next-state designatorPath",
+                (message) => new PayloadVersionIntentRuntimeError(message),
+              );
+              const stateSegment = resolveRequiredWeavePayloadSegment(
+                stateSegmentArg,
+                "set next-state stateSegment",
+              );
+
+              await auditLogger.command("set.nextState", {
+                meshRoot,
+                workspaceRoot,
+                designatorPath,
+                stateSegment,
+                localMode: true,
+              });
+              const result = await executeSetPayloadNextStateIntent({
+                meshRoot,
+                request: { designatorPath, stateSegment },
+                operationalLogger,
+                auditLogger,
+              });
+              console.log(describeSetPayloadNextStateIntentResult(result));
+              for (const path of result.updatedPaths) {
+                console.log(path);
+              }
+            }),
+        )
+        .command(
           "extraction-source",
           new Command()
             .description(
@@ -718,13 +860,34 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         )
         .option(
           "--grant-source-directory <path:string>",
-          "Add a mesh config workingLocalRelativePath grant for this source directory.",
+          "Add an operational workingLocalRelativePath grant for this source directory.",
+        )
+        .option(
+          "--source-repository-url <url:string>",
+          "Repository URL to record for the integrated source bytes. Requires --source-repository-ref and --source-repository-path.",
+        )
+        .option(
+          "--source-repository-ref <ref:string>",
+          "Repository ref to record for the integrated source bytes. Requires --source-repository-url and --source-repository-path.",
+        )
+        .option(
+          "--source-repository-commit <commit:string>",
+          "Resolved repository commit to record for deterministic source provenance. Requires --source-repository-url, --source-repository-ref, and --source-repository-path.",
+        )
+        .option(
+          "--source-repository-path <path:string>",
+          "Repository-relative source path to record for the integrated source bytes. Requires --source-repository-url and --source-repository-ref.",
+        )
+        .option(
+          "--source-digest <digest:string>",
+          "Expected digest for repository-backed integrated source bytes. Requires repository metadata.",
         )
         .action(async (options, source, designatorPathArg) => {
           const designatorPath = resolveIntegrateDesignatorPath(
             options,
             designatorPathArg,
           );
+          const sourceBinding = resolveIntegrateSourceBindingOptions(options);
           const meshRoot = resolve(options.meshRoot);
           const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
           const logDir = resolveCliLogDir(workspaceRoot);
@@ -738,6 +901,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             designatorPath,
             source,
             grantSourceDirectory: options.grantSourceDirectory,
+            sourceBinding,
             localMode: true,
           });
 
@@ -748,6 +912,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             request: {
               designatorPath,
               source,
+              ...(sourceBinding ? { sourceBinding } : {}),
             },
             operationalLogger,
             auditLogger,
@@ -818,180 +983,6 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         ),
     )
     .command(
-      "deploy",
-      new Command()
-        .description("Deployment operations.")
-        .command(
-          "gh-pages",
-          new Command()
-            .description(
-              "Bootstrap a branch-published GitHub Pages mesh in a publication worktree.",
-            )
-            .option(
-              "--source-root <sourceRoot:string>",
-              "Source checkout root to read during branch-published deployment.",
-              { default: "." },
-            )
-            .option(
-              "--publish-root <publishRoot:string>",
-              "Publication branch worktree root to update.",
-            )
-            .option(
-              "--mesh-base <meshBase:string>",
-              "Canonical base IRI for Semantic Flow identifiers in the published mesh.",
-            )
-            .option(
-              "--no-nojekyll",
-              "Do not create a GitHub Pages .nojekyll publishing guard.",
-            )
-            .option(
-              "--cname <cname:string>",
-              "Create or update the publication branch CNAME file.",
-            )
-            .option(
-              "--allow-dirty-publish-root",
-              "Allow deployment even when the publication worktree has uncommitted changes.",
-            )
-            .option(
-              "--dry-run",
-              "Print the branch-published deploy plan without writing publication files.",
-            )
-            .option(
-              "--commit",
-              "Create a local publication commit after successful generation when the publication diff is non-empty.",
-            )
-            .option(
-              "--commit-message <commitMessage:string>",
-              "Commit message to use with --commit.",
-            )
-            .option(
-              "--source-path <sourcePath:string>",
-              "Repository-relative source path to materialize into the publication mesh.",
-            )
-            .option(
-              "--target-path <targetPath:string>",
-              "Publication-root relative target path for the materialized source. Defaults to --source-path.",
-            )
-            .option(
-              "--designator-path <designatorPath:string>",
-              "Designator path for the materialized source artifact.",
-            )
-            .option(
-              "--source-repository-url <sourceRepositoryUrl:string>",
-              "Durable repository URL to record for the materialized source locator.",
-            )
-            .option(
-              "--source-ref <sourceRepositoryRef:string>",
-              "Durable repository ref to record for the materialized source locator.",
-            )
-            .option(
-              "--source-commit <sourceRepositoryCommit:string>",
-              "Optional resolved commit to record for the materialized source locator.",
-            )
-            .option(
-              "--interactive",
-              "Prompt for missing branch-published deployment inputs.",
-            )
-            .action(async (
-              options: {
-                sourceRoot: string;
-                publishRoot?: string;
-                meshBase?: string;
-                nojekyll?: boolean;
-                cname?: string;
-                allowDirtyPublishRoot?: boolean;
-                dryRun?: boolean;
-                commit?: boolean;
-                commitMessage?: string;
-                sourcePath?: string;
-                targetPath?: string;
-                designatorPath?: string;
-                sourceRepositoryUrl?: string;
-                sourceRef?: string;
-                sourceCommit?: string;
-                interactive?: boolean;
-              },
-            ) => {
-              const sourceRoot = resolve(options.sourceRoot);
-              const promptForMissingInputs = options.interactive === true ||
-                Deno.stdin.isTerminal();
-              const publishRoot = await resolvePublishRootOption({
-                sourceRoot,
-                publishRoot: options.publishRoot,
-                interactive: promptForMissingInputs,
-              });
-              const meshBase = await resolveMeshBaseOption(
-                {
-                  meshBase: options.meshBase,
-                  interactive: promptForMissingInputs,
-                },
-                "deploy gh-pages",
-                "an interactive terminal",
-              );
-              const request = {
-                meshBase,
-                includeNoJekyll: options.nojekyll === false ? false : undefined,
-                ...(options.cname !== undefined
-                  ? { cname: options.cname }
-                  : {}),
-                ...(resolveGHPagesSourceBindingOption(options) ?? {}),
-              };
-              const allowDirtyPublicationRoot =
-                options.allowDirtyPublishRoot === true;
-              const commit = resolveGHPagesCommitOption({
-                commit: options.commit,
-                commitMessage: options.commitMessage,
-              });
-
-              if (options.dryRun === true) {
-                const plan = await planGHPagesDeployBootstrap({
-                  sourceRoot,
-                  publishRoot,
-                  request,
-                  allowDirtyPublicationRoot,
-                  commit,
-                });
-                console.log(describeGHPagesDeployBootstrapPlan(plan));
-                return;
-              }
-
-              const { operationalLogger, auditLogger } = createRuntimeLoggers({
-                logDir: resolveOptionalCliLogDir(),
-              });
-
-              await auditLogger.command("deploy.ghPages", {
-                sourceRoot,
-                publishRoot,
-                meshBase,
-                localMode: true,
-                localCommit: commit !== undefined,
-              });
-
-              const result = await executeGHPagesDeployBootstrap({
-                sourceRoot,
-                publishRoot,
-                request,
-                allowDirtyPublicationRoot,
-                commit,
-                operationalLogger,
-                auditLogger,
-              });
-              console.log(describeGHPagesDeployBootstrapResult(result));
-              for (const path of result.createdPaths) {
-                console.log(path);
-              }
-              for (const path of result.updatedPaths) {
-                console.log(path);
-              }
-              if (result.materializedSource) {
-                for (const path of result.materializedSource.createdPaths) {
-                  console.log(path);
-                }
-              }
-            }),
-        ),
-    )
-    .command(
       "mesh",
       new Command()
         .description("Mesh operations.")
@@ -1015,8 +1006,8 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               "Mesh root path. Relative values are resolved from the current directory and must stay inside the workspace.",
             )
             .option(
-              "--no-nojekyll",
-              "Do not create a GitHub Pages .nojekyll publishing guard.",
+              "--publication-profile <profile:string>",
+              "Publication profile to apply at mesh creation: auto, none, or github-pages.",
             )
             .option(
               "--interactive",
@@ -1045,9 +1036,9 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 meshRoot,
                 request: {
                   meshBase,
-                  includeNoJekyll: options.nojekyll === false
-                    ? false
-                    : undefined,
+                  publicationProfile: resolvePublicationProfileOption(
+                    options.publicationProfile,
+                  ),
                 },
                 operationalLogger,
                 auditLogger,
@@ -1264,6 +1255,45 @@ function resolveHistoryTrackingPolicyOption(
   );
 }
 
+function resolveValidateScope(value: string | undefined): ValidateScope {
+  if (value === undefined) {
+    return "mesh";
+  }
+
+  switch (value.trim()) {
+    case "mesh":
+      return "mesh";
+    case "publication":
+      return "publication";
+    default:
+      throw new WeaveInputError(
+        `Unsupported validate scope: ${value}`,
+      );
+  }
+}
+
+function resolvePublicationProfileOption(
+  value: string | undefined,
+): PublicationProfileRequest | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  switch (value.trim()) {
+    case "auto":
+      return "auto";
+    case "none":
+      return "none";
+    case "github-pages":
+    case "githubPages":
+      return "githubPages";
+    default:
+      throw new MeshCreateInputError(
+        `Unsupported publication profile: ${value}`,
+      );
+  }
+}
+
 async function resolveMeshBaseOption(
   options: { meshBase?: string; interactive?: boolean },
   commandName = "mesh create",
@@ -1287,140 +1317,6 @@ async function resolveMeshBaseOption(
       return value.trim().length > 0 || "meshBase is required";
     },
   });
-}
-
-async function resolvePublishRootOption(
-  options: {
-    sourceRoot: string;
-    publishRoot?: string;
-    interactive?: boolean;
-  },
-): Promise<string> {
-  if (
-    typeof options.publishRoot === "string" &&
-    options.publishRoot.trim().length > 0
-  ) {
-    return resolve(options.publishRoot);
-  }
-
-  if (!options.interactive) {
-    throw new GHPagesDeployInputError(
-      "deploy gh-pages requires --publish-root, a deploy profile value, or an interactive terminal",
-    );
-  }
-
-  const defaultPublishRoot = resolve(
-    options.sourceRoot,
-    "..",
-    `${basename(options.sourceRoot)}-gh-pages`,
-  );
-
-  const value = await Input.prompt({
-    message: "Publication worktree path",
-    default: defaultPublishRoot,
-    validate(value) {
-      return value.trim().length > 0 || "publishRoot is required";
-    },
-  });
-  return resolve(value);
-}
-
-function resolveGHPagesCommitOption(
-  options: {
-    commit?: boolean;
-    commitMessage?: string;
-  },
-): { message?: string } | undefined {
-  if (options.commit !== true) {
-    if (options.commitMessage !== undefined) {
-      throw new GHPagesDeployInputError(
-        "deploy gh-pages --commit-message requires --commit",
-      );
-    }
-    return undefined;
-  }
-
-  return options.commitMessage === undefined ? {} : {
-    message: options.commitMessage,
-  };
-}
-
-function resolveGHPagesSourceBindingOption(
-  options: {
-    sourcePath?: string;
-    targetPath?: string;
-    designatorPath?: string;
-    sourceRepositoryUrl?: string;
-    sourceRef?: string;
-    sourceCommit?: string;
-  },
-):
-  | {
-    source: {
-      sourcePath: string;
-      designatorPath: string;
-      targetPath?: string;
-      sourceRepositoryUrl: string;
-      sourceRepositoryRef: string;
-      sourceRepositoryCommit?: string;
-    };
-  }
-  | undefined {
-  const hasSourceBindingOption = [
-    options.sourcePath,
-    options.targetPath,
-    options.designatorPath,
-    options.sourceRepositoryUrl,
-    options.sourceRef,
-    options.sourceCommit,
-  ].some((value) => value !== undefined);
-
-  if (!hasSourceBindingOption) {
-    return undefined;
-  }
-
-  return {
-    source: {
-      sourcePath: resolveRequiredOptionValue(
-        options.sourcePath,
-        "deploy gh-pages materialization requires --source-path",
-        (message) => new GHPagesDeployInputError(message),
-      ),
-      designatorPath: resolveRequiredOptionValue(
-        options.designatorPath,
-        "deploy gh-pages materialization requires --designator-path",
-        (message) => new GHPagesDeployInputError(message),
-      ),
-      ...(options.targetPath
-        ? {
-          targetPath: resolveRequiredOptionValue(
-            options.targetPath,
-            "deploy gh-pages --target-path is required",
-            (message) => new GHPagesDeployInputError(message),
-          ),
-        }
-        : {}),
-      sourceRepositoryUrl: resolveRequiredOptionValue(
-        options.sourceRepositoryUrl,
-        "deploy gh-pages materialization requires --source-repository-url",
-        (message) => new GHPagesDeployInputError(message),
-      ),
-      sourceRepositoryRef: resolveRequiredOptionValue(
-        options.sourceRef,
-        "deploy gh-pages materialization requires --source-ref",
-        (message) => new GHPagesDeployInputError(message),
-      ),
-      ...(options.sourceCommit
-        ? {
-          sourceRepositoryCommit: resolveRequiredOptionValue(
-            options.sourceCommit,
-            "deploy gh-pages --source-commit is required",
-            (message) => new GHPagesDeployInputError(message),
-          ),
-        }
-        : {}),
-    },
-  };
 }
 
 function printExtractAllTermsPreview(
@@ -1455,6 +1351,56 @@ function resolveIntegrateDesignatorPath(
       "integrate requires a designator path as [designatorPath] or --designator-path",
     createError: (message) => new IntegrateInputError(message),
   });
+}
+
+function resolveIntegrateSourceBindingOptions(
+  options: {
+    sourceRepositoryUrl?: string;
+    sourceRepositoryRef?: string;
+    sourceRepositoryCommit?: string;
+    sourceRepositoryPath?: string;
+    sourceDigest?: string;
+  },
+): LocalIntegrateSourceBindingRequest | undefined {
+  const provided = [
+    options.sourceRepositoryUrl,
+    options.sourceRepositoryRef,
+    options.sourceRepositoryCommit,
+    options.sourceRepositoryPath,
+    options.sourceDigest,
+  ].some((value) => value !== undefined);
+  if (!provided) {
+    return undefined;
+  }
+  const repositoryMetadataProvided =
+    options.sourceRepositoryUrl !== undefined ||
+    options.sourceRepositoryRef !== undefined ||
+    options.sourceRepositoryCommit !== undefined ||
+    options.sourceRepositoryPath !== undefined;
+  if (options.sourceDigest !== undefined && !repositoryMetadataProvided) {
+    throw new IntegrateInputError(
+      "integrate source digest requires repository-backed source metadata",
+    );
+  }
+  if (
+    !options.sourceRepositoryUrl ||
+    !options.sourceRepositoryRef ||
+    !options.sourceRepositoryPath
+  ) {
+    throw new IntegrateInputError(
+      "repository-backed integrate source bindings require --source-repository-url, --source-repository-ref, and --source-repository-path",
+    );
+  }
+
+  return {
+    sourceRepositoryUrl: options.sourceRepositoryUrl,
+    sourceRepositoryRef: options.sourceRepositoryRef,
+    ...(options.sourceRepositoryCommit
+      ? { sourceRepositoryCommit: options.sourceRepositoryCommit }
+      : {}),
+    sourceRepositoryPath: options.sourceRepositoryPath,
+    ...(options.sourceDigest ? { sourceDigest: options.sourceDigest } : {}),
+  };
 }
 
 function resolvePayloadUpdateDesignatorPath(
@@ -1726,6 +1672,26 @@ function resolveOptionalWeavePayloadSegment(
   );
 }
 
+function resolveRequiredWeavePayloadSegment(
+  value: string,
+  fieldName: string,
+): string {
+  return resolveRequiredOptionValue(
+    value,
+    `${fieldName} is required`,
+    (message) => new PayloadVersionIntentRuntimeError(message),
+  );
+}
+
+function printWeaveProgress(event: WeaveProgressEvent): void {
+  const designatorPath = event.designatorPath.length === 0
+    ? "/"
+    : event.designatorPath;
+  console.log(
+    `[${event.percent}%] Wove ${event.completed}/${event.total}: ${designatorPath}`,
+  );
+}
+
 function getCliErrorMessage(error: unknown): string {
   if (
     error instanceof ExtractInputError ||
@@ -1734,6 +1700,8 @@ function getCliErrorMessage(error: unknown): string {
     error instanceof IntegrateRuntimeError ||
     error instanceof PayloadUpdateInputError ||
     error instanceof PayloadUpdateRuntimeError ||
+    error instanceof PayloadVersionIntentInputError ||
+    error instanceof PayloadVersionIntentRuntimeError ||
     error instanceof KnopAddReferenceInputError ||
     error instanceof KnopAddReferenceRuntimeError ||
     error instanceof WeaveInputError ||
@@ -1741,9 +1709,7 @@ function getCliErrorMessage(error: unknown): string {
     error instanceof KnopCreateInputError ||
     error instanceof KnopCreateRuntimeError ||
     error instanceof MeshCreateInputError ||
-    error instanceof MeshCreateRuntimeError ||
-    error instanceof GHPagesDeployInputError ||
-    error instanceof GHPagesDeployRuntimeError
+    error instanceof MeshCreateRuntimeError
   ) {
     return error.message;
   }

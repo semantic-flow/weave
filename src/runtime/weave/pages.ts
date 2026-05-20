@@ -53,6 +53,7 @@ interface ResourcePageRenderInput {
 
 interface ResourcePageMetadataRow {
   label: string;
+  labelHref?: string;
   href?: string;
   value: string;
   html?: string;
@@ -129,6 +130,7 @@ const OWL_DATATYPE_PROPERTY_IRI =
   "http://www.w3.org/2002/07/owl#DatatypeProperty";
 const OWL_OBJECT_PROPERTY_IRI = "http://www.w3.org/2002/07/owl#ObjectProperty";
 const RDFS_COMMENT_IRI = "http://www.w3.org/2000/01/rdf-schema#comment";
+const RDFS_CLASS_IRI = "http://www.w3.org/2000/01/rdf-schema#Class";
 const RDFS_DATATYPE_IRI = "http://www.w3.org/2000/01/rdf-schema#Datatype";
 const RDFS_LABEL_IRI = "http://www.w3.org/2000/01/rdf-schema#label";
 const SKOS_BROADER_IRI = "http://www.w3.org/2004/02/skos/core#broader";
@@ -170,6 +172,8 @@ const RDF_DESCRIPTION_PREDICATE_IRIS = [
   DCTERMS_DESCRIPTION_IRI,
   RDFS_COMMENT_IRI,
   SKOS_DEFINITION_IRI,
+  SKOS_PREF_LABEL_IRI,
+  RDFS_LABEL_IRI,
 ] as const;
 const REFERENCE_ROLE_ORDER = ["canonical", "supplemental", "deprecated"];
 
@@ -405,7 +409,7 @@ function toDefaultResourcePageRenderInput(
       );
 
       return stateHref
-        ? `        <li id="${escapedFragment}"><code>#${escapedFragment}</code>: ${escapedRoleLabel} reference target <a href="${escapedTargetHref}">${escapedTargetPath}</a>, pinned to <a href="${escapedStateHref}">${escapedStateHref}</a>.</li>`
+        ? `        <li id="${escapedFragment}"><code>#${escapedFragment}</code>: ${escapedRoleLabel} reference target <a href="${escapedTargetHref}">${escapedTargetPath}</a>, exact state <a href="${escapedStateHref}">${escapedStateHref}</a>.</li>`
         : `        <li id="${escapedFragment}"><code>#${escapedFragment}</code>: ${escapedRoleLabel} reference target <code>${escapedTargetPath}</code>.</li>`;
     }).join("\n");
 
@@ -617,7 +621,7 @@ async function renderDefaultResourcePage(
       )
     }</p>\n`
     : "";
-  const metadata = renderMetadataTable(input.metadataRows, 8);
+  const metadata = renderHeroMetadataTable(input.metadataRows, 8);
   const childrenSection = renderChildrenSection(input.childrenRows);
   const propertiesSection = renderPropertiesSection(input.propertyRows);
   const blankNodesSection = renderBlankNodesSection(input.blankNodeRows);
@@ -650,7 +654,7 @@ ${faviconLink}  <style>
     * { box-sizing: border-box; }
     body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: linear-gradient(180deg, #f6f7f4 0%, #ebece7 100%); }
     a { color: #1f5f85; text-decoration-thickness: 0.08em; text-underline-offset: 0.18em; }
-    main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 24px 0 42px; flex: 1 0 auto; }
+    main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 16px 0 42px; flex: 1 0 auto; }
     .wf-shell { display: grid; gap: 18px; min-width: 0; }
     .wf-shell > * { min-width: 0; }
     .wf-masthead { min-width: 0; }
@@ -667,9 +671,9 @@ ${faviconLink}  <style>
     .wf-metadata { width: 100%; margin-top: 24px; border-collapse: collapse; table-layout: fixed; border-top: 1px solid #cdd2ca; border-bottom: 1px solid #cdd2ca; }
     .wf-metadata th, .wf-metadata td { padding: 10px 12px; border-top: 1px solid #e0e4dd; text-align: left; vertical-align: top; }
     .wf-metadata tr:first-child th, .wf-metadata tr:first-child td { border-top: 0; }
-    .wf-metadata th { width: 180px; color: #4f594f; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0; }
+    .wf-metadata th { width: 180px; color: #4f594f; font-size: 0.78rem; line-height: 1.35; text-transform: uppercase; letter-spacing: 0; overflow-wrap: anywhere; word-break: break-word; }
     .wf-metadata td { min-width: 0; overflow-wrap: anywhere; }
-    .wf-metadata tr.wf-source-metadata-row th, .wf-metadata tr.wf-source-metadata-row td { vertical-align: middle; }
+    .wf-hero-metadata col.wf-metadata-key { width: 180px; }
     .wf-child-identifiers { display: flex; flex-wrap: wrap; gap: 5px; align-items: baseline; min-width: 0; max-width: 100%; }
     .wf-child-identifier { display: inline-block; padding: 0.08rem 0.36rem; border: 1px solid #cdd8cf; border-radius: 2px; background: #eef3ef; text-decoration: none; white-space: nowrap; }
     .wf-child-identifier:hover, .wf-child-identifier:focus { background: #e0ebe4; border-color: #b8c8bc; }
@@ -690,6 +694,8 @@ ${faviconLink}  <style>
     .wf-source-chain a:hover, .wf-source-chain a:focus { background: #d2e0d7; outline: 0; }
     .wf-source-version:hover, .wf-source-version:focus { background: #edf5ef; }
     .wf-term { cursor: help; border-bottom: 1px dotted currentColor; }
+    .wf-term-link { color: inherit; border-bottom: 0; text-decoration: underline; text-decoration-color: rgba(79, 89, 79, 0.35); text-decoration-thickness: 0.06em; text-underline-offset: 0.18em; }
+    .wf-term-link:hover, .wf-term-link:focus { text-decoration-color: currentColor; }
     .wf-date-tip { position: relative; display: inline-block; }
     .wf-date-tip::after { content: attr(data-tooltip); position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); opacity: 0; pointer-events: none; background: rgba(27, 32, 27, 0.94); color: #fff; border-radius: 5px; padding: 5px 7px; font-size: 0.78rem; white-space: nowrap; transition: opacity 120ms ease; }
     .wf-date-tip:hover::after, .wf-date-tip:focus::after { opacity: 1; }
@@ -706,6 +712,7 @@ ${faviconLink}  <style>
     .wf-children .wf-metadata { margin-top: 0; border-bottom: 0; }
     .wf-properties { padding-bottom: 12px; }
     .wf-properties .wf-metadata { margin-top: 0; border-bottom: 0; }
+    .wf-properties .wf-metadata th, .wf-blank-nodes .wf-metadata th { text-transform: none; }
     .wf-blank-nodes { padding-bottom: 12px; }
     .wf-blank-nodes .wf-metadata { margin-top: 0; border-bottom: 0; }
     .wf-blank-node-code { max-height: 24rem; padding: 12px; border: 1px solid #d7dcd4; border-radius: 6px; font-size: 0.82rem; }
@@ -756,9 +763,9 @@ ${meshFavicon}
 ${classes}${summary}${metadata}
         </div>
       </header>
-${childrenSection}${propertiesSection}${blankNodesSection}${referencesSection}${historySection}${
+${childrenSection}${propertiesSection}${blankNodesSection}${referencesSection}${
     sections ? `${sections}\n` : ""
-  }${rawSections}${semanticFlowMetadataSection}
+  }${rawSections}${historySection}${semanticFlowMetadataSection}
     </article>
   </main>
   <footer class="wf-generated">
@@ -821,6 +828,30 @@ ${indent}</table>
 `;
 }
 
+function renderHeroMetadataTable(
+  rows: readonly ResourcePageMetadataRow[],
+  indentSize: number,
+): string {
+  if (rows.length === 0) {
+    return "";
+  }
+
+  const indent = " ".repeat(indentSize);
+  const bodyIndent = `${indent}  `;
+  return `${indent}<table class="wf-metadata wf-hero-metadata">
+${bodyIndent}<colgroup>
+${bodyIndent}  <col class="wf-metadata-key">
+${bodyIndent}  <col>
+${bodyIndent}  <col class="wf-metadata-key">
+${bodyIndent}  <col>
+${bodyIndent}</colgroup>
+${bodyIndent}<tbody>
+${rows.map((row) => renderHeroMetadataRow(row, bodyIndent)).join("\n")}
+${bodyIndent}</tbody>
+${indent}</table>
+`;
+}
+
 function renderSemanticFlowMetadataSection(
   rows: readonly ResourcePageMetadataRow[],
 ): string {
@@ -858,6 +889,7 @@ function renderPropertiesSection(
 
   const metadataRows = rows.map((row) => ({
     label: row.predicateLabel,
+    labelHref: row.predicateHref,
     tooltip: row.predicateHref,
     value: row.value,
     ...(row.valueHref
@@ -870,7 +902,7 @@ function renderPropertiesSection(
   }));
 
   return `    <section class="wf-section">
-      <details class="wf-properties">
+      <details class="wf-properties" open>
         <summary>Properties</summary>
 ${renderMetadataTable(metadataRows, 8)}      </details>
     </section>
@@ -886,6 +918,7 @@ function renderBlankNodesSection(
 
   const metadataRows = rows.map((row) => ({
     label: row.predicateLabel,
+    labelHref: row.predicateHref,
     tooltip: row.predicateHref,
     value: row.code,
     html: `<pre class="wf-blank-node-code"><code>${
@@ -938,16 +971,38 @@ function renderMetadataRow(
   row: ResourcePageMetadataRow,
   indent: string,
 ): string {
+  return `${indent}<tr${renderMetadataRowClass(row)}><th scope="row">${
+    renderMetadataLabel(row)
+  }</th><td>${renderMetadataValue(row)}</td></tr>`;
+}
+
+function renderHeroMetadataRow(
+  row: ResourcePageMetadataRow,
+  indent: string,
+): string {
+  return `${indent}<tr${renderMetadataRowClass(row)}><th scope="row">${
+    renderMetadataLabel(row)
+  }</th><td colspan="3">${renderMetadataValue(row)}</td></tr>`;
+}
+
+function renderMetadataLabel(row: ResourcePageMetadataRow): string {
   const label = row.tooltip
-    ? renderTooltipLabel(row.label, row.tooltip)
+    ? renderTooltipLabel(row.label, row.tooltip, row.labelHref)
     : escapeHtml(row.label);
-  const rowClass = row.rowClass ? ` class="${escapeHtml(row.rowClass)}"` : "";
+  return label;
+}
+
+function renderMetadataValue(row: ResourcePageMetadataRow): string {
   const value = row.html
     ? row.html
     : row.href
     ? `<a href="${escapeHtml(row.href)}">${escapeHtml(row.value)}</a>`
     : `<span>${escapeHtml(row.value)}</span>`;
-  return `${indent}<tr${rowClass}><th scope="row">${label}</th><td>${value}</td></tr>`;
+  return value;
+}
+
+function renderMetadataRowClass(row: ResourcePageMetadataRow): string {
+  return row.rowClass ? ` class="${escapeHtml(row.rowClass)}"` : "";
 }
 
 function toKnopMetadataRow(
@@ -995,14 +1050,16 @@ function toExtractionSourceMetadataRows(
     });
   }
 
-  rows.push({
-    label: "Extraction Source Mode",
-    href: extractionSource.artifactResolutionModeIri,
-    value: compactRdfIri(
-      extractionSource.artifactResolutionModeIri,
-      new Map(COMMON_RDF_PREFIXES),
-    ),
-  });
+  if (extractionSource.artifactResolutionModeIri) {
+    rows.push({
+      label: "Extraction Source Mode",
+      href: extractionSource.artifactResolutionModeIri,
+      value: compactRdfIri(
+        extractionSource.artifactResolutionModeIri,
+        new Map(COMMON_RDF_PREFIXES),
+      ),
+    });
+  }
 
   return rows;
 }
@@ -1194,7 +1251,7 @@ function toChildIdentifierCategoryIndex(types: ReadonlySet<string>): number {
   if (types.has(SHACL_SHAPE_IRI)) {
     return 9;
   }
-  if (types.has(OWL_CLASS_IRI)) {
+  if (types.has(OWL_CLASS_IRI) || types.has(RDFS_CLASS_IRI)) {
     return 0;
   }
   if (types.has(OWL_OBJECT_PROPERTY_IRI)) {
@@ -1501,10 +1558,18 @@ function renderHistoryClassAnnotation(
     : "";
 }
 
-function renderTooltipLabel(label: string, tooltip: string): string {
-  return `<span class="wf-term" title="${escapeHtml(tooltip)}">${
-    escapeHtml(label)
-  }</span>`;
+function renderTooltipLabel(
+  label: string,
+  tooltip: string,
+  href?: string,
+): string {
+  const escapedLabel = escapeHtml(label);
+  const escapedTooltip = escapeHtml(tooltip);
+  return href
+    ? `<a class="wf-term wf-term-link" href="${
+      escapeHtml(href)
+    }" title="${escapedTooltip}">${escapedLabel}</a>`
+    : `<span class="wf-term" title="${escapedTooltip}">${escapedLabel}</span>`;
 }
 
 function toLastPathSegment(path: string): string {
@@ -1709,8 +1774,6 @@ function extractRdfFacts(
       SCHEMA_CHARACTER_NAME_IRIS,
     ) ??
     findFirstLiteralObjectFromPredicates(quads, canonical, SCHEMA_NAME_IRIS) ??
-    findFirstLiteralObject(quads, canonical, RDFS_LABEL_IRI) ??
-    findFirstLiteralObject(quads, canonical, SKOS_PREF_LABEL_IRI) ??
     findFirstLiteralObject(quads, canonical, FOAF_NAME_IRI);
   const description = findFirstLiteralObjectFromPredicates(
     quads,

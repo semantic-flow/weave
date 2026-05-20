@@ -27,29 +27,24 @@ see [[wd.testing]]
 - the ontology is key!
   - review at least the [[ont.summary.core]] 
   - the entire core ontology is at `dependencies/github.com/semantic-flow/sflo/semantic-flow-core-ontology.ttl`
+- general information and platform/api specs live in `dependencies/github.com/semantic-flow/semantic-flow-framework`
 - Documentation must be continuously verified and updated, especially:
   - this file [[wd.general-guidance]]
   - [[wd.codebase-overview]]
 - files in these directories are historical only, be careful when accessing them:
   - /dependencies/github.com/semantic-flow/sflo-dendron-notes (ancient)
-  - /dependencies/github.com/semantic-flow/sflo (previous effort)
-  - /dependencies/github.com/semantic-flow/weave-dev-archive (this project's archive)
 - until a v1.0 release, avoid backward-compatibility shims
 - Startup/config behavior is fail-closed by default:
-  - daemon subprocess startup must load runtime config successfully before
-    entering runtime loop.
+  - daemon subprocess startup must load runtime config successfully before entering runtime loop.
   - runtime config validation rejects malformed or unknown `featureFlags` keys.
-  - Windows detached daemon launch should use `Start-Process` semantics to
-    avoid parent/child lifecycle coupling seen with direct subprocess spawn.
+  - Windows detached daemon launch should use `Start-Process` semantics to avoid parent/child lifecycle coupling seen with direct subprocess spawn.
 - commit messages should include a "semantic commits"-style summary line and then detailed bullet points describing developer-relevant changes
 
 ## Task notes
 
-Before starting substantial code changes, a task note should be written and refined. Task notes live in `documentation/notes/` with a filename like `wd.task.2026.2026-MM-DD_HHmm-task-slug.md` and the template lives in [[template.task]]. Actionable "To-Do" items should be pre-pended with markdown checkboxes (`[ ]`) to track completion (`[x]`), cancellation (`[c]`), or deferment (`[d]`).
+Before starting substantial code changes, a task note should be written and refined. Kato/workflow task notes live in `dependencies/github.com/semantic-flow/weave-dev-archive/notes` with a filename like `wa.task.2026.2026-MM-DD_HHmm-task-slug.md`, and the template lives in [[template.task]]. Durable developer guidance that should remain part of the Weave documentation vault belongs in `documentation/notes/wd.*`. Actionable "To-Do" items should be pre-pended with markdown checkboxes (`[ ]`) to track completion (`[x]`), cancellation (`[c]`), or deferment (`[d]`).
 
-`documentation/notes/wd.task.*.md`: Do not rename `wd.task.*` notes to `wd.completed.*` unless the user explicitly asks you to. If a user asks for that rename and it changes wikilinks, update the affected references.
-
-Before a task is closed, [[wd.decision-log]] should be updated with important decisions made.
+Before a task is closed, [[wd.decision-log]] can be updated with important decisions made.
 
 ## Behavior specs
 

@@ -30,6 +30,12 @@ jobs:
           repository: semantic-flow/semantic-flow-framework
           path: dependencies/github.com/semantic-flow/semantic-flow-framework
 
+      - name: Check out Semantic Flow Ontologies
+        uses: actions/checkout@v6
+        with:
+          repository: semantic-flow/sflo
+          path: dependencies/github.com/semantic-flow/sflo
+
       - name: Check out Mesh Alice Bio
         uses: actions/checkout@v6
         with:
@@ -37,8 +43,25 @@ jobs:
           path: dependencies/github.com/semantic-flow/mesh-alice-bio
           fetch-depth: 0
 
+      - name: Check out Mesh Sidecar Fantasy Rules
+        uses: actions/checkout@v6
+        with:
+          repository: semantic-flow/mesh-sidecar-fantasy-rules
+          path: dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules
+          fetch-depth: 0
+
+      - name: Check out Mesh Branch Fantasy Rules
+        uses: actions/checkout@v6
+        with:
+          repository: semantic-flow/mesh-branch-fantasy-rules
+          path: dependencies/github.com/semantic-flow/mesh-branch-fantasy-rules
+          fetch-depth: 0
+
       - name: Fetch mesh fixture refs
-        run: git -C dependencies/github.com/semantic-flow/mesh-alice-bio fetch origin "+refs/heads/*:refs/remotes/origin/*"
+        run: |
+          git -C dependencies/github.com/semantic-flow/mesh-alice-bio fetch origin "+refs/heads/*:refs/remotes/origin/*"
+          git -C dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules fetch origin "+refs/heads/*:refs/remotes/origin/*"
+          git -C dependencies/github.com/semantic-flow/mesh-branch-fantasy-rules fetch origin "+refs/heads/*:refs/remotes/origin/*"
 
       - name: Set up Deno
         uses: denoland/setup-deno@v2.0.4

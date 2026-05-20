@@ -102,6 +102,8 @@ Preferred placement:
 
 Temp workspaces created with `createTestTmpDir()` are registered with the test harness and cleaned after each test when tests are run through `deno task test` or `deno task test:coverage`. Set `WEAVE_KEEP_TEST_TMP=1` when running those tasks to preserve temp workspaces for debugging a failing test.
 
+Live Semantic Flow fixture ladder regeneration is a separate cross-repo workflow; see [[wd.testing.fixture-ladder-regeneration]].
+
 ## TDD Workflow
 
 When possible, the default loop should be:

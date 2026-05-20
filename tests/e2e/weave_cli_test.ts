@@ -78,7 +78,7 @@ Deno.test("weave --version reports the root package version", async () => {
   const stderr = new TextDecoder().decode(output.stderr);
 
   assert(output.success, stderr);
-  assertEquals(stdout.trim(), `weave ${WEAVE_VERSION}`);
+  assertEquals(stripAnsi(stdout).trim(), `weave ${WEAVE_VERSION}`);
 });
 
 Deno.test("weave matches the manifest-scoped alice knop-created-woven fixture as a black-box CLI run", async () => {
@@ -86,6 +86,57 @@ Deno.test("weave matches the manifest-scoped alice knop-created-woven fixture as
     manifestName: "05-alice-knop-created-woven.jsonld",
     expectedStdoutFragment: "Wove 1 designator path",
   });
+});
+
+Deno.test("weave reports progress by default and --silent suppresses progress", async () => {
+  const verboseWorkspaceRoot = await createTestTmpDir(
+    "weave-e2e-progress-",
+  );
+  await materializeMeshAliceBioBranch(
+    "06-alice-bio-integrated",
+    verboseWorkspaceRoot,
+  );
+
+  const verboseOutput = await runCliCommand([
+    "--target",
+    "designatorPath=alice/bio",
+  ], verboseWorkspaceRoot);
+  const verboseStdout = new TextDecoder().decode(verboseOutput.stdout);
+  const verboseStderr = new TextDecoder().decode(verboseOutput.stderr);
+
+  assert(verboseOutput.success, verboseStderr);
+  assert(
+    verboseStdout.includes("[100%] Wove 1/1: alice/bio"),
+    verboseStdout,
+  );
+  assertEquals(
+    [...verboseStdout.matchAll(/\[100%\] Wove 1\/1: alice\/bio/g)].length,
+    1,
+  );
+  assert(verboseStdout.includes("Wove 1 designator path"), verboseStdout);
+
+  const silentWorkspaceRoot = await createTestTmpDir(
+    "weave-e2e-progress-silent-",
+  );
+  await materializeMeshAliceBioBranch(
+    "06-alice-bio-integrated",
+    silentWorkspaceRoot,
+  );
+
+  const silentOutput = await runCliCommand([
+    "--silent",
+    "--target",
+    "designatorPath=alice/bio",
+  ], silentWorkspaceRoot);
+  const silentStdout = new TextDecoder().decode(silentOutput.stdout);
+  const silentStderr = new TextDecoder().decode(silentOutput.stderr);
+
+  assert(silentOutput.success, silentStderr);
+  assert(
+    !silentStdout.includes("[100%] Wove 1/1: alice/bio"),
+    silentStdout,
+  );
+  assert(silentStdout.includes("Wove 1 designator path"), silentStdout);
 });
 
 Deno.test("weave validate succeeds as a black-box CLI run", async () => {
@@ -102,6 +153,93 @@ Deno.test("weave validate succeeds as a black-box CLI run", async () => {
 
   assert(output.success, stderr);
   assert(stdout.includes("Validated 1 designator path"), stdout);
+});
+
+Deno.test("weave validate mesh succeeds as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-validate-mesh-");
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const output = await runCliCommand([
+    "validate",
+    "mesh",
+    "--target",
+    "designatorPath=alice/bio",
+  ], workspaceRoot);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Validated 1 designator path"), stdout);
+});
+
+Deno.test("weave validate publication checks the selected host preset", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-validate-publication-",
+  );
+
+  const createOutput = await runCliCommand([
+    "mesh",
+    "create",
+    "--workspace",
+    workspaceRoot,
+    "--mesh-base",
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    "--publication-profile",
+    "github-pages",
+  ]);
+  const createStderr = new TextDecoder().decode(createOutput.stderr);
+  assert(createOutput.success, createStderr);
+
+  const successOutput = await runCliCommand([
+    "validate",
+    "publication",
+    "--mesh-root",
+    workspaceRoot,
+  ]);
+  const successStdout = new TextDecoder().decode(successOutput.stdout);
+  const successStderr = new TextDecoder().decode(successOutput.stderr);
+
+  assert(successOutput.success, successStderr);
+  assert(
+    successStdout.includes("Validated publication surface and found 0 issues"),
+    successStdout,
+  );
+
+  await Deno.remove(join(workspaceRoot, ".nojekyll"));
+  const failureOutput = await runCliCommand([
+    "validate",
+    "publication",
+    "--mesh-root",
+    workspaceRoot,
+  ]);
+  const failureStdout = new TextDecoder().decode(failureOutput.stdout);
+  const failureStderr = new TextDecoder().decode(failureOutput.stderr);
+
+  assert(!failureOutput.success, failureStdout);
+  assert(
+    failureStderr.includes(
+      "GitHub Pages publication profile requires .nojekyll at the mesh root.",
+    ),
+    failureStderr,
+  );
+});
+
+Deno.test("weave supports validation before and after as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-validate-around-");
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const output = await runCliCommand([
+    "--validate-before",
+    "--validate-after",
+    "--silent",
+    "--target",
+    "designatorPath=alice/bio",
+  ], workspaceRoot);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Wove 1 designator path"), stdout);
 });
 
 Deno.test("weave validate accepts the exact root target as a black-box CLI run", async () => {
@@ -202,6 +340,70 @@ Deno.test("weave applies general payload version fields to included targets", as
       "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
     ),
   );
+});
+
+Deno.test("weave set history and set next-state steer the next payload version", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-version-intent-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const historyOutput = await runCliCommand([
+    "set",
+    "history",
+    "alice/bio",
+    "releases",
+  ], workspaceRoot);
+  const historyStdout = new TextDecoder().decode(historyOutput.stdout);
+  const historyStderr = new TextDecoder().decode(historyOutput.stderr);
+
+  assert(historyOutput.success, historyStderr);
+  assert(historyStdout.includes("current history to alice/bio/releases"));
+
+  const nextStateOutput = await runCliCommand([
+    "set",
+    "next-state",
+    "alice/bio",
+    "v0.0.1",
+  ], workspaceRoot);
+  const nextStateStdout = new TextDecoder().decode(nextStateOutput.stdout);
+  const nextStateStderr = new TextDecoder().decode(nextStateOutput.stderr);
+
+  assert(nextStateOutput.success, nextStateStderr);
+  assert(nextStateStdout.includes("next state to alice/bio/releases/v0.0.1"));
+
+  const inventoryBeforeVersion = await Deno.readTextFile(
+    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+  );
+  assert(
+    inventoryBeforeVersion.includes(
+      'sfcfg:hasNextStateSegmentHint "v0.0.1"',
+    ),
+  );
+  assert(!inventoryBeforeVersion.includes("sflo:hasHistoricalState"));
+
+  const versionOutput = await runCliCommand([
+    "version",
+    "--target",
+    "designatorPath=alice/bio",
+    "--payload-manifestation-segment",
+    "ttl",
+  ], workspaceRoot);
+  const versionStdout = new TextDecoder().decode(versionOutput.stdout);
+  const versionStderr = new TextDecoder().decode(versionOutput.stderr);
+
+  assert(versionOutput.success, versionStderr);
+  assert(versionStdout.includes("Versioned 1 designator path"), versionStdout);
+  await Deno.stat(
+    join(
+      workspaceRoot,
+      "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
+    ),
+  );
+  const inventoryAfterVersion = await Deno.readTextFile(
+    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+  );
+  assert(!inventoryAfterVersion.includes("sfcfg:hasNextStateSegmentHint"));
 });
 
 Deno.test("weave version accepts the exact root target as a black-box CLI run", async () => {
@@ -883,6 +1085,14 @@ function runCliCommand(
   });
 
   return command.output();
+}
+
+function stripAnsi(value: string): string {
+  return value.replace(
+    // deno-lint-ignore no-control-regex -- ANSI escapes are control sequences.
+    /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g,
+    "",
+  );
 }
 
 async function writeSidecarMeshConfig(meshRoot: string): Promise<void> {

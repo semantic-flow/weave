@@ -134,6 +134,34 @@ Deno.test("executeIntegrate supports the root designator path", async () => {
   );
 });
 
+Deno.test("executeIntegrate rejects a repository source digest mismatch", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-integrate-digest-");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+
+  await assertRejects(
+    () =>
+      executeIntegrate({
+        meshRoot: workspaceRoot,
+        request: {
+          designatorPath: "alice/bio",
+          source: "alice-bio.ttl",
+          sourceBinding: {
+            sourceRepositoryUrl:
+              "https://github.com/semantic-flow/mesh-alice-bio.git",
+            sourceRepositoryRef: "main",
+            sourceRepositoryPath: "alice-bio.ttl",
+            sourceDigest: "sha256:not-the-current-file",
+          },
+        },
+      }),
+    IntegrateRuntimeError,
+    "integrate source digest mismatch",
+  );
+});
+
 Deno.test("executeIntegrate fails closed when source is outside the allowed local boundary", async () => {
   const workspaceRoot = await createTestTmpDir("weave-integrate-workspace-");
   await materializeMeshAliceBioBranch(
@@ -277,6 +305,30 @@ Deno.test("executeIntegrate allows repo-adjacent local sources when repo policy 
     ),
     false,
   );
+
+  assertEquals(
+    result.sourceBindingIri,
+    "https://semantic-flow.github.io/mesh-alice-bio/alice/bio/_knop/_sources#payload-source",
+  );
+  const sources = await Deno.readTextFile(
+    join(workspaceRoot, "alice/bio/_knop/_sources/sources.ttl"),
+  );
+  assertStringIncludes(
+    sources,
+    "<alice/bio/_knop/_sources#payload-source> a sflo:ArtifactResolutionTarget ;",
+  );
+  assertStringIncludes(
+    sources,
+    'sflo:targetLocalRelativePath "../documentation/alice-bio.ttl" ;',
+  );
+  assertStringIncludes(
+    sources,
+    "sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> .",
+  );
+  assertEquals(sources.includes("sflo:expectsContentDigest"), false);
+  assertEquals(sources.includes("sflo:hasTargetRepositorySource"), false);
+  assertEquals(sources.includes("sflo:sourceRepository"), false);
+  assertEquals(sources.includes("sflo:hasContentDigest"), false);
 });
 
 Deno.test("executeIntegrate can add a constrained repo-adjacent source directory grant", async () => {
@@ -377,6 +429,7 @@ Deno.test("executeIntegrate can introduce the first payload into a docs-rooted s
     [
       "docs/ontology/_knop/_inventory/inventory.ttl",
       "docs/ontology/_knop/_meta/meta.ttl",
+      "docs/ontology/_knop/_sources/sources.ttl",
     ],
   );
   assertEquals(
@@ -394,6 +447,19 @@ Deno.test("executeIntegrate can introduce the first payload into a docs-rooted s
     await Deno.readTextFile(join(meshRoot, "_mesh/_config/config.ttl")),
     'sfcfg:pathPrefix "../ontology/"',
   );
+  assertEquals(
+    result.sourceBindingIri,
+    "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/_knop/_sources#payload-source",
+  );
+  const sources = await Deno.readTextFile(
+    join(meshRoot, "ontology/_knop/_sources/sources.ttl"),
+  );
+  assertStringIncludes(
+    sources,
+    'sflo:targetLocalRelativePath "../ontology/fantasy-rules-ontology.ttl" ;',
+  );
+  assertEquals(sources.includes("sflo:expectsContentDigest"), false);
+  assertEquals(sources.includes("sflo:hasTargetRepositorySource"), false);
 });
 
 Deno.test("executeIntegrate accepts semantically equivalent mesh metadata turtle", async () => {

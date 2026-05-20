@@ -7,10 +7,10 @@ import {
 import { SFLO_NAMESPACE } from "../../core/rdf/namespaces.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
-const SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI =
-  `${SFLO_NAMESPACE}artifactResolutionMode_pinned`;
-const SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI =
-  `${SFLO_NAMESPACE}artifactResolutionMode_current`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI =
+  `${SFLO_NAMESPACE}artifactResolutionMode_working`;
+const SFLO_ARTIFACT_RESOLUTION_MODE_LATEST_STATE_IRI =
+  `${SFLO_NAMESPACE}artifactResolutionMode_latestState`;
 const SFLO_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}ExtractionSource`;
 const SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
   `${SFLO_NAMESPACE}hasArtifactResolutionMode`;
@@ -33,7 +33,8 @@ const SFLO_OBSERVED_AT_IRI = `${SFLO_NAMESPACE}observedAt`;
 const SFLO_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}ArtifactHistory`;
 const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
   `${SFLO_NAMESPACE}currentArtifactHistory`;
-const SFLO_HAS_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}hasLocatedFile`;
+const SFLO_LOCATED_FILE_FOR_MANIFESTATION_IRI =
+  `${SFLO_NAMESPACE}locatedFileForManifestation`;
 const SFLO_HAS_MANIFESTATION_IRI = `${SFLO_NAMESPACE}hasManifestation`;
 const SFLO_HAS_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasPayloadArtifact`;
 const SFLO_HAS_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}hasReferenceCatalog`;
@@ -73,7 +74,7 @@ export interface ReferenceTargetLinkState {
 export interface ExtractionSourceInventoryState {
   sourceArtifactPath: string;
   requestedTargetStatePath?: string;
-  artifactResolutionModeIri: string;
+  artifactResolutionModeIri?: string;
   observedSourceStatePath?: string;
   observedSourceManifestationPath?: string;
   observedSourceLocatedFilePath?: string;
@@ -331,24 +332,19 @@ export function resolveExtractionSourceInventoryState(
     extractionSourceIri,
     SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
     messages.unsupportedResolutionModeMessage,
-  ) ?? SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI;
+  );
   if (
-    artifactResolutionModeIri !== SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI &&
-    artifactResolutionModeIri !== SFLO_ARTIFACT_RESOLUTION_MODE_CURRENT_IRI
+    artifactResolutionModeIri !== undefined &&
+    artifactResolutionModeIri !== SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI &&
+    artifactResolutionModeIri !== SFLO_ARTIFACT_RESOLUTION_MODE_LATEST_STATE_IRI
   ) {
     throw new Error(messages.unsupportedResolutionModeMessage);
-  }
-  if (
-    artifactResolutionModeIri === SFLO_ARTIFACT_RESOLUTION_MODE_PINNED_IRI &&
-    !requestedTargetStatePath
-  ) {
-    throw new Error(messages.missingRequestedTargetStateMessage);
   }
 
   return {
     sourceArtifactPath,
     ...(requestedTargetStatePath ? { requestedTargetStatePath } : {}),
-    artifactResolutionModeIri,
+    ...(artifactResolutionModeIri ? { artifactResolutionModeIri } : {}),
     ...resolveExtractionSourceEvidenceState(
       sourceRegistryQuads,
       meshBase,
@@ -894,7 +890,7 @@ function resolveOptionalHistoricalStateLocatedFilePath(
       quads,
       meshBase,
       toMeshIri(meshBase, manifestationPath),
-      SFLO_HAS_LOCATED_FILE_IRI,
+      SFLO_LOCATED_FILE_FOR_MANIFESTATION_IRI,
       errorMessage,
     )
     : undefined;

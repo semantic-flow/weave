@@ -19,6 +19,13 @@ const resolvedRefCache = new Map<string, Promise<string>>();
 const LEGACY_SFCFG_NAMESPACE =
   "https://semantic-flow.github.io/ontology/config/";
 const CURRENT_SFCFG_NAMESPACE = "https://semantic-flow.github.io/sflo/config/";
+const SFLO_NAMESPACE = "https://semantic-flow.github.io/sflo/ontology/";
+const REMOVED_CURRENT_ARTIFACT_RESOLUTION_MODE =
+  `${SFLO_NAMESPACE}artifactResolutionMode_${"current"}`;
+const REMOVED_PINNED_ARTIFACT_RESOLUTION_MODE =
+  `${SFLO_NAMESPACE}artifactResolutionMode_${"pinned"}`;
+const WORKING_ARTIFACT_RESOLUTION_MODE =
+  `${SFLO_NAMESPACE}artifactResolutionMode_working`;
 
 // Temporary Branch Fantasy Rules fixture-ladder setting until the replay
 // prefix moves into an Accord/scenario master manifest.
@@ -181,6 +188,27 @@ export async function materializeMeshBranchFantasyRulesBranch(
   return paths;
 }
 
+export async function materializeMeshBranchFantasyRulesPublicationWorkspace(
+  ref: string,
+  targetDir: string,
+  sourceRef = "10-first-release-source",
+): Promise<{ publicationRoot: string; sourceRoot: string }> {
+  const publicationRoot = join(targetDir, "publication");
+  const sourceRoot = join(targetDir, "source");
+  await materializeMeshBranchFantasyRulesBranch(ref, publicationRoot);
+  await materializeMeshBranchFantasyRulesBranch(sourceRef, sourceRoot);
+  return { publicationRoot, sourceRoot };
+}
+
 function normalizeFixtureNamespaces(contents: string): string {
-  return contents.replaceAll(LEGACY_SFCFG_NAMESPACE, CURRENT_SFCFG_NAMESPACE);
+  return contents
+    .replaceAll(LEGACY_SFCFG_NAMESPACE, CURRENT_SFCFG_NAMESPACE)
+    .replaceAll(
+      REMOVED_CURRENT_ARTIFACT_RESOLUTION_MODE,
+      WORKING_ARTIFACT_RESOLUTION_MODE,
+    )
+    .replaceAll(
+      `  sflo:hasArtifactResolutionMode <${REMOVED_PINNED_ARTIFACT_RESOLUTION_MODE}> ;\n`,
+      "",
+    );
 }

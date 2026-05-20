@@ -10,6 +10,8 @@ import { Parser } from "n3";
 import {
   IntegrateInputError,
   type IntegratePlan,
+  type IntegrateRepositorySource,
+  type IntegrateSourceBinding,
   planIntegrate,
 } from "../../core/integrate/integrate.ts";
 import {
@@ -17,6 +19,7 @@ import {
   resolveMeshBaseFromMetadataTurtle,
 } from "../mesh/metadata.ts";
 import {
+  ensureHostLocalWorkingDirectoryAccessRule,
   ensureMeshConfigWorkingDirectoryAccessRule,
   loadOperationalLocalPathPolicy,
   LocalPathAccessError,
@@ -30,6 +33,15 @@ import type { StructuredLogger } from "../logging/logger.ts";
 export interface LocalIntegrateRequest {
   designatorPath: string;
   source: string;
+  sourceBinding?: LocalIntegrateSourceBindingRequest;
+}
+
+export interface LocalIntegrateSourceBindingRequest {
+  sourceRepositoryUrl?: string;
+  sourceRepositoryRef?: string;
+  sourceRepositoryCommit?: string;
+  sourceRepositoryPath?: string;
+  sourceDigest?: string;
 }
 
 export interface ExecuteIntegrateOptions {
@@ -47,6 +59,7 @@ export interface IntegrateResult {
   payloadArtifactIri: string;
   knopIri: string;
   workingLocalRelativePath: string;
+  sourceBindingIri?: string;
   createdPaths: readonly string[];
   updatedPaths: readonly string[];
 }
@@ -67,7 +80,7 @@ export async function executeIntegrate(
   const source = options.request.source;
   let plan: IntegratePlan | undefined;
   let workingLocalRelativePath: string | undefined;
-  let meshConfigUpdated = false;
+  let sourceAccessConfigPath: string | undefined;
   let localPathPolicy = await loadOperationalLocalPathPolicy(meshRoot);
   const workspaceRoot = localPathPolicy.workspaceRoot;
   const sourceBaseDirectory = options.sourceBaseDirectory ?? meshRoot;
@@ -94,13 +107,16 @@ export async function executeIntegrate(
   try {
     await ensureMeshRootExists(meshRoot);
     if (options.sourceAccessDirectory !== undefined) {
-      meshConfigUpdated = await grantSourceDirectoryAccess({
+      const grantResult = await grantSourceDirectoryAccess({
         sourceBaseDirectory,
         meshRoot,
         localPathPolicy,
         source,
         sourceAccessDirectory: options.sourceAccessDirectory,
       });
+      sourceAccessConfigPath = grantResult.updated
+        ? grantResult.configPath
+        : undefined;
       localPathPolicy = await loadOperationalLocalPathPolicy(meshRoot);
     }
     const resolvedSource = await resolveLocalSource(
@@ -110,12 +126,21 @@ export async function executeIntegrate(
       source,
     );
     workingLocalRelativePath = resolvedSource.workingLocalRelativePath;
+    const requestedSourceBinding = await resolveSourceBinding(
+      options.request.sourceBinding,
+      resolvedSource.absoluteSourcePath,
+    );
+    const sourceBinding = requestedSourceBinding ??
+      resolveImplicitWorkingSourceBinding(
+        resolvedSource.workingLocalRelativePath,
+      );
     const meshState = await loadCurrentMeshState(meshRoot);
     plan = planIntegrate({
       meshBase: meshState.meshBase,
       currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
       designatorPath,
       workingLocalRelativePath,
+      ...(sourceBinding ? { sourceBinding } : {}),
     });
     assertUpdatedTargetsExist(meshRoot, plan);
     await assertCreateTargetsDoNotExist(meshRoot, plan);
@@ -166,6 +191,9 @@ export async function executeIntegrate(
     payloadArtifactIri: plan.payloadArtifactIri,
     knopIri: plan.knopIri,
     workingLocalRelativePath: plan.workingLocalRelativePath,
+    ...(plan.sourceBindingIri
+      ? { sourceBindingIri: plan.sourceBindingIri }
+      : {}),
     createdPaths: plan.createdFiles.map((file) =>
       toWorkspaceRelativePath(localPathPolicy, file.path)
     ),
@@ -173,8 +201,8 @@ export async function executeIntegrate(
       ...plan.updatedFiles.map((file) =>
         toWorkspaceRelativePath(localPathPolicy, file.path)
       ),
-      ...(meshConfigUpdated
-        ? [toWorkspaceRelativePath(localPathPolicy, "_mesh/_config/config.ttl")]
+      ...(sourceAccessConfigPath
+        ? [toDisplayPath(localPathPolicy, sourceAccessConfigPath)]
         : []),
     ],
   };
@@ -188,6 +216,7 @@ export async function executeIntegrate(
       payloadArtifactIri: result.payloadArtifactIri,
       knopIri: result.knopIri,
       workingLocalRelativePath: result.workingLocalRelativePath,
+      sourceBindingIri: result.sourceBindingIri,
       createdPaths: result.createdPaths,
       updatedPaths: result.updatedPaths,
     },
@@ -201,6 +230,7 @@ export async function executeIntegrate(
       payloadArtifactIri: result.payloadArtifactIri,
       knopIri: result.knopIri,
       workingLocalRelativePath: result.workingLocalRelativePath,
+      sourceBindingIri: result.sourceBindingIri,
       createdPaths: result.createdPaths,
       updatedPaths: result.updatedPaths,
     },
@@ -315,6 +345,82 @@ async function resolveLocalSource(
   };
 }
 
+async function resolveSourceBinding(
+  request: LocalIntegrateSourceBindingRequest | undefined,
+  absoluteSourcePath: string,
+): Promise<IntegrateSourceBinding | undefined> {
+  if (request === undefined) {
+    return undefined;
+  }
+
+  const hasRepositoryUrl = request.sourceRepositoryUrl !== undefined;
+  const hasRepositoryRef = request.sourceRepositoryRef !== undefined;
+  const hasRepositoryPath = request.sourceRepositoryPath !== undefined;
+  const hasRepositoryMetadata = hasRepositoryUrl || hasRepositoryRef ||
+    hasRepositoryPath || request.sourceRepositoryCommit !== undefined;
+  const hasRepositoryLocator = hasRepositoryUrl && hasRepositoryRef &&
+    hasRepositoryPath;
+  if (
+    hasRepositoryMetadata && !hasRepositoryLocator
+  ) {
+    throw new IntegrateRuntimeError(
+      "repository-backed integrate source bindings require --source-repository-url, --source-repository-ref, and --source-repository-path",
+    );
+  }
+  if (request.sourceDigest !== undefined && !hasRepositoryMetadata) {
+    throw new IntegrateRuntimeError(
+      "integrate source digest requires repository-backed source metadata",
+    );
+  }
+  if (!hasRepositoryMetadata) {
+    return {
+      artifactResolutionMode: "working",
+    };
+  }
+
+  const sourceDigest = await sha256FileDigest(absoluteSourcePath);
+  if (
+    request.sourceDigest !== undefined &&
+    request.sourceDigest !== sourceDigest
+  ) {
+    throw new IntegrateRuntimeError(
+      `integrate source digest mismatch: expected ${request.sourceDigest}, computed ${sourceDigest}`,
+    );
+  }
+  const repositorySource: IntegrateRepositorySource = {
+    repositoryUrl: request.sourceRepositoryUrl!,
+    repositoryRef: request.sourceRepositoryRef!,
+    ...(request.sourceRepositoryCommit
+      ? { repositoryCommit: request.sourceRepositoryCommit }
+      : {}),
+    repositoryPath: request.sourceRepositoryPath!,
+    contentDigest: sourceDigest,
+  };
+
+  return {
+    repositorySource,
+    expectedContentDigest: sourceDigest,
+    artifactResolutionMode: "working",
+  };
+}
+
+function resolveImplicitWorkingSourceBinding(
+  workingLocalRelativePath: string,
+): IntegrateSourceBinding | undefined {
+  return workingLocalRelativePath.startsWith("../")
+    ? { artifactResolutionMode: "working" }
+    : undefined;
+}
+
+async function sha256FileDigest(absoluteSourcePath: string): Promise<string> {
+  const bytes = await Deno.readFile(absoluteSourcePath);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const hex = [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return `sha256:${hex}`;
+}
+
 async function grantSourceDirectoryAccess(
   options: {
     sourceBaseDirectory: string;
@@ -323,7 +429,7 @@ async function grantSourceDirectoryAccess(
     source: string;
     sourceAccessDirectory: string;
   },
-): Promise<boolean> {
+): Promise<{ updated: boolean; configPath: string }> {
   const absoluteSourcePath = resolveSourcePath(
     options.sourceBaseDirectory,
     options.source.trim(),
@@ -353,26 +459,39 @@ async function grantSourceDirectoryAccess(
       `source access directory does not contain integrate source: ${options.sourceAccessDirectory}`,
     );
   }
-  if (
-    !isWithinRoot(
-      absoluteAccessDirectory,
-      options.localPathPolicy.workspaceRoot,
-    )
-  ) {
-    throw new IntegrateRuntimeError(
-      `source access directory is outside the inferred workspace root: ${options.sourceAccessDirectory}`,
-    );
-  }
   if (isWithinRoot(absoluteAccessDirectory, options.meshRoot)) {
-    return false;
+    return {
+      updated: false,
+      configPath: join(options.meshRoot, "_mesh/_config/config.ttl"),
+    };
   }
 
   const pathPrefix = relative(options.meshRoot, absoluteAccessDirectory)
     .replaceAll("\\", "/");
-  return await ensureMeshConfigWorkingDirectoryAccessRule(
+  if (
+    isWithinRoot(
+      absoluteAccessDirectory,
+      options.localPathPolicy.workspaceRoot,
+    ) &&
+    resolve(absoluteAccessDirectory) !==
+      resolve(options.localPathPolicy.workspaceRoot) &&
+    pathPrefix !== ".."
+  ) {
+    const updated = await ensureMeshConfigWorkingDirectoryAccessRule(
+      options.localPathPolicy,
+      pathPrefix,
+    );
+    return {
+      updated,
+      configPath: join(options.meshRoot, "_mesh/_config/config.ttl"),
+    };
+  }
+
+  const result = await ensureHostLocalWorkingDirectoryAccessRule(
     options.localPathPolicy,
-    pathPrefix,
+    absoluteAccessDirectory,
   );
+  return result;
 }
 
 function resolveSourcePath(
@@ -401,9 +520,7 @@ function renderLocalPathAccessSuggestion(
 ): string {
   const sourceDirectory = dirname(absoluteSourcePath);
   if (
-    isWithinRoot(sourceDirectory, localPathPolicy.workspaceRoot) &&
-    !isWithinRoot(sourceDirectory, localPathPolicy.meshRoot) &&
-    localPathPolicy.meshConfigPath !== undefined
+    !isWithinRoot(sourceDirectory, localPathPolicy.meshRoot)
   ) {
     const relativeSourceDirectory = relative(
       sourceBaseDirectory,
@@ -412,7 +529,7 @@ function renderLocalPathAccessSuggestion(
     const suggestedDirectory = relativeSourceDirectory.length === 0
       ? "."
       : relativeSourceDirectory;
-    return `; run again with --grant-source-directory ${suggestedDirectory} to add a constrained mesh config grant for that source directory`;
+    return `; run again with --grant-source-directory ${suggestedDirectory} to add a constrained operational path grant for that source directory`;
   }
 
   return "; add an explicit local path access rule before integrating extra-workspace sources";
@@ -427,6 +544,22 @@ function toWorkspaceRelativePath(
     join(policy.meshRoot, meshRelativePath),
   ).replaceAll("\\", "/");
   return path.length === 0 ? "." : path;
+}
+
+function toDisplayPath(
+  policy: OperationalLocalPathPolicy,
+  absolutePath: string,
+): string {
+  const relativePath = relative(policy.workspaceRoot, absolutePath)
+    .replaceAll("\\", "/");
+  if (
+    relativePath.length > 0 &&
+    !relativePath.startsWith("../") &&
+    relativePath !== ".."
+  ) {
+    return relativePath;
+  }
+  return absolutePath;
 }
 
 function isWithinRoot(candidatePath: string, rootPath: string): boolean {

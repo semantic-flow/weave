@@ -1,6 +1,8 @@
 import { assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { join, resolve } from "@std/path";
 import {
+  ensureHostLocalWorkingDirectoryAccessRule,
+  ensureMeshConfigWorkingDirectoryAccessRule,
   loadOperationalLocalPathPolicy,
   LocalPathAccessError,
   OperationalConfigError,
@@ -43,6 +45,37 @@ Deno.test("loadOperationalLocalPathPolicy discovers mesh-owned config in a non-w
     ),
     resolve(repoRoot, "documentation/sidebar.md"),
   );
+});
+
+Deno.test("ensureMeshConfigWorkingDirectoryAccessRule preserves publication profile", async () => {
+  const tempRoot = await Deno.makeTempDir({
+    prefix: "weave-local-path-policy-profile-",
+  });
+  const repoRoot = join(tempRoot, "repo");
+  const meshRoot = join(repoRoot, "docs");
+  const configPath = join(meshRoot, "_mesh/_config/config.ttl");
+  await Deno.mkdir(join(meshRoot, "_mesh/_config"), { recursive: true });
+  await Deno.writeTextFile(
+    configPath,
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:workspaceRootRelativeToMeshRoot "../" ;
+  sfcfg:hasPublicationProfile sfcfg:publicationProfile_githubPages .
+`,
+  );
+
+  const policy = await loadOperationalLocalPathPolicy(meshRoot);
+  await ensureMeshConfigWorkingDirectoryAccessRule(policy, "../ontology/");
+
+  const config = await Deno.readTextFile(configPath);
+  assertEquals(
+    config.includes(
+      "sfcfg:hasPublicationProfile <https://semantic-flow.github.io/sflo/config/publicationProfile_githubPages>",
+    ),
+    true,
+  );
+  assertEquals(config.includes("sfcfg:hasLocalPathAccessRule"), true);
 });
 
 Deno.test("resolveAllowedLocalPath denies extra-mesh paths when no config matches", async () => {
@@ -191,6 +224,53 @@ Deno.test("resolveAllowedLocalPath requires a host-local grant for sibling workt
         relativeSourcePath,
       ),
       join(sourceRoot, "ontology/fantasy-rules-ontology.ttl"),
+    );
+  } finally {
+    if (previousHome === undefined) {
+      Deno.env.delete("HOME");
+    } else {
+      Deno.env.set("HOME", previousHome);
+    }
+  }
+});
+
+Deno.test("ensureHostLocalWorkingDirectoryAccessRule creates a machine-local source grant", async () => {
+  const tempRoot = await Deno.makeTempDir({
+    prefix: "weave-local-path-host-grant-",
+  });
+  const sourceRoot = join(tempRoot, "source");
+  const publishRoot = join(tempRoot, "publication");
+  const homeRoot = join(tempRoot, "home");
+  await Deno.mkdir(sourceRoot, { recursive: true });
+  await Deno.mkdir(publishRoot, { recursive: true });
+  await Deno.mkdir(homeRoot, { recursive: true });
+
+  const previousHome = Deno.env.get("HOME");
+  Deno.env.set("HOME", homeRoot);
+  try {
+    const deniedPolicy = await loadOperationalLocalPathPolicy(publishRoot);
+    const result = await ensureHostLocalWorkingDirectoryAccessRule(
+      deniedPolicy,
+      sourceRoot,
+    );
+
+    assertEquals(result.updated, true);
+    assertEquals(result.configPath, join(homeRoot, ".sf-local-access.ttl"));
+    const config = await Deno.readTextFile(result.configPath);
+    assertEquals(
+      config.includes("sfcfg:HostLocalOperationalConfig"),
+      true,
+    );
+    assertEquals(config.includes(`sfcfg:pathPrefix "${sourceRoot}/"`), true);
+
+    const grantedPolicy = await loadOperationalLocalPathPolicy(publishRoot);
+    assertEquals(
+      resolveAllowedLocalPath(
+        grantedPolicy,
+        "workingLocalRelativePath",
+        "../source/current.ttl",
+      ),
+      join(sourceRoot, "current.ttl"),
     );
   } finally {
     if (previousHome === undefined) {

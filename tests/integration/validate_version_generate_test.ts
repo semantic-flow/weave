@@ -12,7 +12,9 @@ import {
   executeValidate,
   executeVersion as executeRuntimeVersion,
   type ExecuteVersionOptions,
+  executeWeave,
 } from "../../src/runtime/weave/weave.ts";
+import { executeMeshCreate } from "../../src/runtime/mesh/create.ts";
 import {
   isMeshAliceBioMeshRoot,
   materializeMeshAliceBioBranch,
@@ -265,6 +267,135 @@ Deno.test("executeValidate accepts the exact root target", async () => {
 
   assertEquals(result.validatedDesignatorPaths, [""]);
   assertEquals(result.findings, []);
+});
+
+Deno.test("executeValidate publication checks GitHub Pages .nojekyll", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-validate-publication-",
+  );
+  await executeMeshCreate({
+    workspaceRoot,
+    request: {
+      meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+      publicationProfile: "githubPages",
+    },
+  });
+
+  const successResult = await executeValidate({
+    meshRoot: workspaceRoot,
+    scope: "publication",
+  });
+
+  assertEquals(successResult.scope, "publication");
+  assertEquals(successResult.validatedDesignatorPaths, []);
+  assertEquals(successResult.findings, []);
+
+  await Deno.remove(join(workspaceRoot, ".nojekyll"));
+  const failureResult = await executeValidate({
+    meshRoot: workspaceRoot,
+    scope: "publication",
+  });
+
+  assertEquals(failureResult.scope, "publication");
+  assertEquals(failureResult.findings, [{
+    severity: "error",
+    message:
+      "GitHub Pages publication profile requires .nojekyll at the mesh root.",
+  }]);
+});
+
+Deno.test("executeValidate publication reports host-local path leakage", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-validate-publication-leakage-",
+  );
+  await executeMeshCreate({
+    workspaceRoot,
+    request: {
+      meshBase: "https://example.org/mesh/",
+      publicationProfile: "none",
+    },
+  });
+  await Deno.writeTextFile(
+    join(workspaceRoot, "leaky.html"),
+    `<a href="file://${workspaceRoot}/private.ttl">local</a>`,
+  );
+  await Deno.writeTextFile(
+    join(workspaceRoot, "leaky.ttl"),
+    `<> <https://example.org/path> "${workspaceRoot}/private.ttl" .`,
+  );
+
+  const result = await executeValidate({
+    meshRoot: workspaceRoot,
+    scope: "publication",
+  });
+
+  assertEquals(result.scope, "publication");
+  assertEquals(result.findings, [
+    {
+      severity: "error",
+      message: "Publication file leaky.html contains a host-local file URL.",
+    },
+    {
+      severity: "error",
+      message:
+        "Publication file leaky.ttl contains an absolute host-local path.",
+    },
+  ]);
+});
+
+Deno.test("executeValidate mesh includes configured publication checks", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-validate-mesh-publication-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+  await Deno.mkdir(join(workspaceRoot, "_mesh/_config"), { recursive: true });
+  await Deno.writeTextFile(
+    join(workspaceRoot, "_mesh/_config/config.ttl"),
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPublicationProfile sfcfg:publicationProfile_githubPages .
+`,
+  );
+  try {
+    await Deno.remove(join(workspaceRoot, ".nojekyll"));
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) {
+      throw error;
+    }
+  }
+
+  const result = await executeValidate({
+    meshRoot: workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "alice/bio" }],
+    },
+  });
+
+  assertEquals(result.scope, "mesh");
+  assertEquals(result.validatedDesignatorPaths, ["alice/bio"]);
+  assertEquals(result.findings, [{
+    severity: "error",
+    message:
+      "GitHub Pages publication profile requires .nojekyll at the mesh root.",
+  }]);
+});
+
+Deno.test("executeWeave supports whole-mesh validation before and after weaving", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-validate-around-");
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const result = await executeWeave({
+    meshRoot: workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "alice/bio" }],
+    },
+    validateBefore: true,
+    validateAfter: true,
+    historyTrackingPolicyOverride: MESH_ALICE_BIO_HISTORY_TRACKING_POLICY,
+  });
+
+  assertEquals(result.wovenDesignatorPaths, ["alice/bio"]);
 });
 
 Deno.test("executeVersion accepts the exact root target", async () => {

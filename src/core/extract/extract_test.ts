@@ -71,7 +71,7 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
     plan.sourceStateIri,
     "https://semantic-flow.github.io/mesh-alice-bio/alice/bio/_history001/_s0002",
   );
-  assertEquals(plan.sourceResolutionMode, "current");
+  assertEquals(plan.sourceResolutionMode, "exact");
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
@@ -98,7 +98,7 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
   );
   assertStringIncludes(
     plan.createdFiles[2]?.contents ?? "",
-    "sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> ;",
+    "sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> ;",
   );
   assertStringIncludes(
     plan.createdFiles[2]?.contents ?? "",
@@ -111,7 +111,7 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
   );
   assertFalse(
     (plan.createdFiles[2]?.contents ?? "").includes(
-      "sflo:hasRequestedTargetState",
+      "sflo:hasArtifactResolutionMode",
     ),
   );
   assertEquals(
@@ -135,7 +135,7 @@ Deno.test("planExtract accepts a root source payload when the root and source kn
     currentMeshInventoryTurtle: rootSourcePreExtractMeshInventoryTurtle,
     designatorPath: "alice/bio",
     sourceDesignatorPath: "",
-    sourceResolutionMode: "pinned",
+    sourceResolutionMode: "exact",
     sourceStatePath: "_history001/_s0001",
     sourceWorkingLocalRelativePath: "root-person.ttl",
   });
@@ -198,7 +198,23 @@ Deno.test("planExtract accepts a root source payload when the root and source kn
   assertStringIncludes(
     plan.createdFiles[2]?.contents ?? "",
     `sflo:hasTargetArtifact <> ;
-  sflo:hasRequestedTargetState <_history001/_s0001> ;`,
+  sflo:hasRequestedTargetState <_history001/_s0001> .`,
+  );
+});
+
+Deno.test("planExtract rejects the removed current source resolution mode", () => {
+  assertThrows(
+    () =>
+      planExtract({
+        meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+        currentMeshInventoryTurtle: rootSourcePreExtractMeshInventoryTurtle,
+        designatorPath: "bob",
+        sourceDesignatorPath: "alice/bio",
+        sourceResolutionMode: "current" as never,
+        sourceWorkingLocalRelativePath: "alice-bio.ttl",
+      }),
+    ExtractInputError,
+    "sourceResolutionMode must be working or exact",
   );
 });
 

@@ -40,7 +40,8 @@ Use `--patch`, `--minor`, or `--major` instead when advancing from an existing r
 
 3. Fill `documentation/notes/release-notes.v<version>.md`. Do not leave generated TODO placeholders in release notes for a real release.
 4. Make sure the release notes describe what is actually in the release commit, not work planned immediately afterward.
-5. Run the current focused release-tooling checks:
+5. For Semantic Flow ontology/SHACL release prep, confirm each `owl:versionIRI` points at the raw bytes for the matching release tag, for example `https://raw.githubusercontent.com/semantic-flow/sflo/refs/tags/v0.1.0/semantic-flow-core-shacl.ttl`, and confirm that tag will exist on the repository that serves those bytes. Do not use a mutable branch URL such as `refs/heads/main` for an OWL version IRI.
+6. Run the current focused release-tooling checks:
 
 ```bash
 deno task fmt:check
@@ -50,7 +51,7 @@ deno test --allow-read --allow-write tests/scripts/bump_version_test.ts tests/sc
 deno test --allow-read --allow-write --allow-run=deno --allow-env tests/e2e/weave_cli_test.ts --filter "weave --version reports"
 ```
 
-6. Run the full quality gate when feasible:
+7. Run the full quality gate when feasible:
 
 ```bash
 deno task ci
@@ -58,7 +59,7 @@ deno task ci
 
 If `deno task ci` fails, record the failing command and reason explicitly in the release notes and do not call the release CI-clean.
 
-7. Build at least the local platform binary as a release-script smoke test:
+8. Build at least the local platform binary as a release-script smoke test:
 
 ```bash
 deno task build:binaries -- --platform linux-x64 --out-dir /tmp/weave-binaries
@@ -71,14 +72,14 @@ ls /tmp/weave-release
 
 Adjust the platform label to match the runner when validating elsewhere. Supported labels are `linux-x64`, `windows-x64`, `macos-x64`, and `macos-arm64`.
 
-8. Inspect the worktree:
+9. Inspect the worktree:
 
 ```bash
 git status --short
 git diff --check
 ```
 
-9. Commit the release preparation changes with a message that names the release, for example:
+10. Commit the release preparation changes with a message that names the release, for example:
 
 ```text
 release: prepare v0.1.0 packaging groundwork
@@ -90,7 +91,7 @@ release: prepare v0.1.0 packaging groundwork
 - add local npm install smoke testing
 ```
 
-10. Push the branch. Prefer a green GitHub CI run before tagging, but if this is an explicit checkpoint exception, make sure the release notes do not claim green validation.
+11. Push the branch. Prefer a green GitHub CI run before tagging, but if this is an explicit checkpoint exception, make sure the release notes do not claim green validation.
 
 ## Release
 

@@ -1,7 +1,3 @@
-import { fromFileUrl, join } from "@std/path";
-
-const repoRoot = fromFileUrl(new URL("../../", import.meta.url));
-const testTmpRoot = join(repoRoot, ".test-tmp");
 const keepTestTmpEnvVar = "WEAVE_KEEP_TEST_TMP";
 
 type TestFn = (t: Deno.TestContext) => void | Promise<void>;
@@ -23,11 +19,7 @@ let activeScope: TestTmpScope | undefined;
 let cleanupInstalled = false;
 
 export async function createTestTmpDir(prefix: string): Promise<string> {
-  await Deno.mkdir(testTmpRoot, { recursive: true });
-  const path = await Deno.makeTempDir({
-    dir: testTmpRoot,
-    prefix,
-  });
+  const path = await Deno.makeTempDir({ prefix });
   activeScope?.paths.push(path);
   return path;
 }

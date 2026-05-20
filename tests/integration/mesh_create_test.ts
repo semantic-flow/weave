@@ -7,7 +7,7 @@ import {
 import { readMeshAliceBioBranchFile } from "../support/mesh_alice_bio_fixture.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
-Deno.test("executeMeshCreate matches the settled alice-bio mesh-created fixture", async () => {
+Deno.test("executeMeshCreate creates core mesh support artifacts without a host preset", async () => {
   const workspaceRoot = await createTestTmpDir("weave-mesh-create-");
   await Deno.writeTextFile(
     join(workspaceRoot, "alice-bio.ttl"),
@@ -28,7 +28,6 @@ Deno.test("executeMeshCreate matches the settled alice-bio mesh-created fixture"
   assertEquals(
     [...result.createdPaths].sort(),
     [
-      ".nojekyll",
       "_mesh/_inventory/inventory.ttl",
       "_mesh/_meta/meta.ttl",
     ],
@@ -45,12 +44,30 @@ Deno.test("executeMeshCreate matches the settled alice-bio mesh-created fixture"
     await Deno.readTextFile(
       join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
     ),
-    await readMeshAliceBioBranchFile(
-      "02-mesh-created",
-      "_mesh/_inventory/inventory.ttl",
-    ),
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<_mesh> a sflo:SemanticMesh ;
+  sflo:meshBase "https://semantic-flow.github.io/mesh-alice-bio/"^^xsd:anyURI ;
+  sflo:hasMeshMetadata <_mesh/_meta> ;
+  sflo:hasMeshInventory <_mesh/_inventory> .
+
+<_mesh/_meta> a sflo:MeshMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <_mesh/_meta/meta.ttl> .
+
+<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> .
+
+<_mesh/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<_mesh/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+`,
   );
-  assertEquals(await Deno.readTextFile(join(workspaceRoot, ".nojekyll")), "");
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, ".nojekyll")),
+    Deno.errors.NotFound,
+  );
 });
 
 Deno.test("executeMeshCreate fails closed when mesh support artifacts already exist", async () => {
@@ -80,7 +97,7 @@ Deno.test("executeMeshCreate can reuse matching bootstrap artifacts", async () =
   );
   const request = {
     meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
-    includeMeshConfig: true,
+    publicationProfile: "githubPages" as const,
   };
 
   const firstResult = await executeMeshCreate({
@@ -107,7 +124,8 @@ Deno.test("executeMeshCreate can reuse matching bootstrap artifacts", async () =
     await Deno.readTextFile(join(workspaceRoot, "_mesh/_config/config.ttl")),
     `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
-<> a sfcfg:MeshConfig .
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPublicationProfile sfcfg:publicationProfile_githubPages .
 `,
   );
 });
@@ -125,6 +143,7 @@ Deno.test("executeMeshCreate can create a docs-rooted sidecar mesh", async () =>
     meshRoot: "docs",
     request: {
       meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
+      publicationProfile: "githubPages",
     },
   });
 
@@ -150,7 +169,8 @@ Deno.test("executeMeshCreate can create a docs-rooted sidecar mesh", async () =>
     `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:MeshConfig ;
-  sfcfg:workspaceRootRelativeToMeshRoot "../" .
+  sfcfg:workspaceRootRelativeToMeshRoot "../" ;
+  sfcfg:hasPublicationProfile sfcfg:publicationProfile_githubPages .
 `,
   );
   await Deno.stat(join(workspaceRoot, "docs/_mesh/_meta/meta.ttl"));

@@ -37,7 +37,7 @@ const wovenKnopInventory =
   sflo:hasResourcePage <alice/_knop/_meta/_history001/_s0001/index.html> .
 
 <alice/_knop/_meta/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <alice/_knop/_meta/_history001/_s0001/ttl/meta.ttl> ;
+  sflo:locatedFileForManifestation <alice/_knop/_meta/_history001/_s0001/ttl/meta.ttl> ;
   sflo:hasResourcePage <alice/_knop/_meta/_history001/_s0001/ttl/index.html> .
 
 <alice/_knop/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
@@ -61,7 +61,7 @@ const wovenKnopInventory =
   sflo:hasResourcePage <alice/_knop/_inventory/_history001/_s0001/index.html> .
 
 <alice/_knop/_inventory/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:hasLocatedFile <alice/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
+  sflo:locatedFileForManifestation <alice/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
   sflo:hasResourcePage <alice/_knop/_inventory/_history001/_s0001/ttl/index.html> .
 
 <alice/_knop/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
@@ -136,6 +136,42 @@ const extractedKnopInventory =
 <bob/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
 <bob/_knop/_sources/sources.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+`;
+
+const currentOnlyWovenExtractedKnopInventory =
+  `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<bob/_knop> a sflo:Knop ;
+  sflo:hasKnopMetadata <bob/_knop/_meta> ;
+  sflo:hasKnopInventory <bob/_knop/_inventory> ;
+  sflo:hasKnopSourceRegistry <bob/_knop/_sources> ;
+  sflo:hasExtractionSource <bob/_knop/_sources#extraction-source> ;
+  sflo:hasWorkingKnopInventoryFile <bob/_knop/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <bob/_knop/index.html> .
+
+<bob/_knop/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <bob/_knop/_meta/meta.ttl> ;
+  sflo:hasResourcePage <bob/_knop/_meta/index.html> .
+
+<bob/_knop/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <bob/_knop/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <bob/_knop/_inventory/index.html> .
+
+<bob/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <bob/_knop/_sources/sources.ttl> .
+
+<bob/_knop/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<bob/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<bob/_knop/_sources/sources.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<bob/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<bob/_knop/_meta/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<bob/_knop/_inventory/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 `;
 
 Deno.test("planKnopAddReference renders first reference catalog support artifacts", async () => {
@@ -271,6 +307,35 @@ Deno.test("planKnopAddReference preserves extracted source registry facts", () =
     updatedInventory,
     "<bob/_knop/_sources/sources.ttl> a sflo:LocatedFile, sflo:RdfDocument .",
   );
+});
+
+Deno.test("planKnopAddReference supports current-only woven extracted KnopInventory input", () => {
+  const plan = planKnopAddReference({
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    designatorPath: "bob",
+    referenceTargetDesignatorPath: "alice/bio",
+    referenceRole: "canonical",
+    currentKnopInventoryTurtle: currentOnlyWovenExtractedKnopInventory,
+  });
+  const updatedInventory = plan.updatedFiles[0]?.contents ?? "";
+
+  assertStringIncludes(
+    updatedInventory,
+    "sflo:hasReferenceCatalog <bob/_knop/_references> ;",
+  );
+  assertStringIncludes(
+    updatedInventory,
+    "sflo:hasResourcePage <bob/_knop/index.html> .",
+  );
+  assertStringIncludes(
+    updatedInventory,
+    "<bob/_knop/_references> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;",
+  );
+  assertStringIncludes(
+    updatedInventory,
+    "sflo:hasKnopSourceRegistry <bob/_knop/_sources> ;",
+  );
+  assertEquals(updatedInventory.includes("sflo:hasArtifactHistory"), false);
 });
 
 Deno.test("planKnopAddReference normalizes referenceRole tokens case-insensitively", () => {

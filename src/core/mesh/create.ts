@@ -3,10 +3,19 @@ import {
   SFCFG_TURTLE_PREFIX_DECLARATION,
   SFLO_TURTLE_PREFIX_DECLARATION,
 } from "../rdf/namespaces.ts";
+import {
+  planPublicationPresetFiles,
+  type PublicationProfile,
+  type PublicationProfileRequest,
+  renderPublicationProfileTurtleTerm,
+  resolvePublicationProfile,
+} from "./publication_preset.ts";
+
+export type { PublicationProfile, PublicationProfileRequest };
 
 export interface MeshCreateRequest {
   meshBase: string;
-  includeNoJekyll?: boolean;
+  publicationProfile?: PublicationProfileRequest;
   includeMeshConfig?: boolean;
   workspaceRootRelativeToMeshRoot?: string;
 }
@@ -14,6 +23,7 @@ export interface MeshCreateRequest {
 export interface MeshCreatePlan {
   meshBase: string;
   meshIri: string;
+  publicationProfile?: PublicationProfile;
   files: readonly PlannedFile[];
 }
 
@@ -27,16 +37,20 @@ export class MeshCreateInputError extends Error {
 export function planMeshCreate(request: MeshCreateRequest): MeshCreatePlan {
   const meshBase = normalizeMeshBase(request.meshBase);
   const meshIri = new URL("_mesh", meshBase).href;
-  const includeNoJekyll = request.includeNoJekyll ??
-    shouldIncludeNoJekyll(meshBase);
+  const publicationProfile = resolvePublicationProfile(
+    meshBase,
+    request.publicationProfile,
+  );
   const workspaceRootRelativeToMeshRoot =
     request.workspaceRootRelativeToMeshRoot;
   const includeMeshConfig = request.includeMeshConfig === true ||
-    workspaceRootRelativeToMeshRoot !== undefined;
+    workspaceRootRelativeToMeshRoot !== undefined ||
+    publicationProfile !== undefined;
 
   return {
     meshBase,
     meshIri,
+    ...(publicationProfile === undefined ? {} : { publicationProfile }),
     files: [
       {
         path: "_mesh/_meta/meta.ttl",
@@ -54,17 +68,13 @@ export function planMeshCreate(request: MeshCreateRequest): MeshCreatePlan {
           path: "_mesh/_config/config.ttl",
           contents: renderMeshConfigTurtle(
             workspaceRootRelativeToMeshRoot,
+            publicationProfile,
           ),
         }]
         : []),
-      ...(includeNoJekyll ? [{ path: ".nojekyll", contents: "" }] : []),
+      ...planPublicationPresetFiles(publicationProfile),
     ],
   };
-}
-
-function shouldIncludeNoJekyll(meshBase: string): boolean {
-  const url = new URL(meshBase);
-  return url.hostname === "github.io" || url.hostname.endsWith(".github.io");
 }
 
 function normalizeMeshBase(meshBase: string): string {
@@ -163,17 +173,26 @@ ${SFCFG_TURTLE_PREFIX_DECLARATION}
 
 function renderMeshConfigTurtle(
   workspaceRootRelativeToMeshRoot: string | undefined,
+  publicationProfile: PublicationProfile | undefined,
 ): string {
-  if (workspaceRootRelativeToMeshRoot === undefined) {
-    return `${SFCFG_TURTLE_PREFIX_DECLARATION}
-
-<> a sfcfg:MeshConfig .
-`;
+  const statements: string[] = ["a sfcfg:MeshConfig"];
+  if (workspaceRootRelativeToMeshRoot !== undefined) {
+    statements.push(
+      `  sfcfg:workspaceRootRelativeToMeshRoot ${
+        JSON.stringify(workspaceRootRelativeToMeshRoot)
+      }`,
+    );
+  }
+  if (publicationProfile !== undefined) {
+    statements.push(
+      `  sfcfg:hasPublicationProfile ${
+        renderPublicationProfileTurtleTerm(publicationProfile)
+      }`,
+    );
   }
 
   return `${SFCFG_TURTLE_PREFIX_DECLARATION}
 
-<> a sfcfg:MeshConfig ;
-  sfcfg:workspaceRootRelativeToMeshRoot "${workspaceRootRelativeToMeshRoot}" .
+<> ${statements.join(" ;\n")} .
 `;
 }

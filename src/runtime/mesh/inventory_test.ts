@@ -94,7 +94,7 @@ Deno.test("resolvePayloadArtifactInventoryState resolves latest payload snapshot
   rdf:type sflo:ArtifactHistory .
 <alice/bio/_history001/_s0002> sflo:hasManifestation <alice/bio/_history001/_s0002/ttl> ;
   sflo:locatedFileForState <alice/bio/_history001/_s0002/ttl/alice-bio.ttl> .
-<alice/bio/_history001/_s0002/ttl> sflo:hasLocatedFile <alice/bio/_history001/_s0002/ttl/alice-bio.ttl> .
+<alice/bio/_history001/_s0002/ttl> sflo:locatedFileForManifestation <alice/bio/_history001/_s0002/ttl/alice-bio.ttl> .
 <alice/bio> sflo:hasWorkingLocatedFile <alice-bio.ttl> ;
   rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:PayloadArtifact ;
   sflo:currentArtifactHistory <alice/bio/_history001> .
@@ -125,7 +125,7 @@ Deno.test("resolveHistoricalStateLocatedFilePath resolves non-latest snapshot pa
 @base <${MESH_BASE}> .
 
 <alice/bio/_history001/_s0001> sflo:hasManifestation <alice/bio/_history001/_s0001/jsonld> .
-<alice/bio/_history001/_s0001/jsonld> sflo:hasLocatedFile <alice/bio/_history001/_s0001/jsonld/alice.jsonld> .
+<alice/bio/_history001/_s0001/jsonld> sflo:locatedFileForManifestation <alice/bio/_history001/_s0001/jsonld/alice.jsonld> .
 `;
 
   assertEquals(
@@ -192,7 +192,6 @@ Deno.test("resolveExtractionSourceInventoryState returns source registry observe
 <bob/_knop/_sources#extraction-source> a sflo:ExtractionSource ;
   sflo:hasTargetArtifact <alice/bio> ;
   sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_pinned> ;
   sflo:hasObservedSourceState <alice/bio/_history001/_s0002> ;
   sflo:hasObservedSourceManifestation <alice/bio/_history001/_s0002/ttl> ;
   sflo:hasObservedSourceLocatedFile <alice/bio/_history001/_s0002/ttl/alice-bio.ttl> ;
@@ -217,8 +216,6 @@ Deno.test("resolveExtractionSourceInventoryState returns source registry observe
     {
       sourceArtifactPath: "alice/bio",
       requestedTargetStatePath: "alice/bio/_history001/_s0002",
-      artifactResolutionModeIri:
-        "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_pinned",
       observedSourceStatePath: "alice/bio/_history001/_s0002",
       observedSourceManifestationPath: "alice/bio/_history001/_s0002/ttl",
       observedSourceLocatedFilePath:
@@ -251,7 +248,7 @@ Deno.test("resolveExtractionSourceInventoryState reads source registry extractio
 
 <bob/_knop/_sources#extraction-source> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> sflo:ExtractionSource ;
   sflo:hasTargetArtifact <alice/bio> ;
-  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current> .
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> .
 `;
 
   assertEquals(
@@ -287,7 +284,7 @@ Deno.test("resolveExtractionSourceInventoryState reads source registry extractio
     {
       sourceArtifactPath: "alice/bio",
       artifactResolutionModeIri:
-        "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_current",
+        "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working",
     },
   );
 });
@@ -345,7 +342,7 @@ Deno.test("resolveReferenceTargetDesignatorPath accepts semantically equivalent 
   );
 });
 
-Deno.test("resolveReferenceTargetLinkState returns the pinned target state", () => {
+Deno.test("resolveReferenceTargetLinkState returns the exact target state", () => {
   assertEquals(
     resolveReferenceTargetLinkState(
       MESH_BASE,
@@ -375,7 +372,7 @@ Deno.test("resolveReferenceTargetLinkState returns the pinned target state", () 
   );
 });
 
-Deno.test("tryResolveReferenceTargetLinkState returns undefined for unpinned links", () => {
+Deno.test("tryResolveReferenceTargetLinkState returns undefined for broad links", () => {
   assertEquals(
     tryResolveReferenceTargetLinkState(
       MESH_BASE,
