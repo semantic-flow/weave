@@ -2,7 +2,7 @@
 id: fdpf85wtomsgp6k544lg0kb
 title: Fixture Ladder Regeneration
 desc: ''
-updated: 1779180085811
+updated: 1779235115411
 created: 1779180078954
 ---
 
@@ -307,3 +307,6 @@ weave: document fixture ladder regeneration
 - describe review and push steps for Alice, sidecar, and branch-published fixtures
 - record CI failure patterns for missing fixture refs and stale remote fixture branches
 ```
+## Finally, merge to main
+
+After non-branch ladders have been regenerated, fast-forward main to those final states, so that main always reflects the latest rung.
