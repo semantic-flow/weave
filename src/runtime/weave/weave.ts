@@ -1855,9 +1855,28 @@ async function collectGeneratedPageFiles(
       explicitRequest: hasExplicitGenerateTargets,
     },
   );
+  const generatedResourcePaths = collectGeneratedResourcePaths(
+    allPagePaths,
+    includeAllMeshPages,
+    selectedSet,
+  );
+  const displayedChildResourcePaths = collectDisplayedChildResourcePaths(
+    allPagePaths,
+    generatedResourcePaths,
+  );
+  const childTypeHintContexts = await loadBestEffortGenerateDesignatorContexts(
+    workspaceRoot,
+    localPathPolicy,
+    meshState,
+    displayedChildResourcePaths.filter((resourcePath) =>
+      !selectedSet.has(resourcePath)
+    ),
+    effectiveConfig,
+    hasExplicitGenerateTargets,
+  );
   const childRdfTypesByResourcePath = collectDesignatorRdfTypesByResourcePath(
     meshState.meshBase,
-    designatorContexts,
+    [...designatorContexts, ...childTypeHintContexts],
   );
   const childIdentifiersByResourcePath = collectChildIdentifiersByResourcePath(
     allPagePaths,
@@ -1866,9 +1885,11 @@ async function collectGeneratedPageFiles(
 
   for (const pagePath of allPagePaths) {
     if (
-      !includeAllMeshPages &&
-      !pagePath.startsWith("_mesh/") &&
-      !selectedSet.has(pagePath.slice(0, -"/index.html".length))
+      !shouldGenerateRuntimePagePath(
+        pagePath,
+        includeAllMeshPages,
+        selectedSet,
+      )
     ) {
       continue;
     }
@@ -2037,6 +2058,54 @@ function listRuntimeGeneratedResourcePagePaths(
   }
 }
 
+function collectGeneratedResourcePaths(
+  pagePaths: readonly string[],
+  includeAllMeshPages: boolean,
+  selectedSet: ReadonlySet<string>,
+): readonly string[] {
+  const resourcePaths = new Set<string>();
+
+  for (const pagePath of pagePaths) {
+    if (
+      shouldGenerateRuntimePagePath(pagePath, includeAllMeshPages, selectedSet)
+    ) {
+      resourcePaths.add(toResourcePath(pagePath));
+    }
+  }
+
+  return [...resourcePaths].sort((left, right) => left.localeCompare(right));
+}
+
+function shouldGenerateRuntimePagePath(
+  pagePath: string,
+  includeAllMeshPages: boolean,
+  selectedSet: ReadonlySet<string>,
+): boolean {
+  return includeAllMeshPages ||
+    pagePath.startsWith("_mesh/") ||
+    selectedSet.has(toResourcePath(pagePath));
+}
+
+function collectDisplayedChildResourcePaths(
+  pagePaths: readonly string[],
+  parentResourcePaths: readonly string[],
+): readonly string[] {
+  const parentSet = new Set(parentResourcePaths);
+  const childPaths = new Set<string>();
+
+  for (const pagePath of pagePaths) {
+    const childPath = toResourcePath(pagePath);
+    if (
+      isChildIdentifierResourcePath(childPath) &&
+      parentSet.has(toParentResourcePath(childPath))
+    ) {
+      childPaths.add(childPath);
+    }
+  }
+
+  return [...childPaths].sort((left, right) => left.localeCompare(right));
+}
+
 async function resolveMeshFaviconPath(
   meshRoot: string,
 ): Promise<string | undefined> {
@@ -2165,6 +2234,49 @@ function resolveGeneratedAt(now?: () => Date): Date {
   }
   const generatedAt = Deno.env.get("WEAVE_GENERATED_AT");
   return generatedAt ? new Date(generatedAt) : new Date();
+}
+
+async function loadBestEffortGenerateDesignatorContexts(
+  workspaceRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
+  meshState: MeshState,
+  designatorPaths: readonly string[],
+  effectiveConfig: EffectiveConfig,
+  hasExplicitGenerateTargets: boolean,
+): Promise<readonly GenerateDesignatorContext[]> {
+  const contexts: GenerateDesignatorContext[] = [];
+  const seen = new Set<string>();
+
+  for (const designatorPath of designatorPaths) {
+    if (seen.has(designatorPath)) {
+      continue;
+    }
+    seen.add(designatorPath);
+
+    try {
+      contexts.push(
+        ...await loadGenerateDesignatorContexts(
+          workspaceRoot,
+          localPathPolicy,
+          meshState,
+          [designatorPath],
+          effectiveConfig,
+          hasExplicitGenerateTargets,
+        ),
+      );
+    } catch (error) {
+      if (
+        error instanceof Deno.errors.NotFound ||
+        error instanceof LocalPathAccessError ||
+        error instanceof WeaveRuntimeError
+      ) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  return contexts;
 }
 
 async function loadGenerateDesignatorContexts(

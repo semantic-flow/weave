@@ -18,6 +18,10 @@ libraries and conventions, so watch out for that.
 
 see [[wd.testing]]
 
+It's nice to have live-server running for checking meshes:
+
+`live-server /home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow --port=4507 --mount=/sflo:/tmp/sflo/ --mount=/mesh-alice-bio:/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/sflo --mount=/mesh-sidecar-fantasy-rules:/home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules/docs --mount=/mesh-branch-fantasy-rules://home/djradon/hub/semantic-flow/weave/dependencies/github.com/semantic-flow/mesh-branch-fantasy-rules`
+
 ## Dependencies
 
 - This project depends heavily on the Semantic Flow ontologies, which can be embedded for convenience at `dependencies/github.com/semantic-flow/sflo`

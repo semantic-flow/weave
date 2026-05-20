@@ -425,6 +425,16 @@ Deno.test("renderResourcePage separates SHACL child identifiers from RDF type hi
           path: "ontology/BarbarianPrimaryAbilityChoice",
           rdfTypes: ["http://www.w3.org/ns/shacl#NodeShape"],
         },
+        {
+          label: "CharacterNameShape",
+          path: "ontology/CharacterNameShape",
+          rdfTypes: ["http://www.w3.org/ns/shacl#PropertyShape"],
+        },
+        {
+          label: "ReusableShape",
+          path: "ontology/ReusableShape",
+          rdfTypes: ["http://www.w3.org/ns/shacl#Shape"],
+        },
       ],
     },
   );
@@ -433,10 +443,22 @@ Deno.test("renderResourcePage separates SHACL child identifiers from RDF type hi
   assertStringIncludes(html, "<summary>Children</summary>");
   assertStringIncludes(html, '<th scope="row">Individuals</th>');
   assertStringIncludes(html, '<th scope="row">Node Shapes</th>');
+  assertStringIncludes(html, '<th scope="row">Property Shapes</th>');
+  assertStringIncludes(html, '<th scope="row">Shapes</th>');
   assert(
     html.indexOf('<th scope="row">Individuals</th>') <
       html.indexOf('<th scope="row">Node Shapes</th>'),
     "expected Node Shapes after Individuals",
+  );
+  assert(
+    html.indexOf('<th scope="row">Node Shapes</th>') <
+      html.indexOf('<th scope="row">Property Shapes</th>'),
+    "expected Property Shapes after Node Shapes",
+  );
+  assert(
+    html.indexOf('<th scope="row">Property Shapes</th>') <
+      html.indexOf('<th scope="row">Shapes</th>'),
+    "expected Shapes after Property Shapes",
   );
   assertStringIncludes(
     html,
@@ -445,6 +467,14 @@ Deno.test("renderResourcePage separates SHACL child identifiers from RDF type hi
   assertStringIncludes(
     html,
     '<tr><th scope="row">Node Shapes</th><td><div class="wf-child-identifiers"><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/BarbarianPrimaryAbilityChoice">BarbarianPrimaryAbilityChoice</a></nobr></div></td></tr>',
+  );
+  assertStringIncludes(
+    html,
+    '<tr><th scope="row">Property Shapes</th><td><div class="wf-child-identifiers"><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/CharacterNameShape">CharacterNameShape</a></nobr></div></td></tr>',
+  );
+  assertStringIncludes(
+    html,
+    '<tr><th scope="row">Shapes</th><td><div class="wf-child-identifiers"><nobr><a class="wf-child-identifier" href="/mesh-sidecar-fantasy-rules/ontology/ReusableShape">ReusableShape</a></nobr></div></td></tr>',
   );
 });
 

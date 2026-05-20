@@ -8,7 +8,10 @@ import {
 import { join } from "@std/path";
 import { Parser, type Quad, type Term } from "n3";
 import { executeExtractAllTerms } from "../../src/runtime/extract/extract.ts";
-import { executeGenerate } from "../../src/runtime/weave/weave.ts";
+import {
+  executeGenerate,
+  executeWeave,
+} from "../../src/runtime/weave/weave.ts";
 import { readSingleTransitionCase } from "../support/accord_manifest.ts";
 import {
   listMeshBranchFantasyRulesBranchFiles,
@@ -241,6 +244,50 @@ Deno.test("branch Fantasy Rules final publication has current canonical referenc
   }
 });
 
+Deno.test("branch Fantasy Rules targeted reference weave preserves sibling child shape rows", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "branch-fantasy-rules-targeted-child-shapes-",
+  );
+  const { publicationRoot } =
+    await materializeMeshBranchFantasyRulesPublicationWorkspace(
+      "14-extracted-term-references",
+      workspaceRoot,
+    );
+
+  await executeWeave({
+    meshRoot: publicationRoot,
+    request: {
+      targets: [
+        { designatorPath: "examples/gunaar/ability-score/strength" },
+        { designatorPath: "ontology/Ability" },
+        { designatorPath: "ontology/CharacterShape" },
+      ],
+    },
+    now: () => new Date("2026-05-03T00:00:00.000Z"),
+  });
+
+  const ontologyPage = await Deno.readTextFile(
+    join(publicationRoot, "ontology/index.html"),
+  );
+  const individualsRow = extractChildRowHtml(ontologyPage, "Individuals");
+  const nodeShapesRow = extractChildRowHtml(ontologyPage, "Node Shapes");
+
+  assertStringIncludes(nodeShapesRow, "AbilityScoreShape");
+  assertStringIncludes(nodeShapesRow, "BarbarianPrimaryAbilityChoice");
+  assertStringIncludes(nodeShapesRow, "CharacterPrimaryAbilityByClassShape");
+  assertStringIncludes(nodeShapesRow, "CharacterShape");
+  assertFalse(individualsRow.includes("AbilityScoreShape"), individualsRow);
+  assertFalse(
+    individualsRow.includes("BarbarianPrimaryAbilityChoice"),
+    individualsRow,
+  );
+  assertFalse(
+    individualsRow.includes("CharacterPrimaryAbilityByClassShape"),
+    individualsRow,
+  );
+  assertStringIncludes(individualsRow, ">barbarian</a>");
+});
+
 Deno.test("branch Fantasy Rules generated extracted release state uses source inventory history role", async () => {
   const workspaceRoot = await createTestTmpDir(
     "branch-fantasy-rules-release-state-page-",
@@ -307,6 +354,17 @@ Deno.test("branch Fantasy Rules all-terms extract skips source artifact support 
     Deno.errors.NotFound,
   );
 });
+
+function extractChildRowHtml(html: string, label: string): string {
+  const match = html.match(
+    new RegExp(
+      `<tr><th scope="row">${label}</th><td>(.*?)</td></tr>`,
+      "s",
+    ),
+  );
+  assert(match, `Expected ${label} child row`);
+  return match[1]!;
+}
 
 function meshScopedSourceTermPathsFromQuads(quads: readonly Quad[]): string[] {
   const paths = new Set<string>();
