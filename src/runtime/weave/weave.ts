@@ -1,4 +1,4 @@
-import { dirname, join, relative } from "@std/path";
+import { dirname, join } from "@std/path";
 import { Parser, type Quad } from "n3";
 import {
   toDesignatorResourcePagePath,
@@ -14,8 +14,6 @@ import {
 import {
   type GenerateRequest,
   type KnopArtifactLinkModel,
-  planMeshSupportResourcePages,
-  planVersion,
   type RepositorySourceFloatingLocator,
   type ResourcePageChildIdentifierModel,
   type ResourcePageExtractionSourceModel,
@@ -25,13 +23,9 @@ import {
   type ResourcePageReferenceLinkModel,
   type ResourcePageReferenceTargetModel,
   type ValidateRequest,
-  type VersionPlan,
   type VersionRequest,
   WeaveInputError,
-  type WeaveNamingPolicies,
   type WeaveRequest,
-  type WeaveResourcePageGenerationPolicies,
-  type WeaveSupportHistoryPolicies,
 } from "../../core/weave/weave.ts";
 import {
   listKnopDesignatorPaths,
@@ -51,14 +45,11 @@ import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
 import {
-  assertRequestedTargetsAreWeaveable,
-  loadWeaveableKnopCandidates,
-} from "./candidate_loader.ts";
-import {
   loadKnopSourceRegistryArtifact,
   loadReferenceCatalogWorkingArtifact,
   toPayloadHistoricalSnapshotPath,
 } from "./artifact_loaders.ts";
+import { loadEffectiveConfigForExecution } from "./execution_config.ts";
 import { WeaveRuntimeError } from "./errors.ts";
 export { WeaveRuntimeError } from "./errors.ts";
 import {
@@ -67,17 +58,24 @@ import {
   type MeshState,
 } from "./mesh_state.ts";
 import {
-  applyPlannedFilesToOverlay,
-  TextFileOverlay,
-} from "./planning_context.ts";
+  type PreparedWeaveExecution,
+  prepareWeaveExecution,
+} from "./prepared_execution.ts";
+import type { WeaveProgressHandler } from "./progress.ts";
+export type { WeaveProgressEvent, WeaveProgressHandler } from "./progress.ts";
 import {
-  type NormalizedWeaveRequest,
   normalizeGenerateRequest,
   normalizeValidateRequest,
   normalizeVersionRequest,
   normalizeWeaveRequest,
 } from "./request_normalization.ts";
 import { timeOptional, timeOptionalSync } from "./timing_helpers.ts";
+import {
+  prepareVersionExecution,
+  validateVersionPlanRdf,
+  writePreparedVersion,
+} from "./version_execution.ts";
+import { toWorkspaceRelativePath } from "./workspace_paths.ts";
 import {
   type CustomIdentifierPageModelInput,
   describeResourcePageDefinitionArtifact,
@@ -88,11 +86,8 @@ import {
 import { renderResourcePages } from "./pages.ts";
 import { SFLO_NAMESPACE } from "../../core/rdf/namespaces.ts";
 import {
-  type ArtifactRole,
   type EffectiveConfig,
-  EffectiveConfig as EffectiveConfigValue,
   type HistoryTrackingPolicy,
-  loadWeaveDefaultEffectiveConfig,
 } from "../config/effective_config.ts";
 import {
   listGeneratedResourcePagePaths,
@@ -174,14 +169,6 @@ export interface ExecuteWeaveOptions {
   validateAfter?: boolean;
 }
 
-export interface WeaveProgressEvent {
-  designatorPath: string;
-  completed: number;
-  total: number;
-  percent: number;
-}
-
-export type WeaveProgressHandler = (event: WeaveProgressEvent) => void;
 export type ValidateScope = "mesh" | "publication";
 
 export interface ValidateFinding {
@@ -219,16 +206,6 @@ export interface WeaveResult {
   skippedTimestampOnlyPaths: readonly string[];
 }
 
-interface PreparedVersionExecution {
-  meshState: MeshState;
-  plan: VersionPlan;
-}
-
-interface PreparedWeaveExecution {
-  request: NormalizedWeaveRequest;
-  version: PreparedVersionExecution;
-}
-
 interface GenerateDesignatorContext {
   designatorPath: string;
   payloadWorkingLocalRelativePath?: string;
@@ -259,19 +236,6 @@ interface ParsedResourceReferenceLink {
 }
 
 const RAW_SOURCE_INLINE_BYTE_LIMIT = 1024 * 1024;
-const ALL_ARTIFACT_ROLES: readonly ArtifactRole[] = [
-  "payload",
-  "meshInventory",
-  "knopInventory",
-  "meshMetadata",
-  "knopMetadata",
-  "config",
-  "referenceCatalog",
-  "resourcePageDefinition",
-  "resourcePageTemplate",
-  "resourcePageStylesheet",
-  "runtimeMeta",
-];
 
 export async function executeValidate(
   options: ExecuteValidateOptions,
@@ -326,11 +290,7 @@ export async function executeValidate(
       undefined,
       timing,
     );
-    timing.timeSync("validateRdf", () =>
-      validateRdfFiles([
-        ...prepared.plan.createdFiles,
-        ...prepared.plan.updatedFiles,
-      ]));
+    timing.timeSync("validateRdf", () => validateVersionPlanRdf(prepared.plan));
     const publicationValidation = await timing.time(
       "validatePublicationPreset",
       () =>
@@ -424,69 +384,6 @@ export async function executeVersion(
   } finally {
     timing.finish({ status });
   }
-}
-
-async function writePreparedVersion(
-  meshRoot: string,
-  localPathPolicy: OperationalLocalPathPolicy,
-  prepared: PreparedVersionExecution,
-  options: {
-    validateRdf: boolean;
-    timing?: RuntimeTiming;
-    phasePrefix?: string;
-  },
-): Promise<VersionResult> {
-  const phasePrefix = options.phasePrefix ?? "write";
-  const timing = options.timing;
-  timeOptionalSync(
-    timing,
-    `${phasePrefix}.assertUpdatedTargetsExist`,
-    () => assertUpdatedTargetsExist(meshRoot, prepared.plan.updatedFiles),
-  );
-  await timeOptional(
-    timing,
-    `${phasePrefix}.assertCreateTargetsDoNotExist`,
-    () =>
-      assertCreateTargetsDoNotExist(
-        meshRoot,
-        prepared.plan.createdFiles,
-      ),
-  );
-  if (options.validateRdf) {
-    timeOptionalSync(
-      timing,
-      `${phasePrefix}.validateRdf`,
-      () => validateVersionPlanRdf(prepared.plan),
-    );
-  }
-  await timeOptional(
-    timing,
-    `${phasePrefix}.createdFiles`,
-    () => writeFiles(meshRoot, prepared.plan.createdFiles, true),
-  );
-  await timeOptional(
-    timing,
-    `${phasePrefix}.updatedFiles`,
-    () => writeFiles(meshRoot, prepared.plan.updatedFiles, false),
-  );
-
-  return {
-    meshBase: prepared.meshState.meshBase,
-    versionedDesignatorPaths: prepared.plan.versionedDesignatorPaths,
-    createdPaths: prepared.plan.createdFiles.map((file) =>
-      toWorkspaceRelativePath(localPathPolicy, file.path)
-    ),
-    updatedPaths: prepared.plan.updatedFiles.map((file) =>
-      toWorkspaceRelativePath(localPathPolicy, file.path)
-    ),
-  };
-}
-
-function validateVersionPlanRdf(plan: VersionPlan): void {
-  validateRdfFiles([
-    ...plan.createdFiles,
-    ...plan.updatedFiles,
-  ]);
 }
 
 export async function executeGenerate(
@@ -848,366 +745,6 @@ function assertValidationPassed(
   );
 }
 
-async function loadEffectiveConfigForExecution(
-  historyTrackingPolicyOverride?: HistoryTrackingPolicy,
-): Promise<EffectiveConfig> {
-  const effectiveConfig = await loadWeaveDefaultEffectiveConfig();
-  if (historyTrackingPolicyOverride === undefined) {
-    return effectiveConfig;
-  }
-
-  return new EffectiveConfigValue({
-    sources: effectiveConfig.sources,
-    configResolution: effectiveConfig.configResolution,
-    namingPolicies: effectiveConfig.namingPolicies,
-    resourcePageRegenerationConfigPolicy: effectiveConfig
-      .resourcePageRegenerationConfigPolicy,
-    defaultHistoryTrackingPolicy: historyTrackingPolicyOverride,
-    historyTrackingByRole: new Map(
-      ALL_ARTIFACT_ROLES.map((role) => [
-        role,
-        historyTrackingPolicyOverride,
-      ]),
-    ),
-    defaultResourcePageGenerationPolicy: "generate",
-    resourcePageGenerationByRole: new Map(
-      ALL_ARTIFACT_ROLES.map((role) => [
-        role,
-        effectiveConfig.resourcePageGenerationPolicyForArtifactRole(role),
-      ]),
-    ),
-  });
-}
-
-async function prepareWeaveExecution(
-  workspaceRoot: string,
-  request: NormalizedWeaveRequest,
-  localPathPolicy: OperationalLocalPathPolicy,
-  historyTrackingPolicyOverride?: HistoryTrackingPolicy,
-  onProgress?: WeaveProgressHandler,
-  timing?: RuntimeTiming,
-): Promise<PreparedWeaveExecution> {
-  const version = await prepareVersionExecution(
-    workspaceRoot,
-    request.targetPreparation.versionTargets,
-    localPathPolicy,
-    request.overwriteExistingState,
-    historyTrackingPolicyOverride,
-    onProgress,
-    timing,
-  );
-
-  return {
-    request,
-    version,
-  };
-}
-
-async function prepareVersionExecution(
-  workspaceRoot: string,
-  targets: readonly NormalizedVersionTargetSpec[],
-  localPathPolicy: OperationalLocalPathPolicy,
-  overwriteExistingState = false,
-  historyTrackingPolicyOverride?: HistoryTrackingPolicy,
-  onProgress?: WeaveProgressHandler,
-  timing?: RuntimeTiming,
-): Promise<PreparedVersionExecution> {
-  await timeOptional(
-    timing,
-    "prepare.ensureWorkspaceRoot",
-    () => ensureWorkspaceRootExists(workspaceRoot),
-  );
-  const meshState = await timeOptional(
-    timing,
-    "prepare.loadMeshState",
-    () => loadMeshState(workspaceRoot),
-  );
-  const effectiveConfig = await timeOptional(
-    timing,
-    "prepare.loadEffectiveConfig",
-    () => loadEffectiveConfigForExecution(historyTrackingPolicyOverride),
-  );
-  const supportHistoryPolicies = supportHistoryPoliciesFromEffectiveConfig(
-    effectiveConfig,
-  );
-  const namingPolicies = namingPoliciesFromEffectiveConfig(effectiveConfig);
-  const resourcePageGenerationPolicies =
-    resourcePageGenerationPoliciesFromEffectiveConfig(effectiveConfig);
-  const allDesignatorPaths = timeOptionalSync(
-    timing,
-    "prepare.listDesignatorPaths",
-    () =>
-      listKnopDesignatorPaths(
-        meshState.meshBase,
-        meshState.currentMeshInventoryTurtle,
-        "Could not parse the current MeshInventory while resolving weaveable Knop candidates.",
-      ),
-  );
-  const resolvedTargets = timeOptionalSync(
-    timing,
-    "prepare.resolveTargets",
-    () =>
-      targets.length === 0 ? [] : resolveTargetSelections(
-        allDesignatorPaths,
-        targets,
-        (message) => new WeaveInputError(message),
-      ),
-  );
-  timing?.setField("knownDesignatorPaths", allDesignatorPaths.length);
-  timing?.setField("requestedTargets", targets.length);
-  timing?.setField("resolvedTargets", resolvedTargets.length);
-  const requestedDesignatorPaths = resolvedTargets.map((selection) =>
-    selection.designatorPath
-  );
-  const targetByDesignatorPath = new Map(
-    resolvedTargets.map((selection) => [
-      selection.designatorPath,
-      selection.target as NormalizedVersionTargetSpec | undefined,
-    ]),
-  );
-  const overlay = new TextFileOverlay();
-  const initialWeaveableKnops = await timeOptional(
-    timing,
-    "prepare.loadInitialCandidates",
-    () =>
-      loadWeaveableKnopCandidates(
-        workspaceRoot,
-        localPathPolicy,
-        meshState.meshBase,
-        meshState.currentMeshInventoryTurtle,
-        requestedDesignatorPaths,
-        targetByDesignatorPath,
-        overlay,
-        timing,
-        "prepare.loadInitialCandidates",
-      ),
-  );
-  timing?.setField("initialWeaveableKnops", initialWeaveableKnops.length);
-  assertRequestedTargetsAreWeaveable(
-    targets,
-    initialWeaveableKnops,
-  );
-
-  if (initialWeaveableKnops.length === 0) {
-    if (targets.length === 0) {
-      return {
-        meshState,
-        plan: planMeshSupportResourcePages({
-          meshBase: meshState.meshBase,
-          currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
-          currentMeshMetadataTurtle: meshState.currentMeshMetadataTurtle,
-          currentMeshConfigTurtle: meshState.currentMeshConfigTurtle,
-          supportHistoryPolicies,
-          resourcePageGenerationPolicies,
-        }),
-      };
-    }
-    throw new WeaveInputError(
-      "Requested targets did not match any weave candidates.",
-    );
-  }
-
-  const remainingDesignatorPaths = initialWeaveableKnops.map((candidate) =>
-    candidate.designatorPath
-  );
-  const createdFiles: PlannedFile[] = [];
-  const createdPaths = new Set<string>();
-  const updatedFileByPath = new Map<string, PlannedFile>();
-  const updatedPathOrder: string[] = [];
-  const versionedDesignatorPaths: string[] = [];
-
-  while (remainingDesignatorPaths.length > 0) {
-    const stagedMeshState = await timeOptional(
-      timing,
-      "prepare.loop.loadMeshState",
-      () => loadMeshState(workspaceRoot, overlay),
-    );
-    const stagedWeaveableKnops = await timeOptional(
-      timing,
-      "prepare.loop.loadCandidates",
-      () =>
-        loadWeaveableKnopCandidates(
-          workspaceRoot,
-          localPathPolicy,
-          stagedMeshState.meshBase,
-          stagedMeshState.currentMeshInventoryTurtle,
-          remainingDesignatorPaths,
-          targetByDesignatorPath,
-          overlay,
-          timing,
-          "prepare.loop.loadCandidates",
-        ),
-    );
-
-    if (stagedWeaveableKnops.length === 0) {
-      throw new WeaveInputError(
-        `Recursive version planning could not continue cleanly for the remaining targets: ${
-          remainingDesignatorPaths.join(", ")
-        }.`,
-      );
-    }
-
-    const nextCandidate = stagedWeaveableKnops[0]!;
-    const nextDesignatorPath = nextCandidate.designatorPath;
-    const target = targetByDesignatorPath.get(nextDesignatorPath);
-    const nextPlan = timeOptionalSync(
-      timing,
-      "prepare.loop.planVersion",
-      () =>
-        planVersion({
-          request: {
-            ...(target ? { targets: [{ ...target.source }] } : {}),
-            ...(overwriteExistingState ? { overwriteExistingState } : {}),
-          },
-          meshBase: stagedMeshState.meshBase,
-          currentMeshInventoryTurtle:
-            stagedMeshState.currentMeshInventoryTurtle,
-          currentMeshMetadataTurtle: stagedMeshState.currentMeshMetadataTurtle,
-          weaveableKnops: [nextCandidate],
-          supportHistoryPolicies,
-          namingPolicies,
-          resourcePageGenerationPolicies,
-        }),
-    );
-
-    for (const file of nextPlan.createdFiles) {
-      if (createdPaths.has(file.path) || updatedFileByPath.has(file.path)) {
-        throw new WeaveInputError(
-          `Recursive version planning produced a conflicting created file: ${file.path}`,
-        );
-      }
-      createdFiles.push(file);
-      createdPaths.add(file.path);
-    }
-
-    for (const file of nextPlan.updatedFiles) {
-      if (createdPaths.has(file.path)) {
-        throw new WeaveInputError(
-          `Recursive version planning attempted to update a newly created file: ${file.path}`,
-        );
-      }
-      if (!updatedFileByPath.has(file.path)) {
-        updatedPathOrder.push(file.path);
-      }
-      updatedFileByPath.set(file.path, file);
-    }
-
-    versionedDesignatorPaths.push(...nextPlan.versionedDesignatorPaths);
-    applyPlannedFilesToOverlay(workspaceRoot, overlay, nextPlan.createdFiles);
-    applyPlannedFilesToOverlay(workspaceRoot, overlay, nextPlan.updatedFiles);
-
-    const completedPath = nextPlan.versionedDesignatorPaths[0]!;
-    const completedIndex = remainingDesignatorPaths.indexOf(completedPath);
-    if (completedIndex < 0) {
-      throw new WeaveInputError(
-        `Recursive version planning lost track of ${completedPath}.`,
-      );
-    }
-    remainingDesignatorPaths.splice(completedIndex, 1);
-
-    const completed = versionedDesignatorPaths.length;
-    onProgress?.({
-      designatorPath: completedPath,
-      completed,
-      total: initialWeaveableKnops.length,
-      percent: Math.round((completed / initialWeaveableKnops.length) * 100),
-    });
-  }
-
-  const plan: VersionPlan = {
-    meshBase: meshState.meshBase,
-    versionedDesignatorPaths,
-    createdFiles,
-    updatedFiles: updatedPathOrder.map((path) => updatedFileByPath.get(path)!),
-  };
-
-  timing?.setField("cachedReadFiles", overlay.readCount);
-  timing?.setField("readCacheHits", overlay.cacheHitCount);
-  timing?.setField("stagedReadHits", overlay.stagedHitCount);
-  timing?.setField("candidateCacheHits", overlay.candidateCacheHitCount);
-  timing?.setField("candidateCacheStores", overlay.candidateCacheStoreCount);
-  timing?.setField(
-    "candidateCacheInvalidations",
-    overlay.candidateCacheInvalidationCount,
-  );
-
-  return {
-    meshState,
-    plan,
-  };
-}
-
-function supportHistoryPoliciesFromEffectiveConfig(
-  effectiveConfig: EffectiveConfig,
-): WeaveSupportHistoryPolicies {
-  return {
-    meshMetadata: effectiveConfig.historyTrackingPolicyForArtifactRole(
-      "meshMetadata",
-    ),
-    meshInventory: effectiveConfig.historyTrackingPolicyForArtifactRole(
-      "meshInventory",
-    ),
-    config: effectiveConfig.historyTrackingPolicyForArtifactRole("config"),
-    knopMetadata: effectiveConfig.historyTrackingPolicyForArtifactRole(
-      "knopMetadata",
-    ),
-    knopInventory: effectiveConfig.historyTrackingPolicyForArtifactRole(
-      "knopInventory",
-    ),
-    referenceCatalog: effectiveConfig.historyTrackingPolicyForArtifactRole(
-      "referenceCatalog",
-    ),
-    resourcePageDefinition: effectiveConfig
-      .historyTrackingPolicyForArtifactRole(
-        "resourcePageDefinition",
-      ),
-  };
-}
-
-function namingPoliciesFromEffectiveConfig(
-  effectiveConfig: EffectiveConfig,
-): WeaveNamingPolicies {
-  return {
-    historyNamingPolicy: effectiveConfig.namingPolicies.historyNamingPolicy,
-    stateNamingPolicy: effectiveConfig.namingPolicies.stateNamingPolicy,
-    manifestationNamingPolicy: effectiveConfig.namingPolicies
-      .manifestationNamingPolicy,
-  };
-}
-
-function resourcePageGenerationPoliciesFromEffectiveConfig(
-  effectiveConfig: EffectiveConfig,
-): WeaveResourcePageGenerationPolicies {
-  return {
-    payload: effectiveConfig.resourcePageGenerationPolicyForArtifactRole(
-      "payload",
-    ),
-    meshInventory: effectiveConfig.resourcePageGenerationPolicyForArtifactRole(
-      "meshInventory",
-    ),
-    knopInventory: effectiveConfig.resourcePageGenerationPolicyForArtifactRole(
-      "knopInventory",
-    ),
-    meshMetadata: effectiveConfig.resourcePageGenerationPolicyForArtifactRole(
-      "meshMetadata",
-    ),
-    knopMetadata: effectiveConfig.resourcePageGenerationPolicyForArtifactRole(
-      "knopMetadata",
-    ),
-    config: effectiveConfig.resourcePageGenerationPolicyForArtifactRole(
-      "config",
-    ),
-    referenceCatalog: effectiveConfig
-      .resourcePageGenerationPolicyForArtifactRole(
-        "referenceCatalog",
-      ),
-    resourcePageDefinition: effectiveConfig
-      .resourcePageGenerationPolicyForArtifactRole(
-        "resourcePageDefinition",
-      ),
-  };
-}
-
 function toNormalizedVersionTargets(
   targets: readonly NormalizedTargetSpec[],
 ): readonly NormalizedVersionTargetSpec[] {
@@ -1231,17 +768,6 @@ function resolveExecutionMeshRoot(
   return options.meshRoot;
 }
 
-function toWorkspaceRelativePath(
-  policy: OperationalLocalPathPolicy,
-  meshRelativePath: string,
-): string {
-  const path = relative(
-    policy.workspaceRoot,
-    join(policy.meshRoot, meshRelativePath),
-  ).replaceAll("\\", "/");
-  return path.length === 0 ? "." : path;
-}
-
 function resolveSelectedDesignatorPaths(
   allDesignatorPaths: readonly string[],
   targets:
@@ -1253,60 +779,6 @@ function resolveSelectedDesignatorPaths(
     targets,
     (message) => new WeaveInputError(message),
   ).map((selection) => selection.designatorPath);
-}
-
-function assertUpdatedTargetsExist(
-  workspaceRoot: string,
-  files: readonly PlannedFile[],
-): void {
-  for (const file of files) {
-    const absolutePath = join(workspaceRoot, file.path);
-    try {
-      Deno.statSync(absolutePath);
-    } catch (error) {
-      if (error instanceof Deno.errors.NotFound) {
-        throw new WeaveRuntimeError(
-          `weave target does not exist: ${file.path}`,
-        );
-      }
-      throw error;
-    }
-  }
-}
-
-async function assertCreateTargetsDoNotExist(
-  workspaceRoot: string,
-  files: readonly PlannedFile[],
-): Promise<void> {
-  for (const file of files) {
-    try {
-      await Deno.stat(join(workspaceRoot, file.path));
-      throw new WeaveRuntimeError(`weave target already exists: ${file.path}`);
-    } catch (error) {
-      if (error instanceof Deno.errors.NotFound) {
-        continue;
-      }
-      throw error;
-    }
-  }
-}
-
-function validateRdfFiles(files: readonly PlannedFile[]): void {
-  const parser = new Parser();
-
-  for (const file of files) {
-    if (!file.path.endsWith(".ttl")) {
-      continue;
-    }
-    try {
-      parser.parse(file.contents);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new WeaveRuntimeError(
-        `Generated RDF did not parse for ${file.path}: ${message}`,
-      );
-    }
-  }
 }
 
 async function collectGeneratedPageFiles(
@@ -3888,22 +3360,6 @@ function toResourcePath(pagePath: string): string {
 function toFileName(path: string): string {
   const segments = path.split("/");
   return segments[segments.length - 1]!;
-}
-
-async function writeFiles(
-  workspaceRoot: string,
-  files: readonly PlannedFile[],
-  createNew: boolean,
-): Promise<void> {
-  for (const file of files) {
-    const absolutePath = join(workspaceRoot, file.path);
-    await Deno.mkdir(dirname(absolutePath), { recursive: true });
-    await Deno.writeTextFile(
-      absolutePath,
-      file.contents,
-      createNew ? { createNew: true } : undefined,
-    );
-  }
 }
 
 const GENERATED_TIMESTAMP_FOOTER_PATTERN =
