@@ -176,6 +176,9 @@ const RDF_DESCRIPTION_PREDICATE_IRIS = [
   RDFS_LABEL_IRI,
 ] as const;
 const REFERENCE_ROLE_ORDER = ["canonical", "supplemental", "deprecated"];
+const SOURCE_RDF_PREFIXES = COMMON_RDF_PREFIXES.filter(([namespace]) =>
+  namespace !== SFLO_NAMESPACE && namespace !== SFCFG_NAMESPACE
+);
 
 const defaultResourcePageTheme: ResourcePageTheme = {
   render: renderDefaultResourcePage,
@@ -1794,6 +1797,7 @@ function extractRdfFacts(
   rawSourcePanels: readonly ResourcePageRawSourcePanelModel[],
 ): ResourcePageRdfFacts {
   const prefixMap = collectPrefixMap(rawSourcePanels);
+  const sourceIriLabels = collectSourceIriLabels(canonical, rawSourcePanels);
   const quads = rawSourcePanels.flatMap((panel) =>
     panel.contents ? parseRdfPanel(canonical, panel.contents) : []
   );
@@ -1812,10 +1816,10 @@ function extractRdfFacts(
   );
   const note = findFirstLiteralObject(quads, canonical, SKOS_NOTE_IRI);
   const broader = findNamedNodeObjects(quads, canonical, SKOS_BROADER_IRI)
-    .map((iri) => toRdfIriLink(iri, prefixMap))
+    .map((iri) => toRdfIriLink(iri, sourceIriLabels, prefixMap))
     .sort((left, right) => left.label.localeCompare(right.label));
   const narrower = findNamedNodeObjects(quads, canonical, SKOS_NARROWER_IRI)
-    .map((iri) => toRdfIriLink(iri, prefixMap))
+    .map((iri) => toRdfIriLink(iri, sourceIriLabels, prefixMap))
     .sort((left, right) => left.label.localeCompare(right.label));
   const classes = new Map<string, ResourcePageRdfClass>();
 
@@ -1827,7 +1831,11 @@ function extractRdfFacts(
       quad.object.termType === "NamedNode"
     ) {
       classes.set(quad.object.value, {
-        label: compactRdfIri(quad.object.value, prefixMap),
+        label: toSourceRdfIriDisplayLabel(
+          quad.object.value,
+          sourceIriLabels,
+          prefixMap,
+        ),
         iri: quad.object.value,
       });
     }
@@ -1850,6 +1858,7 @@ function extractPropertyRows(
   rawSourcePanels: readonly ResourcePageRawSourcePanelModel[],
 ): readonly ResourcePagePropertyRow[] {
   const prefixMap = collectPrefixMap(rawSourcePanels);
+  const sourceIriLabels = collectSourceIriLabels(canonical, rawSourcePanels);
   const quads = rawSourcePanels.flatMap((panel) =>
     panel.contents ? parseRdfPanel(canonical, panel.contents) : []
   );
@@ -1866,8 +1875,16 @@ function extractPropertyRows(
       continue;
     }
 
-    const predicateLabel = compactRdfIri(quad.predicate.value, prefixMap);
-    const value = toPropertyObjectDisplayValue(quad.object, prefixMap);
+    const predicateLabel = toSourceRdfIriDisplayLabel(
+      quad.predicate.value,
+      sourceIriLabels,
+      prefixMap,
+    );
+    const value = toPropertyObjectDisplayValue(
+      quad.object,
+      sourceIriLabels,
+      prefixMap,
+    );
     const valueHref = toPropertyObjectHref(quad.object);
     const row = {
       predicateLabel,
@@ -1892,6 +1909,7 @@ function extractBlankNodeRows(
   rawSourcePanels: readonly ResourcePageRawSourcePanelModel[],
 ): readonly ResourcePageBlankNodeRow[] {
   const prefixMap = collectPrefixMap(rawSourcePanels);
+  const sourceIriLabels = collectSourceIriLabels(canonical, rawSourcePanels);
   const rows = new Map<string, ResourcePageBlankNodeRow>();
 
   for (const panel of rawSourcePanels) {
@@ -1909,8 +1927,17 @@ function extractBlankNodeRows(
         continue;
       }
 
-      const predicateLabel = compactRdfIri(quad.predicate.value, prefixMap);
-      const code = renderBlankNodeCode(quad.object.value, quads, prefixMap);
+      const predicateLabel = toSourceRdfIriDisplayLabel(
+        quad.predicate.value,
+        sourceIriLabels,
+        prefixMap,
+      );
+      const code = renderBlankNodeCode(
+        quad.object.value,
+        quads,
+        sourceIriLabels,
+        prefixMap,
+      );
       rows.set(
         `${panel.sourcePath}\u0000${quad.predicate.value}\u0000${quad.object.value}`,
         {
@@ -1931,16 +1958,25 @@ function extractBlankNodeRows(
 function renderBlankNodeCode(
   blankNodeId: string,
   quads: readonly Quad[],
+  sourceIriLabels: ReadonlyMap<string, string>,
   prefixMap: ReadonlyMap<string, string>,
 ): string {
   const lines: string[] = [];
-  appendBlankNodeCodeBlock(blankNodeId, quads, prefixMap, lines, new Set());
+  appendBlankNodeCodeBlock(
+    blankNodeId,
+    quads,
+    sourceIriLabels,
+    prefixMap,
+    lines,
+    new Set(),
+  );
   return lines.join("\n");
 }
 
 function appendBlankNodeCodeBlock(
   blankNodeId: string,
   quads: readonly Quad[],
+  sourceIriLabels: ReadonlyMap<string, string>,
   prefixMap: ReadonlyMap<string, string>,
   lines: string[],
   visited: Set<string>,
@@ -1953,17 +1989,23 @@ function appendBlankNodeCodeBlock(
   const subjectQuads = findBlankNodeSubjectQuads(
     blankNodeId,
     quads,
+    sourceIriLabels,
     prefixMap,
   );
   for (const [index, quad] of subjectQuads.entries()) {
     const terminator = index === subjectQuads.length - 1 ? "." : ";";
     appendPredicateObjectLines(
       lines,
-      compactRdfIri(quad.predicate.value, prefixMap),
+      toSourceRdfIriDisplayLabel(
+        quad.predicate.value,
+        sourceIriLabels,
+        prefixMap,
+      ),
       quad.object,
       terminator,
       "  ",
       quads,
+      sourceIriLabels,
       prefixMap,
       visited,
     );
@@ -1973,6 +2015,7 @@ function appendBlankNodeCodeBlock(
 function findBlankNodeSubjectQuads(
   blankNodeId: string,
   quads: readonly Quad[],
+  sourceIriLabels: ReadonlyMap<string, string>,
   prefixMap: ReadonlyMap<string, string>,
 ): readonly Quad[] {
   return quads
@@ -1981,11 +2024,19 @@ function findBlankNodeSubjectQuads(
       quad.subject.value === blankNodeId
     )
     .sort((left, right) =>
-      compactRdfIri(left.predicate.value, prefixMap).localeCompare(
-        compactRdfIri(right.predicate.value, prefixMap),
+      toSourceRdfIriDisplayLabel(
+        left.predicate.value,
+        sourceIriLabels,
+        prefixMap,
+      ).localeCompare(
+        toSourceRdfIriDisplayLabel(
+          right.predicate.value,
+          sourceIriLabels,
+          prefixMap,
+        ),
       ) ||
-      formatRdfTerm(left.object, prefixMap).localeCompare(
-        formatRdfTerm(right.object, prefixMap),
+      formatRdfTerm(left.object, sourceIriLabels, prefixMap).localeCompare(
+        formatRdfTerm(right.object, sourceIriLabels, prefixMap),
       )
     );
 }
@@ -1997,13 +2048,14 @@ function appendPredicateObjectLines(
   terminator: string,
   indent: string,
   quads: readonly Quad[],
+  sourceIriLabels: ReadonlyMap<string, string>,
   prefixMap: ReadonlyMap<string, string>,
   visited: Set<string>,
 ): void {
   if (object.termType !== "BlankNode") {
     lines.push(
       `${indent}${predicateLabel} ${
-        formatRdfTerm(object, prefixMap)
+        formatRdfTerm(object, sourceIriLabels, prefixMap)
       }${terminator}`,
     );
     return;
@@ -2018,6 +2070,7 @@ function appendPredicateObjectLines(
   const subjectQuads = findBlankNodeSubjectQuads(
     object.value,
     quads,
+    sourceIriLabels,
     prefixMap,
   );
   if (subjectQuads.length === 0) {
@@ -2035,6 +2088,7 @@ function appendPredicateObjectLines(
       nestedTerminator,
       `${indent}  `,
       quads,
+      sourceIriLabels,
       prefixMap,
       visited,
     );
@@ -2044,22 +2098,24 @@ function appendPredicateObjectLines(
 
 function formatRdfTerm(
   term: Term,
+  sourceIriLabels: ReadonlyMap<string, string>,
   prefixMap: ReadonlyMap<string, string>,
 ): string {
   if (term.termType === "NamedNode") {
-    return compactRdfIri(term.value, prefixMap);
+    return toSourceRdfIriDisplayLabel(term.value, sourceIriLabels, prefixMap);
   }
   if (term.termType === "BlankNode") {
     return "[]";
   }
   if (term.termType === "Literal") {
-    return formatRdfLiteral(term, prefixMap);
+    return formatRdfLiteral(term, sourceIriLabels, prefixMap);
   }
   return term.value;
 }
 
 function formatRdfLiteral(
   term: Extract<Term, { termType: "Literal" }>,
+  sourceIriLabels: ReadonlyMap<string, string>,
   prefixMap: ReadonlyMap<string, string>,
 ): string {
   const value = JSON.stringify(term.value);
@@ -2067,17 +2123,24 @@ function formatRdfLiteral(
     return `${value}@${term.language}`;
   }
   if (term.datatype.value !== XSD_STRING_IRI) {
-    return `${value}^^${compactRdfIri(term.datatype.value, prefixMap)}`;
+    return `${value}^^${
+      toSourceRdfIriDisplayLabel(
+        term.datatype.value,
+        sourceIriLabels,
+        prefixMap,
+      )
+    }`;
   }
   return value;
 }
 
 function toPropertyObjectDisplayValue(
   term: Quad["object"],
+  sourceIriLabels: ReadonlyMap<string, string>,
   prefixMap: ReadonlyMap<string, string>,
 ): string {
   if (term.termType === "NamedNode") {
-    return compactRdfIri(term.value, prefixMap);
+    return toSourceRdfIriDisplayLabel(term.value, sourceIriLabels, prefixMap);
   }
   if (term.termType === "BlankNode") {
     return `_:${term.value}`;
@@ -2268,7 +2331,7 @@ function collectPrefixMap(
 ): ReadonlyMap<string, string> {
   const prefixByNamespace = new Map<string, string>();
 
-  for (const [namespace, prefix] of COMMON_RDF_PREFIXES) {
+  for (const [namespace, prefix] of SOURCE_RDF_PREFIXES) {
     prefixByNamespace.set(namespace, prefix);
   }
 
@@ -2282,6 +2345,86 @@ function collectPrefixMap(
   }
 
   return prefixByNamespace;
+}
+
+function collectSourceIriLabels(
+  defaultBaseIri: string,
+  rawSourcePanels: readonly ResourcePageRawSourcePanelModel[],
+): ReadonlyMap<string, string> {
+  const labelsByIri = new Map<string, string>();
+
+  for (const panel of rawSourcePanels) {
+    if (!panel.contents) {
+      continue;
+    }
+    const baseIri = parseDeclaredBase(panel.contents, defaultBaseIri) ??
+      defaultBaseIri;
+    const prefixesByName = new Map(
+      parseDeclaredPrefixes(panel.contents).map((
+        [namespace, prefix],
+      ) => [prefix, namespace]),
+    );
+
+    for (const match of panel.contents.matchAll(/<([^>]*)>/g)) {
+      const rawIri = match[1];
+      if (!rawIri) {
+        continue;
+      }
+      const absoluteIri = resolveSourceIri(rawIri, baseIri);
+      if (absoluteIri) {
+        setSourceIriLabel(labelsByIri, absoluteIri, absoluteIri);
+      }
+    }
+
+    const prefixedNamePattern =
+      /(^|[^\w-])([A-Za-z][\w-]*):([A-Za-z_][A-Za-z0-9_\-.~%:/?#@!$&'()*+,;=]*)/g;
+    for (const match of panel.contents.matchAll(prefixedNamePattern)) {
+      const prefix = match[2];
+      const localPart = match[3];
+      if (!prefix || !localPart) {
+        continue;
+      }
+      const namespace = prefixesByName.get(prefix);
+      if (!namespace) {
+        continue;
+      }
+      setSourceIriLabel(
+        labelsByIri,
+        `${namespace}${localPart}`,
+        `${prefix}:${localPart}`,
+      );
+    }
+  }
+
+  return labelsByIri;
+}
+
+function setSourceIriLabel(
+  labelsByIri: Map<string, string>,
+  iri: string,
+  label: string,
+): void {
+  const existing = labelsByIri.get(iri);
+  if (!existing || label === iri) {
+    labelsByIri.set(iri, label);
+  }
+}
+
+function parseDeclaredBase(
+  turtle: string,
+  defaultBaseIri: string,
+): string | undefined {
+  const baseMatch = turtle.match(/(?:@base|BASE)\s+<([^>]+)>/i);
+  const rawBase = baseMatch?.[1];
+  return rawBase ? resolveSourceIri(rawBase, defaultBaseIri) : undefined;
+}
+
+function resolveSourceIri(iri: string, baseIri: string): string | undefined {
+  try {
+    return new URL(iri, baseIri).href;
+  } catch {
+    return undefined;
+  }
 }
 
 function canonicalRdfPrefix(namespace: string, declaredPrefix: string): string {
@@ -2414,12 +2557,21 @@ function toMeshPath(meshRootHref: string, iri: string): string | undefined {
 
 function toRdfIriLink(
   iri: string,
+  sourceIriLabels: ReadonlyMap<string, string>,
   prefixMap: ReadonlyMap<string, string>,
 ): ResourcePageRdfIriLink {
   return {
-    label: compactRdfIri(iri, prefixMap),
+    label: toSourceRdfIriDisplayLabel(iri, sourceIriLabels, prefixMap),
     href: iri,
   };
+}
+
+function toSourceRdfIriDisplayLabel(
+  iri: string,
+  sourceIriLabels: ReadonlyMap<string, string>,
+  prefixByNamespace: ReadonlyMap<string, string>,
+): string {
+  return sourceIriLabels.get(iri) ?? compactRdfIri(iri, prefixByNamespace);
 }
 
 function compactRdfIri(
@@ -2436,14 +2588,7 @@ function compactRdfIri(
     }
   }
 
-  const hashIndex = iri.lastIndexOf("#");
-  if (hashIndex !== -1 && hashIndex < iri.length - 1) {
-    return iri.slice(hashIndex + 1);
-  }
-  const slashIndex = iri.lastIndexOf("/");
-  return slashIndex !== -1 && slashIndex < iri.length - 1
-    ? iri.slice(slashIndex + 1)
-    : iri;
+  return iri;
 }
 
 function rdfClass(label: string, iri: string): ResourcePageRdfClass {

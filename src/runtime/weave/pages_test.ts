@@ -1017,12 +1017,16 @@ Deno.test("renderResourcePage renders properties from subject triples", async ()
         sourcePath: "../ontology/fantasy-rules-ontology.ttl",
         contents:
           `@prefix fant: <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix skos: <http://www.w3.org/2004/02/skos/core#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 fant:AbilityScore a owl:Class ;
+  dcterms:creator <https://djradon.github.io/ns/dave-richardson> ;
+  dcterms:hasVersion <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/releases/v0.0.1> ;
+  owl:versionIRI <https://raw.githubusercontent.com/semantic-flow/sflo/refs/tags/v0.1.1/semantic-flow-core-ontology.ttl> ;
   rdfs:label "Ability Score" ;
   skos:prefLabel "Ability score preferred label" ;
   rdfs:seeAlso "https://example.org/rules/ability-score"^^xsd:anyURI ;
@@ -1047,6 +1051,20 @@ fant:AbilityScore a owl:Class ;
     html,
     '<th scope="row"><a class="wf-term wf-term-link" href="http://www.w3.org/1999/02/22-rdf-syntax-ns#type" title="http://www.w3.org/1999/02/22-rdf-syntax-ns#type">rdf:type</a></th><td><a href="http://www.w3.org/2002/07/owl#Class">owl:Class</a></td>',
   );
+  assertStringIncludes(
+    html,
+    '<th scope="row"><a class="wf-term wf-term-link" href="http://purl.org/dc/terms/creator" title="http://purl.org/dc/terms/creator">dcterms:creator</a></th><td><a href="https://djradon.github.io/ns/dave-richardson">https://djradon.github.io/ns/dave-richardson</a></td>',
+  );
+  assertStringIncludes(
+    html,
+    '<th scope="row"><a class="wf-term wf-term-link" href="http://purl.org/dc/terms/hasVersion" title="http://purl.org/dc/terms/hasVersion">dcterms:hasVersion</a></th><td><a href="https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/releases/v0.0.1">https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/ontology/releases/v0.0.1</a></td>',
+  );
+  assertStringIncludes(
+    html,
+    '<th scope="row"><a class="wf-term wf-term-link" href="http://www.w3.org/2002/07/owl#versionIRI" title="http://www.w3.org/2002/07/owl#versionIRI">owl:versionIRI</a></th><td><a href="https://raw.githubusercontent.com/semantic-flow/sflo/refs/tags/v0.1.1/semantic-flow-core-ontology.ttl">https://raw.githubusercontent.com/semantic-flow/sflo/refs/tags/v0.1.1/semantic-flow-core-ontology.ttl</a></td>',
+  );
+  assertFalse(html.includes("fant:releases/v0.0.1"));
+  assertFalse(html.includes(">dave-richardson</a>"));
   assertStringIncludes(
     html,
     '<th scope="row"><a class="wf-term wf-term-link" href="http://www.w3.org/2000/01/rdf-schema#label" title="http://www.w3.org/2000/01/rdf-schema#label">rdfs:label</a></th><td><span>Ability Score</span></td>',
