@@ -146,6 +146,7 @@ export interface ExecuteVersionOptions {
 export interface ExecuteGenerateOptions {
   meshRoot: string;
   request?: GenerateRequest;
+  operationalLogger?: StructuredLogger;
   now?: () => Date;
   includeSemanticFlowMetadata?: boolean;
   historyTrackingPolicyOverride?: HistoryTrackingPolicy;
@@ -197,6 +198,7 @@ export interface GenerateResult {
   generatedDesignatorPaths: readonly string[];
   createdPaths: readonly string[];
   updatedPaths: readonly string[];
+  skippedTimestampOnlyPaths: readonly string[];
 }
 
 export interface WeaveResult {
@@ -204,6 +206,7 @@ export interface WeaveResult {
   wovenDesignatorPaths: readonly string[];
   createdPaths: readonly string[];
   updatedPaths: readonly string[];
+  skippedTimestampOnlyPaths: readonly string[];
 }
 
 export class WeaveRuntimeError extends Error {
@@ -223,6 +226,11 @@ interface MeshState {
 interface PreparedVersionExecution {
   meshState: MeshState;
   plan: VersionPlan;
+}
+
+interface NormalizedVersionRequest {
+  targets: readonly NormalizedVersionTargetSpec[];
+  overwriteExistingState: boolean;
 }
 
 class TextFileOverlay extends Map<string, string> {
@@ -416,6 +424,7 @@ export async function executeValidate(
       meshRoot,
       toNormalizedVersionTargets(targets),
       localPathPolicy,
+      false,
       undefined,
       undefined,
       timing,
@@ -477,7 +486,7 @@ export async function executeVersion(
   const timing = createRuntimeTiming("version");
   let status = "succeeded";
   try {
-    const targets = timing.timeSync(
+    const normalizedRequest = timing.timeSync(
       "normalizeRequest",
       () => normalizeVersionRequest(options.request),
     );
@@ -488,8 +497,9 @@ export async function executeVersion(
     );
     const prepared = await prepareVersionExecution(
       meshRoot,
-      targets,
+      normalizedRequest.targets,
       localPathPolicy,
+      normalizedRequest.overwriteExistingState,
       options.historyTrackingPolicyOverride,
       options.onProgress,
       timing,
@@ -587,6 +597,7 @@ export async function executeGenerate(
 ): Promise<GenerateResult> {
   const timing = createRuntimeTiming("generate");
   let status = "succeeded";
+  const { operationalLogger } = resolveRuntimeLoggers(options);
   try {
     const targets = timing.timeSync(
       "normalizeRequest",
@@ -646,7 +657,7 @@ export async function executeGenerate(
     );
     const writeResult = await timing.time(
       "writePages",
-      () => writeFilesUpsert(meshRoot, pageFiles),
+      () => writeGeneratedPagesUpsert(meshRoot, pageFiles),
     );
 
     const result = {
@@ -658,13 +669,29 @@ export async function executeGenerate(
       updatedPaths: writeResult.updatedPaths.map((path) =>
         toWorkspaceRelativePath(localPathPolicy, path)
       ),
+      skippedTimestampOnlyPaths: writeResult.skippedTimestampOnlyPaths.map((
+        path,
+      ) => toWorkspaceRelativePath(localPathPolicy, path)),
     };
+    if (result.skippedTimestampOnlyPaths.length > 0) {
+      await operationalLogger.info(
+        "generate.timestampOnlySkipped",
+        "Skipped generated pages with timestamp-only differences",
+        {
+          skippedTimestampOnlyPaths: result.skippedTimestampOnlyPaths,
+        },
+      );
+    }
     timing.setField(
       "generatedDesignatorPaths",
       result.generatedDesignatorPaths.length,
     );
     timing.setField("createdFiles", result.createdPaths.length);
     timing.setField("updatedFiles", result.updatedPaths.length);
+    timing.setField(
+      "timestampOnlySkippedFiles",
+      result.skippedTimestampOnlyPaths.length,
+    );
     return result;
   } catch (error) {
     status = "failed";
@@ -710,13 +737,14 @@ export async function executeWeave(
       assertValidationPassed(validation, "before weaving");
     }
 
-    const targets = normalizeVersionRequest(options.request);
+    const normalizedRequest = normalizeVersionRequest(options.request);
     let preparedVersion: PreparedVersionExecution;
     try {
       preparedVersion = await prepareVersionExecution(
         meshRoot,
-        targets,
+        normalizedRequest.targets,
         initialPolicy,
+        normalizedRequest.overwriteExistingState,
         options.historyTrackingPolicyOverride,
         options.onProgress,
         timing,
@@ -744,6 +772,7 @@ export async function executeWeave(
       executeGenerate({
         meshRoot,
         request: toSharedTargetRequest(options.request),
+        operationalLogger,
         now: options.now,
         historyTrackingPolicyOverride: options.historyTrackingPolicyOverride,
       }));
@@ -759,6 +788,7 @@ export async function executeWeave(
         ...versionResult.updatedPaths,
         ...generateResult.updatedPaths,
       ],
+      skippedTimestampOnlyPaths: generateResult.skippedTimestampOnlyPaths,
     };
 
     if (options.validateAfter) {
@@ -778,12 +808,14 @@ export async function executeWeave(
       wovenDesignatorPaths: result.wovenDesignatorPaths,
       createdPaths: result.createdPaths,
       updatedPaths: result.updatedPaths,
+      skippedTimestampOnlyPaths: result.skippedTimestampOnlyPaths,
     });
     await auditLogger.record("weave.succeeded", "Local weave succeeded", {
       workspaceRoot,
       wovenDesignatorPaths: result.wovenDesignatorPaths,
       createdPaths: result.createdPaths,
       updatedPaths: result.updatedPaths,
+      skippedTimestampOnlyPaths: result.skippedTimestampOnlyPaths,
     });
 
     timing.setField(
@@ -792,6 +824,10 @@ export async function executeWeave(
     );
     timing.setField("createdFiles", result.createdPaths.length);
     timing.setField("updatedFiles", result.updatedPaths.length);
+    timing.setField(
+      "timestampOnlySkippedFiles",
+      result.skippedTimestampOnlyPaths.length,
+    );
     return result;
   } catch (error) {
     status = "failed";
@@ -867,9 +903,10 @@ function assertValidationPassed(
   }
 
   throw new WeaveInputError(
-    `Whole-mesh validation ${phaseLabel} failed:\n${result.findings.map((finding) =>
-      `${finding.severity}: ${finding.message}`
-    ).join("\n")
+    `Whole-mesh validation ${phaseLabel} failed:\n${
+      result.findings.map((finding) =>
+        `${finding.severity}: ${finding.message}`
+      ).join("\n")
     }`,
   );
 }
@@ -929,13 +966,24 @@ function normalizeGenerateRequest(
 
 function normalizeVersionRequest(
   request: VersionRequest | undefined,
-): readonly NormalizedVersionTargetSpec[] {
-  assertSupportedRequestKeys(request, "request", new Set(["targets"]));
-  return normalizeVersionTargetSpecs(
-    request?.targets,
-    "request.targets",
-    (message) => new WeaveInputError(message),
+): NormalizedVersionRequest {
+  assertSupportedRequestKeys(
+    request,
+    "request",
+    new Set(["targets", "overwriteExistingState"]),
   );
+  const overwriteExistingState = normalizeOptionalBooleanRequestField(
+    request?.overwriteExistingState,
+    "request.overwriteExistingState",
+  ) ?? false;
+  return {
+    targets: normalizeVersionTargetSpecs(
+      request?.targets,
+      "request.targets",
+      (message) => new WeaveInputError(message),
+    ),
+    overwriteExistingState,
+  };
 }
 
 function toSharedTargetRequest(
@@ -949,7 +997,11 @@ function toSharedTargetRequest(
   // this bridge normalized through the version-target parser first so shared
   // validate/generate targeting stays semantically aligned with version
   // targeting as the request shape evolves.
-  assertSupportedRequestKeys(request, "request", new Set(["targets"]));
+  assertSupportedRequestKeys(
+    request,
+    "request",
+    new Set(["targets", "overwriteExistingState"]),
+  );
   const normalizedTargets = normalizeVersionTargetSpecs(
     request.targets,
     "request.targets",
@@ -1015,6 +1067,20 @@ function assertSupportedRequestKeys(
   }
 }
 
+function normalizeOptionalBooleanRequestField(
+  value: unknown,
+  fieldName: string,
+): boolean | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "boolean") {
+    throw new WeaveInputError(`${fieldName} must be a boolean`);
+  }
+
+  return value;
+}
+
 async function timeOptional<T>(
   timing: RuntimeTiming | undefined,
   phase: string,
@@ -1035,6 +1101,7 @@ async function prepareVersionExecution(
   workspaceRoot: string,
   targets: readonly NormalizedVersionTargetSpec[],
   localPathPolicy: OperationalLocalPathPolicy,
+  overwriteExistingState = false,
   historyTrackingPolicyOverride?: HistoryTrackingPolicy,
   onProgress?: WeaveProgressHandler,
   timing?: RuntimeTiming,
@@ -1164,7 +1231,8 @@ async function prepareVersionExecution(
 
     if (stagedWeaveableKnops.length === 0) {
       throw new WeaveInputError(
-        `Recursive version planning could not continue cleanly for the remaining targets: ${remainingDesignatorPaths.join(", ")
+        `Recursive version planning could not continue cleanly for the remaining targets: ${
+          remainingDesignatorPaths.join(", ")
         }.`,
       );
     }
@@ -1177,7 +1245,10 @@ async function prepareVersionExecution(
       "prepare.loop.planVersion",
       () =>
         planVersion({
-          request: target ? { targets: [{ ...target.source }] } : {},
+          request: {
+            ...(target ? { targets: [{ ...target.source }] } : {}),
+            ...(overwriteExistingState ? { overwriteExistingState } : {}),
+          },
           meshBase: stagedMeshState.meshBase,
           currentMeshInventoryTurtle:
             stagedMeshState.currentMeshInventoryTurtle,
@@ -1356,12 +1427,14 @@ function assertRequestedTargetsAreWeaveable(
   }
 
   throw new WeaveInputError(
-    `Requested targets are not currently weaveable: ${missingTargets.map((target) =>
-      target.recursive
-        ? `${formatDesignatorPathForDisplay(target.designatorPath)
-        } (recursive)`
-        : formatDesignatorPathForDisplay(target.designatorPath)
-    ).join(", ")
+    `Requested targets are not currently weaveable: ${
+      missingTargets.map((target) =>
+        target.recursive
+          ? `${
+            formatDesignatorPathForDisplay(target.designatorPath)
+          } (recursive)`
+          : formatDesignatorPathForDisplay(target.designatorPath)
+      ).join(", ")
     }.`,
   );
 }
@@ -1675,10 +1748,10 @@ async function loadPayloadWorkingArtifact(
     : undefined;
   const latestHistoricalSnapshotPath = latestHistoricalStatePath
     ? payloadArtifact.latestHistoricalSnapshotPath ??
-    toPayloadHistoricalSnapshotPath(
-      latestHistoricalStatePath,
-      workingLocalRelativePath,
-    )
+      toPayloadHistoricalSnapshotPath(
+        latestHistoricalStatePath,
+        workingLocalRelativePath,
+      )
     : undefined;
   const latestHistoricalSnapshotLocalPath = latestHistoricalSnapshotPath
     ? join(workspaceRoot, latestHistoricalSnapshotPath)
@@ -1803,7 +1876,8 @@ async function loadReferenceTargetSourcePayloadArtifact(
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new WeaveRuntimeError(
-        `Workspace is missing the woven source payload inventory for ${designatorPath}: ${toKnopPath(sourceDesignatorPath)
+        `Workspace is missing the woven source payload inventory for ${designatorPath}: ${
+          toKnopPath(sourceDesignatorPath)
         }/_inventory/inventory.ttl`,
       );
     }
@@ -1825,7 +1899,7 @@ async function loadReferenceTargetSourcePayloadArtifact(
   }
   const selectedHistoricalStatePath =
     extractionSource.requestedTargetStatePath ??
-    sourcePayloadArtifact.latestHistoricalStatePath;
+      sourcePayloadArtifact.latestHistoricalStatePath;
   if (!selectedHistoricalStatePath) {
     throw new WeaveRuntimeError(
       `Extracted weave source for ${designatorPath} is missing an exact or latest source state.`,
@@ -1837,8 +1911,8 @@ async function loadReferenceTargetSourcePayloadArtifact(
     selectedHistoricalStatePath,
     `Could not parse the source Knop inventory while resolving the extracted source payload snapshot for ${designatorPath}.`,
   ) ?? (sourcePayloadArtifact.latestHistoricalStatePath ===
-    selectedHistoricalStatePath &&
-    sourcePayloadArtifact.latestHistoricalSnapshotPath
+        selectedHistoricalStatePath &&
+      sourcePayloadArtifact.latestHistoricalSnapshotPath
     ? sourcePayloadArtifact.latestHistoricalSnapshotPath
     : toPayloadHistoricalSnapshotPath(
       selectedHistoricalStatePath,
@@ -2059,12 +2133,12 @@ function isWeaveableKnopCandidate(
           .currentArtifactHistoryExists ||
         (
           candidate.resourcePageDefinitionArtifact
-            .latestHistoricalSnapshotTurtle !==
-          undefined &&
+              .latestHistoricalSnapshotTurtle !==
+            undefined &&
           candidate.resourcePageDefinitionArtifact
-            .currentPageDefinitionTurtle !==
-          candidate.resourcePageDefinitionArtifact
-            .latestHistoricalSnapshotTurtle
+              .currentPageDefinitionTurtle !==
+            candidate.resourcePageDefinitionArtifact
+              .latestHistoricalSnapshotTurtle
         )
       );
   }
@@ -2077,9 +2151,9 @@ function isWeaveableKnopCandidate(
     return candidate.payloadArtifact !== undefined &&
       (hasPayloadVersionNamingTarget(target) ||
         (candidate.payloadArtifact.latestHistoricalSnapshotTurtle !==
-          undefined &&
+            undefined &&
           candidate.payloadArtifact.currentPayloadTurtle !==
-          candidate.payloadArtifact.latestHistoricalSnapshotTurtle));
+            candidate.payloadArtifact.latestHistoricalSnapshotTurtle));
   }
 
   return slice === "firstKnopWeave";
@@ -2356,12 +2430,12 @@ async function collectGeneratedPageFiles(
           resourcePath,
           historyGroups ?? [],
           rawSourcePanels ??
-          findOwnerRawSourcePanelsForArtifactHistory(
-            resourcePath,
-            historyGroups ?? [],
-            meshRawSourcePanels,
-            designatorContexts,
-          ),
+            findOwnerRawSourcePanelsForArtifactHistory(
+              resourcePath,
+              historyGroups ?? [],
+              meshRawSourcePanels,
+              designatorContexts,
+            ),
         ),
         childIdentifiers: childIdentifiersByResourcePath.get(
           resourcePath,
@@ -2407,11 +2481,11 @@ async function collectGeneratedPageFiles(
                 resourcePath,
                 historyGroups ?? [],
                 rawSourcePanels ??
-                findOwnerRawSourcePanelsForArtifactHistoryInContext(
-                  resourcePath,
-                  historyGroups ?? [],
-                  context,
-                ),
+                  findOwnerRawSourcePanelsForArtifactHistoryInContext(
+                    resourcePath,
+                    historyGroups ?? [],
+                    context,
+                  ),
               ),
             childIdentifiers: childIdentifiersByResourcePath.get(
               resourcePath,
@@ -2718,10 +2792,12 @@ async function loadGenerateDesignatorContexts(
       currentKnopInventoryTurtle,
       `Could not parse the current Knop inventory while collecting current KnopInventory source panel for ${designatorPath}.`,
     );
-    const currentKnopInventoryPagePath = `${toKnopPath(designatorPath)
-      }/_inventory/index.html`;
-    const currentKnopInventoryWorkingPath = `${toKnopPath(designatorPath)
-      }/_inventory/inventory.ttl`;
+    const currentKnopInventoryPagePath = `${
+      toKnopPath(designatorPath)
+    }/_inventory/index.html`;
+    const currentKnopInventoryWorkingPath = `${
+      toKnopPath(designatorPath)
+    }/_inventory/inventory.ttl`;
     if (
       !(await addLatestHistoricalRawSourcePanelForCurrentArtifact(
         rawSourcePanels,
@@ -3092,7 +3168,8 @@ async function collectExtractionSourceHistoryGroupsByResourcePath(
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new WeaveRuntimeError(
-        `Workspace is missing the page source payload inventory for ${designatorPath}: ${toKnopPath(sourceArtifactPath)
+        `Workspace is missing the page source payload inventory for ${designatorPath}: ${
+          toKnopPath(sourceArtifactPath)
         }/_inventory/inventory.ttl`,
       );
     }
@@ -3537,7 +3614,7 @@ async function addLatestHistoricalRawSourcePanelForCurrentArtifact(
   }
 
   const latestHistoricalPanel = preloadedSnapshotPath === snapshotPath &&
-    preloadedSnapshotTurtle !== undefined
+      preloadedSnapshotTurtle !== undefined
     ? rawSourcePanelFromContents(
       snapshotPath,
       "Historical manifestation file",
@@ -3738,8 +3815,9 @@ async function addReferenceTargetSourceRawSourcePanels(
     }
 
     for (const referenceTargetPath of link.referenceTargetPaths) {
-      const key = `${referenceTargetPath}\u0000${link.referenceTargetStatePaths.join("\u0000")
-        }`;
+      const key = `${referenceTargetPath}\u0000${
+        link.referenceTargetStatePaths.join("\u0000")
+      }`;
       if (seen.has(key)) {
         continue;
       }
@@ -3826,8 +3904,8 @@ async function addCanonicalReferenceSourceRawSourcePanel(
   }
 
   const snapshotPath = sourcePayloadArtifact.latestHistoricalStatePath ===
-    referenceTargetStatePath &&
-    sourcePayloadArtifact.latestHistoricalSnapshotPath
+        referenceTargetStatePath &&
+      sourcePayloadArtifact.latestHistoricalSnapshotPath
     ? sourcePayloadArtifact.latestHistoricalSnapshotPath
     : toPayloadHistoricalSnapshotPath(
       referenceTargetStatePath,
@@ -3875,7 +3953,8 @@ async function addExtractionSourceRawSourcePanels(
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new WeaveRuntimeError(
-        `Workspace is missing the page source payload inventory for ${designatorPath}: ${toKnopPath(sourceArtifactPath)
+        `Workspace is missing the page source payload inventory for ${designatorPath}: ${
+          toKnopPath(sourceArtifactPath)
         }/_inventory/inventory.ttl`,
       );
     }
@@ -3935,8 +4014,8 @@ async function addExtractionSourceRawSourcePanels(
   }
 
   const snapshotPath = sourcePayloadArtifact.latestHistoricalStatePath ===
-    requestedTargetStatePath &&
-    sourcePayloadArtifact.latestHistoricalSnapshotPath
+        requestedTargetStatePath &&
+      sourcePayloadArtifact.latestHistoricalSnapshotPath
     ? sourcePayloadArtifact.latestHistoricalSnapshotPath
     : toPayloadHistoricalSnapshotPath(
       requestedTargetStatePath,
@@ -4026,13 +4105,15 @@ function describeSemanticFlowResource(
     historyGroups,
   );
   if (manifestationState) {
-    return `Artifact manifestation for the ${toLastPathSegment(manifestationState.path)
-      } historical state`;
+    return `Artifact manifestation for the ${
+      toLastPathSegment(manifestationState.path)
+    } historical state`;
   }
   const stateHistory = findHistoryForState(resourcePath, historyGroups);
   if (stateHistory) {
-    return `Historical state for the ${toLastPathSegment(stateHistory.path)
-      } artifact history`;
+    return `Historical state for the ${
+      toLastPathSegment(stateHistory.path)
+    } artifact history`;
   }
   if (historyGroups.some((group) => group.path === resourcePath)) {
     const ownerResourcePath = dirname(resourcePath);
@@ -4043,22 +4124,25 @@ function describeSemanticFlowResource(
         ownerRawSourcePanels,
       )
       : undefined;
-    return `Artifact history for ${ownerTitle ?? formatOwnerResourcePath(ownerResourcePath)
-      }`;
+    return `Artifact history for ${
+      ownerTitle ?? formatOwnerResourcePath(ownerResourcePath)
+    }`;
   }
   if (resourcePath === "_mesh") {
     return "Semantic Mesh.";
   }
   if (resourcePath.endsWith("/_knop") || resourcePath === "_knop") {
-    return `Semantic Flow bundle of supporting data for ${formatOwnerResourcePath(dirname(resourcePath))
-      }.`;
+    return `Semantic Flow bundle of supporting data for ${
+      formatOwnerResourcePath(dirname(resourcePath))
+    }.`;
   }
   if (resourcePath.endsWith("/_meta")) {
     if (resourcePath === "_mesh/_meta") {
       return "Metadata for this Semantic Mesh";
     }
-    return `Knop metadata for ${formatOwnerResourcePath(dirname(dirname(resourcePath)))
-      }`;
+    return `Knop metadata for ${
+      formatOwnerResourcePath(dirname(dirname(resourcePath)))
+    }`;
   }
   if (resourcePath.endsWith("/_inventory")) {
     if (resourcePath === "_mesh/_inventory") {
@@ -4690,12 +4774,27 @@ async function writeFiles(
   }
 }
 
-async function writeFilesUpsert(
+const GENERATED_TIMESTAMP_FOOTER_PATTERN =
+  /Generated on <span class="wf-term wf-date-tip" tabindex="0" title="[^"]*" data-tooltip="[^"]*">[^<]*<\/span> by/g;
+
+function normalizeGeneratedTimestampFooters(contents: string): string {
+  return contents.replace(
+    GENERATED_TIMESTAMP_FOOTER_PATTERN,
+    'Generated on <span class="wf-term wf-date-tip" tabindex="0" title="__WEAVE_GENERATED_AT__" data-tooltip="__WEAVE_GENERATED_AT__">__WEAVE_GENERATED_AT_DISPLAY__</span> by',
+  );
+}
+
+async function writeGeneratedPagesUpsert(
   workspaceRoot: string,
   files: readonly PlannedFile[],
-): Promise<{ createdPaths: string[]; updatedPaths: string[] }> {
+): Promise<{
+  createdPaths: string[];
+  updatedPaths: string[];
+  skippedTimestampOnlyPaths: string[];
+}> {
   const createdPaths: string[] = [];
   const updatedPaths: string[] = [];
+  const skippedTimestampOnlyPaths: string[] = [];
 
   for (const file of files) {
     const absolutePath = join(workspaceRoot, file.path);
@@ -4715,6 +4814,16 @@ async function writeFilesUpsert(
       continue;
     }
 
+    if (
+      exists &&
+      currentContents !== undefined &&
+      normalizeGeneratedTimestampFooters(currentContents) ===
+        normalizeGeneratedTimestampFooters(file.contents)
+    ) {
+      skippedTimestampOnlyPaths.push(file.path);
+      continue;
+    }
+
     await Deno.mkdir(dirname(absolutePath), { recursive: true });
     await Deno.writeTextFile(absolutePath, file.contents);
 
@@ -4728,5 +4837,6 @@ async function writeFilesUpsert(
   return {
     createdPaths,
     updatedPaths,
+    skippedTimestampOnlyPaths,
   };
 }

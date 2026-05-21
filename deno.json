@@ -1,5 +1,5 @@
 {
-  "version": "0.1.1",
+  "version": "0.1.2",
   "tasks": {
     "dev:root": "deno run --allow-read --allow-write --allow-env src/main.ts",
     "bump:version": "deno run --allow-read --allow-write scripts/bump-version.ts",
@@ -28,9 +28,16 @@
     "rdf-canonize": "npm:rdf-canonize@5.0.0",
     "shiki": "npm:shiki@4.0.2"
   },
-  "exclude": [".test-tmp/**", "documentation/notes/**", "**/*.md"],
+  "exclude": [
+    ".test-tmp/**",
+    "documentation/notes/**",
+    "**/*.md"
+  ],
   "fmt": {
     "proseWrap": "preserve",
-    "exclude": ["documentation/notes/**", "**/*.md"]
+    "exclude": [
+      "documentation/notes/**",
+      "**/*.md"
+    ]
   }
 }

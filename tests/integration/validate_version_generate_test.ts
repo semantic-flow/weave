@@ -200,6 +200,122 @@ Deno.test("executeVersion fails closed before auto-advancing a named payload sta
   );
 });
 
+Deno.test("executeVersion fails closed on duplicate explicit payload state before writing", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-version-duplicate-explicit-state-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const request = {
+    targets: [{
+      designatorPath: "alice/bio",
+      historySegment: "releases",
+      stateSegment: "v0.0.1",
+      manifestationSegment: "ttl",
+    }],
+  };
+  await executeVersion({
+    meshRoot: workspaceRoot,
+    request,
+  });
+
+  const inventoryPath = join(
+    workspaceRoot,
+    "alice/bio/_knop/_inventory/inventory.ttl",
+  );
+  const snapshotPath = join(
+    workspaceRoot,
+    "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
+  );
+  const inventoryBefore = await Deno.readTextFile(inventoryPath);
+  const snapshotBefore = await Deno.readTextFile(snapshotPath);
+
+  await assertRejects(
+    () =>
+      executeVersion({
+        meshRoot: workspaceRoot,
+        request,
+      }),
+    WeaveInputError,
+    "already names the current historical state",
+  );
+  assertEquals(await Deno.readTextFile(inventoryPath), inventoryBefore);
+  assertEquals(await Deno.readTextFile(snapshotPath), snapshotBefore);
+});
+
+Deno.test("executeVersion overwrites an explicit current payload state when requested", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-version-overwrite-explicit-state-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const target = {
+    designatorPath: "alice/bio",
+    historySegment: "releases",
+    stateSegment: "v0.0.1",
+    manifestationSegment: "ttl",
+  };
+  await executeVersion({
+    meshRoot: workspaceRoot,
+    request: { targets: [target] },
+  });
+
+  const workingPayloadPath = join(workspaceRoot, "alice-bio.ttl");
+  const updatedPayload = `${await Deno.readTextFile(workingPayloadPath)}
+<alice/bio> <https://schema.org/version> "overwrite" .
+`;
+  await Deno.writeTextFile(workingPayloadPath, updatedPayload);
+
+  const inventoryPath = join(
+    workspaceRoot,
+    "alice/bio/_knop/_inventory/inventory.ttl",
+  );
+  const inventoryBefore = await Deno.readTextFile(inventoryPath);
+  const result = await executeVersion({
+    meshRoot: workspaceRoot,
+    request: {
+      targets: [target],
+      overwriteExistingState: true,
+    },
+  });
+
+  assertEquals(result.versionedDesignatorPaths, ["alice/bio"]);
+  assertEquals(result.createdPaths, []);
+  assertEquals(result.updatedPaths, [
+    "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
+  ]);
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl"),
+    ),
+    updatedPayload,
+  );
+  assertEquals(await Deno.readTextFile(inventoryPath), inventoryBefore);
+});
+
+Deno.test("executeVersion rejects overwrite without an explicit history and state", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-version-overwrite-validation-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  await assertRejects(
+    () =>
+      executeVersion({
+        meshRoot: workspaceRoot,
+        request: {
+          overwriteExistingState: true,
+          targets: [{
+            designatorPath: "alice/bio",
+            stateSegment: "v0.0.1",
+          }],
+        },
+      }),
+    WeaveInputError,
+    "overwriteExistingState requires request.targets[0].historySegment",
+  );
+});
+
 Deno.test("executeVersion rejects mixed requested targets when some are not currently weaveable", async () => {
   const workspaceRoot = await createTestTmpDir("weave-version-mixed-targets-");
   await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
@@ -379,6 +495,30 @@ Deno.test("executeValidate mesh includes configured publication checks", async (
     message:
       "GitHub Pages publication profile requires .nojekyll at the mesh root.",
   }]);
+});
+
+Deno.test("executeValidate mesh reruns cleanly without writing files", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-validate-rerun-");
+  await materializeMeshAliceBioBranch("13-bob-extracted-woven", workspaceRoot);
+
+  const inventoryPath = join(workspaceRoot, "_mesh/_inventory/inventory.ttl");
+  const pagePath = join(workspaceRoot, "alice/bio/index.html");
+  const inventoryBefore = await Deno.readTextFile(inventoryPath);
+  const pageBefore = await Deno.readTextFile(pagePath);
+
+  const firstResult = await executeValidate({
+    meshRoot: workspaceRoot,
+    scope: "mesh",
+  });
+  const secondResult = await executeValidate({
+    meshRoot: workspaceRoot,
+    scope: "mesh",
+  });
+
+  assertEquals(firstResult.findings, []);
+  assertEquals(secondResult.findings, []);
+  assertEquals(await Deno.readTextFile(inventoryPath), inventoryBefore);
+  assertEquals(await Deno.readTextFile(pagePath), pageBefore);
 });
 
 Deno.test("executeWeave supports whole-mesh validation before and after weaving", async () => {
@@ -814,6 +954,42 @@ Deno.test("executeGenerate does not mutate RDF artifacts", async () => {
     ),
     bobInventoryBefore,
   );
+});
+
+Deno.test("executeGenerate skips timestamp-only reruns without rewriting pages", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-generate-timestamp-only-rerun-",
+  );
+  await materializeMeshAliceBioBranch(
+    "07-alice-bio-integrated-woven",
+    workspaceRoot,
+  );
+
+  await executeGenerate({
+    meshRoot: workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "alice/bio" }],
+    },
+    now: () => new Date("2026-05-03T00:00:00.000Z"),
+  });
+  const pagePath = join(workspaceRoot, "alice/bio/index.html");
+  const htmlBefore = await Deno.readTextFile(pagePath);
+
+  const result = await executeGenerate({
+    meshRoot: workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "alice/bio" }],
+    },
+    now: () => new Date("2026-05-21T12:34:56.000Z"),
+  });
+
+  assertEquals(result.createdPaths, []);
+  assertEquals(result.updatedPaths, []);
+  assert(
+    result.skippedTimestampOnlyPaths.includes("alice/bio/index.html"),
+    result.skippedTimestampOnlyPaths.join("\n"),
+  );
+  assertEquals(await Deno.readTextFile(pagePath), htmlBefore);
 });
 
 Deno.test("executeGenerate reads only the settled current workspace state", async () => {

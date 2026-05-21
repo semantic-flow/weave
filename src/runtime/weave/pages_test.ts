@@ -45,7 +45,7 @@ Deno.test("renderResourcePage renders identifier pages with working file links",
   );
   assert(
     html.indexOf('<th scope="row">Canonical IRI</th>') <
-    html.indexOf('<th scope="row">Working File</th>'),
+      html.indexOf('<th scope="row">Working File</th>'),
   );
   assertStringIncludes(
     html,
@@ -91,7 +91,7 @@ Deno.test("renderResourcePage renders URL and floating repository working locato
 
   assert(
     html.indexOf('<th scope="row">Canonical IRI</th>') <
-    html.indexOf('<th scope="row">Working URL</th>'),
+      html.indexOf('<th scope="row">Working URL</th>'),
   );
   assertStringIncludes(
     html,
@@ -99,13 +99,34 @@ Deno.test("renderResourcePage renders URL and floating repository working locato
   );
   assertStringIncludes(
     html,
-    '<tr><th scope="row">Repository Source</th><td colspan="3"><span class="wf-repository-source"><a href="https://github.com/semantic-flow/sflo.git">https://github.com/semantic-flow/sflo.git</a><span aria-hidden="true"> / </span><span>semantic-flow-core-ontology.ttl</span></span></td></tr>',
+    '<tr><th scope="row">Repository Source</th><td colspan="3"><span class="wf-repository-source"><a href="https://github.com/semantic-flow/sflo.git" rel="noreferrer noopener" target="_blank">https://github.com/semantic-flow/sflo.git</a><span aria-hidden="true"> / </span><span>semantic-flow-core-ontology.ttl</span></span></td></tr>',
   );
   assertFalse(
     html.includes(
       '<tr><th scope="row">Working File</th><td colspan="3"><a href="/sflo/semantic-flow-core-ontology.ttl">',
     ),
   );
+});
+
+Deno.test("renderResourcePage renders unsafe floating repository URLs as plain text", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/sflo/",
+    {
+      kind: "identifier",
+      path: "ontology/index.html",
+      designatorPath: "ontology",
+      repositorySourceFloatingLocator: {
+        repositoryUrl: "javascript:alert(1)",
+        repositoryPathFromRoot: "semantic-flow-core-ontology.ttl",
+      },
+    },
+  );
+
+  assertStringIncludes(
+    html,
+    '<tr><th scope="row">Repository Source</th><td colspan="3"><span class="wf-repository-source"><span>javascript:alert(1)</span><span aria-hidden="true"> / </span><span>semantic-flow-core-ontology.ttl</span></span></td></tr>',
+  );
+  assertFalse(html.includes('href="javascript:alert(1)"'));
 });
 
 Deno.test("renderResourcePage renders breadcrumbs above the masthead rule with optional mesh favicon", async () => {
@@ -356,22 +377,22 @@ Deno.test("renderResourcePage renders typed child identifier rows", async () => 
   assertFalse(html.includes('<th scope="row">Child Classes</th>'));
   assert(
     html.indexOf("<summary>Children</summary>") <
-    html.indexOf('<th scope="row">Classes</th>'),
+      html.indexOf('<th scope="row">Classes</th>'),
     "expected child rows under the Children section",
   );
   assert(
     html.indexOf('<th scope="row">Individuals</th>') <
-    html.indexOf('<th scope="row">Node Shapes</th>'),
+      html.indexOf('<th scope="row">Node Shapes</th>'),
     "expected Node Shapes after Individuals",
   );
   assert(
     html.indexOf('<th scope="row">Node Shapes</th>') <
-    html.indexOf('<th scope="row">Property Shapes</th>'),
+      html.indexOf('<th scope="row">Property Shapes</th>'),
     "expected Property Shapes after Node Shapes",
   );
   assert(
     html.indexOf('<th scope="row">Property Shapes</th>') <
-    html.indexOf('<th scope="row">Shapes</th>'),
+      html.indexOf('<th scope="row">Shapes</th>'),
     "expected Shapes after Property Shapes",
   );
   assertStringIncludes(
@@ -491,17 +512,17 @@ Deno.test("renderResourcePage separates SHACL child identifiers from RDF type hi
   assertStringIncludes(html, '<th scope="row">Shapes</th>');
   assert(
     html.indexOf('<th scope="row">Individuals</th>') <
-    html.indexOf('<th scope="row">Node Shapes</th>'),
+      html.indexOf('<th scope="row">Node Shapes</th>'),
     "expected Node Shapes after Individuals",
   );
   assert(
     html.indexOf('<th scope="row">Node Shapes</th>') <
-    html.indexOf('<th scope="row">Property Shapes</th>'),
+      html.indexOf('<th scope="row">Property Shapes</th>'),
     "expected Property Shapes after Node Shapes",
   );
   assert(
     html.indexOf('<th scope="row">Property Shapes</th>') <
-    html.indexOf('<th scope="row">Shapes</th>'),
+      html.indexOf('<th scope="row">Shapes</th>'),
     "expected Shapes after Property Shapes",
   );
   assertStringIncludes(
@@ -823,7 +844,7 @@ Deno.test("renderResourcePage does not link extra-mesh local source paths", asyn
   );
   assertEquals(
     html.lastIndexOf("<summary>Semantic Flow metadata</summary>") >
-    html.lastIndexOf("<summary>Current working file</summary>"),
+      html.lastIndexOf("<summary>Current working file</summary>"),
     true,
   );
   assertStringIncludes(
@@ -898,7 +919,7 @@ Deno.test("renderResourcePage renders RDF description, classes, and histories", 
   assertStringIncludes(html, "<summary>History</summary>");
   assert(
     html.indexOf("<summary>Current working file</summary>") <
-    html.indexOf("<summary>History</summary>"),
+      html.indexOf("<summary>History</summary>"),
     "expected history after raw source panels",
   );
   assertFalse(html.includes("sflo:ArtifactHistory"));
@@ -1158,12 +1179,12 @@ Deno.test("renderResourcePage renders grouped reference panels", async () => {
   );
   assert(
     html.indexOf("<summary>Canonical</summary>") <
-    html.indexOf("<summary>Supplemental</summary>"),
+      html.indexOf("<summary>Supplemental</summary>"),
     "expected canonical references before supplemental references",
   );
   assert(
     html.indexOf("<summary>Supplemental</summary>") <
-    html.indexOf("<summary>Deprecated</summary>"),
+      html.indexOf("<summary>Deprecated</summary>"),
     "expected supplemental references before deprecated references",
   );
 });

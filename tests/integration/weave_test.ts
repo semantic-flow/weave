@@ -864,7 +864,7 @@ Deno.test("executeWeave matches the settled alice page-customized-woven fixture"
   assert(result.updatedPaths.includes("alice/_knop/_inventory/inventory.ttl"));
   assert(
     result.createdPaths.includes("alice/index.html") ||
-    result.updatedPaths.includes("alice/index.html"),
+      result.updatedPaths.includes("alice/index.html"),
   );
   assertEquals(
     await compareRdfContent({
@@ -2161,7 +2161,7 @@ Deno.test("executeGenerate renders working URL and floating repository source lo
   );
   assertStringIncludes(
     page,
-    '<tr><th scope="row">Repository Source</th><td colspan="3"><span class="wf-repository-source"><a href="https://github.com/semantic-flow/mesh-sidecar-fantasy-rules.git">https://github.com/semantic-flow/mesh-sidecar-fantasy-rules.git</a><span aria-hidden="true"> / </span><span>ontology/fantasy-rules-ontology.ttl</span></span></td></tr>',
+    '<tr><th scope="row">Repository Source</th><td colspan="3"><span class="wf-repository-source"><a href="https://github.com/semantic-flow/mesh-sidecar-fantasy-rules.git" rel="noreferrer noopener" target="_blank">https://github.com/semantic-flow/mesh-sidecar-fantasy-rules.git</a><span aria-hidden="true"> / </span><span>ontology/fantasy-rules-ontology.ttl</span></span></td></tr>',
   );
   assertFalse(
     page.includes(

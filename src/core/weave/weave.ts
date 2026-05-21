@@ -140,6 +140,7 @@ const SFLO_REFERENCE_TARGET_STATE_IRI = `${SFLO_NAMESPACE}referenceTargetState`;
 
 export interface WeaveRequest {
   targets?: readonly VersionTargetSpec[];
+  overwriteExistingState?: boolean;
 }
 
 export interface ValidateRequest {
@@ -152,6 +153,7 @@ export interface GenerateRequest {
 
 export interface VersionRequest {
   targets?: readonly VersionTargetSpec[];
+  overwriteExistingState?: boolean;
 }
 
 export interface PayloadWorkingArtifact {
@@ -406,6 +408,11 @@ export function planWeave(input: PlanWeaveInput): WeavePlan {
     "request.targets",
     (message) => new WeaveInputError(message),
   );
+  const overwriteExistingState = input.request.overwriteExistingState === true;
+  assertOverwriteExistingStateTargets(
+    requestedTargets,
+    overwriteExistingState,
+  );
   const weaveableKnops = filterWeaveableKnops(
     input.weaveableKnops,
     requestedTargets,
@@ -441,62 +448,69 @@ export function planWeave(input: PlanWeaveInput): WeavePlan {
   const slice = classifyWeaveSlice(meshBase, candidate, target);
   assertPayloadNamingSupportedForSlice(slice, designatorPath, target);
 
-  const plan = (() => {
-    switch (slice) {
-      case "firstKnopWeave":
-        return planFirstKnopWeave(
-          meshBase,
-          input.currentMeshInventoryTurtle,
-          input.currentMeshMetadataTurtle,
-          candidate,
-          input.supportHistoryPolicies,
-        );
-      case "firstPayloadWeave":
-        return planFirstPayloadWeave(
-          meshBase,
-          input.currentMeshInventoryTurtle,
-          input.currentMeshMetadataTurtle,
-          candidate,
-          target,
-          input.supportHistoryPolicies,
-          input.namingPolicies,
-        );
-      case "firstExtractedKnopWeave":
-        return planFirstExtractedKnopWeave(
-          meshBase,
-          input.currentMeshInventoryTurtle,
-          input.currentMeshMetadataTurtle,
-          candidate,
-          input.supportHistoryPolicies,
-        );
-      case "firstReferenceCatalogWeave":
-        return planFirstReferenceCatalogWeave(
-          meshBase,
-          input.currentMeshInventoryTurtle,
-          input.currentMeshMetadataTurtle,
-          candidate,
-          input.supportHistoryPolicies,
-        );
-      case "pageDefinitionWeave":
-        return planPageDefinitionWeave(
-          meshBase,
-          input.currentMeshInventoryTurtle,
-          candidate,
-        );
-      case "secondPayloadWeave":
-        return planSecondPayloadWeave(
-          meshBase,
-          candidate,
-          target,
-          input.supportHistoryPolicies,
-          input.namingPolicies,
-        );
-      default:
-        throw new WeaveInputError(
-          `No supported local weave slice was found for ${designatorPath}.`,
-        );
-    }
-  })();
+  const plan = overwriteExistingState
+    ? planOverwriteExistingPayloadState(
+      meshBase,
+      candidate,
+      target,
+      input.namingPolicies,
+    )
+    : (() => {
+      switch (slice) {
+        case "firstKnopWeave":
+          return planFirstKnopWeave(
+            meshBase,
+            input.currentMeshInventoryTurtle,
+            input.currentMeshMetadataTurtle,
+            candidate,
+            input.supportHistoryPolicies,
+          );
+        case "firstPayloadWeave":
+          return planFirstPayloadWeave(
+            meshBase,
+            input.currentMeshInventoryTurtle,
+            input.currentMeshMetadataTurtle,
+            candidate,
+            target,
+            input.supportHistoryPolicies,
+            input.namingPolicies,
+          );
+        case "firstExtractedKnopWeave":
+          return planFirstExtractedKnopWeave(
+            meshBase,
+            input.currentMeshInventoryTurtle,
+            input.currentMeshMetadataTurtle,
+            candidate,
+            input.supportHistoryPolicies,
+          );
+        case "firstReferenceCatalogWeave":
+          return planFirstReferenceCatalogWeave(
+            meshBase,
+            input.currentMeshInventoryTurtle,
+            input.currentMeshMetadataTurtle,
+            candidate,
+            input.supportHistoryPolicies,
+          );
+        case "pageDefinitionWeave":
+          return planPageDefinitionWeave(
+            meshBase,
+            input.currentMeshInventoryTurtle,
+            candidate,
+          );
+        case "secondPayloadWeave":
+          return planSecondPayloadWeave(
+            meshBase,
+            candidate,
+            target,
+            input.supportHistoryPolicies,
+            input.namingPolicies,
+          );
+        default:
+          throw new WeaveInputError(
+            `No supported local weave slice was found for ${designatorPath}.`,
+          );
+      }
+    })();
 
   return applyResourcePageGenerationPolicies(plan, {
     policies: input.resourcePageGenerationPolicies,
@@ -940,9 +954,148 @@ function assertPayloadNamingSupportedForSlice(
   }
 
   throw new WeaveInputError(
-    `historySegment, stateSegment, and manifestationSegment are only supported for payload versioning; ${designatorPath} is currently ${slice ?? "not weaveable"
+    `historySegment, stateSegment, and manifestationSegment are only supported for payload versioning; ${designatorPath} is currently ${
+      slice ?? "not weaveable"
     }.`,
   );
+}
+
+function assertOverwriteExistingStateTargets(
+  targets: readonly NormalizedVersionTargetSpec[],
+  overwriteExistingState: boolean,
+): void {
+  if (!overwriteExistingState) {
+    return;
+  }
+  if (targets.length === 0) {
+    throw new WeaveInputError(
+      "overwriteExistingState requires at least one explicit target.",
+    );
+  }
+
+  targets.forEach((target, index) => {
+    const fieldName = `request.targets[${index}]`;
+    if (target.recursive) {
+      throw new WeaveInputError(
+        `overwriteExistingState requires exact targets; ${fieldName}.recursive must not be true.`,
+      );
+    }
+    if (target.historySegment === undefined) {
+      throw new WeaveInputError(
+        `overwriteExistingState requires ${fieldName}.historySegment.`,
+      );
+    }
+    if (target.stateSegment === undefined) {
+      throw new WeaveInputError(
+        `overwriteExistingState requires ${fieldName}.stateSegment.`,
+      );
+    }
+  });
+}
+
+function planOverwriteExistingPayloadState(
+  meshBase: string,
+  candidate: WeaveableKnopCandidate,
+  target: NormalizedVersionTargetSpec | undefined,
+  namingPolicies?: WeaveNamingPolicies,
+): WeavePlan {
+  if (!target || !target.historySegment || !target.stateSegment) {
+    throw new WeaveInputError(
+      "overwriteExistingState requires an explicit payload historySegment and stateSegment.",
+    );
+  }
+  const payloadArtifact = candidate.payloadArtifact;
+  if (!payloadArtifact) {
+    throw new WeaveInputError(
+      `overwriteExistingState only supports payload version targets; ${candidate.designatorPath} is not a payload overwrite candidate.`,
+    );
+  }
+
+  const designatorPath = candidate.designatorPath;
+  assertRequestedStateSegmentSatisfiesPolicy(
+    target.stateSegment,
+    namingPolicies?.stateNamingPolicy,
+  );
+
+  const historyPath = appendMeshPath(designatorPath, target.historySegment);
+  if (!isDirectChildMeshPath(designatorPath, historyPath)) {
+    throw new WeaveInputError(
+      `Requested payload historySegment ${target.historySegment} was outside the payload designator path for ${designatorPath}.`,
+    );
+  }
+  const statePath = `${historyPath}/${target.stateSegment}`;
+  const quads = parseWeaveShapeQuads(
+    meshBase,
+    candidate.currentKnopInventoryTurtle,
+    `Could not parse the current KnopInventory while resolving overwrite state for ${designatorPath}.`,
+  );
+
+  if (!isDeclaredArtifactHistory(quads, meshBase, historyPath)) {
+    throw new WeaveInputError(
+      `Cannot overwrite payload state ${statePath} for ${designatorPath} because the requested history does not exist.`,
+    );
+  }
+  if (
+    !hasNamedNodeFact(
+      quads,
+      meshBase,
+      historyPath,
+      SFLO_HAS_HISTORICAL_STATE_IRI,
+      statePath,
+    )
+  ) {
+    throw new WeaveInputError(
+      `Cannot overwrite payload state ${statePath} for ${designatorPath} because the requested state does not exist.`,
+    );
+  }
+
+  const currentStatePath = requirePayloadCurrentStatePathFromInventory(
+    quads,
+    meshBase,
+    designatorPath,
+    historyPath,
+    `Could not resolve the current payload historical state for ${designatorPath} in ${historyPath}.`,
+  );
+  if (statePath !== currentStatePath) {
+    throw new WeaveInputError(
+      `overwriteExistingState only supports the current payload historical state for ${designatorPath}; requested ${statePath} but current is ${currentStatePath}.`,
+    );
+  }
+
+  const existingManifestationPath =
+    resolveCurrentPayloadManifestationPathFromInventory(
+      quads,
+      meshBase,
+      designatorPath,
+      statePath,
+    );
+  if (target.manifestationSegment !== undefined) {
+    const requestedManifestationPath = toPayloadManifestationPath(
+      statePath,
+      payloadArtifact.workingLocalRelativePath,
+      target.manifestationSegment,
+      namingPolicies?.manifestationNamingPolicy,
+    );
+    if (requestedManifestationPath !== existingManifestationPath) {
+      throw new WeaveInputError(
+        `Requested payload manifestationSegment ${target.manifestationSegment} does not match existing manifestation ${existingManifestationPath} for ${designatorPath}.`,
+      );
+    }
+  }
+
+  const payloadSnapshotPath = `${existingManifestationPath}/${
+    toFileName(payloadArtifact.workingLocalRelativePath)
+  }`;
+  return {
+    meshBase,
+    wovenDesignatorPaths: [designatorPath],
+    createdFiles: [],
+    updatedFiles: [{
+      path: payloadSnapshotPath,
+      contents: payloadArtifact.currentPayloadTurtle,
+    }],
+    createdPages: [],
+  };
 }
 
 function planFirstKnopWeave(
@@ -1092,8 +1245,9 @@ function planFirstPayloadWeave(
     target,
     namingPolicies,
   );
-  const payloadSnapshotPath = `${payloadLayout.nextManifestationPath}/${toFileName(payloadArtifact.workingLocalRelativePath)
-    }`;
+  const payloadSnapshotPath = `${payloadLayout.nextManifestationPath}/${
+    toFileName(payloadArtifact.workingLocalRelativePath)
+  }`;
   const knopMetadataHistoryPolicy = supportHistoryPolicies?.knopMetadata ??
     "versioned";
   const versionKnopMetadata = shouldMaterializeSupportHistory(
@@ -1218,7 +1372,7 @@ function planFirstExtractedKnopWeave(
     : undefined;
   const sourcePayloadTurtle =
     referenceTargetSourcePayloadArtifact.latestHistoricalSnapshotTurtle ??
-    referenceTargetSourcePayloadArtifact.currentPayloadTurtle;
+      referenceTargetSourcePayloadArtifact.currentPayloadTurtle;
   const useAliceBioLegacyPages = designatorPath === "bob" &&
     referenceTargetSourcePayloadArtifact.designatorPath === "alice/bio";
   const knopMetadataHistoryPolicy = supportHistoryPolicies?.knopMetadata ??
@@ -1265,16 +1419,16 @@ function planFirstExtractedKnopWeave(
       referenceTargetSourcePayloadArtifact.designatorPath,
     )
     : meshInventoryProgression === undefined
-      ? renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle(
-        currentMeshInventoryTurtle,
-        meshBase,
-        designatorPath,
-      )
-      : renderGenericFirstExtractedKnopWovenMeshInventoryTurtle(
-        currentMeshInventoryTurtle,
-        designatorPath,
-        meshInventoryProgression,
-      );
+    ? renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle(
+      currentMeshInventoryTurtle,
+      meshBase,
+      designatorPath,
+    )
+    : renderGenericFirstExtractedKnopWovenMeshInventoryTurtle(
+      currentMeshInventoryTurtle,
+      designatorPath,
+      meshInventoryProgression,
+    );
   const wovenKnopInventoryTurtle =
     renderKnopInventoryWithPreservedSupportArtifacts({
       meshBase,
@@ -1419,12 +1573,14 @@ function planFirstExtractedKnopWeave(
       ...(meshInventoryProgression === undefined ? [] : [
         simplePage(
           `${meshInventoryProgression.nextStatePath}/index.html`,
-          `Resource page for the ${toOrdinalLabel(meshInventoryProgression.nextStateOrdinal)
+          `Resource page for the ${
+            toOrdinalLabel(meshInventoryProgression.nextStateOrdinal)
           } MeshInventory historical state.`,
         ),
         simplePage(
           `${meshInventoryProgression.nextStatePath}/ttl/index.html`,
-          `Resource page for the Turtle manifestation of the ${toOrdinalLabel(meshInventoryProgression.nextStateOrdinal)
+          `Resource page for the Turtle manifestation of the ${
+            toOrdinalLabel(meshInventoryProgression.nextStateOrdinal)
           } MeshInventory historical state.`,
         ),
       ]),
@@ -1542,8 +1698,9 @@ function planFirstReferenceCatalogWeave(
           contents: wovenKnopInventoryTurtle,
         },
         {
-          path: `${referenceCatalogManifestationPath}/${toFileName(referenceCatalogWorkingLocalRelativePath)
-            }`,
+          path: `${referenceCatalogManifestationPath}/${
+            toFileName(referenceCatalogWorkingLocalRelativePath)
+          }`,
           contents: referenceCatalogArtifact.currentReferenceCatalogTurtle,
         },
       ]
@@ -1697,8 +1854,9 @@ function planSecondPayloadWeave(
     { knopInventoryHistoryPolicy: supportHistoryPolicies?.knopInventory },
   );
 
-  const payloadSnapshotPath = `${payloadLayout.nextManifestationPath}/${toFileName(payloadArtifact.workingLocalRelativePath)
-    }`;
+  const payloadSnapshotPath = `${payloadLayout.nextManifestationPath}/${
+    toFileName(payloadArtifact.workingLocalRelativePath)
+  }`;
   const knopMetadataHistoryPolicy = supportHistoryPolicies?.knopMetadata ??
     "versioned";
   const knopInventoryHistoryPolicy = supportHistoryPolicies?.knopInventory ??
@@ -1984,7 +2142,7 @@ function resolveCurrentMeshInventoryProgressionForFirstKnopWeave(
   if (
     progression.historyPath !== "_mesh/_inventory/_history001" ||
     toHistoryPathFromStatePath(progression.latestStatePath) !==
-    progression.historyPath ||
+      progression.historyPath ||
     progression.nextStateOrdinal !== progression.latestStateOrdinal + 1
   ) {
     throw new WeaveInputError(errorMessage);
@@ -2064,8 +2222,9 @@ function resolveMeshInventoryProgressionFromMetadata(
     SFCFG_HAS_NEXT_STATE_SEGMENT_HINT_IRI,
     errorMessage,
   );
-  const nextStatePath = `${historyPath}/${nextStateSegmentHint ?? toStateSegment(nextStateOrdinal)
-    }`;
+  const nextStatePath = `${historyPath}/${
+    nextStateSegmentHint ?? toStateSegment(nextStateOrdinal)
+  }`;
 
   return {
     historyPath,
@@ -2126,9 +2285,9 @@ function resolveCurrentMeshInventoryProgressionForFirstPayloadWeave(
     : `${progression.latestStatePath}/ttl`;
   if (
     toHistoryPathFromStatePath(progression.latestStatePath) !==
-    progression.historyPath ||
+      progression.historyPath ||
     latestManifestationPath !==
-    `${progression.latestStatePath}/ttl` ||
+      `${progression.latestStatePath}/ttl` ||
     (!latestManifestationIri && progression.latestStateOrdinal !== 2)
   ) {
     throw new WeaveInputError(errorMessage);
@@ -2197,7 +2356,7 @@ function assertCurrentMeshInventoryShapeForFirstReferenceCatalogWeave(
   if (
     progression.historyPath !== historyPath ||
     toHistoryPathFromStatePath(progression.latestStatePath) !==
-    progression.historyPath ||
+      progression.historyPath ||
     progression.nextStateOrdinal !== progression.latestStateOrdinal + 1
   ) {
     throw new WeaveInputError(errorMessage);
@@ -2296,9 +2455,9 @@ function assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
     if (
       meshInventoryProgression.historyPath !== "_mesh/_inventory/_history001" ||
       toHistoryPathFromStatePath(meshInventoryProgression.latestStatePath) !==
-      meshInventoryProgression.historyPath ||
+        meshInventoryProgression.historyPath ||
       meshInventoryProgression.nextStateOrdinal !==
-      meshInventoryProgression.latestStateOrdinal + 1
+        meshInventoryProgression.latestStateOrdinal + 1
     ) {
       throw new WeaveInputError(errorMessage);
     }
@@ -3162,9 +3321,9 @@ function renderFirstKnopWovenMeshInventoryTurtle(
   if (
     findSubjectBlockIndex(initialBlocks, "_mesh") === -1 ||
     findSubjectBlockIndex(
-      initialBlocks,
-      latestManifestationPath,
-    ) === -1 ||
+        initialBlocks,
+        latestManifestationPath,
+      ) === -1 ||
     findSubjectBlockIndex(initialBlocks, "_mesh/index.html") === -1
   ) {
     return renderLegacyFirstKnopWovenMeshInventoryTurtle(
@@ -3298,8 +3457,9 @@ function renderMeshInventoryMetaProgressionBlock(
 ): string {
   return `<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:currentArtifactHistory <${progression.historyPath}> ;
-  sflo:nextHistoryOrdinal "${progression.nextHistoryOrdinal ?? 2
-    }"^^xsd:nonNegativeInteger .`;
+  sflo:nextHistoryOrdinal "${
+    progression.nextHistoryOrdinal ?? 2
+  }"^^xsd:nonNegativeInteger .`;
 }
 
 function renderMeshInventoryHistoryMetaProgressionBlock(
@@ -3307,8 +3467,9 @@ function renderMeshInventoryHistoryMetaProgressionBlock(
 ): string {
   return `<${progression.historyPath}> a sflo:ArtifactHistory ;
   sflo:latestHistoricalState <${progression.nextStatePath}> ;
-  sflo:nextStateOrdinal "${progression.nextStateOrdinal + 1
-    }"^^xsd:nonNegativeInteger .`;
+  sflo:nextStateOrdinal "${
+    progression.nextStateOrdinal + 1
+  }"^^xsd:nonNegativeInteger .`;
 }
 
 function renderFirstKnopWovenKnopInventoryTurtle(
@@ -3599,9 +3760,9 @@ function renderFirstPayloadWovenMeshInventoryTurtle(
   if (
     findSubjectBlockIndex(initialBlocks, "_mesh") === -1 ||
     findSubjectBlockIndex(
-      initialBlocks,
-      meshInventoryProgression.latestManifestationPath,
-    ) === -1
+        initialBlocks,
+        meshInventoryProgression.latestManifestationPath,
+      ) === -1
   ) {
     if (meshInventoryProgression.latestStateOrdinal !== 2) {
       throw new WeaveInputError(
@@ -3769,8 +3930,9 @@ function renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle(
     renderResourcePageLocatedFileBlock(`${knopPath}/index.html`),
   );
 
-  return `${currentMeshInventoryTurtle.trimEnd()}\n\n${additions.join("\n\n")
-    }\n`;
+  return `${currentMeshInventoryTurtle.trimEnd()}\n\n${
+    additions.join("\n\n")
+  }\n`;
 }
 
 function renderLegacyFirstKnopWovenMeshInventoryTurtle(
@@ -4081,8 +4243,9 @@ function renderFirstPayloadWovenKnopInventoryTurtle(
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
-  const payloadSnapshotPath = `${payloadLayout.nextManifestationPath}/${toFileName(workingLocalRelativePath)
-    }`;
+  const payloadSnapshotPath = `${payloadLayout.nextManifestationPath}/${
+    toFileName(workingLocalRelativePath)
+  }`;
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
     workingLocalRelativePath,
     repositorySourceFloatingLocator,
@@ -4336,13 +4499,15 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 <${referenceCatalogPath}/_history001/_s0001> a sflo:HistoricalState ;
   sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
   sflo:hasManifestation <${referenceCatalogManifestationPath}> ;
-  sflo:locatedFileForState <${referenceCatalogManifestationPath}/${toFileName(workingLocalRelativePath)
-    }> ;
+  sflo:locatedFileForState <${referenceCatalogManifestationPath}/${
+    toFileName(workingLocalRelativePath)
+  }> ;
   sflo:hasResourcePage <${referenceCatalogPath}/_history001/_s0001/index.html> .
 
 <${referenceCatalogManifestationPath}> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:locatedFileForManifestation <${referenceCatalogManifestationPath}/${toFileName(workingLocalRelativePath)
-    }> ;
+  sflo:locatedFileForManifestation <${referenceCatalogManifestationPath}/${
+    toFileName(workingLocalRelativePath)
+  }> ;
   sflo:hasResourcePage <${referenceCatalogManifestationPath}/index.html> .
 
 <${knopPath}/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
@@ -4357,8 +4522,9 @@ ${currentWorkingFileDeclaration}
 
 <${knopPath}/_inventory/_history001/_s0002/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<${referenceCatalogManifestationPath}/${toFileName(workingLocalRelativePath)
-    }> a sflo:LocatedFile, sflo:RdfDocument .
+<${referenceCatalogManifestationPath}/${
+    toFileName(workingLocalRelativePath)
+  }> a sflo:LocatedFile, sflo:RdfDocument .
 
 <${knopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -4487,8 +4653,9 @@ function renderSubsequentPageDefinitionWovenKnopInventoryTurtle(
     { length: progression.nextStateOrdinal },
     (_, index) => {
       const stateOrdinal = index + 1;
-      const statePath = `${progression.historyPath}/${toStateSegment(stateOrdinal)
-        }`;
+      const statePath = `${progression.historyPath}/${
+        toStateSegment(stateOrdinal)
+      }`;
       return renderPageDefinitionStateBlock(
         statePath,
         stateOrdinal,
@@ -4509,13 +4676,15 @@ function renderSubsequentPageDefinitionWovenKnopInventoryTurtle(
     { length: knopInventoryProgression.nextStateOrdinal },
     (_, index) => {
       const stateOrdinal = index + 1;
-      const statePath = `${knopInventoryProgression.historyPath}/${toStateSegment(stateOrdinal)
-        }`;
+      const statePath = `${knopInventoryProgression.historyPath}/${
+        toStateSegment(stateOrdinal)
+      }`;
       return renderMeshInventoryStateBlock(
         statePath,
         stateOrdinal,
         stateOrdinal > 1
-          ? `${knopInventoryProgression.historyPath}/${toStateSegment(stateOrdinal - 1)
+          ? `${knopInventoryProgression.historyPath}/${
+            toStateSegment(stateOrdinal - 1)
           }`
           : undefined,
       );
@@ -4532,15 +4701,17 @@ function renderSubsequentPageDefinitionWovenKnopInventoryTurtle(
     { length: knopInventoryProgression.nextStateOrdinal },
     (_, index) =>
       renderLocatedFileBlock(
-        `${knopInventoryProgression.historyPath}/${toStateSegment(index + 1)
+        `${knopInventoryProgression.historyPath}/${
+          toStateSegment(index + 1)
         }/ttl/inventory.ttl`,
       ),
   ).join("\n\n");
   const knopInventoryResourcePageBlocks = Array.from(
     { length: knopInventoryProgression.nextStateOrdinal },
     (_, index) => {
-      const statePath = `${knopInventoryProgression.historyPath}/${toStateSegment(index + 1)
-        }`;
+      const statePath = `${knopInventoryProgression.historyPath}/${
+        toStateSegment(index + 1)
+      }`;
       return `${renderResourcePageLocatedFileBlock(`${statePath}/index.html`)}
 
 ${renderResourcePageLocatedFileBlock(`${statePath}/ttl/index.html`)}`;
@@ -4556,8 +4727,9 @@ ${renderResourcePageLocatedFileBlock(`${statePath}/ttl/index.html`)}`;
   const pageDefinitionResourcePageBlocks = Array.from(
     { length: progression.nextStateOrdinal },
     (_, index) => {
-      const statePath = `${progression.historyPath}/${toStateSegment(index + 1)
-        }`;
+      const statePath = `${progression.historyPath}/${
+        toStateSegment(index + 1)
+      }`;
       return `${renderResourcePageLocatedFileBlock(`${statePath}/index.html`)}
 
 ${renderResourcePageLocatedFileBlock(`${statePath}/ttl/index.html`)}`;
@@ -4661,14 +4833,17 @@ ${referenceCatalogArtifactBlock}
   sflo:hasResourcePage <${pageDefinitionPath}/index.html> .
 
 ${assetBundleBlock}<${progression.historyPath}> a sflo:ArtifactHistory ;
-${Array.from({ length: progression.nextStateOrdinal }, (_, index) =>
-    `  sflo:hasHistoricalState <${progression.historyPath}/${toStateSegment(index + 1)
-    }> ;`).join("\n")
-    }
+${
+    Array.from({ length: progression.nextStateOrdinal }, (_, index) =>
+      `  sflo:hasHistoricalState <${progression.historyPath}/${
+        toStateSegment(index + 1)
+      }> ;`).join("\n")
+  }
   sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
   sflo:latestHistoricalState <${progression.nextStatePath}> ;
-  sflo:nextStateOrdinal "${progression.nextStateOrdinal + 1
-    }"^^xsd:nonNegativeInteger ;
+  sflo:nextStateOrdinal "${
+    progression.nextStateOrdinal + 1
+  }"^^xsd:nonNegativeInteger ;
   sflo:hasResourcePage <${progression.historyPath}/index.html> .
 
 ${pageDefinitionStateBlocks}
@@ -4676,17 +4851,20 @@ ${pageDefinitionStateBlocks}
 ${pageDefinitionManifestationBlocks}
 
 <${knopInventoryProgression.historyPath}> a sflo:ArtifactHistory ;
-${Array.from(
+${
+    Array.from(
       { length: knopInventoryProgression.nextStateOrdinal },
       (_, index) =>
-        `  sflo:hasHistoricalState <${knopInventoryProgression.historyPath}/${toStateSegment(index + 1)
+        `  sflo:hasHistoricalState <${knopInventoryProgression.historyPath}/${
+          toStateSegment(index + 1)
         }> ;`,
     ).join("\n")
-    }
+  }
   sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
   sflo:latestHistoricalState <${knopInventoryProgression.nextStatePath}> ;
-  sflo:nextStateOrdinal "${knopInventoryProgression.nextStateOrdinal + 1
-    }"^^xsd:nonNegativeInteger ;
+  sflo:nextStateOrdinal "${
+    knopInventoryProgression.nextStateOrdinal + 1
+  }"^^xsd:nonNegativeInteger ;
   sflo:hasResourcePage <${knopInventoryProgression.historyPath}/index.html> .
 
 ${knopInventoryStateBlocks}
@@ -4740,10 +4918,11 @@ function renderPageDefinitionStateBlock(
 ): string {
   return `<${statePath}> a sflo:HistoricalState ;
   sflo:stateOrdinal "${stateOrdinal}"^^xsd:nonNegativeInteger ;
-${previousStatePath
+${
+    previousStatePath
       ? `  sflo:previousHistoricalState <${previousStatePath}> ;\n`
       : ""
-    }  sflo:hasManifestation <${statePath}/ttl> ;
+  }  sflo:hasManifestation <${statePath}/ttl> ;
   sflo:locatedFileForState <${statePath}/ttl/page.ttl> ;
   sflo:hasResourcePage <${statePath}/index.html> .`;
 }
@@ -4855,8 +5034,9 @@ function renderMultiHistoryPayloadWovenKnopInventoryTurtle(
     throw new WeaveInputError(errorMessage);
   }
   if (knopInventoryHistory !== undefined) {
-    const nextKnopInventoryStatePath = `${knopInventoryHistory.path}/${toStateSegment(knopInventoryHistory.nextStateOrdinal!)
-      }`;
+    const nextKnopInventoryStatePath = `${knopInventoryHistory.path}/${
+      toStateSegment(knopInventoryHistory.nextStateOrdinal!)
+    }`;
     const previousKnopInventoryStatePath = knopInventoryHistory.latestStatePath;
     upsertRenderedArtifactHistoryState(knopInventoryHistories, {
       historyPath: knopInventoryHistory.path,
@@ -4933,16 +5113,18 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
   sflo:hasResourcePage <${knopPath}/index.html> .
 
 <${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
-${payloadHistoryPaths.map((historyPath) =>
-    `  sflo:hasArtifactHistory <${historyPath}> ;`
-  ).join("\n")
-    }
+${
+    payloadHistoryPaths.map((historyPath) =>
+      `  sflo:hasArtifactHistory <${historyPath}> ;`
+    ).join("\n")
+  }
   sflo:currentArtifactHistory <${payloadLayout.historyPath}> ;
-${payloadNextHistoryOrdinal === undefined
+${
+    payloadNextHistoryOrdinal === undefined
       ? ""
       : `  sflo:nextHistoryOrdinal "${payloadNextHistoryOrdinal}"^^xsd:nonNegativeInteger ;
 `
-    }  ${currentWorkingFileLocator}
+  }  ${currentWorkingFileLocator}
   sflo:hasResourcePage <${designatorPagePath}> .
 
 ${payloadHistoryBlocks}
@@ -4976,17 +5158,19 @@ ${payloadManifestationBlocks}
   sflo:hasResourcePage <${knopPath}/_meta/_history001/_s0001/ttl/index.html> .
 
 <${knopInventoryPath}> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
-${knopInventoryHistory === undefined || knopInventoryCurrentHistoryPath ===
-      undefined
+${
+    knopInventoryHistory === undefined || knopInventoryCurrentHistoryPath ===
+        undefined
       ? ""
       : `  sflo:hasArtifactHistory <${knopInventoryHistory.path}> ;
   sflo:currentArtifactHistory <${knopInventoryCurrentHistoryPath}> ;
 `
-    }${knopInventoryNextHistoryOrdinal === undefined
+  }${
+    knopInventoryNextHistoryOrdinal === undefined
       ? ""
       : `  sflo:nextHistoryOrdinal "${knopInventoryNextHistoryOrdinal}"^^xsd:nonNegativeInteger ;
 `
-    }  sflo:hasWorkingLocatedFile <${knopPath}/_inventory/inventory.ttl> ;
+  }  sflo:hasWorkingLocatedFile <${knopPath}/_inventory/inventory.ttl> ;
   sflo:hasResourcePage <${knopPath}/_inventory/index.html> .
 
 ${knopInventoryHistoryBlocks}
@@ -5062,10 +5246,10 @@ function renderSecondPayloadWovenKnopInventoryTurtle(
   if (
     payloadLayout.isNewHistory ||
     countArtifactHistoryPaths(
-      meshBase,
-      currentKnopInventoryTurtle,
-      designatorPath,
-    ) > 1
+        meshBase,
+        currentKnopInventoryTurtle,
+        designatorPath,
+      ) > 1
   ) {
     return applySupportHistoryPolicies(
       renderMultiHistoryPayloadWovenKnopInventoryTurtle(
@@ -5355,18 +5539,18 @@ function renderGenericFirstExtractedKnopWovenMeshInventoryTurtle(
   );
   const preferredAnchorResourcePath = parentDesignatorPath ?? "_mesh";
   const anchorResourcePath = findSubjectBlockIndex(
-    blocks,
-    preferredAnchorResourcePath,
-  ) === -1
+      blocks,
+      preferredAnchorResourcePath,
+    ) === -1
     ? "_mesh"
     : preferredAnchorResourcePath;
   const preferredAnchorPagePath = parentDesignatorPath === undefined
     ? "_mesh/index.html"
     : toDesignatorResourcePagePath(parentDesignatorPath);
   const anchorPagePath = findSubjectBlockIndex(
-    blocks,
-    preferredAnchorPagePath,
-  ) === -1
+      blocks,
+      preferredAnchorPagePath,
+    ) === -1
     ? "_mesh/index.html"
     : preferredAnchorPagePath;
 
@@ -5503,7 +5687,7 @@ function renderMeshInventoryHistoryBlock(
   latestStatePath = `${historyPath}/${toStateSegment(latestStateOrdinal)}`,
 ): string {
   const ordinalStatePaths = latestStatePath ===
-    `${historyPath}/${toStateSegment(latestStateOrdinal)}`
+      `${historyPath}/${toStateSegment(latestStateOrdinal)}`
     ? Array.from(
       { length: latestStateOrdinal },
       (_, index) => `${historyPath}/${toStateSegment(index + 1)}`,
@@ -5531,10 +5715,11 @@ function renderMeshInventoryStateBlock(
 ): string {
   return `<${statePath}> a sflo:HistoricalState ;
   sflo:stateOrdinal "${stateOrdinal}"^^xsd:nonNegativeInteger ;
-${previousStatePath
+${
+    previousStatePath
       ? `  sflo:previousHistoricalState <${previousStatePath}> ;\n`
       : ""
-    }  sflo:hasManifestation <${statePath}/ttl> ;
+  }  sflo:hasManifestation <${statePath}/ttl> ;
   sflo:locatedFileForState <${statePath}/ttl/inventory.ttl> ;
   sflo:hasResourcePage <${statePath}/index.html> .`;
 }
@@ -5848,10 +6033,11 @@ function renderExactExtractionSourceBlock(
   ];
 
   return `<${extractionSourcePath}> a sflo:ExtractionSource ;
-${facts.map(([predicate, object], index) =>
-    `  ${predicate} ${object}${index === facts.length - 1 ? " ." : " ;"}`
-  ).join("\n")
-    }`;
+${
+    facts.map(([predicate, object], index) =>
+      `  ${predicate} ${object}${index === facts.length - 1 ? " ." : " ;"}`
+    ).join("\n")
+  }`;
 }
 
 function toExtractionSourceEvidenceFacts(
@@ -5942,7 +6128,8 @@ function renderArtifactHistoryIndexPage(
   const canonical = new URL(resourcePath, meshBase).href;
   const meshLabel = deriveMeshLabel(meshBase);
   const states = options.states.map((state) =>
-    `        <li><a href="./${escapeHtml(state.segment)}">${escapeHtml(state.segment)
+    `        <li><a href="./${escapeHtml(state.segment)}">${
+      escapeHtml(state.segment)
     }</a>${state.latest ? " (latest)" : ""}</li>`
   ).join("\n");
 
@@ -5961,13 +6148,15 @@ function renderArtifactHistoryIndexPage(
       <h2>History Links</h2>
       <ul>
         <li>${escapeHtml(options.artifactLabel)}: <a href="../">../</a></li>
-        <li>Current working file: <a href="${escapeHtml(
-    toRelativeHref(options.pagePath, options.workingLocalRelativePath),
-  )
-    }">${escapeHtml(
+        <li>Current working file: <a href="${
+    escapeHtml(
       toRelativeHref(options.pagePath, options.workingLocalRelativePath),
     )
-    }</a></li>
+  }">${
+    escapeHtml(
+      toRelativeHref(options.pagePath, options.workingLocalRelativePath),
+    )
+  }</a></li>
       </ul>
     </section>
     <section>
@@ -6026,8 +6215,9 @@ function renderAliceIdentifierPageAfterFirstExtractedWeave(
 <body>
   <main>
     <h1><strong>alice</strong></h1>
-    <p>Resource page for the Semantic Flow identifier <a href="${escapeHtml(canonical)
-    }">${escapeHtml(canonical)}</a>.</p>
+    <p>Resource page for the Semantic Flow identifier <a href="${
+    escapeHtml(canonical)
+  }">${escapeHtml(canonical)}</a>.</p>
     <p>This Semantic Flow identifier denotes a <a href="https://schema.org/Person">schema:Person</a>.</p>
     <section>
       <h2>Supporting Semantic Flow Resources</h2>
@@ -6041,8 +6231,9 @@ function renderAliceIdentifierPageAfterFirstExtractedWeave(
     <section>
       <h2>Related Semantic Flow Resource</h2>
       <ul>
-        <li><a href="./bio">./bio</a>: current payload file <a href="../alice-bio.ttl">../alice-bio.ttl</a>, current history <a href="${escapeHtml(payloadHistoryHref)
-    }">${escapeHtml(payloadHistoryHref)}</a></li>
+        <li><a href="./bio">./bio</a>: current payload file <a href="../alice-bio.ttl">../alice-bio.ttl</a>, current history <a href="${
+    escapeHtml(payloadHistoryHref)
+  }">${escapeHtml(payloadHistoryHref)}</a></li>
       </ul>
     </section>
     <section>
@@ -6066,16 +6257,18 @@ function renderAliceIdentifierPageAfterFirstExtractedWeave(
           </tr>
           <tr>
             <td><a href="http://xmlns.com/foaf/0.1/knows">foaf:knows</a></td>
-            <td><a href="${escapeHtml(knowsHref)}">${escapeHtml(knowsPath)
-    }</a></td>
+            <td><a href="${escapeHtml(knowsHref)}">${
+    escapeHtml(knowsPath)
+  }</a></td>
           </tr>
         </tbody>
       </table>
     </section>
   </main>
   <footer>
-    <small>The Semantic Flow identifier <a href="${escapeHtml(canonical)}">${escapeHtml(canonical)
-    }</a> has an associated Knop at <a href="./_knop">./_knop</a> and a related integrated bio resource at <a href="./bio">./bio</a>.</small>
+    <small>The Semantic Flow identifier <a href="${escapeHtml(canonical)}">${
+    escapeHtml(canonical)
+  }</a> has an associated Knop at <a href="./_knop">./_knop</a> and a related integrated bio resource at <a href="./bio">./bio</a>.</small>
   </footer>
 </body>
 </html>
@@ -6131,8 +6324,9 @@ function renderExtractedPersonIdentifierPage(
 <body>
   <main>
     <h1><strong>${escapeHtml(displayDesignatorPath)}</strong></h1>
-    <p>Resource page for the Semantic Flow identifier <a href="${escapeHtml(canonical)
-    }">${escapeHtml(canonical)}</a>.</p>
+    <p>Resource page for the Semantic Flow identifier <a href="${
+    escapeHtml(canonical)
+  }">${escapeHtml(canonical)}</a>.</p>
     <p>This Semantic Flow identifier denotes a <a href="https://schema.org/Person">schema:Person</a>.</p>
     <section>
       <h2>Supporting Semantic Flow Resources</h2>
@@ -6146,10 +6340,13 @@ function renderExtractedPersonIdentifierPage(
     <section>
       <h2>Related Semantic Flow Resource</h2>
       <ul>
-        <li><a href="${escapeHtml(sourceResourceHref)}">${escapeHtml(sourceResourceHref)
-    }</a>: current payload file <a href="${escapeHtml(sourceWorkingFileHref)}">${escapeHtml(sourceWorkingFileHref)
-    }</a>, current history <a href="${escapeHtml(sourceHistoryHref)}">${escapeHtml(sourceHistoryHref)
-    }</a></li>
+        <li><a href="${escapeHtml(sourceResourceHref)}">${
+    escapeHtml(sourceResourceHref)
+  }</a>: current payload file <a href="${escapeHtml(sourceWorkingFileHref)}">${
+    escapeHtml(sourceWorkingFileHref)
+  }</a>, current history <a href="${escapeHtml(sourceHistoryHref)}">${
+    escapeHtml(sourceHistoryHref)
+  }</a></li>
       </ul>
     </section>
     <section>
@@ -6176,9 +6373,11 @@ function renderExtractedPersonIdentifierPage(
     </section>
   </main>
   <footer>
-    <small>The Semantic Flow identifier <a href="${escapeHtml(canonical)}">${escapeHtml(canonical)
-    }</a> has an associated Knop at <a href="./_knop">./_knop</a> and is currently described in the related resource <a href="${escapeHtml(sourceResourceHref)
-    }">${escapeHtml(sourceResourceHref)}</a>.</small>
+    <small>The Semantic Flow identifier <a href="${escapeHtml(canonical)}">${
+    escapeHtml(canonical)
+  }</a> has an associated Knop at <a href="./_knop">./_knop</a> and is currently described in the related resource <a href="${
+    escapeHtml(sourceResourceHref)
+  }">${escapeHtml(sourceResourceHref)}</a>.</small>
   </footer>
 </body>
 </html>
@@ -6202,8 +6401,9 @@ function renderGenericExtractedIdentifierPage(
 <body>
   <main>
     <h1>${escapeHtml(displayDesignatorPath)}</h1>
-    <p>Resource page for the Semantic Flow identifier <a href="${escapeHtml(canonical)
-    }">${escapeHtml(canonical)}</a>.</p>
+    <p>Resource page for the Semantic Flow identifier <a href="${
+    escapeHtml(canonical)
+  }">${escapeHtml(canonical)}</a>.</p>
   </main>
 </body>
 </html>
@@ -6362,7 +6562,7 @@ function assertHasRepositorySourceFloatingLocator(
       quad.subject.termType !== "NamedNode" ||
       quad.subject.value !== subjectIri ||
       quad.predicate.value !==
-      SFLO_HAS_REPOSITORY_SOURCE_FLOATING_LOCATOR_IRI ||
+        SFLO_HAS_REPOSITORY_SOURCE_FLOATING_LOCATOR_IRI ||
       (quad.object.termType !== "NamedNode" &&
         quad.object.termType !== "BlankNode")
     ) {
@@ -7035,8 +7235,8 @@ function resolveCurrentKnopSourceRegistry(options: {
   const extractionSourcePath = extractionSourceIri === undefined
     ? undefined
     : extractionSourceIri.startsWith(options.meshBase)
-      ? extractionSourceIri.slice(options.meshBase.length)
-      : extractionSourceIri;
+    ? extractionSourceIri.slice(options.meshBase.length)
+    : extractionSourceIri;
 
   if (
     !hasNamedNodeFact(
@@ -7484,14 +7684,16 @@ function renderCurrentWorkingFileLocator(
   repositorySourceFloatingLocator?: RepositorySourceFloatingLocator,
 ): string {
   if (repositorySourceFloatingLocator !== undefined) {
-    return `sflo:hasRepositorySourceFloatingLocator ${renderRepositorySourceFloatingLocatorBlankNode(
-      repositorySourceFloatingLocator,
-    )
-      } ;`;
+    return `sflo:hasRepositorySourceFloatingLocator ${
+      renderRepositorySourceFloatingLocatorBlankNode(
+        repositorySourceFloatingLocator,
+      )
+    } ;`;
   }
   return usesMeshLocalWorkingLocatedFile(workingLocalRelativePath)
     ? `sflo:hasWorkingLocatedFile <${workingLocalRelativePath}> ;`
-    : `sflo:workingLocalRelativePath ${JSON.stringify(workingLocalRelativePath)
+    : `sflo:workingLocalRelativePath ${
+      JSON.stringify(workingLocalRelativePath)
     } ;`;
 }
 
@@ -7513,8 +7715,9 @@ function renderRepositorySourceFloatingLocatorBlankNode(
   return `[
     a sflo:RepositorySourceFloatingLocator ;
     sflo:sourceRepositoryUrl ${JSON.stringify(locator.repositoryUrl)} ;
-    sflo:sourceRepositoryPathFromRoot ${JSON.stringify(locator.repositoryPathFromRoot)
-    }
+    sflo:sourceRepositoryPathFromRoot ${
+    JSON.stringify(locator.repositoryPathFromRoot)
+  }
   ]`;
 }
 
@@ -7586,8 +7789,8 @@ function buildFirstKnopWeavePages(
     ),
   ];
   return shouldMaterializeSupportHistory(
-    options?.knopMetadataHistoryPolicy ?? "versioned",
-  )
+      options?.knopMetadataHistoryPolicy ?? "versioned",
+    )
     ? pages
     : omitInitialKnopMetadataHistoryPages(pages, knopPath);
 }
@@ -7802,12 +8005,14 @@ function buildSubsequentPageDefinitionWeavePages(
     identifierPage(designatorPagePath, designatorPath),
     simplePage(
       `${knopInventoryProgression.nextStatePath}/index.html`,
-      `Resource page for the ${toOrdinalLabel(knopInventoryProgression.nextStateOrdinal)
+      `Resource page for the ${
+        toOrdinalLabel(knopInventoryProgression.nextStateOrdinal)
       } ${displayDesignatorPath} KnopInventory historical state.`,
     ),
     simplePage(
       `${knopInventoryProgression.nextStatePath}/ttl/index.html`,
-      `Resource page for the Turtle manifestation of the ${toOrdinalLabel(knopInventoryProgression.nextStateOrdinal)
+      `Resource page for the Turtle manifestation of the ${
+        toOrdinalLabel(knopInventoryProgression.nextStateOrdinal)
       } ${displayDesignatorPath} KnopInventory historical state.`,
     ),
     simplePage(
@@ -7820,12 +8025,14 @@ function buildSubsequentPageDefinitionWeavePages(
     ),
     simplePage(
       `${progression.nextStatePath}/index.html`,
-      `Resource page for the ${toOrdinalLabel(progression.nextStateOrdinal)
+      `Resource page for the ${
+        toOrdinalLabel(progression.nextStateOrdinal)
       } ${displayDesignatorPath} ResourcePageDefinition historical state.`,
     ),
     simplePage(
       `${progression.nextManifestationPath}/index.html`,
-      `Resource page for the Turtle manifestation of the ${toOrdinalLabel(progression.nextStateOrdinal)
+      `Resource page for the Turtle manifestation of the ${
+        toOrdinalLabel(progression.nextStateOrdinal)
       } ${displayDesignatorPath} ResourcePageDefinition historical state.`,
     ),
   ];
@@ -7857,8 +8064,8 @@ function buildSecondPayloadWeavePages(
     ),
   ];
   return shouldMaterializeSupportHistory(
-    options?.knopInventoryHistoryPolicy ?? "versioned",
-  )
+      options?.knopInventoryHistoryPolicy ?? "versioned",
+    )
     ? pages
     : omitSecondPayloadKnopInventoryHistoryPages(pages, knopPath);
 }
@@ -7886,10 +8093,10 @@ function resolveFirstPayloadVersionLayout(
   const historyPath = target?.historySegment
     ? appendMeshPath(designatorPath, target.historySegment)
     : currentArtifactHistoryPath ??
-    appendMeshPath(
-      designatorPath,
-      defaultHistorySegment(namingPolicies?.historyNamingPolicy),
-    );
+      appendMeshPath(
+        designatorPath,
+        defaultHistorySegment(namingPolicies?.historyNamingPolicy),
+      );
   if (!isDirectChildMeshPath(designatorPath, historyPath)) {
     throw new WeaveInputError(
       `Current payload history for ${designatorPath} was outside the payload designator path: ${historyPath}`,
@@ -7911,9 +8118,10 @@ function resolveFirstPayloadVersionLayout(
     requestedStateSegment,
     namingPolicies?.stateNamingPolicy,
   );
-  const nextStatePath = `${historyPath}/${requestedStateSegment ??
-    defaultStateSegment(namingPolicies?.stateNamingPolicy)
-    }`;
+  const nextStatePath = `${historyPath}/${
+    requestedStateSegment ??
+      defaultStateSegment(namingPolicies?.stateNamingPolicy)
+  }`;
   const nextManifestationPath = toPayloadManifestationPath(
     nextStatePath,
     workingLocalRelativePath,
@@ -7954,7 +8162,8 @@ function resolveSecondPayloadVersionLayout(
     : currentHistoryPath;
   if (!isDirectChildMeshPath(designatorPath, historyPath)) {
     throw new WeaveInputError(
-      `Requested payload historySegment ${target?.historySegment ?? toLastPathSegment(historyPath)
+      `Requested payload historySegment ${
+        target?.historySegment ?? toLastPathSegment(historyPath)
       } was outside the payload designator path for ${designatorPath}.`,
     );
   }
@@ -7972,9 +8181,10 @@ function resolveSecondPayloadVersionLayout(
       requestedStateSegment,
       namingPolicies?.stateNamingPolicy,
     );
-    const nextStatePath = `${historyPath}/${requestedStateSegment ??
-      defaultStateSegment(namingPolicies?.stateNamingPolicy)
-      }`;
+    const nextStatePath = `${historyPath}/${
+      requestedStateSegment ??
+        defaultStateSegment(namingPolicies?.stateNamingPolicy)
+    }`;
     const nextManifestationPath = toPayloadManifestationPath(
       nextStatePath,
       payloadArtifact.workingLocalRelativePath,
@@ -8010,8 +8220,10 @@ function resolveSecondPayloadVersionLayout(
     parseOptionalStateOrdinalFromPath(currentStatePath) === undefined
   ) {
     throw new WeaveInputError(
-      `Cannot auto-version payload artifact ${formatDesignatorPathForDisplay(designatorPath)
-      } because current payload history ${historyPath} uses named historical state ${currentStatePath}. Provide stateSegment on the target, or explicitly request ordinal fallback with stateSegment=${toStateSegment(1)
+      `Cannot auto-version payload artifact ${
+        formatDesignatorPathForDisplay(designatorPath)
+      } because current payload history ${historyPath} uses named historical state ${currentStatePath}. Provide stateSegment on the target, or explicitly request ordinal fallback with stateSegment=${
+        toStateSegment(1)
       }.`,
     );
   }
@@ -8033,13 +8245,15 @@ function resolveSecondPayloadVersionLayout(
     );
   if (nextStatePath === currentStatePath) {
     throw new WeaveInputError(
-      `Requested payload stateSegment ${toLastPathSegment(nextStatePath)
+      `Requested payload stateSegment ${
+        toLastPathSegment(nextStatePath)
       } already names the current historical state for ${designatorPath}.`,
     );
   }
   if (hasSubject(quads, meshBase, nextStatePath)) {
     throw new WeaveInputError(
-      `Requested payload stateSegment ${toLastPathSegment(nextStatePath)
+      `Requested payload stateSegment ${
+        toLastPathSegment(nextStatePath)
       } already exists for ${designatorPath}.`,
     );
   }
@@ -8134,12 +8348,13 @@ function toArtifactManifestationPath(
   manifestationSegment?: string,
   manifestationNamingPolicy?: ManifestationNamingPolicy,
 ): string {
-  return `${historyStatePath}/${manifestationSegment ??
-    defaultManifestationSegment(
-      workingLocalRelativePath,
-      manifestationNamingPolicy,
-    )
-    }`;
+  return `${historyStatePath}/${
+    manifestationSegment ??
+      defaultManifestationSegment(
+        workingLocalRelativePath,
+        manifestationNamingPolicy,
+      )
+  }`;
 }
 
 function defaultHistorySegment(
