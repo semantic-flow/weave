@@ -23,6 +23,7 @@ import {
   planMeshSupportResourcePages,
   planVersion,
   type ReferenceCatalogWorkingArtifact,
+  type RepositorySourceFloatingLocator,
   type ResourcePageChildIdentifierModel,
   type ResourcePageDefinitionWorkingArtifact,
   type ResourcePageExtractionSourceModel,
@@ -326,6 +327,8 @@ interface CandidateCacheEntry {
 interface GenerateDesignatorContext {
   designatorPath: string;
   payloadWorkingLocalRelativePath?: string;
+  payloadWorkingAccessUrl?: string;
+  payloadRepositorySourceFloatingLocator?: RepositorySourceFloatingLocator;
   extractionSource?: ResourcePageExtractionSourceModel;
   references: readonly ResourcePageReferenceLinkModel[];
   governedArtifacts: readonly KnopArtifactLinkModel[];
@@ -1735,6 +1738,9 @@ async function loadPayloadWorkingArtifact(
 
   return {
     workingLocalRelativePath,
+    ...(payloadArtifact.workingAccessUrl
+      ? { workingAccessUrl: payloadArtifact.workingAccessUrl }
+      : {}),
     currentPayloadTurtle,
     ...(payloadArtifact.repositorySourceFloatingLocator
       ? {
@@ -2310,6 +2316,9 @@ async function collectGeneratedPageFiles(
           designatorPath: publicContext.designatorPath,
           workingLocalRelativePath:
             publicContext.payloadWorkingLocalRelativePath,
+          workingAccessUrl: publicContext.payloadWorkingAccessUrl,
+          repositorySourceFloatingLocator:
+            publicContext.payloadRepositorySourceFloatingLocator,
           extractionSource: publicContext.extractionSource,
           references: publicContext.references,
           childIdentifiers: childIdentifiersByResourcePath.get(
@@ -2847,6 +2856,13 @@ async function loadGenerateDesignatorContexts(
       designatorPath,
       payloadWorkingLocalRelativePath: payloadArtifact
         ?.workingLocalRelativePath,
+      payloadWorkingAccessUrl: payloadArtifact?.workingAccessUrl,
+      ...(payloadArtifact?.repositorySourceFloatingLocator
+        ? {
+          payloadRepositorySourceFloatingLocator:
+            payloadArtifact.repositorySourceFloatingLocator,
+        }
+        : {}),
       ...(extractionSource
         ? {
           extractionSource: {

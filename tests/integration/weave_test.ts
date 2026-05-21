@@ -2126,6 +2126,50 @@ Deno.test("executeGenerate prefers latest manifestation matching the working fil
   assertFalse(page.includes("Wrong JSON-LD Manifestation"));
 });
 
+Deno.test("executeGenerate renders working URL and floating repository source locators", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-generate-current-rdfdocument-source-locators-",
+  );
+  await materializeMeshSidecarFantasyRulesBranch(
+    "15-first-release-woven",
+    workspaceRoot,
+  );
+  await replaceFileText(
+    join(workspaceRoot, "docs/ontology/_knop/_inventory/inventory.ttl"),
+    `sflo:workingLocalRelativePath "../ontology/fantasy-rules-ontology.ttl" ;`,
+    `sflo:workingAccessUrl "https://raw.githubusercontent.com/semantic-flow/mesh-sidecar-fantasy-rules/main/ontology/fantasy-rules-ontology.ttl" ;
+  sflo:hasRepositorySourceFloatingLocator [
+    a sflo:RepositorySourceFloatingLocator ;
+    sflo:sourceRepositoryUrl "https://github.com/semantic-flow/mesh-sidecar-fantasy-rules.git" ;
+    sflo:sourceRepositoryPathFromRoot "ontology/fantasy-rules-ontology.ttl"
+  ] ;`,
+  );
+
+  const result = await executeGenerate({
+    meshRoot: join(workspaceRoot, "docs"),
+    request: { targets: [{ designatorPath: "ontology" }] },
+    now: () => new Date("2026-05-20T00:00:00.000Z"),
+  });
+
+  assertEquals(result.generatedDesignatorPaths, ["ontology"]);
+  const page = await Deno.readTextFile(
+    join(workspaceRoot, "docs/ontology/index.html"),
+  );
+  assertStringIncludes(
+    page,
+    '<tr><th scope="row">Working URL</th><td colspan="3"><a href="https://raw.githubusercontent.com/semantic-flow/mesh-sidecar-fantasy-rules/main/ontology/fantasy-rules-ontology.ttl">https://raw.githubusercontent.com/semantic-flow/mesh-sidecar-fantasy-rules/main/ontology/fantasy-rules-ontology.ttl</a></td></tr>',
+  );
+  assertStringIncludes(
+    page,
+    '<tr><th scope="row">Repository Source</th><td colspan="3"><span>ontology/fantasy-rules-ontology.ttl</span></td></tr>',
+  );
+  assertFalse(
+    page.includes(
+      '<th scope="row">Working File</th><td colspan="3"><a href="/mesh-sidecar-fantasy-rules/ontology/fantasy-rules-ontology.ttl"',
+    ),
+  );
+});
+
 Deno.test("executeGenerate uses latest mesh support state for current RdfDocument panels", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-generate-current-support-latest-state-",

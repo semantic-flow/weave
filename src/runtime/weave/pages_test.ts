@@ -43,6 +43,14 @@ Deno.test("renderResourcePage renders identifier pages with working file links",
     html,
     '<tr><th scope="row">Knop</th><td><a href="/mesh-alice-bio/alice/bio/_knop">alice/bio/_knop</a></td></tr>',
   );
+  assert(
+    html.indexOf('<th scope="row">Canonical IRI</th>') <
+      html.indexOf('<th scope="row">Working File</th>'),
+  );
+  assertStringIncludes(
+    html,
+    '<tr><th scope="row">Working File</th><td colspan="3"><a href="/mesh-alice-bio/alice-bio.ttl">alice-bio.ttl</a></td></tr>',
+  );
   assertStringIncludes(html, 'href="/mesh-alice-bio/alice-bio.ttl"');
   assertStringIncludes(html, 'href="/mesh-alice-bio/alice/bio/_knop"');
 });
@@ -60,8 +68,44 @@ Deno.test("renderResourcePage omits Semantic Flow metadata by default", async ()
 
   assertFalse(html.includes(`<summary>Semantic Flow metadata</summary>`));
   assertFalse(html.includes('<tr><th scope="row">Knop</th>'));
-  assertFalse(html.includes('<tr><th scope="row">Working File</th>'));
   assertFalse(html.includes('<tr><th scope="row">Source</th>'));
+  assertStringIncludes(html, '<th scope="row">Working File</th>');
+});
+
+Deno.test("renderResourcePage renders URL and floating repository working locators in the hero metadata", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/sflo/",
+    {
+      kind: "identifier",
+      path: "ontology/index.html",
+      designatorPath: "ontology",
+      workingAccessUrl:
+        "https://raw.githubusercontent.com/semantic-flow/sflo/main/semantic-flow-core-ontology.ttl",
+      workingLocalRelativePath: "semantic-flow-core-ontology.ttl",
+      repositorySourceFloatingLocator: {
+        repositoryUrl: "https://github.com/semantic-flow/sflo.git",
+        repositoryPathFromRoot: "semantic-flow-core-ontology.ttl",
+      },
+    },
+  );
+
+  assert(
+    html.indexOf('<th scope="row">Canonical IRI</th>') <
+      html.indexOf('<th scope="row">Working URL</th>'),
+  );
+  assertStringIncludes(
+    html,
+    '<tr><th scope="row">Working URL</th><td colspan="3"><a href="https://raw.githubusercontent.com/semantic-flow/sflo/main/semantic-flow-core-ontology.ttl">https://raw.githubusercontent.com/semantic-flow/sflo/main/semantic-flow-core-ontology.ttl</a></td></tr>',
+  );
+  assertStringIncludes(
+    html,
+    '<tr><th scope="row">Repository Source</th><td colspan="3"><span>semantic-flow-core-ontology.ttl</span></td></tr>',
+  );
+  assertFalse(
+    html.includes(
+      '<tr><th scope="row">Working File</th><td colspan="3"><a href="/sflo/semantic-flow-core-ontology.ttl">',
+    ),
+  );
 });
 
 Deno.test("renderResourcePage renders breadcrumbs above the masthead rule with optional mesh favicon", async () => {

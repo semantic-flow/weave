@@ -156,6 +156,7 @@ export interface VersionRequest {
 
 export interface PayloadWorkingArtifact {
   workingLocalRelativePath: string;
+  workingAccessUrl?: string;
   currentPayloadTurtle: string;
   repositorySourceFloatingLocator?: RepositorySourceFloatingLocator;
   currentArtifactHistoryPath?: string;
@@ -221,6 +222,8 @@ export interface IdentifierResourcePageModel {
   path: string;
   designatorPath: string;
   workingLocalRelativePath?: string;
+  workingAccessUrl?: string;
+  repositorySourceFloatingLocator?: RepositorySourceFloatingLocator;
   extractionSource?: ResourcePageExtractionSourceModel;
   references?: readonly ResourcePageReferenceLinkModel[];
   childIdentifiers?: readonly ResourcePageChildIdentifierModel[];

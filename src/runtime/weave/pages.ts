@@ -316,9 +316,10 @@ function toDefaultResourcePageRenderInput(
       resourcePath,
       page.historyGroups ?? [],
     );
-    const workingFileHref = page.workingLocalRelativePath
-      ? toPublicSourceHref(meshRootHref, page.workingLocalRelativePath)
-      : undefined;
+    const workingSourceMetadataRows = toWorkingSourceMetadataRows(
+      meshRootHref,
+      page,
+    );
 
     return {
       meshLabel,
@@ -349,6 +350,7 @@ function toDefaultResourcePageRenderInput(
         : [],
       metadataRows: [
         { label: "Canonical IRI", value: canonical },
+        ...workingSourceMetadataRows,
         ...(rdfFacts.note ? [{ label: "Note", value: rdfFacts.note }] : []),
         ...toRdfIriLinkMetadataRows("Broader", rdfFacts.broader),
         ...toRdfIriLinkMetadataRows("Narrower", rdfFacts.narrower),
@@ -371,13 +373,7 @@ function toDefaultResourcePageRenderInput(
       includeSemanticFlowMetadata,
       semanticFlowMetadataRows: [
         toKnopMetadataRow(meshRootHref, meshLabel, resourcePath),
-        ...(page.workingLocalRelativePath
-          ? [{
-            label: "Working File",
-            href: workingFileHref,
-            value: page.workingLocalRelativePath,
-          }]
-          : []),
+        ...workingSourceMetadataRows,
         ...toExtractionSourceMetadataRows(
           meshRootHref,
           meshLabel,
@@ -1016,6 +1012,40 @@ function toKnopMetadataRow(
     href: toMeshResourceHref(meshRootHref, knopResourcePath),
     value: toDisplayDesignatorPath(knopResourcePath, meshLabel),
   };
+}
+
+function toWorkingSourceMetadataRows(
+  meshRootHref: string,
+  page: Extract<ResourcePageModel, { kind: "identifier" }>,
+): readonly ResourcePageMetadataRow[] {
+  const rows: ResourcePageMetadataRow[] = [];
+
+  if (page.workingAccessUrl) {
+    rows.push({
+      label: "Working URL",
+      href: page.workingAccessUrl,
+      value: page.workingAccessUrl,
+    });
+  }
+
+  if (page.repositorySourceFloatingLocator) {
+    rows.push({
+      label: "Repository Source",
+      value: page.repositorySourceFloatingLocator.repositoryPathFromRoot,
+    });
+  }
+
+  if (
+    page.workingLocalRelativePath && !page.repositorySourceFloatingLocator
+  ) {
+    rows.push({
+      label: "Working File",
+      href: toPublicSourceHref(meshRootHref, page.workingLocalRelativePath),
+      value: page.workingLocalRelativePath,
+    });
+  }
+
+  return rows;
 }
 
 function toExtractionSourceMetadataRows(

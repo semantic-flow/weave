@@ -46,6 +46,7 @@ const SFLO_SOURCE_REPOSITORY_URL_IRI = `${SFLO_NAMESPACE}sourceRepositoryUrl`;
 const SFLO_SOURCE_REPOSITORY_PATH_FROM_ROOT_IRI =
   `${SFLO_NAMESPACE}sourceRepositoryPathFromRoot`;
 const SFLO_WORKING_FILE_PATH_IRI = `${SFLO_NAMESPACE}workingLocalRelativePath`;
+const SFLO_WORKING_ACCESS_URL_IRI = `${SFLO_NAMESPACE}workingAccessUrl`;
 const SFLO_KNOP_IRI = `${SFLO_NAMESPACE}Knop`;
 const SFLO_LATEST_HISTORICAL_STATE_IRI =
   `${SFLO_NAMESPACE}latestHistoricalState`;
@@ -60,6 +61,7 @@ const SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI =
 
 export interface PayloadArtifactInventoryState {
   workingLocalRelativePath: string;
+  workingAccessUrl?: string;
   workingLocatedFilePath?: string;
   repositorySourceFloatingLocator?: RepositorySourceFloatingLocatorState;
   currentArtifactHistoryPath?: string;
@@ -195,6 +197,12 @@ export function resolvePayloadArtifactInventoryState(
     SFLO_HAS_WORKING_LOCATED_FILE_IRI,
     messages.parseErrorMessage,
   );
+  const workingAccessUrl = resolveOptionalUniqueLiteral(
+    quads,
+    payloadArtifactIri,
+    SFLO_WORKING_ACCESS_URL_IRI,
+    messages.parseErrorMessage,
+  );
   const currentArtifactHistoryPath = resolveOptionalUniqueNamedNodePath(
     quads,
     meshBase,
@@ -231,6 +239,7 @@ export function resolvePayloadArtifactInventoryState(
 
   return {
     workingLocalRelativePath,
+    ...(workingAccessUrl ? { workingAccessUrl } : {}),
     ...(workingLocatedFilePath ? { workingLocatedFilePath } : {}),
     ...(repositorySourceFloatingLocator
       ? { repositorySourceFloatingLocator }
