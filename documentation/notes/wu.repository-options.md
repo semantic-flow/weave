@@ -16,6 +16,8 @@ An artifact-native project is a project where the primary authored content alrea
 
 Use this option carefully for ordinary software or ontology repositories. A whole-repo mesh makes the repo layout part of the public identifier and page surface, which can be awkward when project files naturally move over time or when private/internal project material should not be exposed through generated pages.
 
+If a whole-repo mesh is published, every file contained in it would be available. For private working files and other unrelated files, you should use either a sidecar mesh or a branch-published mesh.
+
 ## Sidecar semantic mesh:
 Use this when the source repo is primarily an authoring environment and the public mesh is a publishable projection. The mesh rides alongside the rest of the repo rather than being the repo's main subject.
 

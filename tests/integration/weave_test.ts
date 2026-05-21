@@ -1378,7 +1378,7 @@ Deno.test("executeWeave resolves payload current files from workingLocalRelative
   );
   assertStringIncludes(
     await Deno.readTextFile(join(workspaceRoot, "alice/bio/index.html")),
-    `/mesh-alice-bio/alice-bio.ttl`,
+    `/mesh-alice-bio/alice/bio/_history001/_s0002/ttl/alice-bio.ttl`,
   );
 });
 
@@ -2027,6 +2027,45 @@ Deno.test("executeGenerate renders managed references and canonical source prope
   );
   assertStringIncludes(page, '<details class="wf-properties" open>');
   assertStringIncludes(page, "<summary>Properties</summary>");
+});
+
+Deno.test("executeGenerate uses latest payload state for current RdfDocument panels", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-generate-current-rdfdocument-latest-state-",
+  );
+  await materializeMeshSidecarFantasyRulesBranch(
+    "15-first-release-woven",
+    workspaceRoot,
+  );
+  await Deno.writeTextFile(
+    join(workspaceRoot, "ontology/fantasy-rules-ontology.ttl"),
+    `@base <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+
+<ontology> a owl:Ontology ;
+  dcterms:title "Unwoven Draft Ontology" ;
+  <https://example.org/privateDraftProperty> "not for publication" .
+`,
+  );
+
+  const result = await executeGenerate({
+    meshRoot: join(workspaceRoot, "docs"),
+    request: { targets: [{ designatorPath: "ontology" }] },
+    now: () => new Date("2026-05-20T00:00:00.000Z"),
+  });
+
+  assertEquals(result.generatedDesignatorPaths, ["ontology"]);
+  const page = await Deno.readTextFile(
+    join(workspaceRoot, "docs/ontology/index.html"),
+  );
+  assertStringIncludes(page, '<details class="wf-properties" open>');
+  assertStringIncludes(
+    page,
+    "<summary>Latest historical manifestation file</summary>",
+  );
+  assertFalse(page.includes("Unwoven Draft Ontology"));
+  assertFalse(page.includes("privateDraftProperty"));
 });
 
 Deno.test("executeGenerate includes Semantic Flow metadata only when requested", async () => {

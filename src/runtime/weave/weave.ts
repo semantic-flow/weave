@@ -3417,22 +3417,45 @@ async function addPayloadRawSourcePanels(
     workingLocalRelativePath: string;
     latestHistoricalStatePath?: string;
     latestHistoricalSnapshotPath?: string;
+    latestHistoricalSnapshotTurtle?: string;
   },
 ): Promise<void> {
-  try {
-    const currentPanel = await readRawSourcePanel(
-      resolveAllowedLocalPath(
-        localPathPolicy,
-        "workingLocalRelativePath",
-        payloadArtifact.workingLocalRelativePath,
-      ),
-      payloadArtifact.workingLocalRelativePath,
-      "Current working file",
+  const currentPagePath = toDesignatorResourcePagePath(designatorPath);
+  const latestHistoricalPanel = await readLatestPayloadHistoricalRawSourcePanel(
+    workspaceRoot,
+    payloadArtifact,
+  );
+
+  if (latestHistoricalPanel) {
+    addRawSourcePanel(
+      rawSourcePanels,
+      currentPagePath,
+      {
+        ...latestHistoricalPanel,
+        label: "Latest historical manifestation file",
+      },
     );
     addRawSourcePanel(
       rawSourcePanels,
-      toDesignatorResourcePagePath(designatorPath),
-      currentPanel,
+      `${dirname(latestHistoricalPanel.sourcePath)}/index.html`,
+      latestHistoricalPanel,
+    );
+    return;
+  }
+
+  try {
+    addRawSourcePanel(
+      rawSourcePanels,
+      currentPagePath,
+      await readRawSourcePanel(
+        resolveAllowedLocalPath(
+          localPathPolicy,
+          "workingLocalRelativePath",
+          payloadArtifact.workingLocalRelativePath,
+        ),
+        payloadArtifact.workingLocalRelativePath,
+        "Current working file",
+      ),
     );
   } catch (error) {
     if (
@@ -3443,9 +3466,19 @@ async function addPayloadRawSourcePanels(
     }
     throw error;
   }
+}
 
+async function readLatestPayloadHistoricalRawSourcePanel(
+  workspaceRoot: string,
+  payloadArtifact: {
+    workingLocalRelativePath: string;
+    latestHistoricalStatePath?: string;
+    latestHistoricalSnapshotPath?: string;
+    latestHistoricalSnapshotTurtle?: string;
+  },
+): Promise<ResourcePageRawSourcePanelModel | undefined> {
   if (!payloadArtifact.latestHistoricalStatePath) {
-    return;
+    return undefined;
   }
 
   const snapshotPath = payloadArtifact.latestHistoricalSnapshotPath ??
@@ -3453,25 +3486,50 @@ async function addPayloadRawSourcePanels(
       payloadArtifact.latestHistoricalStatePath,
       payloadArtifact.workingLocalRelativePath,
     );
+
+  if (payloadArtifact.latestHistoricalSnapshotTurtle !== undefined) {
+    return rawSourcePanelFromContents(
+      snapshotPath,
+      "Historical manifestation file",
+      payloadArtifact.latestHistoricalSnapshotTurtle,
+    );
+  }
+
   const snapshotAbsolutePath = join(workspaceRoot, snapshotPath);
 
   try {
-    const historicalPanel = await readRawSourcePanel(
+    return await readRawSourcePanel(
       snapshotAbsolutePath,
       snapshotPath,
       "Historical manifestation file",
     );
-    addRawSourcePanel(
-      rawSourcePanels,
-      `${dirname(snapshotPath)}/index.html`,
-      historicalPanel,
-    );
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
-      return;
+      return undefined;
     }
     throw error;
   }
+}
+
+function rawSourcePanelFromContents(
+  sourcePath: string,
+  label: string,
+  contents: string,
+): ResourcePageRawSourcePanelModel {
+  const byteLength = new TextEncoder().encode(contents).byteLength;
+  if (byteLength > RAW_SOURCE_INLINE_BYTE_LIMIT) {
+    return {
+      label,
+      sourcePath,
+      omittedByteLength: byteLength,
+    };
+  }
+
+  return {
+    label,
+    sourcePath,
+    contents,
+  };
 }
 
 async function addReferenceTargetSourceRawSourcePanels(
