@@ -8,12 +8,14 @@ import {
 } from "../../core/designator_segments.ts";
 import type { PlannedFile } from "../../core/planned_file.ts";
 import {
+  findUncoveredRequestedTargets,
   type NormalizedTargetSpec,
   type NormalizedVersionTargetSpec,
   normalizeTargetSpecs,
   normalizeVersionTargetSpecs,
+  type PreparedWeaveTargets,
+  prepareWeaveTargets,
   resolveTargetSelections,
-  type TargetSpec,
 } from "../../core/targeting.ts";
 import {
   detectPendingWeaveSlice,
@@ -231,6 +233,16 @@ interface PreparedVersionExecution {
 interface NormalizedVersionRequest {
   targets: readonly NormalizedVersionTargetSpec[];
   overwriteExistingState: boolean;
+}
+
+interface NormalizedWeaveRequest {
+  targetPreparation: PreparedWeaveTargets;
+  overwriteExistingState: boolean;
+}
+
+interface PreparedWeaveExecution {
+  request: NormalizedWeaveRequest;
+  version: PreparedVersionExecution;
 }
 
 class TextFileOverlay extends Map<string, string> {
@@ -612,76 +624,16 @@ export async function executeGenerate(
       "loadOperationalLocalPathPolicy",
       () => loadOperationalLocalPathPolicy(meshRoot),
     );
-    const meshState = await timing.time(
-      "loadMeshState",
-      () => loadMeshState(meshRoot),
-    );
-    const effectiveConfig = await timing.time(
-      "loadEffectiveConfig",
-      () =>
-        loadEffectiveConfigForExecution(
-          options.historyTrackingPolicyOverride,
-        ),
-    );
-    const allDesignatorPaths = timing.timeSync(
-      "listDesignatorPaths",
-      () =>
-        listKnopDesignatorPaths(
-          meshState.meshBase,
-          meshState.currentMeshInventoryTurtle,
-          "Could not parse the current MeshInventory while resolving generate targets.",
-        ),
-    );
-    const selectedDesignatorPaths = timing.timeSync(
-      "resolveTargets",
-      () =>
-        resolveSelectedDesignatorPaths(
-          allDesignatorPaths,
-          targets,
-        ),
-    );
-    const pageFiles = await timing.time(
-      "collectGeneratedPageFiles",
-      () =>
-        collectGeneratedPageFiles(
-          meshRoot,
-          localPathPolicy,
-          meshState,
-          selectedDesignatorPaths,
-          targets.length === 0,
-          targets.length > 0,
-          effectiveConfig,
-          resolveGeneratedAt(options.now),
-          options.includeSemanticFlowMetadata ?? false,
-        ),
-    );
-    const writeResult = await timing.time(
-      "writePages",
-      () => writeGeneratedPagesUpsert(meshRoot, pageFiles),
-    );
-
-    const result = {
-      meshBase: meshState.meshBase,
-      generatedDesignatorPaths: selectedDesignatorPaths,
-      createdPaths: writeResult.createdPaths.map((path) =>
-        toWorkspaceRelativePath(localPathPolicy, path)
-      ),
-      updatedPaths: writeResult.updatedPaths.map((path) =>
-        toWorkspaceRelativePath(localPathPolicy, path)
-      ),
-      skippedTimestampOnlyPaths: writeResult.skippedTimestampOnlyPaths.map((
-        path,
-      ) => toWorkspaceRelativePath(localPathPolicy, path)),
-    };
-    if (result.skippedTimestampOnlyPaths.length > 0) {
-      await operationalLogger.info(
-        "generate.timestampOnlySkipped",
-        "Skipped generated pages with timestamp-only differences",
-        {
-          skippedTimestampOnlyPaths: result.skippedTimestampOnlyPaths,
-        },
-      );
-    }
+    const result = await generatePreparedPages({
+      meshRoot,
+      localPathPolicy,
+      targets,
+      operationalLogger,
+      now: options.now,
+      includeSemanticFlowMetadata: options.includeSemanticFlowMetadata ?? false,
+      historyTrackingPolicyOverride: options.historyTrackingPolicyOverride,
+      timing,
+    });
     timing.setField(
       "generatedDesignatorPaths",
       result.generatedDesignatorPaths.length,
@@ -699,6 +651,98 @@ export async function executeGenerate(
   } finally {
     timing.finish({ status });
   }
+}
+
+async function generatePreparedPages(options: {
+  meshRoot: string;
+  localPathPolicy: OperationalLocalPathPolicy;
+  targets: readonly NormalizedTargetSpec[];
+  operationalLogger: StructuredLogger;
+  now?: () => Date;
+  includeSemanticFlowMetadata: boolean;
+  historyTrackingPolicyOverride?: HistoryTrackingPolicy;
+  timing?: RuntimeTiming;
+  phasePrefix?: string;
+}): Promise<GenerateResult> {
+  const phase = (name: string) =>
+    options.phasePrefix ? `${options.phasePrefix}.${name}` : name;
+  const meshState = await timeOptional(
+    options.timing,
+    phase("loadMeshState"),
+    () => loadMeshState(options.meshRoot),
+  );
+  const effectiveConfig = await timeOptional(
+    options.timing,
+    phase("loadEffectiveConfig"),
+    () =>
+      loadEffectiveConfigForExecution(
+        options.historyTrackingPolicyOverride,
+      ),
+  );
+  const allDesignatorPaths = timeOptionalSync(
+    options.timing,
+    phase("listDesignatorPaths"),
+    () =>
+      listKnopDesignatorPaths(
+        meshState.meshBase,
+        meshState.currentMeshInventoryTurtle,
+        "Could not parse the current MeshInventory while resolving generate targets.",
+      ),
+  );
+  const selectedDesignatorPaths = timeOptionalSync(
+    options.timing,
+    phase("resolveTargets"),
+    () =>
+      resolveSelectedDesignatorPaths(
+        allDesignatorPaths,
+        options.targets,
+      ),
+  );
+  const pageFiles = await timeOptional(
+    options.timing,
+    phase("collectGeneratedPageFiles"),
+    () =>
+      collectGeneratedPageFiles(
+        options.meshRoot,
+        options.localPathPolicy,
+        meshState,
+        selectedDesignatorPaths,
+        options.targets.length === 0,
+        options.targets.length > 0,
+        effectiveConfig,
+        resolveGeneratedAt(options.now),
+        options.includeSemanticFlowMetadata,
+      ),
+  );
+  const writeResult = await timeOptional(
+    options.timing,
+    phase("writePages"),
+    () => writeGeneratedPagesUpsert(options.meshRoot, pageFiles),
+  );
+
+  const result = {
+    meshBase: meshState.meshBase,
+    generatedDesignatorPaths: selectedDesignatorPaths,
+    createdPaths: writeResult.createdPaths.map((path) =>
+      toWorkspaceRelativePath(options.localPathPolicy, path)
+    ),
+    updatedPaths: writeResult.updatedPaths.map((path) =>
+      toWorkspaceRelativePath(options.localPathPolicy, path)
+    ),
+    skippedTimestampOnlyPaths: writeResult.skippedTimestampOnlyPaths.map((
+      path,
+    ) => toWorkspaceRelativePath(options.localPathPolicy, path)),
+  };
+  if (result.skippedTimestampOnlyPaths.length > 0) {
+    await options.operationalLogger.info(
+      "generate.timestampOnlySkipped",
+      "Skipped generated pages with timestamp-only differences",
+      {
+        skippedTimestampOnlyPaths: result.skippedTimestampOnlyPaths,
+      },
+    );
+  }
+  return result;
 }
 
 export async function executeWeave(
@@ -737,21 +781,20 @@ export async function executeWeave(
       assertValidationPassed(validation, "before weaving");
     }
 
-    const normalizedRequest = normalizeVersionRequest(options.request);
-    let preparedVersion: PreparedVersionExecution;
+    const normalizedRequest = normalizeWeaveRequest(options.request);
+    let preparedExecution: PreparedWeaveExecution;
     try {
-      preparedVersion = await prepareVersionExecution(
+      preparedExecution = await prepareWeaveExecution(
         meshRoot,
-        normalizedRequest.targets,
+        normalizedRequest,
         initialPolicy,
-        normalizedRequest.overwriteExistingState,
         options.historyTrackingPolicyOverride,
         options.onProgress,
         timing,
       );
       timing.timeSync(
         "version.validateRdf",
-        () => validateVersionPlanRdf(preparedVersion.plan),
+        () => validateVersionPlanRdf(preparedExecution.version.plan),
       );
     } catch (error) {
       if (error instanceof WeaveRuntimeError) {
@@ -763,19 +806,26 @@ export async function executeWeave(
     const versionResult = await writePreparedVersion(
       meshRoot,
       initialPolicy,
-      preparedVersion,
+      preparedExecution.version,
       { validateRdf: false, timing, phasePrefix: "version.write" },
     );
     wovenDesignatorPaths = versionResult.versionedDesignatorPaths;
 
-    const generateResult = await timing.time("generate", () =>
-      executeGenerate({
-        meshRoot,
-        request: toSharedTargetRequest(options.request),
-        operationalLogger,
-        now: options.now,
-        historyTrackingPolicyOverride: options.historyTrackingPolicyOverride,
-      }));
+    const generateResult = await timing.time(
+      "generate",
+      () =>
+        generatePreparedPages({
+          meshRoot,
+          localPathPolicy: initialPolicy,
+          targets: preparedExecution.request.targetPreparation.sharedTargets,
+          operationalLogger,
+          now: options.now,
+          includeSemanticFlowMetadata: false,
+          historyTrackingPolicyOverride: options.historyTrackingPolicyOverride,
+          timing,
+          phasePrefix: "generate",
+        }),
+    );
 
     const result: WeaveResult = {
       meshBase: versionResult.meshBase,
@@ -986,66 +1036,26 @@ function normalizeVersionRequest(
   };
 }
 
-function toSharedTargetRequest(
+function normalizeWeaveRequest(
   request: WeaveRequest | undefined,
-): ValidateRequest | undefined {
-  if (!request) {
-    return undefined;
-  }
-
-  // executeWeave runs validate -> version -> generate as separate phases. Keep
-  // this bridge normalized through the version-target parser first so shared
-  // validate/generate targeting stays semantically aligned with version
-  // targeting as the request shape evolves.
+): NormalizedWeaveRequest {
   assertSupportedRequestKeys(
     request,
     "request",
     new Set(["targets", "overwriteExistingState"]),
   );
-  const normalizedTargets = normalizeVersionTargetSpecs(
-    request.targets,
-    "request.targets",
-    (message) => new WeaveInputError(message),
-  );
-
+  const overwriteExistingState = normalizeOptionalBooleanRequestField(
+    request?.overwriteExistingState,
+    "request.overwriteExistingState",
+  ) ?? false;
   return {
-    targets: uniqueGenerateTargets(normalizedTargets.flatMap((target) => [
-      ...toAncestorGenerateTargets(target.designatorPath),
-      {
-        designatorPath: target.designatorPath,
-        ...(target.recursive ? { recursive: true } : {}),
-      },
-    ])),
+    targetPreparation: prepareWeaveTargets(
+      request?.targets,
+      "request.targets",
+      (message) => new WeaveInputError(message),
+    ),
+    overwriteExistingState,
   };
-}
-
-function toAncestorGenerateTargets(
-  designatorPath: string,
-): readonly TargetSpec[] {
-  if (designatorPath.length === 0) {
-    return [];
-  }
-
-  const segments = designatorPath.split("/");
-  const ancestors: TargetSpec[] = [{ designatorPath: "" }];
-  for (let index = 1; index < segments.length; index += 1) {
-    ancestors.push({ designatorPath: segments.slice(0, index).join("/") });
-  }
-  return ancestors;
-}
-
-function uniqueGenerateTargets(
-  targets: readonly TargetSpec[],
-): readonly TargetSpec[] {
-  const targetByPath = new Map<string, TargetSpec>();
-  for (const target of targets) {
-    const existing = targetByPath.get(target.designatorPath);
-    targetByPath.set(target.designatorPath, {
-      designatorPath: target.designatorPath,
-      ...((existing?.recursive || target.recursive) ? { recursive: true } : {}),
-    });
-  }
-  return [...targetByPath.values()];
 }
 
 function assertSupportedRequestKeys(
@@ -1095,6 +1105,30 @@ function timeOptionalSync<T>(
   operation: () => T,
 ): T {
   return timing ? timing.timeSync(phase, operation) : operation();
+}
+
+async function prepareWeaveExecution(
+  workspaceRoot: string,
+  request: NormalizedWeaveRequest,
+  localPathPolicy: OperationalLocalPathPolicy,
+  historyTrackingPolicyOverride?: HistoryTrackingPolicy,
+  onProgress?: WeaveProgressHandler,
+  timing?: RuntimeTiming,
+): Promise<PreparedWeaveExecution> {
+  const version = await prepareVersionExecution(
+    workspaceRoot,
+    request.targetPreparation.versionTargets,
+    localPathPolicy,
+    request.overwriteExistingState,
+    historyTrackingPolicyOverride,
+    onProgress,
+    timing,
+  );
+
+  return {
+    request,
+    version,
+  };
 }
 
 async function prepareVersionExecution(
@@ -1406,21 +1440,9 @@ function assertRequestedTargetsAreWeaveable(
     return;
   }
 
-  const weaveablePaths = new Set(
+  const missingTargets = findUncoveredRequestedTargets(
+    targets,
     weaveableKnops.map((candidate) => candidate.designatorPath),
-  );
-  // Exact and recursive targets intentionally differ here. An exact request is
-  // asking for that designator itself to be versionable right now, while a
-  // recursive request is allowed to succeed when any descendant in the
-  // requested subtree is weaveable even if the subtree root is already settled.
-  const missingTargets = targets.filter((target) =>
-    target.recursive
-      ? ![...weaveablePaths].some((designatorPath) =>
-        target.designatorPath.length === 0 ||
-        designatorPath === target.designatorPath ||
-        designatorPath.startsWith(`${target.designatorPath}/`)
-      )
-      : !weaveablePaths.has(target.designatorPath)
   );
   if (missingTargets.length === 0) {
     return;

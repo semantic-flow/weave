@@ -537,6 +537,71 @@ Deno.test("executeWeave batches recursive targets through validate, version, and
   await Deno.stat(join(workspaceRoot, "alice/bio/index.html"));
 });
 
+Deno.test("executeWeave rejects exact settled ancestors even when descendants are weaveable", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-exact-coverage-",
+  );
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await addSupplementalKnopToMeshInventory(workspaceRoot, "alice/bio");
+  await addSupplementalPayloadArtifactToMeshInventory(
+    workspaceRoot,
+    "alice/bio",
+    "alice-bio.ttl",
+  );
+  await writeSupplementalKnopSurface(
+    workspaceRoot,
+    "alice/bio",
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<alice/bio/_knop> a sflo:Knop ;
+  sflo:hasKnopMetadata <alice/bio/_knop/_meta> ;
+  sflo:hasKnopInventory <alice/bio/_knop/_inventory> ;
+  sflo:hasWorkingKnopInventoryFile <alice/bio/_knop/_inventory/inventory.ttl> ;
+  sflo:hasPayloadArtifact <alice/bio> .
+
+<alice/bio> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <alice-bio.ttl> .
+`,
+  );
+  const meshInventoryBefore = await Deno.readTextFile(
+    join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+  );
+
+  await assertRejects(
+    () =>
+      executeWeave({
+        meshRoot: workspaceRoot,
+        request: {
+          targets: [
+            { designatorPath: "alice" },
+            { designatorPath: "alice/bio" },
+          ],
+        },
+      }),
+    WeaveInputError,
+    "Requested targets are not currently weaveable: alice.",
+  );
+
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+    ),
+    meshInventoryBefore,
+  );
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, "alice/bio/_history001")),
+    Deno.errors.NotFound,
+  );
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, "alice/bio/index.html")),
+    Deno.errors.NotFound,
+  );
+});
+
 Deno.test("executeWeave honors requested payload history and state naming", async () => {
   const workspaceRoot = await createTestTmpDir("weave-weave-payload-custom-");
   await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);

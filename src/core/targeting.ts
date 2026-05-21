@@ -32,6 +32,11 @@ export interface ResolvedTargetSelection<T extends TargetSpec = TargetSpec> {
   target?: NormalizedTargetSpec<T>;
 }
 
+export interface PreparedWeaveTargets {
+  versionTargets: readonly NormalizedVersionTargetSpec[];
+  sharedTargets: readonly NormalizedTargetSpec[];
+}
+
 export function normalizeTargetSpecs(
   targets: readonly unknown[] | undefined,
   fieldName: string,
@@ -56,6 +61,35 @@ export function normalizeVersionTargetSpecs(
     createError,
     true,
   ) as readonly NormalizedVersionTargetSpec[];
+}
+
+export function prepareWeaveTargets(
+  targets: readonly unknown[] | undefined,
+  fieldName: string,
+  createError: (message: string) => Error,
+): PreparedWeaveTargets {
+  const versionTargets = normalizeVersionTargetSpecs(
+    targets,
+    fieldName,
+    createError,
+  );
+
+  return {
+    versionTargets,
+    sharedTargets: toSharedTargetSpecs(versionTargets),
+  };
+}
+
+export function toSharedTargetSpecs(
+  targets: readonly NormalizedVersionTargetSpec[],
+): readonly NormalizedTargetSpec[] {
+  return uniqueTargetSpecs(targets.flatMap((target) => [
+    ...toAncestorTargetSpecs(target.designatorPath),
+    {
+      designatorPath: target.designatorPath,
+      ...(target.recursive ? { recursive: true } : {}),
+    },
+  ])).map(toNormalizedSharedTarget);
 }
 
 export function resolveTargetSelections<T extends TargetSpec>(
@@ -106,6 +140,72 @@ export function resolveTargetSelections<T extends TargetSpec>(
   }
 
   return resolved;
+}
+
+export function findUncoveredRequestedTargets<T extends TargetSpec>(
+  targets: readonly NormalizedTargetSpec<T>[],
+  coveredDesignatorPaths: readonly string[],
+): readonly NormalizedTargetSpec<T>[] {
+  return targets.filter((target) =>
+    !hasRequestedTargetCoverage(target, coveredDesignatorPaths)
+  );
+}
+
+export function hasRequestedTargetCoverage<T extends TargetSpec>(
+  target: NormalizedTargetSpec<T>,
+  coveredDesignatorPaths: readonly string[],
+): boolean {
+  // Exact targets must be covered by that designator itself. Recursive targets
+  // may be covered by any descendant because the requested subtree can still
+  // contain actionable work even when its root is already settled.
+  return coveredDesignatorPaths.some((designatorPath) =>
+    target.recursive
+      ? target.designatorPath.length === 0 ||
+        designatorPath === target.designatorPath ||
+        designatorPath.startsWith(`${target.designatorPath}/`)
+      : designatorPath === target.designatorPath
+  );
+}
+
+function toAncestorTargetSpecs(
+  designatorPath: string,
+): readonly TargetSpec[] {
+  if (designatorPath.length === 0) {
+    return [];
+  }
+
+  const segments = designatorPath.split("/");
+  const ancestors: TargetSpec[] = [{ designatorPath: "" }];
+  for (let index = 1; index < segments.length; index += 1) {
+    ancestors.push({ designatorPath: segments.slice(0, index).join("/") });
+  }
+  return ancestors;
+}
+
+function uniqueTargetSpecs(
+  targets: readonly TargetSpec[],
+): readonly TargetSpec[] {
+  const targetByPath = new Map<string, TargetSpec>();
+  for (const target of targets) {
+    const existing = targetByPath.get(target.designatorPath);
+    targetByPath.set(target.designatorPath, {
+      designatorPath: target.designatorPath,
+      ...((existing?.recursive || target.recursive) ? { recursive: true } : {}),
+    });
+  }
+  return [...targetByPath.values()];
+}
+
+function toNormalizedSharedTarget(target: TargetSpec): NormalizedTargetSpec {
+  const recursive = target.recursive === true;
+  return {
+    source: {
+      designatorPath: target.designatorPath,
+      ...(recursive ? { recursive: true } : {}),
+    },
+    designatorPath: target.designatorPath,
+    recursive,
+  };
 }
 
 function normalizeTargets(

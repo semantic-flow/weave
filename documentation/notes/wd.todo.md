@@ -7,8 +7,6 @@ created: 1774046031081
 ---
 
 
-- for supporting DigitalArtifacts, allow "thin" mode: just working file, no histories
-
 ## Backlog
 
 - [ ] feed the release notes as a supplemental reference into the corresponding historical states, but so far references only works on RDF.
@@ -20,5 +18,6 @@ created: 1774046031081
 - [ ] Add user-visible `generate`/`validate` findings for ResourcePage publication anomalies, especially current RDF artifact pages that have ResourcePage generation enabled but no latest HistoricalState to render from.
 - [ ] Add a publication option to suppress working-file locator metadata on ResourcePages, while still deriving semantic panels from settled historical states.
 - [ ] Add an optional `WEAVE_TEST_TMP_ROOT` override for `createTestTmpDir()` only if stable grouping of preserved test temp workspaces becomes useful again. The current helper already defaults to platform temp space outside the repository.
+- [ ] Audit and document the remaining support-artifact history exceptions: Weave defaults now make supporting DigitalArtifacts current-only/thin unless a role overrides that policy, with `config` still explicitly versioned and ResourcePageDefinition progression still carrying a versioned legacy path.
 - when an artifact gets created or (in the case of a payload artifact, integrated) it's possible to have "trackHistory" turned off (usually in config but potentially in CLI); support the situation where a changed WorkingFile, on weave, only updates a "latestState" and doesn't write to history
 - [ ] Decide whether Weave should migrate acceptance fixtures from git-branch-backed before/after states in `mesh-alice-bio` to explicit folder-backed snapshots. Upside: simpler local/CI fixture reads and easier task-specific fixture authoring. Downside: more duplicated checked-out fixture trees, loss of branch-based carried-slice provenance, and required updates to conformance manifests, notes, and helpers that currently address fixture refs by branch name.
