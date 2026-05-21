@@ -1032,9 +1032,19 @@ function toWorkingSourceMetadataRows(
   }
 
   if (page.repositorySourceFloatingLocator) {
+    const repositoryUrl = page.repositorySourceFloatingLocator.repositoryUrl;
+    const repositoryPathFromRoot = page.repositorySourceFloatingLocator
+      .repositoryPathFromRoot;
     rows.push({
       label: "Repository Source",
-      value: page.repositorySourceFloatingLocator.repositoryPathFromRoot,
+      value: `${repositoryUrl} / ${repositoryPathFromRoot}`,
+      html: `<span class="wf-repository-source"><a href="${
+        escapeHtml(repositoryUrl)
+      }">${
+        escapeHtml(repositoryUrl)
+      }</a><span aria-hidden="true"> / </span><span>${
+        escapeHtml(repositoryPathFromRoot)
+      }</span></span>`,
     });
   }
 
