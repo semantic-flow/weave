@@ -4,14 +4,22 @@ Weave is a platform for minting dereferenceable Semantic Web IRIs and for managi
 
 ## Installation/Upgrade Instructions
 
-Install or upgrade Weave globally with npm:
+Install or upgrade Weave globally from the npm registry.
+
+With npm:
 
 ```bash
 npm i -g @semantic-flow/weave@latest
 ```
 
-Or install or upgrade it globally with pnpm:
+With pnpm, use `add` for a first install:
 
 ```bash
 pnpm add -g @semantic-flow/weave@latest
+```
+
+For an existing pnpm global install, use `update`:
+
+```bash
+pnpm update -g @semantic-flow/weave --latest
 ```

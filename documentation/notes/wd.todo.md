@@ -2,11 +2,11 @@
 id: 5d7q7j0ra3tybq1dn6e1zha
 title: Todo
 desc: ''
-updated: 1779178359729
+updated: 1779383363506
 created: 1774046031081
 ---
 
-- for extra-root linked files, they should get copied into the mesh
+
 - for supporting DigitalArtifacts, allow "thin" mode: just working file, no histories
 
 ## Backlog
@@ -19,5 +19,6 @@ created: 1774046031081
 - [ ] Add a carried fixture or focused test for forcing a new payload release state when the source bytes are unchanged, so named-release sequencing can publish a new HistoricalState without relying on content changes. This was deferred from the Fantasy Rules `v0.0.2` slice after the SHACL source gained real version metadata changes.
 - [ ] Add user-visible `generate`/`validate` findings for ResourcePage publication anomalies, especially current RDF artifact pages that have ResourcePage generation enabled but no latest HistoricalState to render from.
 - [ ] Add a publication option to suppress working-file locator metadata on ResourcePages, while still deriving semantic panels from settled historical states.
+- [ ] Add an optional `WEAVE_TEST_TMP_ROOT` override for `createTestTmpDir()` only if stable grouping of preserved test temp workspaces becomes useful again. The current helper already defaults to platform temp space outside the repository.
 - when an artifact gets created or (in the case of a payload artifact, integrated) it's possible to have "trackHistory" turned off (usually in config but potentially in CLI); support the situation where a changed WorkingFile, on weave, only updates a "latestState" and doesn't write to history
 - [ ] Decide whether Weave should migrate acceptance fixtures from git-branch-backed before/after states in `mesh-alice-bio` to explicit folder-backed snapshots. Upside: simpler local/CI fixture reads and easier task-specific fixture authoring. Downside: more duplicated checked-out fixture trees, loss of branch-based carried-slice provenance, and required updates to conformance manifests, notes, and helpers that currently address fixture refs by branch name.
