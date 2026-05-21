@@ -910,6 +910,31 @@ function resolveOptionalUniqueNamedNodePath(
   return values.values().next().value!;
 }
 
+function resolveNamedNodePaths(
+  quads: readonly Quad[],
+  meshBase: string,
+  subjectIri: string,
+  predicateIri: string,
+  errorMessage: string,
+): readonly string[] {
+  const values = new Set<string>();
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.subject.value !== subjectIri ||
+      quad.predicate.value !== predicateIri ||
+      quad.object.termType !== "NamedNode"
+    ) {
+      continue;
+    }
+
+    values.add(requireMeshPath(meshBase, quad.object.value, errorMessage));
+  }
+
+  return [...values].sort();
+}
+
 function resolveOptionalUniqueNamedNodeIri(
   quads: readonly Quad[],
   subjectIri: string,
@@ -985,32 +1010,57 @@ function resolveOptionalHistoricalStateLocatedFilePath(
     SFLO_LOCATED_FILE_FOR_STATE_IRI,
     errorMessage,
   );
-  const manifestationPath = resolveOptionalUniqueNamedNodePath(
+  const manifestationLocatedFilePaths =
+    resolveHistoricalStateManifestationLocatedFilePaths(
+      quads,
+      meshBase,
+      stateIri,
+      errorMessage,
+    );
+
+  if (
+    shortcutLocatedFilePath !== undefined &&
+    manifestationLocatedFilePaths.length > 0 &&
+    !manifestationLocatedFilePaths.includes(shortcutLocatedFilePath)
+  ) {
+    throw new Error(errorMessage);
+  }
+
+  return shortcutLocatedFilePath ??
+    (manifestationLocatedFilePaths.length === 1
+      ? manifestationLocatedFilePaths[0]
+      : undefined);
+}
+
+function resolveHistoricalStateManifestationLocatedFilePaths(
+  quads: readonly Quad[],
+  meshBase: string,
+  stateIri: string,
+  errorMessage: string,
+): readonly string[] {
+  const manifestationPaths = resolveNamedNodePaths(
     quads,
     meshBase,
     stateIri,
     SFLO_HAS_MANIFESTATION_IRI,
     errorMessage,
   );
-  const manifestationLocatedFilePath = manifestationPath
-    ? resolveOptionalUniqueNamedNodePath(
+  const locatedFilePaths = new Set<string>();
+
+  for (const manifestationPath of manifestationPaths) {
+    const locatedFilePath = resolveOptionalUniqueNamedNodePath(
       quads,
       meshBase,
       toMeshIri(meshBase, manifestationPath),
       SFLO_LOCATED_FILE_FOR_MANIFESTATION_IRI,
       errorMessage,
-    )
-    : undefined;
-
-  if (
-    shortcutLocatedFilePath !== undefined &&
-    manifestationLocatedFilePath !== undefined &&
-    shortcutLocatedFilePath !== manifestationLocatedFilePath
-  ) {
-    throw new Error(errorMessage);
+    );
+    if (locatedFilePath) {
+      locatedFilePaths.add(locatedFilePath);
+    }
   }
 
-  return shortcutLocatedFilePath ?? manifestationLocatedFilePath;
+  return [...locatedFilePaths].sort();
 }
 
 function resolveOptionalUniqueLiteralWorkingLocalRelativePath(

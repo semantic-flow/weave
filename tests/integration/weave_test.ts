@@ -2068,6 +2068,98 @@ Deno.test("executeGenerate uses latest payload state for current RdfDocument pan
   assertFalse(page.includes("privateDraftProperty"));
 });
 
+Deno.test("executeGenerate prefers latest manifestation matching the working file extension", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-generate-current-rdfdocument-manifestation-preference-",
+  );
+  await materializeMeshSidecarFantasyRulesBranch(
+    "15-first-release-woven",
+    workspaceRoot,
+  );
+  const inventoryPath = join(
+    workspaceRoot,
+    "docs/ontology/_knop/_inventory/inventory.ttl",
+  );
+  await Deno.writeTextFile(
+    inventoryPath,
+    `${await Deno.readTextFile(inventoryPath)}
+<ontology/releases/v0.0.2> sflo:hasManifestation <ontology/releases/v0.0.2/jsonld> .
+<ontology/releases/v0.0.2/jsonld> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:locatedFileForManifestation <ontology/releases/v0.0.2/jsonld/fantasy-rules-ontology.jsonld> ;
+  sflo:hasResourcePage <ontology/releases/v0.0.2/jsonld/index.html> .
+<ontology/releases/v0.0.2/jsonld/fantasy-rules-ontology.jsonld> a sflo:LocatedFile, sflo:RdfDocument .
+<ontology/releases/v0.0.2/jsonld/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+`,
+  );
+  await Deno.mkdir(
+    join(workspaceRoot, "docs/ontology/releases/v0.0.2/jsonld"),
+    { recursive: true },
+  );
+  await Deno.writeTextFile(
+    join(
+      workspaceRoot,
+      "docs/ontology/releases/v0.0.2/jsonld/fantasy-rules-ontology.jsonld",
+    ),
+    `@base <https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+
+<ontology> a owl:Ontology ;
+  dcterms:title "Wrong JSON-LD Manifestation" .
+`,
+  );
+
+  const result = await executeGenerate({
+    meshRoot: join(workspaceRoot, "docs"),
+    request: { targets: [{ designatorPath: "ontology" }] },
+    now: () => new Date("2026-05-20T00:00:00.000Z"),
+  });
+
+  assertEquals(result.generatedDesignatorPaths, ["ontology"]);
+  const page = await Deno.readTextFile(
+    join(workspaceRoot, "docs/ontology/index.html"),
+  );
+  assertStringIncludes(
+    page,
+    "/mesh-sidecar-fantasy-rules/ontology/releases/v0.0.2/ttl/fantasy-rules-ontology.ttl",
+  );
+  assertFalse(page.includes("Wrong JSON-LD Manifestation"));
+});
+
+Deno.test("executeGenerate uses latest mesh support state for current RdfDocument panels", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-generate-current-support-latest-state-",
+  );
+  await materializeMeshSidecarFantasyRulesBranch(
+    "15-first-release-woven",
+    workspaceRoot,
+  );
+  await Deno.writeTextFile(
+    join(workspaceRoot, "docs/_mesh/_config/config.ttl"),
+    `${await Deno.readTextFile(
+      join(workspaceRoot, "docs/_mesh/_config/config.ttl"),
+    )}
+<#draft> <https://example.org/privateDraftProperty> "not for publication" .
+`,
+  );
+
+  const result = await executeGenerate({
+    meshRoot: join(workspaceRoot, "docs"),
+    request: { targets: [{ designatorPath: "ontology" }] },
+    now: () => new Date("2026-05-20T00:00:00.000Z"),
+  });
+
+  assertEquals(result.generatedDesignatorPaths, ["ontology"]);
+  const page = await Deno.readTextFile(
+    join(workspaceRoot, "docs/_mesh/_config/index.html"),
+  );
+  assertStringIncludes(
+    page,
+    "<summary>Latest historical manifestation file</summary>",
+  );
+  assertFalse(page.includes("privateDraftProperty"));
+});
+
 Deno.test("executeGenerate includes Semantic Flow metadata only when requested", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-generate-semantic-flow-metadata-",

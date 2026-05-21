@@ -90,6 +90,7 @@ import {
 import { validatePublicationPreset } from "../publication/presets.ts";
 
 const SFLO_HAS_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}hasArtifactHistory`;
+const SFLO_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}ArtifactHistory`;
 const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
   `${SFLO_NAMESPACE}currentArtifactHistory`;
 const SFLO_HAS_HISTORICAL_STATE_IRI = `${SFLO_NAMESPACE}hasHistoricalState`;
@@ -2702,15 +2703,38 @@ async function loadGenerateDesignatorContexts(
       currentKnopInventoryTurtle,
       designatorPath,
     );
-    addRawSourcePanel(
-      rawSourcePanels,
-      `${toKnopPath(designatorPath)}/_inventory/index.html`,
-      {
-        label: "Current KnopInventory file",
-        sourcePath: `${toKnopPath(designatorPath)}/_inventory/inventory.ttl`,
-        contents: currentKnopInventoryTurtle,
-      },
+    const currentKnopInventoryQuads = parseInventoryQuads(
+      meshState.meshBase,
+      currentKnopInventoryTurtle,
+      `Could not parse the current Knop inventory while collecting current KnopInventory source panel for ${designatorPath}.`,
     );
+    const currentKnopInventoryPagePath = `${
+      toKnopPath(designatorPath)
+    }/_inventory/index.html`;
+    const currentKnopInventoryWorkingPath = `${
+      toKnopPath(designatorPath)
+    }/_inventory/inventory.ttl`;
+    if (
+      !(await addLatestHistoricalRawSourcePanelForCurrentArtifact(
+        rawSourcePanels,
+        workspaceRoot,
+        meshState.meshBase,
+        currentKnopInventoryQuads,
+        `${toKnopPath(designatorPath)}/_inventory`,
+        currentKnopInventoryWorkingPath,
+        currentKnopInventoryPagePath,
+      ))
+    ) {
+      addRawSourcePanel(
+        rawSourcePanels,
+        currentKnopInventoryPagePath,
+        {
+          label: "Current KnopInventory file",
+          sourcePath: currentKnopInventoryWorkingPath,
+          contents: currentKnopInventoryTurtle,
+        },
+      );
+    }
     const resourcePageDefinitionState =
       resolveResourcePageDefinitionInventoryState(
         meshState.meshBase,
@@ -2859,7 +2883,8 @@ async function loadGenerateDesignatorContexts(
       await addPayloadRawSourcePanels(
         rawSourcePanels,
         workspaceRoot,
-        localPathPolicy,
+        meshState.meshBase,
+        currentKnopInventoryQuads,
         designatorPath,
         payloadArtifact,
       );
@@ -2886,10 +2911,10 @@ async function loadGenerateDesignatorContexts(
     }
     await addSupportArtifactRawSourcePanels(
       rawSourcePanels,
+      workspaceRoot,
       localPathPolicy,
       meshState.meshBase,
-      currentKnopInventoryTurtle,
-      designatorPath,
+      currentKnopInventoryQuads,
       artifactLinks.supportingArtifacts,
     );
   }
@@ -2905,27 +2930,60 @@ async function collectMeshSupportRawSourcePanels(
     string,
     readonly ResourcePageRawSourcePanelModel[]
   >();
+  const quads = parseInventoryQuads(
+    meshState.meshBase,
+    meshState.currentMeshInventoryTurtle,
+    "Could not parse the current MeshInventory while collecting mesh support source panels.",
+  );
 
-  addRawSourcePanel(rawSourcePanels, "_mesh/_inventory/index.html", {
-    label: "Current MeshInventory file",
-    sourcePath: "_mesh/_inventory/inventory.ttl",
-    contents: meshState.currentMeshInventoryTurtle,
-  });
+  if (
+    !(await addLatestHistoricalRawSourcePanelForCurrentArtifact(
+      rawSourcePanels,
+      workspaceRoot,
+      meshState.meshBase,
+      quads,
+      "_mesh/_inventory",
+      "_mesh/_inventory/inventory.ttl",
+      "_mesh/_inventory/index.html",
+    ))
+  ) {
+    addRawSourcePanel(rawSourcePanels, "_mesh/_inventory/index.html", {
+      label: "Current MeshInventory file",
+      sourcePath: "_mesh/_inventory/inventory.ttl",
+      contents: meshState.currentMeshInventoryTurtle,
+    });
+  }
 
   for (
     const support of [
       {
+        artifactPath: "_mesh/_meta",
         pagePath: "_mesh/_meta/index.html",
         sourcePath: "_mesh/_meta/meta.ttl",
         label: "Current MeshMetadata file",
       },
       {
+        artifactPath: "_mesh/_config",
         pagePath: "_mesh/_config/index.html",
         sourcePath: "_mesh/_config/config.ttl",
         label: "Current MeshConfig file",
       },
     ]
   ) {
+    if (
+      await addLatestHistoricalRawSourcePanelForCurrentArtifact(
+        rawSourcePanels,
+        workspaceRoot,
+        meshState.meshBase,
+        quads,
+        support.artifactPath,
+        support.sourcePath,
+        support.pagePath,
+      )
+    ) {
+      continue;
+    }
+
     try {
       addRawSourcePanel(
         rawSourcePanels,
@@ -3340,18 +3398,12 @@ function collectKnopArtifactLinksForPredicates(
 
 async function addSupportArtifactRawSourcePanels(
   rawSourcePanels: Map<string, readonly ResourcePageRawSourcePanelModel[]>,
+  workspaceRoot: string,
   localPathPolicy: OperationalLocalPathPolicy,
   meshBase: string,
-  currentKnopInventoryTurtle: string,
-  designatorPath: string,
+  quads: readonly Quad[],
   supportArtifacts: readonly KnopArtifactLinkModel[],
 ): Promise<void> {
-  const quads = parseInventoryQuads(
-    meshBase,
-    currentKnopInventoryTurtle,
-    `Could not parse the current Knop inventory while collecting support artifact source panels for ${designatorPath}.`,
-  );
-
   for (const artifact of supportArtifacts) {
     const pagePath = toDesignatorResourcePagePath(artifact.path);
     if (rawSourcePanels.has(pagePath)) {
@@ -3364,6 +3416,20 @@ async function addSupportArtifactRawSourcePanels(
       artifact.path,
     );
     if (!workingLocalRelativePath) {
+      continue;
+    }
+
+    if (
+      await addLatestHistoricalRawSourcePanelForCurrentArtifact(
+        rawSourcePanels,
+        workspaceRoot,
+        meshBase,
+        quads,
+        artifact.path,
+        workingLocalRelativePath,
+        pagePath,
+      )
+    ) {
       continue;
     }
 
@@ -3411,7 +3477,8 @@ function findHistoryGroupsForResource(
 async function addPayloadRawSourcePanels(
   rawSourcePanels: Map<string, readonly ResourcePageRawSourcePanelModel[]>,
   workspaceRoot: string,
-  localPathPolicy: OperationalLocalPathPolicy,
+  meshBase: string,
+  quads: readonly Quad[],
   designatorPath: string,
   payloadArtifact: {
     workingLocalRelativePath: string;
@@ -3421,85 +3488,75 @@ async function addPayloadRawSourcePanels(
   },
 ): Promise<void> {
   const currentPagePath = toDesignatorResourcePagePath(designatorPath);
-  const latestHistoricalPanel = await readLatestPayloadHistoricalRawSourcePanel(
+  await addLatestHistoricalRawSourcePanelForCurrentArtifact(
+    rawSourcePanels,
     workspaceRoot,
-    payloadArtifact,
+    meshBase,
+    quads,
+    designatorPath,
+    payloadArtifact.workingLocalRelativePath,
+    currentPagePath,
+    payloadArtifact.latestHistoricalSnapshotPath,
+    payloadArtifact.latestHistoricalSnapshotTurtle,
   );
-
-  if (latestHistoricalPanel) {
-    addRawSourcePanel(
-      rawSourcePanels,
-      currentPagePath,
-      {
-        ...latestHistoricalPanel,
-        label: "Latest historical manifestation file",
-      },
-    );
-    addRawSourcePanel(
-      rawSourcePanels,
-      `${dirname(latestHistoricalPanel.sourcePath)}/index.html`,
-      latestHistoricalPanel,
-    );
-    return;
-  }
-
-  try {
-    addRawSourcePanel(
-      rawSourcePanels,
-      currentPagePath,
-      await readRawSourcePanel(
-        resolveAllowedLocalPath(
-          localPathPolicy,
-          "workingLocalRelativePath",
-          payloadArtifact.workingLocalRelativePath,
-        ),
-        payloadArtifact.workingLocalRelativePath,
-        "Current working file",
-      ),
-    );
-  } catch (error) {
-    if (
-      error instanceof Deno.errors.NotFound ||
-      error instanceof LocalPathAccessError
-    ) {
-      return;
-    }
-    throw error;
-  }
 }
 
-async function readLatestPayloadHistoricalRawSourcePanel(
+async function addLatestHistoricalRawSourcePanelForCurrentArtifact(
+  rawSourcePanels: Map<string, readonly ResourcePageRawSourcePanelModel[]>,
   workspaceRoot: string,
-  payloadArtifact: {
-    workingLocalRelativePath: string;
-    latestHistoricalStatePath?: string;
-    latestHistoricalSnapshotPath?: string;
-    latestHistoricalSnapshotTurtle?: string;
-  },
-): Promise<ResourcePageRawSourcePanelModel | undefined> {
-  if (!payloadArtifact.latestHistoricalStatePath) {
-    return undefined;
+  meshBase: string,
+  quads: readonly Quad[],
+  artifactPath: string,
+  workingLocalRelativePath: string,
+  currentPagePath: string,
+  preloadedSnapshotPath?: string,
+  preloadedSnapshotTurtle?: string,
+): Promise<boolean> {
+  const snapshotPath = resolvePreferredLatestHistoricalLocatedFilePath(
+    quads,
+    meshBase,
+    artifactPath,
+    workingLocalRelativePath,
+  );
+  if (!snapshotPath) {
+    return false;
   }
 
-  const snapshotPath = payloadArtifact.latestHistoricalSnapshotPath ??
-    toPayloadHistoricalSnapshotPath(
-      payloadArtifact.latestHistoricalStatePath,
-      payloadArtifact.workingLocalRelativePath,
-    );
-
-  if (payloadArtifact.latestHistoricalSnapshotTurtle !== undefined) {
-    return rawSourcePanelFromContents(
+  const latestHistoricalPanel = preloadedSnapshotPath === snapshotPath &&
+      preloadedSnapshotTurtle !== undefined
+    ? rawSourcePanelFromContents(
       snapshotPath,
       "Historical manifestation file",
-      payloadArtifact.latestHistoricalSnapshotTurtle,
-    );
+      preloadedSnapshotTurtle,
+    )
+    : await readHistoricalRawSourcePanel(workspaceRoot, snapshotPath);
+  if (!latestHistoricalPanel) {
+    return false;
   }
 
-  const snapshotAbsolutePath = join(workspaceRoot, snapshotPath);
+  addRawSourcePanel(
+    rawSourcePanels,
+    currentPagePath,
+    {
+      ...latestHistoricalPanel,
+      label: "Latest historical manifestation file",
+    },
+  );
+  addRawSourcePanel(
+    rawSourcePanels,
+    `${dirname(latestHistoricalPanel.sourcePath)}/index.html`,
+    latestHistoricalPanel,
+  );
+  return true;
+}
 
+async function readHistoricalRawSourcePanel(
+  workspaceRoot: string,
+  snapshotPath: string,
+): Promise<ResourcePageRawSourcePanelModel | undefined> {
   try {
     return await readRawSourcePanel(
-      snapshotAbsolutePath,
+      join(workspaceRoot, snapshotPath),
       snapshotPath,
       "Historical manifestation file",
     );
@@ -3509,6 +3566,125 @@ async function readLatestPayloadHistoricalRawSourcePanel(
     }
     throw error;
   }
+}
+
+function resolvePreferredLatestHistoricalLocatedFilePath(
+  quads: readonly Quad[],
+  meshBase: string,
+  artifactPath: string,
+  workingLocalRelativePath: string,
+): string | undefined {
+  const artifactIri = new URL(artifactPath, meshBase).href;
+  const currentHistoryPath = resolveOptionalUniqueNamedNodeMeshPath(
+    quads,
+    meshBase,
+    artifactIri,
+    SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
+  );
+  if (!currentHistoryPath) {
+    return undefined;
+  }
+
+  const currentHistoryIri = new URL(currentHistoryPath, meshBase).href;
+  if (
+    !hasNamedNodeObject(
+      quads,
+      currentHistoryIri,
+      RDF_TYPE_IRI,
+      SFLO_ARTIFACT_HISTORY_IRI,
+    )
+  ) {
+    return undefined;
+  }
+
+  const latestHistoricalStatePath = resolveOptionalUniqueNamedNodeMeshPath(
+    quads,
+    meshBase,
+    currentHistoryIri,
+    SFLO_LATEST_HISTORICAL_STATE_IRI,
+  );
+  if (!latestHistoricalStatePath) {
+    return undefined;
+  }
+
+  return resolvePreferredHistoricalStateLocatedFilePath(
+    quads,
+    meshBase,
+    latestHistoricalStatePath,
+    workingLocalRelativePath,
+  );
+}
+
+function resolvePreferredHistoricalStateLocatedFilePath(
+  quads: readonly Quad[],
+  meshBase: string,
+  historicalStatePath: string,
+  workingLocalRelativePath: string,
+): string | undefined {
+  const historicalStateIri = new URL(historicalStatePath, meshBase).href;
+  const locatedFilePaths = new Set<string>();
+  const shortcutLocatedFilePath = resolveOptionalUniqueNamedNodeMeshPath(
+    quads,
+    meshBase,
+    historicalStateIri,
+    SFLO_LOCATED_FILE_FOR_STATE_IRI,
+  );
+  if (shortcutLocatedFilePath) {
+    locatedFilePaths.add(shortcutLocatedFilePath);
+  }
+
+  for (
+    const manifestationIri of findNamedNodeObjects(
+      quads,
+      historicalStateIri,
+      SFLO_HAS_MANIFESTATION_IRI,
+    )
+  ) {
+    const manifestationLocatedFilePath = resolveOptionalUniqueNamedNodeMeshPath(
+      quads,
+      meshBase,
+      manifestationIri,
+      SFLO_LOCATED_FILE_FOR_MANIFESTATION_IRI,
+    );
+    if (manifestationLocatedFilePath) {
+      locatedFilePaths.add(manifestationLocatedFilePath);
+    }
+  }
+
+  return selectPreferredLocatedFilePath(
+    [...locatedFilePaths],
+    workingLocalRelativePath,
+  );
+}
+
+function selectPreferredLocatedFilePath(
+  locatedFilePaths: readonly string[],
+  workingLocalRelativePath: string,
+): string | undefined {
+  const sortedPaths = [...locatedFilePaths].sort((left, right) =>
+    left.localeCompare(right)
+  );
+  const preferredExtension = toPathExtension(workingLocalRelativePath);
+  if (preferredExtension) {
+    const extensionMatchedPath = sortedPaths.find((path) =>
+      toPathExtension(path) === preferredExtension
+    );
+    if (extensionMatchedPath) {
+      return extensionMatchedPath;
+    }
+  }
+
+  return sortedPaths[0];
+}
+
+function toPathExtension(path: string): string | undefined {
+  const fileName = toFileName(path);
+  const extensionIndex = fileName.lastIndexOf(".");
+  if (extensionIndex <= 0 || extensionIndex === fileName.length - 1) {
+    return undefined;
+  }
+
+  return fileName.slice(extensionIndex + 1).toLowerCase();
 }
 
 function rawSourcePanelFromContents(
