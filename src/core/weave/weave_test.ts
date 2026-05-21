@@ -715,7 +715,6 @@ Deno.test("planWeave renders the first alice knop-created-woven slice", () => {
     kind: "identifier",
     path: "alice/index.html",
     designatorPath: "alice",
-    workingLocalRelativePath: undefined,
   });
   assertStringIncludes(
     plan.updatedFiles[0]?.contents ?? "",
@@ -896,6 +895,8 @@ Deno.test("planWeave preserves floating repository payload source locators", () 
       currentKnopInventoryTurtle,
       payloadArtifact: {
         workingLocalRelativePath: "alice-bio.ttl",
+        workingAccessUrl:
+          "https://raw.githubusercontent.com/semantic-flow/sflo/main/alice-bio.ttl",
         repositorySourceFloatingLocator,
         currentPayloadTurtle:
           `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
@@ -932,6 +933,18 @@ Deno.test("planWeave preserves floating repository payload source locators", () 
     assertFalse(turtle.includes("sflo:hasWorkingLocatedFile <alice-bio.ttl>"));
     assertFalse(turtle.includes("<alice-bio.ttl> a sflo:LocatedFile"));
   }
+  assertEquals(
+    plan.createdPages.find((page) => page.path === "alice/bio/index.html"),
+    {
+      kind: "identifier",
+      path: "alice/bio/index.html",
+      designatorPath: "alice/bio",
+      workingLocalRelativePath: "alice-bio.ttl",
+      workingAccessUrl:
+        "https://raw.githubusercontent.com/semantic-flow/sflo/main/alice-bio.ttl",
+      repositorySourceFloatingLocator,
+    },
+  );
 });
 
 Deno.test("planWeave applies current-only KnopMetadata policy on the first payload weave slice", () => {
@@ -1498,7 +1511,6 @@ Deno.test("planWeave supports a later first root Knop weave against a carried me
     kind: "identifier",
     path: "index.html",
     designatorPath: "",
-    workingLocalRelativePath: undefined,
   });
   assertStringIncludes(
     plan.updatedFiles[2]?.contents ?? "",
@@ -2607,6 +2619,34 @@ Deno.test("planWeave renders the extracted bob woven slice", async () => {
 
 Deno.test("planWeave accepts extracted terms from floating repository source payloads", async () => {
   const input = await createExtractedBobWeaveInput();
+  const repositorySourceFloatingLocator = {
+    repositoryUrl: "https://github.com/semantic-flow/mesh-alice-bio.git",
+    repositoryPathFromRoot: "alice-bio.ttl",
+  };
+  input.currentMeshInventoryTurtle = input.currentMeshInventoryTurtle.replace(
+    "sflo:hasWorkingLocatedFile <alice-bio.ttl> ;",
+    `sflo:hasRepositorySourceFloatingLocator [
+    a sflo:RepositorySourceFloatingLocator ;
+    sflo:sourceRepositoryUrl "${repositorySourceFloatingLocator.repositoryUrl}" ;
+    sflo:sourceRepositoryPathFromRoot "${repositorySourceFloatingLocator.repositoryPathFromRoot}"
+  ] ;`,
+  );
+  input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact = {
+    ...input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact!,
+    repositorySourceFloatingLocator,
+  };
+
+  const plan = planWeave(input);
+
+  assertEquals(plan.wovenDesignatorPaths, ["bob"]);
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    "sflo:hasRepositorySourceFloatingLocator [",
+  );
+});
+
+Deno.test("planWeave rejects extracted terms from mismatched floating repository sources", async () => {
+  const input = await createExtractedBobWeaveInput();
   input.currentMeshInventoryTurtle = input.currentMeshInventoryTurtle.replace(
     "sflo:hasWorkingLocatedFile <alice-bio.ttl> ;",
     `sflo:hasRepositorySourceFloatingLocator [
@@ -2615,13 +2655,18 @@ Deno.test("planWeave accepts extracted terms from floating repository source pay
     sflo:sourceRepositoryPathFromRoot "alice-bio.ttl"
   ] ;`,
   );
+  input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact = {
+    ...input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact!,
+    repositorySourceFloatingLocator: {
+      repositoryUrl: "https://github.com/example/not-alice-bio.git",
+      repositoryPathFromRoot: "alice-bio.ttl",
+    },
+  };
 
-  const plan = planWeave(input);
-
-  assertEquals(plan.wovenDesignatorPaths, ["bob"]);
-  assertStringIncludes(
-    plan.updatedFiles[0]?.contents ?? "",
-    "sflo:hasRepositorySourceFloatingLocator [",
+  assertThrows(
+    () => planWeave(input),
+    WeaveInputError,
+    "settled extracted-knop pre-weave mesh inventory shape",
   );
 });
 

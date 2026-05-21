@@ -120,6 +120,10 @@ export async function runWeaveCli(args: string[]): Promise<number> {
       "Payload manifestation segment name to pass only to version for a single targeted payload weave.",
     )
     .option(
+      "--overwrite-existing-state",
+      "Overwrite the current payload state named by an explicit historySegment and stateSegment target.",
+    )
+    .option(
       "--history-tracking-policy <policy:string>",
       "Override the history tracking policy for all artifact roles during this command.",
     )
@@ -142,6 +146,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         payloadHistorySegment?: string;
         payloadStateSegment?: string;
         payloadManifestationSegment?: string;
+        overwriteExistingState?: boolean;
         historyTrackingPolicy?: string;
         silent?: boolean;
         validateBefore?: boolean;
@@ -163,6 +168,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         meshRoot,
         workspaceRoot,
         targets,
+        overwriteExistingState: options.overwriteExistingState === true,
         historyTrackingPolicyOverride,
         validateBefore: options.validateBefore === true,
         validateAfter: options.validateAfter === true,
@@ -171,7 +177,14 @@ export async function runWeaveCli(args: string[]): Promise<number> {
 
       const result = await executeWeave({
         meshRoot,
-        request: targets.length > 0 ? { targets } : undefined,
+        request: targets.length > 0 || options.overwriteExistingState === true
+          ? {
+            targets,
+            ...(options.overwriteExistingState === true
+              ? { overwriteExistingState: true }
+              : {}),
+          }
+          : undefined,
         operationalLogger,
         auditLogger,
         historyTrackingPolicyOverride,
@@ -180,6 +193,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         validateAfter: options.validateAfter === true,
       });
       console.log(describeWeaveResult(result));
+      printTimestampOnlyGenerateSkipInfo(result.skippedTimestampOnlyPaths);
       for (const path of result.createdPaths) {
         console.log(path);
       }
@@ -273,6 +287,10 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           "Payload manifestation segment name for a single targeted payload version.",
         )
         .option(
+          "--overwrite-existing-state",
+          "Overwrite the current payload state named by an explicit historySegment and stateSegment target.",
+        )
+        .option(
           "--history-tracking-policy <policy:string>",
           "Override the history tracking policy for all artifact roles during this command.",
         )
@@ -283,6 +301,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             payloadHistorySegment?: string;
             payloadStateSegment?: string;
             payloadManifestationSegment?: string;
+            overwriteExistingState?: boolean;
             historyTrackingPolicy?: string;
           },
         ) => {
@@ -298,13 +317,22 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             meshRoot,
             workspaceRoot,
             targets,
+            overwriteExistingState: options.overwriteExistingState === true,
             historyTrackingPolicyOverride,
             localMode: true,
           });
 
           const result = await executeVersion({
             meshRoot,
-            request: targets.length > 0 ? { targets } : undefined,
+            request:
+              targets.length > 0 || options.overwriteExistingState === true
+                ? {
+                  targets,
+                  ...(options.overwriteExistingState === true
+                    ? { overwriteExistingState: true }
+                    : {}),
+                }
+                : undefined,
             historyTrackingPolicyOverride,
           });
           console.log(describeVersionResult(result));
@@ -354,7 +382,9 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           const historyTrackingPolicyOverride =
             resolveHistoryTrackingPolicyOption(options.historyTrackingPolicy);
           const logDir = resolveCliLogDir(workspaceRoot);
-          const { auditLogger } = createRuntimeLoggers({ logDir });
+          const { operationalLogger, auditLogger } = createRuntimeLoggers({
+            logDir,
+          });
 
           await auditLogger.command("generate", {
             meshRoot,
@@ -369,11 +399,13 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           const result = await executeGenerate({
             meshRoot,
             request: targets.length > 0 ? { targets } : undefined,
+            operationalLogger,
             includeSemanticFlowMetadata:
               options.includeSemanticFlowMetadata === true,
             historyTrackingPolicyOverride,
           });
           console.log(describeGenerateResult(result));
+          printTimestampOnlyGenerateSkipInfo(result.skippedTimestampOnlyPaths);
           for (const path of result.createdPaths) {
             console.log(path);
           }
@@ -1729,6 +1761,17 @@ function printWeaveProgress(event: WeaveProgressEvent): void {
     : event.designatorPath;
   console.log(
     `[${event.percent}%] Wove ${event.completed}/${event.total}: ${designatorPath}`,
+  );
+}
+
+function printTimestampOnlyGenerateSkipInfo(paths: readonly string[]): void {
+  if (paths.length === 0) {
+    return;
+  }
+
+  const pageLabel = paths.length === 1 ? "page" : "pages";
+  console.log(
+    `info: skipped ${paths.length} generated ${pageLabel} with timestamp-only differences`,
   );
 }
 

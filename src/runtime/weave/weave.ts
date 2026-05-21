@@ -146,6 +146,7 @@ export interface ExecuteVersionOptions {
 export interface ExecuteGenerateOptions {
   meshRoot: string;
   request?: GenerateRequest;
+  operationalLogger?: StructuredLogger;
   now?: () => Date;
   includeSemanticFlowMetadata?: boolean;
   historyTrackingPolicyOverride?: HistoryTrackingPolicy;
@@ -197,6 +198,7 @@ export interface GenerateResult {
   generatedDesignatorPaths: readonly string[];
   createdPaths: readonly string[];
   updatedPaths: readonly string[];
+  skippedTimestampOnlyPaths: readonly string[];
 }
 
 export interface WeaveResult {
@@ -204,6 +206,7 @@ export interface WeaveResult {
   wovenDesignatorPaths: readonly string[];
   createdPaths: readonly string[];
   updatedPaths: readonly string[];
+  skippedTimestampOnlyPaths: readonly string[];
 }
 
 export class WeaveRuntimeError extends Error {
@@ -223,6 +226,11 @@ interface MeshState {
 interface PreparedVersionExecution {
   meshState: MeshState;
   plan: VersionPlan;
+}
+
+interface NormalizedVersionRequest {
+  targets: readonly NormalizedVersionTargetSpec[];
+  overwriteExistingState: boolean;
 }
 
 class TextFileOverlay extends Map<string, string> {
@@ -416,6 +424,7 @@ export async function executeValidate(
       meshRoot,
       toNormalizedVersionTargets(targets),
       localPathPolicy,
+      false,
       undefined,
       undefined,
       timing,
@@ -477,7 +486,7 @@ export async function executeVersion(
   const timing = createRuntimeTiming("version");
   let status = "succeeded";
   try {
-    const targets = timing.timeSync(
+    const normalizedRequest = timing.timeSync(
       "normalizeRequest",
       () => normalizeVersionRequest(options.request),
     );
@@ -488,8 +497,9 @@ export async function executeVersion(
     );
     const prepared = await prepareVersionExecution(
       meshRoot,
-      targets,
+      normalizedRequest.targets,
       localPathPolicy,
+      normalizedRequest.overwriteExistingState,
       options.historyTrackingPolicyOverride,
       options.onProgress,
       timing,
@@ -587,6 +597,7 @@ export async function executeGenerate(
 ): Promise<GenerateResult> {
   const timing = createRuntimeTiming("generate");
   let status = "succeeded";
+  const { operationalLogger } = resolveRuntimeLoggers(options);
   try {
     const targets = timing.timeSync(
       "normalizeRequest",
@@ -646,7 +657,7 @@ export async function executeGenerate(
     );
     const writeResult = await timing.time(
       "writePages",
-      () => writeFilesUpsert(meshRoot, pageFiles),
+      () => writeGeneratedPagesUpsert(meshRoot, pageFiles),
     );
 
     const result = {
@@ -658,13 +669,29 @@ export async function executeGenerate(
       updatedPaths: writeResult.updatedPaths.map((path) =>
         toWorkspaceRelativePath(localPathPolicy, path)
       ),
+      skippedTimestampOnlyPaths: writeResult.skippedTimestampOnlyPaths.map((
+        path,
+      ) => toWorkspaceRelativePath(localPathPolicy, path)),
     };
+    if (result.skippedTimestampOnlyPaths.length > 0) {
+      await operationalLogger.info(
+        "generate.timestampOnlySkipped",
+        "Skipped generated pages with timestamp-only differences",
+        {
+          skippedTimestampOnlyPaths: result.skippedTimestampOnlyPaths,
+        },
+      );
+    }
     timing.setField(
       "generatedDesignatorPaths",
       result.generatedDesignatorPaths.length,
     );
     timing.setField("createdFiles", result.createdPaths.length);
     timing.setField("updatedFiles", result.updatedPaths.length);
+    timing.setField(
+      "timestampOnlySkippedFiles",
+      result.skippedTimestampOnlyPaths.length,
+    );
     return result;
   } catch (error) {
     status = "failed";
@@ -710,13 +737,14 @@ export async function executeWeave(
       assertValidationPassed(validation, "before weaving");
     }
 
-    const targets = normalizeVersionRequest(options.request);
+    const normalizedRequest = normalizeVersionRequest(options.request);
     let preparedVersion: PreparedVersionExecution;
     try {
       preparedVersion = await prepareVersionExecution(
         meshRoot,
-        targets,
+        normalizedRequest.targets,
         initialPolicy,
+        normalizedRequest.overwriteExistingState,
         options.historyTrackingPolicyOverride,
         options.onProgress,
         timing,
@@ -744,6 +772,7 @@ export async function executeWeave(
       executeGenerate({
         meshRoot,
         request: toSharedTargetRequest(options.request),
+        operationalLogger,
         now: options.now,
         historyTrackingPolicyOverride: options.historyTrackingPolicyOverride,
       }));
@@ -759,6 +788,7 @@ export async function executeWeave(
         ...versionResult.updatedPaths,
         ...generateResult.updatedPaths,
       ],
+      skippedTimestampOnlyPaths: generateResult.skippedTimestampOnlyPaths,
     };
 
     if (options.validateAfter) {
@@ -778,12 +808,14 @@ export async function executeWeave(
       wovenDesignatorPaths: result.wovenDesignatorPaths,
       createdPaths: result.createdPaths,
       updatedPaths: result.updatedPaths,
+      skippedTimestampOnlyPaths: result.skippedTimestampOnlyPaths,
     });
     await auditLogger.record("weave.succeeded", "Local weave succeeded", {
       workspaceRoot,
       wovenDesignatorPaths: result.wovenDesignatorPaths,
       createdPaths: result.createdPaths,
       updatedPaths: result.updatedPaths,
+      skippedTimestampOnlyPaths: result.skippedTimestampOnlyPaths,
     });
 
     timing.setField(
@@ -792,6 +824,10 @@ export async function executeWeave(
     );
     timing.setField("createdFiles", result.createdPaths.length);
     timing.setField("updatedFiles", result.updatedPaths.length);
+    timing.setField(
+      "timestampOnlySkippedFiles",
+      result.skippedTimestampOnlyPaths.length,
+    );
     return result;
   } catch (error) {
     status = "failed";
@@ -930,13 +966,24 @@ function normalizeGenerateRequest(
 
 function normalizeVersionRequest(
   request: VersionRequest | undefined,
-): readonly NormalizedVersionTargetSpec[] {
-  assertSupportedRequestKeys(request, "request", new Set(["targets"]));
-  return normalizeVersionTargetSpecs(
-    request?.targets,
-    "request.targets",
-    (message) => new WeaveInputError(message),
+): NormalizedVersionRequest {
+  assertSupportedRequestKeys(
+    request,
+    "request",
+    new Set(["targets", "overwriteExistingState"]),
   );
+  const overwriteExistingState = normalizeOptionalBooleanRequestField(
+    request?.overwriteExistingState,
+    "request.overwriteExistingState",
+  ) ?? false;
+  return {
+    targets: normalizeVersionTargetSpecs(
+      request?.targets,
+      "request.targets",
+      (message) => new WeaveInputError(message),
+    ),
+    overwriteExistingState,
+  };
 }
 
 function toSharedTargetRequest(
@@ -950,7 +997,11 @@ function toSharedTargetRequest(
   // this bridge normalized through the version-target parser first so shared
   // validate/generate targeting stays semantically aligned with version
   // targeting as the request shape evolves.
-  assertSupportedRequestKeys(request, "request", new Set(["targets"]));
+  assertSupportedRequestKeys(
+    request,
+    "request",
+    new Set(["targets", "overwriteExistingState"]),
+  );
   const normalizedTargets = normalizeVersionTargetSpecs(
     request.targets,
     "request.targets",
@@ -1016,6 +1067,20 @@ function assertSupportedRequestKeys(
   }
 }
 
+function normalizeOptionalBooleanRequestField(
+  value: unknown,
+  fieldName: string,
+): boolean | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "boolean") {
+    throw new WeaveInputError(`${fieldName} must be a boolean`);
+  }
+
+  return value;
+}
+
 async function timeOptional<T>(
   timing: RuntimeTiming | undefined,
   phase: string,
@@ -1036,6 +1101,7 @@ async function prepareVersionExecution(
   workspaceRoot: string,
   targets: readonly NormalizedVersionTargetSpec[],
   localPathPolicy: OperationalLocalPathPolicy,
+  overwriteExistingState = false,
   historyTrackingPolicyOverride?: HistoryTrackingPolicy,
   onProgress?: WeaveProgressHandler,
   timing?: RuntimeTiming,
@@ -1179,7 +1245,10 @@ async function prepareVersionExecution(
       "prepare.loop.planVersion",
       () =>
         planVersion({
-          request: target ? { targets: [{ ...target.source }] } : {},
+          request: {
+            ...(target ? { targets: [{ ...target.source }] } : {}),
+            ...(overwriteExistingState ? { overwriteExistingState } : {}),
+          },
           meshBase: stagedMeshState.meshBase,
           currentMeshInventoryTurtle:
             stagedMeshState.currentMeshInventoryTurtle,
@@ -1868,6 +1937,12 @@ async function loadReferenceTargetSourcePayloadArtifact(
     designatorPath: sourceDesignatorPath,
     workingLocalRelativePath: sourcePayloadArtifact.workingLocalRelativePath,
     currentPayloadTurtle: sourcePayloadArtifact.currentPayloadTurtle,
+    ...(sourcePayloadArtifact.repositorySourceFloatingLocator
+      ? {
+        repositorySourceFloatingLocator:
+          sourcePayloadArtifact.repositorySourceFloatingLocator,
+      }
+      : {}),
     ...(sourceRegistryArtifact
       ? {
         sourceRegistryWorkingLocalRelativePath:
@@ -3808,10 +3883,9 @@ async function addCanonicalReferenceSourceRawSourcePanel(
         rawSourcePanels,
         toDesignatorResourcePagePath(designatorPath),
         await readRawSourcePanel(
-          resolveAllowedLocalPath(
+          await resolvePayloadWorkingSourcePath(
             localPathPolicy,
-            "workingLocalRelativePath",
-            sourcePayloadArtifact.workingLocalRelativePath,
+            sourcePayloadArtifact,
           ),
           sourcePayloadArtifact.workingLocalRelativePath,
           "Current canonical reference source file",
@@ -3908,10 +3982,9 @@ async function addExtractionSourceRawSourcePanels(
         rawSourcePanels,
         toDesignatorResourcePagePath(designatorPath),
         await readRawSourcePanel(
-          resolveAllowedLocalPath(
+          await resolvePayloadWorkingSourcePath(
             localPathPolicy,
-            "workingLocalRelativePath",
-            sourcePayloadArtifact.workingLocalRelativePath,
+            sourcePayloadArtifact,
           ),
           sourcePayloadArtifact.workingLocalRelativePath,
           "Working source file",
@@ -3967,6 +4040,25 @@ async function addExtractionSourceRawSourcePanels(
     }
     throw error;
   }
+}
+
+async function resolvePayloadWorkingSourcePath(
+  localPathPolicy: OperationalLocalPathPolicy,
+  payloadArtifact: {
+    workingLocalRelativePath: string;
+    repositorySourceFloatingLocator?: RepositorySourceFloatingLocator;
+  },
+): Promise<string> {
+  return payloadArtifact.repositorySourceFloatingLocator
+    ? await resolveRepositorySourceFloatingLocalPath(
+      localPathPolicy,
+      payloadArtifact.repositorySourceFloatingLocator,
+    )
+    : resolveAllowedLocalPath(
+      localPathPolicy,
+      "workingLocalRelativePath",
+      payloadArtifact.workingLocalRelativePath,
+    );
 }
 
 async function readRawSourcePanel(
@@ -4682,12 +4774,27 @@ async function writeFiles(
   }
 }
 
-async function writeFilesUpsert(
+const GENERATED_TIMESTAMP_FOOTER_PATTERN =
+  /Generated on <span class="wf-term wf-date-tip" tabindex="0" title="[^"]*" data-tooltip="[^"]*">[^<]*<\/span> by/g;
+
+function normalizeGeneratedTimestampFooters(contents: string): string {
+  return contents.replace(
+    GENERATED_TIMESTAMP_FOOTER_PATTERN,
+    'Generated on <span class="wf-term wf-date-tip" tabindex="0" title="__WEAVE_GENERATED_AT__" data-tooltip="__WEAVE_GENERATED_AT__">__WEAVE_GENERATED_AT_DISPLAY__</span> by',
+  );
+}
+
+async function writeGeneratedPagesUpsert(
   workspaceRoot: string,
   files: readonly PlannedFile[],
-): Promise<{ createdPaths: string[]; updatedPaths: string[] }> {
+): Promise<{
+  createdPaths: string[];
+  updatedPaths: string[];
+  skippedTimestampOnlyPaths: string[];
+}> {
   const createdPaths: string[] = [];
   const updatedPaths: string[] = [];
+  const skippedTimestampOnlyPaths: string[] = [];
 
   for (const file of files) {
     const absolutePath = join(workspaceRoot, file.path);
@@ -4707,6 +4814,16 @@ async function writeFilesUpsert(
       continue;
     }
 
+    if (
+      exists &&
+      currentContents !== undefined &&
+      normalizeGeneratedTimestampFooters(currentContents) ===
+        normalizeGeneratedTimestampFooters(file.contents)
+    ) {
+      skippedTimestampOnlyPaths.push(file.path);
+      continue;
+    }
+
     await Deno.mkdir(dirname(absolutePath), { recursive: true });
     await Deno.writeTextFile(absolutePath, file.contents);
 
@@ -4720,5 +4837,6 @@ async function writeFilesUpsert(
   return {
     createdPaths,
     updatedPaths,
+    skippedTimestampOnlyPaths,
   };
 }

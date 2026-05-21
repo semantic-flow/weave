@@ -140,6 +140,7 @@ const SFLO_REFERENCE_TARGET_STATE_IRI = `${SFLO_NAMESPACE}referenceTargetState`;
 
 export interface WeaveRequest {
   targets?: readonly VersionTargetSpec[];
+  overwriteExistingState?: boolean;
 }
 
 export interface ValidateRequest {
@@ -152,6 +153,7 @@ export interface GenerateRequest {
 
 export interface VersionRequest {
   targets?: readonly VersionTargetSpec[];
+  overwriteExistingState?: boolean;
 }
 
 export interface PayloadWorkingArtifact {
@@ -179,6 +181,7 @@ export interface ReferenceTargetSourcePayloadArtifact {
   designatorPath: string;
   workingLocalRelativePath: string;
   currentPayloadTurtle: string;
+  repositorySourceFloatingLocator?: RepositorySourceFloatingLocator;
   sourceRegistryWorkingLocalRelativePath?: string;
   currentSourceRegistryTurtle?: string;
   latestHistoricalSnapshotPath?: string;
@@ -405,6 +408,11 @@ export function planWeave(input: PlanWeaveInput): WeavePlan {
     "request.targets",
     (message) => new WeaveInputError(message),
   );
+  const overwriteExistingState = input.request.overwriteExistingState === true;
+  assertOverwriteExistingStateTargets(
+    requestedTargets,
+    overwriteExistingState,
+  );
   const weaveableKnops = filterWeaveableKnops(
     input.weaveableKnops,
     requestedTargets,
@@ -440,62 +448,69 @@ export function planWeave(input: PlanWeaveInput): WeavePlan {
   const slice = classifyWeaveSlice(meshBase, candidate, target);
   assertPayloadNamingSupportedForSlice(slice, designatorPath, target);
 
-  const plan = (() => {
-    switch (slice) {
-      case "firstKnopWeave":
-        return planFirstKnopWeave(
-          meshBase,
-          input.currentMeshInventoryTurtle,
-          input.currentMeshMetadataTurtle,
-          candidate,
-          input.supportHistoryPolicies,
-        );
-      case "firstPayloadWeave":
-        return planFirstPayloadWeave(
-          meshBase,
-          input.currentMeshInventoryTurtle,
-          input.currentMeshMetadataTurtle,
-          candidate,
-          target,
-          input.supportHistoryPolicies,
-          input.namingPolicies,
-        );
-      case "firstExtractedKnopWeave":
-        return planFirstExtractedKnopWeave(
-          meshBase,
-          input.currentMeshInventoryTurtle,
-          input.currentMeshMetadataTurtle,
-          candidate,
-          input.supportHistoryPolicies,
-        );
-      case "firstReferenceCatalogWeave":
-        return planFirstReferenceCatalogWeave(
-          meshBase,
-          input.currentMeshInventoryTurtle,
-          input.currentMeshMetadataTurtle,
-          candidate,
-          input.supportHistoryPolicies,
-        );
-      case "pageDefinitionWeave":
-        return planPageDefinitionWeave(
-          meshBase,
-          input.currentMeshInventoryTurtle,
-          candidate,
-        );
-      case "secondPayloadWeave":
-        return planSecondPayloadWeave(
-          meshBase,
-          candidate,
-          target,
-          input.supportHistoryPolicies,
-          input.namingPolicies,
-        );
-      default:
-        throw new WeaveInputError(
-          `No supported local weave slice was found for ${designatorPath}.`,
-        );
-    }
-  })();
+  const plan = overwriteExistingState
+    ? planOverwriteExistingPayloadState(
+      meshBase,
+      candidate,
+      target,
+      input.namingPolicies,
+    )
+    : (() => {
+      switch (slice) {
+        case "firstKnopWeave":
+          return planFirstKnopWeave(
+            meshBase,
+            input.currentMeshInventoryTurtle,
+            input.currentMeshMetadataTurtle,
+            candidate,
+            input.supportHistoryPolicies,
+          );
+        case "firstPayloadWeave":
+          return planFirstPayloadWeave(
+            meshBase,
+            input.currentMeshInventoryTurtle,
+            input.currentMeshMetadataTurtle,
+            candidate,
+            target,
+            input.supportHistoryPolicies,
+            input.namingPolicies,
+          );
+        case "firstExtractedKnopWeave":
+          return planFirstExtractedKnopWeave(
+            meshBase,
+            input.currentMeshInventoryTurtle,
+            input.currentMeshMetadataTurtle,
+            candidate,
+            input.supportHistoryPolicies,
+          );
+        case "firstReferenceCatalogWeave":
+          return planFirstReferenceCatalogWeave(
+            meshBase,
+            input.currentMeshInventoryTurtle,
+            input.currentMeshMetadataTurtle,
+            candidate,
+            input.supportHistoryPolicies,
+          );
+        case "pageDefinitionWeave":
+          return planPageDefinitionWeave(
+            meshBase,
+            input.currentMeshInventoryTurtle,
+            candidate,
+          );
+        case "secondPayloadWeave":
+          return planSecondPayloadWeave(
+            meshBase,
+            candidate,
+            target,
+            input.supportHistoryPolicies,
+            input.namingPolicies,
+          );
+        default:
+          throw new WeaveInputError(
+            `No supported local weave slice was found for ${designatorPath}.`,
+          );
+      }
+    })();
 
   return applyResourcePageGenerationPolicies(plan, {
     policies: input.resourcePageGenerationPolicies,
@@ -945,6 +960,144 @@ function assertPayloadNamingSupportedForSlice(
   );
 }
 
+function assertOverwriteExistingStateTargets(
+  targets: readonly NormalizedVersionTargetSpec[],
+  overwriteExistingState: boolean,
+): void {
+  if (!overwriteExistingState) {
+    return;
+  }
+  if (targets.length === 0) {
+    throw new WeaveInputError(
+      "overwriteExistingState requires at least one explicit target.",
+    );
+  }
+
+  targets.forEach((target, index) => {
+    const fieldName = `request.targets[${index}]`;
+    if (target.recursive) {
+      throw new WeaveInputError(
+        `overwriteExistingState requires exact targets; ${fieldName}.recursive must not be true.`,
+      );
+    }
+    if (target.historySegment === undefined) {
+      throw new WeaveInputError(
+        `overwriteExistingState requires ${fieldName}.historySegment.`,
+      );
+    }
+    if (target.stateSegment === undefined) {
+      throw new WeaveInputError(
+        `overwriteExistingState requires ${fieldName}.stateSegment.`,
+      );
+    }
+  });
+}
+
+function planOverwriteExistingPayloadState(
+  meshBase: string,
+  candidate: WeaveableKnopCandidate,
+  target: NormalizedVersionTargetSpec | undefined,
+  namingPolicies?: WeaveNamingPolicies,
+): WeavePlan {
+  if (!target || !target.historySegment || !target.stateSegment) {
+    throw new WeaveInputError(
+      "overwriteExistingState requires an explicit payload historySegment and stateSegment.",
+    );
+  }
+  const payloadArtifact = candidate.payloadArtifact;
+  if (!payloadArtifact) {
+    throw new WeaveInputError(
+      `overwriteExistingState only supports payload version targets; ${candidate.designatorPath} is not a payload overwrite candidate.`,
+    );
+  }
+
+  const designatorPath = candidate.designatorPath;
+  assertRequestedStateSegmentSatisfiesPolicy(
+    target.stateSegment,
+    namingPolicies?.stateNamingPolicy,
+  );
+
+  const historyPath = appendMeshPath(designatorPath, target.historySegment);
+  if (!isDirectChildMeshPath(designatorPath, historyPath)) {
+    throw new WeaveInputError(
+      `Requested payload historySegment ${target.historySegment} was outside the payload designator path for ${designatorPath}.`,
+    );
+  }
+  const statePath = `${historyPath}/${target.stateSegment}`;
+  const quads = parseWeaveShapeQuads(
+    meshBase,
+    candidate.currentKnopInventoryTurtle,
+    `Could not parse the current KnopInventory while resolving overwrite state for ${designatorPath}.`,
+  );
+
+  if (!isDeclaredArtifactHistory(quads, meshBase, historyPath)) {
+    throw new WeaveInputError(
+      `Cannot overwrite payload state ${statePath} for ${designatorPath} because the requested history does not exist.`,
+    );
+  }
+  if (
+    !hasNamedNodeFact(
+      quads,
+      meshBase,
+      historyPath,
+      SFLO_HAS_HISTORICAL_STATE_IRI,
+      statePath,
+    )
+  ) {
+    throw new WeaveInputError(
+      `Cannot overwrite payload state ${statePath} for ${designatorPath} because the requested state does not exist.`,
+    );
+  }
+
+  const currentStatePath = requirePayloadCurrentStatePathFromInventory(
+    quads,
+    meshBase,
+    designatorPath,
+    historyPath,
+    `Could not resolve the current payload historical state for ${designatorPath} in ${historyPath}.`,
+  );
+  if (statePath !== currentStatePath) {
+    throw new WeaveInputError(
+      `overwriteExistingState only supports the current payload historical state for ${designatorPath}; requested ${statePath} but current is ${currentStatePath}.`,
+    );
+  }
+
+  const existingManifestationPath =
+    resolveCurrentPayloadManifestationPathFromInventory(
+      quads,
+      meshBase,
+      designatorPath,
+      statePath,
+    );
+  if (target.manifestationSegment !== undefined) {
+    const requestedManifestationPath = toPayloadManifestationPath(
+      statePath,
+      payloadArtifact.workingLocalRelativePath,
+      target.manifestationSegment,
+      namingPolicies?.manifestationNamingPolicy,
+    );
+    if (requestedManifestationPath !== existingManifestationPath) {
+      throw new WeaveInputError(
+        `Requested payload manifestationSegment ${target.manifestationSegment} does not match existing manifestation ${existingManifestationPath} for ${designatorPath}.`,
+      );
+    }
+  }
+
+  const payloadSnapshotPath = `${existingManifestationPath}/${
+    toFileName(payloadArtifact.workingLocalRelativePath)
+  }`;
+  return {
+    meshBase,
+    wovenDesignatorPaths: [designatorPath],
+    createdFiles: [],
+    updatedFiles: [{
+      path: payloadSnapshotPath,
+      contents: payloadArtifact.currentPayloadTurtle,
+    }],
+    createdPages: [],
+  };
+}
+
 function planFirstKnopWeave(
   meshBase: string,
   currentMeshInventoryTurtle: string,
@@ -1181,7 +1334,13 @@ function planFirstPayloadWeave(
       payloadLayout,
       payloadArtifact.workingLocalRelativePath,
       meshInventoryProgression,
-      { knopMetadataHistoryPolicy, knopInventoryHistoryPolicy },
+      {
+        workingAccessUrl: payloadArtifact.workingAccessUrl,
+        repositorySourceFloatingLocator:
+          payloadArtifact.repositorySourceFloatingLocator,
+        knopMetadataHistoryPolicy,
+        knopInventoryHistoryPolicy,
+      },
     ),
   };
 }
@@ -1233,7 +1392,7 @@ function planFirstExtractedKnopWeave(
     meshInventoryProgression,
     designatorPath,
     referenceTargetSourcePayloadArtifact.designatorPath,
-    referenceTargetSourcePayloadArtifact.workingLocalRelativePath,
+    referenceTargetSourcePayloadArtifact,
   );
   assertCurrentKnopInventoryShapeForFirstExtractedKnopWeave(
     meshBase,
@@ -2223,7 +2382,10 @@ function assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
   meshInventoryProgression: MeshInventoryProgression | undefined,
   designatorPath: string,
   sourcePayloadDesignatorPath: string,
-  sourceWorkingLocalRelativePath: string,
+  sourcePayloadArtifact: Pick<
+    ReferenceTargetSourcePayloadArtifact,
+    "workingLocalRelativePath" | "repositorySourceFloatingLocator"
+  >,
 ): void {
   const rootDesignatorPath = toRootDesignatorPath(sourcePayloadDesignatorPath);
   const rootKnopPath = toKnopPath(rootDesignatorPath);
@@ -2300,12 +2462,12 @@ function assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
       throw new WeaveInputError(errorMessage);
     }
   }
-  assertHasCurrentSourceLocatorPath(
+  assertHasCurrentSourceLocator(
     quads,
     meshBase,
     errorMessage,
     sourcePayloadDesignatorPath,
-    sourceWorkingLocalRelativePath,
+    sourcePayloadArtifact,
   );
 
   if (
@@ -6338,31 +6500,51 @@ function assertHasCurrentPayloadSourceLocator(
   );
 }
 
-function assertHasCurrentSourceLocatorPath(
+function assertHasCurrentSourceLocator(
   quads: readonly Quad[],
   meshBase: string,
   errorMessage: string,
   subjectValue: string,
-  workingLocalRelativePath: string,
+  sourceArtifact: Pick<
+    ReferenceTargetSourcePayloadArtifact,
+    "workingLocalRelativePath" | "repositorySourceFloatingLocator"
+  >,
 ): void {
-  if (
-    hasCurrentWorkingFileLocator(
+  if (sourceArtifact.repositorySourceFloatingLocator === undefined) {
+    assertHasCurrentWorkingFileLocator(
       quads,
       meshBase,
+      errorMessage,
       subjectValue,
-      workingLocalRelativePath,
-    ) ||
-    hasRepositorySourceFloatingLocatorPathFact(
-      quads,
-      meshBase,
-      subjectValue,
-      workingLocalRelativePath,
-    )
-  ) {
+      sourceArtifact.workingLocalRelativePath,
+    );
     return;
   }
 
-  throw new WeaveInputError(errorMessage);
+  if (
+    hasSubjectPredicateFact(
+      quads,
+      meshBase,
+      subjectValue,
+      SFLO_HAS_WORKING_LOCATED_FILE_IRI,
+    ) ||
+    hasSubjectPredicateFact(
+      quads,
+      meshBase,
+      subjectValue,
+      SFLO_WORKING_FILE_PATH_IRI,
+    )
+  ) {
+    throw new WeaveInputError(errorMessage);
+  }
+
+  assertHasRepositorySourceFloatingLocator(
+    quads,
+    meshBase,
+    errorMessage,
+    subjectValue,
+    sourceArtifact.repositorySourceFloatingLocator,
+  );
 }
 
 function assertHasRepositorySourceFloatingLocator(
@@ -6411,12 +6593,20 @@ function assertHasRepositorySourceFloatingLocator(
     SFLO_SOURCE_REPOSITORY_URL_IRI,
     errorMessage,
   );
-  const repositoryPaths = resolveUniqueLiteralValuesForTermKey(
-    quads,
-    locatorKey,
-    SFLO_SOURCE_REPOSITORY_PATH_FROM_ROOT_IRI,
-    errorMessage,
-  ).map((value) => normalizeWorkingLocalRelativePathLiteral(value));
+  let repositoryPaths: string[];
+  try {
+    repositoryPaths = resolveUniqueLiteralValuesForTermKey(
+      quads,
+      locatorKey,
+      SFLO_SOURCE_REPOSITORY_PATH_FROM_ROOT_IRI,
+      errorMessage,
+    ).map((value) => normalizeWorkingLocalRelativePathLiteral(value));
+  } catch (error) {
+    if (error instanceof WeaveInputError) {
+      throw error;
+    }
+    throw new WeaveInputError(errorMessage);
+  }
 
   if (
     repositoryUrls.length !== 1 ||
@@ -6481,56 +6671,6 @@ function assertHasCurrentWorkingFileLocator(
   }
 }
 
-function hasCurrentWorkingFileLocator(
-  quads: readonly Quad[],
-  meshBase: string,
-  subjectValue: string,
-  workingLocalRelativePath: string,
-): boolean {
-  const subjectIri = toAbsoluteIri(meshBase, subjectValue);
-  const values = new Set<string>();
-
-  for (const quad of quads) {
-    if (
-      quad.subject.termType !== "NamedNode" ||
-      quad.subject.value !== subjectIri
-    ) {
-      continue;
-    }
-
-    if (
-      quad.predicate.value === SFLO_HAS_WORKING_LOCATED_FILE_IRI &&
-      quad.object.termType === "NamedNode"
-    ) {
-      try {
-        values.add(
-          toMeshRelativePath(
-            meshBase,
-            quad.object.value,
-            `working file locator for ${subjectValue}`,
-          ),
-        );
-      } catch {
-        return false;
-      }
-      continue;
-    }
-
-    if (
-      quad.predicate.value === SFLO_WORKING_FILE_PATH_IRI &&
-      quad.object.termType === "Literal"
-    ) {
-      try {
-        values.add(normalizeWorkingLocalRelativePathLiteral(quad.object.value));
-      } catch {
-        return false;
-      }
-    }
-  }
-
-  return values.size === 1 && values.has(workingLocalRelativePath);
-}
-
 function hasNamedNodeFact(
   quads: readonly Quad[],
   meshBase: string,
@@ -6587,37 +6727,6 @@ function resolveUniqueLiteralValuesForTermKey(
   }
 
   return Array.from(values);
-}
-
-function hasRepositorySourceFloatingLocatorPathFact(
-  quads: readonly Quad[],
-  meshBase: string,
-  subjectValue: string,
-  repositoryPathFromRoot: string,
-): boolean {
-  const subjectIri = toAbsoluteIri(meshBase, subjectValue);
-  const locatorKeys = new Set<string>();
-
-  for (const quad of quads) {
-    if (
-      quad.subject.termType === "NamedNode" &&
-      quad.subject.value === subjectIri &&
-      quad.predicate.value ===
-        SFLO_HAS_REPOSITORY_SOURCE_FLOATING_LOCATOR_IRI &&
-      (quad.object.termType === "NamedNode" ||
-        quad.object.termType === "BlankNode")
-    ) {
-      locatorKeys.add(toRdfTermKey(quad.object));
-    }
-  }
-
-  return quads.some((quad) =>
-    matchesRdfTermKey(quad.subject, [...locatorKeys]) &&
-    quad.predicate.value === SFLO_SOURCE_REPOSITORY_PATH_FROM_ROOT_IRI &&
-    quad.object.termType === "Literal" &&
-    normalizeWorkingLocalRelativePathLiteral(quad.object.value) ===
-      repositoryPathFromRoot
-  );
 }
 
 function matchesRdfTermKey(
@@ -7692,6 +7801,8 @@ function buildFirstPayloadWeavePages(
   workingLocalRelativePath: string,
   meshInventoryProgression: MeshInventoryProgression | undefined,
   options?: {
+    workingAccessUrl?: string;
+    repositorySourceFloatingLocator?: RepositorySourceFloatingLocator;
     knopMetadataHistoryPolicy?: SupportArtifactHistoryPolicy;
     knopInventoryHistoryPolicy?: SupportArtifactHistoryPolicy;
   },
@@ -7707,7 +7818,12 @@ function buildFirstPayloadWeavePages(
     identifierPage(
       designatorPagePath,
       designatorPath,
-      workingLocalRelativePath,
+      {
+        workingLocalRelativePath,
+        workingAccessUrl: options?.workingAccessUrl,
+        repositorySourceFloatingLocator: options
+          ?.repositorySourceFloatingLocator,
+      },
     ),
     simplePage(
       `${payloadLayout.historyPath}/index.html`,
@@ -8162,13 +8278,27 @@ function resolveSecondPayloadVersionLayout(
 function identifierPage(
   path: string,
   designatorPath: string,
-  workingLocalRelativePath?: string,
+  source?: {
+    workingLocalRelativePath?: string;
+    workingAccessUrl?: string;
+    repositorySourceFloatingLocator?: RepositorySourceFloatingLocator;
+  },
 ): IdentifierResourcePageModel {
   return {
     kind: "identifier",
     path,
     designatorPath,
-    workingLocalRelativePath,
+    ...(source?.workingLocalRelativePath
+      ? { workingLocalRelativePath: source.workingLocalRelativePath }
+      : {}),
+    ...(source?.workingAccessUrl
+      ? { workingAccessUrl: source.workingAccessUrl }
+      : {}),
+    ...(source?.repositorySourceFloatingLocator
+      ? {
+        repositorySourceFloatingLocator: source.repositorySourceFloatingLocator,
+      }
+      : {}),
   };
 }
 

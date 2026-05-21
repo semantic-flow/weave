@@ -322,7 +322,10 @@ function collectRepositorySourceCandidateRoots(
       continue;
     }
     const root = resolveRuleRoot(policy, rule);
-    if (root) {
+    if (
+      root &&
+      (rule.source !== "mesh" || isWithinRoot(root, policy.workspaceRoot))
+    ) {
       roots.add(resolve(root));
     }
   }

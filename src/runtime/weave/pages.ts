@@ -1032,9 +1032,23 @@ function toWorkingSourceMetadataRows(
   }
 
   if (page.repositorySourceFloatingLocator) {
+    const repositoryUrl = page.repositorySourceFloatingLocator.repositoryUrl;
+    const repositoryPathFromRoot = page.repositorySourceFloatingLocator
+      .repositoryPathFromRoot;
+    const repositoryUrlHtml = isSafeHttpUrl(repositoryUrl)
+      ? `<a href="${
+        escapeHtml(repositoryUrl)
+      }" rel="noreferrer noopener" target="_blank">${
+        escapeHtml(repositoryUrl)
+      }</a>`
+      : `<span>${escapeHtml(repositoryUrl)}</span>`;
     rows.push({
       label: "Repository Source",
-      value: page.repositorySourceFloatingLocator.repositoryPathFromRoot,
+      value: `${repositoryUrl} / ${repositoryPathFromRoot}`,
+      html:
+        `<span class="wf-repository-source">${repositoryUrlHtml}<span aria-hidden="true"> / </span><span>${
+          escapeHtml(repositoryPathFromRoot)
+        }</span></span>`,
     });
   }
 
@@ -1049,6 +1063,18 @@ function toWorkingSourceMetadataRows(
   }
 
   return rows;
+}
+
+function isSafeHttpUrl(value: string): boolean {
+  if (value.trim() !== value) {
+    return false;
+  }
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function toExtractionSourceMetadataRows(

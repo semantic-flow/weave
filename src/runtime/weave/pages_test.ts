@@ -99,13 +99,34 @@ Deno.test("renderResourcePage renders URL and floating repository working locato
   );
   assertStringIncludes(
     html,
-    '<tr><th scope="row">Repository Source</th><td colspan="3"><span>semantic-flow-core-ontology.ttl</span></td></tr>',
+    '<tr><th scope="row">Repository Source</th><td colspan="3"><span class="wf-repository-source"><a href="https://github.com/semantic-flow/sflo.git" rel="noreferrer noopener" target="_blank">https://github.com/semantic-flow/sflo.git</a><span aria-hidden="true"> / </span><span>semantic-flow-core-ontology.ttl</span></span></td></tr>',
   );
   assertFalse(
     html.includes(
       '<tr><th scope="row">Working File</th><td colspan="3"><a href="/sflo/semantic-flow-core-ontology.ttl">',
     ),
   );
+});
+
+Deno.test("renderResourcePage renders unsafe floating repository URLs as plain text", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/sflo/",
+    {
+      kind: "identifier",
+      path: "ontology/index.html",
+      designatorPath: "ontology",
+      repositorySourceFloatingLocator: {
+        repositoryUrl: "javascript:alert(1)",
+        repositoryPathFromRoot: "semantic-flow-core-ontology.ttl",
+      },
+    },
+  );
+
+  assertStringIncludes(
+    html,
+    '<tr><th scope="row">Repository Source</th><td colspan="3"><span class="wf-repository-source"><span>javascript:alert(1)</span><span aria-hidden="true"> / </span><span>semantic-flow-core-ontology.ttl</span></span></td></tr>',
+  );
+  assertFalse(html.includes('href="javascript:alert(1)"'));
 });
 
 Deno.test("renderResourcePage renders breadcrumbs above the masthead rule with optional mesh favicon", async () => {

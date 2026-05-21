@@ -290,6 +290,63 @@ Deno.test("resolveRepositorySourceFloatingLocalPath resolves allowed repository 
   }
 });
 
+Deno.test("resolveRepositorySourceFloatingLocalPath ignores mesh-owned roots outside workspace", async () => {
+  const tempRoot = await Deno.makeTempDir({
+    prefix: "weave-repo-floating-policy-mesh-boundary-",
+  });
+  const sourceRoot = join(tempRoot, "source");
+  const publishRoot = join(tempRoot, "gh-pages");
+  const homeRoot = join(tempRoot, "home");
+  await Deno.mkdir(sourceRoot, { recursive: true });
+  await Deno.mkdir(join(publishRoot, "_mesh/_config"), { recursive: true });
+  await Deno.mkdir(homeRoot, { recursive: true });
+  await runGit(sourceRoot, ["init"]);
+  await runGit(sourceRoot, [
+    "remote",
+    "add",
+    "origin",
+    "https://github.com/semantic-flow/sflo.git",
+  ]);
+  await Deno.writeTextFile(
+    join(sourceRoot, "semantic-flow-core-ontology.ttl"),
+    "# source branch file\n",
+  );
+  await Deno.writeTextFile(
+    join(publishRoot, "_mesh/_config/config.ttl"),
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasLocalPathAccessRule [
+    a sfcfg:LocalPathAccessRule ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_meshRoot> ;
+    sfcfg:pathPrefix "../source/" ;
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
+  ] .
+`,
+  );
+
+  const previousHome = Deno.env.get("HOME");
+  Deno.env.set("HOME", homeRoot);
+  try {
+    const policy = await loadOperationalLocalPathPolicy(publishRoot);
+    await assertRejects(
+      () =>
+        resolveRepositorySourceFloatingLocalPath(policy, {
+          repositoryUrl: "https://github.com/semantic-flow/sflo.git",
+          repositoryPathFromRoot: "semantic-flow-core-ontology.ttl",
+        }),
+      LocalPathAccessError,
+      "did not match an allowed local checkout",
+    );
+  } finally {
+    if (previousHome === undefined) {
+      Deno.env.delete("HOME");
+    } else {
+      Deno.env.set("HOME", previousHome);
+    }
+  }
+});
+
 Deno.test("resolveRepositorySourceFloatingLocalPath prefers granted source checkout over publication checkout", async () => {
   const tempRoot = await Deno.makeTempDir({
     prefix: "weave-repo-floating-policy-same-remote-",

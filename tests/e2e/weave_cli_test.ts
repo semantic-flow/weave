@@ -353,6 +353,50 @@ Deno.test("weave accepts per-target payload version fields as a black-box CLI ru
   );
 });
 
+Deno.test("weave version overwrites an explicit state as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-overwrite-version-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+
+  const target =
+    "designatorPath=alice/bio,historySegment=releases,stateSegment=v0.0.1,manifestationSegment=ttl";
+  const firstOutput = await runCliCommand([
+    "version",
+    "--target",
+    target,
+  ], workspaceRoot);
+  assert(firstOutput.success, new TextDecoder().decode(firstOutput.stderr));
+
+  const workingPayloadPath = join(workspaceRoot, "alice-bio.ttl");
+  const updatedPayload = `${await Deno.readTextFile(workingPayloadPath)}
+<alice/bio> <https://schema.org/version> "cli-overwrite" .
+`;
+  await Deno.writeTextFile(workingPayloadPath, updatedPayload);
+
+  const output = await runCliCommand([
+    "version",
+    "--target",
+    target,
+    "--overwrite-existing-state",
+  ], workspaceRoot);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Versioned 1 designator path"), stdout);
+  assert(
+    stdout.includes("alice/bio/releases/v0.0.1/ttl/alice-bio.ttl"),
+    stdout,
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(workspaceRoot, "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl"),
+    ),
+    updatedPayload,
+  );
+});
+
 Deno.test("weave applies general payload version fields to included targets", async () => {
   const workspaceRoot = await createTestTmpDir("weave-e2e-general-version-");
   await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
@@ -504,6 +548,58 @@ Deno.test("weave generate succeeds as a black-box CLI run", async () => {
     ),
     meshInventoryBefore,
   );
+});
+
+Deno.test("weave generate reports timestamp-only skips as a black-box CLI run", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-generate-timestamp-skip-",
+  );
+  await materializeMeshAliceBioBranch(
+    "07-alice-bio-integrated-woven",
+    workspaceRoot,
+  );
+
+  const settleOutput = await runCliCommand(
+    [
+      "generate",
+      "--target",
+      "designatorPath=alice/bio",
+    ],
+    workspaceRoot,
+    {
+      WEAVE_GENERATED_AT: "2026-05-03T00:00:00.000Z",
+    },
+  );
+  assert(
+    settleOutput.success,
+    new TextDecoder().decode(settleOutput.stderr),
+  );
+
+  const pagePath = join(workspaceRoot, "alice/bio/index.html");
+  const pageBefore = await Deno.readTextFile(pagePath);
+  const output = await runCliCommand(
+    [
+      "generate",
+      "--target",
+      "designatorPath=alice/bio",
+    ],
+    workspaceRoot,
+    {
+      WEAVE_GENERATED_AT: "2026-05-21T12:34:56.000Z",
+    },
+  );
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(stdout.includes("Generated 1 designator path"), stdout);
+  assert(
+    stdout.includes("created 0 files while updating 0 existing pages"),
+    stdout,
+  );
+  assert(stdout.includes("info: skipped "), stdout);
+  assert(stdout.includes("timestamp-only differences"), stdout);
+  assertEquals(await Deno.readTextFile(pagePath), pageBefore);
 });
 
 Deno.test("weave generate can include Semantic Flow metadata", async () => {

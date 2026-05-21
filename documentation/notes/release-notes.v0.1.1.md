@@ -1,6 +1,6 @@
 ---
 id: 07t1zf88ffzay7y46jxejgv
-title: 'Weave release notes v0.1.1'
+title: Weave release notes v0.1.1
 desc: ''
 updated: 1779177649199
 created: 1778971865164
@@ -45,7 +45,7 @@ Release validation uses:
 - `deno task ci` as the normal source quality gate
 - a disposable SFLO GitHub Pages replay using a detached `v0.1.0` source worktree, preflight `weave validate mesh`, final untargeted `weave`, and post-generation `weave validate publication`
 
-The manual release workflow should be rehearsed before any npm publish or GitHub Release publication, following [[dev.release-runbook]].
+The manual release workflow should be rehearsed before any npm publish or GitHub Release publication, following [[wd.release-runbook]].
 
 ## Known Limitations
 
