@@ -179,6 +179,7 @@ export interface ReferenceTargetSourcePayloadArtifact {
   designatorPath: string;
   workingLocalRelativePath: string;
   currentPayloadTurtle: string;
+  repositorySourceFloatingLocator?: RepositorySourceFloatingLocator;
   sourceRegistryWorkingLocalRelativePath?: string;
   currentSourceRegistryTurtle?: string;
   latestHistoricalSnapshotPath?: string;
@@ -1181,7 +1182,13 @@ function planFirstPayloadWeave(
       payloadLayout,
       payloadArtifact.workingLocalRelativePath,
       meshInventoryProgression,
-      { knopMetadataHistoryPolicy, knopInventoryHistoryPolicy },
+      {
+        workingAccessUrl: payloadArtifact.workingAccessUrl,
+        repositorySourceFloatingLocator:
+          payloadArtifact.repositorySourceFloatingLocator,
+        knopMetadataHistoryPolicy,
+        knopInventoryHistoryPolicy,
+      },
     ),
   };
 }
@@ -1233,7 +1240,7 @@ function planFirstExtractedKnopWeave(
     meshInventoryProgression,
     designatorPath,
     referenceTargetSourcePayloadArtifact.designatorPath,
-    referenceTargetSourcePayloadArtifact.workingLocalRelativePath,
+    referenceTargetSourcePayloadArtifact,
   );
   assertCurrentKnopInventoryShapeForFirstExtractedKnopWeave(
     meshBase,
@@ -2223,7 +2230,10 @@ function assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
   meshInventoryProgression: MeshInventoryProgression | undefined,
   designatorPath: string,
   sourcePayloadDesignatorPath: string,
-  sourceWorkingLocalRelativePath: string,
+  sourcePayloadArtifact: Pick<
+    ReferenceTargetSourcePayloadArtifact,
+    "workingLocalRelativePath" | "repositorySourceFloatingLocator"
+  >,
 ): void {
   const rootDesignatorPath = toRootDesignatorPath(sourcePayloadDesignatorPath);
   const rootKnopPath = toKnopPath(rootDesignatorPath);
@@ -2300,12 +2310,12 @@ function assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
       throw new WeaveInputError(errorMessage);
     }
   }
-  assertHasCurrentSourceLocatorPath(
+  assertHasCurrentSourceLocator(
     quads,
     meshBase,
     errorMessage,
     sourcePayloadDesignatorPath,
-    sourceWorkingLocalRelativePath,
+    sourcePayloadArtifact,
   );
 
   if (
@@ -6338,31 +6348,51 @@ function assertHasCurrentPayloadSourceLocator(
   );
 }
 
-function assertHasCurrentSourceLocatorPath(
+function assertHasCurrentSourceLocator(
   quads: readonly Quad[],
   meshBase: string,
   errorMessage: string,
   subjectValue: string,
-  workingLocalRelativePath: string,
+  sourceArtifact: Pick<
+    ReferenceTargetSourcePayloadArtifact,
+    "workingLocalRelativePath" | "repositorySourceFloatingLocator"
+  >,
 ): void {
-  if (
-    hasCurrentWorkingFileLocator(
+  if (sourceArtifact.repositorySourceFloatingLocator === undefined) {
+    assertHasCurrentWorkingFileLocator(
       quads,
       meshBase,
+      errorMessage,
       subjectValue,
-      workingLocalRelativePath,
-    ) ||
-    hasRepositorySourceFloatingLocatorPathFact(
-      quads,
-      meshBase,
-      subjectValue,
-      workingLocalRelativePath,
-    )
-  ) {
+      sourceArtifact.workingLocalRelativePath,
+    );
     return;
   }
 
-  throw new WeaveInputError(errorMessage);
+  if (
+    hasSubjectPredicateFact(
+      quads,
+      meshBase,
+      subjectValue,
+      SFLO_HAS_WORKING_LOCATED_FILE_IRI,
+    ) ||
+    hasSubjectPredicateFact(
+      quads,
+      meshBase,
+      subjectValue,
+      SFLO_WORKING_FILE_PATH_IRI,
+    )
+  ) {
+    throw new WeaveInputError(errorMessage);
+  }
+
+  assertHasRepositorySourceFloatingLocator(
+    quads,
+    meshBase,
+    errorMessage,
+    subjectValue,
+    sourceArtifact.repositorySourceFloatingLocator,
+  );
 }
 
 function assertHasRepositorySourceFloatingLocator(
@@ -6411,12 +6441,20 @@ function assertHasRepositorySourceFloatingLocator(
     SFLO_SOURCE_REPOSITORY_URL_IRI,
     errorMessage,
   );
-  const repositoryPaths = resolveUniqueLiteralValuesForTermKey(
-    quads,
-    locatorKey,
-    SFLO_SOURCE_REPOSITORY_PATH_FROM_ROOT_IRI,
-    errorMessage,
-  ).map((value) => normalizeWorkingLocalRelativePathLiteral(value));
+  let repositoryPaths: string[];
+  try {
+    repositoryPaths = resolveUniqueLiteralValuesForTermKey(
+      quads,
+      locatorKey,
+      SFLO_SOURCE_REPOSITORY_PATH_FROM_ROOT_IRI,
+      errorMessage,
+    ).map((value) => normalizeWorkingLocalRelativePathLiteral(value));
+  } catch (error) {
+    if (error instanceof WeaveInputError) {
+      throw error;
+    }
+    throw new WeaveInputError(errorMessage);
+  }
 
   if (
     repositoryUrls.length !== 1 ||
@@ -6481,56 +6519,6 @@ function assertHasCurrentWorkingFileLocator(
   }
 }
 
-function hasCurrentWorkingFileLocator(
-  quads: readonly Quad[],
-  meshBase: string,
-  subjectValue: string,
-  workingLocalRelativePath: string,
-): boolean {
-  const subjectIri = toAbsoluteIri(meshBase, subjectValue);
-  const values = new Set<string>();
-
-  for (const quad of quads) {
-    if (
-      quad.subject.termType !== "NamedNode" ||
-      quad.subject.value !== subjectIri
-    ) {
-      continue;
-    }
-
-    if (
-      quad.predicate.value === SFLO_HAS_WORKING_LOCATED_FILE_IRI &&
-      quad.object.termType === "NamedNode"
-    ) {
-      try {
-        values.add(
-          toMeshRelativePath(
-            meshBase,
-            quad.object.value,
-            `working file locator for ${subjectValue}`,
-          ),
-        );
-      } catch {
-        return false;
-      }
-      continue;
-    }
-
-    if (
-      quad.predicate.value === SFLO_WORKING_FILE_PATH_IRI &&
-      quad.object.termType === "Literal"
-    ) {
-      try {
-        values.add(normalizeWorkingLocalRelativePathLiteral(quad.object.value));
-      } catch {
-        return false;
-      }
-    }
-  }
-
-  return values.size === 1 && values.has(workingLocalRelativePath);
-}
-
 function hasNamedNodeFact(
   quads: readonly Quad[],
   meshBase: string,
@@ -6587,37 +6575,6 @@ function resolveUniqueLiteralValuesForTermKey(
   }
 
   return Array.from(values);
-}
-
-function hasRepositorySourceFloatingLocatorPathFact(
-  quads: readonly Quad[],
-  meshBase: string,
-  subjectValue: string,
-  repositoryPathFromRoot: string,
-): boolean {
-  const subjectIri = toAbsoluteIri(meshBase, subjectValue);
-  const locatorKeys = new Set<string>();
-
-  for (const quad of quads) {
-    if (
-      quad.subject.termType === "NamedNode" &&
-      quad.subject.value === subjectIri &&
-      quad.predicate.value ===
-        SFLO_HAS_REPOSITORY_SOURCE_FLOATING_LOCATOR_IRI &&
-      (quad.object.termType === "NamedNode" ||
-        quad.object.termType === "BlankNode")
-    ) {
-      locatorKeys.add(toRdfTermKey(quad.object));
-    }
-  }
-
-  return quads.some((quad) =>
-    matchesRdfTermKey(quad.subject, [...locatorKeys]) &&
-    quad.predicate.value === SFLO_SOURCE_REPOSITORY_PATH_FROM_ROOT_IRI &&
-    quad.object.termType === "Literal" &&
-    normalizeWorkingLocalRelativePathLiteral(quad.object.value) ===
-      repositoryPathFromRoot
-  );
 }
 
 function matchesRdfTermKey(
@@ -7692,6 +7649,8 @@ function buildFirstPayloadWeavePages(
   workingLocalRelativePath: string,
   meshInventoryProgression: MeshInventoryProgression | undefined,
   options?: {
+    workingAccessUrl?: string;
+    repositorySourceFloatingLocator?: RepositorySourceFloatingLocator;
     knopMetadataHistoryPolicy?: SupportArtifactHistoryPolicy;
     knopInventoryHistoryPolicy?: SupportArtifactHistoryPolicy;
   },
@@ -7707,7 +7666,12 @@ function buildFirstPayloadWeavePages(
     identifierPage(
       designatorPagePath,
       designatorPath,
-      workingLocalRelativePath,
+      {
+        workingLocalRelativePath,
+        workingAccessUrl: options?.workingAccessUrl,
+        repositorySourceFloatingLocator: options
+          ?.repositorySourceFloatingLocator,
+      },
     ),
     simplePage(
       `${payloadLayout.historyPath}/index.html`,
@@ -8162,13 +8126,27 @@ function resolveSecondPayloadVersionLayout(
 function identifierPage(
   path: string,
   designatorPath: string,
-  workingLocalRelativePath?: string,
+  source?: {
+    workingLocalRelativePath?: string;
+    workingAccessUrl?: string;
+    repositorySourceFloatingLocator?: RepositorySourceFloatingLocator;
+  },
 ): IdentifierResourcePageModel {
   return {
     kind: "identifier",
     path,
     designatorPath,
-    workingLocalRelativePath,
+    ...(source?.workingLocalRelativePath
+      ? { workingLocalRelativePath: source.workingLocalRelativePath }
+      : {}),
+    ...(source?.workingAccessUrl
+      ? { workingAccessUrl: source.workingAccessUrl }
+      : {}),
+    ...(source?.repositorySourceFloatingLocator
+      ? {
+        repositorySourceFloatingLocator: source.repositorySourceFloatingLocator,
+      }
+      : {}),
   };
 }
 

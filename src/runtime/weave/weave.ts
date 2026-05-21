@@ -1868,6 +1868,12 @@ async function loadReferenceTargetSourcePayloadArtifact(
     designatorPath: sourceDesignatorPath,
     workingLocalRelativePath: sourcePayloadArtifact.workingLocalRelativePath,
     currentPayloadTurtle: sourcePayloadArtifact.currentPayloadTurtle,
+    ...(sourcePayloadArtifact.repositorySourceFloatingLocator
+      ? {
+        repositorySourceFloatingLocator:
+          sourcePayloadArtifact.repositorySourceFloatingLocator,
+      }
+      : {}),
     ...(sourceRegistryArtifact
       ? {
         sourceRegistryWorkingLocalRelativePath:
@@ -3808,10 +3814,9 @@ async function addCanonicalReferenceSourceRawSourcePanel(
         rawSourcePanels,
         toDesignatorResourcePagePath(designatorPath),
         await readRawSourcePanel(
-          resolveAllowedLocalPath(
+          await resolvePayloadWorkingSourcePath(
             localPathPolicy,
-            "workingLocalRelativePath",
-            sourcePayloadArtifact.workingLocalRelativePath,
+            sourcePayloadArtifact,
           ),
           sourcePayloadArtifact.workingLocalRelativePath,
           "Current canonical reference source file",
@@ -3908,10 +3913,9 @@ async function addExtractionSourceRawSourcePanels(
         rawSourcePanels,
         toDesignatorResourcePagePath(designatorPath),
         await readRawSourcePanel(
-          resolveAllowedLocalPath(
+          await resolvePayloadWorkingSourcePath(
             localPathPolicy,
-            "workingLocalRelativePath",
-            sourcePayloadArtifact.workingLocalRelativePath,
+            sourcePayloadArtifact,
           ),
           sourcePayloadArtifact.workingLocalRelativePath,
           "Working source file",
@@ -3967,6 +3971,25 @@ async function addExtractionSourceRawSourcePanels(
     }
     throw error;
   }
+}
+
+async function resolvePayloadWorkingSourcePath(
+  localPathPolicy: OperationalLocalPathPolicy,
+  payloadArtifact: {
+    workingLocalRelativePath: string;
+    repositorySourceFloatingLocator?: RepositorySourceFloatingLocator;
+  },
+): Promise<string> {
+  return payloadArtifact.repositorySourceFloatingLocator
+    ? await resolveRepositorySourceFloatingLocalPath(
+      localPathPolicy,
+      payloadArtifact.repositorySourceFloatingLocator,
+    )
+    : resolveAllowedLocalPath(
+      localPathPolicy,
+      "workingLocalRelativePath",
+      payloadArtifact.workingLocalRelativePath,
+    );
 }
 
 async function readRawSourcePanel(
