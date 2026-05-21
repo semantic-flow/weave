@@ -2,15 +2,13 @@
 id: baffu3p06ydec5m0eikqklb
 title: 'Weave release notes v0.1.2'
 desc: ''
-updated: 1779377195633
+updated: 1779379421960
 created: 1779339110088
 ---
 
 ## Summary
 
-`v0.1.2` is a compatibility-focused Weave release for detached and branch-published mesh workflows. It tightens floating repository source handling, makes current ResourcePages prefer settled historical content, improves targeted generation correctness, and adds diagnostics and caching for larger recursive weave runs.
-
-This release is still pre-1.0. It does not reintroduce compatibility shims for retired pre-`v0.1.1` command paths, but the changes since `v0.1.1` are intended as additive features, correctness fixes, documentation, and performance work rather than a new breaking command surface.
+`v0.1.2` is a compatibility-focused Weave release for [[branch-published semantic mesh|wu.repository-options#branch-published-semantic-mesh]]workflows. It tightens floating repository source handling, makes current ResourcePages prefer settled historical content, improves targeted generation correctness, and adds diagnostics and caching for larger recursive weave runs.
 
 ## Highlights
 
@@ -58,7 +56,7 @@ See [[wu.environment-variables#weave_timing]] and [[wd.codebase-overview.caching
 
 ## Documentation
 
-The user-facing command reference was expanded around the command surface introduced in `v0.1.1` and refined in this release:
+The user-facing command reference was expanded around the command surface introduced in `v0.1.1` and refined in this release.
 
 The SFLO example flow now emphasizes disposable publication replay, floating repository source bindings, targeted weave runs, and post-weave validation.
 
@@ -71,27 +69,6 @@ The SFLO example flow now emphasizes disposable publication replay, floating rep
 - Ordinary CI no longer checks out the SFLO ontology repository just to run Weave-owned default guardrails; those checks now stay local to this repository.
 - There are no intentional command removals or new breaking CLI migrations from `v0.1.1`.
 
-## Validation
-
-Release validation should use the normal Weave source gate before tagging:
-
-- `deno task fmt:check`
-- `deno task lint`
-- `deno task check`
-- `deno task test`
-- `deno task ci`
-
-Additional focused coverage added in this release exercises:
-
-- floating repository source integration, extraction, weave validation, and ResourcePage metadata
-- allowed local checkout resolution for floating repository sources
-- latest historical RDF panel selection for stale working files and multi-manifestation histories
-- recursive weave candidate caching and timing output
-- targeted SHACL child row classification
-- local defaults guardrails without an SFLO checkout
-
-The SFLO publication replay remains a useful manual release exercise for this slice because it exercises floating repository source bindings, all-terms extraction, recursive weave planning, generated ResourcePages, and publication validation against a large branch-published mesh. Follow [[wu.cli-reference.examples.sflo]] for the current dogfooding sequence.
-
 ## Known Limitations
 
 - Floating repository source resolution still depends on an allowed local checkout. Weave records portable source intent in the mesh, but local host policy decides which checkout may satisfy it.
@@ -99,13 +76,3 @@ The SFLO publication replay remains a useful manual release exercise for this sl
 - Floating repository source locators are intentionally current/floating. Use pinned repository metadata or historical state/source references when the publication needs immutable source evidence.
 - Timing output is intentionally an environment-controlled diagnostic surface, not a stable machine-readable telemetry API.
 - Manifest-driven bulk `integrate` and first-class source import/copy acquisition remain future work.
-
-## Artifacts
-
-Release artifacts follow the `v0.1.x` packaged model:
-
-- Git tag: `v0.1.2`
-- GitHub Release: `v0.1.2`
-- Native binary archives for Linux x64, Windows x64, macOS x64, and macOS arm64
-- Matching `.sha256` checksum files
-- npm packages for `@semantic-flow/weave` and supported platform packages

@@ -5,7 +5,8 @@ desc: 'publication topology options for a semantic mesh'
 created: 1775529630513
 ---
 
-## Whole-repo semantic mesh:
+## Whole-repo semantic mesh
+
 Use this when the repo itself is the canonical mesh workspace, current files and historical states should live next to each other, and the generated structure is part of the thing you actually want to inspect and version directly.
 
 This is a good fit for reference meshes and artifact-native projects.
@@ -18,7 +19,8 @@ Use this option carefully for ordinary software or ontology repositories. A whol
 
 If a whole-repo mesh is published, every file contained in it would be available. For private working files and other unrelated files, you should use either a sidecar mesh or a branch-published mesh.
 
-## Sidecar semantic mesh:
+## Sidecar semantic mesh
+
 Use this when the source repo is primarily an authoring environment and the public mesh is a publishable projection. The mesh rides alongside the rest of the repo rather than being the repo's main subject.
 
 This should usually be the default for repos that are not primarily meshes: software projects, ontology projects, Markdown/note publishing, and anything where generated histories/pages would otherwise drown the source tree.
@@ -29,7 +31,7 @@ This also limits accidental publication. A whole-repo mesh tends to make the who
 
 Sidecar meshes may still need publication-host presets. For example, a GitHub Pages preset can manage `.nojekyll` when the sidecar root is served directly by GitHub Pages. That control is about the publication root and host, not about whether the mesh lives on the source branch or on a separate branch.
 
-## Branch-published semantic mesh:
+## Branch-published semantic mesh
 
 Use this when the authored source branch should stay clean, but the project still wants stable dereferenceable mesh pages from a publication branch such as `gh-pages`.
 
