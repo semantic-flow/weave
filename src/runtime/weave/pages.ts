@@ -241,10 +241,9 @@ export async function renderResourcePage(
       meshLabel,
     );
     const stylesheetLinks = page.stylesheetPaths.map((stylesheetPath) =>
-      `  <link rel="stylesheet" href="${
-        escapeHtml(
-          ensureRelativePageHref(toRelativeHref(page.path, stylesheetPath)),
-        )
+      `  <link rel="stylesheet" href="${escapeHtml(
+        ensureRelativePageHref(toRelativeHref(page.path, stylesheetPath)),
+      )
       }">`
     ).join("\n");
     const slug = toDesignatorSlug(page.designatorPath);
@@ -274,18 +273,15 @@ ${renderMarkdownRegion(mainRegion?.markdown ?? "")}
     <aside class="${escapeHtml(`${slug}-sidebar`)}">
 ${renderMarkdownRegion(sidebarRegion?.markdown ?? "")}
     </aside>
-${
-      extraRegions.map((region) =>
-        `    <section class="${escapeHtml(`${slug}-${region.key}`)}">\n${
-          indentLines(renderMarkdownRegion(region.markdown), 6)
-        }\n    </section>`
-      ).join("\n")
-    }
+${extraRegions.map((region) =>
+      `    <section class="${escapeHtml(`${slug}-${region.key}`)}">\n${indentLines(renderMarkdownRegion(region.markdown), 6)
+      }\n    </section>`
+    ).join("\n")
+      }
   </main>
   <footer>
-    <small>The Semantic Flow identifier <a href="${escapedCanonical}">${escapedCanonical}</a> is currently rendered from the page-definition support artifact at <a href="${
-      escapeHtml(definitionHref)
-    }">${escapeHtml(definitionHref)}</a>.</small>
+    <small>The Semantic Flow identifier <a href="${escapedCanonical}">${escapedCanonical}</a> is currently rendered from the page-definition support artifact at <a href="${escapeHtml(definitionHref)
+      }">${escapeHtml(definitionHref)}</a>.</small>
   </footer>
 </body>
 </html>
@@ -349,8 +345,8 @@ function toDefaultResourcePageRenderInput(
       rdfClasses: rdfFacts.classes.length > 0
         ? rdfFacts.classes
         : historyClass
-        ? [historyClass]
-        : [],
+          ? [historyClass]
+          : [],
       metadataRows: [
         { label: "Canonical IRI", value: canonical },
         ...workingSourceMetadataRows,
@@ -429,9 +425,8 @@ function toDefaultResourcePageRenderInput(
         meshRootHref,
         resourcePath,
       ),
-      summary: `Reference catalog for ${
-        toDisplayDesignatorPath(page.ownerDesignatorPath, meshLabel)
-      }`,
+      summary: `Reference catalog for ${toDisplayDesignatorPath(page.ownerDesignatorPath, meshLabel)
+        }`,
       rdfClasses: [
         rdfClass(
           "sflo:ReferenceCatalog",
@@ -502,10 +497,9 @@ function toDefaultResourcePageRenderInput(
         meshRootHref,
         resourcePath,
       ),
-      summary: `Semantic Flow bundle of supporting data for ${
-        page.ownerTitle ??
-          toDisplayDesignatorPath(page.designatorPath, meshLabel)
-      }.`,
+      summary: `Semantic Flow bundle of supporting data for ${page.ownerTitle ??
+        toDisplayDesignatorPath(page.designatorPath, meshLabel)
+        }.`,
       rdfClasses: [
         rdfClass(
           "sflo:Knop",
@@ -589,15 +583,13 @@ function renderKnopArtifactLinks(
   artifacts: readonly { label: string; path: string }[],
 ): string {
   return `      <ul>
-${
-    artifacts.map((artifact) => {
-      const href = toMeshResourceHref(meshRootHref, artifact.path);
-      const displayPath = toDisplayDesignatorPath(artifact.path, meshLabel);
-      return `        <li>${escapeHtml(artifact.label)}: <a href="${
-        escapeHtml(href)
+${artifacts.map((artifact) => {
+    const href = toMeshResourceHref(meshRootHref, artifact.path);
+    const displayPath = toDisplayDesignatorPath(artifact.path, meshLabel);
+    return `        <li>${escapeHtml(artifact.label)}: <a href="${escapeHtml(href)
       }">${escapeHtml(displayPath)}</a></li>`;
-    }).join("\n")
-  }
+  }).join("\n")
+    }
       </ul>`;
 }
 
@@ -614,10 +606,9 @@ async function renderDefaultResourcePage(
     ? `        <p class="wf-summary">${escapeHtml(input.summary)}</p>\n`
     : "";
   const classes = input.rdfClasses.length > 0
-    ? `        <p class="wf-classes">a ${
-      input.rdfClasses.map((className) => renderRdfClassLink(className)).join(
-        ", ",
-      )
+    ? `        <p class="wf-classes">a ${input.rdfClasses.map((className) => renderRdfClassLink(className)).join(
+      ", ",
+    )
     }</p>\n`
     : "";
   const metadata = renderHeroMetadataTable(input.metadataRows, 8);
@@ -644,9 +635,8 @@ ${section.html}
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${
-    escapeHtml(toHtmlDocumentTitle(input.meshLabel, input.title))
-  }</title>
+  <title>${escapeHtml(toHtmlDocumentTitle(input.meshLabel, input.title))
+    }</title>
   <link rel="canonical" href="${escapeHtml(input.canonical)}">
 ${faviconLink}  <style>
     :root { min-height: 100%; color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f6f7f4; color: #20231f; }
@@ -762,17 +752,14 @@ ${meshFavicon}
 ${classes}${summary}${metadata}
         </div>
       </header>
-${childrenSection}${propertiesSection}${blankNodesSection}${referencesSection}${
-    sections ? `${sections}\n` : ""
-  }${rawSections}${historySection}${semanticFlowMetadataSection}
+${childrenSection}${propertiesSection}${blankNodesSection}${referencesSection}${sections ? `${sections}\n` : ""
+    }${rawSections}${historySection}${semanticFlowMetadataSection}
     </article>
   </main>
   <footer class="wf-generated">
-    Generated on <span class="wf-term wf-date-tip" tabindex="0" title="${
-    escapeHtml(input.generatedAtIso)
-  }" data-tooltip="${escapeHtml(input.generatedAtIso)}">${
-    escapeHtml(input.generatedAtDisplay)
-  }</span> by <a href="${WEAVE_REPOSITORY_URL}">Weave</a>
+    Generated on <span class="wf-term wf-date-tip" tabindex="0" title="${escapeHtml(input.generatedAtIso)
+    }" data-tooltip="${escapeHtml(input.generatedAtIso)}">${escapeHtml(input.generatedAtDisplay)
+    }</span> by <a href="${WEAVE_REPOSITORY_URL}">Weave</a>
   </footer>
 </body>
 </html>
@@ -785,17 +772,16 @@ function renderBreadcrumbs(input: ResourcePageRenderInput): string {
   }
 
   return `          <nav class="wf-eyebrow wf-breadcrumbs" aria-label="Breadcrumb">
-${
-    input.breadcrumbs.map((breadcrumb, index) => {
-      const separator = index === 0
-        ? ""
-        : ` <span aria-hidden="true">/</span> `;
-      const label = escapeHtml(breadcrumb.label);
-      return breadcrumb.href
-        ? `${separator}<a href="${escapeHtml(breadcrumb.href)}">${label}</a>`
-        : `${separator}<span aria-current="page">${label}</span>`;
-    }).join("")
-  }
+${input.breadcrumbs.map((breadcrumb, index) => {
+    const separator = index === 0
+      ? ""
+      : ` <span aria-hidden="true">/</span> `;
+    const label = escapeHtml(breadcrumb.label);
+    return breadcrumb.href
+      ? `${separator}<a href="${escapeHtml(breadcrumb.href)}">${label}</a>`
+      : `${separator}<span aria-current="page">${label}</span>`;
+  }).join("")
+    }
           </nav>`;
 }
 
@@ -804,9 +790,8 @@ function renderMeshFavicon(input: ResourcePageRenderInput): string {
     return "";
   }
 
-  return `          <img class="wf-mesh-favicon" src="${
-    escapeHtml(input.meshFaviconHref)
-  }" alt="">`;
+  return `          <img class="wf-mesh-favicon" src="${escapeHtml(input.meshFaviconHref)
+    }" alt="">`;
 }
 
 function renderMetadataTable(
@@ -893,9 +878,8 @@ function renderPropertiesSection(
     value: row.value,
     ...(row.valueHref
       ? {
-        html: `<a href="${escapeHtml(row.valueHref)}">${
-          escapeHtml(row.value)
-        }</a>`,
+        html: `<a href="${escapeHtml(row.valueHref)}">${escapeHtml(row.value)
+          }</a>`,
       }
       : {}),
   }));
@@ -920,9 +904,8 @@ function renderBlankNodesSection(
     labelHref: row.predicateHref,
     tooltip: row.predicateHref,
     value: row.code,
-    html: `<pre class="wf-blank-node-code"><code>${
-      escapeHtml(row.code)
-    }</code></pre>`,
+    html: `<pre class="wf-blank-node-code"><code>${escapeHtml(row.code)
+      }</code></pre>`,
   }));
 
   return `    <section class="wf-section">
@@ -944,12 +927,10 @@ function renderReferencesSection(
     `        <details class="wf-reference-group" open>
           <summary>${escapeHtml(group.label)}</summary>
           <ul>
-${
-      group.links.map((link) =>
-        `            <li><a href="${escapeHtml(link.href)}">${
-          escapeHtml(link.label)
-        }</a></li>`
-      ).join("\n")
+${group.links.map((link) =>
+      `            <li><a href="${escapeHtml(link.href)}">${escapeHtml(link.label)
+      }</a></li>`
+    ).join("\n")
     }
           </ul>
         </details>`
@@ -970,18 +951,16 @@ function renderMetadataRow(
   row: ResourcePageMetadataRow,
   indent: string,
 ): string {
-  return `${indent}<tr${renderMetadataRowClass(row)}><th scope="row">${
-    renderMetadataLabel(row)
-  }</th><td>${renderMetadataValue(row)}</td></tr>`;
+  return `${indent}<tr${renderMetadataRowClass(row)}><th scope="row">${renderMetadataLabel(row)
+    }</th><td>${renderMetadataValue(row)}</td></tr>`;
 }
 
 function renderHeroMetadataRow(
   row: ResourcePageMetadataRow,
   indent: string,
 ): string {
-  return `${indent}<tr${renderMetadataRowClass(row)}><th scope="row">${
-    renderMetadataLabel(row)
-  }</th><td colspan="3">${renderMetadataValue(row)}</td></tr>`;
+  return `${indent}<tr${renderMetadataRowClass(row)}><th scope="row">${renderMetadataLabel(row)
+    }</th><td colspan="3">${renderMetadataValue(row)}</td></tr>`;
 }
 
 function renderMetadataLabel(row: ResourcePageMetadataRow): string {
@@ -995,8 +974,8 @@ function renderMetadataValue(row: ResourcePageMetadataRow): string {
   const value = row.html
     ? row.html
     : row.href
-    ? `<a href="${escapeHtml(row.href)}">${escapeHtml(row.value)}</a>`
-    : `<span>${escapeHtml(row.value)}</span>`;
+      ? `<a href="${escapeHtml(row.href)}">${escapeHtml(row.value)}</a>`
+      : `<span>${escapeHtml(row.value)}</span>`;
   return value;
 }
 
@@ -1038,13 +1017,10 @@ function toWorkingSourceMetadataRows(
     rows.push({
       label: "Repository Source",
       value: `${repositoryUrl} / ${repositoryPathFromRoot}`,
-      html: `<span class="wf-repository-source"><a href="${
-        escapeHtml(repositoryUrl)
-      }">${
-        escapeHtml(repositoryUrl)
-      }</a><span aria-hidden="true"> / </span><span>${
-        escapeHtml(repositoryPathFromRoot)
-      }</span></span>`,
+      html: `<span class="wf-repository-source"><a href="${escapeHtml(repositoryUrl)
+        }">${escapeHtml(repositoryUrl)
+        }</a><span aria-hidden="true"> / </span><span>${escapeHtml(repositoryPathFromRoot)
+        }</span></span>`,
     });
   }
 
@@ -1124,9 +1100,8 @@ function toExtractionSourceSummaryMetadataRows(
     extractionSource.sourceArtifactPath,
     meshLabel,
   );
-  const sourceHtml = `<a class="wf-source-root" href="${
-    escapeHtml(sourceHref)
-  }">${escapeHtml(sourceLabel)}</a>`;
+  const sourceHtml = `<a class="wf-source-root" href="${escapeHtml(sourceHref)
+    }">${escapeHtml(sourceLabel)}</a>`;
   const versionHtml = extractionSource.requestedTargetStatePath
     ? renderExtractionSourceVersionChain(
       meshRootHref,
@@ -1155,14 +1130,12 @@ function renderExtractionSourceVersionChain(
     requestedTargetStatePath,
   );
   const historyHtml = statePath.historyPath
-    ? `<a class="wf-source-version-history" href="${
-      escapeHtml(toMeshResourceHref(meshRootHref, statePath.historyPath))
+    ? `<a class="wf-source-version-history" href="${escapeHtml(toMeshResourceHref(meshRootHref, statePath.historyPath))
     }">${escapeHtml(statePath.historyLabel)}</a>`
     : "";
 
-  return `<span class="wf-source-version-chain">${historyHtml}<a class="wf-source-version" href="${
-    escapeHtml(stateHref)
-  }">${escapeHtml(statePath.stateLabel)}</a></span>`;
+  return `<span class="wf-source-version-chain">${historyHtml}<a class="wf-source-version" href="${escapeHtml(stateHref)
+    }">${escapeHtml(statePath.stateLabel)}</a></span>`;
 }
 
 function toExtractionSourceStatePath(
@@ -1183,8 +1156,8 @@ function toExtractionSourceStatePath(
   const historyPath = historySegments.length === 0
     ? undefined
     : isSourceRelative
-    ? `${sourceArtifactPath}/${historySegments.join("/")}`
-    : historySegments.join("/");
+      ? `${sourceArtifactPath}/${historySegments.join("/")}`
+      : historySegments.join("/");
 
   return {
     historyLabel: historySegments.join("/"),
@@ -1213,17 +1186,17 @@ function toChildIdentifierMetadataRows(
     label: string;
     identifiers: ResourcePageChildIdentifierModel[];
   }[] = [
-    { label: "Classes", identifiers: [] },
-    { label: "Object Properties", identifiers: [] },
-    { label: "Datatype Properties", identifiers: [] },
-    { label: "Annotation Properties", identifiers: [] },
-    { label: "Properties", identifiers: [] },
-    { label: "Datatypes", identifiers: [] },
-    { label: "Individuals", identifiers: [] },
-    { label: "Node Shapes", identifiers: [] },
-    { label: "Property Shapes", identifiers: [] },
-    { label: "Shapes", identifiers: [] },
-  ];
+      { label: "Classes", identifiers: [] },
+      { label: "Object Properties", identifiers: [] },
+      { label: "Datatype Properties", identifiers: [] },
+      { label: "Annotation Properties", identifiers: [] },
+      { label: "Properties", identifiers: [] },
+      { label: "Datatypes", identifiers: [] },
+      { label: "Individuals", identifiers: [] },
+      { label: "Node Shapes", identifiers: [] },
+      { label: "Property Shapes", identifiers: [] },
+      { label: "Shapes", identifiers: [] },
+    ];
 
   for (const identifier of childIdentifiers) {
     const childIri = toCanonicalResourceIri(meshBase, identifier.path);
@@ -1323,21 +1296,18 @@ function toChildIdentifierMetadataRow(
   const visibleIdentifiers = childIdentifiers.slice(0, 20);
   const hiddenIdentifiers = childIdentifiers.slice(20);
   const renderIdentifier = (identifier: ResourcePageChildIdentifierModel) =>
-    `<nobr><a class="wf-child-identifier" href="${
-      escapeHtml(toMeshResourceHref(meshRootHref, identifier.path))
+    `<nobr><a class="wf-child-identifier" href="${escapeHtml(toMeshResourceHref(meshRootHref, identifier.path))
     }">${escapeHtml(identifier.label)}</a></nobr>`;
   const hiddenIdentifiersHtml = hiddenIdentifiers.length > 0
-    ? `<details class="wf-child-identifiers-more"><summary title="Show ${hiddenIdentifiers.length} more child identifiers">...</summary><div class="wf-child-identifiers-overflow">${
-      hiddenIdentifiers.map(renderIdentifier).join("")
+    ? `<details class="wf-child-identifiers-more"><summary title="Show ${hiddenIdentifiers.length} more child identifiers">...</summary><div class="wf-child-identifiers-overflow">${hiddenIdentifiers.map(renderIdentifier).join("")
     }</div></details>`
     : "";
 
   return {
     label,
     value: childIdentifiers.map((identifier) => identifier.label).join(", "),
-    html: `<div class="wf-child-identifiers">${
-      visibleIdentifiers.map(renderIdentifier).join("")
-    }${hiddenIdentifiersHtml}</div>`,
+    html: `<div class="wf-child-identifiers">${visibleIdentifiers.map(renderIdentifier).join("")
+      }${hiddenIdentifiersHtml}</div>`,
   };
 }
 
@@ -1359,9 +1329,8 @@ function toRdfIriLinkMetadataRows(
 }
 
 function renderRdfClassLink(className: ResourcePageRdfClass): string {
-  return `<a href="${escapeHtml(className.iri)}">${
-    escapeHtml(className.label)
-  }</a>`;
+  return `<a href="${escapeHtml(className.iri)}">${escapeHtml(className.label)
+    }</a>`;
 }
 
 function renderHistorySection(input: ResourcePageRenderInput): string {
@@ -1407,9 +1376,8 @@ function renderHistoryGap(omittedCount: number, indent: number): string {
   const label = omittedCount === 1
     ? "1 history item omitted"
     : `${omittedCount} history items omitted`;
-  return `${spaces}<div class="wf-history-gap" role="separator" aria-label="${
-    escapeHtml(label)
-  }">⋮</div>`;
+  return `${spaces}<div class="wf-history-gap" role="separator" aria-label="${escapeHtml(label)
+    }">⋮</div>`;
 }
 
 function toHistorySectionTitle(input: ResourcePageRenderInput): string {
@@ -1471,11 +1439,9 @@ function renderHistoryGroups(input: ResourcePageRenderInput): string {
 
     return `        <div class="wf-history-tree">
           <details class="wf-history-node wf-history-node--history" open>
-            <summary class="wf-history-node-header"><a href="${
-      escapeHtml(historyHref)
-    }">${escapeHtml(group.path)}</a>${
-      renderHistoryClassAnnotation(input, "sflo:ArtifactHistory")
-    }</summary>
+            <summary class="wf-history-node-header"><a href="${escapeHtml(historyHref)
+      }">${escapeHtml(group.path)}</a>${renderHistoryClassAnnotation(input, "sflo:ArtifactHistory")
+      }</summary>
 ${states}
           </details>
         </div>`;
@@ -1536,15 +1502,13 @@ function renderHistoryState(
   const child = state.manifestationPath
     ? renderHistoryManifestation(input, state.manifestationPath, state)
     : state.locatedFilePath
-    ? renderHistoryLocatedFile(input, state.locatedFilePath, 14)
-    : "";
+      ? renderHistoryLocatedFile(input, state.locatedFilePath, 14)
+      : "";
 
   return `            <details class="wf-history-node wf-history-node--state" open>
-              <summary class="wf-history-node-header"><a href="${
-    escapeHtml(stateHref)
-  }">${escapeHtml(toLastPathSegment(state.path))}</a>${
-    renderHistoryClassAnnotation(input, "sflo:HistoricalState")
-  }</summary>
+              <summary class="wf-history-node-header"><a href="${escapeHtml(stateHref)
+    }">${escapeHtml(toLastPathSegment(state.path))}</a>${renderHistoryClassAnnotation(input, "sflo:HistoricalState")
+    }</summary>
 ${child}
             </details>`;
 }
@@ -1563,11 +1527,9 @@ function renderHistoryManifestation(
     : "";
 
   return `              <details class="wf-history-node wf-history-node--manifestation" open>
-                <summary class="wf-history-node-header"><a href="${
-    escapeHtml(manifestationHref)
-  }">${escapeHtml(toLastPathSegment(manifestationPath))}</a>${
-    renderHistoryClassAnnotation(input, "sflo:ArtifactManifestation")
-  }</summary>
+                <summary class="wf-history-node-header"><a href="${escapeHtml(manifestationHref)
+    }">${escapeHtml(toLastPathSegment(manifestationPath))}</a>${renderHistoryClassAnnotation(input, "sflo:ArtifactManifestation")
+    }</summary>
 ${locatedFile}
               </details>`;
 }
@@ -1584,11 +1546,9 @@ function renderHistoryLocatedFile(
   const locatedFileIri = new URL(locatedFilePath, input.meshBase).href;
   const spaces = " ".repeat(indent);
   return `${spaces}<div class="wf-history-node wf-history-node--file">
-${spaces}  <div class="wf-history-node-header"><a href="${
-    escapeHtml(locatedFileHref)
-  }" class="wf-history-file-iri">${escapeHtml(locatedFileIri)}</a>${
-    renderHistoryClassAnnotation(input, "sflo:LocatedFile")
-  }</div>
+${spaces}  <div class="wf-history-node-header"><a href="${escapeHtml(locatedFileHref)
+    }" class="wf-history-file-iri">${escapeHtml(locatedFileIri)}</a>${renderHistoryClassAnnotation(input, "sflo:LocatedFile")
+    }</div>
 ${spaces}</div>`;
 }
 
@@ -1609,8 +1569,7 @@ function renderTooltipLabel(
   const escapedLabel = escapeHtml(label);
   const escapedTooltip = escapeHtml(tooltip);
   return href
-    ? `<a class="wf-term wf-term-link" href="${
-      escapeHtml(href)
+    ? `<a class="wf-term wf-term-link" href="${escapeHtml(href)
     }" title="${escapedTooltip}">${escapedLabel}</a>`
     : `<span class="wf-term" title="${escapedTooltip}">${escapedLabel}</span>`;
 }
@@ -1692,8 +1651,7 @@ async function renderRawSourcePanel(
 ): Promise<string> {
   const sourceHref = toPublicSourceHref(input.meshRootHref, panel.sourcePath);
   const body = panel.contents === undefined
-    ? `        <p>This source is ${
-      panel.omittedByteLength ?? 0
+    ? `        <p>This source is ${panel.omittedByteLength ?? 0
     } bytes, so Weave omitted the inline copy. Use the raw file link instead.</p>`
     : await renderHighlightedSource(panel.sourcePath, panel.contents);
 
@@ -1701,11 +1659,10 @@ async function renderRawSourcePanel(
         <summary>${escapeHtml(panel.label)}</summary>
         <div class="wf-source-meta">
           <span>${escapeHtml(panel.sourcePath)}</span>
-          ${
-    sourceHref
+          ${sourceHref
       ? `<a href="${escapeHtml(sourceHref)}">Raw file</a>`
       : `<span>Local source outside mesh root</span>`
-  }
+    }
         </div>
 ${body}
       </details>`;
@@ -2064,8 +2021,7 @@ function appendPredicateObjectLines(
 ): void {
   if (object.termType !== "BlankNode") {
     lines.push(
-      `${indent}${predicateLabel} ${
-        formatRdfTerm(object, sourceIriLabels, prefixMap)
+      `${indent}${predicateLabel} ${formatRdfTerm(object, sourceIriLabels, prefixMap)
       }${terminator}`,
     );
     return;
@@ -2133,13 +2089,12 @@ function formatRdfLiteral(
     return `${value}@${term.language}`;
   }
   if (term.datatype.value !== XSD_STRING_IRI) {
-    return `${value}^^${
-      toSourceRdfIriDisplayLabel(
-        term.datatype.value,
-        sourceIriLabels,
-        prefixMap,
-      )
-    }`;
+    return `${value}^^${toSourceRdfIriDisplayLabel(
+      term.datatype.value,
+      sourceIriLabels,
+      prefixMap,
+    )
+      }`;
   }
   return value;
 }
@@ -2329,11 +2284,9 @@ function renderFragmentIriRow(
     ? toMeshResourceHref(meshRootHref, meshPath)
     : iri;
 
-  return `          <tr><th scope="row">${escapeHtml(label)}</th><td><a href="${
-    escapeHtml(href)
-  }">${
-    escapeHtml(meshPath !== undefined ? value : compactRdfIri(value, prefixMap))
-  }</a></td></tr>`;
+  return `          <tr><th scope="row">${escapeHtml(label)}</th><td><a href="${escapeHtml(href)
+    }">${escapeHtml(meshPath !== undefined ? value : compactRdfIri(value, prefixMap))
+    }</a></td></tr>`;
 }
 
 function collectPrefixMap(
@@ -2719,8 +2672,7 @@ function renderMarkdownRegion(markdown: string): string {
     if (headingMatch) {
       const level = headingMatch[1]!.length;
       blocks.push(
-        `      <h${level}>${
-          renderInlineMarkdown(headingMatch[2]!)
+        `      <h${level}>${renderInlineMarkdown(headingMatch[2]!)
         }</h${level}>`,
       );
       index += 1;

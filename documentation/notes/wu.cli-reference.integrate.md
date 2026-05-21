@@ -1,6 +1,6 @@
 ---
 id: cfvs3v07w6068f0jd19ytjv
-title: Integrate
+title: weave integrate
 desc: ''
 updated: 1779337973920
 created: 1779337973920
@@ -86,3 +86,14 @@ The tradeoffs are mostly operational:
 - a raw URL alone loses some repository structure unless paired with repository URL, ref/commit, and path metadata
 
 Because remote working-byte fetch is not implemented yet, use raw URLs today inside the source RDF where they are part of the artifact's own vocabulary, such as `owl:versionIRI`, `schema:contentUrl`, or `dcat:downloadURL`. Use local checkout paths plus `--source-repository-current` for mutable working source integration.
+
+## Environment
+
+- [[wu.environment-variables#weave_log_dir]] controls where runtime logs are written.
+- [[wu.environment-variables#home-and-userprofile]] controls where host-local access policy can be found or written for separate-checkout source grants.
+
+## Related
+
+- [[wu.cli-reference.payload.update]] updates working bytes for an existing payload artifact.
+- [[wu.cli-reference.version]] records integrated working bytes into history without generating pages.
+- [[wu.cli-reference.weave]] runs the composed validate/version/generate flow.

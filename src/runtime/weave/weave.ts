@@ -867,10 +867,9 @@ function assertValidationPassed(
   }
 
   throw new WeaveInputError(
-    `Whole-mesh validation ${phaseLabel} failed:\n${
-      result.findings.map((finding) =>
-        `${finding.severity}: ${finding.message}`
-      ).join("\n")
+    `Whole-mesh validation ${phaseLabel} failed:\n${result.findings.map((finding) =>
+      `${finding.severity}: ${finding.message}`
+    ).join("\n")
     }`,
   );
 }
@@ -1165,8 +1164,7 @@ async function prepareVersionExecution(
 
     if (stagedWeaveableKnops.length === 0) {
       throw new WeaveInputError(
-        `Recursive version planning could not continue cleanly for the remaining targets: ${
-          remainingDesignatorPaths.join(", ")
+        `Recursive version planning could not continue cleanly for the remaining targets: ${remainingDesignatorPaths.join(", ")
         }.`,
       );
     }
@@ -1358,14 +1356,12 @@ function assertRequestedTargetsAreWeaveable(
   }
 
   throw new WeaveInputError(
-    `Requested targets are not currently weaveable: ${
-      missingTargets.map((target) =>
-        target.recursive
-          ? `${
-            formatDesignatorPathForDisplay(target.designatorPath)
-          } (recursive)`
-          : formatDesignatorPathForDisplay(target.designatorPath)
-      ).join(", ")
+    `Requested targets are not currently weaveable: ${missingTargets.map((target) =>
+      target.recursive
+        ? `${formatDesignatorPathForDisplay(target.designatorPath)
+        } (recursive)`
+        : formatDesignatorPathForDisplay(target.designatorPath)
+    ).join(", ")
     }.`,
   );
 }
@@ -1679,10 +1675,10 @@ async function loadPayloadWorkingArtifact(
     : undefined;
   const latestHistoricalSnapshotPath = latestHistoricalStatePath
     ? payloadArtifact.latestHistoricalSnapshotPath ??
-      toPayloadHistoricalSnapshotPath(
-        latestHistoricalStatePath,
-        workingLocalRelativePath,
-      )
+    toPayloadHistoricalSnapshotPath(
+      latestHistoricalStatePath,
+      workingLocalRelativePath,
+    )
     : undefined;
   const latestHistoricalSnapshotLocalPath = latestHistoricalSnapshotPath
     ? join(workspaceRoot, latestHistoricalSnapshotPath)
@@ -1807,8 +1803,7 @@ async function loadReferenceTargetSourcePayloadArtifact(
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new WeaveRuntimeError(
-        `Workspace is missing the woven source payload inventory for ${designatorPath}: ${
-          toKnopPath(sourceDesignatorPath)
+        `Workspace is missing the woven source payload inventory for ${designatorPath}: ${toKnopPath(sourceDesignatorPath)
         }/_inventory/inventory.ttl`,
       );
     }
@@ -1830,7 +1825,7 @@ async function loadReferenceTargetSourcePayloadArtifact(
   }
   const selectedHistoricalStatePath =
     extractionSource.requestedTargetStatePath ??
-      sourcePayloadArtifact.latestHistoricalStatePath;
+    sourcePayloadArtifact.latestHistoricalStatePath;
   if (!selectedHistoricalStatePath) {
     throw new WeaveRuntimeError(
       `Extracted weave source for ${designatorPath} is missing an exact or latest source state.`,
@@ -1842,8 +1837,8 @@ async function loadReferenceTargetSourcePayloadArtifact(
     selectedHistoricalStatePath,
     `Could not parse the source Knop inventory while resolving the extracted source payload snapshot for ${designatorPath}.`,
   ) ?? (sourcePayloadArtifact.latestHistoricalStatePath ===
-        selectedHistoricalStatePath &&
-      sourcePayloadArtifact.latestHistoricalSnapshotPath
+    selectedHistoricalStatePath &&
+    sourcePayloadArtifact.latestHistoricalSnapshotPath
     ? sourcePayloadArtifact.latestHistoricalSnapshotPath
     : toPayloadHistoricalSnapshotPath(
       selectedHistoricalStatePath,
@@ -2064,12 +2059,12 @@ function isWeaveableKnopCandidate(
           .currentArtifactHistoryExists ||
         (
           candidate.resourcePageDefinitionArtifact
-              .latestHistoricalSnapshotTurtle !==
-            undefined &&
+            .latestHistoricalSnapshotTurtle !==
+          undefined &&
           candidate.resourcePageDefinitionArtifact
-              .currentPageDefinitionTurtle !==
-            candidate.resourcePageDefinitionArtifact
-              .latestHistoricalSnapshotTurtle
+            .currentPageDefinitionTurtle !==
+          candidate.resourcePageDefinitionArtifact
+            .latestHistoricalSnapshotTurtle
         )
       );
   }
@@ -2082,9 +2077,9 @@ function isWeaveableKnopCandidate(
     return candidate.payloadArtifact !== undefined &&
       (hasPayloadVersionNamingTarget(target) ||
         (candidate.payloadArtifact.latestHistoricalSnapshotTurtle !==
-            undefined &&
+          undefined &&
           candidate.payloadArtifact.currentPayloadTurtle !==
-            candidate.payloadArtifact.latestHistoricalSnapshotTurtle));
+          candidate.payloadArtifact.latestHistoricalSnapshotTurtle));
   }
 
   return slice === "firstKnopWeave";
@@ -2361,12 +2356,12 @@ async function collectGeneratedPageFiles(
           resourcePath,
           historyGroups ?? [],
           rawSourcePanels ??
-            findOwnerRawSourcePanelsForArtifactHistory(
-              resourcePath,
-              historyGroups ?? [],
-              meshRawSourcePanels,
-              designatorContexts,
-            ),
+          findOwnerRawSourcePanelsForArtifactHistory(
+            resourcePath,
+            historyGroups ?? [],
+            meshRawSourcePanels,
+            designatorContexts,
+          ),
         ),
         childIdentifiers: childIdentifiersByResourcePath.get(
           resourcePath,
@@ -2412,11 +2407,11 @@ async function collectGeneratedPageFiles(
                 resourcePath,
                 historyGroups ?? [],
                 rawSourcePanels ??
-                  findOwnerRawSourcePanelsForArtifactHistoryInContext(
-                    resourcePath,
-                    historyGroups ?? [],
-                    context,
-                  ),
+                findOwnerRawSourcePanelsForArtifactHistoryInContext(
+                  resourcePath,
+                  historyGroups ?? [],
+                  context,
+                ),
               ),
             childIdentifiers: childIdentifiersByResourcePath.get(
               resourcePath,
@@ -2723,12 +2718,10 @@ async function loadGenerateDesignatorContexts(
       currentKnopInventoryTurtle,
       `Could not parse the current Knop inventory while collecting current KnopInventory source panel for ${designatorPath}.`,
     );
-    const currentKnopInventoryPagePath = `${
-      toKnopPath(designatorPath)
-    }/_inventory/index.html`;
-    const currentKnopInventoryWorkingPath = `${
-      toKnopPath(designatorPath)
-    }/_inventory/inventory.ttl`;
+    const currentKnopInventoryPagePath = `${toKnopPath(designatorPath)
+      }/_inventory/index.html`;
+    const currentKnopInventoryWorkingPath = `${toKnopPath(designatorPath)
+      }/_inventory/inventory.ttl`;
     if (
       !(await addLatestHistoricalRawSourcePanelForCurrentArtifact(
         rawSourcePanels,
@@ -3099,8 +3092,7 @@ async function collectExtractionSourceHistoryGroupsByResourcePath(
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new WeaveRuntimeError(
-        `Workspace is missing the page source payload inventory for ${designatorPath}: ${
-          toKnopPath(sourceArtifactPath)
+        `Workspace is missing the page source payload inventory for ${designatorPath}: ${toKnopPath(sourceArtifactPath)
         }/_inventory/inventory.ttl`,
       );
     }
@@ -3545,7 +3537,7 @@ async function addLatestHistoricalRawSourcePanelForCurrentArtifact(
   }
 
   const latestHistoricalPanel = preloadedSnapshotPath === snapshotPath &&
-      preloadedSnapshotTurtle !== undefined
+    preloadedSnapshotTurtle !== undefined
     ? rawSourcePanelFromContents(
       snapshotPath,
       "Historical manifestation file",
@@ -3746,9 +3738,8 @@ async function addReferenceTargetSourceRawSourcePanels(
     }
 
     for (const referenceTargetPath of link.referenceTargetPaths) {
-      const key = `${referenceTargetPath}\u0000${
-        link.referenceTargetStatePaths.join("\u0000")
-      }`;
+      const key = `${referenceTargetPath}\u0000${link.referenceTargetStatePaths.join("\u0000")
+        }`;
       if (seen.has(key)) {
         continue;
       }
@@ -3835,8 +3826,8 @@ async function addCanonicalReferenceSourceRawSourcePanel(
   }
 
   const snapshotPath = sourcePayloadArtifact.latestHistoricalStatePath ===
-        referenceTargetStatePath &&
-      sourcePayloadArtifact.latestHistoricalSnapshotPath
+    referenceTargetStatePath &&
+    sourcePayloadArtifact.latestHistoricalSnapshotPath
     ? sourcePayloadArtifact.latestHistoricalSnapshotPath
     : toPayloadHistoricalSnapshotPath(
       referenceTargetStatePath,
@@ -3884,8 +3875,7 @@ async function addExtractionSourceRawSourcePanels(
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new WeaveRuntimeError(
-        `Workspace is missing the page source payload inventory for ${designatorPath}: ${
-          toKnopPath(sourceArtifactPath)
+        `Workspace is missing the page source payload inventory for ${designatorPath}: ${toKnopPath(sourceArtifactPath)
         }/_inventory/inventory.ttl`,
       );
     }
@@ -3945,8 +3935,8 @@ async function addExtractionSourceRawSourcePanels(
   }
 
   const snapshotPath = sourcePayloadArtifact.latestHistoricalStatePath ===
-        requestedTargetStatePath &&
-      sourcePayloadArtifact.latestHistoricalSnapshotPath
+    requestedTargetStatePath &&
+    sourcePayloadArtifact.latestHistoricalSnapshotPath
     ? sourcePayloadArtifact.latestHistoricalSnapshotPath
     : toPayloadHistoricalSnapshotPath(
       requestedTargetStatePath,
@@ -4036,15 +4026,13 @@ function describeSemanticFlowResource(
     historyGroups,
   );
   if (manifestationState) {
-    return `Artifact manifestation for the ${
-      toLastPathSegment(manifestationState.path)
-    } historical state`;
+    return `Artifact manifestation for the ${toLastPathSegment(manifestationState.path)
+      } historical state`;
   }
   const stateHistory = findHistoryForState(resourcePath, historyGroups);
   if (stateHistory) {
-    return `Historical state for the ${
-      toLastPathSegment(stateHistory.path)
-    } artifact history`;
+    return `Historical state for the ${toLastPathSegment(stateHistory.path)
+      } artifact history`;
   }
   if (historyGroups.some((group) => group.path === resourcePath)) {
     const ownerResourcePath = dirname(resourcePath);
@@ -4055,25 +4043,22 @@ function describeSemanticFlowResource(
         ownerRawSourcePanels,
       )
       : undefined;
-    return `Artifact history for ${
-      ownerTitle ?? formatOwnerResourcePath(ownerResourcePath)
-    }`;
+    return `Artifact history for ${ownerTitle ?? formatOwnerResourcePath(ownerResourcePath)
+      }`;
   }
   if (resourcePath === "_mesh") {
     return "Semantic Mesh.";
   }
   if (resourcePath.endsWith("/_knop") || resourcePath === "_knop") {
-    return `Semantic Flow bundle of supporting data for ${
-      formatOwnerResourcePath(dirname(resourcePath))
-    }.`;
+    return `Semantic Flow bundle of supporting data for ${formatOwnerResourcePath(dirname(resourcePath))
+      }.`;
   }
   if (resourcePath.endsWith("/_meta")) {
     if (resourcePath === "_mesh/_meta") {
       return "Metadata for this Semantic Mesh";
     }
-    return `Knop metadata for ${
-      formatOwnerResourcePath(dirname(dirname(resourcePath)))
-    }`;
+    return `Knop metadata for ${formatOwnerResourcePath(dirname(dirname(resourcePath)))
+      }`;
   }
   if (resourcePath.endsWith("/_inventory")) {
     if (resourcePath === "_mesh/_inventory") {

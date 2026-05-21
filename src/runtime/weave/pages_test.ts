@@ -45,7 +45,7 @@ Deno.test("renderResourcePage renders identifier pages with working file links",
   );
   assert(
     html.indexOf('<th scope="row">Canonical IRI</th>') <
-      html.indexOf('<th scope="row">Working File</th>'),
+    html.indexOf('<th scope="row">Working File</th>'),
   );
   assertStringIncludes(
     html,
@@ -91,7 +91,7 @@ Deno.test("renderResourcePage renders URL and floating repository working locato
 
   assert(
     html.indexOf('<th scope="row">Canonical IRI</th>') <
-      html.indexOf('<th scope="row">Working URL</th>'),
+    html.indexOf('<th scope="row">Working URL</th>'),
   );
   assertStringIncludes(
     html,
@@ -356,22 +356,22 @@ Deno.test("renderResourcePage renders typed child identifier rows", async () => 
   assertFalse(html.includes('<th scope="row">Child Classes</th>'));
   assert(
     html.indexOf("<summary>Children</summary>") <
-      html.indexOf('<th scope="row">Classes</th>'),
+    html.indexOf('<th scope="row">Classes</th>'),
     "expected child rows under the Children section",
   );
   assert(
     html.indexOf('<th scope="row">Individuals</th>') <
-      html.indexOf('<th scope="row">Node Shapes</th>'),
+    html.indexOf('<th scope="row">Node Shapes</th>'),
     "expected Node Shapes after Individuals",
   );
   assert(
     html.indexOf('<th scope="row">Node Shapes</th>') <
-      html.indexOf('<th scope="row">Property Shapes</th>'),
+    html.indexOf('<th scope="row">Property Shapes</th>'),
     "expected Property Shapes after Node Shapes",
   );
   assert(
     html.indexOf('<th scope="row">Property Shapes</th>') <
-      html.indexOf('<th scope="row">Shapes</th>'),
+    html.indexOf('<th scope="row">Shapes</th>'),
     "expected Shapes after Property Shapes",
   );
   assertStringIncludes(
@@ -491,17 +491,17 @@ Deno.test("renderResourcePage separates SHACL child identifiers from RDF type hi
   assertStringIncludes(html, '<th scope="row">Shapes</th>');
   assert(
     html.indexOf('<th scope="row">Individuals</th>') <
-      html.indexOf('<th scope="row">Node Shapes</th>'),
+    html.indexOf('<th scope="row">Node Shapes</th>'),
     "expected Node Shapes after Individuals",
   );
   assert(
     html.indexOf('<th scope="row">Node Shapes</th>') <
-      html.indexOf('<th scope="row">Property Shapes</th>'),
+    html.indexOf('<th scope="row">Property Shapes</th>'),
     "expected Property Shapes after Node Shapes",
   );
   assert(
     html.indexOf('<th scope="row">Property Shapes</th>') <
-      html.indexOf('<th scope="row">Shapes</th>'),
+    html.indexOf('<th scope="row">Shapes</th>'),
     "expected Shapes after Property Shapes",
   );
   assertStringIncludes(
@@ -823,7 +823,7 @@ Deno.test("renderResourcePage does not link extra-mesh local source paths", asyn
   );
   assertEquals(
     html.lastIndexOf("<summary>Semantic Flow metadata</summary>") >
-      html.lastIndexOf("<summary>Current working file</summary>"),
+    html.lastIndexOf("<summary>Current working file</summary>"),
     true,
   );
   assertStringIncludes(
@@ -898,7 +898,7 @@ Deno.test("renderResourcePage renders RDF description, classes, and histories", 
   assertStringIncludes(html, "<summary>History</summary>");
   assert(
     html.indexOf("<summary>Current working file</summary>") <
-      html.indexOf("<summary>History</summary>"),
+    html.indexOf("<summary>History</summary>"),
     "expected history after raw source panels",
   );
   assertFalse(html.includes("sflo:ArtifactHistory"));
@@ -1158,12 +1158,12 @@ Deno.test("renderResourcePage renders grouped reference panels", async () => {
   );
   assert(
     html.indexOf("<summary>Canonical</summary>") <
-      html.indexOf("<summary>Supplemental</summary>"),
+    html.indexOf("<summary>Supplemental</summary>"),
     "expected canonical references before supplemental references",
   );
   assert(
     html.indexOf("<summary>Supplemental</summary>") <
-      html.indexOf("<summary>Deprecated</summary>"),
+    html.indexOf("<summary>Deprecated</summary>"),
     "expected supplemental references before deprecated references",
   );
 });

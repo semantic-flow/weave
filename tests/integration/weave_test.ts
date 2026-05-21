@@ -864,7 +864,7 @@ Deno.test("executeWeave matches the settled alice page-customized-woven fixture"
   assert(result.updatedPaths.includes("alice/_knop/_inventory/inventory.ttl"));
   assert(
     result.createdPaths.includes("alice/index.html") ||
-      result.updatedPaths.includes("alice/index.html"),
+    result.updatedPaths.includes("alice/index.html"),
   );
   assertEquals(
     await compareRdfContent({

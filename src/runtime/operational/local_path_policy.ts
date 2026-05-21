@@ -429,7 +429,7 @@ async function tryRunGit(args: readonly string[]): Promise<string | undefined> {
 function repositoryUrlsMatch(left: string, right: string): boolean {
   return left === right ||
     normalizeRepositoryUrlForComparison(left) ===
-      normalizeRepositoryUrlForComparison(right);
+    normalizeRepositoryUrlForComparison(right);
 }
 
 function normalizeRepositoryUrlForComparison(url: string): string {
@@ -585,8 +585,7 @@ function renderMeshConfigTurtle(
   const statements: string[] = ["a sfcfg:MeshConfig"];
   if (workspaceRootRelativeToMeshRoot !== undefined) {
     statements.push(
-      `  sfcfg:workspaceRootRelativeToMeshRoot ${
-        JSON.stringify(workspaceRootRelativeToMeshRoot)
+      `  sfcfg:workspaceRootRelativeToMeshRoot ${JSON.stringify(workspaceRootRelativeToMeshRoot)
       }`,
     );
   }
@@ -600,11 +599,10 @@ function renderMeshConfigTurtle(
     a sfcfg:LocalPathAccessRule ;
     sfcfg:hasLocalPathBase <${renderLocalPathBaseIri(rule.base)}> ;
     sfcfg:pathPrefix ${JSON.stringify(renderPathPrefix(rule.pathPrefix))} ;
-    ${
-      rule.locatorKinds.map((kind) =>
-        `sfcfg:hasLocalPathLocatorKind <${renderLocalPathLocatorKindIri(kind)}>`
-      ).join(" ;\n    ")
-    }
+    ${rule.locatorKinds.map((kind) =>
+      `sfcfg:hasLocalPathLocatorKind <${renderLocalPathLocatorKindIri(kind)}>`
+    ).join(" ;\n    ")
+      }
   ]`);
   }
 
@@ -623,11 +621,10 @@ function renderHostLocalConfigTurtle(
     a sfcfg:LocalPathAccessRule ;
     sfcfg:hasLocalPathBase <${renderLocalPathBaseIri(rule.base)}> ;
     sfcfg:pathPrefix ${JSON.stringify(renderPathPrefix(rule.pathPrefix))} ;
-    ${
-      rule.locatorKinds.map((kind) =>
-        `sfcfg:hasLocalPathLocatorKind <${renderLocalPathLocatorKindIri(kind)}>`
-      ).join(" ;\n    ")
-    }
+    ${rule.locatorKinds.map((kind) =>
+      `sfcfg:hasLocalPathLocatorKind <${renderLocalPathLocatorKindIri(kind)}>`
+    ).join(" ;\n    ")
+      }
   ]`);
   }
 
@@ -688,7 +685,7 @@ function collectOperationalConfigSubjects(
     }
     if (
       quad.predicate.value !==
-        "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" ||
+      "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" ||
       quad.object.termType !== "NamedNode"
     ) {
       continue;

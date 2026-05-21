@@ -16,6 +16,8 @@ Weave writes runtime logs under `.weave/logs/` inside the workspace. For whole-r
 
 Use `weave --help` or `weave <command> --help` to inspect the live CLI.
 
+Detailed notes are available for [[wu.cli-reference.weave]], [[wu.cli-reference.validate]], [[wu.cli-reference.version]], [[wu.cli-reference.generate]], [[wu.cli-reference.mesh.create]], [[wu.cli-reference.integrate]], [[wu.cli-reference.extract]], [[wu.cli-reference.set.extraction-source]], [[wu.cli-reference.payload.update]], [[wu.cli-reference.knop.create]], [[wu.cli-reference.knop.add-reference]], [[wu.cli-reference.set.history]], and [[wu.cli-reference.set.next-state]]. Shared syntax notes cover [[wu.cli-reference.target-syntax]] and [[wu.cli-reference.root-designator]].
+
 ## Common patterns
 
 `--mesh-root <path>` selects the mesh root for existing-mesh operations such as `weave`, `weave validate`, `weave version`, `weave generate`, `weave integrate`, `weave extract`, `weave payload update`, `weave knop create`, and `weave knop add-reference`. It defaults to `.`.
