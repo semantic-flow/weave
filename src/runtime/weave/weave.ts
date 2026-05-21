@@ -223,7 +223,104 @@ interface PreparedVersionExecution {
   plan: VersionPlan;
 }
 
-type TextFileOverlay = Map<string, string>;
+class TextFileOverlay extends Map<string, string> {
+  #readCache = new Map<string, string>();
+  #candidateCache = new Map<string, CandidateCacheEntry>();
+  #activeCandidateCapture: CandidateDependencyCapture | undefined;
+  readCount = 0;
+  cacheHitCount = 0;
+  stagedHitCount = 0;
+  candidateCacheHitCount = 0;
+  candidateCacheStoreCount = 0;
+  candidateCacheInvalidationCount = 0;
+
+  async readTextFile(path: string): Promise<string> {
+    this.#activeCandidateCapture?.dependencyPaths.add(path);
+    const stagedContents = this.get(path);
+    if (stagedContents !== undefined) {
+      this.stagedHitCount += 1;
+      return stagedContents;
+    }
+
+    const cachedContents = this.#readCache.get(path);
+    if (cachedContents !== undefined) {
+      this.cacheHitCount += 1;
+      return cachedContents;
+    }
+
+    const contents = await Deno.readTextFile(path);
+    this.#readCache.set(path, contents);
+    this.readCount += 1;
+    return contents;
+  }
+
+  async loadCandidate(
+    designatorPath: string,
+    loader: () => Promise<WeaveableKnopCandidate | undefined>,
+  ): Promise<WeaveableKnopCandidate | undefined> {
+    const cached = this.#candidateCache.get(designatorPath);
+    if (cached !== undefined) {
+      this.candidateCacheHitCount += 1;
+      return cached.candidate;
+    }
+
+    const previousCapture = this.#activeCandidateCapture;
+    const capture: CandidateDependencyCapture = {
+      dependencyPaths: new Set(),
+    };
+    this.#activeCandidateCapture = capture;
+    try {
+      const candidate = await loader();
+      this.#candidateCache.set(designatorPath, {
+        candidate,
+        dependencyPaths: capture.dependencyPaths,
+      });
+      this.candidateCacheStoreCount += 1;
+      return candidate;
+    } finally {
+      this.#activeCandidateCapture = previousCapture;
+    }
+  }
+
+  stagePlannedFiles(
+    workspaceRoot: string,
+    files: readonly PlannedFile[],
+  ): void {
+    const stagedPaths = files.map((file) => join(workspaceRoot, file.path));
+    for (
+      const [file, absolutePath] of files.map((file, index) =>
+        [file, stagedPaths[index]!] as const
+      )
+    ) {
+      this.set(absolutePath, file.contents);
+    }
+    this.#invalidateCandidates(stagedPaths);
+  }
+
+  #invalidateCandidates(stagedPaths: readonly string[]): void {
+    if (stagedPaths.length === 0 || this.#candidateCache.size === 0) {
+      return;
+    }
+
+    for (const [designatorPath, entry] of this.#candidateCache) {
+      if (
+        stagedPaths.some((stagedPath) => entry.dependencyPaths.has(stagedPath))
+      ) {
+        this.#candidateCache.delete(designatorPath);
+        this.candidateCacheInvalidationCount += 1;
+      }
+    }
+  }
+}
+
+interface CandidateDependencyCapture {
+  dependencyPaths: Set<string>;
+}
+
+interface CandidateCacheEntry {
+  candidate: WeaveableKnopCandidate | undefined;
+  dependencyPaths: ReadonlySet<string>;
+}
 
 interface GenerateDesignatorContext {
   designatorPath: string;
@@ -992,7 +1089,7 @@ async function prepareVersionExecution(
       selection.target as NormalizedVersionTargetSpec | undefined,
     ]),
   );
-  const overlay: TextFileOverlay = new Map();
+  const overlay = new TextFileOverlay();
   const initialWeaveableKnops = await timeOptional(
     timing,
     "prepare.loadInitialCandidates",
@@ -1140,6 +1237,16 @@ async function prepareVersionExecution(
     createdFiles,
     updatedFiles: updatedPathOrder.map((path) => updatedFileByPath.get(path)!),
   };
+
+  timing?.setField("cachedReadFiles", overlay.readCount);
+  timing?.setField("readCacheHits", overlay.cacheHitCount);
+  timing?.setField("stagedReadHits", overlay.stagedHitCount);
+  timing?.setField("candidateCacheHits", overlay.candidateCacheHitCount);
+  timing?.setField("candidateCacheStores", overlay.candidateCacheStoreCount);
+  timing?.setField(
+    "candidateCacheInvalidations",
+    overlay.candidateCacheInvalidationCount,
+  );
 
   return {
     meshState,
@@ -1406,100 +1513,28 @@ async function loadWeaveableKnopCandidates(
       continue;
     }
 
-    const knopPath = toKnopPath(designatorPath);
-    const metadataPath = join(workspaceRoot, `${knopPath}/_meta/meta.ttl`);
-    const inventoryPath = join(
-      workspaceRoot,
-      `${knopPath}/_inventory/inventory.ttl`,
-    );
-    let currentKnopMetadataTurtle: string;
-    let currentKnopInventoryTurtle: string;
-
-    try {
-      [currentKnopMetadataTurtle, currentKnopInventoryTurtle] = await Promise
-        .all([
-          readTextFileWithOverlay(metadataPath, overlay),
-          readTextFileWithOverlay(inventoryPath, overlay),
-        ]);
-    } catch (error) {
-      if (error instanceof Deno.errors.NotFound) {
-        continue;
-      }
-      throw error;
-    }
-
-    const candidate: WeaveableKnopCandidate = {
-      designatorPath,
-      currentKnopMetadataTurtle,
-      currentKnopInventoryTurtle,
-    };
-    const slice = detectPendingWeaveSlice(
-      meshBase,
-      designatorPath,
-      currentKnopInventoryTurtle,
-      targetByDesignatorPath.get(designatorPath),
-    );
-
-    if (!slice) {
-      continue;
-    }
-
-    if (
-      slice === "firstPayloadWeave" || slice === "secondPayloadWeave" ||
-      slice === "firstExtractedKnopWeave"
-    ) {
-      candidate.payloadArtifact = await loadPayloadWorkingArtifact(
+    const candidate = overlay instanceof TextFileOverlay
+      ? await overlay.loadCandidate(
+        designatorPath,
+        () =>
+          loadWeaveableKnopCandidate(
+            workspaceRoot,
+            localPathPolicy,
+            meshBase,
+            designatorPath,
+            targetByDesignatorPath.get(designatorPath),
+            overlay,
+          ),
+      )
+      : await loadWeaveableKnopCandidate(
         workspaceRoot,
         localPathPolicy,
         meshBase,
         designatorPath,
-        currentKnopInventoryTurtle,
+        targetByDesignatorPath.get(designatorPath),
         overlay,
       );
-    }
-
-    if (slice === "firstReferenceCatalogWeave") {
-      candidate.referenceCatalogArtifact =
-        await loadReferenceCatalogWorkingArtifact(
-          workspaceRoot,
-          localPathPolicy,
-          meshBase,
-          designatorPath,
-          currentKnopInventoryTurtle,
-          overlay,
-        );
-    }
-
-    if (slice === "pageDefinitionWeave") {
-      candidate.resourcePageDefinitionArtifact =
-        await loadResourcePageDefinitionArtifact(
-          workspaceRoot,
-          localPathPolicy,
-          meshBase,
-          designatorPath,
-          currentKnopInventoryTurtle,
-        );
-    }
-
-    if (slice === "firstExtractedKnopWeave") {
-      candidate.referenceTargetSourcePayloadArtifact =
-        await loadReferenceTargetSourcePayloadArtifact(
-          workspaceRoot,
-          localPathPolicy,
-          meshBase,
-          designatorPath,
-          currentKnopInventoryTurtle,
-          overlay,
-        );
-    }
-
-    if (
-      !isWeaveableKnopCandidate(
-        candidate,
-        slice,
-        targetByDesignatorPath.get(designatorPath),
-      )
-    ) {
+    if (candidate === undefined) {
       continue;
     }
 
@@ -1509,6 +1544,106 @@ async function loadWeaveableKnopCandidates(
   return candidates.sort((left, right) =>
     left.designatorPath.localeCompare(right.designatorPath)
   );
+}
+
+async function loadWeaveableKnopCandidate(
+  workspaceRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
+  meshBase: string,
+  designatorPath: string,
+  target: NormalizedVersionTargetSpec | undefined,
+  overlay?: ReadonlyMap<string, string>,
+): Promise<WeaveableKnopCandidate | undefined> {
+  const knopPath = toKnopPath(designatorPath);
+  const metadataPath = join(workspaceRoot, `${knopPath}/_meta/meta.ttl`);
+  const inventoryPath = join(
+    workspaceRoot,
+    `${knopPath}/_inventory/inventory.ttl`,
+  );
+  let currentKnopMetadataTurtle: string;
+  let currentKnopInventoryTurtle: string;
+
+  try {
+    [currentKnopMetadataTurtle, currentKnopInventoryTurtle] = await Promise
+      .all([
+        readTextFileWithOverlay(metadataPath, overlay),
+        readTextFileWithOverlay(inventoryPath, overlay),
+      ]);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return undefined;
+    }
+    throw error;
+  }
+
+  const candidate: WeaveableKnopCandidate = {
+    designatorPath,
+    currentKnopMetadataTurtle,
+    currentKnopInventoryTurtle,
+  };
+  const slice = detectPendingWeaveSlice(
+    meshBase,
+    designatorPath,
+    currentKnopInventoryTurtle,
+    target,
+  );
+
+  if (!slice) {
+    return undefined;
+  }
+
+  if (
+    slice === "firstPayloadWeave" || slice === "secondPayloadWeave" ||
+    slice === "firstExtractedKnopWeave"
+  ) {
+    candidate.payloadArtifact = await loadPayloadWorkingArtifact(
+      workspaceRoot,
+      localPathPolicy,
+      meshBase,
+      designatorPath,
+      currentKnopInventoryTurtle,
+      overlay,
+    );
+  }
+
+  if (slice === "firstReferenceCatalogWeave") {
+    candidate.referenceCatalogArtifact =
+      await loadReferenceCatalogWorkingArtifact(
+        workspaceRoot,
+        localPathPolicy,
+        meshBase,
+        designatorPath,
+        currentKnopInventoryTurtle,
+        overlay,
+      );
+  }
+
+  if (slice === "pageDefinitionWeave") {
+    candidate.resourcePageDefinitionArtifact =
+      await loadResourcePageDefinitionArtifact(
+        workspaceRoot,
+        localPathPolicy,
+        meshBase,
+        designatorPath,
+        currentKnopInventoryTurtle,
+      );
+  }
+
+  if (slice === "firstExtractedKnopWeave") {
+    candidate.referenceTargetSourcePayloadArtifact =
+      await loadReferenceTargetSourcePayloadArtifact(
+        workspaceRoot,
+        localPathPolicy,
+        meshBase,
+        designatorPath,
+        currentKnopInventoryTurtle,
+        overlay,
+      );
+  }
+
+  return isWeaveableKnopCandidate(candidate, slice, target)
+    ? candidate
+    : undefined;
 }
 
 async function loadPayloadWorkingArtifact(
@@ -1992,15 +2127,17 @@ function applyPlannedFilesToOverlay(
   overlay: TextFileOverlay,
   files: readonly PlannedFile[],
 ): void {
-  for (const file of files) {
-    overlay.set(join(workspaceRoot, file.path), file.contents);
-  }
+  overlay.stagePlannedFiles(workspaceRoot, files);
 }
 
 async function readTextFileWithOverlay(
   path: string,
   overlay?: ReadonlyMap<string, string>,
 ): Promise<string> {
+  if (overlay instanceof TextFileOverlay) {
+    return await overlay.readTextFile(path);
+  }
+
   const stagedContents = overlay?.get(path);
   if (stagedContents !== undefined) {
     return stagedContents;
