@@ -5,7 +5,7 @@ import type {
   ResourcePageModel,
   ResourcePageRawSourcePanelModel,
   ResourcePageReferenceLinkModel,
-} from "../../core/weave/weave.ts";
+} from "../../core/weave/resource_page_models.ts";
 import { Parser, type Quad, type Term } from "n3";
 import { codeToHtml } from "shiki";
 import { formatDesignatorPathForDisplay } from "../../core/designator_segments.ts";
