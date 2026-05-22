@@ -1,9 +1,7 @@
 import type { Quad } from "n3";
 import * as pathPosix from "@std/path/posix";
 import {
-  appendMeshPath,
   formatDesignatorPathForDisplay,
-  isDirectChildMeshPath,
   toDesignatorResourcePagePath,
   toKnopPath,
   toReferenceCatalogPath,
@@ -19,12 +17,7 @@ import {
   toRelativeHref,
   toResourcePath,
 } from "./html.ts";
-import {
-  type HistoryNamingPolicy,
-  type ManifestationNamingPolicy,
-  type StateNamingPolicy,
-  type WeaveNamingPolicies,
-} from "./naming_policy.ts";
+import type { WeaveNamingPolicies } from "./naming_policy.ts";
 import {
   filterResourcePageFactsFromPlannedFiles,
   hasResourcePageGenerationPolicyOverrides,
@@ -60,15 +53,23 @@ import type {
 } from "./candidates.ts";
 import type { PlanWeaveInput, WeavePlan } from "./planning_models.ts";
 import type { WeaveSlice } from "./slices.ts";
+import { toArtifactManifestationPath } from "./artifact_manifestation_paths.ts";
+import { isDeclaredArtifactHistory } from "./artifact_history_queries.ts";
 import {
-  isDeclaredArtifactHistory,
-  requirePayloadCurrentStatePathFromInventory,
-} from "./artifact_history_queries.ts";
+  assertOverwriteExistingStateTargets,
+  planOverwriteExistingPayloadState,
+} from "./payload_overwrite.ts";
+import {
+  type PayloadVersionLayout,
+  requirePayloadCurrentStatePath,
+  requirePayloadHistoryPath,
+  resolveFirstPayloadVersionLayout,
+  resolveSecondPayloadVersionLayout,
+} from "./payload_version_layout.ts";
 import {
   hasLiteralFact,
   hasNamedNodeFact,
   hasPredicateFact,
-  hasSubject,
   hasSubjectPredicateFact,
   hasTermKeyNamedNodeFact,
   parseWeaveShapeQuads,
@@ -227,17 +228,6 @@ const SFLO_REFERENCE_TARGET_STATE_IRI = `${SFLO_NAMESPACE}referenceTargetState`;
 interface SelectedWeaveableKnopCandidate {
   candidate: WeaveableKnopCandidate;
   target?: NormalizedVersionTargetSpec;
-}
-
-interface PayloadVersionLayout {
-  historyPath: string;
-  isNewHistory?: boolean;
-  currentStatePath?: string;
-  currentManifestationPath?: string;
-  previousStatePath?: string;
-  nextStatePath: string;
-  nextManifestationPath: string;
-  nextStateOrdinal?: number;
 }
 
 interface MeshInventoryProgression {
@@ -543,144 +533,6 @@ function assertPayloadNamingSupportedForSlice(
       slice ?? "not weaveable"
     }.`,
   );
-}
-
-function assertOverwriteExistingStateTargets(
-  targets: readonly NormalizedVersionTargetSpec[],
-  overwriteExistingState: boolean,
-): void {
-  if (!overwriteExistingState) {
-    return;
-  }
-  if (targets.length === 0) {
-    throw new WeaveInputError(
-      "overwriteExistingState requires at least one explicit target.",
-    );
-  }
-
-  targets.forEach((target, index) => {
-    const fieldName = `request.targets[${index}]`;
-    if (target.recursive) {
-      throw new WeaveInputError(
-        `overwriteExistingState requires exact targets; ${fieldName}.recursive must not be true.`,
-      );
-    }
-    if (target.historySegment === undefined) {
-      throw new WeaveInputError(
-        `overwriteExistingState requires ${fieldName}.historySegment.`,
-      );
-    }
-    if (target.stateSegment === undefined) {
-      throw new WeaveInputError(
-        `overwriteExistingState requires ${fieldName}.stateSegment.`,
-      );
-    }
-  });
-}
-
-function planOverwriteExistingPayloadState(
-  meshBase: string,
-  candidate: WeaveableKnopCandidate,
-  target: NormalizedVersionTargetSpec | undefined,
-  namingPolicies?: WeaveNamingPolicies,
-): WeavePlan {
-  if (!target || !target.historySegment || !target.stateSegment) {
-    throw new WeaveInputError(
-      "overwriteExistingState requires an explicit payload historySegment and stateSegment.",
-    );
-  }
-  const payloadArtifact = candidate.payloadArtifact;
-  if (!payloadArtifact) {
-    throw new WeaveInputError(
-      `overwriteExistingState only supports payload version targets; ${candidate.designatorPath} is not a payload overwrite candidate.`,
-    );
-  }
-
-  const designatorPath = candidate.designatorPath;
-  assertRequestedStateSegmentSatisfiesPolicy(
-    target.stateSegment,
-    namingPolicies?.stateNamingPolicy,
-  );
-
-  const historyPath = appendMeshPath(designatorPath, target.historySegment);
-  if (!isDirectChildMeshPath(designatorPath, historyPath)) {
-    throw new WeaveInputError(
-      `Requested payload historySegment ${target.historySegment} was outside the payload designator path for ${designatorPath}.`,
-    );
-  }
-  const statePath = `${historyPath}/${target.stateSegment}`;
-  const quads = parseWeaveShapeQuads(
-    meshBase,
-    candidate.currentKnopInventoryTurtle,
-    `Could not parse the current KnopInventory while resolving overwrite state for ${designatorPath}.`,
-  );
-
-  if (!isDeclaredArtifactHistory(quads, meshBase, historyPath)) {
-    throw new WeaveInputError(
-      `Cannot overwrite payload state ${statePath} for ${designatorPath} because the requested history does not exist.`,
-    );
-  }
-  if (
-    !hasNamedNodeFact(
-      quads,
-      meshBase,
-      historyPath,
-      SFLO_HAS_HISTORICAL_STATE_IRI,
-      statePath,
-    )
-  ) {
-    throw new WeaveInputError(
-      `Cannot overwrite payload state ${statePath} for ${designatorPath} because the requested state does not exist.`,
-    );
-  }
-
-  const currentStatePath = requirePayloadCurrentStatePathFromInventory(
-    quads,
-    meshBase,
-    designatorPath,
-    historyPath,
-    `Could not resolve the current payload historical state for ${designatorPath} in ${historyPath}.`,
-  );
-  if (statePath !== currentStatePath) {
-    throw new WeaveInputError(
-      `overwriteExistingState only supports the current payload historical state for ${designatorPath}; requested ${statePath} but current is ${currentStatePath}.`,
-    );
-  }
-
-  const existingManifestationPath =
-    resolveCurrentPayloadManifestationPathFromInventory(
-      quads,
-      meshBase,
-      designatorPath,
-      statePath,
-    );
-  if (target.manifestationSegment !== undefined) {
-    const requestedManifestationPath = toPayloadManifestationPath(
-      statePath,
-      payloadArtifact.workingLocalRelativePath,
-      target.manifestationSegment,
-      namingPolicies?.manifestationNamingPolicy,
-    );
-    if (requestedManifestationPath !== existingManifestationPath) {
-      throw new WeaveInputError(
-        `Requested payload manifestationSegment ${target.manifestationSegment} does not match existing manifestation ${existingManifestationPath} for ${designatorPath}.`,
-      );
-    }
-  }
-
-  const payloadSnapshotPath = `${existingManifestationPath}/${
-    toFileName(payloadArtifact.workingLocalRelativePath)
-  }`;
-  return {
-    meshBase,
-    wovenDesignatorPaths: [designatorPath],
-    createdFiles: [],
-    updatedFiles: [{
-      path: payloadSnapshotPath,
-      contents: payloadArtifact.currentPayloadTurtle,
-    }],
-    createdPages: [],
-  };
 }
 
 function planFirstKnopWeave(
@@ -7136,200 +6988,6 @@ function omitSecondPayloadKnopInventoryHistoryPages(
   );
 }
 
-function resolveFirstPayloadVersionLayout(
-  meshBase: string,
-  designatorPath: string,
-  workingLocalRelativePath: string,
-  currentKnopInventoryTurtle: string,
-  currentArtifactHistoryPath?: string,
-  target?: NormalizedVersionTargetSpec,
-  namingPolicies?: WeaveNamingPolicies,
-): PayloadVersionLayout {
-  const historyPath = target?.historySegment
-    ? appendMeshPath(designatorPath, target.historySegment)
-    : currentArtifactHistoryPath ??
-      appendMeshPath(
-        designatorPath,
-        defaultHistorySegment(namingPolicies?.historyNamingPolicy),
-      );
-  if (!isDirectChildMeshPath(designatorPath, historyPath)) {
-    throw new WeaveInputError(
-      `Current payload history for ${designatorPath} was outside the payload designator path: ${historyPath}`,
-    );
-  }
-  const quads = parseWeaveShapeQuads(
-    meshBase,
-    currentKnopInventoryTurtle,
-    `Could not parse the current KnopInventory while resolving payload history intent for ${designatorPath}.`,
-  );
-  const nextStateSegmentHint = resolveOptionalSegmentHint(
-    quads,
-    toAbsoluteIri(meshBase, historyPath),
-    SFCFG_HAS_NEXT_STATE_SEGMENT_HINT_IRI,
-    `Could not resolve the next payload state intent for ${designatorPath}.`,
-  );
-  const requestedStateSegment = target?.stateSegment ?? nextStateSegmentHint;
-  assertRequestedStateSegmentSatisfiesPolicy(
-    requestedStateSegment,
-    namingPolicies?.stateNamingPolicy,
-  );
-  const nextStatePath = `${historyPath}/${
-    requestedStateSegment ??
-      defaultStateSegment(namingPolicies?.stateNamingPolicy)
-  }`;
-  const nextManifestationPath = toPayloadManifestationPath(
-    nextStatePath,
-    workingLocalRelativePath,
-    target?.manifestationSegment,
-    namingPolicies?.manifestationNamingPolicy,
-  );
-
-  return {
-    historyPath,
-    nextStatePath,
-    nextManifestationPath,
-  };
-}
-
-function resolveSecondPayloadVersionLayout(
-  meshBase: string,
-  designatorPath: string,
-  payloadArtifact: PayloadWorkingArtifact,
-  currentKnopInventoryTurtle: string,
-  target?: NormalizedVersionTargetSpec,
-  namingPolicies?: WeaveNamingPolicies,
-): PayloadVersionLayout {
-  assertRequestedStateSegmentSatisfiesPolicy(
-    target?.stateSegment,
-    namingPolicies?.stateNamingPolicy,
-  );
-  const currentHistoryPath = requirePayloadHistoryPath(
-    designatorPath,
-    payloadArtifact,
-  );
-  const quads = parseWeaveShapeQuads(
-    meshBase,
-    currentKnopInventoryTurtle,
-    `Could not parse the current KnopInventory while resolving payload histories for ${designatorPath}.`,
-  );
-  const historyPath = target?.historySegment
-    ? appendMeshPath(designatorPath, target.historySegment)
-    : currentHistoryPath;
-  if (!isDirectChildMeshPath(designatorPath, historyPath)) {
-    throw new WeaveInputError(
-      `Requested payload historySegment ${
-        target?.historySegment ?? toLastPathSegment(historyPath)
-      } was outside the payload designator path for ${designatorPath}.`,
-    );
-  }
-
-  const historyExists = isDeclaredArtifactHistory(quads, meshBase, historyPath);
-  const nextStateSegmentHint = resolveOptionalSegmentHint(
-    quads,
-    toAbsoluteIri(meshBase, historyPath),
-    SFCFG_HAS_NEXT_STATE_SEGMENT_HINT_IRI,
-    `Could not resolve the next payload state intent for ${designatorPath}.`,
-  );
-  if (!historyExists) {
-    const requestedStateSegment = target?.stateSegment ?? nextStateSegmentHint;
-    assertRequestedStateSegmentSatisfiesPolicy(
-      requestedStateSegment,
-      namingPolicies?.stateNamingPolicy,
-    );
-    const nextStatePath = `${historyPath}/${
-      requestedStateSegment ??
-        defaultStateSegment(namingPolicies?.stateNamingPolicy)
-    }`;
-    const nextManifestationPath = toPayloadManifestationPath(
-      nextStatePath,
-      payloadArtifact.workingLocalRelativePath,
-      target?.manifestationSegment,
-      namingPolicies?.manifestationNamingPolicy,
-    );
-    return {
-      historyPath,
-      isNewHistory: true,
-      nextStatePath,
-      nextManifestationPath,
-      nextStateOrdinal: parseOptionalStateOrdinalFromPath(nextStatePath),
-    };
-  }
-
-  const currentStatePath = requirePayloadCurrentStatePathFromInventory(
-    quads,
-    meshBase,
-    designatorPath,
-    historyPath,
-    `Could not resolve the current payload historical state for ${designatorPath} in ${historyPath}.`,
-  );
-  const currentManifestationPath =
-    resolveCurrentPayloadManifestationPathFromInventory(
-      quads,
-      meshBase,
-      designatorPath,
-      currentStatePath,
-    );
-  if (
-    target?.stateSegment === undefined &&
-    nextStateSegmentHint === undefined &&
-    parseOptionalStateOrdinalFromPath(currentStatePath) === undefined
-  ) {
-    throw new WeaveInputError(
-      `Cannot auto-version payload artifact ${
-        formatDesignatorPathForDisplay(designatorPath)
-      } because current payload history ${historyPath} uses named historical state ${currentStatePath}. Provide stateSegment on the target, or explicitly request ordinal fallback with stateSegment=${
-        toStateSegment(1)
-      }.`,
-    );
-  }
-  const requestedStateSegment = target?.stateSegment ?? nextStateSegmentHint;
-  assertRequestedStateSegmentSatisfiesPolicy(
-    requestedStateSegment,
-    namingPolicies?.stateNamingPolicy,
-  );
-  if (requestedStateSegment === undefined) {
-    assertAutoStateSegmentSupported(namingPolicies?.stateNamingPolicy);
-  }
-  const nextStatePath = requestedStateSegment
-    ? `${historyPath}/${requestedStateSegment}`
-    : resolveNextOrdinalStatePathFromHistory(
-      quads,
-      meshBase,
-      historyPath,
-      `Could not resolve the next payload historical state for ${designatorPath} in ${historyPath}.`,
-    );
-  if (nextStatePath === currentStatePath) {
-    throw new WeaveInputError(
-      `Requested payload stateSegment ${
-        toLastPathSegment(nextStatePath)
-      } already names the current historical state for ${designatorPath}.`,
-    );
-  }
-  if (hasSubject(quads, meshBase, nextStatePath)) {
-    throw new WeaveInputError(
-      `Requested payload stateSegment ${
-        toLastPathSegment(nextStatePath)
-      } already exists for ${designatorPath}.`,
-    );
-  }
-  const nextManifestationPath = toPayloadManifestationPath(
-    nextStatePath,
-    payloadArtifact.workingLocalRelativePath,
-    target?.manifestationSegment,
-    namingPolicies?.manifestationNamingPolicy,
-  );
-
-  return {
-    historyPath,
-    currentStatePath,
-    currentManifestationPath,
-    previousStatePath: currentStatePath,
-    nextStatePath,
-    nextManifestationPath,
-    nextStateOrdinal: parseOptionalStateOrdinalFromPath(nextStatePath),
-  };
-}
-
 function identifierPage(
   path: string,
   designatorPath: string,
@@ -7383,226 +7041,9 @@ function referenceCatalogPage(
   };
 }
 
-function toPayloadManifestationPath(
-  payloadStatePath: string,
-  workingLocalRelativePath: string,
-  manifestationSegment?: string,
-  manifestationNamingPolicy?: ManifestationNamingPolicy,
-): string {
-  return toArtifactManifestationPath(
-    payloadStatePath,
-    workingLocalRelativePath,
-    manifestationSegment,
-    manifestationNamingPolicy,
-  );
-}
-
-function toArtifactManifestationPath(
-  historyStatePath: string,
-  workingLocalRelativePath: string,
-  manifestationSegment?: string,
-  manifestationNamingPolicy?: ManifestationNamingPolicy,
-): string {
-  return `${historyStatePath}/${
-    manifestationSegment ??
-      defaultManifestationSegment(
-        workingLocalRelativePath,
-        manifestationNamingPolicy,
-      )
-  }`;
-}
-
-function defaultHistorySegment(
-  historyNamingPolicy: HistoryNamingPolicy = "ordinal",
-): string {
-  switch (historyNamingPolicy) {
-    case "ordinal":
-      return "_history001";
-    case "named":
-      throw new WeaveInputError(
-        "historyNamingPolicy named requires an explicit historySegment.",
-      );
-  }
-}
-
-function defaultStateSegment(
-  stateNamingPolicy: StateNamingPolicy = "ordinal",
-): string {
-  switch (stateNamingPolicy) {
-    case "ordinal":
-      return "_s0001";
-    case "semver":
-    case "date":
-      throw new WeaveInputError(
-        `stateNamingPolicy ${stateNamingPolicy} requires an explicit stateSegment.`,
-      );
-  }
-}
-
-function assertAutoStateSegmentSupported(
-  stateNamingPolicy: StateNamingPolicy = "ordinal",
-): void {
-  switch (stateNamingPolicy) {
-    case "ordinal":
-      return;
-    case "semver":
-    case "date":
-      throw new WeaveInputError(
-        `stateNamingPolicy ${stateNamingPolicy} requires an explicit stateSegment.`,
-      );
-  }
-}
-
-function assertRequestedStateSegmentSatisfiesPolicy(
-  stateSegment: string | undefined,
-  stateNamingPolicy: StateNamingPolicy = "ordinal",
-): void {
-  if (stateSegment === undefined) {
-    return;
-  }
-
-  switch (stateNamingPolicy) {
-    case "ordinal":
-      return;
-    case "semver":
-      if (/^v\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(stateSegment)) {
-        return;
-      }
-      throw new WeaveInputError(
-        `stateSegment ${stateSegment} does not satisfy stateNamingPolicy semver.`,
-      );
-    case "date":
-      if (/^\d{4}-\d{2}-\d{2}$/.test(stateSegment)) {
-        return;
-      }
-      throw new WeaveInputError(
-        `stateSegment ${stateSegment} does not satisfy stateNamingPolicy date.`,
-      );
-  }
-}
-
-function defaultManifestationSegment(
-  workingLocalRelativePath: string,
-  manifestationNamingPolicy: ManifestationNamingPolicy = "filenameDerived",
-): string {
-  switch (manifestationNamingPolicy) {
-    case "filenameDerived":
-    case "contentKindDerived":
-      return toManifestationSegment(workingLocalRelativePath);
-    case "ordinal":
-      return "_m0001";
-  }
-}
-
-function toManifestationSegment(workingLocalRelativePath: string): string {
-  const fileName = toFileName(workingLocalRelativePath);
-  const extensionIndex = fileName.lastIndexOf(".");
-  return extensionIndex > 0 && extensionIndex < fileName.length - 1
-    ? fileName.slice(extensionIndex + 1)
-    : fileName.replaceAll(".", "-");
-}
-
-function resolveCurrentPayloadManifestationPathFromInventory(
-  quads: readonly Quad[],
-  meshBase: string,
-  designatorPath: string,
-  currentStatePath: string,
-): string {
-  const errorMessage =
-    `Could not resolve the current payload manifestation for ${designatorPath}.`;
-  const manifestationPath = resolveOptionalNamedNodePath(
-    quads,
-    meshBase,
-    currentStatePath,
-    SFLO_HAS_MANIFESTATION_IRI,
-    errorMessage,
-  );
-  if (manifestationPath) {
-    return manifestationPath;
-  }
-  const locatedFilePath = resolveOptionalNamedNodePath(
-    quads,
-    meshBase,
-    currentStatePath,
-    `${SFLO_NAMESPACE}locatedFileForState`,
-    errorMessage,
-  );
-  if (!locatedFilePath) {
-    throw new WeaveInputError(errorMessage);
-  }
-
-  return toParentPath(locatedFilePath);
-}
-
-function resolveNextOrdinalStatePathFromHistory(
-  quads: readonly Quad[],
-  meshBase: string,
-  historyPath: string,
-  errorMessage: string,
-): string {
-  const nextStateOrdinal = requireSingleNonNegativeIntegerLiteral(
-    quads,
-    toAbsoluteIri(meshBase, historyPath),
-    SFLO_NEXT_STATE_ORDINAL_IRI,
-    errorMessage,
-  );
-  if (nextStateOrdinal < 1) {
-    throw new WeaveInputError(errorMessage);
-  }
-
-  return `${historyPath}/${toStateSegment(nextStateOrdinal)}`;
-}
-
 function toFileName(path: string): string {
   const segments = path.split("/");
   return segments[segments.length - 1]!;
-}
-
-function toParentPath(path: string): string {
-  const separatorIndex = path.lastIndexOf("/");
-  if (separatorIndex < 0) {
-    return "";
-  }
-  return path.slice(0, separatorIndex);
-}
-
-function requirePayloadHistoryPath(
-  designatorPath: string,
-  payloadArtifact: PayloadWorkingArtifact,
-): string {
-  const historyPath = payloadArtifact.currentArtifactHistoryPath;
-  if (!historyPath) {
-    throw new WeaveInputError(
-      `Could not resolve the current payload history for ${designatorPath}.`,
-    );
-  }
-  if (!isDirectChildMeshPath(designatorPath, historyPath)) {
-    throw new WeaveInputError(
-      `Current payload history for ${designatorPath} was outside the payload designator path: ${historyPath}`,
-    );
-  }
-
-  return historyPath;
-}
-
-function requirePayloadCurrentStatePath(
-  designatorPath: string,
-  payloadArtifact: PayloadWorkingArtifact,
-  historyPath: string,
-): string {
-  const currentStatePath = payloadArtifact.latestHistoricalStatePath;
-  if (!currentStatePath) {
-    throw new WeaveInputError(
-      `Could not resolve the current payload historical state for ${designatorPath}.`,
-    );
-  }
-  if (!currentStatePath.startsWith(`${historyPath}/`)) {
-    throw new WeaveInputError(
-      `Current payload historical state for ${designatorPath} was outside the current payload history: ${currentStatePath}`,
-    );
-  }
-
-  return currentStatePath;
 }
 
 function toHistoryPathFromStatePath(statePath: string): string {
@@ -7666,15 +7107,6 @@ function parseStateOrdinalFromPath(
   }
 
   return parsed;
-}
-
-function parseOptionalStateOrdinalFromPath(
-  statePath: string,
-): number | undefined {
-  const match = toLastPathSegment(statePath).match(/^_s(\d+)$/);
-  const parsed = match ? Number(match[1]) : Number.NaN;
-
-  return Number.isInteger(parsed) && parsed >= 1 ? parsed : undefined;
 }
 
 function parseOptionalHistoryOrdinalFromPath(
