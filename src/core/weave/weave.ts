@@ -1,11 +1,9 @@
-import { Parser } from "n3";
 import type { Quad } from "n3";
 import * as pathPosix from "@std/path/posix";
 import {
   appendMeshPath,
   formatDesignatorPathForDisplay,
   isDirectChildMeshPath,
-  SAFE_DESIGNATOR_SEGMENT_PATTERN,
   toDesignatorResourcePagePath,
   toKnopPath,
   toReferenceCatalogPath,
@@ -62,6 +60,40 @@ import type {
 } from "./candidates.ts";
 import type { PlanWeaveInput, WeavePlan } from "./planning_models.ts";
 import type { WeaveSlice } from "./slices.ts";
+import {
+  hasLiteralFact,
+  hasNamedNodeFact,
+  hasPredicateFact,
+  hasSubject,
+  hasSubjectPredicateFact,
+  hasTermKeyNamedNodeFact,
+  parseWeaveShapeQuads,
+  requireLiteralValue,
+  requireNamedNodePath,
+  requireOptionalNamedNodeObject,
+  requireSingleNamedNodeObject,
+  requireSingleNonNegativeIntegerLiteral,
+  resolveNamedNodeObjectPaths,
+  resolveOptionalLiteralObject,
+  resolveOptionalNamedNodePath,
+  resolveOptionalNonNegativeIntegerLiteral,
+  resolveOptionalSegmentHint,
+  resolveUniqueLiteralValuesForTermKey,
+  toAbsoluteIri,
+  toMeshRelativePath,
+  toRdfTermKey,
+} from "./rdf_helpers.ts";
+import {
+  appendPredicateToSubjectBlock,
+  collectSubjectSubtreeBlocks,
+  findSubjectBlockIndex,
+  getSubjectPathFromBlock,
+  normalizeMeshInventoryHeader,
+  renderSubjectPredicateBlock,
+  replaceSubjectBlock,
+  splitTurtleBlocks,
+  upsertSubjectBlockAfter,
+} from "./turtle_blocks.ts";
 
 export { WeaveInputError } from "./errors.ts";
 export { planMeshSupportResourcePages } from "./mesh_support_pages.ts";
@@ -4428,21 +4460,6 @@ function renderCurrentOnlyReferenceCatalogWovenKnopInventoryTurtle(
   return `${finalBlocks.join("\n\n")}\n`;
 }
 
-function appendPredicateToSubjectBlock(
-  block: string,
-  predicateLine: string,
-): string {
-  if (block.includes(predicateLine)) {
-    return block;
-  }
-  if (!block.endsWith(" .")) {
-    throw new WeaveInputError(
-      "Could not append predicate to Turtle subject block.",
-    );
-  }
-  return `${block.slice(0, -2)} ;\n  ${predicateLine} .`;
-}
-
 function renderSubsequentPageDefinitionWovenKnopInventoryTurtle(
   meshBase: string,
   designatorPath: string,
@@ -5619,10 +5636,6 @@ function resolveMeshRootKnopPaths(
   return knopPaths;
 }
 
-function splitTurtleBlocks(turtle: string): string[] {
-  return turtle.trimEnd().split("\n\n");
-}
-
 function tryToMeshPath(meshBase: string, iri: string): string | undefined {
   if (!iri.startsWith(meshBase)) {
     return undefined;
@@ -5630,77 +5643,6 @@ function tryToMeshPath(meshBase: string, iri: string): string | undefined {
 
   const suffix = iri.slice(meshBase.length);
   return suffix.length === 0 ? undefined : suffix;
-}
-
-function normalizeMeshInventoryHeader(blocks: string[]): string[] {
-  if (blocks.length === 0) {
-    return blocks;
-  }
-
-  const [header, ...rest] = blocks;
-  return [
-    header.replace(
-      "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n",
-      "",
-    ),
-    ...rest,
-  ];
-}
-
-function replaceSubjectBlock(
-  blocks: string[],
-  subjectPath: string,
-  replacementBlock: string,
-): string[] {
-  const index = findSubjectBlockIndex(blocks, subjectPath);
-  if (index === -1) {
-    throw new WeaveInputError(
-      `Current mesh inventory did not contain subject block <${subjectPath}>.`,
-    );
-  }
-
-  const nextBlocks = [...blocks];
-  nextBlocks[index] = replacementBlock;
-  return nextBlocks;
-}
-
-function upsertSubjectBlockAfter(
-  blocks: string[],
-  anchorSubjectPath: string,
-  subjectPath: string,
-  block: string,
-): string[] {
-  const existingIndex = findSubjectBlockIndex(blocks, subjectPath);
-  if (existingIndex !== -1) {
-    const nextBlocks = [...blocks];
-    nextBlocks[existingIndex] = block;
-    return nextBlocks;
-  }
-
-  const anchorIndex = findSubjectBlockIndex(blocks, anchorSubjectPath);
-  if (anchorIndex === -1) {
-    throw new WeaveInputError(
-      `Current mesh inventory did not contain anchor subject block <${anchorSubjectPath}>.`,
-    );
-  }
-
-  const nextBlocks = [...blocks];
-  nextBlocks.splice(anchorIndex + 1, 0, block);
-  return nextBlocks;
-}
-
-function findSubjectBlockIndex(
-  blocks: readonly string[],
-  subjectPath: string,
-): number {
-  return blocks.findIndex((block) =>
-    getSubjectPathFromBlock(block) === subjectPath
-  );
-}
-
-function getSubjectPathFromBlock(block: string): string | undefined {
-  const match = block.match(/^<([^>]*)>/);
-  return match?.[1];
 }
 
 function renderFirstExtractedKnopWovenKnopInventoryTurtle(
@@ -6493,108 +6435,6 @@ function assertHasCurrentWorkingFileLocator(
   }
 }
 
-function hasNamedNodeFact(
-  quads: readonly Quad[],
-  meshBase: string,
-  subjectValue: string,
-  predicateIri: string,
-  objectValue: string,
-): boolean {
-  const subjectIri = toAbsoluteIri(meshBase, subjectValue);
-  const objectIri = toAbsoluteIri(meshBase, objectValue);
-
-  return quads.some((quad) =>
-    quad.subject.termType === "NamedNode" &&
-    quad.subject.value === subjectIri &&
-    quad.predicate.value === predicateIri &&
-    quad.object.termType === "NamedNode" &&
-    quad.object.value === objectIri
-  );
-}
-
-function hasTermKeyNamedNodeFact(
-  quads: readonly Quad[],
-  subjectKey: string,
-  predicateIri: string,
-  objectIri: string,
-): boolean {
-  return quads.some((quad) =>
-    matchesRdfTermKey(quad.subject, subjectKey) &&
-    quad.predicate.value === predicateIri &&
-    quad.object.termType === "NamedNode" &&
-    quad.object.value === objectIri
-  );
-}
-
-function resolveUniqueLiteralValuesForTermKey(
-  quads: readonly Quad[],
-  subjectKey: string,
-  predicateIri: string,
-  errorMessage: string,
-): string[] {
-  const values = new Set<string>();
-
-  for (const quad of quads) {
-    if (
-      matchesRdfTermKey(quad.subject, subjectKey) &&
-      quad.predicate.value === predicateIri &&
-      quad.object.termType === "Literal"
-    ) {
-      values.add(quad.object.value);
-    }
-  }
-
-  if (values.size > 1) {
-    throw new WeaveInputError(errorMessage);
-  }
-
-  return Array.from(values);
-}
-
-function matchesRdfTermKey(
-  term: { termType: string; value: string },
-  key: string | readonly string[],
-): boolean {
-  const termKey = toRdfTermKey(term);
-  return typeof key === "string" ? termKey === key : key.includes(termKey);
-}
-
-function toRdfTermKey(term: { termType: string; value: string }): string {
-  return `${term.termType}:${term.value}`;
-}
-
-function hasSubject(
-  quads: readonly Quad[],
-  meshBase: string,
-  subjectValue: string,
-): boolean {
-  const subjectIri = toAbsoluteIri(meshBase, subjectValue);
-  return quads.some((quad) =>
-    quad.subject.termType === "NamedNode" &&
-    quad.subject.value === subjectIri
-  );
-}
-
-function hasLiteralFact(
-  quads: readonly Quad[],
-  meshBase: string,
-  subjectValue: string,
-  predicateIri: string,
-  literalValue: string,
-  datatypeIri?: string,
-): boolean {
-  const subjectIri = toAbsoluteIri(meshBase, subjectValue);
-
-  return quads.some((quad) =>
-    quad.subject.termType === "NamedNode" &&
-    quad.subject.value === subjectIri &&
-    quad.predicate.value === predicateIri &&
-    quad.object.termType === "Literal" &&
-    quad.object.value === literalValue &&
-    (datatypeIri === undefined || quad.object.datatype.value === datatypeIri)
-  );
-}
-
 function isDeclaredArtifactHistory(
   quads: readonly Quad[],
   meshBase: string,
@@ -6620,27 +6460,6 @@ function hasNextStateSegmentHint(
     quad.subject.value === subjectIri &&
     quad.predicate.value === SFCFG_HAS_NEXT_STATE_SEGMENT_HINT_IRI &&
     quad.object.termType === "Literal"
-  );
-}
-
-function hasPredicateFact(
-  quads: readonly Quad[],
-  predicateIri: string,
-): boolean {
-  return quads.some((quad) => quad.predicate.value === predicateIri);
-}
-
-function hasSubjectPredicateFact(
-  quads: readonly Quad[],
-  meshBase: string,
-  subjectValue: string,
-  predicateIri: string,
-): boolean {
-  const subjectIri = toAbsoluteIri(meshBase, subjectValue);
-  return quads.some((quad) =>
-    quad.subject.termType === "NamedNode" &&
-    quad.subject.value === subjectIri &&
-    quad.predicate.value === predicateIri
   );
 }
 
@@ -7143,17 +6962,6 @@ function resolveCurrentKnopReferenceCatalog(options: {
   return { referenceCatalogPath };
 }
 
-function collectSubjectSubtreeBlocks(
-  blocks: readonly string[],
-  rootSubjectPath: string,
-): readonly string[] {
-  return blocks.filter((block) => {
-    const subjectPath = getSubjectPathFromBlock(block);
-    return subjectPath === rootSubjectPath ||
-      subjectPath?.startsWith(`${rootSubjectPath}/`);
-  });
-}
-
 function renderKnopBlockWithCarriedSupportFacts(
   block: string,
   sourceRegistry: CurrentKnopSourceRegistry | undefined,
@@ -7185,280 +6993,6 @@ function renderKnopBlockWithCarriedSupportFacts(
     workingInventoryLine,
     `${carriedLines.join("\n")}\n${workingInventoryLine}`,
   );
-}
-
-function renderSubjectPredicateBlock(
-  subjectPath: string,
-  typeList: string,
-  predicates: readonly string[],
-): string {
-  return `<${subjectPath}> a ${typeList} ;
-  ${predicates.join(" ;\n  ")} .`;
-}
-
-function parseWeaveShapeQuads(
-  meshBase: string,
-  turtle: string,
-  errorMessage: string,
-): Quad[] {
-  try {
-    return new Parser({ baseIRI: meshBase }).parse(turtle);
-  } catch {
-    throw new WeaveInputError(errorMessage);
-  }
-}
-
-function requireSingleNamedNodeObject(
-  quads: readonly Quad[],
-  subjectIri: string,
-  predicateIri: string,
-  errorMessage: string,
-): string {
-  const values = quads.flatMap((quad) =>
-    quad.subject.termType === "NamedNode" &&
-      quad.subject.value === subjectIri &&
-      quad.predicate.value === predicateIri &&
-      quad.object.termType === "NamedNode"
-      ? [quad.object.value]
-      : []
-  );
-
-  if (values.length !== 1) {
-    throw new WeaveInputError(errorMessage);
-  }
-
-  return values[0]!;
-}
-
-function requireSingleNonNegativeIntegerLiteral(
-  quads: readonly Quad[],
-  subjectIri: string,
-  predicateIri: string,
-  errorMessage: string,
-): number {
-  const values = quads.flatMap((quad) =>
-    quad.subject.termType === "NamedNode" &&
-      quad.subject.value === subjectIri &&
-      quad.predicate.value === predicateIri &&
-      quad.object.termType === "Literal" &&
-      quad.object.datatype.value === XSD_NON_NEGATIVE_INTEGER_IRI
-      ? [quad.object.value]
-      : []
-  );
-
-  if (values.length !== 1) {
-    throw new WeaveInputError(errorMessage);
-  }
-
-  const parsed = Number(values[0]);
-  if (!Number.isInteger(parsed) || parsed < 0) {
-    throw new WeaveInputError(errorMessage);
-  }
-
-  return parsed;
-}
-
-function resolveOptionalNonNegativeIntegerLiteral(
-  quads: readonly Quad[],
-  subjectIri: string,
-  predicateIri: string,
-  errorMessage: string,
-): number | undefined {
-  const values = quads.flatMap((quad) =>
-    quad.subject.termType === "NamedNode" &&
-      quad.subject.value === subjectIri &&
-      quad.predicate.value === predicateIri &&
-      quad.object.termType === "Literal" &&
-      quad.object.datatype.value === XSD_NON_NEGATIVE_INTEGER_IRI
-      ? [quad.object.value]
-      : []
-  );
-
-  if (values.length > 1) {
-    throw new WeaveInputError(errorMessage);
-  }
-  if (values.length === 0) {
-    return undefined;
-  }
-
-  const parsed = Number(values[0]);
-  if (!Number.isInteger(parsed) || parsed < 0) {
-    throw new WeaveInputError(errorMessage);
-  }
-
-  return parsed;
-}
-
-function requireOptionalNamedNodeObject(
-  quads: readonly Quad[],
-  subjectIri: string,
-  predicateIri: string,
-  errorMessage: string,
-): string | undefined {
-  const values = quads.flatMap((quad) =>
-    quad.subject.termType === "NamedNode" &&
-      quad.subject.value === subjectIri &&
-      quad.predicate.value === predicateIri &&
-      quad.object.termType === "NamedNode"
-      ? [quad.object.value]
-      : []
-  );
-
-  if (values.length > 1) {
-    throw new WeaveInputError(errorMessage);
-  }
-
-  return values[0];
-}
-
-function resolveOptionalLiteralObject(
-  quads: readonly Quad[],
-  meshBase: string,
-  subjectValue: string,
-  predicateIri: string,
-  errorMessage: string,
-): string | undefined {
-  const subjectIri = toAbsoluteIri(meshBase, subjectValue);
-  const values = new Set<string>();
-  for (const quad of quads) {
-    if (
-      quad.subject.termType === "NamedNode" &&
-      quad.subject.value === subjectIri &&
-      quad.predicate.value === predicateIri &&
-      quad.object.termType === "Literal"
-    ) {
-      values.add(quad.object.value);
-    }
-  }
-
-  if (values.size > 1) {
-    throw new WeaveInputError(errorMessage);
-  }
-
-  return values.values().next().value;
-}
-
-function resolveOptionalSegmentHint(
-  quads: readonly Quad[],
-  subjectIri: string,
-  predicateIri: string,
-  errorMessage: string,
-): string | undefined {
-  const values = quads.flatMap((quad) =>
-    quad.subject.termType === "NamedNode" &&
-      quad.subject.value === subjectIri &&
-      quad.predicate.value === predicateIri &&
-      quad.object.termType === "Literal"
-      ? [quad.object.value]
-      : []
-  );
-
-  if (values.length > 1) {
-    throw new WeaveInputError(errorMessage);
-  }
-  const value = values[0];
-  if (value === undefined) {
-    return undefined;
-  }
-  if (!SAFE_DESIGNATOR_SEGMENT_PATTERN.test(value)) {
-    throw new WeaveInputError(errorMessage);
-  }
-
-  return value;
-}
-
-function resolveNamedNodeObjectPaths(
-  quads: readonly Quad[],
-  meshBase: string,
-  subjectValue: string,
-  predicateIri: string,
-  errorMessage: string,
-): string[] {
-  const subjectIri = toAbsoluteIri(meshBase, subjectValue);
-  return quads.flatMap((quad) =>
-    quad.subject.termType === "NamedNode" &&
-      quad.subject.value === subjectIri &&
-      quad.predicate.value === predicateIri &&
-      quad.object.termType === "NamedNode"
-      ? [toMeshRelativePath(meshBase, quad.object.value, errorMessage)]
-      : []
-  );
-}
-
-function requireLiteralValue(
-  meshBase: string,
-  turtle: string,
-  subjectPath: string,
-  predicateIri: string,
-  label: string,
-): string {
-  const subjectIri = new URL(subjectPath, meshBase).href;
-  const quad = parseTurtleQuads(meshBase, turtle, label).find((candidate) =>
-    candidate.subject.termType === "NamedNode" &&
-    candidate.subject.value === subjectIri &&
-    candidate.predicate.value === predicateIri &&
-    candidate.object.termType === "Literal"
-  );
-
-  if (!quad || quad.object.termType !== "Literal") {
-    throw new WeaveInputError(
-      `Could not resolve ${label} from the source payload.`,
-    );
-  }
-
-  return quad.object.value;
-}
-
-function requireNamedNodePath(
-  meshBase: string,
-  turtle: string,
-  subjectPath: string,
-  predicateIri: string,
-  label: string,
-): string {
-  const subjectIri = new URL(subjectPath, meshBase).href;
-  const quad = parseTurtleQuads(meshBase, turtle, label).find((candidate) =>
-    candidate.subject.termType === "NamedNode" &&
-    candidate.subject.value === subjectIri &&
-    candidate.predicate.value === predicateIri &&
-    candidate.object.termType === "NamedNode"
-  );
-
-  if (!quad || quad.object.termType !== "NamedNode") {
-    throw new WeaveInputError(
-      `Could not resolve ${label} from the source payload.`,
-    );
-  }
-
-  return toMeshRelativePath(meshBase, quad.object.value, label);
-}
-
-function parseTurtleQuads(
-  meshBase: string,
-  turtle: string,
-  label: string,
-): Quad[] {
-  try {
-    return new Parser({ baseIRI: meshBase }).parse(turtle);
-  } catch {
-    throw new WeaveInputError(
-      `Could not parse the source payload Turtle while rendering ${label}.`,
-    );
-  }
-}
-
-function toMeshRelativePath(
-  meshBase: string,
-  iri: string,
-  label: string,
-): string {
-  if (!iri.startsWith(meshBase)) {
-    throw new WeaveInputError(
-      `Resolved IRI for ${label} was outside the current mesh base: ${iri}`,
-    );
-  }
-
-  return iri.slice(meshBase.length);
 }
 
 function normalizeWorkingLocalRelativePathLiteral(value: string): string {
@@ -7541,10 +7075,6 @@ function renderRepositorySourceFloatingLocatorBlankNode(
     JSON.stringify(locator.repositoryPathFromRoot)
   }
   ]`;
-}
-
-function toAbsoluteIri(meshBase: string, value: string): string {
-  return new URL(value, meshBase).href;
 }
 
 function toRootDesignatorPath(designatorPath: string): string {
@@ -8396,25 +7926,6 @@ function requirePayloadCurrentStatePathFromInventory(
   }
 
   return currentStatePath;
-}
-
-function resolveOptionalNamedNodePath(
-  quads: readonly Quad[],
-  meshBase: string,
-  subjectValue: string,
-  predicateIri: string,
-  errorMessage: string,
-): string | undefined {
-  const objectIri = requireOptionalNamedNodeObject(
-    quads,
-    toAbsoluteIri(meshBase, subjectValue),
-    predicateIri,
-    errorMessage,
-  );
-
-  return objectIri
-    ? toMeshRelativePath(meshBase, objectIri, errorMessage)
-    : undefined;
 }
 
 function toHistoryPathFromStatePath(statePath: string): string {

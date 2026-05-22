@@ -33,7 +33,7 @@ Core owns portable Semantic Flow behavior: request/result types, RDF/Turtle help
 - `src/core/mesh`, `src/core/knop`, `src/core/integrate`, `src/core/payload`, and `src/core/extract` own operation-specific pure planning.
 - `src/core/weave` owns shared weave/version/generate contracts and planner helpers.
 - `src/core/weave/weave.ts` is still the major pressure point. It remains the public façade for core weave imports, but it is being decomposed under [[wa.task.2026.2026-05-21_0849_careful-extraction-refactor]].
-- Already extracted core weave helpers include `errors.ts`, `version_plan.ts`, `mesh_support_pages.ts`, `requests.ts`, `source_models.ts`, `candidates.ts`, `planning_models.ts`, `slices.ts`, `resource_page_models.ts`, `resource_page_history_groups.ts`, `resource_page_policy.ts`, `resource_page_reference_links.ts`, `naming_policy.ts`, and `support_history_policy.ts`.
+- Already extracted core weave helpers include `errors.ts`, `version_plan.ts`, `mesh_support_pages.ts`, `requests.ts`, `source_models.ts`, `candidates.ts`, `planning_models.ts`, `slices.ts`, `rdf_helpers.ts`, `turtle_blocks.ts`, `resource_page_models.ts`, `resource_page_history_groups.ts`, `resource_page_policy.ts`, `resource_page_reference_links.ts`, `naming_policy.ts`, and `support_history_policy.ts`.
 
 ## Runtime Layer
 
@@ -76,6 +76,7 @@ Runtime owns local execution against a workspace: filesystem reads/writes, git-a
 ## Current Refactor Notes
 
 - Core weave planner decomposition: [[wa.task.2026.2026-05-21_0849_careful-extraction-refactor]].
-- First core weave extraction slice, now partly stale because ResourcePage models moved during runtime page-generation work: [[wa.task.2026.2026-05-21_1037-core-weave-first-extraction-slice]].
+- Completed core weave model/type extraction slice: [[wa.completed.2026.2026-05-21_1037-core-weave-first-extraction-slice]].
+- Current core weave RDF/Turtle helper extraction slice: [[wa.task.2026.2026-05-22_1358-core-weave-rdf-and-turtle-helper-extraction]].
 - Runtime weave decomposition: [[wa.task.2026.2026-05-21_1035-runtime-weave-module-decomposition]].
 - Runtime ResourcePage generation decomposition is complete: [[wa.completed.2026.2026-05-21_1036-runtime-resource-page-generation-decomposition]].
