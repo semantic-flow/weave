@@ -5,9 +5,9 @@ import {
   toKnopPath,
 } from "../../core/designator_segments.ts";
 import { SFLO_NAMESPACE } from "../../core/rdf/namespaces.ts";
+import type { RepositorySourceFloatingLocator } from "../../core/weave/source_models.ts";
 import type {
   KnopArtifactLinkModel,
-  RepositorySourceFloatingLocator,
   ResourcePageChildIdentifierModel,
   ResourcePageExtractionSourceModel,
   ResourcePageHistoryGroupModel,

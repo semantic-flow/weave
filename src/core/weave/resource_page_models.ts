@@ -1,7 +1,6 @@
-export interface RepositorySourceFloatingLocator {
-  repositoryUrl: string;
-  repositoryPathFromRoot: string;
-}
+import type { RepositorySourceFloatingLocator } from "./source_models.ts";
+
+export type { RepositorySourceFloatingLocator } from "./source_models.ts";
 
 export interface IdentifierResourcePageModel {
   kind: "identifier";

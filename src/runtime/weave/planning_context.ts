@@ -1,6 +1,6 @@
 import { join } from "@std/path";
 import type { PlannedFile } from "../../core/planned_file.ts";
-import type { WeaveableKnopCandidate } from "../../core/weave/weave.ts";
+import type { WeaveableKnopCandidate } from "../../core/weave/candidates.ts";
 
 interface CandidateDependencyCapture {
   dependencyPaths: Set<string>;

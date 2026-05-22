@@ -6,7 +6,7 @@ import type {
   ReferenceCatalogWorkingArtifact,
   ResourcePageDefinitionWorkingArtifact,
   WeaveableKnopCandidate,
-} from "../../core/weave/weave.ts";
+} from "../../core/weave/candidates.ts";
 import {
   resolveExtractionSourceInventoryState,
   resolveHistoricalStateLocatedFilePath,

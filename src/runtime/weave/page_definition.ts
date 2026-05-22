@@ -6,7 +6,7 @@ import {
   normalizeSafeDesignatorPath,
   toKnopPath,
 } from "../../core/designator_segments.ts";
-import type { ResourcePageDefinitionWorkingArtifact } from "../../core/weave/weave.ts";
+import type { ResourcePageDefinitionWorkingArtifact } from "../../core/weave/candidates.ts";
 import {
   resolvePayloadArtifactInventoryState,
   resolveReferenceCatalogInventoryState,

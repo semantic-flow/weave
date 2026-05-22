@@ -1,7 +1,6 @@
 import { Parser } from "n3";
 import type { Quad } from "n3";
 import * as pathPosix from "@std/path/posix";
-import type { PlannedFile } from "../planned_file.ts";
 import {
   appendMeshPath,
   formatDesignatorPathForDisplay,
@@ -15,8 +14,6 @@ import {
   type NormalizedVersionTargetSpec,
   normalizeVersionTargetSpecs,
   resolveTargetSelections,
-  type TargetSpec,
-  type VersionTargetSpec,
 } from "../targeting.ts";
 import {
   deriveMeshLabel,
@@ -52,10 +49,19 @@ import type {
   IdentifierResourcePageModel,
   ReferenceCatalogCurrentLinkModel,
   ReferenceCatalogResourcePageModel,
-  RepositorySourceFloatingLocator,
   ResourcePageModel,
   SimpleResourcePageModel,
 } from "./resource_page_models.ts";
+import type { RepositorySourceFloatingLocator } from "./source_models.ts";
+import type {
+  ExtractionSourceEvidenceModel,
+  PayloadWorkingArtifact,
+  ReferenceTargetSourcePayloadArtifact,
+  ResourcePageDefinitionWorkingArtifact,
+  WeaveableKnopCandidate,
+} from "./candidates.ts";
+import type { PlanWeaveInput, WeavePlan } from "./planning_models.ts";
+import type { WeaveSlice } from "./slices.ts";
 
 export { WeaveInputError } from "./errors.ts";
 export { planMeshSupportResourcePages } from "./mesh_support_pages.ts";
@@ -83,7 +89,6 @@ export type {
   KnopResourcePageModel,
   ReferenceCatalogCurrentLinkModel,
   ReferenceCatalogResourcePageModel,
-  RepositorySourceFloatingLocator,
   ResourcePageChildIdentifierModel,
   ResourcePageExtractionSourceModel,
   ResourcePageHistoryGroupModel,
@@ -94,6 +99,23 @@ export type {
   ResourcePageReferenceTargetModel,
   SimpleResourcePageModel,
 } from "./resource_page_models.ts";
+export type { RepositorySourceFloatingLocator } from "./source_models.ts";
+export type {
+  GenerateRequest,
+  ValidateRequest,
+  VersionRequest,
+  WeaveRequest,
+} from "./requests.ts";
+export type {
+  ExtractionSourceEvidenceModel,
+  PayloadWorkingArtifact,
+  ReferenceCatalogWorkingArtifact,
+  ReferenceTargetSourcePayloadArtifact,
+  ResourcePageDefinitionWorkingArtifact,
+  WeaveableKnopCandidate,
+} from "./candidates.ts";
+export type { PlanWeaveInput, WeavePlan } from "./planning_models.ts";
+export type { WeaveSlice } from "./slices.ts";
 export type { VersionPlan } from "./version_plan.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
@@ -165,102 +187,6 @@ const SFLO_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}ReferenceLink`;
 const SFLO_REFERENCE_TARGET_IRI = `${SFLO_NAMESPACE}referenceTarget`;
 const SFLO_REFERENCE_TARGET_STATE_IRI = `${SFLO_NAMESPACE}referenceTargetState`;
 
-export interface WeaveRequest {
-  targets?: readonly VersionTargetSpec[];
-  overwriteExistingState?: boolean;
-}
-
-export interface ValidateRequest {
-  targets?: readonly TargetSpec[];
-}
-
-export interface GenerateRequest {
-  targets?: readonly TargetSpec[];
-}
-
-export interface VersionRequest {
-  targets?: readonly VersionTargetSpec[];
-  overwriteExistingState?: boolean;
-}
-
-export interface PayloadWorkingArtifact {
-  workingLocalRelativePath: string;
-  workingAccessUrl?: string;
-  currentPayloadTurtle: string;
-  repositorySourceFloatingLocator?: RepositorySourceFloatingLocator;
-  currentArtifactHistoryPath?: string;
-  latestHistoricalSnapshotPath?: string;
-  latestHistoricalSnapshotTurtle?: string;
-  latestHistoricalStatePath?: string;
-}
-
-export interface ReferenceCatalogWorkingArtifact {
-  workingLocalRelativePath: string;
-  currentReferenceCatalogTurtle: string;
-}
-
-export interface ReferenceTargetSourcePayloadArtifact {
-  designatorPath: string;
-  workingLocalRelativePath: string;
-  currentPayloadTurtle: string;
-  repositorySourceFloatingLocator?: RepositorySourceFloatingLocator;
-  sourceRegistryWorkingLocalRelativePath?: string;
-  currentSourceRegistryTurtle?: string;
-  latestHistoricalSnapshotPath?: string;
-  latestHistoricalSnapshotTurtle?: string;
-  latestHistoricalStatePath: string;
-  sourceEvidence?: ExtractionSourceEvidenceModel;
-}
-
-export interface ExtractionSourceEvidenceModel {
-  sourceStatePath?: string;
-  sourceManifestationPath?: string;
-  sourceLocatedFilePath?: string;
-  sourceLocalRelativePath?: string;
-  sourceDigest?: string;
-  observedAt?: string;
-}
-
-export interface ResourcePageDefinitionWorkingArtifact {
-  artifactPath: string;
-  workingLocalRelativePath: string;
-  currentPageDefinitionTurtle: string;
-  currentArtifactHistoryPath?: string;
-  currentArtifactHistoryExists: boolean;
-  latestHistoricalStatePath?: string;
-  latestHistoricalSnapshotTurtle?: string;
-  assetBundlePath?: string;
-}
-
-export interface WeaveableKnopCandidate {
-  designatorPath: string;
-  currentKnopMetadataTurtle: string;
-  currentKnopInventoryTurtle: string;
-  payloadArtifact?: PayloadWorkingArtifact;
-  referenceCatalogArtifact?: ReferenceCatalogWorkingArtifact;
-  referenceTargetSourcePayloadArtifact?: ReferenceTargetSourcePayloadArtifact;
-  resourcePageDefinitionArtifact?: ResourcePageDefinitionWorkingArtifact;
-}
-
-export interface PlanWeaveInput {
-  request: VersionRequest;
-  meshBase: string;
-  currentMeshInventoryTurtle: string;
-  currentMeshMetadataTurtle?: string;
-  weaveableKnops: readonly WeaveableKnopCandidate[];
-  supportHistoryPolicies?: WeaveSupportHistoryPolicies;
-  namingPolicies?: WeaveNamingPolicies;
-  resourcePageGenerationPolicies?: WeaveResourcePageGenerationPolicies;
-}
-
-export interface WeavePlan {
-  meshBase: string;
-  wovenDesignatorPaths: readonly string[];
-  createdFiles: readonly PlannedFile[];
-  updatedFiles: readonly PlannedFile[];
-  createdPages: readonly ResourcePageModel[];
-}
-
 interface SelectedWeaveableKnopCandidate {
   candidate: WeaveableKnopCandidate;
   target?: NormalizedVersionTargetSpec;
@@ -296,14 +222,6 @@ interface PageDefinitionWeaveProgression {
   nextManifestationPath: string;
   nextSnapshotPath: string;
 }
-
-export type WeaveSlice =
-  | "firstKnopWeave"
-  | "firstPayloadWeave"
-  | "firstExtractedKnopWeave"
-  | "firstReferenceCatalogWeave"
-  | "pageDefinitionWeave"
-  | "secondPayloadWeave";
 
 export function planWeave(input: PlanWeaveInput): WeavePlan {
   const meshBase = normalizeMeshBase(input.meshBase);

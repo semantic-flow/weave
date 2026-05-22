@@ -9,10 +9,10 @@ import {
 } from "../../core/targeting.ts";
 import {
   detectPendingWeaveSlice,
-  type WeaveableKnopCandidate,
   WeaveInputError,
-  type WeaveSlice,
 } from "../../core/weave/weave.ts";
+import type { WeaveableKnopCandidate } from "../../core/weave/candidates.ts";
+import type { WeaveSlice } from "../../core/weave/slices.ts";
 import { listKnopDesignatorPaths } from "../mesh/inventory.ts";
 import type { OperationalLocalPathPolicy } from "../operational/local_path_policy.ts";
 import type { RuntimeTiming } from "../timing.ts";

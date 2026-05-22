@@ -2,13 +2,13 @@ import {
   type NormalizedTargetSpec,
   type NormalizedVersionTargetSpec,
 } from "../../core/targeting.ts";
-import {
-  type GenerateRequest,
-  type ValidateRequest,
-  type VersionRequest,
-  WeaveInputError,
-  type WeaveRequest,
-} from "../../core/weave/weave.ts";
+import type {
+  GenerateRequest,
+  ValidateRequest,
+  VersionRequest,
+  WeaveRequest,
+} from "../../core/weave/requests.ts";
+import { WeaveInputError } from "../../core/weave/weave.ts";
 import { loadOperationalLocalPathPolicy } from "../operational/local_path_policy.ts";
 import { createRuntimeTiming } from "../timing.ts";
 import { resolveRuntimeLoggers } from "../logging/factory.ts";

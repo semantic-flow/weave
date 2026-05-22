@@ -11,7 +11,7 @@ import type {
   ValidateRequest,
   VersionRequest,
   WeaveRequest,
-} from "../../core/weave/weave.ts";
+} from "../../core/weave/requests.ts";
 import { WeaveInputError } from "../../core/weave/weave.ts";
 
 export interface NormalizedVersionRequest {
