@@ -11,6 +11,12 @@ export interface BuildBinariesOptions {
   platformLabels: string[];
 }
 
+export interface DenoCompileArgsOptions {
+  entrypoint: string;
+  executablePath: string;
+  platform: ReleasePlatform;
+}
+
 const DEFAULT_OUT_DIR = "dist/binaries";
 
 if (import.meta.main) {
@@ -98,18 +104,11 @@ async function buildPlatformBinary(options: {
     options.platform.executableName,
   );
   const command = new Deno.Command("deno", {
-    args: [
-      "compile",
-      "--allow-read",
-      "--allow-write",
-      "--allow-env",
-      "--allow-run=git,deno",
-      "--target",
-      options.platform.denoTarget,
-      "--output",
+    args: createDenoCompileArgs({
+      entrypoint: options.entrypoint,
       executablePath,
-      options.entrypoint,
-    ],
+      platform: options.platform,
+    }),
     cwd: options.repoRoot,
     stdout: "inherit",
     stderr: "inherit",
@@ -133,6 +132,25 @@ async function buildPlatformBinary(options: {
     join(platformOutDir, "bundle-metadata.json"),
     `${JSON.stringify(metadata, null, 2)}\n`,
   );
+}
+
+export function createDenoCompileArgs(
+  options: DenoCompileArgsOptions,
+): string[] {
+  return [
+    "compile",
+    "--allow-read",
+    "--allow-write",
+    "--allow-env",
+    "--allow-run=git,deno",
+    "--include",
+    "defaults",
+    "--target",
+    options.platform.denoTarget,
+    "--output",
+    options.executablePath,
+    options.entrypoint,
+  ];
 }
 
 function resolveRepoPath(repoRoot: string, path: string): string {

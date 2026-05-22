@@ -12,7 +12,10 @@ import {
   RELEASE_PLATFORMS,
   selectReleasePlatforms,
 } from "../../scripts/release/metadata.ts";
-import { parseBuildBinariesArgs } from "../../scripts/build-binaries.ts";
+import {
+  createDenoCompileArgs,
+  parseBuildBinariesArgs,
+} from "../../scripts/build-binaries.ts";
 
 Deno.test("release metadata declares the v0.1.0 supported platform matrix", () => {
   assertEquals(RELEASE_PLATFORMS.map((platform) => platform.label), [
@@ -107,5 +110,29 @@ Deno.test("parseBuildBinariesArgs supports output and repeated platform flags", 
       Error,
     ).message,
     "Unsupported build:binaries argument",
+  );
+});
+
+Deno.test("createDenoCompileArgs embeds runtime defaults in binaries", () => {
+  assertEquals(
+    createDenoCompileArgs({
+      entrypoint: "/repo/src/main.ts",
+      executablePath: "/repo/dist/binaries/linux-x64/weave",
+      platform: RELEASE_PLATFORMS[0],
+    }),
+    [
+      "compile",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "--allow-run=git,deno",
+      "--include",
+      "defaults",
+      "--target",
+      "x86_64-unknown-linux-gnu",
+      "--output",
+      "/repo/dist/binaries/linux-x64/weave",
+      "/repo/src/main.ts",
+    ],
   );
 });
