@@ -61,6 +61,10 @@ import type {
 import type { PlanWeaveInput, WeavePlan } from "./planning_models.ts";
 import type { WeaveSlice } from "./slices.ts";
 import {
+  isDeclaredArtifactHistory,
+  requirePayloadCurrentStatePathFromInventory,
+} from "./artifact_history_queries.ts";
+import {
   hasLiteralFact,
   hasNamedNodeFact,
   hasPredicateFact,
@@ -94,9 +98,11 @@ import {
   splitTurtleBlocks,
   upsertSubjectBlockAfter,
 } from "./turtle_blocks.ts";
+import { classifyWeaveSlice } from "./slice_classification.ts";
 
 export { WeaveInputError } from "./errors.ts";
 export { planMeshSupportResourcePages } from "./mesh_support_pages.ts";
+export { detectPendingWeaveSlice } from "./slice_classification.ts";
 export type {
   HistoryNamingPolicy,
   ManifestationNamingPolicy,
@@ -163,7 +169,6 @@ const SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
 const SFLO_HAS_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}hasExtractionSource`;
 const SFLO_HAS_REQUESTED_TARGET_STATE_IRI =
   `${SFLO_NAMESPACE}hasRequestedTargetState`;
-const SFLO_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}ArtifactHistory`;
 const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasTargetArtifact`;
 const SFLO_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFLO_NAMESPACE}hasKnopAssetBundle`;
 const SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI =
@@ -491,280 +496,6 @@ function filterWeaveableKnops(
   }
 
   return filtered;
-}
-
-function classifyWeaveSlice(
-  meshBase: string,
-  candidate: WeaveableKnopCandidate,
-  target?: NormalizedVersionTargetSpec,
-): WeaveSlice | undefined {
-  const slice = detectPendingWeaveSlice(
-    meshBase,
-    candidate.designatorPath,
-    candidate.currentKnopInventoryTurtle,
-    target,
-  );
-
-  if (
-    slice === "firstExtractedKnopWeave" &&
-    !candidate.referenceTargetSourcePayloadArtifact
-  ) {
-    throw new WeaveInputError(
-      `Extracted weave candidate ${candidate.designatorPath} is missing its woven source payload state.`,
-    );
-  }
-
-  if (
-    slice === "firstReferenceCatalogWeave" &&
-    !candidate.referenceCatalogArtifact
-  ) {
-    throw new WeaveInputError(
-      `ReferenceCatalog weave candidate ${candidate.designatorPath} is missing working catalog state.`,
-    );
-  }
-
-  if (
-    slice === "pageDefinitionWeave" && !candidate.resourcePageDefinitionArtifact
-  ) {
-    throw new WeaveInputError(
-      `ResourcePageDefinition weave candidate ${candidate.designatorPath} is missing working page-definition state.`,
-    );
-  }
-
-  if (slice === "firstPayloadWeave" && !candidate.payloadArtifact) {
-    throw new WeaveInputError(
-      `Payload weave candidate ${candidate.designatorPath} is missing working payload state.`,
-    );
-  }
-
-  if (slice === "secondPayloadWeave" && !candidate.payloadArtifact) {
-    throw new WeaveInputError(
-      `Payload weave candidate ${candidate.designatorPath} is missing working payload state.`,
-    );
-  }
-
-  return slice;
-}
-
-export function detectPendingWeaveSlice(
-  meshBase: string,
-  designatorPath: string,
-  currentKnopInventoryTurtle: string,
-  target?: NormalizedVersionTargetSpec,
-): WeaveSlice | undefined {
-  const knopPath = toKnopPath(designatorPath);
-  const referenceCatalogPath = `${knopPath}/_references`;
-  const pageDefinitionPath = `${knopPath}/_page`;
-  const errorMessage =
-    `Could not parse the current KnopInventory while detecting the pending weave slice for ${designatorPath}.`;
-  const quads = parseWeaveShapeQuads(
-    meshBase,
-    currentKnopInventoryTurtle,
-    errorMessage,
-  );
-  const payloadRelationship = hasNamedNodeFact(
-    quads,
-    meshBase,
-    knopPath,
-    SFLO_HAS_PAYLOAD_ARTIFACT_IRI,
-    designatorPath,
-  );
-  const payloadHistoryPath = resolveOptionalNamedNodePath(
-    quads,
-    meshBase,
-    designatorPath,
-    SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
-    errorMessage,
-  );
-  const payloadArtifactHistoryPaths = resolveNamedNodeObjectPaths(
-    quads,
-    meshBase,
-    designatorPath,
-    SFLO_HAS_ARTIFACT_HISTORY_IRI,
-    errorMessage,
-  );
-  const payloadHasDeclaredArtifactHistory = [
-    ...(payloadHistoryPath ? [payloadHistoryPath] : []),
-    ...payloadArtifactHistoryPaths,
-  ].some((historyPath) =>
-    isDeclaredArtifactHistory(quads, meshBase, historyPath)
-  );
-  const extractionSourceRelationship = hasNamedNodeFact(
-    quads,
-    meshBase,
-    knopPath,
-    SFLO_HAS_EXTRACTION_SOURCE_IRI,
-    `${knopPath}/_sources#extraction-source`,
-  );
-  const referenceCatalogRelationship = hasNamedNodeFact(
-    quads,
-    meshBase,
-    knopPath,
-    SFLO_HAS_REFERENCE_CATALOG_IRI,
-    referenceCatalogPath,
-  );
-  const referenceCatalogHasHistory = hasNamedNodeFact(
-    quads,
-    meshBase,
-    referenceCatalogPath,
-    SFLO_HAS_ARTIFACT_HISTORY_IRI,
-    `${referenceCatalogPath}/_history001`,
-  );
-  const referenceCatalogHasResourcePage = hasNamedNodeFact(
-    quads,
-    meshBase,
-    referenceCatalogPath,
-    SFLO_HAS_RESOURCE_PAGE_IRI,
-    `${referenceCatalogPath}/index.html`,
-  );
-  const pageDefinitionRelationship = hasNamedNodeFact(
-    quads,
-    meshBase,
-    knopPath,
-    SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI,
-    pageDefinitionPath,
-  );
-  const knopInventoryHasHistory = hasNamedNodeFact(
-    quads,
-    meshBase,
-    `${knopPath}/_inventory`,
-    SFLO_HAS_ARTIFACT_HISTORY_IRI,
-    `${knopPath}/_inventory/_history001`,
-  );
-  const knopInventoryHasCurrentResourcePages = hasNamedNodeFact(
-    quads,
-    meshBase,
-    knopPath,
-    SFLO_HAS_RESOURCE_PAGE_IRI,
-    `${knopPath}/index.html`,
-  ) && hasNamedNodeFact(
-    quads,
-    meshBase,
-    `${knopPath}/_inventory`,
-    SFLO_HAS_RESOURCE_PAGE_IRI,
-    `${knopPath}/_inventory/index.html`,
-  );
-  const knopInventoryIsWoven = knopInventoryHasHistory ||
-    knopInventoryHasCurrentResourcePages;
-
-  if (
-    referenceCatalogRelationship &&
-    knopInventoryIsWoven &&
-    !referenceCatalogHasHistory &&
-    !referenceCatalogHasResourcePage
-  ) {
-    return "firstReferenceCatalogWeave";
-  }
-
-  if (extractionSourceRelationship && !knopInventoryIsWoven) {
-    return "firstExtractedKnopWeave";
-  }
-
-  if (pageDefinitionRelationship && knopInventoryHasHistory) {
-    return "pageDefinitionWeave";
-  }
-
-  if (payloadRelationship && !payloadHasDeclaredArtifactHistory) {
-    return "firstPayloadWeave";
-  }
-
-  if (
-    payloadRelationship &&
-    payloadHistoryPath &&
-    !isDeclaredArtifactHistory(quads, meshBase, payloadHistoryPath) &&
-    payloadHasDeclaredArtifactHistory
-  ) {
-    return "secondPayloadWeave";
-  }
-
-  if (
-    payloadRelationship &&
-    payloadHistoryPath &&
-    isDeclaredArtifactHistory(quads, meshBase, payloadHistoryPath) &&
-    hasNextStateSegmentHint(quads, meshBase, payloadHistoryPath)
-  ) {
-    return "secondPayloadWeave";
-  }
-
-  if (
-    payloadRelationship &&
-    payloadHistoryPath &&
-    hasNamedNodeFact(
-      quads,
-      meshBase,
-      payloadHistoryPath,
-      SFLO_LATEST_HISTORICAL_STATE_IRI,
-      requirePayloadCurrentStatePathFromInventory(
-        quads,
-        meshBase,
-        designatorPath,
-        payloadHistoryPath,
-        errorMessage,
-      ),
-    ) &&
-    hasLiteralFact(
-      quads,
-      meshBase,
-      payloadHistoryPath,
-      SFLO_NEXT_STATE_ORDINAL_IRI,
-      "2",
-      XSD_NON_NEGATIVE_INTEGER_IRI,
-    ) &&
-    (!knopInventoryHasHistory ||
-      (hasNamedNodeFact(
-        quads,
-        meshBase,
-        `${knopPath}/_inventory/_history001`,
-        SFLO_LATEST_HISTORICAL_STATE_IRI,
-        `${knopPath}/_inventory/_history001/_s0001`,
-      ) &&
-        !hasNamedNodeFact(
-          quads,
-          meshBase,
-          `${knopPath}/_inventory/_history001`,
-          SFLO_HAS_HISTORICAL_STATE_IRI,
-          `${knopPath}/_inventory/_history001/_s0002`,
-        )))
-  ) {
-    return "secondPayloadWeave";
-  }
-
-  if (
-    payloadRelationship &&
-    payloadHasDeclaredArtifactHistory &&
-    knopInventoryHasHistory &&
-    hasPayloadVersionNamingTarget(target)
-  ) {
-    return "secondPayloadWeave";
-  }
-
-  if (
-    !knopInventoryHasHistory &&
-    hasNamedNodeFact(
-      quads,
-      meshBase,
-      knopPath,
-      SFLO_HAS_RESOURCE_PAGE_IRI,
-      `${knopPath}/index.html`,
-    )
-  ) {
-    return undefined;
-  }
-
-  if (!knopInventoryHasHistory) {
-    return "firstKnopWeave";
-  }
-
-  return undefined;
-}
-
-function hasPayloadVersionNamingTarget(
-  target?: NormalizedVersionTargetSpec,
-): boolean {
-  return target !== undefined &&
-    (target.historySegment !== undefined ||
-      target.stateSegment !== undefined ||
-      target.manifestationSegment !== undefined);
 }
 
 function currentKnopInventoryHasVersionedHistory(
@@ -6435,34 +6166,6 @@ function assertHasCurrentWorkingFileLocator(
   }
 }
 
-function isDeclaredArtifactHistory(
-  quads: readonly Quad[],
-  meshBase: string,
-  historyPath: string,
-): boolean {
-  return hasNamedNodeFact(
-    quads,
-    meshBase,
-    historyPath,
-    RDF_TYPE_IRI,
-    SFLO_ARTIFACT_HISTORY_IRI,
-  );
-}
-
-function hasNextStateSegmentHint(
-  quads: readonly Quad[],
-  meshBase: string,
-  historyPath: string,
-): boolean {
-  const subjectIri = toAbsoluteIri(meshBase, historyPath);
-  return quads.some((quad) =>
-    quad.subject.termType === "NamedNode" &&
-    quad.subject.value === subjectIri &&
-    quad.predicate.value === SFCFG_HAS_NEXT_STATE_SEGMENT_HINT_IRI &&
-    quad.object.termType === "Literal"
-  );
-}
-
 function countArtifactHistoryPaths(
   meshBase: string,
   currentKnopInventoryTurtle: string,
@@ -7892,32 +7595,6 @@ function requirePayloadCurrentStatePath(
     throw new WeaveInputError(
       `Could not resolve the current payload historical state for ${designatorPath}.`,
     );
-  }
-  if (!currentStatePath.startsWith(`${historyPath}/`)) {
-    throw new WeaveInputError(
-      `Current payload historical state for ${designatorPath} was outside the current payload history: ${currentStatePath}`,
-    );
-  }
-
-  return currentStatePath;
-}
-
-function requirePayloadCurrentStatePathFromInventory(
-  quads: readonly Quad[],
-  meshBase: string,
-  designatorPath: string,
-  historyPath: string,
-  errorMessage: string,
-): string {
-  const currentStatePath = resolveOptionalNamedNodePath(
-    quads,
-    meshBase,
-    historyPath,
-    SFLO_LATEST_HISTORICAL_STATE_IRI,
-    errorMessage,
-  );
-  if (!currentStatePath) {
-    throw new WeaveInputError(errorMessage);
   }
   if (!currentStatePath.startsWith(`${historyPath}/`)) {
     throw new WeaveInputError(
