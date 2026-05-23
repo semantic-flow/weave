@@ -180,7 +180,16 @@ function resolveGeneratedAt(now?: () => Date): Date {
     return now();
   }
   const generatedAt = Deno.env.get("WEAVE_GENERATED_AT");
-  return generatedAt ? new Date(generatedAt) : new Date();
+  if (!generatedAt) {
+    return new Date();
+  }
+  const date = new Date(generatedAt);
+  if (Number.isNaN(date.getTime())) {
+    throw new WeaveInputError(
+      `Invalid WEAVE_GENERATED_AT value: ${generatedAt}`,
+    );
+  }
+  return date;
 }
 
 const GENERATED_TIMESTAMP_FOOTER_PATTERN =

@@ -1,3 +1,4 @@
+import type { Quad } from "n3";
 import { SFLO_NAMESPACE } from "../rdf/namespaces.ts";
 import { WeaveInputError } from "./errors.ts";
 import {
@@ -37,7 +38,8 @@ export function extractCurrentReferenceCatalogLinks(
     new Set(
       quads.flatMap((quad) =>
         quad.subject.termType === "NamedNode" &&
-          quad.subject.value.startsWith(linkSubjectPrefix)
+          quad.subject.value.startsWith(linkSubjectPrefix) &&
+          isReferenceLinkSubject(quads, quad.subject.value)
           ? [quad.subject.value]
           : []
       ),
@@ -139,6 +141,24 @@ export function extractCurrentReferenceCatalogLinks(
   return links.sort((left, right) =>
     left.fragment.localeCompare(right.fragment)
   );
+}
+
+function isReferenceLinkSubject(
+  quads: readonly Quad[],
+  subjectIri: string,
+): boolean {
+  return quads.some((quad) =>
+    quad.subject.termType === "NamedNode" &&
+    quad.subject.value === subjectIri &&
+    quad.predicate.value === RDF_TYPE_IRI &&
+    quad.object.termType === "NamedNode" &&
+    quad.object.value === SFLO_REFERENCE_LINK_IRI
+  ) ||
+    quads.some((quad) =>
+      quad.predicate.value === SFLO_HAS_REFERENCE_LINK_IRI &&
+      quad.object.termType === "NamedNode" &&
+      quad.object.value === subjectIri
+    );
 }
 
 function toReferenceRoleLabel(referenceRoleIri: string): string {

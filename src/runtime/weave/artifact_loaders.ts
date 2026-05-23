@@ -31,7 +31,7 @@ import { readTextFileWithOverlay } from "./planning_context.ts";
 const SFLO_HAS_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}hasExtractionSource`;
 
 export async function loadPayloadWorkingArtifact(
-  workspaceRoot: string,
+  _workspaceRoot: string,
   localPathPolicy: OperationalLocalPathPolicy,
   meshBase: string,
   designatorPath: string,
@@ -63,9 +63,6 @@ export async function loadPayloadWorkingArtifact(
         latestHistoricalStatePath,
         workingLocalRelativePath,
       )
-    : undefined;
-  const latestHistoricalSnapshotLocalPath = latestHistoricalSnapshotPath
-    ? join(workspaceRoot, latestHistoricalSnapshotPath)
     : undefined;
 
   let currentPayloadTurtle: string;
@@ -100,13 +97,22 @@ export async function loadPayloadWorkingArtifact(
     throw error;
   }
 
-  if (latestHistoricalSnapshotLocalPath) {
+  if (latestHistoricalSnapshotPath) {
     try {
       latestHistoricalSnapshotTurtle = await readTextFileWithOverlay(
-        latestHistoricalSnapshotLocalPath,
+        resolveAllowedLocalPath(
+          localPathPolicy,
+          "workingLocalRelativePath",
+          latestHistoricalSnapshotPath,
+        ),
         overlay,
       );
     } catch (error) {
+      if (error instanceof LocalPathAccessError) {
+        throw new WeaveRuntimeError(
+          `Latest payload historical snapshot for ${designatorPath} is outside the allowed local-path boundary: ${latestHistoricalSnapshotPath}`,
+        );
+      }
       if (error instanceof Deno.errors.NotFound) {
         throw new WeaveRuntimeError(
           `Workspace is missing the latest payload historical snapshot for ${designatorPath}: ${latestHistoricalSnapshotPath}`,
@@ -232,10 +238,19 @@ export async function loadReferenceTargetSourcePayloadArtifact(
   let selectedHistoricalSnapshotTurtle: string | undefined;
   try {
     selectedHistoricalSnapshotTurtle = await readTextFileWithOverlay(
-      join(workspaceRoot, selectedHistoricalSnapshotPath),
+      resolveAllowedLocalPath(
+        localPathPolicy,
+        "workingLocalRelativePath",
+        selectedHistoricalSnapshotPath,
+      ),
       overlay,
     );
   } catch (error) {
+    if (error instanceof LocalPathAccessError) {
+      throw new WeaveRuntimeError(
+        `Extracted source payload snapshot for ${designatorPath} is outside the allowed local-path boundary: ${selectedHistoricalSnapshotPath}`,
+      );
+    }
     if (error instanceof Deno.errors.NotFound) {
       throw new WeaveRuntimeError(
         `Workspace is missing the extracted source payload snapshot for ${designatorPath}: ${selectedHistoricalSnapshotPath}`,

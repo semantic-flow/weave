@@ -353,6 +353,9 @@ function renderMultiHistoryPayloadWovenKnopInventoryTurtle(
   ).join("\n\n");
   const knopInventoryResourcePageBlocks =
     renderRenderedHistoryResourcePageBlocks(knopInventoryHistories);
+  const knopInventoryHistoryLines = knopInventoryHistories
+    .map((history) => `  sflo:hasArtifactHistory <${history.path}> ;`)
+    .join("\n");
   const payloadNextHistoryOrdinal = resolveOptionalNonNegativeIntegerLiteral(
     quads,
     toAbsoluteIri(meshBase, designatorPath),
@@ -430,7 +433,7 @@ ${
     knopInventoryHistory === undefined || knopInventoryCurrentHistoryPath ===
         undefined
       ? ""
-      : `  sflo:hasArtifactHistory <${knopInventoryHistory.path}> ;
+      : `${knopInventoryHistoryLines}
   sflo:currentArtifactHistory <${knopInventoryCurrentHistoryPath}> ;
 `
   }${
@@ -510,14 +513,16 @@ export function renderSecondPayloadWovenKnopInventoryTurtle(
     }
     return output;
   };
+  const payloadHistoryPaths = collectArtifactHistoryPaths(
+    meshBase,
+    currentKnopInventoryTurtle,
+    designatorPath,
+  );
 
   if (
     payloadLayout.isNewHistory ||
-    countArtifactHistoryPaths(
-        meshBase,
-        currentKnopInventoryTurtle,
-        designatorPath,
-      ) > 1
+    payloadHistoryPaths.length > 1 ||
+    hasSingleNamedHistoryPath(payloadHistoryPaths)
   ) {
     return applySupportHistoryPolicies(
       renderMultiHistoryPayloadWovenKnopInventoryTurtle(
@@ -707,11 +712,11 @@ ${currentWorkingFileDeclaration}
 `);
 }
 
-function countArtifactHistoryPaths(
+function collectArtifactHistoryPaths(
   meshBase: string,
   currentKnopInventoryTurtle: string,
   artifactPath: string,
-): number {
+): readonly string[] {
   const quads = parseWeaveShapeQuads(
     meshBase,
     currentKnopInventoryTurtle,
@@ -723,7 +728,12 @@ function countArtifactHistoryPaths(
     artifactPath,
     SFLO_HAS_ARTIFACT_HISTORY_IRI,
     `Could not resolve histories for ${artifactPath}.`,
-  ).length;
+  );
+}
+
+function hasSingleNamedHistoryPath(historyPaths: readonly string[]): boolean {
+  return historyPaths.length === 1 &&
+    parseOptionalHistoryOrdinalFromPath(historyPaths[0]) === undefined;
 }
 
 function collectRenderedArtifactHistories(

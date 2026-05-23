@@ -34,11 +34,11 @@ export function renderCurrentWorkingFileDeclaration(
 export function renderRepositorySourceFloatingLocatorBlankNode(
   locator: RepositorySourceFloatingLocator,
 ): string {
+  const repositoryUrl = JSON.stringify(locator.repositoryUrl);
+  const repositoryPathFromRoot = JSON.stringify(locator.repositoryPathFromRoot);
   return `[
     a sflo:RepositorySourceFloatingLocator ;
-    sflo:sourceRepositoryUrl ${JSON.stringify(locator.repositoryUrl)} ;
-    sflo:sourceRepositoryPathFromRoot ${
-    JSON.stringify(locator.repositoryPathFromRoot)
-  }
+    sflo:sourceRepositoryUrl ${repositoryUrl} ;
+    sflo:sourceRepositoryPathFromRoot ${repositoryPathFromRoot}
   ]`;
 }

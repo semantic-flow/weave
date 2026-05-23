@@ -106,6 +106,9 @@ export function renderSubjectPredicateBlock(
   typeList: string,
   predicates: readonly string[],
 ): string {
+  if (predicates.length === 0) {
+    return `<${subjectPath}> a ${typeList} .`;
+  }
   return `<${subjectPath}> a ${typeList} ;
   ${predicates.join(" ;\n  ")} .`;
 }
