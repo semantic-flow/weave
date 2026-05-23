@@ -1,10 +1,23 @@
 import type {
+  KnopArtifactLinkModel,
+  ReferenceCatalogCurrentLinkModel,
+  ResourcePageBlankNodeModel,
+  ResourcePageBreadcrumbModel,
+  ResourcePageChildIdentifierGroupModel,
   ResourcePageChildIdentifierModel,
+  ResourcePageDocumentModel,
   ResourcePageExtractionSourceModel,
   ResourcePageHistoryGroupModel,
+  ResourcePageMetadataModel,
   ResourcePageModel,
+  ResourcePagePanelModel,
+  ResourcePagePropertyModel,
   ResourcePageRawSourcePanelModel,
+  ResourcePageRdfClassModel,
+  ResourcePageReferenceGroupModel,
   ResourcePageReferenceLinkModel,
+  ResourcePageReferenceTargetLinkModel,
+  ResourcePageSectionModel,
 } from "../../core/weave/resource_page_models.ts";
 import { Parser, type Quad, type Term } from "n3";
 import { codeToHtml } from "shiki";
@@ -47,7 +60,7 @@ interface ResourcePageRenderInput {
   includeSemanticFlowMetadata: boolean;
   semanticFlowMetadataRows: readonly ResourcePageMetadataRow[];
   historyGroups: readonly ResourcePageHistoryGroupModel[];
-  sections: readonly ResourcePageSection[];
+  sections: readonly ResourcePageRenderSection[];
   rawSourcePanels: readonly ResourcePageRawSourcePanelModel[];
 }
 
@@ -61,35 +74,13 @@ interface ResourcePageMetadataRow {
   tooltip?: string;
 }
 
-interface ResourcePagePropertyRow {
-  predicateLabel: string;
-  predicateHref: string;
-  value: string;
-  valueHref?: string;
-}
+type ResourcePagePropertyRow = ResourcePagePropertyModel;
+type ResourcePageBlankNodeRow = ResourcePageBlankNodeModel;
+type ResourcePageReferenceGroup = ResourcePageReferenceGroupModel;
+type ResourcePageReferenceTargetLink = ResourcePageReferenceTargetLinkModel;
+type ResourcePageBreadcrumb = ResourcePageBreadcrumbModel;
 
-interface ResourcePageBlankNodeRow {
-  predicateLabel: string;
-  predicateHref: string;
-  code: string;
-}
-
-interface ResourcePageReferenceGroup {
-  label: string;
-  links: readonly ResourcePageReferenceTargetLink[];
-}
-
-interface ResourcePageReferenceTargetLink {
-  href: string;
-  label: string;
-}
-
-interface ResourcePageBreadcrumb {
-  label: string;
-  href?: string;
-}
-
-interface ResourcePageSection {
+interface ResourcePageRenderSection {
   id?: string;
   title: string;
   html: string;
@@ -109,10 +100,7 @@ interface ResourcePageRdfIriLink {
   href: string;
 }
 
-interface ResourcePageRdfClass {
-  label: string;
-  iri: string;
-}
+type ResourcePageRdfClass = ResourcePageRdfClassModel;
 
 interface ResourcePageTheme {
   render(input: ResourcePageRenderInput): Promise<string>;
@@ -220,17 +208,19 @@ export async function renderResourcePage(
 
   if (page.kind !== "customIdentifier") {
     return await defaultResourcePageTheme.render(
-      toDefaultResourcePageRenderInput(
-        page,
-        meshLabel,
-        meshBase,
-        meshRootHref,
-        resourcePath,
-        displayResourcePath,
-        canonical,
-        options.generatedAt ?? new Date(),
-        options.includeSemanticFlowMetadata ?? false,
-        meshFaviconHref,
+      toResourcePageRenderInput(
+        toDefaultResourcePageDocumentModel(
+          page,
+          meshLabel,
+          meshBase,
+          meshRootHref,
+          resourcePath,
+          displayResourcePath,
+          canonical,
+          options.generatedAt ?? new Date(),
+          options.includeSemanticFlowMetadata ?? false,
+          meshFaviconHref,
+        ),
       ),
     );
   }
@@ -295,7 +285,34 @@ ${
   return assertNeverResourcePage(page);
 }
 
-function toDefaultResourcePageRenderInput(
+export function buildResourcePageDocumentModel(
+  meshBase: string,
+  page: Exclude<ResourcePageModel, { kind: "customIdentifier" }>,
+  options: ResourcePageRenderOptions = {},
+): ResourcePageDocumentModel {
+  const resourcePath = toResourcePath(page.path);
+  const canonical = toCanonicalResourceIri(meshBase, resourcePath);
+  const meshLabel = deriveMeshLabel(meshBase);
+  const displayResourcePath = toDisplayDesignatorPath(resourcePath, meshLabel);
+  const meshRootHref = toMeshRootHref(meshBase);
+  const meshFaviconHref = options.meshFaviconPath
+    ? toMeshResourceHref(meshRootHref, options.meshFaviconPath)
+    : undefined;
+  return toDefaultResourcePageDocumentModel(
+    page,
+    meshLabel,
+    meshBase,
+    meshRootHref,
+    resourcePath,
+    displayResourcePath,
+    canonical,
+    options.generatedAt ?? new Date(),
+    options.includeSemanticFlowMetadata ?? false,
+    meshFaviconHref,
+  );
+}
+
+function toDefaultResourcePageDocumentModel(
   page: Exclude<ResourcePageModel, { kind: "customIdentifier" }>,
   meshLabel: string,
   meshBase: string,
@@ -306,7 +323,7 @@ function toDefaultResourcePageRenderInput(
   generatedAt: Date,
   includeSemanticFlowMetadata: boolean,
   meshFaviconHref: string | undefined,
-): ResourcePageRenderInput {
+): ResourcePageDocumentModel {
   const generatedAtIso = generatedAt.toISOString();
   const generatedAtDisplay = formatGeneratedAtDisplay(generatedAt);
   if (page.kind === "identifier") {
@@ -323,8 +340,35 @@ function toDefaultResourcePageRenderInput(
       meshRootHref,
       page,
     );
+    const metadata = [
+      { label: "Canonical IRI", value: canonical },
+      ...workingSourceMetadataRows,
+      ...(rdfFacts.note ? [{ label: "Note", value: rdfFacts.note }] : []),
+      ...toRdfIriLinkMetadataRows("Broader", rdfFacts.broader),
+      ...toRdfIriLinkMetadataRows("Narrower", rdfFacts.narrower),
+      ...toExtractionSourceSummaryMetadataRows(page.extractionSource),
+    ];
+    const childrenGroups = toChildIdentifierGroups(
+      meshBase,
+      canonical,
+      page.childIdentifiers ?? [],
+      sourcePanelsForFacts,
+    );
+    const propertyRows = extractPropertyRows(canonical, sourcePanelsForFacts);
+    const blankNodeRows = extractBlankNodeRows(canonical, sourcePanelsForFacts);
+    const referenceGroups = toReferenceGroups(page.references ?? []);
+    const semanticFlowMetadataRows = [
+      toKnopMetadataRow(meshRootHref, meshLabel, resourcePath),
+      ...workingSourceMetadataRows,
+      ...toExtractionSourceMetadataRows(
+        meshRootHref,
+        meshLabel,
+        page.extractionSource,
+      ),
+    ];
 
     return {
+      kind: "identifier",
       meshLabel,
       meshBase,
       meshRootHref,
@@ -351,68 +395,26 @@ function toDefaultResourcePageRenderInput(
         : historyClass
         ? [historyClass]
         : [],
-      metadataRows: [
-        { label: "Canonical IRI", value: canonical },
-        ...workingSourceMetadataRows,
-        ...(rdfFacts.note ? [{ label: "Note", value: rdfFacts.note }] : []),
-        ...toRdfIriLinkMetadataRows("Broader", rdfFacts.broader),
-        ...toRdfIriLinkMetadataRows("Narrower", rdfFacts.narrower),
-        ...toExtractionSourceSummaryMetadataRows(
-          meshRootHref,
-          meshLabel,
-          page.extractionSource,
-        ),
-      ],
-      childrenRows: toChildIdentifierMetadataRows(
-        meshBase,
-        meshRootHref,
-        canonical,
-        page.childIdentifiers ?? [],
-        sourcePanelsForFacts,
-      ),
-      propertyRows: extractPropertyRows(canonical, sourcePanelsForFacts),
-      blankNodeRows: extractBlankNodeRows(canonical, sourcePanelsForFacts),
-      referenceGroups: toReferenceGroups(page.references ?? []),
-      includeSemanticFlowMetadata,
-      semanticFlowMetadataRows: [
-        toKnopMetadataRow(meshRootHref, meshLabel, resourcePath),
-        ...workingSourceMetadataRows,
-        ...toExtractionSourceMetadataRows(
-          meshRootHref,
-          meshLabel,
-          page.extractionSource,
-        ),
-      ],
-      historyGroups: page.historyGroups ?? [],
-      sections: [],
-      rawSourcePanels: rawSourcePanelsForDisplay,
+      metadata,
+      panels: toResourcePagePanels({
+        childrenGroups,
+        propertyRows,
+        blankNodeRows,
+        referenceGroups,
+        semanticFlowMetadataRows,
+        includeSemanticFlowMetadata,
+        historyGroups: page.historyGroups ?? [],
+        rawSourcePanels: rawSourcePanelsForDisplay,
+      }),
     };
   }
 
   if (page.kind === "referenceCatalog") {
     const rdfFacts = extractRdfFacts(canonical, page.rawSourcePanels ?? []);
-    const currentLinks = page.currentLinks.map((link) => {
-      const targetHref = toMeshResourceHref(
-        meshRootHref,
-        link.referenceTargetPath,
-      );
-      const stateHref = link.referenceTargetStatePath
-        ? toMeshResourceHref(meshRootHref, link.referenceTargetStatePath)
-        : undefined;
-      const escapedFragment = escapeHtml(link.fragment);
-      const escapedRoleLabel = escapeHtml(link.referenceRoleLabel);
-      const escapedTargetHref = escapeHtml(targetHref);
-      const escapedStateHref = stateHref ? escapeHtml(stateHref) : undefined;
-      const escapedTargetPath = escapeHtml(
-        toDisplayDesignatorPath(link.referenceTargetPath, meshLabel),
-      );
-
-      return stateHref
-        ? `        <li id="${escapedFragment}"><code>#${escapedFragment}</code>: ${escapedRoleLabel} reference target <a href="${escapedTargetHref}">${escapedTargetPath}</a>, exact state <a href="${escapedStateHref}">${escapedStateHref}</a>.</li>`
-        : `        <li id="${escapedFragment}"><code>#${escapedFragment}</code>: ${escapedRoleLabel} reference target <code>${escapedTargetPath}</code>.</li>`;
-    }).join("\n");
+    const rawSourcePanels = page.rawSourcePanels ?? [];
 
     return {
+      kind: "referenceCatalog",
       meshLabel,
       meshBase,
       meshRootHref,
@@ -442,50 +444,21 @@ function toDefaultResourcePageRenderInput(
           `${SFLO_NAMESPACE}RdfDocument`,
         ),
       ],
-      metadataRows: [{ label: "Canonical IRI", value: canonical }],
-      childrenRows: [],
-      propertyRows: extractPropertyRows(canonical, page.rawSourcePanels ?? []),
-      blankNodeRows: extractBlankNodeRows(
-        canonical,
-        page.rawSourcePanels ?? [],
-      ),
-      referenceGroups: [],
-      includeSemanticFlowMetadata,
-      semanticFlowMetadataRows: [],
-      historyGroups: page.historyGroups ?? [],
-      sections: [{
-        title: "Current Links",
-        html: `      <ul>\n${currentLinks}\n      </ul>`,
-      }],
-      rawSourcePanels: page.rawSourcePanels ?? [],
+      metadata: [{ label: "Canonical IRI", value: canonical }],
+      panels: toResourcePagePanels({
+        propertyRows: extractPropertyRows(canonical, rawSourcePanels),
+        blankNodeRows: extractBlankNodeRows(canonical, rawSourcePanels),
+        historyGroups: page.historyGroups ?? [],
+        currentLinks: page.currentLinks,
+        rawSourcePanels,
+        includeSemanticFlowMetadata,
+      }),
     };
   }
 
   if (page.kind === "knop") {
-    const artifactSections = [
-      ...(page.governedArtifacts.length > 0
-        ? [{
-          title: "Governed Artifacts",
-          html: renderKnopArtifactLinks(
-            meshRootHref,
-            meshLabel,
-            page.governedArtifacts,
-          ),
-        }]
-        : []),
-      ...(page.supportingArtifacts.length > 0
-        ? [{
-          title: "Supporting Artifacts",
-          html: renderKnopArtifactLinks(
-            meshRootHref,
-            meshLabel,
-            page.supportingArtifacts,
-          ),
-        }]
-        : []),
-    ];
-
     return {
+      kind: "knop",
       meshLabel,
       meshBase,
       meshRootHref,
@@ -512,30 +485,29 @@ function toDefaultResourcePageRenderInput(
           `${SFLO_NAMESPACE}Knop`,
         ),
       ],
-      metadataRows: [
+      metadata: [
         { label: "Canonical IRI", value: canonical },
       ],
-      childrenRows: toChildIdentifierMetadataRows(
-        meshBase,
-        meshRootHref,
-        canonical,
-        page.childIdentifiers ?? [],
-        [],
-      ),
-      propertyRows: [],
-      blankNodeRows: [],
-      referenceGroups: [],
-      includeSemanticFlowMetadata,
-      semanticFlowMetadataRows: [],
-      historyGroups: [],
-      sections: artifactSections,
-      rawSourcePanels: [],
+      panels: toResourcePagePanels({
+        childrenGroups: toChildIdentifierGroups(
+          meshBase,
+          canonical,
+          page.childIdentifiers ?? [],
+          [],
+        ),
+        knopArtifacts: {
+          governedArtifacts: page.governedArtifacts,
+          supportingArtifacts: page.supportingArtifacts,
+        },
+        includeSemanticFlowMetadata,
+      }),
     };
   }
 
   const rdfFacts = extractRdfFacts(canonical, page.rawSourcePanels ?? []);
 
   return {
+    kind: "simple",
     meshLabel,
     meshBase,
     meshRootHref,
@@ -557,29 +529,341 @@ function toDefaultResourcePageRenderInput(
     rdfClasses: rdfFacts.classes.length > 0
       ? rdfFacts.classes
       : [classifyResourcePage(resourcePath, page.historyGroups ?? [])],
-    metadataRows: [
+    metadata: [
       { label: "Canonical IRI", value: canonical },
     ],
-    childrenRows: toChildIdentifierMetadataRows(
-      meshBase,
-      meshRootHref,
-      canonical,
-      page.childIdentifiers ?? [],
-      page.rawSourcePanels ?? [],
+    panels: toResourcePagePanels({
+      childrenGroups: toChildIdentifierGroups(
+        meshBase,
+        canonical,
+        page.childIdentifiers ?? [],
+        page.rawSourcePanels ?? [],
+      ),
+      propertyRows: extractPropertyRows(canonical, page.rawSourcePanels ?? []),
+      blankNodeRows: extractBlankNodeRows(
+        canonical,
+        page.rawSourcePanels ?? [],
+      ),
+      historyGroups: page.historyGroups ?? [],
+      factSections: extractFragmentFactSections(
+        canonical,
+        page.rawSourcePanels ?? [],
+        meshRootHref,
+        meshLabel,
+      ),
+      rawSourcePanels: page.rawSourcePanels ?? [],
+      includeSemanticFlowMetadata,
+    }),
+  };
+}
+
+function toResourcePagePanels(input: {
+  childrenGroups?: readonly ResourcePageChildIdentifierGroupModel[];
+  propertyRows?: readonly ResourcePagePropertyRow[];
+  blankNodeRows?: readonly ResourcePageBlankNodeRow[];
+  referenceGroups?: readonly ResourcePageReferenceGroup[];
+  semanticFlowMetadataRows?: readonly ResourcePageMetadataModel[];
+  includeSemanticFlowMetadata?: boolean;
+  historyGroups?: readonly ResourcePageHistoryGroupModel[];
+  currentLinks?: readonly ReferenceCatalogCurrentLinkModel[];
+  factSections?: readonly ResourcePageSectionModel[];
+  knopArtifacts?: {
+    governedArtifacts: readonly KnopArtifactLinkModel[];
+    supportingArtifacts: readonly KnopArtifactLinkModel[];
+  };
+  rawSourcePanels?: readonly ResourcePageRawSourcePanelModel[];
+}): readonly ResourcePagePanelModel[] {
+  const panels: ResourcePagePanelModel[] = [];
+  const childrenGroups = input.childrenGroups ?? [];
+  const propertyRows = input.propertyRows ?? [];
+  const blankNodeRows = input.blankNodeRows ?? [];
+  const referenceGroups = input.referenceGroups ?? [];
+  const currentLinks = input.currentLinks ?? [];
+  const factSections = input.factSections ?? [];
+  const rawSourcePanels = input.rawSourcePanels ?? [];
+  const historyGroups = input.historyGroups ?? [];
+  const semanticFlowMetadataRows = input.semanticFlowMetadataRows ?? [];
+
+  if (childrenGroups.length > 0) {
+    panels.push({ kind: "children", groups: childrenGroups });
+  }
+  if (propertyRows.length > 0) {
+    panels.push({ kind: "properties", rows: propertyRows });
+  }
+  if (blankNodeRows.length > 0) {
+    panels.push({ kind: "blankNodes", rows: blankNodeRows });
+  }
+  if (referenceGroups.length > 0) {
+    panels.push({ kind: "references", groups: referenceGroups });
+  }
+  if (currentLinks.length > 0) {
+    panels.push({ kind: "currentLinks", links: currentLinks });
+  }
+  if (input.knopArtifacts) {
+    const { governedArtifacts, supportingArtifacts } = input.knopArtifacts;
+    if (governedArtifacts.length > 0 || supportingArtifacts.length > 0) {
+      panels.push({
+        kind: "knopArtifacts",
+        governedArtifacts,
+        supportingArtifacts,
+      });
+    }
+  }
+  if (factSections.length > 0) {
+    panels.push({ kind: "factSections", sections: factSections });
+  }
+  if (rawSourcePanels.length > 0) {
+    panels.push({ kind: "rawSource", panels: rawSourcePanels });
+  }
+  if (historyGroups.length > 0) {
+    panels.push({ kind: "history", groups: historyGroups });
+  }
+  if (input.includeSemanticFlowMetadata) {
+    panels.push({
+      kind: "semanticFlowMetadata",
+      rows: semanticFlowMetadataRows,
+    });
+  }
+
+  return panels;
+}
+
+function toResourcePageRenderInput(
+  document: ResourcePageDocumentModel,
+): ResourcePageRenderInput {
+  const childrenPanel = findResourcePagePanel(document, "children");
+  const propertiesPanel = findResourcePagePanel(document, "properties");
+  const blankNodesPanel = findResourcePagePanel(document, "blankNodes");
+  const referencesPanel = findResourcePagePanel(document, "references");
+  const currentLinksPanel = findResourcePagePanel(document, "currentLinks");
+  const factSectionsPanel = findResourcePagePanel(document, "factSections");
+  const knopArtifactsPanel = findResourcePagePanel(document, "knopArtifacts");
+  const semanticFlowMetadataPanel = findResourcePagePanel(
+    document,
+    "semanticFlowMetadata",
+  );
+  const historyPanel = findResourcePagePanel(document, "history");
+  const rawSourcePanel = findResourcePagePanel(document, "rawSource");
+
+  return {
+    meshLabel: document.meshLabel,
+    meshBase: document.meshBase,
+    meshRootHref: document.meshRootHref,
+    pagePath: document.pagePath,
+    resourcePath: document.resourcePath,
+    displayResourcePath: document.displayResourcePath,
+    canonical: document.canonical,
+    generatedAtIso: document.generatedAtIso,
+    generatedAtDisplay: document.generatedAtDisplay,
+    meshFaviconHref: document.meshFaviconHref,
+    title: document.title,
+    breadcrumbs: document.breadcrumbs,
+    summary: document.summary,
+    rdfClasses: document.rdfClasses,
+    metadataRows: toRenderMetadataRows(
+      document.meshRootHref,
+      document.meshLabel,
+      document.metadata,
     ),
-    propertyRows: extractPropertyRows(canonical, page.rawSourcePanels ?? []),
-    blankNodeRows: extractBlankNodeRows(canonical, page.rawSourcePanels ?? []),
-    referenceGroups: [],
-    includeSemanticFlowMetadata,
-    semanticFlowMetadataRows: [],
-    historyGroups: page.historyGroups ?? [],
-    sections: extractFragmentSections(
-      canonical,
-      page.rawSourcePanels ?? [],
-      meshRootHref,
+    childrenRows: (childrenPanel?.groups ?? []).map((group) =>
+      toChildIdentifierMetadataRow(
+        document.meshRootHref,
+        group.label,
+        group.identifiers,
+      )
+    ),
+    propertyRows: propertiesPanel?.rows ?? [],
+    blankNodeRows: blankNodesPanel?.rows ?? [],
+    referenceGroups: referencesPanel?.groups ?? [],
+    includeSemanticFlowMetadata: semanticFlowMetadataPanel !== undefined,
+    semanticFlowMetadataRows: toRenderMetadataRows(
+      document.meshRootHref,
+      document.meshLabel,
+      semanticFlowMetadataPanel?.rows ?? [],
+    ),
+    historyGroups: historyPanel?.groups ?? [],
+    sections: [
+      ...(currentLinksPanel
+        ? [renderCurrentLinksSection(
+          document.meshRootHref,
+          document.meshLabel,
+          currentLinksPanel.links,
+        )]
+        : []),
+      ...(knopArtifactsPanel
+        ? renderKnopArtifactSections(
+          document.meshRootHref,
+          document.meshLabel,
+          knopArtifactsPanel.governedArtifacts,
+          knopArtifactsPanel.supportingArtifacts,
+        )
+        : []),
+      ...(factSectionsPanel?.sections.map((section) =>
+        renderFactSection(
+          document.meshRootHref,
+          document.meshLabel,
+          section,
+        )
+      ) ?? []),
+    ],
+    rawSourcePanels: rawSourcePanel?.panels ?? [],
+  };
+}
+
+function findResourcePagePanel<K extends ResourcePagePanelModel["kind"]>(
+  document: ResourcePageDocumentModel,
+  kind: K,
+): Extract<ResourcePagePanelModel, { kind: K }> | undefined {
+  return document.panels.find((panel) => panel.kind === kind) as
+    | Extract<ResourcePagePanelModel, { kind: K }>
+    | undefined;
+}
+
+function toRenderMetadataRows(
+  meshRootHref: string,
+  meshLabel: string,
+  rows: readonly ResourcePageMetadataModel[],
+): readonly ResourcePageMetadataRow[] {
+  return rows.map((row) => toRenderMetadataRow(meshRootHref, meshLabel, row));
+}
+
+function toRenderMetadataRow(
+  meshRootHref: string,
+  meshLabel: string,
+  row: ResourcePageMetadataModel,
+): ResourcePageMetadataRow {
+  if (row.kind === "links") {
+    return {
+      label: row.label,
+      value: row.links.map((link) => link.label).join(", "),
+      html: row.links.map((link) =>
+        `<a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>`
+      ).join(", "),
+    };
+  }
+
+  if (row.kind === "repositorySource") {
+    const repositoryUrl = row.repositorySource.repositoryUrl;
+    const repositoryPathFromRoot = row.repositorySource.repositoryPathFromRoot;
+    const repositoryUrlHtml = isSafeHttpUrl(repositoryUrl)
+      ? `<a href="${
+        escapeHtml(repositoryUrl)
+      }" rel="noreferrer noopener" target="_blank">${
+        escapeHtml(repositoryUrl)
+      }</a>`
+      : `<span>${escapeHtml(repositoryUrl)}</span>`;
+
+    return {
+      label: row.label,
+      value: `${repositoryUrl} / ${repositoryPathFromRoot}`,
+      html:
+        `<span class="wf-repository-source">${repositoryUrlHtml}<span aria-hidden="true"> / </span><span>${
+          escapeHtml(repositoryPathFromRoot)
+        }</span></span>`,
+    };
+  }
+
+  if (row.kind === "extractionSourceSummary") {
+    const sourceHref = toMeshResourceHref(meshRootHref, row.sourceArtifactPath);
+    const sourceLabel = toDisplayDesignatorPath(
+      row.sourceArtifactPath,
       meshLabel,
-    ),
-    rawSourcePanels: page.rawSourcePanels ?? [],
+    );
+    const sourceHtml = `<a class="wf-source-root" href="${
+      escapeHtml(sourceHref)
+    }">${escapeHtml(sourceLabel)}</a>`;
+    const versionHtml = row.requestedTargetStatePath
+      ? renderExtractionSourceVersionChain(
+        meshRootHref,
+        row.sourceArtifactPath,
+        row.requestedTargetStatePath,
+      )
+      : "";
+
+    return {
+      label: row.label,
+      value: sourceLabel,
+      rowClass: "wf-source-metadata-row",
+      html:
+        `<div class="wf-source-summary"><span class="wf-source-chain">${sourceHtml}${versionHtml}</span></div>`,
+    };
+  }
+
+  return row;
+}
+
+function renderCurrentLinksSection(
+  meshRootHref: string,
+  meshLabel: string,
+  links: readonly ReferenceCatalogCurrentLinkModel[],
+): ResourcePageRenderSection {
+  const currentLinks = links.map((link) => {
+    const targetHref = toMeshResourceHref(
+      meshRootHref,
+      link.referenceTargetPath,
+    );
+    const stateHref = link.referenceTargetStatePath
+      ? toMeshResourceHref(meshRootHref, link.referenceTargetStatePath)
+      : undefined;
+    const escapedFragment = escapeHtml(link.fragment);
+    const escapedRoleLabel = escapeHtml(link.referenceRoleLabel);
+    const escapedTargetHref = escapeHtml(targetHref);
+    const escapedStateHref = stateHref ? escapeHtml(stateHref) : undefined;
+    const escapedTargetPath = escapeHtml(
+      toDisplayDesignatorPath(link.referenceTargetPath, meshLabel),
+    );
+
+    return stateHref
+      ? `        <li id="${escapedFragment}"><code>#${escapedFragment}</code>: ${escapedRoleLabel} reference target <a href="${escapedTargetHref}">${escapedTargetPath}</a>, exact state <a href="${escapedStateHref}">${escapedStateHref}</a>.</li>`
+      : `        <li id="${escapedFragment}"><code>#${escapedFragment}</code>: ${escapedRoleLabel} reference target <code>${escapedTargetPath}</code>.</li>`;
+  }).join("\n");
+
+  return {
+    title: "Current Links",
+    html: `      <ul>\n${currentLinks}\n      </ul>`,
+  };
+}
+
+function renderKnopArtifactSections(
+  meshRootHref: string,
+  meshLabel: string,
+  governedArtifacts: readonly KnopArtifactLinkModel[],
+  supportingArtifacts: readonly KnopArtifactLinkModel[],
+): readonly ResourcePageRenderSection[] {
+  return [
+    ...(governedArtifacts.length > 0
+      ? [{
+        title: "Governed Artifacts",
+        html: renderKnopArtifactLinks(
+          meshRootHref,
+          meshLabel,
+          governedArtifacts,
+        ),
+      }]
+      : []),
+    ...(supportingArtifacts.length > 0
+      ? [{
+        title: "Supporting Artifacts",
+        html: renderKnopArtifactLinks(
+          meshRootHref,
+          meshLabel,
+          supportingArtifacts,
+        ),
+      }]
+      : []),
+  ];
+}
+
+function renderFactSection(
+  meshRootHref: string,
+  meshLabel: string,
+  section: ResourcePageSectionModel,
+): ResourcePageRenderSection {
+  const rows = toRenderMetadataRows(meshRootHref, meshLabel, section.rows);
+  return {
+    id: section.id,
+    title: section.title,
+    html: renderMetadataTable(rows, 6).trimEnd(),
   };
 }
 
@@ -1008,7 +1292,7 @@ function toKnopMetadataRow(
   meshRootHref: string,
   meshLabel: string,
   resourcePath: string,
-): ResourcePageMetadataRow {
+): ResourcePageMetadataModel {
   const knopResourcePath = toKnopResourcePath(resourcePath);
   return {
     label: "Knop",
@@ -1020,8 +1304,8 @@ function toKnopMetadataRow(
 function toWorkingSourceMetadataRows(
   meshRootHref: string,
   page: Extract<ResourcePageModel, { kind: "identifier" }>,
-): readonly ResourcePageMetadataRow[] {
-  const rows: ResourcePageMetadataRow[] = [];
+): readonly ResourcePageMetadataModel[] {
+  const rows: ResourcePageMetadataModel[] = [];
 
   if (page.workingAccessUrl) {
     rows.push({
@@ -1032,23 +1316,10 @@ function toWorkingSourceMetadataRows(
   }
 
   if (page.repositorySourceFloatingLocator) {
-    const repositoryUrl = page.repositorySourceFloatingLocator.repositoryUrl;
-    const repositoryPathFromRoot = page.repositorySourceFloatingLocator
-      .repositoryPathFromRoot;
-    const repositoryUrlHtml = isSafeHttpUrl(repositoryUrl)
-      ? `<a href="${
-        escapeHtml(repositoryUrl)
-      }" rel="noreferrer noopener" target="_blank">${
-        escapeHtml(repositoryUrl)
-      }</a>`
-      : `<span>${escapeHtml(repositoryUrl)}</span>`;
     rows.push({
+      kind: "repositorySource",
       label: "Repository Source",
-      value: `${repositoryUrl} / ${repositoryPathFromRoot}`,
-      html:
-        `<span class="wf-repository-source">${repositoryUrlHtml}<span aria-hidden="true"> / </span><span>${
-          escapeHtml(repositoryPathFromRoot)
-        }</span></span>`,
+      repositorySource: page.repositorySourceFloatingLocator,
     });
   }
 
@@ -1081,12 +1352,12 @@ function toExtractionSourceMetadataRows(
   meshRootHref: string,
   meshLabel: string,
   extractionSource?: ResourcePageExtractionSourceModel,
-): readonly ResourcePageMetadataRow[] {
+): readonly ResourcePageMetadataModel[] {
   if (!extractionSource) {
     return [];
   }
 
-  const rows: ResourcePageMetadataRow[] = [{
+  const rows: ResourcePageMetadataModel[] = [{
     label: "Extraction Source",
     href: toMeshResourceHref(meshRootHref, extractionSource.sourceArtifactPath),
     value: toDisplayDesignatorPath(
@@ -1124,39 +1395,19 @@ function toExtractionSourceMetadataRows(
 }
 
 function toExtractionSourceSummaryMetadataRows(
-  meshRootHref: string,
-  meshLabel: string,
   extractionSource?: ResourcePageExtractionSourceModel,
-): readonly ResourcePageMetadataRow[] {
+): readonly ResourcePageMetadataModel[] {
   if (!extractionSource) {
     return [];
   }
 
-  const sourceHref = toMeshResourceHref(
-    meshRootHref,
-    extractionSource.sourceArtifactPath,
-  );
-  const sourceLabel = toDisplayDesignatorPath(
-    extractionSource.sourceArtifactPath,
-    meshLabel,
-  );
-  const sourceHtml = `<a class="wf-source-root" href="${
-    escapeHtml(sourceHref)
-  }">${escapeHtml(sourceLabel)}</a>`;
-  const versionHtml = extractionSource.requestedTargetStatePath
-    ? renderExtractionSourceVersionChain(
-      meshRootHref,
-      extractionSource.sourceArtifactPath,
-      extractionSource.requestedTargetStatePath,
-    )
-    : "";
-
   return [{
+    kind: "extractionSourceSummary",
     label: "Source",
-    value: sourceLabel,
-    rowClass: "wf-source-metadata-row",
-    html:
-      `<div class="wf-source-summary"><span class="wf-source-chain">${sourceHtml}${versionHtml}</span></div>`,
+    sourceArtifactPath: extractionSource.sourceArtifactPath,
+    ...(extractionSource.requestedTargetStatePath
+      ? { requestedTargetStatePath: extractionSource.requestedTargetStatePath }
+      : {}),
   }];
 }
 
@@ -1209,13 +1460,12 @@ function toExtractionSourceStatePath(
   };
 }
 
-function toChildIdentifierMetadataRows(
+function toChildIdentifierGroups(
   meshBase: string,
-  meshRootHref: string,
   canonical: string,
   childIdentifiers: readonly ResourcePageChildIdentifierModel[],
   rawSourcePanels: readonly ResourcePageRawSourcePanelModel[],
-): readonly ResourcePageMetadataRow[] {
+): readonly ResourcePageChildIdentifierGroupModel[] {
   if (childIdentifiers.length === 0) {
     return [];
   }
@@ -1248,15 +1498,7 @@ function toChildIdentifierMetadataRows(
     categories[categoryIndex]?.identifiers.push(identifier);
   }
 
-  return categories.flatMap((category) =>
-    category.identifiers.length > 0
-      ? [toChildIdentifierMetadataRow(
-        meshRootHref,
-        category.label,
-        category.identifiers,
-      )]
-      : []
-  );
+  return categories.filter((category) => category.identifiers.length > 0);
 }
 
 function collectChildIdentifierTypes(
@@ -1360,17 +1602,15 @@ function toChildIdentifierMetadataRow(
 function toRdfIriLinkMetadataRows(
   label: string,
   links: readonly ResourcePageRdfIriLink[],
-): readonly ResourcePageMetadataRow[] {
+): readonly ResourcePageMetadataModel[] {
   if (links.length === 0) {
     return [];
   }
 
   return [{
+    kind: "links",
     label,
-    value: links.map((link) => link.label).join(", "),
-    html: links.map((link) =>
-      `<a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>`
-    ).join(", "),
+    links,
   }];
 }
 
@@ -2244,17 +2484,17 @@ function toTitleCase(value: string): string {
     : `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`;
 }
 
-function extractFragmentSections(
+function extractFragmentFactSections(
   canonical: string,
   rawSourcePanels: readonly ResourcePageRawSourcePanelModel[],
   meshRootHref: string,
   meshLabel: string,
-): readonly ResourcePageSection[] {
+): readonly ResourcePageSectionModel[] {
   const prefixMap = collectPrefixMap(rawSourcePanels);
   const quads = rawSourcePanels.flatMap((panel) =>
     panel.contents ? parseRdfPanel(canonical, panel.contents) : []
   );
-  const sections: ResourcePageSection[] = [];
+  const sections: ResourcePageSectionModel[] = [];
   const subjects = new Set<string>();
 
   for (const quad of quads) {
@@ -2288,7 +2528,7 @@ function extractFragmentSections(
     );
     const rows = [
       targetArtifactIri
-        ? renderFragmentIriRow(
+        ? toFragmentIriMetadataRow(
           "Target Artifact",
           targetArtifactIri,
           meshRootHref,
@@ -2297,7 +2537,7 @@ function extractFragmentSections(
         )
         : undefined,
       requestedTargetStateIri
-        ? renderFragmentIriRow(
+        ? toFragmentIriMetadataRow(
           "Requested Target State",
           requestedTargetStateIri,
           meshRootHref,
@@ -2306,7 +2546,7 @@ function extractFragmentSections(
         )
         : undefined,
       artifactResolutionModeIri
-        ? renderFragmentIriRow(
+        ? toFragmentIriMetadataRow(
           "Resolution Mode",
           artifactResolutionModeIri,
           meshRootHref,
@@ -2314,29 +2554,25 @@ function extractFragmentSections(
           prefixMap,
         )
         : undefined,
-    ].filter((row): row is string => row !== undefined).join("\n");
+    ].filter((row): row is ResourcePageMetadataModel => row !== undefined);
 
     sections.push({
       id: fragment,
       title: "Extraction Source",
-      html: `      <table class="wf-metadata">
-        <tbody>
-${rows}
-        </tbody>
-      </table>`,
+      rows,
     });
   }
 
   return sections;
 }
 
-function renderFragmentIriRow(
+function toFragmentIriMetadataRow(
   label: string,
   iri: string,
   meshRootHref: string,
   meshLabel: string,
   prefixMap: ReadonlyMap<string, string>,
-): string {
+): ResourcePageMetadataModel {
   const meshPath = toMeshPath(meshRootHref, iri);
   const value = meshPath !== undefined
     ? toDisplayDesignatorPath(meshPath, meshLabel)
@@ -2345,11 +2581,11 @@ function renderFragmentIriRow(
     ? toMeshResourceHref(meshRootHref, meshPath)
     : iri;
 
-  return `          <tr><th scope="row">${escapeHtml(label)}</th><td><a href="${
-    escapeHtml(href)
-  }">${
-    escapeHtml(meshPath !== undefined ? value : compactRdfIri(value, prefixMap))
-  }</a></td></tr>`;
+  return {
+    label,
+    href,
+    value: meshPath !== undefined ? value : compactRdfIri(value, prefixMap),
+  };
 }
 
 function collectPrefixMap(

@@ -113,6 +113,173 @@ export interface ResourcePageHistoryGroupModel {
   states: readonly ResourcePageHistoryStateModel[];
 }
 
+export type ResourcePageDocumentKind =
+  | "identifier"
+  | "knop"
+  | "simple"
+  | "referenceCatalog";
+
+export interface ResourcePageDocumentModel {
+  kind: ResourcePageDocumentKind;
+  meshLabel: string;
+  meshBase: string;
+  meshRootHref: string;
+  pagePath: string;
+  resourcePath: string;
+  displayResourcePath: string;
+  canonical: string;
+  generatedAtIso: string;
+  generatedAtDisplay: string;
+  meshFaviconHref?: string;
+  title: string;
+  summary?: string;
+  rdfClasses: readonly ResourcePageRdfClassModel[];
+  breadcrumbs: readonly ResourcePageBreadcrumbModel[];
+  metadata: readonly ResourcePageMetadataModel[];
+  panels: readonly ResourcePagePanelModel[];
+}
+
+export interface ResourcePageBreadcrumbModel {
+  label: string;
+  href?: string;
+}
+
+export interface ResourcePageRdfClassModel {
+  label: string;
+  iri: string;
+}
+
+export interface ResourcePageLinkListMetadataModel {
+  kind: "links";
+  label: string;
+  links: readonly ResourcePageReferenceTargetLinkModel[];
+}
+
+export interface ResourcePageRepositorySourceMetadataModel {
+  kind: "repositorySource";
+  label: string;
+  repositorySource: RepositorySourceFloatingLocator;
+}
+
+export interface ResourcePageExtractionSourceSummaryMetadataModel {
+  kind: "extractionSourceSummary";
+  label: string;
+  sourceArtifactPath: string;
+  requestedTargetStatePath?: string;
+}
+
+export type ResourcePageMetadataModel =
+  | ResourcePageTextMetadataModel
+  | ResourcePageLinkListMetadataModel
+  | ResourcePageRepositorySourceMetadataModel
+  | ResourcePageExtractionSourceSummaryMetadataModel;
+
+export interface ResourcePageTextMetadataModel {
+  kind?: "text";
+  label: string;
+  labelHref?: string;
+  href?: string;
+  value: string;
+  tooltip?: string;
+}
+
+export interface ResourcePagePropertyModel {
+  predicateLabel: string;
+  predicateHref: string;
+  value: string;
+  valueHref?: string;
+}
+
+export interface ResourcePageBlankNodeModel {
+  predicateLabel: string;
+  predicateHref: string;
+  code: string;
+}
+
+export interface ResourcePageReferenceGroupModel {
+  label: string;
+  links: readonly ResourcePageReferenceTargetLinkModel[];
+}
+
+export interface ResourcePageReferenceTargetLinkModel {
+  href: string;
+  label: string;
+}
+
+export interface ResourcePageSectionModel {
+  id?: string;
+  title: string;
+  rows: readonly ResourcePageMetadataModel[];
+}
+
+export interface ResourcePageChildIdentifierGroupModel {
+  label: string;
+  identifiers: readonly ResourcePageChildIdentifierModel[];
+}
+
+export type ResourcePagePanelModel =
+  | ResourcePageChildrenPanelModel
+  | ResourcePagePropertiesPanelModel
+  | ResourcePageBlankNodesPanelModel
+  | ResourcePageReferencesPanelModel
+  | ResourcePageHistoryPanelModel
+  | ResourcePageCurrentLinksPanelModel
+  | ResourcePageFactSectionsPanelModel
+  | ResourcePageKnopArtifactsPanelModel
+  | ResourcePageRawSourcePanelGroupModel
+  | ResourcePageSemanticFlowMetadataPanelModel;
+
+export interface ResourcePageChildrenPanelModel {
+  kind: "children";
+  groups: readonly ResourcePageChildIdentifierGroupModel[];
+}
+
+export interface ResourcePagePropertiesPanelModel {
+  kind: "properties";
+  rows: readonly ResourcePagePropertyModel[];
+}
+
+export interface ResourcePageBlankNodesPanelModel {
+  kind: "blankNodes";
+  rows: readonly ResourcePageBlankNodeModel[];
+}
+
+export interface ResourcePageReferencesPanelModel {
+  kind: "references";
+  groups: readonly ResourcePageReferenceGroupModel[];
+}
+
+export interface ResourcePageHistoryPanelModel {
+  kind: "history";
+  groups: readonly ResourcePageHistoryGroupModel[];
+}
+
+export interface ResourcePageCurrentLinksPanelModel {
+  kind: "currentLinks";
+  links: readonly ReferenceCatalogCurrentLinkModel[];
+}
+
+export interface ResourcePageFactSectionsPanelModel {
+  kind: "factSections";
+  sections: readonly ResourcePageSectionModel[];
+}
+
+export interface ResourcePageKnopArtifactsPanelModel {
+  kind: "knopArtifacts";
+  governedArtifacts: readonly KnopArtifactLinkModel[];
+  supportingArtifacts: readonly KnopArtifactLinkModel[];
+}
+
+export interface ResourcePageRawSourcePanelGroupModel {
+  kind: "rawSource";
+  panels: readonly ResourcePageRawSourcePanelModel[];
+}
+
+export interface ResourcePageSemanticFlowMetadataPanelModel {
+  kind: "semanticFlowMetadata";
+  rows: readonly ResourcePageMetadataModel[];
+}
+
 export type ResourcePageModel =
   | IdentifierResourcePageModel
   | KnopResourcePageModel

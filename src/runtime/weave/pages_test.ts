@@ -4,7 +4,79 @@ import {
   assertFalse,
   assertStringIncludes,
 } from "@std/assert";
-import { renderResourcePage } from "./pages.ts";
+import { buildResourcePageDocumentModel, renderResourcePage } from "./pages.ts";
+
+Deno.test("buildResourcePageDocumentModel assembles ordered identifier panels", () => {
+  const document = buildResourcePageDocumentModel(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "identifier",
+      path: "alice/bio/index.html",
+      designatorPath: "alice/bio",
+      workingLocalRelativePath: "alice-bio.ttl",
+      childIdentifiers: [
+        { label: "timeline", path: "alice/bio/timeline" },
+      ],
+      references: [{
+        roleLabel: "canonical",
+        targets: [{
+          href: "https://example.com/alice",
+          label: "Example Alice",
+        }],
+      }],
+      historyGroups: [{
+        label: "alice-bio.ttl",
+        path: "alice/bio/_history",
+        states: [],
+      }],
+      rawSourcePanels: [{
+        label: "alice-bio.ttl",
+        sourcePath: "alice-bio.ttl",
+        contents: "@prefix schema: <https://schema.org/> .",
+      }],
+    },
+    {
+      generatedAt: new Date("2026-05-23T00:00:00.000Z"),
+      includeSemanticFlowMetadata: true,
+    },
+  );
+
+  assertEquals(document.kind, "identifier");
+  assertEquals(document.title, "bio");
+  assertEquals(document.metadata.map((row) => row.label), [
+    "Canonical IRI",
+    "Working File",
+  ]);
+  assertEquals(document.panels.map((panel) => panel.kind), [
+    "children",
+    "references",
+    "rawSource",
+    "history",
+    "semanticFlowMetadata",
+  ]);
+
+  const childrenPanel = document.panels.find((panel) =>
+    panel.kind === "children"
+  );
+  assert(childrenPanel?.kind === "children");
+  assertEquals(childrenPanel.groups[0]?.label, "Individuals");
+});
+
+Deno.test("buildResourcePageDocumentModel omits Semantic Flow metadata panel by default", () => {
+  const document = buildResourcePageDocumentModel(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "identifier",
+      path: "alice/bio/index.html",
+      designatorPath: "alice/bio",
+      workingLocalRelativePath: "alice-bio.ttl",
+    },
+  );
+
+  assertFalse(
+    document.panels.some((panel) => panel.kind === "semanticFlowMetadata"),
+  );
+});
 
 Deno.test("renderResourcePage renders identifier pages with working file links", async () => {
   const html = await renderResourcePage(
