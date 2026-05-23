@@ -95,6 +95,10 @@ import {
 } from "./resource_page_builders.ts";
 import { assertHasCurrentWorkingFileLocator } from "./source_locator_assertions.ts";
 import {
+  renderCurrentWorkingFileDeclaration,
+  renderCurrentWorkingFileLocator,
+} from "./source_locator_renderers.ts";
+import {
   assertCurrentKnopInventoryBaseShape,
   assertCurrentKnopInventoryShapeForFirstExtractedKnopWeave,
   assertCurrentKnopInventoryShapeForFirstPageDefinitionWeave,
@@ -111,7 +115,6 @@ import {
   assertReferenceTargetSourcePayloadShapeForFirstExtractedKnopWeave,
   resolveMeshInventoryProgressionFromMetadata,
 } from "./shape_assertions.ts";
-import { usesMeshLocalWorkingLocatedFile } from "./working_file_paths.ts";
 
 export { WeaveInputError } from "./errors.ts";
 export { planMeshSupportResourcePages } from "./mesh_support_pages.ts";
@@ -5137,48 +5140,6 @@ function renderKnopBlockWithCarriedSupportFacts(
     workingInventoryLine,
     `${carriedLines.join("\n")}\n${workingInventoryLine}`,
   );
-}
-
-function renderCurrentWorkingFileLocator(
-  workingLocalRelativePath: string,
-  repositorySourceFloatingLocator?: RepositorySourceFloatingLocator,
-): string {
-  if (repositorySourceFloatingLocator !== undefined) {
-    return `sflo:hasRepositorySourceFloatingLocator ${
-      renderRepositorySourceFloatingLocatorBlankNode(
-        repositorySourceFloatingLocator,
-      )
-    } ;`;
-  }
-  return usesMeshLocalWorkingLocatedFile(workingLocalRelativePath)
-    ? `sflo:hasWorkingLocatedFile <${workingLocalRelativePath}> ;`
-    : `sflo:workingLocalRelativePath ${
-      JSON.stringify(workingLocalRelativePath)
-    } ;`;
-}
-
-function renderCurrentWorkingFileDeclaration(
-  workingLocalRelativePath: string,
-  repositorySourceFloatingLocator?: RepositorySourceFloatingLocator,
-): string {
-  if (repositorySourceFloatingLocator !== undefined) {
-    return "";
-  }
-  return usesMeshLocalWorkingLocatedFile(workingLocalRelativePath)
-    ? `<${workingLocalRelativePath}> a sflo:LocatedFile, sflo:RdfDocument .`
-    : "";
-}
-
-function renderRepositorySourceFloatingLocatorBlankNode(
-  locator: RepositorySourceFloatingLocator,
-): string {
-  return `[
-    a sflo:RepositorySourceFloatingLocator ;
-    sflo:sourceRepositoryUrl ${JSON.stringify(locator.repositoryUrl)} ;
-    sflo:sourceRepositoryPathFromRoot ${
-    JSON.stringify(locator.repositoryPathFromRoot)
-  }
-  ]`;
 }
 
 function toRootDesignatorPath(designatorPath: string): string {
