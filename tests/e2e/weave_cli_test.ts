@@ -167,9 +167,20 @@ Deno.test("WEAVE_TIMING emits aggregate timings to stderr", async () => {
     stderr,
   );
   assert(
+    stderr.includes("[timing] weave.prepare.loop.loadCandidates.candidate"),
+    stderr,
+  );
+  assert(
+    stderr.includes(
+      "[timing] weave.generate.collectGeneratedPageFiles.loadDesignatorContexts",
+    ),
+    stderr,
+  );
+  assert(
     stderr.includes("[timing] weave.total"),
     stderr,
   );
+  assert(stderr.includes("candidateCacheStores="), stderr);
   assert(
     stderr.includes('status="succeeded"'),
     stderr,

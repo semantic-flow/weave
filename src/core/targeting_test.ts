@@ -1,7 +1,9 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import {
+  findUncoveredRequestedTargets,
   normalizeTargetSpecs,
   normalizeVersionTargetSpecs,
+  prepareWeaveTargets,
   resolveTargetSelections,
 } from "./targeting.ts";
 import { WeaveInputError } from "./weave/weave.ts";
@@ -208,4 +210,67 @@ Deno.test("normalizeTargetSpecs rejects ambiguous duplicate target paths", () =>
     WeaveInputError,
     "ambiguous duplicate designatorPath",
   );
+});
+
+Deno.test("findUncoveredRequestedTargets requires exact targets to be covered directly", () => {
+  const targets = normalizeVersionTargetSpecs(
+    [
+      { designatorPath: "alice" },
+      { designatorPath: "alice/bio" },
+    ],
+    "targets",
+    createError,
+  );
+
+  assertEquals(
+    findUncoveredRequestedTargets(targets, ["alice/bio"]).map((target) =>
+      target.designatorPath
+    ),
+    ["alice"],
+  );
+});
+
+Deno.test("findUncoveredRequestedTargets lets recursive targets be covered by descendants", () => {
+  const targets = normalizeVersionTargetSpecs(
+    [{ designatorPath: "alice", recursive: true }],
+    "targets",
+    createError,
+  );
+
+  assertEquals(
+    findUncoveredRequestedTargets(targets, ["alice/bio"]),
+    [],
+  );
+});
+
+Deno.test("prepareWeaveTargets derives coherent version and shared phase targets", () => {
+  const prepared = prepareWeaveTargets(
+    [{
+      designatorPath: "alice/bio",
+      historySegment: "releases",
+      stateSegment: "v0.0.1",
+      manifestationSegment: "ttl",
+    }],
+    "request.targets",
+    createError,
+  );
+
+  assertEquals(prepared.versionTargets, [{
+    source: {
+      designatorPath: "alice/bio",
+      historySegment: "releases",
+      stateSegment: "v0.0.1",
+      manifestationSegment: "ttl",
+    },
+    designatorPath: "alice/bio",
+    recursive: false,
+    historySegment: "releases",
+    stateSegment: "v0.0.1",
+    manifestationSegment: "ttl",
+  }]);
+  assertEquals(prepared.sharedTargets.map((target) => target.source), [
+    { designatorPath: "" },
+    { designatorPath: "alice" },
+    { designatorPath: "alice/bio" },
+  ]);
 });

@@ -2,81 +2,89 @@
 id: wlo29fbckg2hkue5zu32lqs
 title: Codebase Overview
 desc: ''
-updated: 1775265585659
+updated: 1779479265715
 created: 1773673181726
 ---
 
-## Packages
+## Purpose
 
-### core
-  semantic operations and domain rules
-  mesh create, knop create, integrate, payload update, version, validate, generate, extract, weave
-  request/result types shared by all callers
-  shared designator normalization now treats `/` as a CLI-only root sentinel and `""` as the internal root designator path, including root-aware target selection and support-artifact path derivation
-  `core/weave` has started splitting focused planners out of the large façade module; mesh support ResourcePage catch-up planning now lives in `mesh_support_pages.ts`, while `weave.ts` keeps the public re-export surface for existing runtime, CLI, and test imports
-  first Knop, first payload, and first extracted-Knop weave planning now resolve MeshInventory current/latest/next progression from `_mesh/_meta` instead of mutable current pointers in `_mesh/_inventory`; `_mesh/_inventory` keeps stable artifact-history and historical-state membership facts while `_mesh/_meta` advances `sflo:latestHistoricalState`, `sflo:nextStateOrdinal`, and consumed next-state hints
-  current carried slices: `mesh create` request validation/support-artifact rendering, `knop create` planning over an existing mesh inventory, the first narrow `integrate` planning slice for `05-alice-knop-created-woven` -> `06-alice-bio-integrated`, the first narrow `knop add-reference` planning slice for `07-alice-bio-integrated-woven` -> `08-alice-bio-referenced`, the first narrow `payload.update` planning slice for `09-alice-bio-referenced-woven` -> `10-alice-bio-updated`, `extract` planning for both Alice Bio `11-alice-bio-v2-woven` -> `12-bob-extracted` and Fantasy Rules sidecar `07-shacl-integrated-woven` -> `08-ontology-and-shacl-terms-extracted`, and carried `weave` planning slices through Alice Bio `13-bob-extracted-woven` plus Fantasy Rules sidecar `15-first-release-woven`
+This note is a short map of the Weave repository. It should help a developer decide where to look before editing. It is not a changelog, task log, release note, or fixture history.
 
-### runtime
-  local workspace execution
-  filesystem, git, RDF loading, page generation, config, locking hooks
-  job execution primitives, but not HTTP
-  includes first-pass Deno-native structured operational and audit logging
-  persistent config direction is RDF, probably JSON-LD, and should remain queryable via SPARQL
-  `runtime/config` now carries the first default effective-config seam: it loads Weave default RDF, resolves artifact-role history and ResourcePage policies, parses historical ResourcePage regeneration policy, parses default payload history/state/manifestation naming policies, parses the default config-resolution profile, and models first-pass Knop inherited-config propagation controls without changing fixture-backed behavior yet
-  runtime inventory discovery, workspace loaders, and page rendering now carry the root designator path as a first-class resource when a root Knop exists at `_knop`
-  runtime weave planning now passes Weave's default effective support-history and payload naming policies into version planning, letting first Knop and first payload weave outputs keep `_knop/_meta` current-only while preserving payload and inventory history behavior and keeping ordinal payload paths as the configured default
-  runtime weave planning now passes current MeshMetadata into version planning so core can use `_mesh/_meta` as the MeshInventory progression source for the first `_mesh/_meta` migration seam
-  runtime page generation and versioned inventory rendering now filter `sflo:hasResourcePage` candidates through the effective resource-page generation policy by owning artifact role, using stable history/state membership rather than mutable current/latest pointers, so `generate`, `suppress`, `defer`, and explicit-target `onRequest` have a materialization seam independent of history policy without leaving suppressed page promises in inventory
-  current carried slices: local filesystem materialization for `mesh create`, `knop create`, `knop add-reference`, the first local `integrate` pass over an existing workspace payload file, the first local `payload.update` pass over an already woven payload artifact, local `extract` passes that can either fail closed against one inferred woven payload source or use an explicit source designator for docs-rooted sidecar meshes, all-terms extraction with opt-in source ReferenceLinks for newly extracted terms, the first local `validate` / `version` / `generate` runtime seams under `runtime/weave`, and carried local `weave` passes over existing workspaces with a shared runtime ResourcePage renderer seam. Extracted-resource weave now covers Bob plus the Fantasy Rules sidecar term set; named-release weave covers the Fantasy Rules `releases/v0.0.1/ttl` paths by starting explicit payload histories on already-versioned artifacts while preserving ordinal history counters and state fallback counters. Named-state histories fail closed on later omitted state naming, while broad payload segment defaults can still be supplied for all included payload artifacts.
-  current logging slice: narrow Kato-inspired `LogRecord` / sink / `StructuredLogger` / `AuditLogger` JSONL layer
+For development rules, start with [[wd.general-guidance]]. For testing posture, use [[wd.testing]]. For decisions, use [[wd.decision-log]]. For detailed historical context, use the task and completed-task notes in the weave-dev archive.
 
-### daemon
-  HTTP implementation of the public API
-  Job resources, queueing, SSE, durable status, auth later
-  translates HTTP <-> core/runtime calls
-  current status: scaffold only, no daemon slice implemented yet
+## Repository Shape
 
-### cli
-  terminal UX only
-  first-pass command and interactive prompt surface uses Cliffy
-  remote mode: talks to daemon over HTTP
-  local mode: calls core/runtime directly
-  no separate semantic logic
-  designator-path inputs now normalize CLI `/` to the internal root designator representation before crossing into runtime/core
-  current carried slices: top-level local `weave` with repeatable `--target <key=value,...>` resource targeting plus version-oriented payload naming pass-through, standalone local `weave validate`, `weave version`, and `weave generate` entry points over the same shared seams, recursive batch versioning under the composed `weave` flow, plus local `weave mesh create`, `weave knop create`, `weave knop add-reference`, `weave integrate`, `weave payload update`, `weave extract`, and `weave set extraction-source`, all over shared core/runtime. `weave extract` supports docs-rooted sidecar meshes with `--mesh-root`, explicit working or exact source selection through `--source` / `--source-state`, and all-terms `--add-source-references --reference-role <role>` for newly extracted terms; `weave` and `weave version` payload naming can request explicit history/state/manifestation segments such as `releases`, `v0.0.1`, and `ttl` either as per-target fields or as broad `--payload-*` defaults for included payload artifacts.
-  current acceptance paths: black-box CLI execution checked against the `02-mesh-created`, `04-alice-knop-created`, `05-alice-knop-created-woven`, `06-alice-bio-integrated`, `07-alice-bio-integrated-woven`, `08-alice-bio-referenced`, `09-alice-bio-referenced-woven`, `10-alice-bio-updated`, `11-alice-bio-v2-woven`, `12-bob-extracted`, `13-bob-extracted-woven`, and Fantasy Rules sidecar `08-ontology-and-shacl-terms-extracted` / `09-ontology-and-shacl-terms-extracted-woven` Accord manifest scopes
+- `src/core`: semantic operation contracts and pure planning logic. Core code should avoid local filesystem, git, process, logging, and host-runtime assumptions.
+- `src/runtime`: local workspace execution. Runtime code loads files, reads git/workspace state, resolves effective config, logs, stages writes, and calls core planners.
+- `src/cli`: terminal UX. CLI code parses commands/options, normalizes user input, calls runtime, and formats output. It should not contain semantic planning logic.
+- `src/daemon`: future HTTP/API process. Scaffold only for now.
+- `src/web`: future browser client. Scaffold only for now.
+- `scripts`: release, packaging, fixture, and maintenance scripts.
+- `tests`: integration, e2e, script, support, and fixture-oriented tests. Unit tests usually live next to the source module they exercise.
+- `dependencies/github.com/semantic-flow/sflo`: embedded Semantic Flow ontology dependency used by implementation and tests.
+- `dependencies/github.com/semantic-flow/weave-dev-archive`: Kato/task archive. Keep durable developer docs in `documentation/notes/wd.*`; keep task history in the archive.
 
-### web app
-  browser client of daemon
-  current user-facing name: Shuttle
-  no semantic logic here either
-  current status: scaffold only, no web slice implemented yet
+## Core Layer
 
-## Current Bootstrap Status
+Core owns portable Semantic Flow behavior: request/result types, RDF/Turtle helpers, target semantics, and operation planners.
 
-- `deno.json` now defines the initial Deno project tasks for formatting, linting, type-checking, and tests.
-- `src/core`, `src/runtime`, `src/cli`, `src/daemon`, and `src/web` now exist under the intended flat `src/` boundary.
-- `tests/integration`, `tests/e2e`, `tests/support`, and `tests/fixtures` now exist as the first testing scaffold.
-- The first carried implementation slice is the local `mesh create` path matching the settled Alice Bio `01-source-only` -> `02-mesh-created` fixture state.
-- The second carried implementation slice is the local `knop create` path matching the settled Alice Bio `03-mesh-created-woven` -> `04-alice-knop-created` fixture state.
-- The third carried implementation slice is the local `integrate` path matching the settled Alice Bio `05-alice-knop-created-woven` -> `06-alice-bio-integrated` fixture state.
-- The fourth carried implementation slice is the local `weave` path matching the settled Alice Bio `06-alice-bio-integrated` -> `07-alice-bio-integrated-woven` fixture state.
-- The fifth carried implementation slice is the local `knop add-reference` path matching the settled Alice Bio `07-alice-bio-integrated-woven` -> `08-alice-bio-referenced` fixture state.
-- The sixth carried implementation slice is the local `weave` path matching the settled Alice Bio `08-alice-bio-referenced` -> `09-alice-bio-referenced-woven` fixture state.
-- The seventh carried implementation slice is the local `payload.update` path matching the settled Alice Bio `09-alice-bio-referenced-woven` -> `10-alice-bio-updated` fixture state.
-- The eighth carried implementation slice is the local `weave` path matching the settled Alice Bio `10-alice-bio-updated` -> `11-alice-bio-v2-woven` fixture state.
-- The ninth carried implementation slice is the local `extract` path matching the settled Alice Bio `11-alice-bio-v2-woven` -> `12-bob-extracted` fixture state.
-- The tenth carried implementation slice is the local `weave` path matching the settled Alice Bio `12-bob-extracted` -> `13-bob-extracted-woven` fixture state.
-- The current sidecar extract extension matches the settled Fantasy Rules `07-shacl-integrated-woven` -> `08-ontology-and-shacl-terms-extracted` fixture state.
-- The current sidecar extracted-term weave extension matches the Fantasy Rules `08-ontology-and-shacl-terms-extracted` -> `09-ontology-and-shacl-terms-extracted-woven` fixture state.
-- The current sidecar named-release weave extension matches the Fantasy Rules `14-first-release` -> `15-first-release-woven` fixture state.
-- The current carried `weave` slices are the local Alice Bio paths through `13-bob-extracted-woven` plus the Fantasy Rules sidecar `15-first-release-woven` path, including first-history creation for Knop support artifacts, first payload-artifact history creation, first ReferenceCatalog history creation on an already-versioned Knop surface, second payload-history creation on an already-versioned payload surface, extracted-resource support-artifact weave through source-registry `sfc:ExtractionSource`, recursive multi-target sidecar term weave, named payload histories on already-versioned payload artifacts, and generated HTML pages rendered through a shared runtime page seam.
-- `mesh create` now has a manifest-scoped black-box CLI acceptance test and thin framework example payloads.
-- `knop create` now resolves `meshBase` from existing mesh metadata, creates the first Knop support artifacts, and has a manifest-scoped black-box CLI acceptance test.
-- `knop add-reference` now resolves `meshBase` from existing mesh metadata, requires an explicit local `referenceRole`, creates the first Knop-owned `ReferenceCatalog` working file, updates the existing Knop inventory, and has manifest-scoped black-box CLI acceptance coverage for `08-alice-bio-referenced`.
-- `integrate` now resolves a local source path or `file:` URL into a mesh-relative working file path, creates the first payload-Knop support artifacts, updates MeshInventory, and automatically creates working-only Knop source registries for extra-mesh working sources with the internal `payload-source` binding id.
-- `payload.update` now resolves the existing working payload file from an already woven payload surface, stages replacement bytes from a local path or `file:` URL without changing the semantic mesh path, updates only `alice-bio.ttl` for the carried `10` slice, and has manifest-scoped black-box CLI acceptance coverage together with thin framework examples.
-- `extract` now resolves the target designator against exactly one woven payload artifact already present in the workspace, against an explicit working source payload designator with `--source`, or against an explicit exact historical source state with `--source-state`. It creates a new minimal Knop whose inventory points to `_knop/_sources/sources.ttl` for the `sfc:ExtractionSource` details, defaults that source binding to working resolution, leaves source payload bytes and existing source surfaces unchanged, preserves multi-payload mesh inventories by appending the extracted Knop facts, and has coverage for Alice Bio `12-bob-extracted` plus Fantasy Rules sidecar `08-ontology-and-shacl-terms-extracted`.
-- `weave` now runs as the top-level local CLI action, versions the first Alice Knop support artifacts, the first Alice Bio payload history surface, the first Alice ReferenceCatalog history surface, the second Alice Bio payload historical state, the first Bob extracted-support surface, and the first Fantasy Rules sidecar extracted-term support surfaces. It advances MeshInventory only where the public current surface changed, batches recursive target sets before writes, and generated extracted-term pages read source RDF from source-registry `sfc:ExtractionSource` contracts using either working or exact source resolution, including cases where a term such as `ontology/CharacterShape` is sourced from `shacl`.
-- Root designator support now treats `/` as the CLI spelling and `""` as the internal runtime/core value, including exact and recursive `--target` handling plus root-owned `_knop`, `_history001`, and `index.html` paths without leading slashes.
+- `src/core/targeting.ts` owns shared target selection semantics.
+- `src/core/rdf` owns local RDF/Turtle parsing and namespace helpers.
+- `src/core/mesh`, `src/core/knop`, `src/core/integrate`, `src/core/payload`, and `src/core/extract` own operation-specific pure planning.
+- `src/core/weave` owns shared weave/version/generate contracts and planner helpers.
+- `src/core/weave/weave.ts` is still the major pressure point. It remains the public façade for core weave imports, but it is being decomposed under [[wa.task.2026.2026-05-21_0849_careful-extraction-refactor]].
+- Already extracted core weave helpers include `errors.ts`, `version_plan.ts`, `mesh_support_pages.ts`, `requests.ts`, `source_models.ts`, `candidates.ts`, `planning_models.ts`, `progression_models.ts`, `progression_resolvers.ts`, `slices.ts`, `rdf_helpers.ts`, `turtle_blocks.ts`, `artifact_history_queries.ts`, `artifact_manifestation_paths.ts`, `slice_classification.ts`, `payload_version_layout.ts`, `payload_overwrite.ts`, `payload_renderers.ts`, `mesh_inventory_renderers.ts`, `knop_inventory_renderers.ts`, `legacy_page_renderers.ts`, `extraction_source_blocks.ts`, `knop_support_renderers.ts`, `shape_assertions.ts`, `source_locator_assertions.ts`, `source_locator_renderers.ts`, `support_history_renderers.ts`, `working_file_paths.ts`, `reference_catalog_links.ts`, `resource_page_builders.ts`, `resource_page_models.ts`, `resource_page_history_groups.ts`, `resource_page_policy.ts`, `resource_page_reference_links.ts`, `naming_policy.ts`, and `support_history_policy.ts`.
+
+## Runtime Layer
+
+Runtime owns local execution against a workspace: filesystem reads/writes, git-aware source resolution, effective config loading, structured logging, progress reporting, and command-scoped staging.
+
+- `src/runtime/config` loads and resolves effective runtime config from RDF.
+- `src/runtime/logging` provides structured operational and audit logging.
+- `src/runtime/operational/local_path_policy.ts` controls workspace-local path safety and allowed repo-adjacent access.
+- `src/runtime/weave/weave.ts` is the public runtime façade for validate/version/generate/weave.
+- `src/runtime/weave/prepared_execution.ts`, `candidate_loader.ts`, `planning_context.ts`, `artifact_loaders.ts`, `version_execution.ts`, and `request_normalization.ts` hold non-page-generation runtime weave execution pieces.
+- `src/runtime/weave/page_generation.ts`, `page_model_assembly.ts`, `page_contexts.ts`, `raw_source_panels.ts`, and `pages.ts` hold ResourcePage generation, model assembly, context loading, raw-source panels, and HTML rendering.
+- `WEAVE_TIMING=1` reports runtime phase timings; keep timing phase names stable during move-only refactors unless a task explicitly changes them.
+
+## CLI, Daemon, Web
+
+- `src/cli` currently exposes the useful application surface. Local commands call runtime directly.
+- The daemon and web app are placeholders for the future API/browser product and should not accumulate semantic logic before those slices are active.
+
+## Where To Change Things
+
+- Target parsing or exact/recursive selection: `src/core/targeting.ts`, then runtime/CLI normalization call sites.
+- Pure operation semantics or generated RDF shape: `src/core/**`.
+- Local file discovery, write behavior, or workspace safety: `src/runtime/**`.
+- Weave/version planning: start in `src/core/weave/weave.ts`, then move stable helpers out as part of the core weave decomposition task.
+- Runtime weave execution: `src/runtime/weave/**`.
+- Generated ResourcePage HTML: `src/runtime/weave/pages.ts`; supporting data comes from the page generation/context/model modules nearby.
+- Effective config behavior: `src/runtime/config/**`, plus core policy types under `src/core/weave/**` when the policy is portable.
+- CLI flags and output: `src/cli/**`.
+- Release, packaging, or fixture automation: `scripts/**` and `tests/scripts/**`.
+
+## Testing Map
+
+- `deno task fmt`: format project files.
+- `deno task lint`: lint scripts, source, and tests.
+- `deno task check`: type-check scripts, source, and tests.
+- `deno task test`: run the project test suite with the standard test harness and fixed generated timestamp.
+- `deno task ci`: pre-merge confidence path.
+- Use focused tests while iterating, then broaden according to the risk of the change. CLI-visible behavior needs e2e coverage; shared planner changes usually need core plus integration coverage.
+
+## Current Refactor Notes
+
+- Core weave planner decomposition: [[wa.task.2026.2026-05-21_0849_careful-extraction-refactor]].
+- Completed core weave model/type extraction slice: [[wa.completed.2026.2026-05-21_1037-core-weave-first-extraction-slice]].
+- Completed core weave RDF/Turtle helper extraction slice: [[wa.completed.2026.2026-05-22_1358-core-weave-rdf-and-turtle-helper-extraction]].
+- Completed core weave slice-classification extraction slice: [[wa.completed.2026.2026-05-22_1424-core-weave-slice-classification-extraction]].
+- Completed core weave payload renderer extraction slice: [[wa.completed.2026.2026-05-22_2252-payload-render-helpers]].
+- Completed core weave Knop support preservation extraction slice: [[wa.completed.2026.2026-05-22_2117-core-weave-knop-support-render-preservation-extraction]].
+- Completed core weave mesh inventory renderer extraction slice: [[wa.completed.2026.2026-05-22_2139-core-weave-mesh-inventory-renderer-extraction]].
+- Completed core weave KnopInventory renderer extraction slice: [[wa.completed.2026.2026-05-22_2206-core-weave-knop-inventory-renderer-extraction]].
+- Completed core weave legacy HTML page renderer extraction slice: [[wa.completed.2026.2026-05-22_2222-core-weave-html-page-renderer-extraction]].
+- Completed core weave source-registry ExtractionSource helper extraction slice: [[wa.completed.2026.2026-05-22_2239-source-registry-extraction-source-helper-extraction]].
+- Latest core weave progression resolver extraction slice: [[wa.task.2026.2026-05-22_2248-core-weave-progression-resolver-extraction]].
+- Runtime weave decomposition is complete: [[wa.completed.2026.2026-05-21_1035-runtime-weave-module-decomposition]].
+- Runtime ResourcePage generation decomposition is complete: [[wa.completed.2026.2026-05-21_1036-runtime-resource-page-generation-decomposition]].

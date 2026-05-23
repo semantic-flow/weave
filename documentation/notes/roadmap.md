@@ -26,7 +26,7 @@ created: 1773889263552
 - `[importance: medium] [how-soon: next]` Add Accord acceptance coverage for root lifecycle and customizable identifier pages on the carried ladder now that the behavior spec and initial non-root customization slices are already in place.
 - `[importance: medium] [how-soon: later]` Add reusable fixture helpers for root-sourced extract and page-customization scenarios so tests do not need to hand-build synthetic Turtle shapes repeatedly.
 - `[importance: medium] [how-soon: later]` Continue replacing raw designator-path concatenation and prefix checks with shared helpers from `src/core/designator_segments.ts` to reduce future root-path regressions.
-- `[importance: medium] [how-soon: later]` Replace remaining subject-level canonical rewrites with graph-preserving updates when richer mesh inventories and support surfaces are expected.
+- `[importance: medium] [how-soon: later]` Replace remaining inventory rewrites with append-onlyish inventory writes: append new settled facts, no-op existing facts, and fail closed on conflicting facts while keeping current/progression pointers in metadata or explicit repair/regeneration/retraction modes. See [[wa.task.2026.2026-05-17-append-onlyish-inventory]].
 - `[importance: medium] [how-soon: later]` Expand templating and chrome controls for generated pages, including per-page preferences and mesh-level defaults.
 - `[importance: low] [how-soon: later]` Add local and inheritable config once the artifact and page model is stable enough to justify configuration surface area.
 

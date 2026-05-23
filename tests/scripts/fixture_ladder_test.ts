@@ -1715,7 +1715,7 @@ async function setupSourceOnlyFileOperationFixture(options: {
     JSON.stringify(
       {
         "@context": {
-          "@vocab": "https://spectacular-voyage.github.io/accord/ns#",
+          "@vocab": "https://spectacular-voyage.github.io/accord/ontology/",
           id: "@id",
           type: "@type",
           changeType: { "@type": "@vocab" },
@@ -1752,7 +1752,7 @@ async function setupSourceOnlyFileOperationFixture(options: {
     JSON.stringify(
       {
         "@context": {
-          "@vocab": "https://spectacular-voyage.github.io/accord/ns#",
+          "@vocab": "https://spectacular-voyage.github.io/accord/ontology/",
           id: "@id",
           type: "@type",
           changeType: { "@type": "@vocab" },
