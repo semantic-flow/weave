@@ -161,6 +161,16 @@ export type {
   ResourcePageTextMetadataModel,
   SimpleResourcePageModel,
 } from "./resource_page_models.ts";
+export type {
+  ResourcePageTemplateDescriptor,
+  ResourcePageTemplateFragment,
+  ResourcePageTemplateFragmentsResult,
+  ResourcePageTemplatePageHtmlResult,
+  ResourcePageTemplateRenderRequest,
+  ResourcePageTemplateRenderResult,
+  ResourcePageTemplateRole,
+  ResourcePageTemplateSlot,
+} from "./resource_page_template_contract.ts";
 export type { RepositorySourceFloatingLocator } from "./source_models.ts";
 export type {
   GenerateRequest,
