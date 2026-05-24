@@ -42,7 +42,7 @@ This keeps the source checkout and mesh root in the same working tree. Extra-mes
 
 For a detached publication root, such as a generated `gh-pages` worktree, use the same mesh operations against the publication root instead of a special branch-publishing command. Create or open the mesh in the publication checkout, integrate each payload source with an explicit source policy, then run `weave`, `weave generate`, or `weave validate` for the intended publication step. The removed `weave prepare gh-pages` wrapper should not be used in new automation.
 
-For detached publication roots and other extra-mesh source files, `integrate` records a working-only source binding automatically. The important rule is that `weave` itself does not fetch repositories, copy source files into the publication root, apply host presets, or commit/push git refs; those are explicit setup, integration/import, profile, and CI/CD concerns.
+For detached publication roots and other extra-mesh source files, `integrate` records a working-only source binding automatically. The important rule is that `weave` itself does not fetch repositories, copy source files into the publication root, apply host presets, or commit/push git refs; those are explicit setup, `integrate`, future import, profile, and CI/CD concerns.
 
 ## Target syntax
 
