@@ -205,7 +205,7 @@ Deno.test("resolvePayloadArtifactInventoryState tracks a missing ArtifactHistory
   );
 });
 
-Deno.test("resolveExtractionSourceInventoryState returns source registry observed source evidence", () => {
+Deno.test("resolveExtractionSourceInventoryState returns source registry observed target evidence", () => {
   const inventoryTurtle =
     `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
@@ -228,11 +228,14 @@ Deno.test("resolveExtractionSourceInventoryState returns source registry observe
 <bob/_knop/_sources#extraction-source> a sflo:ExtractionSource ;
   sflo:hasTargetArtifact <alice/bio> ;
   sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> ;
-  sflo:hasObservedSourceState <alice/bio/_history001/_s0002> ;
-  sflo:hasObservedSourceManifestation <alice/bio/_history001/_s0002/ttl> ;
-  sflo:hasObservedSourceLocatedFile <alice/bio/_history001/_s0002/ttl/alice-bio.ttl> ;
-  sflo:observedSourceLocalRelativePath "../alice-bio.ttl" ;
-  sflo:observedSourceDigest "sha256:abc123" .
+  sflo:hasResolutionObservation <bob/_knop/_sources#extraction-source-observation-001> .
+
+<bob/_knop/_sources#extraction-source-observation-001> a sflo:ArtifactResolutionObservation ;
+  sflo:hasObservedTargetState <alice/bio/_history001/_s0002> ;
+  sflo:hasObservedTargetManifestation <alice/bio/_history001/_s0002/ttl> ;
+  sflo:hasObservedTargetLocatedFile <alice/bio/_history001/_s0002/ttl/alice-bio.ttl> ;
+  sflo:observedTargetLocalRelativePath "../alice-bio.ttl" ;
+  sflo:observedContentDigest "sha256:abc123" .
 `;
 
   assertEquals(
@@ -362,8 +365,11 @@ Deno.test("resolveReferenceTargetDesignatorPath accepts semantically equivalent 
 <alice/_knop/_references#reference001> rdf:type sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
   sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_supplemental> ;
-  sflo:referenceTarget <alice/bio> ;
-  sflo:referenceTargetState <alice/bio/_history001/_s0002> .
+  sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
+
+<alice/_knop/_references#reference001-source> rdf:type sflo:ReferenceSource ;
+  sflo:hasTargetArtifact <alice/bio> ;
+  sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> .
 `,
       "alice",
       {
@@ -389,8 +395,11 @@ Deno.test("resolveReferenceTargetLinkState returns the exact target state", () =
 <alice/_knop/_references#reference001> rdf:type sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
   sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_supplemental> ;
-  sflo:referenceTarget <alice/bio> ;
-  sflo:referenceTargetState <alice/bio/_history001/_s0002> .
+  sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
+
+<alice/_knop/_references#reference001-source> rdf:type sflo:ReferenceSource ;
+  sflo:hasTargetArtifact <alice/bio> ;
+  sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> .
 `,
       "alice",
       {
@@ -419,7 +428,10 @@ Deno.test("tryResolveReferenceTargetLinkState returns undefined for broad links"
 <alice/_knop/_references#reference001> rdf:type sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
   sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_supplemental> ;
-  sflo:referenceTarget <alice/bio> .
+  sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
+
+<alice/_knop/_references#reference001-source> rdf:type sflo:ReferenceSource ;
+  sflo:hasTargetArtifact <alice/bio> .
 `,
       "alice",
       {
@@ -442,13 +454,16 @@ Deno.test("resolveReferenceTargetDesignatorPath ignores unrelated catalog fragme
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
-<alice/_knop/_references#note> sflo:referenceTarget <carol/bio> .
+<alice/_knop/_references#note-source> sflo:hasTargetArtifact <carol/bio> .
 
 <alice/_knop/_references#reference001> rdf:type sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
   sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_supplemental> ;
-  sflo:referenceTarget <alice/bio> ;
-  sflo:referenceTargetState <alice/bio/_history001/_s0002> .
+  sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
+
+<alice/_knop/_references#reference001-source> rdf:type sflo:ReferenceSource ;
+  sflo:hasTargetArtifact <alice/bio> ;
+  sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> .
 `,
       "alice",
       {

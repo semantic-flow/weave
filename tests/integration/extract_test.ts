@@ -119,8 +119,11 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
 <bob/_knop/_sources#extraction-source> a sflo:ExtractionSource ;
   sflo:hasTargetArtifact <alice/bio> ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> ;
-  sflo:hasObservedSourceLocatedFile <alice-bio.ttl> ;
-  sflo:observedSourceDigest "sha256:37c15e56644d785a550522d7700eccd9465704f18cf4b4e55616db8b8824ea33" .
+  sflo:hasResolutionObservation <bob/_knop/_sources#extraction-source-observation-001> .
+
+<bob/_knop/_sources#extraction-source-observation-001> a sflo:ArtifactResolutionObservation ;
+  sflo:hasObservedTargetLocatedFile <alice-bio.ttl> ;
+  sflo:observedContentDigest "sha256:37c15e56644d785a550522d7700eccd9465704f18cf4b4e55616db8b8824ea33" .
 
 <bob/_knop/_sources/sources.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 `,
@@ -253,9 +256,9 @@ Deno.test("executeExtract omits local path evidence for floating repository sour
   const sourcesTurtle = await Deno.readTextFile(
     join(workspaceRoot, "bob/_knop/_sources/sources.ttl"),
   );
-  assertStringIncludes(sourcesTurtle, "sflo:observedSourceDigest");
+  assertStringIncludes(sourcesTurtle, "sflo:observedContentDigest");
   assertFalse(
-    sourcesTurtle.includes("sflo:observedSourceLocalRelativePath"),
+    sourcesTurtle.includes("sflo:observedTargetLocalRelativePath"),
     sourcesTurtle,
   );
   assertFalse(sourcesTurtle.includes(sourceRoot), sourcesTurtle);
@@ -485,9 +488,13 @@ Deno.test("executeExtractAllTerms creates source references only for newly extra
   );
   assertStringIncludes(
     bobReferencesTurtle,
-    "sflo:referenceTarget <alice/bio> .",
+    "sflo:hasReferenceSource <bob/_knop/_references#reference001-source> .",
   );
-  assertFalse(bobReferencesTurtle.includes("sflo:referenceTargetState"));
+  assertStringIncludes(
+    bobReferencesTurtle,
+    "sflo:hasTargetArtifact <alice/bio> .",
+  );
+  assertFalse(bobReferencesTurtle.includes("sflo:hasRequestedTargetState"));
   assertStringIncludes(
     await Deno.readTextFile(
       join(workspaceRoot, "bob/_knop/_inventory/inventory.ttl"),
@@ -565,7 +572,7 @@ Deno.test("executeExtractAllTerms records exact source references when extractin
   );
   assertStringIncludes(
     referencesTurtle,
-    "sflo:referenceTarget <alice/bio> ;\n  sflo:referenceTargetState <alice/bio/_history001/_s0002> .",
+    "sflo:hasTargetArtifact <alice/bio> ;\n  sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> .",
   );
 });
 

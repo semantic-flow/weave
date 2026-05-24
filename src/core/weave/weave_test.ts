@@ -630,7 +630,10 @@ const firstReferenceCatalogWeaveReferenceCatalogTurtle =
 <alice/_knop/_references#reference001> a sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
   sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_canonical> ;
-  sflo:referenceTarget <alice/bio> .
+  sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
+
+<alice/_knop/_references#reference001-source> a sflo:ReferenceSource ;
+  sflo:hasTargetArtifact <alice/bio> .
 `;
 
 const secondPayloadWeaveKnopInventoryTurtle =
@@ -1865,13 +1868,20 @@ Deno.test("planWeave accepts semantically equivalent first reference-catalog wea
     `<alice/_knop/_references#reference001> a sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
   sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_canonical> ;
-  sflo:referenceTarget <alice/bio> .
+  sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
+
+<alice/_knop/_references#reference001-source> a sflo:ReferenceSource ;
+  sflo:hasTargetArtifact <alice/bio> .
 `,
     `<alice/_knop/_references#reference001>
-  sflo:referenceTarget <alice/bio> ;
   rdf:type sflo:ReferenceLink ;
   sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_canonical> ;
+  sflo:hasReferenceSource <alice/_knop/_references#reference001-source> ;
   sflo:referenceLinkFor <alice> .
+
+<alice/_knop/_references#reference001-source>
+  sflo:hasTargetArtifact <alice/bio> ;
+  rdf:type sflo:ReferenceSource .
 `,
   );
 
@@ -2785,10 +2795,13 @@ Deno.test("planWeave records exact extracted bob source state during weave", asy
     plan.updatedFiles[2]?.contents ?? "",
     `sflo:hasTargetArtifact <alice/bio> ;
   sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> ;
-  sflo:hasObservedSourceState <alice/bio/_history001/_s0002> ;
-  sflo:hasObservedSourceManifestation <alice/bio/_history001/_s0002/ttl> ;
-  sflo:hasObservedSourceLocatedFile <alice/bio/_history001/_s0002/ttl/alice-bio.ttl> ;
-  sflo:observedSourceDigest "${sourceDigest}" .`,
+  sflo:hasResolutionObservation <bob/_knop/_sources#extraction-source-observation-001> .
+
+<bob/_knop/_sources#extraction-source-observation-001> a sflo:ArtifactResolutionObservation ;
+  sflo:hasObservedTargetState <alice/bio/_history001/_s0002> ;
+  sflo:hasObservedTargetManifestation <alice/bio/_history001/_s0002/ttl> ;
+  sflo:hasObservedTargetLocatedFile <alice/bio/_history001/_s0002/ttl/alice-bio.ttl> ;
+  sflo:observedContentDigest "${sourceDigest}" .`,
   );
 });
 

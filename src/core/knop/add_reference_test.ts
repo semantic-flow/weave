@@ -205,10 +205,19 @@ Deno.test("planKnopAddReference renders first reference catalog support artifact
   );
   assertEquals(
     plan.createdFiles[0]?.contents ?? "",
-    await readMeshAliceBioBranchFile(
-      "08-alice-bio-referenced",
-      "alice/_knop/_references/references.ttl",
-    ),
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<alice> sflo:hasReferenceLink <alice/_knop/_references#reference001> .
+
+<alice/_knop/_references#reference001> a sflo:ReferenceLink ;
+  sflo:referenceLinkFor <alice> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_canonical> ;
+  sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
+
+<alice/_knop/_references#reference001-source> a sflo:ReferenceSource ;
+  sflo:hasTargetArtifact <alice/bio> .
+`,
   );
   assertEquals(
     plan.updatedFiles[0]?.contents ?? "",
@@ -235,7 +244,7 @@ Deno.test("planKnopAddReference can pin a reference target state", () => {
   );
   assertStringIncludes(
     plan.createdFiles[0]?.contents ?? "",
-    "sflo:referenceTarget <alice/bio> ;\n  sflo:referenceTargetState <alice/bio/_history001/_s0002> .",
+    "sflo:hasTargetArtifact <alice/bio> ;\n  sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> .",
   );
 });
 

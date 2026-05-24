@@ -20,16 +20,19 @@ const SFLO_HAS_KNOP_SOURCE_REGISTRY_IRI =
 const SFLO_HAS_REQUESTED_TARGET_STATE_IRI =
   `${SFLO_NAMESPACE}hasRequestedTargetState`;
 const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasTargetArtifact`;
-const SFLO_HAS_OBSERVED_SOURCE_LOCATED_FILE_IRI =
-  `${SFLO_NAMESPACE}hasObservedSourceLocatedFile`;
-const SFLO_OBSERVED_SOURCE_LOCAL_RELATIVE_PATH_IRI =
-  `${SFLO_NAMESPACE}observedSourceLocalRelativePath`;
-const SFLO_HAS_OBSERVED_SOURCE_MANIFESTATION_IRI =
-  `${SFLO_NAMESPACE}hasObservedSourceManifestation`;
-const SFLO_HAS_OBSERVED_SOURCE_STATE_IRI =
-  `${SFLO_NAMESPACE}hasObservedSourceState`;
-const SFLO_OBSERVED_SOURCE_DIGEST_IRI = `${SFLO_NAMESPACE}observedSourceDigest`;
+const SFLO_HAS_OBSERVED_TARGET_LOCATED_FILE_IRI =
+  `${SFLO_NAMESPACE}hasObservedTargetLocatedFile`;
+const SFLO_OBSERVED_TARGET_LOCAL_RELATIVE_PATH_IRI =
+  `${SFLO_NAMESPACE}observedTargetLocalRelativePath`;
+const SFLO_HAS_OBSERVED_TARGET_MANIFESTATION_IRI =
+  `${SFLO_NAMESPACE}hasObservedTargetManifestation`;
+const SFLO_HAS_OBSERVED_TARGET_STATE_IRI =
+  `${SFLO_NAMESPACE}hasObservedTargetState`;
+const SFLO_OBSERVED_CONTENT_DIGEST_IRI =
+  `${SFLO_NAMESPACE}observedContentDigest`;
 const SFLO_OBSERVED_AT_IRI = `${SFLO_NAMESPACE}observedAt`;
+const SFLO_HAS_RESOLUTION_OBSERVATION_IRI =
+  `${SFLO_NAMESPACE}hasResolutionObservation`;
 const SFLO_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}ArtifactHistory`;
 const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
   `${SFLO_NAMESPACE}currentArtifactHistory`;
@@ -53,8 +56,7 @@ const SFLO_LATEST_HISTORICAL_STATE_IRI =
 const SFLO_LOCATED_FILE_FOR_STATE_IRI = `${SFLO_NAMESPACE}locatedFileForState`;
 const SFLO_REFERENCE_LINK_FOR_IRI = `${SFLO_NAMESPACE}referenceLinkFor`;
 const SFLO_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}ReferenceLink`;
-const SFLO_REFERENCE_TARGET_IRI = `${SFLO_NAMESPACE}referenceTarget`;
-const SFLO_REFERENCE_TARGET_STATE_IRI = `${SFLO_NAMESPACE}referenceTargetState`;
+const SFLO_HAS_REFERENCE_SOURCE_IRI = `${SFLO_NAMESPACE}hasReferenceSource`;
 const SFLO_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFLO_NAMESPACE}hasKnopAssetBundle`;
 const SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI =
   `${SFLO_NAMESPACE}hasResourcePageDefinition`;
@@ -433,42 +435,52 @@ function resolveExtractionSourceEvidenceState(
   | "requestedTargetStatePath"
   | "artifactResolutionModeIri"
 > {
+  const observationIri = resolveOptionalUniqueNamedNodeIri(
+    quads,
+    extractionSourceIri,
+    SFLO_HAS_RESOLUTION_OBSERVATION_IRI,
+    errorMessage,
+  );
+  if (observationIri === undefined) {
+    return {};
+  }
+
   const observedSourceStatePath = resolveOptionalUniqueNamedNodePath(
     quads,
     meshBase,
-    extractionSourceIri,
-    SFLO_HAS_OBSERVED_SOURCE_STATE_IRI,
+    observationIri,
+    SFLO_HAS_OBSERVED_TARGET_STATE_IRI,
     errorMessage,
   );
   const observedSourceManifestationPath = resolveOptionalUniqueNamedNodePath(
     quads,
     meshBase,
-    extractionSourceIri,
-    SFLO_HAS_OBSERVED_SOURCE_MANIFESTATION_IRI,
+    observationIri,
+    SFLO_HAS_OBSERVED_TARGET_MANIFESTATION_IRI,
     errorMessage,
   );
   const observedSourceLocatedFilePath = resolveOptionalUniqueNamedNodePath(
     quads,
     meshBase,
-    extractionSourceIri,
-    SFLO_HAS_OBSERVED_SOURCE_LOCATED_FILE_IRI,
+    observationIri,
+    SFLO_HAS_OBSERVED_TARGET_LOCATED_FILE_IRI,
     errorMessage,
   );
   const observedSourceLocalRelativePath = resolveOptionalUniqueLiteral(
     quads,
-    extractionSourceIri,
-    SFLO_OBSERVED_SOURCE_LOCAL_RELATIVE_PATH_IRI,
+    observationIri,
+    SFLO_OBSERVED_TARGET_LOCAL_RELATIVE_PATH_IRI,
     errorMessage,
   );
   const observedSourceDigest = resolveOptionalUniqueLiteral(
     quads,
-    extractionSourceIri,
-    SFLO_OBSERVED_SOURCE_DIGEST_IRI,
+    observationIri,
+    SFLO_OBSERVED_CONTENT_DIGEST_IRI,
     errorMessage,
   );
   const observedAt = resolveOptionalUniqueLiteral(
     quads,
-    extractionSourceIri,
+    observationIri,
     SFLO_OBSERVED_AT_IRI,
     errorMessage,
   );
@@ -670,11 +682,10 @@ export function tryResolveReferenceTargetLinkState(
       continue;
     }
     if (
-      !resolveOptionalUniqueNamedNodePath(
+      !resolveOptionalUniqueNamedNodeIri(
         quads,
-        meshBase,
         subjectIri,
-        SFLO_REFERENCE_TARGET_STATE_IRI,
+        SFLO_HAS_REFERENCE_SOURCE_IRI,
         messages.missingReferenceLinkMessage,
       )
     ) {
@@ -690,31 +701,33 @@ export function tryResolveReferenceTargetLinkState(
 
   const referenceTargetPaths = new Set<string>();
   const referenceTargetStatePaths = new Set<string>();
-  for (const quad of quads) {
-    if (
-      quad.subject.termType !== "NamedNode" ||
-      !linkSubjects.has(quad.subject.value) ||
-      quad.predicate.value !== SFLO_REFERENCE_TARGET_IRI ||
-      quad.object.termType !== "NamedNode"
-    ) {
+  for (const subjectIri of linkSubjects) {
+    const referenceSourceIri = resolveOptionalUniqueNamedNodeIri(
+      quads,
+      subjectIri,
+      SFLO_HAS_REFERENCE_SOURCE_IRI,
+      messages.missingReferenceLinkMessage,
+    );
+    if (referenceSourceIri === undefined) {
       continue;
     }
 
-    referenceTargetPaths.add(
-      requireMeshPath(
-        meshBase,
-        quad.object.value,
-        messages.missingReferenceTargetMessage,
-      ),
+    const referenceTargetPath = resolveOptionalUniqueNamedNodePath(
+      quads,
+      meshBase,
+      referenceSourceIri,
+      SFLO_HAS_TARGET_ARTIFACT_IRI,
+      messages.missingReferenceTargetMessage,
     );
-  }
+    if (referenceTargetPath) {
+      referenceTargetPaths.add(referenceTargetPath);
+    }
 
-  for (const subjectIri of linkSubjects) {
     const referenceTargetStatePath = resolveOptionalUniqueNamedNodePath(
       quads,
       meshBase,
-      subjectIri,
-      SFLO_REFERENCE_TARGET_STATE_IRI,
+      referenceSourceIri,
+      SFLO_HAS_REQUESTED_TARGET_STATE_IRI,
       messages.missingReferenceLinkMessage,
     );
     if (referenceTargetStatePath) {
@@ -724,6 +737,9 @@ export function tryResolveReferenceTargetLinkState(
 
   if (referenceTargetPaths.size !== 1) {
     throw new Error(messages.missingReferenceTargetMessage);
+  }
+  if (referenceTargetStatePaths.size === 0) {
+    return undefined;
   }
   if (referenceTargetStatePaths.size !== 1) {
     throw new Error(messages.missingReferenceLinkMessage);

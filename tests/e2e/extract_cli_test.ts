@@ -217,8 +217,11 @@ Deno.test("weave extract accepts the root designator path as a black-box CLI run
 <_knop/_sources#extraction-source> a sflo:ExtractionSource ;
   sflo:hasTargetArtifact <alice/bio> ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> ;
-  sflo:hasObservedSourceLocatedFile <alice-bio-root.ttl> ;
-  sflo:observedSourceDigest "sha256:b1a7a70dd0f77e16544d0194b12e1bc9993d21470dfba3633bb8ae113834917d" .
+  sflo:hasResolutionObservation <_knop/_sources#extraction-source-observation-001> .
+
+<_knop/_sources#extraction-source-observation-001> a sflo:ArtifactResolutionObservation ;
+  sflo:hasObservedTargetLocatedFile <alice-bio-root.ttl> ;
+  sflo:observedContentDigest "sha256:b1a7a70dd0f77e16544d0194b12e1bc9993d21470dfba3633bb8ae113834917d" .
 
 <_knop/_sources/sources.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 `,
@@ -310,8 +313,11 @@ Deno.test("weave extract supports docs-rooted sidecar meshes with an explicit so
 <ontology/CharacterShape/_knop/_sources#extraction-source> a sflo:ExtractionSource ;
   sflo:hasTargetArtifact <shacl> ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> ;
-  sflo:observedSourceLocalRelativePath "../shacl/fantasy-rules-shacl.ttl" ;
-  sflo:observedSourceDigest "sha256:349f1ad30fb4b2f20cc9c9e5f6febae09c6adb2148bc6b62c81905c9da9cc011" .
+  sflo:hasResolutionObservation <ontology/CharacterShape/_knop/_sources#extraction-source-observation-001> .
+
+<ontology/CharacterShape/_knop/_sources#extraction-source-observation-001> a sflo:ArtifactResolutionObservation ;
+  sflo:observedTargetLocalRelativePath "../shacl/fantasy-rules-shacl.ttl" ;
+  sflo:observedContentDigest "sha256:349f1ad30fb4b2f20cc9c9e5f6febae09c6adb2148bc6b62c81905c9da9cc011" .
 
 <ontology/CharacterShape/_knop/_sources/sources.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 `,
@@ -429,7 +435,13 @@ Deno.test("weave extract --all-terms creates source references with explicit rol
     referencesTurtle,
   );
   assert(
-    referencesTurtle.includes("sflo:referenceTarget <alice/bio> ."),
+    referencesTurtle.includes(
+      "sflo:hasReferenceSource <dave/_knop/_references#reference001-source> .",
+    ),
+    referencesTurtle,
+  );
+  assert(
+    referencesTurtle.includes("sflo:hasTargetArtifact <alice/bio> ."),
     referencesTurtle,
   );
 });

@@ -17,6 +17,13 @@ export function replaceExtractionSourceBlock(
 
   const nextBlocks = [...blocks];
   nextBlocks[blockIndex] = replacementBlock;
+  const staleObservationIndex = findSubjectBlockIndex(
+    nextBlocks,
+    `${extractionSourcePath}-observation-001`,
+  );
+  if (staleObservationIndex !== -1 && staleObservationIndex !== blockIndex) {
+    nextBlocks.splice(staleObservationIndex, 1);
+  }
   return `${nextBlocks.join("\n\n")}\n`;
 }
 
@@ -26,55 +33,70 @@ export function renderExactExtractionSourceBlock(
   sourceStatePath: string,
   sourceEvidence: ExtractionSourceEvidenceModel | undefined,
 ): string {
+  const observationPath = `${extractionSourcePath}-observation-001`;
   const facts: [string, string][] = [
     ["sflo:hasTargetArtifact", `<${sourceDesignatorPath}>`],
     ["sflo:hasRequestedTargetState", `<${sourceStatePath}>`],
-    ...toExtractionSourceEvidenceFacts(sourceEvidence),
+    ...(sourceEvidence
+      ? [["sflo:hasResolutionObservation", `<${observationPath}>`] as [
+        string,
+        string,
+      ]]
+      : []),
   ];
 
-  return `<${extractionSourcePath}> a sflo:ExtractionSource ;
+  const sourceBlock = `<${extractionSourcePath}> a sflo:ExtractionSource ;
 ${
     facts.map(([predicate, object], index) =>
       `  ${predicate} ${object}${index === facts.length - 1 ? " ." : " ;"}`
     ).join("\n")
   }`;
+
+  const observationBlock = renderExtractionSourceObservationBlock(
+    observationPath,
+    sourceEvidence,
+  );
+  return observationBlock
+    ? `${sourceBlock}\n\n${observationBlock}`
+    : sourceBlock;
 }
 
-function toExtractionSourceEvidenceFacts(
+function renderExtractionSourceObservationBlock(
+  observationPath: string,
   sourceEvidence: ExtractionSourceEvidenceModel | undefined,
-): [string, string][] {
+): string | undefined {
   if (!sourceEvidence) {
-    return [];
+    return undefined;
   }
 
   const facts: [string, string][] = [];
   if (sourceEvidence.sourceStatePath !== undefined) {
     facts.push([
-      "sflo:hasObservedSourceState",
+      "sflo:hasObservedTargetState",
       `<${sourceEvidence.sourceStatePath}>`,
     ]);
   }
   if (sourceEvidence.sourceManifestationPath !== undefined) {
     facts.push([
-      "sflo:hasObservedSourceManifestation",
+      "sflo:hasObservedTargetManifestation",
       `<${sourceEvidence.sourceManifestationPath}>`,
     ]);
   }
   if (sourceEvidence.sourceLocatedFilePath !== undefined) {
     facts.push([
-      "sflo:hasObservedSourceLocatedFile",
+      "sflo:hasObservedTargetLocatedFile",
       `<${sourceEvidence.sourceLocatedFilePath}>`,
     ]);
   }
   if (sourceEvidence.sourceLocalRelativePath !== undefined) {
     facts.push([
-      "sflo:observedSourceLocalRelativePath",
+      "sflo:observedTargetLocalRelativePath",
       `"${escapeTurtleString(sourceEvidence.sourceLocalRelativePath)}"`,
     ]);
   }
   if (sourceEvidence.sourceDigest !== undefined) {
     facts.push([
-      "sflo:observedSourceDigest",
+      "sflo:observedContentDigest",
       `"${escapeTurtleString(sourceEvidence.sourceDigest)}"`,
     ]);
   }
@@ -85,7 +107,16 @@ function toExtractionSourceEvidenceFacts(
     ]);
   }
 
-  return facts;
+  if (facts.length === 0) {
+    return undefined;
+  }
+
+  return `<${observationPath}> a sflo:ArtifactResolutionObservation ;
+${
+    facts.map(([predicate, object], index) =>
+      `  ${predicate} ${object}${index === facts.length - 1 ? " ." : " ;"}`
+    ).join("\n")
+  }`;
 }
 
 function escapeTurtleString(value: string): string {

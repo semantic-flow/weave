@@ -810,10 +810,16 @@ function renderExtractKnopSourcesTurtle(
   const sourceRegistryPath = `${toKnopPath(designatorPath)}/_sources`;
   const sourcesFilePath = `${sourceRegistryPath}/sources.ttl`;
   const extractionSourcePath = `${sourceRegistryPath}#extraction-source`;
+  const observationPath = `${extractionSourcePath}-observation-001`;
   const extractionSourceFacts = renderExtractionSourceFacts(
+    extractionSourcePath,
     sourceDesignatorPath,
     sourceResolutionMode,
     sourceStatePath,
+    sourceEvidence,
+  );
+  const observationBlock = renderExtractionSourceObservationBlock(
+    observationPath,
     sourceEvidence,
   );
 
@@ -827,16 +833,22 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 <${extractionSourcePath}> a sflo:ExtractionSource ;
 ${extractionSourceFacts}
 
-<${sourcesFilePath}> a sflo:LocatedFile, sflo:RdfDocument .
+${
+    observationBlock
+      ? `${observationBlock}\n\n`
+      : ""
+  }<${sourcesFilePath}> a sflo:LocatedFile, sflo:RdfDocument .
 `;
 }
 
 function renderExtractionSourceFacts(
+  extractionSourcePath: string,
   sourceDesignatorPath: string,
   sourceResolutionMode: "working" | "exact",
   sourceStatePath: string | undefined,
   sourceEvidence: ExtractionSourceEvidence | undefined,
 ): string {
+  const observationPath = `${extractionSourcePath}-observation-001`;
   const facts: [string, string][] = [
     ["sflo:hasTargetArtifact", `<${sourceDesignatorPath}>`],
   ];
@@ -849,48 +861,51 @@ function renderExtractionSourceFacts(
       `<${SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI}>`,
     ]);
   }
-  facts.push(...toExtractionSourceEvidenceFacts(sourceEvidence));
+  if (sourceEvidence) {
+    facts.push(["sflo:hasResolutionObservation", `<${observationPath}>`]);
+  }
 
   return facts.map(([predicate, object], index) =>
     `  ${predicate} ${object}${index === facts.length - 1 ? " ." : " ;"}`
   ).join("\n");
 }
 
-function toExtractionSourceEvidenceFacts(
+function renderExtractionSourceObservationBlock(
+  observationPath: string,
   sourceEvidence: ExtractionSourceEvidence | undefined,
-): [string, string][] {
+): string | undefined {
   if (!sourceEvidence) {
-    return [];
+    return undefined;
   }
 
   const facts: [string, string][] = [];
   if (sourceEvidence.sourceStatePath !== undefined) {
     facts.push([
-      "sflo:hasObservedSourceState",
+      "sflo:hasObservedTargetState",
       `<${sourceEvidence.sourceStatePath}>`,
     ]);
   }
   if (sourceEvidence.sourceManifestationPath !== undefined) {
     facts.push([
-      "sflo:hasObservedSourceManifestation",
+      "sflo:hasObservedTargetManifestation",
       `<${sourceEvidence.sourceManifestationPath}>`,
     ]);
   }
   if (sourceEvidence.sourceLocatedFilePath !== undefined) {
     facts.push([
-      "sflo:hasObservedSourceLocatedFile",
+      "sflo:hasObservedTargetLocatedFile",
       `<${sourceEvidence.sourceLocatedFilePath}>`,
     ]);
   }
   if (sourceEvidence.sourceLocalRelativePath !== undefined) {
     facts.push([
-      "sflo:observedSourceLocalRelativePath",
+      "sflo:observedTargetLocalRelativePath",
       `"${escapeTurtleString(sourceEvidence.sourceLocalRelativePath)}"`,
     ]);
   }
   if (sourceEvidence.sourceDigest !== undefined) {
     facts.push([
-      "sflo:observedSourceDigest",
+      "sflo:observedContentDigest",
       `"${escapeTurtleString(sourceEvidence.sourceDigest)}"`,
     ]);
   }
@@ -901,7 +916,16 @@ function toExtractionSourceEvidenceFacts(
     ]);
   }
 
-  return facts;
+  if (facts.length === 0) {
+    return undefined;
+  }
+
+  return `<${observationPath}> a sflo:ArtifactResolutionObservation ;
+${
+    facts.map(([predicate, object], index) =>
+      `  ${predicate} ${object}${index === facts.length - 1 ? " ." : " ;"}`
+    ).join("\n")
+  }`;
 }
 
 function renderExtractKnopMetadataTurtle(

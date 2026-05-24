@@ -8,13 +8,14 @@ import type {
 
 const SFLO_HAS_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}hasReferenceLink`;
 const SFLO_HAS_REFERENCE_ROLE_IRI = `${SFLO_NAMESPACE}hasReferenceRole`;
+const SFLO_HAS_REFERENCE_SOURCE_IRI = `${SFLO_NAMESPACE}hasReferenceSource`;
+const SFLO_HAS_REQUESTED_TARGET_STATE_IRI =
+  `${SFLO_NAMESPACE}hasRequestedTargetState`;
+const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasTargetArtifact`;
 const SFLO_REFERENCE_LINK_FOR_IRI = `${SFLO_NAMESPACE}referenceLinkFor`;
 const SFLO_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}ReferenceLink`;
 export const SFLO_REFERENCE_ROLE_CANONICAL_IRI =
   `${SFLO_NAMESPACE}referenceRole_canonical`;
-const SFLO_REFERENCE_TARGET_IRI = `${SFLO_NAMESPACE}referenceTarget`;
-const SFLO_REFERENCE_TARGET_STATE_IRI = `${SFLO_NAMESPACE}referenceTargetState`;
-const SFLO_REFERENCE_URI_LITERAL_IRI = `${SFLO_NAMESPACE}referenceUriLiteral`;
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 
 export interface ParsedResourceReferenceLink {
@@ -85,25 +86,24 @@ export function extractResourceReferenceLinks(
       subjectIri,
       SFLO_HAS_REFERENCE_ROLE_IRI,
     );
-    const referenceTargetIris = findNamedNodeObjects(
+    const referenceSourceIris = findNamedNodeObjects(
       quads,
       subjectIri,
-      SFLO_REFERENCE_TARGET_IRI,
+      SFLO_HAS_REFERENCE_SOURCE_IRI,
     );
-    const referenceTargetStateIris = findNamedNodeObjects(
-      quads,
-      subjectIri,
-      SFLO_REFERENCE_TARGET_STATE_IRI,
+    const referenceTargetIris = referenceSourceIris.flatMap((sourceIri) =>
+      findNamedNodeObjects(quads, sourceIri, SFLO_HAS_TARGET_ARTIFACT_IRI)
     );
-    const uriLiteralTargets = findLiteralObjects(
-      quads,
-      subjectIri,
-      SFLO_REFERENCE_URI_LITERAL_IRI,
+    const referenceTargetStateIris = referenceSourceIris.flatMap((sourceIri) =>
+      findNamedNodeObjects(
+        quads,
+        sourceIri,
+        SFLO_HAS_REQUESTED_TARGET_STATE_IRI,
+      )
     );
     const targets = toResourcePageReferenceTargets([
       ...referenceTargetIris,
       ...referenceTargetStateIris,
-      ...uriLiteralTargets,
     ]);
 
     if (roleIris.length === 0 || targets.length === 0) {
@@ -195,27 +195,6 @@ function findNamedNodeObjects(
       quad.subject.value === subjectIri &&
       quad.predicate.value === predicateIri &&
       quad.object.termType === "NamedNode"
-    ) {
-      values.add(quad.object.value);
-    }
-  }
-
-  return [...values].sort();
-}
-
-function findLiteralObjects(
-  quads: readonly Quad[],
-  subjectIri: string,
-  predicateIri: string,
-): readonly string[] {
-  const values = new Set<string>();
-
-  for (const quad of quads) {
-    if (
-      quad.subject.termType === "NamedNode" &&
-      quad.subject.value === subjectIri &&
-      quad.predicate.value === predicateIri &&
-      quad.object.termType === "Literal"
     ) {
       values.add(quad.object.value);
     }
