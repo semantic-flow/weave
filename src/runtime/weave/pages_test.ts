@@ -102,6 +102,86 @@ Deno.test("buildResourcePageDocumentModel target-gates selected panels by page k
   assertFalse(document.panels.some((panel) => panel.kind === "properties"));
 });
 
+Deno.test("buildResourcePageDocumentModel target-gates selected panels by class, role, and data", () => {
+  const page = {
+    kind: "identifier" as const,
+    path: "alice/bio/index.html",
+    designatorPath: "alice/bio",
+    workingLocalRelativePath: "alice-bio.ttl",
+    childIdentifiers: [{ label: "timeline", path: "alice/bio/timeline" }],
+    rawSourcePanels: [{
+      label: "alice-bio.ttl",
+      sourcePath: "alice-bio.ttl",
+      contents:
+        `<https://semantic-flow.github.io/mesh-alice-bio/alice/bio> <https://schema.org/name> "Alice" .`,
+    }],
+  };
+
+  const baseline = buildResourcePageDocumentModel(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    page,
+  );
+  assert(baseline.panels.some((panel) => panel.kind === "children"));
+  assert(baseline.panels.some((panel) => panel.kind === "properties"));
+  assert(baseline.panels.some((panel) => panel.kind === "rawSource"));
+
+  const classGated = buildResourcePageDocumentModel(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    page,
+    {
+      resourcePagePresentation: {
+        ...DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE,
+        panelSelections: DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE
+          .panelSelections.map((selection) =>
+            selection.panel === "properties"
+              ? {
+                ...selection,
+                targetClasses: [
+                  "https://semantic-flow.github.io/sflo/ontology/PayloadArtifact",
+                ],
+              }
+              : selection
+          ),
+      },
+    },
+  );
+  assertFalse(classGated.panels.some((panel) => panel.kind === "properties"));
+
+  const roleGated = buildResourcePageDocumentModel(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    page,
+    {
+      resourcePagePresentation: {
+        ...DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE,
+        panelSelections: DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE
+          .panelSelections.map((selection) =>
+            selection.panel === "rawSource"
+              ? { ...selection, targetArtifactRoles: ["config" as const] }
+              : selection
+          ),
+      },
+    },
+  );
+  assertFalse(roleGated.panels.some((panel) => panel.kind === "rawSource"));
+
+  const dataGated = buildResourcePageDocumentModel(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    page,
+    {
+      resourcePagePresentation: {
+        ...DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE,
+        panelSelections: DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE
+          .panelSelections.map((selection) =>
+            selection.panel === "children"
+              ? { ...selection, dataRequirements: ["history" as const] }
+              : selection
+          ),
+      },
+    },
+  );
+  assertFalse(dataGated.panels.some((panel) => panel.kind === "children"));
+});
+
 Deno.test("buildResourcePageDocumentModel omits Semantic Flow metadata panel by default", () => {
   const document = buildResourcePageDocumentModel(
     "https://semantic-flow.github.io/mesh-alice-bio/",

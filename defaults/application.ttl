@@ -128,6 +128,19 @@
   sfcfg:panelOrder "60"^^xsd:nonNegativeInteger ;
   sfcfg:hasPanelInclusionPolicy sfcfg:panelInclusionPolicy_auto ;
   sfcfg:hasPanelTargetPageKind sfcfg:resourcePageKind_identifier, sfcfg:resourcePageKind_simple, sfcfg:resourcePageKind_referenceCatalog ;
+  sfcfg:hasPanelTargetClass sflo:DigitalArtifact ;
+  sfcfg:hasPanelTargetArtifactRole
+    sfcfg:artifactRole_payload,
+    sfcfg:artifactRole_meshInventory,
+    sfcfg:artifactRole_knopInventory,
+    sfcfg:artifactRole_meshMetadata,
+    sfcfg:artifactRole_knopMetadata,
+    sfcfg:artifactRole_config,
+    sfcfg:artifactRole_referenceCatalog,
+    sfcfg:artifactRole_resourcePageDefinition,
+    sfcfg:artifactRole_resourcePageTemplate,
+    sfcfg:artifactRole_resourcePageStylesheet,
+    sfcfg:artifactRole_runtimeMeta ;
   sfcfg:hasPanelDataRequirement sfcfg:panelDataRequirement_rawSource .
 
 <resource-page-presentation/semantic-site-default#history-panel> a sfcfg:ResourcePagePanelSelection ;

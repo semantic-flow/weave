@@ -125,6 +125,25 @@ Deno.test("loadWeaveDefaultEffectiveConfig parses ResourcePage presentation defa
       ["semanticFlowMetadata", 80],
     ],
   );
+  const rawSourcePanel = config.resourcePagePresentation.panelSelections.find((
+    selection,
+  ) => selection.panel === "rawSource");
+  assertEquals(rawSourcePanel?.targetClasses, [
+    "https://semantic-flow.github.io/sflo/ontology/DigitalArtifact",
+  ]);
+  assertEquals(rawSourcePanel?.targetArtifactRoles, [
+    "payload",
+    "meshInventory",
+    "knopInventory",
+    "meshMetadata",
+    "knopMetadata",
+    "config",
+    "referenceCatalog",
+    "resourcePageDefinition",
+    "resourcePageTemplate",
+    "resourcePageStylesheet",
+    "runtimeMeta",
+  ]);
 });
 
 Deno.test("loadWeaveDefaultEffectiveConfig parses naming defaults", async () => {
@@ -255,6 +274,25 @@ Deno.test("parseWeaveDefaultEffectiveConfig rejects unknown ResourcePage panel i
       ),
     EffectiveConfigError,
     "Unsupported",
+  );
+});
+
+Deno.test("parseWeaveDefaultEffectiveConfig rejects panel selections without data requirements", () => {
+  const missingDataRequirementTurtle = withValidResourcePagePresentation(
+    VALID_APPLICATION_TURTLE,
+  ).replace(
+    "  sfcfg:hasPanelDataRequirement sfcfg:panelDataRequirement_children .",
+    ".",
+  );
+
+  assertThrows(
+    () =>
+      parseWeaveDefaultEffectiveConfig(
+        missingDataRequirementTurtle,
+        VALID_CONFIG_RESOLUTION_TURTLE,
+      ),
+    EffectiveConfigError,
+    "Expected at least one",
   );
 });
 

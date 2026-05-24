@@ -1,6 +1,10 @@
 import { join, resolve, toFileUrl } from "@std/path";
 import { Parser, type Quad, type Term } from "n3";
-import { RDF_NAMESPACE, SFCFG_NAMESPACE } from "../../core/rdf/namespaces.ts";
+import {
+  RDF_NAMESPACE,
+  SFCFG_NAMESPACE,
+  SFLO_NAMESPACE,
+} from "../../core/rdf/namespaces.ts";
 
 const RDF_TYPE_IRI = `${RDF_NAMESPACE}type`;
 const APPLICATION_CONFIG_IRI = `${SFCFG_NAMESPACE}ApplicationConfig`;
@@ -477,8 +481,20 @@ export const DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE:
         order: 60,
         inclusionPolicy: "auto",
         targetPageKinds: ["identifier", "simple", "referenceCatalog"],
-        targetClasses: [],
-        targetArtifactRoles: [],
+        targetClasses: [`${SFLO_NAMESPACE}DigitalArtifact`],
+        targetArtifactRoles: [
+          "payload",
+          "meshInventory",
+          "knopInventory",
+          "meshMetadata",
+          "knopMetadata",
+          "config",
+          "referenceCatalog",
+          "resourcePageDefinition",
+          "resourcePageTemplate",
+          "resourcePageStylesheet",
+          "runtimeMeta",
+        ],
         dataRequirements: ["rawSource"],
       },
       {
@@ -965,6 +981,18 @@ function parseResourcePagePanelSelection(
     RESOURCE_PAGE_PANEL_VALUES,
     source,
   );
+  const dataRequirements = collectKnownNamedNodes(
+    quads,
+    selectionTerm,
+    HAS_PANEL_DATA_REQUIREMENT_IRI,
+    RESOURCE_PAGE_PANEL_DATA_REQUIREMENT_VALUES,
+    source,
+  ).map((value) => value.identity);
+  if (dataRequirements.length === 0) {
+    throw new EffectiveConfigError(
+      `Expected at least one ${HAS_PANEL_DATA_REQUIREMENT_IRI} value in ${source}`,
+    );
+  }
 
   return {
     iri: selectionIri,
@@ -1002,13 +1030,7 @@ function parseResourcePagePanelSelection(
       ARTIFACT_ROLE_VALUES,
       source,
     ).map((value) => value.identity),
-    dataRequirements: collectKnownNamedNodes(
-      quads,
-      selectionTerm,
-      HAS_PANEL_DATA_REQUIREMENT_IRI,
-      RESOURCE_PAGE_PANEL_DATA_REQUIREMENT_VALUES,
-      source,
-    ).map((value) => value.identity),
+    dataRequirements,
   };
 }
 

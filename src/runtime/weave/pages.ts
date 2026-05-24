@@ -22,9 +22,12 @@ import type {
 import { Parser, type Quad, type Term } from "n3";
 import { codeToHtml } from "shiki";
 import {
+  type ArtifactRole,
   DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE,
   type ResourcePageKindTarget,
+  type ResourcePagePanelDataRequirement,
   type ResourcePagePanelIdentity,
+  type ResourcePagePanelSelectionProfile,
   type ResourcePagePresentationProfile,
 } from "../config/effective_config.ts";
 import { formatDesignatorPathForDisplay } from "../../core/designator_segments.ts";
@@ -152,6 +155,26 @@ const HISTORY_TRUNCATION_THRESHOLD = 10;
 const HISTORY_TRUNCATION_HEAD_COUNT = 2;
 const HISTORY_TRUNCATION_TAIL_COUNT = 7;
 const SFLO_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}ExtractionSource`;
+const SFLO_DIGITAL_ARTIFACT_IRI = `${SFLO_NAMESPACE}DigitalArtifact`;
+const SFLO_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}PayloadArtifact`;
+const SFLO_MESH_INVENTORY_IRI = `${SFLO_NAMESPACE}MeshInventory`;
+const SFLO_KNOP_INVENTORY_IRI = `${SFLO_NAMESPACE}KnopInventory`;
+const SFLO_MESH_METADATA_IRI = `${SFLO_NAMESPACE}MeshMetadata`;
+const SFLO_KNOP_METADATA_IRI = `${SFLO_NAMESPACE}KnopMetadata`;
+const SFLO_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}ReferenceCatalog`;
+const SFLO_RESOURCE_PAGE_DEFINITION_IRI =
+  `${SFLO_NAMESPACE}ResourcePageDefinition`;
+const SFCFG_APPLICATION_CONFIG_IRI = `${SFCFG_NAMESPACE}ApplicationConfig`;
+const SFCFG_CONFIG_ARTIFACT_IRI = `${SFCFG_NAMESPACE}ConfigArtifact`;
+const SFCFG_MESH_CONFIG_IRI = `${SFCFG_NAMESPACE}MeshConfig`;
+const SFCFG_RESOURCE_PAGE_TEMPLATE_IRI =
+  `${SFCFG_NAMESPACE}ResourcePageTemplate`;
+const SFCFG_INNER_RESOURCE_PAGE_TEMPLATE_IRI =
+  `${SFCFG_NAMESPACE}InnerResourcePageTemplate`;
+const SFCFG_OUTER_RESOURCE_PAGE_TEMPLATE_IRI =
+  `${SFCFG_NAMESPACE}OuterResourcePageTemplate`;
+const SFCFG_RESOURCE_PAGE_STYLESHEET_IRI =
+  `${SFCFG_NAMESPACE}ResourcePageStylesheet`;
 const SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
   `${SFLO_NAMESPACE}hasArtifactResolutionMode`;
 const SFLO_HAS_REQUESTED_TARGET_STATE_IRI =
@@ -444,6 +467,15 @@ function toDefaultResourcePageDocumentModel(
       resourcePath,
       page.historyGroups ?? [],
     );
+    const rdfClasses = rdfFacts.classes.length > 0
+      ? rdfFacts.classes
+      : historyClass
+      ? [historyClass]
+      : [];
+    const artifactRoles = toResourcePageArtifactRoles(
+      rdfClasses,
+      page.workingLocalRelativePath ? ["payload"] : [],
+    );
     const workingSourceMetadataRows = toWorkingSourceMetadataRows(
       meshRootHref,
       page,
@@ -498,14 +530,12 @@ function toDefaultResourcePageDocumentModel(
         resourcePath,
       ),
       summary: rdfFacts.description,
-      rdfClasses: rdfFacts.classes.length > 0
-        ? rdfFacts.classes
-        : historyClass
-        ? [historyClass]
-        : [],
+      rdfClasses,
       metadata,
       panels: toResourcePagePanels({
         pageKind: "identifier",
+        rdfClasses,
+        artifactRoles,
         childrenGroups,
         propertyRows,
         blankNodeRows,
@@ -522,6 +552,16 @@ function toDefaultResourcePageDocumentModel(
   if (page.kind === "referenceCatalog") {
     const rdfFacts = extractRdfFacts(canonical, page.rawSourcePanels ?? []);
     const rawSourcePanels = page.rawSourcePanels ?? [];
+    const rdfClasses = [
+      rdfClass(
+        "sflo:ReferenceCatalog",
+        SFLO_REFERENCE_CATALOG_IRI,
+      ),
+      rdfClass(
+        "sflo:RdfDocument",
+        `${SFLO_NAMESPACE}RdfDocument`,
+      ),
+    ];
 
     return {
       kind: "referenceCatalog",
@@ -544,19 +584,12 @@ function toDefaultResourcePageDocumentModel(
       summary: `Reference catalog for ${
         toDisplayDesignatorPath(page.ownerDesignatorPath, meshLabel)
       }`,
-      rdfClasses: [
-        rdfClass(
-          "sflo:ReferenceCatalog",
-          `${SFLO_NAMESPACE}ReferenceCatalog`,
-        ),
-        rdfClass(
-          "sflo:RdfDocument",
-          `${SFLO_NAMESPACE}RdfDocument`,
-        ),
-      ],
+      rdfClasses,
       metadata: [{ label: "Canonical IRI", value: canonical }],
       panels: toResourcePagePanels({
         pageKind: "referenceCatalog",
+        rdfClasses,
+        artifactRoles: ["referenceCatalog"],
         propertyRows: extractPropertyRows(canonical, rawSourcePanels),
         blankNodeRows: extractBlankNodeRows(canonical, rawSourcePanels),
         historyGroups: page.historyGroups ?? [],
@@ -568,6 +601,12 @@ function toDefaultResourcePageDocumentModel(
     };
   }
 
+  const knopRdfClasses = [
+    rdfClass(
+      "sflo:Knop",
+      `${SFLO_NAMESPACE}Knop`,
+    ),
+  ];
   if (page.kind === "knop") {
     return {
       kind: "knop",
@@ -591,17 +630,14 @@ function toDefaultResourcePageDocumentModel(
         page.ownerTitle ??
           toDisplayDesignatorPath(page.designatorPath, meshLabel)
       }.`,
-      rdfClasses: [
-        rdfClass(
-          "sflo:Knop",
-          `${SFLO_NAMESPACE}Knop`,
-        ),
-      ],
+      rdfClasses: knopRdfClasses,
       metadata: [
         { label: "Canonical IRI", value: canonical },
       ],
       panels: toResourcePagePanels({
         pageKind: "knop",
+        rdfClasses: knopRdfClasses,
+        artifactRoles: [],
         childrenGroups: toChildIdentifierGroups(
           meshBase,
           canonical,
@@ -619,6 +655,10 @@ function toDefaultResourcePageDocumentModel(
   }
 
   const rdfFacts = extractRdfFacts(canonical, page.rawSourcePanels ?? []);
+  const rdfClasses = rdfFacts.classes.length > 0
+    ? rdfFacts.classes
+    : [classifyResourcePage(resourcePath, page.historyGroups ?? [])];
+  const resourcePathArtifactRole = artifactRoleForResourcePath(resourcePath);
 
   return {
     kind: "simple",
@@ -640,14 +680,17 @@ function toDefaultResourcePageDocumentModel(
       resourcePath,
     ),
     summary: page.description,
-    rdfClasses: rdfFacts.classes.length > 0
-      ? rdfFacts.classes
-      : [classifyResourcePage(resourcePath, page.historyGroups ?? [])],
+    rdfClasses,
     metadata: [
       { label: "Canonical IRI", value: canonical },
     ],
     panels: toResourcePagePanels({
       pageKind: "simple",
+      rdfClasses,
+      artifactRoles: toResourcePageArtifactRoles(
+        rdfClasses,
+        resourcePathArtifactRole ? [resourcePathArtifactRole] : [],
+      ),
       childrenGroups: toChildIdentifierGroups(
         meshBase,
         canonical,
@@ -676,6 +719,8 @@ function toDefaultResourcePageDocumentModel(
 function toResourcePagePanels(input: {
   resourcePagePresentation: ResourcePagePresentationProfile;
   pageKind: ResourcePageKindTarget;
+  rdfClasses: readonly ResourcePageRdfClassModel[];
+  artifactRoles: readonly ArtifactRole[];
   childrenGroups?: readonly ResourcePageChildIdentifierGroupModel[];
   propertyRows?: readonly ResourcePagePropertyRow[];
   blankNodeRows?: readonly ResourcePageBlankNodeRow[];
@@ -705,32 +750,40 @@ function toResourcePagePanels(input: {
     ResourcePagePanelIdentity,
     ResourcePagePanelModel
   >();
+  const availableDataRequirements = new Set<
+    ResourcePagePanelDataRequirement
+  >();
 
   if (childrenGroups.length > 0) {
+    availableDataRequirements.add("children");
     panelByIdentity.set("children", {
       kind: "children",
       groups: childrenGroups,
     });
   }
   if (propertyRows.length > 0) {
+    availableDataRequirements.add("rdfProperties");
     panelByIdentity.set("properties", {
       kind: "properties",
       rows: propertyRows,
     });
   }
   if (blankNodeRows.length > 0) {
+    availableDataRequirements.add("blankNodes");
     panelByIdentity.set("blankNodes", {
       kind: "blankNodes",
       rows: blankNodeRows,
     });
   }
   if (referenceGroups.length > 0) {
+    availableDataRequirements.add("references");
     panelByIdentity.set("references", {
       kind: "references",
       groups: referenceGroups,
     });
   }
   if (currentLinks.length > 0) {
+    availableDataRequirements.add("currentReferenceLinks");
     panelByIdentity.set("currentLinks", {
       kind: "currentLinks",
       links: currentLinks,
@@ -739,6 +792,7 @@ function toResourcePagePanels(input: {
   if (input.knopArtifacts) {
     const { governedArtifacts, supportingArtifacts } = input.knopArtifacts;
     if (governedArtifacts.length > 0 || supportingArtifacts.length > 0) {
+      availableDataRequirements.add("knopArtifacts");
       panelByIdentity.set("knopArtifacts", {
         kind: "knopArtifacts",
         governedArtifacts,
@@ -747,21 +801,25 @@ function toResourcePagePanels(input: {
     }
   }
   if (factSections.length > 0) {
+    availableDataRequirements.add("factSections");
     panelByIdentity.set("factSections", {
       kind: "factSections",
       sections: factSections,
     });
   }
   if (rawSourcePanels.length > 0) {
+    availableDataRequirements.add("rawSource");
     panelByIdentity.set("rawSource", {
       kind: "rawSource",
       panels: rawSourcePanels,
     });
   }
   if (historyGroups.length > 0) {
+    availableDataRequirements.add("history");
     panelByIdentity.set("history", { kind: "history", groups: historyGroups });
   }
   if (input.includeSemanticFlowMetadata) {
+    availableDataRequirements.add("semanticFlowMetadataOptIn");
     panelByIdentity.set("semanticFlowMetadata", {
       kind: "semanticFlowMetadata",
       rows: semanticFlowMetadataRows,
@@ -770,7 +828,12 @@ function toResourcePagePanels(input: {
 
   for (const selection of input.resourcePagePresentation.panelSelections) {
     if (
-      !selectionTargetsPageKind(selection.targetPageKinds, input.pageKind)
+      !selectionTargetsResourcePage(selection, {
+        pageKind: input.pageKind,
+        rdfClassIris: input.rdfClasses.map((rdfClass) => rdfClass.iri),
+        artifactRoles: input.artifactRoles,
+        availableDataRequirements,
+      })
     ) {
       continue;
     }
@@ -784,11 +847,70 @@ function toResourcePagePanels(input: {
   return panels;
 }
 
+function selectionTargetsResourcePage(
+  selection: ResourcePagePanelSelectionProfile,
+  page: {
+    pageKind: ResourcePageKindTarget;
+    rdfClassIris: readonly string[];
+    artifactRoles: readonly ArtifactRole[];
+    availableDataRequirements: ReadonlySet<ResourcePagePanelDataRequirement>;
+  },
+): boolean {
+  return selectionTargetsPageKind(selection.targetPageKinds, page.pageKind) &&
+    selectionTargetsClass(selection.targetClasses, page) &&
+    selectionTargetsArtifactRole(
+      selection.targetArtifactRoles,
+      page.artifactRoles,
+    ) &&
+    selectionDataRequirementsAreAvailable(
+      selection.dataRequirements,
+      page.availableDataRequirements,
+    );
+}
+
 function selectionTargetsPageKind(
   targetPageKinds: readonly ResourcePageKindTarget[],
   pageKind: ResourcePageKindTarget,
 ): boolean {
   return targetPageKinds.length === 0 || targetPageKinds.includes(pageKind);
+}
+
+function selectionTargetsClass(
+  targetClasses: readonly string[],
+  page: {
+    rdfClassIris: readonly string[];
+    artifactRoles: readonly ArtifactRole[];
+  },
+): boolean {
+  if (targetClasses.length === 0) {
+    return true;
+  }
+  const pageClassIris = new Set(page.rdfClassIris);
+  return targetClasses.some((targetClass) =>
+    pageClassIris.has(targetClass) ||
+    (targetClass === SFLO_DIGITAL_ARTIFACT_IRI &&
+      page.artifactRoles.length > 0)
+  );
+}
+
+function selectionTargetsArtifactRole(
+  targetArtifactRoles: readonly ArtifactRole[],
+  artifactRoles: readonly ArtifactRole[],
+): boolean {
+  if (targetArtifactRoles.length === 0) {
+    return true;
+  }
+  const roles = new Set(artifactRoles);
+  return targetArtifactRoles.some((targetRole) => roles.has(targetRole));
+}
+
+function selectionDataRequirementsAreAvailable(
+  dataRequirements: readonly ResourcePagePanelDataRequirement[],
+  availableDataRequirements: ReadonlySet<ResourcePagePanelDataRequirement>,
+): boolean {
+  return dataRequirements.every((requirement) =>
+    availableDataRequirements.has(requirement)
+  );
 }
 
 function toResourcePageRenderInput(
@@ -3121,6 +3243,75 @@ function classifyHistoryComponentResourcePage(
       "sflo:ArtifactHistory",
       `${SFLO_NAMESPACE}ArtifactHistory`,
     );
+  }
+  return undefined;
+}
+
+function toResourcePageArtifactRoles(
+  rdfClasses: readonly ResourcePageRdfClassModel[],
+  additionalRoles: readonly ArtifactRole[] = [],
+): readonly ArtifactRole[] {
+  const roles = new Set<ArtifactRole>(additionalRoles);
+  for (const rdfClass of rdfClasses) {
+    const role = artifactRoleForRdfClass(rdfClass.iri);
+    if (role) {
+      roles.add(role);
+    }
+  }
+  return [...roles].sort();
+}
+
+function artifactRoleForRdfClass(classIri: string): ArtifactRole | undefined {
+  switch (classIri) {
+    case SFLO_PAYLOAD_ARTIFACT_IRI:
+      return "payload";
+    case SFLO_MESH_INVENTORY_IRI:
+      return "meshInventory";
+    case SFLO_KNOP_INVENTORY_IRI:
+      return "knopInventory";
+    case SFLO_MESH_METADATA_IRI:
+      return "meshMetadata";
+    case SFLO_KNOP_METADATA_IRI:
+      return "knopMetadata";
+    case SFCFG_APPLICATION_CONFIG_IRI:
+    case SFCFG_CONFIG_ARTIFACT_IRI:
+    case SFCFG_MESH_CONFIG_IRI:
+      return "config";
+    case SFLO_REFERENCE_CATALOG_IRI:
+      return "referenceCatalog";
+    case SFLO_RESOURCE_PAGE_DEFINITION_IRI:
+      return "resourcePageDefinition";
+    case SFCFG_RESOURCE_PAGE_TEMPLATE_IRI:
+    case SFCFG_INNER_RESOURCE_PAGE_TEMPLATE_IRI:
+    case SFCFG_OUTER_RESOURCE_PAGE_TEMPLATE_IRI:
+      return "resourcePageTemplate";
+    case SFCFG_RESOURCE_PAGE_STYLESHEET_IRI:
+      return "resourcePageStylesheet";
+    default:
+      return undefined;
+  }
+}
+
+function artifactRoleForResourcePath(
+  resourcePath: string,
+): ArtifactRole | undefined {
+  if (resourcePath === "_mesh/_inventory") {
+    return "meshInventory";
+  }
+  if (resourcePath === "_mesh/_meta") {
+    return "meshMetadata";
+  }
+  if (resourcePath === "_mesh/_config") {
+    return "config";
+  }
+  if (resourcePath.endsWith("/_knop/_inventory")) {
+    return "knopInventory";
+  }
+  if (resourcePath.endsWith("/_knop/_meta")) {
+    return "knopMetadata";
+  }
+  if (resourcePath.endsWith("/_knop/_page")) {
+    return "resourcePageDefinition";
   }
   return undefined;
 }
