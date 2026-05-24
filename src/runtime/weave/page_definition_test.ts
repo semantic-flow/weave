@@ -28,7 +28,36 @@ Deno.test("loadActiveCustomIdentifierPage resolves explicit ResourcePage present
       page?.presentationConfigIri,
       DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE.iri,
     );
+    assertEquals(page?.generatedPanelSelectionIris, []);
     assertEquals(page?.regions[0]?.markdown, "# Alice\n");
+  });
+});
+
+Deno.test("loadActiveCustomIdentifierPage resolves explicit generated ResourcePage panel selections", async () => {
+  await withPageDefinitionFixture(async ({ meshRoot, policy }) => {
+    const rawSourcePanelSelectionIri =
+      DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE.panelSelections.find((
+        selection,
+      ) => selection.panel === "rawSource")!.iri;
+    const page = await loadActiveCustomIdentifierPage(
+      meshRoot,
+      policy,
+      "https://semantic-flow.github.io/mesh-alice-bio/",
+      "alice",
+      {
+        artifactPath: "alice/_knop/_page",
+        workingLocalRelativePath: "alice/_knop/_page/page.ttl",
+        currentPageDefinitionTurtle: pageDefinitionTurtle(
+          DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE.iri,
+          rawSourcePanelSelectionIri,
+        ),
+        currentArtifactHistoryExists: true,
+      },
+    );
+
+    assertEquals(page?.generatedPanelSelectionIris, [
+      rawSourcePanelSelectionIri,
+    ]);
   });
 });
 
@@ -82,13 +111,21 @@ async function withPageDefinitionFixture(
   }
 }
 
-function pageDefinitionTurtle(presentationConfigIri: string): string {
+function pageDefinitionTurtle(
+  presentationConfigIri: string,
+  generatedPanelSelectionIri?: string,
+): string {
   return `@base <https://semantic-flow.github.io/mesh-alice-bio/alice/_knop/_page> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sflo:ResourcePageDefinition, sflo:DigitalArtifact, sflo:RdfDocument ;
   sfcfg:hasResourcePagePresentationConfig <${presentationConfigIri}> ;
+  ${
+    generatedPanelSelectionIri
+      ? `sfcfg:hasGeneratedResourcePagePanelSelection <${generatedPanelSelectionIri}> ;`
+      : ""
+  }
   sflo:hasPageRegion <#main-region> .
 
 <#main-region> a sflo:ResourcePageRegion ;

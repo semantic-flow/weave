@@ -204,8 +204,19 @@ export async function collectResourcePageModels(
           definitionPath: publicContext.customIdentifierPage.definitionPath,
           presentationConfigIri:
             publicContext.customIdentifierPage.presentationConfigIri,
+          generatedPanelSelectionIris:
+            publicContext.customIdentifierPage.generatedPanelSelectionIris,
           stylesheetPaths: publicContext.customIdentifierPage.stylesheetPaths,
           regions: publicContext.customIdentifierPage.regions,
+          workingLocalRelativePath:
+            publicContext.payloadWorkingLocalRelativePath,
+          extractionSource: publicContext.extractionSource,
+          references: publicContext.references,
+          childIdentifiers: childIdentifiersByResourcePath.get(
+            resourcePath,
+          ),
+          historyGroups,
+          rawSourcePanels: publicContext.rawSourcePanels.get(pagePath),
         });
       } else {
         pageModels.push({

@@ -69,8 +69,15 @@ export interface CustomIdentifierResourcePageModel {
   designatorPath: string;
   definitionPath: string;
   presentationConfigIri?: string;
+  generatedPanelSelectionIris?: readonly string[];
   stylesheetPaths: readonly string[];
   regions: readonly CustomIdentifierRegionResourcePageModel[];
+  workingLocalRelativePath?: string;
+  extractionSource?: ResourcePageExtractionSourceModel;
+  references?: readonly ResourcePageReferenceLinkModel[];
+  childIdentifiers?: readonly ResourcePageChildIdentifierModel[];
+  historyGroups?: readonly ResourcePageHistoryGroupModel[];
+  rawSourcePanels?: readonly ResourcePageRawSourcePanelModel[];
 }
 
 export interface ResourcePageRawSourcePanelModel {

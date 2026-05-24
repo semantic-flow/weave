@@ -1824,3 +1824,43 @@ This customized identifier page is driven by \`alice/_knop/_page/page.ttl\`.
     ),
   );
 });
+
+Deno.test("renderResourcePage appends explicitly selected generated panels for customized identifier pages", async () => {
+  const rawSourcePanelSelectionIri =
+    DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE.panelSelections.find((
+      selection,
+    ) => selection.panel === "rawSource")!.iri;
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "customIdentifier",
+      path: "alice/index.html",
+      designatorPath: "alice",
+      definitionPath: "alice/_knop/_page",
+      presentationConfigIri: DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE.iri,
+      generatedPanelSelectionIris: [rawSourcePanelSelectionIri],
+      stylesheetPaths: [],
+      workingLocalRelativePath: "alice.ttl",
+      regions: [{
+        key: "main",
+        sourcePath: "alice/alice.md",
+        markdown: "# Alice\n\nAuthored first.\n",
+      }],
+      rawSourcePanels: [{
+        label: "alice.ttl",
+        sourcePath: "alice.ttl",
+        contents:
+          `<https://semantic-flow.github.io/mesh-alice-bio/alice> <https://schema.org/name> "Alice" .`,
+      }],
+    },
+    {
+      generatedAt: new Date("2026-05-23T00:00:00.000Z"),
+    },
+  );
+
+  const authoredIndex = html.indexOf("<p>Authored first.</p>");
+  const rawSourceIndex = html.indexOf("<summary>alice.ttl</summary>");
+  assert(authoredIndex >= 0);
+  assert(rawSourceIndex > authoredIndex);
+  assertFalse(html.includes("<summary>Properties</summary>"));
+});

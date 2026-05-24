@@ -26,6 +26,8 @@ import { SFCFG_NAMESPACE, SFLO_NAMESPACE } from "../../core/rdf/namespaces.ts";
 
 const SFCFG_HAS_RESOURCE_PAGE_PRESENTATION_CONFIG_IRI =
   `${SFCFG_NAMESPACE}hasResourcePagePresentationConfig`;
+const SFCFG_HAS_GENERATED_RESOURCE_PAGE_PANEL_SELECTION_IRI =
+  `${SFCFG_NAMESPACE}hasGeneratedResourcePagePanelSelection`;
 const SFLO_HAS_PAGE_REGION_IRI = `${SFLO_NAMESPACE}hasPageRegion`;
 const SFLO_HAS_RESOURCE_PAGE_SOURCE_IRI =
   `${SFLO_NAMESPACE}hasResourcePageSource`;
@@ -94,6 +96,7 @@ export interface CustomIdentifierPageModelInput {
   regions: readonly CustomIdentifierRegionModel[];
   stylesheetPaths: readonly string[];
   presentationConfigIri?: string;
+  generatedPanelSelectionIris: readonly string[];
 }
 
 export class ResourcePageDefinitionResolutionError extends Error {
@@ -193,6 +196,12 @@ export async function loadActiveCustomIdentifierPage(
     quads,
     definitionIri,
     designatorPath,
+  );
+  const generatedPanelSelectionIris = parseGeneratedResourcePagePanelSelections(
+    quads,
+    definitionIri,
+    designatorPath,
+    presentationConfig,
   );
 
   if (regionSubjects.length === 0) {
@@ -427,6 +436,7 @@ export async function loadActiveCustomIdentifierPage(
       )
       : [],
     presentationConfigIri: presentationConfig?.iri,
+    generatedPanelSelectionIris,
   };
 }
 
@@ -461,6 +471,48 @@ function parseResourcePagePresentationConfig(
   }
 
   return DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE;
+}
+
+function parseGeneratedResourcePagePanelSelections(
+  quads: readonly Quad[],
+  definitionIri: string,
+  designatorPath: string,
+  presentationConfig: ResourcePagePresentationProfile | undefined,
+): readonly string[] {
+  const selectionIris = collectNamedNodeObjects(
+    quads,
+    definitionIri,
+    SFCFG_HAS_GENERATED_RESOURCE_PAGE_PANEL_SELECTION_IRI,
+  );
+  if (selectionIris.length === 0) {
+    return [];
+  }
+  if (!presentationConfig) {
+    throw new ResourcePageDefinitionResolutionError(
+      `ResourcePageDefinition for ${
+        formatDesignatorPathForDisplay(designatorPath)
+      } declares generated ResourcePage panel selections without a ResourcePage presentation config.`,
+    );
+  }
+
+  const supportedSelectionIris = new Set(
+    presentationConfig.panelSelections.map((selection) => selection.iri),
+  );
+  const unsupportedSelection = selectionIris.find((selectionIri) =>
+    !supportedSelectionIris.has(selectionIri)
+  );
+  if (unsupportedSelection) {
+    throw new ResourcePageDefinitionResolutionError(
+      `ResourcePageDefinition for ${
+        formatDesignatorPathForDisplay(designatorPath)
+      } requests unsupported generated ResourcePage panel selection: ${unsupportedSelection}.`,
+    );
+  }
+
+  const requestedSelectionIris = new Set(selectionIris);
+  return presentationConfig.panelSelections.filter((selection) =>
+    requestedSelectionIris.has(selection.iri)
+  ).map((selection) => selection.iri);
 }
 
 export function describeResourcePageDefinitionArtifact(

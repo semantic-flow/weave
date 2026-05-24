@@ -280,6 +280,8 @@ export async function renderResourcePage(
             displayResourcePath,
             canonical,
             options.generatedAt ?? new Date(),
+            customPresentation,
+            options.includeSemanticFlowMetadata ?? false,
             meshFaviconHref,
           ),
         ),
@@ -400,6 +402,8 @@ function toCustomIdentifierResourcePageDocumentModel(
   displayResourcePath: string,
   canonical: string,
   generatedAt: Date,
+  resourcePagePresentation: ResourcePagePresentationProfile,
+  includeSemanticFlowMetadata: boolean,
   meshFaviconHref: string | undefined,
 ): ResourcePageDocumentModel {
   const generatedAtIso = generatedAt.toISOString();
@@ -407,6 +411,45 @@ function toCustomIdentifierResourcePageDocumentModel(
   const definitionHref = ensureRelativePageHref(
     toRelativeHref(page.path, page.definitionPath),
   );
+  const sourcePanelsForFacts = page.rawSourcePanels ?? [];
+  const rawSourcePanelsForDisplay = page.workingLocalRelativePath
+    ? sourcePanelsForFacts
+    : [];
+  const rdfFacts = extractRdfFacts(canonical, sourcePanelsForFacts);
+  const selectedPresentation = selectGeneratedResourcePagePanels(
+    resourcePagePresentation,
+    page.generatedPanelSelectionIris ?? [],
+  );
+  const rdfClasses = rdfFacts.classes;
+  const generatedPanels = toResourcePagePanels({
+    pageKind: "identifier",
+    rdfClasses,
+    artifactRoles: toResourcePageArtifactRoles(
+      rdfClasses,
+      page.workingLocalRelativePath ? ["payload"] : [],
+    ),
+    childrenGroups: toChildIdentifierGroups(
+      meshBase,
+      canonical,
+      page.childIdentifiers ?? [],
+      sourcePanelsForFacts,
+    ),
+    propertyRows: extractPropertyRows(canonical, sourcePanelsForFacts),
+    blankNodeRows: extractBlankNodeRows(canonical, sourcePanelsForFacts),
+    referenceGroups: toReferenceGroups(page.references ?? []),
+    semanticFlowMetadataRows: [
+      toKnopMetadataRow(meshRootHref, meshLabel, resourcePath),
+      ...toExtractionSourceMetadataRows(
+        meshRootHref,
+        meshLabel,
+        page.extractionSource,
+      ),
+    ],
+    includeSemanticFlowMetadata,
+    historyGroups: page.historyGroups ?? [],
+    rawSourcePanels: rawSourcePanelsForDisplay,
+    resourcePagePresentation: selectedPresentation,
+  });
 
   return {
     kind: "customIdentifier",
@@ -429,7 +472,7 @@ function toCustomIdentifierResourcePageDocumentModel(
       meshRootHref,
       resourcePath,
     ),
-    rdfClasses: [],
+    rdfClasses,
     metadata: [
       { label: "Canonical IRI", value: canonical },
       {
@@ -438,8 +481,40 @@ function toCustomIdentifierResourcePageDocumentModel(
         value: definitionHref,
       },
     ],
-    panels: [{ kind: "authoredContent", regions: page.regions }],
+    panels: [
+      { kind: "authoredContent", regions: page.regions },
+      ...generatedPanels,
+    ],
   };
+}
+
+function selectGeneratedResourcePagePanels(
+  resourcePagePresentation: ResourcePagePresentationProfile,
+  selectionIris: readonly string[],
+): ResourcePagePresentationProfile {
+  if (selectionIris.length === 0) {
+    return { ...resourcePagePresentation, panelSelections: [] };
+  }
+
+  const requestedSelectionIris = new Set(selectionIris);
+  const panelSelections = resourcePagePresentation.panelSelections.filter((
+    selection,
+  ) => requestedSelectionIris.has(selection.iri));
+  if (panelSelections.length !== requestedSelectionIris.size) {
+    const supportedSelectionIris = new Set(
+      resourcePagePresentation.panelSelections.map((selection) =>
+        selection.iri
+      ),
+    );
+    const unsupportedSelectionIri = [...requestedSelectionIris].find((
+      selectionIri,
+    ) => !supportedSelectionIris.has(selectionIri));
+    throw new Error(
+      `Unsupported generated ResourcePage panel selection: ${unsupportedSelectionIri}`,
+    );
+  }
+
+  return { ...resourcePagePresentation, panelSelections };
 }
 
 function toDefaultResourcePageDocumentModel(
