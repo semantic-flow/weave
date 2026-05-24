@@ -8,14 +8,20 @@ import {
 import {
   ALICE_BIO_FIXTURE_SCENARIO,
   BRANCH_FANTASY_RULES_FIXTURE_SCENARIO,
+  branchPublicationTransition,
+  checkFixtureScenarioIndex,
+  commandTransition,
   evaluateGeneratedOutputGuardrails,
   executeFixtureTransition,
+  fileOperationTransition,
+  fixtureAssetSource,
   materializeFixtureTransitionSource,
   parseFixtureLadderArgs,
   planFixtureLadder,
   renderFixtureExecutionResult,
   renderFixtureLadderPlan,
   renderFixtureMaterializationResult,
+  renderFixtureScenarioIndexDocument,
   SIDECAR_FANTASY_RULES_FIXTURE_SCENARIO,
   updateFixtureBranchFromWorkspace,
 } from "../../scripts/fixture-ladder.ts";
@@ -112,6 +118,35 @@ Deno.test("parseFixtureLadderArgs accepts dry-run planner options", () => {
       format: "text",
     },
   );
+
+  assertEquals(
+    parseFixtureLadderArgs([
+      "--root=/tmp/weave",
+      "--scenario=branch-fantasy-rules",
+      "--check-scenario-index",
+    ]),
+    {
+      root: "/tmp/weave",
+      scenario: "branch-fantasy-rules",
+      format: "text",
+      scenarioIndexMode: "check",
+    },
+  );
+
+  assertEquals(
+    parseFixtureLadderArgs([
+      "--root=/tmp/weave",
+      "--scenario=alice-bio",
+      "--write-scenario-index",
+      "--json",
+    ]),
+    {
+      root: "/tmp/weave",
+      scenario: "alice-bio",
+      format: "json",
+      scenarioIndexMode: "write",
+    },
+  );
 });
 
 Deno.test("parseFixtureLadderArgs rejects unsupported scenarios and formats", () => {
@@ -141,6 +176,101 @@ Deno.test("parseFixtureLadderArgs rejects unsupported scenarios and formats", ()
     Error,
     "only one of --materialize or --execute",
   );
+  assertThrows(
+    () =>
+      parseFixtureLadderArgs([
+        "--check-scenario-index",
+        "--write-scenario-index",
+      ]),
+    Error,
+    "only one scenario-index mode",
+  );
+  assertThrows(
+    () =>
+      parseFixtureLadderArgs([
+        "--execute",
+        "02-mesh-created",
+        "--check-scenario-index",
+      ]),
+    Error,
+    "scenario-index options cannot be combined",
+  );
+});
+
+Deno.test("fixture transition builders keep repeated asset and branch shapes explicit", () => {
+  const fileOperation = fileOperationTransition(
+    99,
+    "99-custom-assets",
+    "98-before-custom-assets",
+    {
+      description: "Apply custom assets.",
+      sources: [
+        fixtureAssetSource(
+          "content/example.ttl",
+          "default transition-scoped asset path",
+        ),
+        fixtureAssetSource(
+          "content/explicit.ttl",
+          "explicit shared asset path",
+          { assetPath: "shared/explicit.ttl" },
+        ),
+      ],
+    },
+    "fixture.customAssets",
+    { branchPrefix: "z." },
+  );
+
+  assertEquals(fileOperation.fromRef, "z.98-before-custom-assets");
+  assertEquals(fileOperation.toRef, "z.99-custom-assets");
+  assertEquals(fileOperation.operationId, "fixture.customAssets");
+  assertEquals(fileOperation.action.kind, "fileOperation");
+  if (fileOperation.action.kind !== "fileOperation") {
+    throw new Error("expected file operation action");
+  }
+  assertEquals(fileOperation.action.sources, [
+    {
+      path: "content/example.ttl",
+      assetPath: "99-custom-assets/content/example.ttl",
+      provenance: "default transition-scoped asset path",
+    },
+    {
+      path: "content/explicit.ttl",
+      assetPath: "shared/explicit.ttl",
+      provenance: "explicit shared asset path",
+    },
+  ]);
+
+  const command = commandTransition(
+    100,
+    "100-command",
+    "99-custom-assets",
+    "weave",
+    { branchPrefix: "z." },
+  );
+  assertEquals(command.fromRef, "z.99-custom-assets");
+  assertEquals(command.toRef, "z.100-command");
+  assertEquals(command.action.kind, "command");
+
+  const branchPublication = branchPublicationTransition(
+    101,
+    "101-publication",
+    "10-source",
+    {
+      description: "Publish from a source lane.",
+      publicationFromRef: "100-command",
+      publicationBranch: "gh-pages",
+    },
+    "publication.sequence",
+    { branchPrefix: "z." },
+  );
+  assertEquals(branchPublication.fromRef, "z.100-command");
+  assertEquals(branchPublication.toRef, "z.101-publication");
+  assertEquals(branchPublication.action.kind, "branchPublication");
+  if (branchPublication.action.kind !== "branchPublication") {
+    throw new Error("expected branch publication action");
+  }
+  assertEquals(branchPublication.action.sourceRef, "z.10-source");
+  assertEquals(branchPublication.action.publicationFromRef, "z.100-command");
 });
 
 Deno.test("planFixtureLadder exposes the Alice Bio dry-run transition plan", async () => {
@@ -1172,6 +1302,86 @@ Deno.test("renderFixtureLadderPlan prints reviewable command and validation deta
     rendered,
     "guardrail: generated MeshInventory progression lives on _mesh/_meta",
   );
+});
+
+Deno.test("renderFixtureScenarioIndexDocument renders stable fixture topology", () => {
+  const aliceIndex = renderFixtureScenarioIndexDocument(
+    ALICE_BIO_FIXTURE_SCENARIO,
+  );
+  assertEquals(aliceIndex.type, "ScenarioIndex");
+  assertEquals(
+    aliceIndex.defaultFixtureRepo,
+    ALICE_BIO_FIXTURE_SCENARIO.fixtureRepo,
+  );
+  assertEquals(aliceIndex.hasStateLane?.map((lane) => lane.laneKey), [
+    "fixture",
+  ]);
+  assertEquals(aliceIndex.hasStep?.length, 25);
+  assertEquals(aliceIndex.hasStep?.[0]?.manifestPath, "01-source-only.jsonld");
+  assertEquals(
+    aliceIndex.hasStep?.[0]?.hasLaneBinding?.[0]?.fromLaneState?.ref,
+    "a.00-blank-slate",
+  );
+  assertEquals(
+    aliceIndex.hasStep?.[0]?.hasLaneBinding?.[0]?.toLaneState?.ref,
+    "a.01-source-only",
+  );
+
+  const branchIndex = renderFixtureScenarioIndexDocument(
+    BRANCH_FANTASY_RULES_FIXTURE_SCENARIO,
+  );
+  assertEquals(branchIndex.hasStateLane?.map((lane) => lane.laneKey), [
+    "source",
+    "publication",
+  ]);
+
+  const bootstrapStep = branchIndex.hasStep?.find((step) =>
+    step.id === "#02-publication-bootstrapped-woven"
+  );
+  const bootstrapPublicationBinding = bootstrapStep?.hasLaneBinding?.find((
+    binding,
+  ) => binding.lane === "#publication-lane");
+  assertEquals(bootstrapPublicationBinding?.fromLaneState, undefined);
+  assertEquals(
+    bootstrapPublicationBinding?.toLaneState?.ref,
+    "a.02-publication-bootstrapped-woven",
+  );
+
+  const firstReleaseSourceStep = branchIndex.hasStep?.find((step) =>
+    step.id === "#10-first-release-source"
+  );
+  assertEquals(firstReleaseSourceStep?.hasLaneBinding?.length, 1);
+  assertEquals(
+    firstReleaseSourceStep?.hasLaneBinding?.[0]?.lane,
+    "#source-lane",
+  );
+  assertEquals(
+    firstReleaseSourceStep?.hasLaneBinding?.[0]?.fromLaneState?.ref,
+    "a.01-source-only",
+  );
+  assertEquals(
+    firstReleaseSourceStep?.hasLaneBinding?.[0]?.toLaneState?.ref,
+    "a.10-first-release-source",
+  );
+});
+
+Deno.test("checked-in fixture scenario indexes validate and match generated output", async () => {
+  for (
+    const scenario of [
+      "alice-bio",
+      "sidecar-fantasy-rules",
+      "branch-fantasy-rules",
+    ] as const
+  ) {
+    const result = await checkFixtureScenarioIndex({
+      root: repoRoot,
+      scenario,
+    });
+
+    assertEquals(result.valid, true);
+    assertEquals(result.matchesGenerated, true);
+    await Deno.stat(result.scenarioIndexPath);
+  }
 });
 
 Deno.test("Alice Bio fixture scenario has sequential transition indexes", () => {

@@ -32,11 +32,22 @@ import type {
   ReplayProfile,
   SourceProvenance,
   SparqlAskAssertion,
+  StateLocator,
   TransitionCase,
 } from "../dependencies/github.com/spectacular-voyage/accord/src/manifest/model.ts";
 import {
   selectTransitionCase,
 } from "../dependencies/github.com/spectacular-voyage/accord/src/manifest/select_case.ts";
+import {
+  readScenarioIndexSource,
+  validateScenarioIndexDocument,
+} from "../dependencies/github.com/spectacular-voyage/accord/src/scenario/load_jsonld.ts";
+import type {
+  LaneStateBinding,
+  ScenarioIndexDocument,
+  ScenarioStep,
+  StateLane,
+} from "../dependencies/github.com/spectacular-voyage/accord/src/scenario/model.ts";
 import {
   CHECK_CODES,
 } from "../dependencies/github.com/spectacular-voyage/accord/src/report/codes.ts";
@@ -57,6 +68,7 @@ export type FixtureScenarioId =
   | "sidecar-fantasy-rules"
   | "branch-fantasy-rules";
 export type FixturePlanFormat = "text" | "json";
+export type FixtureScenarioIndexMode = "write" | "check";
 
 export interface FixtureLadderOptions {
   root: string;
@@ -66,6 +78,7 @@ export interface FixtureLadderOptions {
   executeTransitionId?: string;
   dryRun?: boolean;
   workspaceRoot?: string;
+  scenarioIndexMode?: FixtureScenarioIndexMode;
 }
 
 export interface FixtureLadderPlan {
@@ -277,6 +290,22 @@ export interface FixtureLadderScenario {
   transitions: readonly FixtureTransitionDefinition[];
 }
 
+export interface FixtureScenarioIndexResult {
+  scenario: FixtureScenarioId;
+  label: string;
+  scenarioIndexPath: string;
+  written: boolean;
+  valid: boolean;
+  matchesGenerated: boolean;
+  steps: number;
+  lanes: readonly string[];
+}
+
+export interface FixtureScenarioIndexOptions {
+  root: string;
+  scenario: FixtureScenarioId;
+}
+
 export interface FixtureTransitionDefinition {
   index: number;
   id: string;
@@ -347,7 +376,7 @@ export interface FixtureFileOperationSource {
   provenance: string;
 }
 
-interface FixtureFileOperationSourceInput {
+export interface FixtureAssetSourceInput {
   path: string;
   assetPath?: string;
   provenance: string;
@@ -382,11 +411,10 @@ const CANONICAL_OUTPUT_GUARDRAILS = [
   "generated RDF uses the canonical sflo namespace",
   "generated MeshInventory progression lives on _mesh/_meta",
 ] as const;
+const ACCORD_CONTEXT = "https://spectacular-voyage.github.io/accord/ontology/";
+const FIXTURE_SCENARIO_INDEX_FILENAME = "scenario-index.jsonld";
 const FIXTURE_ASSET_ROOT_BASENAME = ".assets";
 const LADDER_BRANCH_PREFIX = "a.";
-const ALICE_BIO_LADDER_BRANCH_PREFIX = LADDER_BRANCH_PREFIX;
-const SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX = LADDER_BRANCH_PREFIX;
-const BRANCH_FANTASY_RULES_LADDER_BRANCH_PREFIX = LADDER_BRANCH_PREFIX;
 
 const ALICE_BIO_FIXTURE_REPO = "github.com/semantic-flow/mesh-alice-bio";
 const ALICE_BIO_FIXTURE_REPO_RELATIVE_PATH = join(
@@ -460,16 +488,15 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
   fixtureRepo: ALICE_BIO_FIXTURE_REPO,
   fixtureRepoRelativePath: ALICE_BIO_FIXTURE_REPO_RELATIVE_PATH,
   manifestRootRelativePath: ALICE_BIO_MANIFEST_ROOT_RELATIVE_PATH,
-  branchPrefix: ALICE_BIO_LADDER_BRANCH_PREFIX,
+  branchPrefix: LADDER_BRANCH_PREFIX,
   transitions: [
-    fileTransition(1, "01-source-only", "00-blank-slate", {
+    fileOperationTransition(1, "01-source-only", "00-blank-slate", {
       description: "Seed the source-only Alice Bio fixture branch.",
       sources: [
-        {
-          path: "alice-bio.ttl",
-          provenance:
-            "fixture-authored source RDF carried from the existing Alice Bio source-only fixture",
-        },
+        fixtureAssetSource(
+          "alice-bio.ttl",
+          "fixture-authored source RDF carried from the existing Alice Bio source-only fixture",
+        ),
       ],
     }),
     commandTransition(2, "02-mesh-created", "01-source-only", "mesh.create"),
@@ -539,41 +566,43 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
       "12-bob-extracted",
       "weave",
     ),
-    fileTransition(14, "14-alice-page-customized", "13-bob-extracted-woven", {
-      description:
-        "Apply the hand-authored Alice page definition and local page assets.",
-      sources: [
-        {
-          path: "alice/_knop/_page/page.ttl",
-          provenance:
+    fileOperationTransition(
+      14,
+      "14-alice-page-customized",
+      "13-bob-extracted-woven",
+      {
+        description:
+          "Apply the hand-authored Alice page definition and local page assets.",
+        sources: [
+          fixtureAssetSource(
+            "alice/_knop/_page/page.ttl",
             "fixture-authored canonical page definition adapted from the Alice Bio main branch page bytes",
-        },
-        {
-          path: "alice/alice.md",
-          provenance:
+          ),
+          fixtureAssetSource(
+            "alice/alice.md",
             "fixture-authored Markdown copied from the Alice Bio main branch source bytes",
-        },
-        {
-          path: "mesh-content/sidebar.md",
-          provenance:
+          ),
+          fixtureAssetSource(
+            "mesh-content/sidebar.md",
             "fixture-authored sidebar Markdown copied from the Alice Bio main branch source bytes",
-        },
-        {
-          path: "alice/_knop/_assets/alice.css",
-          provenance:
+          ),
+          fixtureAssetSource(
+            "alice/_knop/_assets/alice.css",
             "fixture-authored stylesheet copied from the Alice Bio main branch source bytes",
-        },
-      ],
-      inventoryPatches: [
-        {
-          kind: "resourcePageDefinition",
-          designatorPath: "alice",
-          hasAssetBundle: true,
-          provenance:
-            "register Alice's ResourcePageDefinition and KnopAssetBundle against the current generated Alice KnopInventory",
-        },
-      ],
-    }, "resourcePage.define"),
+          ),
+        ],
+        inventoryPatches: [
+          {
+            kind: "resourcePageDefinition",
+            designatorPath: "alice",
+            hasAssetBundle: true,
+            provenance:
+              "register Alice's ResourcePageDefinition and KnopAssetBundle against the current generated Alice KnopInventory",
+          },
+        ],
+      },
+      "resourcePage.define",
+    ),
     commandTransition(
       15,
       "15-alice-page-customized-woven",
@@ -592,7 +621,7 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
       "16-alice-page-main-integrated",
       "weave",
     ),
-    fileTransition(
+    fileOperationTransition(
       18,
       "18-alice-page-artifact-source",
       "17-alice-page-main-integrated-woven",
@@ -600,11 +629,10 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
         description:
           "Repoint Alice's page definition to the governed page-main artifact.",
         sources: [
-          {
-            path: "alice/_knop/_page/page.ttl",
-            provenance:
-              "fixture-authored canonical page definition adapted from the Alice Bio main branch artifact-backed page bytes",
-          },
+          fixtureAssetSource(
+            "alice/_knop/_page/page.ttl",
+            "fixture-authored canonical page definition adapted from the Alice Bio main branch artifact-backed page bytes",
+          ),
         ],
       },
       "resourcePage.define",
@@ -615,7 +643,7 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
       "18-alice-page-artifact-source",
       "weave",
     ),
-    fileTransition(
+    fileOperationTransition(
       20,
       "20-bob-page-imported-source",
       "19-alice-page-artifact-source-woven",
@@ -623,16 +651,14 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
         description:
           "Import Bob page Markdown from the pinned outside-origin source fixture.",
         sources: [
-          {
-            path: "bob-page-main.md",
-            provenance:
-              "checked-in bytes copied from the Alice Bio main branch's imported Markdown source; original outside-origin URL was https://raw.githubusercontent.com/djradon/public-notes/refs/heads/main/user.bob-newhart.md",
-          },
-          {
-            path: "bob/_knop/_page/page.ttl",
-            provenance:
-              "fixture-authored canonical page definition adapted from the Alice Bio main branch Bob page bytes",
-          },
+          fixtureAssetSource(
+            "bob-page-main.md",
+            "checked-in bytes copied from the Alice Bio main branch's imported Markdown source; original outside-origin URL was https://raw.githubusercontent.com/djradon/public-notes/refs/heads/main/user.bob-newhart.md",
+          ),
+          fixtureAssetSource(
+            "bob/_knop/_page/page.ttl",
+            "fixture-authored canonical page definition adapted from the Alice Bio main branch Bob page bytes",
+          ),
         ],
         inventoryPatches: [
           {
@@ -663,7 +689,7 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
       "22-root-knop-created",
       "weave",
     ),
-    fileTransition(
+    fileOperationTransition(
       24,
       "24-root-page-customized",
       "23-root-knop-created-woven",
@@ -671,26 +697,22 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
         description:
           "Apply the hand-authored root page definition and local page assets.",
         sources: [
-          {
-            path: "_knop/_page/page.ttl",
-            provenance:
-              "fixture-authored canonical page definition adapted from the Alice Bio main branch root page bytes",
-          },
-          {
-            path: "home.md",
-            provenance:
-              "fixture-authored root Markdown copied from the Alice Bio main branch source bytes",
-          },
-          {
-            path: "mesh-content/root-sidebar.md",
-            provenance:
-              "fixture-authored root sidebar Markdown copied from the Alice Bio main branch source bytes",
-          },
-          {
-            path: "_knop/_assets/site.css",
-            provenance:
-              "fixture-authored root stylesheet copied from the Alice Bio main branch source bytes",
-          },
+          fixtureAssetSource(
+            "_knop/_page/page.ttl",
+            "fixture-authored canonical page definition adapted from the Alice Bio main branch root page bytes",
+          ),
+          fixtureAssetSource(
+            "home.md",
+            "fixture-authored root Markdown copied from the Alice Bio main branch source bytes",
+          ),
+          fixtureAssetSource(
+            "mesh-content/root-sidebar.md",
+            "fixture-authored root sidebar Markdown copied from the Alice Bio main branch source bytes",
+          ),
+          fixtureAssetSource(
+            "_knop/_assets/site.css",
+            "fixture-authored root stylesheet copied from the Alice Bio main branch source bytes",
+          ),
         ],
         inventoryPatches: [
           {
@@ -719,9 +741,9 @@ export const SIDECAR_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
   fixtureRepo: SIDECAR_FANTASY_RULES_FIXTURE_REPO,
   fixtureRepoRelativePath: SIDECAR_FANTASY_RULES_FIXTURE_REPO_RELATIVE_PATH,
   manifestRootRelativePath: SIDECAR_FANTASY_RULES_MANIFEST_ROOT_RELATIVE_PATH,
-  branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+  branchPrefix: LADDER_BRANCH_PREFIX,
   transitions: [
-    fileTransition(
+    fileOperationTransition(
       1,
       "01-source-only",
       "00-blank-slate",
@@ -729,136 +751,94 @@ export const SIDECAR_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
         description:
           "Seed the authored source files for the docs-rooted Sidecar Fantasy Rules fixture branch.",
         sources: [
-          {
-            path: "NOTICE.md",
-            provenance:
-              "fixture-authored NOTICE text carried from the existing Sidecar Fantasy Rules source-only branch",
-          },
-          {
-            path: "ontology/fantasy-rules-ontology.ttl",
-            provenance:
-              "fixture-authored ontology RDF carried from the existing Sidecar Fantasy Rules source-only branch",
-          },
-          {
-            path: "shacl/fantasy-rules-shacl.ttl",
-            provenance:
-              "fixture-authored SHACL RDF carried from the existing Sidecar Fantasy Rules source-only branch",
-          },
-          {
-            path: "examples/gunaar.ttl",
-            provenance:
-              "fixture-authored example RDF carried from the existing Sidecar Fantasy Rules source-only branch",
-          },
+          fixtureAssetSource(
+            "NOTICE.md",
+            "fixture-authored NOTICE text carried from the existing Sidecar Fantasy Rules source-only branch",
+          ),
+          fixtureAssetSource(
+            "ontology/fantasy-rules-ontology.ttl",
+            "fixture-authored ontology RDF carried from the existing Sidecar Fantasy Rules source-only branch",
+          ),
+          fixtureAssetSource(
+            "shacl/fantasy-rules-shacl.ttl",
+            "fixture-authored SHACL RDF carried from the existing Sidecar Fantasy Rules source-only branch",
+          ),
+          fixtureAssetSource(
+            "examples/gunaar.ttl",
+            "fixture-authored example RDF carried from the existing Sidecar Fantasy Rules source-only branch",
+          ),
         ],
       },
       "fixture.seedSourceOnly",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     commandTransition(
       2,
       "02-sidecar-mesh-created",
       "01-source-only",
       "mesh.create",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     commandTransition(
       3,
       "03-sidecar-mesh-created-woven",
       "02-sidecar-mesh-created",
       "weave",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     commandTransition(
       4,
       "04-ontology-integrated",
       "03-sidecar-mesh-created-woven",
       "integrate",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     commandTransition(
       5,
       "05-ontology-integrated-woven",
       "04-ontology-integrated",
       "weave",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     commandTransition(
       6,
       "06-shacl-integrated",
       "05-ontology-integrated-woven",
       "integrate",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     commandTransition(
       7,
       "07-shacl-integrated-woven",
       "06-shacl-integrated",
       "weave",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     commandTransition(
       8,
       "08-ontology-and-shacl-terms-extracted",
       "07-shacl-integrated-woven",
       "extract",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     commandTransition(
       9,
       "09-ontology-and-shacl-terms-extracted-woven",
       "08-ontology-and-shacl-terms-extracted",
       "weave",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     commandTransition(
       10,
       "10-root-knop",
       "09-ontology-and-shacl-terms-extracted-woven",
       "knop.create",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
-    commandTransition(11, "11-root-knop-woven", "10-root-knop", "weave", {
-      branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-    }),
+    commandTransition(11, "11-root-knop-woven", "10-root-knop", "weave"),
     commandTransition(
       12,
       "12-gunaar-example-dataset",
       "11-root-knop-woven",
       "integrate",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     commandTransition(
       13,
       "13-gunaar-example-dataset-woven",
       "12-gunaar-example-dataset",
       "weave",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
-    fileTransition(
+    fileOperationTransition(
       14,
       "14-first-release",
       "13-gunaar-example-dataset-woven",
@@ -866,47 +846,35 @@ export const SIDECAR_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
         description:
           "Replace authored first-release source bytes from deterministic assets.",
         sources: [
-          {
-            path: "ontology/fantasy-rules-ontology.ttl",
-            provenance:
-              "fixture-authored ontology release source copied from the Sidecar Fantasy Rules main branch",
-          },
-          {
-            path: "shacl/fantasy-rules-shacl.ttl",
-            provenance:
-              "fixture-authored SHACL release source copied from the Sidecar Fantasy Rules main branch",
-          },
+          fixtureAssetSource(
+            "ontology/fantasy-rules-ontology.ttl",
+            "fixture-authored ontology release source copied from the Sidecar Fantasy Rules main branch",
+          ),
+          fixtureAssetSource(
+            "shacl/fantasy-rules-shacl.ttl",
+            "fixture-authored SHACL release source copied from the Sidecar Fantasy Rules main branch",
+          ),
         ],
       },
       "source.update",
-      { branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX },
     ),
     commandTransition(
       15,
       "15-first-release-woven",
       "14-first-release",
       "weave",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     commandTransition(
       16,
       "16-all-remaining-terms-extracted",
       "15-first-release-woven",
       "extract",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     commandTransition(
       17,
       "17-all-remaining-terms-woven",
       "16-all-remaining-terms-extracted",
       "weave",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
   ],
 };
@@ -917,9 +885,9 @@ export const BRANCH_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
   fixtureRepo: BRANCH_FANTASY_RULES_FIXTURE_REPO,
   fixtureRepoRelativePath: BRANCH_FANTASY_RULES_FIXTURE_REPO_RELATIVE_PATH,
   manifestRootRelativePath: BRANCH_FANTASY_RULES_MANIFEST_ROOT_RELATIVE_PATH,
-  branchPrefix: BRANCH_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+  branchPrefix: LADDER_BRANCH_PREFIX,
   transitions: [
-    fileTransition(
+    fileOperationTransition(
       1,
       "01-source-only",
       "00-blank-slate",
@@ -927,32 +895,25 @@ export const BRANCH_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
         description:
           "Seed the clean authored source files for the branch-published Fantasy Rules fixture.",
         sources: [
-          {
-            path: "NOTICE.md",
-            provenance:
-              "fixture-authored NOTICE text adapted from the Sidecar Fantasy Rules source-only branch",
-          },
-          {
-            path: "ontology/fantasy-rules-ontology.ttl",
-            provenance:
-              "fixture-authored ontology RDF adapted from the Sidecar Fantasy Rules source-only branch with the branch fixture base IRI",
-          },
-          {
-            path: "shacl/fantasy-rules-shacl.ttl",
-            provenance:
-              "fixture-authored SHACL RDF adapted from the Sidecar Fantasy Rules source-only branch with the branch fixture base IRI",
-          },
-          {
-            path: "examples/gunaar.ttl",
-            provenance:
-              "fixture-authored example RDF adapted from the Sidecar Fantasy Rules source-only branch with the branch fixture base IRI",
-          },
+          fixtureAssetSource(
+            "NOTICE.md",
+            "fixture-authored NOTICE text adapted from the Sidecar Fantasy Rules source-only branch",
+          ),
+          fixtureAssetSource(
+            "ontology/fantasy-rules-ontology.ttl",
+            "fixture-authored ontology RDF adapted from the Sidecar Fantasy Rules source-only branch with the branch fixture base IRI",
+          ),
+          fixtureAssetSource(
+            "shacl/fantasy-rules-shacl.ttl",
+            "fixture-authored SHACL RDF adapted from the Sidecar Fantasy Rules source-only branch with the branch fixture base IRI",
+          ),
+          fixtureAssetSource(
+            "examples/gunaar.ttl",
+            "fixture-authored example RDF adapted from the Sidecar Fantasy Rules source-only branch with the branch fixture base IRI",
+          ),
         ],
       },
       "fixture.seedSourceOnly",
-      {
-        branchPrefix: BRANCH_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     branchPublicationTransition(
       2,
@@ -1045,7 +1006,7 @@ export const BRANCH_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
         publicationBranch: "gh-pages",
       },
     ),
-    fileTransition(
+    fileOperationTransition(
       10,
       "10-first-release-source",
       "01-source-only",
@@ -1053,30 +1014,30 @@ export const BRANCH_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
         description:
           "Replace authored first-release source bytes from deterministic assets on the clean source lane.",
         sources: [
-          {
-            path: "ontology/fantasy-rules-ontology.ttl",
-            assetPath: "14-first-release/ontology/fantasy-rules-ontology.ttl",
-            provenance:
-              "fixture-authored ontology release source copied from deterministic branch fixture assets",
-          },
-          {
-            path: "shacl/fantasy-rules-shacl.ttl",
-            assetPath: "14-first-release/shacl/fantasy-rules-shacl.ttl",
-            provenance:
-              "fixture-authored SHACL release source copied from deterministic branch fixture assets",
-          },
-          {
-            path: "examples/gunaar.ttl",
-            assetPath: "14-first-release/examples/gunaar.ttl",
-            provenance:
-              "fixture-authored Gunaar release example source copied from deterministic branch fixture assets",
-          },
+          fixtureAssetSource(
+            "ontology/fantasy-rules-ontology.ttl",
+            "fixture-authored ontology release source copied from deterministic branch fixture assets",
+            {
+              assetPath: "14-first-release/ontology/fantasy-rules-ontology.ttl",
+            },
+          ),
+          fixtureAssetSource(
+            "shacl/fantasy-rules-shacl.ttl",
+            "fixture-authored SHACL release source copied from deterministic branch fixture assets",
+            {
+              assetPath: "14-first-release/shacl/fantasy-rules-shacl.ttl",
+            },
+          ),
+          fixtureAssetSource(
+            "examples/gunaar.ttl",
+            "fixture-authored Gunaar release example source copied from deterministic branch fixture assets",
+            {
+              assetPath: "14-first-release/examples/gunaar.ttl",
+            },
+          ),
         ],
       },
       "source.update",
-      {
-        branchPrefix: BRANCH_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     branchPublicationTransition(
       11,
@@ -1175,6 +1136,29 @@ if (import.meta.main) {
           ? JSON.stringify(result, null, 2)
           : renderFixtureMaterializationResult(result),
       );
+    } else if (options.scenarioIndexMode === "write") {
+      const result = await writeFixtureScenarioIndex({
+        root: options.root,
+        scenario: options.scenario,
+      });
+      console.log(
+        options.format === "json"
+          ? JSON.stringify(result, null, 2)
+          : renderFixtureScenarioIndexResult(result),
+      );
+    } else if (options.scenarioIndexMode === "check") {
+      const result = await checkFixtureScenarioIndex({
+        root: options.root,
+        scenario: options.scenario,
+      });
+      console.log(
+        options.format === "json"
+          ? JSON.stringify(result, null, 2)
+          : renderFixtureScenarioIndexResult(result),
+      );
+      if (!result.matchesGenerated) {
+        Deno.exit(1);
+      }
     } else {
       const plan = await planFixtureLadder(options);
       console.log(
@@ -1199,6 +1183,7 @@ export function parseFixtureLadderArgs(
   let executeTransitionId: string | undefined;
   let dryRun = false;
   let workspaceRoot: string | undefined;
+  let scenarioIndexMode: FixtureScenarioIndexMode | undefined;
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
@@ -1241,6 +1226,18 @@ export function parseFixtureLadderArgs(
         break;
       case "--dry-run":
         dryRun = true;
+        break;
+      case "--write-scenario-index":
+        scenarioIndexMode = setScenarioIndexMode(
+          scenarioIndexMode,
+          "write",
+        );
+        break;
+      case "--check-scenario-index":
+        scenarioIndexMode = setScenarioIndexMode(
+          scenarioIndexMode,
+          "check",
+        );
         break;
       default:
         if (arg.startsWith("--root=")) {
@@ -1296,6 +1293,15 @@ export function parseFixtureLadderArgs(
   }
 
   if (
+    scenarioIndexMode !== undefined &&
+    (materializeTransitionId !== undefined || executeTransitionId !== undefined)
+  ) {
+    throw new Error(
+      "fixture:ladder scenario-index options cannot be combined with --materialize or --execute",
+    );
+  }
+
+  if (
     workspaceRoot !== undefined && materializeTransitionId === undefined &&
     executeTransitionId === undefined
   ) {
@@ -1316,6 +1322,7 @@ export function parseFixtureLadderArgs(
     ...(workspaceRoot !== undefined
       ? { workspaceRoot: resolve(workspaceRoot) }
       : {}),
+    ...(scenarioIndexMode !== undefined ? { scenarioIndexMode } : {}),
   };
 }
 
@@ -1444,6 +1451,244 @@ export function renderFixtureLadderPlan(plan: FixtureLadderPlan): string {
   }
 
   return lines.join("\n");
+}
+
+export function renderFixtureScenarioIndexDocument(
+  scenario: FixtureLadderScenario,
+): ScenarioIndexDocument {
+  const stateLanes = renderFixtureScenarioIndexStateLanes(scenario);
+
+  return {
+    "@context": fixtureScenarioIndexContext(),
+    type: "ScenarioIndex",
+    id: `urn:accord:semantic-flow:${scenario.id}:scenario-index`,
+    "dcterms:title": `${scenario.label} fixture ladder`,
+    defaultFixtureRepo: scenario.fixtureRepo,
+    branchPrefix: scenario.branchPrefix,
+    assetRoot: [FIXTURE_ASSET_ROOT_BASENAME],
+    hasStateLane: stateLanes,
+    hasStep: scenario.transitions.map((transition) =>
+      renderFixtureScenarioIndexStep({
+        scenario,
+        transition,
+      })
+    ),
+  };
+}
+
+export function renderFixtureScenarioIndexJson(
+  scenario: FixtureLadderScenario,
+): string {
+  return `${
+    JSON.stringify(renderFixtureScenarioIndexDocument(scenario), null, 2)
+  }\n`;
+}
+
+export async function writeFixtureScenarioIndex(
+  options: FixtureScenarioIndexOptions,
+): Promise<FixtureScenarioIndexResult> {
+  const plan = await planFixtureLadder({
+    root: options.root,
+    scenario: options.scenario,
+    format: "text",
+  });
+  const scenarioIndexPath = fixtureScenarioIndexPath(plan);
+  const generatedText = renderFixtureScenarioIndexJson(plan.scenario);
+  const document = renderFixtureScenarioIndexDocument(plan.scenario);
+  await validateScenarioIndexDocument(document, {
+    rootPath: plan.manifestRoot,
+  });
+  await Deno.writeTextFile(scenarioIndexPath, generatedText);
+
+  return scenarioIndexResult({
+    plan,
+    scenarioIndexPath,
+    written: true,
+    matchesGenerated: true,
+  });
+}
+
+export async function checkFixtureScenarioIndex(
+  options: FixtureScenarioIndexOptions,
+): Promise<FixtureScenarioIndexResult> {
+  const plan = await planFixtureLadder({
+    root: options.root,
+    scenario: options.scenario,
+    format: "text",
+  });
+  const scenarioIndexPath = fixtureScenarioIndexPath(plan);
+  const generatedText = renderFixtureScenarioIndexJson(plan.scenario);
+  const existingText = await Deno.readTextFile(scenarioIndexPath);
+  const loaded = await readScenarioIndexSource(scenarioIndexPath);
+  await validateScenarioIndexDocument(loaded.document, {
+    rootPath: plan.manifestRoot,
+  });
+
+  return scenarioIndexResult({
+    plan,
+    scenarioIndexPath,
+    written: false,
+    matchesGenerated: existingText === generatedText,
+  });
+}
+
+export function renderFixtureScenarioIndexResult(
+  result: FixtureScenarioIndexResult,
+): string {
+  const lines = [
+    `Fixture scenario index ${
+      result.written ? "written" : "checked"
+    }: ${result.label}`,
+    `Scenario index: ${result.scenarioIndexPath}`,
+    `State lanes: ${result.lanes.join(", ")}`,
+    `Steps: ${result.steps}`,
+    `Validation: ${result.valid ? "pass" : "fail"}`,
+    `Generated output: ${result.matchesGenerated ? "current" : "drifted"}`,
+  ];
+
+  return lines.join("\n");
+}
+
+function fixtureScenarioIndexContext(): Record<string, unknown> {
+  return {
+    "@vocab": ACCORD_CONTEXT,
+    dcterms: "http://purl.org/dc/terms/",
+    id: "@id",
+    type: "@type",
+    lane: {
+      "@type": "@id",
+    },
+    locatorKind: {
+      "@type": "@vocab",
+    },
+  };
+}
+
+function renderFixtureScenarioIndexStateLanes(
+  scenario: FixtureLadderScenario,
+): StateLane[] {
+  if (scenario.id === "branch-fantasy-rules") {
+    return [
+      {
+        id: "#source-lane",
+        type: "StateLane",
+        laneKey: "source",
+        branchPrefix: scenario.branchPrefix,
+      },
+      {
+        id: "#publication-lane",
+        type: "StateLane",
+        laneKey: "publication",
+        branchPrefix: scenario.branchPrefix,
+      },
+    ];
+  }
+
+  return [
+    {
+      id: "#fixture-lane",
+      type: "StateLane",
+      laneKey: "fixture",
+      branchPrefix: scenario.branchPrefix,
+    },
+  ];
+}
+
+function renderFixtureScenarioIndexStep(options: {
+  scenario: FixtureLadderScenario;
+  transition: FixtureTransitionDefinition;
+}): ScenarioStep {
+  return {
+    id: `#${options.transition.id}`,
+    type: "ScenarioStep",
+    manifestPath: options.transition.manifestName,
+    hasLaneBinding: renderFixtureScenarioIndexLaneBindings(options),
+  };
+}
+
+function renderFixtureScenarioIndexLaneBindings(options: {
+  scenario: FixtureLadderScenario;
+  transition: FixtureTransitionDefinition;
+}): LaneStateBinding[] {
+  if (options.scenario.id !== "branch-fantasy-rules") {
+    return [
+      laneStateBinding({
+        lane: "#fixture-lane",
+        fromRef: options.transition.fromRef,
+        toRef: options.transition.toRef,
+      }),
+    ];
+  }
+
+  if (options.transition.action.kind === "branchPublication") {
+    return [
+      laneStateBinding({
+        lane: "#source-lane",
+        fromRef: options.transition.action.sourceRef,
+        toRef: options.transition.action.sourceRef,
+      }),
+      laneStateBinding({
+        lane: "#publication-lane",
+        fromRef: options.transition.action.publicationFromRef,
+        toRef: options.transition.toRef,
+      }),
+    ];
+  }
+
+  return [
+    laneStateBinding({
+      lane: "#source-lane",
+      fromRef: options.transition.fromRef,
+      toRef: options.transition.toRef,
+    }),
+  ];
+}
+
+function laneStateBinding(options: {
+  lane: string;
+  fromRef?: string;
+  toRef: string;
+}): LaneStateBinding {
+  return {
+    type: "LaneStateBinding",
+    lane: options.lane,
+    ...(options.fromRef === undefined
+      ? {}
+      : { fromLaneState: gitRefStateLocator(options.fromRef) }),
+    toLaneState: gitRefStateLocator(options.toRef),
+  };
+}
+
+function gitRefStateLocator(ref: string): StateLocator {
+  return {
+    type: "StateLocator",
+    locatorKind: "gitRefState",
+    ref,
+  };
+}
+
+function fixtureScenarioIndexPath(plan: FixtureLadderPlan): string {
+  return join(plan.manifestRoot, FIXTURE_SCENARIO_INDEX_FILENAME);
+}
+
+function scenarioIndexResult(options: {
+  plan: FixtureLadderPlan;
+  scenarioIndexPath: string;
+  written: boolean;
+  matchesGenerated: boolean;
+}): FixtureScenarioIndexResult {
+  return {
+    scenario: options.plan.scenario.id,
+    label: options.plan.scenario.label,
+    scenarioIndexPath: options.scenarioIndexPath,
+    written: options.written,
+    valid: true,
+    matchesGenerated: options.matchesGenerated,
+    steps: options.plan.scenario.transitions.length,
+    lanes: renderFixtureScenarioIndexStateLanes(options.plan.scenario).map(
+      (lane) => lane.laneKey ?? lane.id ?? "(unnamed)",
+    ),
+  };
 }
 
 export async function materializeFixtureTransitionSource(
@@ -2080,7 +2325,21 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-function commandTransition(
+export function fixtureAssetSource(
+  path: string,
+  provenance: string,
+  options: { assetPath?: string } = {},
+): FixtureAssetSourceInput {
+  return {
+    path: normalizeGitTreePath(path),
+    ...(options.assetPath === undefined
+      ? {}
+      : { assetPath: normalizeGitTreePath(options.assetPath) }),
+    provenance,
+  };
+}
+
+export function commandTransition(
   index: number,
   id: string,
   fromRef: string,
@@ -2089,7 +2348,7 @@ function commandTransition(
     branchPrefix?: string;
   } = {},
 ): FixtureTransitionDefinition {
-  const branchPrefix = options.branchPrefix ?? ALICE_BIO_LADDER_BRANCH_PREFIX;
+  const branchPrefix = options.branchPrefix ?? LADDER_BRANCH_PREFIX;
   return {
     index,
     id,
@@ -2110,13 +2369,13 @@ function commandTransition(
   };
 }
 
-function fileTransition(
+export function fileOperationTransition(
   index: number,
   id: string,
   fromRef: string,
   action: {
     description: string;
-    sources: readonly FixtureFileOperationSourceInput[];
+    sources: readonly FixtureAssetSourceInput[];
     inventoryPatches?:
       readonly FixtureResourcePageDefinitionInventoryPatchInput[];
   },
@@ -2125,7 +2384,7 @@ function fileTransition(
     branchPrefix?: string;
   } = {},
 ): FixtureTransitionDefinition {
-  const branchPrefix = options.branchPrefix ?? ALICE_BIO_LADDER_BRANCH_PREFIX;
+  const branchPrefix = options.branchPrefix ?? LADDER_BRANCH_PREFIX;
   return {
     index,
     id,
@@ -2145,7 +2404,7 @@ function fileTransition(
   };
 }
 
-function branchPublicationTransition(
+export function branchPublicationTransition(
   index: number,
   id: string,
   sourceFromRef: string,
@@ -2162,8 +2421,7 @@ function branchPublicationTransition(
     branchPrefix?: string;
   } = {},
 ): FixtureTransitionDefinition {
-  const branchPrefix = options.branchPrefix ??
-    BRANCH_FANTASY_RULES_LADDER_BRANCH_PREFIX;
+  const branchPrefix = options.branchPrefix ?? LADDER_BRANCH_PREFIX;
   const sourceRef = toLadderBranchRef(branchPrefix, sourceFromRef);
   const publicationFromRef = action.publicationFromRef === undefined
     ? undefined
@@ -2195,7 +2453,7 @@ function branchPublicationTransition(
 
 function resolveFixtureAssetSources(
   transitionId: string,
-  sources: readonly FixtureFileOperationSourceInput[],
+  sources: readonly FixtureAssetSourceInput[],
 ): FixtureFileOperationSource[] {
   return sources.map((source) => ({
     path: source.path,
@@ -3614,6 +3872,18 @@ function parsePlanFormat(value: string): FixturePlanFormat {
     return value;
   }
   throw new Error(`Unsupported fixture plan format: ${value}`);
+}
+
+function setScenarioIndexMode(
+  current: FixtureScenarioIndexMode | undefined,
+  next: FixtureScenarioIndexMode,
+): FixtureScenarioIndexMode {
+  if (current !== undefined && current !== next) {
+    throw new Error(
+      "fixture:ladder accepts only one scenario-index mode",
+    );
+  }
+  return next;
 }
 
 async function ensureEmptyWorkspaceRoot(path: string): Promise<void> {
