@@ -21,6 +21,12 @@ import type {
 } from "../../core/weave/resource_page_models.ts";
 import { Parser, type Quad, type Term } from "n3";
 import { codeToHtml } from "shiki";
+import {
+  DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE,
+  type ResourcePageKindTarget,
+  type ResourcePagePanelIdentity,
+  type ResourcePagePresentationProfile,
+} from "../config/effective_config.ts";
 import { formatDesignatorPathForDisplay } from "../../core/designator_segments.ts";
 import type { PlannedFile } from "../../core/planned_file.ts";
 import {
@@ -48,6 +54,7 @@ interface ResourcePageRenderInput {
   generatedAtIso: string;
   generatedAtDisplay: string;
   meshFaviconHref?: string;
+  stylesheetHrefs: readonly string[];
   title: string;
   breadcrumbs: readonly ResourcePageBreadcrumb[];
   summary?: string;
@@ -82,7 +89,7 @@ type ResourcePageBreadcrumb = ResourcePageBreadcrumbModel;
 
 interface ResourcePageRenderSection {
   id?: string;
-  title: string;
+  title?: string;
   html: string;
 }
 
@@ -176,6 +183,7 @@ export interface ResourcePageRenderOptions {
   generatedAt?: Date;
   includeSemanticFlowMetadata?: boolean;
   meshFaviconPath?: string;
+  resourcePagePresentation?: ResourcePagePresentationProfile;
 }
 
 export async function renderResourcePages(
@@ -219,6 +227,8 @@ export async function renderResourcePage(
           canonical,
           options.generatedAt ?? new Date(),
           options.includeSemanticFlowMetadata ?? false,
+          options.resourcePagePresentation ??
+            DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE,
           meshFaviconHref,
         ),
       ),
@@ -230,6 +240,29 @@ export async function renderResourcePage(
       resourcePath,
       meshLabel,
     );
+    const customPresentation = resolveCustomIdentifierPresentation(
+      page.presentationConfigIri,
+      options.resourcePagePresentation ??
+        DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE,
+    );
+    if (customPresentation) {
+      return await defaultResourcePageTheme.render(
+        toResourcePageRenderInput(
+          toCustomIdentifierResourcePageDocumentModel(
+            page,
+            meshLabel,
+            meshBase,
+            meshRootHref,
+            resourcePath,
+            displayResourcePath,
+            canonical,
+            options.generatedAt ?? new Date(),
+            meshFaviconHref,
+          ),
+        ),
+      );
+    }
+
     const stylesheetLinks = page.stylesheetPaths.map((stylesheetPath) =>
       `  <link rel="stylesheet" href="${
         escapeHtml(
@@ -285,6 +318,27 @@ ${
   return assertNeverResourcePage(page);
 }
 
+function resolveCustomIdentifierPresentation(
+  presentationConfigIri: string | undefined,
+  effectivePresentation: ResourcePagePresentationProfile,
+): ResourcePagePresentationProfile | undefined {
+  if (!presentationConfigIri) {
+    return undefined;
+  }
+  if (presentationConfigIri === effectivePresentation.iri) {
+    return effectivePresentation;
+  }
+  if (
+    presentationConfigIri === DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE.iri
+  ) {
+    return DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE;
+  }
+
+  throw new Error(
+    `Unsupported custom ResourcePage presentation config: ${presentationConfigIri}`,
+  );
+}
+
 export function buildResourcePageDocumentModel(
   meshBase: string,
   page: Exclude<ResourcePageModel, { kind: "customIdentifier" }>,
@@ -308,8 +362,61 @@ export function buildResourcePageDocumentModel(
     canonical,
     options.generatedAt ?? new Date(),
     options.includeSemanticFlowMetadata ?? false,
+    options.resourcePagePresentation ??
+      DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE,
     meshFaviconHref,
   );
+}
+
+function toCustomIdentifierResourcePageDocumentModel(
+  page: Extract<ResourcePageModel, { kind: "customIdentifier" }>,
+  meshLabel: string,
+  meshBase: string,
+  meshRootHref: string,
+  resourcePath: string,
+  displayResourcePath: string,
+  canonical: string,
+  generatedAt: Date,
+  meshFaviconHref: string | undefined,
+): ResourcePageDocumentModel {
+  const generatedAtIso = generatedAt.toISOString();
+  const generatedAtDisplay = formatGeneratedAtDisplay(generatedAt);
+  const definitionHref = ensureRelativePageHref(
+    toRelativeHref(page.path, page.definitionPath),
+  );
+
+  return {
+    kind: "customIdentifier",
+    meshLabel,
+    meshBase,
+    meshRootHref,
+    pagePath: page.path,
+    resourcePath,
+    displayResourcePath,
+    canonical,
+    generatedAtIso,
+    generatedAtDisplay,
+    meshFaviconHref,
+    stylesheetHrefs: page.stylesheetPaths.map((stylesheetPath) =>
+      ensureRelativePageHref(toRelativeHref(page.path, stylesheetPath))
+    ),
+    title: toDefaultResourcePageTitle(resourcePath, meshLabel),
+    breadcrumbs: toResourcePageBreadcrumbs(
+      meshLabel,
+      meshRootHref,
+      resourcePath,
+    ),
+    rdfClasses: [],
+    metadata: [
+      { label: "Canonical IRI", value: canonical },
+      {
+        label: "ResourcePageDefinition",
+        href: definitionHref,
+        value: definitionHref,
+      },
+    ],
+    panels: [{ kind: "authoredContent", regions: page.regions }],
+  };
 }
 
 function toDefaultResourcePageDocumentModel(
@@ -322,6 +429,7 @@ function toDefaultResourcePageDocumentModel(
   canonical: string,
   generatedAt: Date,
   includeSemanticFlowMetadata: boolean,
+  resourcePagePresentation: ResourcePagePresentationProfile,
   meshFaviconHref: string | undefined,
 ): ResourcePageDocumentModel {
   const generatedAtIso = generatedAt.toISOString();
@@ -397,6 +505,7 @@ function toDefaultResourcePageDocumentModel(
         : [],
       metadata,
       panels: toResourcePagePanels({
+        pageKind: "identifier",
         childrenGroups,
         propertyRows,
         blankNodeRows,
@@ -405,6 +514,7 @@ function toDefaultResourcePageDocumentModel(
         includeSemanticFlowMetadata,
         historyGroups: page.historyGroups ?? [],
         rawSourcePanels: rawSourcePanelsForDisplay,
+        resourcePagePresentation,
       }),
     };
   }
@@ -446,12 +556,14 @@ function toDefaultResourcePageDocumentModel(
       ],
       metadata: [{ label: "Canonical IRI", value: canonical }],
       panels: toResourcePagePanels({
+        pageKind: "referenceCatalog",
         propertyRows: extractPropertyRows(canonical, rawSourcePanels),
         blankNodeRows: extractBlankNodeRows(canonical, rawSourcePanels),
         historyGroups: page.historyGroups ?? [],
         currentLinks: page.currentLinks,
         rawSourcePanels,
         includeSemanticFlowMetadata,
+        resourcePagePresentation,
       }),
     };
   }
@@ -489,6 +601,7 @@ function toDefaultResourcePageDocumentModel(
         { label: "Canonical IRI", value: canonical },
       ],
       panels: toResourcePagePanels({
+        pageKind: "knop",
         childrenGroups: toChildIdentifierGroups(
           meshBase,
           canonical,
@@ -500,6 +613,7 @@ function toDefaultResourcePageDocumentModel(
           supportingArtifacts: page.supportingArtifacts,
         },
         includeSemanticFlowMetadata,
+        resourcePagePresentation,
       }),
     };
   }
@@ -533,6 +647,7 @@ function toDefaultResourcePageDocumentModel(
       { label: "Canonical IRI", value: canonical },
     ],
     panels: toResourcePagePanels({
+      pageKind: "simple",
       childrenGroups: toChildIdentifierGroups(
         meshBase,
         canonical,
@@ -553,11 +668,14 @@ function toDefaultResourcePageDocumentModel(
       ),
       rawSourcePanels: page.rawSourcePanels ?? [],
       includeSemanticFlowMetadata,
+      resourcePagePresentation,
     }),
   };
 }
 
 function toResourcePagePanels(input: {
+  resourcePagePresentation: ResourcePagePresentationProfile;
+  pageKind: ResourcePageKindTarget;
   childrenGroups?: readonly ResourcePageChildIdentifierGroupModel[];
   propertyRows?: readonly ResourcePagePropertyRow[];
   blankNodeRows?: readonly ResourcePageBlankNodeRow[];
@@ -583,26 +701,45 @@ function toResourcePagePanels(input: {
   const rawSourcePanels = input.rawSourcePanels ?? [];
   const historyGroups = input.historyGroups ?? [];
   const semanticFlowMetadataRows = input.semanticFlowMetadataRows ?? [];
+  const panelByIdentity = new Map<
+    ResourcePagePanelIdentity,
+    ResourcePagePanelModel
+  >();
 
   if (childrenGroups.length > 0) {
-    panels.push({ kind: "children", groups: childrenGroups });
+    panelByIdentity.set("children", {
+      kind: "children",
+      groups: childrenGroups,
+    });
   }
   if (propertyRows.length > 0) {
-    panels.push({ kind: "properties", rows: propertyRows });
+    panelByIdentity.set("properties", {
+      kind: "properties",
+      rows: propertyRows,
+    });
   }
   if (blankNodeRows.length > 0) {
-    panels.push({ kind: "blankNodes", rows: blankNodeRows });
+    panelByIdentity.set("blankNodes", {
+      kind: "blankNodes",
+      rows: blankNodeRows,
+    });
   }
   if (referenceGroups.length > 0) {
-    panels.push({ kind: "references", groups: referenceGroups });
+    panelByIdentity.set("references", {
+      kind: "references",
+      groups: referenceGroups,
+    });
   }
   if (currentLinks.length > 0) {
-    panels.push({ kind: "currentLinks", links: currentLinks });
+    panelByIdentity.set("currentLinks", {
+      kind: "currentLinks",
+      links: currentLinks,
+    });
   }
   if (input.knopArtifacts) {
     const { governedArtifacts, supportingArtifacts } = input.knopArtifacts;
     if (governedArtifacts.length > 0 || supportingArtifacts.length > 0) {
-      panels.push({
+      panelByIdentity.set("knopArtifacts", {
         kind: "knopArtifacts",
         governedArtifacts,
         supportingArtifacts,
@@ -610,22 +747,48 @@ function toResourcePagePanels(input: {
     }
   }
   if (factSections.length > 0) {
-    panels.push({ kind: "factSections", sections: factSections });
+    panelByIdentity.set("factSections", {
+      kind: "factSections",
+      sections: factSections,
+    });
   }
   if (rawSourcePanels.length > 0) {
-    panels.push({ kind: "rawSource", panels: rawSourcePanels });
+    panelByIdentity.set("rawSource", {
+      kind: "rawSource",
+      panels: rawSourcePanels,
+    });
   }
   if (historyGroups.length > 0) {
-    panels.push({ kind: "history", groups: historyGroups });
+    panelByIdentity.set("history", { kind: "history", groups: historyGroups });
   }
   if (input.includeSemanticFlowMetadata) {
-    panels.push({
+    panelByIdentity.set("semanticFlowMetadata", {
       kind: "semanticFlowMetadata",
       rows: semanticFlowMetadataRows,
     });
   }
 
+  for (const selection of input.resourcePagePresentation.panelSelections) {
+    if (
+      !selectionTargetsPageKind(selection.targetPageKinds, input.pageKind)
+    ) {
+      continue;
+    }
+
+    const panel = panelByIdentity.get(selection.panel);
+    if (panel) {
+      panels.push(panel);
+    }
+  }
+
   return panels;
+}
+
+function selectionTargetsPageKind(
+  targetPageKinds: readonly ResourcePageKindTarget[],
+  pageKind: ResourcePageKindTarget,
+): boolean {
+  return targetPageKinds.length === 0 || targetPageKinds.includes(pageKind);
 }
 
 function toResourcePageRenderInput(
@@ -638,6 +801,10 @@ function toResourcePageRenderInput(
   const currentLinksPanel = findResourcePagePanel(document, "currentLinks");
   const factSectionsPanel = findResourcePagePanel(document, "factSections");
   const knopArtifactsPanel = findResourcePagePanel(document, "knopArtifacts");
+  const authoredContentPanel = findResourcePagePanel(
+    document,
+    "authoredContent",
+  );
   const semanticFlowMetadataPanel = findResourcePagePanel(
     document,
     "semanticFlowMetadata",
@@ -656,6 +823,7 @@ function toResourcePageRenderInput(
     generatedAtIso: document.generatedAtIso,
     generatedAtDisplay: document.generatedAtDisplay,
     meshFaviconHref: document.meshFaviconHref,
+    stylesheetHrefs: document.stylesheetHrefs ?? [],
     title: document.title,
     breadcrumbs: document.breadcrumbs,
     summary: document.summary,
@@ -683,6 +851,8 @@ function toResourcePageRenderInput(
     ),
     historyGroups: historyPanel?.groups ?? [],
     sections: [
+      ...(authoredContentPanel?.regions.map(renderAuthoredContentSection) ??
+        []),
       ...(currentLinksPanel
         ? [renderCurrentLinksSection(
           document.meshRootHref,
@@ -707,6 +877,18 @@ function toResourcePageRenderInput(
       ) ?? []),
     ],
     rawSourcePanels: rawSourcePanel?.panels ?? [],
+  };
+}
+
+function renderAuthoredContentSection(
+  region: {
+    key: string;
+    markdown: string;
+  },
+): ResourcePageRenderSection {
+  return {
+    id: `region-${toHtmlIdSegment(region.key)}`,
+    html: renderMarkdownRegion(region.markdown),
   };
 }
 
@@ -915,13 +1097,18 @@ async function renderDefaultResourcePage(
   const historySection = renderHistorySection(input);
   const sections = input.sections.map((section) => {
     const idAttribute = section.id ? ` id="${escapeHtml(section.id)}"` : "";
+    const title = section.title
+      ? `      <h2>${escapeHtml(section.title)}</h2>\n`
+      : "";
     return `    <section class="wf-section"${idAttribute}>
-      <h2>${escapeHtml(section.title)}</h2>
-${section.html}
+${title}${section.html}
     </section>`;
   }).join("\n");
   const breadcrumbs = renderBreadcrumbs(input);
   const meshFavicon = renderMeshFavicon(input);
+  const stylesheetLinks = input.stylesheetHrefs.map((href) =>
+    `  <link rel="stylesheet" href="${escapeHtml(href)}">`
+  ).join("\n");
 
   return `<!doctype html>
 <html lang="en">
@@ -1023,6 +1210,7 @@ ${faviconLink}  <style>
     .wf-generated { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 8px 0 32px; text-align: center; color: rgba(49, 57, 49, 0.42); font-size: 0.78rem; flex: 0 0 auto; }
     .wf-generated a { color: inherit; font-weight: 700; }
   </style>
+${stylesheetLinks ? `${stylesheetLinks}\n` : ""}
   <script>
     const canonicalLink = document.querySelector('link[rel="canonical"]');
     if (canonicalLink && location.pathname.endsWith("/") && !location.search && !location.hash) {
@@ -2952,6 +3140,12 @@ function toDesignatorSlug(designatorPath: string): string {
     segment.length > 0
   );
   return segments[segments.length - 1] ?? "resource";
+}
+
+function toHtmlIdSegment(value: string): string {
+  const segment = value.toLowerCase().replaceAll(/[^a-z0-9_-]+/g, "-")
+    .replaceAll(/(^-+|-+$)/g, "");
+  return segment.length > 0 ? segment : "region";
 }
 
 function renderMarkdownRegion(markdown: string): string {

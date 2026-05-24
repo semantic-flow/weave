@@ -1,0 +1,8 @@
+@base <https://semantic-flow.github.io/weave/defaults/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<default-stylesheet> a sfcfg:ResourcePageStylesheet, sflo:DigitalArtifact ;
+  sflo:hasWorkingLocatedFile <stylesheet.css> .
+
+<stylesheet.css> a sflo:LocatedFile .

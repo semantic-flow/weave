@@ -18,8 +18,14 @@ import {
   type OperationalLocalPathPolicy,
   resolveAllowedLocalPath,
 } from "../operational/local_path_policy.ts";
-import { SFLO_NAMESPACE } from "../../core/rdf/namespaces.ts";
+import {
+  DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE,
+  type ResourcePagePresentationProfile,
+} from "../config/effective_config.ts";
+import { SFCFG_NAMESPACE, SFLO_NAMESPACE } from "../../core/rdf/namespaces.ts";
 
+const SFCFG_HAS_RESOURCE_PAGE_PRESENTATION_CONFIG_IRI =
+  `${SFCFG_NAMESPACE}hasResourcePagePresentationConfig`;
 const SFLO_HAS_PAGE_REGION_IRI = `${SFLO_NAMESPACE}hasPageRegion`;
 const SFLO_HAS_RESOURCE_PAGE_SOURCE_IRI =
   `${SFLO_NAMESPACE}hasResourcePageSource`;
@@ -87,6 +93,7 @@ export interface CustomIdentifierPageModelInput {
   definitionPath: string;
   regions: readonly CustomIdentifierRegionModel[];
   stylesheetPaths: readonly string[];
+  presentationConfigIri?: string;
 }
 
 export class ResourcePageDefinitionResolutionError extends Error {
@@ -181,6 +188,11 @@ export async function loadActiveCustomIdentifierPage(
     quads,
     definitionIri,
     SFLO_HAS_PAGE_REGION_IRI,
+  );
+  const presentationConfig = parseResourcePagePresentationConfig(
+    quads,
+    definitionIri,
+    designatorPath,
   );
 
   if (regionSubjects.length === 0) {
@@ -414,7 +426,41 @@ export async function loadActiveCustomIdentifierPage(
         designatorPath,
       )
       : [],
+    presentationConfigIri: presentationConfig?.iri,
   };
+}
+
+function parseResourcePagePresentationConfig(
+  quads: readonly Quad[],
+  definitionIri: string,
+  designatorPath: string,
+): ResourcePagePresentationProfile | undefined {
+  const configIris = collectNamedNodeObjects(
+    quads,
+    definitionIri,
+    SFCFG_HAS_RESOURCE_PAGE_PRESENTATION_CONFIG_IRI,
+  );
+  if (configIris.length === 0) {
+    return undefined;
+  }
+  if (configIris.length !== 1) {
+    throw new ResourcePageDefinitionResolutionError(
+      `ResourcePageDefinition for ${
+        formatDesignatorPathForDisplay(designatorPath)
+      } declares multiple ResourcePage presentation configs.`,
+    );
+  }
+
+  const configIri = configIris[0]!;
+  if (configIri !== DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE.iri) {
+    throw new ResourcePageDefinitionResolutionError(
+      `ResourcePageDefinition for ${
+        formatDesignatorPathForDisplay(designatorPath)
+      } requests unsupported ResourcePage presentation config: ${configIri}.`,
+    );
+  }
+
+  return DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE;
 }
 
 export function describeResourcePageDefinitionArtifact(

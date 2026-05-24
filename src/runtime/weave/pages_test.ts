@@ -4,6 +4,7 @@ import {
   assertFalse,
   assertStringIncludes,
 } from "@std/assert";
+import { DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE } from "../config/effective_config.ts";
 import { buildResourcePageDocumentModel, renderResourcePage } from "./pages.ts";
 
 Deno.test("buildResourcePageDocumentModel assembles ordered identifier panels", () => {
@@ -60,6 +61,45 @@ Deno.test("buildResourcePageDocumentModel assembles ordered identifier panels", 
   );
   assert(childrenPanel?.kind === "children");
   assertEquals(childrenPanel.groups[0]?.label, "Individuals");
+});
+
+Deno.test("buildResourcePageDocumentModel target-gates selected panels by page kind", () => {
+  const page = {
+    kind: "identifier" as const,
+    path: "alice/bio/index.html",
+    designatorPath: "alice/bio",
+    rawSourcePanels: [{
+      label: "alice-bio.ttl",
+      sourcePath: "alice-bio.ttl",
+      contents:
+        `<https://semantic-flow.github.io/mesh-alice-bio/alice/bio> <https://schema.org/name> "Alice" .`,
+    }],
+  };
+
+  assert(
+    buildResourcePageDocumentModel(
+      "https://semantic-flow.github.io/mesh-alice-bio/",
+      page,
+    ).panels.some((panel) => panel.kind === "properties"),
+  );
+
+  const document = buildResourcePageDocumentModel(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    page,
+    {
+      resourcePagePresentation: {
+        ...DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE,
+        panelSelections: DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE
+          .panelSelections.map((selection) =>
+            selection.panel === "properties"
+              ? { ...selection, targetPageKinds: ["knop"] }
+              : selection
+          ),
+      },
+    },
+  );
+
+  assertFalse(document.panels.some((panel) => panel.kind === "properties"));
 });
 
 Deno.test("buildResourcePageDocumentModel omits Semantic Flow metadata panel by default", () => {
@@ -1645,5 +1685,62 @@ Alice's integrated biography is available at [./bio](./bio), and the extracted B
 </body>
 </html>
 `,
+  );
+});
+
+Deno.test("renderResourcePage uses shared shell for opted-in customized identifier pages", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "customIdentifier",
+      path: "alice/index.html",
+      designatorPath: "alice",
+      definitionPath: "alice/_knop/_page",
+      presentationConfigIri: DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE.iri,
+      stylesheetPaths: ["alice/_knop/_assets/alice.css"],
+      regions: [
+        {
+          key: "main",
+          sourcePath: "alice/alice.md",
+          markdown: `# Alice
+
+This customized identifier page is driven by \`alice/_knop/_page/page.ttl\`.
+`,
+        },
+        {
+          key: "sidebar",
+          sourcePath: "mesh-content/sidebar.md",
+          markdown: `## Quick links
+
+- [Alice Knop](./_knop)
+`,
+        },
+      ],
+    },
+    {
+      generatedAt: new Date("2026-05-23T00:00:00.000Z"),
+    },
+  );
+
+  assertStringIncludes(html, '<article class="wf-shell">');
+  assertStringIncludes(
+    html,
+    '<link rel="stylesheet" href="./_knop/_assets/alice.css">',
+  );
+  assertStringIncludes(html, '<section class="wf-section" id="region-main">');
+  assertStringIncludes(
+    html,
+    '<section class="wf-section" id="region-sidebar">',
+  );
+  assertStringIncludes(html, "<h1>alice</h1>");
+  assertStringIncludes(html, "<h1>Alice</h1>");
+  assertStringIncludes(html, "<h2>Quick links</h2>");
+  assertStringIncludes(html, '<th scope="row">ResourcePageDefinition</th>');
+  assertStringIncludes(html, "Generated on");
+  assertFalse(html.includes('class="alice-custom-page"'));
+  assertFalse(
+    html.includes(
+      "currently rendered from the page-definition support artifact",
+    ),
   );
 });

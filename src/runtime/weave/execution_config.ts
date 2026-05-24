@@ -39,6 +39,7 @@ export async function loadEffectiveConfigForExecution(
     sources: effectiveConfig.sources,
     configResolution: effectiveConfig.configResolution,
     namingPolicies: effectiveConfig.namingPolicies,
+    resourcePagePresentation: effectiveConfig.resourcePagePresentation,
     resourcePageRegenerationConfigPolicy: effectiveConfig
       .resourcePageRegenerationConfigPolicy,
     defaultHistoryTrackingPolicy: historyTrackingPolicyOverride,

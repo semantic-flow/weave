@@ -160,6 +160,7 @@ export async function collectGeneratedPageFiles(
         generatedAt,
         includeSemanticFlowMetadata,
         meshFaviconPath,
+        resourcePagePresentation: effectiveConfig.resourcePagePresentation,
       }),
   );
 }

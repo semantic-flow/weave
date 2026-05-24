@@ -68,6 +68,7 @@ export interface CustomIdentifierResourcePageModel {
   path: string;
   designatorPath: string;
   definitionPath: string;
+  presentationConfigIri?: string;
   stylesheetPaths: readonly string[];
   regions: readonly CustomIdentifierRegionResourcePageModel[];
 }
@@ -117,7 +118,8 @@ export type ResourcePageDocumentKind =
   | "identifier"
   | "knop"
   | "simple"
-  | "referenceCatalog";
+  | "referenceCatalog"
+  | "customIdentifier";
 
 export interface ResourcePageDocumentModel {
   kind: ResourcePageDocumentKind;
@@ -131,6 +133,7 @@ export interface ResourcePageDocumentModel {
   generatedAtIso: string;
   generatedAtDisplay: string;
   meshFaviconHref?: string;
+  stylesheetHrefs?: readonly string[];
   title: string;
   summary?: string;
   rdfClasses: readonly ResourcePageRdfClassModel[];
@@ -226,6 +229,7 @@ export type ResourcePagePanelModel =
   | ResourcePageCurrentLinksPanelModel
   | ResourcePageFactSectionsPanelModel
   | ResourcePageKnopArtifactsPanelModel
+  | ResourcePageAuthoredContentPanelModel
   | ResourcePageRawSourcePanelGroupModel
   | ResourcePageSemanticFlowMetadataPanelModel;
 
@@ -268,6 +272,11 @@ export interface ResourcePageKnopArtifactsPanelModel {
   kind: "knopArtifacts";
   governedArtifacts: readonly KnopArtifactLinkModel[];
   supportingArtifacts: readonly KnopArtifactLinkModel[];
+}
+
+export interface ResourcePageAuthoredContentPanelModel {
+  kind: "authoredContent";
+  regions: readonly CustomIdentifierRegionResourcePageModel[];
 }
 
 export interface ResourcePageRawSourcePanelGroupModel {

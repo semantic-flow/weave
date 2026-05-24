@@ -202,6 +202,8 @@ export async function collectResourcePageModels(
           path: pagePath,
           designatorPath: publicContext.designatorPath,
           definitionPath: publicContext.customIdentifierPage.definitionPath,
+          presentationConfigIri:
+            publicContext.customIdentifierPage.presentationConfigIri,
           stylesheetPaths: publicContext.customIdentifierPage.stylesheetPaths,
           regions: publicContext.customIdentifierPage.regions,
         });
