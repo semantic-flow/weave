@@ -408,17 +408,20 @@ function toCustomIdentifierResourcePageDocumentModel(
 ): ResourcePageDocumentModel {
   const generatedAtIso = generatedAt.toISOString();
   const generatedAtDisplay = formatGeneratedAtDisplay(generatedAt);
-  const definitionHref = ensureRelativePageHref(
-    toRelativeHref(page.path, page.definitionPath),
-  );
   const sourcePanelsForFacts = page.rawSourcePanels ?? [];
   const rawSourcePanelsForDisplay = page.workingLocalRelativePath
     ? sourcePanelsForFacts
     : [];
   const rdfFacts = extractRdfFacts(canonical, sourcePanelsForFacts);
+  const generatedPanelSelectionIris = includeSemanticFlowMetadata
+    ? withSemanticFlowMetadataPanelSelection(
+      resourcePagePresentation,
+      page.generatedPanelSelectionIris ?? [],
+    )
+    : page.generatedPanelSelectionIris ?? [];
   const selectedPresentation = selectGeneratedResourcePagePanels(
     resourcePagePresentation,
-    page.generatedPanelSelectionIris ?? [],
+    generatedPanelSelectionIris,
   );
   const rdfClasses = rdfFacts.classes;
   const generatedPanels = toResourcePagePanels({
@@ -439,6 +442,11 @@ function toCustomIdentifierResourcePageDocumentModel(
     referenceGroups: toReferenceGroups(page.references ?? []),
     semanticFlowMetadataRows: [
       toKnopMetadataRow(meshRootHref, meshLabel, resourcePath),
+      toResourcePageDefinitionMetadataRow(
+        meshRootHref,
+        meshLabel,
+        page.definitionPath,
+      ),
       ...toExtractionSourceMetadataRows(
         meshRootHref,
         meshLabel,
@@ -475,11 +483,6 @@ function toCustomIdentifierResourcePageDocumentModel(
     rdfClasses,
     metadata: [
       { label: "Canonical IRI", value: canonical },
-      {
-        label: "ResourcePageDefinition",
-        href: definitionHref,
-        value: definitionHref,
-      },
     ],
     panels: [
       { kind: "authoredContent", regions: page.regions },
@@ -515,6 +518,24 @@ function selectGeneratedResourcePagePanels(
   }
 
   return { ...resourcePagePresentation, panelSelections };
+}
+
+function withSemanticFlowMetadataPanelSelection(
+  resourcePagePresentation: ResourcePagePresentationProfile,
+  selectionIris: readonly string[],
+): readonly string[] {
+  const semanticFlowMetadataSelectionIri = resourcePagePresentation
+    .panelSelections.find((selection) =>
+      selection.panel === "semanticFlowMetadata"
+    )?.iri;
+  if (
+    !semanticFlowMetadataSelectionIri ||
+    selectionIris.includes(semanticFlowMetadataSelectionIri)
+  ) {
+    return selectionIris;
+  }
+
+  return [...selectionIris, semanticFlowMetadataSelectionIri];
 }
 
 function toDefaultResourcePageDocumentModel(
@@ -1683,6 +1704,18 @@ function toKnopMetadataRow(
     label: "Knop",
     href: toMeshResourceHref(meshRootHref, knopResourcePath),
     value: toDisplayDesignatorPath(knopResourcePath, meshLabel),
+  };
+}
+
+function toResourcePageDefinitionMetadataRow(
+  meshRootHref: string,
+  meshLabel: string,
+  definitionPath: string,
+): ResourcePageMetadataModel {
+  return {
+    label: "ResourcePageDefinition",
+    href: toMeshResourceHref(meshRootHref, definitionPath),
+    value: toDisplayDesignatorPath(definitionPath, meshLabel),
   };
 }
 

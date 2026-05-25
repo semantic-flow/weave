@@ -34,11 +34,30 @@ A ResourcePage is assembled from three layers:
 
 Runtime code owns graph discovery and source resolution. Templates and stylesheets should arrange already-resolved document and panel data; they should not read RDF graphs, local files, remote URLs, mesh inventories, or config sources themselves.
 
+## Built-In Panels
+
+The default Semantic Site presentation currently supports these generated panels:
+
+- `children`: child identifier groups.
+- `properties`: direct RDF properties for the page resource.
+- `blankNodes`: nested blank-node RDF values.
+- `references`: ReferenceCatalog links.
+- `currentLinks`: current ReferenceCatalog entries.
+- `knopArtifacts`: governed and supporting artifacts for a Knop.
+- `factSections`: derived fact sections such as extraction-source details.
+- `rawSource`: syntax-highlighted source panels.
+- `history`: artifact history and state links.
+- `semanticFlowMetadata`: Semantic Flow support metadata such as the associated Knop, page definition, working source, and extraction source links.
+
+Title extraction prefers `dcterms:title`, then `schema:characterName`, `schema:name`, and `foaf:name` before falling back to the identifier path.
+
 ## Customization
 
 Use an authored `ResourcePageDefinition` when an identifier needs custom content. A page definition can bind authored regions to Markdown sources, and those regions render as authored-content panels.
 
 To keep the built-in Semantic Site chrome on a custom page, set `sfcfg:hasResourcePagePresentationConfig` on the authored `ResourcePageDefinition` to the supported default presentation config. A custom page only receives generated panels when it explicitly opts into them with `sfcfg:hasGeneratedResourcePagePanelSelection`; generated panels are not appended automatically.
+
+The exception is `semanticFlowMetadata`: when page generation is run with `--include-semantic-flow-metadata`, Weave may append that operational support panel to a custom page even if the page definition did not explicitly select it.
 
 When authored regions and generated panels are both present and no explicit custom order is supplied, authored regions appear before generated panels.
 

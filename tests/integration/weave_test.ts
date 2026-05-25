@@ -954,9 +954,14 @@ Deno.test("executeWeave matches the settled alice page-customized-woven fixture"
     await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
     `is an IRI which identifies Alice, the person`,
   );
-  assertStringIncludes(
-    await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
-    `<a href="./_knop/_page">./_knop/_page</a>`,
+  const alicePageHtml = await Deno.readTextFile(
+    join(workspaceRoot, "alice/index.html"),
+  );
+  assertFalse(
+    alicePageHtml.includes(`<a href="./_knop/_page">./_knop/_page</a>`),
+  );
+  assertFalse(
+    alicePageHtml.includes(`<th scope="row">ResourcePageDefinition</th>`),
   );
   const pageDefinitionHtml = await Deno.readTextFile(
     join(workspaceRoot, "alice/_knop/_page/index.html"),

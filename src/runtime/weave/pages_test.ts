@@ -508,6 +508,28 @@ Deno.test("renderResourcePage extracts root facts from the slashless root IRI", 
   );
 });
 
+Deno.test("renderResourcePage uses foaf:name as an identifier title fallback", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "identifier",
+      path: "alice/index.html",
+      designatorPath: "alice",
+      rawSourcePanels: [{
+        label: "Current working file",
+        sourcePath: "alice.ttl",
+        contents: `@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+
+<https://semantic-flow.github.io/mesh-alice-bio/alice> foaf:name "Alice" .
+`,
+      }],
+    },
+  );
+
+  assertStringIncludes(html, "<title>mesh-alice-bio Alice</title>");
+  assertStringIncludes(html, "<h1>Alice</h1>");
+});
+
 Deno.test("renderResourcePage renders typed child identifier rows", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
@@ -1815,13 +1837,50 @@ This customized identifier page is driven by \`alice/_knop/_page/page.ttl\`.
   assertStringIncludes(html, "<h1>alice</h1>");
   assertStringIncludes(html, "<h1>Alice</h1>");
   assertStringIncludes(html, "<h2>Quick links</h2>");
-  assertStringIncludes(html, '<th scope="row">ResourcePageDefinition</th>');
+  assertFalse(html.includes('<th scope="row">ResourcePageDefinition</th>'));
+  assertFalse(html.includes("<summary>Semantic Flow metadata</summary>"));
   assertStringIncludes(html, "Generated on");
   assertFalse(html.includes('class="alice-custom-page"'));
   assertFalse(
     html.includes(
       "currently rendered from the page-definition support artifact",
     ),
+  );
+});
+
+Deno.test("renderResourcePage puts custom page definition links in Semantic Flow metadata", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "customIdentifier",
+      path: "alice/index.html",
+      designatorPath: "alice",
+      definitionPath: "alice/_knop/_page",
+      presentationConfigIri: DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE.iri,
+      stylesheetPaths: [],
+      regions: [{
+        key: "main",
+        sourcePath: "alice/alice.md",
+        markdown: "# Alice\n",
+      }],
+    },
+    {
+      generatedAt: new Date("2026-05-23T00:00:00.000Z"),
+      includeSemanticFlowMetadata: true,
+    },
+  );
+
+  const semanticFlowPanelIndex = html.indexOf(
+    "<summary>Semantic Flow metadata</summary>",
+  );
+  const definitionRowIndex = html.indexOf(
+    '<th scope="row">ResourcePageDefinition</th>',
+  );
+  assert(semanticFlowPanelIndex >= 0);
+  assert(definitionRowIndex > semanticFlowPanelIndex);
+  assertStringIncludes(
+    html,
+    '<a href="/mesh-alice-bio/alice/_knop/_page">alice/_knop/_page</a>',
   );
 });
 
