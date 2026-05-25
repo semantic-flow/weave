@@ -348,11 +348,18 @@ Deno.test("planFixtureLadder exposes the Alice Bio dry-run transition plan", asy
   );
   assertEquals(plan.scenario.branchPrefix, "a.");
   assertStringIncludes(plan.assetRoot, "mesh-alice-bio/.assets");
-  assertEquals(plan.transitions.length, 25);
+  assertEquals(plan.transitions.length, 27);
   assertEquals(plan.transitions[0]?.id, "01-source-only");
   assertEquals(plan.transitions[0]?.fromRef, "a.00-blank-slate");
   assertEquals(plan.transitions[24]?.id, "25-root-page-customized-woven");
   assertEquals(plan.transitions[24]?.fromRef, "a.24-root-page-customized");
+  assertEquals(plan.transitions[25]?.id, "26-carol");
+  assertEquals(
+    plan.transitions[25]?.fromRef,
+    "a.25-root-page-customized-woven",
+  );
+  assertEquals(plan.transitions[26]?.id, "27-carol-woven");
+  assertEquals(plan.transitions[26]?.fromRef, "a.26-carol");
 
   const meshCreate = plan.transitions[1];
   assertEquals(meshCreate?.operationId, "mesh.create");
@@ -434,7 +441,7 @@ Deno.test("planFixtureLadder applies a branch-prefix override", async () => {
   assertEquals(plan.scenario.branchPrefix, "b.");
   assertEquals(plan.transitions[0]?.fromRef, "b.00-blank-slate");
   assertEquals(plan.transitions[0]?.toRef, "b.01-source-only");
-  assertEquals(plan.transitions[24]?.toRef, "b.25-root-page-customized-woven");
+  assertEquals(plan.transitions[26]?.toRef, "b.27-carol-woven");
 
   const branchPlan = await planFixtureLadder({
     root: repoRoot,
@@ -1279,6 +1286,7 @@ Deno.test("Alice Bio asset-backed transitions point at checked-in deterministic 
     "24-root-page-customized/_knop/_assets/site.css",
     "24-root-page-customized/_knop/_page/page.ttl",
     "24-root-page-customized/home.md",
+    "26-carol/carol-data.ttl",
   ]);
 
   for (const assetPath of assetPaths) {
@@ -1358,7 +1366,7 @@ Deno.test("renderFixtureLadderPlan prints reviewable command and validation deta
   assertStringIncludes(rendered, "Fixture ladder dry run: Alice Bio");
   assertStringIncludes(rendered, "Asset root:");
   assertStringIncludes(rendered, "Branch writes: disabled");
-  assertStringIncludes(rendered, "Transitions: 25");
+  assertStringIncludes(rendered, "Transitions: 27");
   assertStringIncludes(
     rendered,
     "2. 02-mesh-created: a.01-source-only -> a.02-mesh-created",
@@ -1405,7 +1413,7 @@ Deno.test("renderFixtureScenarioIndexDocument renders stable fixture topology", 
   assertEquals(aliceIndex.hasStateLane?.map((lane) => lane.laneKey), [
     "fixture",
   ]);
-  assertEquals(aliceIndex.hasStep?.length, 25);
+  assertEquals(aliceIndex.hasStep?.length, 27);
   assertEquals(aliceIndex.hasStep?.[0]?.manifestPath, "01-source-only.jsonld");
   assertEquals(
     aliceIndex.hasStep?.[0]?.hasLaneBinding?.[0]?.fromLaneState?.ref,
@@ -1478,7 +1486,7 @@ Deno.test("Alice Bio fixture scenario has sequential transition indexes", () => 
     ALICE_BIO_FIXTURE_SCENARIO.transitions.map((transition) =>
       transition.index
     ),
-    Array.from({ length: 25 }, (_, index) => index + 1),
+    Array.from({ length: 27 }, (_, index) => index + 1),
   );
 });
 

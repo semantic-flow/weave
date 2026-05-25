@@ -295,11 +295,11 @@ export function assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
       SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI,
       `${rootKnopPath}/_inventory/inventory.ttl`,
     ],
-    [
+    ...(rootKnopPath === knopPath ? [] : [[
       rootKnopPath,
       SFLO_HAS_RESOURCE_PAGE_IRI,
       `${rootKnopPath}/index.html`,
-    ],
+    ]] as const),
     [sourceKnopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
     [
       sourceKnopPath,
@@ -584,7 +584,6 @@ export function assertCurrentPayloadArtifactShape(
   assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
     [designatorPath, RDF_TYPE_IRI, SFLO_PAYLOAD_ARTIFACT_IRI],
     [designatorPath, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
-    [designatorPath, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
   ]);
   assertHasCurrentPayloadSourceLocator(
     quads,

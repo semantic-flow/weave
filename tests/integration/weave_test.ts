@@ -244,7 +244,7 @@ Deno.test("executeWeave refreshes ancestor ResourcePages when a child designator
   assertStringIncludes(rootPage, "<h1>Mesh Root</h1>");
   assertStringIncludes(rootPage, "The root welcome page.");
   assertStringIncludes(rootPage, '<details class="wf-children" open>');
-  assertStringIncludes(rootPage, "<summary>Children</summary>");
+  assertStringIncludes(rootPage, "<summary>Child Identifiers</summary>");
   assertStringIncludes(
     rootPage,
     '<nobr><a class="wf-child-identifier" href="/mesh-alice-bio/ontology">ontology</a></nobr>',
@@ -1998,7 +1998,7 @@ Deno.test("executeGenerate lists every sidecar payload history with working hist
   assertFalse(ontologyPage.includes("wf-knop-link"));
   assertFalse(ontologyPage.includes("Semantic Flow metadata"));
   assertStringIncludes(ontologyPage, '<details class="wf-children" open>');
-  assertStringIncludes(ontologyPage, "<summary>Children</summary>");
+  assertStringIncludes(ontologyPage, "<summary>Child Identifiers</summary>");
   assertStringIncludes(ontologyPage, '<th scope="row">Classes</th>');
   assertStringIncludes(
     ontologyPage,
@@ -2016,7 +2016,10 @@ Deno.test("executeGenerate lists every sidecar payload history with working hist
     "Semantic Flow bundle of supporting data for Fantasy Rules Ontology.",
   );
   assertStringIncludes(ontologyKnopPage, '<details class="wf-children" open>');
-  assertStringIncludes(ontologyKnopPage, "<summary>Children</summary>");
+  assertStringIncludes(
+    ontologyKnopPage,
+    "<summary>Child Identifiers</summary>",
+  );
   assertStringIncludes(ontologyKnopPage, '<th scope="row">Individuals</th>');
   assertStringIncludes(
     ontologyKnopPage,

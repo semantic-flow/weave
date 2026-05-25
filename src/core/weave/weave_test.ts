@@ -1393,6 +1393,116 @@ Deno.test("planWeave renders a later first payload weave slice against a carried
   );
 });
 
+Deno.test("planWeave anchors a nested first payload page at the mesh page when the parent identifier is absent", () => {
+  const currentMeshInventoryTurtle = laterFirstPayloadWeaveMeshInventoryTurtle
+    .replace(
+      "  sflo:hasKnop <alice/page-main/_knop> ;",
+      "  sflo:hasKnop <carol/data/_knop> ;",
+    )
+    .replaceAll("alice/page-main", "carol/data")
+    .replaceAll("alice-page-main.md", "carol-data.ttl");
+  const plan = planWeave({
+    request: {
+      targets: [{ designatorPath: "carol/data" }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle,
+    currentMeshMetadataTurtle: laterFirstPayloadWeaveMeshMetadataTurtle,
+    weaveableKnops: [{
+      designatorPath: "carol/data",
+      currentKnopMetadataTurtle: laterFirstPayloadWeaveKnopMetadataTurtle
+        .replaceAll("alice/page-main", "carol/data")
+        .replaceAll("alice-page-main.md", "carol-data.ttl"),
+      currentKnopInventoryTurtle: laterFirstPayloadWeaveKnopInventoryTurtle
+        .replaceAll("alice/page-main", "carol/data")
+        .replaceAll("alice-page-main.md", "carol-data.ttl"),
+      payloadArtifact: {
+        workingLocalRelativePath: "carol-data.ttl",
+        currentPayloadTurtle:
+          `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix schema: <https://schema.org/> .
+
+<carol> a schema:Person .
+`,
+      },
+    }],
+  });
+
+  const inventory =
+    plan.updatedFiles.find((file) =>
+      file.path === "_mesh/_inventory/inventory.ttl"
+    )?.contents ?? "";
+
+  assertStringIncludes(
+    inventory,
+    "<carol/data/index.html> a sflo:ResourcePage, sflo:LocatedFile .",
+  );
+  assertStringIncludes(
+    inventory,
+    "<carol/data/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .",
+  );
+  assertFalse(inventory.includes("<carol/index.html>"));
+  assertFalse(inventory.includes("<carol/_knop>"));
+  assert(
+    plan.createdPages.some((page) => page.path === "carol/data/index.html"),
+  );
+});
+
+Deno.test("planWeave renders a first payload weave for non-RDF digital artifacts", () => {
+  const currentMeshInventoryTurtle = laterFirstPayloadWeaveMeshInventoryTurtle
+    .replace(
+      "  sflo:hasKnop <alice/page-main/_knop> ;",
+      "  sflo:hasKnop <carol/bio/_knop> ;",
+    )
+    .replaceAll("alice/page-main", "carol/bio")
+    .replaceAll("alice-page-main.md", "carol-bio.md")
+    .replace(
+      "<carol/bio> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;",
+      "<carol/bio> a sflo:PayloadArtifact, sflo:DigitalArtifact ;",
+    )
+    .replace(
+      "<carol-bio.md> a sflo:LocatedFile, sflo:RdfDocument .",
+      "<carol-bio.md> a sflo:LocatedFile .",
+    );
+  const currentKnopInventoryTurtle = laterFirstPayloadWeaveKnopInventoryTurtle
+    .replaceAll("alice/page-main", "carol/bio")
+    .replaceAll("alice-page-main.md", "carol-bio.md")
+    .replace(
+      "<carol/bio> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;",
+      "<carol/bio> a sflo:PayloadArtifact, sflo:DigitalArtifact ;",
+    )
+    .replace(
+      "<carol-bio.md> a sflo:LocatedFile, sflo:RdfDocument .",
+      "<carol-bio.md> a sflo:LocatedFile .",
+    );
+  const plan = planWeave({
+    request: {
+      targets: [{ designatorPath: "carol/bio" }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle,
+    currentMeshMetadataTurtle: laterFirstPayloadWeaveMeshMetadataTurtle,
+    weaveableKnops: [{
+      designatorPath: "carol/bio",
+      currentKnopMetadataTurtle: laterFirstPayloadWeaveKnopMetadataTurtle
+        .replaceAll("alice/page-main", "carol/bio")
+        .replaceAll("alice-page-main.md", "carol-bio.md"),
+      currentKnopInventoryTurtle,
+      payloadArtifact: {
+        workingLocalRelativePath: "carol-bio.md",
+        currentPayloadTurtle: "# Carol Burnett\n\nImported Markdown bio.\n",
+      },
+    }],
+  });
+
+  assertEquals(plan.wovenDesignatorPaths, ["carol/bio"]);
+  assert(
+    plan.createdFiles.some((file) =>
+      file.path === "carol/bio/_history001/_s0001/md/carol-bio.md"
+    ),
+  );
+});
+
 Deno.test("planWeave advances ordinal MeshInventory progression after a named latest state", () => {
   const hintedPlan = planWeave({
     request: {
@@ -2895,6 +3005,95 @@ Deno.test("planWeave accepts extracted weave inputs sourced from the root payloa
       page.path === "alice/data/_knop/_references/index.html"
     ),
     false,
+  );
+});
+
+Deno.test("planWeave accepts an extracted root identifier sourced from an already woven nested payload", () => {
+  const carolDataTurtle =
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix schema: <https://schema.org/> .
+
+<carol> a schema:Person .
+`;
+  const currentMeshInventoryTurtle = laterFirstPayloadWeaveMeshInventoryTurtle
+    .replace(
+      "  sflo:hasKnop <alice/page-main/_knop> ;",
+      "  sflo:hasKnop <carol/data/_knop> ;",
+    )
+    .replaceAll("alice/page-main", "carol/data")
+    .replaceAll("alice-page-main.md", "carol-data.ttl");
+  const dataPlan = planWeave({
+    request: {
+      targets: [{ designatorPath: "carol/data" }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle,
+    currentMeshMetadataTurtle: laterFirstPayloadWeaveMeshMetadataTurtle,
+    weaveableKnops: [{
+      designatorPath: "carol/data",
+      currentKnopMetadataTurtle: laterFirstPayloadWeaveKnopMetadataTurtle
+        .replaceAll("alice/page-main", "carol/data")
+        .replaceAll("alice-page-main.md", "carol-data.ttl"),
+      currentKnopInventoryTurtle: laterFirstPayloadWeaveKnopInventoryTurtle
+        .replaceAll("alice/page-main", "carol/data")
+        .replaceAll("alice-page-main.md", "carol-data.ttl"),
+      payloadArtifact: {
+        workingLocalRelativePath: "carol-data.ttl",
+        currentPayloadTurtle: carolDataTurtle,
+      },
+    }],
+  });
+  const dataMeshInventory =
+    dataPlan.updatedFiles.find((file) =>
+      file.path === "_mesh/_inventory/inventory.ttl"
+    )!.contents;
+  const dataMeshMetadata =
+    dataPlan.updatedFiles.find((file) => file.path === "_mesh/_meta/meta.ttl")!
+      .contents;
+  const extractPlan = planExtract({
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: dataMeshInventory,
+    designatorPath: "carol",
+    sourceDesignatorPath: "carol/data",
+    sourceWorkingLocalRelativePath: "carol-data.ttl",
+  });
+  const createdFileByPath = new Map(
+    extractPlan.createdFiles.map((file) => [file.path, file.contents]),
+  );
+
+  const plan = planWeave({
+    request: {
+      targets: [{ designatorPath: "carol" }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: extractPlan.updatedFiles[0]!.contents,
+    currentMeshMetadataTurtle: dataMeshMetadata,
+    weaveableKnops: [{
+      designatorPath: "carol",
+      currentKnopMetadataTurtle: createdFileByPath.get(
+        "carol/_knop/_meta/meta.ttl",
+      )!,
+      currentKnopInventoryTurtle: createdFileByPath.get(
+        "carol/_knop/_inventory/inventory.ttl",
+      )!,
+      referenceTargetSourcePayloadArtifact: {
+        designatorPath: "carol/data",
+        workingLocalRelativePath: "carol-data.ttl",
+        currentPayloadTurtle: carolDataTurtle,
+        sourceRegistryWorkingLocalRelativePath:
+          "carol/_knop/_sources/sources.ttl",
+        currentSourceRegistryTurtle: createdFileByPath.get(
+          "carol/_knop/_sources/sources.ttl",
+        )!,
+        latestHistoricalStatePath: "carol/data/_history001/_s0001",
+      },
+    }],
+  });
+
+  assertEquals(plan.wovenDesignatorPaths, ["carol"]);
+  assertStringIncludes(
+    plan.updatedFiles[0]?.contents ?? "",
+    "<carol>\n  sflo:hasResourcePage <carol/index.html> .",
   );
 });
 

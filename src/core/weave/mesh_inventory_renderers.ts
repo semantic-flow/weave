@@ -189,6 +189,8 @@ export function renderFirstPayloadWovenMeshInventoryTurtle(
   const rootKnopPath = toKnopPath(rootDesignatorPath);
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
   const rootPagePath = toDesignatorResourcePagePath(rootDesignatorPath);
+  const preferredDesignatorPageAnchorPath =
+    rootDesignatorPath === designatorPath ? "_mesh/index.html" : rootPagePath;
   const historyPath = meshInventoryProgression.historyPath;
   const nextStatePath = meshInventoryProgression.nextStatePath;
   const nextStateManifestationPath = `${nextStatePath}/ttl`;
@@ -223,6 +225,21 @@ export function renderFirstPayloadWovenMeshInventoryTurtle(
   if (!knopPaths.includes(knopPath)) {
     knopPaths.push(knopPath);
   }
+  const designatorPageAnchorPath = findSubjectBlockIndex(
+      blocks,
+      preferredDesignatorPageAnchorPath,
+    ) === -1
+    ? "_mesh/index.html"
+    : preferredDesignatorPageAnchorPath;
+  const preferredKnopPageAnchorPath = rootDesignatorPath === designatorPath
+    ? designatorPagePath
+    : `${rootKnopPath}/index.html`;
+  const knopPageAnchorPath = findSubjectBlockIndex(
+      blocks,
+      preferredKnopPageAnchorPath,
+    ) === -1
+    ? designatorPagePath
+    : preferredKnopPageAnchorPath;
 
   blocks = replaceSubjectBlock(
     blocks,
@@ -281,15 +298,13 @@ export function renderFirstPayloadWovenMeshInventoryTurtle(
   );
   blocks = upsertSubjectBlockAfter(
     blocks,
-    rootDesignatorPath === designatorPath ? "_mesh/index.html" : rootPagePath,
+    designatorPageAnchorPath,
     designatorPagePath,
     renderResourcePageLocatedFileBlock(designatorPagePath),
   );
   blocks = upsertSubjectBlockAfter(
     blocks,
-    rootDesignatorPath === designatorPath
-      ? designatorPagePath
-      : `${rootKnopPath}/index.html`,
+    knopPageAnchorPath,
     `${knopPath}/index.html`,
     renderResourcePageLocatedFileBlock(`${knopPath}/index.html`),
   );

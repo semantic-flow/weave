@@ -323,7 +323,6 @@ export function resolveCurrentMeshInventoryProgressionForFirstPayloadWeave(
     ["_mesh/_inventory", RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
     [designatorPath, RDF_TYPE_IRI, SFLO_PAYLOAD_ARTIFACT_IRI],
     [designatorPath, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
-    [designatorPath, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
     [knopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
   ]);
 

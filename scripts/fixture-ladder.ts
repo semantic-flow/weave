@@ -771,6 +771,18 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
       "24-root-page-customized",
       "weave",
     ),
+    commandTransition(
+      26,
+      "26-carol",
+      "25-root-page-customized-woven",
+      "fixture.carol",
+    ),
+    commandTransition(
+      27,
+      "27-carol-woven",
+      "26-carol",
+      "weave",
+    ),
   ],
 };
 
@@ -2911,6 +2923,7 @@ async function runFixtureCommandInvocation(options: {
     "--allow-write",
     "--allow-run=git",
     "--allow-env",
+    "--allow-net=raw.githubusercontent.com",
     join(options.root, "src/main.ts"),
     ...options.invocation.argv,
   ];
@@ -3128,6 +3141,7 @@ async function runBranchPublicationCommandInvocation(options: {
     "--allow-write",
     "--allow-run=git",
     "--allow-env",
+    "--allow-net=raw.githubusercontent.com",
     join(options.root, "src/main.ts"),
     ...options.invocation.argv.map((arg) =>
       substituteBranchPublicationArg({

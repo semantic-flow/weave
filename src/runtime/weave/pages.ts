@@ -474,7 +474,8 @@ function toCustomIdentifierResourcePageDocumentModel(
     stylesheetHrefs: page.stylesheetPaths.map((stylesheetPath) =>
       ensureRelativePageHref(toRelativeHref(page.path, stylesheetPath))
     ),
-    title: rdfFacts.title ?? toDefaultResourcePageTitle(resourcePath, meshLabel),
+    title: rdfFacts.title ??
+      toDefaultResourcePageTitle(resourcePath, meshLabel),
     breadcrumbs: toResourcePageBreadcrumbs(
       meshLabel,
       meshRootHref,
@@ -1563,7 +1564,7 @@ function renderChildrenSection(
 
   return `    <section class="wf-section">
       <details class="wf-children" open>
-        <summary>Children</summary>
+        <summary>Child Identifiers</summary>
 ${renderMetadataTable(rows, 8)}      </details>
     </section>
 `;

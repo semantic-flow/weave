@@ -576,7 +576,7 @@ Deno.test("renderResourcePage renders typed child identifier rows", async () => 
   );
 
   assertStringIncludes(html, '<details class="wf-children" open>');
-  assertStringIncludes(html, "<summary>Children</summary>");
+  assertStringIncludes(html, "<summary>Child Identifiers</summary>");
   assertStringIncludes(html, '<th scope="row">Classes</th>');
   assertStringIncludes(html, '<th scope="row">Object Properties</th>');
   assertStringIncludes(html, '<th scope="row">Datatype Properties</th>');
@@ -587,12 +587,12 @@ Deno.test("renderResourcePage renders typed child identifier rows", async () => 
   assertStringIncludes(html, '<th scope="row">Node Shapes</th>');
   assertStringIncludes(html, '<th scope="row">Property Shapes</th>');
   assertStringIncludes(html, '<th scope="row">Shapes</th>');
-  assertFalse(html.includes("Child Identifiers"));
+  assertFalse(html.includes("<summary>Children</summary>"));
   assertFalse(html.includes('<th scope="row">Child Classes</th>'));
   assert(
-    html.indexOf("<summary>Children</summary>") <
+    html.indexOf("<summary>Child Identifiers</summary>") <
       html.indexOf('<th scope="row">Classes</th>'),
-    "expected child rows under the Children section",
+    "expected child rows under the Child Identifiers section",
   );
   assert(
     html.indexOf('<th scope="row">Individuals</th>') <
@@ -719,7 +719,7 @@ Deno.test("renderResourcePage separates SHACL child identifiers from RDF type hi
   );
 
   assertStringIncludes(html, '<details class="wf-children" open>');
-  assertStringIncludes(html, "<summary>Children</summary>");
+  assertStringIncludes(html, "<summary>Child Identifiers</summary>");
   assertStringIncludes(html, '<th scope="row">Individuals</th>');
   assertStringIncludes(html, '<th scope="row">Node Shapes</th>');
   assertStringIncludes(html, '<th scope="row">Property Shapes</th>');
@@ -773,7 +773,7 @@ Deno.test("renderResourcePage collapses child identifier overflow", async () => 
   );
 
   assertStringIncludes(html, '<details class="wf-children" open>');
-  assertStringIncludes(html, "<summary>Children</summary>");
+  assertStringIncludes(html, "<summary>Child Identifiers</summary>");
   assertStringIncludes(html, '<th scope="row">Individuals</th>');
   assertStringIncludes(html, ">Child20</a>");
   assertStringIncludes(
@@ -937,7 +937,7 @@ Deno.test("renderResourcePage renders Knop pages with local titles", async () =>
   );
   assertStringIncludes(html, '<span aria-current="page">_knop</span>');
   assertStringIncludes(html, '<details class="wf-children" open>');
-  assertStringIncludes(html, "<summary>Children</summary>");
+  assertStringIncludes(html, "<summary>Child Identifiers</summary>");
   assertStringIncludes(html, '<th scope="row">Individuals</th>');
   assertStringIncludes(
     html,
