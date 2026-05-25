@@ -1848,6 +1848,40 @@ This customized identifier page is driven by \`alice/_knop/_page/page.ttl\`.
   );
 });
 
+Deno.test("renderResourcePage omits YAML frontmatter from authored Markdown regions", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "customIdentifier",
+      path: "bob/index.html",
+      designatorPath: "bob",
+      definitionPath: "bob/_knop/_page",
+      presentationConfigIri: DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE.iri,
+      stylesheetPaths: [],
+      regions: [{
+        key: "main",
+        sourcePath: "bob-page-main.md",
+        markdown: `---
+title: Bob Newhart
+---
+
+# Bob Newhart
+
+Quietly precise.
+`,
+      }],
+    },
+    {
+      generatedAt: new Date("2026-05-25T00:00:00.000Z"),
+    },
+  );
+
+  assertStringIncludes(html, "<h1>Bob Newhart</h1>");
+  assertStringIncludes(html, "<p>Quietly precise.</p>");
+  assertFalse(html.includes("title: Bob Newhart"));
+  assertFalse(html.includes("<p>---</p>"));
+});
+
 Deno.test("renderResourcePage puts custom page definition links in Semantic Flow metadata", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",

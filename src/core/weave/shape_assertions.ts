@@ -746,7 +746,6 @@ export function assertCurrentKnopInventoryShapeForSubsequentPageDefinitionWeave(
     [knopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
     [knopPath, SFLO_HAS_KNOP_METADATA_IRI, `${knopPath}/_meta`],
     [knopPath, SFLO_HAS_KNOP_INVENTORY_IRI, `${knopPath}/_inventory`],
-    [knopPath, SFLO_HAS_REFERENCE_CATALOG_IRI, `${knopPath}/_references`],
     [knopPath, SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI, `${knopPath}/_page`],
     [
       `${knopPath}/_inventory`,

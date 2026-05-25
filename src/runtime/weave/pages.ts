@@ -3448,7 +3448,9 @@ function toHtmlIdSegment(value: string): string {
 }
 
 function renderMarkdownRegion(markdown: string): string {
-  const lines = markdown.replaceAll("\r\n", "\n").split("\n");
+  const lines = stripYamlFrontmatter(markdown).replaceAll("\r\n", "\n").split(
+    "\n",
+  );
   const blocks: string[] = [];
   let index = 0;
 
@@ -3508,6 +3510,23 @@ function renderMarkdownRegion(markdown: string): string {
   }
 
   return blocks.length > 0 ? blocks.join("\n") : "      <p></p>";
+}
+
+function stripYamlFrontmatter(markdown: string): string {
+  const normalized = markdown.replaceAll("\r\n", "\n");
+  const lines = normalized.split("\n");
+  if (lines[0]?.trim() !== "---") {
+    return normalized;
+  }
+
+  const closingIndex = lines.findIndex((line, index) =>
+    index > 0 && line.trim() === "---"
+  );
+  if (closingIndex < 0) {
+    return normalized;
+  }
+
+  return lines.slice(closingIndex + 1).join("\n").replace(/^\n/, "");
 }
 
 function renderInlineMarkdown(markdown: string): string {
