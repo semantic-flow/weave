@@ -1818,6 +1818,12 @@ This customized identifier page is driven by \`alice/_knop/_page/page.ttl\`.
 `,
         },
       ],
+      rawSourcePanels: [{
+        label: "alice-data.ttl",
+        sourcePath: "alice-data.ttl",
+        contents:
+          `<https://semantic-flow.github.io/mesh-alice-bio/alice> <http://xmlns.com/foaf/0.1/name> "Alice" .`,
+      }],
     },
     {
       generatedAt: new Date("2026-05-23T00:00:00.000Z"),
@@ -1829,12 +1835,13 @@ This customized identifier page is driven by \`alice/_knop/_page/page.ttl\`.
     html,
     '<link rel="stylesheet" href="./_knop/_assets/alice.css">',
   );
+  assertStringIncludes(html, "<title>mesh-alice-bio Alice</title>");
   assertStringIncludes(html, '<section class="wf-section" id="region-main">');
   assertStringIncludes(
     html,
     '<section class="wf-section" id="region-sidebar">',
   );
-  assertStringIncludes(html, "<h1>alice</h1>");
+  assertStringIncludes(html, "<h1>Alice</h1>");
   assertStringIncludes(html, "<h1>Alice</h1>");
   assertStringIncludes(html, "<h2>Quick links</h2>");
   assertFalse(html.includes('<th scope="row">ResourcePageDefinition</th>'));

@@ -474,7 +474,7 @@ function toCustomIdentifierResourcePageDocumentModel(
     stylesheetHrefs: page.stylesheetPaths.map((stylesheetPath) =>
       ensureRelativePageHref(toRelativeHref(page.path, stylesheetPath))
     ),
-    title: toDefaultResourcePageTitle(resourcePath, meshLabel),
+    title: rdfFacts.title ?? toDefaultResourcePageTitle(resourcePath, meshLabel),
     breadcrumbs: toResourcePageBreadcrumbs(
       meshLabel,
       meshRootHref,
