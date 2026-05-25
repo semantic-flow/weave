@@ -22,6 +22,7 @@ import {
   bootstrapRootWovenWorkspace,
   integrateRootPayload,
 } from "../support/root_designator.ts";
+import { replaceGeneratedTimestampFooter } from "../support/generated_page_timestamp.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 import { WEAVE_VERSION } from "../../src/version.ts";
 
@@ -577,9 +578,6 @@ Deno.test("weave generate reports timestamp-only skips as a black-box CLI run", 
       "designatorPath=alice/data",
     ],
     workspaceRoot,
-    {
-      WEAVE_GENERATED_AT: "2026-05-03T00:00:00.000Z",
-    },
   );
   assert(
     settleOutput.success,
@@ -588,6 +586,10 @@ Deno.test("weave generate reports timestamp-only skips as a black-box CLI run", 
 
   const pagePath = join(workspaceRoot, "alice/data/index.html");
   const pageBefore = await Deno.readTextFile(pagePath);
+  const pageWithAlternateTimestamp = replaceGeneratedTimestampFooter(
+    pageBefore,
+  );
+  await Deno.writeTextFile(pagePath, pageWithAlternateTimestamp);
   const output = await runCliCommand(
     [
       "generate",
@@ -595,9 +597,6 @@ Deno.test("weave generate reports timestamp-only skips as a black-box CLI run", 
       "designatorPath=alice/data",
     ],
     workspaceRoot,
-    {
-      WEAVE_GENERATED_AT: "2026-05-21T12:34:56.000Z",
-    },
   );
   const stdout = new TextDecoder().decode(output.stdout);
   const stderr = new TextDecoder().decode(output.stderr);
@@ -610,7 +609,7 @@ Deno.test("weave generate reports timestamp-only skips as a black-box CLI run", 
   );
   assert(stdout.includes("info: skipped "), stdout);
   assert(stdout.includes("timestamp-only differences"), stdout);
-  assertEquals(await Deno.readTextFile(pagePath), pageBefore);
+  assertEquals(await Deno.readTextFile(pagePath), pageWithAlternateTimestamp);
 });
 
 Deno.test("weave generate can include Semantic Flow metadata", async () => {

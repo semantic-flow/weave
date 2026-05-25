@@ -4,6 +4,8 @@ export interface PayloadWorkingArtifact {
   workingLocalRelativePath: string;
   workingAccessUrl?: string;
   currentPayloadTurtle: string;
+  currentPayloadBytes?: Uint8Array;
+  payloadIsRdfDocument?: boolean;
   repositorySourceFloatingLocator?: RepositorySourceFloatingLocator;
   currentArtifactHistoryPath?: string;
   latestHistoricalSnapshotPath?: string;

@@ -26,6 +26,7 @@ import {
   bootstrapRootWovenWorkspace,
   integrateRootPayload,
 } from "../support/root_designator.ts";
+import { replaceGeneratedTimestampFooter } from "../support/generated_page_timestamp.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 async function executeVersion(options: ExecuteVersionOptions) {
@@ -976,17 +977,19 @@ Deno.test("executeGenerate skips timestamp-only reruns without rewriting pages",
     request: {
       targets: [{ designatorPath: "alice/data" }],
     },
-    now: () => new Date("2026-05-03T00:00:00.000Z"),
   });
   const pagePath = join(workspaceRoot, "alice/data/index.html");
   const htmlBefore = await Deno.readTextFile(pagePath);
+  const htmlWithAlternateTimestamp = replaceGeneratedTimestampFooter(
+    htmlBefore,
+  );
+  await Deno.writeTextFile(pagePath, htmlWithAlternateTimestamp);
 
   const result = await executeGenerate({
     meshRoot: workspaceRoot,
     request: {
       targets: [{ designatorPath: "alice/data" }],
     },
-    now: () => new Date("2026-05-21T12:34:56.000Z"),
   });
 
   assertEquals(result.createdPaths, []);
@@ -995,7 +998,7 @@ Deno.test("executeGenerate skips timestamp-only reruns without rewriting pages",
     result.skippedTimestampOnlyPaths.includes("alice/data/index.html"),
     result.skippedTimestampOnlyPaths.join("\n"),
   );
-  assertEquals(await Deno.readTextFile(pagePath), htmlBefore);
+  assertEquals(await Deno.readTextFile(pagePath), htmlWithAlternateTimestamp);
 });
 
 Deno.test("executeGenerate reads only the settled current workspace state", async () => {

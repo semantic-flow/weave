@@ -79,6 +79,7 @@ export interface PayloadArtifactInventoryState {
   workingLocalRelativePath: string;
   workingAccessUrl?: string;
   workingLocatedFilePath?: string;
+  payloadIsRdfDocument?: boolean;
   repositorySourceFloatingLocator?: RepositorySourceFloatingLocatorState;
   currentArtifactHistoryPath?: string;
   currentArtifactHistoryExists: boolean;
@@ -252,6 +253,12 @@ export function resolvePayloadArtifactInventoryState(
     SFLO_WORKING_ACCESS_URL_IRI,
     messages.parseErrorMessage,
   );
+  const payloadIsRdfDocument = hasNamedNodeObject(
+    quads,
+    payloadArtifactIri,
+    RDF_TYPE_IRI,
+    `${SFLO_NAMESPACE}RdfDocument`,
+  );
   const currentArtifactHistoryPath = resolveOptionalUniqueNamedNodePath(
     quads,
     meshBase,
@@ -290,6 +297,7 @@ export function resolvePayloadArtifactInventoryState(
     workingLocalRelativePath,
     ...(workingAccessUrl ? { workingAccessUrl } : {}),
     ...(workingLocatedFilePath ? { workingLocatedFilePath } : {}),
+    payloadIsRdfDocument,
     ...(repositorySourceFloatingLocator
       ? { repositorySourceFloatingLocator }
       : {}),

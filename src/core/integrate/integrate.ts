@@ -67,6 +67,7 @@ export interface IntegrateRequest {
   designatorPath: string;
   workingLocalRelativePath: string;
   sourceBinding?: IntegrateSourceBinding;
+  payloadIsRdfDocument?: boolean;
 }
 
 export interface ResolvedIntegrateRequest extends IntegrateRequest {
@@ -104,6 +105,8 @@ export function planIntegrate(
     request.sourceBinding,
     workingLocalRelativePath,
   );
+  const payloadIsRdfDocument = request.payloadIsRdfDocument ??
+    isRdfLikePayloadPath(workingLocalRelativePath);
   const knopPath = toKnopPath(designatorPath);
   const knopInventoryPath = `${knopPath}/_inventory/inventory.ttl`;
   const updatedMeshInventoryTurtle = renderUpdatedMeshInventoryTurtle(
@@ -112,6 +115,7 @@ export function planIntegrate(
     designatorPath,
     workingLocalRelativePath,
     sourceBinding,
+    payloadIsRdfDocument,
   );
 
   return {
@@ -140,6 +144,7 @@ export function planIntegrate(
           designatorPath,
           workingLocalRelativePath,
           sourceBinding,
+          payloadIsRdfDocument,
         ),
       },
       ...(sourceBinding
@@ -492,12 +497,16 @@ function renderCurrentWorkingFileLocator(
 function renderCurrentWorkingFileDeclaration(
   workingLocalRelativePath: string,
   sourceBinding?: NormalizedIntegrateSourceBinding,
+  payloadIsRdfDocument = true,
 ): string {
   if (sourceBinding?.repositorySourceFloatingLocator !== undefined) {
     return "";
   }
+  const locatedFileTypes = payloadIsRdfDocument
+    ? "sflo:LocatedFile, sflo:RdfDocument"
+    : "sflo:LocatedFile";
   return usesMeshLocalWorkingLocatedFile(workingLocalRelativePath)
-    ? `<${workingLocalRelativePath}> a sflo:LocatedFile, sflo:RdfDocument .`
+    ? `<${workingLocalRelativePath}> a ${locatedFileTypes} .`
     : "";
 }
 
@@ -520,6 +529,7 @@ function renderKnopInventoryTurtle(
   designatorPath: string,
   workingLocalRelativePath: string,
   sourceBinding: NormalizedIntegrateSourceBinding | undefined,
+  payloadIsRdfDocument: boolean,
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const sourceRegistryPath = `${knopPath}/_sources`;
@@ -530,7 +540,9 @@ function renderKnopInventoryTurtle(
   const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
     workingLocalRelativePath,
     sourceBinding,
+    payloadIsRdfDocument,
   );
+  const payloadTypes = renderPayloadArtifactTypes(payloadIsRdfDocument);
   const sourceRegistryKnopLine = sourceBinding
     ? `  sflo:hasKnopSourceRegistry <${sourceRegistryPath}> ;\n`
     : "";
@@ -552,7 +564,7 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 ${sourceRegistryKnopLine}  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> ;
   sflo:hasPayloadArtifact <${designatorPath}> .
 
-<${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+<${designatorPath}> a ${payloadTypes} ;
   ${currentWorkingFileLocator}
 
 <${knopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
@@ -758,6 +770,7 @@ function renderUpdatedMeshInventoryTurtle(
   designatorPath: string,
   workingLocalRelativePath: string,
   sourceBinding: NormalizedIntegrateSourceBinding | undefined,
+  payloadIsRdfDocument: boolean,
 ): string {
   assertCanIntegrateIntoCurrentMeshInventory(
     meshBase,
@@ -771,6 +784,7 @@ function renderUpdatedMeshInventoryTurtle(
     designatorPath,
     workingLocalRelativePath,
     sourceBinding,
+    payloadIsRdfDocument,
   );
 }
 
@@ -873,6 +887,7 @@ function renderIntegratedMeshInventoryTurtle(
   designatorPath: string,
   workingLocalRelativePath: string,
   sourceBinding: NormalizedIntegrateSourceBinding | undefined,
+  payloadIsRdfDocument: boolean,
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const knopInventoryPath = `${knopPath}/_inventory/inventory.ttl`;
@@ -883,7 +898,9 @@ function renderIntegratedMeshInventoryTurtle(
   const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
     workingLocalRelativePath,
     sourceBinding,
+    payloadIsRdfDocument,
   );
+  const payloadTypes = renderPayloadArtifactTypes(payloadIsRdfDocument);
   const currentWorkingFileDeclarationBlock =
     currentWorkingFileDeclaration.length > 0
       ? `\n${currentWorkingFileDeclaration}\n`
@@ -893,7 +910,7 @@ function renderIntegratedMeshInventoryTurtle(
 
 <_mesh> sflo:hasKnop <${knopPath}> .
 
-<${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+<${designatorPath}> a ${payloadTypes} ;
   ${currentWorkingFileLocator}
 
 <${knopPath}> a sflo:Knop ;
@@ -901,6 +918,16 @@ function renderIntegratedMeshInventoryTurtle(
 
 <${knopInventoryPath}> a sflo:LocatedFile, sflo:RdfDocument .
 ${currentWorkingFileDeclarationBlock}`;
+}
+
+function renderPayloadArtifactTypes(payloadIsRdfDocument: boolean): string {
+  return payloadIsRdfDocument
+    ? "sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument"
+    : "sflo:PayloadArtifact, sflo:DigitalArtifact";
+}
+
+function isRdfLikePayloadPath(path: string): boolean {
+  return /\.(ttl|jsonld|rdf|owl|nt|nq|trig)$/i.test(path);
 }
 
 function assertHasNamedNodeFacts(

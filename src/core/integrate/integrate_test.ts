@@ -1,4 +1,9 @@
-import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
+import {
+  assertEquals,
+  assertFalse,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import { IntegrateInputError, planIntegrate } from "./integrate.ts";
 import { readMeshAliceBioBranchFile } from "../../../tests/support/mesh_alice_bio_fixture.ts";
 import { readMeshSidecarFantasyRulesBranchFile } from "../../../tests/support/mesh_sidecar_fantasy_rules_fixture.ts";
@@ -62,6 +67,45 @@ Deno.test("planIntegrate renders first payload integration artifacts", async () 
     }),
     true,
   );
+});
+
+Deno.test("planIntegrate omits RdfDocument type for non-RDF payload artifacts", async () => {
+  const plan = planIntegrate({
+    designatorPath: "alice/bio",
+    workingLocalRelativePath: "alice-bio.md",
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: await readMeshAliceBioBranchFile(
+      "05-alice-knop-created-woven",
+      "_mesh/_inventory/inventory.ttl",
+    ),
+  });
+
+  const inventory =
+    plan.createdFiles.find((file) =>
+      file.path === "alice/bio/_knop/_inventory/inventory.ttl"
+    )?.contents ?? "";
+  const meshInventory =
+    plan.updatedFiles.find((file) =>
+      file.path === "_mesh/_inventory/inventory.ttl"
+    )?.contents ?? "";
+
+  for (const turtle of [inventory, meshInventory]) {
+    assertStringIncludes(
+      turtle,
+      "<alice/bio> a sflo:PayloadArtifact, sflo:DigitalArtifact ;",
+    );
+    assertStringIncludes(turtle, "<alice-bio.md> a sflo:LocatedFile .");
+    assertFalse(
+      turtle.includes(
+        "<alice/bio> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;",
+      ),
+    );
+    assertFalse(
+      turtle.includes(
+        "<alice-bio.md> a sflo:LocatedFile, sflo:RdfDocument .",
+      ),
+    );
+  }
 });
 
 Deno.test("planIntegrate rejects absolute working file paths", async () => {

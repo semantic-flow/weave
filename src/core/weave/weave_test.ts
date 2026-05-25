@@ -1501,6 +1501,94 @@ Deno.test("planWeave renders a first payload weave for non-RDF digital artifacts
       file.path === "carol/bio/_history001/_s0001/md/carol-bio.md"
     ),
   );
+  const knopInventory =
+    plan.updatedFiles.find((file) =>
+      file.path === "carol/bio/_knop/_inventory/inventory.ttl"
+    )?.contents ?? "";
+  const meshInventory =
+    plan.updatedFiles.find((file) =>
+      file.path === "_mesh/_inventory/inventory.ttl"
+    )?.contents ?? "";
+  for (const turtle of [knopInventory, meshInventory]) {
+    assertStringIncludes(
+      turtle,
+      "<carol/bio> a sflo:PayloadArtifact, sflo:DigitalArtifact ;",
+    );
+    assertFalse(
+      turtle.includes(
+        "<carol/bio> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;",
+      ),
+    );
+  }
+  assertStringIncludes(
+    knopInventory,
+    "<carol/bio/_history001/_s0001/md> a sflo:ArtifactManifestation ;",
+  );
+  assertFalse(
+    knopInventory.includes(
+      "<carol/bio/_history001/_s0001/md> a sflo:ArtifactManifestation, sflo:RdfDocument ;",
+    ),
+  );
+});
+
+Deno.test("planWeave writes binary first payload snapshots separately", () => {
+  const currentMeshInventoryTurtle = laterFirstPayloadWeaveMeshInventoryTurtle
+    .replace(
+      "  sflo:hasKnop <alice/page-main/_knop> ;",
+      "  sflo:hasKnop <favicon/_knop> ;",
+    )
+    .replaceAll("alice/page-main", "favicon")
+    .replaceAll("alice-page-main.md", "favicon.ico")
+    .replace(
+      "<favicon> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;",
+      "<favicon> a sflo:PayloadArtifact, sflo:DigitalArtifact ;",
+    )
+    .replace(
+      "<favicon.ico> a sflo:LocatedFile, sflo:RdfDocument .",
+      "<favicon.ico> a sflo:LocatedFile .",
+    );
+  const currentKnopInventoryTurtle = laterFirstPayloadWeaveKnopInventoryTurtle
+    .replaceAll("alice/page-main", "favicon")
+    .replaceAll("alice-page-main.md", "favicon.ico")
+    .replace(
+      "<favicon> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;",
+      "<favicon> a sflo:PayloadArtifact, sflo:DigitalArtifact ;",
+    )
+    .replace(
+      "<favicon.ico> a sflo:LocatedFile, sflo:RdfDocument .",
+      "<favicon.ico> a sflo:LocatedFile .",
+    );
+  const faviconBytes = new Uint8Array([0, 1, 2, 3, 255]);
+  const plan = planWeave({
+    request: {
+      targets: [{ designatorPath: "favicon" }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle,
+    currentMeshMetadataTurtle: laterFirstPayloadWeaveMeshMetadataTurtle,
+    weaveableKnops: [{
+      designatorPath: "favicon",
+      currentKnopMetadataTurtle: laterFirstPayloadWeaveKnopMetadataTurtle
+        .replaceAll("alice/page-main", "favicon")
+        .replaceAll("alice-page-main.md", "favicon.ico"),
+      currentKnopInventoryTurtle,
+      payloadArtifact: {
+        workingLocalRelativePath: "favicon.ico",
+        currentPayloadTurtle: "",
+        currentPayloadBytes: faviconBytes,
+      },
+    }],
+  });
+
+  assertFalse(
+    plan.createdFiles.some((file) =>
+      file.path === "favicon/_history001/_s0001/ico/favicon.ico"
+    ),
+  );
+  assertEquals(plan.createdBinaryFiles?.map((file) => file.path), [
+    "favicon/_history001/_s0001/ico/favicon.ico",
+  ]);
+  assertEquals(plan.createdBinaryFiles?.[0]?.contents, faviconBytes);
 });
 
 Deno.test("planWeave advances ordinal MeshInventory progression after a named latest state", () => {

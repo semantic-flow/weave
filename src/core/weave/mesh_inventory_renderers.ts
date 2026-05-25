@@ -183,6 +183,7 @@ export function renderFirstPayloadWovenMeshInventoryTurtle(
   workingLocalRelativePath: string,
   meshInventoryProgression: MeshInventoryProgression,
   repositorySourceFloatingLocator?: RepositorySourceFloatingLocator,
+  payloadIsRdfDocument = true,
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const rootDesignatorPath = toRootDesignatorPath(designatorPath);
@@ -214,6 +215,7 @@ export function renderFirstPayloadWovenMeshInventoryTurtle(
       designatorPath,
       workingLocalRelativePath,
       repositorySourceFloatingLocator,
+      payloadIsRdfDocument,
     );
   }
   let blocks = initialBlocks;
@@ -258,6 +260,7 @@ export function renderFirstPayloadWovenMeshInventoryTurtle(
       designatorPath,
       workingLocalRelativePath,
       repositorySourceFloatingLocator,
+      payloadIsRdfDocument,
     ),
   );
   blocks = replaceSubjectBlock(
@@ -649,6 +652,7 @@ function renderLegacyFirstPayloadWovenMeshInventoryTurtle(
   designatorPath: string,
   workingLocalRelativePath: string,
   repositorySourceFloatingLocator?: RepositorySourceFloatingLocator,
+  payloadIsRdfDocument = true,
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
@@ -688,7 +692,9 @@ function renderLegacyFirstPayloadWovenMeshInventoryTurtle(
   const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
     workingLocalRelativePath,
     repositorySourceFloatingLocator,
+    { locatedFileIsRdfDocument: payloadIsRdfDocument },
   );
+  const payloadTypes = renderPayloadArtifactTypes(payloadIsRdfDocument);
 
   return `@base <${meshBase}> .
 ${SFLO_TURTLE_PREFIX_DECLARATION}
@@ -704,7 +710,7 @@ ${meshRootKnopLines}
 ${rootIdentifierBlock}
 ${rootKnopBlock}
 
-<${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+<${designatorPath}> a ${payloadTypes} ;
   ${currentWorkingFileLocator}
   sflo:hasResourcePage <${designatorPagePath}> .
 
@@ -870,15 +876,23 @@ function renderMeshPayloadArtifactBlockWithResourcePage(
   designatorPath: string,
   workingLocalRelativePath: string,
   repositorySourceFloatingLocator?: RepositorySourceFloatingLocator,
+  payloadIsRdfDocument = true,
 ): string {
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
     workingLocalRelativePath,
     repositorySourceFloatingLocator,
   );
-  return `<${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  const payloadTypes = renderPayloadArtifactTypes(payloadIsRdfDocument);
+  return `<${designatorPath}> a ${payloadTypes} ;
   ${currentWorkingFileLocator}
   sflo:hasResourcePage <${designatorPagePath}> .`;
+}
+
+function renderPayloadArtifactTypes(payloadIsRdfDocument: boolean): string {
+  return payloadIsRdfDocument
+    ? "sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument"
+    : "sflo:PayloadArtifact, sflo:DigitalArtifact";
 }
 
 function renderMeshInventoryArtifactBlock(historyPath: string): string {

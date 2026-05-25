@@ -509,7 +509,6 @@ const BRANCH_FANTASY_RULES_MANIFEST_ROOT_RELATIVE_PATH = join(
   "branch-fantasy-rules",
   "conformance",
 );
-const FIXTURE_GENERATED_AT = "2026-05-03T00:00:00.000Z";
 const CANONICAL_SFLO_NAMESPACE =
   "https://semantic-flow.github.io/sflo/ontology/";
 const OLD_SFLO_NAMESPACE =
@@ -609,25 +608,29 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
       "12-bob-extracted",
       "weave",
     ),
-    fileOperationTransition(
+    commandTransition(
       14,
-      "14-alice-page-customized",
+      "14-alice-bio-imported",
       "13-bob-extracted-woven",
+      "fixture.aliceBioImported",
+    ),
+    commandTransition(
+      15,
+      "15-alice-bio-imported-woven",
+      "14-alice-bio-imported",
+      "weave",
+    ),
+    fileOperationTransition(
+      16,
+      "16-alice-page-customized",
+      "15-alice-bio-imported-woven",
       {
         description:
-          "Apply the hand-authored Alice page definition and local page assets.",
+          "Apply the hand-authored Alice page definition backed by governed content artifacts.",
         sources: [
           fixtureAssetSource(
             "alice/_knop/_page/page.ttl",
-            "fixture-authored canonical page definition adapted from the Alice Bio main branch page bytes",
-          ),
-          fixtureAssetSource(
-            "alice/alice.md",
-            "fixture-authored Markdown copied from the Alice Bio main branch source bytes",
-          ),
-          fixtureAssetSource(
-            "mesh-content/sidebar.md",
-            "fixture-authored sidebar Markdown copied from the Alice Bio main branch source bytes",
+            "fixture-authored canonical page definition that targets governed alice/bio and sidebar artifacts",
           ),
           fixtureAssetSource(
             "alice/_knop/_assets/alice.css",
@@ -647,49 +650,27 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
       "resourcePage.define",
     ),
     commandTransition(
-      15,
-      "15-alice-page-customized-woven",
-      "14-alice-page-customized",
+      17,
+      "17-alice-page-customized-woven",
+      "16-alice-page-customized",
       "weave",
     ),
     commandTransition(
-      16,
-      "16-alice-page-main-integrated",
-      "15-alice-page-customized-woven",
+      18,
+      "18-favicon-integrated",
+      "17-alice-page-customized-woven",
       "integrate",
     ),
     commandTransition(
-      17,
-      "17-alice-page-main-integrated-woven",
-      "16-alice-page-main-integrated",
-      "weave",
-    ),
-    fileOperationTransition(
-      18,
-      "18-alice-page-artifact-source",
-      "17-alice-page-main-integrated-woven",
-      {
-        description:
-          "Repoint Alice's page definition to the governed page-main artifact.",
-        sources: [
-          fixtureAssetSource(
-            "alice/_knop/_page/page.ttl",
-            "fixture-authored canonical page definition adapted from the Alice Bio main branch artifact-backed page bytes",
-          ),
-        ],
-      },
-      "resourcePage.define",
-    ),
-    commandTransition(
       19,
-      "19-alice-page-artifact-source-woven",
-      "18-alice-page-artifact-source",
+      "19-favicon-woven",
+      "18-favicon-integrated",
       "weave",
     ),
     fileOperationTransition(
       20,
       "20-bob-page-imported-source",
-      "19-alice-page-artifact-source-woven",
+      "19-favicon-woven",
       {
         description:
           "Import Bob page Markdown from the pinned outside-origin source fixture.",
@@ -2964,9 +2945,6 @@ async function runFixtureCommandInvocation(options: {
   const output = await new Deno.Command("deno", {
     cwd: options.workspaceRoot,
     args: command.slice(1),
-    env: {
-      WEAVE_GENERATED_AT: FIXTURE_GENERATED_AT,
-    },
     stdout: "piped",
     stderr: "piped",
   }).output();
@@ -3158,7 +3136,6 @@ async function runBranchPublicationCommandInvocation(options: {
     args: command.slice(1),
     env: {
       HOME: homeDirectory,
-      WEAVE_GENERATED_AT: FIXTURE_GENERATED_AT,
       WEAVE_LOG_DIR: logDir,
     },
     stdout: "piped",

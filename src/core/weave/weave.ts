@@ -93,6 +93,7 @@ import {
   assertCurrentPayloadArtifactShape,
   assertCurrentSourceRegistryShapeForFirstExtractedKnopWeave,
   assertReferenceTargetSourcePayloadShapeForFirstExtractedKnopWeave,
+  currentPayloadArtifactIsRdfDocument,
 } from "./shape_assertions.ts";
 
 export { WeaveInputError } from "./errors.ts";
@@ -325,6 +326,9 @@ export function planVersion(input: PlanWeaveInput): VersionPlan {
     meshBase: plan.meshBase,
     versionedDesignatorPaths: plan.wovenDesignatorPaths,
     createdFiles,
+    ...(plan.createdBinaryFiles
+      ? { createdBinaryFiles: plan.createdBinaryFiles }
+      : {}),
     updatedFiles,
   };
 }
@@ -354,7 +358,8 @@ function applyResourcePageGenerationPolicies(
   );
   const generatedPagePaths = new Set(
     [...createdFiles, ...updatedFiles].flatMap((file) =>
-      file.path.endsWith("inventory.ttl")
+      file.path.endsWith("inventory.ttl") &&
+        typeof file.contents === "string"
         ? listGeneratedResourcePagePaths({
           meshBase: plan.meshBase,
           inventoryTurtle: file.contents,
@@ -617,6 +622,12 @@ function planFirstPayloadWeave(
   );
 
   const designatorPath = candidate.designatorPath;
+  const payloadIsRdfDocument = payloadArtifact.payloadIsRdfDocument ??
+    currentPayloadArtifactIsRdfDocument(
+      meshBase,
+      candidate.currentKnopInventoryTurtle,
+      designatorPath,
+    );
   const knopPath = toKnopPath(designatorPath);
   const payloadLayout = resolveFirstPayloadVersionLayout(
     meshBase,
@@ -630,6 +641,7 @@ function planFirstPayloadWeave(
   const payloadSnapshotPath = `${payloadLayout.nextManifestationPath}/${
     toFileName(payloadArtifact.workingLocalRelativePath)
   }`;
+  const payloadSnapshotBytes = payloadArtifact.currentPayloadBytes;
   const knopMetadataHistoryPolicy = supportHistoryPolicies?.knopMetadata ??
     "versioned";
   const versionKnopMetadata = shouldMaterializeSupportHistory(
@@ -650,7 +662,11 @@ function planFirstPayloadWeave(
         payloadLayout,
         payloadArtifact.workingLocalRelativePath,
         payloadArtifact.repositorySourceFloatingLocator,
-        { knopMetadataHistoryPolicy, knopInventoryHistoryPolicy },
+        {
+          payloadIsRdfDocument,
+          knopMetadataHistoryPolicy,
+          knopInventoryHistoryPolicy,
+        },
       ),
       knopPath,
     });
@@ -667,6 +683,7 @@ function planFirstPayloadWeave(
       payloadArtifact.workingLocalRelativePath,
       meshInventoryProgression,
       payloadArtifact.repositorySourceFloatingLocator,
+      payloadIsRdfDocument,
     );
 
   return {
@@ -677,10 +694,12 @@ function planFirstPayloadWeave(
         path: `${meshInventoryProgression.nextStatePath}/ttl/inventory.ttl`,
         contents: wovenMeshInventoryTurtle,
       }]),
-      {
-        path: payloadSnapshotPath,
-        contents: payloadArtifact.currentPayloadTurtle,
-      },
+      ...(payloadSnapshotBytes === undefined
+        ? [{
+          path: payloadSnapshotPath,
+          contents: payloadArtifact.currentPayloadTurtle,
+        }]
+        : []),
       ...(versionKnopMetadata
         ? [{
           path: `${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl`,
@@ -724,6 +743,12 @@ function planFirstPayloadWeave(
         knopInventoryHistoryPolicy,
       },
     ),
+    ...(payloadSnapshotBytes === undefined ? {} : {
+      createdBinaryFiles: [{
+        path: payloadSnapshotPath,
+        contents: payloadSnapshotBytes,
+      }],
+    }),
   };
 }
 

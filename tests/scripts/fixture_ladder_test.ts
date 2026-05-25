@@ -387,7 +387,19 @@ Deno.test("planFixtureLadder exposes the Alice Bio dry-run transition plan", asy
     ]);
   }
 
-  const pageCustomized = plan.transitions[13];
+  const aliceBioImported = plan.transitions[13];
+  assertEquals(aliceBioImported?.id, "14-alice-bio-imported");
+  assertEquals(aliceBioImported?.operationId, "fixture.aliceBioImported");
+  assertEquals(aliceBioImported?.action.kind, "command");
+  if (aliceBioImported?.action.kind === "command") {
+    assertEquals(
+      aliceBioImported.action.inputs.map((source) => source.path),
+      ["mesh-content/sidebar.md"],
+    );
+  }
+
+  const pageCustomized = plan.transitions[15];
+  assertEquals(pageCustomized?.id, "16-alice-page-customized");
   assertEquals(pageCustomized?.operationId, "resourcePage.define");
   assertEquals(pageCustomized?.action.kind, "fileOperation");
   if (pageCustomized?.action.kind === "fileOperation") {
@@ -395,14 +407,12 @@ Deno.test("planFixtureLadder exposes the Alice Bio dry-run transition plan", asy
       pageCustomized.action.sources.map((source) => source.path),
       [
         "alice/_knop/_page/page.ttl",
-        "alice/alice.md",
-        "mesh-content/sidebar.md",
         "alice/_knop/_assets/alice.css",
       ],
     );
     assertEquals(
       pageCustomized.action.sources[0]?.assetPath,
-      "14-alice-page-customized/alice/_knop/_page/page.ttl",
+      "16-alice-page-customized/alice/_knop/_page/page.ttl",
     );
     assertEquals(pageCustomized.action.inventoryPatches.length, 1);
     assertEquals(
@@ -1275,12 +1285,10 @@ Deno.test("Alice Bio asset-backed transitions point at checked-in deterministic 
   assertEquals(assetPaths, [
     "01-source-only/alice-data.ttl",
     "10-alice-bio-updated/alice-data-v2.ttl",
-    "14-alice-page-customized/alice/_knop/_assets/alice.css",
-    "14-alice-page-customized/alice/_knop/_page/page.ttl",
-    "14-alice-page-customized/alice/alice.md",
-    "14-alice-page-customized/mesh-content/sidebar.md",
-    "16-alice-page-main-integrated/alice-page-main.md",
-    "18-alice-page-artifact-source/alice/_knop/_page/page.ttl",
+    "14-alice-bio-imported/mesh-content/sidebar.md",
+    "16-alice-page-customized/alice/_knop/_assets/alice.css",
+    "16-alice-page-customized/alice/_knop/_page/page.ttl",
+    "18-favicon-integrated/favicon.ico",
     "20-bob-page-imported-source/bob-page-main.md",
     "20-bob-page-imported-source/bob/_knop/_page/page.ttl",
     "24-root-page-customized/_knop/_assets/site.css",
@@ -1381,11 +1389,15 @@ Deno.test("renderFixtureLadderPlan prints reviewable command and validation deta
   );
   assertStringIncludes(
     rendered,
-    "file operation: Apply the hand-authored Alice page definition",
+    "command 1: weave import https://raw.githubusercontent.com/djradon/public-notes/db9a48933f0e6b208baeab7190cef75d1194634f/user.alice-ghostley.md alice/bio --working-file alice-bio.md --expected-digest sha256:0fcd9fe25c5598686557806cfdacc9c765176f315f780fa96644c3f251b49137",
   );
   assertStringIncludes(
     rendered,
-    "source: alice/_knop/_page/page.ttl <= .assets/14-alice-page-customized/alice/_knop/_page/page.ttl",
+    "file operation: Apply the hand-authored Alice page definition backed by governed content artifacts",
+  );
+  assertStringIncludes(
+    rendered,
+    "source: alice/_knop/_page/page.ttl <= .assets/16-alice-page-customized/alice/_knop/_page/page.ttl",
   );
   assertStringIncludes(
     rendered,

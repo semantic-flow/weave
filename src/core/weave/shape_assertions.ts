@@ -621,6 +621,28 @@ export function assertCurrentPayloadArtifactShape(
   }
 }
 
+export function currentPayloadArtifactIsRdfDocument(
+  meshBase: string,
+  currentKnopInventoryTurtle: string,
+  designatorPath: string,
+): boolean {
+  const errorMessage =
+    `The current local weave slice only supports the settled integrated payload shape for ${designatorPath}.`;
+  const quads = parseWeaveShapeQuads(
+    meshBase,
+    currentKnopInventoryTurtle,
+    errorMessage,
+  );
+
+  return hasNamedNodeFact(
+    quads,
+    meshBase,
+    designatorPath,
+    RDF_TYPE_IRI,
+    SFLO_RDF_DOCUMENT_IRI,
+  );
+}
+
 export function assertCurrentKnopInventoryShapeForFirstPageDefinitionWeave(
   meshBase: string,
   currentKnopInventoryTurtle: string,

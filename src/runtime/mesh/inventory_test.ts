@@ -77,6 +77,7 @@ Deno.test("resolvePayloadArtifactInventoryState accepts semantically equivalent 
     {
       workingLocalRelativePath: "alice-data.ttl",
       workingLocatedFilePath: "alice-data.ttl",
+      payloadIsRdfDocument: true,
       currentArtifactHistoryPath: "alice/data/_history001",
       currentArtifactHistoryExists: true,
       latestHistoricalStatePath: "alice/data/_history001/_s0002",
@@ -113,6 +114,7 @@ Deno.test("resolvePayloadArtifactInventoryState accepts repository floating payl
         repositoryUrl: "https://github.com/semantic-flow/sflo.git",
         repositoryPathFromRoot: "semantic-flow-core-ontology.ttl",
       },
+      payloadIsRdfDocument: true,
       currentArtifactHistoryPath: undefined,
       currentArtifactHistoryExists: false,
       latestHistoricalStatePath: undefined,
@@ -148,6 +150,7 @@ Deno.test("resolvePayloadArtifactInventoryState resolves latest payload snapshot
     {
       workingLocalRelativePath: "alice-data.ttl",
       workingLocatedFilePath: "alice-data.ttl",
+      payloadIsRdfDocument: true,
       currentArtifactHistoryPath: "alice/data/_history001",
       currentArtifactHistoryExists: true,
       latestHistoricalStatePath: "alice/data/_history001/_s0002",
@@ -200,6 +203,7 @@ Deno.test("resolvePayloadArtifactInventoryState tracks a missing ArtifactHistory
     {
       workingLocalRelativePath: "alice-data.ttl",
       workingLocatedFilePath: "alice-data.ttl",
+      payloadIsRdfDocument: false,
       currentArtifactHistoryPath: "alice/data/_history001",
       currentArtifactHistoryExists: false,
       latestHistoricalStatePath: undefined,
@@ -698,6 +702,7 @@ Deno.test("resolvePayloadArtifactInventoryState accepts workingLocalRelativePath
     ),
     {
       workingLocalRelativePath: "alice-data.ttl",
+      payloadIsRdfDocument: true,
       currentArtifactHistoryPath: "alice/data/_history001",
       currentArtifactHistoryExists: true,
       latestHistoricalStatePath: undefined,
@@ -756,6 +761,7 @@ Deno.test("resolvePayloadArtifactInventoryState accepts extra-mesh workingLocalR
     ),
     {
       workingLocalRelativePath: "../alice-data.ttl",
+      payloadIsRdfDocument: false,
       currentArtifactHistoryPath: "alice/data/_history001",
       currentArtifactHistoryExists: true,
       latestHistoricalStatePath: undefined,

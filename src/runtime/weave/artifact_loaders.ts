@@ -66,6 +66,7 @@ export async function loadPayloadWorkingArtifact(
     : undefined;
 
   let currentPayloadTurtle: string;
+  let currentPayloadBytes: Uint8Array | undefined;
   let latestHistoricalSnapshotTurtle: string | undefined;
   try {
     const absoluteCurrentPayloadPath =
@@ -79,10 +80,14 @@ export async function loadPayloadWorkingArtifact(
           "workingLocalRelativePath",
           workingLocalRelativePath,
         );
-    currentPayloadTurtle = await readTextFileWithOverlay(
+    const currentPayload = await readPayloadFileWithOverlay(
       absoluteCurrentPayloadPath,
       overlay,
     );
+    currentPayloadTurtle = currentPayload.text;
+    currentPayloadBytes = isTextLikePayloadPath(workingLocalRelativePath)
+      ? undefined
+      : currentPayload.bytes;
   } catch (error) {
     if (error instanceof LocalPathAccessError) {
       throw new WeaveRuntimeError(
@@ -128,6 +133,8 @@ export async function loadPayloadWorkingArtifact(
       ? { workingAccessUrl: payloadArtifact.workingAccessUrl }
       : {}),
     currentPayloadTurtle,
+    ...(currentPayloadBytes ? { currentPayloadBytes } : {}),
+    payloadIsRdfDocument: payloadArtifact.payloadIsRdfDocument,
     ...(payloadArtifact.repositorySourceFloatingLocator
       ? {
         repositorySourceFloatingLocator:
@@ -138,6 +145,30 @@ export async function loadPayloadWorkingArtifact(
     ...(latestHistoricalSnapshotPath ? { latestHistoricalSnapshotPath } : {}),
     latestHistoricalSnapshotTurtle,
     latestHistoricalStatePath,
+  };
+}
+
+function isTextLikePayloadPath(path: string): boolean {
+  return /\.(css|csv|html|json|jsonld|md|nt|nq|owl|rdf|svg|text|trig|ttl|txt|xml)$/i
+    .test(path);
+}
+
+async function readPayloadFileWithOverlay(
+  absolutePath: string,
+  overlay?: ReadonlyMap<string, string>,
+): Promise<{ text: string; bytes?: Uint8Array }> {
+  const stagedContents = overlay?.get(absolutePath);
+  if (stagedContents !== undefined) {
+    return {
+      text: stagedContents,
+      bytes: new TextEncoder().encode(stagedContents),
+    };
+  }
+
+  const bytes = await Deno.readFile(absolutePath);
+  return {
+    text: new TextDecoder().decode(bytes),
+    bytes,
   };
 }
 

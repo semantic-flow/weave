@@ -177,20 +177,7 @@ function resolveSelectedDesignatorPaths(
 }
 
 function resolveGeneratedAt(now?: () => Date): Date {
-  if (now) {
-    return now();
-  }
-  const generatedAt = Deno.env.get("WEAVE_GENERATED_AT");
-  if (!generatedAt) {
-    return new Date();
-  }
-  const date = new Date(generatedAt);
-  if (Number.isNaN(date.getTime())) {
-    throw new WeaveInputError(
-      `Invalid WEAVE_GENERATED_AT value: ${generatedAt}`,
-    );
-  }
-  return date;
+  return now ? now() : new Date();
 }
 
 const GENERATED_TIMESTAMP_FOOTER_PATTERN =
@@ -199,7 +186,7 @@ const GENERATED_TIMESTAMP_FOOTER_PATTERN =
 function normalizeGeneratedTimestampFooters(contents: string): string {
   return contents.replace(
     GENERATED_TIMESTAMP_FOOTER_PATTERN,
-    'Generated on <span class="wf-term wf-date-tip" tabindex="0" title="__WEAVE_GENERATED_AT__" data-tooltip="__WEAVE_GENERATED_AT__">__WEAVE_GENERATED_AT_DISPLAY__</span> by',
+    'Generated on <span class="wf-term wf-date-tip" tabindex="0" title="__GENERATED_AT__" data-tooltip="__GENERATED_AT__">__GENERATED_AT_DISPLAY__</span> by',
   );
 }
 

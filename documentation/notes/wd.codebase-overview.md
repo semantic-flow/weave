@@ -69,7 +69,7 @@ Runtime owns local execution against a workspace: filesystem reads/writes, git-a
 - `deno task fmt`: format project files.
 - `deno task lint`: lint scripts, source, and tests.
 - `deno task check`: type-check scripts, source, and tests.
-- `deno task test`: run the project test suite with the standard test harness and fixed generated timestamp.
+- `deno task test`: run the project test suite with the standard test harness.
 - `deno task ci`: pre-merge confidence path.
 - Use focused tests while iterating, then broaden according to the risk of the change. CLI-visible behavior needs e2e coverage; shared planner changes usually need core plus integration coverage.
 

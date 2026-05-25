@@ -27,16 +27,6 @@ WEAVE_TIMING=1 weave --mesh-root docs
 WEAVE_TIMING=1 weave validate publication --mesh-root docs
 ```
 
-## WEAVE_GENERATED_AT
-
-Overrides the timestamp used while rendering ResourcePages. This is mainly useful for deterministic tests, fixture regeneration, and reproducible documentation snapshots. Use an ISO 8601 timestamp.
-
-Relevant command notes: [[wu.cli-reference.weave]], [[wu.cli-reference.generate]].
-
-```sh
-WEAVE_GENERATED_AT=2026-05-03T00:00:00.000Z weave generate --mesh-root docs
-```
-
 ## HOME and USERPROFILE
 
 Weave uses `HOME`, or `USERPROFILE` when `HOME` is not set, to find the host-local access file `~/.sf-local-access.ttl`. That file can carry local path grants for source directories outside the mesh workspace. `weave integrate --grant-source-directory` may need these variables when the grant belongs in host-local policy rather than mesh config.
