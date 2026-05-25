@@ -27,6 +27,7 @@ import {
 import type {
   CommandInvocation,
   FileExpectation,
+  FileOperation,
   InputMaterialization,
   RdfExpectation,
   ReplayProfile,
@@ -74,6 +75,7 @@ export interface FixtureLadderOptions {
   root: string;
   scenario: FixtureScenarioId;
   format: FixturePlanFormat;
+  branchPrefix?: string;
   materializeTransitionId?: string;
   executeTransitionId?: string;
   dryRun?: boolean;
@@ -95,6 +97,7 @@ export interface MaterializeFixtureTransitionOptions {
   root: string;
   scenario: FixtureScenarioId;
   transitionId: string;
+  branchPrefix?: string;
   workspaceRoot?: string;
 }
 
@@ -102,6 +105,7 @@ export interface ExecuteFixtureTransitionOptions {
   root: string;
   scenario: FixtureScenarioId;
   transitionId: string;
+  branchPrefix?: string;
   workspaceRoot?: string;
   dryRun?: boolean;
 }
@@ -145,6 +149,7 @@ export interface FixtureFileOperationAppliedFile {
   path: string;
   assetPath: string;
   provenance: string;
+  contentDigest?: string;
   bytes: number;
 }
 
@@ -154,12 +159,20 @@ export interface FixtureFileOperationMissingAsset {
   absolutePath: string;
 }
 
+export interface FixtureFileOperationDigestMismatch {
+  path: string;
+  assetPath: string;
+  expectedDigest: string;
+  actualDigest: string;
+}
+
 export interface FixtureFileOperationExecutionResult {
   kind: "fileOperation";
   description: string;
   success: boolean;
   files: readonly FixtureFileOperationAppliedFile[];
   missingAssets: readonly FixtureFileOperationMissingAsset[];
+  digestMismatches: readonly FixtureFileOperationDigestMismatch[];
 }
 
 export interface FixtureBranchPublicationExecutionResult {
@@ -374,6 +387,7 @@ export interface FixtureFileOperationSource {
   path: string;
   assetPath: string;
   provenance: string;
+  contentDigest?: string;
 }
 
 export interface FixtureAssetSourceInput {
@@ -1106,6 +1120,7 @@ if (import.meta.main) {
         root: options.root,
         scenario: options.scenario,
         transitionId: options.executeTransitionId,
+        branchPrefix: options.branchPrefix,
         workspaceRoot: options.workspaceRoot,
         dryRun: options.dryRun ?? false,
       });
@@ -1125,6 +1140,7 @@ if (import.meta.main) {
         root: options.root,
         scenario: options.scenario,
         transitionId: options.materializeTransitionId,
+        branchPrefix: options.branchPrefix,
         workspaceRoot: options.workspaceRoot,
       });
       console.log(
@@ -1177,6 +1193,7 @@ export function parseFixtureLadderArgs(
   let format: FixturePlanFormat = "text";
   let materializeTransitionId: string | undefined;
   let executeTransitionId: string | undefined;
+  let branchPrefix: string | undefined;
   let dryRun = false;
   let workspaceRoot: string | undefined;
   let scenarioIndexMode: FixtureScenarioIndexMode | undefined;
@@ -1216,6 +1233,12 @@ export function parseFixtureLadderArgs(
       case "--workspace-root":
         index += 1;
         workspaceRoot = requireArgumentValue(args[index], "--workspace-root");
+        break;
+      case "--branch-prefix":
+        index += 1;
+        branchPrefix = parseBranchPrefix(
+          requireArgumentValue(args[index], "--branch-prefix"),
+        );
         break;
       case "--json":
         format = "json";
@@ -1276,6 +1299,15 @@ export function parseFixtureLadderArgs(
           );
           break;
         }
+        if (arg.startsWith("--branch-prefix=")) {
+          branchPrefix = parseBranchPrefix(
+            requireArgumentValue(
+              arg.slice("--branch-prefix=".length),
+              "--branch-prefix",
+            ),
+          );
+          break;
+        }
         throw new Error(`Unsupported fixture:ladder argument: ${arg}`);
     }
   }
@@ -1297,6 +1329,12 @@ export function parseFixtureLadderArgs(
     );
   }
 
+  if (scenarioIndexMode !== undefined && branchPrefix !== undefined) {
+    throw new Error(
+      "fixture:ladder --branch-prefix cannot be combined with scenario-index options",
+    );
+  }
+
   if (
     workspaceRoot !== undefined && materializeTransitionId === undefined &&
     executeTransitionId === undefined
@@ -1310,6 +1348,7 @@ export function parseFixtureLadderArgs(
     root: resolve(root),
     scenario,
     format,
+    ...(branchPrefix !== undefined ? { branchPrefix } : {}),
     ...(dryRun ? { dryRun } : {}),
     ...(materializeTransitionId !== undefined
       ? { materializeTransitionId }
@@ -1325,7 +1364,12 @@ export function parseFixtureLadderArgs(
 export async function planFixtureLadder(
   options: FixtureLadderOptions,
 ): Promise<FixtureLadderPlan> {
-  const scenario = resolveFixtureScenario(options.scenario);
+  const scenario = options.branchPrefix === undefined
+    ? resolveFixtureScenario(options.scenario)
+    : withFixtureScenarioBranchPrefix(
+      resolveFixtureScenario(options.scenario),
+      options.branchPrefix,
+    );
   const root = resolve(options.root);
   const manifestRoot = join(root, scenario.manifestRootRelativePath);
   const assetRoot = join(
@@ -1694,6 +1738,7 @@ export async function materializeFixtureTransitionSource(
     root: options.root,
     scenario: options.scenario,
     format: "text",
+    branchPrefix: options.branchPrefix,
   });
   const transition = findFixtureTransitionPlan(plan, options.transitionId);
 
@@ -1739,6 +1784,7 @@ export async function executeFixtureTransition(
     root: options.root,
     scenario: options.scenario,
     format: "text",
+    branchPrefix: options.branchPrefix,
   });
   const transition = findFixtureTransitionPlan(plan, options.transitionId);
 
@@ -1980,6 +2026,16 @@ export function renderFixtureExecutionResult(
         );
       }
     }
+    if (result.fileOperation.digestMismatches.length > 0) {
+      lines.push("Digest mismatches:");
+      for (const mismatch of result.fileOperation.digestMismatches) {
+        lines.push(
+          `- ${mismatch.path} <= ${
+            formatFixtureAssetPath(mismatch)
+          } expected ${mismatch.expectedDigest}, got ${mismatch.actualDigest}`,
+        );
+      }
+    }
   } else {
     lines.push(
       `Branch publication: ${result.branchPublication.description}`,
@@ -2048,6 +2104,74 @@ function resolveFixtureScenario(id: FixtureScenarioId): FixtureLadderScenario {
   }
 }
 
+function withFixtureScenarioBranchPrefix(
+  scenario: FixtureLadderScenario,
+  branchPrefix: string,
+): FixtureLadderScenario {
+  if (scenario.branchPrefix === branchPrefix) {
+    return scenario;
+  }
+
+  return {
+    ...scenario,
+    branchPrefix,
+    transitions: scenario.transitions.map((transition) => ({
+      ...transition,
+      fromRef: replaceFixtureBranchPrefix(
+        transition.fromRef,
+        scenario.branchPrefix,
+        branchPrefix,
+      ),
+      toRef: replaceFixtureBranchPrefix(
+        transition.toRef,
+        scenario.branchPrefix,
+        branchPrefix,
+      ),
+      action: withFixtureActionBranchPrefix(
+        transition.action,
+        scenario.branchPrefix,
+        branchPrefix,
+      ),
+    })),
+  };
+}
+
+function withFixtureActionBranchPrefix(
+  action: FixtureTransitionAction,
+  oldPrefix: string,
+  newPrefix: string,
+): FixtureTransitionAction {
+  if (action.kind !== "branchPublication") {
+    return action;
+  }
+
+  return {
+    ...action,
+    sourceRef: replaceFixtureBranchPrefix(
+      action.sourceRef,
+      oldPrefix,
+      newPrefix,
+    ),
+    ...(action.publicationFromRef === undefined ? {} : {
+      publicationFromRef: replaceFixtureBranchPrefix(
+        action.publicationFromRef,
+        oldPrefix,
+        newPrefix,
+      ),
+    }),
+  };
+}
+
+function replaceFixtureBranchPrefix(
+  ref: string,
+  oldPrefix: string,
+  newPrefix: string,
+): string {
+  return ref.startsWith(oldPrefix)
+    ? `${newPrefix}${ref.slice(oldPrefix.length)}`
+    : ref;
+}
+
 function findFixtureTransitionPlan(
   plan: FixtureLadderPlan,
   transitionId: string,
@@ -2072,16 +2196,24 @@ async function hydrateFixtureTransitionPlan(options: {
     manifestPath: options.manifestPath,
   };
 
-  if (options.transition.action.kind === "fileOperation") {
-    return base;
-  }
-
   if (!await pathExists(options.manifestPath)) {
     return base;
   }
 
   const manifest = await readManifestSource(options.manifestPath);
   const transitionCase = selectTransitionCase(manifest.document);
+  if (options.transition.action.kind === "fileOperation") {
+    return {
+      ...base,
+      operationId: transitionCase.operationId ?? options.transition.operationId,
+      action: hydrateFileOperationActionFromReplayProfile({
+        action: options.transition.action,
+        transitionId: options.transition.id,
+        replayProfile: transitionCase.hasReplayProfile,
+      }),
+    };
+  }
+
   if (options.transition.action.kind === "branchPublication") {
     return {
       ...base,
@@ -2103,6 +2235,27 @@ async function hydrateFixtureTransitionPlan(options: {
       manifestPath: options.manifestPath,
       replayProfile: transitionCase.hasReplayProfile,
     }),
+  };
+}
+
+function hydrateFileOperationActionFromReplayProfile(options: {
+  action: FixtureFileOperationAction;
+  transitionId: string;
+  replayProfile?: ReplayProfile;
+}): FixtureFileOperationAction {
+  const fileOperations = options.replayProfile?.hasFileOperation ?? [];
+  if (fileOperations.length === 0) {
+    return options.action;
+  }
+
+  validateReplayProfile(options.transitionId, options.replayProfile!);
+
+  return {
+    ...options.action,
+    sources: resolveReplayFileOperations(
+      options.transitionId,
+      fileOperations,
+    ),
   };
 }
 
@@ -2297,6 +2450,49 @@ function resolveReplayInputMaterializations(
       path: targetPath,
       assetPath,
       provenance: describeSourceProvenance(provenance),
+      ...(provenance?.contentDigest === undefined ? {} : {
+        contentDigest: provenance.contentDigest,
+      }),
+    };
+  });
+}
+
+function resolveReplayFileOperations(
+  transitionId: string,
+  fileOperations: readonly FileOperation[],
+): FixtureFileOperationSource[] {
+  return fileOperations.map((fileOperation) => {
+    const operationKind = fileOperation.operationKind ?? "copyFile";
+    if (
+      operationKind !== "copyFile" && operationKind !== "createFile" &&
+      operationKind !== "updateFile"
+    ) {
+      throw new Error(
+        `Unsupported replay file operation kind for ${transitionId}: ${operationKind}`,
+      );
+    }
+
+    if (fileOperation.targetPath === undefined) {
+      throw new Error(
+        `Replay file operation for ${transitionId} is missing targetPath`,
+      );
+    }
+
+    const targetPath = normalizeGitTreePath(fileOperation.targetPath);
+    const provenance = fileOperation.hasSourceProvenance;
+    if (provenance?.sourcePath === undefined) {
+      throw new Error(
+        `Replay file operation for ${transitionId} target ${targetPath} must declare hasSourceProvenance.sourcePath`,
+      );
+    }
+
+    return {
+      path: targetPath,
+      assetPath: normalizeGitTreePath(provenance.sourcePath),
+      provenance: describeSourceProvenance(provenance),
+      ...(provenance.contentDigest === undefined ? {} : {
+        contentDigest: provenance.contentDigest,
+      }),
     };
   });
 }
@@ -2573,6 +2769,20 @@ async function runFixtureCommandInvocation(options: {
       ).join("\n"),
     };
   }
+  if (stagedInputs.digestMismatches.length > 0) {
+    return {
+      command,
+      cwd: options.workspaceRoot,
+      success: false,
+      code: 1,
+      stdout: "",
+      stderr: stagedInputs.digestMismatches.map((mismatch) =>
+        `Fixture command input digest mismatch ${mismatch.path} from ${
+          formatFixtureAssetPath(mismatch)
+        }: expected ${mismatch.expectedDigest}, got ${mismatch.actualDigest}`
+      ).join("\n"),
+    };
+  }
 
   const output = await new Deno.Command("deno", {
     cwd: options.workspaceRoot,
@@ -2818,6 +3028,17 @@ async function applyFixtureFileOperation(options: {
       success: false,
       files: [],
       missingAssets: stagedSources.missingAssets,
+      digestMismatches: [],
+    };
+  }
+  if (stagedSources.digestMismatches.length > 0) {
+    return {
+      kind: "fileOperation",
+      description: options.action.description,
+      success: false,
+      files: [],
+      missingAssets: [],
+      digestMismatches: stagedSources.digestMismatches,
     };
   }
 
@@ -2834,6 +3055,7 @@ async function applyFixtureFileOperation(options: {
     success: true,
     files: stagedSources.files,
     missingAssets: [],
+    digestMismatches: [],
   };
 }
 
@@ -2844,6 +3066,7 @@ async function stageFixtureAssetSources(options: {
 }): Promise<{
   files: FixtureFileOperationAppliedFile[];
   missingAssets: FixtureFileOperationMissingAsset[];
+  digestMismatches: FixtureFileOperationDigestMismatch[];
 }> {
   const pendingFiles: Array<
     FixtureFileOperationAppliedFile & {
@@ -2852,6 +3075,7 @@ async function stageFixtureAssetSources(options: {
     }
   > = [];
   const missingAssets: FixtureFileOperationMissingAsset[] = [];
+  const digestMismatches: FixtureFileOperationDigestMismatch[] = [];
   const seenTargets = new Set<string>();
 
   for (const source of options.sources) {
@@ -2868,10 +3092,25 @@ async function stageFixtureAssetSources(options: {
     const absoluteTargetPath = join(options.workspaceRoot, targetPath);
     try {
       const contents = await Deno.readFile(absoluteAssetPath);
+      const actualDigest = source.contentDigest === undefined
+        ? undefined
+        : await sha256ContentDigest(contents);
+      if (
+        source.contentDigest !== undefined && actualDigest !== undefined &&
+        source.contentDigest.toLowerCase() !== actualDigest
+      ) {
+        digestMismatches.push({
+          path: targetPath,
+          assetPath,
+          expectedDigest: source.contentDigest,
+          actualDigest,
+        });
+      }
       pendingFiles.push({
         path: targetPath,
         assetPath,
         provenance: source.provenance,
+        ...(actualDigest === undefined ? {} : { contentDigest: actualDigest }),
         bytes: contents.byteLength,
         absoluteTargetPath,
         contents,
@@ -2893,6 +3132,15 @@ async function stageFixtureAssetSources(options: {
     return {
       files: [],
       missingAssets,
+      digestMismatches,
+    };
+  }
+
+  if (digestMismatches.length > 0) {
+    return {
+      files: [],
+      missingAssets,
+      digestMismatches,
     };
   }
 
@@ -2906,7 +3154,19 @@ async function stageFixtureAssetSources(options: {
       { absoluteTargetPath: _absoluteTargetPath, contents: _contents, ...file },
     ) => file),
     missingAssets,
+    digestMismatches,
   };
+}
+
+async function sha256ContentDigest(contents: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new Uint8Array(contents),
+  );
+  return `sha256:${
+    Array.from(new Uint8Array(digest), (byte) =>
+      byte.toString(16).padStart(2, "0")).join("")
+  }`;
 }
 
 async function applyFixtureInventoryPatch(options: {
@@ -3868,6 +4128,13 @@ function parsePlanFormat(value: string): FixturePlanFormat {
     return value;
   }
   throw new Error(`Unsupported fixture plan format: ${value}`);
+}
+
+function parseBranchPrefix(value: string): string {
+  if (value.length === 0 || /\s/u.test(value)) {
+    throw new Error(`Unsupported fixture branch prefix: ${value}`);
+  }
+  return value;
 }
 
 function setScenarioIndexMode(
