@@ -10,7 +10,7 @@ created: 1779375751859
 
 Sets the directory where Weave writes runtime and audit logs. If unset, logs are written under `.weave/logs/` in the inferred workspace root. For whole-root meshes the workspace is the mesh root; for sidecar meshes the workspace is inferred from `_mesh/_config/config.ttl`.
 
-Relevant command notes: [[wu.cli-reference.weave]], [[wu.cli-reference.validate]], [[wu.cli-reference.version]], [[wu.cli-reference.generate]], [[wu.cli-reference.mesh.create]], [[wu.cli-reference.integrate]], [[wu.cli-reference.extract]], [[wu.cli-reference.set.extraction-source]], [[wu.cli-reference.payload.update]], [[wu.cli-reference.knop.create]], [[wu.cli-reference.knop.add-reference]], [[wu.cli-reference.set.history]], [[wu.cli-reference.set.next-state]].
+Relevant command notes: [[wu.cli-reference.weave]], [[wu.cli-reference.validate]], [[wu.cli-reference.version]], [[wu.cli-reference.generate]], [[wu.cli-reference.mesh.create]], [[wu.cli-reference.import]], [[wu.cli-reference.integrate]], [[wu.cli-reference.extract]], [[wu.cli-reference.set.extraction-source]], [[wu.cli-reference.payload.update]], [[wu.cli-reference.knop.create]], [[wu.cli-reference.knop.add-reference]], [[wu.cli-reference.set.history]], [[wu.cli-reference.set.next-state]].
 
 ```sh
 WEAVE_LOG_DIR=/tmp/weave-logs weave --mesh-root docs

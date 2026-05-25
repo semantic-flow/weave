@@ -1,5 +1,6 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import {
+  listImportSourceInventoryStates,
   listIntegrationSourceInventoryStates,
   listKnopDesignatorPaths,
   resolveExtractionSourceInventoryState,
@@ -421,6 +422,54 @@ Deno.test("listIntegrationSourceInventoryStates reads repository-backed observat
         contentDigest: "sha256:abc123",
       },
       observedSourceDigest: "sha256:abc123",
+    }],
+  );
+});
+
+Deno.test("listImportSourceInventoryStates reads URL import source observations", () => {
+  const sourcesTurtle =
+    `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@base <${MESH_BASE}> .
+
+<bob/page-main/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <bob/page-main/_knop/_sources/sources.ttl> ;
+  sflo:hasSourceBinding <bob/page-main/_knop/_sources#payload-source> .
+
+<bob/page-main/_knop/_sources#payload-source> a sflo:ImportSource ;
+  sflo:hasTargetArtifact <bob/page-main> ;
+  sflo:targetAccessUrl "https://example.com/bob.md" ;
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> ;
+  sflo:expectsContentDigest "sha256:abc123" ;
+  sflo:hasResolutionObservation <bob/page-main/_knop/_sources#payload-source-observation-001> .
+
+<bob/page-main/_knop/_sources#payload-source-observation-001> a sflo:ArtifactResolutionObservation ;
+  sflo:observedContentDigest "sha256:abc123" ;
+  sflo:observedTargetLocalRelativePath "bob-page-main.md" ;
+  sflo:observedAt "2026-05-24T20:00:00.000Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+`;
+
+  assertEquals(
+    listImportSourceInventoryStates(
+      MESH_BASE,
+      sourcesTurtle,
+      "bob/page-main/_knop/_sources",
+      {
+        parseErrorMessage: "Could not parse source registry",
+        missingTargetArtifactMessage: "Missing target artifact",
+        unsupportedResolutionModeMessage: "Unsupported resolution mode",
+      },
+    ),
+    [{
+      sourceBindingIri:
+        "https://semantic-flow.github.io/mesh-alice-bio/bob/page-main/_knop/_sources#payload-source",
+      sourceArtifactPath: "bob/page-main",
+      targetAccessUrl: "https://example.com/bob.md",
+      artifactResolutionModeIri:
+        "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working",
+      expectedContentDigest: "sha256:abc123",
+      observedSourceLocalRelativePath: "bob-page-main.md",
+      observedSourceDigest: "sha256:abc123",
+      observedAt: "2026-05-24T20:00:00.000Z",
     }],
   );
 });

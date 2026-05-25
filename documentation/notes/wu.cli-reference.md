@@ -16,11 +16,11 @@ Weave writes runtime logs under `.weave/logs/` inside the workspace. For whole-r
 
 Use `weave --help` or `weave <command> --help` to inspect the live CLI.
 
-Detailed notes are available for [[wu.cli-reference.weave]], [[wu.cli-reference.validate]], [[wu.cli-reference.version]], [[wu.cli-reference.generate]], [[wu.cli-reference.mesh.create]], [[wu.cli-reference.integrate]], [[wu.cli-reference.extract]], [[wu.cli-reference.set.extraction-source]], [[wu.cli-reference.payload.update]], [[wu.cli-reference.knop.create]], [[wu.cli-reference.knop.add-reference]], [[wu.cli-reference.set.history]], and [[wu.cli-reference.set.next-state]]. Shared syntax notes cover [[wu.cli-reference.target-syntax]] and [[wu.cli-reference.root-designator]].
+Detailed notes are available for [[wu.cli-reference.weave]], [[wu.cli-reference.validate]], [[wu.cli-reference.version]], [[wu.cli-reference.generate]], [[wu.cli-reference.mesh.create]], [[wu.cli-reference.import]], [[wu.cli-reference.integrate]], [[wu.cli-reference.extract]], [[wu.cli-reference.set.extraction-source]], [[wu.cli-reference.payload.update]], [[wu.cli-reference.knop.create]], [[wu.cli-reference.knop.add-reference]], [[wu.cli-reference.set.history]], and [[wu.cli-reference.set.next-state]]. Shared syntax notes cover [[wu.cli-reference.target-syntax]] and [[wu.cli-reference.root-designator]].
 
 ## Common patterns
 
-`--mesh-root <path>` selects the mesh root for existing-mesh operations such as `weave`, `weave validate`, `weave version`, `weave generate`, `weave integrate`, `weave extract`, `weave payload update`, `weave knop create`, and `weave knop add-reference`. It defaults to `.`.
+`--mesh-root <path>` selects the mesh root for existing-mesh operations such as `weave`, `weave validate`, `weave version`, `weave generate`, `weave import`, `weave integrate`, `weave extract`, `weave payload update`, `weave knop create`, and `weave knop add-reference`. It defaults to `.`.
 
 `--target <spec>` limits `weave`, `weave validate`, `weave version`, and `weave generate` to specific designator paths.
 
@@ -42,7 +42,7 @@ This keeps the source checkout and mesh root in the same working tree. Extra-mes
 
 For a detached publication root, such as a generated `gh-pages` worktree, use the same mesh operations against the publication root instead of a special branch-publishing command. Create or open the mesh in the publication checkout, integrate each payload source with an explicit source policy, then run `weave`, `weave generate`, or `weave validate` for the intended publication step. The removed `weave prepare gh-pages` wrapper should not be used in new automation.
 
-For detached publication roots and other extra-mesh source files, `integrate` records a working-only source binding automatically. The important rule is that `weave` itself does not fetch repositories, copy source files into the publication root, apply host presets, or commit/push git refs; those are explicit setup, `integrate`, future import, profile, and CI/CD concerns.
+For detached publication roots and other extra-mesh source files, `integrate` records a working-only source binding automatically. When bytes should be copied into the mesh root instead, use `import`. The important rule is that `weave` itself does not fetch repositories, copy source files into the publication root, apply host presets, or commit/push git refs; those are explicit setup, `integrate`, `import`, profile, and CI/CD concerns.
 
 ## Target syntax
 
@@ -89,7 +89,7 @@ Recursive root targeting:
 weave --target 'designatorPath=/,recursive=true'
 ```
 
-The same `/` sentinel is accepted anywhere a command expects a designator path, including `weave integrate`, `weave extract`, `weave payload update`, `weave knop create`, and `weave knop add-reference --reference-target-designator-path`.
+The same `/` sentinel is accepted anywhere a command expects a designator path, including `weave import`, `weave integrate`, `weave extract`, `weave payload update`, `weave knop create`, and `weave knop add-reference --reference-target-designator-path`.
 
 ## Commands
 
@@ -264,6 +264,31 @@ Constraints:
 - extra-mesh local sources are accepted only when operational policy allows the resulting relative `workingLocalRelativePath`
 - denied adjacent workspace sources report the matching `--grant-source-directory` suggestion when Weave can infer one
 - remote fetching remains outside the current CLI contract; repository metadata names provenance and expected bytes, not network access
+
+### `weave import`
+
+Imports local, `file:`, or bounded HTTP(S) source bytes into a governed mesh-local working file and registers or updates the target designator path as a payload artifact.
+
+```sh
+weave import ./incoming/carol-burnett.md carol/page-main --working-file carol/page-main.md
+weave import ./incoming/carol-burnett.md --designator-path carol/page-main --working-file carol/page-main.md
+weave import "https://example.com/bob.md" bob/page-main --working-file bob-page-main.md --expected-digest sha256:<hex>
+weave import ./root.md / --working-file root.md
+```
+
+Constraints:
+
+- the designator path may be given either positionally or with `--designator-path`
+- if both are provided, they must match
+- `--mesh-root <path>` selects the mesh root and defaults to the current directory
+- relative source paths are resolved from the command working directory
+- `--working-file <path>` is required, mesh-root-relative, and must not escape the mesh root or land under reserved support segments such as `_mesh` or `_knop`
+- import computes and records an observed `sha256:` digest for every acquired source
+- `--expected-digest <digest>` verifies the acquired bytes before writing and records the expectation in the Knop source registry
+- source provenance is recorded as an `ImportSource` binding in `_knop/_sources`; URL imports use `targetAccessUrl`, but the imported payload's active current locator remains the governed local working file
+- imported Markdown and other non-RDF payloads are not typed as `sflo:RdfDocument`; support registries remain RDF documents
+- existing working files or payload artifacts require `--replace-working`, which refreshes both copied bytes and import provenance without minting a historical state
+- import does not run `weave`, `weave version`, or `weave generate`, and later operations do not fetch the original URL merely because import provenance records it
 
 ### `weave extract`
 
