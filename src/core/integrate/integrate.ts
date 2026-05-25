@@ -9,6 +9,7 @@ import {
 import {
   SFLO_NAMESPACE,
   SFLO_TURTLE_PREFIX_DECLARATION,
+  XSD_NAMESPACE,
 } from "../rdf/namespaces.ts";
 import { escapeTurtleString } from "../rdf/turtle.ts";
 
@@ -52,7 +53,14 @@ export interface IntegrateSourceBinding {
   repositorySource?: IntegrateRepositorySource;
   repositorySourceFloatingLocator?: IntegrateRepositorySourceFloatingLocator;
   expectedContentDigest?: string;
+  observation?: IntegrateSourceObservation;
   artifactResolutionMode?: "working";
+}
+
+export interface IntegrateSourceObservation {
+  observedContentDigest?: string;
+  observedTargetLocalRelativePath?: string;
+  observedAt?: string;
 }
 
 export interface IntegrateRequest {
@@ -277,6 +285,9 @@ function normalizeSourceBinding(
       sourceBinding.expectedContentDigest,
       "sourceBinding.expectedContentDigest",
     );
+  const observation = sourceBinding.observation === undefined
+    ? undefined
+    : normalizeSourceObservation(sourceBinding.observation);
   const artifactResolutionMode = sourceBinding.artifactResolutionMode ??
     "working";
   if (artifactResolutionMode !== "working") {
@@ -293,6 +304,7 @@ function normalizeSourceBinding(
       ? { repositorySourceFloatingLocator }
       : {}),
     ...(expectedContentDigest ? { expectedContentDigest } : {}),
+    ...(observation ? { observation } : {}),
     artifactResolutionMode,
   };
 }
@@ -304,7 +316,14 @@ interface NormalizedIntegrateSourceBinding {
   repositorySourceFloatingLocator?:
     NormalizedIntegrateRepositorySourceFloatingLocator;
   expectedContentDigest?: string;
+  observation?: NormalizedIntegrateSourceObservation;
   artifactResolutionMode: "working";
+}
+
+interface NormalizedIntegrateSourceObservation {
+  observedContentDigest?: string;
+  observedTargetLocalRelativePath?: string;
+  observedAt?: string;
 }
 
 interface NormalizedIntegrateRepositorySource {
@@ -393,6 +412,47 @@ function normalizeRepositorySourceFloatingLocator(
   return {
     repositoryUrl,
     repositoryPathFromRoot,
+  };
+}
+
+function normalizeSourceObservation(
+  observation: IntegrateSourceObservation,
+): NormalizedIntegrateSourceObservation {
+  const observedContentDigest = observation.observedContentDigest === undefined
+    ? undefined
+    : normalizeNonEmptyLiteral(
+      observation.observedContentDigest,
+      "sourceBinding.observation.observedContentDigest",
+    );
+  const observedTargetLocalRelativePath =
+    observation.observedTargetLocalRelativePath === undefined
+      ? undefined
+      : normalizeWorkingLocalRelativePath(
+        observation.observedTargetLocalRelativePath,
+      );
+  const observedAt = observation.observedAt === undefined
+    ? undefined
+    : normalizeNonEmptyLiteral(
+      observation.observedAt,
+      "sourceBinding.observation.observedAt",
+    );
+
+  if (
+    observedContentDigest === undefined &&
+    observedTargetLocalRelativePath === undefined &&
+    observedAt === undefined
+  ) {
+    throw new IntegrateInputError(
+      "sourceBinding.observation must include observed evidence",
+    );
+  }
+
+  return {
+    ...(observedContentDigest ? { observedContentDigest } : {}),
+    ...(observedTargetLocalRelativePath
+      ? { observedTargetLocalRelativePath }
+      : {}),
+    ...(observedAt ? { observedAt } : {}),
   };
 }
 
@@ -518,11 +578,18 @@ function renderKnopSourcesTurtle(
   const sourceRegistryPath = `${knopPath}/_sources`;
   const sourcesFilePath = `${sourceRegistryPath}/sources.ttl`;
   const sourceBindingPath = `${sourceRegistryPath}#${sourceBinding.bindingId}`;
+  const observationPath = `${sourceBindingPath}-observation-001`;
   const sourceBindingFacts = renderSourceBindingFacts(
     meshBase,
     designatorPath,
     sourceBinding,
+    observationPath,
   );
+  const observationBlock = sourceBinding.observation
+    ? `\n\n${
+      renderSourceObservationBlock(observationPath, sourceBinding.observation)
+    }`
+    : "";
 
   return `@base <${meshBase}> .
 ${SFLO_TURTLE_PREFIX_DECLARATION}
@@ -531,8 +598,8 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
   sflo:hasWorkingLocatedFile <${sourcesFilePath}> ;
   sflo:hasSourceBinding <${sourceBindingPath}> .
 
-<${sourceBindingPath}> a sflo:ArtifactResolutionTarget ;
-${sourceBindingFacts}
+<${sourceBindingPath}> a sflo:IntegrationSource ;
+${sourceBindingFacts}${observationBlock}
 
 <${sourcesFilePath}> a sflo:LocatedFile, sflo:RdfDocument .
 `;
@@ -542,6 +609,7 @@ function renderSourceBindingFacts(
   meshBase: string,
   designatorPath: string,
   sourceBinding: NormalizedIntegrateSourceBinding,
+  observationPath: string,
 ): string {
   const facts: [string, string][] = [
     ["sflo:hasTargetArtifact", `<${new URL(designatorPath, meshBase).href}>`],
@@ -562,6 +630,12 @@ function renderSourceBindingFacts(
       `"${escapeTurtleString(sourceBinding.expectedContentDigest)}"`,
     ]);
   }
+  if (sourceBinding.observation !== undefined) {
+    facts.push([
+      "sflo:hasResolutionObservation",
+      `<${observationPath}>`,
+    ]);
+  }
   if (sourceBinding.repositorySource !== undefined) {
     facts.push([
       "sflo:hasTargetRepositorySource",
@@ -580,6 +654,41 @@ function renderSourceBindingFacts(
   return facts.map(([predicate, object], index) =>
     `  ${predicate} ${object}${index === facts.length - 1 ? " ." : " ;"}`
   ).join("\n");
+}
+
+function renderSourceObservationBlock(
+  observationPath: string,
+  observation: NormalizedIntegrateSourceObservation,
+): string {
+  const facts: [string, string][] = [
+    ["a", "sflo:ArtifactResolutionObservation"],
+  ];
+  if (observation.observedContentDigest !== undefined) {
+    facts.push([
+      "sflo:observedContentDigest",
+      `"${escapeTurtleString(observation.observedContentDigest)}"`,
+    ]);
+  }
+  if (observation.observedTargetLocalRelativePath !== undefined) {
+    facts.push([
+      "sflo:observedTargetLocalRelativePath",
+      `"${escapeTurtleString(observation.observedTargetLocalRelativePath)}"`,
+    ]);
+  }
+  if (observation.observedAt !== undefined) {
+    facts.push([
+      "sflo:observedAt",
+      `"${
+        escapeTurtleString(observation.observedAt)
+      }"^^<${XSD_NAMESPACE}dateTime>`,
+    ]);
+  }
+
+  const lines = facts.map(([predicate, object], index) =>
+    `  ${predicate} ${object}${index === facts.length - 1 ? " ." : " ;"}`
+  );
+  return `<${observationPath}>
+${lines.join("\n")}`;
 }
 
 function renderRepositorySourceBlankNode(

@@ -285,7 +285,7 @@ Deno.test("weave integrate grants and uses a repo-adjacent source directory as a
   );
   assertStringIncludes(
     sources,
-    "<alice/bio/_knop/_sources#payload-source> a sflo:ArtifactResolutionTarget ;",
+    "<alice/bio/_knop/_sources#payload-source> a sflo:IntegrationSource ;",
   );
   assertStringIncludes(
     sources,
@@ -371,7 +371,7 @@ Deno.test("weave integrate records repository-backed source provenance as a blac
   );
   assertStringIncludes(
     sources,
-    "<alice/bio/_knop/_sources#payload-source> a sflo:ArtifactResolutionTarget ;",
+    "<alice/bio/_knop/_sources#payload-source> a sflo:IntegrationSource ;",
   );
   assertStringIncludes(
     sources,
@@ -387,6 +387,10 @@ Deno.test("weave integrate records repository-backed source provenance as a blac
   );
   assertStringIncludes(
     sources,
+    "sflo:hasResolutionObservation <alice/bio/_knop/_sources#payload-source-observation-001> ;",
+  );
+  assertStringIncludes(
+    sources,
     'sflo:sourceRepositoryUrl "https://github.com/semantic-flow/mesh-alice-bio.git" ;',
   );
   assertStringIncludes(sources, 'sflo:sourceRepositoryRef "main" ;');
@@ -396,6 +400,12 @@ Deno.test("weave integrate records repository-backed source provenance as a blac
     'sflo:sourceRepositoryPath "documentation/alice-bio.ttl" ;',
   );
   assertStringIncludes(sources, `sflo:hasContentDigest "${expectedDigest}"`);
+  assertStringIncludes(
+    sources,
+    `<alice/bio/_knop/_sources#payload-source-observation-001>
+  a sflo:ArtifactResolutionObservation ;
+  sflo:observedContentDigest "${expectedDigest}" .`,
+  );
 });
 
 Deno.test("weave integrate records current repository floating source locators as a black-box CLI run", async () => {
@@ -486,6 +496,10 @@ Deno.test("weave integrate records current repository floating source locators a
 
   const sources = await Deno.readTextFile(
     join(publicationRoot, "alice/bio/_knop/_sources/sources.ttl"),
+  );
+  assertStringIncludes(
+    sources,
+    "<alice/bio/_knop/_sources#payload-source> a sflo:IntegrationSource ;",
   );
   assertStringIncludes(
     sources,
@@ -634,7 +648,7 @@ Deno.test("weave integrate can grant a separate source checkout through host-loc
   );
   assertStringIncludes(
     sources,
-    "<alice/bio/_knop/_sources#payload-source> a sflo:ArtifactResolutionTarget ;",
+    "<alice/bio/_knop/_sources#payload-source> a sflo:IntegrationSource ;",
   );
   assertEquals(sources.includes("sflo:expectsContentDigest"), false);
   assertEquals(sources.includes("sflo:hasTargetRepositorySource"), false);
@@ -836,7 +850,7 @@ Deno.test("weave integrate matches the manifest-scoped sidecar Gunaar dataset fi
   );
   assertStringIncludes(
     sources,
-    "<examples/gunaar/_knop/_sources#payload-source> a sflo:ArtifactResolutionTarget ;",
+    "<examples/gunaar/_knop/_sources#payload-source> a sflo:IntegrationSource ;",
   );
   assertStringIncludes(
     sources,

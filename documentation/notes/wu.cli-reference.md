@@ -254,11 +254,11 @@ Constraints:
 - `--mesh-root <path>` selects the mesh root and defaults to the current directory
 - relative source paths are resolved from the command working directory
 - `--grant-source-directory <path>` adds an operational `workingLocalRelativePath` grant for that source directory before resolving the source; workspace-contained sources are recorded in mesh config, while separate checkout sources are recorded in the host-local `~/.sf-local-access.ttl`
-- when the approved source path is outside the mesh root, `integrate` creates a Knop source registry automatically with the internal `payload-source` binding id, `targetLocalRelativePath`, and `artifactResolutionMode_working`
+- when the approved source path is outside the mesh root, `integrate` creates a Knop source registry automatically with the internal `payload-source` `IntegrationSource` binding id, `targetLocalRelativePath`, and `artifactResolutionMode_working`
 - automatically created floating working-source bindings do not record repository ref, commit, path, digest evidence, or `expectsContentDigest`
 - `--source-repository-url`, `--source-repository-ref`, and `--source-repository-path` record repository-backed source provenance in the Knop source registry without fetching or copying source bytes
 - `--source-repository-commit` records immutable commit evidence when known
-- `--source-digest <digest>` records caller-provided byte evidence; if omitted when repository source metadata is supplied, Weave records a computed `sha256:` digest for the local source bytes it observed
+- `--source-digest <digest>` records caller-provided byte evidence; if omitted when repository source metadata is supplied, Weave records a computed `sha256:` digest for the local source bytes it observed and links that evidence from the `IntegrationSource` with an `ArtifactResolutionObservation`
 - the current local CLI slice accepts local filesystem paths or `file:` URLs
 - sources inside the mesh root are accepted directly
 - extra-mesh local sources are accepted only when operational policy allows the resulting relative `workingLocalRelativePath`

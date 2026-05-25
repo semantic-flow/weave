@@ -155,7 +155,7 @@ Deno.test("planIntegrate records working-only source bindings with the internal 
   const sources = plan.createdFiles[2]?.contents ?? "";
   assertStringIncludes(
     sources,
-    "<alice/bio/_knop/_sources#payload-source> a sflo:ArtifactResolutionTarget ;",
+    "<alice/bio/_knop/_sources#payload-source> a sflo:IntegrationSource ;",
   );
   assertStringIncludes(
     sources,
@@ -191,6 +191,9 @@ Deno.test("planIntegrate records repository-backed source bindings", async () =>
         repositoryPath: "alice-bio.ttl",
         contentDigest: "sha256:123abc",
       },
+      observation: {
+        observedContentDigest: "sha256:123abc",
+      },
     },
   });
 
@@ -220,7 +223,7 @@ Deno.test("planIntegrate records repository-backed source bindings", async () =>
   const sources = plan.createdFiles[2]?.contents ?? "";
   assertStringIncludes(
     sources,
-    "<alice/bio/_knop/_sources#branch-source-alice-bio> a sflo:ArtifactResolutionTarget ;",
+    "<alice/bio/_knop/_sources#branch-source-alice-bio> a sflo:IntegrationSource ;",
   );
   assertStringIncludes(
     sources,
@@ -240,12 +243,20 @@ Deno.test("planIntegrate records repository-backed source bindings", async () =>
   );
   assertStringIncludes(
     sources,
+    "sflo:hasResolutionObservation <alice/bio/_knop/_sources#branch-source-alice-bio-observation-001> ;",
+  );
+  assertStringIncludes(
+    sources,
     'sflo:sourceRepositoryUrl "https://github.com/semantic-flow/mesh-alice-bio.git" ;',
   );
   assertStringIncludes(sources, 'sflo:sourceRepositoryRef "main" ;');
   assertStringIncludes(sources, 'sflo:sourceRepositoryCommit "abc123" ;');
   assertStringIncludes(sources, 'sflo:sourceRepositoryPath "alice-bio.ttl" ;');
   assertStringIncludes(sources, 'sflo:hasContentDigest "sha256:123abc"');
+  assertStringIncludes(
+    sources,
+    '<alice/bio/_knop/_sources#branch-source-alice-bio-observation-001>\n  a sflo:ArtifactResolutionObservation ;\n  sflo:observedContentDigest "sha256:123abc" .',
+  );
 });
 
 Deno.test("planIntegrate records floating repository source bindings without local source paths", async () => {
@@ -305,7 +316,7 @@ Deno.test("planIntegrate records floating repository source bindings without loc
   const sources = plan.createdFiles[2]?.contents ?? "";
   assertStringIncludes(
     sources,
-    "<alice/bio/_knop/_sources#payload-source> a sflo:ArtifactResolutionTarget ;",
+    "<alice/bio/_knop/_sources#payload-source> a sflo:IntegrationSource ;",
   );
   assertStringIncludes(
     sources,

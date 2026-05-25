@@ -18,7 +18,7 @@ Portable Semantic Flow behavior belongs in `sf.spec.*` notes in the Semantic Flo
 
 The Weave CLI spells local mesh selection as `--mesh-root` for mesh operations after creation, including `weave`, `weave validate`, `weave version`, `weave generate`, `weave integrate`, `weave extract`, `weave payload update`, `weave knop create`, and `weave knop add-reference`. When omitted, the command working directory is used as the mesh root.
 
-For `weave integrate`, relative source paths are resolved from the command working directory. The stored `workingLocalRelativePath` remains relative to the mesh root after local path policy approves the source. Extra-mesh working sources also get a working-only Knop source binding with the internal `payload-source` id and the same approved target path.
+For `weave integrate`, relative source paths are resolved from the command working directory. The stored `workingLocalRelativePath` remains relative to the mesh root after local path policy approves the source. Extra-mesh working sources also get a working-only Knop source binding typed `IntegrationSource` with the internal `payload-source` id and the same approved target path.
 
 When integrating a source outside the mesh root but inside the inferred workspace root, `weave integrate --grant-source-directory <path>` adds a constrained mesh-carried `workingLocalRelativePath` access rule for that source directory before resolving the source. This is the sidecar path for artifact-specific adjacent directories such as `ontology/` or `shacl/`; omitting the grant keeps extra-mesh source access fail-closed unless existing config already allows it.
 

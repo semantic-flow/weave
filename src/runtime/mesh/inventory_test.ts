@@ -1,5 +1,6 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import {
+  listIntegrationSourceInventoryStates,
   listKnopDesignatorPaths,
   resolveExtractionSourceInventoryState,
   resolveHistoricalStateLocatedFilePath,
@@ -325,6 +326,102 @@ Deno.test("resolveExtractionSourceInventoryState reads source registry extractio
       artifactResolutionModeIri:
         "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working",
     },
+  );
+});
+
+Deno.test("listIntegrationSourceInventoryStates reads IntegrationSource bindings without observations", () => {
+  const sourcesTurtle =
+    `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@base <${MESH_BASE}> .
+
+<alice/bio/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <alice/bio/_knop/_sources/sources.ttl> ;
+  sflo:hasSourceBinding <alice/bio/_knop/_sources#payload-source> .
+
+<alice/bio/_knop/_sources#payload-source> a sflo:IntegrationSource ;
+  sflo:hasTargetArtifact <alice/bio> ;
+  sflo:targetLocalRelativePath "../source/alice-bio.ttl" ;
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> .
+`;
+
+  assertEquals(
+    listIntegrationSourceInventoryStates(
+      MESH_BASE,
+      sourcesTurtle,
+      "alice/bio/_knop/_sources",
+      {
+        parseErrorMessage: "Could not parse source registry",
+        missingTargetArtifactMessage: "Missing target artifact",
+        unsupportedResolutionModeMessage: "Unsupported resolution mode",
+      },
+    ),
+    [{
+      sourceBindingIri:
+        "https://semantic-flow.github.io/mesh-alice-bio/alice/bio/_knop/_sources#payload-source",
+      sourceArtifactPath: "alice/bio",
+      targetLocalRelativePath: "../source/alice-bio.ttl",
+      artifactResolutionModeIri:
+        "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working",
+    }],
+  );
+});
+
+Deno.test("listIntegrationSourceInventoryStates reads repository-backed observations", () => {
+  const sourcesTurtle =
+    `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@base <${MESH_BASE}> .
+
+<alice/bio/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <alice/bio/_knop/_sources/sources.ttl> ;
+  sflo:hasSourceBinding <alice/bio/_knop/_sources#payload-source> .
+
+<alice/bio/_knop/_sources#payload-source> a sflo:IntegrationSource ;
+  sflo:hasTargetArtifact <alice/bio> ;
+  sflo:targetLocalRelativePath "../source/alice-bio.ttl" ;
+  sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> ;
+  sflo:expectsContentDigest "sha256:abc123" ;
+  sflo:hasResolutionObservation <alice/bio/_knop/_sources#payload-source-observation-001> ;
+  sflo:hasTargetRepositorySource [
+    a sflo:RepositorySourceLocator ;
+    sflo:sourceRepositoryUrl "https://github.com/semantic-flow/mesh-alice-bio.git" ;
+    sflo:sourceRepositoryRef "main" ;
+    sflo:sourceRepositoryCommit "def456" ;
+    sflo:sourceRepositoryPath "alice-bio.ttl" ;
+    sflo:hasContentDigest "sha256:abc123"
+  ] .
+
+<alice/bio/_knop/_sources#payload-source-observation-001> a sflo:ArtifactResolutionObservation ;
+  sflo:observedContentDigest "sha256:abc123" .
+`;
+
+  assertEquals(
+    listIntegrationSourceInventoryStates(
+      MESH_BASE,
+      sourcesTurtle,
+      "alice/bio/_knop/_sources",
+      {
+        parseErrorMessage: "Could not parse source registry",
+        missingTargetArtifactMessage: "Missing target artifact",
+        unsupportedResolutionModeMessage: "Unsupported resolution mode",
+      },
+    ),
+    [{
+      sourceBindingIri:
+        "https://semantic-flow.github.io/mesh-alice-bio/alice/bio/_knop/_sources#payload-source",
+      sourceArtifactPath: "alice/bio",
+      targetLocalRelativePath: "../source/alice-bio.ttl",
+      artifactResolutionModeIri:
+        "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working",
+      expectedContentDigest: "sha256:abc123",
+      repositorySource: {
+        repositoryUrl: "https://github.com/semantic-flow/mesh-alice-bio.git",
+        repositoryRef: "main",
+        repositoryCommit: "def456",
+        repositoryPath: "alice-bio.ttl",
+        contentDigest: "sha256:abc123",
+      },
+      observedSourceDigest: "sha256:abc123",
+    }],
   );
 });
 

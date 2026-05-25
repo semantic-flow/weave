@@ -41,7 +41,7 @@ weave integrate ./ontology/fantasy-rules-ontology.ttl ontology \
   --grant-source-directory ontology
 ```
 
-If the approved source path is outside the mesh root, `integrate` creates a Knop source registry automatically with the internal `payload-source` binding id, a working resolution mode, and a local target locator for the source bytes.
+If the approved source path is outside the mesh root, `integrate` creates a Knop source registry automatically with the internal `payload-source` `IntegrationSource` binding id, a working resolution mode, and a local target locator for the source bytes.
 
 ## Floating Repository Sources
 
@@ -72,7 +72,7 @@ weave integrate ./ontology/fantasy-rules-ontology.ttl ontology \
   --source-repository-path ontology/fantasy-rules-ontology.ttl
 ```
 
-When pinned repository metadata is supplied, Weave records source provenance and computes a `sha256:` digest for the local bytes it observed. If `--source-digest` is also supplied, the command fails if the computed digest differs.
+When pinned repository metadata is supplied, Weave records source provenance and computes a `sha256:` digest for the local bytes it observed. The digest is attached as an `ArtifactResolutionObservation` on the `IntegrationSource`. If `--source-digest` is also supplied, the command fails if the computed digest differs.
 
 ## Raw GitHub URLs
 

@@ -434,6 +434,9 @@ async function resolveSourceBinding(
   return {
     repositorySource,
     expectedContentDigest: sourceDigest,
+    observation: {
+      observedContentDigest: sourceDigest,
+    },
     artifactResolutionMode: "working",
   };
 }

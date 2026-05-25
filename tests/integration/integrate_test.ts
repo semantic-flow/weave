@@ -315,7 +315,7 @@ Deno.test("executeIntegrate allows repo-adjacent local sources when repo policy 
   );
   assertStringIncludes(
     sources,
-    "<alice/bio/_knop/_sources#payload-source> a sflo:ArtifactResolutionTarget ;",
+    "<alice/bio/_knop/_sources#payload-source> a sflo:IntegrationSource ;",
   );
   assertStringIncludes(
     sources,
