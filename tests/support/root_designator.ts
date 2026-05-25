@@ -28,7 +28,7 @@ export const ROOT_PERSON_SOURCE_TURTLE = `@base <${MESH_ALICE_BIO_BASE}> .
   foaf:givenName "Root" ;
   foaf:nick "mesh-root" .
 
-<alice/bio> a schema:CreativeWork ;
+<alice/data> a schema:CreativeWork ;
   schema:name "Root Source Payload" .
 `;
 

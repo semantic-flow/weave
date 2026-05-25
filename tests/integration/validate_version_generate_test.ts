@@ -47,7 +47,7 @@ Deno.test("executeValidate returns structured findings for version-only target f
 
   const request = {
     targets: [{
-      designatorPath: "alice/bio",
+      designatorPath: "alice/data",
       stateSegment: "v0.0.1",
     }],
   } as unknown as Parameters<typeof executeValidate>[0]["request"];
@@ -73,7 +73,7 @@ Deno.test("executeGenerate rejects version-only target fields", async () => {
 
   const request = {
     targets: [{
-      designatorPath: "alice/bio",
+      designatorPath: "alice/data",
       historySegment: "releases",
     }],
   } as unknown as Parameters<typeof executeGenerate>[0]["request"];
@@ -97,7 +97,7 @@ Deno.test("executeVersion accepts version-only target fields", async () => {
     meshRoot: workspaceRoot,
     request: {
       targets: [{
-        designatorPath: "alice/bio",
+        designatorPath: "alice/data",
         historySegment: "releases",
         stateSegment: "v0.0.1",
         manifestationSegment: "ttl",
@@ -105,10 +105,10 @@ Deno.test("executeVersion accepts version-only target fields", async () => {
     },
   });
 
-  assertEquals(result.versionedDesignatorPaths, ["alice/bio"]);
+  assertEquals(result.versionedDesignatorPaths, ["alice/data"]);
   assert(
     result.createdPaths.includes(
-      "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
+      "alice/data/releases/v0.0.1/ttl/alice-data.ttl",
     ),
   );
 });
@@ -123,7 +123,7 @@ Deno.test("executeVersion reuses custom payload manifestation paths on the next 
     meshRoot: workspaceRoot,
     request: {
       targets: [{
-        designatorPath: "alice/bio",
+        designatorPath: "alice/data",
         historySegment: "releases",
         stateSegment: "v0.0.1",
         manifestationSegment: "ttl",
@@ -131,17 +131,17 @@ Deno.test("executeVersion reuses custom payload manifestation paths on the next 
     },
   });
   await Deno.writeTextFile(
-    join(workspaceRoot, "alice-bio.ttl"),
+    join(workspaceRoot, "alice-data.ttl"),
     `${await Deno.readTextFile(
-      join(workspaceRoot, "alice-bio.ttl"),
-    )}\n<alice/bio> <https://schema.org/version> \"2\" .\n`,
+      join(workspaceRoot, "alice-data.ttl"),
+    )}\n<alice/data> <https://schema.org/version> \"2\" .\n`,
   );
 
   const result = await executeVersion({
     meshRoot: workspaceRoot,
     request: {
       targets: [{
-        designatorPath: "alice/bio",
+        designatorPath: "alice/data",
         historySegment: "releases",
         stateSegment: "v0.0.2",
         manifestationSegment: "ttl",
@@ -149,17 +149,17 @@ Deno.test("executeVersion reuses custom payload manifestation paths on the next 
     },
   });
 
-  assertEquals(result.versionedDesignatorPaths, ["alice/bio"]);
+  assertEquals(result.versionedDesignatorPaths, ["alice/data"]);
   assert(
     result.createdPaths.includes(
-      "alice/bio/releases/v0.0.2/ttl/alice-bio.ttl",
+      "alice/data/releases/v0.0.2/ttl/alice-data.ttl",
     ),
   );
   assertEquals(
     await Deno.readTextFile(
-      join(workspaceRoot, "alice/bio/releases/v0.0.2/ttl/alice-bio.ttl"),
+      join(workspaceRoot, "alice/data/releases/v0.0.2/ttl/alice-data.ttl"),
     ),
-    await Deno.readTextFile(join(workspaceRoot, "alice-bio.ttl")),
+    await Deno.readTextFile(join(workspaceRoot, "alice-data.ttl")),
   );
 });
 
@@ -173,7 +173,7 @@ Deno.test("executeVersion fails closed before auto-advancing a named payload sta
     meshRoot: workspaceRoot,
     request: {
       targets: [{
-        designatorPath: "alice/bio",
+        designatorPath: "alice/data",
         historySegment: "releases",
         stateSegment: "v0.0.1",
         manifestationSegment: "ttl",
@@ -181,10 +181,10 @@ Deno.test("executeVersion fails closed before auto-advancing a named payload sta
     },
   });
   await Deno.writeTextFile(
-    join(workspaceRoot, "alice-bio.ttl"),
+    join(workspaceRoot, "alice-data.ttl"),
     `${await Deno.readTextFile(
-      join(workspaceRoot, "alice-bio.ttl"),
-    )}\n<alice/bio> <https://schema.org/version> \"2\" .\n`,
+      join(workspaceRoot, "alice-data.ttl"),
+    )}\n<alice/data> <https://schema.org/version> \"2\" .\n`,
   );
 
   await assertRejects(
@@ -192,7 +192,7 @@ Deno.test("executeVersion fails closed before auto-advancing a named payload sta
       executeVersion({
         meshRoot: workspaceRoot,
         request: {
-          targets: [{ designatorPath: "alice/bio" }],
+          targets: [{ designatorPath: "alice/data" }],
         },
       }),
     WeaveInputError,
@@ -208,7 +208,7 @@ Deno.test("executeVersion fails closed on duplicate explicit payload state befor
 
   const request = {
     targets: [{
-      designatorPath: "alice/bio",
+      designatorPath: "alice/data",
       historySegment: "releases",
       stateSegment: "v0.0.1",
       manifestationSegment: "ttl",
@@ -221,11 +221,11 @@ Deno.test("executeVersion fails closed on duplicate explicit payload state befor
 
   const inventoryPath = join(
     workspaceRoot,
-    "alice/bio/_knop/_inventory/inventory.ttl",
+    "alice/data/_knop/_inventory/inventory.ttl",
   );
   const snapshotPath = join(
     workspaceRoot,
-    "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
+    "alice/data/releases/v0.0.1/ttl/alice-data.ttl",
   );
   const inventoryBefore = await Deno.readTextFile(inventoryPath);
   const snapshotBefore = await Deno.readTextFile(snapshotPath);
@@ -250,7 +250,7 @@ Deno.test("executeVersion overwrites an explicit current payload state when requ
   await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
 
   const target = {
-    designatorPath: "alice/bio",
+    designatorPath: "alice/data",
     historySegment: "releases",
     stateSegment: "v0.0.1",
     manifestationSegment: "ttl",
@@ -260,15 +260,15 @@ Deno.test("executeVersion overwrites an explicit current payload state when requ
     request: { targets: [target] },
   });
 
-  const workingPayloadPath = join(workspaceRoot, "alice-bio.ttl");
+  const workingPayloadPath = join(workspaceRoot, "alice-data.ttl");
   const updatedPayload = `${await Deno.readTextFile(workingPayloadPath)}
-<alice/bio> <https://schema.org/version> "overwrite" .
+<alice/data> <https://schema.org/version> "overwrite" .
 `;
   await Deno.writeTextFile(workingPayloadPath, updatedPayload);
 
   const inventoryPath = join(
     workspaceRoot,
-    "alice/bio/_knop/_inventory/inventory.ttl",
+    "alice/data/_knop/_inventory/inventory.ttl",
   );
   const inventoryBefore = await Deno.readTextFile(inventoryPath);
   const result = await executeVersion({
@@ -279,14 +279,14 @@ Deno.test("executeVersion overwrites an explicit current payload state when requ
     },
   });
 
-  assertEquals(result.versionedDesignatorPaths, ["alice/bio"]);
+  assertEquals(result.versionedDesignatorPaths, ["alice/data"]);
   assertEquals(result.createdPaths, []);
   assertEquals(result.updatedPaths, [
-    "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
+    "alice/data/releases/v0.0.1/ttl/alice-data.ttl",
   ]);
   assertEquals(
     await Deno.readTextFile(
-      join(workspaceRoot, "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl"),
+      join(workspaceRoot, "alice/data/releases/v0.0.1/ttl/alice-data.ttl"),
     ),
     updatedPayload,
   );
@@ -306,7 +306,7 @@ Deno.test("executeVersion rejects overwrite without an explicit history and stat
         request: {
           overwriteExistingState: true,
           targets: [{
-            designatorPath: "alice/bio",
+            designatorPath: "alice/data",
             stateSegment: "v0.0.1",
           }],
         },
@@ -324,7 +324,7 @@ Deno.test("executeVersion rejects mixed requested targets when some are not curr
     join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
   );
   const aliceBioInventoryBefore = await Deno.readTextFile(
-    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+    join(workspaceRoot, "alice/data/_knop/_inventory/inventory.ttl"),
   );
 
   await assertRejects(
@@ -334,7 +334,7 @@ Deno.test("executeVersion rejects mixed requested targets when some are not curr
         request: {
           targets: [
             { designatorPath: "alice" },
-            { designatorPath: "alice/bio" },
+            { designatorPath: "alice/data" },
           ],
         },
       }),
@@ -350,7 +350,7 @@ Deno.test("executeVersion rejects mixed requested targets when some are not curr
   );
   assertEquals(
     await Deno.readTextFile(
-      join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+      join(workspaceRoot, "alice/data/_knop/_inventory/inventory.ttl"),
     ),
     aliceBioInventoryBefore,
   );
@@ -359,7 +359,7 @@ Deno.test("executeVersion rejects mixed requested targets when some are not curr
       Deno.stat(
         join(
           workspaceRoot,
-          "alice/bio/_history001/_s0001/ttl/alice-bio.ttl",
+          "alice/data/_history001/_s0001/ttl/alice-data.ttl",
         ),
       ),
     Deno.errors.NotFound,
@@ -484,12 +484,12 @@ Deno.test("executeValidate mesh includes configured publication checks", async (
   const result = await executeValidate({
     meshRoot: workspaceRoot,
     request: {
-      targets: [{ designatorPath: "alice/bio" }],
+      targets: [{ designatorPath: "alice/data" }],
     },
   });
 
   assertEquals(result.scope, "mesh");
-  assertEquals(result.validatedDesignatorPaths, ["alice/bio"]);
+  assertEquals(result.validatedDesignatorPaths, ["alice/data"]);
   assertEquals(result.findings, [{
     severity: "error",
     message:
@@ -502,7 +502,7 @@ Deno.test("executeValidate mesh reruns cleanly without writing files", async () 
   await materializeMeshAliceBioBranch("13-bob-extracted-woven", workspaceRoot);
 
   const inventoryPath = join(workspaceRoot, "_mesh/_inventory/inventory.ttl");
-  const pagePath = join(workspaceRoot, "alice/bio/index.html");
+  const pagePath = join(workspaceRoot, "alice/data/index.html");
   const inventoryBefore = await Deno.readTextFile(inventoryPath);
   const pageBefore = await Deno.readTextFile(pagePath);
 
@@ -528,14 +528,14 @@ Deno.test("executeWeave supports whole-mesh validation before and after weaving"
   const result = await executeWeave({
     meshRoot: workspaceRoot,
     request: {
-      targets: [{ designatorPath: "alice/bio" }],
+      targets: [{ designatorPath: "alice/data" }],
     },
     validateBefore: true,
     validateAfter: true,
     historyTrackingPolicyOverride: MESH_ALICE_BIO_HISTORY_TRACKING_POLICY,
   });
 
-  assertEquals(result.wovenDesignatorPaths, ["alice/bio"]);
+  assertEquals(result.wovenDesignatorPaths, ["alice/data"]);
 });
 
 Deno.test("executeVersion accepts the exact root target", async () => {
@@ -597,13 +597,13 @@ Deno.test("executeGenerate renders a mesh-root favicon when present", async () =
   const result = await executeGenerate({
     meshRoot: workspaceRoot,
     request: {
-      targets: [{ designatorPath: "alice/bio" }],
+      targets: [{ designatorPath: "alice/data" }],
     },
   });
 
-  assertEquals(result.generatedDesignatorPaths, ["alice/bio"]);
+  assertEquals(result.generatedDesignatorPaths, ["alice/data"]);
   const html = await Deno.readTextFile(
-    join(workspaceRoot, "alice/bio/index.html"),
+    join(workspaceRoot, "alice/data/index.html"),
   );
   assertStringIncludes(
     html,
@@ -706,7 +706,7 @@ Deno.test("executeGenerate renders the customized alice identifier page after pa
   );
   assertStringIncludes(
     await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
-    `<p>This identifier page is customized by <code>alice/_knop/_page/page.ttl</code>.</p>`,
+    `is an IRI which identifies Alice, the person`,
   );
   assertStringIncludes(
     await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
@@ -736,7 +736,7 @@ Deno.test("executeVersion can start a named payload history on an already-versio
     meshRoot: workspaceRoot,
     request: {
       targets: [{
-        designatorPath: "alice/bio",
+        designatorPath: "alice/data",
         historySegment: "releases",
         stateSegment: "v0.0.2",
         manifestationSegment: "ttl",
@@ -744,17 +744,17 @@ Deno.test("executeVersion can start a named payload history on an already-versio
     },
   });
 
-  assertEquals(result.versionedDesignatorPaths, ["alice/bio"]);
+  assertEquals(result.versionedDesignatorPaths, ["alice/data"]);
   assert(
     result.createdPaths.includes(
-      "alice/bio/releases/v0.0.2/ttl/alice-bio.ttl",
+      "alice/data/releases/v0.0.2/ttl/alice-data.ttl",
     ),
   );
   await Deno.stat(
-    join(workspaceRoot, "alice/bio/releases/v0.0.2/ttl/alice-bio.ttl"),
+    join(workspaceRoot, "alice/data/releases/v0.0.2/ttl/alice-data.ttl"),
   );
   const inventory = await Deno.readTextFile(
-    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+    join(workspaceRoot, "alice/data/_knop/_inventory/inventory.ttl"),
   );
   assertStringIncludes(
     inventory,
@@ -762,7 +762,7 @@ Deno.test("executeVersion can start a named payload history on an already-versio
   );
   assert(
     !inventory.includes(
-      "<alice/bio/releases/v0.0.2> a sflo:HistoricalState ;\n  sflo:stateOrdinal",
+      "<alice/data/releases/v0.0.2> a sflo:HistoricalState ;\n  sflo:stateOrdinal",
     ),
   );
 });
@@ -770,26 +770,26 @@ Deno.test("executeVersion can start a named payload history on an already-versio
 Deno.test("executeVersion batches recursive targets through staged current state", async () => {
   const workspaceRoot = await createTestTmpDir("weave-version-recursive-");
   await materializeMeshAliceBioBranch("04-alice-knop-created", workspaceRoot);
-  await addSupplementalKnopToMeshInventory(workspaceRoot, "alice/bio");
+  await addSupplementalKnopToMeshInventory(workspaceRoot, "alice/data");
   await addSupplementalPayloadArtifactToMeshInventory(
     workspaceRoot,
-    "alice/bio",
-    "alice-bio.ttl",
+    "alice/data",
+    "alice-data.ttl",
   );
   await writeSupplementalKnopSurface(
     workspaceRoot,
-    "alice/bio",
+    "alice/data",
     `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
-<alice/bio/_knop> a sflo:Knop ;
-  sflo:hasKnopMetadata <alice/bio/_knop/_meta> ;
-  sflo:hasKnopInventory <alice/bio/_knop/_inventory> ;
-  sflo:hasWorkingKnopInventoryFile <alice/bio/_knop/_inventory/inventory.ttl> ;
-  sflo:hasPayloadArtifact <alice/bio> .
+<alice/data/_knop> a sflo:Knop ;
+  sflo:hasKnopMetadata <alice/data/_knop/_meta> ;
+  sflo:hasKnopInventory <alice/data/_knop/_inventory> ;
+  sflo:hasWorkingKnopInventoryFile <alice/data/_knop/_inventory/inventory.ttl> ;
+  sflo:hasPayloadArtifact <alice/data> .
 
-<alice/bio> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <alice-bio.ttl> .
+<alice/data> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <alice-data.ttl> .
 `,
   );
 
@@ -800,7 +800,7 @@ Deno.test("executeVersion batches recursive targets through staged current state
     },
   });
 
-  assertEquals(result.versionedDesignatorPaths, ["alice", "alice/bio"]);
+  assertEquals(result.versionedDesignatorPaths, ["alice", "alice/data"]);
   assertEquals(
     result.updatedPaths.filter((path) =>
       path === "_mesh/_inventory/inventory.ttl"
@@ -815,14 +815,14 @@ Deno.test("executeVersion batches recursive targets through staged current state
   );
   assert(
     result.createdPaths.includes(
-      "alice/bio/_history001/_s0001/ttl/alice-bio.ttl",
+      "alice/data/_history001/_s0001/ttl/alice-data.ttl",
     ),
   );
   assertStringIncludes(
     await Deno.readTextFile(
       join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
     ),
-    `sflo:hasKnop <alice/bio/_knop> ;
+    `sflo:hasKnop <alice/data/_knop> ;
   sflo:hasResourcePage <_mesh/index.html> .`,
   );
   assertStringIncludes(
@@ -840,20 +840,20 @@ Deno.test("executeVersion batches recursive targets through staged current state
   );
   assertStringIncludes(
     await Deno.readTextFile(
-      join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+      join(workspaceRoot, "alice/data/_knop/_inventory/inventory.ttl"),
     ),
-    `sflo:currentArtifactHistory <alice/bio/_history001> ;
+    `sflo:currentArtifactHistory <alice/data/_history001> ;
   sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;`,
   );
   assertStringIncludes(
     await Deno.readTextFile(
-      join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+      join(workspaceRoot, "alice/data/_knop/_inventory/inventory.ttl"),
     ),
-    `sflo:latestHistoricalState <alice/bio/_history001/_s0001> ;
+    `sflo:latestHistoricalState <alice/data/_history001/_s0001> ;
   sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger ;`,
   );
   await assertRejects(
-    () => Deno.stat(join(workspaceRoot, "alice/bio/index.html")),
+    () => Deno.stat(join(workspaceRoot, "alice/data/index.html")),
     Deno.errors.NotFound,
   );
 });
@@ -886,7 +886,7 @@ Deno.test("executeVersion fails closed when a later batch target becomes invalid
     join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
   );
   const aliceBioInventoryBefore = await Deno.readTextFile(
-    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+    join(workspaceRoot, "alice/data/_knop/_inventory/inventory.ttl"),
   );
 
   await assertRejects(() =>
@@ -894,7 +894,7 @@ Deno.test("executeVersion fails closed when a later batch target becomes invalid
       meshRoot: workspaceRoot,
       request: {
         targets: [
-          { designatorPath: "alice/bio" },
+          { designatorPath: "alice/data" },
           { designatorPath: "bob" },
         ],
       },
@@ -909,7 +909,7 @@ Deno.test("executeVersion fails closed when a later batch target becomes invalid
   );
   assertEquals(
     await Deno.readTextFile(
-      join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+      join(workspaceRoot, "alice/data/_knop/_inventory/inventory.ttl"),
     ),
     aliceBioInventoryBefore,
   );
@@ -918,7 +918,7 @@ Deno.test("executeVersion fails closed when a later batch target becomes invalid
       Deno.stat(
         join(
           workspaceRoot,
-          "alice/bio/_history001/_s0002/ttl/alice-bio.ttl",
+          "alice/data/_history001/_s0002/ttl/alice-data.ttl",
         ),
       ),
     Deno.errors.NotFound,
@@ -968,17 +968,17 @@ Deno.test("executeGenerate skips timestamp-only reruns without rewriting pages",
   await executeGenerate({
     meshRoot: workspaceRoot,
     request: {
-      targets: [{ designatorPath: "alice/bio" }],
+      targets: [{ designatorPath: "alice/data" }],
     },
     now: () => new Date("2026-05-03T00:00:00.000Z"),
   });
-  const pagePath = join(workspaceRoot, "alice/bio/index.html");
+  const pagePath = join(workspaceRoot, "alice/data/index.html");
   const htmlBefore = await Deno.readTextFile(pagePath);
 
   const result = await executeGenerate({
     meshRoot: workspaceRoot,
     request: {
-      targets: [{ designatorPath: "alice/bio" }],
+      targets: [{ designatorPath: "alice/data" }],
     },
     now: () => new Date("2026-05-21T12:34:56.000Z"),
   });
@@ -986,7 +986,7 @@ Deno.test("executeGenerate skips timestamp-only reruns without rewriting pages",
   assertEquals(result.createdPaths, []);
   assertEquals(result.updatedPaths, []);
   assert(
-    result.skippedTimestampOnlyPaths.includes("alice/bio/index.html"),
+    result.skippedTimestampOnlyPaths.includes("alice/data/index.html"),
     result.skippedTimestampOnlyPaths.join("\n"),
   );
   assertEquals(await Deno.readTextFile(pagePath), htmlBefore);
@@ -999,7 +999,7 @@ Deno.test("executeGenerate reads only the settled current workspace state", asyn
   await executeGenerate({
     meshRoot: workspaceRoot,
     request: {
-      targets: [{ designatorPath: "alice/bio" }],
+      targets: [{ designatorPath: "alice/data" }],
     },
   });
 
@@ -1008,7 +1008,7 @@ Deno.test("executeGenerate reads only the settled current workspace state", asyn
       Deno.stat(
         join(
           workspaceRoot,
-          "alice/bio/_history001/_s0002/index.html",
+          "alice/data/_history001/_s0002/index.html",
         ),
       ),
     Deno.errors.NotFound,

@@ -21,7 +21,7 @@ Use `/` for the root designator as described in [[wu.cli-reference.root-designat
 ## Examples
 
 ```sh
-weave knop create alice/bio
+weave knop create alice/data
 weave knop create /
 weave knop create / --mesh-root docs
 ```

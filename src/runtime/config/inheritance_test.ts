@@ -14,7 +14,7 @@ Deno.test("resolveKnopInheritedConfigSources includes mesh inheritable config be
           inheritableSources: ["alice-defaults"],
         },
         {
-          scopeKey: "alice/bio",
+          scopeKey: "alice/data",
         },
       ],
     }),
@@ -41,11 +41,11 @@ Deno.test("resolveKnopInheritedConfigSources propagates ancestor offers by defau
         inheritableSources: ["alice-defaults"],
       },
       {
-        scopeKey: "alice/bio",
+        scopeKey: "alice/data",
         inheritableSources: ["bio-defaults"],
       },
       {
-        scopeKey: "alice/bio/summary",
+        scopeKey: "alice/data/summary",
       },
     ]),
     [
@@ -56,7 +56,7 @@ Deno.test("resolveKnopInheritedConfigSources propagates ancestor offers by defau
       },
       {
         source: "bio-defaults",
-        offeredByScopeKey: "alice/bio",
+        offeredByScopeKey: "alice/data",
         projection: "ancestorInherited",
       },
     ],
@@ -74,7 +74,7 @@ Deno.test("resolveKnopInheritedConfigSources stops mesh inheritable config at ac
           inheritableSources: ["alice-defaults"],
         },
         {
-          scopeKey: "alice/bio",
+          scopeKey: "alice/data",
         },
       ],
     }),
@@ -99,7 +99,7 @@ Deno.test("resolveKnopInheritedConfigSources blocks mesh inheritable config at b
           inheritableSources: ["alice-defaults"],
         },
         {
-          scopeKey: "alice/bio",
+          scopeKey: "alice/data",
         },
       ],
     }),
@@ -121,18 +121,18 @@ Deno.test("resolveKnopInheritedConfigSources stops inherited config at acceptDoN
         inheritableSources: ["alice-defaults"],
       },
       {
-        scopeKey: "alice/bio",
+        scopeKey: "alice/data",
         inboundPolicy: "acceptDoNotPropagate",
         inheritableSources: ["bio-defaults"],
       },
       {
-        scopeKey: "alice/bio/summary",
+        scopeKey: "alice/data/summary",
       },
     ]),
     [
       {
         source: "bio-defaults",
-        offeredByScopeKey: "alice/bio",
+        offeredByScopeKey: "alice/data",
         projection: "ancestorInherited",
       },
     ],
@@ -147,18 +147,18 @@ Deno.test("resolveKnopInheritedConfigSources blocks inherited config at blockInh
         inheritableSources: ["alice-defaults"],
       },
       {
-        scopeKey: "alice/bio",
+        scopeKey: "alice/data",
         inboundPolicy: "blockInherited",
         inheritableSources: ["bio-defaults"],
       },
       {
-        scopeKey: "alice/bio/summary",
+        scopeKey: "alice/data/summary",
       },
     ]),
     [
       {
         source: "bio-defaults",
-        offeredByScopeKey: "alice/bio",
+        offeredByScopeKey: "alice/data",
         projection: "ancestorInherited",
       },
     ],

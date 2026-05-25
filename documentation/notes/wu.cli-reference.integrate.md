@@ -13,8 +13,8 @@ created: 1779337973920
 ## Basic Usage
 
 ```sh
-weave integrate ./alice-bio.ttl alice/bio
-weave integrate ./alice-bio.ttl --designator-path alice/bio
+weave integrate ./alice-data.ttl alice/data
+weave integrate ./alice-data.ttl --designator-path alice/data
 weave integrate ./root.ttl --designator-path /
 ```
 

@@ -25,7 +25,7 @@ Targets use [[wu.cli-reference.target-syntax]]. Use `/` for the root designator 
 
 ```sh
 weave generate
-weave generate --target 'designatorPath=alice/bio'
+weave generate --target 'designatorPath=alice/data'
 weave generate --target 'designatorPath=alice,recursive=true'
 weave generate --include-semantic-flow-metadata
 ```

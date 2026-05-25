@@ -9,32 +9,32 @@ const meshBase = "https://semantic-flow.github.io/mesh-alice-bio/";
 const firstPayloadInventory = `@base <${meshBase}> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
-<alice/bio/_knop> a sflo:Knop ;
-  sflo:hasKnopMetadata <alice/bio/_knop/_meta> ;
-  sflo:hasKnopInventory <alice/bio/_knop/_inventory> ;
-  sflo:hasWorkingKnopInventoryFile <alice/bio/_knop/_inventory/inventory.ttl> ;
-  sflo:hasPayloadArtifact <alice/bio> .
+<alice/data/_knop> a sflo:Knop ;
+  sflo:hasKnopMetadata <alice/data/_knop/_meta> ;
+  sflo:hasKnopInventory <alice/data/_knop/_inventory> ;
+  sflo:hasWorkingKnopInventoryFile <alice/data/_knop/_inventory/inventory.ttl> ;
+  sflo:hasPayloadArtifact <alice/data> .
 
-<alice/bio> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <alice-bio.ttl> .
+<alice/data> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <alice-data.ttl> .
 `;
 
 Deno.test("planSetPayloadHistoryIntent sets current history without creating history state", () => {
   const plan = planSetPayloadHistoryIntent({
     meshBase,
-    designatorPath: "alice/bio",
+    designatorPath: "alice/data",
     historySegment: "releases",
     currentKnopInventoryTurtle: firstPayloadInventory,
   });
 
-  assertEquals(plan.currentArtifactHistoryPath, "alice/bio/releases");
+  assertEquals(plan.currentArtifactHistoryPath, "alice/data/releases");
   assertEquals(plan.updatedFiles.map((file) => file.path), [
-    "alice/bio/_knop/_inventory/inventory.ttl",
+    "alice/data/_knop/_inventory/inventory.ttl",
   ]);
   const contents = plan.updatedFiles[0]?.contents ?? "";
   assertStringIncludes(
     contents,
-    "sflo:currentArtifactHistory <alice/bio/releases> .",
+    "sflo:currentArtifactHistory <alice/data/releases> .",
   );
   assertEquals(contents.includes("sflo:hasHistoricalState"), false);
 });
@@ -42,12 +42,12 @@ Deno.test("planSetPayloadHistoryIntent sets current history without creating his
 Deno.test("planSetPayloadNextStateIntent stores next-state hint on selected payload history", () => {
   const plan = planSetPayloadNextStateIntent({
     meshBase,
-    designatorPath: "alice/bio",
+    designatorPath: "alice/data",
     stateSegment: "v0.1.0",
     currentKnopInventoryTurtle: firstPayloadInventory,
   });
 
-  assertEquals(plan.currentArtifactHistoryPath, "alice/bio/_history001");
+  assertEquals(plan.currentArtifactHistoryPath, "alice/data/_history001");
   assertEquals(plan.nextStateSegmentHint, "v0.1.0");
   const contents = plan.updatedFiles[0]?.contents ?? "";
   assertStringIncludes(
@@ -56,22 +56,22 @@ Deno.test("planSetPayloadNextStateIntent stores next-state hint on selected payl
   );
   assertStringIncludes(
     contents,
-    "sflo:currentArtifactHistory <alice/bio/_history001> .",
+    "sflo:currentArtifactHistory <alice/data/_history001> .",
   );
   assertStringIncludes(
     contents,
-    '<alice/bio/_history001> sfcfg:hasNextStateSegmentHint "v0.1.0" .',
+    '<alice/data/_history001> sfcfg:hasNextStateSegmentHint "v0.1.0" .',
   );
   assertEquals(contents.includes("sflo:hasHistoricalState"), false);
 });
 
 Deno.test("planSetPayloadNextStateIntent replaces an existing next-state hint", () => {
   const currentKnopInventoryTurtle = firstPayloadInventory.replace(
-    "sflo:hasWorkingLocatedFile <alice-bio.ttl> .",
-    `sflo:currentArtifactHistory <alice/bio/releases> ;
-  sflo:hasWorkingLocatedFile <alice-bio.ttl> .
+    "sflo:hasWorkingLocatedFile <alice-data.ttl> .",
+    `sflo:currentArtifactHistory <alice/data/releases> ;
+  sflo:hasWorkingLocatedFile <alice-data.ttl> .
 
-<alice/bio/releases> sfcfg:hasNextStateSegmentHint "v0.0.1" .`,
+<alice/data/releases> sfcfg:hasNextStateSegmentHint "v0.0.1" .`,
   ).replace(
     "@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .",
     `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
@@ -80,7 +80,7 @@ Deno.test("planSetPayloadNextStateIntent replaces an existing next-state hint", 
 
   const plan = planSetPayloadNextStateIntent({
     meshBase,
-    designatorPath: "alice/bio",
+    designatorPath: "alice/data",
     stateSegment: "v0.0.2",
     currentKnopInventoryTurtle,
   });
@@ -89,49 +89,49 @@ Deno.test("planSetPayloadNextStateIntent replaces an existing next-state hint", 
   assertEquals(contents.includes('"v0.0.1"'), false);
   assertStringIncludes(
     contents,
-    '<alice/bio/releases> sfcfg:hasNextStateSegmentHint "v0.0.2" .',
+    '<alice/data/releases> sfcfg:hasNextStateSegmentHint "v0.0.2" .',
   );
 });
 
 Deno.test("planSetPayloadNextStateIntent accepts duplicate identical current history facts", () => {
   const currentKnopInventoryTurtle = firstPayloadInventory.replace(
-    "sflo:hasWorkingLocatedFile <alice-bio.ttl> .",
-    `sflo:currentArtifactHistory <alice/bio/releases> ;
-  sflo:currentArtifactHistory <alice/bio/releases> ;
-  sflo:hasWorkingLocatedFile <alice-bio.ttl> .`,
+    "sflo:hasWorkingLocatedFile <alice-data.ttl> .",
+    `sflo:currentArtifactHistory <alice/data/releases> ;
+  sflo:currentArtifactHistory <alice/data/releases> ;
+  sflo:hasWorkingLocatedFile <alice-data.ttl> .`,
   );
 
   const plan = planSetPayloadNextStateIntent({
     meshBase,
-    designatorPath: "alice/bio",
+    designatorPath: "alice/data",
     stateSegment: "v0.1.0",
     currentKnopInventoryTurtle,
   });
 
-  assertEquals(plan.currentArtifactHistoryPath, "alice/bio/releases");
+  assertEquals(plan.currentArtifactHistoryPath, "alice/data/releases");
 });
 
 Deno.test("planSetPayloadNextStateIntent rejects dot-segment current history paths", () => {
   for (
     const currentArtifactHistoryPath of [
-      "alice/bio/",
-      "alice/bio/%2e",
-      "alice/bio/%2e%2e",
-      "alice/bio/%252e",
-      "alice/bio/%252e%252e",
+      "alice/data/",
+      "alice/data/%2e",
+      "alice/data/%2e%2e",
+      "alice/data/%252e",
+      "alice/data/%252e%252e",
     ]
   ) {
     const currentKnopInventoryTurtle = firstPayloadInventory.replace(
-      "sflo:hasWorkingLocatedFile <alice-bio.ttl> .",
+      "sflo:hasWorkingLocatedFile <alice-data.ttl> .",
       `sflo:currentArtifactHistory <${currentArtifactHistoryPath}> ;
-  sflo:hasWorkingLocatedFile <alice-bio.ttl> .`,
+  sflo:hasWorkingLocatedFile <alice-data.ttl> .`,
     );
 
     assertThrows(
       () =>
         planSetPayloadNextStateIntent({
           meshBase,
-          designatorPath: "alice/bio",
+          designatorPath: "alice/data",
           stateSegment: "v0.1.0",
           currentKnopInventoryTurtle,
         }),

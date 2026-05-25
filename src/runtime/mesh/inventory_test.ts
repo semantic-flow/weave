@@ -24,14 +24,14 @@ Deno.test("listKnopDesignatorPaths accepts semantically equivalent mesh inventor
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
-<alice/bio/_knop> rdf:type sflo:Knop .
+<alice/data/_knop> rdf:type sflo:Knop .
 <alice/_knop> sflo:hasPayloadArtifact <alice> ;
   rdf:type sflo:Knop .
 <https://example.org/external/_knop> rdf:type sflo:Knop .
 `,
       "Could not parse mesh inventory",
     ),
-    ["alice", "alice/bio"],
+    ["alice", "alice/data"],
   );
 });
 
@@ -60,26 +60,26 @@ Deno.test("resolvePayloadArtifactInventoryState accepts semantically equivalent 
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
-<alice/bio/_history001> sflo:latestHistoricalState <alice/bio/_history001/_s0002> ;
+<alice/data/_history001> sflo:latestHistoricalState <alice/data/_history001/_s0002> ;
   rdf:type sflo:ArtifactHistory .
-<alice/bio> sflo:hasWorkingLocatedFile <alice-bio.ttl> ;
+<alice/data> sflo:hasWorkingLocatedFile <alice-data.ttl> ;
   rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:PayloadArtifact ;
-  sflo:currentArtifactHistory <alice/bio/_history001> .
-<alice/bio/_knop> rdf:type sflo:Knop ;
-  sflo:hasPayloadArtifact <alice/bio> .
+  sflo:currentArtifactHistory <alice/data/_history001> .
+<alice/data/_knop> rdf:type sflo:Knop ;
+  sflo:hasPayloadArtifact <alice/data> .
 `,
-      "alice/bio",
+      "alice/data",
       {
         parseErrorMessage: "Could not parse Knop inventory",
         missingWorkingFileMessage: "Could not resolve working payload file",
       },
     ),
     {
-      workingLocalRelativePath: "alice-bio.ttl",
-      workingLocatedFilePath: "alice-bio.ttl",
-      currentArtifactHistoryPath: "alice/bio/_history001",
+      workingLocalRelativePath: "alice-data.ttl",
+      workingLocatedFilePath: "alice-data.ttl",
+      currentArtifactHistoryPath: "alice/data/_history001",
       currentArtifactHistoryExists: true,
-      latestHistoricalStatePath: "alice/bio/_history001/_s0002",
+      latestHistoricalStatePath: "alice/data/_history001/_s0002",
     },
   );
 });
@@ -92,16 +92,16 @@ Deno.test("resolvePayloadArtifactInventoryState accepts repository floating payl
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
-<alice/bio> rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:PayloadArtifact ;
+<alice/data> rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:PayloadArtifact ;
   sflo:hasRepositorySourceFloatingLocator [
     a sflo:RepositorySourceFloatingLocator ;
     sflo:sourceRepositoryUrl "https://github.com/semantic-flow/sflo.git" ;
     sflo:sourceRepositoryPathFromRoot "semantic-flow-core-ontology.ttl"
   ] .
-<alice/bio/_knop> rdf:type sflo:Knop ;
-  sflo:hasPayloadArtifact <alice/bio> .
+<alice/data/_knop> rdf:type sflo:Knop ;
+  sflo:hasPayloadArtifact <alice/data> .
 `,
-      "alice/bio",
+      "alice/data",
       {
         parseErrorMessage: "Could not parse Knop inventory",
         missingWorkingFileMessage: "Could not resolve working payload file",
@@ -128,31 +128,31 @@ Deno.test("resolvePayloadArtifactInventoryState resolves latest payload snapshot
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
-<alice/bio/_history001> sflo:latestHistoricalState <alice/bio/_history001/_s0002> ;
+<alice/data/_history001> sflo:latestHistoricalState <alice/data/_history001/_s0002> ;
   rdf:type sflo:ArtifactHistory .
-<alice/bio/_history001/_s0002> sflo:hasManifestation <alice/bio/_history001/_s0002/ttl> ;
-  sflo:locatedFileForState <alice/bio/_history001/_s0002/ttl/alice-bio.ttl> .
-<alice/bio/_history001/_s0002/ttl> sflo:locatedFileForManifestation <alice/bio/_history001/_s0002/ttl/alice-bio.ttl> .
-<alice/bio> sflo:hasWorkingLocatedFile <alice-bio.ttl> ;
+<alice/data/_history001/_s0002> sflo:hasManifestation <alice/data/_history001/_s0002/ttl> ;
+  sflo:locatedFileForState <alice/data/_history001/_s0002/ttl/alice-data.ttl> .
+<alice/data/_history001/_s0002/ttl> sflo:locatedFileForManifestation <alice/data/_history001/_s0002/ttl/alice-data.ttl> .
+<alice/data> sflo:hasWorkingLocatedFile <alice-data.ttl> ;
   rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:PayloadArtifact ;
-  sflo:currentArtifactHistory <alice/bio/_history001> .
-<alice/bio/_knop> rdf:type sflo:Knop ;
-  sflo:hasPayloadArtifact <alice/bio> .
+  sflo:currentArtifactHistory <alice/data/_history001> .
+<alice/data/_knop> rdf:type sflo:Knop ;
+  sflo:hasPayloadArtifact <alice/data> .
 `,
-      "alice/bio",
+      "alice/data",
       {
         parseErrorMessage: "Could not parse Knop inventory",
         missingWorkingFileMessage: "Could not resolve working payload file",
       },
     ),
     {
-      workingLocalRelativePath: "alice-bio.ttl",
-      workingLocatedFilePath: "alice-bio.ttl",
-      currentArtifactHistoryPath: "alice/bio/_history001",
+      workingLocalRelativePath: "alice-data.ttl",
+      workingLocatedFilePath: "alice-data.ttl",
+      currentArtifactHistoryPath: "alice/data/_history001",
       currentArtifactHistoryExists: true,
-      latestHistoricalStatePath: "alice/bio/_history001/_s0002",
+      latestHistoricalStatePath: "alice/data/_history001/_s0002",
       latestHistoricalSnapshotPath:
-        "alice/bio/_history001/_s0002/ttl/alice-bio.ttl",
+        "alice/data/_history001/_s0002/ttl/alice-data.ttl",
     },
   );
 });
@@ -162,18 +162,18 @@ Deno.test("resolveHistoricalStateLocatedFilePath resolves non-latest snapshot pa
     `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
-<alice/bio/_history001/_s0001> sflo:hasManifestation <alice/bio/_history001/_s0001/jsonld> .
-<alice/bio/_history001/_s0001/jsonld> sflo:locatedFileForManifestation <alice/bio/_history001/_s0001/jsonld/alice.jsonld> .
+<alice/data/_history001/_s0001> sflo:hasManifestation <alice/data/_history001/_s0001/jsonld> .
+<alice/data/_history001/_s0001/jsonld> sflo:locatedFileForManifestation <alice/data/_history001/_s0001/jsonld/alice.jsonld> .
 `;
 
   assertEquals(
     resolveHistoricalStateLocatedFilePath(
       MESH_BASE,
       inventoryTurtle,
-      "alice/bio/_history001/_s0001",
+      "alice/data/_history001/_s0001",
       "Could not parse Knop inventory",
     ),
-    "alice/bio/_history001/_s0001/jsonld/alice.jsonld",
+    "alice/data/_history001/_s0001/jsonld/alice.jsonld",
   );
 });
 
@@ -185,22 +185,22 @@ Deno.test("resolvePayloadArtifactInventoryState tracks a missing ArtifactHistory
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
-<alice/bio> sflo:currentArtifactHistory <alice/bio/_history001> ;
-  sflo:hasWorkingLocatedFile <alice-bio.ttl> ;
+<alice/data> sflo:currentArtifactHistory <alice/data/_history001> ;
+  sflo:hasWorkingLocatedFile <alice-data.ttl> ;
   rdf:type sflo:PayloadArtifact .
-<alice/bio/_knop> rdf:type sflo:Knop ;
-  sflo:hasPayloadArtifact <alice/bio> .
+<alice/data/_knop> rdf:type sflo:Knop ;
+  sflo:hasPayloadArtifact <alice/data> .
 `,
-      "alice/bio",
+      "alice/data",
       {
         parseErrorMessage: "Could not parse Knop inventory",
         missingWorkingFileMessage: "Could not resolve working payload file",
       },
     ),
     {
-      workingLocalRelativePath: "alice-bio.ttl",
-      workingLocatedFilePath: "alice-bio.ttl",
-      currentArtifactHistoryPath: "alice/bio/_history001",
+      workingLocalRelativePath: "alice-data.ttl",
+      workingLocatedFilePath: "alice-data.ttl",
+      currentArtifactHistoryPath: "alice/data/_history001",
       currentArtifactHistoryExists: false,
       latestHistoricalStatePath: undefined,
     },
@@ -228,15 +228,15 @@ Deno.test("resolveExtractionSourceInventoryState returns source registry observe
   sflo:hasSourceBinding <bob/_knop/_sources#extraction-source> .
 
 <bob/_knop/_sources#extraction-source> a sflo:ExtractionSource ;
-  sflo:hasTargetArtifact <alice/bio> ;
-  sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> ;
+  sflo:hasTargetArtifact <alice/data> ;
+  sflo:hasRequestedTargetState <alice/data/_history001/_s0002> ;
   sflo:hasResolutionObservation <bob/_knop/_sources#extraction-source-observation-001> .
 
 <bob/_knop/_sources#extraction-source-observation-001> a sflo:ArtifactResolutionObservation ;
-  sflo:hasObservedTargetState <alice/bio/_history001/_s0002> ;
-  sflo:hasObservedTargetManifestation <alice/bio/_history001/_s0002/ttl> ;
-  sflo:hasObservedTargetLocatedFile <alice/bio/_history001/_s0002/ttl/alice-bio.ttl> ;
-  sflo:observedTargetLocalRelativePath "../alice-bio.ttl" ;
+  sflo:hasObservedTargetState <alice/data/_history001/_s0002> ;
+  sflo:hasObservedTargetManifestation <alice/data/_history001/_s0002/ttl> ;
+  sflo:hasObservedTargetLocatedFile <alice/data/_history001/_s0002/ttl/alice-data.ttl> ;
+  sflo:observedTargetLocalRelativePath "../alice-data.ttl" ;
   sflo:observedContentDigest "sha256:abc123" .
 `;
 
@@ -255,13 +255,13 @@ Deno.test("resolveExtractionSourceInventoryState returns source registry observe
       sourcesTurtle,
     ),
     {
-      sourceArtifactPath: "alice/bio",
-      requestedTargetStatePath: "alice/bio/_history001/_s0002",
-      observedSourceStatePath: "alice/bio/_history001/_s0002",
-      observedSourceManifestationPath: "alice/bio/_history001/_s0002/ttl",
+      sourceArtifactPath: "alice/data",
+      requestedTargetStatePath: "alice/data/_history001/_s0002",
+      observedSourceStatePath: "alice/data/_history001/_s0002",
+      observedSourceManifestationPath: "alice/data/_history001/_s0002/ttl",
       observedSourceLocatedFilePath:
-        "alice/bio/_history001/_s0002/ttl/alice-bio.ttl",
-      observedSourceLocalRelativePath: "../alice-bio.ttl",
+        "alice/data/_history001/_s0002/ttl/alice-data.ttl",
+      observedSourceLocalRelativePath: "../alice-data.ttl",
       observedSourceDigest: "sha256:abc123",
     },
   );
@@ -288,7 +288,7 @@ Deno.test("resolveExtractionSourceInventoryState reads source registry extractio
   sflo:hasSourceBinding <bob/_knop/_sources#extraction-source> .
 
 <bob/_knop/_sources#extraction-source> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> sflo:ExtractionSource ;
-  sflo:hasTargetArtifact <alice/bio> ;
+  sflo:hasTargetArtifact <alice/data> ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> .
 `;
 
@@ -323,7 +323,7 @@ Deno.test("resolveExtractionSourceInventoryState reads source registry extractio
       sourcesTurtle,
     ),
     {
-      sourceArtifactPath: "alice/bio",
+      sourceArtifactPath: "alice/data",
       artifactResolutionModeIri:
         "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working",
     },
@@ -335,13 +335,13 @@ Deno.test("listIntegrationSourceInventoryStates reads IntegrationSource bindings
     `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
-<alice/bio/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <alice/bio/_knop/_sources/sources.ttl> ;
-  sflo:hasSourceBinding <alice/bio/_knop/_sources#payload-source> .
+<alice/data/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <alice/data/_knop/_sources/sources.ttl> ;
+  sflo:hasSourceBinding <alice/data/_knop/_sources#payload-source> .
 
-<alice/bio/_knop/_sources#payload-source> a sflo:IntegrationSource ;
-  sflo:hasTargetArtifact <alice/bio> ;
-  sflo:targetLocalRelativePath "../source/alice-bio.ttl" ;
+<alice/data/_knop/_sources#payload-source> a sflo:IntegrationSource ;
+  sflo:hasTargetArtifact <alice/data> ;
+  sflo:targetLocalRelativePath "../source/alice-data.ttl" ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> .
 `;
 
@@ -349,7 +349,7 @@ Deno.test("listIntegrationSourceInventoryStates reads IntegrationSource bindings
     listIntegrationSourceInventoryStates(
       MESH_BASE,
       sourcesTurtle,
-      "alice/bio/_knop/_sources",
+      "alice/data/_knop/_sources",
       {
         parseErrorMessage: "Could not parse source registry",
         missingTargetArtifactMessage: "Missing target artifact",
@@ -358,9 +358,9 @@ Deno.test("listIntegrationSourceInventoryStates reads IntegrationSource bindings
     ),
     [{
       sourceBindingIri:
-        "https://semantic-flow.github.io/mesh-alice-bio/alice/bio/_knop/_sources#payload-source",
-      sourceArtifactPath: "alice/bio",
-      targetLocalRelativePath: "../source/alice-bio.ttl",
+        "https://semantic-flow.github.io/mesh-alice-bio/alice/data/_knop/_sources#payload-source",
+      sourceArtifactPath: "alice/data",
+      targetLocalRelativePath: "../source/alice-data.ttl",
       artifactResolutionModeIri:
         "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working",
     }],
@@ -372,26 +372,26 @@ Deno.test("listIntegrationSourceInventoryStates reads repository-backed observat
     `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
-<alice/bio/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <alice/bio/_knop/_sources/sources.ttl> ;
-  sflo:hasSourceBinding <alice/bio/_knop/_sources#payload-source> .
+<alice/data/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <alice/data/_knop/_sources/sources.ttl> ;
+  sflo:hasSourceBinding <alice/data/_knop/_sources#payload-source> .
 
-<alice/bio/_knop/_sources#payload-source> a sflo:IntegrationSource ;
-  sflo:hasTargetArtifact <alice/bio> ;
-  sflo:targetLocalRelativePath "../source/alice-bio.ttl" ;
+<alice/data/_knop/_sources#payload-source> a sflo:IntegrationSource ;
+  sflo:hasTargetArtifact <alice/data> ;
+  sflo:targetLocalRelativePath "../source/alice-data.ttl" ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> ;
   sflo:expectsContentDigest "sha256:abc123" ;
-  sflo:hasResolutionObservation <alice/bio/_knop/_sources#payload-source-observation-001> ;
+  sflo:hasResolutionObservation <alice/data/_knop/_sources#payload-source-observation-001> ;
   sflo:hasTargetRepositorySource [
     a sflo:RepositorySourceLocator ;
     sflo:sourceRepositoryUrl "https://github.com/semantic-flow/mesh-alice-bio.git" ;
     sflo:sourceRepositoryRef "main" ;
     sflo:sourceRepositoryCommit "def456" ;
-    sflo:sourceRepositoryPath "alice-bio.ttl" ;
+    sflo:sourceRepositoryPath "alice-data.ttl" ;
     sflo:hasContentDigest "sha256:abc123"
   ] .
 
-<alice/bio/_knop/_sources#payload-source-observation-001> a sflo:ArtifactResolutionObservation ;
+<alice/data/_knop/_sources#payload-source-observation-001> a sflo:ArtifactResolutionObservation ;
   sflo:observedContentDigest "sha256:abc123" .
 `;
 
@@ -399,7 +399,7 @@ Deno.test("listIntegrationSourceInventoryStates reads repository-backed observat
     listIntegrationSourceInventoryStates(
       MESH_BASE,
       sourcesTurtle,
-      "alice/bio/_knop/_sources",
+      "alice/data/_knop/_sources",
       {
         parseErrorMessage: "Could not parse source registry",
         missingTargetArtifactMessage: "Missing target artifact",
@@ -408,9 +408,9 @@ Deno.test("listIntegrationSourceInventoryStates reads repository-backed observat
     ),
     [{
       sourceBindingIri:
-        "https://semantic-flow.github.io/mesh-alice-bio/alice/bio/_knop/_sources#payload-source",
-      sourceArtifactPath: "alice/bio",
-      targetLocalRelativePath: "../source/alice-bio.ttl",
+        "https://semantic-flow.github.io/mesh-alice-bio/alice/data/_knop/_sources#payload-source",
+      sourceArtifactPath: "alice/data",
+      targetLocalRelativePath: "../source/alice-data.ttl",
       artifactResolutionModeIri:
         "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working",
       expectedContentDigest: "sha256:abc123",
@@ -418,7 +418,7 @@ Deno.test("listIntegrationSourceInventoryStates reads repository-backed observat
         repositoryUrl: "https://github.com/semantic-flow/mesh-alice-bio.git",
         repositoryRef: "main",
         repositoryCommit: "def456",
-        repositoryPath: "alice-bio.ttl",
+        repositoryPath: "alice-data.ttl",
         contentDigest: "sha256:abc123",
       },
       observedSourceDigest: "sha256:abc123",
@@ -514,8 +514,8 @@ Deno.test("resolveReferenceTargetDesignatorPath accepts semantically equivalent 
   sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
 
 <alice/_knop/_references#reference001-source> rdf:type sflo:ReferenceSource ;
-  sflo:hasTargetArtifact <alice/bio> ;
-  sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> .
+  sflo:hasTargetArtifact <alice/data> ;
+  sflo:hasRequestedTargetState <alice/data/_history001/_s0002> .
 `,
       "alice",
       {
@@ -526,7 +526,7 @@ Deno.test("resolveReferenceTargetDesignatorPath accepts semantically equivalent 
           "Could not resolve current extracted ReferenceCatalog target",
       },
     ),
-    "alice/bio",
+    "alice/data",
   );
 });
 
@@ -544,8 +544,8 @@ Deno.test("resolveReferenceTargetLinkState returns the exact target state", () =
   sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
 
 <alice/_knop/_references#reference001-source> rdf:type sflo:ReferenceSource ;
-  sflo:hasTargetArtifact <alice/bio> ;
-  sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> .
+  sflo:hasTargetArtifact <alice/data> ;
+  sflo:hasRequestedTargetState <alice/data/_history001/_s0002> .
 `,
       "alice",
       {
@@ -557,8 +557,8 @@ Deno.test("resolveReferenceTargetLinkState returns the exact target state", () =
       },
     ),
     {
-      referenceTargetPath: "alice/bio",
-      referenceTargetStatePath: "alice/bio/_history001/_s0002",
+      referenceTargetPath: "alice/data",
+      referenceTargetStatePath: "alice/data/_history001/_s0002",
     },
   );
 });
@@ -577,7 +577,7 @@ Deno.test("tryResolveReferenceTargetLinkState returns undefined for broad links"
   sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
 
 <alice/_knop/_references#reference001-source> rdf:type sflo:ReferenceSource ;
-  sflo:hasTargetArtifact <alice/bio> .
+  sflo:hasTargetArtifact <alice/data> .
 `,
       "alice",
       {
@@ -608,8 +608,8 @@ Deno.test("resolveReferenceTargetDesignatorPath ignores unrelated catalog fragme
   sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
 
 <alice/_knop/_references#reference001-source> rdf:type sflo:ReferenceSource ;
-  sflo:hasTargetArtifact <alice/bio> ;
-  sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> .
+  sflo:hasTargetArtifact <alice/data> ;
+  sflo:hasRequestedTargetState <alice/data/_history001/_s0002> .
 `,
       "alice",
       {
@@ -620,7 +620,7 @@ Deno.test("resolveReferenceTargetDesignatorPath ignores unrelated catalog fragme
           "Could not resolve current extracted ReferenceCatalog target",
       },
     ),
-    "alice/bio",
+    "alice/data",
   );
 });
 
@@ -633,14 +633,14 @@ Deno.test("resolvePayloadArtifactInventoryState rejects working file IRIs with q
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
-<alice/bio/_history001> rdf:type sflo:ArtifactHistory .
-<alice/bio> sflo:hasWorkingLocatedFile <alice-bio.ttl?rev=1> ;
+<alice/data/_history001> rdf:type sflo:ArtifactHistory .
+<alice/data> sflo:hasWorkingLocatedFile <alice-data.ttl?rev=1> ;
   rdf:type sflo:PayloadArtifact ;
-  sflo:currentArtifactHistory <alice/bio/_history001> .
-<alice/bio/_knop> rdf:type sflo:Knop ;
-  sflo:hasPayloadArtifact <alice/bio> .
+  sflo:currentArtifactHistory <alice/data/_history001> .
+<alice/data/_knop> rdf:type sflo:Knop ;
+  sflo:hasPayloadArtifact <alice/data> .
 `,
-        "alice/bio",
+        "alice/data",
         {
           parseErrorMessage: "Could not parse Knop inventory",
           missingWorkingFileMessage: "Could not resolve working payload file",
@@ -657,14 +657,14 @@ Deno.test("resolvePayloadArtifactInventoryState rejects working file IRIs with q
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
-<alice/bio/_history001> rdf:type sflo:ArtifactHistory .
-<alice/bio> sflo:hasWorkingLocatedFile <alice-bio.ttl#manifest> ;
+<alice/data/_history001> rdf:type sflo:ArtifactHistory .
+<alice/data> sflo:hasWorkingLocatedFile <alice-data.ttl#manifest> ;
   rdf:type sflo:PayloadArtifact ;
-  sflo:currentArtifactHistory <alice/bio/_history001> .
-<alice/bio/_knop> rdf:type sflo:Knop ;
-  sflo:hasPayloadArtifact <alice/bio> .
+  sflo:currentArtifactHistory <alice/data/_history001> .
+<alice/data/_knop> rdf:type sflo:Knop ;
+  sflo:hasPayloadArtifact <alice/data> .
 `,
-        "alice/bio",
+        "alice/data",
         {
           parseErrorMessage: "Could not parse Knop inventory",
           missingWorkingFileMessage: "Could not resolve working payload file",
@@ -683,22 +683,22 @@ Deno.test("resolvePayloadArtifactInventoryState accepts workingLocalRelativePath
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
-<alice/bio/_history001> rdf:type sflo:ArtifactHistory .
-<alice/bio> sflo:workingLocalRelativePath "alice-bio.ttl" ;
+<alice/data/_history001> rdf:type sflo:ArtifactHistory .
+<alice/data> sflo:workingLocalRelativePath "alice-data.ttl" ;
   rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:PayloadArtifact ;
-  sflo:currentArtifactHistory <alice/bio/_history001> .
-<alice/bio/_knop> rdf:type sflo:Knop ;
-  sflo:hasPayloadArtifact <alice/bio> .
+  sflo:currentArtifactHistory <alice/data/_history001> .
+<alice/data/_knop> rdf:type sflo:Knop ;
+  sflo:hasPayloadArtifact <alice/data> .
 `,
-      "alice/bio",
+      "alice/data",
       {
         parseErrorMessage: "Could not parse Knop inventory",
         missingWorkingFileMessage: "Could not resolve working payload file",
       },
     ),
     {
-      workingLocalRelativePath: "alice-bio.ttl",
-      currentArtifactHistoryPath: "alice/bio/_history001",
+      workingLocalRelativePath: "alice-data.ttl",
+      currentArtifactHistoryPath: "alice/data/_history001",
       currentArtifactHistoryExists: true,
       latestHistoricalStatePath: undefined,
     },
@@ -714,15 +714,15 @@ Deno.test("resolvePayloadArtifactInventoryState rejects inconsistent workingLoca
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
-<alice/bio/_history001> rdf:type sflo:ArtifactHistory .
-<alice/bio> sflo:workingLocalRelativePath "alice-bio-v2.ttl" ;
-  sflo:hasWorkingLocatedFile <alice-bio.ttl> ;
+<alice/data/_history001> rdf:type sflo:ArtifactHistory .
+<alice/data> sflo:workingLocalRelativePath "alice-data-v2.ttl" ;
+  sflo:hasWorkingLocatedFile <alice-data.ttl> ;
   rdf:type sflo:PayloadArtifact ;
-  sflo:currentArtifactHistory <alice/bio/_history001> .
-<alice/bio/_knop> rdf:type sflo:Knop ;
-  sflo:hasPayloadArtifact <alice/bio> .
+  sflo:currentArtifactHistory <alice/data/_history001> .
+<alice/data/_knop> rdf:type sflo:Knop ;
+  sflo:hasPayloadArtifact <alice/data> .
 `,
-        "alice/bio",
+        "alice/data",
         {
           parseErrorMessage: "Could not parse Knop inventory",
           missingWorkingFileMessage: "Could not resolve working payload file",
@@ -741,22 +741,22 @@ Deno.test("resolvePayloadArtifactInventoryState accepts extra-mesh workingLocalR
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
-<alice/bio/_history001> rdf:type sflo:ArtifactHistory .
-<alice/bio> sflo:workingLocalRelativePath "../alice-bio.ttl" ;
+<alice/data/_history001> rdf:type sflo:ArtifactHistory .
+<alice/data> sflo:workingLocalRelativePath "../alice-data.ttl" ;
   rdf:type sflo:PayloadArtifact ;
-  sflo:currentArtifactHistory <alice/bio/_history001> .
-<alice/bio/_knop> rdf:type sflo:Knop ;
-  sflo:hasPayloadArtifact <alice/bio> .
+  sflo:currentArtifactHistory <alice/data/_history001> .
+<alice/data/_knop> rdf:type sflo:Knop ;
+  sflo:hasPayloadArtifact <alice/data> .
 `,
-      "alice/bio",
+      "alice/data",
       {
         parseErrorMessage: "Could not parse Knop inventory",
         missingWorkingFileMessage: "Could not resolve working payload file",
       },
     ),
     {
-      workingLocalRelativePath: "../alice-bio.ttl",
-      currentArtifactHistoryPath: "alice/bio/_history001",
+      workingLocalRelativePath: "../alice-data.ttl",
+      currentArtifactHistoryPath: "alice/data/_history001",
       currentArtifactHistoryExists: true,
       latestHistoricalStatePath: undefined,
     },

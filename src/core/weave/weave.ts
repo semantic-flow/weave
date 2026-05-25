@@ -35,7 +35,6 @@ import {
   renderSecondPayloadWovenKnopInventoryTurtle,
 } from "./payload_renderers.ts";
 import {
-  renderFirstExtractedKnopWovenMeshInventoryTurtle,
   renderFirstKnopWovenMeshInventoryTurtle,
   renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle,
   renderFirstPayloadWovenMeshInventoryTurtle,
@@ -77,9 +76,7 @@ import {
 } from "./resource_page_builders.ts";
 import { renderKnopInventoryWithPreservedSupportArtifacts } from "./knop_support_renderers.ts";
 import {
-  renderAliceIdentifierPageAfterFirstExtractedWeave,
   renderArtifactHistoryIndexPage,
-  renderExtractedPersonIdentifierPage,
   renderGenericExtractedIdentifierPage,
 } from "./legacy_page_renderers.ts";
 import {
@@ -755,11 +752,6 @@ function planFirstExtractedKnopWeave(
       designatorPath,
     )
     : undefined;
-  const sourcePayloadTurtle =
-    referenceTargetSourcePayloadArtifact.latestHistoricalSnapshotTurtle ??
-      referenceTargetSourcePayloadArtifact.currentPayloadTurtle;
-  const useAliceBioLegacyPages = designatorPath === "bob" &&
-    referenceTargetSourcePayloadArtifact.designatorPath === "alice/bio";
   const knopMetadataHistoryPolicy = supportHistoryPolicies?.knopMetadata ??
     "versioned";
   const versionKnopMetadata = shouldMaterializeSupportHistory(
@@ -797,13 +789,7 @@ function planFirstExtractedKnopWeave(
     referenceTargetSourcePayloadArtifact,
   );
 
-  const wovenMeshInventoryTurtle = useAliceBioLegacyPages
-    ? renderFirstExtractedKnopWovenMeshInventoryTurtle(
-      currentMeshInventoryTurtle,
-      designatorPath,
-      referenceTargetSourcePayloadArtifact.designatorPath,
-    )
-    : meshInventoryProgression === undefined
+  const wovenMeshInventoryTurtle = meshInventoryProgression === undefined
     ? renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle(
       currentMeshInventoryTurtle,
       meshBase,
@@ -864,18 +850,10 @@ function planFirstExtractedKnopWeave(
         : []),
       {
         path: toDesignatorResourcePagePath(designatorPath),
-        contents: useAliceBioLegacyPages
-          ? renderExtractedPersonIdentifierPage(
-            meshBase,
-            designatorPath,
-            referenceTargetSourcePayloadArtifact.designatorPath,
-            toHistoryPathFromStatePath(
-              referenceTargetSourcePayloadArtifact.latestHistoricalStatePath,
-            ),
-            referenceTargetSourcePayloadArtifact.workingLocalRelativePath,
-            sourcePayloadTurtle,
-          )
-          : renderGenericExtractedIdentifierPage(meshBase, designatorPath),
+        contents: renderGenericExtractedIdentifierPage(
+          meshBase,
+          designatorPath,
+        ),
       },
       ...(versionKnopMetadata
         ? [{
@@ -934,18 +912,6 @@ function planFirstExtractedKnopWeave(
           ],
         }),
       }]),
-      ...(useAliceBioLegacyPages
-        ? [{
-          path: "alice/index.html",
-          contents: renderAliceIdentifierPageAfterFirstExtractedWeave(
-            meshBase,
-            sourcePayloadTurtle,
-            toHistoryPathFromStatePath(
-              referenceTargetSourcePayloadArtifact.latestHistoricalStatePath,
-            ),
-          ),
-        }]
-        : []),
       ...(meshInventoryProgression === undefined ? [] : [{
         path: "_mesh/_meta/meta.ttl",
         contents: renderMeshMetadataWithMeshInventoryProgression(
@@ -1250,8 +1216,4 @@ function planSecondPayloadWeave(
 function toFileName(path: string): string {
   const segments = path.split("/");
   return segments[segments.length - 1]!;
-}
-
-function toHistoryPathFromStatePath(statePath: string): string {
-  return statePath.slice(0, statePath.lastIndexOf("/"));
 }

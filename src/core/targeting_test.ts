@@ -15,31 +15,31 @@ function createError(message: string): Error {
 Deno.test("resolveTargetSelections returns all candidates when no targets are supplied", () => {
   assertEquals(
     resolveTargetSelections(
-      ["alice", "alice/bio"],
+      ["alice", "alice/data"],
       [],
       createError,
     ),
     [
       { designatorPath: "alice" },
-      { designatorPath: "alice/bio" },
+      { designatorPath: "alice/data" },
     ],
   );
 });
 
 Deno.test("resolveTargetSelections matches exact targets", () => {
   const targets = normalizeTargetSpecs(
-    [{ designatorPath: "alice/bio" }],
+    [{ designatorPath: "alice/data" }],
     "targets",
     createError,
   );
 
   assertEquals(
     resolveTargetSelections(
-      ["alice", "alice/bio"],
+      ["alice", "alice/data"],
       targets,
       createError,
     ).map((selection) => selection.designatorPath),
-    ["alice/bio"],
+    ["alice/data"],
   );
 });
 
@@ -52,7 +52,7 @@ Deno.test("resolveTargetSelections matches the exact root target", () => {
 
   assertEquals(
     resolveTargetSelections(
-      ["", "alice", "alice/bio"],
+      ["", "alice", "alice/data"],
       targets,
       createError,
     ).map((selection) => selection.designatorPath),
@@ -69,11 +69,11 @@ Deno.test("resolveTargetSelections matches recursive root targets", () => {
 
   assertEquals(
     resolveTargetSelections(
-      ["", "alice", "alice/bio"],
+      ["", "alice", "alice/data"],
       targets,
       createError,
     ).map((selection) => selection.designatorPath),
-    ["", "alice", "alice/bio"],
+    ["", "alice", "alice/data"],
   );
 });
 
@@ -81,14 +81,14 @@ Deno.test("resolveTargetSelections matches recursive targets by most-specific pa
   const targets = normalizeTargetSpecs(
     [
       { designatorPath: "alice", recursive: true },
-      { designatorPath: "alice/bio" },
+      { designatorPath: "alice/data" },
     ],
     "targets",
     createError,
   );
 
   const resolved = resolveTargetSelections(
-    ["alice", "alice/bio", "alice/bio/notes"],
+    ["alice", "alice/data", "alice/data/notes"],
     targets,
     createError,
   );
@@ -100,9 +100,9 @@ Deno.test("resolveTargetSelections matches recursive targets by most-specific pa
     })),
     [
       { designatorPath: "alice", targetDesignatorPath: "alice" },
-      { designatorPath: "alice/bio", targetDesignatorPath: "alice/bio" },
+      { designatorPath: "alice/data", targetDesignatorPath: "alice/data" },
       {
-        designatorPath: "alice/bio/notes",
+        designatorPath: "alice/data/notes",
         targetDesignatorPath: "alice",
       },
     ],
@@ -113,14 +113,14 @@ Deno.test("resolveTargetSelections lets a more-specific descendant target overri
   const targets = normalizeTargetSpecs(
     [
       { designatorPath: "", recursive: true },
-      { designatorPath: "alice/bio" },
+      { designatorPath: "alice/data" },
     ],
     "targets",
     createError,
   );
 
   const resolved = resolveTargetSelections(
-    ["", "alice", "alice/bio", "alice/bio/notes"],
+    ["", "alice", "alice/data", "alice/data/notes"],
     targets,
     createError,
   );
@@ -133,8 +133,8 @@ Deno.test("resolveTargetSelections lets a more-specific descendant target overri
     [
       { designatorPath: "", targetDesignatorPath: "" },
       { designatorPath: "alice", targetDesignatorPath: "" },
-      { designatorPath: "alice/bio", targetDesignatorPath: "alice/bio" },
-      { designatorPath: "alice/bio/notes", targetDesignatorPath: "" },
+      { designatorPath: "alice/data", targetDesignatorPath: "alice/data" },
+      { designatorPath: "alice/data/notes", targetDesignatorPath: "" },
     ],
   );
 });
@@ -157,7 +157,7 @@ Deno.test("normalizeTargetSpecs rejects version-only fields", () => {
     () =>
       normalizeTargetSpecs(
         [{
-          designatorPath: "alice/bio",
+          designatorPath: "alice/data",
           manifestationSegment: "ttl",
         }],
         "targets",
@@ -172,7 +172,7 @@ Deno.test("normalizeVersionTargetSpecs accepts version-only fields", () => {
   assertEquals(
     normalizeVersionTargetSpecs(
       [{
-        designatorPath: "alice/bio",
+        designatorPath: "alice/data",
         historySegment: "releases",
         stateSegment: "v0.0.1",
         manifestationSegment: "ttl",
@@ -182,12 +182,12 @@ Deno.test("normalizeVersionTargetSpecs accepts version-only fields", () => {
     )[0],
     {
       source: {
-        designatorPath: "alice/bio",
+        designatorPath: "alice/data",
         historySegment: "releases",
         stateSegment: "v0.0.1",
         manifestationSegment: "ttl",
       },
-      designatorPath: "alice/bio",
+      designatorPath: "alice/data",
       recursive: false,
       historySegment: "releases",
       stateSegment: "v0.0.1",
@@ -216,14 +216,14 @@ Deno.test("findUncoveredRequestedTargets requires exact targets to be covered di
   const targets = normalizeVersionTargetSpecs(
     [
       { designatorPath: "alice" },
-      { designatorPath: "alice/bio" },
+      { designatorPath: "alice/data" },
     ],
     "targets",
     createError,
   );
 
   assertEquals(
-    findUncoveredRequestedTargets(targets, ["alice/bio"]).map((target) =>
+    findUncoveredRequestedTargets(targets, ["alice/data"]).map((target) =>
       target.designatorPath
     ),
     ["alice"],
@@ -238,7 +238,7 @@ Deno.test("findUncoveredRequestedTargets lets recursive targets be covered by de
   );
 
   assertEquals(
-    findUncoveredRequestedTargets(targets, ["alice/bio"]),
+    findUncoveredRequestedTargets(targets, ["alice/data"]),
     [],
   );
 });
@@ -246,7 +246,7 @@ Deno.test("findUncoveredRequestedTargets lets recursive targets be covered by de
 Deno.test("prepareWeaveTargets derives coherent version and shared phase targets", () => {
   const prepared = prepareWeaveTargets(
     [{
-      designatorPath: "alice/bio",
+      designatorPath: "alice/data",
       historySegment: "releases",
       stateSegment: "v0.0.1",
       manifestationSegment: "ttl",
@@ -257,12 +257,12 @@ Deno.test("prepareWeaveTargets derives coherent version and shared phase targets
 
   assertEquals(prepared.versionTargets, [{
     source: {
-      designatorPath: "alice/bio",
+      designatorPath: "alice/data",
       historySegment: "releases",
       stateSegment: "v0.0.1",
       manifestationSegment: "ttl",
     },
-    designatorPath: "alice/bio",
+    designatorPath: "alice/data",
     recursive: false,
     historySegment: "releases",
     stateSegment: "v0.0.1",
@@ -271,6 +271,6 @@ Deno.test("prepareWeaveTargets derives coherent version and shared phase targets
   assertEquals(prepared.sharedTargets.map((target) => target.source), [
     { designatorPath: "" },
     { designatorPath: "alice" },
-    { designatorPath: "alice/bio" },
+    { designatorPath: "alice/data" },
   ]);
 });

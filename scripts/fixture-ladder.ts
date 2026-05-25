@@ -494,7 +494,7 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
       description: "Seed the source-only Alice Bio fixture branch.",
       sources: [
         fixtureAssetSource(
-          "alice-bio.ttl",
+          "alice-data.ttl",
           "fixture-authored source RDF carried from the existing Alice Bio source-only fixture",
         ),
       ],
@@ -704,10 +704,6 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
           fixtureAssetSource(
             "home.md",
             "fixture-authored root Markdown copied from the Alice Bio main branch source bytes",
-          ),
-          fixtureAssetSource(
-            "mesh-content/root-sidebar.md",
-            "fixture-authored root sidebar Markdown copied from the Alice Bio main branch source bytes",
           ),
           fixtureAssetSource(
             "_knop/_assets/site.css",

@@ -25,8 +25,8 @@ Deno.test("weave mesh create can apply a GitHub Pages publication profile as a b
 
   const workspaceRoot = await createTestTmpDir("weave-e2e-mesh-create-");
   await Deno.writeTextFile(
-    join(workspaceRoot, "alice-bio.ttl"),
-    await readMeshAliceBioBranchFile(transitionCase.fromRef!, "alice-bio.ttl"),
+    join(workspaceRoot, "alice-data.ttl"),
+    await readMeshAliceBioBranchFile(transitionCase.fromRef!, "alice-data.ttl"),
   );
 
   const command = new Deno.Command("deno", {

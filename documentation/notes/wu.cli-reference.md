@@ -59,9 +59,9 @@ Supported keys:
 Examples:
 
 ```sh
-weave --target 'designatorPath=alice/bio'
+weave --target 'designatorPath=alice/data'
 weave generate --target 'designatorPath=alice,recursive=true'
-weave validate --target 'designatorPath=alice/bio' --target 'designatorPath=bob'
+weave validate --target 'designatorPath=alice/data' --target 'designatorPath=bob'
 weave version --target 'designatorPath=ontology,historySegment=releases,stateSegment=v0.0.2,manifestationSegment=ttl'
 ```
 
@@ -108,7 +108,7 @@ Examples:
 ```sh
 weave
 weave --mesh-root ./docs
-weave --target 'designatorPath=alice/bio'
+weave --target 'designatorPath=alice/data'
 weave --target 'designatorPath=alice,recursive=true'
 weave --validate-before --validate-after
 ```
@@ -119,7 +119,7 @@ Payload naming may be passed through to the internal `version` step:
 
 ```sh
 weave \
-  --target 'designatorPath=alice/bio' \
+  --target 'designatorPath=alice/data' \
   --payload-history-segment releases \
   --payload-state-segment v0.0.1 \
   --payload-manifestation-segment ttl
@@ -147,7 +147,7 @@ Constraints:
 - payload naming is applied only to payload artifacts selected for versioning; support artifacts keep system-controlled history paths
 - per-target payload naming overrides the general `--payload-*` defaults for that target
 - if a payload's current history uses a named HistoricalState such as `v0.0.1`, a later version request must provide the next `stateSegment` or explicitly request ordinal fallback with a segment such as `_s0001`
-- if `--payload-manifestation-segment` is omitted, the current default derives the manifestation segment from the payload filename, such as `alice-bio-ttl` for `alice-bio.ttl`
+- if `--payload-manifestation-segment` is omitted, the current default derives the manifestation segment from the payload filename, such as `alice-data-ttl` for `alice-data.ttl`
 
 ### `weave validate`
 
@@ -157,7 +157,7 @@ Validates current local weave state without writing files.
 weave validate
 weave validate mesh
 weave validate publication
-weave validate --target 'designatorPath=alice/bio'
+weave validate --target 'designatorPath=alice/data'
 weave validate --target 'designatorPath=alice,recursive=true'
 ```
 
@@ -169,9 +169,9 @@ Versions current targeted resources without generating pages.
 
 ```sh
 weave version
-weave version --target 'designatorPath=alice/bio'
+weave version --target 'designatorPath=alice/data'
 weave version \
-  --target 'designatorPath=alice/bio' \
+  --target 'designatorPath=alice/data' \
   --payload-history-segment releases \
   --payload-state-segment v0.0.1 \
   --payload-manifestation-segment ttl
@@ -191,7 +191,7 @@ Constraints:
 Sets the current/default ArtifactHistory for a payload artifact without creating a historical state.
 
 ```sh
-weave set history alice/bio releases
+weave set history alice/data releases
 weave set history ontology releases --mesh-root docs
 ```
 
@@ -202,7 +202,7 @@ This is payload-only versioning intent. It updates the current Knop inventory so
 Sets the next state segment for a payload artifact without creating that state.
 
 ```sh
-weave set next-state alice/bio v0.1.0
+weave set next-state alice/data v0.1.0
 weave set next-state ontology v0.1.0 --mesh-root docs
 ```
 
@@ -214,7 +214,7 @@ Generates current ResourcePages from the settled local workspace state without c
 
 ```sh
 weave generate
-weave generate --target 'designatorPath=alice/bio'
+weave generate --target 'designatorPath=alice/data'
 weave generate --target 'designatorPath=alice,recursive=true'
 ```
 
@@ -240,8 +240,8 @@ weave mesh create --interactive
 Integrates a local source file into a designator path as a payload artifact, including policy-approved extra-mesh local sources.
 
 ```sh
-weave integrate ./alice-bio.ttl alice/bio
-weave integrate ./alice-bio.ttl --designator-path alice/bio
+weave integrate ./alice-data.ttl alice/data
+weave integrate ./alice-data.ttl --designator-path alice/data
 weave integrate ./ontology/fantasy-rules-ontology.ttl ontology --mesh-root docs --grant-source-directory ontology
 weave integrate ./ontology/fantasy-rules-ontology.ttl ontology --mesh-root docs --grant-source-directory ontology --source-repository-url https://github.com/example/source.git --source-repository-ref main --source-repository-path ontology/fantasy-rules-ontology.ttl
 weave integrate ./root.ttl --designator-path /
@@ -352,10 +352,10 @@ weave set extraction-source --all-terms --mesh-root docs --source ontology --acc
 Convenience command for replacing the current working bytes of an existing payload artifact. This updates the current working surface only; `weave` or `weave version` is what records those bytes into explicit history.
 
 ```sh
-weave payload update ./alice-bio-v2.ttl alice/bio
-weave payload update ./alice-bio-v2.ttl --designator-path alice/bio
+weave payload update ./alice-data-v2.ttl alice/data
+weave payload update ./alice-data-v2.ttl --designator-path alice/data
 weave payload update ./root-v2.ttl /
-weave payload update ./alice-bio-v2.ttl alice/bio --mesh-root ./mesh
+weave payload update ./alice-data-v2.ttl alice/data --mesh-root ./mesh
 ```
 
 Constraints:
@@ -369,7 +369,7 @@ Constraints:
 Creates the first Knop support artifacts for a designator path.
 
 ```sh
-weave knop create alice/bio
+weave knop create alice/data
 weave knop create /
 weave knop create / --mesh-root docs
 ```
@@ -380,7 +380,7 @@ Creates the first reference-catalog surface for a designator path.
 
 ```sh
 weave knop add-reference \
-  alice/bio \
+  alice/data \
   --reference-target-designator-path bob \
   --reference-role Supplemental
 
@@ -402,14 +402,14 @@ weave mesh create --workspace ./mesh --mesh-base 'https://example.org/'
 Integrate a payload, then weave it:
 
 ```sh
-weave integrate ./mesh/alice-bio.ttl alice/bio --mesh-root ./mesh
-weave --target 'designatorPath=alice/bio' --mesh-root ./mesh
+weave integrate ./mesh/alice-data.ttl alice/data --mesh-root ./mesh
+weave --target 'designatorPath=alice/data' --mesh-root ./mesh
 ```
 
 Version without generation:
 
 ```sh
-weave version --target 'designatorPath=alice/bio' --mesh-root ./mesh
+weave version --target 'designatorPath=alice/data' --mesh-root ./mesh
 ```
 
 Generate pages only:

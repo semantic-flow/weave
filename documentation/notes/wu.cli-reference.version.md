@@ -24,9 +24,9 @@ Targets use [[wu.cli-reference.target-syntax]]. Use `/` for the root designator 
 
 ```sh
 weave version
-weave version --target 'designatorPath=alice/bio'
+weave version --target 'designatorPath=alice/data'
 weave version \
-  --target 'designatorPath=alice/bio' \
+  --target 'designatorPath=alice/data' \
   --payload-history-segment releases \
   --payload-state-segment v0.1.0 \
   --payload-manifestation-segment ttl

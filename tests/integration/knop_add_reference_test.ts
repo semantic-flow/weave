@@ -28,7 +28,7 @@ Deno.test("executeKnopAddReference matches the settled alice-bio referenced fixt
     workspaceRoot,
     request: {
       designatorPath: "alice",
-      referenceTargetDesignatorPath: "alice/bio",
+      referenceTargetDesignatorPath: "alice/data",
       referenceRole: "canonical",
     },
   });
@@ -150,7 +150,7 @@ Deno.test("executeKnopAddReference fails closed when the reference catalog worki
         workspaceRoot,
         request: {
           designatorPath: "alice",
-          referenceTargetDesignatorPath: "alice/bio",
+          referenceTargetDesignatorPath: "alice/data",
           referenceRole: "canonical",
         },
       }),
@@ -172,7 +172,7 @@ Deno.test("executeKnopAddReference rejects unsafe designator segments before tou
         workspaceRoot,
         request: {
           designatorPath: "alice:bio",
-          referenceTargetDesignatorPath: "alice/bio",
+          referenceTargetDesignatorPath: "alice/data",
           referenceRole: "canonical",
         },
       }),
@@ -232,7 +232,7 @@ Deno.test("executeKnopAddReference preserves the original failure when failed-pa
         workspaceRoot,
         request: {
           designatorPath: "alice",
-          referenceTargetDesignatorPath: "alice/bio",
+          referenceTargetDesignatorPath: "alice/data",
           referenceRole: "canonical",
         },
         operationalLogger: throwingOperationalLogger,
@@ -277,7 +277,7 @@ Deno.test("executeKnopAddReference treats success logging failures as best-effor
     workspaceRoot,
     request: {
       designatorPath: "alice",
-      referenceTargetDesignatorPath: "alice/bio",
+      referenceTargetDesignatorPath: "alice/data",
       referenceRole: "canonical",
     },
     operationalLogger: throwingOperationalLogger,
@@ -313,7 +313,7 @@ Deno.test("executeKnopAddReference accepts semantically equivalent mesh metadata
     workspaceRoot,
     request: {
       designatorPath: "alice",
-      referenceTargetDesignatorPath: "alice/bio",
+      referenceTargetDesignatorPath: "alice/data",
       referenceRole: "canonical",
     },
   });

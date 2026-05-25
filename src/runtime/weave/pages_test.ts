@@ -12,11 +12,11 @@ Deno.test("buildResourcePageDocumentModel assembles ordered identifier panels", 
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
       kind: "identifier",
-      path: "alice/bio/index.html",
-      designatorPath: "alice/bio",
-      workingLocalRelativePath: "alice-bio.ttl",
+      path: "alice/data/index.html",
+      designatorPath: "alice/data",
+      workingLocalRelativePath: "alice-data.ttl",
       childIdentifiers: [
-        { label: "timeline", path: "alice/bio/timeline" },
+        { label: "timeline", path: "alice/data/timeline" },
       ],
       references: [{
         roleLabel: "canonical",
@@ -26,13 +26,13 @@ Deno.test("buildResourcePageDocumentModel assembles ordered identifier panels", 
         }],
       }],
       historyGroups: [{
-        label: "alice-bio.ttl",
-        path: "alice/bio/_history",
+        label: "alice-data.ttl",
+        path: "alice/data/_history",
         states: [],
       }],
       rawSourcePanels: [{
-        label: "alice-bio.ttl",
-        sourcePath: "alice-bio.ttl",
+        label: "alice-data.ttl",
+        sourcePath: "alice-data.ttl",
         contents: "@prefix schema: <https://schema.org/> .",
       }],
     },
@@ -43,7 +43,7 @@ Deno.test("buildResourcePageDocumentModel assembles ordered identifier panels", 
   );
 
   assertEquals(document.kind, "identifier");
-  assertEquals(document.title, "bio");
+  assertEquals(document.title, "data");
   assertEquals(document.metadata.map((row) => row.label), [
     "Canonical IRI",
     "Working File",
@@ -66,13 +66,13 @@ Deno.test("buildResourcePageDocumentModel assembles ordered identifier panels", 
 Deno.test("buildResourcePageDocumentModel target-gates selected panels by page kind", () => {
   const page = {
     kind: "identifier" as const,
-    path: "alice/bio/index.html",
-    designatorPath: "alice/bio",
+    path: "alice/data/index.html",
+    designatorPath: "alice/data",
     rawSourcePanels: [{
-      label: "alice-bio.ttl",
-      sourcePath: "alice-bio.ttl",
+      label: "alice-data.ttl",
+      sourcePath: "alice-data.ttl",
       contents:
-        `<https://semantic-flow.github.io/mesh-alice-bio/alice/bio> <https://schema.org/name> "Alice" .`,
+        `<https://semantic-flow.github.io/mesh-alice-bio/alice/data> <https://schema.org/name> "Alice" .`,
     }],
   };
 
@@ -105,15 +105,15 @@ Deno.test("buildResourcePageDocumentModel target-gates selected panels by page k
 Deno.test("buildResourcePageDocumentModel target-gates selected panels by class, role, and data", () => {
   const page = {
     kind: "identifier" as const,
-    path: "alice/bio/index.html",
-    designatorPath: "alice/bio",
-    workingLocalRelativePath: "alice-bio.ttl",
-    childIdentifiers: [{ label: "timeline", path: "alice/bio/timeline" }],
+    path: "alice/data/index.html",
+    designatorPath: "alice/data",
+    workingLocalRelativePath: "alice-data.ttl",
+    childIdentifiers: [{ label: "timeline", path: "alice/data/timeline" }],
     rawSourcePanels: [{
-      label: "alice-bio.ttl",
-      sourcePath: "alice-bio.ttl",
+      label: "alice-data.ttl",
+      sourcePath: "alice-data.ttl",
       contents:
-        `<https://semantic-flow.github.io/mesh-alice-bio/alice/bio> <https://schema.org/name> "Alice" .`,
+        `<https://semantic-flow.github.io/mesh-alice-bio/alice/data> <https://schema.org/name> "Alice" .`,
     }],
   };
 
@@ -187,9 +187,9 @@ Deno.test("buildResourcePageDocumentModel omits Semantic Flow metadata panel by 
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
       kind: "identifier",
-      path: "alice/bio/index.html",
-      designatorPath: "alice/bio",
-      workingLocalRelativePath: "alice-bio.ttl",
+      path: "alice/data/index.html",
+      designatorPath: "alice/data",
+      workingLocalRelativePath: "alice-data.ttl",
     },
   );
 
@@ -203,18 +203,18 @@ Deno.test("renderResourcePage renders identifier pages with working file links",
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
       kind: "identifier",
-      path: "alice/bio/index.html",
-      designatorPath: "alice/bio",
-      workingLocalRelativePath: "alice-bio.ttl",
+      path: "alice/data/index.html",
+      designatorPath: "alice/data",
+      workingLocalRelativePath: "alice-data.ttl",
     },
     { includeSemanticFlowMetadata: true },
   );
 
-  assertStringIncludes(html, "<title>mesh-alice-bio bio</title>");
-  assertStringIncludes(html, "<h1>bio</h1>");
+  assertStringIncludes(html, "<title>mesh-alice-bio data</title>");
+  assertStringIncludes(html, "<h1>data</h1>");
   assertStringIncludes(
     html,
-    '<link rel="canonical" href="https://semantic-flow.github.io/mesh-alice-bio/alice/bio">',
+    '<link rel="canonical" href="https://semantic-flow.github.io/mesh-alice-bio/alice/data">',
   );
   assertStringIncludes(
     html,
@@ -233,7 +233,7 @@ Deno.test("renderResourcePage renders identifier pages with working file links",
   assertFalse(html.includes("Associated Knop"));
   assertStringIncludes(
     html,
-    '<tr><th scope="row">Knop</th><td><a href="/mesh-alice-bio/alice/bio/_knop">alice/bio/_knop</a></td></tr>',
+    '<tr><th scope="row">Knop</th><td><a href="/mesh-alice-bio/alice/data/_knop">alice/data/_knop</a></td></tr>',
   );
   assert(
     html.indexOf('<th scope="row">Canonical IRI</th>') <
@@ -241,10 +241,10 @@ Deno.test("renderResourcePage renders identifier pages with working file links",
   );
   assertStringIncludes(
     html,
-    '<tr><th scope="row">Working File</th><td colspan="3"><a href="/mesh-alice-bio/alice-bio.ttl">alice-bio.ttl</a></td></tr>',
+    '<tr><th scope="row">Working File</th><td colspan="3"><a href="/mesh-alice-bio/alice-data.ttl">alice-data.ttl</a></td></tr>',
   );
-  assertStringIncludes(html, 'href="/mesh-alice-bio/alice-bio.ttl"');
-  assertStringIncludes(html, 'href="/mesh-alice-bio/alice/bio/_knop"');
+  assertStringIncludes(html, 'href="/mesh-alice-bio/alice-data.ttl"');
+  assertStringIncludes(html, 'href="/mesh-alice-bio/alice/data/_knop"');
 });
 
 Deno.test("renderResourcePage omits Semantic Flow metadata by default", async () => {
@@ -252,9 +252,9 @@ Deno.test("renderResourcePage omits Semantic Flow metadata by default", async ()
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
       kind: "identifier",
-      path: "alice/bio/index.html",
-      designatorPath: "alice/bio",
-      workingLocalRelativePath: "alice-bio.ttl",
+      path: "alice/data/index.html",
+      designatorPath: "alice/data",
+      workingLocalRelativePath: "alice-data.ttl",
     },
   );
 
@@ -326,8 +326,8 @@ Deno.test("renderResourcePage renders breadcrumbs above the masthead rule with o
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
       kind: "identifier",
-      path: "alice/bio/index.html",
-      designatorPath: "alice/bio",
+      path: "alice/data/index.html",
+      designatorPath: "alice/data",
     },
     { meshFaviconPath: "favicon.ico" },
   );
@@ -793,7 +793,7 @@ Deno.test("renderResourcePage renders current ReferenceCatalog pages with fragme
       currentLinks: [{
         fragment: "reference001",
         referenceRoleLabel: "canonical",
-        referenceTargetPath: "alice/bio",
+        referenceTargetPath: "alice/data",
       }],
     },
   );
@@ -802,7 +802,7 @@ Deno.test("renderResourcePage renders current ReferenceCatalog pages with fragme
   assertStringIncludes(html, "<h2>Current Links</h2>");
   assertStringIncludes(
     html,
-    '<li id="reference001"><code>#reference001</code>: canonical reference target <code>alice/bio</code>.</li>',
+    '<li id="reference001"><code>#reference001</code>: canonical reference target <code>alice/data</code>.</li>',
   );
 });
 
@@ -817,7 +817,7 @@ Deno.test("renderResourcePage escapes dynamic ReferenceCatalog HTML fragments", 
       currentLinks: [{
         fragment: "reference&<>\"'001",
         referenceRoleLabel: 'canonical & <primary> "role"',
-        referenceTargetPath: 'alice/bio?x=<y>&z="1"',
+        referenceTargetPath: 'alice/data?x=<y>&z="1"',
       }],
     },
   );
@@ -828,7 +828,7 @@ Deno.test("renderResourcePage escapes dynamic ReferenceCatalog HTML fragments", 
     html,
     "canonical &amp; &lt;primary&gt; &quot;role&quot;",
   );
-  assertStringIncludes(html, "alice/bio?x=&lt;y&gt;&amp;z=&quot;1&quot;");
+  assertStringIncludes(html, "alice/data?x=&lt;y&gt;&amp;z=&quot;1&quot;");
 });
 
 Deno.test("renderResourcePage renders extracted ReferenceCatalog pages with exact historical states", async () => {
@@ -842,19 +842,19 @@ Deno.test("renderResourcePage renders extracted ReferenceCatalog pages with exac
       currentLinks: [{
         fragment: "reference001",
         referenceRoleLabel: "supplemental",
-        referenceTargetPath: "alice/bio",
-        referenceTargetStatePath: "alice/bio/_history001/_s0002",
+        referenceTargetPath: "alice/data",
+        referenceTargetStatePath: "alice/data/_history001/_s0002",
       }],
     },
   );
 
   assertStringIncludes(
     html,
-    '<a href="/mesh-alice-bio/alice/bio">alice/bio</a>',
+    '<a href="/mesh-alice-bio/alice/data">alice/data</a>',
   );
   assertStringIncludes(
     html,
-    '<a href="/mesh-alice-bio/alice/bio/_history001/_s0002">/mesh-alice-bio/alice/bio/_history001/_s0002</a>',
+    '<a href="/mesh-alice-bio/alice/data/_history001/_s0002">/mesh-alice-bio/alice/data/_history001/_s0002</a>',
   );
 });
 
@@ -863,9 +863,9 @@ Deno.test("renderResourcePage renders exact root ReferenceCatalog targets as sla
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
       kind: "referenceCatalog",
-      path: "alice/bio/_knop/_references/index.html",
-      catalogPath: "alice/bio/_knop/_references",
-      ownerDesignatorPath: "alice/bio",
+      path: "alice/data/_knop/_references/index.html",
+      catalogPath: "alice/data/_knop/_references",
+      ownerDesignatorPath: "alice/data",
       currentLinks: [{
         fragment: "reference001",
         referenceRoleLabel: "supplemental",
@@ -932,12 +932,12 @@ Deno.test("renderResourcePage renders escaped raw RDF panels and raw file links"
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
       kind: "identifier",
-      path: "alice/bio/index.html",
-      designatorPath: "alice/bio",
-      workingLocalRelativePath: "alice-bio.ttl",
+      path: "alice/data/index.html",
+      designatorPath: "alice/data",
+      workingLocalRelativePath: "alice-data.ttl",
       rawSourcePanels: [{
         label: "Current working file",
-        sourcePath: "alice-bio.ttl",
+        sourcePath: "alice-data.ttl",
         contents: '<alice> <knows> "Bob & Alice" .',
       }],
     },
@@ -946,7 +946,7 @@ Deno.test("renderResourcePage renders escaped raw RDF panels and raw file links"
   assertStringIncludes(html, "<summary>Current working file</summary>");
   assertStringIncludes(
     html,
-    '<a href="/mesh-alice-bio/alice-bio.ttl">Raw file</a>',
+    '<a href="/mesh-alice-bio/alice-data.ttl">Raw file</a>',
   );
   assertStringIncludes(
     html,
@@ -989,8 +989,8 @@ Deno.test("renderResourcePage renders source registry fragment sections for Extr
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <bob/_knop/_sources#extraction-source> a sflo:ExtractionSource ;
-  sflo:hasTargetArtifact <alice/bio> ;
-  sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> .
+  sflo:hasTargetArtifact <alice/data> ;
+  sflo:hasRequestedTargetState <alice/data/_history001/_s0002> .
 `,
       }],
     },
@@ -1001,10 +1001,10 @@ Deno.test("renderResourcePage renders source registry fragment sections for Extr
     '<section class="wf-section" id="extraction-source">',
   );
   assertStringIncludes(html, "<h2>Extraction Source</h2>");
-  assertStringIncludes(html, 'href="/mesh-alice-bio/alice/bio"');
+  assertStringIncludes(html, 'href="/mesh-alice-bio/alice/data"');
   assertStringIncludes(
     html,
-    'href="/mesh-alice-bio/alice/bio/_history001/_s0002"',
+    'href="/mesh-alice-bio/alice/data/_history001/_s0002"',
   );
   assertFalse(html.includes("hasArtifactResolutionMode"));
 });
@@ -1670,7 +1670,7 @@ Deno.test("renderResourcePage renders Knop artifact links without history cake",
       designatorPath: "alice",
       governedArtifacts: [{
         label: "PayloadArtifact",
-        path: "alice/bio",
+        path: "alice/data",
       }],
       supportingArtifacts: [
         {
@@ -1692,7 +1692,7 @@ Deno.test("renderResourcePage renders Knop artifact links without history cake",
   );
   assertStringIncludes(html, "<h2>Governed Artifacts</h2>");
   assertStringIncludes(html, "PayloadArtifact");
-  assertStringIncludes(html, 'href="/mesh-alice-bio/alice/bio"');
+  assertStringIncludes(html, 'href="/mesh-alice-bio/alice/data"');
   assertStringIncludes(html, "<h2>Supporting Artifacts</h2>");
   assertStringIncludes(html, 'href="/mesh-alice-bio/alice/_knop/_meta"');
   assertStringIncludes(html, 'href="/mesh-alice-bio/alice/_knop/_inventory"');

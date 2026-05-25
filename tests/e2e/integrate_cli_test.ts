@@ -51,9 +51,9 @@ Deno.test("weave integrate matches the manifest-scoped alice-bio integrated fixt
       "--allow-env",
       cliPath,
       "integrate",
-      "alice-bio.ttl",
+      "alice-data.ttl",
       "--designator-path",
-      "alice/bio",
+      "alice/data",
     ],
     cwd: toFileUrl(`${workspaceRoot}/`),
     stdout: "piped",
@@ -142,8 +142,8 @@ Deno.test("weave integrate rejects conflicting designator paths before logging o
       "--allow-env",
       cliPath,
       "integrate",
-      "alice-bio.ttl",
-      "alice/bio",
+      "alice-data.ttl",
+      "alice/data",
       "--designator-path",
       "bob/bio",
     ],
@@ -164,7 +164,7 @@ Deno.test("weave integrate rejects conflicting designator paths before logging o
     Deno.errors.NotFound,
   );
   await assertPathAbsent(
-    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+    join(workspaceRoot, "alice/data/_knop/_inventory/inventory.ttl"),
   );
 });
 
@@ -223,10 +223,10 @@ Deno.test("weave integrate grants and uses a repo-adjacent source directory as a
 `,
   );
   await Deno.writeTextFile(
-    join(tempRepoRoot, "documentation/alice-bio.ttl"),
+    join(tempRepoRoot, "documentation/alice-data.ttl"),
     await readMeshAliceBioBranchFile(
       "05-alice-knop-created-woven",
-      "alice-bio.ttl",
+      "alice-data.ttl",
     ),
   );
 
@@ -238,9 +238,9 @@ Deno.test("weave integrate grants and uses a repo-adjacent source directory as a
       "--allow-env",
       cliPath,
       "integrate",
-      "documentation/alice-bio.ttl",
+      "documentation/alice-data.ttl",
       "--designator-path",
-      "alice/bio",
+      "alice/data",
       "--mesh-root",
       "mesh",
       "--grant-source-directory",
@@ -265,31 +265,31 @@ Deno.test("weave integrate grants and uses a repo-adjacent source directory as a
     config,
   );
   const createdInventory = await Deno.readTextFile(
-    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+    join(workspaceRoot, "alice/data/_knop/_inventory/inventory.ttl"),
   );
   assert(
     createdInventory.includes(
-      'sflo:workingLocalRelativePath "../documentation/alice-bio.ttl" .',
+      'sflo:workingLocalRelativePath "../documentation/alice-data.ttl" .',
     ),
     createdInventory,
   );
   assertEquals(
     createdInventory.includes(
-      "sflo:hasWorkingLocatedFile <../documentation/alice-bio.ttl> .",
+      "sflo:hasWorkingLocatedFile <../documentation/alice-data.ttl> .",
     ),
     false,
   );
 
   const sources = await Deno.readTextFile(
-    join(workspaceRoot, "alice/bio/_knop/_sources/sources.ttl"),
+    join(workspaceRoot, "alice/data/_knop/_sources/sources.ttl"),
   );
   assertStringIncludes(
     sources,
-    "<alice/bio/_knop/_sources#payload-source> a sflo:IntegrationSource ;",
+    "<alice/data/_knop/_sources#payload-source> a sflo:IntegrationSource ;",
   );
   assertStringIncludes(
     sources,
-    'sflo:targetLocalRelativePath "../documentation/alice-bio.ttl" ;',
+    'sflo:targetLocalRelativePath "../documentation/alice-data.ttl" ;',
   );
   assertEquals(sources.includes("sflo:expectsContentDigest"), false);
   assertEquals(sources.includes("sflo:hasTargetRepositorySource"), false);
@@ -315,11 +315,11 @@ Deno.test("weave integrate records repository-backed source provenance as a blac
   const sourceBytes = new TextEncoder().encode(
     await readMeshAliceBioBranchFile(
       "05-alice-knop-created-woven",
-      "alice-bio.ttl",
+      "alice-data.ttl",
     ),
   );
   await Deno.writeFile(
-    join(tempRepoRoot, "documentation/alice-bio.ttl"),
+    join(tempRepoRoot, "documentation/alice-data.ttl"),
     sourceBytes,
   );
   const expectedDigest = await sha256Digest(sourceBytes);
@@ -332,9 +332,9 @@ Deno.test("weave integrate records repository-backed source provenance as a blac
       "--allow-env",
       cliPath,
       "integrate",
-      "documentation/alice-bio.ttl",
+      "documentation/alice-data.ttl",
       "--designator-path",
-      "alice/bio",
+      "alice/data",
       "--mesh-root",
       "mesh",
       "--grant-source-directory",
@@ -346,7 +346,7 @@ Deno.test("weave integrate records repository-backed source provenance as a blac
       "--source-repository-commit",
       "abc123",
       "--source-repository-path",
-      "documentation/alice-bio.ttl",
+      "documentation/alice-data.ttl",
     ],
     cwd: toFileUrl(`${tempRepoRoot}/`),
     stdout: "piped",
@@ -357,25 +357,25 @@ Deno.test("weave integrate records repository-backed source provenance as a blac
   const stderr = new TextDecoder().decode(output.stderr);
 
   assert(output.success, stderr);
-  assertStringIncludes(stdout, "mesh/alice/bio/_knop/_sources/sources.ttl");
+  assertStringIncludes(stdout, "mesh/alice/data/_knop/_sources/sources.ttl");
   const inventory = await Deno.readTextFile(
-    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+    join(workspaceRoot, "alice/data/_knop/_inventory/inventory.ttl"),
   );
   assertStringIncludes(
     inventory,
-    "sflo:hasKnopSourceRegistry <alice/bio/_knop/_sources> ;",
+    "sflo:hasKnopSourceRegistry <alice/data/_knop/_sources> ;",
   );
 
   const sources = await Deno.readTextFile(
-    join(workspaceRoot, "alice/bio/_knop/_sources/sources.ttl"),
+    join(workspaceRoot, "alice/data/_knop/_sources/sources.ttl"),
   );
   assertStringIncludes(
     sources,
-    "<alice/bio/_knop/_sources#payload-source> a sflo:IntegrationSource ;",
+    "<alice/data/_knop/_sources#payload-source> a sflo:IntegrationSource ;",
   );
   assertStringIncludes(
     sources,
-    'sflo:targetLocalRelativePath "../documentation/alice-bio.ttl" ;',
+    'sflo:targetLocalRelativePath "../documentation/alice-data.ttl" ;',
   );
   assertStringIncludes(
     sources,
@@ -387,7 +387,7 @@ Deno.test("weave integrate records repository-backed source provenance as a blac
   );
   assertStringIncludes(
     sources,
-    "sflo:hasResolutionObservation <alice/bio/_knop/_sources#payload-source-observation-001> ;",
+    "sflo:hasResolutionObservation <alice/data/_knop/_sources#payload-source-observation-001> ;",
   );
   assertStringIncludes(
     sources,
@@ -397,12 +397,12 @@ Deno.test("weave integrate records repository-backed source provenance as a blac
   assertStringIncludes(sources, 'sflo:sourceRepositoryCommit "abc123" ;');
   assertStringIncludes(
     sources,
-    'sflo:sourceRepositoryPath "documentation/alice-bio.ttl" ;',
+    'sflo:sourceRepositoryPath "documentation/alice-data.ttl" ;',
   );
   assertStringIncludes(sources, `sflo:hasContentDigest "${expectedDigest}"`);
   assertStringIncludes(
     sources,
-    `<alice/bio/_knop/_sources#payload-source-observation-001>
+    `<alice/data/_knop/_sources#payload-source-observation-001>
   a sflo:ArtifactResolutionObservation ;
   sflo:observedContentDigest "${expectedDigest}" .`,
   );
@@ -429,10 +429,10 @@ Deno.test("weave integrate records current repository floating source locators a
     "git@github.com:semantic-flow/sflo.git",
   ]);
   await Deno.writeTextFile(
-    join(sourceRoot, "documentation/alice-bio.ttl"),
+    join(sourceRoot, "documentation/alice-data.ttl"),
     await readMeshAliceBioBranchFile(
       "05-alice-knop-created-woven",
-      "alice-bio.ttl",
+      "alice-data.ttl",
     ),
   );
 
@@ -445,9 +445,9 @@ Deno.test("weave integrate records current repository floating source locators a
       "--allow-run=git",
       cliPath,
       "integrate",
-      "source/documentation/alice-bio.ttl",
+      "source/documentation/alice-data.ttl",
       "--designator-path",
-      "alice/bio",
+      "alice/data",
       "--mesh-root",
       "publication",
       "--grant-source-directory",
@@ -468,9 +468,9 @@ Deno.test("weave integrate records current repository floating source locators a
   const stderr = new TextDecoder().decode(output.stderr);
 
   assert(output.success, stderr);
-  assertStringIncludes(stdout, "alice/bio/_knop/_sources/sources.ttl");
+  assertStringIncludes(stdout, "alice/data/_knop/_sources/sources.ttl");
   const inventory = await Deno.readTextFile(
-    join(publicationRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+    join(publicationRoot, "alice/data/_knop/_inventory/inventory.ttl"),
   );
   assertStringIncludes(
     inventory,
@@ -486,7 +486,7 @@ Deno.test("weave integrate records current repository floating source locators a
   );
   assertStringIncludes(
     inventory,
-    'sflo:sourceRepositoryPathFromRoot "documentation/alice-bio.ttl"',
+    'sflo:sourceRepositoryPathFromRoot "documentation/alice-data.ttl"',
   );
   assertEquals(inventory.includes("sflo:workingLocalRelativePath"), false);
   assertEquals(
@@ -495,11 +495,11 @@ Deno.test("weave integrate records current repository floating source locators a
   );
 
   const sources = await Deno.readTextFile(
-    join(publicationRoot, "alice/bio/_knop/_sources/sources.ttl"),
+    join(publicationRoot, "alice/data/_knop/_sources/sources.ttl"),
   );
   assertStringIncludes(
     sources,
-    "<alice/bio/_knop/_sources#payload-source> a sflo:IntegrationSource ;",
+    "<alice/data/_knop/_sources#payload-source> a sflo:IntegrationSource ;",
   );
   assertStringIncludes(
     sources,
@@ -524,7 +524,7 @@ Deno.test("weave integrate rejects partial repository-backed source metadata bef
       cliPath,
       "integrate",
       "missing.ttl",
-      "alice/bio",
+      "alice/data",
       "--source-repository-url",
       "https://github.com/semantic-flow/mesh-alice-bio.git",
     ],
@@ -555,7 +555,7 @@ Deno.test("weave integrate rejects source digest evidence without repository met
       cliPath,
       "integrate",
       "missing.ttl",
-      "alice/bio",
+      "alice/data",
       "--source-digest",
       "sha256:not-checked",
     ],
@@ -585,10 +585,10 @@ Deno.test("weave integrate can grant a separate source checkout through host-loc
   await Deno.mkdir(sourceRoot, { recursive: true });
   await Deno.mkdir(homeRoot, { recursive: true });
   await Deno.writeTextFile(
-    join(sourceRoot, "alice-bio.ttl"),
+    join(sourceRoot, "alice-data.ttl"),
     await readMeshAliceBioBranchFile(
       "05-alice-knop-created-woven",
-      "alice-bio.ttl",
+      "alice-data.ttl",
     ),
   );
 
@@ -600,9 +600,9 @@ Deno.test("weave integrate can grant a separate source checkout through host-loc
       "--allow-env",
       cliPath,
       "integrate",
-      "source/alice-bio.ttl",
+      "source/alice-data.ttl",
       "--designator-path",
-      "alice/bio",
+      "alice/data",
       "--mesh-root",
       "publication",
       "--grant-source-directory",
@@ -632,23 +632,23 @@ Deno.test("weave integrate can grant a separate source checkout through host-loc
   assertStringIncludes(localAccess, `sfcfg:pathPrefix "${sourceRoot}/"`);
 
   const inventory = await Deno.readTextFile(
-    join(publicationRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+    join(publicationRoot, "alice/data/_knop/_inventory/inventory.ttl"),
   );
   assertStringIncludes(
     inventory,
-    'sflo:workingLocalRelativePath "../source/alice-bio.ttl" .',
+    'sflo:workingLocalRelativePath "../source/alice-data.ttl" .',
   );
 
   const sources = await Deno.readTextFile(
-    join(publicationRoot, "alice/bio/_knop/_sources/sources.ttl"),
+    join(publicationRoot, "alice/data/_knop/_sources/sources.ttl"),
   );
   assertStringIncludes(
     sources,
-    'sflo:targetLocalRelativePath "../source/alice-bio.ttl" ;',
+    'sflo:targetLocalRelativePath "../source/alice-data.ttl" ;',
   );
   assertStringIncludes(
     sources,
-    "<alice/bio/_knop/_sources#payload-source> a sflo:IntegrationSource ;",
+    "<alice/data/_knop/_sources#payload-source> a sflo:IntegrationSource ;",
   );
   assertEquals(sources.includes("sflo:expectsContentDigest"), false);
   assertEquals(sources.includes("sflo:hasTargetRepositorySource"), false);
@@ -677,10 +677,10 @@ Deno.test("weave integrate grants the workspace root through host-local policy",
 `,
   );
   await Deno.writeTextFile(
-    join(tempRepoRoot, "documentation/alice-bio.ttl"),
+    join(tempRepoRoot, "documentation/alice-data.ttl"),
     await readMeshAliceBioBranchFile(
       "05-alice-knop-created-woven",
-      "alice-bio.ttl",
+      "alice-data.ttl",
     ),
   );
 
@@ -692,9 +692,9 @@ Deno.test("weave integrate grants the workspace root through host-local policy",
       "--allow-env",
       cliPath,
       "integrate",
-      "documentation/alice-bio.ttl",
+      "documentation/alice-data.ttl",
       "--designator-path",
-      "alice/bio",
+      "alice/data",
       "--mesh-root",
       "mesh",
       "--grant-source-directory",
@@ -719,9 +719,9 @@ Deno.test("weave integrate grants the workspace root through host-local policy",
   );
   assertStringIncludes(
     await Deno.readTextFile(
-      join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+      join(workspaceRoot, "alice/data/_knop/_inventory/inventory.ttl"),
     ),
-    'sflo:workingLocalRelativePath "../documentation/alice-bio.ttl" .',
+    'sflo:workingLocalRelativePath "../documentation/alice-data.ttl" .',
   );
 });
 
@@ -880,7 +880,7 @@ Deno.test("weave integrate requires a designator path before logging or executio
       "--allow-env",
       cliPath,
       "integrate",
-      "alice-bio.ttl",
+      "alice-data.ttl",
     ],
     cwd: toFileUrl(`${workspaceRoot}/`),
     stdout: "piped",
@@ -901,7 +901,7 @@ Deno.test("weave integrate requires a designator path before logging or executio
     Deno.errors.NotFound,
   );
   await assertPathAbsent(
-    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+    join(workspaceRoot, "alice/data/_knop/_inventory/inventory.ttl"),
   );
 });
 

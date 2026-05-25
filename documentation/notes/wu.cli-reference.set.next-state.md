@@ -19,7 +19,7 @@ weave set next-state <designatorPath> <stateSegment> [--mesh-root <meshRoot>]
 ## Examples
 
 ```sh
-weave set next-state alice/bio v0.1.0
+weave set next-state alice/data v0.1.0
 weave set next-state ontology v0.1.0 --mesh-root docs
 ```
 

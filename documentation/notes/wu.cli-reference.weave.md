@@ -25,7 +25,7 @@ weave [--history-tracking-policy <policy>] [--silent] [--validate-before] [--val
 ```sh
 weave
 weave --mesh-root docs
-weave --target 'designatorPath=alice/bio'
+weave --target 'designatorPath=alice/data'
 weave --target 'designatorPath=alice,recursive=true'
 weave --validate-before --validate-after
 ```

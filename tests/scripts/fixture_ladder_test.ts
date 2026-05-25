@@ -1176,8 +1176,8 @@ Deno.test("Alice Bio asset-backed transitions point at checked-in deterministic 
   const assetPaths = fixtureAssetPathsForPlan(plan);
 
   assertEquals(assetPaths, [
-    "01-source-only/alice-bio.ttl",
-    "10-alice-bio-updated/alice-bio-v2.ttl",
+    "01-source-only/alice-data.ttl",
+    "10-alice-bio-updated/alice-data-v2.ttl",
     "14-alice-page-customized/alice/_knop/_assets/alice.css",
     "14-alice-page-customized/alice/_knop/_page/page.ttl",
     "14-alice-page-customized/alice/alice.md",
@@ -1189,7 +1189,6 @@ Deno.test("Alice Bio asset-backed transitions point at checked-in deterministic 
     "24-root-page-customized/_knop/_assets/site.css",
     "24-root-page-customized/_knop/_page/page.ttl",
     "24-root-page-customized/home.md",
-    "24-root-page-customized/mesh-content/root-sidebar.md",
   ]);
 
   for (const assetPath of assetPaths) {
@@ -1296,7 +1295,7 @@ Deno.test("renderFixtureLadderPlan prints reviewable command and validation deta
   );
   assertStringIncludes(
     rendered,
-    "input: alice-bio-v2.ttl <= .assets/10-alice-bio-updated/alice-bio-v2.ttl",
+    "input: alice-data-v2.ttl <= .assets/10-alice-bio-updated/alice-data-v2.ttl",
   );
   assertStringIncludes(
     rendered,
@@ -1433,9 +1432,9 @@ Deno.test("materializeFixtureTransitionSource copies a transition source ref int
   assertEquals(result.fromRef, "a.01-source-only");
   assertEquals(result.toRef, "a.02-mesh-created");
   assertEquals(result.writesBranches, false);
-  assertEquals(result.materializedPaths.includes("alice-bio.ttl"), true);
+  assertEquals(result.materializedPaths.includes("alice-data.ttl"), true);
   assertStringIncludes(
-    await Deno.readTextFile(`${workspaceRoot}/alice-bio.ttl`),
+    await Deno.readTextFile(`${workspaceRoot}/alice-data.ttl`),
     "fixture source",
   );
 });
@@ -1475,7 +1474,7 @@ Deno.test("renderFixtureMaterializationResult prints workspace and next action",
   assertStringIncludes(rendered, "Transition: 02-mesh-created");
   assertStringIncludes(rendered, "Asset root:");
   assertStringIncludes(rendered, `Workspace root: ${workspaceRoot}`);
-  assertStringIncludes(rendered, "- alice-bio.ttl");
+  assertStringIncludes(rendered, "- alice-data.ttl");
   assertStringIncludes(
     rendered,
     "Next command: weave mesh create --workspace . --mesh-base https://semantic-flow.github.io/mesh-alice-bio/ --publication-profile github-pages",
@@ -1562,10 +1561,10 @@ Deno.test("executeFixtureTransition applies file-operation assets", async () => 
   assertEquals(result.fileOperation.files.length, 1);
   assertEquals(
     result.fileOperation.files[0]?.assetPath,
-    "01-source-only/alice-bio.ttl",
+    "01-source-only/alice-data.ttl",
   );
   assertEquals(
-    await Deno.readTextFile(`${workspaceRoot}/alice-bio.ttl`),
+    await Deno.readTextFile(`${workspaceRoot}/alice-data.ttl`),
     "fixture source\n",
   );
   assertEquals(result.validation.status, "pass");
@@ -1609,7 +1608,7 @@ Deno.test("executeFixtureTransition reports toRef drift without blocking branch 
   assertEquals(
     await gitOutput(fixtureRepoPath, [
       "show",
-      "a.01-source-only:alice-bio.ttl",
+      "a.01-source-only:alice-data.ttl",
     ]),
     "fixture source\n",
   );
@@ -1653,7 +1652,7 @@ Deno.test("updateFixtureBranchFromWorkspace writes generated output to a local f
     prefix: "weave-fixture-ladder-branch-workspace-",
   });
   await initTestGitRepo(fixtureRepoPath);
-  await Deno.writeTextFile(`${fixtureRepoPath}/alice-bio.ttl`, "old\n");
+  await Deno.writeTextFile(`${fixtureRepoPath}/alice-data.ttl`, "old\n");
   await runTestGit(fixtureRepoPath, ["add", "."]);
   await runTestGit(fixtureRepoPath, [
     "-c",
@@ -1666,7 +1665,7 @@ Deno.test("updateFixtureBranchFromWorkspace writes generated output to a local f
   ]);
   await runTestGit(fixtureRepoPath, ["branch", "a.02-mesh-created"]);
 
-  await Deno.writeTextFile(`${workspaceRoot}/alice-bio.ttl`, "new\n");
+  await Deno.writeTextFile(`${workspaceRoot}/alice-data.ttl`, "new\n");
   await Deno.mkdir(`${workspaceRoot}/_mesh/_meta`, { recursive: true });
   await Deno.writeTextFile(
     `${workspaceRoot}/_mesh/_meta/meta.ttl`,
@@ -1691,7 +1690,7 @@ Deno.test("updateFixtureBranchFromWorkspace writes generated output to a local f
   assertEquals(
     await gitOutput(fixtureRepoPath, [
       "show",
-      "a.02-mesh-created:alice-bio.ttl",
+      "a.02-mesh-created:alice-data.ttl",
     ]),
     "new\n",
   );
@@ -1828,7 +1827,7 @@ async function setupSourceOnlyFileOperationFixture(options: {
     recursive: true,
   });
   await Deno.writeTextFile(
-    `${assetRoot}/01-source-only/alice-bio.ttl`,
+    `${assetRoot}/01-source-only/alice-data.ttl`,
     "fixture source\n",
   );
   await Deno.writeTextFile(
@@ -1854,7 +1853,7 @@ async function setupSourceOnlyFileOperationFixture(options: {
   await runTestGit(fixtureRepoPath, ["branch", "a.00-blank-slate"]);
   if (options.createTargetRef) {
     await Deno.writeTextFile(
-      `${fixtureRepoPath}/alice-bio.ttl`,
+      `${fixtureRepoPath}/alice-data.ttl`,
       "fixture source\n",
     );
     await runTestGit(fixtureRepoPath, ["add", "."]);
@@ -1945,7 +1944,7 @@ async function setupSourceOnlyFileOperationFixture(options: {
               {
                 id: "#source",
                 type: "FileExpectation",
-                path: "alice-bio.ttl",
+                path: "alice-data.ttl",
                 changeType: "added",
                 compareMode: "text",
               },

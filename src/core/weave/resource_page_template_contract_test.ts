@@ -26,7 +26,7 @@ const document: ResourcePageDocumentModel = {
       groups: [
         {
           label: "Identifiers",
-          identifiers: [{ label: "Alice Bio", path: "people/alice/bio" }],
+          identifiers: [{ label: "Alice Bio", path: "people/alice/data" }],
         },
       ],
     },

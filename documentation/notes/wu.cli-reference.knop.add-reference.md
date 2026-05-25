@@ -22,7 +22,7 @@ Use `/` for the root designator as described in [[wu.cli-reference.root-designat
 
 ```sh
 weave knop add-reference \
-  alice/bio \
+  alice/data \
   --reference-target-designator-path bob \
   --reference-role Supplemental
 

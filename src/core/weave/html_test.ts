@@ -39,12 +39,12 @@ Deno.test("toResourcePath preserves a caller-provided error type", () => {
 
 Deno.test("toRelativeHref works for page and resource-path callers", () => {
   assertEquals(
-    toRelativeHref("alice/index.html", "alice-bio.ttl"),
-    "../alice-bio.ttl",
+    toRelativeHref("alice/index.html", "alice-data.ttl"),
+    "../alice-data.ttl",
   );
   assertEquals(
-    toRelativeHref("bob/_knop/_references", "alice/bio"),
-    "../../alice/bio",
+    toRelativeHref("bob/_knop/_references", "alice/data"),
+    "../../alice/data",
   );
 });
 

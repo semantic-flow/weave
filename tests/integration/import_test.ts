@@ -110,8 +110,8 @@ Deno.test("executeImport accepts file URL sources and verifies expected digest",
     meshRoot: workspaceRoot,
     request: {
       source: toFileUrl(sourcePath).href,
-      designatorPath: "alice/bio",
-      workingFile: "alice-bio.ttl",
+      designatorPath: "alice/data",
+      workingFile: "alice-data.ttl",
       expectedDigest,
     },
     now: () => new Date("2026-05-24T20:00:00.000Z"),
@@ -119,15 +119,15 @@ Deno.test("executeImport accepts file URL sources and verifies expected digest",
 
   assertEquals(result.observedContentDigest, expectedDigest);
   assertEquals(
-    await Deno.readTextFile(join(workspaceRoot, "alice-bio.ttl")),
+    await Deno.readTextFile(join(workspaceRoot, "alice-data.ttl")),
     "@prefix schema: <https://schema.org/> .\n",
   );
   const inventory = await Deno.readTextFile(
-    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+    join(workspaceRoot, "alice/data/_knop/_inventory/inventory.ttl"),
   );
   assertStringIncludes(
     inventory,
-    "<alice/bio> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;",
+    "<alice/data> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;",
   );
 });
 

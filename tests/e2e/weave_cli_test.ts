@@ -33,13 +33,13 @@ const cliEntrypoint = fromFileUrl(
 type PathReplacement = readonly [from: string, to: string];
 
 const firstAliceBioDefaultManifestation: readonly PathReplacement[] = [[
-  "alice/bio/_history001/_s0001/alice-bio-ttl",
-  "alice/bio/_history001/_s0001/ttl",
+  "alice/data/_history001/_s0001/alice-bio-ttl",
+  "alice/data/_history001/_s0001/ttl",
 ]];
 
 const secondAliceBioDefaultManifestation: readonly PathReplacement[] = [[
-  "alice/bio/_history001/_s0002/alice-bio-ttl",
-  "alice/bio/_history001/_s0002/ttl",
+  "alice/data/_history001/_s0002/alice-bio-ttl",
+  "alice/data/_history001/_s0002/ttl",
 ]];
 
 const aliceReferenceDefaultManifestation: readonly PathReplacement[] = [[
@@ -99,18 +99,18 @@ Deno.test("weave reports progress by default and --silent suppresses progress", 
 
   const verboseOutput = await runCliCommand([
     "--target",
-    "designatorPath=alice/bio",
+    "designatorPath=alice/data",
   ], verboseWorkspaceRoot);
   const verboseStdout = new TextDecoder().decode(verboseOutput.stdout);
   const verboseStderr = new TextDecoder().decode(verboseOutput.stderr);
 
   assert(verboseOutput.success, verboseStderr);
   assert(
-    verboseStdout.includes("[100%] Wove 1/1: alice/bio"),
+    verboseStdout.includes("[100%] Wove 1/1: alice/data"),
     verboseStdout,
   );
   assertEquals(
-    [...verboseStdout.matchAll(/\[100%\] Wove 1\/1: alice\/bio/g)].length,
+    [...verboseStdout.matchAll(/\[100%\] Wove 1\/1: alice\/data/g)].length,
     1,
   );
   assert(verboseStdout.includes("Wove 1 designator path"), verboseStdout);
@@ -126,14 +126,14 @@ Deno.test("weave reports progress by default and --silent suppresses progress", 
   const silentOutput = await runCliCommand([
     "--silent",
     "--target",
-    "designatorPath=alice/bio",
+    "designatorPath=alice/data",
   ], silentWorkspaceRoot);
   const silentStdout = new TextDecoder().decode(silentOutput.stdout);
   const silentStderr = new TextDecoder().decode(silentOutput.stderr);
 
   assert(silentOutput.success, silentStderr);
   assert(
-    !silentStdout.includes("[100%] Wove 1/1: alice/bio"),
+    !silentStdout.includes("[100%] Wove 1/1: alice/data"),
     silentStdout,
   );
   assert(silentStdout.includes("Wove 1 designator path"), silentStdout);
@@ -148,7 +148,7 @@ Deno.test("WEAVE_TIMING emits aggregate timings to stderr", async () => {
   const output = await runCliCommand(
     [
       "--target",
-      "designatorPath=alice/bio",
+      "designatorPath=alice/data",
     ],
     workspaceRoot,
     { WEAVE_TIMING: "1" },
@@ -194,7 +194,7 @@ Deno.test("weave validate succeeds as a black-box CLI run", async () => {
   const output = await runCliCommand([
     "validate",
     "--target",
-    "designatorPath=alice/bio",
+    "designatorPath=alice/data",
   ], workspaceRoot);
   const stdout = new TextDecoder().decode(output.stdout);
   const stderr = new TextDecoder().decode(output.stderr);
@@ -211,7 +211,7 @@ Deno.test("weave validate mesh succeeds as a black-box CLI run", async () => {
     "validate",
     "mesh",
     "--target",
-    "designatorPath=alice/bio",
+    "designatorPath=alice/data",
   ], workspaceRoot);
   const stdout = new TextDecoder().decode(output.stdout);
   const stderr = new TextDecoder().decode(output.stderr);
@@ -281,7 +281,7 @@ Deno.test("weave supports validation before and after as a black-box CLI run", a
     "--validate-after",
     "--silent",
     "--target",
-    "designatorPath=alice/bio",
+    "designatorPath=alice/data",
   ], workspaceRoot);
   const stdout = new TextDecoder().decode(output.stdout);
   const stderr = new TextDecoder().decode(output.stderr);
@@ -317,7 +317,7 @@ Deno.test("weave version succeeds as a black-box CLI run", async () => {
   const output = await runCliCommand([
     "version",
     "--target",
-    "designatorPath=alice/bio",
+    "designatorPath=alice/data",
     "--payload-history-segment",
     "releases",
     "--payload-state-segment",
@@ -333,11 +333,11 @@ Deno.test("weave version succeeds as a black-box CLI run", async () => {
   await Deno.stat(
     join(
       workspaceRoot,
-      "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
+      "alice/data/releases/v0.0.1/ttl/alice-data.ttl",
     ),
   );
   await assertRejects(
-    () => Deno.stat(join(workspaceRoot, "alice/bio/releases/index.html")),
+    () => Deno.stat(join(workspaceRoot, "alice/data/releases/index.html")),
     Deno.errors.NotFound,
   );
 });
@@ -349,7 +349,7 @@ Deno.test("weave accepts per-target payload version fields as a black-box CLI ru
   const output = await runCliCommand([
     "version",
     "--target",
-    "designatorPath=alice/bio,historySegment=releases,stateSegment=v0.0.1,manifestationSegment=ttl",
+    "designatorPath=alice/data,historySegment=releases,stateSegment=v0.0.1,manifestationSegment=ttl",
   ], workspaceRoot);
   const stdout = new TextDecoder().decode(output.stdout);
   const stderr = new TextDecoder().decode(output.stderr);
@@ -359,7 +359,7 @@ Deno.test("weave accepts per-target payload version fields as a black-box CLI ru
   await Deno.stat(
     join(
       workspaceRoot,
-      "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
+      "alice/data/releases/v0.0.1/ttl/alice-data.ttl",
     ),
   );
 });
@@ -371,7 +371,7 @@ Deno.test("weave version overwrites an explicit state as a black-box CLI run", a
   await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
 
   const target =
-    "designatorPath=alice/bio,historySegment=releases,stateSegment=v0.0.1,manifestationSegment=ttl";
+    "designatorPath=alice/data,historySegment=releases,stateSegment=v0.0.1,manifestationSegment=ttl";
   const firstOutput = await runCliCommand([
     "version",
     "--target",
@@ -379,9 +379,9 @@ Deno.test("weave version overwrites an explicit state as a black-box CLI run", a
   ], workspaceRoot);
   assert(firstOutput.success, new TextDecoder().decode(firstOutput.stderr));
 
-  const workingPayloadPath = join(workspaceRoot, "alice-bio.ttl");
+  const workingPayloadPath = join(workspaceRoot, "alice-data.ttl");
   const updatedPayload = `${await Deno.readTextFile(workingPayloadPath)}
-<alice/bio> <https://schema.org/version> "cli-overwrite" .
+<alice/data> <https://schema.org/version> "cli-overwrite" .
 `;
   await Deno.writeTextFile(workingPayloadPath, updatedPayload);
 
@@ -397,12 +397,12 @@ Deno.test("weave version overwrites an explicit state as a black-box CLI run", a
   assert(output.success, stderr);
   assert(stdout.includes("Versioned 1 designator path"), stdout);
   assert(
-    stdout.includes("alice/bio/releases/v0.0.1/ttl/alice-bio.ttl"),
+    stdout.includes("alice/data/releases/v0.0.1/ttl/alice-data.ttl"),
     stdout,
   );
   assertEquals(
     await Deno.readTextFile(
-      join(workspaceRoot, "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl"),
+      join(workspaceRoot, "alice/data/releases/v0.0.1/ttl/alice-data.ttl"),
     ),
     updatedPayload,
   );
@@ -429,7 +429,7 @@ Deno.test("weave applies general payload version fields to included targets", as
   await Deno.stat(
     join(
       workspaceRoot,
-      "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
+      "alice/data/releases/v0.0.1/ttl/alice-data.ttl",
     ),
   );
 });
@@ -443,29 +443,29 @@ Deno.test("weave set history and set next-state steer the next payload version",
   const historyOutput = await runCliCommand([
     "set",
     "history",
-    "alice/bio",
+    "alice/data",
     "releases",
   ], workspaceRoot);
   const historyStdout = new TextDecoder().decode(historyOutput.stdout);
   const historyStderr = new TextDecoder().decode(historyOutput.stderr);
 
   assert(historyOutput.success, historyStderr);
-  assert(historyStdout.includes("current history to alice/bio/releases"));
+  assert(historyStdout.includes("current history to alice/data/releases"));
 
   const nextStateOutput = await runCliCommand([
     "set",
     "next-state",
-    "alice/bio",
+    "alice/data",
     "v0.0.1",
   ], workspaceRoot);
   const nextStateStdout = new TextDecoder().decode(nextStateOutput.stdout);
   const nextStateStderr = new TextDecoder().decode(nextStateOutput.stderr);
 
   assert(nextStateOutput.success, nextStateStderr);
-  assert(nextStateStdout.includes("next state to alice/bio/releases/v0.0.1"));
+  assert(nextStateStdout.includes("next state to alice/data/releases/v0.0.1"));
 
   const inventoryBeforeVersion = await Deno.readTextFile(
-    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+    join(workspaceRoot, "alice/data/_knop/_inventory/inventory.ttl"),
   );
   assert(
     inventoryBeforeVersion.includes(
@@ -477,7 +477,7 @@ Deno.test("weave set history and set next-state steer the next payload version",
   const versionOutput = await runCliCommand([
     "version",
     "--target",
-    "designatorPath=alice/bio",
+    "designatorPath=alice/data",
     "--payload-manifestation-segment",
     "ttl",
   ], workspaceRoot);
@@ -489,11 +489,11 @@ Deno.test("weave set history and set next-state steer the next payload version",
   await Deno.stat(
     join(
       workspaceRoot,
-      "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
+      "alice/data/releases/v0.0.1/ttl/alice-data.ttl",
     ),
   );
   const inventoryAfterVersion = await Deno.readTextFile(
-    join(workspaceRoot, "alice/bio/_knop/_inventory/inventory.ttl"),
+    join(workspaceRoot, "alice/data/_knop/_inventory/inventory.ttl"),
   );
   assert(!inventoryAfterVersion.includes("sfcfg:hasNextStateSegmentHint"));
 });
@@ -535,7 +535,7 @@ Deno.test("weave generate succeeds as a black-box CLI run", async () => {
   const output = await runCliCommand([
     "generate",
     "--target",
-    "designatorPath=alice/bio",
+    "designatorPath=alice/data",
   ], workspaceRoot);
   const stdout = new TextDecoder().decode(output.stdout);
   const stderr = new TextDecoder().decode(output.stderr);
@@ -543,13 +543,13 @@ Deno.test("weave generate succeeds as a black-box CLI run", async () => {
   assert(output.success, stderr);
   assert(stdout.includes("Generated 1 designator path"), stdout);
   const page = await Deno.readTextFile(
-    join(workspaceRoot, "alice/bio/index.html"),
+    join(workspaceRoot, "alice/data/index.html"),
   );
   assert(!page.includes("Semantic Flow metadata"), page);
   await assertRejects(
     () =>
       Deno.stat(
-        join(workspaceRoot, "alice/bio/_history001/_s0002/index.html"),
+        join(workspaceRoot, "alice/data/_history001/_s0002/index.html"),
       ),
     Deno.errors.NotFound,
   );
@@ -574,7 +574,7 @@ Deno.test("weave generate reports timestamp-only skips as a black-box CLI run", 
     [
       "generate",
       "--target",
-      "designatorPath=alice/bio",
+      "designatorPath=alice/data",
     ],
     workspaceRoot,
     {
@@ -586,13 +586,13 @@ Deno.test("weave generate reports timestamp-only skips as a black-box CLI run", 
     new TextDecoder().decode(settleOutput.stderr),
   );
 
-  const pagePath = join(workspaceRoot, "alice/bio/index.html");
+  const pagePath = join(workspaceRoot, "alice/data/index.html");
   const pageBefore = await Deno.readTextFile(pagePath);
   const output = await runCliCommand(
     [
       "generate",
       "--target",
-      "designatorPath=alice/bio",
+      "designatorPath=alice/data",
     ],
     workspaceRoot,
     {
@@ -623,7 +623,7 @@ Deno.test("weave generate can include Semantic Flow metadata", async () => {
     "generate",
     "--include-semantic-flow-metadata",
     "--target",
-    "designatorPath=alice/bio",
+    "designatorPath=alice/data",
   ], workspaceRoot);
   const stdout = new TextDecoder().decode(output.stdout);
   const stderr = new TextDecoder().decode(output.stderr);
@@ -631,12 +631,12 @@ Deno.test("weave generate can include Semantic Flow metadata", async () => {
   assert(output.success, stderr);
   assert(stdout.includes("Generated 1 designator path"), stdout);
   const page = await Deno.readTextFile(
-    join(workspaceRoot, "alice/bio/index.html"),
+    join(workspaceRoot, "alice/data/index.html"),
   );
   assert(page.includes("<summary>Semantic Flow metadata</summary>"), page);
   assert(
     page.includes(
-      '<tr><th scope="row">Knop</th><td><a href="/mesh-alice-bio/alice/bio/_knop">alice/bio/_knop</a></td></tr>',
+      '<tr><th scope="row">Knop</th><td><a href="/mesh-alice-bio/alice/data/_knop">alice/data/_knop</a></td></tr>',
     ),
     page,
   );
@@ -676,7 +676,7 @@ Deno.test("weave accepts an exact --target spec as a black-box CLI run", async (
   await assertWeaveTransitionMatchesManifest({
     manifestName: "07-alice-bio-integrated-woven.jsonld",
     expectedStdoutFragment: "Wove 1 designator path",
-    cliArgs: ["--target", "designatorPath=alice/bio"],
+    cliArgs: ["--target", "designatorPath=alice/data"],
     fixturePathReplacements: firstAliceBioDefaultManifestation,
   });
 });
@@ -721,15 +721,15 @@ Deno.test("weave infers workspace root from docs-rooted mesh config as a black-b
     "--mesh-root",
     "docs",
     "--target",
-    "designatorPath=alice/bio",
+    "designatorPath=alice/data",
   ], workspaceRoot);
   const stdout = new TextDecoder().decode(output.stdout);
   const stderr = new TextDecoder().decode(output.stderr);
 
   assert(output.success, stderr);
   assert(stdout.includes("Wove 1 designator path"), stdout);
-  assert(stdout.includes("docs/alice/bio/index.html"), stdout);
-  await Deno.stat(join(meshRoot, "alice/bio/index.html"));
+  assert(stdout.includes("docs/alice/data/index.html"), stdout);
+  await Deno.stat(join(meshRoot, "alice/data/index.html"));
   await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
   await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
 });
@@ -765,7 +765,7 @@ Deno.test("weave accepts payload version naming flags as a black-box CLI run", a
 
   const output = await runCliCommand([
     "--target",
-    "designatorPath=alice/bio",
+    "designatorPath=alice/data",
     "--payload-history-segment",
     "releases",
     "--payload-state-segment",
@@ -781,11 +781,11 @@ Deno.test("weave accepts payload version naming flags as a black-box CLI run", a
   await Deno.stat(
     join(
       workspaceRoot,
-      "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
+      "alice/data/releases/v0.0.1/ttl/alice-data.ttl",
     ),
   );
-  await Deno.stat(join(workspaceRoot, "alice/bio/releases/index.html"));
-  await Deno.stat(join(workspaceRoot, "alice/bio/releases/v0.0.1/index.html"));
+  await Deno.stat(join(workspaceRoot, "alice/data/releases/index.html"));
+  await Deno.stat(join(workspaceRoot, "alice/data/releases/v0.0.1/index.html"));
 });
 
 Deno.test("weave applies payload version naming flags without explicit targets", async () => {
@@ -810,7 +810,7 @@ Deno.test("weave applies payload version naming flags without explicit targets",
   await Deno.stat(
     join(
       workspaceRoot,
-      "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
+      "alice/data/releases/v0.0.1/ttl/alice-data.ttl",
     ),
   );
 });
@@ -825,7 +825,7 @@ Deno.test("weave applies payload version naming flags across multiple targets", 
     "--target",
     "designatorPath=alice,recursive=true",
     "--target",
-    "designatorPath=alice/bio",
+    "designatorPath=alice/data",
     "--payload-history-segment",
     "releases",
     "--payload-state-segment",
@@ -841,7 +841,7 @@ Deno.test("weave applies payload version naming flags across multiple targets", 
   await Deno.stat(
     join(
       workspaceRoot,
-      "alice/bio/releases/v0.0.1/ttl/alice-bio.ttl",
+      "alice/data/releases/v0.0.1/ttl/alice-data.ttl",
     ),
   );
 });
@@ -1080,7 +1080,7 @@ Deno.test("weave validate rejects version-only --target fields", async () => {
       cliEntrypoint,
       "validate",
       "--target",
-      "designatorPath=alice/bio,stateSegment=v0.0.1",
+      "designatorPath=alice/data,stateSegment=v0.0.1",
     ],
     cwd: toFileUrl(`${workspaceRoot}/`),
     stdout: "piped",
@@ -1102,7 +1102,7 @@ Deno.test("weave reports a per-field error when a target field value is missing"
 
   const output = await runCliCommand([
     "--target",
-    "designatorPath=alice/bio,recursive=",
+    "designatorPath=alice/data,recursive=",
   ], workspaceRoot);
   const stderr = new TextDecoder().decode(output.stderr);
 

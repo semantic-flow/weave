@@ -29,10 +29,10 @@ Deno.test("weave payload update matches the manifest-scoped alice-bio updated fi
   const workspaceRoot = await createTestTmpDir("weave-e2e-payload-update-");
   await materializeMeshAliceBioBranch(transitionCase.fromRef!, workspaceRoot);
 
-  const sourcePath = join(workspaceRoot, "alice-bio-v2.ttl");
+  const sourcePath = join(workspaceRoot, "alice-data-v2.ttl");
   await Deno.writeTextFile(
     sourcePath,
-    await readMeshAliceBioBranchFile(transitionCase.toRef!, "alice-bio.ttl"),
+    await readMeshAliceBioBranchFile(transitionCase.toRef!, "alice-data.ttl"),
   );
 
   const command = new Deno.Command("deno", {
@@ -46,7 +46,7 @@ Deno.test("weave payload update matches the manifest-scoped alice-bio updated fi
       "update",
       sourcePath,
       "--designator-path",
-      "alice/bio",
+      "alice/data",
       "--mesh-root",
       workspaceRoot,
     ],
@@ -175,10 +175,10 @@ Deno.test("weave payload update rejects conflicting designator paths before logg
   const sourceRoot = await createTestTmpDir(
     "weave-e2e-payload-update-conflict-source-",
   );
-  const sourcePath = join(sourceRoot, "alice-bio-v2.ttl");
+  const sourcePath = join(sourceRoot, "alice-data-v2.ttl");
   await Deno.writeTextFile(
     sourcePath,
-    await readMeshAliceBioBranchFile("10-alice-bio-updated", "alice-bio.ttl"),
+    await readMeshAliceBioBranchFile("10-alice-bio-updated", "alice-data.ttl"),
   );
 
   const command = new Deno.Command("deno", {
@@ -191,7 +191,7 @@ Deno.test("weave payload update rejects conflicting designator paths before logg
       "payload",
       "update",
       sourcePath,
-      "alice/bio",
+      "alice/data",
       "--designator-path",
       "bob/bio",
       "--mesh-root",
@@ -214,10 +214,10 @@ Deno.test("weave payload update rejects conflicting designator paths before logg
     Deno.errors.NotFound,
   );
   assertEquals(
-    await Deno.readTextFile(join(workspaceRoot, "alice-bio.ttl")),
+    await Deno.readTextFile(join(workspaceRoot, "alice-data.ttl")),
     await readMeshAliceBioBranchFile(
       "09-alice-bio-referenced-woven",
-      "alice-bio.ttl",
+      "alice-data.ttl",
     ),
   );
 });
@@ -234,10 +234,10 @@ Deno.test("weave payload update requires a designator path before logging or exe
   const sourceRoot = await createTestTmpDir(
     "weave-e2e-payload-update-missing-designator-source-",
   );
-  const sourcePath = join(sourceRoot, "alice-bio-v2.ttl");
+  const sourcePath = join(sourceRoot, "alice-data-v2.ttl");
   await Deno.writeTextFile(
     sourcePath,
-    await readMeshAliceBioBranchFile("10-alice-bio-updated", "alice-bio.ttl"),
+    await readMeshAliceBioBranchFile("10-alice-bio-updated", "alice-data.ttl"),
   );
 
   const command = new Deno.Command("deno", {

@@ -10,8 +10,8 @@ import { createTestTmpDir } from "../support/test_tmp.ts";
 Deno.test("executeMeshCreate creates core mesh support artifacts without a host preset", async () => {
   const workspaceRoot = await createTestTmpDir("weave-mesh-create-");
   await Deno.writeTextFile(
-    join(workspaceRoot, "alice-bio.ttl"),
-    await readMeshAliceBioBranchFile("01-source-only", "alice-bio.ttl"),
+    join(workspaceRoot, "alice-data.ttl"),
+    await readMeshAliceBioBranchFile("01-source-only", "alice-data.ttl"),
   );
 
   const result = await executeMeshCreate({
@@ -33,8 +33,8 @@ Deno.test("executeMeshCreate creates core mesh support artifacts without a host 
     ],
   );
   assertEquals(
-    await Deno.readTextFile(join(workspaceRoot, "alice-bio.ttl")),
-    await readMeshAliceBioBranchFile("02-mesh-created", "alice-bio.ttl"),
+    await Deno.readTextFile(join(workspaceRoot, "alice-data.ttl")),
+    await readMeshAliceBioBranchFile("02-mesh-created", "alice-data.ttl"),
   );
   assertEquals(
     await Deno.readTextFile(join(workspaceRoot, "_mesh/_meta/meta.ttl")),

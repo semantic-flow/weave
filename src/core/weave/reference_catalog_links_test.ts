@@ -20,7 +20,7 @@ Deno.test("extractCurrentReferenceCatalogLinks ignores non-link catalog fragment
   sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
 
 <alice/_knop/_references#reference001-source> a sflo:ReferenceSource ;
-  sflo:hasTargetArtifact <alice/bio> .`,
+  sflo:hasTargetArtifact <alice/data> .`,
     "alice",
     "alice/_knop/_references",
   );
@@ -28,6 +28,6 @@ Deno.test("extractCurrentReferenceCatalogLinks ignores non-link catalog fragment
   assertEquals(links, [{
     fragment: "reference001",
     referenceRoleLabel: "canonical",
-    referenceTargetPath: "alice/bio",
+    referenceTargetPath: "alice/data",
   }]);
 });

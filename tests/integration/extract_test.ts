@@ -38,14 +38,14 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
   });
 
   assertEquals(result.designatorPath, "bob");
-  assertEquals(result.sourceDesignatorPath, "alice/bio");
+  assertEquals(result.sourceDesignatorPath, "alice/data");
   assertEquals(
     result.extractionSourceIri,
     "https://semantic-flow.github.io/mesh-alice-bio/bob/_knop/_sources#extraction-source",
   );
   assertEquals(
     result.sourceArtifactIri,
-    "https://semantic-flow.github.io/mesh-alice-bio/alice/bio",
+    "https://semantic-flow.github.io/mesh-alice-bio/alice/data",
   );
   assertEquals(result.sourceStateIri, undefined);
   assertEquals(result.sourceResolutionMode, "working");
@@ -63,10 +63,10 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
     const path of [
       "_mesh/_inventory/inventory.ttl",
       "bob/_knop/_meta/meta.ttl",
-      "alice-bio.ttl",
+      "alice-data.ttl",
       "alice/_knop/_inventory/inventory.ttl",
       "alice/_knop/_references/references.ttl",
-      "alice/bio/_knop/_inventory/inventory.ttl",
+      "alice/data/_knop/_inventory/inventory.ttl",
     ]
   ) {
     assertEquals(
@@ -117,13 +117,13 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
   sflo:hasSourceBinding <bob/_knop/_sources#extraction-source> .
 
 <bob/_knop/_sources#extraction-source> a sflo:ExtractionSource ;
-  sflo:hasTargetArtifact <alice/bio> ;
+  sflo:hasTargetArtifact <alice/data> ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> ;
   sflo:hasResolutionObservation <bob/_knop/_sources#extraction-source-observation-001> .
 
 <bob/_knop/_sources#extraction-source-observation-001> a sflo:ArtifactResolutionObservation ;
-  sflo:hasObservedTargetLocatedFile <alice-bio.ttl> ;
-  sflo:observedContentDigest "sha256:37c15e56644d785a550522d7700eccd9465704f18cf4b4e55616db8b8824ea33" .
+  sflo:hasObservedTargetLocatedFile <alice-data.ttl> ;
+  sflo:observedContentDigest "sha256:a1109e20325a24dc1ffba8533fa9581db00895e3deb0718a97e49b78105a320a" .
 
 <bob/_knop/_sources/sources.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 `,
@@ -182,7 +182,7 @@ Deno.test("executeExtract accepts semantically equivalent mesh metadata turtle",
   });
 
   assertEquals(result.meshBase, MESH_ALICE_BIO_BASE);
-  assertEquals(result.sourceDesignatorPath, "alice/bio");
+  assertEquals(result.sourceDesignatorPath, "alice/data");
 });
 
 Deno.test("executeExtract omits local path evidence for floating repository source payloads", async () => {
@@ -203,8 +203,8 @@ Deno.test("executeExtract omits local path evidence for floating repository sour
     "https://github.com/semantic-flow/mesh-alice-bio.git",
   ]);
   await Deno.writeTextFile(
-    join(sourceRoot, "alice-bio.ttl"),
-    await readMeshAliceBioBranchFile("11-alice-bio-v2-woven", "alice-bio.ttl"),
+    join(sourceRoot, "alice-data.ttl"),
+    await readMeshAliceBioBranchFile("11-alice-bio-v2-woven", "alice-data.ttl"),
   );
   await Deno.writeTextFile(
     join(homeRoot, ".sf-local-access.ttl"),
@@ -222,16 +222,16 @@ Deno.test("executeExtract omits local path evidence for floating repository sour
 
   const inventoryPath = join(
     workspaceRoot,
-    "alice/bio/_knop/_inventory/inventory.ttl",
+    "alice/data/_knop/_inventory/inventory.ttl",
   );
   await Deno.writeTextFile(
     inventoryPath,
     (await Deno.readTextFile(inventoryPath)).replace(
-      "sflo:hasWorkingLocatedFile <alice-bio.ttl> ;",
+      "sflo:hasWorkingLocatedFile <alice-data.ttl> ;",
       `sflo:hasRepositorySourceFloatingLocator [
     a sflo:RepositorySourceFloatingLocator ;
     sflo:sourceRepositoryUrl "https://github.com/semantic-flow/mesh-alice-bio.git" ;
-    sflo:sourceRepositoryPathFromRoot "alice-bio.ttl"
+    sflo:sourceRepositoryPathFromRoot "alice-data.ttl"
   ] ;`,
     ),
   );
@@ -268,12 +268,12 @@ Deno.test("executeExtractAllTerms extracts only new named mesh terms and skips s
   const workspaceRoot = await createTestTmpDir("weave-extract-all-terms-");
   await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
   await Deno.writeTextFile(
-    join(workspaceRoot, "alice-bio.ttl"),
+    join(workspaceRoot, "alice-data.ttl"),
     `@base <${MESH_ALICE_BIO_BASE}> .
 @prefix schema: <https://schema.org/> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
-<alice/bio> schema:about <bob>, <carol>, <bob/_knop>, <_mesh>, <bob/index.html>, <bob/source.ttl> ;
+<alice/data> schema:about <bob>, <carol>, <bob/_knop>, <_mesh>, <bob/index.html>, <bob/source.ttl> ;
   schema:mentions [
     schema:name "Blank node support is intentionally ignored"
   ] .
@@ -290,12 +290,12 @@ Deno.test("executeExtractAllTerms extracts only new named mesh terms and skips s
   const result = await executeExtractAllTerms({
     workspaceRoot,
     request: {
-      sourceDesignatorPath: "alice/bio",
+      sourceDesignatorPath: "alice/data",
     },
   });
 
   assertEquals(result.extractedDesignatorPaths, ["bob", "carol"]);
-  assertEquals(result.skippedExistingDesignatorPaths, ["alice", "alice/bio"]);
+  assertEquals(result.skippedExistingDesignatorPaths, ["alice", "alice/data"]);
   assertEquals(
     result.skippedSupportDesignatorPaths,
     ["_mesh", "bob/_knop", "bob/index.html", "bob/source.ttl"],
@@ -339,13 +339,13 @@ Deno.test("executeExtractAllTerms skips LocatedFile IRIs reached through file-li
   );
   await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
   await Deno.writeTextFile(
-    join(workspaceRoot, "alice-bio.ttl"),
+    join(workspaceRoot, "alice-data.ttl"),
     `@base <${MESH_ALICE_BIO_BASE}> .
 @prefix dcat: <http://www.w3.org/ns/dcat#> .
 @prefix schema: <https://schema.org/> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
-<alice/bio> schema:about <release>, <release/ttl>, <release/ttl/source.ttl>, <release/ttl/alternate.ttl>, <release/html/index.html> .
+<alice/data> schema:about <release>, <release/ttl>, <release/ttl/source.ttl>, <release/ttl/alternate.ttl>, <release/html/index.html> .
 
 <release> schema:name "Release" .
 <release/ttl> dcat:downloadURL <release/ttl/source.ttl> ;
@@ -360,7 +360,7 @@ Deno.test("executeExtractAllTerms skips LocatedFile IRIs reached through file-li
   const result = await executeExtractAllTerms({
     workspaceRoot,
     request: {
-      sourceDesignatorPath: "alice/bio",
+      sourceDesignatorPath: "alice/data",
       addSourceReferences: true,
       referenceRole: "canonical",
     },
@@ -371,7 +371,7 @@ Deno.test("executeExtractAllTerms skips LocatedFile IRIs reached through file-li
     "release",
     "release/ttl",
   ]);
-  assertEquals(result.skippedExistingDesignatorPaths, ["alice/bio"]);
+  assertEquals(result.skippedExistingDesignatorPaths, ["alice/data"]);
   assertEquals(
     result.skippedSupportDesignatorPaths,
     [
@@ -396,12 +396,12 @@ Deno.test("executeExtractAllTerms skips unsafe LocatedFile IRIs before designato
   );
   await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
   await Deno.writeTextFile(
-    join(workspaceRoot, "alice-bio.ttl"),
+    join(workspaceRoot, "alice-data.ttl"),
     `@base <${MESH_ALICE_BIO_BASE}> .
 @prefix schema: <https://schema.org/> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
-<alice/bio> schema:about <bob>, <bob/source.ttl?rev=1> .
+<alice/data> schema:about <bob>, <bob/source.ttl?rev=1> .
 <bob> schema:name "Bob" .
 <bob/source.ttl?rev=1> a sflo:LocatedFile .
 `,
@@ -410,7 +410,7 @@ Deno.test("executeExtractAllTerms skips unsafe LocatedFile IRIs before designato
   const result = await executeExtractAllTerms({
     workspaceRoot,
     request: {
-      sourceDesignatorPath: "alice/bio",
+      sourceDesignatorPath: "alice/data",
     },
   });
 
@@ -426,11 +426,11 @@ Deno.test("executeExtractAllTerms creates source references only for newly extra
   );
   await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
   await Deno.writeTextFile(
-    join(workspaceRoot, "alice-bio.ttl"),
+    join(workspaceRoot, "alice-data.ttl"),
     `@base <${MESH_ALICE_BIO_BASE}> .
 @prefix schema: <https://schema.org/> .
 
-<alice/bio> schema:about <bob>, <carol> .
+<alice/data> schema:about <bob>, <carol> .
 <carol> schema:name "Carol" .
 `,
   );
@@ -438,7 +438,7 @@ Deno.test("executeExtractAllTerms creates source references only for newly extra
   const result = await executeExtractAllTerms({
     workspaceRoot,
     request: {
-      sourceDesignatorPath: "alice/bio",
+      sourceDesignatorPath: "alice/data",
       addSourceReferences: true,
       referenceRole: "canonical",
     },
@@ -492,7 +492,7 @@ Deno.test("executeExtractAllTerms creates source references only for newly extra
   );
   assertStringIncludes(
     bobReferencesTurtle,
-    "sflo:hasTargetArtifact <alice/bio> .",
+    "sflo:hasTargetArtifact <alice/data> .",
   );
   assertFalse(bobReferencesTurtle.includes("sflo:hasRequestedTargetState"));
   assertStringIncludes(
@@ -521,13 +521,13 @@ Deno.test("executeExtractAllTerms creates source references only for newly extra
   assertStringIncludes(bobPageHtml, "<summary>Canonical</summary>");
   assertStringIncludes(
     bobPageHtml,
-    '<li><a href="https://semantic-flow.github.io/mesh-alice-bio/alice/bio">https://semantic-flow.github.io/mesh-alice-bio/alice/bio</a></li>',
+    '<li><a href="https://semantic-flow.github.io/mesh-alice-bio/alice/data">https://semantic-flow.github.io/mesh-alice-bio/alice/data</a></li>',
   );
 
   const rerunResult = await executeExtractAllTerms({
     workspaceRoot,
     request: {
-      sourceDesignatorPath: "alice/bio",
+      sourceDesignatorPath: "alice/data",
       addSourceReferences: true,
       referenceRole: "canonical",
     },
@@ -553,18 +553,18 @@ Deno.test("executeExtractAllTerms records exact source references when extractin
   const result = await executeExtractAllTerms({
     workspaceRoot,
     request: {
-      sourceStatePath: "alice/bio/_history001/_s0002",
+      sourceStatePath: "alice/data/_history001/_s0002",
       addSourceReferences: true,
       referenceRole: "canonical",
     },
   });
 
   assertEquals(result.sourceResolutionMode, "exact");
-  assertEquals(result.sourceDesignatorPath, "alice/bio");
+  assertEquals(result.sourceDesignatorPath, "alice/data");
   assertEquals(result.extractedDesignatorPaths, ["bob"]);
   assertEquals(
     result.sourceReferenceTargetStateIri,
-    "https://semantic-flow.github.io/mesh-alice-bio/alice/bio/_history001/_s0002",
+    "https://semantic-flow.github.io/mesh-alice-bio/alice/data/_history001/_s0002",
   );
 
   const referencesTurtle = await Deno.readTextFile(
@@ -572,7 +572,7 @@ Deno.test("executeExtractAllTerms records exact source references when extractin
   );
   assertStringIncludes(
     referencesTurtle,
-    "sflo:hasTargetArtifact <alice/bio> ;\n  sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> .",
+    "sflo:hasTargetArtifact <alice/data> ;\n  sflo:hasRequestedTargetState <alice/data/_history001/_s0002> .",
   );
 });
 
@@ -582,11 +582,11 @@ Deno.test("executeExtractAllTerms fails closed for unsafe mesh-scoped term IRIs"
   );
   await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
   await Deno.writeTextFile(
-    join(workspaceRoot, "alice-bio.ttl"),
+    join(workspaceRoot, "alice-data.ttl"),
     `@base <${MESH_ALICE_BIO_BASE}> .
 @prefix schema: <https://schema.org/> .
 
-<alice/bio> schema:about <bad#fragment> .
+<alice/data> schema:about <bad#fragment> .
 `,
   );
 
@@ -595,7 +595,7 @@ Deno.test("executeExtractAllTerms fails closed for unsafe mesh-scoped term IRIs"
       executeExtractAllTerms({
         workspaceRoot,
         request: {
-          sourceDesignatorPath: "alice/bio",
+          sourceDesignatorPath: "alice/data",
         },
       }),
     ExtractRuntimeError,
@@ -719,7 +719,7 @@ Deno.test("executeSetExtractionSource replaces an existing exact source binding 
     workspaceRoot,
     request: {
       designatorPath: "bob",
-      sourceStatePath: "alice/bio/_history001/_s0002",
+      sourceStatePath: "alice/data/_history001/_s0002",
     },
   });
   const sourcesPath = join(workspaceRoot, "bob/_knop/_sources/sources.ttl");
@@ -735,7 +735,7 @@ Deno.test("executeSetExtractionSource replaces an existing exact source binding 
     workspaceRoot,
     request: {
       designatorPath: "bob",
-      sourceDesignatorPath: "alice/bio",
+      sourceDesignatorPath: "alice/data",
     },
   });
 
