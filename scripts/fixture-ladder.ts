@@ -76,6 +76,7 @@ export interface FixtureLadderOptions {
   scenario: FixtureScenarioId;
   format: FixturePlanFormat;
   branchPrefix?: string;
+  seedSourceRef?: string;
   materializeTransitionId?: string;
   executeTransitionId?: string;
   dryRun?: boolean;
@@ -110,6 +111,15 @@ export interface ExecuteFixtureTransitionOptions {
   dryRun?: boolean;
 }
 
+export interface SeedFixtureSourceBranchOptions {
+  root: string;
+  scenario: FixtureScenarioId;
+  seedSourceRef: string;
+  branchPrefix?: string;
+  workspaceRoot?: string;
+  dryRun?: boolean;
+}
+
 export interface FixtureMaterializationResult {
   scenario: FixtureScenarioId;
   transitionId: string;
@@ -123,6 +133,19 @@ export interface FixtureMaterializationResult {
   materializedPaths: readonly string[];
   writesBranches: false;
   nextAction: FixtureTransitionAction;
+}
+
+export interface FixtureSourceSeedResult {
+  scenario: FixtureScenarioId;
+  label: string;
+  fixtureRepoPath: string;
+  sourceRef: string;
+  targetRef: string;
+  seedSourcePaths: readonly string[];
+  workspaceRoot: string;
+  materializedPaths: readonly string[];
+  writesBranches: boolean;
+  branchUpdate: FixtureBranchUpdateResult;
 }
 
 export interface FixtureCommandExecutionResult {
@@ -299,6 +322,7 @@ export interface FixtureLadderScenario {
   fixtureRepoRelativePath: string;
   manifestRootRelativePath: string;
   assetRootRelativePath?: string;
+  sourceSeedPaths?: readonly string[];
   branchPrefix: string;
   transitions: readonly FixtureTransitionDefinition[];
 }
@@ -428,6 +452,11 @@ const CANONICAL_OUTPUT_GUARDRAILS = [
 const ACCORD_CONTEXT = "https://spectacular-voyage.github.io/accord/ontology/";
 const FIXTURE_SCENARIO_INDEX_FILENAME = "scenario-index.jsonld";
 const FIXTURE_ASSET_ROOT_BASENAME = ".assets";
+const DEFAULT_SOURCE_SEED_PATHS = [
+  FIXTURE_ASSET_ROOT_BASENAME,
+  ".gitignore",
+  "README.md",
+] as const;
 const LADDER_BRANCH_PREFIX = "a.";
 
 const ALICE_BIO_FIXTURE_REPO = "github.com/semantic-flow/mesh-alice-bio";
@@ -1115,7 +1144,21 @@ export const BRANCH_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
 if (import.meta.main) {
   try {
     const options = parseFixtureLadderArgs(Deno.args);
-    if (options.executeTransitionId !== undefined) {
+    if (options.seedSourceRef !== undefined) {
+      const result = await seedFixtureSourceBranch({
+        root: options.root,
+        scenario: options.scenario,
+        seedSourceRef: options.seedSourceRef,
+        branchPrefix: options.branchPrefix,
+        workspaceRoot: options.workspaceRoot,
+        dryRun: options.dryRun ?? false,
+      });
+      console.log(
+        options.format === "json"
+          ? JSON.stringify(result, null, 2)
+          : renderFixtureSourceSeedResult(result),
+      );
+    } else if (options.executeTransitionId !== undefined) {
       const result = await executeFixtureTransition({
         root: options.root,
         scenario: options.scenario,
@@ -1193,6 +1236,7 @@ export function parseFixtureLadderArgs(
   let format: FixturePlanFormat = "text";
   let materializeTransitionId: string | undefined;
   let executeTransitionId: string | undefined;
+  let seedSourceRef: string | undefined;
   let branchPrefix: string | undefined;
   let dryRun = false;
   let workspaceRoot: string | undefined;
@@ -1229,6 +1273,10 @@ export function parseFixtureLadderArgs(
       case "--execute":
         index += 1;
         executeTransitionId = requireArgumentValue(args[index], "--execute");
+        break;
+      case "--seed-source-ref":
+        index += 1;
+        seedSourceRef = requireArgumentValue(args[index], "--seed-source-ref");
         break;
       case "--workspace-root":
         index += 1;
@@ -1292,6 +1340,13 @@ export function parseFixtureLadderArgs(
           );
           break;
         }
+        if (arg.startsWith("--seed-source-ref=")) {
+          seedSourceRef = requireArgumentValue(
+            arg.slice("--seed-source-ref=".length),
+            "--seed-source-ref",
+          );
+          break;
+        }
         if (arg.startsWith("--workspace-root=")) {
           workspaceRoot = requireArgumentValue(
             arg.slice("--workspace-root=".length),
@@ -1313,19 +1368,25 @@ export function parseFixtureLadderArgs(
   }
 
   if (
-    materializeTransitionId !== undefined && executeTransitionId !== undefined
+    [
+      materializeTransitionId,
+      executeTransitionId,
+      seedSourceRef,
+    ].filter((value) => value !== undefined).length > 1
   ) {
     throw new Error(
-      "fixture:ladder accepts only one of --materialize or --execute",
+      "fixture:ladder accepts only one of --materialize, --execute, or --seed-source-ref",
     );
   }
 
   if (
     scenarioIndexMode !== undefined &&
-    (materializeTransitionId !== undefined || executeTransitionId !== undefined)
+    (materializeTransitionId !== undefined ||
+      executeTransitionId !== undefined ||
+      seedSourceRef !== undefined)
   ) {
     throw new Error(
-      "fixture:ladder scenario-index options cannot be combined with --materialize or --execute",
+      "fixture:ladder scenario-index options cannot be combined with --materialize, --execute, or --seed-source-ref",
     );
   }
 
@@ -1337,10 +1398,10 @@ export function parseFixtureLadderArgs(
 
   if (
     workspaceRoot !== undefined && materializeTransitionId === undefined &&
-    executeTransitionId === undefined
+    executeTransitionId === undefined && seedSourceRef === undefined
   ) {
     throw new Error(
-      "fixture:ladder --workspace-root requires --materialize or --execute",
+      "fixture:ladder --workspace-root requires --materialize, --execute, or --seed-source-ref",
     );
   }
 
@@ -1354,6 +1415,7 @@ export function parseFixtureLadderArgs(
       ? { materializeTransitionId }
       : {}),
     ...(executeTransitionId !== undefined ? { executeTransitionId } : {}),
+    ...(seedSourceRef !== undefined ? { seedSourceRef } : {}),
     ...(workspaceRoot !== undefined
       ? { workspaceRoot: resolve(workspaceRoot) }
       : {}),
@@ -1777,6 +1839,81 @@ export async function materializeFixtureTransitionSource(
   };
 }
 
+export async function seedFixtureSourceBranch(
+  options: SeedFixtureSourceBranchOptions,
+): Promise<FixtureSourceSeedResult> {
+  const plan = await planFixtureLadder({
+    root: options.root,
+    scenario: options.scenario,
+    format: "text",
+    branchPrefix: options.branchPrefix,
+  });
+  const firstTransition = plan.transitions[0];
+  if (firstTransition === undefined) {
+    throw new Error(`Fixture scenario has no transitions: ${plan.scenario.id}`);
+  }
+
+  const workspaceRoot = options.workspaceRoot === undefined
+    ? await Deno.makeTempDir({ prefix: "weave-fixture-source-seed-" })
+    : resolve(options.workspaceRoot);
+  await ensureEmptyWorkspaceRoot(workspaceRoot);
+
+  const resolvedSourceRef = await resolveGitCommitishIfExists(
+    plan.fixtureRepoPath,
+    options.seedSourceRef,
+  );
+  if (resolvedSourceRef === undefined) {
+    throw unresolvedFixtureRefError(
+      plan.fixtureRepoPath,
+      options.seedSourceRef,
+    );
+  }
+
+  const seedSourcePaths = plan.scenario.sourceSeedPaths ??
+    DEFAULT_SOURCE_SEED_PATHS;
+  const materializedPaths = await materializeGitTree({
+    repoPath: plan.fixtureRepoPath,
+    ref: resolvedSourceRef,
+    workspaceRoot,
+    pathspecs: seedSourcePaths,
+  });
+  if (materializedPaths.length === 0) {
+    throw new Error(
+      `Seed source ref ${options.seedSourceRef} did not contain any source seed paths for ${plan.scenario.label}`,
+    );
+  }
+
+  await assertValidBranchName(plan.fixtureRepoPath, firstTransition.fromRef);
+  const branchUpdate = options.dryRun === true
+    ? {
+      dryRun: true,
+      updated: false,
+      targetRef: firstTransition.fromRef,
+      branchRef: toLocalBranchRef(firstTransition.fromRef),
+      localOnly: true,
+      reason: "dry run requested",
+    } as const
+    : await updateFixtureBranchFromWorkspace({
+      fixtureRepoPath: plan.fixtureRepoPath,
+      workspaceRoot,
+      targetRef: firstTransition.fromRef,
+      message: `Seed fixture source branch ${firstTransition.fromRef}`,
+    });
+
+  return {
+    scenario: plan.scenario.id,
+    label: plan.scenario.label,
+    fixtureRepoPath: plan.fixtureRepoPath,
+    sourceRef: options.seedSourceRef,
+    targetRef: firstTransition.fromRef,
+    seedSourcePaths,
+    workspaceRoot,
+    materializedPaths,
+    writesBranches: branchUpdate.updated,
+    branchUpdate,
+  };
+}
+
 export async function executeFixtureTransition(
   options: ExecuteFixtureTransitionOptions,
 ): Promise<FixtureExecutionResult> {
@@ -1958,6 +2095,33 @@ export function renderFixtureMaterializationResult(
     lines.push(`Next file operation: ${result.nextAction.description}`);
   } else {
     lines.push(`Next branch publication: ${result.nextAction.description}`);
+  }
+  return lines.join("\n");
+}
+
+export function renderFixtureSourceSeedResult(
+  result: FixtureSourceSeedResult,
+): string {
+  const lines = [
+    `Fixture source seed prepared: ${result.label}`,
+    `Source ref: ${result.sourceRef}`,
+    `Target ref: ${result.targetRef}`,
+    `Fixture repository: ${result.fixtureRepoPath}`,
+    `Workspace root: ${result.workspaceRoot}`,
+    `Seed paths: ${result.seedSourcePaths.join(", ")}`,
+    `Branch writes: ${result.branchUpdate.updated ? "enabled" : "disabled"}`,
+    `Files materialized: ${result.materializedPaths.length}`,
+  ];
+  for (const path of result.materializedPaths) {
+    lines.push(`- ${path}`);
+  }
+  lines.push("Branch update:");
+  if (result.branchUpdate.updated) {
+    lines.push(
+      `updated ${result.branchUpdate.branchRef} to ${result.branchUpdate.commitSha}`,
+    );
+  } else {
+    lines.push(`skipped: ${result.branchUpdate.reason}`);
   }
   return lines.join("\n");
 }
@@ -4231,13 +4395,16 @@ async function materializeGitTree(options: {
   repoPath: string;
   ref: string;
   workspaceRoot: string;
+  pathspecs?: readonly string[];
 }): Promise<string[]> {
+  const pathspecs = (options.pathspecs ?? []).map(normalizeGitTreePath);
   const listResult = await runGit(options.repoPath, [
     "ls-tree",
     "-r",
     "--name-only",
     "-z",
     options.ref,
+    ...(pathspecs.length === 0 ? [] : ["--", ...pathspecs]),
   ]);
   if (!listResult.success) {
     throw new Error(

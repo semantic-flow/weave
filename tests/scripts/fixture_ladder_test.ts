@@ -22,6 +22,8 @@ import {
   renderFixtureLadderPlan,
   renderFixtureMaterializationResult,
   renderFixtureScenarioIndexDocument,
+  renderFixtureSourceSeedResult,
+  seedFixtureSourceBranch,
   SIDECAR_FANTASY_RULES_FIXTURE_SCENARIO,
   updateFixtureBranchFromWorkspace,
 } from "../../scripts/fixture-ladder.ts";
@@ -112,6 +114,25 @@ Deno.test("parseFixtureLadderArgs accepts dry-run planner options", () => {
   assertEquals(
     parseFixtureLadderArgs([
       "--root=/tmp/weave",
+      "--branch-prefix=b.",
+      "--seed-source-ref=main",
+      "--workspace-root=/tmp/weave-seed",
+      "--dry-run",
+    ]),
+    {
+      root: "/tmp/weave",
+      scenario: "alice-bio",
+      format: "text",
+      branchPrefix: "b.",
+      seedSourceRef: "main",
+      workspaceRoot: "/tmp/weave-seed",
+      dryRun: true,
+    },
+  );
+
+  assertEquals(
+    parseFixtureLadderArgs([
+      "--root=/tmp/weave",
       "--scenario=sidecar-fantasy-rules",
     ]),
     {
@@ -182,7 +203,7 @@ Deno.test("parseFixtureLadderArgs rejects unsupported scenarios and formats", ()
   assertThrows(
     () => parseFixtureLadderArgs(["--workspace-root", "/tmp/weave"]),
     Error,
-    "--workspace-root requires --materialize or --execute",
+    "--workspace-root requires --materialize, --execute, or --seed-source-ref",
   );
   assertThrows(
     () =>
@@ -193,7 +214,18 @@ Deno.test("parseFixtureLadderArgs rejects unsupported scenarios and formats", ()
         "02-mesh-created",
       ]),
     Error,
-    "only one of --materialize or --execute",
+    "only one of --materialize, --execute, or --seed-source-ref",
+  );
+  assertThrows(
+    () =>
+      parseFixtureLadderArgs([
+        "--seed-source-ref",
+        "main",
+        "--execute",
+        "02-mesh-created",
+      ]),
+    Error,
+    "only one of --materialize, --execute, or --seed-source-ref",
   );
   assertThrows(
     () =>
@@ -1472,6 +1504,82 @@ Deno.test("Branch-Published Fantasy Rules fixture scenario has sequential transi
       (_, index) => index + 1,
     ),
   );
+});
+
+Deno.test("seedFixtureSourceBranch creates a prefixed 00 rung from seed paths only", async () => {
+  const { root, workspaceRoot, fixtureRepoPath } =
+    await setupSourceOnlyFileOperationFixture({
+      createTargetRef: false,
+    });
+  await Deno.writeTextFile(
+    `${fixtureRepoPath}/generated-output.txt`,
+    "latest generated output\n",
+  );
+  await runTestGit(fixtureRepoPath, ["add", "."]);
+  await runTestGit(fixtureRepoPath, [
+    "-c",
+    "user.name=Test",
+    "-c",
+    "user.email=test@example.invalid",
+    "commit",
+    "-m",
+    "latest generated fixture",
+  ]);
+
+  const result = await seedFixtureSourceBranch({
+    root,
+    scenario: "alice-bio",
+    seedSourceRef: "HEAD",
+    branchPrefix: "b.",
+    workspaceRoot,
+  });
+
+  assertEquals(result.sourceRef, "HEAD");
+  assertEquals(result.targetRef, "b.00-blank-slate");
+  assertEquals(result.branchUpdate.updated, true);
+  assertEquals(
+    result.materializedPaths.includes(".assets/01-source-only/alice-data.ttl"),
+    true,
+  );
+  assertEquals(
+    result.materializedPaths.includes("generated-output.txt"),
+    false,
+  );
+  assertEquals(
+    await gitOutput(fixtureRepoPath, [
+      "show",
+      "b.00-blank-slate:.assets/01-source-only/alice-data.ttl",
+    ]),
+    "fixture source\n",
+  );
+  assertEquals(
+    await gitSucceeds(fixtureRepoPath, [
+      "show",
+      "b.00-blank-slate:generated-output.txt",
+    ]),
+    false,
+  );
+});
+
+Deno.test("renderFixtureSourceSeedResult prints seed source and target branch", async () => {
+  const { root, workspaceRoot } = await setupSourceOnlyFileOperationFixture({
+    createTargetRef: false,
+  });
+  const result = await seedFixtureSourceBranch({
+    root,
+    scenario: "alice-bio",
+    seedSourceRef: "HEAD",
+    branchPrefix: "b.",
+    workspaceRoot,
+    dryRun: true,
+  });
+
+  const rendered = renderFixtureSourceSeedResult(result);
+  assertStringIncludes(rendered, "Fixture source seed prepared: Alice Bio");
+  assertStringIncludes(rendered, "Source ref: HEAD");
+  assertStringIncludes(rendered, "Target ref: b.00-blank-slate");
+  assertStringIncludes(rendered, "Branch writes: disabled");
+  assertStringIncludes(rendered, "- .assets/01-source-only/alice-data.ttl");
 });
 
 Deno.test("materializeFixtureTransitionSource copies a transition source ref into an empty workspace", async () => {
