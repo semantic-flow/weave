@@ -396,6 +396,12 @@ Deno.test("planFixtureLadder exposes the Alice Bio dry-run transition plan", asy
       aliceBioImported.action.inputs.map((source) => source.path),
       ["mesh-content/sidebar.md"],
     );
+    assertEquals(aliceBioImported.action.invocations?.[1]?.argv, [
+      "integrate",
+      "mesh-content/sidebar.md",
+      "--designator-path",
+      "mesh-content/sidebar",
+    ]);
   }
 
   const pageCustomized = plan.transitions[15];
@@ -426,6 +432,19 @@ Deno.test("planFixtureLadder exposes the Alice Bio dry-run transition plan", asy
     ),
     true,
   );
+
+  const faviconIntegrated = plan.transitions[17];
+  assertEquals(faviconIntegrated?.id, "18-favicon-integrated");
+  assertEquals(faviconIntegrated?.operationId, "integrate");
+  assertEquals(faviconIntegrated?.action.kind, "command");
+  if (faviconIntegrated?.action.kind === "command") {
+    assertEquals(faviconIntegrated.action.argv, [
+      "integrate",
+      "favicon.ico",
+      "--designator-path",
+      "mesh-content/favicon",
+    ]);
+  }
 });
 
 Deno.test("planFixtureLadder names existing Alice Bio Accord manifests", async () => {
@@ -1390,6 +1409,10 @@ Deno.test("renderFixtureLadderPlan prints reviewable command and validation deta
   assertStringIncludes(
     rendered,
     "command 1: weave import https://raw.githubusercontent.com/djradon/public-notes/db9a48933f0e6b208baeab7190cef75d1194634f/user.alice-ghostley.md alice/bio --working-file alice-bio.md --expected-digest sha256:0fcd9fe25c5598686557806cfdacc9c765176f315f780fa96644c3f251b49137",
+  );
+  assertStringIncludes(
+    rendered,
+    "command 2: weave integrate mesh-content/sidebar.md --designator-path mesh-content/sidebar",
   );
   assertStringIncludes(
     rendered,

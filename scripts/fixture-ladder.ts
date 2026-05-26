@@ -630,7 +630,7 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
         sources: [
           fixtureAssetSource(
             "alice/_knop/_page/page.ttl",
-            "fixture-authored canonical page definition that targets governed alice/bio and sidebar artifacts",
+            "fixture-authored canonical page definition that targets governed alice/bio and mesh-content/sidebar artifacts",
           ),
           fixtureAssetSource(
             "alice/_knop/_assets/alice.css",
