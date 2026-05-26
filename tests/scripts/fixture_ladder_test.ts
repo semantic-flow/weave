@@ -432,11 +432,11 @@ Deno.test("planFixtureLadder exposes the Alice Bio dry-run transition plan", asy
     );
     assertEquals(
       pageCustomized.action.sources[0]?.assetPath,
-      "alice/_knop/_page/page.ttl",
+      ".assets/16-alice-page-customized/alice/_knop/_page/page.ttl",
     );
     assertEquals(
       pageCustomized.action.sources[0]?.sourceRef,
-      "a.16-alice-page-customized",
+      "assets",
     );
     assertEquals(pageCustomized.action.inventoryPatches.length, 1);
     assertEquals(
@@ -1327,26 +1327,21 @@ Deno.test("Alice Bio asset-backed transitions point at checked-in deterministic 
   );
 
   assertEquals(assetSourceSpecs, [
-    "a.01-source-only:alice-data.ttl",
-    "a.10-alice-bio-updated:alice-data.ttl",
-    "a.14-alice-bio-imported:mesh-content/sidebar.md",
-    "a.16-alice-page-customized:alice/_knop/_assets/alice.css",
-    "a.16-alice-page-customized:alice/_knop/_page/page.ttl",
-    "a.18-favicon-integrated:favicon.ico",
-    "a.24-root-page-customized:_knop/_assets/site.css",
-    "a.24-root-page-customized:_knop/_page/page.ttl",
-    "a.24-root-page-customized:home.md",
-    "a.26-carol:carol-data.ttl",
+    "assets:.assets/01-source-only/alice-data.ttl",
+    "assets:.assets/10-alice-bio-updated/alice-data-v2.ttl",
+    "assets:.assets/14-alice-bio-imported/mesh-content/sidebar.md",
+    "assets:.assets/16-alice-page-customized/alice/_knop/_assets/alice.css",
+    "assets:.assets/16-alice-page-customized/alice/_knop/_page/page.ttl",
+    "assets:.assets/18-favicon-integrated/favicon.ico",
+    "assets:.assets/24-root-page-customized/_knop/_assets/site.css",
+    "assets:.assets/24-root-page-customized/_knop/_page/page.ttl",
+    "assets:.assets/24-root-page-customized/home.md",
+    "assets:.assets/26-carol/carol-data.ttl",
   ]);
 
   for (const source of assetSources) {
     assert(source.sourceRef !== undefined);
-    assert(
-      await gitSucceeds(plan.fixtureRepoPath, [
-        "show",
-        `${source.sourceRef}:${source.assetPath}`,
-      ]),
-    );
+    assert(await gitBlobSucceeds(plan.fixtureRepoPath, source));
   }
 
   for (
@@ -1354,10 +1349,7 @@ Deno.test("Alice Bio asset-backed transitions point at checked-in deterministic 
       source.assetPath.endsWith("page.ttl")
     )
   ) {
-    const contents = await gitOutput(plan.fixtureRepoPath, [
-      "show",
-      `${source.sourceRef}:${source.assetPath}`,
-    ]);
+    const contents = await gitBlobOutput(plan.fixtureRepoPath, source);
     assertStringIncludes(
       contents,
       "https://semantic-flow.github.io/sflo/ontology/",
@@ -1454,7 +1446,7 @@ Deno.test("renderFixtureLadderPlan prints reviewable command and validation deta
   );
   assertStringIncludes(
     rendered,
-    "source: alice/_knop/_page/page.ttl <= a.16-alice-page-customized:alice/_knop/_page/page.ttl",
+    "source: alice/_knop/_page/page.ttl <= assets:.assets/16-alice-page-customized/alice/_knop/_page/page.ttl",
   );
   assertStringIncludes(
     rendered,
@@ -1462,7 +1454,7 @@ Deno.test("renderFixtureLadderPlan prints reviewable command and validation deta
   );
   assertStringIncludes(
     rendered,
-    "input: alice-data.ttl <= a.10-alice-bio-updated:alice-data.ttl",
+    "input: alice-data.ttl <= assets:.assets/10-alice-bio-updated/alice-data-v2.ttl",
   );
   assertStringIncludes(
     rendered,
@@ -2348,6 +2340,29 @@ async function gitOutput(
   return new TextDecoder().decode(output.stdout);
 }
 
+async function gitBlobOutput(
+  cwd: string,
+  source: FixtureFileOperationSource,
+): Promise<string> {
+  if (source.sourceRef === undefined) {
+    throw new Error(`Fixture source has no sourceRef: ${source.assetPath}`);
+  }
+  for (const ref of gitRefReadCandidates(source.sourceRef)) {
+    const output = await new Deno.Command("git", {
+      cwd,
+      args: ["show", `${ref}:${source.assetPath}`],
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    if (output.success) {
+      return new TextDecoder().decode(output.stdout);
+    }
+  }
+  throw new Error(
+    `git show failed for ${source.sourceRef}:${source.assetPath}`,
+  );
+}
+
 async function gitSucceeds(
   cwd: string,
   args: readonly string[],
@@ -2359,6 +2374,30 @@ async function gitSucceeds(
     stderr: "piped",
   }).output();
   return output.success;
+}
+
+async function gitBlobSucceeds(
+  cwd: string,
+  source: FixtureFileOperationSource,
+): Promise<boolean> {
+  if (source.sourceRef === undefined) {
+    return false;
+  }
+  for (const ref of gitRefReadCandidates(source.sourceRef)) {
+    if (
+      await gitSucceeds(cwd, [
+        "show",
+        `${ref}:${source.assetPath}`,
+      ])
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function gitRefReadCandidates(ref: string): readonly string[] {
+  return ref.startsWith("origin/") ? [ref] : [ref, `origin/${ref}`];
 }
 
 async function runTestGit(

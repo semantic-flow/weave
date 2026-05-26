@@ -547,10 +547,6 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
         fixtureAssetSource(
           "alice-data.ttl",
           "fixture-authored source RDF carried from the existing Alice Bio source-only fixture",
-          {
-            assetPath: "alice-data.ttl",
-            sourceRef: "a.01-source-only",
-          },
         ),
       ],
     }),
@@ -644,18 +640,10 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
           fixtureAssetSource(
             "alice/_knop/_page/page.ttl",
             "fixture-authored canonical page definition that targets governed alice/bio and mesh-content/sidebar artifacts",
-            {
-              assetPath: "alice/_knop/_page/page.ttl",
-              sourceRef: "a.16-alice-page-customized",
-            },
           ),
           fixtureAssetSource(
             "alice/_knop/_assets/alice.css",
             "fixture-authored stylesheet copied from the Alice Bio main branch source bytes",
-            {
-              assetPath: "alice/_knop/_assets/alice.css",
-              sourceRef: "a.16-alice-page-customized",
-            },
           ),
         ],
         inventoryPatches: [
@@ -723,26 +711,14 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
           fixtureAssetSource(
             "_knop/_page/page.ttl",
             "fixture-authored canonical page definition adapted from the Alice Bio main branch root page bytes",
-            {
-              assetPath: "_knop/_page/page.ttl",
-              sourceRef: "a.24-root-page-customized",
-            },
           ),
           fixtureAssetSource(
             "home.md",
             "fixture-authored root Markdown copied from the Alice Bio main branch source bytes",
-            {
-              assetPath: "home.md",
-              sourceRef: "a.24-root-page-customized",
-            },
           ),
           fixtureAssetSource(
             "_knop/_assets/site.css",
             "fixture-authored root stylesheet copied from the Alice Bio main branch source bytes",
-            {
-              assetPath: "_knop/_assets/site.css",
-              sourceRef: "a.24-root-page-customized",
-            },
           ),
         ],
         inventoryPatches: [
@@ -1571,9 +1547,7 @@ export function renderFixtureScenarioIndexDocument(
     "dcterms:title": `${scenario.label} fixture ladder`,
     defaultFixtureRepo: scenario.fixtureRepo,
     branchPrefix: scenario.branchPrefix,
-    ...(scenario.id === "alice-bio" ? {} : {
-      assetRoot: [FIXTURE_ASSET_ROOT_BASENAME],
-    }),
+    assetRoot: [FIXTURE_ASSET_ROOT_BASENAME],
     hasStateLane: stateLanes,
     hasStep: scenario.transitions.map((transition) =>
       renderFixtureScenarioIndexStep({
@@ -4502,8 +4476,20 @@ async function readGitBlobIfExists(
   ref: string,
   path: string,
 ): Promise<Uint8Array | undefined> {
-  const result = await runGitBytes(repoPath, ["show", `${ref}:${path}`]);
-  return result.success ? result.stdout : undefined;
+  for (const candidate of gitRefReadCandidates(ref)) {
+    const result = await runGitBytes(repoPath, [
+      "show",
+      `${candidate}:${path}`,
+    ]);
+    if (result.success) {
+      return result.stdout;
+    }
+  }
+  return undefined;
+}
+
+function gitRefReadCandidates(ref: string): readonly string[] {
+  return ref.startsWith("origin/") ? [ref] : [ref, `origin/${ref}`];
 }
 
 async function readWorkspaceFileIfExists(
