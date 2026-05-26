@@ -2,7 +2,7 @@
 id: wlo29fbckg2hkue5zu32lqs
 title: Codebase Overview
 desc: ''
-updated: 1779479265715
+updated: 1779635111101
 created: 1773673181726
 ---
 
@@ -32,8 +32,8 @@ Core owns portable Semantic Flow behavior: request/result types, RDF/Turtle help
 - `src/core/rdf` owns local RDF/Turtle parsing and namespace helpers.
 - `src/core/mesh`, `src/core/knop`, `src/core/integrate`, `src/core/payload`, and `src/core/extract` own operation-specific pure planning.
 - `src/core/weave` owns shared weave/version/generate contracts and planner helpers.
-- `src/core/weave/weave.ts` is still the major pressure point. It remains the public façade for core weave imports, but it is being decomposed under [[wa.task.2026.2026-05-21_0849_careful-extraction-refactor]].
-- Already extracted core weave helpers include `errors.ts`, `version_plan.ts`, `mesh_support_pages.ts`, `requests.ts`, `source_models.ts`, `candidates.ts`, `planning_models.ts`, `progression_models.ts`, `progression_resolvers.ts`, `slices.ts`, `rdf_helpers.ts`, `turtle_blocks.ts`, `artifact_history_queries.ts`, `artifact_manifestation_paths.ts`, `slice_classification.ts`, `payload_version_layout.ts`, `payload_overwrite.ts`, `payload_renderers.ts`, `mesh_inventory_renderers.ts`, `knop_inventory_renderers.ts`, `legacy_page_renderers.ts`, `extraction_source_blocks.ts`, `knop_support_renderers.ts`, `shape_assertions.ts`, `source_locator_assertions.ts`, `source_locator_renderers.ts`, `support_history_renderers.ts`, `working_file_paths.ts`, `reference_catalog_links.ts`, `resource_page_builders.ts`, `resource_page_models.ts`, `resource_page_history_groups.ts`, `resource_page_policy.ts`, `resource_page_reference_links.ts`, `naming_policy.ts`, and `support_history_policy.ts`.
+- `src/core/weave/weave.ts` is still the major pressure point. It remains the public façade for core weave imports, but it is being decomposed under [[wa.completed.2026.2026-05-21_0849_careful-extraction-refactor]].
+- Already extracted core weave helpers include `errors.ts`, `version_plan.ts`, `mesh_support_pages.ts`, `requests.ts`, `source_models.ts`, `candidates.ts`, `planning_models.ts`, `progression_models.ts`, `progression_resolvers.ts`, `slices.ts`, `rdf_helpers.ts`, `turtle_blocks.ts`, `artifact_history_queries.ts`, `artifact_manifestation_paths.ts`, `slice_classification.ts`, `payload_version_layout.ts`, `payload_overwrite.ts`, `payload_renderers.ts`, `mesh_inventory_renderers.ts`, `knop_inventory_renderers.ts`, `legacy_page_renderers.ts`, `extraction_source_blocks.ts`, `knop_support_renderers.ts`, `shape_assertions.ts`, `source_locator_assertions.ts`, `source_locator_renderers.ts`, `support_history_renderers.ts`, `working_file_paths.ts`, `reference_catalog_links.ts`, `resource_page_builders.ts`, `resource_page_models.ts`, `resource_page_template_contract.ts`, `resource_page_history_groups.ts`, `resource_page_policy.ts`, `resource_page_reference_links.ts`, `naming_policy.ts`, and `support_history_policy.ts`.
 
 ## Runtime Layer
 
@@ -69,13 +69,13 @@ Runtime owns local execution against a workspace: filesystem reads/writes, git-a
 - `deno task fmt`: format project files.
 - `deno task lint`: lint scripts, source, and tests.
 - `deno task check`: type-check scripts, source, and tests.
-- `deno task test`: run the project test suite with the standard test harness and fixed generated timestamp.
+- `deno task test`: run the project test suite with the standard test harness.
 - `deno task ci`: pre-merge confidence path.
 - Use focused tests while iterating, then broaden according to the risk of the change. CLI-visible behavior needs e2e coverage; shared planner changes usually need core plus integration coverage.
 
 ## Current Refactor Notes
 
-- Core weave planner decomposition: [[wa.task.2026.2026-05-21_0849_careful-extraction-refactor]].
+- Core weave planner decomposition: [[wa.completed.2026.2026-05-21_0849_careful-extraction-refactor]].
 - Completed core weave model/type extraction slice: [[wa.completed.2026.2026-05-21_1037-core-weave-first-extraction-slice]].
 - Completed core weave RDF/Turtle helper extraction slice: [[wa.completed.2026.2026-05-22_1358-core-weave-rdf-and-turtle-helper-extraction]].
 - Completed core weave slice-classification extraction slice: [[wa.completed.2026.2026-05-22_1424-core-weave-slice-classification-extraction]].

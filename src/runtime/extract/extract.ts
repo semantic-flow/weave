@@ -1783,6 +1783,14 @@ function replaceExtractionSourceBinding(
     );
   }
   blocks[blockIndex] = replacement;
+  const staleObservationIndex = blocks.findIndex((block, index) =>
+    index !== blockIndex &&
+    getSubjectPathFromBlock(block) ===
+      `${extractionSourcePath}-observation-001`
+  );
+  if (staleObservationIndex !== -1) {
+    blocks.splice(staleObservationIndex, 1);
+  }
   return `${blocks.join("\n\n")}\n`;
 }
 
@@ -1790,6 +1798,7 @@ function renderExtractionSourceBlock(
   extractionSourcePath: string,
   sourcePayload: ExtractSourcePayload,
 ): string {
+  const observationPath = `${extractionSourcePath}-observation-001`;
   const facts: [string, string][] = [
     ["sflo:hasTargetArtifact", `<${sourcePayload.designatorPath}>`],
   ];
@@ -1805,51 +1814,61 @@ function renderExtractionSourceBlock(
       `<${SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI}>`,
     ]);
   }
-  facts.push(...toExtractionSourceEvidenceFacts(sourcePayload.sourceEvidence));
+  if (sourcePayload.sourceEvidence) {
+    facts.push(["sflo:hasResolutionObservation", `<${observationPath}>`]);
+  }
 
-  return `<${extractionSourcePath}> a sflo:ExtractionSource ;
+  const sourceBlock = `<${extractionSourcePath}> a sflo:ExtractionSource ;
 ${
     facts.map(([predicate, object], index) =>
       `  ${predicate} ${object}${index === facts.length - 1 ? " ." : " ;"}`
     ).join("\n")
   }`;
+  const observationBlock = renderExtractionSourceObservationBlock(
+    observationPath,
+    sourcePayload.sourceEvidence,
+  );
+  return observationBlock
+    ? `${sourceBlock}\n\n${observationBlock}`
+    : sourceBlock;
 }
 
-function toExtractionSourceEvidenceFacts(
+function renderExtractionSourceObservationBlock(
+  observationPath: string,
   sourceEvidence: ExtractionSourceEvidence | undefined,
-): [string, string][] {
+): string | undefined {
   if (!sourceEvidence) {
-    return [];
+    return undefined;
   }
 
   const facts: [string, string][] = [];
   if (sourceEvidence.sourceStatePath !== undefined) {
     facts.push([
-      "sflo:hasObservedSourceState",
+      "sflo:hasObservedTargetState",
       `<${sourceEvidence.sourceStatePath}>`,
     ]);
   }
   if (sourceEvidence.sourceManifestationPath !== undefined) {
     facts.push([
-      "sflo:hasObservedSourceManifestation",
+      "sflo:hasObservedTargetManifestation",
       `<${sourceEvidence.sourceManifestationPath}>`,
     ]);
   }
   if (sourceEvidence.sourceLocatedFilePath !== undefined) {
     facts.push([
-      "sflo:hasObservedSourceLocatedFile",
+      "sflo:hasObservedTargetLocatedFile",
       `<${sourceEvidence.sourceLocatedFilePath}>`,
     ]);
   }
   if (sourceEvidence.sourceLocalRelativePath !== undefined) {
     facts.push([
-      "sflo:observedSourceLocalRelativePath",
+      "sflo:observedTargetLocalRelativePath",
       `"${escapeTurtleString(sourceEvidence.sourceLocalRelativePath)}"`,
     ]);
   }
   if (sourceEvidence.sourceDigest !== undefined) {
     facts.push([
-      "sflo:observedSourceDigest",
+      "sflo:observedContentDigest",
       `"${escapeTurtleString(sourceEvidence.sourceDigest)}"`,
     ]);
   }
@@ -1860,7 +1879,16 @@ function toExtractionSourceEvidenceFacts(
     ]);
   }
 
-  return facts;
+  if (facts.length === 0) {
+    return undefined;
+  }
+
+  return `<${observationPath}> a sflo:ArtifactResolutionObservation ;
+${
+    facts.map(([predicate, object], index) =>
+      `  ${predicate} ${object}${index === facts.length - 1 ? " ." : " ;"}`
+    ).join("\n")
+  }`;
 }
 
 function parseExtractionSourceQuads(

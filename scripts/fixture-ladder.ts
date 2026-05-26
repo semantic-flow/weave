@@ -27,16 +27,28 @@ import {
 import type {
   CommandInvocation,
   FileExpectation,
+  FileOperation,
   InputMaterialization,
   RdfExpectation,
   ReplayProfile,
   SourceProvenance,
   SparqlAskAssertion,
+  StateLocator,
   TransitionCase,
 } from "../dependencies/github.com/spectacular-voyage/accord/src/manifest/model.ts";
 import {
   selectTransitionCase,
 } from "../dependencies/github.com/spectacular-voyage/accord/src/manifest/select_case.ts";
+import {
+  readScenarioIndexSource,
+  validateScenarioIndexDocument,
+} from "../dependencies/github.com/spectacular-voyage/accord/src/scenario/load_jsonld.ts";
+import type {
+  LaneStateBinding,
+  ScenarioIndexDocument,
+  ScenarioStep,
+  StateLane,
+} from "../dependencies/github.com/spectacular-voyage/accord/src/scenario/model.ts";
 import {
   CHECK_CODES,
 } from "../dependencies/github.com/spectacular-voyage/accord/src/report/codes.ts";
@@ -57,15 +69,19 @@ export type FixtureScenarioId =
   | "sidecar-fantasy-rules"
   | "branch-fantasy-rules";
 export type FixturePlanFormat = "text" | "json";
+export type FixtureScenarioIndexMode = "write" | "check";
 
 export interface FixtureLadderOptions {
   root: string;
   scenario: FixtureScenarioId;
   format: FixturePlanFormat;
+  branchPrefix?: string;
+  seedSourceRef?: string;
   materializeTransitionId?: string;
   executeTransitionId?: string;
   dryRun?: boolean;
   workspaceRoot?: string;
+  scenarioIndexMode?: FixtureScenarioIndexMode;
 }
 
 export interface FixtureLadderPlan {
@@ -82,6 +98,7 @@ export interface MaterializeFixtureTransitionOptions {
   root: string;
   scenario: FixtureScenarioId;
   transitionId: string;
+  branchPrefix?: string;
   workspaceRoot?: string;
 }
 
@@ -89,6 +106,16 @@ export interface ExecuteFixtureTransitionOptions {
   root: string;
   scenario: FixtureScenarioId;
   transitionId: string;
+  branchPrefix?: string;
+  workspaceRoot?: string;
+  dryRun?: boolean;
+}
+
+export interface SeedFixtureSourceBranchOptions {
+  root: string;
+  scenario: FixtureScenarioId;
+  seedSourceRef: string;
+  branchPrefix?: string;
   workspaceRoot?: string;
   dryRun?: boolean;
 }
@@ -106,6 +133,19 @@ export interface FixtureMaterializationResult {
   materializedPaths: readonly string[];
   writesBranches: false;
   nextAction: FixtureTransitionAction;
+}
+
+export interface FixtureSourceSeedResult {
+  scenario: FixtureScenarioId;
+  label: string;
+  fixtureRepoPath: string;
+  sourceRef: string;
+  targetRef: string;
+  seedSourcePaths: readonly string[];
+  workspaceRoot: string;
+  materializedPaths: readonly string[];
+  writesBranches: boolean;
+  branchUpdate: FixtureBranchUpdateResult;
 }
 
 export interface FixtureCommandExecutionResult {
@@ -131,14 +171,25 @@ export interface FixtureCommandInvocationExecutionResult {
 export interface FixtureFileOperationAppliedFile {
   path: string;
   assetPath: string;
+  sourceRef?: string;
   provenance: string;
+  contentDigest?: string;
   bytes: number;
 }
 
 export interface FixtureFileOperationMissingAsset {
   path: string;
   assetPath: string;
+  sourceRef?: string;
   absolutePath: string;
+}
+
+export interface FixtureFileOperationDigestMismatch {
+  path: string;
+  assetPath: string;
+  sourceRef?: string;
+  expectedDigest: string;
+  actualDigest: string;
 }
 
 export interface FixtureFileOperationExecutionResult {
@@ -147,6 +198,7 @@ export interface FixtureFileOperationExecutionResult {
   success: boolean;
   files: readonly FixtureFileOperationAppliedFile[];
   missingAssets: readonly FixtureFileOperationMissingAsset[];
+  digestMismatches: readonly FixtureFileOperationDigestMismatch[];
 }
 
 export interface FixtureBranchPublicationExecutionResult {
@@ -273,8 +325,25 @@ export interface FixtureLadderScenario {
   fixtureRepoRelativePath: string;
   manifestRootRelativePath: string;
   assetRootRelativePath?: string;
+  sourceSeedPaths?: readonly string[];
   branchPrefix: string;
   transitions: readonly FixtureTransitionDefinition[];
+}
+
+export interface FixtureScenarioIndexResult {
+  scenario: FixtureScenarioId;
+  label: string;
+  scenarioIndexPath: string;
+  written: boolean;
+  valid: boolean;
+  matchesGenerated: boolean;
+  steps: number;
+  lanes: readonly string[];
+}
+
+export interface FixtureScenarioIndexOptions {
+  root: string;
+  scenario: FixtureScenarioId;
 }
 
 export interface FixtureTransitionDefinition {
@@ -344,12 +413,15 @@ export interface FixtureBranchPublicationCommandInvocation {
 export interface FixtureFileOperationSource {
   path: string;
   assetPath: string;
+  sourceRef?: string;
   provenance: string;
+  contentDigest?: string;
 }
 
-interface FixtureFileOperationSourceInput {
+export interface FixtureAssetSourceInput {
   path: string;
   assetPath?: string;
+  sourceRef?: string;
   provenance: string;
 }
 
@@ -382,11 +454,15 @@ const CANONICAL_OUTPUT_GUARDRAILS = [
   "generated RDF uses the canonical sflo namespace",
   "generated MeshInventory progression lives on _mesh/_meta",
 ] as const;
+const ACCORD_CONTEXT = "https://spectacular-voyage.github.io/accord/ontology/";
+const FIXTURE_SCENARIO_INDEX_FILENAME = "scenario-index.jsonld";
 const FIXTURE_ASSET_ROOT_BASENAME = ".assets";
+const DEFAULT_SOURCE_SEED_PATHS = [
+  FIXTURE_ASSET_ROOT_BASENAME,
+  ".gitignore",
+  "README.md",
+] as const;
 const LADDER_BRANCH_PREFIX = "a.";
-const ALICE_BIO_LADDER_BRANCH_PREFIX = LADDER_BRANCH_PREFIX;
-const SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX = LADDER_BRANCH_PREFIX;
-const BRANCH_FANTASY_RULES_LADDER_BRANCH_PREFIX = LADDER_BRANCH_PREFIX;
 
 const ALICE_BIO_FIXTURE_REPO = "github.com/semantic-flow/mesh-alice-bio";
 const ALICE_BIO_FIXTURE_REPO_RELATIVE_PATH = join(
@@ -438,7 +514,6 @@ const BRANCH_FANTASY_RULES_MANIFEST_ROOT_RELATIVE_PATH = join(
   "branch-fantasy-rules",
   "conformance",
 );
-const FIXTURE_GENERATED_AT = "2026-05-03T00:00:00.000Z";
 const CANONICAL_SFLO_NAMESPACE =
   "https://semantic-flow.github.io/sflo/ontology/";
 const OLD_SFLO_NAMESPACE =
@@ -460,16 +535,19 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
   fixtureRepo: ALICE_BIO_FIXTURE_REPO,
   fixtureRepoRelativePath: ALICE_BIO_FIXTURE_REPO_RELATIVE_PATH,
   manifestRootRelativePath: ALICE_BIO_MANIFEST_ROOT_RELATIVE_PATH,
-  branchPrefix: ALICE_BIO_LADDER_BRANCH_PREFIX,
+  sourceSeedPaths: [
+    ".gitignore",
+    "README.md",
+  ],
+  branchPrefix: LADDER_BRANCH_PREFIX,
   transitions: [
-    fileTransition(1, "01-source-only", "00-blank-slate", {
+    fileOperationTransition(1, "01-source-only", "00-blank-slate", {
       description: "Seed the source-only Alice Bio fixture branch.",
       sources: [
-        {
-          path: "alice-bio.ttl",
-          provenance:
-            "fixture-authored source RDF carried from the existing Alice Bio source-only fixture",
-        },
+        fixtureAssetSource(
+          "alice-data.ttl",
+          "fixture-authored source RDF carried from the existing Alice Bio source-only fixture",
+        ),
       ],
     }),
     commandTransition(2, "02-mesh-created", "01-source-only", "mesh.create"),
@@ -539,110 +617,69 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
       "12-bob-extracted",
       "weave",
     ),
-    fileTransition(14, "14-alice-page-customized", "13-bob-extracted-woven", {
-      description:
-        "Apply the hand-authored Alice page definition and local page assets.",
-      sources: [
-        {
-          path: "alice/_knop/_page/page.ttl",
-          provenance:
-            "fixture-authored canonical page definition adapted from the Alice Bio main branch page bytes",
-        },
-        {
-          path: "alice/alice.md",
-          provenance:
-            "fixture-authored Markdown copied from the Alice Bio main branch source bytes",
-        },
-        {
-          path: "mesh-content/sidebar.md",
-          provenance:
-            "fixture-authored sidebar Markdown copied from the Alice Bio main branch source bytes",
-        },
-        {
-          path: "alice/_knop/_assets/alice.css",
-          provenance:
-            "fixture-authored stylesheet copied from the Alice Bio main branch source bytes",
-        },
-      ],
-      inventoryPatches: [
-        {
-          kind: "resourcePageDefinition",
-          designatorPath: "alice",
-          hasAssetBundle: true,
-          provenance:
-            "register Alice's ResourcePageDefinition and KnopAssetBundle against the current generated Alice KnopInventory",
-        },
-      ],
-    }, "resourcePage.define"),
+    commandTransition(
+      14,
+      "14-alice-bio-imported",
+      "13-bob-extracted-woven",
+      "fixture.aliceBioImported",
+    ),
     commandTransition(
       15,
-      "15-alice-page-customized-woven",
-      "14-alice-page-customized",
+      "15-alice-bio-imported-woven",
+      "14-alice-bio-imported",
       "weave",
     ),
-    commandTransition(
+    fileOperationTransition(
       16,
-      "16-alice-page-main-integrated",
-      "15-alice-page-customized-woven",
-      "integrate",
-    ),
-    commandTransition(
-      17,
-      "17-alice-page-main-integrated-woven",
-      "16-alice-page-main-integrated",
-      "weave",
-    ),
-    fileTransition(
-      18,
-      "18-alice-page-artifact-source",
-      "17-alice-page-main-integrated-woven",
+      "16-alice-page-customized",
+      "15-alice-bio-imported-woven",
       {
         description:
-          "Repoint Alice's page definition to the governed page-main artifact.",
+          "Apply the hand-authored Alice page definition backed by governed content artifacts.",
         sources: [
+          fixtureAssetSource(
+            "alice/_knop/_page/page.ttl",
+            "fixture-authored canonical page definition that targets governed alice/bio and mesh-content/sidebar artifacts",
+          ),
+          fixtureAssetSource(
+            "alice/_knop/_assets/alice.css",
+            "fixture-authored stylesheet copied from the Alice Bio main branch source bytes",
+          ),
+        ],
+        inventoryPatches: [
           {
-            path: "alice/_knop/_page/page.ttl",
+            kind: "resourcePageDefinition",
+            designatorPath: "alice",
+            hasAssetBundle: true,
             provenance:
-              "fixture-authored canonical page definition adapted from the Alice Bio main branch artifact-backed page bytes",
+              "register Alice's ResourcePageDefinition and KnopAssetBundle against the current generated Alice KnopInventory",
           },
         ],
       },
       "resourcePage.define",
     ),
     commandTransition(
-      19,
-      "19-alice-page-artifact-source-woven",
-      "18-alice-page-artifact-source",
+      17,
+      "17-alice-page-customized-woven",
+      "16-alice-page-customized",
       "weave",
     ),
-    fileTransition(
+    commandTransition(
+      18,
+      "18-favicon-integrated",
+      "17-alice-page-customized-woven",
+      "integrate",
+    ),
+    commandTransition(
+      19,
+      "19-favicon-woven",
+      "18-favicon-integrated",
+      "weave",
+    ),
+    commandTransition(
       20,
       "20-bob-page-imported-source",
-      "19-alice-page-artifact-source-woven",
-      {
-        description:
-          "Import Bob page Markdown from the pinned outside-origin source fixture.",
-        sources: [
-          {
-            path: "bob-page-main.md",
-            provenance:
-              "checked-in bytes copied from the Alice Bio main branch's imported Markdown source; original outside-origin URL was https://raw.githubusercontent.com/djradon/public-notes/refs/heads/main/user.bob-newhart.md",
-          },
-          {
-            path: "bob/_knop/_page/page.ttl",
-            provenance:
-              "fixture-authored canonical page definition adapted from the Alice Bio main branch Bob page bytes",
-          },
-        ],
-        inventoryPatches: [
-          {
-            kind: "resourcePageDefinition",
-            designatorPath: "bob",
-            provenance:
-              "register Bob's ResourcePageDefinition against the current generated Bob KnopInventory",
-          },
-        ],
-      },
+      "19-favicon-woven",
       "import",
     ),
     commandTransition(
@@ -663,7 +700,7 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
       "22-root-knop-created",
       "weave",
     ),
-    fileTransition(
+    fileOperationTransition(
       24,
       "24-root-page-customized",
       "23-root-knop-created-woven",
@@ -671,26 +708,18 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
         description:
           "Apply the hand-authored root page definition and local page assets.",
         sources: [
-          {
-            path: "_knop/_page/page.ttl",
-            provenance:
-              "fixture-authored canonical page definition adapted from the Alice Bio main branch root page bytes",
-          },
-          {
-            path: "home.md",
-            provenance:
-              "fixture-authored root Markdown copied from the Alice Bio main branch source bytes",
-          },
-          {
-            path: "mesh-content/root-sidebar.md",
-            provenance:
-              "fixture-authored root sidebar Markdown copied from the Alice Bio main branch source bytes",
-          },
-          {
-            path: "_knop/_assets/site.css",
-            provenance:
-              "fixture-authored root stylesheet copied from the Alice Bio main branch source bytes",
-          },
+          fixtureAssetSource(
+            "_knop/_page/page.ttl",
+            "fixture-authored canonical page definition adapted from the Alice Bio main branch root page bytes",
+          ),
+          fixtureAssetSource(
+            "home.md",
+            "fixture-authored root Markdown copied from the Alice Bio main branch source bytes",
+          ),
+          fixtureAssetSource(
+            "_knop/_assets/site.css",
+            "fixture-authored root stylesheet copied from the Alice Bio main branch source bytes",
+          ),
         ],
         inventoryPatches: [
           {
@@ -710,6 +739,18 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
       "24-root-page-customized",
       "weave",
     ),
+    commandTransition(
+      26,
+      "26-carol",
+      "25-root-page-customized-woven",
+      "fixture.carol",
+    ),
+    commandTransition(
+      27,
+      "27-carol-woven",
+      "26-carol",
+      "weave",
+    ),
   ],
 };
 
@@ -719,9 +760,9 @@ export const SIDECAR_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
   fixtureRepo: SIDECAR_FANTASY_RULES_FIXTURE_REPO,
   fixtureRepoRelativePath: SIDECAR_FANTASY_RULES_FIXTURE_REPO_RELATIVE_PATH,
   manifestRootRelativePath: SIDECAR_FANTASY_RULES_MANIFEST_ROOT_RELATIVE_PATH,
-  branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+  branchPrefix: LADDER_BRANCH_PREFIX,
   transitions: [
-    fileTransition(
+    fileOperationTransition(
       1,
       "01-source-only",
       "00-blank-slate",
@@ -729,136 +770,94 @@ export const SIDECAR_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
         description:
           "Seed the authored source files for the docs-rooted Sidecar Fantasy Rules fixture branch.",
         sources: [
-          {
-            path: "NOTICE.md",
-            provenance:
-              "fixture-authored NOTICE text carried from the existing Sidecar Fantasy Rules source-only branch",
-          },
-          {
-            path: "ontology/fantasy-rules-ontology.ttl",
-            provenance:
-              "fixture-authored ontology RDF carried from the existing Sidecar Fantasy Rules source-only branch",
-          },
-          {
-            path: "shacl/fantasy-rules-shacl.ttl",
-            provenance:
-              "fixture-authored SHACL RDF carried from the existing Sidecar Fantasy Rules source-only branch",
-          },
-          {
-            path: "examples/gunaar.ttl",
-            provenance:
-              "fixture-authored example RDF carried from the existing Sidecar Fantasy Rules source-only branch",
-          },
+          fixtureAssetSource(
+            "NOTICE.md",
+            "fixture-authored NOTICE text carried from the existing Sidecar Fantasy Rules source-only branch",
+          ),
+          fixtureAssetSource(
+            "ontology/fantasy-rules-ontology.ttl",
+            "fixture-authored ontology RDF carried from the existing Sidecar Fantasy Rules source-only branch",
+          ),
+          fixtureAssetSource(
+            "shacl/fantasy-rules-shacl.ttl",
+            "fixture-authored SHACL RDF carried from the existing Sidecar Fantasy Rules source-only branch",
+          ),
+          fixtureAssetSource(
+            "examples/gunaar.ttl",
+            "fixture-authored example RDF carried from the existing Sidecar Fantasy Rules source-only branch",
+          ),
         ],
       },
       "fixture.seedSourceOnly",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     commandTransition(
       2,
       "02-sidecar-mesh-created",
       "01-source-only",
       "mesh.create",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     commandTransition(
       3,
       "03-sidecar-mesh-created-woven",
       "02-sidecar-mesh-created",
       "weave",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     commandTransition(
       4,
       "04-ontology-integrated",
       "03-sidecar-mesh-created-woven",
       "integrate",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     commandTransition(
       5,
       "05-ontology-integrated-woven",
       "04-ontology-integrated",
       "weave",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     commandTransition(
       6,
       "06-shacl-integrated",
       "05-ontology-integrated-woven",
       "integrate",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     commandTransition(
       7,
       "07-shacl-integrated-woven",
       "06-shacl-integrated",
       "weave",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     commandTransition(
       8,
       "08-ontology-and-shacl-terms-extracted",
       "07-shacl-integrated-woven",
       "extract",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     commandTransition(
       9,
       "09-ontology-and-shacl-terms-extracted-woven",
       "08-ontology-and-shacl-terms-extracted",
       "weave",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     commandTransition(
       10,
       "10-root-knop",
       "09-ontology-and-shacl-terms-extracted-woven",
       "knop.create",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
-    commandTransition(11, "11-root-knop-woven", "10-root-knop", "weave", {
-      branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-    }),
+    commandTransition(11, "11-root-knop-woven", "10-root-knop", "weave"),
     commandTransition(
       12,
       "12-gunaar-example-dataset",
       "11-root-knop-woven",
       "integrate",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     commandTransition(
       13,
       "13-gunaar-example-dataset-woven",
       "12-gunaar-example-dataset",
       "weave",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
-    fileTransition(
+    fileOperationTransition(
       14,
       "14-first-release",
       "13-gunaar-example-dataset-woven",
@@ -866,47 +865,35 @@ export const SIDECAR_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
         description:
           "Replace authored first-release source bytes from deterministic assets.",
         sources: [
-          {
-            path: "ontology/fantasy-rules-ontology.ttl",
-            provenance:
-              "fixture-authored ontology release source copied from the Sidecar Fantasy Rules main branch",
-          },
-          {
-            path: "shacl/fantasy-rules-shacl.ttl",
-            provenance:
-              "fixture-authored SHACL release source copied from the Sidecar Fantasy Rules main branch",
-          },
+          fixtureAssetSource(
+            "ontology/fantasy-rules-ontology.ttl",
+            "fixture-authored ontology release source copied from the Sidecar Fantasy Rules main branch",
+          ),
+          fixtureAssetSource(
+            "shacl/fantasy-rules-shacl.ttl",
+            "fixture-authored SHACL release source copied from the Sidecar Fantasy Rules main branch",
+          ),
         ],
       },
       "source.update",
-      { branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX },
     ),
     commandTransition(
       15,
       "15-first-release-woven",
       "14-first-release",
       "weave",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     commandTransition(
       16,
       "16-all-remaining-terms-extracted",
       "15-first-release-woven",
       "extract",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     commandTransition(
       17,
       "17-all-remaining-terms-woven",
       "16-all-remaining-terms-extracted",
       "weave",
-      {
-        branchPrefix: SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
   ],
 };
@@ -917,9 +904,9 @@ export const BRANCH_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
   fixtureRepo: BRANCH_FANTASY_RULES_FIXTURE_REPO,
   fixtureRepoRelativePath: BRANCH_FANTASY_RULES_FIXTURE_REPO_RELATIVE_PATH,
   manifestRootRelativePath: BRANCH_FANTASY_RULES_MANIFEST_ROOT_RELATIVE_PATH,
-  branchPrefix: BRANCH_FANTASY_RULES_LADDER_BRANCH_PREFIX,
+  branchPrefix: LADDER_BRANCH_PREFIX,
   transitions: [
-    fileTransition(
+    fileOperationTransition(
       1,
       "01-source-only",
       "00-blank-slate",
@@ -927,32 +914,25 @@ export const BRANCH_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
         description:
           "Seed the clean authored source files for the branch-published Fantasy Rules fixture.",
         sources: [
-          {
-            path: "NOTICE.md",
-            provenance:
-              "fixture-authored NOTICE text adapted from the Sidecar Fantasy Rules source-only branch",
-          },
-          {
-            path: "ontology/fantasy-rules-ontology.ttl",
-            provenance:
-              "fixture-authored ontology RDF adapted from the Sidecar Fantasy Rules source-only branch with the branch fixture base IRI",
-          },
-          {
-            path: "shacl/fantasy-rules-shacl.ttl",
-            provenance:
-              "fixture-authored SHACL RDF adapted from the Sidecar Fantasy Rules source-only branch with the branch fixture base IRI",
-          },
-          {
-            path: "examples/gunaar.ttl",
-            provenance:
-              "fixture-authored example RDF adapted from the Sidecar Fantasy Rules source-only branch with the branch fixture base IRI",
-          },
+          fixtureAssetSource(
+            "NOTICE.md",
+            "fixture-authored NOTICE text adapted from the Sidecar Fantasy Rules source-only branch",
+          ),
+          fixtureAssetSource(
+            "ontology/fantasy-rules-ontology.ttl",
+            "fixture-authored ontology RDF adapted from the Sidecar Fantasy Rules source-only branch with the branch fixture base IRI",
+          ),
+          fixtureAssetSource(
+            "shacl/fantasy-rules-shacl.ttl",
+            "fixture-authored SHACL RDF adapted from the Sidecar Fantasy Rules source-only branch with the branch fixture base IRI",
+          ),
+          fixtureAssetSource(
+            "examples/gunaar.ttl",
+            "fixture-authored example RDF adapted from the Sidecar Fantasy Rules source-only branch with the branch fixture base IRI",
+          ),
         ],
       },
       "fixture.seedSourceOnly",
-      {
-        branchPrefix: BRANCH_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     branchPublicationTransition(
       2,
@@ -1045,7 +1025,7 @@ export const BRANCH_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
         publicationBranch: "gh-pages",
       },
     ),
-    fileTransition(
+    fileOperationTransition(
       10,
       "10-first-release-source",
       "01-source-only",
@@ -1053,30 +1033,30 @@ export const BRANCH_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
         description:
           "Replace authored first-release source bytes from deterministic assets on the clean source lane.",
         sources: [
-          {
-            path: "ontology/fantasy-rules-ontology.ttl",
-            assetPath: "14-first-release/ontology/fantasy-rules-ontology.ttl",
-            provenance:
-              "fixture-authored ontology release source copied from deterministic branch fixture assets",
-          },
-          {
-            path: "shacl/fantasy-rules-shacl.ttl",
-            assetPath: "14-first-release/shacl/fantasy-rules-shacl.ttl",
-            provenance:
-              "fixture-authored SHACL release source copied from deterministic branch fixture assets",
-          },
-          {
-            path: "examples/gunaar.ttl",
-            assetPath: "14-first-release/examples/gunaar.ttl",
-            provenance:
-              "fixture-authored Gunaar release example source copied from deterministic branch fixture assets",
-          },
+          fixtureAssetSource(
+            "ontology/fantasy-rules-ontology.ttl",
+            "fixture-authored ontology release source copied from deterministic branch fixture assets",
+            {
+              assetPath: "14-first-release/ontology/fantasy-rules-ontology.ttl",
+            },
+          ),
+          fixtureAssetSource(
+            "shacl/fantasy-rules-shacl.ttl",
+            "fixture-authored SHACL release source copied from deterministic branch fixture assets",
+            {
+              assetPath: "14-first-release/shacl/fantasy-rules-shacl.ttl",
+            },
+          ),
+          fixtureAssetSource(
+            "examples/gunaar.ttl",
+            "fixture-authored Gunaar release example source copied from deterministic branch fixture assets",
+            {
+              assetPath: "14-first-release/examples/gunaar.ttl",
+            },
+          ),
         ],
       },
       "source.update",
-      {
-        branchPrefix: BRANCH_FANTASY_RULES_LADDER_BRANCH_PREFIX,
-      },
     ),
     branchPublicationTransition(
       11,
@@ -1144,11 +1124,26 @@ export const BRANCH_FANTASY_RULES_FIXTURE_SCENARIO: FixtureLadderScenario = {
 if (import.meta.main) {
   try {
     const options = parseFixtureLadderArgs(Deno.args);
-    if (options.executeTransitionId !== undefined) {
+    if (options.seedSourceRef !== undefined) {
+      const result = await seedFixtureSourceBranch({
+        root: options.root,
+        scenario: options.scenario,
+        seedSourceRef: options.seedSourceRef,
+        branchPrefix: options.branchPrefix,
+        workspaceRoot: options.workspaceRoot,
+        dryRun: options.dryRun ?? false,
+      });
+      console.log(
+        options.format === "json"
+          ? JSON.stringify(result, null, 2)
+          : renderFixtureSourceSeedResult(result),
+      );
+    } else if (options.executeTransitionId !== undefined) {
       const result = await executeFixtureTransition({
         root: options.root,
         scenario: options.scenario,
         transitionId: options.executeTransitionId,
+        branchPrefix: options.branchPrefix,
         workspaceRoot: options.workspaceRoot,
         dryRun: options.dryRun ?? false,
       });
@@ -1168,6 +1163,7 @@ if (import.meta.main) {
         root: options.root,
         scenario: options.scenario,
         transitionId: options.materializeTransitionId,
+        branchPrefix: options.branchPrefix,
         workspaceRoot: options.workspaceRoot,
       });
       console.log(
@@ -1175,6 +1171,29 @@ if (import.meta.main) {
           ? JSON.stringify(result, null, 2)
           : renderFixtureMaterializationResult(result),
       );
+    } else if (options.scenarioIndexMode === "write") {
+      const result = await writeFixtureScenarioIndex({
+        root: options.root,
+        scenario: options.scenario,
+      });
+      console.log(
+        options.format === "json"
+          ? JSON.stringify(result, null, 2)
+          : renderFixtureScenarioIndexResult(result),
+      );
+    } else if (options.scenarioIndexMode === "check") {
+      const result = await checkFixtureScenarioIndex({
+        root: options.root,
+        scenario: options.scenario,
+      });
+      console.log(
+        options.format === "json"
+          ? JSON.stringify(result, null, 2)
+          : renderFixtureScenarioIndexResult(result),
+      );
+      if (!result.matchesGenerated) {
+        Deno.exit(1);
+      }
     } else {
       const plan = await planFixtureLadder(options);
       console.log(
@@ -1197,8 +1216,11 @@ export function parseFixtureLadderArgs(
   let format: FixturePlanFormat = "text";
   let materializeTransitionId: string | undefined;
   let executeTransitionId: string | undefined;
+  let seedSourceRef: string | undefined;
+  let branchPrefix: string | undefined;
   let dryRun = false;
   let workspaceRoot: string | undefined;
+  let scenarioIndexMode: FixtureScenarioIndexMode | undefined;
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
@@ -1232,15 +1254,37 @@ export function parseFixtureLadderArgs(
         index += 1;
         executeTransitionId = requireArgumentValue(args[index], "--execute");
         break;
+      case "--seed-source-ref":
+        index += 1;
+        seedSourceRef = requireArgumentValue(args[index], "--seed-source-ref");
+        break;
       case "--workspace-root":
         index += 1;
         workspaceRoot = requireArgumentValue(args[index], "--workspace-root");
+        break;
+      case "--branch-prefix":
+        index += 1;
+        branchPrefix = parseBranchPrefix(
+          requireArgumentValue(args[index], "--branch-prefix"),
+        );
         break;
       case "--json":
         format = "json";
         break;
       case "--dry-run":
         dryRun = true;
+        break;
+      case "--write-scenario-index":
+        scenarioIndexMode = setScenarioIndexMode(
+          scenarioIndexMode,
+          "write",
+        );
+        break;
+      case "--check-scenario-index":
+        scenarioIndexMode = setScenarioIndexMode(
+          scenarioIndexMode,
+          "check",
+        );
         break;
       default:
         if (arg.startsWith("--root=")) {
@@ -1276,10 +1320,26 @@ export function parseFixtureLadderArgs(
           );
           break;
         }
+        if (arg.startsWith("--seed-source-ref=")) {
+          seedSourceRef = requireArgumentValue(
+            arg.slice("--seed-source-ref=".length),
+            "--seed-source-ref",
+          );
+          break;
+        }
         if (arg.startsWith("--workspace-root=")) {
           workspaceRoot = requireArgumentValue(
             arg.slice("--workspace-root=".length),
             "--workspace-root",
+          );
+          break;
+        }
+        if (arg.startsWith("--branch-prefix=")) {
+          branchPrefix = parseBranchPrefix(
+            requireArgumentValue(
+              arg.slice("--branch-prefix=".length),
+              "--branch-prefix",
+            ),
           );
           break;
         }
@@ -1288,19 +1348,40 @@ export function parseFixtureLadderArgs(
   }
 
   if (
-    materializeTransitionId !== undefined && executeTransitionId !== undefined
+    [
+      materializeTransitionId,
+      executeTransitionId,
+      seedSourceRef,
+    ].filter((value) => value !== undefined).length > 1
   ) {
     throw new Error(
-      "fixture:ladder accepts only one of --materialize or --execute",
+      "fixture:ladder accepts only one of --materialize, --execute, or --seed-source-ref",
+    );
+  }
+
+  if (
+    scenarioIndexMode !== undefined &&
+    (materializeTransitionId !== undefined ||
+      executeTransitionId !== undefined ||
+      seedSourceRef !== undefined)
+  ) {
+    throw new Error(
+      "fixture:ladder scenario-index options cannot be combined with --materialize, --execute, or --seed-source-ref",
+    );
+  }
+
+  if (scenarioIndexMode !== undefined && branchPrefix !== undefined) {
+    throw new Error(
+      "fixture:ladder --branch-prefix cannot be combined with scenario-index options",
     );
   }
 
   if (
     workspaceRoot !== undefined && materializeTransitionId === undefined &&
-    executeTransitionId === undefined
+    executeTransitionId === undefined && seedSourceRef === undefined
   ) {
     throw new Error(
-      "fixture:ladder --workspace-root requires --materialize or --execute",
+      "fixture:ladder --workspace-root requires --materialize, --execute, or --seed-source-ref",
     );
   }
 
@@ -1308,21 +1389,29 @@ export function parseFixtureLadderArgs(
     root: resolve(root),
     scenario,
     format,
+    ...(branchPrefix !== undefined ? { branchPrefix } : {}),
     ...(dryRun ? { dryRun } : {}),
     ...(materializeTransitionId !== undefined
       ? { materializeTransitionId }
       : {}),
     ...(executeTransitionId !== undefined ? { executeTransitionId } : {}),
+    ...(seedSourceRef !== undefined ? { seedSourceRef } : {}),
     ...(workspaceRoot !== undefined
       ? { workspaceRoot: resolve(workspaceRoot) }
       : {}),
+    ...(scenarioIndexMode !== undefined ? { scenarioIndexMode } : {}),
   };
 }
 
 export async function planFixtureLadder(
   options: FixtureLadderOptions,
 ): Promise<FixtureLadderPlan> {
-  const scenario = resolveFixtureScenario(options.scenario);
+  const scenario = options.branchPrefix === undefined
+    ? resolveFixtureScenario(options.scenario)
+    : withFixtureScenarioBranchPrefix(
+      resolveFixtureScenario(options.scenario),
+      options.branchPrefix,
+    );
   const root = resolve(options.root);
   const manifestRoot = join(root, scenario.manifestRootRelativePath);
   const assetRoot = join(
@@ -1446,6 +1535,244 @@ export function renderFixtureLadderPlan(plan: FixtureLadderPlan): string {
   return lines.join("\n");
 }
 
+export function renderFixtureScenarioIndexDocument(
+  scenario: FixtureLadderScenario,
+): ScenarioIndexDocument {
+  const stateLanes = renderFixtureScenarioIndexStateLanes(scenario);
+
+  return {
+    "@context": fixtureScenarioIndexContext(),
+    type: "ScenarioIndex",
+    id: `urn:accord:semantic-flow:${scenario.id}:scenario-index`,
+    "dcterms:title": `${scenario.label} fixture ladder`,
+    defaultFixtureRepo: scenario.fixtureRepo,
+    branchPrefix: scenario.branchPrefix,
+    assetRoot: [FIXTURE_ASSET_ROOT_BASENAME],
+    hasStateLane: stateLanes,
+    hasStep: scenario.transitions.map((transition) =>
+      renderFixtureScenarioIndexStep({
+        scenario,
+        transition,
+      })
+    ),
+  };
+}
+
+export function renderFixtureScenarioIndexJson(
+  scenario: FixtureLadderScenario,
+): string {
+  return `${
+    JSON.stringify(renderFixtureScenarioIndexDocument(scenario), null, 2)
+  }\n`;
+}
+
+export async function writeFixtureScenarioIndex(
+  options: FixtureScenarioIndexOptions,
+): Promise<FixtureScenarioIndexResult> {
+  const plan = await planFixtureLadder({
+    root: options.root,
+    scenario: options.scenario,
+    format: "text",
+  });
+  const scenarioIndexPath = fixtureScenarioIndexPath(plan);
+  const generatedText = renderFixtureScenarioIndexJson(plan.scenario);
+  const document = renderFixtureScenarioIndexDocument(plan.scenario);
+  await validateScenarioIndexDocument(document, {
+    rootPath: plan.manifestRoot,
+  });
+  await Deno.writeTextFile(scenarioIndexPath, generatedText);
+
+  return scenarioIndexResult({
+    plan,
+    scenarioIndexPath,
+    written: true,
+    matchesGenerated: true,
+  });
+}
+
+export async function checkFixtureScenarioIndex(
+  options: FixtureScenarioIndexOptions,
+): Promise<FixtureScenarioIndexResult> {
+  const plan = await planFixtureLadder({
+    root: options.root,
+    scenario: options.scenario,
+    format: "text",
+  });
+  const scenarioIndexPath = fixtureScenarioIndexPath(plan);
+  const generatedText = renderFixtureScenarioIndexJson(plan.scenario);
+  const existingText = await Deno.readTextFile(scenarioIndexPath);
+  const loaded = await readScenarioIndexSource(scenarioIndexPath);
+  await validateScenarioIndexDocument(loaded.document, {
+    rootPath: plan.manifestRoot,
+  });
+
+  return scenarioIndexResult({
+    plan,
+    scenarioIndexPath,
+    written: false,
+    matchesGenerated: existingText === generatedText,
+  });
+}
+
+export function renderFixtureScenarioIndexResult(
+  result: FixtureScenarioIndexResult,
+): string {
+  const lines = [
+    `Fixture scenario index ${
+      result.written ? "written" : "checked"
+    }: ${result.label}`,
+    `Scenario index: ${result.scenarioIndexPath}`,
+    `State lanes: ${result.lanes.join(", ")}`,
+    `Steps: ${result.steps}`,
+    `Validation: ${result.valid ? "pass" : "fail"}`,
+    `Generated output: ${result.matchesGenerated ? "current" : "drifted"}`,
+  ];
+
+  return lines.join("\n");
+}
+
+function fixtureScenarioIndexContext(): Record<string, unknown> {
+  return {
+    "@vocab": ACCORD_CONTEXT,
+    dcterms: "http://purl.org/dc/terms/",
+    id: "@id",
+    type: "@type",
+    lane: {
+      "@type": "@id",
+    },
+    locatorKind: {
+      "@type": "@vocab",
+    },
+  };
+}
+
+function renderFixtureScenarioIndexStateLanes(
+  scenario: FixtureLadderScenario,
+): StateLane[] {
+  if (scenario.id === "branch-fantasy-rules") {
+    return [
+      {
+        id: "#source-lane",
+        type: "StateLane",
+        laneKey: "source",
+        branchPrefix: scenario.branchPrefix,
+      },
+      {
+        id: "#publication-lane",
+        type: "StateLane",
+        laneKey: "publication",
+        branchPrefix: scenario.branchPrefix,
+      },
+    ];
+  }
+
+  return [
+    {
+      id: "#fixture-lane",
+      type: "StateLane",
+      laneKey: "fixture",
+      branchPrefix: scenario.branchPrefix,
+    },
+  ];
+}
+
+function renderFixtureScenarioIndexStep(options: {
+  scenario: FixtureLadderScenario;
+  transition: FixtureTransitionDefinition;
+}): ScenarioStep {
+  return {
+    id: `#${options.transition.id}`,
+    type: "ScenarioStep",
+    manifestPath: options.transition.manifestName,
+    hasLaneBinding: renderFixtureScenarioIndexLaneBindings(options),
+  };
+}
+
+function renderFixtureScenarioIndexLaneBindings(options: {
+  scenario: FixtureLadderScenario;
+  transition: FixtureTransitionDefinition;
+}): LaneStateBinding[] {
+  if (options.scenario.id !== "branch-fantasy-rules") {
+    return [
+      laneStateBinding({
+        lane: "#fixture-lane",
+        fromRef: options.transition.fromRef,
+        toRef: options.transition.toRef,
+      }),
+    ];
+  }
+
+  if (options.transition.action.kind === "branchPublication") {
+    return [
+      laneStateBinding({
+        lane: "#source-lane",
+        fromRef: options.transition.action.sourceRef,
+        toRef: options.transition.action.sourceRef,
+      }),
+      laneStateBinding({
+        lane: "#publication-lane",
+        fromRef: options.transition.action.publicationFromRef,
+        toRef: options.transition.toRef,
+      }),
+    ];
+  }
+
+  return [
+    laneStateBinding({
+      lane: "#source-lane",
+      fromRef: options.transition.fromRef,
+      toRef: options.transition.toRef,
+    }),
+  ];
+}
+
+function laneStateBinding(options: {
+  lane: string;
+  fromRef?: string;
+  toRef: string;
+}): LaneStateBinding {
+  return {
+    type: "LaneStateBinding",
+    lane: options.lane,
+    ...(options.fromRef === undefined
+      ? {}
+      : { fromLaneState: gitRefStateLocator(options.fromRef) }),
+    toLaneState: gitRefStateLocator(options.toRef),
+  };
+}
+
+function gitRefStateLocator(ref: string): StateLocator {
+  return {
+    type: "StateLocator",
+    locatorKind: "gitRefState",
+    ref,
+  };
+}
+
+function fixtureScenarioIndexPath(plan: FixtureLadderPlan): string {
+  return join(plan.manifestRoot, FIXTURE_SCENARIO_INDEX_FILENAME);
+}
+
+function scenarioIndexResult(options: {
+  plan: FixtureLadderPlan;
+  scenarioIndexPath: string;
+  written: boolean;
+  matchesGenerated: boolean;
+}): FixtureScenarioIndexResult {
+  return {
+    scenario: options.plan.scenario.id,
+    label: options.plan.scenario.label,
+    scenarioIndexPath: options.scenarioIndexPath,
+    written: options.written,
+    valid: true,
+    matchesGenerated: options.matchesGenerated,
+    steps: options.plan.scenario.transitions.length,
+    lanes: renderFixtureScenarioIndexStateLanes(options.plan.scenario).map(
+      (lane) => lane.laneKey ?? lane.id ?? "(unnamed)",
+    ),
+  };
+}
+
 export async function materializeFixtureTransitionSource(
   options: MaterializeFixtureTransitionOptions,
 ): Promise<FixtureMaterializationResult> {
@@ -1453,6 +1780,7 @@ export async function materializeFixtureTransitionSource(
     root: options.root,
     scenario: options.scenario,
     format: "text",
+    branchPrefix: options.branchPrefix,
   });
   const transition = findFixtureTransitionPlan(plan, options.transitionId);
 
@@ -1491,6 +1819,81 @@ export async function materializeFixtureTransitionSource(
   };
 }
 
+export async function seedFixtureSourceBranch(
+  options: SeedFixtureSourceBranchOptions,
+): Promise<FixtureSourceSeedResult> {
+  const plan = await planFixtureLadder({
+    root: options.root,
+    scenario: options.scenario,
+    format: "text",
+    branchPrefix: options.branchPrefix,
+  });
+  const firstTransition = plan.transitions[0];
+  if (firstTransition === undefined) {
+    throw new Error(`Fixture scenario has no transitions: ${plan.scenario.id}`);
+  }
+
+  const workspaceRoot = options.workspaceRoot === undefined
+    ? await Deno.makeTempDir({ prefix: "weave-fixture-source-seed-" })
+    : resolve(options.workspaceRoot);
+  await ensureEmptyWorkspaceRoot(workspaceRoot);
+
+  const resolvedSourceRef = await resolveGitCommitishIfExists(
+    plan.fixtureRepoPath,
+    options.seedSourceRef,
+  );
+  if (resolvedSourceRef === undefined) {
+    throw unresolvedFixtureRefError(
+      plan.fixtureRepoPath,
+      options.seedSourceRef,
+    );
+  }
+
+  const seedSourcePaths = plan.scenario.sourceSeedPaths ??
+    DEFAULT_SOURCE_SEED_PATHS;
+  const materializedPaths = await materializeGitTree({
+    repoPath: plan.fixtureRepoPath,
+    ref: resolvedSourceRef,
+    workspaceRoot,
+    pathspecs: seedSourcePaths,
+  });
+  if (materializedPaths.length === 0) {
+    throw new Error(
+      `Seed source ref ${options.seedSourceRef} did not contain any source seed paths for ${plan.scenario.label}`,
+    );
+  }
+
+  await assertValidBranchName(plan.fixtureRepoPath, firstTransition.fromRef);
+  const branchUpdate = options.dryRun === true
+    ? {
+      dryRun: true,
+      updated: false,
+      targetRef: firstTransition.fromRef,
+      branchRef: toLocalBranchRef(firstTransition.fromRef),
+      localOnly: true,
+      reason: "dry run requested",
+    } as const
+    : await updateFixtureBranchFromWorkspace({
+      fixtureRepoPath: plan.fixtureRepoPath,
+      workspaceRoot,
+      targetRef: firstTransition.fromRef,
+      message: `Seed fixture source branch ${firstTransition.fromRef}`,
+    });
+
+  return {
+    scenario: plan.scenario.id,
+    label: plan.scenario.label,
+    fixtureRepoPath: plan.fixtureRepoPath,
+    sourceRef: options.seedSourceRef,
+    targetRef: firstTransition.fromRef,
+    seedSourcePaths,
+    workspaceRoot,
+    materializedPaths,
+    writesBranches: branchUpdate.updated,
+    branchUpdate,
+  };
+}
+
 export async function executeFixtureTransition(
   options: ExecuteFixtureTransitionOptions,
 ): Promise<FixtureExecutionResult> {
@@ -1498,6 +1901,7 @@ export async function executeFixtureTransition(
     root: options.root,
     scenario: options.scenario,
     format: "text",
+    branchPrefix: options.branchPrefix,
   });
   const transition = findFixtureTransitionPlan(plan, options.transitionId);
 
@@ -1514,6 +1918,7 @@ export async function executeFixtureTransition(
   const operation = transition.action.kind === "command"
     ? await runFixtureCommand({
       assetRoot: plan.assetRoot,
+      fixtureRepoPath: plan.fixtureRepoPath,
       root: plan.root,
       workspaceRoot: materialization.workspaceRoot,
       action: transition.action,
@@ -1521,6 +1926,7 @@ export async function executeFixtureTransition(
     : transition.action.kind === "fileOperation"
     ? await applyFixtureFileOperation({
       assetRoot: plan.assetRoot,
+      fixtureRepoPath: plan.fixtureRepoPath,
       workspaceRoot: materialization.workspaceRoot,
       action: transition.action,
     })
@@ -1675,6 +2081,33 @@ export function renderFixtureMaterializationResult(
   return lines.join("\n");
 }
 
+export function renderFixtureSourceSeedResult(
+  result: FixtureSourceSeedResult,
+): string {
+  const lines = [
+    `Fixture source seed prepared: ${result.label}`,
+    `Source ref: ${result.sourceRef}`,
+    `Target ref: ${result.targetRef}`,
+    `Fixture repository: ${result.fixtureRepoPath}`,
+    `Workspace root: ${result.workspaceRoot}`,
+    `Seed paths: ${result.seedSourcePaths.join(", ")}`,
+    `Branch writes: ${result.branchUpdate.updated ? "enabled" : "disabled"}`,
+    `Files materialized: ${result.materializedPaths.length}`,
+  ];
+  for (const path of result.materializedPaths) {
+    lines.push(`- ${path}`);
+  }
+  lines.push("Branch update:");
+  if (result.branchUpdate.updated) {
+    lines.push(
+      `updated ${result.branchUpdate.branchRef} to ${result.branchUpdate.commitSha}`,
+    );
+  } else {
+    lines.push(`skipped: ${result.branchUpdate.reason}`);
+  }
+  return lines.join("\n");
+}
+
 export function renderFixtureExecutionResult(
   result: FixtureExecutionResult,
 ): string {
@@ -1736,6 +2169,16 @@ export function renderFixtureExecutionResult(
           `- ${missing.path} <= ${
             formatFixtureAssetPath(missing)
           } (${missing.absolutePath})`,
+        );
+      }
+    }
+    if (result.fileOperation.digestMismatches.length > 0) {
+      lines.push("Digest mismatches:");
+      for (const mismatch of result.fileOperation.digestMismatches) {
+        lines.push(
+          `- ${mismatch.path} <= ${
+            formatFixtureAssetPath(mismatch)
+          } expected ${mismatch.expectedDigest}, got ${mismatch.actualDigest}`,
         );
       }
     }
@@ -1807,6 +2250,74 @@ function resolveFixtureScenario(id: FixtureScenarioId): FixtureLadderScenario {
   }
 }
 
+function withFixtureScenarioBranchPrefix(
+  scenario: FixtureLadderScenario,
+  branchPrefix: string,
+): FixtureLadderScenario {
+  if (scenario.branchPrefix === branchPrefix) {
+    return scenario;
+  }
+
+  return {
+    ...scenario,
+    branchPrefix,
+    transitions: scenario.transitions.map((transition) => ({
+      ...transition,
+      fromRef: replaceFixtureBranchPrefix(
+        transition.fromRef,
+        scenario.branchPrefix,
+        branchPrefix,
+      ),
+      toRef: replaceFixtureBranchPrefix(
+        transition.toRef,
+        scenario.branchPrefix,
+        branchPrefix,
+      ),
+      action: withFixtureActionBranchPrefix(
+        transition.action,
+        scenario.branchPrefix,
+        branchPrefix,
+      ),
+    })),
+  };
+}
+
+function withFixtureActionBranchPrefix(
+  action: FixtureTransitionAction,
+  oldPrefix: string,
+  newPrefix: string,
+): FixtureTransitionAction {
+  if (action.kind !== "branchPublication") {
+    return action;
+  }
+
+  return {
+    ...action,
+    sourceRef: replaceFixtureBranchPrefix(
+      action.sourceRef,
+      oldPrefix,
+      newPrefix,
+    ),
+    ...(action.publicationFromRef === undefined ? {} : {
+      publicationFromRef: replaceFixtureBranchPrefix(
+        action.publicationFromRef,
+        oldPrefix,
+        newPrefix,
+      ),
+    }),
+  };
+}
+
+function replaceFixtureBranchPrefix(
+  ref: string,
+  oldPrefix: string,
+  newPrefix: string,
+): string {
+  return ref.startsWith(oldPrefix)
+    ? `${newPrefix}${ref.slice(oldPrefix.length)}`
+    : ref;
+}
+
 function findFixtureTransitionPlan(
   plan: FixtureLadderPlan,
   transitionId: string,
@@ -1831,16 +2342,24 @@ async function hydrateFixtureTransitionPlan(options: {
     manifestPath: options.manifestPath,
   };
 
-  if (options.transition.action.kind === "fileOperation") {
-    return base;
-  }
-
   if (!await pathExists(options.manifestPath)) {
     return base;
   }
 
   const manifest = await readManifestSource(options.manifestPath);
   const transitionCase = selectTransitionCase(manifest.document);
+  if (options.transition.action.kind === "fileOperation") {
+    return {
+      ...base,
+      operationId: transitionCase.operationId ?? options.transition.operationId,
+      action: hydrateFileOperationActionFromReplayProfile({
+        action: options.transition.action,
+        transitionId: options.transition.id,
+        replayProfile: transitionCase.hasReplayProfile,
+      }),
+    };
+  }
+
   if (options.transition.action.kind === "branchPublication") {
     return {
       ...base,
@@ -1862,6 +2381,27 @@ async function hydrateFixtureTransitionPlan(options: {
       manifestPath: options.manifestPath,
       replayProfile: transitionCase.hasReplayProfile,
     }),
+  };
+}
+
+function hydrateFileOperationActionFromReplayProfile(options: {
+  action: FixtureFileOperationAction;
+  transitionId: string;
+  replayProfile?: ReplayProfile;
+}): FixtureFileOperationAction {
+  const fileOperations = options.replayProfile?.hasFileOperation ?? [];
+  if (fileOperations.length === 0) {
+    return options.action;
+  }
+
+  validateReplayProfile(options.transitionId, options.replayProfile!);
+
+  return {
+    ...options.action,
+    sources: resolveReplayFileOperations(
+      options.transitionId,
+      fileOperations,
+    ),
   };
 }
 
@@ -2055,7 +2595,56 @@ function resolveReplayInputMaterializations(
     return {
       path: targetPath,
       assetPath,
+      ...(provenance?.sourceRef === undefined ? {} : {
+        sourceRef: normalizeGitTreePath(provenance.sourceRef),
+      }),
       provenance: describeSourceProvenance(provenance),
+      ...(provenance?.contentDigest === undefined ? {} : {
+        contentDigest: provenance.contentDigest,
+      }),
+    };
+  });
+}
+
+function resolveReplayFileOperations(
+  transitionId: string,
+  fileOperations: readonly FileOperation[],
+): FixtureFileOperationSource[] {
+  return fileOperations.map((fileOperation) => {
+    const operationKind = fileOperation.operationKind ?? "copyFile";
+    if (
+      operationKind !== "copyFile" && operationKind !== "createFile" &&
+      operationKind !== "updateFile"
+    ) {
+      throw new Error(
+        `Unsupported replay file operation kind for ${transitionId}: ${operationKind}`,
+      );
+    }
+
+    if (fileOperation.targetPath === undefined) {
+      throw new Error(
+        `Replay file operation for ${transitionId} is missing targetPath`,
+      );
+    }
+
+    const targetPath = normalizeGitTreePath(fileOperation.targetPath);
+    const provenance = fileOperation.hasSourceProvenance;
+    if (provenance?.sourcePath === undefined) {
+      throw new Error(
+        `Replay file operation for ${transitionId} target ${targetPath} must declare hasSourceProvenance.sourcePath`,
+      );
+    }
+
+    return {
+      path: targetPath,
+      assetPath: normalizeGitTreePath(provenance.sourcePath),
+      ...(provenance.sourceRef === undefined ? {} : {
+        sourceRef: normalizeGitTreePath(provenance.sourceRef),
+      }),
+      provenance: describeSourceProvenance(provenance),
+      ...(provenance.contentDigest === undefined ? {} : {
+        contentDigest: provenance.contentDigest,
+      }),
     };
   });
 }
@@ -2080,7 +2669,24 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-function commandTransition(
+export function fixtureAssetSource(
+  path: string,
+  provenance: string,
+  options: { assetPath?: string; sourceRef?: string } = {},
+): FixtureAssetSourceInput {
+  return {
+    path: normalizeGitTreePath(path),
+    ...(options.assetPath === undefined
+      ? {}
+      : { assetPath: normalizeGitTreePath(options.assetPath) }),
+    ...(options.sourceRef === undefined
+      ? {}
+      : { sourceRef: normalizeGitTreePath(options.sourceRef) }),
+    provenance,
+  };
+}
+
+export function commandTransition(
   index: number,
   id: string,
   fromRef: string,
@@ -2089,7 +2695,7 @@ function commandTransition(
     branchPrefix?: string;
   } = {},
 ): FixtureTransitionDefinition {
-  const branchPrefix = options.branchPrefix ?? ALICE_BIO_LADDER_BRANCH_PREFIX;
+  const branchPrefix = options.branchPrefix ?? LADDER_BRANCH_PREFIX;
   return {
     index,
     id,
@@ -2110,13 +2716,13 @@ function commandTransition(
   };
 }
 
-function fileTransition(
+export function fileOperationTransition(
   index: number,
   id: string,
   fromRef: string,
   action: {
     description: string;
-    sources: readonly FixtureFileOperationSourceInput[];
+    sources: readonly FixtureAssetSourceInput[];
     inventoryPatches?:
       readonly FixtureResourcePageDefinitionInventoryPatchInput[];
   },
@@ -2125,7 +2731,7 @@ function fileTransition(
     branchPrefix?: string;
   } = {},
 ): FixtureTransitionDefinition {
-  const branchPrefix = options.branchPrefix ?? ALICE_BIO_LADDER_BRANCH_PREFIX;
+  const branchPrefix = options.branchPrefix ?? LADDER_BRANCH_PREFIX;
   return {
     index,
     id,
@@ -2145,7 +2751,7 @@ function fileTransition(
   };
 }
 
-function branchPublicationTransition(
+export function branchPublicationTransition(
   index: number,
   id: string,
   sourceFromRef: string,
@@ -2162,8 +2768,7 @@ function branchPublicationTransition(
     branchPrefix?: string;
   } = {},
 ): FixtureTransitionDefinition {
-  const branchPrefix = options.branchPrefix ??
-    BRANCH_FANTASY_RULES_LADDER_BRANCH_PREFIX;
+  const branchPrefix = options.branchPrefix ?? LADDER_BRANCH_PREFIX;
   const sourceRef = toLadderBranchRef(branchPrefix, sourceFromRef);
   const publicationFromRef = action.publicationFromRef === undefined
     ? undefined
@@ -2195,12 +2800,13 @@ function branchPublicationTransition(
 
 function resolveFixtureAssetSources(
   transitionId: string,
-  sources: readonly FixtureFileOperationSourceInput[],
+  sources: readonly FixtureAssetSourceInput[],
 ): FixtureFileOperationSource[] {
   return sources.map((source) => ({
     path: source.path,
     assetPath: source.assetPath ??
       pathPosix.join(transitionId, normalizeGitTreePath(source.path)),
+    ...(source.sourceRef === undefined ? {} : { sourceRef: source.sourceRef }),
     provenance: source.provenance,
   }));
 }
@@ -2233,7 +2839,12 @@ function toLadderBranchRef(branchPrefix: string, rungId: string): string {
   return `${branchPrefix}${rungId}`;
 }
 
-function formatFixtureAssetPath(options: { assetPath: string }): string {
+function formatFixtureAssetPath(
+  options: { assetPath: string; sourceRef?: string },
+): string {
+  if (options.sourceRef !== undefined) {
+    return `${options.sourceRef}:${options.assetPath}`;
+  }
   return pathPosix.join(FIXTURE_ASSET_ROOT_BASENAME, options.assetPath);
 }
 
@@ -2257,6 +2868,7 @@ function unreachableAction(action: never): never {
 
 async function runFixtureCommand(options: {
   assetRoot: string;
+  fixtureRepoPath: string;
   root: string;
   workspaceRoot: string;
   action: FixtureCommandAction;
@@ -2280,6 +2892,7 @@ async function runFixtureCommand(options: {
 
 async function runFixtureCommandInvocation(options: {
   assetRoot: string;
+  fixtureRepoPath: string;
   root: string;
   workspaceRoot: string;
   invocation: FixtureCommandInvocationAction;
@@ -2297,11 +2910,13 @@ async function runFixtureCommandInvocation(options: {
     "--allow-write",
     "--allow-run=git",
     "--allow-env",
+    "--allow-net=raw.githubusercontent.com",
     join(options.root, "src/main.ts"),
     ...options.invocation.argv,
   ];
   const stagedInputs = await stageFixtureAssetSources({
     assetRoot: options.assetRoot,
+    fixtureRepoPath: options.fixtureRepoPath,
     workspaceRoot: options.workspaceRoot,
     sources: options.invocation.inputs,
   });
@@ -2319,13 +2934,24 @@ async function runFixtureCommandInvocation(options: {
       ).join("\n"),
     };
   }
+  if (stagedInputs.digestMismatches.length > 0) {
+    return {
+      command,
+      cwd: options.workspaceRoot,
+      success: false,
+      code: 1,
+      stdout: "",
+      stderr: stagedInputs.digestMismatches.map((mismatch) =>
+        `Fixture command input digest mismatch ${mismatch.path} from ${
+          formatFixtureAssetPath(mismatch)
+        }: expected ${mismatch.expectedDigest}, got ${mismatch.actualDigest}`
+      ).join("\n"),
+    };
+  }
 
   const output = await new Deno.Command("deno", {
     cwd: options.workspaceRoot,
     args: command.slice(1),
-    env: {
-      WEAVE_GENERATED_AT: FIXTURE_GENERATED_AT,
-    },
     stdout: "piped",
     stderr: "piped",
   }).output();
@@ -2500,6 +3126,7 @@ async function runBranchPublicationCommandInvocation(options: {
     "--allow-write",
     "--allow-run=git",
     "--allow-env",
+    "--allow-net=raw.githubusercontent.com",
     join(options.root, "src/main.ts"),
     ...options.invocation.argv.map((arg) =>
       substituteBranchPublicationArg({
@@ -2516,7 +3143,6 @@ async function runBranchPublicationCommandInvocation(options: {
     args: command.slice(1),
     env: {
       HOME: homeDirectory,
-      WEAVE_GENERATED_AT: FIXTURE_GENERATED_AT,
       WEAVE_LOG_DIR: logDir,
     },
     stdout: "piped",
@@ -2549,11 +3175,13 @@ function substituteBranchPublicationArg(options: {
 
 async function applyFixtureFileOperation(options: {
   assetRoot: string;
+  fixtureRepoPath: string;
   workspaceRoot: string;
   action: FixtureFileOperationAction;
 }): Promise<FixtureFileOperationExecutionResult> {
   const stagedSources = await stageFixtureAssetSources({
     assetRoot: options.assetRoot,
+    fixtureRepoPath: options.fixtureRepoPath,
     workspaceRoot: options.workspaceRoot,
     sources: options.action.sources,
   });
@@ -2564,6 +3192,17 @@ async function applyFixtureFileOperation(options: {
       success: false,
       files: [],
       missingAssets: stagedSources.missingAssets,
+      digestMismatches: [],
+    };
+  }
+  if (stagedSources.digestMismatches.length > 0) {
+    return {
+      kind: "fileOperation",
+      description: options.action.description,
+      success: false,
+      files: [],
+      missingAssets: [],
+      digestMismatches: stagedSources.digestMismatches,
     };
   }
 
@@ -2580,16 +3219,19 @@ async function applyFixtureFileOperation(options: {
     success: true,
     files: stagedSources.files,
     missingAssets: [],
+    digestMismatches: [],
   };
 }
 
 async function stageFixtureAssetSources(options: {
   assetRoot: string;
+  fixtureRepoPath: string;
   workspaceRoot: string;
   sources: readonly FixtureFileOperationSource[];
 }): Promise<{
   files: FixtureFileOperationAppliedFile[];
   missingAssets: FixtureFileOperationMissingAsset[];
+  digestMismatches: FixtureFileOperationDigestMismatch[];
 }> {
   const pendingFiles: Array<
     FixtureFileOperationAppliedFile & {
@@ -2598,6 +3240,7 @@ async function stageFixtureAssetSources(options: {
     }
   > = [];
   const missingAssets: FixtureFileOperationMissingAsset[] = [];
+  const digestMismatches: FixtureFileOperationDigestMismatch[] = [];
   const seenTargets = new Set<string>();
 
   for (const source of options.sources) {
@@ -2612,12 +3255,42 @@ async function stageFixtureAssetSources(options: {
 
     const absoluteAssetPath = join(options.assetRoot, assetPath);
     const absoluteTargetPath = join(options.workspaceRoot, targetPath);
+    const resolvedAssetPath = source.sourceRef === undefined
+      ? absoluteAssetPath
+      : `${options.fixtureRepoPath}:${source.sourceRef}:${assetPath}`;
     try {
-      const contents = await Deno.readFile(absoluteAssetPath);
+      const contents = source.sourceRef === undefined
+        ? await Deno.readFile(absoluteAssetPath)
+        : await readFixtureAssetBlob({
+          fixtureRepoPath: options.fixtureRepoPath,
+          sourceRef: source.sourceRef,
+          assetPath,
+        });
+      const actualDigest = source.contentDigest === undefined
+        ? undefined
+        : await sha256ContentDigest(contents);
+      if (
+        source.contentDigest !== undefined && actualDigest !== undefined &&
+        source.contentDigest.toLowerCase() !== actualDigest
+      ) {
+        digestMismatches.push({
+          path: targetPath,
+          assetPath,
+          ...(source.sourceRef === undefined ? {} : {
+            sourceRef: source.sourceRef,
+          }),
+          expectedDigest: source.contentDigest,
+          actualDigest,
+        });
+      }
       pendingFiles.push({
         path: targetPath,
         assetPath,
+        ...(source.sourceRef === undefined ? {} : {
+          sourceRef: source.sourceRef,
+        }),
         provenance: source.provenance,
+        ...(actualDigest === undefined ? {} : { contentDigest: actualDigest }),
         bytes: contents.byteLength,
         absoluteTargetPath,
         contents,
@@ -2627,7 +3300,10 @@ async function stageFixtureAssetSources(options: {
         missingAssets.push({
           path: targetPath,
           assetPath,
-          absolutePath: absoluteAssetPath,
+          ...(source.sourceRef === undefined ? {} : {
+            sourceRef: source.sourceRef,
+          }),
+          absolutePath: resolvedAssetPath,
         });
         continue;
       }
@@ -2639,6 +3315,15 @@ async function stageFixtureAssetSources(options: {
     return {
       files: [],
       missingAssets,
+      digestMismatches,
+    };
+  }
+
+  if (digestMismatches.length > 0) {
+    return {
+      files: [],
+      missingAssets,
+      digestMismatches,
     };
   }
 
@@ -2652,7 +3337,37 @@ async function stageFixtureAssetSources(options: {
       { absoluteTargetPath: _absoluteTargetPath, contents: _contents, ...file },
     ) => file),
     missingAssets,
+    digestMismatches,
   };
+}
+
+async function readFixtureAssetBlob(options: {
+  fixtureRepoPath: string;
+  sourceRef: string;
+  assetPath: string;
+}): Promise<Uint8Array> {
+  const contents = await readGitBlobIfExists(
+    options.fixtureRepoPath,
+    options.sourceRef,
+    options.assetPath,
+  );
+  if (contents === undefined) {
+    throw new Deno.errors.NotFound(
+      `${options.sourceRef}:${options.assetPath}`,
+    );
+  }
+  return contents;
+}
+
+async function sha256ContentDigest(contents: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new Uint8Array(contents),
+  );
+  return `sha256:${
+    Array.from(new Uint8Array(digest), (byte) =>
+      byte.toString(16).padStart(2, "0")).join("")
+  }`;
 }
 
 async function applyFixtureInventoryPatch(options: {
@@ -3616,6 +4331,25 @@ function parsePlanFormat(value: string): FixturePlanFormat {
   throw new Error(`Unsupported fixture plan format: ${value}`);
 }
 
+function parseBranchPrefix(value: string): string {
+  if (value.length === 0 || /\s/u.test(value)) {
+    throw new Error(`Unsupported fixture branch prefix: ${value}`);
+  }
+  return value;
+}
+
+function setScenarioIndexMode(
+  current: FixtureScenarioIndexMode | undefined,
+  next: FixtureScenarioIndexMode,
+): FixtureScenarioIndexMode {
+  if (current !== undefined && current !== next) {
+    throw new Error(
+      "fixture:ladder accepts only one scenario-index mode",
+    );
+  }
+  return next;
+}
+
 async function ensureEmptyWorkspaceRoot(path: string): Promise<void> {
   try {
     const stat = await Deno.stat(path);
@@ -3698,13 +4432,16 @@ async function materializeGitTree(options: {
   repoPath: string;
   ref: string;
   workspaceRoot: string;
+  pathspecs?: readonly string[];
 }): Promise<string[]> {
+  const pathspecs = (options.pathspecs ?? []).map(normalizeGitTreePath);
   const listResult = await runGit(options.repoPath, [
     "ls-tree",
     "-r",
     "--name-only",
     "-z",
     options.ref,
+    ...(pathspecs.length === 0 ? [] : ["--", ...pathspecs]),
   ]);
   if (!listResult.success) {
     throw new Error(
@@ -3739,8 +4476,20 @@ async function readGitBlobIfExists(
   ref: string,
   path: string,
 ): Promise<Uint8Array | undefined> {
-  const result = await runGitBytes(repoPath, ["show", `${ref}:${path}`]);
-  return result.success ? result.stdout : undefined;
+  for (const candidate of gitRefReadCandidates(ref)) {
+    const result = await runGitBytes(repoPath, [
+      "show",
+      `${candidate}:${path}`,
+    ]);
+    if (result.success) {
+      return result.stdout;
+    }
+  }
+  return undefined;
+}
+
+function gitRefReadCandidates(ref: string): readonly string[] {
+  return ref.startsWith("origin/") ? [ref] : [ref, `origin/${ref}`];
 }
 
 async function readWorkspaceFileIfExists(

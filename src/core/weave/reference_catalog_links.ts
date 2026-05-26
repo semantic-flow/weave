@@ -14,10 +14,12 @@ import type { ReferenceCatalogCurrentLinkModel } from "./resource_page_models.ts
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const SFLO_HAS_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}hasReferenceLink`;
 const SFLO_HAS_REFERENCE_ROLE_IRI = `${SFLO_NAMESPACE}hasReferenceRole`;
+const SFLO_HAS_REFERENCE_SOURCE_IRI = `${SFLO_NAMESPACE}hasReferenceSource`;
+const SFLO_HAS_REQUESTED_TARGET_STATE_IRI =
+  `${SFLO_NAMESPACE}hasRequestedTargetState`;
+const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasTargetArtifact`;
 const SFLO_REFERENCE_LINK_FOR_IRI = `${SFLO_NAMESPACE}referenceLinkFor`;
 const SFLO_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}ReferenceLink`;
-const SFLO_REFERENCE_TARGET_IRI = `${SFLO_NAMESPACE}referenceTarget`;
-const SFLO_REFERENCE_TARGET_STATE_IRI = `${SFLO_NAMESPACE}referenceTargetState`;
 
 export function extractCurrentReferenceCatalogLinks(
   meshBase: string,
@@ -99,16 +101,22 @@ export function extractCurrentReferenceCatalogLinks(
       SFLO_HAS_REFERENCE_ROLE_IRI,
       errorMessage,
     );
-    const referenceTargetIri = requireSingleNamedNodeObject(
+    const referenceSourceIri = requireSingleNamedNodeObject(
       quads,
       subjectIri,
-      SFLO_REFERENCE_TARGET_IRI,
+      SFLO_HAS_REFERENCE_SOURCE_IRI,
+      errorMessage,
+    );
+    const referenceTargetIri = requireSingleNamedNodeObject(
+      quads,
+      referenceSourceIri,
+      SFLO_HAS_TARGET_ARTIFACT_IRI,
       errorMessage,
     );
     const referenceTargetStateIri = requireOptionalNamedNodeObject(
       quads,
-      subjectIri,
-      SFLO_REFERENCE_TARGET_STATE_IRI,
+      referenceSourceIri,
+      SFLO_HAS_REQUESTED_TARGET_STATE_IRI,
       errorMessage,
     );
 

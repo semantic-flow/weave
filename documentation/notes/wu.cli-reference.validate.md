@@ -24,7 +24,7 @@ weave validate [mesh|publication] [--mesh-root <meshRoot>] [--target <target>]..
 weave validate
 weave validate mesh
 weave validate publication
-weave validate --target 'designatorPath=alice/bio'
+weave validate --target 'designatorPath=alice/data'
 weave validate --target 'designatorPath=alice,recursive=true'
 ```
 

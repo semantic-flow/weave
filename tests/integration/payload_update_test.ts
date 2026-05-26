@@ -24,37 +24,37 @@ Deno.test("executePayloadUpdate matches the settled alice-bio updated fixture", 
   );
 
   const sourceRoot = await createTestTmpDir("weave-payload-update-source-");
-  const sourcePath = join(sourceRoot, "alice-bio-v2.ttl");
+  const sourcePath = join(sourceRoot, "alice-data-v2.ttl");
   await Deno.writeTextFile(
     sourcePath,
-    await readMeshAliceBioBranchFile("10-alice-bio-updated", "alice-bio.ttl"),
+    await readMeshAliceBioBranchFile("10-alice-bio-updated", "alice-data.ttl"),
   );
 
   const result = await executePayloadUpdate({
     workspaceRoot,
     request: {
-      designatorPath: "alice/bio",
+      designatorPath: "alice/data",
       source: sourcePath,
     },
   });
 
-  assertEquals(result.designatorPath, "alice/bio");
-  assertEquals(result.workingLocalRelativePath, "alice-bio.ttl");
-  assertEquals(result.updatedPaths, ["alice-bio.ttl"]);
+  assertEquals(result.designatorPath, "alice/data");
+  assertEquals(result.workingLocalRelativePath, "alice-data.ttl");
+  assertEquals(result.updatedPaths, ["alice-data.ttl"]);
   assertEquals(
-    await Deno.readTextFile(join(workspaceRoot, "alice-bio.ttl")),
-    await readMeshAliceBioBranchFile("10-alice-bio-updated", "alice-bio.ttl"),
+    await Deno.readTextFile(join(workspaceRoot, "alice-data.ttl")),
+    await readMeshAliceBioBranchFile("10-alice-bio-updated", "alice-data.ttl"),
   );
   assertEquals(
     await Deno.readTextFile(
       join(
         workspaceRoot,
-        "alice/bio/_history001/_s0001/ttl/alice-bio.ttl",
+        "alice/data/_history001/_s0001/ttl/alice-data.ttl",
       ),
     ),
     await readMeshAliceBioBranchFile(
       "10-alice-bio-updated",
-      "alice/bio/_history001/_s0001/ttl/alice-bio.ttl",
+      "alice/data/_history001/_s0001/ttl/alice-data.ttl",
     ),
   );
   assertEquals(
@@ -120,24 +120,24 @@ Deno.test("executePayloadUpdate accepts a file URL source", async () => {
   const sourceRoot = await createTestTmpDir(
     "weave-payload-update-file-url-source-",
   );
-  const sourcePath = join(sourceRoot, "alice-bio-v2.ttl");
+  const sourcePath = join(sourceRoot, "alice-data-v2.ttl");
   await Deno.writeTextFile(
     sourcePath,
-    await readMeshAliceBioBranchFile("10-alice-bio-updated", "alice-bio.ttl"),
+    await readMeshAliceBioBranchFile("10-alice-bio-updated", "alice-data.ttl"),
   );
 
   const result = await executePayloadUpdate({
     workspaceRoot,
     request: {
-      designatorPath: "alice/bio",
+      designatorPath: "alice/data",
       source: new URL(`file://${sourcePath}`).href,
     },
   });
 
-  assertEquals(result.updatedPaths, ["alice-bio.ttl"]);
+  assertEquals(result.updatedPaths, ["alice-data.ttl"]);
   assertEquals(
-    await Deno.readTextFile(join(workspaceRoot, "alice-bio.ttl")),
-    await readMeshAliceBioBranchFile("10-alice-bio-updated", "alice-bio.ttl"),
+    await Deno.readTextFile(join(workspaceRoot, "alice-data.ttl")),
+    await readMeshAliceBioBranchFile("10-alice-bio-updated", "alice-data.ttl"),
   );
 });
 
@@ -156,21 +156,21 @@ Deno.test("executePayloadUpdate treats colon-containing source filenames as file
   const sourcePath = join(sourceRoot, "alice:bio-v2.ttl");
   await Deno.writeTextFile(
     sourcePath,
-    await readMeshAliceBioBranchFile("10-alice-bio-updated", "alice-bio.ttl"),
+    await readMeshAliceBioBranchFile("10-alice-bio-updated", "alice-data.ttl"),
   );
 
   const result = await executePayloadUpdate({
     workspaceRoot,
     request: {
-      designatorPath: "alice/bio",
+      designatorPath: "alice/data",
       source: sourcePath,
     },
   });
 
-  assertEquals(result.updatedPaths, ["alice-bio.ttl"]);
+  assertEquals(result.updatedPaths, ["alice-data.ttl"]);
   assertEquals(
-    await Deno.readTextFile(join(workspaceRoot, "alice-bio.ttl")),
-    await readMeshAliceBioBranchFile("10-alice-bio-updated", "alice-bio.ttl"),
+    await Deno.readTextFile(join(workspaceRoot, "alice-data.ttl")),
+    await readMeshAliceBioBranchFile("10-alice-bio-updated", "alice-data.ttl"),
   );
 });
 
@@ -184,7 +184,7 @@ Deno.test("executePayloadUpdate rejects remote source URLs before touching the w
   );
 
   const originalPayload = await Deno.readTextFile(
-    join(workspaceRoot, "alice-bio.ttl"),
+    join(workspaceRoot, "alice-data.ttl"),
   );
 
   await assertRejects(
@@ -192,8 +192,8 @@ Deno.test("executePayloadUpdate rejects remote source URLs before touching the w
       executePayloadUpdate({
         workspaceRoot,
         request: {
-          designatorPath: "alice/bio",
-          source: "https://example.com/alice-bio.ttl",
+          designatorPath: "alice/data",
+          source: "https://example.com/alice-data.ttl",
         },
       }),
     PayloadUpdateRuntimeError,
@@ -201,7 +201,7 @@ Deno.test("executePayloadUpdate rejects remote source URLs before touching the w
   );
 
   assertEquals(
-    await Deno.readTextFile(join(workspaceRoot, "alice-bio.ttl")),
+    await Deno.readTextFile(join(workspaceRoot, "alice-data.ttl")),
     originalPayload,
   );
 });
@@ -229,7 +229,7 @@ Deno.test("executePayloadUpdate rejects invalid Turtle and preserves the working
   );
 
   const originalPayload = await Deno.readTextFile(
-    join(workspaceRoot, "alice-bio.ttl"),
+    join(workspaceRoot, "alice-data.ttl"),
   );
 
   await assertRejects(
@@ -237,7 +237,7 @@ Deno.test("executePayloadUpdate rejects invalid Turtle and preserves the working
       executePayloadUpdate({
         workspaceRoot,
         request: {
-          designatorPath: "alice/bio",
+          designatorPath: "alice/data",
           source: sourcePath,
         },
       }),
@@ -246,7 +246,7 @@ Deno.test("executePayloadUpdate rejects invalid Turtle and preserves the working
   );
 
   assertEquals(
-    await Deno.readTextFile(join(workspaceRoot, "alice-bio.ttl")),
+    await Deno.readTextFile(join(workspaceRoot, "alice-data.ttl")),
     originalPayload,
   );
 });
@@ -264,20 +264,20 @@ Deno.test("executePayloadUpdate accepts semantically equivalent mesh metadata tu
   const sourceRoot = await createTestTmpDir(
     "weave-payload-update-metadata-source-",
   );
-  const sourcePath = join(sourceRoot, "alice-bio-v2.ttl");
+  const sourcePath = join(sourceRoot, "alice-data-v2.ttl");
   await Deno.writeTextFile(
     sourcePath,
-    await readMeshAliceBioBranchFile("10-alice-bio-updated", "alice-bio.ttl"),
+    await readMeshAliceBioBranchFile("10-alice-bio-updated", "alice-data.ttl"),
   );
 
   const result = await executePayloadUpdate({
     workspaceRoot,
     request: {
-      designatorPath: "alice/bio",
+      designatorPath: "alice/data",
       source: sourcePath,
     },
   });
 
   assertEquals(result.meshBase, MESH_ALICE_BIO_BASE);
-  assertEquals(result.updatedPaths, ["alice-bio.ttl"]);
+  assertEquals(result.updatedPaths, ["alice-data.ttl"]);
 });

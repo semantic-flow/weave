@@ -7,7 +7,7 @@ import {
 
 const MESH_BASE = "https://example.test/mesh/";
 
-Deno.test("extractResourceReferenceLinks resolves current mesh and URI literal targets", () => {
+Deno.test("extractResourceReferenceLinks resolves current mesh reference sources", () => {
   const links = extractResourceReferenceLinks(
     MESH_BASE,
     "alice",
@@ -19,19 +19,27 @@ Deno.test("extractResourceReferenceLinks resolves current mesh and URI literal t
 <alice/_knop/_references#reference002> a sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
   sflo:hasReferenceRole sflo:referenceRole_supporting ;
-  sflo:referenceTarget <carol> .
+  sflo:hasReferenceSource <alice/_knop/_references#reference002-source> .
+
+<alice/_knop/_references#reference002-source> a sflo:ReferenceSource ;
+  sflo:hasTargetArtifact <carol> .
 
 <alice/_knop/_references#reference001> a sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
   sflo:hasReferenceRole sflo:referenceRole_canonical ;
-  sflo:referenceTarget <bob> ;
-  sflo:referenceTargetState <bob/_history001/_s0001> ;
-  sflo:referenceUriLiteral "https://archive.example/alice" .
+  sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
+
+<alice/_knop/_references#reference001-source> a sflo:ReferenceSource ;
+  sflo:hasTargetArtifact <bob> ;
+  sflo:hasRequestedTargetState <bob/_history001/_s0001> .
 
 <alice/_knop/_references#unlinked> a sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
   sflo:hasReferenceRole sflo:referenceRole_canonical ;
-  sflo:referenceTarget <ignored> .
+  sflo:hasReferenceSource <alice/_knop/_references#unlinked-source> .
+
+<alice/_knop/_references#unlinked-source> a sflo:ReferenceSource ;
+  sflo:hasTargetArtifact <ignored> .
 `,
   );
 
@@ -41,10 +49,6 @@ Deno.test("extractResourceReferenceLinks resolves current mesh and URI literal t
       model: {
         roleLabel: "canonical",
         targets: [
-          {
-            href: "https://archive.example/alice",
-            label: "https://archive.example/alice",
-          },
           {
             href: "https://example.test/mesh/bob",
             label: "https://example.test/mesh/bob",

@@ -22,6 +22,8 @@ The current live fixture ladders are:
 
 The live ladder refs use the `a.*` branch series. Older unprefixed branch series are historical fixtures; do not regenerate or chase them during a live ladder rerung unless a task explicitly asks for that archival series.
 
+The Alice Bio ladder sources replay assets from the `assets` branch of `mesh-alice-bio`. That branch is intentionally empty except for `.assets/`; generated `a.*` rung branches do not need to carry fixture source assets, and `a.00-blank-slate` is seeded only from ordinary control files such as `README.md` and `.gitignore`. Alice Bio replay manifests should use Accord source provenance with `sourceKind: fixtureRefSource`, `sourceRef: assets`, and a `.assets/...` `sourcePath`.
+
 The transition manifests and example specs live in the Semantic Flow Framework checkout:
 
 - `dependencies/github.com/semantic-flow/semantic-flow-framework`
@@ -73,7 +75,7 @@ for repo in mesh-alice-bio mesh-sidecar-fantasy-rules mesh-branch-fantasy-rules;
 done
 ```
 
-Keep fixture working trees on ordinary source branches such as `main` during regeneration. In particular, `mesh-branch-fantasy-rules` may have a local `gh-pages` branch that is a publication output and does not carry `.assets`; running the ladder from that checkout can fail before the transition logic is reached.
+Keep fixture working trees on ordinary source branches such as `main` during regeneration. In particular, `mesh-branch-fantasy-rules` may have a local `gh-pages` branch that is a publication output and does not carry `.assets`; running that ladder from the publication branch can fail before the transition logic is reached. Alice Bio is less checkout-sensitive now because replay assets come from its dedicated `assets` branch, but that branch still has to exist locally or as `origin/assets`.
 
 Because the resolver checks local `a.*` branches before `origin/a.*`, stale local rung branches can shadow the remote fixture baseline. Before a whole-ladder rerung, decide whether the current local rungs are intentional input or whether you want to clean them out and rebuild from remote refs.
 
@@ -288,6 +290,7 @@ Then rerun or recheck the GitHub PR CI. GitHub CI should now resolve all fixture
 - `workspace root must be empty before materialization`: delete the debug workspace or choose a new path.
 - Branch-published rerung refuses to move `gh-pages`: the current publication branch is not an ancestor of the regenerated publication commit; inspect before rebasing, resetting, or force-pushing with lease.
 - Branch-published materialization cannot find `.assets`: the fixture checkout is probably on `gh-pages`; switch that repo back to `main` and rerun.
+- Alice Bio replay cannot read `assets:.assets/...`: fetch the `assets` branch in `mesh-alice-bio`. The runner resolves both `assets` and `origin/assets`, so GitHub CI does not need a local `assets` branch as long as the remote branch has been fetched.
 - Replay tries to run removed commands such as `weave prepare gh-pages`: the manifest is stale. Replace first-time source publication with `integrate` plus `weave`. For an already-integrated external source with a stable working locator, do not re-integrate or update the binding; materialize the intended source checkout and weave/version from the existing working locator. Use a future source-binding update only when the locator or source policy itself is changing.
 
 ## Commit Messages

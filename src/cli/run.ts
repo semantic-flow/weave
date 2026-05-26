@@ -2,6 +2,7 @@ import { Command } from "@cliffy/command";
 import { Confirm, Input } from "@cliffy/prompt";
 import { isAbsolute, join, relative, resolve } from "@std/path";
 import { ExtractInputError } from "../core/extract/extract.ts";
+import { ImportInputError } from "../core/import/import.ts";
 import { IntegrateInputError } from "../core/integrate/integrate.ts";
 import { KnopAddReferenceInputError } from "../core/knop/add_reference.ts";
 import { KnopCreateInputError } from "../core/knop/create.ts";
@@ -34,6 +35,11 @@ import {
   IntegrateRuntimeError,
   type LocalIntegrateSourceBindingRequest,
 } from "../runtime/integrate/integrate.ts";
+import {
+  describeImportResult,
+  executeImport,
+  ImportRuntimeError,
+} from "../runtime/import/import.ts";
 import {
   describeKnopAddReferenceResult,
   executeKnopAddReference,
@@ -875,6 +881,88 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         ),
     )
     .command(
+      "import",
+      new Command()
+        .description(
+          "Import source bytes into a governed local working payload artifact.",
+        )
+        .arguments("<source:string> [designatorPath:string]")
+        .option(
+          "--designator-path <designatorPath:string>",
+          "Designator path to assign to the imported payload artifact.",
+        )
+        .option(
+          "--mesh-root <meshRoot:string>",
+          "Mesh root to update. Defaults to the current directory.",
+          { default: "." },
+        )
+        .option(
+          "--working-file <path:string>",
+          "Mesh-root-relative working file to write imported bytes into.",
+        )
+        .option(
+          "--expected-digest <digest:string>",
+          "Expected sha256 digest for the acquired source bytes.",
+        )
+        .option(
+          "--replace-working",
+          "Overwrite the target working file and refresh import provenance.",
+        )
+        .action(async (options, source, designatorPathArg) => {
+          const designatorPath = resolveImportDesignatorPath(
+            options,
+            designatorPathArg,
+          );
+          const workingFile = resolveRequiredOptionValue(
+            options.workingFile,
+            "import requires --working-file",
+            (message) => new ImportInputError(message),
+          );
+          const meshRoot = resolve(options.meshRoot);
+          const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
+          const logDir = resolveCliLogDir(workspaceRoot);
+          const { operationalLogger, auditLogger } = createRuntimeLoggers({
+            logDir,
+          });
+
+          await auditLogger.command("import", {
+            meshRoot,
+            workspaceRoot,
+            designatorPath,
+            source,
+            workingFile,
+            expectedDigest: options.expectedDigest,
+            replaceWorking: options.replaceWorking === true,
+            localMode: true,
+          });
+
+          const result = await executeImport({
+            meshRoot,
+            sourceBaseDirectory: Deno.cwd(),
+            request: {
+              source,
+              designatorPath,
+              workingFile,
+              ...(options.expectedDigest
+                ? { expectedDigest: options.expectedDigest }
+                : {}),
+              ...(options.replaceWorking === true
+                ? { replaceWorking: true }
+                : {}),
+            },
+            operationalLogger,
+            auditLogger,
+          });
+          console.log(describeImportResult(result));
+          for (const path of result.createdPaths) {
+            console.log(path);
+          }
+          for (const path of result.updatedPaths) {
+            console.log(path);
+          }
+        }),
+    )
+    .command(
       "integrate",
       new Command()
         .description(
@@ -1393,6 +1481,18 @@ function resolveIntegrateDesignatorPath(
   });
 }
 
+function resolveImportDesignatorPath(
+  options: { designatorPath?: string },
+  designatorPathArg?: string,
+): string {
+  return resolveDesignatorPath(options, designatorPathArg, {
+    conflictMessage: "import received conflicting designator paths",
+    missingMessage:
+      "import requires a designator path as [designatorPath] or --designator-path",
+    createError: (message) => new ImportInputError(message),
+  });
+}
+
 function resolveIntegrateSourceBindingOptions(
   options: {
     sourceRepositoryCurrent?: boolean;
@@ -1779,6 +1879,8 @@ function getCliErrorMessage(error: unknown): string {
   if (
     error instanceof ExtractInputError ||
     error instanceof ExtractRuntimeError ||
+    error instanceof ImportInputError ||
+    error instanceof ImportRuntimeError ||
     error instanceof IntegrateInputError ||
     error instanceof IntegrateRuntimeError ||
     error instanceof PayloadUpdateInputError ||

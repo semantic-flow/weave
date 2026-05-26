@@ -35,7 +35,6 @@ import {
   renderSecondPayloadWovenKnopInventoryTurtle,
 } from "./payload_renderers.ts";
 import {
-  renderFirstExtractedKnopWovenMeshInventoryTurtle,
   renderFirstKnopWovenMeshInventoryTurtle,
   renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle,
   renderFirstPayloadWovenMeshInventoryTurtle,
@@ -77,9 +76,7 @@ import {
 } from "./resource_page_builders.ts";
 import { renderKnopInventoryWithPreservedSupportArtifacts } from "./knop_support_renderers.ts";
 import {
-  renderAliceIdentifierPageAfterFirstExtractedWeave,
   renderArtifactHistoryIndexPage,
-  renderExtractedPersonIdentifierPage,
   renderGenericExtractedIdentifierPage,
 } from "./legacy_page_renderers.ts";
 import {
@@ -96,6 +93,7 @@ import {
   assertCurrentPayloadArtifactShape,
   assertCurrentSourceRegistryShapeForFirstExtractedKnopWeave,
   assertReferenceTargetSourcePayloadShapeForFirstExtractedKnopWeave,
+  currentPayloadArtifactIsRdfDocument,
 } from "./shape_assertions.ts";
 
 export { WeaveInputError } from "./errors.ts";
@@ -125,16 +123,52 @@ export type {
   KnopResourcePageModel,
   ReferenceCatalogCurrentLinkModel,
   ReferenceCatalogResourcePageModel,
+  ResourcePageBlankNodeModel,
+  ResourcePageBlankNodesPanelModel,
+  ResourcePageBreadcrumbModel,
+  ResourcePageChildIdentifierGroupModel,
   ResourcePageChildIdentifierModel,
+  ResourcePageChildrenPanelModel,
+  ResourcePageCurrentLinksPanelModel,
+  ResourcePageDocumentKind,
+  ResourcePageDocumentModel,
   ResourcePageExtractionSourceModel,
+  ResourcePageExtractionSourceSummaryMetadataModel,
+  ResourcePageFactSectionsPanelModel,
   ResourcePageHistoryGroupModel,
+  ResourcePageHistoryPanelModel,
   ResourcePageHistoryStateModel,
+  ResourcePageKnopArtifactsPanelModel,
+  ResourcePageLinkListMetadataModel,
+  ResourcePageMetadataModel,
   ResourcePageModel,
+  ResourcePagePanelModel,
+  ResourcePagePropertiesPanelModel,
+  ResourcePagePropertyModel,
+  ResourcePageRawSourcePanelGroupModel,
   ResourcePageRawSourcePanelModel,
+  ResourcePageRdfClassModel,
+  ResourcePageReferenceGroupModel,
   ResourcePageReferenceLinkModel,
+  ResourcePageReferencesPanelModel,
+  ResourcePageReferenceTargetLinkModel,
   ResourcePageReferenceTargetModel,
+  ResourcePageRepositorySourceMetadataModel,
+  ResourcePageSectionModel,
+  ResourcePageSemanticFlowMetadataPanelModel,
+  ResourcePageTextMetadataModel,
   SimpleResourcePageModel,
 } from "./resource_page_models.ts";
+export type {
+  ResourcePageTemplateDescriptor,
+  ResourcePageTemplateFragment,
+  ResourcePageTemplateFragmentsResult,
+  ResourcePageTemplatePageHtmlResult,
+  ResourcePageTemplateRenderRequest,
+  ResourcePageTemplateRenderResult,
+  ResourcePageTemplateRole,
+  ResourcePageTemplateSlot,
+} from "./resource_page_template_contract.ts";
 export type { RepositorySourceFloatingLocator } from "./source_models.ts";
 export type {
   GenerateRequest,
@@ -292,6 +326,9 @@ export function planVersion(input: PlanWeaveInput): VersionPlan {
     meshBase: plan.meshBase,
     versionedDesignatorPaths: plan.wovenDesignatorPaths,
     createdFiles,
+    ...(plan.createdBinaryFiles
+      ? { createdBinaryFiles: plan.createdBinaryFiles }
+      : {}),
     updatedFiles,
   };
 }
@@ -321,7 +358,8 @@ function applyResourcePageGenerationPolicies(
   );
   const generatedPagePaths = new Set(
     [...createdFiles, ...updatedFiles].flatMap((file) =>
-      file.path.endsWith("inventory.ttl")
+      file.path.endsWith("inventory.ttl") &&
+        typeof file.contents === "string"
         ? listGeneratedResourcePagePaths({
           meshBase: plan.meshBase,
           inventoryTurtle: file.contents,
@@ -584,6 +622,12 @@ function planFirstPayloadWeave(
   );
 
   const designatorPath = candidate.designatorPath;
+  const payloadIsRdfDocument = payloadArtifact.payloadIsRdfDocument ??
+    currentPayloadArtifactIsRdfDocument(
+      meshBase,
+      candidate.currentKnopInventoryTurtle,
+      designatorPath,
+    );
   const knopPath = toKnopPath(designatorPath);
   const payloadLayout = resolveFirstPayloadVersionLayout(
     meshBase,
@@ -597,6 +641,7 @@ function planFirstPayloadWeave(
   const payloadSnapshotPath = `${payloadLayout.nextManifestationPath}/${
     toFileName(payloadArtifact.workingLocalRelativePath)
   }`;
+  const payloadSnapshotBytes = payloadArtifact.currentPayloadBytes;
   const knopMetadataHistoryPolicy = supportHistoryPolicies?.knopMetadata ??
     "versioned";
   const versionKnopMetadata = shouldMaterializeSupportHistory(
@@ -617,7 +662,11 @@ function planFirstPayloadWeave(
         payloadLayout,
         payloadArtifact.workingLocalRelativePath,
         payloadArtifact.repositorySourceFloatingLocator,
-        { knopMetadataHistoryPolicy, knopInventoryHistoryPolicy },
+        {
+          payloadIsRdfDocument,
+          knopMetadataHistoryPolicy,
+          knopInventoryHistoryPolicy,
+        },
       ),
       knopPath,
     });
@@ -634,6 +683,7 @@ function planFirstPayloadWeave(
       payloadArtifact.workingLocalRelativePath,
       meshInventoryProgression,
       payloadArtifact.repositorySourceFloatingLocator,
+      payloadIsRdfDocument,
     );
 
   return {
@@ -644,10 +694,12 @@ function planFirstPayloadWeave(
         path: `${meshInventoryProgression.nextStatePath}/ttl/inventory.ttl`,
         contents: wovenMeshInventoryTurtle,
       }]),
-      {
-        path: payloadSnapshotPath,
-        contents: payloadArtifact.currentPayloadTurtle,
-      },
+      ...(payloadSnapshotBytes === undefined
+        ? [{
+          path: payloadSnapshotPath,
+          contents: payloadArtifact.currentPayloadTurtle,
+        }]
+        : []),
       ...(versionKnopMetadata
         ? [{
           path: `${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl`,
@@ -691,6 +743,12 @@ function planFirstPayloadWeave(
         knopInventoryHistoryPolicy,
       },
     ),
+    ...(payloadSnapshotBytes === undefined ? {} : {
+      createdBinaryFiles: [{
+        path: payloadSnapshotPath,
+        contents: payloadSnapshotBytes,
+      }],
+    }),
   };
 }
 
@@ -719,11 +777,6 @@ function planFirstExtractedKnopWeave(
       designatorPath,
     )
     : undefined;
-  const sourcePayloadTurtle =
-    referenceTargetSourcePayloadArtifact.latestHistoricalSnapshotTurtle ??
-      referenceTargetSourcePayloadArtifact.currentPayloadTurtle;
-  const useAliceBioLegacyPages = designatorPath === "bob" &&
-    referenceTargetSourcePayloadArtifact.designatorPath === "alice/bio";
   const knopMetadataHistoryPolicy = supportHistoryPolicies?.knopMetadata ??
     "versioned";
   const versionKnopMetadata = shouldMaterializeSupportHistory(
@@ -761,13 +814,7 @@ function planFirstExtractedKnopWeave(
     referenceTargetSourcePayloadArtifact,
   );
 
-  const wovenMeshInventoryTurtle = useAliceBioLegacyPages
-    ? renderFirstExtractedKnopWovenMeshInventoryTurtle(
-      currentMeshInventoryTurtle,
-      designatorPath,
-      referenceTargetSourcePayloadArtifact.designatorPath,
-    )
-    : meshInventoryProgression === undefined
+  const wovenMeshInventoryTurtle = meshInventoryProgression === undefined
     ? renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle(
       currentMeshInventoryTurtle,
       meshBase,
@@ -828,18 +875,10 @@ function planFirstExtractedKnopWeave(
         : []),
       {
         path: toDesignatorResourcePagePath(designatorPath),
-        contents: useAliceBioLegacyPages
-          ? renderExtractedPersonIdentifierPage(
-            meshBase,
-            designatorPath,
-            referenceTargetSourcePayloadArtifact.designatorPath,
-            toHistoryPathFromStatePath(
-              referenceTargetSourcePayloadArtifact.latestHistoricalStatePath,
-            ),
-            referenceTargetSourcePayloadArtifact.workingLocalRelativePath,
-            sourcePayloadTurtle,
-          )
-          : renderGenericExtractedIdentifierPage(meshBase, designatorPath),
+        contents: renderGenericExtractedIdentifierPage(
+          meshBase,
+          designatorPath,
+        ),
       },
       ...(versionKnopMetadata
         ? [{
@@ -898,18 +937,6 @@ function planFirstExtractedKnopWeave(
           ],
         }),
       }]),
-      ...(useAliceBioLegacyPages
-        ? [{
-          path: "alice/index.html",
-          contents: renderAliceIdentifierPageAfterFirstExtractedWeave(
-            meshBase,
-            sourcePayloadTurtle,
-            toHistoryPathFromStatePath(
-              referenceTargetSourcePayloadArtifact.latestHistoricalStatePath,
-            ),
-          ),
-        }]
-        : []),
       ...(meshInventoryProgression === undefined ? [] : [{
         path: "_mesh/_meta/meta.ttl",
         contents: renderMeshMetadataWithMeshInventoryProgression(
@@ -1214,8 +1241,4 @@ function planSecondPayloadWeave(
 function toFileName(path: string): string {
   const segments = path.split("/");
   return segments[segments.length - 1]!;
-}
-
-function toHistoryPathFromStatePath(statePath: string): string {
-  return statePath.slice(0, statePath.lastIndexOf("/"));
 }

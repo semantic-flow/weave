@@ -22,12 +22,16 @@ export function renderCurrentWorkingFileLocator(
 export function renderCurrentWorkingFileDeclaration(
   workingLocalRelativePath: string,
   repositorySourceFloatingLocator?: RepositorySourceFloatingLocator,
+  options: { locatedFileIsRdfDocument?: boolean } = {},
 ): string {
   if (repositorySourceFloatingLocator !== undefined) {
     return "";
   }
+  const locatedFileTypes = options.locatedFileIsRdfDocument === false
+    ? "sflo:LocatedFile"
+    : "sflo:LocatedFile, sflo:RdfDocument";
   return usesMeshLocalWorkingLocatedFile(workingLocalRelativePath)
-    ? `<${workingLocalRelativePath}> a sflo:LocatedFile, sflo:RdfDocument .`
+    ? `<${workingLocalRelativePath}> a ${locatedFileTypes} .`
     : "";
 }
 

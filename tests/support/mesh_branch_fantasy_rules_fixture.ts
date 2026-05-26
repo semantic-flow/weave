@@ -1,4 +1,5 @@
 import { dirname, fromFileUrl, join } from "@std/path";
+import { normalizeLegacyFixtureRdf } from "./fixture_normalization.ts";
 
 const repoRootPath = fromFileUrl(new URL("../../", import.meta.url));
 const fixtureRepoPath = join(
@@ -201,7 +202,7 @@ export async function materializeMeshBranchFantasyRulesPublicationWorkspace(
 }
 
 function normalizeFixtureNamespaces(contents: string): string {
-  return contents
+  return normalizeLegacyFixtureRdf(contents)
     .replaceAll(LEGACY_SFCFG_NAMESPACE, CURRENT_SFCFG_NAMESPACE)
     .replaceAll(
       REMOVED_CURRENT_ARTIFACT_RESOLUTION_MODE,

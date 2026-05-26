@@ -1,6 +1,7 @@
 @base <https://semantic-flow.github.io/weave/defaults/> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <application> a sfcfg:ApplicationConfig, sfcfg:ConfigArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
   sfcfg:hasConfigResolutionConfig <config-resolution> ;
@@ -28,6 +29,130 @@
   ] ;
   sfcfg:hasDefaultResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_generate ;
   sfcfg:hasResourcePageRegenerationConfigPolicy sfcfg:resourcePageRegenerationConfigPolicy_configAtTheTime ;
+  sfcfg:hasDefaultResourcePagePresentationConfig <resource-page-presentation/semantic-site-default> ;
   sfcfg:hasHistoryNamingPolicy sfcfg:historyNamingPolicy_ordinal ;
   sfcfg:hasStateNamingPolicy sfcfg:stateNamingPolicy_ordinal ;
   sfcfg:hasManifestationNamingPolicy sfcfg:manifestationNamingPolicy_filenameDerived .
+
+<resource-page-presentation/semantic-site-default> a sfcfg:ResourcePagePresentationConfig ;
+  sfcfg:hasOuterResourcePageTemplate <resource-page-template/semantic-site/outer> ;
+  sfcfg:hasInnerResourcePageTemplate <resource-page-template/semantic-site/inner> ;
+  sfcfg:hasResourcePageStylesheet <default-stylesheet> ;
+  sfcfg:hasResourcePagePanelSelection
+    <resource-page-presentation/semantic-site-default#children-panel>,
+    <resource-page-presentation/semantic-site-default#properties-panel>,
+    <resource-page-presentation/semantic-site-default#blank-nodes-panel>,
+    <resource-page-presentation/semantic-site-default#references-panel>,
+    <resource-page-presentation/semantic-site-default#current-links-panel>,
+    <resource-page-presentation/semantic-site-default#knop-artifacts-panel>,
+    <resource-page-presentation/semantic-site-default#fact-sections-panel>,
+    <resource-page-presentation/semantic-site-default#raw-source-panel>,
+    <resource-page-presentation/semantic-site-default#history-panel>,
+    <resource-page-presentation/semantic-site-default#semantic-flow-metadata-panel> .
+
+<resource-page-template/semantic-site/outer> a sfcfg:OuterResourcePageTemplate, sflo:DigitalArtifact .
+
+<resource-page-template/semantic-site/inner> a sfcfg:InnerResourcePageTemplate, sflo:DigitalArtifact .
+
+<resource-page-panel/children> a sfcfg:ResourcePagePanel .
+
+<resource-page-panel/properties> a sfcfg:ResourcePagePanel .
+
+<resource-page-panel/blank-nodes> a sfcfg:ResourcePagePanel .
+
+<resource-page-panel/references> a sfcfg:ResourcePagePanel .
+
+<resource-page-panel/current-links> a sfcfg:ResourcePagePanel .
+
+<resource-page-panel/knop-artifacts> a sfcfg:ResourcePagePanel .
+
+<resource-page-panel/fact-sections> a sfcfg:ResourcePagePanel .
+
+<resource-page-panel/raw-source> a sfcfg:ResourcePagePanel .
+
+<resource-page-panel/history> a sfcfg:ResourcePagePanel .
+
+<resource-page-panel/semantic-flow-metadata> a sfcfg:ResourcePagePanel .
+
+<resource-page-presentation/semantic-site-default#children-panel> a sfcfg:ResourcePagePanelSelection ;
+  sfcfg:hasResourcePagePanel <resource-page-panel/children> ;
+  sfcfg:panelOrder "10"^^xsd:nonNegativeInteger ;
+  sfcfg:hasPanelInclusionPolicy sfcfg:panelInclusionPolicy_auto ;
+  sfcfg:hasPanelTargetPageKind sfcfg:resourcePageKind_identifier, sfcfg:resourcePageKind_knop, sfcfg:resourcePageKind_simple ;
+  sfcfg:hasPanelDataRequirement sfcfg:panelDataRequirement_children .
+
+<resource-page-presentation/semantic-site-default#properties-panel> a sfcfg:ResourcePagePanelSelection ;
+  sfcfg:hasResourcePagePanel <resource-page-panel/properties> ;
+  sfcfg:panelOrder "20"^^xsd:nonNegativeInteger ;
+  sfcfg:hasPanelInclusionPolicy sfcfg:panelInclusionPolicy_auto ;
+  sfcfg:hasPanelTargetPageKind sfcfg:resourcePageKind_identifier, sfcfg:resourcePageKind_simple, sfcfg:resourcePageKind_referenceCatalog ;
+  sfcfg:hasPanelDataRequirement sfcfg:panelDataRequirement_rdfProperties .
+
+<resource-page-presentation/semantic-site-default#blank-nodes-panel> a sfcfg:ResourcePagePanelSelection ;
+  sfcfg:hasResourcePagePanel <resource-page-panel/blank-nodes> ;
+  sfcfg:panelOrder "30"^^xsd:nonNegativeInteger ;
+  sfcfg:hasPanelInclusionPolicy sfcfg:panelInclusionPolicy_auto ;
+  sfcfg:hasPanelTargetPageKind sfcfg:resourcePageKind_identifier, sfcfg:resourcePageKind_simple, sfcfg:resourcePageKind_referenceCatalog ;
+  sfcfg:hasPanelDataRequirement sfcfg:panelDataRequirement_blankNodes .
+
+<resource-page-presentation/semantic-site-default#references-panel> a sfcfg:ResourcePagePanelSelection ;
+  sfcfg:hasResourcePagePanel <resource-page-panel/references> ;
+  sfcfg:panelOrder "40"^^xsd:nonNegativeInteger ;
+  sfcfg:hasPanelInclusionPolicy sfcfg:panelInclusionPolicy_auto ;
+  sfcfg:hasPanelTargetPageKind sfcfg:resourcePageKind_identifier ;
+  sfcfg:hasPanelDataRequirement sfcfg:panelDataRequirement_references .
+
+<resource-page-presentation/semantic-site-default#current-links-panel> a sfcfg:ResourcePagePanelSelection ;
+  sfcfg:hasResourcePagePanel <resource-page-panel/current-links> ;
+  sfcfg:panelOrder "50"^^xsd:nonNegativeInteger ;
+  sfcfg:hasPanelInclusionPolicy sfcfg:panelInclusionPolicy_auto ;
+  sfcfg:hasPanelTargetPageKind sfcfg:resourcePageKind_referenceCatalog ;
+  sfcfg:hasPanelDataRequirement sfcfg:panelDataRequirement_currentReferenceLinks .
+
+<resource-page-presentation/semantic-site-default#knop-artifacts-panel> a sfcfg:ResourcePagePanelSelection ;
+  sfcfg:hasResourcePagePanel <resource-page-panel/knop-artifacts> ;
+  sfcfg:panelOrder "55"^^xsd:nonNegativeInteger ;
+  sfcfg:hasPanelInclusionPolicy sfcfg:panelInclusionPolicy_auto ;
+  sfcfg:hasPanelTargetPageKind sfcfg:resourcePageKind_knop ;
+  sfcfg:hasPanelDataRequirement sfcfg:panelDataRequirement_knopArtifacts .
+
+<resource-page-presentation/semantic-site-default#fact-sections-panel> a sfcfg:ResourcePagePanelSelection ;
+  sfcfg:hasResourcePagePanel <resource-page-panel/fact-sections> ;
+  sfcfg:panelOrder "57"^^xsd:nonNegativeInteger ;
+  sfcfg:hasPanelInclusionPolicy sfcfg:panelInclusionPolicy_auto ;
+  sfcfg:hasPanelTargetPageKind sfcfg:resourcePageKind_simple ;
+  sfcfg:hasPanelDataRequirement sfcfg:panelDataRequirement_factSections .
+
+<resource-page-presentation/semantic-site-default#raw-source-panel> a sfcfg:ResourcePagePanelSelection ;
+  sfcfg:hasResourcePagePanel <resource-page-panel/raw-source> ;
+  sfcfg:panelOrder "60"^^xsd:nonNegativeInteger ;
+  sfcfg:hasPanelInclusionPolicy sfcfg:panelInclusionPolicy_auto ;
+  sfcfg:hasPanelTargetPageKind sfcfg:resourcePageKind_identifier, sfcfg:resourcePageKind_simple, sfcfg:resourcePageKind_referenceCatalog ;
+  sfcfg:hasPanelTargetClass sflo:DigitalArtifact ;
+  sfcfg:hasPanelTargetArtifactRole
+    sfcfg:artifactRole_payload,
+    sfcfg:artifactRole_meshInventory,
+    sfcfg:artifactRole_knopInventory,
+    sfcfg:artifactRole_meshMetadata,
+    sfcfg:artifactRole_knopMetadata,
+    sfcfg:artifactRole_config,
+    sfcfg:artifactRole_referenceCatalog,
+    sfcfg:artifactRole_resourcePageDefinition,
+    sfcfg:artifactRole_resourcePageTemplate,
+    sfcfg:artifactRole_resourcePageStylesheet,
+    sfcfg:artifactRole_runtimeMeta ;
+  sfcfg:hasPanelDataRequirement sfcfg:panelDataRequirement_rawSource .
+
+<resource-page-presentation/semantic-site-default#history-panel> a sfcfg:ResourcePagePanelSelection ;
+  sfcfg:hasResourcePagePanel <resource-page-panel/history> ;
+  sfcfg:panelOrder "70"^^xsd:nonNegativeInteger ;
+  sfcfg:hasPanelInclusionPolicy sfcfg:panelInclusionPolicy_auto ;
+  sfcfg:hasPanelTargetPageKind sfcfg:resourcePageKind_identifier, sfcfg:resourcePageKind_simple, sfcfg:resourcePageKind_referenceCatalog ;
+  sfcfg:hasPanelDataRequirement sfcfg:panelDataRequirement_history .
+
+<resource-page-presentation/semantic-site-default#semantic-flow-metadata-panel> a sfcfg:ResourcePagePanelSelection ;
+  sfcfg:hasResourcePagePanel <resource-page-panel/semantic-flow-metadata> ;
+  sfcfg:panelOrder "80"^^xsd:nonNegativeInteger ;
+  sfcfg:hasPanelInclusionPolicy sfcfg:panelInclusionPolicy_auto ;
+  sfcfg:hasPanelTargetPageKind sfcfg:resourcePageKind_identifier, sfcfg:resourcePageKind_knop, sfcfg:resourcePageKind_simple, sfcfg:resourcePageKind_referenceCatalog ;
+  sfcfg:hasPanelDataRequirement sfcfg:panelDataRequirement_semanticFlowMetadataOptIn .

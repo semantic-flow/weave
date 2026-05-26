@@ -233,9 +233,13 @@ Deno.test("branch Fantasy Rules final publication has current canonical referenc
     );
     assertStringIncludes(
       referencesTurtle,
-      `sflo:referenceTarget <${reference.targetPath}>`,
+      `sflo:hasReferenceSource <${referenceCatalogPath}#reference001-source>`,
     );
-    assertFalse(referencesTurtle.includes("sflo:referenceTargetState"));
+    assertStringIncludes(
+      referencesTurtle,
+      `sflo:hasTargetArtifact <${reference.targetPath}>`,
+    );
+    assertFalse(referencesTurtle.includes("sflo:hasRequestedTargetState"));
 
     await readMeshBranchFantasyRulesBranchFile(
       "15-extracted-term-references-woven",

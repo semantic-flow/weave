@@ -139,14 +139,14 @@ Deno.test("weave extract accepts the root designator path as a black-box CLI run
   await executeIntegrate({
     meshRoot: workspaceRoot,
     request: {
-      designatorPath: "alice/bio",
+      designatorPath: "alice/data",
       source: "alice-bio-root.ttl",
     },
   });
   await executeWeave({
     meshRoot: workspaceRoot,
     request: {
-      targets: [{ designatorPath: "alice/bio" }],
+      targets: [{ designatorPath: "alice/data" }],
     },
   });
 
@@ -215,10 +215,13 @@ Deno.test("weave extract accepts the root designator path as a black-box CLI run
   sflo:hasSourceBinding <_knop/_sources#extraction-source> .
 
 <_knop/_sources#extraction-source> a sflo:ExtractionSource ;
-  sflo:hasTargetArtifact <alice/bio> ;
+  sflo:hasTargetArtifact <alice/data> ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> ;
-  sflo:hasObservedSourceLocatedFile <alice-bio-root.ttl> ;
-  sflo:observedSourceDigest "sha256:b1a7a70dd0f77e16544d0194b12e1bc9993d21470dfba3633bb8ae113834917d" .
+  sflo:hasResolutionObservation <_knop/_sources#extraction-source-observation-001> .
+
+<_knop/_sources#extraction-source-observation-001> a sflo:ArtifactResolutionObservation ;
+  sflo:hasObservedTargetLocatedFile <alice-bio-root.ttl> ;
+  sflo:observedContentDigest "sha256:489c312f14f183fc8ac156ddf3c5e768a5d22b09b8bf79b1ba989cae2e15d338" .
 
 <_knop/_sources/sources.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 `,
@@ -310,8 +313,11 @@ Deno.test("weave extract supports docs-rooted sidecar meshes with an explicit so
 <ontology/CharacterShape/_knop/_sources#extraction-source> a sflo:ExtractionSource ;
   sflo:hasTargetArtifact <shacl> ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> ;
-  sflo:observedSourceLocalRelativePath "../shacl/fantasy-rules-shacl.ttl" ;
-  sflo:observedSourceDigest "sha256:349f1ad30fb4b2f20cc9c9e5f6febae09c6adb2148bc6b62c81905c9da9cc011" .
+  sflo:hasResolutionObservation <ontology/CharacterShape/_knop/_sources#extraction-source-observation-001> .
+
+<ontology/CharacterShape/_knop/_sources#extraction-source-observation-001> a sflo:ArtifactResolutionObservation ;
+  sflo:observedTargetLocalRelativePath "../shacl/fantasy-rules-shacl.ttl" ;
+  sflo:observedContentDigest "sha256:349f1ad30fb4b2f20cc9c9e5f6febae09c6adb2148bc6b62c81905c9da9cc011" .
 
 <ontology/CharacterShape/_knop/_sources/sources.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 `,
@@ -322,11 +328,11 @@ Deno.test("weave extract --all-terms previews and creates new terms with --accep
   const workspaceRoot = await createTestTmpDir("weave-e2e-extract-all-terms-");
   await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
   await Deno.writeTextFile(
-    join(workspaceRoot, "alice-bio.ttl"),
+    join(workspaceRoot, "alice-data.ttl"),
     `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
 @prefix schema: <https://schema.org/> .
 
-<alice/bio> schema:about <bob>, <carol>, <bob/_knop> .
+<alice/data> schema:about <bob>, <carol>, <bob/_knop> .
 <carol> schema:name "Carol" .
 `,
   );
@@ -342,7 +348,7 @@ Deno.test("weave extract --all-terms previews and creates new terms with --accep
       "--all-terms",
       "--accept-preview",
       "--source",
-      "alice/bio",
+      "alice/data",
       "--mesh-root",
       workspaceRoot,
     ],
@@ -361,7 +367,7 @@ Deno.test("weave extract --all-terms previews and creates new terms with --accep
   );
   assert(stdout.includes("- bob"), stdout);
   assert(stdout.includes("- carol"), stdout);
-  assert(stdout.includes("Extracted 2 new terms from alice/bio"), stdout);
+  assert(stdout.includes("Extracted 2 new terms from alice/data"), stdout);
   await Deno.stat(join(workspaceRoot, "bob/_knop/_meta/meta.ttl"));
   await Deno.stat(join(workspaceRoot, "carol/_knop/_meta/meta.ttl"));
 });
@@ -372,11 +378,11 @@ Deno.test("weave extract --all-terms creates source references with explicit rol
   );
   await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
   await Deno.writeTextFile(
-    join(workspaceRoot, "alice-bio.ttl"),
+    join(workspaceRoot, "alice-data.ttl"),
     `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
 @prefix schema: <https://schema.org/> .
 
-<alice/bio> schema:about <dave> .
+<alice/data> schema:about <dave> .
 <dave> schema:name "Dave" .
 `,
   );
@@ -392,7 +398,7 @@ Deno.test("weave extract --all-terms creates source references with explicit rol
       "--all-terms",
       "--accept-preview",
       "--source",
-      "alice/bio",
+      "alice/data",
       "--add-source-references",
       "--reference-role",
       "canonical",
@@ -429,7 +435,13 @@ Deno.test("weave extract --all-terms creates source references with explicit rol
     referencesTurtle,
   );
   assert(
-    referencesTurtle.includes("sflo:referenceTarget <alice/bio> ."),
+    referencesTurtle.includes(
+      "sflo:hasReferenceSource <dave/_knop/_references#reference001-source> .",
+    ),
+    referencesTurtle,
+  );
+  assert(
+    referencesTurtle.includes("sflo:hasTargetArtifact <alice/data> ."),
     referencesTurtle,
   );
 });
@@ -484,7 +496,7 @@ Deno.test("weave extract --all-terms rejects a positional designator path", asyn
       "--all-terms",
       "--accept-preview",
       "--source",
-      "alice/bio",
+      "alice/data",
       "--mesh-root",
       workspaceRoot,
     ],
@@ -521,7 +533,7 @@ Deno.test("weave extract --all-terms rejects removed --yes alias", async () => {
       "--all-terms",
       "--yes",
       "--source",
-      "alice/bio",
+      "alice/data",
       "--mesh-root",
       workspaceRoot,
     ],

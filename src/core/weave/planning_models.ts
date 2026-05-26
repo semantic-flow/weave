@@ -1,4 +1,4 @@
-import type { PlannedFile } from "../planned_file.ts";
+import type { PlannedBinaryFile, PlannedFile } from "../planned_file.ts";
 import type { WeaveNamingPolicies } from "./naming_policy.ts";
 import type { WeaveResourcePageGenerationPolicies } from "./resource_page_policy.ts";
 import type { ResourcePageModel } from "./resource_page_models.ts";
@@ -21,6 +21,7 @@ export interface WeavePlan {
   meshBase: string;
   wovenDesignatorPaths: readonly string[];
   createdFiles: readonly PlannedFile[];
+  createdBinaryFiles?: readonly PlannedBinaryFile[];
   updatedFiles: readonly PlannedFile[];
   createdPages: readonly ResourcePageModel[];
 }

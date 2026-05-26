@@ -1,4 +1,9 @@
-import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
+import {
+  assertEquals,
+  assertFalse,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import { IntegrateInputError, planIntegrate } from "./integrate.ts";
 import { readMeshAliceBioBranchFile } from "../../../tests/support/mesh_alice_bio_fixture.ts";
 import { readMeshSidecarFantasyRulesBranchFile } from "../../../tests/support/mesh_sidecar_fantasy_rules_fixture.ts";
@@ -6,8 +11,8 @@ import { compareRdfContent } from "../../../dependencies/github.com/spectacular-
 
 Deno.test("planIntegrate renders first payload integration artifacts", async () => {
   const plan = planIntegrate({
-    designatorPath: "alice/bio",
-    workingLocalRelativePath: "alice-bio.ttl",
+    designatorPath: "alice/data",
+    workingLocalRelativePath: "alice-data.ttl",
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle: await readMeshAliceBioBranchFile(
       "05-alice-knop-created-woven",
@@ -17,18 +22,18 @@ Deno.test("planIntegrate renders first payload integration artifacts", async () 
 
   assertEquals(
     plan.payloadArtifactIri,
-    "https://semantic-flow.github.io/mesh-alice-bio/alice/bio",
+    "https://semantic-flow.github.io/mesh-alice-bio/alice/data",
   );
   assertEquals(
     plan.knopIri,
-    "https://semantic-flow.github.io/mesh-alice-bio/alice/bio/_knop",
+    "https://semantic-flow.github.io/mesh-alice-bio/alice/data/_knop",
   );
-  assertEquals(plan.workingLocalRelativePath, "alice-bio.ttl");
+  assertEquals(plan.workingLocalRelativePath, "alice-data.ttl");
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
-      "alice/bio/_knop/_meta/meta.ttl",
-      "alice/bio/_knop/_inventory/inventory.ttl",
+      "alice/data/_knop/_meta/meta.ttl",
+      "alice/data/_knop/_inventory/inventory.ttl",
     ],
   );
   assertEquals(
@@ -39,14 +44,14 @@ Deno.test("planIntegrate renders first payload integration artifacts", async () 
     plan.createdFiles[0]?.contents,
     await readMeshAliceBioBranchFile(
       "06-alice-bio-integrated",
-      "alice/bio/_knop/_meta/meta.ttl",
+      "alice/data/_knop/_meta/meta.ttl",
     ),
   );
   assertEquals(
     plan.createdFiles[1]?.contents,
     await readMeshAliceBioBranchFile(
       "06-alice-bio-integrated",
-      "alice/bio/_knop/_inventory/inventory.ttl",
+      "alice/data/_knop/_inventory/inventory.ttl",
     ),
   );
   assertEquals(
@@ -64,6 +69,45 @@ Deno.test("planIntegrate renders first payload integration artifacts", async () 
   );
 });
 
+Deno.test("planIntegrate omits RdfDocument type for non-RDF payload artifacts", async () => {
+  const plan = planIntegrate({
+    designatorPath: "alice/bio",
+    workingLocalRelativePath: "alice-bio.md",
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: await readMeshAliceBioBranchFile(
+      "05-alice-knop-created-woven",
+      "_mesh/_inventory/inventory.ttl",
+    ),
+  });
+
+  const inventory =
+    plan.createdFiles.find((file) =>
+      file.path === "alice/bio/_knop/_inventory/inventory.ttl"
+    )?.contents ?? "";
+  const meshInventory =
+    plan.updatedFiles.find((file) =>
+      file.path === "_mesh/_inventory/inventory.ttl"
+    )?.contents ?? "";
+
+  for (const turtle of [inventory, meshInventory]) {
+    assertStringIncludes(
+      turtle,
+      "<alice/bio> a sflo:PayloadArtifact, sflo:DigitalArtifact ;",
+    );
+    assertStringIncludes(turtle, "<alice-bio.md> a sflo:LocatedFile .");
+    assertFalse(
+      turtle.includes(
+        "<alice/bio> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;",
+      ),
+    );
+    assertFalse(
+      turtle.includes(
+        "<alice-bio.md> a sflo:LocatedFile, sflo:RdfDocument .",
+      ),
+    );
+  }
+});
+
 Deno.test("planIntegrate rejects absolute working file paths", async () => {
   const currentMeshInventoryTurtle = await readMeshAliceBioBranchFile(
     "05-alice-knop-created-woven",
@@ -73,8 +117,8 @@ Deno.test("planIntegrate rejects absolute working file paths", async () => {
   assertThrows(
     () =>
       planIntegrate({
-        designatorPath: "alice/bio",
-        workingLocalRelativePath: "/tmp/alice-bio.ttl",
+        designatorPath: "alice/data",
+        workingLocalRelativePath: "/tmp/alice-data.ttl",
         meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
         currentMeshInventoryTurtle,
       }),
@@ -92,31 +136,31 @@ Deno.test(
     );
 
     const plan = planIntegrate({
-      designatorPath: "alice/bio",
-      workingLocalRelativePath: "../documentation/alice-bio.ttl",
+      designatorPath: "alice/data",
+      workingLocalRelativePath: "../documentation/alice-data.ttl",
       meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
       currentMeshInventoryTurtle,
     });
 
     assertEquals(
       plan.workingLocalRelativePath,
-      "../documentation/alice-bio.ttl",
+      "../documentation/alice-data.ttl",
     );
     assertEquals(
       plan.createdFiles[1]?.contents.includes(
-        'sflo:workingLocalRelativePath "../documentation/alice-bio.ttl" .',
+        'sflo:workingLocalRelativePath "../documentation/alice-data.ttl" .',
       ),
       true,
     );
     assertEquals(
       plan.createdFiles[1]?.contents.includes(
-        "sflo:hasWorkingLocatedFile <../documentation/alice-bio.ttl> .",
+        "sflo:hasWorkingLocatedFile <../documentation/alice-data.ttl> .",
       ),
       false,
     );
     assertEquals(
       plan.updatedFiles[0]?.contents.includes(
-        'sflo:workingLocalRelativePath "../documentation/alice-bio.ttl" .',
+        'sflo:workingLocalRelativePath "../documentation/alice-data.ttl" .',
       ),
       true,
     );
@@ -130,8 +174,8 @@ Deno.test("planIntegrate records working-only source bindings with the internal 
   );
 
   const plan = planIntegrate({
-    designatorPath: "alice/bio",
-    workingLocalRelativePath: "../source/alice-bio.ttl",
+    designatorPath: "alice/data",
+    workingLocalRelativePath: "../source/alice-data.ttl",
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle,
     sourceBinding: {
@@ -141,25 +185,25 @@ Deno.test("planIntegrate records working-only source bindings with the internal 
 
   assertEquals(
     plan.sourceBindingIri,
-    "https://semantic-flow.github.io/mesh-alice-bio/alice/bio/_knop/_sources#payload-source",
+    "https://semantic-flow.github.io/mesh-alice-bio/alice/data/_knop/_sources#payload-source",
   );
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
-      "alice/bio/_knop/_meta/meta.ttl",
-      "alice/bio/_knop/_inventory/inventory.ttl",
-      "alice/bio/_knop/_sources/sources.ttl",
+      "alice/data/_knop/_meta/meta.ttl",
+      "alice/data/_knop/_inventory/inventory.ttl",
+      "alice/data/_knop/_sources/sources.ttl",
     ],
   );
 
   const sources = plan.createdFiles[2]?.contents ?? "";
   assertStringIncludes(
     sources,
-    "<alice/bio/_knop/_sources#payload-source> a sflo:ArtifactResolutionTarget ;",
+    "<alice/data/_knop/_sources#payload-source> a sflo:IntegrationSource ;",
   );
   assertStringIncludes(
     sources,
-    'sflo:targetLocalRelativePath "../source/alice-bio.ttl" ;',
+    'sflo:targetLocalRelativePath "../source/alice-data.ttl" ;',
   );
   assertStringIncludes(
     sources,
@@ -178,8 +222,8 @@ Deno.test("planIntegrate records repository-backed source bindings", async () =>
   );
 
   const plan = planIntegrate({
-    designatorPath: "alice/bio",
-    workingLocalRelativePath: "../source/alice-bio.ttl",
+    designatorPath: "alice/data",
+    workingLocalRelativePath: "../source/alice-data.ttl",
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle,
     sourceBinding: {
@@ -188,47 +232,50 @@ Deno.test("planIntegrate records repository-backed source bindings", async () =>
         repositoryUrl: "https://github.com/semantic-flow/mesh-alice-bio.git",
         repositoryRef: "main",
         repositoryCommit: "abc123",
-        repositoryPath: "alice-bio.ttl",
+        repositoryPath: "alice-data.ttl",
         contentDigest: "sha256:123abc",
+      },
+      observation: {
+        observedContentDigest: "sha256:123abc",
       },
     },
   });
 
   assertEquals(
     plan.sourceBindingIri,
-    "https://semantic-flow.github.io/mesh-alice-bio/alice/bio/_knop/_sources#branch-source-alice-bio",
+    "https://semantic-flow.github.io/mesh-alice-bio/alice/data/_knop/_sources#branch-source-alice-bio",
   );
   assertEquals(
     plan.createdFiles.map((file) => file.path),
     [
-      "alice/bio/_knop/_meta/meta.ttl",
-      "alice/bio/_knop/_inventory/inventory.ttl",
-      "alice/bio/_knop/_sources/sources.ttl",
+      "alice/data/_knop/_meta/meta.ttl",
+      "alice/data/_knop/_inventory/inventory.ttl",
+      "alice/data/_knop/_sources/sources.ttl",
     ],
   );
 
   const inventory = plan.createdFiles[1]?.contents ?? "";
   assertStringIncludes(
     inventory,
-    "sflo:hasKnopSourceRegistry <alice/bio/_knop/_sources> ;",
+    "sflo:hasKnopSourceRegistry <alice/data/_knop/_sources> ;",
   );
   assertStringIncludes(
     inventory,
-    "<alice/bio/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;",
+    "<alice/data/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;",
   );
 
   const sources = plan.createdFiles[2]?.contents ?? "";
   assertStringIncludes(
     sources,
-    "<alice/bio/_knop/_sources#branch-source-alice-bio> a sflo:ArtifactResolutionTarget ;",
+    "<alice/data/_knop/_sources#branch-source-alice-bio> a sflo:IntegrationSource ;",
   );
   assertStringIncludes(
     sources,
-    "sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/bio> ;",
+    "sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/data> ;",
   );
   assertStringIncludes(
     sources,
-    'sflo:targetLocalRelativePath "../source/alice-bio.ttl" ;',
+    'sflo:targetLocalRelativePath "../source/alice-data.ttl" ;',
   );
   assertStringIncludes(
     sources,
@@ -240,12 +287,44 @@ Deno.test("planIntegrate records repository-backed source bindings", async () =>
   );
   assertStringIncludes(
     sources,
+    "sflo:hasResolutionObservation <alice/data/_knop/_sources#branch-source-alice-bio-observation-001> ;",
+  );
+  assertStringIncludes(
+    sources,
     'sflo:sourceRepositoryUrl "https://github.com/semantic-flow/mesh-alice-bio.git" ;',
   );
   assertStringIncludes(sources, 'sflo:sourceRepositoryRef "main" ;');
   assertStringIncludes(sources, 'sflo:sourceRepositoryCommit "abc123" ;');
-  assertStringIncludes(sources, 'sflo:sourceRepositoryPath "alice-bio.ttl" ;');
+  assertStringIncludes(sources, 'sflo:sourceRepositoryPath "alice-data.ttl" ;');
   assertStringIncludes(sources, 'sflo:hasContentDigest "sha256:123abc"');
+  assertStringIncludes(
+    sources,
+    '<alice/data/_knop/_sources#branch-source-alice-bio-observation-001>\n  a sflo:ArtifactResolutionObservation ;\n  sflo:observedContentDigest "sha256:123abc" .',
+  );
+});
+
+Deno.test("planIntegrate rejects invalid observation dateTime literals", async () => {
+  const currentMeshInventoryTurtle = await readMeshAliceBioBranchFile(
+    "05-alice-knop-created-woven",
+    "_mesh/_inventory/inventory.ttl",
+  );
+
+  assertThrows(
+    () =>
+      planIntegrate({
+        designatorPath: "alice/data",
+        workingLocalRelativePath: "../source/alice-data.ttl",
+        meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+        currentMeshInventoryTurtle,
+        sourceBinding: {
+          observation: {
+            observedAt: "not a dateTime",
+          },
+        },
+      }),
+    IntegrateInputError,
+    "sourceBinding.observation.observedAt must be a valid xsd:dateTime",
+  );
 });
 
 Deno.test("planIntegrate records floating repository source bindings without local source paths", async () => {
@@ -255,14 +334,14 @@ Deno.test("planIntegrate records floating repository source bindings without loc
   );
 
   const plan = planIntegrate({
-    designatorPath: "alice/bio",
-    workingLocalRelativePath: "../source/alice-bio.ttl",
+    designatorPath: "alice/data",
+    workingLocalRelativePath: "../source/alice-data.ttl",
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     currentMeshInventoryTurtle,
     sourceBinding: {
       repositorySourceFloatingLocator: {
         repositoryUrl: "https://github.com/semantic-flow/mesh-alice-bio.git",
-        repositoryPathFromRoot: "alice-bio.ttl",
+        repositoryPathFromRoot: "alice-data.ttl",
       },
       artifactResolutionMode: "working",
     },
@@ -283,7 +362,7 @@ Deno.test("planIntegrate records floating repository source bindings without loc
   );
   assertStringIncludes(
     inventory,
-    'sflo:sourceRepositoryPathFromRoot "alice-bio.ttl"',
+    'sflo:sourceRepositoryPathFromRoot "alice-data.ttl"',
   );
   assertEquals(inventory.includes("sflo:workingLocalRelativePath"), false);
   assertEquals(
@@ -305,7 +384,7 @@ Deno.test("planIntegrate records floating repository source bindings without loc
   const sources = plan.createdFiles[2]?.contents ?? "";
   assertStringIncludes(
     sources,
-    "<alice/bio/_knop/_sources#payload-source> a sflo:ArtifactResolutionTarget ;",
+    "<alice/data/_knop/_sources#payload-source> a sflo:IntegrationSource ;",
   );
   assertStringIncludes(
     sources,
@@ -313,7 +392,7 @@ Deno.test("planIntegrate records floating repository source bindings without loc
   );
   assertStringIncludes(
     sources,
-    'sflo:sourceRepositoryPathFromRoot "alice-bio.ttl"',
+    'sflo:sourceRepositoryPathFromRoot "alice-data.ttl"',
   );
   assertEquals(sources.includes("sflo:targetLocalRelativePath"), false);
   assertEquals(sources.includes("sflo:sourceRepositoryRef"), false);
@@ -341,8 +420,8 @@ Deno.test(
       );
 
     const plan = planIntegrate({
-      designatorPath: "alice/bio",
-      workingLocalRelativePath: "alice-bio.ttl",
+      designatorPath: "alice/data",
+      workingLocalRelativePath: "alice-data.ttl",
       meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
       currentMeshInventoryTurtle,
     });

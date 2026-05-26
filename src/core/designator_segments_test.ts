@@ -66,7 +66,7 @@ Deno.test("isDirectChildMeshPath treats the root as the parent of single-segment
   assertEquals(isDirectChildMeshPath("", ""), false);
   assertEquals(isDirectChildMeshPath("", "_history001"), true);
   assertEquals(isDirectChildMeshPath("", "alice"), true);
-  assertEquals(isDirectChildMeshPath("", "alice/bio"), false);
-  assertEquals(isDirectChildMeshPath("alice", "alice/bio"), true);
-  assertEquals(isDirectChildMeshPath("alice", "alice/bio/notes"), false);
+  assertEquals(isDirectChildMeshPath("", "alice/data"), false);
+  assertEquals(isDirectChildMeshPath("alice", "alice/data"), true);
+  assertEquals(isDirectChildMeshPath("alice", "alice/data/notes"), false);
 });

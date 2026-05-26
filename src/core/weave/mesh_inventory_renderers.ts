@@ -183,12 +183,15 @@ export function renderFirstPayloadWovenMeshInventoryTurtle(
   workingLocalRelativePath: string,
   meshInventoryProgression: MeshInventoryProgression,
   repositorySourceFloatingLocator?: RepositorySourceFloatingLocator,
+  payloadIsRdfDocument = true,
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const rootDesignatorPath = toRootDesignatorPath(designatorPath);
   const rootKnopPath = toKnopPath(rootDesignatorPath);
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
   const rootPagePath = toDesignatorResourcePagePath(rootDesignatorPath);
+  const preferredDesignatorPageAnchorPath =
+    rootDesignatorPath === designatorPath ? "_mesh/index.html" : rootPagePath;
   const historyPath = meshInventoryProgression.historyPath;
   const nextStatePath = meshInventoryProgression.nextStatePath;
   const nextStateManifestationPath = `${nextStatePath}/ttl`;
@@ -212,6 +215,7 @@ export function renderFirstPayloadWovenMeshInventoryTurtle(
       designatorPath,
       workingLocalRelativePath,
       repositorySourceFloatingLocator,
+      payloadIsRdfDocument,
     );
   }
   let blocks = initialBlocks;
@@ -223,6 +227,21 @@ export function renderFirstPayloadWovenMeshInventoryTurtle(
   if (!knopPaths.includes(knopPath)) {
     knopPaths.push(knopPath);
   }
+  const designatorPageAnchorPath = findSubjectBlockIndex(
+      blocks,
+      preferredDesignatorPageAnchorPath,
+    ) === -1
+    ? "_mesh/index.html"
+    : preferredDesignatorPageAnchorPath;
+  const preferredKnopPageAnchorPath = rootDesignatorPath === designatorPath
+    ? designatorPagePath
+    : `${rootKnopPath}/index.html`;
+  const knopPageAnchorPath = findSubjectBlockIndex(
+      blocks,
+      preferredKnopPageAnchorPath,
+    ) === -1
+    ? designatorPagePath
+    : preferredKnopPageAnchorPath;
 
   blocks = replaceSubjectBlock(
     blocks,
@@ -241,6 +260,7 @@ export function renderFirstPayloadWovenMeshInventoryTurtle(
       designatorPath,
       workingLocalRelativePath,
       repositorySourceFloatingLocator,
+      payloadIsRdfDocument,
     ),
   );
   blocks = replaceSubjectBlock(
@@ -281,15 +301,13 @@ export function renderFirstPayloadWovenMeshInventoryTurtle(
   );
   blocks = upsertSubjectBlockAfter(
     blocks,
-    rootDesignatorPath === designatorPath ? "_mesh/index.html" : rootPagePath,
+    designatorPageAnchorPath,
     designatorPagePath,
     renderResourcePageLocatedFileBlock(designatorPagePath),
   );
   blocks = upsertSubjectBlockAfter(
     blocks,
-    rootDesignatorPath === designatorPath
-      ? designatorPagePath
-      : `${rootKnopPath}/index.html`,
+    knopPageAnchorPath,
     `${knopPath}/index.html`,
     renderResourcePageLocatedFileBlock(`${knopPath}/index.html`),
   );
@@ -371,87 +389,6 @@ export function renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle(
   return `${currentMeshInventoryTurtle.trimEnd()}\n\n${
     additions.join("\n\n")
   }\n`;
-}
-
-export function renderFirstExtractedKnopWovenMeshInventoryTurtle(
-  currentMeshInventoryTurtle: string,
-  designatorPath: string,
-  sourcePayloadDesignatorPath: string,
-): string {
-  const rootDesignatorPath = toRootDesignatorPath(sourcePayloadDesignatorPath);
-  const sourceKnopPath = toKnopPath(sourcePayloadDesignatorPath);
-  const knopPath = toKnopPath(designatorPath);
-  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
-  const rootPagePath = toDesignatorResourcePagePath(rootDesignatorPath);
-  const historyPath = "_mesh/_inventory/_history001";
-  const stateFourPath = `${historyPath}/_s0004`;
-  const stateFourManifestationPath = `${stateFourPath}/ttl`;
-  let blocks = normalizeMeshInventoryHeader(
-    splitTurtleBlocks(currentMeshInventoryTurtle),
-  );
-
-  blocks = upsertSubjectBlockAfter(
-    blocks,
-    rootDesignatorPath,
-    designatorPath,
-    renderMeshIdentifierBlock(designatorPath),
-  );
-  blocks = replaceSubjectBlock(
-    blocks,
-    knopPath,
-    renderMeshKnopBlockWithResourcePage(knopPath),
-  );
-  blocks = replaceSubjectBlock(
-    blocks,
-    historyPath,
-    renderMeshInventoryHistoryWithFourthStateBlock(),
-  );
-  blocks = upsertSubjectBlockAfter(
-    blocks,
-    `${historyPath}/_s0003/ttl`,
-    stateFourPath,
-    renderMeshInventoryStateFourBlock(),
-  );
-  blocks = upsertSubjectBlockAfter(
-    blocks,
-    stateFourPath,
-    stateFourManifestationPath,
-    renderMeshInventoryStateFourManifestationBlock(),
-  );
-  blocks = upsertSubjectBlockAfter(
-    blocks,
-    `${historyPath}/_s0003/ttl/inventory.ttl`,
-    `${stateFourManifestationPath}/inventory.ttl`,
-    renderLocatedFileBlock(`${stateFourManifestationPath}/inventory.ttl`),
-  );
-  blocks = upsertSubjectBlockAfter(
-    blocks,
-    rootPagePath,
-    designatorPagePath,
-    renderResourcePageLocatedFileBlock(designatorPagePath),
-  );
-  blocks = upsertSubjectBlockAfter(
-    blocks,
-    `${sourceKnopPath}/index.html`,
-    `${knopPath}/index.html`,
-    renderResourcePageLocatedFileBlock(`${knopPath}/index.html`),
-  );
-  blocks = upsertSubjectBlockAfter(
-    blocks,
-    `${historyPath}/_s0003/ttl/index.html`,
-    `${stateFourPath}/index.html`,
-    renderResourcePageLocatedFileBlock(`${stateFourPath}/index.html`),
-  );
-  blocks = upsertSubjectBlockAfter(
-    blocks,
-    `${stateFourPath}/index.html`,
-    `${stateFourManifestationPath}/index.html`,
-    renderResourcePageLocatedFileBlock(
-      `${stateFourManifestationPath}/index.html`,
-    ),
-  );
-
-  return `${blocks.join("\n\n")}\n`;
 }
 
 export function renderGenericFirstExtractedKnopWovenMeshInventoryTurtle(
@@ -715,9 +652,39 @@ function renderLegacyFirstPayloadWovenMeshInventoryTurtle(
   designatorPath: string,
   workingLocalRelativePath: string,
   repositorySourceFloatingLocator?: RepositorySourceFloatingLocator,
+  payloadIsRdfDocument = true,
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
+  const rootDesignatorPath = toRootDesignatorPath(designatorPath);
+  const rootKnopPath = toKnopPath(rootDesignatorPath);
+  const rootPagePath = toDesignatorResourcePagePath(rootDesignatorPath);
+  const distinctKnopPaths = rootKnopPath === knopPath
+    ? [knopPath]
+    : [rootKnopPath, knopPath];
+  const meshRootKnopLines = distinctKnopPaths.map((path) =>
+    `  sflo:hasKnop <${path}> ;`
+  ).join("\n");
+  const rootIdentifierBlock = rootDesignatorPath === designatorPath
+    ? ""
+    : `<${rootDesignatorPath}>
+  sflo:hasResourcePage <${rootPagePath}> .
+`;
+  const rootKnopBlock = rootKnopPath === knopPath
+    ? ""
+    : `<${rootKnopPath}> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <${rootKnopPath}/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <${rootKnopPath}/index.html> .
+`;
+  const rootKnopInventoryFileBlock = rootKnopPath === knopPath
+    ? ""
+    : `<${rootKnopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .`;
+  const rootPageFileBlock = rootDesignatorPath === designatorPath
+    ? ""
+    : `<${rootPagePath}> a sflo:ResourcePage, sflo:LocatedFile .`;
+  const rootKnopPageFileBlock = rootKnopPath === knopPath
+    ? ""
+    : `<${rootKnopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .`;
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
     workingLocalRelativePath,
     repositorySourceFloatingLocator,
@@ -725,7 +692,9 @@ function renderLegacyFirstPayloadWovenMeshInventoryTurtle(
   const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
     workingLocalRelativePath,
     repositorySourceFloatingLocator,
+    { locatedFileIsRdfDocument: payloadIsRdfDocument },
   );
+  const payloadTypes = renderPayloadArtifactTypes(payloadIsRdfDocument);
 
   return `@base <${meshBase}> .
 ${SFLO_TURTLE_PREFIX_DECLARATION}
@@ -735,18 +704,13 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
   sflo:meshBase "${meshBase}"^^xsd:anyURI ;
   sflo:hasMeshMetadata <_mesh/_meta> ;
   sflo:hasMeshInventory <_mesh/_inventory> ;
-  sflo:hasKnop <alice/_knop> ;
-  sflo:hasKnop <${knopPath}> ;
+${meshRootKnopLines}
   sflo:hasResourcePage <_mesh/index.html> .
 
-<alice>
-  sflo:hasResourcePage <alice/index.html> .
+${rootIdentifierBlock}
+${rootKnopBlock}
 
-<alice/_knop> a sflo:Knop ;
-  sflo:hasWorkingKnopInventoryFile <alice/_knop/_inventory/inventory.ttl> ;
-  sflo:hasResourcePage <alice/_knop/index.html> .
-
-<${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+<${designatorPath}> a ${payloadTypes} ;
   ${currentWorkingFileLocator}
   sflo:hasResourcePage <${designatorPagePath}> .
 
@@ -838,7 +802,7 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
-<alice/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+${rootKnopInventoryFileBlock}
 
 <${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
@@ -846,11 +810,11 @@ ${currentWorkingFileDeclaration}
 
 <_mesh/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
-<alice/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+${rootPageFileBlock}
 
 <${designatorPagePath}> a sflo:ResourcePage, sflo:LocatedFile .
 
-<alice/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+${rootKnopPageFileBlock}
 
 <${knopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
@@ -912,15 +876,23 @@ function renderMeshPayloadArtifactBlockWithResourcePage(
   designatorPath: string,
   workingLocalRelativePath: string,
   repositorySourceFloatingLocator?: RepositorySourceFloatingLocator,
+  payloadIsRdfDocument = true,
 ): string {
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
     workingLocalRelativePath,
     repositorySourceFloatingLocator,
   );
-  return `<${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  const payloadTypes = renderPayloadArtifactTypes(payloadIsRdfDocument);
+  return `<${designatorPath}> a ${payloadTypes} ;
   ${currentWorkingFileLocator}
   sflo:hasResourcePage <${designatorPagePath}> .`;
+}
+
+function renderPayloadArtifactTypes(payloadIsRdfDocument: boolean): string {
+  return payloadIsRdfDocument
+    ? "sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument"
+    : "sflo:PayloadArtifact, sflo:DigitalArtifact";
 }
 
 function renderMeshInventoryArtifactBlock(historyPath: string): string {
@@ -977,33 +949,6 @@ function renderMeshInventoryStateManifestationBlock(statePath: string): string {
   return `<${statePath}/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
   sflo:locatedFileForManifestation <${statePath}/ttl/inventory.ttl> ;
   sflo:hasResourcePage <${statePath}/ttl/index.html> .`;
-}
-
-function renderMeshInventoryHistoryWithFourthStateBlock(): string {
-  return `<_mesh/_inventory/_history001> a sflo:ArtifactHistory ;
-  sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0001> ;
-  sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0002> ;
-  sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0003> ;
-  sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0004> ;
-  sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0004> ;
-  sflo:nextStateOrdinal "5"^^xsd:nonNegativeInteger ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/index.html> .`;
-}
-
-function renderMeshInventoryStateFourBlock(): string {
-  return `<_mesh/_inventory/_history001/_s0004> a sflo:HistoricalState ;
-  sflo:stateOrdinal "4"^^xsd:nonNegativeInteger ;
-  sflo:previousHistoricalState <_mesh/_inventory/_history001/_s0003> ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0004/ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0004/ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0004/index.html> .`;
-}
-
-function renderMeshInventoryStateFourManifestationBlock(): string {
-  return `<_mesh/_inventory/_history001/_s0004/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:locatedFileForManifestation <_mesh/_inventory/_history001/_s0004/ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0004/ttl/index.html> .`;
 }
 
 function renderLocatedFileBlock(path: string): string {

@@ -1,4 +1,5 @@
 import { dirname, fromFileUrl, join } from "@std/path";
+import { normalizeLegacyFixtureRdf } from "./fixture_normalization.ts";
 
 const repoRootPath = fromFileUrl(new URL("../../", import.meta.url));
 const fixtureRepoPath = join(
@@ -81,10 +82,11 @@ async function resolveMeshAliceBioGitRef(ref: string): Promise<string> {
 async function resolveMeshAliceBioGitRefUncached(
   ref: string,
 ): Promise<string> {
-  const prefixedRef = ref.startsWith(MESH_ALICE_BIO_LADDER_BRANCH_PREFIX)
+  const hasExplicitLadderPrefix = /^[a-z]\./.test(ref);
+  const prefixedRef = hasExplicitLadderPrefix
     ? ref
     : `${MESH_ALICE_BIO_LADDER_BRANCH_PREFIX}${ref}`;
-  const candidates = ref.startsWith(MESH_ALICE_BIO_LADDER_BRANCH_PREFIX)
+  const candidates = hasExplicitLadderPrefix
     ? [ref, `origin/${ref}`]
     : [prefixedRef, `origin/${prefixedRef}`];
 
@@ -172,7 +174,7 @@ export async function materializeMeshAliceBioBranch(
 }
 
 function normalizeFixtureTerms(contents: string): string {
-  return contents
+  return normalizeLegacyFixtureRdf(contents)
     .replaceAll(
       REMOVED_CURRENT_ARTIFACT_RESOLUTION_MODE,
       WORKING_ARTIFACT_RESOLUTION_MODE,

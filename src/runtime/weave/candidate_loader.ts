@@ -302,10 +302,29 @@ function isWeaveableKnopCandidate(
         (candidate.payloadArtifact.latestHistoricalSnapshotTurtle !==
             undefined &&
           candidate.payloadArtifact.currentPayloadTurtle !==
-            candidate.payloadArtifact.latestHistoricalSnapshotTurtle));
+            candidate.payloadArtifact.latestHistoricalSnapshotTurtle) ||
+        (candidate.payloadArtifact.currentPayloadBytes !== undefined &&
+          candidate.payloadArtifact.latestHistoricalSnapshotBytes !==
+            undefined &&
+          !bytesEqual(
+            candidate.payloadArtifact.currentPayloadBytes,
+            candidate.payloadArtifact.latestHistoricalSnapshotBytes,
+          )));
   }
 
   return slice === "firstKnopWeave";
+}
+
+function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.byteLength !== right.byteLength) {
+    return false;
+  }
+  for (let index = 0; index < left.byteLength; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function hasPayloadVersionNamingTarget(

@@ -23,9 +23,9 @@ The aliases `payloadHistorySegment`, `payloadStateSegment`, and `payloadManifest
 ## Examples
 
 ```sh
-weave --target 'designatorPath=alice/bio'
+weave --target 'designatorPath=alice/data'
 weave generate --target 'designatorPath=alice,recursive=true'
-weave validate --target 'designatorPath=alice/bio' --target 'designatorPath=bob'
+weave validate --target 'designatorPath=alice/data' --target 'designatorPath=bob'
 weave version --target 'designatorPath=ontology,historySegment=releases,stateSegment=v0.1.0,manifestationSegment=ttl'
 ```
 

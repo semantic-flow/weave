@@ -178,7 +178,7 @@ Deno.test("planKnopAddReference renders first reference catalog support artifact
   const plan = planKnopAddReference({
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     designatorPath: "alice",
-    referenceTargetDesignatorPath: "alice/bio",
+    referenceTargetDesignatorPath: "alice/data",
     referenceRole: "canonical",
     currentKnopInventoryTurtle: wovenKnopInventory,
   });
@@ -205,10 +205,19 @@ Deno.test("planKnopAddReference renders first reference catalog support artifact
   );
   assertEquals(
     plan.createdFiles[0]?.contents ?? "",
-    await readMeshAliceBioBranchFile(
-      "08-alice-bio-referenced",
-      "alice/_knop/_references/references.ttl",
-    ),
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<alice> sflo:hasReferenceLink <alice/_knop/_references#reference001> .
+
+<alice/_knop/_references#reference001> a sflo:ReferenceLink ;
+  sflo:referenceLinkFor <alice> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_canonical> ;
+  sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
+
+<alice/_knop/_references#reference001-source> a sflo:ReferenceSource ;
+  sflo:hasTargetArtifact <alice/data> .
+`,
   );
   assertEquals(
     plan.updatedFiles[0]?.contents ?? "",
@@ -223,19 +232,19 @@ Deno.test("planKnopAddReference can pin a reference target state", () => {
   const plan = planKnopAddReference({
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     designatorPath: "alice",
-    referenceTargetDesignatorPath: "alice/bio",
-    referenceTargetStatePath: "alice/bio/_history001/_s0002",
+    referenceTargetDesignatorPath: "alice/data",
+    referenceTargetStatePath: "alice/data/_history001/_s0002",
     referenceRole: "canonical",
     currentKnopInventoryTurtle: wovenKnopInventory,
   });
 
   assertEquals(
     plan.referenceTargetStateIri,
-    "https://semantic-flow.github.io/mesh-alice-bio/alice/bio/_history001/_s0002",
+    "https://semantic-flow.github.io/mesh-alice-bio/alice/data/_history001/_s0002",
   );
   assertStringIncludes(
     plan.createdFiles[0]?.contents ?? "",
-    "sflo:referenceTarget <alice/bio> ;\n  sflo:referenceTargetState <alice/bio/_history001/_s0002> .",
+    "sflo:hasTargetArtifact <alice/data> ;\n  sflo:hasRequestedTargetState <alice/data/_history001/_s0002> .",
   );
 });
 
@@ -243,7 +252,7 @@ Deno.test("planKnopAddReference supports unwoven knop inventory input", () => {
   const plan = planKnopAddReference({
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     designatorPath: "bob",
-    referenceTargetDesignatorPath: "alice/bio",
+    referenceTargetDesignatorPath: "alice/data",
     referenceRole: "supplemental",
     currentKnopInventoryTurtle: unwovenKnopInventory,
   });
@@ -285,7 +294,7 @@ Deno.test("planKnopAddReference preserves extracted source registry facts", () =
   const plan = planKnopAddReference({
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     designatorPath: "bob",
-    referenceTargetDesignatorPath: "alice/bio",
+    referenceTargetDesignatorPath: "alice/data",
     referenceRole: "canonical",
     currentKnopInventoryTurtle: extractedKnopInventory,
   });
@@ -313,7 +322,7 @@ Deno.test("planKnopAddReference supports current-only woven extracted KnopInvent
   const plan = planKnopAddReference({
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     designatorPath: "bob",
-    referenceTargetDesignatorPath: "alice/bio",
+    referenceTargetDesignatorPath: "alice/data",
     referenceRole: "canonical",
     currentKnopInventoryTurtle: currentOnlyWovenExtractedKnopInventory,
   });
@@ -342,7 +351,7 @@ Deno.test("planKnopAddReference normalizes referenceRole tokens case-insensitive
   const plan = planKnopAddReference({
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     designatorPath: "alice",
-    referenceTargetDesignatorPath: "alice/bio",
+    referenceTargetDesignatorPath: "alice/data",
     referenceRole: "Supplemental",
     currentKnopInventoryTurtle: wovenKnopInventory,
   });
@@ -361,7 +370,7 @@ Deno.test("planKnopAddReference accepts semantically equivalent woven KnopInvent
   const plan = planKnopAddReference({
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     designatorPath: "alice",
-    referenceTargetDesignatorPath: "alice/bio",
+    referenceTargetDesignatorPath: "alice/data",
     referenceRole: "canonical",
     currentKnopInventoryTurtle: withRdfPrefix(wovenKnopInventory)
       .replace(
@@ -389,7 +398,7 @@ Deno.test("planKnopAddReference rejects unsupported reference roles", () => {
       planKnopAddReference({
         meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
         designatorPath: "alice",
-        referenceTargetDesignatorPath: "alice/bio",
+        referenceTargetDesignatorPath: "alice/data",
         referenceRole: "primary",
         currentKnopInventoryTurtle: wovenKnopInventory,
       }),
@@ -404,7 +413,7 @@ Deno.test("planKnopAddReference rejects prototype property reference roles", () 
       planKnopAddReference({
         meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
         designatorPath: "alice",
-        referenceTargetDesignatorPath: "alice/bio",
+        referenceTargetDesignatorPath: "alice/data",
         referenceRole: "constructor",
         currentKnopInventoryTurtle: wovenKnopInventory,
       }),
@@ -419,7 +428,7 @@ Deno.test("planKnopAddReference rejects unsafe designator segments before buildi
       planKnopAddReference({
         meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
         designatorPath: "alice:bio",
-        referenceTargetDesignatorPath: "alice/bio",
+        referenceTargetDesignatorPath: "alice/data",
         referenceRole: "canonical",
         currentKnopInventoryTurtle: wovenKnopInventory,
       }),
@@ -434,7 +443,7 @@ Deno.test("planKnopAddReference rejects an already-registered reference catalog"
       planKnopAddReference({
         meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
         designatorPath: "alice",
-        referenceTargetDesignatorPath: "alice/bio",
+        referenceTargetDesignatorPath: "alice/data",
         referenceRole: "canonical",
         currentKnopInventoryTurtle: wovenKnopInventory.replace(
           "  sflo:hasResourcePage <alice/_knop/index.html> .",

@@ -4,25 +4,217 @@ import {
   assertFalse,
   assertStringIncludes,
 } from "@std/assert";
-import { renderResourcePage } from "./pages.ts";
+import { DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE } from "../config/effective_config.ts";
+import { buildResourcePageDocumentModel, renderResourcePage } from "./pages.ts";
+
+Deno.test("buildResourcePageDocumentModel assembles ordered identifier panels", () => {
+  const document = buildResourcePageDocumentModel(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "identifier",
+      path: "alice/data/index.html",
+      designatorPath: "alice/data",
+      workingLocalRelativePath: "alice-data.ttl",
+      childIdentifiers: [
+        { label: "timeline", path: "alice/data/timeline" },
+      ],
+      references: [{
+        roleLabel: "canonical",
+        targets: [{
+          href: "https://example.com/alice",
+          label: "Example Alice",
+        }],
+      }],
+      historyGroups: [{
+        label: "alice-data.ttl",
+        path: "alice/data/_history",
+        states: [],
+      }],
+      rawSourcePanels: [{
+        label: "alice-data.ttl",
+        sourcePath: "alice-data.ttl",
+        contents: "@prefix schema: <https://schema.org/> .",
+      }],
+    },
+    {
+      generatedAt: new Date("2026-05-23T00:00:00.000Z"),
+      includeSemanticFlowMetadata: true,
+    },
+  );
+
+  assertEquals(document.kind, "identifier");
+  assertEquals(document.title, "data");
+  assertEquals(document.metadata.map((row) => row.label), [
+    "Canonical IRI",
+    "Working File",
+  ]);
+  assertEquals(document.panels.map((panel) => panel.kind), [
+    "children",
+    "references",
+    "rawSource",
+    "history",
+    "semanticFlowMetadata",
+  ]);
+
+  const childrenPanel = document.panels.find((panel) =>
+    panel.kind === "children"
+  );
+  assert(childrenPanel?.kind === "children");
+  assertEquals(childrenPanel.groups[0]?.label, "Individuals");
+});
+
+Deno.test("buildResourcePageDocumentModel target-gates selected panels by page kind", () => {
+  const page = {
+    kind: "identifier" as const,
+    path: "alice/data/index.html",
+    designatorPath: "alice/data",
+    rawSourcePanels: [{
+      label: "alice-data.ttl",
+      sourcePath: "alice-data.ttl",
+      contents:
+        `<https://semantic-flow.github.io/mesh-alice-bio/alice/data> <https://schema.org/name> "Alice" .`,
+    }],
+  };
+
+  assert(
+    buildResourcePageDocumentModel(
+      "https://semantic-flow.github.io/mesh-alice-bio/",
+      page,
+    ).panels.some((panel) => panel.kind === "properties"),
+  );
+
+  const document = buildResourcePageDocumentModel(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    page,
+    {
+      resourcePagePresentation: {
+        ...DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE,
+        panelSelections: DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE
+          .panelSelections.map((selection) =>
+            selection.panel === "properties"
+              ? { ...selection, targetPageKinds: ["knop"] }
+              : selection
+          ),
+      },
+    },
+  );
+
+  assertFalse(document.panels.some((panel) => panel.kind === "properties"));
+});
+
+Deno.test("buildResourcePageDocumentModel target-gates selected panels by class, role, and data", () => {
+  const page = {
+    kind: "identifier" as const,
+    path: "alice/data/index.html",
+    designatorPath: "alice/data",
+    workingLocalRelativePath: "alice-data.ttl",
+    childIdentifiers: [{ label: "timeline", path: "alice/data/timeline" }],
+    rawSourcePanels: [{
+      label: "alice-data.ttl",
+      sourcePath: "alice-data.ttl",
+      contents:
+        `<https://semantic-flow.github.io/mesh-alice-bio/alice/data> <https://schema.org/name> "Alice" .`,
+    }],
+  };
+
+  const baseline = buildResourcePageDocumentModel(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    page,
+  );
+  assert(baseline.panels.some((panel) => panel.kind === "children"));
+  assert(baseline.panels.some((panel) => panel.kind === "properties"));
+  assert(baseline.panels.some((panel) => panel.kind === "rawSource"));
+
+  const classGated = buildResourcePageDocumentModel(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    page,
+    {
+      resourcePagePresentation: {
+        ...DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE,
+        panelSelections: DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE
+          .panelSelections.map((selection) =>
+            selection.panel === "properties"
+              ? {
+                ...selection,
+                targetClasses: [
+                  "https://semantic-flow.github.io/sflo/ontology/PayloadArtifact",
+                ],
+              }
+              : selection
+          ),
+      },
+    },
+  );
+  assertFalse(classGated.panels.some((panel) => panel.kind === "properties"));
+
+  const roleGated = buildResourcePageDocumentModel(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    page,
+    {
+      resourcePagePresentation: {
+        ...DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE,
+        panelSelections: DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE
+          .panelSelections.map((selection) =>
+            selection.panel === "rawSource"
+              ? { ...selection, targetArtifactRoles: ["config" as const] }
+              : selection
+          ),
+      },
+    },
+  );
+  assertFalse(roleGated.panels.some((panel) => panel.kind === "rawSource"));
+
+  const dataGated = buildResourcePageDocumentModel(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    page,
+    {
+      resourcePagePresentation: {
+        ...DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE,
+        panelSelections: DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE
+          .panelSelections.map((selection) =>
+            selection.panel === "children"
+              ? { ...selection, dataRequirements: ["history" as const] }
+              : selection
+          ),
+      },
+    },
+  );
+  assertFalse(dataGated.panels.some((panel) => panel.kind === "children"));
+});
+
+Deno.test("buildResourcePageDocumentModel omits Semantic Flow metadata panel by default", () => {
+  const document = buildResourcePageDocumentModel(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "identifier",
+      path: "alice/data/index.html",
+      designatorPath: "alice/data",
+      workingLocalRelativePath: "alice-data.ttl",
+    },
+  );
+
+  assertFalse(
+    document.panels.some((panel) => panel.kind === "semanticFlowMetadata"),
+  );
+});
 
 Deno.test("renderResourcePage renders identifier pages with working file links", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
       kind: "identifier",
-      path: "alice/bio/index.html",
-      designatorPath: "alice/bio",
-      workingLocalRelativePath: "alice-bio.ttl",
+      path: "alice/data/index.html",
+      designatorPath: "alice/data",
+      workingLocalRelativePath: "alice-data.ttl",
     },
     { includeSemanticFlowMetadata: true },
   );
 
-  assertStringIncludes(html, "<title>mesh-alice-bio bio</title>");
-  assertStringIncludes(html, "<h1>bio</h1>");
+  assertStringIncludes(html, "<title>mesh-alice-bio data</title>");
+  assertStringIncludes(html, "<h1>data</h1>");
   assertStringIncludes(
     html,
-    '<link rel="canonical" href="https://semantic-flow.github.io/mesh-alice-bio/alice/bio">',
+    '<link rel="canonical" href="https://semantic-flow.github.io/mesh-alice-bio/alice/data">',
   );
   assertStringIncludes(
     html,
@@ -41,7 +233,7 @@ Deno.test("renderResourcePage renders identifier pages with working file links",
   assertFalse(html.includes("Associated Knop"));
   assertStringIncludes(
     html,
-    '<tr><th scope="row">Knop</th><td><a href="/mesh-alice-bio/alice/bio/_knop">alice/bio/_knop</a></td></tr>',
+    '<tr><th scope="row">Knop</th><td><a href="/mesh-alice-bio/alice/data/_knop">alice/data/_knop</a></td></tr>',
   );
   assert(
     html.indexOf('<th scope="row">Canonical IRI</th>') <
@@ -49,10 +241,10 @@ Deno.test("renderResourcePage renders identifier pages with working file links",
   );
   assertStringIncludes(
     html,
-    '<tr><th scope="row">Working File</th><td colspan="3"><a href="/mesh-alice-bio/alice-bio.ttl">alice-bio.ttl</a></td></tr>',
+    '<tr><th scope="row">Working File</th><td colspan="3"><a href="/mesh-alice-bio/alice-data.ttl">alice-data.ttl</a></td></tr>',
   );
-  assertStringIncludes(html, 'href="/mesh-alice-bio/alice-bio.ttl"');
-  assertStringIncludes(html, 'href="/mesh-alice-bio/alice/bio/_knop"');
+  assertStringIncludes(html, 'href="/mesh-alice-bio/alice-data.ttl"');
+  assertStringIncludes(html, 'href="/mesh-alice-bio/alice/data/_knop"');
 });
 
 Deno.test("renderResourcePage omits Semantic Flow metadata by default", async () => {
@@ -60,9 +252,9 @@ Deno.test("renderResourcePage omits Semantic Flow metadata by default", async ()
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
       kind: "identifier",
-      path: "alice/bio/index.html",
-      designatorPath: "alice/bio",
-      workingLocalRelativePath: "alice-bio.ttl",
+      path: "alice/data/index.html",
+      designatorPath: "alice/data",
+      workingLocalRelativePath: "alice-data.ttl",
     },
   );
 
@@ -134,8 +326,8 @@ Deno.test("renderResourcePage renders breadcrumbs above the masthead rule with o
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
       kind: "identifier",
-      path: "alice/bio/index.html",
-      designatorPath: "alice/bio",
+      path: "alice/data/index.html",
+      designatorPath: "alice/data",
     },
     { meshFaviconPath: "favicon.ico" },
   );
@@ -316,6 +508,28 @@ Deno.test("renderResourcePage extracts root facts from the slashless root IRI", 
   );
 });
 
+Deno.test("renderResourcePage uses foaf:name as an identifier title fallback", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "identifier",
+      path: "alice/index.html",
+      designatorPath: "alice",
+      rawSourcePanels: [{
+        label: "Current working file",
+        sourcePath: "alice.ttl",
+        contents: `@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+
+<https://semantic-flow.github.io/mesh-alice-bio/alice> foaf:name "Alice" .
+`,
+      }],
+    },
+  );
+
+  assertStringIncludes(html, "<title>mesh-alice-bio Alice</title>");
+  assertStringIncludes(html, "<h1>Alice</h1>");
+});
+
 Deno.test("renderResourcePage renders typed child identifier rows", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
@@ -362,7 +576,7 @@ Deno.test("renderResourcePage renders typed child identifier rows", async () => 
   );
 
   assertStringIncludes(html, '<details class="wf-children" open>');
-  assertStringIncludes(html, "<summary>Children</summary>");
+  assertStringIncludes(html, "<summary>Child Identifiers</summary>");
   assertStringIncludes(html, '<th scope="row">Classes</th>');
   assertStringIncludes(html, '<th scope="row">Object Properties</th>');
   assertStringIncludes(html, '<th scope="row">Datatype Properties</th>');
@@ -373,12 +587,12 @@ Deno.test("renderResourcePage renders typed child identifier rows", async () => 
   assertStringIncludes(html, '<th scope="row">Node Shapes</th>');
   assertStringIncludes(html, '<th scope="row">Property Shapes</th>');
   assertStringIncludes(html, '<th scope="row">Shapes</th>');
-  assertFalse(html.includes("Child Identifiers"));
+  assertFalse(html.includes("<summary>Children</summary>"));
   assertFalse(html.includes('<th scope="row">Child Classes</th>'));
   assert(
-    html.indexOf("<summary>Children</summary>") <
+    html.indexOf("<summary>Child Identifiers</summary>") <
       html.indexOf('<th scope="row">Classes</th>'),
-    "expected child rows under the Children section",
+    "expected child rows under the Child Identifiers section",
   );
   assert(
     html.indexOf('<th scope="row">Individuals</th>') <
@@ -505,7 +719,7 @@ Deno.test("renderResourcePage separates SHACL child identifiers from RDF type hi
   );
 
   assertStringIncludes(html, '<details class="wf-children" open>');
-  assertStringIncludes(html, "<summary>Children</summary>");
+  assertStringIncludes(html, "<summary>Child Identifiers</summary>");
   assertStringIncludes(html, '<th scope="row">Individuals</th>');
   assertStringIncludes(html, '<th scope="row">Node Shapes</th>');
   assertStringIncludes(html, '<th scope="row">Property Shapes</th>');
@@ -559,7 +773,7 @@ Deno.test("renderResourcePage collapses child identifier overflow", async () => 
   );
 
   assertStringIncludes(html, '<details class="wf-children" open>');
-  assertStringIncludes(html, "<summary>Children</summary>");
+  assertStringIncludes(html, "<summary>Child Identifiers</summary>");
   assertStringIncludes(html, '<th scope="row">Individuals</th>');
   assertStringIncludes(html, ">Child20</a>");
   assertStringIncludes(
@@ -601,7 +815,7 @@ Deno.test("renderResourcePage renders current ReferenceCatalog pages with fragme
       currentLinks: [{
         fragment: "reference001",
         referenceRoleLabel: "canonical",
-        referenceTargetPath: "alice/bio",
+        referenceTargetPath: "alice/data",
       }],
     },
   );
@@ -610,7 +824,7 @@ Deno.test("renderResourcePage renders current ReferenceCatalog pages with fragme
   assertStringIncludes(html, "<h2>Current Links</h2>");
   assertStringIncludes(
     html,
-    '<li id="reference001"><code>#reference001</code>: canonical reference target <code>alice/bio</code>.</li>',
+    '<li id="reference001"><code>#reference001</code>: canonical reference target <code>alice/data</code>.</li>',
   );
 });
 
@@ -625,7 +839,7 @@ Deno.test("renderResourcePage escapes dynamic ReferenceCatalog HTML fragments", 
       currentLinks: [{
         fragment: "reference&<>\"'001",
         referenceRoleLabel: 'canonical & <primary> "role"',
-        referenceTargetPath: 'alice/bio?x=<y>&z="1"',
+        referenceTargetPath: 'alice/data?x=<y>&z="1"',
       }],
     },
   );
@@ -636,7 +850,7 @@ Deno.test("renderResourcePage escapes dynamic ReferenceCatalog HTML fragments", 
     html,
     "canonical &amp; &lt;primary&gt; &quot;role&quot;",
   );
-  assertStringIncludes(html, "alice/bio?x=&lt;y&gt;&amp;z=&quot;1&quot;");
+  assertStringIncludes(html, "alice/data?x=&lt;y&gt;&amp;z=&quot;1&quot;");
 });
 
 Deno.test("renderResourcePage renders extracted ReferenceCatalog pages with exact historical states", async () => {
@@ -650,19 +864,19 @@ Deno.test("renderResourcePage renders extracted ReferenceCatalog pages with exac
       currentLinks: [{
         fragment: "reference001",
         referenceRoleLabel: "supplemental",
-        referenceTargetPath: "alice/bio",
-        referenceTargetStatePath: "alice/bio/_history001/_s0002",
+        referenceTargetPath: "alice/data",
+        referenceTargetStatePath: "alice/data/_history001/_s0002",
       }],
     },
   );
 
   assertStringIncludes(
     html,
-    '<a href="/mesh-alice-bio/alice/bio">alice/bio</a>',
+    '<a href="/mesh-alice-bio/alice/data">alice/data</a>',
   );
   assertStringIncludes(
     html,
-    '<a href="/mesh-alice-bio/alice/bio/_history001/_s0002">/mesh-alice-bio/alice/bio/_history001/_s0002</a>',
+    '<a href="/mesh-alice-bio/alice/data/_history001/_s0002">/mesh-alice-bio/alice/data/_history001/_s0002</a>',
   );
 });
 
@@ -671,9 +885,9 @@ Deno.test("renderResourcePage renders exact root ReferenceCatalog targets as sla
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
       kind: "referenceCatalog",
-      path: "alice/bio/_knop/_references/index.html",
-      catalogPath: "alice/bio/_knop/_references",
-      ownerDesignatorPath: "alice/bio",
+      path: "alice/data/_knop/_references/index.html",
+      catalogPath: "alice/data/_knop/_references",
+      ownerDesignatorPath: "alice/data",
       currentLinks: [{
         fragment: "reference001",
         referenceRoleLabel: "supplemental",
@@ -723,7 +937,7 @@ Deno.test("renderResourcePage renders Knop pages with local titles", async () =>
   );
   assertStringIncludes(html, '<span aria-current="page">_knop</span>');
   assertStringIncludes(html, '<details class="wf-children" open>');
-  assertStringIncludes(html, "<summary>Children</summary>");
+  assertStringIncludes(html, "<summary>Child Identifiers</summary>");
   assertStringIncludes(html, '<th scope="row">Individuals</th>');
   assertStringIncludes(
     html,
@@ -740,12 +954,12 @@ Deno.test("renderResourcePage renders escaped raw RDF panels and raw file links"
     "https://semantic-flow.github.io/mesh-alice-bio/",
     {
       kind: "identifier",
-      path: "alice/bio/index.html",
-      designatorPath: "alice/bio",
-      workingLocalRelativePath: "alice-bio.ttl",
+      path: "alice/data/index.html",
+      designatorPath: "alice/data",
+      workingLocalRelativePath: "alice-data.ttl",
       rawSourcePanels: [{
         label: "Current working file",
-        sourcePath: "alice-bio.ttl",
+        sourcePath: "alice-data.ttl",
         contents: '<alice> <knows> "Bob & Alice" .',
       }],
     },
@@ -754,7 +968,7 @@ Deno.test("renderResourcePage renders escaped raw RDF panels and raw file links"
   assertStringIncludes(html, "<summary>Current working file</summary>");
   assertStringIncludes(
     html,
-    '<a href="/mesh-alice-bio/alice-bio.ttl">Raw file</a>',
+    '<a href="/mesh-alice-bio/alice-data.ttl">Raw file</a>',
   );
   assertStringIncludes(
     html,
@@ -783,6 +997,51 @@ Deno.test("renderResourcePage renders escaped raw RDF panels and raw file links"
   );
 });
 
+Deno.test("renderResourcePage omits binary raw source copies with image previews", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "simple",
+      path: "mesh-content/favicon/index.html",
+      description: "Generated resource page.",
+      rawSourcePanels: [{
+        label: "Latest historical manifestation file",
+        sourcePath: "mesh-content/favicon/_history001/_s0001/ico/favicon.ico",
+        omittedByteLength: 15406,
+      }],
+    },
+    {
+      resourcePagePresentation: {
+        ...DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE,
+        panelSelections: DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE
+          .panelSelections.map((selection) =>
+            selection.panel === "rawSource"
+              ? {
+                ...selection,
+                targetClasses: [],
+                targetArtifactRoles: [],
+              }
+              : selection
+          ),
+      },
+    },
+  );
+
+  assertStringIncludes(
+    html,
+    "<summary>Latest historical manifestation file</summary>",
+  );
+  assertStringIncludes(
+    html,
+    "Weave omitted the inline copy",
+  );
+  assertStringIncludes(
+    html,
+    '<img class="wf-source-image-preview" src="/mesh-alice-bio/mesh-content/favicon/_history001/_s0001/ico/favicon.ico"',
+  );
+  assertFalse(html.includes("<pre"));
+});
+
 Deno.test("renderResourcePage renders source registry fragment sections for ExtractionSource", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",
@@ -797,8 +1056,8 @@ Deno.test("renderResourcePage renders source registry fragment sections for Extr
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <bob/_knop/_sources#extraction-source> a sflo:ExtractionSource ;
-  sflo:hasTargetArtifact <alice/bio> ;
-  sflo:hasRequestedTargetState <alice/bio/_history001/_s0002> .
+  sflo:hasTargetArtifact <alice/data> ;
+  sflo:hasRequestedTargetState <alice/data/_history001/_s0002> .
 `,
       }],
     },
@@ -809,10 +1068,10 @@ Deno.test("renderResourcePage renders source registry fragment sections for Extr
     '<section class="wf-section" id="extraction-source">',
   );
   assertStringIncludes(html, "<h2>Extraction Source</h2>");
-  assertStringIncludes(html, 'href="/mesh-alice-bio/alice/bio"');
+  assertStringIncludes(html, 'href="/mesh-alice-bio/alice/data"');
   assertStringIncludes(
     html,
-    'href="/mesh-alice-bio/alice/bio/_history001/_s0002"',
+    'href="/mesh-alice-bio/alice/data/_history001/_s0002"',
   );
   assertFalse(html.includes("hasArtifactResolutionMode"));
 });
@@ -965,6 +1224,33 @@ fant:AbilityScore a owl:Class ;
   assertStringIncludes(
     html,
     '<p class="wf-summary">A numeric character capability used by the rules.</p>',
+  );
+});
+
+Deno.test("renderResourcePage uses schema description as the lowest-priority summary", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "identifier",
+      path: "carol/index.html",
+      designatorPath: "carol",
+      rawSourcePanels: [{
+        label: "Carol source file",
+        sourcePath: "carol-data.ttl",
+        contents: `@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix schema: <https://schema.org/> .
+
+<https://semantic-flow.github.io/mesh-alice-bio/carol> a foaf:Person ;
+  foaf:name "Carol Burnett" ;
+  schema:description "American comedian and actor." .
+`,
+      }],
+    },
+  );
+
+  assertStringIncludes(
+    html,
+    '<p class="wf-summary">American comedian and actor.</p>',
   );
 });
 
@@ -1478,7 +1764,7 @@ Deno.test("renderResourcePage renders Knop artifact links without history cake",
       designatorPath: "alice",
       governedArtifacts: [{
         label: "PayloadArtifact",
-        path: "alice/bio",
+        path: "alice/data",
       }],
       supportingArtifacts: [
         {
@@ -1500,7 +1786,7 @@ Deno.test("renderResourcePage renders Knop artifact links without history cake",
   );
   assertStringIncludes(html, "<h2>Governed Artifacts</h2>");
   assertStringIncludes(html, "PayloadArtifact");
-  assertStringIncludes(html, 'href="/mesh-alice-bio/alice/bio"');
+  assertStringIncludes(html, 'href="/mesh-alice-bio/alice/data"');
   assertStringIncludes(html, "<h2>Supporting Artifacts</h2>");
   assertStringIncludes(html, 'href="/mesh-alice-bio/alice/_knop/_meta"');
   assertStringIncludes(html, 'href="/mesh-alice-bio/alice/_knop/_inventory"');
@@ -1555,14 +1841,14 @@ Alice's integrated biography is available at [./bio](./bio), and the extracted B
     <article class="alice-main">
       <h1>Alice</h1>
       <p>This customized identifier page is driven by <code>alice/_knop/_page/page.ttl</code>.</p>
-      <p>Alice's integrated biography is available at <a href="./bio">./bio</a>, and the extracted Bob resource is available at <a href="../bob">../bob</a>.</p>
+      <p>Alice's integrated biography is available at <a href="/mesh-alice-bio/alice/bio">./bio</a>, and the extracted Bob resource is available at <a href="/mesh-alice-bio/bob">../bob</a>.</p>
     </article>
     <aside class="alice-sidebar">
       <h2>Quick links</h2>
       <ul>
-        <li><a href="./_knop">Alice Knop</a></li>
-        <li><a href="./bio">Alice bio</a></li>
-        <li><a href="../bob">Bob</a></li>
+        <li><a href="/mesh-alice-bio/alice/_knop">Alice Knop</a></li>
+        <li><a href="/mesh-alice-bio/alice/bio">Alice bio</a></li>
+        <li><a href="/mesh-alice-bio/bob">Bob</a></li>
       </ul>
     </aside>
 
@@ -1574,4 +1860,227 @@ Alice's integrated biography is available at [./bio](./bio), and the extracted B
 </html>
 `,
   );
+});
+
+Deno.test("renderResourcePage uses shared shell for opted-in customized identifier pages", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "customIdentifier",
+      path: "alice/index.html",
+      designatorPath: "alice",
+      definitionPath: "alice/_knop/_page",
+      presentationConfigIri: DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE.iri,
+      stylesheetPaths: ["alice/_knop/_assets/alice.css"],
+      regions: [
+        {
+          key: "main",
+          sourcePath: "alice/alice.md",
+          markdown: `# Alice
+
+This customized identifier page is driven by \`alice/_knop/_page/page.ttl\`.
+`,
+        },
+        {
+          key: "sidebar",
+          sourcePath: "mesh-content/sidebar.md",
+          markdown: `## Quick links
+
+- [Alice Knop](./_knop)
+`,
+        },
+      ],
+      rawSourcePanels: [{
+        label: "alice-data.ttl",
+        sourcePath: "alice-data.ttl",
+        contents:
+          `<https://semantic-flow.github.io/mesh-alice-bio/alice> <http://xmlns.com/foaf/0.1/name> "Alice" .`,
+      }],
+    },
+    {
+      generatedAt: new Date("2026-05-23T00:00:00.000Z"),
+    },
+  );
+
+  assertStringIncludes(html, '<article class="wf-shell">');
+  assertStringIncludes(
+    html,
+    '<link rel="stylesheet" href="./_knop/_assets/alice.css">',
+  );
+  assertStringIncludes(html, "<title>mesh-alice-bio Alice</title>");
+  assertStringIncludes(html, '<section class="wf-section" id="region-main">');
+  assertStringIncludes(
+    html,
+    '<section class="wf-section" id="region-sidebar">',
+  );
+  assertStringIncludes(html, "<h1>Alice</h1>");
+  assertStringIncludes(html, "<h1>Alice</h1>");
+  assertStringIncludes(html, "<h2>Quick links</h2>");
+  assertFalse(html.includes('<th scope="row">ResourcePageDefinition</th>'));
+  assertFalse(html.includes("<summary>Semantic Flow metadata</summary>"));
+  assertStringIncludes(html, "Generated on");
+  assertFalse(html.includes('class="alice-custom-page"'));
+  assertFalse(
+    html.includes(
+      "currently rendered from the page-definition support artifact",
+    ),
+  );
+});
+
+Deno.test("renderResourcePage resolves authored Markdown links from slashless resource URLs", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "customIdentifier",
+      path: "index.html",
+      designatorPath: "",
+      definitionPath: "_knop/_page",
+      presentationConfigIri: DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE.iri,
+      stylesheetPaths: [],
+      regions: [{
+        key: "main",
+        sourcePath: "home.md",
+        markdown: `# Home
+
+- [Alice](alice/)
+- [Slash Alice](/alice/)
+- [Already Rooted](/mesh-alice-bio/bob/)
+- [Root Knop](./_knop/)
+`,
+      }],
+    },
+    {
+      generatedAt: new Date("2026-05-25T00:00:00.000Z"),
+    },
+  );
+
+  assertStringIncludes(html, '<a href="/mesh-alice-bio/alice/">Alice</a>');
+  assertStringIncludes(
+    html,
+    '<a href="/mesh-alice-bio/alice/">Slash Alice</a>',
+  );
+  assertStringIncludes(
+    html,
+    '<a href="/mesh-alice-bio/bob/">Already Rooted</a>',
+  );
+  assertStringIncludes(
+    html,
+    '<a href="/mesh-alice-bio/_knop/">Root Knop</a>',
+  );
+});
+
+Deno.test("renderResourcePage omits YAML frontmatter from authored Markdown regions", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "customIdentifier",
+      path: "bob/index.html",
+      designatorPath: "bob",
+      definitionPath: "bob/_knop/_page",
+      presentationConfigIri: DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE.iri,
+      stylesheetPaths: [],
+      regions: [{
+        key: "main",
+        sourcePath: "bob-page-main.md",
+        markdown: `---
+title: Bob Newhart
+---
+
+# Bob Newhart
+
+**[Bob Newhart](https://en.wikipedia.org/wiki/Bob_Newhart)** was _quietly precise_. ([Wikipedia][^1])
+
+[^1]: https://en.wikipedia.org/wiki/Bob_Newhart "Bob Newhart"
+`,
+      }],
+    },
+    {
+      generatedAt: new Date("2026-05-25T00:00:00.000Z"),
+    },
+  );
+
+  assertStringIncludes(html, "<h1>Bob Newhart</h1>");
+  assertStringIncludes(
+    html,
+    '<p><strong><a href="https://en.wikipedia.org/wiki/Bob_Newhart">Bob Newhart</a></strong> was <em>quietly precise</em>. (<a href="https://en.wikipedia.org/wiki/Bob_Newhart">Wikipedia</a>)</p>',
+  );
+  assertFalse(html.includes("title: Bob Newhart"));
+  assertFalse(html.includes("<p>---</p>"));
+  assertFalse(html.includes("[^1]:"));
+});
+
+Deno.test("renderResourcePage puts custom page definition links in Semantic Flow metadata", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "customIdentifier",
+      path: "alice/index.html",
+      designatorPath: "alice",
+      definitionPath: "alice/_knop/_page",
+      presentationConfigIri: DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE.iri,
+      stylesheetPaths: [],
+      regions: [{
+        key: "main",
+        sourcePath: "alice/alice.md",
+        markdown: "# Alice\n",
+      }],
+    },
+    {
+      generatedAt: new Date("2026-05-23T00:00:00.000Z"),
+      includeSemanticFlowMetadata: true,
+    },
+  );
+
+  const semanticFlowPanelIndex = html.indexOf(
+    "<summary>Semantic Flow metadata</summary>",
+  );
+  const definitionRowIndex = html.indexOf(
+    '<th scope="row">ResourcePageDefinition</th>',
+  );
+  assert(semanticFlowPanelIndex >= 0);
+  assert(definitionRowIndex > semanticFlowPanelIndex);
+  assertStringIncludes(
+    html,
+    '<a href="/mesh-alice-bio/alice/_knop/_page">alice/_knop/_page</a>',
+  );
+});
+
+Deno.test("renderResourcePage appends explicitly selected generated panels for customized identifier pages", async () => {
+  const rawSourcePanelSelectionIri =
+    DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE.panelSelections.find((
+      selection,
+    ) => selection.panel === "rawSource")!.iri;
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "customIdentifier",
+      path: "alice/index.html",
+      designatorPath: "alice",
+      definitionPath: "alice/_knop/_page",
+      presentationConfigIri: DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE.iri,
+      generatedPanelSelectionIris: [rawSourcePanelSelectionIri],
+      stylesheetPaths: [],
+      workingLocalRelativePath: "alice.ttl",
+      regions: [{
+        key: "main",
+        sourcePath: "alice/alice.md",
+        markdown: "# Alice\n\nAuthored first.\n",
+      }],
+      rawSourcePanels: [{
+        label: "alice.ttl",
+        sourcePath: "alice.ttl",
+        contents:
+          `<https://semantic-flow.github.io/mesh-alice-bio/alice> <https://schema.org/name> "Alice" .`,
+      }],
+    },
+    {
+      generatedAt: new Date("2026-05-23T00:00:00.000Z"),
+    },
+  );
+
+  const authoredIndex = html.indexOf("<p>Authored first.</p>");
+  const rawSourceIndex = html.indexOf("<summary>alice.ttl</summary>");
+  assert(authoredIndex >= 0);
+  assert(rawSourceIndex > authoredIndex);
+  assertFalse(html.includes("<summary>Properties</summary>"));
 });

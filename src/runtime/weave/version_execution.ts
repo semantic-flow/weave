@@ -1,6 +1,9 @@
 import { dirname, join } from "@std/path";
 import { Parser } from "n3";
-import type { PlannedFile } from "../../core/planned_file.ts";
+import type {
+  PlannedBinaryFile,
+  PlannedFile,
+} from "../../core/planned_file.ts";
 import {
   type NormalizedVersionTargetSpec,
   resolveTargetSelections,
@@ -159,6 +162,7 @@ export async function prepareVersionExecution(
     candidate.designatorPath
   );
   const createdFiles: PlannedFile[] = [];
+  const createdBinaryFiles: PlannedBinaryFile[] = [];
   const createdPaths = new Set<string>();
   const updatedFileByPath = new Map<string, PlannedFile>();
   const updatedPathOrder: string[] = [];
@@ -227,6 +231,15 @@ export async function prepareVersionExecution(
       createdFiles.push(file);
       createdPaths.add(file.path);
     }
+    for (const file of nextPlan.createdBinaryFiles ?? []) {
+      if (createdPaths.has(file.path) || updatedFileByPath.has(file.path)) {
+        throw new WeaveInputError(
+          `Recursive version planning produced a conflicting created file: ${file.path}`,
+        );
+      }
+      createdBinaryFiles.push(file);
+      createdPaths.add(file.path);
+    }
 
     for (const file of nextPlan.updatedFiles) {
       if (createdPaths.has(file.path)) {
@@ -266,6 +279,7 @@ export async function prepareVersionExecution(
     meshBase: meshState.meshBase,
     versionedDesignatorPaths,
     createdFiles,
+    ...(createdBinaryFiles.length > 0 ? { createdBinaryFiles } : {}),
     updatedFiles: updatedPathOrder.map((path) => updatedFileByPath.get(path)!),
   };
 
@@ -308,7 +322,10 @@ export async function writePreparedVersion(
     () =>
       assertCreateTargetsDoNotExist(
         meshRoot,
-        prepared.plan.createdFiles,
+        [
+          ...prepared.plan.createdFiles,
+          ...(prepared.plan.createdBinaryFiles ?? []),
+        ],
       ),
   );
   if (options.validateRdf) {
@@ -325,6 +342,11 @@ export async function writePreparedVersion(
   );
   await timeOptional(
     timing,
+    `${phasePrefix}.createdBinaryFiles`,
+    () => writeBinaryFiles(meshRoot, prepared.plan.createdBinaryFiles ?? []),
+  );
+  await timeOptional(
+    timing,
     `${phasePrefix}.updatedFiles`,
     () => writeFiles(meshRoot, prepared.plan.updatedFiles, false),
   );
@@ -334,6 +356,10 @@ export async function writePreparedVersion(
     versionedDesignatorPaths: prepared.plan.versionedDesignatorPaths,
     createdPaths: prepared.plan.createdFiles.map((file) =>
       toWorkspaceRelativePath(localPathPolicy, file.path)
+    ).concat(
+      (prepared.plan.createdBinaryFiles ?? []).map((file) =>
+        toWorkspaceRelativePath(localPathPolicy, file.path)
+      ),
     ),
     updatedPaths: prepared.plan.updatedFiles.map((file) =>
       toWorkspaceRelativePath(localPathPolicy, file.path)
@@ -369,7 +395,7 @@ function assertUpdatedTargetsExist(
 
 async function assertCreateTargetsDoNotExist(
   workspaceRoot: string,
-  files: readonly PlannedFile[],
+  files: readonly { path: string }[],
 ): Promise<void> {
   for (const file of files) {
     try {
@@ -415,5 +441,16 @@ async function writeFiles(
       file.contents,
       createNew ? { createNew: true } : undefined,
     );
+  }
+}
+
+async function writeBinaryFiles(
+  workspaceRoot: string,
+  files: readonly PlannedBinaryFile[],
+): Promise<void> {
+  for (const file of files) {
+    const absolutePath = join(workspaceRoot, file.path);
+    await Deno.mkdir(dirname(absolutePath), { recursive: true });
+    await Deno.writeFile(absolutePath, file.contents, { createNew: true });
   }
 }

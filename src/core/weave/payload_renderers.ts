@@ -40,6 +40,26 @@ const SFLO_LATEST_HISTORICAL_STATE_IRI =
   `${SFLO_NAMESPACE}latestHistoricalState`;
 const SFLO_NEXT_STATE_ORDINAL_IRI = `${SFLO_NAMESPACE}nextStateOrdinal`;
 
+function renderPayloadArtifactTypes(payloadIsRdfDocument: boolean): string {
+  return payloadIsRdfDocument
+    ? "sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument"
+    : "sflo:PayloadArtifact, sflo:DigitalArtifact";
+}
+
+function renderPayloadManifestationTypes(
+  payloadIsRdfDocument: boolean,
+): string {
+  return payloadIsRdfDocument
+    ? "sflo:ArtifactManifestation, sflo:RdfDocument"
+    : "sflo:ArtifactManifestation";
+}
+
+function renderPayloadLocatedFileTypes(payloadIsRdfDocument: boolean): string {
+  return payloadIsRdfDocument
+    ? "sflo:LocatedFile, sflo:RdfDocument"
+    : "sflo:LocatedFile";
+}
+
 export function renderFirstPayloadWovenKnopInventoryTurtle(
   meshBase: string,
   designatorPath: string,
@@ -47,6 +67,7 @@ export function renderFirstPayloadWovenKnopInventoryTurtle(
   workingLocalRelativePath: string,
   repositorySourceFloatingLocator?: RepositorySourceFloatingLocator,
   options?: {
+    payloadIsRdfDocument?: boolean;
     knopMetadataHistoryPolicy?: SupportArtifactHistoryPolicy;
     knopInventoryHistoryPolicy?: SupportArtifactHistoryPolicy;
   },
@@ -63,6 +84,16 @@ export function renderFirstPayloadWovenKnopInventoryTurtle(
   const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
     workingLocalRelativePath,
     repositorySourceFloatingLocator,
+    { locatedFileIsRdfDocument: options?.payloadIsRdfDocument ?? true },
+  );
+  const payloadTypes = renderPayloadArtifactTypes(
+    options?.payloadIsRdfDocument ?? true,
+  );
+  const payloadLocatedFileTypes = renderPayloadLocatedFileTypes(
+    options?.payloadIsRdfDocument ?? true,
+  );
+  const payloadManifestationTypes = renderPayloadManifestationTypes(
+    options?.payloadIsRdfDocument ?? true,
   );
   const shouldVersionKnopMetadata = shouldMaterializeSupportHistory(
     options?.knopMetadataHistoryPolicy ?? "versioned",
@@ -82,7 +113,7 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
   sflo:hasPayloadArtifact <${designatorPath}> ;
   sflo:hasResourcePage <${knopPath}/index.html> .
 
-<${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+<${designatorPath}> a ${payloadTypes} ;
   sflo:hasArtifactHistory <${payloadLayout.historyPath}> ;
   sflo:currentArtifactHistory <${payloadLayout.historyPath}> ;
   sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
@@ -102,7 +133,7 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
   sflo:locatedFileForState <${payloadSnapshotPath}> ;
   sflo:hasResourcePage <${payloadLayout.nextStatePath}/index.html> .
 
-<${payloadLayout.nextManifestationPath}> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+<${payloadLayout.nextManifestationPath}> a ${payloadManifestationTypes} ;
   sflo:locatedFileForManifestation <${payloadSnapshotPath}> ;
   sflo:hasResourcePage <${payloadLayout.nextManifestationPath}/index.html> .
 
@@ -160,7 +191,7 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 ${currentWorkingFileDeclaration}
 
-<${payloadSnapshotPath}> a sflo:LocatedFile, sflo:RdfDocument .
+<${payloadSnapshotPath}> a ${payloadLocatedFileTypes} .
 
 <${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 

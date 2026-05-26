@@ -723,12 +723,34 @@ async function readRawSourcePanel(
       omittedByteLength: info.size,
     };
   }
+  const bytes = await Deno.readFile(absolutePath);
+  const contents = decodeInlineRawSourceContents(bytes);
+  if (contents === undefined) {
+    return {
+      label,
+      sourcePath,
+      omittedByteLength: info.size,
+    };
+  }
 
   return {
     label,
     sourcePath,
-    contents: await Deno.readTextFile(absolutePath),
+    contents,
   };
+}
+
+export function decodeInlineRawSourceContents(
+  bytes: Uint8Array,
+): string | undefined {
+  if (bytes.includes(0)) {
+    return undefined;
+  }
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return undefined;
+  }
 }
 
 function rawSourcePanelFromContents(

@@ -22,10 +22,10 @@ Use `/` for the root designator as described in [[wu.cli-reference.root-designat
 ## Examples
 
 ```sh
-weave payload update ./alice-bio-v2.ttl alice/bio
-weave payload update ./alice-bio-v2.ttl --designator-path alice/bio
+weave payload update ./alice-data-v2.ttl alice/data
+weave payload update ./alice-data-v2.ttl --designator-path alice/data
 weave payload update ./root-v2.ttl /
-weave payload update ./alice-bio-v2.ttl alice/bio --mesh-root ./mesh
+weave payload update ./alice-data-v2.ttl alice/data --mesh-root ./mesh
 ```
 
 ## Notes

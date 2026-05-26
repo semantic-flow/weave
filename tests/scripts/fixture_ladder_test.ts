@@ -8,32 +8,50 @@ import {
 import {
   ALICE_BIO_FIXTURE_SCENARIO,
   BRANCH_FANTASY_RULES_FIXTURE_SCENARIO,
+  branchPublicationTransition,
+  checkFixtureScenarioIndex,
+  commandTransition,
   evaluateGeneratedOutputGuardrails,
   executeFixtureTransition,
+  fileOperationTransition,
+  fixtureAssetSource,
   materializeFixtureTransitionSource,
   parseFixtureLadderArgs,
   planFixtureLadder,
   renderFixtureExecutionResult,
   renderFixtureLadderPlan,
   renderFixtureMaterializationResult,
+  renderFixtureScenarioIndexDocument,
+  renderFixtureSourceSeedResult,
+  seedFixtureSourceBranch,
   SIDECAR_FANTASY_RULES_FIXTURE_SCENARIO,
   updateFixtureBranchFromWorkspace,
 } from "../../scripts/fixture-ladder.ts";
-import type { FixtureLadderPlan } from "../../scripts/fixture-ladder.ts";
+import type {
+  FixtureFileOperationSource,
+  FixtureLadderPlan,
+} from "../../scripts/fixture-ladder.ts";
 import { readMeshBranchFantasyRulesBranchFile } from "../support/mesh_branch_fantasy_rules_fixture.ts";
 
 const repoRoot = new URL("../../", import.meta.url).pathname;
 
 function fixtureAssetPathsForPlan(plan: FixtureLadderPlan): string[] {
+  return fixtureAssetSourcesForPlan(plan).map((source) => source.assetPath)
+    .sort();
+}
+
+function fixtureAssetSourcesForPlan(
+  plan: FixtureLadderPlan,
+): FixtureFileOperationSource[] {
   return plan.transitions.flatMap((transition) => {
     if (transition.action.kind === "command") {
-      return transition.action.inputs.map((input) => input.assetPath);
+      return transition.action.inputs;
     }
     if (transition.action.kind === "fileOperation") {
-      return transition.action.sources.map((source) => source.assetPath);
+      return transition.action.sources;
     }
     return [];
-  }).sort();
+  });
 }
 
 function targetSpecsFromArgv(argv: readonly string[]): string[] {
@@ -92,6 +110,39 @@ Deno.test("parseFixtureLadderArgs accepts dry-run planner options", () => {
   assertEquals(
     parseFixtureLadderArgs([
       "--root=/tmp/weave",
+      "--branch-prefix",
+      "b.",
+    ]),
+    {
+      root: "/tmp/weave",
+      scenario: "alice-bio",
+      format: "text",
+      branchPrefix: "b.",
+    },
+  );
+
+  assertEquals(
+    parseFixtureLadderArgs([
+      "--root=/tmp/weave",
+      "--branch-prefix=b.",
+      "--seed-source-ref=main",
+      "--workspace-root=/tmp/weave-seed",
+      "--dry-run",
+    ]),
+    {
+      root: "/tmp/weave",
+      scenario: "alice-bio",
+      format: "text",
+      branchPrefix: "b.",
+      seedSourceRef: "main",
+      workspaceRoot: "/tmp/weave-seed",
+      dryRun: true,
+    },
+  );
+
+  assertEquals(
+    parseFixtureLadderArgs([
+      "--root=/tmp/weave",
       "--scenario=sidecar-fantasy-rules",
     ]),
     {
@@ -112,6 +163,35 @@ Deno.test("parseFixtureLadderArgs accepts dry-run planner options", () => {
       format: "text",
     },
   );
+
+  assertEquals(
+    parseFixtureLadderArgs([
+      "--root=/tmp/weave",
+      "--scenario=branch-fantasy-rules",
+      "--check-scenario-index",
+    ]),
+    {
+      root: "/tmp/weave",
+      scenario: "branch-fantasy-rules",
+      format: "text",
+      scenarioIndexMode: "check",
+    },
+  );
+
+  assertEquals(
+    parseFixtureLadderArgs([
+      "--root=/tmp/weave",
+      "--scenario=alice-bio",
+      "--write-scenario-index",
+      "--json",
+    ]),
+    {
+      root: "/tmp/weave",
+      scenario: "alice-bio",
+      format: "json",
+      scenarioIndexMode: "write",
+    },
+  );
 });
 
 Deno.test("parseFixtureLadderArgs rejects unsupported scenarios and formats", () => {
@@ -126,9 +206,14 @@ Deno.test("parseFixtureLadderArgs rejects unsupported scenarios and formats", ()
     "Unsupported fixture plan format",
   );
   assertThrows(
+    () => parseFixtureLadderArgs(["--branch-prefix", "bad prefix"]),
+    Error,
+    "Unsupported fixture branch prefix",
+  );
+  assertThrows(
     () => parseFixtureLadderArgs(["--workspace-root", "/tmp/weave"]),
     Error,
-    "--workspace-root requires --materialize or --execute",
+    "--workspace-root requires --materialize, --execute, or --seed-source-ref",
   );
   assertThrows(
     () =>
@@ -139,8 +224,128 @@ Deno.test("parseFixtureLadderArgs rejects unsupported scenarios and formats", ()
         "02-mesh-created",
       ]),
     Error,
-    "only one of --materialize or --execute",
+    "only one of --materialize, --execute, or --seed-source-ref",
   );
+  assertThrows(
+    () =>
+      parseFixtureLadderArgs([
+        "--seed-source-ref",
+        "main",
+        "--execute",
+        "02-mesh-created",
+      ]),
+    Error,
+    "only one of --materialize, --execute, or --seed-source-ref",
+  );
+  assertThrows(
+    () =>
+      parseFixtureLadderArgs([
+        "--check-scenario-index",
+        "--write-scenario-index",
+      ]),
+    Error,
+    "only one scenario-index mode",
+  );
+  assertThrows(
+    () =>
+      parseFixtureLadderArgs([
+        "--execute",
+        "02-mesh-created",
+        "--check-scenario-index",
+      ]),
+    Error,
+    "scenario-index options cannot be combined",
+  );
+  assertThrows(
+    () =>
+      parseFixtureLadderArgs([
+        "--branch-prefix",
+        "b.",
+        "--check-scenario-index",
+      ]),
+    Error,
+    "--branch-prefix cannot be combined",
+  );
+});
+
+Deno.test("fixture transition builders keep repeated asset and branch shapes explicit", () => {
+  const fileOperation = fileOperationTransition(
+    99,
+    "99-custom-assets",
+    "98-before-custom-assets",
+    {
+      description: "Apply custom assets.",
+      sources: [
+        fixtureAssetSource(
+          "content/example.ttl",
+          "default transition-scoped asset path",
+        ),
+        fixtureAssetSource(
+          "content/explicit.ttl",
+          "explicit shared asset path",
+          {
+            assetPath: "shared/explicit.ttl",
+            sourceRef: "z.asset-source",
+          },
+        ),
+      ],
+    },
+    "fixture.customAssets",
+    { branchPrefix: "z." },
+  );
+
+  assertEquals(fileOperation.fromRef, "z.98-before-custom-assets");
+  assertEquals(fileOperation.toRef, "z.99-custom-assets");
+  assertEquals(fileOperation.operationId, "fixture.customAssets");
+  assertEquals(fileOperation.action.kind, "fileOperation");
+  if (fileOperation.action.kind !== "fileOperation") {
+    throw new Error("expected file operation action");
+  }
+  assertEquals(fileOperation.action.sources, [
+    {
+      path: "content/example.ttl",
+      assetPath: "99-custom-assets/content/example.ttl",
+      provenance: "default transition-scoped asset path",
+    },
+    {
+      path: "content/explicit.ttl",
+      assetPath: "shared/explicit.ttl",
+      sourceRef: "z.asset-source",
+      provenance: "explicit shared asset path",
+    },
+  ]);
+
+  const command = commandTransition(
+    100,
+    "100-command",
+    "99-custom-assets",
+    "weave",
+    { branchPrefix: "z." },
+  );
+  assertEquals(command.fromRef, "z.99-custom-assets");
+  assertEquals(command.toRef, "z.100-command");
+  assertEquals(command.action.kind, "command");
+
+  const branchPublication = branchPublicationTransition(
+    101,
+    "101-publication",
+    "10-source",
+    {
+      description: "Publish from a source lane.",
+      publicationFromRef: "100-command",
+      publicationBranch: "gh-pages",
+    },
+    "publication.sequence",
+    { branchPrefix: "z." },
+  );
+  assertEquals(branchPublication.fromRef, "z.100-command");
+  assertEquals(branchPublication.toRef, "z.101-publication");
+  assertEquals(branchPublication.action.kind, "branchPublication");
+  if (branchPublication.action.kind !== "branchPublication") {
+    throw new Error("expected branch publication action");
+  }
+  assertEquals(branchPublication.action.sourceRef, "z.10-source");
+  assertEquals(branchPublication.action.publicationFromRef, "z.100-command");
 });
 
 Deno.test("planFixtureLadder exposes the Alice Bio dry-run transition plan", async () => {
@@ -157,11 +362,18 @@ Deno.test("planFixtureLadder exposes the Alice Bio dry-run transition plan", asy
   );
   assertEquals(plan.scenario.branchPrefix, "a.");
   assertStringIncludes(plan.assetRoot, "mesh-alice-bio/.assets");
-  assertEquals(plan.transitions.length, 25);
+  assertEquals(plan.transitions.length, 27);
   assertEquals(plan.transitions[0]?.id, "01-source-only");
   assertEquals(plan.transitions[0]?.fromRef, "a.00-blank-slate");
   assertEquals(plan.transitions[24]?.id, "25-root-page-customized-woven");
   assertEquals(plan.transitions[24]?.fromRef, "a.24-root-page-customized");
+  assertEquals(plan.transitions[25]?.id, "26-carol");
+  assertEquals(
+    plan.transitions[25]?.fromRef,
+    "a.25-root-page-customized-woven",
+  );
+  assertEquals(plan.transitions[26]?.id, "27-carol-woven");
+  assertEquals(plan.transitions[26]?.fromRef, "a.26-carol");
 
   const meshCreate = plan.transitions[1];
   assertEquals(meshCreate?.operationId, "mesh.create");
@@ -189,7 +401,25 @@ Deno.test("planFixtureLadder exposes the Alice Bio dry-run transition plan", asy
     ]);
   }
 
-  const pageCustomized = plan.transitions[13];
+  const aliceBioImported = plan.transitions[13];
+  assertEquals(aliceBioImported?.id, "14-alice-bio-imported");
+  assertEquals(aliceBioImported?.operationId, "fixture.aliceBioImported");
+  assertEquals(aliceBioImported?.action.kind, "command");
+  if (aliceBioImported?.action.kind === "command") {
+    assertEquals(
+      aliceBioImported.action.inputs.map((source) => source.path),
+      ["mesh-content/sidebar.md"],
+    );
+    assertEquals(aliceBioImported.action.invocations?.[1]?.argv, [
+      "integrate",
+      "mesh-content/sidebar.md",
+      "--designator-path",
+      "mesh-content/sidebar",
+    ]);
+  }
+
+  const pageCustomized = plan.transitions[15];
+  assertEquals(pageCustomized?.id, "16-alice-page-customized");
   assertEquals(pageCustomized?.operationId, "resourcePage.define");
   assertEquals(pageCustomized?.action.kind, "fileOperation");
   if (pageCustomized?.action.kind === "fileOperation") {
@@ -197,14 +427,16 @@ Deno.test("planFixtureLadder exposes the Alice Bio dry-run transition plan", asy
       pageCustomized.action.sources.map((source) => source.path),
       [
         "alice/_knop/_page/page.ttl",
-        "alice/alice.md",
-        "mesh-content/sidebar.md",
         "alice/_knop/_assets/alice.css",
       ],
     );
     assertEquals(
       pageCustomized.action.sources[0]?.assetPath,
-      "14-alice-page-customized/alice/_knop/_page/page.ttl",
+      ".assets/16-alice-page-customized/alice/_knop/_page/page.ttl",
+    );
+    assertEquals(
+      pageCustomized.action.sources[0]?.sourceRef,
+      "assets",
     );
     assertEquals(pageCustomized.action.inventoryPatches.length, 1);
     assertEquals(
@@ -218,6 +450,19 @@ Deno.test("planFixtureLadder exposes the Alice Bio dry-run transition plan", asy
     ),
     true,
   );
+
+  const faviconIntegrated = plan.transitions[17];
+  assertEquals(faviconIntegrated?.id, "18-favicon-integrated");
+  assertEquals(faviconIntegrated?.operationId, "integrate");
+  assertEquals(faviconIntegrated?.action.kind, "command");
+  if (faviconIntegrated?.action.kind === "command") {
+    assertEquals(faviconIntegrated.action.argv, [
+      "integrate",
+      "favicon.ico",
+      "--designator-path",
+      "mesh-content/favicon",
+    ]);
+  }
 });
 
 Deno.test("planFixtureLadder names existing Alice Bio Accord manifests", async () => {
@@ -229,6 +474,35 @@ Deno.test("planFixtureLadder names existing Alice Bio Accord manifests", async (
 
   for (const transition of plan.transitions) {
     await Deno.stat(transition.manifestPath);
+  }
+});
+
+Deno.test("planFixtureLadder applies a branch-prefix override", async () => {
+  const plan = await planFixtureLadder({
+    root: repoRoot,
+    scenario: "alice-bio",
+    format: "text",
+    branchPrefix: "b.",
+  });
+
+  assertEquals(plan.scenario.branchPrefix, "b.");
+  assertEquals(plan.transitions[0]?.fromRef, "b.00-blank-slate");
+  assertEquals(plan.transitions[0]?.toRef, "b.01-source-only");
+  assertEquals(plan.transitions[26]?.toRef, "b.27-carol-woven");
+
+  const branchPlan = await planFixtureLadder({
+    root: repoRoot,
+    scenario: "branch-fantasy-rules",
+    format: "text",
+    branchPrefix: "c.",
+  });
+  const publication = branchPlan.transitions[1];
+  assertEquals(publication?.fromRef, "c.01-source-only");
+  assertEquals(publication?.toRef, "c.02-publication-bootstrapped-woven");
+  assertEquals(publication?.action.kind, "branchPublication");
+  if (publication?.action.kind === "branchPublication") {
+    assertEquals(publication.action.sourceRef, "c.01-source-only");
+    assertEquals(publication.action.publicationBranch, "gh-pages");
   }
 });
 
@@ -1043,33 +1317,39 @@ Deno.test("Alice Bio asset-backed transitions point at checked-in deterministic 
     scenario: "alice-bio",
     format: "text",
   });
-  const assetPaths = fixtureAssetPathsForPlan(plan);
+  const assetSources = fixtureAssetSourcesForPlan(plan).sort((left, right) =>
+    `${left.sourceRef ?? ""}:${left.assetPath}`.localeCompare(
+      `${right.sourceRef ?? ""}:${right.assetPath}`,
+    )
+  );
+  const assetSourceSpecs = assetSources.map((source) =>
+    `${source.sourceRef ?? "(filesystem)"}:${source.assetPath}`
+  );
 
-  assertEquals(assetPaths, [
-    "01-source-only/alice-bio.ttl",
-    "10-alice-bio-updated/alice-bio-v2.ttl",
-    "14-alice-page-customized/alice/_knop/_assets/alice.css",
-    "14-alice-page-customized/alice/_knop/_page/page.ttl",
-    "14-alice-page-customized/alice/alice.md",
-    "14-alice-page-customized/mesh-content/sidebar.md",
-    "16-alice-page-main-integrated/alice-page-main.md",
-    "18-alice-page-artifact-source/alice/_knop/_page/page.ttl",
-    "20-bob-page-imported-source/bob-page-main.md",
-    "20-bob-page-imported-source/bob/_knop/_page/page.ttl",
-    "24-root-page-customized/_knop/_assets/site.css",
-    "24-root-page-customized/_knop/_page/page.ttl",
-    "24-root-page-customized/home.md",
-    "24-root-page-customized/mesh-content/root-sidebar.md",
+  assertEquals(assetSourceSpecs, [
+    "assets:.assets/01-source-only/alice-data.ttl",
+    "assets:.assets/10-alice-bio-updated/alice-data-v2.ttl",
+    "assets:.assets/14-alice-bio-imported/mesh-content/sidebar.md",
+    "assets:.assets/16-alice-page-customized/alice/_knop/_assets/alice.css",
+    "assets:.assets/16-alice-page-customized/alice/_knop/_page/page.ttl",
+    "assets:.assets/18-favicon-integrated/favicon.ico",
+    "assets:.assets/24-root-page-customized/_knop/_assets/site.css",
+    "assets:.assets/24-root-page-customized/_knop/_page/page.ttl",
+    "assets:.assets/24-root-page-customized/home.md",
+    "assets:.assets/26-carol/carol-data.ttl",
   ]);
 
-  for (const assetPath of assetPaths) {
-    await Deno.stat(`${plan.assetRoot}/${assetPath}`);
+  for (const source of assetSources) {
+    assert(source.sourceRef !== undefined);
+    assert(await gitBlobSucceeds(plan.fixtureRepoPath, source));
   }
 
   for (
-    const assetPath of assetPaths.filter((path) => path.endsWith("page.ttl"))
+    const source of assetSources.filter((source) =>
+      source.assetPath.endsWith("page.ttl")
+    )
   ) {
-    const contents = await Deno.readTextFile(`${plan.assetRoot}/${assetPath}`);
+    const contents = await gitBlobOutput(plan.fixtureRepoPath, source);
     assertStringIncludes(
       contents,
       "https://semantic-flow.github.io/sflo/ontology/",
@@ -1139,7 +1419,7 @@ Deno.test("renderFixtureLadderPlan prints reviewable command and validation deta
   assertStringIncludes(rendered, "Fixture ladder dry run: Alice Bio");
   assertStringIncludes(rendered, "Asset root:");
   assertStringIncludes(rendered, "Branch writes: disabled");
-  assertStringIncludes(rendered, "Transitions: 25");
+  assertStringIncludes(rendered, "Transitions: 27");
   assertStringIncludes(
     rendered,
     "2. 02-mesh-created: a.01-source-only -> a.02-mesh-created",
@@ -1154,11 +1434,19 @@ Deno.test("renderFixtureLadderPlan prints reviewable command and validation deta
   );
   assertStringIncludes(
     rendered,
-    "file operation: Apply the hand-authored Alice page definition",
+    "command 1: weave import https://raw.githubusercontent.com/djradon/public-notes/db9a48933f0e6b208baeab7190cef75d1194634f/user.alice-ghostley.md alice/bio --working-file alice-bio.md --expected-digest sha256:0fcd9fe25c5598686557806cfdacc9c765176f315f780fa96644c3f251b49137",
   );
   assertStringIncludes(
     rendered,
-    "source: alice/_knop/_page/page.ttl <= .assets/14-alice-page-customized/alice/_knop/_page/page.ttl",
+    "command 2: weave integrate mesh-content/sidebar.md --designator-path mesh-content/sidebar",
+  );
+  assertStringIncludes(
+    rendered,
+    "file operation: Apply the hand-authored Alice page definition backed by governed content artifacts",
+  );
+  assertStringIncludes(
+    rendered,
+    "source: alice/_knop/_page/page.ttl <= assets:.assets/16-alice-page-customized/alice/_knop/_page/page.ttl",
   );
   assertStringIncludes(
     rendered,
@@ -1166,7 +1454,7 @@ Deno.test("renderFixtureLadderPlan prints reviewable command and validation deta
   );
   assertStringIncludes(
     rendered,
-    "input: alice-bio-v2.ttl <= .assets/10-alice-bio-updated/alice-bio-v2.ttl",
+    "input: alice-data.ttl <= assets:.assets/10-alice-bio-updated/alice-data-v2.ttl",
   );
   assertStringIncludes(
     rendered,
@@ -1174,12 +1462,92 @@ Deno.test("renderFixtureLadderPlan prints reviewable command and validation deta
   );
 });
 
+Deno.test("renderFixtureScenarioIndexDocument renders stable fixture topology", () => {
+  const aliceIndex = renderFixtureScenarioIndexDocument(
+    ALICE_BIO_FIXTURE_SCENARIO,
+  );
+  assertEquals(aliceIndex.type, "ScenarioIndex");
+  assertEquals(
+    aliceIndex.defaultFixtureRepo,
+    ALICE_BIO_FIXTURE_SCENARIO.fixtureRepo,
+  );
+  assertEquals(aliceIndex.hasStateLane?.map((lane) => lane.laneKey), [
+    "fixture",
+  ]);
+  assertEquals(aliceIndex.hasStep?.length, 27);
+  assertEquals(aliceIndex.hasStep?.[0]?.manifestPath, "01-source-only.jsonld");
+  assertEquals(
+    aliceIndex.hasStep?.[0]?.hasLaneBinding?.[0]?.fromLaneState?.ref,
+    "a.00-blank-slate",
+  );
+  assertEquals(
+    aliceIndex.hasStep?.[0]?.hasLaneBinding?.[0]?.toLaneState?.ref,
+    "a.01-source-only",
+  );
+
+  const branchIndex = renderFixtureScenarioIndexDocument(
+    BRANCH_FANTASY_RULES_FIXTURE_SCENARIO,
+  );
+  assertEquals(branchIndex.hasStateLane?.map((lane) => lane.laneKey), [
+    "source",
+    "publication",
+  ]);
+
+  const bootstrapStep = branchIndex.hasStep?.find((step) =>
+    step.id === "#02-publication-bootstrapped-woven"
+  );
+  const bootstrapPublicationBinding = bootstrapStep?.hasLaneBinding?.find((
+    binding,
+  ) => binding.lane === "#publication-lane");
+  assertEquals(bootstrapPublicationBinding?.fromLaneState, undefined);
+  assertEquals(
+    bootstrapPublicationBinding?.toLaneState?.ref,
+    "a.02-publication-bootstrapped-woven",
+  );
+
+  const firstReleaseSourceStep = branchIndex.hasStep?.find((step) =>
+    step.id === "#10-first-release-source"
+  );
+  assertEquals(firstReleaseSourceStep?.hasLaneBinding?.length, 1);
+  assertEquals(
+    firstReleaseSourceStep?.hasLaneBinding?.[0]?.lane,
+    "#source-lane",
+  );
+  assertEquals(
+    firstReleaseSourceStep?.hasLaneBinding?.[0]?.fromLaneState?.ref,
+    "a.01-source-only",
+  );
+  assertEquals(
+    firstReleaseSourceStep?.hasLaneBinding?.[0]?.toLaneState?.ref,
+    "a.10-first-release-source",
+  );
+});
+
+Deno.test("checked-in fixture scenario indexes validate and match generated output", async () => {
+  for (
+    const scenario of [
+      "alice-bio",
+      "sidecar-fantasy-rules",
+      "branch-fantasy-rules",
+    ] as const
+  ) {
+    const result = await checkFixtureScenarioIndex({
+      root: repoRoot,
+      scenario,
+    });
+
+    assertEquals(result.valid, true);
+    assertEquals(result.matchesGenerated, true);
+    await Deno.stat(result.scenarioIndexPath);
+  }
+});
+
 Deno.test("Alice Bio fixture scenario has sequential transition indexes", () => {
   assertEquals(
     ALICE_BIO_FIXTURE_SCENARIO.transitions.map((transition) =>
       transition.index
     ),
-    Array.from({ length: 25 }, (_, index) => index + 1),
+    Array.from({ length: 27 }, (_, index) => index + 1),
   );
 });
 
@@ -1207,6 +1575,91 @@ Deno.test("Branch-Published Fantasy Rules fixture scenario has sequential transi
   );
 });
 
+Deno.test("seedFixtureSourceBranch creates a prefixed 00 rung from seed paths only", async () => {
+  const { root, workspaceRoot, fixtureRepoPath } =
+    await setupSourceOnlyFileOperationFixture({
+      createTargetRef: false,
+    });
+  await Deno.writeTextFile(
+    `${fixtureRepoPath}/generated-output.txt`,
+    "latest generated output\n",
+  );
+  await runTestGit(fixtureRepoPath, ["add", "."]);
+  await runTestGit(fixtureRepoPath, [
+    "-c",
+    "user.name=Test",
+    "-c",
+    "user.email=test@example.invalid",
+    "commit",
+    "-m",
+    "latest generated fixture",
+  ]);
+
+  const result = await seedFixtureSourceBranch({
+    root,
+    scenario: "alice-bio",
+    seedSourceRef: "HEAD",
+    branchPrefix: "b.",
+    workspaceRoot,
+  });
+
+  assertEquals(result.sourceRef, "HEAD");
+  assertEquals(result.targetRef, "b.00-blank-slate");
+  assertEquals(result.branchUpdate.updated, true);
+  assertEquals(
+    result.materializedPaths.includes(".assets/01-source-only/alice-data.ttl"),
+    false,
+  );
+  assertEquals(result.materializedPaths.includes("README.md"), true);
+  assertEquals(
+    result.materializedPaths.includes("generated-output.txt"),
+    false,
+  );
+  assertEquals(
+    await gitOutput(fixtureRepoPath, [
+      "show",
+      "b.00-blank-slate:README.md",
+    ]),
+    "# fixture control\n",
+  );
+  assertEquals(
+    await gitSucceeds(fixtureRepoPath, [
+      "show",
+      "b.00-blank-slate:.assets/01-source-only/alice-data.ttl",
+    ]),
+    false,
+  );
+  assertEquals(
+    await gitSucceeds(fixtureRepoPath, [
+      "show",
+      "b.00-blank-slate:generated-output.txt",
+    ]),
+    false,
+  );
+});
+
+Deno.test("renderFixtureSourceSeedResult prints seed source and target branch", async () => {
+  const { root, workspaceRoot } = await setupSourceOnlyFileOperationFixture({
+    createTargetRef: false,
+  });
+  const result = await seedFixtureSourceBranch({
+    root,
+    scenario: "alice-bio",
+    seedSourceRef: "HEAD",
+    branchPrefix: "b.",
+    workspaceRoot,
+    dryRun: true,
+  });
+
+  const rendered = renderFixtureSourceSeedResult(result);
+  assertStringIncludes(rendered, "Fixture source seed prepared: Alice Bio");
+  assertStringIncludes(rendered, "Source ref: HEAD");
+  assertStringIncludes(rendered, "Target ref: b.00-blank-slate");
+  assertStringIncludes(rendered, "Branch writes: disabled");
+  assertStringIncludes(rendered, "Seed paths: .gitignore, README.md");
+  assertStringIncludes(rendered, "- README.md");
+});
+
 Deno.test("materializeFixtureTransitionSource copies a transition source ref into an empty workspace", async () => {
   const { root, workspaceRoot } = await setupSourceOnlyFileOperationFixture({
     createTargetRef: true,
@@ -1223,9 +1676,9 @@ Deno.test("materializeFixtureTransitionSource copies a transition source ref int
   assertEquals(result.fromRef, "a.01-source-only");
   assertEquals(result.toRef, "a.02-mesh-created");
   assertEquals(result.writesBranches, false);
-  assertEquals(result.materializedPaths.includes("alice-bio.ttl"), true);
+  assertEquals(result.materializedPaths.includes("alice-data.ttl"), true);
   assertStringIncludes(
-    await Deno.readTextFile(`${workspaceRoot}/alice-bio.ttl`),
+    await Deno.readTextFile(`${workspaceRoot}/alice-data.ttl`),
     "fixture source",
   );
 });
@@ -1265,7 +1718,7 @@ Deno.test("renderFixtureMaterializationResult prints workspace and next action",
   assertStringIncludes(rendered, "Transition: 02-mesh-created");
   assertStringIncludes(rendered, "Asset root:");
   assertStringIncludes(rendered, `Workspace root: ${workspaceRoot}`);
-  assertStringIncludes(rendered, "- alice-bio.ttl");
+  assertStringIncludes(rendered, "- alice-data.ttl");
   assertStringIncludes(
     rendered,
     "Next command: weave mesh create --workspace . --mesh-base https://semantic-flow.github.io/mesh-alice-bio/ --publication-profile github-pages",
@@ -1352,10 +1805,14 @@ Deno.test("executeFixtureTransition applies file-operation assets", async () => 
   assertEquals(result.fileOperation.files.length, 1);
   assertEquals(
     result.fileOperation.files[0]?.assetPath,
-    "01-source-only/alice-bio.ttl",
+    "01-source-only/alice-data.ttl",
   );
   assertEquals(
-    await Deno.readTextFile(`${workspaceRoot}/alice-bio.ttl`),
+    result.fileOperation.files[0]?.contentDigest,
+    "sha256:7cefb9aa217c81555befc729d7fa5d70dbc83bfe20d91eaac7e8af9aee481432",
+  );
+  assertEquals(
+    await Deno.readTextFile(`${workspaceRoot}/alice-data.ttl`),
     "fixture source\n",
   );
   assertEquals(result.validation.status, "pass");
@@ -1364,6 +1821,41 @@ Deno.test("executeFixtureTransition applies file-operation assets", async () => 
     throw new Error("dry-run file operation should not update a branch");
   }
   assertEquals(result.branchUpdate.reason, "dry run requested");
+});
+
+Deno.test("executeFixtureTransition rejects file-operation digest drift", async () => {
+  const { root, workspaceRoot } = await setupSourceOnlyFileOperationFixture({
+    createTargetRef: true,
+  });
+
+  await Deno.writeTextFile(
+    `${root}/dependencies/github.com/semantic-flow/mesh-alice-bio/.assets/01-source-only/alice-data.ttl`,
+    "tampered fixture source\n",
+  );
+
+  const result = await executeFixtureTransition({
+    root,
+    scenario: "alice-bio",
+    transitionId: "01-source-only",
+    workspaceRoot,
+    dryRun: true,
+  });
+
+  assertEquals(result.actionKind, "fileOperation");
+  if (result.actionKind !== "fileOperation") {
+    throw new Error("expected file operation transition execution");
+  }
+  assertEquals(result.fileOperation.success, false);
+  assertEquals(result.fileOperation.files.length, 0);
+  assertEquals(result.fileOperation.digestMismatches.length, 1);
+  assertEquals(
+    result.fileOperation.digestMismatches[0]?.expectedDigest,
+    "sha256:7cefb9aa217c81555befc729d7fa5d70dbc83bfe20d91eaac7e8af9aee481432",
+  );
+  await assertRejects(
+    () => Deno.readTextFile(`${workspaceRoot}/alice-data.ttl`),
+    Deno.errors.NotFound,
+  );
 });
 
 Deno.test("executeFixtureTransition reports toRef drift without blocking branch updates", async () => {
@@ -1399,7 +1891,7 @@ Deno.test("executeFixtureTransition reports toRef drift without blocking branch 
   assertEquals(
     await gitOutput(fixtureRepoPath, [
       "show",
-      "a.01-source-only:alice-bio.ttl",
+      "a.01-source-only:alice-data.ttl",
     ]),
     "fixture source\n",
   );
@@ -1443,7 +1935,7 @@ Deno.test("updateFixtureBranchFromWorkspace writes generated output to a local f
     prefix: "weave-fixture-ladder-branch-workspace-",
   });
   await initTestGitRepo(fixtureRepoPath);
-  await Deno.writeTextFile(`${fixtureRepoPath}/alice-bio.ttl`, "old\n");
+  await Deno.writeTextFile(`${fixtureRepoPath}/alice-data.ttl`, "old\n");
   await runTestGit(fixtureRepoPath, ["add", "."]);
   await runTestGit(fixtureRepoPath, [
     "-c",
@@ -1456,7 +1948,7 @@ Deno.test("updateFixtureBranchFromWorkspace writes generated output to a local f
   ]);
   await runTestGit(fixtureRepoPath, ["branch", "a.02-mesh-created"]);
 
-  await Deno.writeTextFile(`${workspaceRoot}/alice-bio.ttl`, "new\n");
+  await Deno.writeTextFile(`${workspaceRoot}/alice-data.ttl`, "new\n");
   await Deno.mkdir(`${workspaceRoot}/_mesh/_meta`, { recursive: true });
   await Deno.writeTextFile(
     `${workspaceRoot}/_mesh/_meta/meta.ttl`,
@@ -1481,7 +1973,7 @@ Deno.test("updateFixtureBranchFromWorkspace writes generated output to a local f
   assertEquals(
     await gitOutput(fixtureRepoPath, [
       "show",
-      "a.02-mesh-created:alice-bio.ttl",
+      "a.02-mesh-created:alice-data.ttl",
     ]),
     "new\n",
   );
@@ -1618,7 +2110,7 @@ async function setupSourceOnlyFileOperationFixture(options: {
     recursive: true,
   });
   await Deno.writeTextFile(
-    `${assetRoot}/01-source-only/alice-bio.ttl`,
+    `${assetRoot}/01-source-only/alice-data.ttl`,
     "fixture source\n",
   );
   await Deno.writeTextFile(
@@ -1644,7 +2136,7 @@ async function setupSourceOnlyFileOperationFixture(options: {
   await runTestGit(fixtureRepoPath, ["branch", "a.00-blank-slate"]);
   if (options.createTargetRef) {
     await Deno.writeTextFile(
-      `${fixtureRepoPath}/alice-bio.ttl`,
+      `${fixtureRepoPath}/alice-data.ttl`,
       "fixture source\n",
     );
     await runTestGit(fixtureRepoPath, ["add", "."]);
@@ -1731,11 +2223,30 @@ async function setupSourceOnlyFileOperationFixture(options: {
             operationId: "fixture.seedSourceOnly",
             fromRef: "a.00-blank-slate",
             toRef: "a.01-source-only",
+            hasReplayProfile: {
+              type: "ReplayProfile",
+              workspaceRoot: ".",
+              hasFileOperation: [
+                {
+                  type: "FileOperation",
+                  operationKind: "copyFile",
+                  targetPath: "alice-data.ttl",
+                  hasSourceProvenance: {
+                    type: "SourceProvenance",
+                    sourceKind: "fixtureAsset",
+                    sourcePath: "01-source-only/alice-data.ttl",
+                    contentDigest:
+                      "sha256:7cefb9aa217c81555befc729d7fa5d70dbc83bfe20d91eaac7e8af9aee481432",
+                    derivationNote: "manifest-declared source fixture",
+                  },
+                },
+              ],
+            },
             hasFileExpectation: [
               {
                 id: "#source",
                 type: "FileExpectation",
-                path: "alice-bio.ttl",
+                path: "alice-data.ttl",
                 changeType: "added",
                 compareMode: "text",
               },
@@ -1829,6 +2340,29 @@ async function gitOutput(
   return new TextDecoder().decode(output.stdout);
 }
 
+async function gitBlobOutput(
+  cwd: string,
+  source: FixtureFileOperationSource,
+): Promise<string> {
+  if (source.sourceRef === undefined) {
+    throw new Error(`Fixture source has no sourceRef: ${source.assetPath}`);
+  }
+  for (const ref of gitRefReadCandidates(source.sourceRef)) {
+    const output = await new Deno.Command("git", {
+      cwd,
+      args: ["show", `${ref}:${source.assetPath}`],
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    if (output.success) {
+      return new TextDecoder().decode(output.stdout);
+    }
+  }
+  throw new Error(
+    `git show failed for ${source.sourceRef}:${source.assetPath}`,
+  );
+}
+
 async function gitSucceeds(
   cwd: string,
   args: readonly string[],
@@ -1840,6 +2374,30 @@ async function gitSucceeds(
     stderr: "piped",
   }).output();
   return output.success;
+}
+
+async function gitBlobSucceeds(
+  cwd: string,
+  source: FixtureFileOperationSource,
+): Promise<boolean> {
+  if (source.sourceRef === undefined) {
+    return false;
+  }
+  for (const ref of gitRefReadCandidates(source.sourceRef)) {
+    if (
+      await gitSucceeds(cwd, [
+        "show",
+        `${ref}:${source.assetPath}`,
+      ])
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function gitRefReadCandidates(ref: string): readonly string[] {
+  return ref.startsWith("origin/") ? [ref] : [ref, `origin/${ref}`];
 }
 
 async function runTestGit(

@@ -43,6 +43,7 @@ It's nice to have live-server running for checking meshes:
   - runtime config validation rejects malformed or unknown `featureFlags` keys.
   - Windows detached daemon launch should use `Start-Process` semantics to avoid parent/child lifecycle coupling seen with direct subprocess spawn.
 - commit messages should include a "semantic commits"-style summary line and then detailed bullet points describing developer-relevant changes
+- as you're working, always do call out opportunities for trimming dead weight or suggested refactorings.
 
 ## Task notes
 

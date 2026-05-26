@@ -10,6 +10,8 @@ created: 1779376210676
 
 `weave generate` renders current ResourcePages from the settled local mesh state without creating new historical states.
 
+See [[wu.resource-pages]] for what ResourcePages are for and how default and customized pages are composed.
+
 ## Usage
 
 ```sh
@@ -23,7 +25,7 @@ Targets use [[wu.cli-reference.target-syntax]]. Use `/` for the root designator 
 
 ```sh
 weave generate
-weave generate --target 'designatorPath=alice/bio'
+weave generate --target 'designatorPath=alice/data'
 weave generate --target 'designatorPath=alice,recursive=true'
 weave generate --include-semantic-flow-metadata
 ```

@@ -16,11 +16,11 @@ Weave writes runtime logs under `.weave/logs/` inside the workspace. For whole-r
 
 Use `weave --help` or `weave <command> --help` to inspect the live CLI.
 
-Detailed notes are available for [[wu.cli-reference.weave]], [[wu.cli-reference.validate]], [[wu.cli-reference.version]], [[wu.cli-reference.generate]], [[wu.cli-reference.mesh.create]], [[wu.cli-reference.integrate]], [[wu.cli-reference.extract]], [[wu.cli-reference.set.extraction-source]], [[wu.cli-reference.payload.update]], [[wu.cli-reference.knop.create]], [[wu.cli-reference.knop.add-reference]], [[wu.cli-reference.set.history]], and [[wu.cli-reference.set.next-state]]. Shared syntax notes cover [[wu.cli-reference.target-syntax]] and [[wu.cli-reference.root-designator]].
+Detailed notes are available for [[wu.cli-reference.weave]], [[wu.cli-reference.validate]], [[wu.cli-reference.version]], [[wu.cli-reference.generate]], [[wu.cli-reference.mesh.create]], [[wu.cli-reference.import]], [[wu.cli-reference.integrate]], [[wu.cli-reference.extract]], [[wu.cli-reference.set.extraction-source]], [[wu.cli-reference.payload.update]], [[wu.cli-reference.knop.create]], [[wu.cli-reference.knop.add-reference]], [[wu.cli-reference.set.history]], and [[wu.cli-reference.set.next-state]]. Shared syntax notes cover [[wu.cli-reference.target-syntax]] and [[wu.cli-reference.root-designator]].
 
 ## Common patterns
 
-`--mesh-root <path>` selects the mesh root for existing-mesh operations such as `weave`, `weave validate`, `weave version`, `weave generate`, `weave integrate`, `weave extract`, `weave payload update`, `weave knop create`, and `weave knop add-reference`. It defaults to `.`.
+`--mesh-root <path>` selects the mesh root for existing-mesh operations such as `weave`, `weave validate`, `weave version`, `weave generate`, `weave import`, `weave integrate`, `weave extract`, `weave payload update`, `weave knop create`, and `weave knop add-reference`. It defaults to `.`.
 
 `--target <spec>` limits `weave`, `weave validate`, `weave version`, and `weave generate` to specific designator paths.
 
@@ -42,7 +42,7 @@ This keeps the source checkout and mesh root in the same working tree. Extra-mes
 
 For a detached publication root, such as a generated `gh-pages` worktree, use the same mesh operations against the publication root instead of a special branch-publishing command. Create or open the mesh in the publication checkout, integrate each payload source with an explicit source policy, then run `weave`, `weave generate`, or `weave validate` for the intended publication step. The removed `weave prepare gh-pages` wrapper should not be used in new automation.
 
-For detached publication roots and other extra-mesh source files, `integrate` records a working-only source binding automatically. The important rule is that `weave` itself does not fetch repositories, copy source files into the publication root, apply host presets, or commit/push git refs; those are explicit setup, integration/import, profile, and CI/CD concerns.
+For detached publication roots and other extra-mesh source files, `integrate` records a working-only source binding automatically. When bytes should be copied into the mesh root instead, use `import`. The important rule is that `weave` itself does not fetch repositories, copy source files into the publication root, apply host presets, or commit/push git refs; those are explicit setup, `integrate`, `import`, profile, and CI/CD concerns.
 
 ## Target syntax
 
@@ -59,9 +59,9 @@ Supported keys:
 Examples:
 
 ```sh
-weave --target 'designatorPath=alice/bio'
+weave --target 'designatorPath=alice/data'
 weave generate --target 'designatorPath=alice,recursive=true'
-weave validate --target 'designatorPath=alice/bio' --target 'designatorPath=bob'
+weave validate --target 'designatorPath=alice/data' --target 'designatorPath=bob'
 weave version --target 'designatorPath=ontology,historySegment=releases,stateSegment=v0.0.2,manifestationSegment=ttl'
 ```
 
@@ -89,7 +89,7 @@ Recursive root targeting:
 weave --target 'designatorPath=/,recursive=true'
 ```
 
-The same `/` sentinel is accepted anywhere a command expects a designator path, including `weave integrate`, `weave extract`, `weave payload update`, `weave knop create`, and `weave knop add-reference --reference-target-designator-path`.
+The same `/` sentinel is accepted anywhere a command expects a designator path, including `weave import`, `weave integrate`, `weave extract`, `weave payload update`, `weave knop create`, and `weave knop add-reference --reference-target-designator-path`.
 
 ## Commands
 
@@ -108,7 +108,7 @@ Examples:
 ```sh
 weave
 weave --mesh-root ./docs
-weave --target 'designatorPath=alice/bio'
+weave --target 'designatorPath=alice/data'
 weave --target 'designatorPath=alice,recursive=true'
 weave --validate-before --validate-after
 ```
@@ -119,7 +119,7 @@ Payload naming may be passed through to the internal `version` step:
 
 ```sh
 weave \
-  --target 'designatorPath=alice/bio' \
+  --target 'designatorPath=alice/data' \
   --payload-history-segment releases \
   --payload-state-segment v0.0.1 \
   --payload-manifestation-segment ttl
@@ -147,7 +147,7 @@ Constraints:
 - payload naming is applied only to payload artifacts selected for versioning; support artifacts keep system-controlled history paths
 - per-target payload naming overrides the general `--payload-*` defaults for that target
 - if a payload's current history uses a named HistoricalState such as `v0.0.1`, a later version request must provide the next `stateSegment` or explicitly request ordinal fallback with a segment such as `_s0001`
-- if `--payload-manifestation-segment` is omitted, the current default derives the manifestation segment from the payload filename, such as `alice-bio-ttl` for `alice-bio.ttl`
+- if `--payload-manifestation-segment` is omitted, the current default derives the manifestation segment from the payload filename, such as `alice-data-ttl` for `alice-data.ttl`
 
 ### `weave validate`
 
@@ -157,7 +157,7 @@ Validates current local weave state without writing files.
 weave validate
 weave validate mesh
 weave validate publication
-weave validate --target 'designatorPath=alice/bio'
+weave validate --target 'designatorPath=alice/data'
 weave validate --target 'designatorPath=alice,recursive=true'
 ```
 
@@ -169,9 +169,9 @@ Versions current targeted resources without generating pages.
 
 ```sh
 weave version
-weave version --target 'designatorPath=alice/bio'
+weave version --target 'designatorPath=alice/data'
 weave version \
-  --target 'designatorPath=alice/bio' \
+  --target 'designatorPath=alice/data' \
   --payload-history-segment releases \
   --payload-state-segment v0.0.1 \
   --payload-manifestation-segment ttl
@@ -191,7 +191,7 @@ Constraints:
 Sets the current/default ArtifactHistory for a payload artifact without creating a historical state.
 
 ```sh
-weave set history alice/bio releases
+weave set history alice/data releases
 weave set history ontology releases --mesh-root docs
 ```
 
@@ -202,7 +202,7 @@ This is payload-only versioning intent. It updates the current Knop inventory so
 Sets the next state segment for a payload artifact without creating that state.
 
 ```sh
-weave set next-state alice/bio v0.1.0
+weave set next-state alice/data v0.1.0
 weave set next-state ontology v0.1.0 --mesh-root docs
 ```
 
@@ -214,7 +214,7 @@ Generates current ResourcePages from the settled local workspace state without c
 
 ```sh
 weave generate
-weave generate --target 'designatorPath=alice/bio'
+weave generate --target 'designatorPath=alice/data'
 weave generate --target 'designatorPath=alice,recursive=true'
 ```
 
@@ -240,8 +240,8 @@ weave mesh create --interactive
 Integrates a local source file into a designator path as a payload artifact, including policy-approved extra-mesh local sources.
 
 ```sh
-weave integrate ./alice-bio.ttl alice/bio
-weave integrate ./alice-bio.ttl --designator-path alice/bio
+weave integrate ./alice-data.ttl alice/data
+weave integrate ./alice-data.ttl --designator-path alice/data
 weave integrate ./ontology/fantasy-rules-ontology.ttl ontology --mesh-root docs --grant-source-directory ontology
 weave integrate ./ontology/fantasy-rules-ontology.ttl ontology --mesh-root docs --grant-source-directory ontology --source-repository-url https://github.com/example/source.git --source-repository-ref main --source-repository-path ontology/fantasy-rules-ontology.ttl
 weave integrate ./root.ttl --designator-path /
@@ -254,16 +254,41 @@ Constraints:
 - `--mesh-root <path>` selects the mesh root and defaults to the current directory
 - relative source paths are resolved from the command working directory
 - `--grant-source-directory <path>` adds an operational `workingLocalRelativePath` grant for that source directory before resolving the source; workspace-contained sources are recorded in mesh config, while separate checkout sources are recorded in the host-local `~/.sf-local-access.ttl`
-- when the approved source path is outside the mesh root, `integrate` creates a Knop source registry automatically with the internal `payload-source` binding id, `targetLocalRelativePath`, and `artifactResolutionMode_working`
+- when the approved source path is outside the mesh root, `integrate` creates a Knop source registry automatically with the internal `payload-source` `IntegrationSource` binding id, `targetLocalRelativePath`, and `artifactResolutionMode_working`
 - automatically created floating working-source bindings do not record repository ref, commit, path, digest evidence, or `expectsContentDigest`
 - `--source-repository-url`, `--source-repository-ref`, and `--source-repository-path` record repository-backed source provenance in the Knop source registry without fetching or copying source bytes
 - `--source-repository-commit` records immutable commit evidence when known
-- `--source-digest <digest>` records caller-provided byte evidence; if omitted when repository source metadata is supplied, Weave records a computed `sha256:` digest for the local source bytes it observed
+- `--source-digest <digest>` records caller-provided byte evidence; if omitted when repository source metadata is supplied, Weave records a computed `sha256:` digest for the local source bytes it observed and links that evidence from the `IntegrationSource` with an `ArtifactResolutionObservation`
 - the current local CLI slice accepts local filesystem paths or `file:` URLs
 - sources inside the mesh root are accepted directly
 - extra-mesh local sources are accepted only when operational policy allows the resulting relative `workingLocalRelativePath`
 - denied adjacent workspace sources report the matching `--grant-source-directory` suggestion when Weave can infer one
 - remote fetching remains outside the current CLI contract; repository metadata names provenance and expected bytes, not network access
+
+### `weave import`
+
+Imports local, `file:`, or bounded HTTP(S) source bytes into a governed mesh-local working file and registers or updates the target designator path as a payload artifact.
+
+```sh
+weave import ./incoming/carol-burnett.md carol/bio --working-file carol/bio/carol-bio.md
+weave import ./incoming/carol-burnett.md --designator-path carol/bio --working-file carol/bio/carol-bio.md
+weave import "https://example.com/bob.md" bob/bio --working-file bob/bio/bob-bio.md --expected-digest sha256:<hex>
+weave import ./root.md / --working-file root.md
+```
+
+Constraints:
+
+- the designator path may be given either positionally or with `--designator-path`
+- if both are provided, they must match
+- `--mesh-root <path>` selects the mesh root and defaults to the current directory
+- relative source paths are resolved from the command working directory
+- `--working-file <path>` is required, mesh-root-relative, and must not escape the mesh root or land under reserved support segments such as `_mesh` or `_knop`
+- import computes and records an observed `sha256:` digest for every acquired source
+- `--expected-digest <digest>` verifies the acquired bytes before writing and records the expectation in the Knop source registry
+- source provenance is recorded as an `ImportSource` binding in `_knop/_sources`; URL imports use `targetAccessUrl`, but the imported payload's active current locator remains the governed local working file
+- imported Markdown and other non-RDF payloads are not typed as `sflo:RdfDocument`; support registries remain RDF documents
+- existing working files or payload artifacts require `--replace-working`, which refreshes both copied bytes and import provenance without minting a historical state
+- import does not run `weave`, `weave version`, or `weave generate`, and later operations do not fetch the original URL merely because import provenance records it
 
 ### `weave extract`
 
@@ -327,10 +352,10 @@ weave set extraction-source --all-terms --mesh-root docs --source ontology --acc
 Convenience command for replacing the current working bytes of an existing payload artifact. This updates the current working surface only; `weave` or `weave version` is what records those bytes into explicit history.
 
 ```sh
-weave payload update ./alice-bio-v2.ttl alice/bio
-weave payload update ./alice-bio-v2.ttl --designator-path alice/bio
+weave payload update ./alice-data-v2.ttl alice/data
+weave payload update ./alice-data-v2.ttl --designator-path alice/data
 weave payload update ./root-v2.ttl /
-weave payload update ./alice-bio-v2.ttl alice/bio --mesh-root ./mesh
+weave payload update ./alice-data-v2.ttl alice/data --mesh-root ./mesh
 ```
 
 Constraints:
@@ -344,7 +369,7 @@ Constraints:
 Creates the first Knop support artifacts for a designator path.
 
 ```sh
-weave knop create alice/bio
+weave knop create alice/data
 weave knop create /
 weave knop create / --mesh-root docs
 ```
@@ -355,7 +380,7 @@ Creates the first reference-catalog surface for a designator path.
 
 ```sh
 weave knop add-reference \
-  alice/bio \
+  alice/data \
   --reference-target-designator-path bob \
   --reference-role Supplemental
 
@@ -377,14 +402,14 @@ weave mesh create --workspace ./mesh --mesh-base 'https://example.org/'
 Integrate a payload, then weave it:
 
 ```sh
-weave integrate ./mesh/alice-bio.ttl alice/bio --mesh-root ./mesh
-weave --target 'designatorPath=alice/bio' --mesh-root ./mesh
+weave integrate ./mesh/alice-data.ttl alice/data --mesh-root ./mesh
+weave --target 'designatorPath=alice/data' --mesh-root ./mesh
 ```
 
 Version without generation:
 
 ```sh
-weave version --target 'designatorPath=alice/bio' --mesh-root ./mesh
+weave version --target 'designatorPath=alice/data' --mesh-root ./mesh
 ```
 
 Generate pages only:

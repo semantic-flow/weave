@@ -9,6 +9,7 @@ const SFCFG_NAMESPACE = "https://semantic-flow.github.io/sflo/config/";
 const DEFAULT_RDF_FILES = [
   "defaults/application.ttl",
   "defaults/config-resolution.ttl",
+  "defaults/default-stylesheet.ttl",
 ] as const;
 
 Deno.test("Weave defaults RDF parses as Turtle", async () => {

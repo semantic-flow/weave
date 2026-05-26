@@ -39,7 +39,7 @@ Deno.test("weave knop add-reference matches the manifest-scoped alice-bio refere
       "add-reference",
       transitionCase.targetDesignatorPath!,
       "--reference-target-designator-path",
-      "alice/bio",
+      "alice/data",
       "--reference-role",
       "canonical",
       "--mesh-root",
@@ -161,7 +161,10 @@ Deno.test("weave knop add-reference accepts the root reference target as a black
 <alice/_knop/_references#reference001> a sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
   sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_supplemental> ;
-  sflo:referenceTarget <> .
+  sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
+
+<alice/_knop/_references#reference001-source> a sflo:ReferenceSource ;
+  sflo:hasTargetArtifact <> .
 `,
   );
 });
@@ -186,7 +189,7 @@ Deno.test("weave knop add-reference rejects a whitespace-only positional designa
       "add-reference",
       "   ",
       "--reference-target-designator-path",
-      "alice/bio",
+      "alice/data",
       "--reference-role",
       "canonical",
       "--mesh-root",

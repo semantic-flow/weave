@@ -1,5 +1,6 @@
 export * from "./config/mod.ts";
 export * from "./extract/mod.ts";
+export * from "./import/mod.ts";
 export * from "./logging/mod.ts";
 export * from "./integrate/mod.ts";
 export * from "./knop/mod.ts";

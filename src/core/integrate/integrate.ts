@@ -9,8 +9,10 @@ import {
 import {
   SFLO_NAMESPACE,
   SFLO_TURTLE_PREFIX_DECLARATION,
+  XSD_NAMESPACE,
 } from "../rdf/namespaces.ts";
 import { escapeTurtleString } from "../rdf/turtle.ts";
+import { normalizeXsdDateTimeLiteral } from "../rdf/xsd_literals.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const XSD_ANY_URI_IRI = "http://www.w3.org/2001/XMLSchema#anyURI";
@@ -52,13 +54,21 @@ export interface IntegrateSourceBinding {
   repositorySource?: IntegrateRepositorySource;
   repositorySourceFloatingLocator?: IntegrateRepositorySourceFloatingLocator;
   expectedContentDigest?: string;
+  observation?: IntegrateSourceObservation;
   artifactResolutionMode?: "working";
+}
+
+export interface IntegrateSourceObservation {
+  observedContentDigest?: string;
+  observedTargetLocalRelativePath?: string;
+  observedAt?: string;
 }
 
 export interface IntegrateRequest {
   designatorPath: string;
   workingLocalRelativePath: string;
   sourceBinding?: IntegrateSourceBinding;
+  payloadIsRdfDocument?: boolean;
 }
 
 export interface ResolvedIntegrateRequest extends IntegrateRequest {
@@ -96,6 +106,8 @@ export function planIntegrate(
     request.sourceBinding,
     workingLocalRelativePath,
   );
+  const payloadIsRdfDocument = request.payloadIsRdfDocument ??
+    isRdfLikePayloadPath(workingLocalRelativePath);
   const knopPath = toKnopPath(designatorPath);
   const knopInventoryPath = `${knopPath}/_inventory/inventory.ttl`;
   const updatedMeshInventoryTurtle = renderUpdatedMeshInventoryTurtle(
@@ -104,6 +116,7 @@ export function planIntegrate(
     designatorPath,
     workingLocalRelativePath,
     sourceBinding,
+    payloadIsRdfDocument,
   );
 
   return {
@@ -132,6 +145,7 @@ export function planIntegrate(
           designatorPath,
           workingLocalRelativePath,
           sourceBinding,
+          payloadIsRdfDocument,
         ),
       },
       ...(sourceBinding
@@ -277,6 +291,9 @@ function normalizeSourceBinding(
       sourceBinding.expectedContentDigest,
       "sourceBinding.expectedContentDigest",
     );
+  const observation = sourceBinding.observation === undefined
+    ? undefined
+    : normalizeSourceObservation(sourceBinding.observation);
   const artifactResolutionMode = sourceBinding.artifactResolutionMode ??
     "working";
   if (artifactResolutionMode !== "working") {
@@ -293,6 +310,7 @@ function normalizeSourceBinding(
       ? { repositorySourceFloatingLocator }
       : {}),
     ...(expectedContentDigest ? { expectedContentDigest } : {}),
+    ...(observation ? { observation } : {}),
     artifactResolutionMode,
   };
 }
@@ -304,7 +322,14 @@ interface NormalizedIntegrateSourceBinding {
   repositorySourceFloatingLocator?:
     NormalizedIntegrateRepositorySourceFloatingLocator;
   expectedContentDigest?: string;
+  observation?: NormalizedIntegrateSourceObservation;
   artifactResolutionMode: "working";
+}
+
+interface NormalizedIntegrateSourceObservation {
+  observedContentDigest?: string;
+  observedTargetLocalRelativePath?: string;
+  observedAt?: string;
 }
 
 interface NormalizedIntegrateRepositorySource {
@@ -396,6 +421,48 @@ function normalizeRepositorySourceFloatingLocator(
   };
 }
 
+function normalizeSourceObservation(
+  observation: IntegrateSourceObservation,
+): NormalizedIntegrateSourceObservation {
+  const observedContentDigest = observation.observedContentDigest === undefined
+    ? undefined
+    : normalizeNonEmptyLiteral(
+      observation.observedContentDigest,
+      "sourceBinding.observation.observedContentDigest",
+    );
+  const observedTargetLocalRelativePath =
+    observation.observedTargetLocalRelativePath === undefined
+      ? undefined
+      : normalizeWorkingLocalRelativePath(
+        observation.observedTargetLocalRelativePath,
+      );
+  const observedAt = observation.observedAt === undefined
+    ? undefined
+    : normalizeXsdDateTimeLiteral(
+      observation.observedAt,
+      "sourceBinding.observation.observedAt",
+      (message) => new IntegrateInputError(message),
+    );
+
+  if (
+    observedContentDigest === undefined &&
+    observedTargetLocalRelativePath === undefined &&
+    observedAt === undefined
+  ) {
+    throw new IntegrateInputError(
+      "sourceBinding.observation must include observed evidence",
+    );
+  }
+
+  return {
+    ...(observedContentDigest ? { observedContentDigest } : {}),
+    ...(observedTargetLocalRelativePath
+      ? { observedTargetLocalRelativePath }
+      : {}),
+    ...(observedAt ? { observedAt } : {}),
+  };
+}
+
 function normalizeNonEmptyLiteral(value: string, fieldName: string): string {
   const trimmed = value.trim();
   if (trimmed.length === 0) {
@@ -432,12 +499,16 @@ function renderCurrentWorkingFileLocator(
 function renderCurrentWorkingFileDeclaration(
   workingLocalRelativePath: string,
   sourceBinding?: NormalizedIntegrateSourceBinding,
+  payloadIsRdfDocument = true,
 ): string {
   if (sourceBinding?.repositorySourceFloatingLocator !== undefined) {
     return "";
   }
+  const locatedFileTypes = payloadIsRdfDocument
+    ? "sflo:LocatedFile, sflo:RdfDocument"
+    : "sflo:LocatedFile";
   return usesMeshLocalWorkingLocatedFile(workingLocalRelativePath)
-    ? `<${workingLocalRelativePath}> a sflo:LocatedFile, sflo:RdfDocument .`
+    ? `<${workingLocalRelativePath}> a ${locatedFileTypes} .`
     : "";
 }
 
@@ -460,6 +531,7 @@ function renderKnopInventoryTurtle(
   designatorPath: string,
   workingLocalRelativePath: string,
   sourceBinding: NormalizedIntegrateSourceBinding | undefined,
+  payloadIsRdfDocument: boolean,
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const sourceRegistryPath = `${knopPath}/_sources`;
@@ -470,7 +542,9 @@ function renderKnopInventoryTurtle(
   const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
     workingLocalRelativePath,
     sourceBinding,
+    payloadIsRdfDocument,
   );
+  const payloadTypes = renderPayloadArtifactTypes(payloadIsRdfDocument);
   const sourceRegistryKnopLine = sourceBinding
     ? `  sflo:hasKnopSourceRegistry <${sourceRegistryPath}> ;\n`
     : "";
@@ -492,7 +566,7 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 ${sourceRegistryKnopLine}  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> ;
   sflo:hasPayloadArtifact <${designatorPath}> .
 
-<${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+<${designatorPath}> a ${payloadTypes} ;
   ${currentWorkingFileLocator}
 
 <${knopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
@@ -518,11 +592,18 @@ function renderKnopSourcesTurtle(
   const sourceRegistryPath = `${knopPath}/_sources`;
   const sourcesFilePath = `${sourceRegistryPath}/sources.ttl`;
   const sourceBindingPath = `${sourceRegistryPath}#${sourceBinding.bindingId}`;
+  const observationPath = `${sourceBindingPath}-observation-001`;
   const sourceBindingFacts = renderSourceBindingFacts(
     meshBase,
     designatorPath,
     sourceBinding,
+    observationPath,
   );
+  const observationBlock = sourceBinding.observation
+    ? `\n\n${
+      renderSourceObservationBlock(observationPath, sourceBinding.observation)
+    }`
+    : "";
 
   return `@base <${meshBase}> .
 ${SFLO_TURTLE_PREFIX_DECLARATION}
@@ -531,8 +612,8 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
   sflo:hasWorkingLocatedFile <${sourcesFilePath}> ;
   sflo:hasSourceBinding <${sourceBindingPath}> .
 
-<${sourceBindingPath}> a sflo:ArtifactResolutionTarget ;
-${sourceBindingFacts}
+<${sourceBindingPath}> a sflo:IntegrationSource ;
+${sourceBindingFacts}${observationBlock}
 
 <${sourcesFilePath}> a sflo:LocatedFile, sflo:RdfDocument .
 `;
@@ -542,6 +623,7 @@ function renderSourceBindingFacts(
   meshBase: string,
   designatorPath: string,
   sourceBinding: NormalizedIntegrateSourceBinding,
+  observationPath: string,
 ): string {
   const facts: [string, string][] = [
     ["sflo:hasTargetArtifact", `<${new URL(designatorPath, meshBase).href}>`],
@@ -562,6 +644,12 @@ function renderSourceBindingFacts(
       `"${escapeTurtleString(sourceBinding.expectedContentDigest)}"`,
     ]);
   }
+  if (sourceBinding.observation !== undefined) {
+    facts.push([
+      "sflo:hasResolutionObservation",
+      `<${observationPath}>`,
+    ]);
+  }
   if (sourceBinding.repositorySource !== undefined) {
     facts.push([
       "sflo:hasTargetRepositorySource",
@@ -580,6 +668,41 @@ function renderSourceBindingFacts(
   return facts.map(([predicate, object], index) =>
     `  ${predicate} ${object}${index === facts.length - 1 ? " ." : " ;"}`
   ).join("\n");
+}
+
+function renderSourceObservationBlock(
+  observationPath: string,
+  observation: NormalizedIntegrateSourceObservation,
+): string {
+  const facts: [string, string][] = [
+    ["a", "sflo:ArtifactResolutionObservation"],
+  ];
+  if (observation.observedContentDigest !== undefined) {
+    facts.push([
+      "sflo:observedContentDigest",
+      `"${escapeTurtleString(observation.observedContentDigest)}"`,
+    ]);
+  }
+  if (observation.observedTargetLocalRelativePath !== undefined) {
+    facts.push([
+      "sflo:observedTargetLocalRelativePath",
+      `"${escapeTurtleString(observation.observedTargetLocalRelativePath)}"`,
+    ]);
+  }
+  if (observation.observedAt !== undefined) {
+    facts.push([
+      "sflo:observedAt",
+      `"${
+        escapeTurtleString(observation.observedAt)
+      }"^^<${XSD_NAMESPACE}dateTime>`,
+    ]);
+  }
+
+  const lines = facts.map(([predicate, object], index) =>
+    `  ${predicate} ${object}${index === facts.length - 1 ? " ." : " ;"}`
+  );
+  return `<${observationPath}>
+${lines.join("\n")}`;
 }
 
 function renderRepositorySourceBlankNode(
@@ -649,6 +772,7 @@ function renderUpdatedMeshInventoryTurtle(
   designatorPath: string,
   workingLocalRelativePath: string,
   sourceBinding: NormalizedIntegrateSourceBinding | undefined,
+  payloadIsRdfDocument: boolean,
 ): string {
   assertCanIntegrateIntoCurrentMeshInventory(
     meshBase,
@@ -662,6 +786,7 @@ function renderUpdatedMeshInventoryTurtle(
     designatorPath,
     workingLocalRelativePath,
     sourceBinding,
+    payloadIsRdfDocument,
   );
 }
 
@@ -764,6 +889,7 @@ function renderIntegratedMeshInventoryTurtle(
   designatorPath: string,
   workingLocalRelativePath: string,
   sourceBinding: NormalizedIntegrateSourceBinding | undefined,
+  payloadIsRdfDocument: boolean,
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const knopInventoryPath = `${knopPath}/_inventory/inventory.ttl`;
@@ -774,7 +900,9 @@ function renderIntegratedMeshInventoryTurtle(
   const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
     workingLocalRelativePath,
     sourceBinding,
+    payloadIsRdfDocument,
   );
+  const payloadTypes = renderPayloadArtifactTypes(payloadIsRdfDocument);
   const currentWorkingFileDeclarationBlock =
     currentWorkingFileDeclaration.length > 0
       ? `\n${currentWorkingFileDeclaration}\n`
@@ -784,7 +912,7 @@ function renderIntegratedMeshInventoryTurtle(
 
 <_mesh> sflo:hasKnop <${knopPath}> .
 
-<${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+<${designatorPath}> a ${payloadTypes} ;
   ${currentWorkingFileLocator}
 
 <${knopPath}> a sflo:Knop ;
@@ -792,6 +920,16 @@ function renderIntegratedMeshInventoryTurtle(
 
 <${knopInventoryPath}> a sflo:LocatedFile, sflo:RdfDocument .
 ${currentWorkingFileDeclarationBlock}`;
+}
+
+function renderPayloadArtifactTypes(payloadIsRdfDocument: boolean): string {
+  return payloadIsRdfDocument
+    ? "sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument"
+    : "sflo:PayloadArtifact, sflo:DigitalArtifact";
+}
+
+function isRdfLikePayloadPath(path: string): boolean {
+  return /\.(ttl|jsonld|rdf|owl|nt|nq|trig)$/i.test(path);
 }
 
 function assertHasNamedNodeFacts(

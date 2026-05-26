@@ -19,7 +19,7 @@ weave set history <designatorPath> <historySegment> [--mesh-root <meshRoot>]
 ## Examples
 
 ```sh
-weave set history alice/bio releases
+weave set history alice/data releases
 weave set history ontology releases --mesh-root docs
 ```
 
