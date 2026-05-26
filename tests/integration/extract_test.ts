@@ -123,7 +123,7 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
 
 <bob/_knop/_sources#extraction-source-observation-001> a sflo:ArtifactResolutionObservation ;
   sflo:hasObservedTargetLocatedFile <alice-data.ttl> ;
-  sflo:observedContentDigest "sha256:a1109e20325a24dc1ffba8533fa9581db00895e3deb0718a97e49b78105a320a" .
+  sflo:observedContentDigest "sha256:6df3896c975b782534c22a389a794512609f92c2eb6bd8550c85efe2564bad68" .
 
 <bob/_knop/_sources/sources.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 `,
@@ -561,19 +561,22 @@ Deno.test("executeExtractAllTerms records exact source references when extractin
 
   assertEquals(result.sourceResolutionMode, "exact");
   assertEquals(result.sourceDesignatorPath, "alice/data");
-  assertEquals(result.extractedDesignatorPaths, ["bob"]);
+  assertEquals(result.extractedDesignatorPaths, ["alice/bio", "bob"]);
+  assertEquals(result.sourceReferencedDesignatorPaths, ["alice/bio", "bob"]);
   assertEquals(
     result.sourceReferenceTargetStateIri,
     "https://semantic-flow.github.io/mesh-alice-bio/alice/data/_history001/_s0002",
   );
 
-  const referencesTurtle = await Deno.readTextFile(
-    join(workspaceRoot, "bob/_knop/_references/references.ttl"),
-  );
-  assertStringIncludes(
-    referencesTurtle,
-    "sflo:hasTargetArtifact <alice/data> ;\n  sflo:hasRequestedTargetState <alice/data/_history001/_s0002> .",
-  );
+  for (const designatorPath of result.sourceReferencedDesignatorPaths) {
+    const referencesTurtle = await Deno.readTextFile(
+      join(workspaceRoot, `${designatorPath}/_knop/_references/references.ttl`),
+    );
+    assertStringIncludes(
+      referencesTurtle,
+      "sflo:hasTargetArtifact <alice/data> ;\n  sflo:hasRequestedTargetState <alice/data/_history001/_s0002> .",
+    );
+  }
 });
 
 Deno.test("executeExtractAllTerms fails closed for unsafe mesh-scoped term IRIs", async () => {

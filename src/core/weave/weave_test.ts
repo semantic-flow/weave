@@ -3525,9 +3525,10 @@ Deno.test("planWeave renders a later page-definition weave revision", async () =
 
 Deno.test("planWeave renders a later page-definition weave revision without a reference catalog", async () => {
   const meshBase = "https://semantic-flow.github.io/mesh-alice-bio/";
+  const fixtureRef = "b.21-bob-page-imported-source-woven";
   const currentPageDefinitionTurtle = (
     await readMeshAliceBioBranchFile(
-      "21-bob-page-imported-source-woven",
+      fixtureRef,
       "bob/_knop/_page/page.ttl",
     )
   ).replace(
@@ -3538,7 +3539,7 @@ Deno.test("planWeave renders a later page-definition weave revision without a re
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> .`,
   );
   const latestHistoricalSnapshotTurtle = await readMeshAliceBioBranchFile(
-    "21-bob-page-imported-source-woven",
+    fixtureRef,
     "bob/_knop/_page/_history001/_s0001/ttl/page.ttl",
   );
   const plan = planWeave({
@@ -3547,17 +3548,17 @@ Deno.test("planWeave renders a later page-definition weave revision without a re
     },
     meshBase,
     currentMeshInventoryTurtle: await readMeshAliceBioBranchFile(
-      "21-bob-page-imported-source-woven",
+      fixtureRef,
       "_mesh/_inventory/inventory.ttl",
     ),
     weaveableKnops: [{
       designatorPath: "bob",
       currentKnopMetadataTurtle: await readMeshAliceBioBranchFile(
-        "21-bob-page-imported-source-woven",
+        fixtureRef,
         "bob/_knop/_meta/meta.ttl",
       ),
       currentKnopInventoryTurtle: await readMeshAliceBioBranchFile(
-        "21-bob-page-imported-source-woven",
+        fixtureRef,
         "bob/_knop/_inventory/inventory.ttl",
       ),
       resourcePageDefinitionArtifact: {
