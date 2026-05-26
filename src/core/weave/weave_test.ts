@@ -3525,26 +3525,26 @@ Deno.test("planWeave renders a later page-definition weave revision", async () =
 
 Deno.test("planWeave renders a later page-definition weave revision without a reference catalog", async () => {
   const meshBase = "https://semantic-flow.github.io/mesh-alice-bio/";
-  const fixtureRef = "b.21-bob-page-imported-source-woven";
+  const fixtureRef = "a.25-root-page-customized-woven";
   const currentPageDefinitionTurtle = (
     await readMeshAliceBioBranchFile(
       fixtureRef,
-      "bob/_knop/_page/page.ttl",
+      "_knop/_page/page.ttl",
     )
   ).replace(
     `<#main-source> a sflo:ResourcePageSource ;
-  sflo:targetLocalRelativePath "bob-page-main.md" .`,
+  sflo:targetLocalRelativePath "home.md" .`,
     `<#main-source> a sflo:ResourcePageSource ;
-  sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/bob/bio> ;
+  sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/bio> ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> .`,
   );
   const latestHistoricalSnapshotTurtle = await readMeshAliceBioBranchFile(
     fixtureRef,
-    "bob/_knop/_page/_history001/_s0001/ttl/page.ttl",
+    "_knop/_page/_history001/_s0001/ttl/page.ttl",
   );
   const plan = planWeave({
     request: {
-      targets: [{ designatorPath: "bob" }],
+      targets: [{ designatorPath: "" }],
     },
     meshBase,
     currentMeshInventoryTurtle: await readMeshAliceBioBranchFile(
@@ -3552,52 +3552,53 @@ Deno.test("planWeave renders a later page-definition weave revision without a re
       "_mesh/_inventory/inventory.ttl",
     ),
     weaveableKnops: [{
-      designatorPath: "bob",
+      designatorPath: "",
       currentKnopMetadataTurtle: await readMeshAliceBioBranchFile(
         fixtureRef,
-        "bob/_knop/_meta/meta.ttl",
+        "_knop/_meta/meta.ttl",
       ),
       currentKnopInventoryTurtle: await readMeshAliceBioBranchFile(
         fixtureRef,
-        "bob/_knop/_inventory/inventory.ttl",
+        "_knop/_inventory/inventory.ttl",
       ),
       resourcePageDefinitionArtifact: {
-        artifactPath: "bob/_knop/_page",
-        workingLocalRelativePath: "bob/_knop/_page/page.ttl",
+        artifactPath: "_knop/_page",
+        workingLocalRelativePath: "_knop/_page/page.ttl",
         currentPageDefinitionTurtle,
-        currentArtifactHistoryPath: "bob/_knop/_page/_history001",
+        currentArtifactHistoryPath: "_knop/_page/_history001",
         currentArtifactHistoryExists: true,
-        latestHistoricalStatePath: "bob/_knop/_page/_history001/_s0001",
+        latestHistoricalStatePath: "_knop/_page/_history001/_s0001",
         latestHistoricalSnapshotTurtle,
+        assetBundlePath: "_knop/_assets",
       },
     }],
   });
 
-  assertEquals(plan.wovenDesignatorPaths, ["bob"]);
+  assertEquals(plan.wovenDesignatorPaths, [""]);
   assertEquals(plan.updatedFiles.map((file) => file.path), [
-    "bob/_knop/_inventory/inventory.ttl",
+    "_knop/_inventory/inventory.ttl",
   ]);
   assertEquals(plan.createdFiles.map((file) => file.path), [
-    "bob/_knop/_page/_history001/_s0002/ttl/page.ttl",
-    "bob/_knop/_inventory/_history001/_s0003/ttl/inventory.ttl",
+    "_knop/_page/_history001/_s0002/ttl/page.ttl",
+    "_knop/_inventory/_history001/_s0003/ttl/inventory.ttl",
   ]);
   assertEquals(plan.createdFiles[0]?.contents, currentPageDefinitionTurtle);
   assertStringIncludes(
     plan.updatedFiles[0]?.contents ?? "",
-    "sflo:latestHistoricalState <bob/_knop/_page/_history001/_s0002> ;",
+    "sflo:latestHistoricalState <_knop/_page/_history001/_s0002> ;",
   );
   assertStringIncludes(
     plan.updatedFiles[0]?.contents ?? "",
-    "sflo:latestHistoricalState <bob/_knop/_inventory/_history001/_s0003> ;",
+    "sflo:latestHistoricalState <_knop/_inventory/_history001/_s0003> ;",
   );
   assertEquals(plan.createdPages.map((page) => page.path), [
-    "bob/index.html",
-    "bob/_knop/_inventory/_history001/_s0003/index.html",
-    "bob/_knop/_inventory/_history001/_s0003/ttl/index.html",
-    "bob/_knop/_page/index.html",
-    "bob/_knop/_page/_history001/index.html",
-    "bob/_knop/_page/_history001/_s0002/index.html",
-    "bob/_knop/_page/_history001/_s0002/ttl/index.html",
+    "index.html",
+    "_knop/_inventory/_history001/_s0003/index.html",
+    "_knop/_inventory/_history001/_s0003/ttl/index.html",
+    "_knop/_page/index.html",
+    "_knop/_page/_history001/index.html",
+    "_knop/_page/_history001/_s0002/index.html",
+    "_knop/_page/_history001/_s0002/ttl/index.html",
   ]);
 });
 

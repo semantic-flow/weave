@@ -283,7 +283,10 @@ Deno.test("fixture transition builders keep repeated asset and branch shapes exp
         fixtureAssetSource(
           "content/explicit.ttl",
           "explicit shared asset path",
-          { assetPath: "shared/explicit.ttl" },
+          {
+            assetPath: "shared/explicit.ttl",
+            sourceRef: "z.asset-source",
+          },
         ),
       ],
     },
@@ -307,6 +310,7 @@ Deno.test("fixture transition builders keep repeated asset and branch shapes exp
     {
       path: "content/explicit.ttl",
       assetPath: "shared/explicit.ttl",
+      sourceRef: "z.asset-source",
       provenance: "explicit shared asset path",
     },
   ]);
@@ -428,9 +432,12 @@ Deno.test("planFixtureLadder exposes the Alice Bio dry-run transition plan", asy
     );
     assertEquals(
       pageCustomized.action.sources[0]?.assetPath,
-      ".assets/16-alice-page-customized/alice/_knop/_page/page.ttl",
+      "alice/_knop/_page/page.ttl",
     );
-    assertEquals(pageCustomized.action.sources[0]?.sourceRef, "assets");
+    assertEquals(
+      pageCustomized.action.sources[0]?.sourceRef,
+      "a.16-alice-page-customized",
+    );
     assertEquals(pageCustomized.action.inventoryPatches.length, 1);
     assertEquals(
       pageCustomized.action.inventoryPatches[0]?.inventoryPath,
@@ -1311,25 +1318,29 @@ Deno.test("Alice Bio asset-backed transitions point at checked-in deterministic 
     format: "text",
   });
   const assetSources = fixtureAssetSourcesForPlan(plan).sort((left, right) =>
-    left.assetPath.localeCompare(right.assetPath)
+    `${left.sourceRef ?? ""}:${left.assetPath}`.localeCompare(
+      `${right.sourceRef ?? ""}:${right.assetPath}`,
+    )
   );
-  const assetPaths = assetSources.map((source) => source.assetPath);
+  const assetSourceSpecs = assetSources.map((source) =>
+    `${source.sourceRef ?? "(filesystem)"}:${source.assetPath}`
+  );
 
-  assertEquals(assetPaths, [
-    ".assets/01-source-only/alice-data.ttl",
-    ".assets/10-alice-bio-updated/alice-data-v2.ttl",
-    ".assets/14-alice-bio-imported/mesh-content/sidebar.md",
-    ".assets/16-alice-page-customized/alice/_knop/_assets/alice.css",
-    ".assets/16-alice-page-customized/alice/_knop/_page/page.ttl",
-    ".assets/18-favicon-integrated/favicon.ico",
-    ".assets/24-root-page-customized/_knop/_assets/site.css",
-    ".assets/24-root-page-customized/_knop/_page/page.ttl",
-    ".assets/24-root-page-customized/home.md",
-    ".assets/26-carol/carol-data.ttl",
+  assertEquals(assetSourceSpecs, [
+    "a.01-source-only:alice-data.ttl",
+    "a.10-alice-bio-updated:alice-data.ttl",
+    "a.14-alice-bio-imported:mesh-content/sidebar.md",
+    "a.16-alice-page-customized:alice/_knop/_assets/alice.css",
+    "a.16-alice-page-customized:alice/_knop/_page/page.ttl",
+    "a.18-favicon-integrated:favicon.ico",
+    "a.24-root-page-customized:_knop/_assets/site.css",
+    "a.24-root-page-customized:_knop/_page/page.ttl",
+    "a.24-root-page-customized:home.md",
+    "a.26-carol:carol-data.ttl",
   ]);
 
   for (const source of assetSources) {
-    assertEquals(source.sourceRef, "assets");
+    assert(source.sourceRef !== undefined);
     assert(
       await gitSucceeds(plan.fixtureRepoPath, [
         "show",
@@ -1443,7 +1454,7 @@ Deno.test("renderFixtureLadderPlan prints reviewable command and validation deta
   );
   assertStringIncludes(
     rendered,
-    "source: alice/_knop/_page/page.ttl <= assets:.assets/16-alice-page-customized/alice/_knop/_page/page.ttl",
+    "source: alice/_knop/_page/page.ttl <= a.16-alice-page-customized:alice/_knop/_page/page.ttl",
   );
   assertStringIncludes(
     rendered,
@@ -1451,7 +1462,7 @@ Deno.test("renderFixtureLadderPlan prints reviewable command and validation deta
   );
   assertStringIncludes(
     rendered,
-    "input: alice-data.ttl <= assets:.assets/10-alice-bio-updated/alice-data-v2.ttl",
+    "input: alice-data.ttl <= a.10-alice-bio-updated:alice-data.ttl",
   );
   assertStringIncludes(
     rendered,
