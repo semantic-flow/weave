@@ -1943,6 +1943,8 @@ Deno.test("renderResourcePage resolves authored Markdown links from slashless re
         markdown: `# Home
 
 - [Alice](alice/)
+- [Slash Alice](/alice/)
+- [Already Rooted](/mesh-alice-bio/bob/)
 - [Root Knop](./_knop/)
 `,
       }],
@@ -1953,6 +1955,14 @@ Deno.test("renderResourcePage resolves authored Markdown links from slashless re
   );
 
   assertStringIncludes(html, '<a href="/mesh-alice-bio/alice/">Alice</a>');
+  assertStringIncludes(
+    html,
+    '<a href="/mesh-alice-bio/alice/">Slash Alice</a>',
+  );
+  assertStringIncludes(
+    html,
+    '<a href="/mesh-alice-bio/bob/">Already Rooted</a>',
+  );
   assertStringIncludes(
     html,
     '<a href="/mesh-alice-bio/_knop/">Root Knop</a>',

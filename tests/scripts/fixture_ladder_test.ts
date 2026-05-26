@@ -1426,7 +1426,7 @@ Deno.test("renderFixtureLadderPlan prints reviewable command and validation deta
   );
   assertStringIncludes(
     rendered,
-    "input: alice-data-v2.ttl <= .assets/10-alice-bio-updated/alice-data-v2.ttl",
+    "input: alice-data.ttl <= .assets/10-alice-bio-updated/alice-data-v2.ttl",
   );
   assertStringIncludes(
     rendered,

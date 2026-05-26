@@ -3688,10 +3688,12 @@ function resolveMarkdownHref(
     context === undefined ||
     trimmed.length === 0 ||
     trimmed.startsWith("#") ||
-    trimmed.startsWith("/") ||
     /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)
   ) {
     return trimmed;
+  }
+  if (trimmed.startsWith("/")) {
+    return resolveMeshRootRelativeMarkdownHref(trimmed, context.meshRootHref);
   }
 
   const basePath = context.resourcePath.length === 0
@@ -3703,6 +3705,25 @@ function resolveMarkdownHref(
   } catch {
     return trimmed;
   }
+}
+
+function resolveMeshRootRelativeMarkdownHref(
+  href: string,
+  meshRootHref: string,
+): string {
+  const meshRootWithoutTrailingSlash = meshRootHref.endsWith("/")
+    ? meshRootHref.slice(0, -1)
+    : meshRootHref;
+  if (
+    href.startsWith("//") ||
+    href.startsWith(meshRootHref) ||
+    href === meshRootWithoutTrailingSlash ||
+    href.startsWith(`${meshRootWithoutTrailingSlash}?`) ||
+    href.startsWith(`${meshRootWithoutTrailingSlash}#`)
+  ) {
+    return href;
+  }
+  return `${meshRootHref}${href.replace(/^\/+/, "")}`;
 }
 
 function ensureRelativePageHref(href: string): string {
