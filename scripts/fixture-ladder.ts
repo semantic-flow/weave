@@ -667,32 +667,10 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
       "18-favicon-integrated",
       "weave",
     ),
-    fileOperationTransition(
+    commandTransition(
       20,
       "20-bob-page-imported-source",
       "19-favicon-woven",
-      {
-        description:
-          "Import Bob page Markdown from the pinned outside-origin source fixture.",
-        sources: [
-          fixtureAssetSource(
-            "bob-page-main.md",
-            "checked-in bytes copied from the Alice Bio main branch's imported Markdown source; original outside-origin URL was https://raw.githubusercontent.com/djradon/public-notes/refs/heads/main/user.bob-newhart.md",
-          ),
-          fixtureAssetSource(
-            "bob/_knop/_page/page.ttl",
-            "fixture-authored canonical page definition adapted from the Alice Bio main branch Bob page bytes",
-          ),
-        ],
-        inventoryPatches: [
-          {
-            kind: "resourcePageDefinition",
-            designatorPath: "bob",
-            provenance:
-              "register Bob's ResourcePageDefinition against the current generated Bob KnopInventory",
-          },
-        ],
-      },
       "import",
     ),
     commandTransition(

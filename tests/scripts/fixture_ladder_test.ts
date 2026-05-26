@@ -1308,8 +1308,6 @@ Deno.test("Alice Bio asset-backed transitions point at checked-in deterministic 
     "16-alice-page-customized/alice/_knop/_assets/alice.css",
     "16-alice-page-customized/alice/_knop/_page/page.ttl",
     "18-favicon-integrated/favicon.ico",
-    "20-bob-page-imported-source/bob-page-main.md",
-    "20-bob-page-imported-source/bob/_knop/_page/page.ttl",
     "24-root-page-customized/_knop/_assets/site.css",
     "24-root-page-customized/_knop/_page/page.ttl",
     "24-root-page-customized/home.md",

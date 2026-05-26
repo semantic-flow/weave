@@ -270,9 +270,9 @@ Constraints:
 Imports local, `file:`, or bounded HTTP(S) source bytes into a governed mesh-local working file and registers or updates the target designator path as a payload artifact.
 
 ```sh
-weave import ./incoming/carol-burnett.md carol/page-main --working-file carol/page-main.md
-weave import ./incoming/carol-burnett.md --designator-path carol/page-main --working-file carol/page-main.md
-weave import "https://example.com/bob.md" bob/page-main --working-file bob-page-main.md --expected-digest sha256:<hex>
+weave import ./incoming/carol-burnett.md carol/bio --working-file carol/bio/carol-bio.md
+weave import ./incoming/carol-burnett.md --designator-path carol/bio --working-file carol/bio/carol-bio.md
+weave import "https://example.com/bob.md" bob/bio --working-file bob/bio/bob-bio.md --expected-digest sha256:<hex>
 weave import ./root.md / --working-file root.md
 ```
 
