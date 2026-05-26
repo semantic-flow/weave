@@ -106,7 +106,7 @@ Deno.test("branch Fantasy Rules manifests use working-only source bindings for b
     );
     assertStringIncludes(
       manifestText,
-      `<${MESH_BRANCH_FANTASY_RULES_BASE}${registryPath}#payload-source> a <https://semantic-flow.github.io/sflo/ontology/ArtifactResolutionSpec>`,
+      `<${MESH_BRANCH_FANTASY_RULES_BASE}${registryPath}#payload-source> a <https://semantic-flow.github.io/sflo/ontology/IntegrationSource>`,
     );
     assertStringIncludes(
       manifestText,
@@ -118,7 +118,7 @@ Deno.test("branch Fantasy Rules manifests use working-only source bindings for b
       manifestText,
       `<https://semantic-flow.github.io/sflo/ontology/targetLocalRelativePath> \\"${binding.sourcePath}\\"`,
     );
-    assertStringIncludes(manifestText, "FILTER NOT EXISTS");
+    assertFalse(manifestText.includes("FILTER NOT EXISTS"), manifestText);
     assertFalse(manifestText.includes("branch-source-"), manifestText);
     assertFalse(manifestText.includes("sourceRepositoryUrl"), manifestText);
     assertFalse(manifestText.includes("sourceRepositoryRef"), manifestText);
