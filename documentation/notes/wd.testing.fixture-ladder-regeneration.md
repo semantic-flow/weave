@@ -22,7 +22,7 @@ The current live fixture ladders are:
 
 The live ladder refs use the `a.*` branch series. Older unprefixed branch series are historical fixtures; do not regenerate or chase them during a live ladder rerung unless a task explicitly asks for that archival series.
 
-The Alice Bio ladder sources replay assets from the `assets` branch of `mesh-alice-bio`. That branch is intentionally empty except for `.assets/`; generated `a.*` rung branches do not need to carry fixture source assets. Alice Bio replay manifests should use Accord source provenance with `sourceKind: fixtureRefSource`, `sourceRef: assets`, and a `.assets/...` `sourcePath`.
+The Alice Bio ladder sources replay assets from the `assets` branch of `mesh-alice-bio`. That branch is intentionally empty except for `.assets/`; generated `a.*` rung branches do not need to carry fixture source assets, and `a.00-blank-slate` is seeded only from ordinary control files such as `README.md` and `.gitignore`. Alice Bio replay manifests should use Accord source provenance with `sourceKind: fixtureRefSource`, `sourceRef: assets`, and a `.assets/...` `sourcePath`.
 
 The transition manifests and example specs live in the Semantic Flow Framework checkout:
 

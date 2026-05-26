@@ -534,6 +534,10 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
   fixtureRepo: ALICE_BIO_FIXTURE_REPO,
   fixtureRepoRelativePath: ALICE_BIO_FIXTURE_REPO_RELATIVE_PATH,
   manifestRootRelativePath: ALICE_BIO_MANIFEST_ROOT_RELATIVE_PATH,
+  sourceSeedPaths: [
+    ".gitignore",
+    "README.md",
+  ],
   branchPrefix: LADDER_BRANCH_PREFIX,
   transitions: [
     fileOperationTransition(1, "01-source-only", "00-blank-slate", {

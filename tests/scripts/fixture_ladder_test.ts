@@ -1605,8 +1605,9 @@ Deno.test("seedFixtureSourceBranch creates a prefixed 00 rung from seed paths on
   assertEquals(result.branchUpdate.updated, true);
   assertEquals(
     result.materializedPaths.includes(".assets/01-source-only/alice-data.ttl"),
-    true,
+    false,
   );
+  assertEquals(result.materializedPaths.includes("README.md"), true);
   assertEquals(
     result.materializedPaths.includes("generated-output.txt"),
     false,
@@ -1614,9 +1615,16 @@ Deno.test("seedFixtureSourceBranch creates a prefixed 00 rung from seed paths on
   assertEquals(
     await gitOutput(fixtureRepoPath, [
       "show",
+      "b.00-blank-slate:README.md",
+    ]),
+    "# fixture control\n",
+  );
+  assertEquals(
+    await gitSucceeds(fixtureRepoPath, [
+      "show",
       "b.00-blank-slate:.assets/01-source-only/alice-data.ttl",
     ]),
-    "fixture source\n",
+    false,
   );
   assertEquals(
     await gitSucceeds(fixtureRepoPath, [
@@ -1645,7 +1653,8 @@ Deno.test("renderFixtureSourceSeedResult prints seed source and target branch", 
   assertStringIncludes(rendered, "Source ref: HEAD");
   assertStringIncludes(rendered, "Target ref: b.00-blank-slate");
   assertStringIncludes(rendered, "Branch writes: disabled");
-  assertStringIncludes(rendered, "- .assets/01-source-only/alice-data.ttl");
+  assertStringIncludes(rendered, "Seed paths: .gitignore, README.md");
+  assertStringIncludes(rendered, "- README.md");
 });
 
 Deno.test("materializeFixtureTransitionSource copies a transition source ref into an empty workspace", async () => {
