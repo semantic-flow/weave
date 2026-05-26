@@ -171,6 +171,7 @@ export interface FixtureCommandInvocationExecutionResult {
 export interface FixtureFileOperationAppliedFile {
   path: string;
   assetPath: string;
+  sourceRef?: string;
   provenance: string;
   contentDigest?: string;
   bytes: number;
@@ -179,12 +180,14 @@ export interface FixtureFileOperationAppliedFile {
 export interface FixtureFileOperationMissingAsset {
   path: string;
   assetPath: string;
+  sourceRef?: string;
   absolutePath: string;
 }
 
 export interface FixtureFileOperationDigestMismatch {
   path: string;
   assetPath: string;
+  sourceRef?: string;
   expectedDigest: string;
   actualDigest: string;
 }
@@ -410,6 +413,7 @@ export interface FixtureBranchPublicationCommandInvocation {
 export interface FixtureFileOperationSource {
   path: string;
   assetPath: string;
+  sourceRef?: string;
   provenance: string;
   contentDigest?: string;
 }
@@ -1909,6 +1913,7 @@ export async function executeFixtureTransition(
   const operation = transition.action.kind === "command"
     ? await runFixtureCommand({
       assetRoot: plan.assetRoot,
+      fixtureRepoPath: plan.fixtureRepoPath,
       root: plan.root,
       workspaceRoot: materialization.workspaceRoot,
       action: transition.action,
@@ -1916,6 +1921,7 @@ export async function executeFixtureTransition(
     : transition.action.kind === "fileOperation"
     ? await applyFixtureFileOperation({
       assetRoot: plan.assetRoot,
+      fixtureRepoPath: plan.fixtureRepoPath,
       workspaceRoot: materialization.workspaceRoot,
       action: transition.action,
     })
@@ -2584,6 +2590,9 @@ function resolveReplayInputMaterializations(
     return {
       path: targetPath,
       assetPath,
+      ...(provenance?.sourceRef === undefined ? {} : {
+        sourceRef: normalizeGitTreePath(provenance.sourceRef),
+      }),
       provenance: describeSourceProvenance(provenance),
       ...(provenance?.contentDigest === undefined ? {} : {
         contentDigest: provenance.contentDigest,
@@ -2624,6 +2633,9 @@ function resolveReplayFileOperations(
     return {
       path: targetPath,
       assetPath: normalizeGitTreePath(provenance.sourcePath),
+      ...(provenance.sourceRef === undefined ? {} : {
+        sourceRef: normalizeGitTreePath(provenance.sourceRef),
+      }),
       provenance: describeSourceProvenance(provenance),
       ...(provenance.contentDigest === undefined ? {} : {
         contentDigest: provenance.contentDigest,
@@ -2818,7 +2830,12 @@ function toLadderBranchRef(branchPrefix: string, rungId: string): string {
   return `${branchPrefix}${rungId}`;
 }
 
-function formatFixtureAssetPath(options: { assetPath: string }): string {
+function formatFixtureAssetPath(
+  options: { assetPath: string; sourceRef?: string },
+): string {
+  if (options.sourceRef !== undefined) {
+    return `${options.sourceRef}:${options.assetPath}`;
+  }
   return pathPosix.join(FIXTURE_ASSET_ROOT_BASENAME, options.assetPath);
 }
 
@@ -2842,6 +2859,7 @@ function unreachableAction(action: never): never {
 
 async function runFixtureCommand(options: {
   assetRoot: string;
+  fixtureRepoPath: string;
   root: string;
   workspaceRoot: string;
   action: FixtureCommandAction;
@@ -2865,6 +2883,7 @@ async function runFixtureCommand(options: {
 
 async function runFixtureCommandInvocation(options: {
   assetRoot: string;
+  fixtureRepoPath: string;
   root: string;
   workspaceRoot: string;
   invocation: FixtureCommandInvocationAction;
@@ -2888,6 +2907,7 @@ async function runFixtureCommandInvocation(options: {
   ];
   const stagedInputs = await stageFixtureAssetSources({
     assetRoot: options.assetRoot,
+    fixtureRepoPath: options.fixtureRepoPath,
     workspaceRoot: options.workspaceRoot,
     sources: options.invocation.inputs,
   });
@@ -3146,11 +3166,13 @@ function substituteBranchPublicationArg(options: {
 
 async function applyFixtureFileOperation(options: {
   assetRoot: string;
+  fixtureRepoPath: string;
   workspaceRoot: string;
   action: FixtureFileOperationAction;
 }): Promise<FixtureFileOperationExecutionResult> {
   const stagedSources = await stageFixtureAssetSources({
     assetRoot: options.assetRoot,
+    fixtureRepoPath: options.fixtureRepoPath,
     workspaceRoot: options.workspaceRoot,
     sources: options.action.sources,
   });
@@ -3194,6 +3216,7 @@ async function applyFixtureFileOperation(options: {
 
 async function stageFixtureAssetSources(options: {
   assetRoot: string;
+  fixtureRepoPath: string;
   workspaceRoot: string;
   sources: readonly FixtureFileOperationSource[];
 }): Promise<{
@@ -3223,8 +3246,17 @@ async function stageFixtureAssetSources(options: {
 
     const absoluteAssetPath = join(options.assetRoot, assetPath);
     const absoluteTargetPath = join(options.workspaceRoot, targetPath);
+    const resolvedAssetPath = source.sourceRef === undefined
+      ? absoluteAssetPath
+      : `${options.fixtureRepoPath}:${source.sourceRef}:${assetPath}`;
     try {
-      const contents = await Deno.readFile(absoluteAssetPath);
+      const contents = source.sourceRef === undefined
+        ? await Deno.readFile(absoluteAssetPath)
+        : await readFixtureAssetBlob({
+          fixtureRepoPath: options.fixtureRepoPath,
+          sourceRef: source.sourceRef,
+          assetPath,
+        });
       const actualDigest = source.contentDigest === undefined
         ? undefined
         : await sha256ContentDigest(contents);
@@ -3235,6 +3267,9 @@ async function stageFixtureAssetSources(options: {
         digestMismatches.push({
           path: targetPath,
           assetPath,
+          ...(source.sourceRef === undefined ? {} : {
+            sourceRef: source.sourceRef,
+          }),
           expectedDigest: source.contentDigest,
           actualDigest,
         });
@@ -3242,6 +3277,9 @@ async function stageFixtureAssetSources(options: {
       pendingFiles.push({
         path: targetPath,
         assetPath,
+        ...(source.sourceRef === undefined ? {} : {
+          sourceRef: source.sourceRef,
+        }),
         provenance: source.provenance,
         ...(actualDigest === undefined ? {} : { contentDigest: actualDigest }),
         bytes: contents.byteLength,
@@ -3253,7 +3291,10 @@ async function stageFixtureAssetSources(options: {
         missingAssets.push({
           path: targetPath,
           assetPath,
-          absolutePath: absoluteAssetPath,
+          ...(source.sourceRef === undefined ? {} : {
+            sourceRef: source.sourceRef,
+          }),
+          absolutePath: resolvedAssetPath,
         });
         continue;
       }
@@ -3289,6 +3330,24 @@ async function stageFixtureAssetSources(options: {
     missingAssets,
     digestMismatches,
   };
+}
+
+async function readFixtureAssetBlob(options: {
+  fixtureRepoPath: string;
+  sourceRef: string;
+  assetPath: string;
+}): Promise<Uint8Array> {
+  const contents = await readGitBlobIfExists(
+    options.fixtureRepoPath,
+    options.sourceRef,
+    options.assetPath,
+  );
+  if (contents === undefined) {
+    throw new Deno.errors.NotFound(
+      `${options.sourceRef}:${options.assetPath}`,
+    );
+  }
+  return contents;
 }
 
 async function sha256ContentDigest(contents: Uint8Array): Promise<string> {

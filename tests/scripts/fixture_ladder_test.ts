@@ -27,21 +27,31 @@ import {
   SIDECAR_FANTASY_RULES_FIXTURE_SCENARIO,
   updateFixtureBranchFromWorkspace,
 } from "../../scripts/fixture-ladder.ts";
-import type { FixtureLadderPlan } from "../../scripts/fixture-ladder.ts";
+import type {
+  FixtureFileOperationSource,
+  FixtureLadderPlan,
+} from "../../scripts/fixture-ladder.ts";
 import { readMeshBranchFantasyRulesBranchFile } from "../support/mesh_branch_fantasy_rules_fixture.ts";
 
 const repoRoot = new URL("../../", import.meta.url).pathname;
 
 function fixtureAssetPathsForPlan(plan: FixtureLadderPlan): string[] {
+  return fixtureAssetSourcesForPlan(plan).map((source) => source.assetPath)
+    .sort();
+}
+
+function fixtureAssetSourcesForPlan(
+  plan: FixtureLadderPlan,
+): FixtureFileOperationSource[] {
   return plan.transitions.flatMap((transition) => {
     if (transition.action.kind === "command") {
-      return transition.action.inputs.map((input) => input.assetPath);
+      return transition.action.inputs;
     }
     if (transition.action.kind === "fileOperation") {
-      return transition.action.sources.map((source) => source.assetPath);
+      return transition.action.sources;
     }
     return [];
-  }).sort();
+  });
 }
 
 function targetSpecsFromArgv(argv: readonly string[]): string[] {
@@ -418,8 +428,9 @@ Deno.test("planFixtureLadder exposes the Alice Bio dry-run transition plan", asy
     );
     assertEquals(
       pageCustomized.action.sources[0]?.assetPath,
-      "16-alice-page-customized/alice/_knop/_page/page.ttl",
+      ".assets/16-alice-page-customized/alice/_knop/_page/page.ttl",
     );
+    assertEquals(pageCustomized.action.sources[0]?.sourceRef, "assets");
     assertEquals(pageCustomized.action.inventoryPatches.length, 1);
     assertEquals(
       pageCustomized.action.inventoryPatches[0]?.inventoryPath,
@@ -1299,29 +1310,43 @@ Deno.test("Alice Bio asset-backed transitions point at checked-in deterministic 
     scenario: "alice-bio",
     format: "text",
   });
-  const assetPaths = fixtureAssetPathsForPlan(plan);
+  const assetSources = fixtureAssetSourcesForPlan(plan).sort((left, right) =>
+    left.assetPath.localeCompare(right.assetPath)
+  );
+  const assetPaths = assetSources.map((source) => source.assetPath);
 
   assertEquals(assetPaths, [
-    "01-source-only/alice-data.ttl",
-    "10-alice-bio-updated/alice-data-v2.ttl",
-    "14-alice-bio-imported/mesh-content/sidebar.md",
-    "16-alice-page-customized/alice/_knop/_assets/alice.css",
-    "16-alice-page-customized/alice/_knop/_page/page.ttl",
-    "18-favicon-integrated/favicon.ico",
-    "24-root-page-customized/_knop/_assets/site.css",
-    "24-root-page-customized/_knop/_page/page.ttl",
-    "24-root-page-customized/home.md",
-    "26-carol/carol-data.ttl",
+    ".assets/01-source-only/alice-data.ttl",
+    ".assets/10-alice-bio-updated/alice-data-v2.ttl",
+    ".assets/14-alice-bio-imported/mesh-content/sidebar.md",
+    ".assets/16-alice-page-customized/alice/_knop/_assets/alice.css",
+    ".assets/16-alice-page-customized/alice/_knop/_page/page.ttl",
+    ".assets/18-favicon-integrated/favicon.ico",
+    ".assets/24-root-page-customized/_knop/_assets/site.css",
+    ".assets/24-root-page-customized/_knop/_page/page.ttl",
+    ".assets/24-root-page-customized/home.md",
+    ".assets/26-carol/carol-data.ttl",
   ]);
 
-  for (const assetPath of assetPaths) {
-    await Deno.stat(`${plan.assetRoot}/${assetPath}`);
+  for (const source of assetSources) {
+    assertEquals(source.sourceRef, "assets");
+    assert(
+      await gitSucceeds(plan.fixtureRepoPath, [
+        "show",
+        `${source.sourceRef}:${source.assetPath}`,
+      ]),
+    );
   }
 
   for (
-    const assetPath of assetPaths.filter((path) => path.endsWith("page.ttl"))
+    const source of assetSources.filter((source) =>
+      source.assetPath.endsWith("page.ttl")
+    )
   ) {
-    const contents = await Deno.readTextFile(`${plan.assetRoot}/${assetPath}`);
+    const contents = await gitOutput(plan.fixtureRepoPath, [
+      "show",
+      `${source.sourceRef}:${source.assetPath}`,
+    ]);
     assertStringIncludes(
       contents,
       "https://semantic-flow.github.io/sflo/ontology/",
@@ -1418,7 +1443,7 @@ Deno.test("renderFixtureLadderPlan prints reviewable command and validation deta
   );
   assertStringIncludes(
     rendered,
-    "source: alice/_knop/_page/page.ttl <= .assets/16-alice-page-customized/alice/_knop/_page/page.ttl",
+    "source: alice/_knop/_page/page.ttl <= assets:.assets/16-alice-page-customized/alice/_knop/_page/page.ttl",
   );
   assertStringIncludes(
     rendered,
@@ -1426,7 +1451,7 @@ Deno.test("renderFixtureLadderPlan prints reviewable command and validation deta
   );
   assertStringIncludes(
     rendered,
-    "input: alice-data.ttl <= .assets/10-alice-bio-updated/alice-data-v2.ttl",
+    "input: alice-data.ttl <= assets:.assets/10-alice-bio-updated/alice-data-v2.ttl",
   );
   assertStringIncludes(
     rendered,
