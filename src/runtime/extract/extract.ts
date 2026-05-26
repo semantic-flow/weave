@@ -894,14 +894,14 @@ async function resolveExtractSourcePayload(
       "extract requires either --source or --source-state, not both",
     );
   }
-  const candidates = await loadExtractSourcePayloadCandidates(
-    meshRoot,
-    localPathPolicy,
-    meshBase,
-    currentMeshInventoryTurtle,
-  );
-
   if (sourceStatePath !== undefined) {
+    const candidates = await loadExtractSourcePayloadCandidates(
+      meshRoot,
+      localPathPolicy,
+      meshBase,
+      currentMeshInventoryTurtle,
+      { readWorkingPayloads: false },
+    );
     const selectedCandidate = await resolveExactExtractSourcePayloadByState(
       meshRoot,
       meshBase,
@@ -921,6 +921,13 @@ async function resolveExtractSourcePayload(
     }
     return selectedCandidate;
   }
+
+  const candidates = await loadExtractSourcePayloadCandidates(
+    meshRoot,
+    localPathPolicy,
+    meshBase,
+    currentMeshInventoryTurtle,
+  );
 
   if (sourceDesignatorPath !== undefined) {
     const selectedCandidate = candidates.find((candidate) =>
@@ -985,13 +992,14 @@ async function resolveSelectedExtractSourcePayload(
       "extract --all-terms requires --source or --source-state",
     );
   }
-  const candidates = await loadExtractSourcePayloadCandidates(
-    meshRoot,
-    localPathPolicy,
-    meshBase,
-    currentMeshInventoryTurtle,
-  );
   if (sourceStatePath !== undefined) {
+    const candidates = await loadExtractSourcePayloadCandidates(
+      meshRoot,
+      localPathPolicy,
+      meshBase,
+      currentMeshInventoryTurtle,
+      { readWorkingPayloads: false },
+    );
     return await resolveExactExtractSourcePayloadByState(
       meshRoot,
       meshBase,
@@ -999,6 +1007,12 @@ async function resolveSelectedExtractSourcePayload(
       sourceStatePath,
     );
   }
+  const candidates = await loadExtractSourcePayloadCandidates(
+    meshRoot,
+    localPathPolicy,
+    meshBase,
+    currentMeshInventoryTurtle,
+  );
   const normalizedSourceDesignatorPath = normalizeLocalDesignatorPath(
     sourceDesignatorPath!,
     "sourceDesignatorPath",
@@ -1019,6 +1033,7 @@ async function loadExtractSourcePayloadCandidates(
   localPathPolicy: OperationalLocalPathPolicy,
   meshBase: string,
   currentMeshInventoryTurtle: string,
+  options: { readWorkingPayloads?: boolean } = {},
 ): Promise<readonly ExtractSourcePayload[]> {
   const designatorPaths = listKnopDesignatorPaths(
     meshBase,
@@ -1050,6 +1065,7 @@ async function loadExtractSourcePayloadCandidates(
       meshBase,
       designatorPath,
       currentKnopInventoryTurtle,
+      options,
     );
     if (candidate) {
       candidates.push(candidate);
@@ -1066,6 +1082,7 @@ async function loadExtractSourcePayloadCandidate(
   meshBase: string,
   designatorPath: string,
   currentKnopInventoryTurtle: string,
+  options: { readWorkingPayloads?: boolean } = {},
 ): Promise<ExtractSourcePayload | undefined> {
   const payloadArtifact = resolvePayloadArtifactInventoryState(
     meshBase,
@@ -1080,6 +1097,19 @@ async function loadExtractSourcePayloadCandidate(
   );
   if (!payloadArtifact) {
     return undefined;
+  }
+  if (options.readWorkingPayloads === false) {
+    return {
+      designatorPath,
+      workingLocalRelativePath: payloadArtifact.workingLocalRelativePath,
+      sourceResolutionMode: "working",
+      sourceStatePath: undefined,
+      sourcePayloadTurtle: "",
+      currentKnopInventoryTurtle,
+      latestHistoricalStatePath: payloadArtifact.currentArtifactHistoryExists
+        ? payloadArtifact.latestHistoricalStatePath
+        : undefined,
+    };
   }
   const currentPayloadTurtle = await readPayloadWorkingFile(
     localPathPolicy,
@@ -1800,11 +1830,11 @@ function renderExtractionSourceBlock(
 ): string {
   const observationPath = `${extractionSourcePath}-observation-001`;
   const facts: [string, string][] = [
-    ["sflo:hasTargetArtifact", `<${sourcePayload.designatorPath}>`],
+    ["sflo:targetArtifact", `<${sourcePayload.designatorPath}>`],
   ];
   if (sourcePayload.sourceResolutionMode === "exact") {
     facts.push([
-      "sflo:hasRequestedTargetState",
+      "sflo:targetHistoricalState",
       `<${sourcePayload.sourceStatePath}>`,
     ]);
   }
@@ -1841,31 +1871,46 @@ function renderExtractionSourceObservationBlock(
     return undefined;
   }
 
-  const facts: [string, string][] = [];
+  const observedSpecFacts: [string, string][] = [
+    ["a", "sflo:ArtifactResolutionSpec"],
+  ];
   if (sourceEvidence.sourceStatePath !== undefined) {
-    facts.push([
-      "sflo:hasObservedTargetState",
+    observedSpecFacts.push([
+      "sflo:targetHistoricalState",
       `<${sourceEvidence.sourceStatePath}>`,
     ]);
   }
   if (sourceEvidence.sourceManifestationPath !== undefined) {
-    facts.push([
-      "sflo:hasObservedTargetManifestation",
+    observedSpecFacts.push([
+      "sflo:targetManifestation",
       `<${sourceEvidence.sourceManifestationPath}>`,
     ]);
   }
   if (sourceEvidence.sourceLocatedFilePath !== undefined) {
-    facts.push([
-      "sflo:hasObservedTargetLocatedFile",
+    observedSpecFacts.push([
+      "sflo:targetLocatedFile",
       `<${sourceEvidence.sourceLocatedFilePath}>`,
     ]);
   }
   if (sourceEvidence.sourceLocalRelativePath !== undefined) {
-    facts.push([
-      "sflo:observedTargetLocalRelativePath",
+    observedSpecFacts.push([
+      "sflo:targetLocalRelativePath",
       `"${escapeTurtleString(sourceEvidence.sourceLocalRelativePath)}"`,
     ]);
   }
+  if (
+    observedSpecFacts.length === 1 &&
+    sourceEvidence.sourceDigest === undefined &&
+    sourceEvidence.observedAt === undefined
+  ) {
+    return undefined;
+  }
+  const facts: [string, string][] = [
+    [
+      "sflo:observedArtifactResolutionSpec",
+      renderObservedArtifactResolutionSpec(observedSpecFacts),
+    ],
+  ];
   if (sourceEvidence.sourceDigest !== undefined) {
     facts.push([
       "sflo:observedContentDigest",
@@ -1889,6 +1934,18 @@ ${
       `  ${predicate} ${object}${index === facts.length - 1 ? " ." : " ;"}`
     ).join("\n")
   }`;
+}
+
+function renderObservedArtifactResolutionSpec(
+  facts: readonly [string, string][],
+): string {
+  return `[
+${
+    facts.map(([predicate, object], index) =>
+      `    ${predicate} ${object}${index === facts.length - 1 ? "" : " ;"}`
+    ).join("\n")
+  }
+  ]`;
 }
 
 function parseExtractionSourceQuads(

@@ -98,11 +98,14 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
   );
   assertStringIncludes(
     plan.createdFiles[2]?.contents ?? "",
-    "sflo:hasRequestedTargetState <alice/data/_history001/_s0002> ;",
+    "sflo:targetHistoricalState <alice/data/_history001/_s0002> ;",
   );
   assertStringIncludes(
     plan.createdFiles[2]?.contents ?? "",
-    `sflo:hasObservedTargetLocatedFile <alice-data.ttl> ;
+    `sflo:observedArtifactResolutionSpec [
+    a sflo:ArtifactResolutionSpec ;
+    sflo:targetLocatedFile <alice-data.ttl>
+  ] ;
   sflo:observedContentDigest "${sourceDigest}" ;`,
   );
   assertStringIncludes(
@@ -197,8 +200,8 @@ Deno.test("planExtract accepts a root source payload when the root and source kn
   );
   assertStringIncludes(
     plan.createdFiles[2]?.contents ?? "",
-    `sflo:hasTargetArtifact <> ;
-  sflo:hasRequestedTargetState <_history001/_s0001> .`,
+    `sflo:targetArtifact <> ;
+  sflo:targetHistoricalState <_history001/_s0001> .`,
   );
 });
 
