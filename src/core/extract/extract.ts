@@ -850,10 +850,10 @@ function renderExtractionSourceFacts(
 ): string {
   const observationPath = `${extractionSourcePath}-observation-001`;
   const facts: [string, string][] = [
-    ["sflo:hasTargetArtifact", `<${sourceDesignatorPath}>`],
+    ["sflo:targetArtifact", `<${sourceDesignatorPath}>`],
   ];
   if (sourceResolutionMode === "exact") {
-    facts.push(["sflo:hasRequestedTargetState", `<${sourceStatePath}>`]);
+    facts.push(["sflo:targetHistoricalState", `<${sourceStatePath}>`]);
   }
   if (sourceResolutionMode === "working") {
     facts.push([
@@ -878,31 +878,46 @@ function renderExtractionSourceObservationBlock(
     return undefined;
   }
 
-  const facts: [string, string][] = [];
+  const observedSpecFacts: [string, string][] = [
+    ["a", "sflo:ArtifactResolutionSpec"],
+  ];
   if (sourceEvidence.sourceStatePath !== undefined) {
-    facts.push([
-      "sflo:hasObservedTargetState",
+    observedSpecFacts.push([
+      "sflo:targetHistoricalState",
       `<${sourceEvidence.sourceStatePath}>`,
     ]);
   }
   if (sourceEvidence.sourceManifestationPath !== undefined) {
-    facts.push([
-      "sflo:hasObservedTargetManifestation",
+    observedSpecFacts.push([
+      "sflo:targetManifestation",
       `<${sourceEvidence.sourceManifestationPath}>`,
     ]);
   }
   if (sourceEvidence.sourceLocatedFilePath !== undefined) {
-    facts.push([
-      "sflo:hasObservedTargetLocatedFile",
+    observedSpecFacts.push([
+      "sflo:targetLocatedFile",
       `<${sourceEvidence.sourceLocatedFilePath}>`,
     ]);
   }
   if (sourceEvidence.sourceLocalRelativePath !== undefined) {
-    facts.push([
-      "sflo:observedTargetLocalRelativePath",
+    observedSpecFacts.push([
+      "sflo:targetLocalRelativePath",
       `"${escapeTurtleString(sourceEvidence.sourceLocalRelativePath)}"`,
     ]);
   }
+  if (
+    observedSpecFacts.length === 1 &&
+    sourceEvidence.sourceDigest === undefined &&
+    sourceEvidence.observedAt === undefined
+  ) {
+    return undefined;
+  }
+  const facts: [string, string][] = [
+    [
+      "sflo:observedArtifactResolutionSpec",
+      renderObservedArtifactResolutionSpec(observedSpecFacts),
+    ],
+  ];
   if (sourceEvidence.sourceDigest !== undefined) {
     facts.push([
       "sflo:observedContentDigest",
@@ -926,6 +941,18 @@ ${
       `  ${predicate} ${object}${index === facts.length - 1 ? " ." : " ;"}`
     ).join("\n")
   }`;
+}
+
+function renderObservedArtifactResolutionSpec(
+  facts: readonly [string, string][],
+): string {
+  return `[
+${
+    facts.map(([predicate, object], index) =>
+      `    ${predicate} ${object}${index === facts.length - 1 ? "" : " ;"}`
+    ).join("\n")
+  }
+  ]`;
 }
 
 function renderExtractKnopMetadataTurtle(

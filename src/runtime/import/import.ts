@@ -189,7 +189,7 @@ export async function executeImport(
           : {}),
         observation: {
           observedContentDigest,
-          observedTargetLocalRelativePath: workingFile,
+          observedLocalRelativePath: workingFile,
           observedAt,
         },
         artifactResolutionMode: "working",

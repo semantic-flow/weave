@@ -10,7 +10,7 @@ Deno.test("renderExactExtractionSourceBlock omits empty observation links", () =
       {},
     ),
     `<bob/_knop/_sources#extraction-source> a sflo:ExtractionSource ;
-  sflo:hasTargetArtifact <alice/data> ;
-  sflo:hasRequestedTargetState <alice/data/_history001/_s0002> .`,
+  sflo:targetArtifact <alice/data> ;
+  sflo:targetHistoricalState <alice/data/_history001/_s0002> .`,
   );
 });

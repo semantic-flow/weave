@@ -232,15 +232,18 @@ Deno.test("resolveExtractionSourceInventoryState returns source registry observe
   sflo:hasSourceBinding <bob/_knop/_sources#extraction-source> .
 
 <bob/_knop/_sources#extraction-source> a sflo:ExtractionSource ;
-  sflo:hasTargetArtifact <alice/data> ;
-  sflo:hasRequestedTargetState <alice/data/_history001/_s0002> ;
+  sflo:targetArtifact <alice/data> ;
+  sflo:targetHistoricalState <alice/data/_history001/_s0002> ;
   sflo:hasResolutionObservation <bob/_knop/_sources#extraction-source-observation-001> .
 
 <bob/_knop/_sources#extraction-source-observation-001> a sflo:ArtifactResolutionObservation ;
-  sflo:hasObservedTargetState <alice/data/_history001/_s0002> ;
-  sflo:hasObservedTargetManifestation <alice/data/_history001/_s0002/ttl> ;
-  sflo:hasObservedTargetLocatedFile <alice/data/_history001/_s0002/ttl/alice-data.ttl> ;
-  sflo:observedTargetLocalRelativePath "../alice-data.ttl" ;
+  sflo:observedArtifactResolutionSpec [
+    a sflo:ArtifactResolutionSpec ;
+    sflo:targetHistoricalState <alice/data/_history001/_s0002> ;
+    sflo:targetManifestation <alice/data/_history001/_s0002/ttl> ;
+    sflo:targetLocatedFile <alice/data/_history001/_s0002/ttl/alice-data.ttl> ;
+    sflo:targetLocalRelativePath "../alice-data.ttl"
+  ] ;
   sflo:observedContentDigest "sha256:abc123" .
 `;
 
@@ -292,7 +295,7 @@ Deno.test("resolveExtractionSourceInventoryState reads source registry extractio
   sflo:hasSourceBinding <bob/_knop/_sources#extraction-source> .
 
 <bob/_knop/_sources#extraction-source> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> sflo:ExtractionSource ;
-  sflo:hasTargetArtifact <alice/data> ;
+  sflo:targetArtifact <alice/data> ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> .
 `;
 
@@ -344,7 +347,7 @@ Deno.test("listIntegrationSourceInventoryStates reads IntegrationSource bindings
   sflo:hasSourceBinding <alice/data/_knop/_sources#payload-source> .
 
 <alice/data/_knop/_sources#payload-source> a sflo:IntegrationSource ;
-  sflo:hasTargetArtifact <alice/data> ;
+  sflo:targetArtifact <alice/data> ;
   sflo:targetLocalRelativePath "../source/alice-data.ttl" ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> .
 `;
@@ -381,12 +384,12 @@ Deno.test("listIntegrationSourceInventoryStates reads repository-backed observat
   sflo:hasSourceBinding <alice/data/_knop/_sources#payload-source> .
 
 <alice/data/_knop/_sources#payload-source> a sflo:IntegrationSource ;
-  sflo:hasTargetArtifact <alice/data> ;
+  sflo:targetArtifact <alice/data> ;
   sflo:targetLocalRelativePath "../source/alice-data.ttl" ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> ;
   sflo:expectsContentDigest "sha256:abc123" ;
   sflo:hasResolutionObservation <alice/data/_knop/_sources#payload-source-observation-001> ;
-  sflo:hasTargetRepositorySource [
+  sflo:targetRepositorySource [
     a sflo:RepositorySourceLocator ;
     sflo:sourceRepositoryUrl "https://github.com/semantic-flow/mesh-alice-bio.git" ;
     sflo:sourceRepositoryRef "main" ;
@@ -396,6 +399,9 @@ Deno.test("listIntegrationSourceInventoryStates reads repository-backed observat
   ] .
 
 <alice/data/_knop/_sources#payload-source-observation-001> a sflo:ArtifactResolutionObservation ;
+  sflo:observedArtifactResolutionSpec [
+    a sflo:ArtifactResolutionSpec
+  ] ;
   sflo:observedContentDigest "sha256:abc123" .
 `;
 
@@ -440,15 +446,18 @@ Deno.test("listImportSourceInventoryStates reads URL import source observations"
   sflo:hasSourceBinding <bob/page-main/_knop/_sources#payload-source> .
 
 <bob/page-main/_knop/_sources#payload-source> a sflo:ImportSource ;
-  sflo:hasTargetArtifact <bob/page-main> ;
+  sflo:targetArtifact <bob/page-main> ;
   sflo:targetAccessUrl "https://example.com/bob.md" ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> ;
   sflo:expectsContentDigest "sha256:abc123" ;
   sflo:hasResolutionObservation <bob/page-main/_knop/_sources#payload-source-observation-001> .
 
 <bob/page-main/_knop/_sources#payload-source-observation-001> a sflo:ArtifactResolutionObservation ;
+  sflo:observedArtifactResolutionSpec [
+    a sflo:ArtifactResolutionSpec ;
+    sflo:targetLocalRelativePath "bob-page-main.md"
+  ] ;
   sflo:observedContentDigest "sha256:abc123" ;
-  sflo:observedTargetLocalRelativePath "bob-page-main.md" ;
   sflo:observedAt "2026-05-24T20:00:00.000Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
 `;
 
@@ -518,8 +527,8 @@ Deno.test("resolveReferenceTargetDesignatorPath accepts semantically equivalent 
   sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
 
 <alice/_knop/_references#reference001-source> rdf:type sflo:ReferenceSource ;
-  sflo:hasTargetArtifact <alice/data> ;
-  sflo:hasRequestedTargetState <alice/data/_history001/_s0002> .
+  sflo:targetArtifact <alice/data> ;
+  sflo:targetHistoricalState <alice/data/_history001/_s0002> .
 `,
       "alice",
       {
@@ -548,8 +557,8 @@ Deno.test("resolveReferenceTargetLinkState returns the exact target state", () =
   sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
 
 <alice/_knop/_references#reference001-source> rdf:type sflo:ReferenceSource ;
-  sflo:hasTargetArtifact <alice/data> ;
-  sflo:hasRequestedTargetState <alice/data/_history001/_s0002> .
+  sflo:targetArtifact <alice/data> ;
+  sflo:targetHistoricalState <alice/data/_history001/_s0002> .
 `,
       "alice",
       {
@@ -581,7 +590,7 @@ Deno.test("tryResolveReferenceTargetLinkState accepts target-only broad links", 
   sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
 
 <alice/_knop/_references#reference001-source> rdf:type sflo:ReferenceSource ;
-  sflo:hasTargetArtifact <alice/data> .
+  sflo:targetArtifact <alice/data> .
 `,
       "alice",
       {
@@ -609,7 +618,7 @@ Deno.test("tryResolveReferenceTargetLinkState accepts target-only broad links", 
   sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
 
 <alice/_knop/_references#reference001-source> rdf:type sflo:ReferenceSource ;
-  sflo:hasTargetArtifact <alice/data> .
+  sflo:targetArtifact <alice/data> .
 `,
       "alice",
       {
@@ -632,7 +641,7 @@ Deno.test("resolveReferenceTargetDesignatorPath ignores unrelated catalog fragme
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @base <${MESH_BASE}> .
 
-<alice/_knop/_references#note-source> sflo:hasTargetArtifact <carol/bio> .
+<alice/_knop/_references#note-source> sflo:targetArtifact <carol/bio> .
 
 <alice/_knop/_references#reference001> rdf:type sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
@@ -640,8 +649,8 @@ Deno.test("resolveReferenceTargetDesignatorPath ignores unrelated catalog fragme
   sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
 
 <alice/_knop/_references#reference001-source> rdf:type sflo:ReferenceSource ;
-  sflo:hasTargetArtifact <alice/data> ;
-  sflo:hasRequestedTargetState <alice/data/_history001/_s0002> .
+  sflo:targetArtifact <alice/data> ;
+  sflo:targetHistoricalState <alice/data/_history001/_s0002> .
 `,
       "alice",
       {

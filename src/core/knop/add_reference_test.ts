@@ -216,7 +216,7 @@ Deno.test("planKnopAddReference renders first reference catalog support artifact
   sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
 
 <alice/_knop/_references#reference001-source> a sflo:ReferenceSource ;
-  sflo:hasTargetArtifact <alice/data> .
+  sflo:targetArtifact <alice/data> .
 `,
   );
   assertEquals(
@@ -244,7 +244,7 @@ Deno.test("planKnopAddReference can pin a reference target state", () => {
   );
   assertStringIncludes(
     plan.createdFiles[0]?.contents ?? "",
-    "sflo:hasTargetArtifact <alice/data> ;\n  sflo:hasRequestedTargetState <alice/data/_history001/_s0002> .",
+    "sflo:targetArtifact <alice/data> ;\n  sflo:targetHistoricalState <alice/data/_history001/_s0002> .",
   );
 });
 

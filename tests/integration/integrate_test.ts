@@ -326,7 +326,7 @@ Deno.test("executeIntegrate allows repo-adjacent local sources when repo policy 
     "sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> .",
   );
   assertEquals(sources.includes("sflo:expectsContentDigest"), false);
-  assertEquals(sources.includes("sflo:hasTargetRepositorySource"), false);
+  assertEquals(sources.includes("sflo:targetRepositorySource"), false);
   assertEquals(sources.includes("sflo:sourceRepository"), false);
   assertEquals(sources.includes("sflo:hasContentDigest"), false);
 });
@@ -459,7 +459,7 @@ Deno.test("executeIntegrate can introduce the first payload into a docs-rooted s
     'sflo:targetLocalRelativePath "../ontology/fantasy-rules-ontology.ttl" ;',
   );
   assertEquals(sources.includes("sflo:expectsContentDigest"), false);
-  assertEquals(sources.includes("sflo:hasTargetRepositorySource"), false);
+  assertEquals(sources.includes("sflo:targetRepositorySource"), false);
 });
 
 Deno.test("executeIntegrate accepts semantically equivalent mesh metadata turtle", async () => {

@@ -633,7 +633,7 @@ const firstReferenceCatalogWeaveReferenceCatalogTurtle =
   sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
 
 <alice/_knop/_references#reference001-source> a sflo:ReferenceSource ;
-  sflo:hasTargetArtifact <alice/data> .
+  sflo:targetArtifact <alice/data> .
 `;
 
 const secondPayloadWeaveKnopInventoryTurtle =
@@ -2072,7 +2072,7 @@ Deno.test("planWeave accepts semantically equivalent first reference-catalog wea
   sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
 
 <alice/_knop/_references#reference001-source> a sflo:ReferenceSource ;
-  sflo:hasTargetArtifact <alice/data> .
+  sflo:targetArtifact <alice/data> .
 `,
     `<alice/_knop/_references#reference001>
   rdf:type sflo:ReferenceLink ;
@@ -2081,7 +2081,7 @@ Deno.test("planWeave accepts semantically equivalent first reference-catalog wea
   sflo:referenceLinkFor <alice> .
 
 <alice/_knop/_references#reference001-source>
-  sflo:hasTargetArtifact <alice/data> ;
+  sflo:targetArtifact <alice/data> ;
   rdf:type sflo:ReferenceSource .
 `,
   );
@@ -2993,14 +2993,17 @@ Deno.test("planWeave records exact extracted bob source state during weave", asy
 
   assertStringIncludes(
     plan.updatedFiles[2]?.contents ?? "",
-    `sflo:hasTargetArtifact <alice/data> ;
-  sflo:hasRequestedTargetState <alice/data/_history001/_s0002> ;
+    `sflo:targetArtifact <alice/data> ;
+  sflo:targetHistoricalState <alice/data/_history001/_s0002> ;
   sflo:hasResolutionObservation <bob/_knop/_sources#extraction-source-observation-001> .
 
 <bob/_knop/_sources#extraction-source-observation-001> a sflo:ArtifactResolutionObservation ;
-  sflo:hasObservedTargetState <alice/data/_history001/_s0002> ;
-  sflo:hasObservedTargetManifestation <alice/data/_history001/_s0002/ttl> ;
-  sflo:hasObservedTargetLocatedFile <alice/data/_history001/_s0002/ttl/alice-data.ttl> ;
+  sflo:observedArtifactResolutionSpec [
+    a sflo:ArtifactResolutionSpec ;
+    sflo:targetHistoricalState <alice/data/_history001/_s0002> ;
+    sflo:targetManifestation <alice/data/_history001/_s0002/ttl> ;
+    sflo:targetLocatedFile <alice/data/_history001/_s0002/ttl/alice-data.ttl>
+  ] ;
   sflo:observedContentDigest "${sourceDigest}" .`,
   );
 });
@@ -3011,8 +3014,8 @@ Deno.test("planWeave rejects extracted bob weave inputs when the source payload 
     .currentSourceRegistryTurtle = input.weaveableKnops[0]!
       .referenceTargetSourcePayloadArtifact!.currentSourceRegistryTurtle!
       .replace(
-        "sflo:hasTargetArtifact <alice/data> ;",
-        "sflo:hasTargetArtifact <carol/bio> ;",
+        "sflo:targetArtifact <alice/data> ;",
+        "sflo:targetArtifact <carol/bio> ;",
       );
 
   assertThrows(
@@ -3389,7 +3392,7 @@ Deno.test("planWeave generalizes the first page-definition weave slice for earli
   sflo:hasResourcePageSource <#main-source> .
 
 <#main-source> a sflo:ResourcePageSource ;
-  sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/bob/page-main> ;
+  sflo:targetArtifact <https://semantic-flow.github.io/mesh-alice-bio/bob/page-main> ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> .
 `;
   const plan = planWeave({
@@ -3456,7 +3459,7 @@ Deno.test("planWeave renders a later page-definition weave revision", async () =
     `<#main-source> a sflo:ResourcePageSource ;
   sflo:targetLocalRelativePath "alice/alice.md" .`,
     `<#main-source> a sflo:ResourcePageSource ;
-  sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/page-main> ;
+  sflo:targetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/page-main> ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> .`,
   );
   const latestHistoricalSnapshotTurtle = await readMeshAliceBioBranchFile(
@@ -3535,7 +3538,7 @@ Deno.test("planWeave renders a later page-definition weave revision without a re
     `<#main-source> a sflo:ResourcePageSource ;
   sflo:targetLocalRelativePath "home.md" .`,
     `<#main-source> a sflo:ResourcePageSource ;
-  sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/bio> ;
+  sflo:targetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/bio> ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> .`,
   );
   const latestHistoricalSnapshotTurtle = await readMeshAliceBioBranchFile(
@@ -3740,9 +3743,9 @@ function withExactExtractedSourceState(
   sourceStatePath: string,
 ): string {
   return turtle.replace(
-    / {2}sflo:hasTargetArtifact <alice\/data> ;\n(?: {2}sflo:[^\n]+(?: ;|\.)\n?)+/,
-    `  sflo:hasTargetArtifact <alice/data> ;
-  sflo:hasRequestedTargetState <${sourceStatePath}> .`,
+    / {2}sflo:targetArtifact <alice\/data> ;\n(?: {2}sflo:[^\n]+(?: ;|\.)\n?)+/,
+    `  sflo:targetArtifact <alice/data> ;
+  sflo:targetHistoricalState <${sourceStatePath}> .`,
   );
 }
 

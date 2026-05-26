@@ -1,7 +1,64 @@
 export function normalizeLegacyFixtureRdf(contents: string): string {
-  return normalizeExtractionSourceObservations(
-    normalizeReferenceLinkSources(contents),
+  return normalizeArtifactResolutionObservationBlocks(
+    normalizeExtractionSourceObservations(
+      normalizeArtifactResolutionTerms(
+        normalizeReferenceLinkSources(contents),
+      ),
+    ),
   );
+}
+
+function normalizeArtifactResolutionTerms(contents: string): string {
+  const replacements: readonly (readonly [string, string])[] = [
+    ["sflo:ArtifactResolutionTarget", "sflo:ArtifactResolutionSpec"],
+    ["<ArtifactResolutionTarget>", "<ArtifactResolutionSpec>"],
+    [
+      "<https://semantic-flow.github.io/sflo/ontology/ArtifactResolutionTarget>",
+      "<https://semantic-flow.github.io/sflo/ontology/ArtifactResolutionSpec>",
+    ],
+    ["sflo:hasTargetArtifact", "sflo:targetArtifact"],
+    ["<hasTargetArtifact>", "<targetArtifact>"],
+    [
+      "<https://semantic-flow.github.io/sflo/ontology/hasTargetArtifact>",
+      "<https://semantic-flow.github.io/sflo/ontology/targetArtifact>",
+    ],
+    ["sflo:hasTargetLocatedFile", "sflo:targetLocatedFile"],
+    ["<hasTargetLocatedFile>", "<targetLocatedFile>"],
+    [
+      "<https://semantic-flow.github.io/sflo/ontology/hasTargetLocatedFile>",
+      "<https://semantic-flow.github.io/sflo/ontology/targetLocatedFile>",
+    ],
+    ["sflo:hasTargetDistribution", "sflo:targetManifestation"],
+    ["<hasTargetDistribution>", "<targetManifestation>"],
+    [
+      "<https://semantic-flow.github.io/sflo/ontology/hasTargetDistribution>",
+      "<https://semantic-flow.github.io/sflo/ontology/targetManifestation>",
+    ],
+    ["sflo:hasRequestedTargetHistory", "sflo:targetArtifactHistory"],
+    ["<hasRequestedTargetHistory>", "<targetArtifactHistory>"],
+    [
+      "<https://semantic-flow.github.io/sflo/ontology/hasRequestedTargetHistory>",
+      "<https://semantic-flow.github.io/sflo/ontology/targetArtifactHistory>",
+    ],
+    ["sflo:hasRequestedTargetState", "sflo:targetHistoricalState"],
+    ["<hasRequestedTargetState>", "<targetHistoricalState>"],
+    [
+      "<https://semantic-flow.github.io/sflo/ontology/hasRequestedTargetState>",
+      "<https://semantic-flow.github.io/sflo/ontology/targetHistoricalState>",
+    ],
+    ["sflo:hasTargetRepositorySource", "sflo:targetRepositorySource"],
+    ["<hasTargetRepositorySource>", "<targetRepositorySource>"],
+    [
+      "<https://semantic-flow.github.io/sflo/ontology/hasTargetRepositorySource>",
+      "<https://semantic-flow.github.io/sflo/ontology/targetRepositorySource>",
+    ],
+  ];
+
+  let next = contents;
+  for (const [from, to] of replacements) {
+    next = next.replaceAll(from, to);
+  }
+  return next;
 }
 
 function normalizeReferenceLinkSources(contents: string): string {
@@ -51,8 +108,8 @@ function normalizeReferenceLinkSources(contents: string): string {
         sourcePath,
         "sflo:ReferenceSource",
         [
-          `sflo:hasTargetArtifact <${targetPath}>`,
-          ...(statePath ? [`sflo:hasRequestedTargetState <${statePath}>`] : []),
+          `sflo:targetArtifact <${targetPath}>`,
+          ...(statePath ? [`sflo:targetHistoricalState <${statePath}>`] : []),
         ],
       ),
     );
@@ -85,6 +142,7 @@ function normalizeExtractionSourceObservations(contents: string): string {
     const lines = block.split("\n");
     const header = lines[0]!.replace(/ \.$/, " ;");
     const sourceFacts: string[] = [];
+    const observedSpecFacts: string[] = [];
     const observationFacts: string[] = [];
 
     for (const line of lines.slice(1)) {
@@ -95,15 +153,17 @@ function normalizeExtractionSourceObservations(contents: string): string {
       }
 
       const [predicate, object] = fact;
-      const observationPredicate = toObservationPredicate(predicate);
-      if (observationPredicate) {
-        observationFacts.push(`${observationPredicate} ${object}`);
+      const observationFact = toObservationFact(predicate);
+      if (observationFact?.target === "observedSpec") {
+        observedSpecFacts.push(`${observationFact.predicate} ${object}`);
+      } else if (observationFact?.target === "observation") {
+        observationFacts.push(`${observationFact.predicate} ${object}`);
       } else {
         sourceFacts.push(`${predicate} ${object}`);
       }
     }
 
-    if (observationFacts.length === 0) {
+    if (observedSpecFacts.length === 0 && observationFacts.length === 0) {
       nextBlocks.push(block);
       continue;
     }
@@ -122,7 +182,68 @@ function normalizeExtractionSourceObservations(contents: string): string {
       renderTypedBlock(
         observationPath,
         "sflo:ArtifactResolutionObservation",
-        observationFacts,
+        [
+          `sflo:observedArtifactResolutionSpec ${
+            renderObservedArtifactResolutionSpec(observedSpecFacts)
+          }`,
+          ...observationFacts,
+        ],
+      ),
+    );
+  }
+
+  return changed ? joinBlocks(nextBlocks, contents) : contents;
+}
+
+function normalizeArtifactResolutionObservationBlocks(
+  contents: string,
+): string {
+  const blocks = splitBlocks(contents);
+  let changed = false;
+  const nextBlocks: string[] = [];
+
+  for (const block of blocks) {
+    if (
+      !block.includes("sflo:ArtifactResolutionObservation") ||
+      !hasRetiredObservedCoordinateTerm(block)
+    ) {
+      nextBlocks.push(block);
+      continue;
+    }
+
+    const lines = block.split("\n");
+    const header = lines[0]!;
+    const observedSpecFacts: string[] = [];
+    const observationFacts: string[] = [];
+
+    for (const line of lines.slice(1)) {
+      const fact = parseFactLine(line);
+      if (!fact) {
+        observationFacts.push(line.trim().replace(/[.;]$/, ""));
+        continue;
+      }
+
+      const [predicate, object] = fact;
+      const observationFact = toObservationFact(predicate);
+      if (observationFact?.target === "observedSpec") {
+        observedSpecFacts.push(`${observationFact.predicate} ${object}`);
+      } else if (observationFact?.target === "observation") {
+        observationFacts.push(`${observationFact.predicate} ${object}`);
+      } else {
+        observationFacts.push(`${predicate} ${object}`);
+      }
+    }
+
+    changed = true;
+    nextBlocks.push(
+      renderBlockWithHeader(
+        header,
+        [
+          `sflo:observedArtifactResolutionSpec ${
+            renderObservedArtifactResolutionSpec(observedSpecFacts)
+          }`,
+          ...observationFacts,
+        ],
       ),
     );
   }
@@ -148,28 +269,69 @@ function hasLegacyObservationTerm(block: string): boolean {
     block.includes("sflo:observedAt");
 }
 
-function parseFactLine(line: string): [string, string] | undefined {
-  const match = line.match(/^[ ]{2}(sflo:[^\s]+) (.+?) [.;]$/);
-  return match ? [match[1]!, match[2]!] : undefined;
+function hasRetiredObservedCoordinateTerm(block: string): boolean {
+  return block.includes("sflo:hasObservedSource") ||
+    block.includes("sflo:hasObservedTarget") ||
+    block.includes("sflo:observedSourceLocalRelativePath") ||
+    block.includes("sflo:observedTargetLocalRelativePath");
 }
 
-function toObservationPredicate(predicate: string): string | undefined {
+function parseFactLine(line: string): [string, string] | undefined {
+  const match = line.match(
+    /^[ ]{2}(sflo:[^\s]+|<https:\/\/semantic-flow\.github\.io\/sflo\/ontology\/[^>]+>) (.+?) [.;]$/,
+  );
+  return match ? [normalizeSfloPredicate(match[1]!), match[2]!] : undefined;
+}
+
+function normalizeSfloPredicate(predicate: string): string {
+  const iriMatch = predicate.match(
+    /^<https:\/\/semantic-flow\.github\.io\/sflo\/ontology\/([^>]+)>$/,
+  );
+  return iriMatch ? `sflo:${iriMatch[1]}` : predicate;
+}
+
+function toObservationFact(
+  predicate: string,
+): { target: "observedSpec" | "observation"; predicate: string } | undefined {
   switch (predicate) {
     case "sflo:hasObservedSourceState":
-      return "sflo:hasObservedTargetState";
+    case "sflo:hasObservedTargetState":
+      return {
+        target: "observedSpec",
+        predicate: "sflo:targetHistoricalState",
+      };
     case "sflo:hasObservedSourceManifestation":
-      return "sflo:hasObservedTargetManifestation";
+    case "sflo:hasObservedTargetManifestation":
+      return { target: "observedSpec", predicate: "sflo:targetManifestation" };
     case "sflo:hasObservedSourceLocatedFile":
-      return "sflo:hasObservedTargetLocatedFile";
+    case "sflo:hasObservedTargetLocatedFile":
+      return { target: "observedSpec", predicate: "sflo:targetLocatedFile" };
     case "sflo:observedSourceLocalRelativePath":
-      return "sflo:observedTargetLocalRelativePath";
+    case "sflo:observedTargetLocalRelativePath":
+      return {
+        target: "observedSpec",
+        predicate: "sflo:targetLocalRelativePath",
+      };
     case "sflo:observedSourceDigest":
-      return "sflo:observedContentDigest";
+      return { target: "observation", predicate: "sflo:observedContentDigest" };
     case "sflo:observedAt":
-      return "sflo:observedAt";
+      return { target: "observation", predicate: "sflo:observedAt" };
     default:
       return undefined;
   }
+}
+
+function renderObservedArtifactResolutionSpec(
+  facts: readonly string[],
+): string {
+  const specFacts = ["a sflo:ArtifactResolutionSpec", ...facts];
+  return `[
+${
+    specFacts.map((fact, index) =>
+      `    ${fact}${index === specFacts.length - 1 ? "" : " ;"}`
+    ).join("\n")
+  }
+  ]`;
 }
 
 function renderTypedBlock(

@@ -164,7 +164,7 @@ Deno.test("weave knop add-reference accepts the root reference target as a black
   sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
 
 <alice/_knop/_references#reference001-source> a sflo:ReferenceSource ;
-  sflo:hasTargetArtifact <> .
+  sflo:targetArtifact <> .
 `,
   );
 });

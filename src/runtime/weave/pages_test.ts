@@ -1056,8 +1056,8 @@ Deno.test("renderResourcePage renders source registry fragment sections for Extr
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <bob/_knop/_sources#extraction-source> a sflo:ExtractionSource ;
-  sflo:hasTargetArtifact <alice/data> ;
-  sflo:hasRequestedTargetState <alice/data/_history001/_s0002> .
+  sflo:targetArtifact <alice/data> ;
+  sflo:targetHistoricalState <alice/data/_history001/_s0002> .
 `,
       }],
     },

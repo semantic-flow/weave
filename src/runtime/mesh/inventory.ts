@@ -20,23 +20,19 @@ const SFLO_HAS_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}hasExtractionSource`;
 const SFLO_HAS_KNOP_SOURCE_REGISTRY_IRI =
   `${SFLO_NAMESPACE}hasKnopSourceRegistry`;
 const SFLO_HAS_SOURCE_BINDING_IRI = `${SFLO_NAMESPACE}hasSourceBinding`;
-const SFLO_HAS_REQUESTED_TARGET_STATE_IRI =
-  `${SFLO_NAMESPACE}hasRequestedTargetState`;
-const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasTargetArtifact`;
-const SFLO_HAS_TARGET_REPOSITORY_SOURCE_IRI =
-  `${SFLO_NAMESPACE}hasTargetRepositorySource`;
+const SFLO_TARGET_HISTORICAL_STATE_IRI =
+  `${SFLO_NAMESPACE}targetHistoricalState`;
+const SFLO_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}targetArtifact`;
+const SFLO_TARGET_REPOSITORY_SOURCE_IRI =
+  `${SFLO_NAMESPACE}targetRepositorySource`;
+const SFLO_TARGET_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}targetLocatedFile`;
 const SFLO_TARGET_LOCAL_RELATIVE_PATH_IRI =
   `${SFLO_NAMESPACE}targetLocalRelativePath`;
+const SFLO_TARGET_MANIFESTATION_IRI = `${SFLO_NAMESPACE}targetManifestation`;
 const SFLO_TARGET_ACCESS_URL_IRI = `${SFLO_NAMESPACE}targetAccessUrl`;
 const SFLO_EXPECTS_CONTENT_DIGEST_IRI = `${SFLO_NAMESPACE}expectsContentDigest`;
-const SFLO_HAS_OBSERVED_TARGET_LOCATED_FILE_IRI =
-  `${SFLO_NAMESPACE}hasObservedTargetLocatedFile`;
-const SFLO_OBSERVED_TARGET_LOCAL_RELATIVE_PATH_IRI =
-  `${SFLO_NAMESPACE}observedTargetLocalRelativePath`;
-const SFLO_HAS_OBSERVED_TARGET_MANIFESTATION_IRI =
-  `${SFLO_NAMESPACE}hasObservedTargetManifestation`;
-const SFLO_HAS_OBSERVED_TARGET_STATE_IRI =
-  `${SFLO_NAMESPACE}hasObservedTargetState`;
+const SFLO_OBSERVED_ARTIFACT_RESOLUTION_SPEC_IRI =
+  `${SFLO_NAMESPACE}observedArtifactResolutionSpec`;
 const SFLO_OBSERVED_CONTENT_DIGEST_IRI =
   `${SFLO_NAMESPACE}observedContentDigest`;
 const SFLO_OBSERVED_AT_IRI = `${SFLO_NAMESPACE}observedAt`;
@@ -400,7 +396,7 @@ export function resolveExtractionSourceInventoryState(
     sourceRegistryQuads,
     meshBase,
     extractionSourceIri,
-    SFLO_HAS_TARGET_ARTIFACT_IRI,
+    SFLO_TARGET_ARTIFACT_IRI,
     messages.missingTargetArtifactMessage,
   );
   if (!sourceArtifactPath) {
@@ -411,7 +407,7 @@ export function resolveExtractionSourceInventoryState(
     sourceRegistryQuads,
     meshBase,
     extractionSourceIri,
-    SFLO_HAS_REQUESTED_TARGET_STATE_IRI,
+    SFLO_TARGET_HISTORICAL_STATE_IRI,
     messages.missingRequestedTargetStateMessage,
   );
 
@@ -517,7 +513,7 @@ export function listIntegrationSourceInventoryStates(
       quads,
       meshBase,
       sourceBindingIri,
-      SFLO_HAS_TARGET_ARTIFACT_IRI,
+      SFLO_TARGET_ARTIFACT_IRI,
       messages.missingTargetArtifactMessage,
     );
     if (!sourceArtifactPath) {
@@ -619,7 +615,7 @@ export function listImportSourceInventoryStates(
       quads,
       meshBase,
       sourceBindingIri,
-      SFLO_HAS_TARGET_ARTIFACT_IRI,
+      SFLO_TARGET_ARTIFACT_IRI,
       messages.missingTargetArtifactMessage,
     );
     if (!sourceArtifactPath) {
@@ -693,11 +689,16 @@ function resolveImportSourceEvidenceState(
     return {};
   }
 
+  const observedSpecKey = resolveObservedArtifactResolutionSpecKey(
+    quads,
+    observationIri,
+    errorMessage,
+  );
   const observedSourceLocalRelativePath =
     resolveOptionalUniqueLiteralWorkingLocalRelativePath(
       quads,
-      observationIri,
-      SFLO_OBSERVED_TARGET_LOCAL_RELATIVE_PATH_IRI,
+      observedSpecKey,
+      SFLO_TARGET_LOCAL_RELATIVE_PATH_IRI,
       errorMessage,
     );
   const observedSourceDigest = resolveOptionalUniqueLiteral(
@@ -740,11 +741,16 @@ function resolveIntegrationSourceEvidenceState(
     return {};
   }
 
+  const observedSpecKey = resolveObservedArtifactResolutionSpecKey(
+    quads,
+    observationIri,
+    errorMessage,
+  );
   const observedSourceLocalRelativePath =
     resolveOptionalUniqueLiteralWorkingLocalRelativePath(
       quads,
-      observationIri,
-      SFLO_OBSERVED_TARGET_LOCAL_RELATIVE_PATH_IRI,
+      observedSpecKey,
+      SFLO_TARGET_LOCAL_RELATIVE_PATH_IRI,
       errorMessage,
     );
   const observedSourceDigest = resolveOptionalUniqueLiteral(
@@ -790,31 +796,36 @@ function resolveExtractionSourceEvidenceState(
     return {};
   }
 
+  const observedSpecKey = resolveObservedArtifactResolutionSpecKey(
+    quads,
+    observationIri,
+    errorMessage,
+  );
   const observedSourceStatePath = resolveOptionalUniqueNamedNodePath(
     quads,
     meshBase,
-    observationIri,
-    SFLO_HAS_OBSERVED_TARGET_STATE_IRI,
+    observedSpecKey,
+    SFLO_TARGET_HISTORICAL_STATE_IRI,
     errorMessage,
   );
   const observedSourceManifestationPath = resolveOptionalUniqueNamedNodePath(
     quads,
     meshBase,
-    observationIri,
-    SFLO_HAS_OBSERVED_TARGET_MANIFESTATION_IRI,
+    observedSpecKey,
+    SFLO_TARGET_MANIFESTATION_IRI,
     errorMessage,
   );
   const observedSourceLocatedFilePath = resolveOptionalUniqueNamedNodePath(
     quads,
     meshBase,
-    observationIri,
-    SFLO_HAS_OBSERVED_TARGET_LOCATED_FILE_IRI,
+    observedSpecKey,
+    SFLO_TARGET_LOCATED_FILE_IRI,
     errorMessage,
   );
   const observedSourceLocalRelativePath = resolveOptionalUniqueLiteral(
     quads,
-    observationIri,
-    SFLO_OBSERVED_TARGET_LOCAL_RELATIVE_PATH_IRI,
+    observedSpecKey,
+    SFLO_TARGET_LOCAL_RELATIVE_PATH_IRI,
     errorMessage,
   );
   const observedSourceDigest = resolveOptionalUniqueLiteral(
@@ -842,6 +853,23 @@ function resolveExtractionSourceEvidenceState(
     ...(observedSourceDigest ? { observedSourceDigest } : {}),
     ...(observedAt ? { observedAt } : {}),
   };
+}
+
+function resolveObservedArtifactResolutionSpecKey(
+  quads: readonly Quad[],
+  observationIri: string,
+  errorMessage: string,
+): string {
+  const observedSpecKey = resolveOptionalUniqueObjectTermKey(
+    quads,
+    observationIri,
+    SFLO_OBSERVED_ARTIFACT_RESOLUTION_SPEC_IRI,
+    errorMessage,
+  );
+  if (observedSpecKey === undefined) {
+    throw new Error(errorMessage);
+  }
+  return observedSpecKey;
 }
 
 export function resolveResourcePageDefinitionInventoryState(
@@ -1061,7 +1089,7 @@ export function tryResolveReferenceTargetLinkState(
       quads,
       meshBase,
       referenceSourceIri,
-      SFLO_HAS_TARGET_ARTIFACT_IRI,
+      SFLO_TARGET_ARTIFACT_IRI,
       messages.missingReferenceTargetMessage,
     );
     if (referenceTargetPath) {
@@ -1072,7 +1100,7 @@ export function tryResolveReferenceTargetLinkState(
       quads,
       meshBase,
       referenceSourceIri,
-      SFLO_HAS_REQUESTED_TARGET_STATE_IRI,
+      SFLO_TARGET_HISTORICAL_STATE_IRI,
       messages.missingReferenceLinkMessage,
     );
     if (referenceTargetStatePath) {
@@ -1226,7 +1254,7 @@ function resolveOptionalRepositorySourceLocator(
   const locatorIri = resolveOptionalUniqueObjectTermKey(
     quads,
     subjectIri,
-    SFLO_HAS_TARGET_REPOSITORY_SOURCE_IRI,
+    SFLO_TARGET_REPOSITORY_SOURCE_IRI,
     errorMessage,
   );
   if (locatorIri === undefined) {
@@ -1340,7 +1368,7 @@ function resolveOptionalUniqueObjectTermKey(
 function resolveOptionalUniqueNamedNodePath(
   quads: readonly Quad[],
   meshBase: string,
-  subjectIri: string,
+  subjectIriOrKey: string,
   predicateIri: string,
   errorMessage: string,
 ): string | undefined {
@@ -1348,8 +1376,7 @@ function resolveOptionalUniqueNamedNodePath(
 
   for (const quad of quads) {
     if (
-      quad.subject.termType !== "NamedNode" ||
-      quad.subject.value !== subjectIri ||
+      !matchesSubject(quad.subject, subjectIriOrKey) ||
       quad.predicate.value !== predicateIri ||
       quad.object.termType !== "NamedNode"
     ) {

@@ -182,12 +182,12 @@ const SFCFG_RESOURCE_PAGE_STYLESHEET_IRI =
 const SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
   `${SFLO_NAMESPACE}hasArtifactResolutionMode`;
 const SFLO_HAS_REQUESTED_TARGET_STATE_IRI =
-  `${SFLO_NAMESPACE}hasRequestedTargetState`;
+  `${SFLO_NAMESPACE}targetHistoricalState`;
 
 type TruncatedHistoryItem<T> =
   | { kind: "item"; value: T }
   | { kind: "gap"; omittedCount: number };
-const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasTargetArtifact`;
+const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}targetArtifact`;
 const WEAVE_REPOSITORY_URL = "https://github.com/semantic-flow/weave/";
 const SOURCE_THEME = "github-dark-default";
 const RDF_DESCRIPTION_PREDICATE_IRIS = [

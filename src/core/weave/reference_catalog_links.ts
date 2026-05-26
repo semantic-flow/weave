@@ -16,8 +16,8 @@ const SFLO_HAS_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}hasReferenceLink`;
 const SFLO_HAS_REFERENCE_ROLE_IRI = `${SFLO_NAMESPACE}hasReferenceRole`;
 const SFLO_HAS_REFERENCE_SOURCE_IRI = `${SFLO_NAMESPACE}hasReferenceSource`;
 const SFLO_HAS_REQUESTED_TARGET_STATE_IRI =
-  `${SFLO_NAMESPACE}hasRequestedTargetState`;
-const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasTargetArtifact`;
+  `${SFLO_NAMESPACE}targetHistoricalState`;
+const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}targetArtifact`;
 const SFLO_REFERENCE_LINK_FOR_IRI = `${SFLO_NAMESPACE}referenceLinkFor`;
 const SFLO_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}ReferenceLink`;
 

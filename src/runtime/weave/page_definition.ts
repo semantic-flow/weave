@@ -31,19 +31,17 @@ const SFCFG_HAS_GENERATED_RESOURCE_PAGE_PANEL_SELECTION_IRI =
 const SFLO_HAS_PAGE_REGION_IRI = `${SFLO_NAMESPACE}hasPageRegion`;
 const SFLO_HAS_RESOURCE_PAGE_SOURCE_IRI =
   `${SFLO_NAMESPACE}hasResourcePageSource`;
-const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasTargetArtifact`;
-const SFLO_HAS_TARGET_DISTRIBUTION_IRI =
-  `${SFLO_NAMESPACE}hasTargetDistribution`;
-const SFLO_HAS_TARGET_LOCATED_FILE_IRI =
-  `${SFLO_NAMESPACE}hasTargetLocatedFile`;
+const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}targetArtifact`;
+const SFLO_HAS_TARGET_DISTRIBUTION_IRI = `${SFLO_NAMESPACE}targetManifestation`;
+const SFLO_HAS_TARGET_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}targetLocatedFile`;
 const SFLO_HAS_REQUESTED_TARGET_HISTORY_IRI =
-  `${SFLO_NAMESPACE}hasRequestedTargetHistory`;
+  `${SFLO_NAMESPACE}targetArtifactHistory`;
 const SFLO_HAS_REQUESTED_TARGET_STATE_IRI =
-  `${SFLO_NAMESPACE}hasRequestedTargetState`;
+  `${SFLO_NAMESPACE}targetHistoricalState`;
 const SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
   `${SFLO_NAMESPACE}hasArtifactResolutionMode`;
 const SFLO_HAS_ARTIFACT_RESOLUTION_FALLBACK_POLICY_IRI =
-  `${SFLO_NAMESPACE}hasArtifactResolutionFallbackPolicy`;
+  `${SFLO_NAMESPACE}hasFallbackArtifactResolutionSpec`;
 const SFLO_TARGET_MESH_PATH_IRI = `${SFLO_NAMESPACE}targetLocalRelativePath`;
 const SFLO_TARGET_ACCESS_URL_IRI = `${SFLO_NAMESPACE}targetAccessUrl`;
 const SFLO_REGION_KEY_IRI = `${SFLO_NAMESPACE}regionKey`;
@@ -250,7 +248,7 @@ export async function loadActiveCustomIdentifierPage(
         sourceSubject,
         SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
       );
-      const artifactResolutionFallbackPolicies = collectNamedNodeObjects(
+      const artifactResolutionFallbackSpecs = collectResourceObjects(
         quads,
         sourceSubject,
         SFLO_HAS_ARTIFACT_RESOLUTION_FALLBACK_POLICY_IRI,
@@ -297,7 +295,7 @@ export async function loadActiveCustomIdentifierPage(
           requestedTargetHistories.length > 0 ||
           requestedTargetStates.length > 0 ||
           artifactResolutionModes.length > 0 ||
-          artifactResolutionFallbackPolicies.length > 0
+          artifactResolutionFallbackSpecs.length > 0
         ) {
           throw new ResourcePageDefinitionResolutionError(
             `ResourcePageDefinition region ${key} for ${
@@ -368,7 +366,7 @@ export async function loadActiveCustomIdentifierPage(
 
       if (
         requestedTargetStates.length > 0 ||
-        artifactResolutionFallbackPolicies.length > 0
+        artifactResolutionFallbackSpecs.length > 0
       ) {
         throw new ResourcePageDefinitionResolutionError(
           `ResourcePageDefinition region ${key} for ${
@@ -561,6 +559,30 @@ function collectNamedNodeObjects(
     }
 
     values.add(quad.object.value);
+  }
+
+  return [...values];
+}
+
+function collectResourceObjects(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+): readonly string[] {
+  const values = new Set<string>();
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.subject.value !== subjectIri ||
+      quad.predicate.value !== predicateIri ||
+      (quad.object.termType !== "NamedNode" &&
+        quad.object.termType !== "BlankNode")
+    ) {
+      continue;
+    }
+
+    values.add(`${quad.object.termType}:${quad.object.value}`);
   }
 
   return [...values];

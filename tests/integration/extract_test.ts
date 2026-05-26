@@ -117,12 +117,15 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
   sflo:hasSourceBinding <bob/_knop/_sources#extraction-source> .
 
 <bob/_knop/_sources#extraction-source> a sflo:ExtractionSource ;
-  sflo:hasTargetArtifact <alice/data> ;
+  sflo:targetArtifact <alice/data> ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> ;
   sflo:hasResolutionObservation <bob/_knop/_sources#extraction-source-observation-001> .
 
 <bob/_knop/_sources#extraction-source-observation-001> a sflo:ArtifactResolutionObservation ;
-  sflo:hasObservedTargetLocatedFile <alice-data.ttl> ;
+  sflo:observedArtifactResolutionSpec [
+    a sflo:ArtifactResolutionSpec ;
+    sflo:targetLocatedFile <alice-data.ttl>
+  ] ;
   sflo:observedContentDigest "sha256:6df3896c975b782534c22a389a794512609f92c2eb6bd8550c85efe2564bad68" .
 
 <bob/_knop/_sources/sources.ttl> a sflo:LocatedFile, sflo:RdfDocument .
@@ -258,7 +261,7 @@ Deno.test("executeExtract omits local path evidence for floating repository sour
   );
   assertStringIncludes(sourcesTurtle, "sflo:observedContentDigest");
   assertFalse(
-    sourcesTurtle.includes("sflo:observedTargetLocalRelativePath"),
+    sourcesTurtle.includes("sflo:targetLocalRelativePath"),
     sourcesTurtle,
   );
   assertFalse(sourcesTurtle.includes(sourceRoot), sourcesTurtle);
@@ -492,9 +495,9 @@ Deno.test("executeExtractAllTerms creates source references only for newly extra
   );
   assertStringIncludes(
     bobReferencesTurtle,
-    "sflo:hasTargetArtifact <alice/data> .",
+    "sflo:targetArtifact <alice/data> .",
   );
-  assertFalse(bobReferencesTurtle.includes("sflo:hasRequestedTargetState"));
+  assertFalse(bobReferencesTurtle.includes("sflo:targetHistoricalState"));
   assertStringIncludes(
     await Deno.readTextFile(
       join(workspaceRoot, "bob/_knop/_inventory/inventory.ttl"),
@@ -574,9 +577,46 @@ Deno.test("executeExtractAllTerms records exact source references when extractin
     );
     assertStringIncludes(
       referencesTurtle,
-      "sflo:hasTargetArtifact <alice/data> ;\n  sflo:hasRequestedTargetState <alice/data/_history001/_s0002> .",
+      "sflo:targetArtifact <alice/data> ;\n  sflo:targetHistoricalState <alice/data/_history001/_s0002> .",
     );
   }
+});
+
+Deno.test("executeExtractAllTerms with source-state does not require working source resolution", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-extract-all-terms-exact-local-state-",
+  );
+  await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
+
+  const inventoryPath = join(
+    workspaceRoot,
+    "alice/data/_knop/_inventory/inventory.ttl",
+  );
+  const inventoryTurtle = await Deno.readTextFile(inventoryPath);
+  await Deno.writeTextFile(
+    inventoryPath,
+    inventoryTurtle.replace(
+      "sflo:hasWorkingLocatedFile <alice-data.ttl> ;",
+      `sflo:hasRepositorySourceFloatingLocator [
+    a sflo:RepositorySourceFloatingLocator ;
+    sflo:sourceRepositoryUrl "https://example.invalid/alice.git" ;
+    sflo:sourceRepositoryPathFromRoot "alice-data.ttl"
+  ] ;`,
+    ),
+  );
+
+  const result = await executeExtractAllTerms({
+    workspaceRoot,
+    request: {
+      sourceStatePath: "alice/data/_history001/_s0002",
+      addSourceReferences: true,
+      referenceRole: "canonical",
+    },
+  });
+
+  assertEquals(result.sourceResolutionMode, "exact");
+  assertEquals(result.sourceDesignatorPath, "alice/data");
+  assertEquals(result.extractedDesignatorPaths, ["alice/bio", "bob"]);
 });
 
 Deno.test("executeExtractAllTerms fails closed for unsafe mesh-scoped term IRIs", async () => {
@@ -676,7 +716,7 @@ Deno.test("executeExtract extracts selected sidecar ontology and SHACL terms wit
         workspaceRoot,
         "docs/ontology/CharacterShape/_knop/_sources/sources.ttl",
       ),
-    )).includes("sflo:hasTargetArtifact <shacl>"),
+    )).includes("sflo:targetArtifact <shacl>"),
     true,
   );
 
@@ -753,7 +793,7 @@ Deno.test("executeSetExtractionSource replaces an existing exact source binding 
     true,
   );
   assertEquals(
-    sourcesTurtle.includes("hasRequestedTargetState"),
+    sourcesTurtle.includes("targetHistoricalState"),
     false,
   );
   assertEquals(

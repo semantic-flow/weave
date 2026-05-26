@@ -292,7 +292,7 @@ Deno.test("weave integrate grants and uses a repo-adjacent source directory as a
     'sflo:targetLocalRelativePath "../documentation/alice-data.ttl" ;',
   );
   assertEquals(sources.includes("sflo:expectsContentDigest"), false);
-  assertEquals(sources.includes("sflo:hasTargetRepositorySource"), false);
+  assertEquals(sources.includes("sflo:targetRepositorySource"), false);
 });
 
 Deno.test("weave integrate records repository-backed source provenance as a black-box CLI run", async () => {
@@ -404,6 +404,9 @@ Deno.test("weave integrate records repository-backed source provenance as a blac
     sources,
     `<alice/data/_knop/_sources#payload-source-observation-001>
   a sflo:ArtifactResolutionObservation ;
+  sflo:observedArtifactResolutionSpec [
+    a sflo:ArtifactResolutionSpec
+  ] ;
   sflo:observedContentDigest "${expectedDigest}" .`,
   );
 });
@@ -651,7 +654,7 @@ Deno.test("weave integrate can grant a separate source checkout through host-loc
     "<alice/data/_knop/_sources#payload-source> a sflo:IntegrationSource ;",
   );
   assertEquals(sources.includes("sflo:expectsContentDigest"), false);
-  assertEquals(sources.includes("sflo:hasTargetRepositorySource"), false);
+  assertEquals(sources.includes("sflo:targetRepositorySource"), false);
   assertEquals(sources.includes("sflo:sourceRepository"), false);
 });
 
@@ -857,7 +860,7 @@ Deno.test("weave integrate matches the manifest-scoped sidecar Gunaar dataset fi
     'sflo:targetLocalRelativePath "../examples/gunaar.ttl" ;',
   );
   assertEquals(sources.includes("sflo:expectsContentDigest"), false);
-  assertEquals(sources.includes("sflo:hasTargetRepositorySource"), false);
+  assertEquals(sources.includes("sflo:targetRepositorySource"), false);
 
   await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
   await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
