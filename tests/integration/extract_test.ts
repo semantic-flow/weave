@@ -754,6 +754,12 @@ Deno.test("executeSetExtractionSource replaces an existing exact source binding 
     false,
   );
   assertEquals(
+    sourcesTurtle.match(
+      /^<bob\/_knop\/_sources#extraction-source-observation-001>/gm,
+    )?.length,
+    1,
+  );
+  assertEquals(
     inventoryTurtle.match(/sflo:hasExtractionSource/g)?.length,
     1,
   );

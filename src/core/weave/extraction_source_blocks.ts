@@ -34,10 +34,14 @@ export function renderExactExtractionSourceBlock(
   sourceEvidence: ExtractionSourceEvidenceModel | undefined,
 ): string {
   const observationPath = `${extractionSourcePath}-observation-001`;
+  const observationBlock = renderExtractionSourceObservationBlock(
+    observationPath,
+    sourceEvidence,
+  );
   const facts: [string, string][] = [
     ["sflo:hasTargetArtifact", `<${sourceDesignatorPath}>`],
     ["sflo:hasRequestedTargetState", `<${sourceStatePath}>`],
-    ...(sourceEvidence
+    ...(observationBlock
       ? [["sflo:hasResolutionObservation", `<${observationPath}>`] as [
         string,
         string,
@@ -52,10 +56,6 @@ ${
     ).join("\n")
   }`;
 
-  const observationBlock = renderExtractionSourceObservationBlock(
-    observationPath,
-    sourceEvidence,
-  );
   return observationBlock
     ? `${sourceBlock}\n\n${observationBlock}`
     : sourceBlock;

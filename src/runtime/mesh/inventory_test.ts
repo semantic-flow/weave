@@ -567,7 +567,7 @@ Deno.test("resolveReferenceTargetLinkState returns the exact target state", () =
   );
 });
 
-Deno.test("tryResolveReferenceTargetLinkState returns undefined for broad links", () => {
+Deno.test("tryResolveReferenceTargetLinkState accepts target-only broad links", () => {
   assertEquals(
     tryResolveReferenceTargetLinkState(
       MESH_BASE,
@@ -592,7 +592,35 @@ Deno.test("tryResolveReferenceTargetLinkState returns undefined for broad links"
           "Could not resolve current extracted ReferenceCatalog target",
       },
     ),
-    undefined,
+    {
+      referenceTargetPath: "alice/data",
+    },
+  );
+  assertEquals(
+    resolveReferenceTargetDesignatorPath(
+      MESH_BASE,
+      `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@base <${MESH_BASE}> .
+
+<alice/_knop/_references#reference001> rdf:type sflo:ReferenceLink ;
+  sflo:referenceLinkFor <alice> ;
+  sflo:hasReferenceRole <https://semantic-flow.github.io/sflo/ontology/referenceRole_supplemental> ;
+  sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
+
+<alice/_knop/_references#reference001-source> rdf:type sflo:ReferenceSource ;
+  sflo:hasTargetArtifact <alice/data> .
+`,
+      "alice",
+      {
+        parseErrorMessage: "Could not parse ReferenceCatalog",
+        missingReferenceLinkMessage:
+          "Could not resolve current extracted ReferenceCatalog link",
+        missingReferenceTargetMessage:
+          "Could not resolve current extracted ReferenceCatalog target",
+      },
+    ),
+    "alice/data",
   );
 });
 

@@ -12,6 +12,7 @@ import {
   XSD_NAMESPACE,
 } from "../rdf/namespaces.ts";
 import { escapeTurtleString } from "../rdf/turtle.ts";
+import { normalizeXsdDateTimeLiteral } from "../rdf/xsd_literals.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const XSD_ANY_URI_IRI = "http://www.w3.org/2001/XMLSchema#anyURI";
@@ -419,9 +420,10 @@ function normalizeSourceObservation(
       );
   const observedAt = observation.observedAt === undefined
     ? undefined
-    : normalizeNonEmptyLiteral(
+    : normalizeXsdDateTimeLiteral(
       observation.observedAt,
       "sourceBinding.observation.observedAt",
+      (message) => new ImportInputError(message),
     );
 
   return {

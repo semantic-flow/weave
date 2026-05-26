@@ -20,7 +20,7 @@ ResourcePages help readers answer a few practical questions:
 
 Weave generates ResourcePages for identifier resources, payload and support artifacts, Knops, ReferenceCatalogs, mesh support resources, and explicit custom identifier pages.
 
-Most pages are default generated pages. Weave synthesizes their page data from the current mesh inventory, Knop inventories, artifact histories, RDF content, references, and configured ResourcePage presentation policy.
+Most pages are default-generated pages. Weave synthesizes their page data from the current mesh inventory, Knop inventories, artifact histories, RDF content, references, and configured ResourcePage presentation policy.
 
 Custom identifier pages are backed by an authored `ResourcePageDefinition`, conventionally at `_knop/_page/page.ttl`. They are useful when an identifier needs authored explanatory content in addition to, or instead of, the default generated panels.
 

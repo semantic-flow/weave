@@ -132,16 +132,16 @@ Deno.test("loadWeaveDefaultEffectiveConfig parses ResourcePage presentation defa
     "https://semantic-flow.github.io/sflo/ontology/DigitalArtifact",
   ]);
   assertEquals(rawSourcePanel?.targetArtifactRoles, [
-    "payload",
-    "meshInventory",
-    "knopInventory",
-    "meshMetadata",
-    "knopMetadata",
     "config",
+    "knopInventory",
+    "knopMetadata",
+    "meshInventory",
+    "meshMetadata",
+    "payload",
     "referenceCatalog",
     "resourcePageDefinition",
-    "resourcePageTemplate",
     "resourcePageStylesheet",
+    "resourcePageTemplate",
     "runtimeMeta",
   ]);
 });

@@ -303,6 +303,30 @@ Deno.test("planIntegrate records repository-backed source bindings", async () =>
   );
 });
 
+Deno.test("planIntegrate rejects invalid observation dateTime literals", async () => {
+  const currentMeshInventoryTurtle = await readMeshAliceBioBranchFile(
+    "05-alice-knop-created-woven",
+    "_mesh/_inventory/inventory.ttl",
+  );
+
+  assertThrows(
+    () =>
+      planIntegrate({
+        designatorPath: "alice/data",
+        workingLocalRelativePath: "../source/alice-data.ttl",
+        meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+        currentMeshInventoryTurtle,
+        sourceBinding: {
+          observation: {
+            observedAt: "not a dateTime",
+          },
+        },
+      }),
+    IntegrateInputError,
+    "sourceBinding.observation.observedAt must be a valid xsd:dateTime",
+  );
+});
+
 Deno.test("planIntegrate records floating repository source bindings without local source paths", async () => {
   const currentMeshInventoryTurtle = await readMeshAliceBioBranchFile(
     "05-alice-knop-created-woven",

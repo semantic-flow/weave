@@ -84,6 +84,32 @@ Deno.test("planImport renders first imported Markdown payload without false RDF 
   );
 });
 
+Deno.test("planImport rejects invalid observation dateTime literals", async () => {
+  const currentMeshInventoryTurtle = await readMeshAliceBioBranchFile(
+    "05-alice-knop-created-woven",
+    "_mesh/_inventory/inventory.ttl",
+  );
+
+  assertThrows(
+    () =>
+      planImport({
+        designatorPath: "bob/page-main",
+        workingLocalRelativePath: "bob-page-main.md",
+        importedBytes: encode("# Bob\n"),
+        meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+        currentMeshInventoryTurtle,
+        sourceBinding: {
+          observation: {
+            observedContentDigest: "sha256:abc123",
+            observedAt: "2026-99-24T20:00:00Z",
+          },
+        },
+      }),
+    ImportInputError,
+    "sourceBinding.observation.observedAt must be a valid xsd:dateTime",
+  );
+});
+
 Deno.test("planImport renders imported RDF payloads as RdfDocument", async () => {
   const plan = planImport({
     designatorPath: "bob/bio",

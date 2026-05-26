@@ -106,7 +106,7 @@ export interface ReferenceCatalogInventoryState {
 
 export interface ReferenceTargetLinkState {
   referenceTargetPath: string;
-  referenceTargetStatePath: string;
+  referenceTargetStatePath?: string;
 }
 
 export interface ExtractionSourceInventoryState {
@@ -1083,16 +1083,18 @@ export function tryResolveReferenceTargetLinkState(
   if (referenceTargetPaths.size !== 1) {
     throw new Error(messages.missingReferenceTargetMessage);
   }
-  if (referenceTargetStatePaths.size === 0) {
-    return undefined;
-  }
-  if (referenceTargetStatePaths.size !== 1) {
+  if (referenceTargetStatePaths.size > 1) {
     throw new Error(messages.missingReferenceLinkMessage);
   }
 
   return {
     referenceTargetPath: referenceTargetPaths.values().next().value!,
-    referenceTargetStatePath: referenceTargetStatePaths.values().next().value!,
+    ...(referenceTargetStatePaths.size === 1
+      ? {
+        referenceTargetStatePath: referenceTargetStatePaths.values().next()
+          .value!,
+      }
+      : {}),
   };
 }
 

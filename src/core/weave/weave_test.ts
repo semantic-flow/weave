@@ -3738,7 +3738,7 @@ function withExactExtractedSourceState(
   sourceStatePath: string,
 ): string {
   return turtle.replace(
-    / {2}sflo:hasTargetArtifact <alice\/bio> ;\n(?: {2}sflo:[^\n]+(?: ;|\.)\n?)+/,
+    / {2}sflo:hasTargetArtifact <alice\/data> ;\n(?: {2}sflo:[^\n]+(?: ;|\.)\n?)+/,
     `  sflo:hasTargetArtifact <alice/data> ;
   sflo:hasRequestedTargetState <${sourceStatePath}> .`,
   );

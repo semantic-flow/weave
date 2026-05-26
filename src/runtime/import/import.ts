@@ -67,6 +67,30 @@ export class ImportRuntimeError extends Error {
   }
 }
 
+interface ImportWriteFile {
+  path: string;
+  contents: Uint8Array;
+  role: "sidecar" | "working";
+}
+
+interface ImportWriteMutation {
+  createdFiles: readonly ImportWriteFile[];
+  updatedFiles: readonly ImportWriteFile[];
+}
+
+interface StagedImportFile {
+  absolutePath: string;
+  tempPath: string;
+  role: "sidecar" | "working";
+  backupPath?: string;
+}
+
+interface StagedImportMutation {
+  createdFiles: StagedImportFile[];
+  updatedFiles: StagedImportFile[];
+  createdDirectories: string[];
+}
+
 export async function executeImport(
   options: ExecuteImportOptions,
 ): Promise<ImportResult> {
@@ -179,9 +203,7 @@ export async function executeImport(
     );
     await assertCreateTargetsDoNotExist(meshRoot, plan);
     await assertUpdatedTargetsExist(meshRoot, plan);
-    await writeWorkingFile(meshRoot, plan, workingFileExisted);
-    await writeCreatedFiles(meshRoot, plan);
-    await writeUpdatedFiles(meshRoot, plan);
+    await writeImportPlanAtomically(meshRoot, plan, workingFileExisted);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await operationalLogger.error(
@@ -694,43 +716,41 @@ async function assertUpdatedTargetsExist(
   }
 }
 
-async function writeWorkingFile(
+async function writeImportPlanAtomically(
   meshRoot: string,
   plan: ImportPlan,
-  targetExisted: boolean,
+  workingFileExisted: boolean,
 ): Promise<void> {
-  const absolutePath = join(meshRoot, plan.workingFile.path);
-  await Deno.mkdir(dirname(absolutePath), { recursive: true });
-  if (!targetExisted) {
-    await Deno.writeFile(absolutePath, plan.workingFile.contents, {
-      createNew: true,
-    });
-    return;
-  }
+  const encoder = new TextEncoder();
+  const mutation: ImportWriteMutation = {
+    createdFiles: [
+      ...plan.createdFiles.map((file) => ({
+        path: file.path,
+        contents: encoder.encode(file.contents),
+        role: "sidecar" as const,
+      })),
+      ...(!workingFileExisted
+        ? [{ ...plan.workingFile, role: "working" as const }]
+        : []),
+    ],
+    updatedFiles: [
+      ...plan.updatedFiles.map((file) => ({
+        path: file.path,
+        contents: encoder.encode(file.contents),
+        role: "sidecar" as const,
+      })),
+      ...(workingFileExisted
+        ? [{ ...plan.workingFile, role: "working" as const }]
+        : []),
+    ],
+  };
+  const stagedMutation = await stageImportMutation(meshRoot, mutation);
 
-  const directoryPath = dirname(absolutePath);
-  const tempPath = join(
-    directoryPath,
-    `.weave-staged-${crypto.randomUUID()}.tmp`,
-  );
-  const backupPath = join(
-    directoryPath,
-    `.weave-backup-${crypto.randomUUID()}.bak`,
-  );
-
-  await Deno.writeFile(tempPath, plan.workingFile.contents, {
-    createNew: true,
-  });
   try {
-    await Deno.copyFile(absolutePath, backupPath);
-    await Deno.rename(tempPath, absolutePath);
+    await commitStagedImportMutation(stagedMutation);
   } catch (error) {
     try {
-      await removePathIfExists(tempPath);
-      if (await pathExists(backupPath)) {
-        await removePathIfExists(absolutePath);
-        await Deno.rename(backupPath, absolutePath);
-      }
+      await rollbackStagedImportMutation(stagedMutation);
     } catch (rollbackError) {
       const message = error instanceof Error ? error.message : String(error);
       const rollbackMessage = rollbackError instanceof Error
@@ -744,28 +764,221 @@ async function writeWorkingFile(
     throw error;
   }
 
-  await removePathIfExists(backupPath);
+  await cleanupCommittedStagedImportMutationBestEffort(stagedMutation);
 }
 
-async function writeCreatedFiles(
+async function stageImportMutation(
   meshRoot: string,
-  plan: ImportPlan,
+  mutation: ImportWriteMutation,
+): Promise<StagedImportMutation> {
+  const stagedMutation: StagedImportMutation = {
+    createdFiles: [],
+    updatedFiles: [],
+    createdDirectories: [],
+  };
+  const trackedDirectories = new Set<string>();
+
+  try {
+    for (const file of mutation.createdFiles) {
+      const absolutePath = join(meshRoot, file.path);
+      const directoryPath = dirname(absolutePath);
+      await ensureDirectoryExists(
+        directoryPath,
+        stagedMutation.createdDirectories,
+        trackedDirectories,
+      );
+      stagedMutation.createdFiles.push({
+        absolutePath,
+        tempPath: await writeStagedFile(directoryPath, file.contents),
+        role: file.role,
+      });
+    }
+
+    for (const file of mutation.updatedFiles) {
+      const absolutePath = join(meshRoot, file.path);
+      const directoryPath = dirname(absolutePath);
+      await ensureDirectoryExists(
+        directoryPath,
+        stagedMutation.createdDirectories,
+        trackedDirectories,
+      );
+      stagedMutation.updatedFiles.push({
+        absolutePath,
+        tempPath: await writeStagedFile(directoryPath, file.contents),
+        role: file.role,
+        backupPath: join(
+          directoryPath,
+          `.weave-backup-${crypto.randomUUID()}.bak`,
+        ),
+      });
+    }
+  } catch (error) {
+    await rollbackStagedImportMutation(stagedMutation);
+    throw error;
+  }
+
+  return stagedMutation;
+}
+
+async function ensureDirectoryExists(
+  directoryPath: string,
+  createdDirectories: string[],
+  trackedDirectories: Set<string>,
 ): Promise<void> {
-  for (const file of plan.createdFiles) {
-    const absolutePath = join(meshRoot, file.path);
-    await Deno.mkdir(dirname(absolutePath), { recursive: true });
-    await Deno.writeTextFile(absolutePath, file.contents, { createNew: true });
+  const missingDirectories: string[] = [];
+  let currentPath = directoryPath;
+
+  while (true) {
+    try {
+      const stat = await Deno.stat(currentPath);
+      if (!stat.isDirectory) {
+        throw new ImportRuntimeError(
+          `Import path is not a directory: ${currentPath}`,
+        );
+      }
+      break;
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) {
+        missingDirectories.push(currentPath);
+        const parentPath = dirname(currentPath);
+        if (parentPath === currentPath) {
+          break;
+        }
+        currentPath = parentPath;
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  if (missingDirectories.length === 0) {
+    return;
+  }
+
+  await Deno.mkdir(directoryPath, { recursive: true });
+  for (const createdDirectory of missingDirectories.reverse()) {
+    if (trackedDirectories.has(createdDirectory)) {
+      continue;
+    }
+    trackedDirectories.add(createdDirectory);
+    createdDirectories.push(createdDirectory);
   }
 }
 
-async function writeUpdatedFiles(
-  meshRoot: string,
-  plan: ImportPlan,
+async function writeStagedFile(
+  directoryPath: string,
+  contents: Uint8Array,
+): Promise<string> {
+  const tempPath = join(
+    directoryPath,
+    `.weave-staged-${crypto.randomUUID()}.tmp`,
+  );
+  await Deno.writeFile(tempPath, contents, { createNew: true });
+  return tempPath;
+}
+
+async function commitStagedImportMutation(
+  stagedMutation: StagedImportMutation,
 ): Promise<void> {
-  for (const file of plan.updatedFiles) {
-    const absolutePath = join(meshRoot, file.path);
-    await Deno.mkdir(dirname(absolutePath), { recursive: true });
-    await Deno.writeTextFile(absolutePath, file.contents);
+  for (
+    const file of stagedMutation.createdFiles.filter((file) =>
+      file.role === "sidecar"
+    )
+  ) {
+    await Deno.rename(file.tempPath, file.absolutePath);
+  }
+
+  for (
+    const file of stagedMutation.updatedFiles.filter((file) =>
+      file.role === "sidecar"
+    )
+  ) {
+    await Deno.copyFile(file.absolutePath, file.backupPath!);
+    await Deno.rename(file.tempPath, file.absolutePath);
+  }
+
+  for (
+    const file of stagedMutation.createdFiles.filter((file) =>
+      file.role === "working"
+    )
+  ) {
+    await Deno.rename(file.tempPath, file.absolutePath);
+  }
+
+  for (
+    const file of stagedMutation.updatedFiles.filter((file) =>
+      file.role === "working"
+    )
+  ) {
+    await Deno.copyFile(file.absolutePath, file.backupPath!);
+    await Deno.rename(file.tempPath, file.absolutePath);
+  }
+}
+
+async function rollbackStagedImportMutation(
+  stagedMutation: StagedImportMutation,
+): Promise<void> {
+  let firstRollbackError: unknown;
+
+  for (const file of [...stagedMutation.updatedFiles].reverse()) {
+    try {
+      await removePathIfExists(file.tempPath);
+      if (!(await pathExists(file.backupPath!))) {
+        continue;
+      }
+      await removePathIfExists(file.absolutePath);
+      await Deno.rename(file.backupPath!, file.absolutePath);
+    } catch (error) {
+      firstRollbackError ??= error;
+    }
+  }
+
+  for (const file of [...stagedMutation.createdFiles].reverse()) {
+    try {
+      await removePathIfExists(file.tempPath);
+      await removePathIfExists(file.absolutePath);
+    } catch (error) {
+      firstRollbackError ??= error;
+    }
+  }
+
+  await removeEmptyDirectoriesBestEffort(stagedMutation.createdDirectories);
+
+  if (firstRollbackError) {
+    throw firstRollbackError;
+  }
+}
+
+async function cleanupCommittedStagedImportMutationBestEffort(
+  stagedMutation: StagedImportMutation,
+): Promise<void> {
+  for (const file of stagedMutation.createdFiles) {
+    await removePathIfExistsBestEffort(file.tempPath);
+  }
+
+  for (const file of stagedMutation.updatedFiles) {
+    await removePathIfExistsBestEffort(file.tempPath);
+    await removePathIfExistsBestEffort(file.backupPath!);
+  }
+}
+
+async function removeEmptyDirectoriesBestEffort(
+  directories: readonly string[],
+): Promise<void> {
+  for (const directory of [...directories].reverse()) {
+    try {
+      await Deno.remove(directory);
+    } catch {
+      // best-effort cleanup
+    }
+  }
+}
+
+async function removePathIfExistsBestEffort(path: string): Promise<void> {
+  try {
+    await removePathIfExists(path);
+  } catch {
+    // best-effort cleanup
   }
 }
 

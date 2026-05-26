@@ -1783,6 +1783,14 @@ function replaceExtractionSourceBinding(
     );
   }
   blocks[blockIndex] = replacement;
+  const staleObservationIndex = blocks.findIndex((block, index) =>
+    index !== blockIndex &&
+    getSubjectPathFromBlock(block) ===
+      `${extractionSourcePath}-observation-001`
+  );
+  if (staleObservationIndex !== -1) {
+    blocks.splice(staleObservationIndex, 1);
+  }
   return `${blocks.join("\n\n")}\n`;
 }
 
