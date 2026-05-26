@@ -151,6 +151,10 @@ const SCHEMA_NAME_IRIS = [
   "https://schema.org/Name",
   "http://schema.org/Name",
 ] as const;
+const SCHEMA_DESCRIPTION_IRIS = [
+  "https://schema.org/description",
+  "http://schema.org/description",
+] as const;
 const HISTORY_TRUNCATION_THRESHOLD = 10;
 const HISTORY_TRUNCATION_HEAD_COUNT = 2;
 const HISTORY_TRUNCATION_TAIL_COUNT = 7;
@@ -192,6 +196,7 @@ const RDF_DESCRIPTION_PREDICATE_IRIS = [
   SKOS_DEFINITION_IRI,
   SKOS_PREF_LABEL_IRI,
   RDFS_LABEL_IRI,
+  ...SCHEMA_DESCRIPTION_IRIS,
 ] as const;
 const REFERENCE_ROLE_ORDER = ["canonical", "supplemental", "deprecated"];
 const SOURCE_RDF_PREFIXES = COMMON_RDF_PREFIXES.filter(([namespace]) =>
@@ -317,15 +322,31 @@ ${stylesheetLinks ? `${stylesheetLinks}\n` : ""}</head>
 <body class="${escapeHtml(`${slug}-custom-page`)}">
   <main class="${escapeHtml(`${slug}-layout`)}">
     <article class="${escapeHtml(`${slug}-main`)}">
-${renderMarkdownRegion(mainRegion?.markdown ?? "")}
+${
+      renderMarkdownRegion(mainRegion?.markdown ?? "", {
+        meshRootHref,
+        resourcePath,
+      })
+    }
     </article>
     <aside class="${escapeHtml(`${slug}-sidebar`)}">
-${renderMarkdownRegion(sidebarRegion?.markdown ?? "")}
+${
+      renderMarkdownRegion(sidebarRegion?.markdown ?? "", {
+        meshRootHref,
+        resourcePath,
+      })
+    }
     </aside>
 ${
       extraRegions.map((region) =>
         `    <section class="${escapeHtml(`${slug}-${region.key}`)}">\n${
-          indentLines(renderMarkdownRegion(region.markdown), 6)
+          indentLines(
+            renderMarkdownRegion(region.markdown, {
+              meshRootHref,
+              resourcePath,
+            }),
+            6,
+          )
         }\n    </section>`
       ).join("\n")
     }
@@ -1070,7 +1091,9 @@ function toResourcePageRenderInput(
     ),
     historyGroups: historyPanel?.groups ?? [],
     sections: [
-      ...(authoredContentPanel?.regions.map(renderAuthoredContentSection) ??
+      ...(authoredContentPanel?.regions.map((region) =>
+        renderAuthoredContentSection(document, region)
+      ) ??
         []),
       ...(currentLinksPanel
         ? [renderCurrentLinksSection(
@@ -1100,6 +1123,7 @@ function toResourcePageRenderInput(
 }
 
 function renderAuthoredContentSection(
+  document: ResourcePageDocumentModel,
   region: {
     key: string;
     markdown: string;
@@ -1107,7 +1131,10 @@ function renderAuthoredContentSection(
 ): ResourcePageRenderSection {
   return {
     id: `region-${toHtmlIdSegment(region.key)}`,
-    html: renderMarkdownRegion(region.markdown),
+    html: renderMarkdownRegion(region.markdown, {
+      meshRootHref: document.meshRootHref,
+      resourcePath: document.resourcePath,
+    }),
   };
 }
 
@@ -1423,6 +1450,8 @@ ${faviconLink}  <style>
     .wf-history-file-iri { font-size: 0.82rem; overflow-wrap: anywhere; }
     .wf-history-gap { display: flex; align-items: center; justify-content: center; min-height: 28px; color: #687167; font-size: 1.15rem; line-height: 1; }
     .wf-source-meta { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 14px 12px; color: #596259; font-size: 0.88rem; }
+    .wf-source-omitted { margin: 0; padding: 0 14px 14px; color: #596259; line-height: 1.45; }
+    .wf-source-image-preview { display: block; max-width: min(320px, calc(100% - 28px)); max-height: 220px; margin: 0 14px 14px; padding: 12px; border: 1px solid #d7dcd4; border-radius: 6px; background: #f8faf7; object-fit: contain; }
     pre { margin: 0; width: 100%; max-width: 100%; max-height: 64vh; overflow: auto; border-top: 1px solid #d7dcd4; background: #0d1117; color: #e6edf3; padding: 16px; font-size: 0.86rem; line-height: 1.55; tab-size: 2; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
     pre code { display: block; min-width: 0; background: transparent; color: inherit; border-radius: 0; padding: 0; white-space: inherit; overflow-wrap: inherit; word-break: inherit; }
     pre code span { overflow-wrap: inherit; word-break: inherit; }
@@ -2367,9 +2396,7 @@ async function renderRawSourcePanel(
 ): Promise<string> {
   const sourceHref = toPublicSourceHref(input.meshRootHref, panel.sourcePath);
   const body = panel.contents === undefined
-    ? `        <p>This source is ${
-      panel.omittedByteLength ?? 0
-    } bytes, so Weave omitted the inline copy. Use the raw file link instead.</p>`
+    ? renderOmittedRawSourcePanelBody(panel, sourceHref)
     : await renderHighlightedSource(panel.sourcePath, panel.contents);
 
   return `      <details open>
@@ -2384,6 +2411,23 @@ async function renderRawSourcePanel(
         </div>
 ${body}
       </details>`;
+}
+
+function renderOmittedRawSourcePanelBody(
+  panel: ResourcePageRawSourcePanelModel,
+  sourceHref: string | undefined,
+): string {
+  const imagePreview = sourceHref && isPreviewableImageSourcePath(
+      panel.sourcePath,
+    )
+    ? `\n        <img class="wf-source-image-preview" src="${
+      escapeHtml(sourceHref)
+    }" alt="Preview of ${escapeHtml(panel.sourcePath)}">`
+    : "";
+
+  return `        <p class="wf-source-omitted">This source is ${
+    panel.omittedByteLength ?? 0
+  } bytes, so Weave omitted the inline copy. Use the raw file link instead.</p>${imagePreview}`;
 }
 
 async function renderHighlightedSource(
@@ -2431,6 +2475,10 @@ function inferSourceLanguage(sourcePath: string): string {
     return "xml";
   }
   return "text";
+}
+
+function isPreviewableImageSourcePath(sourcePath: string): boolean {
+  return /\.(apng|avif|gif|ico|jpe?g|png|svg|webp)$/i.test(sourcePath);
 }
 
 function toMeshRootHref(meshBase: string): string {
@@ -3448,10 +3496,24 @@ function toHtmlIdSegment(value: string): string {
   return segment.length > 0 ? segment : "region";
 }
 
-function renderMarkdownRegion(markdown: string): string {
-  const lines = stripYamlFrontmatter(markdown).replaceAll("\r\n", "\n").split(
-    "\n",
+interface MarkdownRenderContext {
+  meshRootHref: string;
+  resourcePath: string;
+}
+
+interface ParsedMarkdownReferenceDefinitions {
+  markdown: string;
+  references: ReadonlyMap<string, string>;
+}
+
+function renderMarkdownRegion(
+  markdown: string,
+  context?: MarkdownRenderContext,
+): string {
+  const parsedMarkdown = parseMarkdownReferenceDefinitions(
+    stripYamlFrontmatter(markdown).replaceAll("\r\n", "\n"),
   );
+  const lines = parsedMarkdown.markdown.split("\n");
   const blocks: string[] = [];
   let index = 0;
 
@@ -3468,7 +3530,11 @@ function renderMarkdownRegion(markdown: string): string {
       const level = headingMatch[1]!.length;
       blocks.push(
         `      <h${level}>${
-          renderInlineMarkdown(headingMatch[2]!)
+          renderInlineMarkdown(
+            headingMatch[2]!,
+            parsedMarkdown.references,
+            context,
+          )
         }</h${level}>`,
       );
       index += 1;
@@ -3483,7 +3549,13 @@ function renderMarkdownRegion(markdown: string): string {
           break;
         }
         items.push(
-          `        <li>${renderInlineMarkdown(candidate.slice(2))}</li>`,
+          `        <li>${
+            renderInlineMarkdown(
+              candidate.slice(2),
+              parsedMarkdown.references,
+              context,
+            )
+          }</li>`,
         );
         index += 1;
       }
@@ -3506,11 +3578,43 @@ function renderMarkdownRegion(markdown: string): string {
       index += 1;
     }
     blocks.push(
-      `      <p>${renderInlineMarkdown(paragraphLines.join(" "))}</p>`,
+      `      <p>${
+        renderInlineMarkdown(
+          paragraphLines.join(" "),
+          parsedMarkdown.references,
+          context,
+        )
+      }</p>`,
     );
   }
 
   return blocks.length > 0 ? blocks.join("\n") : "      <p></p>";
+}
+
+function parseMarkdownReferenceDefinitions(
+  markdown: string,
+): ParsedMarkdownReferenceDefinitions {
+  const references = new Map<string, string>();
+  const bodyLines: string[] = [];
+
+  for (const line of markdown.split("\n")) {
+    const referenceMatch =
+      /^\s{0,3}\[([^\]]+)\]:\s+(\S+)(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*$/
+        .exec(line);
+    if (referenceMatch) {
+      references.set(
+        normalizeMarkdownReferenceLabel(referenceMatch[1]!),
+        referenceMatch[2]!,
+      );
+      continue;
+    }
+    bodyLines.push(line);
+  }
+
+  return {
+    markdown: bodyLines.join("\n"),
+    references,
+  };
 }
 
 function stripYamlFrontmatter(markdown: string): string {
@@ -3530,18 +3634,75 @@ function stripYamlFrontmatter(markdown: string): string {
   return lines.slice(closingIndex + 1).join("\n").replace(/^\n/, "");
 }
 
-function renderInlineMarkdown(markdown: string): string {
+function renderInlineMarkdown(
+  markdown: string,
+  references: ReadonlyMap<string, string> = new Map(),
+  context?: MarkdownRenderContext,
+): string {
   let html = escapeHtml(markdown).replaceAll("&#39;", "'");
   html = html.replaceAll(
     /`([^`]+)`/g,
     (_match, code) => `<code>${code}</code>`,
   );
   html = html.replaceAll(
+    /\*\*([^*]+)\*\*/g,
+    (_match, text) => `<strong>${text}</strong>`,
+  );
+  html = html.replaceAll(
+    /(^|[^\w])_([^_]+)_([^\w]|$)/g,
+    (_match, before, text, after) => `${before}<em>${text}</em>${after}`,
+  );
+  html = html.replaceAll(
     /\[([^\]]+)\]\(([^)]+)\)/g,
     (_match, label, href) =>
-      `<a href="${escapeHtml(href)}">${renderInlineMarkdown(label)}</a>`,
+      `<a href="${escapeHtml(resolveMarkdownHref(href, context))}">${
+        renderInlineMarkdown(label, references, context)
+      }</a>`,
+  );
+  html = html.replaceAll(
+    /\[([^\]]+)\]\[([^\]]+)\]/g,
+    (match, label, referenceLabel) => {
+      const href = references.get(
+        normalizeMarkdownReferenceLabel(referenceLabel),
+      );
+      return href
+        ? `<a href="${escapeHtml(resolveMarkdownHref(href, context))}">${
+          renderInlineMarkdown(label, references, context)
+        }</a>`
+        : match;
+    },
   );
   return html;
+}
+
+function normalizeMarkdownReferenceLabel(label: string): string {
+  return label.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function resolveMarkdownHref(
+  href: string,
+  context?: MarkdownRenderContext,
+): string {
+  const trimmed = href.trim();
+  if (
+    context === undefined ||
+    trimmed.length === 0 ||
+    trimmed.startsWith("#") ||
+    trimmed.startsWith("/") ||
+    /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)
+  ) {
+    return trimmed;
+  }
+
+  const basePath = context.resourcePath.length === 0
+    ? context.meshRootHref
+    : `${context.meshRootHref}${context.resourcePath}/`;
+  try {
+    const resolved = new URL(trimmed, `https://weave.local${basePath}`);
+    return `${resolved.pathname}${resolved.search}${resolved.hash}`;
+  } catch {
+    return trimmed;
+  }
 }
 
 function ensureRelativePageHref(href: string): string {

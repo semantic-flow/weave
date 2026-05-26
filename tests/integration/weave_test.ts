@@ -952,13 +952,14 @@ Deno.test("executeWeave matches the settled alice page-customized-woven fixture"
   );
   assertStringIncludes(
     await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
-    `is an IRI which identifies Alice, the person`,
+    `This identifier page is customized by`,
   );
   const alicePageHtml = await Deno.readTextFile(
     join(workspaceRoot, "alice/index.html"),
   );
-  assertFalse(
-    alicePageHtml.includes(`<a href="./_knop/_page">./_knop/_page</a>`),
+  assertStringIncludes(
+    alicePageHtml,
+    `<a href="./_knop/_page">./_knop/_page</a>`,
   );
   assertFalse(
     alicePageHtml.includes(`<th scope="row">ResourcePageDefinition</th>`),
@@ -1068,7 +1069,7 @@ Deno.test("executeWeave versions a later page-definition revision that repoints 
   assert(result.updatedPaths.includes("alice/_knop/_inventory/inventory.ttl"));
   assertStringIncludes(
     await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
-    "is an IRI which identifies Alice, the person",
+    "governed Markdown source for Alice's main page region",
   );
   assertStringIncludes(
     await Deno.readTextFile(
@@ -1472,7 +1473,7 @@ Deno.test("executeWeave resolves page definitions from workingLocalRelativePath 
   assertEquals(result.wovenDesignatorPaths, ["alice"]);
   assertStringIncludes(
     await Deno.readTextFile(join(workspaceRoot, "alice/index.html")),
-    `is an IRI which identifies Alice, the person`,
+    `This identifier page is customized by`,
   );
 });
 
@@ -2134,6 +2135,53 @@ Deno.test("executeGenerate uses latest payload state for current RdfDocument pan
   );
   assertFalse(page.includes("Unwoven Draft Ontology"));
   assertFalse(page.includes("privateDraftProperty"));
+});
+
+Deno.test("executeGenerate omits binary latest payload source panels with image previews", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-generate-binary-latest-payload-panel-",
+  );
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await Deno.writeFile(
+    join(workspaceRoot, "favicon.ico"),
+    new Uint8Array([0, 1, 2, 3, 255]),
+  );
+
+  await executeIntegrate({
+    meshRoot: workspaceRoot,
+    request: {
+      designatorPath: "mesh-content/favicon",
+      source: "favicon.ico",
+    },
+  });
+  await executeWeave({
+    meshRoot: workspaceRoot,
+    request: { targets: [{ designatorPath: "mesh-content/favicon" }] },
+  });
+
+  const result = await executeGenerate({
+    meshRoot: workspaceRoot,
+    request: { targets: [{ designatorPath: "mesh-content/favicon" }] },
+    now: () => new Date("2026-05-20T00:00:00.000Z"),
+  });
+
+  assertEquals(result.generatedDesignatorPaths, ["mesh-content/favicon"]);
+  const page = await Deno.readTextFile(
+    join(workspaceRoot, "mesh-content/favicon/index.html"),
+  );
+  assertStringIncludes(
+    page,
+    "<summary>Latest historical manifestation file</summary>",
+  );
+  assertStringIncludes(page, "Weave omitted the inline copy");
+  assertStringIncludes(
+    page,
+    'class="wf-source-image-preview" src="/mesh-alice-bio/mesh-content/favicon/_history001/_s0001/ico/favicon.ico"',
+  );
+  assertFalse(page.includes("<pre><code><span>"));
 });
 
 Deno.test("executeGenerate prefers latest manifestation matching the working file extension", async () => {

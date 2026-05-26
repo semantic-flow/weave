@@ -997,6 +997,51 @@ Deno.test("renderResourcePage renders escaped raw RDF panels and raw file links"
   );
 });
 
+Deno.test("renderResourcePage omits binary raw source copies with image previews", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "simple",
+      path: "mesh-content/favicon/index.html",
+      description: "Generated resource page.",
+      rawSourcePanels: [{
+        label: "Latest historical manifestation file",
+        sourcePath: "mesh-content/favicon/_history001/_s0001/ico/favicon.ico",
+        omittedByteLength: 15406,
+      }],
+    },
+    {
+      resourcePagePresentation: {
+        ...DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE,
+        panelSelections: DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE
+          .panelSelections.map((selection) =>
+            selection.panel === "rawSource"
+              ? {
+                ...selection,
+                targetClasses: [],
+                targetArtifactRoles: [],
+              }
+              : selection
+          ),
+      },
+    },
+  );
+
+  assertStringIncludes(
+    html,
+    "<summary>Latest historical manifestation file</summary>",
+  );
+  assertStringIncludes(
+    html,
+    "Weave omitted the inline copy",
+  );
+  assertStringIncludes(
+    html,
+    '<img class="wf-source-image-preview" src="/mesh-alice-bio/mesh-content/favicon/_history001/_s0001/ico/favicon.ico"',
+  );
+  assertFalse(html.includes("<pre"));
+});
+
 Deno.test("renderResourcePage renders source registry fragment sections for ExtractionSource", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",
@@ -1179,6 +1224,33 @@ fant:AbilityScore a owl:Class ;
   assertStringIncludes(
     html,
     '<p class="wf-summary">A numeric character capability used by the rules.</p>',
+  );
+});
+
+Deno.test("renderResourcePage uses schema description as the lowest-priority summary", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "identifier",
+      path: "carol/index.html",
+      designatorPath: "carol",
+      rawSourcePanels: [{
+        label: "Carol source file",
+        sourcePath: "carol-data.ttl",
+        contents: `@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix schema: <https://schema.org/> .
+
+<https://semantic-flow.github.io/mesh-alice-bio/carol> a foaf:Person ;
+  foaf:name "Carol Burnett" ;
+  schema:description "American comedian and actor." .
+`,
+      }],
+    },
+  );
+
+  assertStringIncludes(
+    html,
+    '<p class="wf-summary">American comedian and actor.</p>',
   );
 });
 
@@ -1769,14 +1841,14 @@ Alice's integrated biography is available at [./bio](./bio), and the extracted B
     <article class="alice-main">
       <h1>Alice</h1>
       <p>This customized identifier page is driven by <code>alice/_knop/_page/page.ttl</code>.</p>
-      <p>Alice's integrated biography is available at <a href="./bio">./bio</a>, and the extracted Bob resource is available at <a href="../bob">../bob</a>.</p>
+      <p>Alice's integrated biography is available at <a href="/mesh-alice-bio/alice/bio">./bio</a>, and the extracted Bob resource is available at <a href="/mesh-alice-bio/bob">../bob</a>.</p>
     </article>
     <aside class="alice-sidebar">
       <h2>Quick links</h2>
       <ul>
-        <li><a href="./_knop">Alice Knop</a></li>
-        <li><a href="./bio">Alice bio</a></li>
-        <li><a href="../bob">Bob</a></li>
+        <li><a href="/mesh-alice-bio/alice/_knop">Alice Knop</a></li>
+        <li><a href="/mesh-alice-bio/alice/bio">Alice bio</a></li>
+        <li><a href="/mesh-alice-bio/bob">Bob</a></li>
       </ul>
     </aside>
 
@@ -1855,6 +1927,38 @@ This customized identifier page is driven by \`alice/_knop/_page/page.ttl\`.
   );
 });
 
+Deno.test("renderResourcePage resolves authored Markdown links from slashless resource URLs", async () => {
+  const html = await renderResourcePage(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      kind: "customIdentifier",
+      path: "index.html",
+      designatorPath: "",
+      definitionPath: "_knop/_page",
+      presentationConfigIri: DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE.iri,
+      stylesheetPaths: [],
+      regions: [{
+        key: "main",
+        sourcePath: "home.md",
+        markdown: `# Home
+
+- [Alice](alice/)
+- [Root Knop](./_knop/)
+`,
+      }],
+    },
+    {
+      generatedAt: new Date("2026-05-25T00:00:00.000Z"),
+    },
+  );
+
+  assertStringIncludes(html, '<a href="/mesh-alice-bio/alice/">Alice</a>');
+  assertStringIncludes(
+    html,
+    '<a href="/mesh-alice-bio/_knop/">Root Knop</a>',
+  );
+});
+
 Deno.test("renderResourcePage omits YAML frontmatter from authored Markdown regions", async () => {
   const html = await renderResourcePage(
     "https://semantic-flow.github.io/mesh-alice-bio/",
@@ -1874,7 +1978,9 @@ title: Bob Newhart
 
 # Bob Newhart
 
-Quietly precise.
+**[Bob Newhart](https://en.wikipedia.org/wiki/Bob_Newhart)** was _quietly precise_. ([Wikipedia][^1])
+
+[^1]: https://en.wikipedia.org/wiki/Bob_Newhart "Bob Newhart"
 `,
       }],
     },
@@ -1884,9 +1990,13 @@ Quietly precise.
   );
 
   assertStringIncludes(html, "<h1>Bob Newhart</h1>");
-  assertStringIncludes(html, "<p>Quietly precise.</p>");
+  assertStringIncludes(
+    html,
+    '<p><strong><a href="https://en.wikipedia.org/wiki/Bob_Newhart">Bob Newhart</a></strong> was <em>quietly precise</em>. (<a href="https://en.wikipedia.org/wiki/Bob_Newhart">Wikipedia</a>)</p>',
+  );
   assertFalse(html.includes("title: Bob Newhart"));
   assertFalse(html.includes("<p>---</p>"));
+  assertFalse(html.includes("[^1]:"));
 });
 
 Deno.test("renderResourcePage puts custom page definition links in Semantic Flow metadata", async () => {

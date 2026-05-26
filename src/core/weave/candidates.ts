@@ -10,6 +10,7 @@ export interface PayloadWorkingArtifact {
   currentArtifactHistoryPath?: string;
   latestHistoricalSnapshotPath?: string;
   latestHistoricalSnapshotTurtle?: string;
+  latestHistoricalSnapshotBytes?: Uint8Array;
   latestHistoricalStatePath?: string;
 }
 

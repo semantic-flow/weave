@@ -68,6 +68,7 @@ export async function loadPayloadWorkingArtifact(
   let currentPayloadTurtle: string;
   let currentPayloadBytes: Uint8Array | undefined;
   let latestHistoricalSnapshotTurtle: string | undefined;
+  let latestHistoricalSnapshotBytes: Uint8Array | undefined;
   try {
     const absoluteCurrentPayloadPath =
       payloadArtifact.repositorySourceFloatingLocator
@@ -104,7 +105,7 @@ export async function loadPayloadWorkingArtifact(
 
   if (latestHistoricalSnapshotPath) {
     try {
-      latestHistoricalSnapshotTurtle = await readTextFileWithOverlay(
+      const latestHistoricalSnapshot = await readPayloadFileWithOverlay(
         resolveAllowedLocalPath(
           localPathPolicy,
           "workingLocalRelativePath",
@@ -112,6 +113,11 @@ export async function loadPayloadWorkingArtifact(
         ),
         overlay,
       );
+      if (isTextLikePayloadPath(latestHistoricalSnapshotPath)) {
+        latestHistoricalSnapshotTurtle = latestHistoricalSnapshot.text;
+      } else {
+        latestHistoricalSnapshotBytes = latestHistoricalSnapshot.bytes;
+      }
     } catch (error) {
       if (error instanceof LocalPathAccessError) {
         throw new WeaveRuntimeError(
@@ -144,6 +150,7 @@ export async function loadPayloadWorkingArtifact(
     currentArtifactHistoryPath,
     ...(latestHistoricalSnapshotPath ? { latestHistoricalSnapshotPath } : {}),
     latestHistoricalSnapshotTurtle,
+    latestHistoricalSnapshotBytes,
     latestHistoricalStatePath,
   };
 }
