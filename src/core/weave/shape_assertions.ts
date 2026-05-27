@@ -55,9 +55,9 @@ const SFLO_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}ExtractionSource`;
 const SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
   `${SFLO_NAMESPACE}hasArtifactResolutionMode`;
 const SFLO_HAS_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}hasExtractionSource`;
-const SFLO_HAS_REQUESTED_TARGET_STATE_IRI =
+const SFLO_TARGET_HISTORICAL_STATE_IRI =
   `${SFLO_NAMESPACE}targetHistoricalState`;
-const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}targetArtifact`;
+const SFLO_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}targetArtifact`;
 const SFLO_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFLO_NAMESPACE}hasKnopAssetBundle`;
 const SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI =
   `${SFLO_NAMESPACE}hasResourcePageDefinition`;
@@ -440,7 +440,7 @@ export function assertCurrentSourceRegistryShapeForFirstExtractedKnopWeave(
     [sourceRegistryPath, RDF_TYPE_IRI, SFLO_KNOP_SOURCE_REGISTRY_IRI],
     [sourceRegistryPath, SFLO_HAS_SOURCE_BINDING_IRI, extractionSourcePath],
     [extractionSourcePath, RDF_TYPE_IRI, SFLO_EXTRACTION_SOURCE_IRI],
-    [extractionSourcePath, SFLO_HAS_TARGET_ARTIFACT_IRI, sourceDesignatorPath],
+    [extractionSourcePath, SFLO_TARGET_ARTIFACT_IRI, sourceDesignatorPath],
   ]);
   const hasWorkingResolutionMode = hasNamedNodeFact(
     quads,
@@ -453,7 +453,7 @@ export function assertCurrentSourceRegistryShapeForFirstExtractedKnopWeave(
     quads,
     meshBase,
     extractionSourcePath,
-    SFLO_HAS_REQUESTED_TARGET_STATE_IRI,
+    SFLO_TARGET_HISTORICAL_STATE_IRI,
     sourceStatePath,
   );
   if (!hasWorkingResolutionMode && !hasExactTargetState) {

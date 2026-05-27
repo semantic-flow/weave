@@ -465,7 +465,7 @@ Deno.test("compileWeaveEffectiveConfig fails closed on unresolved same-layer con
 `,
       }).historyTrackingPolicyForArtifactRole("payload"),
     EffectiveConfigError,
-    "Conflicting",
+    'values=["currentOnly","versioned"]',
   );
 });
 

@@ -852,8 +852,20 @@ export class EffectiveConfig {
     );
 
     if (values.size !== 1) {
+      const conflictingValues = [...values].sort();
+      const conflictingBindings = priorityWinners.map((binding) => ({
+        source: binding.source,
+        layerRole: binding.layerRole,
+        layerOrder: binding.layerOrder,
+        bindingTerm: binding.bindingTerm,
+        target: binding.target,
+        priority: binding.priority,
+        value: policyValueForSlot(binding.values, slot),
+      }));
       throw new EffectiveConfigError(
-        `Conflicting ${slot} policy bindings at the same layer, specificity, and priority`,
+        `Conflicting ${slot} policy bindings at the same layer, specificity, and priority; values=${
+          JSON.stringify(conflictingValues)
+        }; bindings=${JSON.stringify(conflictingBindings)}`,
       );
     }
 

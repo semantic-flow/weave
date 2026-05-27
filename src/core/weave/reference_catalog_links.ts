@@ -15,9 +15,9 @@ const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const SFLO_HAS_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}hasReferenceLink`;
 const SFLO_HAS_REFERENCE_ROLE_IRI = `${SFLO_NAMESPACE}hasReferenceRole`;
 const SFLO_HAS_REFERENCE_SOURCE_IRI = `${SFLO_NAMESPACE}hasReferenceSource`;
-const SFLO_HAS_REQUESTED_TARGET_STATE_IRI =
+const SFLO_TARGET_HISTORICAL_STATE_IRI =
   `${SFLO_NAMESPACE}targetHistoricalState`;
-const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}targetArtifact`;
+const SFLO_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}targetArtifact`;
 const SFLO_REFERENCE_LINK_FOR_IRI = `${SFLO_NAMESPACE}referenceLinkFor`;
 const SFLO_REFERENCE_LINK_IRI = `${SFLO_NAMESPACE}ReferenceLink`;
 
@@ -110,13 +110,13 @@ export function extractCurrentReferenceCatalogLinks(
     const referenceTargetIri = requireSingleNamedNodeObject(
       quads,
       referenceSourceIri,
-      SFLO_HAS_TARGET_ARTIFACT_IRI,
+      SFLO_TARGET_ARTIFACT_IRI,
       errorMessage,
     );
     const referenceTargetStateIri = requireOptionalNamedNodeObject(
       quads,
       referenceSourceIri,
-      SFLO_HAS_REQUESTED_TARGET_STATE_IRI,
+      SFLO_TARGET_HISTORICAL_STATE_IRI,
       errorMessage,
     );
 

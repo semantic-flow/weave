@@ -2,7 +2,7 @@ import { assertRejects } from "@std/assert";
 import { join } from "@std/path";
 import { resolveUserSettingsPaths } from "../../src/runtime/settings/user_settings.ts";
 
-type CliLogFileName = "operational.jsonl" | "security-audit.jsonl";
+export type CliLogFileName = "operational.jsonl" | "security-audit.jsonl";
 
 export async function assertDefaultCliLogFilesExist(
   meshBase: string,

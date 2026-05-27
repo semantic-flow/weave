@@ -177,7 +177,7 @@ Deno.test("loadOperationalLocalPathPolicy ignores the legacy home access file", 
     renderHostLocalAccessProfileTurtle([`${sharedRoot}/`]),
   );
 
-  await withEnv({ HOME: homeRoot }, async () => {
+  await withEnv({ HOME: homeRoot, WEAVE_SETTINGS: "" }, async () => {
     const policy = await loadOperationalLocalPathPolicy(meshRoot);
     assertThrows(
       () =>
