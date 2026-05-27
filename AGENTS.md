@@ -1,5 +1,7 @@
 # AGENTS.md
 
+- NEVER EXPOSE SECRETS in conversations. We "develop in public" and make most LLM conversations available to the world.
+
 - Review the [product vision](documentation/notes/product-vision.md)
 
 - We are using Kato to record LLM conversations.

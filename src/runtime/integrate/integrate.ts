@@ -84,7 +84,7 @@ export async function executeIntegrate(
   const source = options.request.source;
   let plan: IntegratePlan | undefined;
   let workingLocalRelativePath: string | undefined;
-  let sourceAccessConfigPath: string | undefined;
+  let sourceAccessPolicyPath: string | undefined;
   let localPathPolicy = await loadOperationalLocalPathPolicy(meshRoot);
   const workspaceRoot = localPathPolicy.workspaceRoot;
   const sourceBaseDirectory = options.sourceBaseDirectory ?? meshRoot;
@@ -118,8 +118,8 @@ export async function executeIntegrate(
         source,
         sourceAccessDirectory: options.sourceAccessDirectory,
       });
-      sourceAccessConfigPath = grantResult.updated
-        ? grantResult.configPath
+      sourceAccessPolicyPath = grantResult.updated
+        ? grantResult.policyPath
         : undefined;
       localPathPolicy = await loadOperationalLocalPathPolicy(meshRoot);
     }
@@ -205,8 +205,8 @@ export async function executeIntegrate(
       ...plan.updatedFiles.map((file) =>
         toWorkspaceRelativePath(localPathPolicy, file.path)
       ),
-      ...(sourceAccessConfigPath
-        ? [toDisplayPath(localPathPolicy, sourceAccessConfigPath)]
+      ...(sourceAccessPolicyPath
+        ? [toDisplayPath(localPathPolicy, sourceAccessPolicyPath)]
         : []),
     ],
   };
@@ -547,7 +547,7 @@ async function grantSourceDirectoryAccess(
     source: string;
     sourceAccessDirectory: string;
   },
-): Promise<{ updated: boolean; configPath: string }> {
+): Promise<{ updated: boolean; policyPath: string }> {
   const absoluteSourcePath = resolveSourcePath(
     options.sourceBaseDirectory,
     options.source.trim(),
@@ -580,7 +580,7 @@ async function grantSourceDirectoryAccess(
   if (isWithinRoot(absoluteAccessDirectory, options.meshRoot)) {
     return {
       updated: false,
-      configPath: join(options.meshRoot, "_mesh/_config/config.ttl"),
+      policyPath: join(options.meshRoot, "_mesh/_config/config.ttl"),
     };
   }
 
@@ -601,7 +601,7 @@ async function grantSourceDirectoryAccess(
     );
     return {
       updated,
-      configPath: join(options.meshRoot, "_mesh/_config/config.ttl"),
+      policyPath: join(options.meshRoot, "_mesh/_config/config.ttl"),
     };
   }
 
@@ -609,7 +609,10 @@ async function grantSourceDirectoryAccess(
     options.localPathPolicy,
     absoluteAccessDirectory,
   );
-  return result;
+  return {
+    updated: result.updated,
+    policyPath: result.accessProfilePath,
+  };
 }
 
 function resolveSourcePath(

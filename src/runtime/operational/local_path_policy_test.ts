@@ -55,6 +55,42 @@ Deno.test("loadOperationalLocalPathPolicy discovers mesh-owned config in a non-w
   );
 });
 
+Deno.test("loadOperationalLocalPathPolicy ignores generic operational config path grants", async () => {
+  const tempRoot = await Deno.makeTempDir({
+    prefix: "weave-local-path-policy-operational-",
+  });
+  const repoRoot = join(tempRoot, "repo");
+  const meshRoot = join(repoRoot, "mesh");
+  await Deno.mkdir(join(meshRoot, "_mesh/_config"), { recursive: true });
+  await Deno.writeTextFile(
+    join(meshRoot, "_mesh/_config/config.ttl"),
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:OperationalConfig ;
+  sfcfg:workspaceRootRelativeToMeshRoot "../" ;
+  sfcfg:hasLocalPathAccessRule [
+    a sfcfg:LocalPathAccessRule ;
+    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_meshRoot> ;
+    sfcfg:pathPrefix "../documentation/" ;
+    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_targetLocalRelativePath>
+  ] .
+`,
+  );
+
+  const policy = await loadOperationalLocalPathPolicy(meshRoot);
+
+  assertThrows(
+    () =>
+      resolveAllowedLocalPath(
+        policy,
+        "targetLocalRelativePath",
+        "../documentation/sidebar.md",
+      ),
+    LocalPathAccessError,
+    "outside the mesh root",
+  );
+});
+
 Deno.test("ensureMeshConfigWorkingDirectoryAccessRule preserves publication profile", async () => {
   const tempRoot = await Deno.makeTempDir({
     prefix: "weave-local-path-policy-profile-",
@@ -132,7 +168,7 @@ Deno.test("loadOperationalLocalPathPolicy rejects mesh config that grants arbitr
   );
 });
 
-Deno.test("loadOperationalLocalPathPolicy applies machine-local absolute path rules", async () => {
+Deno.test("loadOperationalLocalPathPolicy applies host-local absolute path grants", async () => {
   const tempRoot = await Deno.makeTempDir({ prefix: "weave-local-path-home-" });
   const meshRoot = join(tempRoot, "mesh");
   const sharedRoot = join(tempRoot, "shared-notes");
@@ -147,7 +183,7 @@ Deno.test("loadOperationalLocalPathPolicy applies machine-local absolute path ru
   await withEnv({ HOME: homeRoot, WEAVE_SETTINGS: settingsRoot }, async () => {
     const policy = await loadOperationalLocalPathPolicy(meshRoot);
     assertEquals(
-      policy.localConfigPath,
+      policy.hostLocalAccessProfilePath,
       join(settingsRoot, "meshes/mesh-1190756e677d/access.ttl"),
     );
     assertEquals(
@@ -403,7 +439,7 @@ Deno.test("resolveRepositorySourceFloatingLocalPath prefers granted source check
   });
 });
 
-Deno.test("ensureHostLocalWorkingDirectoryAccessRule creates a machine-local source grant", async () => {
+Deno.test("ensureHostLocalWorkingDirectoryAccessRule creates a host-local source grant", async () => {
   const tempRoot = await Deno.makeTempDir({
     prefix: "weave-local-path-host-grant-",
   });
@@ -425,10 +461,10 @@ Deno.test("ensureHostLocalWorkingDirectoryAccessRule creates a machine-local sou
 
     assertEquals(result.updated, true);
     assertEquals(
-      result.configPath,
+      result.accessProfilePath,
       join(settingsRoot, "meshes/mesh-1190756e677d/access.ttl"),
     );
-    const config = await Deno.readTextFile(result.configPath);
+    const config = await Deno.readTextFile(result.accessProfilePath);
     assertEquals(
       config.includes("weave:HostLocalAccessProfile"),
       true,

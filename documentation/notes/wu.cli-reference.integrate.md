@@ -90,7 +90,8 @@ Because remote working-byte fetch is not implemented yet, use raw URLs today ins
 ## Environment
 
 - [[wu.environment-variables#weave_log_dir]] controls where runtime logs are written.
-- [[wu.environment-variables#home-and-userprofile]] controls where host-local access policy can be found or written for separate-checkout source grants.
+- [[wu.environment-variables#weave_settings]] controls where mesh-scoped host-local access grants are read or written for separate-checkout sources.
+- [[wu.environment-variables#home-and-userprofile]] provide fallback roots when `WEAVE_SETTINGS` or XDG variables are unset.
 
 ## Related
 

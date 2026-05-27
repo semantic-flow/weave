@@ -1,3 +1,11 @@
 {
-  "deno.enable": true
+  "deno.enable": true,
+  "files.watcherExclude": {
+    "**/coverage/**": true,
+    "**/.coverage/**": true
+  },
+  "search.exclude": {
+    "**/coverage/**": true,
+    "**/.coverage/**": true
+  }
 }

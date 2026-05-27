@@ -24,7 +24,6 @@ import {
   type UserSettingsPaths,
 } from "../settings/user_settings.ts";
 
-const OPERATIONAL_CONFIG_IRI = `${SFCFG_NAMESPACE}OperationalConfig`;
 const MESH_CONFIG_IRI = `${SFCFG_NAMESPACE}MeshConfig`;
 const HAS_LOCAL_PATH_ACCESS_RULE_IRI =
   `${SFCFG_NAMESPACE}hasLocalPathAccessRule`;
@@ -57,7 +56,7 @@ export type LocalPathLocatorKind =
   | "targetLocalRelativePath";
 
 type LocalPathBase = "meshRoot" | "userHome" | "absolutePath";
-type LocalPathRuleSource = "mesh" | "local";
+type LocalPathRuleSource = "mesh" | "hostLocal";
 
 interface LocalPathAccessRule {
   base: LocalPathBase;
@@ -72,7 +71,7 @@ export interface OperationalLocalPathPolicy {
   meshBase?: string;
   workspaceRoot: string;
   meshConfigPath?: string;
-  localConfigPath?: string;
+  hostLocalAccessProfilePath?: string;
   userSettings?: UserSettingsPaths;
   rules: readonly LocalPathAccessRule[];
 }
@@ -163,7 +162,7 @@ export async function ensureMeshConfigWorkingDirectoryAccessRule(
 
 export interface HostLocalWorkingDirectoryAccessRuleResult {
   updated: boolean;
-  configPath: string;
+  accessProfilePath: string;
 }
 
 export async function ensureHostLocalWorkingDirectoryAccessRule(
@@ -176,48 +175,48 @@ export async function ensureHostLocalWorkingDirectoryAccessRule(
     );
   }
 
-  const localConfigPath = policy.localConfigPath ??
+  const accessProfilePath = policy.hostLocalAccessProfilePath ??
     policy.userSettings.meshSettings.accessProfilePath;
   const normalizedPathPrefix = normalizeRulePathPrefix(
     absolutePathPrefix,
     "absolutePath",
-    localConfigPath,
+    accessProfilePath,
   );
 
   if (
     policy.rules.some((rule) =>
-      rule.source === "local" &&
+      rule.source === "hostLocal" &&
       rule.base === "absolutePath" &&
       rule.pathPrefix === normalizedPathPrefix &&
       rule.locatorKinds.includes("workingLocalRelativePath")
     )
   ) {
-    return { updated: false, configPath: localConfigPath };
+    return { updated: false, accessProfilePath };
   }
 
-  const localRules: LocalPathAccessRule[] = policy.rules
-    .filter((rule) => rule.source === "local")
+  const hostLocalRules: LocalPathAccessRule[] = policy.rules
+    .filter((rule) => rule.source === "hostLocal")
     .map((rule) => ({ ...rule }));
-  localRules.push({
+  hostLocalRules.push({
     base: "absolutePath",
     locatorKinds: ["workingLocalRelativePath"],
     pathPrefix: normalizedPathPrefix,
-    source: "local",
-    sourcePath: localConfigPath,
+    source: "hostLocal",
+    sourcePath: accessProfilePath,
   });
 
-  await Deno.mkdir(dirname(localConfigPath), { recursive: true });
+  await Deno.mkdir(dirname(accessProfilePath), { recursive: true });
   await Deno.writeTextFile(
     policy.userSettings.settingsPath,
     renderUserSettingsTurtle(policy.userSettings),
   );
   await Deno.writeTextFile(
-    localConfigPath,
+    accessProfilePath,
     renderHostLocalAccessProfileTurtle(
-      localRules.map((rule) => renderPathPrefix(rule.pathPrefix)),
+      hostLocalRules.map((rule) => renderPathPrefix(rule.pathPrefix)),
     ),
   );
-  return { updated: true, configPath: localConfigPath };
+  return { updated: true, accessProfilePath };
 }
 
 export async function loadOperationalLocalPathPolicy(
@@ -231,14 +230,23 @@ export async function loadOperationalLocalPathPolicy(
   const userSettings = meshBase
     ? await resolveUserSettingsPaths(meshBase)
     : undefined;
-  const localConfigPath = userSettings?.meshSettings.accessProfilePath;
+  const hostLocalAccessProfilePath = userSettings?.meshSettings
+    .accessProfilePath;
   const rules: LocalPathAccessRule[] = [];
 
   if (meshConfigPath) {
     rules.push(...await loadLocalPathRules(meshConfigPath, "mesh"));
   }
-  if (localConfigPath && await fileExists(localConfigPath)) {
-    rules.push(...await loadLocalPathRules(localConfigPath, "local"));
+  if (
+    hostLocalAccessProfilePath &&
+    await fileExists(hostLocalAccessProfilePath)
+  ) {
+    rules.push(
+      ...await loadLocalPathRules(
+        hostLocalAccessProfilePath,
+        "hostLocal",
+      ),
+    );
   }
 
   return {
@@ -246,8 +254,9 @@ export async function loadOperationalLocalPathPolicy(
     ...(meshBase ? { meshBase } : {}),
     workspaceRoot,
     meshConfigPath,
-    ...(localConfigPath && await fileExists(localConfigPath)
-      ? { localConfigPath }
+    ...(hostLocalAccessProfilePath &&
+        await fileExists(hostLocalAccessProfilePath)
+      ? { hostLocalAccessProfilePath }
       : {}),
     ...(userSettings ? { userSettings } : {}),
     rules,
@@ -534,7 +543,7 @@ function collectWorkspaceRootValues(
   quads: readonly Quad[],
   meshConfigPath: string,
 ): readonly string[] {
-  const configSubjects = new Set(collectOperationalConfigSubjects(quads));
+  const configSubjects = new Set(collectMeshConfigSubjects(quads));
   const values = quads
     .filter((quad) =>
       configSubjects.has(toTermKey(quad.subject)) &&
@@ -556,7 +565,7 @@ function collectPublicationProfileValues(
   quads: readonly Quad[],
   meshConfigPath: string,
 ): readonly string[] {
-  const configSubjects = new Set(collectOperationalConfigSubjects(quads));
+  const configSubjects = new Set(collectMeshConfigSubjects(quads));
   const values = quads
     .filter((quad) =>
       configSubjects.has(toTermKey(quad.subject)) &&
@@ -580,11 +589,11 @@ async function loadLocalPathRules(
 ): Promise<readonly LocalPathAccessRule[]> {
   const turtle = await Deno.readTextFile(configPath);
   const quads = parseConfigQuads(configPath, turtle);
-  if (source === "local") {
+  if (source === "hostLocal") {
     return parseHostLocalAccessProfileRules(quads, configPath);
   }
 
-  const configSubjects = collectOperationalConfigSubjects(quads);
+  const configSubjects = collectMeshConfigSubjects(quads);
   const rules: LocalPathAccessRule[] = [];
 
   for (const configSubject of configSubjects) {
@@ -678,12 +687,12 @@ function parseConfigQuads(configPath: string, turtle: string): readonly Quad[] {
     return new Parser({ baseIRI: toFileUrl(configPath).href }).parse(turtle);
   } catch {
     throw new OperationalConfigError(
-      `Could not parse operational config: ${configPath}`,
+      `Could not parse local path policy document: ${configPath}`,
     );
   }
 }
 
-function collectOperationalConfigSubjects(
+function collectMeshConfigSubjects(
   quads: readonly Quad[],
 ): readonly string[] {
   const subjects = new Set<string>();
@@ -703,7 +712,6 @@ function collectOperationalConfigSubjects(
       continue;
     }
     if (
-      quad.object.value !== OPERATIONAL_CONFIG_IRI &&
       quad.object.value !== MESH_CONFIG_IRI
     ) {
       continue;
@@ -829,7 +837,7 @@ function parseHostLocalPathGrant(
     base: "absolutePath",
     locatorKinds: ["workingLocalRelativePath"],
     pathPrefix,
-    source: "local",
+    source: "hostLocal",
     sourcePath,
   };
 }
@@ -904,7 +912,7 @@ function normalizeRulePathPrefix(
 
   if (trimmed.includes("\\")) {
     throw new OperationalConfigError(
-      `Operational config pathPrefix must use forward slashes: ${sourcePath}`,
+      `Local path policy pathPrefix must use forward slashes: ${sourcePath}`,
     );
   }
 
