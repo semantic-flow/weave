@@ -1,61 +1,33 @@
 import type {
-  ArtifactRole,
   EffectiveConfig,
   HistoryTrackingPolicy,
 } from "../config/effective_config.ts";
-import {
-  EffectiveConfig as EffectiveConfigValue,
-  loadWeaveDefaultEffectiveConfig,
-} from "../config/effective_config.ts";
+import { loadWeaveEffectiveConfig } from "../config/effective_config.ts";
 import type {
   WeaveNamingPolicies,
   WeaveResourcePageGenerationPolicies,
   WeaveSupportHistoryPolicies,
 } from "../../core/weave/weave.ts";
 
-const ALL_ARTIFACT_ROLES: readonly ArtifactRole[] = [
-  "payload",
-  "meshInventory",
-  "knopInventory",
-  "meshMetadata",
-  "knopMetadata",
-  "config",
-  "referenceCatalog",
-  "resourcePageDefinition",
-  "resourcePageTemplate",
-  "resourcePageStylesheet",
-  "runtimeMeta",
-];
-
 export async function loadEffectiveConfigForExecution(
-  historyTrackingPolicyOverride?: HistoryTrackingPolicy,
+  options: {
+    meshConfigTurtle?: string;
+    meshConfigSource?: string;
+    historyTrackingPolicyOverride?: HistoryTrackingPolicy;
+    includeSemanticFlowMetadata?: boolean;
+  } = {},
 ): Promise<EffectiveConfig> {
-  const effectiveConfig = await loadWeaveDefaultEffectiveConfig();
-  if (historyTrackingPolicyOverride === undefined) {
-    return effectiveConfig;
-  }
-
-  return new EffectiveConfigValue({
-    sources: effectiveConfig.sources,
-    configResolution: effectiveConfig.configResolution,
-    namingPolicies: effectiveConfig.namingPolicies,
-    resourcePagePresentation: effectiveConfig.resourcePagePresentation,
-    resourcePageRegenerationConfigPolicy: effectiveConfig
-      .resourcePageRegenerationConfigPolicy,
-    defaultHistoryTrackingPolicy: historyTrackingPolicyOverride,
-    historyTrackingByRole: new Map(
-      ALL_ARTIFACT_ROLES.map((role) => [
-        role,
-        historyTrackingPolicyOverride,
-      ]),
-    ),
-    defaultResourcePageGenerationPolicy: "generate",
-    resourcePageGenerationByRole: new Map(
-      ALL_ARTIFACT_ROLES.map((role) => [
-        role,
-        effectiveConfig.resourcePageGenerationPolicyForArtifactRole(role),
-      ]),
-    ),
+  return await loadWeaveEffectiveConfig({
+    meshConfigTurtle: options.meshConfigTurtle,
+    meshConfigSource: options.meshConfigSource,
+    commandOverrides: {
+      ...(options.historyTrackingPolicyOverride
+        ? { historyTrackingPolicy: options.historyTrackingPolicyOverride }
+        : {}),
+      ...(options.includeSemanticFlowMetadata
+        ? { resourcePagePresentation: "semanticSiteAllPanels" }
+        : {}),
+    },
   });
 }
 

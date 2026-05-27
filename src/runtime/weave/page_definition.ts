@@ -18,14 +18,8 @@ import {
   type OperationalLocalPathPolicy,
   resolveAllowedLocalPath,
 } from "../operational/local_path_policy.ts";
-import {
-  DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE,
-  type ResourcePagePresentationProfile,
-} from "../config/effective_config.ts";
 import { SFCFG_NAMESPACE, SFLO_NAMESPACE } from "../../core/rdf/namespaces.ts";
 
-const SFCFG_HAS_RESOURCE_PAGE_PRESENTATION_CONFIG_IRI =
-  `${SFCFG_NAMESPACE}hasResourcePagePresentationConfig`;
 const SFCFG_HAS_GENERATED_RESOURCE_PAGE_PANEL_SELECTION_IRI =
   `${SFCFG_NAMESPACE}hasGeneratedResourcePagePanelSelection`;
 const SFLO_HAS_PAGE_REGION_IRI = `${SFLO_NAMESPACE}hasPageRegion`;
@@ -190,16 +184,10 @@ export async function loadActiveCustomIdentifierPage(
     definitionIri,
     SFLO_HAS_PAGE_REGION_IRI,
   );
-  const presentationConfig = parseResourcePagePresentationConfig(
-    quads,
-    definitionIri,
-    designatorPath,
-  );
   const generatedPanelSelectionIris = parseGeneratedResourcePagePanelSelections(
     quads,
     definitionIri,
     designatorPath,
-    presentationConfig,
   );
 
   if (regionSubjects.length === 0) {
@@ -433,84 +421,33 @@ export async function loadActiveCustomIdentifierPage(
         designatorPath,
       )
       : [],
-    presentationConfigIri: presentationConfig?.iri,
     generatedPanelSelectionIris,
   };
-}
-
-function parseResourcePagePresentationConfig(
-  quads: readonly Quad[],
-  definitionIri: string,
-  designatorPath: string,
-): ResourcePagePresentationProfile | undefined {
-  const configIris = collectNamedNodeObjects(
-    quads,
-    definitionIri,
-    SFCFG_HAS_RESOURCE_PAGE_PRESENTATION_CONFIG_IRI,
-  );
-  if (configIris.length === 0) {
-    return undefined;
-  }
-  if (configIris.length !== 1) {
-    throw new ResourcePageDefinitionResolutionError(
-      `ResourcePageDefinition for ${
-        formatDesignatorPathForDisplay(designatorPath)
-      } declares multiple ResourcePage presentation configs.`,
-    );
-  }
-
-  const configIri = configIris[0]!;
-  if (configIri !== DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE.iri) {
-    throw new ResourcePageDefinitionResolutionError(
-      `ResourcePageDefinition for ${
-        formatDesignatorPathForDisplay(designatorPath)
-      } requests unsupported ResourcePage presentation config: ${configIri}.`,
-    );
-  }
-
-  return DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE;
 }
 
 function parseGeneratedResourcePagePanelSelections(
   quads: readonly Quad[],
   definitionIri: string,
   designatorPath: string,
-  presentationConfig: ResourcePagePresentationProfile | undefined,
 ): readonly string[] {
   const selectionIris = collectNamedNodeObjects(
     quads,
     definitionIri,
     SFCFG_HAS_GENERATED_RESOURCE_PAGE_PANEL_SELECTION_IRI,
   );
-  if (selectionIris.length === 0) {
-    return [];
-  }
-  if (!presentationConfig) {
+  if (
+    selectionIris.some((selectionIri) =>
+      selectionIri.trim().length === 0 || selectionIri.includes(" ")
+    )
+  ) {
     throw new ResourcePageDefinitionResolutionError(
       `ResourcePageDefinition for ${
         formatDesignatorPathForDisplay(designatorPath)
-      } declares generated ResourcePage panel selections without a ResourcePage presentation config.`,
+      } declares an invalid generated ResourcePage panel selection IRI.`,
     );
   }
 
-  const supportedSelectionIris = new Set(
-    presentationConfig.panelSelections.map((selection) => selection.iri),
-  );
-  const unsupportedSelection = selectionIris.find((selectionIri) =>
-    !supportedSelectionIris.has(selectionIri)
-  );
-  if (unsupportedSelection) {
-    throw new ResourcePageDefinitionResolutionError(
-      `ResourcePageDefinition for ${
-        formatDesignatorPathForDisplay(designatorPath)
-      } requests unsupported generated ResourcePage panel selection: ${unsupportedSelection}.`,
-    );
-  }
-
-  const requestedSelectionIris = new Set(selectionIris);
-  return presentationConfig.panelSelections.filter((selection) =>
-    requestedSelectionIris.has(selection.iri)
-  ).map((selection) => selection.iri);
+  return [...selectionIris].sort();
 }
 
 export function describeResourcePageDefinitionArtifact(

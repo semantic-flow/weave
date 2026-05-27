@@ -8,24 +8,27 @@ import {
 
 const RDF_TYPE_IRI = `${RDF_NAMESPACE}type`;
 const APPLICATION_CONFIG_IRI = `${SFCFG_NAMESPACE}ApplicationConfig`;
+const MESH_CONFIG_IRI = `${SFCFG_NAMESPACE}MeshConfig`;
 const CONFIG_RESOLUTION_CONFIG_IRI = `${SFCFG_NAMESPACE}ConfigResolutionConfig`;
-const HAS_DEFAULT_HISTORY_TRACKING_POLICY_IRI =
-  `${SFCFG_NAMESPACE}hasDefaultHistoryTrackingPolicy`;
-const HAS_HISTORY_TRACKING_DEFAULT_IRI =
-  `${SFCFG_NAMESPACE}hasHistoryTrackingDefault`;
+const POLICY_BINDING_IRI = `${SFCFG_NAMESPACE}PolicyBinding`;
+const POLICY_DEFINITION_IRI = `${SFCFG_NAMESPACE}PolicyDefinition`;
+const ANY_GOVERNED_ARTIFACT_POLICY_TARGET_IRI =
+  `${SFCFG_NAMESPACE}AnyGovernedArtifactPolicyTarget`;
+const ARTIFACT_ROLE_POLICY_TARGET_IRI =
+  `${SFCFG_NAMESPACE}ArtifactRolePolicyTarget`;
+const HAS_POLICY_BINDING_IRI = `${SFCFG_NAMESPACE}hasPolicyBinding`;
+const BINDS_POLICY_IRI = `${SFCFG_NAMESPACE}bindsPolicy`;
+const APPLIES_TO_POLICY_TARGET_IRI = `${SFCFG_NAMESPACE}appliesToPolicyTarget`;
+const POLICY_PRIORITY_IRI = `${SFCFG_NAMESPACE}policyPriority`;
 const HAS_ARTIFACT_ROLE_IRI = `${SFCFG_NAMESPACE}hasArtifactRole`;
 const HAS_HISTORY_TRACKING_POLICY_IRI =
   `${SFCFG_NAMESPACE}hasHistoryTrackingPolicy`;
-const HAS_DEFAULT_RESOURCE_PAGE_GENERATION_POLICY_IRI =
-  `${SFCFG_NAMESPACE}hasDefaultResourcePageGenerationPolicy`;
-const HAS_RESOURCE_PAGE_GENERATION_DEFAULT_IRI =
-  `${SFCFG_NAMESPACE}hasResourcePageGenerationDefault`;
 const HAS_RESOURCE_PAGE_GENERATION_POLICY_IRI =
   `${SFCFG_NAMESPACE}hasResourcePageGenerationPolicy`;
+const HAS_RESOURCE_PAGE_PRESENTATION_POLICY_IRI =
+  `${SFCFG_NAMESPACE}hasResourcePagePresentationPolicy`;
 const HAS_RESOURCE_PAGE_REGENERATION_CONFIG_POLICY_IRI =
   `${SFCFG_NAMESPACE}hasResourcePageRegenerationConfigPolicy`;
-const HAS_DEFAULT_RESOURCE_PAGE_PRESENTATION_CONFIG_IRI =
-  `${SFCFG_NAMESPACE}hasDefaultResourcePagePresentationConfig`;
 const HAS_INNER_RESOURCE_PAGE_TEMPLATE_IRI =
   `${SFCFG_NAMESPACE}hasInnerResourcePageTemplate`;
 const HAS_OUTER_RESOURCE_PAGE_TEMPLATE_IRI =
@@ -66,15 +69,28 @@ const MAX_CONFIG_REFERENCE_DEPTH_IRI =
 const HAS_CONFIG_LAYER_IRI = `${SFCFG_NAMESPACE}hasConfigLayer`;
 const HAS_CONFIG_LAYER_ROLE_IRI = `${SFCFG_NAMESPACE}hasConfigLayerRole`;
 const LAYER_ORDER_IRI = `${SFCFG_NAMESPACE}layerOrder`;
+const XSD_INTEGER_IRI = "http://www.w3.org/2001/XMLSchema#integer";
 const XSD_NON_NEGATIVE_INTEGER_IRI =
   "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
 
+const RETIRED_DIRECT_POLICY_PREDICATES = [
+  `${SFCFG_NAMESPACE}hasDefaultHistoryTrackingPolicy`,
+  `${SFCFG_NAMESPACE}hasHistoryTrackingDefault`,
+  `${SFCFG_NAMESPACE}hasDefaultResourcePageGenerationPolicy`,
+  `${SFCFG_NAMESPACE}hasResourcePageGenerationDefault`,
+  `${SFCFG_NAMESPACE}hasDefaultResourcePagePresentationConfig`,
+] as const;
+
 const WEAVE_DEFAULTS_ROOT = new URL("../../../defaults/", import.meta.url);
-const WEAVE_DEFAULTS_NAMESPACE =
+export const WEAVE_DEFAULTS_NAMESPACE =
   "https://semantic-flow.github.io/weave/defaults/";
 
 const DEFAULT_RESOURCE_PAGE_PRESENTATION_IRI =
   `${WEAVE_DEFAULTS_NAMESPACE}resource-page-presentation/semantic-site-default`;
+const ALL_PANELS_RESOURCE_PAGE_PRESENTATION_IRI =
+  `${WEAVE_DEFAULTS_NAMESPACE}resource-page-presentation/semantic-site-all-panels`;
+const NO_PANELS_RESOURCE_PAGE_PRESENTATION_IRI =
+  `${WEAVE_DEFAULTS_NAMESPACE}resource-page-presentation/semantic-site-no-panels`;
 const DEFAULT_OUTER_RESOURCE_PAGE_TEMPLATE_IRI =
   `${WEAVE_DEFAULTS_NAMESPACE}resource-page-template/semantic-site/outer`;
 const DEFAULT_INNER_RESOURCE_PAGE_TEMPLATE_IRI =
@@ -191,21 +207,18 @@ const CONFIG_LAYER_ROLE_VALUES = {
   [`${SFCFG_NAMESPACE}configLayerRole_builtInDefaults`]: "builtInDefaults",
   [`${SFCFG_NAMESPACE}configLayerRole_weaveDefaults`]: "weaveDefaults",
   [`${SFCFG_NAMESPACE}configLayerRole_commandOverride`]: "commandOverride",
-  [`${SFCFG_NAMESPACE}configLayerRole_machineLocalOperational`]:
-    "machineLocalOperational",
-  [`${SFCFG_NAMESPACE}configLayerRole_workspaceOperational`]:
-    "workspaceOperational",
   [`${SFCFG_NAMESPACE}configLayerRole_meshLocal`]: "meshLocal",
   [`${SFCFG_NAMESPACE}configLayerRole_meshInheritable`]: "meshInheritable",
   [`${SFCFG_NAMESPACE}configLayerRole_knopInherited`]: "knopInherited",
   [`${SFCFG_NAMESPACE}configLayerRole_knopLocal`]: "knopLocal",
   [`${SFCFG_NAMESPACE}configLayerRole_knopInheritable`]: "knopInheritable",
-  [`${SFCFG_NAMESPACE}configLayerRole_reusableConfig`]: "reusableConfig",
   [`${SFCFG_NAMESPACE}configLayerRole_resolvedRuntime`]: "resolvedRuntime",
 } as const;
 
 const RESOURCE_PAGE_PRESENTATION_VALUES = {
   [DEFAULT_RESOURCE_PAGE_PRESENTATION_IRI]: "semanticSiteDefault",
+  [ALL_PANELS_RESOURCE_PAGE_PRESENTATION_IRI]: "semanticSiteAllPanels",
+  [NO_PANELS_RESOURCE_PAGE_PRESENTATION_IRI]: "semanticSiteNoPanels",
 } as const;
 
 const OUTER_RESOURCE_PAGE_TEMPLATE_VALUES = {
@@ -259,8 +272,8 @@ const RESOURCE_PAGE_PANEL_DATA_REQUIREMENT_VALUES = {
   [`${SFCFG_NAMESPACE}panelDataRequirement_factSections`]: "factSections",
   [`${SFCFG_NAMESPACE}panelDataRequirement_rawSource`]: "rawSource",
   [`${SFCFG_NAMESPACE}panelDataRequirement_history`]: "history",
-  [`${SFCFG_NAMESPACE}panelDataRequirement_semanticFlowMetadataOptIn`]:
-    "semanticFlowMetadataOptIn",
+  [`${SFCFG_NAMESPACE}panelDataRequirement_semanticFlowMetadata`]:
+    "semanticFlowMetadata",
 } as const;
 
 export type ArtifactRole = ValueOf<typeof ARTIFACT_ROLE_VALUES>;
@@ -299,9 +312,7 @@ export type ResourcePagePresentationIdentity = ValueOf<
   typeof RESOURCE_PAGE_PRESENTATION_VALUES
 >;
 export type ResourcePageTemplateIdentity =
-  | ValueOf<
-    typeof OUTER_RESOURCE_PAGE_TEMPLATE_VALUES
-  >
+  | ValueOf<typeof OUTER_RESOURCE_PAGE_TEMPLATE_VALUES>
   | ValueOf<typeof INNER_RESOURCE_PAGE_TEMPLATE_VALUES>;
 export type ResourcePageStylesheetIdentity = ValueOf<
   typeof RESOURCE_PAGE_STYLESHEET_VALUES
@@ -377,10 +388,143 @@ export interface ResourcePagePresentationProfile {
   panelSelections: readonly ResourcePagePanelSelectionProfile[];
 }
 
-export const DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE:
-  ResourcePagePresentationProfile = {
-    iri: DEFAULT_RESOURCE_PAGE_PRESENTATION_IRI,
-    identity: "semanticSiteDefault",
+const DEFAULT_PANEL_SELECTIONS: readonly ResourcePagePanelSelectionProfile[] = [
+  {
+    iri: `${DEFAULT_RESOURCE_PAGE_PRESENTATION_IRI}#children-panel`,
+    panelIri: `${WEAVE_DEFAULTS_NAMESPACE}resource-page-panel/children`,
+    panel: "children",
+    order: 10,
+    inclusionPolicy: "auto",
+    targetPageKinds: ["identifier", "knop", "simple"],
+    targetClasses: [],
+    targetArtifactRoles: [],
+    dataRequirements: ["children"],
+  },
+  {
+    iri: `${DEFAULT_RESOURCE_PAGE_PRESENTATION_IRI}#properties-panel`,
+    panelIri: `${WEAVE_DEFAULTS_NAMESPACE}resource-page-panel/properties`,
+    panel: "properties",
+    order: 20,
+    inclusionPolicy: "auto",
+    targetPageKinds: ["identifier", "referenceCatalog", "simple"],
+    targetClasses: [],
+    targetArtifactRoles: [],
+    dataRequirements: ["rdfProperties"],
+  },
+  {
+    iri: `${DEFAULT_RESOURCE_PAGE_PRESENTATION_IRI}#blank-nodes-panel`,
+    panelIri: `${WEAVE_DEFAULTS_NAMESPACE}resource-page-panel/blank-nodes`,
+    panel: "blankNodes",
+    order: 30,
+    inclusionPolicy: "auto",
+    targetPageKinds: ["identifier", "referenceCatalog", "simple"],
+    targetClasses: [],
+    targetArtifactRoles: [],
+    dataRequirements: ["blankNodes"],
+  },
+  {
+    iri: `${DEFAULT_RESOURCE_PAGE_PRESENTATION_IRI}#references-panel`,
+    panelIri: `${WEAVE_DEFAULTS_NAMESPACE}resource-page-panel/references`,
+    panel: "references",
+    order: 40,
+    inclusionPolicy: "auto",
+    targetPageKinds: ["identifier"],
+    targetClasses: [],
+    targetArtifactRoles: [],
+    dataRequirements: ["references"],
+  },
+  {
+    iri: `${DEFAULT_RESOURCE_PAGE_PRESENTATION_IRI}#current-links-panel`,
+    panelIri: `${WEAVE_DEFAULTS_NAMESPACE}resource-page-panel/current-links`,
+    panel: "currentLinks",
+    order: 50,
+    inclusionPolicy: "auto",
+    targetPageKinds: ["referenceCatalog"],
+    targetClasses: [],
+    targetArtifactRoles: [],
+    dataRequirements: ["currentReferenceLinks"],
+  },
+  {
+    iri: `${DEFAULT_RESOURCE_PAGE_PRESENTATION_IRI}#knop-artifacts-panel`,
+    panelIri: `${WEAVE_DEFAULTS_NAMESPACE}resource-page-panel/knop-artifacts`,
+    panel: "knopArtifacts",
+    order: 55,
+    inclusionPolicy: "auto",
+    targetPageKinds: ["knop"],
+    targetClasses: [],
+    targetArtifactRoles: [],
+    dataRequirements: ["knopArtifacts"],
+  },
+  {
+    iri: `${DEFAULT_RESOURCE_PAGE_PRESENTATION_IRI}#fact-sections-panel`,
+    panelIri: `${WEAVE_DEFAULTS_NAMESPACE}resource-page-panel/fact-sections`,
+    panel: "factSections",
+    order: 57,
+    inclusionPolicy: "auto",
+    targetPageKinds: ["simple"],
+    targetClasses: [],
+    targetArtifactRoles: [],
+    dataRequirements: ["factSections"],
+  },
+  {
+    iri: `${DEFAULT_RESOURCE_PAGE_PRESENTATION_IRI}#raw-source-panel`,
+    panelIri: `${WEAVE_DEFAULTS_NAMESPACE}resource-page-panel/raw-source`,
+    panel: "rawSource",
+    order: 60,
+    inclusionPolicy: "auto",
+    targetPageKinds: ["identifier", "referenceCatalog", "simple"],
+    targetClasses: [`${SFLO_NAMESPACE}DigitalArtifact`],
+    targetArtifactRoles: [
+      "config",
+      "knopInventory",
+      "knopMetadata",
+      "meshInventory",
+      "meshMetadata",
+      "payload",
+      "referenceCatalog",
+      "resourcePageDefinition",
+      "resourcePageStylesheet",
+      "resourcePageTemplate",
+      "runtimeMeta",
+    ],
+    dataRequirements: ["rawSource"],
+  },
+  {
+    iri: `${DEFAULT_RESOURCE_PAGE_PRESENTATION_IRI}#history-panel`,
+    panelIri: `${WEAVE_DEFAULTS_NAMESPACE}resource-page-panel/history`,
+    panel: "history",
+    order: 70,
+    inclusionPolicy: "auto",
+    targetPageKinds: ["identifier", "referenceCatalog", "simple"],
+    targetClasses: [],
+    targetArtifactRoles: [],
+    dataRequirements: ["history"],
+  },
+];
+
+const SEMANTIC_FLOW_METADATA_PANEL_SELECTION:
+  ResourcePagePanelSelectionProfile = {
+    iri:
+      `${ALL_PANELS_RESOURCE_PAGE_PRESENTATION_IRI}#semantic-flow-metadata-panel`,
+    panelIri:
+      `${WEAVE_DEFAULTS_NAMESPACE}resource-page-panel/semantic-flow-metadata`,
+    panel: "semanticFlowMetadata",
+    order: 80,
+    inclusionPolicy: "auto",
+    targetPageKinds: ["identifier", "knop", "referenceCatalog", "simple"],
+    targetClasses: [],
+    targetArtifactRoles: [],
+    dataRequirements: ["semanticFlowMetadata"],
+  };
+
+function builtinPresentationProfile(
+  iri: string,
+  identity: ResourcePagePresentationIdentity,
+  panelSelections: readonly ResourcePagePanelSelectionProfile[],
+): ResourcePagePresentationProfile {
+  return {
+    iri,
+    identity,
     outerTemplate: {
       iri: DEFAULT_OUTER_RESOURCE_PAGE_TEMPLATE_IRI,
       identity: "semanticSiteOuter",
@@ -393,149 +537,91 @@ export const DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE:
       iri: DEFAULT_RESOURCE_PAGE_STYLESHEET_IRI,
       identity: "semanticSiteDefault",
     }],
-    panelSelections: [
-      {
-        iri: `${DEFAULT_RESOURCE_PAGE_PRESENTATION_IRI}#children-panel`,
-        panelIri: `${WEAVE_DEFAULTS_NAMESPACE}resource-page-panel/children`,
-        panel: "children",
-        order: 10,
-        inclusionPolicy: "auto",
-        targetPageKinds: ["identifier", "knop", "simple"],
-        targetClasses: [],
-        targetArtifactRoles: [],
-        dataRequirements: ["children"],
-      },
-      {
-        iri: `${DEFAULT_RESOURCE_PAGE_PRESENTATION_IRI}#properties-panel`,
-        panelIri: `${WEAVE_DEFAULTS_NAMESPACE}resource-page-panel/properties`,
-        panel: "properties",
-        order: 20,
-        inclusionPolicy: "auto",
-        targetPageKinds: ["identifier", "referenceCatalog", "simple"],
-        targetClasses: [],
-        targetArtifactRoles: [],
-        dataRequirements: ["rdfProperties"],
-      },
-      {
-        iri: `${DEFAULT_RESOURCE_PAGE_PRESENTATION_IRI}#blank-nodes-panel`,
-        panelIri: `${WEAVE_DEFAULTS_NAMESPACE}resource-page-panel/blank-nodes`,
-        panel: "blankNodes",
-        order: 30,
-        inclusionPolicy: "auto",
-        targetPageKinds: ["identifier", "referenceCatalog", "simple"],
-        targetClasses: [],
-        targetArtifactRoles: [],
-        dataRequirements: ["blankNodes"],
-      },
-      {
-        iri: `${DEFAULT_RESOURCE_PAGE_PRESENTATION_IRI}#references-panel`,
-        panelIri: `${WEAVE_DEFAULTS_NAMESPACE}resource-page-panel/references`,
-        panel: "references",
-        order: 40,
-        inclusionPolicy: "auto",
-        targetPageKinds: ["identifier"],
-        targetClasses: [],
-        targetArtifactRoles: [],
-        dataRequirements: ["references"],
-      },
-      {
-        iri: `${DEFAULT_RESOURCE_PAGE_PRESENTATION_IRI}#current-links-panel`,
-        panelIri:
-          `${WEAVE_DEFAULTS_NAMESPACE}resource-page-panel/current-links`,
-        panel: "currentLinks",
-        order: 50,
-        inclusionPolicy: "auto",
-        targetPageKinds: ["referenceCatalog"],
-        targetClasses: [],
-        targetArtifactRoles: [],
-        dataRequirements: ["currentReferenceLinks"],
-      },
-      {
-        iri: `${DEFAULT_RESOURCE_PAGE_PRESENTATION_IRI}#knop-artifacts-panel`,
-        panelIri:
-          `${WEAVE_DEFAULTS_NAMESPACE}resource-page-panel/knop-artifacts`,
-        panel: "knopArtifacts",
-        order: 55,
-        inclusionPolicy: "auto",
-        targetPageKinds: ["knop"],
-        targetClasses: [],
-        targetArtifactRoles: [],
-        dataRequirements: ["knopArtifacts"],
-      },
-      {
-        iri: `${DEFAULT_RESOURCE_PAGE_PRESENTATION_IRI}#fact-sections-panel`,
-        panelIri:
-          `${WEAVE_DEFAULTS_NAMESPACE}resource-page-panel/fact-sections`,
-        panel: "factSections",
-        order: 57,
-        inclusionPolicy: "auto",
-        targetPageKinds: ["simple"],
-        targetClasses: [],
-        targetArtifactRoles: [],
-        dataRequirements: ["factSections"],
-      },
-      {
-        iri: `${DEFAULT_RESOURCE_PAGE_PRESENTATION_IRI}#raw-source-panel`,
-        panelIri: `${WEAVE_DEFAULTS_NAMESPACE}resource-page-panel/raw-source`,
-        panel: "rawSource",
-        order: 60,
-        inclusionPolicy: "auto",
-        targetPageKinds: ["identifier", "referenceCatalog", "simple"],
-        targetClasses: [`${SFLO_NAMESPACE}DigitalArtifact`],
-        targetArtifactRoles: [
-          "config",
-          "knopInventory",
-          "knopMetadata",
-          "meshInventory",
-          "meshMetadata",
-          "payload",
-          "referenceCatalog",
-          "resourcePageDefinition",
-          "resourcePageStylesheet",
-          "resourcePageTemplate",
-          "runtimeMeta",
-        ],
-        dataRequirements: ["rawSource"],
-      },
-      {
-        iri: `${DEFAULT_RESOURCE_PAGE_PRESENTATION_IRI}#history-panel`,
-        panelIri: `${WEAVE_DEFAULTS_NAMESPACE}resource-page-panel/history`,
-        panel: "history",
-        order: 70,
-        inclusionPolicy: "auto",
-        targetPageKinds: ["identifier", "referenceCatalog", "simple"],
-        targetClasses: [],
-        targetArtifactRoles: [],
-        dataRequirements: ["history"],
-      },
-      {
-        iri:
-          `${DEFAULT_RESOURCE_PAGE_PRESENTATION_IRI}#semantic-flow-metadata-panel`,
-        panelIri:
-          `${WEAVE_DEFAULTS_NAMESPACE}resource-page-panel/semantic-flow-metadata`,
-        panel: "semanticFlowMetadata",
-        order: 80,
-        inclusionPolicy: "auto",
-        targetPageKinds: [
-          "identifier",
-          "knop",
-          "referenceCatalog",
-          "simple",
-        ],
-        targetClasses: [],
-        targetArtifactRoles: [],
-        dataRequirements: ["semanticFlowMetadataOptIn"],
-      },
-    ],
+    panelSelections,
   };
+}
+
+export const DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE =
+  builtinPresentationProfile(
+    DEFAULT_RESOURCE_PAGE_PRESENTATION_IRI,
+    "semanticSiteDefault",
+    DEFAULT_PANEL_SELECTIONS,
+  );
+
+export const ALL_PANELS_RESOURCE_PAGE_PRESENTATION_PROFILE =
+  builtinPresentationProfile(
+    ALL_PANELS_RESOURCE_PAGE_PRESENTATION_IRI,
+    "semanticSiteAllPanels",
+    [...DEFAULT_PANEL_SELECTIONS, SEMANTIC_FLOW_METADATA_PANEL_SELECTION],
+  );
+
+export const NO_PANELS_RESOURCE_PAGE_PRESENTATION_PROFILE =
+  builtinPresentationProfile(
+    NO_PANELS_RESOURCE_PAGE_PRESENTATION_IRI,
+    "semanticSiteNoPanels",
+    [],
+  );
 
 export interface EffectiveConfigSources {
   applicationSource: string;
   configResolutionSource: string;
+  meshConfigSource?: string;
+  commandOverrideSource?: string;
 }
 
 export interface LoadWeaveDefaultEffectiveConfigOptions {
   defaultsRoot?: string | URL;
+}
+
+export interface CompileWeaveEffectiveConfigCommandOverrides {
+  historyTrackingPolicy?: HistoryTrackingPolicy;
+  resourcePagePresentation?: ResourcePagePresentationIdentity;
+}
+
+export interface CompileWeaveEffectiveConfigOptions {
+  defaultsRoot?: string | URL;
+  meshConfigTurtle?: string;
+  meshConfigSource?: string;
+  commandOverrides?: CompileWeaveEffectiveConfigCommandOverrides;
+}
+
+type PolicySlot =
+  | "historyTracking"
+  | "resourcePageGeneration"
+  | "resourcePagePresentation";
+
+type PolicyValueBySlot = {
+  historyTracking?: HistoryTrackingPolicy;
+  resourcePageGeneration?: ResourcePageGenerationPolicy;
+  resourcePagePresentation?: ResourcePagePresentationIdentity;
+};
+
+type PolicyTarget =
+  | { kind: "anyGovernedArtifact" }
+  | { kind: "artifactRole"; artifactRole: ArtifactRole };
+
+interface PolicyTargetDescriptor {
+  artifactRoles: readonly ArtifactRole[];
+}
+
+interface CompiledPolicyBinding {
+  source: string;
+  layerRole: ConfigLayerRole;
+  layerOrder: number;
+  bindingTerm: string;
+  target: PolicyTarget;
+  priority: number;
+  values: PolicyValueBySlot;
+}
+
+export interface PolicyResolutionTraceEntry {
+  slot: PolicySlot;
+  artifactRoles: readonly ArtifactRole[];
+  selectedValue: string;
+  selectedLayerRole: ConfigLayerRole;
+  selectedSource: string;
+  selectedTargetKind: PolicyTarget["kind"];
+  candidateCount: number;
 }
 
 export class EffectiveConfigError extends Error {
@@ -552,59 +638,60 @@ export class EffectiveConfig {
   readonly resourcePagePresentation: ResourcePagePresentationProfile;
   readonly resourcePageRegenerationConfigPolicy:
     ResourcePageRegenerationConfigPolicy;
-  readonly #defaultHistoryTrackingPolicy: HistoryTrackingPolicy;
-  readonly #historyTrackingByRole: ReadonlyMap<
-    ArtifactRole,
-    HistoryTrackingPolicy
-  >;
-  readonly #defaultResourcePageGenerationPolicy: ResourcePageGenerationPolicy;
-  readonly #resourcePageGenerationByRole: ReadonlyMap<
-    ArtifactRole,
-    ResourcePageGenerationPolicy
+  readonly resolutionTrace: PolicyResolutionTraceEntry[] = [];
+  readonly #policyBindings: readonly CompiledPolicyBinding[];
+  readonly #presentationProfiles: ReadonlyMap<
+    ResourcePagePresentationIdentity,
+    ResourcePagePresentationProfile
   >;
 
   constructor(
     input: {
       sources: EffectiveConfigSources;
-      defaultHistoryTrackingPolicy: HistoryTrackingPolicy;
-      historyTrackingByRole: ReadonlyMap<ArtifactRole, HistoryTrackingPolicy>;
-      defaultResourcePageGenerationPolicy: ResourcePageGenerationPolicy;
-      resourcePageGenerationByRole: ReadonlyMap<
-        ArtifactRole,
-        ResourcePageGenerationPolicy
+      policyBindings: readonly CompiledPolicyBinding[];
+      resourcePagePresentationProfiles: ReadonlyMap<
+        ResourcePagePresentationIdentity,
+        ResourcePagePresentationProfile
       >;
       resourcePageRegenerationConfigPolicy:
         ResourcePageRegenerationConfigPolicy;
-      resourcePagePresentation: ResourcePagePresentationProfile;
       namingPolicies: DefaultNamingPolicies;
       configResolution: DefaultConfigResolutionProfile;
     },
   ) {
     this.sources = input.sources;
-    this.#defaultHistoryTrackingPolicy = input.defaultHistoryTrackingPolicy;
-    this.#historyTrackingByRole = input.historyTrackingByRole;
-    this.#defaultResourcePageGenerationPolicy =
-      input.defaultResourcePageGenerationPolicy;
-    this.#resourcePageGenerationByRole = input.resourcePageGenerationByRole;
+    this.#policyBindings = input.policyBindings;
+    this.#presentationProfiles = input.resourcePagePresentationProfiles;
     this.resourcePageRegenerationConfigPolicy =
       input.resourcePageRegenerationConfigPolicy;
-    this.resourcePagePresentation = input.resourcePagePresentation;
     this.namingPolicies = input.namingPolicies;
     this.configResolution = input.configResolution;
+    this.resourcePagePresentation = this
+      .resourcePagePresentationPolicyForTarget({ artifactRoles: [] });
   }
 
   historyTrackingPolicyForArtifactRole(
     artifactRole: ArtifactRole,
   ): HistoryTrackingPolicy {
-    return this.#historyTrackingByRole.get(artifactRole) ??
-      this.#defaultHistoryTrackingPolicy;
+    return this.resolvePolicyValue("historyTracking", {
+      artifactRoles: [artifactRole],
+    }) as HistoryTrackingPolicy;
   }
 
   resourcePageGenerationPolicyForArtifactRole(
     artifactRole: ArtifactRole,
   ): ResourcePageGenerationPolicy {
-    return this.#resourcePageGenerationByRole.get(artifactRole) ??
-      this.#defaultResourcePageGenerationPolicy;
+    return this.resolvePolicyValue("resourcePageGeneration", {
+      artifactRoles: [artifactRole],
+    }) as ResourcePageGenerationPolicy;
+  }
+
+  resourcePagePresentationPolicyForArtifactRole(
+    artifactRole: ArtifactRole,
+  ): ResourcePagePresentationProfile {
+    return this.resourcePagePresentationPolicyForTarget({
+      artifactRoles: [artifactRole],
+    });
   }
 
   artifactRolePolicy(
@@ -618,10 +705,93 @@ export class EffectiveConfig {
         .resourcePageGenerationPolicyForArtifactRole(artifactRole),
     };
   }
+
+  private resourcePagePresentationPolicyForTarget(
+    target: PolicyTargetDescriptor,
+  ): ResourcePagePresentationProfile {
+    const identity = this.resolvePolicyValue(
+      "resourcePagePresentation",
+      target,
+    ) as ResourcePagePresentationIdentity;
+    const profile = this.#presentationProfiles.get(identity);
+    if (!profile) {
+      throw new EffectiveConfigError(
+        `Resolved ResourcePage presentation profile is unavailable: ${identity}`,
+      );
+    }
+    return profile;
+  }
+
+  private resolvePolicyValue(
+    slot: PolicySlot,
+    target: PolicyTargetDescriptor,
+  ): string {
+    const candidates = this.#policyBindings
+      .filter((binding) =>
+        policyValueForSlot(binding.values, slot) !==
+          undefined
+      )
+      .filter((binding) => policyTargetCovers(binding.target, target));
+
+    if (candidates.length === 0) {
+      throw new EffectiveConfigError(
+        `No policy binding resolved for ${slot}`,
+      );
+    }
+
+    const highestLayerOrder = Math.max(
+      ...candidates.map((binding) => binding.layerOrder),
+    );
+    const layerWinners = candidates.filter((binding) =>
+      binding.layerOrder === highestLayerOrder
+    );
+    const highestSpecificity = Math.max(
+      ...layerWinners.map((binding) => policyTargetSpecificity(binding.target)),
+    );
+    const specificityWinners = layerWinners.filter((binding) =>
+      policyTargetSpecificity(binding.target) === highestSpecificity
+    );
+    const highestPriority = Math.max(
+      ...specificityWinners.map((binding) => binding.priority),
+    );
+    const priorityWinners = specificityWinners.filter((binding) =>
+      binding.priority === highestPriority
+    );
+    const values = new Set(
+      priorityWinners.map((binding) =>
+        policyValueForSlot(binding.values, slot)!
+      ),
+    );
+
+    if (values.size !== 1) {
+      throw new EffectiveConfigError(
+        `Conflicting ${slot} policy bindings at the same layer, specificity, and priority`,
+      );
+    }
+
+    const selected = priorityWinners[0]!;
+    const selectedValue = values.values().next().value!;
+    this.resolutionTrace.push({
+      slot,
+      artifactRoles: target.artifactRoles,
+      selectedValue,
+      selectedLayerRole: selected.layerRole,
+      selectedSource: selected.source,
+      selectedTargetKind: selected.target.kind,
+      candidateCount: candidates.length,
+    });
+    return selectedValue;
+  }
 }
 
 export async function loadWeaveDefaultEffectiveConfig(
   options: LoadWeaveDefaultEffectiveConfigOptions = {},
+): Promise<EffectiveConfig> {
+  return await loadWeaveEffectiveConfig({ defaultsRoot: options.defaultsRoot });
+}
+
+export async function loadWeaveEffectiveConfig(
+  options: CompileWeaveEffectiveConfigOptions = {},
 ): Promise<EffectiveConfig> {
   const applicationSource = resolveDefaultsFile(
     options.defaultsRoot,
@@ -632,14 +802,19 @@ export async function loadWeaveDefaultEffectiveConfig(
     "config-resolution.ttl",
   );
 
-  return parseWeaveDefaultEffectiveConfig(
-    await Deno.readTextFile(applicationSource),
-    await Deno.readTextFile(configResolutionSource),
-    {
+  return compileWeaveEffectiveConfig({
+    applicationTurtle: await Deno.readTextFile(applicationSource),
+    configResolutionTurtle: await Deno.readTextFile(configResolutionSource),
+    meshConfigTurtle: options.meshConfigTurtle,
+    commandOverrides: options.commandOverrides,
+    sources: {
       applicationSource: formatSource(applicationSource),
       configResolutionSource: formatSource(configResolutionSource),
+      ...(options.meshConfigSource
+        ? { meshConfigSource: options.meshConfigSource }
+        : {}),
     },
-  );
+  });
 }
 
 export function parseWeaveDefaultEffectiveConfig(
@@ -650,50 +825,82 @@ export function parseWeaveDefaultEffectiveConfig(
     configResolutionSource: "config-resolution.ttl",
   },
 ): EffectiveConfig {
-  const applicationQuads = parseTurtle(
+  return compileWeaveEffectiveConfig({
     applicationTurtle,
+    configResolutionTurtle,
+    sources,
+  });
+}
+
+export function compileWeaveEffectiveConfig(input: {
+  applicationTurtle: string;
+  configResolutionTurtle: string;
+  meshConfigTurtle?: string;
+  commandOverrides?: CompileWeaveEffectiveConfigCommandOverrides;
+  sources?: EffectiveConfigSources;
+}): EffectiveConfig {
+  const sources = input.sources ?? {
+    applicationSource: "application.ttl",
+    configResolutionSource: "config-resolution.ttl",
+    ...(input.meshConfigTurtle ? { meshConfigSource: "mesh-config.ttl" } : {}),
+  };
+  const applicationQuads = parseTurtle(
+    input.applicationTurtle,
     sources.applicationSource,
   );
+  const meshQuads = input.meshConfigTurtle
+    ? parseTurtle(
+      input.meshConfigTurtle,
+      sources.meshConfigSource ?? "mesh-config.ttl",
+    )
+    : [];
   const configResolutionQuads = parseTurtle(
-    configResolutionTurtle,
+    input.configResolutionTurtle,
     sources.configResolutionSource,
+  );
+  const configResolution = parseConfigResolutionProfile(
+    configResolutionQuads,
+    sources.configResolutionSource,
+  );
+  const layerOrderByRole = new Map(
+    configResolution.layers.map((layer) => [layer.role, layer.order]),
   );
   const applicationSubject = requireSingleTypedSubject(
     applicationQuads,
     APPLICATION_CONFIG_IRI,
     sources.applicationSource,
   );
+  rejectRetiredDirectPolicyPredicates(
+    applicationQuads,
+    sources.applicationSource,
+  );
+  rejectRetiredDirectPolicyPredicates(
+    meshQuads,
+    sources.meshConfigSource ?? "mesh-config.ttl",
+  );
+
+  const allQuads = [...applicationQuads, ...meshQuads];
+  const policyBindings = [
+    ...parsePolicyBindings({
+      quads: applicationQuads,
+      configSubject: applicationSubject,
+      source: sources.applicationSource,
+      layerRole: "weaveDefaults",
+      layerOrderByRole,
+    }),
+    ...parseMeshPolicyBindings(meshQuads, sources, layerOrderByRole),
+    ...compileCommandOverrideBindings(
+      input.commandOverrides,
+      layerOrderByRole,
+      sources.commandOverrideSource ?? "command override",
+    ),
+  ];
 
   return new EffectiveConfig({
     sources,
-    defaultHistoryTrackingPolicy: requireSingleNamedValue(
-      applicationQuads,
-      applicationSubject,
-      HAS_DEFAULT_HISTORY_TRACKING_POLICY_IRI,
-      HISTORY_TRACKING_POLICY_VALUES,
-      sources.applicationSource,
-    ),
-    historyTrackingByRole: parseArtifactRolePolicies(
-      applicationQuads,
-      applicationSubject,
-      HAS_HISTORY_TRACKING_DEFAULT_IRI,
-      HAS_HISTORY_TRACKING_POLICY_IRI,
-      HISTORY_TRACKING_POLICY_VALUES,
-      sources.applicationSource,
-    ),
-    defaultResourcePageGenerationPolicy: requireSingleNamedValue(
-      applicationQuads,
-      applicationSubject,
-      HAS_DEFAULT_RESOURCE_PAGE_GENERATION_POLICY_IRI,
-      RESOURCE_PAGE_GENERATION_POLICY_VALUES,
-      sources.applicationSource,
-    ),
-    resourcePageGenerationByRole: parseArtifactRolePolicies(
-      applicationQuads,
-      applicationSubject,
-      HAS_RESOURCE_PAGE_GENERATION_DEFAULT_IRI,
-      HAS_RESOURCE_PAGE_GENERATION_POLICY_IRI,
-      RESOURCE_PAGE_GENERATION_POLICY_VALUES,
+    policyBindings,
+    resourcePagePresentationProfiles: parseResourcePagePresentationProfiles(
+      allQuads,
       sources.applicationSource,
     ),
     resourcePageRegenerationConfigPolicy: requireSingleNamedValue(
@@ -701,11 +908,6 @@ export function parseWeaveDefaultEffectiveConfig(
       applicationSubject,
       HAS_RESOURCE_PAGE_REGENERATION_CONFIG_POLICY_IRI,
       RESOURCE_PAGE_REGENERATION_CONFIG_POLICY_VALUES,
-      sources.applicationSource,
-    ),
-    resourcePagePresentation: parseResourcePagePresentationProfile(
-      applicationQuads,
-      applicationSubject,
       sources.applicationSource,
     ),
     namingPolicies: {
@@ -731,11 +933,276 @@ export function parseWeaveDefaultEffectiveConfig(
         sources.applicationSource,
       ),
     },
-    configResolution: parseConfigResolutionProfile(
-      configResolutionQuads,
-      sources.configResolutionSource,
-    ),
+    configResolution,
   });
+}
+
+function parseMeshPolicyBindings(
+  meshQuads: readonly Quad[],
+  sources: EffectiveConfigSources,
+  layerOrderByRole: ReadonlyMap<ConfigLayerRole, number>,
+): readonly CompiledPolicyBinding[] {
+  if (meshQuads.length === 0) {
+    return [];
+  }
+  const meshConfigSubjects = collectTypedSubjects(meshQuads, MESH_CONFIG_IRI);
+  if (meshConfigSubjects.length !== 1) {
+    throw new EffectiveConfigError(
+      `Expected exactly one ${MESH_CONFIG_IRI} subject in ${
+        sources.meshConfigSource ?? "mesh-config.ttl"
+      }`,
+    );
+  }
+
+  return parsePolicyBindings({
+    quads: meshQuads,
+    configSubject: meshConfigSubjects[0]!,
+    source: sources.meshConfigSource ?? "mesh-config.ttl",
+    layerRole: "meshLocal",
+    layerOrderByRole,
+  });
+}
+
+function compileCommandOverrideBindings(
+  commandOverrides:
+    | CompileWeaveEffectiveConfigCommandOverrides
+    | undefined,
+  layerOrderByRole: ReadonlyMap<ConfigLayerRole, number>,
+  source: string,
+): readonly CompiledPolicyBinding[] {
+  if (!commandOverrides) {
+    return [];
+  }
+
+  const layerOrder = requireLayerOrder(layerOrderByRole, "commandOverride");
+  const bindings: CompiledPolicyBinding[] = [];
+  if (commandOverrides.historyTrackingPolicy) {
+    bindings.push({
+      source,
+      layerRole: "commandOverride",
+      layerOrder,
+      bindingTerm: "command:historyTrackingPolicy",
+      target: { kind: "anyGovernedArtifact" },
+      priority: 0,
+      values: { historyTracking: commandOverrides.historyTrackingPolicy },
+    });
+  }
+  if (commandOverrides.resourcePagePresentation) {
+    bindings.push({
+      source,
+      layerRole: "commandOverride",
+      layerOrder,
+      bindingTerm: "command:resourcePagePresentation",
+      target: { kind: "anyGovernedArtifact" },
+      priority: 0,
+      values: {
+        resourcePagePresentation: commandOverrides.resourcePagePresentation,
+      },
+    });
+  }
+
+  return bindings;
+}
+
+function parsePolicyBindings(input: {
+  quads: readonly Quad[];
+  configSubject: string;
+  source: string;
+  layerRole: ConfigLayerRole;
+  layerOrderByRole: ReadonlyMap<ConfigLayerRole, number>;
+}): readonly CompiledPolicyBinding[] {
+  const layerOrder = requireLayerOrder(input.layerOrderByRole, input.layerRole);
+  return collectObjectTerms(
+    input.quads,
+    input.configSubject,
+    HAS_POLICY_BINDING_IRI,
+  ).map((bindingTerm) =>
+    parsePolicyBinding(input.quads, bindingTerm, {
+      source: input.source,
+      layerRole: input.layerRole,
+      layerOrder,
+    })
+  );
+}
+
+function parsePolicyBinding(
+  quads: readonly Quad[],
+  bindingTerm: string,
+  sourceLayer: {
+    source: string;
+    layerRole: ConfigLayerRole;
+    layerOrder: number;
+  },
+): CompiledPolicyBinding {
+  requireTermHasType(
+    quads,
+    bindingTerm,
+    POLICY_BINDING_IRI,
+    sourceLayer.source,
+  );
+  const policyTerm = requireSingleObjectTerm(
+    quads,
+    bindingTerm,
+    BINDS_POLICY_IRI,
+    sourceLayer.source,
+  );
+  requireTermHasType(
+    quads,
+    policyTerm,
+    POLICY_DEFINITION_IRI,
+    sourceLayer.source,
+  );
+  const targetTerm = requireSingleObjectTerm(
+    quads,
+    bindingTerm,
+    APPLIES_TO_POLICY_TARGET_IRI,
+    sourceLayer.source,
+  );
+  const values = parsePolicyDefinitionValues(
+    quads,
+    policyTerm,
+    sourceLayer.source,
+  );
+  const priority = requireOptionalSingleInteger(
+    quads,
+    bindingTerm,
+    POLICY_PRIORITY_IRI,
+    sourceLayer.source,
+  ) ?? 0;
+
+  return {
+    ...sourceLayer,
+    bindingTerm,
+    target: parsePolicyTarget(quads, targetTerm, sourceLayer.source),
+    priority,
+    values,
+  };
+}
+
+function parsePolicyDefinitionValues(
+  quads: readonly Quad[],
+  policyTerm: string,
+  source: string,
+): PolicyValueBySlot {
+  const values: PolicyValueBySlot = {};
+  const historyTracking = requireOptionalSingleNamedValue(
+    quads,
+    policyTerm,
+    HAS_HISTORY_TRACKING_POLICY_IRI,
+    HISTORY_TRACKING_POLICY_VALUES,
+    source,
+  );
+  const resourcePageGeneration = requireOptionalSingleNamedValue(
+    quads,
+    policyTerm,
+    HAS_RESOURCE_PAGE_GENERATION_POLICY_IRI,
+    RESOURCE_PAGE_GENERATION_POLICY_VALUES,
+    source,
+  );
+  const resourcePagePresentation = requireOptionalSingleNamedValue(
+    quads,
+    policyTerm,
+    HAS_RESOURCE_PAGE_PRESENTATION_POLICY_IRI,
+    RESOURCE_PAGE_PRESENTATION_VALUES,
+    source,
+  );
+  if (historyTracking) {
+    values.historyTracking = historyTracking;
+  }
+  if (resourcePageGeneration) {
+    values.resourcePageGeneration = resourcePageGeneration;
+  }
+  if (resourcePagePresentation) {
+    values.resourcePagePresentation = resourcePagePresentation;
+  }
+  if (Object.keys(values).length === 0) {
+    throw new EffectiveConfigError(
+      `PolicyDefinition in ${source} must declare at least one supported policy value`,
+    );
+  }
+
+  return values;
+}
+
+function parsePolicyTarget(
+  quads: readonly Quad[],
+  targetTerm: string,
+  source: string,
+): PolicyTarget {
+  const types = collectNamedNodeObjects(quads, targetTerm, RDF_TYPE_IRI);
+  const supportedTypes = types.filter((typeIri) =>
+    typeIri === ANY_GOVERNED_ARTIFACT_POLICY_TARGET_IRI ||
+    typeIri === ARTIFACT_ROLE_POLICY_TARGET_IRI
+  );
+  if (supportedTypes.length !== 1) {
+    throw new EffectiveConfigError(
+      `Policy target in ${source} must declare exactly one supported target type`,
+    );
+  }
+
+  const targetType = supportedTypes[0]!;
+  if (targetType === ANY_GOVERNED_ARTIFACT_POLICY_TARGET_IRI) {
+    return { kind: "anyGovernedArtifact" };
+  }
+
+  return {
+    kind: "artifactRole",
+    artifactRole: requireSingleNamedValue(
+      quads,
+      targetTerm,
+      HAS_ARTIFACT_ROLE_IRI,
+      ARTIFACT_ROLE_VALUES,
+      source,
+    ),
+  };
+}
+
+function policyValueForSlot(
+  values: PolicyValueBySlot,
+  slot: PolicySlot,
+): string | undefined {
+  switch (slot) {
+    case "historyTracking":
+      return values.historyTracking;
+    case "resourcePageGeneration":
+      return values.resourcePageGeneration;
+    case "resourcePagePresentation":
+      return values.resourcePagePresentation;
+  }
+}
+
+function policyTargetCovers(
+  policyTarget: PolicyTarget,
+  queryTarget: PolicyTargetDescriptor,
+): boolean {
+  switch (policyTarget.kind) {
+    case "anyGovernedArtifact":
+      return true;
+    case "artifactRole":
+      return queryTarget.artifactRoles.includes(policyTarget.artifactRole);
+  }
+}
+
+function policyTargetSpecificity(policyTarget: PolicyTarget): number {
+  switch (policyTarget.kind) {
+    case "anyGovernedArtifact":
+      return 0;
+    case "artifactRole":
+      return 1;
+  }
+}
+
+function requireLayerOrder(
+  layerOrderByRole: ReadonlyMap<ConfigLayerRole, number>,
+  role: ConfigLayerRole,
+): number {
+  const layerOrder = layerOrderByRole.get(role);
+  if (layerOrder === undefined) {
+    throw new EffectiveConfigError(
+      `Config resolution profile does not define layer order for ${role}`,
+    );
+  }
+  return layerOrder;
 }
 
 function parseConfigResolutionProfile(
@@ -844,62 +1311,42 @@ function parseConfigLayers(
   return layers;
 }
 
-function parseArtifactRolePolicies<T extends string>(
+function parseResourcePagePresentationProfiles(
   quads: readonly Quad[],
-  subject: string,
-  attachmentPredicateIri: string,
-  policyPredicateIri: string,
-  policyValues: Record<string, T>,
   source: string,
-): ReadonlyMap<ArtifactRole, T> {
-  const policies = new Map<ArtifactRole, T>();
-
+): ReadonlyMap<
+  ResourcePagePresentationIdentity,
+  ResourcePagePresentationProfile
+> {
+  const profiles = new Map<
+    ResourcePagePresentationIdentity,
+    ResourcePagePresentationProfile
+  >();
   for (
-    const policySubject of collectObjectTerms(
-      quads,
-      subject,
-      attachmentPredicateIri,
-    )
+    const [iri, identity] of Object.entries(RESOURCE_PAGE_PRESENTATION_VALUES)
   ) {
-    const role = requireSingleNamedValue(
-      quads,
-      policySubject,
-      HAS_ARTIFACT_ROLE_IRI,
-      ARTIFACT_ROLE_VALUES,
-      source,
+    profiles.set(
+      identity,
+      parseResourcePagePresentationProfile(quads, iri, source),
     );
-    const policy = requireSingleNamedValue(
-      quads,
-      policySubject,
-      policyPredicateIri,
-      policyValues,
-      source,
-    );
-    if (policies.has(role)) {
-      throw new EffectiveConfigError(
-        `Duplicate artifact-role policy for ${role} in ${source}`,
-      );
-    }
-
-    policies.set(role, policy);
   }
-
-  return policies;
+  return profiles;
 }
 
 function parseResourcePagePresentationProfile(
   quads: readonly Quad[],
-  applicationSubject: string,
+  presentationIri: string,
   source: string,
 ): ResourcePagePresentationProfile {
-  const presentation = requireSingleKnownNamedNode(
-    quads,
-    applicationSubject,
-    HAS_DEFAULT_RESOURCE_PAGE_PRESENTATION_CONFIG_IRI,
-    RESOURCE_PAGE_PRESENTATION_VALUES,
-    source,
-  );
-  const presentationSubject = `NamedNode:${presentation.iri}`;
+  const identity = RESOURCE_PAGE_PRESENTATION_VALUES[
+    presentationIri as keyof typeof RESOURCE_PAGE_PRESENTATION_VALUES
+  ];
+  if (!identity) {
+    throw new EffectiveConfigError(
+      `Unsupported ResourcePage presentation profile in ${source}: ${presentationIri}`,
+    );
+  }
+  const presentationSubject = `NamedNode:${presentationIri}`;
   const stylesheets = [...collectKnownNamedNodes(
     quads,
     presentationSubject,
@@ -914,8 +1361,8 @@ function parseResourcePagePresentationProfile(
   }
 
   return {
-    iri: presentation.iri,
-    identity: presentation.identity,
+    iri: presentationIri,
+    identity,
     outerTemplate: requireSingleKnownNamedNode(
       quads,
       presentationSubject,
@@ -949,11 +1396,6 @@ function parseResourcePagePanelSelections(
     presentationSubject,
     HAS_RESOURCE_PAGE_PANEL_SELECTION_IRI,
   );
-  if (selectionTerms.length === 0) {
-    throw new EffectiveConfigError(
-      `Expected at least one ${HAS_RESOURCE_PAGE_PANEL_SELECTION_IRI} value in ${source}`,
-    );
-  }
 
   return selectionTerms.map((selectionTerm) =>
     parseResourcePagePanelSelection(quads, selectionTerm, source)
@@ -1034,6 +1476,22 @@ function parseResourcePagePanelSelection(
   };
 }
 
+function rejectRetiredDirectPolicyPredicates(
+  quads: readonly Quad[],
+  source: string,
+): void {
+  const retiredPredicate = quads.find((quad) =>
+    RETIRED_DIRECT_POLICY_PREDICATES.includes(
+      quad.predicate.value as typeof RETIRED_DIRECT_POLICY_PREDICATES[number],
+    )
+  )?.predicate.value;
+  if (retiredPredicate) {
+    throw new EffectiveConfigError(
+      `Retired direct policy predicate is not supported in ${source}: ${retiredPredicate}`,
+    );
+  }
+}
+
 function parseTurtle(turtle: string, source: string): readonly Quad[] {
   try {
     return new Parser({ baseIRI: toParserBaseIri(source) }).parse(turtle);
@@ -1049,6 +1507,21 @@ function requireSingleTypedSubject(
   typeIri: string,
   source: string,
 ): string {
+  const subjects = collectTypedSubjects(quads, typeIri);
+
+  if (subjects.length !== 1) {
+    throw new EffectiveConfigError(
+      `Expected exactly one ${typeIri} subject in ${source}`,
+    );
+  }
+
+  return subjects[0]!;
+}
+
+function collectTypedSubjects(
+  quads: readonly Quad[],
+  typeIri: string,
+): readonly string[] {
   const subjects = new Set<string>();
 
   for (const quad of quads) {
@@ -1069,13 +1542,22 @@ function requireSingleTypedSubject(
     subjects.add(toTermKey(quad.subject));
   }
 
-  if (subjects.size !== 1) {
+  return [...subjects];
+}
+
+function requireTermHasType(
+  quads: readonly Quad[],
+  termKey: string,
+  typeIri: string,
+  source: string,
+): void {
+  if (
+    !collectNamedNodeObjects(quads, termKey, RDF_TYPE_IRI).includes(typeIri)
+  ) {
     throw new EffectiveConfigError(
-      `Expected exactly one ${typeIri} subject in ${source}`,
+      `Expected ${termKey} to be typed ${typeIri} in ${source}`,
     );
   }
-
-  return [...subjects][0]!;
 }
 
 function requireSingleNamedValue<T extends string>(
@@ -1085,10 +1567,36 @@ function requireSingleNamedValue<T extends string>(
   values: Record<string, T>,
   source: string,
 ): T {
-  const namedNodes = collectNamedNodeObjects(quads, subject, predicateIri);
-  if (namedNodes.length !== 1) {
+  const value = requireOptionalSingleNamedValue(
+    quads,
+    subject,
+    predicateIri,
+    values,
+    source,
+  );
+  if (value === undefined) {
     throw new EffectiveConfigError(
       `Expected exactly one ${predicateIri} value in ${source}`,
+    );
+  }
+
+  return value;
+}
+
+function requireOptionalSingleNamedValue<T extends string>(
+  quads: readonly Quad[],
+  subject: string,
+  predicateIri: string,
+  values: Record<string, T>,
+  source: string,
+): T | undefined {
+  const namedNodes = collectNamedNodeObjects(quads, subject, predicateIri);
+  if (namedNodes.length === 0) {
+    return undefined;
+  }
+  if (namedNodes.length !== 1) {
+    throw new EffectiveConfigError(
+      `Expected at most one ${predicateIri} value in ${source}`,
     );
   }
 
@@ -1158,32 +1666,89 @@ function requireNamedNodeTermIri(
   return termKey.slice("NamedNode:".length);
 }
 
+function requireSingleObjectTerm(
+  quads: readonly Quad[],
+  subject: string,
+  predicateIri: string,
+  source: string,
+): string {
+  const terms = collectObjectTerms(quads, subject, predicateIri);
+  if (terms.length !== 1) {
+    throw new EffectiveConfigError(
+      `Expected exactly one ${predicateIri} value in ${source}`,
+    );
+  }
+
+  return terms[0]!;
+}
+
 function requireSingleNonNegativeInteger(
   quads: readonly Quad[],
   subject: string,
   predicateIri: string,
   source: string,
 ): number {
+  const value = requireOptionalIntegerLiteral(
+    quads,
+    subject,
+    predicateIri,
+    source,
+    [XSD_NON_NEGATIVE_INTEGER_IRI],
+  );
+  if (value === undefined || value < 0) {
+    throw new EffectiveConfigError(
+      `Expected exactly one ${predicateIri} xsd:nonNegativeInteger literal in ${source}`,
+    );
+  }
+
+  return value;
+}
+
+function requireOptionalSingleInteger(
+  quads: readonly Quad[],
+  subject: string,
+  predicateIri: string,
+  source: string,
+): number | undefined {
+  return requireOptionalIntegerLiteral(
+    quads,
+    subject,
+    predicateIri,
+    source,
+    [XSD_INTEGER_IRI, XSD_NON_NEGATIVE_INTEGER_IRI],
+  );
+}
+
+function requireOptionalIntegerLiteral(
+  quads: readonly Quad[],
+  subject: string,
+  predicateIri: string,
+  source: string,
+  acceptedDatatypes: readonly string[],
+): number | undefined {
   const values = quads.filter((quad) =>
     toTermKey(quad.subject) === subject &&
     quad.predicate.value === predicateIri &&
     quad.object.termType === "Literal"
   );
 
+  if (values.length === 0) {
+    return undefined;
+  }
   if (values.length !== 1) {
     throw new EffectiveConfigError(
-      `Expected exactly one ${predicateIri} literal in ${source}`,
+      `Expected at most one ${predicateIri} literal in ${source}`,
     );
   }
 
   const literal = values[0]!.object;
   if (
     literal.termType !== "Literal" ||
-    literal.datatype.value !== XSD_NON_NEGATIVE_INTEGER_IRI ||
-    !/^(0|[1-9]\d*)$/.test(literal.value)
+    !acceptedDatatypes.includes(literal.datatype.value) ||
+    !/^-?(0|[1-9]\d*)$/.test(literal.value)
   ) {
     throw new EffectiveConfigError(
-      `Expected ${predicateIri} to be xsd:nonNegativeInteger in ${source}`,
+      `Expected ${predicateIri} to be an integer literal in ${source}`,
     );
   }
 

@@ -76,7 +76,14 @@ export async function prepareVersionExecution(
   const effectiveConfig = await timeOptional(
     timing,
     "prepare.loadEffectiveConfig",
-    () => loadEffectiveConfigForExecution(historyTrackingPolicyOverride),
+    () =>
+      loadEffectiveConfigForExecution({
+        meshConfigTurtle: meshState.currentMeshConfigTurtle,
+        meshConfigSource: meshState.currentMeshConfigTurtle
+          ? "_mesh/_config/config.ttl"
+          : undefined,
+        historyTrackingPolicyOverride,
+      }),
   );
   const supportHistoryPolicies = supportHistoryPoliciesFromEffectiveConfig(
     effectiveConfig,
