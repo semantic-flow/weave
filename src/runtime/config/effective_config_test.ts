@@ -593,19 +593,19 @@ function withValidResourcePagePresentation(applicationTurtle: string): string {
 <${WEAVE_DEFAULTS_NAMESPACE}resource-page-presentation/semantic-site-default> a sfcfg:ResourcePagePresentationPolicy ;
   sfcfg:hasOuterResourcePageTemplate <${WEAVE_DEFAULTS_NAMESPACE}resource-page-template/semantic-site/outer> ;
   sfcfg:hasInnerResourcePageTemplate <${WEAVE_DEFAULTS_NAMESPACE}resource-page-template/semantic-site/inner> ;
-  sfcfg:hasResourcePageStylesheet <${WEAVE_DEFAULTS_NAMESPACE}default-stylesheet> ;
+  sfcfg:hasResourcePageStylesheet <${WEAVE_DEFAULTS_NAMESPACE}stylesheet> ;
   sfcfg:hasResourcePagePanelSelection <${WEAVE_DEFAULTS_NAMESPACE}resource-page-presentation/semantic-site-default#children-panel> .
 
 <${WEAVE_DEFAULTS_NAMESPACE}resource-page-presentation/semantic-site-all-panels> a sfcfg:ResourcePagePresentationPolicy ;
   sfcfg:hasOuterResourcePageTemplate <${WEAVE_DEFAULTS_NAMESPACE}resource-page-template/semantic-site/outer> ;
   sfcfg:hasInnerResourcePageTemplate <${WEAVE_DEFAULTS_NAMESPACE}resource-page-template/semantic-site/inner> ;
-  sfcfg:hasResourcePageStylesheet <${WEAVE_DEFAULTS_NAMESPACE}default-stylesheet> ;
+  sfcfg:hasResourcePageStylesheet <${WEAVE_DEFAULTS_NAMESPACE}stylesheet> ;
   sfcfg:hasResourcePagePanelSelection <${WEAVE_DEFAULTS_NAMESPACE}resource-page-presentation/semantic-site-default#children-panel>, <${WEAVE_DEFAULTS_NAMESPACE}resource-page-presentation/semantic-site-all-panels#semantic-flow-metadata-panel> .
 
 <${WEAVE_DEFAULTS_NAMESPACE}resource-page-presentation/semantic-site-no-panels> a sfcfg:ResourcePagePresentationPolicy ;
   sfcfg:hasOuterResourcePageTemplate <${WEAVE_DEFAULTS_NAMESPACE}resource-page-template/semantic-site/outer> ;
   sfcfg:hasInnerResourcePageTemplate <${WEAVE_DEFAULTS_NAMESPACE}resource-page-template/semantic-site/inner> ;
-  sfcfg:hasResourcePageStylesheet <${WEAVE_DEFAULTS_NAMESPACE}default-stylesheet> .
+  sfcfg:hasResourcePageStylesheet <${WEAVE_DEFAULTS_NAMESPACE}stylesheet> .
 
 <${WEAVE_DEFAULTS_NAMESPACE}resource-page-presentation/semantic-site-default#children-panel> a sfcfg:ResourcePagePanelSelection ;
   sfcfg:hasResourcePagePanel <${WEAVE_DEFAULTS_NAMESPACE}resource-page-panel/children> ;

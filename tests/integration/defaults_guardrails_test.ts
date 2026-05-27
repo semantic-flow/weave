@@ -5,11 +5,16 @@ import { Parser, type Quad, type Term } from "n3";
 const REPO_ROOT = fromFileUrl(new URL("../../", import.meta.url));
 const SFLO_NAMESPACE = "https://semantic-flow.github.io/sflo/ontology/";
 const SFCFG_NAMESPACE = "https://semantic-flow.github.io/sflo/config/";
+const WEAVE_DEFAULTS_NAMESPACE =
+  "https://semantic-flow.github.io/weave/defaults/";
+const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
+  `${SFLO_NAMESPACE}hasWorkingLocatedFile`;
 
 const DEFAULT_RDF_FILES = [
   "defaults/application.ttl",
   "defaults/config-resolution.ttl",
-  "defaults/default-stylesheet.ttl",
+  "defaults/stylesheet-metadata.ttl",
 ] as const;
 
 Deno.test("Weave defaults RDF parses as Turtle", async () => {
@@ -78,6 +83,51 @@ Deno.test("Weave defaults use flat sfcfg term IRIs", async () => {
   }
 });
 
+Deno.test("Weave default stylesheet metadata separates RDF metadata from CSS artifact", async () => {
+  const quads = await parseRepoTurtle("defaults/stylesheet-metadata.ttl");
+  const metadataIri = `${WEAVE_DEFAULTS_NAMESPACE}stylesheet-metadata`;
+  const metadataFileIri = `${WEAVE_DEFAULTS_NAMESPACE}stylesheet-metadata.ttl`;
+  const stylesheetIri = `${WEAVE_DEFAULTS_NAMESPACE}stylesheet`;
+  const stylesheetFileIri = `${WEAVE_DEFAULTS_NAMESPACE}stylesheet.css`;
+
+  assertNamedNodeQuad(
+    quads,
+    metadataIri,
+    RDF_TYPE_IRI,
+    `${SFLO_NAMESPACE}DigitalArtifact`,
+  );
+  assertNamedNodeQuad(
+    quads,
+    metadataIri,
+    RDF_TYPE_IRI,
+    `${SFLO_NAMESPACE}RdfDocument`,
+  );
+  assertNamedNodeQuad(
+    quads,
+    metadataIri,
+    SFLO_HAS_WORKING_LOCATED_FILE_IRI,
+    metadataFileIri,
+  );
+  assertNamedNodeQuad(
+    quads,
+    stylesheetIri,
+    RDF_TYPE_IRI,
+    `${SFCFG_NAMESPACE}ResourcePageStylesheet`,
+  );
+  assertNamedNodeQuad(
+    quads,
+    stylesheetIri,
+    RDF_TYPE_IRI,
+    `${SFLO_NAMESPACE}DigitalArtifact`,
+  );
+  assertNamedNodeQuad(
+    quads,
+    stylesheetIri,
+    SFLO_HAS_WORKING_LOCATED_FILE_IRI,
+    stylesheetFileIri,
+  );
+});
+
 Deno.test("retired config fragments stay out of Weave defaults and runtime policy", async () => {
   const checkedFiles = [
     "defaults/application.ttl",
@@ -142,4 +192,22 @@ function termKey(term: Term): string {
   }
 
   return `${term.termType}|${term.value}`;
+}
+
+function assertNamedNodeQuad(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+  objectIri: string,
+): void {
+  assert(
+    quads.some((quad) =>
+      quad.subject.termType === "NamedNode" &&
+      quad.subject.value === subjectIri &&
+      quad.predicate.value === predicateIri &&
+      quad.object.termType === "NamedNode" &&
+      quad.object.value === objectIri
+    ),
+    `Expected ${subjectIri} ${predicateIri} ${objectIri}`,
+  );
 }

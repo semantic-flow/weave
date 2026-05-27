@@ -89,7 +89,7 @@
 <resource-page-presentation/semantic-site-default> a sfcfg:ResourcePagePresentationPolicy ;
   sfcfg:hasOuterResourcePageTemplate <resource-page-template/semantic-site/outer> ;
   sfcfg:hasInnerResourcePageTemplate <resource-page-template/semantic-site/inner> ;
-  sfcfg:hasResourcePageStylesheet <default-stylesheet> ;
+  sfcfg:hasResourcePageStylesheet <stylesheet> ;
   sfcfg:hasResourcePagePanelSelection
     <resource-page-presentation/semantic-site-default#children-panel>,
     <resource-page-presentation/semantic-site-default#properties-panel>,
@@ -104,7 +104,7 @@
 <resource-page-presentation/semantic-site-all-panels> a sfcfg:ResourcePagePresentationPolicy ;
   sfcfg:hasOuterResourcePageTemplate <resource-page-template/semantic-site/outer> ;
   sfcfg:hasInnerResourcePageTemplate <resource-page-template/semantic-site/inner> ;
-  sfcfg:hasResourcePageStylesheet <default-stylesheet> ;
+  sfcfg:hasResourcePageStylesheet <stylesheet> ;
   sfcfg:hasResourcePagePanelSelection
     <resource-page-presentation/semantic-site-default#children-panel>,
     <resource-page-presentation/semantic-site-default#properties-panel>,
@@ -120,7 +120,7 @@
 <resource-page-presentation/semantic-site-no-panels> a sfcfg:ResourcePagePresentationPolicy ;
   sfcfg:hasOuterResourcePageTemplate <resource-page-template/semantic-site/outer> ;
   sfcfg:hasInnerResourcePageTemplate <resource-page-template/semantic-site/inner> ;
-  sfcfg:hasResourcePageStylesheet <default-stylesheet> .
+  sfcfg:hasResourcePageStylesheet <stylesheet> .
 
 <resource-page-template/semantic-site/outer> a sfcfg:OuterResourcePageTemplate, sflo:DigitalArtifact .
 

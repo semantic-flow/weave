@@ -130,7 +130,7 @@ const DEFAULT_OUTER_RESOURCE_PAGE_TEMPLATE_IRI =
 const DEFAULT_INNER_RESOURCE_PAGE_TEMPLATE_IRI =
   `${WEAVE_DEFAULTS_NAMESPACE}resource-page-template/semantic-site/inner`;
 const DEFAULT_RESOURCE_PAGE_STYLESHEET_IRI =
-  `${WEAVE_DEFAULTS_NAMESPACE}default-stylesheet`;
+  `${WEAVE_DEFAULTS_NAMESPACE}stylesheet`;
 
 const ARTIFACT_ROLE_VALUES = {
   [`${SFCFG_NAMESPACE}artifactRole_payload`]: "payload",
