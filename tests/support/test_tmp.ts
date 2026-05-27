@@ -1,9 +1,22 @@
 const keepTestTmpEnvVar = "WEAVE_KEEP_TEST_TMP";
+const isolatedEnvVars = [
+  "HOME",
+  "USERPROFILE",
+  "WEAVE_SETTINGS",
+  "WEAVE_LOG_DIR",
+  "XDG_CONFIG_HOME",
+  "XDG_STATE_HOME",
+  "XDG_CACHE_HOME",
+] as const;
 
 type TestFn = (t: Deno.TestContext) => void | Promise<void>;
 
 interface TestTmpScope {
   readonly paths: string[];
+}
+
+interface IsolatedTestEnv {
+  restore(): void;
 }
 
 interface DenoTestDefinitionLike {
@@ -67,12 +80,19 @@ function wrapTestFn(fn: TestFn): TestFn {
     const scope: TestTmpScope = { paths: [] };
     activeScope = scope;
 
+    let isolatedEnv: IsolatedTestEnv | undefined;
     let testError: unknown;
     try {
+      isolatedEnv = await installIsolatedTestEnv();
       await fn(t);
     } catch (error) {
       testError = error;
     } finally {
+      try {
+        isolatedEnv?.restore();
+      } catch (error) {
+        testError ??= error;
+      }
       activeScope = previousScope;
     }
 
@@ -98,6 +118,47 @@ function wrapTestFn(fn: TestFn): TestFn {
       throw cleanupError;
     }
   };
+}
+
+async function installIsolatedTestEnv(): Promise<IsolatedTestEnv | undefined> {
+  if (!canMutateEnv()) {
+    return undefined;
+  }
+
+  const previous = new Map<string, string | undefined>();
+  for (const name of isolatedEnvVars) {
+    previous.set(name, Deno.env.get(name));
+  }
+
+  const root = await createTestTmpDir("weave-test-env-");
+  await Deno.mkdir(`${root}/home`, { recursive: true });
+  Deno.env.set("HOME", `${root}/home`);
+  Deno.env.delete("USERPROFILE");
+  Deno.env.set("WEAVE_SETTINGS", `${root}/settings`);
+  Deno.env.delete("WEAVE_LOG_DIR");
+  Deno.env.set("XDG_CONFIG_HOME", `${root}/config`);
+  Deno.env.set("XDG_STATE_HOME", `${root}/state`);
+  Deno.env.set("XDG_CACHE_HOME", `${root}/cache`);
+
+  return {
+    restore() {
+      for (const [name, value] of previous) {
+        if (value === undefined) {
+          Deno.env.delete(name);
+        } else {
+          Deno.env.set(name, value);
+        }
+      }
+    },
+  };
+}
+
+function canMutateEnv(): boolean {
+  try {
+    return Deno.permissions.querySync({ name: "env" }).state === "granted";
+  } catch {
+    return false;
+  }
 }
 
 async function cleanupTestTmpPaths(paths: readonly string[]): Promise<void> {

@@ -13,12 +13,14 @@ import {
 import {
   listMeshAliceBioBranchFiles,
   materializeMeshAliceBioBranch,
+  MESH_ALICE_BIO_BASE,
   readMeshAliceBioBranchFile,
   resolveMeshAliceBioConformanceManifestPath,
 } from "../support/mesh_alice_bio_fixture.ts";
 import {
   listMeshSidecarFantasyRulesBranchFiles,
   materializeMeshSidecarFantasyRulesBranch,
+  MESH_SIDECAR_FANTASY_RULES_BASE,
   readMeshSidecarFantasyRulesBranchFile,
   resolveMeshSidecarFantasyRulesConformanceManifestPath,
 } from "../support/mesh_sidecar_fantasy_rules_fixture.ts";
@@ -28,6 +30,10 @@ import {
 } from "../support/root_designator.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 import { resolveUserSettingsPaths } from "../../src/runtime/settings/user_settings.ts";
+import {
+  assertDefaultCliLogFileAbsent,
+  assertDefaultCliLogFilesExist,
+} from "../support/cli_logs.ts";
 
 const repoRoot = new URL("../../", import.meta.url);
 const cliPath = new URL("src/main.ts", repoRoot).pathname;
@@ -124,8 +130,7 @@ Deno.test("weave integrate matches the manifest-scoped alice-bio integrated fixt
     throw new Error(`Unsupported compare mode ${compareMode} for ${path}`);
   }
 
-  await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
-  await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
+  await assertDefaultCliLogFilesExist(MESH_ALICE_BIO_BASE);
 });
 
 Deno.test("weave integrate rejects conflicting designator paths before logging or execution", async () => {
@@ -160,9 +165,9 @@ Deno.test("weave integrate rejects conflicting designator paths before logging o
     stderr.includes("integrate received conflicting designator paths"),
     stderr,
   );
-  await assertRejects(
-    () => Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl")),
-    Deno.errors.NotFound,
+  await assertDefaultCliLogFileAbsent(
+    MESH_ALICE_BIO_BASE,
+    "security-audit.jsonl",
   );
   await assertPathAbsent(
     join(workspaceRoot, "alice/data/_knop/_inventory/inventory.ttl"),
@@ -890,8 +895,7 @@ Deno.test("weave integrate matches the manifest-scoped sidecar Gunaar dataset fi
   assertEquals(sources.includes("sflo:expectsContentDigest"), false);
   assertEquals(sources.includes("sflo:targetRepositorySource"), false);
 
-  await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
-  await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
+  await assertDefaultCliLogFilesExist(MESH_SIDECAR_FANTASY_RULES_BASE);
 });
 
 Deno.test("weave integrate requires a designator path before logging or execution", async () => {
@@ -927,9 +931,9 @@ Deno.test("weave integrate requires a designator path before logging or executio
     ),
     stderr,
   );
-  await assertRejects(
-    () => Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl")),
-    Deno.errors.NotFound,
+  await assertDefaultCliLogFileAbsent(
+    MESH_ALICE_BIO_BASE,
+    "security-audit.jsonl",
   );
   await assertPathAbsent(
     join(workspaceRoot, "alice/data/_knop/_inventory/inventory.ttl"),

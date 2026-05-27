@@ -10,9 +10,9 @@ Weave writes local structured logs so you can review what a command attempted, w
 
 ## Where Logs Are Written
 
-By default, CLI logs are written under `.weave/logs/` in the inferred workspace root.
+By default, CLI logs are written under `${XDG_STATE_HOME:-~/.local/state}/weave/meshes/<mesh-identifier>/logs/`.
 
-For a whole-root mesh, the workspace root is usually the mesh root. For a sidecar mesh such as `docs/`, Weave infers the workspace root from the mesh configuration and writes logs under the surrounding workspace unless `WEAVE_LOG_DIR` is set.
+The mesh identifier is a stable slug plus short hash derived from the canonical mesh base. This keeps logs user-local and per mesh, so whole-root and sidecar checkouts for the same mesh base share the same default log location without writing into the publication workspace.
 
 Use `WEAVE_LOG_DIR` to put logs somewhere else:
 
@@ -53,9 +53,10 @@ Fields:
 Because this is JSONL, you can inspect it with tools such as `tail`, `jq`, or `grep`:
 
 ```sh
-tail -n 20 .weave/logs/operational.jsonl
-jq 'select(.level == "error")' .weave/logs/operational.jsonl
-jq 'select(.event == "cli.command")' .weave/logs/security-audit.jsonl
+LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/weave/meshes/<mesh-identifier>/logs"
+tail -n 20 "$LOG_DIR/operational.jsonl"
+jq 'select(.level == "error")' "$LOG_DIR/operational.jsonl"
+jq 'select(.event == "cli.command")' "$LOG_DIR/security-audit.jsonl"
 ```
 
 ## Operational Logs
@@ -84,10 +85,10 @@ Audit logs are local files, not a security boundary. They help with traceability
 
 Logs can include local filesystem paths, mesh roots, target designators, repository URLs, source paths, and error messages. Treat logs as local operational data. If you are preparing a public artifact or a support bundle, review the logs before sharing them.
 
-It is safe to remove `.weave/logs/` when you no longer need command history:
+It is safe to remove a mesh log directory when you no longer need command history:
 
 ```sh
-rm -rf .weave/logs
+rm -rf "${XDG_STATE_HOME:-$HOME/.local/state}/weave/meshes/<mesh-identifier>/logs"
 ```
 
-For release or CI workflows, prefer setting `WEAVE_LOG_DIR` outside the publication worktree so generated site contents and local runtime logs stay separate.
+For release or CI workflows, setting `WEAVE_LOG_DIR` to a known job-local path can still make logs easier to collect.

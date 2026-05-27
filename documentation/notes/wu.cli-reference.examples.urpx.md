@@ -22,7 +22,7 @@ The root welcome page remains a temporary compromise. The primitive commands bel
 
 ## Step 1: Set Shell Variables
 
-Use variables so the command sequence is replayable from the Weave checkout without repeating long local paths. `WEAVE_LOG_DIR` keeps local runtime logs out of the publication worktree. If replay resumes in a new shell, rerun this setup block before running more Weave commands; when `WEAVE_LOG_DIR` is unset, Weave falls back to `.weave/logs` under the inferred workspace root.
+Use variables so the command sequence is replayable from the Weave checkout without repeating long local paths. `WEAVE_LOG_DIR` puts local runtime logs in a predictable scratch directory. If replay resumes in a new shell, rerun this setup block before running more Weave commands; when `WEAVE_LOG_DIR` is unset, Weave falls back to `${XDG_STATE_HOME:-~/.local/state}/weave/meshes/<mesh-identifier>/logs/`.
 
 ```sh
 export WEAVE_ROOT=/home/djradon/hub/semantic-flow/weave

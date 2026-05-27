@@ -1,4 +1,4 @@
-import { assert, assertEquals, assertRejects, fail } from "@std/assert";
+import { assert, assertEquals, assertRejects } from "@std/assert";
 import { join } from "@std/path";
 import { executeIntegrate } from "../../src/runtime/integrate/integrate.ts";
 import { executeWeave } from "../../src/runtime/weave/weave.ts";
@@ -9,11 +9,16 @@ import {
 } from "../support/accord_manifest.ts";
 import {
   materializeMeshAliceBioBranch,
+  MESH_ALICE_BIO_BASE,
   readMeshAliceBioBranchFile,
   resolveMeshAliceBioConformanceManifestPath,
 } from "../support/mesh_alice_bio_fixture.ts";
 import { materializeMeshSidecarFantasyRulesBranch } from "../support/mesh_sidecar_fantasy_rules_fixture.ts";
 import { ROOT_PERSON_SOURCE_TURTLE } from "../support/root_designator.ts";
+import {
+  assertDefaultCliLogFileAbsent,
+  assertDefaultCliLogFilesExist,
+} from "../support/cli_logs.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 const repoRoot = new URL("../../", import.meta.url);
@@ -116,14 +121,7 @@ Deno.test("weave extract matches the manifest-scoped bob extracted fixture as a 
     throw new Error(`Unsupported compare mode ${compareMode} for ${path}`);
   }
 
-  await assertPathExists(
-    join(workspaceRoot, ".weave/logs/operational.jsonl"),
-    `expected log file .weave/logs/operational.jsonl to exist under ${workspaceRoot}`,
-  );
-  await assertPathExists(
-    join(workspaceRoot, ".weave/logs/security-audit.jsonl"),
-    `expected log file .weave/logs/security-audit.jsonl to exist under ${workspaceRoot}`,
-  );
+  await assertDefaultCliLogFilesExist(MESH_ALICE_BIO_BASE);
 });
 
 Deno.test("weave extract accepts the root designator path as a black-box CLI run", async () => {
@@ -582,26 +580,12 @@ Deno.test("weave extract rejects a whitespace-only positional designatorPath bef
     stderr.includes("extract requires a positional designatorPath"),
     stderr,
   );
-  await assertRejects(
-    () => Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl")),
-    Deno.errors.NotFound,
+  await assertDefaultCliLogFileAbsent(
+    MESH_ALICE_BIO_BASE,
+    "security-audit.jsonl",
   );
   await assertRejects(
     () => Deno.stat(join(workspaceRoot, "bob/_knop/_meta/meta.ttl")),
     Deno.errors.NotFound,
   );
 });
-
-async function assertPathExists(
-  path: string,
-  errorMessage: string,
-): Promise<void> {
-  try {
-    await Deno.stat(path);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      fail(errorMessage);
-    }
-    throw error;
-  }
-}

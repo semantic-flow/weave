@@ -13,15 +13,21 @@ import {
 import {
   listMeshAliceBioBranchFiles,
   materializeMeshAliceBioBranch,
+  MESH_ALICE_BIO_BASE,
   readMeshAliceBioBranchFile,
   resolveMeshAliceBioConformanceManifestPath,
 } from "../support/mesh_alice_bio_fixture.ts";
 import {
   listMeshSidecarFantasyRulesBranchFiles,
   materializeMeshSidecarFantasyRulesBranch,
+  MESH_SIDECAR_FANTASY_RULES_BASE,
   readMeshSidecarFantasyRulesBranchFile,
   resolveMeshSidecarFantasyRulesConformanceManifestPath,
 } from "../support/mesh_sidecar_fantasy_rules_fixture.ts";
+import {
+  assertDefaultCliLogFileAbsent,
+  assertDefaultCliLogFilesExist,
+} from "../support/cli_logs.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 const repoRoot = new URL("../../", import.meta.url);
@@ -114,8 +120,11 @@ Deno.test("weave knop create matches the manifest-scoped alice-bio fixture as a 
     throw new Error(`Unsupported compare mode ${compareMode} for ${path}`);
   }
 
-  await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
-  await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
+  await assertDefaultCliLogFilesExist(MESH_ALICE_BIO_BASE);
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl")),
+    Deno.errors.NotFound,
+  );
 });
 
 Deno.test("weave knop create accepts the root designator path as a black-box CLI run", async () => {
@@ -183,6 +192,7 @@ Deno.test("weave CLI honors WEAVE_LOG_DIR for runtime logs", async () => {
   assert(output.success, stderr);
   await Deno.stat(join(logRoot, "operational.jsonl"));
   await Deno.stat(join(logRoot, "security-audit.jsonl"));
+  await assertDefaultCliLogFileAbsent(MESH_ALICE_BIO_BASE, "operational.jsonl");
   await assertRejects(
     () => Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl")),
     Deno.errors.NotFound,
@@ -298,8 +308,7 @@ Deno.test("weave knop create matches the manifest-scoped sidecar root and exampl
     throw new Error(`Unsupported compare mode ${compareMode} for ${path}`);
   }
 
-  await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
-  await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
+  await assertDefaultCliLogFilesExist(MESH_SIDECAR_FANTASY_RULES_BASE);
 });
 
 async function listRelativeFiles(

@@ -6,6 +6,8 @@ import {
 } from "@std/assert";
 import { join } from "@std/path";
 import { executeMeshCreate } from "../../src/runtime/mesh/create.ts";
+import { assertDefaultCliLogFileAbsent } from "../support/cli_logs.ts";
+import { MESH_ALICE_BIO_BASE } from "../support/mesh_alice_bio_fixture.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 const repoRoot = new URL("../../", import.meta.url);
@@ -103,9 +105,9 @@ Deno.test("weave import rejects conflicting designator paths before logging or e
     stderr.includes("import received conflicting designator paths"),
     stderr,
   );
-  await assertRejects(
-    () => Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl")),
-    Deno.errors.NotFound,
+  await assertDefaultCliLogFileAbsent(
+    MESH_ALICE_BIO_BASE,
+    "security-audit.jsonl",
   );
   await assertRejects(
     () => Deno.stat(join(workspaceRoot, "bob-page-main.md")),

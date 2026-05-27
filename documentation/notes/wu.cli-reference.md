@@ -12,7 +12,7 @@ created: 1775629411758
 
 Commands print a one-line summary to stdout followed by created or updated paths when relevant. Input or runtime errors return a non-zero exit code and print the error message to stderr.
 
-Weave writes runtime logs under `.weave/logs/` inside the workspace. For whole-root meshes the workspace is the mesh root. For sidecar meshes, Weave infers the workspace from `_mesh/_config/config.ttl`.
+Weave writes runtime logs under `${XDG_STATE_HOME:-~/.local/state}/weave/meshes/<mesh-identifier>/logs/` by default, with `WEAVE_LOG_DIR` available as an explicit override.
 
 Use `weave --help` or `weave <command> --help` to inspect the live CLI.
 

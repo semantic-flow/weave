@@ -1,6 +1,6 @@
 import { Command } from "@cliffy/command";
 import { Confirm, Input } from "@cliffy/prompt";
-import { isAbsolute, join, relative, resolve } from "@std/path";
+import { isAbsolute, relative, resolve } from "@std/path";
 import { ExtractInputError } from "../core/extract/extract.ts";
 import { ImportInputError } from "../core/import/import.ts";
 import { IntegrateInputError } from "../core/integrate/integrate.ts";
@@ -81,6 +81,7 @@ import {
   WeaveRuntimeError,
 } from "../runtime/weave/weave.ts";
 import { loadOperationalLocalPathPolicy } from "../runtime/operational/local_path_policy.ts";
+import { resolveUserSettingsPaths } from "../runtime/settings/user_settings.ts";
 import type { HistoryTrackingPolicy } from "../runtime/config/effective_config.ts";
 import { WEAVE_VERSION } from "../version.ts";
 
@@ -165,7 +166,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
       const historyTrackingPolicyOverride = resolveHistoryTrackingPolicyOption(
         options.historyTrackingPolicy,
       );
-      const logDir = resolveCliLogDir(workspaceRoot);
+      const logDir = await resolveCliLogDirForExistingMesh(meshRoot);
       const { operationalLogger, auditLogger } = createRuntimeLoggers({
         logDir,
       });
@@ -238,7 +239,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               "weave validate publication does not accept --target",
             );
           }
-          const logDir = resolveCliLogDir(workspaceRoot);
+          const logDir = await resolveCliLogDirForExistingMesh(meshRoot);
           const { auditLogger } = createRuntimeLoggers({ logDir });
 
           await auditLogger.command(`validate.${scope}`, {
@@ -316,7 +317,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           const targets = resolveVersionTargetSpecs(options, "version");
           const historyTrackingPolicyOverride =
             resolveHistoryTrackingPolicyOption(options.historyTrackingPolicy);
-          const logDir = resolveCliLogDir(workspaceRoot);
+          const logDir = await resolveCliLogDirForExistingMesh(meshRoot);
           const { auditLogger } = createRuntimeLoggers({ logDir });
 
           await auditLogger.command("version", {
@@ -387,7 +388,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           const targets = resolveSharedTargetSpecs(options, "generate");
           const historyTrackingPolicyOverride =
             resolveHistoryTrackingPolicyOption(options.historyTrackingPolicy);
-          const logDir = resolveCliLogDir(workspaceRoot);
+          const logDir = await resolveCliLogDirForExistingMesh(meshRoot);
           const { operationalLogger, auditLogger } = createRuntimeLoggers({
             logDir,
           });
@@ -471,7 +472,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         ) => {
           const meshRoot = resolve(options.meshRoot);
           const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
-          const logDir = resolveCliLogDir(workspaceRoot);
+          const logDir = await resolveCliLogDirForExistingMesh(meshRoot);
           const { operationalLogger, auditLogger } = createRuntimeLoggers({
             logDir,
           });
@@ -646,7 +647,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             ) => {
               const meshRoot = resolve(options.meshRoot);
               const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
-              const logDir = resolveCliLogDir(workspaceRoot);
+              const logDir = await resolveCliLogDirForExistingMesh(meshRoot);
               const { operationalLogger, auditLogger } = createRuntimeLoggers({
                 logDir,
               });
@@ -699,7 +700,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             ) => {
               const meshRoot = resolve(options.meshRoot);
               const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
-              const logDir = resolveCliLogDir(workspaceRoot);
+              const logDir = await resolveCliLogDirForExistingMesh(meshRoot);
               const { operationalLogger, auditLogger } = createRuntimeLoggers({
                 logDir,
               });
@@ -773,7 +774,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             ) => {
               const meshRoot = resolve(options.meshRoot);
               const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
-              const logDir = resolveCliLogDir(workspaceRoot);
+              const logDir = await resolveCliLogDirForExistingMesh(meshRoot);
               const { operationalLogger, auditLogger } = createRuntimeLoggers({
                 logDir,
               });
@@ -920,7 +921,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           );
           const meshRoot = resolve(options.meshRoot);
           const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
-          const logDir = resolveCliLogDir(workspaceRoot);
+          const logDir = await resolveCliLogDirForExistingMesh(meshRoot);
           const { operationalLogger, auditLogger } = createRuntimeLoggers({
             logDir,
           });
@@ -1018,7 +1019,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           const sourceBinding = resolveIntegrateSourceBindingOptions(options);
           const meshRoot = resolve(options.meshRoot);
           const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
-          const logDir = resolveCliLogDir(workspaceRoot);
+          const logDir = await resolveCliLogDirForExistingMesh(meshRoot);
           const { operationalLogger, auditLogger } = createRuntimeLoggers({
             logDir,
           });
@@ -1081,7 +1082,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 options,
                 designatorPathArg,
               );
-              const logDir = resolveCliLogDir(workspaceRoot);
+              const logDir = await resolveCliLogDirForExistingMesh(meshRoot);
               const { operationalLogger, auditLogger } = createRuntimeLoggers({
                 logDir,
               });
@@ -1148,7 +1149,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 options.meshRoot,
               );
               const meshBase = await resolveMeshBaseOption(options);
-              const logDir = resolveCliLogDir(workspaceRoot);
+              const logDir = await resolveCliLogDirForMeshBase(meshBase);
               const { operationalLogger, auditLogger } = createRuntimeLoggers({
                 logDir,
               });
@@ -1223,7 +1224,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
                 "knop add-reference requires --reference-role",
                 (message) => new KnopAddReferenceInputError(message),
               );
-              const logDir = resolveCliLogDir(workspaceRoot);
+              const logDir = await resolveCliLogDirForExistingMesh(meshRoot);
               const { operationalLogger, auditLogger } = createRuntimeLoggers({
                 logDir,
               });
@@ -1277,7 +1278,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               );
               const meshRoot = resolve(options.meshRoot);
               const workspaceRoot = await inferCliWorkspaceRoot(meshRoot);
-              const logDir = resolveCliLogDir(workspaceRoot);
+              const logDir = await resolveCliLogDirForExistingMesh(meshRoot);
               const { operationalLogger, auditLogger } = createRuntimeLoggers({
                 logDir,
               });
@@ -1347,8 +1348,20 @@ async function inferCliWorkspaceRoot(meshRoot: string): Promise<string> {
   return (await loadOperationalLocalPathPolicy(meshRoot)).workspaceRoot;
 }
 
-function resolveCliLogDir(workspaceRoot: string): string {
-  return resolveOptionalCliLogDir() ?? join(workspaceRoot, ".weave", "logs");
+async function resolveCliLogDirForExistingMesh(
+  meshRoot: string,
+): Promise<string | undefined> {
+  const policy = await loadOperationalLocalPathPolicy(meshRoot);
+  return policy.meshBase
+    ? await resolveCliLogDirForMeshBase(policy.meshBase)
+    : resolveOptionalCliLogDir();
+}
+
+async function resolveCliLogDirForMeshBase(
+  meshBase: string,
+): Promise<string> {
+  return resolveOptionalCliLogDir() ??
+    (await resolveUserSettingsPaths(meshBase)).logDir;
 }
 
 function resolveOptionalCliLogDir(): string | undefined {

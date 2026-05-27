@@ -8,10 +8,15 @@ import {
 import {
   listMeshAliceBioBranchFiles,
   materializeMeshAliceBioBranch,
+  MESH_ALICE_BIO_BASE,
   readMeshAliceBioBranchFile,
   resolveMeshAliceBioConformanceManifestPath,
 } from "../support/mesh_alice_bio_fixture.ts";
 import { bootstrapRootWovenWorkspace } from "../support/root_designator.ts";
+import {
+  assertDefaultCliLogFileAbsent,
+  assertDefaultCliLogFilesExist,
+} from "../support/cli_logs.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 const repoRoot = new URL("../../", import.meta.url);
@@ -108,8 +113,7 @@ Deno.test("weave knop add-reference matches the manifest-scoped alice-bio refere
     throw new Error(`Unsupported compare mode ${compareMode} for ${path}`);
   }
 
-  await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
-  await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
+  await assertDefaultCliLogFilesExist(MESH_ALICE_BIO_BASE);
 });
 
 Deno.test("weave knop add-reference accepts the root reference target as a black-box CLI run", async () => {
@@ -207,9 +211,9 @@ Deno.test("weave knop add-reference rejects a whitespace-only positional designa
     stderr.includes("knop add-reference requires a positional designatorPath"),
     stderr,
   );
-  await assertRejects(
-    () => Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl")),
-    Deno.errors.NotFound,
+  await assertDefaultCliLogFileAbsent(
+    MESH_ALICE_BIO_BASE,
+    "security-audit.jsonl",
   );
   await assertRejects(
     () =>

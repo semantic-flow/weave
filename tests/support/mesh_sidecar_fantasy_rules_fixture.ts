@@ -20,6 +20,8 @@ const resolvedRefCache = new Map<string, Promise<string>>();
 // Temporary Sidecar Fantasy Rules fixture-ladder setting until the replay
 // prefix moves into an Accord/scenario master manifest.
 export const MESH_SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX = "a.";
+export const MESH_SIDECAR_FANTASY_RULES_BASE =
+  "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/";
 
 export function resolveMeshSidecarFantasyRulesFixtureRepoPath(): string {
   return fixtureRepoPath;

@@ -8,6 +8,7 @@ import {
 import {
   listMeshAliceBioBranchFiles,
   materializeMeshAliceBioBranch,
+  MESH_ALICE_BIO_BASE,
   readMeshAliceBioBranchFile,
   resolveMeshAliceBioConformanceManifestPath,
 } from "../support/mesh_alice_bio_fixture.ts";
@@ -15,6 +16,10 @@ import {
   bootstrapRootWovenWorkspace,
   ROOT_PAYLOAD_TURTLE_V2,
 } from "../support/root_designator.ts";
+import {
+  assertDefaultCliLogFileAbsent,
+  assertDefaultCliLogFilesExist,
+} from "../support/cli_logs.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 const repoRoot = new URL("../../", import.meta.url);
@@ -123,8 +128,7 @@ Deno.test("weave payload update matches the manifest-scoped alice-bio updated fi
     throw new Error(`Unsupported compare mode ${compareMode} for ${path}`);
   }
 
-  await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
-  await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
+  await assertDefaultCliLogFilesExist(MESH_ALICE_BIO_BASE);
 });
 
 Deno.test("weave payload update accepts the root designator path as a black-box CLI run", async () => {
@@ -219,9 +223,9 @@ Deno.test("weave payload update rejects conflicting designator paths before logg
     stderr.includes("payload update received conflicting designator paths"),
     stderr,
   );
-  await assertRejects(
-    () => Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl")),
-    Deno.errors.NotFound,
+  await assertDefaultCliLogFileAbsent(
+    MESH_ALICE_BIO_BASE,
+    "security-audit.jsonl",
   );
   assertEquals(
     await Deno.readTextFile(join(workspaceRoot, "alice-data.ttl")),
@@ -277,9 +281,9 @@ Deno.test("weave payload update requires a designator path before logging or exe
     ),
     stderr,
   );
-  await assertRejects(
-    () => Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl")),
-    Deno.errors.NotFound,
+  await assertDefaultCliLogFileAbsent(
+    MESH_ALICE_BIO_BASE,
+    "security-audit.jsonl",
   );
 });
 

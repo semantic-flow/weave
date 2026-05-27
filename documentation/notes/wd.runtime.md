@@ -28,4 +28,4 @@ If an adjacent workspace source is denied and a mesh config exists, the runtime 
 
 ## Runtime Logs
 
-The Weave CLI writes runtime logs under `.weave/logs/` in the inferred workspace root. For whole-root meshes this is the mesh root. For sidecar meshes, the workspace root is inferred from mesh config and the logs remain outside the public mesh root.
+The Weave CLI writes runtime logs under `${XDG_STATE_HOME:-~/.local/state}/weave/meshes/<mesh-identifier>/logs/` by default. `WEAVE_LOG_DIR` remains an explicit override for CI, replay scripts, and other workflows that want a job-local log directory.
