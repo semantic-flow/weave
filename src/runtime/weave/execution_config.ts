@@ -13,6 +13,9 @@ export async function loadEffectiveConfigForExecution(
   options: {
     meshConfigTurtle?: string;
     meshConfigSource?: string;
+    meshBase?: string;
+    meshInventoryTurtle?: string;
+    governedArtifactIris?: readonly string[];
     historyTrackingPolicyOverride?: HistoryTrackingPolicy;
     includeSemanticFlowMetadata?: boolean;
   } = {},
@@ -20,6 +23,9 @@ export async function loadEffectiveConfigForExecution(
   return await loadWeaveEffectiveConfig({
     meshConfigTurtle: options.meshConfigTurtle,
     meshConfigSource: options.meshConfigSource,
+    meshBase: options.meshBase,
+    meshInventoryTurtle: options.meshInventoryTurtle,
+    governedArtifactIris: options.governedArtifactIris,
     commandOverrides: {
       ...(options.historyTrackingPolicyOverride
         ? { historyTrackingPolicy: options.historyTrackingPolicyOverride }

@@ -9,6 +9,7 @@ import {
 } from "./support_history_policy.ts";
 import {
   filterResourcePageFactsFromPlannedFiles,
+  type ResourcePageGenerationConfig,
   type WeaveResourcePageGenerationPolicies,
 } from "./resource_page_policy.ts";
 import type { VersionPlan } from "./version_plan.ts";
@@ -25,6 +26,7 @@ export interface PlanMeshSupportResourcePagesInput {
   currentMeshMetadataTurtle: string;
   currentMeshConfigTurtle?: string;
   supportHistoryPolicies?: MeshSupportHistoryPolicies;
+  resourcePageGenerationConfig?: ResourcePageGenerationConfig;
   resourcePageGenerationPolicies?: WeaveResourcePageGenerationPolicies;
 }
 
@@ -82,6 +84,7 @@ export function planMeshSupportResourcePages(
         supportHistoryPolicies: input.supportHistoryPolicies,
       }),
       input.resourcePageGenerationPolicies,
+      { config: input.resourcePageGenerationConfig },
     );
   }
 
@@ -111,7 +114,10 @@ export function planMeshSupportResourcePages(
         }],
       },
       input.resourcePageGenerationPolicies,
-      { omitUnchangedUpdates: true },
+      {
+        config: input.resourcePageGenerationConfig,
+        omitUnchangedUpdates: true,
+      },
     );
   }
 
@@ -140,26 +146,37 @@ export function planMeshSupportResourcePages(
     );
   }
 
-  return applyResourcePageGenerationPolicies({
-    meshBase,
-    versionedDesignatorPaths: [],
-    createdFiles: [],
-    updatedFiles: [{
-      path: "_mesh/_inventory/inventory.ttl",
-      contents: `${blocks.join("\n\n")}\n`,
-    }],
-  }, input.resourcePageGenerationPolicies);
+  return applyResourcePageGenerationPolicies(
+    {
+      meshBase,
+      versionedDesignatorPaths: [],
+      createdFiles: [],
+      updatedFiles: [{
+        path: "_mesh/_inventory/inventory.ttl",
+        contents: `${blocks.join("\n\n")}\n`,
+      }],
+    },
+    input.resourcePageGenerationPolicies,
+    {
+      config: input.resourcePageGenerationConfig,
+    },
+  );
 }
 
 function applyResourcePageGenerationPolicies(
   plan: VersionPlan,
   policies?: WeaveResourcePageGenerationPolicies,
-  options: { omitUnchangedUpdates?: boolean } = {},
+  options: {
+    config?: ResourcePageGenerationConfig;
+    omitUnchangedUpdates?: boolean;
+  } = {},
 ): VersionPlan {
   const updatedFiles = filterResourcePageFactsFromPlannedFiles(
     plan.meshBase,
     plan.updatedFiles,
     policies,
+    false,
+    options.config,
   );
   return {
     ...plan,
@@ -167,6 +184,8 @@ function applyResourcePageGenerationPolicies(
       plan.meshBase,
       plan.createdFiles,
       policies,
+      false,
+      options.config,
     ),
     updatedFiles: options.omitUnchangedUpdates
       ? updatedFiles.filter((file, index) =>

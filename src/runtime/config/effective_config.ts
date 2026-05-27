@@ -16,11 +16,14 @@ const ANY_GOVERNED_ARTIFACT_POLICY_TARGET_IRI =
   `${SFCFG_NAMESPACE}AnyGovernedArtifactPolicyTarget`;
 const ARTIFACT_ROLE_POLICY_TARGET_IRI =
   `${SFCFG_NAMESPACE}ArtifactRolePolicyTarget`;
+const EXACT_ARTIFACT_POLICY_TARGET_IRI =
+  `${SFCFG_NAMESPACE}ExactArtifactPolicyTarget`;
 const HAS_POLICY_BINDING_IRI = `${SFCFG_NAMESPACE}hasPolicyBinding`;
 const BINDS_POLICY_IRI = `${SFCFG_NAMESPACE}bindsPolicy`;
 const APPLIES_TO_POLICY_TARGET_IRI = `${SFCFG_NAMESPACE}appliesToPolicyTarget`;
 const POLICY_PRIORITY_IRI = `${SFCFG_NAMESPACE}policyPriority`;
 const HAS_ARTIFACT_ROLE_IRI = `${SFCFG_NAMESPACE}hasArtifactRole`;
+const TARGETS_ARTIFACT_IRI = `${SFCFG_NAMESPACE}targetsArtifact`;
 const HAS_HISTORY_TRACKING_POLICY_IRI =
   `${SFCFG_NAMESPACE}hasHistoryTrackingPolicy`;
 const HAS_RESOURCE_PAGE_GENERATION_POLICY_IRI =
@@ -72,6 +75,37 @@ const LAYER_ORDER_IRI = `${SFCFG_NAMESPACE}layerOrder`;
 const XSD_INTEGER_IRI = "http://www.w3.org/2001/XMLSchema#integer";
 const XSD_NON_NEGATIVE_INTEGER_IRI =
   "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
+const SFLO_DIGITAL_ARTIFACT_IRI = `${SFLO_NAMESPACE}DigitalArtifact`;
+const SFLO_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}PayloadArtifact`;
+const SFLO_MESH_INVENTORY_IRI = `${SFLO_NAMESPACE}MeshInventory`;
+const SFLO_KNOP_INVENTORY_IRI = `${SFLO_NAMESPACE}KnopInventory`;
+const SFLO_MESH_METADATA_IRI = `${SFLO_NAMESPACE}MeshMetadata`;
+const SFLO_KNOP_METADATA_IRI = `${SFLO_NAMESPACE}KnopMetadata`;
+const SFLO_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}ReferenceCatalog`;
+const SFLO_KNOP_SOURCE_REGISTRY_IRI = `${SFLO_NAMESPACE}KnopSourceRegistry`;
+const SFLO_RESOURCE_PAGE_DEFINITION_IRI =
+  `${SFLO_NAMESPACE}ResourcePageDefinition`;
+const SFCFG_CONFIG_ARTIFACT_IRI = `${SFCFG_NAMESPACE}ConfigArtifact`;
+const SFCFG_RESOURCE_PAGE_TEMPLATE_IRI =
+  `${SFCFG_NAMESPACE}ResourcePageTemplate`;
+const SFCFG_RESOURCE_PAGE_STYLESHEET_IRI =
+  `${SFCFG_NAMESPACE}ResourcePageStylesheet`;
+
+const GOVERNED_ARTIFACT_TYPE_IRIS = new Set([
+  SFLO_DIGITAL_ARTIFACT_IRI,
+  SFLO_PAYLOAD_ARTIFACT_IRI,
+  SFLO_MESH_INVENTORY_IRI,
+  SFLO_KNOP_INVENTORY_IRI,
+  SFLO_MESH_METADATA_IRI,
+  SFLO_KNOP_METADATA_IRI,
+  SFLO_REFERENCE_CATALOG_IRI,
+  SFLO_KNOP_SOURCE_REGISTRY_IRI,
+  SFLO_RESOURCE_PAGE_DEFINITION_IRI,
+  SFCFG_CONFIG_ARTIFACT_IRI,
+  MESH_CONFIG_IRI,
+  SFCFG_RESOURCE_PAGE_TEMPLATE_IRI,
+  SFCFG_RESOURCE_PAGE_STYLESHEET_IRI,
+]);
 
 const RETIRED_DIRECT_POLICY_PREDICATES = [
   `${SFCFG_NAMESPACE}hasDefaultHistoryTrackingPolicy`,
@@ -582,6 +616,9 @@ export interface CompileWeaveEffectiveConfigOptions {
   defaultsRoot?: string | URL;
   meshConfigTurtle?: string;
   meshConfigSource?: string;
+  meshBase?: string;
+  meshInventoryTurtle?: string;
+  governedArtifactIris?: readonly string[];
   commandOverrides?: CompileWeaveEffectiveConfigCommandOverrides;
 }
 
@@ -598,10 +635,21 @@ type PolicyValueBySlot = {
 
 type PolicyTarget =
   | { kind: "anyGovernedArtifact" }
-  | { kind: "artifactRole"; artifactRole: ArtifactRole };
+  | { kind: "artifactRole"; artifactRole: ArtifactRole }
+  | { kind: "exactArtifact"; artifactIri: string };
 
 interface PolicyTargetDescriptor {
+  artifactIri?: string;
   artifactRoles: readonly ArtifactRole[];
+}
+
+export interface ArtifactPolicyTargetQuery {
+  artifactIri: string;
+  artifactRole: ArtifactRole;
+}
+
+interface PolicyTargetValidationContext {
+  governedArtifactIris?: ReadonlySet<string>;
 }
 
 interface CompiledPolicyBinding {
@@ -616,6 +664,7 @@ interface CompiledPolicyBinding {
 
 export interface PolicyResolutionTraceEntry {
   slot: PolicySlot;
+  artifactIri?: string;
   artifactRoles: readonly ArtifactRole[];
   selectedValue: string;
   selectedLayerRole: ConfigLayerRole;
@@ -678,6 +727,15 @@ export class EffectiveConfig {
     }) as HistoryTrackingPolicy;
   }
 
+  historyTrackingPolicyForArtifactTarget(
+    target: ArtifactPolicyTargetQuery,
+  ): HistoryTrackingPolicy {
+    return this.resolvePolicyValue("historyTracking", {
+      artifactIri: target.artifactIri,
+      artifactRoles: [target.artifactRole],
+    }) as HistoryTrackingPolicy;
+  }
+
   resourcePageGenerationPolicyForArtifactRole(
     artifactRole: ArtifactRole,
   ): ResourcePageGenerationPolicy {
@@ -686,11 +744,29 @@ export class EffectiveConfig {
     }) as ResourcePageGenerationPolicy;
   }
 
+  resourcePageGenerationPolicyForArtifactTarget(
+    target: ArtifactPolicyTargetQuery,
+  ): ResourcePageGenerationPolicy {
+    return this.resolvePolicyValue("resourcePageGeneration", {
+      artifactIri: target.artifactIri,
+      artifactRoles: [target.artifactRole],
+    }) as ResourcePageGenerationPolicy;
+  }
+
   resourcePagePresentationPolicyForArtifactRole(
     artifactRole: ArtifactRole,
   ): ResourcePagePresentationProfile {
     return this.resourcePagePresentationPolicyForTarget({
       artifactRoles: [artifactRole],
+    });
+  }
+
+  resourcePagePresentationPolicyForArtifactTarget(
+    target: ArtifactPolicyTargetQuery,
+  ): ResourcePagePresentationProfile {
+    return this.resourcePagePresentationPolicyForTarget({
+      artifactIri: target.artifactIri,
+      artifactRoles: [target.artifactRole],
     });
   }
 
@@ -703,6 +779,18 @@ export class EffectiveConfig {
       ),
       resourcePageGenerationPolicy: this
         .resourcePageGenerationPolicyForArtifactRole(artifactRole),
+    };
+  }
+
+  artifactTargetPolicy(
+    target: ArtifactPolicyTargetQuery,
+  ): ArtifactRoleEffectivePolicy {
+    return {
+      historyTrackingPolicy: this.historyTrackingPolicyForArtifactTarget(
+        target,
+      ),
+      resourcePageGenerationPolicy: this
+        .resourcePageGenerationPolicyForArtifactTarget(target),
     };
   }
 
@@ -773,6 +861,7 @@ export class EffectiveConfig {
     const selectedValue = values.values().next().value!;
     this.resolutionTrace.push({
       slot,
+      ...(target.artifactIri ? { artifactIri: target.artifactIri } : {}),
       artifactRoles: target.artifactRoles,
       selectedValue,
       selectedLayerRole: selected.layerRole,
@@ -806,6 +895,9 @@ export async function loadWeaveEffectiveConfig(
     applicationTurtle: await Deno.readTextFile(applicationSource),
     configResolutionTurtle: await Deno.readTextFile(configResolutionSource),
     meshConfigTurtle: options.meshConfigTurtle,
+    meshBase: options.meshBase,
+    meshInventoryTurtle: options.meshInventoryTurtle,
+    governedArtifactIris: options.governedArtifactIris,
     commandOverrides: options.commandOverrides,
     sources: {
       applicationSource: formatSource(applicationSource),
@@ -836,6 +928,9 @@ export function compileWeaveEffectiveConfig(input: {
   applicationTurtle: string;
   configResolutionTurtle: string;
   meshConfigTurtle?: string;
+  meshBase?: string;
+  meshInventoryTurtle?: string;
+  governedArtifactIris?: readonly string[];
   commandOverrides?: CompileWeaveEffectiveConfigCommandOverrides;
   sources?: EffectiveConfigSources;
 }): EffectiveConfig {
@@ -880,6 +975,12 @@ export function compileWeaveEffectiveConfig(input: {
   );
 
   const allQuads = [...applicationQuads, ...meshQuads];
+  const targetValidation = createPolicyTargetValidationContext({
+    quads: allQuads,
+    meshBase: input.meshBase,
+    meshInventoryTurtle: input.meshInventoryTurtle,
+    governedArtifactIris: input.governedArtifactIris,
+  });
   const policyBindings = [
     ...parsePolicyBindings({
       quads: applicationQuads,
@@ -887,8 +988,14 @@ export function compileWeaveEffectiveConfig(input: {
       source: sources.applicationSource,
       layerRole: "weaveDefaults",
       layerOrderByRole,
+      targetValidation,
     }),
-    ...parseMeshPolicyBindings(meshQuads, sources, layerOrderByRole),
+    ...parseMeshPolicyBindings(
+      meshQuads,
+      sources,
+      layerOrderByRole,
+      targetValidation,
+    ),
     ...compileCommandOverrideBindings(
       input.commandOverrides,
       layerOrderByRole,
@@ -941,6 +1048,7 @@ function parseMeshPolicyBindings(
   meshQuads: readonly Quad[],
   sources: EffectiveConfigSources,
   layerOrderByRole: ReadonlyMap<ConfigLayerRole, number>,
+  targetValidation: PolicyTargetValidationContext,
 ): readonly CompiledPolicyBinding[] {
   if (meshQuads.length === 0) {
     return [];
@@ -960,6 +1068,7 @@ function parseMeshPolicyBindings(
     source: sources.meshConfigSource ?? "mesh-config.ttl",
     layerRole: "meshLocal",
     layerOrderByRole,
+    targetValidation,
   });
 }
 
@@ -1004,12 +1113,81 @@ function compileCommandOverrideBindings(
   return bindings;
 }
 
+function createPolicyTargetValidationContext(input: {
+  quads: readonly Quad[];
+  meshBase?: string;
+  meshInventoryTurtle?: string;
+  governedArtifactIris?: readonly string[];
+}): PolicyTargetValidationContext {
+  const hasExactTargets = collectTypedSubjects(
+    input.quads,
+    EXACT_ARTIFACT_POLICY_TARGET_IRI,
+  ).length > 0;
+  if (!hasExactTargets) {
+    return {};
+  }
+  if (input.governedArtifactIris !== undefined) {
+    return { governedArtifactIris: new Set(input.governedArtifactIris) };
+  }
+  if (
+    input.meshBase !== undefined && input.meshInventoryTurtle !== undefined
+  ) {
+    return {
+      governedArtifactIris: collectGovernedArtifactIrisFromInventory(
+        input.meshBase,
+        input.meshInventoryTurtle,
+      ),
+    };
+  }
+  return {};
+}
+
+function collectGovernedArtifactIrisFromInventory(
+  meshBase: string,
+  inventoryTurtle: string,
+): ReadonlySet<string> {
+  const quads = parseMeshInventoryForExactPolicyTargets(
+    meshBase,
+    inventoryTurtle,
+  );
+  const governedArtifactIris = new Set<string>();
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.predicate.value !== RDF_TYPE_IRI ||
+      quad.object.termType !== "NamedNode" ||
+      !quad.subject.value.startsWith(meshBase) ||
+      !GOVERNED_ARTIFACT_TYPE_IRIS.has(quad.object.value)
+    ) {
+      continue;
+    }
+    governedArtifactIris.add(quad.subject.value);
+  }
+
+  return governedArtifactIris;
+}
+
+function parseMeshInventoryForExactPolicyTargets(
+  meshBase: string,
+  inventoryTurtle: string,
+): readonly Quad[] {
+  try {
+    return new Parser({ baseIRI: meshBase }).parse(inventoryTurtle);
+  } catch {
+    throw new EffectiveConfigError(
+      "Could not parse the current MeshInventory while compiling exact artifact policy targets.",
+    );
+  }
+}
+
 function parsePolicyBindings(input: {
   quads: readonly Quad[];
   configSubject: string;
   source: string;
   layerRole: ConfigLayerRole;
   layerOrderByRole: ReadonlyMap<ConfigLayerRole, number>;
+  targetValidation: PolicyTargetValidationContext;
 }): readonly CompiledPolicyBinding[] {
   const layerOrder = requireLayerOrder(input.layerOrderByRole, input.layerRole);
   return collectObjectTerms(
@@ -1021,6 +1199,7 @@ function parsePolicyBindings(input: {
       source: input.source,
       layerRole: input.layerRole,
       layerOrder,
+      targetValidation: input.targetValidation,
     })
   );
 }
@@ -1032,6 +1211,7 @@ function parsePolicyBinding(
     source: string;
     layerRole: ConfigLayerRole;
     layerOrder: number;
+    targetValidation: PolicyTargetValidationContext;
   },
 ): CompiledPolicyBinding {
   requireTermHasType(
@@ -1071,9 +1251,16 @@ function parsePolicyBinding(
   ) ?? 0;
 
   return {
-    ...sourceLayer,
+    source: sourceLayer.source,
+    layerRole: sourceLayer.layerRole,
+    layerOrder: sourceLayer.layerOrder,
     bindingTerm,
-    target: parsePolicyTarget(quads, targetTerm, sourceLayer.source),
+    target: parsePolicyTarget(
+      quads,
+      targetTerm,
+      sourceLayer.source,
+      sourceLayer.targetValidation,
+    ),
     priority,
     values,
   };
@@ -1128,11 +1315,13 @@ function parsePolicyTarget(
   quads: readonly Quad[],
   targetTerm: string,
   source: string,
+  validation: PolicyTargetValidationContext,
 ): PolicyTarget {
   const types = collectNamedNodeObjects(quads, targetTerm, RDF_TYPE_IRI);
   const supportedTypes = types.filter((typeIri) =>
     typeIri === ANY_GOVERNED_ARTIFACT_POLICY_TARGET_IRI ||
-    typeIri === ARTIFACT_ROLE_POLICY_TARGET_IRI
+    typeIri === ARTIFACT_ROLE_POLICY_TARGET_IRI ||
+    typeIri === EXACT_ARTIFACT_POLICY_TARGET_IRI
   );
   if (supportedTypes.length !== 1) {
     throw new EffectiveConfigError(
@@ -1142,19 +1331,81 @@ function parsePolicyTarget(
 
   const targetType = supportedTypes[0]!;
   if (targetType === ANY_GOVERNED_ARTIFACT_POLICY_TARGET_IRI) {
-    return { kind: "anyGovernedArtifact" };
-  }
-
-  return {
-    kind: "artifactRole",
-    artifactRole: requireSingleNamedValue(
+    rejectPolicyTargetSelector(
       quads,
       targetTerm,
       HAS_ARTIFACT_ROLE_IRI,
-      ARTIFACT_ROLE_VALUES,
       source,
-    ),
-  };
+      "AnyGovernedArtifactPolicyTarget",
+    );
+    rejectPolicyTargetSelector(
+      quads,
+      targetTerm,
+      TARGETS_ARTIFACT_IRI,
+      source,
+      "AnyGovernedArtifactPolicyTarget",
+    );
+    return { kind: "anyGovernedArtifact" };
+  }
+
+  if (targetType === ARTIFACT_ROLE_POLICY_TARGET_IRI) {
+    rejectPolicyTargetSelector(
+      quads,
+      targetTerm,
+      TARGETS_ARTIFACT_IRI,
+      source,
+      "ArtifactRolePolicyTarget",
+    );
+    return {
+      kind: "artifactRole",
+      artifactRole: requireSingleNamedValue(
+        quads,
+        targetTerm,
+        HAS_ARTIFACT_ROLE_IRI,
+        ARTIFACT_ROLE_VALUES,
+        source,
+      ),
+    };
+  }
+
+  rejectPolicyTargetSelector(
+    quads,
+    targetTerm,
+    HAS_ARTIFACT_ROLE_IRI,
+    source,
+    "ExactArtifactPolicyTarget",
+  );
+  const artifactIri = requireSingleNamedNodeObject(
+    quads,
+    targetTerm,
+    TARGETS_ARTIFACT_IRI,
+    source,
+  );
+  if (validation.governedArtifactIris === undefined) {
+    throw new EffectiveConfigError(
+      `Exact artifact policy target in ${source} requires governed artifact context`,
+    );
+  }
+  if (!validation.governedArtifactIris.has(artifactIri)) {
+    throw new EffectiveConfigError(
+      `Exact artifact policy target in ${source} is not governed by the active mesh scope: ${artifactIri}`,
+    );
+  }
+  return { kind: "exactArtifact", artifactIri };
+}
+
+function rejectPolicyTargetSelector(
+  quads: readonly Quad[],
+  targetTerm: string,
+  predicateIri: string,
+  source: string,
+  targetKind: string,
+): void {
+  if (collectObjectTerms(quads, targetTerm, predicateIri).length > 0) {
+    throw new EffectiveConfigError(
+      `${targetKind} in ${source} cannot also declare ${predicateIri}`,
+    );
+  }
 }
 
 function policyValueForSlot(
@@ -1180,6 +1431,8 @@ function policyTargetCovers(
       return true;
     case "artifactRole":
       return queryTarget.artifactRoles.includes(policyTarget.artifactRole);
+    case "exactArtifact":
+      return queryTarget.artifactIri === policyTarget.artifactIri;
   }
 }
 
@@ -1189,6 +1442,8 @@ function policyTargetSpecificity(policyTarget: PolicyTarget): number {
       return 0;
     case "artifactRole":
       return 1;
+    case "exactArtifact":
+      return 2;
   }
 }
 
@@ -1664,6 +1919,22 @@ function requireNamedNodeTermIri(
   }
 
   return termKey.slice("NamedNode:".length);
+}
+
+function requireSingleNamedNodeObject(
+  quads: readonly Quad[],
+  subject: string,
+  predicateIri: string,
+  source: string,
+): string {
+  const namedNodes = collectNamedNodeObjects(quads, subject, predicateIri);
+  if (namedNodes.length !== 1) {
+    throw new EffectiveConfigError(
+      `Expected exactly one ${predicateIri} named node value in ${source}`,
+    );
+  }
+
+  return namedNodes[0]!;
 }
 
 function requireSingleObjectTerm(

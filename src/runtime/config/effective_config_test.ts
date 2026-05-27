@@ -290,6 +290,150 @@ Deno.test("compileWeaveEffectiveConfig uses priority only for same-specificity c
   );
 });
 
+Deno.test("compileWeaveEffectiveConfig lets exact artifact specificity beat role and broad targets", () => {
+  const config = compileWeaveEffectiveConfig({
+    applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+    configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+    meshBase: MESH_BASE,
+    meshInventoryTurtle: GOVERNED_ARTIFACTS_INVENTORY_TURTLE,
+    meshConfigTurtle: `@base <${MESH_BASE}> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPolicyBinding <#any-current-only>, <#payload-generate>, <#alice-exact> .
+
+<#any-current-only> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#current-only> ;
+  sfcfg:appliesToPolicyTarget <#any> .
+
+<#payload-generate> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#generate> ;
+  sfcfg:appliesToPolicyTarget <#payload> .
+
+<#alice-exact> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#alice-policy> ;
+  sfcfg:appliesToPolicyTarget <#alice-target> .
+
+<#current-only> a sfcfg:PolicyDefinition ;
+  sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly .
+
+<#generate> a sfcfg:PolicyDefinition ;
+  sfcfg:hasResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_generate .
+
+<#alice-policy> a sfcfg:PolicyDefinition ;
+  sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_versioned ;
+  sfcfg:hasResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_suppress .
+
+<#any> a sfcfg:AnyGovernedArtifactPolicyTarget .
+
+<#payload> a sfcfg:ArtifactRolePolicyTarget ;
+  sfcfg:hasArtifactRole sfcfg:artifactRole_payload .
+
+<#alice-target> a sfcfg:ExactArtifactPolicyTarget ;
+  sfcfg:targetsArtifact <alice/data> .
+`,
+  });
+
+  assertEquals(
+    config.artifactTargetPolicy({
+      artifactIri: `${MESH_BASE}alice/data`,
+      artifactRole: "payload",
+    }),
+    {
+      historyTrackingPolicy: "versioned",
+      resourcePageGenerationPolicy: "suppress",
+    },
+  );
+  assertEquals(
+    config.artifactTargetPolicy({
+      artifactIri: `${MESH_BASE}bob/data`,
+      artifactRole: "payload",
+    }),
+    {
+      historyTrackingPolicy: "currentOnly",
+      resourcePageGenerationPolicy: "generate",
+    },
+  );
+  assertEquals(
+    config.resourcePageGenerationPolicyForArtifactRole("payload"),
+    "generate",
+  );
+});
+
+Deno.test("compileWeaveEffectiveConfig rejects exact artifact targets without governance context", () => {
+  assertThrows(
+    () =>
+      compileWeaveEffectiveConfig({
+        applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+        configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+        meshConfigTurtle: exactTargetMeshConfigTurtle("<alice/data>"),
+      }),
+    EffectiveConfigError,
+    "requires governed artifact context",
+  );
+});
+
+Deno.test("compileWeaveEffectiveConfig rejects exact artifact targets outside the governed mesh scope", () => {
+  assertThrows(
+    () =>
+      compileWeaveEffectiveConfig({
+        applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+        configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+        meshBase: MESH_BASE,
+        meshInventoryTurtle: GOVERNED_ARTIFACTS_INVENTORY_TURTLE,
+        meshConfigTurtle: exactTargetMeshConfigTurtle(
+          "<https://example.invalid/external>",
+        ),
+      }),
+    EffectiveConfigError,
+    "not governed by the active mesh scope",
+  );
+});
+
+Deno.test("compileWeaveEffectiveConfig rejects malformed exact artifact targets", () => {
+  assertThrows(
+    () =>
+      compileWeaveEffectiveConfig({
+        applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+        configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+        meshBase: MESH_BASE,
+        meshInventoryTurtle: GOVERNED_ARTIFACTS_INVENTORY_TURTLE,
+        meshConfigTurtle: `@base <${MESH_BASE}> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPolicyBinding <#binding> .
+
+<#binding> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#policy> ;
+  sfcfg:appliesToPolicyTarget <#target> .
+
+<#policy> a sfcfg:PolicyDefinition ;
+  sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_versioned .
+
+<#target> a sfcfg:ExactArtifactPolicyTarget .
+`,
+      }),
+    EffectiveConfigError,
+    "targetsArtifact",
+  );
+});
+
+Deno.test("compileWeaveEffectiveConfig rejects malformed inventory when exact targets need governance", () => {
+  assertThrows(
+    () =>
+      compileWeaveEffectiveConfig({
+        applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+        configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+        meshBase: MESH_BASE,
+        meshInventoryTurtle: "not turtle",
+        meshConfigTurtle: exactTargetMeshConfigTurtle("<alice/data>"),
+      }),
+    EffectiveConfigError,
+    "Could not parse the current MeshInventory",
+  );
+});
+
 Deno.test("compileWeaveEffectiveConfig fails closed on unresolved same-layer conflicts", () => {
   assertThrows(
     () =>
@@ -434,6 +578,15 @@ const VALID_APPLICATION_TURTLE =
 const VALID_APPLICATION_WITH_PRESENTATION_TURTLE =
   withValidResourcePagePresentation(VALID_APPLICATION_TURTLE);
 
+const MESH_BASE = "https://semantic-flow.github.io/mesh-test/";
+
+const GOVERNED_ARTIFACTS_INVENTORY_TURTLE = `@base <${MESH_BASE}> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<alice/data> a sflo:PayloadArtifact, sflo:DigitalArtifact .
+<bob/data> a sflo:PayloadArtifact, sflo:DigitalArtifact .
+`;
+
 function withValidResourcePagePresentation(applicationTurtle: string): string {
   return `${applicationTurtle.trimEnd()}
 
@@ -496,3 +649,22 @@ const VALID_CONFIG_RESOLUTION_TURTLE =
     sfcfg:layerOrder "90"^^xsd:nonNegativeInteger
   ] .
 `;
+
+function exactTargetMeshConfigTurtle(artifactObject: string): string {
+  return `@base <${MESH_BASE}> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPolicyBinding <#binding> .
+
+<#binding> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#policy> ;
+  sfcfg:appliesToPolicyTarget <#target> .
+
+<#policy> a sfcfg:PolicyDefinition ;
+  sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_versioned .
+
+<#target> a sfcfg:ExactArtifactPolicyTarget ;
+  sfcfg:targetsArtifact ${artifactObject} .
+`;
+}

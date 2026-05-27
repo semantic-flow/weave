@@ -41,6 +41,24 @@ Deno.test("listGeneratedResourcePagePaths suppresses pages owned by suppressed a
   );
 });
 
+Deno.test("listGeneratedResourcePagePaths lets exact artifact policy override role policy", () => {
+  assertEquals(
+    listGeneratedResourcePagePaths({
+      meshBase: MESH_BASE,
+      inventoryTurtle: PAGE_POLICY_TURTLE,
+      parseErrorMessage: "Could not parse test inventory.",
+      config: policyConfig(
+        { payload: "generate" },
+        { [`${MESH_BASE}alice/data`]: "suppress" },
+      ),
+    }),
+    [
+      "alice/data/_knop/_inventory/index.html",
+      "alice/data/_knop/index.html",
+    ],
+  );
+});
+
 Deno.test("listGeneratedResourcePagePaths materializes on-request pages only for explicit requests", () => {
   const config = policyConfig({ payload: "onRequest" });
 
@@ -95,8 +113,16 @@ Deno.test("listGeneratedResourcePagePaths does not infer ownership from mutable 
 
 function policyConfig(
   policies: Partial<Record<ArtifactRole, ResourcePageGenerationPolicy>> = {},
+  exactPolicies: Partial<Record<string, ResourcePageGenerationPolicy>> = {},
 ) {
   return {
+    resourcePageGenerationPolicyForArtifactTarget(target: {
+      artifactIri: string;
+      artifactRole: ArtifactRole;
+    }): ResourcePageGenerationPolicy {
+      return exactPolicies[target.artifactIri] ??
+        policies[target.artifactRole] ?? "generate";
+    },
     resourcePageGenerationPolicyForArtifactRole(
       role: ArtifactRole,
     ): ResourcePageGenerationPolicy {

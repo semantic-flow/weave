@@ -1,6 +1,9 @@
 import type { PlannedBinaryFile, PlannedFile } from "../planned_file.ts";
 import type { WeaveNamingPolicies } from "./naming_policy.ts";
-import type { WeaveResourcePageGenerationPolicies } from "./resource_page_policy.ts";
+import type {
+  ResourcePageGenerationConfig,
+  WeaveResourcePageGenerationPolicies,
+} from "./resource_page_policy.ts";
 import type { ResourcePageModel } from "./resource_page_models.ts";
 import type { WeaveSupportHistoryPolicies } from "./support_history_policy.ts";
 import type { WeaveableKnopCandidate } from "./candidates.ts";
@@ -14,6 +17,7 @@ export interface PlanWeaveInput {
   weaveableKnops: readonly WeaveableKnopCandidate[];
   supportHistoryPolicies?: WeaveSupportHistoryPolicies;
   namingPolicies?: WeaveNamingPolicies;
+  resourcePageGenerationConfig?: ResourcePageGenerationConfig;
   resourcePageGenerationPolicies?: WeaveResourcePageGenerationPolicies;
 }
 

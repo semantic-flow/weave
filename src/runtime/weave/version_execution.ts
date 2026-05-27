@@ -82,6 +82,8 @@ export async function prepareVersionExecution(
         meshConfigSource: meshState.currentMeshConfigTurtle
           ? "_mesh/_config/config.ttl"
           : undefined,
+        meshBase: meshState.meshBase,
+        meshInventoryTurtle: meshState.currentMeshInventoryTurtle,
         historyTrackingPolicyOverride,
       }),
   );
@@ -156,6 +158,7 @@ export async function prepareVersionExecution(
           currentMeshMetadataTurtle: meshState.currentMeshMetadataTurtle,
           currentMeshConfigTurtle: meshState.currentMeshConfigTurtle,
           supportHistoryPolicies,
+          resourcePageGenerationConfig: effectiveConfig,
           resourcePageGenerationPolicies,
         }),
       };
@@ -225,6 +228,7 @@ export async function prepareVersionExecution(
           weaveableKnops: [nextCandidate],
           supportHistoryPolicies,
           namingPolicies,
+          resourcePageGenerationConfig: effectiveConfig,
           resourcePageGenerationPolicies,
         }),
     );
