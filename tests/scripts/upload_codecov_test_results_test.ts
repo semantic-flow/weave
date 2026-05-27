@@ -68,6 +68,31 @@ Deno.test("parseUploadCodecovTestResultsArgs rejects unsupported arguments", asy
   );
 });
 
+Deno.test("parseUploadCodecovTestResultsArgs treats -- as the end of options", async () => {
+  await withEnv(
+    {
+      CODECOV_TEST_RESULTS_FLAGS: undefined,
+      CODECOV_TEST_RESULTS_NAME: undefined,
+    },
+    () => {
+      assertEquals(
+        parseUploadCodecovTestResultsArgs(["--name", "manual", "--"]),
+        {
+          root: Deno.cwd(),
+          reportPath: "/tmp/semantic-flow-coverage/codecov-junit.xml",
+          flags: ["deno", "local"],
+          name: "manual",
+        },
+      );
+      assertThrows(
+        () => parseUploadCodecovTestResultsArgs(["--", "--flag", "deno"]),
+        Error,
+        'does not accept positional arguments: "--flag", "deno"',
+      );
+    },
+  );
+});
+
 Deno.test("resolveCodecovToken prefers the Semantic Flow org token", async () => {
   await withEnv(
     {
