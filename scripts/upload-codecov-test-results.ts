@@ -1,7 +1,7 @@
 import { resolve } from "@std/path";
-import { coverageJunitPath } from "./coverage-paths.ts";
+import { coverageCodecovJunitPath } from "./coverage-paths.ts";
 
-const defaultReportPath = coverageJunitPath;
+const defaultReportPath = coverageCodecovJunitPath;
 const defaultFlags = ["deno", "local"];
 const defaultName = "local-test-results";
 const tokenEnvNames = ["CODECOV_TOKEN_SEMANTIC_FLOW", "CODECOV_TOKEN"] as const;

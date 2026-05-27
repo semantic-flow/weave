@@ -76,12 +76,11 @@ jobs:
 
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@v6
+        uses: codecov/test-results-action@v5
         with:
-          files: /tmp/semantic-flow-coverage/junit.xml
+          file: /tmp/semantic-flow-coverage/codecov-junit.xml
           flags: deno
           name: test-results
-          report_type: test_results
           disable_search: true
           fail_ci_if_error: true
           use_oidc: true

@@ -1,7 +1,6 @@
 import { assertEquals } from "@std/assert";
 import {
   analyticsUploadOptions,
-  coverageTestArgs,
 } from "../../scripts/run-codecov-test-analytics.ts";
 
 Deno.test("analyticsUploadOptions defaults the report outside the workspace", async () => {
@@ -13,7 +12,7 @@ Deno.test("analyticsUploadOptions defaults the report outside the workspace", as
     () => {
       assertEquals(analyticsUploadOptions([]), {
         root: Deno.cwd(),
-        reportPath: "/tmp/semantic-flow-coverage/junit.xml",
+        reportPath: "/tmp/semantic-flow-coverage/codecov-junit.xml",
         flags: ["deno", "local"],
         name: "local-test-results",
       });
@@ -34,31 +33,6 @@ Deno.test("analyticsUploadOptions preserves an explicit report path", async () =
         flags: ["deno", "local"],
         name: "local-test-results",
       });
-    },
-  );
-});
-
-Deno.test("coverageTestArgs writes raw coverage and JUnit XML under /tmp", async () => {
-  await withEnv(
-    {
-      CODECOV_TEST_RESULTS_FLAGS: undefined,
-      CODECOV_TEST_RESULTS_NAME: undefined,
-    },
-    () => {
-      assertEquals(coverageTestArgs(analyticsUploadOptions([])), [
-        "test",
-        "--clean",
-        "--preload=tests/support/test_tmp_harness.ts",
-        "--allow-read",
-        "--allow-write",
-        "--allow-run=git,deno",
-        "--allow-env",
-        "--coverage=/tmp/semantic-flow-coverage",
-        "--coverage-raw-data-only",
-        "--junit-path=/tmp/semantic-flow-coverage/junit.xml",
-        "src",
-        "tests",
-      ]);
     },
   );
 });

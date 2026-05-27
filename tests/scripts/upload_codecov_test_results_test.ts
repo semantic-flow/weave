@@ -44,7 +44,7 @@ Deno.test("parseUploadCodecovTestResultsArgs uses local defaults and env overrid
     () => {
       assertEquals(parseUploadCodecovTestResultsArgs([]), {
         root: Deno.cwd(),
-        reportPath: "/tmp/semantic-flow-coverage/junit.xml",
+        reportPath: "/tmp/semantic-flow-coverage/codecov-junit.xml",
         flags: ["local", "linux"],
         name: "dev-results",
       });
