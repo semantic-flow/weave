@@ -28,10 +28,6 @@
     sfcfg:layerOrder "50"^^xsd:nonNegativeInteger
   ], [
     a sfcfg:ConfigLayer ;
-    sfcfg:hasConfigLayerRole sfcfg:configLayerRole_meshInheritable ;
-    sfcfg:layerOrder "55"^^xsd:nonNegativeInteger
-  ], [
-    a sfcfg:ConfigLayer ;
     sfcfg:hasConfigLayerRole sfcfg:configLayerRole_knopInherited ;
     sfcfg:layerOrder "60"^^xsd:nonNegativeInteger
   ], [

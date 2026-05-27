@@ -68,7 +68,6 @@ Deno.test("loadWeaveDefaultEffectiveConfig parses config-resolution defaults", a
       "builtInDefaults",
       "weaveDefaults",
       "meshLocal",
-      "meshInheritable",
       "knopInherited",
       "knopLocal",
       "knopInheritable",

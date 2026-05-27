@@ -8,7 +8,6 @@ export type ConfigInheritanceOfferPolicy =
   | "offerSelfAndDescendants";
 
 export type InheritedConfigProjection =
-  | "meshInherited"
   | "ancestorInherited"
   | "selfInclusiveOffer";
 
@@ -20,8 +19,6 @@ export interface ConfigInheritanceScope<TSource = string> {
 }
 
 export interface KnopInheritedConfigResolutionInput<TSource = string> {
-  meshScopeKey?: string;
-  meshInheritableSources?: readonly TSource[];
   knopScopePath: readonly ConfigInheritanceScope<TSource>[];
 }
 
@@ -44,8 +41,6 @@ export function resolveKnopInheritedConfigSources<TSource>(
     | KnopInheritedConfigResolutionInput<TSource>,
 ): readonly ProjectedInheritedConfigSource<TSource>[] {
   const {
-    meshScopeKey,
-    meshInheritableSources,
     knopScopePath,
   } = normalizeResolutionInput(input);
 
@@ -55,10 +50,9 @@ export function resolveKnopInheritedConfigSources<TSource>(
     );
   }
 
-  assertUniqueScopeKeys(knopScopePath, meshScopeKey);
+  assertUniqueScopeKeys(knopScopePath);
 
-  let incoming: readonly ProjectedInheritedConfigSource<TSource>[] =
-    projectMeshInheritableSources(meshScopeKey, meshInheritableSources);
+  let incoming: readonly ProjectedInheritedConfigSource<TSource>[] = [];
 
   for (let index = 0; index < knopScopePath.length; index += 1) {
     const scope = knopScopePath[index]!;
@@ -86,13 +80,11 @@ function normalizeResolutionInput<TSource>(
   input:
     | readonly ConfigInheritanceScope<TSource>[]
     | KnopInheritedConfigResolutionInput<TSource>,
-): Required<KnopInheritedConfigResolutionInput<TSource>> {
+): KnopInheritedConfigResolutionInput<TSource> {
   if (Array.isArray(input)) {
     const knopScopePath = input as readonly ConfigInheritanceScope<TSource>[];
 
     return {
-      meshScopeKey: "_mesh",
-      meshInheritableSources: [],
       knopScopePath,
     };
   }
@@ -100,21 +92,8 @@ function normalizeResolutionInput<TSource>(
   const resolutionInput = input as KnopInheritedConfigResolutionInput<TSource>;
 
   return {
-    meshScopeKey: resolutionInput.meshScopeKey ?? "_mesh",
-    meshInheritableSources: resolutionInput.meshInheritableSources ?? [],
     knopScopePath: resolutionInput.knopScopePath,
   };
-}
-
-function projectMeshInheritableSources<TSource>(
-  meshScopeKey: string,
-  meshInheritableSources: readonly TSource[],
-): readonly ProjectedInheritedConfigSource<TSource>[] {
-  return meshInheritableSources.map((source) => ({
-    source,
-    offeredByScopeKey: meshScopeKey,
-    projection: "meshInherited",
-  }));
 }
 
 function projectDescendantOffers<TSource>(
@@ -143,15 +122,8 @@ function projectSelfInclusiveOffers<TSource>(
 
 function assertUniqueScopeKeys<TSource>(
   scopePath: readonly ConfigInheritanceScope<TSource>[],
-  meshScopeKey: string,
 ): void {
-  if (meshScopeKey.trim().length === 0) {
-    throw new ConfigInheritanceError(
-      "Config inheritance mesh scope key must not be empty",
-    );
-  }
-
-  const seenScopeKeys = new Set<string>([meshScopeKey]);
+  const seenScopeKeys = new Set<string>();
 
   for (const scope of scopePath) {
     if (scope.scopeKey !== "" && scope.scopeKey.trim().length === 0) {

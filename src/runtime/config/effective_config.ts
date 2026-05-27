@@ -254,7 +254,6 @@ const CONFIG_LAYER_ROLE_VALUES = {
   [`${SFCFG_NAMESPACE}configLayerRole_weaveDefaults`]: "weaveDefaults",
   [`${SFCFG_NAMESPACE}configLayerRole_commandOverride`]: "commandOverride",
   [`${SFCFG_NAMESPACE}configLayerRole_meshLocal`]: "meshLocal",
-  [`${SFCFG_NAMESPACE}configLayerRole_meshInheritable`]: "meshInheritable",
   [`${SFCFG_NAMESPACE}configLayerRole_knopInherited`]: "knopInherited",
   [`${SFCFG_NAMESPACE}configLayerRole_knopLocal`]: "knopLocal",
   [`${SFCFG_NAMESPACE}configLayerRole_knopInheritable`]: "knopInheritable",
