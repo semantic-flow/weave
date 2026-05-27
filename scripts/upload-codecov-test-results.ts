@@ -129,6 +129,7 @@ export async function uploadCodecovTestResults(
     "test_results",
     "--file",
     options.reportPath,
+    "--disable-search",
     "--name",
     options.name,
     "-Z",

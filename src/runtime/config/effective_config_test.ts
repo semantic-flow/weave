@@ -126,6 +126,51 @@ Deno.test("loadWeaveDefaultEffectiveConfig parses naming and regeneration defaul
   );
 });
 
+Deno.test("compileWeaveEffectiveConfig parses mesh scoped settings", () => {
+  const config = compileWeaveEffectiveConfig({
+    applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+    configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+    meshConfigTurtle:
+      `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:workspaceRootRelativeToMeshRoot "../" ;
+  sfcfg:hasPublicationProfile sfcfg:publicationProfile_githubPages .
+`,
+  });
+
+  assertEquals(config.scopedSettings.mesh, {
+    publicationProfile: "githubPages",
+    workspaceRootRelativeToMeshRoot: "../",
+  });
+});
+
+Deno.test("compileWeaveEffectiveConfig lets mesh-local scoped settings override application defaults", () => {
+  const config = compileWeaveEffectiveConfig({
+    applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+    configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+    meshConfigTurtle:
+      `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasResourcePageRegenerationConfigPolicy sfcfg:resourcePageRegenerationConfigPolicy_currentFullConfig ;
+  sfcfg:hasHistoryNamingPolicy sfcfg:historyNamingPolicy_named ;
+  sfcfg:hasStateNamingPolicy sfcfg:stateNamingPolicy_semver ;
+  sfcfg:hasManifestationNamingPolicy sfcfg:manifestationNamingPolicy_ordinal .
+`,
+  });
+
+  assertEquals(config.namingPolicies, {
+    historyNamingPolicy: "named",
+    stateNamingPolicy: "semver",
+    manifestationNamingPolicy: "ordinal",
+  });
+  assertEquals(
+    config.resourcePageRegenerationConfigPolicy,
+    "currentFullConfig",
+  );
+});
+
 Deno.test("compileWeaveEffectiveConfig applies mesh-local any-governed-artifact overrides", () => {
   const config = compileWeaveEffectiveConfig({
     applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
@@ -434,6 +479,97 @@ Deno.test("compileWeaveEffectiveConfig rejects malformed inventory when exact ta
   );
 });
 
+Deno.test("compileWeaveEffectiveConfig rejects duplicate mesh publication profiles", () => {
+  assertThrows(
+    () =>
+      compileWeaveEffectiveConfig({
+        applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+        configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+        meshConfigTurtle:
+          `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPublicationProfile sfcfg:publicationProfile_none, sfcfg:publicationProfile_githubPages .
+`,
+      }),
+    EffectiveConfigError,
+    "hasPublicationProfile",
+  );
+});
+
+Deno.test("compileWeaveEffectiveConfig rejects unsupported mesh publication profiles", () => {
+  assertThrows(
+    () =>
+      compileWeaveEffectiveConfig({
+        applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+        configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+        meshConfigTurtle:
+          `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPublicationProfile sfcfg:publicationProfile_auto .
+`,
+      }),
+    EffectiveConfigError,
+    "Unsupported",
+  );
+});
+
+Deno.test("compileWeaveEffectiveConfig rejects unsafe workspace-root relationships", () => {
+  for (const value of ["/tmp", "../workspace", "", "C:/workspace"]) {
+    assertThrows(
+      () =>
+        compileWeaveEffectiveConfig({
+          applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+          configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+          meshConfigTurtle:
+            `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:workspaceRootRelativeToMeshRoot ${JSON.stringify(value)} .
+`,
+        }),
+      EffectiveConfigError,
+      "workspaceRootRelativeToMeshRoot",
+    );
+  }
+});
+
+Deno.test("compileWeaveEffectiveConfig rejects mesh-carried resolver config", () => {
+  assertThrows(
+    () =>
+      compileWeaveEffectiveConfig({
+        applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+        configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+        meshConfigTurtle:
+          `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasConfigResolutionConfig <#resolver> .
+`,
+      }),
+    EffectiveConfigError,
+    "hasConfigResolutionConfig",
+  );
+
+  assertThrows(
+    () =>
+      compileWeaveEffectiveConfig({
+        applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+        configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+        meshConfigTurtle:
+          `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig .
+
+<#resolver> a sfcfg:ConfigResolutionConfig .
+`,
+      }),
+    EffectiveConfigError,
+    "ConfigResolutionConfig",
+  );
+});
+
 Deno.test("compileWeaveEffectiveConfig fails closed on unresolved same-layer conflicts", () => {
   assertThrows(
     () =>
@@ -477,6 +613,7 @@ Deno.test("parseWeaveDefaultEffectiveConfig rejects retired direct policy predic
           `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:ApplicationConfig ;
+  sfcfg:hasConfigResolutionConfig <config-resolution> ;
   sfcfg:hasDefaultHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly ;
   sfcfg:hasResourcePageRegenerationConfigPolicy sfcfg:resourcePageRegenerationConfigPolicy_configAtTheTime ;
   sfcfg:hasHistoryNamingPolicy sfcfg:historyNamingPolicy_ordinal ;
@@ -499,6 +636,7 @@ Deno.test("parseWeaveDefaultEffectiveConfig rejects unknown policy values", () =
           `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:ApplicationConfig ;
+  sfcfg:hasConfigResolutionConfig <config-resolution> ;
   sfcfg:hasPolicyBinding <#bad> ;
   sfcfg:hasResourcePageRegenerationConfigPolicy sfcfg:resourcePageRegenerationConfigPolicy_configAtTheTime ;
   sfcfg:hasHistoryNamingPolicy sfcfg:historyNamingPolicy_ordinal ;
@@ -545,6 +683,7 @@ const VALID_APPLICATION_TURTLE =
   `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:ApplicationConfig ;
+  sfcfg:hasConfigResolutionConfig <config-resolution> ;
   sfcfg:hasPolicyBinding <#history-current-only>, <#pages-generate>, <#presentation-default> ;
   sfcfg:hasResourcePageRegenerationConfigPolicy sfcfg:resourcePageRegenerationConfigPolicy_configAtTheTime ;
   sfcfg:hasHistoryNamingPolicy sfcfg:historyNamingPolicy_ordinal ;

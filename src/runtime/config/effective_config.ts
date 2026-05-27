@@ -1,4 +1,5 @@
 import { join, resolve, toFileUrl } from "@std/path";
+import * as pathPosix from "@std/path/posix";
 import { Parser, type Quad, type Term } from "n3";
 import {
   RDF_NAMESPACE,
@@ -19,6 +20,8 @@ const ARTIFACT_ROLE_POLICY_TARGET_IRI =
 const EXACT_ARTIFACT_POLICY_TARGET_IRI =
   `${SFCFG_NAMESPACE}ExactArtifactPolicyTarget`;
 const HAS_POLICY_BINDING_IRI = `${SFCFG_NAMESPACE}hasPolicyBinding`;
+const HAS_CONFIG_RESOLUTION_CONFIG_IRI =
+  `${SFCFG_NAMESPACE}hasConfigResolutionConfig`;
 const BINDS_POLICY_IRI = `${SFCFG_NAMESPACE}bindsPolicy`;
 const APPLIES_TO_POLICY_TARGET_IRI = `${SFCFG_NAMESPACE}appliesToPolicyTarget`;
 const POLICY_PRIORITY_IRI = `${SFCFG_NAMESPACE}policyPriority`;
@@ -56,6 +59,9 @@ const HAS_HISTORY_NAMING_POLICY_IRI =
 const HAS_STATE_NAMING_POLICY_IRI = `${SFCFG_NAMESPACE}hasStateNamingPolicy`;
 const HAS_MANIFESTATION_NAMING_POLICY_IRI =
   `${SFCFG_NAMESPACE}hasManifestationNamingPolicy`;
+const HAS_PUBLICATION_PROFILE_IRI = `${SFCFG_NAMESPACE}hasPublicationProfile`;
+const WORKSPACE_ROOT_RELATIVE_TO_MESH_ROOT_IRI =
+  `${SFCFG_NAMESPACE}workspaceRootRelativeToMeshRoot`;
 const HAS_UNKNOWN_CONFIG_TERM_POLICY_IRI =
   `${SFCFG_NAMESPACE}hasUnknownConfigTermPolicy`;
 const HAS_CONFIG_CYCLE_POLICY_IRI = `${SFCFG_NAMESPACE}hasConfigCyclePolicy`;
@@ -75,6 +81,7 @@ const LAYER_ORDER_IRI = `${SFCFG_NAMESPACE}layerOrder`;
 const XSD_INTEGER_IRI = "http://www.w3.org/2001/XMLSchema#integer";
 const XSD_NON_NEGATIVE_INTEGER_IRI =
   "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
+const XSD_STRING_IRI = "http://www.w3.org/2001/XMLSchema#string";
 const SFLO_DIGITAL_ARTIFACT_IRI = `${SFLO_NAMESPACE}DigitalArtifact`;
 const SFLO_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}PayloadArtifact`;
 const SFLO_MESH_INVENTORY_IRI = `${SFLO_NAMESPACE}MeshInventory`;
@@ -193,6 +200,11 @@ const MANIFESTATION_NAMING_POLICY_VALUES = {
   [`${SFCFG_NAMESPACE}manifestationNamingPolicy_contentKindDerived`]:
     "contentKindDerived",
   [`${SFCFG_NAMESPACE}manifestationNamingPolicy_ordinal`]: "ordinal",
+} as const;
+
+const PUBLICATION_PROFILE_VALUES = {
+  [`${SFCFG_NAMESPACE}publicationProfile_none`]: "none",
+  [`${SFCFG_NAMESPACE}publicationProfile_githubPages`]: "githubPages",
 } as const;
 
 const UNKNOWN_CONFIG_TERM_POLICY_VALUES = {
@@ -325,6 +337,9 @@ type StateNamingPolicy = ValueOf<typeof STATE_NAMING_POLICY_VALUES>;
 type ManifestationNamingPolicy = ValueOf<
   typeof MANIFESTATION_NAMING_POLICY_VALUES
 >;
+export type ConfigPublicationProfile = ValueOf<
+  typeof PUBLICATION_PROFILE_VALUES
+>;
 export type UnknownConfigTermPolicy = ValueOf<
   typeof UNKNOWN_CONFIG_TERM_POLICY_VALUES
 >;
@@ -373,6 +388,15 @@ export interface DefaultNamingPolicies {
   historyNamingPolicy: HistoryNamingPolicy;
   stateNamingPolicy: StateNamingPolicy;
   manifestationNamingPolicy: ManifestationNamingPolicy;
+}
+
+export interface MeshScopedSettings {
+  publicationProfile?: ConfigPublicationProfile;
+  workspaceRootRelativeToMeshRoot?: string;
+}
+
+export interface EffectiveScopedSettings {
+  mesh: MeshScopedSettings;
 }
 
 export interface ConfigLayerProfile {
@@ -662,6 +686,14 @@ interface CompiledPolicyBinding {
   values: PolicyValueBySlot;
 }
 
+interface ScopedSettingLayer {
+  quads: readonly Quad[];
+  configSubject: string;
+  source: string;
+  layerRole: ConfigLayerRole;
+  layerOrder: number;
+}
+
 export interface PolicyResolutionTraceEntry {
   slot: PolicySlot;
   artifactIri?: string;
@@ -687,6 +719,7 @@ export class EffectiveConfig {
   readonly resourcePagePresentation: ResourcePagePresentationProfile;
   readonly resourcePageRegenerationConfigPolicy:
     ResourcePageRegenerationConfigPolicy;
+  readonly scopedSettings: EffectiveScopedSettings;
   readonly resolutionTrace: PolicyResolutionTraceEntry[] = [];
   readonly #policyBindings: readonly CompiledPolicyBinding[];
   readonly #presentationProfiles: ReadonlyMap<
@@ -705,6 +738,7 @@ export class EffectiveConfig {
       resourcePageRegenerationConfigPolicy:
         ResourcePageRegenerationConfigPolicy;
       namingPolicies: DefaultNamingPolicies;
+      scopedSettings: EffectiveScopedSettings;
       configResolution: DefaultConfigResolutionProfile;
     },
   ) {
@@ -714,6 +748,7 @@ export class EffectiveConfig {
     this.resourcePageRegenerationConfigPolicy =
       input.resourcePageRegenerationConfigPolicy;
     this.namingPolicies = input.namingPolicies;
+    this.scopedSettings = input.scopedSettings;
     this.configResolution = input.configResolution;
     this.resourcePagePresentation = this
       .resourcePagePresentationPolicyForTarget({ artifactRoles: [] });
@@ -977,6 +1012,21 @@ export function compileWeaveEffectiveConfig(input: {
     APPLICATION_CONFIG_IRI,
     sources.applicationSource,
   );
+  requireSingleNamedNodeObject(
+    applicationQuads,
+    applicationSubject,
+    HAS_CONFIG_RESOLUTION_CONFIG_IRI,
+    sources.applicationSource,
+  );
+  const meshSubject = resolveOptionalMeshConfigSubject(
+    meshQuads,
+    sources.meshConfigSource ?? "mesh-config.ttl",
+  );
+  rejectPortableMeshResolverConfig(
+    meshQuads,
+    meshSubject,
+    sources.meshConfigSource ?? "mesh-config.ttl",
+  );
   rejectRetiredDirectPolicyPredicates(
     applicationQuads,
     sources.applicationSource,
@@ -987,6 +1037,22 @@ export function compileWeaveEffectiveConfig(input: {
   );
 
   const allQuads = [...applicationQuads, ...meshQuads];
+  const scopedSettingLayers: ScopedSettingLayer[] = [{
+    quads: applicationQuads,
+    configSubject: applicationSubject,
+    source: sources.applicationSource,
+    layerRole: "weaveDefaults",
+    layerOrder: requireLayerOrder(layerOrderByRole, "weaveDefaults"),
+  }];
+  if (meshSubject) {
+    scopedSettingLayers.push({
+      quads: meshQuads,
+      configSubject: meshSubject,
+      source: sources.meshConfigSource ?? "mesh-config.ttl",
+      layerRole: "meshLocal",
+      layerOrder: requireLayerOrder(layerOrderByRole, "meshLocal"),
+    });
+  }
   const targetValidation = createPolicyTargetValidationContext({
     quads: allQuads,
     meshBase: input.meshBase,
@@ -1002,12 +1068,16 @@ export function compileWeaveEffectiveConfig(input: {
       layerOrderByRole,
       targetValidation,
     }),
-    ...parseMeshPolicyBindings(
-      meshQuads,
-      sources,
-      layerOrderByRole,
-      targetValidation,
-    ),
+    ...(meshSubject
+      ? parsePolicyBindings({
+        quads: meshQuads,
+        configSubject: meshSubject,
+        source: sources.meshConfigSource ?? "mesh-config.ttl",
+        layerRole: "meshLocal",
+        layerOrderByRole,
+        targetValidation,
+      })
+      : []),
     ...compileCommandOverrideBindings(
       input.commandOverrides,
       layerOrderByRole,
@@ -1022,66 +1092,200 @@ export function compileWeaveEffectiveConfig(input: {
       allQuads,
       sources.applicationSource,
     ),
-    resourcePageRegenerationConfigPolicy: requireSingleNamedValue(
-      applicationQuads,
-      applicationSubject,
+    resourcePageRegenerationConfigPolicy: resolveLayeredNamedScopedSetting(
+      scopedSettingLayers,
       HAS_RESOURCE_PAGE_REGENERATION_CONFIG_POLICY_IRI,
       RESOURCE_PAGE_REGENERATION_CONFIG_POLICY_VALUES,
-      sources.applicationSource,
+      "ResourcePage regeneration config policy",
     ),
     namingPolicies: {
-      historyNamingPolicy: requireSingleNamedValue(
-        applicationQuads,
-        applicationSubject,
+      historyNamingPolicy: resolveLayeredNamedScopedSetting(
+        scopedSettingLayers,
         HAS_HISTORY_NAMING_POLICY_IRI,
         HISTORY_NAMING_POLICY_VALUES,
-        sources.applicationSource,
+        "history naming policy",
       ),
-      stateNamingPolicy: requireSingleNamedValue(
-        applicationQuads,
-        applicationSubject,
+      stateNamingPolicy: resolveLayeredNamedScopedSetting(
+        scopedSettingLayers,
         HAS_STATE_NAMING_POLICY_IRI,
         STATE_NAMING_POLICY_VALUES,
-        sources.applicationSource,
+        "state naming policy",
       ),
-      manifestationNamingPolicy: requireSingleNamedValue(
-        applicationQuads,
-        applicationSubject,
+      manifestationNamingPolicy: resolveLayeredNamedScopedSetting(
+        scopedSettingLayers,
         HAS_MANIFESTATION_NAMING_POLICY_IRI,
         MANIFESTATION_NAMING_POLICY_VALUES,
-        sources.applicationSource,
+        "manifestation naming policy",
+      ),
+    },
+    scopedSettings: {
+      mesh: parseMeshScopedSettings(
+        meshQuads,
+        meshSubject,
+        sources.meshConfigSource ?? "mesh-config.ttl",
       ),
     },
     configResolution,
   });
 }
 
-function parseMeshPolicyBindings(
+function resolveOptionalMeshConfigSubject(
   meshQuads: readonly Quad[],
-  sources: EffectiveConfigSources,
-  layerOrderByRole: ReadonlyMap<ConfigLayerRole, number>,
-  targetValidation: PolicyTargetValidationContext,
-): readonly CompiledPolicyBinding[] {
+  source: string,
+): string | undefined {
   if (meshQuads.length === 0) {
-    return [];
+    return undefined;
   }
   const meshConfigSubjects = collectTypedSubjects(meshQuads, MESH_CONFIG_IRI);
   if (meshConfigSubjects.length !== 1) {
     throw new EffectiveConfigError(
-      `Expected exactly one ${MESH_CONFIG_IRI} subject in ${
-        sources.meshConfigSource ?? "mesh-config.ttl"
+      `Expected exactly one ${MESH_CONFIG_IRI} subject in ${source}`,
+    );
+  }
+
+  return meshConfigSubjects[0]!;
+}
+
+function rejectPortableMeshResolverConfig(
+  meshQuads: readonly Quad[],
+  meshSubject: string | undefined,
+  source: string,
+): void {
+  if (
+    meshSubject &&
+    collectObjectTerms(meshQuads, meshSubject, HAS_CONFIG_RESOLUTION_CONFIG_IRI)
+        .length > 0
+  ) {
+    throw new EffectiveConfigError(
+      `Portable mesh ${HAS_CONFIG_RESOLUTION_CONFIG_IRI} declarations are not supported in ${source}`,
+    );
+  }
+  if (
+    collectTypedSubjects(meshQuads, CONFIG_RESOLUTION_CONFIG_IRI).length > 0
+  ) {
+    throw new EffectiveConfigError(
+      `Portable mesh ${CONFIG_RESOLUTION_CONFIG_IRI} declarations are not supported in ${source}`,
+    );
+  }
+}
+
+function parseMeshScopedSettings(
+  meshQuads: readonly Quad[],
+  meshSubject: string | undefined,
+  source: string,
+): MeshScopedSettings {
+  if (!meshSubject) {
+    return {};
+  }
+
+  const workspaceRootRelativeToMeshRoot = requireOptionalSingleStringLiteral(
+    meshQuads,
+    meshSubject,
+    WORKSPACE_ROOT_RELATIVE_TO_MESH_ROOT_IRI,
+    source,
+  );
+  const publicationProfile = requireOptionalSingleNamedValue(
+    meshQuads,
+    meshSubject,
+    HAS_PUBLICATION_PROFILE_IRI,
+    PUBLICATION_PROFILE_VALUES,
+    source,
+  );
+
+  const settings: MeshScopedSettings = {};
+  if (publicationProfile !== undefined) {
+    settings.publicationProfile = publicationProfile;
+  }
+  if (workspaceRootRelativeToMeshRoot !== undefined) {
+    settings.workspaceRootRelativeToMeshRoot =
+      validateWorkspaceRootRelativeToMeshRoot(
+        workspaceRootRelativeToMeshRoot,
+        source,
+      );
+  }
+  return settings;
+}
+
+function validateWorkspaceRootRelativeToMeshRoot(
+  value: string,
+  source: string,
+): string {
+  const trimmed = value.trim();
+  if (
+    trimmed.length === 0 ||
+    trimmed.includes("\\") ||
+    trimmed.includes("?") ||
+    trimmed.includes("#") ||
+    pathPosix.isAbsolute(trimmed) ||
+    /^[A-Za-z]:/.test(trimmed)
+  ) {
+    throw new EffectiveConfigError(
+      `Invalid ${WORKSPACE_ROOT_RELATIVE_TO_MESH_ROOT_IRI} value in ${source}: ${value}`,
+    );
+  }
+
+  const normalized = pathPosix.normalize(trimmed).replace(/\/+$/, "");
+  if (
+    normalized === "" ||
+    normalized === "." ||
+    /^\.\.(\/\.\.)*$/.test(normalized)
+  ) {
+    return trimmed;
+  }
+
+  throw new EffectiveConfigError(
+    `${WORKSPACE_ROOT_RELATIVE_TO_MESH_ROOT_IRI} must resolve from the mesh root to an ancestor workspace root in ${source}: ${value}`,
+  );
+}
+
+function resolveLayeredNamedScopedSetting<T extends string>(
+  layers: readonly ScopedSettingLayer[],
+  predicateIri: string,
+  values: Record<string, T>,
+  settingName: string,
+): T {
+  const candidates = layers.flatMap((layer) => {
+    const value = requireOptionalSingleNamedValue(
+      layer.quads,
+      layer.configSubject,
+      predicateIri,
+      values,
+      layer.source,
+    );
+    return value === undefined ? [] : [{ ...layer, value }];
+  });
+
+  if (candidates.length === 0) {
+    throw new EffectiveConfigError(
+      `Expected one layered ${settingName} value for ${predicateIri}`,
+    );
+  }
+
+  const highestLayerOrder = Math.max(
+    ...candidates.map((candidate) => candidate.layerOrder),
+  );
+  const winners = candidates.filter((candidate) =>
+    candidate.layerOrder === highestLayerOrder
+  );
+  const resolvedValues = new Set(winners.map((candidate) => candidate.value));
+  if (resolvedValues.size !== 1) {
+    throw new EffectiveConfigError(
+      `Conflicting layered ${settingName} values for ${predicateIri}; values=${
+        JSON.stringify([...resolvedValues].sort())
+      }; bindings=${
+        JSON.stringify(
+          winners.map((winner) => ({
+            source: winner.source,
+            layerRole: winner.layerRole,
+            layerOrder: winner.layerOrder,
+            value: winner.value,
+          })),
+        )
       }`,
     );
   }
 
-  return parsePolicyBindings({
-    quads: meshQuads,
-    configSubject: meshConfigSubjects[0]!,
-    source: sources.meshConfigSource ?? "mesh-config.ttl",
-    layerRole: "meshLocal",
-    layerOrderByRole,
-    targetValidation,
-  });
+  return winners[0]!.value;
 }
 
 function compileCommandOverrideBindings(
@@ -1987,6 +2191,45 @@ function requireSingleNonNegativeInteger(
   return value;
 }
 
+function requireOptionalSingleStringLiteral(
+  quads: readonly Quad[],
+  subject: string,
+  predicateIri: string,
+  source: string,
+): string | undefined {
+  const values = new Map<string, Term>();
+  for (const quad of quads) {
+    if (
+      toTermKey(quad.subject) !== subject ||
+      quad.predicate.value !== predicateIri
+    ) {
+      continue;
+    }
+    values.set(toLiteralSensitiveTermKey(quad.object), quad.object);
+  }
+
+  if (values.size === 0) {
+    return undefined;
+  }
+  if (values.size !== 1) {
+    throw new EffectiveConfigError(
+      `Expected at most one ${predicateIri} literal in ${source}`,
+    );
+  }
+
+  const value = [...values.values()][0]!;
+  if (
+    value.termType !== "Literal" ||
+    value.datatype.value !== XSD_STRING_IRI
+  ) {
+    throw new EffectiveConfigError(
+      `Expected ${predicateIri} to be an xsd:string literal in ${source}`,
+    );
+  }
+
+  return value.value;
+}
+
 function requireOptionalSingleInteger(
   quads: readonly Quad[],
   subject: string,
@@ -2078,6 +2321,13 @@ function collectObjectTerms(
 
 function toTermKey(term: Term): string {
   return `${term.termType}:${term.value}`;
+}
+
+function toLiteralSensitiveTermKey(term: Term): string {
+  if (term.termType !== "Literal") {
+    return toTermKey(term);
+  }
+  return `${term.termType}:${term.value}:${term.datatype.value}:${term.language}`;
 }
 
 function resolveDefaultsFile(

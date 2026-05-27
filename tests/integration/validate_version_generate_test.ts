@@ -43,6 +43,17 @@ async function executeVersion(options: ExecuteVersionOptions) {
   });
 }
 
+async function writeMeshConfig(
+  meshRoot: string,
+  turtle: string,
+): Promise<void> {
+  await Deno.mkdir(join(meshRoot, "_mesh/_config"), { recursive: true });
+  await Deno.writeTextFile(
+    join(meshRoot, "_mesh/_config/config.ttl"),
+    turtle,
+  );
+}
+
 Deno.test("executeValidate returns structured findings for version-only target fields", async () => {
   const workspaceRoot = await createTestTmpDir("weave-validate-target-fields-");
   await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
@@ -614,6 +625,243 @@ Deno.test("executeGenerate renders a mesh-root favicon when present", async () =
   assertStringIncludes(
     html,
     '<img class="wf-mesh-favicon" src="/mesh-alice-bio/favicon.ico" alt="">',
+  );
+});
+
+Deno.test("executeVersion honors mesh-local naming config without command flags", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-version-mesh-config-naming-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+  await writeMeshConfig(
+    workspaceRoot,
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPublicationProfile sfcfg:publicationProfile_githubPages ;
+  sfcfg:hasHistoryNamingPolicy sfcfg:historyNamingPolicy_named ;
+  sfcfg:hasStateNamingPolicy sfcfg:stateNamingPolicy_semver ;
+  sfcfg:hasManifestationNamingPolicy sfcfg:manifestationNamingPolicy_ordinal .
+`,
+  );
+
+  const result = await executeRuntimeVersion({
+    meshRoot: workspaceRoot,
+    request: {
+      targets: [{
+        designatorPath: "alice/data",
+        historySegment: "releases",
+        stateSegment: "v0.0.1",
+      }],
+    },
+  });
+
+  assertEquals(result.versionedDesignatorPaths, ["alice/data"]);
+  assert(
+    result.createdPaths.includes(
+      "alice/data/releases/v0.0.1/_m0001/alice-data.ttl",
+    ),
+  );
+  await Deno.stat(
+    join(workspaceRoot, "alice/data/releases/v0.0.1/_m0001/alice-data.ttl"),
+  );
+});
+
+Deno.test("executeVersion honors mesh-local ResourcePage generation policy without command flags", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-version-mesh-config-page-generation-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+  await writeMeshConfig(
+    workspaceRoot,
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPublicationProfile sfcfg:publicationProfile_githubPages ;
+  sfcfg:hasPolicyBinding <#suppress-payload-pages> .
+
+<#suppress-payload-pages> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#suppress-pages> ;
+  sfcfg:appliesToPolicyTarget <#payload> .
+
+<#suppress-pages> a sfcfg:PolicyDefinition ;
+  sfcfg:hasResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_suppress .
+
+<#payload> a sfcfg:ArtifactRolePolicyTarget ;
+  sfcfg:hasArtifactRole sfcfg:artifactRole_payload .
+`,
+  );
+
+  const result = await executeRuntimeVersion({
+    meshRoot: workspaceRoot,
+    request: {
+      targets: [{
+        designatorPath: "alice/data",
+        historySegment: "releases",
+        stateSegment: "v0.0.1",
+        manifestationSegment: "ttl",
+      }],
+    },
+  });
+
+  assertEquals(result.versionedDesignatorPaths, ["alice/data"]);
+  assert(
+    result.createdPaths.includes(
+      "alice/data/releases/v0.0.1/ttl/alice-data.ttl",
+    ),
+  );
+  assertFalse(result.createdPaths.includes("alice/data/index.html"));
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, "alice/data/index.html")),
+    Deno.errors.NotFound,
+  );
+});
+
+Deno.test("executeGenerate honors mesh-local ResourcePage presentation config without command flags", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-generate-mesh-config-presentation-",
+  );
+  await materializeMeshAliceBioBranch(
+    "07-alice-bio-integrated-woven",
+    workspaceRoot,
+  );
+  await writeMeshConfig(
+    workspaceRoot,
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPublicationProfile sfcfg:publicationProfile_githubPages ;
+  sfcfg:hasPolicyBinding <#all-panels> .
+
+<#all-panels> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#all-panels-policy> ;
+  sfcfg:appliesToPolicyTarget <#any> .
+
+<#all-panels-policy> a sfcfg:PolicyDefinition ;
+  sfcfg:hasResourcePagePresentationPolicy <https://semantic-flow.github.io/weave/defaults/resource-page-presentation/semantic-site-all-panels> .
+
+<#any> a sfcfg:AnyGovernedArtifactPolicyTarget .
+`,
+  );
+
+  const result = await executeGenerate({
+    meshRoot: workspaceRoot,
+    request: {
+      targets: [{ designatorPath: "alice/data" }],
+    },
+    now: () => new Date("2026-05-04T00:00:00.000Z"),
+  });
+
+  assertEquals(result.generatedDesignatorPaths, ["alice/data"]);
+  assertStringIncludes(
+    await Deno.readTextFile(join(workspaceRoot, "alice/data/index.html")),
+    "<summary>Semantic Flow metadata</summary>",
+  );
+});
+
+Deno.test("executeWeave honors mesh-local support history policy without command flags", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-mesh-config-support-history-",
+  );
+  await executeMeshCreate({
+    workspaceRoot,
+    request: {
+      meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+      publicationProfile: "githubPages",
+    },
+  });
+  await writeMeshConfig(
+    workspaceRoot,
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPublicationProfile sfcfg:publicationProfile_githubPages ;
+  sfcfg:hasPolicyBinding <#config-current-only> .
+
+<#config-current-only> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#current-only> ;
+  sfcfg:appliesToPolicyTarget <#config> .
+
+<#current-only> a sfcfg:PolicyDefinition ;
+  sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly .
+
+<#config> a sfcfg:ArtifactRolePolicyTarget ;
+  sfcfg:hasArtifactRole sfcfg:artifactRole_config .
+`,
+  );
+
+  const result = await executeWeave({
+    meshRoot: workspaceRoot,
+  });
+
+  assertEquals(result.wovenDesignatorPaths, []);
+  assertFalse(
+    result.createdPaths.includes(
+      "_mesh/_config/_history001/_s0001/ttl/config.ttl",
+    ),
+  );
+  await assertRejects(
+    () =>
+      Deno.stat(
+        join(
+          workspaceRoot,
+          "_mesh/_config/_history001/_s0001/ttl/config.ttl",
+        ),
+      ),
+    Deno.errors.NotFound,
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(
+      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+    ),
+    "sflo:hasWorkingLocatedFile <_mesh/_config/config.ttl> ;\n  sflo:hasResourcePage <_mesh/_config/index.html> .",
+  );
+});
+
+Deno.test("executeWeave honors mesh-local config across version and generate without command flags", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-mesh-config-");
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+  await writeMeshConfig(
+    workspaceRoot,
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPublicationProfile sfcfg:publicationProfile_githubPages ;
+  sfcfg:hasManifestationNamingPolicy sfcfg:manifestationNamingPolicy_ordinal ;
+  sfcfg:hasPolicyBinding <#all-panels> .
+
+<#all-panels> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#all-panels-policy> ;
+  sfcfg:appliesToPolicyTarget <#any> .
+
+<#all-panels-policy> a sfcfg:PolicyDefinition ;
+  sfcfg:hasResourcePagePresentationPolicy <https://semantic-flow.github.io/weave/defaults/resource-page-presentation/semantic-site-all-panels> .
+
+<#any> a sfcfg:AnyGovernedArtifactPolicyTarget .
+`,
+  );
+
+  const result = await executeWeave({
+    meshRoot: workspaceRoot,
+    request: {
+      targets: [{
+        designatorPath: "alice/data",
+        historySegment: "releases",
+        stateSegment: "v0.0.1",
+      }],
+    },
+    now: () => new Date("2026-05-04T00:00:00.000Z"),
+  });
+
+  assertEquals(result.wovenDesignatorPaths, ["alice/data"]);
+  assert(
+    result.createdPaths.includes(
+      "alice/data/releases/v0.0.1/_m0001/alice-data.ttl",
+    ),
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(join(workspaceRoot, "alice/data/index.html")),
+    "<summary>Semantic Flow metadata</summary>",
   );
 });
 
