@@ -123,7 +123,7 @@ Deno.test("executeKnopAddReference accepts the root as a reference target", asyn
   sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
 
 <alice/_knop/_references#reference001-source> a sflo:ReferenceSource ;
-  sflo:hasTargetArtifact <> .
+  sflo:targetArtifact <> .
 `,
   );
 });

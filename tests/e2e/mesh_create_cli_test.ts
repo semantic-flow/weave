@@ -6,9 +6,11 @@ import {
   readSingleTransitionCase,
 } from "../support/accord_manifest.ts";
 import {
+  MESH_ALICE_BIO_BASE,
   readMeshAliceBioBranchFile,
   resolveMeshAliceBioConformanceManifestPath,
 } from "../support/mesh_alice_bio_fixture.ts";
+import { assertDefaultCliLogFilesExist } from "../support/cli_logs.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 const repoRoot = new URL("../../", import.meta.url);
@@ -133,8 +135,7 @@ Deno.test("weave mesh create can apply a GitHub Pages publication profile as a b
     config,
   );
 
-  await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
-  await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
+  await assertDefaultCliLogFilesExist(MESH_ALICE_BIO_BASE);
 });
 
 Deno.test("weave mesh create supports a docs-rooted sidecar mesh as a black-box CLI run", async () => {
@@ -192,7 +193,7 @@ Deno.test("weave mesh create supports a docs-rooted sidecar mesh as a black-box 
     ),
     config,
   );
-  assert(!config.includes("sfcfg:hasLocalPathAccessRule"), config);
+  assert(!config.includes("sfcfg:hasMeshWorkspacePathRule"), config);
   await Deno.stat(join(workspaceRoot, "docs/_mesh/_meta/meta.ttl"));
   await Deno.stat(join(workspaceRoot, "docs/_mesh/_inventory/inventory.ttl"));
   assertEquals(

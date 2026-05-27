@@ -12,7 +12,7 @@ created: 1775629411758
 
 Commands print a one-line summary to stdout followed by created or updated paths when relevant. Input or runtime errors return a non-zero exit code and print the error message to stderr.
 
-Weave writes runtime logs under `.weave/logs/` inside the workspace. For whole-root meshes the workspace is the mesh root. For sidecar meshes, Weave infers the workspace from `_mesh/_config/config.ttl`.
+Weave writes runtime logs under `${XDG_STATE_HOME:-~/.local/state}/weave/meshes/<mesh-identifier>/logs/` by default, with `WEAVE_LOG_DIR` available as an explicit override.
 
 Use `weave --help` or `weave <command> --help` to inspect the live CLI.
 
@@ -21,6 +21,8 @@ Detailed notes are available for [[wu.cli-reference.weave]], [[wu.cli-reference.
 ## Common patterns
 
 `--mesh-root <path>` selects the mesh root for existing-mesh operations such as `weave`, `weave validate`, `weave version`, `weave generate`, `weave import`, `weave integrate`, `weave extract`, `weave payload update`, `weave knop create`, and `weave knop add-reference`. It defaults to `.`.
+
+When `_mesh/_config/config.ttl` exists, existing-mesh commands compile it as mesh-local config above Weave defaults and below command-scoped overrides. Durable mesh policy belongs there; flags such as `--history-tracking-policy` and `--include-semantic-flow-metadata` are one-run overrides.
 
 `--target <spec>` limits `weave`, `weave validate`, `weave version`, and `weave generate` to specific designator paths.
 
@@ -253,7 +255,7 @@ Constraints:
 - if both are provided, they must match
 - `--mesh-root <path>` selects the mesh root and defaults to the current directory
 - relative source paths are resolved from the command working directory
-- `--grant-source-directory <path>` adds an operational `workingLocalRelativePath` grant for that source directory before resolving the source; workspace-contained sources are recorded in mesh config, while separate checkout sources are recorded in the host-local `~/.sf-local-access.ttl`
+- `--grant-source-directory <path>` adds an operational `workingLocalRelativePath` grant for that source directory before resolving the source; workspace-contained sources may be recorded in mesh config, while separate checkout sources are recorded in the current user's mesh-scoped settings access profile
 - when the approved source path is outside the mesh root, `integrate` creates a Knop source registry automatically with the internal `payload-source` `IntegrationSource` binding id, `targetLocalRelativePath`, and `artifactResolutionMode_working`
 - automatically created floating working-source bindings do not record repository ref, commit, path, digest evidence, or `expectsContentDigest`
 - `--source-repository-url`, `--source-repository-ref`, and `--source-repository-path` record repository-backed source provenance in the Knop source registry without fetching or copying source bytes

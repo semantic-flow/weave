@@ -106,11 +106,11 @@ Deno.test("branch Fantasy Rules manifests use working-only source bindings for b
     );
     assertStringIncludes(
       manifestText,
-      `<${MESH_BRANCH_FANTASY_RULES_BASE}${registryPath}#payload-source> a <https://semantic-flow.github.io/sflo/ontology/ArtifactResolutionTarget>`,
+      `<${MESH_BRANCH_FANTASY_RULES_BASE}${registryPath}#payload-source> a <https://semantic-flow.github.io/sflo/ontology/IntegrationSource>`,
     );
     assertStringIncludes(
       manifestText,
-      `<https://semantic-flow.github.io/sflo/ontology/hasTargetArtifact> <${
+      `<https://semantic-flow.github.io/sflo/ontology/targetArtifact> <${
         new URL(binding.designatorPath, MESH_BRANCH_FANTASY_RULES_BASE).href
       }>`,
     );
@@ -118,7 +118,7 @@ Deno.test("branch Fantasy Rules manifests use working-only source bindings for b
       manifestText,
       `<https://semantic-flow.github.io/sflo/ontology/targetLocalRelativePath> \\"${binding.sourcePath}\\"`,
     );
-    assertStringIncludes(manifestText, "FILTER NOT EXISTS");
+    assertFalse(manifestText.includes("FILTER NOT EXISTS"), manifestText);
     assertFalse(manifestText.includes("branch-source-"), manifestText);
     assertFalse(manifestText.includes("sourceRepositoryUrl"), manifestText);
     assertFalse(manifestText.includes("sourceRepositoryRef"), manifestText);
@@ -237,9 +237,9 @@ Deno.test("branch Fantasy Rules final publication has current canonical referenc
     );
     assertStringIncludes(
       referencesTurtle,
-      `sflo:hasTargetArtifact <${reference.targetPath}>`,
+      `sflo:targetArtifact <${reference.targetPath}>`,
     );
-    assertFalse(referencesTurtle.includes("sflo:hasRequestedTargetState"));
+    assertFalse(referencesTurtle.includes("sflo:targetHistoricalState"));
 
     await readMeshBranchFantasyRulesBranchFile(
       "15-extracted-term-references-woven",

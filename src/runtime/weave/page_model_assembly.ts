@@ -202,8 +202,7 @@ export async function collectResourcePageModels(
           path: pagePath,
           designatorPath: publicContext.designatorPath,
           definitionPath: publicContext.customIdentifierPage.definitionPath,
-          presentationConfigIri:
-            publicContext.customIdentifierPage.presentationConfigIri,
+          presentationConfigIri: effectiveConfig.resourcePagePresentation.iri,
           generatedPanelSelectionIris:
             publicContext.customIdentifierPage.generatedPanelSelectionIris,
           stylesheetPaths: publicContext.customIdentifierPage.stylesheetPaths,

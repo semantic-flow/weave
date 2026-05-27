@@ -76,7 +76,6 @@ Deno.test("executeImport imports local Markdown into a governed payload without 
     sources,
     "<bob/page-main/_knop/_sources#payload-source> a sflo:ImportSource ;",
   );
-  assertEquals(sources.includes("sflo:targetLocalRelativePath"), false);
   assertEquals(sources.includes("weave-import-local-source"), false);
   assertStringIncludes(
     sources,
@@ -84,7 +83,10 @@ Deno.test("executeImport imports local Markdown into a governed payload without 
   );
   assertStringIncludes(
     sources,
-    'sflo:observedTargetLocalRelativePath "bob-page-main.md" ;',
+    `sflo:observedArtifactResolutionSpec [
+    a sflo:ArtifactResolutionSpec ;
+    sflo:targetLocalRelativePath "bob-page-main.md"
+  ] ;`,
   );
   assertStringIncludes(
     sources,
@@ -253,7 +255,10 @@ Deno.test("executeImport can introduce payloads into docs-rooted sidecar meshes"
     ),
   );
   assertEquals(sources.includes("weave-import-sidecar"), false);
-  assertEquals(sources.includes("sflo:targetLocalRelativePath"), false);
+  assertStringIncludes(
+    sources,
+    'sflo:targetLocalRelativePath "pages/gunaar.md"',
+  );
 });
 
 Deno.test("executeImport can copy from a separate source checkout into a branch-style mesh", async () => {
@@ -296,7 +301,10 @@ Deno.test("executeImport can copy from a separate source checkout into a branch-
     join(workspaceRoot, "publication/bob/page-main/_knop/_sources/sources.ttl"),
   );
   assertEquals(sources.includes("source-worktree"), false);
-  assertEquals(sources.includes("sflo:targetLocalRelativePath"), false);
+  assertStringIncludes(
+    sources,
+    'sflo:targetLocalRelativePath "bob/page-main.md"',
+  );
 });
 
 Deno.test("executeImport replaceWorking refreshes working bytes and import provenance", async () => {

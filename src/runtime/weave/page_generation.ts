@@ -54,9 +54,16 @@ export async function generatePreparedPages(
     options.timing,
     phase("loadEffectiveConfig"),
     () =>
-      loadEffectiveConfigForExecution(
-        options.historyTrackingPolicyOverride,
-      ),
+      loadEffectiveConfigForExecution({
+        meshConfigTurtle: meshState.currentMeshConfigTurtle,
+        meshConfigSource: meshState.currentMeshConfigTurtle
+          ? "_mesh/_config/config.ttl"
+          : undefined,
+        meshBase: meshState.meshBase,
+        meshInventoryTurtle: meshState.currentMeshInventoryTurtle,
+        historyTrackingPolicyOverride: options.historyTrackingPolicyOverride,
+        includeSemanticFlowMetadata: options.includeSemanticFlowMetadata,
+      }),
   );
   const allDesignatorPaths = timeOptionalSync(
     options.timing,
@@ -90,7 +97,6 @@ export async function generatePreparedPages(
         options.targets.length > 0,
         effectiveConfig,
         resolveGeneratedAt(options.now),
-        options.includeSemanticFlowMetadata,
         options.timing,
         phase("collectGeneratedPageFiles"),
       ),
@@ -135,7 +141,6 @@ export async function collectGeneratedPageFiles(
   hasExplicitGenerateTargets: boolean,
   effectiveConfig: Awaited<ReturnType<typeof loadEffectiveConfigForExecution>>,
   generatedAt: Date,
-  includeSemanticFlowMetadata: boolean,
   timing?: RuntimeTiming,
   phasePrefix = "collectGeneratedPageFiles",
 ): Promise<readonly PlannedFile[]> {
@@ -158,7 +163,7 @@ export async function collectGeneratedPageFiles(
     () =>
       renderResourcePages(meshState.meshBase, pageModels, {
         generatedAt,
-        includeSemanticFlowMetadata,
+        includeSemanticFlowMetadata: false,
         meshFaviconPath,
         resourcePagePresentation: effectiveConfig.resourcePagePresentation,
       }),

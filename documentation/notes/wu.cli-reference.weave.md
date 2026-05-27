@@ -54,7 +54,9 @@ weave \
 
 `--silent` suppresses progress lines from long recursive versioning runs. It does not suppress the final summary or error output.
 
-`--history-tracking-policy` is an advanced command-scoped override for artifact history behavior. Supported values are `versioned`, `currentOnly`, `required`, `slimHistory`, `checkpointOnly`, and `metadataOnly`.
+Existing-mesh commands load `_mesh/_config/config.ttl` when it exists. Mesh-local config can set durable policy bindings for history tracking, ResourcePage generation, and ResourcePage presentation, plus scoped settings such as publication profile and naming defaults.
+
+`--history-tracking-policy` is an advanced command-scoped override for artifact history behavior. Supported values are `versioned`, `currentOnly`, `required`, `slimHistory`, `checkpointOnly`, and `metadataOnly`. It applies only to the current command and wins over mesh-local config for that run.
 
 Payload naming applies only to payload artifacts selected for versioning. Support artifacts keep system-controlled history paths. If a payload's current history uses a named state such as `v0.0.1`, a later version request must provide the next `stateSegment` or explicitly request an ordinal fallback segment.
 

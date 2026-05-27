@@ -978,7 +978,7 @@ Deno.test("executeWeave matches the settled alice page-customized-woven fixture"
   );
 });
 
-Deno.test("executeWeave resolves current artifact-backed page sources through hasTargetArtifact", async () => {
+Deno.test("executeWeave resolves current artifact-backed page sources through targetArtifact", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-weave-page-definition-artifact-source-",
   );
@@ -1013,7 +1013,7 @@ Deno.test("executeWeave resolves current artifact-backed page sources through ha
   await replaceAliceSidebarPageSource(
     workspaceRoot,
     `<#sidebar-source> a sflo:ResourcePageSource ;
-  sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> ;
+  sflo:targetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> .`,
   );
 
@@ -1048,7 +1048,7 @@ Deno.test("executeWeave versions a later page-definition revision that repoints 
     `<#main-source> a sflo:ResourcePageSource ;
   sflo:targetLocalRelativePath "alice/alice.md" .`,
     `<#main-source> a sflo:ResourcePageSource ;
-  sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/page-main> ;
+  sflo:targetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/page-main> ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> .`,
   );
 
@@ -1153,11 +1153,10 @@ Deno.test("executeWeave resolves artifact-backed page sources through workingLoc
 
 <> a sfcfg:MeshConfig ;
   sfcfg:workspaceRootRelativeToMeshRoot "../" ;
-  sfcfg:hasLocalPathAccessRule [
-    a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_meshRoot> ;
-    sfcfg:pathPrefix "../documentation/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
+  sfcfg:hasMeshWorkspacePathRule [
+    a sfcfg:MeshWorkspacePathRule ;
+    sfcfg:workspacePathPrefix "../documentation/" ;
+    sfcfg:appliesToLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
   ] .
 `,
   );
@@ -1188,7 +1187,7 @@ Deno.test("executeWeave resolves artifact-backed page sources through workingLoc
   await replaceAliceSidebarPageSource(
     workspaceRoot,
     `<#sidebar-source> a sflo:ResourcePageSource ;
-  sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> .`,
+  sflo:targetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> .`,
   );
 
   const result = await executeWeave({
@@ -1263,7 +1262,7 @@ Deno.test("executeWeave resolves artifact-backed page sources through latest-sta
   await replaceAliceSidebarPageSource(
     workspaceRoot,
     `<#sidebar-source> a sflo:ResourcePageSource ;
-  sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> ;
+  sflo:targetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_latestState> .`,
   );
 
@@ -1352,8 +1351,8 @@ Deno.test("executeWeave resolves requested target histories as latest settled st
   await replaceAliceSidebarPageSource(
     workspaceRoot,
     `<#sidebar-source> a sflo:ResourcePageSource ;
-  sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> ;
-  sflo:hasRequestedTargetHistory <https://semantic-flow.github.io/mesh-alice-bio/alice/source/_history002> .`,
+  sflo:targetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> ;
+  sflo:targetArtifactHistory <https://semantic-flow.github.io/mesh-alice-bio/alice/source/_history002> .`,
   );
 
   const result = await executeWeave({
@@ -1403,7 +1402,7 @@ Deno.test("executeWeave fails closed when latest-state page sources have no sett
   await replaceAliceSidebarPageSource(
     workspaceRoot,
     `<#sidebar-source> a sflo:ResourcePageSource ;
-  sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> ;
+  sflo:targetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/source> ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_latestState> .`,
   );
 
@@ -1525,11 +1524,10 @@ Deno.test("executeWeave allows repo-adjacent targetLocalRelativePath values when
 
 <> a sfcfg:MeshConfig ;
   sfcfg:workspaceRootRelativeToMeshRoot "../" ;
-  sfcfg:hasLocalPathAccessRule [
-    a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_meshRoot> ;
-    sfcfg:pathPrefix "../documentation/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_targetLocalRelativePath>
+  sfcfg:hasMeshWorkspacePathRule [
+    a sfcfg:MeshWorkspacePathRule ;
+    sfcfg:workspacePathPrefix "../documentation/" ;
+    sfcfg:appliesToLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_targetLocalRelativePath>
   ] .
 `,
   );
@@ -1569,11 +1567,10 @@ Deno.test("executeWeave allows repo-adjacent workingLocalRelativePath values whe
 
 <> a sfcfg:MeshConfig ;
   sfcfg:workspaceRootRelativeToMeshRoot "../" ;
-  sfcfg:hasLocalPathAccessRule [
-    a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_meshRoot> ;
-    sfcfg:pathPrefix "../documentation/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
+  sfcfg:hasMeshWorkspacePathRule [
+    a sfcfg:MeshWorkspacePathRule ;
+    sfcfg:workspacePathPrefix "../documentation/" ;
+    sfcfg:appliesToLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
   ] .
 `,
   );

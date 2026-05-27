@@ -50,6 +50,10 @@ export interface ResourcePageGenerationConfig {
   resourcePageGenerationPolicyForArtifactRole(
     artifactRole: WeaveArtifactRole,
   ): WeaveResourcePageGenerationPolicy;
+  resourcePageGenerationPolicyForArtifactTarget?(target: {
+    artifactIri: string;
+    artifactRole: WeaveArtifactRole;
+  }): WeaveResourcePageGenerationPolicy;
 }
 
 export interface ListGeneratedResourcePagePathsInput {
@@ -65,6 +69,7 @@ export interface FilterResourcePageFactsInput {
   meshBase: string;
   inventoryTurtle: string;
   parseErrorMessage: string;
+  config?: ResourcePageGenerationConfig;
   policies?: WeaveResourcePageGenerationPolicies;
   explicitRequest?: boolean;
 }
@@ -136,7 +141,10 @@ export function listGeneratedResourcePagePaths(
 export function filterResourcePageFactsFromInventoryTurtle(
   input: FilterResourcePageFactsInput,
 ): string {
-  if (!hasResourcePageGenerationPolicyOverrides(input.policies)) {
+  if (
+    input.config === undefined &&
+    !hasResourcePageGenerationPolicyOverrides(input.policies)
+  ) {
     return input.inventoryTurtle;
   }
 
@@ -194,8 +202,11 @@ export function filterResourcePageFactsFromPlannedFiles(
   files: readonly PlannedFile[],
   policies?: WeaveResourcePageGenerationPolicies,
   explicitRequest = false,
+  config?: ResourcePageGenerationConfig,
 ): readonly PlannedFile[] {
-  if (!hasResourcePageGenerationPolicyOverrides(policies)) {
+  if (
+    config === undefined && !hasResourcePageGenerationPolicyOverrides(policies)
+  ) {
     return files;
   }
 
@@ -210,6 +221,7 @@ export function filterResourcePageFactsFromPlannedFiles(
         inventoryTurtle: file.contents,
         parseErrorMessage:
           `Could not parse ${file.path} while applying ResourcePage generation policy.`,
+        config,
         policies,
         explicitRequest,
       }),
@@ -325,6 +337,7 @@ function shouldGenerateResourcePageForSubject(
   artifactRoles: ReadonlyMap<string, WeaveArtifactRole>,
   ownerArtifacts: ReadonlyMap<string, string>,
   input: {
+    meshBase: string;
     config?: ResourcePageGenerationConfig;
     policies?: WeaveResourcePageGenerationPolicies;
     explicitRequest?: boolean;
@@ -342,8 +355,13 @@ function shouldGenerateResourcePageForSubject(
     return true;
   }
 
+  const artifactIri = new URL(ownerArtifactPath, input.meshBase).href;
   return shouldGenerateForPolicy(
-    input.config?.resourcePageGenerationPolicyForArtifactRole(role) ??
+    input.config?.resourcePageGenerationPolicyForArtifactTarget?.({
+      artifactIri,
+      artifactRole: role,
+    }) ??
+      input.config?.resourcePageGenerationPolicyForArtifactRole(role) ??
       input.policies?.[role] ??
       "generate",
     input.explicitRequest ?? false,

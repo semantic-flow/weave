@@ -30,7 +30,7 @@ A ResourcePage is assembled from three layers:
 
 - Document data: title, canonical IRI, breadcrumbs, classes, summary, metadata, selected stylesheets, and ordered panels.
 - Panels: structured sections such as children, RDF properties, blank nodes, references, histories, raw source, current links, Knop artifacts, authored Markdown regions, and optional Semantic Flow metadata.
-- Presentation: a `ResourcePagePresentationConfig` selects the shell, body layout, stylesheets, generated panels, panel order, targeting rules, and inclusion policy.
+- Presentation: the resolved `ResourcePagePresentationPolicy` selects the shell, body layout, stylesheets, generated panels, panel order, targeting rules, and inclusion policy.
 
 Runtime code owns graph discovery and source resolution. Templates and stylesheets should arrange already-resolved document and panel data; they should not read RDF graphs, local files, remote URLs, mesh inventories, or config sources themselves.
 
@@ -55,9 +55,9 @@ Title extraction prefers `dcterms:title`, then `schema:characterName`, `schema:n
 
 Use an authored `ResourcePageDefinition` when an identifier needs custom content. A page definition can bind authored regions to Markdown sources, and those regions render as authored-content panels.
 
-To keep the built-in Semantic Site chrome on a custom page, set `sfcfg:hasResourcePagePresentationConfig` on the authored `ResourcePageDefinition` to the supported default presentation config. A custom page only receives generated panels when it explicitly opts into them with `sfcfg:hasGeneratedResourcePagePanelSelection`; generated panels are not appended automatically.
+Custom pages use the resolved ResourcePage presentation policy for the active config scope. To keep the built-in Semantic Site chrome, bind a `sfcfg:ResourcePagePresentationPolicy` through config rather than putting presentation config directly on the authored `ResourcePageDefinition`. A custom page only receives generated panels when it explicitly opts into them with `sfcfg:hasGeneratedResourcePagePanelSelection`; generated panels are not appended automatically.
 
-The exception is `semanticFlowMetadata`: when page generation is run with `--include-semantic-flow-metadata`, Weave may append that operational support panel to a custom page even if the page definition did not explicitly select it.
+The `semanticFlowMetadata` panel can be selected by the resolved ResourcePage presentation policy. The `--include-semantic-flow-metadata` flag is a command-scoped shortcut that applies Weave's built-in all-panels presentation policy for one generation pass.
 
 When authored regions and generated panels are both present and no explicit custom order is supplied, authored regions appear before generated panels.
 

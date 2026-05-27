@@ -34,7 +34,7 @@ weave extract --all-terms --mesh-root docs --source ontology --add-source-refere
 
 `--source <sourceDesignatorPath>` selects the already woven payload artifact that describes the target and records a working-source `sflo:ExtractionSource` in the target Knop's `_sources` registry.
 
-`--source-state <historicalStatePath>` records an exact historical source state and resolves the owning source artifact from mesh inventory.
+`--source-state <historicalStatePath>` records an exact historical source state and resolves the owning source artifact from mesh inventory. It reads the woven historical snapshot, so the source artifact's current working file or floating repository locator does not need to be resolvable.
 
 `--source` and `--source-state` are mutually exclusive. If neither is supplied for single-target extraction, Weave resolves the unique current woven payload artifact that mentions the target.
 

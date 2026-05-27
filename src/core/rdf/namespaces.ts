@@ -15,6 +15,9 @@ export const SFLO_PREFIX = "sflo";
 export const SFLO_NAMESPACE = "https://semantic-flow.github.io/sflo/ontology/";
 export const SFCFG_PREFIX = "sfcfg";
 export const SFCFG_NAMESPACE = "https://semantic-flow.github.io/sflo/config/";
+export const WEAVE_PREFIX = "weave";
+export const WEAVE_NAMESPACE =
+  "https://semantic-flow.github.io/weave/ontology/";
 
 export const SFLO_TURTLE_PREFIX_DECLARATION = turtlePrefixDeclaration(
   SFLO_PREFIX,
@@ -24,6 +27,10 @@ export const SFCFG_TURTLE_PREFIX_DECLARATION = turtlePrefixDeclaration(
   SFCFG_PREFIX,
   SFCFG_NAMESPACE,
 );
+export const WEAVE_TURTLE_PREFIX_DECLARATION = turtlePrefixDeclaration(
+  WEAVE_PREFIX,
+  WEAVE_NAMESPACE,
+);
 
 export const COMMON_RDF_PREFIXES: readonly RdfPrefix[] = [
   [OWL_NAMESPACE, OWL_PREFIX],
@@ -32,6 +39,7 @@ export const COMMON_RDF_PREFIXES: readonly RdfPrefix[] = [
   [RDF_NAMESPACE, RDF_PREFIX],
   [SFLO_NAMESPACE, SFLO_PREFIX],
   [SFCFG_NAMESPACE, SFCFG_PREFIX],
+  [WEAVE_NAMESPACE, WEAVE_PREFIX],
 ];
 
 export function turtlePrefixDeclaration(

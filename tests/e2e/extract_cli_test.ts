@@ -1,4 +1,4 @@
-import { assert, assertEquals, assertRejects, fail } from "@std/assert";
+import { assert, assertEquals, assertRejects } from "@std/assert";
 import { join } from "@std/path";
 import { executeIntegrate } from "../../src/runtime/integrate/integrate.ts";
 import { executeWeave } from "../../src/runtime/weave/weave.ts";
@@ -9,11 +9,16 @@ import {
 } from "../support/accord_manifest.ts";
 import {
   materializeMeshAliceBioBranch,
+  MESH_ALICE_BIO_BASE,
   readMeshAliceBioBranchFile,
   resolveMeshAliceBioConformanceManifestPath,
 } from "../support/mesh_alice_bio_fixture.ts";
 import { materializeMeshSidecarFantasyRulesBranch } from "../support/mesh_sidecar_fantasy_rules_fixture.ts";
 import { ROOT_PERSON_SOURCE_TURTLE } from "../support/root_designator.ts";
+import {
+  assertDefaultCliLogFileAbsent,
+  assertDefaultCliLogFilesExist,
+} from "../support/cli_logs.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 const repoRoot = new URL("../../", import.meta.url);
@@ -116,14 +121,7 @@ Deno.test("weave extract matches the manifest-scoped bob extracted fixture as a 
     throw new Error(`Unsupported compare mode ${compareMode} for ${path}`);
   }
 
-  await assertPathExists(
-    join(workspaceRoot, ".weave/logs/operational.jsonl"),
-    `expected log file .weave/logs/operational.jsonl to exist under ${workspaceRoot}`,
-  );
-  await assertPathExists(
-    join(workspaceRoot, ".weave/logs/security-audit.jsonl"),
-    `expected log file .weave/logs/security-audit.jsonl to exist under ${workspaceRoot}`,
-  );
+  await assertDefaultCliLogFilesExist(MESH_ALICE_BIO_BASE);
 });
 
 Deno.test("weave extract accepts the root designator path as a black-box CLI run", async () => {
@@ -215,12 +213,15 @@ Deno.test("weave extract accepts the root designator path as a black-box CLI run
   sflo:hasSourceBinding <_knop/_sources#extraction-source> .
 
 <_knop/_sources#extraction-source> a sflo:ExtractionSource ;
-  sflo:hasTargetArtifact <alice/data> ;
+  sflo:targetArtifact <alice/data> ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> ;
   sflo:hasResolutionObservation <_knop/_sources#extraction-source-observation-001> .
 
 <_knop/_sources#extraction-source-observation-001> a sflo:ArtifactResolutionObservation ;
-  sflo:hasObservedTargetLocatedFile <alice-bio-root.ttl> ;
+  sflo:observedArtifactResolutionSpec [
+    a sflo:ArtifactResolutionSpec ;
+    sflo:targetLocatedFile <alice-bio-root.ttl>
+  ] ;
   sflo:observedContentDigest "sha256:489c312f14f183fc8ac156ddf3c5e768a5d22b09b8bf79b1ba989cae2e15d338" .
 
 <_knop/_sources/sources.ttl> a sflo:LocatedFile, sflo:RdfDocument .
@@ -311,12 +312,15 @@ Deno.test("weave extract supports docs-rooted sidecar meshes with an explicit so
   sflo:hasSourceBinding <ontology/CharacterShape/_knop/_sources#extraction-source> .
 
 <ontology/CharacterShape/_knop/_sources#extraction-source> a sflo:ExtractionSource ;
-  sflo:hasTargetArtifact <shacl> ;
+  sflo:targetArtifact <shacl> ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> ;
   sflo:hasResolutionObservation <ontology/CharacterShape/_knop/_sources#extraction-source-observation-001> .
 
 <ontology/CharacterShape/_knop/_sources#extraction-source-observation-001> a sflo:ArtifactResolutionObservation ;
-  sflo:observedTargetLocalRelativePath "../shacl/fantasy-rules-shacl.ttl" ;
+  sflo:observedArtifactResolutionSpec [
+    a sflo:ArtifactResolutionSpec ;
+    sflo:targetLocalRelativePath "../shacl/fantasy-rules-shacl.ttl"
+  ] ;
   sflo:observedContentDigest "sha256:349f1ad30fb4b2f20cc9c9e5f6febae09c6adb2148bc6b62c81905c9da9cc011" .
 
 <ontology/CharacterShape/_knop/_sources/sources.ttl> a sflo:LocatedFile, sflo:RdfDocument .
@@ -441,7 +445,7 @@ Deno.test("weave extract --all-terms creates source references with explicit rol
     referencesTurtle,
   );
   assert(
-    referencesTurtle.includes("sflo:hasTargetArtifact <alice/data> ."),
+    referencesTurtle.includes("sflo:targetArtifact <alice/data> ."),
     referencesTurtle,
   );
 });
@@ -576,26 +580,12 @@ Deno.test("weave extract rejects a whitespace-only positional designatorPath bef
     stderr.includes("extract requires a positional designatorPath"),
     stderr,
   );
-  await assertRejects(
-    () => Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl")),
-    Deno.errors.NotFound,
+  await assertDefaultCliLogFileAbsent(
+    MESH_ALICE_BIO_BASE,
+    "security-audit.jsonl",
   );
   await assertRejects(
     () => Deno.stat(join(workspaceRoot, "bob/_knop/_meta/meta.ttl")),
     Deno.errors.NotFound,
   );
 });
-
-async function assertPathExists(
-  path: string,
-  errorMessage: string,
-): Promise<void> {
-  try {
-    await Deno.stat(path);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      fail(errorMessage);
-    }
-    throw error;
-  }
-}

@@ -74,6 +74,18 @@ jobs:
       - name: Run tests with coverage
         run: deno task test:coverage
 
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v6
+        with:
+          files: /tmp/semantic-flow-coverage/codecov-junit.xml
+          flags: deno
+          name: test-results
+          report_type: test_results
+          disable_search: true
+          fail_ci_if_error: true
+          use_oidc: true
+
       - name: Generate coverage artifacts
         run: deno task coverage:lcov
 
@@ -81,13 +93,13 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: coverage-lcov
-          path: coverage/lcov.info
+          path: /tmp/semantic-flow-coverage/lcov.info
           if-no-files-found: error
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v6
         with:
-          files: coverage/lcov.info
+          files: /tmp/semantic-flow-coverage/lcov.info
           fail_ci_if_error: true
           use_oidc: true
 
@@ -96,5 +108,5 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: coverage
-          path: coverage/
+          path: /tmp/semantic-flow-coverage/
           if-no-files-found: warn

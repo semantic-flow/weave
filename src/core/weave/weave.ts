@@ -13,6 +13,7 @@ import {
   filterResourcePageFactsFromPlannedFiles,
   hasResourcePageGenerationPolicyOverrides,
   listGeneratedResourcePagePaths,
+  type ResourcePageGenerationConfig,
   type WeaveResourcePageGenerationPolicies,
 } from "./resource_page_policy.ts";
 import { SFLO_NAMESPACE } from "../rdf/namespaces.ts";
@@ -308,6 +309,7 @@ export function planWeave(input: PlanWeaveInput): WeavePlan {
     })();
 
   return applyResourcePageGenerationPolicies(plan, {
+    config: input.resourcePageGenerationConfig,
     policies: input.resourcePageGenerationPolicies,
     explicitRequest: requestedTargets.length > 0,
   });
@@ -336,11 +338,15 @@ export function planVersion(input: PlanWeaveInput): VersionPlan {
 function applyResourcePageGenerationPolicies(
   plan: WeavePlan,
   options: {
+    config?: ResourcePageGenerationConfig;
     policies?: WeaveResourcePageGenerationPolicies;
     explicitRequest?: boolean;
   },
 ): WeavePlan {
-  if (!hasResourcePageGenerationPolicyOverrides(options.policies)) {
+  if (
+    options.config === undefined &&
+    !hasResourcePageGenerationPolicyOverrides(options.policies)
+  ) {
     return plan;
   }
 
@@ -349,12 +355,14 @@ function applyResourcePageGenerationPolicies(
     plan.createdFiles,
     options.policies,
     options.explicitRequest ?? false,
+    options.config,
   );
   const updatedFiles = filterResourcePageFactsFromPlannedFiles(
     plan.meshBase,
     plan.updatedFiles,
     options.policies,
     options.explicitRequest ?? false,
+    options.config,
   );
   const generatedPagePaths = new Set(
     [...createdFiles, ...updatedFiles].flatMap((file) =>
@@ -365,6 +373,7 @@ function applyResourcePageGenerationPolicies(
           inventoryTurtle: file.contents,
           parseErrorMessage:
             `Could not parse ${file.path} while filtering planned ResourcePages.`,
+          config: options.config,
           policies: options.policies,
           explicitRequest: options.explicitRequest ?? false,
         })

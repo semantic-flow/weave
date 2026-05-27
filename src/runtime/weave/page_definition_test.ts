@@ -1,13 +1,10 @@
-import { assertEquals, assertRejects } from "@std/assert";
+import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE } from "../config/effective_config.ts";
 import type { OperationalLocalPathPolicy } from "../operational/local_path_policy.ts";
-import {
-  loadActiveCustomIdentifierPage,
-  ResourcePageDefinitionResolutionError,
-} from "./page_definition.ts";
+import { loadActiveCustomIdentifierPage } from "./page_definition.ts";
 
-Deno.test("loadActiveCustomIdentifierPage resolves explicit ResourcePage presentation config", async () => {
+Deno.test("loadActiveCustomIdentifierPage resolves authored regions without direct presentation config", async () => {
   await withPageDefinitionFixture(async ({ meshRoot, policy }) => {
     const page = await loadActiveCustomIdentifierPage(
       meshRoot,
@@ -17,17 +14,12 @@ Deno.test("loadActiveCustomIdentifierPage resolves explicit ResourcePage present
       {
         artifactPath: "alice/_knop/_page",
         workingLocalRelativePath: "alice/_knop/_page/page.ttl",
-        currentPageDefinitionTurtle: pageDefinitionTurtle(
-          DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE.iri,
-        ),
+        currentPageDefinitionTurtle: pageDefinitionTurtle(),
         currentArtifactHistoryExists: true,
       },
     );
 
-    assertEquals(
-      page?.presentationConfigIri,
-      DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE.iri,
-    );
+    assertEquals(page?.presentationConfigIri, undefined);
     assertEquals(page?.generatedPanelSelectionIris, []);
     assertEquals(page?.regions[0]?.markdown, "# Alice\n");
   });
@@ -48,7 +40,6 @@ Deno.test("loadActiveCustomIdentifierPage resolves explicit generated ResourcePa
         artifactPath: "alice/_knop/_page",
         workingLocalRelativePath: "alice/_knop/_page/page.ttl",
         currentPageDefinitionTurtle: pageDefinitionTurtle(
-          DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE.iri,
           rawSourcePanelSelectionIri,
         ),
         currentArtifactHistoryExists: true,
@@ -58,30 +49,6 @@ Deno.test("loadActiveCustomIdentifierPage resolves explicit generated ResourcePa
     assertEquals(page?.generatedPanelSelectionIris, [
       rawSourcePanelSelectionIri,
     ]);
-  });
-});
-
-Deno.test("loadActiveCustomIdentifierPage rejects unsupported ResourcePage presentation config", async () => {
-  await withPageDefinitionFixture(async ({ meshRoot, policy }) => {
-    await assertRejects(
-      () =>
-        loadActiveCustomIdentifierPage(
-          meshRoot,
-          policy,
-          "https://semantic-flow.github.io/mesh-alice-bio/",
-          "alice",
-          {
-            artifactPath: "alice/_knop/_page",
-            workingLocalRelativePath: "alice/_knop/_page/page.ttl",
-            currentPageDefinitionTurtle: pageDefinitionTurtle(
-              "https://example.test/custom-presentation",
-            ),
-            currentArtifactHistoryExists: true,
-          },
-        ),
-      ResourcePageDefinitionResolutionError,
-      "unsupported ResourcePage presentation config",
-    );
   });
 });
 
@@ -112,7 +79,6 @@ async function withPageDefinitionFixture(
 }
 
 function pageDefinitionTurtle(
-  presentationConfigIri: string,
   generatedPanelSelectionIri?: string,
 ): string {
   return `@base <https://semantic-flow.github.io/mesh-alice-bio/alice/_knop/_page> .
@@ -120,7 +86,6 @@ function pageDefinitionTurtle(
 @prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sflo:ResourcePageDefinition, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sfcfg:hasResourcePagePresentationConfig <${presentationConfigIri}> ;
   ${
     generatedPanelSelectionIri
       ? `sfcfg:hasGeneratedResourcePagePanelSelection <${generatedPanelSelectionIri}> ;`

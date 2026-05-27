@@ -22,6 +22,7 @@ import type {
 import { Parser, type Quad, type Term } from "n3";
 import { codeToHtml } from "shiki";
 import {
+  ALL_PANELS_RESOURCE_PAGE_PRESENTATION_PROFILE,
   type ArtifactRole,
   DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE,
   type ResourcePageKindTarget,
@@ -182,12 +183,12 @@ const SFCFG_RESOURCE_PAGE_STYLESHEET_IRI =
 const SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
   `${SFLO_NAMESPACE}hasArtifactResolutionMode`;
 const SFLO_HAS_REQUESTED_TARGET_STATE_IRI =
-  `${SFLO_NAMESPACE}hasRequestedTargetState`;
+  `${SFLO_NAMESPACE}targetHistoricalState`;
 
 type TruncatedHistoryItem<T> =
   | { kind: "item"; value: T }
   | { kind: "gap"; omittedCount: number };
-const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasTargetArtifact`;
+const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}targetArtifact`;
 const WEAVE_REPOSITORY_URL = "https://github.com/semantic-flow/weave/";
 const SOURCE_THEME = "github-dark-default";
 const RDF_DESCRIPTION_PREDICATE_IRIS = [
@@ -255,8 +256,7 @@ export async function renderResourcePage(
           canonical,
           options.generatedAt ?? new Date(),
           options.includeSemanticFlowMetadata ?? false,
-          options.resourcePagePresentation ??
-            DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE,
+          resolveRenderPresentation(options),
           meshFaviconHref,
         ),
       ),
@@ -270,8 +270,7 @@ export async function renderResourcePage(
     );
     const customPresentation = resolveCustomIdentifierPresentation(
       page.presentationConfigIri,
-      options.resourcePagePresentation ??
-        DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE,
+      resolveRenderPresentation(options),
     );
     if (customPresentation) {
       return await defaultResourcePageTheme.render(
@@ -364,6 +363,21 @@ ${
   return assertNeverResourcePage(page);
 }
 
+function resolveRenderPresentation(
+  options: ResourcePageRenderOptions,
+): ResourcePagePresentationProfile {
+  const presentation = options.resourcePagePresentation ??
+    DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE;
+  if (
+    options.includeSemanticFlowMetadata === true &&
+    presentation.identity === "semanticSiteDefault"
+  ) {
+    return ALL_PANELS_RESOURCE_PAGE_PRESENTATION_PROFILE;
+  }
+
+  return presentation;
+}
+
 function resolveCustomIdentifierPresentation(
   presentationConfigIri: string | undefined,
   effectivePresentation: ResourcePagePresentationProfile,
@@ -372,6 +386,12 @@ function resolveCustomIdentifierPresentation(
     return undefined;
   }
   if (presentationConfigIri === effectivePresentation.iri) {
+    return effectivePresentation;
+  }
+  if (
+    presentationConfigIri === DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE.iri &&
+    effectivePresentation.identity === "semanticSiteAllPanels"
+  ) {
     return effectivePresentation;
   }
   if (
@@ -408,8 +428,7 @@ export function buildResourcePageDocumentModel(
     canonical,
     options.generatedAt ?? new Date(),
     options.includeSemanticFlowMetadata ?? false,
-    options.resourcePagePresentation ??
-      DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE,
+    resolveRenderPresentation(options),
     meshFaviconHref,
   );
 }
@@ -434,15 +453,11 @@ function toCustomIdentifierResourcePageDocumentModel(
     ? sourcePanelsForFacts
     : [];
   const rdfFacts = extractRdfFacts(canonical, sourcePanelsForFacts);
-  const generatedPanelSelectionIris = includeSemanticFlowMetadata
-    ? withSemanticFlowMetadataPanelSelection(
-      resourcePagePresentation,
-      page.generatedPanelSelectionIris ?? [],
-    )
-    : page.generatedPanelSelectionIris ?? [];
+  const generatedPanelSelectionIris = page.generatedPanelSelectionIris ?? [];
   const selectedPresentation = selectGeneratedResourcePagePanels(
     resourcePagePresentation,
     generatedPanelSelectionIris,
+    includeSemanticFlowMetadata,
   );
   const rdfClasses = rdfFacts.classes;
   const generatedPanels = toResourcePagePanels({
@@ -505,6 +520,15 @@ function toCustomIdentifierResourcePageDocumentModel(
     rdfClasses,
     metadata: [
       { label: "Canonical IRI", value: canonical },
+      {
+        label: "Page definition",
+        href: ensureRelativePageHref(
+          toRelativeHref(page.path, page.definitionPath),
+        ),
+        value: ensureRelativePageHref(
+          toRelativeHref(page.path, page.definitionPath),
+        ),
+      },
     ],
     panels: [
       { kind: "authoredContent", regions: page.regions },
@@ -516,12 +540,28 @@ function toCustomIdentifierResourcePageDocumentModel(
 function selectGeneratedResourcePagePanels(
   resourcePagePresentation: ResourcePagePresentationProfile,
   selectionIris: readonly string[],
+  includeSemanticFlowMetadata: boolean,
 ): ResourcePagePresentationProfile {
-  if (selectionIris.length === 0) {
+  const requestedSelectionIris = new Set(selectionIris);
+  if (
+    includeSemanticFlowMetadata ||
+    resourcePagePresentation.panelSelections.some((selection) =>
+      selection.panel === "semanticFlowMetadata"
+    )
+  ) {
+    for (
+      const selection of resourcePagePresentation.panelSelections.filter((
+        candidate,
+      ) => candidate.panel === "semanticFlowMetadata")
+    ) {
+      requestedSelectionIris.add(selection.iri);
+    }
+  }
+
+  if (requestedSelectionIris.size === 0) {
     return { ...resourcePagePresentation, panelSelections: [] };
   }
 
-  const requestedSelectionIris = new Set(selectionIris);
   const panelSelections = resourcePagePresentation.panelSelections.filter((
     selection,
   ) => requestedSelectionIris.has(selection.iri));
@@ -540,24 +580,6 @@ function selectGeneratedResourcePagePanels(
   }
 
   return { ...resourcePagePresentation, panelSelections };
-}
-
-function withSemanticFlowMetadataPanelSelection(
-  resourcePagePresentation: ResourcePagePresentationProfile,
-  selectionIris: readonly string[],
-): readonly string[] {
-  const semanticFlowMetadataSelectionIri = resourcePagePresentation
-    .panelSelections.find((selection) =>
-      selection.panel === "semanticFlowMetadata"
-    )?.iri;
-  if (
-    !semanticFlowMetadataSelectionIri ||
-    selectionIris.includes(semanticFlowMetadataSelectionIri)
-  ) {
-    return selectionIris;
-  }
-
-  return [...selectionIris, semanticFlowMetadataSelectionIri];
 }
 
 function toDefaultResourcePageDocumentModel(
@@ -864,6 +886,13 @@ function toResourcePagePanels(input: {
   const rawSourcePanels = input.rawSourcePanels ?? [];
   const historyGroups = input.historyGroups ?? [];
   const semanticFlowMetadataRows = input.semanticFlowMetadataRows ?? [];
+  const presentationRequestsSemanticFlowMetadata = input
+    .resourcePagePresentation.panelSelections.some((selection) =>
+      selection.panel === "semanticFlowMetadata"
+    );
+  const includeSemanticFlowMetadata =
+    input.includeSemanticFlowMetadata === true ||
+    presentationRequestsSemanticFlowMetadata;
   const panelByIdentity = new Map<
     ResourcePagePanelIdentity,
     ResourcePagePanelModel
@@ -936,8 +965,10 @@ function toResourcePagePanels(input: {
     availableDataRequirements.add("history");
     panelByIdentity.set("history", { kind: "history", groups: historyGroups });
   }
-  if (input.includeSemanticFlowMetadata) {
-    availableDataRequirements.add("semanticFlowMetadataOptIn");
+  if (includeSemanticFlowMetadata) {
+    availableDataRequirements.add("semanticFlowMetadata");
+  }
+  if (includeSemanticFlowMetadata || semanticFlowMetadataRows.length > 0) {
     panelByIdentity.set("semanticFlowMetadata", {
       kind: "semanticFlowMetadata",
       rows: semanticFlowMetadataRows,
@@ -1337,7 +1368,8 @@ async function renderDefaultResourcePage(
   const propertiesSection = renderPropertiesSection(input.propertyRows);
   const blankNodesSection = renderBlankNodesSection(input.blankNodeRows);
   const referencesSection = renderReferencesSection(input.referenceGroups);
-  const semanticFlowMetadataSection = input.includeSemanticFlowMetadata
+  const semanticFlowMetadataSection = input.includeSemanticFlowMetadata &&
+      input.semanticFlowMetadataRows.length > 0
     ? renderSemanticFlowMetadataSection(input.semanticFlowMetadataRows)
     : "";
   const historySection = renderHistorySection(input);

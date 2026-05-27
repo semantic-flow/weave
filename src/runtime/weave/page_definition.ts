@@ -18,32 +18,24 @@ import {
   type OperationalLocalPathPolicy,
   resolveAllowedLocalPath,
 } from "../operational/local_path_policy.ts";
-import {
-  DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE,
-  type ResourcePagePresentationProfile,
-} from "../config/effective_config.ts";
 import { SFCFG_NAMESPACE, SFLO_NAMESPACE } from "../../core/rdf/namespaces.ts";
 
-const SFCFG_HAS_RESOURCE_PAGE_PRESENTATION_CONFIG_IRI =
-  `${SFCFG_NAMESPACE}hasResourcePagePresentationConfig`;
 const SFCFG_HAS_GENERATED_RESOURCE_PAGE_PANEL_SELECTION_IRI =
   `${SFCFG_NAMESPACE}hasGeneratedResourcePagePanelSelection`;
 const SFLO_HAS_PAGE_REGION_IRI = `${SFLO_NAMESPACE}hasPageRegion`;
 const SFLO_HAS_RESOURCE_PAGE_SOURCE_IRI =
   `${SFLO_NAMESPACE}hasResourcePageSource`;
-const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasTargetArtifact`;
-const SFLO_HAS_TARGET_DISTRIBUTION_IRI =
-  `${SFLO_NAMESPACE}hasTargetDistribution`;
-const SFLO_HAS_TARGET_LOCATED_FILE_IRI =
-  `${SFLO_NAMESPACE}hasTargetLocatedFile`;
+const SFLO_HAS_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}targetArtifact`;
+const SFLO_HAS_TARGET_DISTRIBUTION_IRI = `${SFLO_NAMESPACE}targetManifestation`;
+const SFLO_HAS_TARGET_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}targetLocatedFile`;
 const SFLO_HAS_REQUESTED_TARGET_HISTORY_IRI =
-  `${SFLO_NAMESPACE}hasRequestedTargetHistory`;
+  `${SFLO_NAMESPACE}targetArtifactHistory`;
 const SFLO_HAS_REQUESTED_TARGET_STATE_IRI =
-  `${SFLO_NAMESPACE}hasRequestedTargetState`;
+  `${SFLO_NAMESPACE}targetHistoricalState`;
 const SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI =
   `${SFLO_NAMESPACE}hasArtifactResolutionMode`;
 const SFLO_HAS_ARTIFACT_RESOLUTION_FALLBACK_POLICY_IRI =
-  `${SFLO_NAMESPACE}hasArtifactResolutionFallbackPolicy`;
+  `${SFLO_NAMESPACE}hasFallbackArtifactResolutionSpec`;
 const SFLO_TARGET_MESH_PATH_IRI = `${SFLO_NAMESPACE}targetLocalRelativePath`;
 const SFLO_TARGET_ACCESS_URL_IRI = `${SFLO_NAMESPACE}targetAccessUrl`;
 const SFLO_REGION_KEY_IRI = `${SFLO_NAMESPACE}regionKey`;
@@ -192,16 +184,10 @@ export async function loadActiveCustomIdentifierPage(
     definitionIri,
     SFLO_HAS_PAGE_REGION_IRI,
   );
-  const presentationConfig = parseResourcePagePresentationConfig(
-    quads,
-    definitionIri,
-    designatorPath,
-  );
   const generatedPanelSelectionIris = parseGeneratedResourcePagePanelSelections(
     quads,
     definitionIri,
     designatorPath,
-    presentationConfig,
   );
 
   if (regionSubjects.length === 0) {
@@ -250,7 +236,7 @@ export async function loadActiveCustomIdentifierPage(
         sourceSubject,
         SFLO_HAS_ARTIFACT_RESOLUTION_MODE_IRI,
       );
-      const artifactResolutionFallbackPolicies = collectNamedNodeObjects(
+      const artifactResolutionFallbackSpecs = collectResourceObjects(
         quads,
         sourceSubject,
         SFLO_HAS_ARTIFACT_RESOLUTION_FALLBACK_POLICY_IRI,
@@ -297,7 +283,7 @@ export async function loadActiveCustomIdentifierPage(
           requestedTargetHistories.length > 0 ||
           requestedTargetStates.length > 0 ||
           artifactResolutionModes.length > 0 ||
-          artifactResolutionFallbackPolicies.length > 0
+          artifactResolutionFallbackSpecs.length > 0
         ) {
           throw new ResourcePageDefinitionResolutionError(
             `ResourcePageDefinition region ${key} for ${
@@ -368,7 +354,7 @@ export async function loadActiveCustomIdentifierPage(
 
       if (
         requestedTargetStates.length > 0 ||
-        artifactResolutionFallbackPolicies.length > 0
+        artifactResolutionFallbackSpecs.length > 0
       ) {
         throw new ResourcePageDefinitionResolutionError(
           `ResourcePageDefinition region ${key} for ${
@@ -435,84 +421,33 @@ export async function loadActiveCustomIdentifierPage(
         designatorPath,
       )
       : [],
-    presentationConfigIri: presentationConfig?.iri,
     generatedPanelSelectionIris,
   };
-}
-
-function parseResourcePagePresentationConfig(
-  quads: readonly Quad[],
-  definitionIri: string,
-  designatorPath: string,
-): ResourcePagePresentationProfile | undefined {
-  const configIris = collectNamedNodeObjects(
-    quads,
-    definitionIri,
-    SFCFG_HAS_RESOURCE_PAGE_PRESENTATION_CONFIG_IRI,
-  );
-  if (configIris.length === 0) {
-    return undefined;
-  }
-  if (configIris.length !== 1) {
-    throw new ResourcePageDefinitionResolutionError(
-      `ResourcePageDefinition for ${
-        formatDesignatorPathForDisplay(designatorPath)
-      } declares multiple ResourcePage presentation configs.`,
-    );
-  }
-
-  const configIri = configIris[0]!;
-  if (configIri !== DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE.iri) {
-    throw new ResourcePageDefinitionResolutionError(
-      `ResourcePageDefinition for ${
-        formatDesignatorPathForDisplay(designatorPath)
-      } requests unsupported ResourcePage presentation config: ${configIri}.`,
-    );
-  }
-
-  return DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE;
 }
 
 function parseGeneratedResourcePagePanelSelections(
   quads: readonly Quad[],
   definitionIri: string,
   designatorPath: string,
-  presentationConfig: ResourcePagePresentationProfile | undefined,
 ): readonly string[] {
   const selectionIris = collectNamedNodeObjects(
     quads,
     definitionIri,
     SFCFG_HAS_GENERATED_RESOURCE_PAGE_PANEL_SELECTION_IRI,
   );
-  if (selectionIris.length === 0) {
-    return [];
-  }
-  if (!presentationConfig) {
+  if (
+    selectionIris.some((selectionIri) =>
+      selectionIri.trim().length === 0 || selectionIri.includes(" ")
+    )
+  ) {
     throw new ResourcePageDefinitionResolutionError(
       `ResourcePageDefinition for ${
         formatDesignatorPathForDisplay(designatorPath)
-      } declares generated ResourcePage panel selections without a ResourcePage presentation config.`,
+      } declares an invalid generated ResourcePage panel selection IRI.`,
     );
   }
 
-  const supportedSelectionIris = new Set(
-    presentationConfig.panelSelections.map((selection) => selection.iri),
-  );
-  const unsupportedSelection = selectionIris.find((selectionIri) =>
-    !supportedSelectionIris.has(selectionIri)
-  );
-  if (unsupportedSelection) {
-    throw new ResourcePageDefinitionResolutionError(
-      `ResourcePageDefinition for ${
-        formatDesignatorPathForDisplay(designatorPath)
-      } requests unsupported generated ResourcePage panel selection: ${unsupportedSelection}.`,
-    );
-  }
-
-  const requestedSelectionIris = new Set(selectionIris);
-  return presentationConfig.panelSelections.filter((selection) =>
-    requestedSelectionIris.has(selection.iri)
-  ).map((selection) => selection.iri);
+  return [...selectionIris].sort();
 }
 
 export function describeResourcePageDefinitionArtifact(
@@ -561,6 +496,30 @@ function collectNamedNodeObjects(
     }
 
     values.add(quad.object.value);
+  }
+
+  return [...values];
+}
+
+function collectResourceObjects(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+): readonly string[] {
+  const values = new Set<string>();
+
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.subject.value !== subjectIri ||
+      quad.predicate.value !== predicateIri ||
+      (quad.object.termType !== "NamedNode" &&
+        quad.object.termType !== "BlankNode")
+    ) {
+      continue;
+    }
+
+    values.add(`${quad.object.termType}:${quad.object.value}`);
   }
 
   return [...values];

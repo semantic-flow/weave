@@ -5,39 +5,106 @@
 
 <application> a sfcfg:ApplicationConfig, sfcfg:ConfigArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
   sfcfg:hasConfigResolutionConfig <config-resolution> ;
-  sfcfg:hasDefaultHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly ;
-  sfcfg:hasHistoryTrackingDefault [
-    a sfcfg:ArtifactRolePolicy ;
-    sfcfg:hasArtifactRole sfcfg:artifactRole_payload ;
-    sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_versioned
-  ], [
-    a sfcfg:ArtifactRolePolicy ;
-    sfcfg:hasArtifactRole sfcfg:artifactRole_config ;
-    sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_versioned
-  ], [
-    a sfcfg:ArtifactRolePolicy ;
-    sfcfg:hasArtifactRole sfcfg:artifactRole_meshInventory ;
-    sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly
-  ], [
-    a sfcfg:ArtifactRolePolicy ;
-    sfcfg:hasArtifactRole sfcfg:artifactRole_knopInventory ;
-    sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly
-  ], [
-    a sfcfg:ArtifactRolePolicy ;
-    sfcfg:hasArtifactRole sfcfg:artifactRole_runtimeMeta ;
-    sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly
-  ] ;
-  sfcfg:hasDefaultResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_generate ;
+  sfcfg:hasPolicyBinding
+    <policy-binding/history/any-current-only>,
+    <policy-binding/history/payload-versioned>,
+    <policy-binding/history/config-versioned>,
+    <policy-binding/history/mesh-inventory-current-only>,
+    <policy-binding/history/knop-inventory-current-only>,
+    <policy-binding/history/runtime-meta-current-only>,
+    <policy-binding/resource-page-generation/any-generate>,
+    <policy-binding/resource-page-presentation/any-default> ;
   sfcfg:hasResourcePageRegenerationConfigPolicy sfcfg:resourcePageRegenerationConfigPolicy_configAtTheTime ;
-  sfcfg:hasDefaultResourcePagePresentationConfig <resource-page-presentation/semantic-site-default> ;
   sfcfg:hasHistoryNamingPolicy sfcfg:historyNamingPolicy_ordinal ;
   sfcfg:hasStateNamingPolicy sfcfg:stateNamingPolicy_ordinal ;
   sfcfg:hasManifestationNamingPolicy sfcfg:manifestationNamingPolicy_filenameDerived .
 
-<resource-page-presentation/semantic-site-default> a sfcfg:ResourcePagePresentationConfig ;
+<policy/history/current-only> a sfcfg:PolicyDefinition ;
+  sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly .
+
+<policy/history/versioned> a sfcfg:PolicyDefinition ;
+  sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_versioned .
+
+<policy/resource-page-generation/generate> a sfcfg:PolicyDefinition ;
+  sfcfg:hasResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_generate .
+
+<policy/resource-page-presentation/semantic-site-default> a sfcfg:PolicyDefinition ;
+  sfcfg:hasResourcePagePresentationPolicy <resource-page-presentation/semantic-site-default> .
+
+<policy/resource-page-presentation/semantic-site-all-panels> a sfcfg:PolicyDefinition ;
+  sfcfg:hasResourcePagePresentationPolicy <resource-page-presentation/semantic-site-all-panels> .
+
+<policy/resource-page-presentation/semantic-site-no-panels> a sfcfg:PolicyDefinition ;
+  sfcfg:hasResourcePagePresentationPolicy <resource-page-presentation/semantic-site-no-panels> .
+
+<policy-target/any-governed-artifact> a sfcfg:AnyGovernedArtifactPolicyTarget .
+
+<policy-target/artifact-role/payload> a sfcfg:ArtifactRolePolicyTarget ;
+  sfcfg:hasArtifactRole sfcfg:artifactRole_payload .
+
+<policy-target/artifact-role/config> a sfcfg:ArtifactRolePolicyTarget ;
+  sfcfg:hasArtifactRole sfcfg:artifactRole_config .
+
+<policy-target/artifact-role/mesh-inventory> a sfcfg:ArtifactRolePolicyTarget ;
+  sfcfg:hasArtifactRole sfcfg:artifactRole_meshInventory .
+
+<policy-target/artifact-role/knop-inventory> a sfcfg:ArtifactRolePolicyTarget ;
+  sfcfg:hasArtifactRole sfcfg:artifactRole_knopInventory .
+
+<policy-target/artifact-role/runtime-meta> a sfcfg:ArtifactRolePolicyTarget ;
+  sfcfg:hasArtifactRole sfcfg:artifactRole_runtimeMeta .
+
+<policy-binding/history/any-current-only> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <policy/history/current-only> ;
+  sfcfg:appliesToPolicyTarget <policy-target/any-governed-artifact> .
+
+<policy-binding/history/payload-versioned> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <policy/history/versioned> ;
+  sfcfg:appliesToPolicyTarget <policy-target/artifact-role/payload> .
+
+<policy-binding/history/config-versioned> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <policy/history/versioned> ;
+  sfcfg:appliesToPolicyTarget <policy-target/artifact-role/config> .
+
+<policy-binding/history/mesh-inventory-current-only> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <policy/history/current-only> ;
+  sfcfg:appliesToPolicyTarget <policy-target/artifact-role/mesh-inventory> .
+
+<policy-binding/history/knop-inventory-current-only> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <policy/history/current-only> ;
+  sfcfg:appliesToPolicyTarget <policy-target/artifact-role/knop-inventory> .
+
+<policy-binding/history/runtime-meta-current-only> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <policy/history/current-only> ;
+  sfcfg:appliesToPolicyTarget <policy-target/artifact-role/runtime-meta> .
+
+<policy-binding/resource-page-generation/any-generate> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <policy/resource-page-generation/generate> ;
+  sfcfg:appliesToPolicyTarget <policy-target/any-governed-artifact> .
+
+<policy-binding/resource-page-presentation/any-default> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <policy/resource-page-presentation/semantic-site-default> ;
+  sfcfg:appliesToPolicyTarget <policy-target/any-governed-artifact> .
+
+<resource-page-presentation/semantic-site-default> a sfcfg:ResourcePagePresentationPolicy ;
   sfcfg:hasOuterResourcePageTemplate <resource-page-template/semantic-site/outer> ;
   sfcfg:hasInnerResourcePageTemplate <resource-page-template/semantic-site/inner> ;
-  sfcfg:hasResourcePageStylesheet <default-stylesheet> ;
+  sfcfg:hasResourcePageStylesheet <stylesheet> ;
+  sfcfg:hasResourcePagePanelSelection
+    <resource-page-presentation/semantic-site-default#children-panel>,
+    <resource-page-presentation/semantic-site-default#properties-panel>,
+    <resource-page-presentation/semantic-site-default#blank-nodes-panel>,
+    <resource-page-presentation/semantic-site-default#references-panel>,
+    <resource-page-presentation/semantic-site-default#current-links-panel>,
+    <resource-page-presentation/semantic-site-default#knop-artifacts-panel>,
+    <resource-page-presentation/semantic-site-default#fact-sections-panel>,
+    <resource-page-presentation/semantic-site-default#raw-source-panel>,
+    <resource-page-presentation/semantic-site-default#history-panel> .
+
+<resource-page-presentation/semantic-site-all-panels> a sfcfg:ResourcePagePresentationPolicy ;
+  sfcfg:hasOuterResourcePageTemplate <resource-page-template/semantic-site/outer> ;
+  sfcfg:hasInnerResourcePageTemplate <resource-page-template/semantic-site/inner> ;
+  sfcfg:hasResourcePageStylesheet <stylesheet> ;
   sfcfg:hasResourcePagePanelSelection
     <resource-page-presentation/semantic-site-default#children-panel>,
     <resource-page-presentation/semantic-site-default#properties-panel>,
@@ -48,7 +115,12 @@
     <resource-page-presentation/semantic-site-default#fact-sections-panel>,
     <resource-page-presentation/semantic-site-default#raw-source-panel>,
     <resource-page-presentation/semantic-site-default#history-panel>,
-    <resource-page-presentation/semantic-site-default#semantic-flow-metadata-panel> .
+    <resource-page-presentation/semantic-site-all-panels#semantic-flow-metadata-panel> .
+
+<resource-page-presentation/semantic-site-no-panels> a sfcfg:ResourcePagePresentationPolicy ;
+  sfcfg:hasOuterResourcePageTemplate <resource-page-template/semantic-site/outer> ;
+  sfcfg:hasInnerResourcePageTemplate <resource-page-template/semantic-site/inner> ;
+  sfcfg:hasResourcePageStylesheet <stylesheet> .
 
 <resource-page-template/semantic-site/outer> a sfcfg:OuterResourcePageTemplate, sflo:DigitalArtifact .
 
@@ -150,9 +222,9 @@
   sfcfg:hasPanelTargetPageKind sfcfg:resourcePageKind_identifier, sfcfg:resourcePageKind_simple, sfcfg:resourcePageKind_referenceCatalog ;
   sfcfg:hasPanelDataRequirement sfcfg:panelDataRequirement_history .
 
-<resource-page-presentation/semantic-site-default#semantic-flow-metadata-panel> a sfcfg:ResourcePagePanelSelection ;
+<resource-page-presentation/semantic-site-all-panels#semantic-flow-metadata-panel> a sfcfg:ResourcePagePanelSelection ;
   sfcfg:hasResourcePagePanel <resource-page-panel/semantic-flow-metadata> ;
   sfcfg:panelOrder "80"^^xsd:nonNegativeInteger ;
   sfcfg:hasPanelInclusionPolicy sfcfg:panelInclusionPolicy_auto ;
   sfcfg:hasPanelTargetPageKind sfcfg:resourcePageKind_identifier, sfcfg:resourcePageKind_knop, sfcfg:resourcePageKind_simple, sfcfg:resourcePageKind_referenceCatalog ;
-  sfcfg:hasPanelDataRequirement sfcfg:panelDataRequirement_semanticFlowMetadataOptIn .
+  sfcfg:hasPanelDataRequirement sfcfg:panelDataRequirement_semanticFlowMetadata .

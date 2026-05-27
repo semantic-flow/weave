@@ -29,7 +29,7 @@ weave set extraction-source --all-terms --mesh-root docs --source ontology --acc
 
 `--source` records a working-source binding to the current source payload artifact.
 
-`--source-state` records an exact source-state binding and fails if the historical source bytes do not mention the target term.
+`--source-state` records an exact source-state binding and fails if the historical source bytes do not mention the target term. It reads the woven historical snapshot, so the source artifact's current working file or floating repository locator does not need to be resolvable.
 
 The command replaces the existing source-registry `sflo:ExtractionSource` details; it does not append a second primary extraction source.
 

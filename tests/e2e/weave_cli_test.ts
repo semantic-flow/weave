@@ -8,6 +8,7 @@ import {
 import {
   listMeshAliceBioBranchFiles,
   materializeMeshAliceBioBranch,
+  MESH_ALICE_BIO_BASE,
   MESH_ALICE_BIO_HISTORY_TRACKING_POLICY,
   readMeshAliceBioBranchFile,
   resolveMeshAliceBioConformanceManifestPath,
@@ -15,6 +16,7 @@ import {
 import {
   listMeshSidecarFantasyRulesBranchFiles,
   materializeMeshSidecarFantasyRulesBranch,
+  MESH_SIDECAR_FANTASY_RULES_BASE,
   readMeshSidecarFantasyRulesBranchFile,
   resolveMeshSidecarFantasyRulesConformanceManifestPath,
 } from "../support/mesh_sidecar_fantasy_rules_fixture.ts";
@@ -23,6 +25,7 @@ import {
   integrateRootPayload,
 } from "../support/root_designator.ts";
 import { replaceGeneratedTimestampFooter } from "../support/generated_page_timestamp.ts";
+import { assertDefaultCliLogFilesExist } from "../support/cli_logs.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 import { WEAVE_VERSION } from "../../src/version.ts";
 
@@ -729,8 +732,7 @@ Deno.test("weave infers workspace root from docs-rooted mesh config as a black-b
   assert(stdout.includes("Wove 1 designator path"), stdout);
   assert(stdout.includes("docs/alice/data/index.html"), stdout);
   await Deno.stat(join(meshRoot, "alice/data/index.html"));
-  await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
-  await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
+  await assertDefaultCliLogFilesExist(MESH_ALICE_BIO_BASE);
 });
 
 Deno.test("weave materializes support ResourcePages for a docs-rooted sidecar mesh as a black-box CLI run", async () => {
@@ -755,7 +757,7 @@ Deno.test("weave materializes support ResourcePages for a docs-rooted sidecar me
   assert(stdout.includes("docs/_mesh/_config/index.html"), stdout);
   await Deno.stat(join(workspaceRoot, "docs/_mesh/index.html"));
   await Deno.stat(join(workspaceRoot, "docs/_mesh/_config/index.html"));
-  await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
+  await assertDefaultCliLogFilesExist(MESH_SIDECAR_FANTASY_RULES_BASE);
 });
 
 Deno.test("weave accepts payload version naming flags as a black-box CLI run", async () => {
@@ -966,8 +968,7 @@ Deno.test("weave matches the manifest-scoped sidecar root Knop woven fixture", a
     throw new Error(`Unsupported compare mode ${compareMode} for ${path}`);
   }
 
-  await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
-  await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
+  await assertDefaultCliLogFilesExist(MESH_SIDECAR_FANTASY_RULES_BASE);
 });
 
 Deno.test("weave matches the manifest-scoped sidecar Gunaar dataset woven fixture", async () => {
@@ -1062,8 +1063,7 @@ Deno.test("weave matches the manifest-scoped sidecar Gunaar dataset woven fixtur
     throw new Error(`Unsupported compare mode ${compareMode} for ${path}`);
   }
 
-  await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
-  await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
+  await assertDefaultCliLogFilesExist(MESH_SIDECAR_FANTASY_RULES_BASE);
 });
 
 Deno.test("weave validate rejects version-only --target fields", async () => {
@@ -1205,8 +1205,7 @@ async function assertWeaveTransitionMatchesManifest(
     throw new Error(`Unsupported compare mode ${compareMode} for ${path}`);
   }
 
-  await Deno.stat(join(workspaceRoot, ".weave/logs/operational.jsonl"));
-  await Deno.stat(join(workspaceRoot, ".weave/logs/security-audit.jsonl"));
+  await assertDefaultCliLogFilesExist(MESH_ALICE_BIO_BASE);
 }
 
 function runCliCommand(

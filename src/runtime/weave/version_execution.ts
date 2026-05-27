@@ -76,7 +76,16 @@ export async function prepareVersionExecution(
   const effectiveConfig = await timeOptional(
     timing,
     "prepare.loadEffectiveConfig",
-    () => loadEffectiveConfigForExecution(historyTrackingPolicyOverride),
+    () =>
+      loadEffectiveConfigForExecution({
+        meshConfigTurtle: meshState.currentMeshConfigTurtle,
+        meshConfigSource: meshState.currentMeshConfigTurtle
+          ? "_mesh/_config/config.ttl"
+          : undefined,
+        meshBase: meshState.meshBase,
+        meshInventoryTurtle: meshState.currentMeshInventoryTurtle,
+        historyTrackingPolicyOverride,
+      }),
   );
   const supportHistoryPolicies = supportHistoryPoliciesFromEffectiveConfig(
     effectiveConfig,
@@ -149,6 +158,7 @@ export async function prepareVersionExecution(
           currentMeshMetadataTurtle: meshState.currentMeshMetadataTurtle,
           currentMeshConfigTurtle: meshState.currentMeshConfigTurtle,
           supportHistoryPolicies,
+          resourcePageGenerationConfig: effectiveConfig,
           resourcePageGenerationPolicies,
         }),
       };
@@ -218,6 +228,7 @@ export async function prepareVersionExecution(
           weaveableKnops: [nextCandidate],
           supportHistoryPolicies,
           namingPolicies,
+          resourcePageGenerationConfig: effectiveConfig,
           resourcePageGenerationPolicies,
         }),
     );

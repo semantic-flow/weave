@@ -210,7 +210,7 @@ Deno.test("planIntegrate records working-only source bindings with the internal 
     "sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> .",
   );
   assertEquals(sources.includes("sflo:expectsContentDigest"), false);
-  assertEquals(sources.includes("sflo:hasTargetRepositorySource"), false);
+  assertEquals(sources.includes("sflo:targetRepositorySource"), false);
   assertEquals(sources.includes("sflo:sourceRepository"), false);
   assertEquals(sources.includes("sflo:hasContentDigest"), false);
 });
@@ -271,7 +271,7 @@ Deno.test("planIntegrate records repository-backed source bindings", async () =>
   );
   assertStringIncludes(
     sources,
-    "sflo:hasTargetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/data> ;",
+    "sflo:targetArtifact <https://semantic-flow.github.io/mesh-alice-bio/alice/data> ;",
   );
   assertStringIncludes(
     sources,
@@ -299,7 +299,7 @@ Deno.test("planIntegrate records repository-backed source bindings", async () =>
   assertStringIncludes(sources, 'sflo:hasContentDigest "sha256:123abc"');
   assertStringIncludes(
     sources,
-    '<alice/data/_knop/_sources#branch-source-alice-bio-observation-001>\n  a sflo:ArtifactResolutionObservation ;\n  sflo:observedContentDigest "sha256:123abc" .',
+    '<alice/data/_knop/_sources#branch-source-alice-bio-observation-001>\n  a sflo:ArtifactResolutionObservation ;\n  sflo:observedArtifactResolutionSpec [\n    a sflo:ArtifactResolutionSpec\n  ] ;\n  sflo:observedContentDigest "sha256:123abc" .',
   );
 });
 

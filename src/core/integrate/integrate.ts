@@ -60,7 +60,7 @@ export interface IntegrateSourceBinding {
 
 export interface IntegrateSourceObservation {
   observedContentDigest?: string;
-  observedTargetLocalRelativePath?: string;
+  observedLocalRelativePath?: string;
   observedAt?: string;
 }
 
@@ -328,7 +328,7 @@ interface NormalizedIntegrateSourceBinding {
 
 interface NormalizedIntegrateSourceObservation {
   observedContentDigest?: string;
-  observedTargetLocalRelativePath?: string;
+  observedLocalRelativePath?: string;
   observedAt?: string;
 }
 
@@ -430,11 +430,11 @@ function normalizeSourceObservation(
       observation.observedContentDigest,
       "sourceBinding.observation.observedContentDigest",
     );
-  const observedTargetLocalRelativePath =
-    observation.observedTargetLocalRelativePath === undefined
+  const observedLocalRelativePath =
+    observation.observedLocalRelativePath === undefined
       ? undefined
       : normalizeWorkingLocalRelativePath(
-        observation.observedTargetLocalRelativePath,
+        observation.observedLocalRelativePath,
       );
   const observedAt = observation.observedAt === undefined
     ? undefined
@@ -446,7 +446,7 @@ function normalizeSourceObservation(
 
   if (
     observedContentDigest === undefined &&
-    observedTargetLocalRelativePath === undefined &&
+    observedLocalRelativePath === undefined &&
     observedAt === undefined
   ) {
     throw new IntegrateInputError(
@@ -456,9 +456,7 @@ function normalizeSourceObservation(
 
   return {
     ...(observedContentDigest ? { observedContentDigest } : {}),
-    ...(observedTargetLocalRelativePath
-      ? { observedTargetLocalRelativePath }
-      : {}),
+    ...(observedLocalRelativePath ? { observedLocalRelativePath } : {}),
     ...(observedAt ? { observedAt } : {}),
   };
 }
@@ -626,7 +624,7 @@ function renderSourceBindingFacts(
   observationPath: string,
 ): string {
   const facts: [string, string][] = [
-    ["sflo:hasTargetArtifact", `<${new URL(designatorPath, meshBase).href}>`],
+    ["sflo:targetArtifact", `<${new URL(designatorPath, meshBase).href}>`],
   ];
   if (sourceBinding.targetLocalRelativePath !== undefined) {
     facts.push([
@@ -652,7 +650,7 @@ function renderSourceBindingFacts(
   }
   if (sourceBinding.repositorySource !== undefined) {
     facts.push([
-      "sflo:hasTargetRepositorySource",
+      "sflo:targetRepositorySource",
       renderRepositorySourceBlankNode(sourceBinding.repositorySource),
     ]);
   }
@@ -674,19 +672,26 @@ function renderSourceObservationBlock(
   observationPath: string,
   observation: NormalizedIntegrateSourceObservation,
 ): string {
+  const observedSpecFacts: [string, string][] = [
+    ["a", "sflo:ArtifactResolutionSpec"],
+  ];
+  if (observation.observedLocalRelativePath !== undefined) {
+    observedSpecFacts.push([
+      "sflo:targetLocalRelativePath",
+      `"${escapeTurtleString(observation.observedLocalRelativePath)}"`,
+    ]);
+  }
   const facts: [string, string][] = [
     ["a", "sflo:ArtifactResolutionObservation"],
+    [
+      "sflo:observedArtifactResolutionSpec",
+      renderObservedArtifactResolutionSpec(observedSpecFacts),
+    ],
   ];
   if (observation.observedContentDigest !== undefined) {
     facts.push([
       "sflo:observedContentDigest",
       `"${escapeTurtleString(observation.observedContentDigest)}"`,
-    ]);
-  }
-  if (observation.observedTargetLocalRelativePath !== undefined) {
-    facts.push([
-      "sflo:observedTargetLocalRelativePath",
-      `"${escapeTurtleString(observation.observedTargetLocalRelativePath)}"`,
     ]);
   }
   if (observation.observedAt !== undefined) {
@@ -703,6 +708,18 @@ function renderSourceObservationBlock(
   );
   return `<${observationPath}>
 ${lines.join("\n")}`;
+}
+
+function renderObservedArtifactResolutionSpec(
+  facts: readonly [string, string][],
+): string {
+  return `[
+${
+    facts.map(([predicate, object], index) =>
+      `    ${predicate} ${object}${index === facts.length - 1 ? "" : " ;"}`
+    ).join("\n")
+  }
+  ]`;
 }
 
 function renderRepositorySourceBlankNode(

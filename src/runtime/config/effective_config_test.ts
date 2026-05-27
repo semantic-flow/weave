@@ -1,13 +1,14 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import {
+  ALL_PANELS_RESOURCE_PAGE_PRESENTATION_PROFILE,
+  compileWeaveEffectiveConfig,
   DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE,
   EffectiveConfigError,
   loadWeaveDefaultEffectiveConfig,
+  NO_PANELS_RESOURCE_PAGE_PRESENTATION_PROFILE,
   parseWeaveDefaultEffectiveConfig,
+  WEAVE_DEFAULTS_NAMESPACE,
 } from "./effective_config.ts";
-
-const WEAVE_DEFAULTS_NAMESPACE =
-  "https://semantic-flow.github.io/weave/defaults/";
 
 Deno.test("loadWeaveDefaultEffectiveConfig resolves default artifact-role policies", async () => {
   const config = await loadWeaveDefaultEffectiveConfig();
@@ -28,27 +29,6 @@ Deno.test("loadWeaveDefaultEffectiveConfig resolves default artifact-role polici
   );
   assertEquals(
     config.artifactRolePolicy("meshInventory"),
-    {
-      historyTrackingPolicy: "currentOnly",
-      resourcePageGenerationPolicy: "generate",
-    },
-  );
-  assertEquals(
-    config.artifactRolePolicy("knopInventory"),
-    {
-      historyTrackingPolicy: "currentOnly",
-      resourcePageGenerationPolicy: "generate",
-    },
-  );
-  assertEquals(
-    config.artifactRolePolicy("meshMetadata"),
-    {
-      historyTrackingPolicy: "currentOnly",
-      resourcePageGenerationPolicy: "generate",
-    },
-  );
-  assertEquals(
-    config.artifactRolePolicy("runtimeMeta"),
     {
       historyTrackingPolicy: "currentOnly",
       resourcePageGenerationPolicy: "generate",
@@ -87,12 +67,8 @@ Deno.test("loadWeaveDefaultEffectiveConfig parses config-resolution defaults", a
     [
       "builtInDefaults",
       "weaveDefaults",
-      "machineLocalOperational",
-      "workspaceOperational",
       "meshLocal",
-      "meshInheritable",
       "knopInherited",
-      "reusableConfig",
       "knopLocal",
       "knopInheritable",
       "commandOverride",
@@ -100,7 +76,7 @@ Deno.test("loadWeaveDefaultEffectiveConfig parses config-resolution defaults", a
   );
 });
 
-Deno.test("loadWeaveDefaultEffectiveConfig parses ResourcePage presentation defaults", async () => {
+Deno.test("loadWeaveDefaultEffectiveConfig parses built-in ResourcePage presentation policies", async () => {
   const config = await loadWeaveDefaultEffectiveConfig();
 
   assertEquals(
@@ -122,31 +98,20 @@ Deno.test("loadWeaveDefaultEffectiveConfig parses ResourcePage presentation defa
       ["factSections", 57],
       ["rawSource", 60],
       ["history", 70],
-      ["semanticFlowMetadata", 80],
     ],
   );
-  const rawSourcePanel = config.resourcePagePresentation.panelSelections.find((
-    selection,
-  ) => selection.panel === "rawSource");
-  assertEquals(rawSourcePanel?.targetClasses, [
-    "https://semantic-flow.github.io/sflo/ontology/DigitalArtifact",
-  ]);
-  assertEquals(rawSourcePanel?.targetArtifactRoles, [
-    "config",
-    "knopInventory",
-    "knopMetadata",
-    "meshInventory",
-    "meshMetadata",
-    "payload",
-    "referenceCatalog",
-    "resourcePageDefinition",
-    "resourcePageStylesheet",
-    "resourcePageTemplate",
-    "runtimeMeta",
-  ]);
+  assertEquals(
+    ALL_PANELS_RESOURCE_PAGE_PRESENTATION_PROFILE.panelSelections.at(-1)
+      ?.panel,
+    "semanticFlowMetadata",
+  );
+  assertEquals(
+    NO_PANELS_RESOURCE_PAGE_PRESENTATION_PROFILE.panelSelections,
+    [],
+  );
 });
 
-Deno.test("loadWeaveDefaultEffectiveConfig parses naming defaults", async () => {
+Deno.test("loadWeaveDefaultEffectiveConfig parses naming and regeneration defaults", async () => {
   const config = await loadWeaveDefaultEffectiveConfig();
 
   assertEquals(config.namingPolicies, {
@@ -154,14 +119,511 @@ Deno.test("loadWeaveDefaultEffectiveConfig parses naming defaults", async () => 
     stateNamingPolicy: "ordinal",
     manifestationNamingPolicy: "filenameDerived",
   });
-});
-
-Deno.test("loadWeaveDefaultEffectiveConfig parses ResourcePage regeneration policy", async () => {
-  const config = await loadWeaveDefaultEffectiveConfig();
-
   assertEquals(
     config.resourcePageRegenerationConfigPolicy,
     "configAtTheTime",
+  );
+});
+
+Deno.test("compileWeaveEffectiveConfig parses mesh scoped settings", () => {
+  const config = compileWeaveEffectiveConfig({
+    applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+    configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+    meshConfigTurtle:
+      `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:workspaceRootRelativeToMeshRoot "../" ;
+  sfcfg:hasPublicationProfile sfcfg:publicationProfile_githubPages .
+`,
+  });
+
+  assertEquals(config.scopedSettings.mesh, {
+    publicationProfile: "githubPages",
+    workspaceRootRelativeToMeshRoot: "../",
+  });
+});
+
+Deno.test("compileWeaveEffectiveConfig lets mesh-local scoped settings override application defaults", () => {
+  const config = compileWeaveEffectiveConfig({
+    applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+    configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+    meshConfigTurtle:
+      `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasResourcePageRegenerationConfigPolicy sfcfg:resourcePageRegenerationConfigPolicy_currentFullConfig ;
+  sfcfg:hasHistoryNamingPolicy sfcfg:historyNamingPolicy_named ;
+  sfcfg:hasStateNamingPolicy sfcfg:stateNamingPolicy_semver ;
+  sfcfg:hasManifestationNamingPolicy sfcfg:manifestationNamingPolicy_ordinal .
+`,
+  });
+
+  assertEquals(config.namingPolicies, {
+    historyNamingPolicy: "named",
+    stateNamingPolicy: "semver",
+    manifestationNamingPolicy: "ordinal",
+  });
+  assertEquals(
+    config.resourcePageRegenerationConfigPolicy,
+    "currentFullConfig",
+  );
+});
+
+Deno.test("compileWeaveEffectiveConfig applies mesh-local any-governed-artifact overrides", () => {
+  const config = compileWeaveEffectiveConfig({
+    applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+    configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+    meshConfigTurtle:
+      `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPolicyBinding <#history-current-only>, <#pages-suppress>, <#presentation-no-panels> .
+
+<#history-current-only> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#current-only> ;
+  sfcfg:appliesToPolicyTarget <#any> .
+
+<#current-only> a sfcfg:PolicyDefinition ;
+  sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly .
+
+<#pages-suppress> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#suppress> ;
+  sfcfg:appliesToPolicyTarget <#any> .
+
+<#suppress> a sfcfg:PolicyDefinition ;
+  sfcfg:hasResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_suppress .
+
+<#presentation-no-panels> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#no-panels> ;
+  sfcfg:appliesToPolicyTarget <#any> .
+
+<#no-panels> a sfcfg:PolicyDefinition ;
+  sfcfg:hasResourcePagePresentationPolicy <${WEAVE_DEFAULTS_NAMESPACE}resource-page-presentation/semantic-site-no-panels> .
+
+<#any> a sfcfg:AnyGovernedArtifactPolicyTarget .
+`,
+  });
+
+  assertEquals(
+    config.historyTrackingPolicyForArtifactRole("payload"),
+    "currentOnly",
+  );
+  assertEquals(
+    config.resourcePageGenerationPolicyForArtifactRole("payload"),
+    "suppress",
+  );
+  assertEquals(
+    config.resourcePagePresentation.identity,
+    "semanticSiteNoPanels",
+  );
+});
+
+Deno.test("compileWeaveEffectiveConfig lets same-layer artifact-role specificity beat broad targets", () => {
+  const config = compileWeaveEffectiveConfig({
+    applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+    configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+    meshConfigTurtle:
+      `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPolicyBinding <#any-current-only>, <#payload-versioned> .
+
+<#any-current-only> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#current-only> ;
+  sfcfg:appliesToPolicyTarget <#any> .
+
+<#payload-versioned> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#versioned> ;
+  sfcfg:appliesToPolicyTarget <#payload> .
+
+<#current-only> a sfcfg:PolicyDefinition ;
+  sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly .
+
+<#versioned> a sfcfg:PolicyDefinition ;
+  sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_versioned .
+
+<#any> a sfcfg:AnyGovernedArtifactPolicyTarget .
+
+<#payload> a sfcfg:ArtifactRolePolicyTarget ;
+  sfcfg:hasArtifactRole sfcfg:artifactRole_payload .
+`,
+  });
+
+  assertEquals(
+    config.historyTrackingPolicyForArtifactRole("payload"),
+    "versioned",
+  );
+  assertEquals(
+    config.historyTrackingPolicyForArtifactRole("config"),
+    "currentOnly",
+  );
+});
+
+Deno.test("compileWeaveEffectiveConfig applies command overrides above mesh config", () => {
+  const config = compileWeaveEffectiveConfig({
+    applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+    configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+    meshConfigTurtle:
+      `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPolicyBinding <#payload-current-only> .
+
+<#payload-current-only> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#current-only> ;
+  sfcfg:appliesToPolicyTarget <#payload> .
+
+<#current-only> a sfcfg:PolicyDefinition ;
+  sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly .
+
+<#payload> a sfcfg:ArtifactRolePolicyTarget ;
+  sfcfg:hasArtifactRole sfcfg:artifactRole_payload .
+`,
+    commandOverrides: {
+      historyTrackingPolicy: "versioned",
+      resourcePagePresentation: "semanticSiteAllPanels",
+    },
+  });
+
+  assertEquals(
+    config.historyTrackingPolicyForArtifactRole("payload"),
+    "versioned",
+  );
+  assertEquals(
+    config.resourcePagePresentation.identity,
+    "semanticSiteAllPanels",
+  );
+});
+
+Deno.test("compileWeaveEffectiveConfig uses priority only for same-specificity conflicts", () => {
+  const config = compileWeaveEffectiveConfig({
+    applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+    configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+    meshConfigTurtle:
+      `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPolicyBinding <#low>, <#high> .
+
+<#low> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#current-only> ;
+  sfcfg:appliesToPolicyTarget <#payload> ;
+  sfcfg:policyPriority "1"^^xsd:integer .
+
+<#high> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#versioned> ;
+  sfcfg:appliesToPolicyTarget <#payload> ;
+  sfcfg:policyPriority "2"^^xsd:integer .
+
+<#current-only> a sfcfg:PolicyDefinition ;
+  sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly .
+
+<#versioned> a sfcfg:PolicyDefinition ;
+  sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_versioned .
+
+<#payload> a sfcfg:ArtifactRolePolicyTarget ;
+  sfcfg:hasArtifactRole sfcfg:artifactRole_payload .
+`,
+  });
+
+  assertEquals(
+    config.historyTrackingPolicyForArtifactRole("payload"),
+    "versioned",
+  );
+});
+
+Deno.test("compileWeaveEffectiveConfig lets exact artifact specificity beat role and broad targets", () => {
+  const config = compileWeaveEffectiveConfig({
+    applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+    configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+    meshBase: MESH_BASE,
+    meshInventoryTurtle: GOVERNED_ARTIFACTS_INVENTORY_TURTLE,
+    meshConfigTurtle: `@base <${MESH_BASE}> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPolicyBinding <#any-current-only>, <#payload-generate>, <#alice-exact> .
+
+<#any-current-only> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#current-only> ;
+  sfcfg:appliesToPolicyTarget <#any> .
+
+<#payload-generate> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#generate> ;
+  sfcfg:appliesToPolicyTarget <#payload> .
+
+<#alice-exact> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#alice-policy> ;
+  sfcfg:appliesToPolicyTarget <#alice-target> .
+
+<#current-only> a sfcfg:PolicyDefinition ;
+  sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly .
+
+<#generate> a sfcfg:PolicyDefinition ;
+  sfcfg:hasResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_generate .
+
+<#alice-policy> a sfcfg:PolicyDefinition ;
+  sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_versioned ;
+  sfcfg:hasResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_suppress .
+
+<#any> a sfcfg:AnyGovernedArtifactPolicyTarget .
+
+<#payload> a sfcfg:ArtifactRolePolicyTarget ;
+  sfcfg:hasArtifactRole sfcfg:artifactRole_payload .
+
+<#alice-target> a sfcfg:ExactArtifactPolicyTarget ;
+  sfcfg:targetsArtifact <alice/data> .
+`,
+  });
+
+  assertEquals(
+    config.artifactTargetPolicy({
+      artifactIri: `${MESH_BASE}alice/data`,
+      artifactRole: "payload",
+    }),
+    {
+      historyTrackingPolicy: "versioned",
+      resourcePageGenerationPolicy: "suppress",
+    },
+  );
+  assertEquals(
+    config.artifactTargetPolicy({
+      artifactIri: `${MESH_BASE}bob/data`,
+      artifactRole: "payload",
+    }),
+    {
+      historyTrackingPolicy: "currentOnly",
+      resourcePageGenerationPolicy: "generate",
+    },
+  );
+  assertEquals(
+    config.resourcePageGenerationPolicyForArtifactRole("payload"),
+    "generate",
+  );
+});
+
+Deno.test("compileWeaveEffectiveConfig rejects exact artifact targets without governance context", () => {
+  assertThrows(
+    () =>
+      compileWeaveEffectiveConfig({
+        applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+        configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+        meshConfigTurtle: exactTargetMeshConfigTurtle("<alice/data>"),
+      }),
+    EffectiveConfigError,
+    "requires governed artifact context",
+  );
+});
+
+Deno.test("compileWeaveEffectiveConfig rejects exact artifact targets outside the governed mesh scope", () => {
+  assertThrows(
+    () =>
+      compileWeaveEffectiveConfig({
+        applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+        configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+        meshBase: MESH_BASE,
+        meshInventoryTurtle: GOVERNED_ARTIFACTS_INVENTORY_TURTLE,
+        meshConfigTurtle: exactTargetMeshConfigTurtle(
+          "<https://example.invalid/external>",
+        ),
+      }),
+    EffectiveConfigError,
+    "not governed by the active mesh scope",
+  );
+});
+
+Deno.test("compileWeaveEffectiveConfig rejects malformed exact artifact targets", () => {
+  assertThrows(
+    () =>
+      compileWeaveEffectiveConfig({
+        applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+        configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+        meshBase: MESH_BASE,
+        meshInventoryTurtle: GOVERNED_ARTIFACTS_INVENTORY_TURTLE,
+        meshConfigTurtle: `@base <${MESH_BASE}> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPolicyBinding <#binding> .
+
+<#binding> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#policy> ;
+  sfcfg:appliesToPolicyTarget <#target> .
+
+<#policy> a sfcfg:PolicyDefinition ;
+  sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_versioned .
+
+<#target> a sfcfg:ExactArtifactPolicyTarget .
+`,
+      }),
+    EffectiveConfigError,
+    "targetsArtifact",
+  );
+});
+
+Deno.test("compileWeaveEffectiveConfig rejects malformed inventory when exact targets need governance", () => {
+  assertThrows(
+    () =>
+      compileWeaveEffectiveConfig({
+        applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+        configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+        meshBase: MESH_BASE,
+        meshInventoryTurtle: "not turtle",
+        meshConfigTurtle: exactTargetMeshConfigTurtle("<alice/data>"),
+      }),
+    EffectiveConfigError,
+    "Could not parse the current MeshInventory",
+  );
+});
+
+Deno.test("compileWeaveEffectiveConfig rejects duplicate mesh publication profiles", () => {
+  assertThrows(
+    () =>
+      compileWeaveEffectiveConfig({
+        applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+        configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+        meshConfigTurtle:
+          `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPublicationProfile sfcfg:publicationProfile_none, sfcfg:publicationProfile_githubPages .
+`,
+      }),
+    EffectiveConfigError,
+    "hasPublicationProfile",
+  );
+});
+
+Deno.test("compileWeaveEffectiveConfig rejects unsupported mesh publication profiles", () => {
+  assertThrows(
+    () =>
+      compileWeaveEffectiveConfig({
+        applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+        configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+        meshConfigTurtle:
+          `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPublicationProfile sfcfg:publicationProfile_auto .
+`,
+      }),
+    EffectiveConfigError,
+    "Unsupported",
+  );
+});
+
+Deno.test("compileWeaveEffectiveConfig rejects unsafe workspace-root relationships", () => {
+  for (const value of ["/tmp", "../workspace", "", "C:/workspace"]) {
+    assertThrows(
+      () =>
+        compileWeaveEffectiveConfig({
+          applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+          configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+          meshConfigTurtle:
+            `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:workspaceRootRelativeToMeshRoot ${JSON.stringify(value)} .
+`,
+        }),
+      EffectiveConfigError,
+      "workspaceRootRelativeToMeshRoot",
+    );
+  }
+});
+
+Deno.test("compileWeaveEffectiveConfig rejects mesh-carried resolver config", () => {
+  assertThrows(
+    () =>
+      compileWeaveEffectiveConfig({
+        applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+        configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+        meshConfigTurtle:
+          `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasConfigResolutionConfig <#resolver> .
+`,
+      }),
+    EffectiveConfigError,
+    "hasConfigResolutionConfig",
+  );
+
+  assertThrows(
+    () =>
+      compileWeaveEffectiveConfig({
+        applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+        configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+        meshConfigTurtle:
+          `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig .
+
+<#resolver> a sfcfg:ConfigResolutionConfig .
+`,
+      }),
+    EffectiveConfigError,
+    "ConfigResolutionConfig",
+  );
+});
+
+Deno.test("compileWeaveEffectiveConfig fails closed on unresolved same-layer conflicts", () => {
+  assertThrows(
+    () =>
+      compileWeaveEffectiveConfig({
+        applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+        configResolutionTurtle: VALID_CONFIG_RESOLUTION_TURTLE,
+        meshConfigTurtle:
+          `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPolicyBinding <#left>, <#right> .
+
+<#left> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#current-only> ;
+  sfcfg:appliesToPolicyTarget <#payload> .
+
+<#right> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#versioned> ;
+  sfcfg:appliesToPolicyTarget <#payload> .
+
+<#current-only> a sfcfg:PolicyDefinition ;
+  sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly .
+
+<#versioned> a sfcfg:PolicyDefinition ;
+  sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_versioned .
+
+<#payload> a sfcfg:ArtifactRolePolicyTarget ;
+  sfcfg:hasArtifactRole sfcfg:artifactRole_payload .
+`,
+      }).historyTrackingPolicyForArtifactRole("payload"),
+    EffectiveConfigError,
+    'values=["currentOnly","versioned"]',
+  );
+});
+
+Deno.test("parseWeaveDefaultEffectiveConfig rejects retired direct policy predicates", () => {
+  assertThrows(
+    () =>
+      parseWeaveDefaultEffectiveConfig(
+        withValidResourcePagePresentation(
+          `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:ApplicationConfig ;
+  sfcfg:hasConfigResolutionConfig <config-resolution> ;
+  sfcfg:hasDefaultHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly ;
+  sfcfg:hasResourcePageRegenerationConfigPolicy sfcfg:resourcePageRegenerationConfigPolicy_configAtTheTime ;
+  sfcfg:hasHistoryNamingPolicy sfcfg:historyNamingPolicy_ordinal ;
+  sfcfg:hasStateNamingPolicy sfcfg:stateNamingPolicy_ordinal ;
+  sfcfg:hasManifestationNamingPolicy sfcfg:manifestationNamingPolicy_filenameDerived .
+`,
+        ),
+        VALID_CONFIG_RESOLUTION_TURTLE,
+      ),
+    EffectiveConfigError,
+    "Retired direct policy predicate",
   );
 });
 
@@ -173,88 +635,27 @@ Deno.test("parseWeaveDefaultEffectiveConfig rejects unknown policy values", () =
           `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:ApplicationConfig ;
-  sfcfg:hasDefaultHistoryTrackingPolicy sfcfg:historyTrackingPolicy_surprise ;
-  sfcfg:hasDefaultResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_generate .
-`,
-        ),
-        VALID_CONFIG_RESOLUTION_TURTLE,
-      ),
-    EffectiveConfigError,
-    "Unsupported",
-  );
-});
-
-Deno.test("parseWeaveDefaultEffectiveConfig rejects unknown naming policy values", () => {
-  assertThrows(
-    () =>
-      parseWeaveDefaultEffectiveConfig(
-        withValidResourcePagePresentation(
-          `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
-
-<> a sfcfg:ApplicationConfig ;
-  sfcfg:hasDefaultHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly ;
-  sfcfg:hasDefaultResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_generate ;
+  sfcfg:hasConfigResolutionConfig <config-resolution> ;
+  sfcfg:hasPolicyBinding <#bad> ;
   sfcfg:hasResourcePageRegenerationConfigPolicy sfcfg:resourcePageRegenerationConfigPolicy_configAtTheTime ;
-  sfcfg:hasHistoryNamingPolicy sfcfg:historyNamingPolicy_ordinal ;
-  sfcfg:hasStateNamingPolicy sfcfg:stateNamingPolicy_surprise ;
-  sfcfg:hasManifestationNamingPolicy sfcfg:manifestationNamingPolicy_filenameDerived .
-`,
-        ),
-        VALID_CONFIG_RESOLUTION_TURTLE,
-      ),
-    EffectiveConfigError,
-    "Unsupported",
-  );
-});
-
-Deno.test("parseWeaveDefaultEffectiveConfig rejects unknown ResourcePage regeneration policy values", () => {
-  assertThrows(
-    () =>
-      parseWeaveDefaultEffectiveConfig(
-        withValidResourcePagePresentation(
-          `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
-
-<> a sfcfg:ApplicationConfig ;
-  sfcfg:hasDefaultHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly ;
-  sfcfg:hasDefaultResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_generate ;
-  sfcfg:hasResourcePageRegenerationConfigPolicy sfcfg:resourcePageRegenerationConfigPolicy_surprise ;
   sfcfg:hasHistoryNamingPolicy sfcfg:historyNamingPolicy_ordinal ;
   sfcfg:hasStateNamingPolicy sfcfg:stateNamingPolicy_ordinal ;
   sfcfg:hasManifestationNamingPolicy sfcfg:manifestationNamingPolicy_filenameDerived .
+
+<#bad> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#policy> ;
+  sfcfg:appliesToPolicyTarget <#any> .
+
+<#policy> a sfcfg:PolicyDefinition ;
+  sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_surprise .
+
+<#any> a sfcfg:AnyGovernedArtifactPolicyTarget .
 `,
         ),
         VALID_CONFIG_RESOLUTION_TURTLE,
       ),
     EffectiveConfigError,
     "Unsupported",
-  );
-});
-
-Deno.test("parseWeaveDefaultEffectiveConfig rejects duplicate role policies", () => {
-  assertThrows(
-    () =>
-      parseWeaveDefaultEffectiveConfig(
-        withValidResourcePagePresentation(
-          `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
-
-<> a sfcfg:ApplicationConfig ;
-  sfcfg:hasDefaultHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly ;
-  sfcfg:hasDefaultResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_generate ;
-  sfcfg:hasHistoryTrackingDefault [
-    a sfcfg:ArtifactRolePolicy ;
-    sfcfg:hasArtifactRole sfcfg:artifactRole_payload ;
-    sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_versioned
-  ], [
-    a sfcfg:ArtifactRolePolicy ;
-    sfcfg:hasArtifactRole sfcfg:artifactRole_payload ;
-    sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly
-  ] .
-`,
-        ),
-        VALID_CONFIG_RESOLUTION_TURTLE,
-      ),
-    EffectiveConfigError,
-    "Duplicate artifact-role policy",
   );
 });
 
@@ -277,47 +678,72 @@ Deno.test("parseWeaveDefaultEffectiveConfig rejects unknown ResourcePage panel i
   );
 });
 
-Deno.test("parseWeaveDefaultEffectiveConfig rejects panel selections without data requirements", () => {
-  const missingDataRequirementTurtle = withValidResourcePagePresentation(
-    VALID_APPLICATION_TURTLE,
-  ).replace(
-    "  sfcfg:hasPanelDataRequirement sfcfg:panelDataRequirement_children .",
-    ".",
-  );
-
-  assertThrows(
-    () =>
-      parseWeaveDefaultEffectiveConfig(
-        missingDataRequirementTurtle,
-        VALID_CONFIG_RESOLUTION_TURTLE,
-      ),
-    EffectiveConfigError,
-    "Expected at least one",
-  );
-});
-
 const VALID_APPLICATION_TURTLE =
   `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:ApplicationConfig ;
-  sfcfg:hasDefaultHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly ;
-  sfcfg:hasDefaultResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_generate ;
+  sfcfg:hasConfigResolutionConfig <config-resolution> ;
+  sfcfg:hasPolicyBinding <#history-current-only>, <#pages-generate>, <#presentation-default> ;
   sfcfg:hasResourcePageRegenerationConfigPolicy sfcfg:resourcePageRegenerationConfigPolicy_configAtTheTime ;
   sfcfg:hasHistoryNamingPolicy sfcfg:historyNamingPolicy_ordinal ;
   sfcfg:hasStateNamingPolicy sfcfg:stateNamingPolicy_ordinal ;
   sfcfg:hasManifestationNamingPolicy sfcfg:manifestationNamingPolicy_filenameDerived .
+
+<#history-current-only> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#current-only> ;
+  sfcfg:appliesToPolicyTarget <#any> .
+
+<#pages-generate> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#generate> ;
+  sfcfg:appliesToPolicyTarget <#any> .
+
+<#presentation-default> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#default-presentation> ;
+  sfcfg:appliesToPolicyTarget <#any> .
+
+<#current-only> a sfcfg:PolicyDefinition ;
+  sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly .
+
+<#generate> a sfcfg:PolicyDefinition ;
+  sfcfg:hasResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_generate .
+
+<#default-presentation> a sfcfg:PolicyDefinition ;
+  sfcfg:hasResourcePagePresentationPolicy <${WEAVE_DEFAULTS_NAMESPACE}resource-page-presentation/semantic-site-default> .
+
+<#any> a sfcfg:AnyGovernedArtifactPolicyTarget .
+`;
+
+const VALID_APPLICATION_WITH_PRESENTATION_TURTLE =
+  withValidResourcePagePresentation(VALID_APPLICATION_TURTLE);
+
+const MESH_BASE = "https://semantic-flow.github.io/mesh-test/";
+
+const GOVERNED_ARTIFACTS_INVENTORY_TURTLE = `@base <${MESH_BASE}> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<alice/data> a sflo:PayloadArtifact, sflo:DigitalArtifact .
+<bob/data> a sflo:PayloadArtifact, sflo:DigitalArtifact .
 `;
 
 function withValidResourcePagePresentation(applicationTurtle: string): string {
   return `${applicationTurtle.trimEnd()}
 
-<> sfcfg:hasDefaultResourcePagePresentationConfig <${WEAVE_DEFAULTS_NAMESPACE}resource-page-presentation/semantic-site-default> .
-
-<${WEAVE_DEFAULTS_NAMESPACE}resource-page-presentation/semantic-site-default> a sfcfg:ResourcePagePresentationConfig ;
+<${WEAVE_DEFAULTS_NAMESPACE}resource-page-presentation/semantic-site-default> a sfcfg:ResourcePagePresentationPolicy ;
   sfcfg:hasOuterResourcePageTemplate <${WEAVE_DEFAULTS_NAMESPACE}resource-page-template/semantic-site/outer> ;
   sfcfg:hasInnerResourcePageTemplate <${WEAVE_DEFAULTS_NAMESPACE}resource-page-template/semantic-site/inner> ;
-  sfcfg:hasResourcePageStylesheet <${WEAVE_DEFAULTS_NAMESPACE}default-stylesheet> ;
+  sfcfg:hasResourcePageStylesheet <${WEAVE_DEFAULTS_NAMESPACE}stylesheet> ;
   sfcfg:hasResourcePagePanelSelection <${WEAVE_DEFAULTS_NAMESPACE}resource-page-presentation/semantic-site-default#children-panel> .
+
+<${WEAVE_DEFAULTS_NAMESPACE}resource-page-presentation/semantic-site-all-panels> a sfcfg:ResourcePagePresentationPolicy ;
+  sfcfg:hasOuterResourcePageTemplate <${WEAVE_DEFAULTS_NAMESPACE}resource-page-template/semantic-site/outer> ;
+  sfcfg:hasInnerResourcePageTemplate <${WEAVE_DEFAULTS_NAMESPACE}resource-page-template/semantic-site/inner> ;
+  sfcfg:hasResourcePageStylesheet <${WEAVE_DEFAULTS_NAMESPACE}stylesheet> ;
+  sfcfg:hasResourcePagePanelSelection <${WEAVE_DEFAULTS_NAMESPACE}resource-page-presentation/semantic-site-default#children-panel>, <${WEAVE_DEFAULTS_NAMESPACE}resource-page-presentation/semantic-site-all-panels#semantic-flow-metadata-panel> .
+
+<${WEAVE_DEFAULTS_NAMESPACE}resource-page-presentation/semantic-site-no-panels> a sfcfg:ResourcePagePresentationPolicy ;
+  sfcfg:hasOuterResourcePageTemplate <${WEAVE_DEFAULTS_NAMESPACE}resource-page-template/semantic-site/outer> ;
+  sfcfg:hasInnerResourcePageTemplate <${WEAVE_DEFAULTS_NAMESPACE}resource-page-template/semantic-site/inner> ;
+  sfcfg:hasResourcePageStylesheet <${WEAVE_DEFAULTS_NAMESPACE}stylesheet> .
 
 <${WEAVE_DEFAULTS_NAMESPACE}resource-page-presentation/semantic-site-default#children-panel> a sfcfg:ResourcePagePanelSelection ;
   sfcfg:hasResourcePagePanel <${WEAVE_DEFAULTS_NAMESPACE}resource-page-panel/children> ;
@@ -325,6 +751,13 @@ function withValidResourcePagePresentation(applicationTurtle: string): string {
   sfcfg:hasPanelInclusionPolicy sfcfg:panelInclusionPolicy_auto ;
   sfcfg:hasPanelTargetPageKind sfcfg:resourcePageKind_identifier ;
   sfcfg:hasPanelDataRequirement sfcfg:panelDataRequirement_children .
+
+<${WEAVE_DEFAULTS_NAMESPACE}resource-page-presentation/semantic-site-all-panels#semantic-flow-metadata-panel> a sfcfg:ResourcePagePanelSelection ;
+  sfcfg:hasResourcePagePanel <${WEAVE_DEFAULTS_NAMESPACE}resource-page-panel/semantic-flow-metadata> ;
+  sfcfg:panelOrder "80"^^<http://www.w3.org/2001/XMLSchema#nonNegativeInteger> ;
+  sfcfg:hasPanelInclusionPolicy sfcfg:panelInclusionPolicy_auto ;
+  sfcfg:hasPanelTargetPageKind sfcfg:resourcePageKind_identifier ;
+  sfcfg:hasPanelDataRequirement sfcfg:panelDataRequirement_semanticFlowMetadata .
 `;
 }
 
@@ -342,7 +775,34 @@ const VALID_CONFIG_RESOLUTION_TURTLE =
   sfcfg:maxConfigReferenceDepth "8"^^xsd:nonNegativeInteger ;
   sfcfg:hasConfigLayer [
     a sfcfg:ConfigLayer ;
-    sfcfg:hasConfigLayerRole sfcfg:configLayerRole_builtInDefaults ;
-    sfcfg:layerOrder "10"^^xsd:nonNegativeInteger
+    sfcfg:hasConfigLayerRole sfcfg:configLayerRole_weaveDefaults ;
+    sfcfg:layerOrder "20"^^xsd:nonNegativeInteger
+  ], [
+    a sfcfg:ConfigLayer ;
+    sfcfg:hasConfigLayerRole sfcfg:configLayerRole_meshLocal ;
+    sfcfg:layerOrder "50"^^xsd:nonNegativeInteger
+  ], [
+    a sfcfg:ConfigLayer ;
+    sfcfg:hasConfigLayerRole sfcfg:configLayerRole_commandOverride ;
+    sfcfg:layerOrder "90"^^xsd:nonNegativeInteger
   ] .
 `;
+
+function exactTargetMeshConfigTurtle(artifactObject: string): string {
+  return `@base <${MESH_BASE}> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPolicyBinding <#binding> .
+
+<#binding> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#policy> ;
+  sfcfg:appliesToPolicyTarget <#target> .
+
+<#policy> a sfcfg:PolicyDefinition ;
+  sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_versioned .
+
+<#target> a sfcfg:ExactArtifactPolicyTarget ;
+  sfcfg:targetsArtifact ${artifactObject} .
+`;
+}

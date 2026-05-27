@@ -24,29 +24,12 @@
     sfcfg:layerOrder "20"^^xsd:nonNegativeInteger
   ], [
     a sfcfg:ConfigLayer ;
-    sfcfg:hasConfigLayerRole sfcfg:configLayerRole_machineLocalOperational ;
-    sfcfg:layerOrder "30"^^xsd:nonNegativeInteger
-  ], [
-    a sfcfg:ConfigLayer ;
-    sfcfg:hasConfigLayerRole sfcfg:configLayerRole_workspaceOperational ;
-    sfcfg:layerOrder "40"^^xsd:nonNegativeInteger
-  ], [
-    a sfcfg:ConfigLayer ;
     sfcfg:hasConfigLayerRole sfcfg:configLayerRole_meshLocal ;
     sfcfg:layerOrder "50"^^xsd:nonNegativeInteger
   ], [
     a sfcfg:ConfigLayer ;
-    sfcfg:hasConfigLayerRole sfcfg:configLayerRole_meshInheritable ;
-    sfcfg:layerOrder "55"^^xsd:nonNegativeInteger
-  ], [
-    a sfcfg:ConfigLayer ;
     sfcfg:hasConfigLayerRole sfcfg:configLayerRole_knopInherited ;
     sfcfg:layerOrder "60"^^xsd:nonNegativeInteger
-  ], [
-    a sfcfg:ConfigLayer ;
-    sfcfg:hasConfigLayerRole sfcfg:configLayerRole_reusableConfig ;
-    sfcfg:layerOrder "65"^^xsd:nonNegativeInteger ;
-    rdfs:comment "Provenance role for reusable config sources. Merge happens at the attachment point that referenced the reusable config, not as one universal global layer."
   ], [
     a sfcfg:ConfigLayer ;
     sfcfg:hasConfigLayerRole sfcfg:configLayerRole_knopLocal ;

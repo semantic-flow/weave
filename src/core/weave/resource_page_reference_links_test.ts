@@ -22,7 +22,7 @@ Deno.test("extractResourceReferenceLinks resolves current mesh reference sources
   sflo:hasReferenceSource <alice/_knop/_references#reference002-source> .
 
 <alice/_knop/_references#reference002-source> a sflo:ReferenceSource ;
-  sflo:hasTargetArtifact <carol> .
+  sflo:targetArtifact <carol> .
 
 <alice/_knop/_references#reference001> a sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
@@ -30,8 +30,8 @@ Deno.test("extractResourceReferenceLinks resolves current mesh reference sources
   sflo:hasReferenceSource <alice/_knop/_references#reference001-source> .
 
 <alice/_knop/_references#reference001-source> a sflo:ReferenceSource ;
-  sflo:hasTargetArtifact <bob> ;
-  sflo:hasRequestedTargetState <bob/_history001/_s0001> .
+  sflo:targetArtifact <bob> ;
+  sflo:targetHistoricalState <bob/_history001/_s0001> .
 
 <alice/_knop/_references#unlinked> a sflo:ReferenceLink ;
   sflo:referenceLinkFor <alice> ;
@@ -39,7 +39,7 @@ Deno.test("extractResourceReferenceLinks resolves current mesh reference sources
   sflo:hasReferenceSource <alice/_knop/_references#unlinked-source> .
 
 <alice/_knop/_references#unlinked-source> a sflo:ReferenceSource ;
-  sflo:hasTargetArtifact <ignored> .
+  sflo:targetArtifact <ignored> .
 `,
   );
 

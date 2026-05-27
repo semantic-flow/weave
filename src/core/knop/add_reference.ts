@@ -268,9 +268,9 @@ function renderReferencesTurtle(
   const referenceLinkPath = `${referenceCatalogPath}#reference001`;
   const referenceSourcePath = `${referenceLinkPath}-source`;
   const referenceSourceFacts = referenceTargetStatePath
-    ? `  sflo:hasTargetArtifact <${referenceTargetDesignatorPath}> ;
-  sflo:hasRequestedTargetState <${referenceTargetStatePath}> .`
-    : `  sflo:hasTargetArtifact <${referenceTargetDesignatorPath}> .`;
+    ? `  sflo:targetArtifact <${referenceTargetDesignatorPath}> ;
+  sflo:targetHistoricalState <${referenceTargetStatePath}> .`
+    : `  sflo:targetArtifact <${referenceTargetDesignatorPath}> .`;
 
   return `@base <${meshBase}> .
 ${SFLO_TURTLE_PREFIX_DECLARATION}

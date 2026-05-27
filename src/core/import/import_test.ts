@@ -80,7 +80,7 @@ Deno.test("planImport renders first imported Markdown payload without false RDF 
   );
   assertStringIncludes(
     sources,
-    '<bob/page-main/_knop/_sources#payload-source-observation-001>\n  a sflo:ArtifactResolutionObservation ;\n  sflo:observedContentDigest "sha256:abc123" ;\n  sflo:observedTargetLocalRelativePath "bob-page-main.md" ;\n  sflo:observedAt "2026-05-24T20:00:00.000Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .',
+    '<bob/page-main/_knop/_sources#payload-source-observation-001>\n  a sflo:ArtifactResolutionObservation ;\n  sflo:observedArtifactResolutionSpec [\n    a sflo:ArtifactResolutionSpec ;\n    sflo:targetLocalRelativePath "bob-page-main.md"\n  ] ;\n  sflo:observedContentDigest "sha256:abc123" ;\n  sflo:observedAt "2026-05-24T20:00:00.000Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .',
   );
 });
 

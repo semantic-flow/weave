@@ -1,5 +1,4 @@
 import { dirname, fromFileUrl, join } from "@std/path";
-import { normalizeLegacyFixtureRdf } from "./fixture_normalization.ts";
 
 const repoRootPath = fromFileUrl(new URL("../../", import.meta.url));
 const fixtureRepoPath = join(
@@ -17,20 +16,12 @@ const frameworkRepoPath = join(
   "semantic-flow-framework",
 );
 const resolvedRefCache = new Map<string, Promise<string>>();
-const LEGACY_SFCFG_NAMESPACE =
-  "https://semantic-flow.github.io/ontology/config/";
-const CURRENT_SFCFG_NAMESPACE = "https://semantic-flow.github.io/sflo/config/";
-const SFLO_NAMESPACE = "https://semantic-flow.github.io/sflo/ontology/";
-const REMOVED_CURRENT_ARTIFACT_RESOLUTION_MODE =
-  `${SFLO_NAMESPACE}artifactResolutionMode_${"current"}`;
-const REMOVED_PINNED_ARTIFACT_RESOLUTION_MODE =
-  `${SFLO_NAMESPACE}artifactResolutionMode_${"pinned"}`;
-const WORKING_ARTIFACT_RESOLUTION_MODE =
-  `${SFLO_NAMESPACE}artifactResolutionMode_working`;
 
 // Temporary Sidecar Fantasy Rules fixture-ladder setting until the replay
 // prefix moves into an Accord/scenario master manifest.
 export const MESH_SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX = "a.";
+export const MESH_SIDECAR_FANTASY_RULES_BASE =
+  "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/";
 
 export function resolveMeshSidecarFantasyRulesFixtureRepoPath(): string {
   return fixtureRepoPath;
@@ -122,7 +113,7 @@ export async function readMeshSidecarFantasyRulesBranchFile(
     const message = new TextDecoder().decode(output.stderr).trim();
     throw new Error(`Failed to read fixture file ${ref}:${path}: ${message}`);
   }
-  return normalizeFixtureNamespaces(new TextDecoder().decode(output.stdout));
+  return new TextDecoder().decode(output.stdout);
 }
 
 export async function listMeshSidecarFantasyRulesBranchFiles(
@@ -162,17 +153,4 @@ export async function materializeMeshSidecarFantasyRulesBranch(
   }
 
   return paths;
-}
-
-function normalizeFixtureNamespaces(contents: string): string {
-  return normalizeLegacyFixtureRdf(contents)
-    .replaceAll(LEGACY_SFCFG_NAMESPACE, CURRENT_SFCFG_NAMESPACE)
-    .replaceAll(
-      REMOVED_CURRENT_ARTIFACT_RESOLUTION_MODE,
-      WORKING_ARTIFACT_RESOLUTION_MODE,
-    )
-    .replaceAll(
-      `  sflo:hasArtifactResolutionMode <${REMOVED_PINNED_ARTIFACT_RESOLUTION_MODE}> ;\n`,
-      "",
-    );
 }
