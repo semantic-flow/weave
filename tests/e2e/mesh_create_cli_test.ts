@@ -193,7 +193,7 @@ Deno.test("weave mesh create supports a docs-rooted sidecar mesh as a black-box 
     ),
     config,
   );
-  assert(!config.includes("sfcfg:hasLocalPathAccessRule"), config);
+  assert(!config.includes("sfcfg:hasMeshWorkspacePathRule"), config);
   await Deno.stat(join(workspaceRoot, "docs/_mesh/_meta/meta.ttl"));
   await Deno.stat(join(workspaceRoot, "docs/_mesh/_inventory/inventory.ttl"));
   assertEquals(

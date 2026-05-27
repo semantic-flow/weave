@@ -25,23 +25,16 @@ import {
 } from "../settings/user_settings.ts";
 
 const MESH_CONFIG_IRI = `${SFCFG_NAMESPACE}MeshConfig`;
-const HAS_LOCAL_PATH_ACCESS_RULE_IRI =
-  `${SFCFG_NAMESPACE}hasLocalPathAccessRule`;
+const HAS_MESH_WORKSPACE_PATH_RULE_IRI =
+  `${SFCFG_NAMESPACE}hasMeshWorkspacePathRule`;
 const HOST_LOCAL_ACCESS_PROFILE_IRI =
   `${WEAVE_NAMESPACE}HostLocalAccessProfile`;
 const HAS_LOCAL_PATH_GRANT_IRI = `${WEAVE_NAMESPACE}hasLocalPathGrant`;
 const HAS_PUBLICATION_PROFILE_IRI = `${SFCFG_NAMESPACE}hasPublicationProfile`;
-const HAS_LOCAL_PATH_BASE_IRI = `${SFCFG_NAMESPACE}hasLocalPathBase`;
-const HAS_LOCAL_PATH_LOCATOR_KIND_IRI =
-  `${SFCFG_NAMESPACE}hasLocalPathLocatorKind`;
+const APPLIES_TO_LOCAL_PATH_LOCATOR_KIND_IRI =
+  `${SFCFG_NAMESPACE}appliesToLocalPathLocatorKind`;
 const ALLOWS_LOCAL_PATH_BASE_IRI = `${WEAVE_NAMESPACE}allowsLocalPathBase`;
-const PATH_PREFIX_IRI = `${SFCFG_NAMESPACE}pathPrefix`;
-const LOCAL_PATH_BASE_MESH_ROOT_IRI =
-  `${SFCFG_NAMESPACE}localPathBase_meshRoot`;
-const LOCAL_PATH_BASE_USER_HOME_IRI =
-  `${SFCFG_NAMESPACE}localPathBase_userHome`;
-const LOCAL_PATH_BASE_ABSOLUTE_PATH_IRI =
-  `${SFCFG_NAMESPACE}localPathBase_absolutePath`;
+const WORKSPACE_PATH_PREFIX_IRI = `${SFCFG_NAMESPACE}workspacePathPrefix`;
 const WORKING_LOCAL_RELATIVE_PATH_LOCATOR_KIND_IRI =
   `${SFCFG_NAMESPACE}localPathLocatorKind_workingLocalRelativePath`;
 const TARGET_LOCAL_RELATIVE_PATH_LOCATOR_KIND_IRI =
@@ -55,10 +48,10 @@ export type LocalPathLocatorKind =
   | "workingLocalRelativePath"
   | "targetLocalRelativePath";
 
-type LocalPathBase = "meshRoot" | "userHome" | "absolutePath";
+type LocalPathBase = "meshRoot" | "absolutePath";
 type LocalPathRuleSource = "mesh" | "hostLocal";
 
-interface LocalPathAccessRule {
+interface OperationalLocalPathRule {
   base: LocalPathBase;
   locatorKinds: readonly LocalPathLocatorKind[];
   pathPrefix: string;
@@ -73,7 +66,7 @@ export interface OperationalLocalPathPolicy {
   meshConfigPath?: string;
   hostLocalAccessProfilePath?: string;
   userSettings?: UserSettingsPaths;
-  rules: readonly LocalPathAccessRule[];
+  rules: readonly OperationalLocalPathRule[];
 }
 
 export interface RepositorySourceFloatingLocatorResolution {
@@ -101,7 +94,7 @@ export async function ensureMeshConfigWorkingDirectoryAccessRule(
 ): Promise<boolean> {
   if (!policy.meshConfigPath) {
     throw new OperationalConfigError(
-      "Cannot add a mesh-carried local path access rule without _mesh/_config/config.ttl",
+      "Cannot add a mesh workspace path rule without _mesh/_config/config.ttl",
     );
   }
 
@@ -110,9 +103,13 @@ export async function ensureMeshConfigWorkingDirectoryAccessRule(
     "meshRoot",
     policy.meshConfigPath,
   );
-  assertMeshConfigDoesNotGrantArbitraryHostTraversal(
-    "mesh",
-    "meshRoot",
+  assertMeshWorkspacePathRuleDoesNotGrantArbitraryHostTraversal(
+    normalizedPathPrefix,
+    policy.meshConfigPath,
+  );
+  assertMeshWorkspacePathRuleStaysInsideWorkspace(
+    policy.meshRoot,
+    policy.workspaceRoot,
     normalizedPathPrefix,
     policy.meshConfigPath,
   );
@@ -138,7 +135,7 @@ export async function ensureMeshConfigWorkingDirectoryAccessRule(
     quads,
     policy.meshConfigPath,
   )[0];
-  const meshRules: LocalPathAccessRule[] = policy.rules
+  const meshRules: OperationalLocalPathRule[] = policy.rules
     .filter((rule) => rule.source === "mesh")
     .map((rule) => ({ ...rule }));
   meshRules.push({
@@ -194,7 +191,7 @@ export async function ensureHostLocalWorkingDirectoryAccessRule(
     return { updated: false, accessProfilePath };
   }
 
-  const hostLocalRules: LocalPathAccessRule[] = policy.rules
+  const hostLocalRules: OperationalLocalPathRule[] = policy.rules
     .filter((rule) => rule.source === "hostLocal")
     .map((rule) => ({ ...rule }));
   hostLocalRules.push({
@@ -232,11 +229,16 @@ export async function loadOperationalLocalPathPolicy(
     : undefined;
   const hostLocalAccessProfilePath = userSettings?.meshSettings
     .accessProfilePath;
-  const rules: LocalPathAccessRule[] = [];
+  const rules: OperationalLocalPathRule[] = [];
 
   if (meshConfigPath) {
     rules.push(...await loadLocalPathRules(meshConfigPath, "mesh"));
   }
+  assertMeshWorkspacePathRulesStayInsideWorkspace(
+    meshRoot,
+    workspaceRoot,
+    rules,
+  );
   if (
     hostLocalAccessProfilePath &&
     await fileExists(hostLocalAccessProfilePath)
@@ -586,7 +588,7 @@ function collectPublicationProfileValues(
 async function loadLocalPathRules(
   configPath: string,
   source: LocalPathRuleSource,
-): Promise<readonly LocalPathAccessRule[]> {
+): Promise<readonly OperationalLocalPathRule[]> {
   const turtle = await Deno.readTextFile(configPath);
   const quads = parseConfigQuads(configPath, turtle);
   if (source === "hostLocal") {
@@ -594,21 +596,20 @@ async function loadLocalPathRules(
   }
 
   const configSubjects = collectMeshConfigSubjects(quads);
-  const rules: LocalPathAccessRule[] = [];
+  const rules: OperationalLocalPathRule[] = [];
 
   for (const configSubject of configSubjects) {
     for (
       const ruleSubject of collectObjectTerms(
         quads,
         configSubject,
-        HAS_LOCAL_PATH_ACCESS_RULE_IRI,
+        HAS_MESH_WORKSPACE_PATH_RULE_IRI,
       )
     ) {
       rules.push(
-        parseLocalPathRule(
+        parseMeshWorkspacePathRule(
           quads,
           ruleSubject,
-          source,
           configPath,
         ),
       );
@@ -621,7 +622,7 @@ async function loadLocalPathRules(
 function renderMeshConfigTurtle(
   workspaceRootRelativeToMeshRoot: string | undefined,
   publicationProfileIri: string | undefined,
-  rules: readonly LocalPathAccessRule[],
+  rules: readonly OperationalLocalPathRule[],
 ): string {
   const statements: string[] = ["a sfcfg:MeshConfig"];
   if (workspaceRootRelativeToMeshRoot !== undefined) {
@@ -637,13 +638,16 @@ function renderMeshConfigTurtle(
     );
   }
   for (const rule of rules) {
-    statements.push(`  sfcfg:hasLocalPathAccessRule [
-    a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <${renderLocalPathBaseIri(rule.base)}> ;
-    sfcfg:pathPrefix ${JSON.stringify(renderPathPrefix(rule.pathPrefix))} ;
+    statements.push(`  sfcfg:hasMeshWorkspacePathRule [
+    a sfcfg:MeshWorkspacePathRule ;
+    sfcfg:workspacePathPrefix ${
+      JSON.stringify(renderPathPrefix(rule.pathPrefix))
+    } ;
     ${
       rule.locatorKinds.map((kind) =>
-        `sfcfg:hasLocalPathLocatorKind <${renderLocalPathLocatorKindIri(kind)}>`
+        `sfcfg:appliesToLocalPathLocatorKind <${
+          renderLocalPathLocatorKindIri(kind)
+        }>`
       ).join(" ;\n    ")
     }
   ]`);
@@ -653,17 +657,6 @@ function renderMeshConfigTurtle(
 
 <> ${statements.join(" ;\n")} .
 `;
-}
-
-function renderLocalPathBaseIri(base: LocalPathBase): string {
-  switch (base) {
-    case "meshRoot":
-      return LOCAL_PATH_BASE_MESH_ROOT_IRI;
-    case "userHome":
-      return LOCAL_PATH_BASE_USER_HOME_IRI;
-    case "absolutePath":
-      return LOCAL_PATH_BASE_ABSOLUTE_PATH_IRI;
-  }
 }
 
 function renderLocalPathLocatorKindIri(kind: LocalPathLocatorKind): string {
@@ -723,47 +716,40 @@ function collectMeshConfigSubjects(
   return [...subjects];
 }
 
-function parseLocalPathRule(
+function parseMeshWorkspacePathRule(
   quads: readonly Quad[],
   ruleSubject: string,
-  source: LocalPathRuleSource,
   sourcePath: string,
-): LocalPathAccessRule {
-  const base = parseLocalPathBase(
-    requireSingleNamedNodeObject(
-      quads,
-      ruleSubject,
-      HAS_LOCAL_PATH_BASE_IRI,
-      sourcePath,
-    ),
-    sourcePath,
-  );
+): OperationalLocalPathRule {
   const locatorKinds = parseLocalPathLocatorKinds(
     requireNamedNodeObjects(
       quads,
       ruleSubject,
-      HAS_LOCAL_PATH_LOCATOR_KIND_IRI,
+      APPLIES_TO_LOCAL_PATH_LOCATOR_KIND_IRI,
       sourcePath,
     ),
     sourcePath,
   );
   const pathPrefix = normalizeRulePathPrefix(
-    requireSingleLiteralObject(quads, ruleSubject, PATH_PREFIX_IRI, sourcePath),
-    base,
+    requireSingleLiteralObject(
+      quads,
+      ruleSubject,
+      WORKSPACE_PATH_PREFIX_IRI,
+      sourcePath,
+    ),
+    "meshRoot",
     sourcePath,
   );
-  assertMeshConfigDoesNotGrantArbitraryHostTraversal(
-    source,
-    base,
+  assertMeshWorkspacePathRuleDoesNotGrantArbitraryHostTraversal(
     pathPrefix,
     sourcePath,
   );
 
   return {
-    base,
+    base: "meshRoot",
     locatorKinds,
     pathPrefix,
-    source,
+    source: "mesh",
     sourcePath,
   };
 }
@@ -771,9 +757,9 @@ function parseLocalPathRule(
 function parseHostLocalAccessProfileRules(
   quads: readonly Quad[],
   sourcePath: string,
-): readonly LocalPathAccessRule[] {
+): readonly OperationalLocalPathRule[] {
   const profileSubjects = collectHostLocalAccessProfileSubjects(quads);
-  const rules: LocalPathAccessRule[] = [];
+  const rules: OperationalLocalPathRule[] = [];
 
   for (const profileSubject of profileSubjects) {
     for (
@@ -821,7 +807,7 @@ function parseHostLocalPathGrant(
   quads: readonly Quad[],
   grantSubject: string,
   sourcePath: string,
-): LocalPathAccessRule {
+): OperationalLocalPathRule {
   const pathPrefix = normalizeRulePathPrefix(
     requireSingleLiteralObject(
       quads,
@@ -842,35 +828,46 @@ function parseHostLocalPathGrant(
   };
 }
 
-function assertMeshConfigDoesNotGrantArbitraryHostTraversal(
-  source: LocalPathRuleSource,
-  base: LocalPathBase,
+function assertMeshWorkspacePathRuleDoesNotGrantArbitraryHostTraversal(
   pathPrefix: string,
   sourcePath: string,
 ): void {
-  if (source !== "mesh" || base !== "meshRoot") {
-    return;
-  }
-
   if (pathPrefix === ".." || pathPrefix.startsWith("../../")) {
     throw new OperationalConfigError(
-      `MeshConfig pathPrefix may not grant arbitrary host traversal: ${sourcePath}`,
+      `MeshConfig workspacePathPrefix may not grant arbitrary host traversal: ${sourcePath}`,
     );
   }
 }
 
-function parseLocalPathBase(value: string, sourcePath: string): LocalPathBase {
-  switch (value) {
-    case LOCAL_PATH_BASE_MESH_ROOT_IRI:
-      return "meshRoot";
-    case LOCAL_PATH_BASE_USER_HOME_IRI:
-      return "userHome";
-    case LOCAL_PATH_BASE_ABSOLUTE_PATH_IRI:
-      return "absolutePath";
-    default:
-      throw new OperationalConfigError(
-        `Unsupported LocalPathBase in ${sourcePath}: ${value}`,
-      );
+function assertMeshWorkspacePathRulesStayInsideWorkspace(
+  meshRoot: string,
+  workspaceRoot: string,
+  rules: readonly OperationalLocalPathRule[],
+): void {
+  for (const rule of rules) {
+    if (rule.source !== "mesh") {
+      continue;
+    }
+    assertMeshWorkspacePathRuleStaysInsideWorkspace(
+      meshRoot,
+      workspaceRoot,
+      rule.pathPrefix,
+      rule.sourcePath,
+    );
+  }
+}
+
+function assertMeshWorkspacePathRuleStaysInsideWorkspace(
+  meshRoot: string,
+  workspaceRoot: string,
+  pathPrefix: string,
+  sourcePath: string,
+): void {
+  const ruleRoot = resolvePosixRelativePath(meshRoot, pathPrefix);
+  if (!isWithinRoot(ruleRoot, workspaceRoot)) {
+    throw new OperationalConfigError(
+      `MeshConfig workspacePathPrefix must resolve inside the active workspace: ${sourcePath}`,
+    );
   }
 }
 
@@ -880,7 +877,7 @@ function parseLocalPathLocatorKinds(
 ): readonly LocalPathLocatorKind[] {
   if (values.length === 0) {
     throw new OperationalConfigError(
-      `Expected at least one ${HAS_LOCAL_PATH_LOCATOR_KIND_IRI} object in ${sourcePath}`,
+      `Expected at least one ${APPLIES_TO_LOCAL_PATH_LOCATOR_KIND_IRI} object in ${sourcePath}`,
     );
   }
 
@@ -912,14 +909,14 @@ function normalizeRulePathPrefix(
 
   if (trimmed.includes("\\")) {
     throw new OperationalConfigError(
-      `Local path policy pathPrefix must use forward slashes: ${sourcePath}`,
+      `Local path policy path prefix must use forward slashes: ${sourcePath}`,
     );
   }
 
   if (base === "absolutePath") {
     if (!isAbsolute(trimmed)) {
       throw new OperationalConfigError(
-        `AbsolutePath rules must use absolute pathPrefix values: ${sourcePath}`,
+        `Absolute-path rules must use absolute path prefix values: ${sourcePath}`,
       );
     }
     return resolve(trimmed);
@@ -930,18 +927,13 @@ function normalizeRulePathPrefix(
   }
   if (trimmed.startsWith("/") || /^[A-Za-z]:/.test(trimmed)) {
     throw new OperationalConfigError(
-      `Relative LocalPathBase rules must not use absolute pathPrefix values: ${sourcePath}`,
+      `Mesh workspace path rules must not use absolute path prefix values: ${sourcePath}`,
     );
   }
 
   const normalized = pathPosix.normalize(trimmed);
   if (normalized === "." || normalized === "..") {
     return normalized === "." ? "" : "..";
-  }
-  if (base !== "meshRoot" && normalized.startsWith("../")) {
-    throw new OperationalConfigError(
-      `Only MeshRoot rules may use ../ pathPrefix values: ${sourcePath}`,
-    );
   }
 
   return normalized;
@@ -966,27 +958,6 @@ function requireNamedNodeObjects(
   }
 
   return values;
-}
-
-function requireSingleNamedNodeObject(
-  quads: readonly Quad[],
-  subjectKey: string,
-  predicateIri: string,
-  sourcePath: string,
-): string {
-  const values = collectObjectTerms(quads, subjectKey, predicateIri).filter((
-    value,
-  ) => value.startsWith("NamedNode:")).map((value) =>
-    value.slice("NamedNode:".length)
-  );
-
-  if (values.length !== 1) {
-    throw new OperationalConfigError(
-      `Expected exactly one ${predicateIri} object in ${sourcePath}`,
-    );
-  }
-
-  return values[0]!;
 }
 
 function requireSingleLiteralObject(
@@ -1045,17 +1016,11 @@ function toTermKey(term: Term): string {
 
 function resolveRuleRoot(
   policy: OperationalLocalPathPolicy,
-  rule: LocalPathAccessRule,
+  rule: OperationalLocalPathRule,
 ): string | undefined {
   switch (rule.base) {
     case "meshRoot":
       return resolvePosixRelativePath(policy.meshRoot, rule.pathPrefix);
-    case "userHome": {
-      const homeRoot = resolveHomeDirectory();
-      return homeRoot
-        ? resolvePosixRelativePath(homeRoot, rule.pathPrefix)
-        : undefined;
-    }
     case "absolutePath":
       return rule.pathPrefix;
   }
@@ -1104,10 +1069,6 @@ async function resolveMeshBaseFromMeshRoot(
     }
     throw error;
   }
-}
-
-function resolveHomeDirectory(): string | undefined {
-  return Deno.env.get("HOME") ?? Deno.env.get("USERPROFILE") ?? undefined;
 }
 
 async function fileExists(path: string): Promise<boolean> {

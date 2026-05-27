@@ -30,11 +30,10 @@ Deno.test("loadOperationalLocalPathPolicy discovers mesh-owned config in a non-w
 
 <> a sfcfg:MeshConfig ;
   sfcfg:workspaceRootRelativeToMeshRoot "../" ;
-  sfcfg:hasLocalPathAccessRule [
-    a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_meshRoot> ;
-    sfcfg:pathPrefix "../documentation/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_targetLocalRelativePath>
+  sfcfg:hasMeshWorkspacePathRule [
+    a sfcfg:MeshWorkspacePathRule ;
+    sfcfg:workspacePathPrefix "../documentation/" ;
+    sfcfg:appliesToLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_targetLocalRelativePath>
   ] .
 `,
   );
@@ -55,7 +54,7 @@ Deno.test("loadOperationalLocalPathPolicy discovers mesh-owned config in a non-w
   );
 });
 
-Deno.test("loadOperationalLocalPathPolicy ignores generic operational config path grants", async () => {
+Deno.test("loadOperationalLocalPathPolicy ignores non-MeshConfig path rules", async () => {
   const tempRoot = await Deno.makeTempDir({
     prefix: "weave-local-path-policy-operational-",
   });
@@ -66,13 +65,12 @@ Deno.test("loadOperationalLocalPathPolicy ignores generic operational config pat
     join(meshRoot, "_mesh/_config/config.ttl"),
     `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
-<> a sfcfg:OperationalConfig ;
+<> a sfcfg:Config ;
   sfcfg:workspaceRootRelativeToMeshRoot "../" ;
-  sfcfg:hasLocalPathAccessRule [
-    a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_meshRoot> ;
-    sfcfg:pathPrefix "../documentation/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_targetLocalRelativePath>
+  sfcfg:hasMeshWorkspacePathRule [
+    a sfcfg:MeshWorkspacePathRule ;
+    sfcfg:workspacePathPrefix "../documentation/" ;
+    sfcfg:appliesToLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_targetLocalRelativePath>
   ] .
 `,
   );
@@ -119,7 +117,7 @@ Deno.test("ensureMeshConfigWorkingDirectoryAccessRule preserves publication prof
     ),
     true,
   );
-  assertEquals(config.includes("sfcfg:hasLocalPathAccessRule"), true);
+  assertEquals(config.includes("sfcfg:hasMeshWorkspacePathRule"), true);
 });
 
 Deno.test("resolveAllowedLocalPath denies extra-mesh paths when no config matches", async () => {
@@ -152,11 +150,10 @@ Deno.test("loadOperationalLocalPathPolicy rejects mesh config that grants arbitr
     `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:MeshConfig ;
-  sfcfg:hasLocalPathAccessRule [
-    a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_meshRoot> ;
-    sfcfg:pathPrefix "../../" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
+  sfcfg:hasMeshWorkspacePathRule [
+    a sfcfg:MeshWorkspacePathRule ;
+    sfcfg:workspacePathPrefix "../../" ;
+    sfcfg:appliesToLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
   ] .
 `,
   );
@@ -343,7 +340,7 @@ Deno.test("resolveRepositorySourceFloatingLocalPath resolves allowed repository 
   });
 });
 
-Deno.test("resolveRepositorySourceFloatingLocalPath ignores mesh-owned roots outside workspace", async () => {
+Deno.test("loadOperationalLocalPathPolicy rejects mesh-owned roots outside workspace", async () => {
   const tempRoot = await Deno.makeTempDir({
     prefix: "weave-repo-floating-policy-mesh-boundary-",
   });
@@ -369,11 +366,10 @@ Deno.test("resolveRepositorySourceFloatingLocalPath ignores mesh-owned roots out
     `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
 
 <> a sfcfg:MeshConfig ;
-  sfcfg:hasLocalPathAccessRule [
-    a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_meshRoot> ;
-    sfcfg:pathPrefix "../source/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
+  sfcfg:hasMeshWorkspacePathRule [
+    a sfcfg:MeshWorkspacePathRule ;
+    sfcfg:workspacePathPrefix "../source/" ;
+    sfcfg:appliesToLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
   ] .
 `,
   );
@@ -381,15 +377,10 @@ Deno.test("resolveRepositorySourceFloatingLocalPath ignores mesh-owned roots out
   const previousHome = Deno.env.get("HOME");
   Deno.env.set("HOME", homeRoot);
   try {
-    const policy = await loadOperationalLocalPathPolicy(publishRoot);
     await assertRejects(
-      () =>
-        resolveRepositorySourceFloatingLocalPath(policy, {
-          repositoryUrl: "https://github.com/semantic-flow/sflo.git",
-          repositoryPathFromRoot: "semantic-flow-core-ontology.ttl",
-        }),
-      LocalPathAccessError,
-      "did not match an allowed local checkout",
+      () => loadOperationalLocalPathPolicy(publishRoot),
+      OperationalConfigError,
+      "inside the active workspace",
     );
   } finally {
     if (previousHome === undefined) {

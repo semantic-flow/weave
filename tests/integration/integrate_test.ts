@@ -248,11 +248,10 @@ Deno.test("executeIntegrate allows repo-adjacent local sources when repo policy 
 
 <> a sfcfg:MeshConfig ;
   sfcfg:workspaceRootRelativeToMeshRoot "../" ;
-  sfcfg:hasLocalPathAccessRule [
-    a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_meshRoot> ;
-    sfcfg:pathPrefix "../documentation/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
+  sfcfg:hasMeshWorkspacePathRule [
+    a sfcfg:MeshWorkspacePathRule ;
+    sfcfg:workspacePathPrefix "../documentation/" ;
+    sfcfg:appliesToLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
   ] .
 `,
   );
@@ -382,11 +381,11 @@ Deno.test("executeIntegrate can add a constrained repo-adjacent source directory
   );
   assertStringIncludes(
     config,
-    'sfcfg:pathPrefix "../documentation/"',
+    'sfcfg:workspacePathPrefix "../documentation/"',
   );
   assertStringIncludes(
     config,
-    "sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>",
+    "sfcfg:appliesToLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>",
   );
 });
 
@@ -445,7 +444,7 @@ Deno.test("executeIntegrate can introduce the first payload into a docs-rooted s
   );
   assertStringIncludes(
     await Deno.readTextFile(join(meshRoot, "_mesh/_config/config.ttl")),
-    'sfcfg:pathPrefix "../ontology/"',
+    'sfcfg:workspacePathPrefix "../ontology/"',
   );
   assertEquals(
     result.sourceBindingIri,

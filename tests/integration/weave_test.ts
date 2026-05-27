@@ -1153,11 +1153,10 @@ Deno.test("executeWeave resolves artifact-backed page sources through workingLoc
 
 <> a sfcfg:MeshConfig ;
   sfcfg:workspaceRootRelativeToMeshRoot "../" ;
-  sfcfg:hasLocalPathAccessRule [
-    a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_meshRoot> ;
-    sfcfg:pathPrefix "../documentation/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
+  sfcfg:hasMeshWorkspacePathRule [
+    a sfcfg:MeshWorkspacePathRule ;
+    sfcfg:workspacePathPrefix "../documentation/" ;
+    sfcfg:appliesToLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
   ] .
 `,
   );
@@ -1525,11 +1524,10 @@ Deno.test("executeWeave allows repo-adjacent targetLocalRelativePath values when
 
 <> a sfcfg:MeshConfig ;
   sfcfg:workspaceRootRelativeToMeshRoot "../" ;
-  sfcfg:hasLocalPathAccessRule [
-    a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_meshRoot> ;
-    sfcfg:pathPrefix "../documentation/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_targetLocalRelativePath>
+  sfcfg:hasMeshWorkspacePathRule [
+    a sfcfg:MeshWorkspacePathRule ;
+    sfcfg:workspacePathPrefix "../documentation/" ;
+    sfcfg:appliesToLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_targetLocalRelativePath>
   ] .
 `,
   );
@@ -1569,11 +1567,10 @@ Deno.test("executeWeave allows repo-adjacent workingLocalRelativePath values whe
 
 <> a sfcfg:MeshConfig ;
   sfcfg:workspaceRootRelativeToMeshRoot "../" ;
-  sfcfg:hasLocalPathAccessRule [
-    a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_meshRoot> ;
-    sfcfg:pathPrefix "../documentation/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
+  sfcfg:hasMeshWorkspacePathRule [
+    a sfcfg:MeshWorkspacePathRule ;
+    sfcfg:workspacePathPrefix "../documentation/" ;
+    sfcfg:appliesToLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
   ] .
 `,
   );

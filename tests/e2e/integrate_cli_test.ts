@@ -267,7 +267,7 @@ Deno.test("weave integrate grants and uses a repo-adjacent source directory as a
     join(workspaceRoot, "_mesh/_config/config.ttl"),
   );
   assert(
-    config.includes('sfcfg:pathPrefix "../documentation/"'),
+    config.includes('sfcfg:workspacePathPrefix "../documentation/"'),
     config,
   );
   const createdInventory = await Deno.readTextFile(
