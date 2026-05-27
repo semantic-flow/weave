@@ -21,11 +21,14 @@ export function parseRunCoverageTestsArgs(
 ): RunCoverageTestsOptions {
   let root = Deno.cwd();
   let codecovJunitPath = coverageCodecovJunitPath;
+  const positionalArgs: string[] = [];
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     switch (arg) {
       case "--":
+        positionalArgs.push(...args.slice(index + 1));
+        index = args.length;
         break;
       case "--root":
         index += 1;
@@ -36,6 +39,10 @@ export function parseRunCoverageTestsArgs(
         codecovJunitPath = requireArgumentValue(args[index], "--codecov-junit");
         break;
       default:
+        if (!arg.startsWith("--")) {
+          positionalArgs.push(arg);
+          break;
+        }
         if (arg.startsWith("--root=")) {
           root = requireArgumentValue(arg.slice("--root=".length), "--root");
           break;
@@ -49,6 +56,14 @@ export function parseRunCoverageTestsArgs(
         }
         throw new Error(`Unsupported coverage test argument: ${arg}`);
     }
+  }
+
+  if (positionalArgs.length > 0) {
+    throw new Error(
+      `coverage tests do not accept positional arguments: ${
+        positionalArgs.map((arg) => JSON.stringify(arg)).join(", ")
+      }`,
+    );
   }
 
   return { root, codecovJunitPath };

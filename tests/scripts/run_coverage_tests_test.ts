@@ -27,6 +27,18 @@ Deno.test("parseRunCoverageTestsArgs rejects unsupported arguments", () => {
   );
 });
 
+Deno.test("parseRunCoverageTestsArgs treats -- as the end of options", () => {
+  assertEquals(parseRunCoverageTestsArgs(["--root", "/tmp/weave", "--"]), {
+    root: "/tmp/weave",
+    codecovJunitPath: "/tmp/semantic-flow-coverage/codecov-junit.xml",
+  });
+  assertThrows(
+    () => parseRunCoverageTestsArgs(["--", "--root", "/tmp/weave"]),
+    Error,
+    'coverage tests do not accept positional arguments: "--root", "/tmp/weave"',
+  );
+});
+
 Deno.test("coverageTestArgs writes raw coverage and Deno JUnit XML under /tmp", () => {
   assertEquals(coverageTestArgs(), [
     "test",
