@@ -22,6 +22,8 @@ Detailed notes are available for [[wu.cli-reference.weave]], [[wu.cli-reference.
 
 `--mesh-root <path>` selects the mesh root for existing-mesh operations such as `weave`, `weave validate`, `weave version`, `weave generate`, `weave import`, `weave integrate`, `weave extract`, `weave payload update`, `weave knop create`, and `weave knop add-reference`. It defaults to `.`.
 
+When `_mesh/_config/config.ttl` exists, existing-mesh commands compile it as mesh-local config above Weave defaults and below command-scoped overrides. Durable mesh policy belongs there; flags such as `--history-tracking-policy` and `--include-semantic-flow-metadata` are one-run overrides.
+
 `--target <spec>` limits `weave`, `weave validate`, `weave version`, and `weave generate` to specific designator paths.
 
 If no `--target` flags are provided, those commands operate on all applicable weave candidates in the mesh.

@@ -57,7 +57,7 @@ Use an authored `ResourcePageDefinition` when an identifier needs custom content
 
 Custom pages use the resolved ResourcePage presentation policy for the active config scope. To keep the built-in Semantic Site chrome, bind a `sfcfg:ResourcePagePresentationPolicy` through config rather than putting presentation config directly on the authored `ResourcePageDefinition`. A custom page only receives generated panels when it explicitly opts into them with `sfcfg:hasGeneratedResourcePagePanelSelection`; generated panels are not appended automatically.
 
-The exception is `semanticFlowMetadata`: when page generation is run with `--include-semantic-flow-metadata`, Weave applies the built-in all-panels presentation policy for that generation pass.
+The `semanticFlowMetadata` panel can be selected by the resolved ResourcePage presentation policy. The `--include-semantic-flow-metadata` flag is a command-scoped shortcut that applies Weave's built-in all-panels presentation policy for one generation pass.
 
 When authored regions and generated panels are both present and no explicit custom order is supplied, authored regions appear before generated panels.
 

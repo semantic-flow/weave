@@ -16,7 +16,7 @@ This sequence scratch-regenerates the disposable `gh-pages` worktree from the ac
 
 The source checkout used by this replay should already contain release metadata for the version being published. The ontology and SHACL payload artifacts use `releases` as the artifact-history segment and the configured release state, such as `v0.2.0`, as the state segment.
 
-The URPX publication mesh uses the slim history policy and wants ResourcePages to show the Semantic Flow metadata panel. Those are currently command-scoped options, not durable mesh config, so this sequence repeats the relevant flags on `weave` and `generate` commands. Once mesh-local config is honored for these policy families, the repeated flags should collapse into `_mesh/_config/config.ttl`.
+The URPX publication mesh uses the slim history policy and wants ResourcePages to show the Semantic Flow metadata panel. This sequence records those durable choices in `_mesh/_config/config.ttl` as mesh-local policy bindings, so later `weave`, `weave version`, and `weave generate` commands do not need repeated history/presentation flags.
 
 The root welcome page remains a temporary compromise. The primitive commands below integrate `welcome.ttl` at `/`, which effectively gives the root designator an authored RDF document payload. That is useful for getting a working branch-published index, but it is not a final model for the semantic site/root resource. The ontology and SHACL payloads are integrated from the URPX source checkout with floating working-source bindings; they are not copied implicitly by `weave`.
 
@@ -33,7 +33,6 @@ export URPX_PUB=/tmp/urpx-gh-pages
 export URPX_SOURCE_REPOSITORY_REMOTE=origin
 export URPX_RELEASE_VERSION=0.2.0
 export URPX_RELEASE_STATE="v$URPX_RELEASE_VERSION"
-export URPX_HISTORY_POLICY=slimHistory
 export WEAVE_LOG_DIR=/tmp/weave-logs
 
 mkdir -p "$WEAVE_LOG_DIR"
@@ -62,8 +61,6 @@ find "$URPX_PUB" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
 
 Create the branch-published mesh support artifacts at the publication root. The explicit GitHub Pages publication profile creates `.nojekyll` and persists the resolved profile in `_mesh/_config/config.ttl`.
 
-Today, `mesh create` does not persist history policy or ResourcePage metadata-panel opt-in. Keep those as explicit command options in later steps until mesh-local config is honored by existing-mesh commands.
-
 ```sh
 deno run -A "$WEAVE_CLI" mesh create \
   --workspace "$URPX_PUB" \
@@ -71,16 +68,45 @@ deno run -A "$WEAVE_CLI" mesh create \
   --publication-profile github-pages
 ```
 
+Then replace the initial mesh config with the durable URPX publication policy. This keeps the GitHub Pages profile and adds mesh-local policy bindings for all-artifact slim history plus all-panels ResourcePage presentation.
+
+```sh
+cat > "$URPX_PUB/_mesh/_config/config.ttl" <<'TTL'
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPublicationProfile sfcfg:publicationProfile_githubPages ;
+  sfcfg:hasPolicyBinding
+    <#history-slim>,
+    <#resource-page-presentation-all-panels> .
+
+<#history-slim> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#slim-history> ;
+  sfcfg:appliesToPolicyTarget <#any-governed-artifact> .
+
+<#slim-history> a sfcfg:PolicyDefinition ;
+  sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_slimHistory .
+
+<#resource-page-presentation-all-panels> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#semantic-site-all-panels> ;
+  sfcfg:appliesToPolicyTarget <#any-governed-artifact> .
+
+<#semantic-site-all-panels> a sfcfg:PolicyDefinition ;
+  sfcfg:hasResourcePagePresentationPolicy <https://semantic-flow.github.io/weave/defaults/resource-page-presentation/semantic-site-all-panels> .
+
+<#any-governed-artifact> a sfcfg:AnyGovernedArtifactPolicyTarget .
+TTL
+```
+
 ## Step 4: Initialize Mesh Support History
 
-Before integrating any payloads, run an untargeted weave with the slim history policy. On an empty mesh this initializes the mesh support histories and pages needed for a settled publication shape. That gives later payload weaves a settled support-history shape they can advance.
+Before integrating any payloads, run an untargeted weave. On an empty mesh this initializes the mesh support histories and pages needed for a settled publication shape. The history policy comes from `_mesh/_config/config.ttl`, which gives later payload weaves a settled support-history shape they can advance.
 
 Do this before `welcome.ttl` is integrated. If `welcome.ttl` already exists as a weave candidate, untargeted `weave` will try to weave that payload too, and the current local slice can fail with "settled first-payload-weave mesh inventory shape." In the disposable URPX replay, recover by rerunning Step 2 onward rather than trying to repair the half-integrated root payload in place.
 
 ```sh
 deno run -A "$WEAVE_CLI" \
-  --mesh-root "$URPX_PUB" \
-  --history-tracking-policy "$URPX_HISTORY_POLICY"
+  --mesh-root "$URPX_PUB"
 
 rg 'currentArtifactHistory <_mesh/_inventory/_history001>|latestHistoricalState <_mesh/_inventory/_history001/_s0001>' \
   "$URPX_PUB"/_mesh/_meta/meta.ttl >/dev/null
@@ -119,12 +145,11 @@ deno run -A "$WEAVE_CLI" integrate "$URPX_PUB/welcome.ttl" / \
 
 ## Step 6: Weave The Root Welcome Page
 
-Generate the root ResourcePage using Weave's default history and state naming. This keeps the root welcome page as the simple example for default payload naming, while the release artifacts below use explicit `releases/$URPX_RELEASE_STATE` naming.
+Generate the root ResourcePage using the mesh-local history policy and Weave's default history and state naming. This keeps the root welcome page as the simple example for default payload naming, while the release artifacts below use explicit `releases/$URPX_RELEASE_STATE` naming.
 
 ```sh
 deno run -A "$WEAVE_CLI" \
   --mesh-root "$URPX_PUB" \
-  --history-tracking-policy "$URPX_HISTORY_POLICY" \
   --target 'designatorPath=/'
 ```
 
@@ -181,7 +206,6 @@ deno run -A "$WEAVE_CLI" set next-state ontology/shacl "$URPX_RELEASE_STATE" --m
 
 deno run -A "$WEAVE_CLI" \
   --mesh-root "$URPX_PUB" \
-  --history-tracking-policy "$URPX_HISTORY_POLICY" \
   --payload-manifestation-segment ttl \
   --target 'designatorPath=ontology' \
   --target 'designatorPath=ontology/shacl'
@@ -224,17 +248,14 @@ deno run -A "$WEAVE_CLI" extract --all-terms \
 
 Run an untargeted weave so every pending extracted term Knop and its support surfaces become part of the current publication mesh. This advances the generated publication side without changing the source checkout. Whole-mesh validation can conceptually be used as a preflight, but on this all-terms replay it currently has to dry-run many pending extracted-term weaves, so this dogfood sequence validates after the weave and page generation.
 
-The explicit `generate` pass includes the Semantic Flow metadata panel. Top-level `weave` does not currently expose that opt-in, so use `generate --include-semantic-flow-metadata` as the final page render before validation.
+The explicit `generate` pass refreshes pages after the all-terms weave. The Semantic Flow metadata panel is selected by the mesh-local all-panels ResourcePage presentation policy.
 
 ```sh
 deno run -A "$WEAVE_CLI" \
-  --mesh-root "$URPX_PUB" \
-  --history-tracking-policy "$URPX_HISTORY_POLICY"
+  --mesh-root "$URPX_PUB"
 
 deno run -A "$WEAVE_CLI" generate \
-  --mesh-root "$URPX_PUB" \
-  --history-tracking-policy "$URPX_HISTORY_POLICY" \
-  --include-semantic-flow-metadata
+  --mesh-root "$URPX_PUB"
 
 deno run -A "$WEAVE_CLI" validate mesh \
   --mesh-root "$URPX_PUB"

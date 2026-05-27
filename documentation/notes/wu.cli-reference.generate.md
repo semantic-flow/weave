@@ -34,9 +34,11 @@ weave generate --include-semantic-flow-metadata
 
 Generation reads the current mesh inventory, Knop inventories, payload states, ResourcePageDefinition artifacts, and related support artifacts, then writes or updates HTML ResourcePages.
 
-`--include-semantic-flow-metadata` includes the generated Semantic Flow metadata section on ResourcePages. The default page output keeps that section hidden.
+Mesh-local `_mesh/_config/config.ttl` can select durable ResourcePage generation and presentation policies. For example, a mesh can bind Weave's built-in all-panels presentation policy to include the generated Semantic Flow metadata panel without repeating a command flag.
 
-`--history-tracking-policy` is an advanced command-scoped override used while resolving page-generation inputs.
+`--include-semantic-flow-metadata` is a command-scoped presentation override for the current generation pass. It applies Weave's built-in all-panels presentation policy, so the generated Semantic Flow metadata section is included even when the mesh default would hide it.
+
+`--history-tracking-policy` is an advanced command-scoped override used while resolving page-generation inputs. It applies only to the current command.
 
 ## Environment
 

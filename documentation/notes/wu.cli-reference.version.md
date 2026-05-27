@@ -39,6 +39,8 @@ weave version \
 
 Payload version naming can be provided as general `--payload-*` defaults or as fields on individual version targets. Per-target fields override the general defaults.
 
+`weave version` reads `_mesh/_config/config.ttl` when present. Mesh-local config can set durable history tracking and naming defaults. `--history-tracking-policy` remains a command-scoped override for the current run.
+
 `weave set history` and `weave set next-state` can persist payload-only intent for a later version operation; see [[wu.cli-reference.set.history]] and [[wu.cli-reference.set.next-state]].
 
 If a named-state payload history is current, omitted `stateSegment` fails closed instead of silently choosing an ordinal successor.
