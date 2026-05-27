@@ -11,10 +11,13 @@ export interface NormalizeDenoJunitOptions {
 }
 
 interface TestcaseRecord {
-  classname: string;
-  name: string;
-  time: string;
+  attributes: Map<string, string>;
   body: string;
+}
+
+interface TestsuiteRecord {
+  attributes: Map<string, string>;
+  testcases: TestcaseRecord[];
 }
 
 if (import.meta.main) {
@@ -42,57 +45,148 @@ export function normalizeDenoJunitXml(
   const rootAttributes = parseAttributes(
     /<testsuites\b([^>]*)>/.exec(input)?.[1] ?? "",
   );
-  const testcases = extractTestcases(input);
+  const suites = extractTestsuites(input);
+  const testcases = suites.flatMap((suite) => suite.testcases);
   const tests = testcases.length;
-  const failures =
-    testcases.filter((testcase) => /<failure\b/.test(testcase.body)).length;
-  const errors = testcases.filter((testcase) => /<error\b/.test(testcase.body))
-    .length;
-  const skipped =
-    testcases.filter((testcase) => /<skipped\b/.test(testcase.body)).length;
+  const failures = countTestcases(testcases, /<failure\b/);
+  const errors = countTestcases(testcases, /<error\b/);
+  const skipped = countTestcases(testcases, /<skipped\b/);
   const time = rootAttributes.get("time") ?? sumTestcaseTime(testcases);
   const timestamp = options.timestamp ?? new Date().toISOString();
+  const outputRootAttributes = new Map(rootAttributes);
+  outputRootAttributes.set("name", rootAttributes.get("name") ?? "deno test");
+  outputRootAttributes.set("tests", String(tests));
+  outputRootAttributes.set("failures", String(failures));
+  outputRootAttributes.set("errors", String(errors));
+  outputRootAttributes.set("skipped", String(skipped));
+  outputRootAttributes.set("time", time);
 
   const lines = [
     '<?xml version="1.0" encoding="UTF-8"?>',
-    `<testsuites name="deno test" tests="${tests}" failures="${failures}" errors="${errors}" skipped="${skipped}" time="${
-      escapeAttribute(time)
-    }">`,
-    `  <testsuite name="deno" tests="${tests}" failures="${failures}" errors="${errors}" skipped="${skipped}" timestamp="${
-      escapeAttribute(timestamp)
-    }" time="${escapeAttribute(time)}">`,
+    `<testsuites ${
+      renderAttributes(outputRootAttributes, [
+        "name",
+        "tests",
+        "failures",
+        "errors",
+        "skipped",
+        "time",
+      ])
+    }>`,
   ];
 
-  for (const testcase of testcases) {
-    lines.push(
-      `    <testcase classname="${escapeAttribute(testcase.classname)}" name="${
-        escapeAttribute(testcase.name)
-      }" time="${escapeAttribute(testcase.time)}">`,
+  for (const suite of suites) {
+    const suiteFailures = countTestcases(suite.testcases, /<failure\b/);
+    const suiteErrors = countTestcases(suite.testcases, /<error\b/);
+    const suiteSkipped = countTestcases(suite.testcases, /<skipped\b/);
+    const suiteTime = suite.attributes.get("time") ??
+      sumTestcaseTime(suite.testcases);
+    const outputSuiteAttributes = new Map(suite.attributes);
+    outputSuiteAttributes.delete("disabled");
+    outputSuiteAttributes.set(
+      "name",
+      suite.attributes.get("name") ?? "deno",
     );
-    const body = testcase.body.trim();
-    if (body.length > 0) {
-      lines.push(indent(body, "      "));
+    outputSuiteAttributes.set("tests", String(suite.testcases.length));
+    outputSuiteAttributes.set("failures", String(suiteFailures));
+    outputSuiteAttributes.set("errors", String(suiteErrors));
+    outputSuiteAttributes.set("skipped", String(suiteSkipped));
+    outputSuiteAttributes.set(
+      "timestamp",
+      suite.attributes.get("timestamp") ?? timestamp,
+    );
+    outputSuiteAttributes.set("time", suiteTime);
+
+    lines.push(
+      `  <testsuite ${
+        renderAttributes(outputSuiteAttributes, [
+          "name",
+          "tests",
+          "failures",
+          "errors",
+          "skipped",
+          "timestamp",
+          "time",
+        ])
+      }>`,
+    );
+
+    for (const testcase of suite.testcases) {
+      const outputTestcaseAttributes = new Map(testcase.attributes);
+      outputTestcaseAttributes.set(
+        "classname",
+        testcase.attributes.get("classname") ?? suite.attributes.get("name") ??
+          "deno",
+      );
+      outputTestcaseAttributes.set(
+        "name",
+        testcase.attributes.get("name") ?? "unnamed test",
+      );
+      outputTestcaseAttributes.set(
+        "time",
+        testcase.attributes.get("time") ?? "0",
+      );
+
+      lines.push(
+        `    <testcase ${
+          renderAttributes(outputTestcaseAttributes, [
+            "classname",
+            "name",
+            "time",
+          ])
+        }>`,
+      );
+      const body = testcase.body.trim();
+      if (body.length > 0) {
+        lines.push(indent(body, "      "));
+      }
+      lines.push("    </testcase>");
     }
-    lines.push("    </testcase>");
+
+    lines.push("  </testsuite>");
   }
 
-  lines.push("  </testsuite>", "</testsuites>", "");
+  lines.push("</testsuites>", "");
   return lines.join("\n");
+}
+
+function extractTestsuites(input: string): TestsuiteRecord[] {
+  const suites: TestsuiteRecord[] = [];
+  const testsuitePattern = /<testsuite\b([^>]*)>([\s\S]*?)<\/testsuite>/g;
+  for (const match of input.matchAll(testsuitePattern)) {
+    suites.push({
+      attributes: parseAttributes(match[1]),
+      testcases: extractTestcases(match[2]),
+    });
+  }
+
+  if (suites.length > 0) {
+    return suites;
+  }
+
+  return [{
+    attributes: new Map([["name", "deno"]]),
+    testcases: extractTestcases(input),
+  }];
 }
 
 function extractTestcases(input: string): TestcaseRecord[] {
   const testcases: TestcaseRecord[] = [];
   const testcasePattern = /<testcase\b([^>]*)>([\s\S]*?)<\/testcase>/g;
   for (const match of input.matchAll(testcasePattern)) {
-    const attributes = parseAttributes(match[1]);
     testcases.push({
-      classname: attributes.get("classname") ?? "deno",
-      name: attributes.get("name") ?? "unnamed test",
-      time: attributes.get("time") ?? "0",
+      attributes: parseAttributes(match[1]),
       body: match[2],
     });
   }
   return testcases;
+}
+
+function countTestcases(
+  testcases: readonly TestcaseRecord[],
+  pattern: RegExp,
+): number {
+  return testcases.filter((testcase) => pattern.test(testcase.body)).length;
 }
 
 function parseAttributes(input: string): Map<string, string> {
@@ -106,10 +200,31 @@ function parseAttributes(input: string): Map<string, string> {
 
 function sumTestcaseTime(testcases: readonly TestcaseRecord[]): string {
   const total = testcases.reduce((sum, testcase) => {
-    const value = Number(testcase.time);
+    const value = Number(testcase.attributes.get("time") ?? "0");
     return Number.isFinite(value) ? sum + value : sum;
   }, 0);
   return total.toFixed(3);
+}
+
+function renderAttributes(
+  attributes: ReadonlyMap<string, string>,
+  preferredOrder: readonly string[],
+): string {
+  const seen = new Set<string>();
+  const orderedNames = [
+    ...preferredOrder,
+    ...[...attributes.keys()].filter((name) => !preferredOrder.includes(name)),
+  ].filter((name) => {
+    if (seen.has(name)) {
+      return false;
+    }
+    seen.add(name);
+    return attributes.has(name);
+  });
+
+  return orderedNames.map((name) =>
+    `${name}="${escapeAttribute(attributes.get(name) ?? "")}"`
+  ).join(" ");
 }
 
 function escapeAttribute(value: string): string {

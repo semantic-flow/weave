@@ -9,8 +9,6 @@ const isolatedEnvVars = [
   "XDG_CACHE_HOME",
 ] as const;
 
-type TestFn = (t: Deno.TestContext) => void | Promise<void>;
-
 interface TestTmpScope {
   readonly paths: string[];
 }
@@ -19,16 +17,8 @@ interface IsolatedTestEnv {
   restore(): void;
 }
 
-interface DenoTestDefinitionLike {
-  readonly fn: TestFn;
-  readonly [key: string]: unknown;
-}
-
-interface MutableDenoTest {
-  test: typeof Deno.test;
-}
-
 let activeScope: TestTmpScope | undefined;
+let activeIsolatedEnv: IsolatedTestEnv | undefined;
 let cleanupInstalled = false;
 
 export async function createTestTmpDir(prefix: string): Promise<string> {
@@ -43,81 +33,47 @@ export function installTestTmpCleanup(): void {
   }
   cleanupInstalled = true;
 
-  const originalTest = Deno.test;
-  const callOriginalTest = originalTest as unknown as (
-    ...args: unknown[]
-  ) => void;
-
-  const mutableDeno = Deno as unknown as MutableDenoTest;
-  mutableDeno.test = ((...args: unknown[]) => {
-    if (isTestFn(args[0])) {
-      callOriginalTest(wrapTestFn(args[0]));
-      return;
-    }
-    if (typeof args[0] === "string" && isTestFn(args[1])) {
-      callOriginalTest(args[0], wrapTestFn(args[1]));
-      return;
-    }
-    if (typeof args[0] === "string" && isTestFn(args[2])) {
-      callOriginalTest(args[0], args[1], wrapTestFn(args[2]));
-      return;
-    }
-    if (isDenoTestDefinitionLike(args[0])) {
-      callOriginalTest({
-        ...args[0],
-        fn: wrapTestFn(args[0].fn),
-      });
-      return;
-    }
-
-    callOriginalTest(...args);
-  }) as typeof Deno.test;
-}
-
-function wrapTestFn(fn: TestFn): TestFn {
-  return async (t) => {
-    const previousScope = activeScope;
+  Deno.test.beforeEach(async () => {
     const scope: TestTmpScope = { paths: [] };
     activeScope = scope;
+    activeIsolatedEnv = await installIsolatedTestEnv();
+  });
 
-    let isolatedEnv: IsolatedTestEnv | undefined;
-    let testError: unknown;
+  Deno.test.afterEach(async () => {
+    const scope = activeScope;
+    const isolatedEnv = activeIsolatedEnv;
+    activeScope = undefined;
+    activeIsolatedEnv = undefined;
+
+    let restoreError: unknown;
     try {
-      isolatedEnv = await installIsolatedTestEnv();
-      await fn(t);
+      isolatedEnv?.restore();
     } catch (error) {
-      testError = error;
-    } finally {
-      try {
-        isolatedEnv?.restore();
-      } catch (error) {
-        testError ??= error;
-      }
-      activeScope = previousScope;
+      restoreError = error;
     }
 
     let cleanupError: unknown;
     if (!shouldKeepTestTmp()) {
       try {
-        await cleanupTestTmpPaths(scope.paths);
+        await cleanupTestTmpPaths(scope?.paths ?? []);
       } catch (error) {
         cleanupError = error;
       }
     }
 
-    if (testError !== undefined && cleanupError !== undefined) {
+    if (restoreError !== undefined && cleanupError !== undefined) {
       throw new AggregateError(
-        [testError, cleanupError],
-        "Test failed and temporary directory cleanup also failed.",
+        [restoreError, cleanupError],
+        "Test environment restore and temporary directory cleanup both failed.",
       );
     }
-    if (testError !== undefined) {
-      throw testError;
+    if (restoreError !== undefined) {
+      throw restoreError;
     }
     if (cleanupError !== undefined) {
       throw cleanupError;
     }
-  };
+  });
 }
 
 async function installIsolatedTestEnv(): Promise<IsolatedTestEnv | undefined> {
@@ -184,18 +140,6 @@ function shouldKeepTestTmp(): boolean {
 
   const value = Deno.env.get(keepTestTmpEnvVar)?.toLowerCase();
   return value === "1" || value === "true";
-}
-
-function isDenoTestDefinitionLike(
-  value: unknown,
-): value is DenoTestDefinitionLike {
-  return value !== null &&
-    typeof value === "object" &&
-    typeof (value as { readonly fn?: unknown }).fn === "function";
-}
-
-function isTestFn(value: unknown): value is TestFn {
-  return typeof value === "function";
 }
 
 // Install on import so direct `deno test <file>` and IDE test runners clean up
