@@ -27,6 +27,7 @@ import {
   ROOT_WORKING_FILE_PATH,
 } from "../support/root_designator.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
+import { resolveUserSettingsPaths } from "../../src/runtime/settings/user_settings.ts";
 
 const repoRoot = new URL("../../", import.meta.url);
 const cliPath = new URL("src/main.ts", repoRoot).pathname;
@@ -418,6 +419,7 @@ Deno.test("weave integrate records current repository floating source locators a
   const sourceRoot = join(tempRoot, "source");
   const publicationRoot = join(tempRoot, "publication");
   const homeRoot = join(tempRoot, "home");
+  const settingsRoot = join(tempRoot, "settings");
   await materializeMeshAliceBioBranch(
     "05-alice-knop-created-woven",
     publicationRoot,
@@ -462,6 +464,7 @@ Deno.test("weave integrate records current repository floating source locators a
     cwd: toFileUrl(`${tempRoot}/`),
     env: {
       HOME: homeRoot,
+      WEAVE_SETTINGS: settingsRoot,
     },
     stdout: "piped",
     stderr: "piped",
@@ -581,6 +584,7 @@ Deno.test("weave integrate can grant a separate source checkout through host-loc
   const sourceRoot = join(tempRoot, "source");
   const publicationRoot = join(tempRoot, "publication");
   const homeRoot = join(tempRoot, "home");
+  const settingsRoot = join(tempRoot, "settings");
   await materializeMeshAliceBioBranch(
     "05-alice-knop-created-woven",
     publicationRoot,
@@ -614,6 +618,7 @@ Deno.test("weave integrate can grant a separate source checkout through host-loc
     cwd: toFileUrl(`${tempRoot}/`),
     env: {
       HOME: homeRoot,
+      WEAVE_SETTINGS: settingsRoot,
     },
     stdout: "piped",
     stderr: "piped",
@@ -623,16 +628,28 @@ Deno.test("weave integrate can grant a separate source checkout through host-loc
   const stderr = new TextDecoder().decode(output.stderr);
 
   assert(output.success, stderr);
-  assertStringIncludes(stdout, ".sf-local-access.ttl");
+  assertStringIncludes(stdout, "access.ttl");
 
+  const settingsPaths = await resolveUserSettingsPaths(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      env: {
+        HOME: homeRoot,
+        WEAVE_SETTINGS: settingsRoot,
+      },
+    },
+  );
   const localAccess = await Deno.readTextFile(
-    join(homeRoot, ".sf-local-access.ttl"),
+    settingsPaths.meshSettings.accessProfilePath,
   );
   assertStringIncludes(
     localAccess,
-    "sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_absolutePath>",
+    "weave:HostLocalAccessProfile",
   );
-  assertStringIncludes(localAccess, `sfcfg:pathPrefix "${sourceRoot}/"`);
+  assertStringIncludes(
+    localAccess,
+    `weave:allowsLocalPathBase "${sourceRoot}/"`,
+  );
 
   const inventory = await Deno.readTextFile(
     join(publicationRoot, "alice/data/_knop/_inventory/inventory.ttl"),
@@ -664,6 +681,7 @@ Deno.test("weave integrate grants the workspace root through host-local policy",
   );
   const workspaceRoot = join(tempRepoRoot, "mesh");
   const homeRoot = join(tempRepoRoot, "home");
+  const settingsRoot = join(tempRepoRoot, "settings");
   await materializeMeshAliceBioBranch(
     "05-alice-knop-created-woven",
     workspaceRoot,
@@ -706,6 +724,7 @@ Deno.test("weave integrate grants the workspace root through host-local policy",
     cwd: toFileUrl(`${tempRepoRoot}/`),
     env: {
       HOME: homeRoot,
+      WEAVE_SETTINGS: settingsRoot,
     },
     stdout: "piped",
     stderr: "piped",
@@ -715,10 +734,19 @@ Deno.test("weave integrate grants the workspace root through host-local policy",
   const stderr = new TextDecoder().decode(output.stderr);
 
   assert(output.success, stderr);
-  assertStringIncludes(stdout, ".sf-local-access.ttl");
+  assertStringIncludes(stdout, "access.ttl");
+  const settingsPaths = await resolveUserSettingsPaths(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    {
+      env: {
+        HOME: homeRoot,
+        WEAVE_SETTINGS: settingsRoot,
+      },
+    },
+  );
   assertStringIncludes(
-    await Deno.readTextFile(join(homeRoot, ".sf-local-access.ttl")),
-    `sfcfg:pathPrefix "${tempRepoRoot}/"`,
+    await Deno.readTextFile(settingsPaths.meshSettings.accessProfilePath),
+    `weave:allowsLocalPathBase "${tempRepoRoot}/"`,
   );
   assertStringIncludes(
     await Deno.readTextFile(

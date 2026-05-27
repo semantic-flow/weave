@@ -253,7 +253,7 @@ Constraints:
 - if both are provided, they must match
 - `--mesh-root <path>` selects the mesh root and defaults to the current directory
 - relative source paths are resolved from the command working directory
-- `--grant-source-directory <path>` adds an operational `workingLocalRelativePath` grant for that source directory before resolving the source; workspace-contained sources are recorded in mesh config, while separate checkout sources are recorded in the host-local `~/.sf-local-access.ttl`
+- `--grant-source-directory <path>` adds an operational `workingLocalRelativePath` grant for that source directory before resolving the source; workspace-contained sources may be recorded in mesh config, while separate checkout sources are recorded in the current user's mesh-scoped settings access profile
 - when the approved source path is outside the mesh root, `integrate` creates a Knop source registry automatically with the internal `payload-source` `IntegrationSource` binding id, `targetLocalRelativePath`, and `artifactResolutionMode_working`
 - automatically created floating working-source bindings do not record repository ref, commit, path, digest evidence, or `expectsContentDigest`
 - `--source-repository-url`, `--source-repository-ref`, and `--source-repository-path` record repository-backed source provenance in the Knop source registry without fetching or copying source bytes

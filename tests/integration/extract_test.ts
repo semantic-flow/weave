@@ -4,7 +4,12 @@ import {
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
+import {
+  renderHostLocalAccessProfileTurtle,
+  renderUserSettingsTurtle,
+  resolveUserSettingsPaths,
+} from "../../src/runtime/settings/user_settings.ts";
 import {
   executeExtract,
   executeExtractAllTerms,
@@ -195,6 +200,7 @@ Deno.test("executeExtract omits local path evidence for floating repository sour
   const sourceRoot = join(tempRoot, "source");
   const workspaceRoot = join(tempRoot, "publication");
   const homeRoot = join(tempRoot, "home");
+  const settingsRoot = join(tempRoot, "settings");
   await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
   await Deno.mkdir(sourceRoot, { recursive: true });
   await Deno.mkdir(homeRoot, { recursive: true });
@@ -209,19 +215,7 @@ Deno.test("executeExtract omits local path evidence for floating repository sour
     join(sourceRoot, "alice-data.ttl"),
     await readMeshAliceBioBranchFile("11-alice-bio-v2-woven", "alice-data.ttl"),
   );
-  await Deno.writeTextFile(
-    join(homeRoot, ".sf-local-access.ttl"),
-    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
-
-<> a sfcfg:HostLocalOperationalConfig ;
-  sfcfg:hasLocalPathAccessRule [
-    a sfcfg:LocalPathAccessRule ;
-    sfcfg:hasLocalPathBase <https://semantic-flow.github.io/sflo/config/localPathBase_absolutePath> ;
-    sfcfg:pathPrefix "${sourceRoot}/" ;
-    sfcfg:hasLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
-  ] .
-`,
-  );
+  await writeSettingsAccessGrant(settingsRoot, sourceRoot);
 
   const inventoryPath = join(
     workspaceRoot,
@@ -240,7 +234,9 @@ Deno.test("executeExtract omits local path evidence for floating repository sour
   );
 
   const previousHome = Deno.env.get("HOME");
+  const previousWeaveSettings = Deno.env.get("WEAVE_SETTINGS");
   Deno.env.set("HOME", homeRoot);
+  Deno.env.set("WEAVE_SETTINGS", settingsRoot);
   try {
     await executeExtract({
       workspaceRoot,
@@ -254,6 +250,11 @@ Deno.test("executeExtract omits local path evidence for floating repository sour
     } else {
       Deno.env.set("HOME", previousHome);
     }
+    if (previousWeaveSettings === undefined) {
+      Deno.env.delete("WEAVE_SETTINGS");
+    } else {
+      Deno.env.set("WEAVE_SETTINGS", previousWeaveSettings);
+    }
   }
 
   const sourcesTurtle = await Deno.readTextFile(
@@ -266,6 +267,26 @@ Deno.test("executeExtract omits local path evidence for floating repository sour
   );
   assertFalse(sourcesTurtle.includes(sourceRoot), sourcesTurtle);
 });
+
+async function writeSettingsAccessGrant(
+  settingsRoot: string,
+  allowedPathRoot: string,
+): Promise<void> {
+  const paths = await resolveUserSettingsPaths(MESH_ALICE_BIO_BASE, {
+    env: {
+      WEAVE_SETTINGS: settingsRoot,
+      HOME: "/tmp/weave-test-home",
+    },
+  });
+  await Deno.mkdir(dirname(paths.meshSettings.accessProfilePath), {
+    recursive: true,
+  });
+  await Deno.writeTextFile(paths.settingsPath, renderUserSettingsTurtle(paths));
+  await Deno.writeTextFile(
+    paths.meshSettings.accessProfilePath,
+    renderHostLocalAccessProfileTurtle([`${allowedPathRoot}/`]),
+  );
+}
 
 Deno.test("executeExtractAllTerms extracts only new named mesh terms and skips support artifacts", async () => {
   const workspaceRoot = await createTestTmpDir("weave-extract-all-terms-");

@@ -1,0 +1,103 @@
+@base <https://semantic-flow.github.io/weave/ontology/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix schema: <https://schema.org/> .
+@prefix vann: <http://purl.org/vocab/vann/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<https://semantic-flow.github.io/weave/ontology> a owl:Ontology ;
+  dcterms:title "Weave Ontology" ;
+  dcterms:description "The Weave Ontology defines host-local runtime and user settings terms used by the Weave reference implementation." ;
+  dcterms:creator <https://djradon.github.io/ns/dave-richardson> ;
+  dcterms:hasVersion <https://semantic-flow.github.io/weave/ontology/releases/v0.1.0> ;
+  dcterms:modified "2026-05-27"^^xsd:date ;
+  owl:versionIRI <https://raw.githubusercontent.com/semantic-flow/weave/refs/tags/v0.1.0/ontology/weave-ontology.ttl> ;
+  owl:versionInfo "0.1.0" ;
+  vann:preferredNamespacePrefix "weave" ;
+  vann:preferredNamespaceUri "https://semantic-flow.github.io/weave/ontology/" .
+
+<https://semantic-flow.github.io/weave/ontology/releases/v0.1.0>
+  a owl:Ontology, sflo:HistoricalState ;
+  dcterms:isVersionOf <https://semantic-flow.github.io/weave/ontology> ;
+  dcterms:issued "2026-05-27"^^xsd:date ;
+  owl:versionInfo "0.1.0" ;
+  schema:contentUrl <https://semantic-flow.github.io/weave/ontology/releases/v0.1.0/ttl/weave-ontology.ttl> ;
+  sflo:hasManifestation <https://semantic-flow.github.io/weave/ontology/releases/v0.1.0/ttl> .
+
+<https://semantic-flow.github.io/weave/ontology/releases/v0.1.0/ttl>
+  dcat:downloadURL <https://semantic-flow.github.io/weave/ontology/releases/v0.1.0/ttl/weave-ontology.ttl> .
+
+#################################################################
+#################################################################
+# Host-local user settings vocabulary
+#################################################################
+#################################################################
+
+<UserSettings> a rdfs:Class ;
+  rdfs:label "User settings" ;
+  rdfs:comment "A host-local per-user Weave settings store containing global and mesh-scoped settings state." .
+
+<MeshSettingsGroup> a rdfs:Class ;
+  rdfs:label "Mesh settings group" ;
+  rdfs:comment "A deterministic host-local settings group for one canonical mesh base within a user's Weave settings store." .
+
+<HostLocalAccessProfile> a rdfs:Class ;
+  rdfs:label "Host-local access profile" ;
+  rdfs:comment "A host-local access profile containing path grants used by Weave runtime operations." .
+
+<LocalPathGrant> a rdfs:Class ;
+  rdfs:label "Local path grant" ;
+  rdfs:comment "A host-local grant allowing Weave to read local filesystem paths under a configured base path." .
+
+<hasProfile> a owl:ObjectProperty ;
+  rdfs:label "has profile" ;
+  rdfs:comment "Relates a user settings store or mesh settings group to a general profile document." .
+
+<hasAccessProfile> a owl:ObjectProperty ;
+  rdfs:range <HostLocalAccessProfile> ;
+  rdfs:label "has access profile" ;
+  rdfs:comment "Relates a user settings store or mesh settings group to an access profile document." .
+
+<hasPreferencesProfile> a owl:ObjectProperty ;
+  rdfs:label "has preferences profile" ;
+  rdfs:comment "Relates a user settings store or mesh settings group to a preferences profile document." .
+
+<hasMeshSettings> a owl:ObjectProperty ;
+  rdfs:domain <UserSettings> ;
+  rdfs:range <MeshSettingsGroup> ;
+  rdfs:label "has mesh settings" ;
+  rdfs:comment "Relates a user settings store to one of its mesh-scoped settings groups." .
+
+<forMeshSettings> a owl:ObjectProperty ;
+  rdfs:domain <HostLocalAccessProfile> ;
+  rdfs:range <MeshSettingsGroup> ;
+  rdfs:label "for mesh settings" ;
+  rdfs:comment "Relates a host-local access profile to the mesh settings group it belongs to." .
+
+<hasLocalPathGrant> a owl:ObjectProperty ;
+  rdfs:domain <HostLocalAccessProfile> ;
+  rdfs:range <LocalPathGrant> ;
+  rdfs:label "has local path grant" ;
+  rdfs:comment "Relates a host-local access profile to a local path grant." .
+
+<forMeshBase> a owl:DatatypeProperty ;
+  rdfs:domain <MeshSettingsGroup> ;
+  rdfs:range xsd:anyURI ;
+  rdfs:label "for mesh base" ;
+  rdfs:comment "The canonical mesh base IRI for a mesh settings group." .
+
+<meshIdentifier> a owl:DatatypeProperty ;
+  rdfs:domain <MeshSettingsGroup> ;
+  rdfs:range xsd:string ;
+  rdfs:label "mesh identifier" ;
+  rdfs:comment "The deterministic slug-plus-hash identifier used as the mesh settings group directory name." .
+
+<allowsLocalPathBase> a owl:DatatypeProperty ;
+  rdfs:domain <LocalPathGrant> ;
+  rdfs:range xsd:string ;
+  rdfs:label "allows local path base" ;
+  rdfs:comment "An absolute local filesystem path prefix allowed by a host-local path grant." .
