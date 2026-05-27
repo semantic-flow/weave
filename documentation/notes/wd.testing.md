@@ -104,6 +104,14 @@ Temp workspaces created with `createTestTmpDir()` are registered with the test h
 
 Live Semantic Flow fixture ladder regeneration is a separate cross-repo workflow; see [[wd.testing.fixture-ladder-regeneration]].
 
+### Codecov Test Analytics
+
+GitHub Actions publishes Deno's JUnit XML report to Codecov Test Analytics from the normal CI workflow. `deno task test:coverage` writes that report to `/tmp/semantic-flow-coverage/junit.xml` alongside raw coverage data. `deno task coverage:lcov` writes LCOV to `/tmp/semantic-flow-coverage/lcov.info`.
+
+Coverage-producing tasks create `/tmp/semantic-flow-coverage` if it does not exist, so a reboot-cleared `/tmp` does not require manual setup.
+
+Local uploads are intentionally opt-in. Use `deno task test:analytics` when you want to run the coverage test suite and upload its JUnit results to Codecov. The local analytics task writes raw coverage data and JUnit XML outside the repository at `/tmp/semantic-flow-coverage`; the uploaded report is `/tmp/semantic-flow-coverage/junit.xml`. The task prefers the org-scoped `CODECOV_TOKEN_SEMANTIC_FLOW` environment variable, falls back to `CODECOV_TOKEN`, and requires either `codecovcli` or the `codecov` binary on `PATH`; install the CLI with `pip install codecov-cli` if needed. Use `CODECOV_TEST_RESULTS_FLAGS=flag1,flag2` to override the default local flags.
+
 ## TDD Workflow
 
 When possible, the default loop should be:
