@@ -5,7 +5,7 @@ import {
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import { WeaveInputError } from "../../src/core/weave/weave.ts";
 import {
@@ -52,6 +52,16 @@ async function writeMeshConfig(
     join(meshRoot, "_mesh/_config/config.ttl"),
     turtle,
   );
+}
+
+async function writeMeshConfigSource(
+  meshRoot: string,
+  relativePath: string,
+  turtle: string,
+): Promise<void> {
+  const path = join(meshRoot, relativePath);
+  await Deno.mkdir(dirname(path), { recursive: true });
+  await Deno.writeTextFile(path, turtle);
 }
 
 Deno.test("executeValidate returns structured findings for version-only target fields", async () => {
@@ -689,6 +699,72 @@ Deno.test("executeVersion honors mesh-local ResourcePage generation policy witho
 
 <#payload> a sfcfg:ArtifactRolePolicyTarget ;
   sfcfg:hasArtifactRole sfcfg:artifactRole_payload .
+`,
+  );
+
+  const result = await executeRuntimeVersion({
+    meshRoot: workspaceRoot,
+    request: {
+      targets: [{
+        designatorPath: "alice/data",
+        historySegment: "releases",
+        stateSegment: "v0.0.1",
+        manifestationSegment: "ttl",
+      }],
+    },
+  });
+
+  assertEquals(result.versionedDesignatorPaths, ["alice/data"]);
+  assert(
+    result.createdPaths.includes(
+      "alice/data/releases/v0.0.1/ttl/alice-data.ttl",
+    ),
+  );
+  assertFalse(result.createdPaths.includes("alice/data/index.html"));
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, "alice/data/index.html")),
+    Deno.errors.NotFound,
+  );
+});
+
+Deno.test("executeVersion honors mesh-local ResourcePage generation policy from config source", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-version-config-source-page-generation-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+  await writeMeshConfigSource(
+    workspaceRoot,
+    "_mesh/_config/page-policy.ttl",
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPolicyBinding <#suppress-payload-pages> .
+
+<#suppress-payload-pages> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#suppress-pages> ;
+  sfcfg:appliesToPolicyTarget <#payload> .
+
+<#suppress-pages> a sfcfg:PolicyDefinition ;
+  sfcfg:hasResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_suppress .
+
+<#payload> a sfcfg:ArtifactRolePolicyTarget ;
+  sfcfg:hasArtifactRole sfcfg:artifactRole_payload .
+`,
+  );
+  await writeMeshConfig(
+    workspaceRoot,
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPublicationProfile sfcfg:publicationProfile_githubPages .
+
+<_mesh> a sflo:SemanticMesh ;
+  sfcfg:hasConfigSource [
+    a sfcfg:ConfigSource ;
+    sflo:targetLocalRelativePath "_mesh/_config/page-policy.ttl"
+  ] .
 `,
   );
 

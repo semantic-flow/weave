@@ -82,8 +82,12 @@ export async function prepareVersionExecution(
         meshConfigSource: meshState.currentMeshConfigTurtle
           ? "_mesh/_config/config.ttl"
           : undefined,
+        meshRoot: workspaceRoot,
         meshBase: meshState.meshBase,
+        meshMetadataTurtle: meshState.currentMeshMetadataTurtle,
+        meshMetadataSource: "_mesh/_meta/meta.ttl",
         meshInventoryTurtle: meshState.currentMeshInventoryTurtle,
+        localPathPolicy,
         historyTrackingPolicyOverride,
       }),
   );

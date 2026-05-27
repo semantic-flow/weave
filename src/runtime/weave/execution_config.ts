@@ -3,6 +3,7 @@ import type {
   HistoryTrackingPolicy,
 } from "../config/effective_config.ts";
 import { loadWeaveEffectiveConfig } from "../config/effective_config.ts";
+import type { OperationalLocalPathPolicy } from "../operational/local_path_policy.ts";
 import type {
   WeaveNamingPolicies,
   WeaveResourcePageGenerationPolicies,
@@ -13,8 +14,12 @@ export async function loadEffectiveConfigForExecution(
   options: {
     meshConfigTurtle?: string;
     meshConfigSource?: string;
+    meshRoot?: string;
     meshBase?: string;
+    meshMetadataTurtle?: string;
+    meshMetadataSource?: string;
     meshInventoryTurtle?: string;
+    localPathPolicy?: OperationalLocalPathPolicy;
     governedArtifactIris?: readonly string[];
     historyTrackingPolicyOverride?: HistoryTrackingPolicy;
     includeSemanticFlowMetadata?: boolean;
@@ -23,8 +28,12 @@ export async function loadEffectiveConfigForExecution(
   return await loadWeaveEffectiveConfig({
     meshConfigTurtle: options.meshConfigTurtle,
     meshConfigSource: options.meshConfigSource,
+    meshRoot: options.meshRoot,
     meshBase: options.meshBase,
+    meshMetadataTurtle: options.meshMetadataTurtle,
+    meshMetadataSource: options.meshMetadataSource,
     meshInventoryTurtle: options.meshInventoryTurtle,
+    localPathPolicy: options.localPathPolicy,
     governedArtifactIris: options.governedArtifactIris,
     commandOverrides: {
       ...(options.historyTrackingPolicyOverride

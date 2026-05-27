@@ -59,8 +59,12 @@ export async function generatePreparedPages(
         meshConfigSource: meshState.currentMeshConfigTurtle
           ? "_mesh/_config/config.ttl"
           : undefined,
+        meshRoot: options.meshRoot,
         meshBase: meshState.meshBase,
+        meshMetadataTurtle: meshState.currentMeshMetadataTurtle,
+        meshMetadataSource: "_mesh/_meta/meta.ttl",
         meshInventoryTurtle: meshState.currentMeshInventoryTurtle,
+        localPathPolicy: options.localPathPolicy,
         historyTrackingPolicyOverride: options.historyTrackingPolicyOverride,
         includeSemanticFlowMetadata: options.includeSemanticFlowMetadata,
       }),
