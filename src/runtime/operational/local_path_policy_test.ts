@@ -54,7 +54,7 @@ Deno.test("loadOperationalLocalPathPolicy discovers mesh-owned config in a non-w
   );
 });
 
-Deno.test("loadOperationalLocalPathPolicy ignores non-MeshConfig path rules", async () => {
+Deno.test("loadOperationalLocalPathPolicy rejects config without a MeshConfig subject", async () => {
   const tempRoot = await Deno.makeTempDir({
     prefix: "weave-local-path-policy-operational-",
   });
@@ -75,17 +75,36 @@ Deno.test("loadOperationalLocalPathPolicy ignores non-MeshConfig path rules", as
 `,
   );
 
-  const policy = await loadOperationalLocalPathPolicy(meshRoot);
+  await assertRejects(
+    () => loadOperationalLocalPathPolicy(meshRoot),
+    OperationalConfigError,
+    "Expected exactly one https://semantic-flow.github.io/sflo/config/MeshConfig subject",
+  );
+});
 
-  assertThrows(
-    () =>
-      resolveAllowedLocalPath(
-        policy,
-        "targetLocalRelativePath",
-        "../documentation/sidebar.md",
-      ),
-    LocalPathAccessError,
-    "outside the mesh root",
+Deno.test("loadOperationalLocalPathPolicy rejects config with multiple MeshConfig subjects", async () => {
+  const tempRoot = await Deno.makeTempDir({
+    prefix: "weave-local-path-policy-multiple-configs-",
+  });
+  const repoRoot = join(tempRoot, "repo");
+  const meshRoot = join(repoRoot, "mesh");
+  await Deno.mkdir(join(meshRoot, "_mesh/_config"), { recursive: true });
+  await Deno.writeTextFile(
+    join(meshRoot, "_mesh/_config/config.ttl"),
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<#one> a sfcfg:MeshConfig ;
+  sfcfg:workspaceRootRelativeToMeshRoot "../" .
+
+<#two> a sfcfg:MeshConfig ;
+  sfcfg:workspaceRootRelativeToMeshRoot "../" .
+`,
+  );
+
+  await assertRejects(
+    () => loadOperationalLocalPathPolicy(meshRoot),
+    OperationalConfigError,
+    "Expected exactly one https://semantic-flow.github.io/sflo/config/MeshConfig subject",
   );
 });
 

@@ -546,6 +546,7 @@ function collectWorkspaceRootValues(
   meshConfigPath: string,
 ): readonly string[] {
   const configSubjects = new Set(collectMeshConfigSubjects(quads));
+  assertSingleMeshConfigSubject(configSubjects, meshConfigPath);
   const values = quads
     .filter((quad) =>
       configSubjects.has(toTermKey(quad.subject)) &&
@@ -568,6 +569,7 @@ function collectPublicationProfileValues(
   meshConfigPath: string,
 ): readonly string[] {
   const configSubjects = new Set(collectMeshConfigSubjects(quads));
+  assertSingleMeshConfigSubject(configSubjects, meshConfigPath);
   const values = quads
     .filter((quad) =>
       configSubjects.has(toTermKey(quad.subject)) &&
@@ -583,6 +585,17 @@ function collectPublicationProfileValues(
   }
 
   return values;
+}
+
+function assertSingleMeshConfigSubject(
+  configSubjects: ReadonlySet<string>,
+  meshConfigPath: string,
+): void {
+  if (configSubjects.size !== 1) {
+    throw new OperationalConfigError(
+      `Expected exactly one ${MESH_CONFIG_IRI} subject in ${meshConfigPath}; found ${configSubjects.size}`,
+    );
+  }
 }
 
 async function loadLocalPathRules(
