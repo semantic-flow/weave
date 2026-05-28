@@ -2,7 +2,7 @@
 id: 1u8rkf5ka5mmgschlel7lym
 title: Release Runbook
 desc: ''
-updated: 1778685955558
+updated: 1779952454402
 created: 1778685955558
 ---
 
@@ -28,7 +28,7 @@ The normal release path is the `Release Manual` GitHub Actions workflow, run fro
 2. Bump or verify the release version:
 
 ```bash
-VERSION=0.1.1
+VERSION=0.2.2
 deno task bump:version -- --version "$VERSION"
 ```
 
