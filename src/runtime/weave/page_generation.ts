@@ -10,7 +10,10 @@ import type { OperationalLocalPathPolicy } from "../operational/local_path_polic
 import type { StructuredLogger } from "../logging/logger.ts";
 import type { RuntimeTiming } from "../timing.ts";
 import type { HistoryTrackingPolicy } from "../config/effective_config.ts";
-import { loadEffectiveConfigForExecution } from "./execution_config.ts";
+import {
+  loadEffectiveConfigForExecution,
+  loadKnopConfigScopePathForTarget,
+} from "./execution_config.ts";
 import { loadMeshState, type MeshState } from "./mesh_state.ts";
 import {
   collectResourcePageModels,
@@ -50,25 +53,6 @@ export async function generatePreparedPages(
     phase("loadMeshState"),
     () => loadMeshState(options.meshRoot),
   );
-  const effectiveConfig = await timeOptional(
-    options.timing,
-    phase("loadEffectiveConfig"),
-    () =>
-      loadEffectiveConfigForExecution({
-        meshConfigTurtle: meshState.currentMeshConfigTurtle,
-        meshConfigSource: meshState.currentMeshConfigTurtle
-          ? "_mesh/_config/config.ttl"
-          : undefined,
-        meshRoot: options.meshRoot,
-        meshBase: meshState.meshBase,
-        meshMetadataTurtle: meshState.currentMeshMetadataTurtle,
-        meshMetadataSource: "_mesh/_meta/meta.ttl",
-        meshInventoryTurtle: meshState.currentMeshInventoryTurtle,
-        localPathPolicy: options.localPathPolicy,
-        historyTrackingPolicyOverride: options.historyTrackingPolicyOverride,
-        includeSemanticFlowMetadata: options.includeSemanticFlowMetadata,
-      }),
-  );
   const allDesignatorPaths = timeOptionalSync(
     options.timing,
     phase("listDesignatorPaths"),
@@ -87,6 +71,39 @@ export async function generatePreparedPages(
         allDesignatorPaths,
         options.targets,
       ),
+  );
+  // Knop config is target-scoped; multi-target generation needs per-target
+  // effective config before this can be safely broadened.
+  const knopConfigScopePath = selectedDesignatorPaths.length === 1
+    ? await timeOptional(
+      options.timing,
+      phase("loadKnopConfigScopePath"),
+      () =>
+        loadKnopConfigScopePathForTarget({
+          workspaceRoot: options.meshRoot,
+          designatorPath: selectedDesignatorPaths[0]!,
+        }),
+    )
+    : undefined;
+  const effectiveConfig = await timeOptional(
+    options.timing,
+    phase("loadEffectiveConfig"),
+    () =>
+      loadEffectiveConfigForExecution({
+        meshConfigTurtle: meshState.currentMeshConfigTurtle,
+        meshConfigSource: meshState.currentMeshConfigTurtle
+          ? "_mesh/_config/config.ttl"
+          : undefined,
+        meshRoot: options.meshRoot,
+        meshBase: meshState.meshBase,
+        meshMetadataTurtle: meshState.currentMeshMetadataTurtle,
+        meshMetadataSource: "_mesh/_meta/meta.ttl",
+        meshInventoryTurtle: meshState.currentMeshInventoryTurtle,
+        localPathPolicy: options.localPathPolicy,
+        knopConfigScopePath,
+        historyTrackingPolicyOverride: options.historyTrackingPolicyOverride,
+        includeSemanticFlowMetadata: options.includeSemanticFlowMetadata,
+      }),
   );
   const pageFiles = await timeOptional(
     options.timing,

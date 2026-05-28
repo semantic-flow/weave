@@ -64,6 +64,31 @@ async function writeMeshConfigSource(
   await Deno.writeTextFile(path, turtle);
 }
 
+async function appendKnopConfigSourceAttachment(
+  meshRoot: string,
+  designatorPath: string,
+  predicateLocalName: "hasConfigSource" | "hasInheritableConfigSource",
+  relativePath: string,
+): Promise<void> {
+  const knopPath = designatorPath.length === 0
+    ? "_knop"
+    : `${designatorPath}/_knop`;
+  const metadataPath = join(meshRoot, `${knopPath}/_meta/meta.ttl`);
+  const current = await Deno.readTextFile(metadataPath);
+  await Deno.writeTextFile(
+    metadataPath,
+    `${current.trimEnd()}
+
+<${knopPath}> <https://semantic-flow.github.io/sflo/config/${predicateLocalName}> [
+  a <https://semantic-flow.github.io/sflo/config/ConfigSource> ;
+  <https://semantic-flow.github.io/sflo/ontology/targetLocalRelativePath> ${
+      JSON.stringify(relativePath)
+    }
+] .
+`,
+  );
+}
+
 Deno.test("executeValidate returns structured findings for version-only target fields", async () => {
   const workspaceRoot = await createTestTmpDir("weave-validate-target-fields-");
   await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
@@ -766,6 +791,62 @@ Deno.test("executeVersion honors mesh-local ResourcePage generation policy from 
     sflo:targetLocalRelativePath "_mesh/_config/page-policy.ttl"
   ] .
 `,
+  );
+
+  const result = await executeRuntimeVersion({
+    meshRoot: workspaceRoot,
+    request: {
+      targets: [{
+        designatorPath: "alice/data",
+        historySegment: "releases",
+        stateSegment: "v0.0.1",
+        manifestationSegment: "ttl",
+      }],
+    },
+  });
+
+  assertEquals(result.versionedDesignatorPaths, ["alice/data"]);
+  assert(
+    result.createdPaths.includes(
+      "alice/data/releases/v0.0.1/ttl/alice-data.ttl",
+    ),
+  );
+  assertFalse(result.createdPaths.includes("alice/data/index.html"));
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, "alice/data/index.html")),
+    Deno.errors.NotFound,
+  );
+});
+
+Deno.test("executeVersion honors inherited Knop config source for a single target", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-version-knop-config-source-page-generation-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+  await writeMeshConfigSource(
+    workspaceRoot,
+    "alice/_knop/_config/page-policy.ttl",
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPolicyBinding <#suppress-payload-pages> .
+
+<#suppress-payload-pages> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#suppress-pages> ;
+  sfcfg:appliesToPolicyTarget <#payload> .
+
+<#suppress-pages> a sfcfg:PolicyDefinition ;
+  sfcfg:hasResourcePageGenerationPolicy sfcfg:resourcePageGenerationPolicy_suppress .
+
+<#payload> a sfcfg:ArtifactRolePolicyTarget ;
+  sfcfg:hasArtifactRole sfcfg:artifactRole_payload .
+`,
+  );
+  await appendKnopConfigSourceAttachment(
+    workspaceRoot,
+    "alice",
+    "hasInheritableConfigSource",
+    "alice/_knop/_config/page-policy.ttl",
   );
 
   const result = await executeRuntimeVersion({

@@ -2,20 +2,20 @@
 id: 5d7q7j0ra3tybq1dn6e1zha
 title: Todo
 desc: ''
-updated: 1779383363506
+updated: 1779937331766
 created: 1774046031081
 ---
 
 
 ## Backlog
 
-Groomed on 2026-05-27 from all `wa.task.*` notes in the Weave archive. [[wa.task.2026.2026-05-24_1748-shared-artifact-resolution-runtime-service]] is treated as the active in-progress task.
+Groomed on 2026-05-27 from all `wa.task.*` notes in the Weave archive. Updated after the shared resolver, mesh-local config-source, and first Knop config-source inheritance slices landed.
 
-### P0: Current Config And Resolution Slice
+### P0: Current Config And Resolution Follow-Ups
 
-- [ ] Finish the in-progress shared artifact-resolution runtime service from [[wa.task.2026.2026-05-24_1748-shared-artifact-resolution-runtime-service]]: keep the resolver local/fail-closed, wire it into config-source discovery, and defer broader consumer migration until the config-source slice is green.
-- [ ] Complete config-source discovery and resolution from [[wa.task.2026.2026-05-27_1246-config-source-discovery-and-resolution]]: mesh-local attachment discovery, recursive deterministic source loading, digest verification, cycle rejection, trace diagnostics, and focused tests.
-- [ ] After config-source discovery lands, choose the first resolver cleanup consumer from [[wa.task.2026.2026-05-24_1748-shared-artifact-resolution-runtime-service]] and [[wa.task.2026.2026-05-24_1648-ArtifactResolutionTarget-subclass-cleanup]]: page-source resolution is the likely best proof because it has duplicated working/latest-state logic and visible generated-page behavior.
+- [x] Implement Knop config-source discovery and inheritance from [[wa.task.2026.2026-05-27_1914-knop-config-source-discovery-and-inheritance]]: discover Knop-local and Knop-inheritable config attachments from current Knop metadata, project inherited config at runtime, reuse the shared resolver, preserve fail-closed local path/digest policy, make precedence explicit, and add focused tests plus one runtime integration proof.
+- [ ] Split the remaining Knop config follow-ups from [[wa.task.2026.2026-05-27_1914-knop-config-source-discovery-and-inheritance]]: decide whether inline `hasConfig` / `hasInheritableConfig` is still useful, and broaden runtime wiring beyond single-target operations only after per-target effective config exists.
+- [ ] Choose the first broader resolver cleanup consumer from [[wa.completed.2026.2026-05-24_1748-shared-artifact-resolution-runtime-service]] and [[wa.task.2026.2026-05-24_1648-ArtifactResolutionTarget-subclass-cleanup]]: page-source resolution is the likely best proof because it has duplicated working/latest-state logic and visible generated-page behavior.
 - [ ] Keep path and URL trust policy aligned with [[wa.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]], [[wa.task.2026.2026-05-20_2152-workingAccessUrl]], and the config-source resolver. Do not let portable mesh config silently grant broader host trust.
 
 ### P1: Publication, History, And Runtime Correctness
@@ -33,7 +33,7 @@ Groomed on 2026-05-27 from all `wa.task.*` notes in the Weave archive. [[wa.task
 
 - [ ] Add the manifest completeness check from [[wa.task.2026.2026-05-16_1625-manifest-completeness-check]] so fixture branch diffs cannot drift beyond Accord manifest expectations or deliberate `ignorePaths`.
 - [ ] Add the latest-state conformance fixture from [[wa.task.2026.2026-05-19_1536-latest-state-conformance]] once Accord can express the needed rendered-text assertions.
-- [ ] Revisit custom ResourcePage follow-up work in [[wa.task.2026.2026-05-23-2157-resourcepage-followup]] after config-source work settles: the next useful slice is probably a narrow custom page fixture that keeps the shared Semantic Site presentation while opting into authored Markdown plus selected generated panels.
+- [ ] Revisit custom ResourcePage follow-up work in [[wa.task.2026.2026-05-23-2157-resourcepage-followup]] after Knop config inheritance settles: the next useful slice is probably a narrow custom page fixture that keeps the shared Semantic Site presentation while opting into authored Markdown plus selected generated panels.
 - [ ] Continue test/performance work from [[wa.task.2026.2026-05-26_2237-testing-optimization]] and [[wa.task.2026.2026-05-17-weave-performance-optimization]]: add `WEAVE_TEST_TIMING=1`, record baselines, cache fixture reads by resolved commit, add tiny-mesh builders for tests that do not need the real fixture ladders, and add validation progress output behind a quiet/default/verbose policy.
 - [ ] Split the largest files under [[wa.task.2026.2026-05-23_0040-further-refactoring]] in behavior-preserving slices: `src/runtime/weave/pages.ts`, `scripts/fixture-ladder.ts`, `src/core/weave/weave_test.ts`, `tests/integration/weave_test.ts`, and `tests/scripts/fixture_ladder_test.ts` are still large enough to slow future work.
 - [ ] Decide renderer strategy before broadening Markdown behavior: either keep the current small renderer and close [[wa.task.2026.2026-05-25-markdown-it]] as superseded, or switch deliberately to a Deno-friendly Markdown library. Tie this to [[wa.task.2026.2026-04-13_1715-page-renderer-refresh-and-html-regeneration]] and [[wa.task.2026.2026-05-24_2353-autolinking]] rather than making another ad hoc parser pass.
@@ -56,7 +56,7 @@ Groomed on 2026-05-27 from all `wa.task.*` notes in the Weave archive. [[wa.task
 
 ## Human Decision Before Task-Note Edits
 
-- [ ] [[wa.task.2026.2026-05-24_2304-honor-mesh-config]] appears broadly landed in code and user docs, including mesh config loading, history/presentation policy parsing, all-panels/no-panels defaults, command override precedence, and CLI documentation. Do not bulk-check this note until the current config-source work settles; then either mark the landed checklist items or replace the note with a short residual follow-up.
+- [ ] [[wa.task.2026.2026-05-24_2304-honor-mesh-config]] appears broadly landed in code and user docs, including mesh config loading, history/presentation policy parsing, all-panels/no-panels defaults, command override precedence, and CLI documentation. Do not bulk-check this note until Knop config inheritance settles; then either mark the landed checklist items or replace the note with a short residual follow-up.
 - [ ] [[wa.task.2026.2026-05-22_1128-referencelink-clarification]] also appears partly or mostly landed: `ReferenceSource` and `hasReferenceSource` exist in ontology/code/tests, but the note spans SFLO, framework specs, fixture regeneration, and terminology cleanup. It needs a cross-repo audit before checkbox edits.
 - [ ] [[wa.task.2026.2026-04-08_1545-resource-page-definition-and-sources]] is now a legacy umbrella note. The first-pass `_knop/_page` behavior landed, while remaining work belongs to source-mode/fallback/import-boundary tasks. Decide whether to split/close the note or keep it as a historical ledger.
 - [ ] [[wa.task.2026.2026-04-13_1715-page-renderer-refresh-and-html-regeneration]], [[wa.task.2026.2026-05-24_2353-autolinking]], and [[wa.task.2026.2026-05-25-markdown-it]] overlap. Choose one renderer/autolink direction before editing individual task notes.
@@ -68,8 +68,7 @@ Groomed on 2026-05-27 from all `wa.task.*` notes in the Weave archive. [[wa.task
 
 ### Active
 
-- [[wa.task.2026.2026-05-24_1748-shared-artifact-resolution-runtime-service]]: active and in progress; first resolver slice mostly exists, remaining backlog is config-source integration and later consumer migration.
-- [[wa.task.2026.2026-05-27_1246-config-source-discovery-and-resolution]]: active current follow-up; should consume the shared resolver and stay mesh-local/fail-closed in the first slice.
+- [[wa.task.2026.2026-05-27_1914-knop-config-source-discovery-and-inheritance]]: core Knop-local and inherited config-source runtime slice is implemented; remaining work is follow-up grooming for inline config and multi-target/per-target effective config.
 - [[wa.task.2026.2026-05-04-refactor-planFirstPayloadWeave]]: active; docs still warn about the "settled first-payload-weave mesh inventory shape" failure, so the multi-pending first-payload and current-mode extracted-term fixes remain real.
 - [[wa.task.2026.2026-05-17-append-onlyish-inventory]]: active; important correctness cleanup for reruns and release workflows.
 - [[wa.task.2026.2026-05-05-optional-history-and-slim-support-artifacts-by-default]]: partially superseded by config synthesis, but the current-only `ResourcePageDefinition` and history-policy runtime behavior remain active.
@@ -81,7 +80,7 @@ Groomed on 2026-05-27 from all `wa.task.*` notes in the Weave archive. [[wa.task
 - [[wa.task.2026.2026-05-26_2237-testing-optimization]]: active; Codecov work landed, timing/caching/tiny-fixture work remains.
 - [[wa.task.2026.2026-05-17-weave-performance-optimization]]: active but narrowed; read/candidate caching landed, parsed RDF reuse and validation progress remain.
 - [[wa.task.2026.2026-05-23_0040-further-refactoring]]: active maintenance backlog; still justified by current file sizes.
-- [[wa.task.2026.2026-05-24_1648-ArtifactResolutionTarget-subclass-cleanup]]: active cleanup ledger after config-source and import/source-registry work.
+- [[wa.task.2026.2026-05-24_1648-ArtifactResolutionTarget-subclass-cleanup]]: active cleanup ledger after Knop config inheritance and import/source-registry work.
 
 ### Needs Revision Or Human Decision
 
@@ -94,7 +93,7 @@ Groomed on 2026-05-27 from all `wa.task.*` notes in the Weave archive. [[wa.task
 - [[wa.task.2026.2026-05-04-split-extraction-from-page-selection]]: still directionally active but too broad; should be revised after ReferenceLink and page-selection vocabulary settles.
 - [[wa.task.2026.2026-05-06-grand-config-synthesis]]: umbrella mostly executed; residual items are default-segment hints, historical ResourcePage regeneration policy, path/URL trust alignment, tests, and docs.
 - [[wa.task.2026.2026-05-22_1128-referencelink-clarification]]: needs cross-repo audit before note edits.
-- [[wa.task.2026.2026-05-24_2304-honor-mesh-config]]: needs task-note cleanup after the current config-source work.
+- [[wa.task.2026.2026-05-24_2304-honor-mesh-config]]: needs task-note cleanup after Knop config inheritance work.
 - [[wa.task.2026.2026-05-24_2353-autolinking]]: needs a real implementation plan.
 - [[wa.task.2026.2026-05-25-markdown-it]]: needs a keep-small-renderer versus adopt-library decision.
 - [[wa.task.2026.2026-05-27_1314-oxigraph]]: needs conversion into a concrete spike or parking-lot item.
@@ -108,8 +107,10 @@ Groomed on 2026-05-27 from all `wa.task.*` notes in the Weave archive. [[wa.task
 
 ### Appears Completed Or Deferred
 
+- [[wa.completed.2026.2026-05-24_1748-shared-artifact-resolution-runtime-service]]: completed first resolver slice; broader consumer migration remains tracked by [[wa.task.2026.2026-05-24_1648-ArtifactResolutionTarget-subclass-cleanup]] and the current Knop config task.
+- [[wa.completed.2026.2026-05-27_1246-config-source-discovery-and-resolution]]: completed mesh-local config-source discovery and resolution; Knop-local and inherited config moved to [[wa.task.2026.2026-05-27_1914-knop-config-source-discovery-and-inheritance]].
 - [[wa.task.2026.2026-05-22_2253-resourcepage-config-and-templating]]: appears completed except for future low-impact panel presentation modes.
 - [[wa.task.2026.2026-05-22_2308-fixture-helper-generalization]]: completed.
-- [[wa.task.2026.2026-05-23_2230-custom-resourcepage-shared-shell-fixture]]: completed, with Carol-specific work deferred to [[wa.task.2026.2026-05-25_0849-carol]].
-- [[wa.task.2026.2026-05-25_0849-carol]]: completed; the fixture branches `a.26-carol` and `a.27-carol-woven` exist and the note checklist was corrected during this grooming pass.
-- [[wa.task.2026.2026-05-27_1347-drop-MeshInheritableConfig]]: completed.
+- [[wa.task.2026.2026-05-23_2230-custom-resourcepage-shared-shell-fixture]]: completed, with Carol-specific work deferred to [[wa.completed.2026.2026-05-25_0849-carol]].
+- [[wa.completed.2026.2026-05-25_0849-carol]]: completed; the fixture branches `a.26-carol` and `a.27-carol-woven` exist and the note checklist was corrected during this grooming pass.
+- [[wa.completed.2026.2026-05-27_1347-drop-MeshInheritableConfig]]: completed.

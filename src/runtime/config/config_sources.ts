@@ -1,5 +1,6 @@
 import { resolve, toFileUrl } from "@std/path";
 import { Parser, type Quad, type Term } from "n3";
+import { toKnopPath } from "../../core/designator_segments.ts";
 import {
   RDF_NAMESPACE,
   SFCFG_NAMESPACE,
@@ -16,6 +17,10 @@ import {
   type OperationalLocalPathPolicy,
   resolveAllowedLocalPath,
 } from "../operational/local_path_policy.ts";
+import {
+  type ProjectedInheritedConfigSource,
+  resolveKnopInheritedConfigSources,
+} from "./inheritance.ts";
 
 const RDF_TYPE_IRI = `${RDF_NAMESPACE}type`;
 const SFCFG_CONFIG_SOURCE_IRI = `${SFCFG_NAMESPACE}ConfigSource`;
@@ -30,12 +35,30 @@ export interface MeshLocalConfigInput {
   source: string;
 }
 
+export type ConfigSourceLayerRole =
+  | "meshLocal"
+  | "knopInherited"
+  | "knopLocal";
+
+export interface LayeredConfigInput extends MeshLocalConfigInput {
+  layerRole: ConfigSourceLayerRole;
+  sourceOrder: number;
+}
+
+export interface KnopConfigScopeInput {
+  scopeKey: string;
+  turtle: string;
+  source?: string;
+}
+
 export interface ConfigSourceResolutionTraceEntry {
   kind: "configSource";
   status: "accepted" | "skipped";
   declaredInSource: string;
   attachmentSubject: string;
-  attachmentProperty: typeof SFCFG_HAS_CONFIG_SOURCE_IRI;
+  attachmentProperty:
+    | typeof SFCFG_HAS_CONFIG_SOURCE_IRI
+    | typeof SFCFG_HAS_INHERITABLE_CONFIG_SOURCE_IRI;
   sourceTerm: string;
   sourceIri?: string;
   requested: ArtifactResolutionRequest;
@@ -43,7 +66,12 @@ export interface ConfigSourceResolutionTraceEntry {
   resolvedLocatedFileIri?: string;
   resolvedHistoricalStateIri?: string;
   contentDigest?: string;
-  layerRole: "meshLocal";
+  layerRole: ConfigSourceLayerRole;
+  sourceOrder?: number;
+  authoredScopeKey?: string;
+  offeredByScopeKey?: string;
+  projectedToScopeKey?: string;
+  projection?: "ancestorInherited" | "selfInclusiveOffer";
   reason?: string;
 }
 
@@ -54,6 +82,13 @@ export interface DiscoverMeshLocalConfigSourcesOptions {
   seedDocuments: readonly MeshLocalConfigInput[];
 }
 
+export interface DiscoverKnopConfigSourcesOptions {
+  meshRoot: string;
+  meshBase: string;
+  localPathPolicy: OperationalLocalPathPolicy;
+  knopScopePath: readonly KnopConfigScopeInput[];
+}
+
 interface ParsedConfigSourceDocument extends MeshLocalConfigInput {
   quads: readonly Quad[];
 }
@@ -61,9 +96,16 @@ interface ParsedConfigSourceDocument extends MeshLocalConfigInput {
 interface ConfigSourceAttachment {
   document: ParsedConfigSourceDocument;
   subjectKey: string;
+  attachmentProperty:
+    | typeof SFCFG_HAS_CONFIG_SOURCE_IRI
+    | typeof SFCFG_HAS_INHERITABLE_CONFIG_SOURCE_IRI;
   sourceTerm: string;
   sourceIri?: string;
   object: Term;
+  authoredScopeKey?: string;
+  offeredByScopeKey?: string;
+  projectedToScopeKey?: string;
+  projection?: "ancestorInherited" | "selfInclusiveOffer";
 }
 
 export class ConfigSourceDiscoveryError extends Error {
@@ -146,6 +188,8 @@ export async function discoverMeshLocalConfigSources(
         attachment,
         result,
         "skipped",
+        "meshLocal",
+        undefined,
         "duplicate resolved config source",
       ));
       return;
@@ -180,6 +224,89 @@ export async function discoverMeshLocalConfigSources(
   return { configInputs, resolutionTrace };
 }
 
+export async function discoverKnopConfigSources(
+  options: DiscoverKnopConfigSourcesOptions,
+): Promise<{
+  configInputs: readonly LayeredConfigInput[];
+  resolutionTrace: readonly ConfigSourceResolutionTraceEntry[];
+}> {
+  if (options.knopScopePath.length === 0) {
+    return { configInputs: [], resolutionTrace: [] };
+  }
+
+  const context = {
+    meshRoot: options.meshRoot,
+    meshBase: options.meshBase,
+    localPathPolicy: options.localPathPolicy,
+  };
+  const parsedScopes = options.knopScopePath.map((scope) => {
+    const source = scope.source ??
+      `${toKnopPath(scope.scopeKey)}/_meta/meta.ttl`;
+    return {
+      scopeKey: scope.scopeKey,
+      subjectKey: `NamedNode:${
+        new URL(
+          toKnopPath(scope.scopeKey),
+          ensureDirectoryIri(options.meshBase),
+        )
+          .href
+      }`,
+      document: parseConfigSourceDocument({
+        turtle: scope.turtle,
+        source,
+      }),
+    };
+  });
+  const scopes = parsedScopes.map((scope) => {
+    const attachments = collectKnopConfigSourceAttachments(
+      scope.document,
+      scope.subjectKey,
+      scope.scopeKey,
+    );
+    return {
+      ...scope,
+      localSources: attachments.localSources,
+      inheritableSources: attachments.inheritableSources,
+    };
+  });
+  const targetScope = scopes.at(-1)!;
+  const targetScopeKey = targetScope.scopeKey;
+  const projectedInheritedSources = resolveKnopInheritedConfigSources(
+    scopes.map((scope) => ({
+      scopeKey: scope.scopeKey,
+      inheritableSources: scope.inheritableSources,
+    })),
+  );
+
+  const inherited = await resolveLayeredConfigSourceAttachments({
+    context,
+    localPathPolicy: options.localPathPolicy,
+    layerRole: "knopInherited",
+    initialAttachments: orderProjectedInheritedSourcesForPrecedence(
+      projectedInheritedSources,
+    ).map((projection) =>
+      toProjectedConfigSourceAttachment(projection, targetScopeKey)
+    ),
+  });
+  const local = await resolveLayeredConfigSourceAttachments({
+    context,
+    localPathPolicy: options.localPathPolicy,
+    layerRole: "knopLocal",
+    initialAttachments: targetScope.localSources,
+  });
+
+  return {
+    configInputs: [
+      ...inherited.configInputs,
+      ...local.configInputs,
+    ],
+    resolutionTrace: [
+      ...inherited.resolutionTrace,
+      ...local.resolutionTrace,
+    ],
+  };
+}
+
 function collectMeshLocalConfigSourceAttachments(
   document: ParsedConfigSourceDocument,
   activeMeshSubjectKey: string,
@@ -198,7 +325,7 @@ function collectMeshLocalConfigSourceAttachments(
     const subjectKey = toTermKey(quad.subject);
     if (quad.predicate.value === SFCFG_HAS_INHERITABLE_CONFIG_SOURCE_IRI) {
       throw new ConfigSourceDiscoveryError(
-        `${SFCFG_HAS_INHERITABLE_CONFIG_SOURCE_IRI} in ${document.source} is unsupported until Knop config-source inheritance is implemented.`,
+        `${SFCFG_HAS_INHERITABLE_CONFIG_SOURCE_IRI} in ${document.source} is supported only by Knop metadata discovery, not mesh-local config-source discovery.`,
       );
     }
 
@@ -212,7 +339,7 @@ function collectMeshLocalConfigSourceAttachments(
         )
       ) {
         throw new ConfigSourceDiscoveryError(
-          `${SFCFG_HAS_CONFIG_SOURCE_IRI} on sflo:Knop in ${document.source} is unsupported until Knop config-source discovery is implemented.`,
+          `${SFCFG_HAS_CONFIG_SOURCE_IRI} on sflo:Knop in ${document.source} is supported only by Knop metadata discovery, not mesh-local config-source discovery.`,
         );
       }
       throw new ConfigSourceDiscoveryError(
@@ -250,6 +377,7 @@ function collectMeshLocalConfigSourceAttachments(
     attachments.set(sourceTerm, {
       document,
       subjectKey,
+      attachmentProperty: SFCFG_HAS_CONFIG_SOURCE_IRI,
       sourceTerm,
       ...(quad.object.termType === "NamedNode"
         ? { sourceIri: quad.object.value }
@@ -261,6 +389,237 @@ function collectMeshLocalConfigSourceAttachments(
   return [...attachments.values()].sort((left, right) =>
     left.sourceTerm.localeCompare(right.sourceTerm)
   );
+}
+
+function collectKnopConfigSourceAttachments(
+  document: ParsedConfigSourceDocument,
+  activeKnopSubjectKey: string,
+  activeScopeKey: string,
+): {
+  localSources: readonly ConfigSourceAttachment[];
+  inheritableSources: readonly ConfigSourceAttachment[];
+} {
+  const localSources = new Map<string, ConfigSourceAttachment>();
+  const inheritableSources = new Map<string, ConfigSourceAttachment>();
+
+  for (const quad of document.quads) {
+    if (
+      quad.predicate.value !== SFCFG_HAS_CONFIG_SOURCE_IRI &&
+      quad.predicate.value !== SFCFG_HAS_INHERITABLE_CONFIG_SOURCE_IRI
+    ) {
+      continue;
+    }
+
+    const subjectKey = toTermKey(quad.subject);
+    if (subjectKey !== activeKnopSubjectKey) {
+      throw new ConfigSourceDiscoveryError(
+        `${quad.predicate.value} in ${document.source} is supported only on the active Knop ${activeKnopSubjectKey}; found ${
+          describeTerm(quad.subject)
+        }.`,
+      );
+    }
+    requireTermHasType(
+      document.quads,
+      subjectKey,
+      SFLO_KNOP_IRI,
+      document.source,
+    );
+    if (quad.object.termType === "Literal") {
+      throw new ConfigSourceDiscoveryError(
+        `${quad.predicate.value} values in ${document.source} must be named or blank nodes.`,
+      );
+    }
+
+    const sourceTerm = toTermKey(quad.object);
+    requireTermHasType(
+      document.quads,
+      sourceTerm,
+      SFCFG_CONFIG_SOURCE_IRI,
+      document.source,
+    );
+    const attachment: ConfigSourceAttachment = {
+      document,
+      subjectKey,
+      attachmentProperty: quad.predicate.value as
+        | typeof SFCFG_HAS_CONFIG_SOURCE_IRI
+        | typeof SFCFG_HAS_INHERITABLE_CONFIG_SOURCE_IRI,
+      sourceTerm,
+      ...(quad.object.termType === "NamedNode"
+        ? { sourceIri: quad.object.value }
+        : {}),
+      object: quad.object,
+      authoredScopeKey: activeScopeKey,
+      offeredByScopeKey: activeScopeKey,
+    };
+    const attachmentMap = quad.predicate.value === SFCFG_HAS_CONFIG_SOURCE_IRI
+      ? localSources
+      : inheritableSources;
+    attachmentMap.set(sourceTerm, attachment);
+  }
+
+  return {
+    localSources: sortAttachments(localSources.values()),
+    inheritableSources: sortAttachments(inheritableSources.values()),
+  };
+}
+
+function sortAttachments(
+  attachments: Iterable<ConfigSourceAttachment>,
+): readonly ConfigSourceAttachment[] {
+  return [...attachments].sort((left, right) =>
+    left.sourceTerm.localeCompare(right.sourceTerm)
+  );
+}
+
+function toProjectedConfigSourceAttachment(
+  projection: ProjectedInheritedConfigSource<ConfigSourceAttachment>,
+  targetScopeKey: string,
+): ConfigSourceAttachment {
+  return {
+    ...projection.source,
+    offeredByScopeKey: projection.offeredByScopeKey,
+    projectedToScopeKey: targetScopeKey,
+    projection: projection.projection,
+  };
+}
+
+function orderProjectedInheritedSourcesForPrecedence(
+  projections: readonly ProjectedInheritedConfigSource<
+    ConfigSourceAttachment
+  >[],
+): readonly ProjectedInheritedConfigSource<ConfigSourceAttachment>[] {
+  const ordered: ProjectedInheritedConfigSource<ConfigSourceAttachment>[] = [];
+  for (let index = projections.length - 1; index >= 0;) {
+    const offeredByScopeKey = projections[index]!.offeredByScopeKey;
+    let groupStart = index;
+    while (
+      groupStart > 0 &&
+      projections[groupStart - 1]!.offeredByScopeKey === offeredByScopeKey
+    ) {
+      groupStart -= 1;
+    }
+    ordered.push(...projections.slice(groupStart, index + 1));
+    index = groupStart - 1;
+  }
+  return ordered;
+}
+
+async function resolveLayeredConfigSourceAttachments(
+  input: {
+    context: {
+      meshRoot: string;
+      meshBase: string;
+      localPathPolicy: OperationalLocalPathPolicy;
+    };
+    localPathPolicy: OperationalLocalPathPolicy;
+    layerRole: "knopInherited" | "knopLocal";
+    initialAttachments: readonly ConfigSourceAttachment[];
+  },
+): Promise<{
+  configInputs: readonly LayeredConfigInput[];
+  resolutionTrace: readonly ConfigSourceResolutionTraceEntry[];
+}> {
+  const configInputs: LayeredConfigInput[] = [];
+  const resolutionTrace: ConfigSourceResolutionTraceEntry[] = [];
+  const seenAttachments = new Set<string>();
+  const seenResolvedSources = new Set<string>();
+  let nextSourceOrder = 0;
+
+  async function discoverFromAttachment(
+    attachment: ConfigSourceAttachment,
+    stack: readonly string[],
+  ): Promise<void> {
+    const attachmentKey =
+      `${attachment.document.source} ${attachment.attachmentProperty} ${attachment.sourceTerm}`;
+    if (seenAttachments.has(attachmentKey)) {
+      return;
+    }
+    seenAttachments.add(attachmentKey);
+
+    const sourceDescription =
+      `${attachment.document.source} ${attachment.attachmentProperty} ${attachment.sourceTerm}`;
+    const request = parseArtifactResolutionSpecQuads(
+      attachment.document.quads,
+      attachment.object,
+      { sourceDescription },
+    );
+    const result = await resolveArtifactResolutionRequest(
+      input.context,
+      request,
+      { contentMode: "text" },
+    );
+    const resolvedIdentity = resolvedConfigSourceIdentity(result);
+
+    if (stack.includes(resolvedIdentity)) {
+      throw new ConfigSourceDiscoveryError(
+        `Cyclic ${input.layerRole} config-source reference detected: ${
+          [...stack, resolvedIdentity].join(" -> ")
+        }`,
+      );
+    }
+
+    if (seenResolvedSources.has(resolvedIdentity)) {
+      resolutionTrace.push(traceEntryForAttachment(
+        attachment,
+        result,
+        "skipped",
+        input.layerRole,
+        undefined,
+        "duplicate resolved config source",
+      ));
+      return;
+    }
+    seenResolvedSources.add(resolvedIdentity);
+
+    const text = result.content?.text;
+    if (text === undefined) {
+      throw new ConfigSourceDiscoveryError(
+        `Resolved config source did not provide Turtle text: ${sourceDescription}`,
+      );
+    }
+
+    const sourceOrder = nextSourceOrder;
+    nextSourceOrder += 1;
+    const source = sourceLabelForResult(result, input.localPathPolicy);
+    configInputs.push({
+      turtle: text,
+      source,
+      layerRole: input.layerRole,
+      sourceOrder,
+    });
+    resolutionTrace.push(traceEntryForAttachment(
+      attachment,
+      result,
+      "accepted",
+      input.layerRole,
+      sourceOrder,
+    ));
+
+    const parsed = parseConfigSourceDocument({ turtle: text, source });
+    const recursiveAttachments = collectKnopConfigSourceAttachments(
+      parsed,
+      attachment.subjectKey,
+      attachment.authoredScopeKey ?? "",
+    ).localSources.map((recursiveAttachment) => ({
+      ...recursiveAttachment,
+      authoredScopeKey: attachment.authoredScopeKey,
+      offeredByScopeKey: attachment.offeredByScopeKey,
+      projectedToScopeKey: attachment.projectedToScopeKey,
+      projection: attachment.projection,
+    }));
+    for (const recursiveAttachment of recursiveAttachments) {
+      await discoverFromAttachment(recursiveAttachment, [
+        ...stack,
+        resolvedIdentity,
+      ]);
+    }
+  }
+
+  for (const attachment of input.initialAttachments) {
+    await discoverFromAttachment(attachment, []);
+  }
+
+  return { configInputs, resolutionTrace };
 }
 
 function parseConfigSourceDocument(
@@ -285,6 +644,8 @@ function traceEntryForAttachment(
   attachment: ConfigSourceAttachment,
   result: ArtifactResolutionResult,
   status: ConfigSourceResolutionTraceEntry["status"],
+  layerRole: ConfigSourceLayerRole = "meshLocal",
+  sourceOrder?: number,
   reason?: string,
 ): ConfigSourceResolutionTraceEntry {
   return {
@@ -292,7 +653,7 @@ function traceEntryForAttachment(
     status,
     declaredInSource: attachment.document.source,
     attachmentSubject: attachment.subjectKey,
-    attachmentProperty: SFCFG_HAS_CONFIG_SOURCE_IRI,
+    attachmentProperty: attachment.attachmentProperty,
     sourceTerm: attachment.sourceTerm,
     ...(attachment.sourceIri ? { sourceIri: attachment.sourceIri } : {}),
     requested: result.requested,
@@ -308,7 +669,18 @@ function traceEntryForAttachment(
     ...(result.observed.contentDigest
       ? { contentDigest: result.observed.contentDigest }
       : {}),
-    layerRole: "meshLocal",
+    layerRole,
+    ...(sourceOrder !== undefined ? { sourceOrder } : {}),
+    ...(attachment.authoredScopeKey !== undefined
+      ? { authoredScopeKey: attachment.authoredScopeKey }
+      : {}),
+    ...(attachment.offeredByScopeKey !== undefined
+      ? { offeredByScopeKey: attachment.offeredByScopeKey }
+      : {}),
+    ...(attachment.projectedToScopeKey !== undefined
+      ? { projectedToScopeKey: attachment.projectedToScopeKey }
+      : {}),
+    ...(attachment.projection ? { projection: attachment.projection } : {}),
     ...(reason ? { reason } : {}),
   };
 }

@@ -51,7 +51,7 @@ Before starting substantial code changes, a task note should be written and refi
 
 Before a task is closed, [[wd.decision-log]] can be updated with important decisions made.
 
-The backlogs is kept in [[wd.todo]] and should be updated as tasks are completed.
+The backlog is kept in [[wd.todo]] and should be updated as tasks are completed.
 
 ## Behavior specs
 

@@ -24,6 +24,7 @@ import {
 } from "./candidate_loader.ts";
 import {
   loadEffectiveConfigForExecution,
+  loadKnopConfigScopePathForTarget,
   namingPoliciesFromEffectiveConfig,
   resourcePageGenerationPoliciesFromEffectiveConfig,
   supportHistoryPoliciesFromEffectiveConfig,
@@ -73,30 +74,6 @@ export async function prepareVersionExecution(
     "prepare.loadMeshState",
     () => loadMeshState(workspaceRoot),
   );
-  const effectiveConfig = await timeOptional(
-    timing,
-    "prepare.loadEffectiveConfig",
-    () =>
-      loadEffectiveConfigForExecution({
-        meshConfigTurtle: meshState.currentMeshConfigTurtle,
-        meshConfigSource: meshState.currentMeshConfigTurtle
-          ? "_mesh/_config/config.ttl"
-          : undefined,
-        meshRoot: workspaceRoot,
-        meshBase: meshState.meshBase,
-        meshMetadataTurtle: meshState.currentMeshMetadataTurtle,
-        meshMetadataSource: "_mesh/_meta/meta.ttl",
-        meshInventoryTurtle: meshState.currentMeshInventoryTurtle,
-        localPathPolicy,
-        historyTrackingPolicyOverride,
-      }),
-  );
-  const supportHistoryPolicies = supportHistoryPoliciesFromEffectiveConfig(
-    effectiveConfig,
-  );
-  const namingPolicies = namingPoliciesFromEffectiveConfig(effectiveConfig);
-  const resourcePageGenerationPolicies =
-    resourcePageGenerationPoliciesFromEffectiveConfig(effectiveConfig);
   const allDesignatorPaths = timeOptionalSync(
     timing,
     "prepare.listDesignatorPaths",
@@ -151,6 +128,46 @@ export async function prepareVersionExecution(
     targets,
     initialWeaveableKnops,
   );
+  // Knop config is target-scoped; multi-target versioning needs per-target
+  // effective config before this can be safely broadened.
+  const knopConfigScopePath = initialWeaveableKnops.length === 1
+    ? await timeOptional(
+      timing,
+      "prepare.loadKnopConfigScopePath",
+      () =>
+        loadKnopConfigScopePathForTarget({
+          workspaceRoot,
+          designatorPath: initialWeaveableKnops[0]!.designatorPath,
+          targetMetadataTurtle: initialWeaveableKnops[0]!
+            .currentKnopMetadataTurtle,
+        }),
+    )
+    : undefined;
+  const effectiveConfig = await timeOptional(
+    timing,
+    "prepare.loadEffectiveConfig",
+    () =>
+      loadEffectiveConfigForExecution({
+        meshConfigTurtle: meshState.currentMeshConfigTurtle,
+        meshConfigSource: meshState.currentMeshConfigTurtle
+          ? "_mesh/_config/config.ttl"
+          : undefined,
+        meshRoot: workspaceRoot,
+        meshBase: meshState.meshBase,
+        meshMetadataTurtle: meshState.currentMeshMetadataTurtle,
+        meshMetadataSource: "_mesh/_meta/meta.ttl",
+        meshInventoryTurtle: meshState.currentMeshInventoryTurtle,
+        localPathPolicy,
+        knopConfigScopePath,
+        historyTrackingPolicyOverride,
+      }),
+  );
+  const supportHistoryPolicies = supportHistoryPoliciesFromEffectiveConfig(
+    effectiveConfig,
+  );
+  const namingPolicies = namingPoliciesFromEffectiveConfig(effectiveConfig);
+  const resourcePageGenerationPolicies =
+    resourcePageGenerationPoliciesFromEffectiveConfig(effectiveConfig);
 
   if (initialWeaveableKnops.length === 0) {
     if (targets.length === 0) {
