@@ -19,6 +19,25 @@ import {
   resolveAllowedLocalPath,
   resolveRepositorySourceFloatingLocalPath,
 } from "../operational/local_path_policy.ts";
+import type {
+  ArtifactResolutionContentMode,
+  ArtifactResolutionContext,
+  ArtifactResolutionMode,
+  ArtifactResolutionObservedCoordinates,
+  ArtifactResolutionOptions,
+  ArtifactResolutionRequest,
+  ArtifactResolutionResult,
+} from "./models.ts";
+export type {
+  ArtifactResolutionContent,
+  ArtifactResolutionContentMode,
+  ArtifactResolutionContext,
+  ArtifactResolutionMode,
+  ArtifactResolutionObservedCoordinates,
+  ArtifactResolutionOptions,
+  ArtifactResolutionRequest,
+  ArtifactResolutionResult,
+} from "./models.ts";
 
 const RDF_TYPE_IRI = `${RDF_NAMESPACE}type`;
 const SFLO_TARGET_ARTIFACT_IRI = `${SFLO_NAMESPACE}targetArtifact`;
@@ -56,57 +75,6 @@ const PAGE_DEFINITION_ARTIFACT_SUFFIX = "/_knop/_page";
 const ROOT_PAGE_DEFINITION_ARTIFACT_PATH = "_knop/_page";
 const ROOT_REFERENCE_CATALOG_PATH = "_knop/_references";
 const REFERENCE_CATALOG_SUFFIX = "/_knop/_references";
-
-export type ArtifactResolutionMode = "working" | "latestState";
-export type ArtifactResolutionContentMode = "none" | "bytes" | "text";
-
-export interface ArtifactResolutionRequest {
-  sourceTerm?: string;
-  sourceIri?: string;
-  sourceDescription?: string;
-  targetArtifactIri?: string;
-  targetArtifactHistoryIri?: string;
-  targetHistoricalStateIri?: string;
-  targetManifestationIri?: string;
-  targetLocatedFileIri?: string;
-  targetLocalRelativePath?: string;
-  targetAccessUrl?: string;
-  targetRepositorySourceTerm?: string;
-  repositorySourceFloatingLocatorTerm?: string;
-  fallbackArtifactResolutionSpecTerm?: string;
-  mode?: ArtifactResolutionMode;
-  expectedContentDigest?: string;
-}
-
-export interface ArtifactResolutionObservedCoordinates {
-  historicalStateIri?: string;
-  manifestationIri?: string;
-  locatedFileIri?: string;
-  localRelativePath?: string;
-  contentDigest?: string;
-}
-
-export interface ArtifactResolutionContent {
-  bytes: Uint8Array;
-  text?: string;
-}
-
-export interface ArtifactResolutionResult {
-  requested: ArtifactResolutionRequest;
-  observed: ArtifactResolutionObservedCoordinates;
-  content?: ArtifactResolutionContent;
-}
-
-export interface ArtifactResolutionContext {
-  meshRoot: string;
-  meshBase: string;
-  localPathPolicy: OperationalLocalPathPolicy;
-  overlay?: ReadonlyMap<string, string>;
-}
-
-export interface ArtifactResolutionOptions {
-  contentMode?: ArtifactResolutionContentMode;
-}
 
 interface ArtifactResolutionSpecParseOptions {
   sourceDescription?: string;
