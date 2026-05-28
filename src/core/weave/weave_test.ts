@@ -3364,6 +3364,65 @@ Deno.test("planWeave renders the first page-definition weave slice", async () =>
   ]);
 });
 
+Deno.test("planWeave supports current-only first page-definition weave", async () => {
+  const meshBase = "https://semantic-flow.github.io/mesh-alice-bio/";
+  const pageDefinitionTurtle = await readMeshAliceBioBranchFile(
+    "14-alice-page-customized",
+    "alice/_knop/_page/page.ttl",
+  );
+  const plan = planWeave({
+    request: {
+      targets: [{ designatorPath: "alice" }],
+    },
+    meshBase,
+    currentMeshInventoryTurtle: await readMeshAliceBioBranchFile(
+      "14-alice-page-customized",
+      "_mesh/_inventory/inventory.ttl",
+    ),
+    weaveableKnops: [{
+      designatorPath: "alice",
+      currentKnopMetadataTurtle: await readMeshAliceBioBranchFile(
+        "14-alice-page-customized",
+        "alice/_knop/_meta/meta.ttl",
+      ),
+      currentKnopInventoryTurtle: await readMeshAliceBioBranchFile(
+        "14-alice-page-customized",
+        "alice/_knop/_inventory/inventory.ttl",
+      ),
+      resourcePageDefinitionArtifact: {
+        artifactPath: "alice/_knop/_page",
+        workingLocalRelativePath: "alice/_knop/_page/page.ttl",
+        currentPageDefinitionTurtle: pageDefinitionTurtle,
+        currentArtifactHistoryExists: false,
+        assetBundlePath: "alice/_knop/_assets",
+      },
+    }],
+    supportHistoryPolicies: {
+      resourcePageDefinition: "currentOnly",
+    },
+  });
+
+  assertEquals(plan.wovenDesignatorPaths, ["alice"]);
+  assertEquals(plan.createdFiles, []);
+  assertEquals(plan.updatedFiles.map((file) => file.path), [
+    "alice/_knop/_inventory/inventory.ttl",
+  ]);
+  assertEquals(plan.createdPages.map((page) => page.path), [
+    "alice/index.html",
+    "alice/_knop/_page/index.html",
+  ]);
+  const updatedKnopInventory = plan.updatedFiles[0]?.contents ?? "";
+  assertStringIncludes(
+    updatedKnopInventory,
+    "sflo:hasResourcePage <alice/_knop/_page/index.html>",
+  );
+  assertFalse(updatedKnopInventory.includes("alice/_knop/_page/_history001"));
+  assertEquals(
+    detectPendingWeaveSlice(meshBase, "alice", updatedKnopInventory),
+    undefined,
+  );
+});
+
 Deno.test("planWeave generalizes the first page-definition weave slice for earlier KnopInventory states", async () => {
   const meshBase = "https://semantic-flow.github.io/mesh-alice-bio/";
   const currentKnopInventoryTurtle = (

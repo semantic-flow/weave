@@ -2,7 +2,7 @@
 id: 5d7q7j0ra3tybq1dn6e1zha
 title: Todo
 desc: ''
-updated: 1779938419917
+updated: 1779947902489
 created: 1774046031081
 ---
 
@@ -13,14 +13,14 @@ Groomed on 2026-05-27 from all `wa.task.*` notes in the Weave archive. Updated a
 
 ### Current Work And Next Pick
 
-- [x] Finish in-progress [[wa.task.2026.2026-05-27_2215-resourcepage-source-resolution-semantics]]: exact `targetHistoricalState`, one-level fallback, no fallback for malformed/unsafe/unsupported specs, and focused resolver/page-definition tests.
+- [x] Finish in-progress [[wa.completed.2026.2026-05-27_2215-resourcepage-source-resolution-semantics]]: exact `targetHistoricalState`, one-level fallback, no fallback for malformed/unsafe/unsupported specs, and focused resolver/page-definition tests.
 - [ ] Next after ResourcePageSource: groom [[wa.task.2026.2026-05-05-optional-history-and-slim-support-artifacts-by-default]] into a narrow runtime-history slice for current-only `_knop/_page`, ResourcePage rendering when `_knop/_page/_history001` is absent, and history-policy behavior through per-target effective config.
 - [ ] Keep [[wa.task.2026.2026-05-17-append-onlyish-inventory]] as the next larger inventory-correctness task after the current history-policy slice is bounded.
 
 ### P0: Current Config And Resolution Follow-Ups
 
-- [x] Implement [[wa.task.2026.2026-05-27-2031-per-target-effective-config-resolution]] before applying Knop-local/inherited config to recursive or multi-target version/generate/weave operations.
-- [x] Finish [[wa.task.2026.2026-05-27_2215-resourcepage-source-resolution-semantics]] as the first broader page-source resolver cleanup consumer from [[wa.completed.2026.2026-05-24_1748-shared-artifact-resolution-runtime-service]] and [[wa.task.2026.2026-04-08_1545-resource-page-definition-and-sources]].
+- [x] Implement [[wa.completed.2026.2026-05-27-2031-per-target-effective-config-resolution]] before applying Knop-local/inherited config to recursive or multi-target version/generate/weave operations.
+- [x] Finish [[wa.completed.2026.2026-05-27_2215-resourcepage-source-resolution-semantics]] as the first broader page-source resolver cleanup consumer from [[wa.completed.2026.2026-05-24_1748-shared-artifact-resolution-runtime-service]] and [[wa.task.2026.2026-04-08_1545-resource-page-definition-and-sources]].
 - [ ] Groom and implement [[wa.task.2026.2026-05-05-optional-history-and-slim-support-artifacts-by-default]] after ResourcePageSource exact/fallback semantics land; focus the slice on per-target history policy behavior and current-only ResourcePageDefinition support artifacts.
 - [ ] Keep path and URL trust policy aligned with [[wa.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]], [[wa.task.2026.2026-05-20_2152-workingAccessUrl]], and the config-source resolver. Do not let portable mesh config silently grant broader host trust.
 - [ ] Document config-source bootstrap authoring now that tests exercise it correctly: mesh-local config-source attachments belong in `_mesh/_meta/meta.ttl`, Knop-local and inheritable attachments belong in current Knop metadata, and the resolved `_config/*.ttl` files are config payloads rather than bootstrap authority.

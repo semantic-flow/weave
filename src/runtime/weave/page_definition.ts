@@ -127,7 +127,7 @@ export async function loadActiveCustomIdentifierPage(
   designatorPath: string,
   artifact: ResourcePageDefinitionWorkingArtifact | undefined,
 ): Promise<CustomIdentifierPageModelInput | undefined> {
-  if (!artifact || !artifact.currentArtifactHistoryExists) {
+  if (!artifact) {
     return undefined;
   }
 

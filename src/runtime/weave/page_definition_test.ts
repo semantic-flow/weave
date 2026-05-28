@@ -31,6 +31,26 @@ Deno.test("loadActiveCustomIdentifierPage resolves authored regions without dire
   });
 });
 
+Deno.test("loadActiveCustomIdentifierPage resolves current-only ResourcePageDefinitions", async () => {
+  await withPageDefinitionFixture(async ({ meshRoot, policy }) => {
+    const page = await loadActiveCustomIdentifierPage(
+      meshRoot,
+      policy,
+      MESH_BASE,
+      "alice",
+      {
+        artifactPath: "alice/_knop/_page",
+        workingLocalRelativePath: "alice/_knop/_page/page.ttl",
+        currentPageDefinitionTurtle: pageDefinitionTurtle(),
+        currentArtifactHistoryExists: false,
+      },
+    );
+
+    assertEquals(page?.definitionPath, "alice/_knop/_page");
+    assertEquals(page?.regions[0]?.markdown, "# Alice\n");
+  });
+});
+
 Deno.test("loadActiveCustomIdentifierPage resolves explicit generated ResourcePage panel selections", async () => {
   await withPageDefinitionFixture(async ({ meshRoot, policy }) => {
     const rawSourcePanelSelectionIri =

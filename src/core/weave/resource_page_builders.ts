@@ -355,6 +355,22 @@ export function buildSubsequentPageDefinitionWeavePages(
   ];
 }
 
+export function buildCurrentOnlyPageDefinitionWeavePages(
+  designatorPath: string,
+): readonly ResourcePageModel[] {
+  const knopPath = toKnopPath(designatorPath);
+  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
+  const displayDesignatorPath = formatDesignatorPathForDisplay(designatorPath);
+
+  return [
+    identifierPage(designatorPagePath, designatorPath),
+    simplePage(
+      `${knopPath}/_page/index.html`,
+      `Resource page for the ${displayDesignatorPath} ResourcePageDefinition artifact.`,
+    ),
+  ];
+}
+
 export function buildSecondPayloadWeavePages(
   designatorPath: string,
   payloadLayout: PayloadVersionLayout,
