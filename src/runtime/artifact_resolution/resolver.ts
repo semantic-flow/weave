@@ -66,7 +66,9 @@ const SFLO_EXPECTS_CONTENT_DIGEST_IRI = `${SFLO_NAMESPACE}expectsContentDigest`;
 const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
   `${SFLO_NAMESPACE}currentArtifactHistory`;
 const SFLO_HAS_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}hasArtifactHistory`;
+const SFLO_HAS_HISTORICAL_STATE_IRI = `${SFLO_NAMESPACE}hasHistoricalState`;
 const SFLO_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}ArtifactHistory`;
+const SFLO_HISTORICAL_STATE_IRI = `${SFLO_NAMESPACE}HistoricalState`;
 const SFLO_LATEST_HISTORICAL_STATE_IRI =
   `${SFLO_NAMESPACE}latestHistoricalState`;
 const SFLO_LOCATED_FILE_FOR_STATE_IRI = `${SFLO_NAMESPACE}locatedFileForState`;
@@ -78,6 +80,21 @@ const REFERENCE_CATALOG_SUFFIX = "/_knop/_references";
 
 interface ArtifactResolutionSpecParseOptions {
   sourceDescription?: string;
+}
+
+interface ArtifactResolutionSpecQuadsOptions
+  extends ArtifactResolutionSpecParseOptions, ArtifactResolutionOptions {}
+
+export type ArtifactResolutionFailureKind =
+  | "validation"
+  | "unsupported"
+  | "unsafe"
+  | "unavailable"
+  | "digestMismatch"
+  | "decodeFailure";
+
+interface ArtifactResolutionErrorOptions extends ErrorOptions {
+  kind?: ArtifactResolutionFailureKind;
 }
 
 interface TargetArtifactDescriptor {
@@ -94,9 +111,12 @@ interface TargetArtifactInventory {
 }
 
 export class ArtifactResolutionError extends Error {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, options);
+  readonly kind: ArtifactResolutionFailureKind;
+
+  constructor(message: string, options: ArtifactResolutionErrorOptions = {}) {
+    super(message, { cause: options.cause });
     this.name = "ArtifactResolutionError";
+    this.kind = options.kind ?? "validation";
   }
 }
 
@@ -232,6 +252,81 @@ export function parseArtifactResolutionSpecQuads(
   });
 }
 
+export async function resolveArtifactResolutionSpecQuads(
+  context: ArtifactResolutionContext,
+  quads: readonly Quad[],
+  subject: Term | string,
+  options: ArtifactResolutionSpecQuadsOptions = {},
+): Promise<ArtifactResolutionResult> {
+  const request = parseArtifactResolutionSpecQuads(quads, subject, options);
+  return await resolveParsedArtifactResolutionSpec(
+    context,
+    quads,
+    request,
+    options,
+  );
+}
+
+async function resolveParsedArtifactResolutionSpec(
+  context: ArtifactResolutionContext,
+  quads: readonly Quad[],
+  request: ArtifactResolutionRequest,
+  options: ArtifactResolutionOptions,
+): Promise<ArtifactResolutionResult> {
+  const primaryRequest = withoutFallbackSpec(request);
+  try {
+    return await resolveArtifactResolutionRequest(
+      context,
+      primaryRequest,
+      options,
+    );
+  } catch (error) {
+    if (
+      request.fallbackArtifactResolutionSpecTerm === undefined ||
+      !isFallbackEligiblePrimary(primaryRequest, error)
+    ) {
+      throw error;
+    }
+
+    const primaryError = error as ArtifactResolutionError;
+    const fallbackTerm = request.fallbackArtifactResolutionSpecTerm;
+    const fallbackDescription = `${describeRequest(primaryRequest)} fallback ${
+      describeTermKey(fallbackTerm)
+    }`;
+    const fallbackRequest = parseArtifactResolutionSpecQuads(
+      quads,
+      fallbackTerm,
+      { sourceDescription: fallbackDescription },
+    );
+    if (fallbackRequest.fallbackArtifactResolutionSpecTerm !== undefined) {
+      throw new ArtifactResolutionError(
+        `${fallbackDescription} declares a nested hasFallbackArtifactResolutionSpec, which this resolver slice does not support.`,
+        { kind: "unsupported", cause: primaryError },
+      );
+    }
+
+    try {
+      return await resolveArtifactResolutionRequest(
+        context,
+        fallbackRequest,
+        options,
+      );
+    } catch (fallbackError) {
+      if (fallbackError instanceof ArtifactResolutionError) {
+        throw new ArtifactResolutionError(
+          `${
+            describeRequest(primaryRequest)
+          } failed before fallback: ${primaryError.message} Fallback ${
+            describeRequest(fallbackRequest)
+          } also failed: ${fallbackError.message}`,
+          { kind: fallbackError.kind, cause: fallbackError },
+        );
+      }
+      throw fallbackError;
+    }
+  }
+}
+
 export async function resolveArtifactResolutionRequest(
   context: ArtifactResolutionContext,
   request: ArtifactResolutionRequest,
@@ -307,6 +402,7 @@ function rejectUnsupportedRequestForms(
       `${
         describeRequest(request)
       } declares targetAccessUrl, which ordinary artifact resolution does not fetch.`,
+      { kind: "unsupported" },
     );
   }
   if (request.targetRepositorySourceTerm !== undefined) {
@@ -314,6 +410,7 @@ function rejectUnsupportedRequestForms(
       `${
         describeRequest(request)
       } declares targetRepositorySource, which this resolver slice does not fetch or map to local checkouts.`,
+      { kind: "unsupported" },
     );
   }
   if (request.repositorySourceFloatingLocatorTerm !== undefined) {
@@ -321,6 +418,7 @@ function rejectUnsupportedRequestForms(
       `${
         describeRequest(request)
       } declares hasRepositorySourceFloatingLocator directly on the resolution spec, which this resolver slice does not support yet.`,
+      { kind: "unsupported" },
     );
   }
   if (request.fallbackArtifactResolutionSpecTerm !== undefined) {
@@ -328,6 +426,7 @@ function rejectUnsupportedRequestForms(
       `${
         describeRequest(request)
       } declares hasFallbackArtifactResolutionSpec, which this resolver slice does not support yet.`,
+      { kind: "unsupported" },
     );
   }
   if (request.targetManifestationIri !== undefined) {
@@ -335,6 +434,7 @@ function rejectUnsupportedRequestForms(
       `${
         describeRequest(request)
       } declares targetManifestation, which this resolver slice does not support yet.`,
+      { kind: "unsupported" },
     );
   }
 }
@@ -493,6 +593,7 @@ async function resolveTargetArtifactLatestState(
       `${
         describeRequest(request)
       } requests latest-state resolution for ${inventory.target.artifactPath}; this resolver slice supports latest-state targetArtifact only for payload artifacts.`,
+      { kind: "unsupported" },
     );
   }
 
@@ -534,6 +635,7 @@ async function resolveExactHistoricalState(
       `${
         describeRequest(request)
       } requests exact state resolution for ${inventory.target.artifactPath}; this resolver slice supports targetHistoricalState only for payload artifacts.`,
+      { kind: "unsupported" },
     );
   }
 
@@ -615,6 +717,7 @@ async function readResolvedBytes(
         `${
           describeRequest(request)
         } resolved to a missing local file: ${absolutePath}`,
+        { kind: "unavailable" },
       );
     }
     throw error;
@@ -630,8 +733,34 @@ function decodeUtf8(
   } catch (error) {
     throw new ArtifactResolutionError(
       `${describeRequest(request)} resolved bytes are not valid UTF-8 text.`,
-      { cause: error },
+      { cause: error, kind: "decodeFailure" },
     );
+  }
+}
+
+function resolveInventoryState<T>(
+  resolve: () => T,
+  parseErrorMessage: string,
+  missingWorkingFileMessage: string,
+): T {
+  try {
+    return resolve();
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === missingWorkingFileMessage) {
+        throw new ArtifactResolutionError(error.message, {
+          kind: "unavailable",
+          cause: error,
+        });
+      }
+      if (error.message === parseErrorMessage) {
+        throw new ArtifactResolutionError(error.message, {
+          kind: "validation",
+          cause: error,
+        });
+      }
+    }
+    throw error;
   }
 }
 
@@ -651,14 +780,19 @@ function resolveTargetArtifactWorkingSource(
   } target artifact is missing a current working file.`;
 
   if (inventory.target.kind === "payload") {
-    const state = resolvePayloadArtifactInventoryState(
-      inventory.meshBase,
-      inventory.turtle,
-      inventory.target.designatorPath,
-      {
-        parseErrorMessage,
-        missingWorkingFileMessage,
-      },
+    const state = resolveInventoryState(
+      () =>
+        resolvePayloadArtifactInventoryState(
+          inventory.meshBase,
+          inventory.turtle,
+          inventory.target.designatorPath,
+          {
+            parseErrorMessage,
+            missingWorkingFileMessage,
+          },
+        ),
+      parseErrorMessage,
+      missingWorkingFileMessage,
     );
     if (!state) {
       throw new ArtifactResolutionError(
@@ -682,14 +816,19 @@ function resolveTargetArtifactWorkingSource(
   }
 
   if (inventory.target.kind === "referenceCatalog") {
-    const state = resolveReferenceCatalogInventoryState(
-      inventory.meshBase,
-      inventory.turtle,
-      inventory.target.designatorPath,
-      {
-        parseErrorMessage,
-        missingWorkingFileMessage,
-      },
+    const state = resolveInventoryState(
+      () =>
+        resolveReferenceCatalogInventoryState(
+          inventory.meshBase,
+          inventory.turtle,
+          inventory.target.designatorPath,
+          {
+            parseErrorMessage,
+            missingWorkingFileMessage,
+          },
+        ),
+      parseErrorMessage,
+      missingWorkingFileMessage,
     );
     if (!state) {
       throw new ArtifactResolutionError(
@@ -703,14 +842,19 @@ function resolveTargetArtifactWorkingSource(
     };
   }
 
-  const state = resolveResourcePageDefinitionInventoryState(
-    inventory.meshBase,
-    inventory.turtle,
-    inventory.target.designatorPath,
-    {
-      parseErrorMessage,
-      missingWorkingFileMessage,
-    },
+  const state = resolveInventoryState(
+    () =>
+      resolveResourcePageDefinitionInventoryState(
+        inventory.meshBase,
+        inventory.turtle,
+        inventory.target.designatorPath,
+        {
+          parseErrorMessage,
+          missingWorkingFileMessage,
+        },
+      ),
+    parseErrorMessage,
+    missingWorkingFileMessage,
   );
   if (!state || state.artifactPath !== inventory.target.artifactPath) {
     throw new ArtifactResolutionError(
@@ -746,6 +890,7 @@ function resolvePayloadLatestState(
       `${
         describeRequest(request)
       } requests latest-state resolution for ${inventory.target.artifactPath}, but that artifact has no currentArtifactHistory.`,
+      "unavailable",
     );
   const historyPath = requireMeshPathFromIri(
     meshBase,
@@ -769,6 +914,7 @@ function resolvePayloadLatestState(
     `${
       describeRequest(request)
     } requests latest-state resolution for ${inventory.target.artifactPath}, but ${historyPath} has no latestHistoricalState.`,
+    "unavailable",
   );
   return resolvePayloadStateSnapshot(
     meshBase,
@@ -822,6 +968,14 @@ function resolvePayloadExactState(
     request,
   );
   assertTypedHistory(inventory.quads, historyIri, historyPath, request);
+  assertStateBelongsToHistory(
+    inventory.quads,
+    historyIri,
+    stateIri,
+    statePath,
+    request,
+  );
+  assertTypedHistoricalState(inventory.quads, stateIri, statePath, request);
 
   return resolvePayloadStateSnapshot(
     meshBase,
@@ -977,6 +1131,7 @@ function describeSupportedTargetArtifact(
         `${
           describeRequest(request)
         } targets unsupported artifact ${artifactPath}; this resolver slice supports payload artifacts, ReferenceCatalog artifacts, and ResourcePageDefinition artifacts.`,
+        { kind: "unsupported", cause: error },
       );
     }
     throw error;
@@ -1000,6 +1155,7 @@ async function readTextFile(
         `${
           describeRequest(request)
         } target artifact inventory is missing: ${path}`,
+        { kind: "unavailable" },
       );
     }
     throw error;
@@ -1020,6 +1176,7 @@ function resolvePolicyPath(
         `${
           describeRequest(request)
         } resolved ${locatorKind} outside the allowed local-path boundary: ${localRelativePath}`,
+        { kind: "unsafe", cause: error },
       );
     }
     throw error;
@@ -1039,6 +1196,7 @@ async function resolveRepositorySourceFloatingPath(
         `${
           describeRequest(request)
         } repository floating source did not match an allowed local checkout: ${locator.repositoryUrl} ${locator.repositoryPathFromRoot}`,
+        { kind: "unsafe", cause: error },
       );
     }
     throw error;
@@ -1095,6 +1253,57 @@ function assertTypedHistory(
   }
 }
 
+function assertStateBelongsToHistory(
+  quads: readonly Quad[],
+  historyIri: string,
+  stateIri: string,
+  statePath: string,
+  request: ArtifactResolutionRequest,
+): void {
+  if (
+    !hasNamedNodeObject(
+      quads,
+      historyIri,
+      SFLO_HAS_HISTORICAL_STATE_IRI,
+      stateIri,
+    ) &&
+    !hasNamedNodeObject(
+      quads,
+      historyIri,
+      SFLO_LATEST_HISTORICAL_STATE_IRI,
+      stateIri,
+    )
+  ) {
+    throw new ArtifactResolutionError(
+      `${
+        describeRequest(request)
+      } targetHistoricalState is not declared in targetArtifactHistory: ${statePath}`,
+    );
+  }
+}
+
+function assertTypedHistoricalState(
+  quads: readonly Quad[],
+  stateIri: string,
+  statePath: string,
+  request: ArtifactResolutionRequest,
+): void {
+  if (
+    !hasNamedNodeObject(
+      quads,
+      stateIri,
+      RDF_TYPE_IRI,
+      SFLO_HISTORICAL_STATE_IRI,
+    )
+  ) {
+    throw new ArtifactResolutionError(
+      `${
+        describeRequest(request)
+      } targetHistoricalState is not declared as a HistoricalState: ${statePath}`,
+    );
+  }
+}
+
 function hasNamedNodeObject(
   quads: readonly Quad[],
   subjectIri: string,
@@ -1115,6 +1324,7 @@ function requiredNamedNodeObject(
   subjectIri: string,
   predicateIri: string,
   errorMessage: string,
+  kind: ArtifactResolutionFailureKind = "validation",
 ): string {
   const value = optionalNamedNodeObject(
     quads,
@@ -1123,7 +1333,7 @@ function requiredNamedNodeObject(
     errorMessage,
   );
   if (value === undefined) {
-    throw new ArtifactResolutionError(errorMessage);
+    throw new ArtifactResolutionError(errorMessage, { kind });
   }
   return value;
 }
@@ -1208,6 +1418,7 @@ function parseResolutionMode(
     default:
       throw new ArtifactResolutionError(
         `Unsupported ArtifactResolutionMode in ${sourceDescription}: ${modeIri}`,
+        { kind: "unsupported" },
       );
   }
 }
@@ -1350,9 +1561,38 @@ function compactRequest(
   };
 }
 
+function withoutFallbackSpec(
+  request: ArtifactResolutionRequest,
+): ArtifactResolutionRequest {
+  const { fallbackArtifactResolutionSpecTerm: _fallback, ...rest } = request;
+  return compactRequest(rest);
+}
+
+function isFallbackEligiblePrimary(
+  request: ArtifactResolutionRequest,
+  error: unknown,
+): error is ArtifactResolutionError {
+  return error instanceof ArtifactResolutionError &&
+    error.kind === "unavailable" &&
+    request.targetArtifactIri !== undefined &&
+    (request.targetHistoricalStateIri !== undefined ||
+      request.targetArtifactHistoryIri !== undefined ||
+      request.mode === "latestState");
+}
+
 function describeRequest(request: ArtifactResolutionRequest): string {
   return request.sourceDescription ?? request.sourceIri ?? request.sourceTerm ??
     "ArtifactResolutionSpec";
+}
+
+function describeTermKey(termKey: string): string {
+  if (termKey.startsWith("NamedNode:")) {
+    return `<${termKey.slice("NamedNode:".length)}>`;
+  }
+  if (termKey.startsWith("BlankNode:")) {
+    return `_:${termKey.slice("BlankNode:".length)}`;
+  }
+  return termKey;
 }
 
 function toPayloadHistoricalSnapshotPath(
@@ -1405,6 +1645,7 @@ function verifyExpectedDigest(
       `${
         describeRequest(request)
       } declares unsupported expectsContentDigest value: ${request.expectedContentDigest}`,
+      { kind: "validation" },
     );
   }
   if (
@@ -1414,6 +1655,7 @@ function verifyExpectedDigest(
       `${
         describeRequest(request)
       } digest mismatch: expected ${request.expectedContentDigest}, observed ${observedDigest}.`,
+      { kind: "digestMismatch" },
     );
   }
 }

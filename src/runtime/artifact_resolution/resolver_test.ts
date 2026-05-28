@@ -8,6 +8,7 @@ import {
   ArtifactResolutionError,
   parseArtifactResolutionSpecQuads,
   resolveArtifactResolutionRequest,
+  resolveArtifactResolutionSpecQuads,
 } from "./resolver.ts";
 
 const MESH_BASE = "https://example.org/mesh/";
@@ -217,6 +218,98 @@ Deno.test("resolveArtifactResolutionRequest rejects state/history ownership mism
     ArtifactResolutionError,
     "not a history of targetArtifact",
   );
+});
+
+Deno.test("resolveArtifactResolutionSpecQuads falls back after unavailable exact state bytes", async () => {
+  const { context, meshRoot } = await createResolverTestContext();
+  await materializePayloadArtifact(meshRoot);
+  await Deno.writeTextFile(join(meshRoot, "fallback.md"), "fallback\n");
+  const quads = new Parser({ baseIRI: MESH_BASE }).parse(`
+@prefix sflo: <${SFLO}> .
+
+<#source> a sflo:ArtifactResolutionSpec ;
+  sflo:targetArtifact <alice> ;
+  sflo:targetHistoricalState <alice/_history001/_s0001> ;
+  sflo:hasFallbackArtifactResolutionSpec <#fallback> .
+
+<#fallback> a sflo:ArtifactResolutionSpec ;
+  sflo:targetLocalRelativePath "fallback.md" .
+`);
+
+  const result = await resolveArtifactResolutionSpecQuads(
+    context,
+    quads,
+    new URL("#source", MESH_BASE).href,
+    { contentMode: "text" },
+  );
+
+  assertEquals(result.observed.localRelativePath, "fallback.md");
+  assertEquals(result.content?.text, "fallback\n");
+});
+
+Deno.test("resolveArtifactResolutionSpecQuads does not fall back after digest mismatch", async () => {
+  const { context, meshRoot } = await createResolverTestContext();
+  await materializePayloadArtifact(meshRoot);
+  await Deno.writeTextFile(
+    join(meshRoot, "alice/_history001/_s0001/ttl/source.ttl"),
+    "primary\n",
+  );
+  await Deno.writeTextFile(join(meshRoot, "fallback.md"), "fallback\n");
+  const quads = new Parser({ baseIRI: MESH_BASE }).parse(`
+@prefix sflo: <${SFLO}> .
+
+<#source> a sflo:ArtifactResolutionSpec ;
+  sflo:targetArtifact <alice> ;
+  sflo:targetHistoricalState <alice/_history001/_s0001> ;
+  sflo:expectsContentDigest "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" ;
+  sflo:hasFallbackArtifactResolutionSpec <#fallback> .
+
+<#fallback> a sflo:ArtifactResolutionSpec ;
+  sflo:targetLocalRelativePath "fallback.md" .
+`);
+
+  await assertRejects(
+    () =>
+      resolveArtifactResolutionSpecQuads(
+        context,
+        quads,
+        new URL("#source", MESH_BASE).href,
+        { contentMode: "text" },
+      ),
+    ArtifactResolutionError,
+    "digest mismatch",
+  );
+});
+
+Deno.test("resolveArtifactResolutionSpecQuads reports primary and fallback failures", async () => {
+  const { context, meshRoot } = await createResolverTestContext();
+  await materializePayloadArtifact(meshRoot);
+  const quads = new Parser({ baseIRI: MESH_BASE }).parse(`
+@prefix sflo: <${SFLO}> .
+
+<#source> a sflo:ArtifactResolutionSpec ;
+  sflo:targetArtifact <alice> ;
+  sflo:targetHistoricalState <alice/_history001/_s0001> ;
+  sflo:hasFallbackArtifactResolutionSpec <#fallback> .
+
+<#fallback> a sflo:ArtifactResolutionSpec ;
+  sflo:targetLocalRelativePath "missing.md" .
+`);
+
+  const error = await assertRejects(
+    () =>
+      resolveArtifactResolutionSpecQuads(
+        context,
+        quads,
+        new URL("#source", MESH_BASE).href,
+        { contentMode: "text" },
+      ),
+    ArtifactResolutionError,
+  );
+
+  assertStringIncludes(error.message, "failed before fallback");
+  assertStringIncludes(error.message, "Fallback");
+  assertStringIncludes(error.message, "missing.md");
 });
 
 Deno.test("resolveArtifactResolutionRequest resolves exact in-mesh located files", async () => {

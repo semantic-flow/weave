@@ -6,7 +6,7 @@ import type { ResourcePageDefinitionWorkingArtifact } from "../../core/weave/can
 import type { ResourcePageDefinitionInventoryState } from "../mesh/inventory.ts";
 import {
   ArtifactResolutionError,
-  resolveArtifactResolutionRequest,
+  resolveArtifactResolutionSpecQuads,
 } from "../artifact_resolution/resolver.ts";
 import {
   LocalPathAccessError,
@@ -34,10 +34,6 @@ const SFLO_HAS_ARTIFACT_RESOLUTION_FALLBACK_POLICY_IRI =
 const SFLO_TARGET_MESH_PATH_IRI = `${SFLO_NAMESPACE}targetLocalRelativePath`;
 const SFLO_TARGET_ACCESS_URL_IRI = `${SFLO_NAMESPACE}targetAccessUrl`;
 const SFLO_REGION_KEY_IRI = `${SFLO_NAMESPACE}regionKey`;
-const SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI =
-  `${SFLO_NAMESPACE}artifactResolutionMode_working`;
-const SFLO_ARTIFACT_RESOLUTION_MODE_LATEST_STATE_IRI =
-  `${SFLO_NAMESPACE}artifactResolutionMode_latestState`;
 
 export interface CustomIdentifierRegionModel {
   key: string;
@@ -301,74 +297,15 @@ export async function loadActiveCustomIdentifierPage(
           formatDesignatorPathForDisplay(designatorPath)
         } must declare exactly one target locator.`,
       );
-      const resolutionMode = requireOptionalSingleNamedNodeTarget(
-        artifactResolutionModes,
-        `ResourcePageDefinition region ${key} for ${
-          formatDesignatorPathForDisplay(designatorPath)
-        } declares multiple artifact resolution modes.`,
-      );
-      const requestedTargetHistory = requireOptionalSingleNamedNodeTarget(
-        requestedTargetHistories,
-        `ResourcePageDefinition region ${key} for ${
-          formatDesignatorPathForDisplay(designatorPath)
-        } declares multiple requested target histories.`,
-      );
 
-      if (
-        requestedTargetStates.length > 0 ||
-        artifactResolutionFallbackSpecs.length > 0
-      ) {
-        throw new ResourcePageDefinitionResolutionError(
-          `ResourcePageDefinition region ${key} for ${
-            formatDesignatorPathForDisplay(designatorPath)
-          } requests exact/fallback artifact resolution that this first artifact-backed page-source slice does not support yet.`,
-        );
-      }
-      if (resolutionMode === SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI) {
-        if (requestedTargetHistory !== undefined) {
-          throw new ResourcePageDefinitionResolutionError(
-            `ResourcePageDefinition region ${key} for ${
-              formatDesignatorPathForDisplay(designatorPath)
-            } requests Working artifact resolution with a requested target history, which is contradictory.`,
-          );
-        }
-        return await loadCurrentArtifactSourceRegion(
-          meshRoot,
-          localPathPolicy,
-          meshBase,
-          designatorPath,
-          key,
-          targetArtifactIri,
-        );
-      }
-      if (
-        resolutionMode === SFLO_ARTIFACT_RESOLUTION_MODE_LATEST_STATE_IRI ||
-        requestedTargetHistory !== undefined
-      ) {
-        return await loadLatestStateArtifactSourceRegion(
-          meshRoot,
-          localPathPolicy,
-          meshBase,
-          designatorPath,
-          key,
-          targetArtifactIri,
-          requestedTargetHistory,
-        );
-      }
-      if (resolutionMode !== undefined) {
-        throw new ResourcePageDefinitionResolutionError(
-          `ResourcePageDefinition region ${key} for ${
-            formatDesignatorPathForDisplay(designatorPath)
-          } requests an unsupported artifact resolution mode: ${resolutionMode}.`,
-        );
-      }
-
-      return await loadCurrentArtifactSourceRegion(
+      return await loadArtifactSourceRegionFromSpec(
         meshRoot,
         localPathPolicy,
         meshBase,
         designatorPath,
         key,
+        quads,
+        sourceSubject,
         targetArtifactIri,
       );
     }),
@@ -563,20 +500,6 @@ function requireSingleNamedNodeTarget(
   return values[0]!;
 }
 
-function requireOptionalSingleNamedNodeTarget(
-  values: readonly string[],
-  errorMessage: string,
-): string | undefined {
-  if (values.length === 0) {
-    return undefined;
-  }
-  if (values.length !== 1) {
-    throw new ResourcePageDefinitionResolutionError(errorMessage);
-  }
-
-  return values[0]!;
-}
-
 function countDeclaredTargetLocators(lengths: readonly number[]): number {
   return lengths.filter((length) => length > 0).length;
 }
@@ -614,73 +537,26 @@ function normalizeTargetLocalRelativePath(
   return normalized;
 }
 
-async function loadCurrentArtifactSourceRegion(
+async function loadArtifactSourceRegionFromSpec(
   meshRoot: string,
   localPathPolicy: OperationalLocalPathPolicy,
   meshBase: string,
   ownerDesignatorPath: string,
   regionKey: string,
+  quads: readonly Quad[],
+  sourceSubject: string,
   targetArtifactIri: string,
-): Promise<CustomIdentifierRegionModel> {
-  return await loadArtifactSourceRegion(
-    meshRoot,
-    localPathPolicy,
-    meshBase,
-    ownerDesignatorPath,
-    regionKey,
-    targetArtifactIri,
-    "working",
-    undefined,
-  );
-}
-
-async function loadLatestStateArtifactSourceRegion(
-  meshRoot: string,
-  localPathPolicy: OperationalLocalPathPolicy,
-  meshBase: string,
-  ownerDesignatorPath: string,
-  regionKey: string,
-  targetArtifactIri: string,
-  requestedTargetHistoryIri: string | undefined,
-): Promise<CustomIdentifierRegionModel> {
-  return await loadArtifactSourceRegion(
-    meshRoot,
-    localPathPolicy,
-    meshBase,
-    ownerDesignatorPath,
-    regionKey,
-    targetArtifactIri,
-    "latestState",
-    requestedTargetHistoryIri,
-  );
-}
-
-async function loadArtifactSourceRegion(
-  meshRoot: string,
-  localPathPolicy: OperationalLocalPathPolicy,
-  meshBase: string,
-  ownerDesignatorPath: string,
-  regionKey: string,
-  targetArtifactIri: string,
-  mode: "working" | "latestState",
-  requestedTargetHistoryIri: string | undefined,
 ): Promise<CustomIdentifierRegionModel> {
   const sourceDescription = `ResourcePageDefinition region ${regionKey} for ${
     formatDesignatorPathForDisplay(ownerDesignatorPath)
-  } page source`;
+  } page source targeting ${targetArtifactIri}`;
 
   try {
-    const result = await resolveArtifactResolutionRequest(
+    const result = await resolveArtifactResolutionSpecQuads(
       { meshRoot, meshBase, localPathPolicy },
-      {
-        sourceDescription,
-        targetArtifactIri,
-        mode,
-        ...(requestedTargetHistoryIri
-          ? { targetArtifactHistoryIri: requestedTargetHistoryIri }
-          : {}),
-      },
-      { contentMode: "text" },
+      quads,
+      sourceSubject,
+      { sourceDescription, contentMode: "text" },
     );
 
     if (

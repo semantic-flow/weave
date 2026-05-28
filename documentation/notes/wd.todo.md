@@ -9,12 +9,19 @@ created: 1774046031081
 
 ## Backlog
 
-Groomed on 2026-05-27 from all `wa.task.*` notes in the Weave archive. Updated after the shared resolver, mesh-local config-source, and first Knop config-source inheritance slices landed.
+Groomed on 2026-05-27 from all `wa.task.*` notes in the Weave archive. Updated after per-target effective config and `ResourcePageSource` exact/fallback resolution landed.
+
+### Current Work And Next Pick
+
+- [x] Finish in-progress [[wa.task.2026.2026-05-27_2215-resourcepage-source-resolution-semantics]]: exact `targetHistoricalState`, one-level fallback, no fallback for malformed/unsafe/unsupported specs, and focused resolver/page-definition tests.
+- [ ] Next after ResourcePageSource: groom [[wa.task.2026.2026-05-05-optional-history-and-slim-support-artifacts-by-default]] into a narrow runtime-history slice for current-only `_knop/_page`, ResourcePage rendering when `_knop/_page/_history001` is absent, and history-policy behavior through per-target effective config.
+- [ ] Keep [[wa.task.2026.2026-05-17-append-onlyish-inventory]] as the next larger inventory-correctness task after the current history-policy slice is bounded.
 
 ### P0: Current Config And Resolution Follow-Ups
 
-- [ ] Implement [[wa.task.2026.2026-05-27-2031-per-target-effective-config-resolution]] before applying Knop-local/inherited config to recursive or multi-target version/generate/weave operations.
-- [ ] After per-target config lands, implement [[wa.task.2026.2026-05-27_2215-resourcepage-source-resolution-semantics]] as the first broader page-source resolver cleanup consumer from [[wa.completed.2026.2026-05-24_1748-shared-artifact-resolution-runtime-service]] and [[wa.task.2026.2026-04-08_1545-resource-page-definition-and-sources]].
+- [x] Implement [[wa.task.2026.2026-05-27-2031-per-target-effective-config-resolution]] before applying Knop-local/inherited config to recursive or multi-target version/generate/weave operations.
+- [x] Finish [[wa.task.2026.2026-05-27_2215-resourcepage-source-resolution-semantics]] as the first broader page-source resolver cleanup consumer from [[wa.completed.2026.2026-05-24_1748-shared-artifact-resolution-runtime-service]] and [[wa.task.2026.2026-04-08_1545-resource-page-definition-and-sources]].
+- [ ] Groom and implement [[wa.task.2026.2026-05-05-optional-history-and-slim-support-artifacts-by-default]] after ResourcePageSource exact/fallback semantics land; focus the slice on per-target history policy behavior and current-only ResourcePageDefinition support artifacts.
 - [ ] Keep path and URL trust policy aligned with [[wa.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]], [[wa.task.2026.2026-05-20_2152-workingAccessUrl]], and the config-source resolver. Do not let portable mesh config silently grant broader host trust.
 - [ ] Document config-source bootstrap authoring now that tests exercise it correctly: mesh-local config-source attachments belong in `_mesh/_meta/meta.ttl`, Knop-local and inheritable attachments belong in current Knop metadata, and the resolved `_config/*.ttl` files are config payloads rather than bootstrap authority.
 
@@ -22,7 +29,7 @@ Groomed on 2026-05-27 from all `wa.task.*` notes in the Weave archive. Updated a
 
 - [ ] Remove the remaining first-payload planner blockers from [[wa.task.2026.2026-05-04-refactor-planFirstPayloadWeave]]: support multi-pending first-payload weave in one transaction, support current-mode extracted-term weave, and replace fixture-shaped errors with condition-specific diagnostics. The SFLO and URPX docs still warn about the current failure mode, so this is real backlog, not just cleanup.
 - [ ] Implement append-onlyish inventory writes from [[wa.task.2026.2026-05-17-append-onlyish-inventory]]: normal inventory operations append new settled facts, no-op existing facts, and fail closed on conflicts; current/latest/next progression belongs in metadata or explicit repair/regeneration/retraction modes.
-- [ ] Finish slim/current-only support-artifact behavior from [[wa.task.2026.2026-05-05-optional-history-and-slim-support-artifacts-by-default]]: `_knop/_page` should be able to stay current-only when history policy says current-only, and ResourcePage generation should still best-effort render from current `page.ttl` when `_knop/_page/_history001` is absent.
+- [d] Finish slim/current-only support-artifact behavior from [[wa.task.2026.2026-05-05-optional-history-and-slim-support-artifacts-by-default]]: promoted to P0 as the recommended next task after ResourcePageSource exact/fallback semantics land.
 - [ ] Keep the durable history-toggle path coherent across config, CLI overrides, and weave/version/generate behavior. A changed working file should be able to update current/latest state without always writing a new history state when the effective history policy says current-only or slim.
 - [ ] Finish branch-published working-source portability from [[wa.task.2026.2026-05-19_2349-branch-based-workingfile-fix]]: add path-leakage validation with all failing files listed, update durable runtime docs only if needed, and rerun the scratch SFLO `gh-pages` publication to confirm no host-local or sibling-worktree paths leak.
 - [ ] Define and implement publication-base-relative link policy from [[wa.task.2026.2026-05-26_1321-relative-links]] for generated ResourcePages and rendered Markdown links. This should become a real task note before code work; the current note is only a prompt.
