@@ -349,6 +349,53 @@ export function renderCurrentOnlyReferenceCatalogWovenKnopInventoryTurtle(
   return `${finalBlocks.join("\n\n")}\n`;
 }
 
+export function renderCurrentOnlyPageDefinitionWovenKnopInventoryTurtle(
+  _meshBase: string,
+  currentKnopInventoryTurtle: string,
+  designatorPath: string,
+  workingLocalRelativePath: string,
+): string {
+  const pageDefinitionPath = `${toKnopPath(designatorPath)}/_page`;
+  const pageDefinitionPagePath = `${pageDefinitionPath}/index.html`;
+  const blocks = splitTurtleBlocks(currentKnopInventoryTurtle);
+  const currentPageDefinitionBlockIndex = findSubjectBlockIndex(
+    blocks,
+    pageDefinitionPath,
+  );
+  if (currentPageDefinitionBlockIndex === -1) {
+    throw new WeaveInputError(
+      `Current KnopInventory did not contain ResourcePageDefinition block <${pageDefinitionPath}>.`,
+    );
+  }
+
+  const currentPageDefinitionBlock = blocks[currentPageDefinitionBlockIndex]!;
+  if (
+    !currentPageDefinitionBlock.includes(`<${workingLocalRelativePath}>`) &&
+    !currentPageDefinitionBlock.includes(`"${workingLocalRelativePath}"`)
+  ) {
+    throw new WeaveInputError(
+      `Current ResourcePageDefinition block did not carry the expected working file for ${designatorPath}.`,
+    );
+  }
+
+  const blocksWithPage = replaceSubjectBlock(
+    blocks,
+    pageDefinitionPath,
+    appendPredicateToSubjectBlock(
+      currentPageDefinitionBlock,
+      `sflo:hasResourcePage <${pageDefinitionPagePath}>`,
+    ),
+  );
+  const finalBlocks = upsertSubjectBlockAfter(
+    blocksWithPage,
+    pageDefinitionPath,
+    pageDefinitionPagePath,
+    renderResourcePageLocatedFileBlock(pageDefinitionPagePath),
+  );
+
+  return `${finalBlocks.join("\n\n")}\n`;
+}
+
 export function renderSubsequentPageDefinitionWovenKnopInventoryTurtle(
   meshBase: string,
   designatorPath: string,

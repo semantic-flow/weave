@@ -167,6 +167,33 @@ export function detectPendingWeaveSlice(
     SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI,
     pageDefinitionPath,
   );
+  const pageDefinitionHistoryPath = resolveOptionalNamedNodePath(
+    quads,
+    meshBase,
+    pageDefinitionPath,
+    SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
+    errorMessage,
+  );
+  const pageDefinitionArtifactHistoryPaths = resolveNamedNodeObjectPaths(
+    quads,
+    meshBase,
+    pageDefinitionPath,
+    SFLO_HAS_ARTIFACT_HISTORY_IRI,
+    errorMessage,
+  );
+  const pageDefinitionHasDeclaredArtifactHistory = [
+    ...(pageDefinitionHistoryPath ? [pageDefinitionHistoryPath] : []),
+    ...pageDefinitionArtifactHistoryPaths,
+  ].some((historyPath) =>
+    isDeclaredArtifactHistory(quads, meshBase, historyPath)
+  );
+  const pageDefinitionHasResourcePage = hasNamedNodeFact(
+    quads,
+    meshBase,
+    pageDefinitionPath,
+    SFLO_HAS_RESOURCE_PAGE_IRI,
+    `${pageDefinitionPath}/index.html`,
+  );
   const knopInventoryHasHistory = hasNamedNodeFact(
     quads,
     meshBase,
@@ -203,7 +230,11 @@ export function detectPendingWeaveSlice(
     return "firstExtractedKnopWeave";
   }
 
-  if (pageDefinitionRelationship && knopInventoryHasHistory) {
+  if (
+    pageDefinitionRelationship &&
+    knopInventoryHasHistory &&
+    (pageDefinitionHasDeclaredArtifactHistory || !pageDefinitionHasResourcePage)
+  ) {
     return "pageDefinitionWeave";
   }
 

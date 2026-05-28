@@ -264,6 +264,26 @@ Deno.test("resolveExtractionSourceInventoryState returns source registry observe
     {
       sourceArtifactPath: "alice/data",
       requestedTargetStatePath: "alice/data/_history001/_s0002",
+      resolutionRequest: {
+        sourceIri:
+          "https://semantic-flow.github.io/mesh-alice-bio/bob/_knop/_sources#extraction-source",
+        targetArtifactIri:
+          "https://semantic-flow.github.io/mesh-alice-bio/alice/data",
+        targetHistoricalStateIri:
+          "https://semantic-flow.github.io/mesh-alice-bio/alice/data/_history001/_s0002",
+      },
+      resolutionObservation: {
+        observed: {
+          historicalStateIri:
+            "https://semantic-flow.github.io/mesh-alice-bio/alice/data/_history001/_s0002",
+          manifestationIri:
+            "https://semantic-flow.github.io/mesh-alice-bio/alice/data/_history001/_s0002/ttl",
+          locatedFileIri:
+            "https://semantic-flow.github.io/mesh-alice-bio/alice/data/_history001/_s0002/ttl/alice-data.ttl",
+          localRelativePath: "../alice-data.ttl",
+          contentDigest: "sha256:abc123",
+        },
+      },
       observedSourceStatePath: "alice/data/_history001/_s0002",
       observedSourceManifestationPath: "alice/data/_history001/_s0002/ttl",
       observedSourceLocatedFilePath:
@@ -333,6 +353,13 @@ Deno.test("resolveExtractionSourceInventoryState reads source registry extractio
       sourceArtifactPath: "alice/data",
       artifactResolutionModeIri:
         "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working",
+      resolutionRequest: {
+        sourceIri:
+          "https://semantic-flow.github.io/mesh-alice-bio/bob/_knop/_sources#extraction-source",
+        targetArtifactIri:
+          "https://semantic-flow.github.io/mesh-alice-bio/alice/data",
+        mode: "working",
+      },
     },
   );
 });
@@ -370,6 +397,14 @@ Deno.test("listIntegrationSourceInventoryStates reads IntegrationSource bindings
       targetLocalRelativePath: "../source/alice-data.ttl",
       artifactResolutionModeIri:
         "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working",
+      resolutionRequest: {
+        sourceIri:
+          "https://semantic-flow.github.io/mesh-alice-bio/alice/data/_knop/_sources#payload-source",
+        targetArtifactIri:
+          "https://semantic-flow.github.io/mesh-alice-bio/alice/data",
+        targetLocalRelativePath: "../source/alice-data.ttl",
+        mode: "working",
+      },
     }],
   );
 });
@@ -431,6 +466,20 @@ Deno.test("listIntegrationSourceInventoryStates reads repository-backed observat
         repositoryPath: "alice-data.ttl",
         contentDigest: "sha256:abc123",
       },
+      resolutionRequest: {
+        sourceIri:
+          "https://semantic-flow.github.io/mesh-alice-bio/alice/data/_knop/_sources#payload-source",
+        targetArtifactIri:
+          "https://semantic-flow.github.io/mesh-alice-bio/alice/data",
+        targetLocalRelativePath: "../source/alice-data.ttl",
+        mode: "working",
+        expectedContentDigest: "sha256:abc123",
+      },
+      resolutionObservation: {
+        observed: {
+          contentDigest: "sha256:abc123",
+        },
+      },
       observedSourceDigest: "sha256:abc123",
     }],
   );
@@ -480,6 +529,22 @@ Deno.test("listImportSourceInventoryStates reads URL import source observations"
       artifactResolutionModeIri:
         "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working",
       expectedContentDigest: "sha256:abc123",
+      resolutionRequest: {
+        sourceIri:
+          "https://semantic-flow.github.io/mesh-alice-bio/bob/page-main/_knop/_sources#payload-source",
+        targetArtifactIri:
+          "https://semantic-flow.github.io/mesh-alice-bio/bob/page-main",
+        targetAccessUrl: "https://example.com/bob.md",
+        mode: "working",
+        expectedContentDigest: "sha256:abc123",
+      },
+      resolutionObservation: {
+        observed: {
+          localRelativePath: "bob-page-main.md",
+          contentDigest: "sha256:abc123",
+        },
+        observedAt: "2026-05-24T20:00:00.000Z",
+      },
       observedSourceLocalRelativePath: "bob-page-main.md",
       observedSourceDigest: "sha256:abc123",
       observedAt: "2026-05-24T20:00:00.000Z",

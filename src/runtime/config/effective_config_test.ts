@@ -1,10 +1,14 @@
-import { assertEquals, assertThrows } from "@std/assert";
+import { assert, assertEquals, assertRejects, assertThrows } from "@std/assert";
+import { dirname, join } from "@std/path";
+import { toKnopPath } from "../../core/designator_segments.ts";
+import type { OperationalLocalPathPolicy } from "../operational/local_path_policy.ts";
 import {
   ALL_PANELS_RESOURCE_PAGE_PRESENTATION_PROFILE,
   compileWeaveEffectiveConfig,
   DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE,
   EffectiveConfigError,
   loadWeaveDefaultEffectiveConfig,
+  loadWeaveEffectiveConfig,
   NO_PANELS_RESOURCE_PAGE_PRESENTATION_PROFILE,
   parseWeaveDefaultEffectiveConfig,
   WEAVE_DEFAULTS_NAMESPACE,
@@ -296,6 +300,678 @@ Deno.test("compileWeaveEffectiveConfig applies command overrides above mesh conf
   );
 });
 
+Deno.test("loadWeaveEffectiveConfig resolves mesh-local config sources as mesh-local policy", async () => {
+  const { meshRoot, localPathPolicy } = await createConfigSourceTestContext();
+  await writeMeshConfigSource(
+    meshRoot,
+    "_mesh/_config/source.ttl",
+    currentOnlyPayloadPolicyConfigTurtle(),
+  );
+
+  const config = await loadWeaveEffectiveConfig({
+    meshRoot,
+    meshBase: MESH_BASE,
+    localPathPolicy,
+    meshConfigTurtle: meshConfigAttachingLocalSource(
+      "_mesh/_config/source.ttl",
+    ),
+    meshConfigSource: "_mesh/_config/config.ttl",
+    commandOverrides: {
+      resourcePagePresentation: "semanticSiteAllPanels",
+    },
+  });
+
+  assertEquals(
+    config.historyTrackingPolicyForArtifactRole("payload"),
+    "currentOnly",
+  );
+  assertEquals(
+    config.resourcePagePresentation.identity,
+    "semanticSiteAllPanels",
+  );
+  assertEquals(config.sources.meshConfigSources?.length, 2);
+  const sourceTrace = config.resolutionTrace.find((entry) =>
+    "kind" in entry && entry.kind === "configSource"
+  );
+  assert(sourceTrace && "status" in sourceTrace);
+  assertEquals(sourceTrace.status, "accepted");
+  assertEquals(
+    sourceTrace.resolvedLocalRelativePath,
+    "_mesh/_config/source.ttl",
+  );
+});
+
+Deno.test("loadWeaveEffectiveConfig chains mesh-local config sources", async () => {
+  const { meshRoot, localPathPolicy } = await createConfigSourceTestContext();
+  await writeMeshConfigSource(
+    meshRoot,
+    "_mesh/_config/source-a.ttl",
+    `@base <${MESH_BASE}> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPublicationProfile sfcfg:publicationProfile_githubPages .
+
+<_mesh> a sflo:SemanticMesh ;
+  sfcfg:hasConfigSource [
+    a sfcfg:ConfigSource ;
+    sflo:targetLocalRelativePath "_mesh/_config/source-b.ttl"
+  ] .
+`,
+  );
+  await writeMeshConfigSource(
+    meshRoot,
+    "_mesh/_config/source-b.ttl",
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPublicationProfile sfcfg:publicationProfile_none .
+`,
+  );
+
+  const config = await loadWeaveEffectiveConfig({
+    meshRoot,
+    meshBase: MESH_BASE,
+    localPathPolicy,
+    meshConfigTurtle: meshConfigAttachingLocalSource(
+      "_mesh/_config/source-a.ttl",
+    ),
+    meshConfigSource: "_mesh/_config/config.ttl",
+  });
+
+  assertEquals(
+    config.scopedSettings.mesh.publicationProfile,
+    "githubPages",
+  );
+  assertEquals(config.sources.meshConfigSources?.length, 3);
+});
+
+Deno.test("loadWeaveEffectiveConfig lets earlier chained policy sources beat later sources", async () => {
+  const { meshRoot, localPathPolicy } = await createConfigSourceTestContext();
+  await writeMeshConfigSource(
+    meshRoot,
+    "_mesh/_config/source-a.ttl",
+    `@base <${MESH_BASE}> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+${currentOnlyPayloadPolicyConfigTurtle().trimEnd()}
+
+<_mesh> a sflo:SemanticMesh ;
+  sfcfg:hasConfigSource [
+    a sfcfg:ConfigSource ;
+    sflo:targetLocalRelativePath "_mesh/_config/source-b.ttl"
+  ] .
+`,
+  );
+  await writeMeshConfigSource(
+    meshRoot,
+    "_mesh/_config/source-b.ttl",
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPolicyBinding <#payload-versioned> .
+
+<#payload-versioned> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#versioned> ;
+  sfcfg:appliesToPolicyTarget <#payload> .
+
+<#versioned> a sfcfg:PolicyDefinition ;
+  sfcfg:hasHistoryTrackingPolicy sfcfg:historyTrackingPolicy_versioned .
+
+<#payload> a sfcfg:ArtifactRolePolicyTarget ;
+  sfcfg:hasArtifactRole sfcfg:artifactRole_payload .
+`,
+  );
+
+  const config = await loadWeaveEffectiveConfig({
+    meshRoot,
+    meshBase: MESH_BASE,
+    localPathPolicy,
+    meshConfigTurtle: meshConfigAttachingLocalSource(
+      "_mesh/_config/source-a.ttl",
+    ),
+    meshConfigSource: "_mesh/_config/config.ttl",
+  });
+
+  assertEquals(
+    config.historyTrackingPolicyForArtifactRole("payload"),
+    "currentOnly",
+  );
+});
+
+Deno.test("loadWeaveEffectiveConfig discovers mesh-local config sources from mesh metadata", async () => {
+  const { meshRoot, localPathPolicy } = await createConfigSourceTestContext();
+  await writeMeshConfigSource(
+    meshRoot,
+    "_mesh/_config/source.ttl",
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPublicationProfile sfcfg:publicationProfile_githubPages .
+`,
+  );
+
+  const config = await loadWeaveEffectiveConfig({
+    meshRoot,
+    meshBase: MESH_BASE,
+    localPathPolicy,
+    meshMetadataTurtle: meshMetadataAttachingLocalSource(
+      "_mesh/_config/source.ttl",
+    ),
+    meshMetadataSource: "_mesh/_meta/meta.ttl",
+  });
+
+  assertEquals(
+    config.scopedSettings.mesh.publicationProfile,
+    "githubPages",
+  );
+  assertEquals(config.sources.meshConfigSources?.length, 1);
+});
+
+Deno.test("loadWeaveEffectiveConfig rejects unsupported config-source attachment subjects", async () => {
+  const { meshRoot, localPathPolicy } = await createConfigSourceTestContext();
+
+  await assertRejects(
+    () =>
+      loadWeaveEffectiveConfig({
+        meshRoot,
+        meshBase: MESH_BASE,
+        localPathPolicy,
+        meshConfigTurtle: `@base <${MESH_BASE}> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<> a sfcfg:MeshConfig .
+
+<#stray> sfcfg:hasConfigSource [
+  a sfcfg:ConfigSource ;
+  sflo:targetLocalRelativePath "_mesh/_config/source.ttl"
+] .
+`,
+      }),
+    EffectiveConfigError,
+    "supported only on the active SemanticMesh",
+  );
+
+  await assertRejects(
+    () =>
+      loadWeaveEffectiveConfig({
+        meshRoot,
+        meshBase: MESH_BASE,
+        localPathPolicy,
+        meshConfigTurtle: `@base <${MESH_BASE}> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<> a sfcfg:MeshConfig .
+
+<alice/_knop> a sflo:Knop ;
+  sfcfg:hasConfigSource [
+    a sfcfg:ConfigSource ;
+    sflo:targetLocalRelativePath "_mesh/_config/source.ttl"
+  ] .
+`,
+      }),
+    EffectiveConfigError,
+    "supported only by Knop metadata discovery",
+  );
+});
+
+Deno.test("loadWeaveEffectiveConfig rejects unsupported inheritable config sources", async () => {
+  const { meshRoot, localPathPolicy } = await createConfigSourceTestContext();
+
+  await assertRejects(
+    () =>
+      loadWeaveEffectiveConfig({
+        meshRoot,
+        meshBase: MESH_BASE,
+        localPathPolicy,
+        meshConfigTurtle: `@base <${MESH_BASE}> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<> a sfcfg:MeshConfig .
+
+<_mesh> a sflo:SemanticMesh ;
+  sfcfg:hasInheritableConfigSource [
+    a sfcfg:ConfigSource ;
+    sflo:targetLocalRelativePath "_mesh/_config/source.ttl"
+  ] .
+`,
+      }),
+    EffectiveConfigError,
+    "hasInheritableConfigSource",
+  );
+});
+
+Deno.test("loadWeaveEffectiveConfig rejects cyclic mesh-local config sources", async () => {
+  const { meshRoot, localPathPolicy } = await createConfigSourceTestContext();
+  await writeMeshConfigSource(
+    meshRoot,
+    "_mesh/_config/source-a.ttl",
+    configSourceForwarderTurtle("_mesh/_config/source-b.ttl"),
+  );
+  await writeMeshConfigSource(
+    meshRoot,
+    "_mesh/_config/source-b.ttl",
+    configSourceForwarderTurtle("_mesh/_config/source-a.ttl"),
+  );
+
+  await assertRejects(
+    () =>
+      loadWeaveEffectiveConfig({
+        meshRoot,
+        meshBase: MESH_BASE,
+        localPathPolicy,
+        meshConfigTurtle: meshConfigAttachingLocalSource(
+          "_mesh/_config/source-a.ttl",
+        ),
+      }),
+    EffectiveConfigError,
+    "Cyclic mesh-local config-source reference",
+  );
+});
+
+Deno.test("loadWeaveEffectiveConfig rejects unsafe config-source coordinates", async () => {
+  const { meshRoot, localPathPolicy } = await createConfigSourceTestContext();
+  await writeMeshConfigSource(
+    meshRoot,
+    "_mesh/_config/source.ttl",
+    currentOnlyPayloadPolicyConfigTurtle(),
+  );
+
+  await assertRejects(
+    () =>
+      loadWeaveEffectiveConfig({
+        meshRoot,
+        meshBase: MESH_BASE,
+        localPathPolicy,
+        meshConfigTurtle: meshConfigAttachingLocalSource(
+          "_mesh/_config/source.ttl",
+          'sflo:expectsContentDigest "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"',
+        ),
+      }),
+    EffectiveConfigError,
+    "digest mismatch",
+  );
+
+  await assertRejects(
+    () =>
+      loadWeaveEffectiveConfig({
+        meshRoot,
+        meshBase: MESH_BASE,
+        localPathPolicy,
+        meshConfigTurtle: meshConfigAttachingSourceSpec(
+          'sflo:targetAccessUrl "https://example.invalid/config.ttl"',
+        ),
+      }),
+    EffectiveConfigError,
+    "does not fetch",
+  );
+
+  await assertRejects(
+    () =>
+      loadWeaveEffectiveConfig({
+        meshRoot,
+        meshBase: MESH_BASE,
+        localPathPolicy,
+        meshConfigTurtle: meshConfigAttachingLocalSource("../source.ttl"),
+      }),
+    EffectiveConfigError,
+    "outside the allowed local-path boundary",
+  );
+});
+
+Deno.test("loadWeaveEffectiveConfig resolves target Knop-local config sources", async () => {
+  const { meshRoot, localPathPolicy } = await createConfigSourceTestContext();
+  await writeMeshConfigSource(
+    meshRoot,
+    "alice/_knop/_config/local.ttl",
+    payloadHistoryPolicyConfigTurtle("historyTrackingPolicy_currentOnly"),
+  );
+
+  const config = await loadWeaveEffectiveConfig({
+    meshRoot,
+    meshBase: MESH_BASE,
+    localPathPolicy,
+    knopConfigScopePath: [{
+      scopeKey: "alice",
+      turtle: knopMetadataAttachingLocalSource(
+        "alice",
+        "hasConfigSource",
+        "alice/_knop/_config/local.ttl",
+      ),
+    }],
+  });
+
+  assertEquals(
+    config.historyTrackingPolicyForArtifactRole("payload"),
+    "currentOnly",
+  );
+  assertEquals(config.sources.knopConfigSources?.length, 1);
+  const sourceTrace = config.resolutionTrace.find((entry) =>
+    "kind" in entry && entry.kind === "configSource" &&
+    entry.layerRole === "knopLocal"
+  );
+  assert(sourceTrace && "status" in sourceTrace);
+  assertEquals(sourceTrace.status, "accepted");
+  assertEquals(sourceTrace.authoredScopeKey, "alice");
+  assertEquals(
+    sourceTrace.resolvedLocalRelativePath,
+    "alice/_knop/_config/local.ttl",
+  );
+});
+
+Deno.test("loadWeaveEffectiveConfig projects ancestor inheritable Knop config sources", async () => {
+  const { meshRoot, localPathPolicy } = await createConfigSourceTestContext();
+  await writeMeshConfigSource(
+    meshRoot,
+    "alice/_knop/_config/inherited.ttl",
+    payloadHistoryPolicyConfigTurtle("historyTrackingPolicy_currentOnly"),
+  );
+
+  const config = await loadWeaveEffectiveConfig({
+    meshRoot,
+    meshBase: MESH_BASE,
+    localPathPolicy,
+    knopConfigScopePath: [
+      {
+        scopeKey: "alice",
+        turtle: knopMetadataAttachingLocalSource(
+          "alice",
+          "hasInheritableConfigSource",
+          "alice/_knop/_config/inherited.ttl",
+        ),
+      },
+      {
+        scopeKey: "alice/data",
+        turtle: bareKnopMetadata("alice/data"),
+      },
+    ],
+  });
+
+  assertEquals(
+    config.historyTrackingPolicyForArtifactRole("payload"),
+    "currentOnly",
+  );
+  const sourceTrace = config.resolutionTrace.find((entry) =>
+    "kind" in entry && entry.kind === "configSource" &&
+    entry.layerRole === "knopInherited"
+  );
+  assert(sourceTrace && "status" in sourceTrace);
+  assertEquals(sourceTrace.offeredByScopeKey, "alice");
+  assertEquals(sourceTrace.projectedToScopeKey, "alice/data");
+  assertEquals(sourceTrace.projection, "ancestorInherited");
+});
+
+Deno.test("loadWeaveEffectiveConfig keeps descendant-only inherited Knop config off the authoring Knop", async () => {
+  const { meshRoot, localPathPolicy } = await createConfigSourceTestContext();
+  await writeMeshConfigSource(
+    meshRoot,
+    "alice/_knop/_config/inherited.ttl",
+    payloadHistoryPolicyConfigTurtle("historyTrackingPolicy_currentOnly"),
+  );
+
+  const config = await loadWeaveEffectiveConfig({
+    meshRoot,
+    meshBase: MESH_BASE,
+    localPathPolicy,
+    knopConfigScopePath: [{
+      scopeKey: "alice",
+      turtle: knopMetadataAttachingLocalSource(
+        "alice",
+        "hasInheritableConfigSource",
+        "alice/_knop/_config/inherited.ttl",
+      ),
+    }],
+  });
+
+  assertEquals(
+    config.historyTrackingPolicyForArtifactRole("payload"),
+    "versioned",
+  );
+  assertEquals(config.sources.knopConfigSources, undefined);
+});
+
+Deno.test("loadWeaveEffectiveConfig lets nearer inherited Knop config beat farther inherited config", async () => {
+  const { meshRoot, localPathPolicy } = await createConfigSourceTestContext();
+  await writeMeshConfigSource(
+    meshRoot,
+    "alice/_knop/_config/far.ttl",
+    payloadHistoryPolicyConfigTurtle("historyTrackingPolicy_currentOnly"),
+  );
+  await writeMeshConfigSource(
+    meshRoot,
+    "alice/data/_knop/_config/near.ttl",
+    payloadHistoryPolicyConfigTurtle("historyTrackingPolicy_required"),
+  );
+
+  const config = await loadWeaveEffectiveConfig({
+    meshRoot,
+    meshBase: MESH_BASE,
+    localPathPolicy,
+    knopConfigScopePath: [
+      {
+        scopeKey: "alice",
+        turtle: knopMetadataAttachingLocalSource(
+          "alice",
+          "hasInheritableConfigSource",
+          "alice/_knop/_config/far.ttl",
+        ),
+      },
+      {
+        scopeKey: "alice/data",
+        turtle: knopMetadataAttachingLocalSource(
+          "alice/data",
+          "hasInheritableConfigSource",
+          "alice/data/_knop/_config/near.ttl",
+        ),
+      },
+      {
+        scopeKey: "alice/data/summary",
+        turtle: bareKnopMetadata("alice/data/summary"),
+      },
+    ],
+  });
+
+  assertEquals(
+    config.historyTrackingPolicyForArtifactRole("payload"),
+    "required",
+  );
+});
+
+Deno.test("loadWeaveEffectiveConfig lets target Knop-local config beat inherited Knop config", async () => {
+  const { meshRoot, localPathPolicy } = await createConfigSourceTestContext();
+  await writeMeshConfigSource(
+    meshRoot,
+    "alice/_knop/_config/inherited.ttl",
+    payloadHistoryPolicyConfigTurtle("historyTrackingPolicy_currentOnly"),
+  );
+  await writeMeshConfigSource(
+    meshRoot,
+    "alice/data/_knop/_config/local.ttl",
+    payloadHistoryPolicyConfigTurtle("historyTrackingPolicy_required"),
+  );
+
+  const config = await loadWeaveEffectiveConfig({
+    meshRoot,
+    meshBase: MESH_BASE,
+    localPathPolicy,
+    knopConfigScopePath: [
+      {
+        scopeKey: "alice",
+        turtle: knopMetadataAttachingLocalSource(
+          "alice",
+          "hasInheritableConfigSource",
+          "alice/_knop/_config/inherited.ttl",
+        ),
+      },
+      {
+        scopeKey: "alice/data",
+        turtle: knopMetadataAttachingLocalSource(
+          "alice/data",
+          "hasConfigSource",
+          "alice/data/_knop/_config/local.ttl",
+        ),
+      },
+    ],
+  });
+
+  assertEquals(
+    config.historyTrackingPolicyForArtifactRole("payload"),
+    "required",
+  );
+});
+
+Deno.test("loadWeaveEffectiveConfig lets command overrides beat Knop-local config", async () => {
+  const { meshRoot, localPathPolicy } = await createConfigSourceTestContext();
+  await writeMeshConfigSource(
+    meshRoot,
+    "alice/_knop/_config/local.ttl",
+    payloadHistoryPolicyConfigTurtle("historyTrackingPolicy_currentOnly"),
+  );
+
+  const config = await loadWeaveEffectiveConfig({
+    meshRoot,
+    meshBase: MESH_BASE,
+    localPathPolicy,
+    knopConfigScopePath: [{
+      scopeKey: "alice",
+      turtle: knopMetadataAttachingLocalSource(
+        "alice",
+        "hasConfigSource",
+        "alice/_knop/_config/local.ttl",
+      ),
+    }],
+    commandOverrides: {
+      historyTrackingPolicy: "versioned",
+    },
+  });
+
+  assertEquals(
+    config.historyTrackingPolicyForArtifactRole("payload"),
+    "versioned",
+  );
+});
+
+Deno.test("loadWeaveEffectiveConfig rejects unsafe Knop config-source coordinates", async () => {
+  const { meshRoot, localPathPolicy } = await createConfigSourceTestContext();
+  await writeMeshConfigSource(
+    meshRoot,
+    "alice/_knop/_config/local.ttl",
+    currentOnlyPayloadPolicyConfigTurtle(),
+  );
+
+  await assertRejects(
+    () =>
+      loadWeaveEffectiveConfig({
+        meshRoot,
+        meshBase: MESH_BASE,
+        localPathPolicy,
+        knopConfigScopePath: [{
+          scopeKey: "alice",
+          turtle: knopMetadataAttachingSourceSpec(
+            "alice",
+            "hasConfigSource",
+            'sflo:targetAccessUrl "https://example.invalid/config.ttl"',
+          ),
+        }],
+      }),
+    EffectiveConfigError,
+    "does not fetch",
+  );
+
+  await assertRejects(
+    () =>
+      loadWeaveEffectiveConfig({
+        meshRoot,
+        meshBase: MESH_BASE,
+        localPathPolicy,
+        knopConfigScopePath: [{
+          scopeKey: "alice",
+          turtle: knopMetadataAttachingLocalSource(
+            "alice",
+            "hasConfigSource",
+            "../config.ttl",
+          ),
+        }],
+      }),
+    EffectiveConfigError,
+    "outside the allowed local-path boundary",
+  );
+
+  await assertRejects(
+    () =>
+      loadWeaveEffectiveConfig({
+        meshRoot,
+        meshBase: MESH_BASE,
+        localPathPolicy,
+        knopConfigScopePath: [{
+          scopeKey: "alice",
+          turtle: knopMetadataAttachingSourceSpec(
+            "alice",
+            "hasConfigSource",
+            [
+              'sflo:targetLocalRelativePath "alice/_knop/_config/local.ttl"',
+              'sflo:expectsContentDigest "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"',
+            ].join(" ;\n    "),
+          ),
+        }],
+      }),
+    EffectiveConfigError,
+    "digest mismatch",
+  );
+
+  await assertRejects(
+    () =>
+      loadWeaveEffectiveConfig({
+        meshRoot,
+        meshBase: MESH_BASE,
+        localPathPolicy,
+        knopConfigScopePath: [{
+          scopeKey: "alice",
+          turtle: `@base <${MESH_BASE}> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<bob/_knop> a sflo:Knop ;
+  sfcfg:hasConfigSource [
+    a sfcfg:ConfigSource ;
+    sflo:targetLocalRelativePath "alice/_knop/_config/local.ttl"
+  ] .
+`,
+        }],
+      }),
+    EffectiveConfigError,
+    "active Knop",
+  );
+
+  await assertRejects(
+    () =>
+      loadWeaveEffectiveConfig({
+        meshRoot,
+        meshBase: MESH_BASE,
+        localPathPolicy,
+        knopConfigScopePath: [{
+          scopeKey: "alice",
+          turtle: `@base <${MESH_BASE}> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<alice/_knop> a sflo:Knop ;
+  sfcfg:hasConfigSource [
+    sflo:targetLocalRelativePath "alice/_knop/_config/local.ttl"
+  ] .
+`,
+        }],
+      }),
+    EffectiveConfigError,
+    "ConfigSource",
+  );
+});
+
 Deno.test("compileWeaveEffectiveConfig uses priority only for same-specificity conflicts", () => {
   const config = compileWeaveEffectiveConfig({
     applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
@@ -431,6 +1107,29 @@ Deno.test("compileWeaveEffectiveConfig rejects exact artifact targets outside th
       }),
     EffectiveConfigError,
     "not governed by the active mesh scope",
+  );
+});
+
+Deno.test("compileWeaveEffectiveConfig rejects Knop-local exact artifact targets outside the Knop authority scope", () => {
+  assertThrows(
+    () =>
+      compileWeaveEffectiveConfig({
+        applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+        configResolutionTurtle: DEFAULT_CONFIG_RESOLUTION_TURTLE,
+        meshBase: MESH_BASE,
+        meshInventoryTurtle: `${GOVERNED_ARTIFACTS_INVENTORY_TURTLE.trimEnd()}
+<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact .
+`,
+        knopConfigInputs: [{
+          turtle: exactTargetMeshConfigTurtle("<_mesh/_inventory>"),
+          source: "alice/_knop/_config/config.ttl",
+          layerRole: "knopLocal",
+          sourceOrder: 0,
+          authorityScopeKey: "alice",
+        }],
+      }),
+    EffectiveConfigError,
+    "outside the active Knop config authority scope",
   );
 });
 
@@ -788,6 +1487,10 @@ const VALID_CONFIG_RESOLUTION_TURTLE =
   ] .
 `;
 
+const DEFAULT_CONFIG_RESOLUTION_TURTLE = Deno.readTextFileSync(
+  new URL("../../../defaults/config-resolution.ttl", import.meta.url),
+);
+
 function exactTargetMeshConfigTurtle(artifactObject: string): string {
   return `@base <${MESH_BASE}> .
 @prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
@@ -804,5 +1507,146 @@ function exactTargetMeshConfigTurtle(artifactObject: string): string {
 
 <#target> a sfcfg:ExactArtifactPolicyTarget ;
   sfcfg:targetsArtifact ${artifactObject} .
+`;
+}
+
+async function createConfigSourceTestContext(): Promise<{
+  meshRoot: string;
+  localPathPolicy: OperationalLocalPathPolicy;
+}> {
+  const meshRoot = await Deno.makeTempDir({
+    prefix: "weave-config-source-",
+  });
+  return {
+    meshRoot,
+    localPathPolicy: {
+      meshRoot,
+      workspaceRoot: meshRoot,
+      rules: [],
+    },
+  };
+}
+
+async function writeMeshConfigSource(
+  meshRoot: string,
+  relativePath: string,
+  turtle: string,
+): Promise<void> {
+  const path = join(meshRoot, relativePath);
+  await Deno.mkdir(dirname(path), { recursive: true });
+  await Deno.writeTextFile(path, turtle);
+}
+
+function meshConfigAttachingLocalSource(
+  relativePath: string,
+  extraSpec = "",
+): string {
+  return meshConfigAttachingSourceSpec(
+    [
+      `sflo:targetLocalRelativePath ${JSON.stringify(relativePath)}`,
+      extraSpec,
+    ].filter((line) => line.length > 0).join(" ;\n    "),
+  );
+}
+
+function meshMetadataAttachingLocalSource(relativePath: string): string {
+  return `@base <${MESH_BASE}> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<_mesh> a sflo:SemanticMesh ;
+  sfcfg:hasConfigSource [
+    a sfcfg:ConfigSource ;
+    sflo:targetLocalRelativePath ${JSON.stringify(relativePath)}
+  ] .
+`;
+}
+
+function meshConfigAttachingSourceSpec(sourceSpec: string): string {
+  return `@base <${MESH_BASE}> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<> a sfcfg:MeshConfig .
+
+<_mesh> a sflo:SemanticMesh ;
+  sfcfg:hasConfigSource [
+    a sfcfg:ConfigSource ;
+    ${sourceSpec}
+  ] .
+`;
+}
+
+function configSourceForwarderTurtle(relativePath: string): string {
+  return `@base <${MESH_BASE}> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<> a sfcfg:MeshConfig .
+
+<_mesh> a sflo:SemanticMesh ;
+  sfcfg:hasConfigSource [
+    a sfcfg:ConfigSource ;
+    sflo:targetLocalRelativePath ${JSON.stringify(relativePath)}
+  ] .
+`;
+}
+
+function currentOnlyPayloadPolicyConfigTurtle(): string {
+  return payloadHistoryPolicyConfigTurtle("historyTrackingPolicy_currentOnly");
+}
+
+function payloadHistoryPolicyConfigTurtle(policyLocalName: string): string {
+  return `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasPolicyBinding <#payload-current-only> .
+
+<#payload-current-only> a sfcfg:PolicyBinding ;
+  sfcfg:bindsPolicy <#payload-history-policy> ;
+  sfcfg:appliesToPolicyTarget <#payload> .
+
+<#payload-history-policy> a sfcfg:PolicyDefinition ;
+  sfcfg:hasHistoryTrackingPolicy sfcfg:${policyLocalName} .
+
+<#payload> a sfcfg:ArtifactRolePolicyTarget ;
+  sfcfg:hasArtifactRole sfcfg:artifactRole_payload .
+`;
+}
+
+function bareKnopMetadata(scopeKey: string): string {
+  return `@base <${MESH_BASE}> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<${toKnopPath(scopeKey)}> a sflo:Knop .
+`;
+}
+
+function knopMetadataAttachingLocalSource(
+  scopeKey: string,
+  predicateLocalName: "hasConfigSource" | "hasInheritableConfigSource",
+  relativePath: string,
+): string {
+  return knopMetadataAttachingSourceSpec(
+    scopeKey,
+    predicateLocalName,
+    `sflo:targetLocalRelativePath ${JSON.stringify(relativePath)}`,
+  );
+}
+
+function knopMetadataAttachingSourceSpec(
+  scopeKey: string,
+  predicateLocalName: "hasConfigSource" | "hasInheritableConfigSource",
+  sourceSpec: string,
+): string {
+  return `@base <${MESH_BASE}> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<${toKnopPath(scopeKey)}> a sflo:Knop ;
+  sfcfg:${predicateLocalName} [
+    a sfcfg:ConfigSource ;
+    ${sourceSpec}
+  ] .
 `;
 }

@@ -2,6 +2,10 @@
 
 - NEVER EXPOSE SECRETS in conversations. We "develop in public" and make most LLM conversations available to the world.
 
+- We use two agent personas: 
+  - Kim, the coder
+  - Jimbo, the project manager
+
 - Review the [product vision](documentation/notes/product-vision.md)
 
 - We are using Kato to record LLM conversations.

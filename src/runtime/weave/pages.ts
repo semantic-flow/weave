@@ -213,6 +213,11 @@ export interface ResourcePageRenderOptions {
   includeSemanticFlowMetadata?: boolean;
   meshFaviconPath?: string;
   resourcePagePresentation?: ResourcePagePresentationProfile;
+  resourcePagePresentationForPage?: (
+    page: ResourcePageModel,
+  ) =>
+    | ResourcePagePresentationProfile
+    | Promise<ResourcePagePresentationProfile>;
 }
 
 export async function renderResourcePages(
@@ -242,6 +247,10 @@ export async function renderResourcePage(
     ? toMeshResourceHref(meshRootHref, options.meshFaviconPath)
     : undefined;
   const escapedCanonical = escapeHtml(canonical);
+  const renderPresentation = await resolveRenderPresentationForPage(
+    options,
+    page,
+  );
 
   if (page.kind !== "customIdentifier") {
     return await defaultResourcePageTheme.render(
@@ -256,7 +265,7 @@ export async function renderResourcePage(
           canonical,
           options.generatedAt ?? new Date(),
           options.includeSemanticFlowMetadata ?? false,
-          resolveRenderPresentation(options),
+          renderPresentation,
           meshFaviconHref,
         ),
       ),
@@ -270,7 +279,7 @@ export async function renderResourcePage(
     );
     const customPresentation = resolveCustomIdentifierPresentation(
       page.presentationConfigIri,
-      resolveRenderPresentation(options),
+      renderPresentation,
     );
     if (customPresentation) {
       return await defaultResourcePageTheme.render(
@@ -363,19 +372,30 @@ ${
   return assertNeverResourcePage(page);
 }
 
-function resolveRenderPresentation(
+async function resolveRenderPresentationForPage(
   options: ResourcePageRenderOptions,
+  page: ResourcePageModel,
+): Promise<ResourcePagePresentationProfile> {
+  const presentation = options.resourcePagePresentationForPage
+    ? await options.resourcePagePresentationForPage(page)
+    : options.resourcePagePresentation;
+  return resolveStaticRenderPresentation(options, presentation);
+}
+
+function resolveStaticRenderPresentation(
+  options: ResourcePageRenderOptions,
+  presentation: ResourcePagePresentationProfile | undefined = options
+    .resourcePagePresentation,
 ): ResourcePagePresentationProfile {
-  const presentation = options.resourcePagePresentation ??
-    DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE;
+  const resolved = presentation ?? DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE;
   if (
     options.includeSemanticFlowMetadata === true &&
-    presentation.identity === "semanticSiteDefault"
+    resolved.identity === "semanticSiteDefault"
   ) {
     return ALL_PANELS_RESOURCE_PAGE_PRESENTATION_PROFILE;
   }
 
-  return presentation;
+  return resolved;
 }
 
 function resolveCustomIdentifierPresentation(
@@ -428,7 +448,7 @@ export function buildResourcePageDocumentModel(
     canonical,
     options.generatedAt ?? new Date(),
     options.includeSemanticFlowMetadata ?? false,
-    resolveRenderPresentation(options),
+    resolveStaticRenderPresentation(options),
     meshFaviconHref,
   );
 }

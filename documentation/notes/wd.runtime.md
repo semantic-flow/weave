@@ -26,6 +26,23 @@ If an adjacent workspace source is denied and a mesh config exists, the runtime 
 
 `weave mesh create` is the exception: it also accepts `--workspace` because it may need to create the initial mesh config before any mesh-carried workspace relationship exists.
 
+## Config-Source Bootstrap
+
+Weave discovers initial source-backed config attachments from current metadata, not by scanning `_config` directories.
+
+Mesh-local config sources are attached to the active mesh subject, normally in `_mesh/_meta/meta.ttl`:
+
+```ttl
+<_mesh> sfcfg:hasConfigSource [
+  a sfcfg:ConfigSource ;
+  sflo:targetLocalRelativePath "_mesh/_config/config.ttl"
+] .
+```
+
+Knop-local and Knop-inheritable config sources are attached to the current Knop subject in that Knop's metadata. For `alice`, that means `alice/_knop/_meta/meta.ttl` with subject `<alice/_knop>`.
+
+The resolved `_mesh/_config/*.ttl` and `<knop>/_knop/_config/*.ttl` files are config payloads/artifacts. They may contain ordinary policy bindings and may chain to additional config sources after the first source has been authorized, but they are not the initial bootstrap authority just because they are under `_config`. Inline `sfcfg:hasConfig` and `sfcfg:hasInheritableConfig` payloads are still deferred in the Weave runtime; use `sfcfg:hasConfigSource` / `sfcfg:hasInheritableConfigSource` with explicit `sflo:ArtifactResolutionSpec` coordinates.
+
 ## Runtime Logs
 
 The Weave CLI writes runtime logs under `${XDG_STATE_HOME:-~/.local/state}/weave/meshes/<mesh-identifier>/logs/` by default. `WEAVE_LOG_DIR` remains an explicit override for CI, replay scripts, and other workflows that want a job-local log directory.

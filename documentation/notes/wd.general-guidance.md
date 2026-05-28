@@ -51,6 +51,8 @@ Before starting substantial code changes, a task note should be written and refi
 
 Before a task is closed, [[wd.decision-log]] can be updated with important decisions made.
 
+The backlog is kept in [[wd.todo]] and should be updated as tasks are completed.
+
 ## Behavior specs
 
 Semantic Flow behavior specs live in the Semantic Flow Framework notes as `sf.spec.*`. These specs describe externally visible Semantic Flow operation behavior and are meant to guide implementation and drive higher-level tests across implementations.

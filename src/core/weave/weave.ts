@@ -43,6 +43,7 @@ import {
   renderMeshMetadataWithMeshInventoryProgression,
 } from "./mesh_inventory_renderers.ts";
 import {
+  renderCurrentOnlyPageDefinitionWovenKnopInventoryTurtle,
   renderCurrentOnlyReferenceCatalogWovenKnopInventoryTurtle,
   renderFirstExtractedKnopWovenKnopInventoryTurtle,
   renderFirstKnopWovenKnopInventoryTurtle,
@@ -67,6 +68,7 @@ import {
   resolvePageDefinitionWeaveProgression,
 } from "./progression_resolvers.ts";
 import {
+  buildCurrentOnlyPageDefinitionWeavePages,
   buildCurrentOnlyReferenceCatalogWeavePages,
   buildFirstExtractedKnopWeavePages,
   buildFirstKnopWeavePages,
@@ -292,6 +294,7 @@ export function planWeave(input: PlanWeaveInput): WeavePlan {
             meshBase,
             input.currentMeshInventoryTurtle,
             candidate,
+            input.supportHistoryPolicies,
           );
         case "secondPayloadWeave":
           return planSecondPayloadWeave(
@@ -1066,9 +1069,46 @@ function planPageDefinitionWeave(
   meshBase: string,
   _meshInventoryTurtle: string,
   candidate: WeaveableKnopCandidate,
+  supportHistoryPolicies?: WeaveSupportHistoryPolicies,
 ): WeavePlan {
   const pageDefinitionArtifact = candidate.resourcePageDefinitionArtifact!;
   const designatorPath = candidate.designatorPath;
+  const versionPageDefinition = pageDefinitionArtifact
+    .currentArtifactHistoryExists ||
+    shouldMaterializeSupportHistory(
+      supportHistoryPolicies?.resourcePageDefinition ?? "versioned",
+    );
+  if (!versionPageDefinition) {
+    if (
+      pageDefinitionArtifact.currentArtifactHistoryPath !== undefined ||
+      pageDefinitionArtifact.latestHistoricalStatePath !== undefined
+    ) {
+      throw new WeaveInputError(
+        `ResourcePageDefinition current-only weave cannot use a partial explicit history for ${designatorPath}.`,
+      );
+    }
+    const renderedKnopInventory =
+      renderCurrentOnlyPageDefinitionWovenKnopInventoryTurtle(
+        meshBase,
+        candidate.currentKnopInventoryTurtle,
+        designatorPath,
+        pageDefinitionArtifact.workingLocalRelativePath,
+      );
+
+    return {
+      meshBase,
+      wovenDesignatorPaths: [designatorPath],
+      createdFiles: [],
+      updatedFiles: [
+        {
+          path: `${toKnopPath(designatorPath)}/_inventory/inventory.ttl`,
+          contents: renderedKnopInventory,
+        },
+      ],
+      createdPages: buildCurrentOnlyPageDefinitionWeavePages(designatorPath),
+    };
+  }
+
   const progression = resolvePageDefinitionWeaveProgression(
     designatorPath,
     pageDefinitionArtifact,

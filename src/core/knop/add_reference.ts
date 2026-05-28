@@ -10,6 +10,8 @@ import {
   SFLO_NAMESPACE,
   SFLO_TURTLE_PREFIX_DECLARATION,
 } from "../rdf/namespaces.ts";
+import { WeaveInputError } from "../weave/errors.ts";
+import { renderKnopInventoryWithPreservedSupportArtifacts } from "../weave/knop_support_renderers.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const XSD_NON_NEGATIVE_INTEGER_IRI =
@@ -24,12 +26,9 @@ const SFLO_HAS_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}hasArtifactHistory`;
 const SFLO_HAS_HISTORICAL_STATE_IRI = `${SFLO_NAMESPACE}hasHistoricalState`;
 const SFLO_HAS_KNOP_INVENTORY_IRI = `${SFLO_NAMESPACE}hasKnopInventory`;
 const SFLO_HAS_KNOP_METADATA_IRI = `${SFLO_NAMESPACE}hasKnopMetadata`;
-const SFLO_HAS_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}hasExtractionSource`;
 const SFLO_LOCATED_FILE_FOR_MANIFESTATION_IRI =
   `${SFLO_NAMESPACE}locatedFileForManifestation`;
 const SFLO_HAS_MANIFESTATION_IRI = `${SFLO_NAMESPACE}hasManifestation`;
-const SFLO_HAS_KNOP_SOURCE_REGISTRY_IRI =
-  `${SFLO_NAMESPACE}hasKnopSourceRegistry`;
 const SFLO_HAS_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}hasReferenceCatalog`;
 const SFLO_HAS_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}hasResourcePage`;
 const SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI =
@@ -41,7 +40,6 @@ const SFLO_HISTORY_ORDINAL_IRI = `${SFLO_NAMESPACE}historyOrdinal`;
 const SFLO_KNOP_IRI = `${SFLO_NAMESPACE}Knop`;
 const SFLO_KNOP_INVENTORY_IRI = `${SFLO_NAMESPACE}KnopInventory`;
 const SFLO_KNOP_METADATA_IRI = `${SFLO_NAMESPACE}KnopMetadata`;
-const SFLO_KNOP_SOURCE_REGISTRY_IRI = `${SFLO_NAMESPACE}KnopSourceRegistry`;
 const SFLO_LATEST_HISTORICAL_STATE_IRI =
   `${SFLO_NAMESPACE}latestHistoricalState`;
 const SFLO_LOCATED_FILE_FOR_STATE_IRI = `${SFLO_NAMESPACE}locatedFileForState`;
@@ -96,13 +94,6 @@ export class KnopAddReferenceInputError extends Error {
 }
 
 type KnopInventoryShape = "unwoven" | "currentOnlyWoven" | "woven";
-
-interface CurrentKnopSourceFacts {
-  sourceRegistryPath?: string;
-  sourcesFilePath?: string;
-  extractionSourcePath?: string;
-  extractionSourceBlock?: string;
-}
 
 export function planKnopAddReference(
   request: ResolvedKnopAddReferenceRequest,
@@ -306,255 +297,19 @@ function renderUpdatedKnopInventoryTurtle(
     )
     : renderUnwovenKnopInventoryWithReferenceCatalog(meshBase, knopPath);
 
-  return renderKnopInventoryWithPreservedSourceFacts({
-    meshBase,
-    currentKnopInventoryTurtle,
-    renderedKnopInventoryTurtle: rendered,
-    knopPath,
-  });
-}
-
-function renderKnopInventoryWithPreservedSourceFacts(options: {
-  meshBase: string;
-  currentKnopInventoryTurtle: string;
-  renderedKnopInventoryTurtle: string;
-  knopPath: string;
-}): string {
-  const sourceFacts = resolveCurrentKnopSourceFacts(options);
-  if (
-    sourceFacts.sourceRegistryPath === undefined &&
-    sourceFacts.extractionSourcePath === undefined
-  ) {
-    return options.renderedKnopInventoryTurtle;
+  try {
+    return renderKnopInventoryWithPreservedSupportArtifacts({
+      meshBase,
+      currentKnopInventoryTurtle,
+      renderedKnopInventoryTurtle: rendered,
+      knopPath,
+    });
+  } catch (error) {
+    if (error instanceof WeaveInputError) {
+      throw new KnopAddReferenceInputError(error.message);
+    }
+    throw error;
   }
-
-  let blocks = splitTurtleBlocks(options.renderedKnopInventoryTurtle);
-  const knopBlockIndex = findSubjectBlockIndex(blocks, options.knopPath);
-  if (knopBlockIndex === -1) {
-    throw new KnopAddReferenceInputError(
-      `rendered knop inventory is missing the ${options.knopPath} block`,
-    );
-  }
-
-  blocks = replaceSubjectBlock(
-    blocks,
-    options.knopPath,
-    renderKnopBlockWithSourceFacts(blocks[knopBlockIndex]!, sourceFacts),
-  );
-  if (
-    sourceFacts.sourceRegistryPath !== undefined &&
-    sourceFacts.sourcesFilePath !== undefined
-  ) {
-    blocks = upsertSubjectBlockAfter(
-      blocks,
-      `${options.knopPath}/_inventory`,
-      sourceFacts.sourceRegistryPath,
-      renderSubjectPredicateBlock(
-        sourceFacts.sourceRegistryPath,
-        "sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument",
-        [
-          `sflo:hasWorkingLocatedFile <${sourceFacts.sourcesFilePath}>`,
-        ],
-      ),
-    );
-    blocks = upsertSubjectBlockAfter(
-      blocks,
-      sourceFacts.sourceRegistryPath,
-      sourceFacts.sourcesFilePath,
-      renderLocatedFileBlock(sourceFacts.sourcesFilePath),
-    );
-  }
-  if (
-    sourceFacts.extractionSourcePath !== undefined &&
-    sourceFacts.extractionSourceBlock !== undefined
-  ) {
-    blocks = upsertSubjectBlockAfter(
-      blocks,
-      sourceFacts.sourceRegistryPath ?? `${options.knopPath}/_inventory`,
-      sourceFacts.extractionSourcePath,
-      sourceFacts.extractionSourceBlock,
-    );
-  }
-
-  return `${blocks.join("\n\n")}\n`;
-}
-
-function resolveCurrentKnopSourceFacts(options: {
-  meshBase: string;
-  currentKnopInventoryTurtle: string;
-  knopPath: string;
-}): CurrentKnopSourceFacts {
-  const errorMessage =
-    `Could not resolve carried source facts from current KnopInventory for ${options.knopPath}.`;
-  const quads = parseKnopInventoryQuads(
-    options.meshBase,
-    options.currentKnopInventoryTurtle,
-    errorMessage,
-  );
-  const knopIri = new URL(options.knopPath, options.meshBase).href;
-  const sourceRegistryIri = requireOptionalNamedNodeObject(
-    quads,
-    knopIri,
-    SFLO_HAS_KNOP_SOURCE_REGISTRY_IRI,
-    errorMessage,
-  );
-  const extractionSourceIri = requireOptionalNamedNodeObject(
-    quads,
-    knopIri,
-    SFLO_HAS_EXTRACTION_SOURCE_IRI,
-    errorMessage,
-  );
-  const sourceRegistryPath = sourceRegistryIri === undefined
-    ? undefined
-    : toMeshPath(options.meshBase, sourceRegistryIri, errorMessage);
-  const extractionSourcePath = extractionSourceIri === undefined
-    ? undefined
-    : toMeshPath(options.meshBase, extractionSourceIri, errorMessage);
-  const sourcesFilePath = sourceRegistryIri === undefined
-    ? undefined
-    : requireOptionalNamedNodeObject(
-      quads,
-      sourceRegistryIri,
-      SFLO_HAS_WORKING_LOCATED_FILE_IRI,
-      errorMessage,
-    );
-  const sourcesFileRelativePath = sourcesFilePath === undefined
-    ? undefined
-    : toMeshPath(options.meshBase, sourcesFilePath, errorMessage);
-  const extractionSourceBlock = extractionSourcePath === undefined
-    ? undefined
-    : splitTurtleBlocks(options.currentKnopInventoryTurtle).find((block) =>
-      getSubjectPathFromBlock(block) === extractionSourcePath
-    );
-
-  if (
-    sourceRegistryPath !== undefined &&
-    !hasNamedNodeFact(
-      quads,
-      options.meshBase,
-      sourceRegistryPath,
-      RDF_TYPE_IRI,
-      SFLO_KNOP_SOURCE_REGISTRY_IRI,
-    )
-  ) {
-    throw new KnopAddReferenceInputError(errorMessage);
-  }
-  if (
-    sourceRegistryPath !== undefined && sourcesFileRelativePath === undefined
-  ) {
-    throw new KnopAddReferenceInputError(errorMessage);
-  }
-
-  return {
-    ...(sourceRegistryPath !== undefined ? { sourceRegistryPath } : {}),
-    ...(sourcesFileRelativePath !== undefined
-      ? { sourcesFilePath: sourcesFileRelativePath }
-      : {}),
-    ...(extractionSourcePath !== undefined ? { extractionSourcePath } : {}),
-    ...(extractionSourceBlock !== undefined ? { extractionSourceBlock } : {}),
-  };
-}
-
-function renderKnopBlockWithSourceFacts(
-  block: string,
-  sourceFacts: CurrentKnopSourceFacts,
-): string {
-  const carriedLines = [
-    ...(sourceFacts.sourceRegistryPath === undefined ? [] : [
-      `  sflo:hasKnopSourceRegistry <${sourceFacts.sourceRegistryPath}> ;`,
-    ]),
-    ...(sourceFacts.extractionSourcePath === undefined ? [] : [
-      `  sflo:hasExtractionSource <${sourceFacts.extractionSourcePath}> ;`,
-    ]),
-  ].filter((line) => !block.includes(line));
-  if (carriedLines.length === 0) {
-    return block;
-  }
-
-  const workingInventoryLine = "  sflo:hasWorkingKnopInventoryFile ";
-  if (!block.includes(workingInventoryLine)) {
-    throw new KnopAddReferenceInputError(
-      "could not preserve source facts because the Knop block is missing hasWorkingKnopInventoryFile",
-    );
-  }
-
-  return block.replace(
-    workingInventoryLine,
-    `${carriedLines.join("\n")}\n${workingInventoryLine}`,
-  );
-}
-
-function splitTurtleBlocks(turtle: string): string[] {
-  return turtle.trimEnd().split("\n\n");
-}
-
-function replaceSubjectBlock(
-  blocks: readonly string[],
-  subjectPath: string,
-  replacementBlock: string,
-): string[] {
-  const index = findSubjectBlockIndex(blocks, subjectPath);
-  if (index === -1) {
-    throw new KnopAddReferenceInputError(
-      `rendered knop inventory did not contain subject block <${subjectPath}>`,
-    );
-  }
-
-  const nextBlocks = [...blocks];
-  nextBlocks[index] = replacementBlock;
-  return nextBlocks;
-}
-
-function upsertSubjectBlockAfter(
-  blocks: readonly string[],
-  anchorSubjectPath: string,
-  subjectPath: string,
-  block: string,
-): string[] {
-  const existingIndex = findSubjectBlockIndex(blocks, subjectPath);
-  if (existingIndex !== -1) {
-    const nextBlocks = [...blocks];
-    nextBlocks[existingIndex] = block;
-    return nextBlocks;
-  }
-
-  const anchorIndex = findSubjectBlockIndex(blocks, anchorSubjectPath);
-  if (anchorIndex === -1) {
-    throw new KnopAddReferenceInputError(
-      `rendered knop inventory did not contain anchor subject block <${anchorSubjectPath}>`,
-    );
-  }
-
-  const nextBlocks = [...blocks];
-  nextBlocks.splice(anchorIndex + 1, 0, block);
-  return nextBlocks;
-}
-
-function findSubjectBlockIndex(
-  blocks: readonly string[],
-  subjectPath: string,
-): number {
-  return blocks.findIndex((block) =>
-    getSubjectPathFromBlock(block) === subjectPath
-  );
-}
-
-function getSubjectPathFromBlock(block: string): string | undefined {
-  const match = block.match(/^<([^>]*)>/);
-  return match?.[1];
-}
-
-function renderSubjectPredicateBlock(
-  subjectPath: string,
-  typeList: string,
-  predicates: readonly string[],
-): string {
-  return `<${subjectPath}> a ${typeList} ;
-  ${predicates.join(" ;\n  ")} .`;
-}
-
-function renderLocatedFileBlock(path: string): string {
-  return `<${path}> a sflo:LocatedFile, sflo:RdfDocument .`;
 }
 
 function classifyCurrentKnopInventoryShape(
@@ -1305,38 +1060,4 @@ function parseKnopInventoryQuads(
   } catch {
     throw new KnopAddReferenceInputError(errorMessage);
   }
-}
-
-function requireOptionalNamedNodeObject(
-  quads: readonly Quad[],
-  subjectIri: string,
-  predicateIri: string,
-  errorMessage: string,
-): string | undefined {
-  const values = quads.flatMap((quad) =>
-    quad.subject.termType === "NamedNode" &&
-      quad.subject.value === subjectIri &&
-      quad.predicate.value === predicateIri &&
-      quad.object.termType === "NamedNode"
-      ? [quad.object.value]
-      : []
-  );
-
-  if (values.length > 1) {
-    throw new KnopAddReferenceInputError(errorMessage);
-  }
-
-  return values[0];
-}
-
-function toMeshPath(
-  meshBase: string,
-  iri: string,
-  errorMessage: string,
-): string {
-  if (!iri.startsWith(meshBase)) {
-    throw new KnopAddReferenceInputError(errorMessage);
-  }
-
-  return iri.slice(meshBase.length);
 }

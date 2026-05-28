@@ -1,4 +1,10 @@
-import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
+import { Parser, type Quad } from "n3";
 import { readMeshAliceBioBranchFile } from "../../../tests/support/mesh_alice_bio_fixture.ts";
 import {
   KnopAddReferenceInputError,
@@ -300,13 +306,21 @@ Deno.test("planKnopAddReference preserves extracted source registry facts", () =
   });
   const updatedInventory = plan.updatedFiles[0]?.contents ?? "";
 
-  assertStringIncludes(
-    updatedInventory,
-    "sflo:hasKnopSourceRegistry <bob/_knop/_sources> ;",
+  assert(
+    hasNamedNodeFact(
+      updatedInventory,
+      "bob/_knop",
+      "https://semantic-flow.github.io/sflo/ontology/hasKnopSourceRegistry",
+      "bob/_knop/_sources",
+    ),
   );
-  assertStringIncludes(
-    updatedInventory,
-    "sflo:hasExtractionSource <bob/_knop/_sources#extraction-source> ;",
+  assert(
+    hasNamedNodeFact(
+      updatedInventory,
+      "bob/_knop",
+      "https://semantic-flow.github.io/sflo/ontology/hasExtractionSource",
+      "bob/_knop/_sources#extraction-source",
+    ),
   );
   assertStringIncludes(
     updatedInventory,
@@ -315,6 +329,56 @@ Deno.test("planKnopAddReference preserves extracted source registry facts", () =
   assertStringIncludes(
     updatedInventory,
     "<bob/_knop/_sources/sources.ttl> a sflo:LocatedFile, sflo:RdfDocument .",
+  );
+});
+
+Deno.test("planKnopAddReference preserves unknown source registry facts byte-for-byte", () => {
+  const plan = planKnopAddReference({
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    designatorPath: "bob",
+    referenceTargetDesignatorPath: "alice/data",
+    referenceRole: "canonical",
+    currentKnopInventoryTurtle: extractedKnopInventory
+      .replace(
+        "@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .",
+        `@prefix ex: <https://example.org/vocab/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .`,
+      )
+      .replace(
+        "  sflo:hasWorkingLocatedFile <bob/_knop/_sources/sources.ttl> .",
+        `  ex:opaqueSourceFact "keep exactly" ;
+  sflo:hasWorkingLocatedFile <bob/_knop/_sources/sources.ttl> .`,
+      ),
+  });
+  const updatedInventory = plan.updatedFiles[0]?.contents ?? "";
+
+  assertStringIncludes(
+    updatedInventory,
+    "@prefix ex: <https://example.org/vocab/> .",
+  );
+  assertStringIncludes(
+    updatedInventory,
+    `  ex:opaqueSourceFact "keep exactly" ;
+  sflo:hasWorkingLocatedFile <bob/_knop/_sources/sources.ttl> .`,
+  );
+});
+
+Deno.test("planKnopAddReference fails closed on conflicting source registry facts", () => {
+  assertThrows(
+    () =>
+      planKnopAddReference({
+        meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+        designatorPath: "bob",
+        referenceTargetDesignatorPath: "alice/data",
+        referenceRole: "canonical",
+        currentKnopInventoryTurtle: extractedKnopInventory.replace(
+          "  sflo:hasKnopSourceRegistry <bob/_knop/_sources> ;",
+          `  sflo:hasKnopSourceRegistry <bob/_knop/_sources> ;
+  sflo:hasKnopSourceRegistry <bob/_knop/_other-sources> ;`,
+        ),
+      }),
+    KnopAddReferenceInputError,
+    "Could not resolve Knop source registry",
   );
 });
 
@@ -340,9 +404,13 @@ Deno.test("planKnopAddReference supports current-only woven extracted KnopInvent
     updatedInventory,
     "<bob/_knop/_references> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;",
   );
-  assertStringIncludes(
-    updatedInventory,
-    "sflo:hasKnopSourceRegistry <bob/_knop/_sources> ;",
+  assert(
+    hasNamedNodeFact(
+      updatedInventory,
+      "bob/_knop",
+      "https://semantic-flow.github.io/sflo/ontology/hasKnopSourceRegistry",
+      "bob/_knop/_sources",
+    ),
   );
   assertEquals(updatedInventory.includes("sflo:hasArtifactHistory"), false);
 });
@@ -460,5 +528,24 @@ function withRdfPrefix(turtle: string): string {
     "@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .",
     `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .`,
+  );
+}
+
+function hasNamedNodeFact(
+  turtle: string,
+  subjectValue: string,
+  predicateIri: string,
+  objectValue: string,
+): boolean {
+  const meshBase = "https://semantic-flow.github.io/mesh-alice-bio/";
+  const subjectIri = new URL(subjectValue, meshBase).href;
+  const objectIri = new URL(objectValue, meshBase).href;
+
+  return new Parser({ baseIRI: meshBase }).parse(turtle).some((quad: Quad) =>
+    quad.subject.termType === "NamedNode" &&
+    quad.subject.value === subjectIri &&
+    quad.predicate.value === predicateIri &&
+    quad.object.termType === "NamedNode" &&
+    quad.object.value === objectIri
   );
 }

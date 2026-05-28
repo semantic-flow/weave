@@ -4,13 +4,17 @@ import {
   type NormalizedTargetSpec,
   resolveTargetSelections,
 } from "../../core/targeting.ts";
+import type { ResourcePageModel } from "../../core/weave/resource_page_models.ts";
 import { WeaveInputError } from "../../core/weave/weave.ts";
 import { listKnopDesignatorPaths } from "../mesh/inventory.ts";
 import type { OperationalLocalPathPolicy } from "../operational/local_path_policy.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
 import type { RuntimeTiming } from "../timing.ts";
 import type { HistoryTrackingPolicy } from "../config/effective_config.ts";
-import { loadEffectiveConfigForExecution } from "./execution_config.ts";
+import {
+  createEffectiveConfigProviderForExecution,
+  type EffectiveConfigProvider,
+} from "./execution_config.ts";
 import { loadMeshState, type MeshState } from "./mesh_state.ts";
 import {
   collectResourcePageModels,
@@ -50,21 +54,6 @@ export async function generatePreparedPages(
     phase("loadMeshState"),
     () => loadMeshState(options.meshRoot),
   );
-  const effectiveConfig = await timeOptional(
-    options.timing,
-    phase("loadEffectiveConfig"),
-    () =>
-      loadEffectiveConfigForExecution({
-        meshConfigTurtle: meshState.currentMeshConfigTurtle,
-        meshConfigSource: meshState.currentMeshConfigTurtle
-          ? "_mesh/_config/config.ttl"
-          : undefined,
-        meshBase: meshState.meshBase,
-        meshInventoryTurtle: meshState.currentMeshInventoryTurtle,
-        historyTrackingPolicyOverride: options.historyTrackingPolicyOverride,
-        includeSemanticFlowMetadata: options.includeSemanticFlowMetadata,
-      }),
-  );
   const allDesignatorPaths = timeOptionalSync(
     options.timing,
     phase("listDesignatorPaths"),
@@ -84,6 +73,15 @@ export async function generatePreparedPages(
         options.targets,
       ),
   );
+  const effectiveConfigProvider = createEffectiveConfigProviderForExecution({
+    meshRoot: options.meshRoot,
+    meshState,
+    localPathPolicy: options.localPathPolicy,
+    historyTrackingPolicyOverride: options.historyTrackingPolicyOverride,
+    includeSemanticFlowMetadata: options.includeSemanticFlowMetadata,
+    timing: options.timing,
+    phasePrefix: phase("effectiveConfig"),
+  });
   const pageFiles = await timeOptional(
     options.timing,
     phase("collectGeneratedPageFiles"),
@@ -95,7 +93,7 @@ export async function generatePreparedPages(
         selectedDesignatorPaths,
         options.targets.length === 0,
         options.targets.length > 0,
-        effectiveConfig,
+        effectiveConfigProvider,
         resolveGeneratedAt(options.now),
         options.timing,
         phase("collectGeneratedPageFiles"),
@@ -139,7 +137,7 @@ export async function collectGeneratedPageFiles(
   selectedDesignatorPaths: readonly string[],
   includeAllMeshPages: boolean,
   hasExplicitGenerateTargets: boolean,
-  effectiveConfig: Awaited<ReturnType<typeof loadEffectiveConfigForExecution>>,
+  effectiveConfigProvider: EffectiveConfigProvider,
   generatedAt: Date,
   timing?: RuntimeTiming,
   phasePrefix = "collectGeneratedPageFiles",
@@ -152,7 +150,7 @@ export async function collectGeneratedPageFiles(
     selectedDesignatorPaths,
     includeAllMeshPages,
     hasExplicitGenerateTargets,
-    effectiveConfig,
+    effectiveConfigProvider,
     timing,
     phasePrefix,
   });
@@ -165,9 +163,69 @@ export async function collectGeneratedPageFiles(
         generatedAt,
         includeSemanticFlowMetadata: false,
         meshFaviconPath,
-        resourcePagePresentation: effectiveConfig.resourcePagePresentation,
+        resourcePagePresentationForPage: (page) =>
+          resourcePagePresentationForGeneratedPage(
+            effectiveConfigProvider,
+            page,
+          ),
       }),
   );
+}
+
+async function resourcePagePresentationForGeneratedPage(
+  effectiveConfigProvider: EffectiveConfigProvider,
+  page: ResourcePageModel,
+) {
+  const ownerDesignatorPath = ownerDesignatorPathForPage(page);
+  return ownerDesignatorPath === undefined
+    ? await effectiveConfigProvider.resourcePagePresentationForMeshScope()
+    : await effectiveConfigProvider.resourcePagePresentationForTarget(
+      ownerDesignatorPath,
+    );
+}
+
+export function ownerDesignatorPathForPage(
+  page: ResourcePageModel,
+): string | undefined {
+  if (page.path.startsWith("_mesh/")) {
+    return undefined;
+  }
+  if (
+    page.kind === "identifier" ||
+    page.kind === "customIdentifier" ||
+    page.kind === "knop"
+  ) {
+    return page.designatorPath;
+  }
+  if (page.kind === "referenceCatalog") {
+    return page.ownerDesignatorPath;
+  }
+  if (page.ownerDesignatorPath !== undefined) {
+    return page.ownerDesignatorPath;
+  }
+
+  const resourcePath = page.path === "index.html"
+    ? ""
+    : page.path.endsWith("/index.html")
+    ? page.path.slice(0, -"/index.html".length)
+    : page.path;
+  const knopMarker = resourcePath === "_knop"
+    ? 0
+    : resourcePath.indexOf("/_knop");
+  if (knopMarker === 0) {
+    return "";
+  }
+  if (knopMarker > 0) {
+    return resourcePath.slice(0, knopMarker);
+  }
+  const historyMarker = resourcePath.indexOf("/_history");
+  if (historyMarker > 0) {
+    return resourcePath.slice(0, historyMarker);
+  }
+  if (resourcePath.startsWith("_history")) {
+    return "";
+  }
+  return resourcePath;
 }
 
 function resolveSelectedDesignatorPaths(

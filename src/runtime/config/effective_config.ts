@@ -6,6 +6,15 @@ import {
   SFCFG_NAMESPACE,
   SFLO_NAMESPACE,
 } from "../../core/rdf/namespaces.ts";
+import {
+  type ConfigSourceResolutionTraceEntry,
+  discoverKnopConfigSources,
+  discoverMeshLocalConfigSources,
+  type KnopConfigScopeInput,
+  type LayeredConfigInput,
+  type MeshLocalConfigInput,
+} from "./config_sources.ts";
+import type { OperationalLocalPathPolicy } from "../operational/local_path_policy.ts";
 
 const RDF_TYPE_IRI = `${RDF_NAMESPACE}type`;
 const APPLICATION_CONFIG_IRI = `${SFCFG_NAMESPACE}ApplicationConfig`;
@@ -623,6 +632,8 @@ export interface EffectiveConfigSources {
   applicationSource: string;
   configResolutionSource: string;
   meshConfigSource?: string;
+  meshConfigSources?: readonly string[];
+  knopConfigSources?: readonly string[];
   commandOverrideSource?: string;
 }
 
@@ -639,9 +650,15 @@ export interface CompileWeaveEffectiveConfigOptions {
   defaultsRoot?: string | URL;
   meshConfigTurtle?: string;
   meshConfigSource?: string;
+  meshConfigInputs?: readonly MeshLocalConfigInput[];
+  meshRoot?: string;
+  meshMetadataTurtle?: string;
+  meshMetadataSource?: string;
   meshBase?: string;
   meshInventoryTurtle?: string;
+  localPathPolicy?: OperationalLocalPathPolicy;
   governedArtifactIris?: readonly string[];
+  knopConfigScopePath?: readonly KnopConfigScopeInput[];
   commandOverrides?: CompileWeaveEffectiveConfigCommandOverrides;
 }
 
@@ -673,10 +690,13 @@ export interface ArtifactPolicyTargetQuery {
 
 interface PolicyTargetValidationContext {
   governedArtifactIris?: ReadonlySet<string>;
+  meshBase?: string;
+  knopAuthorityScopeKey?: string;
 }
 
 interface CompiledPolicyBinding {
   source: string;
+  sourceOrder: number;
   layerRole: ConfigLayerRole;
   layerOrder: number;
   bindingTerm: string;
@@ -689,8 +709,21 @@ interface ScopedSettingLayer {
   quads: readonly Quad[];
   configSubject: string;
   source: string;
+  sourceOrder: number;
   layerRole: ConfigLayerRole;
   layerOrder: number;
+}
+
+interface ParsedLayeredConfigInput {
+  quads: readonly Quad[];
+  configSubject?: string;
+  source: string;
+  sourceOrder: number;
+  authorityScopeKey?: string;
+  layerRole: Extract<
+    ConfigLayerRole,
+    "meshLocal" | "knopInherited" | "knopLocal"
+  >;
 }
 
 export interface PolicyResolutionTraceEntry {
@@ -700,9 +733,14 @@ export interface PolicyResolutionTraceEntry {
   selectedValue: string;
   selectedLayerRole: ConfigLayerRole;
   selectedSource: string;
+  selectedSourceOrder: number;
   selectedTargetKind: PolicyTarget["kind"];
   candidateCount: number;
 }
+
+export type EffectiveConfigResolutionTraceEntry =
+  | PolicyResolutionTraceEntry
+  | ConfigSourceResolutionTraceEntry;
 
 export class EffectiveConfigError extends Error {
   constructor(message: string) {
@@ -719,7 +757,7 @@ export class EffectiveConfig {
   readonly resourcePageRegenerationConfigPolicy:
     ResourcePageRegenerationConfigPolicy;
   readonly scopedSettings: EffectiveScopedSettings;
-  readonly resolutionTrace: PolicyResolutionTraceEntry[] = [];
+  readonly resolutionTrace: EffectiveConfigResolutionTraceEntry[];
   readonly #policyBindings: readonly CompiledPolicyBinding[];
   readonly #presentationProfiles: ReadonlyMap<
     ResourcePagePresentationIdentity,
@@ -739,6 +777,7 @@ export class EffectiveConfig {
       namingPolicies: DefaultNamingPolicies;
       scopedSettings: EffectiveScopedSettings;
       configResolution: DefaultConfigResolutionProfile;
+      resolutionTrace?: readonly ConfigSourceResolutionTraceEntry[];
     },
   ) {
     this.sources = input.sources;
@@ -749,6 +788,7 @@ export class EffectiveConfig {
     this.namingPolicies = input.namingPolicies;
     this.scopedSettings = input.scopedSettings;
     this.configResolution = input.configResolution;
+    this.resolutionTrace = [...(input.resolutionTrace ?? [])];
     this.resourcePagePresentation = this
       .resourcePagePresentationPolicyForTarget({ artifactRoles: [] });
   }
@@ -879,16 +919,23 @@ export class EffectiveConfig {
     const priorityWinners = specificityWinners.filter((binding) =>
       binding.priority === highestPriority
     );
+    const earliestSourceOrder = Math.min(
+      ...priorityWinners.map((binding) => binding.sourceOrder),
+    );
+    const sourceOrderWinners = priorityWinners.filter((binding) =>
+      binding.sourceOrder === earliestSourceOrder
+    );
     const values = new Set(
-      priorityWinners.map((binding) =>
+      sourceOrderWinners.map((binding) =>
         policyValueForSlot(binding.values, slot)!
       ),
     );
 
     if (values.size !== 1) {
       const conflictingValues = [...values].sort();
-      const conflictingBindings = priorityWinners.map((binding) => ({
+      const conflictingBindings = sourceOrderWinners.map((binding) => ({
         source: binding.source,
+        sourceOrder: binding.sourceOrder,
         layerRole: binding.layerRole,
         layerOrder: binding.layerOrder,
         bindingTerm: binding.bindingTerm,
@@ -897,13 +944,13 @@ export class EffectiveConfig {
         value: policyValueForSlot(binding.values, slot),
       }));
       throw new EffectiveConfigError(
-        `Conflicting ${slot} policy bindings at the same layer, specificity, and priority; values=${
+        `Conflicting ${slot} policy bindings at the same layer, specificity, priority, and source order; values=${
           JSON.stringify(conflictingValues)
         }; bindings=${JSON.stringify(conflictingBindings)}`,
       );
     }
 
-    const selected = priorityWinners[0]!;
+    const selected = sourceOrderWinners[0]!;
     const selectedValue = values.values().next().value!;
     this.resolutionTrace.push({
       slot,
@@ -912,6 +959,7 @@ export class EffectiveConfig {
       selectedValue,
       selectedLayerRole: selected.layerRole,
       selectedSource: selected.source,
+      selectedSourceOrder: selected.sourceOrder,
       selectedTargetKind: selected.target.kind,
       candidateCount: candidates.length,
     });
@@ -936,22 +984,113 @@ export async function loadWeaveEffectiveConfig(
     options.defaultsRoot,
     "config-resolution.ttl",
   );
+  const seedMeshConfigInputs = options.meshConfigInputs ??
+    (options.meshConfigTurtle
+      ? [{
+        turtle: options.meshConfigTurtle,
+        source: options.meshConfigSource ?? "mesh-config.ttl",
+      }]
+      : []);
+  let resolvedMeshConfigInputs: readonly MeshLocalConfigInput[] = [];
+  let resolvedKnopConfigInputs: readonly LayeredConfigInput[] = [];
+  let configSourceResolutionTrace: readonly ConfigSourceResolutionTraceEntry[] =
+    [];
+
+  if (
+    (seedMeshConfigInputs.length > 0 || options.meshMetadataTurtle) &&
+    options.meshRoot &&
+    options.meshBase &&
+    options.localPathPolicy
+  ) {
+    try {
+      const discovery = await discoverMeshLocalConfigSources({
+        meshRoot: options.meshRoot,
+        meshBase: options.meshBase,
+        localPathPolicy: options.localPathPolicy,
+        seedDocuments: [
+          ...seedMeshConfigInputs,
+          ...(options.meshMetadataTurtle
+            ? [{
+              turtle: options.meshMetadataTurtle,
+              source: options.meshMetadataSource ?? "_mesh/_meta/meta.ttl",
+            }]
+            : []),
+        ],
+      });
+      resolvedMeshConfigInputs = discovery.configInputs;
+      configSourceResolutionTrace = discovery.resolutionTrace;
+    } catch (error) {
+      if (error instanceof EffectiveConfigError) {
+        throw error;
+      }
+      throw new EffectiveConfigError(
+        error instanceof Error
+          ? error.message
+          : `Could not discover mesh-local config sources: ${String(error)}`,
+      );
+    }
+  }
+
+  if (
+    options.knopConfigScopePath &&
+    options.knopConfigScopePath.length > 0 &&
+    options.meshRoot &&
+    options.meshBase &&
+    options.localPathPolicy
+  ) {
+    try {
+      const discovery = await discoverKnopConfigSources({
+        meshRoot: options.meshRoot,
+        meshBase: options.meshBase,
+        localPathPolicy: options.localPathPolicy,
+        knopScopePath: options.knopConfigScopePath,
+      });
+      resolvedKnopConfigInputs = discovery.configInputs;
+      configSourceResolutionTrace = [
+        ...configSourceResolutionTrace,
+        ...discovery.resolutionTrace,
+      ];
+    } catch (error) {
+      if (error instanceof EffectiveConfigError) {
+        throw error;
+      }
+      throw new EffectiveConfigError(
+        error instanceof Error
+          ? error.message
+          : `Could not discover Knop config sources: ${String(error)}`,
+      );
+    }
+  }
+
+  const meshConfigInputs = [
+    ...seedMeshConfigInputs,
+    ...resolvedMeshConfigInputs,
+  ];
+  const meshConfigSources = meshConfigInputs.map((input) => input.source);
+  const firstMeshConfigSource = meshConfigSources[0];
+  const knopConfigSources = resolvedKnopConfigInputs.map((input) =>
+    input.source
+  );
 
   return compileWeaveEffectiveConfig({
     applicationTurtle: await Deno.readTextFile(applicationSource),
     configResolutionTurtle: await Deno.readTextFile(configResolutionSource),
-    meshConfigTurtle: options.meshConfigTurtle,
+    meshConfigInputs,
     meshBase: options.meshBase,
     meshInventoryTurtle: options.meshInventoryTurtle,
+    knopConfigInputs: resolvedKnopConfigInputs,
     governedArtifactIris: options.governedArtifactIris,
     commandOverrides: options.commandOverrides,
     sources: {
       applicationSource: formatSource(applicationSource),
       configResolutionSource: formatSource(configResolutionSource),
-      ...(options.meshConfigSource
-        ? { meshConfigSource: options.meshConfigSource }
+      ...(firstMeshConfigSource
+        ? { meshConfigSource: firstMeshConfigSource }
         : {}),
+      ...(meshConfigSources.length > 0 ? { meshConfigSources } : {}),
+      ...(knopConfigSources.length > 0 ? { knopConfigSources } : {}),
     },
+    configSourceResolutionTrace,
   });
 }
 
@@ -974,27 +1113,54 @@ export function compileWeaveEffectiveConfig(input: {
   applicationTurtle: string;
   configResolutionTurtle: string;
   meshConfigTurtle?: string;
+  meshConfigInputs?: readonly MeshLocalConfigInput[];
+  knopConfigInputs?: readonly LayeredConfigInput[];
   meshBase?: string;
   meshInventoryTurtle?: string;
   governedArtifactIris?: readonly string[];
   commandOverrides?: CompileWeaveEffectiveConfigCommandOverrides;
   sources?: EffectiveConfigSources;
+  configSourceResolutionTrace?: readonly ConfigSourceResolutionTraceEntry[];
 }): EffectiveConfig {
+  const meshConfigInputs = input.meshConfigInputs ??
+    (input.meshConfigTurtle
+      ? [{
+        turtle: input.meshConfigTurtle,
+        source: input.sources?.meshConfigSource ?? "mesh-config.ttl",
+      }]
+      : []);
+  const knopConfigInputs = input.knopConfigInputs ?? [];
   const sources = input.sources ?? {
     applicationSource: "application.ttl",
     configResolutionSource: "config-resolution.ttl",
-    ...(input.meshConfigTurtle ? { meshConfigSource: "mesh-config.ttl" } : {}),
+    ...(meshConfigInputs.length > 0
+      ? { meshConfigSource: meshConfigInputs[0]!.source }
+      : {}),
+    ...(meshConfigInputs.length > 0
+      ? {
+        meshConfigSources: meshConfigInputs.map((document) => document.source),
+      }
+      : {}),
+    ...(knopConfigInputs.length > 0
+      ? {
+        knopConfigSources: knopConfigInputs.map((document) => document.source),
+      }
+      : {}),
   };
   const applicationQuads = parseTurtle(
     input.applicationTurtle,
     sources.applicationSource,
   );
-  const meshQuads = input.meshConfigTurtle
-    ? parseTurtle(
-      input.meshConfigTurtle,
-      sources.meshConfigSource ?? "mesh-config.ttl",
-    )
-    : [];
+  const meshDocuments = meshConfigInputs.map((document, index) =>
+    parseLayeredConfigInput({
+      ...document,
+      layerRole: "meshLocal",
+      sourceOrder: index,
+    })
+  );
+  const knopDocuments = knopConfigInputs.map(parseLayeredConfigInput);
+  const configDocuments = [...meshDocuments, ...knopDocuments];
+  const configQuads = configDocuments.flatMap((document) => document.quads);
   const configResolutionQuads = parseTurtle(
     input.configResolutionTurtle,
     sources.configResolutionSource,
@@ -1017,39 +1183,39 @@ export function compileWeaveEffectiveConfig(input: {
     HAS_CONFIG_RESOLUTION_CONFIG_IRI,
     sources.applicationSource,
   );
-  const meshSubject = resolveOptionalMeshConfigSubject(
-    meshQuads,
-    sources.meshConfigSource ?? "mesh-config.ttl",
-  );
-  rejectPortableMeshResolverConfig(
-    meshQuads,
-    meshSubject,
-    sources.meshConfigSource ?? "mesh-config.ttl",
-  );
   rejectRetiredDirectPolicyPredicates(
     applicationQuads,
     sources.applicationSource,
   );
-  rejectRetiredDirectPolicyPredicates(
-    meshQuads,
-    sources.meshConfigSource ?? "mesh-config.ttl",
-  );
+  for (const document of configDocuments) {
+    rejectPortableMeshResolverConfig(
+      document.quads,
+      document.configSubject,
+      document.source,
+    );
+    rejectRetiredDirectPolicyPredicates(document.quads, document.source);
+  }
 
-  const allQuads = [...applicationQuads, ...meshQuads];
+  const allQuads = [...applicationQuads, ...configQuads];
   const scopedSettingLayers: ScopedSettingLayer[] = [{
     quads: applicationQuads,
     configSubject: applicationSubject,
     source: sources.applicationSource,
+    sourceOrder: 0,
     layerRole: "weaveDefaults",
     layerOrder: requireLayerOrder(layerOrderByRole, "weaveDefaults"),
   }];
-  if (meshSubject) {
+  for (const document of configDocuments) {
+    if (!document.configSubject) {
+      continue;
+    }
     scopedSettingLayers.push({
-      quads: meshQuads,
-      configSubject: meshSubject,
-      source: sources.meshConfigSource ?? "mesh-config.ttl",
-      layerRole: "meshLocal",
-      layerOrder: requireLayerOrder(layerOrderByRole, "meshLocal"),
+      quads: document.quads,
+      configSubject: document.configSubject,
+      source: document.source,
+      sourceOrder: document.sourceOrder,
+      layerRole: document.layerRole,
+      layerOrder: requireLayerOrder(layerOrderByRole, document.layerRole),
     });
   }
   const targetValidation = createPolicyTargetValidationContext({
@@ -1063,20 +1229,29 @@ export function compileWeaveEffectiveConfig(input: {
       quads: applicationQuads,
       configSubject: applicationSubject,
       source: sources.applicationSource,
+      sourceOrder: 0,
       layerRole: "weaveDefaults",
       layerOrderByRole,
       targetValidation,
     }),
-    ...(meshSubject
-      ? parsePolicyBindings({
-        quads: meshQuads,
-        configSubject: meshSubject,
-        source: sources.meshConfigSource ?? "mesh-config.ttl",
-        layerRole: "meshLocal",
-        layerOrderByRole,
-        targetValidation,
-      })
-      : []),
+    ...configDocuments.flatMap((document) =>
+      document.configSubject
+        ? parsePolicyBindings({
+          quads: document.quads,
+          configSubject: document.configSubject,
+          source: document.source,
+          sourceOrder: document.sourceOrder,
+          layerRole: document.layerRole,
+          layerOrderByRole,
+          targetValidation: {
+            ...targetValidation,
+            ...(document.authorityScopeKey !== undefined
+              ? { knopAuthorityScopeKey: document.authorityScopeKey }
+              : {}),
+          },
+        })
+        : []
+    ),
     ...compileCommandOverrideBindings(
       input.commandOverrides,
       layerOrderByRole,
@@ -1118,14 +1293,29 @@ export function compileWeaveEffectiveConfig(input: {
       ),
     },
     scopedSettings: {
-      mesh: parseMeshScopedSettings(
-        meshQuads,
-        meshSubject,
-        sources.meshConfigSource ?? "mesh-config.ttl",
+      mesh: resolveMeshScopedSettings(
+        scopedSettingLayers.filter((layer) => layer.layerRole === "meshLocal"),
       ),
     },
     configResolution,
+    resolutionTrace: input.configSourceResolutionTrace,
   });
+}
+
+function parseLayeredConfigInput(
+  document: LayeredConfigInput,
+): ParsedLayeredConfigInput {
+  const quads = parseTurtle(document.turtle, document.source);
+  return {
+    quads,
+    source: document.source,
+    sourceOrder: document.sourceOrder,
+    layerRole: document.layerRole,
+    ...(document.authorityScopeKey !== undefined
+      ? { authorityScopeKey: document.authorityScopeKey }
+      : {}),
+    configSubject: resolveOptionalMeshConfigSubject(quads, document.source),
+  };
 }
 
 function resolveOptionalMeshConfigSubject(
@@ -1168,39 +1358,28 @@ function rejectPortableMeshResolverConfig(
   }
 }
 
-function parseMeshScopedSettings(
-  meshQuads: readonly Quad[],
-  meshSubject: string | undefined,
-  source: string,
+function resolveMeshScopedSettings(
+  meshLayers: readonly ScopedSettingLayer[],
 ): MeshScopedSettings {
-  if (!meshSubject) {
-    return {};
-  }
-
-  const workspaceRootRelativeToMeshRoot = requireOptionalSingleStringLiteral(
-    meshQuads,
-    meshSubject,
-    WORKSPACE_ROOT_RELATIVE_TO_MESH_ROOT_IRI,
-    source,
-  );
-  const publicationProfile = requireOptionalSingleNamedValue(
-    meshQuads,
-    meshSubject,
+  const workspaceRootRelativeToMeshRoot =
+    resolveOptionalLayeredStringScopedSetting(
+      meshLayers,
+      WORKSPACE_ROOT_RELATIVE_TO_MESH_ROOT_IRI,
+      "workspace root relative to mesh root",
+      validateWorkspaceRootRelativeToMeshRoot,
+    );
+  const publicationProfile = resolveOptionalLayeredNamedScopedSetting(
+    meshLayers,
     HAS_PUBLICATION_PROFILE_IRI,
     PUBLICATION_PROFILE_VALUES,
-    source,
+    "mesh publication profile",
   );
-
   const settings: MeshScopedSettings = {};
   if (publicationProfile !== undefined) {
     settings.publicationProfile = publicationProfile;
   }
   if (workspaceRootRelativeToMeshRoot !== undefined) {
-    settings.workspaceRootRelativeToMeshRoot =
-      validateWorkspaceRootRelativeToMeshRoot(
-        workspaceRootRelativeToMeshRoot,
-        source,
-      );
+    settings.workspaceRootRelativeToMeshRoot = workspaceRootRelativeToMeshRoot;
   }
   return settings;
 }
@@ -1266,15 +1445,24 @@ function resolveLayeredNamedScopedSetting<T extends string>(
   const winners = candidates.filter((candidate) =>
     candidate.layerOrder === highestLayerOrder
   );
-  const resolvedValues = new Set(winners.map((candidate) => candidate.value));
+  const earliestSourceOrder = Math.min(
+    ...winners.map((candidate) => candidate.sourceOrder),
+  );
+  const sourceOrderWinners = winners.filter((candidate) =>
+    candidate.sourceOrder === earliestSourceOrder
+  );
+  const resolvedValues = new Set(
+    sourceOrderWinners.map((candidate) => candidate.value),
+  );
   if (resolvedValues.size !== 1) {
     throw new EffectiveConfigError(
       `Conflicting layered ${settingName} values for ${predicateIri}; values=${
         JSON.stringify([...resolvedValues].sort())
       }; bindings=${
         JSON.stringify(
-          winners.map((winner) => ({
+          sourceOrderWinners.map((winner) => ({
             source: winner.source,
+            sourceOrder: winner.sourceOrder,
             layerRole: winner.layerRole,
             layerOrder: winner.layerOrder,
             value: winner.value,
@@ -1284,7 +1472,101 @@ function resolveLayeredNamedScopedSetting<T extends string>(
     );
   }
 
-  return winners[0]!.value;
+  return sourceOrderWinners[0]!.value;
+}
+
+function resolveOptionalLayeredNamedScopedSetting<T extends string>(
+  layers: readonly ScopedSettingLayer[],
+  predicateIri: string,
+  values: Record<string, T>,
+  settingName: string,
+): T | undefined {
+  return resolveOptionalLayeredScopedSetting(
+    layers,
+    predicateIri,
+    settingName,
+    (layer) =>
+      requireOptionalSingleNamedValue(
+        layer.quads,
+        layer.configSubject,
+        predicateIri,
+        values,
+        layer.source,
+      ),
+  );
+}
+
+function resolveOptionalLayeredStringScopedSetting(
+  layers: readonly ScopedSettingLayer[],
+  predicateIri: string,
+  settingName: string,
+  transform: (value: string, source: string) => string,
+): string | undefined {
+  return resolveOptionalLayeredScopedSetting(
+    layers,
+    predicateIri,
+    settingName,
+    (layer) => {
+      const value = requireOptionalSingleStringLiteral(
+        layer.quads,
+        layer.configSubject,
+        predicateIri,
+        layer.source,
+      );
+      return value === undefined ? undefined : transform(value, layer.source);
+    },
+  );
+}
+
+function resolveOptionalLayeredScopedSetting<T extends string>(
+  layers: readonly ScopedSettingLayer[],
+  predicateIri: string,
+  settingName: string,
+  readValue: (layer: ScopedSettingLayer) => T | undefined,
+): T | undefined {
+  const candidates = layers.flatMap((layer) => {
+    const value = readValue(layer);
+    return value === undefined ? [] : [{ ...layer, value }];
+  });
+
+  if (candidates.length === 0) {
+    return undefined;
+  }
+
+  const highestLayerOrder = Math.max(
+    ...candidates.map((candidate) => candidate.layerOrder),
+  );
+  const winners = candidates.filter((candidate) =>
+    candidate.layerOrder === highestLayerOrder
+  );
+  const earliestSourceOrder = Math.min(
+    ...winners.map((candidate) => candidate.sourceOrder),
+  );
+  const sourceOrderWinners = winners.filter((candidate) =>
+    candidate.sourceOrder === earliestSourceOrder
+  );
+  const resolvedValues = new Set(
+    sourceOrderWinners.map((candidate) => candidate.value),
+  );
+  if (resolvedValues.size !== 1) {
+    throw new EffectiveConfigError(
+      `Conflicting layered ${settingName} values for ${predicateIri}; values=${
+        JSON.stringify([...resolvedValues].sort())
+      }; bindings=${
+        JSON.stringify(
+          sourceOrderWinners.map((winner) => ({
+            source: winner.source,
+            sourceOrder: winner.sourceOrder,
+            layerRole: winner.layerRole,
+            layerOrder: winner.layerOrder,
+            value: winner.value,
+          })),
+        )
+      }`,
+    );
+  }
+
+  return sourceOrderWinners[0]!.value;
 }
 
 function compileCommandOverrideBindings(
@@ -1303,6 +1585,7 @@ function compileCommandOverrideBindings(
   if (commandOverrides.historyTrackingPolicy) {
     bindings.push({
       source,
+      sourceOrder: 0,
       layerRole: "commandOverride",
       layerOrder,
       bindingTerm: "command:historyTrackingPolicy",
@@ -1314,6 +1597,7 @@ function compileCommandOverrideBindings(
   if (commandOverrides.resourcePagePresentation) {
     bindings.push({
       source,
+      sourceOrder: 0,
       layerRole: "commandOverride",
       layerOrder,
       bindingTerm: "command:resourcePagePresentation",
@@ -1342,7 +1626,10 @@ function createPolicyTargetValidationContext(input: {
     return {};
   }
   if (input.governedArtifactIris !== undefined) {
-    return { governedArtifactIris: new Set(input.governedArtifactIris) };
+    return {
+      governedArtifactIris: new Set(input.governedArtifactIris),
+      ...(input.meshBase !== undefined ? { meshBase: input.meshBase } : {}),
+    };
   }
   if (
     input.meshBase !== undefined && input.meshInventoryTurtle !== undefined
@@ -1352,6 +1639,7 @@ function createPolicyTargetValidationContext(input: {
         input.meshBase,
         input.meshInventoryTurtle,
       ),
+      meshBase: input.meshBase,
     };
   }
   return {};
@@ -1400,6 +1688,7 @@ function parsePolicyBindings(input: {
   quads: readonly Quad[];
   configSubject: string;
   source: string;
+  sourceOrder: number;
   layerRole: ConfigLayerRole;
   layerOrderByRole: ReadonlyMap<ConfigLayerRole, number>;
   targetValidation: PolicyTargetValidationContext;
@@ -1412,6 +1701,7 @@ function parsePolicyBindings(input: {
   ).map((bindingTerm) =>
     parsePolicyBinding(input.quads, bindingTerm, {
       source: input.source,
+      sourceOrder: input.sourceOrder,
       layerRole: input.layerRole,
       layerOrder,
       targetValidation: input.targetValidation,
@@ -1424,6 +1714,7 @@ function parsePolicyBinding(
   bindingTerm: string,
   sourceLayer: {
     source: string;
+    sourceOrder: number;
     layerRole: ConfigLayerRole;
     layerOrder: number;
     targetValidation: PolicyTargetValidationContext;
@@ -1467,6 +1758,7 @@ function parsePolicyBinding(
 
   return {
     source: sourceLayer.source,
+    sourceOrder: sourceLayer.sourceOrder,
     layerRole: sourceLayer.layerRole,
     layerOrder: sourceLayer.layerOrder,
     bindingTerm,
@@ -1606,7 +1898,44 @@ function parsePolicyTarget(
       `Exact artifact policy target in ${source} is not governed by the active mesh scope: ${artifactIri}`,
     );
   }
+  if (
+    validation.knopAuthorityScopeKey !== undefined &&
+    validation.meshBase !== undefined &&
+    !artifactIriIsWithinKnopAuthorityScope(
+      artifactIri,
+      validation.meshBase,
+      validation.knopAuthorityScopeKey,
+    )
+  ) {
+    throw new EffectiveConfigError(
+      `Exact artifact policy target in ${source} is outside the active Knop config authority scope <${validation.knopAuthorityScopeKey}>: ${artifactIri}`,
+    );
+  }
   return { kind: "exactArtifact", artifactIri };
+}
+
+function artifactIriIsWithinKnopAuthorityScope(
+  artifactIri: string,
+  meshBase: string,
+  scopeKey: string,
+): boolean {
+  if (!artifactIri.startsWith(meshBase)) {
+    return false;
+  }
+  const artifactPath = artifactIri.slice(meshBase.length);
+  if (artifactPath.startsWith("_mesh/") || artifactPath === "_mesh") {
+    return false;
+  }
+  if (scopeKey.length === 0) {
+    return artifactPath.length === 0 ||
+      artifactPath === "_history" ||
+      artifactPath.startsWith("_history/") ||
+      /^_history\d+($|\/)/.test(artifactPath) ||
+      artifactPath === "_knop" ||
+      artifactPath.startsWith("_knop/");
+  }
+  return artifactPath === scopeKey ||
+    artifactPath.startsWith(`${scopeKey}/`);
 }
 
 function rejectPolicyTargetSelector(

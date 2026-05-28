@@ -19,6 +19,7 @@ export interface IdentifierResourcePageModel {
 export interface SimpleResourcePageModel {
   kind: "simple";
   path: string;
+  ownerDesignatorPath?: string;
   description: string;
   childIdentifiers?: readonly ResourcePageChildIdentifierModel[];
   historyGroups?: readonly ResourcePageHistoryGroupModel[];

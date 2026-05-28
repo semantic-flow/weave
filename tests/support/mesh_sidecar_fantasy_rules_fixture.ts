@@ -1,4 +1,5 @@
-import { dirname, fromFileUrl, join } from "@std/path";
+import { fromFileUrl, join } from "@std/path";
+import { FixtureSnapshotCache } from "./fixture_snapshot.ts";
 
 const repoRootPath = fromFileUrl(new URL("../../", import.meta.url));
 const fixtureRepoPath = join(
@@ -15,7 +16,11 @@ const frameworkRepoPath = join(
   "semantic-flow",
   "semantic-flow-framework",
 );
-const resolvedRefCache = new Map<string, Promise<string>>();
+const fixtureSnapshots = new FixtureSnapshotCache({
+  label: "mesh-sidecar-fantasy-rules",
+  repoPath: fixtureRepoPath,
+  candidatesForRef: meshSidecarFantasyRulesRefCandidates,
+});
 
 // Temporary Sidecar Fantasy Rules fixture-ladder setting until the replay
 // prefix moves into an Accord/scenario master manifest.
@@ -39,118 +44,35 @@ export function resolveMeshSidecarFantasyRulesConformanceManifestPath(
   );
 }
 
-async function resolveMeshSidecarFantasyRulesGitRef(
-  ref: string,
-): Promise<string> {
-  const cached = resolvedRefCache.get(ref);
-  if (cached) {
-    return await cached;
-  }
-
-  const pending = resolveMeshSidecarFantasyRulesGitRefUncached(ref);
-  resolvedRefCache.set(ref, pending);
-
-  try {
-    return await pending;
-  } catch (error) {
-    resolvedRefCache.delete(ref);
-    throw error;
-  }
-}
-
-async function resolveMeshSidecarFantasyRulesGitRefUncached(
-  ref: string,
-): Promise<string> {
+function meshSidecarFantasyRulesRefCandidates(ref: string): string[] {
   const prefixedRef = ref.startsWith(
       MESH_SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
     )
     ? ref
     : `${MESH_SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX}${ref}`;
-  const candidates = ref.startsWith(
+  return ref.startsWith(
       MESH_SIDECAR_FANTASY_RULES_LADDER_BRANCH_PREFIX,
     )
     ? [ref, `origin/${ref}`]
     : [prefixedRef, ref, `origin/${prefixedRef}`, `origin/${ref}`];
-
-  for (const candidate of candidates) {
-    const command = new Deno.Command("git", {
-      args: [
-        "-C",
-        fixtureRepoPath,
-        "rev-parse",
-        "--verify",
-        "--quiet",
-        `${candidate}^{commit}`,
-      ],
-      stdout: "null",
-      stderr: "null",
-    });
-    const output = await command.output();
-    if (output.success) {
-      return candidate;
-    }
-  }
-
-  throw new Error(
-    `Failed to resolve fixture ref ${ref} in ${fixtureRepoPath}; checked ${
-      candidates.join(", ")
-    }.`,
-  );
 }
 
 export async function readMeshSidecarFantasyRulesBranchFile(
   ref: string,
   path: string,
 ): Promise<string> {
-  const resolvedRef = await resolveMeshSidecarFantasyRulesGitRef(ref);
-  const command = new Deno.Command("git", {
-    args: ["-C", fixtureRepoPath, "show", `${resolvedRef}:${path}`],
-    stdout: "piped",
-    stderr: "piped",
-  });
-  const output = await command.output();
-  if (!output.success) {
-    const message = new TextDecoder().decode(output.stderr).trim();
-    throw new Error(`Failed to read fixture file ${ref}:${path}: ${message}`);
-  }
-  return new TextDecoder().decode(output.stdout);
+  return await fixtureSnapshots.readTextFile(ref, path);
 }
 
 export async function listMeshSidecarFantasyRulesBranchFiles(
   ref: string,
 ): Promise<string[]> {
-  const resolvedRef = await resolveMeshSidecarFantasyRulesGitRef(ref);
-  const command = new Deno.Command("git", {
-    args: ["-C", fixtureRepoPath, "ls-tree", "-r", "--name-only", resolvedRef],
-    stdout: "piped",
-    stderr: "piped",
-  });
-  const output = await command.output();
-  if (!output.success) {
-    const message = new TextDecoder().decode(output.stderr).trim();
-    throw new Error(`Failed to list fixture files for ${ref}: ${message}`);
-  }
-
-  return new TextDecoder()
-    .decode(output.stdout)
-    .split("\n")
-    .filter((path) => path.length > 0);
+  return await fixtureSnapshots.listFiles(ref);
 }
 
 export async function materializeMeshSidecarFantasyRulesBranch(
   ref: string,
   targetDir: string,
 ): Promise<string[]> {
-  const paths = await listMeshSidecarFantasyRulesBranchFiles(ref);
-
-  for (const path of paths) {
-    const absolutePath = join(targetDir, path);
-    await Deno.mkdir(dirname(absolutePath), { recursive: true });
-    await Deno.writeTextFile(
-      absolutePath,
-      await readMeshSidecarFantasyRulesBranchFile(ref, path),
-    );
-  }
-
-  return paths;
+  return await fixtureSnapshots.materialize(ref, targetDir);
 }

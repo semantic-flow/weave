@@ -5,6 +5,10 @@ import {
   toReferenceCatalogPath,
 } from "../../core/designator_segments.ts";
 import { SFLO_NAMESPACE } from "../../core/rdf/namespaces.ts";
+import type {
+  ArtifactResolutionObservedCoordinates,
+  ArtifactResolutionRequest,
+} from "../artifact_resolution/models.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI =
@@ -109,6 +113,8 @@ export interface ExtractionSourceInventoryState {
   sourceArtifactPath: string;
   requestedTargetStatePath?: string;
   artifactResolutionModeIri?: string;
+  resolutionRequest: ArtifactResolutionRequest;
+  resolutionObservation?: SourceRegistryResolutionObservationState;
   observedSourceStatePath?: string;
   observedSourceManifestationPath?: string;
   observedSourceLocatedFilePath?: string;
@@ -130,6 +136,8 @@ export interface IntegrationSourceInventoryState {
   expectedContentDigest?: string;
   repositorySource?: RepositorySourceLocatorState;
   repositorySourceFloatingLocator?: RepositorySourceFloatingLocatorState;
+  resolutionRequest: ArtifactResolutionRequest;
+  resolutionObservation?: SourceRegistryResolutionObservationState;
   observedSourceLocalRelativePath?: string;
   observedSourceDigest?: string;
   observedAt?: string;
@@ -142,8 +150,15 @@ export interface ImportSourceInventoryState {
   targetLocalRelativePath?: string;
   artifactResolutionModeIri?: string;
   expectedContentDigest?: string;
+  resolutionRequest: ArtifactResolutionRequest;
+  resolutionObservation?: SourceRegistryResolutionObservationState;
   observedSourceLocalRelativePath?: string;
   observedSourceDigest?: string;
+  observedAt?: string;
+}
+
+export interface SourceRegistryResolutionObservationState {
+  observed: ArtifactResolutionObservedCoordinates;
   observedAt?: string;
 }
 
@@ -424,15 +439,29 @@ export function resolveExtractionSourceInventoryState(
   ) {
     throw new Error(messages.unsupportedResolutionModeMessage);
   }
+  const resolutionObservation = resolveSourceRegistryResolutionObservationState(
+    sourceRegistryQuads,
+    extractionSourceIri,
+    messages.parseErrorMessage,
+  );
 
   return {
     sourceArtifactPath,
     ...(requestedTargetStatePath ? { requestedTargetStatePath } : {}),
     ...(artifactResolutionModeIri ? { artifactResolutionModeIri } : {}),
-    ...resolveExtractionSourceEvidenceState(
-      sourceRegistryQuads,
+    resolutionRequest: toSourceRegistryResolutionRequest(
       meshBase,
       extractionSourceIri,
+      {
+        sourceArtifactPath,
+        targetHistoricalStatePath: requestedTargetStatePath,
+        artifactResolutionModeIri,
+      },
+    ),
+    ...(resolutionObservation ? { resolutionObservation } : {}),
+    ...toLegacyObservedSourceEvidence(
+      meshBase,
+      resolutionObservation,
       messages.parseErrorMessage,
     ),
   };
@@ -557,6 +586,12 @@ export function listIntegrationSourceInventoryStates(
         sourceBindingIri,
         messages.parseErrorMessage,
       );
+    const resolutionObservation =
+      resolveSourceRegistryResolutionObservationState(
+        quads,
+        sourceBindingIri,
+        messages.parseErrorMessage,
+      );
 
     return {
       sourceBindingIri,
@@ -568,9 +603,20 @@ export function listIntegrationSourceInventoryStates(
       ...(repositorySourceFloatingLocator
         ? { repositorySourceFloatingLocator }
         : {}),
-      ...resolveIntegrationSourceEvidenceState(
-        quads,
+      resolutionRequest: toSourceRegistryResolutionRequest(
+        meshBase,
         sourceBindingIri,
+        {
+          sourceArtifactPath,
+          targetLocalRelativePath,
+          artifactResolutionModeIri,
+          expectedContentDigest,
+        },
+      ),
+      ...(resolutionObservation ? { resolutionObservation } : {}),
+      ...toLegacyObservedSourceEvidence(
+        meshBase,
+        resolutionObservation,
         messages.parseErrorMessage,
       ),
     };
@@ -654,6 +700,12 @@ export function listImportSourceInventoryStates(
       SFLO_EXPECTS_CONTENT_DIGEST_IRI,
       messages.parseErrorMessage,
     );
+    const resolutionObservation =
+      resolveSourceRegistryResolutionObservationState(
+        quads,
+        sourceBindingIri,
+        messages.parseErrorMessage,
+      );
 
     return {
       sourceBindingIri,
@@ -662,197 +714,25 @@ export function listImportSourceInventoryStates(
       ...(targetLocalRelativePath ? { targetLocalRelativePath } : {}),
       ...(artifactResolutionModeIri ? { artifactResolutionModeIri } : {}),
       ...(expectedContentDigest ? { expectedContentDigest } : {}),
-      ...resolveImportSourceEvidenceState(
-        quads,
+      resolutionRequest: toSourceRegistryResolutionRequest(
+        meshBase,
         sourceBindingIri,
+        {
+          sourceArtifactPath,
+          targetAccessUrl,
+          targetLocalRelativePath,
+          artifactResolutionModeIri,
+          expectedContentDigest,
+        },
+      ),
+      ...(resolutionObservation ? { resolutionObservation } : {}),
+      ...toLegacyObservedSourceEvidence(
+        meshBase,
+        resolutionObservation,
         messages.parseErrorMessage,
       ),
     };
   });
-}
-
-function resolveImportSourceEvidenceState(
-  quads: readonly Quad[],
-  importSourceIri: string,
-  errorMessage: string,
-): Pick<
-  ImportSourceInventoryState,
-  "observedSourceLocalRelativePath" | "observedSourceDigest" | "observedAt"
-> {
-  const observationIri = resolveOptionalUniqueNamedNodeIri(
-    quads,
-    importSourceIri,
-    SFLO_HAS_RESOLUTION_OBSERVATION_IRI,
-    errorMessage,
-  );
-  if (observationIri === undefined) {
-    return {};
-  }
-
-  const observedSpecKey = resolveObservedArtifactResolutionSpecKey(
-    quads,
-    observationIri,
-    errorMessage,
-  );
-  const observedSourceLocalRelativePath =
-    resolveOptionalUniqueLiteralWorkingLocalRelativePath(
-      quads,
-      observedSpecKey,
-      SFLO_TARGET_LOCAL_RELATIVE_PATH_IRI,
-      errorMessage,
-    );
-  const observedSourceDigest = resolveOptionalUniqueLiteral(
-    quads,
-    observationIri,
-    SFLO_OBSERVED_CONTENT_DIGEST_IRI,
-    errorMessage,
-  );
-  const observedAt = resolveOptionalUniqueLiteral(
-    quads,
-    observationIri,
-    SFLO_OBSERVED_AT_IRI,
-    errorMessage,
-  );
-
-  return {
-    ...(observedSourceLocalRelativePath
-      ? { observedSourceLocalRelativePath }
-      : {}),
-    ...(observedSourceDigest ? { observedSourceDigest } : {}),
-    ...(observedAt ? { observedAt } : {}),
-  };
-}
-
-function resolveIntegrationSourceEvidenceState(
-  quads: readonly Quad[],
-  integrationSourceIri: string,
-  errorMessage: string,
-): Pick<
-  IntegrationSourceInventoryState,
-  "observedSourceLocalRelativePath" | "observedSourceDigest" | "observedAt"
-> {
-  const observationIri = resolveOptionalUniqueNamedNodeIri(
-    quads,
-    integrationSourceIri,
-    SFLO_HAS_RESOLUTION_OBSERVATION_IRI,
-    errorMessage,
-  );
-  if (observationIri === undefined) {
-    return {};
-  }
-
-  const observedSpecKey = resolveObservedArtifactResolutionSpecKey(
-    quads,
-    observationIri,
-    errorMessage,
-  );
-  const observedSourceLocalRelativePath =
-    resolveOptionalUniqueLiteralWorkingLocalRelativePath(
-      quads,
-      observedSpecKey,
-      SFLO_TARGET_LOCAL_RELATIVE_PATH_IRI,
-      errorMessage,
-    );
-  const observedSourceDigest = resolveOptionalUniqueLiteral(
-    quads,
-    observationIri,
-    SFLO_OBSERVED_CONTENT_DIGEST_IRI,
-    errorMessage,
-  );
-  const observedAt = resolveOptionalUniqueLiteral(
-    quads,
-    observationIri,
-    SFLO_OBSERVED_AT_IRI,
-    errorMessage,
-  );
-
-  return {
-    ...(observedSourceLocalRelativePath
-      ? { observedSourceLocalRelativePath }
-      : {}),
-    ...(observedSourceDigest ? { observedSourceDigest } : {}),
-    ...(observedAt ? { observedAt } : {}),
-  };
-}
-
-function resolveExtractionSourceEvidenceState(
-  quads: readonly Quad[],
-  meshBase: string,
-  extractionSourceIri: string,
-  errorMessage: string,
-): Omit<
-  ExtractionSourceInventoryState,
-  | "sourceArtifactPath"
-  | "requestedTargetStatePath"
-  | "artifactResolutionModeIri"
-> {
-  const observationIri = resolveOptionalUniqueNamedNodeIri(
-    quads,
-    extractionSourceIri,
-    SFLO_HAS_RESOLUTION_OBSERVATION_IRI,
-    errorMessage,
-  );
-  if (observationIri === undefined) {
-    return {};
-  }
-
-  const observedSpecKey = resolveObservedArtifactResolutionSpecKey(
-    quads,
-    observationIri,
-    errorMessage,
-  );
-  const observedSourceStatePath = resolveOptionalUniqueNamedNodePath(
-    quads,
-    meshBase,
-    observedSpecKey,
-    SFLO_TARGET_HISTORICAL_STATE_IRI,
-    errorMessage,
-  );
-  const observedSourceManifestationPath = resolveOptionalUniqueNamedNodePath(
-    quads,
-    meshBase,
-    observedSpecKey,
-    SFLO_TARGET_MANIFESTATION_IRI,
-    errorMessage,
-  );
-  const observedSourceLocatedFilePath = resolveOptionalUniqueNamedNodePath(
-    quads,
-    meshBase,
-    observedSpecKey,
-    SFLO_TARGET_LOCATED_FILE_IRI,
-    errorMessage,
-  );
-  const observedSourceLocalRelativePath = resolveOptionalUniqueLiteral(
-    quads,
-    observedSpecKey,
-    SFLO_TARGET_LOCAL_RELATIVE_PATH_IRI,
-    errorMessage,
-  );
-  const observedSourceDigest = resolveOptionalUniqueLiteral(
-    quads,
-    observationIri,
-    SFLO_OBSERVED_CONTENT_DIGEST_IRI,
-    errorMessage,
-  );
-  const observedAt = resolveOptionalUniqueLiteral(
-    quads,
-    observationIri,
-    SFLO_OBSERVED_AT_IRI,
-    errorMessage,
-  );
-
-  return {
-    ...(observedSourceStatePath ? { observedSourceStatePath } : {}),
-    ...(observedSourceManifestationPath
-      ? { observedSourceManifestationPath }
-      : {}),
-    ...(observedSourceLocatedFilePath ? { observedSourceLocatedFilePath } : {}),
-    ...(observedSourceLocalRelativePath
-      ? { observedSourceLocalRelativePath }
-      : {}),
-    ...(observedSourceDigest ? { observedSourceDigest } : {}),
-    ...(observedAt ? { observedAt } : {}),
-  };
 }
 
 function resolveObservedArtifactResolutionSpecKey(
@@ -870,6 +750,181 @@ function resolveObservedArtifactResolutionSpecKey(
     throw new Error(errorMessage);
   }
   return observedSpecKey;
+}
+
+function toSourceRegistryResolutionRequest(
+  meshBase: string,
+  sourceIri: string,
+  options: {
+    sourceArtifactPath: string;
+    targetHistoricalStatePath?: string;
+    targetAccessUrl?: string;
+    targetLocalRelativePath?: string;
+    artifactResolutionModeIri?: string;
+    expectedContentDigest?: string;
+  },
+): ArtifactResolutionRequest {
+  const mode = toArtifactResolutionMode(options.artifactResolutionModeIri);
+  return {
+    sourceIri,
+    targetArtifactIri: toMeshIri(meshBase, options.sourceArtifactPath),
+    ...(options.targetHistoricalStatePath
+      ? {
+        targetHistoricalStateIri: toMeshIri(
+          meshBase,
+          options.targetHistoricalStatePath,
+        ),
+      }
+      : {}),
+    ...(options.targetAccessUrl
+      ? { targetAccessUrl: options.targetAccessUrl }
+      : {}),
+    ...(options.targetLocalRelativePath
+      ? { targetLocalRelativePath: options.targetLocalRelativePath }
+      : {}),
+    ...(mode ? { mode } : {}),
+    ...(options.expectedContentDigest
+      ? { expectedContentDigest: options.expectedContentDigest }
+      : {}),
+  };
+}
+
+function toArtifactResolutionMode(
+  modeIri: string | undefined,
+): "working" | "latestState" | undefined {
+  if (modeIri === SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI) {
+    return "working";
+  }
+  if (modeIri === SFLO_ARTIFACT_RESOLUTION_MODE_LATEST_STATE_IRI) {
+    return "latestState";
+  }
+  return undefined;
+}
+
+function resolveSourceRegistryResolutionObservationState(
+  quads: readonly Quad[],
+  sourceIri: string,
+  errorMessage: string,
+): SourceRegistryResolutionObservationState | undefined {
+  const observationIri = resolveOptionalUniqueNamedNodeIri(
+    quads,
+    sourceIri,
+    SFLO_HAS_RESOLUTION_OBSERVATION_IRI,
+    errorMessage,
+  );
+  if (observationIri === undefined) {
+    return undefined;
+  }
+
+  const observedSpecKey = resolveObservedArtifactResolutionSpecKey(
+    quads,
+    observationIri,
+    errorMessage,
+  );
+  const historicalStateIri = resolveOptionalUniqueNamedNodeIri(
+    quads,
+    observedSpecKey,
+    SFLO_TARGET_HISTORICAL_STATE_IRI,
+    errorMessage,
+  );
+  const manifestationIri = resolveOptionalUniqueNamedNodeIri(
+    quads,
+    observedSpecKey,
+    SFLO_TARGET_MANIFESTATION_IRI,
+    errorMessage,
+  );
+  const locatedFileIri = resolveOptionalUniqueNamedNodeIri(
+    quads,
+    observedSpecKey,
+    SFLO_TARGET_LOCATED_FILE_IRI,
+    errorMessage,
+  );
+  const localRelativePath =
+    resolveOptionalUniqueLiteralWorkingLocalRelativePath(
+      quads,
+      observedSpecKey,
+      SFLO_TARGET_LOCAL_RELATIVE_PATH_IRI,
+      errorMessage,
+    );
+  const contentDigest = resolveOptionalUniqueLiteral(
+    quads,
+    observationIri,
+    SFLO_OBSERVED_CONTENT_DIGEST_IRI,
+    errorMessage,
+  );
+  const observedAt = resolveOptionalUniqueLiteral(
+    quads,
+    observationIri,
+    SFLO_OBSERVED_AT_IRI,
+    errorMessage,
+  );
+
+  return {
+    observed: {
+      ...(historicalStateIri ? { historicalStateIri } : {}),
+      ...(manifestationIri ? { manifestationIri } : {}),
+      ...(locatedFileIri ? { locatedFileIri } : {}),
+      ...(localRelativePath ? { localRelativePath } : {}),
+      ...(contentDigest ? { contentDigest } : {}),
+    },
+    ...(observedAt ? { observedAt } : {}),
+  };
+}
+
+function toLegacyObservedSourceEvidence(
+  meshBase: string,
+  observation: SourceRegistryResolutionObservationState | undefined,
+  errorMessage: string,
+): {
+  observedSourceStatePath?: string;
+  observedSourceManifestationPath?: string;
+  observedSourceLocatedFilePath?: string;
+  observedSourceLocalRelativePath?: string;
+  observedSourceDigest?: string;
+  observedAt?: string;
+} {
+  if (observation === undefined) {
+    return {};
+  }
+
+  return {
+    ...(observation.observed.historicalStateIri
+      ? {
+        observedSourceStatePath: requireMeshPath(
+          meshBase,
+          observation.observed.historicalStateIri,
+          errorMessage,
+        ),
+      }
+      : {}),
+    ...(observation.observed.manifestationIri
+      ? {
+        observedSourceManifestationPath: requireMeshPath(
+          meshBase,
+          observation.observed.manifestationIri,
+          errorMessage,
+        ),
+      }
+      : {}),
+    ...(observation.observed.locatedFileIri
+      ? {
+        observedSourceLocatedFilePath: requireMeshPath(
+          meshBase,
+          observation.observed.locatedFileIri,
+          errorMessage,
+        ),
+      }
+      : {}),
+    ...(observation.observed.localRelativePath
+      ? {
+        observedSourceLocalRelativePath: observation.observed.localRelativePath,
+      }
+      : {}),
+    ...(observation.observed.contentDigest
+      ? { observedSourceDigest: observation.observed.contentDigest }
+      : {}),
+    ...(observation.observedAt ? { observedAt: observation.observedAt } : {}),
+  };
 }
 
 export function resolveResourcePageDefinitionInventoryState(
@@ -1423,7 +1478,7 @@ function resolveNamedNodePaths(
 
 function resolveOptionalUniqueNamedNodeIri(
   quads: readonly Quad[],
-  subjectIri: string,
+  subjectIriOrKey: string,
   predicateIri: string,
   errorMessage: string,
 ): string | undefined {
@@ -1431,8 +1486,7 @@ function resolveOptionalUniqueNamedNodeIri(
 
   for (const quad of quads) {
     if (
-      quad.subject.termType !== "NamedNode" ||
-      quad.subject.value !== subjectIri ||
+      !matchesSubject(quad.subject, subjectIriOrKey) ||
       quad.predicate.value !== predicateIri ||
       quad.object.termType !== "NamedNode"
     ) {

@@ -519,11 +519,17 @@ Deno.test("executeExtractAllTerms creates source references only for newly extra
     "sflo:targetArtifact <alice/data> .",
   );
   assertFalse(bobReferencesTurtle.includes("sflo:targetHistoricalState"));
+  const bobInventoryAfterExtractAll = await Deno.readTextFile(
+    join(workspaceRoot, "bob/_knop/_inventory/inventory.ttl"),
+  );
   assertStringIncludes(
-    await Deno.readTextFile(
-      join(workspaceRoot, "bob/_knop/_inventory/inventory.ttl"),
+    bobInventoryAfterExtractAll,
+    "sflo:hasReferenceCatalog <bob/_knop/_references>",
+  );
+  assertFalse(
+    bobInventoryAfterExtractAll.includes(
+      "<https://semantic-flow.github.io/sflo/ontology/hasReferenceCatalog>",
     ),
-    "sflo:hasReferenceCatalog <bob/_knop/_references> ;",
   );
 
   await executeWeave({
@@ -532,11 +538,17 @@ Deno.test("executeExtractAllTerms creates source references only for newly extra
     now: () => new Date("2026-05-04T00:00:00.000Z"),
   });
 
+  const bobInventoryAfterWeave = await Deno.readTextFile(
+    join(workspaceRoot, "bob/_knop/_inventory/inventory.ttl"),
+  );
   assertStringIncludes(
-    await Deno.readTextFile(
-      join(workspaceRoot, "bob/_knop/_inventory/inventory.ttl"),
+    bobInventoryAfterWeave,
+    "sflo:hasReferenceCatalog <bob/_knop/_references>",
+  );
+  assertFalse(
+    bobInventoryAfterWeave.includes(
+      "<https://semantic-flow.github.io/sflo/ontology/hasReferenceCatalog>",
     ),
-    "sflo:hasReferenceCatalog <bob/_knop/_references> ;",
   );
   const bobPageHtml = await Deno.readTextFile(
     join(workspaceRoot, "bob/index.html"),
