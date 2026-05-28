@@ -192,8 +192,9 @@ Deno.test("renderKnopInventoryWithPreservedSupportArtifacts does not carry mutab
     knopPath,
   });
 
-  assertFalse(output.includes("sflo:currentArtifactHistory"));
-  assertFalse(output.includes("sflo:nextHistoryOrdinal"));
+  const quads = new Parser({ baseIRI: meshBase }).parse(output);
+  assertFalse(hasPredicate(quads, `${SFLO_NAMESPACE}currentArtifactHistory`));
+  assertFalse(hasPredicate(quads, `${SFLO_NAMESPACE}nextHistoryOrdinal`));
 });
 
 function inventoryWithSupportFacts(options: {
@@ -272,6 +273,10 @@ function hasNamedNodeFact(
     quad.object.termType === "NamedNode" &&
     quad.object.value === objectIri
   );
+}
+
+function hasPredicate(quads: readonly Quad[], predicateIri: string): boolean {
+  return quads.some((quad) => quad.predicate.value === predicateIri);
 }
 
 function parseQuads(turtle: string): Quad[] {

@@ -78,31 +78,50 @@ export function planInventoryAppend(
   );
   const currentKeys = new Set(currentQuads.map(toQuadKey));
   const currentBySubjectPredicate = groupBySubjectPredicate(currentQuads);
+  const requestedBySubjectPredicate = new Map<string, RequestedFact[]>();
   const alreadyPresent: InventoryFactSummary[] = [];
   const missing: InventoryFactSummary[] = [];
   const conflicts: InventoryFactConflict[] = [];
 
   for (const requestedFact of requestedFacts) {
     const requestedQuad = requestedFact.quad;
+    const subjectPredicateKey = toSubjectPredicateKey(requestedQuad);
     const sameSlotFacts = currentBySubjectPredicate.get(
-      toSubjectPredicateKey(requestedQuad),
+      subjectPredicateKey,
     ) ?? [];
     const hasConflict = singleValuedPredicates.has(
       requestedQuad.predicate.value,
     );
+    const priorRequestedFacts = hasConflict
+      ? requestedBySubjectPredicate.get(subjectPredicateKey) ?? []
+      : [];
     const conflictingFacts = hasConflict
-      ? sameSlotFacts.filter((quad) =>
-        !rdfTermsEqual(quad.object, requestedQuad.object)
-      )
+      ? [
+        ...sameSlotFacts.filter((quad) =>
+          !rdfTermsEqual(quad.object, requestedQuad.object)
+        ).map(toFactSummary),
+        ...priorRequestedFacts.filter((fact) =>
+          !rdfTermsEqual(fact.quad.object, requestedQuad.object)
+        ).map((fact) => fact.summary),
+      ]
       : [];
 
+    if (hasConflict) {
+      requestedBySubjectPredicate.set(subjectPredicateKey, [
+        ...priorRequestedFacts,
+        requestedFact,
+      ]);
+    }
+
     if (conflictingFacts.length > 0) {
-      const existing = conflictingFacts.map(toFactSummary);
       conflicts.push({
         predicate: requestedQuad.predicate.value,
         requested: requestedFact.summary,
-        existing,
-        message: formatConflictMessage(requestedFact.summary, existing),
+        existing: conflictingFacts,
+        message: formatConflictMessage(
+          requestedFact.summary,
+          conflictingFacts,
+        ),
       });
       continue;
     }

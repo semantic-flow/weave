@@ -10,6 +10,7 @@ import {
   SFLO_NAMESPACE,
   SFLO_TURTLE_PREFIX_DECLARATION,
 } from "../rdf/namespaces.ts";
+import { WeaveInputError } from "../weave/errors.ts";
 import { renderKnopInventoryWithPreservedSupportArtifacts } from "../weave/knop_support_renderers.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
@@ -304,7 +305,7 @@ function renderUpdatedKnopInventoryTurtle(
       knopPath,
     });
   } catch (error) {
-    if (error instanceof Error) {
+    if (error instanceof WeaveInputError) {
       throw new KnopAddReferenceInputError(error.message);
     }
     throw error;
