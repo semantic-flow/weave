@@ -1,5 +1,7 @@
 const keepTestTmpEnvVar = "WEAVE_KEEP_TEST_TMP";
+export const testDenoDir = "/tmp/semantic-flow-deno-test-cache";
 const isolatedEnvVars = [
+  "DENO_DIR",
   "HOME",
   "USERPROFILE",
   "WEAVE_SETTINGS",
@@ -95,6 +97,7 @@ async function installIsolatedTestEnv(): Promise<IsolatedTestEnv | undefined> {
   Deno.env.set("XDG_CONFIG_HOME", `${root}/config`);
   Deno.env.set("XDG_STATE_HOME", `${root}/state`);
   Deno.env.set("XDG_CACHE_HOME", `${root}/cache`);
+  Deno.env.set("DENO_DIR", testDenoDir);
 
   return {
     restore() {

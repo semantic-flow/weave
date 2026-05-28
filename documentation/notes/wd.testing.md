@@ -102,6 +102,8 @@ Preferred placement:
 
 Temp workspaces created with `createTestTmpDir()` are registered with the test harness and cleaned after each test when tests are run through `deno task test` or `deno task test:coverage`. Set `WEAVE_KEEP_TEST_TMP=1` when running those tasks to preserve temp workspaces for debugging a failing test.
 
+The test harness also sets `DENO_DIR` to `/tmp/semantic-flow-deno-test-cache` while each test runs. This keeps child `deno run` CLI subprocesses from rebuilding their dependency cache inside the per-test `XDG_CACHE_HOME`.
+
 Curated Git fixture refs should be materialized through the shared fixture snapshot cache when possible. The cache stores immutable per-repo/per-commit snapshots under `/tmp/semantic-flow-fixture-snapshots`, keyed by resolved commit SHA, then copies from that snapshot into each test's private temp workspace. This keeps tests isolated while avoiding repeated per-file `git show` extraction.
 
 Live Semantic Flow fixture ladder regeneration is a separate cross-repo workflow; see [[wd.testing.fixture-ladder-regeneration]].
