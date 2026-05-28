@@ -98,12 +98,14 @@ export function renderKnopInventoryWithPreservedSupportArtifacts(options: {
     sourceRegistry,
     referenceCatalog,
   );
-  const requestedFactsTurtle = carriedSupport.facts
+  const requestedFactsBody = carriedSupport.facts
     .map((fact) => fact.turtle)
     .join("\n");
-  if (requestedFactsTurtle.length === 0) {
+  if (requestedFactsBody.length === 0) {
     return options.renderedKnopInventoryTurtle;
   }
+  const requestedFactsTurtle =
+    `${supportFactParseDirectives()}\n\n${requestedFactsBody}`;
 
   const plan = planInventoryAppend({
     baseIri: options.meshBase,
@@ -311,7 +313,7 @@ function collectCarriedSupportFactsAndBlocks(
       .filter((quad) =>
         !MUTABLE_PROGRESSION_PREDICATES.has(quad.predicate.value)
       )
-      .map(toRequestedSupportFact);
+      .map((quad: Quad) => toRequestedSupportFact(quad, options.meshBase));
     carriedBlockSubjectPaths.add(subjectPath);
     carriedBlocks.push({
       subjectPath,
@@ -545,7 +547,9 @@ function renderNamedNodeFact(
   predicateIri: string,
   objectPathOrIri: string,
 ): string {
-  return `<${subjectPath}> <${predicateIri}> <${objectPathOrIri}> .`;
+  return `${renderNamedNodeTerm(subjectPath, "subject")} ${
+    renderNamedNodeTerm(predicateIri, "predicate")
+  } ${renderNamedNodeTerm(objectPathOrIri, "object")} .`;
 }
 
 function renderLiteralFact(
@@ -553,18 +557,26 @@ function renderLiteralFact(
   predicateIri: string,
   value: string,
 ): string {
-  return `<${subjectPath}> <${predicateIri}> "${escapeTurtleString(value)}" .`;
+  return `${renderNamedNodeTerm(subjectPath, "subject")} ${
+    renderNamedNodeTerm(predicateIri, "predicate")
+  } "${escapeTurtleString(value)}" .`;
 }
 
 function parseRequestedSupportFacts(
   meshBase: string,
   turtle: string,
 ): RequestedSupportFact[] {
-  return new Parser({ baseIRI: meshBase }).parse(turtle)
+  return new Parser({ baseIRI: meshBase }).parse(
+    `${supportFactParseDirectives()}\n\n${turtle}`,
+  )
     .filter((quad: Quad) =>
       !MUTABLE_PROGRESSION_PREDICATES.has(quad.predicate.value)
     )
-    .map(toRequestedSupportFact);
+    .map((quad: Quad) => toRequestedSupportFact(quad, meshBase));
+}
+
+function supportFactParseDirectives(): string {
+  return `@prefix sflo: <${SFLO_NAMESPACE}> .`;
 }
 
 function parseBlockQuads(
@@ -580,12 +592,15 @@ function parseBlockQuads(
   }
 }
 
-function toRequestedSupportFact(quad: Quad): RequestedSupportFact {
+function toRequestedSupportFact(
+  quad: Quad,
+  meshBase: string,
+): RequestedSupportFact {
   return {
     key: toQuadKey(quad),
-    turtle: `${renderTurtleTerm(quad.subject)} ${
-      renderTurtleTerm(quad.predicate)
-    } ${renderTurtleTerm(quad.object)} .`,
+    turtle: `${renderTurtleTerm(quad.subject, meshBase, "subject")} ${
+      renderTurtleTerm(quad.predicate, meshBase, "predicate")
+    } ${renderTurtleTerm(quad.object, meshBase, "object")} .`,
   };
 }
 
@@ -626,10 +641,14 @@ function toTermKey(term: Term): string {
   return `${term.termType}:${term.value}`;
 }
 
-function renderTurtleTerm(term: Term): string {
+function renderTurtleTerm(
+  term: Term,
+  meshBase: string,
+  position: "subject" | "predicate" | "object",
+): string {
   switch (term.termType) {
     case "NamedNode":
-      return `<${term.value}>`;
+      return renderNamedNodeTerm(term.value, position, meshBase);
     case "Literal":
       return renderTurtleLiteral(term);
     default:
@@ -637,6 +656,23 @@ function renderTurtleTerm(term: Term): string {
         "Could not render carried Knop support fact.",
       );
   }
+}
+
+function renderNamedNodeTerm(
+  value: string,
+  position: "subject" | "predicate" | "object",
+  meshBase?: string,
+): string {
+  if (position === "predicate" && value === RDF_TYPE_IRI) {
+    return "a";
+  }
+  if (value.startsWith(SFLO_NAMESPACE)) {
+    return `sflo:${value.slice(SFLO_NAMESPACE.length)}`;
+  }
+  if (meshBase !== undefined && value.startsWith(meshBase)) {
+    return `<${value.slice(meshBase.length)}>`;
+  }
+  return `<${value}>`;
 }
 
 function renderTurtleLiteral(term: Term & { termType: "Literal" }): string {
