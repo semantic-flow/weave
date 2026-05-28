@@ -64,6 +64,26 @@ async function writeMeshConfigSource(
   await Deno.writeTextFile(path, turtle);
 }
 
+async function appendMeshConfigSourceAttachment(
+  meshRoot: string,
+  relativePath: string,
+): Promise<void> {
+  const metadataPath = join(meshRoot, "_mesh/_meta/meta.ttl");
+  const current = await Deno.readTextFile(metadataPath);
+  await Deno.writeTextFile(
+    metadataPath,
+    `${current.trimEnd()}
+
+<_mesh> <https://semantic-flow.github.io/sflo/config/hasConfigSource> [
+  a <https://semantic-flow.github.io/sflo/config/ConfigSource> ;
+  <https://semantic-flow.github.io/sflo/ontology/targetLocalRelativePath> ${
+      JSON.stringify(relativePath)
+    }
+] .
+`,
+  );
+}
+
 async function appendKnopConfigSourceAttachment(
   meshRoot: string,
   designatorPath: string,
@@ -780,17 +800,14 @@ Deno.test("executeVersion honors mesh-local ResourcePage generation policy from 
     workspaceRoot,
     `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
 @prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
 <> a sfcfg:MeshConfig ;
   sfcfg:hasPublicationProfile sfcfg:publicationProfile_githubPages .
-
-<_mesh> a sflo:SemanticMesh ;
-  sfcfg:hasConfigSource [
-    a sfcfg:ConfigSource ;
-    sflo:targetLocalRelativePath "_mesh/_config/page-policy.ttl"
-  ] .
 `,
+  );
+  await appendMeshConfigSourceAttachment(
+    workspaceRoot,
+    "_mesh/_config/page-policy.ttl",
   );
 
   const result = await executeRuntimeVersion({
