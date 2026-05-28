@@ -54,6 +54,47 @@ Deno.test("FixtureSnapshotCache materializes a resolved Git ref once and reuses 
   );
 });
 
+Deno.test("FixtureSnapshotCache reads cached refs from the resolved commit", async () => {
+  const repoRoot = await createTestTmpDir("weave-fixture-snapshot-ref-move-");
+  await git(repoRoot, "init", "--initial-branch=main");
+  await Deno.writeTextFile(join(repoRoot, "alpha.txt"), "alpha\n");
+  await git(repoRoot, "add", ".");
+  await git(
+    repoRoot,
+    "-c",
+    "user.name=Weave Test",
+    "-c",
+    "user.email=weave@example.test",
+    "commit",
+    "-m",
+    "first fixture",
+  );
+
+  const cache = new FixtureSnapshotCache({
+    label: `fixture-snapshot-ref-move-${crypto.randomUUID()}`,
+    repoPath: repoRoot,
+    candidatesForRef: (ref) => [ref],
+  });
+  await cache.resolveCommit("main");
+
+  await Deno.writeTextFile(join(repoRoot, "alpha.txt"), "beta\n");
+  await git(repoRoot, "add", ".");
+  await git(
+    repoRoot,
+    "-c",
+    "user.name=Weave Test",
+    "-c",
+    "user.email=weave@example.test",
+    "commit",
+    "-m",
+    "second fixture",
+  );
+
+  const target = await createTestTmpDir("weave-fixture-snapshot-ref-target-");
+  await cache.materialize("main", target);
+  assertEquals(await Deno.readTextFile(join(target, "alpha.txt")), "alpha\n");
+});
+
 async function git(cwd: string, ...args: string[]): Promise<void> {
   const output = await new Deno.Command("git", {
     args,

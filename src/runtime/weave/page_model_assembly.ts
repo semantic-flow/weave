@@ -131,6 +131,14 @@ export async function collectResourcePageModels(
   const ownerScopedPagePaths = designatorContexts.flatMap((context) =>
     context.pagePaths
   );
+  const ownerDesignatorPathByPagePath = new Map<string, string>();
+  for (const context of designatorContexts) {
+    for (const pagePath of context.pagePaths) {
+      if (!ownerDesignatorPathByPagePath.has(pagePath)) {
+        ownerDesignatorPathByPagePath.set(pagePath, context.designatorPath);
+      }
+    }
+  }
   const selectedPagePaths = [
     ...new Set([
       ...meshInventoryPagePaths,
@@ -197,6 +205,7 @@ export async function collectResourcePageModels(
         pageModels.push({
           kind: "simple",
           path: pagePath,
+          ownerDesignatorPath: publicContext.designatorPath,
           description: describeSemanticFlowResource(
             meshState.meshBase,
             resourcePath,
@@ -268,9 +277,11 @@ export async function collectResourcePageModels(
         findRawSourcePanelsForPage(pagePath, designatorContexts);
       const historyGroups = meshHistoryGroups.get(resourcePath) ??
         findHistoryGroupsForResource(resourcePath, designatorContexts);
+      const ownerDesignatorPath = ownerDesignatorPathByPagePath.get(pagePath);
       pageModels.push({
         kind: "simple",
         path: pagePath,
+        ...(ownerDesignatorPath !== undefined ? { ownerDesignatorPath } : {}),
         description: describeSemanticFlowResource(
           meshState.meshBase,
           resourcePath,
@@ -321,6 +332,7 @@ export async function collectResourcePageModels(
           : {
             kind: "simple" as const,
             path: pagePath,
+            ownerDesignatorPath: context.designatorPath,
             description: context.pageDescriptions.get(pagePath) ??
               describeSemanticFlowResource(
                 meshState.meshBase,

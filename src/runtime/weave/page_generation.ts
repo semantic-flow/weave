@@ -4,6 +4,7 @@ import {
   type NormalizedTargetSpec,
   resolveTargetSelections,
 } from "../../core/targeting.ts";
+import type { ResourcePageModel } from "../../core/weave/resource_page_models.ts";
 import { WeaveInputError } from "../../core/weave/weave.ts";
 import { listKnopDesignatorPaths } from "../mesh/inventory.ts";
 import type { OperationalLocalPathPolicy } from "../operational/local_path_policy.ts";
@@ -173,7 +174,7 @@ export async function collectGeneratedPageFiles(
 
 async function resourcePagePresentationForGeneratedPage(
   effectiveConfigProvider: EffectiveConfigProvider,
-  page: Parameters<typeof renderResourcePages>[1][number],
+  page: ResourcePageModel,
 ) {
   const ownerDesignatorPath = ownerDesignatorPathForPage(page);
   return ownerDesignatorPath === undefined
@@ -183,8 +184,8 @@ async function resourcePagePresentationForGeneratedPage(
     );
 }
 
-function ownerDesignatorPathForPage(
-  page: Parameters<typeof renderResourcePages>[1][number],
+export function ownerDesignatorPathForPage(
+  page: ResourcePageModel,
 ): string | undefined {
   if (page.path.startsWith("_mesh/")) {
     return undefined;
@@ -197,6 +198,9 @@ function ownerDesignatorPathForPage(
     return page.designatorPath;
   }
   if (page.kind === "referenceCatalog") {
+    return page.ownerDesignatorPath;
+  }
+  if (page.ownerDesignatorPath !== undefined) {
     return page.ownerDesignatorPath;
   }
 

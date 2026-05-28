@@ -176,6 +176,33 @@ Deno.test("resolveArtifactResolutionRequest resolves governed payload latest sta
   assertEquals(result.content?.text, "settled\n");
 });
 
+Deno.test("resolveArtifactResolutionRequest rejects latest payload state without HistoricalState type", async () => {
+  const { context, meshRoot } = await createResolverTestContext();
+  await materializePayloadArtifact(meshRoot);
+  const inventoryPath = join(
+    meshRoot,
+    "alice/_knop/_inventory/inventory.ttl",
+  );
+  await Deno.writeTextFile(
+    inventoryPath,
+    (await Deno.readTextFile(inventoryPath)).replace(
+      "<alice/_history001/_s0001> a sflo:HistoricalState ;",
+      "<alice/_history001/_s0001> a sflo:LocatedFile ;",
+    ),
+  );
+
+  await assertRejects(
+    () =>
+      resolveArtifactResolutionRequest(context, {
+        sourceDescription: "latest payload source",
+        targetArtifactIri: new URL("alice", MESH_BASE).href,
+        mode: "latestState",
+      }, { contentMode: "text" }),
+    ArtifactResolutionError,
+    "targetHistoricalState is not declared as a HistoricalState",
+  );
+});
+
 Deno.test("resolveArtifactResolutionRequest resolves exact payload historical state", async () => {
   const { context, meshRoot } = await createResolverTestContext();
   await materializePayloadArtifact(meshRoot);

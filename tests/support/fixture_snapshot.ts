@@ -7,7 +7,7 @@ const textEncoder = new TextEncoder();
 export interface ResolvedFixtureRef {
   readonly requestedRef: string;
   readonly gitRef: string;
-  readonly commit: string;
+  readonly commitSha: string;
 }
 
 export interface FixtureSnapshotCacheOptions {
@@ -52,7 +52,7 @@ export class FixtureSnapshotCache {
   }
 
   async resolveCommit(ref: string): Promise<string> {
-    return (await this.resolveRef(ref)).commit;
+    return (await this.resolveRef(ref)).commitSha;
   }
 
   async readTextFile(ref: string, path: string): Promise<string> {
@@ -97,7 +97,7 @@ export class FixtureSnapshotCache {
         return {
           requestedRef: ref,
           gitRef: candidate,
-          commit: textDecoder.decode(output.stdout).trim(),
+          commitSha: textDecoder.decode(output.stdout).trim(),
         };
       }
     }
@@ -111,18 +111,18 @@ export class FixtureSnapshotCache {
 
   async #snapshotForRef(ref: string): Promise<FixtureSnapshot> {
     const resolved = await this.resolveRef(ref);
-    const cached = this.#snapshots.get(resolved.commit);
+    const cached = this.#snapshots.get(resolved.commitSha);
     if (cached) {
       return await cached;
     }
 
     const pending = this.#buildSnapshot(resolved);
-    this.#snapshots.set(resolved.commit, pending);
+    this.#snapshots.set(resolved.commitSha, pending);
 
     try {
       return await pending;
     } catch (error) {
-      this.#snapshots.delete(resolved.commit);
+      this.#snapshots.delete(resolved.commitSha);
       throw error;
     }
   }
@@ -133,7 +133,7 @@ export class FixtureSnapshotCache {
     const root = join(
       snapshotCacheRoot,
       safePathSegment(this.#label),
-      resolved.commit,
+      resolved.commitSha,
     );
     const pathsFile = join(root, ".fixture-snapshot-paths.json");
     const completeFile = join(root, ".fixture-snapshot-complete");
@@ -154,7 +154,7 @@ export class FixtureSnapshotCache {
     await Deno.mkdir(dirname(root), { recursive: true });
     const buildRoot = await Deno.makeTempDir({
       dir: dirname(root),
-      prefix: `${resolved.commit}.build-`,
+      prefix: `${resolved.commitSha}.build-`,
     });
 
     try {
@@ -210,7 +210,7 @@ export class FixtureSnapshotCache {
         "ls-tree",
         "-r",
         "--name-only",
-        resolved.gitRef,
+        resolved.commitSha,
       ],
       stdout: "piped",
       stderr: "piped",
@@ -233,7 +233,7 @@ export class FixtureSnapshotCache {
     path: string,
   ): Promise<Uint8Array> {
     const output = await new Deno.Command("git", {
-      args: ["-C", this.#repoPath, "show", `${resolved.gitRef}:${path}`],
+      args: ["-C", this.#repoPath, "show", `${resolved.commitSha}:${path}`],
       stdout: "piped",
       stderr: "piped",
     }).output();

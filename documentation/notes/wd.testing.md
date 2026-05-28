@@ -102,11 +102,15 @@ Preferred placement:
 
 Temp workspaces created with `createTestTmpDir()` are registered with the test harness and cleaned after each test when tests are run through `deno task test` or `deno task test:coverage`. Set `WEAVE_KEEP_TEST_TMP=1` when running those tasks to preserve temp workspaces for debugging a failing test.
 
+Curated Git fixture refs should be materialized through the shared fixture snapshot cache when possible. The cache stores immutable per-repo/per-commit snapshots under `/tmp/semantic-flow-fixture-snapshots`, keyed by resolved commit SHA, then copies from that snapshot into each test's private temp workspace. This keeps tests isolated while avoiding repeated per-file `git show` extraction.
+
 Live Semantic Flow fixture ladder regeneration is a separate cross-repo workflow; see [[wd.testing.fixture-ladder-regeneration]].
 
 ### Codecov Test Analytics
 
-GitHub Actions publishes JUnit XML to Codecov Test Analytics from the normal CI workflow. `deno task test:coverage` writes Deno's raw JUnit report to `/tmp/semantic-flow-coverage/junit.xml`, normalizes it for Codecov at `/tmp/semantic-flow-coverage/codecov-junit.xml`, and writes raw coverage data in the same temp directory. `deno task coverage:lcov` writes LCOV to `/tmp/semantic-flow-coverage/lcov.info`.
+GitHub Actions publishes JUnit XML to Codecov Test Analytics from the normal CI workflow. Treat Codecov as the canonical broad timing view for slowest suites and tests; add local timing instrumentation only when it answers a narrower question, such as setup time versus command execution inside one slow e2e suite.
+
+`deno task test:coverage` writes Deno's raw JUnit report to `/tmp/semantic-flow-coverage/junit.xml`, normalizes it for Codecov at `/tmp/semantic-flow-coverage/codecov-junit.xml`, and writes raw coverage data in the same temp directory. `deno task coverage:lcov` writes LCOV to `/tmp/semantic-flow-coverage/lcov.info`.
 
 Coverage-producing tasks create `/tmp/semantic-flow-coverage` if it does not exist, so a reboot-cleared `/tmp` does not require manual setup.
 

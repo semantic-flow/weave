@@ -916,6 +916,14 @@ function resolvePayloadLatestState(
     } requests latest-state resolution for ${inventory.target.artifactPath}, but ${historyPath} has no latestHistoricalState.`,
     "unavailable",
   );
+  const statePath = requireMeshPathFromIri(
+    meshBase,
+    stateIri,
+    `${
+      describeRequest(request)
+    } resolved latestHistoricalState outside the mesh: ${stateIri}.`,
+  );
+  assertTypedHistoricalState(inventory.quads, stateIri, statePath, request);
   return resolvePayloadStateSnapshot(
     meshBase,
     inventory,
