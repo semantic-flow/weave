@@ -24,6 +24,34 @@ Detailed notes are available for [[wu.cli-reference.weave]], [[wu.cli-reference.
 
 When `_mesh/_config/config.ttl` exists, existing-mesh commands compile it as mesh-local config above Weave defaults and below command-scoped overrides. Durable mesh policy belongs there; flags such as `--history-tracking-policy` and `--include-semantic-flow-metadata` are one-run overrides.
 
+Config-source bootstrap is authored in metadata, not in the resolved config payload itself. Mesh-local `sfcfg:hasConfigSource` attachments belong on `<_mesh>` in `_mesh/_meta/meta.ttl`; Knop-local `sfcfg:hasConfigSource` and inheritable `sfcfg:hasInheritableConfigSource` attachments belong on the current Knop subject in that Knop's `_knop/_meta/meta.ttl`. The target can be a conventional `_config/*.ttl` file, but that file is the config content being resolved, not the initial authority that makes itself visible.
+
+```ttl
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<_mesh> sfcfg:hasConfigSource [
+  a sfcfg:ConfigSource ;
+  sflo:targetLocalRelativePath "_mesh/_config/config.ttl"
+] .
+```
+
+For Knop-scoped config, attach the source to the Knop subject in current Knop metadata:
+
+```ttl
+<alice/_knop> sfcfg:hasConfigSource [
+  a sfcfg:ConfigSource ;
+  sflo:targetLocalRelativePath "alice/_knop/_config/config.ttl"
+] .
+
+<alice/_knop> sfcfg:hasInheritableConfigSource [
+  a sfcfg:ConfigSource ;
+  sflo:targetLocalRelativePath "alice/_knop/_config/children.ttl"
+] .
+```
+
+`ConfigSource` reuses the `sflo:ArtifactResolutionSpec` coordinate vocabulary, so use `sflo:targetLocalRelativePath`.
+
 `--target <spec>` limits `weave`, `weave validate`, `weave version`, and `weave generate` to specific designator paths.
 
 If no `--target` flags are provided, those commands operate on all applicable weave candidates in the mesh.
