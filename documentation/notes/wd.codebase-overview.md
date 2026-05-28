@@ -40,7 +40,7 @@ Core owns portable Semantic Flow behavior: request/result types, RDF/Turtle help
 Runtime owns local execution against a workspace: filesystem reads/writes, git-aware source resolution, effective config loading, structured logging, progress reporting, and command-scoped staging.
 
 - `src/runtime/config` loads and resolves effective runtime config from RDF, including mesh-local `sfcfg:hasConfigSource` discovery through shared artifact resolution.
-- `src/runtime/artifact_resolution` resolves `sflo:ArtifactResolutionSpec`-shaped runtime requests into requested/observed coordinates plus optional bytes/text under local path policy; config-source discovery and artifact-backed ResourcePageSource loading use it.
+- `src/runtime/artifact_resolution` resolves `sflo:ArtifactResolutionSpec`-shaped runtime requests into requested/observed coordinates plus optional bytes/text under local path policy; config-source discovery, artifact-backed ResourcePageSource loading, and extraction-source selected-state evidence use it.
 - `src/runtime/logging` provides structured operational and audit logging.
 - `src/runtime/operational/local_path_policy.ts` controls workspace-local path safety and allowed repo-adjacent access.
 - `src/runtime/weave/weave.ts` is the public runtime façade for validate/version/generate/weave.

@@ -9,12 +9,15 @@ import type {
 } from "../../core/weave/candidates.ts";
 import {
   resolveExtractionSourceInventoryState,
-  resolveHistoricalStateLocatedFilePath,
   resolveKnopSourceRegistryInventoryState,
   resolvePayloadArtifactInventoryState,
   resolveReferenceCatalogInventoryState,
   resolveResourcePageDefinitionInventoryState,
 } from "../mesh/inventory.ts";
+import {
+  ArtifactResolutionError,
+  resolveArtifactResolutionRequest,
+} from "../artifact_resolution/resolver.ts";
 import {
   LocalPathAccessError,
   type OperationalLocalPathPolicy,
@@ -260,42 +263,15 @@ export async function loadReferenceTargetSourcePayloadArtifact(
       `Extracted weave source for ${designatorPath} is missing an exact or latest source state.`,
     );
   }
-  const selectedHistoricalSnapshotPath = resolveHistoricalStateLocatedFilePath(
+  const selectedSource = await resolveSelectedExtractionSource(
+    workspaceRoot,
+    localPathPolicy,
     meshBase,
-    sourceKnopInventoryTurtle,
+    designatorPath,
+    extractionSource.sourceArtifactPath,
     selectedHistoricalStatePath,
-    `Could not parse the source Knop inventory while resolving the extracted source payload snapshot for ${designatorPath}.`,
-  ) ?? (sourcePayloadArtifact.latestHistoricalStatePath ===
-        selectedHistoricalStatePath &&
-      sourcePayloadArtifact.latestHistoricalSnapshotPath
-    ? sourcePayloadArtifact.latestHistoricalSnapshotPath
-    : toPayloadHistoricalSnapshotPath(
-      selectedHistoricalStatePath,
-      sourcePayloadArtifact.workingLocalRelativePath,
-    ));
-  let selectedHistoricalSnapshotTurtle: string | undefined;
-  try {
-    selectedHistoricalSnapshotTurtle = await readTextFileWithOverlay(
-      resolveAllowedLocalPath(
-        localPathPolicy,
-        "workingLocalRelativePath",
-        selectedHistoricalSnapshotPath,
-      ),
-      overlay,
-    );
-  } catch (error) {
-    if (error instanceof LocalPathAccessError) {
-      throw new WeaveRuntimeError(
-        `Extracted source payload snapshot for ${designatorPath} is outside the allowed local-path boundary: ${selectedHistoricalSnapshotPath}`,
-      );
-    }
-    if (error instanceof Deno.errors.NotFound) {
-      throw new WeaveRuntimeError(
-        `Workspace is missing the extracted source payload snapshot for ${designatorPath}: ${selectedHistoricalSnapshotPath}`,
-      );
-    }
-    throw error;
-  }
+    overlay,
+  );
 
   return {
     designatorPath: sourceDesignatorPath,
@@ -314,20 +290,102 @@ export async function loadReferenceTargetSourcePayloadArtifact(
         currentSourceRegistryTurtle: sourceRegistryArtifact.turtle,
       }
       : {}),
-    latestHistoricalSnapshotPath: selectedHistoricalSnapshotPath,
-    latestHistoricalSnapshotTurtle: selectedHistoricalSnapshotTurtle,
-    latestHistoricalStatePath: selectedHistoricalStatePath,
-    sourceEvidence: {
-      sourceStatePath: selectedHistoricalStatePath,
-      sourceManifestationPath: dirname(selectedHistoricalSnapshotPath)
-        .replaceAll(
-          "\\",
-          "/",
-        ),
-      sourceLocatedFilePath: selectedHistoricalSnapshotPath,
-      sourceDigest: await sha256Digest(selectedHistoricalSnapshotTurtle),
-    },
+    latestHistoricalSnapshotPath: selectedSource.snapshotPath,
+    latestHistoricalSnapshotTurtle: selectedSource.snapshotTurtle,
+    latestHistoricalStatePath: selectedSource.sourceEvidence.sourceStatePath,
+    sourceEvidence: selectedSource.sourceEvidence,
   };
+}
+
+async function resolveSelectedExtractionSource(
+  workspaceRoot: string,
+  localPathPolicy: OperationalLocalPathPolicy,
+  meshBase: string,
+  designatorPath: string,
+  sourceArtifactPath: string,
+  selectedHistoricalStatePath: string,
+  overlay?: ReadonlyMap<string, string>,
+): Promise<{
+  snapshotPath: string;
+  snapshotTurtle: string;
+  sourceEvidence: {
+    sourceStatePath: string;
+    sourceManifestationPath: string;
+    sourceLocatedFilePath: string;
+    sourceDigest: string;
+  };
+}> {
+  try {
+    const result = await resolveArtifactResolutionRequest(
+      {
+        meshRoot: workspaceRoot,
+        meshBase,
+        localPathPolicy,
+        ...(overlay ? { overlay } : {}),
+      },
+      {
+        sourceDescription:
+          `ExtractionSource selected source for ${designatorPath}`,
+        targetArtifactIri: new URL(sourceArtifactPath, meshBase).href,
+        targetHistoricalStateIri: new URL(
+          selectedHistoricalStatePath,
+          meshBase,
+        ).href,
+      },
+      { contentMode: "text" },
+    );
+    const snapshotPath = result.observed.localRelativePath;
+    const snapshotTurtle = result.content?.text;
+    const sourceDigest = result.observed.contentDigest;
+    const sourceStatePath = result.observed.historicalStateIri === undefined
+      ? undefined
+      : requireObservedMeshPath(
+        meshBase,
+        result.observed.historicalStateIri,
+        `ExtractionSource selected source for ${designatorPath} resolved a source state outside the mesh.`,
+      );
+    if (
+      snapshotPath === undefined ||
+      snapshotTurtle === undefined ||
+      sourceDigest === undefined ||
+      sourceStatePath === undefined
+    ) {
+      throw new WeaveRuntimeError(
+        `ExtractionSource selected source for ${designatorPath} did not resolve to text content with observed state, local path, and digest.`,
+      );
+    }
+
+    return {
+      snapshotPath,
+      snapshotTurtle,
+      sourceEvidence: {
+        sourceStatePath,
+        sourceManifestationPath: dirname(snapshotPath).replaceAll("\\", "/"),
+        sourceLocatedFilePath: snapshotPath,
+        sourceDigest,
+      },
+    };
+  } catch (error) {
+    if (error instanceof ArtifactResolutionError) {
+      throw new WeaveRuntimeError(error.message);
+    }
+    throw error;
+  }
+}
+
+function requireObservedMeshPath(
+  meshBase: string,
+  iri: string,
+  errorMessage: string,
+): string {
+  if (!iri.startsWith(meshBase)) {
+    throw new WeaveRuntimeError(errorMessage);
+  }
+  const meshPath = iri.slice(meshBase.length);
+  if (meshPath.includes("#") || meshPath.includes("?")) {
+    throw new WeaveRuntimeError(errorMessage);
+  }
+  return meshPath;
 }
 
 export async function loadKnopSourceRegistryArtifact(
@@ -496,13 +554,4 @@ function toDefaultManifestationSegment(fileName: string): string {
   return extensionIndex > 0 && extensionIndex < fileName.length - 1
     ? fileName.slice(extensionIndex + 1)
     : fileName.replaceAll(".", "-");
-}
-
-async function sha256Digest(contents: string): Promise<string> {
-  const bytes = new TextEncoder().encode(contents);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  const hex = [...new Uint8Array(digest)]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-  return `sha256:${hex}`;
 }
