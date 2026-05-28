@@ -1,4 +1,5 @@
-import { dirname, fromFileUrl, join } from "@std/path";
+import { fromFileUrl, join } from "@std/path";
+import { FixtureSnapshotCache } from "./fixture_snapshot.ts";
 
 const repoRootPath = fromFileUrl(new URL("../../", import.meta.url));
 const fixtureRepoPath = join(
@@ -15,7 +16,11 @@ const frameworkRepoPath = join(
   "semantic-flow",
   "semantic-flow-framework",
 );
-const resolvedRefCache = new Map<string, Promise<string>>();
+const fixtureSnapshots = new FixtureSnapshotCache({
+  label: "mesh-alice-bio",
+  repoPath: fixtureRepoPath,
+  candidatesForRef: meshAliceBioRefCandidates,
+});
 
 // Temporary Alice fixture-ladder settings until the replay prefix and policy
 // move into an Accord/scenario master manifest.
@@ -54,113 +59,32 @@ export function resolveMeshAliceBioConformanceManifestPath(
   );
 }
 
-async function resolveMeshAliceBioGitRef(ref: string): Promise<string> {
-  const cached = resolvedRefCache.get(ref);
-  if (cached) {
-    return await cached;
-  }
-
-  const pending = resolveMeshAliceBioGitRefUncached(ref);
-  resolvedRefCache.set(ref, pending);
-
-  try {
-    return await pending;
-  } catch (error) {
-    resolvedRefCache.delete(ref);
-    throw error;
-  }
-}
-
-async function resolveMeshAliceBioGitRefUncached(
-  ref: string,
-): Promise<string> {
+function meshAliceBioRefCandidates(ref: string): string[] {
   const hasExplicitLadderPrefix = /^[a-z]\./.test(ref);
   const prefixedRef = hasExplicitLadderPrefix
     ? ref
     : `${MESH_ALICE_BIO_LADDER_BRANCH_PREFIX}${ref}`;
-  const candidates = hasExplicitLadderPrefix
+  return hasExplicitLadderPrefix
     ? [ref, `origin/${ref}`]
     : [prefixedRef, `origin/${prefixedRef}`];
-
-  for (const candidate of candidates) {
-    const command = new Deno.Command("git", {
-      args: [
-        "-C",
-        fixtureRepoPath,
-        "rev-parse",
-        "--verify",
-        "--quiet",
-        `${candidate}^{commit}`,
-      ],
-      stdout: "null",
-      stderr: "null",
-    });
-    const output = await command.output();
-    if (output.success) {
-      return candidate;
-    }
-  }
-
-  throw new Error(
-    `Failed to resolve fixture ref ${ref} in ${fixtureRepoPath}; checked ${
-      candidates.join(", ")
-    }.`,
-  );
 }
 
 export async function readMeshAliceBioBranchFile(
   ref: string,
   path: string,
 ): Promise<string> {
-  const resolvedRef = await resolveMeshAliceBioGitRef(ref);
-  const command = new Deno.Command("git", {
-    args: ["-C", fixtureRepoPath, "show", `${resolvedRef}:${path}`],
-    stdout: "piped",
-    stderr: "piped",
-  });
-  const output = await command.output();
-  if (!output.success) {
-    const message = new TextDecoder().decode(output.stderr).trim();
-    throw new Error(`Failed to read fixture file ${ref}:${path}: ${message}`);
-  }
-  return new TextDecoder().decode(output.stdout);
+  return await fixtureSnapshots.readTextFile(ref, path);
 }
 
 export async function listMeshAliceBioBranchFiles(
   ref: string,
 ): Promise<string[]> {
-  const resolvedRef = await resolveMeshAliceBioGitRef(ref);
-  const command = new Deno.Command("git", {
-    args: ["-C", fixtureRepoPath, "ls-tree", "-r", "--name-only", resolvedRef],
-    stdout: "piped",
-    stderr: "piped",
-  });
-  const output = await command.output();
-  if (!output.success) {
-    const message = new TextDecoder().decode(output.stderr).trim();
-    throw new Error(`Failed to list fixture files for ${ref}: ${message}`);
-  }
-
-  return new TextDecoder()
-    .decode(output.stdout)
-    .split("\n")
-    .filter((path) => path.length > 0);
+  return await fixtureSnapshots.listFiles(ref);
 }
 
 export async function materializeMeshAliceBioBranch(
   ref: string,
   targetDir: string,
 ): Promise<string[]> {
-  const paths = await listMeshAliceBioBranchFiles(ref);
-
-  for (const path of paths) {
-    const absolutePath = join(targetDir, path);
-    await Deno.mkdir(dirname(absolutePath), { recursive: true });
-    await Deno.writeTextFile(
-      absolutePath,
-      await readMeshAliceBioBranchFile(ref, path),
-    );
-  }
-
-  return paths;
+  return await fixtureSnapshots.materialize(ref, targetDir);
 }
