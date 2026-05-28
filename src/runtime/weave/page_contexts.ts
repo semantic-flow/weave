@@ -91,12 +91,16 @@ export interface GenerateDesignatorContext {
   >;
 }
 
+export type EffectiveConfigForDesignator =
+  | EffectiveConfig
+  | ((designatorPath: string) => Promise<EffectiveConfig>);
+
 export async function loadBestEffortGenerateDesignatorContexts(
   workspaceRoot: string,
   localPathPolicy: OperationalLocalPathPolicy,
   meshState: MeshState,
   designatorPaths: readonly string[],
-  effectiveConfig: EffectiveConfig,
+  effectiveConfig: EffectiveConfigForDesignator,
   hasExplicitGenerateTargets: boolean,
   timing?: RuntimeTiming,
   phasePrefix = "loadBestEffortGenerateDesignatorContexts",
@@ -149,7 +153,7 @@ export async function loadGenerateDesignatorContexts(
   localPathPolicy: OperationalLocalPathPolicy,
   meshState: MeshState,
   designatorPaths: readonly string[],
-  effectiveConfig: EffectiveConfig,
+  effectiveConfig: EffectiveConfigForDesignator,
   hasExplicitGenerateTargets: boolean,
   timing?: RuntimeTiming,
   phasePrefix = "loadGenerateDesignatorContexts",
@@ -158,6 +162,12 @@ export async function loadGenerateDesignatorContexts(
   const contexts: GenerateDesignatorContext[] = [];
 
   for (const designatorPath of designatorPaths) {
+    const targetEffectiveConfig = await timeOptional(
+      timing,
+      phase("loadEffectiveConfig"),
+      () =>
+        resolveEffectiveConfigForDesignator(effectiveConfig, designatorPath),
+    );
     const knopInventoryPath = join(
       workspaceRoot,
       `${toKnopPath(designatorPath)}/_inventory/inventory.ttl`,
@@ -315,7 +325,7 @@ export async function loadGenerateDesignatorContexts(
           inventoryTurtle: currentKnopInventoryTurtle,
           parseErrorMessage:
             `Could not parse the current Knop inventory while collecting ResourcePages for ${designatorPath}.`,
-          config: effectiveConfig,
+          config: targetEffectiveConfig,
           explicitRequest: hasExplicitGenerateTargets,
         }),
     );
@@ -462,6 +472,15 @@ export async function loadGenerateDesignatorContexts(
   }
 
   return contexts;
+}
+
+async function resolveEffectiveConfigForDesignator(
+  effectiveConfig: EffectiveConfigForDesignator,
+  designatorPath: string,
+): Promise<EffectiveConfig> {
+  return typeof effectiveConfig === "function"
+    ? await effectiveConfig(designatorPath)
+    : effectiveConfig;
 }
 
 export function listRuntimeGeneratedResourcePagePaths(

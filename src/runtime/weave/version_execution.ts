@@ -23,11 +23,13 @@ import {
   loadWeaveableKnopCandidates,
 } from "./candidate_loader.ts";
 import {
-  loadEffectiveConfigForExecution,
-  loadKnopConfigScopePathForTarget,
+  createEffectiveConfigProviderForExecution,
   namingPoliciesFromEffectiveConfig,
+  resourcePageGenerationConfigFromScopedEffectiveConfigs,
   resourcePageGenerationPoliciesFromEffectiveConfig,
+  resourcePageGenerationPoliciesFromScopedEffectiveConfigs,
   supportHistoryPoliciesFromEffectiveConfig,
+  supportHistoryPoliciesFromScopedEffectiveConfigs,
 } from "./execution_config.ts";
 import { WeaveRuntimeError } from "./errors.ts";
 import {
@@ -128,49 +130,31 @@ export async function prepareVersionExecution(
     targets,
     initialWeaveableKnops,
   );
-  // Knop config is target-scoped; multi-target versioning needs per-target
-  // effective config before this can be safely broadened.
-  const knopConfigScopePath = initialWeaveableKnops.length === 1
-    ? await timeOptional(
-      timing,
-      "prepare.loadKnopConfigScopePath",
-      () =>
-        loadKnopConfigScopePathForTarget({
-          workspaceRoot,
-          designatorPath: initialWeaveableKnops[0]!.designatorPath,
-          targetMetadataTurtle: initialWeaveableKnops[0]!
-            .currentKnopMetadataTurtle,
-        }),
-    )
-    : undefined;
-  const effectiveConfig = await timeOptional(
+  const targetMetadataTurtleByDesignatorPath = new Map(
+    initialWeaveableKnops.map((candidate) => [
+      candidate.designatorPath,
+      candidate.currentKnopMetadataTurtle,
+    ]),
+  );
+  const effectiveConfigProvider = createEffectiveConfigProviderForExecution({
+    meshRoot: workspaceRoot,
+    meshState,
+    localPathPolicy,
+    targetMetadataTurtleByDesignatorPath,
+    historyTrackingPolicyOverride,
     timing,
-    "prepare.loadEffectiveConfig",
-    () =>
-      loadEffectiveConfigForExecution({
-        meshConfigTurtle: meshState.currentMeshConfigTurtle,
-        meshConfigSource: meshState.currentMeshConfigTurtle
-          ? "_mesh/_config/config.ttl"
-          : undefined,
-        meshRoot: workspaceRoot,
-        meshBase: meshState.meshBase,
-        meshMetadataTurtle: meshState.currentMeshMetadataTurtle,
-        meshMetadataSource: "_mesh/_meta/meta.ttl",
-        meshInventoryTurtle: meshState.currentMeshInventoryTurtle,
-        localPathPolicy,
-        knopConfigScopePath,
-        historyTrackingPolicyOverride,
-      }),
-  );
-  const supportHistoryPolicies = supportHistoryPoliciesFromEffectiveConfig(
-    effectiveConfig,
-  );
-  const namingPolicies = namingPoliciesFromEffectiveConfig(effectiveConfig);
-  const resourcePageGenerationPolicies =
-    resourcePageGenerationPoliciesFromEffectiveConfig(effectiveConfig);
+    phasePrefix: "prepare.effectiveConfig",
+  });
+  const meshEffectiveConfig = await effectiveConfigProvider
+    .configForMeshScope();
 
   if (initialWeaveableKnops.length === 0) {
     if (targets.length === 0) {
+      const supportHistoryPolicies = supportHistoryPoliciesFromEffectiveConfig(
+        meshEffectiveConfig,
+      );
+      const resourcePageGenerationPolicies =
+        resourcePageGenerationPoliciesFromEffectiveConfig(meshEffectiveConfig);
       return {
         meshState,
         plan: planMeshSupportResourcePages({
@@ -179,7 +163,7 @@ export async function prepareVersionExecution(
           currentMeshMetadataTurtle: meshState.currentMeshMetadataTurtle,
           currentMeshConfigTurtle: meshState.currentMeshConfigTurtle,
           supportHistoryPolicies,
-          resourcePageGenerationConfig: effectiveConfig,
+          resourcePageGenerationConfig: meshEffectiveConfig,
           resourcePageGenerationPolicies,
         }),
       };
@@ -233,6 +217,26 @@ export async function prepareVersionExecution(
     const nextCandidate = stagedWeaveableKnops[0]!;
     const nextDesignatorPath = nextCandidate.designatorPath;
     const target = targetByDesignatorPath.get(nextDesignatorPath);
+    const targetEffectiveConfig = await effectiveConfigProvider
+      .configForTarget(nextDesignatorPath);
+    const supportHistoryPolicies =
+      supportHistoryPoliciesFromScopedEffectiveConfigs(
+        meshEffectiveConfig,
+        targetEffectiveConfig,
+      );
+    const namingPolicies = namingPoliciesFromEffectiveConfig(
+      targetEffectiveConfig,
+    );
+    const resourcePageGenerationConfig =
+      resourcePageGenerationConfigFromScopedEffectiveConfigs(
+        meshEffectiveConfig,
+        targetEffectiveConfig,
+      );
+    const resourcePageGenerationPolicies =
+      resourcePageGenerationPoliciesFromScopedEffectiveConfigs(
+        meshEffectiveConfig,
+        targetEffectiveConfig,
+      );
     const nextPlan = timeOptionalSync(
       timing,
       "prepare.loop.planVersion",
@@ -249,7 +253,7 @@ export async function prepareVersionExecution(
           weaveableKnops: [nextCandidate],
           supportHistoryPolicies,
           namingPolicies,
-          resourcePageGenerationConfig: effectiveConfig,
+          resourcePageGenerationConfig,
           resourcePageGenerationPolicies,
         }),
     );

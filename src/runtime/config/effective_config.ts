@@ -690,6 +690,8 @@ export interface ArtifactPolicyTargetQuery {
 
 interface PolicyTargetValidationContext {
   governedArtifactIris?: ReadonlySet<string>;
+  meshBase?: string;
+  knopAuthorityScopeKey?: string;
 }
 
 interface CompiledPolicyBinding {
@@ -717,6 +719,7 @@ interface ParsedLayeredConfigInput {
   configSubject?: string;
   source: string;
   sourceOrder: number;
+  authorityScopeKey?: string;
   layerRole: Extract<
     ConfigLayerRole,
     "meshLocal" | "knopInherited" | "knopLocal"
@@ -1240,7 +1243,12 @@ export function compileWeaveEffectiveConfig(input: {
           sourceOrder: document.sourceOrder,
           layerRole: document.layerRole,
           layerOrderByRole,
-          targetValidation,
+          targetValidation: {
+            ...targetValidation,
+            ...(document.authorityScopeKey !== undefined
+              ? { knopAuthorityScopeKey: document.authorityScopeKey }
+              : {}),
+          },
         })
         : []
     ),
@@ -1303,6 +1311,9 @@ function parseLayeredConfigInput(
     source: document.source,
     sourceOrder: document.sourceOrder,
     layerRole: document.layerRole,
+    ...(document.authorityScopeKey !== undefined
+      ? { authorityScopeKey: document.authorityScopeKey }
+      : {}),
     configSubject: resolveOptionalMeshConfigSubject(quads, document.source),
   };
 }
@@ -1615,7 +1626,10 @@ function createPolicyTargetValidationContext(input: {
     return {};
   }
   if (input.governedArtifactIris !== undefined) {
-    return { governedArtifactIris: new Set(input.governedArtifactIris) };
+    return {
+      governedArtifactIris: new Set(input.governedArtifactIris),
+      ...(input.meshBase !== undefined ? { meshBase: input.meshBase } : {}),
+    };
   }
   if (
     input.meshBase !== undefined && input.meshInventoryTurtle !== undefined
@@ -1625,6 +1639,7 @@ function createPolicyTargetValidationContext(input: {
         input.meshBase,
         input.meshInventoryTurtle,
       ),
+      meshBase: input.meshBase,
     };
   }
   return {};
@@ -1883,7 +1898,44 @@ function parsePolicyTarget(
       `Exact artifact policy target in ${source} is not governed by the active mesh scope: ${artifactIri}`,
     );
   }
+  if (
+    validation.knopAuthorityScopeKey !== undefined &&
+    validation.meshBase !== undefined &&
+    !artifactIriIsWithinKnopAuthorityScope(
+      artifactIri,
+      validation.meshBase,
+      validation.knopAuthorityScopeKey,
+    )
+  ) {
+    throw new EffectiveConfigError(
+      `Exact artifact policy target in ${source} is outside the active Knop config authority scope <${validation.knopAuthorityScopeKey}>: ${artifactIri}`,
+    );
+  }
   return { kind: "exactArtifact", artifactIri };
+}
+
+function artifactIriIsWithinKnopAuthorityScope(
+  artifactIri: string,
+  meshBase: string,
+  scopeKey: string,
+): boolean {
+  if (!artifactIri.startsWith(meshBase)) {
+    return false;
+  }
+  const artifactPath = artifactIri.slice(meshBase.length);
+  if (artifactPath.startsWith("_mesh/") || artifactPath === "_mesh") {
+    return false;
+  }
+  if (scopeKey.length === 0) {
+    return artifactPath.length === 0 ||
+      artifactPath === "_history" ||
+      artifactPath.startsWith("_history/") ||
+      /^_history\d+($|\/)/.test(artifactPath) ||
+      artifactPath === "_knop" ||
+      artifactPath.startsWith("_knop/");
+  }
+  return artifactPath === scopeKey ||
+    artifactPath.startsWith(`${scopeKey}/`);
 }
 
 function rejectPolicyTargetSelector(

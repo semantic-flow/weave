@@ -1110,6 +1110,29 @@ Deno.test("compileWeaveEffectiveConfig rejects exact artifact targets outside th
   );
 });
 
+Deno.test("compileWeaveEffectiveConfig rejects Knop-local exact artifact targets outside the Knop authority scope", () => {
+  assertThrows(
+    () =>
+      compileWeaveEffectiveConfig({
+        applicationTurtle: VALID_APPLICATION_WITH_PRESENTATION_TURTLE,
+        configResolutionTurtle: DEFAULT_CONFIG_RESOLUTION_TURTLE,
+        meshBase: MESH_BASE,
+        meshInventoryTurtle: `${GOVERNED_ARTIFACTS_INVENTORY_TURTLE.trimEnd()}
+<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact .
+`,
+        knopConfigInputs: [{
+          turtle: exactTargetMeshConfigTurtle("<_mesh/_inventory>"),
+          source: "alice/_knop/_config/config.ttl",
+          layerRole: "knopLocal",
+          sourceOrder: 0,
+          authorityScopeKey: "alice",
+        }],
+      }),
+    EffectiveConfigError,
+    "outside the active Knop config authority scope",
+  );
+});
+
 Deno.test("compileWeaveEffectiveConfig rejects malformed exact artifact targets", () => {
   assertThrows(
     () =>
@@ -1463,6 +1486,10 @@ const VALID_CONFIG_RESOLUTION_TURTLE =
     sfcfg:layerOrder "90"^^xsd:nonNegativeInteger
   ] .
 `;
+
+const DEFAULT_CONFIG_RESOLUTION_TURTLE = Deno.readTextFileSync(
+  new URL("../../../defaults/config-resolution.ttl", import.meta.url),
+);
 
 function exactTargetMeshConfigTurtle(artifactObject: string): string {
   return `@base <${MESH_BASE}> .

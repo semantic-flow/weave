@@ -13,9 +13,9 @@ import {
   findHistoryStateForManifestation,
   isHistoryComponentResource,
 } from "../../core/weave/resource_page_history_groups.ts";
-import type { EffectiveConfig } from "../config/effective_config.ts";
 import type { OperationalLocalPathPolicy } from "../operational/local_path_policy.ts";
 import type { RuntimeTiming } from "../timing.ts";
+import type { EffectiveConfigProvider } from "./execution_config.ts";
 import type { MeshState } from "./mesh_state.ts";
 import {
   collectChildIdentifiersByResourcePath,
@@ -47,7 +47,7 @@ export interface CollectResourcePageModelsInput {
   selectedDesignatorPaths: readonly string[];
   includeAllMeshPages: boolean;
   hasExplicitGenerateTargets: boolean;
-  effectiveConfig: EffectiveConfig;
+  effectiveConfigProvider: EffectiveConfigProvider;
   timing?: RuntimeTiming;
   phasePrefix?: string;
 }
@@ -62,7 +62,7 @@ export async function collectResourcePageModels(
     selectedDesignatorPaths,
     includeAllMeshPages,
     hasExplicitGenerateTargets,
-    effectiveConfig,
+    effectiveConfigProvider,
     timing,
     phasePrefix = "collectResourcePageModels",
   } = input;
@@ -79,7 +79,8 @@ export async function collectResourcePageModels(
         localPathPolicy,
         meshState,
         selectedDesignatorPaths,
-        effectiveConfig,
+        (designatorPath) =>
+          effectiveConfigProvider.configForTarget(designatorPath),
         hasExplicitGenerateTargets,
         timing,
         phase("loadDesignatorContexts"),
@@ -112,28 +113,37 @@ export async function collectResourcePageModels(
         "Could not parse the current MeshInventory while collecting ResourcePage histories.",
       ),
   );
-  const allPagePaths = timeOptionalSync(
+  const meshInventoryPagePaths = await timeOptional(
     timing,
-    phase("listRuntimeGeneratedResourcePagePaths"),
-    () =>
+    phase("listMeshInventoryResourcePagePaths"),
+    async () =>
       listRuntimeGeneratedResourcePagePaths(
         {
           meshBase: meshState.meshBase,
           inventoryTurtle: meshState.currentMeshInventoryTurtle,
           parseErrorMessage:
             "Could not parse the current MeshInventory while collecting ResourcePages.",
-          config: effectiveConfig,
+          config: await effectiveConfigProvider.configForMeshScope(),
           explicitRequest: hasExplicitGenerateTargets,
         },
       ),
   );
+  const ownerScopedPagePaths = designatorContexts.flatMap((context) =>
+    context.pagePaths
+  );
+  const selectedPagePaths = [
+    ...new Set([
+      ...meshInventoryPagePaths,
+      ...ownerScopedPagePaths,
+    ]),
+  ].sort((left, right) => left.localeCompare(right));
   const generatedResourcePaths = collectGeneratedResourcePaths(
-    allPagePaths,
+    selectedPagePaths,
     includeAllMeshPages,
     selectedSet,
   );
   const displayedChildResourcePaths = collectDisplayedChildResourcePaths(
-    allPagePaths,
+    selectedPagePaths,
     generatedResourcePaths,
   );
   const childTypeHintContexts = await timeOptional(
@@ -147,7 +157,8 @@ export async function collectResourcePageModels(
         displayedChildResourcePaths.filter((resourcePath) =>
           !selectedSet.has(resourcePath)
         ),
-        effectiveConfig,
+        (designatorPath) =>
+          effectiveConfigProvider.configForTarget(designatorPath),
         hasExplicitGenerateTargets,
         timing,
         phase("loadChildTypeHintContexts"),
@@ -158,11 +169,11 @@ export async function collectResourcePageModels(
     [...designatorContexts, ...childTypeHintContexts],
   );
   const childIdentifiersByResourcePath = collectChildIdentifiersByResourcePath(
-    allPagePaths,
+    selectedPagePaths,
     childRdfTypesByResourcePath,
   );
 
-  for (const pagePath of allPagePaths) {
+  for (const pagePath of selectedPagePaths) {
     if (
       !shouldGenerateRuntimePagePath(
         pagePath,
@@ -202,7 +213,9 @@ export async function collectResourcePageModels(
           path: pagePath,
           designatorPath: publicContext.designatorPath,
           definitionPath: publicContext.customIdentifierPage.definitionPath,
-          presentationConfigIri: effectiveConfig.resourcePagePresentation.iri,
+          presentationConfigIri: (await effectiveConfigProvider.configForTarget(
+            publicContext.designatorPath,
+          )).resourcePagePresentation.iri,
           generatedPanelSelectionIris:
             publicContext.customIdentifierPage.generatedPanelSelectionIris,
           stylesheetPaths: publicContext.customIdentifierPage.stylesheetPaths,

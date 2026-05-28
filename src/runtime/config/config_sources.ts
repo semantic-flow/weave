@@ -43,6 +43,7 @@ export type ConfigSourceLayerRole =
 export interface LayeredConfigInput extends MeshLocalConfigInput {
   layerRole: ConfigSourceLayerRole;
   sourceOrder: number;
+  authorityScopeKey?: string;
 }
 
 export interface KnopConfigScopeInput {
@@ -586,6 +587,11 @@ async function resolveLayeredConfigSourceAttachments(
       source,
       layerRole: input.layerRole,
       sourceOrder,
+      ...(attachment.projectedToScopeKey !== undefined
+        ? { authorityScopeKey: attachment.projectedToScopeKey }
+        : attachment.authoredScopeKey !== undefined
+        ? { authorityScopeKey: attachment.authoredScopeKey }
+        : {}),
     });
     resolutionTrace.push(traceEntryForAttachment(
       attachment,

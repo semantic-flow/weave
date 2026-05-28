@@ -2,7 +2,7 @@
 id: 5d7q7j0ra3tybq1dn6e1zha
 title: Todo
 desc: ''
-updated: 1779937331766
+updated: 1779938419917
 created: 1774046031081
 ---
 
@@ -13,10 +13,10 @@ Groomed on 2026-05-27 from all `wa.task.*` notes in the Weave archive. Updated a
 
 ### P0: Current Config And Resolution Follow-Ups
 
-- [x] Implement Knop config-source discovery and inheritance from [[wa.task.2026.2026-05-27_1914-knop-config-source-discovery-and-inheritance]]: discover Knop-local and Knop-inheritable config attachments from current Knop metadata, project inherited config at runtime, reuse the shared resolver, preserve fail-closed local path/digest policy, make precedence explicit, and add focused tests plus one runtime integration proof.
-- [ ] Split the remaining Knop config follow-ups from [[wa.task.2026.2026-05-27_1914-knop-config-source-discovery-and-inheritance]]: decide whether inline `hasConfig` / `hasInheritableConfig` is still useful, and broaden runtime wiring beyond single-target operations only after per-target effective config exists.
-- [ ] Choose the first broader resolver cleanup consumer from [[wa.completed.2026.2026-05-24_1748-shared-artifact-resolution-runtime-service]] and [[wa.task.2026.2026-05-24_1648-ArtifactResolutionTarget-subclass-cleanup]]: page-source resolution is the likely best proof because it has duplicated working/latest-state logic and visible generated-page behavior.
+- [ ] Implement [[wa.task.2026.2026-05-27-2031-per-target-effective-config-resolution]] before applying Knop-local/inherited config to recursive or multi-target version/generate/weave operations.
+- [ ] After per-target config lands, implement [[wa.task.2026.2026-05-27_2215-resourcepage-source-resolution-semantics]] as the first broader page-source resolver cleanup consumer from [[wa.completed.2026.2026-05-24_1748-shared-artifact-resolution-runtime-service]] and [[wa.task.2026.2026-04-08_1545-resource-page-definition-and-sources]].
 - [ ] Keep path and URL trust policy aligned with [[wa.task.2026.2026-04-11_1723-operational-config-for-runtime-resolution]], [[wa.task.2026.2026-05-20_2152-workingAccessUrl]], and the config-source resolver. Do not let portable mesh config silently grant broader host trust.
+- [ ] Document config-source bootstrap authoring now that tests exercise it correctly: mesh-local config-source attachments belong in `_mesh/_meta/meta.ttl`, Knop-local and inheritable attachments belong in current Knop metadata, and the resolved `_config/*.ttl` files are config payloads rather than bootstrap authority.
 
 ### P1: Publication, History, And Runtime Correctness
 
@@ -68,7 +68,6 @@ Groomed on 2026-05-27 from all `wa.task.*` notes in the Weave archive. Updated a
 
 ### Active
 
-- [[wa.task.2026.2026-05-27_1914-knop-config-source-discovery-and-inheritance]]: core Knop-local and inherited config-source runtime slice is implemented; remaining work is follow-up grooming for inline config and multi-target/per-target effective config.
 - [[wa.task.2026.2026-05-04-refactor-planFirstPayloadWeave]]: active; docs still warn about the "settled first-payload-weave mesh inventory shape" failure, so the multi-pending first-payload and current-mode extracted-term fixes remain real.
 - [[wa.task.2026.2026-05-17-append-onlyish-inventory]]: active; important correctness cleanup for reruns and release workflows.
 - [[wa.task.2026.2026-05-05-optional-history-and-slim-support-artifacts-by-default]]: partially superseded by config synthesis, but the current-only `ResourcePageDefinition` and history-policy runtime behavior remain active.
@@ -109,6 +108,7 @@ Groomed on 2026-05-27 from all `wa.task.*` notes in the Weave archive. Updated a
 
 - [[wa.completed.2026.2026-05-24_1748-shared-artifact-resolution-runtime-service]]: completed first resolver slice; broader consumer migration remains tracked by [[wa.task.2026.2026-05-24_1648-ArtifactResolutionTarget-subclass-cleanup]] and the current Knop config task.
 - [[wa.completed.2026.2026-05-27_1246-config-source-discovery-and-resolution]]: completed mesh-local config-source discovery and resolution; Knop-local and inherited config moved to [[wa.task.2026.2026-05-27_1914-knop-config-source-discovery-and-inheritance]].
+- [[wa.task.2026.2026-05-27_1914-knop-config-source-discovery-and-inheritance]]: core Knop-local and inherited config-source runtime slice is implemented; remaining work is tracked as smaller follow-ups for inline config, multi-target/per-target effective config, and docs.
 - [[wa.task.2026.2026-05-22_2253-resourcepage-config-and-templating]]: appears completed except for future low-impact panel presentation modes.
 - [[wa.task.2026.2026-05-22_2308-fixture-helper-generalization]]: completed.
 - [[wa.task.2026.2026-05-23_2230-custom-resourcepage-shared-shell-fixture]]: completed, with Carol-specific work deferred to [[wa.completed.2026.2026-05-25_0849-carol]].
