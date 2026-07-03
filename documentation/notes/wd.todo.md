@@ -9,13 +9,15 @@ created: 1774046031081
 
 ## Backlog
 
-Groomed on 2026-05-27 from all `wa.task.*` notes in the Weave archive. Updated after per-target effective config and `ResourcePageSource` exact/fallback resolution landed.
+Groomed on 2026-05-27 from all `wa.task.*` notes in the Weave archive. Updated after per-target effective config and `ResourcePageSource` exact/fallback resolution landed. Lightly refreshed on 2026-06-30 after the paper sprint was parked and Stagecraft became an active downstream consumer for persisted roleplaying data.
 
 ### Current Work And Next Pick
 
 - [x] Finish in-progress [[wa.completed.2026.2026-05-27_2215-resourcepage-source-resolution-semantics]]: exact `targetHistoricalState`, one-level fallback, no fallback for malformed/unsafe/unsupported specs, and focused resolver/page-definition tests.
 - [x] Finish the current-only `ResourcePageDefinition` slice from [[wa.task.2026.2026-05-05-optional-history-and-slim-support-artifacts-by-default]]: `_knop/_page` can remain unversioned, custom page generation reads `_knop/_page/page.ttl` when `_history001` is absent, and omitted page-definition histories are not linked.
-- [ ] Take [[wa.task.2026.2026-05-17-append-onlyish-inventory]] as the next larger inventory-correctness task now that the current history-policy slice is bounded.
+- [d] Park the June 2026 paper sprint as concept scratch, not current delivery work. The FOMI/FOIS drafts remain useful for terminology and future documentation, with KGSWC 2026 now tracked as the next possible submission target in [[wa.task.2026.2026-06-30_1159-kgswc-2026-paper-target]], but engineering should not chase paper-specific implementation.
+- [ ] Use [[wa.task.2026.2026-06-30_1108-stagecraft-driven-semantic-flow-requirements]] to collect concrete Stagecraft persistence requirements before reshaping Weave or SFLO vocabulary around imagined roleplaying-data needs.
+- [ ] Take [[wa.task.2026.2026-05-17-append-onlyish-inventory]] as the next larger inventory-correctness task now that the current history-policy slice is bounded, unless a sharply scoped Stagecraft blocker proves more urgent.
 
 ### P0: Current Config And Resolution Follow-Ups
 
@@ -27,6 +29,7 @@ Groomed on 2026-05-27 from all `wa.task.*` notes in the Weave archive. Updated a
 
 ### P1: Publication, History, And Runtime Correctness
 
+- [ ] Keep Stagecraft's persisted roleplaying-data use case in view when prioritizing runtime work: prefer slices that improve stable identifiers, exact state citation, append-onlyish histories, source provenance, and generated inspection pages for ordinary application data.
 - [ ] Remove the remaining first-payload planner blockers from [[wa.task.2026.2026-05-04-refactor-planFirstPayloadWeave]]: support multi-pending first-payload weave in one transaction, support current-mode extracted-term weave, and replace fixture-shaped errors with condition-specific diagnostics. The SFLO and URPX docs still warn about the current failure mode, so this is real backlog, not just cleanup.
 - [ ] Implement append-onlyish inventory writes from [[wa.task.2026.2026-05-17-append-onlyish-inventory]]: normal inventory operations append new settled facts, no-op existing facts, and fail closed on conflicts; current/latest/next progression belongs in metadata or explicit repair/regeneration/retraction modes.
 - [d] Finish broader slim/current-only support-artifact behavior from [[wa.task.2026.2026-05-05-optional-history-and-slim-support-artifacts-by-default]]: the current-only `ResourcePageDefinition` slice has landed; remaining inventory/meta split and durable history-toggle coherence stay with [[wa.task.2026.2026-05-17-append-onlyish-inventory]] and follow-up history-policy work.

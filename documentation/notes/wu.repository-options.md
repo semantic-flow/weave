@@ -44,3 +44,13 @@ Branch-published meshes should record durable source provenance, such as reposit
 Choose this option when generated mesh state would be too noisy for the source branch, when review of generated publication output can happen on the publication branch, and when the project can tolerate a slightly more explicit deploy workflow.
 
 The branch boundary should not create a different Semantic Flow model. The same underlying operations should apply across whole-repo, sidecar, and branch-published meshes: create a mesh root, integrate or materialize source bytes according to an explicit locator/materialization policy, weave/version/generate the mesh, apply any selected publication-host preset, validate the publication output, and optionally commit changes when the mesh root is a git worktree. A branch-published mesh mainly changes the default source/output boundary and publication safety checks; it should not require a separate semantic command family unless branch-specific behavior is genuinely needed.
+
+## Application-managed local semantic mesh
+
+Use this when an application owns the mesh as its local persisted data store, and public static publication is optional or deferred.
+
+This is a good fit for local-first applications that need stable identifiers, inspectable history, provenance, generated pages, or RDF-native export without making every working file part of a public website. The application can keep the mesh under an app data directory, workspace folder, or project-specific data root, while using Semantic Flow identifiers and support artifacts to make saved state reviewable.
+
+An application-managed mesh may later be projected into one of the publication topologies above. For example, selected artifacts or snapshots can be exported to a sidecar or branch-published mesh when the user wants to publish them. Until then, the mesh should be treated as application data: local privacy and access policy matter more than static-host convenience.
+
+Choose this option when the primary workflow is persistence, inspection, and revision inside an application rather than publication from a source repository. Do not assume that application-managed data is safe to publish just because it has ResourcePages or stable identifiers.

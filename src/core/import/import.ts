@@ -13,6 +13,7 @@ import {
 } from "../rdf/namespaces.ts";
 import { escapeTurtleString } from "../rdf/turtle.ts";
 import { normalizeXsdDateTimeLiteral } from "../rdf/xsd_literals.ts";
+import { planInventoryAppend } from "../weave/inventory_append_planner.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const XSD_ANY_URI_IRI = "http://www.w3.org/2001/XMLSchema#anyURI";
@@ -37,6 +38,10 @@ const SFLO_RDF_DOCUMENT_IRI = `${SFLO_NAMESPACE}RdfDocument`;
 const SFLO_SEMANTIC_MESH_IRI = `${SFLO_NAMESPACE}SemanticMesh`;
 const SFLO_WORKING_LOCAL_RELATIVE_PATH_IRI =
   `${SFLO_NAMESPACE}workingLocalRelativePath`;
+const KNOP_SOURCE_REGISTRY_APPEND_SINGLE_VALUED_PREDICATES = [
+  SFLO_HAS_KNOP_SOURCE_REGISTRY_IRI,
+  SFLO_HAS_WORKING_LOCATED_FILE_IRI,
+];
 
 export interface ImportSourceBinding {
   bindingId?: string;
@@ -669,28 +674,44 @@ function renderKnopInventoryWithSourceRegistry(
   designatorPath: string,
   sourceRegistryPath: string,
 ): string {
-  const current = currentKnopInventoryTurtle.trimEnd();
-  const quads = parseQuads(
+  const sourceRegistryFactsTurtle = renderKnopSourceRegistryInventoryFacts(
+    designatorPath,
+    sourceRegistryPath,
+  );
+  const requestedFactsTurtle = `@base <${meshBase}> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
+
+${sourceRegistryFactsTurtle}`;
+  const plan = planImportInventoryAppend({
     meshBase,
     currentKnopInventoryTurtle,
-    `current Knop inventory has an unsupported carried shape for import: ${designatorPath}`,
-  );
-  const knopIri = new URL(toKnopPath(designatorPath), meshBase).href;
-  const sourceRegistryIri = new URL(sourceRegistryPath, meshBase).href;
-  if (
-    hasNamedNodeFact(
-      quads,
-      knopIri,
-      SFLO_HAS_KNOP_SOURCE_REGISTRY_IRI,
-      sourceRegistryIri,
-    )
-  ) {
-    return currentKnopInventoryTurtle;
+    requestedFactsTurtle,
+    designatorPath,
+  });
+
+  if (plan.kind === "conflict") {
+    throw new ImportInputError(
+      `Could not append Knop source registry facts for ${designatorPath}: ${
+        plan.conflicts.map((conflict) => conflict.message).join(" ")
+      }`,
+    );
   }
 
-  return `${current}
+  if (plan.kind === "append" && plan.alreadyPresent.length === 0) {
+    return appendTurtleBlock(
+      currentKnopInventoryTurtle,
+      sourceRegistryFactsTurtle,
+    );
+  }
 
-<${
+  return plan.outputTurtle;
+}
+
+function renderKnopSourceRegistryInventoryFacts(
+  designatorPath: string,
+  sourceRegistryPath: string,
+): string {
+  return `<${
     toKnopPath(designatorPath)
   }> sflo:hasKnopSourceRegistry <${sourceRegistryPath}> .
 
@@ -699,6 +720,42 @@ function renderKnopInventoryWithSourceRegistry(
 
 <${sourceRegistryPath}/sources.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 `;
+}
+
+function appendTurtleBlock(currentTurtle: string, blockTurtle: string): string {
+  if (currentTurtle.length === 0) {
+    return blockTurtle;
+  }
+
+  return `${currentTurtle.trimEnd()}
+
+${blockTurtle}`;
+}
+
+function planImportInventoryAppend(input: {
+  meshBase: string;
+  currentKnopInventoryTurtle: string;
+  requestedFactsTurtle: string;
+  designatorPath: string;
+}): ReturnType<typeof planInventoryAppend> {
+  try {
+    return planInventoryAppend({
+      baseIri: input.meshBase,
+      currentInventoryTurtle: input.currentKnopInventoryTurtle,
+      requestedSettledFactsTurtle: input.requestedFactsTurtle,
+      singleValuedSettledPredicates:
+        KNOP_SOURCE_REGISTRY_APPEND_SINGLE_VALUED_PREDICATES,
+      currentInventoryLabel:
+        `current Knop inventory for ${input.designatorPath}`,
+      requestedFactsLabel:
+        `requested Knop source registry facts for ${input.designatorPath}`,
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new ImportInputError(error.message);
+    }
+    throw error;
+  }
 }
 
 function resolveExistingPayload(
