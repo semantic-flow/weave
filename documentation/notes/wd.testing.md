@@ -88,6 +88,10 @@ Practical guidance:
 - treat Accord as the acceptance oracle for behavior-level Semantic Flow conformance
 - prefer manifest-backed comparisons over ad hoc snapshot assertions when a reusable transition is available
 - keep Accord checks black-box and implementation-agnostic
+- remember that Accord checks transitions, not execution: run Weave or the fixture runner to produce the target checkout, then use Accord to ask whether expected paths, representative RDF facts, and generated support files landed
+- for newly added RDF files, pair path expectations with semantic assertions for the facts that matter; do not rely on byte identity unless the manifest contract explicitly asserts bytes
+- keep conformance harness files out of fixture rung refs by default; if a fixture repo must carry `conformance/`, either test those paths deliberately or ignore them with `conformance/**`
+- use consumer fixture checks to validate a consumer's interpretation of the accepted checkout; use Accord to validate the ladder transitions that produced that checkout
 - use Accord alongside narrower unit and integration tests rather than instead of them
 - when a new externally visible Semantic Flow operation stabilizes, consider whether it should gain an `sf.spec.*` note and an Accord-backed acceptance path
 
