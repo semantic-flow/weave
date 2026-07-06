@@ -9,13 +9,16 @@ created: 1774046031081
 
 ## Backlog
 
-Groomed on 2026-05-27 from all `wa.task.*` notes in the Weave archive. Updated after per-target effective config and `ResourcePageSource` exact/fallback resolution landed.
+Groomed on 2026-05-27 from all `wa.task.*` notes in the Weave archive. Updated after per-target effective config and `ResourcePageSource` exact/fallback resolution landed. Lightly refreshed on 2026-06-30 after the paper sprint was parked and Stagecraft became an active downstream consumer for persisted roleplaying data.
 
 ### Current Work And Next Pick
 
 - [x] Finish in-progress [[wa.completed.2026.2026-05-27_2215-resourcepage-source-resolution-semantics]]: exact `targetHistoricalState`, one-level fallback, no fallback for malformed/unsafe/unsupported specs, and focused resolver/page-definition tests.
 - [x] Finish the current-only `ResourcePageDefinition` slice from [[wa.task.2026.2026-05-05-optional-history-and-slim-support-artifacts-by-default]]: `_knop/_page` can remain unversioned, custom page generation reads `_knop/_page/page.ttl` when `_history001` is absent, and omitted page-definition histories are not linked.
-- [ ] Take [[wa.task.2026.2026-05-17-append-onlyish-inventory]] as the next larger inventory-correctness task now that the current history-policy slice is bounded.
+- [d] Park the June 2026 paper sprint as concept scratch, not current delivery work. The FOMI/FOIS drafts remain useful for terminology and future documentation, with KGSWC 2026 now tracked as the next possible submission target in [[wa.task.2026.2026-06-30_1159-kgswc-2026-paper-target]], but engineering should not chase paper-specific implementation.
+- [ ] Use [[wa.task.2026.2026-06-30_1108-stagecraft-driven-semantic-flow-requirements]] to collect concrete Stagecraft persistence requirements before reshaping Weave or SFLO vocabulary around imagined roleplaying-data needs.
+- [ ] Use [[wa.task.2026.2026-07-03_1332-stagecraft-weave-planner-generalization]] as the concrete Stagecraft-driven Weave blocker epic: reproduce the settled second-payload weave failure, generalize the planner from RDF facts, and replace fixture-shaped diagnostics.
+- [ ] Take [[wa.task.2026.2026-05-17-append-onlyish-inventory]] as the next larger inventory-correctness task now that the current history-policy slice is bounded, unless a sharply scoped Stagecraft blocker proves more urgent.
 
 ### P0: Current Config And Resolution Follow-Ups
 
@@ -27,6 +30,9 @@ Groomed on 2026-05-27 from all `wa.task.*` notes in the Weave archive. Updated a
 
 ### P1: Publication, History, And Runtime Correctness
 
+- [ ] Keep Stagecraft's persisted roleplaying-data use case in view when prioritizing runtime work: prefer slices that improve stable identifiers, exact state citation, append-onlyish histories, source provenance, and generated inspection pages for ordinary application data.
+- [x] Land the single-target Stagecraft-triggered later-payload planner slice from [[wa.task.2026.2026-07-03_1332-stagecraft-weave-planner-generalization]]: full `weave` can advance a coherent later payload history instead of rejecting non-fixture-shaped states with "settled second payload weave shape" errors.
+- [x] Follow up on [[wa.task.2026.2026-07-03_1332-stagecraft-weave-planner-generalization]] with multi-target later-payload advancement.
 - [ ] Remove the remaining first-payload planner blockers from [[wa.task.2026.2026-05-04-refactor-planFirstPayloadWeave]]: support multi-pending first-payload weave in one transaction, support current-mode extracted-term weave, and replace fixture-shaped errors with condition-specific diagnostics. The SFLO and URPX docs still warn about the current failure mode, so this is real backlog, not just cleanup.
 - [ ] Implement append-onlyish inventory writes from [[wa.task.2026.2026-05-17-append-onlyish-inventory]]: normal inventory operations append new settled facts, no-op existing facts, and fail closed on conflicts; current/latest/next progression belongs in metadata or explicit repair/regeneration/retraction modes.
 - [d] Finish broader slim/current-only support-artifact behavior from [[wa.task.2026.2026-05-05-optional-history-and-slim-support-artifacts-by-default]]: the current-only `ResourcePageDefinition` slice has landed; remaining inventory/meta split and durable history-toggle coherence stay with [[wa.task.2026.2026-05-17-append-onlyish-inventory]] and follow-up history-policy work.
@@ -38,6 +44,7 @@ Groomed on 2026-05-27 from all `wa.task.*` notes in the Weave archive. Updated a
 
 ### P2: Fixtures, Renderer, And Developer Experience
 
+- [ ] Integrate Accord v0.1.0 capabilities into the fixture-ladder workflow: pin the CI accord checkout to the `v0.1.0` tag, run `accord validate` over the live Semantic Flow manifests as a fast CI authoring gate before slow ladder checks, convert the mesh-alice-bio smoke / full-corpus rerun to a scenario index driven by `accord check-scenario` for per-rung evidence, use `accord draft-manifest` as the starting point when ladder rungs change intentionally, and consider JSON assertions for generated-page contract checks. The accord-side features are complete (see `ac.completed.2026.2026-07-04-*` notes in the accord repo); this item is Weave-side adoption only.
 - [ ] Add the manifest completeness check from [[wa.task.2026.2026-05-16_1625-manifest-completeness-check]] so fixture branch diffs cannot drift beyond Accord manifest expectations or deliberate `ignorePaths`.
 - [ ] Add the latest-state conformance fixture from [[wa.task.2026.2026-05-19_1536-latest-state-conformance]] once Accord can express the needed rendered-text assertions.
 - [ ] Revisit custom ResourcePage follow-up work in [[wa.task.2026.2026-05-23-2157-resourcepage-followup]] after Knop config inheritance settles: the next useful slice is probably a narrow custom page fixture that keeps the shared Semantic Site presentation while opting into authored Markdown plus selected generated panels.
@@ -76,6 +83,7 @@ Groomed on 2026-05-27 from all `wa.task.*` notes in the Weave archive. Updated a
 
 ### Active
 
+- [[wa.task.2026.2026-07-03_1332-stagecraft-weave-planner-generalization]]: active Stagecraft-triggered epic for replacing settled second-payload and adjacent fixture-shaped weave planner gates with fact-driven progression and condition-specific diagnostics.
 - [[wa.task.2026.2026-05-04-refactor-planFirstPayloadWeave]]: active; docs still warn about the "settled first-payload-weave mesh inventory shape" failure, so the multi-pending first-payload and current-mode extracted-term fixes remain real.
 - [[wa.task.2026.2026-05-17-append-onlyish-inventory]]: active; important correctness cleanup for reruns and release workflows.
 - [[wa.task.2026.2026-05-05-optional-history-and-slim-support-artifacts-by-default]]: partially superseded by config synthesis, but the current-only `ResourcePageDefinition` and history-policy runtime behavior remain active.

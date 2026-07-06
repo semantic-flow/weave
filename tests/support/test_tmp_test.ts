@@ -1,6 +1,6 @@
 import { assertEquals, assertFalse, assertStringIncludes } from "@std/assert";
 import { fromFileUrl, isAbsolute, relative } from "@std/path";
-import { createTestTmpDir } from "./test_tmp.ts";
+import { createTestTmpDir, testDenoDir } from "./test_tmp.ts";
 
 const repoRoot = fromFileUrl(new URL("../../", import.meta.url));
 const harnessPath = fromFileUrl(
@@ -13,6 +13,14 @@ Deno.test("createTestTmpDir allocates outside the repository checkout", async ()
   assertFalse(
     isPathWithin(repoRoot, path),
     `${path} should be outside ${repoRoot}`,
+  );
+});
+
+Deno.test("test env gives Deno subprocesses a stable cache outside the per-test XDG cache", () => {
+  assertEquals(Deno.env.get("DENO_DIR"), testDenoDir);
+  assertFalse(
+    isPathWithin(Deno.env.get("XDG_CACHE_HOME")!, testDenoDir),
+    "DENO_DIR should not live under the per-test XDG cache root",
   );
 });
 

@@ -1,4 +1,10 @@
-import { assert, assertEquals, assertRejects } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertFalse,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
 import { fromFileUrl, join, relative, toFileUrl } from "@std/path";
 import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import {
@@ -562,6 +568,94 @@ Deno.test("weave generate succeeds as a black-box CLI run", async () => {
       join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
     ),
     meshInventoryBefore,
+  );
+});
+
+Deno.test("weave --generated-at stamps every generated page canonically", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-generated-at-weave-",
+  );
+  await materializeMeshAliceBioBranch("04-alice-knop-created", workspaceRoot);
+
+  const output = await runCliCommand([
+    "--generated-at",
+    "2026-07-06T08:34:56-04:00",
+  ], workspaceRoot);
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  const generatedPagePaths = stdout.split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.endsWith(".html"));
+  assert(generatedPagePaths.length > 0);
+  for (const path of generatedPagePaths) {
+    const page = await Deno.readTextFile(join(workspaceRoot, path));
+    assertStringIncludes(page, "2026-07-06T12:34:56.000Z");
+    assertFalse(page.includes("2026-07-06T08:34:56-04:00"), path);
+  }
+});
+
+Deno.test("weave generate --generated-at makes page output byte-identical", async () => {
+  const leftRoot = await createTestTmpDir(
+    "weave-e2e-generated-at-generate-left-",
+  );
+  const rightRoot = await createTestTmpDir(
+    "weave-e2e-generated-at-generate-right-",
+  );
+  await materializeMeshAliceBioBranch("10-alice-bio-updated", leftRoot);
+  await materializeMeshAliceBioBranch("10-alice-bio-updated", rightRoot);
+  const args = [
+    "generate",
+    "--target",
+    "designatorPath=alice/data",
+    "--generated-at",
+    "2026-07-06T15:04:05+02:30",
+  ];
+
+  const leftOutput = await runCliCommand(args, leftRoot);
+  const rightOutput = await runCliCommand(args, rightRoot);
+
+  assert(leftOutput.success, new TextDecoder().decode(leftOutput.stderr));
+  assert(rightOutput.success, new TextDecoder().decode(rightOutput.stderr));
+  const leftFiles = await listRelativeFiles(leftRoot, ".weave/");
+  const rightFiles = await listRelativeFiles(rightRoot, ".weave/");
+  assertEquals(leftFiles, rightFiles);
+  for (const path of leftFiles) {
+    assertEquals(
+      [...await Deno.readFile(join(leftRoot, path))],
+      [...await Deno.readFile(join(rightRoot, path))],
+      `workspace file differed: ${path}`,
+    );
+  }
+  const generatedPage = await Deno.readTextFile(
+    join(leftRoot, "alice/data/index.html"),
+  );
+  assertStringIncludes(generatedPage, "2026-07-06T12:34:05.000Z");
+});
+
+Deno.test("weave --generated-at rejects invalid instants before planning", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-generated-at-invalid-",
+  );
+  await materializeMeshAliceBioBranch("04-alice-knop-created", workspaceRoot);
+  const before = await snapshotRelativeFiles(workspaceRoot, ".weave/");
+
+  const output = await runCliCommand([
+    "--generated-at",
+    "2026-02-31T00:00:00Z",
+  ], workspaceRoot);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assertFalse(output.success, stderr);
+  assertEquals(output.code, 1);
+  assertStringIncludes(
+    stderr,
+    "weave --generated-at must be an ISO 8601 instant",
+  );
+  assertRelativeSnapshotsEqual(
+    await snapshotRelativeFiles(workspaceRoot, ".weave/"),
+    before,
   );
 });
 
@@ -1266,6 +1360,33 @@ async function listRelativeFiles(
   }
 
   return paths.sort();
+}
+
+async function snapshotRelativeFiles(
+  root: string,
+  excludedPrefix: string,
+): Promise<Map<string, Uint8Array>> {
+  const snapshot = new Map<string, Uint8Array>();
+  for (const path of await listRelativeFiles(root, excludedPrefix)) {
+    snapshot.set(path, await Deno.readFile(join(root, path)));
+  }
+  return snapshot;
+}
+
+function assertRelativeSnapshotsEqual(
+  actual: ReadonlyMap<string, Uint8Array>,
+  expected: ReadonlyMap<string, Uint8Array>,
+): void {
+  assertEquals([...actual.keys()].sort(), [...expected.keys()].sort());
+  for (const [path, actualBytes] of actual) {
+    const expectedBytes = expected.get(path);
+    assert(expectedBytes, `expected snapshot to include ${path}`);
+    assertEquals(
+      [...actualBytes],
+      [...expectedBytes],
+      `workspace file differed: ${path}`,
+    );
+  }
 }
 
 async function* walkFiles(root: string): AsyncGenerator<string> {

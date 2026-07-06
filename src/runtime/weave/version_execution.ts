@@ -1,22 +1,40 @@
-import { dirname, join } from "@std/path";
+import { dirname, join, relative } from "@std/path";
 import { Parser } from "n3";
 import type {
   PlannedBinaryFile,
   PlannedFile,
 } from "../../core/planned_file.ts";
+import { toKnopPath } from "../../core/designator_segments.ts";
 import {
   type NormalizedVersionTargetSpec,
   resolveTargetSelections,
 } from "../../core/targeting.ts";
+import type { WeaveableKnopCandidate } from "../../core/weave/candidates.ts";
 import {
+  detectPendingWeaveSlice,
   planMeshSupportResourcePages,
   planVersion,
   type VersionPlan,
   WeaveInputError,
 } from "../../core/weave/weave.ts";
-import { listKnopDesignatorPaths } from "../mesh/inventory.ts";
-import type { HistoryTrackingPolicy } from "../config/effective_config.ts";
-import type { OperationalLocalPathPolicy } from "../operational/local_path_policy.ts";
+import type {
+  ResourcePageGenerationConfig,
+  WeaveArtifactRole,
+} from "../../core/weave/resource_page_policy.ts";
+import {
+  listKnopDesignatorPaths,
+  resolvePayloadArtifactInventoryState,
+} from "../mesh/inventory.ts";
+import type {
+  EffectiveConfig,
+  HistoryTrackingPolicy,
+} from "../config/effective_config.ts";
+import {
+  LocalPathAccessError,
+  type OperationalLocalPathPolicy,
+  resolveAllowedLocalPath,
+  resolveRepositorySourceFloatingLocalPath,
+} from "../operational/local_path_policy.ts";
 import type { RuntimeTiming } from "../timing.ts";
 import {
   assertRequestedTargetsAreWeaveable,
@@ -24,6 +42,7 @@ import {
 } from "./candidate_loader.ts";
 import {
   createEffectiveConfigProviderForExecution,
+  type EffectiveConfigProvider,
   namingPoliciesFromEffectiveConfig,
   resourcePageGenerationConfigFromScopedEffectiveConfigs,
   resourcePageGenerationPoliciesFromEffectiveConfig,
@@ -50,6 +69,11 @@ export interface PreparedVersionExecution {
   plan: VersionPlan;
 }
 
+export interface InputSnapshotVerificationHooks {
+  afterInitialHash?: () => Promise<void> | void;
+  afterVerifiedCapture?: () => Promise<void> | void;
+}
+
 export interface PreparedVersionWriteResult {
   meshBase: string;
   versionedDesignatorPaths: readonly string[];
@@ -65,6 +89,7 @@ export async function prepareVersionExecution(
   historyTrackingPolicyOverride?: HistoryTrackingPolicy,
   onProgress?: WeaveProgressHandler,
   timing?: RuntimeTiming,
+  inputSnapshotVerification?: InputSnapshotVerificationHooks,
 ): Promise<PreparedVersionExecution> {
   await timeOptional(
     timing,
@@ -108,6 +133,26 @@ export async function prepareVersionExecution(
       selection.target as NormalizedVersionTargetSpec | undefined,
     ]),
   );
+  const shouldAttemptPayloadBatch = shouldAttemptExplicitPayloadBatch(
+    targets,
+    overwriteExistingState,
+  );
+  const inputSnapshot = shouldAttemptPayloadBatch
+    ? await timeOptional(
+      timing,
+      "prepare.snapshotPayloadInputs.hash",
+      () =>
+        createPayloadBatchWorkingFileSnapshot({
+          workspaceRoot,
+          localPathPolicy,
+          meshBase: meshState.meshBase,
+          requestedDesignatorPaths,
+        }),
+    )
+    : undefined;
+  if (inputSnapshot !== undefined) {
+    await inputSnapshotVerification?.afterInitialHash?.();
+  }
   const overlay = new TextFileOverlay();
   const initialWeaveableKnops = await timeOptional(
     timing,
@@ -126,12 +171,39 @@ export async function prepareVersionExecution(
       ),
   );
   timing?.setField("initialWeaveableKnops", initialWeaveableKnops.length);
-  assertRequestedTargetsAreWeaveable(
-    targets,
-    initialWeaveableKnops,
-  );
+  const payloadBatchCandidates = shouldAttemptPayloadBatch
+    ? await timeOptional(
+      timing,
+      "prepare.loadPayloadBatchCandidates",
+      () =>
+        loadWeaveableKnopCandidates(
+          workspaceRoot,
+          localPathPolicy,
+          meshState.meshBase,
+          meshState.currentMeshInventoryTurtle,
+          requestedDesignatorPaths,
+          targetByDesignatorPath,
+          undefined,
+          timing,
+          "prepare.loadPayloadBatchCandidates",
+          { includeSettledPayloadTargets: true },
+        ),
+    )
+    : [];
+  timing?.setField("payloadBatchCandidates", payloadBatchCandidates.length);
+  if (inputSnapshot !== undefined) {
+    await timeOptional(
+      timing,
+      "prepare.snapshotPayloadInputs.verify",
+      () => inputSnapshot.verify(),
+    );
+    await inputSnapshotVerification?.afterVerifiedCapture?.();
+  }
+  const configCandidateKnops = payloadBatchCandidates.length > 0
+    ? payloadBatchCandidates
+    : initialWeaveableKnops;
   const targetMetadataTurtleByDesignatorPath = new Map(
-    initialWeaveableKnops.map((candidate) => [
+    configCandidateKnops.map((candidate) => [
       candidate.designatorPath,
       candidate.currentKnopMetadataTurtle,
     ]),
@@ -147,6 +219,52 @@ export async function prepareVersionExecution(
   });
   const meshEffectiveConfig = await effectiveConfigProvider
     .configForMeshScope();
+
+  if (
+    payloadBatchCandidates.length > 0 &&
+    isExplicitPayloadBatch(
+      meshState.meshBase,
+      payloadBatchCandidates,
+      targetByDesignatorPath,
+    )
+  ) {
+    assertRequestedTargetsAreWeaveable(targets, payloadBatchCandidates);
+    const batchPlan = await timeOptional(
+      timing,
+      "prepare.planPayloadBatch",
+      () =>
+        planExplicitPayloadBatchVersion(
+          meshState,
+          payloadBatchCandidates,
+          targetByDesignatorPath,
+          meshEffectiveConfig,
+          effectiveConfigProvider,
+          overwriteExistingState,
+          timing,
+        ),
+    );
+    for (
+      const [index, designatorPath] of batchPlan.versionedDesignatorPaths
+        .entries()
+    ) {
+      onProgress?.({
+        designatorPath,
+        completed: index + 1,
+        total: batchPlan.versionedDesignatorPaths.length,
+        percent: batchPlan.versionedDesignatorPaths.length === 0
+          ? 100
+          : Math.round(
+            ((index + 1) / batchPlan.versionedDesignatorPaths.length) * 100,
+          ),
+      });
+    }
+    return { meshState, plan: batchPlan };
+  }
+
+  assertRequestedTargetsAreWeaveable(
+    targets,
+    initialWeaveableKnops,
+  );
 
   if (initialWeaveableKnops.length === 0) {
     if (targets.length === 0) {
@@ -333,6 +451,418 @@ export async function prepareVersionExecution(
     meshState,
     plan,
   };
+}
+
+interface PayloadBatchWorkingFileSnapshot {
+  verify(): Promise<void>;
+}
+
+async function createPayloadBatchWorkingFileSnapshot(
+  options: {
+    workspaceRoot: string;
+    localPathPolicy: OperationalLocalPathPolicy;
+    meshBase: string;
+    requestedDesignatorPaths: readonly string[];
+  },
+): Promise<PayloadBatchWorkingFileSnapshot> {
+  const entryByAbsolutePath = new Map<
+    string,
+    { displayPath: string; digest: string }
+  >();
+
+  for (const designatorPath of options.requestedDesignatorPaths) {
+    const inventoryPath = join(
+      options.workspaceRoot,
+      `${toKnopPath(designatorPath)}/_inventory/inventory.ttl`,
+    );
+    let inventoryTurtle: string;
+    try {
+      inventoryTurtle = await Deno.readTextFile(inventoryPath);
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) {
+        continue;
+      }
+      throw error;
+    }
+
+    const payloadArtifact = resolvePayloadArtifactInventoryState(
+      options.meshBase,
+      inventoryTurtle,
+      designatorPath,
+      {
+        parseErrorMessage:
+          `Could not parse the current Knop inventory while resolving the payload artifact for ${designatorPath}.`,
+        missingWorkingFileMessage:
+          `Could not resolve the working payload file for ${designatorPath}.`,
+      },
+    );
+    if (payloadArtifact === undefined) {
+      continue;
+    }
+
+    let absolutePath: string;
+    try {
+      absolutePath = payloadArtifact.repositorySourceFloatingLocator
+        ? await resolveRepositorySourceFloatingLocalPath(
+          options.localPathPolicy,
+          payloadArtifact.repositorySourceFloatingLocator,
+        )
+        : resolveAllowedLocalPath(
+          options.localPathPolicy,
+          "workingLocalRelativePath",
+          payloadArtifact.workingLocalRelativePath,
+        );
+    } catch (error) {
+      if (error instanceof LocalPathAccessError) {
+        throw new WeaveRuntimeError(
+          `Working payload file for ${designatorPath} is outside the allowed local-path boundary: ${payloadArtifact.workingLocalRelativePath}`,
+        );
+      }
+      throw error;
+    }
+
+    if (entryByAbsolutePath.has(absolutePath)) {
+      continue;
+    }
+
+    const displayPath = formatSnapshotDisplayPath(
+      options.localPathPolicy,
+      absolutePath,
+      payloadArtifact.workingLocalRelativePath,
+    );
+    entryByAbsolutePath.set(absolutePath, {
+      displayPath,
+      digest: await hashPayloadSnapshotFile(
+        absolutePath,
+        displayPath,
+        designatorPath,
+        payloadArtifact.workingLocalRelativePath,
+        "initial",
+      ),
+    });
+  }
+
+  const entries = [...entryByAbsolutePath.entries()].map((
+    [absolutePath, entry],
+  ) => ({
+    absolutePath,
+    displayPath: entry.displayPath,
+    digest: entry.digest,
+  }));
+
+  return {
+    async verify() {
+      for (const entry of entries) {
+        const digest = await hashPayloadSnapshotFile(
+          entry.absolutePath,
+          entry.displayPath,
+          undefined,
+          undefined,
+          "verify",
+        );
+        if (digest !== entry.digest) {
+          throw new WeaveInputError(
+            `Input file changed during multi-target payload capture: ${entry.displayPath}`,
+          );
+        }
+      }
+    },
+  };
+}
+
+async function hashPayloadSnapshotFile(
+  absolutePath: string,
+  displayPath: string,
+  designatorPath: string | undefined,
+  workingLocalRelativePath: string | undefined,
+  phase: "initial" | "verify",
+): Promise<string> {
+  let bytes: Uint8Array;
+  try {
+    bytes = await Deno.readFile(absolutePath);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      if (phase === "initial" && designatorPath && workingLocalRelativePath) {
+        throw new WeaveRuntimeError(
+          `Workspace is missing the working payload file for ${designatorPath}: ${workingLocalRelativePath}`,
+        );
+      }
+      throw new WeaveInputError(
+        `Input file changed during multi-target payload capture: ${displayPath}`,
+      );
+    }
+    throw error;
+  }
+
+  const digestInput = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(digestInput).set(bytes);
+  const digest = await crypto.subtle.digest("SHA-256", digestInput);
+  return [...new Uint8Array(digest)].map((byte) =>
+    byte.toString(16).padStart(2, "0")
+  ).join("");
+}
+
+function formatSnapshotDisplayPath(
+  localPathPolicy: OperationalLocalPathPolicy,
+  absolutePath: string,
+  fallbackPath: string,
+): string {
+  const workspaceRelativePath = relative(
+    localPathPolicy.workspaceRoot,
+    absolutePath,
+  ).replaceAll("\\", "/");
+  if (
+    workspaceRelativePath.length > 0 &&
+    workspaceRelativePath !== ".." &&
+    !workspaceRelativePath.startsWith("../") &&
+    !workspaceRelativePath.startsWith("/")
+  ) {
+    return workspaceRelativePath;
+  }
+  return fallbackPath;
+}
+
+function shouldAttemptExplicitPayloadBatch(
+  targets: readonly NormalizedVersionTargetSpec[],
+  overwriteExistingState: boolean,
+): boolean {
+  return !overwriteExistingState && targets.length > 1 &&
+    targets.every((target) => !target.recursive);
+}
+
+function isExplicitPayloadBatch(
+  meshBase: string,
+  candidates: readonly WeaveableKnopCandidate[],
+  targetByDesignatorPath: ReadonlyMap<
+    string,
+    NormalizedVersionTargetSpec | undefined
+  >,
+): boolean {
+  return candidates.length > 0 && candidates.every((candidate) => {
+    const slice = detectPendingWeaveSlice(
+      meshBase,
+      candidate.designatorPath,
+      candidate.currentKnopInventoryTurtle,
+      targetByDesignatorPath.get(candidate.designatorPath),
+    );
+    return slice === "firstPayloadWeave" || slice === "laterPayloadWeave" ||
+      (slice === undefined &&
+        targetByDesignatorPath.get(candidate.designatorPath) !== undefined &&
+        candidate.payloadArtifact?.currentArtifactHistoryPath !== undefined);
+  });
+}
+
+async function planExplicitPayloadBatchVersion(
+  meshState: MeshState,
+  candidates: readonly WeaveableKnopCandidate[],
+  targetByDesignatorPath: ReadonlyMap<
+    string,
+    NormalizedVersionTargetSpec | undefined
+  >,
+  meshEffectiveConfig: EffectiveConfig,
+  effectiveConfigProvider: EffectiveConfigProvider,
+  overwriteExistingState: boolean,
+  timing?: RuntimeTiming,
+): Promise<VersionPlan> {
+  const orderedCandidates = [...candidates].sort((left, right) =>
+    left.designatorPath.localeCompare(right.designatorPath)
+  );
+  const policies = await resolvePayloadBatchPolicies(
+    meshState.meshBase,
+    orderedCandidates,
+    meshEffectiveConfig,
+    effectiveConfigProvider,
+  );
+  return timeOptionalSync(
+    timing,
+    "prepare.planPayloadBatch.planVersion",
+    () =>
+      planVersion({
+        request: {
+          targets: orderedCandidates.flatMap((candidate) => {
+            const target = targetByDesignatorPath.get(candidate.designatorPath);
+            return target === undefined ? [] : [{ ...target.source }];
+          }),
+          ...(overwriteExistingState ? { overwriteExistingState } : {}),
+        },
+        meshBase: meshState.meshBase,
+        currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
+        currentMeshMetadataTurtle: meshState.currentMeshMetadataTurtle,
+        weaveableKnops: orderedCandidates,
+        supportHistoryPolicies: policies.supportHistoryPolicies,
+        namingPolicies: policies.namingPolicies,
+        resourcePageGenerationConfig: policies.resourcePageGenerationConfig,
+        resourcePageGenerationPolicies: policies.resourcePageGenerationPolicies,
+      }),
+  );
+}
+
+async function resolvePayloadBatchPolicies(
+  meshBase: string,
+  orderedCandidates: readonly WeaveableKnopCandidate[],
+  meshEffectiveConfig: EffectiveConfig,
+  effectiveConfigProvider: EffectiveConfigProvider,
+): Promise<{
+  supportHistoryPolicies: ReturnType<
+    typeof supportHistoryPoliciesFromScopedEffectiveConfigs
+  >;
+  namingPolicies: ReturnType<typeof namingPoliciesFromEffectiveConfig>;
+  resourcePageGenerationConfig: ReturnType<
+    typeof resourcePageGenerationConfigFromScopedEffectiveConfigs
+  >;
+  resourcePageGenerationPolicies: ReturnType<
+    typeof resourcePageGenerationPoliciesFromScopedEffectiveConfigs
+  >;
+}> {
+  let first:
+    | {
+      designatorPath: string;
+      supportHistoryPolicies: ReturnType<
+        typeof supportHistoryPoliciesFromScopedEffectiveConfigs
+      >;
+      namingPolicies: ReturnType<typeof namingPoliciesFromEffectiveConfig>;
+      resourcePageGenerationConfig: ReturnType<
+        typeof resourcePageGenerationConfigFromScopedEffectiveConfigs
+      >;
+      resourcePageGenerationPolicies: ReturnType<
+        typeof resourcePageGenerationPoliciesFromScopedEffectiveConfigs
+      >;
+      comparisonKey: string;
+    }
+    | undefined;
+
+  for (const candidate of orderedCandidates) {
+    const targetEffectiveConfig = await effectiveConfigProvider
+      .configForTarget(candidate.designatorPath);
+    const supportHistoryPolicies =
+      supportHistoryPoliciesFromScopedEffectiveConfigs(
+        meshEffectiveConfig,
+        targetEffectiveConfig,
+      );
+    const namingPolicies = namingPoliciesFromEffectiveConfig(
+      targetEffectiveConfig,
+    );
+    const resourcePageGenerationConfig =
+      resourcePageGenerationConfigFromScopedEffectiveConfigs(
+        meshEffectiveConfig,
+        targetEffectiveConfig,
+      );
+    const resourcePageGenerationPolicies =
+      resourcePageGenerationPoliciesFromScopedEffectiveConfigs(
+        meshEffectiveConfig,
+        targetEffectiveConfig,
+      );
+    const comparisonKey = JSON.stringify({
+      supportHistoryPolicies,
+      namingPolicies,
+      resourcePageGenerationConfig: snapshotResourcePageGenerationConfig(
+        meshBase,
+        resourcePageGenerationConfig,
+        orderedCandidates,
+      ),
+      resourcePageGenerationPolicies,
+    });
+
+    if (first === undefined) {
+      first = {
+        designatorPath: candidate.designatorPath,
+        supportHistoryPolicies,
+        namingPolicies,
+        resourcePageGenerationConfig,
+        resourcePageGenerationPolicies,
+        comparisonKey,
+      };
+      continue;
+    }
+    if (comparisonKey !== first.comparisonKey) {
+      throw new WeaveInputError(
+        `Multi-target payload weave requires consistent target-scoped planning policies; ${candidate.designatorPath} differs from ${first.designatorPath}.`,
+      );
+    }
+  }
+
+  if (first === undefined) {
+    throw new WeaveInputError(
+      "Multi-target payload weave requires at least one payload target.",
+    );
+  }
+
+  return {
+    supportHistoryPolicies: first.supportHistoryPolicies,
+    namingPolicies: first.namingPolicies,
+    resourcePageGenerationConfig: first.resourcePageGenerationConfig,
+    resourcePageGenerationPolicies: first.resourcePageGenerationPolicies,
+  };
+}
+
+function snapshotResourcePageGenerationConfig(
+  meshBase: string,
+  config: ResourcePageGenerationConfig,
+  candidates: readonly WeaveableKnopCandidate[],
+): readonly {
+  artifactPath: string;
+  artifactRole: WeaveArtifactRole;
+  policy: ReturnType<
+    ResourcePageGenerationConfig[
+      "resourcePageGenerationPolicyForArtifactRole"
+    ]
+  >;
+}[] {
+  return payloadBatchResourcePagePolicyProbes(candidates).map((probe) => {
+    const artifactIri = new URL(probe.artifactPath, meshBase).href;
+    return {
+      ...probe,
+      policy: config.resourcePageGenerationPolicyForArtifactTarget?.({
+        artifactIri,
+        artifactRole: probe.artifactRole,
+      }) ?? config.resourcePageGenerationPolicyForArtifactRole(
+        probe.artifactRole,
+      ),
+    };
+  });
+}
+
+function payloadBatchResourcePagePolicyProbes(
+  candidates: readonly WeaveableKnopCandidate[],
+): readonly { artifactPath: string; artifactRole: WeaveArtifactRole }[] {
+  const probes = new Map<
+    string,
+    { artifactPath: string; artifactRole: WeaveArtifactRole }
+  >();
+  const add = (
+    artifactPath: string,
+    artifactRole: WeaveArtifactRole,
+  ) => {
+    probes.set(`${artifactRole} ${artifactPath}`, {
+      artifactPath,
+      artifactRole,
+    });
+  };
+
+  for (const candidate of candidates) {
+    const knopPath = toKnopPath(candidate.designatorPath);
+    add(`${knopPath}/_meta`, "knopMetadata");
+    add(`${knopPath}/_inventory`, "knopInventory");
+
+    if (candidate.payloadArtifact !== undefined) {
+      add(candidate.designatorPath, "payload");
+    }
+    if (candidate.referenceCatalogArtifact !== undefined) {
+      add(`${knopPath}/_references`, "referenceCatalog");
+    }
+    if (candidate.resourcePageDefinitionArtifact !== undefined) {
+      add(
+        candidate.resourcePageDefinitionArtifact.artifactPath,
+        "resourcePageDefinition",
+      );
+    }
+  }
+
+  return [...probes.values()].sort((left, right) =>
+    `${left.artifactRole} ${left.artifactPath}`.localeCompare(
+      `${right.artifactRole} ${right.artifactPath}`,
+    )
+  );
 }
 
 export async function writePreparedVersion(

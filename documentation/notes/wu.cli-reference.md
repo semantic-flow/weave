@@ -273,6 +273,7 @@ Integrates a local source file into a designator path as a payload artifact, inc
 weave integrate ./alice-data.ttl alice/data
 weave integrate ./alice-data.ttl --designator-path alice/data
 weave integrate ./ontology/fantasy-rules-ontology.ttl ontology --mesh-root docs --grant-source-directory ontology
+weave integrate "$SOURCE_REPO/ontology/example.ttl" ontology --mesh-root "$MESH_ROOT" --grant-source-directory "$SOURCE_REPO" --source-repository-current --source-repository-url https://github.com/example/source.git
 weave integrate ./ontology/fantasy-rules-ontology.ttl ontology --mesh-root docs --grant-source-directory ontology --source-repository-url https://github.com/example/source.git --source-repository-ref main --source-repository-path ontology/fantasy-rules-ontology.ttl
 weave integrate ./root.ttl --designator-path /
 ```
@@ -286,6 +287,9 @@ Constraints:
 - `--grant-source-directory <path>` adds an operational `workingLocalRelativePath` grant for that source directory before resolving the source; workspace-contained sources may be recorded in mesh config, while separate checkout sources are recorded in the current user's mesh-scoped settings access profile
 - when the approved source path is outside the mesh root, `integrate` creates a Knop source registry automatically with the internal `payload-source` `IntegrationSource` binding id, `targetLocalRelativePath`, and `artifactResolutionMode_working`
 - automatically created floating working-source bindings do not record repository ref, commit, path, digest evidence, or `expectsContentDigest`
+- `--source-repository-current` records a floating repository source locator for the source file's current checkout; use this for sidecar, branch-published, or application-managed meshes where later operations should follow the current source checkout rather than a host-local absolute path
+- with `--source-repository-current`, `--source-repository-url` identifies the repository that owns the source file, not necessarily the repository containing the mesh root; if omitted, Weave reads the URL from the source checkout's git remote, defaulting to `origin`
+- `--source-repository-remote <name>` chooses a non-`origin` remote for `--source-repository-current` when `--source-repository-url` is omitted
 - `--source-repository-url`, `--source-repository-ref`, and `--source-repository-path` record repository-backed source provenance in the Knop source registry without fetching or copying source bytes
 - `--source-repository-commit` records immutable commit evidence when known
 - `--source-digest <digest>` records caller-provided byte evidence; if omitted when repository source metadata is supplied, Weave records a computed `sha256:` digest for the local source bytes it observed and links that evidence from the `IntegrationSource` with an `ArtifactResolutionObservation`

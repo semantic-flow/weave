@@ -3,7 +3,8 @@ import { SFLO_NAMESPACE } from "../rdf/namespaces.ts";
 import { WeaveInputError } from "./errors.ts";
 import {
   hasNamedNodeFact,
-  resolveOptionalNamedNodePath,
+  toAbsoluteIri,
+  toMeshRelativePath,
 } from "./rdf_helpers.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
@@ -31,17 +32,30 @@ export function requirePayloadCurrentStatePathFromInventory(
   designatorPath: string,
   historyPath: string,
   errorMessage: string,
+  diagnostics?: {
+    missingMessage?: string;
+    conflictMessage?: string;
+  },
 ): string {
-  const currentStatePath = resolveOptionalNamedNodePath(
-    quads,
-    meshBase,
-    historyPath,
-    SFLO_LATEST_HISTORICAL_STATE_IRI,
-    errorMessage,
-  );
-  if (!currentStatePath) {
-    throw new WeaveInputError(errorMessage);
+  const historyIri = toAbsoluteIri(meshBase, historyPath);
+  const values = new Set<string>();
+  for (const quad of quads) {
+    if (
+      quad.subject.termType === "NamedNode" &&
+      quad.subject.value === historyIri &&
+      quad.predicate.value === SFLO_LATEST_HISTORICAL_STATE_IRI &&
+      quad.object.termType === "NamedNode"
+    ) {
+      values.add(toMeshRelativePath(meshBase, quad.object.value, errorMessage));
+    }
   }
+  if (values.size === 0) {
+    throw new WeaveInputError(diagnostics?.missingMessage ?? errorMessage);
+  }
+  if (values.size > 1) {
+    throw new WeaveInputError(diagnostics?.conflictMessage ?? errorMessage);
+  }
+  const currentStatePath = values.values().next().value!;
   if (!currentStatePath.startsWith(`${historyPath}/`)) {
     throw new WeaveInputError(
       `Current payload historical state for ${designatorPath} was outside the current payload history: ${currentStatePath}`,

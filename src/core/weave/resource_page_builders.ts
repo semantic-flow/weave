@@ -371,36 +371,40 @@ export function buildCurrentOnlyPageDefinitionWeavePages(
   ];
 }
 
-export function buildSecondPayloadWeavePages(
+export function buildLaterPayloadWeavePages(
   designatorPath: string,
   payloadLayout: PayloadVersionLayout,
-  options?: { knopInventoryHistoryPolicy?: SupportArtifactHistoryPolicy },
+  options?: { knopInventoryProgression?: MeshInventoryProgression },
 ): readonly ResourcePageModel[] {
-  const knopPath = toKnopPath(designatorPath);
   const displayDesignatorPath = formatDesignatorPathForDisplay(designatorPath);
+  const payloadStateOrdinalLabel = payloadLayout.nextStateOrdinal === undefined
+    ? "requested"
+    : toOrdinalLabel(payloadLayout.nextStateOrdinal);
+  const knopInventoryProgression = options?.knopInventoryProgression;
+  const knopInventoryStateOrdinalLabel = knopInventoryProgression === undefined
+    ? undefined
+    : toOrdinalLabel(knopInventoryProgression.nextStateOrdinal);
   const pages: readonly ResourcePageModel[] = [
     simplePage(
       `${payloadLayout.nextStatePath}/index.html`,
-      `Resource page for the second historical state of the ${displayDesignatorPath} payload artifact.`,
+      `Resource page for the ${payloadStateOrdinalLabel} historical state of the ${displayDesignatorPath} payload artifact.`,
     ),
     simplePage(
       `${payloadLayout.nextManifestationPath}/index.html`,
-      `Resource page for the Turtle manifestation of the second ${displayDesignatorPath} payload historical state.`,
+      `Resource page for the Turtle manifestation of the ${payloadStateOrdinalLabel} ${displayDesignatorPath} payload historical state.`,
     ),
-    simplePage(
-      `${knopPath}/_inventory/_history001/_s0002/index.html`,
-      `Resource page for the second historical state of the ${displayDesignatorPath} KnopInventory artifact.`,
-    ),
-    simplePage(
-      `${knopPath}/_inventory/_history001/_s0002/ttl/index.html`,
-      `Resource page for the Turtle manifestation of the second ${displayDesignatorPath} KnopInventory historical state.`,
-    ),
+    ...(knopInventoryProgression === undefined ? [] : [
+      simplePage(
+        `${knopInventoryProgression.nextStatePath}/index.html`,
+        `Resource page for the ${knopInventoryStateOrdinalLabel} historical state of the ${displayDesignatorPath} KnopInventory artifact.`,
+      ),
+      simplePage(
+        `${knopInventoryProgression.nextStatePath}/ttl/index.html`,
+        `Resource page for the Turtle manifestation of the ${knopInventoryStateOrdinalLabel} ${displayDesignatorPath} KnopInventory historical state.`,
+      ),
+    ]),
   ];
-  return shouldMaterializeSupportHistory(
-      options?.knopInventoryHistoryPolicy ?? "versioned",
-    )
-    ? pages
-    : omitSecondPayloadKnopInventoryHistoryPages(pages, knopPath);
+  return pages;
 }
 
 function buildMeshInventoryProgressionPages(
@@ -440,17 +444,6 @@ function omitInitialKnopInventoryHistoryPages(
   return pages.filter((page) =>
     page.path !== `${inventoryHistoryPagePrefix}/index.html` &&
     !page.path.startsWith(`${inventoryHistoryPagePrefix}/_s0001/`)
-  );
-}
-
-function omitSecondPayloadKnopInventoryHistoryPages(
-  pages: readonly ResourcePageModel[],
-  knopPath: string,
-): readonly ResourcePageModel[] {
-  const inventoryStatePagePrefix = `${knopPath}/_inventory/_history001/_s0002`;
-  return pages.filter((page) =>
-    page.path !== `${inventoryStatePagePrefix}/index.html` &&
-    !page.path.startsWith(`${inventoryStatePagePrefix}/`)
   );
 }
 

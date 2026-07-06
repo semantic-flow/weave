@@ -18,11 +18,13 @@
     "jsr:@std/path@1": "1.1.4",
     "jsr:@std/path@^1.1.4": "1.1.4",
     "jsr:@std/text@^1.0.17": "1.0.17",
+    "npm:@types/sparqljs@3.1.12": "3.1.12",
     "npm:jsonld@9.0.0": "9.0.0",
     "npm:n3@*": "2.0.3",
     "npm:n3@2.0.3": "2.0.3",
     "npm:rdf-canonize@5.0.0": "5.0.0",
-    "npm:shiki@4.0.2": "4.0.2"
+    "npm:shiki@4.0.2": "4.0.2",
+    "npm:sparqljs@3.7.4": "3.7.4"
   },
   "jsr": {
     "@cliffy/ansi@1.0.0": {
@@ -176,6 +178,12 @@
         "undici"
       ]
     },
+    "@rdfjs/types@1.1.2": {
+      "integrity": "sha512-wqpOJK1QCbmsGNtyzYnojPU8gRDPid2JO0Q0kMtb4j65xhCK880cnKAfEOwC+dX85VJcCByQx5zOwyyfCjDJsg==",
+      "dependencies": [
+        "@types/node"
+      ]
+    },
     "@shikijs/core@4.0.2": {
       "integrity": "sha512-hxT0YF4ExEqB8G/qFdtJvpmHXBYJ2lWW7qTHDarVkIudPFE6iCIrqdgWxGn5s+ppkGXI0aEGlibI0PAyzP3zlw==",
       "dependencies": [
@@ -241,6 +249,18 @@
       "integrity": "sha512-kGaNbPh1k7AFzgpud/gMdvIm5xuECykRR+JnWKQno9TAXVa6WIVCGTPvYGekIDL4uwCZQSYbUxNBSb1aUo79oA==",
       "dependencies": [
         "@types/unist"
+      ]
+    },
+    "@types/node@26.1.0": {
+      "integrity": "sha512-O0A1G3xPGy4w7AgQdAQYUlQ+BKk2Oovw8eRpofyp5KdBZULnbe+WqaOVNrm705SHphCiG4XHsACrSmPu1f+Kgw==",
+      "dependencies": [
+        "undici-types"
+      ]
+    },
+    "@types/sparqljs@3.1.12": {
+      "integrity": "sha512-zg/sdKKtYI0845wKPSuSgunyU1o/+7tRzMw85lHsf4p/0UbA6+65MXAyEtv1nkaqSqrq/bXm7+bqXas+Xo5dpQ==",
+      "dependencies": [
+        "@rdfjs/types"
       ]
     },
     "@types/unist@3.0.3": {
@@ -411,6 +431,12 @@
         "setimmediate"
       ]
     },
+    "rdf-data-factory@1.1.3": {
+      "integrity": "sha512-ny6CI7m2bq4lfQQmDYvcb2l1F9KtGwz9chipX4oWu2aAtVoXjb7k3d8J1EsgAsEbMXnBipB/iuRen5H2fwRWWQ==",
+      "dependencies": [
+        "@rdfjs/types"
+      ]
+    },
     "readable-stream@4.7.0": {
       "integrity": "sha512-oIGGmcpTLwPga8Bn6/Z75SVaH1z5dUut2ibSyAMVhmUggWpmDn2dapB0n7f8nwaSiRtepAsfJyfXIO5DCVAODg==",
       "dependencies": [
@@ -458,6 +484,14 @@
     "space-separated-tokens@2.0.2": {
       "integrity": "sha512-PEGlAwrG8yXGXRjW32fGbg66JAlOAwbObuqVoJpv/mRgoWDQfgH1wDPvtzWyUSNAXBGSk8h755YDbbcEy3SH2Q=="
     },
+    "sparqljs@3.7.4": {
+      "integrity": "sha512-hb4C84gf7KM7vz+iG595mPwvqxOvBJCm9L3dCxtV2zZDht6ZMmMG0tHeeqFeqwb9875yU9U4lhYe4LYRvWj0BQ==",
+      "dependencies": [
+        "rdf-data-factory"
+      ],
+      "deprecated": true,
+      "bin": true
+    },
     "string_decoder@1.3.0": {
       "integrity": "sha512-hkRX8U1WjJFd8LsDJ2yQ/wWWxaopEsABU1XfkM8A+j0+85JAGppt16cr1Whg6KIbb4okU6Mql6BOj+uup/wKeA==",
       "dependencies": [
@@ -473,6 +507,9 @@
     },
     "trim-lines@3.0.1": {
       "integrity": "sha512-kRj8B+YHZCc9kQYdWfJB2/oUl9rA99qbowYYBtr4ui4mZyAQ2JpvVBd/6U2YloATfqBhBTSMhTpgBHtU0Mf3Rg=="
+    },
+    "undici-types@8.3.0": {
+      "integrity": "sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ=="
     },
     "undici@6.24.1": {
       "integrity": "sha512-sC+b0tB1whOCzbtlx20fx3WgCXwkW627p4EA9uM+/tNNPkSS+eSEld6pAs9nDv7WbY1UUljBMYPtu9BCOrCWKA=="
@@ -540,7 +577,8 @@
       "npm:jsonld@9.0.0",
       "npm:n3@2.0.3",
       "npm:rdf-canonize@5.0.0",
-      "npm:shiki@4.0.2"
+      "npm:shiki@4.0.2",
+      "npm:sparqljs@3.7.4"
     ]
   }
 }

@@ -5,7 +5,7 @@ import {
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { Parser, type Quad, type Term } from "n3";
 import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import { WeaveInputError } from "../../src/core/weave/weave.ts";
@@ -1705,6 +1705,473 @@ Deno.test("executeWeave materializes the second alice bio payload weave slice", 
   );
 });
 
+Deno.test("executeWeave advances a later ordinal payload without rewriting prior snapshots", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-later-payload-",
+  );
+  const meshBase = "https://semantic-flow.github.io/stagecraft-test/";
+  const designatorPath = "projections/contracts/inn-ambush-contract-context";
+  const knopPath = `${designatorPath}/_knop`;
+  const historyPath = `${designatorPath}/_history001`;
+  const snapshotPaths = [1, 2, 3].map((ordinal) =>
+    `${historyPath}/_s000${ordinal}/ttl/inn-ambush-contract-context.ttl`
+  );
+  const priorSnapshotContents = new Map(
+    snapshotPaths.map((path, index) => [
+      path,
+      `@base <${meshBase}> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+
+<${designatorPath}> dcterms:title "Inn Ambush Contract Context v${index + 1}" .
+`,
+    ]),
+  );
+  const workingPayload = `@base <${meshBase}> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+
+<${designatorPath}> dcterms:title "Inn Ambush Contract Context v4" .
+`;
+
+  await writeTextFileEnsuringDir(
+    join(workspaceRoot, "_mesh/_meta/meta.ttl"),
+    `@base <${meshBase}> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<_mesh> a sflo:SemanticMesh ;
+  sflo:meshBase "${meshBase}"^^xsd:anyURI ;
+  sflo:hasMeshMetadata <_mesh/_meta> ;
+  sflo:hasMeshInventory <_mesh/_inventory> .
+
+<_mesh/_meta> a sflo:MeshMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <_mesh/_meta/meta.ttl> .
+
+<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> .
+`,
+  );
+  await writeTextFileEnsuringDir(
+    join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+    `@base <${meshBase}> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<_mesh> a sflo:SemanticMesh ;
+  sflo:meshBase "${meshBase}"^^xsd:anyURI ;
+  sflo:hasMeshMetadata <_mesh/_meta> ;
+  sflo:hasMeshInventory <_mesh/_inventory> ;
+  sflo:hasKnop <${knopPath}> .
+
+<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> .
+
+<${knopPath}> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> .
+`,
+  );
+  await writeTextFileEnsuringDir(
+    join(workspaceRoot, `${knopPath}/_meta/meta.ttl`),
+    `@base <${meshBase}> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<${knopPath}> a sflo:Knop ;
+  sflo:designatorPath "${designatorPath}" ;
+  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> .
+`,
+  );
+  await writeTextFileEnsuringDir(
+    join(workspaceRoot, `${knopPath}/_inventory/inventory.ttl`),
+    `@base <${meshBase}> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<${knopPath}> a sflo:Knop ;
+  sflo:hasKnopMetadata <${knopPath}/_meta> ;
+  sflo:hasKnopInventory <${knopPath}/_inventory> ;
+  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> ;
+  sflo:hasPayloadArtifact <${designatorPath}> ;
+  sflo:hasKnopSourceRegistry <${knopPath}/_sources> ;
+  sflo:hasReferenceCatalog <${knopPath}/_references> ;
+  sflo:hasResourcePage <${knopPath}/index.html> .
+
+<${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasArtifactHistory <${historyPath}> ;
+  sflo:currentArtifactHistory <${historyPath}> ;
+  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
+  sflo:hasWorkingLocatedFile <${designatorPath}.ttl> ;
+  sflo:hasResourcePage <${designatorPath}/index.html> .
+
+<${historyPath}> a sflo:ArtifactHistory ;
+  sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
+  sflo:hasHistoricalState <${historyPath}/_s0001> ;
+  sflo:hasHistoricalState <${historyPath}/_s0002> ;
+  sflo:hasHistoricalState <${historyPath}/_s0003> ;
+  sflo:latestHistoricalState <${historyPath}/_s0003> ;
+  sflo:nextStateOrdinal "4"^^xsd:nonNegativeInteger ;
+  sflo:hasResourcePage <${historyPath}/index.html> .
+
+<${historyPath}/_s0001> a sflo:HistoricalState ;
+  sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
+  sflo:hasManifestation <${historyPath}/_s0001/ttl> ;
+  sflo:locatedFileForState <${historyPath}/_s0001/ttl/inn-ambush-contract-context.ttl> ;
+  sflo:hasResourcePage <${historyPath}/_s0001/index.html> .
+
+<${historyPath}/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:locatedFileForManifestation <${historyPath}/_s0001/ttl/inn-ambush-contract-context.ttl> ;
+  sflo:hasResourcePage <${historyPath}/_s0001/ttl/index.html> .
+
+<${historyPath}/_s0002> a sflo:HistoricalState ;
+  sflo:stateOrdinal "2"^^xsd:nonNegativeInteger ;
+  sflo:previousHistoricalState <${historyPath}/_s0001> ;
+  sflo:hasManifestation <${historyPath}/_s0002/ttl> ;
+  sflo:locatedFileForState <${historyPath}/_s0002/ttl/inn-ambush-contract-context.ttl> ;
+  sflo:hasResourcePage <${historyPath}/_s0002/index.html> .
+
+<${historyPath}/_s0002/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:locatedFileForManifestation <${historyPath}/_s0002/ttl/inn-ambush-contract-context.ttl> ;
+  sflo:hasResourcePage <${historyPath}/_s0002/ttl/index.html> .
+
+<${historyPath}/_s0003> a sflo:HistoricalState ;
+  sflo:stateOrdinal "3"^^xsd:nonNegativeInteger ;
+  sflo:previousHistoricalState <${historyPath}/_s0002> ;
+  sflo:hasManifestation <${historyPath}/_s0003/ttl> ;
+  sflo:locatedFileForState <${historyPath}/_s0003/ttl/inn-ambush-contract-context.ttl> ;
+  sflo:hasResourcePage <${historyPath}/_s0003/index.html> .
+
+<${historyPath}/_s0003/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:locatedFileForManifestation <${historyPath}/_s0003/ttl/inn-ambush-contract-context.ttl> ;
+  sflo:hasResourcePage <${historyPath}/_s0003/ttl/index.html> .
+
+<${knopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${knopPath}/_meta/meta.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_meta/index.html> .
+
+<${knopPath}/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${knopPath}/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_inventory/index.html> .
+
+<${knopPath}/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${knopPath}/_sources/sources.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_sources/index.html> .
+
+<${knopPath}/_references> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${knopPath}/_references/references.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_references/index.html> .
+
+<${designatorPath}.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+`,
+  );
+  await writeTextFileEnsuringDir(
+    join(workspaceRoot, `${designatorPath}.ttl`),
+    workingPayload,
+  );
+  await writeTextFileEnsuringDir(
+    join(workspaceRoot, `${knopPath}/_sources/sources.ttl`),
+    `@base <${meshBase}> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<${knopPath}/_sources> a sflo:KnopSourceRegistry .
+`,
+  );
+  await writeTextFileEnsuringDir(
+    join(workspaceRoot, `${knopPath}/_references/references.ttl`),
+    `@base <${meshBase}> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<${knopPath}/_references> a sflo:ReferenceCatalog .
+`,
+  );
+  for (const [path, contents] of priorSnapshotContents) {
+    await writeTextFileEnsuringDir(join(workspaceRoot, path), contents);
+  }
+
+  const result = await executeWeave({
+    meshRoot: workspaceRoot,
+    request: {
+      targets: [{ designatorPath }],
+    },
+  });
+
+  assertEquals(result.wovenDesignatorPaths, [designatorPath]);
+  assert(
+    result.createdPaths.includes(
+      `${historyPath}/_s0004/ttl/inn-ambush-contract-context.ttl`,
+    ),
+  );
+  assertFalse(
+    result.createdPaths.some((path) =>
+      path.startsWith(`${knopPath}/_inventory/_history001/`)
+    ),
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(
+        workspaceRoot,
+        `${historyPath}/_s0004/ttl/inn-ambush-contract-context.ttl`,
+      ),
+    ),
+    workingPayload,
+  );
+  for (const [path, contents] of priorSnapshotContents) {
+    assertEquals(await Deno.readTextFile(join(workspaceRoot, path)), contents);
+  }
+  const updatedInventory = await Deno.readTextFile(
+    join(workspaceRoot, `${knopPath}/_inventory/inventory.ttl`),
+  );
+  assertStringIncludes(
+    updatedInventory,
+    `sflo:latestHistoricalState <${historyPath}/_s0004> ;`,
+  );
+  assertStringIncludes(
+    updatedInventory,
+    `sflo:nextStateOrdinal "5"^^xsd:nonNegativeInteger ;`,
+  );
+  assertFalse(updatedInventory.includes(`${knopPath}/_inventory/_history001`));
+});
+
+Deno.test("executeWeave advances temporal later payload targets as one deterministic batch", async () => {
+  const batchRoot = await createTestTmpDir(
+    "weave-weave-temporal-payload-batch-",
+  );
+  const sequentialRoot = await createTestTmpDir(
+    "weave-weave-temporal-payload-sequential-",
+  );
+  const deterministicRoot = await createTestTmpDir(
+    "weave-weave-temporal-payload-deterministic-",
+  );
+  const request = {
+    targets: temporalLaterPayloadTargets.map((target) => ({
+      designatorPath: target.designatorPath,
+    })),
+  };
+  const fixedNow = () => new Date("2026-07-06T12:00:00.000Z");
+
+  await materializeTemporalLaterPayloadWorkspace(batchRoot);
+  await materializeTemporalLaterPayloadWorkspace(sequentialRoot);
+  await materializeTemporalLaterPayloadWorkspace(deterministicRoot);
+  const priorSnapshotPaths = temporalLaterPayloadTargets.flatMap((target) =>
+    Array.from(
+      { length: target.latestOrdinal },
+      (_, index) => temporalLaterPayloadSnapshotPath(target, index + 1),
+    )
+  );
+  const priorSnapshots = await snapshotWorkspacePaths(
+    batchRoot,
+    priorSnapshotPaths,
+  );
+
+  const batchResult = await executeWeave({
+    meshRoot: batchRoot,
+    request,
+    now: fixedNow,
+  });
+  for (const target of temporalLaterPayloadTargets) {
+    await executeWeave({
+      meshRoot: sequentialRoot,
+      request: { targets: [{ designatorPath: target.designatorPath }] },
+      now: fixedNow,
+    });
+  }
+  await executeWeave({
+    meshRoot: deterministicRoot,
+    request,
+    now: fixedNow,
+  });
+
+  assertEquals(
+    batchResult.wovenDesignatorPaths,
+    temporalLaterPayloadTargets.map((target) => target.designatorPath),
+  );
+  for (const target of temporalLaterPayloadTargets) {
+    const nextStatePath = `${target.designatorPath}/_history001/${
+      toTemporalStateSegment(target.latestOrdinal + 1)
+    }`;
+    assert(
+      batchResult.createdPaths.includes(
+        `${nextStatePath}/ttl/${target.fileName}`,
+      ),
+    );
+    const inventory = await Deno.readTextFile(
+      join(
+        batchRoot,
+        `${target.designatorPath}/_knop/_inventory/inventory.ttl`,
+      ),
+    );
+    assertStringIncludes(
+      inventory,
+      `sflo:latestHistoricalState <${nextStatePath}> ;`,
+    );
+    assertStringIncludes(
+      inventory,
+      `sflo:nextStateOrdinal "${
+        target.latestOrdinal + 2
+      }"^^xsd:nonNegativeInteger ;`,
+    );
+  }
+  assertWorkspaceSnapshotsEqual(
+    await snapshotWorkspacePaths(batchRoot, priorSnapshotPaths),
+    priorSnapshots,
+  );
+  assertWorkspaceSnapshotsEqual(
+    await snapshotWorkspaceFiles(batchRoot),
+    await snapshotWorkspaceFiles(sequentialRoot),
+  );
+  assertWorkspaceSnapshotsEqual(
+    await snapshotWorkspaceFiles(batchRoot),
+    await snapshotWorkspaceFiles(deterministicRoot),
+  );
+
+  const beforeRerun = await snapshotWorkspaceFiles(batchRoot);
+  const rerun = await executeWeave({
+    meshRoot: batchRoot,
+    request,
+    now: fixedNow,
+  });
+
+  assertEquals(rerun.wovenDesignatorPaths, []);
+  assertWorkspaceSnapshotsEqual(
+    await snapshotWorkspaceFiles(batchRoot),
+    beforeRerun,
+  );
+});
+
+Deno.test("executeWeave refuses a temporal payload batch when one target is incoherent and writes nothing", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-temporal-payload-batch-bad-target-",
+  );
+  await materializeTemporalLaterPayloadWorkspace(workspaceRoot);
+  const badTarget = temporalLaterPayloadTargets[1]!;
+  const inventoryPath = join(
+    workspaceRoot,
+    `${badTarget.designatorPath}/_knop/_inventory/inventory.ttl`,
+  );
+  await replaceFileText(
+    inventoryPath,
+    `  sflo:latestHistoricalState <${badTarget.designatorPath}/_history001/${
+      toTemporalStateSegment(badTarget.latestOrdinal)
+    }> ;\n`,
+    "",
+  );
+  const before = await snapshotWorkspaceFiles(workspaceRoot);
+
+  await assertRejects(
+    () =>
+      executeWeave({
+        meshRoot: workspaceRoot,
+        request: {
+          targets: temporalLaterPayloadTargets.map((target) => ({
+            designatorPath: target.designatorPath,
+          })),
+        },
+        now: () => new Date("2026-07-06T12:00:00.000Z"),
+      }),
+    WeaveInputError,
+    `Target ${badTarget.designatorPath}: Payload history ${badTarget.designatorPath}/_history001 for ${badTarget.designatorPath} is missing sflo:latestHistoricalState.`,
+  );
+  assertWorkspaceSnapshotsEqual(
+    await snapshotWorkspaceFiles(workspaceRoot),
+    before,
+  );
+});
+
+Deno.test("executeWeave refuses a temporal payload batch when a working payload changes during capture", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-temporal-payload-batch-capture-change-",
+  );
+  await materializeTemporalLaterPayloadWorkspace(workspaceRoot);
+  const changedTarget = temporalLaterPayloadTargets[0]!;
+  let afterConcurrentMutation: Map<string, Uint8Array> | undefined;
+
+  await assertRejects(
+    () =>
+      executeWeave({
+        meshRoot: workspaceRoot,
+        request: {
+          targets: temporalLaterPayloadTargets.map((target) => ({
+            designatorPath: target.designatorPath,
+          })),
+        },
+        now: () => new Date("2026-07-06T12:00:00.000Z"),
+        inputSnapshotVerification: {
+          afterInitialHash: async () => {
+            await Deno.writeTextFile(
+              join(workspaceRoot, `${changedTarget.designatorPath}.ttl`),
+              temporalPayloadTurtle(
+                changedTarget.designatorPath,
+                changedTarget.label,
+                99,
+              ),
+            );
+            afterConcurrentMutation = await snapshotWorkspaceFiles(
+              workspaceRoot,
+            );
+          },
+        },
+      }),
+    WeaveInputError,
+    `Input file changed during multi-target payload capture: ${changedTarget.designatorPath}.ttl`,
+  );
+  assert(afterConcurrentMutation !== undefined);
+  assertWorkspaceSnapshotsEqual(
+    await snapshotWorkspaceFiles(workspaceRoot),
+    afterConcurrentMutation,
+  );
+});
+
+Deno.test("executeWeave ignores working payload changes after temporal batch capture", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-temporal-payload-batch-post-capture-change-",
+  );
+  const expectedRoot = await createTestTmpDir(
+    "weave-weave-temporal-payload-batch-post-capture-expected-",
+  );
+  await materializeTemporalLaterPayloadWorkspace(workspaceRoot);
+  await materializeTemporalLaterPayloadWorkspace(expectedRoot);
+  const changedTarget = temporalLaterPayloadTargets[0]!;
+  const request = {
+    targets: temporalLaterPayloadTargets.map((target) => ({
+      designatorPath: target.designatorPath,
+    })),
+  };
+  const fixedNow = () => new Date("2026-07-06T12:00:00.000Z");
+
+  const actual = await executeWeave({
+    meshRoot: workspaceRoot,
+    request,
+    now: fixedNow,
+    inputSnapshotVerification: {
+      afterVerifiedCapture: async () => {
+        await Deno.writeTextFile(
+          join(workspaceRoot, `${changedTarget.designatorPath}.ttl`),
+          temporalPayloadTurtle(
+            changedTarget.designatorPath,
+            changedTarget.label,
+            99,
+          ),
+        );
+      },
+    },
+  });
+  const expected = await executeWeave({
+    meshRoot: expectedRoot,
+    request,
+    now: fixedNow,
+  });
+  const outputPaths = [
+    ...new Set([
+      ...actual.createdPaths,
+      ...actual.updatedPaths,
+    ]),
+  ].sort();
+
+  assertEquals(actual.createdPaths, expected.createdPaths);
+  assertEquals(actual.updatedPaths, expected.updatedPaths);
+  assertWorkspaceSnapshotsEqual(
+    await snapshotWorkspacePaths(workspaceRoot, outputPaths),
+    await snapshotWorkspacePaths(expectedRoot, outputPaths),
+  );
+});
+
 Deno.test("executeWeave materializes the extracted bob woven slice", async () => {
   const workspaceRoot = await createTestTmpDir("weave-weave-bob-extracted-");
   await materializeMeshAliceBioBranch("12-bob-extracted", workspaceRoot);
@@ -2590,6 +3057,311 @@ async function replaceAliceSidebarPageSource(
     ALICE_SIDEBAR_TARGET_MESH_PATH_SOURCE,
     after,
   );
+}
+
+async function writeTextFileEnsuringDir(
+  path: string,
+  contents: string,
+): Promise<void> {
+  await Deno.mkdir(dirname(path), { recursive: true });
+  await Deno.writeTextFile(path, contents);
+}
+
+interface TemporalLaterPayloadTarget {
+  designatorPath: string;
+  fileName: string;
+  latestOrdinal: number;
+  label: string;
+}
+
+const temporalLaterPayloadTargets: readonly TemporalLaterPayloadTarget[] = [
+  {
+    designatorPath: "projections/contracts/inn-ambush-contract-context",
+    fileName: "inn-ambush-contract-context.ttl",
+    latestOrdinal: 3,
+    label: "Inn Ambush Contract Context",
+  },
+  {
+    designatorPath: "projections/contracts/inn-ambush-contract-shapes",
+    fileName: "inn-ambush-contract-shapes.ttl",
+    latestOrdinal: 3,
+    label: "Inn Ambush Contract Shapes",
+  },
+  {
+    designatorPath: "world/states/inn-ambush-plan-b-state",
+    fileName: "inn-ambush-plan-b-state.ttl",
+    latestOrdinal: 2,
+    label: "Inn Ambush Plan B State",
+  },
+];
+
+const temporalLaterPayloadMeshBase =
+  "https://semantic-flow.github.io/stagecraft-test/";
+
+async function materializeTemporalLaterPayloadWorkspace(
+  workspaceRoot: string,
+  targets = temporalLaterPayloadTargets,
+): Promise<void> {
+  await writeTextFileEnsuringDir(
+    join(workspaceRoot, "_mesh/_meta/meta.ttl"),
+    `@base <${temporalLaterPayloadMeshBase}> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<_mesh> a sflo:SemanticMesh ;
+  sflo:meshBase "${temporalLaterPayloadMeshBase}"^^xsd:anyURI ;
+  sflo:hasMeshMetadata <_mesh/_meta> ;
+  sflo:hasMeshInventory <_mesh/_inventory> .
+
+<_mesh/_meta> a sflo:MeshMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <_mesh/_meta/meta.ttl> .
+
+<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> .
+`,
+  );
+  await writeTextFileEnsuringDir(
+    join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+    `@base <${temporalLaterPayloadMeshBase}> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<_mesh> a sflo:SemanticMesh ;
+  sflo:meshBase "${temporalLaterPayloadMeshBase}"^^xsd:anyURI ;
+  sflo:hasMeshMetadata <_mesh/_meta> ;
+  sflo:hasMeshInventory <_mesh/_inventory> ;
+  ${
+      targets.map((target) => `sflo:hasKnop <${target.designatorPath}/_knop>`)
+        .join(" ;\n  ")
+    } .
+
+<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> .
+
+${
+      targets.map((target) =>
+        `<${target.designatorPath}/_knop> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <${target.designatorPath}/_knop/_inventory/inventory.ttl> .`
+      ).join("\n\n")
+    }
+`,
+  );
+
+  for (const target of targets) {
+    await materializeTemporalLaterPayloadTarget(workspaceRoot, target);
+  }
+}
+
+async function materializeTemporalLaterPayloadTarget(
+  workspaceRoot: string,
+  target: TemporalLaterPayloadTarget,
+): Promise<void> {
+  const { designatorPath, latestOrdinal, label } = target;
+  const knopPath = `${designatorPath}/_knop`;
+  await writeTextFileEnsuringDir(
+    join(workspaceRoot, `${knopPath}/_meta/meta.ttl`),
+    `@base <${temporalLaterPayloadMeshBase}> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<${knopPath}> a sflo:Knop ;
+  sflo:designatorPath "${designatorPath}" ;
+  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> .
+`,
+  );
+  await writeTextFileEnsuringDir(
+    join(workspaceRoot, `${knopPath}/_inventory/inventory.ttl`),
+    temporalLaterPayloadInventoryTurtle(target),
+  );
+  await writeTextFileEnsuringDir(
+    join(workspaceRoot, `${designatorPath}.ttl`),
+    temporalPayloadTurtle(designatorPath, label, latestOrdinal + 1),
+  );
+  await writeTextFileEnsuringDir(
+    join(workspaceRoot, `${knopPath}/_sources/sources.ttl`),
+    `@base <${temporalLaterPayloadMeshBase}> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<${knopPath}/_sources> a sflo:KnopSourceRegistry .
+`,
+  );
+  await writeTextFileEnsuringDir(
+    join(workspaceRoot, `${knopPath}/_references/references.ttl`),
+    `@base <${temporalLaterPayloadMeshBase}> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<${knopPath}/_references> a sflo:ReferenceCatalog .
+`,
+  );
+  for (let ordinal = 1; ordinal <= latestOrdinal; ordinal += 1) {
+    await writeTextFileEnsuringDir(
+      join(
+        workspaceRoot,
+        temporalLaterPayloadSnapshotPath(target, ordinal),
+      ),
+      temporalPayloadTurtle(designatorPath, label, ordinal),
+    );
+  }
+}
+
+function temporalLaterPayloadInventoryTurtle(
+  target: TemporalLaterPayloadTarget,
+): string {
+  const { designatorPath, fileName, latestOrdinal } = target;
+  const knopPath = `${designatorPath}/_knop`;
+  const historyPath = `${designatorPath}/_history001`;
+  const stateBlocks = Array.from({ length: latestOrdinal }, (_, index) => {
+    const ordinal = index + 1;
+    const statePath = `${historyPath}/${toTemporalStateSegment(ordinal)}`;
+    const previous = ordinal === 1 ? "" : `
+  sflo:previousHistoricalState <${historyPath}/${
+      toTemporalStateSegment(ordinal - 1)
+    }> ;`;
+    return `<${statePath}> a sflo:HistoricalState ;
+  sflo:stateOrdinal "${ordinal}"^^xsd:nonNegativeInteger ;${previous}
+  sflo:hasManifestation <${statePath}/ttl> ;
+  sflo:locatedFileForState <${statePath}/ttl/${fileName}> ;
+  sflo:hasResourcePage <${statePath}/index.html> .
+
+<${statePath}/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:locatedFileForManifestation <${statePath}/ttl/${fileName}> ;
+  sflo:hasResourcePage <${statePath}/ttl/index.html> .`;
+  }).join("\n\n");
+  const historyStates = Array.from(
+    { length: latestOrdinal },
+    (_, index) =>
+      `  sflo:hasHistoricalState <${historyPath}/${
+        toTemporalStateSegment(index + 1)
+      }> ;`,
+  ).join("\n");
+
+  return `@base <${temporalLaterPayloadMeshBase}> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<${knopPath}> a sflo:Knop ;
+  sflo:hasKnopMetadata <${knopPath}/_meta> ;
+  sflo:hasKnopInventory <${knopPath}/_inventory> ;
+  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> ;
+  sflo:hasPayloadArtifact <${designatorPath}> ;
+  sflo:hasKnopSourceRegistry <${knopPath}/_sources> ;
+  sflo:hasReferenceCatalog <${knopPath}/_references> ;
+  sflo:hasResourcePage <${knopPath}/index.html> .
+
+<${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasArtifactHistory <${historyPath}> ;
+  sflo:currentArtifactHistory <${historyPath}> ;
+  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
+  sflo:hasWorkingLocatedFile <${designatorPath}.ttl> ;
+  sflo:hasResourcePage <${designatorPath}/index.html> .
+
+<${historyPath}> a sflo:ArtifactHistory ;
+  sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
+${historyStates}
+  sflo:latestHistoricalState <${historyPath}/${
+    toTemporalStateSegment(latestOrdinal)
+  }> ;
+  sflo:nextStateOrdinal "${latestOrdinal + 1}"^^xsd:nonNegativeInteger ;
+  sflo:hasResourcePage <${historyPath}/index.html> .
+
+${stateBlocks}
+
+<${knopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${knopPath}/_meta/meta.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_meta/index.html> .
+
+<${knopPath}/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${knopPath}/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_inventory/index.html> .
+
+<${knopPath}/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${knopPath}/_sources/sources.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_sources/index.html> .
+
+<${knopPath}/_references> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${knopPath}/_references/references.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_references/index.html> .
+
+<${designatorPath}.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+`;
+}
+
+function temporalPayloadTurtle(
+  designatorPath: string,
+  label: string,
+  ordinal: number,
+): string {
+  return `@base <${temporalLaterPayloadMeshBase}> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+
+<${designatorPath}> dcterms:title "${label} v${ordinal}" .
+`;
+}
+
+function temporalLaterPayloadSnapshotPath(
+  target: TemporalLaterPayloadTarget,
+  ordinal: number,
+): string {
+  return `${target.designatorPath}/_history001/${
+    toTemporalStateSegment(ordinal)
+  }/ttl/${target.fileName}`;
+}
+
+function toTemporalStateSegment(ordinal: number): string {
+  return `_s${String(ordinal).padStart(4, "0")}`;
+}
+
+async function snapshotWorkspaceFiles(
+  root: string,
+): Promise<Map<string, Uint8Array>> {
+  const paths = await listWorkspaceFiles(root);
+  const snapshot = new Map<string, Uint8Array>();
+  for (const path of paths) {
+    snapshot.set(path, await Deno.readFile(join(root, path)));
+  }
+  return snapshot;
+}
+
+async function snapshotWorkspacePaths(
+  root: string,
+  paths: readonly string[],
+): Promise<Map<string, Uint8Array>> {
+  const snapshot = new Map<string, Uint8Array>();
+  for (const path of paths) {
+    snapshot.set(path, await Deno.readFile(join(root, path)));
+  }
+  return snapshot;
+}
+
+async function listWorkspaceFiles(
+  root: string,
+  prefix = "",
+): Promise<string[]> {
+  const files: string[] = [];
+  for await (const entry of Deno.readDir(join(root, prefix))) {
+    const path = prefix.length === 0 ? entry.name : `${prefix}/${entry.name}`;
+    if (entry.isDirectory) {
+      files.push(...await listWorkspaceFiles(root, path));
+    } else if (entry.isFile) {
+      files.push(path);
+    }
+  }
+  return files.sort();
+}
+
+function assertWorkspaceSnapshotsEqual(
+  actual: ReadonlyMap<string, Uint8Array>,
+  expected: ReadonlyMap<string, Uint8Array>,
+): void {
+  assertEquals([...actual.keys()].sort(), [...expected.keys()].sort());
+  for (const [path, actualBytes] of actual) {
+    const expectedBytes = expected.get(path);
+    assert(expectedBytes, `expected snapshot to include ${path}`);
+    assertEquals(
+      [...actualBytes],
+      [...expectedBytes],
+      `workspace file differed: ${path}`,
+    );
+  }
 }
 
 async function replaceFileText(

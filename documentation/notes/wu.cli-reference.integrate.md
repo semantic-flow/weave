@@ -59,6 +59,10 @@ This records `sflo:hasRepositorySourceFloatingLocator` with `sflo:sourceReposito
 
 If `--source-repository-url` is omitted, Weave resolves the URL from the source checkout's git remote. Use `--source-repository-remote <name>` with `--source-repository-current` to choose a remote other than `origin`.
 
+`--source-repository-url` describes the repository that owns the source file being integrated, not the repository that contains the mesh root. In a branch-published or application-managed data mesh, those may be different checkouts. For example, if the source file lives in an application repository and the mesh root lives in a separate publication/data repository, the source repository URL should identify the application repository.
+
+The URL is recorded as provenance text; Weave does not require a `.git` suffix. Use the canonical clone-style URL you want future readers and automation to recognize. Existing examples use GitHub HTTPS URLs with `.git` because they are unambiguous clone URLs, but `https://github.com/org/repo` and SSH-style remotes are also accepted as strings.
+
 ## Pinned Repository Provenance
 
 Use repository metadata without `--source-repository-current` when the source observation should be tied to a specific ref/path and optional commit evidence.

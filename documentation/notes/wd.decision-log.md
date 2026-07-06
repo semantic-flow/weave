@@ -20,6 +20,36 @@ created: 1773630801215
 
 ## Decisions
 
+### 2026-07-06: Application Owns Payload Batch Atomicity
+
+- Decision: Multi-target payload advancement is a fail-closed deterministic Weave plan, not a transactional filesystem boundary; the requesting application owns coherent serialization, locking, rollback, and retry orchestration.
+- References: [[wa.task.2026.2026-07-05-multi-target-payload-advancement]], [[wa.task.2026.2026-07-03_1332-stagecraft-weave-planner-generalization]], [[wd.todo]]
+- Why:
+  - The application is the coherent writer for game/session state and can re-request the weave after a process or filesystem failure.
+  - Weave's useful guarantee is that a requested batch validates as a whole before writing, renders shared support artifacts once, and safely no-ops already-current payloads on rerun.
+  - Adding locks, journals, rollback, or grouped-provenance vocabulary would solve a different problem than this planner slice.
+
+### 2026-07-06: Payload Batch Snapshot Hash Scope
+
+- Decision: Explicit multi-target payload batch snapshot verification hashes the requested targets' current working payload files before capture and verifies them after capture; hashing every plan-read support/config input is deferred until candidate loading and effective-config discovery expose a clean pre-capture read set.
+- References: [[wa.task.2026.2026-07-05-multi-target-payload-advancement]], [[wd.todo]]
+- Why:
+  - The immediate torn-read risk is one requested payload file being captured before another requested payload file changes.
+  - Current inventories and support artifacts are discovered while candidate/config loading runs, so full plan-read hashing would become a loader-read-set refactor rather than the small pre-write guard in this slice.
+  - The guard still fails closed before Weave writes when a scoped input changes during batch capture.
+
+### 2026-07-06: Later Payload Weave Uses RDF Fact Progression
+
+- Decision: Generalize the later-payload weave path so single-target payload advancement derives current history, latest state, next state ordinal, and current-only support-artifact behavior from current RDF facts instead of requiring the settled second-payload fixture shape.
+- References: [[wa.task.2026.2026-07-03_1332-stagecraft-weave-planner-generalization]], [[wd.todo]]
+- Why:
+  - Application meshes can already have `_history001/_s0003` or later payload states while intentionally keeping Knop support artifacts current-only.
+  - `weave generate` must remain render-only; full `weave` is the operation that should advance coherent payload histories.
+  - Condition-specific diagnostics for missing or conflicting RDF facts are more useful than exposing the old fixture-shaped implementation boundary.
+- Follow-Up Tasks:
+  - [x] Add multi-target later-payload advancement as the next planner slice.
+  - [x] Add scenario-runner-backed Accord acceptance coverage for the Stagecraft-shaped transition.
+
 ### 2026-05-17: Keep KnopInventory Current-Only Default Explicit
 
 - Decision: Keep the explicit `sfcfg:artifactRole_knopInventory` `currentOnly` default in `defaults/application.ttl` even though it currently matches the global default.

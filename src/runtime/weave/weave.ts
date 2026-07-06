@@ -31,6 +31,7 @@ import {
 } from "./request_normalization.ts";
 import { generatePreparedPages } from "./page_generation.ts";
 import {
+  type InputSnapshotVerificationHooks,
   prepareVersionExecution,
   validateVersionPlanRdf,
   writePreparedVersion,
@@ -49,6 +50,7 @@ export interface ExecuteVersionOptions {
   request?: VersionRequest;
   historyTrackingPolicyOverride?: HistoryTrackingPolicy;
   onProgress?: WeaveProgressHandler;
+  inputSnapshotVerification?: InputSnapshotVerificationHooks;
 }
 
 export interface ExecuteGenerateOptions {
@@ -58,6 +60,7 @@ export interface ExecuteGenerateOptions {
   now?: () => Date;
   includeSemanticFlowMetadata?: boolean;
   historyTrackingPolicyOverride?: HistoryTrackingPolicy;
+  updateTimestampOnlyPages?: boolean;
 }
 
 export interface ExecuteWeaveOptions {
@@ -70,6 +73,8 @@ export interface ExecuteWeaveOptions {
   onProgress?: WeaveProgressHandler;
   validateBefore?: boolean;
   validateAfter?: boolean;
+  inputSnapshotVerification?: InputSnapshotVerificationHooks;
+  updateTimestampOnlyPages?: boolean;
 }
 
 export type ValidateScope = "mesh" | "publication";
@@ -232,6 +237,7 @@ export async function executeVersion(
       options.historyTrackingPolicyOverride,
       options.onProgress,
       timing,
+      options.inputSnapshotVerification,
     );
     const result = await writePreparedVersion(
       meshRoot,
@@ -286,6 +292,7 @@ export async function executeGenerate(
       now: options.now,
       includeSemanticFlowMetadata: options.includeSemanticFlowMetadata ?? false,
       historyTrackingPolicyOverride: options.historyTrackingPolicyOverride,
+      updateTimestampOnlyPages: options.updateTimestampOnlyPages === true,
       timing,
     });
     timing.setField(
@@ -353,6 +360,7 @@ export async function executeWeave(
         options.historyTrackingPolicyOverride,
         options.onProgress,
         timing,
+        options.inputSnapshotVerification,
       );
       timing.timeSync(
         "version.validateRdf",
@@ -384,6 +392,7 @@ export async function executeWeave(
           now: options.now,
           includeSemanticFlowMetadata: false,
           historyTrackingPolicyOverride: options.historyTrackingPolicyOverride,
+          updateTimestampOnlyPages: options.updateTimestampOnlyPages === true,
           timing,
           phasePrefix: "generate",
         }),

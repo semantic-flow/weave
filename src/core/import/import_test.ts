@@ -195,6 +195,81 @@ Deno.test("planImport replaces source registry provenance for an existing import
   );
 });
 
+Deno.test("planImport appends missing source registry inventory facts without rewriting carried facts", () => {
+  const currentKnopInventoryTurtle = legacyImportedPayloadKnopInventory(
+    '<bob/page-main/_knop> <https://example.org/weave-test/curatedNote> "keep me" .\n',
+  );
+
+  const plan = planImport({
+    designatorPath: "bob/page-main",
+    workingLocalRelativePath: "bob-page-main.md",
+    importedBytes: encode("# Bob v2\n"),
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: "",
+    currentKnopInventoryTurtle,
+    replaceWorking: true,
+    sourceBinding: {
+      targetAccessUrl: "https://example.com/bob-v2.md",
+      observation: {
+        observedContentDigest: "sha256:second",
+      },
+    },
+  });
+
+  assertEquals(
+    plan.createdFiles.map((file) => file.path),
+    ["bob/page-main/_knop/_sources/sources.ttl"],
+  );
+  assertEquals(
+    plan.updatedFiles.map((file) => file.path),
+    ["bob/page-main/_knop/_inventory/inventory.ttl"],
+  );
+
+  const inventory = plan.updatedFiles[0]?.contents ?? "";
+  assertEquals(inventory.startsWith(currentKnopInventoryTurtle), true);
+  assertStringIncludes(
+    inventory,
+    '<bob/page-main/_knop> <https://example.org/weave-test/curatedNote> "keep me" .',
+  );
+  assertStringIncludes(
+    inventory,
+    "<bob/page-main/_knop> sflo:hasKnopSourceRegistry <bob/page-main/_knop/_sources> .",
+  );
+  assertStringIncludes(
+    inventory,
+    "sflo:hasWorkingLocatedFile <bob/page-main/_knop/_sources/sources.ttl> .",
+  );
+});
+
+Deno.test("planImport fails closed when appending source registry facts would conflict", () => {
+  const currentKnopInventoryTurtle = legacyImportedPayloadKnopInventory(
+    `<bob/page-main/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <bob/page-main/_knop/_sources/other.ttl> .
+`,
+  );
+
+  assertThrows(
+    () =>
+      planImport({
+        designatorPath: "bob/page-main",
+        workingLocalRelativePath: "bob-page-main.md",
+        importedBytes: encode("# Bob v2\n"),
+        meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+        currentMeshInventoryTurtle: "",
+        currentKnopInventoryTurtle,
+        replaceWorking: true,
+        sourceBinding: {
+          targetAccessUrl: "https://example.com/bob-v2.md",
+          observation: {
+            observedContentDigest: "sha256:second",
+          },
+        },
+      }),
+    ImportInputError,
+    "conflicts with existing fact",
+  );
+});
+
 Deno.test("planImport rejects replacement without replaceWorking", () => {
   const initial = planImport({
     designatorPath: "bob/page-main",
@@ -246,6 +321,23 @@ Deno.test("planImport rejects replacement without replaceWorking", () => {
     "import target already exists",
   );
 });
+
+function legacyImportedPayloadKnopInventory(extraTurtle: string): string {
+  return `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<bob/page-main/_knop> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <bob/page-main/_knop/_inventory/inventory.ttl> ;
+  sflo:hasPayloadArtifact <bob/page-main> .
+
+<bob/page-main> a sflo:PayloadArtifact, sflo:DigitalArtifact ;
+  sflo:hasWorkingLocatedFile <bob-page-main.md> .
+
+<bob/page-main/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<bob-page-main.md> a sflo:LocatedFile .
+${extraTurtle}`;
+}
 
 function encode(value: string): Uint8Array {
   return new TextEncoder().encode(value);

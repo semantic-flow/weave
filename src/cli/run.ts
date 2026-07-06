@@ -87,6 +87,7 @@ import {
 import { resolveUserSettingsPaths } from "../runtime/settings/user_settings.ts";
 import type { HistoryTrackingPolicy } from "../runtime/config/effective_config.ts";
 import { WEAVE_VERSION } from "../version.ts";
+import { parseIso8601Instant } from "./generated_at.ts";
 
 const TARGET_OPTION_DESCRIPTION =
   "Target spec as comma-separated key=value fields. Supported keys: designatorPath, recursive. Versioning commands also accept historySegment, stateSegment, and manifestationSegment.";
@@ -144,6 +145,10 @@ export async function runWeaveCli(args: string[]): Promise<number> {
       "Override the history tracking policy for all artifact roles during this command.",
     )
     .option(
+      "--generated-at <instant:string>",
+      "Use this ISO 8601 instant as the single generated-page timestamp.",
+    )
+    .option(
       "--silent",
       "Suppress progress updates for long-running weave operations.",
     )
@@ -164,11 +169,16 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         payloadManifestationSegment?: string;
         overwriteExistingState?: boolean;
         historyTrackingPolicy?: string;
+        generatedAt?: string;
         silent?: boolean;
         validateBefore?: boolean;
         validateAfter?: boolean;
       },
     ) => {
+      const generatedAt = resolveGeneratedAtOption(
+        options.generatedAt,
+        "weave",
+      );
       const meshRoot = resolve(options.meshRoot);
       const { workspaceRoot, logDir } = await resolveCliMeshContext(meshRoot);
       const targets = resolveVersionTargetSpecs(options, "weave");
@@ -185,6 +195,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         targets,
         overwriteExistingState: options.overwriteExistingState === true,
         historyTrackingPolicyOverride,
+        generatedAt: generatedAt?.iso,
         validateBefore: options.validateBefore === true,
         validateAfter: options.validateAfter === true,
         localMode: true,
@@ -202,10 +213,12 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           : undefined,
         operationalLogger,
         auditLogger,
+        now: generatedAt?.now,
         historyTrackingPolicyOverride,
         onProgress: options.silent ? undefined : printWeaveProgress,
         validateBefore: options.validateBefore === true,
         validateAfter: options.validateAfter === true,
+        updateTimestampOnlyPages: generatedAt !== undefined,
       });
       console.log(describeWeaveResult(result));
       printTimestampOnlyGenerateSkipInfo(result.skippedTimestampOnlyPaths);
@@ -385,14 +398,23 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           "--history-tracking-policy <policy:string>",
           "Override the history tracking policy for all artifact roles during this command.",
         )
+        .option(
+          "--generated-at <instant:string>",
+          "Use this ISO 8601 instant as the single generated-page timestamp.",
+        )
         .action(async (
           options: {
             meshRoot: string;
             target?: string[];
             includeSemanticFlowMetadata?: boolean;
             historyTrackingPolicy?: string;
+            generatedAt?: string;
           },
         ) => {
+          const generatedAt = resolveGeneratedAtOption(
+            options.generatedAt,
+            "generate",
+          );
           const meshRoot = resolve(options.meshRoot);
           const { workspaceRoot, logDir } = await resolveCliMeshContext(
             meshRoot,
@@ -411,6 +433,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             includeSemanticFlowMetadata:
               options.includeSemanticFlowMetadata === true,
             historyTrackingPolicyOverride,
+            generatedAt: generatedAt?.iso,
             localMode: true,
           });
 
@@ -418,9 +441,11 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             meshRoot,
             request: targets.length > 0 ? { targets } : undefined,
             operationalLogger,
+            now: generatedAt?.now,
             includeSemanticFlowMetadata:
               options.includeSemanticFlowMetadata === true,
             historyTrackingPolicyOverride,
+            updateTimestampOnlyPages: generatedAt !== undefined,
           });
           console.log(describeGenerateResult(result));
           printTimestampOnlyGenerateSkipInfo(result.skippedTimestampOnlyPaths);
@@ -1912,6 +1937,31 @@ function printTimestampOnlyGenerateSkipInfo(paths: readonly string[]): void {
   console.log(
     `info: skipped ${paths.length} generated ${pageLabel} with timestamp-only differences`,
   );
+}
+
+function resolveGeneratedAtOption(
+  value: string | undefined,
+  commandName: string,
+): { iso: string; now: () => Date } | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const instant = resolveRequiredOptionValue(
+    value,
+    `${commandName} --generated-at requires an ISO 8601 instant`,
+    (message) => new WeaveInputError(message),
+  );
+  const parsed = parseIso8601Instant(instant);
+  if (parsed === undefined) {
+    throw new WeaveInputError(
+      `${commandName} --generated-at must be an ISO 8601 instant with an explicit UTC offset, such as 2026-07-06T12:34:56Z or 2026-07-06T08:34:56-04:00`,
+    );
+  }
+  const iso = parsed.toISOString();
+  return {
+    iso,
+    now: () => new Date(iso),
+  };
 }
 
 function getCliErrorMessage(error: unknown): string {

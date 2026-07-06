@@ -1,5 +1,5 @@
 {
-  "version": "0.2.2",
+  "version": "0.3.0",
   "tasks": {
     "dev:root": "deno run --allow-read --allow-write --allow-env --allow-net src/main.ts",
     "bump:version": "deno run --allow-read --allow-write scripts/bump-version.ts",
@@ -30,6 +30,7 @@
     "jsonld": "npm:jsonld@9.0.0",
     "n3": "npm:n3@2.0.3",
     "rdf-canonize": "npm:rdf-canonize@5.0.0",
+    "sparqljs": "npm:sparqljs@3.7.4",
     "shiki": "npm:shiki@4.0.2"
   },
   "exclude": [

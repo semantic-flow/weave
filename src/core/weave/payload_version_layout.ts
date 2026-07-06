@@ -18,6 +18,7 @@ import {
   hasSubject,
   parseWeaveShapeQuads,
   requireSingleNonNegativeIntegerLiteral,
+  requireSingleNonNegativeIntegerLiteralWithDiagnostics,
   resolveOptionalNamedNodePath,
   resolveOptionalSegmentHint,
   toAbsoluteIri,
@@ -96,7 +97,7 @@ export function resolveFirstPayloadVersionLayout(
   };
 }
 
-export function resolveSecondPayloadVersionLayout(
+export function resolveLaterPayloadVersionLayout(
   meshBase: string,
   designatorPath: string,
   payloadArtifact: PayloadWorkingArtifact,
@@ -166,6 +167,12 @@ export function resolveSecondPayloadVersionLayout(
     designatorPath,
     historyPath,
     `Could not resolve the current payload historical state for ${designatorPath} in ${historyPath}.`,
+    {
+      missingMessage:
+        `Payload history ${historyPath} for ${designatorPath} is missing sflo:latestHistoricalState.`,
+      conflictMessage:
+        `Payload history ${historyPath} for ${designatorPath} has conflicting sflo:latestHistoricalState facts.`,
+    },
   );
   const currentManifestationPath =
     resolveCurrentPayloadManifestationPathFromInventory(
@@ -202,6 +209,14 @@ export function resolveSecondPayloadVersionLayout(
       meshBase,
       historyPath,
       `Could not resolve the next payload historical state for ${designatorPath} in ${historyPath}.`,
+      {
+        missingMessage:
+          `Payload history ${historyPath} for ${designatorPath} is missing sflo:nextStateOrdinal.`,
+        conflictMessage:
+          `Payload history ${historyPath} for ${designatorPath} has conflicting sflo:nextStateOrdinal facts.`,
+        invalidMessage:
+          `Payload history ${historyPath} for ${designatorPath} has invalid sflo:nextStateOrdinal.`,
+      },
     );
   if (nextStatePath === currentStatePath) {
     throw new WeaveInputError(
@@ -394,15 +409,27 @@ function resolveNextOrdinalStatePathFromHistory(
   meshBase: string,
   historyPath: string,
   errorMessage: string,
+  diagnostics?: {
+    missingMessage?: string;
+    conflictMessage?: string;
+    invalidMessage?: string;
+  },
 ): string {
-  const nextStateOrdinal = requireSingleNonNegativeIntegerLiteral(
-    quads,
-    toAbsoluteIri(meshBase, historyPath),
-    SFLO_NEXT_STATE_ORDINAL_IRI,
-    errorMessage,
-  );
+  const nextStateOrdinal = diagnostics === undefined
+    ? requireSingleNonNegativeIntegerLiteral(
+      quads,
+      toAbsoluteIri(meshBase, historyPath),
+      SFLO_NEXT_STATE_ORDINAL_IRI,
+      errorMessage,
+    )
+    : requireSingleNonNegativeIntegerLiteralWithDiagnostics(
+      quads,
+      toAbsoluteIri(meshBase, historyPath),
+      SFLO_NEXT_STATE_ORDINAL_IRI,
+      diagnostics,
+    );
   if (nextStateOrdinal < 1) {
-    throw new WeaveInputError(errorMessage);
+    throw new WeaveInputError(diagnostics?.invalidMessage ?? errorMessage);
   }
 
   return `${historyPath}/${toStateSegment(nextStateOrdinal)}`;

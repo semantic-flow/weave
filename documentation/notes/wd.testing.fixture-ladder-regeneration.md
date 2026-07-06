@@ -28,6 +28,8 @@ The transition manifests and example specs live in the Semantic Flow Framework c
 
 - `dependencies/github.com/semantic-flow/semantic-flow-framework`
 
+Keep conformance harness files off generated fixture rung refs unless a task has a concrete reason to make a self-contained fixture repository. In the current Weave fixture setup, update conformance manifests and `scenario-index.jsonld` in the Semantic Flow Framework checkout, not on the generated rung branches. If a future fixture repo does carry `conformance/`, cover those files explicitly or ignore them with `conformance/**`; do not let harness churn become the transition being tested by accident.
+
 The ladder runner also uses Accord from:
 
 - `dependencies/github.com/spectacular-voyage/accord`
@@ -54,6 +56,34 @@ Useful options:
 - `--workspace-root <path>` uses a specific empty workspace, useful for debugging one transition
 
 The script intentionally does not push fixture branches. Its successful output says which branch was updated and reminds you to push that branch separately.
+
+## Weave And ResourcePages
+
+`weave generate` renders ResourcePages from an already-settled mesh state. It may legitimately create no files when the needed histories or page-bearing resources do not exist yet.
+
+The bare `weave` command runs the composed local flow:
+
+```text
+validate
+version
+generate ResourcePages
+```
+
+When the expected checkpoint is a fully woven fixture rung with payload histories, support RDF, and `index.html` ResourcePages, run full `weave`, not only `weave generate`. A `*-woven` rung should normally include both the generated ResourcePages and the RDF links that claim them, such as `sflo:hasResourcePage`.
+
+## Accord Checks
+
+Accord is the transition checker. It does not execute Weave; use Weave or the fixture ladder runner to produce the target checkout first.
+
+Use Accord to answer:
+
+- did this transition add, update, or remove the expected paths?
+- do representative RDF facts exist in the target ref?
+- did generated support files land where the contract expects?
+
+For added RDF files, pair path expectations with semantic assertions for the facts that matter. Do not expect Accord to prove exact bytes for newly added files unless the manifest contract explicitly asks for byte-level comparison.
+
+Consumer fixture checks validate the checkout a downstream tool reads. They are useful for proving that the accepted fixture state is still parseable and meaningful to that tool, but they do not replace Accord checks for the ladder transitions that produced the state.
 
 ## Rung Dependency Model
 
@@ -310,14 +340,38 @@ weave: document fixture ladder regeneration
 - describe review and push steps for Alice, sidecar, and branch-published fixtures
 - record CI failure patterns for missing fixture refs and stale remote fixture branches
 ```
-## Finally, merge to main
 
-After non-branch ladders have been regenerated, move main to those final states, so that main always reflects the latest rung, something like:
+## Update Main
 
+After non-branch ladders have been regenerated, update `main` by merging the accepted woven rung. Do not re-apply rung content to `main` as fresh linear commits, and do not reset `main` directly to the rung unless the task is explicitly a history-repair operation. Merging makes the accepted rung an ancestor of `main`, so provenance remains visible in history and the "accepted state plus harness" invariant is checked at merge time instead of reconstructed by hand.
+
+Example:
+
+```sh
 git -C dependencies/github.com/semantic-flow/mesh-alice-bio switch main
-git -C dependencies/github.com/semantic-flow/mesh-alice-bio reset --hard a.25-root-page-customized-woven
-git -C dependencies/github.com/semantic-flow/mesh-alice-bio push --force-with-lease origin main
+git -C dependencies/github.com/semantic-flow/mesh-alice-bio merge a.25-root-page-customized-woven
+```
+
+Do the same for other non-branch fixture ladders whose `main` branch should mirror the accepted current state:
+
+```sh
+git -C dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules switch main
+git -C dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules merge a.17-all-remaining-terms-woven
+```
+
+Before pushing, verify that `main` differs from the accepted woven rung only under harness-only paths such as `conformance/`. In the current Weave fixture setup, conformance manifests live in the Semantic Flow Framework checkout rather than the fixture repos, so this diff should usually be empty:
+
+```sh
+git -C dependencies/github.com/semantic-flow/mesh-alice-bio switch main
+git -C dependencies/github.com/semantic-flow/mesh-alice-bio diff a.25-root-page-customized-woven main --name-only | grep -v '^conformance/' && echo "DRIFT: main diverged from the accepted rung" || echo "ok: only harness paths differ"
 
 git -C dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules switch main
-git -C dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules reset --hard a.17-all-remaining-terms-woven
-git -C dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules push --force-with-lease origin main
+git -C dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules diff a.17-all-remaining-terms-woven main --name-only | grep -v '^conformance/' && echo "DRIFT: main diverged from the accepted rung" || echo "ok: only harness paths differ"
+```
+
+After the invariant check passes, push `main` normally:
+
+```sh
+git -C dependencies/github.com/semantic-flow/mesh-alice-bio push origin main
+git -C dependencies/github.com/semantic-flow/mesh-sidecar-fantasy-rules push origin main
+```
