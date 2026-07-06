@@ -371,7 +371,7 @@ export function buildCurrentOnlyPageDefinitionWeavePages(
   ];
 }
 
-export function buildSecondPayloadWeavePages(
+export function buildLaterPayloadWeavePages(
   designatorPath: string,
   payloadLayout: PayloadVersionLayout,
   options?: { knopInventoryProgression?: MeshInventoryProgression },

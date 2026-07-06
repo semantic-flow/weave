@@ -96,7 +96,7 @@ export function resolveFirstPayloadVersionLayout(
   };
 }
 
-export function resolveSecondPayloadVersionLayout(
+export function resolveLaterPayloadVersionLayout(
   meshBase: string,
   designatorPath: string,
   payloadArtifact: PayloadWorkingArtifact,

@@ -636,7 +636,7 @@ const firstReferenceCatalogWeaveReferenceCatalogTurtle =
   sflo:targetArtifact <alice/data> .
 `;
 
-const secondPayloadWeaveKnopInventoryTurtle =
+const laterPayloadWeaveKnopInventoryTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
@@ -2361,7 +2361,7 @@ Deno.test("planWeave renders the second alice bio payload weave slice", () => {
     weaveableKnops: [{
       designatorPath: "alice/data",
       currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
-      currentKnopInventoryTurtle: secondPayloadWeaveKnopInventoryTurtle,
+      currentKnopInventoryTurtle: laterPayloadWeaveKnopInventoryTurtle,
       payloadArtifact: {
         workingLocalRelativePath: "alice-data.ttl",
         currentArtifactHistoryPath: "alice/data/_history001",
@@ -2412,7 +2412,7 @@ Deno.test("detectPendingWeaveSlice recognizes later ordinal payload advancement 
       "projections/contracts/inn-ambush-contract-context",
       laterOrdinalCurrentOnlyPayloadKnopInventoryTurtle,
     ),
-    "secondPayloadWeave",
+    "laterPayloadWeave",
   );
 });
 
@@ -2642,7 +2642,7 @@ Deno.test("planWeave applies configured manifestation naming on the second paylo
     weaveableKnops: [{
       designatorPath: "alice/data",
       currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
-      currentKnopInventoryTurtle: secondPayloadWeaveKnopInventoryTurtle,
+      currentKnopInventoryTurtle: laterPayloadWeaveKnopInventoryTurtle,
       payloadArtifact: {
         workingLocalRelativePath: "alice-data.ttl",
         currentArtifactHistoryPath: "alice/data/_history001",
@@ -2688,7 +2688,7 @@ Deno.test("planWeave requires explicit state segments for non-ordinal state nami
         weaveableKnops: [{
           designatorPath: "alice/data",
           currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
-          currentKnopInventoryTurtle: secondPayloadWeaveKnopInventoryTurtle,
+          currentKnopInventoryTurtle: laterPayloadWeaveKnopInventoryTurtle,
           payloadArtifact: {
             workingLocalRelativePath: "alice-data.ttl",
             currentArtifactHistoryPath: "alice/data/_history001",
@@ -2706,7 +2706,7 @@ Deno.test("planWeave requires explicit state segments for non-ordinal state nami
 });
 
 Deno.test("planWeave applies requested payload naming on the second payload weave slice", () => {
-  const currentKnopInventoryTurtle = secondPayloadWeaveKnopInventoryTurtle
+  const currentKnopInventoryTurtle = laterPayloadWeaveKnopInventoryTurtle
     .replaceAll(
       "alice/data/_history001/_s0001",
       "alice/data/releases/v0.0.1",
@@ -2767,7 +2767,7 @@ Deno.test("planWeave applies requested payload naming on the second payload weav
 });
 
 Deno.test("planWeave consumes next-state intent on the selected current history", () => {
-  const currentKnopInventoryTurtle = secondPayloadWeaveKnopInventoryTurtle
+  const currentKnopInventoryTurtle = laterPayloadWeaveKnopInventoryTurtle
     .replace(
       "@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .",
       `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
@@ -2821,7 +2821,7 @@ Deno.test("planWeave consumes next-state intent on the selected current history"
 
 Deno.test("detectPendingWeaveSlice accepts semantically equivalent second payload weave Turtle", () => {
   const equivalentKnopInventoryTurtle = withRdfPrefix(
-    secondPayloadWeaveKnopInventoryTurtle,
+    laterPayloadWeaveKnopInventoryTurtle,
   )
     .replace(
       "<alice/data/_knop> a sflo:Knop ;",
@@ -2850,12 +2850,12 @@ Deno.test("detectPendingWeaveSlice accepts semantically equivalent second payloa
       "alice/data",
       equivalentKnopInventoryTurtle,
     ),
-    "secondPayloadWeave",
+    "laterPayloadWeave",
   );
 });
 
 Deno.test("detectPendingWeaveSlice supports custom payload history and state naming", () => {
-  const customNamedKnopInventoryTurtle = secondPayloadWeaveKnopInventoryTurtle
+  const customNamedKnopInventoryTurtle = laterPayloadWeaveKnopInventoryTurtle
     .replaceAll(
       "alice/data/_history001/_s0001",
       "alice/data/releases/v0.0.1",
@@ -2868,7 +2868,7 @@ Deno.test("detectPendingWeaveSlice supports custom payload history and state nam
       "alice/data",
       customNamedKnopInventoryTurtle,
     ),
-    "secondPayloadWeave",
+    "laterPayloadWeave",
   );
 });
 
@@ -2921,7 +2921,7 @@ Deno.test("detectPendingWeaveSlice ignores current-only settled Knops with Resou
 });
 
 Deno.test("planWeave can start a requested payload history after another history exists", () => {
-  const currentKnopInventoryTurtle = secondPayloadWeaveKnopInventoryTurtle
+  const currentKnopInventoryTurtle = laterPayloadWeaveKnopInventoryTurtle
     .replaceAll(
       "alice/data/_history001/_s0001",
       "alice/data/releases/v0.0.1",
@@ -2998,7 +2998,7 @@ Deno.test("planWeave can start a requested payload history after another history
 
 Deno.test("planWeave can start a requested payload history with working-only KnopInventory policy", () => {
   const historyPath = "alice/data/_knop/_inventory/_history001";
-  const versionedKnopInventoryTurtle = secondPayloadWeaveKnopInventoryTurtle
+  const versionedKnopInventoryTurtle = laterPayloadWeaveKnopInventoryTurtle
     .replaceAll(
       "alice/data/_history001/_s0001",
       "alice/data/releases/v0.0.1",
@@ -3082,7 +3082,7 @@ Deno.test("planWeave can start a requested payload history with working-only Kno
 });
 
 Deno.test("planWeave rejects implicit ordinal advancement after a named payload state", () => {
-  const currentKnopInventoryTurtle = secondPayloadWeaveKnopInventoryTurtle
+  const currentKnopInventoryTurtle = laterPayloadWeaveKnopInventoryTurtle
     .replaceAll(
       "alice/data/_history001/_s0001",
       "alice/data/releases/v0.0.1",

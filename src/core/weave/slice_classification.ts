@@ -76,7 +76,7 @@ export function classifyWeaveSlice(
     );
   }
 
-  if (slice === "secondPayloadWeave" && !candidate.payloadArtifact) {
+  if (slice === "laterPayloadWeave" && !candidate.payloadArtifact) {
     throw new WeaveInputError(
       `Payload weave candidate ${candidate.designatorPath} is missing working payload state.`,
     );
@@ -244,7 +244,7 @@ export function detectPendingWeaveSlice(
     !isDeclaredArtifactHistory(quads, meshBase, payloadHistoryPath) &&
     payloadHasDeclaredArtifactHistory
   ) {
-    return "secondPayloadWeave";
+    return "laterPayloadWeave";
   }
 
   if (
@@ -253,7 +253,7 @@ export function detectPendingWeaveSlice(
     isDeclaredArtifactHistory(quads, meshBase, payloadHistoryPath) &&
     hasNextStateSegmentHint(quads, meshBase, payloadHistoryPath)
   ) {
-    return "secondPayloadWeave";
+    return "laterPayloadWeave";
   }
 
   if (
@@ -277,7 +277,7 @@ export function detectPendingWeaveSlice(
           `${knopPath}/_inventory/_history001/_s0002`,
         )))
   ) {
-    return "secondPayloadWeave";
+    return "laterPayloadWeave";
   }
 
   if (
@@ -286,7 +286,7 @@ export function detectPendingWeaveSlice(
     knopInventoryHasHistory &&
     hasPayloadVersionNamingTarget(target)
   ) {
-    return "secondPayloadWeave";
+    return "laterPayloadWeave";
   }
 
   if (

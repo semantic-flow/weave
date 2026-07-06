@@ -4,4 +4,4 @@ export type WeaveSlice =
   | "firstExtractedKnopWeave"
   | "firstReferenceCatalogWeave"
   | "pageDefinitionWeave"
-  | "secondPayloadWeave";
+  | "laterPayloadWeave";

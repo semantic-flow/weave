@@ -30,7 +30,7 @@ created: 1773630801215
   - Condition-specific diagnostics for missing or conflicting RDF facts are more useful than exposing the old fixture-shaped implementation boundary.
 - Follow-Up Tasks:
   - [ ] Add multi-target later-payload advancement as the next planner slice.
-  - [ ] Add scenario-runner-backed Accord acceptance coverage for the Stagecraft-shaped transition.
+  - [x] Add scenario-runner-backed Accord acceptance coverage for the Stagecraft-shaped transition.
 
 ### 2026-05-17: Keep KnopInventory Current-Only Default Explicit
 

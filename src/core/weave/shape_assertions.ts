@@ -11,10 +11,6 @@ import type {
   ResourcePageDefinitionWorkingArtifact,
 } from "./candidates.ts";
 import { WeaveInputError } from "./errors.ts";
-import {
-  requirePayloadCurrentStatePath,
-  requirePayloadHistoryPath,
-} from "./payload_version_layout.ts";
 import type {
   MeshInventoryProgression,
   PageDefinitionWeaveProgression,
@@ -39,10 +35,6 @@ import {
   assertHasCurrentSourceLocator,
   assertHasCurrentWorkingFileLocator,
 } from "./source_locator_assertions.ts";
-import {
-  shouldMaterializeSupportHistory,
-  type SupportArtifactHistoryPolicy,
-} from "./support_history_policy.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const XSD_NON_NEGATIVE_INTEGER_IRI =
@@ -74,7 +66,6 @@ const SFLO_HAS_KNOP_INVENTORY_IRI = `${SFLO_NAMESPACE}hasKnopInventory`;
 const SFLO_HAS_KNOP_METADATA_IRI = `${SFLO_NAMESPACE}hasKnopMetadata`;
 const SFLO_HAS_KNOP_SOURCE_REGISTRY_IRI =
   `${SFLO_NAMESPACE}hasKnopSourceRegistry`;
-const SFLO_HAS_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasPayloadArtifact`;
 const SFLO_HAS_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}hasReferenceCatalog`;
 const SFLO_HAS_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}hasResourcePage`;
 const SFLO_HAS_SOURCE_BINDING_IRI = `${SFLO_NAMESPACE}hasSourceBinding`;
@@ -940,122 +931,6 @@ export function assertCurrentKnopInventoryShapeForFirstReferenceCatalogWeave(
   ) {
     throw new WeaveInputError(
       `ReferenceCatalog already has a ResourcePage for ${designatorPath}.`,
-    );
-  }
-}
-
-export function assertCurrentKnopInventoryShapeForSecondPayloadWeave(
-  meshBase: string,
-  currentKnopInventoryTurtle: string,
-  designatorPath: string,
-  payloadArtifact: PayloadWorkingArtifact,
-  nextPayloadStatePath: string,
-  options?: { knopInventoryHistoryPolicy?: SupportArtifactHistoryPolicy },
-): void {
-  const knopPath = toKnopPath(designatorPath);
-  const payloadHistoryPath = requirePayloadHistoryPath(
-    designatorPath,
-    payloadArtifact,
-  );
-  const currentPayloadStatePath = requirePayloadCurrentStatePath(
-    designatorPath,
-    payloadArtifact,
-    payloadHistoryPath,
-  );
-  const errorMessage =
-    `The current local weave slice only supports the settled second payload weave shape for ${designatorPath}.`;
-  const quads = parseWeaveShapeQuads(
-    meshBase,
-    currentKnopInventoryTurtle,
-    errorMessage,
-  );
-  const versionKnopInventory = shouldMaterializeSupportHistory(
-    options?.knopInventoryHistoryPolicy ?? "versioned",
-  );
-
-  const expectedFacts: NamedNodeFact[] = [
-    [knopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
-    [knopPath, SFLO_HAS_PAYLOAD_ARTIFACT_IRI, designatorPath],
-    [designatorPath, RDF_TYPE_IRI, SFLO_PAYLOAD_ARTIFACT_IRI],
-    [designatorPath, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
-    [designatorPath, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
-    [
-      designatorPath,
-      SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
-      payloadHistoryPath,
-    ],
-    [
-      payloadHistoryPath,
-      SFLO_LATEST_HISTORICAL_STATE_IRI,
-      currentPayloadStatePath,
-    ],
-    [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_KNOP_INVENTORY_IRI],
-    [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
-    [`${knopPath}/_inventory`, RDF_TYPE_IRI, SFLO_RDF_DOCUMENT_IRI],
-  ];
-  if (versionKnopInventory) {
-    expectedFacts.push(
-      [
-        `${knopPath}/_inventory`,
-        SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
-        `${knopPath}/_inventory/_history001`,
-      ],
-      [
-        `${knopPath}/_inventory/_history001`,
-        SFLO_LATEST_HISTORICAL_STATE_IRI,
-        `${knopPath}/_inventory/_history001/_s0001`,
-      ],
-    );
-  }
-  assertHasNamedNodeFacts(quads, meshBase, errorMessage, expectedFacts);
-  assertHasCurrentPayloadSourceLocator(
-    quads,
-    meshBase,
-    errorMessage,
-    designatorPath,
-    payloadArtifact,
-  );
-  assertHasCurrentWorkingFileLocator(
-    quads,
-    meshBase,
-    errorMessage,
-    `${knopPath}/_inventory`,
-    `${knopPath}/_inventory/inventory.ttl`,
-  );
-  assertHasLiteralFacts(quads, meshBase, errorMessage, [
-    [
-      payloadHistoryPath,
-      SFLO_NEXT_STATE_ORDINAL_IRI,
-      "2",
-      XSD_NON_NEGATIVE_INTEGER_IRI,
-    ],
-  ]);
-
-  if (
-    hasNamedNodeFact(
-      quads,
-      meshBase,
-      payloadHistoryPath,
-      SFLO_HAS_HISTORICAL_STATE_IRI,
-      nextPayloadStatePath,
-    )
-  ) {
-    throw new WeaveInputError(
-      `Payload artifact already has a second explicit historical state for ${designatorPath}.`,
-    );
-  }
-  if (
-    versionKnopInventory &&
-    hasNamedNodeFact(
-      quads,
-      meshBase,
-      `${knopPath}/_inventory/_history001`,
-      SFLO_HAS_HISTORICAL_STATE_IRI,
-      `${knopPath}/_inventory/_history001/_s0002`,
-    )
-  ) {
-    throw new WeaveInputError(
-      `KnopInventory already has a second explicit historical state for ${designatorPath}.`,
     );
   }
 }

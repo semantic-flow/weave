@@ -33,7 +33,7 @@ import {
 } from "./payload_overwrite.ts";
 import {
   renderFirstPayloadWovenKnopInventoryTurtle,
-  renderSecondPayloadWovenKnopInventoryTurtle,
+  renderLaterPayloadWovenKnopInventoryTurtle,
 } from "./payload_renderers.ts";
 import {
   renderFirstKnopWovenMeshInventoryTurtle,
@@ -52,7 +52,7 @@ import {
 } from "./knop_inventory_renderers.ts";
 import {
   resolveFirstPayloadVersionLayout,
-  resolveSecondPayloadVersionLayout,
+  resolveLaterPayloadVersionLayout,
 } from "./payload_version_layout.ts";
 import { resolveLaterPayloadWeaveReadModel } from "./payload_weave_read_model.ts";
 import { hasNamedNodeFact, parseWeaveShapeQuads } from "./rdf_helpers.ts";
@@ -75,7 +75,7 @@ import {
   buildFirstKnopWeavePages,
   buildFirstPayloadWeavePages,
   buildFirstReferenceCatalogWeavePages,
-  buildSecondPayloadWeavePages,
+  buildLaterPayloadWeavePages,
   buildSubsequentPageDefinitionWeavePages,
 } from "./resource_page_builders.ts";
 import { renderKnopInventoryWithPreservedSupportArtifacts } from "./knop_support_renderers.ts";
@@ -296,8 +296,8 @@ export function planWeave(input: PlanWeaveInput): WeavePlan {
             candidate,
             input.supportHistoryPolicies,
           );
-        case "secondPayloadWeave":
-          return planSecondPayloadWeave(
+        case "laterPayloadWeave":
+          return planLaterPayloadWeave(
             meshBase,
             candidate,
             target,
@@ -483,7 +483,7 @@ function assertPayloadNamingSupportedForSlice(
     return;
   }
 
-  if (slice === "firstPayloadWeave" || slice === "secondPayloadWeave") {
+  if (slice === "firstPayloadWeave" || slice === "laterPayloadWeave") {
     return;
   }
   if (target.recursive) {
@@ -1205,7 +1205,7 @@ function hasReferenceCatalogInKnopInventory(
   );
 }
 
-function planSecondPayloadWeave(
+function planLaterPayloadWeave(
   meshBase: string,
   candidate: WeaveableKnopCandidate,
   target?: NormalizedVersionTargetSpec,
@@ -1215,7 +1215,7 @@ function planSecondPayloadWeave(
   const payloadArtifact = candidate.payloadArtifact!;
   const designatorPath = candidate.designatorPath;
   const knopPath = toKnopPath(designatorPath);
-  const payloadLayout = resolveSecondPayloadVersionLayout(
+  const payloadLayout = resolveLaterPayloadVersionLayout(
     meshBase,
     designatorPath,
     payloadArtifact,
@@ -1245,7 +1245,7 @@ function planSecondPayloadWeave(
     renderKnopInventoryWithPreservedSupportArtifacts({
       meshBase,
       currentKnopInventoryTurtle: candidate.currentKnopInventoryTurtle,
-      renderedKnopInventoryTurtle: renderSecondPayloadWovenKnopInventoryTurtle(
+      renderedKnopInventoryTurtle: renderLaterPayloadWovenKnopInventoryTurtle(
         meshBase,
         designatorPath,
         payloadLayout,
@@ -1278,7 +1278,7 @@ function planSecondPayloadWeave(
         contents: wovenKnopInventoryTurtle,
       },
     ],
-    createdPages: buildSecondPayloadWeavePages(
+    createdPages: buildLaterPayloadWeavePages(
       designatorPath,
       payloadLayout,
       { knopInventoryProgression },

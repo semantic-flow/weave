@@ -192,7 +192,7 @@ async function loadWeaveableKnopCandidate(
   }
 
   if (
-    slice === "firstPayloadWeave" || slice === "secondPayloadWeave" ||
+    slice === "firstPayloadWeave" || slice === "laterPayloadWeave" ||
     slice === "firstExtractedKnopWeave"
   ) {
     candidate.payloadArtifact = await timeOptional(
@@ -296,7 +296,7 @@ function isWeaveableKnopCandidate(
     return candidate.payloadArtifact !== undefined;
   }
 
-  if (slice === "secondPayloadWeave") {
+  if (slice === "laterPayloadWeave") {
     return candidate.payloadArtifact !== undefined &&
       (hasPayloadVersionNamingTarget(target) ||
         (candidate.payloadArtifact.latestHistoricalSnapshotTurtle !==

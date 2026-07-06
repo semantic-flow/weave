@@ -351,12 +351,10 @@ function renderMultiHistoryPayloadWovenKnopInventoryTurtle(
   const payloadHistoryBlocks = payloadHistories
     .map(renderRenderedArtifactHistoryBlock)
     .join("\n\n");
-  const payloadStateBlocks = payloadHistories.flatMap((history) =>
-    history.states.map(renderRenderedHistoricalStateBlock)
-  ).join("\n\n");
-  const payloadManifestationBlocks = payloadHistories.flatMap((history) =>
-    history.states.map(renderRenderedManifestationBlock)
-  ).join("\n\n");
+  const payloadStateAndManifestationBlocks = payloadHistories.flatMap((
+    history,
+  ) => history.states.map(renderRenderedHistoricalStateWithManifestationBlock))
+    .join("\n\n");
   const payloadLocatedFileBlocks = payloadHistories.flatMap((history) =>
     history.states.map((state) =>
       `<${state.locatedFilePath}> a sflo:LocatedFile, sflo:RdfDocument .`
@@ -369,12 +367,12 @@ function renderMultiHistoryPayloadWovenKnopInventoryTurtle(
   const knopInventoryHistoryBlocks = knopInventoryHistories
     .map(renderRenderedArtifactHistoryBlock)
     .join("\n\n");
-  const knopInventoryStateBlocks = knopInventoryHistories.flatMap((history) =>
-    history.states.map(renderRenderedHistoricalStateBlock)
-  ).join("\n\n");
-  const knopInventoryManifestationBlocks = knopInventoryHistories.flatMap((
-    history,
-  ) => history.states.map(renderRenderedManifestationBlock)).join("\n\n");
+  const knopInventoryStateAndManifestationBlocks = knopInventoryHistories
+    .flatMap((
+      history,
+    ) =>
+      history.states.map(renderRenderedHistoricalStateWithManifestationBlock)
+    ).join("\n\n");
   const knopInventoryLocatedFileBlocks = knopInventoryHistories.flatMap((
     history,
   ) =>
@@ -403,7 +401,7 @@ function renderMultiHistoryPayloadWovenKnopInventoryTurtle(
     )
     : undefined;
 
-  return `@base <${meshBase}> .
+  return collapseExcessBlankLines(`@base <${meshBase}> .
 ${SFLO_TURTLE_PREFIX_DECLARATION}
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
@@ -431,9 +429,7 @@ ${
 
 ${payloadHistoryBlocks}
 
-${payloadStateBlocks}
-
-${payloadManifestationBlocks}
+${payloadStateAndManifestationBlocks}
 
 <${knopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <${knopPath}/_meta/_history001> ;
@@ -477,9 +473,7 @@ ${
 
 ${knopInventoryHistoryBlocks}
 
-${knopInventoryStateBlocks}
-
-${knopInventoryManifestationBlocks}
+${knopInventoryStateAndManifestationBlocks}
 
 <${knopPath}/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 
@@ -510,10 +504,10 @@ ${payloadResourcePageBlocks}
 <${knopPath}/_inventory/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 ${knopInventoryResourcePageBlocks}
-`;
+`);
 }
 
-export function renderSecondPayloadWovenKnopInventoryTurtle(
+export function renderLaterPayloadWovenKnopInventoryTurtle(
   meshBase: string,
   designatorPath: string,
   payloadLayout: PayloadVersionLayout,
@@ -1013,6 +1007,18 @@ function renderRenderedHistoricalStateBlock(
     "sflo:HistoricalState",
     predicates,
   );
+}
+
+function renderRenderedHistoricalStateWithManifestationBlock(
+  state: RenderedHistoricalStateModel,
+): string {
+  return `${renderRenderedHistoricalStateBlock(state)}
+
+${renderRenderedManifestationBlock(state)}`;
+}
+
+function collapseExcessBlankLines(turtle: string): string {
+  return turtle.replace(/\n{3,}/g, "\n\n").replace(/\n{2,}$/, "\n");
 }
 
 function renderRenderedManifestationBlock(
