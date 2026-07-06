@@ -25,6 +25,7 @@ Targets use [[wu.cli-reference.target-syntax]]. Use `/` for the root designator 
 ```sh
 weave version
 weave version --target 'designatorPath=alice/data'
+weave version --target 'designatorPath=game/state' --target 'designatorPath=game/session'
 weave version \
   --target 'designatorPath=alice/data' \
   --payload-history-segment releases \
@@ -38,6 +39,10 @@ weave version \
 ## Naming
 
 Payload version naming can be provided as general `--payload-*` defaults or as fields on individual version targets. Per-target fields override the general defaults.
+
+Repeated exact payload targets are planned together in canonical designator-path order. A coherent batch writes one merged support-artifact progression for shared support files; if any requested payload target is malformed, the entire version plan is refused before files are written. Re-running an already-applied payload batch no-ops already-current payloads.
+
+For explicit multi-target payload batches, Weave hashes the requested targets' current working payload files before batch content capture and verifies those hashes after capture. A changed working payload refuses the whole batch before Weave writes version output, with a diagnostic naming the changed file. Changes after capture are ignored by design.
 
 `weave version` reads `_mesh/_config/config.ttl` when present. Mesh-local config can set durable history tracking and naming defaults. `--history-tracking-policy` remains a command-scoped override for the current run.
 

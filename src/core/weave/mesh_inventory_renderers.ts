@@ -329,6 +329,40 @@ export function renderFirstPayloadWovenMeshInventoryTurtle(
   return `${blocks.join("\n\n")}\n`;
 }
 
+export interface BatchedFirstPayloadMeshInventoryTarget {
+  designatorPath: string;
+  workingLocalRelativePath: string;
+  repositorySourceFloatingLocator?: RepositorySourceFloatingLocator;
+  payloadIsRdfDocument?: boolean;
+}
+
+export function renderBatchedFirstPayloadWovenMeshInventoryTurtle(
+  currentMeshInventoryTurtle: string,
+  meshBase: string,
+  targets: readonly BatchedFirstPayloadMeshInventoryTarget[],
+  meshInventoryProgression: MeshInventoryProgression | undefined,
+): string {
+  return targets.reduce(
+    (turtle, target) =>
+      meshInventoryProgression === undefined
+        ? renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle(
+          turtle,
+          meshBase,
+          target.designatorPath,
+        )
+        : renderFirstPayloadWovenMeshInventoryTurtle(
+          turtle,
+          meshBase,
+          target.designatorPath,
+          target.workingLocalRelativePath,
+          meshInventoryProgression,
+          target.repositorySourceFloatingLocator,
+          target.payloadIsRdfDocument ?? true,
+        ),
+    currentMeshInventoryTurtle,
+  );
+}
+
 export function renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle(
   currentMeshInventoryTurtle: string,
   meshBase: string,

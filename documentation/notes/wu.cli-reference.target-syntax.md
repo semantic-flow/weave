@@ -24,6 +24,7 @@ The aliases `payloadHistorySegment`, `payloadStateSegment`, and `payloadManifest
 
 ```sh
 weave --target 'designatorPath=alice/data'
+weave --target 'designatorPath=game/state' --target 'designatorPath=game/session'
 weave generate --target 'designatorPath=alice,recursive=true'
 weave validate --target 'designatorPath=alice/data' --target 'designatorPath=bob'
 weave version --target 'designatorPath=ontology,historySegment=releases,stateSegment=v0.1.0,manifestationSegment=ttl'
@@ -34,6 +35,8 @@ weave version --target 'designatorPath=ontology,historySegment=releases,stateSeg
 `designatorPath` is required. `recursive=false` is accepted and currently behaves the same as omitting `recursive`.
 
 Version-oriented fields are rejected by [[wu.cli-reference.validate]] and [[wu.cli-reference.generate]] because those commands do not create historical states. For recursive version targets, version-oriented fields act as defaults for matched payload artifacts; a more specific target can override them.
+
+When [[wu.cli-reference.weave]] or [[wu.cli-reference.version]] receives multiple exact payload targets, Weave plans those payload advancements together in canonical designator-path order. Recursive targets still expand deterministically through the existing recursive planner.
 
 ## Environment
 

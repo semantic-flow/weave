@@ -3,6 +3,7 @@ import {
   formatDesignatorPathForDisplay,
   toKnopPath,
 } from "../../core/designator_segments.ts";
+import { SFLO_NAMESPACE } from "../../core/rdf/namespaces.ts";
 import {
   findUncoveredRequestedTargets,
   type NormalizedVersionTargetSpec,
@@ -12,6 +13,10 @@ import {
   WeaveInputError,
 } from "../../core/weave/weave.ts";
 import type { WeaveableKnopCandidate } from "../../core/weave/candidates.ts";
+import {
+  hasNamedNodeFact,
+  parseWeaveShapeQuads,
+} from "../../core/weave/rdf_helpers.ts";
 import type { WeaveSlice } from "../../core/weave/slices.ts";
 import { listKnopDesignatorPaths } from "../mesh/inventory.ts";
 import type { OperationalLocalPathPolicy } from "../operational/local_path_policy.ts";
@@ -27,6 +32,8 @@ import {
   TextFileOverlay,
 } from "./planning_context.ts";
 import { timeOptional, timeOptionalSync } from "./timing_helpers.ts";
+
+const SFLO_HAS_PAYLOAD_ARTIFACT_IRI = `${SFLO_NAMESPACE}hasPayloadArtifact`;
 
 export function assertRequestedTargetsAreWeaveable(
   targets: readonly NormalizedVersionTargetSpec[],
@@ -57,6 +64,10 @@ export function assertRequestedTargetsAreWeaveable(
   );
 }
 
+export interface LoadWeaveableKnopCandidatesOptions {
+  includeSettledPayloadTargets?: boolean;
+}
+
 export async function loadWeaveableKnopCandidates(
   workspaceRoot: string,
   localPathPolicy: OperationalLocalPathPolicy,
@@ -70,6 +81,7 @@ export async function loadWeaveableKnopCandidates(
   overlay?: ReadonlyMap<string, string>,
   timing?: RuntimeTiming,
   phasePrefix = "loadCandidates",
+  options?: LoadWeaveableKnopCandidatesOptions,
 ): Promise<readonly WeaveableKnopCandidate[]> {
   const phase = (name: string) => `${phasePrefix}.${name}`;
   const designatorPaths = timeOptionalSync(
@@ -107,6 +119,7 @@ export async function loadWeaveableKnopCandidates(
                 overlay,
                 timing,
                 phase("candidate"),
+                options,
               ),
           )
           : loadWeaveableKnopCandidate(
@@ -118,6 +131,7 @@ export async function loadWeaveableKnopCandidates(
             overlay,
             timing,
             phase("candidate"),
+            options,
           ),
     );
     if (candidate === undefined) {
@@ -141,6 +155,7 @@ async function loadWeaveableKnopCandidate(
   overlay?: ReadonlyMap<string, string>,
   timing?: RuntimeTiming,
   phasePrefix = "candidate",
+  options?: LoadWeaveableKnopCandidatesOptions,
 ): Promise<WeaveableKnopCandidate | undefined> {
   const phase = (name: string) => `${phasePrefix}.${name}`;
   const knopPath = toKnopPath(designatorPath);
@@ -175,7 +190,7 @@ async function loadWeaveableKnopCandidate(
     currentKnopMetadataTurtle,
     currentKnopInventoryTurtle,
   };
-  const slice = timeOptionalSync(
+  let slice = timeOptionalSync(
     timing,
     phase("detectPendingSlice"),
     () =>
@@ -186,6 +201,18 @@ async function loadWeaveableKnopCandidate(
         target,
       ),
   );
+  if (
+    slice === undefined &&
+    options?.includeSettledPayloadTargets === true &&
+    target !== undefined &&
+    hasExplicitPayloadCandidate(
+      meshBase,
+      designatorPath,
+      currentKnopInventoryTurtle,
+    )
+  ) {
+    slice = "laterPayloadWeave";
+  }
 
   if (!slice) {
     return undefined;
@@ -257,15 +284,35 @@ async function loadWeaveableKnopCandidate(
     );
   }
 
-  return isWeaveableKnopCandidate(candidate, slice, target)
+  return isWeaveableKnopCandidate(candidate, slice, target, options)
     ? candidate
     : undefined;
+}
+
+function hasExplicitPayloadCandidate(
+  meshBase: string,
+  designatorPath: string,
+  currentKnopInventoryTurtle: string,
+): boolean {
+  const quads = parseWeaveShapeQuads(
+    meshBase,
+    currentKnopInventoryTurtle,
+    `Could not parse the current KnopInventory while loading explicit payload target ${designatorPath}.`,
+  );
+  return hasNamedNodeFact(
+    quads,
+    meshBase,
+    toKnopPath(designatorPath),
+    SFLO_HAS_PAYLOAD_ARTIFACT_IRI,
+    designatorPath,
+  );
 }
 
 function isWeaveableKnopCandidate(
   candidate: WeaveableKnopCandidate,
   slice: WeaveSlice,
   target?: NormalizedVersionTargetSpec,
+  options?: LoadWeaveableKnopCandidatesOptions,
 ): boolean {
   if (slice === "firstExtractedKnopWeave") {
     return candidate.referenceTargetSourcePayloadArtifact !== undefined;
@@ -297,19 +344,27 @@ function isWeaveableKnopCandidate(
   }
 
   if (slice === "laterPayloadWeave") {
-    return candidate.payloadArtifact !== undefined &&
-      (hasPayloadVersionNamingTarget(target) ||
-        (candidate.payloadArtifact.latestHistoricalSnapshotTurtle !==
-            undefined &&
-          candidate.payloadArtifact.currentPayloadTurtle !==
-            candidate.payloadArtifact.latestHistoricalSnapshotTurtle) ||
-        (candidate.payloadArtifact.currentPayloadBytes !== undefined &&
-          candidate.payloadArtifact.latestHistoricalSnapshotBytes !==
-            undefined &&
-          !bytesEqual(
-            candidate.payloadArtifact.currentPayloadBytes,
-            candidate.payloadArtifact.latestHistoricalSnapshotBytes,
-          )));
+    if (candidate.payloadArtifact === undefined) {
+      return false;
+    }
+    if (
+      options?.includeSettledPayloadTargets === true &&
+      target !== undefined
+    ) {
+      return true;
+    }
+    return hasPayloadVersionNamingTarget(target) ||
+      (candidate.payloadArtifact.latestHistoricalSnapshotTurtle !==
+          undefined &&
+        candidate.payloadArtifact.currentPayloadTurtle !==
+          candidate.payloadArtifact.latestHistoricalSnapshotTurtle) ||
+      (candidate.payloadArtifact.currentPayloadBytes !== undefined &&
+        candidate.payloadArtifact.latestHistoricalSnapshotBytes !==
+          undefined &&
+        !bytesEqual(
+          candidate.payloadArtifact.currentPayloadBytes,
+          candidate.payloadArtifact.latestHistoricalSnapshotBytes,
+        ));
   }
 
   return slice === "firstKnopWeave";

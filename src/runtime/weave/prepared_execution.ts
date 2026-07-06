@@ -4,6 +4,7 @@ import type { HistoryTrackingPolicy } from "../config/effective_config.ts";
 import type { RuntimeTiming } from "../timing.ts";
 import type { WeaveProgressHandler } from "./progress.ts";
 import {
+  type InputSnapshotVerificationHooks,
   type PreparedVersionExecution,
   prepareVersionExecution,
 } from "./version_execution.ts";
@@ -20,6 +21,7 @@ export async function prepareWeaveExecution(
   historyTrackingPolicyOverride?: HistoryTrackingPolicy,
   onProgress?: WeaveProgressHandler,
   timing?: RuntimeTiming,
+  inputSnapshotVerification?: InputSnapshotVerificationHooks,
 ): Promise<PreparedWeaveExecution> {
   const version = await prepareVersionExecution(
     workspaceRoot,
@@ -29,6 +31,7 @@ export async function prepareWeaveExecution(
     historyTrackingPolicyOverride,
     onProgress,
     timing,
+    inputSnapshotVerification,
   );
 
   return {

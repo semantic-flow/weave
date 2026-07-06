@@ -32,6 +32,7 @@ export interface GeneratePreparedPagesOptions {
   now?: () => Date;
   includeSemanticFlowMetadata: boolean;
   historyTrackingPolicyOverride?: HistoryTrackingPolicy;
+  updateTimestampOnlyPages?: boolean;
   timing?: RuntimeTiming;
   phasePrefix?: string;
 }
@@ -102,7 +103,10 @@ export async function generatePreparedPages(
   const writeResult = await timeOptional(
     options.timing,
     phase("writePages"),
-    () => writeGeneratedPagesUpsert(options.meshRoot, pageFiles),
+    () =>
+      writeGeneratedPagesUpsert(options.meshRoot, pageFiles, {
+        updateTimestampOnlyPages: options.updateTimestampOnlyPages === true,
+      }),
   );
 
   const result = {
@@ -256,6 +260,7 @@ function normalizeGeneratedTimestampFooters(contents: string): string {
 async function writeGeneratedPagesUpsert(
   workspaceRoot: string,
   files: readonly PlannedFile[],
+  options: { updateTimestampOnlyPages: boolean },
 ): Promise<{
   createdPaths: string[];
   updatedPaths: string[];
@@ -289,8 +294,10 @@ async function writeGeneratedPagesUpsert(
       normalizeGeneratedTimestampFooters(currentContents) ===
         normalizeGeneratedTimestampFooters(file.contents)
     ) {
-      skippedTimestampOnlyPaths.push(file.path);
-      continue;
+      if (!options.updateTimestampOnlyPages) {
+        skippedTimestampOnlyPaths.push(file.path);
+        continue;
+      }
     }
 
     await Deno.mkdir(dirname(absolutePath), { recursive: true });
