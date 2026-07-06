@@ -5,7 +5,7 @@ import {
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { Parser, type Quad, type Term } from "n3";
 import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import { WeaveInputError } from "../../src/core/weave/weave.ts";
@@ -1705,6 +1705,230 @@ Deno.test("executeWeave materializes the second alice bio payload weave slice", 
   );
 });
 
+Deno.test("executeWeave advances a later ordinal payload without rewriting prior snapshots", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-later-payload-",
+  );
+  const meshBase = "https://semantic-flow.github.io/stagecraft-test/";
+  const designatorPath = "projections/contracts/inn-ambush-contract-context";
+  const knopPath = `${designatorPath}/_knop`;
+  const historyPath = `${designatorPath}/_history001`;
+  const snapshotPaths = [1, 2, 3].map((ordinal) =>
+    `${historyPath}/_s000${ordinal}/ttl/inn-ambush-contract-context.ttl`
+  );
+  const priorSnapshotContents = new Map(
+    snapshotPaths.map((path, index) => [
+      path,
+      `@base <${meshBase}> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+
+<${designatorPath}> dcterms:title "Inn Ambush Contract Context v${index + 1}" .
+`,
+    ]),
+  );
+  const workingPayload = `@base <${meshBase}> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+
+<${designatorPath}> dcterms:title "Inn Ambush Contract Context v4" .
+`;
+
+  await writeTextFileEnsuringDir(
+    join(workspaceRoot, "_mesh/_meta/meta.ttl"),
+    `@base <${meshBase}> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<_mesh> a sflo:SemanticMesh ;
+  sflo:meshBase "${meshBase}"^^xsd:anyURI ;
+  sflo:hasMeshMetadata <_mesh/_meta> ;
+  sflo:hasMeshInventory <_mesh/_inventory> .
+
+<_mesh/_meta> a sflo:MeshMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <_mesh/_meta/meta.ttl> .
+
+<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> .
+`,
+  );
+  await writeTextFileEnsuringDir(
+    join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+    `@base <${meshBase}> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<_mesh> a sflo:SemanticMesh ;
+  sflo:meshBase "${meshBase}"^^xsd:anyURI ;
+  sflo:hasMeshMetadata <_mesh/_meta> ;
+  sflo:hasMeshInventory <_mesh/_inventory> ;
+  sflo:hasKnop <${knopPath}> .
+
+<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> .
+
+<${knopPath}> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> .
+`,
+  );
+  await writeTextFileEnsuringDir(
+    join(workspaceRoot, `${knopPath}/_meta/meta.ttl`),
+    `@base <${meshBase}> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<${knopPath}> a sflo:Knop ;
+  sflo:designatorPath "${designatorPath}" ;
+  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> .
+`,
+  );
+  await writeTextFileEnsuringDir(
+    join(workspaceRoot, `${knopPath}/_inventory/inventory.ttl`),
+    `@base <${meshBase}> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<${knopPath}> a sflo:Knop ;
+  sflo:hasKnopMetadata <${knopPath}/_meta> ;
+  sflo:hasKnopInventory <${knopPath}/_inventory> ;
+  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> ;
+  sflo:hasPayloadArtifact <${designatorPath}> ;
+  sflo:hasKnopSourceRegistry <${knopPath}/_sources> ;
+  sflo:hasReferenceCatalog <${knopPath}/_references> ;
+  sflo:hasResourcePage <${knopPath}/index.html> .
+
+<${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasArtifactHistory <${historyPath}> ;
+  sflo:currentArtifactHistory <${historyPath}> ;
+  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
+  sflo:hasWorkingLocatedFile <${designatorPath}.ttl> ;
+  sflo:hasResourcePage <${designatorPath}/index.html> .
+
+<${historyPath}> a sflo:ArtifactHistory ;
+  sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
+  sflo:hasHistoricalState <${historyPath}/_s0001> ;
+  sflo:hasHistoricalState <${historyPath}/_s0002> ;
+  sflo:hasHistoricalState <${historyPath}/_s0003> ;
+  sflo:latestHistoricalState <${historyPath}/_s0003> ;
+  sflo:nextStateOrdinal "4"^^xsd:nonNegativeInteger ;
+  sflo:hasResourcePage <${historyPath}/index.html> .
+
+<${historyPath}/_s0001> a sflo:HistoricalState ;
+  sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
+  sflo:hasManifestation <${historyPath}/_s0001/ttl> ;
+  sflo:locatedFileForState <${historyPath}/_s0001/ttl/inn-ambush-contract-context.ttl> ;
+  sflo:hasResourcePage <${historyPath}/_s0001/index.html> .
+
+<${historyPath}/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:locatedFileForManifestation <${historyPath}/_s0001/ttl/inn-ambush-contract-context.ttl> ;
+  sflo:hasResourcePage <${historyPath}/_s0001/ttl/index.html> .
+
+<${historyPath}/_s0002> a sflo:HistoricalState ;
+  sflo:stateOrdinal "2"^^xsd:nonNegativeInteger ;
+  sflo:previousHistoricalState <${historyPath}/_s0001> ;
+  sflo:hasManifestation <${historyPath}/_s0002/ttl> ;
+  sflo:locatedFileForState <${historyPath}/_s0002/ttl/inn-ambush-contract-context.ttl> ;
+  sflo:hasResourcePage <${historyPath}/_s0002/index.html> .
+
+<${historyPath}/_s0002/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:locatedFileForManifestation <${historyPath}/_s0002/ttl/inn-ambush-contract-context.ttl> ;
+  sflo:hasResourcePage <${historyPath}/_s0002/ttl/index.html> .
+
+<${historyPath}/_s0003> a sflo:HistoricalState ;
+  sflo:stateOrdinal "3"^^xsd:nonNegativeInteger ;
+  sflo:previousHistoricalState <${historyPath}/_s0002> ;
+  sflo:hasManifestation <${historyPath}/_s0003/ttl> ;
+  sflo:locatedFileForState <${historyPath}/_s0003/ttl/inn-ambush-contract-context.ttl> ;
+  sflo:hasResourcePage <${historyPath}/_s0003/index.html> .
+
+<${historyPath}/_s0003/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:locatedFileForManifestation <${historyPath}/_s0003/ttl/inn-ambush-contract-context.ttl> ;
+  sflo:hasResourcePage <${historyPath}/_s0003/ttl/index.html> .
+
+<${knopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${knopPath}/_meta/meta.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_meta/index.html> .
+
+<${knopPath}/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${knopPath}/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_inventory/index.html> .
+
+<${knopPath}/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${knopPath}/_sources/sources.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_sources/index.html> .
+
+<${knopPath}/_references> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${knopPath}/_references/references.ttl> ;
+  sflo:hasResourcePage <${knopPath}/_references/index.html> .
+
+<${designatorPath}.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+`,
+  );
+  await writeTextFileEnsuringDir(
+    join(workspaceRoot, `${designatorPath}.ttl`),
+    workingPayload,
+  );
+  await writeTextFileEnsuringDir(
+    join(workspaceRoot, `${knopPath}/_sources/sources.ttl`),
+    `@base <${meshBase}> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<${knopPath}/_sources> a sflo:KnopSourceRegistry .
+`,
+  );
+  await writeTextFileEnsuringDir(
+    join(workspaceRoot, `${knopPath}/_references/references.ttl`),
+    `@base <${meshBase}> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<${knopPath}/_references> a sflo:ReferenceCatalog .
+`,
+  );
+  for (const [path, contents] of priorSnapshotContents) {
+    await writeTextFileEnsuringDir(join(workspaceRoot, path), contents);
+  }
+
+  const result = await executeWeave({
+    meshRoot: workspaceRoot,
+    request: {
+      targets: [{ designatorPath }],
+    },
+  });
+
+  assertEquals(result.wovenDesignatorPaths, [designatorPath]);
+  assert(
+    result.createdPaths.includes(
+      `${historyPath}/_s0004/ttl/inn-ambush-contract-context.ttl`,
+    ),
+  );
+  assertFalse(
+    result.createdPaths.some((path) =>
+      path.startsWith(`${knopPath}/_inventory/_history001/`)
+    ),
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(
+        workspaceRoot,
+        `${historyPath}/_s0004/ttl/inn-ambush-contract-context.ttl`,
+      ),
+    ),
+    workingPayload,
+  );
+  for (const [path, contents] of priorSnapshotContents) {
+    assertEquals(await Deno.readTextFile(join(workspaceRoot, path)), contents);
+  }
+  const updatedInventory = await Deno.readTextFile(
+    join(workspaceRoot, `${knopPath}/_inventory/inventory.ttl`),
+  );
+  assertStringIncludes(
+    updatedInventory,
+    `sflo:latestHistoricalState <${historyPath}/_s0004> ;`,
+  );
+  assertStringIncludes(
+    updatedInventory,
+    `sflo:nextStateOrdinal "5"^^xsd:nonNegativeInteger ;`,
+  );
+  assertFalse(updatedInventory.includes(`${knopPath}/_inventory/_history001`));
+});
+
 Deno.test("executeWeave materializes the extracted bob woven slice", async () => {
   const workspaceRoot = await createTestTmpDir("weave-weave-bob-extracted-");
   await materializeMeshAliceBioBranch("12-bob-extracted", workspaceRoot);
@@ -2590,6 +2814,14 @@ async function replaceAliceSidebarPageSource(
     ALICE_SIDEBAR_TARGET_MESH_PATH_SOURCE,
     after,
   );
+}
+
+async function writeTextFileEnsuringDir(
+  path: string,
+  contents: string,
+): Promise<void> {
+  await Deno.mkdir(dirname(path), { recursive: true });
+  await Deno.writeTextFile(path, contents);
 }
 
 async function replaceFileText(

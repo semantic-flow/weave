@@ -553,7 +553,8 @@ export function renderSecondPayloadWovenKnopInventoryTurtle(
   if (
     payloadLayout.isNewHistory ||
     payloadHistoryPaths.length > 1 ||
-    hasSingleNamedHistoryPath(payloadHistoryPaths)
+    hasSingleNamedHistoryPath(payloadHistoryPaths) ||
+    payloadLayout.nextStateOrdinal !== 2
   ) {
     return applySupportHistoryPolicies(
       renderMultiHistoryPayloadWovenKnopInventoryTurtle(

@@ -687,6 +687,104 @@ const secondPayloadWeaveKnopInventoryTurtle =
   sflo:hasResourcePage <alice/data/_knop/_inventory/_history001/index.html> .
 `;
 
+const laterOrdinalCurrentOnlyPayloadKnopMetadataTurtle =
+  `@base <https://semantic-flow.github.io/stagecraft-test/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<projections/contracts/inn-ambush-contract-context/_knop> a sflo:Knop ;
+  sflo:designatorPath "projections/contracts/inn-ambush-contract-context" ;
+  sflo:hasWorkingKnopInventoryFile <projections/contracts/inn-ambush-contract-context/_knop/_inventory/inventory.ttl> .
+`;
+
+const laterOrdinalCurrentOnlyPayloadKnopInventoryTurtle =
+  `@base <https://semantic-flow.github.io/stagecraft-test/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<projections/contracts/inn-ambush-contract-context/_knop> a sflo:Knop ;
+  sflo:hasKnopMetadata <projections/contracts/inn-ambush-contract-context/_knop/_meta> ;
+  sflo:hasKnopInventory <projections/contracts/inn-ambush-contract-context/_knop/_inventory> ;
+  sflo:hasWorkingKnopInventoryFile <projections/contracts/inn-ambush-contract-context/_knop/_inventory/inventory.ttl> ;
+  sflo:hasPayloadArtifact <projections/contracts/inn-ambush-contract-context> ;
+  sflo:hasKnopSourceRegistry <projections/contracts/inn-ambush-contract-context/_knop/_sources> ;
+  sflo:hasReferenceCatalog <projections/contracts/inn-ambush-contract-context/_knop/_references> ;
+  sflo:hasResourcePage <projections/contracts/inn-ambush-contract-context/_knop/index.html> .
+
+<projections/contracts/inn-ambush-contract-context> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasArtifactHistory <projections/contracts/inn-ambush-contract-context/_history001> ;
+  sflo:currentArtifactHistory <projections/contracts/inn-ambush-contract-context/_history001> ;
+  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
+  sflo:hasWorkingLocatedFile <projections/contracts/inn-ambush-contract-context.ttl> ;
+  sflo:hasResourcePage <projections/contracts/inn-ambush-contract-context/index.html> .
+
+<projections/contracts/inn-ambush-contract-context/_history001> a sflo:ArtifactHistory ;
+  sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
+  sflo:hasHistoricalState <projections/contracts/inn-ambush-contract-context/_history001/_s0001> ;
+  sflo:hasHistoricalState <projections/contracts/inn-ambush-contract-context/_history001/_s0002> ;
+  sflo:hasHistoricalState <projections/contracts/inn-ambush-contract-context/_history001/_s0003> ;
+  sflo:latestHistoricalState <projections/contracts/inn-ambush-contract-context/_history001/_s0003> ;
+  sflo:nextStateOrdinal "4"^^xsd:nonNegativeInteger ;
+  sflo:hasResourcePage <projections/contracts/inn-ambush-contract-context/_history001/index.html> .
+
+<projections/contracts/inn-ambush-contract-context/_history001/_s0001> a sflo:HistoricalState ;
+  sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
+  sflo:hasManifestation <projections/contracts/inn-ambush-contract-context/_history001/_s0001/ttl> ;
+  sflo:locatedFileForState <projections/contracts/inn-ambush-contract-context/_history001/_s0001/ttl/inn-ambush-contract-context.ttl> ;
+  sflo:hasResourcePage <projections/contracts/inn-ambush-contract-context/_history001/_s0001/index.html> .
+
+<projections/contracts/inn-ambush-contract-context/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:locatedFileForManifestation <projections/contracts/inn-ambush-contract-context/_history001/_s0001/ttl/inn-ambush-contract-context.ttl> ;
+  sflo:hasResourcePage <projections/contracts/inn-ambush-contract-context/_history001/_s0001/ttl/index.html> .
+
+<projections/contracts/inn-ambush-contract-context/_history001/_s0002> a sflo:HistoricalState ;
+  sflo:stateOrdinal "2"^^xsd:nonNegativeInteger ;
+  sflo:previousHistoricalState <projections/contracts/inn-ambush-contract-context/_history001/_s0001> ;
+  sflo:hasManifestation <projections/contracts/inn-ambush-contract-context/_history001/_s0002/ttl> ;
+  sflo:locatedFileForState <projections/contracts/inn-ambush-contract-context/_history001/_s0002/ttl/inn-ambush-contract-context.ttl> ;
+  sflo:hasResourcePage <projections/contracts/inn-ambush-contract-context/_history001/_s0002/index.html> .
+
+<projections/contracts/inn-ambush-contract-context/_history001/_s0002/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:locatedFileForManifestation <projections/contracts/inn-ambush-contract-context/_history001/_s0002/ttl/inn-ambush-contract-context.ttl> ;
+  sflo:hasResourcePage <projections/contracts/inn-ambush-contract-context/_history001/_s0002/ttl/index.html> .
+
+<projections/contracts/inn-ambush-contract-context/_history001/_s0003> a sflo:HistoricalState ;
+  sflo:stateOrdinal "3"^^xsd:nonNegativeInteger ;
+  sflo:previousHistoricalState <projections/contracts/inn-ambush-contract-context/_history001/_s0002> ;
+  sflo:hasManifestation <projections/contracts/inn-ambush-contract-context/_history001/_s0003/ttl> ;
+  sflo:locatedFileForState <projections/contracts/inn-ambush-contract-context/_history001/_s0003/ttl/inn-ambush-contract-context.ttl> ;
+  sflo:hasResourcePage <projections/contracts/inn-ambush-contract-context/_history001/_s0003/index.html> .
+
+<projections/contracts/inn-ambush-contract-context/_history001/_s0003/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:locatedFileForManifestation <projections/contracts/inn-ambush-contract-context/_history001/_s0003/ttl/inn-ambush-contract-context.ttl> ;
+  sflo:hasResourcePage <projections/contracts/inn-ambush-contract-context/_history001/_s0003/ttl/index.html> .
+
+<projections/contracts/inn-ambush-contract-context/_knop/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <projections/contracts/inn-ambush-contract-context/_knop/_meta/meta.ttl> ;
+  sflo:hasResourcePage <projections/contracts/inn-ambush-contract-context/_knop/_meta/index.html> .
+
+<projections/contracts/inn-ambush-contract-context/_knop/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <projections/contracts/inn-ambush-contract-context/_knop/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <projections/contracts/inn-ambush-contract-context/_knop/_inventory/index.html> .
+
+<projections/contracts/inn-ambush-contract-context/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <projections/contracts/inn-ambush-contract-context/_knop/_sources/sources.ttl> ;
+  sflo:hasResourcePage <projections/contracts/inn-ambush-contract-context/_knop/_sources/index.html> .
+
+<projections/contracts/inn-ambush-contract-context/_knop/_references> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <projections/contracts/inn-ambush-contract-context/_knop/_references/references.ttl> ;
+  sflo:hasResourcePage <projections/contracts/inn-ambush-contract-context/_knop/_references/index.html> .
+
+<projections/contracts/inn-ambush-contract-context.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<projections/contracts/inn-ambush-contract-context/_knop/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<projections/contracts/inn-ambush-contract-context/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<projections/contracts/inn-ambush-contract-context/_knop/_sources/sources.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<projections/contracts/inn-ambush-contract-context/_knop/_references/references.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+`;
+
 Deno.test("planWeave renders the first alice knop-created-woven slice", () => {
   const plan = planWeave({
     request: {},
@@ -2304,6 +2402,230 @@ Deno.test("planWeave renders the second alice bio payload weave slice", () => {
   assertStringIncludes(
     plan.updatedFiles[0]?.contents ?? "",
     "sflo:latestHistoricalState <alice/data/_knop/_inventory/_history001/_s0002> ;",
+  );
+});
+
+Deno.test("detectPendingWeaveSlice recognizes later ordinal payload advancement with current-only support artifacts", () => {
+  assertEquals(
+    detectPendingWeaveSlice(
+      "https://semantic-flow.github.io/stagecraft-test/",
+      "projections/contracts/inn-ambush-contract-context",
+      laterOrdinalCurrentOnlyPayloadKnopInventoryTurtle,
+    ),
+    "secondPayloadWeave",
+  );
+});
+
+Deno.test("planWeave advances a later ordinal payload while preserving current-only support artifacts", () => {
+  const designatorPath = "projections/contracts/inn-ambush-contract-context";
+  const plan = planWeave({
+    request: {
+      targets: [{ designatorPath }],
+    },
+    meshBase: "https://semantic-flow.github.io/stagecraft-test/",
+    currentMeshInventoryTurtle: firstReferenceCatalogWeaveMeshInventoryTurtle,
+    weaveableKnops: [{
+      designatorPath,
+      currentKnopMetadataTurtle:
+        laterOrdinalCurrentOnlyPayloadKnopMetadataTurtle,
+      currentKnopInventoryTurtle:
+        laterOrdinalCurrentOnlyPayloadKnopInventoryTurtle,
+      payloadArtifact: {
+        workingLocalRelativePath:
+          "projections/contracts/inn-ambush-contract-context.ttl",
+        currentArtifactHistoryPath:
+          "projections/contracts/inn-ambush-contract-context/_history001",
+        currentPayloadTurtle:
+          `@base <https://semantic-flow.github.io/stagecraft-test/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+
+<projections/contracts/inn-ambush-contract-context> dcterms:title "Inn Ambush Contract Context v4" .
+`,
+        latestHistoricalStatePath:
+          "projections/contracts/inn-ambush-contract-context/_history001/_s0003",
+      },
+    }],
+    supportHistoryPolicies: {
+      knopMetadata: "currentOnly",
+      knopInventory: "currentOnly",
+    },
+  });
+
+  assertEquals(plan.wovenDesignatorPaths, [designatorPath]);
+  assertEquals(
+    plan.createdFiles.map((file) => file.path),
+    [
+      "projections/contracts/inn-ambush-contract-context/_history001/_s0004/ttl/inn-ambush-contract-context.ttl",
+    ],
+  );
+  assertEquals(plan.updatedFiles.map((file) => file.path), [
+    "projections/contracts/inn-ambush-contract-context/_knop/_inventory/inventory.ttl",
+  ]);
+  assertEquals(plan.createdPages.map((page) => page.path), [
+    "projections/contracts/inn-ambush-contract-context/_history001/_s0004/index.html",
+    "projections/contracts/inn-ambush-contract-context/_history001/_s0004/ttl/index.html",
+  ]);
+  const updatedInventory = plan.updatedFiles[0]?.contents ?? "";
+  assertStringIncludes(
+    updatedInventory,
+    "sflo:latestHistoricalState <projections/contracts/inn-ambush-contract-context/_history001/_s0004> ;",
+  );
+  assertStringIncludes(
+    updatedInventory,
+    'sflo:nextStateOrdinal "5"^^xsd:nonNegativeInteger ;',
+  );
+  assertStringIncludes(
+    updatedInventory,
+    "sflo:previousHistoricalState <projections/contracts/inn-ambush-contract-context/_history001/_s0003> ;",
+  );
+  assertStringIncludes(
+    updatedInventory,
+    "<projections/contracts/inn-ambush-contract-context/_knop> sflo:hasKnopSourceRegistry <projections/contracts/inn-ambush-contract-context/_knop/_sources> .",
+  );
+  assertStringIncludes(
+    updatedInventory,
+    "<projections/contracts/inn-ambush-contract-context/_knop> sflo:hasReferenceCatalog <projections/contracts/inn-ambush-contract-context/_knop/_references> .",
+  );
+  assertFalse(
+    updatedInventory.includes(
+      "projections/contracts/inn-ambush-contract-context/_knop/_inventory/_history001",
+    ),
+  );
+});
+
+Deno.test("planWeave advances only the requested later payload when unrelated candidates are present", () => {
+  const designatorPath = "projections/contracts/inn-ambush-contract-context";
+  const plan = planWeave({
+    request: {
+      targets: [{ designatorPath }],
+    },
+    meshBase: "https://semantic-flow.github.io/stagecraft-test/",
+    currentMeshInventoryTurtle: firstReferenceCatalogWeaveMeshInventoryTurtle,
+    weaveableKnops: [{
+      designatorPath,
+      currentKnopMetadataTurtle:
+        laterOrdinalCurrentOnlyPayloadKnopMetadataTurtle,
+      currentKnopInventoryTurtle:
+        laterOrdinalCurrentOnlyPayloadKnopInventoryTurtle,
+      payloadArtifact: {
+        workingLocalRelativePath:
+          "projections/contracts/inn-ambush-contract-context.ttl",
+        currentArtifactHistoryPath:
+          "projections/contracts/inn-ambush-contract-context/_history001",
+        currentPayloadTurtle:
+          `@base <https://semantic-flow.github.io/stagecraft-test/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+
+<projections/contracts/inn-ambush-contract-context> dcterms:title "Inn Ambush Contract Context v4" .
+`,
+        latestHistoricalStatePath:
+          "projections/contracts/inn-ambush-contract-context/_history001/_s0003",
+      },
+    }, {
+      designatorPath: "projections/contracts/unrelated-pending-payload",
+      currentKnopMetadataTurtle: "<> a <https://example.invalid/Broken> .",
+      currentKnopInventoryTurtle: "<> a <https://example.invalid/Broken> .",
+    }],
+    supportHistoryPolicies: {
+      knopMetadata: "currentOnly",
+      knopInventory: "currentOnly",
+    },
+  });
+
+  assertEquals(plan.wovenDesignatorPaths, [designatorPath]);
+  assertEquals(plan.updatedFiles.map((file) => file.path), [
+    "projections/contracts/inn-ambush-contract-context/_knop/_inventory/inventory.ttl",
+  ]);
+  assertFalse(
+    plan.createdFiles.some((file) =>
+      file.path.includes("unrelated-pending-payload")
+    ),
+  );
+});
+
+Deno.test("planWeave names a missing latest-state fact on later payload advancement", () => {
+  const designatorPath = "projections/contracts/inn-ambush-contract-context";
+  const currentKnopInventoryTurtle =
+    laterOrdinalCurrentOnlyPayloadKnopInventoryTurtle.replace(
+      "  sflo:latestHistoricalState <projections/contracts/inn-ambush-contract-context/_history001/_s0003> ;\n",
+      "",
+    );
+
+  assertThrows(
+    () =>
+      planWeave({
+        request: {
+          targets: [{ designatorPath }],
+        },
+        meshBase: "https://semantic-flow.github.io/stagecraft-test/",
+        currentMeshInventoryTurtle:
+          firstReferenceCatalogWeaveMeshInventoryTurtle,
+        weaveableKnops: [{
+          designatorPath,
+          currentKnopMetadataTurtle:
+            laterOrdinalCurrentOnlyPayloadKnopMetadataTurtle,
+          currentKnopInventoryTurtle,
+          payloadArtifact: {
+            workingLocalRelativePath:
+              "projections/contracts/inn-ambush-contract-context.ttl",
+            currentArtifactHistoryPath:
+              "projections/contracts/inn-ambush-contract-context/_history001",
+            currentPayloadTurtle: "<> a <https://schema.org/Dataset> .\n",
+            latestHistoricalStatePath:
+              "projections/contracts/inn-ambush-contract-context/_history001/_s0003",
+          },
+        }],
+        supportHistoryPolicies: {
+          knopMetadata: "currentOnly",
+          knopInventory: "currentOnly",
+        },
+      }),
+    WeaveInputError,
+    "missing sflo:latestHistoricalState",
+  );
+});
+
+Deno.test("planWeave names conflicting next-state facts on later payload advancement", () => {
+  const designatorPath = "projections/contracts/inn-ambush-contract-context";
+  const currentKnopInventoryTurtle =
+    laterOrdinalCurrentOnlyPayloadKnopInventoryTurtle.replace(
+      '  sflo:nextStateOrdinal "4"^^xsd:nonNegativeInteger ;\n',
+      `  sflo:nextStateOrdinal "4"^^xsd:nonNegativeInteger ;
+  sflo:nextStateOrdinal "5"^^xsd:nonNegativeInteger ;
+`,
+    );
+
+  assertThrows(
+    () =>
+      planWeave({
+        request: {
+          targets: [{ designatorPath }],
+        },
+        meshBase: "https://semantic-flow.github.io/stagecraft-test/",
+        currentMeshInventoryTurtle:
+          firstReferenceCatalogWeaveMeshInventoryTurtle,
+        weaveableKnops: [{
+          designatorPath,
+          currentKnopMetadataTurtle:
+            laterOrdinalCurrentOnlyPayloadKnopMetadataTurtle,
+          currentKnopInventoryTurtle,
+          payloadArtifact: {
+            workingLocalRelativePath:
+              "projections/contracts/inn-ambush-contract-context.ttl",
+            currentArtifactHistoryPath:
+              "projections/contracts/inn-ambush-contract-context/_history001",
+            currentPayloadTurtle: "<> a <https://schema.org/Dataset> .\n",
+            latestHistoricalStatePath:
+              "projections/contracts/inn-ambush-contract-context/_history001/_s0003",
+          },
+        }],
+        supportHistoryPolicies: {
+          knopMetadata: "currentOnly",
+          knopInventory: "currentOnly",
+        },
+      }),
+    WeaveInputError,
+    "conflicting sflo:nextStateOrdinal",
   );
 });
 

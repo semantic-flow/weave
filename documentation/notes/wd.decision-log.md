@@ -20,6 +20,18 @@ created: 1773630801215
 
 ## Decisions
 
+### 2026-07-06: Later Payload Weave Uses RDF Fact Progression
+
+- Decision: Generalize the later-payload weave path so single-target payload advancement derives current history, latest state, next state ordinal, and current-only support-artifact behavior from current RDF facts instead of requiring the settled second-payload fixture shape.
+- References: [[wa.task.2026.2026-07-03_1332-stagecraft-weave-planner-generalization]], [[wd.todo]]
+- Why:
+  - Application meshes can already have `_history001/_s0003` or later payload states while intentionally keeping Knop support artifacts current-only.
+  - `weave generate` must remain render-only; full `weave` is the operation that should advance coherent payload histories.
+  - Condition-specific diagnostics for missing or conflicting RDF facts are more useful than exposing the old fixture-shaped implementation boundary.
+- Follow-Up Tasks:
+  - [ ] Add multi-target later-payload advancement as the next planner slice.
+  - [ ] Add scenario-runner-backed Accord acceptance coverage for the Stagecraft-shaped transition.
+
 ### 2026-05-17: Keep KnopInventory Current-Only Default Explicit
 
 - Decision: Keep the explicit `sfcfg:artifactRole_knopInventory` `currentOnly` default in `defaults/application.ttl` even though it currently matches the global default.

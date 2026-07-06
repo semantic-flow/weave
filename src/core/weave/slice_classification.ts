@@ -5,7 +5,6 @@ import type { NormalizedVersionTargetSpec } from "../targeting.ts";
 import type { WeaveableKnopCandidate } from "./candidates.ts";
 import { WeaveInputError } from "./errors.ts";
 import {
-  hasLiteralFact,
   hasNamedNodeFact,
   parseWeaveShapeQuads,
   resolveNamedNodeObjectPaths,
@@ -13,10 +12,7 @@ import {
   toAbsoluteIri,
 } from "./rdf_helpers.ts";
 import type { WeaveSlice } from "./slices.ts";
-import {
-  isDeclaredArtifactHistory,
-  requirePayloadCurrentStatePathFromInventory,
-} from "./artifact_history_queries.ts";
+import { isDeclaredArtifactHistory } from "./artifact_history_queries.ts";
 
 const XSD_NON_NEGATIVE_INTEGER_IRI =
   "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
@@ -263,27 +259,8 @@ export function detectPendingWeaveSlice(
   if (
     payloadRelationship &&
     payloadHistoryPath &&
-    hasNamedNodeFact(
-      quads,
-      meshBase,
-      payloadHistoryPath,
-      SFLO_LATEST_HISTORICAL_STATE_IRI,
-      requirePayloadCurrentStatePathFromInventory(
-        quads,
-        meshBase,
-        designatorPath,
-        payloadHistoryPath,
-        errorMessage,
-      ),
-    ) &&
-    hasLiteralFact(
-      quads,
-      meshBase,
-      payloadHistoryPath,
-      SFLO_NEXT_STATE_ORDINAL_IRI,
-      "2",
-      XSD_NON_NEGATIVE_INTEGER_IRI,
-    ) &&
+    isDeclaredArtifactHistory(quads, meshBase, payloadHistoryPath) &&
+    payloadHistoryHasPendingOrdinalState(quads, meshBase, payloadHistoryPath) &&
     (!knopInventoryHasHistory ||
       (hasNamedNodeFact(
         quads,
@@ -353,4 +330,31 @@ function hasPayloadVersionNamingTarget(
     (target.historySegment !== undefined ||
       target.stateSegment !== undefined ||
       target.manifestationSegment !== undefined);
+}
+
+function payloadHistoryHasPendingOrdinalState(
+  quads: readonly Quad[],
+  meshBase: string,
+  historyPath: string,
+): boolean {
+  const historyIri = toAbsoluteIri(meshBase, historyPath);
+  const values = new Set<string>();
+  for (const quad of quads) {
+    if (
+      quad.subject.termType === "NamedNode" &&
+      quad.subject.value === historyIri &&
+      quad.predicate.value === SFLO_NEXT_STATE_ORDINAL_IRI &&
+      quad.object.termType === "Literal" &&
+      quad.object.datatype.value === XSD_NON_NEGATIVE_INTEGER_IRI
+    ) {
+      values.add(quad.object.value);
+    }
+  }
+
+  if (values.size !== 1) {
+    return values.size > 1;
+  }
+
+  const parsed = Number(values.values().next().value);
+  return Number.isInteger(parsed) && parsed > 1;
 }

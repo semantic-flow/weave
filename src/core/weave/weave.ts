@@ -54,6 +54,7 @@ import {
   resolveFirstPayloadVersionLayout,
   resolveSecondPayloadVersionLayout,
 } from "./payload_version_layout.ts";
+import { resolveLaterPayloadWeaveReadModel } from "./payload_weave_read_model.ts";
 import { hasNamedNodeFact, parseWeaveShapeQuads } from "./rdf_helpers.ts";
 import { classifyWeaveSlice } from "./slice_classification.ts";
 import { extractCurrentReferenceCatalogLinks } from "./reference_catalog_links.ts";
@@ -87,7 +88,6 @@ import {
   assertCurrentKnopInventoryShapeForFirstExtractedKnopWeave,
   assertCurrentKnopInventoryShapeForFirstPageDefinitionWeave,
   assertCurrentKnopInventoryShapeForFirstReferenceCatalogWeave,
-  assertCurrentKnopInventoryShapeForSecondPayloadWeave,
   assertCurrentKnopInventoryShapeForSubsequentPageDefinitionWeave,
   assertCurrentKnopInventoryWithoutHistory,
   assertCurrentKnopMetadataShape,
@@ -1223,25 +1223,24 @@ function planSecondPayloadWeave(
     target,
     namingPolicies,
   );
-  assertCurrentKnopInventoryShapeForSecondPayloadWeave(
+  const readModel = resolveLaterPayloadWeaveReadModel(
     meshBase,
     candidate.currentKnopInventoryTurtle,
     designatorPath,
     payloadArtifact,
-    payloadLayout.nextStatePath,
-    { knopInventoryHistoryPolicy: supportHistoryPolicies?.knopInventory },
+    payloadLayout,
+    {
+      knopMetadataHistoryPolicy: supportHistoryPolicies?.knopMetadata,
+      knopInventoryHistoryPolicy: supportHistoryPolicies?.knopInventory,
+    },
   );
 
   const payloadSnapshotPath = `${payloadLayout.nextManifestationPath}/${
     toFileName(payloadArtifact.workingLocalRelativePath)
   }`;
-  const knopMetadataHistoryPolicy = supportHistoryPolicies?.knopMetadata ??
-    "versioned";
-  const knopInventoryHistoryPolicy = supportHistoryPolicies?.knopInventory ??
-    "versioned";
-  const versionKnopInventory = shouldMaterializeSupportHistory(
-    knopInventoryHistoryPolicy,
-  );
+  const knopMetadataHistoryPolicy = readModel.knopMetadataHistoryPolicy;
+  const knopInventoryHistoryPolicy = readModel.knopInventoryHistoryPolicy;
+  const knopInventoryProgression = readModel.knopInventoryProgression;
   const wovenKnopInventoryTurtle =
     renderKnopInventoryWithPreservedSupportArtifacts({
       meshBase,
@@ -1266,9 +1265,9 @@ function planSecondPayloadWeave(
         path: payloadSnapshotPath,
         contents: payloadArtifact.currentPayloadTurtle,
       },
-      ...(versionKnopInventory
+      ...(knopInventoryProgression
         ? [{
-          path: `${knopPath}/_inventory/_history001/_s0002/ttl/inventory.ttl`,
+          path: `${knopInventoryProgression.nextStatePath}/ttl/inventory.ttl`,
           contents: wovenKnopInventoryTurtle,
         }]
         : []),
@@ -1282,7 +1281,7 @@ function planSecondPayloadWeave(
     createdPages: buildSecondPayloadWeavePages(
       designatorPath,
       payloadLayout,
-      { knopInventoryHistoryPolicy },
+      { knopInventoryProgression },
     ),
   };
 }
