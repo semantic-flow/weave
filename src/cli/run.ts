@@ -87,6 +87,7 @@ import {
 import { resolveUserSettingsPaths } from "../runtime/settings/user_settings.ts";
 import type { HistoryTrackingPolicy } from "../runtime/config/effective_config.ts";
 import { WEAVE_VERSION } from "../version.ts";
+import { parseIso8601Instant } from "./generated_at.ts";
 
 const TARGET_OPTION_DESCRIPTION =
   "Target spec as comma-separated key=value fields. Supported keys: designatorPath, recursive. Versioning commands also accept historySegment, stateSegment, and manifestationSegment.";
@@ -99,8 +100,6 @@ const HISTORY_TRACKING_POLICY_VALUES = [
   "metadataOnly",
 ] as const satisfies readonly HistoryTrackingPolicy[];
 const CLI_LOG_DIR_ENV_VAR = "WEAVE_LOG_DIR";
-const ISO_8601_INSTANT_PATTERN =
-  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|[+-]\d{2}:\d{2})$/;
 
 interface CliMeshContext {
   readonly policy: OperationalLocalPathPolicy;
@@ -1963,79 +1962,6 @@ function resolveGeneratedAtOption(
     iso,
     now: () => new Date(iso),
   };
-}
-
-function parseIso8601Instant(value: string): Date | undefined {
-  const match = ISO_8601_INSTANT_PATTERN.exec(value);
-  if (!match) {
-    return undefined;
-  }
-
-  const [
-    ,
-    yearText,
-    monthText,
-    dayText,
-    hourText,
-    minuteText,
-    secondText,
-    fractionText = "",
-    offsetText,
-  ] = match;
-  const year = Number(yearText);
-  const month = Number(monthText);
-  const day = Number(dayText);
-  const hour = Number(hourText);
-  const minute = Number(minuteText);
-  const second = Number(secondText);
-  const millisecond = Number(fractionText.padEnd(3, "0") || "0");
-
-  if (
-    month < 1 || month > 12 ||
-    day < 1 || day > daysInMonth(year, month) ||
-    hour > 23 ||
-    minute > 59 ||
-    second > 59
-  ) {
-    return undefined;
-  }
-
-  const offsetMinutes = offsetText === "Z" ? 0 : parseOffsetMinutes(offsetText);
-  if (offsetMinutes === undefined) {
-    return undefined;
-  }
-
-  const localInstant = new Date(0);
-  localInstant.setUTCFullYear(year, month - 1, day);
-  localInstant.setUTCHours(hour, minute, second, millisecond);
-  const instant = new Date(localInstant.getTime() - offsetMinutes * 60_000);
-  return Number.isNaN(instant.getTime()) ? undefined : instant;
-}
-
-function parseOffsetMinutes(offsetText: string): number | undefined {
-  const match = /^([+-])(\d{2}):(\d{2})$/.exec(offsetText);
-  if (!match) {
-    return undefined;
-  }
-  const [, signText, hourText, minuteText] = match;
-  const hours = Number(hourText);
-  const minutes = Number(minuteText);
-  if (hours > 23 || minutes > 59) {
-    return undefined;
-  }
-  const sign = signText === "-" ? -1 : 1;
-  return sign * (hours * 60 + minutes);
-}
-
-function daysInMonth(year: number, month: number): number {
-  if (month === 2) {
-    return isLeapYear(year) ? 29 : 28;
-  }
-  return [4, 6, 9, 11].includes(month) ? 30 : 31;
-}
-
-function isLeapYear(year: number): boolean {
-  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
 }
 
 function getCliErrorMessage(error: unknown): string {

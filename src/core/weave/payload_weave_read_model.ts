@@ -10,6 +10,7 @@ import {
   hasSubject,
   hasSubjectPredicateFact,
   parseWeaveShapeQuads,
+  requireSingleNonNegativeIntegerLiteralWithDiagnostics,
   toAbsoluteIri,
   toMeshRelativePath,
 } from "./rdf_helpers.ts";
@@ -23,8 +24,6 @@ import {
 } from "./support_history_policy.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
-const XSD_NON_NEGATIVE_INTEGER_IRI =
-  "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
 const SFLO_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}ArtifactHistory`;
 const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
   `${SFLO_NAMESPACE}currentArtifactHistory`;
@@ -519,32 +518,12 @@ function requireSingleNonNegativeIntegerFact(
   },
 ): number {
   const subjectIri = toAbsoluteIri(meshBase, options.subjectPath);
-  const values = new Set<string>();
-  for (const quad of quads) {
-    if (
-      quad.subject.termType === "NamedNode" &&
-      quad.subject.value === subjectIri &&
-      quad.predicate.value === options.predicateIri &&
-      quad.object.termType === "Literal" &&
-      quad.object.datatype.value === XSD_NON_NEGATIVE_INTEGER_IRI
-    ) {
-      values.add(quad.object.value);
-    }
-  }
-
-  if (values.size === 0) {
-    throw new WeaveInputError(options.missingMessage);
-  }
-  if (values.size > 1) {
-    throw new WeaveInputError(options.conflictMessage);
-  }
-
-  const parsed = Number(values.values().next().value);
-  if (!Number.isInteger(parsed) || parsed < 0) {
-    throw new WeaveInputError(options.invalidMessage);
-  }
-
-  return parsed;
+  return requireSingleNonNegativeIntegerLiteralWithDiagnostics(
+    quads,
+    subjectIri,
+    options.predicateIri,
+    options,
+  );
 }
 
 function isArtifactHistory(

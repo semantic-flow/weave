@@ -17,6 +17,10 @@ import {
   type VersionPlan,
   WeaveInputError,
 } from "../../core/weave/weave.ts";
+import type {
+  ResourcePageGenerationConfig,
+  WeaveArtifactRole,
+} from "../../core/weave/resource_page_policy.ts";
 import {
   listKnopDesignatorPaths,
   resolvePayloadArtifactInventoryState,
@@ -664,6 +668,7 @@ async function planExplicitPayloadBatchVersion(
     left.designatorPath.localeCompare(right.designatorPath)
   );
   const policies = await resolvePayloadBatchPolicies(
+    meshState.meshBase,
     orderedCandidates,
     meshEffectiveConfig,
     effectiveConfigProvider,
@@ -693,6 +698,7 @@ async function planExplicitPayloadBatchVersion(
 }
 
 async function resolvePayloadBatchPolicies(
+  meshBase: string,
   orderedCandidates: readonly WeaveableKnopCandidate[],
   meshEffectiveConfig: EffectiveConfig,
   effectiveConfigProvider: EffectiveConfigProvider,
@@ -749,6 +755,11 @@ async function resolvePayloadBatchPolicies(
     const comparisonKey = JSON.stringify({
       supportHistoryPolicies,
       namingPolicies,
+      resourcePageGenerationConfig: snapshotResourcePageGenerationConfig(
+        meshBase,
+        resourcePageGenerationConfig,
+        orderedCandidates,
+      ),
       resourcePageGenerationPolicies,
     });
 
@@ -782,6 +793,76 @@ async function resolvePayloadBatchPolicies(
     resourcePageGenerationConfig: first.resourcePageGenerationConfig,
     resourcePageGenerationPolicies: first.resourcePageGenerationPolicies,
   };
+}
+
+function snapshotResourcePageGenerationConfig(
+  meshBase: string,
+  config: ResourcePageGenerationConfig,
+  candidates: readonly WeaveableKnopCandidate[],
+): readonly {
+  artifactPath: string;
+  artifactRole: WeaveArtifactRole;
+  policy: ReturnType<
+    ResourcePageGenerationConfig[
+      "resourcePageGenerationPolicyForArtifactRole"
+    ]
+  >;
+}[] {
+  return payloadBatchResourcePagePolicyProbes(candidates).map((probe) => {
+    const artifactIri = new URL(probe.artifactPath, meshBase).href;
+    return {
+      ...probe,
+      policy: config.resourcePageGenerationPolicyForArtifactTarget?.({
+        artifactIri,
+        artifactRole: probe.artifactRole,
+      }) ?? config.resourcePageGenerationPolicyForArtifactRole(
+        probe.artifactRole,
+      ),
+    };
+  });
+}
+
+function payloadBatchResourcePagePolicyProbes(
+  candidates: readonly WeaveableKnopCandidate[],
+): readonly { artifactPath: string; artifactRole: WeaveArtifactRole }[] {
+  const probes = new Map<
+    string,
+    { artifactPath: string; artifactRole: WeaveArtifactRole }
+  >();
+  const add = (
+    artifactPath: string,
+    artifactRole: WeaveArtifactRole,
+  ) => {
+    probes.set(`${artifactRole} ${artifactPath}`, {
+      artifactPath,
+      artifactRole,
+    });
+  };
+
+  for (const candidate of candidates) {
+    const knopPath = toKnopPath(candidate.designatorPath);
+    add(`${knopPath}/_meta`, "knopMetadata");
+    add(`${knopPath}/_inventory`, "knopInventory");
+
+    if (candidate.payloadArtifact !== undefined) {
+      add(candidate.designatorPath, "payload");
+    }
+    if (candidate.referenceCatalogArtifact !== undefined) {
+      add(`${knopPath}/_references`, "referenceCatalog");
+    }
+    if (candidate.resourcePageDefinitionArtifact !== undefined) {
+      add(
+        candidate.resourcePageDefinitionArtifact.artifactPath,
+        "resourcePageDefinition",
+      );
+    }
+  }
+
+  return [...probes.values()].sort((left, right) =>
+    `${left.artifactRole} ${left.artifactPath}`.localeCompare(
+      `${right.artifactRole} ${right.artifactPath}`,
+    )
+  );
 }
 
 export async function writePreparedVersion(

@@ -18,6 +18,7 @@ import {
   hasSubject,
   parseWeaveShapeQuads,
   requireSingleNonNegativeIntegerLiteral,
+  requireSingleNonNegativeIntegerLiteralWithDiagnostics,
   resolveOptionalNamedNodePath,
   resolveOptionalSegmentHint,
   toAbsoluteIri,
@@ -432,52 +433,6 @@ function resolveNextOrdinalStatePathFromHistory(
   }
 
   return `${historyPath}/${toStateSegment(nextStateOrdinal)}`;
-}
-
-function requireSingleNonNegativeIntegerLiteralWithDiagnostics(
-  quads: readonly Quad[],
-  subjectIri: string,
-  predicateIri: string,
-  diagnostics: {
-    missingMessage?: string;
-    conflictMessage?: string;
-    invalidMessage?: string;
-  },
-): number {
-  const values = new Set<string>();
-  for (const quad of quads) {
-    if (
-      quad.subject.termType === "NamedNode" &&
-      quad.subject.value === subjectIri &&
-      quad.predicate.value === predicateIri &&
-      quad.object.termType === "Literal" &&
-      quad.object.datatype.value ===
-        "http://www.w3.org/2001/XMLSchema#nonNegativeInteger"
-    ) {
-      values.add(quad.object.value);
-    }
-  }
-
-  if (values.size === 0) {
-    throw new WeaveInputError(
-      diagnostics.missingMessage ?? "Missing non-negative integer literal.",
-    );
-  }
-  if (values.size > 1) {
-    throw new WeaveInputError(
-      diagnostics.conflictMessage ??
-        "Conflicting non-negative integer literal facts.",
-    );
-  }
-
-  const parsed = Number(values.values().next().value);
-  if (!Number.isInteger(parsed) || parsed < 0) {
-    throw new WeaveInputError(
-      diagnostics.invalidMessage ?? "Invalid non-negative integer literal.",
-    );
-  }
-
-  return parsed;
 }
 
 function parseOptionalStateOrdinalFromPath(

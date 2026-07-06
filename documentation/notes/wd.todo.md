@@ -44,6 +44,7 @@ Groomed on 2026-05-27 from all `wa.task.*` notes in the Weave archive. Updated a
 
 ### P2: Fixtures, Renderer, And Developer Experience
 
+- [ ] Integrate Accord v0.1.0 capabilities into the fixture-ladder workflow: pin the CI accord checkout to the `v0.1.0` tag, run `accord validate` over the live Semantic Flow manifests as a fast CI authoring gate before slow ladder checks, convert the mesh-alice-bio smoke / full-corpus rerun to a scenario index driven by `accord check-scenario` for per-rung evidence, use `accord draft-manifest` as the starting point when ladder rungs change intentionally, and consider JSON assertions for generated-page contract checks. The accord-side features are complete (see `ac.completed.2026.2026-07-04-*` notes in the accord repo); this item is Weave-side adoption only.
 - [ ] Add the manifest completeness check from [[wa.task.2026.2026-05-16_1625-manifest-completeness-check]] so fixture branch diffs cannot drift beyond Accord manifest expectations or deliberate `ignorePaths`.
 - [ ] Add the latest-state conformance fixture from [[wa.task.2026.2026-05-19_1536-latest-state-conformance]] once Accord can express the needed rendered-text assertions.
 - [ ] Revisit custom ResourcePage follow-up work in [[wa.task.2026.2026-05-23-2157-resourcepage-followup]] after Knop config inheritance settles: the next useful slice is probably a narrow custom page fixture that keeps the shared Semantic Site presentation while opting into authored Markdown plus selected generated panels.

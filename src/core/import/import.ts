@@ -13,6 +13,7 @@ import {
 } from "../rdf/namespaces.ts";
 import { escapeTurtleString } from "../rdf/turtle.ts";
 import { normalizeXsdDateTimeLiteral } from "../rdf/xsd_literals.ts";
+import { WeaveInputError } from "../weave/errors.ts";
 import { planInventoryAppend } from "../weave/inventory_append_planner.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
@@ -751,7 +752,7 @@ function planImportInventoryAppend(input: {
         `requested Knop source registry facts for ${input.designatorPath}`,
     });
   } catch (error) {
-    if (error instanceof Error) {
+    if (error instanceof WeaveInputError) {
       throw new ImportInputError(error.message);
     }
     throw error;

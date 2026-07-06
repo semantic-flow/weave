@@ -5,6 +5,12 @@ import { WeaveInputError } from "./errors.ts";
 const XSD_NON_NEGATIVE_INTEGER_IRI =
   "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
 
+export interface NonNegativeIntegerLiteralDiagnostics {
+  missingMessage?: string;
+  conflictMessage?: string;
+  invalidMessage?: string;
+}
+
 export function parseWeaveShapeQuads(
   meshBase: string,
   turtle: string,
@@ -45,23 +51,47 @@ export function requireSingleNonNegativeIntegerLiteral(
   predicateIri: string,
   errorMessage: string,
 ): number {
-  const values = quads.flatMap((quad) =>
-    quad.subject.termType === "NamedNode" &&
-      quad.subject.value === subjectIri &&
-      quad.predicate.value === predicateIri &&
-      quad.object.termType === "Literal" &&
-      quad.object.datatype.value === XSD_NON_NEGATIVE_INTEGER_IRI
-      ? [quad.object.value]
-      : []
+  return requireSingleNonNegativeIntegerLiteralWithDiagnostics(
+    quads,
+    subjectIri,
+    predicateIri,
+    {
+      missingMessage: errorMessage,
+      conflictMessage: errorMessage,
+      invalidMessage: errorMessage,
+    },
+  );
+}
+
+export function requireSingleNonNegativeIntegerLiteralWithDiagnostics(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+  diagnostics: NonNegativeIntegerLiteralDiagnostics = {},
+): number {
+  const values = collectNonNegativeIntegerLiteralValues(
+    quads,
+    subjectIri,
+    predicateIri,
   );
 
-  if (values.length !== 1) {
-    throw new WeaveInputError(errorMessage);
+  if (values.size === 0) {
+    throw new WeaveInputError(
+      diagnostics.missingMessage ?? "Missing non-negative integer literal.",
+    );
+  }
+  if (values.size > 1) {
+    throw new WeaveInputError(
+      diagnostics.conflictMessage ??
+        "Conflicting non-negative integer literal facts.",
+    );
   }
 
-  const parsed = Number(values[0]);
+  const parsed = Number(values.values().next().value);
   if (!Number.isInteger(parsed) || parsed < 0) {
-    throw new WeaveInputError(errorMessage);
+    throw new WeaveInputError(
+      diagnostics.invalidMessage ?? "Invalid non-negative integer literal.",
+    );
   }
 
   return parsed;
@@ -96,6 +126,26 @@ export function resolveOptionalNonNegativeIntegerLiteral(
   }
 
   return parsed;
+}
+
+function collectNonNegativeIntegerLiteralValues(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+): Set<string> {
+  const values = new Set<string>();
+  for (const quad of quads) {
+    if (
+      quad.subject.termType === "NamedNode" &&
+      quad.subject.value === subjectIri &&
+      quad.predicate.value === predicateIri &&
+      quad.object.termType === "Literal" &&
+      quad.object.datatype.value === XSD_NON_NEGATIVE_INTEGER_IRI
+    ) {
+      values.add(quad.object.value);
+    }
+  }
+  return values;
 }
 
 export function requireOptionalNamedNodeObject(
