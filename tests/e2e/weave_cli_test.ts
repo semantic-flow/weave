@@ -648,6 +648,7 @@ Deno.test("weave --generated-at rejects invalid instants before planning", async
   const stderr = new TextDecoder().decode(output.stderr);
 
   assertFalse(output.success, stderr);
+  assertEquals(output.code, 1);
   assertStringIncludes(
     stderr,
     "weave --generated-at must be an ISO 8601 instant",

@@ -44,6 +44,8 @@ Repeated exact payload targets are planned together in canonical designator-path
 
 For explicit multi-target payload batches, Weave hashes the requested targets' current working payload files before batch content capture and verifies those hashes after capture. A changed working payload refuses the whole batch before Weave writes version output, with a diagnostic naming the changed file. Changes after capture are ignored by design.
 
+For service-owned invocation and retry guidance, see [[wu.cli-reference.weave#service-integration]]. The same single-writer, fail-closed validation, snapshot-verification, and retry-safety rules apply to `weave version`; only page generation and `--generated-at` are specific to full `weave` or [[wu.cli-reference.generate]].
+
 `weave version` reads `_mesh/_config/config.ttl` when present. Mesh-local config can set durable history tracking and naming defaults. `--history-tracking-policy` remains a command-scoped override for the current run.
 
 `weave set history` and `weave set next-state` can persist payload-only intent for a later version operation; see [[wu.cli-reference.set.history]] and [[wu.cli-reference.set.next-state]].

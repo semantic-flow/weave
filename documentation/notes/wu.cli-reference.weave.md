@@ -68,6 +68,16 @@ Repeated exact `--target` flags can advance multiple payload artifacts in one in
 
 For explicit multi-target payload batches, Weave hashes the requested targets' current working payload files before batch content capture and verifies those hashes after capture. If a working payload changes during capture, the whole batch is refused before Weave writes anything, and the diagnostic names the changed file. Changes after capture are ignored by design; the batch is derived from the captured content.
 
+## Service Integration
+
+For service-owned state, treat the service as the single writer. Serialize the coherent game/session/application state to the working payload files, then invoke `weave` with explicit payload targets. Do not modify those working payload files while `weave` is running. Weave provides fail-closed validation and deterministic output; it does not provide locking, rollback, journaling, or filesystem transactions.
+
+For explicit payload batches, snapshot verification and whole-plan validation failures exit with code `1` and write a stderr diagnostic naming the changed file, missing fact, conflicting fact, or invalid target. These failures happen before Weave writes version output. The correct service response is to re-serialize a coherent state snapshot and invoke `weave` again.
+
+Retries are safe by design. If a previous invocation completed or partially completed, re-running the same explicit payload batch no-ops targets that are already current and advances only the remaining requested targets.
+
+Services that want page footers to show event time rather than weave-execution time should pass `--generated-at <iso-8601>`. Weave canonicalizes the instant to UTC `toISOString()` form and uses it as the single generated-page timestamp for the invocation.
+
 ## Environment
 
 - [[wu.environment-variables#weave_log_dir]] controls where runtime logs are written.
