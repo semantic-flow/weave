@@ -398,7 +398,8 @@ export async function executeExtractAllTerms(
       sourceDesignatorPath,
       sourceStatePath,
     );
-    const discovery = discoverAllTermDesignatorPaths({
+    const discovery = await discoverAllTermDesignatorPaths({
+      meshRoot,
       meshBase: meshState.meshBase,
       sourceDesignatorPath: sourcePayload.designatorPath,
       currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
@@ -548,7 +549,8 @@ export async function previewExtractAllTerms(
     options.request.sourceDesignatorPath,
     options.request.sourceStatePath,
   );
-  const discovery = discoverAllTermDesignatorPaths({
+  const discovery = await discoverAllTermDesignatorPaths({
+    meshRoot,
     meshBase: meshState.meshBase,
     sourceDesignatorPath: sourcePayload.designatorPath,
     currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
@@ -695,7 +697,8 @@ async function planSetExtractionSourceAllTerms(
     options.request.sourceDesignatorPath,
     options.request.sourceStatePath,
   );
-  const discovery = discoverAllTermDesignatorPaths({
+  const discovery = await discoverAllTermDesignatorPaths({
+    meshRoot,
     meshBase: meshState.meshBase,
     sourceDesignatorPath: sourcePayload.designatorPath,
     currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
@@ -1376,20 +1379,21 @@ function payloadMentionsTarget(
   );
 }
 
-function discoverAllTermDesignatorPaths(
+async function discoverAllTermDesignatorPaths(
   options: {
+    meshRoot: string;
     meshBase: string;
     sourceDesignatorPath: string;
     currentMeshInventoryTurtle: string;
     currentPayloadTurtle: string;
     sourceKnopInventoryTurtle: string;
   },
-): {
+): Promise<{
   discoveredDesignatorPaths: readonly string[];
   extractedDesignatorPaths: readonly string[];
   skippedExistingDesignatorPaths: readonly string[];
   skippedSupportDesignatorPaths: readonly string[];
-} {
+}> {
   const existingDesignatorPaths = new Set(
     listKnopDesignatorPaths(
       options.meshBase,
@@ -1413,6 +1417,7 @@ function discoverAllTermDesignatorPaths(
   const discovered = new Set<string>();
   const skippedExisting = new Set<string>();
   const skippedSupport = new Set<string>();
+  const workspaceFilePaths = new Map<string, boolean>();
   let quads: Quad[];
 
   try {
@@ -1451,6 +1456,18 @@ function discoverAllTermDesignatorPaths(
         rawDesignatorPath,
         iri,
       );
+      let isWorkspaceFile = workspaceFilePaths.get(designatorPath);
+      if (isWorkspaceFile === undefined) {
+        isWorkspaceFile = await designatorPathIsWorkspaceFile(
+          options.meshRoot,
+          designatorPath,
+        );
+        workspaceFilePaths.set(designatorPath, isWorkspaceFile);
+      }
+      if (isWorkspaceFile) {
+        skippedSupport.add(designatorPath);
+        continue;
+      }
       if (existingDesignatorPaths.has(designatorPath)) {
         skippedExisting.add(designatorPath);
         continue;
@@ -1473,6 +1490,22 @@ function discoverAllTermDesignatorPaths(
       left.localeCompare(right)
     ),
   };
+}
+
+async function designatorPathIsWorkspaceFile(
+  meshRoot: string,
+  designatorPath: string,
+): Promise<boolean> {
+  try {
+    return (await Deno.stat(join(meshRoot, designatorPath))).isFile;
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return false;
+    }
+    throw new ExtractRuntimeError(
+      `Could not inspect workspace path while discovering terms: ${designatorPath}`,
+    );
+  }
 }
 
 function hasReservedSupportSegment(path: string): boolean {
