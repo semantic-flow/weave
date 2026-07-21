@@ -16,6 +16,7 @@ For development rules, start with [[wd.general-guidance]]. For testing posture, 
 
 - `src/core`: semantic operation contracts and pure planning logic. Core code should avoid local filesystem, git, process, logging, and host-runtime assumptions.
 - `src/runtime`: local workspace execution. Runtime code loads files, reads git/workspace state, resolves effective config, logs, stages writes, and calls core planners.
+- `src/api`: stable in-process source API façades. API code owns public request admission, typed error/result adaptation, and composed runtime orchestration while reusing core planners and runtime loaders rather than duplicating semantic behavior. `version_payloads.ts` provides the pinned-checkout `versionPayloads` surface defined by [[wd.programmatic-version-api]].
 - `src/cli`: terminal UX. CLI code parses commands/options, normalizes user input, calls runtime, and formats output. It should not contain semantic planning logic.
 - `src/daemon`: future HTTP/API process. Scaffold only for now.
 - `src/web`: future browser client. Scaffold only for now.
@@ -46,6 +47,7 @@ Runtime owns local execution against a workspace: filesystem reads/writes, git-a
 - `src/runtime/operational/local_path_policy.ts` controls workspace-local path safety and allowed repo-adjacent access.
 - `src/runtime/weave/weave.ts` is the public runtime façade for validate/version/generate/weave.
 - `src/runtime/weave/prepared_execution.ts`, `candidate_loader.ts`, `planning_context.ts`, `artifact_loaders.ts`, `version_execution.ts`, and `request_normalization.ts` hold non-page-generation runtime weave execution pieces.
+- `src/runtime/weave/version_execution.ts` also exposes an API-only prepared coherent-payload-batch entry. It accepts a caller-owned `TextFileOverlay`, includes settled exact payload targets at cardinality one or greater, and leaves the CLI batch predicate and ordinary version dispatch unchanged.
 - `src/runtime/weave/page_generation.ts`, `page_model_assembly.ts`, `page_contexts.ts`, `raw_source_panels.ts`, and `pages.ts` hold ResourcePage generation, model assembly, context loading, raw-source panels, and HTML rendering.
 - `version_execution.ts` verifies current working payload file hashes around explicit payload-batch capture, while `page_generation.ts` owns generated-page timestamp sampling and timestamp-only write-skip behavior.
 - `WEAVE_TIMING=1` reports runtime phase timings; keep timing phase names stable during move-only refactors unless a task explicitly changes them.
@@ -62,6 +64,7 @@ Runtime owns local execution against a workspace: filesystem reads/writes, git-a
 - Local file discovery, write behavior, or workspace safety: `src/runtime/**`.
 - Weave/version planning: start in `src/core/weave/weave.ts`, then move stable helpers out as part of the core weave decomposition task.
 - Runtime weave execution: `src/runtime/weave/**`.
+- Stable in-process API contracts and filesystem-owning composed operations: `src/api/**`; keep portable planning rules in `src/core/**` and local loading/execution seams in `src/runtime/**`.
 - Generated ResourcePage HTML: `src/runtime/weave/pages.ts`; supporting data comes from the page generation/context/model modules nearby.
 - Effective config behavior: `src/runtime/config/**`, plus core policy types under `src/core/weave/**` when the policy is portable.
 - CLI flags and output: `src/cli/**`.

@@ -1,7 +1,4 @@
-export * from "./core/mod.ts";
-export * from "./runtime/mod.ts";
-export * from "./cli/mod.ts";
-export { versionPayloads, WeaveApiError } from "./api/mod.ts";
+export { versionPayloads, WeaveApiError } from "./version_payloads.ts";
 export type {
   PayloadVersionDefaults,
   PayloadVersionOutcome,
@@ -10,4 +7,4 @@ export type {
   VersionPayloadsResult,
   WeaveApiErrorCode,
   WeaveApiErrorStage,
-} from "./api/mod.ts";
+} from "./version_payloads.ts";

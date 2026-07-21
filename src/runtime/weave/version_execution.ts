@@ -4,6 +4,7 @@ import type {
   PlannedBinaryFile,
   PlannedFile,
 } from "../../core/planned_file.ts";
+import type { PlannedPayloadSnapshot } from "../../core/weave/version_plan.ts";
 import { toKnopPath } from "../../core/designator_segments.ts";
 import {
   type NormalizedVersionTargetSpec,
@@ -12,6 +13,7 @@ import {
 import type { WeaveableKnopCandidate } from "../../core/weave/candidates.ts";
 import {
   detectPendingWeaveSlice,
+  planCoherentPayloadBatchVersion,
   planMeshSupportResourcePages,
   planVersion,
   type VersionPlan,
@@ -69,6 +71,12 @@ export interface PreparedVersionExecution {
   plan: VersionPlan;
 }
 
+export interface PreparedCoherentPayloadBatchVersionExecution
+  extends PreparedVersionExecution {
+  candidates: readonly WeaveableKnopCandidate[];
+  payloadSnapshots: readonly PlannedPayloadSnapshot[];
+}
+
 export interface InputSnapshotVerificationHooks {
   afterInitialHash?: () => Promise<void> | void;
   afterVerifiedCapture?: () => Promise<void> | void;
@@ -79,6 +87,169 @@ export interface PreparedVersionWriteResult {
   versionedDesignatorPaths: readonly string[];
   createdPaths: readonly string[];
   updatedPaths: readonly string[];
+}
+
+/**
+ * API-only preparation path for an exact payload batch. The caller owns and
+ * seeds the overlay with admitted working payload text before calling this
+ * function. Unlike prepareVersionExecution, this path deliberately opts into
+ * settled payload candidates and coherent batch planning at cardinality one.
+ */
+export async function prepareCoherentPayloadBatchVersionExecution(
+  workspaceRoot: string,
+  targets: readonly NormalizedVersionTargetSpec[],
+  localPathPolicy: OperationalLocalPathPolicy,
+  overlay: TextFileOverlay,
+  overwriteExistingState = false,
+  historyTrackingPolicyOverride?: HistoryTrackingPolicy,
+  timing?: RuntimeTiming,
+): Promise<PreparedCoherentPayloadBatchVersionExecution> {
+  await timeOptional(
+    timing,
+    "prepareApi.ensureWorkspaceRoot",
+    () => ensureWorkspaceRootExists(workspaceRoot),
+  );
+  const meshState = await timeOptional(
+    timing,
+    "prepareApi.loadMeshState",
+    () => loadMeshState(workspaceRoot, overlay),
+  );
+  const allDesignatorPaths = timeOptionalSync(
+    timing,
+    "prepareApi.listDesignatorPaths",
+    () =>
+      listKnopDesignatorPaths(
+        meshState.meshBase,
+        meshState.currentMeshInventoryTurtle,
+        "Could not parse the current MeshInventory while resolving programmatic payload targets.",
+      ),
+  );
+  const resolvedTargets = timeOptionalSync(
+    timing,
+    "prepareApi.resolveTargets",
+    () =>
+      resolveTargetSelections(
+        allDesignatorPaths,
+        targets,
+        (message) => new WeaveInputError(message),
+      ),
+  );
+  const requestedDesignatorPaths = resolvedTargets.map((selection) =>
+    selection.designatorPath
+  );
+  const targetByDesignatorPath = new Map(
+    resolvedTargets.map((selection) => [
+      selection.designatorPath,
+      selection.target as NormalizedVersionTargetSpec | undefined,
+    ]),
+  );
+  const candidates = await timeOptional(
+    timing,
+    "prepareApi.loadCandidates",
+    () =>
+      loadWeaveableKnopCandidates(
+        workspaceRoot,
+        localPathPolicy,
+        meshState.meshBase,
+        meshState.currentMeshInventoryTurtle,
+        requestedDesignatorPaths,
+        targetByDesignatorPath,
+        overlay,
+        timing,
+        "prepareApi.loadCandidates",
+        { includeSettledPayloadTargets: true },
+      ),
+  );
+  assertRequestedTargetsAreWeaveable(targets, candidates);
+  if (
+    !isExplicitPayloadBatch(
+      meshState.meshBase,
+      candidates,
+      targetByDesignatorPath,
+    )
+  ) {
+    throw new WeaveInputError(
+      "Programmatic version requests support exact payload targets only.",
+    );
+  }
+
+  const targetMetadataTurtleByDesignatorPath = new Map(
+    candidates.map((candidate) => [
+      candidate.designatorPath,
+      candidate.currentKnopMetadataTurtle,
+    ]),
+  );
+  const effectiveConfigProvider = createEffectiveConfigProviderForExecution({
+    meshRoot: workspaceRoot,
+    meshState,
+    localPathPolicy,
+    targetMetadataTurtleByDesignatorPath,
+    historyTrackingPolicyOverride,
+    timing,
+    phasePrefix: "prepareApi.effectiveConfig",
+  });
+  const meshEffectiveConfig = await effectiveConfigProvider
+    .configForMeshScope();
+  const orderedCandidates = [...candidates].sort((left, right) =>
+    left.designatorPath.localeCompare(right.designatorPath)
+  );
+  const policies = await resolvePayloadBatchPolicies(
+    meshState.meshBase,
+    orderedCandidates,
+    meshEffectiveConfig,
+    effectiveConfigProvider,
+  );
+  const input = {
+    request: {
+      targets: orderedCandidates.flatMap((candidate) => {
+        const target = targetByDesignatorPath.get(candidate.designatorPath);
+        return target === undefined ? [] : [{ ...target.source }];
+      }),
+      ...(overwriteExistingState ? { overwriteExistingState: true } : {}),
+    },
+    meshBase: meshState.meshBase,
+    currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
+    currentMeshMetadataTurtle: meshState.currentMeshMetadataTurtle,
+    weaveableKnops: orderedCandidates,
+    supportHistoryPolicies: policies.supportHistoryPolicies,
+    namingPolicies: policies.namingPolicies,
+    resourcePageGenerationConfig: policies.resourcePageGenerationConfig,
+    resourcePageGenerationPolicies: policies.resourcePageGenerationPolicies,
+  };
+  let plan: VersionPlan;
+  let payloadSnapshots: readonly PlannedPayloadSnapshot[];
+  if (overwriteExistingState) {
+    plan = timeOptionalSync(
+      timing,
+      "prepareApi.planPayloadBatch",
+      () => planVersion(input),
+    );
+    payloadSnapshots = orderedCandidates.map((candidate) => {
+      const snapshotPath = candidate.payloadArtifact
+        ?.latestHistoricalSnapshotPath;
+      if (snapshotPath === undefined) {
+        throw new WeaveInputError(
+          `Could not resolve the current payload snapshot for ${candidate.designatorPath}.`,
+        );
+      }
+      return { designatorPath: candidate.designatorPath, snapshotPath };
+    });
+  } else {
+    const plannedBatch = timeOptionalSync(
+      timing,
+      "prepareApi.planPayloadBatch",
+      () => planCoherentPayloadBatchVersion(input),
+    );
+    plan = plannedBatch;
+    payloadSnapshots = plannedBatch.payloadSnapshots;
+  }
+
+  return {
+    meshState,
+    plan,
+    candidates: orderedCandidates,
+    payloadSnapshots,
+  };
 }
 
 export async function prepareVersionExecution(

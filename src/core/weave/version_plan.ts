@@ -7,3 +7,12 @@ export interface VersionPlan {
   createdBinaryFiles?: readonly PlannedBinaryFile[];
   updatedFiles: readonly PlannedFile[];
 }
+
+export interface PlannedPayloadSnapshot {
+  designatorPath: string;
+  snapshotPath: string;
+}
+
+export interface CoherentPayloadBatchVersionPlan extends VersionPlan {
+  payloadSnapshots: readonly PlannedPayloadSnapshot[];
+}

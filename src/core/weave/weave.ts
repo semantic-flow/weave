@@ -23,7 +23,11 @@ import {
   shouldMaterializeSupportHistory,
   type WeaveSupportHistoryPolicies,
 } from "./support_history_policy.ts";
-import type { VersionPlan } from "./version_plan.ts";
+import type {
+  CoherentPayloadBatchVersionPlan,
+  PlannedPayloadSnapshot,
+  VersionPlan,
+} from "./version_plan.ts";
 import type { WeaveableKnopCandidate } from "./candidates.ts";
 import type { PlanWeaveInput, WeavePlan } from "./planning_models.ts";
 import type { WeaveSlice } from "./slices.ts";
@@ -338,7 +342,71 @@ export function planWeave(input: PlanWeaveInput): WeavePlan {
 }
 
 export function planVersion(input: PlanWeaveInput): VersionPlan {
-  const plan = planWeave(input);
+  return toVersionPlan(planWeave(input));
+}
+
+/**
+ * Plans an exact payload batch through the coherent batch planner even when
+ * the request contains only one candidate. This entry is intentionally
+ * separate from planWeave so API cardinality adaptation cannot change the
+ * CLI's established single-candidate dispatch.
+ */
+export function planCoherentPayloadBatchVersion(
+  input: PlanWeaveInput,
+): CoherentPayloadBatchVersionPlan {
+  const meshBase = normalizeMeshBase(input.meshBase);
+  const requestedTargets = normalizeVersionTargetSpecs(
+    input.request.targets,
+    "request.targets",
+    (message) => new WeaveInputError(message),
+  );
+  if (requestedTargets.length === 0) {
+    throw new WeaveInputError(
+      "Coherent payload batch versioning requires at least one exact target.",
+    );
+  }
+  if (
+    input.request.overwriteExistingState === true ||
+    requestedTargets.some((target) => target.recursive)
+  ) {
+    throw new WeaveInputError(
+      "Coherent payload batch versioning supports non-overwrite exact targets only.",
+    );
+  }
+
+  const selections = filterWeaveableKnops(
+    input.weaveableKnops,
+    requestedTargets,
+  );
+  if (selections.length !== requestedTargets.length) {
+    throw new WeaveInputError(
+      "Requested targets did not match every coherent payload batch candidate.",
+    );
+  }
+
+  const payloadSnapshots: PlannedPayloadSnapshot[] = [];
+  const plan = planExplicitPayloadBatchWeave(
+    meshBase,
+    input.currentMeshInventoryTurtle,
+    input.currentMeshMetadataTurtle,
+    selections,
+    input.supportHistoryPolicies,
+    input.namingPolicies,
+    (designatorPath, snapshotPath) => {
+      payloadSnapshots.push({ designatorPath, snapshotPath });
+    },
+  );
+  return {
+    ...toVersionPlan(applyResourcePageGenerationPolicies(plan, {
+      config: input.resourcePageGenerationConfig,
+      policies: input.resourcePageGenerationPolicies,
+      explicitRequest: true,
+    })),
+    payloadSnapshots,
+  };
+}
+
+function toVersionPlan(plan: WeavePlan): VersionPlan {
   const createdFiles = plan.createdFiles.filter((file) =>
     !file.path.endsWith(".html")
   );
@@ -532,6 +600,7 @@ function planExplicitPayloadBatchWeave(
   selectedWeaveableKnops: readonly SelectedWeaveableKnopCandidate[],
   supportHistoryPolicies?: WeaveSupportHistoryPolicies,
   namingPolicies?: WeaveNamingPolicies,
+  onPayloadSnapshot?: (designatorPath: string, snapshotPath: string) => void,
 ): WeavePlan {
   const selections = [...selectedWeaveableKnops].sort((left, right) =>
     left.candidate.designatorPath.localeCompare(right.candidate.designatorPath)
@@ -577,6 +646,14 @@ function planExplicitPayloadBatchWeave(
           target,
         )
       ) {
+        const snapshotPath = candidate.payloadArtifact
+          ?.latestHistoricalSnapshotPath;
+        if (snapshotPath === undefined) {
+          throw new WeaveInputError(
+            `Could not resolve the current payload snapshot for ${designatorPath}.`,
+          );
+        }
+        onPayloadSnapshot?.(designatorPath, snapshotPath);
         return;
       }
 
@@ -597,6 +674,7 @@ function planExplicitPayloadBatchWeave(
           target,
           supportHistoryPolicies,
           namingPolicies,
+          (snapshotPath) => onPayloadSnapshot?.(designatorPath, snapshotPath),
         ));
         return;
       }
@@ -608,6 +686,7 @@ function planExplicitPayloadBatchWeave(
           target,
           supportHistoryPolicies,
           namingPolicies,
+          (snapshotPath) => onPayloadSnapshot?.(designatorPath, snapshotPath),
         ));
         return;
       }
@@ -1080,6 +1159,7 @@ function planFirstPayloadWeave(
   target?: NormalizedVersionTargetSpec,
   supportHistoryPolicies?: WeaveSupportHistoryPolicies,
   namingPolicies?: WeaveNamingPolicies,
+  onPayloadSnapshot?: (snapshotPath: string) => void,
 ): WeavePlan {
   const payloadArtifact = candidate.payloadArtifact!;
   assertCurrentKnopInventoryWithoutHistory(
@@ -1127,6 +1207,7 @@ function planFirstPayloadWeave(
   const payloadSnapshotPath = `${payloadLayout.nextManifestationPath}/${
     toFileName(payloadArtifact.workingLocalRelativePath)
   }`;
+  onPayloadSnapshot?.(payloadSnapshotPath);
   const payloadSnapshotBytes = payloadArtifact.currentPayloadBytes;
   const knopMetadataHistoryPolicy = supportHistoryPolicies?.knopMetadata ??
     "versioned";
@@ -1685,6 +1766,7 @@ function planLaterPayloadWeave(
   target?: NormalizedVersionTargetSpec,
   supportHistoryPolicies?: WeaveSupportHistoryPolicies,
   namingPolicies?: WeaveNamingPolicies,
+  onPayloadSnapshot?: (snapshotPath: string) => void,
 ): WeavePlan {
   const payloadArtifact = candidate.payloadArtifact!;
   const designatorPath = candidate.designatorPath;
@@ -1712,6 +1794,7 @@ function planLaterPayloadWeave(
   const payloadSnapshotPath = `${payloadLayout.nextManifestationPath}/${
     toFileName(payloadArtifact.workingLocalRelativePath)
   }`;
+  onPayloadSnapshot?.(payloadSnapshotPath);
   const knopMetadataHistoryPolicy = readModel.knopMetadataHistoryPolicy;
   const knopInventoryHistoryPolicy = readModel.knopInventoryHistoryPolicy;
   const knopInventoryProgression = readModel.knopInventoryProgression;
