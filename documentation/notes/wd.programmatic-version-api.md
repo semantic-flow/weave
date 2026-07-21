@@ -10,7 +10,7 @@ created: 1784667355000
 
 This note defines the Weave v1 in-process API contract for coherently recording caller-supplied payload bytes. The portable observable behavior is [[sf.spec.2026-07-21-programmatic-version-api]].
 
-Implementation remains STOP-gated on PM GO in [[wa.task.2026.2026-07-21_1322-programmatic-version-api]].
+The contract and implementation strategy were ratified by PM GO in [[wa.task.2026.2026-07-21_1322-programmatic-version-api]].
 
 ## Stable Public Surface
 
@@ -28,7 +28,7 @@ The stable function and primary types are:
 
 The public root module is `src/mod.ts`. For a repository-root consumer file, the exact import specifier is `./src/mod.ts`. The API is re-exported from that root; consumers must not import `src/api/` implementation modules directly.
 
-The current npm package is a native CLI wrapper rather than a library export vehicle. This contract therefore pins the repository source root, not an `@semantic-flow/weave` library specifier; see the critique recorded in the governing task.
+The current npm package is a native CLI wrapper rather than a library export vehicle. This contract therefore pins the repository source root, not an `@semantic-flow/weave` library specifier. Library packaging is tracked separately in [[wd.todo]].
 
 ## Request Contract
 
@@ -125,7 +125,7 @@ The admitted copies are the payload capture boundary. There is no API changed-un
 
 The landed capture-hash exclusion of configuration and support inputs is preserved: config and support files are not claimed as snapshot-verified inputs. Mutating them concurrently violates the caller-owned serialization rule and is not guaranteed to produce `snapshot-conflict`.
 
-`snapshot-conflict` is retained as a final reserved code for a bounded file-backed capture conflict if such a covered read set remains in the shared execution seam. It is not emitted for mutation of caller buffers, requested working payload files shadowed by the overlay, configuration files, or support files. The critique gate asks PM to confirm whether a reserved but currently unreachable v1 value should remain public.
+`snapshot-conflict` is retained as a final reserved code for a bounded file-backed capture conflict if such a covered read set remains in the shared execution seam. PM GO explicitly confirmed the reserved value to avoid later public-union churn. It is not emitted in v1, including for mutation of caller buffers, requested working payload files shadowed by the overlay, configuration files, or support files.
 
 ## Full Precedence Contract
 
