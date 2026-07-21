@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertRejects } from "@std/assert";
-import { dirname, fromFileUrl, join } from "@std/path";
+import { basename, dirname, fromFileUrl, join } from "@std/path";
 import {
   versionPayloadsForTesting,
   writeCombinedPlanForTesting,
@@ -21,6 +21,7 @@ interface PayloadTargetFixture {
   designatorPath: string;
   label: string;
   latestOrdinal: number;
+  workingLocalRelativePath?: string;
 }
 
 const coreTarget: PayloadTargetFixture = {
@@ -32,6 +33,28 @@ const shaclTarget: PayloadTargetFixture = {
   designatorPath: "rules/shacl",
   label: "SHACL rules",
   latestOrdinal: 2,
+};
+const alphaTarget: PayloadTargetFixture = {
+  designatorPath: "alpha",
+  label: "Alpha rules",
+  latestOrdinal: 1,
+  workingLocalRelativePath: "sources/beta.ttl",
+};
+const alphaBetaTarget: PayloadTargetFixture = {
+  designatorPath: "alpha/beta",
+  label: "Alpha beta rules",
+  latestOrdinal: 1,
+};
+const rootTarget: PayloadTargetFixture = {
+  designatorPath: "",
+  label: "Root rules",
+  latestOrdinal: 1,
+  workingLocalRelativePath: "root.ttl",
+};
+const nestedRootTarget: PayloadTargetFixture = {
+  designatorPath: "nested/root",
+  label: "Nested root rules",
+  latestOrdinal: 1,
 };
 
 Deno.test("versionPayloads defeats old single-target settled refusal with applied then alreadyCurrent retry", async () => {
@@ -107,6 +130,63 @@ Deno.test("versionPayloads plans a deterministic coherent multi-item batch and n
   assertEquals(retry.createdPaths, []);
   assertEquals(retry.updatedPaths, []);
   assertEquals(await snapshotWorkspace(meshRoot), beforeRetry);
+});
+
+Deno.test("versionPayloads attributes nested same-basename snapshots per candidate", async () => {
+  const meshRoot = await createTestTmpDir("weave-version-api-nested-name-");
+  await materializePayloadMesh(meshRoot, [alphaTarget, alphaBetaTarget]);
+
+  const result = await versionPayloads({
+    meshRoot,
+    items: [
+      {
+        designatorPath: alphaTarget.designatorPath,
+        bytes: payloadBytes(alphaTarget, 1),
+      },
+      {
+        designatorPath: alphaBetaTarget.designatorPath,
+        bytes: payloadBytes(alphaBetaTarget, 2),
+      },
+    ],
+  });
+
+  assertEquals(result.outcomes[0], {
+    status: "alreadyCurrent",
+    designatorPath: "alpha",
+    payloadArtifactIri: `${meshBase}alpha`,
+    historySegment: "_history001",
+    stateSegment: "_s0001",
+    manifestationSegment: "ttl",
+    snapshotPath: "alpha/_history001/_s0001/ttl/beta.ttl",
+  });
+  assertEquals(result.outcomes[1]?.status, "applied");
+});
+
+Deno.test("versionPayloads attributes root snapshots per candidate in a batch", async () => {
+  const meshRoot = await createTestTmpDir("weave-version-api-root-batch-");
+  await materializePayloadMesh(meshRoot, [rootTarget, nestedRootTarget]);
+
+  const result = await versionPayloads({
+    meshRoot,
+    items: [
+      { designatorPath: "/", bytes: payloadBytes(rootTarget, 1) },
+      {
+        designatorPath: nestedRootTarget.designatorPath,
+        bytes: payloadBytes(nestedRootTarget, 2),
+      },
+    ],
+  });
+
+  assertEquals(result.outcomes[0], {
+    status: "alreadyCurrent",
+    designatorPath: "/",
+    payloadArtifactIri: meshBase,
+    historySegment: "_history001",
+    stateSegment: "_s0001",
+    manifestationSegment: "ttl",
+    snapshotPath: "_history001/_s0001/ttl/root.ttl",
+  });
+  assertEquals(result.outcomes[1]?.status, "applied");
 });
 
 Deno.test("versionPayloads cardinality-one adapter is byte-equivalent to the same member in a coherent batch", async () => {
@@ -216,6 +296,61 @@ Deno.test("versionPayloads whole-request refusal defeats sequential partial muta
   assertEquals(error.stage, "load");
   assertEquals(error.code, "malformed-mesh");
   assertEquals(await snapshotWorkspace(meshRoot), before);
+});
+
+Deno.test("versionPayloads maps typed invalid mesh config to malformed-mesh at LOAD", async () => {
+  const meshRoot = await createTestTmpDir("weave-version-api-bad-config-");
+  await materializePayloadMesh(meshRoot, [coreTarget]);
+  await writeText(
+    join(meshRoot, "_mesh/_config/config.ttl"),
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:hasDefaultHistoryTrackingPolicy sfcfg:historyTrackingPolicy_currentOnly .
+`,
+  );
+
+  const error = await assertRejects(
+    () =>
+      versionPayloads({
+        meshRoot,
+        items: [{
+          designatorPath: coreTarget.designatorPath,
+          bytes: payloadBytes(coreTarget, 2),
+        }],
+      }),
+    WeaveApiError,
+  );
+  assertEquals([error.code, error.stage], ["malformed-mesh", "load"]);
+});
+
+Deno.test("versionPayloads maps missing settled Knop designator metadata to malformed-mesh at LOAD", async () => {
+  const meshRoot = await createTestTmpDir("weave-version-api-bad-read-model-");
+  await materializePayloadMesh(meshRoot, [coreTarget]);
+  const metadataPath = join(
+    meshRoot,
+    `${coreTarget.designatorPath}/_knop/_meta/meta.ttl`,
+  );
+  await Deno.writeTextFile(
+    metadataPath,
+    (await Deno.readTextFile(metadataPath)).replace(
+      `  sflo:designatorPath "${coreTarget.designatorPath}" ;\n`,
+      "",
+    ),
+  );
+
+  const error = await assertRejects(
+    () =>
+      versionPayloads({
+        meshRoot,
+        items: [{
+          designatorPath: coreTarget.designatorPath,
+          bytes: payloadBytes(coreTarget, 2),
+        }],
+      }),
+    WeaveApiError,
+  );
+  assertEquals([error.code, error.stage], ["malformed-mesh", "load"]);
 });
 
 Deno.test("versionPayloads overwrites only an explicitly named current single-item state", async () => {
@@ -355,13 +490,9 @@ Deno.test("versionPayloads single-item output is byte-identical to the CLI updat
     bytes: payloadBytes(coreTarget, 2),
   }];
 
-  const apiResult = await versionPayloads({ meshRoot: apiRoot, items });
+  await versionPayloads({ meshRoot: apiRoot, items });
   await runCliTwoStep(cliRoot, items);
-  await assertWorkspacePathsEqual(
-    apiRoot,
-    cliRoot,
-    [...apiResult.createdPaths, ...apiResult.updatedPaths],
-  );
+  await assertWorkspaceTreesEqual(apiRoot, cliRoot);
 });
 
 Deno.test("versionPayloads multi-item output is byte-identical to the CLI update-plus-version batch", async () => {
@@ -380,13 +511,9 @@ Deno.test("versionPayloads multi-item output is byte-identical to the CLI update
     },
   ];
 
-  const apiResult = await versionPayloads({ meshRoot: apiRoot, items });
+  await versionPayloads({ meshRoot: apiRoot, items });
   await runCliTwoStep(cliRoot, items);
-  await assertWorkspacePathsEqual(
-    apiRoot,
-    cliRoot,
-    [...apiResult.createdPaths, ...apiResult.updatedPaths],
-  );
+  await assertWorkspaceTreesEqual(apiRoot, cliRoot);
 });
 
 Deno.test("versionPayloads admitted overlay defeats post-plan disk mutation as a capture conflict", async () => {
@@ -491,6 +618,56 @@ Deno.test("versionPayloads support-update failure discloses partial paths and na
   assertEquals([retryError.code, retryError.stage], ["plan-conflict", "plan"]);
 });
 
+Deno.test("versionPayloads write failure splits completed creates from updates", async () => {
+  const meshRoot = await createTestTmpDir("weave-version-api-fail-split-");
+  await materializePayloadMesh(meshRoot, [coreTarget, shaclTarget]);
+  const failingPath = snapshotPath(shaclTarget, 3);
+
+  const error = await assertRejects(
+    () =>
+      versionPayloadsForTesting(
+        {
+          meshRoot,
+          items: [
+            {
+              designatorPath: coreTarget.designatorPath,
+              bytes: payloadBytes(coreTarget, 2),
+            },
+            {
+              designatorPath: shaclTarget.designatorPath,
+              bytes: payloadBytes(shaclTarget, 3),
+            },
+          ],
+        },
+        {
+          beforeWrite: (phase, path) => {
+            if (phase === "text-create" && path === failingPath) {
+              throw new Error("injected second payload snapshot failure");
+            }
+          },
+        },
+      ),
+    WeaveApiError,
+  );
+  const repairError = error as WeaveApiError & {
+    completedCreatedPaths?: readonly string[];
+    completedUpdatedPaths?: readonly string[];
+  };
+  assertEquals(error.path, failingPath);
+  assertEquals(error.completedPaths, [
+    `${coreTarget.designatorPath}.ttl`,
+    `${shaclTarget.designatorPath}.ttl`,
+    snapshotPath(coreTarget, 2),
+  ]);
+  assertEquals(repairError.completedCreatedPaths, [
+    snapshotPath(coreTarget, 2),
+  ]);
+  assertEquals(repairError.completedUpdatedPaths, [
+    `${coreTarget.designatorPath}.ttl`,
+    `${shaclTarget.designatorPath}.ttl`,
+  ]);
+});
+
 Deno.test("versionPayloads writer reports the binary-create phase even though v1 payload admission rejects binary content", async () => {
   const meshRoot = await createTestTmpDir("weave-version-api-fail-binary-");
   await writeText(join(meshRoot, "working.txt"), "before");
@@ -512,6 +689,7 @@ Deno.test("versionPayloads writer reports the binary-create phase even though v1
       updatedFiles: [{ path: "support.txt", contents: "after" }],
     },
     candidates: [],
+    payloadSnapshots: [],
   };
 
   const error = await assertRejects(
@@ -573,7 +751,7 @@ async function materializePayloadMesh(
   sflo:hasMeshMetadata <_mesh/_meta> ;
   sflo:hasMeshInventory <_mesh/_inventory> ;
   ${
-      targets.map((target) => `sflo:hasKnop <${target.designatorPath}/_knop>`)
+      targets.map((target) => `sflo:hasKnop <${knopPath(target)}>`)
         .join(" ;\n  ")
     } .
 
@@ -582,8 +760,10 @@ async function materializePayloadMesh(
 
 ${
       targets.map((target) =>
-        `<${target.designatorPath}/_knop> a sflo:Knop ;
-  sflo:hasWorkingKnopInventoryFile <${target.designatorPath}/_knop/_inventory/inventory.ttl> .`
+        `<${knopPath(target)}> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <${
+          knopPath(target)
+        }/_inventory/inventory.ttl> .`
       ).join("\n\n")
     }
 `,
@@ -599,39 +779,40 @@ async function materializePayloadTarget(
   target: PayloadTargetFixture,
 ): Promise<void> {
   const { designatorPath, latestOrdinal } = target;
-  const knopPath = `${designatorPath}/_knop`;
+  const targetKnopPath = knopPath(target);
+  const workingPath = workingPayloadPath(target);
   await writeText(
-    join(meshRoot, `${knopPath}/_meta/meta.ttl`),
+    join(meshRoot, `${targetKnopPath}/_meta/meta.ttl`),
     `@base <${meshBase}> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
-<${knopPath}> a sflo:Knop ;
+<${targetKnopPath}> a sflo:Knop ;
   sflo:designatorPath "${designatorPath}" ;
-  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> .
+  sflo:hasWorkingKnopInventoryFile <${targetKnopPath}/_inventory/inventory.ttl> .
 `,
   );
   await writeText(
-    join(meshRoot, `${knopPath}/_inventory/inventory.ttl`),
+    join(meshRoot, `${targetKnopPath}/_inventory/inventory.ttl`),
     payloadInventoryTurtle(target),
   );
   await writeText(
-    join(meshRoot, `${designatorPath}.ttl`),
+    join(meshRoot, workingPath),
     payloadText(target, latestOrdinal),
   );
   await writeText(
-    join(meshRoot, `${knopPath}/_sources/sources.ttl`),
+    join(meshRoot, `${targetKnopPath}/_sources/sources.ttl`),
     `@base <${meshBase}> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
-<${knopPath}/_sources> a sflo:KnopSourceRegistry .
+<${targetKnopPath}/_sources> a sflo:KnopSourceRegistry .
 `,
   );
   await writeText(
-    join(meshRoot, `${knopPath}/_references/references.ttl`),
+    join(meshRoot, `${targetKnopPath}/_references/references.ttl`),
     `@base <${meshBase}> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
-<${knopPath}/_references> a sflo:ReferenceCatalog .
+<${targetKnopPath}/_references> a sflo:ReferenceCatalog .
 `,
   );
   for (let ordinal = 1; ordinal <= latestOrdinal; ordinal += 1) {
@@ -644,9 +825,10 @@ async function materializePayloadTarget(
 
 function payloadInventoryTurtle(target: PayloadTargetFixture): string {
   const { designatorPath, latestOrdinal } = target;
-  const knopPath = `${designatorPath}/_knop`;
-  const historyPath = `${designatorPath}/_history001`;
-  const fileName = `${designatorPath.split("/").at(-1)}.ttl`;
+  const targetKnopPath = knopPath(target);
+  const historyPath = appendTargetPath(designatorPath, "_history001");
+  const workingPath = workingPayloadPath(target);
+  const fileName = basename(workingPath);
   const states = Array.from({ length: latestOrdinal }, (_, index) => {
     const ordinal = index + 1;
     const statePath = `${historyPath}/${stateSegment(ordinal)}`;
@@ -670,20 +852,20 @@ function payloadInventoryTurtle(target: PayloadTargetFixture): string {
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
-<${knopPath}> a sflo:Knop ;
-  sflo:hasKnopMetadata <${knopPath}/_meta> ;
-  sflo:hasKnopInventory <${knopPath}/_inventory> ;
-  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> ;
+<${targetKnopPath}> a sflo:Knop ;
+  sflo:hasKnopMetadata <${targetKnopPath}/_meta> ;
+  sflo:hasKnopInventory <${targetKnopPath}/_inventory> ;
+  sflo:hasWorkingKnopInventoryFile <${targetKnopPath}/_inventory/inventory.ttl> ;
   sflo:hasPayloadArtifact <${designatorPath}> ;
-  sflo:hasKnopSourceRegistry <${knopPath}/_sources> ;
-  sflo:hasReferenceCatalog <${knopPath}/_references> ;
-  sflo:hasResourcePage <${knopPath}/index.html> .
+  sflo:hasKnopSourceRegistry <${targetKnopPath}/_sources> ;
+  sflo:hasReferenceCatalog <${targetKnopPath}/_references> ;
+  sflo:hasResourcePage <${targetKnopPath}/index.html> .
 
 <${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <${historyPath}> ;
   sflo:currentArtifactHistory <${historyPath}> ;
   sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasWorkingLocatedFile <${designatorPath}.ttl> .
+  sflo:hasWorkingLocatedFile <${workingPath}> .
 
 <${historyPath}> a sflo:ArtifactHistory ;
   sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
@@ -693,21 +875,21 @@ ${historyStates}
 
 ${states}
 
-<${knopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <${knopPath}/_meta/meta.ttl> .
+<${targetKnopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${targetKnopPath}/_meta/meta.ttl> .
 
-<${knopPath}/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <${knopPath}/_inventory/inventory.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_inventory/index.html> .
+<${targetKnopPath}/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${targetKnopPath}/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <${targetKnopPath}/_inventory/index.html> .
 
-<${knopPath}/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <${knopPath}/_sources/sources.ttl> .
+<${targetKnopPath}/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${targetKnopPath}/_sources/sources.ttl> .
 
-<${knopPath}/_references> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <${knopPath}/_references/references.ttl> ;
-  sflo:hasResourcePage <${knopPath}/_references/index.html> .
+<${targetKnopPath}/_references> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${targetKnopPath}/_references/references.ttl> ;
+  sflo:hasResourcePage <${targetKnopPath}/_references/index.html> .
 
-<${designatorPath}.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+<${workingPath}> a sflo:LocatedFile, sflo:RdfDocument .
 `;
 }
 
@@ -727,10 +909,22 @@ function payloadBytes(
 }
 
 function snapshotPath(target: PayloadTargetFixture, ordinal: number): string {
-  const fileName = `${target.designatorPath.split("/").at(-1)}.ttl`;
-  return `${target.designatorPath}/_history001/${
+  const fileName = basename(workingPayloadPath(target));
+  return `${appendTargetPath(target.designatorPath, "_history001")}/${
     stateSegment(ordinal)
   }/ttl/${fileName}`;
+}
+
+function knopPath(target: PayloadTargetFixture): string {
+  return appendTargetPath(target.designatorPath, "_knop");
+}
+
+function workingPayloadPath(target: PayloadTargetFixture): string {
+  return target.workingLocalRelativePath ?? `${target.designatorPath}.ttl`;
+}
+
+function appendTargetPath(designatorPath: string, suffix: string): string {
+  return designatorPath.length === 0 ? suffix : `${designatorPath}/${suffix}`;
 }
 
 function stateSegment(ordinal: number): string {
@@ -827,4 +1021,23 @@ async function assertWorkspacePathsEqual(
       path,
     );
   }
+}
+
+async function assertWorkspaceTreesEqual(
+  leftRoot: string,
+  rightRoot: string,
+): Promise<void> {
+  const isCliStagingPath = (path: string) =>
+    path === ".version-api-inputs" ||
+    path.startsWith(".version-api-inputs/");
+  const leftPaths = (await listFiles(leftRoot)).filter((path) =>
+    !isCliStagingPath(path)
+  );
+  const rightPaths = (await listFiles(rightRoot)).filter((path) =>
+    !isCliStagingPath(path)
+  );
+  assertEquals(leftPaths, rightPaths, "workspace file paths");
+
+  const allPaths = [...new Set([...leftPaths, ...rightPaths])].sort();
+  await assertWorkspacePathsEqual(leftRoot, rightRoot, allPaths);
 }

@@ -1,11 +1,4 @@
-import {
-  basename,
-  dirname,
-  isAbsolute,
-  join,
-  relative,
-  resolve,
-} from "@std/path";
+import { dirname, isAbsolute, join, relative, resolve } from "@std/path";
 import {
   formatDesignatorPathForDisplay,
   toKnopPath,
@@ -16,12 +9,14 @@ import type {
 } from "../core/targeting.ts";
 import { normalizeVersionTargetSpecs } from "../core/targeting.ts";
 import type { PlannedFile } from "../core/planned_file.ts";
-import type { WeaveableKnopCandidate } from "../core/weave/candidates.ts";
 import {
   listKnopDesignatorPaths,
   resolvePayloadArtifactInventoryState,
 } from "../runtime/mesh/inventory.ts";
-import type { HistoryTrackingPolicy } from "../runtime/config/effective_config.ts";
+import {
+  EffectiveConfigError,
+  type HistoryTrackingPolicy,
+} from "../runtime/config/effective_config.ts";
 import {
   loadOperationalLocalPathPolicy,
   LocalPathAccessError,
@@ -95,6 +90,8 @@ interface WeaveApiErrorDetails {
   target?: { readonly index: number; readonly designatorPath: string };
   path?: string;
   completedPaths?: readonly string[];
+  completedCreatedPaths?: readonly string[];
+  completedUpdatedPaths?: readonly string[];
   possiblyTouchedPaths?: readonly string[];
   cause?: unknown;
 }
@@ -105,6 +102,8 @@ export class WeaveApiError extends Error {
   readonly target?: { readonly index: number; readonly designatorPath: string };
   readonly path?: string;
   readonly completedPaths?: readonly string[];
+  readonly completedCreatedPaths?: readonly string[];
+  readonly completedUpdatedPaths?: readonly string[];
   readonly possiblyTouchedPaths?: readonly string[];
   override readonly cause?: unknown;
 
@@ -116,6 +115,8 @@ export class WeaveApiError extends Error {
     this.target = details.target;
     this.path = details.path;
     this.completedPaths = details.completedPaths;
+    this.completedCreatedPaths = details.completedCreatedPaths;
+    this.completedUpdatedPaths = details.completedUpdatedPaths;
     this.possiblyTouchedPaths = details.possiblyTouchedPaths;
     this.cause = details.cause;
   }
@@ -272,11 +273,11 @@ export function admitVersionPayloadsRequest(
     );
     if (
       overwriteExistingState &&
-      (targets[0]?.historySegment === undefined ||
-        targets[0]?.stateSegment === undefined)
+      (copied[0]?.item.historySegment === undefined ||
+        copied[0]?.item.stateSegment === undefined)
     ) {
       throw new Error(
-        "overwriteExistingState requires explicit resolved historySegment and stateSegment",
+        "overwriteExistingState requires explicit item historySegment and stateSegment",
       );
     }
 
@@ -648,6 +649,8 @@ async function writeCombinedPlan(
           stage: "write",
           path: write.path,
           completedPaths: [...completedPaths],
+          completedCreatedPaths: [...createdPaths],
+          completedUpdatedPaths: [...updatedPaths],
           possiblyTouchedPaths: [write.path],
           cause,
         },
@@ -674,27 +677,26 @@ function deriveOutcomes(
   prepared: PreparedCoherentPayloadBatchVersionExecution,
 ): readonly PayloadVersionOutcome[] {
   const versioned = new Set(prepared.plan.versionedDesignatorPaths);
-  const candidateByPath = new Map(
-    prepared.candidates.map((
-      candidate,
-    ) => [candidate.designatorPath, candidate]),
+  const snapshotPathByDesignatorPath = new Map(
+    prepared.payloadSnapshots.map(({ designatorPath, snapshotPath }) => [
+      designatorPath,
+      snapshotPath,
+    ]),
   );
   return [...items].sort((left, right) =>
     left.target.designatorPath.localeCompare(right.target.designatorPath)
   ).map((item) => {
-    const candidate = candidateByPath.get(item.target.designatorPath);
-    if (candidate === undefined) {
+    const snapshotPath = snapshotPathByDesignatorPath.get(
+      item.target.designatorPath,
+    );
+    if (snapshotPath === undefined) {
       throw new WeaveApiError(
-        `Planned payload target disappeared: ${
+        `Planned payload snapshot disappeared: ${
           formatDesignatorPathForDisplay(item.target.designatorPath)
         }`,
         { code: "plan-conflict", stage: "plan" },
       );
     }
-    const snapshotPath = resolveOutcomeSnapshotPath(
-      candidate,
-      prepared,
-    );
     const segments = snapshotIdentitySegments(
       item.target.designatorPath,
       snapshotPath,
@@ -714,36 +716,6 @@ function deriveOutcomes(
       snapshotPath,
     };
   });
-}
-
-function resolveOutcomeSnapshotPath(
-  candidate: WeaveableKnopCandidate,
-  prepared: PreparedCoherentPayloadBatchVersionExecution,
-): string {
-  const payload = candidate.payloadArtifact;
-  if (payload === undefined) {
-    throw new Error(
-      `Missing planned payload artifact for ${candidate.designatorPath}.`,
-    );
-  }
-  const fileName = basename(payload.workingLocalRelativePath);
-  const designatorPrefix = candidate.designatorPath.length === 0
-    ? ""
-    : `${candidate.designatorPath}/`;
-  const plannedPaths = [
-    ...prepared.plan.createdFiles.map((file) => file.path),
-    ...(prepared.plan.createdBinaryFiles ?? []).map((file) => file.path),
-    ...prepared.plan.updatedFiles.map((file) => file.path),
-  ];
-  return plannedPaths.find((path) =>
-    path.startsWith(designatorPrefix) &&
-    !path.startsWith(`${designatorPrefix}_knop/`) &&
-    basename(path) === fileName
-  ) ?? payload.latestHistoricalSnapshotPath ?? (() => {
-    throw new Error(
-      `Could not resolve the payload snapshot for ${candidate.designatorPath}.`,
-    );
-  })();
 }
 
 function snapshotIdentitySegments(
@@ -772,6 +744,13 @@ export function mapPreparationError(error: unknown): WeaveApiError {
     return error;
   }
   const message = error instanceof Error ? error.message : String(error);
+  if (error instanceof EffectiveConfigError) {
+    return new WeaveApiError(message, {
+      code: "malformed-mesh",
+      stage: "load",
+      cause: error,
+    });
+  }
   if (message.includes("consistent target-scoped planning policies")) {
     return new WeaveApiError(message, {
       code: "inconsistent-policy",
@@ -782,6 +761,22 @@ export function mapPreparationError(error: unknown): WeaveApiError {
   if (
     message.includes("Could not parse") ||
     message.includes(" is missing sflo:") ||
+    message.includes(" is missing rdf:type sflo:") ||
+    message.includes(
+      " is missing or conflicts on its current working file locator",
+    ) ||
+    message.includes("only supports the settled") ||
+    message.includes("current history conflicts with the loaded candidate") ||
+    message.includes(" has conflicting sflo:") ||
+    message.includes(" conflicts on sflo:") ||
+    message.includes(" points sflo:latestHistoricalState outside") ||
+    message.includes(" has invalid sflo:nextStateOrdinal") ||
+    message.includes(" has impossible state progression") ||
+    message.includes(" has impossible inventory progression") ||
+    message.includes(
+      " uses a non-ordinal latest state and cannot be auto-advanced",
+    ) ||
+    message.includes("Unsupported KnopInventory history policy") ||
     message.includes("not currently weaveable")
   ) {
     return new WeaveApiError(message, {

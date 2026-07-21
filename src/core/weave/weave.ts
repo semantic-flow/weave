@@ -23,7 +23,11 @@ import {
   shouldMaterializeSupportHistory,
   type WeaveSupportHistoryPolicies,
 } from "./support_history_policy.ts";
-import type { VersionPlan } from "./version_plan.ts";
+import type {
+  CoherentPayloadBatchVersionPlan,
+  PlannedPayloadSnapshot,
+  VersionPlan,
+} from "./version_plan.ts";
 import type { WeaveableKnopCandidate } from "./candidates.ts";
 import type { PlanWeaveInput, WeavePlan } from "./planning_models.ts";
 import type { WeaveSlice } from "./slices.ts";
@@ -349,7 +353,7 @@ export function planVersion(input: PlanWeaveInput): VersionPlan {
  */
 export function planCoherentPayloadBatchVersion(
   input: PlanWeaveInput,
-): VersionPlan {
+): CoherentPayloadBatchVersionPlan {
   const meshBase = normalizeMeshBase(input.meshBase);
   const requestedTargets = normalizeVersionTargetSpecs(
     input.request.targets,
@@ -380,6 +384,7 @@ export function planCoherentPayloadBatchVersion(
     );
   }
 
+  const payloadSnapshots: PlannedPayloadSnapshot[] = [];
   const plan = planExplicitPayloadBatchWeave(
     meshBase,
     input.currentMeshInventoryTurtle,
@@ -387,12 +392,18 @@ export function planCoherentPayloadBatchVersion(
     selections,
     input.supportHistoryPolicies,
     input.namingPolicies,
+    (designatorPath, snapshotPath) => {
+      payloadSnapshots.push({ designatorPath, snapshotPath });
+    },
   );
-  return toVersionPlan(applyResourcePageGenerationPolicies(plan, {
-    config: input.resourcePageGenerationConfig,
-    policies: input.resourcePageGenerationPolicies,
-    explicitRequest: true,
-  }));
+  return {
+    ...toVersionPlan(applyResourcePageGenerationPolicies(plan, {
+      config: input.resourcePageGenerationConfig,
+      policies: input.resourcePageGenerationPolicies,
+      explicitRequest: true,
+    })),
+    payloadSnapshots,
+  };
 }
 
 function toVersionPlan(plan: WeavePlan): VersionPlan {
@@ -589,6 +600,7 @@ function planExplicitPayloadBatchWeave(
   selectedWeaveableKnops: readonly SelectedWeaveableKnopCandidate[],
   supportHistoryPolicies?: WeaveSupportHistoryPolicies,
   namingPolicies?: WeaveNamingPolicies,
+  onPayloadSnapshot?: (designatorPath: string, snapshotPath: string) => void,
 ): WeavePlan {
   const selections = [...selectedWeaveableKnops].sort((left, right) =>
     left.candidate.designatorPath.localeCompare(right.candidate.designatorPath)
@@ -634,6 +646,14 @@ function planExplicitPayloadBatchWeave(
           target,
         )
       ) {
+        const snapshotPath = candidate.payloadArtifact
+          ?.latestHistoricalSnapshotPath;
+        if (snapshotPath === undefined) {
+          throw new WeaveInputError(
+            `Could not resolve the current payload snapshot for ${designatorPath}.`,
+          );
+        }
+        onPayloadSnapshot?.(designatorPath, snapshotPath);
         return;
       }
 
@@ -654,6 +674,7 @@ function planExplicitPayloadBatchWeave(
           target,
           supportHistoryPolicies,
           namingPolicies,
+          (snapshotPath) => onPayloadSnapshot?.(designatorPath, snapshotPath),
         ));
         return;
       }
@@ -665,6 +686,7 @@ function planExplicitPayloadBatchWeave(
           target,
           supportHistoryPolicies,
           namingPolicies,
+          (snapshotPath) => onPayloadSnapshot?.(designatorPath, snapshotPath),
         ));
         return;
       }
@@ -1137,6 +1159,7 @@ function planFirstPayloadWeave(
   target?: NormalizedVersionTargetSpec,
   supportHistoryPolicies?: WeaveSupportHistoryPolicies,
   namingPolicies?: WeaveNamingPolicies,
+  onPayloadSnapshot?: (snapshotPath: string) => void,
 ): WeavePlan {
   const payloadArtifact = candidate.payloadArtifact!;
   assertCurrentKnopInventoryWithoutHistory(
@@ -1184,6 +1207,7 @@ function planFirstPayloadWeave(
   const payloadSnapshotPath = `${payloadLayout.nextManifestationPath}/${
     toFileName(payloadArtifact.workingLocalRelativePath)
   }`;
+  onPayloadSnapshot?.(payloadSnapshotPath);
   const payloadSnapshotBytes = payloadArtifact.currentPayloadBytes;
   const knopMetadataHistoryPolicy = supportHistoryPolicies?.knopMetadata ??
     "versioned";
@@ -1742,6 +1766,7 @@ function planLaterPayloadWeave(
   target?: NormalizedVersionTargetSpec,
   supportHistoryPolicies?: WeaveSupportHistoryPolicies,
   namingPolicies?: WeaveNamingPolicies,
+  onPayloadSnapshot?: (snapshotPath: string) => void,
 ): WeavePlan {
   const payloadArtifact = candidate.payloadArtifact!;
   const designatorPath = candidate.designatorPath;
@@ -1769,6 +1794,7 @@ function planLaterPayloadWeave(
   const payloadSnapshotPath = `${payloadLayout.nextManifestationPath}/${
     toFileName(payloadArtifact.workingLocalRelativePath)
   }`;
+  onPayloadSnapshot?.(payloadSnapshotPath);
   const knopMetadataHistoryPolicy = readModel.knopMetadataHistoryPolicy;
   const knopInventoryHistoryPolicy = readModel.knopInventoryHistoryPolicy;
   const knopInventoryProgression = readModel.knopInventoryProgression;

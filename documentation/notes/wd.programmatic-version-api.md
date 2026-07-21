@@ -102,7 +102,7 @@ export interface PayloadVersionOutcome {
 | ADMIT | Validate request and identity shape; require an absolute `meshRoot`; require non-empty exact items; normalize `/`; refuse normalized duplicates and multi-item overwrite; copy every byte view; strictly decode UTF-8. | None | `invalid-request`, `unsupported-content` |
 | LOAD | Load mesh metadata, inventories, effective target/ancestor/mesh configuration, and settled payload shape; resolve exact targets and absolute mesh-local working paths; refuse repository/floating sources; then determine content-kind eligibility. | None | `unknown-target`, `not-a-payload`, `malformed-mesh`, `inconsistent-policy`, `unsupported-source`, `unsupported-content`, reserved `snapshot-conflict` |
 | PLAN | Seed the caller-owned text overlay with admitted payload text; load settled candidates through that overlay; resolve precedence; plan one coherent batch including cardinality one; join working updates and version outputs into one preflight set; parse/preflight all planned RDF and destinations. Whole-mesh validation is absent. | None | `plan-conflict` |
-| WRITE | Apply the combined working-file and version-output plan. Writes are sequential and non-transactional; failure reports paths known to have completed and paths that may have been touched. | First physical mutation | `io-failure` |
+| WRITE | Apply the combined working-file and version-output plan. Writes are sequential and non-transactional; failure reports paths known to have completed, split into created and updated paths, and paths that may have been touched. | First physical mutation | `io-failure` |
 | RESULT | Derive canonical per-target `applied`/`alreadyCurrent` outcomes and request-level created/updated path lists; do not expose the mutable plan. | No new mutation | None |
 
 Any ADMIT, LOAD, or PLAN error leaves the mesh untouched. This is whole-request semantic refusal before both working-payload and version-output writes, not a transaction guarantee after WRITE starts.
@@ -183,7 +183,7 @@ export type WeaveApiErrorCode =
 | `plan` | `plan-conflict` | Naming/progression facts, requested overwrite coordinates, existing destinations, combined create/update paths, or generated RDF prevent a valid preflighted plan. |
 | `write` | `io-failure` | A physical create or update failed after WRITE began; the error discloses completed and possibly touched paths. |
 
-All public failures are thrown as `WeaveApiError`. The class has exact readonly `code` and `stage` fields and may carry readonly `target`, `path`, `completedPaths`, and `possiblyTouchedPaths` detail plus an Error `cause`. The stable minimum detail shape is:
+All public failures are thrown as `WeaveApiError`. The class has exact readonly `code` and `stage` fields and may carry readonly `target`, `path`, `completedPaths`, `completedCreatedPaths`, `completedUpdatedPaths`, and `possiblyTouchedPaths` detail plus an Error `cause`. On WRITE failure, `completedPaths` remains the ordered compatibility view of every completed write. `completedCreatedPaths` identifies completed creates that a repair operation can remove, while `completedUpdatedPaths` identifies completed updates whose prior bytes are not recoverable from the error. This split is the repair evidence; callers must not infer it from path conventions. The stable minimum detail shape is:
 
 ```ts
 export class WeaveApiError extends Error {
@@ -192,6 +192,8 @@ export class WeaveApiError extends Error {
   readonly target?: { readonly index: number; readonly designatorPath: string };
   readonly path?: string;
   readonly completedPaths?: readonly string[];
+  readonly completedCreatedPaths?: readonly string[];
+  readonly completedUpdatedPaths?: readonly string[];
   readonly possiblyTouchedPaths?: readonly string[];
   override readonly cause?: unknown;
 }

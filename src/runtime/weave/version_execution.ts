@@ -4,6 +4,7 @@ import type {
   PlannedBinaryFile,
   PlannedFile,
 } from "../../core/planned_file.ts";
+import type { PlannedPayloadSnapshot } from "../../core/weave/version_plan.ts";
 import { toKnopPath } from "../../core/designator_segments.ts";
 import {
   type NormalizedVersionTargetSpec,
@@ -73,6 +74,7 @@ export interface PreparedVersionExecution {
 export interface PreparedCoherentPayloadBatchVersionExecution
   extends PreparedVersionExecution {
   candidates: readonly WeaveableKnopCandidate[];
+  payloadSnapshots: readonly PlannedPayloadSnapshot[];
 }
 
 export interface InputSnapshotVerificationHooks {
@@ -214,16 +216,40 @@ export async function prepareCoherentPayloadBatchVersionExecution(
     resourcePageGenerationConfig: policies.resourcePageGenerationConfig,
     resourcePageGenerationPolicies: policies.resourcePageGenerationPolicies,
   };
-  const plan = timeOptionalSync(
-    timing,
-    "prepareApi.planPayloadBatch",
-    () =>
-      overwriteExistingState
-        ? planVersion(input)
-        : planCoherentPayloadBatchVersion(input),
-  );
+  let plan: VersionPlan;
+  let payloadSnapshots: readonly PlannedPayloadSnapshot[];
+  if (overwriteExistingState) {
+    plan = timeOptionalSync(
+      timing,
+      "prepareApi.planPayloadBatch",
+      () => planVersion(input),
+    );
+    payloadSnapshots = orderedCandidates.map((candidate) => {
+      const snapshotPath = candidate.payloadArtifact
+        ?.latestHistoricalSnapshotPath;
+      if (snapshotPath === undefined) {
+        throw new WeaveInputError(
+          `Could not resolve the current payload snapshot for ${candidate.designatorPath}.`,
+        );
+      }
+      return { designatorPath: candidate.designatorPath, snapshotPath };
+    });
+  } else {
+    const plannedBatch = timeOptionalSync(
+      timing,
+      "prepareApi.planPayloadBatch",
+      () => planCoherentPayloadBatchVersion(input),
+    );
+    plan = plannedBatch;
+    payloadSnapshots = plannedBatch.payloadSnapshots;
+  }
 
-  return { meshState, plan, candidates: orderedCandidates };
+  return {
+    meshState,
+    plan,
+    candidates: orderedCandidates,
+    payloadSnapshots,
+  };
 }
 
 export async function prepareVersionExecution(

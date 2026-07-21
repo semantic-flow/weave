@@ -68,6 +68,23 @@ Deno.test("admission refuses multi-item overwrite before any load", () => {
   );
 });
 
+Deno.test("admission refuses overwrite segments supplied only by defaults", () => {
+  assertApiError(
+    () =>
+      admitVersionPayloadsRequest({
+        meshRoot,
+        overwriteExistingState: true,
+        defaults: {
+          historySegment: "_history001",
+          stateSegment: "_s0001",
+        },
+        items: [{ designatorPath: "rules/core", bytes: text }],
+      }),
+    "invalid-request",
+    "admit",
+  );
+});
+
 Deno.test("admission maps fatal UTF-8 decoding to unsupported-content at admit", () => {
   assertApiError(
     () =>
