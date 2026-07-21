@@ -343,7 +343,20 @@ async function executeVersionPayloads(
       { code: "plan-conflict", stage: "plan", cause: error },
     );
   }
-  const outcomes = deriveOutcomes(loaded.items, prepared);
+  let outcomes: readonly PayloadVersionOutcome[];
+  try {
+    outcomes = deriveOutcomes(loaded.items, prepared);
+  } catch (error) {
+    if (error instanceof WeaveApiError) {
+      throw error;
+    }
+    throw new WeaveApiError(
+      error instanceof Error
+        ? error.message
+        : "Could not derive payload version outcomes.",
+      { code: "plan-conflict", stage: "plan", cause: error },
+    );
+  }
   await hooks.afterPlan?.();
   const writes = await writeCombinedPlan(
     admitted.meshRoot,
@@ -642,6 +655,18 @@ async function writeCombinedPlan(
     }
   }
   return { createdPaths, updatedPaths };
+}
+
+/** Test-only writer seam; intentionally omitted from public barrels. */
+export async function writeCombinedPlanForTesting(
+  meshRoot: string,
+  workingFiles: readonly PlannedFile[],
+  prepared: PreparedCoherentPayloadBatchVersionExecution,
+  hooks: VersionPayloadsTestingHooks,
+): Promise<
+  { createdPaths: readonly string[]; updatedPaths: readonly string[] }
+> {
+  return await writeCombinedPlan(meshRoot, workingFiles, prepared, hooks);
 }
 
 function deriveOutcomes(
