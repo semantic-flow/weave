@@ -10,6 +10,7 @@ import { planExtract } from "../extract/extract.ts";
 import { planKnopCreate } from "../knop/create.ts";
 import {
   detectPendingWeaveSlice,
+  planCoherentPayloadBatchVersion,
   planMeshSupportResourcePages,
   planWeave,
   type PlanWeaveInput,
@@ -2581,6 +2582,40 @@ Deno.test("planWeave renders the second alice bio payload weave slice", () => {
     plan.updatedFiles[0]?.contents ?? "",
     "sflo:latestHistoricalState <alice/data/_knop/_inventory/_history001/_s0002> ;",
   );
+});
+
+Deno.test("planCoherentPayloadBatchVersion defeats the old cardinality-one dispatch by returning an already-current no-op", () => {
+  const currentPayloadTurtle =
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+
+<alice/data> dcterms:title "Already current" .
+`;
+  const plan = planCoherentPayloadBatchVersion({
+    request: {
+      targets: [{ designatorPath: "alice/data" }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: firstReferenceCatalogWeaveMeshInventoryTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice/data",
+      currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+      currentKnopInventoryTurtle: laterPayloadWeaveKnopInventoryTurtle,
+      payloadArtifact: {
+        workingLocalRelativePath: "alice-data.ttl",
+        currentArtifactHistoryPath: "alice/data/_history001",
+        currentPayloadTurtle,
+        latestHistoricalSnapshotTurtle: currentPayloadTurtle,
+        latestHistoricalSnapshotPath:
+          "alice/data/_history001/_s0001/ttl/alice-data.ttl",
+        latestHistoricalStatePath: "alice/data/_history001/_s0001",
+      },
+    }],
+  });
+
+  assertEquals(plan.versionedDesignatorPaths, []);
+  assertEquals(plan.createdFiles, []);
+  assertEquals(plan.updatedFiles, []);
 });
 
 Deno.test("detectPendingWeaveSlice recognizes later ordinal payload advancement with current-only support artifacts", () => {

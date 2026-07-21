@@ -338,7 +338,64 @@ export function planWeave(input: PlanWeaveInput): WeavePlan {
 }
 
 export function planVersion(input: PlanWeaveInput): VersionPlan {
-  const plan = planWeave(input);
+  return toVersionPlan(planWeave(input));
+}
+
+/**
+ * Plans an exact payload batch through the coherent batch planner even when
+ * the request contains only one candidate. This entry is intentionally
+ * separate from planWeave so API cardinality adaptation cannot change the
+ * CLI's established single-candidate dispatch.
+ */
+export function planCoherentPayloadBatchVersion(
+  input: PlanWeaveInput,
+): VersionPlan {
+  const meshBase = normalizeMeshBase(input.meshBase);
+  const requestedTargets = normalizeVersionTargetSpecs(
+    input.request.targets,
+    "request.targets",
+    (message) => new WeaveInputError(message),
+  );
+  if (requestedTargets.length === 0) {
+    throw new WeaveInputError(
+      "Coherent payload batch versioning requires at least one exact target.",
+    );
+  }
+  if (
+    input.request.overwriteExistingState === true ||
+    requestedTargets.some((target) => target.recursive)
+  ) {
+    throw new WeaveInputError(
+      "Coherent payload batch versioning supports non-overwrite exact targets only.",
+    );
+  }
+
+  const selections = filterWeaveableKnops(
+    input.weaveableKnops,
+    requestedTargets,
+  );
+  if (selections.length !== requestedTargets.length) {
+    throw new WeaveInputError(
+      "Requested targets did not match every coherent payload batch candidate.",
+    );
+  }
+
+  const plan = planExplicitPayloadBatchWeave(
+    meshBase,
+    input.currentMeshInventoryTurtle,
+    input.currentMeshMetadataTurtle,
+    selections,
+    input.supportHistoryPolicies,
+    input.namingPolicies,
+  );
+  return toVersionPlan(applyResourcePageGenerationPolicies(plan, {
+    config: input.resourcePageGenerationConfig,
+    policies: input.resourcePageGenerationPolicies,
+    explicitRequest: true,
+  }));
+}
+
+function toVersionPlan(plan: WeavePlan): VersionPlan {
   const createdFiles = plan.createdFiles.filter((file) =>
     !file.path.endsWith(".html")
   );
