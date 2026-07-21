@@ -20,6 +20,10 @@ created: 1773630801215
 
 ## Decisions
 
+### 2026-07-21: Raise Resource-Page Raw-Source Inline Limit
+
+- Decision: Raise the ResourcePage raw-source inline limit from 1 MiB to 4 MiB based on the downstream SRD spells corpus evidence (a 1,087,420-byte graph produced 1,483 fact-less record pages); the structural parse-once/index-by-subject fix remains future work.
+
 ### 2026-07-06: Application Owns Payload Batch Atomicity
 
 - Decision: Multi-target payload advancement is a fail-closed deterministic Weave plan, not a transactional filesystem boundary; the requesting application owns coherent serialization, locking, rollback, and retry orchestration.

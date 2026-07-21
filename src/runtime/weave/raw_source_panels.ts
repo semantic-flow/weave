@@ -42,7 +42,7 @@ const SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI =
 const SFLO_ARTIFACT_RESOLUTION_MODE_LATEST_STATE_IRI =
   `${SFLO_NAMESPACE}artifactResolutionMode_latestState`;
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
-const RAW_SOURCE_INLINE_BYTE_LIMIT = 1024 * 1024;
+const RAW_SOURCE_INLINE_BYTE_LIMIT = 4 * 1024 * 1024;
 
 interface PayloadSourceArtifact {
   workingLocalRelativePath: string;
@@ -710,7 +710,7 @@ async function resolvePayloadWorkingSourcePath(
     );
 }
 
-async function readRawSourcePanel(
+export async function readRawSourcePanel(
   absolutePath: string,
   sourcePath: string,
   label: string,
