@@ -334,11 +334,17 @@ Deno.test("weave extract --all-terms previews and creates new terms with --accep
   await Deno.writeTextFile(
     join(workspaceRoot, "alice-data.ttl"),
     `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
 @prefix schema: <https://schema.org/> .
 
-<alice/data> schema:about <bob>, <carol>, <bob/_knop> .
+<alice/data> dcat:downloadURL <conditions.csvw.json> ;
+  schema:about <bob>, <carol>, <bob/_knop> .
 <carol> schema:name "Carol" .
 `,
+  );
+  await Deno.writeTextFile(
+    join(workspaceRoot, "conditions.csvw.json"),
+    '{"@context": "http://www.w3.org/ns/csvw"}\n',
   );
 
   const command = new Deno.Command("deno", {
@@ -374,6 +380,61 @@ Deno.test("weave extract --all-terms previews and creates new terms with --accep
   assert(stdout.includes("Extracted 2 new terms from alice/data"), stdout);
   await Deno.stat(join(workspaceRoot, "bob/_knop/_meta/meta.ttl"));
   await Deno.stat(join(workspaceRoot, "carol/_knop/_meta/meta.ttl"));
+});
+
+Deno.test("weave set extraction-source --all-terms excludes workspace files from its census", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-set-extraction-source-all-terms-files-",
+  );
+  await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
+  await Deno.writeTextFile(
+    join(workspaceRoot, "alice-data.ttl"),
+    `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+
+<alice/data> dcat:downloadURL <conditions.csvw.json> .
+`,
+  );
+  await Deno.writeTextFile(
+    join(workspaceRoot, "conditions.csvw.json"),
+    '{"@context": "http://www.w3.org/ns/csvw"}\n',
+  );
+
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      "set",
+      "extraction-source",
+      "--all-terms",
+      "--accept-preview",
+      "--source",
+      "alice/data",
+      "--mesh-root",
+      workspaceRoot,
+    ],
+    cwd: new URL(".", repoRoot),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assert(output.success, stderr);
+  assert(
+    stdout.includes(
+      "All-terms extraction-source update will update 0 identifiers",
+    ),
+    stdout,
+  );
+  assert(
+    stdout.includes("Updated 0 extracted terms from alice/data"),
+    stdout,
+  );
 });
 
 Deno.test("weave extract --all-terms creates source references with explicit role", async () => {
