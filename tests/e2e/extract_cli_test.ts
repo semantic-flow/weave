@@ -382,7 +382,11 @@ Deno.test("weave extract --all-terms previews and creates new terms with --accep
   await Deno.stat(join(workspaceRoot, "carol/_knop/_meta/meta.ttl"));
 });
 
-Deno.test("weave set extraction-source --all-terms excludes workspace files from its census", async () => {
+Deno.test("weave set extraction-source --all-terms keeps no-update parity for a checked-in file URL", async () => {
+  // This is a same-input non-regression pin: the command accepts a payload
+  // mentioning a checked-in file URL and reports no extracted-term updates.
+  // It does not prove the R1 workspace-file exclusion because this planner only
+  // consumes existing extracted terms; this fixture also passes on pre-R1 code.
   const workspaceRoot = await createTestTmpDir(
     "weave-e2e-set-extraction-source-all-terms-files-",
   );
