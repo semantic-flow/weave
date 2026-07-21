@@ -5,6 +5,11 @@ import {
   writeCombinedPlanForTesting,
 } from "../../src/api/version_payloads.ts";
 import { versionPayloads, WeaveApiError } from "../../src/mod.ts";
+import { materializeMeshAliceBioBranch } from "../support/mesh_alice_bio_fixture.ts";
+import {
+  integrateRootPayload,
+  ROOT_PAYLOAD_TURTLE_V2,
+} from "../support/root_designator.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 const meshBase = "https://example.test/version-api/";
@@ -144,6 +149,34 @@ Deno.test("versionPayloads cardinality-one adapter is byte-equivalent to the sam
           path === "rules/core.ttl" || path.startsWith("rules/core/")
         ),
       ),
+  );
+});
+
+Deno.test("versionPayloads maps the public slash root designator to a real root payload transition", async () => {
+  const meshRoot = await createTestTmpDir("weave-version-api-root-");
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    meshRoot,
+  );
+  await integrateRootPayload(meshRoot);
+  const bytes = new TextEncoder().encode(ROOT_PAYLOAD_TURTLE_V2);
+
+  const result = await versionPayloads({
+    meshRoot,
+    historyTrackingPolicyOverride: "versioned",
+    items: [{ designatorPath: "/", bytes }],
+  });
+
+  assertEquals(result.outcomes[0]?.designatorPath, "/");
+  assertEquals(result.outcomes[0]?.payloadArtifactIri.endsWith("/"), true);
+  assertEquals(
+    result.outcomes[0]?.snapshotPath,
+    "_history001/_s0001/ttl/root.ttl",
+  );
+  assertEquals(await Deno.readFile(join(meshRoot, "root.ttl")), bytes);
+  assertEquals(
+    await Deno.readFile(join(meshRoot, result.outcomes[0]!.snapshotPath)),
+    bytes,
   );
 });
 
