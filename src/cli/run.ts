@@ -1175,7 +1175,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             )
             .option(
               "--mesh-root <meshRoot:string>",
-              "Mesh root path. Relative values are resolved from the current directory and must stay inside the workspace.",
+              "Mesh root path inside the workspace. Relative values are resolved from the current directory, not the workspace; omit to place the mesh at the workspace root.",
             )
             .option(
               "--publication-profile <profile:string>",
@@ -1383,7 +1383,9 @@ function normalizeCliMeshRoot(
   }
   if (relation.startsWith("../") || relation === ".." || isAbsolute(relation)) {
     throw new Error(
-      `mesh root must stay inside the workspace root: ${meshRoot}`,
+      `mesh root "${meshRoot}" resolves to ${absoluteMeshRoot}, which is outside the workspace root ${workspaceRoot}. ` +
+        `Relative --mesh-root values are resolved from the current directory, not the workspace. ` +
+        `To place the mesh at the workspace root, omit --mesh-root; otherwise pass a path inside the workspace.`,
     );
   }
   return relation;
