@@ -48,6 +48,10 @@ Packaging must not change CLI routing, binary outputs, or the `./src/mod.ts` imp
 - Ship as an additive distribution: existing binaries, CLI wrapper, and the pinned-checkout `./src/mod.ts` import all keep working unchanged.
 - Do not publish any library artifact until an off-tree downstream contract smoke test imports it and exercises `versionPayloads` end to end.
 - Audit and eliminate filesystem-only resource loading (the accord JSR bug class) before first publish, rather than after a consumer hits it.
+- 2026-07-22: first library release is **npm-only via dnt**, shipped as **v0.5.0** (new published artifact = minor bump). JSR does not polyfill Deno globals, so a JSR-published package would be Deno-only for code that calls `Deno.*`; dnt is the vehicle that produces a genuinely Node-compatible npm package, and Deno consumers can use the npm build via `npm:` specifiers or keep the pinned-source import. JSR publishing is deferred, not rejected.
+- Add a fs-purity guard (PM request): a test/lint asserting `src/api/**` and its transitive runtime imports use no `Deno.Command` (subprocess) and no network APIs, so Node compatibility cannot silently rot after the first publish. Plain fs (`Deno.readTextFile`/`writeFile`) is allowed because dnt shims it; the guard targets subprocess and network only.
+- Embed the `defaults/*.ttl` resources as generated modules regardless of registry: it removes the `import.meta.url` read (`WEAVE_DEFAULTS_ROOT` in `src/runtime/config/effective_config.ts`) that `versionPayloads` transitively hits, and avoids dnt having to copy data files. The audit found this is the only runtime `import.meta.url` resource load in `src/` (the other two hits are test files).
+- Slow types: the JSR/`deno publish` dry-run surfaced 6 `missing-explicit-type` errors on the public API. dnt requires the same explicit-type discipline, so annotate the exported symbols in `src/mod.ts` / `src/api/version_payloads.ts` as part of this work.
 
 ## Contract Changes
 
@@ -67,11 +71,21 @@ Packaging must not change CLI routing, binary outputs, or the `./src/mod.ts` imp
 - Removing or altering the pinned-checkout source-import path.
 - Changing CLI behavior, native binary packaging, or the ontology.
 
-## Implementation Plan
+## Implementation Plan (v0.5.0, npm-only via dnt)
 
-- [ ] Grep `src/` for `import.meta.url` resource loads; list which break off the filesystem and embed/bundle them (accord's generated-module approach is the reference fix).
-- [ ] Spike `deno publish --dry-run` with a `deno.json` `exports` map to `./src/mod.ts`; record JSR constraint failures and required source changes.
-- [ ] Decide JSR-only vs npm-library vs both for the first slice, and the package name/version question.
-- [ ] Add the downstream off-tree contract smoke test.
-- [ ] Wire assembly + smoke + publish into the release runbook and `release-manual.yml`.
-- [ ] Update [[wd.programmatic-version-api]] and the release notes to point consumers at the packaged library once it lands, keeping the source-import path documented.
+- [x] Grep `src/` for `import.meta.url` resource loads — one runtime blocker: `WEAVE_DEFAULTS_ROOT` in `src/runtime/config/effective_config.ts` (reached by `versionPayloads`).
+- [x] `deno publish --dry-run` spike — surfaced 6 `missing-explicit-type` slow-type errors; name/exports otherwise structurally fine.
+- [ ] Add the fs-purity guard test (no `Deno.Command`/network in `src/api/**` + transitive runtime imports) and get it green against the current API path before refactoring, so regressions are caught during the work.
+- [ ] Embed `defaults/*.ttl` as generated modules with a byte-identical drift test; rewire `effective_config.ts` to the embedded constants.
+- [ ] Annotate the 6 public-API symbols with explicit types.
+- [ ] Add a dnt build script (`jsr:@deno/dnt`) producing the Node-compatible npm library package (name TBD — see open issues), separate from the CLI wrapper package.
+- [ ] Add the downstream off-tree contract smoke test, run under Node (the honest Node CI leg).
+- [ ] Wire the dnt build + Node smoke + publish into the release runbook and `release-manual.yml`.
+- [ ] Bump to v0.5.0, write `release-notes.v0.5.0` (this note's decisions + the mesh-create diagnostics fix riding along), and release.
+- [ ] Update [[wd.programmatic-version-api]] and release notes to point consumers at the packaged library, keeping the pinned-source import documented.
+
+## Open Issues (updated 2026-07-22)
+
+- Library package name on npm: distinct from the CLI wrapper `@semantic-flow/weave`. Candidate `@semantic-flow/weave-lib` or `@semantic-flow/weave-api`. Needs a decision before first publish (name is semi-permanent).
+- Answered 2026-07-22 (module-graph trace of `src/api/mod.ts`, 67 local files): the API graph is subprocess/network-clean except **one** file, `src/runtime/operational/local_path_policy.ts`, which has `new Deno.Command("git", ...)` in `tryRunGit` (used by repository-source resolution — `resolveRepositorySourceFloatingLocalPath`/`listGitRemoteUrls`). `versionPayloads` refuses repository/floating sources, so git is **imported but not called** on the API path; the API also uses this module's non-git functions (`loadOperationalLocalPathPolicy`, `resolveAllowedLocalPath`). dnt's Deno shim can polyfill `Deno.Command`, so this is not a hard blocker, but the clean fix is to split the git-subprocess resolution out of the module the API imports so the API graph is genuinely subprocess-free and the fs-purity guard passes without an exception. This is the PM's "accidental fs-purity" made concrete: one import away from subprocess creep.
+- JSR publishing remains a deferred follow-up once npm/dnt is proven.
