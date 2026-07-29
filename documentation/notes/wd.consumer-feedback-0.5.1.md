@@ -8,7 +8,7 @@ created: 1785297588142
 
 ## Goals
 
-- Turn the 2026-07-28 Stagecraft consumer review of `@semantic-flow/weave` / `weave-lib` (full text: `~/Downloads/weave0.5.1consumerreview.md`) into a scoped `v0.5.1` slice: implement the cheap high-value asks, document the contracts the review showed were stated-but-unactionable, and record corrections where the review's measurements were wrong.
+- Turn the 2026-07-28 Stagecraft consumer review of `@semantic-flow/weave` / `weave-lib` (archived verbatim in [[wd.consumer-feedback-0.5.1.source]]) into a scoped `v0.5.1` slice: implement the cheap high-value asks, document the contracts the review showed were stated-but-unactionable, and record corrections where the review's measurements were wrong.
 - Keep the load-bearing surfaces the reviewer depends on stable: the plain `weave <version>` output of `--version`, the `WeaveApiError` code/stage taxonomy, and the no-op idempotency contract.
 
 ## Summary
@@ -80,12 +80,12 @@ Consumer-side facts (their pin, gate, topology) are **reported by the consumer**
 
 ## Implementation Plan (v0.5.1)
 
-- [ ] Factor the ordered combined-write manifest helper; writer and preflight consume it.
-- [ ] Add `dryRun` admission + the pre-write return with `executed: false` forecasts; `executed: true` on the real path.
-- [ ] Dry-run tests per Testing above; extend the off-tree npm smoke with the dry-run leg.
-- [ ] Add `src/generated/build_info.ts` (nulls) and `--commit`/`--built` stamping with restore-in-`finally` to `scripts/build-binaries.ts`; workflow passes `github.sha` and the binary smoke asserts it; add the Linux compile smoke to ordinary CI.
-- [ ] Implement the `--version --json` fast path; plain + JSON output tests.
-- [ ] Docs: [[wu.api-reference]] (dry-run, locking pattern, conservative repair, release verification), [[wu.cli-reference.weave]] (`--version --json`), [[wd.programmatic-version-api]] (contract amendment), [[wd.release-runbook]] (behavioral-changelog rule; v0.5.0-completion prerequisite), `scripts/bump-version.ts` release-notes stub nudge, both READMEs (§7 line), `sf.spec.*` dry-run behavior, [[wd.todo]] `validateMesh` entry.
+- [x] Factor the ordered combined-write manifest helper; writer and preflight consume it.
+- [x] Add `dryRun` admission + the pre-write return with `executed: false` forecasts; `executed: true` on the real path.
+- [x] Dry-run tests per Testing above; extend the off-tree npm smoke with the dry-run leg.
+- [x] Add `src/generated/build_info.ts` (nulls) and `--commit`/`--built` stamping with restore-in-`finally` to `scripts/build-binaries.ts`; workflow passes `github.sha` and the binary smoke asserts it; add the Linux compile smoke to ordinary CI.
+- [x] Implement the `--version --json` fast path; plain + JSON output tests.
+- [x] Docs: [[wu.api-reference]] (dry-run, locking pattern, conservative repair, release verification), [[wu.cli-reference.weave]] (`--version --json`), [[wd.programmatic-version-api]] (contract amendment), [[wd.release-runbook]] (behavioral-changelog rule), `scripts/bump-version.ts` release-notes stub nudge, both READMEs (§7 line), `sf.spec.*` dry-run behavior, [[wd.todo]] `validateMesh` entry.
 - [x] Release notes v0.5.1 (combined library-packaging + this slice + retroactive 4 MiB callout naming `23f50af` shipped in v0.4.0) and version bump; v0.5.0 folded in rather than released first.
 - [ ] Reply to Stagecraft: §5.1 correction (tags exist; fetch them), the settled 23f50af answer, `dryRun`/`--version --json` availability, locking + repair doc pointers, §7 clarification, §8 deferral with rationale.
 

@@ -208,8 +208,8 @@ This package installs the Semantic Flow Weave CLI and dispatches to the native p
 
 \`@semantic-flow/weave\` (this CLI) and \`@semantic-flow/weave-lib\` (the
 programmatic library) share one version line: both are built from the same
-commit and released together, so \`weave-lib@${version}\` corresponds to this
-package. Neither depends on the other at runtime.
+commit and released together, so \`@semantic-flow/weave-lib@${version}\`
+corresponds to this package. Neither depends on the other at runtime.
 `;
 }
 

@@ -37,7 +37,7 @@ From the consumer review ([[wd.consumer-feedback-0.5.1]]): `versionPayloads` gai
 ## Artifacts
 
 - npm: `@semantic-flow/weave`, four platform packages, and `@semantic-flow/weave-lib`, all at `0.5.1`.
-- `weave-lib@0.5.0` exists on the registry as a lib-only pre-release artifact: npm cannot OIDC-publish a not-yet-existing package, so the first publish was manual, and the planned `v0.5.0` release was then folded into `v0.5.1`. No matching `weave@0.5.0`, git tag, or GitHub Release exists; `weave-lib@0.5.0` is deprecated in favor of `0.5.1`. This is the first release publishing `weave-lib` through npm trusted publishing.
+- `weave-lib@0.5.0` exists on the registry as a lib-only pre-release artifact: npm cannot OIDC-publish a not-yet-existing package, so the first publish was manual, and the planned `v0.5.0` release was then folded into `v0.5.1`. No matching `weave@0.5.0`, git tag, or GitHub Release exists; `weave-lib@0.5.0` is superseded by `0.5.1` and is deprecated on the registry as the final release step. This is the first release publishing `weave-lib` through npm trusted publishing.
 - Git tag and GitHub Release: `v0.5.1` when the release runbook is executed.
 
 ## Validation
