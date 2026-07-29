@@ -17,7 +17,11 @@ created: 1784698697141
 
 `v0.4.0` shipped the programmatic payload version API as a **source-level** API: consumers import from a pinned checkout, and the release notes state plainly that "the native npm wrapper is not yet a library package, and no JSR export is defined." Library packaging was deferred to this note. See [[wd.programmatic-version-api]] for the API contract and [[release-notes.v0.4.0]] Known Limitations / Next.
 
-This task decides and lands how Weave's library surface is published — npm library package, JSR export, or both — and wires it into CI and the release runbook. It is planning + execution + CI, tracked on the `next/v0.4.1` branch.
+This task decides and lands how Weave's library surface is published — npm library package, JSR export, or both — and wires it into CI and the release runbook. It is planning + execution + CI, tracked on the `next/v0.5.0` branch.
+
+## Handoff status (2026-07-22)
+
+Direction and scope are fully settled (see Decisions); implementation has not started. Resume at the first unchecked box in the Implementation Plan: **add the fs-purity guard test, then split git-subprocess resolution out of `local_path_policy.ts`**. All decisions (npm-via-dnt, `@semantic-flow/weave-lib`, v0.5.0, fs-purity guard scope, defaults-embedding) are locked. `v0.4.0` is already released (npm + GitHub Release + tag). This branch (`next/v0.5.0`) carries the mesh-create diagnostics fix plus these planning notes and is pushed. No code changes toward packaging exist yet — the next session starts clean.
 
 ## Discussion
 
@@ -48,7 +52,7 @@ Packaging must not change CLI routing, binary outputs, or the `./src/mod.ts` imp
 - Ship as an additive distribution: existing binaries, CLI wrapper, and the pinned-checkout `./src/mod.ts` import all keep working unchanged.
 - Do not publish any library artifact until an off-tree downstream contract smoke test imports it and exercises `versionPayloads` end to end.
 - Audit and eliminate filesystem-only resource loading (the accord JSR bug class) before first publish, rather than after a consumer hits it.
-- 2026-07-22: first library release is **npm-only via dnt**, shipped as **v0.5.0** (new published artifact = minor bump). JSR does not polyfill Deno globals, so a JSR-published package would be Deno-only for code that calls `Deno.*`; dnt is the vehicle that produces a genuinely Node-compatible npm package, and Deno consumers can use the npm build via `npm:` specifiers or keep the pinned-source import. JSR publishing is deferred, not rejected.
+- 2026-07-22: first library release is **npm-only via dnt**, shipped as **v0.5.0** (new published artifact = minor bump), published under the npm name **`@semantic-flow/weave-lib`** (distinct from the CLI wrapper `@semantic-flow/weave`). JSR does not polyfill Deno globals, so a JSR-published package would be Deno-only for code that calls `Deno.*`; dnt is the vehicle that produces a genuinely Node-compatible npm package, and Deno consumers can use the npm build via `npm:` specifiers or keep the pinned-source import. JSR publishing is deferred, not rejected.
 - Add a fs-purity guard (PM request): a test/lint asserting `src/api/**` and its transitive runtime imports use no `Deno.Command` (subprocess) and no network APIs, so Node compatibility cannot silently rot after the first publish. Plain fs (`Deno.readTextFile`/`writeFile`) is allowed because dnt shims it; the guard targets subprocess and network only.
 - Embed the `defaults/*.ttl` resources as generated modules regardless of registry: it removes the `import.meta.url` read (`WEAVE_DEFAULTS_ROOT` in `src/runtime/config/effective_config.ts`) that `versionPayloads` transitively hits, and avoids dnt having to copy data files. The audit found this is the only runtime `import.meta.url` resource load in `src/` (the other two hits are test files).
 - Slow types: the JSR/`deno publish` dry-run surfaced 6 `missing-explicit-type` errors on the public API. dnt requires the same explicit-type discipline, so annotate the exported symbols in `src/mod.ts` / `src/api/version_payloads.ts` as part of this work.
@@ -86,6 +90,6 @@ Packaging must not change CLI routing, binary outputs, or the `./src/mod.ts` imp
 
 ## Open Issues (updated 2026-07-22)
 
-- Library package name on npm: distinct from the CLI wrapper `@semantic-flow/weave`. Candidate `@semantic-flow/weave-lib` or `@semantic-flow/weave-api`. Needs a decision before first publish (name is semi-permanent).
+- Library package name: decided 2026-07-22 as `@semantic-flow/weave-lib`.
 - Answered 2026-07-22 (module-graph trace of `src/api/mod.ts`, 67 local files): the API graph is subprocess/network-clean except **one** file, `src/runtime/operational/local_path_policy.ts`, which has `new Deno.Command("git", ...)` in `tryRunGit` (used by repository-source resolution — `resolveRepositorySourceFloatingLocalPath`/`listGitRemoteUrls`). `versionPayloads` refuses repository/floating sources, so git is **imported but not called** on the API path; the API also uses this module's non-git functions (`loadOperationalLocalPathPolicy`, `resolveAllowedLocalPath`). dnt's Deno shim can polyfill `Deno.Command`, so this is not a hard blocker, but the clean fix is to split the git-subprocess resolution out of the module the API imports so the API graph is genuinely subprocess-free and the fs-purity guard passes without an exception. This is the PM's "accidental fs-purity" made concrete: one import away from subprocess creep.
 - JSR publishing remains a deferred follow-up once npm/dnt is proven.
