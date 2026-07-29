@@ -19,9 +19,15 @@ created: 1784698697141
 
 This task decides and lands how Weave's library surface is published — npm library package, JSR export, or both — and wires it into CI and the release runbook. It is planning + execution + CI, tracked on the `next/v0.5.0` branch.
 
-## Handoff status (2026-07-22)
+## Handoff status (2026-07-28)
 
-Direction and scope are fully settled (see Decisions); implementation has not started. Resume at the first unchecked box in the Implementation Plan: **add the fs-purity guard test, then split git-subprocess resolution out of `local_path_policy.ts`**. All decisions (npm-via-dnt, `@semantic-flow/weave-lib`, v0.5.0, fs-purity guard scope, defaults-embedding) are locked. `v0.4.0` is already released (npm + GitHub Release + tag). This branch (`next/v0.5.0`) carries the mesh-create diagnostics fix plus these planning notes and is pushed. No code changes toward packaging exist yet — the next session starts clean.
+Implementation is complete on `next/v0.5.0`: fs-purity guard, git-subprocess split, defaults embedding, explicit public-API types, dnt build (`deno task build:npm-lib`), off-tree Node contract smoke (`deno task smoke:npm-lib`), CI + release-manual wiring, version bump to 0.5.0, and `release-notes.v0.5.0`. `deno task ci` is green (707 tests) and the smoke proves byte-equivalence between the packed npm library under Node and the Deno source import. Remaining to release: merge to `main`, run the Release Manual workflow (rehearsal then publish), and configure npm trusted publishing for the new `@semantic-flow/weave-lib` package name before its first publish (see [[wd.release-runbook]]).
+
+Implementation notes beyond the 2026-07-22 decisions:
+
+- The git split alone could not make the API graph subprocess-free: three modules on the graph (`version_execution.ts`, `artifact_loaders.ts`, `resolver.ts`) call repository-source resolution. The seam is `src/runtime/operational/repository_source.ts`, which loads `repository_source_git.ts` via a lazy dynamic import; the fs-purity guard walks static code edges only and treats statically-visible dynamic imports as the sanctioned CLI-capability boundary. `tryRunGit` feature-detects `Deno.Command` through `globalThis`, so environments without subprocess capability get a graceful no-match instead of a crash.
+- Only `application.ttl` and `config-resolution.ttl` are embedded: the audit reconfirmed they are the only defaults the runtime reads (stylesheet defaults are referenced by IRI, not read from the package tree).
+- The dnt build needed `@types/n3` (n3@2 ships no types; added as a dependency so consumer type traversal works), `target: ES2022` (Error cause options), and the `Deno.Command` feature-detect above.
 
 ## Discussion
 
@@ -79,14 +85,14 @@ Packaging must not change CLI routing, binary outputs, or the `./src/mod.ts` imp
 
 - [x] Grep `src/` for `import.meta.url` resource loads — one runtime blocker: `WEAVE_DEFAULTS_ROOT` in `src/runtime/config/effective_config.ts` (reached by `versionPayloads`).
 - [x] `deno publish --dry-run` spike — surfaced 6 `missing-explicit-type` slow-type errors; name/exports otherwise structurally fine.
-- [ ] Add the fs-purity guard test (no `Deno.Command`/network in `src/api/**` + transitive runtime imports) and get it green against the current API path before refactoring, so regressions are caught during the work.
-- [ ] Embed `defaults/*.ttl` as generated modules with a byte-identical drift test; rewire `effective_config.ts` to the embedded constants.
-- [ ] Annotate the 6 public-API symbols with explicit types.
-- [ ] Add a dnt build script (`jsr:@deno/dnt`) producing the Node-compatible npm library package (name TBD — see open issues), separate from the CLI wrapper package.
-- [ ] Add the downstream off-tree contract smoke test, run under Node (the honest Node CI leg).
-- [ ] Wire the dnt build + Node smoke + publish into the release runbook and `release-manual.yml`.
-- [ ] Bump to v0.5.0, write `release-notes.v0.5.0` (this note's decisions + the mesh-create diagnostics fix riding along), and release.
-- [ ] Update [[wd.programmatic-version-api]] and release notes to point consumers at the packaged library, keeping the pinned-source import documented.
+- [x] Add the fs-purity guard test (no `Deno.Command`/network in `src/api/**` + transitive runtime imports) and get it green against the current API path before refactoring, so regressions are caught during the work. — `src/api/fs_purity_test.ts`; went red on `local_path_policy.ts`, green after the split.
+- [x] Embed `defaults/*.ttl` as generated modules with a byte-identical drift test; rewire `effective_config.ts` to the embedded constants. — `scripts/embed-defaults.ts` → `src/runtime/config/generated/weave_defaults.ts` (+ drift test); `deno task embed:defaults`.
+- [x] Annotate the 6 public-API symbols with explicit types. — three turtle prefix declarations in `namespaces.ts`, three presentation profiles in `effective_config.ts`; `deno publish --dry-run` slow-type check now passes.
+- [x] Add a dnt build script (`jsr:@deno/dnt`) producing the Node-compatible npm library package, separate from the CLI wrapper package. — `scripts/build-npm-lib.ts`, `deno task build:npm-lib`, entry `src/api/mod.ts`, package `@semantic-flow/weave-lib`.
+- [x] Add the downstream off-tree contract smoke test, run under Node (the honest Node CI leg). — `scripts/smoke-npm-lib.ts`, `deno task smoke:npm-lib`; packs the tarball, installs into a temp consumer, byte-compares mesh trees and outcomes against the source import.
+- [x] Wire the dnt build + Node smoke + publish into the release runbook and `release-manual.yml`. — new `npm-lib` CI job, `build-npm-lib`/`publish-npm-lib` release jobs gating all publishes; runbook updated.
+- [x] Bump to v0.5.0, write `release-notes.v0.5.0` (this note's decisions + the mesh-create diagnostics fix riding along). Release itself (workflow run + npm trusted-publisher setup for the new package) is the remaining manual step.
+- [x] Update [[wd.programmatic-version-api]] and release notes to point consumers at the packaged library, keeping the pinned-source import documented.
 
 ## Open Issues (updated 2026-07-22)
 
