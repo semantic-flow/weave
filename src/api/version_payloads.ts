@@ -8,7 +8,7 @@ import type {
   VersionTargetSpec,
 } from "../core/targeting.ts";
 import { normalizeVersionTargetSpecs } from "../core/targeting.ts";
-import type { PlannedFile } from "../core/planned_file.ts";
+import type { PlannedBinaryFile, PlannedFile } from "../core/planned_file.ts";
 import {
   listKnopDesignatorPaths,
   resolvePayloadArtifactInventoryState,
@@ -37,6 +37,7 @@ export interface VersionPayloadsRequest {
   defaults?: PayloadVersionDefaults;
   historyTrackingPolicyOverride?: HistoryTrackingPolicy;
   overwriteExistingState?: boolean;
+  dryRun?: boolean;
 }
 
 export interface VersionPayloadItem {
@@ -55,6 +56,7 @@ export interface PayloadVersionDefaults {
 
 export interface VersionPayloadsResult {
   meshBase: string;
+  executed: boolean;
   outcomes: readonly PayloadVersionOutcome[];
   createdPaths: readonly string[];
   updatedPaths: readonly string[];
@@ -135,6 +137,7 @@ export interface AdmittedVersionPayloadsRequest {
   targets: readonly NormalizedVersionTargetSpec[];
   historyTrackingPolicyOverride?: HistoryTrackingPolicy;
   overwriteExistingState: boolean;
+  dryRun: boolean;
 }
 
 interface LoadedVersionPayloadItem extends AdmittedVersionPayloadItem {
@@ -160,6 +163,7 @@ const REQUEST_KEYS = new Set([
   "defaults",
   "historyTrackingPolicyOverride",
   "overwriteExistingState",
+  "dryRun",
 ]);
 const ITEM_KEYS = new Set([
   "designatorPath",
@@ -213,6 +217,10 @@ export function admitVersionPayloadsRequest(
     const overwriteExistingState = normalizeOptionalBoolean(
       request.overwriteExistingState,
       "request.overwriteExistingState",
+    ) ?? false;
+    const dryRun = normalizeOptionalBoolean(
+      request.dryRun,
+      "request.dryRun",
     ) ?? false;
     const historyTrackingPolicyOverride =
       normalizeHistoryTrackingPolicyOverride(
@@ -294,6 +302,7 @@ export function admitVersionPayloadsRequest(
         ? { historyTrackingPolicyOverride }
         : {}),
       overwriteExistingState,
+      dryRun,
     };
   } catch (error) {
     if (error instanceof WeaveApiError) {
@@ -334,8 +343,9 @@ async function executeVersionPayloads(
   const workingFiles = loaded.items.flatMap((item) =>
     item.workingChanged ? [{ path: item.workingPath, contents: item.text }] : []
   );
+  const manifest = buildCombinedWriteManifest(workingFiles, prepared);
   try {
-    await preflightCombinedPlan(admitted.meshRoot, workingFiles, prepared);
+    await preflightCombinedPlan(admitted.meshRoot, manifest, prepared);
   } catch (error) {
     throw new WeaveApiError(
       error instanceof Error
@@ -358,16 +368,25 @@ async function executeVersionPayloads(
       { code: "plan-conflict", stage: "plan", cause: error },
     );
   }
+  if (admitted.dryRun) {
+    // Forecast, not effect: the same manifest the writer would replay, with
+    // nothing written. Field meanings are conditional on `executed`.
+    return {
+      meshBase: prepared.meshState.meshBase,
+      executed: false,
+      outcomes,
+      createdPaths: manifest.filter((entry) => entry.created)
+        .map((entry) => entry.path),
+      updatedPaths: manifest.filter((entry) => !entry.created)
+        .map((entry) => entry.path),
+    };
+  }
   await hooks.afterPlan?.();
-  const writes = await writeCombinedPlan(
-    admitted.meshRoot,
-    workingFiles,
-    prepared,
-    hooks,
-  );
+  const writes = await writeCombinedPlan(admitted.meshRoot, manifest, hooks);
 
   return {
     meshBase: prepared.meshState.meshBase,
+    executed: true,
     outcomes,
     createdPaths: writes.createdPaths,
     updatedPaths: writes.updatedPaths,
@@ -538,30 +557,81 @@ async function loadVersionPayloadItems(
   }
 }
 
-async function preflightCombinedPlan(
-  meshRoot: string,
+// The single ordered source of truth for what a request would write.
+// Preflight, the writer, and the dry-run forecast all consume this list, so
+// forecast and effect cannot drift.
+type CombinedWriteManifestEntry =
+  | {
+    phase: "working-update" | "support-update";
+    path: string;
+    created: false;
+    file: PlannedFile;
+  }
+  | { phase: "text-create"; path: string; created: true; file: PlannedFile }
+  | {
+    phase: "binary-create";
+    path: string;
+    created: true;
+    file: PlannedBinaryFile;
+  };
+
+function buildCombinedWriteManifest(
   workingFiles: readonly PlannedFile[],
   prepared: PreparedCoherentPayloadBatchVersionExecution,
-): Promise<void> {
-  const createdFiles = [
-    ...prepared.plan.createdFiles,
-    ...(prepared.plan.createdBinaryFiles ?? []),
+): readonly CombinedWriteManifestEntry[] {
+  return [
+    ...workingFiles.map((file) => ({
+      phase: "working-update" as const,
+      path: file.path,
+      created: false as const,
+      file,
+    })),
+    ...prepared.plan.createdFiles.map((file) => ({
+      phase: "text-create" as const,
+      path: file.path,
+      created: true as const,
+      file,
+    })),
+    ...(prepared.plan.createdBinaryFiles ?? []).map((file) => ({
+      phase: "binary-create" as const,
+      path: file.path,
+      created: true as const,
+      file,
+    })),
+    ...prepared.plan.updatedFiles.map((file) => ({
+      phase: "support-update" as const,
+      path: file.path,
+      created: false as const,
+      file,
+    })),
   ];
-  const updatedFiles = [...workingFiles, ...prepared.plan.updatedFiles];
+}
+
+async function preflightCombinedPlan(
+  meshRoot: string,
+  manifest: readonly CombinedWriteManifestEntry[],
+  prepared: PreparedCoherentPayloadBatchVersionExecution,
+): Promise<void> {
+  const createdEntries = manifest.filter((entry) => entry.created);
+  const updatedEntries = manifest.filter((
+    entry,
+  ): entry is Extract<CombinedWriteManifestEntry, { created: false }> =>
+    !entry.created
+  );
   const createdPaths = new Set<string>();
   const updatedPaths = new Set<string>();
 
-  for (const file of createdFiles) {
-    assertSafePlannedPath(meshRoot, file.path);
-    if (createdPaths.has(file.path) || updatedPaths.has(file.path)) {
+  for (const entry of createdEntries) {
+    assertSafePlannedPath(meshRoot, entry.path);
+    if (createdPaths.has(entry.path) || updatedPaths.has(entry.path)) {
       throw new Error(
-        `Combined payload plan has a conflicting create path: ${file.path}`,
+        `Combined payload plan has a conflicting create path: ${entry.path}`,
       );
     }
-    createdPaths.add(file.path);
+    createdPaths.add(entry.path);
     try {
-      await Deno.stat(join(meshRoot, file.path));
-      throw new Error(`weave target already exists: ${file.path}`);
+      await Deno.stat(join(meshRoot, entry.path));
+      throw new Error(`weave target already exists: ${entry.path}`);
     } catch (error) {
       if (error instanceof Deno.errors.NotFound) {
         continue;
@@ -569,29 +639,28 @@ async function preflightCombinedPlan(
       throw error;
     }
   }
-  for (const file of updatedFiles) {
-    assertSafePlannedPath(meshRoot, file.path);
-    if (updatedPaths.has(file.path) || createdPaths.has(file.path)) {
+  for (const entry of updatedEntries) {
+    assertSafePlannedPath(meshRoot, entry.path);
+    if (updatedPaths.has(entry.path) || createdPaths.has(entry.path)) {
       throw new Error(
-        `Combined payload plan has a conflicting update path: ${file.path}`,
+        `Combined payload plan has a conflicting update path: ${entry.path}`,
       );
     }
-    updatedPaths.add(file.path);
-    const stat = await Deno.stat(join(meshRoot, file.path));
+    updatedPaths.add(entry.path);
+    const stat = await Deno.stat(join(meshRoot, entry.path));
     if (!stat.isFile) {
-      throw new Error(`weave update target is not a file: ${file.path}`);
+      throw new Error(`weave update target is not a file: ${entry.path}`);
     }
   }
   validateVersionPlanRdf({
     ...prepared.plan,
-    updatedFiles,
+    updatedFiles: updatedEntries.map((entry) => entry.file),
   });
 }
 
 async function writeCombinedPlan(
   meshRoot: string,
-  workingFiles: readonly PlannedFile[],
-  prepared: PreparedCoherentPayloadBatchVersionExecution,
+  manifest: readonly CombinedWriteManifestEntry[],
   hooks: VersionPayloadsTestingHooks,
 ): Promise<
   { createdPaths: readonly string[]; updatedPaths: readonly string[] }
@@ -599,41 +668,20 @@ async function writeCombinedPlan(
   const completedPaths: string[] = [];
   const createdPaths: string[] = [];
   const updatedPaths: string[] = [];
-  const writes: readonly {
-    phase: ApiWritePhase;
-    path: string;
-    created: boolean;
-    write: () => Promise<void>;
-  }[] = [
-    ...workingFiles.map((file) => ({
-      phase: "working-update" as const,
-      path: file.path,
-      created: false,
-      write: () => writeTextFile(meshRoot, file, false),
-    })),
-    ...prepared.plan.createdFiles.map((file) => ({
-      phase: "text-create" as const,
-      path: file.path,
-      created: true,
-      write: () => writeTextFile(meshRoot, file, true),
-    })),
-    ...(prepared.plan.createdBinaryFiles ?? []).map((file) => ({
-      phase: "binary-create" as const,
-      path: file.path,
-      created: true,
-      write: async () => {
-        const absolutePath = join(meshRoot, file.path);
+  const writes = manifest.map((entry) => ({
+    phase: entry.phase,
+    path: entry.path,
+    created: entry.created,
+    write: entry.phase === "binary-create"
+      ? async () => {
+        const absolutePath = join(meshRoot, entry.path);
         await Deno.mkdir(dirname(absolutePath), { recursive: true });
-        await Deno.writeFile(absolutePath, file.contents, { createNew: true });
-      },
-    })),
-    ...prepared.plan.updatedFiles.map((file) => ({
-      phase: "support-update" as const,
-      path: file.path,
-      created: false,
-      write: () => writeTextFile(meshRoot, file, false),
-    })),
-  ];
+        await Deno.writeFile(absolutePath, entry.file.contents, {
+          createNew: true,
+        });
+      }
+      : () => writeTextFile(meshRoot, entry.file, entry.created),
+  }));
 
   for (const write of writes) {
     try {
@@ -669,7 +717,11 @@ export async function writeCombinedPlanForTesting(
 ): Promise<
   { createdPaths: readonly string[]; updatedPaths: readonly string[] }
 > {
-  return await writeCombinedPlan(meshRoot, workingFiles, prepared, hooks);
+  return await writeCombinedPlan(
+    meshRoot,
+    buildCombinedWriteManifest(workingFiles, prepared),
+    hooks,
+  );
 }
 
 function deriveOutcomes(

@@ -41,6 +41,7 @@ export interface VersionPayloadsRequest {
   defaults?: PayloadVersionDefaults;
   historyTrackingPolicyOverride?: HistoryTrackingPolicy;
   overwriteExistingState?: boolean;
+  dryRun?: boolean;
 }
 
 export interface VersionPayloadItem {
@@ -68,6 +69,8 @@ The public root-designator representation is the literal string `/`. The empty s
 
 `overwriteExistingState` defaults to `false`. When `true`, `items` must contain exactly one item and that item must explicitly provide `historySegment` and `stateSegment`. A multi-item overwrite refuses at ADMIT with `code === "invalid-request"`.
 
+`dryRun` (added v0.5.1) defaults to `false`. When `true`, the request runs identical ADMIT, LOAD, and PLAN behavior — raising exactly the refusals a mutating request would raise at those stages — then stops after PLAN preflight and outcome derivation without writing anything. The result is returned with `executed: false`; its `outcomes[].status`, `createdPaths`, and `updatedPaths` are forecasts of what an immediately following non-dry request with the same inputs would report, derived from the same ordered write manifest the writer replays. Dry-run green does not preclude a later write-stage `io-failure`, and no lock is taken.
+
 ## Result Contract
 
 The result has this exact shape:
@@ -75,6 +78,7 @@ The result has this exact shape:
 ```ts
 export interface VersionPayloadsResult {
   meshBase: string;
+  executed: boolean;
   outcomes: readonly PayloadVersionOutcome[];
   createdPaths: readonly string[];
   updatedPaths: readonly string[];
@@ -93,7 +97,7 @@ export interface PayloadVersionOutcome {
 
 `outcomes` contains one entry per normalized request item in canonical designator-path order. `createdPaths`, `updatedPaths`, and `snapshotPath` are mesh-root-relative paths using `/` separators. `updatedPaths` includes working payload updates and version/support updates that were physically written. A no-op request has empty created and updated lists.
 
-`applied` means the request wrote a needed working/history transition. `alreadyCurrent` means admitted content and requested resolved naming already match the current latest state and no transition is needed for that item. The mutable core `VersionPlan` is never returned.
+`executed` (added v0.5.1) discriminates effect from forecast: `true` for a mutating run, `false` for a dry run. When `executed: true`, `applied` means the request wrote a needed working/history transition, and `alreadyCurrent` means admitted content and requested resolved naming already match the current latest state so no transition was needed. When `executed: false`, the same fields describe what the mutating run *would* do and nothing was written. The mutable core `VersionPlan` is never returned.
 
 ## Phase Contract
 
