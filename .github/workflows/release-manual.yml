@@ -83,10 +83,31 @@ jobs:
           '
 
       - name: Build native binary
-        run: deno task build:binaries -- --platform ${{ matrix.label }} --out-dir .test-tmp/release-binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno task build:binaries -- --platform ${{ matrix.label }} --out-dir .test-tmp/release-binaries --commit "$GITHUB_SHA" --built "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
       - name: Smoke native binary
-        run: ./.test-tmp/release-binaries/${{ matrix.label }}/${{ matrix.executable }} --version
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./.test-tmp/release-binaries/${{ matrix.label }}/${{ matrix.executable }} --version
+          ./.test-tmp/release-binaries/${{ matrix.label }}/${{ matrix.executable }} --version --json > version.json
+          cat version.json
+          deno eval '
+            const info = JSON.parse(await Deno.readTextFile("version.json"));
+            const expectedSha = Deno.env.get("GITHUB_SHA");
+            if (info.commit !== expectedSha) {
+              console.error(`Binary reports commit ${info.commit}, workflow is at ${expectedSha}`);
+              Deno.exit(1);
+            }
+            if (Number.isNaN(Date.parse(info.built))) {
+              console.error(`Binary reports an invalid built timestamp: ${info.built}`);
+              Deno.exit(1);
+            }
+            console.log(`Build identification verified: ${info.version} @ ${info.commit}`);
+          '
 
       - name: Package release archive
         run: deno task package:binaries -- --platform ${{ matrix.label }} --build-dir .test-tmp/release-binaries --out-dir .test-tmp/release-assets/${{ matrix.label }}

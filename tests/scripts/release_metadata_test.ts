@@ -101,6 +101,8 @@ Deno.test("parseBuildBinariesArgs supports output and repeated platform flags", 
     {
       outDir: "/tmp/weave-binaries",
       platformLabels: ["linux-x64", "macos-arm64"],
+      commit: undefined,
+      built: undefined,
     },
   );
 

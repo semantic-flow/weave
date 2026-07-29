@@ -91,6 +91,53 @@ Deno.test("weave --version reports the root package version", async () => {
   assertEquals(stripAnsi(stdout).trim(), `weave ${WEAVE_VERSION}`);
 });
 
+Deno.test("weave --version piped output is byte-stable", async () => {
+  // Downstream release gates assert this output by string equality; any
+  // change to the piped bytes (including color behavior) is breaking.
+  const output = await runCliCommand(["--version"]);
+  const stdout = new TextDecoder().decode(output.stdout);
+
+  assert(output.success);
+  assertEquals(
+    stdout,
+    `[1mweave[22m [94m${WEAVE_VERSION}[39m\n`,
+  );
+});
+
+Deno.test("weave --version --json emits one JSON document in both flag orders", async () => {
+  for (
+    const args of [["--version", "--json"], ["--json", "--version"], [
+      "-V",
+      "--json",
+    ]]
+  ) {
+    const output = await runCliCommand(args);
+    const stdout = new TextDecoder().decode(output.stdout);
+    const stderr = new TextDecoder().decode(output.stderr);
+
+    assert(output.success, stderr);
+    assertEquals(stdout.endsWith("\n"), true);
+    const parsed = JSON.parse(stdout) as {
+      version?: unknown;
+      commit?: unknown;
+      built?: unknown;
+    };
+    assertEquals(parsed.version, WEAVE_VERSION);
+    assertEquals(parsed.commit, null);
+    assertEquals(parsed.built, null);
+    assertEquals(Object.keys(parsed), ["version", "commit", "built"]);
+    assertEquals(stdout.includes("["), false);
+  }
+});
+
+Deno.test("weave --json alone and extra arguments fall through to cliffy", async () => {
+  const jsonAlone = await runCliCommand(["--json"]);
+  assertEquals(jsonAlone.success, false);
+
+  const extraArgument = await runCliCommand(["--version", "--json", "extra"]);
+  assertEquals(extraArgument.success, false);
+});
+
 Deno.test("weave matches the manifest-scoped alice knop-created-woven fixture as a black-box CLI run", async () => {
   await assertWeaveTransitionMatchesManifest({
     manifestName: "05-alice-knop-created-woven.jsonld",

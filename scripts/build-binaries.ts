@@ -9,6 +9,8 @@ import {
 export interface BuildBinariesOptions {
   outDir: string;
   platformLabels: string[];
+  commit?: string;
+  built?: string;
 }
 
 export interface DenoCompileArgsOptions {
@@ -32,6 +34,8 @@ export function parseBuildBinariesArgs(
   args: readonly string[],
 ): BuildBinariesOptions {
   let outDir = DEFAULT_OUT_DIR;
+  let commit: string | undefined;
+  let built: string | undefined;
   const platformLabels: string[] = [];
 
   for (let index = 0; index < args.length; index += 1) {
@@ -48,6 +52,14 @@ export function parseBuildBinariesArgs(
         index += 1;
         platformLabels.push(requireArgumentValue(args[index], "--platform"));
         break;
+      case "--commit":
+        index += 1;
+        commit = requireArgumentValue(args[index], "--commit");
+        break;
+      case "--built":
+        index += 1;
+        built = requireArgumentValue(args[index], "--built");
+        break;
       default:
         if (arg.startsWith("--out-dir=")) {
           outDir = requireArgumentValue(
@@ -62,11 +74,22 @@ export function parseBuildBinariesArgs(
           );
           break;
         }
+        if (arg.startsWith("--commit=")) {
+          commit = requireArgumentValue(
+            arg.slice("--commit=".length),
+            "--commit",
+          );
+          break;
+        }
+        if (arg.startsWith("--built=")) {
+          built = requireArgumentValue(arg.slice("--built=".length), "--built");
+          break;
+        }
         throw new Error(`Unsupported build:binaries argument: ${arg}`);
     }
   }
 
-  return { outDir, platformLabels };
+  return { outDir, platformLabels, commit, built };
 }
 
 export async function buildBinaries(
@@ -78,14 +101,66 @@ export async function buildBinaries(
   const entrypoint = join(repoRoot, "src", "main.ts");
   const outDir = resolveRepoPath(repoRoot, options.outDir);
 
-  for (const platform of platforms) {
-    await buildPlatformBinary({
-      entrypoint,
-      outDir,
-      platform,
-      repoRoot,
-      version,
-    });
+  await withStampedBuildInfo(repoRoot, options, async () => {
+    for (const platform of platforms) {
+      await buildPlatformBinary({
+        entrypoint,
+        outDir,
+        platform,
+        repoRoot,
+        version,
+      });
+    }
+  });
+}
+
+// Stamps src/generated/build_info.ts for the duration of the compile and
+// always restores the checked-in bytes, so local builds never leave the tree
+// dirty. Without --commit/--built the checked-in nulls ship, which is the
+// honest value for an unidentified build.
+export async function withStampedBuildInfo(
+  repoRoot: string,
+  options: { commit?: string; built?: string },
+  build: () => Promise<void>,
+): Promise<void> {
+  if (options.commit === undefined && options.built === undefined) {
+    await build();
+    return;
+  }
+  if (
+    options.built !== undefined &&
+    Number.isNaN(Date.parse(options.built))
+  ) {
+    throw new Error(`--built must be an ISO-8601 timestamp: ${options.built}`);
+  }
+  if (options.commit !== undefined && !/^[0-9a-f]{40}$/.test(options.commit)) {
+    throw new Error(
+      `--commit must be a full 40-hex git SHA: ${options.commit}`,
+    );
+  }
+
+  const buildInfoPath = join(repoRoot, "src", "generated", "build_info.ts");
+  const originalSource = await Deno.readTextFile(buildInfoPath);
+  const stampedSource = originalSource
+    .replace(
+      "commit: null,",
+      `commit: ${JSON.stringify(options.commit ?? null)},`,
+    )
+    .replace(
+      "built: null,",
+      `built: ${JSON.stringify(options.built ?? null)},`,
+    );
+  if (stampedSource === originalSource) {
+    throw new Error(
+      `Could not stamp build info: expected null placeholders in ${buildInfoPath}`,
+    );
+  }
+
+  await Deno.writeTextFile(buildInfoPath, stampedSource);
+  try {
+    await build();
+  } finally {
+    await Deno.writeTextFile(buildInfoPath, originalSource);
   }
 }
 

@@ -131,8 +131,11 @@ const result = await versionPayloads({
 \`\`\`
 
 The Weave CLI is distributed separately as \`@semantic-flow/weave\` (native
-binary wrapper). Deno consumers can use this package via \`npm:\` specifiers or
-import \`./src/mod.ts\` from a pinned source checkout.
+binary wrapper). Both packages share one version line: they are built from the
+same commit and released together, so \`@semantic-flow/weave@${version}\`
+corresponds to this package. Neither depends on the other at runtime. Deno
+consumers can use this package via \`npm:\` specifiers or import
+\`./src/mod.ts\` from a pinned source checkout.
 
 Repository-source (floating) inputs are refused by \`versionPayloads\`; the
 library never spawns subprocesses or opens network connections.

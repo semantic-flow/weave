@@ -35,6 +35,24 @@ jobs:
       - name: Smoke npm library off-tree under Node
         run: deno task smoke:npm-lib
 
+      - name: Compile Linux binary and verify build identification
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno task build:binaries -- --platform linux-x64 --out-dir .test-tmp/ci-binaries --commit "$GITHUB_SHA" --built "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          ./.test-tmp/ci-binaries/linux-x64/weave --version --json > version.json
+          cat version.json
+          deno eval '
+            const info = JSON.parse(await Deno.readTextFile("version.json"));
+            if (info.commit !== Deno.env.get("GITHUB_SHA")) {
+              console.error(`Binary reports commit ${info.commit}, workflow is at ${Deno.env.get("GITHUB_SHA")}`);
+              Deno.exit(1);
+            }
+          '
+          if [ -n "$(git status --porcelain src/generated)" ]; then
+            echo "build stamping left src/generated dirty"; git diff src/generated; exit 1
+          fi
+
   ci:
     runs-on: ubuntu-latest
     timeout-minutes: 15

@@ -510,6 +510,172 @@ Deno.test("versionPayloads multi-item output is byte-identical to the CLI update
   await assertWorkspaceTreesEqual(apiRoot, cliRoot);
 });
 
+Deno.test("versionPayloads dryRun forecasts the real run exactly and writes nothing", async () => {
+  const meshRoot = await createTestTmpDir("weave-version-api-dry-run-");
+  await materializePayloadMesh(meshRoot, [coreTarget, shaclTarget]);
+  const request = {
+    meshRoot,
+    items: [
+      {
+        designatorPath: coreTarget.designatorPath,
+        bytes: payloadBytes(coreTarget, 2),
+      },
+      {
+        designatorPath: shaclTarget.designatorPath,
+        bytes: payloadBytes(shaclTarget, 3),
+      },
+    ],
+  };
+  const before = await snapshotWorkspace(meshRoot);
+
+  const forecast = await versionPayloads({ ...request, dryRun: true });
+  assertEquals(forecast.executed, false);
+  assertEquals(await snapshotWorkspace(meshRoot), before);
+
+  const applied = await versionPayloads(request);
+  assertEquals(applied.executed, true);
+  assertEquals(forecast.outcomes, applied.outcomes);
+  assertEquals(forecast.createdPaths, applied.createdPaths);
+  assertEquals(forecast.updatedPaths, applied.updatedPaths);
+  assertEquals(forecast.meshBase, applied.meshBase);
+});
+
+Deno.test("versionPayloads dryRun no-op forecast reports alreadyCurrent with empty path lists", async () => {
+  const meshRoot = await createTestTmpDir("weave-version-api-dry-noop-");
+  await materializePayloadMesh(meshRoot, [coreTarget]);
+  const bytes = payloadBytes(coreTarget, 1);
+
+  const forecast = await versionPayloads({
+    meshRoot,
+    dryRun: true,
+    items: [{ designatorPath: coreTarget.designatorPath, bytes }],
+  });
+
+  assertEquals(forecast.executed, false);
+  assertEquals(forecast.outcomes[0]?.status, "alreadyCurrent");
+  assertEquals(forecast.createdPaths, []);
+  assertEquals(forecast.updatedPaths, []);
+});
+
+Deno.test("versionPayloads dryRun admission parity refuses duplicates and non-boolean dryRun", async () => {
+  const bytes = payloadBytes(coreTarget, 2);
+  const meshRoot = Deno.build.os === "windows" ? "C:\\mesh" : "/mesh";
+
+  const duplicateError = await assertRejects(
+    () =>
+      versionPayloads({
+        meshRoot,
+        dryRun: true,
+        items: [
+          { designatorPath: "rules/core", bytes },
+          { designatorPath: " rules/core ", bytes },
+        ],
+      }),
+    WeaveApiError,
+  );
+  assertEquals(
+    [duplicateError.code, duplicateError.stage],
+    ["invalid-request", "admit"],
+  );
+
+  const nonBooleanError = await assertRejects(
+    () =>
+      versionPayloads({
+        meshRoot,
+        // deno-lint-ignore no-explicit-any
+        dryRun: "yes" as any,
+        items: [{ designatorPath: "rules/core", bytes }],
+      }),
+    WeaveApiError,
+  );
+  assertEquals(
+    [nonBooleanError.code, nonBooleanError.stage],
+    ["invalid-request", "admit"],
+  );
+});
+
+Deno.test("versionPayloads dryRun load parity refuses unknown targets without touching the mesh", async () => {
+  const meshRoot = await createTestTmpDir("weave-version-api-dry-load-");
+  await materializePayloadMesh(meshRoot, [coreTarget]);
+  const before = await snapshotWorkspace(meshRoot);
+
+  const error = await assertRejects(
+    () =>
+      versionPayloads({
+        meshRoot,
+        dryRun: true,
+        items: [{
+          designatorPath: "rules/missing",
+          bytes: payloadBytes(coreTarget, 2),
+        }],
+      }),
+    WeaveApiError,
+  );
+  assertEquals([error.code, error.stage], ["unknown-target", "load"]);
+  assertEquals(await snapshotWorkspace(meshRoot), before);
+});
+
+Deno.test("versionPayloads dryRun preflight parity refuses an occupied snapshot destination", async () => {
+  const meshRoot = await createTestTmpDir("weave-version-api-dry-preflight-");
+  await materializePayloadMesh(meshRoot, [coreTarget]);
+  await writeText(
+    join(meshRoot, snapshotPath(coreTarget, 2)),
+    "occupies the planned snapshot destination",
+  );
+  const before = await snapshotWorkspace(meshRoot);
+
+  const error = await assertRejects(
+    () =>
+      versionPayloads({
+        meshRoot,
+        dryRun: true,
+        items: [{
+          designatorPath: coreTarget.designatorPath,
+          bytes: payloadBytes(coreTarget, 2),
+        }],
+      }),
+    WeaveApiError,
+  );
+  assertEquals([error.code, error.stage], ["plan-conflict", "plan"]);
+  assertEquals(await snapshotWorkspace(meshRoot), before);
+});
+
+Deno.test("versionPayloads dryRun forecasts an explicit overwrite without writing it", async () => {
+  const meshRoot = await createTestTmpDir("weave-version-api-dry-overwrite-");
+  await materializePayloadMesh(meshRoot, [coreTarget]);
+  await versionPayloads({
+    meshRoot,
+    items: [{
+      designatorPath: coreTarget.designatorPath,
+      bytes: payloadBytes(coreTarget, 2),
+    }],
+  });
+  const overwrittenBytes = new TextEncoder().encode(
+    payloadText(coreTarget, 2).replace("Core rules", "Corrected core rules"),
+  );
+  const request = {
+    meshRoot,
+    overwriteExistingState: true,
+    items: [{
+      designatorPath: coreTarget.designatorPath,
+      bytes: overwrittenBytes,
+      historySegment: "_history001",
+      stateSegment: "_s0002",
+    }],
+  };
+  const before = await snapshotWorkspace(meshRoot);
+
+  const forecast = await versionPayloads({ ...request, dryRun: true });
+  assertEquals(forecast.executed, false);
+  assertEquals(await snapshotWorkspace(meshRoot), before);
+
+  const applied = await versionPayloads(request);
+  assertEquals(applied.executed, true);
+  assertEquals(forecast.outcomes, applied.outcomes);
+  assertEquals(forecast.createdPaths, applied.createdPaths);
+  assertEquals(forecast.updatedPaths, applied.updatedPaths);
+});
+
 Deno.test("versionPayloads admitted overlay defeats post-plan disk mutation as a capture conflict", async () => {
   const meshRoot = await createTestTmpDir("weave-version-api-post-plan-");
   await materializePayloadMesh(meshRoot, [coreTarget]);

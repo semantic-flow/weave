@@ -36,7 +36,7 @@ deno task bump:version -- --version "$VERSION"
 Set `VERSION` to the intended release version. Use `--patch`, `--minor`, or `--major` instead when advancing mechanically from the current root version.
 
 3. Fill `documentation/notes/release-notes.v<version>.md`. Do not leave generated TODO placeholders in release notes for a real release.
-4. Make sure the release notes describe what is actually in the release commit, not work planned immediately afterward.
+4. Make sure the release notes describe what is actually in the release commit, not work planned immediately afterward. Name every **behavioral** change — limits, defaults, output shapes, eligibility rules — in "Breaking Or Changed Behavior", not just fixes and features. A downstream consumer must be able to answer "did behavior X change in this release?" from the notes alone (the v0.4.0 raw-source inline-limit change shipped unnamed and cost a consumer real time).
 5. For Semantic Flow ontology/SHACL release prep, confirm each `owl:versionIRI` points at the raw bytes for the matching release tag, for example `https://raw.githubusercontent.com/semantic-flow/sflo/refs/tags/v0.1.0/semantic-flow-core-shacl.ttl`, and confirm that tag will exist on the repository that serves those bytes. Do not use a mutable branch URL such as `refs/heads/main` for an OWL version IRI.
 6. Run the source quality gate:
 
@@ -91,17 +91,15 @@ The workflow creates or updates the GitHub Release, uploads `.tar.gz`/`.zip` arc
 
 The npm publish job publishes platform packages before the wrapper package; a separate job publishes `@semantic-flow/weave-lib` from the `weave-npm-lib` artifact. Real publish runs use npm trusted publishing through GitHub Actions OIDC; each npm package — including `@semantic-flow/weave-lib` — must trust the `semantic-flow/weave` repository and the `release-manual.yml` workflow. npm generates provenance automatically for trusted public-package publishes, so the workflow does not pass `NODE_AUTH_TOKEN` or `--provenance` in the normal path.
 
-### First weave-lib publish (one-time, v0.5.0)
+### First weave-lib publish (historical record)
 
-npm cannot configure a trusted publisher for a package that does not exist yet and cannot do an initial publish over OIDC (npm/cli#8544), so the very first `@semantic-flow/weave-lib` publish is manual with classic auth:
+npm cannot configure a trusted publisher for a package that does not exist yet and cannot do an initial publish over OIDC (npm/cli#8544), so the very first `@semantic-flow/weave-lib` publish (`0.5.0`, 2026-07-28) was manual with classic auth (`npm publish --access public` from `dist/npm-lib`, no provenance attestation), followed immediately by trusted-publisher configuration on npmjs.com (GitHub Actions, repository `semantic-flow/weave`, workflow `release-manual.yml`, environment blank). The planned `v0.5.0` release was then folded into `v0.5.1`, so `weave-lib@0.5.0` is a lib-only pre-release artifact with no matching CLI release, tag, or GitHub Release; deprecate it after `v0.5.1` publishes:
 
-1. From the reviewed release commit on `main`: `deno task build:npm-lib && deno task smoke:npm-lib`.
-2. In `dist/npm-lib`: `npm pack --dry-run` to review the file list, `npm login` (org member with publish rights), then `npm publish --access public --tag latest`. `--access public` is required on a scoped package's first publish. This manual publish has no provenance attestation; that is expected.
-3. Immediately configure the trusted publisher on npmjs.com for `@semantic-flow/weave-lib`: GitHub Actions, repository `semantic-flow/weave`, workflow `release-manual.yml`, environment blank; match the other packages' publishing-access settings.
-4. Run the release workflow with `npm_publish_mode: publish` and `github_release_mode: skip`; the wrapper and platform packages publish normally and the `publish-npm-lib` job fails once on the already-existing version — expected and harmless.
-5. Rerun with `npm_publish_mode: skip` and the intended `github_release_mode` to create the GitHub Release (the standard repair path below).
+```bash
+npm deprecate @semantic-flow/weave-lib@0.5.0 "Pre-release publish with no matching CLI release; use 0.5.1+."
+```
 
-From the next release onward the library publishes through OIDC alongside the other packages in a single run.
+From `v0.5.1` onward the library publishes through OIDC alongside the other packages in a single run.
 
 If npm publication succeeds but the GitHub Release step needs repair, rerun the workflow on the same commit with `npm_publish_mode: skip` and the appropriate `github_release_mode`. Do not rerun npm publication for versions that already exist on the registry.
 
@@ -161,7 +159,7 @@ git fetch --tags origin
 ## Current Caveats
 
 - The workflow uses `macos-15-intel` for macOS x64 and `macos-latest` for macOS arm64. If GitHub-hosted runner labels change, update the workflow before release.
-- The workflow expects npm trusted publishing to be configured for the wrapper package, every platform package, and `@semantic-flow/weave-lib`. Token-based publishing with `--provenance` remains an emergency fallback only; the sanctioned exception is the one-time manual first publish of `@semantic-flow/weave-lib` described above, because npm cannot pre-register a trusted publisher for a package that does not exist yet.
+- The workflow expects npm trusted publishing to be configured for the wrapper package, every platform package, and `@semantic-flow/weave-lib`. Token-based publishing with `--provenance` remains an emergency fallback only; the one sanctioned exception was the one-time manual first publish of `@semantic-flow/weave-lib` (complete — see the historical record above), because npm cannot pre-register a trusted publisher for a package that does not exist yet.
 - Release notes are Dendron notes, so any GitHub Release body must omit frontmatter.
 
 Keep releases explicit and boring: reviewed commit, authored version, release notes, manual workflow rehearsal when release tooling changed, no false CI claims, and no real npm publish without registry confirmation.

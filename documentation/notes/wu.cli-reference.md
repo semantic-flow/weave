@@ -16,6 +16,8 @@ Weave writes runtime logs under `${XDG_STATE_HOME:-~/.local/state}/weave/meshes/
 
 Use `weave --help` or `weave <command> --help` to inspect the live CLI.
 
+`weave --version` prints the human-readable `weave <version>` line, which is kept byte-stable because downstream release gates string-match it. `weave --version --json` (since v0.5.1; exactly those two flags, either order) emits `{"version", "commit", "built"}` on one line — `commit` is the exact release commit for CI-built binaries and `null` for source runs. Prefer the JSON form for any automated assertion.
+
 Detailed notes are available for [[wu.cli-reference.weave]], [[wu.cli-reference.validate]], [[wu.cli-reference.version]], [[wu.cli-reference.generate]], [[wu.cli-reference.mesh.create]], [[wu.cli-reference.import]], [[wu.cli-reference.integrate]], [[wu.cli-reference.extract]], [[wu.cli-reference.set.extraction-source]], [[wu.cli-reference.payload.update]], [[wu.cli-reference.knop.create]], [[wu.cli-reference.knop.add-reference]], [[wu.cli-reference.set.history]], and [[wu.cli-reference.set.next-state]]. Shared syntax notes cover [[wu.cli-reference.target-syntax]] and [[wu.cli-reference.root-designator]].
 
 ## Common patterns

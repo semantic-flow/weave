@@ -94,6 +94,31 @@ async function smokeNpmLib(options: SmokeNpmLibOptions): Promise<void> {
       { target: coreTarget, ordinal: 2 },
       { target: shaclTarget, ordinal: 3 },
     ];
+
+    const nodeForecast = await runNodeConsumer(
+      consumerRoot,
+      nodeMeshRoot,
+      items,
+      { dryRun: true },
+    );
+    const sourceForecast = await versionPayloads({
+      meshRoot: sourceMeshRoot,
+      dryRun: true,
+      items: items.map(({ target, ordinal }) => ({
+        designatorPath: target.designatorPath,
+        bytes: payloadBytes(target, ordinal),
+      })),
+    });
+    assertJsonEqual(
+      nodeForecast,
+      JSON.parse(JSON.stringify(sourceForecast)),
+      "dry-run forecast (Node npm package vs Deno source import)",
+    );
+    if (sourceForecast.executed !== false) {
+      throw new Error("dry-run forecast must report executed: false");
+    }
+    await assertTreesByteIdentical(nodeMeshRoot, sourceMeshRoot);
+
     const nodeResult = await runNodeConsumer(consumerRoot, nodeMeshRoot, items);
     const sourceResult = await versionPayloads({
       meshRoot: sourceMeshRoot,
@@ -102,6 +127,16 @@ async function smokeNpmLib(options: SmokeNpmLibOptions): Promise<void> {
         bytes: payloadBytes(target, ordinal),
       })),
     });
+    assertJsonEqual(
+      sourceForecast.createdPaths,
+      sourceResult.createdPaths,
+      "forecast vs actual createdPaths",
+    );
+    assertJsonEqual(
+      sourceForecast.updatedPaths,
+      sourceResult.updatedPaths,
+      "forecast vs actual updatedPaths",
+    );
 
     assertJsonEqual(
       nodeResult,
@@ -176,6 +211,7 @@ async function runNodeConsumer(
   consumerRoot: string,
   meshRoot: string,
   items: readonly { target: PayloadTargetFixture; ordinal: number }[],
+  options: { dryRun?: boolean } = {},
 ): Promise<unknown> {
   const consumerScriptPath = join(consumerRoot, "consumer.mjs");
   await Deno.writeTextFile(
@@ -187,6 +223,7 @@ const [meshRoot, requestPath, resultPath] = process.argv.slice(2);
 const request = JSON.parse(await readFile(requestPath, "utf8"));
 const result = await versionPayloads({
   meshRoot,
+  ...(request.dryRun ? { dryRun: true } : {}),
   items: request.items.map((item) => ({
     designatorPath: item.designatorPath,
     bytes: Buffer.from(item.bytesBase64, "base64"),
@@ -196,11 +233,13 @@ await writeFile(resultPath, JSON.stringify(result));
 `,
   );
 
-  const requestPath = join(consumerRoot, "request.json");
-  const resultPath = join(consumerRoot, "result-node.json");
+  const label = options.dryRun ? "dry-run" : "write";
+  const requestPath = join(consumerRoot, `request-${label}.json`);
+  const resultPath = join(consumerRoot, `result-node-${label}.json`);
   await Deno.writeTextFile(
     requestPath,
     JSON.stringify({
+      ...(options.dryRun ? { dryRun: true } : {}),
       items: items.map(({ target, ordinal }) => ({
         designatorPath: target.designatorPath,
         bytesBase64: encodeBase64(payloadBytes(target, ordinal)),

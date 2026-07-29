@@ -14,7 +14,7 @@ This note is the user-facing reference. The normative contract, including the ex
 
 ## Getting the API
 
-Node and bundler consumers use the npm library package (available since `v0.5.0`):
+Node and bundler consumers use the npm library package (available since `v0.5.1`):
 
 ```bash
 npm install @semantic-flow/weave-lib
@@ -63,6 +63,7 @@ interface VersionPayloadsRequest {
   defaults?: PayloadVersionDefaults;
   historyTrackingPolicyOverride?: HistoryTrackingPolicy;
   overwriteExistingState?: boolean;
+  dryRun?: boolean;
 }
 
 interface VersionPayloadItem {
@@ -87,12 +88,27 @@ interface PayloadVersionDefaults {
 - Segment resolution per decision runs: per-item field → `defaults` field → persisted payload intent → effective config policy → built-in default (ordinal naming such as `_history001`/`_s0002`). Per-item fields shadow `defaults` exactly like CLI per-target fields shadow the general flags.
 - `historyTrackingPolicyOverride` (`"versioned"`, `"currentOnly"`, `"required"`, `"slimHistory"`, `"checkpointOnly"`, `"metadataOnly"`) is a one-invocation override over target/ancestor/mesh config; it is not persisted.
 - `overwriteExistingState` defaults to `false`. When `true`, the request must contain exactly one item, and that item must explicitly name `historySegment` and `stateSegment` of the existing current state to overwrite.
+- `dryRun` (since v0.5.1) defaults to `false`. When `true`, the call runs the full admit/load/plan pipeline — including every refusal a real run would raise at those stages — then returns a forecast without writing anything. Use it as a gate: "does this change what we think it changes?"
+
+### Dry runs
+
+```ts
+const forecast = await versionPayloads({ ...request, dryRun: true });
+// forecast.executed === false; nothing was written.
+// forecast.outcomes, createdPaths, updatedPaths describe what the
+// real call would do.
+const result = await versionPayloads(request);
+// result.executed === true; the forecast and result match.
+```
+
+A dry run is an honest plan, not a simulation of the write: it cannot rule out a later `io-failure` (disk full, permissions), and it takes no lock, so its forecast is only as coherent as your writer serialization (see below).
 
 ### Result
 
 ```ts
 interface VersionPayloadsResult {
   meshBase: string;
+  executed: boolean;
   outcomes: readonly PayloadVersionOutcome[];
   createdPaths: readonly string[];
   updatedPaths: readonly string[];
@@ -109,7 +125,7 @@ interface PayloadVersionOutcome {
 }
 ```
 
-`outcomes` has one entry per item in canonical designator-path order. `applied` means a working/history transition was written; `alreadyCurrent` means the admitted content and resolved naming already match the latest state, so nothing was written for that item. All paths are mesh-root-relative with `/` separators. A fully no-op request has empty `createdPaths` and `updatedPaths`, which makes blind retries safe.
+`outcomes` has one entry per item in canonical designator-path order. `executed` discriminates effect from forecast: on a real run (`true`), `applied` means a working/history transition was written and `alreadyCurrent` means nothing was needed; on a dry run (`false`), the same fields describe what a real run would do — nothing was written. All paths are mesh-root-relative with `/` separators. A fully no-op request has empty `createdPaths` and `updatedPaths`, which makes blind retries safe.
 
 ## Error handling
 
@@ -139,8 +155,29 @@ The exact per-code meanings are tabulated in [[wd.programmatic-version-api]].
 ## Caller responsibilities
 
 - The caller owns single-writer serialization per mesh. There is no lock, journal, rollback, or filesystem transaction; concurrent API/API or API/CLI mutation of one mesh is unsupported.
-- Writes are sequential. After an `io-failure`, use the disclosed path fields for repair; a retry after partial support-artifact writes can refuse with `plan-conflict` until repaired.
+- Writes are sequential. After an `io-failure`, follow the repair procedure below; a retry after partial support-artifact writes can refuse with `plan-conflict` until repaired.
 - Mesh-local UTF-8 text/RDF payloads only. Payloads whose inventory declares a repository-source (floating) locator refuse with `unsupported-source`; version those through the CLI instead.
+
+### Recommended locking pattern
+
+Weave provides no lock; this is the pattern we recommend so consumers converge instead of each inventing one. Take an **exclusive advisory lock** on `<meshRoot>/.weave/lock` for the full duration of every mutating Weave invocation against that mesh — CLI or API. Use `flock(2)` on POSIX; on Windows or from Node, use an advisory-lock library such as `proper-lockfile` pointed at the same path. The lock lives inside the `.weave` directory (which mesh tooling already treats as non-content) — do not use a bare file at the mesh root, where it risks being swept up as mesh or publication content. Weave itself never creates, reads, or honors this lock in the current version; it is cooperative between your writers.
+
+Read-only operations (`weave validate`, dry runs) do not need the lock to be safe, but an unlocked read can observe a writer mid-operation. If a dry run participates in a gate whose answer must be coherent with a subsequent write, hold the lock across both.
+
+### Repairing after a write failure
+
+A `write`-stage `WeaveApiError` means some writes completed and one failed; the mesh is in a disclosed-but-partial state. The reliable procedure is restoration, not surgery:
+
+1. Restore the mesh working tree to its pre-call state from version control or a snapshot (for git-managed meshes: inspect `git status`, then `git restore`/`git clean` the affected paths).
+2. Verify the tree matches the pre-call baseline.
+3. Run `weave validate` to confirm mesh coherence.
+4. Retry the original request.
+
+The error's `completedPaths` / `completedCreatedPaths` / `completedUpdatedPaths` tell you what definitely happened (completed creates can be deleted; completed updates' prior bytes are not recoverable from the error), but the *failed* write's own effect is not classified, so per-path surgery cannot be fully derived from the error alone. "Repaired" — including the exit condition for a `plan-conflict` refusal on retry — means the tree is back to a state where inventory facts and files agree, which step 1 guarantees and step 3 checks.
+
+## Verifying a release
+
+Every release is tagged in git (`v0.4.0`, `v0.5.1`, …) — run `git fetch --tags origin` in a pinned checkout before concluding a tag is missing. (There is no `v0.5.0`: that release was folded into `v0.5.1`, and the lib-only `weave-lib@0.5.0` npm artifact is deprecated.) From v0.5.1 the CLI also self-reports its build: `weave --version --json` emits `{"version", "commit", "built"}`, where `commit` is the exact release commit for CI-built binaries (`null` for source runs). The plain `weave --version` line remains byte-stable for existing string-matching gates, but prefer the JSON field.
 
 ## Related
 
