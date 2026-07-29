@@ -144,9 +144,10 @@ async function listGitRemoteUrls(
 }
 
 // Resolved through globalThis so the npm build (dnt) neither type-checks nor
-// links against a subprocess API its Deno shim does not provide; in runtimes
-// without Deno.Command (Node), git resolution degrades to "no repository
-// checkout matched" instead of crashing.
+// links against a subprocess API its Deno shim does not provide. When git is
+// effectively unavailable — no Deno.Command (Node), no git binary on PATH, or
+// no run permission — git resolution degrades to "no repository checkout
+// matched" instead of crashing.
 type SubprocessCommandConstructor = new (
   command: string,
   options: {
@@ -171,16 +172,33 @@ async function tryRunGit(args: readonly string[]): Promise<string | undefined> {
   if (SubprocessCommand === undefined) {
     return undefined;
   }
-  const command = new SubprocessCommand("git", {
-    args: [...args],
-    stdout: "piped",
-    stderr: "piped",
-  });
-  const output = await command.output();
+  let output;
+  try {
+    const command = new SubprocessCommand("git", {
+      args: [...args],
+      stdout: "piped",
+      stderr: "piped",
+    });
+    output = await command.output();
+  } catch (error) {
+    if (isGitUnavailableError(error)) {
+      return undefined;
+    }
+    throw error;
+  }
   if (!output.success) {
     return undefined;
   }
   return new TextDecoder().decode(output.stdout).trim();
+}
+
+// Matched by name rather than instanceof so the check works under both the
+// Deno runtime and the dnt shim, whose error classes differ.
+function isGitUnavailableError(error: unknown): boolean {
+  return error instanceof Error &&
+    (error.name === "NotFound" ||
+      error.name === "NotCapable" ||
+      error.name === "PermissionDenied");
 }
 
 function repositoryUrlsMatch(left: string, right: string): boolean {

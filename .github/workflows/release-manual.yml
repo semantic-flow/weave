@@ -131,6 +131,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Set up Deno
         uses: denoland/setup-deno@v2.0.4
@@ -312,13 +314,15 @@ jobs:
 
       - name: Publish npm packages
         shell: bash
+        env:
+          NPM_TAG: ${{ inputs.npm_tag }}
         run: |
           set -euo pipefail
 
           args=(
             --input-dir .test-tmp/downloaded-npm-packages
             --npm-bin npm
-            --tag "${{ inputs.npm_tag }}"
+            --tag "$NPM_TAG"
           )
           if [ "${{ inputs.npm_publish_mode }}" = "dry-run" ]; then
             args+=(--dry-run)
@@ -354,10 +358,12 @@ jobs:
       - name: Publish npm library package
         shell: bash
         working-directory: npm-lib-package
+        env:
+          NPM_TAG: ${{ inputs.npm_tag }}
         run: |
           set -euo pipefail
 
-          args=(publish --access public --tag "${{ inputs.npm_tag }}")
+          args=(publish --access public --tag "$NPM_TAG")
           if [ "${{ inputs.npm_publish_mode }}" = "dry-run" ]; then
             args+=(--dry-run)
           fi
