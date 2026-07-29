@@ -7,6 +7,34 @@ on:
       - main
 
 jobs:
+  npm-lib:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2.0.4
+        with:
+          deno-version: 2.7.14
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Build npm library package (dnt)
+        run: deno task build:npm-lib
+
+      - name: Smoke npm library off-tree under Node
+        run: deno task smoke:npm-lib
+
   ci:
     runs-on: ubuntu-latest
     timeout-minutes: 15

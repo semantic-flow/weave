@@ -15,6 +15,10 @@ import {
   type MeshLocalConfigInput,
 } from "./config_sources.ts";
 import type { OperationalLocalPathPolicy } from "../operational/local_path_policy.ts";
+import {
+  WEAVE_DEFAULT_APPLICATION_TURTLE,
+  WEAVE_DEFAULT_CONFIG_RESOLUTION_TURTLE,
+} from "./generated/weave_defaults.ts";
 
 const RDF_TYPE_IRI = `${RDF_NAMESPACE}type`;
 const APPLICATION_CONFIG_IRI = `${SFCFG_NAMESPACE}ApplicationConfig`;
@@ -131,7 +135,14 @@ const RETIRED_DIRECT_POLICY_PREDICATES = [
   `${SFCFG_NAMESPACE}hasDefaultResourcePagePresentationConfig`,
 ] as const;
 
-const WEAVE_DEFAULTS_ROOT = new URL("../../../defaults/", import.meta.url);
+// The defaults documents are embedded as a generated module (see
+// scripts/embed-defaults.ts) so the library works when the module graph does
+// not load from a local checkout; defaultsRoot overrides still read files.
+const EMBEDDED_DEFAULTS_TURTLE: Readonly<Record<string, string>> = {
+  "application.ttl": WEAVE_DEFAULT_APPLICATION_TURTLE,
+  "config-resolution.ttl": WEAVE_DEFAULT_CONFIG_RESOLUTION_TURTLE,
+};
+
 export const WEAVE_DEFAULTS_NAMESPACE =
   "https://semantic-flow.github.io/weave/defaults/";
 
@@ -607,22 +618,22 @@ function builtinPresentationProfile(
   };
 }
 
-export const DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE =
-  builtinPresentationProfile(
+export const DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE:
+  ResourcePagePresentationProfile = builtinPresentationProfile(
     DEFAULT_RESOURCE_PAGE_PRESENTATION_IRI,
     "semanticSiteDefault",
     DEFAULT_PANEL_SELECTIONS,
   );
 
-export const ALL_PANELS_RESOURCE_PAGE_PRESENTATION_PROFILE =
-  builtinPresentationProfile(
+export const ALL_PANELS_RESOURCE_PAGE_PRESENTATION_PROFILE:
+  ResourcePagePresentationProfile = builtinPresentationProfile(
     ALL_PANELS_RESOURCE_PAGE_PRESENTATION_IRI,
     "semanticSiteAllPanels",
     [...DEFAULT_PANEL_SELECTIONS, SEMANTIC_FLOW_METADATA_PANEL_SELECTION],
   );
 
-export const NO_PANELS_RESOURCE_PAGE_PRESENTATION_PROFILE =
-  builtinPresentationProfile(
+export const NO_PANELS_RESOURCE_PAGE_PRESENTATION_PROFILE:
+  ResourcePagePresentationProfile = builtinPresentationProfile(
     NO_PANELS_RESOURCE_PAGE_PRESENTATION_IRI,
     "semanticSiteNoPanels",
     [],
@@ -976,11 +987,11 @@ export async function loadWeaveDefaultEffectiveConfig(
 export async function loadWeaveEffectiveConfig(
   options: CompileWeaveEffectiveConfigOptions = {},
 ): Promise<EffectiveConfig> {
-  const applicationSource = resolveDefaultsFile(
+  const applicationDefaults = await loadDefaultsDocument(
     options.defaultsRoot,
     "application.ttl",
   );
-  const configResolutionSource = resolveDefaultsFile(
+  const configResolutionDefaults = await loadDefaultsDocument(
     options.defaultsRoot,
     "config-resolution.ttl",
   );
@@ -1073,8 +1084,8 @@ export async function loadWeaveEffectiveConfig(
   );
 
   return compileWeaveEffectiveConfig({
-    applicationTurtle: await Deno.readTextFile(applicationSource),
-    configResolutionTurtle: await Deno.readTextFile(configResolutionSource),
+    applicationTurtle: applicationDefaults.turtle,
+    configResolutionTurtle: configResolutionDefaults.turtle,
     meshConfigInputs,
     meshBase: options.meshBase,
     meshInventoryTurtle: options.meshInventoryTurtle,
@@ -1082,8 +1093,8 @@ export async function loadWeaveEffectiveConfig(
     governedArtifactIris: options.governedArtifactIris,
     commandOverrides: options.commandOverrides,
     sources: {
-      applicationSource: formatSource(applicationSource),
-      configResolutionSource: formatSource(configResolutionSource),
+      applicationSource: applicationDefaults.source,
+      configResolutionSource: configResolutionDefaults.source,
       ...(firstMeshConfigSource
         ? { meshConfigSource: firstMeshConfigSource }
         : {}),
@@ -2658,18 +2669,20 @@ function toLiteralSensitiveTermKey(term: Term): string {
   return `${term.termType}:${term.value}:${term.datatype.value}:${term.language}`;
 }
 
-function resolveDefaultsFile(
+async function loadDefaultsDocument(
   defaultsRoot: string | URL | undefined,
   fileName: string,
-): string | URL {
-  if (defaultsRoot instanceof URL) {
-    return new URL(fileName, ensureDirectoryUrl(defaultsRoot));
+): Promise<{ turtle: string; source: string }> {
+  if (defaultsRoot === undefined) {
+    return { turtle: EMBEDDED_DEFAULTS_TURTLE[fileName]!, source: fileName };
   }
-  if (typeof defaultsRoot === "string") {
-    return join(defaultsRoot, fileName);
-  }
-
-  return new URL(fileName, WEAVE_DEFAULTS_ROOT);
+  const source = defaultsRoot instanceof URL
+    ? new URL(fileName, ensureDirectoryUrl(defaultsRoot))
+    : join(defaultsRoot, fileName);
+  return {
+    turtle: await Deno.readTextFile(source),
+    source: formatSource(source),
+  };
 }
 
 function ensureDirectoryUrl(url: URL): URL {

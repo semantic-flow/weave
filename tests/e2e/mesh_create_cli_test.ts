@@ -240,7 +240,11 @@ Deno.test("weave mesh create rejects mesh roots outside the workspace as a black
 
   assert(!output.success, stdout);
   assert(
-    stderr.includes("mesh root must stay inside the workspace root"),
+    stderr.includes("is outside the workspace root"),
+    stderr,
+  );
+  assert(
+    stderr.includes("omit --mesh-root"),
     stderr,
   );
   assertEquals(await listRelativeFiles(workspaceRoot, ".weave/"), []);

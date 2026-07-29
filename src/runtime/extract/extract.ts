@@ -32,8 +32,8 @@ import {
   LocalPathAccessError,
   type OperationalLocalPathPolicy,
   resolveAllowedLocalPath,
-  resolveRepositorySourceFloatingLocalPath,
 } from "../operational/local_path_policy.ts";
+import { resolveRepositorySourceFloatingLocalPath } from "../operational/repository_source.ts";
 import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";

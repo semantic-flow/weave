@@ -10,6 +10,7 @@ created: 1775548338684
 
 - [[wu.resource-pages]]
 - [[wu.cli-reference]]
+- [[wu.api-reference]]
 - [[wu.repository-options]]
 - [[wu.logging]]
 - [[wu.environment-variables]]

@@ -12,8 +12,8 @@ import {
   LocalPathAccessError,
   OperationalConfigError,
   resolveAllowedLocalPath,
-  resolveRepositorySourceFloatingLocalPath,
 } from "./local_path_policy.ts";
+import { resolveRepositorySourceFloatingLocalPath } from "./repository_source_git.ts";
 
 const TEST_MESH_BASE = "https://example.org/mesh/";
 
@@ -408,6 +408,55 @@ Deno.test("loadOperationalLocalPathPolicy rejects mesh-owned roots outside works
       Deno.env.set("HOME", previousHome);
     }
   }
+});
+
+Deno.test({
+  name:
+    "resolveRepositorySourceFloatingLocalPath degrades to no-match when git cannot run",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    const tempRoot = await Deno.makeTempDir({
+      prefix: "weave-repo-floating-no-git-",
+    });
+    const sourceRoot = join(tempRoot, "source");
+    const publishRoot = join(tempRoot, "gh-pages");
+    const homeRoot = join(tempRoot, "home");
+    const settingsRoot = join(tempRoot, "settings");
+    await Deno.mkdir(sourceRoot, { recursive: true });
+    await Deno.mkdir(publishRoot, { recursive: true });
+    await Deno.mkdir(homeRoot, { recursive: true });
+    await writeMeshMetadata(publishRoot);
+    await runGit(sourceRoot, ["init"]);
+    await runGit(sourceRoot, [
+      "remote",
+      "add",
+      "origin",
+      "https://github.com/semantic-flow/sflo.git",
+    ]);
+    await Deno.writeTextFile(
+      join(sourceRoot, "semantic-flow-core-ontology.ttl"),
+      "# source branch file\n",
+    );
+    await writeSettingsAccessGrant(settingsRoot, sourceRoot);
+
+    await withEnv(
+      { HOME: homeRoot, WEAVE_SETTINGS: settingsRoot },
+      async () => {
+        const policy = await loadOperationalLocalPathPolicy(publishRoot);
+        await withEnv({ PATH: "" }, async () => {
+          await assertRejects(
+            () =>
+              resolveRepositorySourceFloatingLocalPath(policy, {
+                repositoryUrl: "https://github.com/semantic-flow/sflo.git",
+                repositoryPathFromRoot: "semantic-flow-core-ontology.ttl",
+              }),
+            LocalPathAccessError,
+            "did not match an allowed local checkout",
+          );
+        });
+      },
+    );
+  },
 });
 
 Deno.test("resolveRepositorySourceFloatingLocalPath prefers granted source checkout over publication checkout", async () => {

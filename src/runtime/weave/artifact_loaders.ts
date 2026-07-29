@@ -22,8 +22,8 @@ import {
   LocalPathAccessError,
   type OperationalLocalPathPolicy,
   resolveAllowedLocalPath,
-  resolveRepositorySourceFloatingLocalPath,
 } from "../operational/local_path_policy.ts";
+import { resolveRepositorySourceFloatingLocalPath } from "../operational/repository_source.ts";
 import { WeaveRuntimeError } from "./errors.ts";
 import {
   loadResourcePageDefinitionWorkingArtifact,

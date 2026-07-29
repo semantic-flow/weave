@@ -19,15 +19,15 @@ export const WEAVE_PREFIX = "weave";
 export const WEAVE_NAMESPACE =
   "https://semantic-flow.github.io/weave/ontology/";
 
-export const SFLO_TURTLE_PREFIX_DECLARATION = turtlePrefixDeclaration(
+export const SFLO_TURTLE_PREFIX_DECLARATION: string = turtlePrefixDeclaration(
   SFLO_PREFIX,
   SFLO_NAMESPACE,
 );
-export const SFCFG_TURTLE_PREFIX_DECLARATION = turtlePrefixDeclaration(
+export const SFCFG_TURTLE_PREFIX_DECLARATION: string = turtlePrefixDeclaration(
   SFCFG_PREFIX,
   SFCFG_NAMESPACE,
 );
-export const WEAVE_TURTLE_PREFIX_DECLARATION = turtlePrefixDeclaration(
+export const WEAVE_TURTLE_PREFIX_DECLARATION: string = turtlePrefixDeclaration(
   WEAVE_PREFIX,
   WEAVE_NAMESPACE,
 );

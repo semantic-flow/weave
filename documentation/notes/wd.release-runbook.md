@@ -10,7 +10,7 @@ created: 1778685955558
 
 Current developer-facing release process for packaged Weave releases.
 
-The normal release path is the `Release Manual` GitHub Actions workflow, run from a reviewed commit on `main`. The workflow builds native binaries, packages release archives/checksums, assembles npm packages, smoke-tests npm installation on native runners, optionally dry-runs or publishes npm packages, and optionally drafts or publishes the GitHub Release.
+The normal release path is the `Release Manual` GitHub Actions workflow, run from a reviewed commit on `main`. The workflow builds native binaries, packages release archives/checksums, assembles npm packages, smoke-tests npm installation on native runners, builds the `@semantic-flow/weave-lib` library package with dnt and smoke-tests it off-tree under Node, optionally dry-runs or publishes npm packages (CLI wrapper, platform packages, and library), and optionally drafts or publishes the GitHub Release.
 
 ## Current Model
 
@@ -18,6 +18,7 @@ The normal release path is the `Release Manual` GitHub Actions workflow, run fro
 - Use `deno task bump:version` to change the root version and create or verify `documentation/notes/release-notes.v<version>.md`.
 - Release notes live at `documentation/notes/release-notes.v<version>.md`; the workflow strips Dendron frontmatter before writing the GitHub Release body and fails if the stripped body is empty.
 - `.github/workflows/release-manual.yml` is the primary packaged-release path. It runs the release-specific build, archive, checksum, npm assembly, npm smoke-test, npm publish/dry-run, and GitHub Release steps.
+- The programmatic library ships as `@semantic-flow/weave-lib`, built from `src/api/mod.ts` with dnt (`deno task build:npm-lib`) and gated by the off-tree Node contract smoke (`deno task smoke:npm-lib`), which packs the build, installs the tarball into a temp consumer outside the source tree, runs a real `versionPayloads` batch under Node, and asserts byte-equivalence with the source-import path. Both publish jobs require this smoke plus the npm install smoke to pass.
 - The workflow derives the release tag from downloaded bundle metadata. Do not add a free-form tag input unless the workflow also proves the tag matches root `deno.json`, binary bundle metadata, npm package versions, and release notes.
 - GitHub Actions CI and `deno task ci` are the intended source quality gates. Fixture tests that inspect branch-published generated output should read explicit Git refs so local preview checkouts such as `gh-pages` do not change the test meaning.
 - The manual release workflow defaults to no npm publication and no GitHub Release mutation. Rehearsal and publication both require explicit workflow inputs.
@@ -88,7 +89,19 @@ github_release_mode: publish
 
 The workflow creates or updates the GitHub Release, uploads `.tar.gz`/`.zip` archives and `.sha256` files, and sets the release target to the workflow commit.
 
-The npm publish job publishes platform packages before the wrapper package. Real publish runs use npm trusted publishing through GitHub Actions OIDC; each npm package must trust the `semantic-flow/weave` repository and the `release-manual.yml` workflow. npm generates provenance automatically for trusted public-package publishes, so the workflow does not pass `NODE_AUTH_TOKEN` or `--provenance` in the normal path.
+The npm publish job publishes platform packages before the wrapper package; a separate job publishes `@semantic-flow/weave-lib` from the `weave-npm-lib` artifact. Real publish runs use npm trusted publishing through GitHub Actions OIDC; each npm package — including `@semantic-flow/weave-lib` — must trust the `semantic-flow/weave` repository and the `release-manual.yml` workflow. npm generates provenance automatically for trusted public-package publishes, so the workflow does not pass `NODE_AUTH_TOKEN` or `--provenance` in the normal path.
+
+### First weave-lib publish (one-time, v0.5.0)
+
+npm cannot configure a trusted publisher for a package that does not exist yet and cannot do an initial publish over OIDC (npm/cli#8544), so the very first `@semantic-flow/weave-lib` publish is manual with classic auth:
+
+1. From the reviewed release commit on `main`: `deno task build:npm-lib && deno task smoke:npm-lib`.
+2. In `dist/npm-lib`: `npm pack --dry-run` to review the file list, `npm login` (org member with publish rights), then `npm publish --access public --tag latest`. `--access public` is required on a scoped package's first publish. This manual publish has no provenance attestation; that is expected.
+3. Immediately configure the trusted publisher on npmjs.com for `@semantic-flow/weave-lib`: GitHub Actions, repository `semantic-flow/weave`, workflow `release-manual.yml`, environment blank; match the other packages' publishing-access settings.
+4. Run the release workflow with `npm_publish_mode: publish` and `github_release_mode: skip`; the wrapper and platform packages publish normally and the `publish-npm-lib` job fails once on the already-existing version — expected and harmless.
+5. Rerun with `npm_publish_mode: skip` and the intended `github_release_mode` to create the GitHub Release (the standard repair path below).
+
+From the next release onward the library publishes through OIDC alongside the other packages in a single run.
 
 If npm publication succeeds but the GitHub Release step needs repair, rerun the workflow on the same commit with `npm_publish_mode: skip` and the appropriate `github_release_mode`. Do not rerun npm publication for versions that already exist on the registry.
 
@@ -106,6 +119,9 @@ deno task package:binaries -- --platform <platform> --build-dir /tmp/weave-binar
 deno task assemble:npm-packages -- --build-dir /tmp/weave-binaries --out-dir /tmp/weave-npm/node_modules
 deno task smoke:npm-install -- --input-dir /tmp/weave-npm/node_modules --work-dir /tmp/weave-npm-smoke
 deno task publish:npm-packages -- --input-dir /tmp/weave-npm/node_modules --dry-run --tag latest
+deno task build:npm-lib
+deno task smoke:npm-lib
+(cd dist/npm-lib && npm publish --access public --tag latest --dry-run)
 ```
 
 Supported platform labels are `linux-x64`, `windows-x64`, `macos-x64`, and `macos-arm64`. Manual GitHub Release creation should still use the release notes body without Dendron frontmatter. Prefer the workflow because it already validates version consistency and uploads the expected asset set.
@@ -124,6 +140,7 @@ npm view "@semantic-flow/weave-linux-x64@$VERSION" version dist-tags
 npm view "@semantic-flow/weave-windows-x64@$VERSION" version dist-tags
 npm view "@semantic-flow/weave-macos-x64@$VERSION" version dist-tags
 npm view "@semantic-flow/weave-macos-arm64@$VERSION" version dist-tags
+npm view "@semantic-flow/weave-lib@$VERSION" version dist-tags
 ```
 
 - Confirm a normal npm install works on at least one machine:
@@ -144,7 +161,7 @@ git fetch --tags origin
 ## Current Caveats
 
 - The workflow uses `macos-15-intel` for macOS x64 and `macos-latest` for macOS arm64. If GitHub-hosted runner labels change, update the workflow before release.
-- The workflow expects npm trusted publishing to be configured for the wrapper package and every platform package. Token-based publishing with `--provenance` remains an emergency fallback only.
+- The workflow expects npm trusted publishing to be configured for the wrapper package, every platform package, and `@semantic-flow/weave-lib`. Token-based publishing with `--provenance` remains an emergency fallback only; the sanctioned exception is the one-time manual first publish of `@semantic-flow/weave-lib` described above, because npm cannot pre-register a trusted publisher for a package that does not exist yet.
 - Release notes are Dendron notes, so any GitHub Release body must omit frontmatter.
 
 Keep releases explicit and boring: reviewed commit, authored version, release notes, manual workflow rehearsal when release tooling changed, no false CI claims, and no real npm publish without registry confirmation.
