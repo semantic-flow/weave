@@ -28,7 +28,7 @@ The stable function and primary types are:
 
 The public root module is `src/mod.ts`. For a repository-root consumer file, the exact import specifier is `./src/mod.ts`. The API is re-exported from that root; consumers must not import `src/api/` implementation modules directly.
 
-Since `v0.5.0` the API also ships as the npm library package `@semantic-flow/weave-lib` (built from `src/api/mod.ts` with dnt; dual ESM/CJS with type declarations). Node and bundler consumers should prefer `import { versionPayloads } from "@semantic-flow/weave-lib"`; Deno consumers can use the `npm:@semantic-flow/weave-lib` specifier or keep the pinned-source import. The npm package `@semantic-flow/weave` remains the native CLI wrapper, not a library. The pinned repository source root stays supported as the stable low-level path, and the packaged library is CI-gated to stay byte-equivalent to it (see [[wd.library-packaging]]).
+Since `v0.5.1` the API also ships as the npm library package `@semantic-flow/weave-lib` (built from `src/api/mod.ts` with dnt; dual ESM/CJS with type declarations). Node and bundler consumers should prefer `import { versionPayloads } from "@semantic-flow/weave-lib"`; Deno consumers can use the `npm:@semantic-flow/weave-lib` specifier or keep the pinned-source import. The npm package `@semantic-flow/weave` remains the native CLI wrapper, not a library. The pinned repository source root stays supported as the stable low-level path, and the packaged library is CI-gated to stay byte-equivalent to it (see [[wd.library-packaging]]).
 
 ## Request Contract
 

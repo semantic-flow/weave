@@ -14,7 +14,7 @@ This note is the user-facing reference. The normative contract, including the ex
 
 ## Getting the API
 
-Node and bundler consumers use the npm library package (available since `v0.5.0`):
+Node and bundler consumers use the npm library package (available since `v0.5.1`):
 
 ```bash
 npm install @semantic-flow/weave-lib
@@ -177,7 +177,7 @@ The error's `completedPaths` / `completedCreatedPaths` / `completedUpdatedPaths`
 
 ## Verifying a release
 
-Every release is tagged in git (`v0.4.0`, `v0.5.0`, …) — run `git fetch --tags origin` in a pinned checkout before concluding a tag is missing. From v0.5.1 the CLI also self-reports its build: `weave --version --json` emits `{"version", "commit", "built"}`, where `commit` is the exact release commit for CI-built binaries (`null` for source runs). The plain `weave --version` line remains byte-stable for existing string-matching gates, but prefer the JSON field.
+Every release is tagged in git (`v0.4.0`, `v0.5.1`, …) — run `git fetch --tags origin` in a pinned checkout before concluding a tag is missing. (There is no `v0.5.0`: that release was folded into `v0.5.1`, and the lib-only `weave-lib@0.5.0` npm artifact is deprecated.) From v0.5.1 the CLI also self-reports its build: `weave --version --json` emits `{"version", "commit", "built"}`, where `commit` is the exact release commit for CI-built binaries (`null` for source runs). The plain `weave --version` line remains byte-stable for existing string-matching gates, but prefer the JSON field.
 
 ## Related
 

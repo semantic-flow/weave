@@ -21,7 +21,9 @@ This task decides and lands how Weave's library surface is published — npm lib
 
 ## Handoff status (2026-07-28)
 
-Implementation is complete on `next/v0.5.0`: fs-purity guard, git-subprocess split, defaults embedding, explicit public-API types, dnt build (`deno task build:npm-lib`), off-tree Node contract smoke (`deno task smoke:npm-lib`), CI + release-manual wiring, version bump to 0.5.0, and `release-notes.v0.5.0`. `deno task ci` is green (707 tests) and the smoke proves byte-equivalence between the packed npm library under Node and the Deno source import. Remaining to release: merge to `main`, run the Release Manual workflow (rehearsal then publish), and configure npm trusted publishing for the new `@semantic-flow/weave-lib` package name before its first publish (see [[wd.release-runbook]]).
+Implementation is complete on `next/v0.5.0`: fs-purity guard, git-subprocess split, defaults embedding, explicit public-API types, dnt build (`deno task build:npm-lib`), off-tree Node contract smoke (`deno task smoke:npm-lib`), CI + release-manual wiring. `deno task ci` is green and the smoke proves byte-equivalence between the packed npm library under Node and the Deno source import.
+
+**Release outcome (2026-07-28):** the one-time manual first publish put `weave-lib@0.5.0` on npm and the trusted publisher was configured, but the planned `v0.5.0` release was then **folded into `v0.5.1`** together with the consumer-feedback slice ([[wd.consumer-feedback-0.5.1]]) — one release run publishes everything at 0.5.1, and `weave-lib@0.5.0` is deprecated post-release as a lib-only pre-release artifact. This work therefore ships in `v0.5.1`; `release-notes.v0.5.1` carries the combined content.
 
 Implementation notes beyond the 2026-07-22 decisions:
 
