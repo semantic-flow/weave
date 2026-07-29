@@ -35,8 +35,8 @@ import {
   LocalPathAccessError,
   type OperationalLocalPathPolicy,
   resolveAllowedLocalPath,
-  resolveRepositorySourceFloatingLocalPath,
 } from "../operational/local_path_policy.ts";
+import { resolveRepositorySourceFloatingLocalPath } from "../operational/repository_source.ts";
 import type { RuntimeTiming } from "../timing.ts";
 import {
   assertRequestedTargetsAreWeaveable,

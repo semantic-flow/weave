@@ -19,8 +19,8 @@ import {
   LocalPathAccessError,
   type OperationalLocalPathPolicy,
   resolveAllowedLocalPath,
-  resolveRepositorySourceFloatingLocalPath,
 } from "../operational/local_path_policy.ts";
+import { resolveRepositorySourceFloatingLocalPath } from "../operational/repository_source.ts";
 import { toPayloadHistoricalSnapshotPath } from "./artifact_loaders.ts";
 import { WeaveRuntimeError } from "./errors.ts";
 import type { MeshState } from "./mesh_state.ts";

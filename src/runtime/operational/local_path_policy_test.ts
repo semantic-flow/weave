@@ -12,8 +12,8 @@ import {
   LocalPathAccessError,
   OperationalConfigError,
   resolveAllowedLocalPath,
-  resolveRepositorySourceFloatingLocalPath,
 } from "./local_path_policy.ts";
+import { resolveRepositorySourceFloatingLocalPath } from "./repository_source_git.ts";
 
 const TEST_MESH_BASE = "https://example.org/mesh/";
 
