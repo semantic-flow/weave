@@ -87,6 +87,7 @@ import {
 import { resolveUserSettingsPaths } from "../runtime/settings/user_settings.ts";
 import type { HistoryTrackingPolicy } from "../runtime/config/effective_config.ts";
 import { WEAVE_VERSION } from "../version.ts";
+import { WEAVE_BUILD_INFO } from "../generated/build_info.ts";
 import { parseIso8601Instant } from "./generated_at.ts";
 
 const TARGET_OPTION_DESCRIPTION =
@@ -107,7 +108,30 @@ interface CliMeshContext {
   readonly logDir: string | undefined;
 }
 
+// Exact `--version --json` (either order; `-V` accepted) is handled before
+// cliffy parses: cliffy 1 rejects combining its generated --version with any
+// other option, and --json must not become a root option on a mutating root
+// action. Anything else falls through to cliffy unchanged, keeping the plain
+// `weave <version>` line byte-stable for downstream release gates.
+function isVersionJsonInvocation(args: readonly string[]): boolean {
+  if (args.length !== 2) {
+    return false;
+  }
+  const flags = new Set(args);
+  return flags.size === 2 && flags.has("--json") &&
+    (flags.has("--version") || flags.has("-V"));
+}
+
 export async function runWeaveCli(args: string[]): Promise<number> {
+  if (isVersionJsonInvocation(args)) {
+    console.log(JSON.stringify({
+      version: WEAVE_VERSION,
+      commit: WEAVE_BUILD_INFO.commit,
+      built: WEAVE_BUILD_INFO.built,
+    }));
+    return 0;
+  }
+
   let exitCode = 0;
 
   const command = new Command()
