@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertRejects } from "@std/assert";
-import { basename, dirname, fromFileUrl, join } from "@std/path";
+import { fromFileUrl, join } from "@std/path";
 import {
   versionPayloadsForTesting,
   writeCombinedPlanForTesting,
@@ -7,33 +7,27 @@ import {
 import { versionPayloads, WeaveApiError } from "../../src/mod.ts";
 import { materializeMeshAliceBioBranch } from "../support/mesh_alice_bio_fixture.ts";
 import {
+  coreTarget,
+  listWorkspaceFiles,
+  materializePayloadMesh,
+  PAYLOAD_MESH_BASE as meshBase,
+  payloadBytes,
+  type PayloadTargetFixture,
+  payloadText,
+  shaclTarget,
+  snapshotPath,
+  writeText,
+} from "../support/payload_mesh_fixture.ts";
+import {
   integrateRootPayload,
   ROOT_PAYLOAD_TURTLE_V2,
 } from "../support/root_designator.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
-const meshBase = "https://example.test/version-api/";
 const cliEntrypoint = fromFileUrl(
   new URL("../../src/main.ts", import.meta.url),
 );
 
-interface PayloadTargetFixture {
-  designatorPath: string;
-  label: string;
-  latestOrdinal: number;
-  workingLocalRelativePath?: string;
-}
-
-const coreTarget: PayloadTargetFixture = {
-  designatorPath: "rules/core",
-  label: "Core rules",
-  latestOrdinal: 1,
-};
-const shaclTarget: PayloadTargetFixture = {
-  designatorPath: "rules/shacl",
-  label: "SHACL rules",
-  latestOrdinal: 2,
-};
 const alphaTarget: PayloadTargetFixture = {
   designatorPath: "alpha",
   label: "Alpha rules",
@@ -718,245 +712,14 @@ Deno.test("versionPayloads writer reports the binary-create phase even though v1
   );
 });
 
-async function materializePayloadMesh(
-  meshRoot: string,
-  targets: readonly PayloadTargetFixture[],
-): Promise<void> {
-  await writeText(
-    join(meshRoot, "_mesh/_meta/meta.ttl"),
-    `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-
-<_mesh> a sflo:SemanticMesh ;
-  sflo:meshBase "${meshBase}"^^xsd:anyURI ;
-  sflo:hasMeshMetadata <_mesh/_meta> ;
-  sflo:hasMeshInventory <_mesh/_inventory> .
-
-<_mesh/_meta> a sflo:MeshMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <_mesh/_meta/meta.ttl> .
-
-<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> .
-`,
-  );
-  await writeText(
-    join(meshRoot, "_mesh/_inventory/inventory.ttl"),
-    `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-
-<_mesh> a sflo:SemanticMesh ;
-  sflo:meshBase "${meshBase}"^^xsd:anyURI ;
-  sflo:hasMeshMetadata <_mesh/_meta> ;
-  sflo:hasMeshInventory <_mesh/_inventory> ;
-  ${
-      targets.map((target) => `sflo:hasKnop <${knopPath(target)}>`)
-        .join(" ;\n  ")
-    } .
-
-<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> .
-
-${
-      targets.map((target) =>
-        `<${knopPath(target)}> a sflo:Knop ;
-  sflo:hasWorkingKnopInventoryFile <${
-          knopPath(target)
-        }/_inventory/inventory.ttl> .`
-      ).join("\n\n")
-    }
-`,
-  );
-
-  for (const target of targets) {
-    await materializePayloadTarget(meshRoot, target);
-  }
-}
-
-async function materializePayloadTarget(
-  meshRoot: string,
-  target: PayloadTargetFixture,
-): Promise<void> {
-  const { designatorPath, latestOrdinal } = target;
-  const targetKnopPath = knopPath(target);
-  const workingPath = workingPayloadPath(target);
-  await writeText(
-    join(meshRoot, `${targetKnopPath}/_meta/meta.ttl`),
-    `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
-
-<${targetKnopPath}> a sflo:Knop ;
-  sflo:designatorPath "${designatorPath}" ;
-  sflo:hasWorkingKnopInventoryFile <${targetKnopPath}/_inventory/inventory.ttl> .
-`,
-  );
-  await writeText(
-    join(meshRoot, `${targetKnopPath}/_inventory/inventory.ttl`),
-    payloadInventoryTurtle(target),
-  );
-  await writeText(
-    join(meshRoot, workingPath),
-    payloadText(target, latestOrdinal),
-  );
-  await writeText(
-    join(meshRoot, `${targetKnopPath}/_sources/sources.ttl`),
-    `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
-
-<${targetKnopPath}/_sources> a sflo:KnopSourceRegistry .
-`,
-  );
-  await writeText(
-    join(meshRoot, `${targetKnopPath}/_references/references.ttl`),
-    `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
-
-<${targetKnopPath}/_references> a sflo:ReferenceCatalog .
-`,
-  );
-  for (let ordinal = 1; ordinal <= latestOrdinal; ordinal += 1) {
-    await writeText(
-      join(meshRoot, snapshotPath(target, ordinal)),
-      payloadText(target, ordinal),
-    );
-  }
-}
-
-function payloadInventoryTurtle(target: PayloadTargetFixture): string {
-  const { designatorPath, latestOrdinal } = target;
-  const targetKnopPath = knopPath(target);
-  const historyPath = appendTargetPath(designatorPath, "_history001");
-  const workingPath = workingPayloadPath(target);
-  const fileName = basename(workingPath);
-  const states = Array.from({ length: latestOrdinal }, (_, index) => {
-    const ordinal = index + 1;
-    const statePath = `${historyPath}/${stateSegment(ordinal)}`;
-    const previous = ordinal === 1 ? "" : `
-  sflo:previousHistoricalState <${historyPath}/${stateSegment(ordinal - 1)}> ;`;
-    return `<${statePath}> a sflo:HistoricalState ;
-  sflo:stateOrdinal "${ordinal}"^^xsd:nonNegativeInteger ;${previous}
-  sflo:hasManifestation <${statePath}/ttl> ;
-  sflo:locatedFileForState <${statePath}/ttl/${fileName}> .
-
-<${statePath}/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:locatedFileForManifestation <${statePath}/ttl/${fileName}> .`;
-  }).join("\n\n");
-  const historyStates = Array.from(
-    { length: latestOrdinal },
-    (_, index) =>
-      `  sflo:hasHistoricalState <${historyPath}/${stateSegment(index + 1)}> ;`,
-  ).join("\n");
-
-  return `@base <${meshBase}> .
-@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-
-<${targetKnopPath}> a sflo:Knop ;
-  sflo:hasKnopMetadata <${targetKnopPath}/_meta> ;
-  sflo:hasKnopInventory <${targetKnopPath}/_inventory> ;
-  sflo:hasWorkingKnopInventoryFile <${targetKnopPath}/_inventory/inventory.ttl> ;
-  sflo:hasPayloadArtifact <${designatorPath}> ;
-  sflo:hasKnopSourceRegistry <${targetKnopPath}/_sources> ;
-  sflo:hasReferenceCatalog <${targetKnopPath}/_references> ;
-  sflo:hasResourcePage <${targetKnopPath}/index.html> .
-
-<${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasArtifactHistory <${historyPath}> ;
-  sflo:currentArtifactHistory <${historyPath}> ;
-  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasWorkingLocatedFile <${workingPath}> .
-
-<${historyPath}> a sflo:ArtifactHistory ;
-  sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
-${historyStates}
-  sflo:latestHistoricalState <${historyPath}/${stateSegment(latestOrdinal)}> ;
-  sflo:nextStateOrdinal "${latestOrdinal + 1}"^^xsd:nonNegativeInteger .
-
-${states}
-
-<${targetKnopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <${targetKnopPath}/_meta/meta.ttl> .
-
-<${targetKnopPath}/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <${targetKnopPath}/_inventory/inventory.ttl> ;
-  sflo:hasResourcePage <${targetKnopPath}/_inventory/index.html> .
-
-<${targetKnopPath}/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <${targetKnopPath}/_sources/sources.ttl> .
-
-<${targetKnopPath}/_references> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <${targetKnopPath}/_references/references.ttl> ;
-  sflo:hasResourcePage <${targetKnopPath}/_references/index.html> .
-
-<${workingPath}> a sflo:LocatedFile, sflo:RdfDocument .
-`;
-}
-
-function payloadText(target: PayloadTargetFixture, ordinal: number): string {
-  return `@base <${meshBase}> .
-@prefix dcterms: <http://purl.org/dc/terms/> .
-
-<${target.designatorPath}> dcterms:title "${target.label} v${ordinal}" .
-`;
-}
-
-function payloadBytes(
-  target: PayloadTargetFixture,
-  ordinal: number,
-): Uint8Array {
-  return new TextEncoder().encode(payloadText(target, ordinal));
-}
-
-function snapshotPath(target: PayloadTargetFixture, ordinal: number): string {
-  const fileName = basename(workingPayloadPath(target));
-  return `${appendTargetPath(target.designatorPath, "_history001")}/${
-    stateSegment(ordinal)
-  }/ttl/${fileName}`;
-}
-
-function knopPath(target: PayloadTargetFixture): string {
-  return appendTargetPath(target.designatorPath, "_knop");
-}
-
-function workingPayloadPath(target: PayloadTargetFixture): string {
-  return target.workingLocalRelativePath ?? `${target.designatorPath}.ttl`;
-}
-
-function appendTargetPath(designatorPath: string, suffix: string): string {
-  return designatorPath.length === 0 ? suffix : `${designatorPath}/${suffix}`;
-}
-
-function stateSegment(ordinal: number): string {
-  return `_s${String(ordinal).padStart(4, "0")}`;
-}
-
-async function writeText(path: string, contents: string): Promise<void> {
-  await Deno.mkdir(dirname(path), { recursive: true });
-  await Deno.writeTextFile(path, contents);
-}
-
 async function snapshotWorkspace(
   root: string,
 ): Promise<Map<string, Uint8Array>> {
   const snapshot = new Map<string, Uint8Array>();
-  for (const path of await listFiles(root)) {
+  for (const path of await listWorkspaceFiles(root)) {
     snapshot.set(path, await Deno.readFile(join(root, path)));
   }
   return snapshot;
-}
-
-async function listFiles(root: string, prefix = ""): Promise<string[]> {
-  const files: string[] = [];
-  for await (const entry of Deno.readDir(join(root, prefix))) {
-    const path = prefix.length === 0 ? entry.name : `${prefix}/${entry.name}`;
-    if (entry.isDirectory) {
-      files.push(...await listFiles(root, path));
-    } else if (entry.isFile) {
-      files.push(path);
-    }
-  }
-  return files.sort();
 }
 
 async function runCliTwoStep(
@@ -1030,10 +793,10 @@ async function assertWorkspaceTreesEqual(
   const isCliStagingPath = (path: string) =>
     path === ".version-api-inputs" ||
     path.startsWith(".version-api-inputs/");
-  const leftPaths = (await listFiles(leftRoot)).filter((path) =>
+  const leftPaths = (await listWorkspaceFiles(leftRoot)).filter((path) =>
     !isCliStagingPath(path)
   );
-  const rightPaths = (await listFiles(rightRoot)).filter((path) =>
+  const rightPaths = (await listWorkspaceFiles(rightRoot)).filter((path) =>
     !isCliStagingPath(path)
   );
   assertEquals(leftPaths, rightPaths, "workspace file paths");

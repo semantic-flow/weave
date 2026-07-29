@@ -122,6 +122,42 @@ jobs:
           if-no-files-found: error
           compression-level: 0
 
+  build-npm-lib:
+    name: Build npm Library Package
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2.0.4
+        with:
+          deno-version: 2.7.14
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Build npm library package (dnt)
+        run: deno task build:npm-lib -- --out-dir .test-tmp/npm-lib/release
+
+      - name: Smoke npm library off-tree under Node
+        run: deno task smoke:npm-lib -- --lib-dir .test-tmp/npm-lib/release
+
+      - name: Upload npm library package artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: weave-npm-lib
+          path: |
+            .test-tmp/npm-lib/release/**
+            !.test-tmp/npm-lib/release/node_modules/**
+          if-no-files-found: error
+
   assemble-npm-packages:
     name: Assemble npm Packages
     needs: build-binaries
@@ -244,7 +280,9 @@ jobs:
   publish-npm-packages:
     name: Publish npm Packages
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.npm_publish_mode != 'skip' }}
-    needs: smoke-npm-install
+    needs:
+      - smoke-npm-install
+      - build-npm-lib
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -288,12 +326,52 @@ jobs:
 
           deno task publish:npm-packages -- "${args[@]}"
 
-  manage-github-release:
-    name: Manage GitHub Release
-    if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.github_release_mode != 'skip' && needs.smoke-npm-install.result == 'success' && (inputs.npm_publish_mode == 'skip' || needs.publish-npm-packages.result == 'success') }}
+  publish-npm-lib:
+    name: Publish npm Library Package
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.npm_publish_mode != 'skip' }}
     needs:
       - smoke-npm-install
+      - build-npm-lib
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Download npm library package artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: weave-npm-lib
+          path: npm-lib-package
+
+      - name: Publish npm library package
+        shell: bash
+        working-directory: npm-lib-package
+        run: |
+          set -euo pipefail
+
+          args=(publish --access public --tag "${{ inputs.npm_tag }}")
+          if [ "${{ inputs.npm_publish_mode }}" = "dry-run" ]; then
+            args+=(--dry-run)
+          fi
+
+          npm "${args[@]}"
+
+  manage-github-release:
+    name: Manage GitHub Release
+    if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.github_release_mode != 'skip' && needs.smoke-npm-install.result == 'success' && needs.build-npm-lib.result == 'success' && (inputs.npm_publish_mode == 'skip' || (needs.publish-npm-packages.result == 'success' && needs.publish-npm-lib.result == 'success')) }}
+    needs:
+      - smoke-npm-install
+      - build-npm-lib
       - publish-npm-packages
+      - publish-npm-lib
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
