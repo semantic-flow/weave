@@ -43,6 +43,9 @@ function parseArgs(args: readonly string[]): SmokeNpmLibOptions {
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
+    if (arg === "--") {
+      continue;
+    }
     if (arg === "--root") {
       index += 1;
       root = requireArgumentValue(args[index], "--root");
