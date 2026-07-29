@@ -249,7 +249,7 @@ TODO: summarize v${options.version}.
 
 ## Breaking Or Changed Behavior
 
-- TODO
+- TODO: name every behavioral change (limits, defaults, output shapes, eligibility rules), not just breaking ones.
 
 ## Artifacts
 

@@ -36,7 +36,7 @@ deno task bump:version -- --version "$VERSION"
 Set `VERSION` to the intended release version. Use `--patch`, `--minor`, or `--major` instead when advancing mechanically from the current root version.
 
 3. Fill `documentation/notes/release-notes.v<version>.md`. Do not leave generated TODO placeholders in release notes for a real release.
-4. Make sure the release notes describe what is actually in the release commit, not work planned immediately afterward.
+4. Make sure the release notes describe what is actually in the release commit, not work planned immediately afterward. Name every **behavioral** change — limits, defaults, output shapes, eligibility rules — in "Breaking Or Changed Behavior", not just fixes and features. A downstream consumer must be able to answer "did behavior X change in this release?" from the notes alone (the v0.4.0 raw-source inline-limit change shipped unnamed and cost a consumer real time).
 5. For Semantic Flow ontology/SHACL release prep, confirm each `owl:versionIRI` points at the raw bytes for the matching release tag, for example `https://raw.githubusercontent.com/semantic-flow/sflo/refs/tags/v0.1.0/semantic-flow-core-shacl.ttl`, and confirm that tag will exist on the repository that serves those bytes. Do not use a mutable branch URL such as `refs/heads/main` for an OWL version IRI.
 6. Run the source quality gate:
 
