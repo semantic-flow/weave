@@ -8,9 +8,15 @@ created: 1785294876079
 
 ## Overview
 
-Weave exposes one programmatic entry point: `versionPayloads`. It records one coherent batch of payload versions against an existing mesh — updating each working payload file and writing the matching history snapshot and support artifacts — without spawning the CLI or staging temporary files. Its outputs are byte-identical to the CLI `payload update` + `version` workflow, and that equivalence is CI-enforced.
+Weave exposes two programmatic entry points. `versionPayloads` records one coherent batch of payload versions against an existing mesh — updating each working payload file and writing the matching history snapshot and support artifacts — without spawning the CLI or staging temporary files; its outputs are byte-identical to the CLI `payload update` + `version` workflow, and that equivalence is CI-enforced. `validateMesh` runs the same validation the CLI's `weave validate mesh` runs and returns structured findings (stable machine codes) instead of formatted text.
 
-This note is the user-facing reference. The normative contract, including the exact phase and precedence tables, lives in [[wd.programmatic-version-api]].
+This note is the user-facing reference. The normative contracts, including the exact phase, precedence, and finding-code tables, live in [[wd.programmatic-version-api]] and [[wd.programmatic-validate-api]].
+
+### Which package do I consume?
+
+- **CLI consumers stay on `@semantic-flow/weave`.** The CLI is a first-class supported consumption path indefinitely; `weave-lib` sits alongside it, it does not replace it.
+- **The CLI is not becoming a wrapper over `weave-lib`.** Both are thin surfaces over the same source tree, built from the same commit; internal routing is an implementation detail, never a consumption contract.
+- **One version line.** Both packages are built from the same commit and released together; `weave-lib@X` matches `weave@X`. (`weave-lib@0.5.0` is a deprecated lib-only pre-release artifact of the one-time first publish, not evidence of separate lines.)
 
 ## Getting the API
 
@@ -127,6 +133,27 @@ interface PayloadVersionOutcome {
 
 `outcomes` has one entry per item in canonical designator-path order. `executed` discriminates effect from forecast: on a real run (`true`), `applied` means a working/history transition was written and `alreadyCurrent` means nothing was needed; on a dry run (`false`), the same fields describe what a real run would do — nothing was written. All paths are mesh-root-relative with `/` separators. A fully no-op request has empty `createdPaths` and `updatedPaths`, which makes blind retries safe.
 
+## validateMesh
+
+```ts
+const result = await validateMesh({ meshRoot: "/abs/path/to/mesh" });
+for (const finding of result.findings) {
+  console.error(finding.severity, finding.code, finding.message);
+}
+```
+
+Read-only: it mutates nothing and takes no lock. `targets` optionally narrows validation (`{ designatorPath, recursive? }`; `"/"` is the root alias); absent means the whole mesh. v1 validates mesh scope only.
+
+### Result
+
+- `findings` — structured findings with a stable `code` (see the registry in [[wd.programmatic-validate-api]]), `severity` (`"error"` today; `"warning"` reserved), diagnostic `message`, and optional `path` / `designatorPath` attribution. There is deliberately no derived `valid` boolean: `findings.some(f => f.severity === "error")` is the truth.
+- `coverage` — `knownDesignatorPathCount` (designators the mesh inventory declares) and `plannedDesignatorPathCount` (pending candidates whose dry-run planning completed). This is **planner coverage, not integrity coverage**: validation is a dry run of the recursive version planner plus preflight parsing of the planned outputs plus publication-readiness checks — not a traversal-parse of every existing mesh file.
+- `meshBase` — absent only when mesh metadata could not be resolved (reported as a `malformed-mesh-metadata` finding).
+
+Mesh invalidity is result data, never an exception: malformed inventories, config conflicts, missing artifacts, and the planner's "only supports …" gates (`unsupported-mesh-shape`) all come back as findings. Thrown `WeaveApiError` is reserved for cannot-validate: `invalid-request` (admit), and at `load` `read-failure` (I/O environment), `malformed-mesh` (no mesh at `meshRoot`), `unknown-target`, or `unsupported-source`.
+
+Two v1 limits to know: validation preserves the engine's fail-fast planning, so a run reports at most one mesh finding (publication-readiness checks can report several); and meshes whose pending candidates use repository-source (floating) locators refuse with `unsupported-source` — validate those through the CLI, which owns the git-backed checkout identification.
+
 ## Error handling
 
 Every public failure is a `WeaveApiError`. Branch on the readonly `code` and `stage` fields; `message` text is diagnostic only.
@@ -146,7 +173,7 @@ Stages are `"admit" | "load" | "plan" | "write"`. Any `admit`, `load`, or `plan`
 | Stage | Codes |
 | --- | --- |
 | `admit` | `invalid-request` (shape, non-absolute mesh root, duplicates, multi-item overwrite), `unsupported-content` (invalid UTF-8) |
-| `load` | `unknown-target`, `not-a-payload`, `malformed-mesh`, `inconsistent-policy` (targets cannot form one coherent batch), `unsupported-source` (repository/floating/remote/non-file working source), `unsupported-content` (non-text or empty payload), `snapshot-conflict` (reserved, never emitted in v1) |
+| `load` | `unknown-target`, `not-a-payload`, `malformed-mesh`, `inconsistent-policy` (targets cannot form one coherent batch), `unsupported-source` (repository/floating/remote/non-file working source), `unsupported-content` (non-text or empty payload), `read-failure` (I/O environment failure; emitted by `validateMesh` only), `snapshot-conflict` (reserved, never emitted in v1) |
 | `plan` | `plan-conflict` (naming/progression facts, overwrite coordinates, destination collisions, or generated RDF fail preflight) |
 | `write` | `io-failure` |
 
@@ -181,7 +208,8 @@ Every release is tagged in git (`v0.4.0`, `v0.5.1`, …) — run `git fetch --ta
 
 ## Related
 
-- [[wd.programmatic-version-api]] — normative contract (phases, precedence, error table)
+- [[wd.programmatic-version-api]] — normative `versionPayloads` contract (phases, precedence, error table)
+- [[wd.programmatic-validate-api]] — normative `validateMesh` contract (finding-code registry, family mapping)
 - [[wd.library-packaging]] — how `@semantic-flow/weave-lib` is built, smoked, and published
-- [[wu.cli-reference.payload.update]] and [[wu.cli-reference.version]] — the equivalent CLI workflow
+- [[wu.cli-reference.payload.update]], [[wu.cli-reference.version]], and [[wu.cli-reference.validate]] — the equivalent CLI workflows
 - [[wu.cli-reference.root-designator]] — root designator semantics
