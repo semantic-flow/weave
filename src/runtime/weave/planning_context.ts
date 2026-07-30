@@ -11,6 +11,18 @@ interface CandidateCacheEntry {
   dependencyPaths: ReadonlySet<string>;
 }
 
+export interface TextFileOverlayRetainedMemoryStats {
+  stagedEntries: number;
+  stagedBytes: number;
+  readCacheEntries: number;
+  readCacheBytes: number;
+  readCacheHits: number;
+  candidateCacheEntries: number;
+  candidateCacheApproxRetainedBytes: number;
+  candidateCacheStores: number;
+  candidateCacheInvalidations: number;
+}
+
 export class TextFileOverlay extends Map<string, string> {
   #readCache = new Map<string, string>();
   #candidateCache = new Map<string, CandidateCacheEntry>();
@@ -85,6 +97,29 @@ export class TextFileOverlay extends Map<string, string> {
     this.#invalidateCandidates(stagedPaths);
   }
 
+  retainedMemoryStats(): TextFileOverlayRetainedMemoryStats {
+    const encoder = new TextEncoder();
+    return {
+      stagedEntries: this.size,
+      stagedBytes: sumTextBytes(this.values(), encoder),
+      readCacheEntries: this.#readCache.size,
+      readCacheBytes: sumTextBytes(this.#readCache.values(), encoder),
+      readCacheHits: this.cacheHitCount,
+      candidateCacheEntries: this.#candidateCache.size,
+      candidateCacheApproxRetainedBytes: [...this.#candidateCache.values()]
+        .reduce(
+          (total, entry) =>
+            total + approximateCandidateRetainedBytes(
+              entry.candidate,
+              encoder,
+            ),
+          0,
+        ),
+      candidateCacheStores: this.candidateCacheStoreCount,
+      candidateCacheInvalidations: this.candidateCacheInvalidationCount,
+    };
+  }
+
   #invalidateCandidates(stagedPaths: readonly string[]): void {
     if (stagedPaths.length === 0 || this.#candidateCache.size === 0) {
       return;
@@ -99,6 +134,52 @@ export class TextFileOverlay extends Map<string, string> {
       }
     }
   }
+}
+
+function sumTextBytes(
+  values: Iterable<string>,
+  encoder: TextEncoder,
+): number {
+  let total = 0;
+  for (const value of values) {
+    total += encoder.encode(value).byteLength;
+  }
+  return total;
+}
+
+function approximateCandidateRetainedBytes(
+  candidate: WeaveableKnopCandidate | undefined,
+  encoder: TextEncoder,
+): number {
+  if (candidate === undefined) {
+    return 0;
+  }
+
+  let total = 0;
+  const visited = new Set<object>();
+  const visit = (value: unknown, fieldName = ""): void => {
+    if (typeof value === "string") {
+      if (/(?:turtle|text)$/i.test(fieldName)) {
+        total += encoder.encode(value).byteLength;
+      }
+      return;
+    }
+    if (value instanceof Uint8Array) {
+      if (/bytes$/i.test(fieldName)) {
+        total += value.byteLength;
+      }
+      return;
+    }
+    if (value === null || typeof value !== "object" || visited.has(value)) {
+      return;
+    }
+    visited.add(value);
+    for (const [key, nestedValue] of Object.entries(value)) {
+      visit(nestedValue, key);
+    }
+  };
+  visit(candidate);
+  return total;
 }
 
 export function applyPlannedFilesToOverlay(

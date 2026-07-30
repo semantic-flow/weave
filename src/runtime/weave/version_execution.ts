@@ -63,6 +63,7 @@ import {
   applyPlannedFilesToOverlay,
   TextFileOverlay,
 } from "./planning_context.ts";
+import type { RuntimeMemoryStats } from "./memory_stats.ts";
 import type { WeaveProgressHandler } from "./progress.ts";
 import { timeOptional, timeOptionalSync } from "./timing_helpers.ts";
 import { toWorkspaceRelativePath } from "./workspace_paths.ts";
@@ -269,6 +270,7 @@ export async function prepareVersionExecution(
     meshState: MeshState,
     designatorPaths: readonly string[],
   ) => void,
+  memoryStats?: RuntimeMemoryStats,
 ): Promise<PreparedVersionExecution> {
   await timeOptional(
     timing,
@@ -639,6 +641,7 @@ export async function prepareVersionExecution(
       total: initialWeaveableKnops.length,
       percent: Math.round((completed / initialWeaveableKnops.length) * 100),
     });
+    memoryStats?.samplePlanningLoopIteration();
   }
 
   const plan: VersionPlan = {
@@ -657,6 +660,11 @@ export async function prepareVersionExecution(
   timing?.setField(
     "candidateCacheInvalidations",
     overlay.candidateCacheInvalidationCount,
+  );
+  memoryStats?.captureVersionExecutionRetainedState(
+    createdFiles,
+    updatedFileByPath,
+    overlay,
   );
 
   return {
