@@ -77,7 +77,7 @@ export async function buildNpmLibPackage(
       name: NPM_LIB_PACKAGE_NAME,
       version,
       description:
-        "Programmatic library surface of Semantic Flow Weave: batch payload versioning for semantic meshes via versionPayloads.",
+        "Programmatic Semantic Flow Weave APIs for structured mesh validation and batch payload versioning.",
       license: "Apache-2.0",
       repository: {
         type: "git",
@@ -119,10 +119,18 @@ function renderLibReadme(version: string): string {
 
 Programmatic library surface of [Semantic Flow Weave](https://github.com/semantic-flow/weave), v${version}.
 
-This package exposes the payload version API for Node and bundler consumers:
+This package exposes structured validation and payload versioning APIs for Node
+and bundler consumers:
 
 \`\`\`ts
-import { versionPayloads } from "${NPM_LIB_PACKAGE_NAME}";
+import { validateMesh, versionPayloads } from "${NPM_LIB_PACKAGE_NAME}";
+
+const validation = await validateMesh({
+  meshRoot: "/path/to/mesh",
+});
+for (const finding of validation.findings) {
+  console.error(finding.severity, finding.code, finding.message);
+}
 
 const result = await versionPayloads({
   meshRoot: "/path/to/mesh",
@@ -140,8 +148,13 @@ corresponds to this package. Neither depends on the other at runtime. Deno
 consumers can use this package via \`npm:\` specifiers or import
 \`./src/mod.ts\` from a pinned source checkout.
 
-Repository-source (floating) inputs are refused by \`versionPayloads\`; the
-library never spawns subprocesses or opens network connections.
+Repository-source floating inputs are refused by both APIs; the library never
+spawns subprocesses or opens network connections.
+
+\`validateMesh\` reports planner/preflight coverage, not comprehensive
+integrity coverage of every existing mesh file. In particular,
+\`coverage.plannedDesignatorPathCount\` counts pending candidates whose
+recursive dry-run planning completed.
 
 License: Apache-2.0 (see LICENSE and NOTICE).
 `;
