@@ -33,6 +33,18 @@ import { readTextFileWithOverlay } from "./planning_context.ts";
 
 const SFLO_HAS_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}hasExtractionSource`;
 
+export class RepositorySourceCapabilityError extends Error {
+  readonly designatorPath: string;
+
+  constructor(designatorPath: string) {
+    super(
+      `Target ${designatorPath} uses a repository/floating source, which is not supported by this validation surface.`,
+    );
+    this.name = "RepositorySourceCapabilityError";
+    this.designatorPath = designatorPath;
+  }
+}
+
 export async function loadPayloadWorkingArtifact(
   _workspaceRoot: string,
   localPathPolicy: OperationalLocalPathPolicy,
@@ -40,6 +52,7 @@ export async function loadPayloadWorkingArtifact(
   designatorPath: string,
   currentKnopInventoryTurtle: string,
   overlay?: ReadonlyMap<string, string>,
+  sourceCapability: "all" | "mesh-local-only" = "all",
 ): Promise<PayloadWorkingArtifact | undefined> {
   const payloadArtifact = resolvePayloadArtifactInventoryState(
     meshBase,
@@ -54,6 +67,12 @@ export async function loadPayloadWorkingArtifact(
   );
   if (!payloadArtifact) {
     return undefined;
+  }
+  if (
+    sourceCapability === "mesh-local-only" &&
+    payloadArtifact.repositorySourceFloatingLocator !== undefined
+  ) {
+    throw new RepositorySourceCapabilityError(designatorPath);
   }
   const workingLocalRelativePath = payloadArtifact.workingLocalRelativePath;
   const currentArtifactHistoryPath = payloadArtifact.currentArtifactHistoryPath;
@@ -96,11 +115,15 @@ export async function loadPayloadWorkingArtifact(
     if (error instanceof LocalPathAccessError) {
       throw new WeaveRuntimeError(
         `Working payload file for ${designatorPath} is outside the allowed local-path boundary: ${workingLocalRelativePath}`,
+        "path-boundary-violation",
+        { path: workingLocalRelativePath, designatorPath },
       );
     }
     if (error instanceof Deno.errors.NotFound) {
       throw new WeaveRuntimeError(
         `Workspace is missing the working payload file for ${designatorPath}: ${workingLocalRelativePath}`,
+        "missing-artifact",
+        { path: workingLocalRelativePath, designatorPath },
       );
     }
     throw error;
@@ -125,11 +148,15 @@ export async function loadPayloadWorkingArtifact(
       if (error instanceof LocalPathAccessError) {
         throw new WeaveRuntimeError(
           `Latest payload historical snapshot for ${designatorPath} is outside the allowed local-path boundary: ${latestHistoricalSnapshotPath}`,
+          "path-boundary-violation",
+          { path: latestHistoricalSnapshotPath, designatorPath },
         );
       }
       if (error instanceof Deno.errors.NotFound) {
         throw new WeaveRuntimeError(
           `Workspace is missing the latest payload historical snapshot for ${designatorPath}: ${latestHistoricalSnapshotPath}`,
+          "missing-artifact",
+          { path: latestHistoricalSnapshotPath, designatorPath },
         );
       }
       throw error;
@@ -237,6 +264,11 @@ export async function loadReferenceTargetSourcePayloadArtifact(
         `Workspace is missing the woven source payload inventory for ${designatorPath}: ${
           toKnopPath(sourceDesignatorPath)
         }/_inventory/inventory.ttl`,
+        "unresolvable-extraction-source",
+        {
+          path: `${toKnopPath(sourceDesignatorPath)}/_inventory/inventory.ttl`,
+          designatorPath,
+        },
       );
     }
     throw error;
@@ -253,6 +285,8 @@ export async function loadReferenceTargetSourcePayloadArtifact(
   if (!sourcePayloadArtifact?.latestHistoricalStatePath) {
     throw new WeaveRuntimeError(
       `Extracted weave source for ${designatorPath} is missing a woven current payload history: ${sourceDesignatorPath}`,
+      "unresolvable-extraction-source",
+      { designatorPath },
     );
   }
   const selectedHistoricalStatePath =
@@ -261,6 +295,8 @@ export async function loadReferenceTargetSourcePayloadArtifact(
   if (!selectedHistoricalStatePath) {
     throw new WeaveRuntimeError(
       `Extracted weave source for ${designatorPath} is missing an exact or latest source state.`,
+      "unresolvable-extraction-source",
+      { designatorPath },
     );
   }
   const selectedSource = await resolveSelectedExtractionSource(
@@ -352,6 +388,8 @@ async function resolveSelectedExtractionSource(
     ) {
       throw new WeaveRuntimeError(
         `ExtractionSource selected source for ${designatorPath} did not resolve to text content with observed state, local path, and digest.`,
+        "unresolvable-extraction-source",
+        { designatorPath },
       );
     }
 
@@ -367,7 +405,11 @@ async function resolveSelectedExtractionSource(
     };
   } catch (error) {
     if (error instanceof ArtifactResolutionError) {
-      throw new WeaveRuntimeError(error.message);
+      throw new WeaveRuntimeError(
+        error.message,
+        "unresolvable-extraction-source",
+        { designatorPath },
+      );
     }
     throw error;
   }
@@ -379,11 +421,17 @@ function requireObservedMeshPath(
   errorMessage: string,
 ): string {
   if (!iri.startsWith(meshBase)) {
-    throw new WeaveRuntimeError(errorMessage);
+    throw new WeaveRuntimeError(
+      errorMessage,
+      "unresolvable-extraction-source",
+    );
   }
   const meshPath = iri.slice(meshBase.length);
   if (meshPath.includes("#") || meshPath.includes("?")) {
-    throw new WeaveRuntimeError(errorMessage);
+    throw new WeaveRuntimeError(
+      errorMessage,
+      "unresolvable-extraction-source",
+    );
   }
   return meshPath;
 }
@@ -425,6 +473,11 @@ export async function loadKnopSourceRegistryArtifact(
     if (error instanceof LocalPathAccessError) {
       throw new WeaveRuntimeError(
         `Working Knop source registry file for ${designatorPath} is outside the allowed local-path boundary: ${sourceRegistryState.workingLocalRelativePath}`,
+        "path-boundary-violation",
+        {
+          path: sourceRegistryState.workingLocalRelativePath,
+          designatorPath,
+        },
       );
     }
     throw error;
@@ -445,6 +498,11 @@ export async function loadKnopSourceRegistryArtifact(
     if (error instanceof Deno.errors.NotFound) {
       throw new WeaveRuntimeError(
         `Workspace is missing the Knop source registry for ${designatorPath}: ${sourceRegistryState.workingLocalRelativePath}`,
+        "missing-artifact",
+        {
+          path: sourceRegistryState.workingLocalRelativePath,
+          designatorPath,
+        },
       );
     }
     throw error;
@@ -490,11 +548,15 @@ export async function loadReferenceCatalogWorkingArtifact(
     if (error instanceof LocalPathAccessError) {
       throw new WeaveRuntimeError(
         `Working ReferenceCatalog file for ${designatorPath} is outside the allowed local-path boundary: ${workingLocalRelativePath}`,
+        "path-boundary-violation",
+        { path: workingLocalRelativePath, designatorPath },
       );
     }
     if (error instanceof Deno.errors.NotFound) {
       throw new WeaveRuntimeError(
         `Workspace is missing the working ReferenceCatalog file for ${designatorPath}: ${workingLocalRelativePath}`,
+        "missing-artifact",
+        { path: workingLocalRelativePath, designatorPath },
       );
     }
     throw error;
@@ -529,7 +591,11 @@ export async function loadResourcePageDefinitionArtifact(
     );
   } catch (error) {
     if (error instanceof ResourcePageDefinitionResolutionError) {
-      throw new WeaveRuntimeError(error.message);
+      throw new WeaveRuntimeError(
+        error.message,
+        "malformed-page-definition",
+        { designatorPath },
+      );
     }
     throw error;
   }

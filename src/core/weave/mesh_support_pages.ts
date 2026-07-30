@@ -1,7 +1,7 @@
 import { Parser } from "n3";
 import type { Quad } from "n3";
 import { SFLO_NAMESPACE } from "../rdf/namespaces.ts";
-import { WeaveInputError } from "./errors.ts";
+import { WeaveInputError as BaseWeaveInputError } from "./errors.ts";
 import {
   type MeshSupportHistoryPolicies,
   shouldMaterializeSupportHistory as shouldMaterializeSupportHistoryPolicy,
@@ -13,6 +13,12 @@ import {
   type WeaveResourcePageGenerationPolicies,
 } from "./resource_page_policy.ts";
 import type { VersionPlan } from "./version_plan.ts";
+
+class WeaveInputError extends BaseWeaveInputError {
+  constructor(message: string) {
+    super(message, "unsupported-mesh-shape");
+  }
+}
 
 const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
   `${SFLO_NAMESPACE}currentArtifactHistory`;

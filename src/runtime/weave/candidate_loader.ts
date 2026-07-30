@@ -12,6 +12,7 @@ import {
   detectPendingWeaveSlice,
   WeaveInputError,
 } from "../../core/weave/weave.ts";
+import { ensureWeaveInputErrorFindingCode } from "../../core/weave/errors.ts";
 import type { WeaveableKnopCandidate } from "../../core/weave/candidates.ts";
 import {
   hasNamedNodeFact,
@@ -61,11 +62,13 @@ export function assertRequestedTargetsAreWeaveable(
           : formatDesignatorPathForDisplay(target.designatorPath)
       ).join(", ")
     }.`,
+    "unsupported-mesh-shape",
   );
 }
 
 export interface LoadWeaveableKnopCandidatesOptions {
   includeSettledPayloadTargets?: boolean;
+  sourceCapability?: "all" | "mesh-local-only";
 }
 
 export async function loadWeaveableKnopCandidates(
@@ -193,13 +196,22 @@ async function loadWeaveableKnopCandidate(
   let slice = timeOptionalSync(
     timing,
     phase("detectPendingSlice"),
-    () =>
-      detectPendingWeaveSlice(
-        meshBase,
-        designatorPath,
-        currentKnopInventoryTurtle,
-        target,
-      ),
+    () => {
+      try {
+        return detectPendingWeaveSlice(
+          meshBase,
+          designatorPath,
+          currentKnopInventoryTurtle,
+          target,
+        );
+      } catch (error) {
+        throw ensureWeaveInputErrorFindingCode(
+          error,
+          "malformed-inventory",
+          { designatorPath },
+        );
+      }
+    },
   );
   if (
     slice === undefined &&
@@ -233,6 +245,7 @@ async function loadWeaveableKnopCandidate(
           designatorPath,
           currentKnopInventoryTurtle,
           overlay,
+          options?.sourceCapability,
         ),
     );
   }
@@ -294,18 +307,24 @@ function hasExplicitPayloadCandidate(
   designatorPath: string,
   currentKnopInventoryTurtle: string,
 ): boolean {
-  const quads = parseWeaveShapeQuads(
-    meshBase,
-    currentKnopInventoryTurtle,
-    `Could not parse the current KnopInventory while loading explicit payload target ${designatorPath}.`,
-  );
-  return hasNamedNodeFact(
-    quads,
-    meshBase,
-    toKnopPath(designatorPath),
-    SFLO_HAS_PAYLOAD_ARTIFACT_IRI,
-    designatorPath,
-  );
+  try {
+    const quads = parseWeaveShapeQuads(
+      meshBase,
+      currentKnopInventoryTurtle,
+      `Could not parse the current KnopInventory while loading explicit payload target ${designatorPath}.`,
+    );
+    return hasNamedNodeFact(
+      quads,
+      meshBase,
+      toKnopPath(designatorPath),
+      SFLO_HAS_PAYLOAD_ARTIFACT_IRI,
+      designatorPath,
+    );
+  } catch (error) {
+    throw ensureWeaveInputErrorFindingCode(error, "malformed-inventory", {
+      designatorPath,
+    });
+  }
 }
 
 function isWeaveableKnopCandidate(

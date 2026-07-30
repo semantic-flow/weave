@@ -2,7 +2,7 @@ import type { Quad } from "n3";
 import { toKnopPath } from "../designator_segments.ts";
 import { SFLO_NAMESPACE } from "../rdf/namespaces.ts";
 import type { PayloadWorkingArtifact } from "./candidates.ts";
-import { WeaveInputError } from "./errors.ts";
+import { WeaveInputError as BaseWeaveInputError } from "./errors.ts";
 import type { PayloadVersionLayout } from "./payload_version_layout.ts";
 import type { MeshInventoryProgression } from "./progression_models.ts";
 import {
@@ -22,6 +22,12 @@ import {
   shouldMaterializeSupportHistory,
   type SupportArtifactHistoryPolicy,
 } from "./support_history_policy.ts";
+
+class WeaveInputError extends BaseWeaveInputError {
+  constructor(message: string) {
+    super(message, "progression-conflict");
+  }
+}
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const SFLO_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}ArtifactHistory`;

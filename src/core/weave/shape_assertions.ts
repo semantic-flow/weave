@@ -10,7 +10,7 @@ import type {
   ReferenceTargetSourcePayloadArtifact,
   ResourcePageDefinitionWorkingArtifact,
 } from "./candidates.ts";
-import { WeaveInputError } from "./errors.ts";
+import { WeaveInputError as BaseWeaveInputError } from "./errors.ts";
 import type {
   MeshInventoryProgression,
   PageDefinitionWeaveProgression,
@@ -20,7 +20,7 @@ import {
   hasNamedNodeFact,
   hasPredicateFact,
   hasSubjectPredicateFact,
-  parseWeaveShapeQuads,
+  parseWeaveShapeQuads as parseBaseWeaveShapeQuads,
   requireOptionalNamedNodeObject,
   requireSingleNamedNodeObject,
   requireSingleNonNegativeIntegerLiteral,
@@ -35,6 +35,27 @@ import {
   assertHasCurrentSourceLocator,
   assertHasCurrentWorkingFileLocator,
 } from "./source_locator_assertions.ts";
+
+class WeaveInputError extends BaseWeaveInputError {
+  constructor(message: string) {
+    super(message, "unsupported-mesh-shape");
+  }
+}
+
+function parseWeaveShapeQuads(
+  meshBase: string,
+  turtle: string,
+  errorMessage: string,
+): readonly Quad[] {
+  try {
+    return parseBaseWeaveShapeQuads(meshBase, turtle, errorMessage);
+  } catch (error) {
+    if (error instanceof BaseWeaveInputError) {
+      throw new WeaveInputError(error.message);
+    }
+    throw error;
+  }
+}
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const XSD_NON_NEGATIVE_INTEGER_IRI =

@@ -19,6 +19,7 @@ import {
   type VersionPlan,
   WeaveInputError,
 } from "../../core/weave/weave.ts";
+import { ensureWeaveInputErrorFindingCode } from "../../core/weave/errors.ts";
 import type {
   ResourcePageGenerationConfig,
   WeaveArtifactRole,
@@ -69,6 +70,7 @@ import { toWorkspaceRelativePath } from "./workspace_paths.ts";
 export interface PreparedVersionExecution {
   meshState: MeshState;
   plan: VersionPlan;
+  knownDesignatorPathCount: number;
 }
 
 export interface PreparedCoherentPayloadBatchVersionExecution
@@ -247,6 +249,7 @@ export async function prepareCoherentPayloadBatchVersionExecution(
   return {
     meshState,
     plan,
+    knownDesignatorPathCount: allDesignatorPaths.length,
     candidates: orderedCandidates,
     payloadSnapshots,
   };
@@ -261,6 +264,11 @@ export async function prepareVersionExecution(
   onProgress?: WeaveProgressHandler,
   timing?: RuntimeTiming,
   inputSnapshotVerification?: InputSnapshotVerificationHooks,
+  sourceCapability: "all" | "mesh-local-only" = "all",
+  onInventoryLoaded?: (
+    meshState: MeshState,
+    designatorPaths: readonly string[],
+  ) => void,
 ): Promise<PreparedVersionExecution> {
   await timeOptional(
     timing,
@@ -282,6 +290,7 @@ export async function prepareVersionExecution(
         "Could not parse the current MeshInventory while resolving weaveable Knop candidates.",
       ),
   );
+  onInventoryLoaded?.(meshState, allDesignatorPaths);
   const resolvedTargets = timeOptionalSync(
     timing,
     "prepare.resolveTargets",
@@ -339,6 +348,7 @@ export async function prepareVersionExecution(
         overlay,
         timing,
         "prepare.loadInitialCandidates",
+        { sourceCapability },
       ),
   );
   timing?.setField("initialWeaveableKnops", initialWeaveableKnops.length);
@@ -357,7 +367,10 @@ export async function prepareVersionExecution(
           undefined,
           timing,
           "prepare.loadPayloadBatchCandidates",
-          { includeSettledPayloadTargets: true },
+          {
+            includeSettledPayloadTargets: true,
+            sourceCapability,
+          },
         ),
     )
     : [];
@@ -403,16 +416,24 @@ export async function prepareVersionExecution(
     const batchPlan = await timeOptional(
       timing,
       "prepare.planPayloadBatch",
-      () =>
-        planExplicitPayloadBatchVersion(
-          meshState,
-          payloadBatchCandidates,
-          targetByDesignatorPath,
-          meshEffectiveConfig,
-          effectiveConfigProvider,
-          overwriteExistingState,
-          timing,
-        ),
+      async () => {
+        try {
+          return await planExplicitPayloadBatchVersion(
+            meshState,
+            payloadBatchCandidates,
+            targetByDesignatorPath,
+            meshEffectiveConfig,
+            effectiveConfigProvider,
+            overwriteExistingState,
+            timing,
+          );
+        } catch (error) {
+          throw ensureWeaveInputErrorFindingCode(
+            error,
+            "unsupported-mesh-shape",
+          );
+        }
+      },
     );
     for (
       const [index, designatorPath] of batchPlan.versionedDesignatorPaths
@@ -429,7 +450,11 @@ export async function prepareVersionExecution(
           ),
       });
     }
-    return { meshState, plan: batchPlan };
+    return {
+      meshState,
+      plan: batchPlan,
+      knownDesignatorPathCount: allDesignatorPaths.length,
+    };
   }
 
   assertRequestedTargetsAreWeaveable(
@@ -446,15 +471,18 @@ export async function prepareVersionExecution(
         resourcePageGenerationPoliciesFromEffectiveConfig(meshEffectiveConfig);
       return {
         meshState,
-        plan: planMeshSupportResourcePages({
-          meshBase: meshState.meshBase,
-          currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
-          currentMeshMetadataTurtle: meshState.currentMeshMetadataTurtle,
-          currentMeshConfigTurtle: meshState.currentMeshConfigTurtle,
-          supportHistoryPolicies,
-          resourcePageGenerationConfig: meshEffectiveConfig,
-          resourcePageGenerationPolicies,
-        }),
+        plan: withPlannerFindingCode(() =>
+          planMeshSupportResourcePages({
+            meshBase: meshState.meshBase,
+            currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
+            currentMeshMetadataTurtle: meshState.currentMeshMetadataTurtle,
+            currentMeshConfigTurtle: meshState.currentMeshConfigTurtle,
+            supportHistoryPolicies,
+            resourcePageGenerationConfig: meshEffectiveConfig,
+            resourcePageGenerationPolicies,
+          })
+        ),
+        knownDesignatorPathCount: allDesignatorPaths.length,
       };
     }
     throw new WeaveInputError(
@@ -492,6 +520,7 @@ export async function prepareVersionExecution(
           overlay,
           timing,
           "prepare.loop.loadCandidates",
+          { sourceCapability },
         ),
     );
 
@@ -500,6 +529,7 @@ export async function prepareVersionExecution(
         `Recursive version planning could not continue cleanly for the remaining targets: ${
           remainingDesignatorPaths.join(", ")
         }.`,
+        "progression-conflict",
       );
     }
 
@@ -530,27 +560,32 @@ export async function prepareVersionExecution(
       timing,
       "prepare.loop.planVersion",
       () =>
-        planVersion({
-          request: {
-            ...(target ? { targets: [{ ...target.source }] } : {}),
-            ...(overwriteExistingState ? { overwriteExistingState } : {}),
-          },
-          meshBase: stagedMeshState.meshBase,
-          currentMeshInventoryTurtle:
-            stagedMeshState.currentMeshInventoryTurtle,
-          currentMeshMetadataTurtle: stagedMeshState.currentMeshMetadataTurtle,
-          weaveableKnops: [nextCandidate],
-          supportHistoryPolicies,
-          namingPolicies,
-          resourcePageGenerationConfig,
-          resourcePageGenerationPolicies,
-        }),
+        withPlannerFindingCode(() =>
+          planVersion({
+            request: {
+              ...(target ? { targets: [{ ...target.source }] } : {}),
+              ...(overwriteExistingState ? { overwriteExistingState } : {}),
+            },
+            meshBase: stagedMeshState.meshBase,
+            currentMeshInventoryTurtle:
+              stagedMeshState.currentMeshInventoryTurtle,
+            currentMeshMetadataTurtle:
+              stagedMeshState.currentMeshMetadataTurtle,
+            weaveableKnops: [nextCandidate],
+            supportHistoryPolicies,
+            namingPolicies,
+            resourcePageGenerationConfig,
+            resourcePageGenerationPolicies,
+          })
+        ),
     );
 
     for (const file of nextPlan.createdFiles) {
       if (createdPaths.has(file.path) || updatedFileByPath.has(file.path)) {
         throw new WeaveInputError(
           `Recursive version planning produced a conflicting created file: ${file.path}`,
+          "plan-conflict",
+          { path: file.path },
         );
       }
       createdFiles.push(file);
@@ -560,6 +595,8 @@ export async function prepareVersionExecution(
       if (createdPaths.has(file.path) || updatedFileByPath.has(file.path)) {
         throw new WeaveInputError(
           `Recursive version planning produced a conflicting created file: ${file.path}`,
+          "plan-conflict",
+          { path: file.path },
         );
       }
       createdBinaryFiles.push(file);
@@ -570,6 +607,8 @@ export async function prepareVersionExecution(
       if (createdPaths.has(file.path)) {
         throw new WeaveInputError(
           `Recursive version planning attempted to update a newly created file: ${file.path}`,
+          "plan-conflict",
+          { path: file.path },
         );
       }
       if (!updatedFileByPath.has(file.path)) {
@@ -587,6 +626,8 @@ export async function prepareVersionExecution(
     if (completedIndex < 0) {
       throw new WeaveInputError(
         `Recursive version planning lost track of ${completedPath}.`,
+        "progression-conflict",
+        { designatorPath: completedPath },
       );
     }
     remainingDesignatorPaths.splice(completedIndex, 1);
@@ -621,7 +662,19 @@ export async function prepareVersionExecution(
   return {
     meshState,
     plan,
+    knownDesignatorPathCount: allDesignatorPaths.length,
   };
+}
+
+function withPlannerFindingCode<T>(operation: () => T): T {
+  try {
+    return operation();
+  } catch (error) {
+    throw ensureWeaveInputErrorFindingCode(
+      error,
+      "unsupported-mesh-shape",
+    );
+  }
 }
 
 interface PayloadBatchWorkingFileSnapshot {
@@ -687,6 +740,11 @@ async function createPayloadBatchWorkingFileSnapshot(
       if (error instanceof LocalPathAccessError) {
         throw new WeaveRuntimeError(
           `Working payload file for ${designatorPath} is outside the allowed local-path boundary: ${payloadArtifact.workingLocalRelativePath}`,
+          "path-boundary-violation",
+          {
+            path: payloadArtifact.workingLocalRelativePath,
+            designatorPath,
+          },
         );
       }
       throw error;
@@ -756,6 +814,8 @@ async function hashPayloadSnapshotFile(
       if (phase === "initial" && designatorPath && workingLocalRelativePath) {
         throw new WeaveRuntimeError(
           `Workspace is missing the working payload file for ${designatorPath}: ${workingLocalRelativePath}`,
+          "missing-artifact",
+          { path: workingLocalRelativePath, designatorPath },
         );
       }
       throw new WeaveInputError(
@@ -1160,6 +1220,8 @@ function validateRdfFiles(files: readonly PlannedFile[]): void {
       const message = error instanceof Error ? error.message : String(error);
       throw new WeaveRuntimeError(
         `Generated RDF did not parse for ${file.path}: ${message}`,
+        "planned-rdf-invalid",
+        { path: file.path },
       );
     }
   }

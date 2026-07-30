@@ -16,6 +16,20 @@ export interface MeshState {
   currentMeshConfigTurtle?: string;
 }
 
+export class WorkspaceRootResolutionError extends WeaveRuntimeError {
+  constructor(message: string) {
+    super(message);
+    this.name = "WorkspaceRootResolutionError";
+  }
+}
+
+export class MeshSupportSurfaceNotFoundError extends WeaveRuntimeError {
+  constructor(message: string) {
+    super(message);
+    this.name = "MeshSupportSurfaceNotFoundError";
+  }
+}
+
 export async function ensureWorkspaceRootExists(
   workspaceRoot: string,
 ): Promise<void> {
@@ -24,7 +38,7 @@ export async function ensureWorkspaceRootExists(
     stat = await Deno.stat(workspaceRoot);
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
-      throw new WeaveRuntimeError(
+      throw new WorkspaceRootResolutionError(
         `Workspace root does not exist: ${workspaceRoot}`,
       );
     }
@@ -32,7 +46,7 @@ export async function ensureWorkspaceRootExists(
   }
 
   if (!stat.isDirectory) {
-    throw new WeaveRuntimeError(
+    throw new WorkspaceRootResolutionError(
       `Workspace root is not a directory: ${workspaceRoot}`,
     );
   }
@@ -61,7 +75,7 @@ export async function loadMeshState(
       ]);
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
-      throw new WeaveRuntimeError(
+      throw new MeshSupportSurfaceNotFoundError(
         "Workspace does not contain an existing mesh support surface",
       );
     }
@@ -73,11 +87,17 @@ export async function loadMeshState(
     meshBase = resolveMeshBaseFromMetadataTurtle(meshMetadataTurtle);
   } catch (error) {
     if (error instanceof MeshMetadataResolutionError) {
-      throw new WeaveRuntimeError(error.message);
+      throw new WeaveRuntimeError(
+        error.message,
+        "malformed-mesh-metadata",
+        { path: "_mesh/_meta/meta.ttl" },
+      );
     }
     if (error instanceof Error) {
       throw new WeaveRuntimeError(
         `Could not resolve mesh base from metadata: ${error.message}`,
+        "malformed-mesh-metadata",
+        { path: "_mesh/_meta/meta.ttl" },
       );
     }
     throw error;

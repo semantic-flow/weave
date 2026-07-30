@@ -1,6 +1,7 @@
 import { join, relative, resolve, toFileUrl } from "@std/path";
 import { Parser, type Quad } from "n3";
 import { SFCFG_NAMESPACE } from "../../core/rdf/namespaces.ts";
+import type { MeshValidationFindingCode } from "../../core/weave/errors.ts";
 
 const HAS_PUBLICATION_PROFILE_IRI = `${SFCFG_NAMESPACE}hasPublicationProfile`;
 const PUBLICATION_PROFILE_NONE_IRI =
@@ -13,7 +14,12 @@ export type PublicationPresetProfile = "none" | "githubPages";
 
 export interface PublicationPresetFinding {
   severity: "error";
+  code: Extract<
+    MeshValidationFindingCode,
+    "publication-path-leakage" | "publication-readiness"
+  >;
   message: string;
+  path?: string;
 }
 
 export interface PublicationPresetValidationResult {
@@ -52,8 +58,10 @@ export async function validatePublicationPreset(options: {
         ...profileResult,
         findings: [{
           severity: "error",
+          code: "publication-readiness",
           message:
             "GitHub Pages publication profile requires .nojekyll to be a file at the mesh root.",
+          path: ".nojekyll",
         }, ...leakageFindings],
       };
     }
@@ -63,8 +71,10 @@ export async function validatePublicationPreset(options: {
         ...profileResult,
         findings: [{
           severity: "error",
+          code: "publication-readiness",
           message:
             "GitHub Pages publication profile requires .nojekyll at the mesh root.",
+          path: ".nojekyll",
         }, ...leakageFindings],
       };
     }
@@ -89,16 +99,20 @@ async function validateLocalPathLeakage(
     if (contents.includes("file://")) {
       findings.push({
         severity: "error",
+        code: "publication-path-leakage",
         message:
           `Publication file ${publicationPath} contains a host-local file URL.`,
+        path: publicationPath,
       });
       continue;
     }
     if (pathEvidence.some((evidence) => contents.includes(evidence))) {
       findings.push({
         severity: "error",
+        code: "publication-path-leakage",
         message:
           `Publication file ${publicationPath} contains an absolute host-local path.`,
+        path: publicationPath,
       });
     }
   }
@@ -182,7 +196,9 @@ function resolvePublicationProfile(options: {
     return {
       findings: [{
         severity: "error",
+        code: "publication-readiness",
         message: "Could not parse mesh config while validating publication.",
+        path: MESH_CONFIG_PATH,
       }],
     };
   }
@@ -198,7 +214,9 @@ function resolvePublicationProfile(options: {
     return {
       findings: [{
         severity: "error",
+        code: "publication-readiness",
         message: "Mesh config declares more than one publication profile.",
+        path: MESH_CONFIG_PATH,
       }],
     };
   }
@@ -214,8 +232,10 @@ function resolvePublicationProfile(options: {
   return {
     findings: [{
       severity: "error",
+      code: "publication-readiness",
       message:
         `Mesh config declares unsupported publication profile: ${profileIri}`,
+      path: MESH_CONFIG_PATH,
     }],
   };
 }
