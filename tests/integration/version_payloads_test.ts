@@ -848,6 +848,7 @@ Deno.test("versionPayloads writer reports the binary-create phase even though v1
       }],
       updatedFiles: [{ path: "support.txt", contents: "after" }],
     },
+    knownDesignatorPathCount: 0,
     candidates: [],
     payloadSnapshots: [],
   };

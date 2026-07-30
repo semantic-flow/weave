@@ -1,4 +1,5 @@
 export { versionPayloads, WeaveApiError } from "./version_payloads.ts";
+export { validateMesh } from "./validate_mesh.ts";
 export type {
   PayloadVersionDefaults,
   PayloadVersionOutcome,
@@ -8,3 +9,10 @@ export type {
   WeaveApiErrorCode,
   WeaveApiErrorStage,
 } from "./version_payloads.ts";
+export type {
+  MeshValidationFinding,
+  MeshValidationFindingCode,
+  ValidateMeshRequest,
+  ValidateMeshResult,
+  ValidateTarget,
+} from "./validate_mesh.ts";

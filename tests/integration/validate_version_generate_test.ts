@@ -147,6 +147,7 @@ Deno.test("executeValidate returns structured findings for version-only target f
   assertEquals(result.validatedDesignatorPaths, []);
   assertEquals(result.findings, [{
     severity: "error",
+    code: "unsupported-mesh-shape",
     message: "request.targets[0].stateSegment is not supported",
   }]);
 });
@@ -502,8 +503,10 @@ Deno.test("executeValidate publication checks GitHub Pages .nojekyll", async () 
   assertEquals(failureResult.scope, "publication");
   assertEquals(failureResult.findings, [{
     severity: "error",
+    code: "publication-readiness",
     message:
       "GitHub Pages publication profile requires .nojekyll at the mesh root.",
+    path: ".nojekyll",
   }]);
 });
 
@@ -536,12 +539,16 @@ Deno.test("executeValidate publication reports host-local path leakage", async (
   assertEquals(result.findings, [
     {
       severity: "error",
+      code: "publication-path-leakage",
       message: "Publication file leaky.html contains a host-local file URL.",
+      path: "leaky.html",
     },
     {
       severity: "error",
+      code: "publication-path-leakage",
       message:
         "Publication file leaky.ttl contains an absolute host-local path.",
+      path: "leaky.ttl",
     },
   ]);
 });
@@ -579,8 +586,10 @@ Deno.test("executeValidate mesh includes configured publication checks", async (
   assertEquals(result.validatedDesignatorPaths, ["alice/data"]);
   assertEquals(result.findings, [{
     severity: "error",
+    code: "publication-readiness",
     message:
       "GitHub Pages publication profile requires .nojekyll at the mesh root.",
+    path: ".nojekyll",
   }]);
 });
 
