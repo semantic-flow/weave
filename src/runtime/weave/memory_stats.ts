@@ -49,6 +49,7 @@ export interface RuntimeMemoryStatsReport
   command: string;
   v8Heap: {
     usedHeapSize: number;
+    postGcUsedHeapSize: number | null;
     heapSizeLimit: number;
   };
 }
@@ -122,15 +123,24 @@ class EnabledRuntimeMemoryStats implements RuntimeMemoryStats {
     }
     this.#finished = true;
     const { getHeapStatistics } = await import("node:v8");
-    const heap = getHeapStatistics();
+    const preGcHeap = getHeapStatistics();
+    const gc = (
+      globalThis as typeof globalThis & { gc?: () => void }
+    ).gc;
+    let postGcUsedHeapSize: number | null = null;
+    if (typeof gc === "function") {
+      gc();
+      postGcUsedHeapSize = getHeapStatistics().used_heap_size;
+    }
     const report: RuntimeMemoryStatsReport = {
       command: this.#command,
       ...this.#retainedState,
       planningLoopIterations: this.#planningLoopIterations,
       maxRssBytes: this.#maxRssBytes,
       v8Heap: {
-        usedHeapSize: heap.used_heap_size,
-        heapSizeLimit: heap.heap_size_limit,
+        usedHeapSize: preGcHeap.used_heap_size,
+        postGcUsedHeapSize,
+        heapSizeLimit: preGcHeap.heap_size_limit,
       },
     };
     console.error(`[memory-stats] ${JSON.stringify(report)}`);

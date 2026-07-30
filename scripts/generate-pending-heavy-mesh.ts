@@ -10,12 +10,14 @@ export interface GeneratePendingHeavyMeshOptions {
   outputPath: string;
   count: number;
   meshInventoryHistoryPolicy: MeshInventoryHistoryPolicy;
+  termContentBytes?: number;
 }
 
 export interface GeneratePendingHeavyMeshResult {
   meshRoot: string;
   count: number;
   meshInventoryHistoryPolicy: MeshInventoryHistoryPolicy;
+  termContentBytes: number;
   sourceDesignatorPath: string;
   extractedDesignatorPaths: readonly string[];
 }
@@ -27,6 +29,8 @@ export async function generatePendingHeavyMesh(
   options: GeneratePendingHeavyMeshOptions,
 ): Promise<GeneratePendingHeavyMeshResult> {
   assertPositiveInteger(options.count, "count");
+  const termContentBytes = options.termContentBytes ?? 0;
+  assertNonNegativeInteger(termContentBytes, "termContentBytes");
   const meshRoot = resolve(options.outputPath);
   await ensureEmptyOutputDirectory(meshRoot);
 
@@ -47,7 +51,7 @@ export async function generatePendingHeavyMesh(
   await executeWeave({ meshRoot });
   await Deno.writeTextFile(
     join(meshRoot, SOURCE_WORKING_FILE_PATH),
-    renderSourcePayload(meshBase, options.count),
+    renderSourcePayload(meshBase, options.count, termContentBytes),
   );
   await executeIntegrate({
     meshRoot,
@@ -77,21 +81,39 @@ export async function generatePendingHeavyMesh(
     meshRoot,
     count: options.count,
     meshInventoryHistoryPolicy: options.meshInventoryHistoryPolicy,
+    termContentBytes,
     sourceDesignatorPath: SOURCE_DESIGNATOR_PATH,
     extractedDesignatorPaths: extraction.extractedDesignatorPaths,
   };
 }
 
-function renderSourcePayload(meshBase: string, count: number): string {
+function renderSourcePayload(
+  meshBase: string,
+  count: number,
+  termContentBytes: number,
+): string {
   const terms = Array.from({ length: count }, (_, index) => {
     const ordinal = String(index + 1).padStart(6, "0");
-    return `<term-${ordinal}> a schema:DefinedTerm ;\n  schema:name "Term ${ordinal}" .`;
+    const description = termContentBytes === 0
+      ? ""
+      : ` ;\n  schema:description "${
+        deterministicTermContent(ordinal, termContentBytes)
+      }"`;
+    return `<term-${ordinal}> a schema:DefinedTerm ;\n  schema:name "Term ${ordinal}"${description} .`;
   });
   return `@base <${meshBase}> .
 @prefix schema: <https://schema.org/> .
 
 ${terms.join("\n\n")}
 `;
+}
+
+function deterministicTermContent(ordinal: string, bytes: number): string {
+  const prefix = `Term ${ordinal}:`;
+  if (bytes <= prefix.length) {
+    return prefix.slice(0, bytes);
+  }
+  return prefix + "x".repeat(bytes - prefix.length);
 }
 
 function meshInventoryConfigTurtle(
@@ -142,16 +164,24 @@ function assertPositiveInteger(value: number, name: string): void {
   }
 }
 
+function assertNonNegativeInteger(value: number, name: string): void {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new Error(`${name} must be a non-negative integer.`);
+  }
+}
+
 interface ParsedArgs {
   outputPath: string;
   count: number;
   meshInventoryHistoryPolicy: MeshInventoryHistoryPolicy;
+  termContentBytes: number;
 }
 
 function parseArgs(args: readonly string[]): ParsedArgs {
   let outputPath: string | undefined;
   let count: number | undefined;
   let meshInventoryHistoryPolicy: MeshInventoryHistoryPolicy = "current-only";
+  let termContentBytes = 0;
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index]!;
@@ -176,6 +206,11 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       index += 1;
       continue;
     }
+    if (arg === "--term-content-bytes" && value !== undefined) {
+      termContentBytes = Number(value);
+      index += 1;
+      continue;
+    }
     throw new Error(`Unknown or incomplete argument: ${arg}`);
   }
 
@@ -186,7 +221,13 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     throw new Error("--count is required.");
   }
   assertPositiveInteger(count, "--count");
-  return { outputPath, count, meshInventoryHistoryPolicy };
+  assertNonNegativeInteger(termContentBytes, "--term-content-bytes");
+  return {
+    outputPath,
+    count,
+    meshInventoryHistoryPolicy,
+    termContentBytes,
+  };
 }
 
 if (import.meta.main) {
@@ -201,7 +242,7 @@ if (import.meta.main) {
           dirname(import.meta.filename!),
           "generate-pending-heavy-mesh.ts",
         )
-      } --output <empty-dir> --count <N> --mesh-inventory-history <current-only|versioned>`,
+      } --output <empty-dir> --count <N> --mesh-inventory-history <current-only|versioned> [--term-content-bytes <n>]`,
     );
     Deno.exit(1);
   }

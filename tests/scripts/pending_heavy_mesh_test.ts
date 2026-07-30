@@ -42,12 +42,20 @@ Deno.test("pending-heavy generator enters the instrumented recursive validation 
   assertGreater(currentReport.candidateCache.invalidations, 0);
   assertGreater(currentReport.maxRssBytes, 0);
   assertGreater(currentReport.v8Heap.usedHeapSize, 0);
+  assertEquals(currentReport.v8Heap.postGcUsedHeapSize, null);
   assertGreater(currentReport.v8Heap.heapSizeLimit, 0);
   assertEquals(
     currentReport.createdFiles.byPathClassification
       .meshInventoryHistorySnapshots.count,
     0,
   );
+
+  const gcEnabled = await runValidate(currentOnlyRoot, "1", true);
+  assert(gcEnabled.output.success, gcEnabled.stderr);
+  const gcReport = parseMemoryStats(gcEnabled.stderr);
+  assertEquals(gcReport.planningLoopIterations, 3);
+  assertGreater(gcReport.v8Heap.usedHeapSize, 0);
+  assertGreater(gcReport.v8Heap.postGcUsedHeapSize!, 0);
 
   const disabled = await runValidate(currentOnlyRoot, "0");
   assert(disabled.output.success, disabled.stderr);
@@ -86,13 +94,44 @@ Deno.test("pending-heavy generator materializes mesh-inventory history when requ
   );
 });
 
+Deno.test("pending-heavy generator adds deterministic per-term content", async () => {
+  const meshRoot = await createTestTmpDir(
+    "weave-pending-heavy-content-",
+  );
+  const generated = await generatePendingHeavyMesh({
+    outputPath: meshRoot,
+    count: 2,
+    meshInventoryHistoryPolicy: "current-only",
+    termContentBytes: 128,
+  });
+  assertEquals(generated.termContentBytes, 128);
+
+  const source = await Deno.readTextFile(join(meshRoot, "source.ttl"));
+  assert(
+    source.includes(
+      `schema:description "Term 000001:${"x".repeat(116)}"`,
+    ),
+  );
+  assert(
+    source.includes(
+      `schema:description "Term 000002:${"x".repeat(116)}"`,
+    ),
+  );
+
+  const enabled = await runValidate(meshRoot, "1");
+  assert(enabled.output.success, enabled.stderr);
+  assertEquals(parseMemoryStats(enabled.stderr).planningLoopIterations, 2);
+});
+
 async function runValidate(
   meshRoot: string,
   memoryStatsValue: string,
+  exposeGc = false,
 ): Promise<{ output: Deno.CommandOutput; stderr: string }> {
   const output = await new Deno.Command(Deno.execPath(), {
     args: [
       "run",
+      ...(exposeGc ? ["--v8-flags=--expose-gc"] : []),
       "-A",
       cliEntrypoint,
       "validate",
