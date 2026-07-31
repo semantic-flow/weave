@@ -71,6 +71,10 @@ Deno.test("validateMesh admission refuses malformed targets and normalized dupli
     meshRoot,
     targets: [{ designatorPath: "rules/core", extra: true }],
   } as unknown as ValidateMeshRequest);
+  assertAdmissionError({
+    meshRoot,
+    targets: "rules/core",
+  } as unknown as ValidateMeshRequest);
 });
 
 Deno.test("validateMesh public contracts accept readonly request and result values", () => {

@@ -126,6 +126,9 @@ export function admitValidateMeshRequest(
     ) {
       throw new Error("request.meshRoot must be a non-empty absolute path");
     }
+    if (request.targets !== undefined && !Array.isArray(request.targets)) {
+      throw new Error("request.targets must be an array");
+    }
     const normalizedRootAliases = request.targets?.map((target, index) => {
       if (!target || typeof target !== "object" || Array.isArray(target)) {
         return target;
