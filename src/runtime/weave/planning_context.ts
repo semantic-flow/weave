@@ -98,21 +98,17 @@ export class TextFileOverlay extends Map<string, string> {
   }
 
   retainedMemoryStats(): TextFileOverlayRetainedMemoryStats {
-    const encoder = new TextEncoder();
     return {
       stagedEntries: this.size,
-      stagedBytes: sumTextBytes(this.values(), encoder),
+      stagedBytes: sumTextBytes(this.values()),
       readCacheEntries: this.#readCache.size,
-      readCacheBytes: sumTextBytes(this.#readCache.values(), encoder),
+      readCacheBytes: sumTextBytes(this.#readCache.values()),
       readCacheHits: this.cacheHitCount,
       candidateCacheEntries: this.#candidateCache.size,
       candidateCacheApproxRetainedBytes: [...this.#candidateCache.values()]
         .reduce(
           (total, entry) =>
-            total + approximateCandidateRetainedBytes(
-              entry.candidate,
-              encoder,
-            ),
+            total + approximateCandidateRetainedBytes(entry.candidate),
           0,
         ),
       candidateCacheStores: this.candidateCacheStoreCount,
@@ -136,20 +132,20 @@ export class TextFileOverlay extends Map<string, string> {
   }
 }
 
-function sumTextBytes(
-  values: Iterable<string>,
-  encoder: TextEncoder,
-): number {
+// A shared value instead of a TextEncoder-typed parameter: dnt's Node type
+// checking has no global TextEncoder type, only the shimmed value.
+const RETAINED_BYTES_ENCODER = new TextEncoder();
+
+function sumTextBytes(values: Iterable<string>): number {
   let total = 0;
   for (const value of values) {
-    total += encoder.encode(value).byteLength;
+    total += RETAINED_BYTES_ENCODER.encode(value).byteLength;
   }
   return total;
 }
 
 function approximateCandidateRetainedBytes(
   candidate: WeaveableKnopCandidate | undefined,
-  encoder: TextEncoder,
 ): number {
   if (candidate === undefined) {
     return 0;
@@ -160,7 +156,7 @@ function approximateCandidateRetainedBytes(
   const visit = (value: unknown, fieldName = ""): void => {
     if (typeof value === "string") {
       if (/(?:turtle|text)$/i.test(fieldName)) {
-        total += encoder.encode(value).byteLength;
+        total += RETAINED_BYTES_ENCODER.encode(value).byteLength;
       }
       return;
     }
