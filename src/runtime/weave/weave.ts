@@ -48,6 +48,7 @@ import {
 import { type HistoryTrackingPolicy } from "../config/effective_config.ts";
 import { validatePublicationPreset } from "../publication/presets.ts";
 import { InventoryResolutionError } from "../mesh/inventory.ts";
+import { createRuntimeMemoryStats } from "./memory_stats.ts";
 
 export interface ExecuteValidateOptions {
   meshRoot: string;
@@ -151,6 +152,7 @@ export async function executeValidate(
 ): Promise<ValidateResult> {
   const scope = options.scope ?? "mesh";
   const timing = createRuntimeTiming(`validate.${scope}`);
+  const memoryStats = createRuntimeMemoryStats(`validate.${scope}`);
   let status = "succeeded";
   let observedMeshBase: string | undefined;
   let knownDesignatorPathCount = 0;
@@ -210,6 +212,7 @@ export async function executeValidate(
           assertTargetsAreKnown(targets, designatorPaths);
         }
       },
+      memoryStats,
     );
     timing.timeSync("validateRdf", () => validateVersionPlanRdf(prepared.plan));
     const publicationValidation = await timing.time(
@@ -284,6 +287,7 @@ export async function executeValidate(
     throw error;
   } finally {
     timing.finish({ status });
+    await memoryStats?.finish();
   }
 }
 
