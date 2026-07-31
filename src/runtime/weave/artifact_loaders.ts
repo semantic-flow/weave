@@ -103,10 +103,17 @@ export async function loadPayloadWorkingArtifact(
           "workingLocalRelativePath",
           workingLocalRelativePath,
         );
-    const currentPayload = await readPayloadFileWithOverlay(
-      absoluteCurrentPayloadPath,
-      overlay,
-    );
+    const currentPayload = isTextLikePayloadPath(workingLocalRelativePath)
+      ? {
+        text: await readTextFileWithOverlay(
+          absoluteCurrentPayloadPath,
+          overlay,
+        ),
+      }
+      : await readBinaryPayloadFileWithOverlay(
+        absoluteCurrentPayloadPath,
+        overlay,
+      );
     currentPayloadTurtle = currentPayload.text;
     currentPayloadBytes = isTextLikePayloadPath(workingLocalRelativePath)
       ? undefined
@@ -131,17 +138,21 @@ export async function loadPayloadWorkingArtifact(
 
   if (latestHistoricalSnapshotPath) {
     try {
-      const latestHistoricalSnapshot = await readPayloadFileWithOverlay(
-        resolveAllowedLocalPath(
-          localPathPolicy,
-          "workingLocalRelativePath",
-          latestHistoricalSnapshotPath,
-        ),
-        overlay,
+      const absoluteLatestHistoricalSnapshotPath = resolveAllowedLocalPath(
+        localPathPolicy,
+        "workingLocalRelativePath",
+        latestHistoricalSnapshotPath,
       );
       if (isTextLikePayloadPath(latestHistoricalSnapshotPath)) {
-        latestHistoricalSnapshotTurtle = latestHistoricalSnapshot.text;
+        latestHistoricalSnapshotTurtle = await readTextFileWithOverlay(
+          absoluteLatestHistoricalSnapshotPath,
+          overlay,
+        );
       } else {
+        const latestHistoricalSnapshot = await readBinaryPayloadFileWithOverlay(
+          absoluteLatestHistoricalSnapshotPath,
+          overlay,
+        );
         latestHistoricalSnapshotBytes = latestHistoricalSnapshot.bytes;
       }
     } catch (error) {
@@ -190,7 +201,7 @@ function isTextLikePayloadPath(path: string): boolean {
     .test(path);
 }
 
-async function readPayloadFileWithOverlay(
+async function readBinaryPayloadFileWithOverlay(
   absolutePath: string,
   overlay?: ReadonlyMap<string, string>,
 ): Promise<{ text: string; bytes?: Uint8Array }> {

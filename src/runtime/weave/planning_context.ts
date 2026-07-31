@@ -11,6 +11,17 @@ interface CandidateCacheEntry {
   dependencyPaths: ReadonlySet<string>;
 }
 
+interface RetainedTextIdentity {
+  contents: string;
+}
+
+export interface CandidateLiveSetRetainedMemoryStats {
+  entries: number;
+  sourceTextReferences: number;
+  distinctSourceTextIdentities: number;
+  approximateRetainedSourceTextBytes: number;
+}
+
 export interface TextFileOverlayRetainedMemoryStats {
   stagedEntries: number;
   stagedBytes: number;
@@ -24,7 +35,8 @@ export interface TextFileOverlayRetainedMemoryStats {
 }
 
 export class TextFileOverlay extends Map<string, string> {
-  #readCache = new Map<string, string>();
+  #readCache = new Map<string, RetainedTextIdentity>();
+  #stagedTextIdentities = new Map<string, RetainedTextIdentity>();
   #candidateCache = new Map<string, CandidateCacheEntry>();
   #activeCandidateCapture: CandidateDependencyCapture | undefined;
   readCount = 0;
@@ -34,7 +46,10 @@ export class TextFileOverlay extends Map<string, string> {
   candidateCacheStoreCount = 0;
   candidateCacheInvalidationCount = 0;
 
-  async readTextFile(path: string): Promise<string> {
+  async readTextFile(
+    path: string,
+    contentsIfUncached?: string,
+  ): Promise<string> {
     this.#activeCandidateCapture?.dependencyPaths.add(path);
     const stagedContents = this.get(path);
     if (stagedContents !== undefined) {
@@ -42,14 +57,14 @@ export class TextFileOverlay extends Map<string, string> {
       return stagedContents;
     }
 
-    const cachedContents = this.#readCache.get(path);
-    if (cachedContents !== undefined) {
+    const cachedIdentity = this.#readCache.get(path);
+    if (cachedIdentity !== undefined) {
       this.cacheHitCount += 1;
-      return cachedContents;
+      return cachedIdentity.contents;
     }
 
-    const contents = await Deno.readTextFile(path);
-    this.#readCache.set(path, contents);
+    const contents = contentsIfUncached ?? await Deno.readTextFile(path);
+    this.#readCache.set(path, { contents });
     this.readCount += 1;
     return contents;
   }
@@ -93,6 +108,9 @@ export class TextFileOverlay extends Map<string, string> {
       )
     ) {
       this.set(absolutePath, file.contents);
+      this.#stagedTextIdentities.set(absolutePath, {
+        contents: file.contents,
+      });
     }
     this.#invalidateCandidates(stagedPaths);
   }
@@ -102,7 +120,9 @@ export class TextFileOverlay extends Map<string, string> {
       stagedEntries: this.size,
       stagedBytes: sumTextBytes(this.values()),
       readCacheEntries: this.#readCache.size,
-      readCacheBytes: sumTextBytes(this.#readCache.values()),
+      readCacheBytes: sumTextBytes(
+        [...this.#readCache.values()].map((entry) => entry.contents),
+      ),
       readCacheHits: this.cacheHitCount,
       candidateCacheEntries: this.#candidateCache.size,
       candidateCacheApproxRetainedBytes: [...this.#candidateCache.values()]
@@ -113,6 +133,42 @@ export class TextFileOverlay extends Map<string, string> {
         ),
       candidateCacheStores: this.candidateCacheStoreCount,
       candidateCacheInvalidations: this.candidateCacheInvalidationCount,
+    };
+  }
+
+  retainedCandidateLiveSetMemoryStats(
+    workspaceRoot: string,
+    candidates: readonly WeaveableKnopCandidate[],
+  ): CandidateLiveSetRetainedMemoryStats {
+    const retainedIdentities = new Set<RetainedTextIdentity>();
+    let sourceTextReferences = 0;
+    let distinctSourceTextIdentities = 0;
+    let approximateRetainedSourceTextBytes = 0;
+
+    for (const candidate of candidates) {
+      for (const sourceText of candidateSourceTexts(candidate)) {
+        sourceTextReferences += 1;
+        const absolutePath = join(workspaceRoot, sourceText.path);
+        const identity = this.#retainedTextIdentity(
+          absolutePath,
+          sourceText.contents,
+        );
+        if (identity !== undefined) {
+          if (retainedIdentities.has(identity)) {
+            continue;
+          }
+          retainedIdentities.add(identity);
+        }
+        distinctSourceTextIdentities += 1;
+        approximateRetainedSourceTextBytes += textBytes(sourceText.contents);
+      }
+    }
+
+    return {
+      entries: candidates.length,
+      sourceTextReferences,
+      distinctSourceTextIdentities,
+      approximateRetainedSourceTextBytes,
     };
   }
 
@@ -130,6 +186,18 @@ export class TextFileOverlay extends Map<string, string> {
       }
     }
   }
+
+  #retainedTextIdentity(
+    path: string,
+    contents: string,
+  ): RetainedTextIdentity | undefined {
+    const stagedIdentity = this.#stagedTextIdentities.get(path);
+    if (stagedIdentity?.contents === contents) {
+      return stagedIdentity;
+    }
+    const cachedIdentity = this.#readCache.get(path);
+    return cachedIdentity?.contents === contents ? cachedIdentity : undefined;
+  }
 }
 
 // A shared value instead of a TextEncoder-typed parameter: dnt's Node type
@@ -142,6 +210,50 @@ function sumTextBytes(values: Iterable<string>): number {
     total += RETAINED_BYTES_ENCODER.encode(value).byteLength;
   }
   return total;
+}
+
+function textBytes(value: string): number {
+  return RETAINED_BYTES_ENCODER.encode(value).byteLength;
+}
+
+function candidateSourceTexts(
+  candidate: WeaveableKnopCandidate,
+): readonly { path: string; contents: string }[] {
+  const sourceTexts: { path: string; contents: string }[] = [];
+  const payload = candidate.payloadArtifact;
+  if (payload !== undefined) {
+    sourceTexts.push({
+      path: payload.workingLocalRelativePath,
+      contents: payload.currentPayloadTurtle,
+    });
+    if (
+      payload.latestHistoricalSnapshotPath !== undefined &&
+      payload.latestHistoricalSnapshotTurtle !== undefined
+    ) {
+      sourceTexts.push({
+        path: payload.latestHistoricalSnapshotPath,
+        contents: payload.latestHistoricalSnapshotTurtle,
+      });
+    }
+  }
+
+  const referenceSource = candidate.referenceTargetSourcePayloadArtifact;
+  if (referenceSource !== undefined) {
+    sourceTexts.push({
+      path: referenceSource.workingLocalRelativePath,
+      contents: referenceSource.currentPayloadTurtle,
+    });
+    if (
+      referenceSource.latestHistoricalSnapshotPath !== undefined &&
+      referenceSource.latestHistoricalSnapshotTurtle !== undefined
+    ) {
+      sourceTexts.push({
+        path: referenceSource.latestHistoricalSnapshotPath,
+        contents: referenceSource.latestHistoricalSnapshotTurtle,
+      });
+    }
+  }
+  return sourceTexts;
 }
 
 function approximateCandidateRetainedBytes(
@@ -189,9 +301,10 @@ export function applyPlannedFilesToOverlay(
 export async function readTextFileWithOverlay(
   path: string,
   overlay?: ReadonlyMap<string, string>,
+  contentsIfUncached?: string,
 ): Promise<string> {
   if (overlay instanceof TextFileOverlay) {
-    return await overlay.readTextFile(path);
+    return await overlay.readTextFile(path, contentsIfUncached);
   }
 
   const stagedContents = overlay?.get(path);
@@ -199,7 +312,7 @@ export async function readTextFileWithOverlay(
     return stagedContents;
   }
 
-  return await Deno.readTextFile(path);
+  return contentsIfUncached ?? await Deno.readTextFile(path);
 }
 
 export async function readOptionalTextFileWithOverlay(

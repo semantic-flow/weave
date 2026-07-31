@@ -19,6 +19,7 @@ import {
   resolveAllowedLocalPath,
 } from "../operational/local_path_policy.ts";
 import { resolveRepositorySourceFloatingLocalPath } from "../operational/repository_source.ts";
+import { readTextFileWithOverlay } from "../weave/planning_context.ts";
 import type {
   ArtifactResolutionContentMode,
   ArtifactResolutionContext,
@@ -686,6 +687,16 @@ async function resultForResolvedPath(
   const bytes = await readResolvedBytes(context, absolutePath, request);
   const contentDigest = await sha256Digest(bytes);
   verifyExpectedDigest(request, contentDigest);
+  const decodedText = contentMode === "text"
+    ? decodeUtf8(bytes, request)
+    : undefined;
+  const sharedText = decodedText === undefined
+    ? undefined
+    : await readTextFileWithOverlay(
+      absolutePath,
+      context.overlay,
+      decodedText,
+    );
   return {
     requested: request,
     observed: {
@@ -694,7 +705,7 @@ async function resultForResolvedPath(
     },
     content: {
       bytes,
-      ...(contentMode === "text" ? { text: decodeUtf8(bytes, request) } : {}),
+      ...(sharedText === undefined ? {} : { text: sharedText }),
     },
   };
 }
@@ -1076,7 +1087,7 @@ async function loadTargetArtifactInventory(
     toKnopPath(target.designatorPath),
     "_inventory/inventory.ttl",
   );
-  const turtle = await readTextFile(context.overlay, inventoryPath, request);
+  const turtle = await readTextFile(inventoryPath, context.overlay, request);
   let quads: Quad[];
   try {
     quads = new Parser({ baseIRI: context.meshBase }).parse(turtle);
@@ -1147,16 +1158,12 @@ function describeSupportedTargetArtifact(
 }
 
 async function readTextFile(
-  overlay: ReadonlyMap<string, string> | undefined,
   path: string,
+  overlay: ReadonlyMap<string, string> | undefined,
   request: ArtifactResolutionRequest,
 ): Promise<string> {
-  const staged = overlay?.get(path);
-  if (staged !== undefined) {
-    return staged;
-  }
   try {
-    return await Deno.readTextFile(path);
+    return await readTextFileWithOverlay(path, overlay);
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new ArtifactResolutionError(

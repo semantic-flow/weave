@@ -1,9 +1,21 @@
-import { assert, assertEquals, assertGreater } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertGreater,
+  assertStrictEquals,
+} from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import {
   generatePendingHeavyMesh,
 } from "../../scripts/generate-pending-heavy-mesh.ts";
 import type { RuntimeMemoryStatsReport } from "../../src/runtime/weave/memory_stats.ts";
+import { loadOperationalLocalPathPolicy } from "../../src/runtime/operational/local_path_policy.ts";
+import { loadWeaveableKnopCandidates } from "../../src/runtime/weave/candidate_loader.ts";
+import { loadMeshState } from "../../src/runtime/weave/mesh_state.ts";
+import {
+  applyPlannedFilesToOverlay,
+  TextFileOverlay,
+} from "../../src/runtime/weave/planning_context.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 const repoRoot = fromFileUrl(new URL("../../", import.meta.url));
@@ -40,6 +52,16 @@ Deno.test("pending-heavy generator enters the instrumented recursive validation 
   );
   assertGreater(currentReport.candidateCache.stores, 0);
   assertGreater(currentReport.candidateCache.invalidations, 0);
+  assertEquals(currentReport.candidateLiveSet.entries, 3);
+  assertEquals(currentReport.candidateLiveSet.sourceTextReferences, 6);
+  assertEquals(
+    currentReport.candidateLiveSet.distinctSourceTextIdentities,
+    2,
+  );
+  assertGreater(
+    currentReport.candidateLiveSet.approximateRetainedSourceTextBytes,
+    0,
+  );
   assertGreater(currentReport.maxRssBytes, 0);
   assertGreater(currentReport.v8Heap.usedHeapSize, 0);
   assertEquals(currentReport.v8Heap.postGcUsedHeapSize, null);
@@ -60,6 +82,117 @@ Deno.test("pending-heavy generator enters the instrumented recursive validation 
   const disabled = await runValidate(currentOnlyRoot, "0");
   assert(disabled.output.success, disabled.stderr);
   assertEquals(disabled.stderr.includes("[memory-stats]"), false);
+});
+
+Deno.test("pending extracted candidates share cached source text and capture both payload dependencies", async () => {
+  const meshRoot = await createTestTmpDir(
+    "weave-pending-heavy-shared-source-",
+  );
+  await generatePendingHeavyMesh({
+    outputPath: meshRoot,
+    count: 2,
+    meshInventoryHistoryPolicy: "current-only",
+    termContentBytes: 256,
+  });
+
+  const meshState = await loadMeshState(meshRoot);
+  const localPathPolicy = await loadOperationalLocalPathPolicy(meshRoot);
+  const overlay = new TextFileOverlay();
+  const candidates = await loadWeaveableKnopCandidates(
+    meshRoot,
+    localPathPolicy,
+    meshState.meshBase,
+    meshState.currentMeshInventoryTurtle,
+    [],
+    new Map(),
+    overlay,
+  );
+  assertEquals(candidates.length, 2);
+
+  const firstSource = candidates[0]!.referenceTargetSourcePayloadArtifact!;
+  const secondSource = candidates[1]!.referenceTargetSourcePayloadArtifact!;
+  assertStrictEquals(
+    firstSource.currentPayloadTurtle,
+    secondSource.currentPayloadTurtle,
+  );
+  assertStrictEquals(
+    firstSource.latestHistoricalSnapshotTurtle,
+    secondSource.latestHistoricalSnapshotTurtle,
+  );
+
+  const sourceBytes = new TextEncoder().encode(firstSource.currentPayloadTurtle)
+    .byteLength;
+  assertEquals(
+    overlay.retainedCandidateLiveSetMemoryStats(meshRoot, candidates),
+    {
+      entries: 2,
+      sourceTextReferences: 4,
+      distinctSourceTextIdentities: 2,
+      approximateRetainedSourceTextBytes: sourceBytes * 2,
+    },
+  );
+
+  applyPlannedFilesToOverlay(meshRoot, overlay, [{
+    path: firstSource.workingLocalRelativePath,
+    contents: firstSource.currentPayloadTurtle,
+  }]);
+  assert(
+    overlay.candidateCacheInvalidationCount >= candidates.length,
+    "Expected the shared working payload path to invalidate every extracted candidate.",
+  );
+  const workingPayloadInvalidations = overlay.candidateCacheInvalidationCount;
+
+  await loadWeaveableKnopCandidates(
+    meshRoot,
+    localPathPolicy,
+    meshState.meshBase,
+    meshState.currentMeshInventoryTurtle,
+    [],
+    new Map(),
+    overlay,
+  );
+  applyPlannedFilesToOverlay(meshRoot, overlay, [{
+    path: firstSource.latestHistoricalSnapshotPath!,
+    contents: firstSource.latestHistoricalSnapshotTurtle!,
+  }]);
+  assert(
+    overlay.candidateCacheInvalidationCount - workingPayloadInvalidations >=
+      candidates.length,
+    "Expected the shared historical snapshot path to invalidate every extracted candidate.",
+  );
+});
+
+Deno.test("candidate live-set retained source bytes stay flat as pending count grows", async () => {
+  const twenty = await generateAndMeasureCandidateSourceRetention(20, 1024);
+  const sixty = await generateAndMeasureCandidateSourceRetention(60, 278);
+
+  assertEquals(twenty.report.candidateLiveSet.entries, 20);
+  assertEquals(sixty.report.candidateLiveSet.entries, 60);
+  assertEquals(twenty.report.candidateLiveSet.sourceTextReferences, 40);
+  assertEquals(sixty.report.candidateLiveSet.sourceTextReferences, 120);
+  assertEquals(
+    twenty.report.candidateLiveSet.distinctSourceTextIdentities,
+    2,
+  );
+  assertEquals(
+    sixty.report.candidateLiveSet.distinctSourceTextIdentities,
+    2,
+  );
+  assertEquals(
+    twenty.report.candidateLiveSet.approximateRetainedSourceTextBytes,
+    twenty.sourceBytes * 2,
+  );
+  assertEquals(
+    sixty.report.candidateLiveSet.approximateRetainedSourceTextBytes,
+    sixty.sourceBytes * 2,
+  );
+  assert(
+    Math.abs(
+      twenty.report.candidateLiveSet.approximateRetainedSourceTextBytes -
+        sixty.report.candidateLiveSet.approximateRetainedSourceTextBytes,
+    ) <= 128,
+    `Expected near-identical retained source bytes, got ${twenty.report.candidateLiveSet.approximateRetainedSourceTextBytes} and ${sixty.report.candidateLiveSet.approximateRetainedSourceTextBytes}.`,
+  );
 });
 
 Deno.test("pending-heavy generator materializes mesh-inventory history when requested", async () => {
@@ -148,6 +281,25 @@ async function runValidate(
     output,
     stderr: new TextDecoder().decode(output.stderr),
   };
+}
+
+async function generateAndMeasureCandidateSourceRetention(
+  count: number,
+  termContentBytes: number,
+): Promise<{ report: RuntimeMemoryStatsReport; sourceBytes: number }> {
+  const meshRoot = await createTestTmpDir(
+    `weave-pending-heavy-proportionality-${count}-`,
+  );
+  await generatePendingHeavyMesh({
+    outputPath: meshRoot,
+    count,
+    meshInventoryHistoryPolicy: "current-only",
+    termContentBytes,
+  });
+  const sourceBytes = (await Deno.stat(join(meshRoot, "source.ttl"))).size;
+  const validated = await runValidate(meshRoot, "1");
+  assert(validated.output.success, validated.stderr);
+  return { report: parseMemoryStats(validated.stderr), sourceBytes };
 }
 
 function parseMemoryStats(stderr: string): RuntimeMemoryStatsReport {
