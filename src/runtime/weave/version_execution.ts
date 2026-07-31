@@ -353,6 +353,11 @@ export async function prepareVersionExecution(
         { sourceCapability },
       ),
   );
+  memoryStats?.sampleCandidateLiveSet(
+    workspaceRoot,
+    initialWeaveableKnops,
+    overlay,
+  );
   timing?.setField("initialWeaveableKnops", initialWeaveableKnops.length);
   const payloadBatchCandidates = shouldAttemptPayloadBatch
     ? await timeOptional(
@@ -524,6 +529,11 @@ export async function prepareVersionExecution(
           "prepare.loop.loadCandidates",
           { sourceCapability },
         ),
+    );
+    memoryStats?.sampleCandidateLiveSet(
+      workspaceRoot,
+      stagedWeaveableKnops,
+      overlay,
     );
 
     if (stagedWeaveableKnops.length === 0) {

@@ -1,5 +1,7 @@
 import type { PlannedFile } from "../../core/planned_file.ts";
+import type { WeaveableKnopCandidate } from "../../core/weave/candidates.ts";
 import type {
+  CandidateLiveSetRetainedMemoryStats,
   TextFileOverlay,
   TextFileOverlayRetainedMemoryStats,
 } from "./planning_context.ts";
@@ -40,6 +42,7 @@ export interface VersionExecutionRetainedMemoryStats {
     stores: number;
     invalidations: number;
   };
+  candidateLiveSet: CandidateLiveSetRetainedMemoryStats;
   planningLoopIterations: number;
   maxRssBytes: number;
 }
@@ -55,6 +58,11 @@ export interface RuntimeMemoryStatsReport
 }
 
 export interface RuntimeMemoryStats {
+  sampleCandidateLiveSet(
+    workspaceRoot: string,
+    candidates: readonly WeaveableKnopCandidate[],
+    overlay: TextFileOverlay,
+  ): void;
   samplePlanningLoopIteration(): void;
   captureVersionExecutionRetainedState(
     createdFiles: readonly PlannedFile[],
@@ -73,6 +81,28 @@ class EnabledRuntimeMemoryStats implements RuntimeMemoryStats {
 
   constructor(command: string) {
     this.#command = command;
+  }
+
+  sampleCandidateLiveSet(
+    workspaceRoot: string,
+    candidates: readonly WeaveableKnopCandidate[],
+    overlay: TextFileOverlay,
+  ): void {
+    const sampled = overlay.retainedCandidateLiveSetMemoryStats(
+      workspaceRoot,
+      candidates,
+    );
+    if (
+      sampled.approximateRetainedSourceTextBytes >
+        this.#retainedState.candidateLiveSet
+          .approximateRetainedSourceTextBytes ||
+      (sampled.approximateRetainedSourceTextBytes ===
+          this.#retainedState.candidateLiveSet
+            .approximateRetainedSourceTextBytes &&
+        sampled.entries > this.#retainedState.candidateLiveSet.entries)
+    ) {
+      this.#retainedState.candidateLiveSet = sampled;
+    }
   }
 
   samplePlanningLoopIteration(): void {
@@ -112,6 +142,7 @@ class EnabledRuntimeMemoryStats implements RuntimeMemoryStats {
       createdFiles: createdStats,
       updatedFileByPath: updatedStats,
       ...toReportedOverlayStats(overlayStats),
+      candidateLiveSet: this.#retainedState.candidateLiveSet,
       planningLoopIterations: this.#planningLoopIterations,
       maxRssBytes: this.#maxRssBytes,
     };
@@ -198,6 +229,12 @@ function emptyRetainedState(): VersionExecutionRetainedMemoryStats {
       approximateRetainedBytes: 0,
       stores: 0,
       invalidations: 0,
+    },
+    candidateLiveSet: {
+      entries: 0,
+      sourceTextReferences: 0,
+      distinctSourceTextIdentities: 0,
+      approximateRetainedSourceTextBytes: 0,
     },
     planningLoopIterations: 0,
     maxRssBytes: 0,
