@@ -84,6 +84,7 @@ export type WeaveApiErrorCode =
   | "unsupported-content"
   | "snapshot-conflict"
   | "plan-conflict"
+  | "read-failure"
   | "io-failure";
 
 interface WeaveApiErrorDetails {

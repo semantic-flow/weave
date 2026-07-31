@@ -7,7 +7,10 @@ import { SFCFG_NAMESPACE, SFLO_NAMESPACE } from "../rdf/namespaces.ts";
 import type { NormalizedVersionTargetSpec } from "../targeting.ts";
 import { isDeclaredArtifactHistory } from "./artifact_history_queries.ts";
 import type { PayloadWorkingArtifact } from "./candidates.ts";
-import { WeaveInputError } from "./errors.ts";
+import {
+  type MeshValidationFindingCode,
+  WeaveInputError as BaseWeaveInputError,
+} from "./errors.ts";
 import type {
   HistoryNamingPolicy,
   ManifestationNamingPolicy,
@@ -30,6 +33,15 @@ const SFCFG_HAS_NEXT_STATE_SEGMENT_HINT_IRI =
   `${SFCFG_NAMESPACE}hasNextStateSegmentHint`;
 const SFLO_HAS_MANIFESTATION_IRI = `${SFLO_NAMESPACE}hasManifestation`;
 const SFLO_NEXT_STATE_ORDINAL_IRI = `${SFLO_NAMESPACE}nextStateOrdinal`;
+
+class WeaveInputError extends BaseWeaveInputError {
+  constructor(
+    message: string,
+    findingCode: MeshValidationFindingCode = "progression-conflict",
+  ) {
+    super(message, findingCode);
+  }
+}
 
 export interface PayloadVersionLayout {
   historyPath: string;
@@ -281,6 +293,7 @@ export function assertRequestedStateSegmentSatisfiesPolicy(
       }
       throw new WeaveInputError(
         `stateSegment ${stateSegment} does not satisfy stateNamingPolicy semver.`,
+        "naming-policy-violation",
       );
     case "date":
       if (/^\d{4}-\d{2}-\d{2}$/.test(stateSegment)) {
@@ -288,6 +301,7 @@ export function assertRequestedStateSegmentSatisfiesPolicy(
       }
       throw new WeaveInputError(
         `stateSegment ${stateSegment} does not satisfy stateNamingPolicy date.`,
+        "naming-policy-violation",
       );
   }
 }
@@ -372,6 +386,7 @@ function defaultHistorySegment(
     case "named":
       throw new WeaveInputError(
         "historyNamingPolicy named requires an explicit historySegment.",
+        "naming-policy-violation",
       );
   }
 }
@@ -386,6 +401,7 @@ function defaultStateSegment(
     case "date":
       throw new WeaveInputError(
         `stateNamingPolicy ${stateNamingPolicy} requires an explicit stateSegment.`,
+        "naming-policy-violation",
       );
   }
 }
@@ -400,6 +416,7 @@ function assertAutoStateSegmentSupported(
     case "date":
       throw new WeaveInputError(
         `stateNamingPolicy ${stateNamingPolicy} requires an explicit stateSegment.`,
+        "naming-policy-violation",
       );
   }
 }

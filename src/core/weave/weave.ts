@@ -881,6 +881,7 @@ function resolveBatchMeshInventoryProgression(
   if (progressions.length !== firstPayloadEntries.length) {
     throw new WeaveInputError(
       "Multi-target payload weave found conflicting MeshInventory history policies across requested targets.",
+      "progression-conflict",
     );
   }
 
@@ -889,6 +890,7 @@ function resolveBatchMeshInventoryProgression(
     if (!meshInventoryProgressionsEqual(first!, progression)) {
       throw new WeaveInputError(
         "Multi-target payload weave found impossible MeshInventory progression across requested targets.",
+        "progression-conflict",
       );
     }
   }
@@ -924,6 +926,8 @@ function addCreatedFile(
   if (createdPaths.has(file.path) || updatedPaths.has(file.path)) {
     throw new WeaveInputError(
       `Multi-target payload weave produced a conflicting created file: ${file.path}`,
+      "plan-conflict",
+      { path: file.path },
     );
   }
   files.push(file);
@@ -939,6 +943,8 @@ function addCreatedBinaryFile(
   if (createdPaths.has(file.path) || updatedPaths.has(file.path)) {
     throw new WeaveInputError(
       `Multi-target payload weave produced a conflicting created file: ${file.path}`,
+      "plan-conflict",
+      { path: file.path },
     );
   }
   files.push(file);
@@ -954,11 +960,15 @@ function addUpdatedFile(
   if (createdPaths.has(file.path)) {
     throw new WeaveInputError(
       `Multi-target payload weave attempted to update a newly created file: ${file.path}`,
+      "plan-conflict",
+      { path: file.path },
     );
   }
   if (updatedPaths.has(file.path)) {
     throw new WeaveInputError(
       `Multi-target payload weave produced a conflicting updated file: ${file.path}`,
+      "plan-conflict",
+      { path: file.path },
     );
   }
   files.push(file);
@@ -977,6 +987,11 @@ function withBatchTargetDiagnostic<T>(
         `Target ${
           formatDesignatorPathForDisplay(designatorPath)
         }: ${error.message}`,
+        error.findingCode,
+        {
+          ...(error.path === undefined ? {} : { path: error.path }),
+          designatorPath,
+        },
       );
     }
     throw error;

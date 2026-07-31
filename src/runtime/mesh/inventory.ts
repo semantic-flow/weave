@@ -9,6 +9,7 @@ import type {
   ArtifactResolutionObservedCoordinates,
   ArtifactResolutionRequest,
 } from "../artifact_resolution/models.ts";
+import type { MeshValidationFindingCode } from "../../core/weave/errors.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI =
@@ -74,6 +75,19 @@ const SFLO_HAS_REFERENCE_SOURCE_IRI = `${SFLO_NAMESPACE}hasReferenceSource`;
 const SFLO_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFLO_NAMESPACE}hasKnopAssetBundle`;
 const SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI =
   `${SFLO_NAMESPACE}hasResourcePageDefinition`;
+
+export class InventoryResolutionError extends Error {
+  readonly findingCode: MeshValidationFindingCode;
+
+  constructor(
+    message: string,
+    findingCode: MeshValidationFindingCode = "malformed-inventory",
+  ) {
+    super(message);
+    this.name = "InventoryResolutionError";
+    this.findingCode = findingCode;
+  }
+}
 
 export interface PayloadArtifactInventoryState {
   workingLocalRelativePath: string;
@@ -404,7 +418,10 @@ export function resolveExtractionSourceInventoryState(
       SFLO_EXTRACTION_SOURCE_IRI,
     )
   ) {
-    throw new Error(messages.missingExtractionSourceMessage);
+    throw new InventoryResolutionError(
+      messages.missingExtractionSourceMessage,
+      "unresolvable-extraction-source",
+    );
   }
 
   const sourceArtifactPath = resolveOptionalUniqueNamedNodePath(
@@ -415,7 +432,10 @@ export function resolveExtractionSourceInventoryState(
     messages.missingTargetArtifactMessage,
   );
   if (!sourceArtifactPath) {
-    throw new Error(messages.missingTargetArtifactMessage);
+    throw new InventoryResolutionError(
+      messages.missingTargetArtifactMessage,
+      "unresolvable-extraction-source",
+    );
   }
 
   const requestedTargetStatePath = resolveOptionalUniqueNamedNodePath(
@@ -437,7 +457,10 @@ export function resolveExtractionSourceInventoryState(
     artifactResolutionModeIri !== SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI &&
     artifactResolutionModeIri !== SFLO_ARTIFACT_RESOLUTION_MODE_LATEST_STATE_IRI
   ) {
-    throw new Error(messages.unsupportedResolutionModeMessage);
+    throw new InventoryResolutionError(
+      messages.unsupportedResolutionModeMessage,
+      "unresolvable-extraction-source",
+    );
   }
   const resolutionObservation = resolveSourceRegistryResolutionObservationState(
     sourceRegistryQuads,
@@ -546,7 +569,7 @@ export function listIntegrationSourceInventoryStates(
       messages.missingTargetArtifactMessage,
     );
     if (!sourceArtifactPath) {
-      throw new Error(messages.missingTargetArtifactMessage);
+      throw new InventoryResolutionError(messages.missingTargetArtifactMessage);
     }
 
     const artifactResolutionModeIri = resolveOptionalUniqueNamedNodeIri(
@@ -559,7 +582,9 @@ export function listIntegrationSourceInventoryStates(
       artifactResolutionModeIri !== undefined &&
       artifactResolutionModeIri !== SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI
     ) {
-      throw new Error(messages.unsupportedResolutionModeMessage);
+      throw new InventoryResolutionError(
+        messages.unsupportedResolutionModeMessage,
+      );
     }
 
     const targetLocalRelativePath =
@@ -665,7 +690,7 @@ export function listImportSourceInventoryStates(
       messages.missingTargetArtifactMessage,
     );
     if (!sourceArtifactPath) {
-      throw new Error(messages.missingTargetArtifactMessage);
+      throw new InventoryResolutionError(messages.missingTargetArtifactMessage);
     }
 
     const artifactResolutionModeIri = resolveOptionalUniqueNamedNodeIri(
@@ -678,7 +703,9 @@ export function listImportSourceInventoryStates(
       artifactResolutionModeIri !== undefined &&
       artifactResolutionModeIri !== SFLO_ARTIFACT_RESOLUTION_MODE_WORKING_IRI
     ) {
-      throw new Error(messages.unsupportedResolutionModeMessage);
+      throw new InventoryResolutionError(
+        messages.unsupportedResolutionModeMessage,
+      );
     }
 
     const targetAccessUrl = resolveOptionalUniqueLiteral(
@@ -747,7 +774,7 @@ function resolveObservedArtifactResolutionSpecKey(
     errorMessage,
   );
   if (observedSpecKey === undefined) {
-    throw new Error(errorMessage);
+    throw new InventoryResolutionError(errorMessage);
   }
   return observedSpecKey;
 }
@@ -1053,7 +1080,7 @@ export function resolveReferenceTargetLinkState(
     messages,
   );
   if (!referenceTargetLinkState) {
-    throw new Error(messages.missingReferenceLinkMessage);
+    throw new InventoryResolutionError(messages.missingReferenceLinkMessage);
   }
 
   return referenceTargetLinkState;
@@ -1164,10 +1191,10 @@ export function tryResolveReferenceTargetLinkState(
   }
 
   if (referenceTargetPaths.size !== 1) {
-    throw new Error(messages.missingReferenceTargetMessage);
+    throw new InventoryResolutionError(messages.missingReferenceTargetMessage);
   }
   if (referenceTargetStatePaths.size > 1) {
-    throw new Error(messages.missingReferenceLinkMessage);
+    throw new InventoryResolutionError(messages.missingReferenceLinkMessage);
   }
 
   return {
@@ -1189,7 +1216,7 @@ function parseInventoryQuads(
   try {
     return new Parser({ baseIRI: meshBase }).parse(inventoryTurtle);
   } catch {
-    throw new Error(parseErrorMessage);
+    throw new InventoryResolutionError(parseErrorMessage);
   }
 }
 
@@ -1233,7 +1260,7 @@ function requireWorkingLocalRelativePath(
     locatedWorkingLocalRelativePath !== undefined &&
     literalWorkingLocalRelativePath !== locatedWorkingLocalRelativePath
   ) {
-    throw new Error(errorMessage);
+    throw new InventoryResolutionError(errorMessage);
   }
 
   if (literalWorkingLocalRelativePath !== undefined) {
@@ -1243,7 +1270,7 @@ function requireWorkingLocalRelativePath(
     return locatedWorkingLocalRelativePath;
   }
 
-  throw new Error(errorMessage);
+  throw new InventoryResolutionError(errorMessage);
 }
 
 function resolveOptionalWorkingLocalRelativePath(
@@ -1292,7 +1319,7 @@ function resolveOptionalRepositorySourceFloatingLocator(
     repositoryPathFromRoot === undefined ||
     repositoryPathFromRoot.startsWith("../")
   ) {
-    throw new Error(errorMessage);
+    throw new InventoryResolutionError(errorMessage);
   }
 
   return {
@@ -1340,7 +1367,7 @@ function resolveOptionalRepositorySourceLocator(
     repositoryPath === undefined ||
     repositoryPath.startsWith("../")
   ) {
-    throw new Error(errorMessage);
+    throw new InventoryResolutionError(errorMessage);
   }
 
   const repositoryCommit = resolveOptionalUniqueLiteral(
@@ -1414,7 +1441,7 @@ function resolveOptionalUniqueObjectTermKey(
     return undefined;
   }
   if (values.size !== 1) {
-    throw new Error(errorMessage);
+    throw new InventoryResolutionError(errorMessage);
   }
 
   return values.values().next().value!;
@@ -1445,7 +1472,7 @@ function resolveOptionalUniqueNamedNodePath(
     return undefined;
   }
   if (values.size !== 1) {
-    throw new Error(errorMessage);
+    throw new InventoryResolutionError(errorMessage);
   }
 
   return values.values().next().value!;
@@ -1500,7 +1527,7 @@ function resolveOptionalUniqueNamedNodeIri(
     return undefined;
   }
   if (values.size !== 1) {
-    throw new Error(errorMessage);
+    throw new InventoryResolutionError(errorMessage);
   }
 
   return values.values().next().value!;
@@ -1530,7 +1557,7 @@ function resolveOptionalUniqueLiteral(
     return undefined;
   }
   if (values.size !== 1) {
-    throw new Error(errorMessage);
+    throw new InventoryResolutionError(errorMessage);
   }
 
   return values.values().next().value!;
@@ -1563,7 +1590,7 @@ function resolveOptionalHistoricalStateLocatedFilePath(
     manifestationLocatedFilePaths.length > 0 &&
     !manifestationLocatedFilePaths.includes(shortcutLocatedFilePath)
   ) {
-    throw new Error(errorMessage);
+    throw new InventoryResolutionError(errorMessage);
   }
 
   return shortcutLocatedFilePath ??
@@ -1629,7 +1656,7 @@ function resolveOptionalUniqueLiteralWorkingLocalRelativePath(
     return undefined;
   }
   if (values.size !== 1) {
-    throw new Error(errorMessage);
+    throw new InventoryResolutionError(errorMessage);
   }
 
   return values.values().next().value!;
@@ -1660,7 +1687,7 @@ function normalizeWorkingLocalRelativePath(
     trimmed.endsWith("/") ||
     /^[A-Za-z]:/.test(trimmed)
   ) {
-    throw new Error(errorMessage);
+    throw new InventoryResolutionError(errorMessage);
   }
   if (
     trimmed.includes("\\") ||
@@ -1668,16 +1695,16 @@ function normalizeWorkingLocalRelativePath(
     trimmed.includes("#") ||
     /\s/.test(trimmed)
   ) {
-    throw new Error(errorMessage);
+    throw new InventoryResolutionError(errorMessage);
   }
 
   const normalized = pathPosix.normalize(trimmed);
   if (normalized === "." || normalized === "..") {
-    throw new Error(errorMessage);
+    throw new InventoryResolutionError(errorMessage);
   }
   const segments = normalized.split("/");
   if (segments.some((segment) => segment.length === 0)) {
-    throw new Error(errorMessage);
+    throw new InventoryResolutionError(errorMessage);
   }
 
   return normalized;
@@ -1694,7 +1721,7 @@ function requireMeshPath(
 ): string {
   const meshPath = tryToMeshPath(meshBase, iri);
   if (meshPath === undefined) {
-    throw new Error(errorMessage);
+    throw new InventoryResolutionError(errorMessage);
   }
   return meshPath;
 }

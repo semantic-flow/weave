@@ -62,7 +62,7 @@ export function resolvePageDefinitionWeaveProgression(
       pageDefinitionArtifact.currentArtifactHistoryPath !== undefined ||
       pageDefinitionArtifact.latestHistoricalStatePath !== undefined
     ) {
-      throw new WeaveInputError(errorMessage);
+      throw new WeaveInputError(errorMessage, "unsupported-mesh-shape");
     }
 
     return {
@@ -77,14 +77,14 @@ export function resolvePageDefinitionWeaveProgression(
 
   const latestStatePath = pageDefinitionArtifact.latestHistoricalStatePath;
   if (!latestStatePath) {
-    throw new WeaveInputError(errorMessage);
+    throw new WeaveInputError(errorMessage, "unsupported-mesh-shape");
   }
   const latestStateOrdinal = parseStateOrdinalFromPath(
     latestStatePath,
     errorMessage,
   );
   if (toHistoryPathFromStatePath(latestStatePath) !== historyPath) {
-    throw new WeaveInputError(errorMessage);
+    throw new WeaveInputError(errorMessage, "unsupported-mesh-shape");
   }
   const nextStateOrdinal = latestStateOrdinal + 1;
   const nextStatePath = `${historyPath}/${toStateSegment(nextStateOrdinal)}`;
@@ -179,7 +179,7 @@ export function resolveCurrentKnopInventoryProgressionForPageDefinitionWeave(
     toHistoryPathFromStatePath(latestStatePath) !== historyPath ||
     nextStateOrdinal !== latestStateOrdinal + 1
   ) {
-    throw new WeaveInputError(errorMessage);
+    throw new WeaveInputError(errorMessage, "unsupported-mesh-shape");
   }
   if (
     pageDefinitionArtifact.currentArtifactHistoryExists &&
@@ -191,7 +191,7 @@ export function resolveCurrentKnopInventoryProgressionForPageDefinitionWeave(
       pageDefinitionProgression.historyPath,
     )
   ) {
-    throw new WeaveInputError(errorMessage);
+    throw new WeaveInputError(errorMessage, "unsupported-mesh-shape");
   }
   if (
     pageDefinitionArtifact.currentArtifactHistoryExists &&
@@ -204,7 +204,7 @@ export function resolveCurrentKnopInventoryProgressionForPageDefinitionWeave(
       pageDefinitionProgression.latestStatePath,
     )
   ) {
-    throw new WeaveInputError(errorMessage);
+    throw new WeaveInputError(errorMessage, "unsupported-mesh-shape");
   }
   if (!pageDefinitionArtifact.currentArtifactHistoryExists) {
     if (
@@ -223,7 +223,7 @@ export function resolveCurrentKnopInventoryProgressionForPageDefinitionWeave(
         errorMessage,
       )
     ) {
-      throw new WeaveInputError(errorMessage);
+      throw new WeaveInputError(errorMessage, "unsupported-mesh-shape");
     }
   }
 
@@ -284,7 +284,7 @@ export function resolveCurrentMeshInventoryProgressionForFirstKnopWeave(
       progression.historyPath ||
     progression.nextStateOrdinal !== progression.latestStateOrdinal + 1
   ) {
-    throw new WeaveInputError(errorMessage);
+    throw new WeaveInputError(errorMessage, "unsupported-mesh-shape");
   }
   assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
     [
@@ -332,7 +332,7 @@ export function resolveCurrentMeshInventoryProgressionForFirstPayloadWeave(
     errorMessage,
   );
   if (progression.nextStateOrdinal !== progression.latestStateOrdinal + 1) {
-    throw new WeaveInputError(errorMessage);
+    throw new WeaveInputError(errorMessage, "unsupported-mesh-shape");
   }
   const latestManifestationIri = requireOptionalNamedNodeObject(
     quads,
@@ -354,7 +354,7 @@ export function resolveCurrentMeshInventoryProgressionForFirstPayloadWeave(
       `${progression.latestStatePath}/ttl` ||
     (!latestManifestationIri && progression.latestStateOrdinal !== 2)
   ) {
-    throw new WeaveInputError(errorMessage);
+    throw new WeaveInputError(errorMessage, "unsupported-mesh-shape");
   }
   assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
     [
@@ -387,7 +387,7 @@ function parseStateOrdinalFromPath(
   const parsed = match ? Number(match[1]) : Number.NaN;
 
   if (!Number.isInteger(parsed) || parsed < 1) {
-    throw new WeaveInputError(errorMessage);
+    throw new WeaveInputError(errorMessage, "unsupported-mesh-shape");
   }
 
   return parsed;

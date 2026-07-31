@@ -19,7 +19,9 @@ export function parseWeaveShapeQuads(
   try {
     return new Parser({ baseIRI: meshBase }).parse(turtle);
   } catch {
-    throw new WeaveInputError(errorMessage);
+    // Callers pass family-specific "only supports ..." messages; the shared
+    // classified fallback for shape-parse failures is unsupported-mesh-shape.
+    throw new WeaveInputError(errorMessage, "unsupported-mesh-shape");
   }
 }
 

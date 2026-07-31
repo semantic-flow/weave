@@ -36,6 +36,8 @@ weave validate --target 'designatorPath=alice,recursive=true'
 
 Targeted mesh validation uses [[wu.cli-reference.target-syntax]]. Use [[wu.cli-reference.root-designator]] when the root resource is the target.
 
+Programmatic consumers can run the same mesh-scope validation in-process via `validateMesh` in `@semantic-flow/weave-lib`, which returns structured findings with stable machine codes instead of formatted text — see [[wu.api-reference]].
+
 ## Environment
 
 - [[wu.environment-variables#weave_log_dir]] controls where command audit logs are written.

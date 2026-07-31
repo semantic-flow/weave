@@ -2,12 +2,13 @@
 // dnt build output, installs the tarball into a temp consumer package outside
 // the source tree, runs a real versionPayloads batch under Node, and asserts
 // the resulting mesh tree and outcomes are byte-equivalent to the same batch
-// run through the source import (src/api/mod.ts). This is the honest Node CI
-// leg the library must pass before publishing; it also fails if any
+// run through the source import (src/api/mod.ts). It also runs validateMesh
+// over settled and seeded-defect synthesized meshes. This is the honest Node
+// CI leg the library must pass before publishing; it also fails if any
 // package-relative resource load resolves only under a file: checkout.
 // Run: deno task build:npm-lib && deno task smoke:npm-lib
 import { fromFileUrl, join } from "@std/path";
-import { versionPayloads } from "../src/api/mod.ts";
+import { validateMesh, versionPayloads } from "../src/api/mod.ts";
 import {
   coreTarget,
   listWorkspaceFiles,
@@ -154,8 +155,51 @@ async function smokeNpmLib(options: SmokeNpmLibOptions): Promise<void> {
       }
     }
     await assertTreesByteIdentical(nodeMeshRoot, sourceMeshRoot);
+
+    const nodeValidation = await runNodeValidateConsumer(
+      consumerRoot,
+      nodeMeshRoot,
+      "settled",
+    );
+    const sourceValidation = await validateMesh({ meshRoot: sourceMeshRoot });
+    assertJsonEqual(
+      nodeValidation,
+      JSON.parse(JSON.stringify(sourceValidation)),
+      "validateMesh settled result (Node npm package vs Deno source import)",
+    );
+    assertJsonEqual(
+      sourceValidation,
+      {
+        meshBase: "https://example.test/version-api/",
+        findings: [],
+        coverage: {
+          knownDesignatorPathCount: 2,
+          plannedDesignatorPathCount: 0,
+        },
+      },
+      "validateMesh settled result shape",
+    );
+
+    const defectMeshRoot = join(consumerRoot, "mesh-node-defect");
+    await materializePayloadMesh(defectMeshRoot, [coreTarget]);
+    await Deno.remove(join(defectMeshRoot, "rules/core.ttl"));
+    const defectValidation = await runNodeValidateConsumer(
+      consumerRoot,
+      defectMeshRoot,
+      "defect",
+    ) as {
+      findings?: readonly { code?: string }[];
+    };
+    if (defectValidation.findings?.[0]?.code !== "missing-artifact") {
+      throw new Error(
+        `validateMesh Node defect smoke expected missing-artifact, got ${
+          JSON.stringify(defectValidation)
+        }`,
+      );
+    }
+
     console.log(
-      `npm-lib smoke passed: ${sourceResult.outcomes.length} payloads versioned identically under Node and Deno`,
+      `npm-lib smoke passed: ${sourceResult.outcomes.length} payloads versioned and validateMesh returned settled/defect contract results under Node`,
     );
   } finally {
     if (options.keep) {
@@ -254,6 +298,31 @@ await writeFile(resultPath, JSON.stringify(result));
     consumerScriptPath,
     meshRoot,
     requestPath,
+    resultPath,
+  ], consumerRoot);
+  return JSON.parse(await Deno.readTextFile(resultPath));
+}
+
+async function runNodeValidateConsumer(
+  consumerRoot: string,
+  meshRoot: string,
+  label: string,
+): Promise<unknown> {
+  const consumerScriptPath = join(consumerRoot, "validate-consumer.mjs");
+  await Deno.writeTextFile(
+    consumerScriptPath,
+    `import { writeFile } from "node:fs/promises";
+import { validateMesh } from "${NPM_LIB_PACKAGE_NAME}";
+
+const [meshRoot, resultPath] = process.argv.slice(2);
+const result = await validateMesh({ meshRoot });
+await writeFile(resultPath, JSON.stringify(result));
+`,
+  );
+  const resultPath = join(consumerRoot, `validate-${label}.json`);
+  await runCommand("node", [
+    consumerScriptPath,
+    meshRoot,
     resultPath,
   ], consumerRoot);
   return JSON.parse(await Deno.readTextFile(resultPath));

@@ -9,7 +9,16 @@ import type {
   WeaveRequest,
 } from "../../core/weave/requests.ts";
 import { WeaveInputError } from "../../core/weave/weave.ts";
-import { loadOperationalLocalPathPolicy } from "../operational/local_path_policy.ts";
+import type { MeshValidationFindingCode } from "../../core/weave/errors.ts";
+import { ResourcePagePolicyError } from "../../core/weave/resource_page_policy.ts";
+import {
+  loadOperationalLocalPathPolicy,
+  LocalPathAccessError,
+  OperationalConfigError,
+} from "../operational/local_path_policy.ts";
+import { ConfigSourceDiscoveryError } from "../config/config_sources.ts";
+import { ConfigInheritanceError } from "../config/inheritance.ts";
+import { EffectiveConfigError } from "../config/effective_config.ts";
 import { createRuntimeTiming } from "../timing.ts";
 import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
@@ -38,11 +47,14 @@ import {
 } from "./version_execution.ts";
 import { type HistoryTrackingPolicy } from "../config/effective_config.ts";
 import { validatePublicationPreset } from "../publication/presets.ts";
+import { InventoryResolutionError } from "../mesh/inventory.ts";
 
 export interface ExecuteValidateOptions {
   meshRoot: string;
   request?: ValidateRequest;
   scope?: ValidateScope;
+  sourceCapability?: "all" | "mesh-local-only";
+  strictClassifiedFindings?: boolean;
 }
 
 export interface ExecuteVersionOptions {
@@ -80,15 +92,35 @@ export interface ExecuteWeaveOptions {
 export type ValidateScope = "mesh" | "publication";
 
 export interface ValidateFinding {
-  severity: "error";
+  severity: "error" | "warning";
+  code: MeshValidationFindingCode;
   message: string;
+  path?: string;
+  designatorPath?: string;
 }
 
 export interface ValidateResult {
   scope: ValidateScope;
   meshBase?: string;
+  knownDesignatorPathCount: number;
   validatedDesignatorPaths: readonly string[];
   findings: readonly ValidateFinding[];
+}
+
+export class UnknownValidateTargetError extends Error {
+  readonly index: number;
+  readonly designatorPath: string;
+
+  constructor(index: number, designatorPath: string) {
+    super(
+      `Requested target does not match a known designator: ${
+        designatorPath.length === 0 ? "/" : designatorPath
+      }`,
+    );
+    this.name = "UnknownValidateTargetError";
+    this.index = index;
+    this.designatorPath = designatorPath;
+  }
 }
 
 export interface VersionResult {
@@ -120,6 +152,8 @@ export async function executeValidate(
   const scope = options.scope ?? "mesh";
   const timing = createRuntimeTiming(`validate.${scope}`);
   let status = "succeeded";
+  let observedMeshBase: string | undefined;
+  let knownDesignatorPathCount = 0;
   try {
     if (scope === "publication") {
       const meshRoot = resolveExecutionMeshRoot(options);
@@ -147,6 +181,7 @@ export async function executeValidate(
       return {
         scope,
         meshBase: meshState.meshBase,
+        knownDesignatorPathCount: 0,
         validatedDesignatorPaths: [],
         findings: publicationValidation.findings,
       };
@@ -166,6 +201,15 @@ export async function executeValidate(
       undefined,
       undefined,
       timing,
+      undefined,
+      options.sourceCapability,
+      (meshState, designatorPaths) => {
+        observedMeshBase = meshState.meshBase;
+        knownDesignatorPathCount = designatorPaths.length;
+        if (options.strictClassifiedFindings) {
+          assertTargetsAreKnown(targets, designatorPaths);
+        }
+      },
     );
     timing.timeSync("validateRdf", () => validateVersionPlanRdf(prepared.plan));
     const publicationValidation = await timing.time(
@@ -190,6 +234,7 @@ export async function executeValidate(
     return {
       scope,
       meshBase: prepared.meshState.meshBase,
+      knownDesignatorPathCount: prepared.knownDesignatorPathCount,
       validatedDesignatorPaths: prepared.plan.versionedDesignatorPaths,
       findings: publicationValidation.findings,
     };
@@ -197,21 +242,100 @@ export async function executeValidate(
     if (
       error instanceof WeaveInputError || error instanceof WeaveRuntimeError
     ) {
+      if (
+        error.findingCode === undefined && options.strictClassifiedFindings
+      ) {
+        throw error;
+      }
       status = "failed";
       timing.setField("findings", 1);
       return {
         scope,
+        ...(observedMeshBase === undefined
+          ? {}
+          : { meshBase: observedMeshBase }),
+        knownDesignatorPathCount,
         validatedDesignatorPaths: [],
         findings: [{
           severity: "error",
+          code: error.findingCode ?? "unsupported-mesh-shape",
           message: error.message,
+          ...(error.path === undefined ? {} : { path: error.path }),
+          ...(error.designatorPath === undefined
+            ? {}
+            : { designatorPath: error.designatorPath }),
         }],
+      };
+    }
+    const classifiedFinding = classifyEscapingValidationError(error);
+    if (classifiedFinding !== undefined) {
+      status = "failed";
+      timing.setField("findings", 1);
+      return {
+        scope,
+        ...(observedMeshBase === undefined
+          ? {}
+          : { meshBase: observedMeshBase }),
+        knownDesignatorPathCount,
+        validatedDesignatorPaths: [],
+        findings: [classifiedFinding],
       };
     }
     throw error;
   } finally {
     timing.finish({ status });
   }
+}
+
+function assertTargetsAreKnown(
+  targets: readonly NormalizedTargetSpec[],
+  knownDesignatorPaths: readonly string[],
+): void {
+  for (const [index, target] of targets.entries()) {
+    const matched = knownDesignatorPaths.some((designatorPath) =>
+      target.recursive
+        ? target.designatorPath.length === 0 ||
+          designatorPath === target.designatorPath ||
+          designatorPath.startsWith(`${target.designatorPath}/`)
+        : designatorPath === target.designatorPath
+    );
+    if (!matched) {
+      throw new UnknownValidateTargetError(index, target.designatorPath);
+    }
+  }
+}
+
+function classifyEscapingValidationError(
+  error: unknown,
+): ValidateFinding | undefined {
+  if (error instanceof InventoryResolutionError) {
+    return {
+      severity: "error",
+      code: error.findingCode,
+      message: error.message,
+    };
+  }
+  if (
+    error instanceof EffectiveConfigError ||
+    error instanceof ConfigSourceDiscoveryError ||
+    error instanceof ConfigInheritanceError ||
+    error instanceof OperationalConfigError ||
+    error instanceof ResourcePagePolicyError
+  ) {
+    return {
+      severity: "error",
+      code: "malformed-config",
+      message: error.message,
+    };
+  }
+  if (error instanceof LocalPathAccessError) {
+    return {
+      severity: "error",
+      code: "path-boundary-violation",
+      message: error.message,
+    };
+  }
+  return undefined;
 }
 
 export async function executeVersion(
