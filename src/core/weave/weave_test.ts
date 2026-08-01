@@ -3362,6 +3362,81 @@ Deno.test("planWeave renders the extracted bob woven slice", async () => {
   assertStringIncludes(bobPage?.contents ?? "", "<h1>bob</h1>");
 });
 
+Deno.test("planWeave renders an extracted term from a nested source without a root Knop", async () => {
+  const input = await createExtractedBobWeaveInput();
+  input.currentMeshInventoryTurtle = input.currentMeshInventoryTurtle
+    .replace("  sflo:hasKnop <alice/_knop> ;\n", "")
+    .replace(
+      `<alice/_knop> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <alice/_knop/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <alice/_knop/index.html> .
+
+`,
+      "",
+    )
+    .replace(
+      `<alice/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+`,
+      "",
+    )
+    .replace(
+      `<alice/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+`,
+      "",
+    );
+  input.supportHistoryPolicies = {
+    meshInventory: "currentOnly",
+    knopMetadata: "currentOnly",
+    knopInventory: "currentOnly",
+  };
+  assertFalse(input.currentMeshInventoryTurtle.includes("<alice/_knop"));
+
+  const plan = planWeave(input);
+  const meshInventory =
+    plan.updatedFiles.find((file) =>
+      file.path === "_mesh/_inventory/inventory.ttl"
+    )?.contents ?? "";
+
+  assertEquals(plan.wovenDesignatorPaths, ["bob"]);
+  assertStringIncludes(
+    meshInventory,
+    `<alice/data> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <alice-data.ttl> ;
+  sflo:hasResourcePage <alice/data/index.html> .`,
+  );
+  assertStringIncludes(
+    meshInventory,
+    `<alice/data/_knop> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <alice/data/_knop/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <alice/data/_knop/index.html> .`,
+  );
+  assertStringIncludes(
+    meshInventory,
+    "<bob> sflo:hasResourcePage <bob/index.html> .",
+  );
+  assertStringIncludes(
+    meshInventory,
+    "<bob/_knop> sflo:hasResourcePage <bob/_knop/index.html> .",
+  );
+  assert(
+    plan.createdFiles.some((file) => file.path === "bob/index.html"),
+  );
+  assert(
+    plan.createdPages.some((page) => page.path === "bob/_knop/index.html"),
+  );
+  assertFalse(
+    [...plan.createdFiles, ...plan.updatedFiles].some((file) =>
+      file.path.startsWith("alice/_knop") ||
+      file.contents.includes("<alice/_knop")
+    ),
+  );
+  assertFalse(
+    plan.createdPages.some((page) => page.path.startsWith("alice/_knop")),
+  );
+});
+
 Deno.test("planWeave accepts extracted terms from floating repository source payloads", async () => {
   const input = await createExtractedBobWeaveInput();
   const repositorySourceFloatingLocator = {
