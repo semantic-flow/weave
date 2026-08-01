@@ -629,6 +629,7 @@
       "jsr:@deno/dnt@0.42",
       "jsr:@std/assert@1",
       "jsr:@std/path@1",
+      "jsr:@std/yaml@1",
       "npm:jsonld@9.0.0",
       "npm:n3@2.0.3",
       "npm:rdf-canonize@5.0.0",

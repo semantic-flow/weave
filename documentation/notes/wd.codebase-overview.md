@@ -20,7 +20,7 @@ For development rules, start with [[wd.general-guidance]]. For testing posture, 
 - `src/cli`: terminal UX. CLI code parses commands/options, normalizes user input, calls runtime, and formats output. It should not contain semantic planning logic.
 - `src/daemon`: future HTTP/API process. Scaffold only for now.
 - `src/web`: future browser client. Scaffold only for now.
-- `scripts`: release, packaging, fixture, and maintenance scripts.
+- `scripts`: release, packaging, fixture, maintenance, and dev-process governance scripts (`queue-gate.ts` gates the planning queue in [[wd.queues]]).
 - `tests`: integration, e2e, script, support, and fixture-oriented tests. Unit tests usually live next to the source module they exercise.
 - `dependencies/github.com/semantic-flow/sflo`: embedded Semantic Flow ontology dependency used by implementation and tests.
 - `dependencies/github.com/semantic-flow/weave-dev-archive`: Kato/task archive. Keep durable developer docs in `documentation/notes/wd.*`; keep task history in the archive.
