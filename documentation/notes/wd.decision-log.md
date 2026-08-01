@@ -20,6 +20,11 @@ created: 1773630801215
 
 ## Decisions
 
+### 2026-08-01: Delegation Defaults To Codex
+
+- Decision: Delegated bites of every kind default to codex — `codex exec --sandbox read-only` for analysis/review/survey, `codex exec` on `lane/*` for implementation; Claude subagents only when a bite needs the harness's tools or in-session context. Amends D3(a) as first written.
+- References: [[wa.task.2026.2026-07-31_1014-planning-loop-infrastructure]], [[wd.read-in.jimbo]]
+
 ### 2026-08-01: Task-Note Renames Are The Planning Seat's Closure Duty
 
 - Decision: Renaming `wa.task.*` to `wa.completed.*` (with wikilink updates) is Jimbo's duty, done before a task is considered finished and logged in the monthly maintenance note; the queue gate still never renames — it only reports. Supersedes the "renames are Dave's act" rule in `AGENTS.md` as first written. First exercised on the two 07-29 validate notes.

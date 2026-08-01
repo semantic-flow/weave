@@ -12,3 +12,5 @@ created: 1785612549252
 - 2026-08-01T19:29:09.252Z — groomed: closure
 - 2026-08-01 — merged PR #30 (planning-loop infrastructure) to main at `4926b1e`; lane branch deleted
 - 2026-08-01 — swept the ratified D1/D4/D5/D6 card from [[wa.dave-court]] (Dave accepted the leans) — every planning-loop decision is now ruled
+- 2026-08-01 13:36 PDT — dry run STARTED: Dave armed `/loop 10m`; swept the arm-the-dry-run court card (ruled by the arming act itself)
+- 2026-08-01 — wake 1 groom: D3 amended to codex-first delegation (Dave, in-wake); task note's draft loop prompt marked SUPERSEDED (wake 1 caught Dave pasting it); read-in active arc refreshed
