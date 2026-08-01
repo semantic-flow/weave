@@ -23,6 +23,7 @@ created: 1773630801215
 ### 2026-08-01: Planning Loop Infrastructure (D1–D8)
 
 - Decision: Adopt Stagecraft's planning-loop shape at two-seat scale — a gated READY queue [[wd.queues]] with exactly two sections (`## Kim — implementation`, `## Jimbo — planning`) whose contract `scripts/queue-gate.ts` enforces mechanically (`deno task queue`); a single seat read-in [[wd.read-in.jimbo]] carrying the canonical `/loop 10m` prompt as paste source; a separate ungated court [[wa.dave-court]] in the archive vault; and mechanical wake/groom stamps in git-ignored `.jimbo-state.json` (`wake`/`groomed` subcommands). Kim names the implementation seat regardless of vendor, and `codex exec` implementation bites on `lane/*` branches may fire from loop wakes under Dave's standing grant — pushes, releases, and consumer replies stay Dave's.
+- Status: D2/D3/D7 RULED by Dave 2026-07-31; D1/D4/D5/D6/D8 are implemented as proposed and await ratification (open [[wa.dave-court]] card) — update this entry when Dave rules.
 - References: [[wa.task.2026.2026-07-31_1014-planning-loop-infrastructure]]
 - Why:
   - The pointers-only queue discipline failed as prose in the source lab ("violated twelve times by its own author within the hour"), so the contract is a tool that refuses instead of drifting.

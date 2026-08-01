@@ -73,8 +73,8 @@ async function makeFixtureRepo(): Promise<string> {
   );
   // root-layout vault (notes at the vault fsPath itself):
   await Deno.writeTextFile(
-    join(rootNotes, "ont.fixture-term.md"),
-    "fixture root-layout note\n",
+    join(rootNotes, "ont.task.2026-01-03-delta.md"),
+    "fixture root-layout task note\n",
   );
   return root;
 }
@@ -127,6 +127,8 @@ Deno.test("a missing queue file refuses naming init, never an ENOENT crash", asy
         addEntry(root, "wa.task.2026.2026-01-01-alpha", "kim", "first slice"),
       () => popEntry(root, "wa.task.2026.2026-01-01-alpha"),
       () => checkQueue(root),
+      () => wake(root),
+      () => groomed(root, "queues"),
     ]
   ) {
     const error = assertThrows(op, GateRefusal);
@@ -247,9 +249,65 @@ Deno.test("add refuses a task that resolves only as its completed sibling", asyn
 Deno.test("add resolves notes in both vault layouts", async () => {
   const root = await makeInitializedRepo();
   addEntry(root, "wa.task.2026.2026-01-01-alpha", "kim", "selfContained vault");
-  addEntry(root, "ont.fixture-term", "jimbo", "root-layout vault");
+  addEntry(root, "ont.task.2026-01-03-delta", "jimbo", "root-layout vault");
   const result = checkQueue(root);
   assertEquals(result.entryCount, 2);
+});
+
+Deno.test("add refuses path-shaped and non-task note names", async () => {
+  const root = await makeInitializedRepo();
+  // A path-shaped name must never be joined onto a vault directory.
+  await Deno.writeTextFile(join(root, "README.md"), "repo readme\n");
+  const escape = assertThrows(
+    () => addEntry(root, "../../README", "kim", "path escape attempt"),
+    GateRefusal,
+  );
+  assertStringIncludes(escape.message, "not a plain dendron note name");
+  // A resolvable note that is not a task note stays out of the queue.
+  const nonTask = assertThrows(
+    () => addEntry(root, "wd.queues", "jimbo", "self-referential grooming"),
+    GateRefusal,
+  );
+  assertStringIncludes(nonTask.message, "not a task note");
+});
+
+Deno.test("add refuses empty and multiline comments before writing", async () => {
+  const root = await makeInitializedRepo();
+  const empty = assertThrows(
+    () => addEntry(root, "wa.task.2026.2026-01-01-alpha", "kim", "   "),
+    GateRefusal,
+  );
+  assertStringIncludes(empty.message, "empty comment");
+  const multiline = assertThrows(
+    () =>
+      addEntry(root, "wa.task.2026.2026-01-01-alpha", "kim", "first\nsecond"),
+    GateRefusal,
+  );
+  assertStringIncludes(multiline.message, "line break");
+  // The gate never wrote a malformed line: the queue still checks green.
+  assertEquals(checkQueue(root).entryCount, 0);
+});
+
+Deno.test("SHA scan: all-letter long hex and full-length hashes refused, hex-alphabet words admitted", async () => {
+  const root = await makeInitializedRepo();
+  for (
+    const comment of [
+      "vanity hash deadbeef",
+      `pinned to ${"0123456789abcdef".repeat(4)}`,
+      "roughly 80 percent remains",
+    ]
+  ) {
+    assertThrows(
+      () => addEntry(root, "wa.task.2026.2026-01-01-alpha", "kim", comment),
+      GateRefusal,
+    );
+  }
+  addEntry(
+    root,
+    "wa.task.2026.2026-01-01-alpha",
+    "kim",
+    "defaced fixture pages need regeneration",
+  );
 });
 
 Deno.test("cross-section duplicates are allowed, same-section duplicates refused", async () => {
@@ -378,7 +436,7 @@ Deno.test("pop with the note in both sections refuses without a section, pops th
 });
 
 Deno.test("wake prints the prior stamp and unmet floors, then rotates", async () => {
-  const root = await makeFixtureRepo();
+  const root = await makeInitializedRepo();
   const first = wake(root, new Date("2026-01-05T08:00:00Z"));
   assertEquals(first.previousWake, null);
   assertEquals(first.unmetDuties, [...GROOM_DUTIES]);
@@ -387,7 +445,7 @@ Deno.test("wake prints the prior stamp and unmet floors, then rotates", async ()
 });
 
 Deno.test("groomed stamps a duty so the floor is met for the day, and unmet again the next day", async () => {
-  const root = await makeFixtureRepo();
+  const root = await makeInitializedRepo();
   const day1 = new Date("2026-01-05T10:00:00Z");
   groomed(root, "queues", day1);
   const sameDay = wake(root, new Date("2026-01-05T11:00:00Z"));
@@ -398,13 +456,13 @@ Deno.test("groomed stamps a duty so the floor is met for the day, and unmet agai
 });
 
 Deno.test("groomed refuses an unknown duty as usage, naming the duties", async () => {
-  const root = await makeFixtureRepo();
+  const root = await makeInitializedRepo();
   const error = assertThrows(() => groomed(root, "vibes"), GateUsage);
   assertStringIncludes(error.message, GROOM_DUTIES.join(", "));
 });
 
 Deno.test("a corrupt state file is a refusal, not silent amnesia", async () => {
-  const root = await makeFixtureRepo();
+  const root = await makeInitializedRepo();
   await Deno.writeTextFile(join(root, STATE_FILE_NAME), "{not json");
   const error = assertThrows(() => wake(root), GateRefusal);
   assertStringIncludes(error.message, STATE_FILE_NAME);

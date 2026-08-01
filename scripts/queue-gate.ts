@@ -176,6 +176,20 @@ function readQueueText(rootDir: string): string {
   }
 }
 
+// Every subcommand except init refuses when the queue is missing (spec:
+// "an explicit refusal naming init, never an ENOENT crash"). wake/groomed
+// only need existence — full validation stays with check, so a drifted queue
+// cannot also block the wake that would surface it.
+function requireQueueExists(rootDir: string): void {
+  try {
+    Deno.statSync(join(rootDir, QUEUE_NOTE_PATH));
+  } catch {
+    throw new GateRefusal(
+      `${QUEUE_NOTE_PATH} does not exist — run \`deno task queue init\` to mint it`,
+    );
+  }
+}
+
 function stripFrontmatter(lines: readonly string[]): number {
   if (lines[0] !== "---") {
     return 0;
@@ -274,12 +288,21 @@ function parseQueue(text: string): ParsedQueue {
 
 const STATUS_WORD_PATTERN =
   /(?<![a-z])(landed|closed|complete|completed|delivered|shipped|merged)(?![a-z])/i;
-const PERCENT_PATTERN = /\d+(?:\.\d+)?\s*%/;
-const HEX_TOKEN_PATTERN = /(?<![0-9a-z])[0-9a-f]{7,40}(?![0-9a-z])/gi;
+const PERCENT_PATTERN = /\d+(?:\.\d+)?\s*(?:%|percent(?![a-z]))/i;
+const HEX_TOKEN_PATTERN = /(?<![0-9a-z])[0-9a-f]{7,}(?![0-9a-z])/gi;
 const BLOCKER_PATTERN = /\b(waits on|blocked on|pending|awaiting|until)\b/i;
 
 // A line may appear only if its truth can change only by editing this file.
+// The scan is lexical: it catches the named drift markers (SHAs, status
+// words, percentages), not every possible external-truth phrasing — the
+// residue stays the writer's judgment (r1 F8/C5).
 function admissionViolation(comment: string): string | undefined {
+  if (comment.trim() === "") {
+    return "empty comment — say why-next or blocked-on in one clause";
+  }
+  if (/[\r\n]/.test(comment)) {
+    return "comment contains a line break — one line per item";
+  }
   if (comment.length > MAX_COMMENT_LENGTH) {
     return `comment is ${comment.length} chars (max ${MAX_COMMENT_LENGTH}) — if it needs more, it belongs in the task note`;
   }
@@ -294,9 +317,9 @@ function admissionViolation(comment: string): string | undefined {
     return `percentage ${JSON.stringify(percent[0])} — progress claims drift`;
   }
   for (const token of comment.matchAll(HEX_TOKEN_PATTERN)) {
-    // Require a digit so English hex-alphabet words ("defaced") pass, except
-    // at full-SHA length where all-letter hex is still refused.
-    if (/\d/.test(token[0]) || token[0].length === 40) {
+    // 7-char all-letter tokens are English hex-alphabet words ("defaced"),
+    // not SHAs; anything longer, or digit-bearing, is refused.
+    if (/\d/.test(token[0]) || token[0].length >= 8) {
       return `SHA-like token ${
         JSON.stringify(token[0])
       } — its truth changes outside this file`;
@@ -305,9 +328,29 @@ function admissionViolation(comment: string): string | undefined {
   return undefined;
 }
 
+// Entries point at task notes by name, never by path: a dendron note name in
+// the `<vault-prefix>.task.…` family, safe to join onto a vault directory
+// (r1 F8/C3 — an unsanitized name could otherwise escape the vault roots).
+const NOTE_NAME_PATTERN = /^[a-z][a-z0-9-]*(\.[A-Za-z0-9_-]+)+$/;
+const TASK_NOTE_PATTERN = /^[a-z][a-z0-9-]*\.task\./;
+
+function noteNameViolation(note: string): string | undefined {
+  if (!NOTE_NAME_PATTERN.test(note)) {
+    return `[[${note}]] is not a plain dendron note name`;
+  }
+  if (!TASK_NOTE_PATTERN.test(note)) {
+    return `[[${note}]] is not a task note — queue entries point at \`<vault>.task.…\` notes only`;
+  }
+  return undefined;
+}
+
 function validateComments(parsed: ParsedQueue): void {
   for (const section of parsed.sections) {
     for (const entry of section.entries) {
+      const nameViolation = noteNameViolation(entry.note);
+      if (nameViolation) {
+        throw new GateRefusal(`${section.heading}: ${nameViolation}`);
+      }
       const violation = admissionViolation(entry.comment);
       if (violation) {
         throw new GateRefusal(
@@ -382,6 +425,10 @@ export function addEntry(
   const parsed = parseQueue(text);
   validateComments(parsed);
 
+  const nameViolation = noteNameViolation(note);
+  if (nameViolation) {
+    throw new GateRefusal(`refused: ${nameViolation}`);
+  }
   const violation = admissionViolation(comment);
   if (violation) {
     throw new GateRefusal(`refused: ${violation}`);
@@ -580,6 +627,7 @@ function localDate(now: Date): string {
 // are file reads, not memory — post-compaction the alternative bound is
 // recall, which the loop prompt itself forbids trusting.
 export function wake(rootDir: string, now: Date = new Date()): WakeResult {
+  requireQueueExists(rootDir);
   const state = readState(rootDir);
   const today = localDate(now);
   const unmetDuties = GROOM_DUTIES.filter(
@@ -602,6 +650,7 @@ export function groomed(
       }`,
     );
   }
+  requireQueueExists(rootDir);
   const state = readState(rootDir);
   const today = localDate(now);
   writeState(rootDir, {

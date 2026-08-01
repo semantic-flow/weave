@@ -56,7 +56,7 @@ As of 2026-08-01:
 
 The canonical `/loop` text. The duplication of session mechanics into both this read-in and the prompt is deliberate: both rules were lost once each in the source lab, which is why they live in two places — edit them together, in one edit session.
 
-Seating order: a fresh session reads this read-in whole, runs `deno task queue wake` once to seed the stamp, and only then arms the loop — the prompt's "you are already seated" is an assumption the seating act must have made true.
+Seating order: a fresh session reads this read-in whole, runs `deno task queue wake` once, and — if that wake printed an existing stamp — surveys the repos since that stamp as part of seating, because rotation is print-then-advance and the seating session owns the printed interval (a wake whose survey never happened is otherwise lost). Only then arm the loop — the prompt's "you are already seated" is an assumption the seating act must have made true.
 
 ```
 /loop 10m — one planning wake (Jimbo). You are already seated; do NOT re-read the read-in.
