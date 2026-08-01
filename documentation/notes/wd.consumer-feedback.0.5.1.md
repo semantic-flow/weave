@@ -8,7 +8,7 @@ created: 1785297588142
 
 ## Goals
 
-- Turn the 2026-07-28 Stagecraft consumer review of `@semantic-flow/weave` / `weave-lib` (archived verbatim in [[wd.consumer-feedback-0.5.1.source]]) into a scoped `v0.5.1` slice: implement the cheap high-value asks, document the contracts the review showed were stated-but-unactionable, and record corrections where the review's measurements were wrong.
+- Turn the 2026-07-28 Stagecraft consumer review of `@semantic-flow/weave` / `weave-lib` (archived verbatim in [[wd.consumer-feedback.0.5.1.2026-07-28_0849]]) into a scoped `v0.5.1` slice: implement the cheap high-value asks, document the contracts the review showed were stated-but-unactionable, and record corrections where the review's measurements were wrong.
 - Keep the load-bearing surfaces the reviewer depends on stable: the plain `weave <version>` output of `--version`, the `WeaveApiError` code/stage taxonomy, and the no-op idempotency contract.
 
 ## Summary
@@ -87,9 +87,9 @@ Consumer-side facts (their pin, gate, topology) are **reported by the consumer**
 - [x] Implement the `--version --json` fast path; plain + JSON output tests.
 - [x] Docs: [[wu.api-reference]] (dry-run, locking pattern, conservative repair, release verification), [[wu.cli-reference.weave]] (`--version --json`), [[wd.programmatic-version-api]] (contract amendment), [[wd.release-runbook]] (behavioral-changelog rule), `scripts/bump-version.ts` release-notes stub nudge, both READMEs (§7 line), `sf.spec.*` dry-run behavior, [[wd.todo]] `validateMesh` entry.
 - [x] Release notes v0.5.1 (combined library-packaging + this slice + retroactive 4 MiB callout naming `23f50af` shipped in v0.4.0) and version bump; v0.5.0 folded in rather than released first.
-- [ ] Reply to Stagecraft: §5.1 correction (tags exist; fetch them), the settled 23f50af answer, `dryRun`/`--version --json` availability, locking + repair doc pointers, §7 clarification, §8 deferral with rationale.
+- [ ] Reply to Stagecraft: DRAFTED 2026-07-31 as [[wd.consumer-feedback.0.5.1.reply]] (covers this round AND the 2026-07-29 follow-up; §8 is now "delivered in v0.6.0" rather than deferred). Send after v0.6.0 publishes; sending is the maintainer's act.
 
 ## Open Issues
 
-- Post-release: deprecate `weave-lib@0.5.0` on npm (`npm deprecate @semantic-flow/weave-lib@0.5.0 "Pre-release publish with no matching CLI release; use 0.5.1+."`).
+- [x] Post-release: deprecate `weave-lib@0.5.0` on npm — DONE (verified 2026-07-30: `npm view @semantic-flow/weave-lib@0.5.0 deprecated` returns the planned message).
 - Whether Stagecraft's coherence-gate use of dry-run needs a shared-lock story stronger than documentation — revisit after they try it.

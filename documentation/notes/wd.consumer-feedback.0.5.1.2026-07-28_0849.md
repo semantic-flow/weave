@@ -6,7 +6,7 @@ updated: 1785297588142
 created: 1785297588142
 ---
 
-> Archived verbatim as received (source input for [[wd.consumer-feedback-0.5.1]]); claims are assessed and corrected in that note, not here.
+> Archived verbatim as received (source input for [[wd.consumer-feedback.0.5.1]]); claims are assessed and corrected in that note, not here.
 
 # Consumer review of `@semantic-flow/weave` / `weave-lib` — input for 0.5.1
 
