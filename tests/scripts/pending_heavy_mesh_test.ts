@@ -2,6 +2,7 @@ import {
   assert,
   assertEquals,
   assertGreater,
+  assertRejects,
   assertStrictEquals,
 } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
@@ -82,6 +83,69 @@ Deno.test("pending-heavy generator enters the instrumented recursive validation 
   const disabled = await runValidate(currentOnlyRoot, "0");
   assert(disabled.output.success, disabled.stderr);
   assertEquals(disabled.stderr.includes("[memory-stats]"), false);
+});
+
+Deno.test("pending-heavy generator preserves a nested source without an ancestor Knop", async () => {
+  const meshRoot = await createTestTmpDir(
+    "weave-pending-heavy-nested-source-",
+  );
+  const options = {
+    outputPath: meshRoot,
+    count: 3,
+    meshInventoryHistoryPolicy: "current-only" as const,
+    sourceDesignatorPath: "catalog/source",
+  };
+  const generated = await generatePendingHeavyMesh(options);
+
+  assertEquals(generated.sourceDesignatorPath, "catalog/source");
+  assertEquals(generated.extractedDesignatorPaths, [
+    "term-000001",
+    "term-000002",
+    "term-000003",
+  ]);
+  assert(
+    (await Deno.stat(
+      join(
+        meshRoot,
+        "catalog/source/_knop/_inventory/inventory.ttl",
+      ),
+    )).isFile,
+  );
+  await assertRejects(
+    () => Deno.stat(join(meshRoot, "catalog/_knop")),
+    Deno.errors.NotFound,
+  );
+
+  const meshInventoryTurtle = await Deno.readTextFile(
+    join(meshRoot, "_mesh/_inventory/inventory.ttl"),
+  );
+  assertEquals(
+    meshInventoryTurtle.includes("catalog/_knop"),
+    false,
+    meshInventoryTurtle,
+  );
+
+  const meshState = await loadMeshState(meshRoot);
+  const localPathPolicy = await loadOperationalLocalPathPolicy(meshRoot);
+  const candidates = await loadWeaveableKnopCandidates(
+    meshRoot,
+    localPathPolicy,
+    meshState.meshBase,
+    meshState.currentMeshInventoryTurtle,
+    [],
+    new Map(),
+    new TextFileOverlay(),
+  );
+  assertEquals(
+    candidates.map((candidate) => candidate.designatorPath),
+    generated.extractedDesignatorPaths,
+  );
+  for (const candidate of candidates) {
+    assertEquals(
+      candidate.referenceTargetSourcePayloadArtifact?.designatorPath,
+      "catalog/source",
+    );
+  }
 });
 
 Deno.test("pending extracted candidates share cached source text and capture both payload dependencies", async () => {
