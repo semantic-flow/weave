@@ -58,7 +58,7 @@ created: 1773630801215
 ### 2026-07-06: Application Owns Payload Batch Atomicity
 
 - Decision: Multi-target payload advancement is a fail-closed deterministic Weave plan, not a transactional filesystem boundary; the requesting application owns coherent serialization, locking, rollback, and retry orchestration.
-- References: [[wa.task.2026.2026-07-05-multi-target-payload-advancement]], [[wa.task.2026.2026-07-03_1332-stagecraft-weave-planner-generalization]], [[wd.todo]]
+- References: [[wa.completed.2026.2026-07-05-multi-target-payload-advancement]], [[wa.task.2026.2026-07-03_1332-stagecraft-weave-planner-generalization]], [[wd.todo]]
 - Why:
   - The application is the coherent writer for game/session state and can re-request the weave after a process or filesystem failure.
   - Weave's useful guarantee is that a requested batch validates as a whole before writing, renders shared support artifacts once, and safely no-ops already-current payloads on rerun.
@@ -67,7 +67,7 @@ created: 1773630801215
 ### 2026-07-06: Payload Batch Snapshot Hash Scope
 
 - Decision: Explicit multi-target payload batch snapshot verification hashes the requested targets' current working payload files before capture and verifies them after capture; hashing every plan-read support/config input is deferred until candidate loading and effective-config discovery expose a clean pre-capture read set.
-- References: [[wa.task.2026.2026-07-05-multi-target-payload-advancement]], [[wd.todo]]
+- References: [[wa.completed.2026.2026-07-05-multi-target-payload-advancement]], [[wd.todo]]
 - Why:
   - The immediate torn-read risk is one requested payload file being captured before another requested payload file changes.
   - Current inventories and support artifacts are discovered while candidate/config loading runs, so full plan-read hashing would become a loader-read-set refactor rather than the small pre-write guard in this slice.
