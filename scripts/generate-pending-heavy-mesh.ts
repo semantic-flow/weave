@@ -11,6 +11,7 @@ export interface GeneratePendingHeavyMeshOptions {
   count: number;
   meshInventoryHistoryPolicy: MeshInventoryHistoryPolicy;
   termContentBytes?: number;
+  sourceDesignatorPath?: string;
 }
 
 export interface GeneratePendingHeavyMeshResult {
@@ -22,7 +23,7 @@ export interface GeneratePendingHeavyMeshResult {
   extractedDesignatorPaths: readonly string[];
 }
 
-const SOURCE_DESIGNATOR_PATH = "source";
+const DEFAULT_SOURCE_DESIGNATOR_PATH = "source";
 const SOURCE_WORKING_FILE_PATH = "source.ttl";
 
 export async function generatePendingHeavyMesh(
@@ -31,6 +32,8 @@ export async function generatePendingHeavyMesh(
   assertPositiveInteger(options.count, "count");
   const termContentBytes = options.termContentBytes ?? 0;
   assertNonNegativeInteger(termContentBytes, "termContentBytes");
+  const sourceDesignatorPath = options.sourceDesignatorPath ??
+    DEFAULT_SOURCE_DESIGNATOR_PATH;
   const meshRoot = resolve(options.outputPath);
   await ensureEmptyOutputDirectory(meshRoot);
 
@@ -56,20 +59,20 @@ export async function generatePendingHeavyMesh(
   await executeIntegrate({
     meshRoot,
     request: {
-      designatorPath: SOURCE_DESIGNATOR_PATH,
+      designatorPath: sourceDesignatorPath,
       source: SOURCE_WORKING_FILE_PATH,
     },
   });
   await executeWeave({
     meshRoot,
     request: {
-      targets: [{ designatorPath: SOURCE_DESIGNATOR_PATH }],
+      targets: [{ designatorPath: sourceDesignatorPath }],
     },
   });
 
   const extraction = await executeExtractAllTerms({
     meshRoot,
-    request: { sourceDesignatorPath: SOURCE_DESIGNATOR_PATH },
+    request: { sourceDesignatorPath },
   });
   if (extraction.extractedDesignatorPaths.length !== options.count) {
     throw new Error(
@@ -82,7 +85,7 @@ export async function generatePendingHeavyMesh(
     count: options.count,
     meshInventoryHistoryPolicy: options.meshInventoryHistoryPolicy,
     termContentBytes,
-    sourceDesignatorPath: SOURCE_DESIGNATOR_PATH,
+    sourceDesignatorPath,
     extractedDesignatorPaths: extraction.extractedDesignatorPaths,
   };
 }
@@ -175,6 +178,7 @@ interface ParsedArgs {
   count: number;
   meshInventoryHistoryPolicy: MeshInventoryHistoryPolicy;
   termContentBytes: number;
+  sourceDesignatorPath: string;
 }
 
 function parseArgs(args: readonly string[]): ParsedArgs {
@@ -182,6 +186,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let count: number | undefined;
   let meshInventoryHistoryPolicy: MeshInventoryHistoryPolicy = "current-only";
   let termContentBytes = 0;
+  let sourceDesignatorPath = DEFAULT_SOURCE_DESIGNATOR_PATH;
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index]!;
@@ -211,6 +216,11 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       index += 1;
       continue;
     }
+    if (arg === "--source-designator-path" && value !== undefined) {
+      sourceDesignatorPath = value;
+      index += 1;
+      continue;
+    }
     throw new Error(`Unknown or incomplete argument: ${arg}`);
   }
 
@@ -227,6 +237,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     count,
     meshInventoryHistoryPolicy,
     termContentBytes,
+    sourceDesignatorPath,
   };
 }
 
@@ -242,7 +253,7 @@ if (import.meta.main) {
           dirname(import.meta.filename!),
           "generate-pending-heavy-mesh.ts",
         )
-      } --output <empty-dir> --count <N> --mesh-inventory-history <current-only|versioned> [--term-content-bytes <n>]`,
+      } --output <empty-dir> --count <N> --mesh-inventory-history <current-only|versioned> [--term-content-bytes <n>] [--source-designator-path <path>]`,
     );
     Deno.exit(1);
   }
