@@ -261,8 +261,6 @@ export function assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
     "workingLocalRelativePath" | "repositorySourceFloatingLocator"
   >,
 ): void {
-  const rootDesignatorPath = toRootDesignatorPath(sourcePayloadDesignatorPath);
-  const rootKnopPath = toKnopPath(rootDesignatorPath);
   const sourceKnopPath = toKnopPath(sourcePayloadDesignatorPath);
   const knopPath = toKnopPath(designatorPath);
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
@@ -301,17 +299,6 @@ export function assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
       SFLO_HAS_RESOURCE_PAGE_IRI,
       sourcePayloadPagePath,
     ],
-    [rootKnopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
-    [
-      rootKnopPath,
-      SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI,
-      `${rootKnopPath}/_inventory/inventory.ttl`,
-    ],
-    ...(rootKnopPath === knopPath ? [] : [[
-      rootKnopPath,
-      SFLO_HAS_RESOURCE_PAGE_IRI,
-      `${rootKnopPath}/index.html`,
-    ]] as const),
     [sourceKnopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
     [
       sourceKnopPath,
@@ -997,13 +984,6 @@ export function assertHasLiteralFacts(
       throw new WeaveInputError(errorMessage);
     }
   }
-}
-
-function toRootDesignatorPath(designatorPath: string): string {
-  const firstSlash = designatorPath.indexOf("/");
-  return firstSlash === -1
-    ? designatorPath
-    : designatorPath.slice(0, firstSlash);
 }
 
 function toHistoryPathFromStatePath(statePath: string): string {
