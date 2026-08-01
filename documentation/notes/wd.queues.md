@@ -15,4 +15,3 @@ This note is the READY slice, in order: a task enters when it is fireable and le
 
 ## Jimbo — planning
 1. [[wa.task.2026.2026-06-30_1108-stagecraft-driven-semantic-flow-requirements]] — collect concrete Stagecraft persistence requirements before reshaping vocabulary
-2. [[wa.task.2026.2026-07-31_1014-planning-loop-infrastructure]] — dry run waits on Dave: one supervised wake, then fold what it actually needed

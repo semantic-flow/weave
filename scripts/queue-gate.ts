@@ -4,7 +4,7 @@
 // in prose and violated twelve times by its own author within the hour, so it
 // is a tool now" (ported from stagecraft-lab tools/queue-gate.mjs). Adds, pops,
 // and checks refuse instead of drifting. See
-// wa.task.2026.2026-07-31_1014-planning-loop-infrastructure in the
+// wa.completed.2026.2026-07-31_1014-planning-loop-infrastructure in the
 // weave-dev-archive vault for the governing contract, and wd.read-in.jimbo for
 // the loop that runs it.
 //
