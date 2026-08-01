@@ -10,3 +10,5 @@ created: 1785612549252
 - 2026-08-01 — swept the ruled rename card from [[wa.dave-court]]; narrowed the ratify card to D1/D4/D5/D6 (D8 ruled as amended, D3 clarified)
 - 2026-08-01 — hand-edited [[wd.queues]] extractor entry comment under the truth-locality standard (post-edit `check` green)
 - 2026-08-01T19:29:09.252Z — groomed: closure
+- 2026-08-01 — merged PR #30 (planning-loop infrastructure) to main at `4926b1e`; lane branch deleted
+- 2026-08-01 — swept the ratified D1/D4/D5/D6 card from [[wa.dave-court]] (Dave accepted the leans) — every planning-loop decision is now ruled
