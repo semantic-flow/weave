@@ -23,6 +23,7 @@
     "test": "deno test --preload=tests/support/test_tmp_harness.ts --allow-read --allow-write --allow-run=git,deno --allow-env src tests",
     "test:coverage": "deno run --allow-read=/tmp/semantic-flow-coverage --allow-write=/tmp/semantic-flow-coverage --allow-run=deno --allow-env scripts/run-coverage-tests.ts",
     "coverage:lcov": "deno task coverage:prepare && deno coverage --lcov --output=/tmp/semantic-flow-coverage/lcov.info --exclude='^file:.*/dependencies/' --exclude='^file:.*/tests/' --exclude='^file:.*/\\.test-tmp/' --exclude='^file:.*/\\.cache/deno/' /tmp/semantic-flow-coverage",
+    "queue": "deno run --allow-read=documentation/notes,dependencies,dendron.yml,.jimbo-state.json --allow-write=documentation/notes,.jimbo-state.json scripts/queue-gate.ts",
     "ci": "deno task fmt:check && deno task lint && deno task check && deno task test:coverage && deno task coverage:lcov"
   },
   "imports": {
@@ -31,6 +32,7 @@
     "@cliffy/prompt": "jsr:@cliffy/prompt@1",
     "@std/assert": "jsr:@std/assert@1",
     "@std/path": "jsr:@std/path@1",
+    "@std/yaml": "jsr:@std/yaml@1",
     "jsonld": "npm:jsonld@9.0.0",
     "n3": "npm:n3@2.0.3",
     "rdf-canonize": "npm:rdf-canonize@5.0.0",

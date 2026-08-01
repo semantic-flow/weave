@@ -1,6 +1,7 @@
 node_modules
 .test-tmp
 .weave
+.jimbo-state.json
 coverage/
 dist/
 

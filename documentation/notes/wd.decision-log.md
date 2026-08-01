@@ -20,6 +20,32 @@ created: 1773630801215
 
 ## Decisions
 
+### 2026-08-01: Task-Note Renames Are The Planning Seat's Closure Duty
+
+- Decision: Renaming `wa.task.*` to `wa.completed.*` (with wikilink updates) is Jimbo's duty, done before a task is considered finished and logged in the monthly maintenance note; the queue gate still never renames — it only reports. Supersedes the "renames are Dave's act" rule in `AGENTS.md` as first written. First exercised on the two 07-29 validate notes.
+- References: [[wa.task.2026.2026-07-31_1014-planning-loop-infrastructure]], [[wa.completed.2026.2026-07-29_1219-programmatic-validate-mesh-api]], [[wa.completed.2026.2026-07-29_1220-whole-mesh-validate-bounded-memory]]
+
+### 2026-08-01: Monthly Maintenance Log (D8 As Amended)
+
+- Decision: Wake/groom stamps stay mechanical in git-ignored `.jimbo-state.json`; the human-auditable maintenance log lives in monthly notes ([[wd.maintenance.2026-08]] and successors). `deno task queue groomed` appends its line there mechanically; hand maintenance (renames, queue hand-edits, closure sweeps) is logged there by hand.
+- References: [[wa.task.2026.2026-07-31_1014-planning-loop-infrastructure]], [[wd.maintenance.2026-08]]
+
+### 2026-08-01: Pushes Move To The Planning Seat
+
+- Decision: Jimbo owns `git push` for weave (lane branches and PR opening) and for weave-dev-archive; releases, merge/landing GO, PM GO, and consumer replies remain Dave's. Supersedes the "pushes stay with Dave" clauses in the planning-loop task note and in [[wd.read-in.jimbo]] as first written.
+- References: [[wa.task.2026.2026-07-31_1014-planning-loop-infrastructure]]
+
+### 2026-08-01: Planning Loop Infrastructure (D1–D8)
+
+- Decision: Adopt Stagecraft's planning-loop shape at two-seat scale — a gated READY queue [[wd.queues]] with exactly two sections (`## Kim — implementation`, `## Jimbo — planning`) whose contract `scripts/queue-gate.ts` enforces mechanically (`deno task queue`); a single seat read-in [[wd.read-in.jimbo]] carrying the canonical `/loop 10m` prompt as paste source; a separate ungated court [[wa.dave-court]] in the archive vault; and mechanical wake/groom stamps in git-ignored `.jimbo-state.json` (`wake`/`groomed` subcommands). Kim names the implementation seat regardless of vendor, and `codex exec` implementation bites on `lane/*` branches may fire from loop wakes under Dave's standing grant — pushes, releases, and consumer replies stay Dave's.
+- Status: D2/D3/D7 RULED by Dave 2026-07-31; D1/D4/D5/D6/D8 are implemented as proposed and await ratification (open [[wa.dave-court]] card) — update this entry when Dave rules.
+- References: [[wa.task.2026.2026-07-31_1014-planning-loop-infrastructure]]
+- Why:
+  - The pointers-only queue discipline failed as prose in the source lab ("violated twelve times by its own author within the hour"), so the contract is a tool that refuses instead of drifting.
+  - Wake bounds and daily groom floors are file reads, not recall, because compaction destroys recall and the loop prompt itself forbids trusting it.
+- Follow-Up Tasks:
+  - [ ] Dry run: one supervised `/loop 10m` wake with Dave watching; adjust prompt/read-in from what the wake actually needed.
+
 ### 2026-07-21: Raise Resource-Page Raw-Source Inline Limit
 
 - Decision: Raise the ResourcePage raw-source inline limit from 1 MiB to 4 MiB based on the downstream SRD spells corpus evidence (a 1,087,420-byte graph produced 1,483 fact-less record pages); the structural parse-once/index-by-subject fix remains future work.
