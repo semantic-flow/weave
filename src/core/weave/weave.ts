@@ -227,7 +227,19 @@ export function planWeave(input: PlanWeaveInput): WeavePlan {
     throw new WeaveInputError("No weave candidates were found.");
   }
   if (weaveableKnops.length !== 1) {
-    if (requestedTargets.length > 1 && !overwriteExistingState) {
+    const isUntargetedFirstPayloadBatch = requestedTargets.length === 0 &&
+      !overwriteExistingState &&
+      weaveableKnops.every((selection) =>
+        classifyWeaveSlice(
+          meshBase,
+          selection.candidate,
+          selection.target,
+        ) === "firstPayloadWeave"
+      );
+    if (
+      !overwriteExistingState &&
+      (requestedTargets.length > 1 || isUntargetedFirstPayloadBatch)
+    ) {
       const plan = planExplicitPayloadBatchWeave(
         meshBase,
         input.currentMeshInventoryTurtle,
