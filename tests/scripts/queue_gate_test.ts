@@ -21,6 +21,7 @@ import {
   GROOM_DUTIES,
   groomed,
   initQueue,
+  maintenanceNotePath,
   MAX_COMMENT_LENGTH,
   POP_OBLIGATIONS,
   popEntry,
@@ -453,6 +454,21 @@ Deno.test("groomed stamps a duty so the floor is met for the day, and unmet agai
   assert(sameDay.unmetDuties.includes("court"));
   const nextDay = wake(root, new Date("2026-01-06T08:00:00Z"));
   assert(nextDay.unmetDuties.includes("queues"));
+});
+
+Deno.test("groomed appends mechanically to the monthly maintenance note, creating it once", async () => {
+  const root = await makeInitializedRepo();
+  const when = new Date("2026-01-05T10:00:00Z");
+  groomed(root, "queues", when);
+  groomed(root, "todo", new Date("2026-01-05T11:00:00Z"));
+  const path = maintenanceNotePath(root, when);
+  assertStringIncludes(path, "wd.maintenance.2026-01.md");
+  const text = await Deno.readTextFile(path);
+  assertStringIncludes(text, "title: Maintenance 2026-01");
+  assertStringIncludes(text, "- 2026-01-05T10:00:00.000Z — groomed: queues");
+  assertStringIncludes(text, "- 2026-01-05T11:00:00.000Z — groomed: todo");
+  // Created once: exactly one frontmatter block.
+  assertEquals(text.split("---").length, 3);
 });
 
 Deno.test("groomed refuses an unknown duty as usage, naming the duties", async () => {

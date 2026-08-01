@@ -55,7 +55,7 @@ The backlog is kept in [[wd.todo]] and should be updated as tasks are completed.
 
 ## Planning loop
 
-The planning session (Jimbo) runs on a recurring `/loop`. [[wd.read-in.jimbo]] is the seating source and carries the canonical loop prompt; [[wd.queues]] is the gated READY slice — `deno task queue init` mints it, `add`/`pop` are its only admitting/removing writers, reordering is a hand edit, and `check` validates (run it before any commit touching the note, and after any hand edit); `wake`/`groomed` stamp only the git-ignored `.jimbo-state.json`. Open decisions for Dave live in [[wa.dave-court]] (archive vault, ungated). The law lives in those notes and in `wa.task.2026.2026-07-31_1014-planning-loop-infrastructure`; this paragraph is only the pointer.
+The planning session (Jimbo) runs on a recurring `/loop`. [[wd.read-in.jimbo]] is the seating source and carries the canonical loop prompt; [[wd.queues]] is the gated READY slice — `deno task queue init` mints it, `add`/`pop` are its only admitting/removing writers, reordering is a hand edit, and `check` validates (run it before any commit touching the note, and after any hand edit); `wake`/`groomed` stamp only the git-ignored `.jimbo-state.json`. Open decisions for Dave live in [[wa.dave-court]] (archive vault, ungated). The law lives in those notes and in [[wa.task.2026.2026-07-31_1014-planning-loop-infrastructure]]; this paragraph is only the pointer.
 
 ## Behavior specs
 

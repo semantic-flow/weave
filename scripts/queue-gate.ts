@@ -480,7 +480,7 @@ export function addEntry(
 export const POP_OBLIGATIONS = `owed on pop:
 - flip the [[wd.todo]] checkbox for this delivery
 - add a [[wd.decision-log]] entry if the delivery ratified a decision
-- if this closed the task, renames are now link-safe (wa.task.* → wa.completed.* stays Dave's act)
+- if this closed the task, do the rename now — wa.task.* → wa.completed.* is the planning seat's closure duty (update affected wikilinks; log it in the monthly wd.maintenance note)
 reminder: popping a task with only one slice landed is the wrong command — a partially-delivered task keeps its entry until every slice closes`;
 
 export function popEntry(
@@ -638,6 +638,43 @@ export function wake(rootDir: string, now: Date = new Date()): WakeResult {
   return { previousWake, unmetDuties };
 }
 
+// The monthly maintenance log (D8 as amended, Dave 2026-08-01): stamps stay
+// mechanical in .jimbo-state.json; the human-auditable record of maintenance
+// acts lives here. `groomed` appends its line mechanically; hand maintenance
+// (renames, queue hand-edits, closure sweeps) is logged by hand.
+export function maintenanceNotePath(rootDir: string, now: Date): string {
+  const month = localDate(now).slice(0, 7);
+  return join(rootDir, `documentation/notes/wd.maintenance.${month}.md`);
+}
+
+function appendMaintenanceLine(
+  rootDir: string,
+  now: Date,
+  line: string,
+): void {
+  const path = maintenanceNotePath(rootDir, now);
+  const month = localDate(now).slice(0, 7);
+  let text: string;
+  try {
+    text = Deno.readTextFileSync(path);
+  } catch {
+    const ms = now.getTime();
+    text = `---
+id: ${randomNoteId()}
+title: Maintenance ${month}
+desc: 'Monthly maintenance log — mechanical groom stamps plus hand-logged maintenance acts (renames, queue hand-edits, closure sweeps)'
+updated: ${ms}
+created: ${ms}
+---
+
+`;
+  }
+  if (!text.endsWith("\n")) {
+    text += "\n";
+  }
+  Deno.writeTextFileSync(path, `${text}- ${now.toISOString()} — ${line}\n`);
+}
+
 export function groomed(
   rootDir: string,
   duty: string,
@@ -657,6 +694,7 @@ export function groomed(
     ...state,
     groomed: { ...state.groomed, [duty]: today },
   });
+  appendMaintenanceLine(rootDir, now, `groomed: ${duty}`);
   return today;
 }
 

@@ -6,7 +6,7 @@ updated: 1785352796403
 created: 1785352796403
 ---
 
-> Archived verbatim as received (source input for the 2026-07-29 follow-up round). Claims are assessed and dispositioned in the task notes, not here: §1 (packaging/consumption model) and §2 (`hasResourcePage` — dispositioned as reply-only, owned by the landed extract lifecycle + the wd.todo extracted-term-weave scale item) in `wa.task.2026.2026-07-29_1219-programmatic-validate-mesh-api`; §3 (validate memory ceiling) in `wa.task.2026.2026-07-29_1220-whole-mesh-validate-bounded-memory`. Both task notes carry a folded Codex r1 review (2026-07-29). The prior round is [[wd.consumer-feedback.0.5.1]] / [[wd.consumer-feedback.0.5.1.2026-07-28_0849]].
+> Archived verbatim as received (source input for the 2026-07-29 follow-up round). Claims are assessed and dispositioned in the task notes, not here: §1 (packaging/consumption model) and §2 (`hasResourcePage` — dispositioned as reply-only, owned by the landed extract lifecycle + the wd.todo extracted-term-weave scale item) in `wa.completed.2026.2026-07-29_1219-programmatic-validate-mesh-api`; §3 (validate memory ceiling) in `wa.completed.2026.2026-07-29_1220-whole-mesh-validate-bounded-memory`. Both task notes carry a folded Codex r1 review (2026-07-29). The prior round is [[wd.consumer-feedback.0.5.1]] / [[wd.consumer-feedback.0.5.1.2026-07-28_0849]].
 
 # To the Semantic Flow / Weave maintainers — two open questions from the Stagecraft mesh
 

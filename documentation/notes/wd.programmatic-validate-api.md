@@ -1,14 +1,14 @@
 ---
 id: wdprogvalidateapi20260730
 title: Programmatic Validate API
-desc: 'v1 contract for validateMesh: structured findings over the recursive planner/preflight validation path. Ratified in the 2026-07-30 spec review r1 of wa.task.2026.2026-07-29_1219-programmatic-validate-mesh-api.'
+desc: 'v1 contract for validateMesh: structured findings over the recursive planner/preflight validation path. Ratified in the 2026-07-30 spec review r1 of wa.completed.2026.2026-07-29_1219-programmatic-validate-mesh-api.'
 updated: 1785440266000
 created: 1785440266000
 ---
 
 ## Purpose
 
-This note defines the Weave v1 in-process API contract for programmatic mesh validation: `validateMesh` returns structured findings instead of formatted CLI text. The rulings were ratified in the spec review r1 recorded in `wa.task.2026.2026-07-29_1219-programmatic-validate-mesh-api` (archive vault, 2026-07-30). Exact code spellings below are final per that review's delegation.
+This note defines the Weave v1 in-process API contract for programmatic mesh validation: `validateMesh` returns structured findings instead of formatted CLI text. The rulings were ratified in the spec review r1 recorded in `wa.completed.2026.2026-07-29_1219-programmatic-validate-mesh-api` (archive vault, 2026-07-30). Exact code spellings below are final per that review's delegation.
 
 Companion contract: [[wd.programmatic-version-api]] (`versionPayloads`). The two share `WeaveApiError` and its code/stage discriminants.
 

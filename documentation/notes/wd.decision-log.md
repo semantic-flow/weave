@@ -20,6 +20,16 @@ created: 1773630801215
 
 ## Decisions
 
+### 2026-08-01: Task-Note Renames Are The Planning Seat's Closure Duty
+
+- Decision: Renaming `wa.task.*` to `wa.completed.*` (with wikilink updates) is Jimbo's duty, done before a task is considered finished and logged in the monthly maintenance note; the queue gate still never renames — it only reports. Supersedes the "renames are Dave's act" rule in `AGENTS.md` as first written. First exercised on the two 07-29 validate notes.
+- References: [[wa.task.2026.2026-07-31_1014-planning-loop-infrastructure]], [[wa.completed.2026.2026-07-29_1219-programmatic-validate-mesh-api]], [[wa.completed.2026.2026-07-29_1220-whole-mesh-validate-bounded-memory]]
+
+### 2026-08-01: Monthly Maintenance Log (D8 As Amended)
+
+- Decision: Wake/groom stamps stay mechanical in git-ignored `.jimbo-state.json`; the human-auditable maintenance log lives in monthly notes ([[wd.maintenance.2026-08]] and successors). `deno task queue groomed` appends its line there mechanically; hand maintenance (renames, queue hand-edits, closure sweeps) is logged there by hand.
+- References: [[wa.task.2026.2026-07-31_1014-planning-loop-infrastructure]], [[wd.maintenance.2026-08]]
+
 ### 2026-08-01: Pushes Move To The Planning Seat
 
 - Decision: Jimbo owns `git push` for weave (lane branches and PR opening) and for weave-dev-archive; releases, merge/landing GO, PM GO, and consumer replies remain Dave's. Supersedes the "pushes stay with Dave" clauses in the planning-loop task note and in [[wd.read-in.jimbo]] as first written.
