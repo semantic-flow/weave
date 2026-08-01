@@ -963,7 +963,9 @@ Deno.test("planWeave renders the first alice bio payload weave slice", () => {
   );
 });
 
-Deno.test("planWeave batches explicit first payload targets with one merged MeshInventory progression", () => {
+function firstPayloadBatchInput(
+  request: PlanWeaveInput["request"],
+): PlanWeaveInput {
   const meshBase = "https://semantic-flow.github.io/mesh-alice-bio/";
   const currentMeshInventoryTurtle = `@base <${meshBase}> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
@@ -1049,13 +1051,8 @@ Deno.test("planWeave batches explicit first payload targets with one merged Mesh
   sflo:hasWorkingLocatedFile <${workingLocalRelativePath}> .
 `;
 
-  const plan = planWeave({
-    request: {
-      targets: [
-        { designatorPath: "bob/data" },
-        { designatorPath: "alice/data" },
-      ],
-    },
+  return {
+    request,
     meshBase,
     currentMeshInventoryTurtle,
     currentMeshMetadataTurtle,
@@ -1093,7 +1090,21 @@ Deno.test("planWeave batches explicit first payload targets with one merged Mesh
         },
       },
     ],
-  });
+    supportHistoryPolicies: {
+      meshInventory: "versioned",
+      knopMetadata: "versioned",
+      knopInventory: "versioned",
+    },
+  };
+}
+
+Deno.test("planWeave batches explicit first payload targets with one merged MeshInventory progression", () => {
+  const plan = planWeave(firstPayloadBatchInput({
+    targets: [
+      { designatorPath: "bob/data" },
+      { designatorPath: "alice/data" },
+    ],
+  }));
 
   assertEquals(plan.wovenDesignatorPaths, ["alice/data", "bob/data"]);
   assertEquals(
@@ -1139,6 +1150,70 @@ Deno.test("planWeave batches explicit first payload targets with one merged Mesh
     meshMetadata,
     'sflo:nextStateOrdinal "4"^^xsd:nonNegativeInteger .',
   );
+});
+
+Deno.test("planWeave batches untargeted first payload candidates in canonical order", () => {
+  const plan = planWeave(firstPayloadBatchInput({}));
+
+  assertEquals(plan.wovenDesignatorPaths, ["alice/data", "bob/data"]);
+  assertEquals(
+    plan.createdFiles.filter((file) =>
+      file.path.startsWith("_mesh/_inventory/_history001/_s0003/")
+    ).map((file) => file.path),
+    ["_mesh/_inventory/_history001/_s0003/ttl/inventory.ttl"],
+  );
+  assertEquals(
+    plan.updatedFiles.filter((file) =>
+      file.path === "_mesh/_inventory/inventory.ttl"
+    ).length,
+    1,
+  );
+  const createdPaths = plan.createdFiles.map((file) => file.path);
+  for (const designatorPath of ["alice/data", "bob/data"]) {
+    assert(createdPaths.includes(
+      `${designatorPath}/_history001/_s0001/ttl/${
+        designatorPath === "alice/data" ? "alice-data.ttl" : "bob-data.ttl"
+      }`,
+    ));
+    assert(createdPaths.includes(
+      `${designatorPath}/_knop/_meta/_history001/_s0001/ttl/meta.ttl`,
+    ));
+    assert(createdPaths.includes(
+      `${designatorPath}/_knop/_inventory/_history001/_s0001/ttl/inventory.ttl`,
+    ));
+  }
+  const meshInventory =
+    plan.updatedFiles.find((file) =>
+      file.path === "_mesh/_inventory/inventory.ttl"
+    )?.contents ?? "";
+  assertStringIncludes(
+    meshInventory,
+    "sflo:hasKnop <alice/data/_knop> ;\n  sflo:hasKnop <bob/data/_knop> ;",
+  );
+  for (const designatorPath of ["alice/data", "bob/data"]) {
+    assertStringIncludes(
+      meshInventory,
+      `<${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;`,
+    );
+    const knopInventory = plan.updatedFiles.find((file) =>
+      file.path === `${designatorPath}/_knop/_inventory/inventory.ttl`
+    )?.contents ?? "";
+    assertStringIncludes(
+      knopInventory,
+      `sflo:currentArtifactHistory <${designatorPath}/_history001> ;`,
+    );
+  }
+});
+
+Deno.test("planWeave keeps an exact target narrow beside untargeted first payload candidates", () => {
+  const plan = planWeave(firstPayloadBatchInput({
+    targets: [{ designatorPath: "alice/data" }],
+  }));
+
+  assertEquals(plan.wovenDesignatorPaths, ["alice/data"]);
+  for (const file of [...plan.createdFiles, ...plan.updatedFiles]) {
+    assertFalse(file.path === "bob/data" || file.path.startsWith("bob/data/"));
+  }
 });
 
 Deno.test("planWeave preserves floating repository payload source locators", () => {

@@ -410,16 +410,25 @@ export async function prepareVersionExecution(
   });
   const meshEffectiveConfig = await effectiveConfigProvider
     .configForMeshScope();
+  const untargetedFirstPayloadBatch = targets.length === 0 &&
+    isUntargetedFirstPayloadBatch(
+      meshState.meshBase,
+      initialWeaveableKnops,
+    );
+  const batchCandidates = untargetedFirstPayloadBatch
+    ? initialWeaveableKnops
+    : payloadBatchCandidates;
 
   if (
-    payloadBatchCandidates.length > 0 &&
-    isExplicitPayloadBatch(
-      meshState.meshBase,
-      payloadBatchCandidates,
-      targetByDesignatorPath,
-    )
+    batchCandidates.length > 0 &&
+    (untargetedFirstPayloadBatch ||
+      isExplicitPayloadBatch(
+        meshState.meshBase,
+        batchCandidates,
+        targetByDesignatorPath,
+      ))
   ) {
-    assertRequestedTargetsAreWeaveable(targets, payloadBatchCandidates);
+    assertRequestedTargetsAreWeaveable(targets, batchCandidates);
     const batchPlan = await timeOptional(
       timing,
       "prepare.planPayloadBatch",
@@ -427,7 +436,7 @@ export async function prepareVersionExecution(
         try {
           return await planExplicitPayloadBatchVersion(
             meshState,
-            payloadBatchCandidates,
+            batchCandidates,
             targetByDesignatorPath,
             meshEffectiveConfig,
             effectiveConfigProvider,
@@ -899,6 +908,20 @@ function isExplicitPayloadBatch(
         targetByDesignatorPath.get(candidate.designatorPath) !== undefined &&
         candidate.payloadArtifact?.currentArtifactHistoryPath !== undefined);
   });
+}
+
+function isUntargetedFirstPayloadBatch(
+  meshBase: string,
+  candidates: readonly WeaveableKnopCandidate[],
+): boolean {
+  return candidates.length > 1 &&
+    candidates.every((candidate) =>
+      detectPendingWeaveSlice(
+        meshBase,
+        candidate.designatorPath,
+        candidate.currentKnopInventoryTurtle,
+      ) === "firstPayloadWeave"
+    );
 }
 
 async function planExplicitPayloadBatchVersion(

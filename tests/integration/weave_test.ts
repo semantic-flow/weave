@@ -192,6 +192,86 @@ Deno.test("executeWeave materializes current support ResourcePages for a docs-ro
   );
 });
 
+Deno.test("executeWeave batches a docs-rooted multi-pending first payload weave", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-sidecar-multi-pending-first-payload-",
+  );
+  const meshRoot = join(workspaceRoot, "docs");
+  await executeMeshCreate({
+    workspaceRoot,
+    meshRoot: "docs",
+    request: {
+      meshBase: sidecarFantasyRulesBase,
+    },
+  });
+  await executeWeave({
+    meshRoot,
+    historyTrackingPolicyOverride: "versioned",
+  });
+
+  await Deno.writeTextFile(
+    join(meshRoot, "ontology.ttl"),
+    `@base <${sidecarFantasyRulesBase}> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+
+<ontology> a owl:Ontology .
+`,
+  );
+  await Deno.writeTextFile(
+    join(meshRoot, "shacl.ttl"),
+    `@base <${sidecarFantasyRulesBase}> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+
+<shacl> a sh:NodeShape .
+`,
+  );
+  for (const designatorPath of ["ontology", "shacl"]) {
+    await executeIntegrate({
+      meshRoot,
+      request: {
+        designatorPath,
+        source: `${designatorPath}.ttl`,
+      },
+    });
+  }
+
+  const result = await executeWeave({
+    meshRoot,
+    historyTrackingPolicyOverride: "versioned",
+  });
+
+  assertEquals(result.wovenDesignatorPaths, ["ontology", "shacl"]);
+  assertEquals(
+    result.createdPaths.filter((path) =>
+      /^docs\/_mesh\/_inventory\/_history001\/_s\d+\/ttl\/inventory\.ttl$/.test(
+        path,
+      )
+    ),
+    ["docs/_mesh/_inventory/_history001/_s0002/ttl/inventory.ttl"],
+  );
+  for (const designatorPath of ["ontology", "shacl"]) {
+    assert(result.createdPaths.includes(
+      `docs/${designatorPath}/_history001/_s0001/ttl/${designatorPath}.ttl`,
+    ));
+    assert(result.createdPaths.includes(`docs/${designatorPath}/index.html`));
+    assert(result.createdPaths.includes(
+      `docs/${designatorPath}/_history001/index.html`,
+    ));
+    await Deno.stat(join(meshRoot, designatorPath, "index.html"));
+  }
+  const meshMetadata = await Deno.readTextFile(
+    join(meshRoot, "_mesh/_meta/meta.ttl"),
+  );
+  assertStringIncludes(
+    meshMetadata,
+    "sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0002> ;",
+  );
+  assertStringIncludes(
+    meshMetadata,
+    'sflo:nextStateOrdinal "3"^^xsd:nonNegativeInteger',
+  );
+});
+
 Deno.test("executeWeave refreshes ancestor ResourcePages when a child designator is woven", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-weave-refresh-ancestor-pages-",
