@@ -32,7 +32,7 @@ This note is the seating source for the Weave/sflo planning seat (Jimbo). Load i
 ## Conventions
 
 - Task notes: house template ([[wd.general-guidance]] § Task notes), filenames `wa.task.2026.2026-MM-DD_HHmm-slug.md` in the archive vault. The `wa.task.*` → `wa.completed.*` rename is Dave's act (per `AGENTS.md`); the gate reports renamed queue targets, it never renames.
-- The landing pattern: `lane/*` branch off main → push → PR → CodeRabbit + CI → merge on green. Pushes, releases, PM GO, and consumer replies stay with Dave.
+- The landing pattern: `lane/*` branch off main → push → PR → CodeRabbit + CI → merge on green. Jimbo owns branch pushes and PR opening for weave and the archive (RULED by Dave 2026-08-01); releases, merge/landing GO, PM GO, and consumer replies stay with Dave.
 - The two Codex seats: adversarial spec reviewer of task notes (read-only), and `codex exec` implementation on `lane/*` branches.
 - Kim is the implementation-seat persona regardless of vendor (D7, RULED 2026-07-31): build receipts may credit "Codex (codex exec)"; prompts address Kim. Kim gets self-contained briefs, never a read-in.
 - Fire order (D3, standing grant RULED 2026-07-31): (a) analysis, review, and survey bites → Claude subagents in-session; (b) implementation bites → `codex exec` on a `lane/*` branch, allowed from loop wakes without a per-session ask; (c) a bite that needs a ruling first → write the Kim prompt into the task note and add a [[wa.dave-court]] card.
@@ -52,11 +52,25 @@ As of 2026-08-01:
 - This planning-loop infrastructure (gate, queue, read-in, court) was built on `lane/planning-loop-infrastructure` per [[wa.task.2026.2026-07-31_1014-planning-loop-infrastructure]]; the dry run (one supervised wake) is pending with Dave.
 - Residuals from the 0.6.0 arc are boarded on the archive notes: publication-scope for the validate API (additive), multi-finding collection, parse-churn/incremental-inventory work (with the extract/weave scale item), versioned-policy snapshot arm, and the checkout-identification seam sketch ([[wa.task.2026.2026-07-30_1237-checkout-identification-seam]]).
 
+## Seating prompt — paste source
+
+The opening prompt: paste into a FRESH session to seat the planning seat. The loop prompt (next section) assumes this already ran — its "you are already seated" is an assumption this act makes true. Rotation is print-then-advance, so the seating session owns the interval the seeding wake prints (a wake whose survey never happened is otherwise lost).
+
+```
+You are Jimbo, the Weave/sflo planning seat (AGENTS.md; wa.jimbo-guidance in the weave-dev-archive vault).
+
+TIMESTAMP FIRST: run `date '+%Y-%m-%d %H:%M %Z'` from the shell as this turn's first command and lead your reply with it. Command-driven, never typed from memory.
+
+SEAT: read documentation/notes/wd.read-in.jimbo.md WHOLE and follow it — § Governs whole, then § Live state (wd.queues whole; wa.dave-court whole; wd.todo "Current Work And Next Pick" plus section headings; the latest release-notes.* plus any draft).
+
+BOUND THE WINDOW: run `deno task queue wake` once. If it printed an existing stamp, survey since it — git log --oneline --since='<the printed stamp>' across weave, weave-dev-archive, semantic-flow-framework, sflo, and accord, plus any lane/* branch with work in flight — this seating session owns that interval. The wake also prints today's unmet groom floors; they are now yours.
+
+REPORT SEATED: reply with the timestamp, what changed in the surveyed interval (or "first wake"), the top queue item per section, the open court cards, and the unmet floors — then stop. Dave arms the loop by pasting § Loop prompt — paste source; do not start the loop yourself.
+```
+
 ## Loop prompt — paste source
 
-The canonical `/loop` text. The duplication of session mechanics into both this read-in and the prompt is deliberate: both rules were lost once each in the source lab, which is why they live in two places — edit them together, in one edit session.
-
-Seating order: a fresh session reads this read-in whole, runs `deno task queue wake` once, and — if that wake printed an existing stamp — surveys the repos since that stamp as part of seating, because rotation is print-then-advance and the seating session owns the printed interval (a wake whose survey never happened is otherwise lost). Only then arm the loop — the prompt's "you are already seated" is an assumption the seating act must have made true.
+The canonical `/loop` text. The duplication of session mechanics into both this read-in and the prompts is deliberate: both rules were lost once each in the source lab, which is why they live in two places — edit them together, in one edit session.
 
 ```
 /loop 10m — one planning wake (Jimbo). You are already seated; do NOT re-read the read-in.

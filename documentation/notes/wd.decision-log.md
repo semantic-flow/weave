@@ -20,6 +20,11 @@ created: 1773630801215
 
 ## Decisions
 
+### 2026-08-01: Pushes Move To The Planning Seat
+
+- Decision: Jimbo owns `git push` for weave (lane branches and PR opening) and for weave-dev-archive; releases, merge/landing GO, PM GO, and consumer replies remain Dave's. Supersedes the "pushes stay with Dave" clauses in the planning-loop task note and in [[wd.read-in.jimbo]] as first written.
+- References: [[wa.task.2026.2026-07-31_1014-planning-loop-infrastructure]]
+
 ### 2026-08-01: Planning Loop Infrastructure (D1–D8)
 
 - Decision: Adopt Stagecraft's planning-loop shape at two-seat scale — a gated READY queue [[wd.queues]] with exactly two sections (`## Kim — implementation`, `## Jimbo — planning`) whose contract `scripts/queue-gate.ts` enforces mechanically (`deno task queue`); a single seat read-in [[wd.read-in.jimbo]] carrying the canonical `/loop 10m` prompt as paste source; a separate ungated court [[wa.dave-court]] in the archive vault; and mechanical wake/groom stamps in git-ignored `.jimbo-state.json` (`wake`/`groomed` subcommands). Kim names the implementation seat regardless of vendor, and `codex exec` implementation bites on `lane/*` branches may fire from loop wakes under Dave's standing grant — pushes, releases, and consumer replies stay Dave's.
