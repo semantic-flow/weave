@@ -14,4 +14,3 @@ This note is the READY slice, in order: a task enters when it is fireable and le
 3. [[wa.task.2026.2026-05-17-append-onlyish-inventory]] — next larger inventory-correctness pick unless a sharper Stagecraft blocker outranks it
 
 ## Jimbo — planning
-1. [[wa.task.2026.2026-08-01_2032-regenerate-sflo-published-mesh]] — unblocked by sflo v0.3.0; replay the recipe from its tag, then Dave publishes
