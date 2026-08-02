@@ -282,3 +282,43 @@ function hasPredicate(quads: readonly Quad[], predicateIri: string): boolean {
 function parseQuads(turtle: string): Quad[] {
   return new Parser({ baseIRI: meshBase }).parse(turtle);
 }
+
+// A mesh whose designator path sits at the SFLO vocabulary namespace — the
+// sflo mesh itself, published at https://semantic-flow.github.io/sflo/ with
+// its ontology payload at `ontology/` — used to emit `sflo:_knop/_sources`
+// for its own resources. `/` is not legal in a Turtle prefixed name's local
+// part, so the carried facts failed to re-parse and every weave of that mesh
+// refused with "Could not parse carried Knop support facts Turtle."
+Deno.test("renderKnopInventoryWithPreservedSupportArtifacts preserves support facts when the mesh sits under the SFLO vocabulary namespace", () => {
+  const sfloMeshBase = "https://semantic-flow.github.io/sflo/";
+  const sfloKnopPath = "ontology/_knop";
+  const currentKnopInventoryTurtle = `@base <${sfloMeshBase}> .
+@prefix sflo: <${SFLO_NAMESPACE}> .
+
+<ontology/_knop> a sflo:Knop ;
+  sflo:hasKnopMetadata <ontology/_knop/_meta> ;
+  sflo:hasKnopInventory <ontology/_knop/_inventory> ;
+  sflo:hasKnopSourceRegistry <ontology/_knop/_sources> ;
+  sflo:hasWorkingKnopInventoryFile <ontology/_knop/_inventory/inventory.ttl> ;
+  sflo:hasPayloadArtifact <ontology> .
+
+<ontology/_knop/_sources> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <ontology/_knop/_sources/sources.ttl> .
+
+<ontology/_knop/_sources/sources.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+`;
+
+  const rendered = renderKnopInventoryWithPreservedSupportArtifacts({
+    meshBase: sfloMeshBase,
+    currentKnopInventoryTurtle,
+    renderedKnopInventoryTurtle: currentKnopInventoryTurtle,
+    knopPath: sfloKnopPath,
+  });
+
+  // The result must re-parse, and must never contain a prefixed name whose
+  // local part carries a path separator.
+  const quads = new Parser({ baseIRI: sfloMeshBase }).parse(rendered);
+  assert(quads.length > 0);
+  assertFalse(/\bsflo:[^\s;,.]*\//.test(rendered));
+  assertStringIncludes(rendered, "ontology/_knop/_sources");
+});
