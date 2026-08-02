@@ -667,7 +667,16 @@ function renderNamedNodeTerm(
     return "a";
   }
   if (value.startsWith(SFLO_NAMESPACE)) {
-    return `sflo:${value.slice(SFLO_NAMESPACE.length)}`;
+    const localName = value.slice(SFLO_NAMESPACE.length);
+    // A mesh published under the SFLO vocabulary namespace — the sflo mesh
+    // itself, whose `ontology/` designator sits at the vocabulary IRI — has
+    // resources like `<…/sflo/ontology/_knop/_sources>`. Compacting those
+    // would emit `sflo:_knop/_sources`, and `/` is not legal in a Turtle
+    // prefixed name's local part, so the facts fail to re-parse. Fall through
+    // to a mesh-relative or absolute IRI in that case.
+    if (!localName.includes("/")) {
+      return `sflo:${localName}`;
+    }
   }
   if (meshBase !== undefined && value.startsWith(meshBase)) {
     return `<${value.slice(meshBase.length)}>`;
