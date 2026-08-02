@@ -1,10 +1,12 @@
 import { toKnopPath, toReferenceCatalogPath } from "../designator_segments.ts";
 import {
+  RDF_NAMESPACE,
   SFLO_NAMESPACE,
   SFLO_TURTLE_PREFIX_DECLARATION,
 } from "../rdf/namespaces.ts";
 import { toArtifactManifestationPath } from "./artifact_manifestation_paths.ts";
 import { WeaveInputError } from "./errors.ts";
+import { planInventoryAppend } from "./inventory_append_planner.ts";
 import type {
   MeshInventoryProgression,
   PageDefinitionWeaveProgression,
@@ -302,51 +304,80 @@ ${currentWorkingFileDeclaration}
 }
 
 export function renderCurrentOnlyReferenceCatalogWovenKnopInventoryTurtle(
-  _meshBase: string,
+  meshBase: string,
   currentKnopInventoryTurtle: string,
   designatorPath: string,
   workingLocalRelativePath: string,
 ): string {
   const referenceCatalogPath = toReferenceCatalogPath(designatorPath);
   const referenceCatalogPagePath = `${referenceCatalogPath}/index.html`;
-  const blocks = splitTurtleBlocks(currentKnopInventoryTurtle);
-  const currentReferenceCatalogBlockIndex = findSubjectBlockIndex(
-    blocks,
-    referenceCatalogPath,
-  );
-  if (currentReferenceCatalogBlockIndex === -1) {
+  const requestedSettledFactsTurtle = `@base <${meshBase}> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
+
+<${referenceCatalogPath}> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${workingLocalRelativePath}> ;
+  sflo:hasResourcePage <${referenceCatalogPagePath}> .
+
+<${referenceCatalogPagePath}> a sflo:ResourcePage, sflo:LocatedFile .
+`;
+  const plan = planInventoryAppend({
+    baseIri: meshBase,
+    currentInventoryTurtle: currentKnopInventoryTurtle,
+    requestedSettledFactsTurtle,
+    singleValuedSettledPredicates: [
+      `${SFLO_NAMESPACE}hasWorkingLocatedFile`,
+    ],
+    currentInventoryLabel: `current KnopInventory for ${designatorPath}`,
+    requestedFactsLabel:
+      `current-only ReferenceCatalog weave facts for ${designatorPath}`,
+  });
+
+  if (plan.kind === "conflict") {
     throw new WeaveInputError(
-      `Current KnopInventory did not contain ReferenceCatalog block <${referenceCatalogPath}>.`,
+      `Could not append current-only ReferenceCatalog inventory facts for ${designatorPath}: ${
+        plan.conflicts.map((conflict) => conflict.message).join(" ")
+      }`,
     );
   }
 
-  const currentReferenceCatalogBlock =
-    blocks[currentReferenceCatalogBlockIndex]!;
-  if (
-    !currentReferenceCatalogBlock.includes(`<${workingLocalRelativePath}>`) &&
-    !currentReferenceCatalogBlock.includes(`"${workingLocalRelativePath}"`)
+  if (plan.kind === "unchanged") {
+    return plan.outputTurtle;
+  }
+
+  let compactAppendTurtle = plan.appendTurtle
+    .replaceAll(`<${RDF_NAMESPACE}type>`, "a")
+    .replaceAll(
+      `<${SFLO_NAMESPACE}ReferenceCatalog>`,
+      "sflo:ReferenceCatalog",
+    )
+    .replaceAll(`<${SFLO_NAMESPACE}DigitalArtifact>`, "sflo:DigitalArtifact")
+    .replaceAll(`<${SFLO_NAMESPACE}RdfDocument>`, "sflo:RdfDocument")
+    .replaceAll(
+      `<${SFLO_NAMESPACE}hasWorkingLocatedFile>`,
+      "sflo:hasWorkingLocatedFile",
+    )
+    .replaceAll(
+      `<${SFLO_NAMESPACE}hasResourcePage>`,
+      "sflo:hasResourcePage",
+    )
+    .replaceAll(`<${SFLO_NAMESPACE}ResourcePage>`, "sflo:ResourcePage")
+    .replaceAll(`<${SFLO_NAMESPACE}LocatedFile>`, "sflo:LocatedFile");
+  for (
+    const path of [
+      referenceCatalogPath,
+      workingLocalRelativePath,
+      referenceCatalogPagePath,
+    ]
   ) {
-    throw new WeaveInputError(
-      `Current ReferenceCatalog block did not carry the expected working file for ${designatorPath}.`,
+    compactAppendTurtle = compactAppendTurtle.replaceAll(
+      `<${new URL(path, meshBase).href}>`,
+      `<${path}>`,
     );
   }
 
-  const blocksWithReferencePage = replaceSubjectBlock(
-    blocks,
-    referenceCatalogPath,
-    appendPredicateToSubjectBlock(
-      currentReferenceCatalogBlock,
-      `sflo:hasResourcePage <${referenceCatalogPagePath}>`,
-    ),
-  );
-  const finalBlocks = upsertSubjectBlockAfter(
-    blocksWithReferencePage,
-    referenceCatalogPath,
-    referenceCatalogPagePath,
-    renderResourcePageLocatedFileBlock(referenceCatalogPagePath),
-  );
-
-  return `${finalBlocks.join("\n\n")}\n`;
+  return `${
+    plan.outputTurtle.slice(0, -plan.appendTurtle.length)
+  }${compactAppendTurtle}`;
 }
 
 export function renderCurrentOnlyPageDefinitionWovenKnopInventoryTurtle(
