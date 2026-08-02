@@ -36,7 +36,7 @@ The API plans from an authoritative in-memory text overlay, preflights working u
 
 ## Validation
 
-- Source quality gate: `deno task fmt` and `deno task ci` before close; exact implementation receipts are recorded in [[wa.task.2026.2026-07-21_1322-programmatic-version-api]].
+- Source quality gate: `deno task fmt` and `deno task ci` before close; exact implementation receipts are recorded in [[wa.completed.2026.2026-07-21_1322-programmatic-version-api]].
 - Focused equivalence evidence compares every API-created/updated output path byte-for-byte against the CLI `payload update` plus `version` workflow for both single and multi-item requests.
 - Failure injection covers working update, text create, binary create accounting, and support update, including completed-path details and the narrowed retry boundary.
 

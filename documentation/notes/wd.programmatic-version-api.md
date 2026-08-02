@@ -10,7 +10,7 @@ created: 1784667355000
 
 This note defines the Weave v1 in-process API contract for coherently recording caller-supplied payload bytes. The portable observable behavior is [[sf.spec.2026-07-21-programmatic-version-api]].
 
-The contract and implementation strategy were ratified by PM GO in [[wa.task.2026.2026-07-21_1322-programmatic-version-api]].
+The contract and implementation strategy were ratified by PM GO in [[wa.completed.2026.2026-07-21_1322-programmatic-version-api]].
 
 ## Stable Public Surface
 
