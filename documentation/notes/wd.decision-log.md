@@ -20,6 +20,30 @@ created: 1773630801215
 
 ## Decisions
 
+### 2026-08-02: Cancelled Tasks Get Their Own `wa.cancelled.*` Prefix
+
+- Decision: A task note that will never be delivered as described is renamed `wa.task.*` → `wa.cancelled.*`, parallel to the `wa.completed.*` closure rename. Both are closure acts and both are the planning seat's duty; the distinction is whether the work shipped or was abandoned/superseded. Ruled by Dave 2026-08-02 in response to the staleness sweep finding four such notes and no existing convention for them.
+- References: [[wd.maintenance.2026-08]], [[wa.cancelled.2026.2026-04-08_1545-resource-page-definition-and-sources]], [[wa.cancelled.2026.2026-04-14_0018-configurable-test-tmp]]
+- Why: "Completed" would have been a lie on four notes, and leaving them as `wa.task.*` kept dead work indistinguishable from live work in every sweep and count.
+
+### 2026-08-02: Carve Before Closing A Note That Holds Boarded Follow-Ups
+
+- Decision: When a task note's own scope is delivered but later work was boarded onto it, carve the boarded work into its own note **first**, then close the original. Do not close a note whose closure would silently drop a queue entry, and do not leave a delivered lane open because a follow-up is parked in it.
+- References: [[wa.completed.2026.2026-07-21_1603-extractor-defect-pair]], [[wa.task.2026.2026-08-02_1330-extracted-term-weave-batch-path]]
+- Why: The extractor defect pair was genuinely delivered (F1 landed, F2 withdrawn by amendment r1) but was holding queue item 1 — the extract→weave scale epic. Closing it as-found would have dropped the epic; leaving it open would have misrepresented a finished lane as unfinished. The carve resolves both.
+
+### 2026-08-02: A Capability Change Forces A Minor, Regardless Of Diff Size
+
+- Decision: `v0.7.0` was cut as a minor rather than a patch because one of its four changes (`d6f87ca`) makes a previously-*refused* invocation succeed. Three `fix`-labeled changes do not make a release a patch if any change adds capability. Release scope is judged by the shape of the behavior change, not the size of the diff.
+- References: [[release-notes.v0.7.0]]
+- Why: A consumer moving `0.6.0 → 0.6.1` is entitled to assume behavior only became more correct, not more capable. Untargeted weave over a multi-pending mesh used to fail with "supports exactly one weave candidate; found 2"; someone pinning a patch and getting new batch semantics would be surprised in exactly the way semver exists to prevent.
+
+### 2026-08-02: "Current Code" In A Ruling Must Name A Commit And State Its Release Intent
+
+- Decision: When a ruling authorizes work against "current code," the pinned commit is named explicitly **and** the ruling states whether a release is expected to follow. "Current" alone is ambiguous between the planning seat (current `main`) and Dave (the current release).
+- References: [[wa.completed.2026.2026-08-01_2032-regenerate-sflo-published-mesh]], [[wd.maintenance.2026-08]]
+- Why: The SFLO publication shipped on unreleased code by design — the recipe pinned `WEAVE_COMMIT` and moved it forward mid-task to pick up the PR #35 namespace fix, and `v0.6.0` provably could not have generated that corpus. But Dave read the ruling as meaning the current release, and the gap only surfaced a day later. The pin was doing real work; it just never surfaced as "this is ahead of the release."
+
 ### 2026-08-01: Delegation Defaults To Codex
 
 - Decision: Delegated bites of every kind default to codex — `codex exec --sandbox read-only` for analysis/review/survey, `codex exec` on `lane/*` for implementation; Claude subagents only when a bite needs the harness's tools or in-session context. Amends D3(a) as first written.
