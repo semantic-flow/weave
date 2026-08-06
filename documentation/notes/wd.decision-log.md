@@ -20,9 +20,10 @@ created: 1773630801215
 
 ## Decisions
 
-### 2026-08-06: `weave rename` Is A New Command; Supersession Stores One Hop
+### 2026-08-06: `weave supersede` Is The Primitive; Supersession Stores One Hop
 
-- Decision: add a `weave rename` command as the explicit signal for a rename, and store only a single `dcterms:isReplacedBy` hop, resolving chains at render time with cycle detection. SHACL updates constraining supersession are routine churn, not a cost to design around.
+- Decision: **`weave supersede <old> <new>`** records a supersession and touches no files; **`weave rename <old> <new>`** moves the working file and then delegates to it (`rename` = `mv` + `supersede`). A rename needs an explicit command either way. Store only a single `dcterms:isReplacedBy` hop, resolving chains at render time with cycle detection. SHACL updates constraining supersession are routine churn, not a cost to design around.
+- The name `repoint` was rejected: it already means changing a `ResourcePageSource` or page region's target artifact in fixture-ladder rungs, the import task note, and the maintenance log. Reusing it would collide with live vocabulary.
 - References: [[wa.task.2026.2026-08-06_0949-knop-supersession-and-rename]]
 - Why: Weave cannot infer a rename. When an author renames a note in their editor, all Weave observes is one designator's working file vanishing and another appearing — indistinguishable from a delete plus an unrelated create. Inferring identity from content similarity would be a heuristic making identity claims, which is exactly what a mesh must not do; the command supplies intent the filesystem cannot. One hop is preferred on **truth locality** — "A was replaced by B" is an observed fact about A, while "A is superseded by C" is derived from a later event involving only B and C — plus cost (full closure mints a state on every ancestor per rename) and the fact that it saves nothing operationally, since A's page needs regenerating either way for its notice to point at C.
 - Correction (2026-08-06): the one-hop rationale first recorded here claimed full closure would "rewrite settled facts." That was wrong, per Dave — recording a later hop mints a new state rather than rewriting an old one, which is ordinary append-onlyish behavior. The ruling is unchanged; the reasoning above replaces it. Relatedly, a superseded Knop is not "frozen": its payload states are immutable, but it mints a state to carry the supersession fact.
