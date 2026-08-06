@@ -261,18 +261,74 @@ export function assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
     "workingLocalRelativePath" | "repositorySourceFloatingLocator"
   >,
 ): void {
-  const sourceKnopPath = toKnopPath(sourcePayloadDesignatorPath);
-  const knopPath = toKnopPath(designatorPath);
-  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
-  const sourcePayloadPagePath = toDesignatorResourcePagePath(
-    sourcePayloadDesignatorPath,
-  );
   const errorMessage =
     `The current local weave slice only supports the settled extracted-knop pre-weave mesh inventory shape for ${designatorPath}.`;
   const quads = parseWeaveShapeQuads(
     meshBase,
     currentMeshInventoryTurtle,
     errorMessage,
+  );
+  assertCurrentMeshInventoryQuadsForFirstExtractedKnopWeave(
+    quads,
+    meshBase,
+    meshInventoryProgression,
+    designatorPath,
+    sourcePayloadDesignatorPath,
+    sourcePayloadArtifact,
+    errorMessage,
+  );
+}
+
+export function assertCurrentMeshInventoryShapeForFirstExtractedKnopBatchWeave(
+  meshBase: string,
+  currentMeshInventoryTurtle: string,
+  meshInventoryProgression: MeshInventoryProgression | undefined,
+  targets: readonly {
+    designatorPath: string;
+    sourcePayloadDesignatorPath: string;
+    sourcePayloadArtifact: Pick<
+      ReferenceTargetSourcePayloadArtifact,
+      "workingLocalRelativePath" | "repositorySourceFloatingLocator"
+    >;
+  }[],
+): void {
+  const quads = parseWeaveShapeQuads(
+    meshBase,
+    currentMeshInventoryTurtle,
+    "Could not parse the current MeshInventory for an untargeted extracted-Knop batch weave.",
+  );
+  for (const target of targets) {
+    const errorMessage =
+      `The current local weave slice only supports the settled extracted-knop pre-weave mesh inventory shape for ${target.designatorPath}.`;
+    assertCurrentMeshInventoryQuadsForFirstExtractedKnopWeave(
+      quads,
+      meshBase,
+      meshInventoryProgression,
+      target.designatorPath,
+      target.sourcePayloadDesignatorPath,
+      target.sourcePayloadArtifact,
+      errorMessage,
+    );
+  }
+}
+
+function assertCurrentMeshInventoryQuadsForFirstExtractedKnopWeave(
+  quads: readonly Quad[],
+  meshBase: string,
+  meshInventoryProgression: MeshInventoryProgression | undefined,
+  designatorPath: string,
+  sourcePayloadDesignatorPath: string,
+  sourcePayloadArtifact: Pick<
+    ReferenceTargetSourcePayloadArtifact,
+    "workingLocalRelativePath" | "repositorySourceFloatingLocator"
+  >,
+  errorMessage: string,
+): void {
+  const sourceKnopPath = toKnopPath(sourcePayloadDesignatorPath);
+  const knopPath = toKnopPath(designatorPath);
+  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
+  const sourcePayloadPagePath = toDesignatorResourcePagePath(
+    sourcePayloadDesignatorPath,
   );
 
   assertHasNamedNodeFacts(quads, meshBase, errorMessage, [

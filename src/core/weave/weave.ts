@@ -41,6 +41,7 @@ import {
   renderLaterPayloadWovenKnopInventoryTurtle,
 } from "./payload_renderers.ts";
 import {
+  renderBatchedFirstExtractedKnopWovenMeshInventoryTurtle,
   renderBatchedFirstPayloadWovenMeshInventoryTurtle,
   renderFirstKnopWovenMeshInventoryTurtle,
   renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle,
@@ -74,6 +75,7 @@ import {
   resolveCurrentMeshInventoryProgressionForFirstPayloadWeave,
   resolvePageDefinitionWeaveProgression,
 } from "./progression_resolvers.ts";
+import type { MeshInventoryProgression } from "./progression_models.ts";
 import {
   buildCurrentOnlyPageDefinitionWeavePages,
   buildCurrentOnlyReferenceCatalogWeavePages,
@@ -98,6 +100,7 @@ import {
   assertCurrentKnopInventoryShapeForSubsequentPageDefinitionWeave,
   assertCurrentKnopInventoryWithoutHistory,
   assertCurrentKnopMetadataShape,
+  assertCurrentMeshInventoryShapeForFirstExtractedKnopBatchWeave,
   assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave,
   assertCurrentMeshInventoryShapeForFirstReferenceCatalogWeave,
   assertCurrentPayloadArtifactShape,
@@ -229,13 +232,33 @@ export function planWeave(input: PlanWeaveInput): WeavePlan {
   if (weaveableKnops.length !== 1) {
     const isUntargetedFirstPayloadBatch = requestedTargets.length === 0 &&
       !overwriteExistingState &&
-      weaveableKnops.every((selection) =>
-        classifyWeaveSlice(
-          meshBase,
-          selection.candidate,
-          selection.target,
-        ) === "firstPayloadWeave"
+      isHomogeneousBatchSlice(
+        meshBase,
+        weaveableKnops,
+        "firstPayloadWeave",
       );
+    const isUntargetedFirstExtractedKnopBatch = requestedTargets.length === 0 &&
+      !overwriteExistingState &&
+      isHomogeneousBatchSlice(
+        meshBase,
+        weaveableKnops,
+        "firstExtractedKnopWeave",
+      );
+    if (isUntargetedFirstExtractedKnopBatch) {
+      const plan = planUntargetedFirstExtractedKnopBatchWeave(
+        meshBase,
+        input.currentMeshInventoryTurtle,
+        input.currentMeshMetadataTurtle,
+        weaveableKnops,
+        input.supportHistoryPolicies,
+      );
+
+      return applyResourcePageGenerationPolicies(plan, {
+        config: input.resourcePageGenerationConfig,
+        policies: input.resourcePageGenerationPolicies,
+        explicitRequest: false,
+      });
+    }
     if (
       !overwriteExistingState &&
       (requestedTargets.length > 1 || isUntargetedFirstPayloadBatch)
@@ -351,6 +374,20 @@ export function planWeave(input: PlanWeaveInput): WeavePlan {
     policies: input.resourcePageGenerationPolicies,
     explicitRequest: requestedTargets.length > 0,
   });
+}
+
+function isHomogeneousBatchSlice(
+  meshBase: string,
+  selections: readonly SelectedWeaveableKnopCandidate[],
+  expectedSlice: "firstPayloadWeave" | "firstExtractedKnopWeave",
+): boolean {
+  return selections.every((selection) =>
+    classifyWeaveSlice(
+      meshBase,
+      selection.candidate,
+      selection.target,
+    ) === expectedSlice
+  );
 }
 
 export function planVersion(input: PlanWeaveInput): VersionPlan {
@@ -605,6 +642,105 @@ interface FirstPayloadBatchEntry {
   >;
 }
 
+function planUntargetedFirstExtractedKnopBatchWeave(
+  meshBase: string,
+  currentMeshInventoryTurtle: string,
+  currentMeshMetadataTurtle: string | undefined,
+  selectedWeaveableKnops: readonly SelectedWeaveableKnopCandidate[],
+  supportHistoryPolicies?: WeaveSupportHistoryPolicies,
+): WeavePlan {
+  const selections = [...selectedWeaveableKnops].sort((left, right) =>
+    left.candidate.designatorPath.localeCompare(right.candidate.designatorPath)
+  );
+  const plans: WeavePlan[] = [];
+  const versionMeshInventory = shouldMaterializeSupportHistory(
+    supportHistoryPolicies?.meshInventory ?? "versioned",
+  );
+  const meshInventoryProgression = versionMeshInventory
+    ? resolveCurrentMeshInventoryProgressionForFirstKnopWeave(
+      meshBase,
+      currentMeshInventoryTurtle,
+      currentMeshMetadataTurtle,
+      selections[0]!.candidate.designatorPath,
+    )
+    : undefined;
+  assertCurrentMeshInventoryShapeForFirstExtractedKnopBatchWeave(
+    meshBase,
+    currentMeshInventoryTurtle,
+    meshInventoryProgression,
+    selections.map((selection) => {
+      const source = selection.candidate
+        .referenceTargetSourcePayloadArtifact!;
+      return {
+        designatorPath: selection.candidate.designatorPath,
+        sourcePayloadDesignatorPath: source.designatorPath,
+        sourcePayloadArtifact: source,
+      };
+    }),
+  );
+
+  for (const selection of selections) {
+    const candidate = selection.candidate;
+    const designatorPath = candidate.designatorPath;
+    const knopPath = toKnopPath(designatorPath);
+
+    withBatchTargetDiagnostic(designatorPath, () => {
+      if (selection.target !== undefined) {
+        throw new WeaveInputError(
+          "Untargeted extracted-Knop batching does not accept explicit targets.",
+        );
+      }
+      assertCurrentKnopMetadataShape(
+        meshBase,
+        candidate.currentKnopMetadataTurtle,
+        designatorPath,
+        knopPath,
+      );
+      assertCurrentKnopInventoryBaseShape(
+        meshBase,
+        candidate.currentKnopInventoryTurtle,
+        knopPath,
+      );
+      if (
+        classifyWeaveSlice(meshBase, candidate) !==
+          "firstExtractedKnopWeave"
+      ) {
+        throw new WeaveInputError(
+          `Untargeted extracted-Knop batch candidate ${designatorPath} is not in the first extracted-Knop weave slice.`,
+        );
+      }
+
+      plans.push(planFirstExtractedKnopWeave(
+        meshBase,
+        currentMeshInventoryTurtle,
+        currentMeshMetadataTurtle,
+        candidate,
+        supportHistoryPolicies,
+        {
+          includeSharedMeshInventoryFiles: false,
+          batchMeshInventoryProgression: meshInventoryProgression,
+        },
+      ));
+    });
+  }
+
+  const mergedMeshInventoryTurtle =
+    renderBatchedFirstExtractedKnopWovenMeshInventoryTurtle(
+      currentMeshInventoryTurtle,
+      meshBase,
+      selections.map((selection) => selection.candidate.designatorPath),
+      meshInventoryProgression,
+    );
+
+  return mergeFirstWeaveBatchPlans(
+    meshBase,
+    currentMeshMetadataTurtle,
+    plans,
+    meshInventoryProgression,
+    mergedMeshInventoryTurtle,
+  );
+}
+
 function planExplicitPayloadBatchWeave(
   meshBase: string,
   currentMeshInventoryTurtle: string,
@@ -792,13 +928,6 @@ function mergePayloadBatchPlans(
   plans: readonly WeavePlan[],
   firstPayloadEntries: readonly FirstPayloadBatchEntry[],
 ): WeavePlan {
-  const createdFiles: PlannedFile[] = [];
-  const createdBinaryFiles: PlannedBinaryFile[] = [];
-  const updatedFiles: PlannedFile[] = [];
-  const createdPages: ResourcePageModel[] = [];
-  const createdPaths = new Set<string>();
-  const updatedPaths = new Set<string>();
-  const pagePaths = new Set<string>();
   const firstPayloadProgression = resolveBatchMeshInventoryProgression(
     firstPayloadEntries,
   );
@@ -818,9 +947,33 @@ function mergePayloadBatchPlans(
       firstPayloadProgression,
     );
 
-  if (firstPayloadProgression && mergedMeshInventoryTurtle) {
+  return mergeFirstWeaveBatchPlans(
+    meshBase,
+    currentMeshMetadataTurtle,
+    plans,
+    firstPayloadProgression,
+    mergedMeshInventoryTurtle,
+  );
+}
+
+function mergeFirstWeaveBatchPlans(
+  meshBase: string,
+  currentMeshMetadataTurtle: string | undefined,
+  plans: readonly WeavePlan[],
+  meshInventoryProgression: MeshInventoryProgression | undefined,
+  mergedMeshInventoryTurtle: string | undefined,
+): WeavePlan {
+  const createdFiles: PlannedFile[] = [];
+  const createdBinaryFiles: PlannedBinaryFile[] = [];
+  const updatedFiles: PlannedFile[] = [];
+  const createdPages: ResourcePageModel[] = [];
+  const createdPaths = new Set<string>();
+  const updatedPaths = new Set<string>();
+  const pagePaths = new Set<string>();
+
+  if (meshInventoryProgression && mergedMeshInventoryTurtle) {
     addCreatedFile(createdFiles, createdPaths, updatedPaths, {
-      path: `${firstPayloadProgression.nextStatePath}/ttl/inventory.ttl`,
+      path: `${meshInventoryProgression.nextStatePath}/ttl/inventory.ttl`,
       contents: mergedMeshInventoryTurtle,
     });
   }
@@ -861,12 +1014,12 @@ function mergePayloadBatchPlans(
     }
   }
 
-  if (firstPayloadProgression) {
+  if (meshInventoryProgression) {
     addUpdatedFile(updatedFiles, updatedPaths, createdPaths, {
       path: "_mesh/_meta/meta.ttl",
       contents: renderMeshMetadataWithMeshInventoryProgression(
         currentMeshMetadataTurtle,
-        firstPayloadProgression,
+        meshInventoryProgression,
       ),
     });
   }
@@ -882,15 +1035,15 @@ function mergePayloadBatchPlans(
 }
 
 function resolveBatchMeshInventoryProgression(
-  firstPayloadEntries: readonly FirstPayloadBatchEntry[],
-): FirstPayloadBatchEntry["meshInventoryProgression"] {
-  const progressions = firstPayloadEntries
+  entries: readonly { meshInventoryProgression?: MeshInventoryProgression }[],
+): MeshInventoryProgression | undefined {
+  const progressions = entries
     .map((entry) => entry.meshInventoryProgression)
     .filter((progression) => progression !== undefined);
   if (progressions.length === 0) {
     return undefined;
   }
-  if (progressions.length !== firstPayloadEntries.length) {
+  if (progressions.length !== entries.length) {
     throw new WeaveInputError(
       "Multi-target payload weave found conflicting MeshInventory history policies across requested targets.",
       "progression-conflict",
@@ -911,8 +1064,8 @@ function resolveBatchMeshInventoryProgression(
 }
 
 function meshInventoryProgressionsEqual(
-  left: NonNullable<FirstPayloadBatchEntry["meshInventoryProgression"]>,
-  right: NonNullable<FirstPayloadBatchEntry["meshInventoryProgression"]>,
+  left: MeshInventoryProgression,
+  right: MeshInventoryProgression,
 ): boolean {
   return left.historyPath === right.historyPath &&
     left.latestStatePath === right.latestStatePath &&
@@ -1352,6 +1505,10 @@ function planFirstExtractedKnopWeave(
   currentMeshMetadataTurtle: string | undefined,
   candidate: WeaveableKnopCandidate,
   supportHistoryPolicies?: WeaveSupportHistoryPolicies,
+  options: {
+    includeSharedMeshInventoryFiles?: boolean;
+    batchMeshInventoryProgression?: MeshInventoryProgression;
+  } = {},
 ): WeavePlan {
   const designatorPath = candidate.designatorPath;
   const knopPath = toKnopPath(designatorPath);
@@ -1363,14 +1520,18 @@ function planFirstExtractedKnopWeave(
   const versionMeshInventory = shouldMaterializeSupportHistory(
     meshInventoryHistoryPolicy,
   );
-  const meshInventoryProgression = versionMeshInventory
-    ? resolveCurrentMeshInventoryProgressionForFirstKnopWeave(
-      meshBase,
-      currentMeshInventoryTurtle,
-      currentMeshMetadataTurtle,
-      designatorPath,
-    )
-    : undefined;
+  const batchMeshInventoryShapeAlreadyAsserted =
+    options.includeSharedMeshInventoryFiles === false;
+  const meshInventoryProgression = batchMeshInventoryShapeAlreadyAsserted
+    ? options.batchMeshInventoryProgression
+    : (versionMeshInventory
+      ? resolveCurrentMeshInventoryProgressionForFirstKnopWeave(
+        meshBase,
+        currentMeshInventoryTurtle,
+        currentMeshMetadataTurtle,
+        designatorPath,
+      )
+      : undefined);
   const knopMetadataHistoryPolicy = supportHistoryPolicies?.knopMetadata ??
     "versioned";
   const versionKnopMetadata = shouldMaterializeSupportHistory(
@@ -1382,14 +1543,16 @@ function planFirstExtractedKnopWeave(
     knopInventoryHistoryPolicy,
   );
 
-  assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
-    meshBase,
-    currentMeshInventoryTurtle,
-    meshInventoryProgression,
-    designatorPath,
-    referenceTargetSourcePayloadArtifact.designatorPath,
-    referenceTargetSourcePayloadArtifact,
-  );
+  if (!batchMeshInventoryShapeAlreadyAsserted) {
+    assertCurrentMeshInventoryShapeForFirstExtractedKnopWeave(
+      meshBase,
+      currentMeshInventoryTurtle,
+      meshInventoryProgression,
+      designatorPath,
+      referenceTargetSourcePayloadArtifact.designatorPath,
+      referenceTargetSourcePayloadArtifact,
+    );
+  }
   assertCurrentKnopInventoryShapeForFirstExtractedKnopWeave(
     meshBase,
     candidate.currentKnopInventoryTurtle,
@@ -1408,17 +1571,21 @@ function planFirstExtractedKnopWeave(
     referenceTargetSourcePayloadArtifact,
   );
 
-  const wovenMeshInventoryTurtle = meshInventoryProgression === undefined
-    ? renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle(
-      currentMeshInventoryTurtle,
-      meshBase,
-      designatorPath,
-    )
-    : renderGenericFirstExtractedKnopWovenMeshInventoryTurtle(
-      currentMeshInventoryTurtle,
-      designatorPath,
-      meshInventoryProgression,
-    );
+  const includeSharedMeshInventoryFiles =
+    options.includeSharedMeshInventoryFiles !== false;
+  const wovenMeshInventoryTurtle = includeSharedMeshInventoryFiles
+    ? (meshInventoryProgression === undefined
+      ? renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle(
+        currentMeshInventoryTurtle,
+        meshBase,
+        designatorPath,
+      )
+      : renderGenericFirstExtractedKnopWovenMeshInventoryTurtle(
+        currentMeshInventoryTurtle,
+        designatorPath,
+        meshInventoryProgression,
+      ))
+    : undefined;
   const wovenKnopInventoryTurtle =
     renderKnopInventoryWithPreservedSupportArtifacts({
       meshBase,
@@ -1451,10 +1618,13 @@ function planFirstExtractedKnopWeave(
     meshBase,
     wovenDesignatorPaths: [designatorPath],
     createdFiles: [
-      ...(meshInventoryProgression === undefined ? [] : [{
-        path: `${meshInventoryProgression.nextStatePath}/ttl/inventory.ttl`,
-        contents: wovenMeshInventoryTurtle,
-      }]),
+      ...(meshInventoryProgression === undefined ||
+          wovenMeshInventoryTurtle === undefined
+        ? []
+        : [{
+          path: `${meshInventoryProgression.nextStatePath}/ttl/inventory.ttl`,
+          contents: wovenMeshInventoryTurtle,
+        }]),
       ...(versionKnopMetadata
         ? [{
           path: `${knopPath}/_meta/_history001/_s0001/ttl/meta.ttl`,
@@ -1502,10 +1672,10 @@ function planFirstExtractedKnopWeave(
         : []),
     ],
     updatedFiles: [
-      {
+      ...(wovenMeshInventoryTurtle === undefined ? [] : [{
         path: "_mesh/_inventory/inventory.ttl",
         contents: wovenMeshInventoryTurtle,
-      },
+      }]),
       {
         path: `${knopPath}/_inventory/inventory.ttl`,
         contents: wovenKnopInventoryTurtle,
@@ -1515,29 +1685,35 @@ function planFirstExtractedKnopWeave(
           .sourceRegistryWorkingLocalRelativePath!,
         contents: exactSourceRegistryTurtle,
       }]),
-      ...(meshInventoryProgression === undefined ? [] : [{
-        path: "_mesh/_inventory/_history001/index.html",
-        contents: renderArtifactHistoryIndexPage(meshBase, {
-          pagePath: "_mesh/_inventory/_history001/index.html",
-          description:
-            "Resource page for the current explicit history of the MeshInventory artifact.",
-          artifactLabel: "Inventory artifact",
-          workingLocalRelativePath: "_mesh/_inventory/inventory.ttl",
-          states: [
-            { segment: "_s0001", latest: false },
-            { segment: "_s0002", latest: false },
-            { segment: "_s0003", latest: false },
-            { segment: "_s0004", latest: true },
-          ],
-        }),
-      }]),
-      ...(meshInventoryProgression === undefined ? [] : [{
-        path: "_mesh/_meta/meta.ttl",
-        contents: renderMeshMetadataWithMeshInventoryProgression(
-          currentMeshMetadataTurtle,
-          meshInventoryProgression,
-        ),
-      }]),
+      ...(meshInventoryProgression === undefined ||
+          !includeSharedMeshInventoryFiles
+        ? []
+        : [{
+          path: "_mesh/_inventory/_history001/index.html",
+          contents: renderArtifactHistoryIndexPage(meshBase, {
+            pagePath: "_mesh/_inventory/_history001/index.html",
+            description:
+              "Resource page for the current explicit history of the MeshInventory artifact.",
+            artifactLabel: "Inventory artifact",
+            workingLocalRelativePath: "_mesh/_inventory/inventory.ttl",
+            states: [
+              { segment: "_s0001", latest: false },
+              { segment: "_s0002", latest: false },
+              { segment: "_s0003", latest: false },
+              { segment: "_s0004", latest: true },
+            ],
+          }),
+        }]),
+      ...(meshInventoryProgression === undefined ||
+          !includeSharedMeshInventoryFiles
+        ? []
+        : [{
+          path: "_mesh/_meta/meta.ttl",
+          contents: renderMeshMetadataWithMeshInventoryProgression(
+            currentMeshMetadataTurtle,
+            meshInventoryProgression,
+          ),
+        }]),
     ],
     createdPages: buildFirstExtractedKnopWeavePages(
       designatorPath,
