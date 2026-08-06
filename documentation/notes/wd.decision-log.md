@@ -20,6 +20,15 @@ created: 1773630801215
 
 ## Decisions
 
+### 2026-08-06: A Rename Is A Supersession, Not A Move
+
+- Decision: renaming a Knop does not relocate it. The old Knop stays frozen at its designator path with its full ArtifactHistory intact and permanently resolvable; a new Knop begins at the new path; the two are linked with **`dcterms:isReplacedBy`** (no new SFLO vocabulary term; SHACL may constrain it). The superseded page renders in full — not as a stub — with an RDF-driven notice offering a cancellable redirect to the continuation.
+- References: [[wa.task.2026.2026-08-06_0949-knop-supersession-and-rename]], [[wa.task.2026.2026-08-06_0854-markdown-site-pipeline]]
+- Why: the move alternative would relocate the history tree, which is a rewrite against the append-onlyish direction, and — decisively — would change **every historical state's IRI**, dangling exact-state citations. Exact-state citability is the thing a mesh exists to provide. Supersession costs one authored note two identity chains, which is honest: a renamed note genuinely is a new identifier, and continuity is better stated explicitly than implied. It also makes the frontmatter `id` alias load-bearing rather than decorative.
+- Follow-Up Tasks:
+  - [ ] Decide what performs a rename — there is no `weave rename` today.
+  - [ ] Notice wording must preserve the distinction that the *latest states* moved; the old states did not.
+
 ### 2026-08-06: Dendron Note Identity — Filename For The IRI, `id` As Durable Alias
 
 - Decision: a Dendron note's dot-hierarchy filename determines its designator path and therefore its IRI; the frontmatter `id` is recorded on the Knop as a durable alias. Each vault mounts at its own designator path, so cross-vault collisions cannot occur by construction. Wikilink lookup matches the filename hierarchy.
