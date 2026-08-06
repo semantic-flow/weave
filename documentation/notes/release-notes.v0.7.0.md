@@ -29,7 +29,11 @@ Three of the four changes are labeled `fix`, but the batch dispatch is a genuine
 - **Cardinality: only `hasWorkingLocatedFile` is treated as single-valued** on this path. `hasResourcePage` is not functional in the ontology and is no longer collapsed as if it were.
 - **Output shape: Turtle IRI compaction is narrower.** IRIs whose local name contains a path separator now render in mesh-relative or absolute form instead of a `sflo:` prefixed name. Scoped by construction to meshes with resources under the vocabulary namespace — no other mesh's output changes.
 - **Acceptance: nested extraction sources no longer require root Knop facts.** Meshes that `0.6.0` refused with `settled extracted-knop pre-weave mesh inventory shape` now weave. No previously-accepted mesh changes behavior, and no `_knop` artifacts are synthesized for grouping segments.
-- No API, CLI routing, packaging, or `versionPayloads`/`validateMesh` contract changes. `@semantic-flow/weave-lib` ships at `0.7.0` with an unchanged surface.
+- **BREAKING for CommonJS consumers: `@semantic-flow/weave-lib` is now ESM-only.** The dnt build no longer emits the `script/` (CJS) output, so the package exposes `exports: { ".": { "import": "./esm/api/mod.js" } }` with no `require` entry and no `main`. Node 20 — already this package's declared engine floor — supports ESM natively, and the off-tree Node contract smoke already exercised the ESM path, so the API surface itself is unchanged. `import { validateMesh, versionPayloads } from "@semantic-flow/weave-lib"` is unaffected; `require("@semantic-flow/weave-lib")` no longer resolves.
+
+  Why now: dependencies the page-generation surface needs are ESM-only upstream. This was already latent — the previously generated CJS bundle contained `require("shiki")`, and Shiki is ESM-only; it was invisible only because `src/api/mod.ts` exports validation and versioning, not page generation. Dropping CJS resolves the existing inconsistency and unblocks the Markdown pipeline work.
+
+- No API, CLI routing, or `versionPayloads`/`validateMesh` contract changes. `@semantic-flow/weave-lib` ships at `0.7.0` with an unchanged API surface — only its module format changed.
 
 ## Artifacts
 
