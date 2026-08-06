@@ -31,6 +31,8 @@ Entries below the marker keep the older long form. They are historical and are n
 - 2026-08-06 — A superseded resource and its replacement each say so in their own file, so a reader of either one can follow the link without scanning the mesh. → [[wa.task.2026.2026-08-06_0949-knop-supersession-and-rename]]
 - 2026-08-06 — A renamed resource records the exact state it continues from, so lineage stays precise even if the old resource is later corrected. → [[wa.task.2026.2026-08-06_0949-knop-supersession-and-rename]]
 - 2026-08-06 — Renaming onto an occupied path is refused outright: that would be a merge, and merges are not a thing Weave does by accident. → [[wa.task.2026.2026-08-06_0949-knop-supersession-and-rename]]
+- 2026-08-06 — Thousand-term meshes get a real safety margin, not a squeak-past: weave must stay under 1.5 GiB at 1,700 terms and grow no worse than linearly. → [[wa.task.2026.2026-08-02_1330-extracted-term-weave-batch-path]]
+- 2026-08-06 — Page generation gets the same treatment, because fixing weave alone would leave the whole extract-weave-generate sequence just as close to the ceiling. → [[wa.task.2026.2026-08-02_1330-extracted-term-weave-batch-path]]
 - 2026-08-06 — Court cards now stay short and name an owning note, and this log became a ledger, so rulings stop being duplicated across surfaces. → [[wd.read-in.jimbo]]
 
 ## Decisions (long form, pre-2026-08-06)

@@ -47,7 +47,15 @@ This note is the seating source for the Weave/sflo planning seat (Jimbo). Load i
 
 *The tier that rots — the only tier loaded in full text. If the stamp below is more than a few days old, verify against [[wd.todo]] and the latest release notes before trusting anything in this section.*
 
-As of 2026-08-02:
+As of 2026-08-06:
+
+- **v0.7.0 is STAGED AND BLOCKED ON GITHUB, not on us.** `main` at `7915eae` carries version 0.7.0, ESM-only packaging (PR #39 merged), and written release notes. The rehearsal FAILED on 2026-08-06 because GitHub Actions is in a `major_outage` — jobs died in "Set up job" across `ubuntu-latest` and both macOS labels, before any step ran. Do not retry into a degraded queue: a partially-provisioned release run is how a partial npm publish happens. When Actions recovers: rehearse (`dry-run`/`draft`) on the merge commit, inspect, then publish. No tag exists and npm still serves 0.6.0.
+- **A markdown site pipeline is the new strategic direction**, ranked BELOW the three Stagecraft items (queue 4). A blind codex evaluation chose `unified`/`remark`/`rehype` over `markdown-it`, reversing a 2025-11-29 decision — both were right for their own scope, and the scope grew to a static site generator. Slice 2 (packaging proof) is PROVEN: real Dendron markdown renders under Deno and real Node, byte-identical between them, at 242 MB for 1,467 documents. Slice 1 is unblocked by four rulings. Evidence branch `lane/spike-unified-packaging` is NOT for merge — it carries a temporary npm export.
+- **Renames are supersessions** ([[wa.task.2026.2026-08-06_0949-knop-supersession-and-rename]], ten decisions, three behavioural issues left). `weave supersede` is the primitive, `weave rename` wraps it, paired `dcterms:isReplacedBy`/`replaces`, one hop, exact-state provenance.
+- **Versioned states are retractable, not immutable** — PII exposure must be fixable, so integrity checking promises current byte-consistency only. Fingerprint verification DEFERRED, embedded RDF PARKED.
+- **Court/ledger convention changed 2026-08-06** — see § Conventions. Cards name an owning note and stay short; [[wd.decision-log]] is now a product-voiced ledger.
+
+Superseded snapshot, as of 2026-08-02:
 
 - **v0.7.0 is IN FLIGHT.** PR #36 merged (`812ab77`); `deno.json` says `0.7.0` on `main`; the `Release Manual` rehearsal (dry-run + draft) was dispatched 2026-08-02. **Not yet released** — no `v0.7.0` tag, npm still serves `0.6.0`. The publish leg is a second workflow run with `npm_publish_mode: publish` / `github_release_mode: publish`, and it is Dave's. Scope: PRs #31/#33/#34/#35 — nested extraction sources, untargeted multi-pending first-payload batching, append-only ReferenceCatalog inventory, and the vocabulary-namespace IRI compaction fix. Minor not patch, because #33 makes a previously-refused invocation succeed. It is also the first release able to generate the published SFLO mesh (built from `2f04b71`; `v0.6.0` provably cannot).
 - **The SFLO mesh needs no regeneration.** `git diff 2f04b71..HEAD -- src/ scripts/ deno.json` is empty and no generated artifact embeds a Weave version, so v0.7.0 names the generator that already built the published corpus. If a future regen ever happens, the favicon is the ONLY preserved artifact (`.nojekyll` is generated; no `CNAME`, no `assets/`).
