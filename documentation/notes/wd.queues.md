@@ -12,6 +12,5 @@ This note is the READY slice, in order: a task enters when it is fireable and le
 1. [[wa.task.2026.2026-08-02_1330-extracted-term-weave-batch-path]] — get extracted candidates onto the batch path so thousand-term nested-source weave has headroom
 2. [[wa.task.2026.2026-07-03_1332-stagecraft-weave-planner-generalization]] — remaining first-payload planner blockers and condition-specific diagnostics
 3. [[wa.task.2026.2026-05-17-append-onlyish-inventory]] — next larger inventory-correctness pick unless a sharper Stagecraft blocker outranks it
-4. [[wa.task.2026.2026-08-06_0854-markdown-site-pipeline]] — packaging proof first; unified pipeline so Markdown artifacts render as pages, below the Stagecraft items
 
 ## Jimbo — planning
