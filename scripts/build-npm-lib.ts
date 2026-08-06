@@ -63,7 +63,17 @@ export async function buildNpmLibPackage(
   await emptyDir(outDir);
 
   await build({
-    entryPoints: [join(options.root, "src/api/mod.ts")],
+    entryPoints: [
+      join(options.root, "src/api/mod.ts"),
+      {
+        // Temporary proof-only subpath; remove with the packaging spike.
+        name: "./unified-packaging-spike",
+        path: join(
+          options.root,
+          "src/runtime/content/spike_unified_render.ts",
+        ),
+      },
+    ],
     outDir,
     // ESM-only. Several dependencies the page-generation surface needs are
     // ESM-only upstream (shiki today; a unified/remark/rehype pipeline later),
