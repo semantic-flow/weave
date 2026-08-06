@@ -20,6 +20,15 @@ created: 1773630801215
 
 ## Decisions
 
+### 2026-08-06: Dendron Note Identity — Filename For The IRI, `id` As Durable Alias
+
+- Decision: a Dendron note's dot-hierarchy filename determines its designator path and therefore its IRI; the frontmatter `id` is recorded on the Knop as a durable alias. Each vault mounts at its own designator path, so cross-vault collisions cannot occur by construction. Wikilink lookup matches the filename hierarchy.
+- References: [[wa.task.2026.2026-08-06_0854-markdown-site-pipeline]], [[wa.dave-court]]
+- Why: filename-derived IRIs are readable and the hierarchy is the site structure a static site generator needs, but they break on rename — which matters more in a mesh than in ordinary Dendron publishing, since the mesh exists to provide stable citable identifiers. Recording `id` as an alias keeps renames traceable without giving up readable IRIs; it costs one triple per note and is strictly better than either choice alone. Dendron resolves the same tension the same way.
+- Follow-Up Tasks:
+  - [ ] Rule whether a rename is a MOVE or a SUPERSESSION — the identity ruling does not settle it, and it determines what an alias/redirect page even is. Open court card; lean is supersession.
+  - [ ] If redirect stubs are emitted, they must be client-side: the GitHub Pages profile requires `.nojekyll`, which disables Jekyll and rules out server-side redirects.
+
 ### 2026-08-06: Versioned States Are Retractable, Not Immutable
 
 - Decision: `--overwrite-existing-state` updates a state's content digest. Fingerprinted states are therefore NOT immutable, and any integrity feature must be documented as **current byte-consistency**, never as proof that a state never changed.
