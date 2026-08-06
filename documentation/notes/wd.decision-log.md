@@ -6,65 +6,34 @@ updated: 1775902188057
 created: 1773630801215
 ---
 
-## Decision Log Template
+## Ledger Template
 
 ```
-### Date: Decison Title
-
-- Decision: {one line description of what was decided}
-- References: {wikilinks to task or conversation notes}
-- [optional] Why:
-- [optional] Follow-Up Tasks:
-  - [ ] each task gets a checkbox
+- YYYY-MM-DD — {what happened and why it matters, in one line, product-voiced} → [[owning-note]]
 ```
 
-## Decisions
+Say what changed for a user or a consumer, not how the machinery did it. The owning note carries the reasoning, the alternatives, and the evidence; a ledger line that needs a second sentence probably belongs in the owning note instead.
 
-### 2026-08-06: `weave supersede` Is The Primitive; Supersession Stores One Hop
+Every [[wa.dave-court]] card names an owning note before it is a card. At ruling time the owning note is updated first, then one line is appended here, then the card is swept.
 
-- Decision: **`weave supersede <old> <new>`** records a supersession and touches no files; **`weave rename <old> <new>`** moves the working file and then delegates to it (`rename` = `mv` + `supersede`). A rename needs an explicit command either way. Store only a single `dcterms:isReplacedBy` hop, resolving chains at render time with cycle detection. SHACL updates constraining supersession are routine churn, not a cost to design around.
-- The name `repoint` was rejected: it already means changing a `ResourcePageSource` or page region's target artifact in fixture-ladder rungs, the import task note, and the maintenance log. Reusing it would collide with live vocabulary.
-- References: [[wa.task.2026.2026-08-06_0949-knop-supersession-and-rename]]
-- Why: Weave cannot infer a rename. When an author renames a note in their editor, all Weave observes is one designator's working file vanishing and another appearing — indistinguishable from a delete plus an unrelated create. Inferring identity from content similarity would be a heuristic making identity claims, which is exactly what a mesh must not do; the command supplies intent the filesystem cannot. One hop is preferred on **truth locality** — "A was replaced by B" is an observed fact about A, while "A is superseded by C" is derived from a later event involving only B and C — plus cost (full closure mints a state on every ancestor per rename) and the fact that it saves nothing operationally, since A's page needs regenerating either way for its notice to point at C.
-- Correction (2026-08-06): the one-hop rationale first recorded here claimed full closure would "rewrite settled facts." That was wrong, per Dave — recording a later hop mints a new state rather than rewriting an old one, which is ordinary append-onlyish behavior. The ruling is unchanged; the reasoning above replaces it. Relatedly, a superseded Knop is not "frozen": its payload states are immutable, but it mints a state to carry the supersession fact.
+## Rulings Ledger
 
-### 2026-08-06: A Rename Is A Supersession, Not A Move
+*Format changed 2026-08-06.* One line per ruling, in the "what happened and why it matters" voice — not how the machinery did it — plus a link to the **owning note** that carries the reasoning. Every court card names an owning note, and that note is what gets updated at ruling time; this ledger is the scannable index, not the record.
 
-- Decision: renaming a Knop does not relocate it. The old Knop stays frozen at its designator path with its full ArtifactHistory intact and permanently resolvable; a new Knop begins at the new path; the two are linked with **`dcterms:isReplacedBy`** (no new SFLO vocabulary term; SHACL may constrain it). The superseded page renders in full — not as a stub — with an RDF-driven notice offering a cancellable redirect to the continuation.
-- References: [[wa.task.2026.2026-08-06_0949-knop-supersession-and-rename]], [[wa.task.2026.2026-08-06_0854-markdown-site-pipeline]]
-- Why: the move alternative would relocate the history tree, which is a rewrite against the append-onlyish direction, and — decisively — would change **every historical state's IRI**, dangling exact-state citations. Exact-state citability is the thing a mesh exists to provide. Supersession costs one authored note two identity chains, which is honest: a renamed note genuinely is a new identifier, and continuity is better stated explicitly than implied. It also makes the frontmatter `id` alias load-bearing rather than decorative.
-- Follow-Up Tasks:
-  - [ ] Decide what performs a rename — there is no `weave rename` today.
-  - [ ] Notice wording must preserve the distinction that the *latest states* moved; the old states did not.
+Entries below the marker keep the older long form. They are historical and are not being migrated.
 
-### 2026-08-06: Dendron Note Identity — Filename For The IRI, `id` As Durable Alias
+- 2026-08-06 — Renaming a note no longer breaks anything that cited it: renames supersede rather than move, so old URLs keep resolving and every prior citation stays valid, including exact-state ones. → [[wa.task.2026.2026-08-06_0949-knop-supersession-and-rename]]
+- 2026-08-06 — `weave supersede` records a rename; `weave rename` also moves the file. Weave cannot infer a rename, so it has to be told. → [[wa.task.2026.2026-08-06_0949-knop-supersession-and-rename]]
+- 2026-08-06 — Notes get readable URLs derived from their filename, with a durable `id` recorded so a rename can still be traced back. → [[wa.task.2026.2026-08-06_0854-markdown-site-pipeline]]
+- 2026-08-06 — Published states can be corrected or removed, because PII exposure has to be fixable. Integrity checking therefore promises current byte-consistency, never immutability. → [[wa.task.2026.2026-05-04-fingerprint-verification]], [[wa.task.2026.2026-05-17-append-onlyish-inventory]]
+- 2026-08-06 — Fingerprint verification and embedded RDF both wait for a real consumer instead of shipping on principle; each gap is real, neither is asked for. → [[wa.task.2026.2026-05-04-fingerprint-verification]], [[wa.task.2026.2026-06-12-rdfa-and-jsonld-support]]
+- 2026-08-06 — The Markdown pipeline starts narrow: three wikilink forms, disabled links for missing targets, and conversation transcripts private unless opted in. → [[wa.task.2026.2026-08-06_0854-markdown-site-pipeline]]
+- 2026-08-06 — A superseded resource and its replacement each say so in their own file, so a reader of either one can follow the link without scanning the mesh. → [[wa.task.2026.2026-08-06_0949-knop-supersession-and-rename]]
+- 2026-08-06 — A renamed resource records the exact state it continues from, so lineage stays precise even if the old resource is later corrected. → [[wa.task.2026.2026-08-06_0949-knop-supersession-and-rename]]
+- 2026-08-06 — Renaming onto an occupied path is refused outright: that would be a merge, and merges are not a thing Weave does by accident. → [[wa.task.2026.2026-08-06_0949-knop-supersession-and-rename]]
+- 2026-08-06 — Court cards now stay short and name an owning note, and this log became a ledger, so rulings stop being duplicated across surfaces. → [[wd.read-in.jimbo]]
 
-- Decision: a Dendron note's dot-hierarchy filename determines its designator path and therefore its IRI; the frontmatter `id` is recorded on the Knop as a durable alias. Each vault mounts at its own designator path, so cross-vault collisions cannot occur by construction. Wikilink lookup matches the filename hierarchy.
-- References: [[wa.task.2026.2026-08-06_0854-markdown-site-pipeline]], [[wa.dave-court]]
-- Why: filename-derived IRIs are readable and the hierarchy is the site structure a static site generator needs, but they break on rename — which matters more in a mesh than in ordinary Dendron publishing, since the mesh exists to provide stable citable identifiers. Recording `id` as an alias keeps renames traceable without giving up readable IRIs; it costs one triple per note and is strictly better than either choice alone. Dendron resolves the same tension the same way.
-- Follow-Up Tasks:
-  - [ ] Rule whether a rename is a MOVE or a SUPERSESSION — the identity ruling does not settle it, and it determines what an alias/redirect page even is. Open court card; lean is supersession.
-  - [ ] If redirect stubs are emitted, they must be client-side: the GitHub Pages profile requires `.nojekyll`, which disables Jekyll and rules out server-side redirects.
-
-### 2026-08-06: Versioned States Are Retractable, Not Immutable
-
-- Decision: `--overwrite-existing-state` updates a state's content digest. Fingerprinted states are therefore NOT immutable, and any integrity feature must be documented as **current byte-consistency**, never as proof that a state never changed.
-- References: [[wa.task.2026.2026-05-04-fingerprint-verification]], [[wa.task.2026.2026-05-17-append-onlyish-inventory]]
-- Why: states must be retractable — PII exposure is the motivating case. A state containing personal data has to be correctable or removable, so a guarantee of historical immutability would make the required capability impossible by design. Immutability was the wrong goal, not the harder one. This aligns with the append-onlyish note, which already lists "privacy or security retraction" among legitimate non-append modes and reserves explicit repair/retraction modes.
-- Follow-Up Tasks:
-  - [ ] Whichever task implements retraction modes owns the digest-update behavior too; they cannot be specified separately.
-
-### 2026-08-06: Fingerprint Verification Deferred; Embedded RDF Parked
-
-- Decision: fingerprint verification is DEFERRED (not cancelled) pending a named consumer; embedded RDFa/JSON-LD is PARKED, with JSON-LD as the choice if revived and RDFa rejected.
-- References: [[wa.task.2026.2026-05-04-fingerprint-verification]], [[wa.task.2026.2026-06-12-rdfa-and-jsonld-support]]
-- Why: both gaps are real but neither has consumer demand, and each has a stronger reason to wait than mere priority. For fingerprints, both consumers already hold anchors stronger than a self-recorded digest (Git tags, tagged source, Accord fixtures). For embedded RDF, the page document model is lossy enough that an honest graph needs a new parsed-dataset seam first — embedding a lossy projection would be worse than embedding nothing.
-
-### 2026-08-06: Markdown Pipeline Contract — Narrow First
-
-- Decision: v1 wikilinks are target, alias, and heading anchor only; missing or unpublished targets render as **disabled links**; conversation transcripts are **unpublished by default** with opt-in required.
-- References: [[wa.task.2026.2026-08-06_0854-markdown-site-pipeline]], [[wa.discussion.2026-08-08-markdown-renderer]]
-- Why: narrow wikilink scope is easy to widen and hard to retract. A disabled link keeps authoring intent visible without shipping a broken href, unlike either a build failure or silent plain text. Transcripts carry model output and pasted third-party content, so the publish default is a privacy decision and defaults to closed.
+## Decisions (long form, pre-2026-08-06)
 
 ### 2026-08-02: Cancelled Tasks Get Their Own `wa.cancelled.*` Prefix
 
