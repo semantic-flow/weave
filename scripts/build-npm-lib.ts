@@ -65,6 +65,11 @@ export async function buildNpmLibPackage(
   await build({
     entryPoints: [join(options.root, "src/api/mod.ts")],
     outDir,
+    // ESM-only. Several dependencies the page-generation surface needs are
+    // ESM-only upstream (shiki today; a unified/remark/rehype pipeline later),
+    // so a CJS build cannot express them as external `require()` dependencies.
+    // Node 20 — already this package's engine floor — supports ESM natively.
+    scriptModule: false,
     shims: {
       deno: true,
     },
