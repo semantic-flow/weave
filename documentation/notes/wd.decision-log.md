@@ -20,6 +20,26 @@ created: 1773630801215
 
 ## Decisions
 
+### 2026-08-06: Versioned States Are Retractable, Not Immutable
+
+- Decision: `--overwrite-existing-state` updates a state's content digest. Fingerprinted states are therefore NOT immutable, and any integrity feature must be documented as **current byte-consistency**, never as proof that a state never changed.
+- References: [[wa.task.2026.2026-05-04-fingerprint-verification]], [[wa.task.2026.2026-05-17-append-onlyish-inventory]]
+- Why: states must be retractable — PII exposure is the motivating case. A state containing personal data has to be correctable or removable, so a guarantee of historical immutability would make the required capability impossible by design. Immutability was the wrong goal, not the harder one. This aligns with the append-onlyish note, which already lists "privacy or security retraction" among legitimate non-append modes and reserves explicit repair/retraction modes.
+- Follow-Up Tasks:
+  - [ ] Whichever task implements retraction modes owns the digest-update behavior too; they cannot be specified separately.
+
+### 2026-08-06: Fingerprint Verification Deferred; Embedded RDF Parked
+
+- Decision: fingerprint verification is DEFERRED (not cancelled) pending a named consumer; embedded RDFa/JSON-LD is PARKED, with JSON-LD as the choice if revived and RDFa rejected.
+- References: [[wa.task.2026.2026-05-04-fingerprint-verification]], [[wa.task.2026.2026-06-12-rdfa-and-jsonld-support]]
+- Why: both gaps are real but neither has consumer demand, and each has a stronger reason to wait than mere priority. For fingerprints, both consumers already hold anchors stronger than a self-recorded digest (Git tags, tagged source, Accord fixtures). For embedded RDF, the page document model is lossy enough that an honest graph needs a new parsed-dataset seam first — embedding a lossy projection would be worse than embedding nothing.
+
+### 2026-08-06: Markdown Pipeline Contract — Narrow First
+
+- Decision: v1 wikilinks are target, alias, and heading anchor only; missing or unpublished targets render as **disabled links**; conversation transcripts are **unpublished by default** with opt-in required.
+- References: [[wa.task.2026.2026-08-06_0854-markdown-site-pipeline]], [[wa.discussion.2026-08-08-markdown-renderer]]
+- Why: narrow wikilink scope is easy to widen and hard to retract. A disabled link keeps authoring intent visible without shipping a broken href, unlike either a build failure or silent plain text. Transcripts carry model output and pasted third-party content, so the publish default is a privacy decision and defaults to closed.
+
 ### 2026-08-02: Cancelled Tasks Get Their Own `wa.cancelled.*` Prefix
 
 - Decision: A task note that will never be delivered as described is renamed `wa.task.*` → `wa.cancelled.*`, parallel to the `wa.completed.*` closure rename. Both are closure acts and both are the planning seat's duty; the distinction is whether the work shipped or was abandoned/superseded. Ruled by Dave 2026-08-02 in response to the staleness sweep finding four such notes and no existing convention for them.
