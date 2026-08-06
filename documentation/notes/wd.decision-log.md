@@ -20,6 +20,12 @@ created: 1773630801215
 
 ## Decisions
 
+### 2026-08-06: `weave rename` Is A New Command; Supersession Stores One Hop
+
+- Decision: add a `weave rename` command as the explicit signal for a rename, and store only a single `dcterms:isReplacedBy` hop, resolving chains at render time with cycle detection. SHACL updates constraining supersession are routine churn, not a cost to design around.
+- References: [[wa.task.2026.2026-08-06_0949-knop-supersession-and-rename]]
+- Why: Weave cannot infer a rename. When an author renames a note in their editor, all Weave observes is one designator's working file vanishing and another appearing — indistinguishable from a delete plus an unrelated create. Inferring identity from content similarity would be a heuristic making identity claims, which is exactly what a mesh must not do; the command supplies intent the filesystem cannot. Storing one hop rather than the transitive closure keeps rename cost constant instead of growing with chain length, and avoids rewriting settled facts on already-superseded Knops every time a later rename occurs — the same append-onlyish principle that decided supersession over move.
+
 ### 2026-08-06: A Rename Is A Supersession, Not A Move
 
 - Decision: renaming a Knop does not relocate it. The old Knop stays frozen at its designator path with its full ArtifactHistory intact and permanently resolvable; a new Knop begins at the new path; the two are linked with **`dcterms:isReplacedBy`** (no new SFLO vocabulary term; SHACL may constrain it). The superseded page renders in full — not as a stub — with an RDF-driven notice offering a cancellable redirect to the continuation.
