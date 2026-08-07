@@ -1,6 +1,6 @@
 import { Parser, type Quad } from "n3";
 import { SAFE_DESIGNATOR_SEGMENT_PATTERN } from "../designator_segments.ts";
-import { WeaveInputError } from "./errors.ts";
+import { type MeshValidationFindingCode, WeaveInputError } from "./errors.ts";
 
 const XSD_NON_NEGATIVE_INTEGER_IRI =
   "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
@@ -9,19 +9,27 @@ export interface NonNegativeIntegerLiteralDiagnostics {
   missingMessage?: string;
   conflictMessage?: string;
   invalidMessage?: string;
+  findingCode?: MeshValidationFindingCode;
+}
+
+export interface NamedNodeObjectDiagnostics {
+  missingMessage: string;
+  conflictMessage: string;
+  findingCode?: MeshValidationFindingCode;
 }
 
 export function parseWeaveShapeQuads(
   meshBase: string,
   turtle: string,
   errorMessage: string,
+  findingCode: MeshValidationFindingCode = "unsupported-mesh-shape",
 ): Quad[] {
   try {
     return new Parser({ baseIRI: meshBase }).parse(turtle);
   } catch {
-    // Callers pass family-specific "only supports ..." messages; the shared
-    // classified fallback for shape-parse failures is unsupported-mesh-shape.
-    throw new WeaveInputError(errorMessage, "unsupported-mesh-shape");
+    // Keep the default for callers that have not yet classified parse failures;
+    // condition-specific callers pass the matching finding code explicitly.
+    throw new WeaveInputError(errorMessage, findingCode);
   }
 }
 
@@ -30,6 +38,23 @@ export function requireSingleNamedNodeObject(
   subjectIri: string,
   predicateIri: string,
   errorMessage: string,
+): string {
+  return requireSingleNamedNodeObjectWithDiagnostics(
+    quads,
+    subjectIri,
+    predicateIri,
+    {
+      missingMessage: errorMessage,
+      conflictMessage: errorMessage,
+    },
+  );
+}
+
+export function requireSingleNamedNodeObjectWithDiagnostics(
+  quads: readonly Quad[],
+  subjectIri: string,
+  predicateIri: string,
+  diagnostics: NamedNodeObjectDiagnostics,
 ): string {
   const values = quads.flatMap((quad) =>
     quad.subject.termType === "NamedNode" &&
@@ -40,8 +65,17 @@ export function requireSingleNamedNodeObject(
       : []
   );
 
-  if (values.length !== 1) {
-    throw new WeaveInputError(errorMessage);
+  if (values.length === 0) {
+    throw new WeaveInputError(
+      diagnostics.missingMessage,
+      diagnostics.findingCode,
+    );
+  }
+  if (values.length > 1) {
+    throw new WeaveInputError(
+      diagnostics.conflictMessage,
+      diagnostics.findingCode,
+    );
   }
 
   return values[0]!;
@@ -80,12 +114,14 @@ export function requireSingleNonNegativeIntegerLiteralWithDiagnostics(
   if (values.size === 0) {
     throw new WeaveInputError(
       diagnostics.missingMessage ?? "Missing non-negative integer literal.",
+      diagnostics.findingCode,
     );
   }
   if (values.size > 1) {
     throw new WeaveInputError(
       diagnostics.conflictMessage ??
         "Conflicting non-negative integer literal facts.",
+      diagnostics.findingCode,
     );
   }
 
@@ -93,6 +129,7 @@ export function requireSingleNonNegativeIntegerLiteralWithDiagnostics(
   if (!Number.isInteger(parsed) || parsed < 0) {
     throw new WeaveInputError(
       diagnostics.invalidMessage ?? "Invalid non-negative integer literal.",
+      diagnostics.findingCode,
     );
   }
 
@@ -155,6 +192,7 @@ export function requireOptionalNamedNodeObject(
   subjectIri: string,
   predicateIri: string,
   errorMessage: string,
+  findingCode?: MeshValidationFindingCode,
 ): string | undefined {
   const values = quads.flatMap((quad) =>
     quad.subject.termType === "NamedNode" &&
@@ -166,7 +204,7 @@ export function requireOptionalNamedNodeObject(
   );
 
   if (values.length > 1) {
-    throw new WeaveInputError(errorMessage);
+    throw new WeaveInputError(errorMessage, findingCode);
   }
 
   return values[0];
@@ -204,6 +242,7 @@ export function resolveOptionalSegmentHint(
   subjectIri: string,
   predicateIri: string,
   errorMessage: string,
+  findingCode?: MeshValidationFindingCode,
 ): string | undefined {
   const values = quads.flatMap((quad) =>
     quad.subject.termType === "NamedNode" &&
@@ -215,14 +254,14 @@ export function resolveOptionalSegmentHint(
   );
 
   if (values.length > 1) {
-    throw new WeaveInputError(errorMessage);
+    throw new WeaveInputError(errorMessage, findingCode);
   }
   const value = values[0];
   if (value === undefined) {
     return undefined;
   }
   if (!SAFE_DESIGNATOR_SEGMENT_PATTERN.test(value)) {
-    throw new WeaveInputError(errorMessage);
+    throw new WeaveInputError(errorMessage, findingCode);
   }
 
   return value;
@@ -360,6 +399,7 @@ export function resolveUniqueLiteralValuesForTermKey(
   subjectKey: string,
   predicateIri: string,
   errorMessage: string,
+  findingCode?: MeshValidationFindingCode,
 ): string[] {
   const values = new Set<string>();
 
@@ -374,7 +414,7 @@ export function resolveUniqueLiteralValuesForTermKey(
   }
 
   if (values.size > 1) {
-    throw new WeaveInputError(errorMessage);
+    throw new WeaveInputError(errorMessage, findingCode);
   }
 
   return Array.from(values);

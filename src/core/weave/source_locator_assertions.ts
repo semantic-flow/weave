@@ -4,7 +4,7 @@ import type {
   PayloadWorkingArtifact,
   ReferenceTargetSourcePayloadArtifact,
 } from "./candidates.ts";
-import { WeaveInputError } from "./errors.ts";
+import { type MeshValidationFindingCode, WeaveInputError } from "./errors.ts";
 import {
   hasSubjectPredicateFact,
   hasTermKeyNamedNodeFact,
@@ -34,6 +34,7 @@ export function assertHasCurrentPayloadSourceLocator(
   errorMessage: string,
   subjectValue: string,
   payloadArtifact: PayloadWorkingArtifact,
+  findingCode?: MeshValidationFindingCode,
 ): void {
   const repositorySourceFloatingLocator =
     payloadArtifact.repositorySourceFloatingLocator;
@@ -45,6 +46,7 @@ export function assertHasCurrentPayloadSourceLocator(
       errorMessage,
       subjectValue,
       payloadArtifact.workingLocalRelativePath,
+      findingCode,
     );
     return;
   }
@@ -63,7 +65,7 @@ export function assertHasCurrentPayloadSourceLocator(
       SFLO_WORKING_FILE_PATH_IRI,
     )
   ) {
-    throw new WeaveInputError(errorMessage);
+    throw new WeaveInputError(errorMessage, findingCode);
   }
 
   assertHasRepositorySourceFloatingLocator(
@@ -72,6 +74,7 @@ export function assertHasCurrentPayloadSourceLocator(
     errorMessage,
     subjectValue,
     repositorySourceFloatingLocator,
+    findingCode,
   );
 }
 
@@ -84,6 +87,7 @@ export function assertHasCurrentSourceLocator(
     ReferenceTargetSourcePayloadArtifact,
     "workingLocalRelativePath" | "repositorySourceFloatingLocator"
   >,
+  findingCode?: MeshValidationFindingCode,
 ): void {
   if (sourceArtifact.repositorySourceFloatingLocator === undefined) {
     assertHasCurrentWorkingFileLocator(
@@ -92,6 +96,7 @@ export function assertHasCurrentSourceLocator(
       errorMessage,
       subjectValue,
       sourceArtifact.workingLocalRelativePath,
+      findingCode,
     );
     return;
   }
@@ -110,7 +115,7 @@ export function assertHasCurrentSourceLocator(
       SFLO_WORKING_FILE_PATH_IRI,
     )
   ) {
-    throw new WeaveInputError(errorMessage);
+    throw new WeaveInputError(errorMessage, findingCode);
   }
 
   assertHasRepositorySourceFloatingLocator(
@@ -119,6 +124,7 @@ export function assertHasCurrentSourceLocator(
     errorMessage,
     subjectValue,
     sourceArtifact.repositorySourceFloatingLocator,
+    findingCode,
   );
 }
 
@@ -128,6 +134,7 @@ export function assertHasRepositorySourceFloatingLocator(
   errorMessage: string,
   subjectValue: string,
   expectedLocator: RepositorySourceFloatingLocator,
+  findingCode?: MeshValidationFindingCode,
 ): void {
   const subjectIri = toAbsoluteIri(meshBase, subjectValue);
   const locatorKeys = new Set<string>();
@@ -147,7 +154,7 @@ export function assertHasRepositorySourceFloatingLocator(
   }
 
   if (locatorKeys.size !== 1) {
-    throw new WeaveInputError(errorMessage);
+    throw new WeaveInputError(errorMessage, findingCode);
   }
 
   const locatorKey = locatorKeys.values().next().value!;
@@ -159,7 +166,7 @@ export function assertHasRepositorySourceFloatingLocator(
       SFLO_REPOSITORY_SOURCE_FLOATING_LOCATOR_IRI,
     )
   ) {
-    throw new WeaveInputError(errorMessage);
+    throw new WeaveInputError(errorMessage, findingCode);
   }
 
   const repositoryUrls = resolveUniqueLiteralValuesForTermKey(
@@ -167,6 +174,7 @@ export function assertHasRepositorySourceFloatingLocator(
     locatorKey,
     SFLO_SOURCE_REPOSITORY_URL_IRI,
     errorMessage,
+    findingCode,
   );
   let repositoryPaths: string[];
   try {
@@ -175,12 +183,13 @@ export function assertHasRepositorySourceFloatingLocator(
       locatorKey,
       SFLO_SOURCE_REPOSITORY_PATH_FROM_ROOT_IRI,
       errorMessage,
+      findingCode,
     ).map((value) => normalizeWorkingLocalRelativePathLiteral(value));
   } catch (error) {
     if (error instanceof WeaveInputError) {
       throw error;
     }
-    throw new WeaveInputError(errorMessage);
+    throw new WeaveInputError(errorMessage, findingCode);
   }
 
   if (
@@ -189,7 +198,7 @@ export function assertHasRepositorySourceFloatingLocator(
     repositoryPaths.length !== 1 ||
     repositoryPaths[0] !== expectedLocator.repositoryPathFromRoot
   ) {
-    throw new WeaveInputError(errorMessage);
+    throw new WeaveInputError(errorMessage, findingCode);
   }
 }
 
@@ -199,6 +208,7 @@ export function assertHasCurrentWorkingFileLocator(
   errorMessage: string,
   subjectValue: string,
   workingLocalRelativePath: string,
+  findingCode?: MeshValidationFindingCode,
 ): void {
   const subjectIri = toAbsoluteIri(meshBase, subjectValue);
   const values = new Set<string>();
@@ -224,7 +234,7 @@ export function assertHasCurrentWorkingFileLocator(
           ),
         );
       } catch {
-        throw new WeaveInputError(errorMessage);
+        throw new WeaveInputError(errorMessage, findingCode);
       }
       continue;
     }
@@ -236,12 +246,12 @@ export function assertHasCurrentWorkingFileLocator(
       try {
         values.add(normalizeWorkingLocalRelativePathLiteral(quad.object.value));
       } catch {
-        throw new WeaveInputError(errorMessage);
+        throw new WeaveInputError(errorMessage, findingCode);
       }
     }
   }
 
   if (values.size !== 1 || !values.has(workingLocalRelativePath)) {
-    throw new WeaveInputError(errorMessage);
+    throw new WeaveInputError(errorMessage, findingCode);
   }
 }
