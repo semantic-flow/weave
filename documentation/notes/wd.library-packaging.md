@@ -64,6 +64,19 @@ Packaging must not change CLI routing, binary outputs, or the `./src/mod.ts` imp
 - Add a fs-purity guard (PM request): a test/lint asserting `src/api/**` and its transitive runtime imports use no `Deno.Command` (subprocess) and no network APIs, so Node compatibility cannot silently rot after the first publish. Plain fs (`Deno.readTextFile`/`writeFile`) is allowed because dnt shims it; the guard targets subprocess and network only.
 - Embed the `defaults/*.ttl` resources as generated modules regardless of registry: it removes the `import.meta.url` read (`WEAVE_DEFAULTS_ROOT` in `src/runtime/config/effective_config.ts`) that `versionPayloads` transitively hits, and avoids dnt having to copy data files. The audit found this is the only runtime `import.meta.url` resource load in `src/` (the other two hits are test files).
 - Slow types: the JSR/`deno publish` dry-run surfaced 6 `missing-explicit-type` errors on the public API. dnt requires the same explicit-type discipline, so annotate the exported symbols in `src/mod.ts` / `src/api/version_payloads.ts` as part of this work.
+- **2026-08-06: the package is ESM-only.** `scripts/build-npm-lib.ts` sets `scriptModule: false`, so dnt emits `esm/` only — `exports: { ".": { "import": "./esm/api/mod.js" } }`, no `main`, no `require` entry, and `esm/package.json` carries `{"type":"module"}`. Node 20 (the declared engine floor) supports ESM natively. This resolved an inconsistency rather than creating one: the previously emitted CJS bundle already contained `require("shiki")` and Shiki is ESM-only upstream, so that build could never have worked as CJS for anything touching page generation — it went unnoticed only because `src/api/mod.ts` exports validation and versioning. Breaking for `require()` consumers; shipped in v0.7.0 and named in its release notes.
+
+## Packaging constraints discovered in practice
+
+Durable facts about the dnt build, recorded as they are found so they are not rediscovered per slice.
+
+- **All dnt entry points must sit under the same base directory as the primary entry point** — in practice `src/`, since the primary is `src/api/mod.ts`. dnt derives a common base from the entry points and strips it from each path; an entry point elsewhere fails the transform outright with `Error stripping prefix of <path> with base <root>/src`. Found 2026-08-06 while adding a temporary subpath export pointing at `scripts/`.
+
+  **This constrains package entry points only — not imports, and not what code may be exported.** Any module may be imported from anywhere in the graph, and production code lives under `src/` regardless, so no real design is affected. It matters only when declaring a new npm subpath export: the module it points at has to live under `src/`.
+
+- **dnt auto-maps *runtime* `npm:` specifiers to real npm dependencies with exact versions.** Verified 2026-08-06 with the full `unified`/`remark`/`rehype` graph: nine import-map pins became nine exact `dependencies` entries in the generated `package.json` with no hand-written mapping.
+
+  **Scope, per CodeRabbit on PR #40:** this covers runtime imports only. Type-only, peer, and other package metadata can still need an explicit entry in the builder's `package.dependencies` — `@types/n3` is declared by hand there precisely because `n3@2` ships no types and consumer type traversal would otherwise break. Adding an import-map pin is sufficient for code dnt actually walks; it is not sufficient for metadata dnt cannot infer.
 
 ## Contract Changes
 

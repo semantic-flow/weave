@@ -6,19 +6,36 @@ updated: 1775902188057
 created: 1773630801215
 ---
 
-## Decision Log Template
+## Ledger Template
 
-```
-### Date: Decison Title
-
-- Decision: {one line description of what was decided}
-- References: {wikilinks to task or conversation notes}
-- [optional] Why:
-- [optional] Follow-Up Tasks:
-  - [ ] each task gets a checkbox
+```markdown
+- YYYY-MM-DD — {what happened and why it matters, in one line, product-voiced} → [[owning-note]]
 ```
 
-## Decisions
+Say what changed for a user or a consumer, not how the machinery did it. The owning note carries the reasoning, the alternatives, and the evidence; a ledger line that needs a second sentence probably belongs in the owning note instead.
+
+Every [[wa.dave-court]] card names an owning note before it is a card. At ruling time the owning note is updated first, then one line is appended here, then the card is swept.
+
+## Rulings Ledger
+
+*Format changed 2026-08-06.* One line per ruling, in the "what happened and why it matters" voice — not how the machinery did it — plus a link to the **owning note** that carries the reasoning. Every court card names an owning note, and that note is what gets updated at ruling time; this ledger is the scannable index, not the record.
+
+Entries below the marker keep the older long form. They are historical and are not being migrated.
+
+- 2026-08-06 — Renaming a note no longer breaks anything that cited it: renames supersede rather than move, so old URLs keep resolving and every prior citation stays valid, including exact-state ones. → [[wa.task.2026.2026-08-06_0949-knop-supersession-and-rename]]
+- 2026-08-06 — `weave supersede` records a rename; `weave rename` also moves the file. Weave cannot infer a rename, so it has to be told. → [[wa.task.2026.2026-08-06_0949-knop-supersession-and-rename]]
+- 2026-08-06 — Notes get readable URLs derived from their filename, with a durable `id` recorded so a rename can still be traced back. → [[wa.task.2026.2026-08-06_0854-markdown-site-pipeline]]
+- 2026-08-06 — Published states can be corrected or removed, because PII exposure has to be fixable. Integrity checking therefore promises current byte-consistency, never immutability. → [[wa.task.2026.2026-05-04-fingerprint-verification]], [[wa.task.2026.2026-05-17-append-onlyish-inventory]]
+- 2026-08-06 — Fingerprint verification and embedded RDF both wait for a real consumer instead of shipping on principle; each gap is real, neither is asked for. → [[wa.task.2026.2026-05-04-fingerprint-verification]], [[wa.task.2026.2026-06-12-rdfa-and-jsonld-support]]
+- 2026-08-06 — The Markdown pipeline starts narrow: three wikilink forms, disabled links for missing targets, and conversation transcripts private unless opted in. → [[wa.task.2026.2026-08-06_0854-markdown-site-pipeline]]
+- 2026-08-06 — A superseded resource and its replacement each say so in their own file, so a reader of either one can follow the link without scanning the mesh. → [[wa.task.2026.2026-08-06_0949-knop-supersession-and-rename]]
+- 2026-08-06 — A renamed resource records the exact state it continues from, so lineage stays precise even if the old resource is later corrected. → [[wa.task.2026.2026-08-06_0949-knop-supersession-and-rename]]
+- 2026-08-06 — Renaming onto an occupied path is refused outright: that would be a merge, and merges are not a thing Weave does by accident. → [[wa.task.2026.2026-08-06_0949-knop-supersession-and-rename]]
+- 2026-08-06 — Thousand-term meshes get a real safety margin, not a squeak-past: weave must stay under 1.5 GiB at 1,700 terms and grow no worse than linearly. → [[wa.task.2026.2026-08-02_1330-extracted-term-weave-batch-path]]
+- 2026-08-06 — Page generation gets the same treatment, because fixing weave alone would leave the whole extract-weave-generate sequence just as close to the ceiling. → [[wa.task.2026.2026-08-02_1330-extracted-term-weave-batch-path]]
+- 2026-08-06 — Court cards now stay short and name an owning note, and this log became a ledger, so rulings stop being duplicated across surfaces. → [[wd.read-in.jimbo]]
+
+## Decisions (long form, pre-2026-08-06)
 
 ### 2026-08-02: Cancelled Tasks Get Their Own `wa.cancelled.*` Prefix
 
