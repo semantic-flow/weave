@@ -74,7 +74,9 @@ Durable facts about the dnt build, recorded as they are found so they are not re
 
   **This constrains package entry points only — not imports, and not what code may be exported.** Any module may be imported from anywhere in the graph, and production code lives under `src/` regardless, so no real design is affected. It matters only when declaring a new npm subpath export: the module it points at has to live under `src/`.
 
-- **dnt auto-maps `npm:` specifiers to real npm dependencies with exact versions.** Verified 2026-08-06 with the full `unified`/`remark`/`rehype` graph: nine import-map pins became nine exact `dependencies` entries in the generated `package.json` with no hand-written mapping. Adding a dependency to the import map is sufficient; the npm builder does not need a parallel declaration.
+- **dnt auto-maps *runtime* `npm:` specifiers to real npm dependencies with exact versions.** Verified 2026-08-06 with the full `unified`/`remark`/`rehype` graph: nine import-map pins became nine exact `dependencies` entries in the generated `package.json` with no hand-written mapping.
+
+  **Scope, per CodeRabbit on PR #40:** this covers runtime imports only. Type-only, peer, and other package metadata can still need an explicit entry in the builder's `package.dependencies` — `@types/n3` is declared by hand there precisely because `n3@2` ships no types and consumer type traversal would otherwise break. Adding an import-map pin is sufficient for code dnt actually walks; it is not sufficient for metadata dnt cannot infer.
 
 ## Contract Changes
 

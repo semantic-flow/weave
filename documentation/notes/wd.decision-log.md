@@ -8,7 +8,7 @@ created: 1773630801215
 
 ## Ledger Template
 
-```
+```markdown
 - YYYY-MM-DD — {what happened and why it matters, in one line, product-voiced} → [[owning-note]]
 ```
 
