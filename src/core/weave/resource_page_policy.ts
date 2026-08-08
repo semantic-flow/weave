@@ -141,92 +141,19 @@ export function listGeneratedResourcePagePaths(
 export function filterResourcePageFactsFromInventoryTurtle(
   input: FilterResourcePageFactsInput,
 ): string {
-  if (
-    input.config === undefined &&
-    !hasResourcePageGenerationPolicyOverrides(input.policies)
-  ) {
-    return input.inventoryTurtle;
-  }
-
-  const quads = parseInventoryQuads(
-    input.meshBase,
-    input.inventoryTurtle,
-    input.parseErrorMessage,
-  );
-  const artifactRoles = collectArtifactRoles(input.meshBase, quads);
-  const ownerArtifacts = collectOwnerArtifacts(
-    input.meshBase,
-    quads,
-    artifactRoles,
-  );
-  const disallowedPagePaths = new Set<string>();
-
-  for (const quad of quads) {
-    if (
-      quad.predicate.value !== SFLO_HAS_RESOURCE_PAGE_IRI ||
-      quad.object.termType !== "NamedNode"
-    ) {
-      continue;
-    }
-
-    const subjectPath = tryToMeshPath(input.meshBase, quad.subject.value);
-    const pagePath = tryToMeshPath(input.meshBase, quad.object.value);
-    if (
-      subjectPath === undefined ||
-      pagePath === undefined ||
-      !isResourcePagePath(pagePath)
-    ) {
-      continue;
-    }
-    if (
-      !shouldGenerateResourcePageForSubject(
-        subjectPath,
-        artifactRoles,
-        ownerArtifacts,
-        input,
-      )
-    ) {
-      disallowedPagePaths.add(pagePath);
-    }
-  }
-
-  if (disallowedPagePaths.size === 0) {
-    return input.inventoryTurtle;
-  }
-
-  return removeResourcePagePaths(input.inventoryTurtle, disallowedPagePaths);
+  // Generation policy selects derived HTML bytes; it is not an implicit
+  // inventory-retraction mode.
+  return input.inventoryTurtle;
 }
 
 export function filterResourcePageFactsFromPlannedFiles(
-  meshBase: string,
+  _meshBase: string,
   files: readonly PlannedFile[],
-  policies?: WeaveResourcePageGenerationPolicies,
-  explicitRequest = false,
-  config?: ResourcePageGenerationConfig,
+  _policies?: WeaveResourcePageGenerationPolicies,
+  _explicitRequest = false,
+  _config?: ResourcePageGenerationConfig,
 ): readonly PlannedFile[] {
-  if (
-    config === undefined && !hasResourcePageGenerationPolicyOverrides(policies)
-  ) {
-    return files;
-  }
-
-  return files.map((file) => {
-    if (!isInventoryTurtlePath(file.path)) {
-      return file;
-    }
-    return {
-      ...file,
-      contents: filterResourcePageFactsFromInventoryTurtle({
-        meshBase,
-        inventoryTurtle: file.contents,
-        parseErrorMessage:
-          `Could not parse ${file.path} while applying ResourcePage generation policy.`,
-        config,
-        policies,
-        explicitRequest,
-      }),
-    };
-  });
+  return files;
 }
 
 function parseInventoryQuads(
@@ -418,82 +345,6 @@ function isHistoricalStatePredicate(predicateIri: string): boolean {
 
 function isResourcePagePath(path: string): boolean {
   return path === "index.html" || path.endsWith("/index.html");
-}
-
-function isInventoryTurtlePath(path: string): boolean {
-  return path === "_mesh/_inventory/inventory.ttl" ||
-    path.endsWith("/_inventory/inventory.ttl") ||
-    path.endsWith("/ttl/inventory.ttl");
-}
-
-function removeResourcePagePaths(
-  turtle: string,
-  pagePaths: ReadonlySet<string>,
-): string {
-  const blocks = turtle.trimEnd().split("\n\n");
-  const filteredBlocks = blocks.flatMap((block) => {
-    const subject = parseSubjectPath(block);
-    if (subject !== undefined && pagePaths.has(subject)) {
-      return [];
-    }
-
-    const lines = block.split("\n");
-    const filteredLines = lines.filter((line) =>
-      !isDisallowedResourcePageFact(line, pagePaths)
-    );
-    if (filteredLines.length === lines.length) {
-      return [block];
-    }
-
-    const normalizedBlock = normalizeTrailingPredicate(filteredLines);
-    return normalizedBlock === undefined ? [] : [normalizedBlock];
-  });
-
-  return `${filteredBlocks.join("\n\n")}\n`;
-}
-
-function parseSubjectPath(block: string): string | undefined {
-  const firstLine = block.split("\n", 1)[0]?.trim();
-  const match = firstLine?.match(/^<([^>]+)>/);
-  return match?.[1];
-}
-
-function isDisallowedResourcePageFact(
-  line: string,
-  pagePaths: ReadonlySet<string>,
-): boolean {
-  const match = line.match(/\bsflo:hasResourcePage <([^>]+)> [.;]$/);
-  return match !== null && pagePaths.has(match[1]!);
-}
-
-function normalizeTrailingPredicate(
-  lines: readonly string[],
-): string | undefined {
-  const nonEmptyLines = lines.filter((line) => line.trim().length > 0);
-  const lastPredicateIndex = findLastIndex(
-    nonEmptyLines,
-    (line) => line.trimEnd().endsWith(";"),
-  );
-  if (lastPredicateIndex !== -1) {
-    nonEmptyLines[lastPredicateIndex] = nonEmptyLines[lastPredicateIndex]!
-      .replace(/;\s*$/, ".");
-  }
-
-  return nonEmptyLines.some((line) => line.trimEnd().endsWith("."))
-    ? nonEmptyLines.join("\n")
-    : undefined;
-}
-
-function findLastIndex<T>(
-  values: readonly T[],
-  predicate: (value: T) => boolean,
-): number {
-  for (let index = values.length - 1; index >= 0; index -= 1) {
-    if (predicate(values[index]!)) {
-      return index;
-    }
-  }
-  return -1;
 }
 
 function tryToMeshPath(meshBase: string, iri: string): string | undefined {
