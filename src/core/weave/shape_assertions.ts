@@ -585,6 +585,7 @@ export function assertCurrentKnopMetadataShape(
     meshBase,
     currentKnopMetadataTurtle,
     `KnopMetadata file ${metadataPath} for designator path ${designator} is not valid Turtle. Repair the file before retrying weave.`,
+    "malformed-knop-metadata",
   );
 
   assertHasNamedNodeFacts(
@@ -592,6 +593,7 @@ export function assertCurrentKnopMetadataShape(
     meshBase,
     `KnopMetadata file ${metadataPath} for designator path ${designator} is missing rdf:type sflo:Knop on subject <${knopPath}>. Add that fact before retrying weave.`,
     [[knopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI]],
+    "malformed-knop-metadata",
   );
   assertHasNamedNodeFacts(
     quads,
@@ -604,6 +606,7 @@ export function assertCurrentKnopMetadataShape(
         `${knopPath}/_inventory/inventory.ttl`,
       ],
     ],
+    "malformed-knop-metadata",
   );
   assertHasLiteralFacts(
     quads,
@@ -612,6 +615,7 @@ export function assertCurrentKnopMetadataShape(
     [
       [knopPath, SFLO_DESIGNATOR_PATH_IRI, designatorPath],
     ],
+    "malformed-knop-metadata",
   );
 
   if (hasPredicateFact(quads, SFLO_HAS_ARTIFACT_HISTORY_IRI)) {

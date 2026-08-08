@@ -417,6 +417,7 @@ interface FirstPayloadDiagnosticCase {
   expectedFindingCode:
     | "malformed-inventory"
     | "malformed-mesh-metadata"
+    | "malformed-knop-metadata"
     | "unsupported-mesh-shape";
 }
 
@@ -437,7 +438,7 @@ const firstPayloadDiagnosticCases: readonly FirstPayloadDiagnosticCase[] = [
     },
     expectedMessage:
       "KnopMetadata file alice/data/_knop/_meta/meta.ttl for designator path alice/data is not valid Turtle. Repair the file before retrying weave.",
-    expectedFindingCode: "unsupported-mesh-shape",
+    expectedFindingCode: "malformed-knop-metadata",
   },
   {
     name: "missing Knop type in KnopMetadata",
@@ -451,7 +452,7 @@ const firstPayloadDiagnosticCases: readonly FirstPayloadDiagnosticCase[] = [
     },
     expectedMessage:
       "KnopMetadata file alice/data/_knop/_meta/meta.ttl for designator path alice/data is missing rdf:type sflo:Knop on subject <alice/data/_knop>. Add that fact before retrying weave.",
-    expectedFindingCode: "unsupported-mesh-shape",
+    expectedFindingCode: "malformed-knop-metadata",
   },
   {
     name: "missing working inventory file in KnopMetadata",
@@ -468,7 +469,7 @@ const firstPayloadDiagnosticCases: readonly FirstPayloadDiagnosticCase[] = [
     },
     expectedMessage:
       "KnopMetadata file alice/data/_knop/_meta/meta.ttl for designator path alice/data is missing sflo:hasWorkingKnopInventoryFile <alice/data/_knop/_inventory/inventory.ttl> on subject <alice/data/_knop>. Add that fact before retrying weave.",
-    expectedFindingCode: "unsupported-mesh-shape",
+    expectedFindingCode: "malformed-knop-metadata",
   },
   {
     name: "missing designator fact in KnopMetadata",
@@ -481,7 +482,7 @@ const firstPayloadDiagnosticCases: readonly FirstPayloadDiagnosticCase[] = [
     },
     expectedMessage:
       'KnopMetadata file alice/data/_knop/_meta/meta.ttl for designator path alice/data is missing sflo:designatorPath "alice/data" on subject <alice/data/_knop>. Add that exact literal before retrying weave.',
-    expectedFindingCode: "unsupported-mesh-shape",
+    expectedFindingCode: "malformed-knop-metadata",
   },
   {
     name: "invalid KnopInventory Turtle",

@@ -1,5 +1,6 @@
 export type MeshValidationFindingCode =
   | "malformed-mesh-metadata"
+  | "malformed-knop-metadata"
   | "malformed-inventory"
   | "malformed-config"
   | "missing-artifact"
