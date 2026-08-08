@@ -3458,6 +3458,21 @@ Deno.test("planWeave batches reverse-order untargeted extracted Knops with one c
       .length,
     1,
   );
+  const meshInventoryHistoryIndexes = plan.updatedFiles.filter((file) =>
+    file.path === "_mesh/_inventory/_history001/index.html"
+  );
+  assertEquals(meshInventoryHistoryIndexes.length, 1);
+  assertEquals(plan.regeneratedPagePaths, [
+    "_mesh/_inventory/_history001/index.html",
+  ]);
+  const meshInventoryHistoryIndex = meshInventoryHistoryIndexes[0]!.contents;
+  for (const stateSegment of ["_s0001", "_s0002", "_s0003", "_s0004"]) {
+    assertStringIncludes(meshInventoryHistoryIndex, `href="./${stateSegment}"`);
+  }
+  assertStringIncludes(
+    meshInventoryHistoryIndex,
+    '<a href="./_s0004">_s0004</a> (latest)',
+  );
 
   const meshInventory =
     plan.updatedFiles.find((file) =>

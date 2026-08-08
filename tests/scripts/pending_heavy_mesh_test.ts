@@ -12,7 +12,7 @@ import {
 import { normalizeVersionRequest } from "../../src/runtime/weave/request_normalization.ts";
 import {
   executeGenerate,
-  executeWeave,
+  executeVersion,
 } from "../../src/runtime/weave/weave.ts";
 import type { RuntimeMemoryStatsReport } from "../../src/runtime/weave/memory_stats.ts";
 import { loadOperationalLocalPathPolicy } from "../../src/runtime/operational/local_path_policy.ts";
@@ -102,11 +102,14 @@ Deno.test("untargeted extracted candidates use one instrumented coherent batch a
     ).length,
     1,
   );
+  assertEquals(prepared.plan.regeneratedPagePaths, [
+    "_mesh/_inventory/_history001/index.html",
+  ]);
 
   const fixedNow = () => new Date("2026-08-06T12:00:00.000Z");
-  const woven = await executeWeave({ meshRoot, now: fixedNow });
+  const woven = await executeVersion({ meshRoot });
   assertEquals(
-    woven.wovenDesignatorPaths,
+    woven.versionedDesignatorPaths,
     generated.extractedDesignatorPaths,
   );
   assertEquals(
@@ -153,16 +156,100 @@ Deno.test("untargeted extracted candidates use one instrumented coherent batch a
     );
   }
 
-  const nonHtmlDigestsBeforeGenerate = await digestNonHtmlWorkspaceFiles(
+  const meshInventoryHistoryIndexPath =
+    "_mesh/_inventory/_history001/index.html";
+  const historyIndexDigestAfterVersion = await sha256(
+    await Deno.readFile(join(meshRoot, meshInventoryHistoryIndexPath)),
+  );
+  const generatedAfterVersion = await executeGenerate({
+    meshRoot,
+    now: fixedNow,
+  });
+  assertEquals(
+    generatedAfterVersion.updatedPaths.filter((path) =>
+      path === meshInventoryHistoryIndexPath
+    ),
+    [],
+  );
+  assertEquals(
+    await sha256(
+      await Deno.readFile(join(meshRoot, meshInventoryHistoryIndexPath)),
+    ),
+    historyIndexDigestAfterVersion,
+  );
+
+  const workspaceDigestsBeforeRegenerate = await digestWorkspaceFiles(
     meshRoot,
   );
   const generatedAgain = await executeGenerate({ meshRoot, now: fixedNow });
   assertEquals(generatedAgain.createdPaths, []);
   assertEquals(generatedAgain.updatedPaths, []);
   assertEquals(
-    await digestNonHtmlWorkspaceFiles(meshRoot),
-    nonHtmlDigestsBeforeGenerate,
+    await digestWorkspaceFiles(meshRoot),
+    workspaceDigestsBeforeRegenerate,
   );
+});
+
+Deno.test("untargeted multi-candidate extracted batch restructures a current-only MeshInventory once", async () => {
+  const meshRoot = await createTestTmpDir(
+    "weave-pending-heavy-current-only-extracted-batch-",
+  );
+  const generated = await generatePendingHeavyMesh({
+    outputPath: meshRoot,
+    count: 3,
+    meshInventoryHistoryPolicy: "current-only",
+    sourceDesignatorPath: "catalog/source",
+  });
+  const localPathPolicy = await loadOperationalLocalPathPolicy(meshRoot);
+  const timing = new RecordingRuntimeTiming();
+  const prepared = await prepareVersionExecution(
+    meshRoot,
+    [],
+    localPathPolicy,
+    false,
+    undefined,
+    undefined,
+    timing,
+  );
+
+  assertEquals(
+    timing.fields.get("payloadBatchCandidates"),
+    generated.count,
+  );
+  assertEquals(timing.phaseCount("prepare.planPayloadBatch"), 1);
+  assertEquals(timing.phaseCount("prepare.loop.planVersion"), 0);
+  assertEquals(prepared.plan.versionedDesignatorPaths, [
+    "term-000001",
+    "term-000002",
+    "term-000003",
+  ]);
+  assertEquals(prepared.plan.createdFiles, []);
+  assertEquals(prepared.plan.regeneratedPagePaths, undefined);
+
+  const meshInventoryUpdates = prepared.plan.updatedFiles.filter((file) =>
+    file.path === "_mesh/_inventory/inventory.ttl"
+  );
+  assertEquals(meshInventoryUpdates.length, 1);
+  const meshInventory = meshInventoryUpdates[0]!.contents;
+  assert(
+    meshInventory.includes(
+      `<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/index.html> .`,
+    ),
+    meshInventory,
+  );
+  assertEquals(meshInventory.includes("_mesh/_inventory/_history"), false);
+  for (const designatorPath of generated.extractedDesignatorPaths) {
+    assert(
+      meshInventory.includes(
+        `<${designatorPath}/_knop> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <${designatorPath}/_knop/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <${designatorPath}/_knop/index.html> .`,
+      ),
+      `Missing restructured current-only Knop block for ${designatorPath}.`,
+    );
+  }
 });
 
 Deno.test("mixed and recursive extracted candidate sets retain sequential planning", async () => {
@@ -617,15 +704,12 @@ async function digestWorkspacePaths(
   return digests;
 }
 
-async function digestNonHtmlWorkspaceFiles(
+async function digestWorkspaceFiles(
   workspaceRoot: string,
 ): Promise<Map<string, string>> {
   const digests = new Map<string, string>();
   for (const absolutePath of await listWorkspaceFiles(workspaceRoot)) {
     const path = relative(workspaceRoot, absolutePath).replaceAll("\\", "/");
-    if (path.endsWith(".html")) {
-      continue;
-    }
     digests.set(path, await sha256(await Deno.readFile(absolutePath)));
   }
   return digests;

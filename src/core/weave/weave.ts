@@ -87,6 +87,7 @@ import {
   buildSubsequentPageDefinitionWeavePages,
 } from "./resource_page_builders.ts";
 import type { ResourcePageModel } from "./resource_page_models.ts";
+import { collectHistoryGroupsByResourcePath } from "./resource_page_history_groups.ts";
 import { renderKnopInventoryWithPreservedSupportArtifacts } from "./knop_support_renderers.ts";
 import {
   renderArtifactHistoryIndexPage,
@@ -471,6 +472,9 @@ function toVersionPlan(plan: WeavePlan): VersionPlan {
       ? { createdBinaryFiles: plan.createdBinaryFiles }
       : {}),
     updatedFiles,
+    ...(plan.regeneratedPagePaths === undefined
+      ? {}
+      : { regeneratedPagePaths: plan.regeneratedPagePaths }),
   };
 }
 
@@ -527,6 +531,11 @@ function applyResourcePageGenerationPolicies(
     createdPages: plan.createdPages.filter((page) =>
       generatedPagePaths.has(page.path)
     ),
+    ...(plan.regeneratedPagePaths === undefined ? {} : {
+      regeneratedPagePaths: plan.regeneratedPagePaths.filter((path) =>
+        generatedPagePaths.has(path)
+      ),
+    }),
   };
 }
 
@@ -1014,6 +1023,21 @@ function mergeFirstWeaveBatchPlans(
     }
   }
 
+  const regeneratedPagePaths: string[] = [];
+  if (meshInventoryProgression && mergedMeshInventoryTurtle) {
+    const historyIndexPath =
+      `${meshInventoryProgression.historyPath}/index.html`;
+    addUpdatedFile(updatedFiles, updatedPaths, createdPaths, {
+      path: historyIndexPath,
+      contents: renderProgressedMeshInventoryHistoryIndexPage(
+        meshBase,
+        mergedMeshInventoryTurtle,
+        meshInventoryProgression,
+      ),
+    });
+    regeneratedPagePaths.push(historyIndexPath);
+  }
+
   if (meshInventoryProgression) {
     addUpdatedFile(updatedFiles, updatedPaths, createdPaths, {
       path: "_mesh/_meta/meta.ttl",
@@ -1031,7 +1055,62 @@ function mergeFirstWeaveBatchPlans(
     ...(createdBinaryFiles.length > 0 ? { createdBinaryFiles } : {}),
     updatedFiles,
     createdPages,
+    ...(regeneratedPagePaths.length === 0 ? {} : { regeneratedPagePaths }),
   };
+}
+
+function renderProgressedMeshInventoryHistoryIndexPage(
+  meshBase: string,
+  mergedMeshInventoryTurtle: string,
+  meshInventoryProgression: MeshInventoryProgression,
+): string {
+  const historyGroups = collectHistoryGroupsByResourcePath(
+    meshBase,
+    mergedMeshInventoryTurtle,
+    "Could not parse the merged MeshInventory while rendering its history index.",
+    (message) => new WeaveInputError(message),
+  ).get(meshInventoryProgression.historyPath) ?? [];
+  const historyGroup = historyGroups.find((group) =>
+    group.path === meshInventoryProgression.historyPath
+  );
+  if (historyGroup === undefined) {
+    throw new WeaveInputError(
+      `Could not resolve ${meshInventoryProgression.historyPath} from the merged MeshInventory while rendering its history index.`,
+    );
+  }
+
+  const statePrefix = `${meshInventoryProgression.historyPath}/`;
+  const states = historyGroup.states.map((state) => {
+    if (!state.path.startsWith(statePrefix)) {
+      throw new WeaveInputError(
+        `MeshInventory historical state ${state.path} is not inside ${meshInventoryProgression.historyPath}.`,
+      );
+    }
+    const segment = state.path.slice(statePrefix.length);
+    if (segment.length === 0 || segment.includes("/")) {
+      throw new WeaveInputError(
+        `MeshInventory historical state ${state.path} does not have a direct state segment.`,
+      );
+    }
+    return {
+      segment,
+      latest: state.path === meshInventoryProgression.nextStatePath,
+    };
+  });
+  if (!states.some((state) => state.latest)) {
+    throw new WeaveInputError(
+      `Merged MeshInventory history ${meshInventoryProgression.historyPath} does not contain its planned latest state ${meshInventoryProgression.nextStatePath}.`,
+    );
+  }
+
+  return renderArtifactHistoryIndexPage(meshBase, {
+    pagePath: `${meshInventoryProgression.historyPath}/index.html`,
+    description:
+      "Resource page for the current explicit history of the MeshInventory artifact.",
+    artifactLabel: "Inventory artifact",
+    workingLocalRelativePath: "_mesh/_inventory/inventory.ttl",
+    states,
+  });
 }
 
 function resolveBatchMeshInventoryProgression(

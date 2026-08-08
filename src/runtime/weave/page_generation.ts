@@ -45,6 +45,15 @@ export interface GeneratePreparedPagesResult {
   skippedTimestampOnlyPaths: readonly string[];
 }
 
+export interface RegeneratePreparedPagePathsOptions {
+  meshRoot: string;
+  localPathPolicy: OperationalLocalPathPolicy;
+  pagePaths: readonly string[];
+  historyTrackingPolicyOverride?: HistoryTrackingPolicy;
+  timing?: RuntimeTiming;
+  phasePrefix?: string;
+}
+
 export async function generatePreparedPages(
   options: GeneratePreparedPagesOptions,
 ): Promise<GeneratePreparedPagesResult> {
@@ -132,6 +141,102 @@ export async function generatePreparedPages(
     );
   }
   return result;
+}
+
+export async function regeneratePreparedPagePaths(
+  options: RegeneratePreparedPagePathsOptions,
+): Promise<GeneratePreparedPagesResult> {
+  if (options.pagePaths.length === 0) {
+    throw new WeaveInputError(
+      "At least one generated ResourcePage path is required for regeneration.",
+    );
+  }
+  const phase = (name: string) =>
+    options.phasePrefix ? `${options.phasePrefix}.${name}` : name;
+  const meshState = await timeOptional(
+    options.timing,
+    phase("loadMeshState"),
+    () => loadMeshState(options.meshRoot),
+  );
+  const effectiveConfigProvider = createEffectiveConfigProviderForExecution({
+    meshRoot: options.meshRoot,
+    meshState,
+    localPathPolicy: options.localPathPolicy,
+    historyTrackingPolicyOverride: options.historyTrackingPolicyOverride,
+    includeSemanticFlowMetadata: false,
+    timing: options.timing,
+    phasePrefix: phase("effectiveConfig"),
+  });
+  const pageModels = await timeOptional(
+    options.timing,
+    phase("collectResourcePageModels"),
+    () =>
+      collectResourcePageModels({
+        workspaceRoot: options.meshRoot,
+        localPathPolicy: options.localPathPolicy,
+        meshState,
+        selectedDesignatorPaths: [],
+        includeAllMeshPages: false,
+        hasExplicitGenerateTargets: false,
+        effectiveConfigProvider,
+        timing: options.timing,
+        phasePrefix: phase("collectResourcePageModels"),
+      }),
+  );
+  const requestedPaths = new Set(options.pagePaths);
+  const selectedPageModels = pageModels.filter((page) =>
+    requestedPaths.has(page.path)
+  );
+  const selectedPaths = new Set(selectedPageModels.map((page) => page.path));
+  const missingPaths = options.pagePaths.filter((path) =>
+    !selectedPaths.has(path)
+  );
+  if (missingPaths.length > 0) {
+    throw new WeaveInputError(
+      `Could not regenerate planned ResourcePage paths from the settled inventory: ${
+        missingPaths.join(", ")
+      }.`,
+    );
+  }
+
+  const meshFaviconPath = await resolveMeshFaviconPath(options.meshRoot);
+  const pageFiles = await timeOptional(
+    options.timing,
+    phase("renderResourcePages"),
+    () =>
+      renderResourcePages(meshState.meshBase, selectedPageModels, {
+        generatedAt: resolveGeneratedAt(),
+        includeSemanticFlowMetadata: false,
+        meshFaviconPath,
+        resourcePagePresentationForPage: (page) =>
+          resourcePagePresentationForGeneratedPage(
+            effectiveConfigProvider,
+            page,
+          ),
+      }),
+  );
+  const writeResult = await timeOptional(
+    options.timing,
+    phase("writePages"),
+    () =>
+      writeGeneratedPagesUpsert(options.meshRoot, pageFiles, {
+        updateTimestampOnlyPages: false,
+      }),
+  );
+
+  return {
+    meshBase: meshState.meshBase,
+    generatedDesignatorPaths: [],
+    createdPaths: writeResult.createdPaths.map((path) =>
+      toWorkspaceRelativePath(options.localPathPolicy, path)
+    ),
+    updatedPaths: writeResult.updatedPaths.map((path) =>
+      toWorkspaceRelativePath(options.localPathPolicy, path)
+    ),
+    skippedTimestampOnlyPaths: writeResult.skippedTimestampOnlyPaths.map(
+      (path) => toWorkspaceRelativePath(options.localPathPolicy, path),
+    ),
+  };
 }
 
 export async function collectGeneratedPageFiles(

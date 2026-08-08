@@ -38,7 +38,10 @@ import {
   normalizeVersionRequest,
   normalizeWeaveRequest,
 } from "./request_normalization.ts";
-import { generatePreparedPages } from "./page_generation.ts";
+import {
+  generatePreparedPages,
+  regeneratePreparedPagePaths,
+} from "./page_generation.ts";
 import {
   type InputSnapshotVerificationHooks,
   prepareVersionExecution,
@@ -367,7 +370,7 @@ export async function executeVersion(
       timing,
       options.inputSnapshotVerification,
     );
-    const result = await writePreparedVersion(
+    const versionResult = await writePreparedVersion(
       meshRoot,
       localPathPolicy,
       prepared,
@@ -377,6 +380,28 @@ export async function executeVersion(
         phasePrefix: "write",
       },
     );
+    const regeneratedPages = prepared.plan.regeneratedPagePaths === undefined ||
+        prepared.plan.regeneratedPagePaths.length === 0
+      ? undefined
+      : await regeneratePreparedPagePaths({
+        meshRoot,
+        localPathPolicy,
+        pagePaths: prepared.plan.regeneratedPagePaths,
+        historyTrackingPolicyOverride: options.historyTrackingPolicyOverride,
+        timing,
+        phasePrefix: "write.regeneratePages",
+      });
+    const result: VersionResult = {
+      ...versionResult,
+      createdPaths: [
+        ...versionResult.createdPaths,
+        ...(regeneratedPages?.createdPaths ?? []),
+      ],
+      updatedPaths: [
+        ...versionResult.updatedPaths,
+        ...(regeneratedPages?.updatedPaths ?? []),
+      ],
+    };
     timing.setField(
       "versionedDesignatorPaths",
       result.versionedDesignatorPaths.length,

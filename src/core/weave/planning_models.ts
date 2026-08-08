@@ -28,4 +28,5 @@ export interface WeavePlan {
   createdBinaryFiles?: readonly PlannedBinaryFile[];
   updatedFiles: readonly PlannedFile[];
   createdPages: readonly ResourcePageModel[];
+  regeneratedPagePaths?: readonly string[];
 }
