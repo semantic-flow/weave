@@ -709,6 +709,7 @@ function planUntargetedFirstExtractedKnopBatchWeave(
       assertCurrentKnopInventoryBaseShape(
         meshBase,
         candidate.currentKnopInventoryTurtle,
+        designatorPath,
         knopPath,
       );
       if (
@@ -1767,23 +1768,16 @@ function planFirstExtractedKnopWeave(
         contents: exactSourceRegistryTurtle,
       }]),
       ...(meshInventoryProgression === undefined ||
+          wovenMeshInventoryTurtle === undefined ||
           !includeSharedMeshInventoryFiles
         ? []
         : [{
-          path: "_mesh/_inventory/_history001/index.html",
-          contents: renderArtifactHistoryIndexPage(meshBase, {
-            pagePath: "_mesh/_inventory/_history001/index.html",
-            description:
-              "Resource page for the current explicit history of the MeshInventory artifact.",
-            artifactLabel: "Inventory artifact",
-            workingLocalRelativePath: "_mesh/_inventory/inventory.ttl",
-            states: [
-              { segment: "_s0001", latest: false },
-              { segment: "_s0002", latest: false },
-              { segment: "_s0003", latest: false },
-              { segment: "_s0004", latest: true },
-            ],
-          }),
+          path: `${meshInventoryProgression.historyPath}/index.html`,
+          contents: renderProgressedMeshInventoryHistoryIndexPage(
+            meshBase,
+            wovenMeshInventoryTurtle,
+            meshInventoryProgression,
+          ),
         }]),
       ...(meshInventoryProgression === undefined ||
           !includeSharedMeshInventoryFiles
@@ -1801,6 +1795,14 @@ function planFirstExtractedKnopWeave(
       meshInventoryProgression,
       { knopMetadataHistoryPolicy, knopInventoryHistoryPolicy },
     ),
+    ...(meshInventoryProgression === undefined ||
+        !includeSharedMeshInventoryFiles
+      ? {}
+      : {
+        regeneratedPagePaths: [
+          `${meshInventoryProgression.historyPath}/index.html`,
+        ],
+      }),
   };
 }
 

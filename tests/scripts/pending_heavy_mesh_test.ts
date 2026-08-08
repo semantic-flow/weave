@@ -190,6 +190,115 @@ Deno.test("untargeted extracted candidates use one instrumented coherent batch a
   );
 });
 
+Deno.test("sequential extracted versions regenerate a named MeshInventory history index from settled states", async () => {
+  const meshRoot = await createTestTmpDir(
+    "weave-pending-heavy-sequential-history-index-",
+  );
+  const generated = await generatePendingHeavyMesh({
+    outputPath: meshRoot,
+    count: 4,
+    meshInventoryHistoryPolicy: "versioned",
+    sourceDesignatorPath: "catalog/source",
+  });
+
+  for (const designatorPath of generated.extractedDesignatorPaths.slice(0, 3)) {
+    await executeVersion({
+      meshRoot,
+      request: { targets: [{ designatorPath }] },
+    });
+  }
+
+  const metadataPath = join(meshRoot, "_mesh/_meta/meta.ttl");
+  const metadataBeforeNamedProgression = await Deno.readTextFile(metadataPath);
+  const metadataWithNamedProgression = metadataBeforeNamedProgression
+    .replace(
+      "@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .",
+      `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .`,
+    )
+    .replace(
+      '  sflo:nextStateOrdinal "6"^^xsd:nonNegativeInteger .',
+      `  sflo:nextStateOrdinal "6"^^xsd:nonNegativeInteger ;
+  sfcfg:hasNextStateSegmentHint "release-6" .`,
+    );
+  assert(
+    metadataWithNamedProgression !== metadataBeforeNamedProgression,
+    metadataBeforeNamedProgression,
+  );
+  await Deno.writeTextFile(metadataPath, metadataWithNamedProgression);
+
+  const finalDesignatorPath = generated.extractedDesignatorPaths[3]!;
+  const localPathPolicy = await loadOperationalLocalPathPolicy(meshRoot);
+  const timing = new RecordingRuntimeTiming();
+  const prepared = await prepareVersionExecution(
+    meshRoot,
+    normalizeVersionRequest({
+      targets: [{ designatorPath: finalDesignatorPath }],
+    }).targets,
+    localPathPolicy,
+    false,
+    undefined,
+    undefined,
+    timing,
+  );
+  assertEquals(timing.phaseCount("prepare.planPayloadBatch"), 0);
+  assertEquals(timing.phaseCount("prepare.loop.planVersion"), 1);
+
+  const versioned = await executeVersion({
+    meshRoot,
+    request: { targets: [{ designatorPath: finalDesignatorPath }] },
+  });
+  const historyIndexPath = "_mesh/_inventory/_history001/index.html";
+  const historyIndexAbsolutePath = join(meshRoot, historyIndexPath);
+  const historyIndex = await Deno.readTextFile(historyIndexAbsolutePath);
+  const pageStateSegments = [
+    ...historyIndex.matchAll(
+      /<summary class="wf-history-node-header"><a href="[^"]+\/_history001\/([^"/]+)">([^<]+)<\/a><\/summary>/g,
+    ),
+  ].filter((match) => match[1] === match[2]).map((match) => match[1]!).sort();
+  const diskStateSegments: string[] = [];
+  for await (
+    const entry of Deno.readDir(
+      join(meshRoot, "_mesh/_inventory/_history001"),
+    )
+  ) {
+    if (entry.isDirectory) {
+      diskStateSegments.push(entry.name);
+    }
+  }
+  diskStateSegments.sort();
+
+  assertEquals(pageStateSegments, diskStateSegments);
+  assertEquals(pageStateSegments, [
+    "_s0001",
+    "_s0002",
+    "_s0003",
+    "_s0004",
+    "_s0005",
+    "release-6",
+  ]);
+  assertEquals(prepared.plan.regeneratedPagePaths, [historyIndexPath]);
+  assert(versioned.updatedPaths.includes(historyIndexPath));
+
+  const digestAfterVersion = await sha256(
+    await Deno.readFile(historyIndexAbsolutePath),
+  );
+  const generatedAfterVersion = await executeGenerate({
+    meshRoot,
+    now: () => new Date("2026-08-07T12:00:00.000Z"),
+  });
+  assertEquals(
+    generatedAfterVersion.updatedPaths.filter((path) =>
+      path === historyIndexPath
+    ),
+    [],
+  );
+  assertEquals(
+    await sha256(await Deno.readFile(historyIndexAbsolutePath)),
+    digestAfterVersion,
+  );
+});
+
 Deno.test("untargeted multi-candidate extracted batch restructures a current-only MeshInventory once", async () => {
   const meshRoot = await createTestTmpDir(
     "weave-pending-heavy-current-only-extracted-batch-",
