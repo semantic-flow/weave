@@ -1,5 +1,6 @@
 import type { Quad } from "n3";
 import {
+  formatDesignatorPathForDisplay,
   toDesignatorResourcePagePath,
   toKnopPath,
 } from "../designator_segments.ts";
@@ -10,7 +11,11 @@ import type {
   ReferenceTargetSourcePayloadArtifact,
   ResourcePageDefinitionWorkingArtifact,
 } from "./candidates.ts";
-import { WeaveInputError as BaseWeaveInputError } from "./errors.ts";
+import {
+  type MeshValidationFindingAttribution,
+  type MeshValidationFindingCode,
+  WeaveInputError as BaseWeaveInputError,
+} from "./errors.ts";
 import type {
   MeshInventoryProgression,
   PageDefinitionWeaveProgression,
@@ -23,7 +28,9 @@ import {
   parseWeaveShapeQuads as parseBaseWeaveShapeQuads,
   requireOptionalNamedNodeObject,
   requireSingleNamedNodeObject,
+  requireSingleNamedNodeObjectWithDiagnostics,
   requireSingleNonNegativeIntegerLiteral,
+  requireSingleNonNegativeIntegerLiteralWithDiagnostics,
   resolveNamedNodeObjectPaths,
   resolveOptionalNamedNodePath,
   resolveOptionalSegmentHint,
@@ -37,8 +44,12 @@ import {
 } from "./source_locator_assertions.ts";
 
 class WeaveInputError extends BaseWeaveInputError {
-  constructor(message: string) {
-    super(message, "unsupported-mesh-shape");
+  constructor(
+    message: string,
+    findingCode: MeshValidationFindingCode = "unsupported-mesh-shape",
+    attribution: MeshValidationFindingAttribution = {},
+  ) {
+    super(message, findingCode, attribution);
   }
 }
 
@@ -46,12 +57,18 @@ function parseWeaveShapeQuads(
   meshBase: string,
   turtle: string,
   errorMessage: string,
+  findingCode: MeshValidationFindingCode = "unsupported-mesh-shape",
 ): readonly Quad[] {
   try {
-    return parseBaseWeaveShapeQuads(meshBase, turtle, errorMessage);
+    return parseBaseWeaveShapeQuads(
+      meshBase,
+      turtle,
+      errorMessage,
+      findingCode,
+    );
   } catch (error) {
     if (error instanceof BaseWeaveInputError) {
-      throw new WeaveInputError(error.message);
+      throw new WeaveInputError(error.message, findingCode);
     }
     throw error;
   }
@@ -111,64 +128,137 @@ const SFLO_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}ReferenceCatalog`;
 type NamedNodeFact = readonly [string, string, string];
 type LiteralFact = readonly [string, string, string, string?];
 
+export interface MeshInventoryProgressionDiagnostics {
+  findingCode: MeshValidationFindingCode;
+  missingMetadata: string;
+  invalidMetadataTurtle: string;
+  missingCurrentHistory: string;
+  conflictingCurrentHistory: string;
+  missingNextHistoryOrdinal: string;
+  conflictingNextHistoryOrdinal: string;
+  invalidNextHistoryOrdinal: string;
+  missingLatestState(historyPath: string): string;
+  conflictingLatestState(historyPath: string): string;
+  missingNextStateOrdinal(historyPath: string): string;
+  conflictingNextStateOrdinal(historyPath: string): string;
+  invalidNextStateOrdinal(historyPath: string): string;
+  zeroNextStateOrdinal(historyPath: string): string;
+  invalidNextStateSegmentHint(historyPath: string): string;
+}
+
 export function resolveMeshInventoryProgressionFromMetadata(
   meshBase: string,
   currentMeshMetadataTurtle: string | undefined,
   errorMessage: string,
+  diagnostics?: MeshInventoryProgressionDiagnostics,
 ): MeshInventoryProgression {
   if (currentMeshMetadataTurtle === undefined) {
-    throw new WeaveInputError(errorMessage);
+    throw new WeaveInputError(
+      diagnostics?.missingMetadata ?? errorMessage,
+      diagnostics?.findingCode,
+    );
   }
 
   const quads = parseWeaveShapeQuads(
     meshBase,
     currentMeshMetadataTurtle,
-    errorMessage,
+    diagnostics?.invalidMetadataTurtle ?? errorMessage,
+    diagnostics?.findingCode,
   );
   const meshInventoryIri = toAbsoluteIri(meshBase, "_mesh/_inventory");
-  const historyIri = requireSingleNamedNodeObject(
-    quads,
-    meshInventoryIri,
-    SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
-    errorMessage,
-  );
-  const nextHistoryOrdinal = requireSingleNonNegativeIntegerLiteral(
-    quads,
-    meshInventoryIri,
-    SFLO_NEXT_HISTORY_ORDINAL_IRI,
-    errorMessage,
-  );
+  const historyIri = diagnostics === undefined
+    ? requireSingleNamedNodeObject(
+      quads,
+      meshInventoryIri,
+      SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
+      errorMessage,
+    )
+    : requireSingleNamedNodeObjectWithDiagnostics(
+      quads,
+      meshInventoryIri,
+      SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
+      {
+        missingMessage: diagnostics.missingCurrentHistory,
+        conflictMessage: diagnostics.conflictingCurrentHistory,
+        findingCode: diagnostics.findingCode,
+      },
+    );
+  const nextHistoryOrdinal = diagnostics === undefined
+    ? requireSingleNonNegativeIntegerLiteral(
+      quads,
+      meshInventoryIri,
+      SFLO_NEXT_HISTORY_ORDINAL_IRI,
+      errorMessage,
+    )
+    : requireSingleNonNegativeIntegerLiteralWithDiagnostics(
+      quads,
+      meshInventoryIri,
+      SFLO_NEXT_HISTORY_ORDINAL_IRI,
+      {
+        missingMessage: diagnostics.missingNextHistoryOrdinal,
+        conflictMessage: diagnostics.conflictingNextHistoryOrdinal,
+        invalidMessage: diagnostics.invalidNextHistoryOrdinal,
+        findingCode: diagnostics.findingCode,
+      },
+    );
   const historyPath = toMeshRelativePath(
     meshBase,
     historyIri,
     "the current MeshInventory history",
   );
-  const latestStateIri = requireSingleNamedNodeObject(
-    quads,
-    historyIri,
-    SFLO_LATEST_HISTORICAL_STATE_IRI,
-    errorMessage,
-  );
+  const latestStateIri = diagnostics === undefined
+    ? requireSingleNamedNodeObject(
+      quads,
+      historyIri,
+      SFLO_LATEST_HISTORICAL_STATE_IRI,
+      errorMessage,
+    )
+    : requireSingleNamedNodeObjectWithDiagnostics(
+      quads,
+      historyIri,
+      SFLO_LATEST_HISTORICAL_STATE_IRI,
+      {
+        missingMessage: diagnostics.missingLatestState(historyPath),
+        conflictMessage: diagnostics.conflictingLatestState(historyPath),
+        findingCode: diagnostics.findingCode,
+      },
+    );
   const latestStatePath = toMeshRelativePath(
     meshBase,
     latestStateIri,
     "the latest MeshInventory historical state",
   );
-  const nextStateOrdinal = requireSingleNonNegativeIntegerLiteral(
-    quads,
-    historyIri,
-    SFLO_NEXT_STATE_ORDINAL_IRI,
-    errorMessage,
-  );
+  const nextStateOrdinal = diagnostics === undefined
+    ? requireSingleNonNegativeIntegerLiteral(
+      quads,
+      historyIri,
+      SFLO_NEXT_STATE_ORDINAL_IRI,
+      errorMessage,
+    )
+    : requireSingleNonNegativeIntegerLiteralWithDiagnostics(
+      quads,
+      historyIri,
+      SFLO_NEXT_STATE_ORDINAL_IRI,
+      {
+        missingMessage: diagnostics.missingNextStateOrdinal(historyPath),
+        conflictMessage: diagnostics.conflictingNextStateOrdinal(historyPath),
+        invalidMessage: diagnostics.invalidNextStateOrdinal(historyPath),
+        findingCode: diagnostics.findingCode,
+      },
+    );
   if (nextStateOrdinal === 0) {
-    throw new WeaveInputError(errorMessage);
+    throw new WeaveInputError(
+      diagnostics?.zeroNextStateOrdinal(historyPath) ?? errorMessage,
+      diagnostics?.findingCode,
+    );
   }
   const latestStateOrdinal = nextStateOrdinal - 1;
   const nextStateSegmentHint = resolveOptionalSegmentHint(
     quads,
     historyIri,
     SFCFG_HAS_NEXT_STATE_SEGMENT_HINT_IRI,
-    errorMessage,
+    diagnostics?.invalidNextStateSegmentHint(historyPath) ?? errorMessage,
+    diagnostics?.findingCode,
   );
   const nextStatePath = `${historyPath}/${
     nextStateSegmentHint ?? toStateSegment(nextStateOrdinal)
@@ -545,25 +635,44 @@ export function assertCurrentKnopMetadataShape(
   designatorPath: string,
   knopPath: string,
 ): void {
-  const errorMessage =
-    `The current local weave slice only supports the settled first-history KnopMetadata shape for ${designatorPath}.`;
+  const metadataPath = `${knopPath}/_meta/meta.ttl`;
+  const designator = formatDesignatorPathForDisplay(designatorPath);
   const quads = parseWeaveShapeQuads(
     meshBase,
     currentKnopMetadataTurtle,
-    errorMessage,
+    `KnopMetadata file ${metadataPath} for designator path ${designator} is not valid Turtle. Repair the file before retrying weave.`,
+    "malformed-knop-metadata",
   );
 
-  assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
-    [knopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
+  assertHasNamedNodeFacts(
+    quads,
+    meshBase,
+    `KnopMetadata file ${metadataPath} for designator path ${designator} is missing rdf:type sflo:Knop on subject <${knopPath}>. Add that fact before retrying weave.`,
+    [[knopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI]],
+    "malformed-knop-metadata",
+  );
+  assertHasNamedNodeFacts(
+    quads,
+    meshBase,
+    `KnopMetadata file ${metadataPath} for designator path ${designator} is missing sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> on subject <${knopPath}>. Add that fact before retrying weave.`,
     [
-      knopPath,
-      SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI,
-      `${knopPath}/_inventory/inventory.ttl`,
+      [
+        knopPath,
+        SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI,
+        `${knopPath}/_inventory/inventory.ttl`,
+      ],
     ],
-  ]);
-  assertHasLiteralFacts(quads, meshBase, errorMessage, [
-    [knopPath, SFLO_DESIGNATOR_PATH_IRI, designatorPath],
-  ]);
+    "malformed-knop-metadata",
+  );
+  assertHasLiteralFacts(
+    quads,
+    meshBase,
+    `KnopMetadata file ${metadataPath} for designator path ${designator} is missing sflo:designatorPath "${designatorPath}" on subject <${knopPath}>. Add that exact literal before retrying weave.`,
+    [
+      [knopPath, SFLO_DESIGNATOR_PATH_IRI, designatorPath],
+    ],
+    "malformed-knop-metadata",
+  );
 
   if (hasPredicateFact(quads, SFLO_HAS_ARTIFACT_HISTORY_IRI)) {
     throw new WeaveInputError(
@@ -575,26 +684,52 @@ export function assertCurrentKnopMetadataShape(
 export function assertCurrentKnopInventoryBaseShape(
   meshBase: string,
   currentKnopInventoryTurtle: string,
+  designatorPath: string,
   knopPath: string,
 ): void {
-  const errorMessage =
-    `The current local weave slice only supports the settled first-history KnopInventory shape for ${knopPath}.`;
+  const inventoryPath = `${knopPath}/_inventory/inventory.ttl`;
+  const designator = formatDesignatorPathForDisplay(designatorPath);
   const quads = parseWeaveShapeQuads(
     meshBase,
     currentKnopInventoryTurtle,
-    errorMessage,
+    `KnopInventory file ${inventoryPath} for designator path ${designator} is not valid Turtle. Repair the file before retrying weave.`,
+    "malformed-inventory",
   );
 
-  assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
-    [knopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI],
-    [knopPath, SFLO_HAS_KNOP_METADATA_IRI, `${knopPath}/_meta`],
-    [knopPath, SFLO_HAS_KNOP_INVENTORY_IRI, `${knopPath}/_inventory`],
+  assertHasNamedNodeFacts(
+    quads,
+    meshBase,
+    `KnopInventory file ${inventoryPath} for designator path ${designator} is missing rdf:type sflo:Knop on subject <${knopPath}>. Add that fact before retrying weave.`,
+    [[knopPath, RDF_TYPE_IRI, SFLO_KNOP_IRI]],
+    "malformed-inventory",
+  );
+  assertHasNamedNodeFacts(
+    quads,
+    meshBase,
+    `KnopInventory file ${inventoryPath} for designator path ${designator} is missing sflo:hasKnopMetadata <${knopPath}/_meta> on subject <${knopPath}>. Add that fact before retrying weave.`,
+    [[knopPath, SFLO_HAS_KNOP_METADATA_IRI, `${knopPath}/_meta`]],
+    "malformed-inventory",
+  );
+  assertHasNamedNodeFacts(
+    quads,
+    meshBase,
+    `KnopInventory file ${inventoryPath} for designator path ${designator} is missing sflo:hasKnopInventory <${knopPath}/_inventory> on subject <${knopPath}>. Add that fact before retrying weave.`,
+    [[knopPath, SFLO_HAS_KNOP_INVENTORY_IRI, `${knopPath}/_inventory`]],
+    "malformed-inventory",
+  );
+  assertHasNamedNodeFacts(
+    quads,
+    meshBase,
+    `KnopInventory file ${inventoryPath} for designator path ${designator} is missing sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> on subject <${knopPath}>. Add that fact before retrying weave.`,
     [
-      knopPath,
-      SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI,
-      `${knopPath}/_inventory/inventory.ttl`,
+      [
+        knopPath,
+        SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI,
+        `${knopPath}/_inventory/inventory.ttl`,
+      ],
     ],
-  ]);
+    "malformed-inventory",
+  );
 }
 
 export function assertCurrentKnopInventoryWithoutHistory(
@@ -628,24 +763,39 @@ export function assertCurrentPayloadArtifactShape(
   designatorPath: string,
   payloadArtifact: PayloadWorkingArtifact,
 ): void {
-  const errorMessage =
+  const legacyParseErrorMessage =
     `The current local weave slice only supports the settled integrated payload shape for ${designatorPath}.`;
+  const designator = formatDesignatorPathForDisplay(designatorPath);
+  const inventoryPath = `${
+    toKnopPath(designatorPath)
+  }/_inventory/inventory.ttl`;
   const quads = parseWeaveShapeQuads(
     meshBase,
     currentKnopInventoryTurtle,
-    errorMessage,
+    legacyParseErrorMessage,
   );
 
-  assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
-    [designatorPath, RDF_TYPE_IRI, SFLO_PAYLOAD_ARTIFACT_IRI],
-    [designatorPath, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI],
-  ]);
+  assertHasNamedNodeFacts(
+    quads,
+    meshBase,
+    `KnopInventory file ${inventoryPath} for designator path ${designator} is missing rdf:type sflo:PayloadArtifact on payload subject <${designatorPath}>. Add that fact before retrying weave.`,
+    [[designatorPath, RDF_TYPE_IRI, SFLO_PAYLOAD_ARTIFACT_IRI]],
+    "malformed-inventory",
+  );
+  assertHasNamedNodeFacts(
+    quads,
+    meshBase,
+    `KnopInventory file ${inventoryPath} for designator path ${designator} is missing rdf:type sflo:DigitalArtifact on payload subject <${designatorPath}>. Add that fact before retrying weave.`,
+    [[designatorPath, RDF_TYPE_IRI, SFLO_DIGITAL_ARTIFACT_IRI]],
+    "malformed-inventory",
+  );
   assertHasCurrentPayloadSourceLocator(
     quads,
     meshBase,
-    errorMessage,
+    `KnopInventory file ${inventoryPath} for designator path ${designator} does not identify exactly one current working source for payload subject <${designatorPath}> that matches the loaded payload path ${payloadArtifact.workingLocalRelativePath}. Correct the payload locator facts or reload the candidate before retrying weave.`,
     designatorPath,
     payloadArtifact,
+    "malformed-inventory",
   );
 
   const existingHistoryPaths = resolveNamedNodeObjectPaths(
@@ -653,14 +803,14 @@ export function assertCurrentPayloadArtifactShape(
     meshBase,
     designatorPath,
     SFLO_HAS_ARTIFACT_HISTORY_IRI,
-    errorMessage,
+    legacyParseErrorMessage,
   );
   const currentHistoryPath = resolveOptionalNamedNodePath(
     quads,
     meshBase,
     designatorPath,
     SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
-    errorMessage,
+    legacyParseErrorMessage,
   );
   const hasExistingDeclaredHistory = existingHistoryPaths.some((path) =>
     isDeclaredArtifactHistory(quads, meshBase, path)
@@ -1004,6 +1154,7 @@ export function assertHasNamedNodeFacts(
   meshBase: string,
   errorMessage: string,
   facts: readonly NamedNodeFact[],
+  findingCode: MeshValidationFindingCode = "unsupported-mesh-shape",
 ): void {
   for (const [subjectValue, predicateIri, objectValue] of facts) {
     if (
@@ -1015,7 +1166,7 @@ export function assertHasNamedNodeFacts(
         objectValue,
       )
     ) {
-      throw new WeaveInputError(errorMessage);
+      throw new WeaveInputError(errorMessage, findingCode);
     }
   }
 }
@@ -1025,6 +1176,7 @@ export function assertHasLiteralFacts(
   meshBase: string,
   errorMessage: string,
   facts: readonly LiteralFact[],
+  findingCode: MeshValidationFindingCode = "unsupported-mesh-shape",
 ): void {
   for (const [subjectValue, predicateIri, literalValue, datatypeIri] of facts) {
     if (
@@ -1037,7 +1189,7 @@ export function assertHasLiteralFacts(
         datatypeIri,
       )
     ) {
-      throw new WeaveInputError(errorMessage);
+      throw new WeaveInputError(errorMessage, findingCode);
     }
   }
 }

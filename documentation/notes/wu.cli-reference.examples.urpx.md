@@ -102,7 +102,7 @@ TTL
 
 Before integrating any payloads, run an untargeted weave. On an empty mesh this initializes the mesh support histories and pages needed for a settled publication shape. The history policy comes from `_mesh/_config/config.ttl`, which gives later payload weaves a settled support-history shape they can advance.
 
-Do this before `welcome.ttl` is integrated. If `welcome.ttl` already exists as a weave candidate, untargeted `weave` will try to weave that payload too, and the current local slice can fail with "settled first-payload-weave mesh inventory shape." In the disposable URPX replay, recover by rerunning Step 2 onward rather than trying to repair the half-integrated root payload in place.
+Do this before `welcome.ttl` is integrated. If `welcome.ttl` already exists as a weave candidate, untargeted `weave` will try to weave that payload too, and the weave can fail. As of the condition-specific diagnostics work, the error names the exact condition — the file, the RDF subject, and the fact to repair — rather than the former generic "settled first-payload-weave mesh inventory shape" wording. In the disposable URPX replay, recover by rerunning Step 2 onward rather than trying to repair the half-integrated root payload in place.
 
 ```sh
 deno run -A "$WEAVE_CLI" \

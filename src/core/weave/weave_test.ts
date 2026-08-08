@@ -390,6 +390,539 @@ const firstPayloadWeaveKnopInventoryTurtle =
   sflo:hasWorkingLocatedFile <alice-data.ttl> .
 `;
 
+function firstPayloadDiagnosticInput(): PlanWeaveInput {
+  return {
+    request: {
+      targets: [{ designatorPath: "alice/data" }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: firstPayloadWeaveMeshInventoryTurtle,
+    currentMeshMetadataTurtle: firstPayloadWeaveMeshMetadataTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice/data",
+      currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+      currentKnopInventoryTurtle: firstPayloadWeaveKnopInventoryTurtle,
+      payloadArtifact: {
+        workingLocalRelativePath: "alice-data.ttl",
+        currentPayloadTurtle: "<alice/data> a <https://schema.org/Dataset> .\n",
+      },
+    }],
+  };
+}
+
+interface FirstPayloadDiagnosticCase {
+  name: string;
+  mutate(input: PlanWeaveInput): void;
+  expectedMessage: string;
+  expectedFindingCode:
+    | "malformed-inventory"
+    | "malformed-mesh-metadata"
+    | "malformed-knop-metadata"
+    | "unsupported-mesh-shape";
+}
+
+function replaceDiagnosticFixtureText(
+  value: string,
+  from: string,
+  to = "",
+): string {
+  assert(value.includes(from), `Diagnostic fixture does not contain ${from}`);
+  return value.replace(from, to);
+}
+
+const firstPayloadDiagnosticCases: readonly FirstPayloadDiagnosticCase[] = [
+  {
+    name: "invalid KnopMetadata Turtle",
+    mutate: (input) => {
+      input.weaveableKnops[0]!.currentKnopMetadataTurtle = "<broken";
+    },
+    expectedMessage:
+      "KnopMetadata file alice/data/_knop/_meta/meta.ttl for designator path alice/data is not valid Turtle. Repair the file before retrying weave.",
+    expectedFindingCode: "malformed-knop-metadata",
+  },
+  {
+    name: "missing Knop type in KnopMetadata",
+    mutate: (input) => {
+      input.weaveableKnops[0]!.currentKnopMetadataTurtle =
+        replaceDiagnosticFixtureText(
+          firstPayloadWeaveKnopMetadataTurtle,
+          "<alice/data/_knop> a sflo:Knop ;",
+          "<alice/data/_knop>",
+        );
+    },
+    expectedMessage:
+      "KnopMetadata file alice/data/_knop/_meta/meta.ttl for designator path alice/data is missing rdf:type sflo:Knop on subject <alice/data/_knop>. Add that fact before retrying weave.",
+    expectedFindingCode: "malformed-knop-metadata",
+  },
+  {
+    name: "missing working inventory file in KnopMetadata",
+    mutate: (input) => {
+      input.weaveableKnops[0]!.currentKnopMetadataTurtle =
+        replaceDiagnosticFixtureText(
+          firstPayloadWeaveKnopMetadataTurtle,
+          "  sflo:hasWorkingKnopInventoryFile <alice/data/_knop/_inventory/inventory.ttl> .\n",
+          "",
+        ).replace(
+          '  sflo:designatorPath "alice/data" ;',
+          '  sflo:designatorPath "alice/data" .',
+        );
+    },
+    expectedMessage:
+      "KnopMetadata file alice/data/_knop/_meta/meta.ttl for designator path alice/data is missing sflo:hasWorkingKnopInventoryFile <alice/data/_knop/_inventory/inventory.ttl> on subject <alice/data/_knop>. Add that fact before retrying weave.",
+    expectedFindingCode: "malformed-knop-metadata",
+  },
+  {
+    name: "missing designator fact in KnopMetadata",
+    mutate: (input) => {
+      input.weaveableKnops[0]!.currentKnopMetadataTurtle =
+        replaceDiagnosticFixtureText(
+          firstPayloadWeaveKnopMetadataTurtle,
+          '  sflo:designatorPath "alice/data" ;\n',
+        );
+    },
+    expectedMessage:
+      'KnopMetadata file alice/data/_knop/_meta/meta.ttl for designator path alice/data is missing sflo:designatorPath "alice/data" on subject <alice/data/_knop>. Add that exact literal before retrying weave.',
+    expectedFindingCode: "malformed-knop-metadata",
+  },
+  {
+    name: "invalid KnopInventory Turtle",
+    mutate: (input) => {
+      input.weaveableKnops[0]!.currentKnopInventoryTurtle = "<broken";
+    },
+    expectedMessage:
+      "KnopInventory file alice/data/_knop/_inventory/inventory.ttl for designator path alice/data is not valid Turtle. Repair the file before retrying weave.",
+    expectedFindingCode: "malformed-inventory",
+  },
+  {
+    name: "missing Knop type in KnopInventory",
+    mutate: (input) => {
+      input.weaveableKnops[0]!.currentKnopInventoryTurtle =
+        replaceDiagnosticFixtureText(
+          firstPayloadWeaveKnopInventoryTurtle,
+          "<alice/data/_knop> a sflo:Knop ;",
+          "<alice/data/_knop>",
+        );
+    },
+    expectedMessage:
+      "KnopInventory file alice/data/_knop/_inventory/inventory.ttl for designator path alice/data is missing rdf:type sflo:Knop on subject <alice/data/_knop>. Add that fact before retrying weave.",
+    expectedFindingCode: "malformed-inventory",
+  },
+  {
+    name: "missing metadata relationship in KnopInventory",
+    mutate: (input) => {
+      input.weaveableKnops[0]!.currentKnopInventoryTurtle =
+        replaceDiagnosticFixtureText(
+          firstPayloadWeaveKnopInventoryTurtle,
+          "  sflo:hasKnopMetadata <alice/data/_knop/_meta> ;\n",
+        );
+    },
+    expectedMessage:
+      "KnopInventory file alice/data/_knop/_inventory/inventory.ttl for designator path alice/data is missing sflo:hasKnopMetadata <alice/data/_knop/_meta> on subject <alice/data/_knop>. Add that fact before retrying weave.",
+    expectedFindingCode: "malformed-inventory",
+  },
+  {
+    name: "missing inventory relationship in KnopInventory",
+    mutate: (input) => {
+      input.weaveableKnops[0]!.currentKnopInventoryTurtle =
+        replaceDiagnosticFixtureText(
+          firstPayloadWeaveKnopInventoryTurtle,
+          "  sflo:hasKnopInventory <alice/data/_knop/_inventory> ;\n",
+        );
+    },
+    expectedMessage:
+      "KnopInventory file alice/data/_knop/_inventory/inventory.ttl for designator path alice/data is missing sflo:hasKnopInventory <alice/data/_knop/_inventory> on subject <alice/data/_knop>. Add that fact before retrying weave.",
+    expectedFindingCode: "malformed-inventory",
+  },
+  {
+    name: "missing working inventory file in KnopInventory",
+    mutate: (input) => {
+      input.weaveableKnops[0]!.currentKnopInventoryTurtle =
+        replaceDiagnosticFixtureText(
+          firstPayloadWeaveKnopInventoryTurtle,
+          "  sflo:hasWorkingKnopInventoryFile <alice/data/_knop/_inventory/inventory.ttl> ;\n",
+        );
+    },
+    expectedMessage:
+      "KnopInventory file alice/data/_knop/_inventory/inventory.ttl for designator path alice/data is missing sflo:hasWorkingKnopInventoryFile <alice/data/_knop/_inventory/inventory.ttl> on subject <alice/data/_knop>. Add that fact before retrying weave.",
+    expectedFindingCode: "malformed-inventory",
+  },
+  {
+    name: "invalid MeshInventory Turtle",
+    mutate: (input) => {
+      input.currentMeshInventoryTurtle = "<broken";
+    },
+    expectedMessage:
+      "MeshInventory file _mesh/_inventory/inventory.ttl for designator path alice/data is not valid Turtle. Repair the file before retrying weave.",
+    expectedFindingCode: "malformed-inventory",
+  },
+  {
+    name: "missing MeshInventory type",
+    mutate: (input) => {
+      input.currentMeshInventoryTurtle = replaceDiagnosticFixtureText(
+        firstPayloadWeaveMeshInventoryTurtle,
+        "<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;",
+        "<_mesh/_inventory> a sflo:DigitalArtifact, sflo:RdfDocument ;",
+      );
+    },
+    expectedMessage:
+      "MeshInventory file _mesh/_inventory/inventory.ttl for designator path alice/data is missing rdf:type sflo:MeshInventory on subject <_mesh/_inventory>. Add that fact before retrying weave.",
+    expectedFindingCode: "malformed-inventory",
+  },
+  {
+    name: "missing MeshInventory DigitalArtifact type",
+    mutate: (input) => {
+      input.currentMeshInventoryTurtle = replaceDiagnosticFixtureText(
+        firstPayloadWeaveMeshInventoryTurtle,
+        "<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;",
+        "<_mesh/_inventory> a sflo:MeshInventory, sflo:RdfDocument ;",
+      );
+    },
+    expectedMessage:
+      "MeshInventory file _mesh/_inventory/inventory.ttl for designator path alice/data is missing rdf:type sflo:DigitalArtifact on subject <_mesh/_inventory>. Add that fact before retrying weave.",
+    expectedFindingCode: "malformed-inventory",
+  },
+  {
+    name: "missing MeshInventory RdfDocument type",
+    mutate: (input) => {
+      input.currentMeshInventoryTurtle = replaceDiagnosticFixtureText(
+        firstPayloadWeaveMeshInventoryTurtle,
+        "<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;",
+        "<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact ;",
+      );
+    },
+    expectedMessage:
+      "MeshInventory file _mesh/_inventory/inventory.ttl for designator path alice/data is missing rdf:type sflo:RdfDocument on subject <_mesh/_inventory>. Add that fact before retrying weave.",
+    expectedFindingCode: "malformed-inventory",
+  },
+  {
+    name: "missing payload type in MeshInventory",
+    mutate: (input) => {
+      input.currentMeshInventoryTurtle = replaceDiagnosticFixtureText(
+        firstPayloadWeaveMeshInventoryTurtle,
+        "<alice/data> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;",
+        "<alice/data> a sflo:DigitalArtifact, sflo:RdfDocument ;",
+      );
+    },
+    expectedMessage:
+      "MeshInventory file _mesh/_inventory/inventory.ttl for designator path alice/data is missing rdf:type sflo:PayloadArtifact on payload subject <alice/data>. Add that fact before retrying weave.",
+    expectedFindingCode: "malformed-inventory",
+  },
+  {
+    name: "missing payload DigitalArtifact type in MeshInventory",
+    mutate: (input) => {
+      input.currentMeshInventoryTurtle = replaceDiagnosticFixtureText(
+        firstPayloadWeaveMeshInventoryTurtle,
+        "<alice/data> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;",
+        "<alice/data> a sflo:PayloadArtifact, sflo:RdfDocument ;",
+      );
+    },
+    expectedMessage:
+      "MeshInventory file _mesh/_inventory/inventory.ttl for designator path alice/data is missing rdf:type sflo:DigitalArtifact on payload subject <alice/data>. Add that fact before retrying weave.",
+    expectedFindingCode: "malformed-inventory",
+  },
+  {
+    name: "missing Knop type in MeshInventory",
+    mutate: (input) => {
+      input.currentMeshInventoryTurtle = replaceDiagnosticFixtureText(
+        firstPayloadWeaveMeshInventoryTurtle,
+        "<alice/data/_knop> a sflo:Knop ;",
+        "<alice/data/_knop>",
+      );
+    },
+    expectedMessage:
+      "MeshInventory file _mesh/_inventory/inventory.ttl for designator path alice/data is missing rdf:type sflo:Knop on subject <alice/data/_knop>. Add that fact before retrying weave.",
+    expectedFindingCode: "malformed-inventory",
+  },
+  {
+    name: "missing MeshMetadata",
+    mutate: (input) => {
+      input.currentMeshMetadataTurtle = undefined;
+    },
+    expectedMessage:
+      "MeshMetadata file _mesh/_meta/meta.ttl for designator path alice/data is missing. Restore it with the current MeshInventory history facts before retrying weave.",
+    expectedFindingCode: "malformed-mesh-metadata",
+  },
+  {
+    name: "invalid MeshMetadata Turtle",
+    mutate: (input) => {
+      input.currentMeshMetadataTurtle = "<broken";
+    },
+    expectedMessage:
+      "MeshMetadata file _mesh/_meta/meta.ttl for designator path alice/data is not valid Turtle. Repair the file before retrying weave.",
+    expectedFindingCode: "malformed-mesh-metadata",
+  },
+  {
+    name: "missing current MeshInventory history in MeshMetadata",
+    mutate: (input) => {
+      input.currentMeshMetadataTurtle = replaceDiagnosticFixtureText(
+        firstPayloadWeaveMeshMetadataTurtle,
+        "  sflo:currentArtifactHistory <_mesh/_inventory/_history001> ;\n",
+      );
+    },
+    expectedMessage:
+      "MeshMetadata file _mesh/_meta/meta.ttl for designator path alice/data is missing sflo:currentArtifactHistory on subject <_mesh/_inventory>. Point it to the current MeshInventory ArtifactHistory before retrying weave.",
+    expectedFindingCode: "malformed-mesh-metadata",
+  },
+  {
+    name: "conflicting current MeshInventory histories in MeshMetadata",
+    mutate: (input) => {
+      input.currentMeshMetadataTurtle = replaceDiagnosticFixtureText(
+        firstPayloadWeaveMeshMetadataTurtle,
+        "  sflo:currentArtifactHistory <_mesh/_inventory/_history001> ;",
+        "  sflo:currentArtifactHistory <_mesh/_inventory/_history001>, <_mesh/_inventory/_history002> ;",
+      );
+    },
+    expectedMessage:
+      "MeshMetadata file _mesh/_meta/meta.ttl for designator path alice/data has conflicting sflo:currentArtifactHistory IRIs on subject <_mesh/_inventory>. Keep exactly one current MeshInventory history before retrying weave.",
+    expectedFindingCode: "malformed-mesh-metadata",
+  },
+  {
+    name: "missing next history ordinal in MeshMetadata",
+    mutate: (input) => {
+      input.currentMeshMetadataTurtle = replaceDiagnosticFixtureText(
+        firstPayloadWeaveMeshMetadataTurtle,
+        '  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger .\n',
+        "  a sflo:DigitalArtifact .\n",
+      );
+    },
+    expectedMessage:
+      "MeshMetadata file _mesh/_meta/meta.ttl for designator path alice/data is missing sflo:nextHistoryOrdinal on subject <_mesh/_inventory>. Add one non-negative integer ordinal before retrying weave.",
+    expectedFindingCode: "malformed-mesh-metadata",
+  },
+  {
+    name: "conflicting next history ordinals in MeshMetadata",
+    mutate: (input) => {
+      input.currentMeshMetadataTurtle = replaceDiagnosticFixtureText(
+        firstPayloadWeaveMeshMetadataTurtle,
+        '  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger .',
+        '  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger, "3"^^xsd:nonNegativeInteger .',
+      );
+    },
+    expectedMessage:
+      "MeshMetadata file _mesh/_meta/meta.ttl for designator path alice/data has conflicting sflo:nextHistoryOrdinal values on subject <_mesh/_inventory>. Keep exactly one non-negative integer ordinal before retrying weave.",
+    expectedFindingCode: "malformed-mesh-metadata",
+  },
+  {
+    name: "invalid next history ordinal in MeshMetadata",
+    mutate: (input) => {
+      input.currentMeshMetadataTurtle = replaceDiagnosticFixtureText(
+        firstPayloadWeaveMeshMetadataTurtle,
+        'sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger',
+        'sflo:nextHistoryOrdinal "invalid"^^xsd:nonNegativeInteger',
+      );
+    },
+    expectedMessage:
+      "MeshMetadata file _mesh/_meta/meta.ttl for designator path alice/data has an invalid sflo:nextHistoryOrdinal on subject <_mesh/_inventory>. Use one xsd:nonNegativeInteger value before retrying weave.",
+    expectedFindingCode: "malformed-mesh-metadata",
+  },
+  {
+    name: "missing latest state in MeshMetadata",
+    mutate: (input) => {
+      input.currentMeshMetadataTurtle = replaceDiagnosticFixtureText(
+        firstPayloadWeaveMeshMetadataTurtle,
+        "  sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0002> ;\n",
+      );
+    },
+    expectedMessage:
+      "MeshMetadata file _mesh/_meta/meta.ttl for designator path alice/data is missing sflo:latestHistoricalState on history subject <_mesh/_inventory/_history001>. Point that history to its latest state before retrying weave.",
+    expectedFindingCode: "malformed-mesh-metadata",
+  },
+  {
+    name: "conflicting latest states in MeshMetadata",
+    mutate: (input) => {
+      input.currentMeshMetadataTurtle = replaceDiagnosticFixtureText(
+        firstPayloadWeaveMeshMetadataTurtle,
+        "  sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0002> ;",
+        "  sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0002>, <_mesh/_inventory/_history001/_s0001> ;",
+      );
+    },
+    expectedMessage:
+      "MeshMetadata file _mesh/_meta/meta.ttl for designator path alice/data has conflicting sflo:latestHistoricalState IRIs on history subject <_mesh/_inventory/_history001>. Keep exactly one latest state before retrying weave.",
+    expectedFindingCode: "malformed-mesh-metadata",
+  },
+  {
+    name: "missing next state ordinal in MeshMetadata",
+    mutate: (input) => {
+      input.currentMeshMetadataTurtle = replaceDiagnosticFixtureText(
+        firstPayloadWeaveMeshMetadataTurtle,
+        '  sflo:nextStateOrdinal "3"^^xsd:nonNegativeInteger .\n',
+        "  a sflo:ArtifactHistory .\n",
+      );
+    },
+    expectedMessage:
+      "MeshMetadata file _mesh/_meta/meta.ttl for designator path alice/data is missing sflo:nextStateOrdinal on history subject <_mesh/_inventory/_history001>. Add one non-negative integer ordinal before retrying weave.",
+    expectedFindingCode: "malformed-mesh-metadata",
+  },
+  {
+    name: "conflicting next state ordinals in MeshMetadata",
+    mutate: (input) => {
+      input.currentMeshMetadataTurtle = replaceDiagnosticFixtureText(
+        firstPayloadWeaveMeshMetadataTurtle,
+        '  sflo:nextStateOrdinal "3"^^xsd:nonNegativeInteger .',
+        '  sflo:nextStateOrdinal "3"^^xsd:nonNegativeInteger, "4"^^xsd:nonNegativeInteger .',
+      );
+    },
+    expectedMessage:
+      "MeshMetadata file _mesh/_meta/meta.ttl for designator path alice/data has conflicting sflo:nextStateOrdinal values on history subject <_mesh/_inventory/_history001>. Keep exactly one non-negative integer ordinal before retrying weave.",
+    expectedFindingCode: "malformed-mesh-metadata",
+  },
+  {
+    name: "invalid next state ordinal in MeshMetadata",
+    mutate: (input) => {
+      input.currentMeshMetadataTurtle = replaceDiagnosticFixtureText(
+        firstPayloadWeaveMeshMetadataTurtle,
+        'sflo:nextStateOrdinal "3"^^xsd:nonNegativeInteger',
+        'sflo:nextStateOrdinal "invalid"^^xsd:nonNegativeInteger',
+      );
+    },
+    expectedMessage:
+      "MeshMetadata file _mesh/_meta/meta.ttl for designator path alice/data has an invalid sflo:nextStateOrdinal on history subject <_mesh/_inventory/_history001>. Use one xsd:nonNegativeInteger value before retrying weave.",
+    expectedFindingCode: "malformed-mesh-metadata",
+  },
+  {
+    name: "zero next state ordinal in MeshMetadata",
+    mutate: (input) => {
+      input.currentMeshMetadataTurtle = replaceDiagnosticFixtureText(
+        firstPayloadWeaveMeshMetadataTurtle,
+        'sflo:nextStateOrdinal "3"^^xsd:nonNegativeInteger',
+        'sflo:nextStateOrdinal "0"^^xsd:nonNegativeInteger',
+      );
+    },
+    expectedMessage:
+      'MeshMetadata file _mesh/_meta/meta.ttl for designator path alice/data sets sflo:nextStateOrdinal to "0" on history subject <_mesh/_inventory/_history001>, which cannot follow an existing latest state. Set it to at least "1" before retrying weave.',
+    expectedFindingCode: "malformed-mesh-metadata",
+  },
+  {
+    name: "invalid next state segment hint in MeshMetadata",
+    mutate: (input) => {
+      input.currentMeshMetadataTurtle = meshMetadataProgressionTurtle(
+        "_mesh/_inventory/_history001/_s0002",
+        3,
+        "../invalid",
+      );
+    },
+    expectedMessage:
+      "MeshMetadata file _mesh/_meta/meta.ttl for designator path alice/data has conflicting or invalid sfcfg:hasNextStateSegmentHint values on history subject <_mesh/_inventory/_history001>. Keep at most one safe path segment before retrying weave.",
+    expectedFindingCode: "malformed-mesh-metadata",
+  },
+  {
+    name: "latest state outside the current history",
+    mutate: (input) => {
+      input.currentMeshMetadataTurtle = firstPayloadWeaveMeshMetadataTurtle
+        .replaceAll(
+          "_mesh/_inventory/_history001/_s0002",
+          "_mesh/_inventory/_history002/_s0002",
+        );
+    },
+    expectedMessage:
+      "MeshMetadata file _mesh/_meta/meta.ttl for designator path alice/data points sflo:latestHistoricalState to <_mesh/_inventory/_history002/_s0002>, outside current MeshInventory history <_mesh/_inventory/_history001>. Point the latest state inside the current history before retrying weave.",
+    expectedFindingCode: "malformed-mesh-metadata",
+  },
+  {
+    name: "conflicting latest MeshInventory manifestations",
+    mutate: (input) => {
+      input.currentMeshInventoryTurtle =
+        `${firstPayloadWeaveMeshInventoryTurtle}\n<_mesh/_inventory/_history001/_s0002> sflo:hasManifestation <_mesh/_inventory/_history001/_s0002/ttl>, <_mesh/_inventory/_history001/_s0002/alternate> .\n`;
+    },
+    expectedMessage:
+      "MeshInventory file _mesh/_inventory/inventory.ttl for designator path alice/data has more than one sflo:hasManifestation IRI on latest state <_mesh/_inventory/_history001/_s0002>. Keep exactly one current manifestation before retrying weave.",
+    expectedFindingCode: "malformed-inventory",
+  },
+  {
+    name: "missing current history relationship in MeshInventory",
+    mutate: (input) => {
+      input.currentMeshInventoryTurtle = replaceDiagnosticFixtureText(
+        firstPayloadWeaveMeshInventoryTurtle,
+        "  sflo:hasArtifactHistory <_mesh/_inventory/_history001> ;\n",
+      );
+    },
+    expectedMessage:
+      "MeshInventory file _mesh/_inventory/inventory.ttl for designator path alice/data is missing sflo:hasArtifactHistory <_mesh/_inventory/_history001> on subject <_mesh/_inventory>. Add that fact before retrying weave.",
+    expectedFindingCode: "malformed-inventory",
+  },
+  {
+    name: "missing latest state relationship in MeshInventory",
+    mutate: (input) => {
+      input.currentMeshInventoryTurtle = replaceDiagnosticFixtureText(
+        firstPayloadWeaveMeshInventoryTurtle,
+        "  sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0002> ;\n",
+      );
+    },
+    expectedMessage:
+      "MeshInventory file _mesh/_inventory/inventory.ttl for designator path alice/data is missing sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0002> on history subject <_mesh/_inventory/_history001>. Add that fact before retrying weave.",
+    expectedFindingCode: "malformed-inventory",
+  },
+  {
+    name: "missing payload type in KnopInventory",
+    mutate: (input) => {
+      input.weaveableKnops[0]!.currentKnopInventoryTurtle =
+        replaceDiagnosticFixtureText(
+          firstPayloadWeaveKnopInventoryTurtle,
+          "<alice/data> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;",
+          "<alice/data> a sflo:DigitalArtifact, sflo:RdfDocument ;",
+        );
+    },
+    expectedMessage:
+      "KnopInventory file alice/data/_knop/_inventory/inventory.ttl for designator path alice/data is missing rdf:type sflo:PayloadArtifact on payload subject <alice/data>. Add that fact before retrying weave.",
+    expectedFindingCode: "malformed-inventory",
+  },
+  {
+    name: "missing payload DigitalArtifact type in KnopInventory",
+    mutate: (input) => {
+      input.weaveableKnops[0]!.currentKnopInventoryTurtle =
+        replaceDiagnosticFixtureText(
+          firstPayloadWeaveKnopInventoryTurtle,
+          "<alice/data> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;",
+          "<alice/data> a sflo:PayloadArtifact, sflo:RdfDocument ;",
+        );
+    },
+    expectedMessage:
+      "KnopInventory file alice/data/_knop/_inventory/inventory.ttl for designator path alice/data is missing rdf:type sflo:DigitalArtifact on payload subject <alice/data>. Add that fact before retrying weave.",
+    expectedFindingCode: "malformed-inventory",
+  },
+  {
+    name: "payload working-source conflict in KnopInventory",
+    mutate: (input) => {
+      input.weaveableKnops[0]!.payloadArtifact!.workingLocalRelativePath =
+        "different-payload.ttl";
+    },
+    expectedMessage:
+      "KnopInventory file alice/data/_knop/_inventory/inventory.ttl for designator path alice/data does not identify exactly one current working source for payload subject <alice/data> that matches the loaded payload path different-payload.ttl. Correct the payload locator facts or reload the candidate before retrying weave.",
+    expectedFindingCode: "malformed-inventory",
+  },
+];
+
+for (const diagnosticCase of firstPayloadDiagnosticCases) {
+  Deno.test(`planWeave diagnoses ${diagnosticCase.name}`, () => {
+    const input = firstPayloadDiagnosticInput();
+    diagnosticCase.mutate(input);
+
+    const error = assertThrows(
+      () => planWeave(input),
+      WeaveInputError,
+      diagnosticCase.expectedMessage,
+    );
+    assertEquals(error.findingCode, diagnosticCase.expectedFindingCode);
+  });
+}
+
+Deno.test("first-payload diagnostics preserve accepted and refused planner behavior", () => {
+  const accepted = planWeave(firstPayloadDiagnosticInput());
+  assertEquals(accepted.wovenDesignatorPaths, ["alice/data"]);
+
+  const refused = firstPayloadDiagnosticInput();
+  refused.weaveableKnops[0]!.currentKnopInventoryTurtle =
+    firstPayloadWeaveKnopInventoryTurtle.replace(
+      "<alice/data> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;",
+      "<alice/data> a sflo:DigitalArtifact, sflo:RdfDocument ;",
+    );
+  assertThrows(
+    () => planWeave(refused),
+    WeaveInputError,
+    "missing rdf:type sflo:PayloadArtifact",
+  );
+});
+
 const laterFirstPayloadWeaveMeshInventoryTurtle =
   `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .

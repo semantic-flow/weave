@@ -299,6 +299,7 @@ export function planWeave(input: PlanWeaveInput): WeavePlan {
   assertCurrentKnopInventoryBaseShape(
     meshBase,
     candidate.currentKnopInventoryTurtle,
+    designatorPath,
     knopPath,
   );
 
@@ -787,6 +788,7 @@ function planExplicitPayloadBatchWeave(
       assertCurrentKnopInventoryBaseShape(
         meshBase,
         candidate.currentKnopInventoryTurtle,
+        designatorPath,
         knopPath,
       );
 
