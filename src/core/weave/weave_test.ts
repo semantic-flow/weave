@@ -294,7 +294,7 @@ Deno.test("planMeshSupportResourcePages records initial mesh inventory progressi
   );
 });
 
-Deno.test("planMeshSupportResourcePages omits suppressed support ResourcePage facts", () => {
+Deno.test("planMeshSupportResourcePages keeps support ResourcePage facts when pages are suppressed", () => {
   const plan = planMeshSupportResourcePages({
     meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
     currentMeshInventoryTurtle: sidecarMeshCreatedInventoryTurtle,
@@ -320,14 +320,25 @@ Deno.test("planMeshSupportResourcePages omits suppressed support ResourcePage fa
   });
 
   const inventory = plan.updatedFiles[0]?.contents ?? "";
-  assertFalse(inventory.includes("_mesh/_config/index.html"));
-  assertFalse(inventory.includes("_mesh/_config/_history001/index.html"));
-  assertFalse(
-    inventory.includes("_mesh/_config/_history001/_s0001/index.html"),
+  assertStringIncludes(
+    inventory,
+    "sflo:hasResourcePage <_mesh/_config/index.html>",
   );
   assertStringIncludes(
     inventory,
-    "sflo:hasWorkingLocatedFile <_mesh/_config/config.ttl> ;\n  sflo:hasArtifactHistory <_mesh/_config/_history001> ;",
+    "sflo:hasResourcePage <_mesh/_config/_history001/index.html>",
+  );
+  assertStringIncludes(
+    inventory,
+    "sflo:hasResourcePage <_mesh/_config/_history001/_s0001/index.html>",
+  );
+  assertStringIncludes(
+    inventory,
+    "sflo:hasWorkingLocatedFile <_mesh/_config/config.ttl> ;",
+  );
+  assertStringIncludes(
+    inventory,
+    "sflo:hasArtifactHistory <_mesh/_config/_history001> ;",
   );
   assertStringIncludes(
     inventory,
@@ -1893,7 +1904,7 @@ Deno.test("planWeave applies current-only KnopMetadata policy on the first paylo
   );
 });
 
-Deno.test("planWeave omits payload ResourcePage facts when payload pages are suppressed", () => {
+Deno.test("planWeave keeps payload ResourcePage facts when payload pages are suppressed", () => {
   const plan = planWeave({
     request: {
       targets: [{ designatorPath: "alice/data" }],
@@ -1923,14 +1934,25 @@ Deno.test("planWeave omits payload ResourcePage facts when payload pages are sup
   const meshInventory = plan.updatedFiles[0]?.contents ?? "";
   const knopInventory = plan.updatedFiles[1]?.contents ?? "";
 
-  assertFalse(meshInventory.includes("alice/data/index.html"));
-  assertFalse(knopInventory.includes("alice/data/index.html"));
-  assertFalse(knopInventory.includes("alice/data/_history001/index.html"));
-  assertFalse(
-    knopInventory.includes("alice/data/_history001/_s0001/index.html"),
+  assertStringIncludes(
+    meshInventory,
+    "sflo:hasResourcePage <alice/data/index.html>",
   );
-  assertFalse(
-    knopInventory.includes("alice/data/_history001/_s0001/ttl/index.html"),
+  assertStringIncludes(
+    knopInventory,
+    "sflo:hasResourcePage <alice/data/index.html>",
+  );
+  assertStringIncludes(
+    knopInventory,
+    "sflo:hasResourcePage <alice/data/_history001/index.html>",
+  );
+  assertStringIncludes(
+    knopInventory,
+    "sflo:hasResourcePage <alice/data/_history001/_s0001/index.html>",
+  );
+  assertStringIncludes(
+    knopInventory,
+    "sflo:hasResourcePage <alice/data/_history001/_s0001/ttl/index.html>",
   );
   assertStringIncludes(knopInventory, "alice/data/_knop/index.html");
   assertStringIncludes(knopInventory, "alice/data/_knop/_inventory/index.html");
