@@ -6,6 +6,7 @@ export interface VersionPlan {
   createdFiles: readonly PlannedFile[];
   createdBinaryFiles?: readonly PlannedBinaryFile[];
   updatedFiles: readonly PlannedFile[];
+  regeneratedPagePaths?: readonly string[];
 }
 
 export interface PlannedPayloadSnapshot {

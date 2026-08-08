@@ -88,6 +88,7 @@ class EnabledRuntimeMemoryStats implements RuntimeMemoryStats {
     candidates: readonly WeaveableKnopCandidate[],
     overlay: TextFileOverlay,
   ): void {
+    this.#sampleRss();
     const sampled = overlay.retainedCandidateLiveSetMemoryStats(
       workspaceRoot,
       candidates,
@@ -107,6 +108,10 @@ class EnabledRuntimeMemoryStats implements RuntimeMemoryStats {
 
   samplePlanningLoopIteration(): void {
     this.#planningLoopIterations += 1;
+    this.#sampleRss();
+  }
+
+  #sampleRss(): void {
     if (typeof Deno.memoryUsage === "function") {
       this.#maxRssBytes = Math.max(
         this.#maxRssBytes,
@@ -120,6 +125,7 @@ class EnabledRuntimeMemoryStats implements RuntimeMemoryStats {
     updatedFiles: ReadonlyMap<string, PlannedFile>,
     overlay: TextFileOverlay,
   ): void {
+    this.#sampleRss();
     const encoder = new TextEncoder();
     const createdStats = emptyCreatedFileStats();
     for (const file of createdFiles) {

@@ -5,10 +5,15 @@ import {
   assertRejects,
   assertStrictEquals,
 } from "@std/assert";
-import { fromFileUrl, join } from "@std/path";
+import { fromFileUrl, join, relative } from "@std/path";
 import {
   generatePendingHeavyMesh,
 } from "../../scripts/generate-pending-heavy-mesh.ts";
+import { normalizeVersionRequest } from "../../src/runtime/weave/request_normalization.ts";
+import {
+  executeGenerate,
+  executeVersion,
+} from "../../src/runtime/weave/weave.ts";
 import type { RuntimeMemoryStatsReport } from "../../src/runtime/weave/memory_stats.ts";
 import { loadOperationalLocalPathPolicy } from "../../src/runtime/operational/local_path_policy.ts";
 import { loadWeaveableKnopCandidates } from "../../src/runtime/weave/candidate_loader.ts";
@@ -17,12 +22,294 @@ import {
   applyPlannedFilesToOverlay,
   TextFileOverlay,
 } from "../../src/runtime/weave/planning_context.ts";
+import { prepareVersionExecution } from "../../src/runtime/weave/version_execution.ts";
+import type {
+  RuntimeTiming,
+  RuntimeTimingField,
+} from "../../src/runtime/timing.ts";
+import {
+  hasNamedNodeFact,
+  parseWeaveShapeQuads,
+} from "../../src/core/weave/rdf_helpers.ts";
+import { SFLO_NAMESPACE } from "../../src/core/rdf/namespaces.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
 const repoRoot = fromFileUrl(new URL("../../", import.meta.url));
 const cliEntrypoint = join(repoRoot, "src/main.ts");
+const sfloHasResourcePageIri = `${SFLO_NAMESPACE}hasResourcePage`;
 
-Deno.test("pending-heavy generator enters the instrumented recursive validation loop", async () => {
+Deno.test("untargeted extracted candidates use one instrumented coherent batch and regenerate byte-stably", async () => {
+  const meshRoot = await createTestTmpDir(
+    "weave-pending-heavy-extracted-batch-",
+  );
+  const generated = await generatePendingHeavyMesh({
+    outputPath: meshRoot,
+    count: 3,
+    meshInventoryHistoryPolicy: "versioned",
+    sourceDesignatorPath: "catalog/source",
+  });
+  const meshState = await loadMeshState(meshRoot);
+  const localPathPolicy = await loadOperationalLocalPathPolicy(meshRoot);
+  const pendingBefore = await loadWeaveableKnopCandidates(
+    meshRoot,
+    localPathPolicy,
+    meshState.meshBase,
+    meshState.currentMeshInventoryTurtle,
+    [],
+    new Map(),
+    new TextFileOverlay(),
+  );
+  const sourceArtifact = pendingBefore[0]!
+    .referenceTargetSourcePayloadArtifact!;
+  const protectedSourcePaths = [
+    sourceArtifact.workingLocalRelativePath,
+    sourceArtifact.latestHistoricalSnapshotPath!,
+  ];
+  const sourceDigestsBefore = await digestWorkspacePaths(
+    meshRoot,
+    protectedSourcePaths,
+  );
+
+  const timing = new RecordingRuntimeTiming();
+  const prepared = await prepareVersionExecution(
+    meshRoot,
+    [],
+    localPathPolicy,
+    false,
+    undefined,
+    undefined,
+    timing,
+  );
+
+  assertEquals(
+    timing.fields.get("payloadBatchCandidates"),
+    generated.count,
+  );
+  assertEquals(
+    prepared.plan.versionedDesignatorPaths,
+    generated.extractedDesignatorPaths,
+  );
+  assertEquals(
+    prepared.plan.createdFiles.filter((file) =>
+      /^_mesh\/_inventory\/_history[^/]+\/_s[^/]+\/ttl\/inventory\.ttl$/
+        .test(file.path)
+    ).length,
+    1,
+  );
+  assertEquals(
+    prepared.plan.updatedFiles.filter((file) =>
+      file.path === "_mesh/_inventory/inventory.ttl"
+    ).length,
+    1,
+  );
+  assertEquals(prepared.plan.regeneratedPagePaths, [
+    "_mesh/_inventory/_history001/index.html",
+  ]);
+
+  const fixedNow = () => new Date("2026-08-06T12:00:00.000Z");
+  const woven = await executeVersion({ meshRoot });
+  assertEquals(
+    woven.versionedDesignatorPaths,
+    generated.extractedDesignatorPaths,
+  );
+  assertEquals(
+    await digestWorkspacePaths(meshRoot, protectedSourcePaths),
+    sourceDigestsBefore,
+  );
+
+  const wovenMeshState = await loadMeshState(meshRoot);
+  const pendingAfter = await loadWeaveableKnopCandidates(
+    meshRoot,
+    localPathPolicy,
+    wovenMeshState.meshBase,
+    wovenMeshState.currentMeshInventoryTurtle,
+    [],
+    new Map(),
+    new TextFileOverlay(),
+  );
+  assertEquals(pendingAfter, []);
+  const meshInventoryQuads = parseWeaveShapeQuads(
+    wovenMeshState.meshBase,
+    wovenMeshState.currentMeshInventoryTurtle,
+    "Could not parse woven pending-heavy MeshInventory.",
+  );
+  for (const designatorPath of generated.extractedDesignatorPaths) {
+    assert(
+      hasNamedNodeFact(
+        meshInventoryQuads,
+        wovenMeshState.meshBase,
+        designatorPath,
+        sfloHasResourcePageIri,
+        `${designatorPath}/index.html`,
+      ),
+      `Missing canonical ResourcePage claim for ${designatorPath}.`,
+    );
+    assert(
+      hasNamedNodeFact(
+        meshInventoryQuads,
+        wovenMeshState.meshBase,
+        `${designatorPath}/_knop`,
+        sfloHasResourcePageIri,
+        `${designatorPath}/_knop/index.html`,
+      ),
+      `Missing canonical Knop ResourcePage claim for ${designatorPath}.`,
+    );
+  }
+
+  const meshInventoryHistoryIndexPath =
+    "_mesh/_inventory/_history001/index.html";
+  const historyIndexDigestAfterVersion = await sha256(
+    await Deno.readFile(join(meshRoot, meshInventoryHistoryIndexPath)),
+  );
+  const generatedAfterVersion = await executeGenerate({
+    meshRoot,
+    now: fixedNow,
+  });
+  assertEquals(
+    generatedAfterVersion.updatedPaths.filter((path) =>
+      path === meshInventoryHistoryIndexPath
+    ),
+    [],
+  );
+  assertEquals(
+    await sha256(
+      await Deno.readFile(join(meshRoot, meshInventoryHistoryIndexPath)),
+    ),
+    historyIndexDigestAfterVersion,
+  );
+
+  const workspaceDigestsBeforeRegenerate = await digestWorkspaceFiles(
+    meshRoot,
+  );
+  const generatedAgain = await executeGenerate({ meshRoot, now: fixedNow });
+  assertEquals(generatedAgain.createdPaths, []);
+  assertEquals(generatedAgain.updatedPaths, []);
+  assertEquals(
+    await digestWorkspaceFiles(meshRoot),
+    workspaceDigestsBeforeRegenerate,
+  );
+});
+
+Deno.test("untargeted multi-candidate extracted batch restructures a current-only MeshInventory once", async () => {
+  const meshRoot = await createTestTmpDir(
+    "weave-pending-heavy-current-only-extracted-batch-",
+  );
+  const generated = await generatePendingHeavyMesh({
+    outputPath: meshRoot,
+    count: 3,
+    meshInventoryHistoryPolicy: "current-only",
+    sourceDesignatorPath: "catalog/source",
+  });
+  const localPathPolicy = await loadOperationalLocalPathPolicy(meshRoot);
+  const timing = new RecordingRuntimeTiming();
+  const prepared = await prepareVersionExecution(
+    meshRoot,
+    [],
+    localPathPolicy,
+    false,
+    undefined,
+    undefined,
+    timing,
+  );
+
+  assertEquals(
+    timing.fields.get("payloadBatchCandidates"),
+    generated.count,
+  );
+  assertEquals(timing.phaseCount("prepare.planPayloadBatch"), 1);
+  assertEquals(timing.phaseCount("prepare.loop.planVersion"), 0);
+  assertEquals(prepared.plan.versionedDesignatorPaths, [
+    "term-000001",
+    "term-000002",
+    "term-000003",
+  ]);
+  assertEquals(prepared.plan.createdFiles, []);
+  assertEquals(prepared.plan.regeneratedPagePaths, undefined);
+
+  const meshInventoryUpdates = prepared.plan.updatedFiles.filter((file) =>
+    file.path === "_mesh/_inventory/inventory.ttl"
+  );
+  assertEquals(meshInventoryUpdates.length, 1);
+  const meshInventory = meshInventoryUpdates[0]!.contents;
+  assert(
+    meshInventory.includes(
+      `<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <_mesh/_inventory/index.html> .`,
+    ),
+    meshInventory,
+  );
+  assertEquals(meshInventory.includes("_mesh/_inventory/_history"), false);
+  for (const designatorPath of generated.extractedDesignatorPaths) {
+    assert(
+      meshInventory.includes(
+        `<${designatorPath}/_knop> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <${designatorPath}/_knop/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <${designatorPath}/_knop/index.html> .`,
+      ),
+      `Missing restructured current-only Knop block for ${designatorPath}.`,
+    );
+  }
+});
+
+Deno.test("mixed and recursive extracted candidate sets retain sequential planning", async () => {
+  const mixedRoot = await createTestTmpDir(
+    "weave-pending-heavy-mixed-sequential-",
+  );
+  await generatePendingHeavyMesh({
+    outputPath: mixedRoot,
+    count: 2,
+    meshInventoryHistoryPolicy: "current-only",
+    sourceDesignatorPath: "catalog/source",
+  });
+  await Deno.writeTextFile(
+    join(mixedRoot, "source.ttl"),
+    `${await Deno.readTextFile(
+      join(mixedRoot, "source.ttl"),
+    )}\n<catalog/source> <https://schema.org/version> "2" .\n`,
+  );
+  const mixedTiming = new RecordingRuntimeTiming();
+  const mixedPolicy = await loadOperationalLocalPathPolicy(mixedRoot);
+  await prepareVersionExecution(
+    mixedRoot,
+    [],
+    mixedPolicy,
+    false,
+    undefined,
+    undefined,
+    mixedTiming,
+  );
+  assertEquals(mixedTiming.phaseCount("prepare.planPayloadBatch"), 0);
+  assertEquals(mixedTiming.phaseCount("prepare.loop.planVersion"), 3);
+
+  const recursiveRoot = await createTestTmpDir(
+    "weave-pending-heavy-recursive-sequential-",
+  );
+  await generatePendingHeavyMesh({
+    outputPath: recursiveRoot,
+    count: 2,
+    meshInventoryHistoryPolicy: "current-only",
+    sourceDesignatorPath: "catalog/source",
+  });
+  const recursiveTiming = new RecordingRuntimeTiming();
+  const recursivePolicy = await loadOperationalLocalPathPolicy(recursiveRoot);
+  const recursiveTargets = normalizeVersionRequest({
+    targets: [{ designatorPath: "", recursive: true }],
+  }).targets;
+  await prepareVersionExecution(
+    recursiveRoot,
+    recursiveTargets,
+    recursivePolicy,
+    false,
+    undefined,
+    undefined,
+    recursiveTiming,
+  );
+  assertEquals(recursiveTiming.phaseCount("prepare.planPayloadBatch"), 0);
+  assertEquals(recursiveTiming.phaseCount("prepare.loop.planVersion"), 2);
+});
+
+Deno.test("pending-heavy generator enters the instrumented coherent batch path", async () => {
   const currentOnlyRoot = await createTestTmpDir(
     "weave-pending-heavy-current-only-",
   );
@@ -36,23 +323,20 @@ Deno.test("pending-heavy generator enters the instrumented recursive validation 
   const enabled = await runValidate(currentOnlyRoot, "1");
   assert(enabled.output.success, enabled.stderr);
   const currentReport = parseMemoryStats(enabled.stderr);
-  assertEquals(currentReport.planningLoopIterations, 3);
+  assertEquals(currentReport.planningLoopIterations, 0);
   assertEquals(currentReport.createdFiles.count, 0);
   assertEquals(currentReport.createdFiles.bytes, 0);
   assertGreater(currentReport.updatedFileByPath.count, 0);
   assertGreater(currentReport.updatedFileByPath.bytes, 0);
-  assertGreater(currentReport.overlayStaged.entries, 0);
-  assertGreater(currentReport.overlayStaged.bytes, 0);
+  assertEquals(currentReport.overlayStaged.entries, 0);
+  assertEquals(currentReport.overlayStaged.bytes, 0);
   assertGreater(currentReport.readCache.entries, 0);
   assertGreater(currentReport.readCache.bytes, 0);
   assertGreater(currentReport.readCache.hits, 0);
   assertGreater(currentReport.candidateCache.entries, 0);
-  assertEquals(
-    currentReport.candidateCache.approximateRetainedBytes,
-    0,
-  );
+  assertGreater(currentReport.candidateCache.approximateRetainedBytes, 0);
   assertGreater(currentReport.candidateCache.stores, 0);
-  assertGreater(currentReport.candidateCache.invalidations, 0);
+  assertEquals(currentReport.candidateCache.invalidations, 0);
   assertEquals(currentReport.candidateLiveSet.entries, 3);
   assertEquals(currentReport.candidateLiveSet.sourceTextReferences, 6);
   assertEquals(
@@ -76,7 +360,7 @@ Deno.test("pending-heavy generator enters the instrumented recursive validation 
   const gcEnabled = await runValidate(currentOnlyRoot, "1", true);
   assert(gcEnabled.output.success, gcEnabled.stderr);
   const gcReport = parseMemoryStats(gcEnabled.stderr);
-  assertEquals(gcReport.planningLoopIterations, 3);
+  assertEquals(gcReport.planningLoopIterations, 0);
   assertGreater(gcReport.v8Heap.usedHeapSize, 0);
   assertGreater(gcReport.v8Heap.postGcUsedHeapSize!, 0);
 
@@ -278,11 +562,11 @@ Deno.test("pending-heavy generator materializes mesh-inventory history when requ
   const enabled = await runValidate(versionedRoot, "1");
   assert(enabled.output.success, enabled.stderr);
   const report = parseMemoryStats(enabled.stderr);
-  assertEquals(report.planningLoopIterations, 2);
-  assertGreater(
+  assertEquals(report.planningLoopIterations, 0);
+  assertEquals(
     report.createdFiles.byPathClassification
       .meshInventoryHistorySnapshots.count,
-    0,
+    1,
   );
   assertGreater(
     report.createdFiles.byPathClassification
@@ -317,7 +601,7 @@ Deno.test("pending-heavy generator adds deterministic per-term content", async (
 
   const enabled = await runValidate(meshRoot, "1");
   assert(enabled.output.success, enabled.stderr);
-  assertEquals(parseMemoryStats(enabled.stderr).planningLoopIterations, 2);
+  assertEquals(parseMemoryStats(enabled.stderr).planningLoopIterations, 0);
 });
 
 async function runValidate(
@@ -373,4 +657,86 @@ function parseMemoryStats(stderr: string): RuntimeMemoryStatsReport {
   );
   assert(line !== undefined, stderr);
   return JSON.parse(line.slice(prefix.length)) as RuntimeMemoryStatsReport;
+}
+
+class RecordingRuntimeTiming implements RuntimeTiming {
+  readonly enabled = true;
+  readonly fields = new Map<string, RuntimeTimingField>();
+  readonly #phaseCounts = new Map<string, number>();
+
+  setField(key: string, value: RuntimeTimingField): void {
+    this.fields.set(key, value);
+  }
+
+  async time<T>(phase: string, operation: () => Promise<T>): Promise<T> {
+    this.#recordPhase(phase);
+    return await operation();
+  }
+
+  timeSync<T>(phase: string, operation: () => T): T {
+    this.#recordPhase(phase);
+    return operation();
+  }
+
+  finish(_fields?: Record<string, RuntimeTimingField>): void {
+  }
+
+  phaseCount(phase: string): number {
+    return this.#phaseCounts.get(phase) ?? 0;
+  }
+
+  #recordPhase(phase: string): void {
+    this.#phaseCounts.set(phase, this.phaseCount(phase) + 1);
+  }
+}
+
+async function digestWorkspacePaths(
+  workspaceRoot: string,
+  paths: readonly string[],
+): Promise<Map<string, string>> {
+  const digests = new Map<string, string>();
+  for (const path of paths) {
+    digests.set(
+      path,
+      await sha256(await Deno.readFile(join(workspaceRoot, path))),
+    );
+  }
+  return digests;
+}
+
+async function digestWorkspaceFiles(
+  workspaceRoot: string,
+): Promise<Map<string, string>> {
+  const digests = new Map<string, string>();
+  for (const absolutePath of await listWorkspaceFiles(workspaceRoot)) {
+    const path = relative(workspaceRoot, absolutePath).replaceAll("\\", "/");
+    digests.set(path, await sha256(await Deno.readFile(absolutePath)));
+  }
+  return digests;
+}
+
+async function sha256(bytes: Uint8Array): Promise<string> {
+  const digestInput = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(digestInput).set(bytes);
+  const digest = await crypto.subtle.digest("SHA-256", digestInput);
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function listWorkspaceFiles(root: string): Promise<string[]> {
+  const files: string[] = [];
+  const directories = [root];
+  while (directories.length > 0) {
+    const directory = directories.pop()!;
+    for await (const entry of Deno.readDir(directory)) {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory) {
+        directories.push(path);
+      } else if (entry.isFile) {
+        files.push(path);
+      }
+    }
+  }
+  return files.sort();
 }

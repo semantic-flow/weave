@@ -381,7 +381,6 @@ export async function prepareVersionExecution(
         ),
     )
     : [];
-  timing?.setField("payloadBatchCandidates", payloadBatchCandidates.length);
   if (inputSnapshot !== undefined) {
     await timeOptional(
       timing,
@@ -410,18 +409,21 @@ export async function prepareVersionExecution(
   });
   const meshEffectiveConfig = await effectiveConfigProvider
     .configForMeshScope();
-  const untargetedFirstPayloadBatch = targets.length === 0 &&
-    isUntargetedFirstPayloadBatch(
+  const untargetedFirstBatchSlice = targets.length === 0 &&
+      !overwriteExistingState
+    ? detectUntargetedFirstBatchSlice(
       meshState.meshBase,
       initialWeaveableKnops,
-    );
-  const batchCandidates = untargetedFirstPayloadBatch
+    )
+    : undefined;
+  const batchCandidates = untargetedFirstBatchSlice !== undefined
     ? initialWeaveableKnops
     : payloadBatchCandidates;
+  timing?.setField("payloadBatchCandidates", batchCandidates.length);
 
   if (
     batchCandidates.length > 0 &&
-    (untargetedFirstPayloadBatch ||
+    (untargetedFirstBatchSlice !== undefined ||
       isExplicitPayloadBatch(
         meshState.meshBase,
         batchCandidates,
@@ -442,6 +444,9 @@ export async function prepareVersionExecution(
             effectiveConfigProvider,
             overwriteExistingState,
             timing,
+            untargetedFirstBatchSlice === "firstExtractedKnopWeave"
+              ? "candidateArtifacts"
+              : "allArtifacts",
           );
         } catch (error) {
           throw ensureWeaveInputErrorFindingCode(
@@ -466,6 +471,20 @@ export async function prepareVersionExecution(
           ),
       });
     }
+    timing?.setField("cachedReadFiles", overlay.readCount);
+    timing?.setField("readCacheHits", overlay.cacheHitCount);
+    timing?.setField("stagedReadHits", overlay.stagedHitCount);
+    timing?.setField("candidateCacheHits", overlay.candidateCacheHitCount);
+    timing?.setField("candidateCacheStores", overlay.candidateCacheStoreCount);
+    timing?.setField(
+      "candidateCacheInvalidations",
+      overlay.candidateCacheInvalidationCount,
+    );
+    memoryStats?.captureVersionExecutionRetainedState(
+      batchPlan.createdFiles,
+      new Map(batchPlan.updatedFiles.map((file) => [file.path, file])),
+      overlay,
+    );
     return {
       meshState,
       plan: batchPlan,
@@ -910,18 +929,33 @@ function isExplicitPayloadBatch(
   });
 }
 
-function isUntargetedFirstPayloadBatch(
+function detectUntargetedFirstBatchSlice(
   meshBase: string,
   candidates: readonly WeaveableKnopCandidate[],
-): boolean {
-  return candidates.length > 1 &&
-    candidates.every((candidate) =>
+): "firstPayloadWeave" | "firstExtractedKnopWeave" | undefined {
+  if (candidates.length <= 1) {
+    return undefined;
+  }
+  const firstSlice = detectPendingWeaveSlice(
+    meshBase,
+    candidates[0]!.designatorPath,
+    candidates[0]!.currentKnopInventoryTurtle,
+  );
+  if (
+    firstSlice !== "firstPayloadWeave" &&
+    firstSlice !== "firstExtractedKnopWeave"
+  ) {
+    return undefined;
+  }
+  return candidates.every((candidate) =>
       detectPendingWeaveSlice(
         meshBase,
         candidate.designatorPath,
         candidate.currentKnopInventoryTurtle,
-      ) === "firstPayloadWeave"
-    );
+      ) === firstSlice
+    )
+    ? firstSlice
+    : undefined;
 }
 
 async function planExplicitPayloadBatchVersion(
@@ -935,6 +969,8 @@ async function planExplicitPayloadBatchVersion(
   effectiveConfigProvider: EffectiveConfigProvider,
   overwriteExistingState: boolean,
   timing?: RuntimeTiming,
+  resourcePagePolicyProbeMode: "allArtifacts" | "candidateArtifacts" =
+    "allArtifacts",
 ): Promise<VersionPlan> {
   const orderedCandidates = [...candidates].sort((left, right) =>
     left.designatorPath.localeCompare(right.designatorPath)
@@ -944,6 +980,7 @@ async function planExplicitPayloadBatchVersion(
     orderedCandidates,
     meshEffectiveConfig,
     effectiveConfigProvider,
+    resourcePagePolicyProbeMode,
   );
   return timeOptionalSync(
     timing,
@@ -974,6 +1011,8 @@ async function resolvePayloadBatchPolicies(
   orderedCandidates: readonly WeaveableKnopCandidate[],
   meshEffectiveConfig: EffectiveConfig,
   effectiveConfigProvider: EffectiveConfigProvider,
+  resourcePagePolicyProbeMode: "allArtifacts" | "candidateArtifacts" =
+    "allArtifacts",
 ): Promise<{
   supportHistoryPolicies: ReturnType<
     typeof supportHistoryPoliciesFromScopedEffectiveConfigs
@@ -1027,12 +1066,16 @@ async function resolvePayloadBatchPolicies(
     const comparisonKey = JSON.stringify({
       supportHistoryPolicies,
       namingPolicies,
-      resourcePageGenerationConfig: snapshotResourcePageGenerationConfig(
-        meshBase,
-        resourcePageGenerationConfig,
-        orderedCandidates,
-      ),
       resourcePageGenerationPolicies,
+      ...(resourcePagePolicyProbeMode === "allArtifacts"
+        ? {
+          resourcePageGenerationConfig: snapshotResourcePageGenerationConfig(
+            meshBase,
+            resourcePageGenerationConfig,
+            orderedCandidates,
+          ),
+        }
+        : {}),
     });
 
     if (first === undefined) {
@@ -1046,7 +1089,22 @@ async function resolvePayloadBatchPolicies(
       };
       continue;
     }
-    if (comparisonKey !== first.comparisonKey) {
+    const candidateArtifactPoliciesMatch =
+      resourcePagePolicyProbeMode === "allArtifacts" ||
+      JSON.stringify(snapshotResourcePageGenerationConfig(
+          meshBase,
+          resourcePageGenerationConfig,
+          [candidate],
+        )) ===
+        JSON.stringify(snapshotResourcePageGenerationConfig(
+          meshBase,
+          first.resourcePageGenerationConfig,
+          [candidate],
+        ));
+    if (
+      comparisonKey !== first.comparisonKey ||
+      !candidateArtifactPoliciesMatch
+    ) {
       throw new WeaveInputError(
         `Multi-target payload weave requires consistent target-scoped planning policies; ${candidate.designatorPath} differs from ${first.designatorPath}.`,
       );

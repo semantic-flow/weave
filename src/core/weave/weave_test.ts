@@ -3437,6 +3437,63 @@ Deno.test("planWeave renders the extracted bob woven slice", async () => {
   assertStringIncludes(bobPage?.contents ?? "", "<h1>bob</h1>");
 });
 
+Deno.test("planWeave batches reverse-order untargeted extracted Knops with one canonical MeshInventory progression", async () => {
+  const plan = planWeave(await createExtractedBobAndCarolBatchInput());
+
+  assertEquals(plan.wovenDesignatorPaths, ["bob", "carol"]);
+  assertEquals(
+    plan.createdFiles.filter((file) =>
+      file.path === "_mesh/_inventory/_history001/_s0004/ttl/inventory.ttl"
+    ).length,
+    1,
+  );
+  assertEquals(
+    plan.updatedFiles.filter((file) =>
+      file.path === "_mesh/_inventory/inventory.ttl"
+    ).length,
+    1,
+  );
+  assertEquals(
+    plan.updatedFiles.filter((file) => file.path === "_mesh/_meta/meta.ttl")
+      .length,
+    1,
+  );
+  const meshInventoryHistoryIndexes = plan.updatedFiles.filter((file) =>
+    file.path === "_mesh/_inventory/_history001/index.html"
+  );
+  assertEquals(meshInventoryHistoryIndexes.length, 1);
+  assertEquals(plan.regeneratedPagePaths, [
+    "_mesh/_inventory/_history001/index.html",
+  ]);
+  const meshInventoryHistoryIndex = meshInventoryHistoryIndexes[0]!.contents;
+  for (const stateSegment of ["_s0001", "_s0002", "_s0003", "_s0004"]) {
+    assertStringIncludes(meshInventoryHistoryIndex, `href="./${stateSegment}"`);
+  }
+  assertStringIncludes(
+    meshInventoryHistoryIndex,
+    '<a href="./_s0004">_s0004</a> (latest)',
+  );
+
+  const meshInventory =
+    plan.updatedFiles.find((file) =>
+      file.path === "_mesh/_inventory/inventory.ttl"
+    )?.contents ?? "";
+  const bobIndex = meshInventory.indexOf("<bob>\n");
+  const carolIndex = meshInventory.indexOf("<carol>\n");
+  assert(bobIndex >= 0, meshInventory);
+  assert(carolIndex > bobIndex, meshInventory);
+  for (const designatorPath of ["bob", "carol"]) {
+    assertStringIncludes(
+      meshInventory,
+      `<${designatorPath}>\n  sflo:hasResourcePage <${designatorPath}/index.html> .`,
+    );
+    assertStringIncludes(
+      meshInventory,
+      `<${designatorPath}/_knop> a sflo:Knop ;\n  sflo:hasWorkingKnopInventoryFile <${designatorPath}/_knop/_inventory/inventory.ttl> ;\n  sflo:hasResourcePage <${designatorPath}/_knop/index.html> .`,
+    );
+  }
+});
+
 Deno.test("planWeave renders an extracted term from a nested source without a root Knop", async () => {
   const input = await createExtractedBobWeaveInput();
   input.currentMeshInventoryTurtle = input.currentMeshInventoryTurtle
@@ -4479,6 +4536,47 @@ async function createExtractedBobWeaveInput(): Promise<PlanWeaveInput> {
         },
       },
     }],
+  };
+}
+
+async function createExtractedBobAndCarolBatchInput(): Promise<PlanWeaveInput> {
+  const input = await createExtractedBobWeaveInput();
+  const bobCandidate = input.weaveableKnops[0]!;
+  const source = bobCandidate.referenceTargetSourcePayloadArtifact!;
+  const carolExtractPlan = planExtract({
+    meshBase: input.meshBase,
+    currentMeshInventoryTurtle: input.currentMeshInventoryTurtle,
+    designatorPath: "carol",
+    sourceDesignatorPath: source.designatorPath,
+    sourceStatePath: source.latestHistoricalStatePath,
+    sourceEvidence: source.sourceEvidence,
+    sourceWorkingLocalRelativePath: source.workingLocalRelativePath,
+  });
+  const carolCreatedFileByPath = new Map(
+    carolExtractPlan.createdFiles.map((file) => [file.path, file.contents]),
+  );
+
+  return {
+    ...input,
+    request: {},
+    currentMeshInventoryTurtle: carolExtractPlan.updatedFiles[0]!.contents,
+    weaveableKnops: [{
+      designatorPath: "carol",
+      currentKnopMetadataTurtle: carolCreatedFileByPath.get(
+        "carol/_knop/_meta/meta.ttl",
+      )!,
+      currentKnopInventoryTurtle: carolCreatedFileByPath.get(
+        "carol/_knop/_inventory/inventory.ttl",
+      )!,
+      referenceTargetSourcePayloadArtifact: {
+        ...source,
+        sourceRegistryWorkingLocalRelativePath:
+          "carol/_knop/_sources/sources.ttl",
+        currentSourceRegistryTurtle: carolCreatedFileByPath.get(
+          "carol/_knop/_sources/sources.ttl",
+        )!,
+      },
+    }, bobCandidate],
   };
 }
 
