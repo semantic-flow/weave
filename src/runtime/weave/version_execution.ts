@@ -533,6 +533,8 @@ export async function prepareVersionExecution(
   const createdPaths = new Set<string>();
   const updatedFileByPath = new Map<string, PlannedFile>();
   const updatedPathOrder: string[] = [];
+  const regeneratedPagePaths: string[] = [];
+  const regeneratedPagePathSet = new Set<string>();
   const versionedDesignatorPaths: string[] = [];
 
   while (remainingDesignatorPaths.length > 0) {
@@ -656,6 +658,12 @@ export async function prepareVersionExecution(
       }
       updatedFileByPath.set(file.path, file);
     }
+    for (const path of nextPlan.regeneratedPagePaths ?? []) {
+      if (!regeneratedPagePathSet.has(path)) {
+        regeneratedPagePaths.push(path);
+        regeneratedPagePathSet.add(path);
+      }
+    }
 
     versionedDesignatorPaths.push(...nextPlan.versionedDesignatorPaths);
     applyPlannedFilesToOverlay(workspaceRoot, overlay, nextPlan.createdFiles);
@@ -688,6 +696,7 @@ export async function prepareVersionExecution(
     createdFiles,
     ...(createdBinaryFiles.length > 0 ? { createdBinaryFiles } : {}),
     updatedFiles: updatedPathOrder.map((path) => updatedFileByPath.get(path)!),
+    ...(regeneratedPagePaths.length === 0 ? {} : { regeneratedPagePaths }),
   };
 
   timing?.setField("cachedReadFiles", overlay.readCount);

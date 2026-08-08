@@ -3970,6 +3970,62 @@ Deno.test("planWeave renders the extracted bob woven slice", async () => {
   assertStringIncludes(bobPage?.contents ?? "", "<h1>bob</h1>");
 });
 
+Deno.test("planWeave derives a sequential MeshInventory history index through a named fifth state", async () => {
+  const input = await createExtractedBobAndCarolBatchInput();
+  const bobCandidate = input.weaveableKnops.find((candidate) =>
+    candidate.designatorPath === "bob"
+  )!;
+  const carolCandidate = input.weaveableKnops.find((candidate) =>
+    candidate.designatorPath === "carol"
+  )!;
+  const bobPlan = planWeave({
+    ...input,
+    request: { targets: [{ designatorPath: "bob" }] },
+    weaveableKnops: [bobCandidate],
+  });
+  const currentMeshInventoryTurtle =
+    bobPlan.updatedFiles.find((file) =>
+      file.path === "_mesh/_inventory/inventory.ttl"
+    )!.contents;
+  const currentMeshMetadataTurtle = bobPlan.updatedFiles.find((file) =>
+    file.path === "_mesh/_meta/meta.ttl"
+  )!.contents.replace(
+    '  sflo:nextStateOrdinal "5"^^xsd:nonNegativeInteger .',
+    `  sflo:nextStateOrdinal "5"^^xsd:nonNegativeInteger ;
+  sfcfg:hasNextStateSegmentHint "release-5" .`,
+  );
+
+  const carolPlan = planWeave({
+    ...input,
+    request: { targets: [{ designatorPath: "carol" }] },
+    currentMeshInventoryTurtle,
+    currentMeshMetadataTurtle,
+    weaveableKnops: [carolCandidate],
+  });
+  const historyIndexPath = "_mesh/_inventory/_history001/index.html";
+  const historyIndex =
+    carolPlan.updatedFiles.find((file) => file.path === historyIndexPath)!
+      .contents;
+
+  for (
+    const stateSegment of [
+      "_s0001",
+      "_s0002",
+      "_s0003",
+      "_s0004",
+      "release-5",
+    ]
+  ) {
+    assertStringIncludes(historyIndex, `href="./${stateSegment}"`);
+  }
+  assertFalse(historyIndex.includes('href="./_s0005"'));
+  assertStringIncludes(
+    historyIndex,
+    '<a href="./release-5">release-5</a> (latest)',
+  );
+  assertEquals(carolPlan.regeneratedPagePaths, [historyIndexPath]);
+});
+
 Deno.test("planWeave batches reverse-order untargeted extracted Knops with one canonical MeshInventory progression", async () => {
   const plan = planWeave(await createExtractedBobAndCarolBatchInput());
 
