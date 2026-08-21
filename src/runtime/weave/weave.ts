@@ -51,7 +51,10 @@ import {
 import { type HistoryTrackingPolicy } from "../config/effective_config.ts";
 import { validatePublicationPreset } from "../publication/presets.ts";
 import { InventoryResolutionError } from "../mesh/inventory.ts";
-import { createRuntimeMemoryStats } from "./memory_stats.ts";
+import {
+  createRuntimeMemoryStats,
+  type RuntimeMemoryStats,
+} from "./memory_stats.ts";
 
 export interface ExecuteValidateOptions {
   meshRoot: string;
@@ -507,39 +510,17 @@ export async function executeWeave(
       assertValidationPassed(validation, "before weaving");
     }
 
-    const normalizedRequest = normalizeWeaveRequest(options.request);
-    let preparedExecution: PreparedWeaveExecution | undefined;
-    try {
-      preparedExecution = await prepareWeaveExecution(
+    const { versionResult, generateTargets } =
+      await prepareAndWriteWeaveVersion({
         meshRoot,
-        normalizedRequest,
-        initialPolicy,
-        options.historyTrackingPolicyOverride,
-        options.onProgress,
+        request: options.request,
+        localPathPolicy: initialPolicy,
+        historyTrackingPolicyOverride: options.historyTrackingPolicyOverride,
+        onProgress: options.onProgress,
         timing,
-        options.inputSnapshotVerification,
+        inputSnapshotVerification: options.inputSnapshotVerification,
         memoryStats,
-      );
-      timing.timeSync(
-        "version.validateRdf",
-        () => validateVersionPlanRdf(preparedExecution!.version.plan),
-      );
-    } catch (error) {
-      if (error instanceof WeaveRuntimeError) {
-        throw new WeaveInputError(error.message);
-      }
-      throw error;
-    }
-
-    const versionResult = await writePreparedVersion(
-      meshRoot,
-      initialPolicy,
-      preparedExecution.version,
-      { validateRdf: false, timing, phasePrefix: "version.write" },
-    );
-    const generateTargets =
-      preparedExecution.request.targetPreparation.sharedTargets;
-    preparedExecution = undefined;
+      });
     wovenDesignatorPaths = versionResult.versionedDesignatorPaths;
 
     const generateResult = await timing.time(
@@ -636,6 +617,56 @@ export async function executeWeave(
     timing.finish({ status });
     await memoryStats?.finish();
   }
+}
+
+async function prepareAndWriteWeaveVersion(options: {
+  meshRoot: string;
+  request?: WeaveRequest;
+  localPathPolicy: Awaited<ReturnType<typeof loadOperationalLocalPathPolicy>>;
+  historyTrackingPolicyOverride?: HistoryTrackingPolicy;
+  onProgress?: WeaveProgressHandler;
+  timing: ReturnType<typeof createRuntimeTiming>;
+  inputSnapshotVerification?: InputSnapshotVerificationHooks;
+  memoryStats?: RuntimeMemoryStats;
+}) {
+  const normalizedRequest = normalizeWeaveRequest(options.request);
+  let preparedExecution: PreparedWeaveExecution;
+  try {
+    preparedExecution = await prepareWeaveExecution(
+      options.meshRoot,
+      normalizedRequest,
+      options.localPathPolicy,
+      options.historyTrackingPolicyOverride,
+      options.onProgress,
+      options.timing,
+      options.inputSnapshotVerification,
+      options.memoryStats,
+    );
+    options.timing.timeSync(
+      "version.validateRdf",
+      () => validateVersionPlanRdf(preparedExecution.version.plan),
+    );
+  } catch (error) {
+    if (error instanceof WeaveRuntimeError) {
+      throw new WeaveInputError(error.message);
+    }
+    throw error;
+  }
+
+  const versionResult = await writePreparedVersion(
+    options.meshRoot,
+    options.localPathPolicy,
+    preparedExecution.version,
+    {
+      validateRdf: false,
+      timing: options.timing,
+      phasePrefix: "version.write",
+    },
+  );
+  return {
+    versionResult,
+    generateTargets: preparedExecution.request.targetPreparation.sharedTargets,
+  };
 }
 
 export function describeWeaveResult(result: WeaveResult): string {
