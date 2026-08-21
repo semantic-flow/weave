@@ -33,8 +33,9 @@ Entries below the marker keep the older long form. They are historical and are n
 - 2026-08-06 — Renaming onto an occupied path is refused outright: that would be a merge, and merges are not a thing Weave does by accident. → [[wa.task.2026.2026-08-06_0949-knop-supersession-and-rename]]
 - 2026-08-07 — v0.7.0 is out: meshes that Weave used to refuse now weave, the published SFLO corpus is reproducible from a released version for the first time, and the library is ESM-only. → [[release-notes.v0.7.0]]
 - 2026-08-07 — Two finished changes were held back rather than slipped into the release — one had a confirmed bug, the other changes error text consumers may match on and had no soak. → [[wd.todo]]
-- 2026-08-06 — Thousand-term meshes get a real safety margin, not a squeak-past: weave must stay under 1.5 GiB at 1,700 terms and grow no worse than linearly. → [[wa.task.2026.2026-08-02_1330-extracted-term-weave-batch-path]]
-- 2026-08-06 — Page generation gets the same treatment, because fixing weave alone would leave the whole extract-weave-generate sequence just as close to the ceiling. → [[wa.task.2026.2026-08-02_1330-extracted-term-weave-batch-path]]
+- 2026-08-06 — Thousand-term meshes get a real safety margin, not a squeak-past: weave must stay under 1.5 GiB at 1,700 terms and grow no worse than linearly. → [[wa.completed.2026.2026-08-02_1330-extracted-term-weave-batch-path]]
+- 2026-08-06 — Page generation gets the same treatment, because fixing weave alone would leave the whole extract-weave-generate sequence just as close to the ceiling. → [[wa.completed.2026.2026-08-02_1330-extracted-term-weave-batch-path]]
+- 2026-08-21 — ResourcePage generation keeps rendered bytes batch-local: canonical model order feeds four-page render/write batches, while result/report surfaces retain paths and counts rather than page contents. → [[wa.completed.2026.2026-08-21_1111-generate-streaming-memory]]
 - 2026-08-06 — Court cards now stay short and name an owning note, and this log became a ledger, so rulings stop being duplicated across surfaces. → [[wd.read-in.jimbo]]
 
 ## Decisions (long form, pre-2026-08-06)
@@ -48,7 +49,7 @@ Entries below the marker keep the older long form. They are historical and are n
 ### 2026-08-02: Carve Before Closing A Note That Holds Boarded Follow-Ups
 
 - Decision: When a task note's own scope is delivered but later work was boarded onto it, carve the boarded work into its own note **first**, then close the original. Do not close a note whose closure would silently drop a queue entry, and do not leave a delivered lane open because a follow-up is parked in it.
-- References: [[wa.completed.2026.2026-07-21_1603-extractor-defect-pair]], [[wa.task.2026.2026-08-02_1330-extracted-term-weave-batch-path]]
+- References: [[wa.completed.2026.2026-07-21_1603-extractor-defect-pair]], [[wa.completed.2026.2026-08-02_1330-extracted-term-weave-batch-path]]
 - Why: The extractor defect pair was genuinely delivered (F1 landed, F2 withdrawn by amendment r1) but was holding queue item 1 — the extract→weave scale epic. Closing it as-found would have dropped the epic; leaving it open would have misrepresented a finished lane as unfinished. The carve resolves both.
 
 ### 2026-08-02: A Capability Change Forces A Minor, Regardless Of Diff Size
