@@ -37,6 +37,7 @@ import {
 import {
   collectMeshSupportRawSourcePanels,
   findRawSourcePanelsForPage,
+  type RawSourceReadCache,
 } from "./raw_source_panels.ts";
 import { timeOptional, timeOptionalSync } from "./timing_helpers.ts";
 
@@ -55,6 +56,17 @@ export interface CollectResourcePageModelsInput {
 export async function collectResourcePageModels(
   input: CollectResourcePageModelsInput,
 ): Promise<readonly ResourcePageModel[]> {
+  const pageModels: ResourcePageModel[] = [];
+  await visitResourcePageModels(input, (page) => {
+    pageModels.push(page);
+  });
+  return pageModels;
+}
+
+export async function visitResourcePageModels(
+  input: CollectResourcePageModelsInput,
+  visit: (page: ResourcePageModel) => void | Promise<void>,
+): Promise<void> {
   const {
     workspaceRoot,
     localPathPolicy,
@@ -67,9 +79,9 @@ export async function collectResourcePageModels(
     phasePrefix = "collectResourcePageModels",
   } = input;
   const phase = (name: string) => `${phasePrefix}.${name}`;
-  const pageModels: ResourcePageModel[] = [];
   const pagePaths = new Set<string>();
   const selectedSet = new Set(selectedDesignatorPaths);
+  const rawSourceReadCache: RawSourceReadCache = new Map();
   const designatorContexts = await timeOptional(
     timing,
     phase("loadDesignatorContexts"),
@@ -84,6 +96,7 @@ export async function collectResourcePageModels(
         hasExplicitGenerateTargets,
         timing,
         phase("loadDesignatorContexts"),
+        rawSourceReadCache,
       ),
   );
   const publicIdentifierPaths = new Map(
@@ -101,7 +114,12 @@ export async function collectResourcePageModels(
   const meshRawSourcePanels = await timeOptional(
     timing,
     phase("collectMeshSupportRawSourcePanels"),
-    () => collectMeshSupportRawSourcePanels(workspaceRoot, meshState),
+    () =>
+      collectMeshSupportRawSourcePanels(
+        workspaceRoot,
+        meshState,
+        rawSourceReadCache,
+      ),
   );
   const meshHistoryGroups = timeOptionalSync(
     timing,
@@ -170,6 +188,7 @@ export async function collectResourcePageModels(
         hasExplicitGenerateTargets,
         timing,
         phase("loadChildTypeHintContexts"),
+        rawSourceReadCache,
       ),
   );
   const childRdfTypesByResourcePath = collectDesignatorRdfTypesByResourcePath(
@@ -202,7 +221,7 @@ export async function collectResourcePageModels(
         resourcePath,
       ) ?? findHistoryGroupsForResource(resourcePath, designatorContexts);
       if (isHistoryComponentResource(resourcePath, historyGroups ?? [])) {
-        pageModels.push({
+        await visit({
           kind: "simple",
           path: pagePath,
           ownerDesignatorPath: publicContext.designatorPath,
@@ -217,7 +236,7 @@ export async function collectResourcePageModels(
           historyGroups,
         });
       } else if (publicContext.customIdentifierPage) {
-        pageModels.push({
+        await visit({
           kind: "customIdentifier",
           path: pagePath,
           designatorPath: publicContext.designatorPath,
@@ -240,7 +259,7 @@ export async function collectResourcePageModels(
           rawSourcePanels: publicContext.rawSourcePanels.get(pagePath),
         });
       } else {
-        pageModels.push({
+        await visit({
           kind: "identifier",
           path: pagePath,
           designatorPath: publicContext.designatorPath,
@@ -260,7 +279,7 @@ export async function collectResourcePageModels(
       }
     } else if (knopResourcePaths.has(resourcePath)) {
       const knopContext = knopResourcePaths.get(resourcePath)!;
-      pageModels.push({
+      await visit({
         kind: "knop",
         path: pagePath,
         designatorPath: knopContext.designatorPath,
@@ -278,7 +297,7 @@ export async function collectResourcePageModels(
       const historyGroups = meshHistoryGroups.get(resourcePath) ??
         findHistoryGroupsForResource(resourcePath, designatorContexts);
       const ownerDesignatorPath = ownerDesignatorPathByPagePath.get(pagePath);
-      pageModels.push({
+      await visit({
         kind: "simple",
         path: pagePath,
         ...(ownerDesignatorPath !== undefined ? { ownerDesignatorPath } : {}),
@@ -315,7 +334,7 @@ export async function collectResourcePageModels(
       const historyGroups = context.historyGroupsByResourcePath.get(
         resourcePath,
       );
-      pageModels.push({
+      await visit({
         ...(resourcePath === toKnopPath(context.designatorPath)
           ? {
             kind: "knop" as const,
@@ -355,8 +374,6 @@ export async function collectResourcePageModels(
       pagePaths.add(pagePath);
     }
   }
-
-  return pageModels;
 }
 
 export async function resolveMeshFaviconPath(

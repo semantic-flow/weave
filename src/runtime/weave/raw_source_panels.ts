@@ -44,6 +44,15 @@ const SFLO_ARTIFACT_RESOLUTION_MODE_LATEST_STATE_IRI =
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const RAW_SOURCE_INLINE_BYTE_LIMIT = 4 * 1024 * 1024;
 
+type RawSourcePanelContents = Pick<
+  ResourcePageRawSourcePanelModel,
+  "contents" | "omittedByteLength"
+>;
+export type RawSourceReadCache = Map<
+  string,
+  Promise<RawSourcePanelContents>
+>;
+
 interface PayloadSourceArtifact {
   workingLocalRelativePath: string;
   repositorySourceFloatingLocator?: RepositorySourceFloatingLocator;
@@ -55,6 +64,7 @@ interface PayloadSourceArtifact {
 export async function collectMeshSupportRawSourcePanels(
   workspaceRoot: string,
   meshState: MeshState,
+  readCache?: RawSourceReadCache,
 ): Promise<ReadonlyMap<string, readonly ResourcePageRawSourcePanelModel[]>> {
   const rawSourcePanels = new Map<
     string,
@@ -75,6 +85,9 @@ export async function collectMeshSupportRawSourcePanels(
       "_mesh/_inventory",
       "_mesh/_inventory/inventory.ttl",
       "_mesh/_inventory/index.html",
+      undefined,
+      undefined,
+      readCache,
     ))
   ) {
     addRawSourcePanel(rawSourcePanels, "_mesh/_inventory/index.html", {
@@ -109,6 +122,9 @@ export async function collectMeshSupportRawSourcePanels(
         support.artifactPath,
         support.sourcePath,
         support.pagePath,
+        undefined,
+        undefined,
+        readCache,
       )
     ) {
       continue;
@@ -122,6 +138,7 @@ export async function collectMeshSupportRawSourcePanels(
           join(workspaceRoot, support.sourcePath),
           support.sourcePath,
           support.label,
+          readCache,
         ),
       );
     } catch (error) {
@@ -142,6 +159,7 @@ export async function addCurrentKnopInventoryRawSourcePanel(
   quads: readonly Quad[],
   designatorPath: string,
   currentKnopInventoryTurtle: string,
+  readCache?: RawSourceReadCache,
 ): Promise<void> {
   const currentKnopInventoryPagePath = `${
     toKnopPath(designatorPath)
@@ -158,6 +176,9 @@ export async function addCurrentKnopInventoryRawSourcePanel(
       `${toKnopPath(designatorPath)}/_inventory`,
       currentKnopInventoryWorkingPath,
       currentKnopInventoryPagePath,
+      undefined,
+      undefined,
+      readCache,
     ))
   ) {
     addRawSourcePanel(
@@ -197,6 +218,7 @@ export async function addSupportArtifactRawSourcePanels(
   meshBase: string,
   quads: readonly Quad[],
   supportArtifacts: readonly KnopArtifactLinkModel[],
+  readCache?: RawSourceReadCache,
 ): Promise<void> {
   for (const artifact of supportArtifacts) {
     const pagePath = toDesignatorResourcePagePath(artifact.path);
@@ -222,6 +244,9 @@ export async function addSupportArtifactRawSourcePanels(
         artifact.path,
         workingLocalRelativePath,
         pagePath,
+        undefined,
+        undefined,
+        readCache,
       )
     ) {
       continue;
@@ -239,6 +264,7 @@ export async function addSupportArtifactRawSourcePanels(
           ),
           workingLocalRelativePath,
           `Current ${artifact.label} file`,
+          readCache,
         ),
       );
     } catch (error) {
@@ -260,6 +286,7 @@ export async function addPayloadRawSourcePanels(
   quads: readonly Quad[],
   designatorPath: string,
   payloadArtifact: PayloadSourceArtifact,
+  readCache?: RawSourceReadCache,
 ): Promise<void> {
   const currentPagePath = toDesignatorResourcePagePath(designatorPath);
   await addLatestHistoricalRawSourcePanelForCurrentArtifact(
@@ -272,6 +299,7 @@ export async function addPayloadRawSourcePanels(
     currentPagePath,
     payloadArtifact.latestHistoricalSnapshotPath,
     payloadArtifact.latestHistoricalSnapshotTurtle,
+    readCache,
   );
 }
 
@@ -282,6 +310,7 @@ export async function addReferenceTargetSourceRawSourcePanels(
   meshBase: string,
   designatorPath: string,
   referenceLinks: readonly ParsedResourceReferenceLink[],
+  readCache?: RawSourceReadCache,
 ): Promise<void> {
   const seen = new Set<string>();
 
@@ -307,6 +336,7 @@ export async function addReferenceTargetSourceRawSourcePanels(
         designatorPath,
         referenceTargetPath,
         link.referenceTargetStatePaths[0],
+        readCache,
       );
     }
   }
@@ -321,6 +351,7 @@ export async function addExtractionSourceRawSourcePanels(
   sourceArtifactPath: string,
   requestedTargetStatePath: string | undefined,
   artifactResolutionModeIri: string | undefined,
+  readCache?: RawSourceReadCache,
 ): Promise<void> {
   const sourceKnopInventoryPath = join(
     workspaceRoot,
@@ -370,6 +401,7 @@ export async function addExtractionSourceRawSourcePanels(
           ),
           sourcePayloadArtifact.workingLocalRelativePath,
           "Working source file",
+          readCache,
         ),
       );
     } catch (error) {
@@ -412,6 +444,7 @@ export async function addExtractionSourceRawSourcePanels(
         join(workspaceRoot, snapshotPath),
         snapshotPath,
         "Exact source file",
+        readCache,
       ),
     );
   } catch (error) {
@@ -434,6 +467,7 @@ async function addLatestHistoricalRawSourcePanelForCurrentArtifact(
   currentPagePath: string,
   preloadedSnapshotPath?: string,
   preloadedSnapshotTurtle?: string,
+  readCache?: RawSourceReadCache,
 ): Promise<boolean> {
   const snapshotPath = resolvePreferredLatestHistoricalLocatedFilePath(
     quads,
@@ -452,7 +486,11 @@ async function addLatestHistoricalRawSourcePanelForCurrentArtifact(
       "Historical manifestation file",
       preloadedSnapshotTurtle,
     )
-    : await readHistoricalRawSourcePanel(workspaceRoot, snapshotPath);
+    : await readHistoricalRawSourcePanel(
+      workspaceRoot,
+      snapshotPath,
+      readCache,
+    );
   if (!latestHistoricalPanel) {
     return false;
   }
@@ -481,6 +519,7 @@ async function addCanonicalReferenceSourceRawSourcePanel(
   designatorPath: string,
   referenceTargetPath: string,
   referenceTargetStatePath: string | undefined,
+  readCache?: RawSourceReadCache,
 ): Promise<void> {
   const sourceKnopInventoryPath = join(
     workspaceRoot,
@@ -526,6 +565,7 @@ async function addCanonicalReferenceSourceRawSourcePanel(
           ),
           sourcePayloadArtifact.workingLocalRelativePath,
           "Current canonical reference source file",
+          readCache,
         ),
       );
     } catch (error) {
@@ -557,6 +597,7 @@ async function addCanonicalReferenceSourceRawSourcePanel(
         join(workspaceRoot, snapshotPath),
         snapshotPath,
         "Exact canonical reference source file",
+        readCache,
       ),
     );
   } catch (error) {
@@ -570,12 +611,14 @@ async function addCanonicalReferenceSourceRawSourcePanel(
 async function readHistoricalRawSourcePanel(
   workspaceRoot: string,
   snapshotPath: string,
+  readCache?: RawSourceReadCache,
 ): Promise<ResourcePageRawSourcePanelModel | undefined> {
   try {
     return await readRawSourcePanel(
       join(workspaceRoot, snapshotPath),
       snapshotPath,
       "Historical manifestation file",
+      readCache,
     );
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
@@ -714,30 +757,30 @@ export async function readRawSourcePanel(
   absolutePath: string,
   sourcePath: string,
   label: string,
+  readCache?: RawSourceReadCache,
 ): Promise<ResourcePageRawSourcePanelModel> {
+  let cachedContents = readCache?.get(absolutePath);
+  if (cachedContents === undefined) {
+    cachedContents = readRawSourcePanelContents(absolutePath);
+    readCache?.set(absolutePath, cachedContents);
+  }
+  return { label, sourcePath, ...await cachedContents };
+}
+
+async function readRawSourcePanelContents(
+  absolutePath: string,
+): Promise<RawSourcePanelContents> {
   const info = await Deno.stat(absolutePath);
   if (info.size > RAW_SOURCE_INLINE_BYTE_LIMIT) {
-    return {
-      label,
-      sourcePath,
-      omittedByteLength: info.size,
-    };
+    return { omittedByteLength: info.size };
   }
-  const bytes = await Deno.readFile(absolutePath);
-  const contents = decodeInlineRawSourceContents(bytes);
+  const contents = decodeInlineRawSourceContents(
+    await Deno.readFile(absolutePath),
+  );
   if (contents === undefined) {
-    return {
-      label,
-      sourcePath,
-      omittedByteLength: info.size,
-    };
+    return { omittedByteLength: info.size };
   }
-
-  return {
-    label,
-    sourcePath,
-    contents,
-  };
+  return { contents };
 }
 
 export function decodeInlineRawSourceContents(

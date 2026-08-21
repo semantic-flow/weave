@@ -43,6 +43,12 @@ export interface VersionExecutionRetainedMemoryStats {
     invalidations: number;
   };
   candidateLiveSet: CandidateLiveSetRetainedMemoryStats;
+  pageGeneration: {
+    renderedPages: number;
+    batches: number;
+    maxBatchFiles: number;
+    maxBatchBytes: number;
+  };
   planningLoopIterations: number;
   maxRssBytes: number;
 }
@@ -58,6 +64,8 @@ export interface RuntimeMemoryStatsReport
 }
 
 export interface RuntimeMemoryStats {
+  sampleRss(): void;
+  samplePageRenderBatch(files: readonly PlannedFile[]): void;
   sampleCandidateLiveSet(
     workspaceRoot: string,
     candidates: readonly WeaveableKnopCandidate[],
@@ -81,6 +89,29 @@ class EnabledRuntimeMemoryStats implements RuntimeMemoryStats {
 
   constructor(command: string) {
     this.#command = command;
+  }
+
+  sampleRss(): void {
+    this.#sampleRss();
+  }
+
+  samplePageRenderBatch(files: readonly PlannedFile[]): void {
+    this.#sampleRss();
+    const encoder = new TextEncoder();
+    const batchBytes = files.reduce(
+      (total, file) => total + encoder.encode(file.contents).byteLength,
+      0,
+    );
+    this.#retainedState.pageGeneration.renderedPages += files.length;
+    this.#retainedState.pageGeneration.batches += 1;
+    this.#retainedState.pageGeneration.maxBatchFiles = Math.max(
+      this.#retainedState.pageGeneration.maxBatchFiles,
+      files.length,
+    );
+    this.#retainedState.pageGeneration.maxBatchBytes = Math.max(
+      this.#retainedState.pageGeneration.maxBatchBytes,
+      batchBytes,
+    );
   }
 
   sampleCandidateLiveSet(
@@ -149,6 +180,7 @@ class EnabledRuntimeMemoryStats implements RuntimeMemoryStats {
       updatedFileByPath: updatedStats,
       ...toReportedOverlayStats(overlayStats),
       candidateLiveSet: this.#retainedState.candidateLiveSet,
+      pageGeneration: this.#retainedState.pageGeneration,
       planningLoopIterations: this.#planningLoopIterations,
       maxRssBytes: this.#maxRssBytes,
     };
@@ -241,6 +273,12 @@ function emptyRetainedState(): VersionExecutionRetainedMemoryStats {
       sourceTextReferences: 0,
       distinctSourceTextIdentities: 0,
       approximateRetainedSourceTextBytes: 0,
+    },
+    pageGeneration: {
+      renderedPages: 0,
+      batches: 0,
+      maxBatchFiles: 0,
+      maxBatchBytes: 0,
     },
     planningLoopIterations: 0,
     maxRssBytes: 0,

@@ -5,6 +5,7 @@ export type RuntimeTimingField = string | number | boolean | undefined;
 export interface RuntimeTiming {
   readonly enabled: boolean;
   setField(key: string, value: RuntimeTimingField): void;
+  record(phase: string, durationMs: number): void;
   time<T>(phase: string, operation: () => Promise<T>): Promise<T>;
   timeSync<T>(phase: string, operation: () => T): T;
   finish(fields?: Record<string, RuntimeTimingField>): void;
@@ -19,6 +20,9 @@ class DisabledRuntimeTiming implements RuntimeTiming {
   readonly enabled = false;
 
   setField(_key: string, _value: RuntimeTimingField): void {
+  }
+
+  record(_phase: string, _durationMs: number): void {
   }
 
   async time<T>(_phase: string, operation: () => Promise<T>): Promise<T> {
@@ -49,6 +53,10 @@ class EnabledRuntimeTiming implements RuntimeTiming {
     if (value !== undefined) {
       this.#fields.set(key, value);
     }
+  }
+
+  record(phase: string, durationMs: number): void {
+    this.#record(phase, durationMs);
   }
 
   async time<T>(phase: string, operation: () => Promise<T>): Promise<T> {

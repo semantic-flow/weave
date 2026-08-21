@@ -421,6 +421,7 @@ export async function executeGenerate(
   options: ExecuteGenerateOptions,
 ): Promise<GenerateResult> {
   const timing = createRuntimeTiming("generate");
+  const memoryStats = createRuntimeMemoryStats("generate");
   let status = "succeeded";
   const { operationalLogger } = resolveRuntimeLoggers(options);
   try {
@@ -447,6 +448,7 @@ export async function executeGenerate(
       historyTrackingPolicyOverride: options.historyTrackingPolicyOverride,
       updateTimestampOnlyPages: options.updateTimestampOnlyPages === true,
       timing,
+      memoryStats,
     });
     timing.setField(
       "generatedDesignatorPaths",
@@ -464,6 +466,7 @@ export async function executeGenerate(
     throw error;
   } finally {
     timing.finish({ status });
+    await memoryStats?.finish();
   }
 }
 
@@ -471,6 +474,7 @@ export async function executeWeave(
   options: ExecuteWeaveOptions,
 ): Promise<WeaveResult> {
   const timing = createRuntimeTiming("weave");
+  const memoryStats = createRuntimeMemoryStats("weave");
   let status = "succeeded";
   const { operationalLogger, auditLogger } = resolveLoggers(options);
   const meshRoot = resolveExecutionMeshRoot(options);
@@ -514,6 +518,7 @@ export async function executeWeave(
         options.onProgress,
         timing,
         options.inputSnapshotVerification,
+        memoryStats,
       );
       timing.timeSync(
         "version.validateRdf",
@@ -547,6 +552,7 @@ export async function executeWeave(
           historyTrackingPolicyOverride: options.historyTrackingPolicyOverride,
           updateTimestampOnlyPages: options.updateTimestampOnlyPages === true,
           timing,
+          memoryStats,
           phasePrefix: "generate",
         }),
     );
@@ -625,6 +631,7 @@ export async function executeWeave(
     throw new WeaveRuntimeError(message);
   } finally {
     timing.finish({ status });
+    await memoryStats?.finish();
   }
 }
 

@@ -8,6 +8,7 @@ import {
   type PreparedVersionExecution,
   prepareVersionExecution,
 } from "./version_execution.ts";
+import type { RuntimeMemoryStats } from "./memory_stats.ts";
 
 export interface PreparedWeaveExecution {
   request: NormalizedWeaveRequest;
@@ -22,6 +23,7 @@ export async function prepareWeaveExecution(
   onProgress?: WeaveProgressHandler,
   timing?: RuntimeTiming,
   inputSnapshotVerification?: InputSnapshotVerificationHooks,
+  memoryStats?: RuntimeMemoryStats,
 ): Promise<PreparedWeaveExecution> {
   const version = await prepareVersionExecution(
     workspaceRoot,
@@ -32,6 +34,9 @@ export async function prepareWeaveExecution(
     onProgress,
     timing,
     inputSnapshotVerification,
+    undefined,
+    undefined,
+    memoryStats,
   );
 
   return {

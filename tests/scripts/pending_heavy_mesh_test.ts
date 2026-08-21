@@ -2,6 +2,7 @@ import {
   assert,
   assertEquals,
   assertGreater,
+  assertLessOrEqual,
   assertRejects,
   assertStrictEquals,
 } from "@std/assert";
@@ -15,6 +16,7 @@ import {
   executeVersion,
 } from "../../src/runtime/weave/weave.ts";
 import type { RuntimeMemoryStatsReport } from "../../src/runtime/weave/memory_stats.ts";
+import { RESOURCE_PAGE_RENDER_CONCURRENCY } from "../../src/runtime/weave/pages.ts";
 import { loadOperationalLocalPathPolicy } from "../../src/runtime/operational/local_path_policy.ts";
 import { loadWeaveableKnopCandidates } from "../../src/runtime/weave/candidate_loader.ts";
 import { loadMeshState } from "../../src/runtime/weave/mesh_state.ts";
@@ -478,6 +480,32 @@ Deno.test("pending-heavy generator enters the instrumented coherent batch path",
   assertEquals(disabled.stderr.includes("[memory-stats]"), false);
 });
 
+Deno.test("generate retained render-batch growth stays no worse than cardinality", async () => {
+  const small = await generateAndMeasurePageRetention(40);
+  const large = await generateAndMeasurePageRetention(120);
+  const cardinalityGrowth = large.count / small.count;
+
+  for (const measurement of [small, large]) {
+    assertEquals(measurement.report.command, "generate");
+    assertGreater(measurement.report.pageGeneration.renderedPages, 0);
+    assertGreater(measurement.report.pageGeneration.batches, 0);
+    assertLessOrEqual(
+      measurement.report.pageGeneration.maxBatchFiles,
+      RESOURCE_PAGE_RENDER_CONCURRENCY,
+    );
+    assertGreater(measurement.report.pageGeneration.maxBatchBytes, 0);
+    assertGreater(measurement.report.maxRssBytes, 0);
+  }
+  assertLessOrEqual(
+    large.report.pageGeneration.maxBatchBytes,
+    small.report.pageGeneration.maxBatchBytes * cardinalityGrowth,
+  );
+  assertLessOrEqual(
+    large.report.maxRssBytes,
+    small.report.maxRssBytes * cardinalityGrowth,
+  );
+});
+
 Deno.test("pending-heavy generator preserves a nested source without an ancestor Knop", async () => {
   const meshRoot = await createTestTmpDir(
     "weave-pending-heavy-nested-source-",
@@ -759,6 +787,51 @@ async function generateAndMeasureCandidateSourceRetention(
   return { report: parseMemoryStats(validated.stderr), sourceBytes };
 }
 
+async function generateAndMeasurePageRetention(
+  count: number,
+): Promise<{ count: number; report: RuntimeMemoryStatsReport }> {
+  const meshRoot = await createTestTmpDir(
+    `weave-pending-heavy-generate-growth-${count}-`,
+  );
+  await generatePendingHeavyMesh({
+    outputPath: meshRoot,
+    count,
+    meshInventoryHistoryPolicy: "current-only",
+    sourceDesignatorPath: "catalog/source",
+    termContentBytes: 1024,
+  });
+  await executeVersion({ meshRoot });
+  const generated = await runGenerate(meshRoot, "1");
+  assert(generated.output.success, generated.stderr);
+  return { count, report: parseMemoryStats(generated.stderr) };
+}
+
+async function runGenerate(
+  meshRoot: string,
+  memoryStatsValue: string,
+): Promise<{ output: Deno.CommandOutput; stderr: string }> {
+  const output = await new Deno.Command(Deno.execPath(), {
+    args: [
+      "run",
+      "-A",
+      cliEntrypoint,
+      "generate",
+      "--mesh-root",
+      meshRoot,
+      "--generated-at",
+      "2026-08-21T00:00:00.000Z",
+    ],
+    cwd: repoRoot,
+    env: { WEAVE_MEMORY_STATS: memoryStatsValue },
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  return {
+    output,
+    stderr: new TextDecoder().decode(output.stderr),
+  };
+}
+
 function parseMemoryStats(stderr: string): RuntimeMemoryStatsReport {
   const prefix = "[memory-stats] ";
   const line = stderr.split("\n").find((candidate) =>
@@ -775,6 +848,10 @@ class RecordingRuntimeTiming implements RuntimeTiming {
 
   setField(key: string, value: RuntimeTimingField): void {
     this.fields.set(key, value);
+  }
+
+  record(phase: string, _durationMs: number): void {
+    this.#recordPhase(phase);
   }
 
   async time<T>(phase: string, operation: () => Promise<T>): Promise<T> {

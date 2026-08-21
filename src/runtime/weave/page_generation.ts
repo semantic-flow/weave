@@ -11,6 +11,7 @@ import type { OperationalLocalPathPolicy } from "../operational/local_path_polic
 import type { StructuredLogger } from "../logging/logger.ts";
 import type { RuntimeTiming } from "../timing.ts";
 import type { HistoryTrackingPolicy } from "../config/effective_config.ts";
+import type { RuntimeMemoryStats } from "./memory_stats.ts";
 import {
   createEffectiveConfigProviderForExecution,
   type EffectiveConfigProvider,
@@ -19,8 +20,12 @@ import { loadMeshState, type MeshState } from "./mesh_state.ts";
 import {
   collectResourcePageModels,
   resolveMeshFaviconPath,
+  visitResourcePageModels,
 } from "./page_model_assembly.ts";
-import { renderResourcePages } from "./pages.ts";
+import {
+  renderResourcePages,
+  RESOURCE_PAGE_RENDER_CONCURRENCY,
+} from "./pages.ts";
 import { timeOptional, timeOptionalSync } from "./timing_helpers.ts";
 import { toWorkspaceRelativePath } from "./workspace_paths.ts";
 
@@ -34,6 +39,7 @@ export interface GeneratePreparedPagesOptions {
   historyTrackingPolicyOverride?: HistoryTrackingPolicy;
   updateTimestampOnlyPages?: boolean;
   timing?: RuntimeTiming;
+  memoryStats?: RuntimeMemoryStats;
   phasePrefix?: string;
 }
 
@@ -92,31 +98,21 @@ export async function generatePreparedPages(
     timing: options.timing,
     phasePrefix: phase("effectiveConfig"),
   });
-  const pageFiles = await timeOptional(
-    options.timing,
-    phase("collectGeneratedPageFiles"),
-    () =>
-      collectGeneratedPageFiles(
-        options.meshRoot,
-        options.localPathPolicy,
-        meshState,
-        selectedDesignatorPaths,
-        options.targets.length === 0,
-        options.targets.length > 0,
-        effectiveConfigProvider,
-        resolveGeneratedAt(options.now),
-        options.timing,
-        phase("collectGeneratedPageFiles"),
-      ),
-  );
-  const writeResult = await timeOptional(
-    options.timing,
-    phase("writePages"),
-    () =>
-      writeGeneratedPagesUpsert(options.meshRoot, pageFiles, {
-        updateTimestampOnlyPages: options.updateTimestampOnlyPages === true,
-      }),
-  );
+  const writeResult = await generateAndWriteResourcePages({
+    workspaceRoot: options.meshRoot,
+    localPathPolicy: options.localPathPolicy,
+    meshState,
+    selectedDesignatorPaths,
+    includeAllMeshPages: options.targets.length === 0,
+    hasExplicitGenerateTargets: options.targets.length > 0,
+    effectiveConfigProvider,
+    generatedAt: resolveGeneratedAt(options.now),
+    updateTimestampOnlyPages: options.updateTimestampOnlyPages === true,
+    timing: options.timing,
+    memoryStats: options.memoryStats,
+    phasePrefix: phase("collectGeneratedPageFiles"),
+    writePhase: phase("writePages"),
+  });
 
   const result = {
     meshBase: meshState.meshBase,
@@ -200,29 +196,33 @@ export async function regeneratePreparedPagePaths(
   }
 
   const meshFaviconPath = await resolveMeshFaviconPath(options.meshRoot);
-  const pageFiles = await timeOptional(
-    options.timing,
-    phase("renderResourcePages"),
-    () =>
-      renderResourcePages(meshState.meshBase, selectedPageModels, {
-        generatedAt: resolveGeneratedAt(),
-        includeSemanticFlowMetadata: false,
-        meshFaviconPath,
-        resourcePagePresentationForPage: (page) =>
-          resourcePagePresentationForGeneratedPage(
-            effectiveConfigProvider,
-            page,
-          ),
-      }),
-  );
-  const writeResult = await timeOptional(
-    options.timing,
-    phase("writePages"),
-    () =>
-      writeGeneratedPagesUpsert(options.meshRoot, pageFiles, {
-        updateTimestampOnlyPages: false,
-      }),
-  );
+  const generatedAt = resolveGeneratedAt();
+  const writeResult = emptyGeneratedPagesWriteResult();
+  let renderDurationMs = 0;
+  let writeDurationMs = 0;
+  for (
+    let start = 0;
+    start < selectedPageModels.length;
+    start += RESOURCE_PAGE_RENDER_CONCURRENCY
+  ) {
+    const batchResult = await renderAndWriteResourcePageBatch({
+      workspaceRoot: options.meshRoot,
+      meshBase: meshState.meshBase,
+      pages: selectedPageModels.slice(
+        start,
+        start + RESOURCE_PAGE_RENDER_CONCURRENCY,
+      ),
+      generatedAt,
+      meshFaviconPath,
+      effectiveConfigProvider,
+      updateTimestampOnlyPages: false,
+    });
+    appendGeneratedPagesWriteResult(writeResult, batchResult.writeResult);
+    renderDurationMs += batchResult.renderDurationMs;
+    writeDurationMs += batchResult.writeDurationMs;
+  }
+  options.timing?.record(phase("renderResourcePages"), renderDurationMs);
+  options.timing?.record(phase("writePages"), writeDurationMs);
 
   return {
     meshBase: meshState.meshBase,
@@ -239,46 +239,150 @@ export async function regeneratePreparedPagePaths(
   };
 }
 
-export async function collectGeneratedPageFiles(
-  workspaceRoot: string,
-  localPathPolicy: OperationalLocalPathPolicy,
-  meshState: MeshState,
-  selectedDesignatorPaths: readonly string[],
-  includeAllMeshPages: boolean,
-  hasExplicitGenerateTargets: boolean,
-  effectiveConfigProvider: EffectiveConfigProvider,
-  generatedAt: Date,
-  timing?: RuntimeTiming,
-  phasePrefix = "collectGeneratedPageFiles",
-): Promise<readonly PlannedFile[]> {
-  const phase = (name: string) => `${phasePrefix}.${name}`;
-  const pageModels = await collectResourcePageModels({
-    workspaceRoot,
-    localPathPolicy,
-    meshState,
-    selectedDesignatorPaths,
-    includeAllMeshPages,
-    hasExplicitGenerateTargets,
-    effectiveConfigProvider,
-    timing,
-    phasePrefix,
+interface GenerateAndWriteResourcePagesOptions {
+  workspaceRoot: string;
+  localPathPolicy: OperationalLocalPathPolicy;
+  meshState: MeshState;
+  selectedDesignatorPaths: readonly string[];
+  includeAllMeshPages: boolean;
+  hasExplicitGenerateTargets: boolean;
+  effectiveConfigProvider: EffectiveConfigProvider;
+  generatedAt: Date;
+  updateTimestampOnlyPages: boolean;
+  timing?: RuntimeTiming;
+  memoryStats?: RuntimeMemoryStats;
+  phasePrefix: string;
+  writePhase: string;
+}
+
+interface GeneratedPagesWriteResult {
+  createdPaths: string[];
+  updatedPaths: string[];
+  skippedTimestampOnlyPaths: string[];
+}
+
+async function generateAndWriteResourcePages(
+  options: GenerateAndWriteResourcePagesOptions,
+): Promise<GeneratedPagesWriteResult> {
+  const startedAt = performance.now();
+  let renderDurationMs = 0;
+  let writeDurationMs = 0;
+  let renderedAnyBatch = false;
+  const writeResult = emptyGeneratedPagesWriteResult();
+  const pageBatch: ResourcePageModel[] = [];
+  const meshFaviconPath = await resolveMeshFaviconPath(options.workspaceRoot);
+  options.memoryStats?.sampleRss();
+
+  const flushBatch = async () => {
+    if (pageBatch.length === 0) {
+      return;
+    }
+    const pages = pageBatch.splice(0, pageBatch.length);
+    const batchResult = await renderAndWriteResourcePageBatch({
+      workspaceRoot: options.workspaceRoot,
+      meshBase: options.meshState.meshBase,
+      pages,
+      generatedAt: options.generatedAt,
+      meshFaviconPath,
+      effectiveConfigProvider: options.effectiveConfigProvider,
+      updateTimestampOnlyPages: options.updateTimestampOnlyPages,
+      memoryStats: options.memoryStats,
+    });
+    renderedAnyBatch = true;
+    renderDurationMs += batchResult.renderDurationMs;
+    writeDurationMs += batchResult.writeDurationMs;
+    appendGeneratedPagesWriteResult(writeResult, batchResult.writeResult);
+  };
+
+  try {
+    await visitResourcePageModels({
+      workspaceRoot: options.workspaceRoot,
+      localPathPolicy: options.localPathPolicy,
+      meshState: options.meshState,
+      selectedDesignatorPaths: options.selectedDesignatorPaths,
+      includeAllMeshPages: options.includeAllMeshPages,
+      hasExplicitGenerateTargets: options.hasExplicitGenerateTargets,
+      effectiveConfigProvider: options.effectiveConfigProvider,
+      timing: options.timing,
+      phasePrefix: options.phasePrefix,
+    }, async (page) => {
+      pageBatch.push(page);
+      if (pageBatch.length === RESOURCE_PAGE_RENDER_CONCURRENCY) {
+        await flushBatch();
+      }
+    });
+    await flushBatch();
+    return writeResult;
+  } finally {
+    const elapsedMs = performance.now() - startedAt;
+    options.timing?.record(
+      options.phasePrefix,
+      Math.max(0, elapsedMs - writeDurationMs),
+    );
+    if (renderedAnyBatch) {
+      options.timing?.record(
+        `${options.phasePrefix}.renderResourcePages`,
+        renderDurationMs,
+      );
+      options.timing?.record(options.writePhase, writeDurationMs);
+    }
+  }
+}
+
+async function renderAndWriteResourcePageBatch(options: {
+  workspaceRoot: string;
+  meshBase: string;
+  pages: readonly ResourcePageModel[];
+  generatedAt: Date;
+  meshFaviconPath?: string;
+  effectiveConfigProvider: EffectiveConfigProvider;
+  updateTimestampOnlyPages: boolean;
+  memoryStats?: RuntimeMemoryStats;
+}): Promise<{
+  writeResult: GeneratedPagesWriteResult;
+  renderDurationMs: number;
+  writeDurationMs: number;
+}> {
+  const renderStartedAt = performance.now();
+  const pageFiles = await renderResourcePages(options.meshBase, options.pages, {
+    generatedAt: options.generatedAt,
+    includeSemanticFlowMetadata: false,
+    meshFaviconPath: options.meshFaviconPath,
+    resourcePagePresentationForPage: (page) =>
+      resourcePagePresentationForGeneratedPage(
+        options.effectiveConfigProvider,
+        page,
+      ),
   });
-  const meshFaviconPath = await resolveMeshFaviconPath(workspaceRoot);
-  return await timeOptional(
-    timing,
-    phase("renderResourcePages"),
-    () =>
-      renderResourcePages(meshState.meshBase, pageModels, {
-        generatedAt,
-        includeSemanticFlowMetadata: false,
-        meshFaviconPath,
-        resourcePagePresentationForPage: (page) =>
-          resourcePagePresentationForGeneratedPage(
-            effectiveConfigProvider,
-            page,
-          ),
-      }),
+  const renderDurationMs = performance.now() - renderStartedAt;
+  options.memoryStats?.samplePageRenderBatch(pageFiles);
+
+  const writeStartedAt = performance.now();
+  const writeResult = await writeGeneratedPagesUpsert(
+    options.workspaceRoot,
+    pageFiles,
+    { updateTimestampOnlyPages: options.updateTimestampOnlyPages },
   );
+  const writeDurationMs = performance.now() - writeStartedAt;
+  options.memoryStats?.sampleRss();
+  return { writeResult, renderDurationMs, writeDurationMs };
+}
+
+function emptyGeneratedPagesWriteResult(): GeneratedPagesWriteResult {
+  return {
+    createdPaths: [],
+    updatedPaths: [],
+    skippedTimestampOnlyPaths: [],
+  };
+}
+
+function appendGeneratedPagesWriteResult(
+  target: GeneratedPagesWriteResult,
+  source: GeneratedPagesWriteResult,
+): void {
+  target.createdPaths.push(...source.createdPaths);
+  target.updatedPaths.push(...source.updatedPaths);
+  target.skippedTimestampOnlyPaths.push(...source.skippedTimestampOnlyPaths);
 }
 
 async function resourcePagePresentationForGeneratedPage(

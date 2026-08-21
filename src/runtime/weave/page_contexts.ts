@@ -51,6 +51,7 @@ import {
   addReferenceTargetSourceRawSourcePanels,
   addSupportArtifactRawSourcePanels,
   findRawSourcePanelsForPage,
+  type RawSourceReadCache,
 } from "./raw_source_panels.ts";
 import {
   listGeneratedResourcePagePaths,
@@ -104,6 +105,7 @@ export async function loadBestEffortGenerateDesignatorContexts(
   hasExplicitGenerateTargets: boolean,
   timing?: RuntimeTiming,
   phasePrefix = "loadBestEffortGenerateDesignatorContexts",
+  rawSourceReadCache: RawSourceReadCache = new Map(),
 ): Promise<readonly GenerateDesignatorContext[]> {
   const phase = (name: string) => `${phasePrefix}.${name}`;
   const contexts: GenerateDesignatorContext[] = [];
@@ -130,6 +132,7 @@ export async function loadBestEffortGenerateDesignatorContexts(
               hasExplicitGenerateTargets,
               timing,
               phase("designator"),
+              rawSourceReadCache,
             ),
         ),
       );
@@ -157,6 +160,7 @@ export async function loadGenerateDesignatorContexts(
   hasExplicitGenerateTargets: boolean,
   timing?: RuntimeTiming,
   phasePrefix = "loadGenerateDesignatorContexts",
+  rawSourceReadCache: RawSourceReadCache = new Map(),
 ): Promise<readonly GenerateDesignatorContext[]> {
   const phase = (name: string) => `${phasePrefix}.${name}`;
   const contexts: GenerateDesignatorContext[] = [];
@@ -220,6 +224,7 @@ export async function loadGenerateDesignatorContexts(
       currentKnopInventoryQuads,
       designatorPath,
       currentKnopInventoryTurtle,
+      rawSourceReadCache,
     );
     const resourcePageDefinitionState =
       resolveResourcePageDefinitionInventoryState(
@@ -423,6 +428,7 @@ export async function loadGenerateDesignatorContexts(
             currentKnopInventoryQuads,
             designatorPath,
             payloadArtifact,
+            rawSourceReadCache,
           ),
       );
     } else if (extractionSource) {
@@ -439,6 +445,7 @@ export async function loadGenerateDesignatorContexts(
             extractionSource.sourceArtifactPath,
             extractionSource.requestedTargetStatePath,
             extractionSource.artifactResolutionModeIri,
+            rawSourceReadCache,
           ),
       );
     } else if (referenceCatalogArtifact) {
@@ -453,6 +460,7 @@ export async function loadGenerateDesignatorContexts(
             meshState.meshBase,
             designatorPath,
             referenceLinks,
+            rawSourceReadCache,
           ),
       );
     }
@@ -467,6 +475,7 @@ export async function loadGenerateDesignatorContexts(
           meshState.meshBase,
           currentKnopInventoryQuads,
           artifactLinks.supportingArtifacts,
+          rawSourceReadCache,
         ),
     );
   }

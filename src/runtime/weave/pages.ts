@@ -207,6 +207,7 @@ const SOURCE_RDF_PREFIXES = COMMON_RDF_PREFIXES.filter(([namespace]) =>
 const defaultResourcePageTheme: ResourcePageTheme = {
   render: renderDefaultResourcePage,
 };
+export const RESOURCE_PAGE_RENDER_CONCURRENCY = 4;
 
 export interface ResourcePageRenderOptions {
   generatedAt?: Date;
@@ -225,12 +226,24 @@ export async function renderResourcePages(
   pages: readonly ResourcePageModel[],
   options: ResourcePageRenderOptions = {},
 ): Promise<readonly PlannedFile[]> {
-  return await Promise.all(
-    pages.map(async (page) => ({
-      path: page.path,
-      contents: await renderResourcePage(meshBase, page, options),
-    })),
-  );
+  const rendered: PlannedFile[] = [];
+  for (
+    let start = 0;
+    start < pages.length;
+    start += RESOURCE_PAGE_RENDER_CONCURRENCY
+  ) {
+    rendered.push(
+      ...await Promise.all(
+        pages.slice(start, start + RESOURCE_PAGE_RENDER_CONCURRENCY).map(
+          async (page) => ({
+            path: page.path,
+            contents: await renderResourcePage(meshBase, page, options),
+          }),
+        ),
+      ),
+    );
+  }
+  return rendered;
 }
 
 export async function renderResourcePage(

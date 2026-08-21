@@ -44,6 +44,34 @@ Deno.test("readRawSourcePanel omits text above the 4 MiB limit", async () => {
   );
 });
 
+Deno.test("readRawSourcePanel reuses command-scoped source contents", async () => {
+  const root = await createTestTmpDir("weave-raw-source-cache-");
+  const path = `${root}/source.ttl`;
+  const readCache = new Map();
+  await Deno.writeTextFile(path, "<term> <predicate> <object> .\n");
+
+  const first = await readRawSourcePanel(
+    path,
+    "first-source.ttl",
+    "First source",
+    readCache,
+  );
+  await Deno.remove(path);
+  const second = await readRawSourcePanel(
+    path,
+    "second-source.ttl",
+    "Second source",
+    readCache,
+  );
+
+  assertEquals(first.contents, "<term> <predicate> <object> .\n");
+  assertEquals(second, {
+    label: "Second source",
+    sourcePath: "second-source.ttl",
+    contents: first.contents,
+  });
+});
+
 Deno.test("decodeInlineRawSourceContents accepts valid UTF-8 text", () => {
   const bytes = new TextEncoder().encode("# Alice\n\nText source.\n");
 
