@@ -178,25 +178,32 @@ Deno.test("executeImport rejects noncanonical expected digests before acquisitio
   });
   let fetchCalled = false;
 
-  await assertRejects(
-    () =>
-      executeImport({
-        meshRoot: workspaceRoot,
-        request: {
-          source: "https://example.org/source.md",
-          designatorPath: "bob/page-main",
-          workingFile: "bob-page-main.md",
-          expectedDigest:
-            "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-        },
-        sourceFetch: () => {
-          fetchCalled = true;
-          throw new Error("source fetch should not run");
-        },
-      }),
-    ImportRuntimeError,
-    "64 lowercase hexadecimal digits",
-  );
+  for (
+    const invalidDigest of [
+      "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sha512:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    ]
+  ) {
+    await assertRejects(
+      () =>
+        executeImport({
+          meshRoot: workspaceRoot,
+          request: {
+            source: "https://example.org/source.md",
+            designatorPath: "bob/page-main",
+            workingFile: "bob-page-main.md",
+            expectedDigest: invalidDigest,
+          },
+          sourceFetch: () => {
+            fetchCalled = true;
+            throw new Error("source fetch should not run");
+          },
+        }),
+      ImportRuntimeError,
+      "64 lowercase hexadecimal digits",
+    );
+  }
   assertEquals(fetchCalled, false);
 });
 

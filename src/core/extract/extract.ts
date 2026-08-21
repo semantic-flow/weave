@@ -10,9 +10,11 @@ import type { PlannedFile } from "../planned_file.ts";
 import {
   SFLO_NAMESPACE,
   SFLO_TURTLE_PREFIX_DECLARATION,
+  XSD_NAMESPACE,
 } from "../rdf/namespaces.ts";
 import { isCanonicalContentDigest } from "../rdf/content_digest.ts";
 import { escapeTurtleString } from "../rdf/turtle.ts";
+import { normalizeXsdDateTimeLiteral } from "../rdf/xsd_literals.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const XSD_ANY_URI_IRI = "http://www.w3.org/2001/XMLSchema#anyURI";
@@ -238,21 +240,14 @@ function normalizeExtractionSourceEvidence(
     normalized.sourceDigest = sourceEvidence.sourceDigest;
   }
   if (sourceEvidence.observedAt !== undefined) {
-    normalized.observedAt = normalizeNonEmptyLiteral(
+    normalized.observedAt = normalizeXsdDateTimeLiteral(
       sourceEvidence.observedAt,
       "sourceEvidence.observedAt",
+      (message) => new ExtractInputError(message),
     );
   }
 
   return Object.keys(normalized).length === 0 ? undefined : normalized;
-}
-
-function normalizeNonEmptyLiteral(value: string, fieldName: string): string {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    throw new ExtractInputError(`${fieldName} must not be empty`);
-  }
-  return trimmed;
 }
 
 function normalizeMeshBase(meshBase: string): string {
@@ -930,7 +925,9 @@ function renderExtractionSourceObservationBlock(
   if (sourceEvidence.observedAt !== undefined) {
     facts.push([
       "sflo:observedAt",
-      `"${escapeTurtleString(sourceEvidence.observedAt)}"`,
+      `"${
+        escapeTurtleString(sourceEvidence.observedAt)
+      }"^^<${XSD_NAMESPACE}dateTime>`,
     ]);
   }
 

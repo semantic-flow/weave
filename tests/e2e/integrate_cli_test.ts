@@ -408,7 +408,8 @@ Deno.test("weave integrate records repository-backed source provenance as a blac
     `<alice/data/_knop/_sources#payload-source-observation-001>
   a sflo:ArtifactResolutionObservation ;
   sflo:observedArtifactResolutionSpec [
-    a sflo:ArtifactResolutionSpec
+    a sflo:ArtifactResolutionSpec ;
+    sflo:targetLocalRelativePath "../documentation/alice-data.ttl"
   ] ;
   sflo:observedContentDigest "${expectedDigest}" .`,
   );
@@ -578,6 +579,47 @@ Deno.test("weave integrate rejects source digest evidence without repository met
   assertStringIncludes(
     stderr,
     "integrate source digest requires repository-backed source metadata",
+  );
+});
+
+Deno.test("weave integrate rejects an unsupported source digest algorithm", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-integrate-unsupported-digest-",
+  );
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  const command = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      cliPath,
+      "integrate",
+      "alice-data.ttl",
+      "alice/data",
+      "--source-repository-url",
+      "https://github.com/semantic-flow/mesh-alice-bio.git",
+      "--source-repository-ref",
+      "main",
+      "--source-repository-path",
+      "alice-data.ttl",
+      "--source-digest",
+      "sha512:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    ],
+    cwd: toFileUrl(`${workspaceRoot}/`),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assertEquals(output.success, false);
+  assertStringIncludes(
+    stderr,
+    "integrate source digest must use sha256 followed by 64 lowercase hexadecimal digits",
   );
 });
 

@@ -153,6 +153,40 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
   }
 });
 
+Deno.test("executeExtract hashes exact source bytes including a UTF-8 BOM", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-extract-byte-digest-");
+  await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
+  const sourcePath = join(workspaceRoot, "alice-data.ttl");
+  const originalBytes = await Deno.readFile(sourcePath);
+  const sourceBytes = new Uint8Array(3 + originalBytes.length);
+  sourceBytes.set([0xef, 0xbb, 0xbf]);
+  sourceBytes.set(originalBytes, 3);
+  await Deno.writeFile(sourcePath, sourceBytes);
+
+  await executeExtract({
+    workspaceRoot,
+    request: {
+      designatorPath: "bob",
+    },
+  });
+
+  const sourcesTurtle = await Deno.readTextFile(
+    join(workspaceRoot, "bob/_knop/_sources/sources.ttl"),
+  );
+  assertStringIncludes(
+    sourcesTurtle,
+    `sflo:observedContentDigest "${await sha256Digest(sourceBytes)}"`,
+  );
+  assertFalse(
+    sourcesTurtle.includes(
+      await sha256Digest(new TextEncoder().encode(
+        new TextDecoder().decode(sourceBytes),
+      )),
+    ),
+    "extract must not hash decoded and re-encoded text",
+  );
+});
+
 Deno.test("executeExtract fails closed when the target Bob support surface already exists", async () => {
   const workspaceRoot = await createTestTmpDir("weave-extract-existing-");
   await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
@@ -866,3 +900,17 @@ Deno.test("executeExtract wraps invalid mesh metadata as ExtractRuntimeError", a
     "Could not resolve meshBase from _mesh/_meta/meta.ttl",
   );
 });
+
+async function sha256Digest(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    bytes.buffer.slice(
+      bytes.byteOffset,
+      bytes.byteOffset + bytes.byteLength,
+    ) as ArrayBuffer,
+  );
+  const hex = [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return `sha256:${hex}`;
+}

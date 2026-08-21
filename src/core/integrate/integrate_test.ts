@@ -341,18 +341,25 @@ Deno.test("planIntegrate rejects noncanonical and mismatched digest evidence", a
     currentMeshInventoryTurtle,
   };
 
-  assertThrows(
-    () =>
-      planIntegrate({
-        ...baseRequest,
-        sourceBinding: {
-          expectedContentDigest:
-            "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-        },
-      }),
-    IntegrateInputError,
-    "64 lowercase hexadecimal digits",
-  );
+  for (
+    const invalidDigest of [
+      "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sha512:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    ]
+  ) {
+    assertThrows(
+      () =>
+        planIntegrate({
+          ...baseRequest,
+          sourceBinding: {
+            expectedContentDigest: invalidDigest,
+          },
+        }),
+      IntegrateInputError,
+      "64 lowercase hexadecimal digits",
+    );
+  }
   assertThrows(
     () =>
       planIntegrate({

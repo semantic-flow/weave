@@ -1382,7 +1382,9 @@ function resolveOptionalRepositorySourceLocator(
     errorMessage,
   );
   if (contentDigest !== undefined) {
-    throw new InventoryResolutionError(errorMessage);
+    throw new InventoryResolutionError(
+      "RepositorySourceLocator must not declare sflo:hasContentDigest; move an authored requirement to sflo:expectsContentDigest on the source binding and computed evidence to sflo:observedContentDigest on an ArtifactResolutionObservation.",
+    );
   }
 
   return {

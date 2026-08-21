@@ -2,6 +2,8 @@ import type { ExtractionSourceEvidenceModel } from "./candidates.ts";
 import { WeaveInputError } from "./errors.ts";
 import { findSubjectBlockIndex, splitTurtleBlocks } from "./turtle_blocks.ts";
 
+const XSD_DATE_TIME_IRI = "http://www.w3.org/2001/XMLSchema#dateTime";
+
 export function replaceExtractionSourceBlock(
   turtle: string,
   extractionSourcePath: string,
@@ -118,7 +120,9 @@ function renderExtractionSourceObservationBlock(
   if (sourceEvidence.observedAt !== undefined) {
     facts.push([
       "sflo:observedAt",
-      `"${escapeTurtleString(sourceEvidence.observedAt)}"`,
+      `"${
+        escapeTurtleString(sourceEvidence.observedAt)
+      }"^^<${XSD_DATE_TIME_IRI}>`,
     ]);
   }
 

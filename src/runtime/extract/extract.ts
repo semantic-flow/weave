@@ -41,6 +41,7 @@ import {
   RDF_NAMESPACE,
   SFCFG_NAMESPACE,
   SFLO_NAMESPACE,
+  XSD_NAMESPACE,
 } from "../../core/rdf/namespaces.ts";
 
 const RDF_TYPE_IRI = `${RDF_NAMESPACE}type`;
@@ -1114,7 +1115,7 @@ async function loadExtractSourcePayloadCandidate(
         : undefined,
     };
   }
-  const currentPayloadTurtle = await readPayloadWorkingFile(
+  const currentPayload = await readPayloadWorkingFile(
     localPathPolicy,
     designatorPath,
     payloadArtifact.workingLocalRelativePath,
@@ -1134,9 +1135,9 @@ async function loadExtractSourcePayloadCandidate(
         : {
           sourceLocalRelativePath: payloadArtifact.workingLocalRelativePath,
         }),
-      sourceDigest: await sha256Digest(currentPayloadTurtle),
+      sourceDigest: currentPayload.digest,
     },
-    sourcePayloadTurtle: currentPayloadTurtle,
+    sourcePayloadTurtle: currentPayload.text,
     currentKnopInventoryTurtle,
     latestHistoricalStatePath: payloadArtifact.currentArtifactHistoryExists
       ? payloadArtifact.latestHistoricalStatePath
@@ -1183,9 +1184,9 @@ async function resolveExactExtractSourcePayloadByState(
   }
 
   const { candidate, historicalSnapshotPath } = matches[0]!;
-  let sourcePayloadTurtle: string;
+  let sourcePayloadBytes: Uint8Array;
   try {
-    sourcePayloadTurtle = await Deno.readTextFile(
+    sourcePayloadBytes = await Deno.readFile(
       join(meshRoot, historicalSnapshotPath),
     );
   } catch (error) {
@@ -1196,6 +1197,7 @@ async function resolveExactExtractSourcePayloadByState(
     }
     throw error;
   }
+  const sourcePayloadTurtle = new TextDecoder().decode(sourcePayloadBytes);
 
   return {
     ...candidate,
@@ -1208,7 +1210,7 @@ async function resolveExactExtractSourcePayloadByState(
         "/",
       ),
       sourceLocatedFilePath: historicalSnapshotPath,
-      sourceDigest: await sha256Digest(sourcePayloadTurtle),
+      sourceDigest: await sha256Digest(sourcePayloadBytes),
     },
     sourcePayloadTurtle,
   };
@@ -1303,7 +1305,7 @@ async function readPayloadWorkingFile(
     repositoryUrl: string;
     repositoryPathFromRoot: string;
   },
-): Promise<string> {
+): Promise<{ text: string; digest: string }> {
   let absoluteWorkingLocalRelativePath: string;
   try {
     absoluteWorkingLocalRelativePath = repositorySourceFloatingLocator
@@ -1324,7 +1326,11 @@ async function readPayloadWorkingFile(
   }
 
   try {
-    return await Deno.readTextFile(absoluteWorkingLocalRelativePath);
+    const bytes = await Deno.readFile(absoluteWorkingLocalRelativePath);
+    return {
+      text: new TextDecoder().decode(bytes),
+      digest: await sha256Digest(bytes),
+    };
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new ExtractRuntimeError(
@@ -1335,9 +1341,14 @@ async function readPayloadWorkingFile(
   }
 }
 
-async function sha256Digest(contents: string): Promise<string> {
-  const bytes = new TextEncoder().encode(contents);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
+async function sha256Digest(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    bytes.buffer.slice(
+      bytes.byteOffset,
+      bytes.byteOffset + bytes.byteLength,
+    ) as ArrayBuffer,
+  );
   const hex = [...new Uint8Array(digest)]
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
@@ -1953,7 +1964,9 @@ function renderExtractionSourceObservationBlock(
   if (sourceEvidence.observedAt !== undefined) {
     facts.push([
       "sflo:observedAt",
-      `"${escapeTurtleString(sourceEvidence.observedAt)}"`,
+      `"${
+        escapeTurtleString(sourceEvidence.observedAt)
+      }"^^<${XSD_NAMESPACE}dateTime>`,
     ]);
   }
 

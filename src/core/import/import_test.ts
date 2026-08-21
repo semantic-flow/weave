@@ -125,20 +125,27 @@ Deno.test("planImport rejects noncanonical and mismatched digest evidence", asyn
     currentMeshInventoryTurtle,
   };
 
-  assertThrows(
-    () =>
-      planImport({
-        ...baseRequest,
-        sourceBinding: {
-          observation: {
-            observedContentDigest:
-              "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  for (
+    const invalidDigest of [
+      "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sha512:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    ]
+  ) {
+    assertThrows(
+      () =>
+        planImport({
+          ...baseRequest,
+          sourceBinding: {
+            observation: {
+              observedContentDigest: invalidDigest,
+            },
           },
-        },
-      }),
-    ImportInputError,
-    "64 lowercase hexadecimal digits",
-  );
+        }),
+      ImportInputError,
+      "64 lowercase hexadecimal digits",
+    );
+  }
   assertThrows(
     () =>
       planImport({

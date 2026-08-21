@@ -134,6 +134,7 @@ export async function executeIntegrate(
     const requestedSourceBinding = await resolveSourceBinding(
       options.request.sourceBinding,
       resolvedSource.absoluteSourcePath,
+      resolvedSource.workingLocalRelativePath,
     );
     const sourceBinding = requestedSourceBinding ??
       resolveImplicitWorkingSourceBinding(
@@ -353,6 +354,7 @@ async function resolveLocalSource(
 async function resolveSourceBinding(
   request: LocalIntegrateSourceBindingRequest | undefined,
   absoluteSourcePath: string,
+  workingLocalRelativePath: string,
 ): Promise<IntegrateSourceBinding | undefined> {
   if (request === undefined) {
     return undefined;
@@ -446,6 +448,7 @@ async function resolveSourceBinding(
       : {}),
     observation: {
       observedContentDigest: sourceDigest,
+      observedLocalRelativePath: workingLocalRelativePath,
     },
     artifactResolutionMode: "working",
   };

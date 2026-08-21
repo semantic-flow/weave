@@ -140,17 +140,24 @@ Deno.test("resolveArtifactResolutionRequest rejects noncanonical expected digest
   const { context, meshRoot } = await createResolverTestContext();
   await Deno.writeTextFile(join(meshRoot, "source.ttl"), "actual\n");
 
-  await assertRejects(
-    () =>
-      resolveArtifactResolutionRequest(context, {
-        sourceDescription: "uppercase digest source",
-        targetLocalRelativePath: "source.ttl",
-        expectedContentDigest:
-          "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-      }, { contentMode: "text" }),
-    ArtifactResolutionError,
-    "unsupported expectsContentDigest value",
-  );
+  for (
+    const invalidDigest of [
+      "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sha512:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    ]
+  ) {
+    await assertRejects(
+      () =>
+        resolveArtifactResolutionRequest(context, {
+          sourceDescription: "noncanonical digest source",
+          targetLocalRelativePath: "source.ttl",
+          expectedContentDigest: invalidDigest,
+        }, { contentMode: "text" }),
+      ArtifactResolutionError,
+      "unsupported expectsContentDigest value",
+    );
+  }
 });
 
 Deno.test("resolveArtifactResolutionRequest resolves governed payload working bytes", async () => {

@@ -54,7 +54,7 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
     sourceEvidence: {
       sourceLocatedFilePath: "alice-data.ttl",
       sourceDigest,
-      observedAt: "2026-05-16T12:00:00Z\nmanual review",
+      observedAt: "2026-05-16T12:00:00Z",
     },
     sourceWorkingLocalRelativePath: "alice-data.ttl",
   });
@@ -110,7 +110,7 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
   );
   assertStringIncludes(
     plan.createdFiles[2]?.contents ?? "",
-    'sflo:observedAt "2026-05-16T12:00:00Z\\nmanual review" .',
+    'sflo:observedAt "2026-05-16T12:00:00Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .',
   );
   assertFalse(
     (plan.createdFiles[2]?.contents ?? "").includes(
@@ -129,6 +129,42 @@ Deno.test("planExtract renders the first non-woven bob extraction artifacts", as
       path: "_mesh/_inventory/inventory.ttl",
     }),
     true,
+  );
+});
+
+Deno.test("planExtract rejects invalid observation dateTime literals", () => {
+  assertThrows(
+    () =>
+      planExtract({
+        meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+        currentMeshInventoryTurtle: rootSourcePreExtractMeshInventoryTurtle,
+        designatorPath: "bob",
+        sourceDesignatorPath: "",
+        sourceEvidence: {
+          sourceDigest:
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          observedAt: "2026-05-16T12:00:00Z\nmanual review",
+        },
+        sourceWorkingLocalRelativePath: "root-person.ttl",
+      }),
+    ExtractInputError,
+    "sourceEvidence.observedAt must be a valid xsd:dateTime",
+  );
+  assertThrows(
+    () =>
+      planExtract({
+        meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+        currentMeshInventoryTurtle: rootSourcePreExtractMeshInventoryTurtle,
+        designatorPath: "bob",
+        sourceDesignatorPath: "",
+        sourceEvidence: {
+          sourceDigest:
+            "sha512:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        },
+        sourceWorkingLocalRelativePath: "root-person.ttl",
+      }),
+    ExtractInputError,
+    "sourceEvidence.sourceDigest must use sha256",
   );
 });
 

@@ -52,7 +52,7 @@ Deno.test("listKnopDesignatorPaths includes the root designator when the root Kn
   );
 });
 
-Deno.test("resolvePayloadArtifactInventoryState accepts semantically equivalent Knop inventory turtle", () => {
+Deno.test("resolvePayloadArtifactInventoryState accepts a digest-bearing LocatedFile", () => {
   assertEquals(
     resolvePayloadArtifactInventoryState(
       MESH_BASE,
@@ -65,6 +65,8 @@ Deno.test("resolvePayloadArtifactInventoryState accepts semantically equivalent 
 <alice/data> sflo:hasWorkingLocatedFile <alice-data.ttl> ;
   rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:PayloadArtifact ;
   sflo:currentArtifactHistory <alice/data/_history001> .
+<alice-data.ttl> rdf:type sflo:LocatedFile ;
+  sflo:hasContentDigest "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" .
 <alice/data/_knop> rdf:type sflo:Knop ;
   sflo:hasPayloadArtifact <alice/data> .
 `,
@@ -521,7 +523,7 @@ Deno.test("listIntegrationSourceInventoryStates rejects repository-locator diges
         },
       ),
     Error,
-    "Could not parse source registry",
+    "RepositorySourceLocator must not declare sflo:hasContentDigest",
   );
 });
 
