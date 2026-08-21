@@ -97,6 +97,54 @@ Deno.test("renderKnopInventoryWithPreservedSupportArtifacts preserves unknown ca
   assert(parseQuads(output).length > 0);
 });
 
+Deno.test("renderKnopInventoryWithPreservedSupportArtifacts preserves repeated source-registry subject blocks", () => {
+  const sourceRegistryPath = `${knopPath}/_sources`;
+  const currentKnopInventoryTurtle = inventoryWithSupportFacts({
+    sourceRegistry: true,
+  }).replace(
+    `<${sourceRegistryPath}> a sflo:KnopSourceRegistry, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${sourceRegistryPath}/sources.ttl> .`,
+    `<${sourceRegistryPath}> a sflo:KnopSourceRegistry .
+
+<${sourceRegistryPath}> a sflo:DigitalArtifact .
+
+<${sourceRegistryPath}> a sflo:RdfDocument .
+
+<${sourceRegistryPath}> sflo:hasWorkingLocatedFile <${sourceRegistryPath}/sources.ttl> .`,
+  );
+  const output = renderKnopInventoryWithPreservedSupportArtifacts({
+    meshBase,
+    currentKnopInventoryTurtle,
+    renderedKnopInventoryTurtle: inventoryWithSupportFacts({}),
+    knopPath,
+  });
+
+  assert(
+    hasNamedNodeFact(
+      output,
+      `${meshBase}${sourceRegistryPath}`,
+      `${SFLO_NAMESPACE}hasWorkingLocatedFile`,
+      `${meshBase}${sourceRegistryPath}/sources.ttl`,
+    ),
+  );
+  assert(
+    hasNamedNodeFact(
+      output,
+      `${meshBase}${sourceRegistryPath}`,
+      `${RDF_NAMESPACE}type`,
+      `${SFLO_NAMESPACE}DigitalArtifact`,
+    ),
+  );
+  assert(
+    hasNamedNodeFact(
+      output,
+      `${meshBase}${sourceRegistryPath}`,
+      `${RDF_NAMESPACE}type`,
+      `${SFLO_NAMESPACE}RdfDocument`,
+    ),
+  );
+});
+
 Deno.test("renderKnopInventoryWithPreservedSupportArtifacts carries reference catalog when source registry is already rendered", () => {
   const output = renderKnopInventoryWithPreservedSupportArtifacts({
     meshBase,

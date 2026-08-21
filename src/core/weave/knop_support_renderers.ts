@@ -17,7 +17,6 @@ import {
 } from "./rdf_helpers.ts";
 import {
   collectSubjectSubtreeBlocks,
-  findSubjectBlockIndex,
   getSubjectPathFromBlock,
   splitTurtleBlocks,
 } from "./turtle_blocks.ts";
@@ -294,35 +293,38 @@ function collectCarriedSupportFactsAndBlocks(
     ) {
       return;
     }
-    const blockIndex = findSubjectBlockIndex(currentBlocks, subjectPath);
-    if (blockIndex === -1) {
+    const matchingBlocks = currentBlocks.filter((block) =>
+      getSubjectPathFromBlock(block) === subjectPath
+    );
+    if (matchingBlocks.length === 0) {
       return;
     }
 
-    const block = currentBlocks[blockIndex]!;
-    const quads = parseBlockQuads(
-      options.meshBase,
-      currentDirectives,
-      block,
-      `Could not parse carried Knop support block <${subjectPath}>.`,
-    );
-    const hasMutableProgressionFacts = quads.some((quad) =>
-      MUTABLE_PROGRESSION_PREDICATES.has(quad.predicate.value)
-    );
-    const requestedBlockFacts = quads
-      .filter((quad) =>
-        !MUTABLE_PROGRESSION_PREDICATES.has(quad.predicate.value)
-      )
-      .map((quad: Quad) => toRequestedSupportFact(quad, options.meshBase));
     carriedBlockSubjectPaths.add(subjectPath);
-    carriedBlocks.push({
-      subjectPath,
-      block,
-      quads,
-      requestedFacts: requestedBlockFacts,
-      hasMutableProgressionFacts,
-    });
-    requestedFacts.push(...requestedBlockFacts);
+    for (const block of matchingBlocks) {
+      const quads = parseBlockQuads(
+        options.meshBase,
+        currentDirectives,
+        block,
+        `Could not parse carried Knop support block <${subjectPath}>.`,
+      );
+      const hasMutableProgressionFacts = quads.some((quad) =>
+        MUTABLE_PROGRESSION_PREDICATES.has(quad.predicate.value)
+      );
+      const requestedBlockFacts = quads
+        .filter((quad) =>
+          !MUTABLE_PROGRESSION_PREDICATES.has(quad.predicate.value)
+        )
+        .map((quad: Quad) => toRequestedSupportFact(quad, options.meshBase));
+      carriedBlocks.push({
+        subjectPath,
+        block,
+        quads,
+        requestedFacts: requestedBlockFacts,
+        hasMutableProgressionFacts,
+      });
+      requestedFacts.push(...requestedBlockFacts);
+    }
   };
 
   if (sourceRegistry !== undefined) {
