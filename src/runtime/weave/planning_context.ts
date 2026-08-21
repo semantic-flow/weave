@@ -125,12 +125,9 @@ export class TextFileOverlay extends Map<string, string> {
       ),
       readCacheHits: this.cacheHitCount,
       candidateCacheEntries: this.#candidateCache.size,
-      candidateCacheApproxRetainedBytes: [...this.#candidateCache.values()]
-        .reduce(
-          (total, entry) =>
-            total + approximateCandidateRetainedBytes(entry.candidate),
-          0,
-        ),
+      candidateCacheApproxRetainedBytes: approximateCandidatesRetainedBytes(
+        [...this.#candidateCache.values()].map((entry) => entry.candidate),
+      ),
       candidateCacheStores: this.candidateCacheStoreCount,
       candidateCacheInvalidations: this.candidateCacheInvalidationCount,
     };
@@ -200,20 +197,38 @@ export class TextFileOverlay extends Map<string, string> {
   }
 }
 
-// A shared value instead of a TextEncoder-typed parameter: dnt's Node type
-// checking has no global TextEncoder type, only the shimmed value.
-const RETAINED_BYTES_ENCODER = new TextEncoder();
-
 function sumTextBytes(values: Iterable<string>): number {
   let total = 0;
   for (const value of values) {
-    total += RETAINED_BYTES_ENCODER.encode(value).byteLength;
+    total += textBytes(value);
   }
   return total;
 }
 
 function textBytes(value: string): number {
-  return RETAINED_BYTES_ENCODER.encode(value).byteLength;
+  let bytes = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const codeUnit = value.charCodeAt(index);
+    if (codeUnit < 0x80) {
+      bytes += 1;
+    } else if (codeUnit < 0x800) {
+      bytes += 2;
+    } else if (
+      codeUnit >= 0xd800 && codeUnit <= 0xdbff &&
+      index + 1 < value.length
+    ) {
+      const nextCodeUnit = value.charCodeAt(index + 1);
+      if (nextCodeUnit >= 0xdc00 && nextCodeUnit <= 0xdfff) {
+        bytes += 4;
+        index += 1;
+      } else {
+        bytes += 3;
+      }
+    } else {
+      bytes += 3;
+    }
+  }
+  return bytes;
 }
 
 function candidateSourceTexts(
@@ -256,37 +271,45 @@ function candidateSourceTexts(
   return sourceTexts;
 }
 
-function approximateCandidateRetainedBytes(
-  candidate: WeaveableKnopCandidate | undefined,
+function approximateCandidatesRetainedBytes(
+  candidates: readonly (WeaveableKnopCandidate | undefined)[],
 ): number {
-  if (candidate === undefined) {
-    return 0;
-  }
-
   let total = 0;
-  const visited = new Set<object>();
+  const visitedObjects = new Set<object>();
+  const visitedTextValues = new Set<string>();
+  const visitedByteValues = new Set<Uint8Array>();
   const visit = (value: unknown, fieldName = ""): void => {
     if (typeof value === "string") {
-      if (/(?:turtle|text)$/i.test(fieldName)) {
-        total += RETAINED_BYTES_ENCODER.encode(value).byteLength;
+      if (
+        /(?:turtle|text)$/i.test(fieldName) &&
+        !visitedTextValues.has(value)
+      ) {
+        visitedTextValues.add(value);
+        total += textBytes(value);
       }
       return;
     }
     if (value instanceof Uint8Array) {
-      if (/bytes$/i.test(fieldName)) {
+      if (/bytes$/i.test(fieldName) && !visitedByteValues.has(value)) {
+        visitedByteValues.add(value);
         total += value.byteLength;
       }
       return;
     }
-    if (value === null || typeof value !== "object" || visited.has(value)) {
+    if (
+      value === null || typeof value !== "object" ||
+      visitedObjects.has(value)
+    ) {
       return;
     }
-    visited.add(value);
+    visitedObjects.add(value);
     for (const [key, nestedValue] of Object.entries(value)) {
       visit(nestedValue, key);
     }
   };
-  visit(candidate);
+  for (const candidate of candidates) {
+    visit(candidate);
+  }
   return total;
 }
 
