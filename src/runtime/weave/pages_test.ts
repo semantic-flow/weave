@@ -2,10 +2,46 @@ import {
   assert,
   assertEquals,
   assertFalse,
+  assertLessOrEqual,
   assertStringIncludes,
 } from "@std/assert";
 import { DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE } from "../config/effective_config.ts";
-import { buildResourcePageDocumentModel, renderResourcePage } from "./pages.ts";
+import {
+  buildResourcePageDocumentModel,
+  renderResourcePage,
+  renderResourcePages,
+} from "./pages.ts";
+
+Deno.test("renderResourcePages bounds concurrent page renders", async () => {
+  let activeRenders = 0;
+  let maxActiveRenders = 0;
+  let releaseRenders!: () => void;
+  const renderGate = new Promise<void>((resolve) => {
+    releaseRenders = resolve;
+  });
+  const pages = Array.from({ length: 9 }, (_, index) => ({
+    kind: "simple" as const,
+    path: `page-${index}/index.html`,
+    description: `Page ${index}`,
+  }));
+
+  const rendered = renderResourcePages("https://example.test/", pages, {
+    resourcePagePresentationForPage: async () => {
+      activeRenders += 1;
+      maxActiveRenders = Math.max(maxActiveRenders, activeRenders);
+      await renderGate;
+      activeRenders -= 1;
+      return DEFAULT_RESOURCE_PAGE_PRESENTATION_PROFILE;
+    },
+  });
+  for (let index = 0; index < pages.length + 1; index += 1) {
+    await Promise.resolve();
+  }
+
+  assertLessOrEqual(maxActiveRenders, 4);
+  releaseRenders();
+  assertEquals((await rendered).length, pages.length);
+});
 
 Deno.test("buildResourcePageDocumentModel assembles ordered identifier panels", () => {
   const document = buildResourcePageDocumentModel(
