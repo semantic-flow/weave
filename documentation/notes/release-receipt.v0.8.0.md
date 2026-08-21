@@ -7,7 +7,7 @@ created: 1787367600000
 
 ## Status
 
-Release candidate gates through the private Stagecraft smoke are complete. Workflow rehearsal, publication, and post-publish verification are recorded below when they complete.
+Weave `v0.8.0` was published on 2026-08-21. Source, private consumer, all-platform rehearsal, npm/GitHub publication, archive checksum, installed CLI/library, and published Stagecraft pin gates are complete.
 
 ## Candidate Source
 
@@ -15,6 +15,8 @@ Release candidate gates through the private Stagecraft smoke are complete. Workf
 - Candidate pull request: `https://github.com/semantic-flow/weave/pull/46`.
 - Remote candidate CI: `https://github.com/semantic-flow/weave/actions/runs/32525314290`, success for source CI and npm-lib smoke.
 - Local versioned source gate: `deno task fmt` and `deno task ci`, 841 passed / 0 failed with format, lint, type checks, and coverage generation clean.
+- Release commit on `main`: `e33561d0de1b429fe099296e03bf04bb2c7c167d`.
+- Main CI: `https://github.com/semantic-flow/weave/actions/runs/32527669280`, success for source CI and npm-lib smoke at the release commit.
 - Root authored version: `0.8.0`.
 - SFLO dependency release: source tag `v0.4.0` at `e9c03c2b`; Pages commit `72d18379`; live payloads byte-identical to the tag. See [[ont.report.2026-08-21-v0.4.0-release]].
 
@@ -75,12 +77,33 @@ The final Pages run at Weave `55b4f00` published 371 Knops and 1,491 valid Turtl
 
 ## Workflow Rehearsal
 
-Pending.
+- Release Manual run: `https://github.com/semantic-flow/weave/actions/runs/32527933066`.
+- Inputs: `npm_publish_mode=dry-run`, `npm_tag=latest`, `github_release_mode=draft`.
+- Commit: `e33561d0de1b429fe099296e03bf04bb2c7c167d`.
+- Result: all jobs green — four native builds/smokes, wrapper/platform assembly, four native npm install smokes, wrapper/platform dry-run, library build/off-tree smoke/dry-run, and draft GitHub Release management.
+- Draft review: all eight expected archives/checksums present; release body matched [[release-notes.v0.8.0]] after frontmatter removal; no `v0.8.0` tag existed and wrapper/library `0.8.0` remained absent from npm after rehearsal.
 
 ## Publication
 
-Pending.
+- Release Manual run: `https://github.com/semantic-flow/weave/actions/runs/32528319429`.
+- Inputs: `npm_publish_mode=publish`, `npm_tag=latest`, `github_release_mode=publish`.
+- Commit: `e33561d0de1b429fe099296e03bf04bb2c7c167d`, identical to the rehearsal commit.
+- Result: all jobs green, including trusted npm publication for the five CLI packages and `@semantic-flow/weave-lib`, followed by GitHub Release publication.
+- Published at: `2026-08-21T21:28:08Z`.
+- Git tag: `v0.8.0` → `e33561d0de1b429fe099296e03bf04bb2c7c167d`.
+- GitHub Release: `https://github.com/semantic-flow/weave/releases/tag/v0.8.0`, non-draft, non-prerelease, targeting the release commit.
 
 ## Post-Publish Verification
 
-Pending.
+- npm `latest` resolves to `0.8.0` for `@semantic-flow/weave`, all four platform packages, and `@semantic-flow/weave-lib`.
+- GitHub Release contains exactly four platform archives and their four `.sha256` files.
+- Downloaded `weave-v0.8.0-linux-x64.tar.gz`, both macOS archives, and the Windows zip all passed `sha256sum -c` against their published checksum files.
+- A clean disposable npm consumer installed `@semantic-flow/weave@0.8.0` and `@semantic-flow/weave-lib@0.8.0` with no vulnerabilities.
+- Installed CLI receipt:
+
+```json
+{"version":"0.8.0","commit":"e33561d0de1b429fe099296e03bf04bb2c7c167d","built":"2026-08-21T21:24:13Z"}
+```
+
+- Published library import exposed `WeaveApiError`, `validateMesh`, and `versionPayloads` under Node ESM.
+- A fresh detached Stagecraft worktree at `b83fcf6e` installed `@semantic-flow/weave@0.8.0` from the registry, reported the installed CLI receipt above, and passed the real `persistence.ts` non-default-history test: 1 passed / 0 failed. The disposable pin changed no Stagecraft ref and was removed afterward.
