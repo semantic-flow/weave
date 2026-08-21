@@ -508,7 +508,7 @@ export async function executeWeave(
     }
 
     const normalizedRequest = normalizeWeaveRequest(options.request);
-    let preparedExecution: PreparedWeaveExecution;
+    let preparedExecution: PreparedWeaveExecution | undefined;
     try {
       preparedExecution = await prepareWeaveExecution(
         meshRoot,
@@ -522,7 +522,7 @@ export async function executeWeave(
       );
       timing.timeSync(
         "version.validateRdf",
-        () => validateVersionPlanRdf(preparedExecution.version.plan),
+        () => validateVersionPlanRdf(preparedExecution!.version.plan),
       );
     } catch (error) {
       if (error instanceof WeaveRuntimeError) {
@@ -537,6 +537,9 @@ export async function executeWeave(
       preparedExecution.version,
       { validateRdf: false, timing, phasePrefix: "version.write" },
     );
+    const generateTargets =
+      preparedExecution.request.targetPreparation.sharedTargets;
+    preparedExecution = undefined;
     wovenDesignatorPaths = versionResult.versionedDesignatorPaths;
 
     const generateResult = await timing.time(
@@ -545,7 +548,7 @@ export async function executeWeave(
         generatePreparedPages({
           meshRoot,
           localPathPolicy: initialPolicy,
-          targets: preparedExecution.request.targetPreparation.sharedTargets,
+          targets: generateTargets,
           operationalLogger,
           now: options.now,
           includeSemanticFlowMetadata: false,
