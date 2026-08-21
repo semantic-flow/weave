@@ -387,10 +387,7 @@ Deno.test("weave integrate records repository-backed source provenance as a blac
     sources,
     "sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> ;",
   );
-  assertStringIncludes(
-    sources,
-    `sflo:expectsContentDigest "${expectedDigest}" ;`,
-  );
+  assertEquals(sources.includes("sflo:expectsContentDigest"), false);
   assertStringIncludes(
     sources,
     "sflo:hasResolutionObservation <alice/data/_knop/_sources#payload-source-observation-001> ;",
@@ -403,9 +400,9 @@ Deno.test("weave integrate records repository-backed source provenance as a blac
   assertStringIncludes(sources, 'sflo:sourceRepositoryCommit "abc123" ;');
   assertStringIncludes(
     sources,
-    'sflo:sourceRepositoryPath "documentation/alice-data.ttl" ;',
+    'sflo:sourceRepositoryPath "documentation/alice-data.ttl"',
   );
-  assertStringIncludes(sources, `sflo:hasContentDigest "${expectedDigest}"`);
+  assertEquals(sources.includes("sflo:hasContentDigest"), false);
   assertStringIncludes(
     sources,
     `<alice/data/_knop/_sources#payload-source-observation-001>

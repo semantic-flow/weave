@@ -233,10 +233,12 @@ Deno.test("planIntegrate records repository-backed source bindings", async () =>
         repositoryRef: "main",
         repositoryCommit: "abc123",
         repositoryPath: "alice-data.ttl",
-        contentDigest: "sha256:123abc",
       },
+      expectedContentDigest:
+        "sha256:1111111111111111111111111111111111111111111111111111111111111111",
       observation: {
-        observedContentDigest: "sha256:123abc",
+        observedContentDigest:
+          "sha256:1111111111111111111111111111111111111111111111111111111111111111",
       },
     },
   });
@@ -283,7 +285,7 @@ Deno.test("planIntegrate records repository-backed source bindings", async () =>
   );
   assertStringIncludes(
     sources,
-    'sflo:expectsContentDigest "sha256:123abc" ;',
+    'sflo:expectsContentDigest "sha256:1111111111111111111111111111111111111111111111111111111111111111" ;',
   );
   assertStringIncludes(
     sources,
@@ -295,11 +297,11 @@ Deno.test("planIntegrate records repository-backed source bindings", async () =>
   );
   assertStringIncludes(sources, 'sflo:sourceRepositoryRef "main" ;');
   assertStringIncludes(sources, 'sflo:sourceRepositoryCommit "abc123" ;');
-  assertStringIncludes(sources, 'sflo:sourceRepositoryPath "alice-data.ttl" ;');
-  assertStringIncludes(sources, 'sflo:hasContentDigest "sha256:123abc"');
+  assertStringIncludes(sources, 'sflo:sourceRepositoryPath "alice-data.ttl"');
+  assertEquals(sources.includes("sflo:hasContentDigest"), false);
   assertStringIncludes(
     sources,
-    '<alice/data/_knop/_sources#branch-source-alice-bio-observation-001>\n  a sflo:ArtifactResolutionObservation ;\n  sflo:observedArtifactResolutionSpec [\n    a sflo:ArtifactResolutionSpec\n  ] ;\n  sflo:observedContentDigest "sha256:123abc" .',
+    '<alice/data/_knop/_sources#branch-source-alice-bio-observation-001>\n  a sflo:ArtifactResolutionObservation ;\n  sflo:observedArtifactResolutionSpec [\n    a sflo:ArtifactResolutionSpec\n  ] ;\n  sflo:observedContentDigest "sha256:1111111111111111111111111111111111111111111111111111111111111111" .',
   );
 });
 
@@ -324,6 +326,48 @@ Deno.test("planIntegrate rejects invalid observation dateTime literals", async (
       }),
     IntegrateInputError,
     "sourceBinding.observation.observedAt must be a valid xsd:dateTime",
+  );
+});
+
+Deno.test("planIntegrate rejects noncanonical and mismatched digest evidence", async () => {
+  const currentMeshInventoryTurtle = await readMeshAliceBioBranchFile(
+    "05-alice-knop-created-woven",
+    "_mesh/_inventory/inventory.ttl",
+  );
+  const baseRequest = {
+    designatorPath: "alice/data",
+    workingLocalRelativePath: "../source/alice-data.ttl",
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle,
+  };
+
+  assertThrows(
+    () =>
+      planIntegrate({
+        ...baseRequest,
+        sourceBinding: {
+          expectedContentDigest:
+            "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        },
+      }),
+    IntegrateInputError,
+    "64 lowercase hexadecimal digits",
+  );
+  assertThrows(
+    () =>
+      planIntegrate({
+        ...baseRequest,
+        sourceBinding: {
+          expectedContentDigest:
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          observation: {
+            observedContentDigest:
+              "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          },
+        },
+      }),
+    IntegrateInputError,
+    "must match",
   );
 });
 

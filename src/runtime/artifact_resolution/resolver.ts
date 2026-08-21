@@ -7,6 +7,7 @@ import {
   toKnopPath,
 } from "../../core/designator_segments.ts";
 import { RDF_NAMESPACE, SFLO_NAMESPACE } from "../../core/rdf/namespaces.ts";
+import { isCanonicalContentDigest } from "../../core/rdf/content_digest.ts";
 import {
   type RepositorySourceFloatingLocatorState,
   resolvePayloadArtifactInventoryState,
@@ -1655,7 +1656,7 @@ function verifyExpectedDigest(
   if (request.expectedContentDigest === undefined) {
     return;
   }
-  if (!/^sha256:[0-9a-fA-F]{64}$/.test(request.expectedContentDigest)) {
+  if (!isCanonicalContentDigest(request.expectedContentDigest)) {
     throw new ArtifactResolutionError(
       `${
         describeRequest(request)
@@ -1663,9 +1664,7 @@ function verifyExpectedDigest(
       { kind: "validation" },
     );
   }
-  if (
-    request.expectedContentDigest.toLowerCase() !== observedDigest.toLowerCase()
-  ) {
+  if (request.expectedContentDigest !== observedDigest) {
     throw new ArtifactResolutionError(
       `${
         describeRequest(request)

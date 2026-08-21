@@ -11,6 +11,7 @@ import {
   SFLO_NAMESPACE,
   SFLO_TURTLE_PREFIX_DECLARATION,
 } from "../rdf/namespaces.ts";
+import { isCanonicalContentDigest } from "../rdf/content_digest.ts";
 import { escapeTurtleString } from "../rdf/turtle.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
@@ -229,10 +230,12 @@ function normalizeExtractionSourceEvidence(
     );
   }
   if (sourceEvidence.sourceDigest !== undefined) {
-    normalized.sourceDigest = normalizeNonEmptyLiteral(
-      sourceEvidence.sourceDigest,
-      "sourceEvidence.sourceDigest",
-    );
+    if (!isCanonicalContentDigest(sourceEvidence.sourceDigest)) {
+      throw new ExtractInputError(
+        "sourceEvidence.sourceDigest must use sha256 followed by 64 lowercase hexadecimal digits",
+      );
+    }
+    normalized.sourceDigest = sourceEvidence.sourceDigest;
   }
   if (sourceEvidence.observedAt !== undefined) {
     normalized.observedAt = normalizeNonEmptyLiteral(

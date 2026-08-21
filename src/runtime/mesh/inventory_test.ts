@@ -244,7 +244,7 @@ Deno.test("resolveExtractionSourceInventoryState returns source registry observe
     sflo:targetLocatedFile <alice/data/_history001/_s0002/ttl/alice-data.ttl> ;
     sflo:targetLocalRelativePath "../alice-data.ttl"
   ] ;
-  sflo:observedContentDigest "sha256:abc123" .
+  sflo:observedContentDigest "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" .
 `;
 
   assertEquals(
@@ -281,7 +281,8 @@ Deno.test("resolveExtractionSourceInventoryState returns source registry observe
           locatedFileIri:
             "https://semantic-flow.github.io/mesh-alice-bio/alice/data/_history001/_s0002/ttl/alice-data.ttl",
           localRelativePath: "../alice-data.ttl",
-          contentDigest: "sha256:abc123",
+          contentDigest:
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         },
       },
       observedSourceStatePath: "alice/data/_history001/_s0002",
@@ -289,7 +290,8 @@ Deno.test("resolveExtractionSourceInventoryState returns source registry observe
       observedSourceLocatedFilePath:
         "alice/data/_history001/_s0002/ttl/alice-data.ttl",
       observedSourceLocalRelativePath: "../alice-data.ttl",
-      observedSourceDigest: "sha256:abc123",
+      observedSourceDigest:
+        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     },
   );
 });
@@ -422,22 +424,21 @@ Deno.test("listIntegrationSourceInventoryStates reads repository-backed observat
   sflo:targetArtifact <alice/data> ;
   sflo:targetLocalRelativePath "../source/alice-data.ttl" ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> ;
-  sflo:expectsContentDigest "sha256:abc123" ;
+  sflo:expectsContentDigest "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" ;
   sflo:hasResolutionObservation <alice/data/_knop/_sources#payload-source-observation-001> ;
   sflo:targetRepositorySource [
     a sflo:RepositorySourceLocator ;
     sflo:sourceRepositoryUrl "https://github.com/semantic-flow/mesh-alice-bio.git" ;
     sflo:sourceRepositoryRef "main" ;
     sflo:sourceRepositoryCommit "def456" ;
-    sflo:sourceRepositoryPath "alice-data.ttl" ;
-    sflo:hasContentDigest "sha256:abc123"
+    sflo:sourceRepositoryPath "alice-data.ttl"
   ] .
 
 <alice/data/_knop/_sources#payload-source-observation-001> a sflo:ArtifactResolutionObservation ;
   sflo:observedArtifactResolutionSpec [
     a sflo:ArtifactResolutionSpec
   ] ;
-  sflo:observedContentDigest "sha256:abc123" .
+  sflo:observedContentDigest "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" .
 `;
 
   assertEquals(
@@ -458,13 +459,13 @@ Deno.test("listIntegrationSourceInventoryStates reads repository-backed observat
       targetLocalRelativePath: "../source/alice-data.ttl",
       artifactResolutionModeIri:
         "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working",
-      expectedContentDigest: "sha256:abc123",
+      expectedContentDigest:
+        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       repositorySource: {
         repositoryUrl: "https://github.com/semantic-flow/mesh-alice-bio.git",
         repositoryRef: "main",
         repositoryCommit: "def456",
         repositoryPath: "alice-data.ttl",
-        contentDigest: "sha256:abc123",
       },
       resolutionRequest: {
         sourceIri:
@@ -473,15 +474,54 @@ Deno.test("listIntegrationSourceInventoryStates reads repository-backed observat
           "https://semantic-flow.github.io/mesh-alice-bio/alice/data",
         targetLocalRelativePath: "../source/alice-data.ttl",
         mode: "working",
-        expectedContentDigest: "sha256:abc123",
+        expectedContentDigest:
+          "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       },
       resolutionObservation: {
         observed: {
-          contentDigest: "sha256:abc123",
+          contentDigest:
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         },
       },
-      observedSourceDigest: "sha256:abc123",
+      observedSourceDigest:
+        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     }],
+  );
+});
+
+Deno.test("listIntegrationSourceInventoryStates rejects repository-locator digests", () => {
+  const sourcesTurtle =
+    `@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@base <${MESH_BASE}> .
+
+<alice/data/_knop/_sources> a sflo:KnopSourceRegistry ;
+  sflo:hasSourceBinding <alice/data/_knop/_sources#payload-source> .
+
+<alice/data/_knop/_sources#payload-source> a sflo:IntegrationSource ;
+  sflo:targetArtifact <alice/data> ;
+  sflo:targetRepositorySource [
+    a sflo:RepositorySourceLocator ;
+    sflo:sourceRepositoryUrl "https://github.com/semantic-flow/mesh-alice-bio.git" ;
+    sflo:sourceRepositoryRef "main" ;
+    sflo:sourceRepositoryPath "alice-data.ttl" ;
+    sflo:hasContentDigest "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ] .
+`;
+
+  assertThrows(
+    () =>
+      listIntegrationSourceInventoryStates(
+        MESH_BASE,
+        sourcesTurtle,
+        "alice/data/_knop/_sources",
+        {
+          parseErrorMessage: "Could not parse source registry",
+          missingTargetArtifactMessage: "Missing target artifact",
+          unsupportedResolutionModeMessage: "Unsupported resolution mode",
+        },
+      ),
+    Error,
+    "Could not parse source registry",
   );
 });
 
@@ -498,7 +538,7 @@ Deno.test("listImportSourceInventoryStates reads URL import source observations"
   sflo:targetArtifact <bob/page-main> ;
   sflo:targetAccessUrl "https://example.com/bob.md" ;
   sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> ;
-  sflo:expectsContentDigest "sha256:abc123" ;
+  sflo:expectsContentDigest "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" ;
   sflo:hasResolutionObservation <bob/page-main/_knop/_sources#payload-source-observation-001> .
 
 <bob/page-main/_knop/_sources#payload-source-observation-001> a sflo:ArtifactResolutionObservation ;
@@ -506,7 +546,7 @@ Deno.test("listImportSourceInventoryStates reads URL import source observations"
     a sflo:ArtifactResolutionSpec ;
     sflo:targetLocalRelativePath "bob-page-main.md"
   ] ;
-  sflo:observedContentDigest "sha256:abc123" ;
+  sflo:observedContentDigest "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" ;
   sflo:observedAt "2026-05-24T20:00:00.000Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
 `;
 
@@ -528,7 +568,8 @@ Deno.test("listImportSourceInventoryStates reads URL import source observations"
       targetAccessUrl: "https://example.com/bob.md",
       artifactResolutionModeIri:
         "https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working",
-      expectedContentDigest: "sha256:abc123",
+      expectedContentDigest:
+        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       resolutionRequest: {
         sourceIri:
           "https://semantic-flow.github.io/mesh-alice-bio/bob/page-main/_knop/_sources#payload-source",
@@ -536,17 +577,20 @@ Deno.test("listImportSourceInventoryStates reads URL import source observations"
           "https://semantic-flow.github.io/mesh-alice-bio/bob/page-main",
         targetAccessUrl: "https://example.com/bob.md",
         mode: "working",
-        expectedContentDigest: "sha256:abc123",
+        expectedContentDigest:
+          "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       },
       resolutionObservation: {
         observed: {
           localRelativePath: "bob-page-main.md",
-          contentDigest: "sha256:abc123",
+          contentDigest:
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         },
         observedAt: "2026-05-24T20:00:00.000Z",
       },
       observedSourceLocalRelativePath: "bob-page-main.md",
-      observedSourceDigest: "sha256:abc123",
+      observedSourceDigest:
+        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       observedAt: "2026-05-24T20:00:00.000Z",
     }],
   );

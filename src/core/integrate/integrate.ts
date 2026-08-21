@@ -11,6 +11,7 @@ import {
   SFLO_TURTLE_PREFIX_DECLARATION,
   XSD_NAMESPACE,
 } from "../rdf/namespaces.ts";
+import { isCanonicalContentDigest } from "../rdf/content_digest.ts";
 import { escapeTurtleString } from "../rdf/turtle.ts";
 import { normalizeXsdDateTimeLiteral } from "../rdf/xsd_literals.ts";
 
@@ -40,7 +41,6 @@ export interface IntegrateRepositorySource {
   repositoryRef: string;
   repositoryCommit?: string;
   repositoryPath: string;
-  contentDigest?: string;
 }
 
 export interface IntegrateRepositorySourceFloatingLocator {
@@ -286,14 +286,23 @@ function normalizeSourceBinding(
     : normalizeRepositorySource(sourceBinding.repositorySource);
   const expectedContentDigest = sourceBinding.expectedContentDigest ===
       undefined
-    ? repositorySource?.contentDigest
-    : normalizeNonEmptyLiteral(
+    ? undefined
+    : normalizeContentDigest(
       sourceBinding.expectedContentDigest,
       "sourceBinding.expectedContentDigest",
     );
   const observation = sourceBinding.observation === undefined
     ? undefined
     : normalizeSourceObservation(sourceBinding.observation);
+  if (
+    expectedContentDigest !== undefined &&
+    observation?.observedContentDigest !== undefined &&
+    expectedContentDigest !== observation.observedContentDigest
+  ) {
+    throw new IntegrateInputError(
+      "sourceBinding.observation.observedContentDigest must match sourceBinding.expectedContentDigest",
+    );
+  }
   const artifactResolutionMode = sourceBinding.artifactResolutionMode ??
     "working";
   if (artifactResolutionMode !== "working") {
@@ -337,7 +346,6 @@ interface NormalizedIntegrateRepositorySource {
   repositoryRef: string;
   repositoryCommit?: string;
   repositoryPath: string;
-  contentDigest?: string;
 }
 
 interface NormalizedIntegrateRepositorySourceFloatingLocator {
@@ -378,19 +386,11 @@ function normalizeRepositorySource(
       repositorySource.repositoryCommit,
       "sourceBinding.repositorySource.repositoryCommit",
     );
-  const contentDigest = repositorySource.contentDigest === undefined
-    ? undefined
-    : normalizeNonEmptyLiteral(
-      repositorySource.contentDigest,
-      "sourceBinding.repositorySource.contentDigest",
-    );
-
   return {
     repositoryUrl,
     repositoryRef,
     ...(repositoryCommit ? { repositoryCommit } : {}),
     repositoryPath,
-    ...(contentDigest ? { contentDigest } : {}),
   };
 }
 
@@ -426,7 +426,7 @@ function normalizeSourceObservation(
 ): NormalizedIntegrateSourceObservation {
   const observedContentDigest = observation.observedContentDigest === undefined
     ? undefined
-    : normalizeNonEmptyLiteral(
+    : normalizeContentDigest(
       observation.observedContentDigest,
       "sourceBinding.observation.observedContentDigest",
     );
@@ -467,6 +467,15 @@ function normalizeNonEmptyLiteral(value: string, fieldName: string): string {
     throw new IntegrateInputError(`${fieldName} must not be empty`);
   }
   return trimmed;
+}
+
+function normalizeContentDigest(value: string, fieldName: string): string {
+  if (!isCanonicalContentDigest(value)) {
+    throw new IntegrateInputError(
+      `${fieldName} must use sha256 followed by 64 lowercase hexadecimal digits`,
+    );
+  }
+  return value;
 }
 
 function usesMeshLocalWorkingLocatedFile(
@@ -746,13 +755,6 @@ function renderRepositorySourceBlankNode(
     "sflo:sourceRepositoryPath",
     `"${escapeTurtleString(repositorySource.repositoryPath)}"`,
   ]);
-  if (repositorySource.contentDigest !== undefined) {
-    facts.push([
-      "sflo:hasContentDigest",
-      `"${escapeTurtleString(repositorySource.contentDigest)}"`,
-    ]);
-  }
-
   const lines = facts.map(([predicate, object], index) =>
     `    ${predicate} ${object}${index === facts.length - 1 ? "" : " ;"}`
   );

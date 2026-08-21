@@ -17,7 +17,8 @@ Deno.test("planImport renders first imported Markdown payload without false RDF 
       targetAccessUrl:
         "https://raw.githubusercontent.com/djradon/public-notes/refs/heads/main/user.bob-newhart.md",
       observation: {
-        observedContentDigest: "sha256:abc123",
+        observedContentDigest:
+          "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         observedAt: "2026-05-24T20:00:00.000Z",
       },
     },
@@ -80,7 +81,7 @@ Deno.test("planImport renders first imported Markdown payload without false RDF 
   );
   assertStringIncludes(
     sources,
-    '<bob/page-main/_knop/_sources#payload-source-observation-001>\n  a sflo:ArtifactResolutionObservation ;\n  sflo:observedArtifactResolutionSpec [\n    a sflo:ArtifactResolutionSpec ;\n    sflo:targetLocalRelativePath "bob-page-main.md"\n  ] ;\n  sflo:observedContentDigest "sha256:abc123" ;\n  sflo:observedAt "2026-05-24T20:00:00.000Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .',
+    '<bob/page-main/_knop/_sources#payload-source-observation-001>\n  a sflo:ArtifactResolutionObservation ;\n  sflo:observedArtifactResolutionSpec [\n    a sflo:ArtifactResolutionSpec ;\n    sflo:targetLocalRelativePath "bob-page-main.md"\n  ] ;\n  sflo:observedContentDigest "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" ;\n  sflo:observedAt "2026-05-24T20:00:00.000Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .',
   );
 });
 
@@ -100,13 +101,59 @@ Deno.test("planImport rejects invalid observation dateTime literals", async () =
         currentMeshInventoryTurtle,
         sourceBinding: {
           observation: {
-            observedContentDigest: "sha256:abc123",
+            observedContentDigest:
+              "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             observedAt: "2026-99-24T20:00:00Z",
           },
         },
       }),
     ImportInputError,
     "sourceBinding.observation.observedAt must be a valid xsd:dateTime",
+  );
+});
+
+Deno.test("planImport rejects noncanonical and mismatched digest evidence", async () => {
+  const currentMeshInventoryTurtle = await readMeshAliceBioBranchFile(
+    "05-alice-knop-created-woven",
+    "_mesh/_inventory/inventory.ttl",
+  );
+  const baseRequest = {
+    designatorPath: "bob/page-main",
+    workingLocalRelativePath: "bob-page-main.md",
+    importedBytes: encode("# Bob\n"),
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle,
+  };
+
+  assertThrows(
+    () =>
+      planImport({
+        ...baseRequest,
+        sourceBinding: {
+          observation: {
+            observedContentDigest:
+              "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          },
+        },
+      }),
+    ImportInputError,
+    "64 lowercase hexadecimal digits",
+  );
+  assertThrows(
+    () =>
+      planImport({
+        ...baseRequest,
+        sourceBinding: {
+          expectedContentDigest:
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          observation: {
+            observedContentDigest:
+              "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          },
+        },
+      }),
+    ImportInputError,
+    "must match",
   );
 });
 
@@ -123,9 +170,11 @@ Deno.test("planImport renders imported RDF payloads as RdfDocument", async () =>
     payloadIsRdfDocument: true,
     sourceBinding: {
       targetLocalRelativePath: "incoming/bob-bio.ttl",
-      expectedContentDigest: "sha256:def456",
+      expectedContentDigest:
+        "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       observation: {
-        observedContentDigest: "sha256:def456",
+        observedContentDigest:
+          "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       },
     },
   });
@@ -144,7 +193,10 @@ Deno.test("planImport renders imported RDF payloads as RdfDocument", async () =>
     sources,
     'sflo:targetLocalRelativePath "incoming/bob-bio.ttl" ;',
   );
-  assertStringIncludes(sources, 'sflo:expectsContentDigest "sha256:def456" ;');
+  assertStringIncludes(
+    sources,
+    'sflo:expectsContentDigest "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" ;',
+  );
 });
 
 Deno.test("planImport replaces source registry provenance for an existing imported payload", async () => {
@@ -160,7 +212,8 @@ Deno.test("planImport replaces source registry provenance for an existing import
     sourceBinding: {
       targetAccessUrl: "https://example.com/bob.md",
       observation: {
-        observedContentDigest: "sha256:first",
+        observedContentDigest:
+          "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
       },
     },
   });
@@ -179,7 +232,8 @@ Deno.test("planImport replaces source registry provenance for an existing import
     sourceBinding: {
       targetAccessUrl: "https://example.com/bob-v2.md",
       observation: {
-        observedContentDigest: "sha256:second",
+        observedContentDigest:
+          "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
       },
     },
   });
@@ -211,7 +265,8 @@ Deno.test("planImport appends missing source registry inventory facts without re
     sourceBinding: {
       targetAccessUrl: "https://example.com/bob-v2.md",
       observation: {
-        observedContentDigest: "sha256:second",
+        observedContentDigest:
+          "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
       },
     },
   });
@@ -261,7 +316,8 @@ Deno.test("planImport fails closed when appending source registry facts would co
         sourceBinding: {
           targetAccessUrl: "https://example.com/bob-v2.md",
           observation: {
-            observedContentDigest: "sha256:second",
+            observedContentDigest:
+              "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
           },
         },
       }),
@@ -297,7 +353,8 @@ Deno.test("planImport rejects replacement without replaceWorking", () => {
 `,
     sourceBinding: {
       observation: {
-        observedContentDigest: "sha256:first",
+        observedContentDigest:
+          "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
       },
     },
   });
@@ -313,7 +370,8 @@ Deno.test("planImport rejects replacement without replaceWorking", () => {
         currentKnopInventoryTurtle: initial.createdFiles[1]!.contents,
         sourceBinding: {
           observation: {
-            observedContentDigest: "sha256:second",
+            observedContentDigest:
+              "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
           },
         },
       }),

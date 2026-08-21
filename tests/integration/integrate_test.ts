@@ -153,7 +153,8 @@ Deno.test("executeIntegrate rejects a repository source digest mismatch", async 
               "https://github.com/semantic-flow/mesh-alice-bio.git",
             sourceRepositoryRef: "main",
             sourceRepositoryPath: "alice-data.ttl",
-            sourceDigest: "sha256:not-the-current-file",
+            sourceDigest:
+              "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           },
         },
       }),

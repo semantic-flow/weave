@@ -11,6 +11,7 @@ import {
   SFLO_TURTLE_PREFIX_DECLARATION,
   XSD_NAMESPACE,
 } from "../rdf/namespaces.ts";
+import { isCanonicalContentDigest } from "../rdf/content_digest.ts";
 import { escapeTurtleString } from "../rdf/turtle.ts";
 import { normalizeXsdDateTimeLiteral } from "../rdf/xsd_literals.ts";
 import { WeaveInputError } from "../weave/errors.ts";
@@ -329,7 +330,7 @@ function normalizeSourceBinding(
   const expectedContentDigest = sourceBinding.expectedContentDigest ===
       undefined
     ? undefined
-    : normalizeNonEmptyLiteral(
+    : normalizeContentDigest(
       sourceBinding.expectedContentDigest,
       "sourceBinding.expectedContentDigest",
     );
@@ -337,6 +338,14 @@ function normalizeSourceBinding(
     sourceBinding.observation,
     workingLocalRelativePath,
   );
+  if (
+    expectedContentDigest !== undefined &&
+    expectedContentDigest !== observation.observedContentDigest
+  ) {
+    throw new ImportInputError(
+      "sourceBinding.observation.observedContentDigest must match sourceBinding.expectedContentDigest",
+    );
+  }
   const artifactResolutionMode = sourceBinding.artifactResolutionMode ??
     "working";
   if (artifactResolutionMode !== "working") {
@@ -414,7 +423,7 @@ function normalizeSourceObservation(
   observation: ImportSourceObservation,
   workingLocalRelativePath: string,
 ): NormalizedImportSourceObservation {
-  const observedContentDigest = normalizeNonEmptyLiteral(
+  const observedContentDigest = normalizeContentDigest(
     observation.observedContentDigest,
     "sourceBinding.observation.observedContentDigest",
   );
@@ -445,6 +454,15 @@ function normalizeNonEmptyLiteral(value: string, fieldName: string): string {
     throw new ImportInputError(`${fieldName} must not be empty`);
   }
   return trimmed;
+}
+
+function normalizeContentDigest(value: string, fieldName: string): string {
+  if (!isCanonicalContentDigest(value)) {
+    throw new ImportInputError(
+      `${fieldName} must use sha256 followed by 64 lowercase hexadecimal digits`,
+    );
+  }
+  return value;
 }
 
 function renderKnopMetadataTurtle(

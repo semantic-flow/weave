@@ -16,6 +16,7 @@ import {
   type IntegrateSourceBinding,
   planIntegrate,
 } from "../../core/integrate/integrate.ts";
+import { isCanonicalContentDigest } from "../../core/rdf/content_digest.ts";
 import {
   MeshMetadataResolutionError,
   resolveMeshBaseFromMetadataTurtle,
@@ -406,6 +407,14 @@ async function resolveSourceBinding(
       "integrate source digest requires repository-backed source metadata",
     );
   }
+  if (
+    request.sourceDigest !== undefined &&
+    !isCanonicalContentDigest(request.sourceDigest)
+  ) {
+    throw new IntegrateRuntimeError(
+      "integrate source digest must use sha256 followed by 64 lowercase hexadecimal digits",
+    );
+  }
   if (!hasRepositoryMetadata) {
     return {
       artifactResolutionMode: "working",
@@ -428,12 +437,13 @@ async function resolveSourceBinding(
       ? { repositoryCommit: request.sourceRepositoryCommit }
       : {}),
     repositoryPath: request.sourceRepositoryPath!,
-    contentDigest: sourceDigest,
   };
 
   return {
     repositorySource,
-    expectedContentDigest: sourceDigest,
+    ...(request.sourceDigest
+      ? { expectedContentDigest: request.sourceDigest }
+      : {}),
     observation: {
       observedContentDigest: sourceDigest,
     },

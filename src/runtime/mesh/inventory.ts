@@ -111,7 +111,6 @@ export interface RepositorySourceLocatorState {
   repositoryRef: string;
   repositoryCommit?: string;
   repositoryPath: string;
-  contentDigest?: string;
 }
 
 export interface ReferenceCatalogInventoryState {
@@ -1382,13 +1381,15 @@ function resolveOptionalRepositorySourceLocator(
     SFLO_HAS_CONTENT_DIGEST_IRI,
     errorMessage,
   );
+  if (contentDigest !== undefined) {
+    throw new InventoryResolutionError(errorMessage);
+  }
 
   return {
     repositoryUrl,
     repositoryRef,
     ...(repositoryCommit ? { repositoryCommit } : {}),
     repositoryPath,
-    ...(contentDigest ? { contentDigest } : {}),
   };
 }
 

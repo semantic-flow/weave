@@ -12,6 +12,7 @@ import {
   type ImportPlan,
   planImport,
 } from "../../core/import/import.ts";
+import { isCanonicalContentDigest } from "../../core/rdf/content_digest.ts";
 import {
   normalizeSafeDesignatorPath,
   toKnopPath,
@@ -137,6 +138,14 @@ export async function executeImport(
       designatorPath,
       "designatorPath",
     );
+    if (
+      options.request.expectedDigest !== undefined &&
+      !isCanonicalContentDigest(options.request.expectedDigest)
+    ) {
+      throw new ImportRuntimeError(
+        "import expected digest must use sha256 followed by 64 lowercase hexadecimal digits",
+      );
+    }
     const acquiredSource = await acquireImportSource(
       sourceBaseDirectory,
       meshRoot,

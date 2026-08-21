@@ -152,7 +152,8 @@ Deno.test("executeImport rejects expected digest mismatches before writing", asy
           source: "source.md",
           designatorPath: "bob/page-main",
           workingFile: "bob-page-main.md",
-          expectedDigest: "sha256:not-the-current-file",
+          expectedDigest:
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         },
       }),
     ImportRuntimeError,
@@ -162,6 +163,41 @@ Deno.test("executeImport rejects expected digest mismatches before writing", asy
     () => Deno.stat(join(workspaceRoot, "bob-page-main.md")),
     Deno.errors.NotFound,
   );
+});
+
+Deno.test("executeImport rejects noncanonical expected digests before acquisition", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-import-noncanonical-digest-",
+  );
+  await executeMeshCreate({
+    workspaceRoot,
+    meshRoot: ".",
+    request: {
+      meshBase: "https://example.org/import-noncanonical/",
+    },
+  });
+  let fetchCalled = false;
+
+  await assertRejects(
+    () =>
+      executeImport({
+        meshRoot: workspaceRoot,
+        request: {
+          source: "https://example.org/source.md",
+          designatorPath: "bob/page-main",
+          workingFile: "bob-page-main.md",
+          expectedDigest:
+            "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        },
+        sourceFetch: () => {
+          fetchCalled = true;
+          throw new Error("source fetch should not run");
+        },
+      }),
+    ImportRuntimeError,
+    "64 lowercase hexadecimal digits",
+  );
+  assertEquals(fetchCalled, false);
 });
 
 Deno.test("executeImport fetches bounded HTTP sources through the explicit import path", async () => {

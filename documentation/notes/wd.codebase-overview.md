@@ -30,7 +30,7 @@ For development rules, start with [[wd.general-guidance]]. For testing posture, 
 Core owns portable Semantic Flow behavior: request/result types, RDF/Turtle helpers, target semantics, and operation planners.
 
 - `src/core/targeting.ts` owns shared target selection semantics.
-- `src/core/rdf` owns local RDF/Turtle parsing and namespace helpers.
+- `src/core/rdf` owns local RDF/Turtle parsing, namespaces, and the canonical SHA-256 content-digest lexical contract shared by planners and runtimes.
 - `src/core/mesh`, `src/core/knop`, `src/core/integrate`, `src/core/payload`, and `src/core/extract` own operation-specific pure planning.
 - `src/core/weave` owns shared weave/version/generate contracts and planner helpers.
 - `src/core/weave/weave.ts` is still the major pressure point. It remains the public façade for core weave imports, but it is being decomposed under [[wa.completed.2026.2026-05-21_0849_careful-extraction-refactor]].
@@ -43,6 +43,7 @@ Runtime owns local execution against a workspace: filesystem reads/writes, git-a
 
 - `src/runtime/config` loads and resolves effective runtime config from RDF, including mesh-local `sfcfg:hasConfigSource` discovery through shared artifact resolution.
 - `src/runtime/artifact_resolution` resolves `sflo:ArtifactResolutionSpec`-shaped runtime requests into requested/observed coordinates plus optional bytes/text under local path policy; config-source discovery, artifact-backed ResourcePageSource loading, and extraction-source selected-state evidence use it.
+- Import and repository-backed integrate keep caller-supplied `expectsContentDigest` distinct from computed `observedContentDigest`; repository locator nodes carry coordinates only, while canonical `hasContentDigest` assertions belong to manifestation/file bearers.
 - `src/runtime/logging` provides structured operational and audit logging.
 - `src/runtime/operational/local_path_policy.ts` controls workspace-local path safety and allowed repo-adjacent access.
 - `src/runtime/weave/weave.ts` is the public runtime façade for validate/version/generate/weave.
