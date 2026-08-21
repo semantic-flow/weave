@@ -34,7 +34,7 @@ Entries below the marker keep the older long form. They are historical and are n
 - 2026-08-07 — v0.7.0 is out: meshes that Weave used to refuse now weave, the published SFLO corpus is reproducible from a released version for the first time, and the library is ESM-only. → [[release-notes.v0.7.0]]
 - 2026-08-07 — Two finished changes were held back rather than slipped into the release — one had a confirmed bug, the other changes error text consumers may match on and had no soak. → [[wd.todo]]
 - 2026-08-06 — Thousand-term meshes get a real safety margin, not a squeak-past: weave must stay under 1.5 GiB at 1,700 terms and grow no worse than linearly. → [[wa.completed.2026.2026-08-02_1330-extracted-term-weave-batch-path]]
-- 2026-08-06 — Page generation gets the same treatment, because fixing weave alone would leave the whole extract-weave-generate sequence just as close to the ceiling. → [[wa.completed.2026.2026-08-02_1330-extracted-term-weave-batch-path]]
+- 2026-08-06 — Page generation gets the same treatment, because fixing weave alone would leave the whole extract-weave-generate sequence just as close to the ceiling. → [[wa.completed.2026.2026-08-21_1111-generate-streaming-memory]]
 - 2026-08-21 — ResourcePage generation keeps rendered bytes batch-local: canonical model order feeds four-page render/write batches, while result/report surfaces retain paths and counts rather than page contents. → [[wa.completed.2026.2026-08-21_1111-generate-streaming-memory]]
 - 2026-08-06 — Court cards now stay short and name an owning note, and this log became a ledger, so rulings stop being duplicated across surfaces. → [[wd.read-in.jimbo]]
 

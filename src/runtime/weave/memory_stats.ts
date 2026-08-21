@@ -5,6 +5,7 @@ import type {
   TextFileOverlay,
   TextFileOverlayRetainedMemoryStats,
 } from "./planning_context.ts";
+import { utf8ByteLength } from "./planning_context.ts";
 
 const MEMORY_STATS_ENV_VAR = "WEAVE_MEMORY_STATS";
 
@@ -97,9 +98,8 @@ class EnabledRuntimeMemoryStats implements RuntimeMemoryStats {
 
   samplePageRenderBatch(files: readonly PlannedFile[]): void {
     this.#sampleRss();
-    const encoder = new TextEncoder();
     const batchBytes = files.reduce(
-      (total, file) => total + encoder.encode(file.contents).byteLength,
+      (total, file) => total + utf8ByteLength(file.contents),
       0,
     );
     this.#retainedState.pageGeneration.renderedPages += files.length;
@@ -157,10 +157,9 @@ class EnabledRuntimeMemoryStats implements RuntimeMemoryStats {
     overlay: TextFileOverlay,
   ): void {
     this.#sampleRss();
-    const encoder = new TextEncoder();
     const createdStats = emptyCreatedFileStats();
     for (const file of createdFiles) {
-      const bytes = encoder.encode(file.contents).byteLength;
+      const bytes = utf8ByteLength(file.contents);
       createdStats.count += 1;
       createdStats.bytes += bytes;
       const classification = classifyCreatedFilePath(file.path);
@@ -171,7 +170,7 @@ class EnabledRuntimeMemoryStats implements RuntimeMemoryStats {
     const updatedStats: RetainedFileStats = { count: 0, bytes: 0 };
     for (const file of updatedFiles.values()) {
       updatedStats.count += 1;
-      updatedStats.bytes += encoder.encode(file.contents).byteLength;
+      updatedStats.bytes += utf8ByteLength(file.contents);
     }
 
     const overlayStats = overlay.retainedMemoryStats();

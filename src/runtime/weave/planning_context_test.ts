@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert";
 import type { WeaveableKnopCandidate } from "../../core/weave/candidates.ts";
-import { TextFileOverlay } from "./planning_context.ts";
+import { TextFileOverlay, utf8ByteLength } from "./planning_context.ts";
 
 Deno.test("candidate retention accounting counts shared source text once", async () => {
   const overlay = new TextFileOverlay();
@@ -30,4 +30,10 @@ Deno.test("candidate retention accounting counts shared source text once", async
       `${sharedSource}meta-ainventory-ameta-binventory-b`,
     ).byteLength,
   );
+});
+
+Deno.test("utf8ByteLength matches UTF-8 encoding without allocating a buffer", () => {
+  for (const value of ["ascii", "café", "💡", "a💡é"]) {
+    assertEquals(utf8ByteLength(value), new TextEncoder().encode(value).length);
+  }
 });

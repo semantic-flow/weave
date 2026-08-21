@@ -157,7 +157,9 @@ export class TextFileOverlay extends Map<string, string> {
           retainedIdentities.add(identity);
         }
         distinctSourceTextIdentities += 1;
-        approximateRetainedSourceTextBytes += textBytes(sourceText.contents);
+        approximateRetainedSourceTextBytes += utf8ByteLength(
+          sourceText.contents,
+        );
       }
     }
 
@@ -200,12 +202,12 @@ export class TextFileOverlay extends Map<string, string> {
 function sumTextBytes(values: Iterable<string>): number {
   let total = 0;
   for (const value of values) {
-    total += textBytes(value);
+    total += utf8ByteLength(value);
   }
   return total;
 }
 
-function textBytes(value: string): number {
+export function utf8ByteLength(value: string): number {
   let bytes = 0;
   for (let index = 0; index < value.length; index += 1) {
     const codeUnit = value.charCodeAt(index);
@@ -285,7 +287,7 @@ function approximateCandidatesRetainedBytes(
         !visitedTextValues.has(value)
       ) {
         visitedTextValues.add(value);
-        total += textBytes(value);
+        total += utf8ByteLength(value);
       }
       return;
     }

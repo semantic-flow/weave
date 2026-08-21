@@ -480,24 +480,26 @@ export async function executeWeave(
   const memoryStats = createRuntimeMemoryStats("weave");
   let status = "succeeded";
   const { operationalLogger, auditLogger } = resolveLoggers(options);
-  const meshRoot = resolveExecutionMeshRoot(options);
-  const initialPolicy = await timing.time(
-    "loadOperationalLocalPathPolicy",
-    () => loadOperationalLocalPathPolicy(meshRoot),
-  );
-  const workspaceRoot = initialPolicy.workspaceRoot;
+  let workspaceRoot: string | undefined;
   let wovenDesignatorPaths: readonly string[] = [];
 
-  await operationalLogger.info("weave.started", "Starting local weave", {
-    workspaceRoot,
-    targets: options.request?.targets ?? [],
-  });
-  await auditLogger.record("weave.started", "Local weave started", {
-    workspaceRoot,
-    targets: options.request?.targets ?? [],
-  });
-
   try {
+    const meshRoot = resolveExecutionMeshRoot(options);
+    const initialPolicy = await timing.time(
+      "loadOperationalLocalPathPolicy",
+      () => loadOperationalLocalPathPolicy(meshRoot),
+    );
+    workspaceRoot = initialPolicy.workspaceRoot;
+
+    await operationalLogger.info("weave.started", "Starting local weave", {
+      workspaceRoot,
+      targets: options.request?.targets ?? [],
+    });
+    await auditLogger.record("weave.started", "Local weave started", {
+      workspaceRoot,
+      targets: options.request?.targets ?? [],
+    });
+
     if (options.validateBefore) {
       const validation = await timing.time(
         "validateBefore",
