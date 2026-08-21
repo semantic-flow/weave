@@ -93,6 +93,33 @@ Deno.test("planSetPayloadNextStateIntent replaces an existing next-state hint", 
   );
 });
 
+Deno.test("planSetPayloadNextStateIntent moves a carried late sfcfg prefix before the inserted hint", () => {
+  const currentKnopInventoryTurtle = `${firstPayloadInventory}
+<alice/data/_knop/_sources> a sflo:KnopSourceRegistry .
+
+@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<alice/data/_knop/_sources> a sflo:DigitalArtifact .
+`;
+
+  const plan = planSetPayloadNextStateIntent({
+    meshBase,
+    designatorPath: "alice/data",
+    stateSegment: "v0.1.0",
+    currentKnopInventoryTurtle,
+  });
+
+  const contents = plan.updatedFiles[0]?.contents ?? "";
+  const prefix =
+    "@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .";
+  assertEquals(contents.split(prefix).length - 1, 1);
+  assertEquals(
+    contents.indexOf(prefix) <
+      contents.indexOf("sfcfg:hasNextStateSegmentHint"),
+    true,
+  );
+});
+
 Deno.test("planSetPayloadNextStateIntent accepts duplicate identical current history facts", () => {
   const currentKnopInventoryTurtle = firstPayloadInventory.replace(
     "sflo:hasWorkingLocatedFile <alice-data.ttl> .",

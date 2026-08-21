@@ -389,16 +389,17 @@ function findSubjectBlock(
 }
 
 function ensureSfcfgPrefix(turtle: string): string {
-  if (turtle.includes("@prefix sfcfg:")) {
-    return turtle;
-  }
-  if (turtle.includes(SFLO_TURTLE_PREFIX_DECLARATION)) {
-    return turtle.replace(
+  const withoutSfcfgDeclaration = turtle.replace(
+    /^@prefix sfcfg:\s*<https:\/\/semantic-flow\.github\.io\/sflo\/config\/>\s*\.\r?\n?/gm,
+    "",
+  );
+  if (withoutSfcfgDeclaration.includes(SFLO_TURTLE_PREFIX_DECLARATION)) {
+    return withoutSfcfgDeclaration.replace(
       SFLO_TURTLE_PREFIX_DECLARATION,
       `${SFLO_TURTLE_PREFIX_DECLARATION}\n${SFCFG_TURTLE_PREFIX_DECLARATION}`,
     );
   }
-  return `${SFCFG_TURTLE_PREFIX_DECLARATION}\n${turtle}`;
+  return `${SFCFG_TURTLE_PREFIX_DECLARATION}\n${withoutSfcfgDeclaration}`;
 }
 
 function hasNamedNodeFact(
