@@ -5,6 +5,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { join, relative } from "@std/path";
+import { Parser, type Quad, type Term } from "n3";
 import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import {
   getManifestFileExpectations,
@@ -43,6 +44,9 @@ Deno.test("weave knop create matches the manifest-scoped alice-bio fixture as a 
 
   const workspaceRoot = await createTestTmpDir("weave-e2e-knop-create-");
   await materializeMeshAliceBioBranch(transitionCase.fromRef!, workspaceRoot);
+  const carriedMeshInventoryTurtle = await Deno.readTextFile(
+    join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+  );
 
   const command = new Deno.Command("deno", {
     args: [
@@ -93,6 +97,17 @@ Deno.test("weave knop create matches the manifest-scoped alice-bio fixture as a 
     );
 
     if (compareMode === "rdfCanonical") {
+      if (path === "_mesh/_inventory/inventory.ttl") {
+        const actualTurtle = new TextDecoder().decode(actualBytes);
+        assert(actualTurtle.startsWith(carriedMeshInventoryTurtle));
+        assertRdfEqualsExpectedPlusCarriedMeshConfig(
+          actualTurtle,
+          new TextDecoder().decode(expectedBytes),
+          carriedMeshInventoryTurtle,
+          MESH_ALICE_BIO_BASE,
+        );
+        continue;
+      }
       assertEquals(
         await compareRdfContent({
           left: actualBytes,
@@ -222,6 +237,9 @@ Deno.test("weave knop create matches the manifest-scoped sidecar root and exampl
     transitionCase.fromRef!,
     workspaceRoot,
   );
+  const carriedMeshInventoryTurtle = await Deno.readTextFile(
+    join(workspaceRoot, "docs/_mesh/_inventory/inventory.ttl"),
+  );
 
   for (const targetDesignatorPath of targetDesignatorPaths) {
     const command = new Deno.Command("deno", {
@@ -281,6 +299,17 @@ Deno.test("weave knop create matches the manifest-scoped sidecar root and exampl
     );
 
     if (compareMode === "rdfCanonical") {
+      if (path === "docs/_mesh/_inventory/inventory.ttl") {
+        const actualTurtle = new TextDecoder().decode(actualBytes);
+        assert(actualTurtle.startsWith(carriedMeshInventoryTurtle));
+        assertRdfEqualsExpectedPlusCarriedMeshConfig(
+          actualTurtle,
+          new TextDecoder().decode(expectedBytes),
+          carriedMeshInventoryTurtle,
+          MESH_SIDECAR_FANTASY_RULES_BASE,
+        );
+        continue;
+      }
       assertEquals(
         await compareRdfContent({
           left: actualBytes,
@@ -339,4 +368,57 @@ async function* walkFiles(root: string): AsyncGenerator<string> {
       yield path;
     }
   }
+}
+
+function assertRdfEqualsExpectedPlusCarriedMeshConfig(
+  actualTurtle: string,
+  expectedTurtle: string,
+  carriedTurtle: string,
+  baseIri: string,
+): void {
+  const parser = new Parser({ baseIRI: baseIri });
+  const actualKeys = new Set(
+    parser.parse(actualTurtle).map((quad: Quad) => rdfQuadKey(quad)),
+  );
+  const expectedKeys = new Set(
+    parser.parse(expectedTurtle).map((quad: Quad) => rdfQuadKey(quad)),
+  );
+  for (const carriedQuad of parser.parse(carriedTurtle)) {
+    if (isMeshConfigFact(carriedQuad, baseIri)) {
+      expectedKeys.add(rdfQuadKey(carriedQuad));
+    }
+  }
+  assertEquals(actualKeys, expectedKeys);
+}
+
+function isMeshConfigFact(quad: Quad, baseIri: string): boolean {
+  const configIri = new URL("_mesh/_config", baseIri).href;
+  const isConfigIri = (iri: string): boolean =>
+    iri === configIri || iri.startsWith(`${configIri}/`) ||
+    iri.startsWith(`${configIri}#`);
+  return (
+    quad.subject.termType === "NamedNode" &&
+    isConfigIri(quad.subject.value)
+  ) || (
+    quad.object.termType === "NamedNode" &&
+    isConfigIri(quad.object.value)
+  );
+}
+
+function rdfQuadKey(quad: Quad): string {
+  return [quad.graph, quad.subject, quad.predicate, quad.object]
+    .map(rdfTermKey)
+    .join("|");
+}
+
+function rdfTermKey(term: Term): string {
+  if (term.termType === "Literal") {
+    return [
+      term.termType,
+      term.value,
+      term.language,
+      term.datatype.value,
+    ].join(":");
+  }
+  return `${term.termType}:${term.value}`;
 }

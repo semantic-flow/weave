@@ -1,5 +1,12 @@
-import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
+import { Parser, type Quad } from "n3";
+import { KnopCreateInputError } from "../../src/core/knop/create.ts";
 import {
   executeKnopCreate,
   KnopCreateRuntimeError,
@@ -14,9 +21,16 @@ import {
 } from "../support/mesh_metadata.ts";
 import { createTestTmpDir } from "../support/test_tmp.ts";
 
-Deno.test("executeKnopCreate matches the settled alice-bio knop-created fixture", async () => {
+Deno.test("executeKnopCreate preserves Alice first-Knop inventory and creates fixture support artifacts", async () => {
   const workspaceRoot = await createTestTmpDir("weave-knop-create-");
   await materializeMeshAliceBioBranch("03-mesh-created-woven", workspaceRoot);
+  const meshInventoryPath = join(
+    workspaceRoot,
+    "_mesh/_inventory/inventory.ttl",
+  );
+  const currentMeshInventoryTurtle = await Deno.readTextFile(
+    meshInventoryPath,
+  );
 
   const result = await executeKnopCreate({
     workspaceRoot,
@@ -53,13 +67,27 @@ Deno.test("executeKnopCreate matches the settled alice-bio knop-created fixture"
       "alice/_knop/_inventory/inventory.ttl",
     ),
   );
-  assertEquals(
-    await Deno.readTextFile(
-      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+  const updatedMeshInventoryTurtle = await Deno.readTextFile(
+    meshInventoryPath,
+  );
+  assert(updatedMeshInventoryTurtle.startsWith(currentMeshInventoryTurtle));
+  const updatedQuads = new Parser({ baseIRI: MESH_ALICE_BIO_BASE }).parse(
+    updatedMeshInventoryTurtle,
+  );
+  assert(
+    updatedQuads.some((quad: Quad) =>
+      quad.subject.value === `${MESH_ALICE_BIO_BASE}_mesh` &&
+      quad.predicate.value ===
+        "https://semantic-flow.github.io/sflo/ontology/hasKnop" &&
+      quad.object.value === `${MESH_ALICE_BIO_BASE}alice/_knop`
     ),
-    await readMeshAliceBioBranchFile(
-      "04-alice-knop-created",
-      "_mesh/_inventory/inventory.ttl",
+  );
+  assert(
+    updatedQuads.some((quad: Quad) =>
+      quad.subject.value === `${MESH_ALICE_BIO_BASE}_mesh` &&
+      quad.predicate.value ===
+        "https://semantic-flow.github.io/sflo/config/hasConfig" &&
+      quad.object.value === `${MESH_ALICE_BIO_BASE}_mesh/_config`
     ),
   );
 });
@@ -165,16 +193,62 @@ Deno.test("executeKnopCreate supports the root Knop in a later carried mesh stat
     ],
   );
   assertEquals(result.updatedPaths, ["_mesh/_inventory/inventory.ttl"]);
-  assertStringIncludes(
-    await Deno.readTextFile(
-      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+  const meshInventoryTurtle = await Deno.readTextFile(
+    join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+  );
+  assert(
+    new Parser({
+      baseIRI: "https://semantic-flow.github.io/mesh-alice-bio/",
+    }).parse(meshInventoryTurtle).some((quad: Quad) =>
+      quad.subject.value ===
+        "https://semantic-flow.github.io/mesh-alice-bio/_mesh" &&
+      quad.predicate.value ===
+        "https://semantic-flow.github.io/sflo/ontology/hasKnop" &&
+      quad.object.termType === "NamedNode" &&
+      quad.object.value ===
+        "https://semantic-flow.github.io/mesh-alice-bio/_knop"
     ),
-    "sflo:hasKnop <_knop> ;",
   );
   assertStringIncludes(
-    await Deno.readTextFile(
-      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
-    ),
+    meshInventoryTurtle,
     "sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0005> ;",
+  );
+});
+
+Deno.test("executeKnopCreate conflict writes no files and preserves MeshInventory bytes", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-knop-create-conflict-no-write-",
+  );
+  await materializeMeshAliceBioBranch("03-mesh-created-woven", workspaceRoot);
+  const meshInventoryPath = join(
+    workspaceRoot,
+    "_mesh/_inventory/inventory.ttl",
+  );
+  const conflictedMeshInventoryTurtle = `${await Deno.readTextFile(
+    meshInventoryPath,
+  )}
+<conflict/_knop> sflo:hasWorkingKnopInventoryFile <conflict/_knop/_inventory/carried.ttl> .
+`;
+  await Deno.writeTextFile(
+    meshInventoryPath,
+    conflictedMeshInventoryTurtle,
+  );
+
+  await assertRejects(
+    () =>
+      executeKnopCreate({
+        workspaceRoot,
+        request: { designatorPath: "conflict" },
+      }),
+    KnopCreateInputError,
+    "conflicts with existing fact",
+  );
+  assertEquals(
+    await Deno.readTextFile(meshInventoryPath),
+    conflictedMeshInventoryTurtle,
+  );
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, "conflict")),
+    Deno.errors.NotFound,
   );
 });

@@ -1,18 +1,52 @@
 import { Parser, type Quad, type Term } from "n3";
-import { XSD_NAMESPACE } from "../rdf/namespaces.ts";
+import {
+  RDF_NAMESPACE,
+  SFLO_NAMESPACE,
+  XSD_NAMESPACE,
+} from "../rdf/namespaces.ts";
 import { escapeTurtleString } from "../rdf/turtle.ts";
 import { WeaveInputError } from "./errors.ts";
 
 const XSD_STRING_IRI = `${XSD_NAMESPACE}string`;
+const RDF_TYPE_IRI = `${RDF_NAMESPACE}type`;
+const preparedCurrentInventoryBrand: unique symbol = Symbol(
+  "PreparedCurrentInventory",
+);
 
-export interface InventoryAppendPlannerInput {
+export interface PreparedCurrentInventory {
+  readonly baseIri: string;
+  readonly turtle: string;
+  readonly quads: readonly Quad[];
+  readonly [preparedCurrentInventoryBrand]: true;
+}
+
+export interface PrepareCurrentInventoryInput {
   readonly baseIri: string;
   readonly currentInventoryTurtle: string;
+  readonly currentInventoryLabel?: string;
+}
+
+interface InventoryAppendPlannerCommonInput {
   readonly requestedSettledFactsTurtle: string;
   readonly singleValuedSettledPredicates?: readonly string[];
   readonly currentInventoryLabel?: string;
   readonly requestedFactsLabel?: string;
 }
+
+export type InventoryAppendPlannerInput =
+  & InventoryAppendPlannerCommonInput
+  & (
+    | {
+      readonly baseIri: string;
+      readonly currentInventoryTurtle: string;
+      readonly preparedCurrentInventory?: never;
+    }
+    | {
+      readonly preparedCurrentInventory: PreparedCurrentInventory;
+      readonly baseIri?: never;
+      readonly currentInventoryTurtle?: never;
+    }
+  );
 
 export interface InventoryFactSummary {
   readonly key: string;
@@ -53,23 +87,68 @@ export type InventoryAppendPlan =
     readonly conflicts: readonly InventoryFactConflict[];
   };
 
+export type RenderableInventoryAppendPlan = Exclude<
+  InventoryAppendPlan,
+  { readonly kind: "conflict" }
+>;
+
+export interface RenderInventoryAppendPlanInput {
+  readonly preparedCurrentInventory: PreparedCurrentInventory;
+  readonly plan: RenderableInventoryAppendPlan;
+  readonly outputLabel?: string;
+}
+
 interface RequestedFact {
   readonly quad: Quad;
   readonly summary: InventoryFactSummary;
 }
 
+/** Parses and validates current inventory bytes once for indexed readers and append planning. */
+export function prepareCurrentInventory(
+  input: PrepareCurrentInventoryInput,
+): PreparedCurrentInventory {
+  const label = input.currentInventoryLabel ?? "current inventory";
+  const quads = parseTurtle(
+    input.baseIri,
+    input.currentInventoryTurtle,
+    label,
+  );
+  for (const quad of quads) {
+    if (quad.graph.termType !== "DefaultGraph") {
+      throw new WeaveInputError(
+        `Could not prepare ${label} because current inventory facts must be in the default graph.`,
+      );
+    }
+  }
+
+  return Object.freeze({
+    baseIri: input.baseIri,
+    turtle: input.currentInventoryTurtle,
+    quads: Object.freeze(quads),
+    [preparedCurrentInventoryBrand]: true as const,
+  });
+}
+
+/**
+ * Plans from either raw Turtle convenience input or an opaque prepared value.
+ * Prepared input keeps the preserved bytes and parsed quads consistent by construction.
+ */
 export function planInventoryAppend(
   input: InventoryAppendPlannerInput,
 ): InventoryAppendPlan {
   const currentLabel = input.currentInventoryLabel ?? "current inventory";
   const requestedLabel = input.requestedFactsLabel ?? "requested inventory";
-  const currentQuads = parseTurtle(
-    input.baseIri,
-    input.currentInventoryTurtle,
-    currentLabel,
-  );
+  const preparedCurrentInventory = input.preparedCurrentInventory ??
+    prepareCurrentInventory({
+      baseIri: input.baseIri,
+      currentInventoryTurtle: input.currentInventoryTurtle,
+      currentInventoryLabel: currentLabel,
+    });
+  const baseIri = preparedCurrentInventory.baseIri;
+  const currentInventoryTurtle = preparedCurrentInventory.turtle;
+  const currentQuads = preparedCurrentInventory.quads;
   const requestedFacts = parseRequestedFacts(
-    input.baseIri,
+    baseIri,
     input.requestedSettledFactsTurtle,
     requestedLabel,
   );
@@ -145,7 +224,7 @@ export function planInventoryAppend(
   if (missing.length === 0) {
     return {
       kind: "unchanged",
-      outputTurtle: input.currentInventoryTurtle,
+      outputTurtle: currentInventoryTurtle,
       alreadyPresent,
       missing: [],
       conflicts: [],
@@ -157,7 +236,7 @@ export function planInventoryAppend(
   return {
     kind: "append",
     outputTurtle: appendToCurrentTurtle(
-      input.currentInventoryTurtle,
+      currentInventoryTurtle,
       appendTurtle,
     ),
     alreadyPresent,
@@ -165,6 +244,194 @@ export function planInventoryAppend(
     conflicts: [],
     appendTurtle,
   };
+}
+
+/** Renders only planner-approved facts and verifies exact semantic union before returning bytes. */
+export function renderInventoryAppendPlan(
+  input: RenderInventoryAppendPlanInput,
+): string {
+  const { preparedCurrentInventory, plan } = input;
+  const outputLabel = input.outputLabel ?? "inventory append";
+  if (plan.kind === "unchanged") {
+    if (plan.outputTurtle !== preparedCurrentInventory.turtle) {
+      throw new WeaveInputError(
+        `Could not render ${outputLabel} because the unchanged plan did not preserve the prepared inventory bytes.`,
+      );
+    }
+    return plan.outputTurtle;
+  }
+
+  const compactAppendTurtle = renderSelfContainedCompactAppendTurtle(
+    preparedCurrentInventory.baseIri,
+    plan.appendTurtle,
+    outputLabel,
+  );
+  const compactOutputTurtle = appendToCurrentTurtle(
+    preparedCurrentInventory.turtle,
+    compactAppendTurtle,
+  );
+  if (
+    renderedAppendMatchesPlan(
+      preparedCurrentInventory,
+      plan,
+      compactOutputTurtle,
+      outputLabel,
+    )
+  ) {
+    return compactOutputTurtle;
+  }
+
+  if (
+    renderedAppendMatchesPlan(
+      preparedCurrentInventory,
+      plan,
+      plan.outputTurtle,
+      outputLabel,
+    )
+  ) {
+    return plan.outputTurtle;
+  }
+
+  throw new WeaveInputError(
+    `Could not render ${outputLabel} because rendered RDF did not equal the prepared inventory plus the planner-approved missing facts.`,
+  );
+}
+
+function renderSelfContainedCompactAppendTurtle(
+  baseIri: string,
+  appendTurtle: string,
+  label: string,
+): string {
+  const quads = parseTurtle(baseIri, appendTurtle, `${label} facts`);
+  const subjects = new Map<
+    string,
+    {
+      readonly subject: Term;
+      readonly predicates: Map<string, {
+        readonly predicate: Term;
+        readonly objects: Term[];
+      }>;
+    }
+  >();
+
+  for (const quad of quads) {
+    assertAppendableRequestedFact(quad, `${label} facts`);
+    const subjectKey = toTermKey(quad.subject);
+    let subject = subjects.get(subjectKey);
+    if (!subject) {
+      subject = {
+        subject: quad.subject,
+        predicates: new Map(),
+      };
+      subjects.set(subjectKey, subject);
+    }
+
+    const predicateKey = toTermKey(quad.predicate);
+    let predicate = subject.predicates.get(predicateKey);
+    if (!predicate) {
+      predicate = {
+        predicate: quad.predicate,
+        objects: [],
+      };
+      subject.predicates.set(predicateKey, predicate);
+    }
+    if (
+      !predicate.objects.some((object) => rdfTermsEqual(object, quad.object))
+    ) {
+      predicate.objects.push(quad.object);
+    }
+  }
+
+  const blocks = [...subjects.values()].map((subject) => {
+    const predicates = [...subject.predicates.values()].map((predicate) => {
+      const renderedPredicate = predicate.predicate.value === RDF_TYPE_IRI
+        ? "a"
+        : renderCompactNamedNode(predicate.predicate, baseIri);
+      const renderedObjects = predicate.objects.map((object) =>
+        renderCompactTerm(object, baseIri)
+      ).join(", ");
+      return `${renderedPredicate} ${renderedObjects}`;
+    });
+    return `${renderCompactNamedNode(subject.subject, baseIri)} ${
+      predicates.join(" ;\n  ")
+    } .`;
+  });
+
+  return `@base <${baseIri}> .
+@prefix sflo: <${SFLO_NAMESPACE}> .
+
+${blocks.join("\n\n")}
+`;
+}
+
+function renderCompactTerm(term: Term, baseIri: string): string {
+  return term.termType === "Literal"
+    ? renderTurtleLiteral(term)
+    : renderCompactNamedNode(term, baseIri);
+}
+
+function renderCompactNamedNode(term: Term, baseIri: string): string {
+  if (term.termType !== "NamedNode") {
+    throw new WeaveInputError(
+      "Could not compact an inventory append term that was not a named node.",
+    );
+  }
+  if (term.value.startsWith(baseIri)) {
+    return `<${term.value.slice(baseIri.length)}>`;
+  }
+  if (term.value.startsWith(SFLO_NAMESPACE)) {
+    const localName = term.value.slice(SFLO_NAMESPACE.length);
+    if (/^[A-Za-z_][A-Za-z0-9._-]*$/.test(localName)) {
+      return `sflo:${localName}`;
+    }
+  }
+  return `<${term.value}>`;
+}
+
+function renderedAppendMatchesPlan(
+  preparedCurrentInventory: PreparedCurrentInventory,
+  plan: Extract<InventoryAppendPlan, { readonly kind: "append" }>,
+  renderedOutputTurtle: string,
+  label: string,
+): boolean {
+  let renderedQuads: Quad[];
+  try {
+    renderedQuads = parseTurtle(
+      preparedCurrentInventory.baseIri,
+      renderedOutputTurtle,
+      `${label} output`,
+    );
+  } catch {
+    return false;
+  }
+  const missingQuads = parseTurtle(
+    preparedCurrentInventory.baseIri,
+    plan.appendTurtle,
+    `${label} facts`,
+  );
+  const missingKeys = new Set(missingQuads.map(toQuadKey));
+  const plannedMissingKeys = new Set(plan.missing.map((fact) => fact.key));
+  if (!setsEqual(missingKeys, plannedMissingKeys)) {
+    return false;
+  }
+  const expectedKeys = new Set([
+    ...preparedCurrentInventory.quads.map(toQuadKey),
+    ...missingKeys,
+  ]);
+  const renderedKeys = new Set(renderedQuads.map(toQuadKey));
+  return setsEqual(expectedKeys, renderedKeys);
+}
+
+function setsEqual(left: ReadonlySet<string>, right: ReadonlySet<string>) {
+  if (left.size !== right.size) {
+    return false;
+  }
+  for (const key of left) {
+    if (!right.has(key)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function parseTurtle(baseIri: string, turtle: string, label: string): Quad[] {

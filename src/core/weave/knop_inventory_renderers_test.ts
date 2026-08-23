@@ -1,6 +1,7 @@
 import {
   assert,
   assertEquals,
+  assertFalse,
   assertStringIncludes,
   assertThrows,
 } from "@std/assert";
@@ -39,11 +40,7 @@ Deno.test("current-only ReferenceCatalog inventory append preserves the exact ex
   );
   assertStringIncludes(
     appendedSuffix,
-    "<alice/_knop/_references/index.html> a sflo:ResourcePage .",
-  );
-  assertStringIncludes(
-    appendedSuffix,
-    "<alice/_knop/_references/index.html> a sflo:LocatedFile .",
+    "<alice/_knop/_references/index.html> a sflo:ResourcePage, sflo:LocatedFile .",
   );
   assertEquals(
     appendedSuffix.includes(
@@ -51,6 +48,7 @@ Deno.test("current-only ReferenceCatalog inventory append preserves the exact ex
     ),
     false,
   );
+  assertFalse(result.endsWith("\n\n"));
 });
 
 Deno.test("current-only ReferenceCatalog inventory no-op preserves exact bytes", () => {

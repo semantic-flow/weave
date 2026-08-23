@@ -1,5 +1,3 @@
-import { Parser } from "n3";
-import type { Quad } from "n3";
 import type { PlannedFile } from "../planned_file.ts";
 import {
   normalizeSafeDesignatorPath,
@@ -9,6 +7,13 @@ import {
   SFLO_NAMESPACE,
   SFLO_TURTLE_PREFIX_DECLARATION,
 } from "../rdf/namespaces.ts";
+import {
+  planInventoryAppend,
+  prepareCurrentInventory,
+  type PreparedCurrentInventory,
+  renderInventoryAppendPlan,
+} from "../weave/inventory_append_planner.ts";
+import { KnopCreateInventoryIndex } from "./create_inventory_index.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const XSD_ANY_URI_IRI = "http://www.w3.org/2001/XMLSchema#anyURI";
@@ -31,6 +36,8 @@ const SFLO_HAS_MESH_METADATA_IRI = `${SFLO_NAMESPACE}hasMeshMetadata`;
 const SFLO_HAS_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}hasResourcePage`;
 const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
   `${SFLO_NAMESPACE}hasWorkingLocatedFile`;
+const SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI =
+  `${SFLO_NAMESPACE}hasWorkingKnopInventoryFile`;
 const SFLO_HISTORICAL_STATE_IRI = `${SFLO_NAMESPACE}HistoricalState`;
 const SFLO_HISTORY_ORDINAL_IRI = `${SFLO_NAMESPACE}historyOrdinal`;
 const SFLO_KNOP_IRI = `${SFLO_NAMESPACE}Knop`;
@@ -66,8 +73,7 @@ export interface KnopCreatePlan {
 }
 
 interface ResolvedKnopCreateMeshInventoryShape {
-  kind: "legacy" | "working" | "carried";
-  existingKnopPaths: readonly string[];
+  preparedCurrentInventory: PreparedCurrentInventory;
 }
 
 export class KnopCreateInputError extends Error {
@@ -195,15 +201,9 @@ function renderUpdatedMeshInventoryTurtle(
     currentMeshInventoryTurtle,
     knopPath,
   );
-  if (shape.kind === "legacy") {
-    return renderFirstKnopCreatedMeshInventoryTurtle(meshBase, knopPath);
-  }
-
-  return renderLaterKnopCreatedMeshInventoryTurtle(
-    meshBase,
-    currentMeshInventoryTurtle,
+  return renderKnopCreatedMeshInventoryTurtle(
     knopPath,
-    shape.existingKnopPaths,
+    shape.preparedCurrentInventory,
   );
 }
 
@@ -214,15 +214,23 @@ function resolveCurrentMeshInventoryShapeForKnopCreate(
 ): ResolvedKnopCreateMeshInventoryShape {
   const errorMessage =
     `current mesh inventory has an unsupported carried shape for knop create: ${knopPath}`;
-  const quads = parseMeshInventoryQuads(
-    meshBase,
-    currentMeshInventoryTurtle,
-    errorMessage,
+  let preparedCurrentInventory: PreparedCurrentInventory;
+  try {
+    preparedCurrentInventory = prepareCurrentInventory({
+      baseIri: meshBase,
+      currentInventoryTurtle: currentMeshInventoryTurtle,
+      currentInventoryLabel: "current MeshInventory for knop create",
+    });
+  } catch {
+    throw new KnopCreateInputError(errorMessage);
+  }
+  const inventory = new KnopCreateInventoryIndex(
+    preparedCurrentInventory.quads,
   );
 
   if (
     !hasNamedNodeFact(
-      quads,
+      inventory,
       meshBase,
       "_mesh",
       RDF_TYPE_IRI,
@@ -235,7 +243,7 @@ function resolveCurrentMeshInventoryShapeForKnopCreate(
   }
 
   const existingKnopPaths = listTypedSubjectPaths(
-    quads,
+    inventory,
     meshBase,
     SFLO_KNOP_IRI,
   );
@@ -246,7 +254,7 @@ function resolveCurrentMeshInventoryShapeForKnopCreate(
   }
 
   const hasAnyKnopFacts = hasPredicateForSubject(
-    quads,
+    inventory,
     meshBase,
     "_mesh",
     SFLO_HAS_KNOP_IRI,
@@ -255,13 +263,12 @@ function resolveCurrentMeshInventoryShapeForKnopCreate(
   if (!hasAnyKnopFacts && existingKnopPaths.length === 0) {
     try {
       assertHasLegacyCurrentMeshInventoryShapeForKnopCreate(
-        quads,
+        inventory,
         meshBase,
         errorMessage,
       );
       return {
-        kind: "legacy",
-        existingKnopPaths,
+        preparedCurrentInventory,
       };
     } catch (error) {
       if (!(error instanceof KnopCreateInputError)) {
@@ -270,34 +277,32 @@ function resolveCurrentMeshInventoryShapeForKnopCreate(
     }
 
     assertHasWorkingCurrentMeshInventoryShapeForKnopCreate(
-      quads,
+      inventory,
       meshBase,
       errorMessage,
     );
     return {
-      kind: "working",
-      existingKnopPaths,
+      preparedCurrentInventory,
     };
   }
 
   assertHasCarriedCurrentMeshInventoryShapeForKnopCreate(
-    quads,
+    inventory,
     meshBase,
     errorMessage,
     existingKnopPaths,
   );
   return {
-    kind: "carried",
-    existingKnopPaths,
+    preparedCurrentInventory,
   };
 }
 
 function assertHasWorkingCurrentMeshInventoryShapeForKnopCreate(
-  quads: readonly Quad[],
+  inventory: KnopCreateInventoryIndex,
   meshBase: string,
   errorMessage: string,
 ): void {
-  assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
+  assertHasNamedNodeFacts(inventory, meshBase, errorMessage, [
     ["_mesh", RDF_TYPE_IRI, SFLO_SEMANTIC_MESH_IRI],
     ["_mesh", SFLO_HAS_MESH_METADATA_IRI, "_mesh/_meta"],
     ["_mesh", SFLO_HAS_MESH_INVENTORY_IRI, "_mesh/_inventory"],
@@ -331,17 +336,17 @@ function assertHasWorkingCurrentMeshInventoryShapeForKnopCreate(
     ["_mesh/_inventory/index.html", RDF_TYPE_IRI, SFLO_RESOURCE_PAGE_IRI],
     ["_mesh/_inventory/index.html", RDF_TYPE_IRI, SFLO_LOCATED_FILE_IRI],
   ]);
-  assertHasLiteralFacts(quads, meshBase, errorMessage, [
+  assertHasLiteralFacts(inventory, meshBase, errorMessage, [
     ["_mesh", SFLO_MESH_BASE_IRI, meshBase, XSD_ANY_URI_IRI],
   ]);
 }
 
 function assertHasLegacyCurrentMeshInventoryShapeForKnopCreate(
-  quads: readonly Quad[],
+  inventory: KnopCreateInventoryIndex,
   meshBase: string,
   errorMessage: string,
 ): void {
-  assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
+  assertHasNamedNodeFacts(inventory, meshBase, errorMessage, [
     ["_mesh", RDF_TYPE_IRI, SFLO_SEMANTIC_MESH_IRI],
     ["_mesh", SFLO_HAS_MESH_METADATA_IRI, "_mesh/_meta"],
     ["_mesh", SFLO_HAS_MESH_INVENTORY_IRI, "_mesh/_inventory"],
@@ -575,7 +580,7 @@ function assertHasLegacyCurrentMeshInventoryShapeForKnopCreate(
       SFLO_LOCATED_FILE_IRI,
     ],
   ]);
-  assertHasLiteralFacts(quads, meshBase, errorMessage, [
+  assertHasLiteralFacts(inventory, meshBase, errorMessage, [
     ["_mesh", SFLO_MESH_BASE_IRI, meshBase, XSD_ANY_URI_IRI],
     [
       "_mesh/_meta",
@@ -629,12 +634,12 @@ function assertHasLegacyCurrentMeshInventoryShapeForKnopCreate(
 }
 
 function assertHasCarriedCurrentMeshInventoryShapeForKnopCreate(
-  quads: readonly Quad[],
+  inventory: KnopCreateInventoryIndex,
   meshBase: string,
   errorMessage: string,
   existingKnopPaths: readonly string[],
 ): void {
-  assertHasNamedNodeFacts(quads, meshBase, errorMessage, [
+  assertHasNamedNodeFacts(inventory, meshBase, errorMessage, [
     ["_mesh", RDF_TYPE_IRI, SFLO_SEMANTIC_MESH_IRI],
     ["_mesh", SFLO_HAS_MESH_METADATA_IRI, "_mesh/_meta"],
     ["_mesh", SFLO_HAS_MESH_INVENTORY_IRI, "_mesh/_inventory"],
@@ -661,7 +666,7 @@ function assertHasCarriedCurrentMeshInventoryShapeForKnopCreate(
   for (const existingKnopPath of existingKnopPaths) {
     if (
       !hasNamedNodeFact(
-        quads,
+        inventory,
         meshBase,
         "_mesh",
         SFLO_HAS_KNOP_IRI,
@@ -673,28 +678,28 @@ function assertHasCarriedCurrentMeshInventoryShapeForKnopCreate(
   }
 
   const hasInventoryHistoryBlock = hasNamedNodeFact(
-    quads,
+    inventory,
     meshBase,
     "_mesh/_inventory/_history001",
     RDF_TYPE_IRI,
     SFLO_ARTIFACT_HISTORY_IRI,
   );
   const hasInventoryHistoryLink = hasNamedNodeFact(
-    quads,
+    inventory,
     meshBase,
     "_mesh/_inventory",
     SFLO_HAS_ARTIFACT_HISTORY_IRI,
     "_mesh/_inventory/_history001",
   );
   const latestStatePath = resolveSingleNamedNodePath(
-    quads,
+    inventory,
     meshBase,
     "_mesh/_inventory/_history001",
     SFLO_LATEST_HISTORICAL_STATE_IRI,
     errorMessage,
   );
   const nextStateOrdinal = resolveSingleNonNegativeIntegerLiteral(
-    quads,
+    inventory,
     meshBase,
     "_mesh/_inventory/_history001",
     SFLO_NEXT_STATE_ORDINAL_IRI,
@@ -722,7 +727,7 @@ function assertHasCarriedCurrentMeshInventoryShapeForKnopCreate(
 
     if (
       !hasNamedNodeFact(
-        quads,
+        inventory,
         meshBase,
         latestStatePath,
         RDF_TYPE_IRI,
@@ -735,7 +740,7 @@ function assertHasCarriedCurrentMeshInventoryShapeForKnopCreate(
   }
 
   const historicalStatePaths = listNamedNodeObjectPaths(
-    quads,
+    inventory,
     meshBase,
     "_mesh/_inventory/_history001",
     SFLO_HAS_HISTORICAL_STATE_IRI,
@@ -765,7 +770,7 @@ function assertHasCarriedCurrentMeshInventoryShapeForKnopCreate(
       toHistoryPathFromStatePath(historicalStatePath) !==
         "_mesh/_inventory/_history001" ||
       !hasNamedNodeFact(
-        quads,
+        inventory,
         meshBase,
         historicalStatePath,
         RDF_TYPE_IRI,
@@ -777,242 +782,59 @@ function assertHasCarriedCurrentMeshInventoryShapeForKnopCreate(
   }
 }
 
-function renderLaterKnopCreatedMeshInventoryTurtle(
-  meshBase: string,
-  currentMeshInventoryTurtle: string,
+function renderKnopCreatedMeshInventoryTurtle(
   knopPath: string,
-  existingKnopPaths: readonly string[],
+  preparedCurrentInventory: PreparedCurrentInventory,
 ): string {
-  const blocks = normalizeMeshInventoryHeader(
-    splitTurtleBlocks(currentMeshInventoryTurtle),
-  );
-  const anchorKnopPath = existingKnopPaths.at(-1) ?? "_mesh";
-  const knopPaths = [...existingKnopPaths];
-  if (!knopPaths.includes(knopPath)) {
-    knopPaths.unshift(knopPath);
+  const plan = planKnopCreateMeshInventoryAppend({
+    knopPath,
+    preparedCurrentInventory,
+  });
+  if (plan.kind === "conflict") {
+    throw new KnopCreateInputError(
+      `Could not append knop create MeshInventory facts for ${knopPath}: ${
+        plan.conflicts.map((conflict) => conflict.message).join(" ")
+      }`,
+    );
   }
 
-  let nextBlocks = replaceSubjectBlock(
-    blocks,
-    "_mesh",
-    renderMeshRootBlock(meshBase, knopPaths),
-  );
-  nextBlocks = upsertSubjectBlockAfter(
-    nextBlocks,
-    anchorKnopPath,
-    knopPath,
-    renderMeshKnopBlockWithoutResourcePage(knopPath),
-  );
-  nextBlocks = upsertSubjectBlockAfter(
-    nextBlocks,
-    "_mesh/_inventory/inventory.ttl",
-    `${knopPath}/_inventory/inventory.ttl`,
-    renderLocatedFileBlock(`${knopPath}/_inventory/inventory.ttl`),
-  );
-
-  return `${nextBlocks.join("\n\n")}\n`;
+  return renderInventoryAppendPlan({
+    preparedCurrentInventory,
+    plan,
+    outputLabel: `knop create MeshInventory append for ${knopPath}`,
+  });
 }
 
-function renderFirstKnopCreatedMeshInventoryTurtle(
-  meshBase: string,
-  knopPath: string,
-): string {
-  const knopInventoryPath = `${knopPath}/_inventory/inventory.ttl`;
-
-  return `@base <${meshBase}> .
+function planKnopCreateMeshInventoryAppend(input: {
+  knopPath: string;
+  preparedCurrentInventory: PreparedCurrentInventory;
+}): ReturnType<typeof planInventoryAppend> {
+  const meshBase = input.preparedCurrentInventory.baseIri;
+  const knopInventoryPath = `${input.knopPath}/_inventory/inventory.ttl`;
+  const requestedSettledFactsTurtle = `@base <${meshBase}> .
 ${SFLO_TURTLE_PREFIX_DECLARATION}
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
-<_mesh> a sflo:SemanticMesh ;
-  sflo:meshBase "${meshBase}"^^xsd:anyURI ;
-  sflo:hasMeshMetadata <_mesh/_meta> ;
-  sflo:hasMeshInventory <_mesh/_inventory> ;
-  sflo:hasKnop <${knopPath}> ;
-  sflo:hasResourcePage <_mesh/index.html> .
+<_mesh> sflo:hasKnop <${input.knopPath}> .
 
-<${knopPath}> a sflo:Knop ;
+<${input.knopPath}> a sflo:Knop ;
   sflo:hasWorkingKnopInventoryFile <${knopInventoryPath}> .
 
-<_mesh/_meta> a sflo:MeshMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasArtifactHistory <_mesh/_meta/_history001> ;
-  sflo:currentArtifactHistory <_mesh/_meta/_history001> ;
-  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasWorkingLocatedFile <_mesh/_meta/meta.ttl> ;
-  sflo:hasResourcePage <_mesh/_meta/index.html> .
-
-<_mesh/_meta/_history001> a sflo:ArtifactHistory ;
-  sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasHistoricalState <_mesh/_meta/_history001/_s0001> ;
-  sflo:latestHistoricalState <_mesh/_meta/_history001/_s0001> ;
-  sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasResourcePage <_mesh/_meta/_history001/index.html> .
-
-<_mesh/_meta/_history001/_s0001> a sflo:HistoricalState ;
-  sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <_mesh/_meta/_history001/_s0001/ttl> ;
-  sflo:locatedFileForState <_mesh/_meta/_history001/_s0001/ttl/meta.ttl> ;
-  sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/index.html> .
-
-<_mesh/_meta/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:locatedFileForManifestation <_mesh/_meta/_history001/_s0001/ttl/meta.ttl> ;
-  sflo:hasResourcePage <_mesh/_meta/_history001/_s0001/ttl/index.html> .
-
-<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasArtifactHistory <_mesh/_inventory/_history001> ;
-  sflo:currentArtifactHistory <_mesh/_inventory/_history001> ;
-  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/index.html> .
-
-<_mesh/_inventory/_history001> a sflo:ArtifactHistory ;
-  sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0001> ;
-  sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0001> ;
-  sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/index.html> .
-
-<_mesh/_inventory/_history001/_s0001> a sflo:HistoricalState ;
-  sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
-  sflo:hasManifestation <_mesh/_inventory/_history001/_s0001/ttl> ;
-  sflo:locatedFileForState <_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/index.html> .
-
-<_mesh/_inventory/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
-  sflo:locatedFileForManifestation <_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/_history001/_s0001/ttl/index.html> .
-
-<_mesh/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<_mesh/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<_mesh/_meta/_history001/_s0001/ttl/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
 <${knopInventoryPath}> a sflo:LocatedFile, sflo:RdfDocument .
-
-<_mesh/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_meta/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_meta/_history001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_meta/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_meta/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/_history001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/_history001/_s0001/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_inventory/_history001/_s0001/ttl/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 `;
-}
 
-function renderMeshRootBlock(
-  meshBase: string,
-  knopPaths: readonly string[],
-): string {
-  const knopLines = knopPaths.map((path) => `  sflo:hasKnop <${path}> ;`).join(
-    "\n",
-  );
-
-  return `<_mesh> a sflo:SemanticMesh ;
-  sflo:meshBase "${meshBase}"^^xsd:anyURI ;
-  sflo:hasMeshMetadata <_mesh/_meta> ;
-  sflo:hasMeshInventory <_mesh/_inventory> ;
-${knopLines}
-  sflo:hasResourcePage <_mesh/index.html> .`;
-}
-
-function renderMeshKnopBlockWithoutResourcePage(knopPath: string): string {
-  return `<${knopPath}> a sflo:Knop ;
-  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> .`;
-}
-
-function renderLocatedFileBlock(path: string): string {
-  return `<${path}> a sflo:LocatedFile, sflo:RdfDocument .`;
-}
-
-function splitTurtleBlocks(turtle: string): string[] {
-  return turtle.trimEnd().split("\n\n");
-}
-
-function normalizeMeshInventoryHeader(blocks: string[]): string[] {
-  if (blocks.length === 0) {
-    return blocks;
-  }
-
-  const [header, ...rest] = blocks;
-  return [
-    header.replace(
-      "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n",
-      "",
-    ),
-    ...rest,
-  ];
-}
-
-function replaceSubjectBlock(
-  blocks: readonly string[],
-  subjectPath: string,
-  replacementBlock: string,
-): string[] {
-  const index = findSubjectBlockIndex(blocks, subjectPath);
-  if (index === -1) {
-    throw new KnopCreateInputError(
-      `current mesh inventory did not contain subject block <${subjectPath}>`,
-    );
-  }
-
-  const nextBlocks = [...blocks];
-  nextBlocks[index] = replacementBlock;
-  return nextBlocks;
-}
-
-function upsertSubjectBlockAfter(
-  blocks: readonly string[],
-  anchorSubjectPath: string,
-  subjectPath: string,
-  block: string,
-): string[] {
-  const existingIndex = findSubjectBlockIndex(blocks, subjectPath);
-  if (existingIndex !== -1) {
-    const nextBlocks = [...blocks];
-    nextBlocks[existingIndex] = block;
-    return nextBlocks;
-  }
-
-  const anchorIndex = findSubjectBlockIndex(blocks, anchorSubjectPath);
-  if (anchorIndex === -1) {
-    throw new KnopCreateInputError(
-      `current mesh inventory did not contain anchor subject block <${anchorSubjectPath}>`,
-    );
-  }
-
-  const nextBlocks = [...blocks];
-  nextBlocks.splice(anchorIndex + 1, 0, block);
-  return nextBlocks;
-}
-
-function findSubjectBlockIndex(
-  blocks: readonly string[],
-  subjectPath: string,
-): number {
-  return blocks.findIndex((block) =>
-    getSubjectPathFromBlock(block) === subjectPath
-  );
-}
-
-function getSubjectPathFromBlock(block: string): string | undefined {
-  const match = block.match(/^<([^>]*)>/);
-  return match?.[1];
+  return planInventoryAppend({
+    preparedCurrentInventory: input.preparedCurrentInventory,
+    requestedSettledFactsTurtle,
+    singleValuedSettledPredicates: [
+      SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI,
+    ],
+    currentInventoryLabel: "current MeshInventory for knop create",
+    requestedFactsLabel: `knop create facts for ${input.knopPath}`,
+  });
 }
 
 function assertHasNamedNodeFacts(
-  quads: readonly Quad[],
+  inventory: KnopCreateInventoryIndex,
   meshBase: string,
   errorMessage: string,
   facts: readonly (readonly [string, string, string])[],
@@ -1020,7 +842,7 @@ function assertHasNamedNodeFacts(
   for (const [subjectValue, predicateIri, objectValue] of facts) {
     if (
       !hasNamedNodeFact(
-        quads,
+        inventory,
         meshBase,
         subjectValue,
         predicateIri,
@@ -1033,7 +855,7 @@ function assertHasNamedNodeFacts(
 }
 
 function assertHasLiteralFacts(
-  quads: readonly Quad[],
+  inventory: KnopCreateInventoryIndex,
   meshBase: string,
   errorMessage: string,
   facts: readonly (readonly [string, string, string, string])[],
@@ -1041,7 +863,7 @@ function assertHasLiteralFacts(
   for (const [subjectValue, predicateIri, literalValue, datatypeIri] of facts) {
     if (
       !hasLiteralFact(
-        quads,
+        inventory,
         meshBase,
         subjectValue,
         predicateIri,
@@ -1055,7 +877,7 @@ function assertHasLiteralFacts(
 }
 
 function hasNamedNodeFact(
-  quads: readonly Quad[],
+  inventory: KnopCreateInventoryIndex,
   meshBase: string,
   subjectValue: string,
   predicateIri: string,
@@ -1064,17 +886,11 @@ function hasNamedNodeFact(
   const subjectIri = new URL(subjectValue, meshBase).href;
   const objectIri = new URL(objectValue, meshBase).href;
 
-  return quads.some((quad) =>
-    quad.subject.termType === "NamedNode" &&
-    quad.subject.value === subjectIri &&
-    quad.predicate.value === predicateIri &&
-    quad.object.termType === "NamedNode" &&
-    quad.object.value === objectIri
-  );
+  return inventory.hasNamedNodeFact(subjectIri, predicateIri, objectIri);
 }
 
 function hasLiteralFact(
-  quads: readonly Quad[],
+  inventory: KnopCreateInventoryIndex,
   meshBase: string,
   subjectValue: string,
   predicateIri: string,
@@ -1083,49 +899,34 @@ function hasLiteralFact(
 ): boolean {
   const subjectIri = new URL(subjectValue, meshBase).href;
 
-  return quads.some((quad) =>
-    quad.subject.termType === "NamedNode" &&
-    quad.subject.value === subjectIri &&
-    quad.predicate.value === predicateIri &&
-    quad.object.termType === "Literal" &&
-    quad.object.value === literalValue &&
-    quad.object.datatype.value === datatypeIri
+  return inventory.hasLiteralFact(
+    subjectIri,
+    predicateIri,
+    literalValue,
+    datatypeIri,
   );
 }
 
 function hasPredicateForSubject(
-  quads: readonly Quad[],
+  inventory: KnopCreateInventoryIndex,
   meshBase: string,
   subjectValue: string,
   predicateIri: string,
 ): boolean {
   const subjectIri = new URL(subjectValue, meshBase).href;
 
-  return quads.some((quad) =>
-    quad.subject.termType === "NamedNode" &&
-    quad.subject.value === subjectIri &&
-    quad.predicate.value === predicateIri
-  );
+  return inventory.hasSubjectPredicate(subjectIri, predicateIri);
 }
 
 function listTypedSubjectPaths(
-  quads: readonly Quad[],
+  inventory: KnopCreateInventoryIndex,
   meshBase: string,
   typeIri: string,
 ): string[] {
   const paths = new Set<string>();
 
-  for (const quad of quads) {
-    if (
-      quad.subject.termType !== "NamedNode" ||
-      quad.predicate.value !== RDF_TYPE_IRI ||
-      quad.object.termType !== "NamedNode" ||
-      quad.object.value !== typeIri
-    ) {
-      continue;
-    }
-
-    const path = toRelativeMeshPath(meshBase, quad.subject.value);
+  for (const subjectIri of inventory.listTypedSubjectIris(typeIri)) {
+    const path = toRelativeMeshPath(meshBase, subjectIri);
     if (path !== undefined) {
       paths.add(path);
     }
@@ -1135,7 +936,7 @@ function listTypedSubjectPaths(
 }
 
 function listNamedNodeObjectPaths(
-  quads: readonly Quad[],
+  inventory: KnopCreateInventoryIndex,
   meshBase: string,
   subjectValue: string,
   predicateIri: string,
@@ -1143,17 +944,13 @@ function listNamedNodeObjectPaths(
   const subjectIri = new URL(subjectValue, meshBase).href;
   const paths = new Set<string>();
 
-  for (const quad of quads) {
-    if (
-      quad.subject.termType !== "NamedNode" ||
-      quad.subject.value !== subjectIri ||
-      quad.predicate.value !== predicateIri ||
-      quad.object.termType !== "NamedNode"
-    ) {
-      continue;
-    }
-
-    const path = toRelativeMeshPath(meshBase, quad.object.value);
+  for (
+    const objectIri of inventory.listNamedNodeObjectIris(
+      subjectIri,
+      predicateIri,
+    )
+  ) {
+    const path = toRelativeMeshPath(meshBase, objectIri);
     if (path === undefined) {
       throw new KnopCreateInputError(
         `current mesh inventory references an out-of-mesh path for ${subjectValue}`,
@@ -1166,18 +963,16 @@ function listNamedNodeObjectPaths(
 }
 
 function resolveSingleNamedNodePath(
-  quads: readonly Quad[],
+  inventory: KnopCreateInventoryIndex,
   meshBase: string,
   subjectValue: string,
   predicateIri: string,
   errorMessage: string,
 ): string | undefined {
   const subjectIri = new URL(subjectValue, meshBase).href;
-  const matches = quads.filter((quad) =>
-    quad.subject.termType === "NamedNode" &&
-    quad.subject.value === subjectIri &&
-    quad.predicate.value === predicateIri &&
-    quad.object.termType === "NamedNode"
+  const matches = inventory.listNamedNodeObjectIris(
+    subjectIri,
+    predicateIri,
   );
   if (matches.length === 0) {
     return undefined;
@@ -1186,7 +981,7 @@ function resolveSingleNamedNodePath(
     throw new KnopCreateInputError(errorMessage);
   }
 
-  const path = toRelativeMeshPath(meshBase, matches[0]!.object.value);
+  const path = toRelativeMeshPath(meshBase, matches[0]!);
   if (path === undefined) {
     throw new KnopCreateInputError(errorMessage);
   }
@@ -1194,19 +989,18 @@ function resolveSingleNamedNodePath(
 }
 
 function resolveSingleNonNegativeIntegerLiteral(
-  quads: readonly Quad[],
+  inventory: KnopCreateInventoryIndex,
   meshBase: string,
   subjectValue: string,
   predicateIri: string,
   errorMessage: string,
 ): number | undefined {
   const subjectIri = new URL(subjectValue, meshBase).href;
-  const matches = quads.filter((quad) =>
-    quad.subject.termType === "NamedNode" &&
-    quad.subject.value === subjectIri &&
-    quad.predicate.value === predicateIri &&
-    quad.object.termType === "Literal" &&
-    quad.object.datatype.value === XSD_NON_NEGATIVE_INTEGER_IRI
+  const matches = inventory.listLiteralObjects(
+    subjectIri,
+    predicateIri,
+  ).filter(
+    (literal) => literal.datatypeIri === XSD_NON_NEGATIVE_INTEGER_IRI,
   );
   if (matches.length === 0) {
     return undefined;
@@ -1215,7 +1009,7 @@ function resolveSingleNonNegativeIntegerLiteral(
     throw new KnopCreateInputError(errorMessage);
   }
 
-  const parsed = Number.parseInt(matches[0]!.object.value, 10);
+  const parsed = Number.parseInt(matches[0]!.value, 10);
   if (!Number.isSafeInteger(parsed) || parsed < 0) {
     throw new KnopCreateInputError(errorMessage);
   }
@@ -1243,16 +1037,4 @@ function toRelativeMeshPath(
   return absoluteIri.startsWith(meshBase)
     ? absoluteIri.slice(meshBase.length)
     : undefined;
-}
-
-function parseMeshInventoryQuads(
-  meshBase: string,
-  turtle: string,
-  errorMessage: string,
-): Quad[] {
-  try {
-    return new Parser({ baseIRI: meshBase }).parse(turtle);
-  } catch {
-    throw new KnopCreateInputError(errorMessage);
-  }
 }

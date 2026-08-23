@@ -1,12 +1,15 @@
 import { toKnopPath, toReferenceCatalogPath } from "../designator_segments.ts";
 import {
-  RDF_NAMESPACE,
   SFLO_NAMESPACE,
   SFLO_TURTLE_PREFIX_DECLARATION,
 } from "../rdf/namespaces.ts";
 import { toArtifactManifestationPath } from "./artifact_manifestation_paths.ts";
 import { WeaveInputError } from "./errors.ts";
-import { planInventoryAppend } from "./inventory_append_planner.ts";
+import {
+  planInventoryAppend,
+  prepareCurrentInventory,
+  renderInventoryAppendPlan,
+} from "./inventory_append_planner.ts";
 import type {
   MeshInventoryProgression,
   PageDefinitionWeaveProgression,
@@ -320,9 +323,13 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${referenceCatalogPagePath}> a sflo:ResourcePage, sflo:LocatedFile .
 `;
-  const plan = planInventoryAppend({
+  const preparedCurrentInventory = prepareCurrentInventory({
     baseIri: meshBase,
     currentInventoryTurtle: currentKnopInventoryTurtle,
+    currentInventoryLabel: `current KnopInventory for ${designatorPath}`,
+  });
+  const plan = planInventoryAppend({
+    preparedCurrentInventory,
     requestedSettledFactsTurtle,
     singleValuedSettledPredicates: [
       `${SFLO_NAMESPACE}hasWorkingLocatedFile`,
@@ -340,44 +347,12 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
     );
   }
 
-  if (plan.kind === "unchanged") {
-    return plan.outputTurtle;
-  }
-
-  let compactAppendTurtle = plan.appendTurtle
-    .replaceAll(`<${RDF_NAMESPACE}type>`, "a")
-    .replaceAll(
-      `<${SFLO_NAMESPACE}ReferenceCatalog>`,
-      "sflo:ReferenceCatalog",
-    )
-    .replaceAll(`<${SFLO_NAMESPACE}DigitalArtifact>`, "sflo:DigitalArtifact")
-    .replaceAll(`<${SFLO_NAMESPACE}RdfDocument>`, "sflo:RdfDocument")
-    .replaceAll(
-      `<${SFLO_NAMESPACE}hasWorkingLocatedFile>`,
-      "sflo:hasWorkingLocatedFile",
-    )
-    .replaceAll(
-      `<${SFLO_NAMESPACE}hasResourcePage>`,
-      "sflo:hasResourcePage",
-    )
-    .replaceAll(`<${SFLO_NAMESPACE}ResourcePage>`, "sflo:ResourcePage")
-    .replaceAll(`<${SFLO_NAMESPACE}LocatedFile>`, "sflo:LocatedFile");
-  for (
-    const path of [
-      referenceCatalogPath,
-      workingLocalRelativePath,
-      referenceCatalogPagePath,
-    ]
-  ) {
-    compactAppendTurtle = compactAppendTurtle.replaceAll(
-      `<${new URL(path, meshBase).href}>`,
-      `<${path}>`,
-    );
-  }
-
-  return `${
-    plan.outputTurtle.slice(0, -plan.appendTurtle.length)
-  }${compactAppendTurtle}`;
+  return renderInventoryAppendPlan({
+    preparedCurrentInventory,
+    plan,
+    outputLabel:
+      `current-only ReferenceCatalog inventory append for ${designatorPath}`,
+  });
 }
 
 export function renderCurrentOnlyPageDefinitionWovenKnopInventoryTurtle(
