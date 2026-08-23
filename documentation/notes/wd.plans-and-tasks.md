@@ -106,4 +106,3 @@ At closure, the planning seat renames:
 Update affected wikilinks and log the rename in the monthly `wd.maintenance.*` note, parallel to task-note closure. Child tasks retain their own independent `task` → `completed`/`cancelled` lifecycle.
 
 Plans are not closed merely because all currently known child tasks ended; conditional gates and the plan's exit criteria must also be resolved.
-
