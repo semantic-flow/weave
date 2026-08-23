@@ -18,9 +18,9 @@ Groomed 2026-08-21. This note now carries direction and arc-level backlog; the o
 4. **Append-only inventory migration** — [[wa.task.2026.2026-05-17-append-onlyish-inventory]]: migrate the remaining inventory writers onto `planInventoryAppend`; incremental correctness work that can ride alongside any arc.
 5. **Planner generalization** — [[wa.task.2026.2026-07-03_1332-stagecraft-weave-planner-generalization]]: later-payload advancement and condition-specific diagnostics have landed; this looks like an audit-and-close, not an arc.
 
-## Active Arc — Stagecraft IRI Initialization (ruled 2026-08-22)
+## Active Arc — Founding Capability Releases (ruled 2026-08-23)
 
-[[wa.plan.2026.2026-08-22_1550-stagecraft-iri-initialization]] sequences a like-for-like 552-create baseline, a bounded `knop.create` append/indexing migration, version-correctable FoundingReferentData, and a founding-data press receipt. Gates G1 and G2 passed after committed-state GO reviews; the contract, runtime, no-founding comparator, and founding-plus-settlement receipt are complete. Gate G3 remains the explicit Stagecraft budget-based singular-versus-batch product ruling; batch initialization remains evidence-triggered rather than assumed. The coordination plan never enters READY; child tasks do when fireable.
+[[wa.plan.2026.2026-08-23_0950-founding-capability-releases]] coordinates SFLO v0.5.0, the portable Framework contract push, and Weave/`weave-lib` v0.9.0. SFLO source and Pages must publish before the runtime that emits the new vocabulary, and packed off-tree Node execution—not source-barrel inspection alone—is the library parity gate. [[wa.plan.2026.2026-08-22_1550-stagecraft-iri-initialization]] completed Gates G1–G3 after Dave selected the measured singular path for this release; no batch carve is owed.
 
 ## Remote And Extra-Mesh Resolution (arc backlog)
 
