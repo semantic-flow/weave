@@ -18,6 +18,10 @@ Groomed 2026-08-21. This note now carries direction and arc-level backlog; the o
 4. **Append-only inventory migration** — [[wa.task.2026.2026-05-17-append-onlyish-inventory]]: migrate the remaining inventory writers onto `planInventoryAppend`; incremental correctness work that can ride alongside any arc.
 5. **Planner generalization** — [[wa.task.2026.2026-07-03_1332-stagecraft-weave-planner-generalization]]: later-payload advancement and condition-specific diagnostics have landed; this looks like an audit-and-close, not an arc.
 
+## Active Arc — Stagecraft IRI Initialization (ruled 2026-08-22)
+
+[[wa.plan.2026.2026-08-22_1550-stagecraft-iri-initialization]] sequences a like-for-like 552-create baseline, a bounded `knop.create` append/indexing migration, an identical after probe, version-correctable FoundingReferentData, and a founding-data press receipt. Batch initialization is evidence-triggered rather than assumed. The coordination plan never enters READY; the append-onlyish and founding-data child tasks do when fireable.
+
 ## Remote And Extra-Mesh Resolution (arc backlog)
 
 - `[importance: high]` Extend operational config from local-boundary policy into the remaining remote/runtime questions: explicit gating for `workingAccessUrl` and `targetAccessUrl`, selective command/runtime consumption, and whether remote-origin association belongs in `integrate` or stays centered on `import`. See [[wa.completed.2026.2026-04-11_1723-operational-config-for-runtime-resolution]] and [[wa.task.2026.2026-05-20_2152-workingAccessUrl]].
