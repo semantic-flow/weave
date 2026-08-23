@@ -13,9 +13,9 @@ The formal artifact name is **plan**. "Epic" may be used informally for a large 
 
 ## Plan Versus Task
 
-A task is an independently executable unit of work. It owns its implementation contract, tests, documentation changes, and repository commits. Active tasks use names such as `wa.task.2026.2026-08-22_1112-founding-referent-data` and follow [[template.task]].
+A task is an independently executable unit of work. It owns its implementation contract, tests, documentation changes, and repository commits. Active tasks use `<prefix>.task.<year>.<date-time>-<slug>` names and follow [[template.task]].
 
-A plan coordinates two or more independently executable tasks, repositories, phase gates, or conditional branches. It owns ordering and exit criteria, not the child tasks' implementation detail. Active plans use names such as `wa.plan.2026.2026-08-22_1550-stagecraft-iri-initialization` and follow [[template.plan]].
+A plan coordinates two or more independently executable tasks, repositories, phase gates, or conditional branches. It owns ordering and exit criteria, not the child tasks' implementation detail. Active plans use `<prefix>.plan.<year>.<date-time>-<slug>` names and follow [[template.plan]].
 
 Cut a plan when at least one of these is true:
 
