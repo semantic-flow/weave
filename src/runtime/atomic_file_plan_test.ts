@@ -61,3 +61,50 @@ Deno.test("executeAtomicFilePlan rolls back created and updated files after an i
     await Deno.remove(root, { recursive: true });
   }
 });
+
+Deno.test("executeAtomicFilePlan rollback preserves pre-existing empty ancestor directories", async () => {
+  const root = await Deno.makeTempDir();
+  try {
+    await Deno.mkdir(join(root, "pre-existing"));
+    await Deno.writeTextFile(join(root, "update.txt"), "before");
+
+    await assertRejects(
+      () =>
+        executeAtomicFilePlan(
+          root,
+          [
+            {
+              path: "pre-existing/created/new.bin",
+              mode: "create",
+              phase: "create",
+              contents: new Uint8Array([1, 2, 3]),
+            },
+            {
+              path: "update.txt",
+              mode: "update",
+              phase: "fail",
+              contents: "after",
+            },
+          ],
+          {
+            beforeWrite(write) {
+              if (write.phase === "fail") throw new Error("injected");
+            },
+          },
+        ),
+      AtomicFilePlanError,
+    );
+
+    assertEquals(
+      (await Deno.stat(join(root, "pre-existing"))).isDirectory,
+      true,
+    );
+    await assertRejects(
+      () => Deno.stat(join(root, "pre-existing/created")),
+      Deno.errors.NotFound,
+    );
+    assertEquals(await Deno.readTextFile(join(root, "update.txt")), "before");
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});

@@ -11,6 +11,8 @@ import {
   executeKnopCreate,
   executeKnopCreateForTesting,
   KnopCreateRuntimeError,
+  readFoundingDataVersionSource,
+  readKnopCreateFoundingDataSource,
 } from "../../src/runtime/knop/create.ts";
 import {
   materializeMeshAliceBioBranch,
@@ -371,4 +373,62 @@ Deno.test("executeKnopCreate never adopts or overwrites a pre-existing founding 
       ),
     Deno.errors.NotFound,
   );
+});
+
+Deno.test("founding source readers allow ruled workspace paths and reject workspace escape", async () => {
+  const repoRoot = await createTestTmpDir("weave-founding-source-policy-");
+  const meshRoot = join(repoRoot, "mesh");
+  const sourceDirectory = join(repoRoot, "sources");
+  const outsideRoot = await createTestTmpDir(
+    "weave-founding-source-outside-workspace-",
+  );
+  await materializeMeshAliceBioBranch("03-mesh-created-woven", meshRoot);
+  await Deno.mkdir(sourceDirectory, { recursive: true });
+  await Deno.writeTextFile(
+    join(meshRoot, "_mesh/_config/config.ttl"),
+    `@prefix sfcfg: <https://semantic-flow.github.io/sflo/config/> .
+
+<> a sfcfg:MeshConfig ;
+  sfcfg:workspaceRootRelativeToMeshRoot "../" ;
+  sfcfg:hasMeshWorkspacePathRule [
+    a sfcfg:MeshWorkspacePathRule ;
+    sfcfg:workspacePathPrefix "../sources/" ;
+    sfcfg:appliesToLocalPathLocatorKind <https://semantic-flow.github.io/sflo/config/localPathLocatorKind_workingLocalRelativePath>
+  ] .
+`,
+  );
+  const bytes = new TextEncoder().encode(
+    `<${MESH_ALICE_BIO_BASE}founding-demo> <https://example.test/vocab/value> "allowed" .\n`,
+  );
+  await Deno.writeFile(join(sourceDirectory, "founding.ttl"), bytes);
+  const outsidePath = join(outsideRoot, "founding.ttl");
+  await Deno.writeFile(outsidePath, bytes);
+
+  for (
+    const readSource of [
+      readKnopCreateFoundingDataSource,
+      readFoundingDataVersionSource,
+    ]
+  ) {
+    assertEquals(
+      await readSource({
+        meshRoot,
+        designatorPath: "founding-demo",
+        sourcePath: "sources/founding.ttl",
+        commandWorkingDirectory: repoRoot,
+      }),
+      bytes,
+    );
+    await assertRejects(
+      () =>
+        readSource({
+          meshRoot,
+          designatorPath: "founding-demo",
+          sourcePath: outsidePath,
+          commandWorkingDirectory: repoRoot,
+        }),
+      KnopCreateRuntimeError,
+      "outside the allowed local-path boundary",
+    );
+  }
 });

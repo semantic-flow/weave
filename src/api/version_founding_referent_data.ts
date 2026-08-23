@@ -163,7 +163,10 @@ async function execute(
         cause,
       });
     }
-    throw cause;
+    throw new WeaveApiError(
+      "Could not plan the founding referent data version from the current mesh.",
+      { code: "malformed-mesh", stage: "load", cause },
+    );
   }
 
   const workingChanged = admitted.bytes !== undefined &&

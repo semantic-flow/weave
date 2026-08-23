@@ -120,3 +120,37 @@ Deno.test("versionFoundingReferentData rolls back working bytes and snapshot aft
     Deno.errors.NotFound,
   );
 });
+
+Deno.test("versionFoundingReferentData maps residual malformed inventory errors to the public error base", async () => {
+  const meshRoot = await createTestTmpDir("founding-version-malformed-");
+  await materializeMeshAliceBioBranch("03-mesh-created-woven", meshRoot);
+  await executeKnopCreate({
+    workspaceRoot: meshRoot,
+    request: {
+      designatorPath: "founding-demo",
+      foundingData: encode(
+        `<${meshBase}founding-demo> <https://example.test/vocab/value> "one" .\n`,
+      ),
+    },
+  });
+  const inventoryPath = join(
+    meshRoot,
+    "founding-demo/_knop/_inventory/inventory.ttl",
+  );
+  await Deno.writeTextFile(
+    inventoryPath,
+    `${await Deno.readTextFile(
+      inventoryPath,
+    )}\n<https://example.test/graph> {\n  <https://example.test/subject> <https://example.test/predicate> <https://example.test/object> .\n}\n`,
+  );
+
+  const error = await assertRejects(
+    () =>
+      versionFoundingReferentData({
+        meshRoot,
+        designatorPath: "founding-demo",
+      }),
+    WeaveApiError,
+  );
+  assertEquals([error.code, error.stage], ["malformed-mesh", "load"]);
+});

@@ -52,6 +52,7 @@ export async function executeAtomicFilePlan(
   const absoluteMeshRoot = resolve(meshRoot);
   const seen = new Set<string>();
   const priorBytes = new Map<string, Uint8Array>();
+  const createdDirectories = new Set<string>();
 
   for (const write of writes) {
     assertSafeRelativePath(absoluteMeshRoot, write.path);
@@ -66,6 +67,14 @@ export async function executeAtomicFilePlan(
         throw new Error(`Atomic create target already exists: ${write.path}`);
       } catch (error) {
         if (error instanceof Deno.errors.NotFound) {
+          for (
+            const directory of await listMissingParentDirectories(
+              absoluteMeshRoot,
+              dirname(absolutePath),
+            )
+          ) {
+            createdDirectories.add(directory);
+          }
           continue;
         }
         throw error;
@@ -99,6 +108,7 @@ export async function executeAtomicFilePlan(
         absoluteMeshRoot,
         completed,
         priorBytes,
+        createdDirectories,
       );
       throw new AtomicFilePlanError({
         path: write.path,
@@ -123,6 +133,7 @@ async function rollbackWrites(
   meshRoot: string,
   completed: readonly AtomicPlannedWrite[],
   priorBytes: ReadonlyMap<string, Uint8Array>,
+  createdDirectories: ReadonlySet<string>,
 ): Promise<string[]> {
   const failed: string[] = [];
   for (const write of [...completed].reverse()) {
@@ -130,7 +141,6 @@ async function rollbackWrites(
     try {
       if (write.mode === "create") {
         await Deno.remove(absolutePath);
-        await removeEmptyParents(meshRoot, dirname(absolutePath));
       } else {
         const bytes = priorBytes.get(write.path);
         if (bytes === undefined) {
@@ -142,6 +152,7 @@ async function rollbackWrites(
       failed.push(write.path);
     }
   }
+  await removeCreatedDirectories(createdDirectories);
   return failed;
 }
 
@@ -164,15 +175,43 @@ async function writeFileAtomically(
   }
 }
 
-async function removeEmptyParents(meshRoot: string, start: string) {
+async function listMissingParentDirectories(
+  meshRoot: string,
+  start: string,
+): Promise<string[]> {
+  const missing: string[] = [];
   let current = start;
   while (current !== meshRoot && pathIsWithin(meshRoot, current)) {
     try {
-      await Deno.remove(current);
-    } catch {
-      return;
+      const stat = await Deno.stat(current);
+      if (!stat.isDirectory) {
+        throw new Error(`Atomic create parent is not a directory: ${current}`);
+      }
+      break;
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) {
+        throw error;
+      }
+      missing.push(current);
     }
     current = dirname(current);
+  }
+  return missing;
+}
+
+async function removeCreatedDirectories(
+  createdDirectories: ReadonlySet<string>,
+): Promise<void> {
+  const deepestFirst = [...createdDirectories].sort((left, right) =>
+    right.length - left.length
+  );
+  for (const directory of deepestFirst) {
+    try {
+      await Deno.remove(directory);
+    } catch {
+      // Remove only directories created by this plan, and only when they are
+      // still empty. Concurrent or external contents are left untouched.
+    }
   }
 }
 

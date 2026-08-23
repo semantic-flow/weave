@@ -77,6 +77,39 @@ Deno.test("publication validation requires settlement while authoring allows pen
   );
 });
 
+Deno.test("publication validation fails closed for missing or malformed Knop inventory", async () => {
+  const { meshRoot } = await createFoundingMesh(
+    "founding-validation-inventory-",
+  );
+  const inventoryPath = join(
+    meshRoot,
+    "founding-demo/_knop/_inventory/inventory.ttl",
+  );
+
+  await Deno.remove(inventoryPath);
+  const missing = await executeValidate({ meshRoot, scope: "publication" });
+  assertEquals(
+    missing.findings.some((finding) =>
+      finding.code === "missing-artifact" &&
+      finding.path === "founding-demo/_knop/_inventory/inventory.ttl"
+    ),
+    true,
+  );
+
+  await Deno.writeTextFile(inventoryPath, "not valid Turtle {");
+  const malformed = await executeValidate({
+    meshRoot,
+    scope: "publication",
+  });
+  assertEquals(
+    malformed.findings.some((finding) =>
+      finding.code === "malformed-inventory" &&
+      finding.path === "founding-demo/_knop/_inventory/inventory.ttl"
+    ),
+    true,
+  );
+});
+
 Deno.test("founding snapshot digest validation honors exact target selection", async () => {
   const { meshRoot } = await createFoundingMesh("founding-digest-");
   const initial = await versionFoundingReferentData({

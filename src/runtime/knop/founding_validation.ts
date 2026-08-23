@@ -59,13 +59,31 @@ async function inspectOne(options: {
 }): Promise<FoundingValidationFinding[]> {
   const knopPath = toKnopPath(options.designatorPath);
   const inventoryPath = `${knopPath}/_inventory/inventory.ttl`;
+  let inventoryTurtle: string;
+  try {
+    inventoryTurtle = await Deno.readTextFile(
+      join(options.meshRoot, inventoryPath),
+    );
+  } catch {
+    return [finding(
+      "missing-artifact",
+      `Knop inventory is missing while validating founding referent data: ${inventoryPath}`,
+      options.designatorPath,
+      inventoryPath,
+    )];
+  }
   let quads: Quad[];
   try {
     quads = new Parser({ baseIRI: options.meshBase }).parse(
-      await Deno.readTextFile(join(options.meshRoot, inventoryPath)),
+      inventoryTurtle,
     );
   } catch {
-    return [];
+    return [finding(
+      "malformed-inventory",
+      "Could not parse Knop inventory while validating founding referent data.",
+      options.designatorPath,
+      inventoryPath,
+    )];
   }
   const foundingObjects = objects(
     quads,
