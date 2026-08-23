@@ -58,7 +58,7 @@ export interface VersionFoundingReferentDataResult {
 
 `meshRoot` is an absolute path and `designatorPath` is one exact non-root Knop target. Omitted `bytes` versions the current conventional working file. Supplied bytes are copied at admission, strictly decoded for Turtle validation without replacing the byte source of truth, and used for one composed working-update-plus-next-state operation.
 
-The complete write plan is preflighted before mutation. Unlike the older payload writer described below, this narrow operation provides in-process rollback: a caught write failure removes only its completed creates and restores the prior bytes of completed updates. Cross-file crash atomicity and concurrent-writer coordination are not claimed.
+The complete write plan is preflighted before mutation. Unlike the older payload writer described below, this narrow operation provides in-process rollback: a caught write failure removes only its completed creates and operation-created empty directories, preserves pre-existing directories, and restores the prior bytes of completed updates. Cross-file crash atomicity and concurrent-writer coordination are not claimed.
 
 The result identifies the ordinary history/state/manifestation/snapshot chain and the digest of the exact snapshot bytes. The operation creates no ResourcePage.
 

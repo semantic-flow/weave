@@ -20,7 +20,7 @@ Groomed 2026-08-21. This note now carries direction and arc-level backlog; the o
 
 ## Active Arc — Stagecraft IRI Initialization (ruled 2026-08-22)
 
-[[wa.plan.2026.2026-08-22_1550-stagecraft-iri-initialization]] sequences a like-for-like 552-create baseline, a bounded `knop.create` append/indexing migration, version-correctable FoundingReferentData, and a founding-data press receipt. Gate G1 passed after suffix-only proof and final GO review. Phase 2 contract/runtime implementation is active with the no-founding and founding-plus-settlement receipts next; batch initialization remains evidence-triggered rather than assumed. The coordination plan never enters READY; child tasks do when fireable.
+[[wa.plan.2026.2026-08-22_1550-stagecraft-iri-initialization]] sequences a like-for-like 552-create baseline, a bounded `knop.create` append/indexing migration, version-correctable FoundingReferentData, and a founding-data press receipt. Gates G1 and G2 passed after committed-state GO reviews; the contract, runtime, no-founding comparator, and founding-plus-settlement receipt are complete. Gate G3 remains the explicit Stagecraft budget-based singular-versus-batch product ruling; batch initialization remains evidence-triggered rather than assumed. The coordination plan never enters READY; child tasks do when fireable.
 
 ## Remote And Extra-Mesh Resolution (arc backlog)
 
