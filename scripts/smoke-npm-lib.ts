@@ -1,17 +1,23 @@
 // Off-tree downstream contract smoke for @semantic-flow/weave-lib: packs the
 // dnt build output, installs the tarball into a temp consumer package outside
-// the source tree, runs a real versionPayloads batch under Node, and asserts
-// the resulting mesh tree and outcomes are byte-equivalent to the same batch
-// run through the source import (src/api/mod.ts). It also runs validateMesh
-// over settled and seeded-defect synthesized meshes. This is the honest Node
-// CI leg the library must pass before publishing; it also fails if any
-// package-relative resource load resolves only under a file: checkout.
+// the source tree, runs real versionPayloads and versionFoundingReferentData
+// operations under Node, and asserts the resulting mesh trees and outcomes are
+// byte-equivalent to the same operations run through the source import
+// (src/api/mod.ts). It also runs validateMesh over settled and seeded-defect
+// synthesized meshes. This is the honest Node CI leg the library must pass
+// before publishing; it also fails if any package-relative resource load
+// resolves only under a file: checkout.
 // Run: deno task build:npm-lib && deno task smoke:npm-lib
 import { fromFileUrl, join } from "@std/path";
-import { validateMesh, versionPayloads } from "../src/api/mod.ts";
+import {
+  validateMesh,
+  versionFoundingReferentData,
+  versionPayloads,
+} from "../src/api/mod.ts";
 import {
   coreTarget,
   listWorkspaceFiles,
+  materializeFoundingTarget,
   materializePayloadMesh,
   payloadBytes,
   type PayloadTargetFixture,
@@ -156,6 +162,58 @@ async function smokeNpmLib(options: SmokeNpmLibOptions): Promise<void> {
     }
     await assertTreesByteIdentical(nodeMeshRoot, sourceMeshRoot);
 
+    const foundingDesignatorPath = "founding-demo";
+    const firstFoundingBytes = new TextEncoder().encode(
+      `\uFEFF<https://example.test/version-api/${foundingDesignatorPath}> <https://example.test/vocab/value> "one" .\r\n`,
+    );
+    for (const meshRoot of [nodeMeshRoot, sourceMeshRoot]) {
+      await materializeFoundingTarget(
+        meshRoot,
+        foundingDesignatorPath,
+        firstFoundingBytes,
+      );
+    }
+    await assertTreesByteIdentical(nodeMeshRoot, sourceMeshRoot);
+
+    const nodeFoundingInitial = await runNodeFoundingConsumer(
+      consumerRoot,
+      nodeMeshRoot,
+      foundingDesignatorPath,
+      "initial",
+    );
+    const sourceFoundingInitial = await versionFoundingReferentData({
+      meshRoot: sourceMeshRoot,
+      designatorPath: foundingDesignatorPath,
+    });
+    assertJsonEqual(
+      nodeFoundingInitial,
+      JSON.parse(JSON.stringify(sourceFoundingInitial)),
+      "initial versionFoundingReferentData result (Node npm package vs Deno source import)",
+    );
+    await assertTreesByteIdentical(nodeMeshRoot, sourceMeshRoot);
+
+    const correctedFoundingBytes = new TextEncoder().encode(
+      `<https://example.test/version-api/${foundingDesignatorPath}> <https://example.test/vocab/value> "two" .\n`,
+    );
+    const nodeFoundingCorrection = await runNodeFoundingConsumer(
+      consumerRoot,
+      nodeMeshRoot,
+      foundingDesignatorPath,
+      "correction",
+      correctedFoundingBytes,
+    );
+    const sourceFoundingCorrection = await versionFoundingReferentData({
+      meshRoot: sourceMeshRoot,
+      designatorPath: foundingDesignatorPath,
+      bytes: correctedFoundingBytes,
+    });
+    assertJsonEqual(
+      nodeFoundingCorrection,
+      JSON.parse(JSON.stringify(sourceFoundingCorrection)),
+      "corrected versionFoundingReferentData result (Node npm package vs Deno source import)",
+    );
+    await assertTreesByteIdentical(nodeMeshRoot, sourceMeshRoot);
+
     const nodeValidation = await runNodeValidateConsumer(
       consumerRoot,
       nodeMeshRoot,
@@ -173,8 +231,8 @@ async function smokeNpmLib(options: SmokeNpmLibOptions): Promise<void> {
         meshBase: "https://example.test/version-api/",
         findings: [],
         coverage: {
-          knownDesignatorPathCount: 2,
-          plannedDesignatorPathCount: 0,
+          knownDesignatorPathCount: 3,
+          plannedDesignatorPathCount: 1,
         },
       },
       "validateMesh settled result shape",
@@ -199,7 +257,7 @@ async function smokeNpmLib(options: SmokeNpmLibOptions): Promise<void> {
     }
 
     console.log(
-      `npm-lib smoke passed: ${sourceResult.outcomes.length} payloads versioned and validateMesh returned settled/defect contract results under Node`,
+      `npm-lib smoke passed: ${sourceResult.outcomes.length} payloads versioned, founding data settled/corrected, and validateMesh returned settled/defect contract results under Node`,
     );
   } finally {
     if (options.keep) {
@@ -328,6 +386,49 @@ await writeFile(resultPath, JSON.stringify(result));
   return JSON.parse(await Deno.readTextFile(resultPath));
 }
 
+async function runNodeFoundingConsumer(
+  consumerRoot: string,
+  meshRoot: string,
+  designatorPath: string,
+  label: string,
+  bytes?: Uint8Array,
+): Promise<unknown> {
+  const consumerScriptPath = join(consumerRoot, "founding-consumer.mjs");
+  await Deno.writeTextFile(
+    consumerScriptPath,
+    `import { readFile, writeFile } from "node:fs/promises";
+import { versionFoundingReferentData } from "${NPM_LIB_PACKAGE_NAME}";
+
+const [meshRoot, requestPath, resultPath] = process.argv.slice(2);
+const request = JSON.parse(await readFile(requestPath, "utf8"));
+const result = await versionFoundingReferentData({
+  meshRoot,
+  designatorPath: request.designatorPath,
+  ...(request.bytesBase64 === undefined
+    ? {}
+    : { bytes: Buffer.from(request.bytesBase64, "base64") }),
+});
+await writeFile(resultPath, JSON.stringify(result));
+`,
+  );
+  const requestPath = join(consumerRoot, `founding-${label}-request.json`);
+  const resultPath = join(consumerRoot, `founding-${label}-result.json`);
+  await Deno.writeTextFile(
+    requestPath,
+    JSON.stringify({
+      designatorPath,
+      ...(bytes === undefined ? {} : { bytesBase64: encodeBase64(bytes) }),
+    }),
+  );
+  await runCommand("node", [
+    consumerScriptPath,
+    meshRoot,
+    requestPath,
+    resultPath,
+  ], consumerRoot);
+  return JSON.parse(await Deno.readTextFile(resultPath));
+}
+
 async function assertTreesByteIdentical(
   leftRoot: string,
   rightRoot: string,
@@ -344,7 +445,7 @@ async function assertTreesByteIdentical(
       !left.every((byte, index) => byte === right[index])
     ) {
       throw new Error(
-        `Mesh trees differ at ${path}: the npm package and the source import must version payloads byte-identically`,
+        `Mesh trees differ at ${path}: the npm package and the source import must mutate the mesh byte-identically`,
       );
     }
   }

@@ -82,7 +82,7 @@ export async function buildNpmLibPackage(
       name: NPM_LIB_PACKAGE_NAME,
       version,
       description:
-        "Programmatic Semantic Flow Weave APIs for structured mesh validation and batch payload versioning.",
+        "Programmatic Semantic Flow Weave APIs for structured mesh validation, payload versioning, and founding referent data.",
       license: "Apache-2.0",
       repository: {
         type: "git",
@@ -124,11 +124,15 @@ function renderLibReadme(version: string): string {
 
 Programmatic library surface of [Semantic Flow Weave](https://github.com/semantic-flow/weave), v${version}.
 
-This package exposes structured validation and payload versioning APIs for Node
-and bundler consumers:
+This package exposes structured validation, payload versioning, and founding
+referent data APIs for Node and bundler consumers:
 
 \`\`\`ts
-import { validateMesh, versionPayloads } from "${NPM_LIB_PACKAGE_NAME}";
+import {
+  validateMesh,
+  versionFoundingReferentData,
+  versionPayloads,
+} from "${NPM_LIB_PACKAGE_NAME}";
 
 const validation = await validateMesh({
   meshRoot: "/path/to/mesh",
@@ -144,6 +148,11 @@ const result = await versionPayloads({
     bytes: new TextEncoder().encode("payload contents"),
   }],
 });
+
+const founding = await versionFoundingReferentData({
+  meshRoot: "/path/to/mesh",
+  designatorPath: "example-knop",
+});
 \`\`\`
 
 The Weave CLI is distributed separately as \`@semantic-flow/weave\` (native
@@ -153,8 +162,8 @@ corresponds to this package. Neither depends on the other at runtime. Deno
 consumers can use this package via \`npm:\` specifiers or import
 \`./src/mod.ts\` from a pinned source checkout.
 
-Repository-source floating inputs are refused by both APIs; the library never
-spawns subprocesses or opens network connections.
+Repository-source floating payload inputs are refused; the library never spawns
+subprocesses or opens network connections.
 
 \`validateMesh\` reports planner/preflight coverage, not comprehensive
 integrity coverage of every existing mesh file. In particular,

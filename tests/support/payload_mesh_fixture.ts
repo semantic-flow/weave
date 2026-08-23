@@ -88,6 +88,68 @@ ${
   }
 }
 
+export async function materializeFoundingTarget(
+  meshRoot: string,
+  designatorPath: string,
+  bytes: Uint8Array,
+): Promise<void> {
+  const targetKnopPath = appendTargetPath(designatorPath, "_knop");
+  const inventoryPath = `${targetKnopPath}/_inventory/inventory.ttl`;
+  const foundingPath = `${targetKnopPath}/_founding`;
+  const workingPath = `${foundingPath}/data.ttl`;
+  await Deno.writeTextFile(
+    join(meshRoot, "_mesh/_inventory/inventory.ttl"),
+    `
+<_mesh> sflo:hasKnop <${targetKnopPath}> .
+
+<${targetKnopPath}> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <${inventoryPath}> .
+
+<${inventoryPath}> a sflo:LocatedFile, sflo:RdfDocument .
+`,
+    { append: true },
+  );
+  await writeText(
+    join(meshRoot, `${targetKnopPath}/_meta/meta.ttl`),
+    `@base <${PAYLOAD_MESH_BASE}> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<${targetKnopPath}> a sflo:Knop ;
+  sflo:designatorPath "${designatorPath}" ;
+  sflo:hasWorkingKnopInventoryFile <${inventoryPath}> .
+`,
+  );
+  await writeText(
+    join(meshRoot, inventoryPath),
+    `@base <${PAYLOAD_MESH_BASE}> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<${targetKnopPath}> a sflo:Knop ;
+  sflo:hasKnopMetadata <${targetKnopPath}/_meta> ;
+  sflo:hasKnopInventory <${targetKnopPath}/_inventory> ;
+  sflo:hasWorkingKnopInventoryFile <${inventoryPath}> ;
+  sflo:hasFoundingReferentData <${foundingPath}> .
+
+<${targetKnopPath}/_meta> a sflo:KnopMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${targetKnopPath}/_meta/meta.ttl> .
+
+<${targetKnopPath}/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${inventoryPath}> .
+
+<${foundingPath}> a sflo:FoundingReferentData, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${workingPath}> .
+
+<${targetKnopPath}/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<${inventoryPath}> a sflo:LocatedFile, sflo:RdfDocument .
+
+<${workingPath}> a sflo:LocatedFile, sflo:RdfDocument .
+`,
+  );
+  await Deno.mkdir(dirname(join(meshRoot, workingPath)), { recursive: true });
+  await Deno.writeFile(join(meshRoot, workingPath), bytes);
+}
+
 async function materializePayloadTarget(
   meshRoot: string,
   target: PayloadTargetFixture,
