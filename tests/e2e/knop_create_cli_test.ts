@@ -376,14 +376,19 @@ function assertRdfEqualsExpectedPlusCarriedMeshConfig(
   carriedTurtle: string,
   baseIri: string,
 ): void {
-  const parser = new Parser({ baseIRI: baseIri });
   const actualKeys = new Set(
-    parser.parse(actualTurtle).map((quad: Quad) => rdfQuadKey(quad)),
+    new Parser({ baseIRI: baseIri }).parse(actualTurtle).map((quad: Quad) =>
+      rdfQuadKey(quad)
+    ),
   );
   const expectedKeys = new Set(
-    parser.parse(expectedTurtle).map((quad: Quad) => rdfQuadKey(quad)),
+    new Parser({ baseIRI: baseIri }).parse(expectedTurtle).map((quad: Quad) =>
+      rdfQuadKey(quad)
+    ),
   );
-  for (const carriedQuad of parser.parse(carriedTurtle)) {
+  for (
+    const carriedQuad of new Parser({ baseIRI: baseIri }).parse(carriedTurtle)
+  ) {
     if (isMeshConfigFact(carriedQuad, baseIri)) {
       expectedKeys.add(rdfQuadKey(carriedQuad));
     }

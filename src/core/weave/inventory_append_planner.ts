@@ -271,10 +271,10 @@ export function renderInventoryAppendPlan(
     compactAppendTurtle,
   );
   if (
-    renderedAppendMatchesPlan(
-      preparedCurrentInventory,
+    renderedAppendChunkMatchesPlan(
+      preparedCurrentInventory.baseIri,
       plan,
-      compactOutputTurtle,
+      compactAppendTurtle,
       outputLabel,
     )
   ) {
@@ -282,10 +282,10 @@ export function renderInventoryAppendPlan(
   }
 
   if (
-    renderedAppendMatchesPlan(
-      preparedCurrentInventory,
+    renderedAppendChunkMatchesPlan(
+      preparedCurrentInventory.baseIri,
       plan,
-      plan.outputTurtle,
+      plan.appendTurtle,
       outputLabel,
     )
   ) {
@@ -388,38 +388,31 @@ function renderCompactNamedNode(term: Term, baseIri: string): string {
   return `<${term.value}>`;
 }
 
-function renderedAppendMatchesPlan(
-  preparedCurrentInventory: PreparedCurrentInventory,
+/**
+ * The prepared current Turtle is already parsed and remains an exact output
+ * prefix. Requested facts cannot contain blank nodes, so proving that the
+ * self-contained suffix equals plan.missing proves the complete RDF union
+ * without reparsing carried blank nodes under fresh parser-local labels.
+ */
+function renderedAppendChunkMatchesPlan(
+  baseIri: string,
   plan: Extract<InventoryAppendPlan, { readonly kind: "append" }>,
-  renderedOutputTurtle: string,
+  renderedAppendTurtle: string,
   label: string,
 ): boolean {
-  let renderedQuads: Quad[];
+  let renderedAppendQuads: Quad[];
   try {
-    renderedQuads = parseTurtle(
-      preparedCurrentInventory.baseIri,
-      renderedOutputTurtle,
-      `${label} output`,
+    renderedAppendQuads = parseTurtle(
+      baseIri,
+      renderedAppendTurtle,
+      `${label} append`,
     );
   } catch {
     return false;
   }
-  const missingQuads = parseTurtle(
-    preparedCurrentInventory.baseIri,
-    plan.appendTurtle,
-    `${label} facts`,
-  );
-  const missingKeys = new Set(missingQuads.map(toQuadKey));
   const plannedMissingKeys = new Set(plan.missing.map((fact) => fact.key));
-  if (!setsEqual(missingKeys, plannedMissingKeys)) {
-    return false;
-  }
-  const expectedKeys = new Set([
-    ...preparedCurrentInventory.quads.map(toQuadKey),
-    ...missingKeys,
-  ]);
-  const renderedKeys = new Set(renderedQuads.map(toQuadKey));
-  return setsEqual(expectedKeys, renderedKeys);
+  const renderedKeys = new Set(renderedAppendQuads.map(toQuadKey));
+  return setsEqual(plannedMissingKeys, renderedKeys);
 }
 
 function setsEqual(left: ReadonlySet<string>, right: ReadonlySet<string>) {

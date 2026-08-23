@@ -228,6 +228,95 @@ Deno.test("planInventoryAppend prepared input supports append and exact rendered
   );
 });
 
+Deno.test("renderInventoryAppendPlan preserves carried blank nodes via suffix-only proof", () => {
+  const currentInventoryTurtle = `@prefix ex: <https://example.org/vocab/> .
+
+<${meshBase}alice/_knop> <${RDF_NAMESPACE}type> <${SFLO_NAMESPACE}Knop> ;
+  ex:provenance [ ex:note "carried blank node" ] .
+`;
+  const preparedCurrentInventory = prepareCurrentInventory({
+    baseIri: meshBase,
+    currentInventoryTurtle,
+  });
+  const plan = planInventoryAppend({
+    preparedCurrentInventory,
+    requestedSettledFactsTurtle:
+      `<${meshBase}alice/_knop> <${sfloHasPayloadArtifact}> <${meshBase}alice/data> .\n`,
+  });
+
+  assert(plan.kind === "append");
+  const outputTurtle = renderInventoryAppendPlan({
+    preparedCurrentInventory,
+    plan,
+  });
+  assert(outputTurtle.startsWith(currentInventoryTurtle));
+  assertStringIncludes(outputTurtle, 'ex:note "carried blank node"');
+  assert(
+    hasNamedNodeFact(
+      outputTurtle,
+      `${meshBase}alice/_knop`,
+      sfloHasPayloadArtifact,
+      `${meshBase}alice/data`,
+    ),
+  );
+});
+
+for (
+  const [name, edgeObjectIri] of [
+    [
+      "scheme-relative-looking mesh IRI",
+      `${meshBase}//evil.example/thing`,
+    ],
+    [
+      "dot-segment mesh IRI",
+      `${meshBase}sub/../up`,
+    ],
+  ] as const
+) {
+  Deno.test(`renderInventoryAppendPlan uses the absolute fallback for ${name}`, () => {
+    const preparedCurrentInventory = prepareCurrentInventory({
+      baseIri: meshBase,
+      currentInventoryTurtle:
+        `<${meshBase}alice/_knop> <${RDF_NAMESPACE}type> <${SFLO_NAMESPACE}Knop> .\n`,
+    });
+    const plan = planInventoryAppend({
+      preparedCurrentInventory,
+      requestedSettledFactsTurtle:
+        `<${meshBase}alice/_knop> <https://example.org/vocab/edge> <${edgeObjectIri}> .\n`,
+    });
+
+    assert(plan.kind === "append");
+    assertEquals(
+      renderInventoryAppendPlan({ preparedCurrentInventory, plan }),
+      plan.outputTurtle,
+    );
+  });
+}
+
+Deno.test("renderInventoryAppendPlan fails closed when neither rendered arm matches the plan", () => {
+  const preparedCurrentInventory = prepareCurrentInventory({
+    baseIri: meshBase,
+    currentInventoryTurtle:
+      `<${meshBase}alice/_knop> <${RDF_NAMESPACE}type> <${SFLO_NAMESPACE}Knop> .\n`,
+  });
+  const plan = planInventoryAppend({
+    preparedCurrentInventory,
+    requestedSettledFactsTurtle:
+      `<${meshBase}alice/_knop> <${sfloHasPayloadArtifact}> <${meshBase}alice/data> .\n`,
+  });
+  assert(plan.kind === "append");
+
+  assertThrows(
+    () =>
+      renderInventoryAppendPlan({
+        preparedCurrentInventory,
+        plan: { ...plan, missing: [] },
+      }),
+    WeaveInputError,
+    "rendered RDF did not equal",
+  );
+});
+
 Deno.test("planInventoryAppend prepared input returns exact bytes for no-op", () => {
   const currentInventoryTurtle =
     `<${meshBase}alice/_knop> <${RDF_NAMESPACE}type> <${SFLO_NAMESPACE}Knop> .\n`;
