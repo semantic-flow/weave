@@ -9,6 +9,7 @@ import { Parser, type Quad } from "n3";
 import { KnopCreateInputError } from "../../src/core/knop/create.ts";
 import {
   executeKnopCreate,
+  executeKnopCreateForTesting,
   KnopCreateRuntimeError,
 } from "../../src/runtime/knop/create.ts";
 import {
@@ -249,6 +250,125 @@ Deno.test("executeKnopCreate conflict writes no files and preserves MeshInventor
   );
   await assertRejects(
     () => Deno.stat(join(workspaceRoot, "conflict")),
+    Deno.errors.NotFound,
+  );
+});
+
+Deno.test("executeKnopCreate preserves exact founding bytes and rolls back an injected mid-write failure", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-knop-create-founding-rollback-",
+  );
+  await materializeMeshAliceBioBranch("03-mesh-created-woven", workspaceRoot);
+  const meshInventoryPath = join(
+    workspaceRoot,
+    "_mesh/_inventory/inventory.ttl",
+  );
+  const meshInventoryBefore = await Deno.readFile(meshInventoryPath);
+  const bytes = new TextEncoder().encode(
+    `\uFEFF<${MESH_ALICE_BIO_BASE}founding-demo> <https://example.test/vocab/value> "exact" .\r\n`,
+  );
+
+  await assertRejects(
+    () =>
+      executeKnopCreateForTesting(
+        {
+          workspaceRoot,
+          request: {
+            designatorPath: "founding-demo",
+            foundingData: bytes,
+          },
+        },
+        {
+          beforeWrite(write) {
+            if (write.phase === "binary-create") throw new Error("injected");
+          },
+        },
+      ),
+  );
+  assertEquals(await Deno.readFile(meshInventoryPath), meshInventoryBefore);
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, "founding-demo")),
+    Deno.errors.NotFound,
+  );
+
+  let fetchCalled = false;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => {
+    fetchCalled = true;
+    throw new Error("network must not be used");
+  }) as typeof fetch;
+  let result;
+  try {
+    result = await executeKnopCreate({
+      workspaceRoot,
+      request: { designatorPath: "founding-demo", foundingData: bytes },
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  assertEquals(fetchCalled, false);
+  assertEquals(
+    result.foundingWorkingLocatedFilePath,
+    "founding-demo/_knop/_founding/data.ttl",
+  );
+  assertEquals(
+    await Deno.readFile(
+      join(workspaceRoot, result.foundingWorkingLocatedFilePath!),
+    ),
+    bytes,
+  );
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, "founding-demo/index.html")),
+    Deno.errors.NotFound,
+  );
+  await assertRejects(
+    () =>
+      Deno.stat(
+        join(workspaceRoot, "founding-demo/_knop/_founding/_history001"),
+      ),
+    Deno.errors.NotFound,
+  );
+});
+
+Deno.test("executeKnopCreate never adopts or overwrites a pre-existing founding target", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-knop-create-founding-existing-",
+  );
+  await materializeMeshAliceBioBranch("03-mesh-created-woven", workspaceRoot);
+  const targetPath = join(
+    workspaceRoot,
+    "founding-demo/_knop/_founding/data.ttl",
+  );
+  await Deno.mkdir(join(workspaceRoot, "founding-demo/_knop/_founding"), {
+    recursive: true,
+  });
+  await Deno.writeTextFile(targetPath, "pre-existing bytes\n");
+  const meshInventoryPath = join(
+    workspaceRoot,
+    "_mesh/_inventory/inventory.ttl",
+  );
+  const meshInventoryBefore = await Deno.readFile(meshInventoryPath);
+
+  await assertRejects(
+    () =>
+      executeKnopCreate({
+        workspaceRoot,
+        request: {
+          designatorPath: "founding-demo",
+          foundingData: new TextEncoder().encode(
+            `<${MESH_ALICE_BIO_BASE}founding-demo> <https://example.test/vocab/value> "new" .\n`,
+          ),
+        },
+      }),
+    KnopCreateRuntimeError,
+  );
+  assertEquals(await Deno.readTextFile(targetPath), "pre-existing bytes\n");
+  assertEquals(await Deno.readFile(meshInventoryPath), meshInventoryBefore);
+  await assertRejects(
+    () =>
+      Deno.stat(
+        join(workspaceRoot, "founding-demo/_knop/_inventory/inventory.ttl"),
+      ),
     Deno.errors.NotFound,
   );
 });

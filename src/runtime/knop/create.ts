@@ -1,10 +1,12 @@
-import { dirname, join } from "@std/path";
+import { join, relative, resolve } from "@std/path";
 import {
   KnopCreateInputError,
   type KnopCreatePlan,
   type KnopCreateRequest,
   planKnopCreate,
 } from "../../core/knop/create.ts";
+import { toFoundingReferentDataPath } from "../../core/designator_segments.ts";
+import { FoundingReferentDataInputError } from "../../core/knop/founding_referent_data.ts";
 import {
   MeshMetadataResolutionError,
   resolveMeshBaseFromMetadataTurtle,
@@ -12,6 +14,15 @@ import {
 import { resolveRuntimeLoggers } from "../logging/factory.ts";
 import type { AuditLogger } from "../logging/audit_logger.ts";
 import type { StructuredLogger } from "../logging/logger.ts";
+import {
+  type AtomicFilePlanHooks,
+  executeAtomicFilePlan,
+} from "../atomic_file_plan.ts";
+import {
+  loadOperationalLocalPathPolicy,
+  LocalPathAccessError,
+  resolveAllowedLocalPath,
+} from "../operational/local_path_policy.ts";
 
 export interface ExecuteKnopCreateOptions {
   workspaceRoot: string;
@@ -26,6 +37,8 @@ export interface KnopCreateResult {
   knopIri: string;
   createdPaths: readonly string[];
   updatedPaths: readonly string[];
+  foundingReferentDataIri?: string;
+  foundingWorkingLocatedFilePath?: string;
 }
 
 export class KnopCreateRuntimeError extends Error {
@@ -37,6 +50,21 @@ export class KnopCreateRuntimeError extends Error {
 
 export async function executeKnopCreate(
   options: ExecuteKnopCreateOptions,
+): Promise<KnopCreateResult> {
+  return await executeKnopCreateInternal(options);
+}
+
+/** Test-only atomic-write seam; omitted from CLI and API surfaces. */
+export async function executeKnopCreateForTesting(
+  options: ExecuteKnopCreateOptions,
+  hooks: AtomicFilePlanHooks,
+): Promise<KnopCreateResult> {
+  return await executeKnopCreateInternal(options, hooks);
+}
+
+async function executeKnopCreateInternal(
+  options: ExecuteKnopCreateOptions,
+  hooks: AtomicFilePlanHooks = {},
 ): Promise<KnopCreateResult> {
   const { operationalLogger, auditLogger } = resolveLoggers(options);
   const workspaceRoot = options.workspaceRoot;
@@ -68,9 +96,30 @@ export async function executeKnopCreate(
       meshBase: meshState.meshBase,
       currentMeshInventoryTurtle: meshState.currentMeshInventoryTurtle,
     });
-    await assertCreateTargetsDoNotExist(workspaceRoot, plan);
-    await writeCreatedFiles(workspaceRoot, plan);
-    await writeUpdatedFiles(workspaceRoot, plan);
+    await executeAtomicFilePlan(
+      workspaceRoot,
+      [
+        ...plan.createdFiles.map((file) => ({
+          path: file.path,
+          mode: "create" as const,
+          phase: "text-create",
+          contents: file.contents,
+        })),
+        ...(plan.createdBinaryFiles ?? []).map((file) => ({
+          path: file.path,
+          mode: "create" as const,
+          phase: "binary-create",
+          contents: file.contents,
+        })),
+        ...plan.updatedFiles.map((file) => ({
+          path: file.path,
+          mode: "update" as const,
+          phase: "inventory-update",
+          contents: file.contents,
+        })),
+      ],
+      hooks,
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await operationalLogger.error(
@@ -98,6 +147,7 @@ export async function executeKnopCreate(
 
     if (
       error instanceof KnopCreateInputError ||
+      error instanceof FoundingReferentDataInputError ||
       error instanceof KnopCreateRuntimeError
     ) {
       throw error;
@@ -109,8 +159,15 @@ export async function executeKnopCreate(
     meshBase: plan.meshBase,
     designatorPath: plan.designatorPath,
     knopIri: plan.knopIri,
-    createdPaths: plan.createdFiles.map((file) => file.path),
+    createdPaths: [
+      ...plan.createdFiles.map((file) => file.path),
+      ...(plan.createdBinaryFiles ?? []).map((file) => file.path),
+    ],
     updatedPaths: plan.updatedFiles.map((file) => file.path),
+    ...(plan.foundingReferentDataIri === undefined ? {} : {
+      foundingReferentDataIri: plan.foundingReferentDataIri,
+      foundingWorkingLocatedFilePath: plan.foundingWorkingLocatedFilePath,
+    }),
   };
 
   await operationalLogger.info(
@@ -139,6 +196,89 @@ export async function executeKnopCreate(
   );
 
   return result;
+}
+
+export async function readKnopCreateFoundingDataSource(options: {
+  meshRoot: string;
+  designatorPath: string;
+  sourcePath: string;
+  commandWorkingDirectory: string;
+}): Promise<Uint8Array> {
+  return await readFoundingDataSource({ ...options, operation: "knop create" });
+}
+
+export async function readFoundingDataVersionSource(options: {
+  meshRoot: string;
+  designatorPath: string;
+  sourcePath: string;
+  commandWorkingDirectory: string;
+}): Promise<Uint8Array> {
+  return await readFoundingDataSource({
+    ...options,
+    operation: "founding referent data version",
+  });
+}
+
+async function readFoundingDataSource(options: {
+  meshRoot: string;
+  designatorPath: string;
+  sourcePath: string;
+  commandWorkingDirectory: string;
+  operation: string;
+}): Promise<Uint8Array> {
+  const sourcePath = resolve(
+    options.commandWorkingDirectory,
+    options.sourcePath,
+  );
+  const targetPath = resolve(
+    options.meshRoot,
+    `${toFoundingReferentDataPath(options.designatorPath)}/data.ttl`,
+  );
+  if (sourcePath === targetPath) {
+    throw new KnopCreateRuntimeError(
+      `${options.operation} source must not be the conventional target`,
+    );
+  }
+
+  const policy = await loadOperationalLocalPathPolicy(options.meshRoot);
+  const relativeSourcePath = relative(options.meshRoot, sourcePath).replaceAll(
+    "\\",
+    "/",
+  );
+  try {
+    const allowedPath = resolveAllowedLocalPath(
+      policy,
+      "workingLocalRelativePath",
+      relativeSourcePath,
+    );
+    if (resolve(allowedPath) !== sourcePath) {
+      throw new KnopCreateRuntimeError(
+        `${options.operation} source resolved inconsistently`,
+      );
+    }
+  } catch (error) {
+    if (error instanceof LocalPathAccessError) {
+      throw new KnopCreateRuntimeError(
+        `${options.operation} source is outside the allowed local-path boundary: ${options.sourcePath}`,
+      );
+    }
+    throw error;
+  }
+
+  let stat: Deno.FileInfo;
+  try {
+    stat = await Deno.stat(sourcePath);
+  } catch {
+    throw new KnopCreateRuntimeError(
+      `${options.operation} source could not be read: ${options.sourcePath}`,
+    );
+  }
+  if (!stat.isFile) {
+    throw new KnopCreateRuntimeError(
+      `${options.operation} source is not a file: ${options.sourcePath}`,
+    );
+  }
+  return await Deno.readFile(sourcePath);
 }
 
 export function describeKnopCreateResult(result: KnopCreateResult): string {
@@ -218,45 +358,4 @@ async function loadCurrentMeshState(
     meshBase,
     currentMeshInventoryTurtle,
   };
-}
-
-async function assertCreateTargetsDoNotExist(
-  workspaceRoot: string,
-  plan: KnopCreatePlan,
-): Promise<void> {
-  for (const file of plan.createdFiles) {
-    try {
-      await Deno.stat(join(workspaceRoot, file.path));
-      throw new KnopCreateRuntimeError(
-        `knop create target already exists: ${file.path}`,
-      );
-    } catch (error) {
-      if (error instanceof Deno.errors.NotFound) {
-        continue;
-      }
-      throw error;
-    }
-  }
-}
-
-async function writeCreatedFiles(
-  workspaceRoot: string,
-  plan: KnopCreatePlan,
-): Promise<void> {
-  for (const file of plan.createdFiles) {
-    const absolutePath = join(workspaceRoot, file.path);
-    await Deno.mkdir(dirname(absolutePath), { recursive: true });
-    await Deno.writeTextFile(absolutePath, file.contents, { createNew: true });
-  }
-}
-
-async function writeUpdatedFiles(
-  workspaceRoot: string,
-  plan: KnopCreatePlan,
-): Promise<void> {
-  for (const file of plan.updatedFiles) {
-    const absolutePath = join(workspaceRoot, file.path);
-    await Deno.mkdir(dirname(absolutePath), { recursive: true });
-    await Deno.writeTextFile(absolutePath, file.contents);
-  }
 }

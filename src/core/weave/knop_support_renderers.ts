@@ -23,6 +23,8 @@ import {
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const SFLO_HAS_EXTRACTION_SOURCE_IRI = `${SFLO_NAMESPACE}hasExtractionSource`;
+const SFLO_HAS_FOUNDING_REFERENT_DATA_IRI =
+  `${SFLO_NAMESPACE}hasFoundingReferentData`;
 const SFLO_HAS_KNOP_SOURCE_REGISTRY_IRI =
   `${SFLO_NAMESPACE}hasKnopSourceRegistry`;
 const SFLO_HAS_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}hasReferenceCatalog`;
@@ -30,6 +32,7 @@ const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
   `${SFLO_NAMESPACE}hasWorkingLocatedFile`;
 const SFLO_KNOP_SOURCE_REGISTRY_IRI = `${SFLO_NAMESPACE}KnopSourceRegistry`;
 const SFLO_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}ReferenceCatalog`;
+const SFLO_FOUNDING_REFERENT_DATA_IRI = `${SFLO_NAMESPACE}FoundingReferentData`;
 const SFLO_WORKING_FILE_PATH_IRI = `${SFLO_NAMESPACE}workingLocalRelativePath`;
 const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
   `${SFLO_NAMESPACE}currentArtifactHistory`;
@@ -49,10 +52,15 @@ const MUTABLE_PROGRESSION_PREDICATES = new Set([
 ]);
 const SUPPORT_SINGLE_VALUED_PREDICATES = [
   SFLO_HAS_EXTRACTION_SOURCE_IRI,
+  SFLO_HAS_FOUNDING_REFERENT_DATA_IRI,
   SFLO_HAS_KNOP_SOURCE_REGISTRY_IRI,
   SFLO_HAS_REFERENCE_CATALOG_IRI,
   SFLO_HAS_WORKING_LOCATED_FILE_IRI,
   SFLO_WORKING_FILE_PATH_IRI,
+  SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
+  SFLO_LATEST_HISTORICAL_STATE_IRI,
+  SFLO_NEXT_HISTORY_ORDINAL_IRI,
+  SFLO_NEXT_STATE_ORDINAL_IRI,
 ];
 
 interface CurrentKnopSourceRegistry {
@@ -65,6 +73,11 @@ interface CurrentKnopReferenceCatalog {
   referenceCatalogPath: string;
   referencesFilePath: string;
   referencesFilePredicateIri: string;
+}
+
+interface CurrentFoundingReferentData {
+  foundingPath: string;
+  workingFilePath: string;
 }
 
 interface RequestedSupportFact {
@@ -88,7 +101,11 @@ export function renderKnopInventoryWithPreservedSupportArtifacts(options: {
 }): string {
   const sourceRegistry = resolveCurrentKnopSourceRegistry(options);
   const referenceCatalog = resolveCurrentKnopReferenceCatalog(options);
-  if (sourceRegistry === undefined && referenceCatalog === undefined) {
+  const founding = resolveCurrentFoundingReferentData(options);
+  if (
+    sourceRegistry === undefined && referenceCatalog === undefined &&
+    founding === undefined
+  ) {
     return options.renderedKnopInventoryTurtle;
   }
 
@@ -96,6 +113,7 @@ export function renderKnopInventoryWithPreservedSupportArtifacts(options: {
     options,
     sourceRegistry,
     referenceCatalog,
+    founding,
   );
   const requestedFactsBody = carriedSupport.facts
     .map((fact) => fact.turtle)
@@ -257,6 +275,48 @@ function resolveCurrentKnopReferenceCatalog(options: {
   };
 }
 
+function resolveCurrentFoundingReferentData(options: {
+  meshBase: string;
+  currentKnopInventoryTurtle: string;
+  knopPath: string;
+}): CurrentFoundingReferentData | undefined {
+  const errorMessage =
+    `Could not resolve founding referent data from the current KnopInventory for ${options.knopPath}.`;
+  const quads = parseWeaveShapeQuads(
+    options.meshBase,
+    options.currentKnopInventoryTurtle,
+    errorMessage,
+  );
+  const foundingPath = resolveOptionalNamedNodePath(
+    quads,
+    options.meshBase,
+    options.knopPath,
+    SFLO_HAS_FOUNDING_REFERENT_DATA_IRI,
+    errorMessage,
+  );
+  if (foundingPath === undefined) return undefined;
+  if (
+    !hasNamedNodeFact(
+      quads,
+      options.meshBase,
+      foundingPath,
+      RDF_TYPE_IRI,
+      SFLO_FOUNDING_REFERENT_DATA_IRI,
+    )
+  ) {
+    throw new WeaveInputError(errorMessage);
+  }
+  const workingFilePath = resolveOptionalNamedNodePath(
+    quads,
+    options.meshBase,
+    foundingPath,
+    SFLO_HAS_WORKING_LOCATED_FILE_IRI,
+    errorMessage,
+  );
+  if (workingFilePath === undefined) throw new WeaveInputError(errorMessage);
+  return { foundingPath, workingFilePath };
+}
+
 function collectCarriedSupportFactsAndBlocks(
   options: {
     meshBase: string;
@@ -265,6 +325,7 @@ function collectCarriedSupportFactsAndBlocks(
   },
   sourceRegistry: CurrentKnopSourceRegistry | undefined,
   referenceCatalog: CurrentKnopReferenceCatalog | undefined,
+  founding: CurrentFoundingReferentData | undefined,
 ): {
   facts: readonly RequestedSupportFact[];
   blocks: readonly CarriedSupportBlock[];
@@ -282,12 +343,16 @@ function collectCarriedSupportFactsAndBlocks(
       options.knopPath,
       sourceRegistry,
       referenceCatalog,
+      founding,
     )
   ) {
     requestedFacts.push(...parseRequestedSupportFacts(options.meshBase, fact));
   }
 
-  const addBlock = (subjectPath: string | undefined) => {
+  const addBlock = (
+    subjectPath: string | undefined,
+    preserveMutableProgression = false,
+  ) => {
     if (
       subjectPath === undefined || carriedBlockSubjectPaths.has(subjectPath)
     ) {
@@ -308,11 +373,13 @@ function collectCarriedSupportFactsAndBlocks(
         block,
         `Could not parse carried Knop support block <${subjectPath}>.`,
       );
-      const hasMutableProgressionFacts = quads.some((quad) =>
-        MUTABLE_PROGRESSION_PREDICATES.has(quad.predicate.value)
-      );
+      const hasMutableProgressionFacts = !preserveMutableProgression &&
+        quads.some((quad) =>
+          MUTABLE_PROGRESSION_PREDICATES.has(quad.predicate.value)
+        );
       const requestedBlockFacts = quads
         .filter((quad) =>
+          preserveMutableProgression ||
           !MUTABLE_PROGRESSION_PREDICATES.has(quad.predicate.value)
         )
         .map((quad: Quad) => toRequestedSupportFact(quad, options.meshBase));
@@ -371,6 +438,33 @@ function collectCarriedSupportFactsAndBlocks(
         ...parseRequestedSupportFacts(
           options.meshBase,
           renderLocatedFileFallbackFact(referenceCatalog.referencesFilePath),
+        ),
+      );
+    }
+  }
+
+  if (founding !== undefined) {
+    for (
+      const block of collectSubjectSubtreeBlocks(
+        currentBlocks,
+        founding.foundingPath,
+      )
+    ) {
+      addBlock(getSubjectPathFromBlock(block), true);
+    }
+    if (!carriedBlockSubjectPaths.has(founding.foundingPath)) {
+      requestedFacts.push(
+        ...parseRequestedSupportFacts(
+          options.meshBase,
+          renderFoundingFallbackFacts(founding),
+        ),
+      );
+    }
+    if (!carriedBlockSubjectPaths.has(founding.workingFilePath)) {
+      requestedFacts.push(
+        ...parseRequestedSupportFacts(
+          options.meshBase,
+          renderLocatedFileFallbackFact(founding.workingFilePath),
         ),
       );
     }
@@ -451,6 +545,7 @@ function renderKnopSupportLinkFacts(
   knopPath: string,
   sourceRegistry: CurrentKnopSourceRegistry | undefined,
   referenceCatalog: CurrentKnopReferenceCatalog | undefined,
+  founding: CurrentFoundingReferentData | undefined,
 ): string[] {
   return [
     ...(sourceRegistry === undefined ? [] : [
@@ -474,7 +569,41 @@ function renderKnopSupportLinkFacts(
         referenceCatalog.referenceCatalogPath,
       ),
     ]),
+    ...(founding === undefined ? [] : [
+      renderNamedNodeFact(
+        knopPath,
+        SFLO_HAS_FOUNDING_REFERENT_DATA_IRI,
+        founding.foundingPath,
+      ),
+    ]),
   ];
+}
+
+function renderFoundingFallbackFacts(
+  founding: CurrentFoundingReferentData,
+): string {
+  return [
+    renderNamedNodeFact(
+      founding.foundingPath,
+      RDF_TYPE_IRI,
+      SFLO_FOUNDING_REFERENT_DATA_IRI,
+    ),
+    renderNamedNodeFact(
+      founding.foundingPath,
+      RDF_TYPE_IRI,
+      `${SFLO_NAMESPACE}DigitalArtifact`,
+    ),
+    renderNamedNodeFact(
+      founding.foundingPath,
+      RDF_TYPE_IRI,
+      `${SFLO_NAMESPACE}RdfDocument`,
+    ),
+    renderNamedNodeFact(
+      founding.foundingPath,
+      SFLO_HAS_WORKING_LOCATED_FILE_IRI,
+      founding.workingFilePath,
+    ),
+  ].join("\n");
 }
 
 function renderSourceRegistryFallbackFacts(

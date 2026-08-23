@@ -87,7 +87,9 @@ export type MeshValidationFindingCode =
   | "unsupported-mesh-shape"
   // publication-readiness (emitted in mesh scope when a profile is configured)
   | "publication-path-leakage"
-  | "publication-readiness";
+  | "publication-readiness"
+  | "unsettled-founding-referent-data"
+  | "content-digest-mismatch";
 ```
 
 (`publication-readiness` is the finalized spelling of the review's working name `publication-profile-unsupported`; it covers profile-requirement failures — `.nojekyll` missing or not a file — and publication-profile config problems alike.)
@@ -112,6 +114,8 @@ Family letters refer to the 2026-07-30 refusal-family enumeration recorded with 
 | `unsupported-mesh-shape` | F1–F13, G1–G8, G11, H1–H4, L1, L3, J2 (unsupported-resource arm) | A fixture-shaped "only supports …" planner/assertion gate refused a valid-but-unsupported mesh. One code for all gates; the message names the specific gate. Occurrences shrink as the planner generalizes; the code stays stable. |
 | `publication-path-leakage` | M1, M2 | Published text contains host-local file URLs or absolute host paths. |
 | `publication-readiness` | M3–M7 | Publication-profile requirements unmet or profile config invalid. |
+| `unsettled-founding-referent-data` | Founding publication gate | A registered founding working file has no byte-identical latest settled snapshot. Emitted by publication/press validation, not ordinary authoring validation. |
+| `content-digest-mismatch` | Founding integrity | Immutable founding snapshot bytes disagree with the manifestation or located-file digest. Mutable working bytes never emit this finding. |
 
 ### Ordering, multiplicity, and fail-fast (ruled)
 

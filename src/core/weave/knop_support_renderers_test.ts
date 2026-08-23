@@ -370,3 +370,56 @@ Deno.test("renderKnopInventoryWithPreservedSupportArtifacts preserves support fa
   assertFalse(/\bsflo:[^\s;,.]*\//.test(rendered));
   assertStringIncludes(rendered, "ontology/_knop/_sources");
 });
+
+Deno.test("renderKnopInventoryWithPreservedSupportArtifacts carries complete founding history and mutable progression", () => {
+  const current = `${
+    inventoryWithSupportFacts({
+      extraPrefixes: "@prefix ex: <https://example.test/vocab/> .\n",
+    })
+  }
+<${knopPath}> sflo:hasFoundingReferentData <${knopPath}/_founding> .
+
+<${knopPath}/_founding> a sflo:FoundingReferentData, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${knopPath}/_founding/data.ttl> ;
+  sflo:hasArtifactHistory <${knopPath}/_founding/_history001> ;
+  sflo:defaultArtifactHistory <${knopPath}/_founding/_history001> ;
+  sflo:currentArtifactHistory <${knopPath}/_founding/_history001> .
+
+<${knopPath}/_founding/_history001> a sflo:ArtifactHistory ;
+  sflo:hasHistoricalState <${knopPath}/_founding/_history001/_s0001> ;
+  sflo:latestHistoricalState <${knopPath}/_founding/_history001/_s0001> ;
+  sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger .
+
+<${knopPath}/_founding/_history001/_s0001> a sflo:HistoricalState ;
+  sflo:hasManifestation <${knopPath}/_founding/_history001/_s0001/ttl> .
+
+<${knopPath}/_founding/_history001/_s0001/ttl> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  ex:opaque "keep byte-for-byte" ;
+  sflo:hasContentDigest "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" ;
+  sflo:locatedFileForManifestation <${knopPath}/_founding/_history001/_s0001/ttl/data.ttl> .
+
+<${knopPath}/_founding/data.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<${knopPath}/_founding/_history001/_s0001/ttl/data.ttl> a sflo:LocatedFile, sflo:RdfDocument ;
+  sflo:hasContentDigest "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" .
+`;
+  const output = renderKnopInventoryWithPreservedSupportArtifacts({
+    meshBase,
+    currentKnopInventoryTurtle: current,
+    renderedKnopInventoryTurtle: inventoryWithSupportFacts({}),
+    knopPath,
+  });
+
+  for (
+    const expected of [
+      `sflo:hasFoundingReferentData <${knopPath}/_founding>`,
+      `sflo:latestHistoricalState <${knopPath}/_founding/_history001/_s0001>`,
+      'sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger',
+      "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      'ex:opaque "keep byte-for-byte"',
+    ]
+  ) {
+    assertStringIncludes(output, expected);
+  }
+  assert(parseQuads(output).length > 0);
+});

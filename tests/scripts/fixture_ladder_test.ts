@@ -5,6 +5,7 @@ import {
   assertStringIncludes,
   assertThrows,
 } from "@std/assert";
+import { join } from "@std/path";
 import {
   ALICE_BIO_FIXTURE_SCENARIO,
   BRANCH_FANTASY_RULES_FIXTURE_SCENARIO,
@@ -25,6 +26,7 @@ import {
   renderFixtureSourceSeedResult,
   seedFixtureSourceBranch,
   SIDECAR_FANTASY_RULES_FIXTURE_SCENARIO,
+  stageFixtureSourcesForTesting,
   updateFixtureBranchFromWorkspace,
 } from "../../scripts/fixture-ladder.ts";
 import type {
@@ -362,7 +364,7 @@ Deno.test("planFixtureLadder exposes the Alice Bio dry-run transition plan", asy
   );
   assertEquals(plan.scenario.branchPrefix, "a.");
   assertStringIncludes(plan.assetRoot, "mesh-alice-bio/.assets");
-  assertEquals(plan.transitions.length, 27);
+  assertEquals(plan.transitions.length, 30);
   assertEquals(plan.transitions[0]?.id, "01-source-only");
   assertEquals(plan.transitions[0]?.fromRef, "a.00-blank-slate");
   assertEquals(plan.transitions[24]?.id, "25-root-page-customized-woven");
@@ -374,6 +376,27 @@ Deno.test("planFixtureLadder exposes the Alice Bio dry-run transition plan", asy
   );
   assertEquals(plan.transitions[26]?.id, "27-carol-woven");
   assertEquals(plan.transitions[26]?.fromRef, "a.26-carol");
+  assertEquals(plan.transitions[27]?.id, "28-founding-created");
+  assertEquals(plan.transitions[27]?.fromRef, "a.27-carol-woven");
+  assertEquals(plan.transitions[29]?.id, "30-founding-corrected");
+  assertEquals(plan.transitions[29]?.fromRef, "a.29-founding-versioned");
+
+  const foundingCreated = plan.transitions[27];
+  assertEquals(foundingCreated?.action.kind, "command");
+  if (foundingCreated?.action.kind === "command") {
+    assertEquals(
+      foundingCreated.action.inputs[0]?.path,
+      ".accord/founding-v1.ttl",
+    );
+    assertEquals(
+      foundingCreated.action.inputs[0]?.inlineValue,
+      "@prefix stage: <https://stagecraft.example/vocab/> .\n\n<https://semantic-flow.github.io/mesh-alice-bio/founding-demo>\n  stage:incarnationOf <https://original.example/items/42> .\n",
+    );
+    assertEquals(
+      foundingCreated.action.inputs[0]?.contentDigest,
+      "sha256:553bf2a95aecf2df236f1fac007a2d096eb543ad6b8157167e779282fd0e6e37",
+    );
+  }
 
   const meshCreate = plan.transitions[1];
   assertEquals(meshCreate?.operationId, "mesh.create");
@@ -477,6 +500,34 @@ Deno.test("planFixtureLadder names existing Alice Bio Accord manifests", async (
   }
 });
 
+Deno.test("fixture ladder materializes Accord inlineSource bytes exactly", async () => {
+  const plan = await planFixtureLadder({
+    root: repoRoot,
+    scenario: "alice-bio",
+    format: "text",
+  });
+  const transition = plan.transitions[27];
+  assertEquals(transition?.action.kind, "command");
+  if (transition?.action.kind !== "command") {
+    throw new Error("expected command");
+  }
+  const workspaceRoot = await Deno.makeTempDir();
+  try {
+    const result = await stageFixtureSourcesForTesting({
+      workspaceRoot,
+      sources: transition.action.inputs,
+    });
+    assertEquals(result.missingAssets, []);
+    assertEquals(result.digestMismatches, []);
+    assertEquals(
+      await Deno.readTextFile(join(workspaceRoot, ".accord/founding-v1.ttl")),
+      transition.action.inputs[0]!.inlineValue,
+    );
+  } finally {
+    await Deno.remove(workspaceRoot, { recursive: true });
+  }
+});
+
 Deno.test("planFixtureLadder applies a branch-prefix override", async () => {
   const plan = await planFixtureLadder({
     root: repoRoot,
@@ -488,7 +539,7 @@ Deno.test("planFixtureLadder applies a branch-prefix override", async () => {
   assertEquals(plan.scenario.branchPrefix, "b.");
   assertEquals(plan.transitions[0]?.fromRef, "b.00-blank-slate");
   assertEquals(plan.transitions[0]?.toRef, "b.01-source-only");
-  assertEquals(plan.transitions[26]?.toRef, "b.27-carol-woven");
+  assertEquals(plan.transitions[29]?.toRef, "b.30-founding-corrected");
 
   const branchPlan = await planFixtureLadder({
     root: repoRoot,
@@ -1317,11 +1368,13 @@ Deno.test("Alice Bio asset-backed transitions point at checked-in deterministic 
     scenario: "alice-bio",
     format: "text",
   });
-  const assetSources = fixtureAssetSourcesForPlan(plan).sort((left, right) =>
-    `${left.sourceRef ?? ""}:${left.assetPath}`.localeCompare(
-      `${right.sourceRef ?? ""}:${right.assetPath}`,
-    )
-  );
+  const assetSources = fixtureAssetSourcesForPlan(plan)
+    .filter((source) => source.inlineValue === undefined)
+    .sort((left, right) =>
+      `${left.sourceRef ?? ""}:${left.assetPath}`.localeCompare(
+        `${right.sourceRef ?? ""}:${right.assetPath}`,
+      )
+    );
   const assetSourceSpecs = assetSources.map((source) =>
     `${source.sourceRef ?? "(filesystem)"}:${source.assetPath}`
   );
@@ -1419,7 +1472,7 @@ Deno.test("renderFixtureLadderPlan prints reviewable command and validation deta
   assertStringIncludes(rendered, "Fixture ladder dry run: Alice Bio");
   assertStringIncludes(rendered, "Asset root:");
   assertStringIncludes(rendered, "Branch writes: disabled");
-  assertStringIncludes(rendered, "Transitions: 27");
+  assertStringIncludes(rendered, "Transitions: 30");
   assertStringIncludes(
     rendered,
     "2. 02-mesh-created: a.01-source-only -> a.02-mesh-created",
@@ -1458,6 +1511,10 @@ Deno.test("renderFixtureLadderPlan prints reviewable command and validation deta
   );
   assertStringIncludes(
     rendered,
+    "input: .accord/founding-v1.ttl <= inline manifest bytes",
+  );
+  assertStringIncludes(
+    rendered,
     "guardrail: generated MeshInventory progression lives on _mesh/_meta",
   );
 });
@@ -1474,7 +1531,7 @@ Deno.test("renderFixtureScenarioIndexDocument renders stable fixture topology", 
   assertEquals(aliceIndex.hasStateLane?.map((lane) => lane.laneKey), [
     "fixture",
   ]);
-  assertEquals(aliceIndex.hasStep?.length, 27);
+  assertEquals(aliceIndex.hasStep?.length, 30);
   assertEquals(aliceIndex.hasStep?.[0]?.manifestPath, "01-source-only.jsonld");
   assertEquals(
     aliceIndex.hasStep?.[0]?.hasLaneBinding?.[0]?.fromLaneState?.ref,
@@ -1547,7 +1604,10 @@ Deno.test("Alice Bio fixture scenario has sequential transition indexes", () => 
     ALICE_BIO_FIXTURE_SCENARIO.transitions.map((transition) =>
       transition.index
     ),
-    Array.from({ length: 27 }, (_, index) => index + 1),
+    Array.from(
+      { length: ALICE_BIO_FIXTURE_SCENARIO.transitions.length },
+      (_, index) => index + 1,
+    ),
   );
 });
 

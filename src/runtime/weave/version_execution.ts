@@ -4,6 +4,7 @@ import type {
   PlannedBinaryFile,
   PlannedFile,
 } from "../../core/planned_file.ts";
+import { sha256ContentDigest } from "../../core/rdf/content_digest.ts";
 import type { PlannedPayloadSnapshot } from "../../core/weave/version_plan.ts";
 import { toKnopPath } from "../../core/designator_segments.ts";
 import {
@@ -880,12 +881,7 @@ async function hashPayloadSnapshotFile(
     throw error;
   }
 
-  const digestInput = new ArrayBuffer(bytes.byteLength);
-  new Uint8Array(digestInput).set(bytes);
-  const digest = await crypto.subtle.digest("SHA-256", digestInput);
-  return [...new Uint8Array(digest)].map((byte) =>
-    byte.toString(16).padStart(2, "0")
-  ).join("");
+  return (await sha256ContentDigest(bytes)).slice("sha256:".length);
 }
 
 function formatSnapshotDisplayPath(

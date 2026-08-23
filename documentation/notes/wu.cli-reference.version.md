@@ -16,6 +16,7 @@ created: 1779376203827
 weave version [--mesh-root <meshRoot>] [--target <target>]...
 weave version [--payload-history-segment <segment>] [--payload-state-segment <segment>] [--payload-manifestation-segment <segment>]
 weave version [--history-tracking-policy <policy>]
+weave version <designatorPath> --artifact-role founding-referent-data [--source <path>]
 ```
 
 Targets use [[wu.cli-reference.target-syntax]]. Use `/` for the root designator as described in [[wu.cli-reference.root-designator]].
@@ -34,6 +35,8 @@ weave version \
 weave version \
   --target 'designatorPath=ontology,stateSegment=v0.1.0,manifestationSegment=ttl' \
   --target 'designatorPath=ontology/shacl,stateSegment=v0.1.0,manifestationSegment=ttl'
+weave version characters/new-npc --artifact-role founding-referent-data
+weave version characters/new-npc --artifact-role founding-referent-data --source ./new-npc-corrected.ttl
 ```
 
 ## Naming
@@ -51,6 +54,14 @@ For service-owned invocation and retry guidance, see [[wu.cli-reference.weave#se
 `weave set history` and `weave set next-state` can persist payload-only intent for a later version operation; see [[wu.cli-reference.set.history]] and [[wu.cli-reference.set.next-state]].
 
 If a named-state payload history is current, omitted `stateSegment` fails closed instead of silently choosing an ordinal successor.
+
+## Founding Referent Data
+
+`--artifact-role founding-referent-data` selects only the Knop-owned founding artifact; it never widens payload selection. Without `--source`, Weave settles the current `D/_knop/_founding/data.ttl` bytes. With `--source`, the path resolves from the command working directory under local-path policy, and Weave admission-copies and validates those bytes before planning the working replacement and next immutable state together.
+
+Founding snapshots preserve exact bytes and carry canonical SHA-256 digests. This arm generates no pages. `--target`, payload naming flags, overwrite, and history-policy overrides are not accepted with the founding role.
+
+Reset-and-replay is a repair only before a press is committed or published. After landing, never rewrite the original founding snapshot: supply corrected bytes, add the next HistoricalState, and publish a new press. Working bytes that differ from the latest snapshot are pending authoring; publication validation reports `unsettled-founding-referent-data` until they are settled.
 
 ## Environment
 

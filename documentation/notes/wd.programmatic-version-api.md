@@ -23,8 +23,44 @@ The stable function and primary types are:
 - `WeaveApiError`
 - `WeaveApiErrorCode`
 - `WeaveApiErrorStage`
+- `versionFoundingReferentData`
+- `VersionFoundingReferentDataRequest`
+- `VersionFoundingReferentDataResult`
 
 `WeaveApiError` is the exact public error base. Its `code` and `stage` fields are exact stable discriminants. Message text is diagnostic only and must not be treated as a machine contract.
+
+`versionPayloads` remains payload-only. The separate founding-data function does not make support artifacts eligible payload targets.
+
+## Founding Referent Data Version Surface
+
+```ts
+export interface VersionFoundingReferentDataRequest {
+  meshRoot: string;
+  designatorPath: string;
+  bytes?: Uint8Array;
+}
+
+export interface VersionFoundingReferentDataResult {
+  status: "applied";
+  meshBase: string;
+  designatorPath: string;
+  foundingReferentDataIri: string;
+  historyIri: string;
+  stateIri: string;
+  manifestationIri: string;
+  snapshotIri: string;
+  snapshotPath: string;
+  contentDigest: string;
+  createdPaths: readonly string[];
+  updatedPaths: readonly string[];
+}
+```
+
+`meshRoot` is an absolute path and `designatorPath` is one exact non-root Knop target. Omitted `bytes` versions the current conventional working file. Supplied bytes are copied at admission, strictly decoded for Turtle validation without replacing the byte source of truth, and used for one composed working-update-plus-next-state operation.
+
+The complete write plan is preflighted before mutation. Unlike the older payload writer described below, this narrow operation provides in-process rollback: a caught write failure removes only its completed creates and restores the prior bytes of completed updates. Cross-file crash atomicity and concurrent-writer coordination are not claimed.
+
+The result identifies the ordinary history/state/manifestation/snapshot chain and the digest of the exact snapshot bytes. The operation creates no ResourcePage.
 
 The public root module is `src/mod.ts`. For a repository-root consumer file, the exact import specifier is `./src/mod.ts`. The API is re-exported from that root; consumers must not import `src/api/` implementation modules directly.
 

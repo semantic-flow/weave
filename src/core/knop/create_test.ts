@@ -31,6 +31,7 @@ Deno.test("planKnopCreate renders first knop support artifacts", async () => {
       "alice/_knop/_inventory/inventory.ttl",
     ],
   );
+  assertEquals(plan.createdBinaryFiles, undefined);
   assertEquals(
     plan.updatedFiles.map((file) => file.path),
     ["_mesh/_inventory/inventory.ttl"],
@@ -67,6 +68,50 @@ Deno.test("planKnopCreate renders first knop support artifacts", async () => {
       ),
     ],
     "https://semantic-flow.github.io/mesh-alice-bio/",
+  );
+});
+
+Deno.test("planKnopCreate carries exact optional founding bytes and discovery facts", async () => {
+  const meshBase = "https://semantic-flow.github.io/mesh-alice-bio/";
+  const currentMeshInventoryTurtle = await readMeshAliceBioBranchFile(
+    "03-mesh-created-woven",
+    "_mesh/_inventory/inventory.ttl",
+  );
+  const foundingBytes = new TextEncoder().encode(
+    `\uFEFF<${meshBase}founding-demo> <https://stagecraft.example/vocab/incarnationOf> <https://original.example/items/42> .\r\n`,
+  );
+  const plan = planKnopCreate({
+    meshBase,
+    designatorPath: "founding-demo",
+    currentMeshInventoryTurtle,
+    foundingData: foundingBytes,
+  });
+
+  assertEquals(
+    plan.foundingReferentDataIri,
+    `${meshBase}founding-demo/_knop/_founding`,
+  );
+  assertEquals(
+    plan.foundingWorkingLocatedFilePath,
+    "founding-demo/_knop/_founding/data.ttl",
+  );
+  assertEquals(plan.createdBinaryFiles, [{
+    path: "founding-demo/_knop/_founding/data.ttl",
+    contents: foundingBytes,
+  }]);
+  const inventory = plan.createdFiles[1]!.contents;
+  assertStringIncludes(
+    inventory,
+    "sflo:hasFoundingReferentData <founding-demo/_knop/_founding>",
+  );
+  assertStringIncludes(
+    inventory,
+    "<founding-demo/_knop/_founding> a sflo:FoundingReferentData, sflo:DigitalArtifact, sflo:RdfDocument",
+  );
+  assertEquals(inventory.includes("sflo:hasContentDigest"), false);
+  assertEquals(
+    plan.createdFiles[0]!.contents.includes("incarnationOf"),
+    false,
   );
 });
 

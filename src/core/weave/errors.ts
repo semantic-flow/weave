@@ -13,7 +13,9 @@ export type MeshValidationFindingCode =
   | "plan-conflict"
   | "unsupported-mesh-shape"
   | "publication-path-leakage"
-  | "publication-readiness";
+  | "publication-readiness"
+  | "unsettled-founding-referent-data"
+  | "content-digest-mismatch";
 
 export interface MeshValidationFindingAttribution {
   path?: string;

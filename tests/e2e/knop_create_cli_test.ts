@@ -340,6 +340,99 @@ Deno.test("weave knop create matches the manifest-scoped sidecar root and exampl
   await assertDefaultCliLogFilesExist(MESH_SIDECAR_FANTASY_RULES_BASE);
 });
 
+Deno.test("weave knop create admits exact founding bytes without network permission and redacts content", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-founding-create-");
+  const logRoot = await createTestTmpDir("weave-e2e-founding-logs-");
+  await materializeMeshAliceBioBranch("03-mesh-created-woven", workspaceRoot);
+  const sourcePath = join(workspaceRoot, ".accord/founding.ttl");
+  await Deno.mkdir(join(workspaceRoot, ".accord"), { recursive: true });
+  const sentinel = "FOUNDING_SECRET_SENTINEL";
+  const bytes = new TextEncoder().encode(
+    `\uFEFF<${MESH_ALICE_BIO_BASE}founding-demo> <https://example.test/vocab/value> "${sentinel}" .\r\n`,
+  );
+  await Deno.writeFile(sourcePath, bytes);
+
+  const output = await new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      "knop",
+      "create",
+      "founding-demo",
+      "--mesh-root",
+      workspaceRoot,
+      "--founding-data",
+      sourcePath,
+    ],
+    cwd: new URL(".", repoRoot),
+    env: { WEAVE_LOG_DIR: logRoot },
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+  assert(output.success, stderr);
+  assertStringIncludes(stdout, "Created 3 knop support artifacts");
+  assertEquals(
+    await Deno.readFile(
+      join(workspaceRoot, "founding-demo/_knop/_founding/data.ttl"),
+    ),
+    bytes,
+  );
+  for (const logName of ["operational.jsonl", "security-audit.jsonl"]) {
+    assertEquals(
+      (await Deno.readTextFile(join(logRoot, logName))).includes(sentinel),
+      false,
+    );
+  }
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, "founding-demo/index.html")),
+    Deno.errors.NotFound,
+  );
+});
+
+Deno.test("weave knop create reports founding source-target collision before adoption", async () => {
+  const workspaceRoot = await createTestTmpDir("weave-e2e-founding-collision-");
+  await materializeMeshAliceBioBranch("03-mesh-created-woven", workspaceRoot);
+  const targetPath = join(
+    workspaceRoot,
+    "founding-demo/_knop/_founding/data.ttl",
+  );
+  await Deno.mkdir(join(workspaceRoot, "founding-demo/_knop/_founding"), {
+    recursive: true,
+  });
+  await Deno.writeTextFile(targetPath, "prepositioned\n");
+
+  const output = await new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "src/main.ts",
+      "knop",
+      "create",
+      "founding-demo",
+      "--mesh-root",
+      workspaceRoot,
+      "--founding-data",
+      targetPath,
+    ],
+    cwd: new URL(".", repoRoot),
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  assertEquals(output.success, false);
+  assertStringIncludes(
+    new TextDecoder().decode(output.stderr),
+    "source must not be the conventional target",
+  );
+  assertEquals(await Deno.readTextFile(targetPath), "prepositioned\n");
+});
+
 async function listRelativeFiles(
   root: string,
   excludedPrefix: string,

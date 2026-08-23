@@ -1,6 +1,7 @@
-import type { PlannedFile } from "../planned_file.ts";
+import type { PlannedBinaryFile, PlannedFile } from "../planned_file.ts";
 import {
   normalizeSafeDesignatorPath,
+  toFoundingReferentDataPath,
   toKnopPath,
 } from "../designator_segments.ts";
 import {
@@ -14,6 +15,10 @@ import {
   renderInventoryAppendPlan,
 } from "../weave/inventory_append_planner.ts";
 import { KnopCreateInventoryIndex } from "./create_inventory_index.ts";
+import {
+  type ValidatedFoundingReferentData,
+  validateFoundingReferentData,
+} from "./founding_referent_data.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const XSD_ANY_URI_IRI = "http://www.w3.org/2001/XMLSchema#anyURI";
@@ -57,6 +62,7 @@ const SFLO_STATE_ORDINAL_IRI = `${SFLO_NAMESPACE}stateOrdinal`;
 
 export interface KnopCreateRequest {
   designatorPath: string;
+  foundingData?: Uint8Array;
 }
 
 export interface ResolvedKnopCreateRequest extends KnopCreateRequest {
@@ -69,7 +75,10 @@ export interface KnopCreatePlan {
   designatorPath: string;
   knopIri: string;
   createdFiles: readonly PlannedFile[];
+  createdBinaryFiles?: readonly PlannedBinaryFile[];
   updatedFiles: readonly PlannedFile[];
+  foundingReferentDataIri?: string;
+  foundingWorkingLocatedFilePath?: string;
 }
 
 interface ResolvedKnopCreateMeshInventoryShape {
@@ -90,6 +99,19 @@ export function planKnopCreate(
   const designatorPath = normalizeDesignatorPath(request.designatorPath);
   const knopPath = toKnopPath(designatorPath);
   const knopInventoryPath = `${knopPath}/_inventory/inventory.ttl`;
+  const founding = request.foundingData === undefined
+    ? undefined
+    : validateFoundingReferentData({
+      meshBase,
+      designatorPath,
+      bytes: request.foundingData,
+    });
+  const foundingPath = founding === undefined
+    ? undefined
+    : toFoundingReferentDataPath(designatorPath);
+  const foundingWorkingPath = foundingPath === undefined
+    ? undefined
+    : `${foundingPath}/data.ttl`;
   const updatedMeshInventoryTurtle = renderUpdatedMeshInventoryTurtle(
     meshBase,
     request.currentMeshInventoryTurtle,
@@ -100,6 +122,10 @@ export function planKnopCreate(
     meshBase,
     designatorPath,
     knopIri: new URL(knopPath, meshBase).href,
+    ...(foundingPath === undefined ? {} : {
+      foundingReferentDataIri: new URL(foundingPath, meshBase).href,
+      foundingWorkingLocatedFilePath: foundingWorkingPath,
+    }),
     createdFiles: [
       {
         path: `${knopPath}/_meta/meta.ttl`,
@@ -107,9 +133,15 @@ export function planKnopCreate(
       },
       {
         path: knopInventoryPath,
-        contents: renderKnopInventoryTurtle(meshBase, knopPath),
+        contents: renderKnopInventoryTurtle(meshBase, knopPath, founding),
       },
     ],
+    ...(founding === undefined ? {} : {
+      createdBinaryFiles: [{
+        path: foundingWorkingPath!,
+        contents: founding.bytes,
+      }],
+    }),
     updatedFiles: [
       {
         path: "_mesh/_inventory/inventory.ttl",
@@ -170,8 +202,9 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 function renderKnopInventoryTurtle(
   meshBase: string,
   knopPath: string,
+  founding?: ValidatedFoundingReferentData,
 ): string {
-  return `@base <${meshBase}> .
+  const baseInventory = `@base <${meshBase}> .
 ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}> a sflo:Knop ;
@@ -189,6 +222,43 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 `;
+  if (founding === undefined) return baseInventory;
+
+  const foundingPath = `${knopPath}/_founding`;
+  const foundingFilePath = `${foundingPath}/data.ttl`;
+  const prepared = prepareCurrentInventory({
+    baseIri: meshBase,
+    currentInventoryTurtle: baseInventory,
+    currentInventoryLabel: "new KnopInventory for knop create",
+  });
+  const plan = planInventoryAppend({
+    preparedCurrentInventory: prepared,
+    requestedSettledFactsTurtle: `@base <${meshBase}> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
+
+<${knopPath}> sflo:hasFoundingReferentData <${foundingPath}> .
+
+<${foundingPath}> a sflo:FoundingReferentData, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${foundingFilePath}> .
+
+<${foundingFilePath}> a sflo:LocatedFile, sflo:RdfDocument .
+`,
+    singleValuedSettledPredicates: [
+      `${SFLO_NAMESPACE}hasFoundingReferentData`,
+      SFLO_HAS_WORKING_LOCATED_FILE_IRI,
+    ],
+    requestedFactsLabel: `founding referent data facts for ${knopPath}`,
+  });
+  if (plan.kind === "conflict") {
+    throw new KnopCreateInputError(
+      "Founding referent data facts conflict in the new KnopInventory.",
+    );
+  }
+  return renderInventoryAppendPlan({
+    preparedCurrentInventory: prepared,
+    plan,
+    outputLabel: `founding referent data inventory append for ${knopPath}`,
+  });
 }
 
 function renderUpdatedMeshInventoryTurtle(

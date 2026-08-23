@@ -414,6 +414,7 @@ export interface FixtureFileOperationSource {
   path: string;
   assetPath: string;
   sourceRef?: string;
+  inlineValue?: string;
   provenance: string;
   contentDigest?: string;
 }
@@ -750,6 +751,24 @@ export const ALICE_BIO_FIXTURE_SCENARIO: FixtureLadderScenario = {
       "27-carol-woven",
       "26-carol",
       "weave",
+    ),
+    commandTransition(
+      28,
+      "28-founding-created",
+      "27-carol-woven",
+      "knop.create",
+    ),
+    commandTransition(
+      29,
+      "29-founding-versioned",
+      "28-founding-created",
+      "version.foundingReferentData",
+    ),
+    commandTransition(
+      30,
+      "30-founding-corrected",
+      "29-founding-versioned",
+      "version.foundingReferentData",
     ),
   ],
 };
@@ -2588,6 +2607,30 @@ function resolveReplayInputMaterializations(
 
     const targetPath = normalizeGitTreePath(materialization.targetPath);
     const provenance = materialization.hasSourceProvenance;
+    if (provenance?.sourceKind === "inlineSource") {
+      if (provenance.inlineValue === undefined) {
+        throw new Error(
+          `Inline replay input materialization for ${transitionId} target ${targetPath} is missing inlineValue`,
+        );
+      }
+      if (
+        provenance.sourcePath !== undefined ||
+        provenance.sourceRef !== undefined
+      ) {
+        throw new Error(
+          `Inline replay input materialization for ${transitionId} target ${targetPath} must not declare sourcePath or sourceRef`,
+        );
+      }
+      return {
+        path: targetPath,
+        assetPath: targetPath,
+        inlineValue: provenance.inlineValue,
+        provenance: describeSourceProvenance(provenance),
+        ...(provenance.contentDigest === undefined ? {} : {
+          contentDigest: provenance.contentDigest,
+        }),
+      };
+    }
     const assetPath = provenance?.sourcePath === undefined
       ? pathPosix.join(transitionId, targetPath)
       : normalizeGitTreePath(provenance.sourcePath);
@@ -2840,8 +2883,11 @@ function toLadderBranchRef(branchPrefix: string, rungId: string): string {
 }
 
 function formatFixtureAssetPath(
-  options: { assetPath: string; sourceRef?: string },
+  options: { assetPath: string; sourceRef?: string; inlineValue?: string },
 ): string {
+  if (options.inlineValue !== undefined) {
+    return "inline manifest bytes";
+  }
   if (options.sourceRef !== undefined) {
     return `${options.sourceRef}:${options.assetPath}`;
   }
@@ -3259,7 +3305,9 @@ async function stageFixtureAssetSources(options: {
       ? absoluteAssetPath
       : `${options.fixtureRepoPath}:${source.sourceRef}:${assetPath}`;
     try {
-      const contents = source.sourceRef === undefined
+      const contents = source.inlineValue !== undefined
+        ? new TextEncoder().encode(source.inlineValue)
+        : source.sourceRef === undefined
         ? await Deno.readFile(absoluteAssetPath)
         : await readFixtureAssetBlob({
           fixtureRepoPath: options.fixtureRepoPath,
@@ -3339,6 +3387,19 @@ async function stageFixtureAssetSources(options: {
     missingAssets,
     digestMismatches,
   };
+}
+
+/** Test-only seam for replay-source materialization. */
+export async function stageFixtureSourcesForTesting(options: {
+  workspaceRoot: string;
+  sources: readonly FixtureFileOperationSource[];
+}): Promise<Awaited<ReturnType<typeof stageFixtureAssetSources>>> {
+  return await stageFixtureAssetSources({
+    assetRoot: options.workspaceRoot,
+    fixtureRepoPath: options.workspaceRoot,
+    workspaceRoot: options.workspaceRoot,
+    sources: options.sources,
+  });
 }
 
 async function readFixtureAssetBlob(options: {

@@ -8,7 +8,7 @@ created: 1785294876079
 
 ## Overview
 
-Weave exposes two programmatic entry points. `versionPayloads` records one coherent batch of payload versions against an existing mesh — updating each working payload file and writing the matching history snapshot and support artifacts — without spawning the CLI or staging temporary files; its outputs are byte-identical to the CLI `payload update` + `version` workflow, and that equivalence is CI-enforced. `validateMesh` runs the same validation the CLI's `weave validate mesh` runs and returns structured findings (stable machine codes) instead of formatted text.
+Weave exposes three programmatic entry points. `versionPayloads` records coherent payload batches; `versionFoundingReferentData` settles or corrects one Knop's bounded founding RDF record without pages; and `validateMesh` returns structured mesh findings instead of formatted text.
 
 This note is the user-facing reference. The normative contracts, including the exact phase, precedence, and finding-code tables, live in [[wd.programmatic-version-api]] and [[wd.programmatic-validate-api]].
 
@@ -27,7 +27,7 @@ npm install @semantic-flow/weave-lib
 ```
 
 ```ts
-import { versionPayloads, WeaveApiError } from "@semantic-flow/weave-lib";
+import { versionFoundingReferentData, versionPayloads, WeaveApiError } from "@semantic-flow/weave-lib";
 ```
 
 The package ships dual ESM/CJS with TypeScript declarations and requires Node 20+. It never spawns subprocesses or opens network connections.
@@ -133,6 +133,22 @@ interface PayloadVersionOutcome {
 
 `outcomes` has one entry per item in canonical designator-path order. `executed` discriminates effect from forecast: on a real run (`true`), `applied` means a working/history transition was written and `alreadyCurrent` means nothing was needed; on a dry run (`false`), the same fields describe what a real run would do — nothing was written. All paths are mesh-root-relative with `/` separators. A fully no-op request has empty `createdPaths` and `updatedPaths`, which makes blind retries safe.
 
+## versionFoundingReferentData
+
+```ts
+const result = await versionFoundingReferentData({
+  meshRoot: "/abs/path/to/mesh",
+  designatorPath: "characters/new-npc",
+  bytes: new TextEncoder().encode(correctedTurtle), // optional
+});
+```
+
+Omit `bytes` to settle the current `D/_knop/_founding/data.ttl`. Supply bytes to validate and atomically plan the working correction plus the next immutable state. Caller buffers are copied at admission; snapshots and digests cover the exact bytes, including BOM and line endings.
+
+The operation accepts one exact non-root Knop that already owns `FoundingReferentData`. It returns the founding artifact, history, state, manifestation, snapshot identities, canonical SHA-256 digest, and created/updated paths. It creates no page and never changes `versionPayloads`, which remains payload-only.
+
+Preflight refusals leave the mesh unchanged. A caught write failure rolls back this narrow operation's completed creates and restores prior updated bytes; cross-process crash atomicity and concurrent writers remain outside the contract.
+
 ## validateMesh
 
 ```ts
@@ -168,7 +184,7 @@ try {
 }
 ```
 
-Stages are `"admit" | "load" | "plan" | "write"`. Any `admit`, `load`, or `plan` error is a whole-request refusal before any mutation. Only `write` errors (`code === "io-failure"`) can leave partial output; they disclose `completedPaths`, plus `completedCreatedPaths` (creates a repair can remove) and `completedUpdatedPaths` (updates whose prior bytes are gone), and `possiblyTouchedPaths`.
+Stages are `"admit" | "load" | "plan" | "write"`. Any `admit`, `load`, or `plan` error is a refusal before mutation. A `versionPayloads` write error can leave disclosed partial output. `versionFoundingReferentData` instead attempts in-process rollback and reports an `io-failure` if the write or rollback fails; a process crash can still leave an interrupted surface.
 
 | Stage | Codes |
 | --- | --- |
@@ -181,8 +197,8 @@ The exact per-code meanings are tabulated in [[wd.programmatic-version-api]].
 
 ## Caller responsibilities
 
-- The caller owns single-writer serialization per mesh. There is no lock, journal, rollback, or filesystem transaction; concurrent API/API or API/CLI mutation of one mesh is unsupported.
-- Writes are sequential. After an `io-failure`, follow the repair procedure below; a retry after partial support-artifact writes can refuse with `plan-conflict` until repaired.
+- The caller owns single-writer serialization per mesh. There is no lock, journal, or cross-process filesystem transaction; concurrent API/API or API/CLI mutation of one mesh is unsupported.
+- `versionPayloads` writes are sequential and non-transactional. `versionFoundingReferentData` adds narrow in-process rollback, but not crash atomicity. After an uncertain or rollback-failed `io-failure`, follow the repair procedure below.
 - Mesh-local UTF-8 text/RDF payloads only. Payloads whose inventory declares a repository-source (floating) locator refuse with `unsupported-source`; version those through the CLI instead.
 
 ### Recommended locking pattern

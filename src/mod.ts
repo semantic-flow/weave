@@ -1,7 +1,12 @@
 export * from "./core/mod.ts";
 export * from "./runtime/mod.ts";
 export * from "./cli/mod.ts";
-export { validateMesh, versionPayloads, WeaveApiError } from "./api/mod.ts";
+export {
+  validateMesh,
+  versionFoundingReferentData,
+  versionPayloads,
+  WeaveApiError,
+} from "./api/mod.ts";
 export type {
   MeshValidationFinding,
   MeshValidationFindingCode,
@@ -10,6 +15,8 @@ export type {
   ValidateMeshRequest,
   ValidateMeshResult,
   ValidateTarget,
+  VersionFoundingReferentDataRequest,
+  VersionFoundingReferentDataResult,
   VersionPayloadItem,
   VersionPayloadsRequest,
   VersionPayloadsResult,

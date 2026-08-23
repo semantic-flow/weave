@@ -50,7 +50,11 @@ import {
 } from "./version_execution.ts";
 import { type HistoryTrackingPolicy } from "../config/effective_config.ts";
 import { validatePublicationPreset } from "../publication/presets.ts";
-import { InventoryResolutionError } from "../mesh/inventory.ts";
+import {
+  InventoryResolutionError,
+  listKnopDesignatorPaths,
+} from "../mesh/inventory.ts";
+import { inspectFoundingReferentData } from "../knop/founding_validation.ts";
 import {
   createRuntimeMemoryStats,
   type RuntimeMemoryStats,
@@ -181,17 +185,27 @@ export async function executeValidate(
             currentMeshConfigTurtle: meshState.currentMeshConfigTurtle,
           }),
       );
-      status = publicationValidation.findings.length > 0
-        ? "findings"
-        : "succeeded";
-      timing.setField("findings", publicationValidation.findings.length);
+      const designatorPaths = listKnopDesignatorPaths(
+        meshState.meshBase,
+        meshState.currentMeshInventoryTurtle,
+        "Could not parse MeshInventory while validating founding referent data.",
+      );
+      const foundingFindings = await inspectFoundingReferentData({
+        meshRoot,
+        meshBase: meshState.meshBase,
+        designatorPaths,
+        requireSettledWorking: true,
+      });
+      const findings = [...publicationValidation.findings, ...foundingFindings];
+      status = findings.length > 0 ? "findings" : "succeeded";
+      timing.setField("findings", findings.length);
 
       return {
         scope,
         meshBase: meshState.meshBase,
-        knownDesignatorPathCount: 0,
-        validatedDesignatorPaths: [],
-        findings: publicationValidation.findings,
+        knownDesignatorPathCount: designatorPaths.length,
+        validatedDesignatorPaths: designatorPaths,
+        findings,
       };
     }
 
@@ -229,23 +243,37 @@ export async function executeValidate(
           currentMeshConfigTurtle: prepared.meshState.currentMeshConfigTurtle,
         }),
     );
-    status = publicationValidation.findings.length > 0
-      ? "findings"
-      : "succeeded";
+    const allDesignatorPaths = listKnopDesignatorPaths(
+      prepared.meshState.meshBase,
+      prepared.meshState.currentMeshInventoryTurtle,
+      "Could not parse MeshInventory while validating founding referent data.",
+    );
+    const selectedDesignatorPaths = selectValidationDesignatorPaths(
+      targets,
+      allDesignatorPaths,
+    );
+    const foundingFindings = await inspectFoundingReferentData({
+      meshRoot,
+      meshBase: prepared.meshState.meshBase,
+      designatorPaths: selectedDesignatorPaths,
+      requireSettledWorking: false,
+    });
+    const findings = [...publicationValidation.findings, ...foundingFindings];
+    status = findings.length > 0 ? "findings" : "succeeded";
     timing.setField(
       "validatedDesignatorPaths",
       prepared.plan.versionedDesignatorPaths.length,
     );
     timing.setField("createdFiles", prepared.plan.createdFiles.length);
     timing.setField("updatedFiles", prepared.plan.updatedFiles.length);
-    timing.setField("findings", publicationValidation.findings.length);
+    timing.setField("findings", findings.length);
 
     return {
       scope,
       meshBase: prepared.meshState.meshBase,
       knownDesignatorPathCount: prepared.knownDesignatorPathCount,
       validatedDesignatorPaths: prepared.plan.versionedDesignatorPaths,
-      findings: publicationValidation.findings,
+      findings,
     };
   } catch (error) {
     if (
@@ -295,6 +323,22 @@ export async function executeValidate(
     timing.finish({ status });
     await memoryStats?.finish();
   }
+}
+
+function selectValidationDesignatorPaths(
+  targets: readonly NormalizedTargetSpec[],
+  knownDesignatorPaths: readonly string[],
+): readonly string[] {
+  if (targets.length === 0) return knownDesignatorPaths;
+  return knownDesignatorPaths.filter((designatorPath) =>
+    targets.some((target) =>
+      target.recursive
+        ? target.designatorPath.length === 0 ||
+          designatorPath === target.designatorPath ||
+          designatorPath.startsWith(`${target.designatorPath}/`)
+        : designatorPath === target.designatorPath
+    )
+  );
 }
 
 function assertTargetsAreKnown(

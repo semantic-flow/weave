@@ -97,6 +97,10 @@ export function toReferenceCatalogPath(designatorPath: string): string {
   return appendMeshPath(toKnopPath(designatorPath), "_references");
 }
 
+export function toFoundingReferentDataPath(designatorPath: string): string {
+  return appendMeshPath(toKnopPath(designatorPath), "_founding");
+}
+
 export function toDesignatorResourcePagePath(designatorPath: string): string {
   return appendMeshPath(designatorPath, "index.html");
 }

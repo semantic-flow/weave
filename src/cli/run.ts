@@ -12,6 +12,7 @@ import {
 } from "../core/mesh/create.ts";
 import { PayloadUpdateInputError } from "../core/payload/update.ts";
 import { PayloadVersionIntentInputError } from "../core/payload/version_intent.ts";
+import { versionFoundingReferentData } from "../api/version_founding_referent_data.ts";
 import { normalizeCliDesignatorPath } from "../core/designator_segments.ts";
 import type { TargetSpec, VersionTargetSpec } from "../core/targeting.ts";
 import { WeaveInputError } from "../core/weave/weave.ts";
@@ -49,6 +50,8 @@ import {
   describeKnopCreateResult,
   executeKnopCreate,
   KnopCreateRuntimeError,
+  readFoundingDataVersionSource,
+  readKnopCreateFoundingDataSource,
 } from "../runtime/knop/create.ts";
 import {
   describeMeshCreateResult,
@@ -317,6 +320,7 @@ export async function runWeaveCli(args: string[]): Promise<number> {
         .description(
           "Version the current targeted resources without page generation.",
         )
+        .arguments("[designatorPath:string]")
         .option(
           "--mesh-root <meshRoot:string>",
           "Mesh root to version. Defaults to the current directory.",
@@ -347,6 +351,14 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           "--history-tracking-policy <policy:string>",
           "Override the history tracking policy for all artifact roles during this command.",
         )
+        .option(
+          "--artifact-role <role:string>",
+          "Select a narrow support-artifact version target.",
+        )
+        .option(
+          "--source <path:string>",
+          "Local corrected founding-data Turtle; valid only with --artifact-role founding-referent-data.",
+        )
         .action(async (
           options: {
             meshRoot: string;
@@ -356,7 +368,10 @@ export async function runWeaveCli(args: string[]): Promise<number> {
             payloadManifestationSegment?: string;
             overwriteExistingState?: boolean;
             historyTrackingPolicy?: string;
+            artifactRole?: string;
+            source?: string;
           },
+          designatorPath?: string,
         ) => {
           const meshRoot = resolve(options.meshRoot);
           const { workspaceRoot, logDir } = await resolveCliMeshContext(
@@ -365,7 +380,134 @@ export async function runWeaveCli(args: string[]): Promise<number> {
           const targets = resolveVersionTargetSpecs(options, "version");
           const historyTrackingPolicyOverride =
             resolveHistoryTrackingPolicyOption(options.historyTrackingPolicy);
-          const { auditLogger } = createRuntimeLoggers({ logDir });
+          const { operationalLogger, auditLogger } = createRuntimeLoggers({
+            logDir,
+          });
+
+          if (
+            options.artifactRole !== undefined ||
+            options.source !== undefined ||
+            designatorPath !== undefined
+          ) {
+            if (options.artifactRole !== "founding-referent-data") {
+              throw new WeaveInputError(
+                "weave version positional designator and --source require --artifact-role founding-referent-data",
+              );
+            }
+            if (designatorPath === undefined) {
+              throw new WeaveInputError(
+                "weave version --artifact-role founding-referent-data requires a positional designatorPath",
+              );
+            }
+            if (
+              targets.length > 0 ||
+              options.payloadHistorySegment !== undefined ||
+              options.payloadStateSegment !== undefined ||
+              options.payloadManifestationSegment !== undefined ||
+              options.overwriteExistingState === true ||
+              options.historyTrackingPolicy !== undefined
+            ) {
+              throw new WeaveInputError(
+                "founding referent data version does not accept payload targets, payload naming, overwrite, or history-policy options",
+              );
+            }
+            const normalizedDesignatorPath = resolveCliArgumentDesignatorPath(
+              designatorPath,
+              "founding referent data version requires a positional designatorPath",
+              "founding referent data version designatorPath",
+              (message) => new WeaveInputError(message),
+            );
+            const bytes = options.source === undefined
+              ? undefined
+              : await readFoundingDataVersionSource({
+                meshRoot,
+                designatorPath: normalizedDesignatorPath,
+                sourcePath: options.source,
+                commandWorkingDirectory: Deno.cwd(),
+              });
+            await auditLogger.command("version.foundingReferentData", {
+              meshRoot,
+              workspaceRoot,
+              designatorPath: normalizedDesignatorPath,
+              sourcePath: options.source,
+              localMode: true,
+            });
+            await operationalLogger.info(
+              "version.foundingReferentData.started",
+              "Founding referent data version started",
+              {
+                workspaceRoot,
+                meshRoot,
+                designatorPath: normalizedDesignatorPath,
+                sourcePath: options.source,
+              },
+            );
+            let foundingResult;
+            try {
+              foundingResult = await versionFoundingReferentData({
+                meshRoot,
+                designatorPath: normalizedDesignatorPath,
+                ...(bytes === undefined ? {} : { bytes }),
+              });
+            } catch (error) {
+              const message = getCliErrorMessage(error);
+              await operationalLogger.error(
+                "version.foundingReferentData.failed",
+                "Founding referent data version failed",
+                {
+                  workspaceRoot,
+                  meshRoot,
+                  designatorPath: normalizedDesignatorPath,
+                  sourcePath: options.source,
+                  error: message,
+                },
+              );
+              await auditLogger.record(
+                "version.foundingReferentData.failed",
+                "Founding referent data version failed",
+                {
+                  workspaceRoot,
+                  meshRoot,
+                  designatorPath: normalizedDesignatorPath,
+                  sourcePath: options.source,
+                  error: message,
+                },
+              );
+              throw error;
+            }
+            await operationalLogger.info(
+              "version.foundingReferentData.succeeded",
+              "Founding referent data version succeeded",
+              {
+                workspaceRoot,
+                meshRoot,
+                designatorPath: normalizedDesignatorPath,
+                stateIri: foundingResult.stateIri,
+                contentDigest: foundingResult.contentDigest,
+                createdPaths: foundingResult.createdPaths,
+                updatedPaths: foundingResult.updatedPaths,
+              },
+            );
+            await auditLogger.record(
+              "version.foundingReferentData.succeeded",
+              "Founding referent data version succeeded",
+              {
+                workspaceRoot,
+                meshRoot,
+                designatorPath: normalizedDesignatorPath,
+                stateIri: foundingResult.stateIri,
+                contentDigest: foundingResult.contentDigest,
+                createdPaths: foundingResult.createdPaths,
+                updatedPaths: foundingResult.updatedPaths,
+              },
+            );
+            console.log(
+              `Versioned founding referent data for ${foundingResult.designatorPath} as ${foundingResult.stateIri}.`,
+            );
+            for (const path of foundingResult.createdPaths) console.log(path);
+            for (const path of foundingResult.updatedPaths) console.log(path);
+            return;
+          }
 
           await auditLogger.command("version", {
             meshRoot,
@@ -1337,7 +1479,14 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               "Mesh root to update. Defaults to the current directory.",
               { default: "." },
             )
-            .action(async (options, designatorPath) => {
+            .option(
+              "--founding-data <path:string>",
+              "Local Turtle file containing bounded founding referent data.",
+            )
+            .action(async (
+              options: { meshRoot: string; foundingData?: string },
+              designatorPath,
+            ) => {
               const normalizedDesignatorPath = resolveCliArgumentDesignatorPath(
                 designatorPath,
                 "knop create requires a positional designatorPath",
@@ -1351,17 +1500,29 @@ export async function runWeaveCli(args: string[]): Promise<number> {
               const { operationalLogger, auditLogger } = createRuntimeLoggers({
                 logDir,
               });
+              const foundingData = options.foundingData === undefined
+                ? undefined
+                : await readKnopCreateFoundingDataSource({
+                  meshRoot,
+                  designatorPath: normalizedDesignatorPath,
+                  sourcePath: options.foundingData,
+                  commandWorkingDirectory: Deno.cwd(),
+                });
 
               await auditLogger.command("knop.create", {
                 meshRoot,
                 workspaceRoot,
                 designatorPath: normalizedDesignatorPath,
+                foundingDataSourcePath: options.foundingData,
                 localMode: true,
               });
 
               const result = await executeKnopCreate({
                 workspaceRoot: meshRoot,
-                request: { designatorPath: normalizedDesignatorPath },
+                request: {
+                  designatorPath: normalizedDesignatorPath,
+                  ...(foundingData === undefined ? {} : { foundingData }),
+                },
                 operationalLogger,
                 auditLogger,
               });
