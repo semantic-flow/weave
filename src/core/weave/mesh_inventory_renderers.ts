@@ -7,6 +7,11 @@ import {
   SFLO_TURTLE_PREFIX_DECLARATION,
 } from "../rdf/namespaces.ts";
 import { WeaveInputError } from "./errors.ts";
+import {
+  planInventoryAppend,
+  prepareCurrentInventory,
+  renderInventoryAppendPlan,
+} from "./inventory_append_planner.ts";
 import type { MeshInventoryProgression } from "./progression_models.ts";
 import { hasNamedNodeFact, parseWeaveShapeQuads } from "./rdf_helpers.ts";
 import {
@@ -16,7 +21,6 @@ import {
 import type { RepositorySourceFloatingLocator } from "./source_models.ts";
 import {
   findSubjectBlockIndex,
-  getSubjectPathFromBlock,
   normalizeMeshInventoryHeader,
   replaceSubjectBlock,
   splitTurtleBlocks,
@@ -25,6 +29,17 @@ import {
 
 const SFLO_HAS_KNOP_IRI = `${SFLO_NAMESPACE}hasKnop`;
 const SFLO_HAS_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}hasResourcePage`;
+const BATCHED_EXTRACTED_SINGLE_VALUED_PREDICATES = [
+  `${SFLO_NAMESPACE}currentArtifactHistory`,
+  `${SFLO_NAMESPACE}hasWorkingKnopInventoryFile`,
+  `${SFLO_NAMESPACE}hasWorkingLocatedFile`,
+  `${SFLO_NAMESPACE}historyOrdinal`,
+  `${SFLO_NAMESPACE}latestHistoricalState`,
+  `${SFLO_NAMESPACE}nextHistoryOrdinal`,
+  `${SFLO_NAMESPACE}nextStateOrdinal`,
+  `${SFLO_NAMESPACE}previousHistoricalState`,
+  `${SFLO_NAMESPACE}stateOrdinal`,
+] as const;
 
 export function renderFirstKnopWovenMeshInventoryTurtle(
   currentMeshInventoryTurtle: string,
@@ -366,7 +381,7 @@ export function renderBatchedFirstPayloadWovenMeshInventoryTurtle(
 
 export function renderBatchedFirstExtractedKnopWovenMeshInventoryTurtle(
   currentMeshInventoryTurtle: string,
-  _meshBase: string,
+  meshBase: string,
   designatorPaths: readonly string[],
   meshInventoryProgression: MeshInventoryProgression | undefined,
 ): string {
@@ -374,150 +389,93 @@ export function renderBatchedFirstExtractedKnopWovenMeshInventoryTurtle(
     left,
     right,
   ) => left.localeCompare(right));
-  let blocks = renderBatchedFirstExtractedKnopTargetBlocks(
-    currentMeshInventoryTurtle,
-    orderedDesignatorPaths,
-  );
-  if (meshInventoryProgression === undefined) {
-    return `${blocks.join("\n\n")}\n`;
-  }
-
-  const historyPath = meshInventoryProgression.historyPath;
-  const nextStatePath = meshInventoryProgression.nextStatePath;
-  const nextManifestationPath = `${nextStatePath}/ttl`;
-  blocks = replaceSubjectBlock(
-    blocks,
-    "_mesh/_inventory",
-    renderMeshInventoryArtifactBlock(historyPath),
-  );
-  blocks = replaceSubjectBlock(
-    blocks,
-    historyPath,
-    renderMeshInventoryHistoryBlock(
-      historyPath,
-      meshInventoryProgression.nextStateOrdinal,
-      nextStatePath,
-    ),
-  );
-  blocks = upsertSubjectBlockAfter(
-    blocks,
-    meshInventoryProgression.latestManifestationPath,
-    nextStatePath,
-    renderMeshInventoryStateBlock(
-      nextStatePath,
-      meshInventoryProgression.nextStateOrdinal,
-      meshInventoryProgression.latestStatePath,
-    ),
-  );
-  blocks = upsertSubjectBlockAfter(
-    blocks,
-    nextStatePath,
-    nextManifestationPath,
-    renderMeshInventoryStateManifestationBlock(nextStatePath),
-  );
-  blocks = upsertSubjectBlockAfter(
-    blocks,
-    `${meshInventoryProgression.latestManifestationPath}/inventory.ttl`,
-    `${nextManifestationPath}/inventory.ttl`,
-    renderLocatedFileBlock(`${nextManifestationPath}/inventory.ttl`),
-  );
-  blocks = upsertSubjectBlockAfter(
-    blocks,
-    `${meshInventoryProgression.latestManifestationPath}/index.html`,
-    `${nextStatePath}/index.html`,
-    renderResourcePageLocatedFileBlock(`${nextStatePath}/index.html`),
-  );
-  blocks = upsertSubjectBlockAfter(
-    blocks,
-    `${nextStatePath}/index.html`,
-    `${nextManifestationPath}/index.html`,
-    renderResourcePageLocatedFileBlock(`${nextManifestationPath}/index.html`),
-  );
-
-  return `${blocks.join("\n\n")}\n`;
-}
-
-function renderBatchedFirstExtractedKnopTargetBlocks(
-  currentMeshInventoryTurtle: string,
-  designatorPaths: readonly string[],
-): string[] {
-  const targetSubjectPaths = new Set<string>();
-  const meshMembershipBlockByKnopPath = new Map<string, string>();
-  for (const designatorPath of designatorPaths) {
-    const knopPath = toKnopPath(designatorPath);
-    targetSubjectPaths.add(designatorPath);
-    targetSubjectPaths.add(knopPath);
-    targetSubjectPaths.add(`${knopPath}/_inventory/inventory.ttl`);
-    targetSubjectPaths.add(toDesignatorResourcePagePath(designatorPath));
-    targetSubjectPaths.add(`${knopPath}/index.html`);
-    meshMembershipBlockByKnopPath.set(
-      knopPath,
-      `<_mesh> sflo:hasKnop <${knopPath}> .`,
+  const preparedCurrentInventory = prepareCurrentInventory({
+    baseIri: meshBase,
+    currentInventoryTurtle: currentMeshInventoryTurtle,
+    currentInventoryLabel: "current MeshInventory for extracted-Knop batch",
+  });
+  const plan = planInventoryAppend({
+    preparedCurrentInventory,
+    requestedSettledFactsTurtle:
+      renderBatchedFirstExtractedKnopRequestedFactsTurtle(
+        meshBase,
+        orderedDesignatorPaths,
+        meshInventoryProgression,
+      ),
+    singleValuedSettledPredicates: BATCHED_EXTRACTED_SINGLE_VALUED_PREDICATES,
+    currentInventoryLabel: "current MeshInventory for extracted-Knop batch",
+    requestedFactsLabel: "batched extracted-Knop MeshInventory facts",
+  });
+  if (plan.kind === "conflict") {
+    throw new WeaveInputError(
+      `Could not append batched extracted-Knop MeshInventory facts: ${
+        plan.conflicts.map((conflict) => conflict.message).join(" ")
+      }`,
     );
   }
-  const targetMeshMembershipBlocks = new Set(
-    meshMembershipBlockByKnopPath.values(),
-  );
-  const initialBlocks = normalizeMeshInventoryHeader(
-    splitTurtleBlocks(currentMeshInventoryTurtle),
-  );
-  const presentMeshMembershipBlocks = new Set(
-    initialBlocks.filter((block) => targetMeshMembershipBlocks.has(block)),
-  );
-  const blocks = initialBlocks.filter((block) => {
-    if (targetMeshMembershipBlocks.has(block)) {
-      return false;
-    }
-    const subjectPath = getSubjectPathFromBlock(block);
-    return subjectPath === undefined || !targetSubjectPaths.has(subjectPath);
-  });
-  const resourceBlocks: string[] = [];
-  const locatedFileBlocks: string[] = [];
-  const pageBlocks: string[] = [];
 
-  for (const designatorPath of designatorPaths) {
+  return renderInventoryAppendPlan({
+    preparedCurrentInventory,
+    plan,
+    outputLabel: "batched extracted-Knop MeshInventory append",
+  });
+}
+
+function renderBatchedFirstExtractedKnopRequestedFactsTurtle(
+  meshBase: string,
+  orderedDesignatorPaths: readonly string[],
+  meshInventoryProgression: MeshInventoryProgression | undefined,
+): string {
+  const blocks = orderedDesignatorPaths.flatMap((designatorPath) => {
     const knopPath = toKnopPath(designatorPath);
-    const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
-    const membershipBlock = meshMembershipBlockByKnopPath.get(knopPath)!;
-    if (presentMeshMembershipBlocks.has(membershipBlock)) {
-      resourceBlocks.push(membershipBlock);
-    }
-    resourceBlocks.push(
+    return [
       renderMeshIdentifierBlock(designatorPath),
       renderMeshKnopBlockWithResourcePage(knopPath),
-    );
-    locatedFileBlocks.push(
       renderLocatedFileBlock(`${knopPath}/_inventory/inventory.ttl`),
-    );
-    pageBlocks.push(
-      renderResourcePageLocatedFileBlock(designatorPagePath),
+      renderResourcePageLocatedFileBlock(
+        toDesignatorResourcePagePath(designatorPath),
+      ),
       renderResourcePageLocatedFileBlock(`${knopPath}/index.html`),
+    ];
+  });
+  if (meshInventoryProgression !== undefined) {
+    const historyPath = meshInventoryProgression.historyPath;
+    const nextStatePath = meshInventoryProgression.nextStatePath;
+    const nextManifestationPath = `${nextStatePath}/ttl`;
+    blocks.push(
+      renderMeshInventoryArtifactBlock(historyPath),
+      renderMeshInventoryHistoryBlock(
+        historyPath,
+        meshInventoryProgression.nextStateOrdinal,
+        nextStatePath,
+      ),
+      renderMeshInventoryStateBlock(
+        nextStatePath,
+        meshInventoryProgression.nextStateOrdinal,
+        meshInventoryProgression.latestStatePath,
+      ),
+      renderMeshInventoryStateManifestationBlock(nextStatePath),
+      renderLocatedFileBlock(`${nextManifestationPath}/inventory.ttl`),
+      renderResourcePageLocatedFileBlock(`${nextStatePath}/index.html`),
+      renderResourcePageLocatedFileBlock(
+        `${nextManifestationPath}/index.html`,
+      ),
     );
   }
 
-  insertBlocksAfterSubject(blocks, "_mesh", resourceBlocks);
-  insertBlocksAfterSubject(
-    blocks,
-    "_mesh/_inventory/inventory.ttl",
-    locatedFileBlocks,
-  );
-  insertBlocksAfterSubject(blocks, "_mesh/index.html", pageBlocks);
-  return blocks;
+  return `@base <${meshBase}> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+${blocks.join("\n\n")}
+`;
 }
 
-function insertBlocksAfterSubject(
-  blocks: string[],
-  anchorSubjectPath: string,
-  additions: readonly string[],
-): void {
-  const anchorIndex = findSubjectBlockIndex(blocks, anchorSubjectPath);
-  if (anchorIndex === -1) {
-    throw new WeaveInputError(
-      `Current mesh inventory did not contain anchor subject block <${anchorSubjectPath}>.`,
-    );
-  }
-  blocks.splice(anchorIndex + 1, 0, ...additions);
-}
+/*
+ * Batched extracted-term rendering intentionally has no block-replacement
+ * fallback. The append planner owns duplicate detection, conflict refusal,
+ * exact-prefix preservation, and compact suffix rendering for this path.
+ */
 
 export function renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle(
   currentMeshInventoryTurtle: string,
