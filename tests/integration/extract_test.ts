@@ -1,10 +1,13 @@
 import {
+  assert,
   assertEquals,
   assertFalse,
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
 import { dirname, join } from "@std/path";
+import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
+import { ExtractInputError } from "../../src/core/extract/extract.ts";
 import {
   renderHostLocalAccessProfileTurtle,
   renderUserSettingsTurtle,
@@ -34,6 +37,9 @@ import { createTestTmpDir } from "../support/test_tmp.ts";
 Deno.test("executeExtract matches the settled bob extracted fixture", async () => {
   const workspaceRoot = await createTestTmpDir("weave-extract-");
   await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
+  const initialMeshInventory = await Deno.readTextFile(
+    join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+  );
 
   const result = await executeExtract({
     workspaceRoot,
@@ -63,10 +69,26 @@ Deno.test("executeExtract matches the settled bob extracted fixture", async () =
     ],
   );
   assertEquals(result.updatedPaths, ["_mesh/_inventory/inventory.ttl"]);
+  const actualMeshInventory = await Deno.readTextFile(
+    join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+  );
+  assert(actualMeshInventory.startsWith(initialMeshInventory));
+  assertEquals(
+    await compareRdfContent({
+      left: new TextEncoder().encode(actualMeshInventory),
+      right: new TextEncoder().encode(
+        await readMeshAliceBioBranchFile(
+          "12-bob-extracted",
+          "_mesh/_inventory/inventory.ttl",
+        ),
+      ),
+      path: "_mesh/_inventory/inventory.ttl",
+    }),
+    true,
+  );
 
   for (
     const path of [
-      "_mesh/_inventory/inventory.ttl",
       "bob/_knop/_meta/meta.ttl",
       "alice-data.ttl",
       "alice/_knop/_inventory/inventory.ttl",
@@ -184,6 +206,37 @@ Deno.test("executeExtract hashes exact source bytes including a UTF-8 BOM", asyn
       )),
     ),
     "extract must not hash decoded and re-encoded text",
+  );
+});
+
+Deno.test("executeExtract writes nothing for a conflicting target inventory locator", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-extract-conflicting-inventory-",
+  );
+  await materializeMeshAliceBioBranch("11-alice-bio-v2-woven", workspaceRoot);
+  const inventoryPath = join(
+    workspaceRoot,
+    "_mesh/_inventory/inventory.ttl",
+  );
+  const conflictingInventory = `${await Deno.readTextFile(inventoryPath)}
+<bob/_knop> sflo:hasWorkingKnopInventoryFile <bob/_knop/_inventory/other.ttl> .
+`;
+  await Deno.writeTextFile(inventoryPath, conflictingInventory);
+
+  await assertRejects(
+    () =>
+      executeExtract({
+        workspaceRoot,
+        request: { designatorPath: "bob" },
+      }),
+    ExtractInputError,
+    "conflicts with existing fact",
+  );
+
+  assertEquals(await Deno.readTextFile(inventoryPath), conflictingInventory);
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, "bob")),
+    Deno.errors.NotFound,
   );
 });
 
@@ -720,6 +773,9 @@ Deno.test("executeExtract extracts selected sidecar ontology and SHACL terms wit
     "a.07-shacl-integrated-woven",
     workspaceRoot,
   );
+  const initialMeshInventory = await Deno.readTextFile(
+    join(workspaceRoot, "docs/_mesh/_inventory/inventory.ttl"),
+  );
 
   const extractRequests = [
     ["ontology/AbilityScore", "ontology"],
@@ -745,10 +801,26 @@ Deno.test("executeExtract extracts selected sidecar ontology and SHACL terms wit
     );
     assertEquals(result.updatedPaths, ["docs/_mesh/_inventory/inventory.ttl"]);
   }
+  const actualMeshInventory = await Deno.readTextFile(
+    join(workspaceRoot, "docs/_mesh/_inventory/inventory.ttl"),
+  );
+  assert(actualMeshInventory.startsWith(initialMeshInventory));
+  assertEquals(
+    await compareRdfContent({
+      left: new TextEncoder().encode(actualMeshInventory),
+      right: new TextEncoder().encode(
+        await readMeshSidecarFantasyRulesBranchFile(
+          "a.08-ontology-and-shacl-terms-extracted",
+          "docs/_mesh/_inventory/inventory.ttl",
+        ),
+      ),
+      path: "docs/_mesh/_inventory/inventory.ttl",
+    }),
+    true,
+  );
 
   for (
     const path of [
-      "docs/_mesh/_inventory/inventory.ttl",
       "docs/ontology/AbilityScore/_knop/_meta/meta.ttl",
       "docs/ontology/Alignment/_knop/_meta/meta.ttl",
       "docs/ontology/Character/_knop/_meta/meta.ttl",
