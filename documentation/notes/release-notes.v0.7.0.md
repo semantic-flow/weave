@@ -48,7 +48,7 @@ Three of the four changes are labeled `fix`, but the batch dispatch is a genuine
 ## Known Limitations
 
 - Extract→weave→generate at thousand-term nested-source scale still runs close to V8's ~4 GiB ceiling: a probe completed N=1,700 on the faithful nested-source shape at 3.79 GiB peak, with recursive planning and page generation dominating and extracted candidates never entering this release's batch path. Extending batching to extracted candidates is the open follow-up in `wa.task.2026.2026-08-02_1330-extracted-term-weave-batch-path`; downstream workarounds for extractor scale should stay in place.
-- Remaining first-payload planner blockers — current-mode extracted-term weave and condition-specific diagnostics replacing fixture-shaped errors — are unshipped, tracked in `wa.task.2026.2026-07-03_1332-stagecraft-weave-planner-generalization`.
+- Remaining first-payload planner blockers — current-mode extracted-term weave and condition-specific diagnostics replacing fixture-shaped errors — were unshipped at this release; the delivered planner work is now recorded in `wa.completed.2026.2026-07-03_1332-stagecraft-weave-planner-generalization`, with narrower residuals retained by `wa.task.2026.2026-05-04-refactor-planFirstPayloadWeave`.
 - Only one production renderer is on the append-only planner; general append-onlyish inventory semantics remain open work.
 
 ## Next
