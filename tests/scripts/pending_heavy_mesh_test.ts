@@ -39,6 +39,8 @@ import { createTestTmpDir } from "../support/test_tmp.ts";
 const repoRoot = fromFileUrl(new URL("../../", import.meta.url));
 const cliEntrypoint = join(repoRoot, "src/main.ts");
 const sfloHasResourcePageIri = `${SFLO_NAMESPACE}hasResourcePage`;
+const sfloHasWorkingKnopInventoryFileIri =
+  `${SFLO_NAMESPACE}hasWorkingKnopInventoryFile`;
 
 Deno.test("untargeted extracted candidates use one instrumented coherent batch and regenerate byte-stably", async () => {
   const meshRoot = await createTestTmpDir(
@@ -351,16 +353,67 @@ Deno.test("untargeted multi-candidate extracted batch restructures a current-onl
     meshInventory,
   );
   assertEquals(meshInventory.includes("_mesh/_inventory/_history"), false);
+  const meshState = await loadMeshState(meshRoot);
+  const meshInventoryQuads = parseWeaveShapeQuads(
+    meshState.meshBase,
+    meshInventory,
+    "Could not parse current-only extracted batch MeshInventory.",
+  );
   for (const designatorPath of generated.extractedDesignatorPaths) {
     assert(
-      meshInventory.includes(
-        `<${designatorPath}/_knop> a sflo:Knop ;
-  sflo:hasWorkingKnopInventoryFile <${designatorPath}/_knop/_inventory/inventory.ttl> ;
-  sflo:hasResourcePage <${designatorPath}/_knop/index.html> .`,
+      hasNamedNodeFact(
+        meshInventoryQuads,
+        meshState.meshBase,
+        `${designatorPath}/_knop`,
+        sfloHasWorkingKnopInventoryFileIri,
+        `${designatorPath}/_knop/_inventory/inventory.ttl`,
       ),
-      `Missing restructured current-only Knop block for ${designatorPath}.`,
+      `Missing current-only Knop inventory locator for ${designatorPath}.`,
+    );
+    assert(
+      hasNamedNodeFact(
+        meshInventoryQuads,
+        meshState.meshBase,
+        `${designatorPath}/_knop`,
+        sfloHasResourcePageIri,
+        `${designatorPath}/_knop/index.html`,
+      ),
+      `Missing current-only Knop page claim for ${designatorPath}.`,
     );
   }
+});
+
+Deno.test("untargeted extracted batch conflict writes no files and preserves MeshInventory bytes", async () => {
+  const meshRoot = await createTestTmpDir(
+    "weave-pending-heavy-extracted-batch-conflict-",
+  );
+  await generatePendingHeavyMesh({
+    outputPath: meshRoot,
+    count: 2,
+    meshInventoryHistoryPolicy: "current-only",
+    sourceDesignatorPath: "catalog/source",
+  });
+  const inventoryPath = join(meshRoot, "_mesh/_inventory/inventory.ttl");
+  const currentInventory = await Deno.readTextFile(inventoryPath);
+  const conflictingInventory = currentInventory.replace(
+    "<term-000001/_knop/_inventory/inventory.ttl> .",
+    "<term-000001/_knop/_inventory/other.ttl> .",
+  );
+  assert(conflictingInventory !== currentInventory);
+  await Deno.writeTextFile(inventoryPath, conflictingInventory);
+  const workspaceDigestsBefore = await digestWorkspaceFiles(meshRoot);
+
+  await assertRejects(
+    () => executeVersion({ meshRoot }),
+    Error,
+    "Requested settled inventory fact",
+  );
+
+  assertEquals(await Deno.readTextFile(inventoryPath), conflictingInventory);
+  assertEquals(
+    await digestWorkspaceFiles(meshRoot),
+    workspaceDigestsBefore,
+  );
 });
 
 Deno.test("mixed and recursive extracted candidate sets retain sequential planning", async () => {

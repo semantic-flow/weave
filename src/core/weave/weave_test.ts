@@ -8,6 +8,8 @@ import {
 import { compareRdfContent } from "../../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import { planExtract } from "../extract/extract.ts";
 import { planKnopCreate } from "../knop/create.ts";
+import { SFLO_NAMESPACE } from "../rdf/namespaces.ts";
+import { hasNamedNodeFact, parseWeaveShapeQuads } from "./rdf_helpers.ts";
 import {
   detectPendingWeaveSlice,
   planCoherentPayloadBatchVersion,
@@ -4049,7 +4051,8 @@ Deno.test("planWeave derives a sequential MeshInventory history index through a 
 });
 
 Deno.test("planWeave batches reverse-order untargeted extracted Knops with one canonical MeshInventory progression", async () => {
-  const plan = planWeave(await createExtractedBobAndCarolBatchInput());
+  const input = await createExtractedBobAndCarolBatchInput();
+  const plan = planWeave(input);
 
   assertEquals(plan.wovenDesignatorPaths, ["bob", "carol"]);
   assertEquals(
@@ -4089,18 +4092,46 @@ Deno.test("planWeave batches reverse-order untargeted extracted Knops with one c
     plan.updatedFiles.find((file) =>
       file.path === "_mesh/_inventory/inventory.ttl"
     )?.contents ?? "";
-  const bobIndex = meshInventory.indexOf("<bob>\n");
-  const carolIndex = meshInventory.indexOf("<carol>\n");
-  assert(bobIndex >= 0, meshInventory);
-  assert(carolIndex > bobIndex, meshInventory);
+  assert(meshInventory.startsWith(input.currentMeshInventoryTurtle));
+  const appendedInventory = meshInventory.slice(
+    input.currentMeshInventoryTurtle.length,
+  );
+  const bobIndex = appendedInventory.indexOf("<bob>");
+  const carolIndex = appendedInventory.indexOf("<carol>");
+  assert(bobIndex >= 0, appendedInventory);
+  assert(carolIndex > bobIndex, appendedInventory);
+  const meshInventoryQuads = parseWeaveShapeQuads(
+    input.meshBase,
+    meshInventory,
+    "Could not parse batched extracted MeshInventory test output.",
+  );
   for (const designatorPath of ["bob", "carol"]) {
-    assertStringIncludes(
-      meshInventory,
-      `<${designatorPath}>\n  sflo:hasResourcePage <${designatorPath}/index.html> .`,
+    assert(
+      hasNamedNodeFact(
+        meshInventoryQuads,
+        input.meshBase,
+        designatorPath,
+        `${SFLO_NAMESPACE}hasResourcePage`,
+        `${designatorPath}/index.html`,
+      ),
     );
-    assertStringIncludes(
-      meshInventory,
-      `<${designatorPath}/_knop> a sflo:Knop ;\n  sflo:hasWorkingKnopInventoryFile <${designatorPath}/_knop/_inventory/inventory.ttl> ;\n  sflo:hasResourcePage <${designatorPath}/_knop/index.html> .`,
+    assert(
+      hasNamedNodeFact(
+        meshInventoryQuads,
+        input.meshBase,
+        `${designatorPath}/_knop`,
+        `${SFLO_NAMESPACE}hasWorkingKnopInventoryFile`,
+        `${designatorPath}/_knop/_inventory/inventory.ttl`,
+      ),
+    );
+    assert(
+      hasNamedNodeFact(
+        meshInventoryQuads,
+        input.meshBase,
+        `${designatorPath}/_knop`,
+        `${SFLO_NAMESPACE}hasResourcePage`,
+        `${designatorPath}/_knop/index.html`,
+      ),
     );
   }
 });
