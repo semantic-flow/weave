@@ -1,4 +1,5 @@
 import {
+  assert,
   assertEquals,
   assertFalse,
   assertStringIncludes,
@@ -6,7 +7,11 @@ import {
 } from "@std/assert";
 import { compareRdfContent } from "../../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import { readMeshAliceBioBranchFile } from "../../../tests/support/mesh_alice_bio_fixture.ts";
-import { ExtractInputError, planExtract } from "./extract.ts";
+import {
+  ExtractInputError,
+  planExtract,
+  renderCurrentShapeExtractMeshInventoryTurtle,
+} from "./extract.ts";
 import { KnopCreateInputError } from "../knop/create.ts";
 
 const rootSourcePreExtractMeshInventoryTurtle =
@@ -241,10 +246,9 @@ Deno.test("planExtract accepts a root source payload when the root and source kn
   );
 });
 
-Deno.test("planExtract accepts floating repository source payloads in mesh inventory", () => {
-  const plan = planExtract({
-    meshBase: "https://semantic-flow.github.io/sflo/",
-    currentMeshInventoryTurtle: `@base <https://semantic-flow.github.io/sflo/> .
+Deno.test("planExtract accepts floating repository source payloads in mesh inventory", async () => {
+  const currentMeshInventoryTurtle =
+    `@base <https://semantic-flow.github.io/sflo/> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
@@ -265,7 +269,10 @@ Deno.test("planExtract accepts floating repository source payloads in mesh inven
   sflo:hasWorkingKnopInventoryFile <ontology/_knop/_inventory/inventory.ttl> .
 
 <_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument .
-`,
+`;
+  const plan = planExtract({
+    meshBase: "https://semantic-flow.github.io/sflo/",
+    currentMeshInventoryTurtle,
     designatorPath: "ontology/ArtifactHistory",
     sourceDesignatorPath: "ontology",
     sourceWorkingLocalRelativePath: "semantic-flow-core-ontology.ttl",
@@ -275,13 +282,87 @@ Deno.test("planExtract accepts floating repository source payloads in mesh inven
     plan.updatedFiles.map((file) => file.path),
     ["_mesh/_inventory/inventory.ttl"],
   );
-  assertStringIncludes(
-    plan.updatedFiles[0]?.contents ?? "",
-    "<_mesh> sflo:hasKnop <ontology/ArtifactHistory/_knop> .",
+  assertEquals(
+    await compareRdfContent({
+      left: encode(plan.updatedFiles[0]?.contents ?? ""),
+      right: encode(`${currentMeshInventoryTurtle}
+@base <https://semantic-flow.github.io/sflo/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<_mesh> sflo:hasKnop <ontology/ArtifactHistory/_knop> .
+
+<ontology/ArtifactHistory/_knop> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <ontology/ArtifactHistory/_knop/_inventory/inventory.ttl> .
+
+<ontology/ArtifactHistory/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+`),
+      path: "_mesh/_inventory/inventory.ttl",
+    }),
+    true,
   );
   assertStringIncludes(
     plan.createdFiles[2]?.contents ?? "",
     "sflo:hasArtifactResolutionMode <https://semantic-flow.github.io/sflo/ontology/artifactResolutionMode_working> .",
+  );
+});
+
+Deno.test("planExtract current-shape MeshInventory preserves the exact carried prefix", () => {
+  const currentMeshInventoryTurtle = `${floatingSourceMeshInventoryTurtle()}  `;
+  const plan = planExtract({
+    meshBase: "https://semantic-flow.github.io/sflo/",
+    currentMeshInventoryTurtle,
+    designatorPath: "ontology/ArtifactHistory",
+    sourceDesignatorPath: "ontology",
+    sourceWorkingLocalRelativePath: "semantic-flow-core-ontology.ttl",
+  });
+
+  assert(
+    (plan.updatedFiles[0]?.contents ?? "").startsWith(
+      currentMeshInventoryTurtle,
+    ),
+  );
+});
+
+Deno.test("planExtract current-shape MeshInventory rejects a conflicting target inventory locator", () => {
+  const currentMeshInventoryTurtle = `${floatingSourceMeshInventoryTurtle()}
+
+<ontology/ArtifactHistory/_knop> sflo:hasWorkingKnopInventoryFile <ontology/ArtifactHistory/_knop/_inventory/other.ttl> .
+`;
+
+  const error = assertThrows(
+    () =>
+      planExtract({
+        meshBase: "https://semantic-flow.github.io/sflo/",
+        currentMeshInventoryTurtle,
+        designatorPath: "ontology/ArtifactHistory",
+        sourceDesignatorPath: "ontology",
+        sourceWorkingLocalRelativePath: "semantic-flow-core-ontology.ttl",
+      }),
+    ExtractInputError,
+  );
+
+  assertStringIncludes(error.message, "Requested settled inventory fact");
+  assertStringIncludes(error.message, "conflicts with existing fact");
+  assertStringIncludes(error.message, "other.ttl");
+});
+
+Deno.test("current-shape extract MeshInventory renderer no-op preserves exact bytes", () => {
+  const plan = planExtract({
+    meshBase: "https://semantic-flow.github.io/sflo/",
+    currentMeshInventoryTurtle: floatingSourceMeshInventoryTurtle(),
+    designatorPath: "ontology/ArtifactHistory",
+    sourceDesignatorPath: "ontology",
+    sourceWorkingLocalRelativePath: "semantic-flow-core-ontology.ttl",
+  });
+  const wovenInventory = plan.updatedFiles[0]!.contents;
+
+  assertEquals(
+    renderCurrentShapeExtractMeshInventoryTurtle(
+      "https://semantic-flow.github.io/sflo/",
+      wovenInventory,
+      "ontology/ArtifactHistory",
+    ),
+    wovenInventory,
   );
 });
 
@@ -401,6 +482,34 @@ function withRdfPrefix(turtle: string): string {
     `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .`,
   );
+}
+
+function floatingSourceMeshInventoryTurtle(): string {
+  return `@base <https://semantic-flow.github.io/sflo/> .
+@prefix ex: <https://example.org/weave-test/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Curated source payload context must remain byte-identical.
+<_mesh> a sflo:SemanticMesh ;
+  sflo:meshBase "https://semantic-flow.github.io/sflo/"^^xsd:anyURI ;
+  sflo:hasMeshMetadata <_mesh/_meta> ;
+  sflo:hasMeshInventory <_mesh/_inventory> ;
+  sflo:hasKnop <ontology/_knop> .
+
+<ontology> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasRepositorySourceFloatingLocator [
+    a sflo:RepositorySourceFloatingLocator ;
+    sflo:sourceRepositoryUrl "https://github.com/semantic-flow/sflo.git" ;
+    sflo:sourceRepositoryPathFromRoot "semantic-flow-core-ontology.ttl"
+  ] ;
+  ex:curatedNote "preserve source context" .
+
+<ontology/_knop> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <ontology/_knop/_inventory/inventory.ttl> .
+
+<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument .
+`;
 }
 
 function countOccurrences(haystack: string, needle: string): number {

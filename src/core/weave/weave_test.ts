@@ -4660,51 +4660,32 @@ Deno.test("planWeave accepts an extracted root identifier sourced from an alread
 
 Deno.test("planWeave preserves unrelated mesh inventory blocks during extracted bob weave", async () => {
   const input = await createExtractedBobWeaveInput();
-  input.currentMeshInventoryTurtle = input.currentMeshInventoryTurtle
-    .replace(
-      "  sflo:hasKnop <bob/_knop> ;\n  sflo:hasResourcePage <_mesh/index.html> .",
-      "  sflo:hasKnop <bob/_knop> ;\n  sflo:hasKnop <carol/_knop> ;\n  sflo:hasResourcePage <_mesh/index.html> .",
-    )
-    .replace(
-      `<alice/data/_knop> a sflo:Knop ;
-  sflo:hasWorkingKnopInventoryFile <alice/data/_knop/_inventory/inventory.ttl> ;
-  sflo:hasResourcePage <alice/data/_knop/index.html> .`,
-      `<alice/data/_knop> a sflo:Knop ;
-  sflo:hasWorkingKnopInventoryFile <alice/data/_knop/_inventory/inventory.ttl> ;
-  sflo:hasResourcePage <alice/data/_knop/index.html> .
+  input.currentMeshInventoryTurtle += `
+@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
-<carol>
-  sflo:hasResourcePage <carol/index.html> .
+<_mesh> sflo:hasKnop <carol/_knop> .
+
+<carol> sflo:hasResourcePage <carol/index.html> .
 
 <carol/_knop> a sflo:Knop ;
   sflo:hasWorkingKnopInventoryFile <carol/_knop/_inventory/inventory.ttl> ;
-  sflo:hasResourcePage <carol/_knop/index.html> .`,
-    )
-    .replace(
-      `<alice-data.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<_mesh> sflo:hasKnop <bob/_knop> .`,
-      `<alice-data.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+  sflo:hasResourcePage <carol/_knop/index.html> .
 
 <carol/_knop/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
-
-<_mesh> sflo:hasKnop <bob/_knop> .`,
-    )
-    .replace(
-      `<alice/data/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_meta/index.html> a sflo:ResourcePage, sflo:LocatedFile .`,
-      `<alice/data/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <carol/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <carol/_knop/index.html> a sflo:ResourcePage, sflo:LocatedFile .
-
-<_mesh/_meta/index.html> a sflo:ResourcePage, sflo:LocatedFile .`,
-    );
+`;
 
   const plan = planWeave(input);
 
+  assert(
+    (plan.updatedFiles[0]?.contents ?? "").startsWith(
+      input.currentMeshInventoryTurtle,
+    ),
+  );
   assertStringIncludes(
     plan.updatedFiles[0]?.contents ?? "",
     `<carol/_knop> a sflo:Knop ;

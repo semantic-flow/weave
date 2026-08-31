@@ -15,6 +15,11 @@ import {
 import { isCanonicalContentDigest } from "../rdf/content_digest.ts";
 import { escapeTurtleString } from "../rdf/turtle.ts";
 import { normalizeXsdDateTimeLiteral } from "../rdf/xsd_literals.ts";
+import {
+  planInventoryAppend,
+  prepareCurrentInventory,
+  renderInventoryAppendPlan,
+} from "../weave/inventory_append_planner.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const XSD_ANY_URI_IRI = "http://www.w3.org/2001/XMLSchema#anyURI";
@@ -391,19 +396,21 @@ function renderExtractMeshInventoryTurtle(
     );
   }
 
-  return appendExtractMeshInventoryTurtle(
+  return renderCurrentShapeExtractMeshInventoryTurtle(
+    meshBase,
     currentMeshInventoryTurtle,
     designatorPath,
   );
 }
 
-function appendExtractMeshInventoryTurtle(
+export function renderCurrentShapeExtractMeshInventoryTurtle(
+  meshBase: string,
   currentMeshInventoryTurtle: string,
   designatorPath: string,
 ): string {
   const knopPath = toKnopPath(designatorPath);
-
-  return `${currentMeshInventoryTurtle.trimEnd()}
+  const requestedSettledFactsTurtle = `@base <${meshBase}> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <_mesh> sflo:hasKnop <${knopPath}> .
 
@@ -412,6 +419,35 @@ function appendExtractMeshInventoryTurtle(
 
 <${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
 `;
+  const preparedCurrentInventory = prepareCurrentInventory({
+    baseIri: meshBase,
+    currentInventoryTurtle: currentMeshInventoryTurtle,
+    currentInventoryLabel:
+      `current MeshInventory for extract ${designatorPath}`,
+  });
+  const plan = planInventoryAppend({
+    preparedCurrentInventory,
+    requestedSettledFactsTurtle,
+    singleValuedSettledPredicates: [
+      SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI,
+    ],
+    currentInventoryLabel:
+      `current MeshInventory for extract ${designatorPath}`,
+    requestedFactsLabel: `extract MeshInventory facts for ${designatorPath}`,
+  });
+  if (plan.kind === "conflict") {
+    throw new ExtractInputError(
+      `Could not append extract MeshInventory facts for ${designatorPath}: ${
+        plan.conflicts.map((conflict) => conflict.message).join(" ")
+      }`,
+    );
+  }
+
+  return renderInventoryAppendPlan({
+    preparedCurrentInventory,
+    plan,
+    outputLabel: `extract MeshInventory append for ${designatorPath}`,
+  });
 }
 
 function renderLegacyExtractMeshInventoryTurtle(
