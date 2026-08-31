@@ -33,7 +33,7 @@ Entries below the marker keep the older long form. They are historical and are n
 - 2026-08-06 — Renaming a note no longer breaks anything that cited it: renames supersede rather than move, so old URLs keep resolving and every prior citation stays valid, including exact-state ones. → [[wa.task.2026.2026-08-06_0949-knop-supersession-and-rename]]
 - 2026-08-06 — `weave supersede` records a rename; `weave rename` also moves the file. Weave cannot infer a rename, so it has to be told. → [[wa.task.2026.2026-08-06_0949-knop-supersession-and-rename]]
 - 2026-08-06 — Notes get readable URLs derived from their filename, with a durable `id` recorded so a rename can still be traced back. → [[wa.task.2026.2026-08-06_0854-markdown-site-pipeline]]
-- 2026-08-06 — Published states can be corrected or removed, because PII exposure has to be fixable. Integrity checking therefore promises current byte-consistency, never immutability. → [[wa.task.2026.2026-05-04-fingerprint-verification]], [[wa.task.2026.2026-05-17-append-onlyish-inventory]]
+- 2026-08-06 — Published states can be corrected or removed, because PII exposure has to be fixable. Integrity checking therefore promises current byte-consistency, never immutability. → [[wa.task.2026.2026-05-04-fingerprint-verification]], [[wa.plan.2026.2026-05-17-append-onlyish-inventory]]
 - 2026-08-06 — Fingerprint verification and embedded RDF both wait for a real consumer instead of shipping on principle; each gap is real, neither is asked for. → [[wa.task.2026.2026-05-04-fingerprint-verification]], [[wa.task.2026.2026-06-12-rdfa-and-jsonld-support]]
 - 2026-08-06 — The Markdown pipeline starts narrow: three wikilink forms, disabled links for missing targets, and conversation transcripts private unless opted in. → [[wa.task.2026.2026-08-06_0854-markdown-site-pipeline]]
 - 2026-08-06 — A superseded resource and its replacement each say so in their own file, so a reader of either one can follow the link without scanning the mesh. → [[wa.task.2026.2026-08-06_0949-knop-supersession-and-rename]]
@@ -110,7 +110,7 @@ Entries below the marker keep the older long form. They are historical and are n
 ### 2026-07-06: Application Owns Payload Batch Atomicity
 
 - Decision: Multi-target payload advancement is a fail-closed deterministic Weave plan, not a transactional filesystem boundary; the requesting application owns coherent serialization, locking, rollback, and retry orchestration.
-- References: [[wa.completed.2026.2026-07-05-multi-target-payload-advancement]], [[wa.task.2026.2026-07-03_1332-stagecraft-weave-planner-generalization]], [[wd.todo]]
+- References: [[wa.completed.2026.2026-07-05-multi-target-payload-advancement]], [[wa.completed.2026.2026-07-03_1332-stagecraft-weave-planner-generalization]], [[wd.todo]]
 - Why:
   - The application is the coherent writer for game/session state and can re-request the weave after a process or filesystem failure.
   - Weave's useful guarantee is that a requested batch validates as a whole before writing, renders shared support artifacts once, and safely no-ops already-current payloads on rerun.
@@ -128,7 +128,7 @@ Entries below the marker keep the older long form. They are historical and are n
 ### 2026-07-06: Later Payload Weave Uses RDF Fact Progression
 
 - Decision: Generalize the later-payload weave path so single-target payload advancement derives current history, latest state, next state ordinal, and current-only support-artifact behavior from current RDF facts instead of requiring the settled second-payload fixture shape.
-- References: [[wa.task.2026.2026-07-03_1332-stagecraft-weave-planner-generalization]], [[wd.todo]]
+- References: [[wa.completed.2026.2026-07-03_1332-stagecraft-weave-planner-generalization]], [[wd.todo]]
 - Why:
   - Application meshes can already have `_history001/_s0003` or later payload states while intentionally keeping Knop support artifacts current-only.
   - `weave generate` must remain render-only; full `weave` is the operation that should advance coherent payload histories.
