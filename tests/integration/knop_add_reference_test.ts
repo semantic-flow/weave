@@ -1,5 +1,7 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { join } from "@std/path";
+import { Parser, type Quad, type Term } from "n3";
+import { KnopAddReferenceInputError } from "../../src/core/knop/add_reference.ts";
 import {
   executeKnopAddReference,
   KnopAddReferenceRuntimeError,
@@ -23,6 +25,11 @@ Deno.test("executeKnopAddReference matches the settled alice-bio referenced fixt
     "07-alice-bio-integrated-woven",
     workspaceRoot,
   );
+  const inventoryPath = join(
+    workspaceRoot,
+    "alice/_knop/_inventory/inventory.ttl",
+  );
+  const inventoryBefore = await Deno.readTextFile(inventoryPath);
 
   const result = await executeKnopAddReference({
     workspaceRoot,
@@ -56,10 +63,10 @@ Deno.test("executeKnopAddReference matches the settled alice-bio referenced fixt
       "alice/_knop/_references/references.ttl",
     ),
   );
-  assertEquals(
-    await Deno.readTextFile(
-      join(workspaceRoot, "alice/_knop/_inventory/inventory.ttl"),
-    ),
+  const inventoryAfter = await Deno.readTextFile(inventoryPath);
+  assertEquals(inventoryAfter.startsWith(inventoryBefore), true);
+  assertTurtleGraphsEqual(
+    inventoryAfter,
     await readMeshAliceBioBranchFile(
       "08-alice-bio-referenced",
       "alice/_knop/_inventory/inventory.ttl",
@@ -156,6 +163,46 @@ Deno.test("executeKnopAddReference fails closed when the reference catalog worki
       }),
     KnopAddReferenceRuntimeError,
     "already exists",
+  );
+});
+
+Deno.test("executeKnopAddReference writes nothing on a conflicting carried ReferenceCatalog locator", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-knop-add-reference-conflicting-inventory-",
+  );
+  await materializeMeshAliceBioBranch(
+    "07-alice-bio-integrated-woven",
+    workspaceRoot,
+  );
+  const inventoryPath = join(
+    workspaceRoot,
+    "alice/_knop/_inventory/inventory.ttl",
+  );
+  const currentInventory = await Deno.readTextFile(inventoryPath);
+  const conflictingInventory = `${currentInventory.trimEnd()}
+
+<alice/_knop/_references> sflo:hasWorkingLocatedFile <alice/_knop/_references/other.ttl> .
+`;
+  await Deno.writeTextFile(inventoryPath, conflictingInventory);
+
+  await assertRejects(
+    () =>
+      executeKnopAddReference({
+        workspaceRoot,
+        request: {
+          designatorPath: "alice",
+          referenceTargetDesignatorPath: "alice/data",
+          referenceRole: "canonical",
+        },
+      }),
+    KnopAddReferenceInputError,
+    "conflicts with existing fact",
+  );
+
+  assertEquals(await Deno.readTextFile(inventoryPath), conflictingInventory);
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, "alice/_knop/_references")),
+    Deno.errors.NotFound,
   );
 });
 
@@ -321,3 +368,25 @@ Deno.test("executeKnopAddReference accepts semantically equivalent mesh metadata
   assertEquals(result.meshBase, MESH_ALICE_BIO_BASE);
   assertEquals(result.createdPaths, ["alice/_knop/_references/references.ttl"]);
 });
+
+function assertTurtleGraphsEqual(actual: string, expected: string): void {
+  assertEquals(toQuadKeys(actual), toQuadKeys(expected));
+}
+
+function toQuadKeys(turtle: string): string[] {
+  return new Parser({ baseIRI: MESH_ALICE_BIO_BASE }).parse(turtle).map(
+    (quad: Quad) =>
+      [quad.subject, quad.predicate, quad.object, quad.graph]
+        .map(toTermKey)
+        .join("|"),
+  ).sort();
+}
+
+function toTermKey(term: Term): string {
+  if (term.termType === "Literal") {
+    return [term.termType, term.value, term.language, term.datatype.value].join(
+      ":",
+    );
+  }
+  return `${term.termType}:${term.value}`;
+}

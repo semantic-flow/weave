@@ -1,4 +1,3 @@
-import { Parser } from "n3";
 import type { Quad } from "n3";
 import type { PlannedFile } from "../planned_file.ts";
 import {
@@ -11,6 +10,11 @@ import {
   SFLO_TURTLE_PREFIX_DECLARATION,
 } from "../rdf/namespaces.ts";
 import { WeaveInputError } from "../weave/errors.ts";
+import {
+  planInventoryAppend,
+  prepareCurrentInventory,
+  renderInventoryAppendPlan,
+} from "../weave/inventory_append_planner.ts";
 import { renderKnopInventoryWithPreservedSupportArtifacts } from "../weave/knop_support_renderers.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
@@ -50,6 +54,20 @@ const SFLO_RDF_DOCUMENT_IRI = `${SFLO_NAMESPACE}RdfDocument`;
 const SFLO_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}ReferenceCatalog`;
 const SFLO_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}ResourcePage`;
 const SFLO_STATE_ORDINAL_IRI = `${SFLO_NAMESPACE}stateOrdinal`;
+
+const ADD_REFERENCE_SINGLE_VALUED_PREDICATES = [
+  SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
+  SFLO_HAS_KNOP_INVENTORY_IRI,
+  SFLO_HAS_KNOP_METADATA_IRI,
+  SFLO_HAS_REFERENCE_CATALOG_IRI,
+  SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI,
+  SFLO_HAS_WORKING_LOCATED_FILE_IRI,
+  SFLO_HISTORY_ORDINAL_IRI,
+  SFLO_LATEST_HISTORICAL_STATE_IRI,
+  SFLO_NEXT_HISTORY_ORDINAL_IRI,
+  SFLO_NEXT_STATE_ORDINAL_IRI,
+  SFLO_STATE_ORDINAL_IRI,
+] as const;
 
 const referenceRoleIriByToken = {
   canonical: `${SFLO_NAMESPACE}referenceRole_canonical`,
@@ -283,26 +301,53 @@ function renderUpdatedKnopInventoryTurtle(
   currentKnopInventoryTurtle: string,
   knopPath: string,
 ): string {
-  const shape = classifyCurrentKnopInventoryShape(
-    meshBase,
-    currentKnopInventoryTurtle,
-    knopPath,
-  );
-  const rendered = shape === "woven"
-    ? renderWovenKnopInventoryWithReferenceCatalog(meshBase, knopPath)
-    : shape === "currentOnlyWoven"
-    ? renderCurrentOnlyWovenKnopInventoryWithReferenceCatalog(
-      meshBase,
-      knopPath,
-    )
-    : renderUnwovenKnopInventoryWithReferenceCatalog(meshBase, knopPath);
-
   try {
-    return renderKnopInventoryWithPreservedSupportArtifacts({
+    const preparedCurrentInventory = prepareCurrentInventory({
+      baseIri: meshBase,
+      currentInventoryTurtle: currentKnopInventoryTurtle,
+      currentInventoryLabel: `current KnopInventory for ${knopPath}`,
+    });
+    const shape = classifyCurrentKnopInventoryShape(
+      meshBase,
+      preparedCurrentInventory.quads,
+      knopPath,
+    );
+    const renderedInventoryTurtle = shape === "woven"
+      ? renderWovenKnopInventoryWithReferenceCatalog(meshBase, knopPath)
+      : shape === "currentOnlyWoven"
+      ? renderCurrentOnlyWovenKnopInventoryWithReferenceCatalog(
+        meshBase,
+        knopPath,
+      )
+      : renderUnwovenKnopInventoryWithReferenceCatalog(meshBase, knopPath);
+    // Keep the existing support-family consistency checks, but never use the
+    // canonical replacement bytes they return as this operation's output.
+    renderKnopInventoryWithPreservedSupportArtifacts({
       meshBase,
       currentKnopInventoryTurtle,
-      renderedKnopInventoryTurtle: rendered,
+      renderedKnopInventoryTurtle: renderedInventoryTurtle,
       knopPath,
+    });
+
+    const plan = planInventoryAppend({
+      preparedCurrentInventory,
+      requestedSettledFactsTurtle: renderedInventoryTurtle,
+      singleValuedSettledPredicates: ADD_REFERENCE_SINGLE_VALUED_PREDICATES,
+      currentInventoryLabel: `current KnopInventory for ${knopPath}`,
+      requestedFactsLabel: `first ReferenceCatalog facts for ${knopPath}`,
+    });
+    if (plan.kind === "conflict") {
+      throw new WeaveInputError(
+        `Could not append first ReferenceCatalog inventory facts for ${knopPath}: ${
+          plan.conflicts.map((conflict) => conflict.message).join(" ")
+        }`,
+      );
+    }
+
+    return renderInventoryAppendPlan({
+      preparedCurrentInventory,
+      plan,
+      outputLabel: `first ReferenceCatalog inventory append for ${knopPath}`,
     });
   } catch (error) {
     if (error instanceof WeaveInputError) {
@@ -314,17 +359,12 @@ function renderUpdatedKnopInventoryTurtle(
 
 function classifyCurrentKnopInventoryShape(
   meshBase: string,
-  currentKnopInventoryTurtle: string,
+  quads: readonly Quad[],
   knopPath: string,
 ): KnopInventoryShape {
   const referenceCatalogPath = `${knopPath}/_references`;
   const shapeErrorMessage =
     `current knop inventory has an unsupported carried shape for ${knopPath}`;
-  const quads = parseKnopInventoryQuads(
-    meshBase,
-    currentKnopInventoryTurtle,
-    shapeErrorMessage,
-  );
 
   if (
     !hasNamedNodeFact(
@@ -1048,16 +1088,4 @@ function hasPredicateForSubject(
     quad.subject.value === subjectIri &&
     quad.predicate.value === predicateIri
   );
-}
-
-function parseKnopInventoryQuads(
-  meshBase: string,
-  turtle: string,
-  errorMessage: string,
-): Quad[] {
-  try {
-    return new Parser({ baseIRI: meshBase }).parse(turtle);
-  } catch {
-    throw new KnopAddReferenceInputError(errorMessage);
-  }
 }

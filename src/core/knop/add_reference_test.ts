@@ -4,7 +4,7 @@ import {
   assertStringIncludes,
   assertThrows,
 } from "@std/assert";
-import { Parser, type Quad } from "n3";
+import { Parser, type Quad, type Term } from "n3";
 import { readMeshAliceBioBranchFile } from "../../../tests/support/mesh_alice_bio_fixture.ts";
 import {
   KnopAddReferenceInputError,
@@ -225,8 +225,10 @@ Deno.test("planKnopAddReference renders first reference catalog support artifact
   sflo:targetArtifact <alice/data> .
 `,
   );
-  assertEquals(
-    plan.updatedFiles[0]?.contents ?? "",
+  const updatedInventory = plan.updatedFiles[0]?.contents ?? "";
+  assert(updatedInventory.startsWith(wovenKnopInventory));
+  assertTurtleGraphsEqual(
+    updatedInventory,
     await readMeshAliceBioBranchFile(
       "08-alice-bio-referenced",
       "alice/_knop/_inventory/inventory.ttl",
@@ -263,7 +265,8 @@ Deno.test("planKnopAddReference supports unwoven knop inventory input", () => {
     currentKnopInventoryTurtle: unwovenKnopInventory,
   });
 
-  assertEquals(
+  assert(plan.updatedFiles[0]?.contents.startsWith(unwovenKnopInventory));
+  assertTurtleGraphsEqual(
     plan.updatedFiles[0]?.contents ?? "",
     `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
@@ -363,6 +366,76 @@ Deno.test("planKnopAddReference preserves unknown source registry facts byte-for
   );
 });
 
+Deno.test("planKnopAddReference preserves arbitrary carried KnopInventory bytes as an exact prefix", () => {
+  const carriedInventory = wovenKnopInventory
+    .replace(
+      "@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .",
+      `@prefix ex: <https://example.org/vocab/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .`,
+    )
+    .replace(
+      "<alice/_knop> a sflo:Knop ;",
+      `# preserve this operator note exactly
+<alice/_knop> a sflo:Knop ;
+  ex:opaqueKnopFact "keep exactly" ;`,
+    )
+    .replace(
+      "<alice/_knop/_meta> a sflo:KnopMetadata",
+      `<alice/_knop> ex:opaqueBlank [ ex:detail "keep blank node" ] .
+
+<alice/_knop/_meta> a sflo:KnopMetadata`,
+    );
+
+  const plan = planKnopAddReference({
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    designatorPath: "alice",
+    referenceTargetDesignatorPath: "alice/data",
+    referenceRole: "canonical",
+    currentKnopInventoryTurtle: carriedInventory,
+  });
+  const updatedInventory = plan.updatedFiles[0]?.contents ?? "";
+
+  assert(updatedInventory.startsWith(carriedInventory));
+  assertStringIncludes(
+    updatedInventory,
+    `# preserve this operator note exactly
+<alice/_knop> a sflo:Knop ;
+  ex:opaqueKnopFact "keep exactly" ;`,
+  );
+  assertStringIncludes(
+    updatedInventory,
+    `<alice/_knop> ex:opaqueBlank [ ex:detail "keep blank node" ] .`,
+  );
+  assert(
+    hasNamedNodeFact(
+      updatedInventory,
+      "alice/_knop",
+      "https://semantic-flow.github.io/sflo/ontology/hasReferenceCatalog",
+      "alice/_knop/_references",
+    ),
+  );
+});
+
+Deno.test("planKnopAddReference rejects a conflicting carried ReferenceCatalog working locator", () => {
+  const carriedInventory = `${wovenKnopInventory.trimEnd()}
+
+<alice/_knop/_references> sflo:hasWorkingLocatedFile <alice/_knop/_references/other.ttl> .
+`;
+
+  assertThrows(
+    () =>
+      planKnopAddReference({
+        meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+        designatorPath: "alice",
+        referenceTargetDesignatorPath: "alice/data",
+        referenceRole: "canonical",
+        currentKnopInventoryTurtle: carriedInventory,
+      }),
+    KnopAddReferenceInputError,
+    "Requested settled inventory fact <https://semantic-flow.github.io/mesh-alice-bio/alice/_knop/_references> <https://semantic-flow.github.io/sflo/ontology/hasWorkingLocatedFile> <https://semantic-flow.github.io/mesh-alice-bio/alice/_knop/_references/references.ttl> . conflicts with existing fact <https://semantic-flow.github.io/mesh-alice-bio/alice/_knop/_references> <https://semantic-flow.github.io/sflo/ontology/hasWorkingLocatedFile> <https://semantic-flow.github.io/mesh-alice-bio/alice/_knop/_references/other.ttl> .",
+  );
+});
+
 Deno.test("planKnopAddReference fails closed on conflicting source registry facts", () => {
   assertThrows(
     () =>
@@ -392,9 +465,21 @@ Deno.test("planKnopAddReference supports current-only woven extracted KnopInvent
   });
   const updatedInventory = plan.updatedFiles[0]?.contents ?? "";
 
-  assertStringIncludes(
+  assert(updatedInventory.startsWith(currentOnlyWovenExtractedKnopInventory));
+  assertTurtleGraphsEqual(
     updatedInventory,
-    "sflo:hasReferenceCatalog <bob/_knop/_references> ;",
+    withFirstReferenceCatalogFacts(
+      currentOnlyWovenExtractedKnopInventory,
+      "bob",
+    ),
+  );
+  assert(
+    hasNamedNodeFact(
+      updatedInventory,
+      "bob/_knop",
+      "https://semantic-flow.github.io/sflo/ontology/hasReferenceCatalog",
+      "bob/_knop/_references",
+    ),
   );
   assertStringIncludes(
     updatedInventory,
@@ -435,24 +520,27 @@ Deno.test("planKnopAddReference normalizes referenceRole tokens case-insensitive
 });
 
 Deno.test("planKnopAddReference accepts semantically equivalent woven KnopInventory turtle", async () => {
+  const currentInventory = withRdfPrefix(wovenKnopInventory)
+    .replace(
+      "<alice/_knop> a sflo:Knop ;",
+      "<alice/_knop>\n  rdf:type sflo:Knop ;",
+    )
+    .replace(
+      "<alice/_knop/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;",
+      "<alice/_knop/_inventory> rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:KnopInventory ;",
+    );
   const plan = planKnopAddReference({
     meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
     designatorPath: "alice",
     referenceTargetDesignatorPath: "alice/data",
     referenceRole: "canonical",
-    currentKnopInventoryTurtle: withRdfPrefix(wovenKnopInventory)
-      .replace(
-        "<alice/_knop> a sflo:Knop ;",
-        "<alice/_knop>\n  rdf:type sflo:Knop ;",
-      )
-      .replace(
-        "<alice/_knop/_inventory> a sflo:KnopInventory, sflo:DigitalArtifact, sflo:RdfDocument ;",
-        "<alice/_knop/_inventory> rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:KnopInventory ;",
-      ),
+    currentKnopInventoryTurtle: currentInventory,
   });
 
-  assertEquals(
-    plan.updatedFiles[0]?.contents ?? "",
+  const updatedInventory = plan.updatedFiles[0]?.contents ?? "";
+  assert(updatedInventory.startsWith(currentInventory));
+  assertTurtleGraphsEqual(
+    updatedInventory,
     await readMeshAliceBioBranchFile(
       "08-alice-bio-referenced",
       "alice/_knop/_inventory/inventory.ttl",
@@ -531,6 +619,26 @@ function withRdfPrefix(turtle: string): string {
   );
 }
 
+function withFirstReferenceCatalogFacts(
+  currentInventory: string,
+  designatorPath: string,
+): string {
+  const knopPath = `${designatorPath}/_knop`;
+  const referenceCatalogPath = `${knopPath}/_references`;
+  return `${currentInventory.trimEnd()}
+
+@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<${knopPath}> sflo:hasReferenceCatalog <${referenceCatalogPath}> .
+
+<${referenceCatalogPath}> a sflo:ReferenceCatalog, sflo:DigitalArtifact, sflo:RdfDocument ;
+  sflo:hasWorkingLocatedFile <${referenceCatalogPath}/references.ttl> .
+
+<${referenceCatalogPath}/references.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+`;
+}
+
 function hasNamedNodeFact(
   turtle: string,
   subjectValue: string,
@@ -548,4 +656,26 @@ function hasNamedNodeFact(
     quad.object.termType === "NamedNode" &&
     quad.object.value === objectIri
   );
+}
+
+function assertTurtleGraphsEqual(actual: string, expected: string): void {
+  assertEquals(toQuadKeys(actual), toQuadKeys(expected));
+}
+
+function toQuadKeys(turtle: string): string[] {
+  const meshBase = "https://semantic-flow.github.io/mesh-alice-bio/";
+  return new Parser({ baseIRI: meshBase }).parse(turtle).map((quad: Quad) =>
+    [quad.subject, quad.predicate, quad.object, quad.graph]
+      .map(toTermKey)
+      .join("|")
+  ).sort();
+}
+
+function toTermKey(term: Term): string {
+  if (term.termType === "Literal") {
+    return [term.termType, term.value, term.language, term.datatype.value].join(
+      ":",
+    );
+  }
+  return `${term.termType}:${term.value}`;
 }
