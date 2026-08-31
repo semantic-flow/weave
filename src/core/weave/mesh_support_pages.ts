@@ -1,7 +1,15 @@
 import { Parser } from "n3";
 import type { Quad } from "n3";
-import { SFLO_NAMESPACE } from "../rdf/namespaces.ts";
+import {
+  SFLO_NAMESPACE,
+  SFLO_TURTLE_PREFIX_DECLARATION,
+} from "../rdf/namespaces.ts";
 import { WeaveInputError as BaseWeaveInputError } from "./errors.ts";
+import {
+  planInventoryAppend,
+  prepareCurrentInventory,
+  renderInventoryAppendPlan,
+} from "./inventory_append_planner.ts";
 import {
   type MeshSupportHistoryPolicies,
   shouldMaterializeSupportHistory as shouldMaterializeSupportHistoryPolicy,
@@ -22,7 +30,6 @@ class WeaveInputError extends BaseWeaveInputError {
 
 const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
   `${SFLO_NAMESPACE}currentArtifactHistory`;
-const SFLO_HAS_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}hasResourcePage`;
 const XSD_TURTLE_PREFIX_DECLARATION =
   "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .";
 
@@ -94,73 +101,59 @@ export function planMeshSupportResourcePages(
     );
   }
 
-  const existingPagePaths = new Set(
-    supportResources
-      .filter((resource) =>
-        hasNamedNodeFact(
-          quads,
-          meshBase,
-          resource.path,
-          SFLO_HAS_RESOURCE_PAGE_IRI,
-          resource.pagePath,
-        )
-      )
-      .map((resource) => resource.pagePath),
-  );
-
-  if (existingPagePaths.size === supportResources.length) {
-    return applyResourcePageGenerationPolicies(
-      {
-        meshBase,
-        versionedDesignatorPaths: [],
-        createdFiles: [],
-        updatedFiles: [{
-          path: "_mesh/_inventory/inventory.ttl",
-          contents: currentMeshInventoryTurtle,
-        }],
-      },
-      input.resourcePageGenerationPolicies,
-      {
-        config: input.resourcePageGenerationConfig,
-        omitUnchangedUpdates: true,
-      },
-    );
-  }
-
-  let blocks = normalizeMeshInventoryHeader(
-    splitTurtleBlocks(currentMeshInventoryTurtle),
-  );
   for (const resource of supportResources) {
-    if (findSubjectBlockIndex(blocks, resource.path) === -1) {
+    if (!hasSubject(quads, meshBase, resource.path)) {
       throw new WeaveInputError(
         `Current mesh inventory did not contain support resource <${resource.path}>.`,
       );
     }
-    blocks = replaceSubjectBlock(
-      blocks,
-      resource.path,
-      appendResourcePageFactToBlock(
-        blocks[findSubjectBlockIndex(blocks, resource.path)]!,
-        resource.pagePath,
-      ),
-    );
-    blocks = upsertSubjectBlockAfter(
-      blocks,
-      resource.path,
-      resource.pagePath,
-      renderResourcePageLocatedFileBlock(resource.pagePath),
+  }
+  const preparedCurrentInventory = prepareCurrentInventory({
+    baseIri: meshBase,
+    currentInventoryTurtle: currentMeshInventoryTurtle,
+    currentInventoryLabel: "current MeshInventory for mesh support pages",
+  });
+  const requestedSettledFactsTurtle = `@base <${meshBase}> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
+
+${
+    supportResources.map((resource) =>
+      `<${resource.path}> sflo:hasResourcePage <${resource.pagePath}> .
+
+<${resource.pagePath}> a sflo:ResourcePage, sflo:LocatedFile .`
+    ).join("\n\n")
+  }
+`;
+  const appendPlan = planInventoryAppend({
+    preparedCurrentInventory,
+    requestedSettledFactsTurtle,
+    currentInventoryLabel: "current MeshInventory for mesh support pages",
+    requestedFactsLabel: "mesh support ResourcePage facts",
+  });
+  if (appendPlan.kind === "conflict") {
+    throw new WeaveInputError(
+      `Could not append mesh support ResourcePage facts: ${
+        appendPlan.conflicts.map((conflict) => conflict.message).join(" ")
+      }`,
     );
   }
+  const updatedMeshInventoryTurtle = renderInventoryAppendPlan({
+    preparedCurrentInventory,
+    plan: appendPlan,
+    outputLabel: "mesh support ResourcePage inventory append",
+  });
 
   return applyResourcePageGenerationPolicies(
     {
       meshBase,
       versionedDesignatorPaths: [],
       createdFiles: [],
-      updatedFiles: [{
-        path: "_mesh/_inventory/inventory.ttl",
-        contents: `${blocks.join("\n\n")}\n`,
-      }],
+      updatedFiles: updatedMeshInventoryTurtle === currentMeshInventoryTurtle
+        ? []
+        : [{
+          path: "_mesh/_inventory/inventory.ttl",
+          contents: updatedMeshInventoryTurtle,
+        }],
     },
     input.resourcePageGenerationPolicies,
     {
@@ -174,7 +167,6 @@ function applyResourcePageGenerationPolicies(
   policies?: WeaveResourcePageGenerationPolicies,
   options: {
     config?: ResourcePageGenerationConfig;
-    omitUnchangedUpdates?: boolean;
   } = {},
 ): VersionPlan {
   const updatedFiles = filterResourcePageFactsFromPlannedFiles(
@@ -193,11 +185,7 @@ function applyResourcePageGenerationPolicies(
       false,
       options.config,
     ),
-    updatedFiles: options.omitUnchangedUpdates
-      ? updatedFiles.filter((file, index) =>
-        file.contents !== plan.updatedFiles[index]?.contents
-      )
-      : updatedFiles,
+    updatedFiles,
   };
 }
 
