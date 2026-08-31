@@ -2255,6 +2255,11 @@ Deno.test("executeWeave ignores working payload changes after temporal batch cap
 Deno.test("executeWeave materializes the extracted bob woven slice", async () => {
   const workspaceRoot = await createTestTmpDir("weave-weave-bob-extracted-");
   await materializeMeshAliceBioBranch("12-bob-extracted", workspaceRoot);
+  const meshInventoryPath = join(
+    workspaceRoot,
+    "_mesh/_inventory/inventory.ttl",
+  );
+  const meshInventoryBefore = await Deno.readTextFile(meshInventoryPath);
 
   const result = await executeWeave({
     meshRoot: workspaceRoot,
@@ -2276,14 +2281,20 @@ Deno.test("executeWeave materializes the extracted bob woven slice", async () =>
       "bob/_knop/_meta/_history001/_s0001/ttl/meta.ttl",
     ),
   );
+  const meshInventoryAfter = await Deno.readTextFile(meshInventoryPath);
+  assert(meshInventoryAfter.startsWith(meshInventoryBefore));
   assertEquals(
-    await Deno.readTextFile(
-      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
-    ),
-    await readMeshAliceBioBranchFile(
-      "13-bob-extracted-woven",
-      "_mesh/_inventory/inventory.ttl",
-    ),
+    await compareRdfContent({
+      left: new TextEncoder().encode(meshInventoryAfter),
+      right: new TextEncoder().encode(
+        await readMeshAliceBioBranchFile(
+          "13-bob-extracted-woven",
+          "_mesh/_inventory/inventory.ttl",
+        ),
+      ),
+      path: "_mesh/_inventory/inventory.ttl",
+    }),
+    true,
   );
   assertEquals(
     await Deno.readTextFile(

@@ -1,7 +1,10 @@
 import { assert, assertEquals, assertFalse, assertThrows } from "@std/assert";
 import { Parser, type Quad, type Term } from "n3";
 import { WeaveInputError } from "./errors.ts";
-import { renderBatchedFirstExtractedKnopWovenMeshInventoryTurtle } from "./mesh_inventory_renderers.ts";
+import {
+  renderBatchedFirstExtractedKnopWovenMeshInventoryTurtle,
+  renderGenericFirstExtractedKnopWovenMeshInventoryTurtle,
+} from "./mesh_inventory_renderers.ts";
 import type { MeshInventoryProgression } from "./progression_models.ts";
 
 const MESH_BASE = "https://example.test/mesh/";
@@ -140,6 +143,60 @@ Deno.test("batched extracted MeshInventory appends one versioned progression gra
   assertFalse(rendered.includes("sflo:currentArtifactHistory"));
   assertFalse(rendered.includes("sflo:latestHistoricalState"));
   assertFalse(rendered.includes("sflo:nextStateOrdinal"));
+});
+
+Deno.test("versioned sequential extracted MeshInventory preserves carried target bytes", () => {
+  const currentInventory = renderVersionedCurrentInventory();
+  const rendered = renderGenericFirstExtractedKnopWovenMeshInventoryTurtle(
+    currentInventory,
+    MESH_BASE,
+    "term-a",
+    meshInventoryProgression,
+  );
+
+  assert(rendered.startsWith(currentInventory));
+  assertTurtleGraphsEqual(
+    rendered,
+    `${currentInventory}\n${
+      renderTargetFacts(["term-a"])
+    }\n${renderNextProgressionFacts()}`,
+  );
+});
+
+Deno.test("versioned sequential extracted MeshInventory returns exact bytes for a semantic no-op", () => {
+  const currentInventory = renderVersionedCurrentInventory();
+  const alreadyWovenInventory = `${currentInventory}\n${
+    renderTargetFacts(["term-a"])
+  }\n${renderNextProgressionFacts()}`;
+
+  assertEquals(
+    renderGenericFirstExtractedKnopWovenMeshInventoryTurtle(
+      alreadyWovenInventory,
+      MESH_BASE,
+      "term-a",
+      meshInventoryProgression,
+    ),
+    alreadyWovenInventory,
+  );
+});
+
+Deno.test("versioned sequential extracted MeshInventory rejects a conflicting Knop inventory locator", () => {
+  const conflictingInventory = renderVersionedCurrentInventory().replace(
+    "<term-a/_knop/_inventory/inventory.ttl> .",
+    "<term-a/_knop/_inventory/other.ttl> .",
+  );
+
+  assertThrows(
+    () =>
+      renderGenericFirstExtractedKnopWovenMeshInventoryTurtle(
+        conflictingInventory,
+        MESH_BASE,
+        "term-a",
+        meshInventoryProgression,
+      ),
+    WeaveInputError,
+    "Requested settled inventory fact <https://example.test/mesh/term-a/_knop> <https://semantic-flow.github.io/sflo/ontology/hasWorkingKnopInventoryFile> <https://example.test/mesh/term-a/_knop/_inventory/inventory.ttl> . conflicts with existing fact <https://example.test/mesh/term-a/_knop> <https://semantic-flow.github.io/sflo/ontology/hasWorkingKnopInventoryFile> <https://example.test/mesh/term-a/_knop/_inventory/other.ttl> .",
+  );
 });
 
 function renderVersionedCurrentInventory(): string {

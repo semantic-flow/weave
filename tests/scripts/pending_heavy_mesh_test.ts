@@ -416,6 +416,44 @@ Deno.test("untargeted extracted batch conflict writes no files and preserves Mes
   );
 });
 
+Deno.test("explicit versioned extracted conflict writes no files and preserves MeshInventory bytes", async () => {
+  const meshRoot = await createTestTmpDir(
+    "weave-pending-heavy-sequential-extracted-conflict-",
+  );
+  const generated = await generatePendingHeavyMesh({
+    outputPath: meshRoot,
+    count: 2,
+    meshInventoryHistoryPolicy: "versioned",
+    sourceDesignatorPath: "catalog/source",
+  });
+  const target = generated.extractedDesignatorPaths[0]!;
+  const inventoryPath = join(meshRoot, "_mesh/_inventory/inventory.ttl");
+  const currentInventory = await Deno.readTextFile(inventoryPath);
+  const conflictingInventory = currentInventory.replace(
+    `<${target}/_knop/_inventory/inventory.ttl> .`,
+    `<${target}/_knop/_inventory/other.ttl> .`,
+  );
+  assert(conflictingInventory !== currentInventory);
+  await Deno.writeTextFile(inventoryPath, conflictingInventory);
+  const workspaceDigestsBefore = await digestWorkspaceFiles(meshRoot);
+
+  await assertRejects(
+    () =>
+      executeVersion({
+        meshRoot,
+        request: { targets: [{ designatorPath: target }] },
+      }),
+    Error,
+    "Requested settled inventory fact",
+  );
+
+  assertEquals(await Deno.readTextFile(inventoryPath), conflictingInventory);
+  assertEquals(
+    await digestWorkspaceFiles(meshRoot),
+    workspaceDigestsBefore,
+  );
+});
+
 Deno.test("mixed and recursive extracted candidate sets retain sequential planning", async () => {
   const mixedRoot = await createTestTmpDir(
     "weave-pending-heavy-mixed-sequential-",

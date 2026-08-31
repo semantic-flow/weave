@@ -397,7 +397,7 @@ export function renderBatchedFirstExtractedKnopWovenMeshInventoryTurtle(
   const plan = planInventoryAppend({
     preparedCurrentInventory,
     requestedSettledFactsTurtle:
-      renderBatchedFirstExtractedKnopRequestedFactsTurtle(
+      renderExtractedKnopMeshInventoryRequestedFactsTurtle(
         meshBase,
         orderedDesignatorPaths,
         meshInventoryProgression,
@@ -421,7 +421,7 @@ export function renderBatchedFirstExtractedKnopWovenMeshInventoryTurtle(
   });
 }
 
-function renderBatchedFirstExtractedKnopRequestedFactsTurtle(
+function renderExtractedKnopMeshInventoryRequestedFactsTurtle(
   meshBase: string,
   orderedDesignatorPaths: readonly string[],
   meshInventoryProgression: MeshInventoryProgression | undefined,
@@ -541,113 +541,44 @@ export function renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle(
 
 export function renderGenericFirstExtractedKnopWovenMeshInventoryTurtle(
   currentMeshInventoryTurtle: string,
+  meshBase: string,
   designatorPath: string,
   meshInventoryProgression: MeshInventoryProgression,
 ): string {
-  const knopPath = toKnopPath(designatorPath);
-  const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
-  const parentDesignatorPath = toParentDesignatorPath(designatorPath);
-  const historyPath = meshInventoryProgression.historyPath;
-  const latestManifestationPath =
-    meshInventoryProgression.latestManifestationPath;
-  const nextStatePath = meshInventoryProgression.nextStatePath;
-  const nextStateOrdinal = meshInventoryProgression.nextStateOrdinal;
-  const nextManifestationPath = `${nextStatePath}/ttl`;
-  let blocks = normalizeMeshInventoryHeader(
-    splitTurtleBlocks(currentMeshInventoryTurtle),
-  );
-  const preferredAnchorResourcePath = parentDesignatorPath ?? "_mesh";
-  const anchorResourcePath = findSubjectBlockIndex(
-      blocks,
-      preferredAnchorResourcePath,
-    ) === -1
-    ? "_mesh"
-    : preferredAnchorResourcePath;
-  const preferredAnchorPagePath = parentDesignatorPath === undefined
-    ? "_mesh/index.html"
-    : toDesignatorResourcePagePath(parentDesignatorPath);
-  const anchorPagePath = findSubjectBlockIndex(
-      blocks,
-      preferredAnchorPagePath,
-    ) === -1
-    ? "_mesh/index.html"
-    : preferredAnchorPagePath;
+  const preparedCurrentInventory = prepareCurrentInventory({
+    baseIri: meshBase,
+    currentInventoryTurtle: currentMeshInventoryTurtle,
+    currentInventoryLabel:
+      `current MeshInventory for extracted-Knop weave ${designatorPath}`,
+  });
+  const plan = planInventoryAppend({
+    preparedCurrentInventory,
+    requestedSettledFactsTurtle:
+      renderExtractedKnopMeshInventoryRequestedFactsTurtle(
+        meshBase,
+        [designatorPath],
+        meshInventoryProgression,
+      ),
+    singleValuedSettledPredicates: BATCHED_EXTRACTED_SINGLE_VALUED_PREDICATES,
+    currentInventoryLabel:
+      `current MeshInventory for extracted-Knop weave ${designatorPath}`,
+    requestedFactsLabel:
+      `versioned extracted-Knop MeshInventory facts for ${designatorPath}`,
+  });
+  if (plan.kind === "conflict") {
+    throw new WeaveInputError(
+      `Could not append versioned extracted-Knop MeshInventory facts for ${designatorPath}: ${
+        plan.conflicts.map((conflict) => conflict.message).join(" ")
+      }`,
+    );
+  }
 
-  blocks = upsertSubjectBlockAfter(
-    blocks,
-    anchorResourcePath,
-    designatorPath,
-    renderMeshIdentifierBlock(designatorPath),
-  );
-  blocks = replaceSubjectBlock(
-    blocks,
-    "_mesh/_inventory",
-    renderMeshInventoryArtifactBlock(historyPath),
-  );
-  blocks = replaceSubjectBlock(
-    blocks,
-    knopPath,
-    renderMeshKnopBlockWithResourcePage(knopPath),
-  );
-  blocks = replaceSubjectBlock(
-    blocks,
-    historyPath,
-    renderMeshInventoryHistoryBlock(
-      historyPath,
-      nextStateOrdinal,
-      nextStatePath,
-    ),
-  );
-  blocks = upsertSubjectBlockAfter(
-    blocks,
-    latestManifestationPath,
-    nextStatePath,
-    renderMeshInventoryStateBlock(
-      nextStatePath,
-      nextStateOrdinal,
-      meshInventoryProgression.latestStatePath,
-    ),
-  );
-  blocks = upsertSubjectBlockAfter(
-    blocks,
-    nextStatePath,
-    nextManifestationPath,
-    renderMeshInventoryStateManifestationBlock(nextStatePath),
-  );
-  blocks = upsertSubjectBlockAfter(
-    blocks,
-    `${latestManifestationPath}/inventory.ttl`,
-    `${nextManifestationPath}/inventory.ttl`,
-    renderLocatedFileBlock(`${nextManifestationPath}/inventory.ttl`),
-  );
-  blocks = upsertSubjectBlockAfter(
-    blocks,
-    anchorPagePath,
-    designatorPagePath,
-    renderResourcePageLocatedFileBlock(designatorPagePath),
-  );
-  blocks = upsertSubjectBlockAfter(
-    blocks,
-    designatorPagePath,
-    `${knopPath}/index.html`,
-    renderResourcePageLocatedFileBlock(`${knopPath}/index.html`),
-  );
-  blocks = upsertSubjectBlockAfter(
-    blocks,
-    `${latestManifestationPath}/index.html`,
-    `${nextStatePath}/index.html`,
-    renderResourcePageLocatedFileBlock(`${nextStatePath}/index.html`),
-  );
-  blocks = upsertSubjectBlockAfter(
-    blocks,
-    `${nextStatePath}/index.html`,
-    `${nextManifestationPath}/index.html`,
-    renderResourcePageLocatedFileBlock(
-      `${nextManifestationPath}/index.html`,
-    ),
-  );
-
-  return `${blocks.join("\n\n")}\n`;
+  return renderInventoryAppendPlan({
+    preparedCurrentInventory,
+    plan,
+    outputLabel:
+      `versioned extracted-Knop MeshInventory append for ${designatorPath}`,
+  });
 }
 
 function renderMeshInventoryMetaProgressionBlock(
@@ -1153,11 +1084,6 @@ function toRootDesignatorPath(designatorPath: string): string {
   return firstSlash === -1
     ? designatorPath
     : designatorPath.slice(0, firstSlash);
-}
-
-function toParentDesignatorPath(designatorPath: string): string | undefined {
-  const lastSlash = designatorPath.lastIndexOf("/");
-  return lastSlash === -1 ? undefined : designatorPath.slice(0, lastSlash);
 }
 
 function toStateSegment(stateOrdinal: number): string {
