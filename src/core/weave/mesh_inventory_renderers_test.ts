@@ -3,6 +3,7 @@ import { Parser, type Quad, type Term } from "n3";
 import { WeaveInputError } from "./errors.ts";
 import {
   renderBatchedFirstExtractedKnopWovenMeshInventoryTurtle,
+  renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle,
   renderGenericFirstExtractedKnopWovenMeshInventoryTurtle,
 } from "./mesh_inventory_renderers.ts";
 import type { MeshInventoryProgression } from "./progression_models.ts";
@@ -199,6 +200,41 @@ Deno.test("versioned sequential extracted MeshInventory rejects a conflicting Kn
   );
 });
 
+Deno.test("current-only payload-like MeshInventory appends owned facts with an exact carried prefix", () => {
+  const currentInventory = `${
+    currentOnlyPendingInventory.replace(
+      "sflo:hasKnop <term-b/_knop>, <term-a/_knop> ;",
+      "sflo:hasKnop <term-b/_knop> ;",
+    ).trimEnd()
+  }  `;
+  const rendered = renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle(
+    currentInventory,
+    MESH_BASE,
+    "term-a",
+  );
+
+  assert(rendered.startsWith(currentInventory));
+  assertTurtleGraphsEqual(
+    rendered,
+    `${currentInventory}\n${renderCurrentOnlyPayloadLikeFacts("term-a")}`,
+  );
+});
+
+Deno.test("current-only payload-like MeshInventory returns exact bytes for a semantic no-op", () => {
+  const currentInventory = `${currentOnlyPendingInventory}\n${
+    renderCurrentOnlyPayloadLikeFacts("term-a")
+  }`;
+
+  assertEquals(
+    renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle(
+      currentInventory,
+      MESH_BASE,
+      "term-a",
+    ),
+    currentInventory,
+  );
+});
+
 function renderVersionedCurrentInventory(): string {
   return currentOnlyPendingInventory.replace(
     "  sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> ;",
@@ -247,6 +283,23 @@ function renderTargetFacts(designatorPaths: readonly string[]): string {
 @prefix sflo: <${SFLO}> .
 
 ${blocks.join("\n\n")}
+`;
+}
+
+function renderCurrentOnlyPayloadLikeFacts(designatorPath: string): string {
+  const knopPath = `${designatorPath}/_knop`;
+  return `@base <${MESH_BASE}> .
+@prefix sflo: <${SFLO}> .
+
+<_mesh> sflo:hasKnop <${knopPath}> .
+
+<${designatorPath}> sflo:hasResourcePage <${designatorPath}/index.html> .
+
+<${knopPath}> sflo:hasResourcePage <${knopPath}/index.html> .
+
+<${designatorPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<${knopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 `;
 }
 

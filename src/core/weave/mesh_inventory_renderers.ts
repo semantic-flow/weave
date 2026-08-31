@@ -13,7 +13,7 @@ import {
   renderInventoryAppendPlan,
 } from "./inventory_append_planner.ts";
 import type { MeshInventoryProgression } from "./progression_models.ts";
-import { hasNamedNodeFact, parseWeaveShapeQuads } from "./rdf_helpers.ts";
+import { parseWeaveShapeQuads } from "./rdf_helpers.ts";
 import {
   renderCurrentWorkingFileDeclaration,
   renderCurrentWorkingFileLocator,
@@ -28,7 +28,6 @@ import {
 } from "./turtle_blocks.ts";
 
 const SFLO_HAS_KNOP_IRI = `${SFLO_NAMESPACE}hasKnop`;
-const SFLO_HAS_RESOURCE_PAGE_IRI = `${SFLO_NAMESPACE}hasResourcePage`;
 const BATCHED_EXTRACTED_SINGLE_VALUED_PREDICATES = [
   `${SFLO_NAMESPACE}currentArtifactHistory`,
   `${SFLO_NAMESPACE}hasWorkingKnopInventoryFile`,
@@ -482,61 +481,56 @@ export function renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle(
   meshBase: string,
   designatorPath: string,
 ): string {
+  const preparedCurrentInventory = prepareCurrentInventory({
+    baseIri: meshBase,
+    currentInventoryTurtle: currentMeshInventoryTurtle,
+    currentInventoryLabel:
+      `current MeshInventory for current-only weave ${designatorPath}`,
+  });
+  const plan = planInventoryAppend({
+    preparedCurrentInventory,
+    requestedSettledFactsTurtle:
+      renderCurrentOnlyPayloadLikeMeshInventoryRequestedFactsTurtle(
+        meshBase,
+        designatorPath,
+      ),
+    currentInventoryLabel:
+      `current MeshInventory for current-only weave ${designatorPath}`,
+    requestedFactsLabel:
+      `current-only MeshInventory page facts for ${designatorPath}`,
+  });
+  if (plan.kind === "conflict") {
+    throw new WeaveInputError(
+      `Could not append current-only MeshInventory page facts for ${designatorPath}.`,
+    );
+  }
+
+  return renderInventoryAppendPlan({
+    preparedCurrentInventory,
+    plan,
+    outputLabel: `current-only MeshInventory append for ${designatorPath}`,
+  });
+}
+
+function renderCurrentOnlyPayloadLikeMeshInventoryRequestedFactsTurtle(
+  meshBase: string,
+  designatorPath: string,
+): string {
   const knopPath = toKnopPath(designatorPath);
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
-  const quads = parseWeaveShapeQuads(
-    meshBase,
-    currentMeshInventoryTurtle,
-    `Could not parse current MeshInventory while weaving ${designatorPath}.`,
-  );
-  const additions: string[] = [];
+  return `@base <${meshBase}> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 
-  if (
-    !hasNamedNodeFact(
-      quads,
-      meshBase,
-      "_mesh",
-      SFLO_HAS_KNOP_IRI,
-      knopPath,
-    )
-  ) {
-    additions.push(`<_mesh> sflo:hasKnop <${knopPath}> .`);
-  }
-  if (
-    !hasNamedNodeFact(
-      quads,
-      meshBase,
-      designatorPath,
-      SFLO_HAS_RESOURCE_PAGE_IRI,
-      designatorPagePath,
-    )
-  ) {
-    additions.push(
-      `<${designatorPath}> sflo:hasResourcePage <${designatorPagePath}> .`,
-    );
-  }
-  if (
-    !hasNamedNodeFact(
-      quads,
-      meshBase,
-      knopPath,
-      SFLO_HAS_RESOURCE_PAGE_IRI,
-      `${knopPath}/index.html`,
-    )
-  ) {
-    additions.push(
-      `<${knopPath}> sflo:hasResourcePage <${knopPath}/index.html> .`,
-    );
-  }
+<_mesh> sflo:hasKnop <${knopPath}> .
 
-  additions.push(
-    renderResourcePageLocatedFileBlock(designatorPagePath),
-    renderResourcePageLocatedFileBlock(`${knopPath}/index.html`),
-  );
+<${designatorPath}> sflo:hasResourcePage <${designatorPagePath}> .
 
-  return `${currentMeshInventoryTurtle.trimEnd()}\n\n${
-    additions.join("\n\n")
-  }\n`;
+<${knopPath}> sflo:hasResourcePage <${knopPath}/index.html> .
+
+${renderResourcePageLocatedFileBlock(designatorPagePath)}
+
+${renderResourcePageLocatedFileBlock(`${knopPath}/index.html`)}
+`;
 }
 
 export function renderGenericFirstExtractedKnopWovenMeshInventoryTurtle(
