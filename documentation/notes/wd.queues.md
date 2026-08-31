@@ -10,6 +10,6 @@ This note is the READY slice, in order: a task enters when it is fireable and le
 
 ## Kim — implementation
 1. [[wa.task.2026.2026-08-06_0854-markdown-site-pipeline]] — packaging proof PROVEN; unified pipeline so Markdown artifacts render as pages
-2. [[wa.task.2026.2026-08-31_1111-versioned-first-knop-mesh-inventory-append]] — waits on the legacy progression-migration ruling
+2. [[wa.task.2026.2026-08-31_1111-versioned-first-knop-mesh-inventory-append]] — waits on ruled producer/fixture correction
 
 ## Jimbo — planning
