@@ -3968,7 +3968,8 @@ Deno.test("planWeave rejects implicit ordinal advancement after a named payload 
 });
 
 Deno.test("planWeave renders the extracted bob woven slice", async () => {
-  const plan = planWeave(await createExtractedBobWeaveInput());
+  const input = await createExtractedBobWeaveInput();
+  const plan = planWeave(input);
 
   assertEquals(plan.wovenDesignatorPaths, ["bob"]);
   assertEquals(plan.updatedFiles.map((file) => file.path), [
@@ -3984,9 +3985,21 @@ Deno.test("planWeave renders the extracted bob woven slice", async () => {
     ),
     false,
   );
-  assertStringIncludes(
-    plan.updatedFiles[0]?.contents ?? "",
-    "<bob>\n  sflo:hasResourcePage <bob/index.html> .",
+  const meshInventory = plan.updatedFiles[0]?.contents ?? "";
+  assert(meshInventory.startsWith(input.currentMeshInventoryTurtle));
+  const meshInventoryQuads = parseWeaveShapeQuads(
+    input.meshBase,
+    meshInventory,
+    "Could not parse sequential extracted MeshInventory test output.",
+  );
+  assert(
+    hasNamedNodeFact(
+      meshInventoryQuads,
+      input.meshBase,
+      "bob",
+      `${SFLO_NAMESPACE}hasResourcePage`,
+      "bob/index.html",
+    ),
   );
   const bobPage = plan.createdFiles.find((file) =>
     file.path === "bob/index.html"
@@ -4359,12 +4372,20 @@ Deno.test("planWeave accepts a semantically equivalent extracted bob Knop block"
   const plan = planWeave(input);
 
   assertEquals(plan.wovenDesignatorPaths, ["bob"]);
+  const meshInventory = plan.updatedFiles[0]?.contents ?? "";
+  assert(meshInventory.startsWith(input.currentMeshInventoryTurtle));
   assertEquals(
-    plan.updatedFiles[0]?.contents ?? "",
-    await readMeshAliceBioBranchFile(
-      "13-bob-extracted-woven",
-      "_mesh/_inventory/inventory.ttl",
-    ),
+    await compareRdfContent({
+      left: new TextEncoder().encode(meshInventory),
+      right: new TextEncoder().encode(
+        await readMeshAliceBioBranchFile(
+          "13-bob-extracted-woven",
+          "_mesh/_inventory/inventory.ttl",
+        ),
+      ),
+      path: "_mesh/_inventory/inventory.ttl",
+    }),
+    true,
   );
 });
 
@@ -4566,9 +4587,21 @@ Deno.test("planWeave accepts an extracted root identifier sourced from an alread
   });
 
   assertEquals(plan.wovenDesignatorPaths, ["carol"]);
-  assertStringIncludes(
-    plan.updatedFiles[0]?.contents ?? "",
-    "<carol>\n  sflo:hasResourcePage <carol/index.html> .",
+  const wovenInventory = plan.updatedFiles[0]?.contents ?? "";
+  assert(wovenInventory.startsWith(extractPlan.updatedFiles[0]!.contents));
+  const wovenInventoryQuads = parseWeaveShapeQuads(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    wovenInventory,
+    "Could not parse extracted root identifier MeshInventory output.",
+  );
+  assert(
+    hasNamedNodeFact(
+      wovenInventoryQuads,
+      "https://semantic-flow.github.io/mesh-alice-bio/",
+      "carol",
+      `${SFLO_NAMESPACE}hasResourcePage`,
+      "carol/index.html",
+    ),
   );
 });
 

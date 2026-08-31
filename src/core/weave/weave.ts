@@ -1664,6 +1664,7 @@ function planFirstExtractedKnopWeave(
       )
       : renderGenericFirstExtractedKnopWovenMeshInventoryTurtle(
         currentMeshInventoryTurtle,
+        meshBase,
         designatorPath,
         meshInventoryProgression,
       ))
