@@ -22,6 +22,7 @@ Every [[wa.dave-court]] card names an owning note before it is a card. At ruling
 
 Entries below the marker keep the older long form. They are historical and are not being migrated.
 
+- 2026-08-31 — Floating repository locators get stable named identities instead of generated blank nodes, so repeated source registration can no-op and conflicting coordinates can fail closed; the exact source-registry fragment remains open. → [[wa.plan.2026.2026-05-17-append-onlyish-inventory]]
 - 2026-08-22 — Stagecraft IRI initialization first makes Knop creation additive, then adds locally carried founding data, then measures a 552-IRI press; batch creation ships only if that receipt requires it. → [[wa.completed-plan.2026.2026-08-22_1550-stagecraft-iri-initialization]]
 - 2026-08-22 — `knop.create` performance gets a like-for-like 552-create receipt before and after its append/indexing migration, so FoundingReferentData is built on measured behavior rather than a prediction. → [[wa.completed-plan.2026.2026-08-22_1550-stagecraft-iri-initialization]]
 - 2026-08-22 — Reset-and-replay repairs founding facts only before a press lands; after publication, correction appends a later artifact state and ships in a new press without rewriting the original. → [[wa.completed.2026.2026-08-22_1112-founding-referent-data]]
