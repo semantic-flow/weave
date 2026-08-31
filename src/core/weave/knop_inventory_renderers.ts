@@ -26,14 +26,6 @@ import {
   omitInitialKnopMetadataHistory,
   omitKnopInventoryHistory,
 } from "./support_history_renderers.ts";
-import {
-  appendPredicateToSubjectBlock,
-  findSubjectBlockIndex,
-  replaceSubjectBlock,
-  splitTurtleBlocks,
-  upsertSubjectBlockAfter,
-} from "./turtle_blocks.ts";
-
 const SFLO_HAS_KNOP_ASSET_BUNDLE_IRI = `${SFLO_NAMESPACE}hasKnopAssetBundle`;
 const SFLO_HAS_RESOURCE_PAGE_DEFINITION_IRI =
   `${SFLO_NAMESPACE}hasResourcePageDefinition`;
@@ -356,50 +348,64 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
 }
 
 export function renderCurrentOnlyPageDefinitionWovenKnopInventoryTurtle(
-  _meshBase: string,
+  meshBase: string,
   currentKnopInventoryTurtle: string,
   designatorPath: string,
   workingLocalRelativePath: string,
 ): string {
   const pageDefinitionPath = `${toKnopPath(designatorPath)}/_page`;
   const pageDefinitionPagePath = `${pageDefinitionPath}/index.html`;
-  const blocks = splitTurtleBlocks(currentKnopInventoryTurtle);
-  const currentPageDefinitionBlockIndex = findSubjectBlockIndex(
-    blocks,
-    pageDefinitionPath,
-  );
-  if (currentPageDefinitionBlockIndex === -1) {
+  const preparedCurrentInventory = prepareCurrentInventory({
+    baseIri: meshBase,
+    currentInventoryTurtle: currentKnopInventoryTurtle,
+    currentInventoryLabel: `current KnopInventory for ${designatorPath}`,
+  });
+  const pageDefinitionIri = new URL(pageDefinitionPath, meshBase).href;
+  if (
+    !preparedCurrentInventory.quads.some((quad) =>
+      quad.subject.termType === "NamedNode" &&
+      quad.subject.value === pageDefinitionIri
+    )
+  ) {
     throw new WeaveInputError(
       `Current KnopInventory did not contain ResourcePageDefinition block <${pageDefinitionPath}>.`,
     );
   }
 
-  const currentPageDefinitionBlock = blocks[currentPageDefinitionBlockIndex]!;
-  if (
-    !currentPageDefinitionBlock.includes(`<${workingLocalRelativePath}>`) &&
-    !currentPageDefinitionBlock.includes(`"${workingLocalRelativePath}"`)
-  ) {
+  const requestedSettledFactsTurtle = `@base <${meshBase}> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
+
+<${pageDefinitionPath}>
+  ${renderCurrentWorkingFileLocator(workingLocalRelativePath)}
+  sflo:hasResourcePage <${pageDefinitionPagePath}> .
+
+<${pageDefinitionPagePath}> a sflo:ResourcePage, sflo:LocatedFile .
+`;
+  const plan = planInventoryAppend({
+    preparedCurrentInventory,
+    requestedSettledFactsTurtle,
+    singleValuedSettledPredicates: [
+      `${SFLO_NAMESPACE}hasWorkingLocatedFile`,
+      `${SFLO_NAMESPACE}workingLocalRelativePath`,
+    ],
+    currentInventoryLabel: `current KnopInventory for ${designatorPath}`,
+    requestedFactsLabel:
+      `current-only ResourcePageDefinition facts for ${designatorPath}`,
+  });
+  if (plan.kind === "conflict") {
     throw new WeaveInputError(
-      `Current ResourcePageDefinition block did not carry the expected working file for ${designatorPath}.`,
+      `Could not append current-only ResourcePageDefinition inventory facts for ${designatorPath}: ${
+        plan.conflicts.map((conflict) => conflict.message).join(" ")
+      }`,
     );
   }
 
-  const blocksWithPage = replaceSubjectBlock(
-    blocks,
-    pageDefinitionPath,
-    appendPredicateToSubjectBlock(
-      currentPageDefinitionBlock,
-      `sflo:hasResourcePage <${pageDefinitionPagePath}>`,
-    ),
-  );
-  const finalBlocks = upsertSubjectBlockAfter(
-    blocksWithPage,
-    pageDefinitionPath,
-    pageDefinitionPagePath,
-    renderResourcePageLocatedFileBlock(pageDefinitionPagePath),
-  );
-
-  return `${finalBlocks.join("\n\n")}\n`;
+  return renderInventoryAppendPlan({
+    preparedCurrentInventory,
+    plan,
+    outputLabel:
+      `current-only ResourcePageDefinition inventory append for ${designatorPath}`,
+  });
 }
 
 export function renderSubsequentPageDefinitionWovenKnopInventoryTurtle(
