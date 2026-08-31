@@ -15,7 +15,7 @@ Groomed 2026-08-21 and updated 2026-08-31. This note now carries direction and a
 1. **Remote resolution** — [[wa.task.2026.2026-05-20_2152-workingAccessUrl]]: let a mesh resolve current bytes for artifacts held elsewhere (e.g. a source ontology in another repository) over policy-gated HTTP(S), with digest-expectation fail-closed exactness. First concrete second-consumer signal 2026-08-21: another of Dave's projects may need a mesh targeting a remotely held ontology. No fetch path exists in `src/` yet; the `sfcfg` remote-policy shape still lives only in the SFLO decision log.
 2. **Fingerprint verification** — [[wa.task.2026.2026-05-04-fingerprint-verification]]: the expected/observed digest separation (`c0daa57`) and canonical wire-form validation (in flight) make the operator-facing verify command a thin slice; best treated as the first bite of the remote/digest arc rather than its own arc.
 3. **Markdown site pipeline** — [[wa.task.2026.2026-08-06_0854-markdown-site-pipeline]]: ten slices, slice 1 unblocked, packaging proven; the largest new-capability arc, currently queue 3.
-4. **Append-only inventory migration** — [[wa.plan.2026.2026-05-17-append-onlyish-inventory]]: migrate the remaining inventory writers through independently reviewable children; `knop add-reference` is first because arbitrary carried KnopInventory facts remain at risk.
+4. **Append-only inventory migration** — [[wa.plan.2026.2026-05-17-append-onlyish-inventory]]: migrate the remaining inventory writers through independently reviewable children; `knop add-reference` is complete and batched extracted-term MeshInventory append is next.
 
 ## Completed Arc — Founding Capability Releases (released 2026-08-23)
 
