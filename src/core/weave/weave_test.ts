@@ -1906,6 +1906,59 @@ Deno.test("planWeave applies current-only KnopMetadata policy on the first paylo
   );
 });
 
+Deno.test("planWeave applies current-only MeshInventory policy on the first payload weave slice", () => {
+  const plan = planWeave({
+    request: {
+      targets: [{ designatorPath: "alice/data" }],
+    },
+    meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+    currentMeshInventoryTurtle: firstPayloadWeaveMeshInventoryTurtle,
+    currentMeshMetadataTurtle: firstPayloadWeaveMeshMetadataTurtle,
+    weaveableKnops: [{
+      designatorPath: "alice/data",
+      currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+      currentKnopInventoryTurtle: firstPayloadWeaveKnopInventoryTurtle,
+      payloadArtifact: {
+        workingLocalRelativePath: "alice-data.ttl",
+        currentPayloadTurtle:
+          `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix schema: <https://schema.org/> .
+
+<alice> a schema:Person .
+`,
+      },
+    }],
+    supportHistoryPolicies: {
+      meshInventory: "currentOnly",
+    },
+  });
+
+  assertFalse(
+    plan.createdFiles.some((file) =>
+      file.path.startsWith("_mesh/_inventory/_history001/_s0003")
+    ),
+  );
+  const meshInventory =
+    plan.updatedFiles.find((file) =>
+      file.path === "_mesh/_inventory/inventory.ttl"
+    )!.contents;
+  assert(meshInventory.startsWith(firstPayloadWeaveMeshInventoryTurtle));
+  const quads = parseWeaveShapeQuads(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    meshInventory,
+    "Could not parse current-only first-payload MeshInventory output.",
+  );
+  assert(
+    hasNamedNodeFact(
+      quads,
+      "https://semantic-flow.github.io/mesh-alice-bio/",
+      "alice/data",
+      `${SFLO_NAMESPACE}hasResourcePage`,
+      "alice/data/index.html",
+    ),
+  );
+});
+
 Deno.test("planWeave keeps payload ResourcePage facts when payload pages are suppressed", () => {
   const plan = planWeave({
     request: {
