@@ -6,6 +6,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { dirname, join } from "@std/path";
+import { Parser, type Quad } from "n3";
 import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import { WeaveInputError } from "../../src/core/weave/weave.ts";
 import {
@@ -1099,6 +1100,13 @@ Deno.test("executeWeave honors mesh-local support history policy without command
   sfcfg:hasArtifactRole sfcfg:artifactRole_config .
 `,
   );
+  const meshInventoryPath = join(
+    workspaceRoot,
+    "_mesh/_inventory/inventory.ttl",
+  );
+  const initialMeshInventoryTurtle = await Deno.readTextFile(
+    meshInventoryPath,
+  );
 
   const result = await executeWeave({
     meshRoot: workspaceRoot,
@@ -1120,11 +1128,21 @@ Deno.test("executeWeave honors mesh-local support history policy without command
       ),
     Deno.errors.NotFound,
   );
-  assertStringIncludes(
-    await Deno.readTextFile(
-      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+  const updatedMeshInventoryTurtle = await Deno.readTextFile(
+    meshInventoryPath,
+  );
+  assert(updatedMeshInventoryTurtle.startsWith(initialMeshInventoryTurtle));
+  assert(
+    new Parser({
+      baseIRI: "https://semantic-flow.github.io/mesh-alice-bio/",
+    }).parse(updatedMeshInventoryTurtle).some((quad: Quad) =>
+      quad.subject.value ===
+        "https://semantic-flow.github.io/mesh-alice-bio/_mesh/_config" &&
+      quad.predicate.value ===
+        "https://semantic-flow.github.io/sflo/ontology/hasResourcePage" &&
+      quad.object.value ===
+        "https://semantic-flow.github.io/mesh-alice-bio/_mesh/_config/index.html"
     ),
-    "sflo:hasWorkingLocatedFile <_mesh/_config/config.ttl> ;\n  sflo:hasResourcePage <_mesh/_config/index.html> .",
   );
 });
 
