@@ -9,7 +9,7 @@ created: 1785606045924
 This note is the READY slice, in order: a task enters when it is fireable and leaves at delivery; the backlog stays in [[wd.todo]], and open decisions for Dave live in [[wa.dave-court]] (archive vault, ungated). The sections below are SURFACES, not seats: the heading names who disposes of the item, not who is sitting somewhere waiting for it. One line per item: `N. [[wa.task…]] — <at most one clause>`, ≤140 chars, no SHAs, status words, or percentages — if a line's truth can change without editing this file, it does not belong here. Writes go through `deno task queue` (add/pop/check/wake/groomed); reordering is a hand edit followed by `deno task queue check`.
 
 ## Kim — implementation
-1. [[wa.task.2026.2026-08-31_1050-current-only-payload-like-mesh-inventory-append]] — give shared current-only page claims exact append and no-op semantics
+1. [[wa.task.2026.2026-08-31_1111-versioned-first-knop-mesh-inventory-append]] — preserve versioned first-Knop MeshInventory facts and bytes
 2. [[wa.task.2026.2026-08-06_0854-markdown-site-pipeline]] — packaging proof PROVEN; unified pipeline so Markdown artifacts render as pages, below the inventory fix
 
 ## Jimbo — planning
