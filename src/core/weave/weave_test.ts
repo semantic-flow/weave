@@ -68,16 +68,12 @@ const firstWeaveMeshInventoryTurtle =
 
 <_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <_mesh/_inventory/_history001> ;
-  sflo:currentArtifactHistory <_mesh/_inventory/_history001> ;
-  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
   sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/index.html> .
 
 <_mesh/_inventory/_history001> a sflo:ArtifactHistory ;
   sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
   sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0001> ;
-  sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0001> ;
-  sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/index.html> .
 `;
 
@@ -1386,9 +1382,21 @@ Deno.test("planWeave renders the first alice knop-created-woven slice", () => {
     path: "alice/index.html",
     designatorPath: "alice",
   });
-  assertStringIncludes(
-    plan.updatedFiles[0]?.contents ?? "",
-    "<alice>\n  sflo:hasResourcePage <alice/index.html> .",
+  const meshInventory = plan.updatedFiles[0]?.contents ?? "";
+  assert(meshInventory.startsWith(firstWeaveMeshInventoryTurtle));
+  const meshInventoryQuads = parseWeaveShapeQuads(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    meshInventory,
+    "Could not parse first-Knop MeshInventory output.",
+  );
+  assert(
+    hasNamedNodeFact(
+      meshInventoryQuads,
+      "https://semantic-flow.github.io/mesh-alice-bio/",
+      "alice",
+      `${SFLO_NAMESPACE}hasResourcePage`,
+      "alice/index.html",
+    ),
   );
   assertStringIncludes(
     plan.updatedFiles[1]?.contents ?? "",
@@ -2713,13 +2721,39 @@ Deno.test("planWeave supports a later first root Knop weave against a carried me
     plan.updatedFiles[2]?.contents ?? "",
     "sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0006> ;",
   );
-  assertStringIncludes(
-    plan.updatedFiles[0]?.contents ?? "",
-    "<>\n  sflo:hasResourcePage <index.html> .",
+  const meshInventory = plan.updatedFiles[0]?.contents ?? "";
+  assert(meshInventory.startsWith(createPlan.updatedFiles[0]!.contents));
+  const meshInventoryQuads = parseWeaveShapeQuads(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    meshInventory,
+    "Could not parse first root Knop MeshInventory output.",
   );
-  assertStringIncludes(
-    plan.updatedFiles[0]?.contents ?? "",
-    "<_knop> a sflo:Knop ;\n  sflo:hasWorkingKnopInventoryFile <_knop/_inventory/inventory.ttl> ;\n  sflo:hasResourcePage <_knop/index.html> .",
+  assert(
+    hasNamedNodeFact(
+      meshInventoryQuads,
+      "https://semantic-flow.github.io/mesh-alice-bio/",
+      "",
+      `${SFLO_NAMESPACE}hasResourcePage`,
+      "index.html",
+    ),
+  );
+  assert(
+    hasNamedNodeFact(
+      meshInventoryQuads,
+      "https://semantic-flow.github.io/mesh-alice-bio/",
+      "_knop",
+      `${SFLO_NAMESPACE}hasWorkingKnopInventoryFile`,
+      "_knop/_inventory/inventory.ttl",
+    ),
+  );
+  assert(
+    hasNamedNodeFact(
+      meshInventoryQuads,
+      "https://semantic-flow.github.io/mesh-alice-bio/",
+      "_knop",
+      `${SFLO_NAMESPACE}hasResourcePage`,
+      "_knop/index.html",
+    ),
   );
 });
 
@@ -4245,8 +4279,13 @@ Deno.test("planWeave renders an extracted term from a nested source without a ro
     )
     .replace(
       `<alice/_knop> a sflo:Knop ;
-  sflo:hasWorkingKnopInventoryFile <alice/_knop/_inventory/inventory.ttl> ;
-  sflo:hasResourcePage <alice/_knop/index.html> .
+  sflo:hasWorkingKnopInventoryFile <alice/_knop/_inventory/inventory.ttl> .
+
+`,
+      "",
+    )
+    .replace(
+      `<alice/_knop> sflo:hasResourcePage <alice/_knop/index.html> .
 
 `,
       "",

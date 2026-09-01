@@ -3,6 +3,7 @@ import { Parser, type Quad, type Term } from "n3";
 import { WeaveInputError } from "./errors.ts";
 import {
   renderBatchedFirstExtractedKnopWovenMeshInventoryTurtle,
+  renderFirstKnopWovenMeshInventoryTurtle,
   renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle,
   renderGenericFirstExtractedKnopWovenMeshInventoryTurtle,
 } from "./mesh_inventory_renderers.ts";
@@ -235,6 +236,95 @@ Deno.test("current-only payload-like MeshInventory returns exact bytes for a sem
   );
 });
 
+Deno.test("versioned first-Knop MeshInventory appends owned facts with an exact carried prefix", () => {
+  const currentInventory = renderVersionedCurrentInventory().replace(
+    "sflo:hasKnop <term-b/_knop>, <term-a/_knop> ;",
+    "sflo:hasKnop <term-b/_knop> ;",
+  );
+  const rendered = renderFirstKnopWovenMeshInventoryTurtle(
+    currentInventory,
+    MESH_BASE,
+    "term-a",
+    meshInventoryProgression,
+  );
+
+  assert(rendered.startsWith(currentInventory));
+  assertTurtleGraphsEqual(
+    rendered,
+    `${currentInventory}\n${
+      renderTargetFacts(["term-a"])
+    }\n${renderNextProgressionFacts()}\n${
+      renderMeshKnopMembershipFact("term-a")
+    }`,
+  );
+});
+
+Deno.test("versioned first-Knop MeshInventory returns exact bytes for a semantic no-op", () => {
+  const currentInventory = renderVersionedCurrentInventory();
+  const alreadyWovenInventory = `${currentInventory}\n${
+    renderTargetFacts(["term-a"])
+  }\n${renderNextProgressionFacts()}\n${
+    renderMeshKnopMembershipFact("term-a")
+  }`;
+
+  assertEquals(
+    renderFirstKnopWovenMeshInventoryTurtle(
+      alreadyWovenInventory,
+      MESH_BASE,
+      "term-a",
+      meshInventoryProgression,
+    ),
+    alreadyWovenInventory,
+  );
+});
+
+Deno.test("versioned first-Knop MeshInventory rejects a conflicting Knop inventory locator", () => {
+  const conflictingInventory = renderVersionedCurrentInventory().replace(
+    "<term-a/_knop/_inventory/inventory.ttl> .",
+    "<term-a/_knop/_inventory/other.ttl> .",
+  );
+
+  assertThrows(
+    () =>
+      renderFirstKnopWovenMeshInventoryTurtle(
+        conflictingInventory,
+        MESH_BASE,
+        "term-a",
+        meshInventoryProgression,
+      ),
+    WeaveInputError,
+    "Requested settled inventory fact <https://example.test/mesh/term-a/_knop> <https://semantic-flow.github.io/sflo/ontology/hasWorkingKnopInventoryFile> <https://example.test/mesh/term-a/_knop/_inventory/inventory.ttl> . conflicts with existing fact <https://example.test/mesh/term-a/_knop> <https://semantic-flow.github.io/sflo/ontology/hasWorkingKnopInventoryFile> <https://example.test/mesh/term-a/_knop/_inventory/other.ttl> .",
+  );
+});
+
+Deno.test("versioned first-Knop MeshInventory rejects legacy inventory-owned progression", () => {
+  const legacyInventory = `${renderVersionedCurrentInventory()}
+@base <${MESH_BASE}> .
+@prefix sflo: <${SFLO}> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<_mesh/_inventory>
+  sflo:currentArtifactHistory <_mesh/_inventory/_history001> ;
+  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger .
+
+<_mesh/_inventory/_history001>
+  sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0001> ;
+  sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger .
+`;
+
+  assertThrows(
+    () =>
+      renderFirstKnopWovenMeshInventoryTurtle(
+        legacyInventory,
+        MESH_BASE,
+        "term-a",
+        meshInventoryProgression,
+      ),
+    WeaveInputError,
+    "legacy inventory-owned mutable progression predicates: <https://semantic-flow.github.io/sflo/ontology/currentArtifactHistory>, <https://semantic-flow.github.io/sflo/ontology/latestHistoricalState>, <https://semantic-flow.github.io/sflo/ontology/nextHistoryOrdinal>, <https://semantic-flow.github.io/sflo/ontology/nextStateOrdinal>",
+  );
+});
+
 function renderVersionedCurrentInventory(): string {
   return currentOnlyPendingInventory.replace(
     "  sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> ;",
@@ -300,6 +390,14 @@ function renderCurrentOnlyPayloadLikeFacts(designatorPath: string): string {
 <${designatorPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 
 <${knopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+`;
+}
+
+function renderMeshKnopMembershipFact(designatorPath: string): string {
+  return `@base <${MESH_BASE}> .
+@prefix sflo: <${SFLO}> .
+
+<_mesh> sflo:hasKnop <${designatorPath}/_knop> .
 `;
 }
 
