@@ -392,16 +392,19 @@ Deno.test("versionPayloads refuses repository/floating payload sources at LOAD",
     meshRoot,
     `${coreTarget.designatorPath}/_knop/_inventory/inventory.ttl`,
   );
+  const locatorPath =
+    `${coreTarget.designatorPath}/_knop/_sources#payload-source-repository-locator`;
   await Deno.writeTextFile(
     inventoryPath,
     (await Deno.readTextFile(inventoryPath)).replace(
       `  sflo:hasWorkingLocatedFile <${coreTarget.designatorPath}.ttl> .`,
-      `  sflo:hasRepositorySourceFloatingLocator [
-    a sflo:RepositorySourceFloatingLocator ;
-    sflo:sourceRepositoryUrl "https://example.test/rules.git" ;
-    sflo:sourceRepositoryPathFromRoot "rules/core.ttl"
-  ] .`,
-    ),
+      `  sflo:hasRepositorySourceFloatingLocator <${locatorPath}> .`,
+    ) + `
+
+<${locatorPath}> a sflo:RepositorySourceFloatingLocator ;
+  sflo:sourceRepositoryUrl "https://example.test/rules.git" ;
+  sflo:sourceRepositoryPathFromRoot "rules/core.ttl" .
+`,
   );
   const before = await snapshotWorkspace(meshRoot);
 

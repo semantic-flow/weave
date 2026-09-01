@@ -55,7 +55,7 @@ weave integrate "$SFLO_SRC/semantic-flow-core-ontology.ttl" ontology \
   --source-repository-url "https://github.com/semantic-flow/sflo.git"
 ```
 
-This records `sflo:hasRepositorySourceFloatingLocator` with `sflo:sourceRepositoryUrl` and `sflo:sourceRepositoryPathFromRoot`. It intentionally does not persist the local checkout path, branch name, commit, ref, or digest. Later versioning resolves the current bytes from an allowed local checkout of that repository.
+This records `sflo:hasRepositorySourceFloatingLocator` with `sflo:sourceRepositoryUrl` and `sflo:sourceRepositoryPathFromRoot`. The locator is the named resource `<D/_knop/_sources#payload-source-repository-locator>` for payload designator `D`; it is shared by the payload inventory and its source registry. It intentionally does not persist the local checkout path, branch name, commit, ref, or digest. Later versioning resolves the current bytes from an allowed local checkout of that repository.
 
 If `--source-repository-url` is omitted, Weave resolves the URL from the source checkout's git remote. Use `--source-repository-remote <name>` with `--source-repository-current` to choose a remote other than `origin`.
 

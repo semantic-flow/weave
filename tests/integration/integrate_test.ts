@@ -1,6 +1,7 @@
 import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { compareRdfContent } from "../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
+import { IntegrateInputError } from "../../src/core/integrate/integrate.ts";
 import {
   executeIntegrate,
   IntegrateRuntimeError,
@@ -482,6 +483,66 @@ Deno.test("executeIntegrate accepts semantically equivalent mesh metadata turtle
   assertEquals(result.workingLocalRelativePath, "alice-data.ttl");
 });
 
+Deno.test("executeIntegrate floating locator conflict writes no files", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-integrate-floating-conflict-",
+  );
+  await materializeMeshAliceBioBranch(
+    "05-alice-knop-created-woven",
+    workspaceRoot,
+  );
+  await runGit(workspaceRoot, ["init"]);
+  const inventoryPath = join(
+    workspaceRoot,
+    "_mesh/_inventory/inventory.ttl",
+  );
+  const conflictingInventory = (await Deno.readTextFile(inventoryPath)) + [
+    "",
+    "<alice/data/_knop/_sources#payload-source-repository-locator>",
+    "  a sflo:RepositorySourceFloatingLocator ;",
+    '  sflo:sourceRepositoryUrl "https://example.test/other.git" ;',
+    '  sflo:sourceRepositoryPathFromRoot "other.ttl" .',
+    "",
+  ].join("\n");
+  await Deno.writeTextFile(inventoryPath, conflictingInventory);
+
+  await assertRejects(
+    () =>
+      executeIntegrate({
+        meshRoot: workspaceRoot,
+        request: {
+          designatorPath: "alice/data",
+          source: "alice-data.ttl",
+          sourceBinding: {
+            sourceRepositoryCurrent: true,
+            sourceRepositoryUrl:
+              "https://github.com/semantic-flow/mesh-alice-bio.git",
+          },
+        },
+      }),
+    IntegrateInputError,
+    "conflicts with existing fact",
+  );
+
+  assertEquals(await Deno.readTextFile(inventoryPath), conflictingInventory);
+  await assertRejects(
+    () => Deno.stat(join(workspaceRoot, "alice/data")),
+    Deno.errors.NotFound,
+  );
+});
+
 function encode(value: string): Uint8Array {
   return new TextEncoder().encode(value);
+}
+
+async function runGit(cwd: string, args: readonly string[]): Promise<void> {
+  const output = await new Deno.Command("git", {
+    args: [...args],
+    cwd,
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  if (!output.success) {
+    throw new Error(new TextDecoder().decode(output.stderr));
+  }
 }

@@ -4,6 +4,7 @@ import {
   normalizeSafeDesignatorPath,
   toDesignatorResourcePagePath,
   toKnopPath,
+  toPayloadSourceRepositoryFloatingLocatorPath,
 } from "../designator_segments.ts";
 import { KnopCreateInputError } from "../knop/create.ts";
 import type { PlannedFile } from "../planned_file.ts";
@@ -1263,34 +1264,27 @@ function hasRepositorySourceFloatingLocatorPathFact(
   repositoryPathFromRoot: string,
 ): boolean {
   const subjectIri = new URL(subjectValue, meshBase).href;
-  const locatorKeys = new Set<string>();
-
-  for (const quad of quads) {
-    if (
-      quad.subject.termType === "NamedNode" &&
-      quad.subject.value === subjectIri &&
-      quad.predicate.value ===
-        SFLO_HAS_REPOSITORY_SOURCE_FLOATING_LOCATOR_IRI &&
-      (quad.object.termType === "NamedNode" ||
-        quad.object.termType === "BlankNode")
-    ) {
-      locatorKeys.add(toRdfTermKey(quad.object));
-    }
-  }
+  const locatorIri = new URL(
+    toPayloadSourceRepositoryFloatingLocatorPath(subjectValue),
+    meshBase,
+  ).href;
 
   return quads.some((quad) =>
-    (quad.subject.termType === "NamedNode" ||
-      quad.subject.termType === "BlankNode") &&
-    locatorKeys.has(toRdfTermKey(quad.subject)) &&
-    quad.predicate.value === SFLO_SOURCE_REPOSITORY_PATH_FROM_ROOT_IRI &&
-    quad.object.termType === "Literal" &&
-    normalizeWorkingLocalRelativePath(quad.object.value) ===
-      repositoryPathFromRoot
-  );
-}
-
-function toRdfTermKey(term: { termType: string; value: string }): string {
-  return `${term.termType}:${term.value}`;
+    quad.subject.termType === "NamedNode" &&
+    quad.subject.value === subjectIri &&
+    quad.predicate.value ===
+      SFLO_HAS_REPOSITORY_SOURCE_FLOATING_LOCATOR_IRI &&
+    quad.object.termType === "NamedNode" &&
+    quad.object.value === locatorIri
+  ) &&
+    quads.some((quad) =>
+      quad.subject.termType === "NamedNode" &&
+      quad.subject.value === locatorIri &&
+      quad.predicate.value === SFLO_SOURCE_REPOSITORY_PATH_FROM_ROOT_IRI &&
+      quad.object.termType === "Literal" &&
+      normalizeWorkingLocalRelativePath(quad.object.value) ===
+        repositoryPathFromRoot
+    );
 }
 
 function listNamedNodeObjectPaths(

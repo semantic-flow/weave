@@ -97,6 +97,18 @@ export function toReferenceCatalogPath(designatorPath: string): string {
   return appendMeshPath(toKnopPath(designatorPath), "_references");
 }
 
+export function toKnopSourceRegistryPath(designatorPath: string): string {
+  return appendMeshPath(toKnopPath(designatorPath), "_sources");
+}
+
+export function toPayloadSourceRepositoryFloatingLocatorPath(
+  designatorPath: string,
+): string {
+  return `${
+    toKnopSourceRegistryPath(designatorPath)
+  }#payload-source-repository-locator`;
+}
+
 export function toFoundingReferentDataPath(designatorPath: string): string {
   return appendMeshPath(toKnopPath(designatorPath), "_founding");
 }

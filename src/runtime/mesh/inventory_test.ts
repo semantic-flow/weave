@@ -96,11 +96,11 @@ Deno.test("resolvePayloadArtifactInventoryState accepts repository floating payl
 @base <${MESH_BASE}> .
 
 <alice/data> rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:PayloadArtifact ;
-  sflo:hasRepositorySourceFloatingLocator [
-    a sflo:RepositorySourceFloatingLocator ;
-    sflo:sourceRepositoryUrl "https://github.com/semantic-flow/sflo.git" ;
-    sflo:sourceRepositoryPathFromRoot "semantic-flow-core-ontology.ttl"
-  ] .
+  sflo:hasRepositorySourceFloatingLocator <alice/data/_knop/_sources#payload-source-repository-locator> .
+<alice/data/_knop/_sources#payload-source-repository-locator>
+  a sflo:RepositorySourceFloatingLocator ;
+  sflo:sourceRepositoryUrl "https://github.com/semantic-flow/sflo.git" ;
+  sflo:sourceRepositoryPathFromRoot "semantic-flow-core-ontology.ttl" .
 <alice/data/_knop> rdf:type sflo:Knop ;
   sflo:hasPayloadArtifact <alice/data> .
 `,
@@ -121,6 +121,71 @@ Deno.test("resolvePayloadArtifactInventoryState accepts repository floating payl
       currentArtifactHistoryExists: false,
       latestHistoricalStatePath: undefined,
     },
+  );
+});
+
+Deno.test("resolvePayloadArtifactInventoryState rejects anonymous repository floating payload locators", () => {
+  const inventoryTurtle = [
+    "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .",
+    "@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .",
+    "@base <" + MESH_BASE + "> .",
+    "",
+    "<alice/data> rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:PayloadArtifact ;",
+    "  sflo:hasRepositorySourceFloatingLocator [",
+    "    a sflo:RepositorySourceFloatingLocator ;",
+    '    sflo:sourceRepositoryUrl "https://github.com/semantic-flow/sflo.git" ;',
+    '    sflo:sourceRepositoryPathFromRoot "semantic-flow-core-ontology.ttl"',
+    "  ] .",
+    "<alice/data/_knop> rdf:type sflo:Knop ;",
+    "  sflo:hasPayloadArtifact <alice/data> .",
+    "",
+  ].join("\n");
+
+  assertThrows(
+    () =>
+      resolvePayloadArtifactInventoryState(
+        MESH_BASE,
+        inventoryTurtle,
+        "alice/data",
+        {
+          parseErrorMessage: "Could not parse Knop inventory",
+          missingWorkingFileMessage: "Could not resolve working payload file",
+        },
+      ),
+    Error,
+    "canonical named repository floating locator",
+  );
+});
+
+Deno.test("resolvePayloadArtifactInventoryState rejects noncanonical named repository floating payload locators", () => {
+  const inventoryTurtle = [
+    "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .",
+    "@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .",
+    "@base <" + MESH_BASE + "> .",
+    "",
+    "<alice/data> rdf:type sflo:RdfDocument, sflo:DigitalArtifact, sflo:PayloadArtifact ;",
+    "  sflo:hasRepositorySourceFloatingLocator <alice/data#repository-source> .",
+    "<alice/data#repository-source> a sflo:RepositorySourceFloatingLocator ;",
+    '  sflo:sourceRepositoryUrl "https://github.com/semantic-flow/sflo.git" ;',
+    '  sflo:sourceRepositoryPathFromRoot "semantic-flow-core-ontology.ttl" .',
+    "<alice/data/_knop> rdf:type sflo:Knop ;",
+    "  sflo:hasPayloadArtifact <alice/data> .",
+    "",
+  ].join("\n");
+
+  assertThrows(
+    () =>
+      resolvePayloadArtifactInventoryState(
+        MESH_BASE,
+        inventoryTurtle,
+        "alice/data",
+        {
+          parseErrorMessage: "Could not parse Knop inventory",
+          missingWorkingFileMessage: "Could not resolve working payload file",
+        },
+      ),
+    Error,
+    "canonical named repository floating locator",
   );
 });
 

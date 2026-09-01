@@ -1,4 +1,5 @@
 import type { Quad } from "n3";
+import { toPayloadSourceRepositoryFloatingLocatorPath } from "../designator_segments.ts";
 import { SFLO_NAMESPACE } from "../rdf/namespaces.ts";
 import type {
   PayloadWorkingArtifact,
@@ -11,7 +12,6 @@ import {
   resolveUniqueLiteralValuesForTermKey,
   toAbsoluteIri,
   toMeshRelativePath,
-  toRdfTermKey,
 } from "./rdf_helpers.ts";
 import type { RepositorySourceFloatingLocator } from "./source_models.ts";
 import { normalizeWorkingLocalRelativePathLiteral } from "./working_file_paths.ts";
@@ -137,27 +137,35 @@ export function assertHasRepositorySourceFloatingLocator(
   findingCode?: MeshValidationFindingCode,
 ): void {
   const subjectIri = toAbsoluteIri(meshBase, subjectValue);
-  const locatorKeys = new Set<string>();
+  const expectedLocatorIri = toAbsoluteIri(
+    meshBase,
+    toPayloadSourceRepositoryFloatingLocatorPath(subjectValue),
+  );
+  const locatorIris = new Set<string>();
 
   for (const quad of quads) {
     if (
       quad.subject.termType !== "NamedNode" ||
       quad.subject.value !== subjectIri ||
       quad.predicate.value !==
-        SFLO_HAS_REPOSITORY_SOURCE_FLOATING_LOCATOR_IRI ||
-      (quad.object.termType !== "NamedNode" &&
-        quad.object.termType !== "BlankNode")
+        SFLO_HAS_REPOSITORY_SOURCE_FLOATING_LOCATOR_IRI
     ) {
       continue;
     }
-    locatorKeys.add(toRdfTermKey(quad.object));
+    if (
+      quad.object.termType !== "NamedNode" ||
+      quad.object.value !== expectedLocatorIri
+    ) {
+      throw new WeaveInputError(errorMessage, findingCode);
+    }
+    locatorIris.add(quad.object.value);
   }
 
-  if (locatorKeys.size !== 1) {
+  if (locatorIris.size !== 1) {
     throw new WeaveInputError(errorMessage, findingCode);
   }
 
-  const locatorKey = locatorKeys.values().next().value!;
+  const locatorKey = `NamedNode:${expectedLocatorIri}`;
   if (
     !hasTermKeyNamedNodeFact(
       quads,

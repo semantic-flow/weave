@@ -2,6 +2,7 @@ import { Parser, type Quad } from "n3";
 import * as pathPosix from "@std/path/posix";
 import {
   toKnopPath,
+  toPayloadSourceRepositoryFloatingLocatorPath,
   toReferenceCatalogPath,
 } from "../../core/designator_segments.ts";
 import { SFLO_NAMESPACE } from "../../core/rdf/namespaces.ts";
@@ -254,6 +255,10 @@ export function resolvePayloadArtifactInventoryState(
     resolveOptionalRepositorySourceFloatingLocator(
       quads,
       payloadArtifactIri,
+      toMeshIri(
+        meshBase,
+        toPayloadSourceRepositoryFloatingLocatorPath(designatorPath),
+      ),
       messages.parseErrorMessage,
     );
   const workingLocalRelativePath = repositorySourceFloatingLocator
@@ -608,6 +613,10 @@ export function listIntegrationSourceInventoryStates(
       resolveOptionalRepositorySourceFloatingLocator(
         quads,
         sourceBindingIri,
+        toMeshIri(
+          meshBase,
+          toPayloadSourceRepositoryFloatingLocatorPath(sourceArtifactPath),
+        ),
         messages.parseErrorMessage,
       );
     const resolutionObservation =
@@ -1288,28 +1297,34 @@ function resolveOptionalWorkingLocalRelativePath(
 function resolveOptionalRepositorySourceFloatingLocator(
   quads: readonly Quad[],
   subjectIri: string,
+  expectedLocatorIri: string,
   errorMessage: string,
 ): RepositorySourceFloatingLocatorState | undefined {
-  const locatorIri = resolveOptionalUniqueObjectTermKey(
+  const locatorKey = resolveOptionalUniqueObjectTermKey(
     quads,
     subjectIri,
     SFLO_HAS_REPOSITORY_SOURCE_FLOATING_LOCATOR_IRI,
     errorMessage,
   );
-  if (locatorIri === undefined) {
+  if (locatorKey === undefined) {
     return undefined;
+  }
+  if (locatorKey !== `NamedNode:${expectedLocatorIri}`) {
+    throw new InventoryResolutionError(
+      `${errorMessage} Expected canonical named repository floating locator <${expectedLocatorIri}>.`,
+    );
   }
 
   const repositoryUrl = resolveOptionalUniqueLiteral(
     quads,
-    locatorIri,
+    expectedLocatorIri,
     SFLO_SOURCE_REPOSITORY_URL_IRI,
     errorMessage,
   );
   const repositoryPathFromRoot =
     resolveOptionalUniqueLiteralWorkingLocalRelativePath(
       quads,
-      locatorIri,
+      expectedLocatorIri,
       SFLO_SOURCE_REPOSITORY_PATH_FROM_ROOT_IRI,
       errorMessage,
     );

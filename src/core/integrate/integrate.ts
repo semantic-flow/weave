@@ -5,6 +5,7 @@ import type { PlannedFile } from "../planned_file.ts";
 import {
   normalizeSafeDesignatorPath,
   toKnopPath,
+  toPayloadSourceRepositoryFloatingLocatorPath,
 } from "../designator_segments.ts";
 import {
   SFLO_NAMESPACE,
@@ -14,6 +15,16 @@ import {
 import { isCanonicalContentDigest } from "../rdf/content_digest.ts";
 import { escapeTurtleString } from "../rdf/turtle.ts";
 import { normalizeXsdDateTimeLiteral } from "../rdf/xsd_literals.ts";
+import {
+  planInventoryAppend,
+  prepareCurrentInventory,
+  renderInventoryAppendPlan,
+} from "../weave/inventory_append_planner.ts";
+import {
+  renderCurrentWorkingFileDeclaration,
+  renderCurrentWorkingFileLocator,
+  renderRepositorySourceFloatingLocatorNamedBlock,
+} from "../weave/source_locator_renderers.ts";
 
 const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const XSD_ANY_URI_IRI = "http://www.w3.org/2001/XMLSchema#anyURI";
@@ -25,6 +36,13 @@ const SFLO_HAS_MESH_INVENTORY_IRI = `${SFLO_NAMESPACE}hasMeshInventory`;
 const SFLO_HAS_MESH_METADATA_IRI = `${SFLO_NAMESPACE}hasMeshMetadata`;
 const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
   `${SFLO_NAMESPACE}hasWorkingLocatedFile`;
+const SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI =
+  `${SFLO_NAMESPACE}hasWorkingKnopInventoryFile`;
+const SFLO_HAS_REPOSITORY_SOURCE_FLOATING_LOCATOR_IRI =
+  `${SFLO_NAMESPACE}hasRepositorySourceFloatingLocator`;
+const SFLO_SOURCE_REPOSITORY_URL_IRI = `${SFLO_NAMESPACE}sourceRepositoryUrl`;
+const SFLO_SOURCE_REPOSITORY_PATH_FROM_ROOT_IRI =
+  `${SFLO_NAMESPACE}sourceRepositoryPathFromRoot`;
 const SFLO_KNOP_IRI = `${SFLO_NAMESPACE}Knop`;
 const SFLO_LOCATED_FILE_IRI = `${SFLO_NAMESPACE}LocatedFile`;
 const SFLO_MESH_BASE_IRI = `${SFLO_NAMESPACE}meshBase`;
@@ -485,40 +503,6 @@ function usesMeshLocalWorkingLocatedFile(
     .startsWith("../");
 }
 
-function renderCurrentWorkingFileLocator(
-  workingLocalRelativePath: string,
-  sourceBinding?: NormalizedIntegrateSourceBinding,
-): string {
-  if (sourceBinding?.repositorySourceFloatingLocator !== undefined) {
-    return `sflo:hasRepositorySourceFloatingLocator ${
-      renderRepositorySourceFloatingLocatorBlankNode(
-        sourceBinding.repositorySourceFloatingLocator,
-      )
-    } .`;
-  }
-  return usesMeshLocalWorkingLocatedFile(workingLocalRelativePath)
-    ? `sflo:hasWorkingLocatedFile <${workingLocalRelativePath}> .`
-    : `sflo:workingLocalRelativePath ${
-      JSON.stringify(workingLocalRelativePath)
-    } .`;
-}
-
-function renderCurrentWorkingFileDeclaration(
-  workingLocalRelativePath: string,
-  sourceBinding?: NormalizedIntegrateSourceBinding,
-  payloadIsRdfDocument = true,
-): string {
-  if (sourceBinding?.repositorySourceFloatingLocator !== undefined) {
-    return "";
-  }
-  const locatedFileTypes = payloadIsRdfDocument
-    ? "sflo:LocatedFile, sflo:RdfDocument"
-    : "sflo:LocatedFile";
-  return usesMeshLocalWorkingLocatedFile(workingLocalRelativePath)
-    ? `<${workingLocalRelativePath}> a ${locatedFileTypes} .`
-    : "";
-}
-
 function renderKnopMetadataTurtle(
   meshBase: string,
   designatorPath: string,
@@ -542,14 +526,19 @@ function renderKnopInventoryTurtle(
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const sourceRegistryPath = `${knopPath}/_sources`;
+  const repositorySourceFloatingLocator = sourceBinding
+    ?.repositorySourceFloatingLocator;
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
+    designatorPath,
     workingLocalRelativePath,
-    sourceBinding,
+    repositorySourceFloatingLocator,
+    { terminal: "." },
   );
   const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
+    designatorPath,
     workingLocalRelativePath,
-    sourceBinding,
-    payloadIsRdfDocument,
+    repositorySourceFloatingLocator,
+    { locatedFileIsRdfDocument: payloadIsRdfDocument },
   );
   const payloadTypes = renderPayloadArtifactTypes(payloadIsRdfDocument);
   const sourceRegistryKnopLine = sourceBinding
@@ -611,6 +600,15 @@ function renderKnopSourcesTurtle(
       renderSourceObservationBlock(observationPath, sourceBinding.observation)
     }`
     : "";
+  const repositorySourceFloatingLocatorBlock =
+    sourceBinding.repositorySourceFloatingLocator === undefined
+      ? ""
+      : `\n\n${
+        renderRepositorySourceFloatingLocatorNamedBlock(
+          designatorPath,
+          sourceBinding.repositorySourceFloatingLocator,
+        )
+      }`;
 
   return `@base <${meshBase}> .
 ${SFLO_TURTLE_PREFIX_DECLARATION}
@@ -620,7 +618,7 @@ ${SFLO_TURTLE_PREFIX_DECLARATION}
   sflo:hasSourceBinding <${sourceBindingPath}> .
 
 <${sourceBindingPath}> a sflo:IntegrationSource ;
-${sourceBindingFacts}${observationBlock}
+${sourceBindingFacts}${repositorySourceFloatingLocatorBlock}${observationBlock}
 
 <${sourcesFilePath}> a sflo:LocatedFile, sflo:RdfDocument .
 `;
@@ -666,9 +664,7 @@ function renderSourceBindingFacts(
   if (sourceBinding.repositorySourceFloatingLocator !== undefined) {
     facts.push([
       "sflo:hasRepositorySourceFloatingLocator",
-      renderRepositorySourceFloatingLocatorBlankNode(
-        sourceBinding.repositorySourceFloatingLocator,
-      ),
+      `<${toPayloadSourceRepositoryFloatingLocatorPath(designatorPath)}>`,
     ]);
   }
 
@@ -763,28 +759,6 @@ ${lines.join("\n")}
   ]`;
 }
 
-function renderRepositorySourceFloatingLocatorBlankNode(
-  locator: NormalizedIntegrateRepositorySourceFloatingLocator,
-): string {
-  const facts: [string, string][] = [
-    ["a", "sflo:RepositorySourceFloatingLocator"],
-    [
-      "sflo:sourceRepositoryUrl",
-      `"${escapeTurtleString(locator.repositoryUrl)}"`,
-    ],
-    [
-      "sflo:sourceRepositoryPathFromRoot",
-      `"${escapeTurtleString(locator.repositoryPathFromRoot)}"`,
-    ],
-  ];
-  const lines = facts.map(([predicate, object], index) =>
-    `    ${predicate} ${object}${index === facts.length - 1 ? "" : " ;"}`
-  );
-  return `[
-${lines.join("\n")}
-  ]`;
-}
-
 function renderUpdatedMeshInventoryTurtle(
   meshBase: string,
   currentMeshInventoryTurtle: string,
@@ -800,13 +774,44 @@ function renderUpdatedMeshInventoryTurtle(
     workingLocalRelativePath,
   );
 
-  return renderIntegratedMeshInventoryTurtle(
-    currentMeshInventoryTurtle,
-    designatorPath,
-    workingLocalRelativePath,
-    sourceBinding,
-    payloadIsRdfDocument,
-  );
+  const preparedCurrentInventory = prepareCurrentInventory({
+    baseIri: meshBase,
+    currentInventoryTurtle: currentMeshInventoryTurtle,
+    currentInventoryLabel:
+      `current MeshInventory for integrate ${designatorPath}`,
+  });
+  const appendPlan = planInventoryAppend({
+    preparedCurrentInventory,
+    requestedSettledFactsTurtle: renderIntegratedMeshInventoryRequestedFacts(
+      meshBase,
+      designatorPath,
+      workingLocalRelativePath,
+      sourceBinding,
+      payloadIsRdfDocument,
+    ),
+    singleValuedSettledPredicates: [
+      SFLO_HAS_WORKING_KNOP_INVENTORY_FILE_IRI,
+      SFLO_HAS_REPOSITORY_SOURCE_FLOATING_LOCATOR_IRI,
+      SFLO_SOURCE_REPOSITORY_URL_IRI,
+      SFLO_SOURCE_REPOSITORY_PATH_FROM_ROOT_IRI,
+    ],
+    currentInventoryLabel:
+      `current MeshInventory for integrate ${designatorPath}`,
+    requestedFactsLabel: `integrate MeshInventory facts for ${designatorPath}`,
+  });
+  if (appendPlan.kind === "conflict") {
+    throw new IntegrateInputError(
+      `Could not append integrate MeshInventory facts for ${designatorPath}: ${
+        appendPlan.conflicts.map((conflict) => conflict.message).join(" ")
+      }`,
+    );
+  }
+
+  return renderInventoryAppendPlan({
+    preparedCurrentInventory,
+    plan: appendPlan,
+    outputLabel: `integrate MeshInventory append for ${designatorPath}`,
+  });
 }
 
 function assertCanIntegrateIntoCurrentMeshInventory(
@@ -903,8 +908,8 @@ function assertCanIntegrateIntoCurrentMeshInventory(
   ]);
 }
 
-function renderIntegratedMeshInventoryTurtle(
-  currentMeshInventoryTurtle: string,
+function renderIntegratedMeshInventoryRequestedFacts(
+  meshBase: string,
   designatorPath: string,
   workingLocalRelativePath: string,
   sourceBinding: NormalizedIntegrateSourceBinding | undefined,
@@ -912,14 +917,19 @@ function renderIntegratedMeshInventoryTurtle(
 ): string {
   const knopPath = toKnopPath(designatorPath);
   const knopInventoryPath = `${knopPath}/_inventory/inventory.ttl`;
+  const repositorySourceFloatingLocator = sourceBinding
+    ?.repositorySourceFloatingLocator;
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
+    designatorPath,
     workingLocalRelativePath,
-    sourceBinding,
+    repositorySourceFloatingLocator,
+    { terminal: "." },
   );
   const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
+    designatorPath,
     workingLocalRelativePath,
-    sourceBinding,
-    payloadIsRdfDocument,
+    repositorySourceFloatingLocator,
+    { locatedFileIsRdfDocument: payloadIsRdfDocument },
   );
   const payloadTypes = renderPayloadArtifactTypes(payloadIsRdfDocument);
   const currentWorkingFileDeclarationBlock =
@@ -927,7 +937,8 @@ function renderIntegratedMeshInventoryTurtle(
       ? `\n${currentWorkingFileDeclaration}\n`
       : "\n";
 
-  return `${currentMeshInventoryTurtle.trimEnd()}
+  return `@base <${meshBase}> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <_mesh> sflo:hasKnop <${knopPath}> .
 

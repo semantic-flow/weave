@@ -145,9 +145,11 @@ export function renderFirstReferenceCatalogWovenKnopInventoryTurtle(
     workingLocalRelativePath,
   );
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
+    designatorPath,
     workingLocalRelativePath,
   );
   const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
+    designatorPath,
     workingLocalRelativePath,
   );
 
@@ -376,7 +378,7 @@ export function renderCurrentOnlyPageDefinitionWovenKnopInventoryTurtle(
 ${SFLO_TURTLE_PREFIX_DECLARATION}
 
 <${pageDefinitionPath}>
-  ${renderCurrentWorkingFileLocator(workingLocalRelativePath)}
+  ${renderCurrentWorkingFileLocator(designatorPath, workingLocalRelativePath)}
   sflo:hasResourcePage <${pageDefinitionPagePath}> .
 
 <${pageDefinitionPagePath}> a sflo:ResourcePage, sflo:LocatedFile .
@@ -431,9 +433,11 @@ export function renderSubsequentPageDefinitionWovenKnopInventoryTurtle(
     ? `<${assetBundlePath}> a <${SFLO_KNOP_ASSET_BUNDLE_IRI}> .\n\n`
     : "";
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
+    designatorPath,
     workingLocalRelativePath,
   );
   const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
+    designatorPath,
     workingLocalRelativePath,
   );
   const pageDefinitionStateBlocks = Array.from(

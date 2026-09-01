@@ -114,16 +114,19 @@ Deno.test("validateMesh refuses a floating repository source before resolution",
     meshRoot,
     "rules/core/_knop/_inventory/inventory.ttl",
   );
+  const locatorPath =
+    "rules/core/_knop/_sources#payload-source-repository-locator";
   await Deno.writeTextFile(
     inventoryPath,
     (await Deno.readTextFile(inventoryPath)).replace(
       "  sflo:hasWorkingLocatedFile <rules/core.ttl> .",
-      `  sflo:hasRepositorySourceFloatingLocator [
-    a sflo:RepositorySourceFloatingLocator ;
-    sflo:sourceRepositoryUrl "https://example.test/rules.git" ;
-    sflo:sourceRepositoryPathFromRoot "rules/core.ttl"
-  ] .`,
-    ),
+      `  sflo:hasRepositorySourceFloatingLocator <${locatorPath}> .`,
+    ) + `
+
+<${locatorPath}> a sflo:RepositorySourceFloatingLocator ;
+  sflo:sourceRepositoryUrl "https://example.test/rules.git" ;
+  sflo:sourceRepositoryPathFromRoot "rules/core.ttl" .
+`,
   );
 
   const error = await assertRejects(

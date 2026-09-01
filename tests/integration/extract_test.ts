@@ -308,16 +308,19 @@ Deno.test("executeExtract omits local path evidence for floating repository sour
     workspaceRoot,
     "alice/data/_knop/_inventory/inventory.ttl",
   );
+  const locatorPath =
+    "alice/data/_knop/_sources#payload-source-repository-locator";
   await Deno.writeTextFile(
     inventoryPath,
     (await Deno.readTextFile(inventoryPath)).replace(
       "sflo:hasWorkingLocatedFile <alice-data.ttl> ;",
-      `sflo:hasRepositorySourceFloatingLocator [
-    a sflo:RepositorySourceFloatingLocator ;
-    sflo:sourceRepositoryUrl "https://github.com/semantic-flow/mesh-alice-bio.git" ;
-    sflo:sourceRepositoryPathFromRoot "alice-data.ttl"
-  ] ;`,
-    ),
+      `sflo:hasRepositorySourceFloatingLocator <${locatorPath}> ;`,
+    ) + `
+
+<${locatorPath}> a sflo:RepositorySourceFloatingLocator ;
+  sflo:sourceRepositoryUrl "https://github.com/semantic-flow/mesh-alice-bio.git" ;
+  sflo:sourceRepositoryPathFromRoot "alice-data.ttl" .
+`,
   );
 
   const previousHome = Deno.env.get("HOME");
@@ -713,16 +716,19 @@ Deno.test("executeExtractAllTerms with source-state does not require working sou
     "alice/data/_knop/_inventory/inventory.ttl",
   );
   const inventoryTurtle = await Deno.readTextFile(inventoryPath);
+  const locatorPath =
+    "alice/data/_knop/_sources#payload-source-repository-locator";
   await Deno.writeTextFile(
     inventoryPath,
     inventoryTurtle.replace(
       "sflo:hasWorkingLocatedFile <alice-data.ttl> ;",
-      `sflo:hasRepositorySourceFloatingLocator [
-    a sflo:RepositorySourceFloatingLocator ;
-    sflo:sourceRepositoryUrl "https://example.invalid/alice.git" ;
-    sflo:sourceRepositoryPathFromRoot "alice-data.ttl"
-  ] ;`,
-    ),
+      `sflo:hasRepositorySourceFloatingLocator <${locatorPath}> ;`,
+    ) + `
+
+<${locatorPath}> a sflo:RepositorySourceFloatingLocator ;
+  sflo:sourceRepositoryUrl "https://example.invalid/alice.git" ;
+  sflo:sourceRepositoryPathFromRoot "alice-data.ttl" .
+`,
   );
 
   const result = await executeExtractAllTerms({

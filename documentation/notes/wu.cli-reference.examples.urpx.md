@@ -157,7 +157,7 @@ deno run -A "$WEAVE_CLI" \
 
 The branch-published URPX release uses source-lane payload integrations from `$URPX_SRC` into `$URPX_PUB`. `integrate` leaves the source bytes in the source checkout, records a floating repository source locator in each Knop inventory and source registry, and uses the current user's mesh-scoped settings access profile for the host-local read grant when `$URPX_SRC` is outside the publication mesh workspace.
 
-Use `--source-repository-current` for this floating working-source replay. The source registries should record `sflo:hasRepositorySourceFloatingLocator` with `sflo:sourceRepositoryUrl` and `sflo:sourceRepositoryPathFromRoot`, but should not persist repository ref, commit, local checkout path, or digest evidence. The example records the local checkout's configured source remote so later local weaves can resolve the current source files without adding another git remote or persisting host-local paths.
+Use `--source-repository-current` for this floating working-source replay. The source registries should record each `sflo:hasRepositorySourceFloatingLocator` as the named `<D/_knop/_sources#payload-source-repository-locator>` resource with `sflo:sourceRepositoryUrl` and `sflo:sourceRepositoryPathFromRoot`, but should not persist repository ref, commit, local checkout path, or digest evidence. The example records the local checkout's configured source remote so later local weaves can resolve the current source files without adding another git remote or persisting host-local paths.
 
 ```sh
 deno run -A "$WEAVE_CLI" integrate "$URPX_SRC/ontology/urpx-ontology.ttl" ontology \

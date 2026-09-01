@@ -78,10 +78,12 @@ export function renderFirstPayloadWovenKnopInventoryTurtle(
     toFileName(workingLocalRelativePath)
   }`;
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
+    designatorPath,
     workingLocalRelativePath,
     repositorySourceFloatingLocator,
   );
   const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
+    designatorPath,
     workingLocalRelativePath,
     repositorySourceFloatingLocator,
     { locatedFileIsRdfDocument: options?.payloadIsRdfDocument ?? true },
@@ -270,10 +272,12 @@ function renderMultiHistoryPayloadWovenKnopInventoryTurtle(
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
   const payloadFileName = toFileName(workingLocalRelativePath);
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
+    designatorPath,
     workingLocalRelativePath,
     repositorySourceFloatingLocator,
   );
   const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
+    designatorPath,
     workingLocalRelativePath,
     repositorySourceFloatingLocator,
   );
@@ -571,10 +575,12 @@ export function renderLaterPayloadWovenKnopInventoryTurtle(
   const payloadStateTwoManifestationPath = payloadLayout.nextManifestationPath;
   const payloadFileName = toFileName(workingLocalRelativePath);
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
+    designatorPath,
     workingLocalRelativePath,
     repositorySourceFloatingLocator,
   );
   const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
+    designatorPath,
     workingLocalRelativePath,
     repositorySourceFloatingLocator,
   );
