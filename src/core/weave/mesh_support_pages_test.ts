@@ -128,6 +128,212 @@ Deno.test("initial mesh-support history keeps mutable progression in MeshMetadat
   );
 });
 
+Deno.test("initial versioned mesh-support append preserves the exact carried MeshInventory prefix", async () => {
+  const currentMeshInventoryTurtle = `${carriedMeshInventoryTurtle()}  `;
+  const plan = planVersionedMeshSupportPages(currentMeshInventoryTurtle);
+  const updatedInventory = requiredPlannedFileContents(
+    plan.updatedFiles,
+    "_mesh/_inventory/inventory.ttl",
+  );
+  const updatedMetadata = requiredPlannedFileContents(
+    plan.updatedFiles,
+    "_mesh/_meta/meta.ttl",
+  );
+
+  assert(updatedInventory.startsWith(currentMeshInventoryTurtle));
+  assertStringIncludes(
+    updatedInventory.slice(0, currentMeshInventoryTurtle.length),
+    'ex:label "existing anonymous detail"',
+  );
+  assertEquals(
+    await compareRdfContent({
+      left: encode(updatedInventory),
+      right: encode(
+        `${currentMeshInventoryTurtle}${
+          requestedInitialSupportFactsTurtle([
+            "_mesh/_meta",
+            "_mesh/_inventory",
+            "_mesh/_config",
+          ])
+        }`,
+      ),
+      path: "_mesh/_inventory/inventory.ttl",
+    }),
+    true,
+  );
+  assertEquals(
+    requiredPlannedFileContents(
+      plan.createdFiles,
+      "_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl",
+    ),
+    updatedInventory,
+  );
+  assertEquals(
+    requiredPlannedFileContents(
+      plan.createdFiles,
+      "_mesh/_meta/_history001/_s0001/ttl/meta.ttl",
+    ),
+    updatedMetadata,
+  );
+  assertEquals(
+    requiredPlannedFileContents(
+      plan.createdFiles,
+      "_mesh/_config/_history001/_s0001/ttl/config.ttl",
+    ),
+    "# current config bytes\n",
+  );
+});
+
+Deno.test("settled initial mesh-support history makes a repeated plan an exact no-op", () => {
+  const currentMeshConfigTurtle = "# current config bytes\n";
+  const firstPlan = planVersionedMeshSupportPages(
+    carriedMeshInventoryTurtle(),
+  );
+  const firstInventory = requiredPlannedFileContents(
+    firstPlan.updatedFiles,
+    "_mesh/_inventory/inventory.ttl",
+  );
+  const firstMetadata = requiredPlannedFileContents(
+    firstPlan.updatedFiles,
+    "_mesh/_meta/meta.ttl",
+  );
+  const repeatedPlan = planMeshSupportResourcePages({
+    meshBase,
+    currentMeshInventoryTurtle: firstInventory,
+    currentMeshMetadataTurtle: firstMetadata,
+    currentMeshConfigTurtle,
+    supportHistoryPolicies: {
+      meshMetadata: "versioned",
+      meshInventory: "versioned",
+      config: "versioned",
+    },
+  });
+
+  assertEquals(repeatedPlan.createdFiles, []);
+  assertEquals(repeatedPlan.updatedFiles, []);
+});
+
+Deno.test("initial versioned mesh-support append rejects a single-valued conflict", () => {
+  const currentMeshInventoryTurtle = `${carriedMeshInventoryTurtle()}
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<_mesh/_meta/_history001> sflo:historyOrdinal "9"^^xsd:nonNegativeInteger .
+`;
+
+  assertThrows(
+    () => planVersionedMeshSupportPages(currentMeshInventoryTurtle),
+    WeaveInputError,
+    "<https://semantic-flow.github.io/sflo/ontology/historyOrdinal>",
+  );
+});
+
+Deno.test("initial versioned mesh-support append rejects stale inventory progression", () => {
+  const currentMeshInventoryTurtle = `${carriedMeshInventoryTurtle()}
+<_mesh/_meta> sflo:currentArtifactHistory <_mesh/_meta/_history001> .
+`;
+
+  assertThrows(
+    () => planVersionedMeshSupportPages(currentMeshInventoryTurtle),
+    WeaveInputError,
+    "legacy inventory-owned mutable progression predicates",
+  );
+});
+
+Deno.test("initial mesh-support append applies mixed history policies in one semantic union", async () => {
+  const currentMeshInventoryTurtle = carriedMeshInventoryTurtle();
+  const plan = planMeshSupportResourcePages({
+    meshBase,
+    currentMeshInventoryTurtle,
+    currentMeshMetadataTurtle: initialMeshMetadataTurtle(),
+    currentMeshConfigTurtle: "# mixed-policy config bytes\n",
+    supportHistoryPolicies: {
+      meshMetadata: "versioned",
+      meshInventory: "currentOnly",
+      config: "versioned",
+    },
+  });
+  const updatedInventory = requiredPlannedFileContents(
+    plan.updatedFiles,
+    "_mesh/_inventory/inventory.ttl",
+  );
+  const updatedMetadata = requiredPlannedFileContents(
+    plan.updatedFiles,
+    "_mesh/_meta/meta.ttl",
+  );
+
+  assert(updatedInventory.startsWith(currentMeshInventoryTurtle));
+  assertEquals(
+    await compareRdfContent({
+      left: encode(updatedInventory),
+      right: encode(
+        `${currentMeshInventoryTurtle}${
+          requestedInitialSupportFactsTurtle([
+            "_mesh/_meta",
+            "_mesh/_config",
+          ])
+        }`,
+      ),
+      path: "_mesh/_inventory/inventory.ttl",
+    }),
+    true,
+  );
+  assertStringIncludes(
+    updatedMetadata,
+    "<_mesh/_meta/_history001>",
+  );
+  assertStringIncludes(
+    updatedMetadata,
+    "<_mesh/_config/_history001>",
+  );
+  assertFalse(updatedMetadata.includes("<_mesh/_inventory/_history001>"));
+  assertFalse(
+    plan.createdFiles.some((file) =>
+      file.path ===
+        "_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl"
+    ),
+  );
+  assertEquals(
+    requiredPlannedFileContents(
+      plan.createdFiles,
+      "_mesh/_meta/_history001/_s0001/ttl/meta.ttl",
+    ),
+    updatedMetadata,
+  );
+  assertEquals(
+    requiredPlannedFileContents(
+      plan.createdFiles,
+      "_mesh/_config/_history001/_s0001/ttl/config.ttl",
+    ),
+    "# mixed-policy config bytes\n",
+  );
+});
+
+Deno.test("initial versioned mesh-support append supports meshes without config", () => {
+  const currentMeshInventoryTurtle = initialSupportInventoryTurtle().replace(
+    /\n<_mesh\/_config>[\s\S]*$/,
+    "\n",
+  );
+  const plan = planMeshSupportResourcePages({
+    meshBase,
+    currentMeshInventoryTurtle,
+    currentMeshMetadataTurtle: initialMeshMetadataTurtle(),
+    supportHistoryPolicies: {
+      meshMetadata: "versioned",
+      meshInventory: "versioned",
+      config: "versioned",
+    },
+  });
+
+  assertFalse(
+    plan.createdFiles.some((file) => file.path.includes("_mesh/_config")),
+  );
+  assertFalse(
+    plan.updatedFiles.some((file) =>
+      file.contents.includes("<_mesh/_config/_history001>")
+    ),
+  );
+});
+
 function planCurrentOnlyMeshSupportPages(
   currentMeshInventoryTurtle: string,
 ) {
@@ -140,6 +346,20 @@ function planCurrentOnlyMeshSupportPages(
       meshMetadata: "currentOnly",
       meshInventory: "currentOnly",
       config: "currentOnly",
+    },
+  });
+}
+
+function planVersionedMeshSupportPages(currentMeshInventoryTurtle: string) {
+  return planMeshSupportResourcePages({
+    meshBase,
+    currentMeshInventoryTurtle,
+    currentMeshMetadataTurtle: initialMeshMetadataTurtle(),
+    currentMeshConfigTurtle: "# current config bytes\n",
+    supportHistoryPolicies: {
+      meshMetadata: "versioned",
+      meshInventory: "versioned",
+      config: "versioned",
     },
   });
 }
@@ -187,6 +407,64 @@ function requestedSupportPageFactsTurtle(): string {
 `;
 }
 
+function requestedInitialSupportFactsTurtle(
+  versionedSupportPaths: readonly string[],
+): string {
+  const supportPaths = ["_mesh/_meta", "_mesh/_inventory", "_mesh/_config"];
+  const facts = [
+    `<_mesh> sflo:hasResourcePage <_mesh/index.html> .
+<_mesh/index.html> a sflo:ResourcePage, sflo:LocatedFile .`,
+    ...supportPaths.map((supportPath) => {
+      const pagePath = `${supportPath}/index.html`;
+      const currentFacts =
+        `<${supportPath}> sflo:hasResourcePage <${pagePath}>${
+          versionedSupportPaths.includes(supportPath)
+            ? ` ;\n  sflo:hasArtifactHistory <${supportPath}/_history001>`
+            : ""
+        } .
+<${pagePath}> a sflo:ResourcePage, sflo:LocatedFile .`;
+      if (!versionedSupportPaths.includes(supportPath)) {
+        return currentFacts;
+      }
+
+      const historyPath = `${supportPath}/_history001`;
+      const statePath = `${historyPath}/_s0001`;
+      const manifestationPath = `${statePath}/ttl`;
+      const snapshotFilename = supportPath === "_mesh/_meta"
+        ? "meta.ttl"
+        : supportPath === "_mesh/_inventory"
+        ? "inventory.ttl"
+        : "config.ttl";
+      const snapshotPath = `${manifestationPath}/${snapshotFilename}`;
+      return `${currentFacts}
+<${historyPath}> a sflo:ArtifactHistory ;
+  sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
+  sflo:hasHistoricalState <${statePath}> ;
+  sflo:hasResourcePage <${historyPath}/index.html> .
+<${statePath}> a sflo:HistoricalState ;
+  sflo:stateOrdinal "1"^^xsd:nonNegativeInteger ;
+  sflo:hasManifestation <${manifestationPath}> ;
+  sflo:locatedFileForState <${snapshotPath}> ;
+  sflo:hasResourcePage <${statePath}/index.html> .
+<${manifestationPath}> a sflo:ArtifactManifestation, sflo:RdfDocument ;
+  sflo:locatedFileForManifestation <${snapshotPath}> ;
+  sflo:hasResourcePage <${manifestationPath}/index.html> .
+<${snapshotPath}> a sflo:LocatedFile, sflo:RdfDocument .
+<${historyPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${statePath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+<${manifestationPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .`;
+    }),
+  ];
+
+  return `
+@base <${meshBase}> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+${facts.join("\n")}
+`;
+}
+
 function initialSupportInventoryTurtle(): string {
   return [
     "@base <" + meshBase + "> .",
@@ -226,4 +504,13 @@ function initialMeshMetadataTurtle(): string {
 
 function encode(value: string): Uint8Array {
   return new TextEncoder().encode(value);
+}
+
+function requiredPlannedFileContents(
+  files: readonly { path: string; contents: string }[],
+  path: string,
+): string {
+  const contents = files.find((file) => file.path === path)?.contents;
+  assert(contents !== undefined, `Expected planned file ${path}.`);
+  return contents;
 }

@@ -1,4 +1,3 @@
-import { Parser } from "n3";
 import type { Quad } from "n3";
 import {
   SFLO_NAMESPACE,
@@ -8,8 +7,10 @@ import { WeaveInputError as BaseWeaveInputError } from "./errors.ts";
 import {
   planInventoryAppend,
   prepareCurrentInventory,
+  type PreparedCurrentInventory,
   renderInventoryAppendPlan,
 } from "./inventory_append_planner.ts";
+import { assertNoLegacyMeshInventoryProgression } from "./mesh_inventory_progression_assertions.ts";
 import {
   type MeshSupportHistoryPolicies,
   shouldMaterializeSupportHistory as shouldMaterializeSupportHistoryPolicy,
@@ -21,6 +22,7 @@ import {
   type WeaveResourcePageGenerationPolicies,
 } from "./resource_page_policy.ts";
 import type { VersionPlan } from "./version_plan.ts";
+import { splitTurtleBlocks, upsertSubjectBlockAfter } from "./turtle_blocks.ts";
 
 class WeaveInputError extends BaseWeaveInputError {
   constructor(message: string) {
@@ -28,10 +30,15 @@ class WeaveInputError extends BaseWeaveInputError {
   }
 }
 
-const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
-  `${SFLO_NAMESPACE}currentArtifactHistory`;
+const SFLO_HAS_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}hasArtifactHistory`;
 const XSD_TURTLE_PREFIX_DECLARATION =
   "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .";
+const INITIAL_SUPPORT_SINGLE_VALUED_PREDICATES = [
+  `${SFLO_NAMESPACE}historyOrdinal`,
+  `${SFLO_NAMESPACE}stateOrdinal`,
+  `${SFLO_NAMESPACE}locatedFileForState`,
+  `${SFLO_NAMESPACE}locatedFileForManifestation`,
+] as const;
 
 export interface PlanMeshSupportResourcePagesInput {
   meshBase: string;
@@ -65,11 +72,16 @@ export function planMeshSupportResourcePages(
 ): VersionPlan {
   const meshBase = normalizeMeshBase(input.meshBase);
   const currentMeshInventoryTurtle = input.currentMeshInventoryTurtle;
-  const quads = parseWeaveShapeQuads(
-    meshBase,
-    currentMeshInventoryTurtle,
-    "Could not parse the current MeshInventory while planning mesh support ResourcePages.",
+  const preparedCurrentInventory = prepareCurrentInventory({
+    baseIri: meshBase,
+    currentInventoryTurtle: currentMeshInventoryTurtle,
+    currentInventoryLabel: "current MeshInventory for mesh support pages",
+  });
+  assertNoLegacyMeshInventoryProgression(
+    preparedCurrentInventory,
+    "plan mesh support ResourcePages",
   );
+  const quads = preparedCurrentInventory.quads;
   const supportResources = buildMeshSupportResources(input, quads, meshBase);
   const versionedSupportResources = supportResources.filter(
     shouldMaterializeSupportHistory,
@@ -81,7 +93,7 @@ export function planMeshSupportResourcePages(
       quads,
       meshBase,
       resource.path,
-      SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
+      SFLO_HAS_ARTIFACT_HISTORY_IRI,
       resource.historyPath!,
     )
   );
@@ -90,7 +102,7 @@ export function planMeshSupportResourcePages(
     return applyResourcePageGenerationPolicies(
       planInitialMeshSupportResourcePageWeave({
         meshBase,
-        currentMeshInventoryTurtle,
+        preparedCurrentInventory,
         currentMeshMetadataTurtle: input.currentMeshMetadataTurtle,
         currentMeshConfigTurtle: input.currentMeshConfigTurtle,
         hasConfig: hasSubject(quads, meshBase, "_mesh/_config"),
@@ -108,11 +120,6 @@ export function planMeshSupportResourcePages(
       );
     }
   }
-  const preparedCurrentInventory = prepareCurrentInventory({
-    baseIri: meshBase,
-    currentInventoryTurtle: currentMeshInventoryTurtle,
-    currentInventoryLabel: "current MeshInventory for mesh support pages",
-  });
   const requestedSettledFactsTurtle = `@base <${meshBase}> .
 ${SFLO_TURTLE_PREFIX_DECLARATION}
 
@@ -264,7 +271,7 @@ function shouldMaterializeSupportHistory(
 
 function planInitialMeshSupportResourcePageWeave(input: {
   meshBase: string;
-  currentMeshInventoryTurtle: string;
+  preparedCurrentInventory: PreparedCurrentInventory;
   currentMeshMetadataTurtle: string;
   currentMeshConfigTurtle?: string;
   hasConfig: boolean;
@@ -310,16 +317,16 @@ function planInitialMeshSupportResourcePageWeave(input: {
       }]
       : []),
   ];
-  const blocks = normalizeMeshInventoryHeader(
-    splitTurtleBlocks(input.currentMeshInventoryTurtle),
-  );
+  const preparedCurrentInventory = input.preparedCurrentInventory;
 
-  for (const support of supportResources) {
-    if (findSubjectBlockIndex(blocks, support.path) === -1) {
+  for (const path of ["_mesh", ...supportResources.map(({ path }) => path)]) {
+    if (!hasSubject(preparedCurrentInventory.quads, input.meshBase, path)) {
       throw new WeaveInputError(
-        `Current mesh inventory did not contain support resource <${support.path}>.`,
+        `Current mesh inventory did not contain support resource <${path}>.`,
       );
     }
+  }
+  for (const support of supportResources) {
     if (support.currentTurtle === undefined) {
       throw new WeaveInputError(
         `Current mesh support file was missing for <${support.path}>.`,
@@ -327,105 +334,28 @@ function planInitialMeshSupportResourcePageWeave(input: {
     }
   }
 
-  let nextBlocks = blocks;
-  nextBlocks = replaceSubjectBlock(
-    nextBlocks,
-    "_mesh",
-    appendResourcePageFactToBlock(
-      nextBlocks[findSubjectBlockIndex(nextBlocks, "_mesh")]!,
-      "_mesh/index.html",
+  const appendPlan = planInventoryAppend({
+    preparedCurrentInventory,
+    requestedSettledFactsTurtle: renderInitialMeshSupportRequestedFactsTurtle(
+      input.meshBase,
+      supportResources,
     ),
-  );
-  nextBlocks = upsertSubjectBlockAfter(
-    nextBlocks,
-    "_mesh",
-    "_mesh/index.html",
-    renderResourcePageLocatedFileBlock("_mesh/index.html"),
-  );
-
-  for (const support of supportResources) {
-    const currentBlock = appendResourcePageFactToBlock(
-      nextBlocks[findSubjectBlockIndex(nextBlocks, support.path)]!,
-      support.pagePath,
-    );
-    nextBlocks = replaceSubjectBlock(
-      nextBlocks,
-      support.path,
-      shouldMaterializeSupportHistory(support)
-        ? appendInitialSupportHistoryFactsToBlock(
-          currentBlock,
-          support.historyPath!,
-        )
-        : currentBlock,
-    );
-    nextBlocks = upsertSubjectBlockAfter(
-      nextBlocks,
-      support.path,
-      support.pagePath,
-      renderResourcePageLocatedFileBlock(support.pagePath),
-    );
-
-    if (!shouldMaterializeSupportHistory(support)) {
-      continue;
-    }
-
-    nextBlocks = upsertSubjectBlockAfter(
-      nextBlocks,
-      support.path,
-      support.historyPath!,
-      renderInitialSupportHistoryBlock(
-        support.historyPath!,
-        support.statePath!,
-      ),
-    );
-    nextBlocks = upsertSubjectBlockAfter(
-      nextBlocks,
-      support.historyPath!,
-      support.statePath!,
-      renderInitialSupportStateBlock(
-        support.statePath!,
-        support.manifestationPath!,
-        support.snapshotPath!,
-      ),
-    );
-    nextBlocks = upsertSubjectBlockAfter(
-      nextBlocks,
-      support.statePath!,
-      support.manifestationPath!,
-      renderInitialSupportManifestationBlock(
-        support.manifestationPath!,
-        support.snapshotPath!,
-      ),
-    );
-    nextBlocks = upsertSubjectBlockAfter(
-      nextBlocks,
-      currentSupportWorkingFilePath(support),
-      support.snapshotPath!,
-      renderLocatedFileBlock(support.snapshotPath!),
-    );
-    nextBlocks = upsertSubjectBlockAfter(
-      nextBlocks,
-      support.pagePath,
-      `${support.historyPath!}/index.html`,
-      renderResourcePageLocatedFileBlock(`${support.historyPath!}/index.html`),
-    );
-    nextBlocks = upsertSubjectBlockAfter(
-      nextBlocks,
-      `${support.historyPath!}/index.html`,
-      `${support.statePath!}/index.html`,
-      renderResourcePageLocatedFileBlock(`${support.statePath!}/index.html`),
-    );
-    nextBlocks = upsertSubjectBlockAfter(
-      nextBlocks,
-      `${support.statePath!}/index.html`,
-      `${support.manifestationPath!}/index.html`,
-      renderResourcePageLocatedFileBlock(
-        `${support.manifestationPath!}/index.html`,
-      ),
+    singleValuedSettledPredicates: INITIAL_SUPPORT_SINGLE_VALUED_PREDICATES,
+    currentInventoryLabel: "current MeshInventory for initial mesh support",
+    requestedFactsLabel: "initial mesh-support MeshInventory facts",
+  });
+  if (appendPlan.kind === "conflict") {
+    throw new WeaveInputError(
+      `Could not append initial mesh-support MeshInventory facts: ${
+        appendPlan.conflicts.map((conflict) => conflict.message).join(" ")
+      }`,
     );
   }
-
-  const updatedInventoryTurtle = `${nextBlocks.join("\n\n")}\n`;
+  const updatedInventoryTurtle = renderInventoryAppendPlan({
+    preparedCurrentInventory,
+    plan: appendPlan,
+    outputLabel: "initial mesh-support MeshInventory append",
+  });
   const versionedSupportResources = supportResources.filter(
     shouldMaterializeSupportHistory,
   );
@@ -461,12 +391,74 @@ function planInitialMeshSupportResourcePageWeave(input: {
         path: "_mesh/_meta/meta.ttl",
         contents: updatedMeshMetadataTurtle,
       }]),
-      {
+      ...(updatedInventoryTurtle === preparedCurrentInventory.turtle ? [] : [{
         path: "_mesh/_inventory/inventory.ttl",
         contents: updatedInventoryTurtle,
-      },
+      }]),
     ],
   };
+}
+
+function renderInitialMeshSupportRequestedFactsTurtle(
+  meshBase: string,
+  supportResources: readonly MeshSupportResource[],
+): string {
+  const meshPageFacts = `<_mesh> sflo:hasResourcePage <_mesh/index.html> .
+
+${renderResourcePageLocatedFileBlock("_mesh/index.html")}`;
+  const supportFacts = supportResources.map((support) => {
+    const currentFacts =
+      `<${support.path}> sflo:hasResourcePage <${support.pagePath}>${
+        shouldMaterializeSupportHistory(support)
+          ? ` ;\n  sflo:hasArtifactHistory <${support.historyPath!}>`
+          : ""
+      } .
+
+${renderResourcePageLocatedFileBlock(support.pagePath)}`;
+    if (!shouldMaterializeSupportHistory(support)) {
+      return currentFacts;
+    }
+
+    return `${currentFacts}
+
+${renderInitialSupportHistoryBlock(support.historyPath!, support.statePath!)}
+
+${
+      renderInitialSupportStateBlock(
+        support.statePath!,
+        support.manifestationPath!,
+        support.snapshotPath!,
+      )
+    }
+
+${
+      renderInitialSupportManifestationBlock(
+        support.manifestationPath!,
+        support.snapshotPath!,
+      )
+    }
+
+${renderLocatedFileBlock(support.snapshotPath!)}
+
+${renderResourcePageLocatedFileBlock(`${support.historyPath!}/index.html`)}
+
+${renderResourcePageLocatedFileBlock(`${support.statePath!}/index.html`)}
+
+${
+      renderResourcePageLocatedFileBlock(
+        `${support.manifestationPath!}/index.html`,
+      )
+    }`;
+  }).join("\n\n");
+
+  return `@base <${meshBase}> .
+${SFLO_TURTLE_PREFIX_DECLARATION}
+${XSD_TURTLE_PREFIX_DECLARATION}
+
+${meshPageFacts}
+
+${supportFacts}
+`;
 }
 
 function renderInitialMeshMetadataWithSupportProgression(
@@ -511,21 +503,6 @@ function renderInitialMeshSupportHistoryMetaProgressionBlock(
   sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger .`;
 }
 
-function currentSupportWorkingFilePath(support: MeshSupportResource): string {
-  switch (support.path) {
-    case "_mesh/_inventory":
-      return "_mesh/_inventory/inventory.ttl";
-    case "_mesh/_meta":
-      return "_mesh/_meta/meta.ttl";
-    case "_mesh/_config":
-      return "_mesh/_config/config.ttl";
-    default:
-      throw new WeaveInputError(
-        `Unsupported mesh support resource <${support.path}>.`,
-      );
-  }
-}
-
 function normalizeMeshBase(meshBase: string): string {
   const trimmed = meshBase.trim();
   if (trimmed.length === 0) {
@@ -547,18 +524,6 @@ function normalizeMeshBase(meshBase: string): string {
   }
 
   return url.href;
-}
-
-function parseWeaveShapeQuads(
-  meshBase: string,
-  turtle: string,
-  errorMessage: string,
-): Quad[] {
-  try {
-    return new Parser({ baseIRI: meshBase }).parse(turtle);
-  } catch {
-    throw new WeaveInputError(errorMessage);
-  }
 }
 
 function hasNamedNodeFact(
@@ -596,25 +561,6 @@ function toAbsoluteIri(meshBase: string, value: string): string {
   return new URL(value, meshBase).href;
 }
 
-function splitTurtleBlocks(turtle: string): string[] {
-  return turtle.trimEnd().split("\n\n");
-}
-
-function normalizeMeshInventoryHeader(blocks: string[]): string[] {
-  if (blocks.length === 0) {
-    return blocks;
-  }
-
-  const [header, ...rest] = blocks;
-  return [
-    header.replace(
-      "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n",
-      "",
-    ),
-    ...rest,
-  ];
-}
-
 function ensureXsdPrefix(turtle: string): string {
   if (turtle.includes(XSD_TURTLE_PREFIX_DECLARATION)) {
     return turtle;
@@ -640,101 +586,12 @@ function ensureXsdPrefix(turtle: string): string {
   return `${XSD_TURTLE_PREFIX_DECLARATION}\n${turtle}`;
 }
 
-function replaceSubjectBlock(
-  blocks: string[],
-  subjectPath: string,
-  replacementBlock: string,
-): string[] {
-  const index = findSubjectBlockIndex(blocks, subjectPath);
-  if (index === -1) {
-    throw new WeaveInputError(
-      `Current mesh inventory did not contain subject block <${subjectPath}>.`,
-    );
-  }
-
-  const nextBlocks = [...blocks];
-  nextBlocks[index] = replacementBlock;
-  return nextBlocks;
-}
-
-function upsertSubjectBlockAfter(
-  blocks: string[],
-  anchorSubjectPath: string,
-  subjectPath: string,
-  block: string,
-): string[] {
-  const existingIndex = findSubjectBlockIndex(blocks, subjectPath);
-  if (existingIndex !== -1) {
-    const nextBlocks = [...blocks];
-    nextBlocks[existingIndex] = block;
-    return nextBlocks;
-  }
-
-  const anchorIndex = findSubjectBlockIndex(blocks, anchorSubjectPath);
-  if (anchorIndex === -1) {
-    throw new WeaveInputError(
-      `Current mesh inventory did not contain anchor subject block <${anchorSubjectPath}>.`,
-    );
-  }
-
-  const nextBlocks = [...blocks];
-  nextBlocks.splice(anchorIndex + 1, 0, block);
-  return nextBlocks;
-}
-
-function findSubjectBlockIndex(
-  blocks: readonly string[],
-  subjectPath: string,
-): number {
-  return blocks.findIndex((block) =>
-    getSubjectPathFromBlock(block) === subjectPath
-  );
-}
-
-function getSubjectPathFromBlock(block: string): string | undefined {
-  const match = block.match(/^<([^>]*)>/);
-  return match?.[1];
-}
-
 function renderLocatedFileBlock(path: string): string {
   return `<${path}> a sflo:LocatedFile, sflo:RdfDocument .`;
 }
 
 function renderResourcePageLocatedFileBlock(path: string): string {
   return `<${path}> a sflo:ResourcePage, sflo:LocatedFile .`;
-}
-
-function appendResourcePageFactToBlock(
-  block: string,
-  pagePath: string,
-): string {
-  const fact = `sflo:hasResourcePage <${pagePath}>`;
-  if (block.includes(fact)) {
-    return block;
-  }
-  if (!block.endsWith(" .")) {
-    throw new WeaveInputError(
-      `Current mesh inventory subject block cannot receive ResourcePage fact for <${pagePath}>.`,
-    );
-  }
-  return `${block.slice(0, -2)} ;\n  ${fact} .`;
-}
-
-function appendInitialSupportHistoryFactsToBlock(
-  block: string,
-  historyPath: string,
-): string {
-  if (block.includes("sflo:hasArtifactHistory")) {
-    return block;
-  }
-  if (!block.endsWith(" .")) {
-    throw new WeaveInputError(
-      `Current mesh inventory subject block cannot receive history facts for <${historyPath}>.`,
-    );
-  }
-  return `${
-    block.slice(0, -2)
-  } ;\n  sflo:hasArtifactHistory <${historyPath}> .`;
 }
 
 function renderInitialSupportHistoryBlock(
