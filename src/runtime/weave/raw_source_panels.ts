@@ -70,11 +70,17 @@ export async function collectMeshSupportRawSourcePanels(
     string,
     readonly ResourcePageRawSourcePanelModel[]
   >();
-  const quads = parseInventoryQuads(
+  const inventoryQuads = parseInventoryQuads(
     meshState.meshBase,
     meshState.currentMeshInventoryTurtle,
     "Could not parse the current MeshInventory while collecting mesh support source panels.",
   );
+  const metadataQuads = parseInventoryQuads(
+    meshState.meshBase,
+    meshState.currentMeshMetadataTurtle,
+    "Could not parse the current MeshMetadata while collecting mesh support source panels.",
+  );
+  const quads = [...inventoryQuads, ...metadataQuads];
 
   if (
     !(await addLatestHistoricalRawSourcePanelForCurrentArtifact(

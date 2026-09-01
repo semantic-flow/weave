@@ -1,4 +1,10 @@
-import { assert, assertEquals, assertThrows } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertFalse,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import { compareRdfContent } from "../../../dependencies/github.com/spectacular-voyage/accord/src/checker/compare_rdf.ts";
 import { planMeshSupportResourcePages } from "./mesh_support_pages.ts";
 import { WeaveInputError } from "./errors.ts";
@@ -48,6 +54,77 @@ Deno.test("mesh-support page-only append rejects a missing support subject", () 
     () => planCurrentOnlyMeshSupportPages(currentMeshInventoryTurtle),
     WeaveInputError,
     "did not contain support resource <_mesh/_meta>",
+  );
+});
+
+Deno.test("initial mesh-support history keeps mutable progression in MeshMetadata only", () => {
+  const plan = planMeshSupportResourcePages({
+    meshBase,
+    currentMeshInventoryTurtle: initialSupportInventoryTurtle(),
+    currentMeshMetadataTurtle: initialMeshMetadataTurtle(),
+    currentMeshConfigTurtle: "# current config bytes\n",
+    supportHistoryPolicies: {
+      meshMetadata: "versioned",
+      meshInventory: "versioned",
+      config: "versioned",
+    },
+  });
+  const updatedInventory =
+    plan.updatedFiles.find((file) =>
+      file.path === "_mesh/_inventory/inventory.ttl"
+    )?.contents ?? "";
+  const updatedMetadata =
+    plan.updatedFiles.find((file) => file.path === "_mesh/_meta/meta.ttl")
+      ?.contents ?? "";
+
+  for (
+    const mutablePredicate of [
+      "sflo:currentArtifactHistory",
+      "sflo:nextHistoryOrdinal",
+      "sflo:latestHistoricalState",
+      "sflo:nextStateOrdinal",
+    ]
+  ) {
+    assertFalse(
+      updatedInventory.includes(mutablePredicate),
+      "MeshInventory retained mutable predicate " + mutablePredicate,
+    );
+  }
+  for (
+    const supportPath of [
+      "_mesh/_meta",
+      "_mesh/_inventory",
+      "_mesh/_config",
+    ]
+  ) {
+    const historyPath = supportPath + "/_history001";
+    assertStringIncludes(
+      updatedInventory,
+      "sflo:hasArtifactHistory <" + historyPath + ">",
+    );
+    assertStringIncludes(
+      updatedInventory,
+      "sflo:hasHistoricalState <" + historyPath + "/_s0001>",
+    );
+    assertStringIncludes(updatedMetadata, "<" + supportPath + ">");
+    assertStringIncludes(
+      updatedMetadata,
+      "sflo:currentArtifactHistory <" + historyPath + ">",
+    );
+    assertStringIncludes(
+      updatedMetadata,
+      "<" + historyPath + ">",
+    );
+    assertStringIncludes(
+      updatedMetadata,
+      "sflo:latestHistoricalState <" + historyPath + "/_s0001>",
+    );
+  }
+  assertEquals(
+    plan.createdFiles.find((file) =>
+      file.path === "_mesh/_meta/_history001/_s0001/ttl/meta.ttl"
+    )?.contents,
+    updatedMetadata,
   );
 });
 
@@ -108,6 +185,43 @@ function requestedSupportPageFactsTurtle(): string {
 <_mesh/_config> sflo:hasResourcePage <_mesh/_config/index.html> .
 <_mesh/_config/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 `;
+}
+
+function initialSupportInventoryTurtle(): string {
+  return [
+    "@base <" + meshBase + "> .",
+    "@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .",
+    "",
+    "<_mesh> a sflo:SemanticMesh .",
+    "",
+    "<_mesh/_meta> a sflo:MeshMetadata, sflo:DigitalArtifact, sflo:RdfDocument ;",
+    "  sflo:hasWorkingLocatedFile <_mesh/_meta/meta.ttl> .",
+    "",
+    "<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;",
+    "  sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> .",
+    "",
+    "<_mesh/_config> a sflo:DigitalArtifact, sflo:RdfDocument ;",
+    "  sflo:hasWorkingLocatedFile <_mesh/_config/config.ttl> .",
+    "",
+    "<_mesh/_meta/meta.ttl> a sflo:LocatedFile, sflo:RdfDocument .",
+    "",
+    "<_mesh/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .",
+    "",
+    "<_mesh/_config/config.ttl> a sflo:LocatedFile, sflo:RdfDocument .",
+    "",
+  ].join("\n");
+}
+
+function initialMeshMetadataTurtle(): string {
+  return [
+    "@base <" + meshBase + "> .",
+    "@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .",
+    "",
+    "<_mesh> a sflo:SemanticMesh .",
+    "",
+    "<_mesh/_meta> a sflo:MeshMetadata, sflo:DigitalArtifact, sflo:RdfDocument .",
+    "",
+  ].join("\n");
 }
 
 function encode(value: string): Uint8Array {

@@ -212,16 +212,22 @@ Deno.test("planMeshSupportResourcePages adds current support ResourcePages inclu
   );
   assertEquals(
     plan.updatedFiles.map((file) => file.path),
-    ["_mesh/_inventory/inventory.ttl"],
+    ["_mesh/_meta/meta.ttl", "_mesh/_inventory/inventory.ttl"],
   );
-  const inventory = plan.updatedFiles[0]?.contents ?? "";
+  const inventory =
+    plan.updatedFiles.find((file) =>
+      file.path === "_mesh/_inventory/inventory.ttl"
+    )?.contents ?? "";
+  const metadata =
+    plan.updatedFiles.find((file) => file.path === "_mesh/_meta/meta.ttl")
+      ?.contents ?? "";
   assertStringIncludes(
     inventory,
     "sfcfg:hasConfig <_mesh/_config> ;\n  sflo:hasResourcePage <_mesh/index.html> .",
   );
   assertStringIncludes(
     inventory,
-    "sflo:hasWorkingLocatedFile <_mesh/_config/config.ttl> ;\n  sflo:hasResourcePage <_mesh/_config/index.html> ;\n  sflo:hasArtifactHistory <_mesh/_config/_history001> ;",
+    "sflo:hasWorkingLocatedFile <_mesh/_config/config.ttl> ;\n  sflo:hasResourcePage <_mesh/_config/index.html> ;\n  sflo:hasArtifactHistory <_mesh/_config/_history001> .",
   );
   assertStringIncludes(
     inventory,
@@ -244,6 +250,19 @@ Deno.test("planMeshSupportResourcePages adds current support ResourcePages inclu
     inventory.includes(
       "sflo:currentArtifactHistory <_mesh/_meta/_history001>",
     ),
+  );
+  assertFalse(
+    inventory.includes(
+      "sflo:currentArtifactHistory <_mesh/_config/_history001>",
+    ),
+  );
+  assertStringIncludes(
+    metadata,
+    "sflo:currentArtifactHistory <_mesh/_config/_history001> ;",
+  );
+  assertStringIncludes(
+    metadata,
+    "sflo:latestHistoricalState <_mesh/_config/_history001/_s0001> ;",
   );
   assertStringIncludes(
     inventory,
@@ -321,7 +340,10 @@ Deno.test("planMeshSupportResourcePages keeps support ResourcePage facts when pa
     },
   });
 
-  const inventory = plan.updatedFiles[0]?.contents ?? "";
+  const inventory =
+    plan.updatedFiles.find((file) =>
+      file.path === "_mesh/_inventory/inventory.ttl"
+    )?.contents ?? "";
   assertStringIncludes(
     inventory,
     "sflo:hasResourcePage <_mesh/_config/index.html>",
@@ -340,7 +362,7 @@ Deno.test("planMeshSupportResourcePages keeps support ResourcePage facts when pa
   );
   assertStringIncludes(
     inventory,
-    "sflo:hasArtifactHistory <_mesh/_config/_history001> ;",
+    "sflo:hasArtifactHistory <_mesh/_config/_history001> .",
   );
   assertStringIncludes(
     inventory,
@@ -4215,6 +4237,12 @@ Deno.test("planWeave renders an extracted term from a nested source without a ro
   const input = await createExtractedBobWeaveInput();
   input.currentMeshInventoryTurtle = input.currentMeshInventoryTurtle
     .replace("  sflo:hasKnop <alice/_knop> ;\n", "")
+    .replace(
+      `<_mesh> sflo:hasKnop <alice/_knop> .
+
+`,
+      "",
+    )
     .replace(
       `<alice/_knop> a sflo:Knop ;
   sflo:hasWorkingKnopInventoryFile <alice/_knop/_inventory/inventory.ttl> ;
