@@ -1767,21 +1767,26 @@ Deno.test("planWeave preserves floating repository payload source locators", () 
     repositoryUrl: "https://github.com/semantic-flow/sflo.git",
     repositoryPathFromRoot: "alice-data.ttl",
   };
-  const floatingLocatorBlock = `sflo:hasRepositorySourceFloatingLocator [
-    a sflo:RepositorySourceFloatingLocator ;
-    sflo:sourceRepositoryUrl "https://github.com/semantic-flow/sflo.git" ;
-    sflo:sourceRepositoryPathFromRoot "alice-data.ttl"
-  ]`;
+  const floatingLocatorPath =
+    "alice/data/_knop/_sources#payload-source-repository-locator";
+  const floatingLocatorBlock =
+    `sflo:hasRepositorySourceFloatingLocator <${floatingLocatorPath}>`;
+  const floatingLocatorSubjectBlock = `
+
+<${floatingLocatorPath}> a sflo:RepositorySourceFloatingLocator ;
+  sflo:sourceRepositoryUrl "https://github.com/semantic-flow/sflo.git" ;
+  sflo:sourceRepositoryPathFromRoot "alice-data.ttl" .
+`;
   const currentMeshInventoryTurtle = firstPayloadWeaveMeshInventoryTurtle
     .replace(
       "sflo:hasWorkingLocatedFile <alice-data.ttl>",
       floatingLocatorBlock,
-    );
+    ) + floatingLocatorSubjectBlock;
   const currentKnopInventoryTurtle = firstPayloadWeaveKnopInventoryTurtle
     .replace(
       "sflo:hasWorkingLocatedFile <alice-data.ttl>",
       floatingLocatorBlock,
-    );
+    ) + floatingLocatorSubjectBlock;
 
   const plan = planWeave({
     request: {
@@ -1821,7 +1826,11 @@ Deno.test("planWeave preserves floating repository payload source locators", () 
   for (const turtle of [meshInventory, knopInventory]) {
     assertStringIncludes(
       turtle,
-      "sflo:hasRepositorySourceFloatingLocator [",
+      `sflo:hasRepositorySourceFloatingLocator <${floatingLocatorPath}>`,
+    );
+    assertStringIncludes(
+      turtle,
+      `<${floatingLocatorPath}> a sflo:RepositorySourceFloatingLocator`,
     );
     assertStringIncludes(
       turtle,
@@ -4283,14 +4292,17 @@ Deno.test("planWeave accepts extracted terms from floating repository source pay
     repositoryUrl: "https://github.com/semantic-flow/mesh-alice-bio.git",
     repositoryPathFromRoot: "alice-data.ttl",
   };
+  const repositorySourceFloatingLocatorPath =
+    "alice/data/_knop/_sources#payload-source-repository-locator";
   input.currentMeshInventoryTurtle = input.currentMeshInventoryTurtle.replace(
     "sflo:hasWorkingLocatedFile <alice-data.ttl> ;",
-    `sflo:hasRepositorySourceFloatingLocator [
-    a sflo:RepositorySourceFloatingLocator ;
-    sflo:sourceRepositoryUrl "${repositorySourceFloatingLocator.repositoryUrl}" ;
-    sflo:sourceRepositoryPathFromRoot "${repositorySourceFloatingLocator.repositoryPathFromRoot}"
-  ] ;`,
-  );
+    `sflo:hasRepositorySourceFloatingLocator <${repositorySourceFloatingLocatorPath}> ;`,
+  ) + `
+
+<${repositorySourceFloatingLocatorPath}> a sflo:RepositorySourceFloatingLocator ;
+  sflo:sourceRepositoryUrl "${repositorySourceFloatingLocator.repositoryUrl}" ;
+  sflo:sourceRepositoryPathFromRoot "${repositorySourceFloatingLocator.repositoryPathFromRoot}" .
+`;
   input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact = {
     ...input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact!,
     repositorySourceFloatingLocator,
@@ -4301,20 +4313,23 @@ Deno.test("planWeave accepts extracted terms from floating repository source pay
   assertEquals(plan.wovenDesignatorPaths, ["bob"]);
   assertStringIncludes(
     plan.updatedFiles[0]?.contents ?? "",
-    "sflo:hasRepositorySourceFloatingLocator [",
+    `sflo:hasRepositorySourceFloatingLocator <${repositorySourceFloatingLocatorPath}>`,
   );
 });
 
 Deno.test("planWeave rejects extracted terms from mismatched floating repository sources", async () => {
   const input = await createExtractedBobWeaveInput();
+  const locatorPath =
+    "alice/data/_knop/_sources#payload-source-repository-locator";
   input.currentMeshInventoryTurtle = input.currentMeshInventoryTurtle.replace(
     "sflo:hasWorkingLocatedFile <alice-data.ttl> ;",
-    `sflo:hasRepositorySourceFloatingLocator [
-    a sflo:RepositorySourceFloatingLocator ;
-    sflo:sourceRepositoryUrl "https://github.com/semantic-flow/mesh-alice-bio.git" ;
-    sflo:sourceRepositoryPathFromRoot "alice-data.ttl"
-  ] ;`,
-  );
+    `sflo:hasRepositorySourceFloatingLocator <${locatorPath}> ;`,
+  ) + `
+
+<${locatorPath}> a sflo:RepositorySourceFloatingLocator ;
+  sflo:sourceRepositoryUrl "https://github.com/semantic-flow/mesh-alice-bio.git" ;
+  sflo:sourceRepositoryPathFromRoot "alice-data.ttl" .
+`;
   input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact = {
     ...input.weaveableKnops[0]!.referenceTargetSourcePayloadArtifact!,
     repositorySourceFloatingLocator: {

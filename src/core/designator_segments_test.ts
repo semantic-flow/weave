@@ -7,6 +7,8 @@ import {
   normalizeSafeDesignatorPath,
   toDesignatorResourcePagePath,
   toKnopPath,
+  toKnopSourceRegistryPath,
+  toPayloadSourceRepositoryFloatingLocatorPath,
   toReferenceCatalogPath,
 } from "./designator_segments.ts";
 
@@ -57,6 +59,15 @@ Deno.test("normalizeCliDesignatorPath rejects unsafe non-root paths", () => {
 Deno.test("root-aware path helpers do not add leading slashes", () => {
   assertEquals(appendMeshPath("", "_knop"), "_knop");
   assertEquals(toKnopPath(""), "_knop");
+  assertEquals(toKnopSourceRegistryPath(""), "_knop/_sources");
+  assertEquals(
+    toPayloadSourceRepositoryFloatingLocatorPath(""),
+    "_knop/_sources#payload-source-repository-locator",
+  );
+  assertEquals(
+    toPayloadSourceRepositoryFloatingLocatorPath("alice/data"),
+    "alice/data/_knop/_sources#payload-source-repository-locator",
+  );
   assertEquals(toReferenceCatalogPath(""), "_knop/_references");
   assertEquals(toDesignatorResourcePagePath(""), "index.html");
   assertEquals(formatDesignatorPathForDisplay(""), "/");

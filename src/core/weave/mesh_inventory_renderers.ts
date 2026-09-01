@@ -1,6 +1,7 @@
 import {
   toDesignatorResourcePagePath,
   toKnopPath,
+  toPayloadSourceRepositoryFloatingLocatorPath,
 } from "../designator_segments.ts";
 import {
   SFLO_NAMESPACE,
@@ -17,6 +18,7 @@ import { parseWeaveShapeQuads } from "./rdf_helpers.ts";
 import {
   renderCurrentWorkingFileDeclaration,
   renderCurrentWorkingFileLocator,
+  renderRepositorySourceFloatingLocatorNamedBlock,
 } from "./source_locator_renderers.ts";
 import type { RepositorySourceFloatingLocator } from "./source_models.ts";
 import {
@@ -278,6 +280,17 @@ export function renderFirstPayloadWovenMeshInventoryTurtle(
       payloadIsRdfDocument,
     ),
   );
+  if (repositorySourceFloatingLocator !== undefined) {
+    blocks = upsertSubjectBlockAfter(
+      blocks,
+      designatorPath,
+      toPayloadSourceRepositoryFloatingLocatorPath(designatorPath),
+      renderRepositorySourceFloatingLocatorNamedBlock(
+        designatorPath,
+        repositorySourceFloatingLocator,
+      ),
+    );
+  }
   blocks = replaceSubjectBlock(
     blocks,
     knopPath,
@@ -759,10 +772,12 @@ function renderLegacyFirstPayloadWovenMeshInventoryTurtle(
     ? ""
     : `<${rootKnopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .`;
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
+    designatorPath,
     workingLocalRelativePath,
     repositorySourceFloatingLocator,
   );
   const currentWorkingFileDeclaration = renderCurrentWorkingFileDeclaration(
+    designatorPath,
     workingLocalRelativePath,
     repositorySourceFloatingLocator,
     { locatedFileIsRdfDocument: payloadIsRdfDocument },
@@ -953,6 +968,7 @@ function renderMeshPayloadArtifactBlockWithResourcePage(
 ): string {
   const designatorPagePath = toDesignatorResourcePagePath(designatorPath);
   const currentWorkingFileLocator = renderCurrentWorkingFileLocator(
+    designatorPath,
     workingLocalRelativePath,
     repositorySourceFloatingLocator,
   );

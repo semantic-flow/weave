@@ -481,13 +481,15 @@ Deno.test("weave integrate records current repository floating source locators a
   const inventory = await Deno.readTextFile(
     join(publicationRoot, "alice/data/_knop/_inventory/inventory.ttl"),
   );
+  const locatorPath =
+    "alice/data/_knop/_sources#payload-source-repository-locator";
   assertStringIncludes(
     inventory,
-    "sflo:hasRepositorySourceFloatingLocator [",
+    "sflo:hasRepositorySourceFloatingLocator <" + locatorPath + ">",
   );
   assertStringIncludes(
     inventory,
-    "a sflo:RepositorySourceFloatingLocator ;",
+    "<" + locatorPath + "> a sflo:RepositorySourceFloatingLocator ;",
   );
   assertStringIncludes(
     inventory,
@@ -512,7 +514,11 @@ Deno.test("weave integrate records current repository floating source locators a
   );
   assertStringIncludes(
     sources,
-    "sflo:hasRepositorySourceFloatingLocator [",
+    "sflo:hasRepositorySourceFloatingLocator <" + locatorPath + ">",
+  );
+  assertStringIncludes(
+    sources,
+    "<" + locatorPath + "> a sflo:RepositorySourceFloatingLocator ;",
   );
   assertEquals(sources.includes("sflo:targetLocalRelativePath"), false);
   assertEquals(sources.includes("sflo:sourceRepositoryRef"), false);

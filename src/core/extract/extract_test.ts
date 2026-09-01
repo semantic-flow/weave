@@ -259,11 +259,12 @@ Deno.test("planExtract accepts floating repository source payloads in mesh inven
   sflo:hasKnop <ontology/_knop> .
 
 <ontology> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasRepositorySourceFloatingLocator [
-    a sflo:RepositorySourceFloatingLocator ;
-    sflo:sourceRepositoryUrl "https://github.com/semantic-flow/sflo.git" ;
-    sflo:sourceRepositoryPathFromRoot "semantic-flow-core-ontology.ttl"
-  ] .
+  sflo:hasRepositorySourceFloatingLocator <ontology/_knop/_sources#payload-source-repository-locator> .
+
+<ontology/_knop/_sources#payload-source-repository-locator>
+  a sflo:RepositorySourceFloatingLocator ;
+  sflo:sourceRepositoryUrl "https://github.com/semantic-flow/sflo.git" ;
+  sflo:sourceRepositoryPathFromRoot "semantic-flow-core-ontology.ttl" .
 
 <ontology/_knop> a sflo:Knop ;
   sflo:hasWorkingKnopInventoryFile <ontology/_knop/_inventory/inventory.ttl> .
@@ -498,12 +499,13 @@ function floatingSourceMeshInventoryTurtle(): string {
   sflo:hasKnop <ontology/_knop> .
 
 <ontology> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasRepositorySourceFloatingLocator [
-    a sflo:RepositorySourceFloatingLocator ;
-    sflo:sourceRepositoryUrl "https://github.com/semantic-flow/sflo.git" ;
-    sflo:sourceRepositoryPathFromRoot "semantic-flow-core-ontology.ttl"
-  ] ;
+  sflo:hasRepositorySourceFloatingLocator <ontology/_knop/_sources#payload-source-repository-locator> ;
   ex:curatedNote "preserve source context" .
+
+<ontology/_knop/_sources#payload-source-repository-locator>
+  a sflo:RepositorySourceFloatingLocator ;
+  sflo:sourceRepositoryUrl "https://github.com/semantic-flow/sflo.git" ;
+  sflo:sourceRepositoryPathFromRoot "semantic-flow-core-ontology.ttl" .
 
 <ontology/_knop> a sflo:Knop ;
   sflo:hasWorkingKnopInventoryFile <ontology/_knop/_inventory/inventory.ttl> .

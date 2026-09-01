@@ -2805,15 +2805,26 @@ Deno.test("executeGenerate renders working URL and floating repository source lo
     "15-first-release-woven",
     workspaceRoot,
   );
+  const inventoryPath = join(
+    workspaceRoot,
+    "docs/ontology/_knop/_inventory/inventory.ttl",
+  );
+  const locatorPath =
+    "ontology/_knop/_sources#payload-source-repository-locator";
   await replaceFileText(
-    join(workspaceRoot, "docs/ontology/_knop/_inventory/inventory.ttl"),
+    inventoryPath,
     `sflo:workingLocalRelativePath "../ontology/fantasy-rules-ontology.ttl" ;`,
     `sflo:workingAccessUrl "https://raw.githubusercontent.com/semantic-flow/mesh-sidecar-fantasy-rules/main/ontology/fantasy-rules-ontology.ttl" ;
-  sflo:hasRepositorySourceFloatingLocator [
-    a sflo:RepositorySourceFloatingLocator ;
-    sflo:sourceRepositoryUrl "https://github.com/semantic-flow/mesh-sidecar-fantasy-rules.git" ;
-    sflo:sourceRepositoryPathFromRoot "ontology/fantasy-rules-ontology.ttl"
-  ] ;`,
+  sflo:hasRepositorySourceFloatingLocator <${locatorPath}> ;`,
+  );
+  await Deno.writeTextFile(
+    inventoryPath,
+    (await Deno.readTextFile(inventoryPath)) + `
+
+<${locatorPath}> a sflo:RepositorySourceFloatingLocator ;
+  sflo:sourceRepositoryUrl "https://github.com/semantic-flow/mesh-sidecar-fantasy-rules.git" ;
+  sflo:sourceRepositoryPathFromRoot "ontology/fantasy-rules-ontology.ttl" .
+`,
   );
 
   const result = await executeGenerate({
