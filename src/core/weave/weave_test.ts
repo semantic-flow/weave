@@ -373,8 +373,6 @@ const firstPayloadWeaveMeshInventoryTurtle =
 
 <_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <_mesh/_inventory/_history001> ;
-  sflo:currentArtifactHistory <_mesh/_inventory/_history001> ;
-  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
   sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/index.html> .
 
@@ -382,8 +380,6 @@ const firstPayloadWeaveMeshInventoryTurtle =
   sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
   sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0001> ;
   sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0002> ;
-  sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0002> ;
-  sflo:nextStateOrdinal "3"^^xsd:nonNegativeInteger ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/index.html> .
 
 <alice/data> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
@@ -983,8 +979,6 @@ const laterFirstPayloadWeaveMeshInventoryTurtle =
 
 <_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <_mesh/_inventory/_history001> ;
-  sflo:currentArtifactHistory <_mesh/_inventory/_history001> ;
-  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
   sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/index.html> .
 
@@ -994,8 +988,6 @@ const laterFirstPayloadWeaveMeshInventoryTurtle =
   sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0002> ;
   sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0003> ;
   sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0004> ;
-  sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0004> ;
-  sflo:nextStateOrdinal "5"^^xsd:nonNegativeInteger ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/index.html> .
 
 <_mesh/_inventory/_history001/_s0001> a sflo:HistoricalState ;
@@ -1126,8 +1118,6 @@ const firstReferenceCatalogWeaveMeshInventoryTurtle =
 
 <_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <_mesh/_inventory/_history001> ;
-  sflo:currentArtifactHistory <_mesh/_inventory/_history001> ;
-  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
   sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/index.html> .
 
@@ -1557,8 +1547,6 @@ function firstPayloadBatchInput(
 
 <_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <_mesh/_inventory/_history001> ;
-  sflo:currentArtifactHistory <_mesh/_inventory/_history001> ;
-  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger ;
   sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> ;
   sflo:hasResourcePage <_mesh/_inventory/index.html> .
 
@@ -1566,8 +1554,6 @@ function firstPayloadBatchInput(
   sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
   sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0001> ;
   sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0002> ;
-  sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0002> ;
-  sflo:nextStateOrdinal "3"^^xsd:nonNegativeInteger ;
   sflo:hasResourcePage <_mesh/_inventory/_history001/index.html> .
 
 <_mesh/_inventory/_history001/_s0002> a sflo:HistoricalState ;
@@ -1675,12 +1661,13 @@ function firstPayloadBatchInput(
 }
 
 Deno.test("planWeave batches explicit first payload targets with one merged MeshInventory progression", () => {
-  const plan = planWeave(firstPayloadBatchInput({
+  const input = firstPayloadBatchInput({
     targets: [
       { designatorPath: "bob/data" },
       { designatorPath: "alice/data" },
     ],
-  }));
+  });
+  const plan = planWeave(input);
 
   assertEquals(plan.wovenDesignatorPaths, ["alice/data", "bob/data"]);
   assertEquals(
@@ -1699,21 +1686,40 @@ Deno.test("planWeave batches explicit first payload targets with one merged Mesh
     plan.updatedFiles.find((file) =>
       file.path === "_mesh/_inventory/inventory.ttl"
     )?.contents ?? "";
-  assertStringIncludes(
+  assert(meshInventory.startsWith(input.currentMeshInventoryTurtle));
+  const meshInventoryQuads = parseWeaveShapeQuads(
+    input.meshBase,
     meshInventory,
-    "sflo:hasKnop <alice/data/_knop> ;\n  sflo:hasKnop <bob/data/_knop> ;",
+    "Could not parse explicit first-payload batch MeshInventory output.",
   );
-  assertStringIncludes(
-    meshInventory,
-    "<alice/data> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;",
-  );
-  assertStringIncludes(
-    meshInventory,
-    "<bob/data> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;",
-  );
-  assertStringIncludes(
-    meshInventory,
-    "sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0003> ;",
+  for (const designatorPath of ["alice/data", "bob/data"]) {
+    assert(
+      hasNamedNodeFact(
+        meshInventoryQuads,
+        input.meshBase,
+        "_mesh",
+        `${SFLO_NAMESPACE}hasKnop`,
+        `${designatorPath}/_knop`,
+      ),
+    );
+    assert(
+      hasNamedNodeFact(
+        meshInventoryQuads,
+        input.meshBase,
+        designatorPath,
+        "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+        `${SFLO_NAMESPACE}PayloadArtifact`,
+      ),
+    );
+  }
+  assert(
+    hasNamedNodeFact(
+      meshInventoryQuads,
+      input.meshBase,
+      "_mesh/_inventory/_history001",
+      `${SFLO_NAMESPACE}hasHistoricalState`,
+      "_mesh/_inventory/_history001/_s0003",
+    ),
   );
   const meshMetadata =
     plan.updatedFiles.find((file) => file.path === "_mesh/_meta/meta.ttl")
@@ -1729,7 +1735,8 @@ Deno.test("planWeave batches explicit first payload targets with one merged Mesh
 });
 
 Deno.test("planWeave batches untargeted first payload candidates in canonical order", () => {
-  const plan = planWeave(firstPayloadBatchInput({}));
+  const input = firstPayloadBatchInput({});
+  const plan = planWeave(input);
 
   assertEquals(plan.wovenDesignatorPaths, ["alice/data", "bob/data"]);
   assertEquals(
@@ -1762,14 +1769,30 @@ Deno.test("planWeave batches untargeted first payload candidates in canonical or
     plan.updatedFiles.find((file) =>
       file.path === "_mesh/_inventory/inventory.ttl"
     )?.contents ?? "";
-  assertStringIncludes(
+  assert(meshInventory.startsWith(input.currentMeshInventoryTurtle));
+  const meshInventoryQuads = parseWeaveShapeQuads(
+    input.meshBase,
     meshInventory,
-    "sflo:hasKnop <alice/data/_knop> ;\n  sflo:hasKnop <bob/data/_knop> ;",
+    "Could not parse untargeted first-payload batch MeshInventory output.",
   );
   for (const designatorPath of ["alice/data", "bob/data"]) {
-    assertStringIncludes(
-      meshInventory,
-      `<${designatorPath}> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;`,
+    assert(
+      hasNamedNodeFact(
+        meshInventoryQuads,
+        input.meshBase,
+        "_mesh",
+        `${SFLO_NAMESPACE}hasKnop`,
+        `${designatorPath}/_knop`,
+      ),
+    );
+    assert(
+      hasNamedNodeFact(
+        meshInventoryQuads,
+        input.meshBase,
+        designatorPath,
+        "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+        `${SFLO_NAMESPACE}PayloadArtifact`,
+      ),
     );
     const knopInventory = plan.updatedFiles.find((file) =>
       file.path === `${designatorPath}/_knop/_inventory/inventory.ttl`
@@ -2354,22 +2377,41 @@ Deno.test("planWeave renders a later first payload weave slice against a carried
     designatorPath: "alice/page-main",
     workingLocalRelativePath: "alice-page-main.md",
   });
-  assertStringIncludes(
-    plan.updatedFiles[0]?.contents ?? "",
-    `sflo:hasHistoricalState <_mesh/_inventory/_history001/release-candidate> ;`,
+  const meshInventory = plan.updatedFiles[0]?.contents ?? "";
+  const meshInventoryQuads = parseWeaveShapeQuads(
+    "https://semantic-flow.github.io/mesh-alice-bio/",
+    meshInventory,
+    "Could not parse later first-payload MeshInventory output.",
   );
-  assertFalse(
-    (plan.updatedFiles[0]?.contents ?? "").includes(
-      "sflo:latestHistoricalState <_mesh/_inventory/_history001/release-candidate>",
+  assert(
+    hasNamedNodeFact(
+      meshInventoryQuads,
+      "https://semantic-flow.github.io/mesh-alice-bio/",
+      "_mesh/_inventory/_history001",
+      `${SFLO_NAMESPACE}hasHistoricalState`,
+      "_mesh/_inventory/_history001/release-candidate",
     ),
   );
   assertFalse(
-    (plan.updatedFiles[0]?.contents ?? "").includes(
-      "sflo:currentArtifactHistory <_mesh/_inventory/_history001>",
+    hasNamedNodeFact(
+      meshInventoryQuads,
+      "https://semantic-flow.github.io/mesh-alice-bio/",
+      "_mesh/_inventory/_history001",
+      `${SFLO_NAMESPACE}latestHistoricalState`,
+      "_mesh/_inventory/_history001/release-candidate",
     ),
   );
   assertFalse(
-    (plan.updatedFiles[0]?.contents ?? "").includes(
+    hasNamedNodeFact(
+      meshInventoryQuads,
+      "https://semantic-flow.github.io/mesh-alice-bio/",
+      "_mesh/_inventory",
+      `${SFLO_NAMESPACE}currentArtifactHistory`,
+      "_mesh/_inventory/_history001",
+    ),
+  );
+  assertFalse(
+    meshInventory.includes(
       `<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
   sflo:hasArtifactHistory <_mesh/_inventory/_history001> ;
   sflo:nextHistoryOrdinal`,
@@ -4314,27 +4356,75 @@ Deno.test("planWeave renders an extracted term from a nested source without a ro
     plan.updatedFiles.find((file) =>
       file.path === "_mesh/_inventory/inventory.ttl"
     )?.contents ?? "";
+  const meshInventoryQuads = parseWeaveShapeQuads(
+    input.meshBase,
+    meshInventory,
+    "Could not parse nested-source MeshInventory output.",
+  );
 
   assertEquals(plan.wovenDesignatorPaths, ["bob"]);
-  assertStringIncludes(
-    meshInventory,
-    `<alice/data> a sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <alice-data.ttl> ;
-  sflo:hasResourcePage <alice/data/index.html> .`,
+  assert(
+    hasNamedNodeFact(
+      meshInventoryQuads,
+      input.meshBase,
+      "alice/data",
+      "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      `${SFLO_NAMESPACE}PayloadArtifact`,
+    ),
   );
-  assertStringIncludes(
-    meshInventory,
-    `<alice/data/_knop> a sflo:Knop ;
-  sflo:hasWorkingKnopInventoryFile <alice/data/_knop/_inventory/inventory.ttl> ;
-  sflo:hasResourcePage <alice/data/_knop/index.html> .`,
+  assert(
+    hasNamedNodeFact(
+      meshInventoryQuads,
+      input.meshBase,
+      "alice/data",
+      `${SFLO_NAMESPACE}hasWorkingLocatedFile`,
+      "alice-data.ttl",
+    ),
   );
-  assertStringIncludes(
-    meshInventory,
-    "<bob> sflo:hasResourcePage <bob/index.html> .",
+  assert(
+    hasNamedNodeFact(
+      meshInventoryQuads,
+      input.meshBase,
+      "alice/data",
+      `${SFLO_NAMESPACE}hasResourcePage`,
+      "alice/data/index.html",
+    ),
   );
-  assertStringIncludes(
-    meshInventory,
-    "<bob/_knop> sflo:hasResourcePage <bob/_knop/index.html> .",
+  assert(
+    hasNamedNodeFact(
+      meshInventoryQuads,
+      input.meshBase,
+      "alice/data/_knop",
+      `${SFLO_NAMESPACE}hasWorkingKnopInventoryFile`,
+      "alice/data/_knop/_inventory/inventory.ttl",
+    ),
+  );
+  assert(
+    hasNamedNodeFact(
+      meshInventoryQuads,
+      input.meshBase,
+      "alice/data/_knop",
+      `${SFLO_NAMESPACE}hasResourcePage`,
+      "alice/data/_knop/index.html",
+    ),
+  );
+  assert(
+    hasNamedNodeFact(
+      meshInventoryQuads,
+      input.meshBase,
+      "bob",
+      `${SFLO_NAMESPACE}hasResourcePage`,
+      "bob/index.html",
+    ),
+  );
+  assert(
+    hasNamedNodeFact(
+      meshInventoryQuads,
+      input.meshBase,
+      "bob/_knop",
+      `${SFLO_NAMESPACE}hasResourcePage`,
+      "bob/_knop/index.html",
+    ),
   );
   assert(
     plan.createdFiles.some((file) => file.path === "bob/index.html"),
@@ -4362,8 +4452,8 @@ Deno.test("planWeave accepts extracted terms from floating repository source pay
   const repositorySourceFloatingLocatorPath =
     "alice/data/_knop/_sources#payload-source-repository-locator";
   input.currentMeshInventoryTurtle = input.currentMeshInventoryTurtle.replace(
-    "sflo:hasWorkingLocatedFile <alice-data.ttl> ;",
-    `sflo:hasRepositorySourceFloatingLocator <${repositorySourceFloatingLocatorPath}> ;`,
+    "sflo:hasWorkingLocatedFile <alice-data.ttl> .",
+    `sflo:hasRepositorySourceFloatingLocator <${repositorySourceFloatingLocatorPath}> .`,
   ) + `
 
 <${repositorySourceFloatingLocatorPath}> a sflo:RepositorySourceFloatingLocator ;

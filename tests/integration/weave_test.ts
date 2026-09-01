@@ -45,6 +45,23 @@ function replaceFixturePaths(
   );
 }
 
+function hasMeshNamedNodeFact(
+  quads: readonly Quad[],
+  subjectPath: string,
+  predicateIri: string,
+  objectPath: string,
+): boolean {
+  const subjectIri = new URL(subjectPath, MESH_ALICE_BIO_BASE).href;
+  const objectIri = new URL(objectPath, MESH_ALICE_BIO_BASE).href;
+  return quads.some((quad) =>
+    quad.subject.termType === "NamedNode" &&
+    quad.subject.value === subjectIri &&
+    quad.predicate.value === predicateIri &&
+    quad.object.termType === "NamedNode" &&
+    quad.object.value === objectIri
+  );
+}
+
 function meshScopedSourceTermPathsFromQuads(quads: readonly Quad[]): string[] {
   const paths = new Set<string>();
   for (const quad of quads) {
@@ -291,6 +308,84 @@ Deno.test("executeWeave batches a docs-rooted multi-pending first payload weave"
   );
 });
 
+Deno.test("executeWeave first-payload locator conflict writes no files and preserves MeshInventory bytes", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-first-payload-conflict-",
+  );
+  await materializeMeshAliceBioBranch(
+    "06-alice-bio-integrated",
+    workspaceRoot,
+  );
+  const inventoryPath = join(
+    workspaceRoot,
+    "_mesh/_inventory/inventory.ttl",
+  );
+  const currentInventory = await Deno.readTextFile(inventoryPath);
+  const conflictingInventory = currentInventory.replace(
+    "sflo:hasWorkingLocatedFile <alice-data.ttl> .",
+    "sflo:hasWorkingLocatedFile <other-alice-data.ttl> .",
+  );
+  assert(conflictingInventory !== currentInventory);
+  await Deno.writeTextFile(inventoryPath, conflictingInventory);
+  const workspaceBefore = await snapshotWorkspaceFiles(workspaceRoot);
+
+  await assertRejects(
+    () =>
+      executeWeave({
+        meshRoot: workspaceRoot,
+        request: { targets: [{ designatorPath: "alice/data" }] },
+      }),
+    Error,
+    "current MeshInventory has a conflicting working locator",
+  );
+
+  assertEquals(await Deno.readTextFile(inventoryPath), conflictingInventory);
+  assertEquals(await snapshotWorkspaceFiles(workspaceRoot), workspaceBefore);
+});
+
+Deno.test("executeWeave rejects legacy first-payload inventory progression without writes", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-first-payload-legacy-progression-",
+  );
+  await materializeMeshAliceBioBranch(
+    "06-alice-bio-integrated",
+    workspaceRoot,
+  );
+  const inventoryPath = join(
+    workspaceRoot,
+    "_mesh/_inventory/inventory.ttl",
+  );
+  const currentInventory = await Deno.readTextFile(inventoryPath);
+  const legacyInventory = `${currentInventory}
+@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<_mesh/_inventory>
+  sflo:currentArtifactHistory <_mesh/_inventory/_history001> ;
+  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger .
+
+<_mesh/_inventory/_history001>
+  sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0002> ;
+  sflo:nextStateOrdinal "3"^^xsd:nonNegativeInteger .
+`;
+  await Deno.writeTextFile(inventoryPath, legacyInventory);
+  const workspaceBefore = await snapshotWorkspaceFiles(workspaceRoot);
+
+  await assertRejects(
+    () =>
+      executeWeave({
+        meshRoot: workspaceRoot,
+        request: { targets: [{ designatorPath: "alice/data" }] },
+      }),
+    Error,
+    "legacy inventory-owned mutable progression predicates",
+  );
+
+  assertEquals(await Deno.readTextFile(inventoryPath), legacyInventory);
+  assertEquals(await snapshotWorkspaceFiles(workspaceRoot), workspaceBefore);
+});
+
 Deno.test("executeWeave refreshes ancestor ResourcePages when a child designator is woven", async () => {
   const workspaceRoot = await createTestTmpDir(
     "weave-weave-refresh-ancestor-pages-",
@@ -486,12 +581,19 @@ Deno.test("executeWeave supports the exact root target", async () => {
   assert(result.updatedPaths.includes("_knop/_inventory/inventory.ttl"));
   await Deno.stat(join(workspaceRoot, "index.html"));
   await Deno.stat(join(workspaceRoot, "_knop/index.html"));
-  assertStringIncludes(
-    await Deno.readTextFile(
-      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+  const meshInventory = await Deno.readTextFile(
+    join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+  );
+  const meshInventoryQuads = new Parser({
+    baseIRI: MESH_ALICE_BIO_BASE,
+  }).parse(meshInventory) as Quad[];
+  assert(
+    hasMeshNamedNodeFact(
+      meshInventoryQuads,
+      "_mesh",
+      "https://semantic-flow.github.io/sflo/ontology/hasKnop",
+      "_knop",
     ),
-    `sflo:hasKnop <_knop> ;
-  sflo:hasResourcePage <_mesh/index.html> .`,
   );
   assertStringIncludes(
     await Deno.readTextFile(
@@ -689,18 +791,27 @@ Deno.test("executeWeave batches recursive targets through validate, version, and
   });
 
   assertEquals(result.wovenDesignatorPaths, ["alice", "alice/data"]);
-  assertStringIncludes(
-    await Deno.readTextFile(
-      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
-    ),
-    `sflo:hasKnop <alice/data/_knop> ;
-  sflo:hasResourcePage <_mesh/index.html> .`,
+  const meshInventory = await Deno.readTextFile(
+    join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
   );
-  assertStringIncludes(
-    await Deno.readTextFile(
-      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+  const meshInventoryQuads = new Parser({
+    baseIRI: MESH_ALICE_BIO_BASE,
+  }).parse(meshInventory) as Quad[];
+  assert(
+    hasMeshNamedNodeFact(
+      meshInventoryQuads,
+      "_mesh",
+      "https://semantic-flow.github.io/sflo/ontology/hasKnop",
+      "alice/data/_knop",
     ),
-    `sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0003> ;`,
+  );
+  assert(
+    hasMeshNamedNodeFact(
+      meshInventoryQuads,
+      "_mesh/_inventory/_history001",
+      "https://semantic-flow.github.io/sflo/ontology/hasHistoricalState",
+      "_mesh/_inventory/_history001/_s0003",
+    ),
   );
   assertStringIncludes(
     await Deno.readTextFile(

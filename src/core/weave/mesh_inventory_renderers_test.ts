@@ -3,8 +3,10 @@ import { Parser, type Quad, type Term } from "n3";
 import { WeaveInputError } from "./errors.ts";
 import {
   renderBatchedFirstExtractedKnopWovenMeshInventoryTurtle,
+  renderBatchedFirstPayloadWovenMeshInventoryTurtle,
   renderFirstKnopWovenMeshInventoryTurtle,
   renderFirstPayloadWovenCurrentOnlyMeshInventoryTurtle,
+  renderFirstPayloadWovenMeshInventoryTurtle,
   renderGenericFirstExtractedKnopWovenMeshInventoryTurtle,
 } from "./mesh_inventory_renderers.ts";
 import type { MeshInventoryProgression } from "./progression_models.ts";
@@ -325,6 +327,168 @@ Deno.test("versioned first-Knop MeshInventory rejects legacy inventory-owned pro
   );
 });
 
+Deno.test("versioned first-payload MeshInventory appends owned facts with an exact carried prefix", () => {
+  const currentInventory = renderVersionedCurrentInventory();
+  const rendered = renderFirstPayloadWovenMeshInventoryTurtle(
+    currentInventory,
+    MESH_BASE,
+    "term-a",
+    "term-a.ttl",
+    meshInventoryProgression,
+  );
+
+  assert(rendered.startsWith(currentInventory));
+  assertTurtleGraphsEqual(
+    rendered,
+    `${currentInventory}\n${
+      renderFirstPayloadFacts("term-a", "term-a.ttl")
+    }\n${renderNextProgressionFacts()}`,
+  );
+});
+
+Deno.test("versioned first-payload MeshInventory returns exact bytes for a semantic no-op", () => {
+  const currentInventory = renderVersionedCurrentInventory();
+  const alreadyWovenInventory = `${currentInventory}\n${
+    renderFirstPayloadFacts("term-a", "term-a.ttl")
+  }\n${renderNextProgressionFacts()}`;
+
+  assertEquals(
+    renderFirstPayloadWovenMeshInventoryTurtle(
+      alreadyWovenInventory,
+      MESH_BASE,
+      "term-a",
+      "term-a.ttl",
+      meshInventoryProgression,
+    ),
+    alreadyWovenInventory,
+  );
+});
+
+Deno.test("versioned first-payload MeshInventory rejects a conflicting named floating locator", () => {
+  const locatorPath = "term-a/_knop/_sources#payload-source-repository-locator";
+  const conflictingInventory = `${renderVersionedCurrentInventory()}
+@base <${MESH_BASE}> .
+@prefix sflo: <${SFLO}> .
+
+<term-a> sflo:hasRepositorySourceFloatingLocator <${locatorPath}> .
+
+<${locatorPath}> a sflo:RepositorySourceFloatingLocator ;
+  sflo:sourceRepositoryUrl "https://example.test/other.git" ;
+  sflo:sourceRepositoryPathFromRoot "data/term-a.ttl" .
+`;
+
+  assertThrows(
+    () =>
+      renderFirstPayloadWovenMeshInventoryTurtle(
+        conflictingInventory,
+        MESH_BASE,
+        "term-a",
+        "../source/data/term-a.ttl",
+        meshInventoryProgression,
+        {
+          repositoryUrl: "https://example.test/source.git",
+          repositoryPathFromRoot: "data/term-a.ttl",
+        },
+      ),
+    WeaveInputError,
+    "sourceRepositoryUrl",
+  );
+});
+
+Deno.test("versioned first-payload MeshInventory rejects conflicting locator kinds", () => {
+  const conflictingInventory = `${renderVersionedCurrentInventory()}
+@base <${MESH_BASE}> .
+@prefix sflo: <${SFLO}> .
+
+<term-a> sflo:hasWorkingLocatedFile <term-a.ttl> .
+`;
+
+  assertThrows(
+    () =>
+      renderFirstPayloadWovenMeshInventoryTurtle(
+        conflictingInventory,
+        MESH_BASE,
+        "term-a",
+        "../source/data/term-a.ttl",
+        meshInventoryProgression,
+        {
+          repositoryUrl: "https://example.test/source.git",
+          repositoryPathFromRoot: "data/term-a.ttl",
+        },
+      ),
+    WeaveInputError,
+    "current MeshInventory has a conflicting working locator",
+  );
+});
+
+Deno.test("versioned first-payload MeshInventory rejects legacy inventory-owned progression", () => {
+  const legacyInventory = `${renderVersionedCurrentInventory()}
+@base <${MESH_BASE}> .
+@prefix sflo: <${SFLO}> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<_mesh/_inventory>
+  sflo:currentArtifactHistory <_mesh/_inventory/_history001> ;
+  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger .
+
+<_mesh/_inventory/_history001>
+  sflo:latestHistoricalState <_mesh/_inventory/_history001/_s0001> ;
+  sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger .
+`;
+
+  assertThrows(
+    () =>
+      renderFirstPayloadWovenMeshInventoryTurtle(
+        legacyInventory,
+        MESH_BASE,
+        "term-a",
+        "term-a.ttl",
+        meshInventoryProgression,
+      ),
+    WeaveInputError,
+    "legacy inventory-owned mutable progression predicates",
+  );
+});
+
+Deno.test("batched versioned first-payload MeshInventory accumulates targets on one carried prefix", () => {
+  const currentInventory = renderVersionedCurrentInventory();
+  const rendered = renderBatchedFirstPayloadWovenMeshInventoryTurtle(
+    currentInventory,
+    MESH_BASE,
+    [
+      {
+        designatorPath: "term-b",
+        workingLocalRelativePath: "term-b.md",
+        payloadIsRdfDocument: false,
+      },
+      {
+        designatorPath: "term-a",
+        workingLocalRelativePath: "term-a.ttl",
+      },
+    ],
+    meshInventoryProgression,
+  );
+
+  assert(rendered.startsWith(currentInventory));
+  assertTurtleGraphsEqual(
+    rendered,
+    `${currentInventory}\n${
+      renderFirstPayloadFacts("term-b", "term-b.md", false)
+    }\n${
+      renderFirstPayloadFacts("term-a", "term-a.ttl")
+    }\n${renderNextProgressionFacts()}`,
+  );
+  assertEquals(
+    countNamedNodeFact(
+      rendered,
+      "_mesh/_inventory/_history001",
+      `${SFLO}hasHistoricalState`,
+      "_mesh/_inventory/_history001/_s0002",
+    ),
+    1,
+  );
+});
+
 function renderVersionedCurrentInventory(): string {
   return currentOnlyPendingInventory.replace(
     "  sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> ;",
@@ -386,6 +550,41 @@ function renderCurrentOnlyPayloadLikeFacts(designatorPath: string): string {
 <${designatorPath}> sflo:hasResourcePage <${designatorPath}/index.html> .
 
 <${knopPath}> sflo:hasResourcePage <${knopPath}/index.html> .
+
+<${designatorPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+
+<${knopPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
+`;
+}
+
+function renderFirstPayloadFacts(
+  designatorPath: string,
+  workingLocalRelativePath: string,
+  payloadIsRdfDocument = true,
+): string {
+  const knopPath = `${designatorPath}/_knop`;
+  const payloadTypes = payloadIsRdfDocument
+    ? "sflo:PayloadArtifact, sflo:DigitalArtifact, sflo:RdfDocument"
+    : "sflo:PayloadArtifact, sflo:DigitalArtifact";
+  const locatedFileTypes = payloadIsRdfDocument
+    ? "sflo:LocatedFile, sflo:RdfDocument"
+    : "sflo:LocatedFile";
+  return `@base <${MESH_BASE}> .
+@prefix sflo: <${SFLO}> .
+
+<_mesh> sflo:hasKnop <${knopPath}> .
+
+<${designatorPath}> a ${payloadTypes} ;
+  sflo:hasWorkingLocatedFile <${workingLocalRelativePath}> ;
+  sflo:hasResourcePage <${designatorPath}/index.html> .
+
+<${knopPath}> a sflo:Knop ;
+  sflo:hasWorkingKnopInventoryFile <${knopPath}/_inventory/inventory.ttl> ;
+  sflo:hasResourcePage <${knopPath}/index.html> .
+
+<${knopPath}/_inventory/inventory.ttl> a sflo:LocatedFile, sflo:RdfDocument .
+
+<${workingLocalRelativePath}> a ${locatedFileTypes} .
 
 <${designatorPath}/index.html> a sflo:ResourcePage, sflo:LocatedFile .
 

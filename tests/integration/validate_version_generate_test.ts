@@ -1402,18 +1402,33 @@ Deno.test("executeVersion batches recursive targets through staged current state
       "alice/data/_history001/_s0001/ttl/alice-data.ttl",
     ),
   );
-  assertStringIncludes(
-    await Deno.readTextFile(
-      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
-    ),
-    `sflo:hasKnop <alice/data/_knop> ;
-  sflo:hasResourcePage <_mesh/index.html> .`,
+  const meshInventoryTurtle = await Deno.readTextFile(
+    join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
   );
-  assertStringIncludes(
-    await Deno.readTextFile(
-      join(workspaceRoot, "_mesh/_inventory/inventory.ttl"),
+  const meshInventoryQuads = new Parser({
+    baseIRI: "https://semantic-flow.github.io/mesh-alice-bio/",
+  }).parse(meshInventoryTurtle) as Quad[];
+  assert(
+    meshInventoryQuads.some((quad) =>
+      quad.subject.value ===
+        "https://semantic-flow.github.io/mesh-alice-bio/_mesh" &&
+      quad.predicate.value ===
+        "https://semantic-flow.github.io/sflo/ontology/hasKnop" &&
+      quad.object.termType === "NamedNode" &&
+      quad.object.value ===
+        "https://semantic-flow.github.io/mesh-alice-bio/alice/data/_knop"
     ),
-    `sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0003> ;`,
+  );
+  assert(
+    meshInventoryQuads.some((quad) =>
+      quad.subject.value ===
+        "https://semantic-flow.github.io/mesh-alice-bio/_mesh/_inventory/_history001" &&
+      quad.predicate.value ===
+        "https://semantic-flow.github.io/sflo/ontology/hasHistoricalState" &&
+      quad.object.termType === "NamedNode" &&
+      quad.object.value ===
+        "https://semantic-flow.github.io/mesh-alice-bio/_mesh/_inventory/_history001/_s0003"
+    ),
   );
   assertStringIncludes(
     await Deno.readTextFile(
