@@ -217,21 +217,22 @@ Deno.test("planMeshSupportResourcePages adds current support ResourcePages inclu
   const metadata =
     plan.updatedFiles.find((file) => file.path === "_mesh/_meta/meta.ttl")
       ?.contents ?? "";
+  assert(inventory.startsWith(sidecarMeshCreatedInventoryTurtle));
   assertStringIncludes(
     inventory,
-    "sfcfg:hasConfig <_mesh/_config> ;\n  sflo:hasResourcePage <_mesh/index.html> .",
+    "<_mesh> sflo:hasResourcePage <_mesh/index.html> .",
   );
   assertStringIncludes(
     inventory,
-    "sflo:hasWorkingLocatedFile <_mesh/_config/config.ttl> ;\n  sflo:hasResourcePage <_mesh/_config/index.html> ;\n  sflo:hasArtifactHistory <_mesh/_config/_history001> .",
+    "<_mesh/_config> sflo:hasResourcePage <_mesh/_config/index.html> ;\n  sflo:hasArtifactHistory <_mesh/_config/_history001> .",
   );
   assertStringIncludes(
     inventory,
-    "sflo:hasWorkingLocatedFile <_mesh/_meta/meta.ttl> ;\n  sflo:hasResourcePage <_mesh/_meta/index.html> .",
+    "<_mesh/_meta> sflo:hasResourcePage <_mesh/_meta/index.html> .",
   );
   assertStringIncludes(
     inventory,
-    "sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> ;\n  sflo:hasResourcePage <_mesh/_inventory/index.html> .",
+    "<_mesh/_inventory> sflo:hasResourcePage <_mesh/_inventory/index.html> .",
   );
   assertStringIncludes(
     inventory,
@@ -354,7 +355,7 @@ Deno.test("planMeshSupportResourcePages keeps support ResourcePage facts when pa
   );
   assertStringIncludes(
     inventory,
-    "sflo:hasWorkingLocatedFile <_mesh/_config/config.ttl> ;",
+    "sflo:hasWorkingLocatedFile <_mesh/_config/config.ttl> .",
   );
   assertStringIncludes(
     inventory,

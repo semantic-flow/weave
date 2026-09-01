@@ -146,9 +146,13 @@ Deno.test("executeWeave materializes current support ResourcePages for a docs-ro
       meshBase: "https://semantic-flow.github.io/mesh-sidecar-fantasy-rules/",
     },
   });
+  const meshRoot = join(workspaceRoot, "docs");
+  const inventoryBefore = await Deno.readTextFile(
+    join(meshRoot, "_mesh/_inventory/inventory.ttl"),
+  );
 
   const result = await executeWeave({
-    meshRoot: join(workspaceRoot, "docs"),
+    meshRoot,
   });
 
   assertEquals(result.wovenDesignatorPaths, []);
@@ -172,21 +176,22 @@ Deno.test("executeWeave materializes current support ResourcePages for a docs-ro
   const inventory = await Deno.readTextFile(
     join(workspaceRoot, "docs/_mesh/_inventory/inventory.ttl"),
   );
+  assert(inventory.startsWith(inventoryBefore));
   assertStringIncludes(
     inventory,
-    "sfcfg:hasConfig <_mesh/_config> ;\n  sflo:hasResourcePage <_mesh/index.html> .",
+    "<_mesh> sflo:hasResourcePage <_mesh/index.html> .",
   );
   assertStringIncludes(
     inventory,
-    "sflo:hasWorkingLocatedFile <_mesh/_config/config.ttl> ;\n  sflo:hasResourcePage <_mesh/_config/index.html> ;\n  sflo:hasArtifactHistory <_mesh/_config/_history001> .",
+    "<_mesh/_config> sflo:hasResourcePage <_mesh/_config/index.html> ;\n  sflo:hasArtifactHistory <_mesh/_config/_history001> .",
   );
   assertStringIncludes(
     inventory,
-    "sflo:hasWorkingLocatedFile <_mesh/_meta/meta.ttl> ;\n  sflo:hasResourcePage <_mesh/_meta/index.html> .",
+    "<_mesh/_meta> sflo:hasResourcePage <_mesh/_meta/index.html> .",
   );
   assertStringIncludes(
     inventory,
-    "sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> ;\n  sflo:hasResourcePage <_mesh/_inventory/index.html> .",
+    "<_mesh/_inventory> sflo:hasResourcePage <_mesh/_inventory/index.html> .",
   );
   assertFalse(
     inventory.includes(
@@ -226,6 +231,39 @@ Deno.test("executeWeave materializes current support ResourcePages for a docs-ro
     configPage,
     'href="/mesh-sidecar-fantasy-rules/_mesh/_config/_history001/_s0001"',
   );
+});
+
+Deno.test("executeWeave rejects legacy initial-support inventory progression without writes", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-weave-initial-support-legacy-progression-",
+  );
+  await executeMeshCreate({
+    workspaceRoot,
+    meshRoot: "docs",
+    request: {
+      meshBase: sidecarFantasyRulesBase,
+    },
+  });
+  const meshRoot = join(workspaceRoot, "docs");
+  const inventoryPath = join(meshRoot, "_mesh/_inventory/inventory.ttl");
+  const currentInventory = await Deno.readTextFile(inventoryPath);
+  const legacyInventory = `${currentInventory}
+@prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
+
+<_mesh/_config>
+  sflo:currentArtifactHistory <_mesh/_config/_history001> .
+`;
+  await Deno.writeTextFile(inventoryPath, legacyInventory);
+  const workspaceBefore = await snapshotWorkspaceFiles(workspaceRoot);
+
+  await assertRejects(
+    () => executeWeave({ meshRoot }),
+    Error,
+    "legacy inventory-owned mutable progression predicates",
+  );
+
+  assertEquals(await Deno.readTextFile(inventoryPath), legacyInventory);
+  assertEquals(await snapshotWorkspaceFiles(workspaceRoot), workspaceBefore);
 });
 
 Deno.test("executeWeave batches a docs-rooted multi-pending first payload weave", async () => {

@@ -303,7 +303,7 @@ Deno.test("sequential extracted versions regenerate a named MeshInventory histor
   );
 });
 
-Deno.test("untargeted multi-candidate extracted batch restructures a current-only MeshInventory once", async () => {
+Deno.test("untargeted multi-candidate extracted batch updates a current-only MeshInventory once", async () => {
   const meshRoot = await createTestTmpDir(
     "weave-pending-heavy-current-only-extracted-batch-",
   );
@@ -344,21 +344,23 @@ Deno.test("untargeted multi-candidate extracted batch restructures a current-onl
   );
   assertEquals(meshInventoryUpdates.length, 1);
   const meshInventory = meshInventoryUpdates[0]!.contents;
-  assert(
-    meshInventory.includes(
-      `<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:hasWorkingLocatedFile <_mesh/_inventory/inventory.ttl> ;
-  sflo:hasResourcePage <_mesh/_inventory/index.html> .`,
-    ),
-    meshInventory,
-  );
-  assertEquals(meshInventory.includes("_mesh/_inventory/_history"), false);
   const meshState = await loadMeshState(meshRoot);
   const meshInventoryQuads = parseWeaveShapeQuads(
     meshState.meshBase,
     meshInventory,
     "Could not parse current-only extracted batch MeshInventory.",
   );
+  assert(
+    hasNamedNodeFact(
+      meshInventoryQuads,
+      meshState.meshBase,
+      "_mesh/_inventory",
+      sfloHasResourcePageIri,
+      "_mesh/_inventory/index.html",
+    ),
+    meshInventory,
+  );
+  assertEquals(meshInventory.includes("_mesh/_inventory/_history"), false);
   for (const designatorPath of generated.extractedDesignatorPaths) {
     assert(
       hasNamedNodeFact(

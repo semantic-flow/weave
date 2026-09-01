@@ -13,6 +13,7 @@ import {
   type PreparedCurrentInventory,
   renderInventoryAppendPlan,
 } from "./inventory_append_planner.ts";
+import { assertNoLegacyMeshInventoryProgression } from "./mesh_inventory_progression_assertions.ts";
 import type { MeshInventoryProgression } from "./progression_models.ts";
 import {
   renderCurrentWorkingFileDeclaration,
@@ -28,12 +29,6 @@ const SFLO_HAS_WORKING_LOCATED_FILE_IRI =
   `${SFLO_NAMESPACE}hasWorkingLocatedFile`;
 const SFLO_WORKING_LOCAL_RELATIVE_PATH_IRI =
   `${SFLO_NAMESPACE}workingLocalRelativePath`;
-const LEGACY_INVENTORY_PROGRESSION_PREDICATES = new Set([
-  `${SFLO_NAMESPACE}currentArtifactHistory`,
-  `${SFLO_NAMESPACE}nextHistoryOrdinal`,
-  `${SFLO_NAMESPACE}latestHistoricalState`,
-  `${SFLO_NAMESPACE}nextStateOrdinal`,
-]);
 const BATCHED_EXTRACTED_SINGLE_VALUED_PREDICATES = [
   `${SFLO_NAMESPACE}currentArtifactHistory`,
   `${SFLO_NAMESPACE}hasWorkingKnopInventoryFile`,
@@ -97,30 +92,6 @@ export function renderFirstKnopWovenMeshInventoryTurtle(
     outputLabel:
       `versioned first-Knop MeshInventory append for ${designatorPath}`,
   });
-}
-
-function assertNoLegacyMeshInventoryProgression(
-  preparedCurrentInventory: PreparedCurrentInventory,
-  operation: string,
-): void {
-  const carriedPredicates = [
-    ...new Set(
-      preparedCurrentInventory.quads
-        .map((quad) => quad.predicate.value)
-        .filter((predicate) =>
-          LEGACY_INVENTORY_PROGRESSION_PREDICATES.has(predicate)
-        ),
-    ),
-  ].sort((left, right) => left.localeCompare(right));
-  if (carriedPredicates.length === 0) {
-    return;
-  }
-
-  throw new WeaveInputError(
-    `Could not ${operation} because the current MeshInventory contains legacy inventory-owned mutable progression predicates: ${
-      carriedPredicates.map((predicate) => `<${predicate}>`).join(", ")
-    }. Regenerate the fixture or use an explicit repair path before retrying weave.`,
-  );
 }
 
 export function renderMeshMetadataWithMeshInventoryProgression(
