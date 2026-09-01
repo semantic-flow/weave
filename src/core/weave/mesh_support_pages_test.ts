@@ -184,28 +184,33 @@ Deno.test("initial versioned mesh-support append preserves the exact carried Mes
   );
 });
 
-Deno.test("initial versioned mesh-support append is an exact inventory no-op", () => {
-  const currentMeshInventoryTurtle = `${carriedMeshInventoryTurtle()}${
-    requestedInitialSupportFactsTurtle([
-      "_mesh/_meta",
-      "_mesh/_inventory",
-      "_mesh/_config",
-    ])
-  }# retain trailing note\n  `;
-  const plan = planVersionedMeshSupportPages(currentMeshInventoryTurtle);
+Deno.test("settled initial mesh-support history makes a repeated plan an exact no-op", () => {
+  const currentMeshConfigTurtle = "# current config bytes\n";
+  const firstPlan = planVersionedMeshSupportPages(
+    carriedMeshInventoryTurtle(),
+  );
+  const firstInventory = requiredPlannedFileContents(
+    firstPlan.updatedFiles,
+    "_mesh/_inventory/inventory.ttl",
+  );
+  const firstMetadata = requiredPlannedFileContents(
+    firstPlan.updatedFiles,
+    "_mesh/_meta/meta.ttl",
+  );
+  const repeatedPlan = planMeshSupportResourcePages({
+    meshBase,
+    currentMeshInventoryTurtle: firstInventory,
+    currentMeshMetadataTurtle: firstMetadata,
+    currentMeshConfigTurtle,
+    supportHistoryPolicies: {
+      meshMetadata: "versioned",
+      meshInventory: "versioned",
+      config: "versioned",
+    },
+  });
 
-  assertFalse(
-    plan.updatedFiles.some((file) =>
-      file.path === "_mesh/_inventory/inventory.ttl"
-    ),
-  );
-  assertEquals(
-    requiredPlannedFileContents(
-      plan.createdFiles,
-      "_mesh/_inventory/_history001/_s0001/ttl/inventory.ttl",
-    ),
-    currentMeshInventoryTurtle,
-  );
+  assertEquals(repeatedPlan.createdFiles, []);
+  assertEquals(repeatedPlan.updatedFiles, []);
 });
 
 Deno.test("initial versioned mesh-support append rejects a single-valued conflict", () => {

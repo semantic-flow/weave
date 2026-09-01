@@ -30,8 +30,7 @@ class WeaveInputError extends BaseWeaveInputError {
   }
 }
 
-const SFLO_CURRENT_ARTIFACT_HISTORY_IRI =
-  `${SFLO_NAMESPACE}currentArtifactHistory`;
+const SFLO_HAS_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}hasArtifactHistory`;
 const XSD_TURTLE_PREFIX_DECLARATION =
   "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .";
 const INITIAL_SUPPORT_SINGLE_VALUED_PREDICATES = [
@@ -94,7 +93,7 @@ export function planMeshSupportResourcePages(
       quads,
       meshBase,
       resource.path,
-      SFLO_CURRENT_ARTIFACT_HISTORY_IRI,
+      SFLO_HAS_ARTIFACT_HISTORY_IRI,
       resource.historyPath!,
     )
   );
