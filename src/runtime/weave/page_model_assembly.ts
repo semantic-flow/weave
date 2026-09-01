@@ -127,8 +127,8 @@ export async function visitResourcePageModels(
     () =>
       collectHistoryGroupsByResourcePath(
         meshState.meshBase,
-        meshState.currentMeshInventoryTurtle,
-        "Could not parse the current MeshInventory while collecting ResourcePage histories.",
+        `${meshState.currentMeshInventoryTurtle}\n${meshState.currentMeshMetadataTurtle}`,
+        "Could not parse the current MeshInventory and MeshMetadata while collecting ResourcePage histories.",
       ),
   );
   const meshInventoryPagePaths = await timeOptional(

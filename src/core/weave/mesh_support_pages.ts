@@ -432,11 +432,11 @@ function planInitialMeshSupportResourcePageWeave(input: {
   const versionedInventory = versionedSupportResources.find((support) =>
     support.path === "_mesh/_inventory"
   );
-  const updatedMeshMetadataTurtle = versionedInventory === undefined
+  const updatedMeshMetadataTurtle = versionedSupportResources.length === 0
     ? input.currentMeshMetadataTurtle
-    : renderInitialMeshMetadataWithMeshInventoryProgression(
+    : renderInitialMeshMetadataWithSupportProgression(
       input.currentMeshMetadataTurtle,
-      versionedInventory,
+      versionedSupportResources,
     );
 
   return {
@@ -457,7 +457,7 @@ function planInitialMeshSupportResourcePageWeave(input: {
       }]),
     ],
     updatedFiles: [
-      ...(versionedInventory === undefined ? [] : [{
+      ...(versionedSupportResources.length === 0 ? [] : [{
         path: "_mesh/_meta/meta.ttl",
         contents: updatedMeshMetadataTurtle,
       }]),
@@ -469,41 +469,45 @@ function planInitialMeshSupportResourcePageWeave(input: {
   };
 }
 
-function renderInitialMeshMetadataWithMeshInventoryProgression(
+function renderInitialMeshMetadataWithSupportProgression(
   currentMeshMetadataTurtle: string,
-  versionedInventory: MeshSupportResource,
+  versionedSupportResources: readonly MeshSupportResource[],
 ): string {
   const metadataWithPrefixes = ensureXsdPrefix(currentMeshMetadataTurtle);
   let blocks = splitTurtleBlocks(metadataWithPrefixes);
-  blocks = upsertSubjectBlockAfter(
-    blocks,
-    "_mesh",
-    "_mesh/_inventory",
-    renderInitialMeshInventoryMetaProgressionBlock(versionedInventory),
-  );
-  blocks = upsertSubjectBlockAfter(
-    blocks,
-    "_mesh/_inventory",
-    versionedInventory.historyPath!,
-    renderInitialMeshInventoryHistoryMetaProgressionBlock(versionedInventory),
-  );
+  let anchorPath = "_mesh";
+  for (const support of versionedSupportResources) {
+    blocks = upsertSubjectBlockAfter(
+      blocks,
+      anchorPath,
+      support.path,
+      renderInitialMeshSupportMetaProgressionBlock(support),
+    );
+    blocks = upsertSubjectBlockAfter(
+      blocks,
+      support.path,
+      support.historyPath!,
+      renderInitialMeshSupportHistoryMetaProgressionBlock(support),
+    );
+    anchorPath = support.historyPath!;
+  }
 
   return `${blocks.join("\n\n")}\n`;
 }
 
-function renderInitialMeshInventoryMetaProgressionBlock(
-  versionedInventory: MeshSupportResource,
+function renderInitialMeshSupportMetaProgressionBlock(
+  support: MeshSupportResource,
 ): string {
-  return `<_mesh/_inventory> a sflo:MeshInventory, sflo:DigitalArtifact, sflo:RdfDocument ;
-  sflo:currentArtifactHistory <${versionedInventory.historyPath!}> ;
+  return `<${support.path}>
+  sflo:currentArtifactHistory <${support.historyPath!}> ;
   sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger .`;
 }
 
-function renderInitialMeshInventoryHistoryMetaProgressionBlock(
-  versionedInventory: MeshSupportResource,
+function renderInitialMeshSupportHistoryMetaProgressionBlock(
+  support: MeshSupportResource,
 ): string {
-  return `<${versionedInventory.historyPath!}> a sflo:ArtifactHistory ;
-  sflo:latestHistoricalState <${versionedInventory.statePath!}> ;
+  return `<${support.historyPath!}>
+  sflo:latestHistoricalState <${support.statePath!}> ;
   sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger .`;
 }
 
@@ -720,7 +724,7 @@ function appendInitialSupportHistoryFactsToBlock(
   block: string,
   historyPath: string,
 ): string {
-  if (block.includes("sflo:currentArtifactHistory")) {
+  if (block.includes("sflo:hasArtifactHistory")) {
     return block;
   }
   if (!block.endsWith(" .")) {
@@ -730,7 +734,7 @@ function appendInitialSupportHistoryFactsToBlock(
   }
   return `${
     block.slice(0, -2)
-  } ;\n  sflo:hasArtifactHistory <${historyPath}> ;\n  sflo:currentArtifactHistory <${historyPath}> ;\n  sflo:nextHistoryOrdinal "2"^^xsd:nonNegativeInteger .`;
+  } ;\n  sflo:hasArtifactHistory <${historyPath}> .`;
 }
 
 function renderInitialSupportHistoryBlock(
@@ -740,8 +744,6 @@ function renderInitialSupportHistoryBlock(
   return `<${historyPath}> a sflo:ArtifactHistory ;
   sflo:historyOrdinal "1"^^xsd:nonNegativeInteger ;
   sflo:hasHistoricalState <${statePath}> ;
-  sflo:latestHistoricalState <${statePath}> ;
-  sflo:nextStateOrdinal "2"^^xsd:nonNegativeInteger ;
   sflo:hasResourcePage <${historyPath}/index.html> .`;
 }
 
