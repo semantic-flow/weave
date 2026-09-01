@@ -1,6 +1,41 @@
 import { toPayloadSourceRepositoryFloatingLocatorPath } from "../designator_segments.ts";
+import { SFLO_NAMESPACE } from "../rdf/namespaces.ts";
 import type { RepositorySourceFloatingLocator } from "./source_models.ts";
 import { usesMeshLocalWorkingLocatedFile } from "./working_file_paths.ts";
+
+export interface CurrentWorkingFileLocatorTerm {
+  predicateIri: string;
+  objectTermType: "NamedNode" | "Literal";
+  objectValue: string;
+}
+
+export function resolveCurrentWorkingFileLocatorTerm(
+  designatorPath: string,
+  workingLocalRelativePath: string,
+  repositorySourceFloatingLocator?: RepositorySourceFloatingLocator,
+): CurrentWorkingFileLocatorTerm {
+  if (repositorySourceFloatingLocator !== undefined) {
+    return {
+      predicateIri: `${SFLO_NAMESPACE}hasRepositorySourceFloatingLocator`,
+      objectTermType: "NamedNode",
+      objectValue: toPayloadSourceRepositoryFloatingLocatorPath(
+        designatorPath,
+      ),
+    };
+  }
+  if (usesMeshLocalWorkingLocatedFile(workingLocalRelativePath)) {
+    return {
+      predicateIri: `${SFLO_NAMESPACE}hasWorkingLocatedFile`,
+      objectTermType: "NamedNode",
+      objectValue: workingLocalRelativePath,
+    };
+  }
+  return {
+    predicateIri: `${SFLO_NAMESPACE}workingLocalRelativePath`,
+    objectTermType: "Literal",
+    objectValue: workingLocalRelativePath,
+  };
+}
 
 export function renderCurrentWorkingFileLocator(
   designatorPath: string,
@@ -9,16 +44,16 @@ export function renderCurrentWorkingFileLocator(
   options: { terminal?: "." | ";" } = {},
 ): string {
   const terminal = options.terminal ?? ";";
-  if (repositorySourceFloatingLocator !== undefined) {
-    return `sflo:hasRepositorySourceFloatingLocator <${
-      toPayloadSourceRepositoryFloatingLocatorPath(designatorPath)
-    }> ${terminal}`;
-  }
-  return usesMeshLocalWorkingLocatedFile(workingLocalRelativePath)
-    ? `sflo:hasWorkingLocatedFile <${workingLocalRelativePath}> ${terminal}`
-    : `sflo:workingLocalRelativePath ${
-      JSON.stringify(workingLocalRelativePath)
-    } ${terminal}`;
+  const locator = resolveCurrentWorkingFileLocatorTerm(
+    designatorPath,
+    workingLocalRelativePath,
+    repositorySourceFloatingLocator,
+  );
+  const predicate = `sflo:${locator.predicateIri.slice(SFLO_NAMESPACE.length)}`;
+  const object = locator.objectTermType === "NamedNode"
+    ? `<${locator.objectValue}>`
+    : JSON.stringify(locator.objectValue);
+  return `${predicate} ${object} ${terminal}`;
 }
 
 export function renderCurrentWorkingFileDeclaration(

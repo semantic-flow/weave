@@ -212,9 +212,18 @@ Deno.test("executeKnopCreate supports the root Knop in a later carried mesh stat
         "https://semantic-flow.github.io/mesh-alice-bio/_knop"
     ),
   );
-  assertStringIncludes(
-    meshInventoryTurtle,
-    "sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0005> ;",
+  assert(
+    new Parser({
+      baseIRI: "https://semantic-flow.github.io/mesh-alice-bio/",
+    }).parse(meshInventoryTurtle).some((quad: Quad) =>
+      quad.subject.value ===
+        "https://semantic-flow.github.io/mesh-alice-bio/_mesh/_inventory/_history001" &&
+      quad.predicate.value ===
+        "https://semantic-flow.github.io/sflo/ontology/hasHistoricalState" &&
+      quad.object.termType === "NamedNode" &&
+      quad.object.value ===
+        "https://semantic-flow.github.io/mesh-alice-bio/_mesh/_inventory/_history001/_s0005"
+    ),
   );
 });
 

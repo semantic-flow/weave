@@ -218,9 +218,12 @@ Deno.test(
       "https://semantic-flow.github.io/sflo/ontology/hasKnop",
       "_knop",
     );
-    assertStringIncludes(
+    assertNamedNodeFact(
       plan.updatedFiles[0]?.contents ?? "",
-      "sflo:hasHistoricalState <_mesh/_inventory/_history001/_s0005> ;",
+      "https://semantic-flow.github.io/mesh-alice-bio/",
+      "_mesh/_inventory/_history001",
+      "https://semantic-flow.github.io/sflo/ontology/hasHistoricalState",
+      "_mesh/_inventory/_history001/_s0005",
     );
     assertNamedNodeFact(
       plan.updatedFiles[0]?.contents ?? "",
