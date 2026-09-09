@@ -144,10 +144,16 @@ export interface ResourcePageDocumentModel {
   stylesheetHrefs?: readonly string[];
   title: string;
   summary?: string;
+  summaryLink?: ResourcePageSummaryLinkModel;
   rdfClasses: readonly ResourcePageRdfClassModel[];
   breadcrumbs: readonly ResourcePageBreadcrumbModel[];
   metadata: readonly ResourcePageMetadataModel[];
   panels: readonly ResourcePagePanelModel[];
+}
+
+export interface ResourcePageSummaryLinkModel {
+  label: string;
+  href: string;
 }
 
 export interface ResourcePageBreadcrumbModel {

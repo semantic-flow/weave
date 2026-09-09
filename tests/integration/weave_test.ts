@@ -2882,7 +2882,7 @@ Deno.test("executeGenerate lists every sidecar payload history with working hist
   );
   assertStringIncludes(
     releaseStatePage,
-    '<p class="wf-summary">Historical state for the releases&#39; artifact history</p>',
+    '<p class="wf-summary">Historical state for the <a href="/mesh-sidecar-fantasy-rules/ontology/releases">releases</a> artifact history</p>',
   );
   assertStringIncludes(
     releaseStatePage,

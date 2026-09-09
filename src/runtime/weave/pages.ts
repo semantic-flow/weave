@@ -18,6 +18,7 @@ import type {
   ResourcePageReferenceLinkModel,
   ResourcePageReferenceTargetLinkModel,
   ResourcePageSectionModel,
+  ResourcePageSummaryLinkModel,
 } from "../../core/weave/resource_page_models.ts";
 import { Parser, type Quad, type Term } from "n3";
 import { codeToHtml } from "shiki";
@@ -46,6 +47,7 @@ import {
   SFLO_NAMESPACE,
   SFLO_PREFIX,
 } from "../../core/rdf/namespaces.ts";
+import { findHistoryForState } from "../../core/weave/resource_page_history_groups.ts";
 
 interface ResourcePageRenderInput {
   meshLabel: string;
@@ -62,6 +64,7 @@ interface ResourcePageRenderInput {
   title: string;
   breadcrumbs: readonly ResourcePageBreadcrumb[];
   summary?: string;
+  summaryLink?: ResourcePageSummaryLinkModel;
   rdfClasses: readonly ResourcePageRdfClass[];
   metadataRows: readonly ResourcePageMetadataRow[];
   childrenRows: readonly ResourcePageMetadataRow[];
@@ -832,6 +835,10 @@ function toDefaultResourcePageDocumentModel(
     ? rdfFacts.classes
     : [classifyResourcePage(resourcePath, page.historyGroups ?? [])];
   const resourcePathArtifactRole = artifactRoleForResourcePath(resourcePath);
+  const stateHistory = findHistoryForState(
+    resourcePath,
+    page.historyGroups ?? [],
+  );
 
   return {
     kind: "simple",
@@ -853,6 +860,14 @@ function toDefaultResourcePageDocumentModel(
       resourcePath,
     ),
     summary: page.description,
+    ...(stateHistory
+      ? {
+        summaryLink: {
+          label: toLastPathSegment(stateHistory.path),
+          href: toMeshResourceHref(meshRootHref, stateHistory.path),
+        },
+      }
+      : {}),
     rdfClasses,
     metadata: [
       { label: "Canonical IRI", value: canonical },
@@ -1131,6 +1146,7 @@ function toResourcePageRenderInput(
     title: document.title,
     breadcrumbs: document.breadcrumbs,
     summary: document.summary,
+    summaryLink: document.summaryLink,
     rdfClasses: document.rdfClasses,
     metadataRows: toRenderMetadataRows(
       document.meshRootHref,
@@ -1392,6 +1408,24 @@ ${
       </ul>`;
 }
 
+function renderSummary(
+  summary: string,
+  link?: ResourcePageSummaryLinkModel,
+): string {
+  if (!link) {
+    return escapeHtml(summary);
+  }
+  const labelIndex = summary.indexOf(link.label);
+  if (labelIndex < 0) {
+    return escapeHtml(summary);
+  }
+  const before = summary.slice(0, labelIndex);
+  const after = summary.slice(labelIndex + link.label.length);
+  return `${escapeHtml(before)}<a href="${escapeHtml(link.href)}">${
+    escapeHtml(link.label)
+  }</a>${escapeHtml(after)}`;
+}
+
 async function renderDefaultResourcePage(
   input: ResourcePageRenderInput,
 ): Promise<string> {
@@ -1402,7 +1436,9 @@ async function renderDefaultResourcePage(
     ? `  <link rel="icon" href="${escapeHtml(input.meshFaviconHref)}">\n`
     : "";
   const summary = input.summary
-    ? `        <p class="wf-summary">${escapeHtml(input.summary)}</p>\n`
+    ? `        <p class="wf-summary">${
+      renderSummary(input.summary, input.summaryLink)
+    }</p>\n`
     : "";
   const classes = input.rdfClasses.length > 0
     ? `        <p class="wf-classes">a ${

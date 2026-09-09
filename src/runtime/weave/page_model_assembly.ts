@@ -457,10 +457,7 @@ function describeSemanticFlowResource(
   const stateHistory = findHistoryForState(resourcePath, historyGroups);
   if (stateHistory) {
     const historyLabel = toLastPathSegment(stateHistory.path);
-    const possessiveHistoryLabel = historyLabel.endsWith("s")
-      ? `${historyLabel}'`
-      : `${historyLabel}'s`;
-    return `Historical state for the ${possessiveHistoryLabel} artifact history`;
+    return `Historical state for the ${historyLabel} artifact history`;
   }
   if (historyGroups.some((group) => group.path === resourcePath)) {
     const ownerResourcePath = dirname(resourcePath);
