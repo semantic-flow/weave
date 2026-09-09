@@ -387,7 +387,10 @@ Deno.test("executeExtractAllTerms extracts only new named mesh terms and skips s
 @prefix schema: <https://schema.org/> .
 @prefix sflo: <https://semantic-flow.github.io/sflo/ontology/> .
 
-<alice/data> schema:about <bob>, <carol>, <bob/_knop>, <_mesh>, <bob/index.html>, <bob/source.ttl> ;
+<alice/data> schema:about <bob>, <carol>, <bob/_knop>, <_mesh>, <bob/index.html>, <bob/source.ttl>,
+    <alice/data/_history001/unmaterialized-release>,
+    <alice/data/_history001/unmaterialized-release/ttl>,
+    <alice/data/_history001/unmaterialized-release/ttl/alice-data.ttl> ;
   schema:mentions [
     schema:name "Blank node support is intentionally ignored"
   ] .
@@ -412,7 +415,15 @@ Deno.test("executeExtractAllTerms extracts only new named mesh terms and skips s
   assertEquals(result.skippedExistingDesignatorPaths, ["alice", "alice/data"]);
   assertEquals(
     result.skippedSupportDesignatorPaths,
-    ["_mesh", "bob/_knop", "bob/index.html", "bob/source.ttl"],
+    [
+      "_mesh",
+      "alice/data/_history001/unmaterialized-release",
+      "alice/data/_history001/unmaterialized-release/ttl",
+      "alice/data/_history001/unmaterialized-release/ttl/alice-data.ttl",
+      "bob/_knop",
+      "bob/index.html",
+      "bob/source.ttl",
+    ],
   );
   assertEquals(
     [...result.createdPaths].sort(),

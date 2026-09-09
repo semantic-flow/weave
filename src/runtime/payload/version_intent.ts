@@ -9,6 +9,7 @@ import {
   planSetPayloadHistoryIntent,
   planSetPayloadNextStateIntent,
 } from "../../core/payload/version_intent.ts";
+import { listKnopDesignatorPaths } from "../mesh/inventory.ts";
 import {
   MeshMetadataResolutionError,
   resolveMeshBaseFromMetadataTurtle,
@@ -87,6 +88,11 @@ export async function executeSetPayloadHistoryIntent(
       historySegment,
       currentKnopInventoryTurtle: payloadState.currentKnopInventoryTurtle,
     });
+    assertCoordinateContainsNoKnop(
+      payloadState.meshBase,
+      payloadState.currentMeshInventoryTurtle,
+      plan.currentArtifactHistoryPath,
+    );
     await writePlan(options.meshRoot, plan);
   } catch (error) {
     await logFailure({
@@ -147,6 +153,11 @@ export async function executeSetPayloadNextStateIntent(
       stateSegment,
       currentKnopInventoryTurtle: payloadState.currentKnopInventoryTurtle,
     });
+    assertCoordinateContainsNoKnop(
+      payloadState.meshBase,
+      payloadState.currentMeshInventoryTurtle,
+      `${plan.currentArtifactHistoryPath}/${plan.nextStateSegmentHint}`,
+    );
     await writePlan(options.meshRoot, plan);
   } catch (error) {
     await logFailure({
@@ -210,6 +221,7 @@ async function loadCurrentPayloadInventory(
   meshBase: string;
   designatorPath: string;
   currentKnopInventoryTurtle: string;
+  currentMeshInventoryTurtle: string;
 }> {
   await ensureMeshRootExists(meshRoot);
   const normalizedDesignatorPath = normalizeSafeDesignatorPath(
@@ -223,13 +235,23 @@ async function loadCurrentPayloadInventory(
     meshRoot,
     `${toKnopPath(normalizedDesignatorPath)}/_inventory/inventory.ttl`,
   );
+  const meshInventoryPath = join(
+    meshRoot,
+    "_mesh/_inventory/inventory.ttl",
+  );
   let meshMetadataTurtle: string;
   let currentKnopInventoryTurtle: string;
+  let currentMeshInventoryTurtle: string;
 
   try {
-    [meshMetadataTurtle, currentKnopInventoryTurtle] = await Promise.all([
+    [
+      meshMetadataTurtle,
+      currentKnopInventoryTurtle,
+      currentMeshInventoryTurtle,
+    ] = await Promise.all([
       Deno.readTextFile(meshMetadataPath),
       Deno.readTextFile(knopInventoryPath),
+      Deno.readTextFile(meshInventoryPath),
     ]);
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
@@ -259,7 +281,28 @@ async function loadCurrentPayloadInventory(
     meshBase,
     designatorPath: normalizedDesignatorPath,
     currentKnopInventoryTurtle,
+    currentMeshInventoryTurtle,
   };
+}
+
+function assertCoordinateContainsNoKnop(
+  meshBase: string,
+  currentMeshInventoryTurtle: string,
+  coordinatePath: string,
+): void {
+  const conflictingDesignatorPath = listKnopDesignatorPaths(
+    meshBase,
+    currentMeshInventoryTurtle,
+    "Could not parse the current MeshInventory while checking Knop and artifact-coordinate overlap.",
+  ).find((designatorPath) =>
+    designatorPath === coordinatePath ||
+    designatorPath.startsWith(`${coordinatePath}/`)
+  );
+  if (conflictingDesignatorPath !== undefined) {
+    throw new PayloadVersionIntentRuntimeError(
+      `Cannot set artifact history coordinate ${coordinatePath} because it contains existing Knop designator ${conflictingDesignatorPath}.`,
+    );
+  }
 }
 
 async function ensureMeshRootExists(meshRoot: string): Promise<void> {

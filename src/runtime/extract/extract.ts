@@ -1425,6 +1425,19 @@ async function discoverAllTermDesignatorPaths(
       `Could not parse the current Knop inventory while discovering generated resources for ${options.sourceDesignatorPath}.`,
     ),
   );
+  const artifactHistoryPaths = collectArtifactHistoryPathsFromTurtle(
+    options.meshBase,
+    options.currentMeshInventoryTurtle,
+    "Could not parse the current MeshInventory while resolving artifact histories for all-terms extraction.",
+  );
+  addAll(
+    artifactHistoryPaths,
+    collectArtifactHistoryPathsFromTurtle(
+      options.meshBase,
+      options.sourceKnopInventoryTurtle,
+      `Could not parse the current Knop inventory while discovering artifact histories for ${options.sourceDesignatorPath}.`,
+    ),
+  );
   const discovered = new Set<string>();
   const skippedExisting = new Set<string>();
   const skippedSupport = new Set<string>();
@@ -1445,6 +1458,10 @@ async function discoverAllTermDesignatorPaths(
     generatedResourcePaths,
     collectGeneratedResourcePathsFromQuads(options.meshBase, quads),
   );
+  addAll(
+    artifactHistoryPaths,
+    collectArtifactHistoryPathsFromQuads(options.meshBase, quads),
+  );
 
   for (const quad of quads) {
     for (const iri of listQuadNamedNodeIris(quad)) {
@@ -1456,6 +1473,10 @@ async function discoverAllTermDesignatorPaths(
         continue;
       }
       if (generatedResourcePaths.has(rawDesignatorPath)) {
+        skippedSupport.add(rawDesignatorPath);
+        continue;
+      }
+      if (isArtifactHistoryPath(rawDesignatorPath, artifactHistoryPaths)) {
         skippedSupport.add(rawDesignatorPath);
         continue;
       }
@@ -1559,6 +1580,57 @@ function collectGeneratedResourcePathsFromQuads(
     }
   }
   return paths;
+}
+
+function collectArtifactHistoryPathsFromTurtle(
+  meshBase: string,
+  turtle: string,
+  errorMessage: string,
+): Set<string> {
+  let quads: Quad[];
+  try {
+    quads = new Parser({ baseIRI: meshBase }).parse(turtle);
+  } catch {
+    throw new ExtractRuntimeError(errorMessage);
+  }
+  return collectArtifactHistoryPathsFromQuads(meshBase, quads);
+}
+
+function collectArtifactHistoryPathsFromQuads(
+  meshBase: string,
+  quads: readonly Quad[],
+): Set<string> {
+  const paths = new Set<string>();
+  for (const quad of quads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.predicate.value !== RDF_TYPE_IRI ||
+      quad.object.termType !== "NamedNode" ||
+      quad.object.value !== SFLO_ARTIFACT_HISTORY_IRI
+    ) {
+      continue;
+    }
+    const path = toMeshScopedRawDesignatorPath(meshBase, quad.subject.value);
+    if (path !== undefined) {
+      paths.add(path);
+    }
+  }
+  return paths;
+}
+
+function isArtifactHistoryPath(
+  candidatePath: string,
+  artifactHistoryPaths: ReadonlySet<string>,
+): boolean {
+  for (const historyPath of artifactHistoryPaths) {
+    if (
+      candidatePath === historyPath ||
+      candidatePath.startsWith(`${historyPath}/`)
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function addAll<T>(target: Set<T>, source: Iterable<T>): void {

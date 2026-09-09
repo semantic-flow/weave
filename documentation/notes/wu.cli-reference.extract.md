@@ -44,6 +44,8 @@ weave extract --all-terms --mesh-root docs --source ontology --add-source-refere
 
 Existing Knops, blank nodes, support artifact paths, and generated page/file artifact paths are skipped.
 
+Known `ArtifactHistory` paths are infrastructure subtrees. The history path and every slash-delimited descendant are skipped even if the source graph names a release state, manifestation, or file that the mesh has not materialized yet. This prevents all-terms discovery from creating Knops inside payload history. The rule follows the mesh's `ArtifactHistory` facts; it does not reserve ordinary path words such as `releases` everywhere.
+
 `--add-source-references` is valid only with `--all-terms` and creates a `ReferenceCatalog` / `ReferenceLink` for each newly extracted term. `--reference-role` is required with `--add-source-references`. Existing terms are not backfilled by this option.
 
 ## Environment

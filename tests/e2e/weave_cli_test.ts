@@ -553,6 +553,78 @@ Deno.test("weave set history and set next-state steer the next payload version",
   assert(!inventoryAfterVersion.includes("sfcfg:hasNextStateSegmentHint"));
 });
 
+Deno.test("weave set history refuses a named coordinate containing an existing Knop", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-history-intent-knop-conflict-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+  const meshInventoryPath = join(
+    workspaceRoot,
+    "_mesh/_inventory/inventory.ttl",
+  );
+  const meshInventory = await Deno.readTextFile(meshInventoryPath);
+  await Deno.writeTextFile(
+    meshInventoryPath,
+    `${meshInventory}\n<alice/data/releases/_knop> a sflo:Knop .\n`,
+  );
+  const payloadInventoryPath = join(
+    workspaceRoot,
+    "alice/data/_knop/_inventory/inventory.ttl",
+  );
+  const payloadInventoryBefore = await Deno.readTextFile(payloadInventoryPath);
+
+  const output = await runCliCommand([
+    "set",
+    "history",
+    "alice/data",
+    "releases",
+  ], workspaceRoot);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assertFalse(output.success);
+  assertStringIncludes(stderr, "contains existing Knop designator");
+  assertEquals(
+    await Deno.readTextFile(payloadInventoryPath),
+    payloadInventoryBefore,
+  );
+});
+
+Deno.test("weave set next-state refuses a named coordinate containing an existing Knop", async () => {
+  const workspaceRoot = await createTestTmpDir(
+    "weave-e2e-state-intent-knop-conflict-",
+  );
+  await materializeMeshAliceBioBranch("06-alice-bio-integrated", workspaceRoot);
+  const meshInventoryPath = join(
+    workspaceRoot,
+    "_mesh/_inventory/inventory.ttl",
+  );
+  const meshInventory = await Deno.readTextFile(meshInventoryPath);
+  await Deno.writeTextFile(
+    meshInventoryPath,
+    `${meshInventory}\n<alice/data/_history001/v0.0.1/_knop> a sflo:Knop .\n`,
+  );
+  const payloadInventoryPath = join(
+    workspaceRoot,
+    "alice/data/_knop/_inventory/inventory.ttl",
+  );
+  const payloadInventoryBefore = await Deno.readTextFile(payloadInventoryPath);
+
+  const output = await runCliCommand([
+    "set",
+    "next-state",
+    "alice/data",
+    "v0.0.1",
+  ], workspaceRoot);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  assertFalse(output.success);
+  assertStringIncludes(stderr, "contains existing Knop designator");
+  assertEquals(
+    await Deno.readTextFile(payloadInventoryPath),
+    payloadInventoryBefore,
+  );
+});
+
 Deno.test("weave version accepts the exact root target as a black-box CLI run", async () => {
   const workspaceRoot = await createTestTmpDir("weave-e2e-version-root-");
   await materializeMeshAliceBioBranch(

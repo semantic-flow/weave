@@ -2175,6 +2175,51 @@ Deno.test("planWeave applies explicit target segments under non-ordinal naming p
   );
 });
 
+Deno.test("planWeave rejects named history coordinates that already contain a Knop", () => {
+  for (
+    const conflictingDesignatorPath of [
+      "alice/data/releases",
+      "alice/data/releases/v0.0.1",
+    ]
+  ) {
+    const currentMeshInventoryTurtle = `${firstPayloadWeaveMeshInventoryTurtle}
+<${conflictingDesignatorPath}/_knop> a sflo:Knop .
+`;
+    const error = assertThrows(
+      () =>
+        planWeave({
+          request: {
+            targets: [{
+              designatorPath: "alice/data",
+              historySegment: "releases",
+              stateSegment: "v0.0.1",
+            }],
+          },
+          meshBase: "https://semantic-flow.github.io/mesh-alice-bio/",
+          currentMeshInventoryTurtle,
+          currentMeshMetadataTurtle: firstPayloadWeaveMeshMetadataTurtle,
+          weaveableKnops: [{
+            designatorPath: "alice/data",
+            currentKnopMetadataTurtle: firstPayloadWeaveKnopMetadataTurtle,
+            currentKnopInventoryTurtle: firstPayloadWeaveKnopInventoryTurtle,
+            payloadArtifact: {
+              workingLocalRelativePath: "alice-data.ttl",
+              currentPayloadTurtle:
+                `@base <https://semantic-flow.github.io/mesh-alice-bio/> .
+@prefix schema: <https://schema.org/> .
+
+<alice> a schema:Person .
+`,
+            },
+          }],
+        }),
+      WeaveInputError,
+    );
+    assertEquals(error.findingCode, "plan-conflict");
+    assertStringIncludes(error.message, conflictingDesignatorPath);
+  }
+});
+
 Deno.test("planWeave consumes payload history and next-state intent on the first payload weave slice", () => {
   const currentKnopInventoryTurtle = firstPayloadWeaveKnopInventoryTurtle
     .replace(

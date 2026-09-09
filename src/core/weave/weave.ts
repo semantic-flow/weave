@@ -17,7 +17,7 @@ import {
   type ResourcePageGenerationConfig,
   type WeaveResourcePageGenerationPolicies,
 } from "./resource_page_policy.ts";
-import { SFLO_NAMESPACE } from "../rdf/namespaces.ts";
+import { RDF_NAMESPACE, SFLO_NAMESPACE } from "../rdf/namespaces.ts";
 import { WeaveInputError } from "./errors.ts";
 import {
   shouldMaterializeSupportHistory,
@@ -203,6 +203,12 @@ export type { WeaveSlice } from "./slices.ts";
 export type { VersionPlan } from "./version_plan.ts";
 
 const SFLO_HAS_ARTIFACT_HISTORY_IRI = `${SFLO_NAMESPACE}hasArtifactHistory`;
+const RDF_TYPE_IRI = `${RDF_NAMESPACE}type`;
+const SFLO_ARTIFACT_HISTORY_CLASS_IRI = `${SFLO_NAMESPACE}ArtifactHistory`;
+const SFLO_ARTIFACT_MANIFESTATION_CLASS_IRI =
+  `${SFLO_NAMESPACE}ArtifactManifestation`;
+const SFLO_HISTORICAL_STATE_CLASS_IRI = `${SFLO_NAMESPACE}HistoricalState`;
+const SFLO_KNOP_CLASS_IRI = `${SFLO_NAMESPACE}Knop`;
 const SFLO_HAS_REFERENCE_CATALOG_IRI = `${SFLO_NAMESPACE}hasReferenceCatalog`;
 
 interface SelectedWeaveableKnopCandidate {
@@ -271,6 +277,11 @@ export function planWeave(input: PlanWeaveInput): WeavePlan {
         weaveableKnops,
         input.supportHistoryPolicies,
         input.namingPolicies,
+      );
+      assertPlannedArtifactCoordinatesDoNotContainKnops(
+        meshBase,
+        input.currentMeshInventoryTurtle,
+        plan,
       );
 
       return applyResourcePageGenerationPolicies(plan, {
@@ -371,11 +382,93 @@ export function planWeave(input: PlanWeaveInput): WeavePlan {
       }
     })();
 
+  assertPlannedArtifactCoordinatesDoNotContainKnops(
+    meshBase,
+    input.currentMeshInventoryTurtle,
+    plan,
+  );
+
   return applyResourcePageGenerationPolicies(plan, {
     config: input.resourcePageGenerationConfig,
     policies: input.resourcePageGenerationPolicies,
     explicitRequest: requestedTargets.length > 0,
   });
+}
+
+function assertPlannedArtifactCoordinatesDoNotContainKnops(
+  meshBase: string,
+  currentMeshInventoryTurtle: string,
+  plan: WeavePlan,
+): void {
+  const meshInventoryQuads = parseWeaveShapeQuads(
+    meshBase,
+    currentMeshInventoryTurtle,
+    "Could not parse the current MeshInventory while checking Knop and artifact-coordinate overlap.",
+  );
+  const knopDesignatorPaths = new Set<string>();
+  for (const quad of meshInventoryQuads) {
+    if (
+      quad.subject.termType !== "NamedNode" ||
+      quad.predicate.value !== RDF_TYPE_IRI ||
+      quad.object.termType !== "NamedNode" ||
+      quad.object.value !== SFLO_KNOP_CLASS_IRI ||
+      !quad.subject.value.startsWith(meshBase)
+    ) {
+      continue;
+    }
+    const knopPath = quad.subject.value.slice(meshBase.length);
+    if (knopPath === "_knop") {
+      knopDesignatorPaths.add("/");
+    } else if (knopPath.endsWith("/_knop")) {
+      knopDesignatorPaths.add(knopPath.slice(0, -"/_knop".length));
+    }
+  }
+
+  const plannedContainerPaths = new Set<string>();
+  for (const file of [...plan.createdFiles, ...plan.updatedFiles]) {
+    if (!file.path.endsWith(".ttl")) {
+      continue;
+    }
+    const quads = parseWeaveShapeQuads(
+      meshBase,
+      file.contents,
+      `Could not parse planned Turtle ${file.path} while checking Knop and artifact-coordinate overlap.`,
+    );
+    for (const quad of quads) {
+      if (
+        quad.subject.termType !== "NamedNode" ||
+        quad.predicate.value !== RDF_TYPE_IRI ||
+        quad.object.termType !== "NamedNode" ||
+        !isArtifactContainerClass(quad.object.value) ||
+        !quad.subject.value.startsWith(meshBase)
+      ) {
+        continue;
+      }
+      plannedContainerPaths.add(quad.subject.value.slice(meshBase.length));
+    }
+  }
+
+  for (const containerPath of plannedContainerPaths) {
+    for (const designatorPath of knopDesignatorPaths) {
+      if (
+        designatorPath !== "/" &&
+        (designatorPath === containerPath ||
+          designatorPath.startsWith(`${containerPath}/`))
+      ) {
+        throw new WeaveInputError(
+          `Cannot allocate artifact history coordinate ${containerPath} because it contains existing Knop designator ${designatorPath}.`,
+          "plan-conflict",
+          { path: containerPath, designatorPath },
+        );
+      }
+    }
+  }
+}
+
+function isArtifactContainerClass(iri: string): boolean {
+  return iri === SFLO_ARTIFACT_HISTORY_CLASS_IRI ||
+    iri === SFLO_HISTORICAL_STATE_CLASS_IRI ||
+    iri === SFLO_ARTIFACT_MANIFESTATION_CLASS_IRI;
 }
 
 function isHomogeneousBatchSlice(
@@ -446,6 +539,11 @@ export function planCoherentPayloadBatchVersion(
     (designatorPath, snapshotPath) => {
       payloadSnapshots.push({ designatorPath, snapshotPath });
     },
+  );
+  assertPlannedArtifactCoordinatesDoNotContainKnops(
+    meshBase,
+    input.currentMeshInventoryTurtle,
+    plan,
   );
   return {
     ...toVersionPlan(applyResourcePageGenerationPolicies(plan, {
