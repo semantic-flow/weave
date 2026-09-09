@@ -1237,6 +1237,21 @@ function toRenderMetadataRow(
   if (row.kind === "repositorySource") {
     const repositoryUrl = row.repositorySource.repositoryUrl;
     const repositoryPathFromRoot = row.repositorySource.repositoryPathFromRoot;
+    const repositoryFileUrl = toGitHubRepositoryFileUrl(
+      repositoryUrl,
+      repositoryPathFromRoot,
+    );
+    if (repositoryFileUrl) {
+      return {
+        label: row.label,
+        value: repositoryFileUrl,
+        html: `<a class="wf-repository-source" href="${
+          escapeHtml(repositoryFileUrl)
+        }" rel="noreferrer noopener" target="_blank">${
+          escapeHtml(repositoryFileUrl)
+        }</a>`,
+      };
+    }
     const repositoryUrlHtml = isSafeHttpUrl(repositoryUrl)
       ? `<a href="${
         escapeHtml(repositoryUrl)
@@ -1859,6 +1874,44 @@ function isSafeHttpUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+function toGitHubRepositoryFileUrl(
+  repositoryUrl: string,
+  repositoryPathFromRoot: string,
+): string | undefined {
+  if (!isSafeHttpUrl(repositoryUrl)) {
+    return undefined;
+  }
+  const url = new URL(repositoryUrl);
+  if (
+    url.hostname.toLowerCase() !== "github.com" ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash
+  ) {
+    return undefined;
+  }
+  const repositorySegments = url.pathname.split("/").filter(Boolean);
+  if (repositorySegments.length !== 2) {
+    return undefined;
+  }
+  const [owner, repositoryWithSuffix] = repositorySegments;
+  const repository = repositoryWithSuffix!.replace(/\.git$/i, "");
+  const fileSegments = repositoryPathFromRoot.split("/");
+  if (
+    !owner || !repository || fileSegments.length === 0 ||
+    fileSegments.some((segment) =>
+      !segment || segment === "." || segment === ".." || segment.includes("\\")
+    )
+  ) {
+    return undefined;
+  }
+  const encodedPath = fileSegments.map(encodeURIComponent).join("/");
+  return `https://github.com/${encodeURIComponent(owner)}/${
+    encodeURIComponent(repository)
+  }/blob/HEAD/${encodedPath}`;
 }
 
 function toExtractionSourceMetadataRows(

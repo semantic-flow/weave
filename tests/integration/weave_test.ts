@@ -3107,7 +3107,7 @@ Deno.test("executeGenerate renders working URL and floating repository source lo
   );
   assertStringIncludes(
     page,
-    '<tr><th scope="row">Repository Source</th><td colspan="3"><span class="wf-repository-source"><a href="https://github.com/semantic-flow/mesh-sidecar-fantasy-rules.git" rel="noreferrer noopener" target="_blank">https://github.com/semantic-flow/mesh-sidecar-fantasy-rules.git</a><span aria-hidden="true"> / </span><span>ontology/fantasy-rules-ontology.ttl</span></span></td></tr>',
+    '<tr><th scope="row">Repository Source</th><td colspan="3"><a class="wf-repository-source" href="https://github.com/semantic-flow/mesh-sidecar-fantasy-rules/blob/HEAD/ontology/fantasy-rules-ontology.ttl" rel="noreferrer noopener" target="_blank">https://github.com/semantic-flow/mesh-sidecar-fantasy-rules/blob/HEAD/ontology/fantasy-rules-ontology.ttl</a></td></tr>',
   );
   assertFalse(
     page.includes(
