@@ -18,6 +18,7 @@ import type {
   ResourcePageReferenceLinkModel,
   ResourcePageReferenceTargetLinkModel,
   ResourcePageSectionModel,
+  ResourcePageSummaryLinkModel,
 } from "../../core/weave/resource_page_models.ts";
 import { Parser, type Quad, type Term } from "n3";
 import { codeToHtml } from "shiki";
@@ -46,6 +47,7 @@ import {
   SFLO_NAMESPACE,
   SFLO_PREFIX,
 } from "../../core/rdf/namespaces.ts";
+import { findHistoryForState } from "../../core/weave/resource_page_history_groups.ts";
 
 interface ResourcePageRenderInput {
   meshLabel: string;
@@ -62,6 +64,7 @@ interface ResourcePageRenderInput {
   title: string;
   breadcrumbs: readonly ResourcePageBreadcrumb[];
   summary?: string;
+  summaryLink?: ResourcePageSummaryLinkModel;
   rdfClasses: readonly ResourcePageRdfClass[];
   metadataRows: readonly ResourcePageMetadataRow[];
   childrenRows: readonly ResourcePageMetadataRow[];
@@ -832,6 +835,10 @@ function toDefaultResourcePageDocumentModel(
     ? rdfFacts.classes
     : [classifyResourcePage(resourcePath, page.historyGroups ?? [])];
   const resourcePathArtifactRole = artifactRoleForResourcePath(resourcePath);
+  const stateHistory = findHistoryForState(
+    resourcePath,
+    page.historyGroups ?? [],
+  );
 
   return {
     kind: "simple",
@@ -853,6 +860,14 @@ function toDefaultResourcePageDocumentModel(
       resourcePath,
     ),
     summary: page.description,
+    ...(stateHistory
+      ? {
+        summaryLink: {
+          label: toLastPathSegment(stateHistory.path),
+          href: toMeshResourceHref(meshRootHref, stateHistory.path),
+        },
+      }
+      : {}),
     rdfClasses,
     metadata: [
       { label: "Canonical IRI", value: canonical },
@@ -1131,6 +1146,7 @@ function toResourcePageRenderInput(
     title: document.title,
     breadcrumbs: document.breadcrumbs,
     summary: document.summary,
+    summaryLink: document.summaryLink,
     rdfClasses: document.rdfClasses,
     metadataRows: toRenderMetadataRows(
       document.meshRootHref,
@@ -1237,6 +1253,21 @@ function toRenderMetadataRow(
   if (row.kind === "repositorySource") {
     const repositoryUrl = row.repositorySource.repositoryUrl;
     const repositoryPathFromRoot = row.repositorySource.repositoryPathFromRoot;
+    const repositoryFileUrl = toGitHubRepositoryFileUrl(
+      repositoryUrl,
+      repositoryPathFromRoot,
+    );
+    if (repositoryFileUrl) {
+      return {
+        label: row.label,
+        value: repositoryFileUrl,
+        html: `<a class="wf-repository-source" href="${
+          escapeHtml(repositoryFileUrl)
+        }" rel="noreferrer noopener" target="_blank">${
+          escapeHtml(repositoryFileUrl)
+        }</a>`,
+      };
+    }
     const repositoryUrlHtml = isSafeHttpUrl(repositoryUrl)
       ? `<a href="${
         escapeHtml(repositoryUrl)
@@ -1377,6 +1408,24 @@ ${
       </ul>`;
 }
 
+function renderSummary(
+  summary: string,
+  link?: ResourcePageSummaryLinkModel,
+): string {
+  if (!link) {
+    return escapeHtml(summary);
+  }
+  const labelIndex = summary.indexOf(link.label);
+  if (labelIndex < 0) {
+    return escapeHtml(summary);
+  }
+  const before = summary.slice(0, labelIndex);
+  const after = summary.slice(labelIndex + link.label.length);
+  return `${escapeHtml(before)}<a href="${escapeHtml(link.href)}">${
+    escapeHtml(link.label)
+  }</a>${escapeHtml(after)}`;
+}
+
 async function renderDefaultResourcePage(
   input: ResourcePageRenderInput,
 ): Promise<string> {
@@ -1387,7 +1436,9 @@ async function renderDefaultResourcePage(
     ? `  <link rel="icon" href="${escapeHtml(input.meshFaviconHref)}">\n`
     : "";
   const summary = input.summary
-    ? `        <p class="wf-summary">${escapeHtml(input.summary)}</p>\n`
+    ? `        <p class="wf-summary">${
+      renderSummary(input.summary, input.summaryLink)
+    }</p>\n`
     : "";
   const classes = input.rdfClasses.length > 0
     ? `        <p class="wf-classes">a ${
@@ -1859,6 +1910,44 @@ function isSafeHttpUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+function toGitHubRepositoryFileUrl(
+  repositoryUrl: string,
+  repositoryPathFromRoot: string,
+): string | undefined {
+  if (!isSafeHttpUrl(repositoryUrl)) {
+    return undefined;
+  }
+  const url = new URL(repositoryUrl);
+  if (
+    url.hostname.toLowerCase() !== "github.com" ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash
+  ) {
+    return undefined;
+  }
+  const repositorySegments = url.pathname.split("/").filter(Boolean);
+  if (repositorySegments.length !== 2) {
+    return undefined;
+  }
+  const [owner, repositoryWithSuffix] = repositorySegments;
+  const repository = repositoryWithSuffix!.replace(/\.git$/i, "");
+  const fileSegments = repositoryPathFromRoot.split("/");
+  if (
+    !owner || !repository || fileSegments.length === 0 ||
+    fileSegments.some((segment) =>
+      !segment || segment === "." || segment === ".." || segment.includes("\\")
+    )
+  ) {
+    return undefined;
+  }
+  const encodedPath = fileSegments.map(encodeURIComponent).join("/");
+  return `https://github.com/${encodeURIComponent(owner)}/${
+    encodeURIComponent(repository)
+  }/blob/HEAD/${encodedPath}`;
 }
 
 function toExtractionSourceMetadataRows(

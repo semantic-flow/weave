@@ -327,7 +327,7 @@ Deno.test("renderResourcePage renders URL and floating repository working locato
   );
   assertStringIncludes(
     html,
-    '<tr><th scope="row">Repository Source</th><td colspan="3"><span class="wf-repository-source"><a href="https://github.com/semantic-flow/sflo.git" rel="noreferrer noopener" target="_blank">https://github.com/semantic-flow/sflo.git</a><span aria-hidden="true"> / </span><span>semantic-flow-core-ontology.ttl</span></span></td></tr>',
+    '<tr><th scope="row">Repository Source</th><td colspan="3"><a class="wf-repository-source" href="https://github.com/semantic-flow/sflo/blob/HEAD/semantic-flow-core-ontology.ttl" rel="noreferrer noopener" target="_blank">https://github.com/semantic-flow/sflo/blob/HEAD/semantic-flow-core-ontology.ttl</a></td></tr>',
   );
   assertFalse(
     html.includes(

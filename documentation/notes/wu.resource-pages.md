@@ -34,6 +34,8 @@ A ResourcePage is assembled from three layers:
 
 Runtime code owns graph discovery and source resolution. Templates and stylesheets should arrange already-resolved document and panel data; they should not read RDF graphs, local files, remote URLs, mesh inventories, or config sources themselves.
 
+Repository-backed payload pages show Repository Source instead of a duplicate Working File row. For a safe GitHub floating repository locator, Weave renders the repository URL and repository-relative path as one `blob/HEAD/<path>` browse link. `HEAD` reflects the floating working source; exact release identity remains on the relevant HistoricalState.
+
 ## Built-In Panels
 
 The default Semantic Site presentation currently supports these generated panels:
